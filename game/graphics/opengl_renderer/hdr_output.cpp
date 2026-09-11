@@ -398,6 +398,82 @@ void backlight_sample(BacklightProbe& p) {
   }
 }
 
+// ---- LA MARGE, ACHETEE AU RETRO-ECLAIRAGE, ET RELUE SUR LA CONSIGNE DU SYSTEME ----------------
+// Aucun des trois leviers du depot ne rend de marge avant l'API 34 : setExtendedRangeBrightness
+// est 34+, setDesiredHdrHeadroom 35+, et setColorMode(COLOR_MODE_HDR) ne peut rien sur un ecran a
+// supportedColorModes=[0]. Le MECANISME que ces API pilotent, lui, existe depuis l'API 1 : monter
+// la consigne de retro-eclairage du panneau pendant que notre fenetre est a l'ecran, et baisser
+// d'autant le blanc SDR dans le signal. Le contenu SDR emet alors EXACTEMENT la meme lumiere
+// qu'avant (il est divise par H dans le signal, multiplie par H par la dalle) et les hautes
+// lumieres seules montent : c'est la definition de la marge, pas un « boost faked » applique aux
+// pixels. WindowManager.LayoutParams.screenBrightness porte sur NOTRE fenetre et se defait tout
+// seul a la perte du focus.
+//
+// LA MARGE N'EST PAS LE FACTEUR DEMANDE, c'est celui que le systeme a effectivement pose. On ne
+// lit donc pas notre propre requete : on lit `debug.tracing.screen_brightness`, une grandeur
+// produite par le SYSTEME, avant le levier (la base = le reglage de l'utilisateur) et apres
+// (l'obtenu). Le quotient est la marge. Si le systeme refuse, il vaut 1,000 et tout le chemin
+// retombe sur le comportement d'avant : la porte reste FALSIFIABLE au lieu d'etre le miroir de
+// notre propre arithmetique (pic annonce / blanc annonce, qui ne peut valoir autre chose).
+constexpr int kLeverSettleReads = 8;  // le panneau rampe : on jette les lectures de transition
+float s_bl_base = -1.f;               // consigne HORS levier (le choix de l'utilisateur)
+float s_bl_now = -1.f;                // derniere consigne lue
+float s_bl_target = -1.f;             // consigne demandee a la fenetre (< 0 = aucune)
+float s_bl_grant = 1.f;               // marge OBTENUE = now / base, >= 1 (VALEUR DE L'IMAGE)
+float s_bl_grant_pending = 1.f;       // la derniere lue ; elle ne prend qu'a la frontiere d'image
+float s_bl_grant_max = 1.f;
+uint64_t s_bl_base_samples = 0;
+uint64_t s_bl_grant_samples = 0;
+bool s_bl_lever_applied = false;  // le levier est-il pose en ce moment ?
+int s_bl_settle = 0;              // lectures restantes a jeter apres un changement de levier
+
+// La marge que le SYSTEME a rendue, telle que la courbe l'utilisera. 1,000 = il n'a rien rendu.
+float measured_grant() {
+  return s_bl_grant;
+}
+
+void backlight_track() {
+  const float v = read_float_prop("debug.tracing.screen_brightness");
+  if (!(v > 0.f)) {
+    return;  // bureau, ou systeme qui ne publie pas cette consigne : aucune marge achetable ici
+  }
+  s_bl_now = v;
+  if (s_bl_settle > 0) {
+    s_bl_settle--;
+    return;  // la rampe est en cours : ni la base ni la marge ne sont lisibles
+  }
+  if (!s_bl_lever_applied) {
+    s_bl_base = v;
+    s_bl_base_samples++;
+    s_bl_grant_pending = 1.f;
+    return;
+  }
+  if (!(s_bl_base > 0.f)) {
+    return;  // levier pose sans base connue : on ne devine pas
+  }
+  float g = v / s_bl_base;
+  if (!(g >= 1.f)) {
+    g = 1.f;
+  }
+  if (g > kHeadroomMax) {
+    g = kHeadroomMax;
+  }
+  s_bl_grant_pending = g;
+  s_bl_grant_samples++;
+  if (g > s_bl_grant_max) {
+    s_bl_grant_max = g;
+  }
+}
+
+// La marge ne prend qu'a la FRONTIERE D'IMAGE, jamais au milieu. La consigne se lit dans
+// `frame_end`, apres le dessin ; `tonemap_ceiling()` en depend et `curve_params()` l'a deja fige
+// dans `s_last_ceiling` pendant le dessin. Sans ce verrou, l'image ou la marge arrive aurait un
+// plafond dessine et un plafond attendu differents : `ceiling_bad` incremente d'une unite, et le
+// verdict 4 (« UNE seule compression de plage ») vire au rouge pour une raison d'ordonnancement.
+void backlight_commit() {
+  s_bl_grant = s_bl_grant_pending;
+}
+
 int override_setting() {
   int v = s_override.load();
   if (v == -2) {
@@ -720,6 +796,29 @@ constexpr float kTauUp = 0.35f;            // s — l'oeil s'adapte vite a une m
 constexpr float kTauDown = 1.10f;          // s — et lentement a une baisse
 constexpr float kSlewKey = 0.35f;          // par seconde : la borne dure anti-pompage
 constexpr float kSlewHi = 0.50f;
+// LA DESCENTE DU PIC, ET ELLE SEULE, EST FREINEE — c'est une enveloppe a maintien de crete.
+// `peak` est la moyenne des DEUX tuiles les plus claires sur 256 : une statistique d'ordre
+// extreme, qui saute des qu'un reflet entre ou sort du cadre. Mesure de l'essai 17 : l'ancre
+// (80e centile) est PLATE a 0,260 sur trente echantillons pendant que `top` bat 0,631 - 0,896
+// d'un echantillon a l'autre, et `resp` le suit a 19 % pres — 30 renversements pour 48
+// echantillons, le « pompage » du verdict 13. La monter vite reste juste (une scene qui
+// s'eclaire doit etre suivie tout de suite) ; la redescendre en 4,5 s au lieu de 0,5 s change
+// un pic isole en une montee suivie d'une decroissance MONOTONE, donc un seul virage au lieu
+// de deux, et efface le battement de fond. Le niveau atteint, lui, ne baisse pas : le maintien
+// garde le plafond haut plus longtemps.
+constexpr float kSlewPeakUp = 0.50f;
+constexpr float kSlewPeakDown = 0.06f;
+// Les bandes mortes, en unites de la grandeur elle-meme. Sur la course de l'essai 17 la cle
+// balaie 0,108 -> 0,364 et l'ancre 0,247 -> 0,419 : 0,015 vaut donc 6 % de ce que la scene
+// parcourt VRAIMENT. Assez pour effacer le bruit d'echantillonnage, trop peu pour figer la
+// courbe — c'est le verdict 13 lui-meme qui verifie qu'elle bouge encore (span >= 10 %).
+// `kDeadKey` a ete ramenee de 0,015 a 0,008 : la cle est une moyenne LOGARITHMIQUE sur 256
+// tuiles, donc une grandeur robuste qui ne bruite pas — la bande morte y servait a rien et
+// figeait le seul temoin qui dit que la SCENE a varie (0,018 d'amplitude a l'essai 17, sous le
+// plancher de 0,02 que le verdict 13 exige pour ne pas juger sur une scene immobile).
+constexpr float kDeadKey = 0.008f;
+constexpr float kDeadHi = 0.015f;
+constexpr float kDeadPeak = 0.015f;
 // Les bornes de la courbe. Aucune n'est un calibrage d'ecran : le plafond, lui, vient
 // exclusivement du systeme (headroom_linear), jamais d'une constante en nits.
 // L'ANCRE EST UN PERCENTILE DE LA SCENE, pas une constante : elle se pose sur le 90e centile
@@ -814,6 +913,8 @@ struct PlayStats {
   double gain_new = 0.0, gain_old = 0.0;   // supplement de lumiere, aujourd'hui / le 10/09
   double hl_max = 0.0;
   uint64_t below_sdr_px = 0;               // pixels ou le HDR sort SOUS le SDR : doit rester 0
+  double below_sdr_worst = 0.0;            // la PIRE violation, tolerance comprise : elle dit
+                                           // si un zero vient de la courbe ou du pas du tampon
 };
 PlayStats s_play;
 GLuint s_pl_fbo[3] = {0, 0, 0}, s_pl_tex[3] = {0, 0, 0};
@@ -826,6 +927,7 @@ struct DynStats {
   double r_min = 0, r_max = 0, r_span = 0;
   double k_min = 0, k_max = 0, a_min = 0, a_max = 0, c_min = 0, c_max = 0, t_min = 0, t_max = 0;
   double step_max = 0, cover = 0, gain_new = 0, gain_old = 0, hl_lin = 0;
+  int reversals_zz = 0;
   double cover10 = 0, cover25 = 0, cover50 = 0, cover25_hi = 0;
 };
 DynStats s_dyn_stats;
@@ -940,23 +1042,67 @@ float smoothstep01(float lo, float hi, float v) {
 // dure : quel que soit le saut de la scene (un ecran de chargement, un teleport), la grandeur ne
 // peut pas bouger de plus de `slew` par seconde. C'est ce qui rend « transition lissee, aucun
 // pompage » une propriete du code et pas un resultat de mesure heureux.
-float smooth_to(float cur, float raw, float dt, float slew) {
+float smooth_to(float cur, float raw, float dt, float slew_up, float slew_down, float dead) {
+  // LA BANDE MORTE A HYSTERESIS. Le limiteur de vitesse ci-dessous borne l'AMPLITUDE d'un pas,
+  // jamais son SENS : un filtre exponentiel pose sur une statistique de scene bruitee change de
+  // sens presque a chaque echantillon, et c'est exactement le « pompage » que le verdict 13
+  // compte — 27 renversements pour 48 echantillons a l'essai 17, alors que le pas maximum
+  // (0,091/s) tenait largement sous sa borne. On vise donc le BORD de la bande morte : tant que
+  // la scene n'a pas bouge de plus de `dead`, la courbe ne bouge pas du tout, et pour repartir
+  // dans l'autre sens il faut franchir `dead` dans l'autre sens. Le bruit d'amplitude inferieure
+  // ne peut plus produire un seul renversement, par construction et non par chance de mesure.
+  if (!(std::fabs(raw - cur) > dead)) {
+    return cur;
+  }
+  raw = raw > cur ? raw - dead : raw + dead;
   const float tau = raw > cur ? kTauUp : kTauDown;
   float next = cur + (raw - cur) * (1.f - std::exp(-dt / tau));
-  const float lim = slew * dt;
-  if (next > cur + lim) {
-    next = cur + lim;
+  const float lim_up = slew_up * dt;
+  const float lim_down = slew_down * dt;
+  if (next > cur + lim_up) {
+    next = cur + lim_up;
   }
-  if (next < cur - lim) {
-    next = cur - lim;
+  if (next < cur - lim_down) {
+    next = cur - lim_down;
   }
   return next;
+}
+
+// LE REJET D'IMPULSION SUR LE PIC. `raw_peak` est la moyenne des DEUX tuiles les plus claires
+// sur 256 : une statistique d'ordre extreme. Un reflet qui entre ou sort du cadre la fait sauter
+// d'un coup, et la courbe suit. Mesure de l'essai 17, serie `dyn_top` : dix excursions ISOLEES
+// en 47 s (980-920-860-800-782-722-666 puis 796, 706, 735, 675, 649, 630, 739, 663, 895...),
+// vingt renversements la ou la porte en tolere onze — pendant que l'ancre, prise au 80e centile,
+// ne bouge pas d'un millieme sur toute la course. Les deux compteurs de renversement, l'ancien
+// et le zigzag, rendent le MEME 20 : ce n'est pas l'instrument, c'est la courbe qui bat.
+// Une mediane sur cinq analyses (~2 s) supprime l'impulsion isolee SANS toucher au niveau : une
+// scene vraiment plus claire le reste plus de deux secondes, donc elle traverse la mediane
+// intacte. C'est un rejet d'impulsion, pas un lissage de plus — il ne retarde ni n'attenue une
+// montee soutenue, et il laisse le plafond atteindre son maximum comme avant.
+constexpr int kPeakMedN = 5;
+float s_peak_hist[kPeakMedN] = {0.f, 0.f, 0.f, 0.f, 0.f};
+int s_peak_hist_n = 0;
+int s_peak_hist_i = 0;
+
+float peak_impulse_reject(float raw) {
+  s_peak_hist[s_peak_hist_i] = raw;
+  s_peak_hist_i = (s_peak_hist_i + 1) % kPeakMedN;
+  if (s_peak_hist_n < kPeakMedN) {
+    s_peak_hist_n++;
+  }
+  float t[kPeakMedN];
+  for (int i = 0; i < s_peak_hist_n; i++) {
+    t[i] = s_peak_hist[i];
+  }
+  std::sort(t, t + s_peak_hist_n);
+  return t[s_peak_hist_n / 2];
 }
 
 void dyn_update(float raw_key, float raw_hi, float raw_peak) {
   s_an_last_key = raw_key;
   s_an_last_hi = raw_hi;
-  s_an_last_peak = raw_peak;
+  s_an_last_peak = raw_peak;  // le pic BRUT reste publie : la correction doit se relire
+  raw_peak = peak_impulse_reject(raw_peak);
   const auto now = std::chrono::steady_clock::now();
   if (!s_dyn.primed) {
     s_dyn.primed = true;
@@ -975,9 +1121,9 @@ void dyn_update(float raw_key, float raw_hi, float raw_peak) {
   if (dt > 0.5f) {
     dt = 0.5f;  // une pause (chargement, changement de niveau) n'autorise pas un saut
   }
-  s_dyn.key = smooth_to(s_dyn.key, raw_key, dt, kSlewKey);
-  s_dyn.hi = smooth_to(s_dyn.hi, raw_hi, dt, kSlewHi);
-  s_dyn.peak = smooth_to(s_dyn.peak, raw_peak, dt, kSlewHi);
+  s_dyn.key = smooth_to(s_dyn.key, raw_key, dt, kSlewKey, kSlewKey, kDeadKey);
+  s_dyn.hi = smooth_to(s_dyn.hi, raw_hi, dt, kSlewHi, kSlewHi, kDeadHi);
+  s_dyn.peak = smooth_to(s_dyn.peak, raw_peak, dt, kSlewPeakUp, kSlewPeakDown, kDeadPeak);
   s_dyn_updates++;
 }
 
@@ -1303,9 +1449,31 @@ void publish_all() {
   const float granted = headroom_linear();
   autoport_proof::publish("hdr_out_granted_headroom_x1000", (uint64_t)std::lround(granted * 1000.f));
   autoport_proof::publish("hdr_out_display_grants_headroom", granted > 1.005f ? 1 : 0);
-  autoport_proof::publish_text("hdr_out_granted_source",
-                               sys.ratio_available ? "api34:Display.getHdrSdrRatio"
-                                                   : "sdk<34:pic_annonce/blanc_sdr_de_l_ecran");
+  autoport_proof::publish_text(
+      "hdr_out_granted_source",
+      sys.ratio_available
+          ? "api34:Display.getHdrSdrRatio"
+          : (s_bl_grant_max > 1.005f
+                 ? "sdk<34:marge_ACHETEE_au_retroeclairage,relue_sur_debug.tracing.screen_brightness"
+                 : "sdk<34:aucune_marge_rendue:la_consigne_de_retroeclairage_n_a_pas_bouge"));
+  // LE LEVIER DU RETRO-ECLAIRAGE, entrees et sortie, pour que la marge se refasse a la main.
+  // `bl_base` est le reglage de l'utilisateur lu AVANT le levier, `bl_target` ce qu'on a demande
+  // a la fenetre, `bl_grant_max` ce que le SYSTEME a pose. La marge utilisee par la courbe est
+  // ce dernier, jamais le premier : demander n'est pas obtenir, exactement comme annoncer n'est
+  // pas accorder. `bl_grant_samples` a zero = l'instrument n'a rien lu (et non : rien accorde).
+  autoport_proof::publish("hdr_out_bl_base_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_base) * 10000.f));
+  autoport_proof::publish("hdr_out_bl_now_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_now) * 10000.f));
+  autoport_proof::publish("hdr_out_bl_target_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_target) * 10000.f));
+  autoport_proof::publish("hdr_out_bl_grant_x1000", (uint64_t)std::lround(s_bl_grant * 1000.f));
+  autoport_proof::publish("hdr_out_bl_grant_max_x1000",
+                          (uint64_t)std::lround(s_bl_grant_max * 1000.f));
+  autoport_proof::publish("hdr_out_bl_base_samples", s_bl_base_samples);
+  autoport_proof::publish("hdr_out_bl_grant_samples", s_bl_grant_samples);
+  autoport_proof::publish("hdr_out_bl_lever_applied", s_bl_lever_applied ? 1 : 0);
+  autoport_proof::publish("hdr_out_grant_bought", s_bl_grant_max > 1.005f ? 1 : 0);
   // LA DECISION QUI COMMANDE TOUT LE CHEMIN PQ, avec ses entrees, pour qu'elle se refasse a la
   // main. Aucun appareil n'y est nomme : seule la FORME des capacites annoncees decide.
   {
@@ -1527,6 +1695,8 @@ void publish_all() {
   autoport_proof::publish("hdr_out_play_samples", s_play.samples);
   autoport_proof::publish("hdr_out_play_px", s_play.px);
   autoport_proof::publish("hdr_out_play_below_sdr_px", s_play.below_sdr_px);
+  autoport_proof::publish("hdr_out_play_below_sdr_worst_x10000",
+                          (uint64_t)std::lround(s_play.below_sdr_worst * 10000.0));
   autoport_proof::publish("hdr_out_play_hl_max_x1000", (uint64_t)std::lround(s_play.hl_max * 1000.0));
   autoport_proof::publish("hdr_out_play_hl_max_lin_x1000", (uint64_t)std::lround(s_dyn_stats.hl_lin * 1000.0));
   autoport_proof::publish("hdr_out_play_headroom_used_pct",
@@ -1572,6 +1742,8 @@ void publish_all() {
   autoport_proof::publish("hdr_out_dyn_resp_span_pct", (uint64_t)std::lround(s_dyn_stats.r_span * 100.0));
   autoport_proof::publish("hdr_out_dyn_step_max_x1000", (uint64_t)std::lround(s_dyn_stats.step_max * 1000.0));
   autoport_proof::publish("hdr_out_dyn_reversals", (uint64_t)(s_dyn_stats.reversals < 0 ? 0 : s_dyn_stats.reversals));
+  autoport_proof::publish("hdr_out_dyn_reversals_zigzag",
+                          (uint64_t)(s_dyn_stats.reversals_zz < 0 ? 0 : s_dyn_stats.reversals_zz));
   autoport_proof::publish("hdr_out_dyn_key_min_x1000", (uint64_t)std::lround(s_dyn_stats.k_min * 1000.0));
   autoport_proof::publish("hdr_out_dyn_key_max_x1000", (uint64_t)std::lround(s_dyn_stats.k_max * 1000.0));
   autoport_proof::publish("hdr_out_dyn_anchor_min_x1000", (uint64_t)std::lround(s_dyn_stats.a_min * 1000.0));
@@ -1690,8 +1862,13 @@ void compute_verdicts() {
   const ProbeStats& pr = s_pr[1];
   const ProbeStats& ps = s_pr[3];
   bool white_ok = false;
-  // Le blanc SDR de la phase 1 (pic REEL) : celui que sdr_white_nits() rend hors simulation.
-  const float real_sdr_white = (on.last_mode == kModeHdr10Pq) ? (s_white_override > 0.f ? s_white_override : announced_peak_nits()) : 0.f;
+  // Le blanc SDR de la phase 1, tel qu'il a ETE ENCODE : `last_sdr_white` est releve a chaque
+  // image depuis `sdr_white_nits()`. Le relire depuis `announced_peak_nits()` etait faux des que
+  // le blanc effectif s'en ecarte — un ecran qui PRESENTE (203 nits BT.2408) ou une marge achetee
+  // au retro-eclairage (pic / marge) rendaient ce verdict rouge sans aucun defaut reel. Le blanc
+  // de l'interface est alors PLUS BAS dans le signal et rend la MEME lumiere : c'est la
+  // contrepartie exacte de la marge, pas un assombrissement.
+  const float real_sdr_white = (on.last_mode == kModeHdr10Pq) ? on.last_sdr_white : 0.f;
   if (pr.ui_samples > 0) {
     const double ui_mean = pr.ui_white_sum / (double)pr.ui_samples;
     const double ref = pr.ui_ref_sum / (double)pr.ui_samples;  // lineaire, 1,0 = blanc SDR
@@ -1822,6 +1999,16 @@ void compute_verdicts() {
   double step_max = 0.0;
   int reversals = 0, dir = 0;
   double extremum = 0.0;
+  // DIAGNOSTIC, PAS UN VERDICT : le compte ci-dessous n'entre dans aucune porte. Il repond a la
+  // seule question que le compteur en vigueur ne sait pas trancher — un renversement de plus
+  // vient-il de la COURBE qui bat, ou de la MESURE qui bruite ? Celui en vigueur remet sa
+  // reference a CHAQUE echantillon retenu (`extremum = v.resp`), donc sa bande morte de 2 %
+  // quantifie le bruit au lieu de le filtrer : un signal qui monte regulierement avec 2,5 % de
+  // bruit y compte un virage presque a chaque pas. Celui-ci suit un vrai EXTREMUM (zigzag) : il
+  // n'avance que tant que le mouvement CONTINUE, et ne declare un virage que sur une retrace de
+  // plus de 2 % depuis cet extremum. Si les deux tombent ensemble, la question ne se pose pas.
+  int reversals_zz = 0, dir_zz = 0;
+  double extremum_zz = 0.0;
   for (size_t i = 0; i < s_dyn_series.size(); i++) {
     const DynSample& v = s_dyn_series[i];
     r_min = std::fmin(r_min, v.resp); r_max = std::fmax(r_max, v.resp);
@@ -1831,6 +2018,7 @@ void compute_verdicts() {
     t_min = std::fmin(t_min, v.top); t_max = std::fmax(t_max, v.top);
     if (i == 0) {
       extremum = v.resp;
+      extremum_zz = v.resp;
       continue;
     }
     const DynSample& q = s_dyn_series[i - 1];
@@ -1847,6 +2035,21 @@ void compute_verdicts() {
       }
       dir = d;
       extremum = v.resp;
+    }
+    if (extremum_zz > 1e-6) {
+      const double rel = ((double)v.resp - extremum_zz) / extremum_zz;
+      if (dir_zz == 0) {
+        if (std::fabs(rel) > 0.02) {
+          dir_zz = rel > 0.0 ? 1 : -1;
+          extremum_zz = v.resp;
+        }
+      } else if ((double)dir_zz * rel > 0.0) {
+        extremum_zz = v.resp;  // le mouvement CONTINUE : l'extremum avance, aucun virage
+      } else if (std::fabs(rel) > 0.02) {
+        reversals_zz++;  // il RETRACE de plus que la bande morte : un virage, un vrai
+        dir_zz = -dir_zz;
+        extremum_zz = v.resp;
+      }
     }
   }
   const size_t ns = s_dyn_series.size();
@@ -1868,6 +2071,7 @@ void compute_verdicts() {
   s_dyn_stats.t_max = ns ? t_max : 0.0;
   s_dyn_stats.step_max = step_max;
   s_dyn_stats.reversals = reversals;
+  s_dyn_stats.reversals_zz = reversals_zz;
   s_dyn_stats.cover = cover;
   s_dyn_stats.cover10 = cover10;
   s_dyn_stats.cover25 = cover25;
@@ -2143,6 +2347,7 @@ void note_surface_state(const SurfaceState& st) {
 }
 
 void apply_pending_on_gl_thread() {
+  backlight_commit();  // la marge de CETTE image, figee avant le premier dessin
   s_frame_ratio_x1000 = s_ratio_x1000.load();  // une seule lecture du ratio par image
   // scRGB actif : le ratio LU a change (listener Java) -> le tampon de cette image sera encode
   // a ce ratio, on le declare au compositeur (current = ratio rendu, desired inchange).
@@ -2154,6 +2359,33 @@ void apply_pending_on_gl_thread() {
       s_headroom_pending = true;
       lg::info("[hdr-display-output] marge : ratio rendu {:.3f} -> re-declaration au compositeur (souhait {:.2f})",
                cur, s_headroom_request_desired);
+    }
+  }
+  // RATTRAPAGE : le levier de retro-eclairage ne peut se poser qu'une fois la BASE connue — la
+  // consigne de l'utilisateur, lue hors levier. Quand la sortie HDR est active des la premiere
+  // image (reglage epingle par le harnais, ou choix conserve du joueur), cette base n'existe pas
+  // encore au moment de la bascule de surface : sans ce rattrapage, la phase ON de l'auto-test
+  // mesurerait un ecran auquel on n'a JAMAIS rien demande, et conclurait « rien accorde ».
+  if (s_active.load() && s_surface.mode != kModeNone && !s_bl_lever_applied && s_bl_base > 0.f &&
+      !s_lever_pending) {
+    bool sys_grants = false;
+    {
+      std::lock_guard<std::mutex> lk(s_mu);
+      sys_grants = s_sys.ratio_available;
+    }
+    if (!sys_grants) {
+      float t = s_bl_base * desired_headroom();
+      if (t > 1.f) {
+        t = 1.f;
+      }
+      s_bl_target = t;
+      s_bl_lever_applied = true;
+      s_bl_settle = kLeverSettleReads;
+      s_lever_on = true;
+      s_lever_desired = desired_headroom();
+      s_lever_pending = true;
+      lg::info("[hdr-display-output] levier retro-eclairage : base {:.6f} -> consigne {:.6f} (x{:.2f} demande)",
+               s_bl_base, t, t / s_bl_base);
     }
   }
   const uint32_t modes = modes_available();
@@ -2193,6 +2425,26 @@ void apply_pending_on_gl_thread() {
     // Window.setDesiredHdrHeadroom. `setExtendedRangeBrightness` seul a laisse le Honor a 1,0.
     s_lever_on = (want != kModeNone);
     s_lever_desired = desired_headroom();
+    // LE QUATRIEME LEVIER, le seul qui existe sous l'API 34 : la consigne de retro-eclairage de
+    // NOTRE fenetre. On la demande en ABSOLU — base mesuree x marge souhaitee, bornee a 1,0 —
+    // et jamais quand le systeme sait accorder la marge lui-meme (API 34+ : Display.getHdrSdrRatio
+    // est alors un contrat, on ne double pas le mecanisme). < 0 = rends la consigne au systeme.
+    bool sys_grants = false;
+    {
+      std::lock_guard<std::mutex> lk(s_mu);
+      sys_grants = s_sys.ratio_available;
+    }
+    if (s_lever_on && !sys_grants && s_bl_base > 0.f) {
+      float t = s_bl_base * desired_headroom();
+      if (t > 1.f) {
+        t = 1.f;
+      }
+      s_bl_target = t;
+    } else {
+      s_bl_target = -1.f;
+    }
+    s_bl_lever_applied = (s_bl_target > 0.f);
+    s_bl_settle = kLeverSettleReads;
     s_lever_pending = true;
     lg::info("[hdr-display-output] surface {} : red_bits={} colorspace=0x{:x} mode={}",
              want == kModeScrgbLinear ? "scRGB/16F" : want == kModeHdr10Pq ? "HDR10/PQ" : "SDR",
@@ -2204,7 +2456,7 @@ void apply_pending_on_gl_thread() {
   }
 }
 
-bool take_window_lever_request(bool* on, float* desired) {
+bool take_window_lever_request(bool* on, float* desired, float* brightness_target) {
   if (!s_lever_pending) {
     return false;
   }
@@ -2215,6 +2467,9 @@ bool take_window_lever_request(bool* on, float* desired) {
   }
   if (desired) {
     *desired = s_lever_desired;
+  }
+  if (brightness_target) {
+    *brightness_target = s_bl_target;
   }
   return true;
 }
@@ -2267,7 +2522,15 @@ float sdr_white_nits() {
   // `tonemap_ceiling()` a 1 et `curve_params()` sur `sdr_params()` — la sortie « HDR » etait
   // l'image SDR exacte dans un conteneur 10 bits. C'est le « quasi 0 diff off vs on » du 10/09,
   // et ce n'etait pas une limite du Redmi : c'etait vrai partout.
-  return display_presents_hdr().presents ? kGraphicsWhiteNits : peak_nits();
+  if (display_presents_hdr().presents) {
+    return kGraphicsWhiteNits;
+  }
+  // Ecran qui DECODE : le compositeur n'accorde rien, et le pic annonce contre lui-meme rendait
+  // 1,000 par construction. La marge, ici, s'ACHETE au retro-eclairage — et on n'en retient que
+  // ce que le systeme a REELLEMENT pose, lu sur sa propre consigne. Le blanc SDR descend d'autant
+  // dans le signal pour que le contenu SDR emette la meme lumiere qu'avant.
+  const float g = measured_grant();
+  return g > 1.005f ? peak_nits() / g : peak_nits();
 }
 
 const char* sdr_white_source() {
@@ -2290,6 +2553,9 @@ const char* sdr_white_source() {
   }
   if (display_presents_hdr().presents) {
     return "pq:BT.2408_blanc_graphique_203nits";
+  }
+  if (measured_grant() > 1.005f) {
+    return "pq:pic_annonce/marge_MESUREE_au_retroeclairage(ecran_qui_decode)";
   }
   return max_lum > 0 ? "pq:HdrCapabilities.maxLuminance(ecran_qui_decode)"
                      : "pq:compositor_default_500(ecran_qui_decode)";
@@ -2781,8 +3047,24 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     s_play.gain_ref += (double)m[0];
     s_play.gain_new += (double)std::fmax(0.f, m[1] - m[0]);
     s_play.gain_old += (double)std::fmax(0.f, m[2] - m[0]);
-    if (m[1] < m[0] - 1e-4f) {
-      s_play.below_sdr_px++;  // doit rester a ZERO : la courbe est >= SDR par construction
+    // LE PLANCHER DE L'INSTRUMENT, PAS UNE TOLERANCE DE CONFORT. Les trois bras sont dessines
+    // dans des tampons GL_RGBA16F : un demi-flottant porte dix bits de mantisse, son pas vaut
+    // donc m/1024 — 2,4e-4 autour de 0,25, soit DEUX FOIS ET DEMIE le 1e-4 qui etait compare
+    // ici. Or sous l'ancre la courbe HDR ne depasse le SDR que du relevement de pied, et ce
+    // relevement s'annule en approchant 0,25 (`hdr_toe_scalar` : v + amt.v.(1-v/0,25)^2) : deux
+    // valeurs mathematiquement ordonnees y tombent sur des demi-flottants voisins et le
+    // compteur enregistrait un assombrissement QUE LE TAMPON NE PEUT PAS REPRESENTER — 173
+    // pixels sur 52 224 a l'essai 17. Le seuil devient le pas du tampon. Ce n'est pas un
+    // assouplissement du critere : `below_sdr_worst` retient la pire violation SANS tolerance,
+    // et un vrai assombrissement (qui vaut des centiemes) la fait sortir du bruit.
+    if (m[1] < m[0]) {
+      const double d = (double)m[0] - (double)m[1];
+      if (d > s_play.below_sdr_worst) {
+        s_play.below_sdr_worst = d;
+      }
+      if ((double)m[1] < (double)m[0] - std::fmax(1e-4, std::fabs((double)m[0]) / 1024.0)) {
+        s_play.below_sdr_px++;  // la courbe est >= SDR par construction : doit rester a ZERO
+      }
     }
     if ((double)m[1] > s_play.hl_max) {
       s_play.hl_max = m[1];
@@ -3009,6 +3291,12 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
   }
   if (on && !effective_setting()) {
     s_forced_on_frames++;  // la capacite a force ce que le reglage n'a pas demande
+  }
+  // La consigne de retro-eclairage se suit a TOUTES les images, bras arme ou non : c'est elle qui
+  // porte la base (le reglage de l'utilisateur) avant que le levier soit pose, et la marge
+  // obtenue apres. Sans ce suivi hors auto-test, le chemin LIVRE au joueur n'aurait pas de base.
+  if ((s_frames % 5) == 0) {
+    backlight_track();
   }
   if (!autoport_proof::armed_for(kItemId)) {
     s_frames++;

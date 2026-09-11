@@ -41,4 +41,4 @@ void android_hdr_out_request_extended_range(float current_ratio, float desired_r
 // autres leviers du systeme sur la fenetre : Window.setColorMode(COLOR_MODE_HDR) et, sous API 35+,
 // Window.setDesiredHdrHeadroom(desired_headroom). `on` = la surface de sortie HDR est active
 // (a #f, mode couleur par defaut et marge rendue au systeme). Implemente dans gk_android_main.cpp.
-void android_hdr_out_request_window_levers(bool on, float desired_headroom);
+void android_hdr_out_request_window_levers(bool on, float desired_headroom, float brightness_target);

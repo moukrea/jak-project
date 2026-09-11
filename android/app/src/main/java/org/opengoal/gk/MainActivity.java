@@ -529,11 +529,14 @@ public class MainActivity extends SDLActivity {
      *  for an HDR color mode on this window (API 26+); (b) Window.setDesiredHdrHeadroom(float) (API 35+, called by
      *  REFLECTION so compileSdk stays at 34) asks the display for that much headroom above SDR white; 0 means
      *  "system default". Each lever has its own try/catch so one failing does not skip the other. Never throws. */
-    static void applyHdrOutputWindowLevers(final boolean on, final float desiredHeadroom) {
+    static void applyHdrOutputWindowLevers(final boolean on, final float desiredHeadroom,
+                                          final float brightnessTarget) {
         new Handler(Looper.getMainLooper()).post(() -> {
             int colorModeOk = 0;
             int colorModeValue = -1;
             int headroomOk = 0;
+            int brightOk = 0;
+            float brightValue = Float.NaN;
             try {
                 org.libsdl.app.SDLActivity act = mSingleton;   // protected static in SDLActivity
                 android.view.Window w = act != null ? act.getWindow() : null;
@@ -553,6 +556,24 @@ public class MainActivity extends SDLActivity {
                             headroomOk = 1;
                         } catch (Throwable t) { Log.w("GK", "HDROUT window levers: setDesiredHdrHeadroom failed", t); }
                     }
+                    // THE FOURTH LEVER, and the only one that exists below API 34: this window's own
+                    // backlight setpoint. setExtendedRangeBrightness (34+) and setDesiredHdrHeadroom
+                    // (35+) are no-ops here, and setColorMode(COLOR_MODE_HDR) cannot do anything on a
+                    // panel whose supportedColorModes is [0]. Raising the panel while the signal's SDR
+                    // white is lowered by the SAME factor is the very mechanism those APIs drive: SDR
+                    // content emits exactly as much light as before, highlights emit more. The value is
+                    // ABSOLUTE (native measured the user's own setpoint first and multiplied it), it is
+                    // scoped to OUR window, and it is undone on focus loss. BRIGHTNESS_OVERRIDE_NONE
+                    // hands the setpoint back to the system.
+                    try {
+                        android.view.WindowManager.LayoutParams lp = w.getAttributes();
+                        brightValue = (on && brightnessTarget > 0f)
+                                ? Math.max(0f, Math.min(1f, brightnessTarget))
+                                : android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+                        lp.screenBrightness = brightValue;
+                        w.setAttributes(lp);
+                        brightOk = 1;
+                    } catch (Throwable t) { Log.w("GK", "HDROUT window levers: screenBrightness failed", t); }
                 }
                 android.view.Display disp = getWindowManagerDisplay();
                 float ratioAfter = -1f;
@@ -563,6 +584,9 @@ public class MainActivity extends SDLActivity {
                         + " color_mode_ok=" + colorModeOk
                         + " color_mode_value=" + colorModeValue
                         + " hdr_headroom_ok=" + headroomOk
+                        + " window_brightness_ok=" + brightOk
+                        + " window_brightness=" + brightValue
+                        + " requested_target=" + brightnessTarget
                         + " sdk=" + android.os.Build.VERSION.SDK_INT
                         + " display_ratio_after=" + ratioAfter);
             } catch (Throwable t) { Log.w("GK", "HDROUT window levers failed", t); }

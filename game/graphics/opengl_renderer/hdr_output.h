@@ -206,7 +206,12 @@ bool take_headroom_request(float* current, float* desired);
 // WindowManager que la fenetre veut le mode HDR de l'ecran) et `Window.setDesiredHdrHeadroom`
 // (API 35+, la demande de marge moderne, cote fenetre et non cote SurfaceControl). Rend vrai
 // une fois par changement d'etat.
-bool take_window_lever_request(bool* on, float* desired);
+// `brightness_target` : la consigne de retro-eclairage ABSOLUE demandee a NOTRE fenetre
+// (WindowManager.LayoutParams.screenBrightness, API 1+), ou < 0 pour la rendre au systeme.
+// C'est le QUATRIEME levier, et le seul qui existe sous l'API 34 : les trois autres sont des
+// no-op la. La marge n'est pas ce qu'on demande ici, c'est ce que le systeme pose ensuite et
+// que `debug.tracing.screen_brightness` publie — relu par le natif, jamais suppose.
+bool take_window_lever_request(bool* on, float* desired, float* brightness_target);
 
 // ---------------------------------------------------------------- ce que le rendu lit ----
 

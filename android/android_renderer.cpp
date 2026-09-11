@@ -521,8 +521,9 @@ int android_renderer_run() {
         // a un ratio de 1,0 (essai 6, 10/09).
         bool lever_on = false;
         float lever_desired = 1.f;
-        if (hdr_output::take_window_lever_request(&lever_on, &lever_desired)) {
-          android_hdr_out_request_window_levers(lever_on, lever_desired);
+        float lever_brightness = -1.f;
+        if (hdr_output::take_window_lever_request(&lever_on, &lever_desired, &lever_brightness)) {
+          android_hdr_out_request_window_levers(lever_on, lever_desired, lever_brightness);
         }
       }
       drew_game = android_gfx::render_frame_on_gl_thread(win_w, win_h);

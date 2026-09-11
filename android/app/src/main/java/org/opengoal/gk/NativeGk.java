@@ -124,8 +124,9 @@ public final class NativeGk {
     }
 
     /** hdr-display-output: called FROM native (GL thread) when the HDR output surface becomes active/inactive; asks the WINDOW for HDR color mode and HDR headroom (the two levers beside setExtendedRangeBrightness). */
-    public static void onHdrOutputWindowLevers(final boolean on, final float desiredHeadroom) {
-        MainActivity.applyHdrOutputWindowLevers(on, desiredHeadroom);
+    public static void onHdrOutputWindowLevers(final boolean on, final float desiredHeadroom,
+                                              final float brightnessTarget) {
+        MainActivity.applyHdrOutputWindowLevers(on, desiredHeadroom, brightnessTarget);
     }
 
     /**

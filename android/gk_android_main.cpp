@@ -9774,7 +9774,7 @@ Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint 
                         "NativeGk.setDisplayHdrCaps: onHdrOutputExtendedRange(FF)V not found; "
                         "scRGB headroom requests will be dropped");
   }
-  g_hdr_out_window_levers_mid = env->GetStaticMethodID(clazz, "onHdrOutputWindowLevers", "(ZF)V");
+  g_hdr_out_window_levers_mid = env->GetStaticMethodID(clazz, "onHdrOutputWindowLevers", "(ZFF)V");
   if (!g_hdr_out_window_levers_mid) {
     env->ExceptionClear();
     __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
@@ -10129,7 +10129,7 @@ void android_hdr_out_request_extended_range(float current_ratio, float desired_r
 // hdr-display-output : natif -> Java, les deux autres leviers du systeme (mode couleur HDR de la
 // fenetre et Window.setDesiredHdrHeadroom, API 35+). Meme pont et meme attachement de fil que
 // android_hdr_out_request_extended_range ; declare dans android_renderer.h.
-void android_hdr_out_request_window_levers(bool on, float desired_headroom) {
+void android_hdr_out_request_window_levers(bool on, float desired_headroom, float brightness_target) {
   if (!g_hdr_out_jvm || !g_hdr_out_nativegk_class || !g_hdr_out_window_levers_mid) {
     static bool s_warned = false;
     if (!s_warned) {
@@ -10148,14 +10148,15 @@ void android_hdr_out_request_window_levers(bool on, float desired_headroom) {
     attached = true;
   }
   env->CallStaticVoidMethod(g_hdr_out_nativegk_class, g_hdr_out_window_levers_mid,
-                            on ? JNI_TRUE : JNI_FALSE, (jfloat)desired_headroom);
+                            on ? JNI_TRUE : JNI_FALSE, (jfloat)desired_headroom,
+                            (jfloat)brightness_target);
   if (env->ExceptionCheck()) {
     env->ExceptionDescribe();
     env->ExceptionClear();
   }
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
-                      "HDROUT window levers request on=%d desired=%.3f",
-                      on ? 1 : 0, (double)desired_headroom);
+                      "HDROUT window levers request on=%d desired=%.3f brightness_target=%.6f",
+                      on ? 1 : 0, (double)desired_headroom, (double)brightness_target);
   if (attached) {
     g_hdr_out_jvm->DetachCurrentThread();
   }
