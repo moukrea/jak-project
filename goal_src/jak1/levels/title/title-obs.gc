@@ -843,6 +843,16 @@
           (let ((v1-12 gp-0)) (set! (-> v1-12 width) (the float 352)))
           (let ((v1-13 gp-0)) (set! (-> v1-13 height) (the float 40)))
           (set! (-> gp-0 flags) (font-flags shadow kerning middle middle-vert large))
-          (print-game-text (lookup-text! *common-text* (text-id press-start) #f) gp-0 #f 128 22))))
+          ;; title-tap-prompt-regression : l'invite se choisit sur la PRESENCE d'un ecran tactile,
+          ;; jamais sur la plateforme. Tactile : « Appuie sur start ou touche l'ecran ». Sans
+          ;; tactile (SHIELD, PC a la manette) : « Appuie sur start », mot pour mot comme avant.
+          ;; On declare ensuite au C++ l'id CHOISI et la CHAINE remise a `print-game-text` : c'est
+          ;; lui qui relit le fait tactile et juge, GOAL ne se note pas lui-meme.
+          (let* ((s4-0 (if (nonzero? (__pc-touch-screen?))
+                           (text-id pc-text-press-start-or-tap)
+                           (text-id press-start)))
+                 (s3-0 (lookup-text! *common-text* s4-0 #f)))
+            (print-game-text s3-0 gp-0 #f 128 22)
+            (__pc-title-prompt-drawn (the int s4-0) s3-0)))))
   :code anim-loop
   :post target-no-move-post)

@@ -1063,6 +1063,11 @@
   ;; #x17dc..#x17e3 sont reserves (framerate-uncap) : on prend les deux premiers libres au-dessus.
   (pc-text-recharged-water #x17e5)
   (pc-text-hint-recharged-water #x17e6)
+  ;; title-tap-prompt-regression : l'invite de l'ecran-titre QUAND il y a un ecran tactile.
+  ;; #x16e (press-start) reste la variante sans tactile, mot pour mot : les DEUX doivent vivre
+  ;; dans la MEME banque, puisque le choix se fait a l'execution et non a la construction.
+  ;; #x17e7 est le premier id libre au-dessus du dernier alloue (#x17e6).
+  (pc-text-press-start-or-tap #x17e7)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

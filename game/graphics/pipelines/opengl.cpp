@@ -38,6 +38,7 @@
 #include "game/graphics/opengl_renderer/hdr_desktop.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/screenshot.h"
+#include "game/system/touch_screen.h"
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
 #include "game/sce/libscf.h"
@@ -243,6 +244,16 @@ static int gl_init(GfxGlobalSettings& settings) {
       dialogs::create_error_message_dialog("Critical Error Encountered",
                                            "Could not initialize SDL, exiting");
       return 1;
+    }
+    // title-tap-prompt-regression : le fait tactile du BUREAU, lu a SDL des qu'il est initialise.
+    // Un PC a la manette rend 0 et garde « Appuie sur start » ; un portable a dalle tactile rend
+    // le meme oui qu'un telephone. C'est la PRESENCE qui decide, jamais la plateforme.
+    {
+      int n_touch = 0;
+      SDL_TouchID* touch_ids = SDL_GetTouchDevices(&n_touch);
+      SDL_free(touch_ids);
+      touch_screen::set_present(n_touch > 0, touch_screen::kSdl, n_touch);
+      lg::info("SDL touch devices: {}", n_touch);
     }
   }
 

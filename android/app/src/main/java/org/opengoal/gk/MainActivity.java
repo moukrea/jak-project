@@ -137,6 +137,34 @@ public class MainActivity extends SDLActivity {
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());
 
+        // title-tap-prompt-regression : la PRESENCE d'un ecran tactile, poussee avant que le
+        // runtime GOAL ne demarre. L'invite de l'ecran-titre se choisit la-dessus, pas sur
+        // « on est sur Android » — la SHIELD est Android et n'a pas d'ecran tactile.
+        // Deux sous-systemes repondent : PackageManager (declaration systeme) et InputManager
+        // (enumeration vivante des peripheriques). Le second est un temoin, il ne decide pas.
+        try {
+            final boolean hasTouch = getPackageManager()
+                    .hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN);
+            int touchDevices = 0;
+            try {
+                for (int id : android.view.InputDevice.getDeviceIds()) {
+                    android.view.InputDevice dev = android.view.InputDevice.getDevice(id);
+                    if (dev != null
+                            && (dev.getSources() & android.view.InputDevice.SOURCE_TOUCHSCREEN)
+                                    == android.view.InputDevice.SOURCE_TOUCHSCREEN) {
+                        touchDevices++;
+                    }
+                }
+            } catch (Throwable t) {
+                touchDevices = -1;
+            }
+            NativeGk.setTouchScreenPresent(hasTouch, touchDevices);
+            android.util.Log.i("GK", "TITLEPROMPT touchscreen=" + hasTouch
+                    + " touch_input_devices=" + touchDevices);
+        } catch (Throwable t) {
+            android.util.Log.w("GK", "TITLEPROMPT touch-screen probe failed", t);
+        }
+
         // hdr-display-output: what the SYSTEM announces for the display, pushed before the
         // renderer thread starts (it is read when EGL is probed). Never forces HDR ON.
         try {

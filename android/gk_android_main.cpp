@@ -54,6 +54,7 @@
 #include <unordered_set>
 
 #include "common/versions/versions.h"
+#include "game/system/touch_screen.h"
 
 #include "common/goal_constants.h"
 #include "common/symbols.h"  // true_symbol_offset (a17 real file helpers)
@@ -9796,6 +9797,19 @@ Java_org_opengoal_gk_NativeGk_setDisplayPlatformInfo(JNIEnv* /*env*/, jclass /*c
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "NativeGk.setDisplayPlatformInfo: sdk=%d ratio_available=%d", (int)sdkInt,
                       ratioAvailable != JNI_FALSE ? 1 : 0);
+}
+
+// title-tap-prompt-regression : la PRESENCE d'un ecran tactile, telle que le SYSTEME la declare
+// (PackageManager.FEATURE_TOUCHSCREEN), plus le temoin independant d'InputManager. Pose avant que
+// le runtime GOAL ne demarre ; c'est ce fait, et pas la plateforme, qui choisit l'invite du titre.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setTouchScreenPresent(JNIEnv* /*env*/, jclass /*clazz*/,
+                                                    jboolean present, jint touchInputDevices) {
+  touch_screen::set_present(present != JNI_FALSE, touch_screen::kAndroidPackageManager,
+                            (int)touchInputDevices);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "NativeGk.setTouchScreenPresent: present=%d input_devices=%d",
+                      present != JNI_FALSE ? 1 : 0, (int)touchInputDevices);
 }
 
 // hdr-display-output : ratio HDR/SDR courant lu dans le systeme (Display.getHdrSdrRatio), pousse

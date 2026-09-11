@@ -45,6 +45,7 @@
 #include "game/system/perf_instruments.h"
 #include "game/system/naming_census.h"
 #include "game/system/settings_case_l10n.h"
+#include "game/system/touch_screen.h"
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -1545,6 +1546,76 @@ void pc_autoport_hit(s64 n) {
 // GOAL seul sait quelles LIGNES le menu Recharged contient et quel identifiant de banc alimente
 // le libelle de chacune ; le C++ seul sait relire les 23 bancs `<n>COMMON.TXT` livres. Ces
 // quatre ponts joignent les deux moities. Voir game/system/settings_case_l10n.h.
+// ─── title-tap-prompt-regression — L'INVITE DU TITRE SE CHOISIT SUR LE TACTILE ────────────────
+// Le defaut de l'owner (11/09) : « SUR ANDROID (AVEC TACTILE) ON A "Appuie sur start" AU LIEU DE
+// "Appuie sur start ou touche l'ecran" ». L'ancienne version decidait a la CONSTRUCTION en
+// surchargeant #x16e dans une banque « android » — donc par PLATEFORME, ce qui est faux pour la
+// SHIELD, et mort depuis que le generateur de cette banque a ete archive.
+//
+// Desormais GOAL demande le fait (`__pc-touch-screen?`), choisit son id, dessine, puis DECLARE ce
+// qu'il a dessine (`__pc-title-prompt-drawn`). Le juge ci-dessous relit le fait tactile de son
+// cote et lit les OCTETS de la chaine remise a `print-game-text` : il ne croit pas GOAL sur
+// parole. `title_prompt_wrong` compte une image fautive quand
+//   * personne n'a pose le fait tactile (`source == kNone`) — un binaire sans ecrivain rendrait
+//     « pas de tactile », donc l'invite courte, donc un vert par INACTION sur le defaut meme ;
+//   * l'id dessine ne correspond pas au fait tactile ;
+//   * la banque ne porte pas la chaine — `lookup-text!` rend alors « UNKNOWN ID <n> », et c'est
+//     exactement comme cela que #x1728 avait fini a l'ecran (MESH BROWSER, « UNKNOWN ID 5928 ») ;
+//   * la chaine est vide.
+constexpr u32 kTitlePromptPlainId = 0x16e;   // (press-start) — engine/ui/text-h.gc:112
+constexpr u32 kTitlePromptTapId = 0x17e7;    // (pc-text-press-start-or-tap) — text-h.gc
+
+s32 pc_touch_screen_present() {
+  return touch_screen::present() ? 1 : 0;
+}
+
+void pc_title_prompt_drawn(s64 text_id, u32 shown_str) {
+  static u64 s_frames = 0;
+  static u64 s_wrong = 0;
+
+  const char* shown = shown_str ? Ptr<String>(shown_str).c()->data() : nullptr;
+  const u32 len = shown ? (u32)strlen(shown) : 0;
+  // La chaine que `lookup-text!` fabrique quand l'id manque de la banque ET de la banque de repli.
+  const bool unknown = shown && strncmp(shown, "UNKNOWN ID", 10) == 0;
+
+  const bool touch = touch_screen::present();
+  const u32 want = touch ? kTitlePromptTapId : kTitlePromptPlainId;
+  const bool measured = touch_screen::source() != touch_screen::kNone;
+
+  s_frames++;
+  if (!measured || (u32)text_id != want || len == 0 || unknown) {
+    s_wrong++;
+  }
+
+  autoport_proof::publish("title_prompt_wrong", s_wrong);
+  autoport_proof::publish("title_prompt_frames", s_frames);
+  autoport_proof::publish("title_touch_present", touch ? 1 : 0);
+  autoport_proof::publish_text("title_touch_source", touch_screen::source_name());
+  autoport_proof::publish("title_touch_input_devices",
+                          (u64)(s64)(touch_screen::input_devices() < 0
+                                         ? 0
+                                         : touch_screen::input_devices()));
+  autoport_proof::publish("title_prompt_text_id", (u64)(u32)text_id);
+  autoport_proof::publish("title_prompt_want_id", want);
+  autoport_proof::publish("title_prompt_len", len);
+  autoport_proof::publish("title_prompt_unknown_id", unknown ? 1 : 0);
+  // Les 16 premiers octets de ce qui est REELLEMENT remis a print-game-text : le rapport dit
+  // quelle invite l'appareil dessine, sans capture d'ecran.
+  if (shown) {
+    char head[24];
+    u32 n = len < 20 ? len : 20;
+    for (u32 i = 0; i < n; i++) {
+      const unsigned char c = (unsigned char)shown[i];
+      head[i] = (c > 0x20 && c < 0x7f) ? (char)c : '_';
+    }
+    head[n] = '\0';
+    autoport_proof::publish_text("title_prompt_head", n ? head : "-");
+  } else {
+    autoport_proof::publish_text("title_prompt_head", "-");
+  }
+  autoport_proof::note_hit(1);
+}
+
 void pc_scl10n_begin(s64 current_language) {
   settings_case_l10n::begin_census((int)current_language);
 }
@@ -4362,6 +4433,11 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
   make_function_symbol_from_c("__pc-npcf-clone-hold?", (void*)pc_npcf_clone_hold);
   make_function_symbol_from_c("__pc-autoport-frame", (void*)pc_autoport_frame);
+  // title-tap-prompt-regression : le fait tactile et le juge de l'invite du titre. HORS de tout
+  // `#ifdef` : la famille `__pc-autoport-*` vit sous OG_FEAT_HD_MODELS, et un pont manquant n'est
+  // pas un zero, c'est un SIGILL a l'appel depuis GOAL.
+  make_function_symbol_from_c("__pc-touch-screen?", (void*)pc_touch_screen_present);
+  make_function_symbol_from_c("__pc-title-prompt-drawn", (void*)pc_title_prompt_drawn);
   // recharged-gating-real : le grisage du menu et son recensement, meme table que la porte.
   make_function_symbol_from_c("__pc-gating-disabled?", (void*)pc_gating_disabled);
   make_function_symbol_from_c("__pc-gating-menu-begin", (void*)pc_gating_menu_begin);

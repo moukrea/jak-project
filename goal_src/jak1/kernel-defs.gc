@@ -553,6 +553,18 @@
 ;; feature armee (c'est ce qui rend le bras `--off` lisible). `hits` est PARTAGE par tout le
 ;; binaire : publier a cote son propre denominateur avec `__pc-autoport-publish`.
 (define-extern __pc-autoport-hit (function int none))
+
+;; title-tap-prompt-regression : L'INVITE DE L'ECRAN-TITRE SE CHOISIT SUR LE TACTILE.
+;; `__pc-touch-screen?` rend 1 quand la PLATEFORME a declare un ecran tactile
+;; (PackageManager.FEATURE_TOUCHSCREEN sur Android, SDL_GetTouchDevices sur le bureau), 0 sinon.
+;; Il ne dit PAS « on est sur Android » : la SHIELD est Android et rend 0, donc « Appuie sur start ».
+;; `__pc-title-prompt-drawn` declare ce qui vient d'etre remis a `print-game-text` : l'identifiant
+;; de texte CHOISI et la CHAINE elle-meme. Le C++ relit le fait tactile de son cote et lit les
+;; octets de la chaine — il ne prend pas la parole de GOAL pour une mesure. Les deux symboles sont
+;; enregistres par `InitMachine_PCPort` (game/kernel/jak1/kmachine.cpp), hors de la liste a17 et
+;; hors de tout `#ifdef` : ils sont relies sur l'appareil comme sur le bureau.
+(define-extern __pc-touch-screen? (function int))
+(define-extern __pc-title-prompt-drawn (function int string none))
 ;; Grecharged-settings-case-l10n : LE RECENSEMENT DU MENU RECHARGED. GOAL parcourt les tableaux
 ;; d'options REELLEMENT compiles et rapporte, ligne par ligne, l'identifiant de banc qui alimente
 ;; son libelle ET la chaine que le menu DESSINE. Le C++ relit les 23 bancs livres et juge toutes

@@ -377,6 +377,9 @@ set(RUNTIME_SOURCE
         system/iop_thread.cpp
         system/load_gate.cpp
         system/autoport_proof.cpp
+        # title-tap-prompt-regression : le fait « cet appareil a un ecran tactile ».
+        # Un .cpp neuf doit AUSSI etre liste dans android/CMakeLists.txt, sinon l'arm64 meurt au lien.
+        system/touch_screen.cpp
         system/perf_instruments.cpp
         system/perf_baseline.cpp
         system/water_census.cpp

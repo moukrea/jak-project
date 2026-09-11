@@ -115,6 +115,20 @@ public final class NativeGk {
     /** hdr-display-output: platform API level and whether Display.isHdrSdrRatioAvailable() (API 34+). */
     public static native void setDisplayPlatformInfo(int sdkInt, boolean hdrSdrRatioAvailable);
 
+    /**
+     * title-tap-prompt-regression: push whether THIS DEVICE has a touch screen into native,
+     * before the GOAL runtime boots. The title-screen prompt is chosen from this fact, never
+     * from the platform: the SHIELD is Android and has no touch screen, so it must read
+     * "Press Start", while any phone reads "Press Start or Tap Screen".
+     *
+     * @param present            {@code PackageManager.hasSystemFeature(FEATURE_TOUCHSCREEN)}.
+     * @param touchInputDevices  INDEPENDENT witness from a different subsystem (InputManager):
+     *                           how many {@code InputDevice}s advertise SOURCE_TOUCHSCREEN.
+     *                           -1 when the enumeration failed. Published beside the fact so a
+     *                           disagreement between the two is visible instead of silent.
+     */
+    public static native void setTouchScreenPresent(boolean present, int touchInputDevices);
+
     /** hdr-display-output: current Display.getHdrSdrRatio() (1.0 = no headroom); pushed on every change. */
     public static native void setHdrSdrRatio(float ratio);
 
