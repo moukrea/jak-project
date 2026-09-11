@@ -404,8 +404,9 @@ AutoSplitterBlock g_auto_splitter_block_jak1;
 // GENERAL crash-loop guard: a persisted setting must NEVER brick the game. A sentinel file
 // ("recharged-boot-guard") next to settings.ini holds a consecutive-unhealthy-boot count. At
 // boot we bump it; if it already reached 2 (two boots that died before reaching healthy
-// gameplay) we defensively reset the risky setting in settings.ini (pbr-test-preset -> default). After 60s of healthy
-// running the sentinel is deleted so a normal session never trips it. Mirrors the AO-specific
+// gameplay) nous le CONSIGNONS : plus aucun reglage persistant n'est capable de bloquer
+// l'amorcage, et la remise d'aplomb qui visait `pbr-test-preset` est partie avec ce reglage.
+// After 60s of healthy running the sentinel is deleted so a normal session never trips it. Mirrors the AO-specific
 // ao-boot-guard style (fs::* via ghc + file_util text IO) but is a distinct GENERAL guard.
 namespace {
 constexpr double kRechargedGuardHealthySecs = 60.0;
@@ -419,71 +420,25 @@ fs::path recharged_settings_ini_path() {
 // lecteur etait `pc_set_pbr_displacement`, qui refusait la valeur risquee pour la session ; le
 // reglage n'existe plus. La garde continue de REMETTRE settings.ini d'aplomb au bootage.
 double s_recharged_boot_t = -1.0;            // steady_clock boot time (for the healthy clear)
-// Rewrite the VALUE on `pbr-test-preset = <n>` -> default (1), preserving every other line
-// byte-for-byte. Missing file / missing key is skipped gracefully.
-void recharged_reset_risky_ini() {
-  const auto ini = recharged_settings_ini_path();
-  if (!file_util::file_exists(ini.string())) {
-    return;  // no settings.ini yet — nothing to reset
-  }
-  std::string text;
-  try {
-    text = file_util::read_text_file(ini);
-  } catch (...) {
-    return;  // unreadable — skip gracefully
-  }
-  // Line-by-line rewrite. Only lines whose trimmed key matches get their value replaced; all
-  // other bytes (including line endings) are preserved.
-  auto rewrite_line = [](const std::string& line) -> std::string {
-    // find the key portion before '='
-    auto eq = line.find('=');
-    if (eq == std::string::npos) {
-      return line;
-    }
-    std::string key = line.substr(0, eq);
-    // trim whitespace around the key
-    size_t ks = key.find_first_not_of(" \t");
-    size_t ke = key.find_last_not_of(" \t");
-    if (ks == std::string::npos) {
-      return line;
-    }
-    std::string trimmed = key.substr(ks, ke - ks + 1);
-    // lighting-legacy-purge (2026-09-11) : `pbr-displacement` n'existe plus dans settings.ini. La
-    // remise a zero de sa ligne est SUPPRIMEE ; la garde ne remet plus d'aplomb que
-    // `pbr-test-preset`, le seul reglage risque qui reste.
-    if (trimmed == "pbr-test-preset") {
-      return line.substr(0, eq) + "= 1";
-    }
-    return line;
-  };
-  std::string out;
-  out.reserve(text.size());
-  size_t start = 0;
-  while (start <= text.size()) {
-    size_t nl = text.find('\n', start);
-    if (nl == std::string::npos) {
-      if (start < text.size()) {
-        out += rewrite_line(text.substr(start));
-      }
-      break;
-    }
-    // include any trailing '\r' in the line body so the '\n' stays the only separator we re-add
-    out += rewrite_line(text.substr(start, nl - start));
-    out += '\n';
-    start = nl + 1;
-  }
-  try {
-    file_util::write_text_file(ini, out);
-  } catch (...) {
-    // best-effort — a failed rewrite still leaves the session clamp in place
-  }
-}
+// lighting-legacy-purge (2026-09-11) : `recharged_reset_risky_ini` est SUPPRIMEE. Elle
+// reecrivait la ligne `pbr-test-preset = <n>` de settings.ini vers sa valeur par defaut. Or
+// `pbr-test-preset` est un reglage de l'ancien monde : il n'a plus de rangee, plus de champ, et
+// sa clause de lecture dans pckernel.gc:526 est une PIERRE TOMBALE qui consomme la valeur et la
+// jette. Remettre a « 1 » une valeur que plus personne ne lit ne protege de rien — mais la ligne
+// de journal, elle, nommait un reglage retire comme s'il pilotait encore quelque chose, et elle
+// a ete VUE : la course d'appareil du 2026-09-11 03:31 l'a emise. C'est un faux filet de
+// securite, et le livrable demande que l'ancien monde SORTE du code, pas qu'il soit debranche.
+//
+// La garde generale, elle, reste ENTIERE : c'est elle qui compte les demarrages morts avant le
+// jeu. Le jour ou un reglage persistant redevient capable de bloquer l'amorcage, c'est ici que
+// sa remise d'aplomb se rebranche — et elle nommera CE reglage-la.
 // Boot-time crash-loop check. Runs from InitMachine (after the Android external game-root is set
 // by goal_main, before GOAL boots and loads settings.ini).
 // UNE COURSE DE REFERENCE NE MODIFIE PAS LES REGLAGES QU'ELLE MESURE.
 // `lighting-origin-bitexact`, 2026-09-07. Cette garde compte les demarrages « morts avant le
-// jeu » dans un fichier a cote de `settings.ini`, et au DEUXIEME elle REECRIT `settings.ini`
-// (pbr-test-preset -> defaut). Or une course `refset` est toujours
+// jeu » dans un fichier a cote de `settings.ini`, et au DEUXIEME elle REECRIVAIT `settings.ini`
+// (cette reecriture est partie avec le reglage qu'elle visait, lighting-legacy-purge 2026-09-11 ;
+// la garde continue d'ECRIRE son fichier sentinelle). Or une course `refset` est toujours
 // tuee au bout de son plan : elle n'atteint jamais les 60 s « saines » qui effacent le
 // sentinelle, donc trois courses successives suffisent a faire changer les reglages SOUS la
 // comparaison. Mesure : sentinelle a 2 et `settings.ini` reecrit a 01:31:38 entre deux rejeux
@@ -522,10 +477,9 @@ void recharged_crash_loop_guard_boot() {
     }
   }
   if (c >= 2) {
-    recharged_reset_risky_ini();
     lg::warn(
-        "[recharged] crash-loop guard: settings reset (2 consecutive boots died before "
-        "gameplay) — pbr-test-preset -> default");
+        "[recharged] crash-loop guard: 2 consecutive boots died before gameplay. Aucun reglage "
+        "persistant n'est aujourd'hui capable de bloquer l'amorcage : rien n'est reecrit.");
     try {
       file_util::write_text_file(guard, "1");  // count this boot as unhealthy until it survives
     } catch (...) {
