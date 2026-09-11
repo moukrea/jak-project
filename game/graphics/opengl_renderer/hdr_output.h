@@ -91,6 +91,14 @@ constexpr const char* kStudyId = "hdr-study";
 // chacune des six sections de son livrable, celle qui l'ancre dans une mesure d'appareil.
 constexpr const char* kPlanId = "hdr-plan";
 
+// LE CHANTIER B (item `hdr-curve-input`, §7.1 du plan). Il CHANGE ce que la statistique de
+// scene recoit — une reduction par MAXIMUM au lieu du sous-echantillonnage bilineaire qui
+// moyennait — et rien d'autre : aucune ligne de courbe n'est touchee. Cet identifiant ne decide
+// QUE de la publication du bloc `hdr_curve_input_*` et du declenchement du TEMOIN pleine
+// resolution ; la reduction elle-meme tourne en PRODUCTION, des que la sortie HDR est active,
+// exactement comme le dessin qu'elle remplace.
+constexpr const char* kCurveInputId = "hdr-curve-input";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {
@@ -261,7 +269,16 @@ void push_tonemap_uniforms(Shader& shader);
 // par un anneau de PBO (lecture ASYNCHRONE : le tampon consomme a ete rempli huit images plus
 // tot, la carte ne bloque pas). En sort la luminance log-moyenne et le haut de scene, lisses
 // dans le temps. Tourne en PRODUCTION des que la sortie HDR est active, une image sur huit.
-void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h);
+// hdr-curve-input : `src_tex` / `src_w` / `src_h` sont le TAMPON DE SCENE lui-meme — celui que
+// `tonemap` vient de lire. La reduction par maximum les lit par `texelFetch`, donc sans le
+// moindre filtrage, et sa couverture est TOTALE : aucun pixel de la scene n'echappe au maximum.
+void analyze_scene(Shader& shader,
+                   GLuint src_tex,
+                   int src_w,
+                   int src_h,
+                   GLuint dst_fbo,
+                   int dst_w,
+                   int dst_h);
 
 GLenum ui_buffer_format();      // GL_RGBA16F quand active(), sinon GL_RGBA8
 GLenum window_target_format();  // GL_RGB10_A2 (PQ) / GL_RGBA16F (scRGB) quand active(), sinon GL_RGBA8

@@ -1663,7 +1663,8 @@ void AndroidOpenGLRenderer::begin_ui_pass() {
   if (hdr::chain_active()) {
     tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
                                    "android_opengl_renderer.cpp:begin_ui_pass", *scene.tex_id,
-                                   ui.fbo_id, ui.width, ui.height, m_screen_vao, m_screen_vbo);
+                                   scene.width, scene.height, ui.fbo_id, ui.width, ui.height,
+                                   m_screen_vao, m_screen_vbo);
   }
   if (!tonemapped) {
     // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").

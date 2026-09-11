@@ -20,6 +20,7 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/runtime.h"  // g_game_version : le shader de reduction se construit comme les autres
 #include "game/system/autoport_proof.h"
 
 #ifdef __ANDROID__
@@ -832,7 +833,28 @@ constexpr float kFixedTop = 3.f;
 // vitesse : c'est ce limiteur qui rend le pompage impossible, pas une chance.
 constexpr uint64_t kAnalyzeEvery = 8;      // images entre deux analyses (chemin PBO)
 constexpr uint64_t kAnalyzeEverySync = 30; // idem, quand le PBO n'est pas disponible
-constexpr int kAnW = 16, kAnH = 16;        // 256 tuiles
+constexpr int kAnW = 16, kAnTileH = 16;     // 256 tuiles par etage
+// hdr-curve-input (chantier B du plan HDR, §1.5) — LA CIBLE D'ANALYSE PORTE DEUX ETAGES.
+// Lignes 0..15 : les tuiles MOYENNES, c'est-a-dire le sous-echantillonnage bilineaire d'avant,
+// inchange au bit. Elles portent `key` (la luminance log-moyenne) et `hi` (le centile qui place
+// l'ancre) : ces deux-la SONT des moyennes par nature, et les tirer d'un maximum deplacerait
+// l'ancre, donc la courbe — ce que le perimetre interdit.
+// Lignes 16..31 : les tuiles MAXIMUM, produites par la pyramide de `max()` a couverture totale.
+// Elles portent `peak`, et lui seul. C'est la grandeur que l'etude a mesuree SOURDE d'un facteur
+// 9,3 (1,617 contre 15,094) parce qu'une moyenne de moyennes ne peut pas voir un pixel a 15x.
+// Les deux etages sortent par UNE seule lecture asynchrone : l'anneau de PBO ne change pas.
+constexpr int kAnH = kAnTileH * 2;
+// La pyramide : un premier etage qui divise par 8 dans chaque direction (donc au plus 64
+// `texelFetch` par texel de sortie, la borne constante des boucles du shader), un second qui
+// tombe a 16x16. Au format de scene de l'appareil (640x480) cela fait 80x60 puis 16x16 : la
+// premiere passe lit EXACTEMENT une fois chaque pixel de la scene, la seconde 20 texels par
+// tuile. Le cout est celui de deux quads reduits, une image sur huit.
+constexpr int kMrDiv = 8;
+// Le TEMOIN de la porte : une relecture PLEINE RESOLUTION du tampon de scene, sur la MEME image
+// que l'analyse, une analyse sur `kRefEvery`. Il ne partage aucune ligne avec la pyramide — ni
+// shader, ni cible, ni chemin de lecture — donc un rapport calcule entre les deux n'est pas un
+// miroir. Il ne tourne QUE sous mesure de cet item : c'est un instrument, pas du rendu.
+constexpr uint64_t kRefEvery = 16;
 constexpr int kAnSlots = 2;                // anneau de PBO : on consomme ce qui a 8 images
 constexpr float kAnCeiling = 64.f;         // plafond de lecture : rien n'est comprime en dessous
 constexpr float kTauUp = 0.35f;            // s — l'oeil s'adapte vite a une montee
@@ -1001,6 +1023,36 @@ int s_an_slot = 0;
 GLenum s_an_read_type = 0;
 size_t s_an_bytes = 0;
 float s_an_last_key = 0.f, s_an_last_hi = 0.f, s_an_last_peak = 0.f;
+// hdr-curve-input : la pyramide de reduction par MAXIMUM. Son etat est SEPARE de celui de
+// l'analyse : si le programme ou une cible manque, `s_mr_state` tombe a -1, `peak` reprend les
+// tuiles moyennes et le jeu continue exactement comme avant. Une correction d'entree ne doit
+// jamais pouvoir eteindre la courbe.
+int s_mr_state = 0;  // 0 pas tente, 1 pret, -1 indisponible (publie)
+Shader* s_mr_shader = nullptr;
+GLuint s_mr_fbo1 = 0, s_mr_tex1 = 0, s_mr_fbo2 = 0, s_mr_tex2 = 0;
+int s_mr_src_w = 0, s_mr_src_h = 0, s_mr_w1 = 0, s_mr_h1 = 0;
+uint64_t s_mr_draws = 0;
+// Le TEMOIN pleine resolution et l'APPAIRAGE. `s_an_ref[slot]` est le pic que le temoin a vu sur
+// l'image dont le PBO `slot` porte la reduction — negatif quand cette analyse n'etait pas
+// appairee. `s_an_exp[slot]` est l'exposition qui etait poussee au shader a CETTE image : le
+// temoin lit la scene BRUTE, la statistique la lit apres exposition, et comparer sans ce facteur
+// mesurerait le reglage d'exposition au lieu de la surdite.
+float s_an_ref[kAnSlots] = {-1.f, -1.f};
+bool s_an_max_ok[kAnSlots] = {false, false};
+float s_an_exp[kAnSlots] = {1.f, 1.f};
+uint64_t s_ci_analyses = 0;     // analyses depuis le debut : cadence du temoin
+uint64_t s_ci_samples = 0;      // paires (temoin, statistique) sur la MEME image
+uint64_t s_ci_black = 0;        // images ou le temoin ne voit RIEN : aucune paire exploitable
+uint64_t s_ci_ref_reads = 0;    // relectures pleine resolution reellement abouties
+uint64_t s_ci_knee = 0;         // paires ou le temoin depasse le genou : identite non garantie
+double s_ci_ratio_worst = 0.0;  // le PIRE rapport par image — c'est lui la porte
+float s_ci_ref_peak_max = 0.f;  // pic du temoin, espace de la courbe, sur les images appairees
+float s_ci_curve_peak_max = 0.f;  // pic de la statistique, sur les MEMES images
+float s_ci_ref_at_worst = 0.f, s_ci_curve_at_worst = 0.f, s_ci_exp_at_worst = 1.f;
+float s_ci_knee_level = 0.f;    // le genou lu SUR le programme, jamais suppose
+std::vector<uint16_t> s_ci_raw16;  // tampons du temoin, alloues une fois
+std::vector<float> s_ci_raw32;
+GLuint s_ci_ref_fbo = 0;  // FBO du temoin : la texture de scene, attachee pour etre RELUE
 
 // La SERIE (verdict 13). Un echantillon toutes les kPlayEvery images (la sonde de jeu la pousse),
 // apres l'auto-test, avec la REPONSE du programme `tonemap` a un stimulus FIXE : si la courbe
@@ -1135,6 +1187,14 @@ bool studying() {
 // plan ne change rien au rendu : il relit ce que le chemin LIVRE produit deja.
 bool planning() {
   return autoport_proof::feature_is(kPlanId) && autoport_proof::armed_for(kPlanId);
+}
+
+// LE CHANTIER B mesure-t-il ? Ce booleen ne decide QUE de deux choses : la publication du bloc
+// `hdr_curve_input_*`, et le declenchement du TEMOIN pleine resolution (un instrument, pas du
+// rendu). La reduction par maximum, elle, tourne en PRODUCTION sans jamais le consulter — sinon
+// la porte mesurerait un chemin que le joueur n'a pas.
+bool curve_input_measuring() {
+  return autoport_proof::feature_is(kCurveInputId) && autoport_proof::armed_for(kCurveInputId);
 }
 
 bool probe_window_open() {
@@ -1396,30 +1456,47 @@ bool an_ensure() {
   glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)saved_pbo);
   s_an_mode = ok ? 2 : 1;
   s_an_state = 1;
-  lg::info("[hdr-display-output] analyse de scene {}x{} : lecture {} ({})", kAnW, kAnH,
+  lg::info("[hdr-curve-input] analyse de scene {}x{} (2 etages : moyenne + maximum) : lecture {} ({})", kAnW, kAnH,
            s_an_mode == 2 ? "PBO asynchrone" : "directe",
            s_an_read_type == GL_HALF_FLOAT ? "half" : "float");
   return true;
 }
 
-// 256 tuiles -> deux grandeurs. `key` est la luminance LOG-moyenne : elle suit le niveau general
-// de la scene sans qu'une poignee de pixels brulants la tire. `hi` est la moyenne des 2 % de
-// tuiles les plus claires : le vrai haut de scene, insensible a un pixel isole.
-void an_decode(const void* raw) {
-  const size_t n = (size_t)kAnW * kAnH;
+// UN texel de la cible d'analyse, quel que soit le type de lecture, canaux non finis ou negatifs
+// ramenes a zero. Les deux etages passent par ici : ils ne peuvent pas diverger.
+void an_texel(const void* raw, size_t i, float c[3]) {
+  for (int k = 0; k < 3; k++) {
+    c[k] = s_an_read_type == GL_HALF_FLOAT ? half_to_float(((const uint16_t*)raw)[i * 4 + k])
+                                           : ((const float*)raw)[i * 4 + k];
+    if (!std::isfinite(c[k]) || c[k] < 0.f) {
+      c[k] = 0.f;
+    }
+  }
+}
+
+// 512 texels -> trois grandeurs. ETAGE 0 (256 tuiles MOYENNES) : `key`, la luminance LOG-moyenne,
+// qui suit le niveau general de la scene sans qu'une poignee de pixels brulants la tire, et `hi`,
+// le centile qui place l'ancre. ETAGE 1 (256 tuiles MAXIMUM, couverture totale) : `peak`, et lui
+// seul — le plus grand canal de TOUTE l'image, pas la moyenne des deux tuiles les plus claires.
+//
+// hdr-curve-input : pourquoi `peak` cesse d'etre `0,5.(mx[0]+mx[1])`. Le plan (§1.5) nomme cette
+// moyenne dans la CAUSE de la surdite, au meme titre que le sous-echantillonnage. Sur des tuiles
+// MAXIMUM elle serait pire qu'inutile : mx[0] est deja le pic exact de l'image, et lui adjoindre
+// la deuxieme tuile le ferait retomber de moitie des que la source brillante tient dans une seule
+// tuile — exactement le cas qu'on cherche a voir. Le rejet d'impulsion (mediane sur cinq analyses)
+// et le limiteur de vitesse restent en aval : rien n'est desarme, la grandeur est seulement juste.
+//
+// `max_ok` dit si l'etage 1 a ete DESSINE pour cette lecture : un tampon de PBO rempli avant que
+// la pyramide soit prete porte des lignes hautes jamais ecrites. Faux => on reprend exactement le
+// calcul d'avant, sur les tuiles moyennes.
+void an_decode(const void* raw, bool max_ok, float ref_peak, float exposure) {
+  const size_t n = (size_t)kAnW * kAnTileH;
   std::vector<float> mx(n, 0.f);
   double log_sum = 0.0;
   size_t used = 0;
   for (size_t i = 0; i < n; i++) {
     float c[3];
-    for (int k = 0; k < 3; k++) {
-      c[k] = s_an_read_type == GL_HALF_FLOAT
-                 ? half_to_float(((const uint16_t*)raw)[i * 4 + k])
-                 : ((const float*)raw)[i * 4 + k];
-      if (!std::isfinite(c[k]) || c[k] < 0.f) {
-        c[k] = 0.f;
-      }
-    }
+    an_texel(raw, i, c);
     const float lum = 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2];
     mx[i] = std::fmax(c[0], std::fmax(c[1], c[2]));
     log_sum += std::log(std::fmax(lum, 1e-3f));
@@ -1429,9 +1506,10 @@ void an_decode(const void* raw) {
     return;
   }
   const float key = std::exp((float)(log_sum / (double)used));
-  // Le PIC (moyenne des deux tuiles les plus claires) et le 90e CENTILE. Deux roles distincts :
-  // le pic dit s'il y a quelque chose a faire monter, le centile dit OU commence le cinquieme le
-  // plus clair de l'image — c'est lui, et lui seul, qui place l'ancre.
+  // LE CENTILE, sur les tuiles MOYENNES. Il dit OU commence le cinquieme le plus clair de
+  // l'image — c'est lui, et lui seul, qui place l'ancre. Le PIC, lui, ne sort plus d'ici : il
+  // vient de l'etage MAXIMUM plus bas, et « moyenne des deux tuiles les plus claires » ne
+  // decrit desormais que le REPLI (pyramide indisponible).
   // La POPULATION ETIREE. C'etait le dixieme le plus clair ; c'est desormais le CINQUIEME.
   // Raison mesuree, pas de gout : l'etirement part de l'ancre avec une pente de 1 exactement
   // (Hermite, pour n'avoir aucun coude visible a la jointure), donc le relevement s'y construit
@@ -1443,8 +1521,54 @@ void an_decode(const void* raw) {
   const size_t khi = n / 5;  // 52e valeur en partant du haut sur 256
   std::partial_sort(mx.begin(), mx.begin() + khi + 1, mx.end(), std::greater<float>());
   const float hi = mx[khi];
-  const float peak = 0.5f * (mx[0] + mx[1]);
+  // Le REPLI, et il est identique au bit a ce qui tournait avant ce chantier.
+  float peak = 0.5f * (mx[0] + mx[1]);
+  if (max_ok) {
+    float top = 0.f;
+    for (size_t i = 0; i < n; i++) {
+      float c[3];
+      an_texel(raw, n + i, c);  // etage 1 : lignes 16..31
+      const float m = std::fmax(c[0], std::fmax(c[1], c[2]));
+      if (m > top) {
+        top = m;
+      }
+    }
+    peak = top;
+  }
   dyn_update(key, hi, peak);
+
+  // ---------------------------------------------------------------- LA PORTE DE CET ITEM ----
+  // Le rapport se calcule sur la MEME image : `ref_peak` a ete releve par le temoin pleine
+  // resolution au moment ou le PBO de cette lecture a ete rempli, pas sur une autre image, et
+  // `exposure` est celle qui etait poussee au shader a cet instant-la. Le temoin lit la scene
+  // BRUTE ; la statistique la lit apres exposition et apres une courbe qui est l'identite sous
+  // le genou (plafond de lecture 64, cf. kAnCeiling) : le facteur d'exposition est donc le seul
+  // ecart d'espace entre les deux, et il est applique ici, jamais suppose egal a 1.
+  if (ref_peak < 0.f) {
+    return;  // cette analyse n'etait pas appairee
+  }
+  const float ref_curve = ref_peak * exposure;
+  if (!(ref_curve > 0.f)) {
+    s_ci_black++;  // image noire : le temoin ne voit rien, la paire ne prouve rien
+    return;
+  }
+  s_ci_samples++;
+  if (s_ci_knee_level > 0.f && ref_curve > s_ci_knee_level * kAnCeiling) {
+    s_ci_knee++;  // au-dela du genou la courbe n'est plus l'identite : la paire est declaree
+  }
+  if (ref_curve > s_ci_ref_peak_max) {
+    s_ci_ref_peak_max = ref_curve;
+  }
+  if (peak > s_ci_curve_peak_max) {
+    s_ci_curve_peak_max = peak;
+  }
+  const double r = (double)ref_curve / (double)std::fmax(peak, 1e-6f);
+  if (r > s_ci_ratio_worst) {
+    s_ci_ratio_worst = r;
+    s_ci_ref_at_worst = ref_curve;
+    s_ci_curve_at_worst = peak;
+    s_ci_exp_at_worst = exposure;
+  }
 }
 
 // --------------------------------------------------------- verdict 11 : les rampes ----
@@ -2151,6 +2275,63 @@ void publish_plan() {
   autoport_proof::note_hit();
 }
 
+// ------------------------------------------------ hdr-curve-input : LE BLOC DE CE CHANTIER ----
+// Ce que la porte lit, et ce qui permet de la relire. `deaf_ratio_x100` est le PIRE rapport par
+// image, pas le rapport de deux maxima cumules : deux maxima releves sur des images differentes
+// se compareraient sans que rien ne garantisse qu'ils decrivent la meme scene, et c'est
+// exactement ce que « sur les MEMES images » interdit.
+//
+// LE ZERO D'ECHANTILLONS SE LIT « PAS MESURE », JAMAIS « PAS D'ECART » : l'analyse de scene ne
+// tourne QUE sortie HDR active (`hdr_curve_input_hdr_active`), et le temoin ne tourne que sous
+// cet item. Le denominateur est donc publie a cote, et le rapport vaut 0 quand il n'y a aucune
+// paire — ce qui ferait passer une porte `<= 120` sur du vide. C'est pourquoi `_samples` et
+// `_hdr_active` doivent etre LUS avec le verdict ; ils sont ici pour ca.
+void publish_curve_input() {
+  if (!curve_input_measuring()) {
+    return;
+  }
+  autoport_proof::publish("hdr_curve_input_samples", s_ci_samples);
+  autoport_proof::publish("hdr_curve_input_analyses", s_ci_analyses);
+  autoport_proof::publish("hdr_curve_input_witness_reads", s_ci_ref_reads);
+  autoport_proof::publish("hdr_curve_input_black_samples", s_ci_black);
+  autoport_proof::publish("hdr_curve_input_hdr_active", (uint64_t)(s_active.load() ? 1 : 0));
+  autoport_proof::publish("hdr_curve_input_hdr_frames", s_hits);
+  // L'ETAT DE LA REDUCTION : 0 jamais tentee, 1 en place, 2 refusee (repli sur les moyennes).
+  autoport_proof::publish("hdr_curve_input_reduce_state",
+                          (uint64_t)(s_mr_state == 1 ? 1 : (s_mr_state < 0 ? 2 : 0)));
+  autoport_proof::publish("hdr_curve_input_reduce_draws", s_mr_draws);
+  autoport_proof::publish("hdr_curve_input_scene_w", (uint64_t)(s_mr_src_w < 0 ? 0 : s_mr_src_w));
+  autoport_proof::publish("hdr_curve_input_scene_h", (uint64_t)(s_mr_src_h < 0 ? 0 : s_mr_src_h));
+  autoport_proof::publish("hdr_curve_input_stage1_w", (uint64_t)(s_mr_w1 < 0 ? 0 : s_mr_w1));
+  autoport_proof::publish("hdr_curve_input_stage1_h", (uint64_t)(s_mr_h1 < 0 ? 0 : s_mr_h1));
+  // LES DEUX PICS, SEPAREMENT, dans le MEME espace (celui de la courbe : apres exposition).
+  autoport_proof::publish("hdr_curve_input_probe_peak_x1000",
+                          (uint64_t)std::lround(s_ci_ref_peak_max * 1000.f));
+  autoport_proof::publish("hdr_curve_input_curve_peak_x1000",
+                          (uint64_t)std::lround(s_ci_curve_peak_max * 1000.f));
+  // Et le couple qui a produit le PIRE rapport, pour que le verdict se recalcule a la main.
+  autoport_proof::publish("hdr_curve_input_worst_probe_x1000",
+                          (uint64_t)std::lround(s_ci_ref_at_worst * 1000.f));
+  autoport_proof::publish("hdr_curve_input_worst_curve_x1000",
+                          (uint64_t)std::lround(s_ci_curve_at_worst * 1000.f));
+  autoport_proof::publish("hdr_curve_input_exposure_x1000",
+                          (uint64_t)std::lround(s_ci_exp_at_worst * 1000.f));
+  autoport_proof::publish("hdr_curve_input_knee_x1000",
+                          (uint64_t)std::lround(s_ci_knee_level * 1000.f));
+  autoport_proof::publish("hdr_curve_input_above_knee", s_ci_knee);
+  // LA SENTINELLE. Sans paire, `ratio_worst` vaut 0 et une porte `<= 120` passerait sur du VIDE —
+  // l'analyse de scene ne tourne que sortie HDR active, et une course qui ne l'allume pas (ou un
+  // ecran qui n'annonce aucun mode) rendrait exactement ce zero-la. On publie donc 9999, c'est-a-
+  // dire ROUGE, quand la mesure n'a pas eu lieu. Le plancher est de TROIS paires : une course de
+  // 300 s en produit une soixantaine (une analyse sur 16, une image sur 8), trois est 5 % de ce
+  // que la course rend normalement — assez pour qu'un accident ne passe pas, trop peu pour rendre
+  // rouge une course qui a vraiment mesure.
+  autoport_proof::publish("hdr_curve_input_samples_floor", 3);
+  autoport_proof::publish(
+      "hdr_curve_input_deaf_ratio_x100",
+      s_ci_samples >= 3 ? (uint64_t)std::lround(s_ci_ratio_worst * 100.0) : (uint64_t)9999);
+}
+
 void publish_all() {
   // Le verrou ne couvre que la COPIE des capacites : sdr_white_nits(), paper_white() et
   // sdr_white_source() le reprennent (mutex non recursif — un publish_all qui le tenait
@@ -2676,6 +2857,7 @@ void publish_all() {
   }
   publish_study();  // l'etude relit ce qui precede ; elle ne mesure rien de neuf par elle-meme
   publish_plan();   // le plan relit ce qui precede ; il ne mesure rien de neuf par lui-meme
+  publish_curve_input();  // le chantier B : ses propres grandeurs, relevees par ses propres sondes
 }
 
 void compute_verdicts() {
@@ -3858,7 +4040,175 @@ void push_tonemap_uniforms(Shader& shader) {
   set_curve(shader.id(), curve_params());
 }
 
-void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+// ------------------------------------------ hdr-curve-input : LA REDUCTION PAR MAXIMUM ----
+// Deux passes de `max()` a couverture TOTALE, de la pleine resolution jusqu'a 16x16. Le
+// programme `hdr_max_reduce` ne fait que le maximum : aucune exposition, aucune courbe. C'est
+// `tonemap` qui applique la courbe, UNE fois, sur le resultat 16x16 — et comme elle est monotone
+// par canal, max(f(v)) = f(max(v)) : le nombre obtenu est EXACTEMENT celui qu'on aurait eu en
+// tone-mappant toute l'image puis en prenant le maximum. La correction reste donc confinee a la
+// reduction, ce que le perimetre exige.
+bool mr_ensure(int src_w, int src_h) {
+  if (s_mr_state < 0) {
+    return false;
+  }
+  if (!s_mr_shader) {
+    s_mr_shader = new Shader("hdr_max_reduce", g_game_version);
+    if (!s_mr_shader->okay()) {
+      lg::error(
+          "[hdr-curve-input] programme `hdr_max_reduce` indisponible : la statistique reprend les "
+          "tuiles MOYENNES (la courbe reste sourde, et le proof le dira)");
+      s_mr_state = -1;
+      return false;
+    }
+    glUseProgram((GLuint)s_mr_shader->id());
+    glUniform1i(glGetUniformLocation((GLuint)s_mr_shader->id(), "tex_T0"), 0);
+  }
+  if (src_w <= 0 || src_h <= 0) {
+    return false;  // taille de scene inconnue : on ne devine pas une couverture
+  }
+  if (s_mr_state == 1 && src_w == s_mr_src_w && src_h == s_mr_src_h) {
+    return true;
+  }
+  if (s_mr_fbo1) {
+    glDeleteFramebuffers(1, &s_mr_fbo1);
+    glDeleteTextures(1, &s_mr_tex1);
+    s_mr_fbo1 = 0;
+    s_mr_tex1 = 0;
+  }
+  if (s_mr_fbo2) {
+    glDeleteFramebuffers(1, &s_mr_fbo2);
+    glDeleteTextures(1, &s_mr_tex2);
+    s_mr_fbo2 = 0;
+    s_mr_tex2 = 0;
+  }
+  // L'ETAGE INTERMEDIAIRE. Sa taille est bornee des DEUX cotes pour que les deux blocs restent
+  // sous la borne 64 des boucles du shader : au moins 16 (sinon la seconde passe agrandirait) et
+  // au plus 64x16 = 1024 (au-dela, le bloc de la seconde passe depasserait 64 et la couverture ne
+  // serait plus totale — une reduction qui laisse des pixels dehors n'est pas un maximum).
+  int w1 = (src_w + kMrDiv - 1) / kMrDiv;
+  int h1 = (src_h + kMrDiv - 1) / kMrDiv;
+  w1 = w1 < kAnW ? kAnW : (w1 > 64 * kAnW ? 64 * kAnW : w1);
+  h1 = h1 < kAnTileH ? kAnTileH : (h1 > 64 * kAnTileH ? 64 * kAnTileH : h1);
+  if (!make_float_fbo(&s_mr_fbo1, &s_mr_tex1, w1, h1, nullptr) ||
+      !make_float_fbo(&s_mr_fbo2, &s_mr_tex2, kAnW, kAnTileH, nullptr)) {
+    lg::error("[hdr-curve-input] cibles de reduction indisponibles ({}x{}) : repli sur les tuiles moyennes",
+              w1, h1);
+    s_mr_state = -1;
+    return false;
+  }
+  s_mr_w1 = w1;
+  s_mr_h1 = h1;
+  s_mr_src_w = src_w;
+  s_mr_src_h = src_h;
+  s_mr_state = 1;
+  lg::info("[hdr-curve-input] reduction par MAXIMUM : {}x{} -> {}x{} (bloc {}x{}) -> {}x{} (bloc {}x{})",
+           src_w, src_h, w1, h1, (src_w + w1 - 1) / w1, (src_h + h1 - 1) / h1, kAnW, kAnTileH,
+           (w1 + kAnW - 1) / kAnW, (h1 + kAnTileH - 1) / kAnTileH);
+  return true;
+}
+
+// Laisse le resultat dans `s_mr_tex2` (16x16, espace de la SCENE). Le VAO du quad plein cadre est
+// deja lie par l'appelant et l'attribut 0 est le meme : seul le programme change.
+bool mr_reduce(GLuint src_tex, int src_w, int src_h) {
+  if (!mr_ensure(src_w, src_h)) {
+    return false;
+  }
+  const GLuint prog = (GLuint)s_mr_shader->id();
+  glUseProgram(prog);
+  const GLint l_src = glGetUniformLocation(prog, "u_src_size");
+  const GLint l_blk = glGetUniformLocation(prog, "u_block");
+  glActiveTexture(GL_TEXTURE0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, s_mr_fbo1);
+  glViewport(0, 0, s_mr_w1, s_mr_h1);
+  glBindTexture(GL_TEXTURE_2D, src_tex);
+  glUniform2i(l_src, src_w, src_h);
+  glUniform2i(l_blk, (src_w + s_mr_w1 - 1) / s_mr_w1, (src_h + s_mr_h1 - 1) / s_mr_h1);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, s_mr_fbo2);
+  glViewport(0, 0, kAnW, kAnTileH);
+  glBindTexture(GL_TEXTURE_2D, s_mr_tex1);
+  glUniform2i(l_src, s_mr_w1, s_mr_h1);
+  glUniform2i(l_blk, (s_mr_w1 + kAnW - 1) / kAnW, (s_mr_h1 + kAnTileH - 1) / kAnTileH);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  s_mr_draws += 2;
+  return true;
+}
+
+// ------------------------------------------------------ hdr-curve-input : LE TEMOIN ----
+// Une relecture PLEINE RESOLUTION du tampon de scene, sur l'image que l'analyse vient de reduire.
+// Elle ne partage rien avec la pyramide : ni programme, ni cible, ni chemin de lecture. C'est ce
+// qui fait du rapport une MESURE et pas un miroir — si la pyramide se remettait a moyenner, ce
+// chiffre-ci ne bougerait pas d'un poil et le rapport remonterait.
+// Rend -1 quand la lecture n'a pas abouti (aucune paire n'est alors comptee).
+float ref_peak_now(GLuint src_tex, int src_w, int src_h) {
+  gl_query_census::Armed _ap("hdr-curve-input-witness");
+  if (src_w <= 0 || src_h <= 0) {
+    return -1.f;
+  }
+  if (!s_ci_ref_fbo) {
+    glGenFramebuffers(1, &s_ci_ref_fbo);
+  }
+  GLint saved_fbo = 0, saved_pack = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &saved_fbo);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &saved_pack);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);  // sinon la relecture atterrirait dans le PBO de l'anneau
+  glBindFramebuffer(GL_FRAMEBUFFER, s_ci_ref_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, src_tex, 0);
+  float top = -1.f;
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+    GLint rf = 0, rt = 0;
+    glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &rf);
+    glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &rt);
+    const size_t nc = (size_t)src_w * (size_t)src_h * 4;
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    if (rf == GL_RGBA && rt == GL_HALF_FLOAT) {
+      s_ci_raw16.resize(nc);
+      glReadPixels(0, 0, src_w, src_h, GL_RGBA, GL_HALF_FLOAT, s_ci_raw16.data());
+      if (glGetError() == GL_NO_ERROR) {
+        top = 0.f;
+        for (size_t i = 0; i + 3 < nc; i += 4) {
+          for (int k = 0; k < 3; k++) {
+            const float v = half_to_float(s_ci_raw16[i + k]);
+            if (std::isfinite(v) && v > top) {
+              top = v;
+            }
+          }
+        }
+      }
+    } else {
+      s_ci_raw32.resize(nc);
+      glReadPixels(0, 0, src_w, src_h, GL_RGBA, GL_FLOAT, s_ci_raw32.data());
+      if (glGetError() == GL_NO_ERROR) {
+        top = 0.f;
+        for (size_t i = 0; i + 3 < nc; i += 4) {
+          for (int k = 0; k < 3; k++) {
+            const float v = s_ci_raw32[i + k];
+            if (std::isfinite(v) && v > top) {
+              top = v;
+            }
+          }
+        }
+      }
+    }
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)saved_fbo);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)saved_pack);
+  if (top >= 0.f) {
+    s_ci_ref_reads++;
+  }
+  return top;
+}
+
+void analyze_scene(Shader& shader,
+                   GLuint src_tex,
+                   int src_w,
+                   int src_h,
+                   GLuint dst_fbo,
+                   int dst_w,
+                   int dst_h) {
   if (!s_active.load() || s_an_state < 0) {
     return;
   }
@@ -3875,12 +4225,65 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     return;
   }
   const GLuint prog = shader.id();
+  // hdr-curve-input : L'EXPOSITION ET LE GENOU SONT LUS SUR LE PROGRAMME, pas recalcules. C'est
+  // ce que le pilote a reellement recu pour l'image qui vient d'etre dessinee ; une deuxieme
+  // formule en C++ pourrait deriver de celle de `tonemap_draw` sans que rien ne le dise.
+  float exposure = 1.f;
+  {
+    const GLint le = glGetUniformLocation(prog, "u_hdr_exposure");
+    if (le >= 0) {
+      GLfloat v = 1.f;
+      glGetUniformfv(prog, le, &v);
+      if (std::isfinite(v) && v > 0.f) {
+        exposure = v;
+      }
+    }
+    if (s_ci_knee_level <= 0.f) {
+      const GLint lk = glGetUniformLocation(prog, "u_hdr_knee");
+      if (lk >= 0) {
+        GLfloat v = 0.f;
+        glGetUniformfv(prog, lk, &v);
+        if (std::isfinite(v) && v > 0.f) {
+          s_ci_knee_level = v;
+        }
+      }
+    }
+  }
   // Un plafond de lecture tres haut : la courbe SDR ne comprime rien sous 0,96 x 64, donc ce
   // qui atterrit dans la cible est la SCENE elle-meme (exposition comprise), pas son tone map.
   set_curve(prog, legacy_params(kAnCeiling));
   glBindFramebuffer(GL_FRAMEBUFFER, s_an_fbo);
-  glViewport(0, 0, kAnW, kAnH);
+  // ETAGE 0 (lignes 0..15) : les tuiles MOYENNES, le dessin d'avant, inchange.
+  glViewport(0, 0, kAnW, kAnTileH);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  // ETAGE 1 (lignes 16..31) : les tuiles MAXIMUM. La pyramide travaille dans l'espace de la
+  // SCENE, puis `tonemap` traverse son resultat 16x16 a l'identique (NEAREST, un texel pour un
+  // texel) — l'etage 1 finit donc dans le MEME espace que l'etage 0, comparables au bit.
+  const bool max_ok = mr_reduce(src_tex, src_w, src_h);
+  if (max_ok) {
+    glUseProgram(prog);  // pas `activate()` : inutile de notifier un bind au recensement d'ombrage
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, s_mr_tex2);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_an_fbo);
+    glViewport(0, kAnTileH, kAnW, kAnTileH);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  }
+  // LA TEXTURE DE SCENE EST RENDUE A L'UNITE 0 DANS TOUS LES CAS, y compris quand la pyramide a
+  // echoue : `make_float_fbo` laisse SA texture liee, et `probe_tonemap` rejoue le programme
+  // juste apres en supposant que tex_T0 est la scene. Une seule image lue sur la mauvaise
+  // texture suffirait a fausser une sonde sans qu'aucune erreur ne soit levee.
+  glUseProgram(prog);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, src_tex);
+  // LE TEMOIN, sur cette image-ci. Instrument : il ne tourne que sous mesure de cet item.
+  float ref = -1.f;
+  const bool paired = curve_input_measuring() && (s_ci_analyses % kRefEvery) == 0;
+  s_ci_analyses++;
+  if (paired) {
+    ref = ref_peak_now(src_tex, src_w, src_h);
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, s_an_fbo);
+  glViewport(0, 0, kAnW, kAnH);
   bool ok = true;
   if (s_an_mode == 2) {
     GLint saved_pbo = 0;
@@ -3892,7 +4295,10 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       // Ce tampon a ete rempli kAnSlots x kAnalyzeEvery images plus tot : la carte ne bloque pas.
       const void* m = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, (GLsizeiptr)s_an_bytes, GL_MAP_READ_BIT);
       if (m) {
-        an_decode(m);
+        // L'APPAIRAGE : `s_an_ref[slot]` et `s_an_exp[slot]` ont ete releves a l'image qui a
+        // rempli CE tampon, pas a celle-ci. Sans ce transport, le rapport comparerait deux
+        // images distantes de seize — et « sur les MEMES images » ne voudrait plus rien dire.
+        an_decode(m, s_an_max_ok[slot], s_an_ref[slot], s_an_exp[slot]);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
       } else {
         ok = false;
@@ -3905,6 +4311,9 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       glReadPixels(0, 0, kAnW, kAnH, GL_RGBA, s_an_read_type, nullptr);
       if (glGetError() == GL_NO_ERROR) {
         s_an_pending[slot] = true;
+        s_an_ref[slot] = ref;
+        s_an_exp[slot] = exposure;
+        s_an_max_ok[slot] = max_ok;
       } else {
         ok = false;
       }
@@ -3924,7 +4333,7 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       // read_float_fbo rend toujours des float : on force le decodage dans ce type.
       const GLenum saved = s_an_read_type;
       s_an_read_type = GL_FLOAT;
-      an_decode(px.data());
+      an_decode(px.data(), max_ok, ref, exposure);  // lecture directe : l'appairage est immediat
       s_an_read_type = saved;
     } else {
       lg::error("[hdr-display-output] analyse de scene : relecture refusee");

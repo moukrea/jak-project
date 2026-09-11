@@ -50,9 +50,15 @@ constexpr const char* kPlanId = "hdr-plan";
 // et le bras arme (c'est lui que `proof_run.sh --off` renverse pour donner le AVANT).
 constexpr const char* kSourceRangeId = "hdr-source-range";
 
+// LE CHANTIER B (`hdr-curve-input`). Il a besoin de la sonde de marge ci-dessous pour la meme
+// raison que l'etude et le plan : `hdr_probe_max_x1000` est le TEMOIN de reference du plan
+// (§1.5, §5.1) — le pic vu par la sonde de PIXELS, contre lequel le pic vu par la statistique de
+// la courbe se compare. Sans cette branche, son proof porterait `hdr_probe_state=1` (« la sonde
+// n'a jamais tourne ») a la place du seul chiffre auquel le sien se confronte.
 bool instrumented() {
   return autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId) ||
-         autoport_proof::feature_is(kPlanId);
+         autoport_proof::feature_is(kPlanId) ||
+         autoport_proof::feature_is(hdr_output::kCurveInputId);
 }
 
 // Le harnais mesure-t-il le chantier A ? Ne decide QUE de la publication du bloc `hdr_src_*`
@@ -510,6 +516,8 @@ const char* format_name(GLenum fmt) {
 bool tonemap_draw(Shader& shader,
                   const char* site,
                   GLuint src_tex,
+                  int src_w,
+                  int src_h,
                   GLuint dst_fbo,
                   int dst_w,
                   int dst_h,
@@ -567,7 +575,7 @@ bool tonemap_draw(Shader& shader,
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   // hdr-display-output : l'analyse de scene (PRODUCTION, une image sur huit, lecture asynchrone)
   // — c'est elle qui fait suivre la courbe a la scene. Restaure dst_fbo + viewport.
-  hdr_output::analyze_scene(shader, dst_fbo, dst_w, dst_h);
+  hdr_output::analyze_scene(shader, src_tex, src_w, src_h, dst_fbo, dst_w, dst_h);
   // hdr-display-output : sondes de preuve seulement — rejouent CE programme hors ecran (bras SDR
   // / bras HDR, et sur du jeu reel le bras REFUSE du 10/09) ; restaurent dst_fbo + viewport.
   hdr_output::probe_tonemap(shader, dst_fbo, dst_w, dst_h);

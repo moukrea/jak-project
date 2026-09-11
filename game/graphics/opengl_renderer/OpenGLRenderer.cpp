@@ -1576,8 +1576,9 @@ void OpenGLRenderer::begin_ui_pass() {
   bool tonemapped = false;
   if (hdr::chain_active()) {
     tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
-                                   "OpenGLRenderer.cpp:begin_ui_pass", *scene->tex_id, ui.fbo_id,
-                                   ui.width, ui.height, screen_vao, screen_vbo);
+                                   "OpenGLRenderer.cpp:begin_ui_pass", *scene->tex_id,
+                                   scene->width, scene->height, ui.fbo_id, ui.width, ui.height,
+                                   screen_vao, screen_vbo);
   }
   if (!tonemapped) {
     // Upscale-blit the scaled 3D scene into the native UI FBO: this is the

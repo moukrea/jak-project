@@ -88,9 +88,15 @@ const char* format_name(GLenum fmt);
 // code appelant (`__FILE__ ":" __LINE__`) ; c'est LUI qui est recense, pas un compteur maison.
 // Compte un `note_hit()` par image tone-mappee. Retourne faux si le programme n'est pas
 // utilisable — l'appelant doit alors retomber sur son blit, que le recensement verra.
+// hdr-curve-input : `src_w` / `src_h` sont les dimensions du TAMPON DE SCENE (celui de
+// `src_tex`), pas celles de la destination. La reduction par maximum de `analyze_scene` en a
+// besoin pour couvrir la totalite des pixels ; les deduire de `dst_w` / `dst_h` serait faux des
+// que la scene est rendue a une autre echelle que l'interface (« upscale 3D »).
 bool tonemap_draw(Shader& shader,
                   const char* site,
                   GLuint src_tex,
+                  int src_w,
+                  int src_h,
                   GLuint dst_fbo,
                   int dst_w,
                   int dst_h,
