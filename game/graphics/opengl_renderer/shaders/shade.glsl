@@ -463,7 +463,7 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       // though the POM march below is skipped for it.
       // lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX).
       // lighting-legacy-purge (2026-09-11) : la couverture par TESSELLATION est retiree avec son etage.
-      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. La porte `u_pbr_tess_active == 0` (par PROGRAMME)
+      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. La porte `« u-pbr-tess-active » == 0` (par PROGRAMME)
       // empechait un dessin deja deplace par la tess-eval d'empiler une marche POM. Elle est
       // SUPPRIMEE avec son etage par lighting-legacy-purge (2026-09-11) : elle etait vraie partout.
       // Everything else on this fallback path is deliberately untouched.

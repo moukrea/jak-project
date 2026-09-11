@@ -119,7 +119,7 @@
         // displacement"): u_pbr_debug 31 paints, per pixel, whether this fragment actually received
         // displacement. The tessellation tier moved this fragment's REAL geometry upstream, so it
         // counts as covered even though the POM march below is (correctly) skipped for it.
-        // ROUND 23 — PER FRAGMENT, NOT PER PROGRAM. u_pbr_tess_active only says "the TESS PROGRAM is
+        // ROUND 23 — PER FRAGMENT, NOT PER PROGRAM. « u-pbr-tess-active » only says "the TESS PROGRAM is
         // bound"; it says nothing about whether the geometry moved HERE. The tier fades its own
         // amplitude to exactly zero past ~30 m (falloff) and on welded seam vertices (seam), so on a
         // per-program flag those fragments were BOTH left flat (the POM was suppressed for them) AND
@@ -129,10 +129,10 @@
         // moved. TESS_COVER_MIN is the weight below which the vertex displacement is visually nil.
         #define TESS_COVER_MIN 0.01
         // ===== ROUND 24 FIX 1 — THE HOLE BETWEEN THE TWO TIERS ======================================
-        // MEASURED on device at the owner's vantage (mode 34, R = tess_disp_w = falloff*seam over the
+        // MEASURED on device at the owner's vantage (mode 34, R = « tess-disp-w » = falloff*seam over the
         // maps-bearing tessellated pixels (etage retire le 2026-09-11)): mean 0.581, and 63.0% of those pixels sit in the band
         // 0.05..0.95 — neither fully tessellated nor released to the parallax tier. The old handoff
-        // was BINARY (`tess_disp_w > 0.01` => POM suppressed), so every one of those pixels received
+        // was BINARY (`« tess-disp-w » > 0.01` => POM suppressed), so every one of those pixels received
         // `w x` of the tessellation amplitude and ZERO parallax: a hole covering most of the level,
         // exactly the one the round-24 mandate names ("le POM censé prendre le relais ne s'active pas
         // là où la tessellation abandonne — les deux tiers doivent se recouvrir, jamais laisser un
@@ -153,14 +153,14 @@
         // macro from the vertices, micro from the march, which is how displacement mapping is
         // combined in modern renderers.
         #define POM_MICRO_FLOOR 0.35
-        // tess_disp_w now carries the REALISED displacement fraction (etage de tessellation, retire), i.e. the
+        // « tess-disp-w » now carries the REALISED displacement fraction (etage de tessellation, retire), i.e. the
         // tier weight times the height swing the band-limited fetch actually resolved. Dividing it
         // by the FULL-DETAIL swing this stage samples gives the share of the material's relief the
         // geometry really delivered here; the parallax carries the complement. Where the band limit
         // has flattened the field (far patches) the ratio goes to 0 and the parallax comes back to
         // full strength instead of sitting at its micro floor.
         // lighting-legacy-purge (2026-09-11) : l'etage TESSELLATION est RETIRE du binaire, pas
-        // mis a zero. `u_pbr_tess_active` n'existe plus et `tess_disp_w` vaut 0 chez tous ses
+        // mis a zero. `« u-pbr-tess-active »` n'existe plus et `« tess-disp-w »` vaut 0 chez tous ses
         // ecrivains : le poids valait deja 0, le PARALLAX porte tout le relief.
         float tess_w = 0.0;
         float pom_w = max(1.0 - tess_w, POM_MICRO_FLOOR);
@@ -192,7 +192,7 @@
           float dz_upm = max(u_pbr_uv_per_m, 0.02);
           float dz_amp_m = dz_depth_uv / dz_upm;  // metres — the tese's amp_m, same law
           float dz_h = hnorm(textureLod(tex_PBR_H, uv, 0.0).r);
-          // v_tess_disp_w = falloff*seam*|h_band-0.5|*2, so the metres the tese actually moved this
+          // « v-tess-disp-w » = falloff*seam*|h_band-0.5|*2, so the metres the tese actually moved this
           // vertex are (w/2)*amp_m — computed from the tese's OWN band-limited height, which is
           // strictly more truthful than re-deriving it from a lod-0 fetch here.
           // lighting-legacy-purge (2026-09-11) : l'etage qui alimentait ce diagnostic est retire.
@@ -201,7 +201,7 @@
           f_disp_diag.b = clamp(length(s.P_rel) * (1.0 / 40.0), 0.0, 1.0);
           // ROUND 24, mode 34 — the DECOMPOSITION of that amplitude, so a dead zone names its own
           // factor instead of being attributed by hand:
-          //   R = tess_disp_w = falloff(20..30 m) * seam(mesh-consolidation pin weight). This is
+          //   R = « tess-disp-w » = falloff(20..30 m) * seam(mesh-consolidation pin weight). This is
           //       the term the round-24 measurement showed collapsing: 0.396 m of amp_m and a 0.2
           //       RMS height deviation should give ~8 cm, the device reported 1.38 cm.
           //   G = |h-0.5| * 2, this material's local height deviation at lod 0 (1.0 = full swing)
@@ -213,7 +213,7 @@
         }
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
-        // La porte est u_pbr_tess_active (par PROGRAMME) : un dessin ne saute la marche que si CE
+        // La porte est « u-pbr-tess-active » (par PROGRAMME) : un dessin ne saute la marche que si CE
         // programme l'a reellement tessele. lighting-legacy-purge (2026-09-11) : le tier
         // TESSELLATION n'est plus livre, seul le PARALLAX l'est.
         // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).

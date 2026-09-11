@@ -39,7 +39,7 @@ uniform float u_pbr_uv_per_m;
 // paliers montraient la meme profondeur, produite de deux facons. lighting-legacy-purge
 // (2026-09-11) : cet etage est retire, le PARALLAX est seul.
 uniform float u_pbr_height_lambda;
-// `u_pbr_tess_active` est SUPPRIME le 2026-09-11 par lighting-legacy-purge, avec l'etage
+// `« u-pbr-tess-active »` est SUPPRIME le 2026-09-11 par lighting-legacy-purge, avec l'etage
 // TESSELLATION : il ne valait 1 que sur le programme de tessellation, lui-meme retire.
 // Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
 // realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
