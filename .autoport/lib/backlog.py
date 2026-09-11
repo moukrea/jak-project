@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import json
 import hashlib
 import os
 import subprocess
@@ -417,7 +418,14 @@ def render_prompt(item, max_bytes=PROMPT_MAX):
     iid = item["id"]
     fb = list(item.get("owner_feedback") or [])
 
-    def body(n_quotes, quote_len):
+    def coupe(txt, limite):
+        """Rogne une rubrique quand meme sans citation ca ne tient pas. Le contrat porte le
+        texte entier, donc on peut rogner ici sans rien perdre — c'est tout l'interet du renvoi."""
+        if limite is None or not txt or len(txt) <= limite:
+            return txt
+        return txt[:limite].rstrip() + " […suite dans le contrat]"
+
+    def body(n_quotes, quote_len, sec_len=None):
         out = ["# %s" % item.get("feature", iid), ""]
         out.append("## Defaut cite")
         if fb:
@@ -429,10 +437,10 @@ def render_prompt(item, max_bytes=PROMPT_MAX):
         else:
             out.append("- (aucun retour de l'owner enregistre sur cet item)")
         out += ["", "## Cause connue",
-                item.get("known_cause")
+                coupe(item.get("known_cause"), sec_len)
                 or "Aucun cycle n'a encore etabli de cause sur cet item."]
         out += ["", "## Livrable",
-                item.get("deliverable")
+                coupe(item.get("deliverable"), sec_len)
                 or ("Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une "
                     "garde de non-regression qui echoue si le symptome revient.")]
         gate = item.get("gate")
@@ -450,18 +458,120 @@ def render_prompt(item, max_bytes=PROMPT_MAX):
         if item.get("where"):
             out.append("Ou l'owner regardera : %s." % item["where"])
         out += ["", "## Hors perimetre",
-                item.get("out_of_scope")
+                coupe(item.get("out_of_scope"), sec_len)
                 or ("Tout ce qui n'est pas ce defaut. Ne touche a aucune feature deja "
                     "validee (`./.autoport/autoport status` ne les liste plus). Pas de "
                     "mesure visuelle : seule la ligne du moteur compte.")]
         return "\n".join(out) + "\n"
 
+    # 2026-09-11 — RIEN NE SE PERD EN RACCOURCISSANT. Owner : « faudrait pas perdre des infos,
+    # sinon justement le principe iteratif est un peu detruit. Si trop long, faut p'tetre
+    # s'assurer que l'info soit quelque part en complement avec une instruction de le lire de
+    # facon obligatoire ». Chaque refus ajoute un verdict ; la consigne est plafonnee. Ce qui en
+    # sort atterrit dans le fichier de CONTRAT, que la consigne ordonne de lire.
+    #
+    # L'echelle de troncature d'origine est conservee TELLE QUELLE : un item qui tenait rend
+    # exactement le meme octet qu'avant. Seules deux choses changent :
+    #  - des qu'une citation est tronquee ou qu'une rubrique deborde, l'en-tete de renvoi est
+    #    ajoute — le worker sait qu'il lit un resume et OU est le reste ;
+    #  - le cas « meme reduit, ca ne tient pas » ne leve plus : il rend le plus petit corps
+    #    possible, precede du renvoi. Un prompt infabricable laissait le worker sur l'ANCIEN
+    #    fichier sans rien dire : c'est ce silence qui coutait des essais.
+    complet = body(len(fb) or 1, 10 ** 9)
+    if len(complet.encode("utf-8")) <= max_bytes:
+        return complet                      # tout tient : aucun renvoi, aucun fichier annexe
+
+    renvoi = ("> LIS D'ABORD `%s` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a %d octets ;\n"
+              "> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,\n"
+              "> sont dans ce fichier.\n\n" % (contract_rel(item), max_bytes))
     for n, ln in ((3, 400), (2, 300), (1, 220), (1, 140)):
-        text = body(n, ln)
+        text = renvoi + body(n, ln)
         if len(text.encode("utf-8")) <= max_bytes:
             return text
-    raise BacklogError("prompt de %s au-dessus de %d octets meme reduit : raccourcis "
-                       "known_cause / deliverable / out_of_scope" % (iid, max_bytes))
+    # Meme sans citation ca deborde : les rubriques fixes sont rognees a leur tour. Rien n'est
+    # perdu — le contrat, obligatoire, porte le texte entier.
+    for sec in (900, 700, 500, 350, 220):
+        text = renvoi + body(1, 60, sec)
+        if len(text.encode("utf-8")) <= max_bytes:
+            return text
+    return renvoi + body(0, 0, 150)
+
+
+def contract_rel(item):
+    """Le chemin du contrat complet, a cote de la consigne."""
+    rel = item.get("prompt") or ("prompts/item-%s.md" % item["id"])
+    return rel[:-3] + "-contrat.md" if rel.endswith(".md") else rel + "-contrat.md"
+
+
+def render_contract(item):
+    """Le contrat COMPLET : rien de tronque, tous les refus de l'owner dans l'ordre."""
+    iid = item["id"]
+    fb = list(item.get("owner_feedback") or [])
+    out = ["# %s — CONTRAT COMPLET" % item.get("feature", iid), "",
+           "Ce fichier porte ce que la consigne, plafonnee a %d octets, ne peut pas contenir."
+           % PROMPT_MAX,
+           "La consigne ORDONNE de le lire : elle est un resume, pas le contrat.", "",
+           "## Cause connue", "", item.get("known_cause") or "(aucune)", "",
+           "## Livrable — le contrat, en entier", "", item.get("deliverable") or "(aucun)", "",
+           "## Hors perimetre", "", item.get("out_of_scope") or "(non precise)", ""]
+    if item.get("where"):
+        out += ["## Ou l'owner regardera", "", item["where"], ""]
+    out += ["## Tous les refus de l'owner, dans l'ordre, mot pour mot", ""]
+    if fb:
+        for e in fb:
+            out.append("### %s" % e.get("date", "?"))
+            out.append("> " + (e.get("text", "") or "").replace("\n", " "))
+            out.append("")
+    else:
+        out += ["(aucun retour enregistre sur cet item)", ""]
+    out += ["## Pourquoi ce fichier existe", "",
+            "Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe",
+            "iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est",
+            "plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.", ""]
+    return "\n".join(out) + "\n"
+
+
+_FINGERPRINTS = ".autoport/.prompt_fingerprints.json"
+
+
+def _fp_load():
+    try:
+        with open(_FINGERPRINTS, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:  # noqa: BLE001 — absent ou illisible : on repart de zero
+        return {}
+
+
+def _stamp_prompt(path, texte):
+    try:
+        d = _fp_load()
+        d[os.path.basename(path)] = hashlib.sha256(texte.encode("utf-8")).hexdigest()
+        _atomic_write(_FINGERPRINTS, json.dumps(d, indent=0, sort_keys=True))
+    except Exception:  # noqa: BLE001 — l'empreinte est un confort, jamais un blocage
+        pass
+
+
+def prompt_state(item, ap_dir=None):
+    """Dit ce qu'est le fichier de consigne sur le disque, sans jamais rien reecrire.
+
+    'a-jour'   : il correspond a ce que le backlog produirait
+    'perime'   : c'est NOTRE fabrication, mais l'item a bouge depuis -> a refabriquer
+    'a-la-main': il ne correspond a aucune de nos fabrications -> quelqu'un l'a ecrit,
+                 on ALERTE et on n'ecrase pas
+    'absent'   : pas de fichier
+    """
+    ap_dir = ap_dir or AP
+    rel = item.get("prompt") or ("prompts/item-%s.md" % item["id"])
+    path = os.path.join(ap_dir, rel)
+    if not os.path.exists(path):
+        return "absent"
+    sur_disque = open(path, encoding="utf-8").read()
+    if sur_disque == render_prompt(item):
+        return "a-jour"
+    attendu = _fp_load().get(os.path.basename(path))
+    if attendu and attendu == hashlib.sha256(sur_disque.encode("utf-8")).hexdigest():
+        return "perime"
+    return "a-la-main"
 
 
 def write_prompt(item, ap_dir=None):
@@ -469,5 +579,16 @@ def write_prompt(item, ap_dir=None):
     rel = item.get("prompt") or ("prompts/item-%s.md" % item["id"])
     path = os.path.join(ap_dir, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    _atomic_write(path, render_prompt(item))
+    texte = render_prompt(item)
+    _atomic_write(path, texte)
+    # 2026-09-11 — EMPREINTE DE FABRICATION. L'owner l'avait vu venir : « et si ca correspond
+    # plus au backlog pour une VRAIE raison ? ». Une consigne ECRITE A LA MAIN est legitime, et
+    # la traiter comme perimee reviendrait a l'ecraser. On enregistre donc ce que NOUS avons
+    # ecrit : le controle de fraicheur ne bloque que si le fichier est encore notre fabrication
+    # ET que l'item a bouge depuis. Un fichier edite a la main n'est jamais bloque ni ecrase.
+    _stamp_prompt(path, texte)
+    # Le contrat complet n'existe QUE si la consigne a du tronquer : sinon il ferait doublon.
+    cpath = os.path.join(ap_dir, contract_rel(item))
+    if texte.startswith("> LIS D'ABORD"):
+        _atomic_write(cpath, render_contract(item))
     return path

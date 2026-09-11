@@ -1471,19 +1471,20 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         log(f"· controle de fraicheur de la consigne indisponible : {e}", "yellow")
     if _bl is not None:
         try:
-            _perime = _bl.render_prompt(item) != prompt_path.read_text(encoding="utf-8")
-        except _bl.BacklogError as e:
-            return Outcome("blocked",
-                           f"consigne INFABRICABLE : {e}. Raccourcis known_cause / deliverable / "
-                           "out_of_scope : au-dela du plafond, le worker garderait l'ancien fichier.")
+            _etat = _bl.prompt_state(item)
         except Exception as e:                  # noqa: BLE001
             log(f"· fraicheur de la consigne non verifiable : {e}", "yellow")
-            _perime = False
-        if _perime:
+            _etat = "a-jour"
+        if _etat == "perime":
             return Outcome("blocked",
-                           f"consigne PERIMEE : {prompt_path.name} ne correspond plus au backlog. "
-                           "Refabrique-la avant de relancer — sinon le worker travaille sur un "
-                           "cahier des charges depasse.")
+                           f"consigne PERIMEE : {prompt_path.name} est notre fabrication, mais "
+                           "l'item a bouge depuis. Refabrique-la avant de relancer — sinon le "
+                           "worker travaille sur un cahier des charges depasse.")
+        if _etat == "a-la-main":
+            # L'owner l'avait vu venir : une consigne ecrite a la main est legitime. On alerte,
+            # on ne bloque pas, et surtout on ne l'ecrase pas.
+            log(f"· consigne {prompt_path.name} ne vient pas de nos fabrications — ecrite a la "
+                "main ? on la respecte telle quelle", "yellow")
     if not GENERIC_VALIDATOR.exists():
         return Outcome("blocked", f"validateur absent : {GENERIC_VALIDATOR}")
 

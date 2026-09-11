@@ -320,10 +320,22 @@ def test_render_prompt_stays_under_the_ceiling_by_trimming_quotes(bpath):
     assert len(text.encode("utf-8")) <= bl.PROMPT_MAX
 
 
-def test_render_prompt_fails_loudly_when_it_cannot_fit(bpath):
+def test_render_prompt_renvoie_au_contrat_quand_ca_ne_tient_pas(bpath):
+    """Contrat CHANGE le 2026-09-11 sur ordre de l'owner : « faudrait pas perdre des infos,
+    sinon justement le principe iteratif est un peu detruit. Si trop long, faut p'tetre
+    s'assurer que l'info soit quelque part en complement avec une instruction de le lire de
+    facon obligatoire ». Une consigne trop longue ne LEVE plus — elle rend un resume qui
+    ORDONNE de lire le contrat complet, lequel porte le texte entier.
+    L'exigence « echouer bruyamment » est tenue autrement : le renvoi est la premiere ligne,
+    impossible a manquer, et le worker n'est plus laisse sur un ancien fichier en silence."""
     _write(bpath, [_item("a", known_cause="y" * 4000)])
-    with pytest.raises(bl.BacklogError):
-        bl.render_prompt(bl.load(bpath).get("a"))
+    it = bl.load(bpath).get("a")
+    texte = bl.render_prompt(it)
+    assert len(texte.encode("utf-8")) <= bl.PROMPT_MAX
+    assert texte.startswith("> LIS D'ABORD")
+    assert bl.contract_rel(it) in texte
+    contrat = bl.render_contract(it)
+    assert "y" * 4000 in contrat          # rien n'est perdu : le texte entier est dans le contrat
 
 
 def test_every_open_item_of_the_real_backlog_has_a_prompt_on_disk():
