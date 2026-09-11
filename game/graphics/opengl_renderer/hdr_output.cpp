@@ -134,13 +134,33 @@ void rebuild_caps_text_locked() {
 // Display.HdrCapabilities) ; le MODE est le transport que la couche de presentation sait
 // creer. HDR10+ et HDR10 partagent le transport PQ. Chaque ligne se lit dans les capacites :
 // rien ici ne nomme un appareil.
+// LE CONTRAT DE MARGE ETENDUE. scRGB n'a de sens que si quelqu'un PUBLIE la marge au-dessus du
+// blanc SDR : sans contrat, 1,0 ne veut rien dire. Deux systemes le tiennent, et le contrat est
+// le MEME (1,0 = blanc SDR courant, au-dessus = ce que le systeme accorde) :
+//   * Android 14+ : Display.getHdrSdrRatio() (sdk_int >= 34) ;
+//   * bureau : le compositeur publie deja la marge de NOTRE fenetre, que SDL recopie dans
+//     SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT — DWM sous Windows (DXGI MaxLuminance / blanc SDR),
+//     wp_color_management ou frog sous Wayland. C'est la meme grandeur, lue au meme endroit du
+//     contrat. Aucun appareil, aucun OS n'est nomme : on lit ce que la couche publie.
+bool scrgb_contract_locked() {
+  return s_sys.sdk_int >= 34 || (s_plat.sdl_window_hdr && s_plat.sdl_headroom_x100 > 100);
+}
+
 uint32_t format_transport_locked(int fmt) {
   switch (fmt) {
-    case kFmtScrgb:
-      return (s_sys.sdk_int >= 34 && s_plat.egl_scrgb_linear && s_plat.egl_fp16 &&
-              s_plat.config_fp16)
-                 ? kModeScrgbLinear
-                 : kModeNone;
+    case kFmtScrgb: {
+      if (!scrgb_contract_locked()) {
+        return kModeNone;
+      }
+      // Deux facons de POSER une surface scRGB lineaire. La premiere est celle d'EGL (Android,
+      // et Linux quand le pilote annonce l'extension). La seconde est la seule qui existe en
+      // OpenGL sous Windows : il n'y a AUCUNE extension WGL de colorspace, mais un tampon de
+      // fenetre a composantes flottantes est interprete en scRGB lineaire par le compositeur
+      // des que l'ecran est en mode HDR — et c'est ce meme compositeur qui publie la marge.
+      const bool egl_path = s_plat.egl_scrgb_linear && s_plat.egl_fp16 && s_plat.config_fp16;
+      const bool compositor_fp16 = s_plat.sdl_window_hdr && s_plat.config_fp16;
+      return (egl_path || compositor_fp16) ? kModeScrgbLinear : kModeNone;
+    }
     case kFmtHdr10Plus:  // meme transport que HDR10 ; ce qui manque, ce sont les metadonnees
     case kFmtHdr10:
       return (s_plat.egl_bt2020_pq && s_plat.config_10bit) ? kModeHdr10Pq : kModeNone;
@@ -154,7 +174,11 @@ uint32_t format_transport_locked(int fmt) {
 uint32_t format_sys_bit(int fmt) {
   switch (fmt) {
     case kFmtHdr10Plus: return kSysHdr10Plus;
-    case kFmtHdr10: return kSysHdr10;
+    // kSysSdl : le bureau n'a pas de HdrCapabilities. Ce que SDL publie, c'est « cet ecran est
+    // en mode HDR » (SDL_PROP_DISPLAY_HDR_ENABLED_BOOLEAN) — et un ecran de bureau en mode HDR
+    // decode HDR10/PQ par construction (c'est le format du transport DisplayPort/HDMI dans ce
+    // mode). Le bit vaut donc annonce de HDR10, et de rien d'autre : ni HLG, ni HDR10+.
+    case kFmtHdr10: return kSysHdr10 | kSysSdl;
     case kFmtHlg: return kSysHlg;
     case kFmtDolbyVision: return kSysDolbyVision;
     default: return 0;  // scRGB n'est pas un format annonce par l'ecran : c'est un transport
@@ -165,8 +189,9 @@ bool format_announced_locked(int fmt) {
   if (fmt == kFmtScrgb) {
     // scRGB n'apparait dans aucune HdrCapabilities : il n'est « annonce » que si l'ecran est
     // HDR par ailleurs ET que l'API 34 contractualise la marge.
-    return (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision)) != 0 &&
-           s_sys.sdk_int >= 34;
+    return (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision | kSysSdl)) !=
+               0 &&
+           scrgb_contract_locked();
   }
   return (s_sys.types & format_sys_bit(fmt)) != 0;
 }
@@ -203,9 +228,16 @@ const char* format_reason_locked(int fmt) {
       if (!s_plat.config_10bit) return "pas_de_config_10bit";
       return "-";
     case kFmtScrgb:
-      if (s_sys.sdk_int < 34) return "sdk<34:aucun_contrat_de_marge_etendue";
-      if (!s_plat.egl_scrgb_linear || !s_plat.egl_fp16) return "egl_sans_scrgb_lineaire_fp16";
+      if (!scrgb_contract_locked()) {
+        return s_sys.sdk_int > 0 ? "sdk<34:aucun_contrat_de_marge_etendue"
+                                 : "le_compositeur_ne_publie_aucune_marge_pour_cette_fenetre";
+      }
+      if (!format_announced_locked(kFmtScrgb)) return "aucun_ecran_hdr_annonce";
       if (!s_plat.config_fp16) return "pas_de_config_fp16";
+      if (!s_plat.egl_scrgb_linear && !s_plat.sdl_window_hdr)
+        return "egl_sans_scrgb_lineaire_et_pas_de_fenetre_hdr";
+      if (!s_plat.egl_scrgb_linear && !s_plat.egl_fp16 && !s_plat.sdl_window_hdr)
+        return "egl_sans_scrgb_lineaire_fp16";
       return "-";
     default:
       return "-";
@@ -239,16 +271,18 @@ int format_rank_locked(int fmt) {
 // SECOND pour aller le mesurer (spec de l'item : « publier CHAQUE chemin »).
 uint32_t modes_supported() {
   // Un mode n'est « annonce » que si le SYSTEME dit que l'ecran est HDR ET que la couche de
-  // presentation sait creer une surface dans cet espace. Bureau : SDL peut annoncer un ecran
-  // HDR, mais aucune presentation OpenGL en HDR n'existe par SDL3 — donc aucun mode, et la
-  // capacite est publiee telle quelle pour que ce soit lisible, pas suppose.
+  // presentation sait creer une surface dans cet espace. Bureau (hdr-desktop-output) : les deux
+  // couches existent aussi — SDL annonce l'ecran, et la couche de presentation est EGL quand le
+  // pilote la donne (Linux), sinon le tampon flottant du compositeur (Windows). Ce qui manque a
+  // une plateforme est publie avec sa RAISON, jamais suppose.
   // Verdict 13 : le masque SUIT DESORMAIS LES FORMATS ANNONCES. Un transport n'y entre que si
   // un format que l'ecran annonce l'exige, de sorte que mode et format ne puissent jamais
   // diverger (HDR10 et HDR10+ demandent le PQ, HLG le HLG, scRGB le scRGB lineaire).
   if (!s_sys.reported || !s_plat.probed) {
     return kModeNone;
   }
-  const bool sys_hdr = (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision)) != 0;
+  const bool sys_hdr =
+      (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision | kSysSdl)) != 0;
   if (!sys_hdr) {
     return kModeNone;
   }
@@ -314,6 +348,10 @@ SurfaceState s_surface;               // fil GL
 int s_last_want = -1;                 // fil GL : derniere demande tentee (mode)
 uint64_t s_switch_ok = 0, s_switch_fail = 0;
 float s_white_override = -1.f;        // PQ : debug.opengoal.hdr.out.white (nits), -1 = pas lu, 0 = absent
+// REGIME SIMULE, MESURE SEULEMENT (hdr-desktop-output) : un blanc SDR impose par le CODE, par le
+// meme point d'entree que le knob. Il existe parce que la preuve bureau doit exercer la courbe a
+// deux pics d'ecran differents sans ecran HDR, et qu'un pic ne dit rien sans son blanc.
+float s_sim_white = 0.f;
 // Verdict 10 (owner 09/09 : « celui-ci fait 480, mais quid d'un ecran a 1000 ? ») : le pic
 // annonce peut etre SIMULE par debug.opengoal.hdr.out.peak / OG_HDR_OUT_PEAK (nits), et
 // l'auto-test impose lui-meme un pic simule dans sa phase 3 par ce MEME chemin.
@@ -1444,6 +1482,10 @@ void publish_all() {
   autoport_proof::publish("hdr_out_format_chosen_id", (uint64_t)fmt_chosen);
   autoport_proof::publish("hdr_out_format_chosen_rank", (uint64_t)fmt_rank);
   autoport_proof::publish_text("hdr_out_format_reasons", fmt_reasons.c_str());
+  // La signature de la courbe, publiee par les DEUX plateformes : c'est la seule facon de
+  // VERIFIER, en confrontant deux proof.txt, que le bureau et l'appareil appellent le meme code.
+  // Additif : aucun verdict, ici ou ailleurs, ne la lit.
+  autoport_proof::publish_text("hdr_out_curve_signature", curve_signature());
   autoport_proof::publish("hdr_out_dv_announced", dv_announced ? 1 : 0);
   autoport_proof::publish_text("hdr_out_dv_reason", "licence_hors_perimetre");
   autoport_proof::publish("hdr_out_format_choice_offered", fmt_usable_count > 1 ? 1 : 0);
@@ -2307,6 +2349,11 @@ uint32_t format_transport(int fmt) {
 }
 
 // Table pure : aucun etat lu, donc aucun verrou.
+const char* format_reason(int fmt) {
+  std::lock_guard<std::mutex> lk(s_mu);
+  return format_reason_locked(fmt);
+}
+
 const char* format_name(int fmt) {
   switch (fmt) {
     case kFmtScrgb: return "scrgb_extended";
@@ -2508,9 +2555,20 @@ GLenum window_target_format() {
   return s_surface.mode == kModeScrgbLinear ? GL_RGBA16F : GL_RGB10_A2;
 }
 
-float sdr_white_nits() {
-  if (s_surface.mode == kModeScrgbLinear) {
+// Les quatre grandeurs de la courbe, PARAMETREES PAR LE TRANSPORT. Les versions sans argument
+// (celles que le header expose depuis toujours) ne sont plus que des appels de celles-ci avec
+// l'etat de la surface courante : il n'existe donc qu'UNE implementation, et le bureau appelle
+// exactement la meme que l'appareil. C'est le point (3) du livrable hdr-desktop-output.
+float headroom_linear_for(uint32_t mode, bool active);
+
+float sdr_white_nits_for(uint32_t mode) {
+  if (mode == kModeScrgbLinear) {
     return 0.f;  // contrat relatif : 1,0 = blanc SDR, pas un nits
+  }
+  // REGIME SIMULE (mesure seulement, hdr-desktop-output) : le meme point d'entree que le knob,
+  // pose par le code au lieu de l'environnement. Voir set_sim_regime().
+  if (s_sim_white > 0.f) {
+    return s_sim_white;
   }
   if (s_white_override < 0.f) {
     const int v = read_int_knob("debug.opengoal.hdr.out.white", "OG_HDR_OUT_WHITE", 0);
@@ -2536,6 +2594,10 @@ float sdr_white_nits() {
   // dans le signal pour que le contenu SDR emette la meme lumiere qu'avant.
   const float g = measured_grant();
   return g > 1.005f ? peak_nits() / g : peak_nits();
+}
+
+float sdr_white_nits() {
+  return sdr_white_nits_for(s_surface.mode);
 }
 
 const char* sdr_white_source() {
@@ -2566,30 +2628,34 @@ const char* sdr_white_source() {
                      : "pq:compositor_default_500(ecran_qui_decode)";
 }
 
-float paper_white() {
-  if (!s_active.load()) {
+float paper_white_for(uint32_t mode, bool active) {
+  if (!active) {
     return 1.f;
   }
-  if (s_surface.mode == kModeHdr10Pq) {
-    return sdr_white_nits();  // PQ : des NITS absolus
+  if (mode == kModeHdr10Pq) {
+    return sdr_white_nits_for(mode);  // PQ : des NITS absolus
   }
-  if (s_surface.mode == kModeHlg) {
+  if (mode == kModeHlg) {
     // HLG est RELATIF : `u_out_paper_white` y est la FRACTION du pic qu'occupe le blanc du jeu,
     // jamais un nits (post_processing.frag, mode 3). Le tone map fait sortir le plafond a
     // `headroom^(1/2,2)` en espace d'affichage, soit `headroom` une fois linearise : la fraction
     // qui met ce plafond exactement au pic de l'ecran est donc 1/headroom. Sans marge accordee
     // elle vaut 1,0 — le blanc du jeu sort AU pic, rien n'est assombri.
-    const float h = headroom_linear();
+    const float h = headroom_linear_for(mode, active);
     return h > 1.f ? 1.f / h : 1.f;
   }
   return 1.f;
 }
 
-float headroom_linear() {
-  if (!s_active.load()) {
+float paper_white() {
+  return paper_white_for(s_surface.mode, s_active.load());
+}
+
+float headroom_linear_for(uint32_t mode, bool active) {
+  if (!active) {
     return 1.f;
   }
-  if (s_surface.mode == kModeScrgbLinear) {
+  if (mode == kModeScrgbLinear) {
     return ratio_linear();
   }
   // PQ / HLG : aucune API ne PUBLIE la marge accordee avant l'API 34. La marge est le quotient
@@ -2599,7 +2665,7 @@ float headroom_linear() {
   // vaut 1,000. ANNONCER N'EST PAS ACCORDER : ce 1,000-la est un constat sur l'ecran, pas une
   // constante — et il est publie avec sa raison (`hdr_out_presents_reason`).
   const float pk = peak_nits();
-  const float w = sdr_white_nits();
+  const float w = sdr_white_nits_for(mode);
   if (!(pk > 0.f) || !(w > 0.f)) {
     return 1.f;
   }
@@ -2609,11 +2675,19 @@ float headroom_linear() {
   return h;
 }
 
-float tonemap_ceiling() {
+float headroom_linear() {
+  return headroom_linear_for(s_surface.mode, s_active.load());
+}
+
+float tonemap_ceiling_for(uint32_t mode, bool active) {
   // Le plafond PERMIS par l'ecran — la borne, pas la valeur de l'image. Ce que la courbe utilise
   // vraiment est `curve_params().ceiling`, qui depend en plus du CONTENU de la scene.
-  const float h = headroom_linear();
+  const float h = headroom_linear_for(mode, active);
   return h > 1.f ? std::pow(h, 1.f / 2.2f) : 1.f;  // marge lineaire -> espace d'affichage
+}
+
+float tonemap_ceiling() {
+  return tonemap_ceiling_for(s_surface.mode, s_active.load());
 }
 
 CurveParams curve_params() {
@@ -2759,18 +2833,71 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
   glViewport(0, 0, dst_w, dst_h);
 }
 
-void push_present_uniforms(Shader& shader) {
-  const bool on = s_active.load();
+PresentParams present_params_for(uint32_t mode) {
+  PresentParams pp;
   // Le TRANSPORT decide l'encodage du quad final. Une surface HLG qui recevait l'encodage PQ
   // (tout ce qui n'etait pas scRGB tombait sur 1) sortait une OETF pour une autre : la branche
   // `u_out_mode == 3` de post_processing.frag n'etait atteinte par personne.
-  s_last_present_mode = !on                                     ? 0
-                        : s_surface.mode == kModeScrgbLinear    ? 2
-                        : s_surface.mode == kModeHlg            ? 3
-                                                                : 1;
-  glUniform1i(glGetUniformLocation(shader.id(), "u_out_mode"), s_last_present_mode);
-  glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), paper_white());
-  glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"), peak_nits());
+  pp.out_mode = mode == kModeNone            ? 0
+                : mode == kModeScrgbLinear   ? 2
+                : mode == kModeHlg           ? 3
+                                             : 1;
+  const bool active = mode != kModeNone;
+  pp.paper_white = paper_white_for(mode, active);
+  pp.max_nits = peak_nits();
+  pp.headroom = headroom_linear_for(mode, active);
+  pp.ceiling = tonemap_ceiling_for(mode, active);
+  return pp;
+}
+
+void push_present_uniforms_to(Shader& shader, const PresentParams& pp) {
+  glUniform1i(glGetUniformLocation(shader.id(), "u_out_mode"), pp.out_mode);
+  glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), pp.paper_white);
+  glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"), pp.max_nits);
+}
+
+void push_present_uniforms(Shader& shader) {
+  const PresentParams pp = present_params_for(s_active.load() ? s_surface.mode : kModeNone);
+  s_last_present_mode = pp.out_mode;
+  push_present_uniforms_to(shader, pp);
+}
+
+const void* common_curve_symbol() {
+  // L'ADRESSE de la fonction de courbe, pour que la preuve bureau la NOMME (dladdr) au lieu
+  // d'affirmer « c'est le meme code ». Une liste de sites ne prouve que la liste.
+  CurveParams (*fn)() = &curve_params;
+  return (const void*)fn;
+}
+
+const char* curve_signature() {
+  // Pure : on epingle le blanc a BT.2408 et on balaye une suite de pics FIXE. L'etat simule
+  // courant est sauve et rendu — l'auto-test appareil s'en sert au meme instant, sur le meme fil.
+  static std::string sig;
+  if (!sig.empty()) {
+    return sig.c_str();
+  }
+  const float save_peak = s_test_peak;
+  const float save_white = s_sim_white;
+  static const int kPeaks[] = {200, 300, 500, 1000, 2000, 4000};
+  sig = "pq/w203:";
+  for (size_t i = 0; i < sizeof(kPeaks) / sizeof(kPeaks[0]); i++) {
+    s_test_peak = (float)kPeaks[i];
+    s_sim_white = 203.f;
+    if (i) {
+      sig += ",";
+    }
+    sig += std::to_string((int)std::lround(tonemap_ceiling_for(kModeHdr10Pq, true) * 1000.f));
+  }
+  s_test_peak = save_peak;
+  s_sim_white = save_white;
+  return sig.c_str();
+}
+
+void set_sim_regime(int peak_nits_v, int sdr_white_v) {
+  // Le MEME point d'entree que `OG_HDR_OUT_PEAK` / `OG_HDR_OUT_WHITE`, pose par le code. Reserve
+  // a la mesure : aucun appelant hors sonde. 0, 0 = plus aucun regime simule.
+  s_test_peak = peak_nits_v > 0 ? (float)peak_nits_v : 0.f;
+  s_sim_white = sdr_white_v > 0 ? (float)sdr_white_v : 0.f;
 }
 
 // ------------------------------------------------------------------------------- sondes --

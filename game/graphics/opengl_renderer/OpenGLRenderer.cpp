@@ -3,6 +3,7 @@
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hdr_desktop.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
@@ -2184,6 +2185,9 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
   // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
   // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport.
   hdr_output::probe_present(shader);
+  // hdr-desktop-output : la repetition d'encodage du bureau, au MEME endroit et avec le MEME
+  // programme — elle ne tourne que sous mesure de cet item.
+  hdr_desktop::probe_present(shader);
 
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);

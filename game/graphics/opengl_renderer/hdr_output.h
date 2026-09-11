@@ -122,7 +122,9 @@ void set_system_caps(uint32_t sys_types_mask,
                      int min_lum_x10000,
                      bool wide_gamut);
 // Le niveau d'API de la plateforme et si le systeme sait publier son ratio HDR/SDR
-// (Android 14+ : Display.isHdrSdrRatioAvailable). Bureau : (0, false).
+// (Android 14+ : Display.isHdrSdrRatioAvailable). Bureau : sdk_int = 0 — il n'y a pas de niveau
+// d'API Android — et `ratio_available` VRAI des que le compositeur publie la marge de notre
+// fenetre (SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT), car c'est le meme contrat lisible.
 void set_platform_info(int sdk_int, bool hdr_sdr_ratio_available);
 // Le ratio HDR/SDR courant LU dans le systeme (Display.getHdrSdrRatio, 1,0 = aucune marge).
 // Pousse par Java a chaque changement ; fil quelconque.
@@ -154,6 +156,9 @@ const char* mode_name(uint32_t mode);
 // plateforme sait produire. kFmtNone = aucun.
 int format_chosen();
 const char* format_name(int fmt);
+// POURQUOI un format n'a pas ete retenu. Jamais vide : « - » quand il n'y a rien a reprocher.
+// C'est la grandeur que le livrable bureau exige (« la raison de chaque rejet »).
+const char* format_reason(int fmt);
 // Le transport que ce format exige (kModeHdr10Pq pour HDR10 et HDR10+, kModeHlg pour HLG,
 // kModeScrgbLinear pour scRGB). kModeNone si le format n'est pas productible ici.
 uint32_t format_transport(int fmt);
@@ -256,6 +261,35 @@ float tonemap_ceiling();
 // Le quad final : `u_out_mode` (0 recopie, 1 PQ, 2 scRGB lineaire, 3 HLG), `u_out_paper_white`,
 // `u_out_max_nits` (POUSSE mais lu par aucune ligne du shader — voir FINDINGS).
 void push_present_uniforms(Shader& shader);
+
+// ------------------------------------------------ LA COURBE, PARTAGEE AVEC LE BUREAU --------
+// hdr-desktop-output, point (3) du livrable : « l'adaptation au pic annonce et au contenu est le
+// code COMMUN, pas une copie ». Ces trois-la rendent ce partage VERIFIABLE au lieu d'affirme :
+// `push_present_uniforms()` ci-dessus n'est plus qu'un appel de `present_params_for()` avec le
+// mode de la surface courante, et la sonde bureau appelle la MEME fonction avec un mode choisi.
+// Aucune ligne de courbe n'existe en double.
+struct PresentParams {
+  int out_mode = 0;         // u_out_mode
+  float paper_white = 1.f;  // u_out_paper_white
+  float max_nits = 0.f;     // u_out_max_nits
+  float ceiling = 1.f;      // plafond du tone map, espace d'affichage
+  float headroom = 1.f;     // marge lineaire au-dessus du blanc SDR
+};
+PresentParams present_params_for(uint32_t mode);
+void push_present_uniforms_to(Shader& shader, const PresentParams& pp);
+// L'adresse de `curve_params`, pour que la preuve bureau NOMME le symbole (dladdr) au lieu de
+// prendre notre parole. Une liste de sites ne prouve que la liste.
+const void* common_curve_symbol();
+// REGIME SIMULE (mesure seulement) : pic d'ecran et blanc SDR imposes par le CODE, par le meme
+// chemin que `OG_HDR_OUT_PEAK` / `OG_HDR_OUT_WHITE`. (0, 0) = aucun. C'est ce qui permet
+// d'exercer la courbe a deux pics SANS ecran HDR, comme le livrable l'exige.
+void set_sim_regime(int peak_nits, int sdr_white_nits);
+// LA SIGNATURE NUMERIQUE DE LA COURBE : le plafond que `tonemap_ceiling` retient pour une SUITE
+// FIXE de pics d'ecran, au blanc graphique BT.2408. Fonction PURE du code de la courbe — aucune
+// capacite d'ecran n'y entre — donc DEUX plateformes qui appellent la meme fonction publient la
+// meme chaine, et deux chaines differentes disent qu'une copie a diverge. C'est ce qui rend
+// « c'est le code commun » verifiable au lieu d'affirme : on compare deux proof.txt.
+const char* curve_signature();
 
 // -------------------------------------------------------------------- sondes de preuve ----
 // Les deux sondes ne tournent QUE sous mesure de cet item (harnais arme, phase ON de

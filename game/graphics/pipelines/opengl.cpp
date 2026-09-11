@@ -34,6 +34,7 @@
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/OpenGLRenderer.h"
 #include "game/graphics/opengl_renderer/debug_gui.h"
+#include "game/graphics/opengl_renderer/hdr_desktop.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/screenshot.h"
 #include "game/graphics/texture/TexturePool.h"
@@ -233,6 +234,9 @@ static int gl_init(GfxGlobalSettings& settings) {
     auto p = scoped_prof("startup::sdl::init_sdl");
     // remove SDL garbage from hooking signal handler.
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
+    // hdr-desktop-output : le pilote GL de SDL se choisit DANS SDL_Init. Sans demande de sortie
+    // HDR, cet appel ne fait rien du tout.
+    hdr_desktop::before_sdl_init();
     if (!SDL_Init(SDL_INIT_VIDEO)) {
       sdl_util::log_error("Could not initialize SDL, exiting");
       dialogs::create_error_message_dialog("Critical Error Encountered",
@@ -322,6 +326,9 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
                                                    bool is_main) {
   // Setup the window
   prof().instant_event("ROOT");
+  // hdr-desktop-output : sur bureau, le colorspace et la profondeur du framebuffer de fenetre se
+  // choisissent ICI et nulle part ailleurs — aucune API ne les rechange a chaud.
+  hdr_desktop::before_window();
   prof().begin_event("startup::sdl::create_window");
   SDL_Window* window =
       SDL_CreateWindow(title, width, height,
@@ -396,38 +403,15 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
              gl_version);
   }
 
-  // hdr-display-output : capacites de la couche de presentation (SDL) et etat initial de la
-  // surface. Aucun switcher sur bureau : SDL/GLX ne recree pas une surface 10 bits a chaud,
-  // donc `modes_available()` reste a 0 ici — l'option n'existe que la ou la bascule existe.
+  // hdr-desktop-output : ce que les deux couches annoncent, ce qui a ete REELLEMENT obtenu, les
+  // metadonnees statiques HDR10, et le basculeur. Tout le detail est dans hdr_desktop.cpp ; ici
+  // il n'y a qu'un point d'appel, au seul instant ou le contexte GL est courant et la fenetre
+  // neuve. Sans demande de sortie HDR et hors mesure, cet appel ne fait rien.
   {
-    hdr_output::PlatformCaps caps;
-    SDL_DisplayID did = SDL_GetDisplayForWindow(window);
-    caps.sdl_display_hdr = SDL_GetBooleanProperty(SDL_GetDisplayProperties(did),
-                                                  SDL_PROP_DISPLAY_HDR_ENABLED_BOOLEAN, false);
-    SDL_PropertiesID wp = SDL_GetWindowProperties(window);
-    caps.sdl_window_hdr = SDL_GetBooleanProperty(wp, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
-    caps.sdl_headroom_x100 =
-        (int)(SDL_GetFloatProperty(wp, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 0.f) * 100.f);
-    hdr_output::set_platform_caps(caps);
-    hdr_output::set_system_caps(caps.sdl_display_hdr ? (uint32_t)hdr_output::kSysSdl : 0u, 0, 0, 0,
-                                false);
-    // Etat initial de la surface : bits rouges lus sur le framebuffer par defaut (GL_RED_BITS
-    // est retire du core profile ; l'interrogation d'attachement, elle, y est valide). Pas de
-    // colorspace interrogeable via SDL/GLX.
-    hdr_output::SurfaceState st;
-    st.hdr = false;
-    st.red_bits = 8;
-    st.colorspace = 0;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     while (glGetError() != GL_NO_ERROR) {
     }
-    GLint red_bits = 0;
-    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_BACK_LEFT,
-                                          GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &red_bits);
-    if (glGetError() == GL_NO_ERROR && red_bits > 0) {
-      st.red_bits = red_bits;
-    }
-    hdr_output::note_surface_state(st);
+    hdr_desktop::after_window(window);
   }
 
   {
@@ -876,6 +860,9 @@ void GLDisplay::render() {
     }
     m_input_manager->finish_polling();
   }
+  // hdr-desktop-output : le geste qui n'existait pas sur bureau — appliquer, entre deux images
+  // et sur le fil GL, une demande de bascule laissee par le menu ou par le chargement du reglage.
+  hdr_desktop::frame_begin();
   // Now process SDL Events
   process_sdl_events();
   // Also process any display related events received from the EE (the game)
