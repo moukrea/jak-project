@@ -63,6 +63,48 @@ void note_sprite(const char* texture_name,
                  int alpha_blend,
                  bool double_draw);
 
+// UN SPRITE 2D AU POINT D'EMPAQUETAGE — l'oracle de la couleur.
+//
+// POURQUOI CE COMPTEUR EXISTE. `Sprite3::do_block_common` empaquete la couleur que GOAL a ecrite
+// (des flottants a l'echelle 0..255, que RIEN ne borne par le HAUT : le seul clamp du chemin
+// sparticle est le `vmaxx ... vf0` a >= 0) en quatre octets. Depuis l'amont `f4941706a6`
+// (« wrap sprite rgba to 0-255 », 2024-06-04) cet empaquetage etait un REPLIEMENT `(int)v & 0xff`.
+// Un `defpart` d'origine qui ecrit `:r 256.0` — le foyer du maire (411, 2292) et le portail de
+// teleportation le font — voyait donc son canal rouge rendu NUL, puis basculer d'un coup a 255
+// des que le `fade-r` du launcher suivant le faisait passer sous 256. C'est une couleur que la
+// donnee de Naughty Dog ne decrit nulle part : elle n'appartient pas au jeu d'origine.
+//
+// L'ORACLE. On donne a l'instrument la couleur SOURCE et les quatre octets REELLEMENT ecrits
+// dans le sommet. La reference est calculee a part, depuis la source seule : la SATURATION
+// `v < 0 -> 0 ; v > 255 -> 255 ; sinon (int)v`. Trois grandeurs en sortent :
+//   * `pack_foreign`  — le sommet differe de la reference. C'est la grandeur de la PORTE : elle
+//                       entre dans `fire_debug_particles` et doit tomber a 0.
+//   * `pack_oldwrap`  — le nombre de sprites sur lesquels l'ANCIENNE politique `& 0xff` donnait
+//                       une autre couleur que la reference. Ce compte reste NON NUL apres la
+//                       correction : c'est lui qui prouve que l'oracle a des dents, et c'est la
+//                       taille exacte du defaut que l'owner voyait.
+//   * `pack_oor`      — le nombre de sprites dont une composante SOURCE sort de [0,255]. Sans
+//                       lui, un `pack_foreign=0` pourrait n'etre qu'une condition absente.
+// LE HUD EST A PART, ET CE N'EST PAS UN AMENAGEMENT. Le clignotement « eco bas » du HUD
+// (`goal_src/jak1/engine/ui/hud-classes.gc:1276-1279` : `(set! arg3 (* arg3 2))` sur un canal
+// vert a 128) s'appuie DELIBEREMENT sur le repliement — c'est ce que la PR amont #3549
+// retablissait. Ce n'est pas une particule du monde, l'owner ne parle pas de lui, et la
+// correction ne le touche pas : il est compte separement (`fire_pack_foreign_hud`) et n'entre
+// pas dans la porte. Tout sprite du monde, lui, y entre.
+//
+// `sr,sg,sb,sa` : la couleur source, echelle 0..255, non bornee. `pr,pg,pb,pa` : les octets
+// ecrits. `texture_name` : l'emetteur, publie nommement dans `fire_pack_emitters`.
+void note_pack(const char* texture_name,
+               bool hud,
+               float sr,
+               float sg,
+               float sb,
+               float sa,
+               int pr,
+               int pg,
+               int pb,
+               int pa);
+
 // Un tirage issu d'un site de dessin ROUGE de debug. `site` est son nom, publie tel quel.
 void note_debug_red_draw(const char* site);
 

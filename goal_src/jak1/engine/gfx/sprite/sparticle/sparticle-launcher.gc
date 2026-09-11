@@ -503,6 +503,26 @@
                                     (sp-field-id sprite-fields-end)
                                     #f)))
          (sp-init-fields! (&-> arg2 omega) a1-3 (sp-field-id cpu-fields-start) (sp-field-id cpu-fields-end) #f)))))
+  ;; og:preserve-this
+  ;; fire-red-particles : LA BORNE HAUTE QUE LE PREMIER LANCEMENT APPLIQUE ET QUE LA RELANCE
+  ;; AVAIT PERDUE. `sp-launch-particles-var` borne r, g, b a 255,0 juste apres `sp-init-fields!`
+  ;; — `vminix.xyz vf4, vf4, vf31` avec vf31 = 255,0 (`lui v1, 17279` = #x437f0000), et ce
+  ;; bornage est SAUTE pour les seules aux-list, dont les couleurs valent des milliers par
+  ;; conception : voir `game/mips2c/jak1_functions/sparticle_launcher.cpp:281` et `:553`.
+  ;; `sp-relaunch-setup-fields` reinitialise les memes champs depuis le meme `init-specs` mais
+  ;; sans cette borne. Les particules `start-dead` relancees par `:binding` gardent donc la
+  ;; valeur brute : un `(:r 256.0)` ECRIT pour « plein » (le jeu ecrit 256 partout pour « plein »,
+  ;; jusqu'aux etoiles en `:r 256 :g 256 :b 256`) traverse alors l'empaquetage 8 bits de
+  ;; `Sprite3.cpp` — `(int)256 & #xff = 0` — et rend un canal NUL, puis bascule d'un coup a 255
+  ;; des que le launcher suivant le fait passer sous 256. C'est la source COMMUNE des deux
+  ;; familles signalees par l'owner : les braises du foyer (parts 2292 / 2357, `:r 256.0`) et
+  ;; les portails de teleportation (parts 766 / 1969 / 1312 / 1860 / 2688, `(:b 64.0 196.0)`
+  ;; qui monte jusqu'a 260). On remet ici la borne du premier lancement, a l'identique :
+  ;; r, g, b seulement (le `vminix` est en `.xyz`), et jamais sur une aux-list.
+  (when (not (logtest? (-> arg2 flags) (sp-cpuinfo-flag aux-list)))
+    (set! (-> arg3 r-g-b-a x) (fmin (-> arg3 r-g-b-a x) 255.0))
+    (set! (-> arg3 r-g-b-a y) (fmin (-> arg3 r-g-b-a y) 255.0))
+    (set! (-> arg3 r-g-b-a z) (fmin (-> arg3 r-g-b-a z) 255.0)))
   0
   0
   (none))

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include "game/system/autoport_proof.h"
@@ -53,6 +54,16 @@ struct Counters {
   // un zero dont la condition est absente ne refute rien.
   std::atomic<uint64_t> middot{0};          // sprites de texture `middot` vus dans l'image
   std::atomic<uint64_t> middot_visible{0};  // ... dont l'alpha passe le test, couleur quelconque
+  // L'ORACLE DE LA COULEUR, au point d'empaquetage. Voir l'en-tete.
+  std::atomic<uint64_t> pack{0};          // sprites 2D empaquetes dans l'image (denominateur)
+  std::atomic<uint64_t> pack_oor{0};      // ... dont une composante SOURCE sort de [0,255]
+  std::atomic<uint64_t> pack_foreign{0};  // ... dont le sommet differe de la SATURATION
+  std::atomic<uint64_t> pack_oldwrap{0};  // ... que l'ancien `& 0xff` coloriait autrement
+  std::atomic<uint64_t> a0_afail{0};      // sprite d'alpha NULLE que son seau dessine quand meme
+  std::atomic<uint64_t> clamp255{0};      // sprite portant une composante EXACTEMENT a 255,0
+  // LES DEUX SIGNATURES DE BORNAGE, une par famille signalee par l'owner. Voir note_pack.
+  std::atomic<uint64_t> ember_clamped{0};  // braise 2292/2357 bornee (feu)
+  std::atomic<uint64_t> warp_clamped{0};   // point 766/1969/1312/1860/2688 borne (portail)
 };
 
 Counters g_frame;   // remis a zero a chaque image
@@ -67,8 +78,126 @@ uint64_t g_debug_max = 0;
 uint64_t g_middot_total = 0;
 uint64_t g_middot_max = 0;
 uint64_t g_middot_visible_max = 0;
-uint64_t g_worst = 0;  // max sur une image de la somme des quatre familles non-originelles
+uint64_t g_pack_total = 0;
+uint64_t g_pack_oor_total = 0;
+uint64_t g_pack_foreign_max = 0;
+uint64_t g_pack_oldwrap_total = 0;
+uint64_t g_pack_oldwrap_max = 0;
+uint64_t g_pack_olddelta_max = 0;
+uint64_t g_pack_foreign_hud_total = 0;
+uint64_t g_pack_foreign_a0_total = 0;
+uint64_t g_clamp255_total = 0;
+uint64_t g_oor_vis_total = 0;
+uint64_t g_ember_clamped_total = 0;
+uint64_t g_warp_clamped_total = 0;
+// LES SIGNATURES DE COULEUR SOURCE des sprites hors bornes. Le nom de texture d'un porteur
+// `aux-list` ne veut rien dire (son tbp porte le dernier nom televerse la), mais sa COULEUR est
+// une signature exacte du `defpart` : 3277,2662,2867 = part 413, l'aux du foyer du maire
+// (`village1-part.gc:679`) ; 4096,3482,3482 = part 767, l'aux du portail de teleportation
+// (`training-part.gc:615`). Les publier NOMME les groupes qui etaient vivants pendant la course.
+constexpr int kMaxSamples = 8;
+char g_oor_samples[kMaxSamples][40] = {};
+int g_oor_sample_n = 0;
+
+void note_oor_sample(float r, float g, float b, float a) {
+  char sig[40];
+  std::snprintf(sig, sizeof(sig), "%.0f/%.0f/%.0f/%.0f", r, g, b, a);
+  for (int i = 0; i < g_oor_sample_n; i++) {
+    if (std::strcmp(g_oor_samples[i], sig) == 0) {
+      return;
+    }
+  }
+  if (g_oor_sample_n >= kMaxSamples) {
+    return;
+  }
+  std::snprintf(g_oor_samples[g_oor_sample_n], sizeof(g_oor_samples[0]), "%s", sig);
+  g_oor_sample_n++;
+}
+uint64_t g_a0_afail_max = 0;
+unsigned g_pack_foreign_chan = 0;
+// L'ECHANTILLON LE PLUS DIVERGENT, pour que le seau exclu soit NOMME et non seulement compte.
+char g_worst_sample[96] = {0};
+uint64_t g_worst_sample_delta = 0;
+uint64_t g_worst = 0;  // max sur une image de la somme des familles non-originelles
 char g_sites[192] = {0};
+
+// LA LISTE DES EMETTEURS, nommement. L'item demande « la liste des emetteurs inspectes et le
+// compte de dessins rouges etrangers par emetteur » : on tient une petite table des textures sur
+// lesquelles l'ancienne politique divergeait, avec leur compte cumule.
+constexpr int kMaxEmitters = 12;
+struct Emitter {
+  char name[40];
+  uint64_t count;
+};
+Emitter g_emitters[kMaxEmitters] = {};
+int g_emitter_n = 0;
+uint64_t g_emitter_dropped = 0;
+// La meme table pour le temoin de la BORNE : quels emetteurs portent une composante ramenee
+// exactement a 255,0.
+Emitter g_clamp_emitters[kMaxEmitters] = {};
+int g_clamp_emitter_n = 0;
+uint64_t g_clamp_emitter_dropped = 0;
+
+void note_emitter_in(Emitter* tab, int* n_io, uint64_t* dropped, const char* name, uint64_t add) {
+  const char* n = (name && *name) ? name : "?";
+  for (int i = 0; i < *n_io; i++) {
+    if (std::strcmp(tab[i].name, n) == 0) {
+      tab[i].count += add;
+      return;
+    }
+  }
+  if (*n_io >= kMaxEmitters) {
+    *dropped += add;
+    return;
+  }
+  std::snprintf(tab[*n_io].name, sizeof(tab[*n_io].name), "%s", n);
+  tab[*n_io].count = add;
+  (*n_io)++;
+}
+
+void note_emitter(const char* name, uint64_t add) {
+  note_emitter_in(g_emitters, &g_emitter_n, &g_emitter_dropped, name, add);
+}
+
+// Rend la liste « nom:compte » d'une table, jamais une chaine vide (`publish_text` garderait
+// sinon la valeur de l'image precedente).
+void format_emitters(char* buf, size_t cap, const Emitter* tab, int n, uint64_t dropped) {
+  int off = 0;
+  for (int i = 0; i < n && off < (int)cap - 1; i++) {
+    off += std::snprintf(buf + off, cap - off, "%s%s:%llu", off ? "," : "", tab[i].name,
+                         (unsigned long long)tab[i].count);
+  }
+  if (dropped && off < (int)cap - 1) {
+    off += std::snprintf(buf + off, cap - off, ",+autres:%llu", (unsigned long long)dropped);
+  }
+  if (off == 0) {
+    std::snprintf(buf, cap, "-");
+  }
+}
+
+// LA REFERENCE : ce que la couleur source DECRIT, une fois ramenee a un octet. Saturation, pas
+// repliement. NaN et negatifs tombent a 0 (le chemin sparticle borne deja a >= 0).
+int saturate_ref(float v) {
+  if (!(v > 0.f)) {
+    return 0;
+  }
+  if (v > 255.f) {
+    return 255;
+  }
+  return (int)v;
+}
+
+// L'ANCIENNE politique, reproduite a l'identique pour chiffrer ce qu'elle changeait. Le `(int)`
+// d'un flottant non fini est indefini : on l'ecarte avant, comme le fait `saturate_ref`.
+int wrap_ref(float v) {
+  if (!std::isfinite(v)) {
+    return 0;
+  }
+  if (v > 2.1e9f || v < -2.1e9f) {
+    return 0;
+  }
+  return (int)v & 0xff;
+}
 
 void note_site_name(const char* site) {
   if (!site || !*site) {
@@ -110,6 +239,13 @@ void note_sprite(const char* texture_name,
   if (!armed()) {
     return;
   }
+  // LE TEMOIN DU SEAU EXCLU, avant tout filtre de texture : un sprite dont l'alpha ECHOUE le
+  // test mais dont le seau le dessine quand meme (seconde passe AFAIL + melange a alpha FIXE).
+  // Si ce compte est non nul, exclure les sprites d'alpha nulle de la porte n'est plus fonde.
+  if (a < alpha_min && double_draw && blend_ignores_src_alpha(alpha_blend)) {
+    g_frame.a0_afail.fetch_add(1, std::memory_order_relaxed);
+  }
+
   bool middot = false;
   if (!is_fire_texture(texture_name, &middot)) {
     return;
@@ -149,6 +285,121 @@ void note_sprite(const char* texture_name,
   }
 }
 
+void note_pack(const char* texture_name,
+               bool hud,
+               float sr,
+               float sg,
+               float sb,
+               float sa,
+               int pr,
+               int pg,
+               int pb,
+               int pa) {
+  if (!armed()) {
+    return;
+  }
+  g_frame.pack.fetch_add(1, std::memory_order_relaxed);
+
+  const float src[4] = {sr, sg, sb, sa};
+  const int got[4] = {pr, pg, pb, pa};
+  bool oor = false;
+  bool foreign = false;
+  bool oldwrap = false;
+  int olddelta = 0;
+  unsigned chan_mask = 0;
+  for (int i = 0; i < 4; i++) {
+    const float v = src[i];
+    if (!std::isfinite(v) || v < 0.f || v > 255.f) {
+      oor = true;
+    }
+    const int ref = saturate_ref(v);
+    if (got[i] != ref) {
+      foreign = true;
+      chan_mask |= 1u << i;
+    }
+    const int d = wrap_ref(v) - ref;
+    if (d != 0) {
+      oldwrap = true;
+      const int ad = d < 0 ? -d : d;
+      if (ad > olddelta) {
+        olddelta = ad;
+      }
+    }
+  }
+  if (oor) {
+    g_frame.pack_oor.fetch_add(1, std::memory_order_relaxed);
+    note_oor_sample(sr, sg, sb, sa);
+    if (!hud && pa > 0) {
+      // Hors bornes ET reellement dessine : c'est la famille du defaut. Doit etre 0.
+      g_oor_vis_total++;
+    }
+  }
+  // TEMOIN INDICATIF, PAS LA PREUVE. La borne remise a la relance produit la valeur EXACTE
+  // 255,0 la ou le `defpart` ecrit 256,0. Mais 239 champs de `defpart` a texture `hotdot` et 21
+  // a texture `middot` ECRIVENT deja 255,0 directement (`collectables-part.gc:679` par exemple) :
+  // ce compte melange les deux et ne peut pas servir de preuve que la borne a tire. Il est
+  // publie pour la lecture, pas pour la porte. La preuve de presence est `fire_oor_samples`.
+  // LES DEUX SIGNATURES DE BORNAGE, CHACUNE INCONTAMINABLE.
+  //
+  // PORTAIL — les parts 766 / 1969 / 1312 / 1860 / 2688 ecrivent `(:b 64.0 196.0)` : un tirage
+  // CONTINU dans [64, 260). Un sprite `middot` dont la composante bleue vaut EXACTEMENT 255,0 a
+  // donc une probabilite nulle d'exister par tirage — c'est un produit de la borne, et d'elle
+  // seule. Les autres `defpart` a texture `middot` qui peuvent valoir 255,0 ecrivent ce 255 sur
+  // r ou g (`weather-part.gc:488` et `:543`), jamais sur b en constante.
+  //
+  // FEU — la braise 2292 (et sa jumelle 2357) ecrit `(:r 256.0)` avec `(:fade-r 0.0)` : le rouge
+  // reste CONSTANT pendant les 0,6 s de la premiere phase. Borne, il vaut exactement 255,0. Ses
+  // canaux vert et bleu partent tous deux de 128,0 avec le MEME `fade` (-0,7111) : ils restent
+  // rigoureusement EGAUX et decroissent. Un `hotdot` a r = 255,0 exact, g = b, 0 < g <= 128 est
+  // donc cette braise-la.
+  bool pack_middot = false;
+  const bool pack_fire_tex = is_fire_texture(texture_name, &pack_middot);
+  if (!hud && pack_middot && sb == 255.f) {
+    g_frame.warp_clamped.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (!hud && pack_fire_tex && !pack_middot && sr == 255.f && sg == sb && sg > 0.f &&
+      sg <= 128.f) {
+    g_frame.ember_clamped.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (!hud && (sr == 255.f || sg == 255.f || sb == 255.f)) {
+    g_frame.clamp255.fetch_add(1, std::memory_order_relaxed);
+    note_emitter_in(g_clamp_emitters, &g_clamp_emitter_n, &g_clamp_emitter_dropped, texture_name,
+                    1);
+  }
+  if (foreign) {
+    if (hud) {
+      g_pack_foreign_hud_total++;
+    } else if (pa <= 0) {
+      // ALPHA ECRITE NULLE : le sprite est jete par le test d'alpha du shader
+      // (`if (color.a < alpha_min) discard`). C'est le cas, par conception, des porteurs
+      // `aux-list` : `sp-relaunch-particle-2d` leur force `r-g-b-a w = 0.0`
+      // (`sparticle-launcher.gc`), `sprite.gc:100` aussi, et leurs champs de couleur portent des
+      // valeurs de LUMIERE en milliers (part 413 du foyer : `:r 3276.8` ; part 767 du portail :
+      // `:r 4096.0`) que le premier lancement refuse deja de borner
+      // (`sparticle_launcher.cpp:551` saute le `vminix` quand `flags & 0x100`). Les borner serait
+      // une faute. Le seau est EXCLU de la porte mais CHIFFRE : `fire_pack_foreign_a0`, et
+      // `fire_a0_afail_max` mesure qu'aucun d'eux n'atteint le tampon par la seconde passe.
+      g_pack_foreign_a0_total++;
+    } else {
+      g_frame.pack_foreign.fetch_add(1, std::memory_order_relaxed);
+      g_pack_foreign_chan |= chan_mask;
+    }
+  }
+  if (oldwrap) {
+    g_frame.pack_oldwrap.fetch_add(1, std::memory_order_relaxed);
+    note_emitter(hud ? "HUD" : texture_name, 1);
+    if ((uint64_t)olddelta > g_pack_olddelta_max) {
+      g_pack_olddelta_max = (uint64_t)olddelta;
+    }
+    if ((uint64_t)olddelta >= g_worst_sample_delta) {
+      g_worst_sample_delta = (uint64_t)olddelta;
+      std::snprintf(g_worst_sample, sizeof(g_worst_sample), "%s|src=%.0f,%.0f,%.0f,%.0f|got=%d,%d,%d,%d",
+                    hud ? "HUD" : ((texture_name && *texture_name) ? texture_name : "?"), sr, sg,
+                    sb, sa, pr, pg, pb, pa);
+    }
+  }
+}
+
 void note_debug_red_draw(const char* site) {
   if (!armed()) {
     return;
@@ -169,6 +420,14 @@ void end_frame() {
   const uint64_t debug = g_frame.debug_draw.exchange(0, std::memory_order_relaxed);
   const uint64_t middot = g_frame.middot.exchange(0, std::memory_order_relaxed);
   const uint64_t middot_vis = g_frame.middot_visible.exchange(0, std::memory_order_relaxed);
+  const uint64_t pack = g_frame.pack.exchange(0, std::memory_order_relaxed);
+  const uint64_t pack_oor = g_frame.pack_oor.exchange(0, std::memory_order_relaxed);
+  const uint64_t pack_foreign = g_frame.pack_foreign.exchange(0, std::memory_order_relaxed);
+  const uint64_t pack_oldwrap = g_frame.pack_oldwrap.exchange(0, std::memory_order_relaxed);
+  const uint64_t a0_afail = g_frame.a0_afail.exchange(0, std::memory_order_relaxed);
+  const uint64_t clamp255 = g_frame.clamp255.exchange(0, std::memory_order_relaxed);
+  const uint64_t ember_cl = g_frame.ember_clamped.exchange(0, std::memory_order_relaxed);
+  const uint64_t warp_cl = g_frame.warp_clamped.exchange(0, std::memory_order_relaxed);
 
   g_frames++;
   g_sprites_total += sprites;
@@ -197,7 +456,22 @@ void end_frame() {
   if (middot_vis > g_middot_visible_max) {
     g_middot_visible_max = middot_vis;
   }
-  const uint64_t worst = c_alpha + c_afail + nonfinite + debug;
+  g_pack_total += pack;
+  g_pack_oor_total += pack_oor;
+  g_pack_oldwrap_total += pack_oldwrap;
+  if (pack_foreign > g_pack_foreign_max) {
+    g_pack_foreign_max = pack_foreign;
+  }
+  if (pack_oldwrap > g_pack_oldwrap_max) {
+    g_pack_oldwrap_max = pack_oldwrap;
+  }
+  g_clamp255_total += clamp255;
+  g_ember_clamped_total += ember_cl;
+  g_warp_clamped_total += warp_cl;
+  if (a0_afail > g_a0_afail_max) {
+    g_a0_afail_max = a0_afail;
+  }
+  const uint64_t worst = c_alpha + c_afail + nonfinite + debug + pack_foreign;
   if (worst > g_worst) {
     g_worst = worst;
   }
@@ -223,6 +497,61 @@ void end_frame() {
   // pas etre confondue avec un zero de l'instrument.
   autoport_proof::publish("fire_red_sprites_max", g_red_max);
   autoport_proof::publish_text("fire_debug_sites", g_sites[0] ? g_sites : "-");
+
+  // L'ORACLE DE LA COULEUR. `fire_pack_foreign_max` est la part de `fire_debug_particles` qui
+  // vient d'ici ; les trois suivants sont ce qui la rend falsifiable.
+  autoport_proof::publish("fire_pack_foreign_max", g_pack_foreign_max);
+  autoport_proof::publish("fire_pack_seen", g_pack_total);
+  // `fire_pack_oor_seen` > 0 : il EXISTE des sprites dont la couleur source sort de [0,255],
+  // donc des sprites sur lesquels repliement et saturation ne disent pas la meme chose. Un
+  // `fire_pack_foreign_max=0` avec ce compte a zero ne serait qu'une condition absente.
+  autoport_proof::publish("fire_pack_oor_seen", g_pack_oor_total);
+  // LA TAILLE DU DEFAUT, mesuree dans la MEME course : le nombre de sprites que l'ancienne
+  // politique `& 0xff` coloriait autrement que ce que la donnee decrit, et de combien.
+  autoport_proof::publish("fire_pack_oldwrap_max", g_pack_oldwrap_max);
+  autoport_proof::publish("fire_pack_oldwrap_seen", g_pack_oldwrap_total);
+  autoport_proof::publish("fire_pack_olddelta_max", g_pack_olddelta_max);
+  // Le HUD, hors porte et nomme : son repliement est voulu.
+  autoport_proof::publish("fire_pack_foreign_hud", g_pack_foreign_hud_total);
+  autoport_proof::publish("fire_pack_foreign_a0", g_pack_foreign_a0_total);
+  autoport_proof::publish("fire_pack_oor_vis", g_oor_vis_total);
+  // LA PREUVE QUE LA BORNE A TIRE, famille par famille. Un zero ici ne dit pas « la borne n'a
+  // rien fait » mais « cette famille n'etait pas a l'ecran pendant la course » : les deux se
+  // lisent ensemble avec `fire_sprites_seen`.
+  autoport_proof::publish("fire_ember_clamped", g_ember_clamped_total);
+  autoport_proof::publish("fire_warp_clamped", g_warp_clamped_total);
+  {
+    char buf[352];
+    int off = 0;
+    for (int i = 0; i < g_oor_sample_n && off < (int)sizeof(buf) - 1; i++) {
+      off += std::snprintf(buf + off, sizeof(buf) - off, "%s%s", off ? "," : "", g_oor_samples[i]);
+    }
+    autoport_proof::publish_text("fire_oor_samples", off ? buf : "-");
+  }
+  autoport_proof::publish("fire_a0_afail_max", g_a0_afail_max);
+  autoport_proof::publish_text("fire_pack_worst", g_worst_sample[0] ? g_worst_sample : "-");
+  {
+    char ch[8];
+    int n = 0;
+    const char* names = "rgba";
+    for (int i = 0; i < 4; i++) {
+      if (g_pack_foreign_chan & (1u << i)) {
+        ch[n++] = names[i];
+      }
+    }
+    ch[n] = 0;
+    autoport_proof::publish_text("fire_pack_foreign_chan", n ? ch : "-");
+  }
+  {
+    // Chaine VIDE interdite : `publish_text` garderait la valeur de l'image precedente.
+    char buf[320];
+    format_emitters(buf, sizeof(buf), g_emitters, g_emitter_n, g_emitter_dropped);
+    autoport_proof::publish_text("fire_pack_emitters", buf);
+    format_emitters(buf, sizeof(buf), g_clamp_emitters, g_clamp_emitter_n,
+                    g_clamp_emitter_dropped);
+    autoport_proof::publish_text("fire_src255_emitters", buf);
+  }
+  autoport_proof::publish("fire_src255_seen", g_clamp255_total);
   if (sprites > 0) {
     // Le chemin de la feature a tourne SUR des sprites de feu : c'est ce que `hits` doit dire.
     autoport_proof::note_hit(1);

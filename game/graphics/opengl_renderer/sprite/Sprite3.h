@@ -2,6 +2,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 #include "common/dma/gs.h"
 #include "common/math/Vector.h"
@@ -234,6 +235,11 @@ class Sprite3 : public BucketRenderer {
   Bucket* m_last_bucket = nullptr;
 
   u64 m_sprite_idx = 0;
+
+  // fire-red-particles : memo du nom de texture du tbp courant, pour que le recensement de
+  // l'empaquetage puisse NOMMER l'emetteur sans refaire une recherche par sprite.
+  u32 m_fire_pack_tbp = UINT32_MAX;
+  std::string m_fire_pack_tex;
 
   std::vector<u32> m_index_buffer_data;
 

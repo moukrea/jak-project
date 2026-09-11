@@ -2055,6 +2055,22 @@ void Sprite3::do_block_common(SpriteMode mode,
     vert1.rgba.y() = (int)vert1.rgba.y() & 0xff;
     vert1.rgba.z() = (int)vert1.rgba.z() & 0xff;
     vert1.rgba.w() = (int)vert1.rgba.w() & 0xff;
+    // fire-red-particles : L'ORACLE DE LA COULEUR, au point d'empaquetage. On donne au
+    // recensement la couleur SOURCE que GOAL a ecrite et les quatre octets REELLEMENT ecrits
+    // dans le sommet ; il calcule a part la reference (saturation) et compte les ecarts. Le nom
+    // de l'emetteur est memoise par tbp : les sprites arrivent groupes par adgif.
+    if (fire_red_census::armed()) {
+      if (m_current_tbp != m_fire_pack_tbp) {
+        m_fire_pack_tbp = m_current_tbp;
+        m_fire_pack_tex =
+            render_state->texture_pool->get_debug_texture_name_from_tbp(m_current_tbp);
+      }
+      const auto& fsrc = m_vec_data_2d[sprite_idx].rgba;
+      fire_red_census::note_pack(m_fire_pack_tex.c_str(), mode == ModeHUD, fsrc.x(), fsrc.y(),
+                                 fsrc.z(), fsrc.w(),
+                                 (int)vert1.rgba.x(), (int)vert1.rgba.y(), (int)vert1.rgba.z(),
+                                 (int)vert1.rgba.w());
+    }
     vert1.rgba /= 255;
     vert1.flags_matrix[0] = m_vec_data_2d[sprite_idx].flag();
     vert1.flags_matrix[1] = m_vec_data_2d[sprite_idx].matrix();
