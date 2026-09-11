@@ -4664,7 +4664,7 @@ items:
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
   status: blocked
-  priority: 18
+  priority: 35
   game: jak1
   gate:
     key: hdr_out_defects
@@ -4674,9 +4674,10 @@ items:
   max_turns: 300
   max_retries: 24
   depends_on:
-  - lighting-hdr
-  - hdr-study
-  - hdr-plan
+  - hdr-source-range
+  - hdr-curve-input
+  - hdr-output-regime
+  - lighting-presets
   history: []
   prompt: prompts/item-hdr-display-output.md
   owner_ok: null
@@ -4837,9 +4838,10 @@ items:
   - debug.opengoal.tod.fast=1
   - debug.opengoal.hdr.out=1
   proof_timeout: 300
-  block_reason: 'EN ATTENTE DU PLAN hdr-plan, valide par l''owner. Cinq refus, cinq corrections a l''aveugle.
-    Owner 11/09 : « je prefere des heures de planification pour un resultat beton que 45 iterations qui
-    echouent ».'
+  block_reason: REPOUSSE APRES LA REFONTE DE L'ECLAIRAGE, sur arbitrage de l'owner du 11/09 (« ok » au
+    point 2 du plan). Le jugement « allumee, la sortie HDR doit se voir » ne veut rien dire tant que les
+    chantiers d'eclairage n'ont pas cree le contenu lumineux qu'elle doit montrer. Les trois chantiers
+    du plan — hdr-source-range, hdr-curve-input, hdr-output-regime — passent avant et ne seront pas refaits.
   proof_env: []
   device_serial: eae4df44
   delivered: null
@@ -6045,7 +6047,7 @@ items:
     text: Validé
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
-  status: open
+  status: in-progress
   priority: 22
   game: jak1
   gate:
@@ -6074,14 +6076,19 @@ items:
   notes: 'Doit passer AVANT lighting-shadows, qui ajoute une seconde emission de draws merc et heriterait
     du stall. Point de vue : village1-hut puis traversee.'
   hits_means: images sans map en lecture
-  proof_timeout: 900
+  proof_timeout: 1500
   proof_env:
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   proof_props:
   - debug.opengoal.recharged=0
+  - debug.opengoal.merc.defuse=copy
   - debug.opengoal.perf.buckets=1
+  - debug.opengoal.fixed_tick=0
+  - debug.opengoal.perf.baseline=2400x1080:100@240/60/600
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
   block_reason: null
   prompt: prompts/item-perf-merc-defuse.md
   device_serial: eae4df44
@@ -7543,7 +7550,7 @@ items:
     text: je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer
       ... je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur
 - id: hdr-plan
-  status: in-progress
+  status: validated
   priority: 17
   game: jak1
   device: true
@@ -7602,3 +7609,106 @@ items:
     text: mais attention planifies de fou avant en prenant tout en compte, on va arreter de tourner en
       rond pendant des jours... je prefere des heures de planification pour un resultat beton que 45 iterations
       qui echouent
+- id: hdr-source-range
+  status: open
+  priority: 17
+  game: jak1
+  device: true
+  owner_test: false
+  feature: Le ciel et le halo cessent d'ecreter les couleurs a 1,0
+  gate:
+    key: hdr_src_clamped_stages
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-plan
+  known_cause: 'LIS D''ABORD `reports/hdr-plan/PLAN.md` — OBLIGATOIRE, c''est le contrat. Owner 11/09,
+    sur « ou juger le HDR » : « bah c''est moi qui vais juger de toute facons donc tu devrais rien en
+    avoir a cogner, tu peux pas voir le rendu final par des yeux ». Donc : la machine prouve le MECANISME
+    et epingle son regime ; le JUGEMENT du rendu appartient a l''owner. Aucun appareil code en dur, aucun
+    choix de materiel cible. Chantier A du plan (§7.1). Owner : « pour les couleurs du ciel j''ai l''impression
+    qu''on peut taper plus que 8 bits parce que c''est des couleurs [...] on a de la richesse a gratter
+    ». Il a raison : ces formats sont NOS choix, pas des contraintes.'
+  deliverable: '`hdr_src_clamped_stages` = 0 : aucun etage du chemin de scene n''ecrete une couleur flottante
+    a 1,0. Le ciel (melange GPU et CPU) et le halo (sonde et ses cinq reductions) passent en flottant.
+    Publier le denominateur `hdr_plan_s2_sources_seen` a cote du compte — un zero doit se lire « aucun
+    ecretage » et jamais « rien inspecte ». Publier aussi `hdr_overbright_px` MESURE DANS LE HALO : il
+    doit devenir non nul, sinon rien n''a change. Mesurer le cout en cadence et en memoire sur le Redmi
+    AVANT/APRES : c''est le premier travail du chantier, le plan ne l''a pas chiffre.'
+  where: 'rien a voir : mesure d''entrees ; owner_test=false'
+  out_of_scope: 'Ne touche ni a l''occlusion ambiante, ni aux palettes, ni au coeur de l''ombrage : ces
+    trois-la appartiennent a la refonte de l''eclairage et seraient refaits.'
+  max_turns: 800
+  max_retries: 8
+  proof_timeout: 300
+  prompt: prompts/item-hdr-source-range.md
+  notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+- id: hdr-curve-input
+  status: open
+  priority: 18
+  game: jak1
+  device: true
+  owner_test: false
+  feature: La courbe se regle sur ce que la scene contient vraiment
+  gate:
+    key: hdr_curve_input_deaf_ratio_x100
+    op: <=
+    value: 120
+  depends_on:
+  - hdr-plan
+  known_cause: 'LIS D''ABORD `reports/hdr-plan/PLAN.md` — OBLIGATOIRE, c''est le contrat. Owner 11/09,
+    sur « ou juger le HDR » : « bah c''est moi qui vais juger de toute facons donc tu devrais rien en
+    avoir a cogner, tu peux pas voir le rendu final par des yeux ». Donc : la machine prouve le MECANISME
+    et epingle son regime ; le JUGEMENT du rendu appartient a l''owner. Aucun appareil code en dur, aucun
+    choix de materiel cible. Chantier B du plan (§7.1). La statistique qui pilote la courbe est SOURDE
+    : elle voit un pic de scene de 1617 la ou la sonde de pixels en voit 15094 — un facteur 9,3. La courbe
+    se regle donc sur une image qu''elle ne voit qu''au neuvieme. Rien a voir avec l''ecran ni avec la
+    profondeur du tampon : c''est la reduction qui moyenne au lieu de prendre le maximum.'
+  deliverable: '`hdr_curve_input_deaf_ratio_x100` <= 120 : le rapport entre le pic vu par la sonde de
+    pixels et le pic vu par la statistique qui pilote la courbe, sur les MEMES images. Aujourd''hui 933.
+    AUCUN changement de courbe dans ce chantier — on corrige ce qu''elle recoit, pas ce qu''elle fait.
+    Publier les deux pics separement et le nombre d''echantillons : le plan signale que l''analyse de
+    scene ne tourne que sortie HDR ACTIVE, donc un zero d''echantillons doit se lire « pas mesure » et
+    non « pas d''ecart ».'
+  where: 'rien a voir : entree de la courbe ; owner_test=false'
+  out_of_scope: Ne modifie pas la courbe elle-meme. Ne touche pas aux etages de la refonte de l'eclairage.
+  max_turns: 800
+  max_retries: 8
+  proof_timeout: 300
+  prompt: prompts/item-hdr-curve-input.md
+  notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+- id: hdr-output-regime
+  status: open
+  priority: 19
+  game: jak1
+  device: true
+  owner_test: true
+  feature: Trois regimes de sortie explicites, et le jeu dit lequel il utilise
+  gate:
+    key: hdr_regime_defects
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-plan
+  known_cause: 'LIS D''ABORD `reports/hdr-plan/PLAN.md` — OBLIGATOIRE, c''est le contrat. Owner 11/09,
+    sur « ou juger le HDR » : « bah c''est moi qui vais juger de toute facons donc tu devrais rien en
+    avoir a cogner, tu peux pas voir le rendu final par des yeux ». Donc : la machine prouve le MECANISME
+    et epingle son regime ; le JUGEMENT du rendu appartient a l''owner. Aucun appareil code en dur, aucun
+    choix de materiel cible. Chantier C du plan (§7.1). Owner 11/09 : « je vois aucune mention de HDR10/HLG
+    in game juste HDR output On/Off ». Et son arbitrage du jour : quand aucune marge n''est accordee,
+    la sortie HDR promet LE CONTENEUR et rien d''autre — et elle le DIT. Fabriquer une difference visible
+    a marge nulle est ce qui a produit cinq refus.'
+  deliverable: '`hdr_regime_defects` = 0, somme de termes publies SEPAREMENT : le regime est publie a
+    chaque image ; en regime sans marge, l''image est IDENTIQUE AU BIT a la sortie SDR (`ui_maxdiff_vs_sdr`
+    = 0) ; en regime avec marge, aucun pixel ne passe sous le niveau SDR ; aucun pixel sous le seuil declare
+    n''est modifie ; et la ligne de menu porte le transport retenu (HDR10, HLG, scRGB) ainsi que le regime
+    courant. Le blanc est PLACE, pas etire.'
+  where: 'Options > Recharged > Eclairage Recharge : la ligne de sortie HDR dit quel transport et quel
+    regime sont utilises, au lieu d''un simple Oui/Non'
+  out_of_scope: Ne fabrique aucune difference visible quand le systeme n'accorde pas de marge. C'est un
+    regime, pas un effet.
+  max_turns: 800
+  max_retries: 8
+  proof_timeout: 300
+  prompt: prompts/item-hdr-output-regime.md
+  notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
