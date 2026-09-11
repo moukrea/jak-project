@@ -162,6 +162,16 @@ class Backlog:
         p = it.get("priority")
         return p if isinstance(p, int) else 10 ** 6
 
+    def parked_for_owner(self):
+        """Les items que la porte de fermeture a PARQUES, et le `owner_test` de chacun.
+
+        Publie tel quel dans la preuve de `harness-proof-props-pin`. Un parking sur un item
+        qui dit lui-meme n'avoir rien a montrer (`owner_test: false`) est un DEFAUT : personne
+        ne peut prononcer son verdict, et il gele pour toujours ce qui en depend.
+        """
+        return [(it.get("id"), bool(it.get("owner_test", True)))
+                for it in self.items if it.get("status") == "to-test"]
+
     def machine_proved_to_validated(self):
         """`owner_test: false` + porte tenue = `validated`, sans passer par l'owner.
 
@@ -169,13 +179,23 @@ class Backlog:
         change aucun pixel) ne peut PAS recevoir le feu vert de l'owner : il n'a rien a
         regarder. Le laisser en `to-test` gele tout ce qui en depend — c'est arrive le
         2026-09-06 : lighting-census bloquait les onze chantiers d'eclairage suivants.
+
+        2026-09-12 (harness-proof-props-pin) — ELLE ECRIT, MAINTENANT. Jusqu'ici elle mutait
+        `self.items` en memoire et n'avait AUCUN appelant : rebranchee telle quelle, elle
+        aurait pose un statut que le prochain `_read()` aurait efface sans bruit — exactement
+        la perte qu'un worker avait cru observer. Le passage par `set_status` prend le verrou,
+        relit le disque et remplace le fichier par un rename atomique.
+
+        La porte de fermeture (orchestrator.py) ne parque plus un `owner_test: false` depuis le
+        2026-09-11 ; ceux parques AVANT, eux, ne pouvaient plus sortir de `to-test` par aucun
+        chemin. `perf-ocean-idle` y a dormi du 10/09 au 12/09 devant `perf-stock-60`. Cette
+        fonction est le rattrapage, et elle tourne a chaque tour de boucle.
         """
         promus = []
-        for it in self.items:
-            if it.get("status") == "to-test" and not it.get("owner_test", True):
-                it["status"] = "validated"
-                it.setdefault("notes", "")
-                promus.append(it["id"])
+        for iid, owner_test in self.parked_for_owner():
+            if not owner_test:
+                self.set_status(iid, "validated")
+                promus.append(iid)
         return promus
 
     def next_open(self):

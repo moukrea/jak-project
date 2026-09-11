@@ -1343,6 +1343,22 @@ def _delegation_preamble(effort: str) -> str:
         "- QUALITY/aesthetics are judged by the OWNER, never by you: ship the build\n"
         "  and let him look. Your report lists what HE must test.\n"
         "Budget guide: proof runs are MINUTES, not hours.\n\n"
+        "## EPINGLER LE REGIME DE TA COURSE (harness-proof-props-pin, 2026-09-12)\n"
+        "Un reglage de course se pose dans L'ITEM DU BACKLOG, jamais a la main avant\n"
+        "la course :\n"
+        "  proof_props:  - debug.opengoal.hdr.out=2   # course appareil (setprop)\n"
+        "  proof_env:    - OG_RECHARGED=1             # course x86 (environnement)\n"
+        "`lib/proof_run.sh` lance `lib/device_teardown.sh` AVANT l'amorcage, et il efface\n"
+        "TOUTES les `debug.opengoal.*` posees sur l'appareil. Un `adb shell setprop` tape\n"
+        "depuis l'hote meurt donc entre ta pose et la course : tu mesures l'AUTRE regime\n"
+        "sans rien voir. Seul `proof_props` survit — il voyage dans une variable du script\n"
+        "et se repose APRES le teardown.\n"
+        "Ta preuve te le dit maintenant, relis-la avant d'accuser le code :\n"
+        "  teardown_props_found / teardown_props_list  ce qui etait pose a l'arrivee, nomme\n"
+        "  proof_props_file / _extracted / _effective  fichier -> extrait -> ce que rend l'appareil\n"
+        "  proof_prop_obs_<cle>                        la valeur RELUE apres l'amorcage\n"
+        "Un item `owner_test: false` n'est jamais parque pour l'owner : sa preuve est\n"
+        "machine, il se ferme tout seul.\n\n"
         "## HANDOFF (obligatoire si tu n'aboutis pas)\n"
         f"Avant de t'arrêter sans avoir fait passer la porte, écris "
         f"`.autoport/reports/<id>/handoff.md`, {HANDOFF_MAX_LINES} lignes MAXIMUM,\n"
@@ -1860,6 +1876,29 @@ def promote_owner_validated(bk) -> list[str]:
     return promoted
 
 
+def free_machine_proved(bk) -> list[str]:
+    """UN ITEM `owner_test: false` NE RESTE JAMAIS PARQUÉ POUR L'OWNER.
+
+    La porte de fermeture ne les parque plus depuis le 2026-09-11 (GATE 4). Mais ceux
+    parqués AVANT n'avaient plus aucun chemin de sortie : `promote_owner_validated`
+    exige la parole de l'owner, et l'item dit lui-même qu'il n'a rien à lui montrer.
+    `perf-ocean-idle` a dormi en `to-test` du 10/09 au 12/09 en gelant `perf-stock-60`,
+    l'objectif de toute la campagne de cadence — et la seule fonction capable de l'en
+    sortir, `backlog.machine_proved_to_validated`, n'avait aucun appelant.
+
+    C'est ici son appelant. Elle écrit par `set_status` : verrou, relecture du disque,
+    rename atomique."""
+    try:
+        freed = bk.machine_proved_to_validated()
+    except Exception as e:                                          # noqa: BLE001
+        log(f"· rattrapage des items parqués indisponible : {e}", "yellow")
+        return []
+    for iid in freed:
+        log(f"✓ {iid} : preuve machine (owner_test: false) — validé sans l'owner, "
+            f"il n'a rien à regarder.", "bold green")
+    return freed
+
+
 def release_stale_in_progress(bk) -> list[str]:
     """Un item laissé `in-progress` par un orchestrateur tué redevient `open`.
 
@@ -2005,6 +2044,7 @@ def main(argv: list[str] | None = None) -> int:
 
         bk = load_backlog()
         promote_owner_validated(bk)
+        free_machine_proved(bk)
 
         item = bk.next_open()
         if item is None:

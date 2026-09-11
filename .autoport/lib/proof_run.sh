@@ -9,6 +9,28 @@
 # manque ». Ce fichier ferme ce chemin : un proof.txt ecrit a la main ne porte pas le sha du
 # binaire present sur le disque, et le validateur le recalcule.
 #
+# POSER UN REGLAGE DE COURSE — LE SEUL CHEMIN QUI SURVIT (harness-proof-props-pin, 2026-09-12)
+# --------------------------------------------------------------------------------------------
+# Un worker qui veut epingler le regime de SA course (une sortie HDR, un drapeau Recharged, une
+# echelle de rendu) ECRIT SON REGLAGE DANS L'ITEM DU BACKLOG :
+#
+#     proof_props:                      # course APPAREIL  -> `adb shell setprop`
+#       - debug.opengoal.hdr.out=2
+#     proof_env:                        # course x86       -> variable d'environnement
+#       - OG_RECHARGED=1
+#
+# Il ne le pose JAMAIS par un `adb shell setprop` depuis l'hote avant de lancer la course :
+# `lib/device_teardown.sh`, lance ici meme AVANT l'amorcage, efface TOUTES les
+# `debug.opengoal.*` qu'il trouve sur l'appareil. Une propriete posee a la main meurt donc entre
+# sa pose et la course, et la course mesure l'AUTRE regime sans que rien ne le dise. Seul
+# `proof_props` survit : il voyage dans une variable de ce script et se repose APRES le teardown.
+#
+# CE QUE LA PREUVE PORTE DESORMAIS, pour que l'epinglage soit VERIFIABLE sans relire le backlog :
+#   teardown_props_found / teardown_props_list   ce qui etait pose a l'arrivee, par son nom
+#   proof_props_file / proof_props_extracted     ce que le fichier porte, ce qu'on en a tire
+#   proof_props_effective / proof_props_lost     ce que l'appareil rend, et l'ECART avec le fichier
+#   proof_prop_obs_<cle>                         la valeur RELUE apres l'amorcage, une par propriete
+#
 # Usage : lib/proof_run.sh <item-id> <x86|device> [--timeout N] [--off]
 #   HDR x86/device: --hdr-campaign NOM --hdr-vantages vue[,vue] --hdr-hours 0,3,...
 #   x86: --hdr-env OG_KEY=VALUE (repeatable); device: --hdr-prop debug.opengoal.KEY=VALUE (repeatable); --hdr-replace LOT:VUE:HEURE=VUE
@@ -98,6 +120,14 @@ ARMED=1; [ "$OFF" = 1 ] && ARMED=0
 
 log(){ printf '[proof_run %s] %s\n' "$ID" "$*" >&2; }
 
+# Une ligne de plus dans le bloc que proof.txt recopie apres les champs de la machine. Les cles
+# posees ici viennent du RUNNER (ce qu'il a lu, pose, relu), jamais du moteur.
+EXTRA=""
+extra(){ EXTRA="${EXTRA:+$EXTRA
+}$*"; }
+# `debug.opengoal.hdr.out` -> `hdr_out` : la cle de proof.txt doit tenir dans [A-Za-z0-9_].
+prop_key(){ printf '%s' "${1#debug.opengoal.}" | tr -c 'A-Za-z0-9_' '_'; }
+
 # NORMALISATION DE LA SORTIE DU MOTEUR. Rien n'arrive nu : sur x86 le journal prefixe chaque
 # ligne du temps ecoule (`    4.423 CINEVP ...`), sur l'appareil `logcat -v time` prefixe la
 # date, le niveau, le tag et le pid (`09-03 10:12:44.123 I/GK_STDOUT( 1234): ...`). Ancrer un
@@ -112,12 +142,18 @@ norm(){ sed -E 's/\r$//
 # lecture directe du yaml, et a defaut sur les valeurs par defaut. Un runner qui meurt parce
 # qu'un fichier d'un autre chantier n'est pas la ne prouve rien du tout.
 ITEM_SERIAL=""; ITEM_TIMEOUT=""; ENVS=(); PROPS=()
+# CE QUE LE FICHIER PORTE, avant tout filtrage : le premier des trois chiffres de la trace. Un
+# `proof_props` de trois lignes dont une sans `=` rend ici 3 et extrait 2 ; sans ce compte, la
+# ligne perdue serait invisible et la course mesurerait un regime incomplet en silence.
+ITEM_PROP_FILE=0; ITEM_ENV_FILE=0
 while IFS= read -r line; do
   case "$line" in
     ITEM_SERIAL=*)  ITEM_SERIAL=${line#ITEM_SERIAL=} ;;
     ITEM_TIMEOUT=*) ITEM_TIMEOUT=${line#ITEM_TIMEOUT=} ;;
     ITEM_ENV=*)     ENVS+=("${line#ITEM_ENV=}") ;;
     ITEM_PROP=*)    PROPS+=("${line#ITEM_PROP=}") ;;
+    ITEM_PROP_FILE=*) ITEM_PROP_FILE=${line#ITEM_PROP_FILE=} ;;
+    ITEM_ENV_FILE=*)  ITEM_ENV_FILE=${line#ITEM_ENV_FILE=} ;;
   esac
 done < <(python3 - "$ID" 2>/dev/null <<'PY'
 import sys, os
@@ -146,6 +182,9 @@ for key, tag in (('proof_env', 'ITEM_ENV'), ('proof_props', 'ITEM_PROP')):
     val = it.get(key) or []
     if isinstance(val, str):
         val = [val]
+    # Ce que le FICHIER porte : compte AVANT le filtre `=`. C'est le premier des trois chiffres
+    # que la preuve publie ; l'ecart avec le second nomme les lignes que ce lecteur a jetees.
+    print("%s_FILE=%d" % (tag, len(val)))
     for entry in val:
         entry = str(entry).replace("\n", " ")
         if "=" in entry:
@@ -278,7 +317,7 @@ rm -f "$OUTFILE"
 SHA=$(sha256sum "$BIN" | cut -c1-16)
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 T0=$(date +%s)
-CRASH=0; FRAMES=0; SERIAL=""; EXTRA=""
+CRASH=0; FRAMES=0; SERIAL=""
 
 # HDR x86 helpers: own only the exact child PID, including interruption cleanup.
 hdr_x86_stop(){
@@ -353,7 +392,28 @@ if [ "$MODE" = x86 ]; then
   export OG_PACE_MEASURE=1                 # la seule ligne par image que le moteur sait deja
   export AUTOPORT_FEATURE="$ID"            # emettre. Sert a compter frames=, rien d'autre.
   export AUTOPORT_FEATURE_ARMED="$ARMED"
-  for kvp in ${ENVS+"${ENVS[@]}"}; do export "${kvp}"; done
+  # LA TRACE DE `proof_env`, symetrique de `proof_props` cote appareil. Rien ne l'efface ici (il
+  # n'y a pas de teardown sur le bureau), mais un `export` refuse — nom invalide, ligne du
+  # backlog sans `=` — laisserait la course sur le regime par DEFAUT sans un mot. On relit donc
+  # l'environnement REELLEMENT pose, on ne se contente pas de redire ce qu'on voulait poser.
+  ENV_EFFECTIVE=0; ENV_LIST=""; ENV_LOST_LIST=""
+  for kvp in ${ENVS+"${ENVS[@]}"}; do
+    export "${kvp}"
+    ENV_LIST="${ENV_LIST:+$ENV_LIST,}${kvp%%=*}"
+    if [ "$(printenv "${kvp%%=*}" 2>/dev/null)" = "${kvp#*=}" ]; then
+      ENV_EFFECTIVE=$((ENV_EFFECTIVE+1))
+      extra "proof_env_obs_$(prop_key "${kvp%%=*}")=${kvp#*=}"
+    else
+      ENV_LOST_LIST="${ENV_LOST_LIST:+$ENV_LOST_LIST,}${kvp%%=*}"
+      log "EPINGLAGE PERDU : ${kvp%%=*} demande '${kvp#*=}', l'environnement rend '$(printenv "${kvp%%=*}" 2>/dev/null)'"
+    fi
+  done
+  extra "proof_env_file=$ITEM_ENV_FILE"
+  extra "proof_env_extracted=${#ENVS[@]}"
+  extra "proof_env_effective=$ENV_EFFECTIVE"
+  extra "proof_env_lost=$((ITEM_ENV_FILE - ENV_EFFECTIVE))"
+  extra "proof_env_list=${ENV_LIST:--}"
+  extra "proof_env_lost_list=${ENV_LOST_LIST:--}"
   if [ -n "$HDR_CAMPAIGN" ]; then
     HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$(date -u +%Y%m%dT%H%M%S)-$$"
     HDR_REMOTE="$ROOT/$HDR_BATCH/local-captures"
@@ -433,7 +493,10 @@ else
   # SUR QUOI la preuve a tourne : deux appareils aux cadences tres differentes rendent des
   # chiffres incomparables, et rien ne le disait.
   DEV_MODEL=$(timeout 10 "$ADB" -s "$SERIAL" shell getprop ro.product.model 2>/dev/null | tr -d '\r' | tr ' ' '_')
-  EXTRA="local_lib_md5=$LOCAL_MD5"$'\n'"device_lib_md5=$DEV_MD5"$'\n'"device_serial=$SERIAL"$'\n'"device_model=${DEV_MODEL:-inconnu}"
+  extra "local_lib_md5=$LOCAL_MD5"
+  extra "device_lib_md5=$DEV_MD5"
+  extra "device_serial=$SERIAL"
+  extra "device_model=${DEV_MODEL:-inconnu}"
 
   # L'ECRAN DOIT ETRE ALLUME AVANT LE `am start`, SINON ON MESURE DU NOIR.
   # Mesure du 2026-09-03 02:16 : appareil `mWakefulness=Asleep`, l'activite est passee
@@ -468,13 +531,48 @@ else
   log "ecran : ${WAKE:-inconnu}"
 
   timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1
-  bash "$AP"/lib/device_teardown.sh "$SERIAL" >/dev/null 2>&1
+  # LE TEARDOWN DIT CE QU'IL EFFACE. Il tourne AVANT qu'on pose quoi que ce soit et vide toutes
+  # les `debug.opengoal.*` : ce qu'il trouve pose est, par construction, ce qu'un worker avait
+  # pose depuis l'hote — et c'est precisement ce qui disparaissait sans un mot. Le rapport est
+  # recopie tel quel dans proof.txt ; son absence se lit « le teardown n'a rien ecrit ».
+  TDREPORT="$D/.teardown$SUF.$$.txt"; rm -f "$TDREPORT"
+  AUTOPORT_TEARDOWN_REPORT="$TDREPORT" bash "$AP"/lib/device_teardown.sh "$SERIAL" >/dev/null 2>&1
+  if [ -s "$TDREPORT" ]; then
+    while IFS= read -r tdl; do [ -n "$tdl" ] && extra "$tdl"; done < "$TDREPORT"
+    log "teardown : $(sed -n 's/^teardown_props_found=//p' "$TDREPORT") propriete(s) trouvee(s) posee(s) [$(sed -n 's/^teardown_props_list=//p' "$TDREPORT")]"
+  else
+    extra "teardown_ran=0"; extra "teardown_skip=rapport-absent"
+    extra "teardown_props_found=0"; extra "teardown_props_list=-"
+    extra "teardown_props_cleared=0"; extra "teardown_props_resisted=0"
+    extra "teardown_resisted_list=-"
+  fi
+  rm -f "$TDREPORT"
   timeout 20 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c "rm -f files/gk_crash.txt files/$ID.txt" >/dev/null 2>&1
   timeout 15 "$ADB" -s "$SERIAL" shell "setprop debug.opengoal.feature '$ID'" >/dev/null 2>&1
   timeout 15 "$ADB" -s "$SERIAL" shell "setprop debug.opengoal.feature.armed '$ARMED'" >/dev/null 2>&1
+  # LES TROIS CHIFFRES DE LA TRACE. Ce que le fichier porte, ce qu'on en a extrait, ce que
+  # L'APPAREIL rend une fois le teardown passe et les proprietes reposees. L'ecart entre le
+  # premier et le troisieme est la grandeur qui compte : c'est la perte silencieuse d'hier.
+  PROP_EFFECTIVE=0; PROP_LOST=0; PROP_LIST=""; PROP_LOST_LIST=""
   for kvp in ${PROPS+"${PROPS[@]}"}; do
     timeout 15 "$ADB" -s "$SERIAL" shell "setprop ${kvp%%=*} '${kvp#*=}'" >/dev/null 2>&1
+    eff=$(timeout 15 "$ADB" -s "$SERIAL" shell "getprop ${kvp%%=*}" 2>/dev/null | tr -d '\r')
+    PROP_LIST="${PROP_LIST:+$PROP_LIST,}${kvp%%=*}"
+    if [ "$eff" = "${kvp#*=}" ]; then
+      PROP_EFFECTIVE=$((PROP_EFFECTIVE+1))
+    else
+      PROP_LOST=$((PROP_LOST+1))
+      PROP_LOST_LIST="${PROP_LOST_LIST:+$PROP_LOST_LIST,}${kvp%%=*}"
+      log "EPINGLAGE PERDU : ${kvp%%=*} demande '${kvp#*=}', l'appareil rend '${eff:-vide}'"
+    fi
   done
+  extra "proof_props_file=$ITEM_PROP_FILE"
+  extra "proof_props_extracted=${#PROPS[@]}"
+  extra "proof_props_effective=$PROP_EFFECTIVE"
+  extra "proof_props_lost=$((ITEM_PROP_FILE - PROP_EFFECTIVE))"
+  extra "proof_props_rejected=$PROP_LOST"
+  extra "proof_props_list=${PROP_LIST:--}"
+  extra "proof_props_lost_list=${PROP_LOST_LIST:--}"
 
   if [ -n "$HDR_CAMPAIGN" ]; then
     HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$(date -u +%Y%m%dT%H%M%S)-$$"
@@ -546,6 +644,21 @@ else
   if timeout 20 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c 'cat files/gk_crash.txt 2>/dev/null' \
      | tr -d '\r' | grep -qa .; then CRASH=1; log "files/gk_crash.txt present"; fi
 
+  # LE REGIME OBSERVE, PAS LE REGIME DEMANDE. Relu sur l'appareil APRES l'amorcage : une cle par
+  # propriete epinglee. C'est ce qui rend l'epinglage verifiable dans la preuve seule, sans
+  # relire le backlog — et ce qui distingue « pose puis efface » de « pose et tenu ».
+  PROP_OBS=0; PROP_OBS_MATCH=0
+  for kvp in ${PROPS+"${PROPS[@]}"}; do
+    obs=$(timeout 15 "$ADB" -s "$SERIAL" shell "getprop ${kvp%%=*}" 2>/dev/null | tr -d '\r')
+    extra "proof_prop_obs_$(prop_key "${kvp%%=*}")=${obs:--}"
+    PROP_OBS=$((PROP_OBS+1))
+    [ "$obs" = "${kvp#*=}" ] && PROP_OBS_MATCH=$((PROP_OBS_MATCH+1))
+  done
+  extra "proof_props_observed=$PROP_OBS"
+  extra "proof_props_observed_match=$PROP_OBS_MATCH"
+  extra "proof_prop_obs_feature=$(timeout 15 "$ADB" -s "$SERIAL" shell 'getprop debug.opengoal.feature' 2>/dev/null | tr -d '\r' | sed 's/^$/-/')"
+
+
   if [ -n "$HDR_BATCH" ]; then
     # Stop the producer before closing its log: otherwise captures can land
     # after their effective-setting trace has already been disconnected.
@@ -564,6 +677,29 @@ else
     python3 "$AP/lib/hdr_batches.py" finish --batch "$HDR_BATCH" --adb "$ADB" \
       --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --remote "$HDR_REMOTE" \
       --crash "$CRASH" --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" || { log "HDR batch collection failed"; exit 3; }
+  fi
+fi
+
+# ======================================== recensement de harnais (generique) ================
+# Un item dont la grandeur ne vit PAS dans une image — le backlog, les scripts, l'historique —
+# n'a aucun moyen de faire publier sa cle par le moteur. Le seul chemin honnete restait d'ajouter
+# un module C++ a `game/` pour un verdict qui ne touche pas au jeu (builder-checkpoint-steals-work).
+# Ce crochet le rend inutile : si `lib/census/<item-id>.sh` existe, il est LANCE ici, apres la
+# course, et sa sortie `cle=valeur` rejoint celle du moteur dans le MEME journal, moissonnee par
+# la MEME regle. Il n'ecrit rien dans proof.txt : ni les champs de la machine, ni sa propre ligne.
+# POLARITE : un recensement qui echoue n'ecrit pas ses cles, donc le validateur est ROUGE. On ne
+# fabrique jamais la cle manquante.
+CENSUS="$AP/lib/census/$ID.sh"
+if [ -f "$CENSUS" ]; then
+  CT0=$(date +%s)
+  log "recensement de harnais : $CENSUS (armed=$ARMED)"
+  if AUTOPORT_CENSUS_ID="$ID" AUTOPORT_CENSUS_ARMED="$ARMED" AUTOPORT_CENSUS_DIR="$D" \
+     timeout -k 15 "${AUTOPORT_CENSUS_TIMEOUT:-900}" bash "$CENSUS" \
+     >> "$RAWLOG" 2>"$D/proof$SUF-census.log"; then
+    log "recensement fini en $(( $(date +%s) - CT0 ))s"
+  else
+    log "recensement SORTI EN ERREUR (code $?) apres $(( $(date +%s) - CT0 ))s : ses cles"
+    log "manqueront a proof.txt et le validateur sera rouge. Journal : $D/proof$SUF-census.log"
   fi
 fi
 
