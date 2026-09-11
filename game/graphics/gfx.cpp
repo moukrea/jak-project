@@ -102,13 +102,15 @@ u32 Init(GameVersion version) {
   } else {
     {
       auto p = scoped_prof("startup::gfx::init_main_display");
-      std::string title = "OpenGOAL";
+      // recharged-naming (owner 2026-09-11) : le titre de la fenetre EST un endroit ou le jeu
+      // se nomme. Il portait « OpenGOAL - <jeu> - <revision> » ; l'owner veut le nom du jeu et
+      // rien d'autre. La revision n'est pas perdue : `build_revision()` part deja dans le
+      // journal au demarrage, et le bandeau speedrun l'affiche a l'ecran.
+      std::string title = version_to_game_name_external(g_game_version);
       if (g_game_version == GameVersion::Jak2 || g_game_version == GameVersion::Jak3 ||
           g_game_version == GameVersion::JakX) {
         title += " - Work in Progress";
       }
-      title += fmt::format(" - {} - {}", version_to_game_name_external(g_game_version),
-                           build_revision());
       Display::InitMainDisplay(640, 480, title.c_str(), g_global_settings, version);
     }
   }

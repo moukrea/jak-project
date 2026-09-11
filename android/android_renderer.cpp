@@ -35,6 +35,7 @@
 #include <thread>
 
 #include "common/common_types.h"
+#include "common/versions/versions.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/render_pace.h"
@@ -359,9 +360,14 @@ int android_renderer_run() {
   SDL_SetHint("SDL_EGL_NO_CONFIG_CONTEXT", "1");
   SDL_EGL_SetAttributeCallbacks(nullptr, hdr_surface_attribs_cb, nullptr, nullptr);
 
+  // recharged-naming : meme sur un plein ecran sans barre de titre, la fenetre porte un nom
+  // (le gestionnaire de fenetres et les outils systeme le lisent). Il disait « OpenGOAL ».
   SDL_Window* window = SDL_CreateWindow(
-      "OpenGOAL", 0, 0,
+      external_product_name(), 0, 0,
       SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
+  if (window) {
+    note_product_name_use("window_title", SDL_GetWindowTitle(window));
+  }
   if (!window) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag,
                         "SDL_CreateWindow failed: %s", SDL_GetError());

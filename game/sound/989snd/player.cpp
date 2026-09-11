@@ -15,6 +15,7 @@
 #include <windows.h>
 #endif
 #include "common/log/log.h"
+#include "common/versions/versions.h"
 
 namespace snd {
 
@@ -44,7 +45,9 @@ void Player::InitCubeb() {
   }
 #endif
 
-  cubeb_init(&mCtx, "OpenGOAL", nullptr);
+  const char* const mixer_name = external_product_name();
+  note_product_name_use("audio_mixer_name", mixer_name);
+  cubeb_init(&mCtx, mixer_name, nullptr);
 
   cubeb_stream_params outparam = {};
   outparam.channels = 2;
@@ -61,7 +64,7 @@ void Player::InitCubeb() {
     return;
   }
 
-  err = cubeb_stream_init(mCtx, &mStream, "OpenGOAL", nullptr, nullptr, nullptr, &outparam, latency,
+  err = cubeb_stream_init(mCtx, &mStream, mixer_name, nullptr, nullptr, nullptr, &outparam, latency,
                           &sound_callback, &state_callback, this);
   if (err != CUBEB_OK) {
     lg::error("Cubeb init failed");

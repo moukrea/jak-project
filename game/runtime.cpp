@@ -405,6 +405,10 @@ RuntimeExitStatus exec_runtime(GameLaunchOptions game_options, int argc, const c
 
   bool enable_display = !game_options.disable_display;
   g_game_version = game_options.game_version;
+  // recharged-naming : les couches qui nomment le produit sans connaitre la version (mixeur
+  // audio 989snd, fenetre SDL Android) lisent `external_product_name()`. Pose ici, au seul
+  // endroit ou la version est decidee pour de bon.
+  set_external_product_name(g_game_version);
   g_server_port = game_options.server_port;
 
   gStartTime = time(nullptr);

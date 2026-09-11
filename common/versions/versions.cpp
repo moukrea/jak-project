@@ -55,6 +55,39 @@ std::string version_to_game_name_external(GameVersion v) {
   }
 }
 
+namespace {
+// Pose une fois au demarrage, lue par les couches sans `GameVersion` (voir versions.h).
+std::string g_external_product_name = version_to_game_name_external(GameVersion::Jak1);
+}  // namespace
+
+const char* external_product_name() {
+  return g_external_product_name.c_str();
+}
+
+void set_external_product_name(GameVersion v) {
+  g_external_product_name = version_to_game_name_external(v);
+}
+
+namespace {
+// `sound` construit son contexte cubeb depuis un fil a lui : le releve se fait sous
+// verrou, sinon le recensement peut lire la table pendant qu'elle s'ecrit.
+std::mutex g_name_use_mutex;
+std::map<std::string, std::string> g_name_uses;
+}  // namespace
+
+void note_product_name_use(const char* where, const char* shown) {
+  if (!where || !where[0]) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_name_use_mutex);
+  g_name_uses[where] = shown ? shown : "";
+}
+
+const std::map<std::string, std::string>& product_name_uses() {
+  std::lock_guard<std::mutex> lock(g_name_use_mutex);
+  return g_name_uses;
+}
+
 std::vector<std::string> valid_game_version_names() {
   return {game_version_names[GameVersion::Jak1], game_version_names[GameVersion::Jak2],
           game_version_names[GameVersion::Jak3], game_version_names[GameVersion::JakX]};

@@ -23,6 +23,7 @@
 #include "common/util/FrameLimiter.h"
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
+#include "common/versions/versions.h"
 
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
@@ -334,6 +335,12 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
       SDL_CreateWindow(title, width, height,
                        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
   prof().end_event();
+  // recharged-naming : on releve le titre que SDL porte REELLEMENT sur la fenetre, pas la
+  // chaine qu'on croit avoir passee. C'est la seule lecture qui distingue « le titre est bon »
+  // de « le calcul du titre est bon ».
+  if (window) {
+    note_product_name_use("window_title", SDL_GetWindowTitle(window));
+  }
   if (!window) {
     sdl_util::log_error("gl_make_display failed - Could not create display window");
     dialogs::create_error_message_dialog(

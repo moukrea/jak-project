@@ -43,6 +43,7 @@
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
+#include "game/system/naming_census.h"
 #include "game/system/settings_case_l10n.h"
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
@@ -1360,6 +1361,9 @@ void pc_autoport_frame() {
   // travail de cette image ne lise un champ non compose.
   recharged_gating::tick();
   fire_red_census::end_frame();
+  // recharged-naming : le recensement du nommage. Muet tant que le harnais ne nomme pas
+  // cet item (voir game/system/naming_census.h).
+  naming_census::tick();
   autoport_proof::frame_tick();
   // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a
   // CHAQUE image et non toutes les 60 : `flush()` emet la derniere valeur publiee, donc une

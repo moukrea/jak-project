@@ -468,7 +468,7 @@
   "Draw speedrun related settings in the bottom left corner"
   (when (and (-> *pc-settings* speedrunner-mode?) (not (paused?)) (-> *speedrun-info* should-display?))
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id subtitle))
-      (draw-string-xy (string-format "Speedrunner Mode ~%OpenGOAL Version: ~S ~%Category: ~S ~S~%Run Started: ~S"
+      (draw-string-xy (string-format "Speedrunner Mode ~%Recharged Version: ~S ~%Category: ~S ~S~%Run Started: ~S"
                                      *pc-settings-built-sha*
                                      (enum->string speedrun-category (-> *speedrun-info* category))
                                      (if (-> *pc-settings* skip-movies?) "(CS Skips)" "(No CS Skips)")

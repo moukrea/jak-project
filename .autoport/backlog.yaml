@@ -2979,7 +2979,10 @@ items:
   - date: '2026-09-11'
     text: 'JE SAIS PAS DE QUOI IL S''AGIT VRAIMENT... « Jak and Daxter: The Precursor Legacy » doit etre
       nomme « Jak and Daxter: Recharged » (sans mention d''OpenGOAL)'
-  gate: null
+  gate:
+    key: naming_wrong_sites
+    op: ==
+    value: 0
   game: jak1
   max_turns: 800
   max_retries: 6
