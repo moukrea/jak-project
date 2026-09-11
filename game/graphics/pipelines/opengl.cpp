@@ -26,6 +26,7 @@
 
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
@@ -373,6 +374,12 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
         return NULL;
       }
     }
+
+    // perf-gl-waits : les relais de recensement se posent AVANT le premier client du contexte.
+    // Tout ce que `gpu_caps::detect()` demande au pilote est de l'initialisation et tombe dans
+    // `gl_unarmed_driver_queries_boot` ; ce qui tombe APRES la premiere image est ce que la
+    // porte lit.
+    gl_query_census::install();
 
     // Grecharged-managed-assets: with a live context, record which compressed
     // formats this GPU really supports so the asset manager can pick (and the
@@ -1116,6 +1123,10 @@ void GLDisplay::render() {
       g_gfx_data->sync_cv.notify_all();
     }
   }
+
+  // perf-gl-waits : la frontiere d'image du fil GRAPHIQUE. Le seau de requetes pilote de
+  // l'image qui vient de finir est bascule ici, et son maximum est ce que la porte lit.
+  gl_query_census::frame_boundary();
 }
 
 /*!

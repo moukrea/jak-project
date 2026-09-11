@@ -28,6 +28,7 @@
 #include "game/mips2c/spart_prof.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
@@ -266,6 +267,10 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
                       "(GL_VERSION=%s)",
                       (const char*)glGetString(GL_VERSION));
   rss_census::mark("gl-contexte");
+
+  // perf-gl-waits : les relais de recensement se posent AVANT le premier client du contexte, et
+  // se REPOSENT tout seuls si le contexte est recree (la surface Android disparait et revient).
+  gl_query_census::install();
 
     // Grecharged-managed-assets: with a live context, record which compressed
     // formats this GPU really supports so the asset manager can pick (and the
@@ -787,6 +792,10 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
 #endif
 
     const u64 n = d->frames_rendered.fetch_add(1) + 1;
+
+    // perf-gl-waits : la frontiere d'image du fil GRAPHIQUE, au seul endroit qui ne peut pas
+    // mentir — une image n'est comptee que si la precedente est revenue vivante des seaux.
+    gl_query_census::frame_boundary();
 
     // Ghonor-boot-crash : la grandeur de la porte. « Combien d'images le jeu a-t-il SURVECU depuis
     // que le rendu a demarre. » Elle est publiee ICI, au seul endroit qui ne peut pas mentir : une

@@ -750,6 +750,9 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/hdr_output.cpp"
     "${JAK_ROOT}/game/graphics/fire_red_census.cpp"
     "${JAK_ROOT}/game/graphics/refset.cpp"
+    # perf-gl-waits : le recensement des requetes pilote. Un .cpp neuf doit etre liste ICI ET
+    # dans game/CMakeLists.txt, sinon x86 passe sa preuve et l'arm64 meurt au LIEN.
+    "${JAK_ROOT}/game/graphics/gl_query_census.cpp"
     # Gfixed-tick-interpolation : l'horloge a pas fixe est appelee par
     # a35_send_gfx_dma_chain (gk_android_main.cpp) ; la liste de sources Android est
     # separee de celle du bureau, il faut donc la citer ici aussi ou libgk.so ne lie pas.

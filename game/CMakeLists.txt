@@ -31,6 +31,8 @@ set(RUNTIME_SOURCE
         # Gfixed-tick-interpolation : horloge a pas fixe + alpha d'interpolation de rendu.
         graphics/fire_red_census.cpp
         graphics/fixed_tick.cpp
+        # perf-gl-waits : le recensement des requetes pilote, compte au point d'appel de glad.
+        graphics/gl_query_census.cpp
         # anim-interp-low-fps : horloge de cadence a reste borne + alpha d'interpolation.
         graphics/render_pace.cpp
         # framerate-uncap : plafond de cadence d'affichage + son recensement.
