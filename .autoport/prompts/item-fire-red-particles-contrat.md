@@ -9,7 +9,7 @@ DEUX ESSAIS PASSES AU VERT SUR UN DEFAUT INTACT. Ce que l'owner voit n'est PAS �
 
 ## Livrable — le contrat, en entier
 
-`fire_foreign_overdraw` = 0. (1) REPRODUIRE AVANT DE CORRIGER, sur le Redmi eae4df44 — le SEUL appareil branche. Les deux verts precedents ne prouvent rien : ils mesuraient l'armement d'un debug, pas ce qui est dessine. Si, avec la bonne mesure, le defaut N'APPARAIT PAS sur le Redmi, c'est un RESULTAT : le dire, le publier, et s'arreter la — l'owner branchera son Honor. (2) CE QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites, publier l'etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d'origine ; des aplats satures rouges ou noirs absents de l'origine sont un DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : TOUS les feux et TOUS les portails montrent la meme signature — l'owner l'a constate. Nommer le site partage et le corriger LA, jamais effet par effet ; une correction qui ne vaudrait que pour un feu est un DEFAUT. (5) Publier la liste des effets inspectes et le verdict de chacun.
+`fire_foreign_overdraw` = 0. (1) REPRODUIRE AVANT DE CORRIGER, sur le Redmi eae4df44 — le SEUL appareil branche. Les deux verts precedents ne prouvent rien : ils mesuraient l'armement d'un debug, pas ce qui est dessine. Si, avec la bonne mesure, le defaut N'APPARAIT PAS sur le Redmi : publier le constat, ecrire le handoff, et RENDRE LA MAIN TOUT DE SUITE. Ne brule aucun essai a chercher un defaut absent, ne tente aucune correction a l'aveugle. Owner 11/09 : « si le defaut se reproduit pas sur Redmi, passe a autre chose plutot que bloquer » — le superviseur parque l'item en attente du Honor et le harnais enchaine sur le chantier suivant. (2) CE QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites, publier l'etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d'origine ; des aplats satures rouges ou noirs absents de l'origine sont un DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : TOUS les feux et TOUS les portails montrent la meme signature — l'owner l'a constate. Nommer le site partage et le corriger LA, jamais effet par effet ; une correction qui ne vaudrait que pour un feu est un DEFAUT. (5) Publier la liste des effets inspectes et le verdict de chacun.
 
 ## Hors perimetre
 
@@ -35,6 +35,9 @@ Sandover Village : le feu dans la hutte, et le portail de la hutte du Sage vert.
 
 ### 2026-09-11
 > tu as le Redmi a disposition, pas le Honor, ne l'oublies pas !
+
+### 2026-09-11
+> si le defaut se reproduit pas sur Redmi, passe a autre chose plutot que bloquer
 
 ## Pourquoi ce fichier existe
 
