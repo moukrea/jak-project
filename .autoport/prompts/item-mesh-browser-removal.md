@@ -1,4 +1,4 @@
-# Le navigateur de mesh de debug disparait du jeu, entrees et raccourcis compris
+# Le navigateur de mesh quitte le jeu, entrees de menu et raccourcis compris
 
 ## Defaut cite
 - 2026-09-11 : « TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE »

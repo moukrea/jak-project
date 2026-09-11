@@ -4646,7 +4646,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   gate:
@@ -7051,7 +7051,7 @@ items:
 - id: mesh-browser-removal
   priority: 20
   device: true
-  feature: Le navigateur de mesh de debug disparait du jeu, entrees et raccourcis compris
+  feature: Le navigateur de mesh quitte le jeu, entrees de menu et raccourcis compris
   gate:
     key: mesh_browser_sites
     op: ==
@@ -7067,7 +7067,7 @@ items:
   where: 'Options et overlay tactile : plus aucune trace du navigateur de mesh, et aucune autre ligne
     de menu deplacee au passage'
   out_of_scope: Ne pas toucher aux autres outils de debug. On retire celui-la, entierement.
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7080,6 +7080,7 @@ items:
   - date: '2026-09-11'
     text: TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET
       BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE
+  delivered: '2026-09-11'
 - id: title-tap-prompt-regression
   priority: 21
   device: true
