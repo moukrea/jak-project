@@ -6,6 +6,7 @@
 #include "common/util/simd_util.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 #ifdef __ANDROID__
 // GLES rejects GL_UNSIGNED_INT_8_8_8_8_REV (incomplete texture → samples
@@ -21,6 +22,8 @@ SkyBlendCPU::SkyBlendCPU() {
     glBindTexture(GL_TEXTURE_2D, m_textures[i].gl);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, kSkyRgbaTexType,
                  0);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("sky-blend-cpu", i, GL_RGBA8, m_sizes[i], m_sizes[i]);
     m_texture_data[i].resize(4 * m_sizes[i] * m_sizes[i]);
   }
 }

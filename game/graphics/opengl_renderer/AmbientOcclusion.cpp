@@ -18,6 +18,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
 
 #include <type_traits>
@@ -289,6 +290,8 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int fu
   for (int i = 0; i < 2; i++) {
     glBindTexture(GL_TEXTURE_2D, m_ao_tex[i]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, ao_w, ao_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("ao-target", i, GL_R8, ao_w, ao_h);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -306,6 +309,8 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int fu
   glGenTextures(1, &m_ao_full_tex);
   glBindTexture(GL_TEXTURE_2D, m_ao_full_tex);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, full_w, full_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+  // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+  hdr::note_input_source("ao-full", GL_R8, full_w, full_h, 1);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

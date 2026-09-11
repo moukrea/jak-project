@@ -7247,7 +7247,7 @@ items:
     Mesurer sur le Redmi, qui a un ecran tactile.'
   where: 'l''ecran-titre sur ton telephone : « Appuie sur start ou touche l''écran »'
   out_of_scope: Ne pas retoucher le comportement du tap lui-meme, seulement le texte affiche.
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7262,7 +7262,7 @@ items:
       start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
   - date: '2026-09-11'
     text: non, ca dit toujours Appuie sur start.
-  delivered: null
+  delivered: '2026-09-11'
   device_serial: eae4df44
 - id: census-false-reds
   priority: 28
@@ -7543,11 +7543,16 @@ items:
     text: je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer
       ... je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur
 - id: hdr-plan
-  status: open
+  status: in-progress
   priority: 17
   game: jak1
   device: true
   owner_test: false
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.hdr=1
+  - debug.opengoal.level.warp=village2-dock
   feature: Le plan de la sortie HDR, avant d'y toucher une ligne de plus
   gate:
     key: hdr_plan_sections_open

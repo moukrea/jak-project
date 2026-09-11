@@ -38,8 +38,15 @@ constexpr const char* kStudyId = "hdr-study";
 
 // Le harnais mesure-t-il un item qui a besoin de ces instruments ? JAMAIS consulte pour decider
 // de ce que le jeu DESSINE : seulement pour allumer une sonde ou publier une grandeur.
+// LE PLAN (`hdr-plan`). Meme raison que l'etude : il ne change RIEN au rendu, il a besoin des
+// memes INSTRUMENTS. Sans cette branche, la sonde de marge ci-dessous ne tourne pas sous cet
+// item et son proof porterait `hdr_probe_state=1` — « la sonde n'a jamais tourne » — a la place
+// de la seule mesure qui etablit que le tampon de calcul contient vraiment de la marge.
+constexpr const char* kPlanId = "hdr-plan";
+
 bool instrumented() {
-  return autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId);
+  return autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId) ||
+         autoport_proof::feature_is(kPlanId);
 }
 
 thread_local bool s_frame_active = false;
@@ -105,6 +112,40 @@ uint64_t s_probe_overbright = 0;
 uint64_t s_probe_frames = 0;
 uint64_t s_probe_max_x1000 = 0;   // le plus grand canal vu, x1000
 uint64_t s_ldr_ref_delta = 0;     // max |epaule - ecretage| sur 0..255
+
+// ------------------------------------------------- recensement des ENTREES (chantier hdr-plan) --
+// Une entree = une cible que NOUS creons et qui alimente le chemin de scene. On retient son
+// format DEMANDE, sa taille, et le nombre de cibles identiques. La cle est le nom : un
+// redimensionnement REMPLACE l'entree, il n'en ajoute pas une seconde.
+struct InputSource {
+  GLenum fmt = 0;
+  int w = 0, h = 0, count = 0;
+  int bits = 0;             // bits par canal, 0 = format hors table (defaut d'instrument)
+  uint64_t bytes = 0;
+};
+std::map<std::string, InputSource> s_inputs;
+std::string s_input_list_cache;
+
+// Bits par canal et octets par texel du format DEMANDE. La table est explicite et courte : un
+// format absent rend 0 bit, ce qui fait monter `sources_unknown` au lieu de se faire passer pour
+// du 8 bits. Un recensement qui devine est un recensement qui ment.
+void format_depth(GLenum fmt, int* bits, int* bytes_per_texel) {
+  switch (fmt) {
+    case GL_R8:
+    case GL_RED:            *bits = 8;  *bytes_per_texel = 1; return;
+    case GL_RG8:            *bits = 8;  *bytes_per_texel = 2; return;
+    case GL_RGB:
+    case GL_RGB8:           *bits = 8;  *bytes_per_texel = 3; return;
+    case GL_RGBA:
+    case GL_RGBA8:          *bits = 8;  *bytes_per_texel = 4; return;
+    case GL_R16F:           *bits = 16; *bytes_per_texel = 2; return;
+    case GL_RG16F:          *bits = 16; *bytes_per_texel = 4; return;
+    case GL_RGBA16F:        *bits = 16; *bytes_per_texel = 8; return;
+    case GL_RGB10_A2:       *bits = 10; *bytes_per_texel = 4; return;
+    case GL_R11F_G11F_B10F: *bits = 11; *bytes_per_texel = 4; return;
+    default:                *bits = 0;  *bytes_per_texel = 0; return;
+  }
+}
 
 bool env_or_prop_override(const char* prop, const char* env, int* out) {
 #ifdef __ANDROID__
@@ -423,6 +464,27 @@ const char* format_name(GLenum fmt) {
       return "RGBA32F";
     case GL_RGBA8:
       return "RGBA8";
+    // Les formats des ENTREES du chemin de scene (recensement `hdr-plan`). Sans eux la liste
+    // publiee rendait « autre » pour le ciel comme pour l'occlusion ambiante : un lecteur ne
+    // pouvait pas dire laquelle des deux est en 8 bits.
+    case GL_R8:
+      return "R8";
+    case GL_RED:
+      return "RED";
+    case GL_RG8:
+      return "RG8";
+    case GL_RGB:
+      return "RGB";
+    case GL_RGB8:
+      return "RGB8";
+    case GL_RGBA:
+      return "RGBA";
+    case GL_R16F:
+      return "R16F";
+    case GL_RG16F:
+      return "RG16F";
+    case GL_RGB10_A2:
+      return "RGB10_A2";
     default:
       return "autre";
   }
@@ -538,6 +600,87 @@ void note_display_copy(const char* site, GLenum src_fmt, GLenum dst_fmt) {
 
 uint64_t last_frame_sites() {
   return s_sites_now;
+}
+
+void note_input_source(const char* name, GLenum internal_fmt, int w, int h, int count) {
+  if (!name || !name[0] || w <= 0 || h <= 0 || count <= 0) {
+    return;  // un appel degenere ne doit pas creer une entree qui ment sur sa taille
+  }
+  InputSource e;
+  e.fmt = internal_fmt;
+  e.w = w;
+  e.h = h;
+  e.count = count;
+  int bpt = 0;
+  format_depth(internal_fmt, &e.bits, &bpt);
+  e.bytes = (uint64_t)w * (uint64_t)h * (uint64_t)count * (uint64_t)bpt;
+  s_inputs[name] = e;
+}
+
+void note_input_source_indexed(const char* name, int index, GLenum internal_fmt, int w, int h) {
+  if (!name || !name[0]) {
+    return;
+  }
+  const std::string key = std::string(name) + "-" + std::to_string(index);
+  note_input_source(key.c_str(), internal_fmt, w, h, 1);
+}
+
+InputCensus input_census() {
+  InputCensus c;
+  for (const auto& [name, e] : s_inputs) {
+    (void)name;
+    c.sources_seen++;
+    c.bytes_total += e.bytes;
+    if (e.bits == 0) {
+      c.sources_unknown++;
+    } else if (e.bits == 8) {
+      c.sources_8bit++;
+      c.bytes_8bit += e.bytes;
+    }
+  }
+  return c;
+}
+
+bool input_source_seen(const char* name) {
+  return name && name[0] && s_inputs.count(name) != 0;
+}
+
+const char* input_census_list() {
+  s_input_list_cache.clear();
+  for (const auto& [name, e] : s_inputs) {
+    if (!s_input_list_cache.empty()) {
+      s_input_list_cache += ",";
+    }
+    s_input_list_cache += name;
+    s_input_list_cache += "=";
+    s_input_list_cache += format_name(e.fmt);
+    s_input_list_cache += ":";
+    s_input_list_cache += std::to_string(e.bytes);
+  }
+  if (s_input_list_cache.empty()) {
+    s_input_list_cache = "-";  // publish_text garde la derniere valeur si on lui passe du vide
+  }
+  return s_input_list_cache.c_str();
+}
+
+ChainCensus chain_census() {
+  ChainCensus c;
+  c.progs_scanned = s_progs.size();
+  for (const auto& [name, info] : s_progs) {
+    (void)name;
+    if (info.oetf_occurrences > 0) {
+      c.oetf_progs++;
+    }
+  }
+  c.tonemap_draws = s_tonemap_draws;
+  c.frames = s_frames;
+  c.chain_frames = s_chain_frames;
+  c.probe_px = s_probe_px;
+  c.overbright_px = s_probe_overbright;
+  c.probe_max_x1000 = s_probe_max_x1000;
+  c.probe_state = s_probe_state;
+  c.ladder_step = s_ladder_step;
+  return c;
 }
 
 void note_aux_scene_read(const char* site, GLenum src_fmt, GLenum dst_fmt) {

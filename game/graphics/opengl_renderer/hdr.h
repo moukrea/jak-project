@@ -121,4 +121,55 @@ void frame_end(GLenum scene_format);
 // nombre que juge le verdict 5 de lighting-hdr). Lu par hdr_output::frame_end.
 uint64_t last_frame_sites();
 
+// ----------------------------------------- recensement des ENTREES du chemin de scene --------
+// Pourquoi il existe (chantier `hdr-plan`). Le tampon de scene est RGBA16F et porte jusqu'a
+// quinze fois le blanc (mesure : `hdr_probe_max_x1000`). Mais il est alimente par des cibles
+// intermediaires que NOUS creons — le ciel, les sondes de glow, l'occlusion ambiante, les
+// palettes de cycle jour/nuit — et dont la profondeur est NOTRE choix, pas une contrainte de
+// l'asset. `hdr_out_src_sdr_compressions` ne les regarde pas : il rend 0 alors que la plage est
+// bornee EN AMONT du tone map. Ce recensement les compte LA OU ELLES SONT CREEES, avec leur
+// format et leur taille reelle, pour qu'un plan d'enrichissement chiffre ce qu'il propose au
+// lieu de l'estimer.
+//
+// Il ne lit rien, ne dessine rien et n'a aucun effet sur le rendu : `name` identifie la source,
+// `internal_fmt` est le format DEMANDE au pilote, `w`/`h` ses dimensions et `count` le nombre de
+// cibles identiques creees d'un coup. Rappeler la fonction pour la meme source (redimension,
+// re-format) REMPLACE l'entree : c'est l'etat courant qui compte, pas l'historique.
+void note_input_source(const char* name, GLenum internal_fmt, int w, int h, int count);
+
+// Meme chose pour une FAMILLE de cibles de tailles differentes creees dans une boucle (les cinq
+// etages de reduction du glow, les deux resolutions du ciel) : la cle devient `nom-<index>`.
+// Les enregistrer sous un seul nom en ferait perdre quatre sur cinq — la derniere ecrase les
+// autres, et le total d'octets publie serait faux d'un facteur quatre.
+void note_input_source_indexed(const char* name, int index, GLenum internal_fmt, int w, int h);
+
+struct InputCensus {
+  uint64_t sources_seen = 0;     // entrees distinctes vues pendant la course
+  uint64_t sources_8bit = 0;     // ... dont la profondeur est de 8 bits par canal
+  uint64_t sources_unknown = 0;  // ... dont le format n'est pas dans la table (defaut d'instrument)
+  uint64_t bytes_8bit = 0;       // octets alloues par les seules sources 8 bits
+  uint64_t bytes_total = 0;
+};
+InputCensus input_census();
+bool input_source_seen(const char* name);
+// "nom=format:octets" separes par des virgules, dans l'ordre alphabetique. Vide -> "-".
+const char* input_census_list();
+
+// ------------------------------ l'etat du recensement de chaine, relu par un autre module -----
+// Les memes grandeurs que `frame_end` publie deja sous `hdr_*` / `tonemap_*`. Un module qui doit
+// DECIDER sur elles (et pas seulement les publier) les lit ici, au lieu de relire un proof.txt.
+struct ChainCensus {
+  uint64_t progs_scanned = 0;
+  uint64_t oetf_progs = 0;
+  uint64_t tonemap_draws = 0;
+  uint64_t frames = 0;
+  uint64_t chain_frames = 0;
+  uint64_t probe_px = 0;
+  uint64_t overbright_px = 0;
+  uint64_t probe_max_x1000 = 0;
+  int probe_state = 0;  // -1 refusee par le pilote, 0 jamais tentee, 1 a tourne
+  int ladder_step = 0;  // cran de l'echelle de repli des formats (0 = aucun repli)
+};
+ChainCensus chain_census();
+
 }  // namespace hdr

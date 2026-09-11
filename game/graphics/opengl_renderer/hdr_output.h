@@ -84,6 +84,13 @@ constexpr const char* kItemId = "hdr-display-output";
 // toutes les sondes de ce fichier se taisaient — la ligne FEATURE et les cles seraient absentes.
 constexpr const char* kStudyId = "hdr-study";
 
+// LE PLAN (item `hdr-plan`). Meme raison que l'etude, et une difference qui compte : le plan
+// n'entre PAS dans `measuring()`. `measuring()` allume l'auto-test en cinq phases, qui bascule
+// la surface EGL sous l'image ; le plan, lui, doit decrire ce que le chemin LIVRE fait, et ne
+// doit toucher a rien. Il ne fait que RELIRE des grandeurs deja produites et publier, pour
+// chacune des six sections de son livrable, celle qui l'ancre dans une mesure d'appareil.
+constexpr const char* kPlanId = "hdr-plan";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {

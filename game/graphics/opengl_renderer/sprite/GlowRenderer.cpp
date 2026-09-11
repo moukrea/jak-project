@@ -190,6 +190,8 @@ GlowRenderer::GlowRenderer() {
   glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_rgba_tex);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, nullptr);
+  // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+  hdr::note_input_source("glow-probe", GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 1);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          m_ogl.probe_fbo_rgba_tex, 0);
 
@@ -230,6 +232,9 @@ GlowRenderer::GlowRenderer() {
     glBindTexture(GL_TEXTURE_2D, m_ogl.downsample_fbos[i].tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ds_size * kDownsampleBatchWidth,
                  ds_size * kDownsampleBatchWidth, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("glow-downsample", i, GL_RGBA8,
+                                   ds_size * kDownsampleBatchWidth, ds_size * kDownsampleBatchWidth);
 
     if (i == 0) {
       glGenRenderbuffers(1, &m_ogl.first_ds_depth_rb);
@@ -544,6 +549,8 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_rgba_tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, NULL);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source("glow-probe", GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 1);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_depth_tex);

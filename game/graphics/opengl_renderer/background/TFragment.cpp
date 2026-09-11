@@ -12,6 +12,7 @@
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/kernel/jak2/kscheme.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -507,6 +508,8 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         glBindTexture(GL_TEXTURE_2D, tree_cache.time_of_day_texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, nullptr);
+        // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+        hdr::note_input_source_indexed("tod-palette-tfrag", 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -515,6 +518,8 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         glBindTexture(GL_TEXTURE_2D, tree_cache.time_of_day_texture_pp);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, nullptr);
+        // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+        hdr::note_input_source_indexed("tod-palette-tfrag", 1, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         tree_cache.tod_flip = 0;

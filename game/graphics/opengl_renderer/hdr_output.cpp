@@ -1129,6 +1129,14 @@ bool studying() {
   return autoport_proof::feature_is(kStudyId) && autoport_proof::armed_for(kStudyId);
 }
 
+// LE PLAN (`hdr-plan`) mesure-t-il ? Meme portee que `studying()` : ce booleen ne decide QUE de
+// la publication du bloc `hdr_plan_*`. Il n'entre pas dans `measuring()`, et c'est delibere —
+// `measuring()` allume l'auto-test en cinq phases, qui BASCULE LA SURFACE EGL sous l'image. Le
+// plan ne change rien au rendu : il relit ce que le chemin LIVRE produit deja.
+bool planning() {
+  return autoport_proof::feature_is(kPlanId) && autoport_proof::armed_for(kPlanId);
+}
+
 bool probe_window_open() {
   // Les sondes ne tournent qu'en phase ON, une image sur kProbeEvery, hors transition.
   return measuring() && !s_selftest_done && (s_phase == 1 || s_phase == 3 || s_phase == 4) &&
@@ -1932,6 +1940,217 @@ void publish_study() {
   autoport_proof::note_hit();
 }
 
+// ============================================================================================
+// LE PLAN (`hdr-plan`) — SIX SECTIONS, SIX ANCRAGES MESURES, ET LE COMPTE DE CELLES QUI RESTENT
+// SANS ANCRAGE. Ce bloc n'ajoute AUCUN geste de rendu : il RELIT ce que le chemin livre produit
+// deja et le republie sous un nom qui dit a quelle section du document il repond.
+//
+// POURQUOI UNE PORTE « SECTIONS OUVERTES » ET PAS UN VERDICT DE RENDU. Le livrable est un
+// DOCUMENT. La seule chose qu'une machine peut garantir d'un document, c'est que chacune de ses
+// sections s'appuie sur une grandeur MESUREE SUR L'APPAREIL pendant CETTE course, et non sur un
+// souvenir, une lecture de code ou un proof d'hier. `hdr_plan_sections_open` compte donc les
+// sections dont la mesure de soutien MANQUE ou a un denominateur nul.
+//
+// CE QUI REND LE ZERO FALSIFIABLE. Chaque section exige un COMPTE non nul produit par un
+// instrument DISTINCT et, pour quatre d'entre elles, par une AUTRE unite de compilation
+// (`hdr.cpp`) : etages d'affichage relus sur le pilote (S1), recensement des entrees pris a
+// leur site de CREATION (S2), entrees systeme lues chez le systeme (S3), recensement de shaders
+// pris a la compilation (S4), les cinq instruments sans ecran (S5), l'invariant « une seule
+// compression de plage » du chemin livre (S6). Un binaire qui ne tourne pas, un appel de
+// recensement oublie, une sonde refusee par le pilote : la valeur monte. Elle ne descend jamais
+// toute seule.
+//
+// CE QU'IL NE DIT PAS. Rien sur la qualite de l'image, rien sur ce que la dalle EMET. Le plan ne
+// change pas un pixel ; c'est l'owner qui juge le rendu, et il n'y a rien a regarder ici.
+void publish_plan() {
+  if (!planning()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  SysCaps sys;
+  PlatformCaps plat;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    sys = s_sys;
+    plat = s_plat;
+  }
+  const SurfaceState surf = s_surface;
+  const PresentVerdict pv = display_presents_hdr();
+  const hdr::ChainCensus cc = hdr::chain_census();
+  const hdr::InputCensus ic = hdr::input_census();
+
+  // ---- S1 : LE CHEMIN, etage par etage, en formats REELLEMENT OBSERVES ---------------------
+  // Les trois etages que la couleur traverse apres l'ombrage. Aucun n'est suppose : le troisieme
+  // surtout, relu sur la fenetre, qui dement une demande non exaucee.
+  const GLenum f_scene = hdr::scene_color_format();
+  int s1_stages = 0;
+  s1_stages += (f_scene != 0) ? 1 : 0;
+  s1_stages += (s_study_ui_fmt != 0) ? 1 : 0;
+  s1_stages += (surf.red_bits > 0) ? 1 : 0;
+  autoport_proof::publish_text("hdr_plan_s1_scene_fmt", hdr::format_name(f_scene));
+  autoport_proof::publish("hdr_plan_s1_scene_float", (uint64_t)(hdr::format_is_float(f_scene) ? 1 : 0));
+  autoport_proof::publish_text("hdr_plan_s1_ui_fmt",
+                               s_study_ui_fmt == 0 ? "-" : hdr::format_name(s_study_ui_fmt));
+  autoport_proof::publish("hdr_plan_s1_win_bits", (uint64_t)surf.red_bits);
+  autoport_proof::publish("hdr_plan_s1_win_colorspace", (uint64_t)surf.colorspace);
+  autoport_proof::publish("hdr_plan_s1_tonemap_sites", hdr::last_frame_sites());
+  autoport_proof::publish("hdr_plan_s1_stages_measured", (uint64_t)s1_stages);
+  const bool s1_closed = (s1_stages == 3);
+
+  // ---- S2 : LES ENTREES A ENRICHIR ----------------------------------------------------------
+  // Le recensement est pris AU SITE DE CREATION de chaque cible, pas sur une liste ecrite a la
+  // main : une source qu'on aurait oublie d'instrumenter manque a l'appel et la section reste
+  // ouverte. Les six entrees EXIGEES sont celles que tout demarrage cree, sur les deux
+  // plateformes (les deux resolutions du ciel, GPU et CPU, la sonde de glow et son premier
+  // etage de reduction). Les autres — occlusion ambiante, palettes de cycle jour/nuit, depth-cue
+  // — dependent du niveau, du palier de qualite ou de la plateforme : elles sont COMPTEES et
+  // NOMMEES, jamais exigees. Un plancher calibre sur une population conditionnelle rendrait la
+  // porte rouge pour une raison qui n'a rien a voir avec le plan.
+  static const char* kRequiredInputs[] = {"sky-blend-gpu-0", "sky-blend-gpu-1", "sky-blend-cpu-0",
+                                          "sky-blend-cpu-1", "glow-probe", "glow-downsample-0"};
+  const int kRequiredInputCount = (int)(sizeof(kRequiredInputs) / sizeof(kRequiredInputs[0]));
+  int s2_required_seen = 0;
+  std::string s2_missing;
+  for (int i = 0; i < kRequiredInputCount; i++) {
+    if (hdr::input_source_seen(kRequiredInputs[i])) {
+      s2_required_seen++;
+    } else {
+      if (!s2_missing.empty()) {
+        s2_missing += ",";
+      }
+      s2_missing += kRequiredInputs[i];
+    }
+  }
+  autoport_proof::publish("hdr_plan_s2_sources_seen", ic.sources_seen);
+  autoport_proof::publish("hdr_plan_s2_sources_8bit", ic.sources_8bit);
+  autoport_proof::publish("hdr_plan_s2_sources_unknown", ic.sources_unknown);
+  autoport_proof::publish("hdr_plan_s2_bytes_8bit", ic.bytes_8bit);
+  autoport_proof::publish("hdr_plan_s2_bytes_total", ic.bytes_total);
+  autoport_proof::publish("hdr_plan_s2_required", (uint64_t)kRequiredInputCount);
+  autoport_proof::publish("hdr_plan_s2_required_seen", (uint64_t)s2_required_seen);
+  autoport_proof::publish_text("hdr_plan_s2_missing", s2_missing.empty() ? "-" : s2_missing.c_str());
+  autoport_proof::publish_text("hdr_plan_s2_list", hdr::input_census_list());
+  const bool s2_closed = (s2_required_seen == kRequiredInputCount) && (ic.sources_unknown == 0);
+
+  // ---- S3 : L'ADAPTATION, SANS AUCUN APPAREIL NOMME -----------------------------------------
+  // Six entrees, six producteurs differents, et AUCUN nom d'appareil : ce que le systeme a
+  // rapporte (Java), ce que le pilote EGL a laisse sonder, ce que la fenetre rend quand on la
+  // relit, la version d'API, le pic annonce, et la consigne de retro-eclairage que le systeme
+  // publie lui-meme. Le REGIME s'en deduit et c'est lui, pas un modele de telephone, qui decide
+  // de ce que la sortie HDR peut livrer :
+  //   2 = l'ecran PRESENTE le HDR (contrat d'API, ou forme des capacites annoncees) ;
+  //   1 = il ne fait que DECODER, mais le systeme a ACCORDE de la marge (consigne relevee) ;
+  //   0 = aucune marge accordee. Dans ce regime il n'y a pas de nits a gagner : ce qui reste est
+  //       le conteneur et sa quantification, et c'est tout ce que le plan doit promettre.
+  int s3_inputs = 0;
+  s3_inputs += sys.reported ? 1 : 0;
+  s3_inputs += plat.probed ? 1 : 0;
+  s3_inputs += (surf.red_bits > 0) ? 1 : 0;
+  s3_inputs += (sys.sdk_int > 0) ? 1 : 0;
+  s3_inputs += (sys.max_lum > 0) ? 1 : 0;
+  s3_inputs += (s_bl_base_samples > 0) ? 1 : 0;
+  const float grant = measured_grant();
+  const int regime = pv.presents ? 2 : (grant > 1.005f ? 1 : 0);
+  autoport_proof::publish("hdr_plan_s3_inputs_read", (uint64_t)s3_inputs);
+  autoport_proof::publish("hdr_plan_s3_regime", (uint64_t)regime);
+  autoport_proof::publish("hdr_plan_s3_presents", (uint64_t)(pv.presents ? 1 : 0));
+  autoport_proof::publish_text("hdr_plan_s3_presents_reason", pv.reason);
+  autoport_proof::publish("hdr_plan_s3_grant_x1000", (uint64_t)std::lround(grant * 1000.f));
+  autoport_proof::publish("hdr_plan_s3_bl_base_samples", s_bl_base_samples);
+  autoport_proof::publish("hdr_plan_s3_headroom_x1000",
+                          (uint64_t)std::lround(headroom_linear() * 1000.f));
+  autoport_proof::publish("hdr_plan_s3_sdk_int", (uint64_t)sys.sdk_int);
+  autoport_proof::publish("hdr_plan_s3_peak_nits", (uint64_t)sys.max_lum);
+  autoport_proof::publish("hdr_plan_s3_max_avg_nits", (uint64_t)sys.max_avg);
+  autoport_proof::publish("hdr_plan_s3_min_lum_x10000", (uint64_t)sys.min_lum_x10000);
+  autoport_proof::publish("hdr_plan_s3_wide_gamut", (uint64_t)(sys.wide_gamut ? 1 : 0));
+  autoport_proof::publish("hdr_plan_s3_ratio_api", (uint64_t)(sys.ratio_available ? 1 : 0));
+  const bool s3_closed = (s3_inputs == 6);
+
+  // ---- S4 : L'ORDRE ET LES DEPENDANCES AVEC LA REFONTE DE L'ECLAIRAGE -----------------------
+  // Ce qui lie les deux chantiers est un objet unique : le tampon de scene, et l'ESPACE dans
+  // lequel il est ecrit. `oetf_progs / progs_scanned` est le recensement, pris a la compilation
+  // des shaders, des programmes qui RE-ENCODENT avant d'y ecrire. C'est la grandeur qui dit
+  // combien de chemins d'ombrage une linearisation devrait convertir — donc l'ordre.
+  autoport_proof::publish("hdr_plan_s4_progs_scanned", cc.progs_scanned);
+  autoport_proof::publish("hdr_plan_s4_oetf_progs", cc.oetf_progs);
+  autoport_proof::publish("hdr_plan_s4_chain_frames", cc.chain_frames);
+  autoport_proof::publish("hdr_plan_s4_scene_fallback_step", (uint64_t)cc.ladder_step);
+  autoport_proof::publish("hdr_plan_s4_master_on",
+                          (uint64_t)(Gfx::recharged_master_active() ? 1 : 0));
+  autoport_proof::publish("hdr_plan_s4_lighting_on", (uint64_t)(lighting_gate() ? 1 : 0));
+  const bool s4_closed = (cc.progs_scanned > 0) && (cc.chain_frames > 0);
+
+  // ---- S5 : CE QUI SE PROUVE SANS ECRAN HDR -------------------------------------------------
+  // Cinq instruments, et la demonstration est CETTE course : elle tourne sur un ecran dont le
+  // regime est publie juste au-dessus. Chacun doit avoir rendu un nombre, sinon la section qui
+  // promet « ceci se prouve sans materiel » ne l'a pas demontre.
+  int s5_ok = 0;
+  const bool p1 = (cc.probe_state == 1) && (cc.probe_px > 0);      // marge du tampon de scene
+  const bool p2 = (ic.sources_seen > 0) && (ic.sources_unknown == 0);  // entrees 8 bits
+  const bool p3 = (cc.progs_scanned > 0);                          // espace des programmes
+  const bool p4 = (cc.tonemap_draws > 0) && (hdr::last_frame_sites() == 1);  // site unique
+  const bool p5 = (s3_inputs == 6);                                // decision d'ecran
+  s5_ok += p1 ? 1 : 0;
+  s5_ok += p2 ? 1 : 0;
+  s5_ok += p3 ? 1 : 0;
+  s5_ok += p4 ? 1 : 0;
+  s5_ok += p5 ? 1 : 0;
+  autoport_proof::publish("hdr_plan_s5_offline_probes_ok", (uint64_t)s5_ok);
+  autoport_proof::publish("hdr_plan_s5_probe_px", cc.probe_px);
+  autoport_proof::publish("hdr_plan_s5_overbright_px", cc.overbright_px);
+  autoport_proof::publish("hdr_plan_s5_probe_max_x1000", cc.probe_max_x1000);
+  // LA SURDITE DE L'ENTREE DE LA COURBE, chiffree : le plus grand canal que la sonde de PIXELS a
+  // vu, contre le pic que voit la statistique de 16x16 tuiles qui PILOTE la courbe. Publie hors
+  // porte (l'analyse de scene ne tourne que sortie HDR active) mais avec son denominateur, pour
+  // qu'un zero se lise « pas mesure » et non « pas d'ecart ».
+  autoport_proof::publish("hdr_plan_s5_curve_input_samples", s_study_scene_samples);
+  autoport_proof::publish("hdr_plan_s5_curve_input_peak_x1000",
+                          (uint64_t)std::lround(s_study_scene_peak_max * 1000.f));
+  const bool s5_closed = (s5_ok == 5);
+
+  // ---- S6 : LES RISQUES, ET LE POINT DE RETOUR --------------------------------------------
+  // Le risque qui domine est la regression du SDR livre. L'invariant qui la detecterait existe
+  // deja et c'est lui qu'on releve ICI, AVANT de toucher a quoi que ce soit : le tone map est
+  // tire une fois et une seule par image de chaine. Toute etape du plan qui casserait cet
+  // invariant le ferait voir. Mesure sur la course, jamais recopiee d'un proof anterieur.
+  autoport_proof::publish("hdr_plan_s6_frames", (uint64_t)s_frames);
+  autoport_proof::publish("hdr_plan_s6_active_frames", s_hits);
+  autoport_proof::publish("hdr_plan_s6_tonemap_draws", cc.tonemap_draws);
+  autoport_proof::publish("hdr_plan_s6_chain_frames", cc.chain_frames);
+  autoport_proof::publish("hdr_plan_s6_setting", (uint64_t)(s_setting.load() != 0 ? 1 : 0));
+  // LE DEFICIT est publie SEPAREMENT et n'entre pas dans la fermeture. Il vaut zero sur la course
+  // d'etude (2340 = 2340) ; s'il ne le vaut pas, c'est une TROUVAILLE — des images de chaine ou le
+  // tone map n'a pas ete tire — et pas une panne d'instrument. Une porte qui exigerait l'egalite
+  // confondrait les deux et rendrait rouge une section dont l'ancrage, lui, a bien ete mesure.
+  const uint64_t s6_deficit =
+      cc.chain_frames > cc.tonemap_draws ? cc.chain_frames - cc.tonemap_draws : 0;
+  autoport_proof::publish("hdr_plan_s6_draw_deficit", s6_deficit);
+  const bool s6_closed = (cc.tonemap_draws > 0) && (cc.chain_frames > 0) &&
+                         (hdr::last_frame_sites() == 1);
+
+  // ---- LE COMPTE ----------------------------------------------------------------------------
+  const bool closed[6] = {s1_closed, s2_closed, s3_closed, s4_closed, s5_closed, s6_closed};
+  uint64_t open = 0;
+  std::string open_list;
+  for (int i = 0; i < 6; i++) {
+    autoport_proof::publish((std::string("hdr_plan_s") + (char)('1' + i) + "_closed").c_str(),
+                            (uint64_t)(closed[i] ? 1 : 0));
+    if (!closed[i]) {
+      open++;
+      if (!open_list.empty()) {
+        open_list += ",";
+      }
+      open_list += "s";
+      open_list += (char)('1' + i);
+    }
+  }
+  autoport_proof::publish_text("hdr_plan_sections_open_list", open_list.empty() ? "-" : open_list.c_str());
+  autoport_proof::publish("hdr_plan_sections_open", open);
+  // LE GESTE DU PLAN, c'est CETTE publication. `hits` est partage par tout le binaire : on ne le
+  // compte QUE sous l'item `hdr-plan`, sinon le compteur de tous les autres items monterait.
+  autoport_proof::note_hit();
+}
+
 void publish_all() {
   // Le verrou ne couvre que la COPIE des capacites : sdr_white_nits(), paper_white() et
   // sdr_white_source() le reprennent (mutex non recursif — un publish_all qui le tenait
@@ -2456,6 +2675,7 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defects", 17);  // auto-test pas au bout : ROUGE, jamais muet
   }
   publish_study();  // l'etude relit ce qui precede ; elle ne mesure rien de neuf par elle-meme
+  publish_plan();   // le plan relit ce qui precede ; il ne mesure rien de neuf par lui-meme
 }
 
 void compute_verdicts() {

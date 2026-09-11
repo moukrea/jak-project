@@ -5,6 +5,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 SkyBlendGPU::SkyBlendGPU() {
   // generate textures for sky blending
@@ -29,6 +30,8 @@ SkyBlendGPU::SkyBlendGPU() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA,
                  GL_UNSIGNED_INT_8_8_8_8_REV, 0);
 #endif
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("sky-blend-gpu", i, GL_RGBA8, m_sizes[i], m_sizes[i]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[i], 0);

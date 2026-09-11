@@ -23,6 +23,7 @@
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -674,6 +675,8 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       glBindTexture(GL_TEXTURE_2D, lod_tree[l_tree].time_of_day_texture);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, nullptr);
+      // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+      hdr::note_input_source_indexed("tod-palette-tie", 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -682,6 +685,8 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       glBindTexture(GL_TEXTURE_2D, lod_tree[l_tree].time_of_day_texture_pp);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, nullptr);
+      // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+      hdr::note_input_source_indexed("tod-palette-tie", 1, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       lod_tree[l_tree].tod_flip = 0;

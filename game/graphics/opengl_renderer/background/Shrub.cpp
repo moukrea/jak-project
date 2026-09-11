@@ -16,6 +16,7 @@
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
 static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
@@ -466,6 +467,8 @@ void Shrub::update_load(const LevelData* loader_data) {
     glBindTexture(GL_TEXTURE_2D, m_trees[l_tree].time_of_day_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("tod-palette-shrub", 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -476,6 +479,8 @@ void Shrub::update_load(const LevelData* loader_data) {
     glBindTexture(GL_TEXTURE_2D, m_trees[l_tree].time_of_day_texture_pp);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
+    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
+    hdr::note_input_source_indexed("tod-palette-shrub", 1, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     m_trees[l_tree].tod_flip = 0;
