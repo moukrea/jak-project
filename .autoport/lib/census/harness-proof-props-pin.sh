@@ -60,20 +60,39 @@ out['dead_fn_defined'] = int(defined)
 out['dead_fn_callers'] = called
 out['dead_fn_writes'] = int('set_status(' in body)
 out['dead_fn_mutates_memory'] = int(bool(re.search(r'it\[.status.\]\s*=', body)))
-# LE TEMOIN « AVANT » : au commit d'avant ce chantier elle etait definie et sans appelant. Sans
-# lui, un zero ne dirait pas si le piege a ete desarme ou s'il n'a jamais existe.
-try:
-    old = subprocess.run(['git', '-C', root, 'show', 'HEAD:.autoport/lib/backlog.py'],
-                         capture_output=True, text=True, timeout=30).stdout
-    oldo = subprocess.run(['git', '-C', root, 'show', 'HEAD:.autoport/orchestrator.py'],
-                          capture_output=True, text=True, timeout=30).stdout
+# LE TEMOIN « AVANT » : au dernier etat SANS ce chantier, la fonction etait definie et sans
+# appelant. Sans lui, un zero ne dirait pas si le piege a ete desarme ou s'il n'a jamais existe.
+# PAR MARQUEUR, JAMAIS PAR `HEAD:`. Une fois ce chantier commite, HEAD porte le correctif et le
+# temoin s'accuserait lui-meme : la porte deviendrait rouge au deuxieme essai pour une raison
+# qui n'est pas un defaut. La meme regle vaut pour le bras d'ablation du bac a sable.
+def sans(rel, marqueur):
+    try:
+        log = subprocess.run(['git', '-C', root, 'log', '--format=%H', '-n', '60', '--', rel],
+                             capture_output=True, text=True, timeout=60).stdout.split()
+    except Exception:
+        return None, ''
+    for c in log:
+        try:
+            blob = subprocess.run(['git', '-C', root, 'show', '%s:%s' % (c, rel)],
+                                  capture_output=True, text=True, timeout=30).stdout
+        except Exception:
+            continue
+        if marqueur not in blob:
+            return c, blob
+    return None, ''
+
+cb, old = sans('.autoport/lib/backlog.py', 'def parked_for_owner')
+co, oldo = sans('.autoport/orchestrator.py', 'free_machine_proved')
+if cb and co:
     od = 'def machine_proved_to_validated' in old
     oc = len(re.findall(r'\bmachine_proved_to_validated\s*\(', old + oldo)) - (1 if od else 0)
     out['dead_fn_before_defined'] = int(od)
     out['dead_fn_before_callers'] = oc
-except Exception:
+    out['dead_fn_before_commit'] = (cb[:12] + '/' + co[:12])
+else:
     out['dead_fn_before_defined'] = -1
     out['dead_fn_before_callers'] = -1
+    out['dead_fn_before_commit'] = '-'
 
 # 5. LE CHEMIN RECOMMANDE, la ou un worker le lit : le preambule que l'orchestrateur inline dans
 # CHAQUE prompt. On teste le TEXTE REELLEMENT ASSEMBLE, pas la presence d'une ligne source.
