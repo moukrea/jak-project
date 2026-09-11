@@ -9,6 +9,7 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/runtime.h"
 
@@ -296,6 +297,7 @@ u32 create_map_texture(const CompressedTex& tex) {
 }
 
 bool upload_bound_texture(const CompressedTex& tex) {
+  gl_query_census::Armed _ap("managed-tex-upload");
   const u32 internal = gl_internal_format(tex.info.vk_format);
   if (!internal) {
     lg::warn("managed_assets: no GL format for vkFormat {}", tex.info.vk_format);
@@ -316,8 +318,7 @@ bool upload_bound_texture(const CompressedTex& tex) {
   }
   // GL_MAX_TEXTURE_SIZE guard (the audited defect): offline mips make the
   // fix free — skip leading levels until the size fits.
-  GLint max_size = 0;
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
+  const GLint max_size = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
   u32 first = 0;
   u32 w = tex.info.width, h = tex.info.height;
   while (max_size > 0 && (w > u32(max_size) || h > u32(max_size)) &&

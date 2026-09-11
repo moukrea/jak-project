@@ -46,6 +46,7 @@
 #include "android_gfx.h"
 #include "android_input_audio.h"
 
+#include "game/graphics/gl_query_census.h"
 #include "third-party/glad/include/glad/glad.h"
 
 namespace {
@@ -145,6 +146,10 @@ SDL_EGLint* SDLCALL hdr_surface_attribs_cb(void*, SDL_EGLDisplay, SDL_EGLConfig)
 
 // L'etat de la surface tel que la plateforme le LIT (pas tel qu'on l'a demande).
 hdr_output::SurfaceState query_surface_state() {
+  // perf-gl-waits : `GL_RED_BITS` decrit le tampon LIE, pas une constante du contexte — on ne
+  // peut pas le cacher. C'est une lecture DELIBEREE de hdr-display-output, appelee a l'init et a
+  // chaque bascule de surface : elle est declaree et nommee, jamais anonyme.
+  gl_query_census::Armed _ap("hdr-surface-state");
   hdr_output::SurfaceState st;
   GLint r = 0;
   if (glad_glBindFramebuffer && glad_glGetIntegerv) {

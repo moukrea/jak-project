@@ -18,6 +18,7 @@
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/fire_red_census.h"
 #include "game/system/autoport_proof.h"
 #include "third-party/json.hpp"
@@ -98,6 +99,7 @@ float owner_half_float(uint16_t h) {
 }
 
 OwnerCompositionImage owner_composition_read() {
+  gl_query_census::Armed _ap("sprite-owner-probe");
   OwnerCompositionImage image;
   image.error = glGetError();
   if (image.error != GL_NO_ERROR) {

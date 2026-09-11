@@ -1,6 +1,7 @@
 #include "Merc2.h"
 #include "game/system/recharged_gating.h"
 
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 
 #include "game/system/npc_flicker.h"
@@ -264,8 +265,8 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
   // annoyingly, glBindBufferRange can have alignment restrictions that vary per platform.
   // the GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT gives us the minimum alignment for views into the bone
   // buffer. The bone buffer stores things per-16-byte "quadword".
-  GLint val;
-  glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &val);
+  // perf-gl-waits : un alignement d'UBO est une limite du contexte — lue UNE fois pour la course.
+  const GLint val = gl_query_census::limit(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT);
   if (val <= 16) {
     // somehow doubt this can happen, but just in case
     m_opengl_buffer_alignment = 1;
@@ -307,6 +308,7 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
   // (deferred pipeline compile of the per-vertex UBO-array indexing), fully
   // independent of game data.
   if (f1a_merc_knob("f1a_merc_selftest")) {
+    gl_query_census::Armed _ap("merc-f1a-selftest");
     GLuint vb = 0, ib = 0;
     glGenBuffers(1, &vb);
     glGenBuffers(1, &ib);
@@ -4493,6 +4495,9 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
       m_vao_load_id = UINT64_MAX;
     }
     if (!skip_defuse) {
+      // perf-gl-waits : contournement pilote DELIBERE (chantier suivant) — son comportement ne
+      // change pas ici, il est seulement DECLARE pour que le recensement le nomme.
+      gl_query_census::Armed _ap("merc-f1a-f1d-defuse");
       auto defuse_prof = prof.make_scoped_child("defuse");
 #ifdef __ANDROID__
     // F1a Adreno workaround: specific merc glDrawElements SIGSEGV inside
@@ -4976,7 +4981,7 @@ void Merc2::do_draws(const Draw* draw_array,
       // 12-15). The killer is ONE stable draw: first_index=64945, count=117,
       // tex=0x225, di=0 of l1-pris's 53-draw list. Verify exactly it.
       static int s_f1a_verify = 0;
-      if (s_f1a_verify < 6 && draw.first_index == 64945) {
+      if (gl_query_census::probes_armed() && s_f1a_verify < 6 && draw.first_index == 64945) {
         s_f1a_verify++;
         const auto& cpu_idx = lev->level->merc_data.indices;
         u32 mn = UINT32_MAX, mx = 0;
@@ -5036,7 +5041,24 @@ void Merc2::do_draws(const Draw* draw_array,
       // trip over. Kept armed at di==0 and at the historical killer draw
       // (first_index 64945); the snapshot doubles as SIGSEGV-dump
       // forensics (read by gk_sigsegv_diag, no GL calls in the handler).
+      // perf-gl-waits : les CINQ requetes pilote de cette sonde tournaient a chaque flush merc.
+      // Elles passent sous la prop des sondes ; les champs NON-GL du cliche restent renseignes a
+      // chaque draw (ils ne coutent rien et servent au dump SIGSEGV), et les champs que la sonde
+      // remplissait recoivent un SENTINEL — un vidage `gk_sigsegv_diag` ne doit jamais lire une
+      // valeur perimee comme une mesure.
       if (di == 0 || draw.first_index == 64945) {
+        gk_f1a_last_merc_draw.tex_size = (u32)lev->textures.size();
+        gk_f1a_last_merc_draw.load_id = (u32)lev->load_id;
+        gk_f1a_last_merc_draw.fsl = (u32)lev->frames_since_last_used;
+      }
+      if (!gl_query_census::probes_armed() && (di == 0 || draw.first_index == 64945)) {
+        gk_f1a_last_merc_draw.tex_is = 0xff;
+        gk_f1a_last_merc_draw.tex_binding = 0xffffffff;
+        gk_f1a_last_merc_draw.fbo_binding = 0xffffffff;
+        gk_f1a_last_merc_draw.fbo_status = 0;
+        gk_f1a_last_merc_draw.gl_err = 0xffffffff;
+      }
+      if (gl_query_census::probes_armed() && (di == 0 || draw.first_index == 64945)) {
         const u32 nm = gk_f1a_last_merc_draw.tex_name;
         gk_f1a_last_merc_draw.tex_is = nm ? (glIsTexture(nm) ? 1 : 0) : 2;
         GLint v = 0;
@@ -5047,9 +5069,6 @@ void Merc2::do_draws(const Draw* draw_array,
         gk_f1a_last_merc_draw.fbo_binding = (u32)v;
         gk_f1a_last_merc_draw.fbo_status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
         gk_f1a_last_merc_draw.gl_err = glGetError();
-        gk_f1a_last_merc_draw.tex_size = (u32)lev->textures.size();
-        gk_f1a_last_merc_draw.load_id = (u32)lev->load_id;
-        gk_f1a_last_merc_draw.fsl = (u32)lev->frames_since_last_used;
         static u32 s_f1e_probe_n = 0;
         if (draw.first_index == 64945 && (s_f1e_probe_n++ % 30) == 0) {
           fprintf(stderr,

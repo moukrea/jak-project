@@ -740,8 +740,9 @@ void render_game_frame(int game_width,
         g_gfx_data->debug_gui.master_enable && g_gfx_data->debug_gui.small_profiler;
     options.pmode_alp_register = g_gfx_data->pmode_alp;
 
-    GLint msaa_max;
-    glGetIntegerv(GL_MAX_SAMPLES, &msaa_max);
+    // perf-gl-waits : une limite du contexte ne change jamais — la relire par image etait du
+    // gaspillage pur. `limit()` interroge le pilote UNE fois pour toute la course.
+    const GLint msaa_max = gl_query_census::limit(GL_MAX_SAMPLES);
     if (options.msaa_samples > msaa_max) {
       options.msaa_samples = msaa_max;
     }
@@ -854,15 +855,21 @@ void GLDisplay::render() {
   // This technically means that keyboard/mouse button inputs will be a frame behind but the
   // event-based code is limiting (there aren't enough events to achieve a totally stateless
   // approach). Binding handling is still taken care of by the event code though.
+  // perf-gl-waits : la decision ImGui de CETTE image, prise UNE fois et relue partout ailleurs.
+  // `NewFrame()` et `Render()` forment une paire ; et `WantCaptureKeyboard` / `WantCaptureMouse`
+  // ne sont RECALCULES que par `NewFrame()`. Sauter l'image ImGui sans neutraliser ces deux
+  // drapeaux les figerait a leur derniere valeur : fermer le debogueur alors qu'un champ de
+  // saisie avait le focus tuerait le clavier du jeu pour le reste de la session.
+  const bool imgui_frame = is_imgui_visible();
   {
     auto p = scoped_prof("sdl-input-monitor-poll-for-kb-mouse");
     ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureKeyboard) {
+    if (imgui_frame && io.WantCaptureKeyboard) {
       m_input_manager->clear_keyboard_actions();
     } else {
       m_input_manager->poll_keyboard_data();
     }
-    if (io.WantCaptureMouse) {
+    if (imgui_frame && io.WantCaptureMouse) {
       m_input_manager->clear_mouse_actions();
     } else {
       m_input_manager->poll_mouse_data();
@@ -882,8 +889,13 @@ void GLDisplay::render() {
     m_input_manager->process_ee_events();
   }
 
+  // perf-gl-waits : quand aucune fenetre de debogage n'est ouverte, l'image ImGui entiere est
+  // SAUTEE — construction, rendu, et les appels GL du backend qui vont avec. Tous les appels
+  // ImGui intermediaires sont gouvernes par la MEME variable `imgui_frame` (declaree en tete de
+  // `render()`) : `master_enable`, dont depend chaque `should_draw_*_window` de debug_gui.h,
+  // donc chaque fenetre construite dans `render_game_frame`, et le `debug_gui.draw()` plus bas.
   // imgui start of frame
-  {
+  if (imgui_frame) {
     auto p = scoped_prof("imgui-new-frame");
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -895,7 +907,7 @@ void GLDisplay::render() {
   SDL_GetWindowSizeInPixels(m_window, &fbuf_w, &fbuf_h);
 
   // render game!
-  g_gfx_data->debug_gui.master_enable = is_imgui_visible();
+  g_gfx_data->debug_gui.master_enable = imgui_frame;
   if (g_gfx_data->debug_gui.should_advance_frame()) {
     auto p = scoped_prof("game-render");
     int game_res_w = Gfx::g_global_settings.game_res_w;
@@ -977,7 +989,7 @@ void GLDisplay::render() {
   }
 
   // render debug
-  if (is_imgui_visible()) {
+  if (imgui_frame) {
     auto p = scoped_prof("debug-gui");
     g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
   }
@@ -1017,7 +1029,7 @@ void GLDisplay::render() {
     }
   }
 
-  {
+  if (imgui_frame) {
     auto p = scoped_prof("imgui-render");
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

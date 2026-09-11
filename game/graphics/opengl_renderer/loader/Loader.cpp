@@ -33,6 +33,7 @@
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
 #ifdef OG_FEAT_PBR
@@ -2096,8 +2097,26 @@ void Loader::update(TexturePool& texture_pool) {
         // any frame consumes it. (A mid-frame glFinish between merc flushes
         // made things WORSE — run6 crashed at the boot reveal that the same
         // build without it survived.)
-        glFinish();
-        fprintf(stderr, "F1D-LOADSYNC lev=%s load_id=%llu glFinish at load completion\n",
+        // perf-gl-waits : le drain de fin de chargement etait un `glFinish` — il bloquait le fil
+        // GL jusqu'a ce que le pilote ait TOUT fini, y compris le travail de l'image en cours.
+        // Une cloture nommee attend uniquement le travail DEJA soumis, et rend la main des qu'il
+        // est passe. Le site est DECLARE : c'est une synchronisation deliberee, pas une sonde.
+        {
+          gl_query_census::Armed _ap("load-completion-fence");
+          // Le glad profil-bureau laisse des entrees ES non resolues (defaut A36) : un pointeur
+          // nul appele est un BLR-vers-0, pas un echec lisible. On verifie les trois avant.
+          GLsync fence = (glad_glFenceSync && glad_glClientWaitSync && glad_glDeleteSync)
+                             ? glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
+                             : nullptr;
+          if (fence) {
+            glFlush();
+            glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ull /* 1 s */);
+            glDeleteSync(fence);
+          } else {
+            glFinish();  // le pilote n'a pas donne de cloture : on retombe sur le drain complet
+          }
+        }
+        fprintf(stderr, "F1D-LOADSYNC lev=%s load_id=%llu fence at load completion\n",
                 name.c_str(), (unsigned long long)lev->load_id);
 #endif
         report_level_ram(name, *lev->level, "charge");

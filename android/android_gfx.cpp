@@ -362,27 +362,49 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
     // F1a: KHR_debug is core in ES 3.2 — let the driver narrate its own
     // errors (runs 4-6 crash INSIDE libGLESv2_adreno on the first village
     // merc draw with apparently-valid bound state; the message stream is
-    // the driver's side of the story). Synchronous so the message lands
-    // before the faulting call returns. Capped to keep logcat sane.
+    // the driver's side of the story). Capped to keep logcat sane.
+    //
+    // perf-gl-waits : ce canal est ETEINT PAR DEFAUT. Le mode SYNCHRONE faisait valider CHAQUE
+    // appel GL par le pilote, sur le fil appelant — c'est le cout principal que cet item retire.
+    // `setprop debug.opengoal.gldebug 1` rearme le callback en ASYNCHRONE ; `2` remet en plus la
+    // validation synchrone, pour une session de diagnostic assumee. La propriete est lue UNE fois.
     {
-      auto p_cb = (void (*)(void (*)(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar*,
-                                     const void*),
-                            const void*))resolve("glDebugMessageCallback");
-      if (p_cb) {
-        glEnable(0x92E0 /* GL_DEBUG_OUTPUT */);
-        glEnable(0x8242 /* GL_DEBUG_OUTPUT_SYNCHRONOUS */);
-        p_cb(
-            [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei,
-               const GLchar* message, const void*) {
-              static int s_count = 0;
-              if (s_count++ < 200) {
-                __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                                    "F1A-GLDBG src=0x%x type=0x%x id=%u sev=0x%x %s", source, type,
-                                    id, severity, message ? message : "");
-              }
-            },
-            nullptr);
-        __android_log_print(ANDROID_LOG_INFO, kLogTag, "F1A-GLDBG KHR_debug callback armed");
+      static const int s_gldebug = [] {
+        char pv[PROP_VALUE_MAX] = {0};
+        if (__system_property_get("debug.opengoal.gldebug", pv) > 0) {
+          return atoi(pv);
+        }
+        return 0;
+      }();
+      if (s_gldebug <= 0) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "F1A-GLDBG KHR_debug OFF (setprop debug.opengoal.gldebug 1)");
+      } else {
+        auto p_cb = (void (*)(void (*)(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar*,
+                                       const void*),
+                              const void*))resolve("glDebugMessageCallback");
+        if (p_cb) {
+          glEnable(0x92E0 /* GL_DEBUG_OUTPUT */);
+          if (s_gldebug >= 2) {
+            glEnable(0x8242 /* GL_DEBUG_OUTPUT_SYNCHRONOUS */);
+          }
+          p_cb(
+              [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei,
+                 const GLchar* message, const void*) {
+                static int s_count = 0;
+                if (s_count++ < 200) {
+                  __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                                      "F1A-GLDBG src=0x%x type=0x%x id=%u sev=0x%x %s", source,
+                                      type, id, severity, message ? message : "");
+                }
+              },
+              nullptr);
+          __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                              s_gldebug >= 2
+                                  ? "F1A-GLDBG KHR_debug callback armed (SYNCHRONE — le pilote "
+                                    "valide chaque appel)"
+                                  : "F1A-GLDBG KHR_debug callback armed (async)");
+        }
       }
     }
     __android_log_print(ANDROID_LOG_INFO, kLogTag,

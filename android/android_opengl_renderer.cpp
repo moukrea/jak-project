@@ -19,6 +19,7 @@
 #include "game/system/perf_baseline.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
@@ -102,6 +103,7 @@ struct RefsetChainCaptureScope {
 // Resources are local to the probe (including its VAO and sampler), so no renderer-owned
 // object state or context-lifetime bookkeeping is changed by this diagnostic pass.
 bool refset_read_scene_depth(const Fbo& src, uint64_t& background) {
+  gl_query_census::Armed _ap("refset-scene-depth");
   if (!src.valid || !src.zbuf_stencil_id || !src.zbuf_is_texture || src.multisampled ||
       src.width <= 0 || src.height <= 0 || src.width > 4096 || src.height > 2160) {
     lg::error("[refset] Android scene-depth probe skipped: invalid/unsupported scene depth");
@@ -1354,7 +1356,9 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
 
   // A36 probe: the FBO content at frame 100/600 — distinguishes "geometry
   // drew black" from "blit lost it" (run-25: 64k tris/frame, black screen).
-  if (m_stats.frame_idx == 100 || m_stats.frame_idx == 600) {
+  // perf-gl-waits : deux glReadPixels bloquants — sous la prop des sondes, eteinte par defaut.
+  if (gl_query_census::probes_armed() &&
+      (m_stats.frame_idx == 100 || m_stats.frame_idx == 600)) {
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_buffer.fbo_id);
     const int px = m_fbo_state.render_buffer.width / 2;
     const int py = m_fbo_state.render_buffer.height / 2;
@@ -1521,6 +1525,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     // this FBO several times per second under GTAO load — defect #6: the depth-texture-
     // only drain left the color attachment + AO composite in flight).
     if (m_fbo_state.render_buffer.valid) {
+      gl_query_census::Armed _ap("fbo-recreate-drain");
       glFinish();
     }
     m_fbo_state.render_buffer.clear();
@@ -1626,6 +1631,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1,
                                        hdr_output::ui_buffer_format())) {
       if (m_fbo_state.ui_buffer.valid) {
+        gl_query_census::Armed _ap("fbo-recreate-drain");
         glFinish();  // defect #6: drain before deleting a buffer the last frame's UI
       }              // composite blit may still reference (same Adreno hazard class)
       m_fbo_state.ui_buffer.clear();
@@ -1853,7 +1859,8 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     }
     // A36: name any bucket that exits with a framebuffer other than the
     // game FBO bound (run-27: 64k tris/frame but the FBO stays all-zero).
-    {
+    // perf-gl-waits : un glGetIntegerv PAR BUCKET, soit ~70 par image. Sous la prop des sondes.
+    if (gl_query_census::probes_armed()) {
       GLint cur_fb = -1;
       glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fb);
       static int s_fb_logged = 0;
@@ -2063,6 +2070,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
 // decrit, figee au ramassage de la chaine (android_gfx.cpp), pas l'horloge courante du fil
 // GOAL — celui-ci simule deja l'image suivante (overlap ON par defaut).
 static void refset_capture_if_step(const Fbo& src, SharedRenderState* render_state) {
+  gl_query_census::Armed _ap("refset-capture");
   const RefsetChainCapture capture = g_refset_chain_capture;
   // Consume the local request before any possible failure: never retry it on another frame.
   g_refset_chain_capture = {};

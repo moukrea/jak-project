@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/system/autoport_proof.h"
@@ -507,6 +508,7 @@ const RoiConfig& roi_config() {
 // Read the current draw target without changing its read-buffer selection or pack state.
 // Renderer color attachments are 2D textures or renderbuffers; reject other targets.
 bool roi_read(RoiSnapshot& out) {
+  gl_query_census::Armed _ap("lighting-roi-read");
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &out.framebuffer);
   glGetIntegerv(GL_VIEWPORT, out.viewport);
   int samples = 0;

@@ -17,6 +17,7 @@
 #include "common/versions/versions.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/system/autoport_proof.h"
 
@@ -978,6 +979,7 @@ float half_to_float(uint16_t h) {
 
 // Relit un FBO flottant lie en lecture. Rend faux si l'implementation refuse.
 bool read_float_fbo(int w, int h, std::vector<float>& px) {
+  gl_query_census::Armed _ap("hdr-out-read-fbo");
   GLint read_fmt = 0, read_type = 0;
   glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &read_fmt);
   glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &read_type);
@@ -1158,6 +1160,7 @@ CurveParams legacy_params(float ceiling) {
 // chaque analyse, et le Redmi plafonne deja a ~44 img/s. Si le PBO est refuse, on retombe sur
 // une lecture directe trois fois moins frequente, et on le PUBLIE (`hdr_out_dyn_readback`).
 bool an_ensure() {
+  gl_query_census::Armed _ap("hdr-out-an-ensure");
   if (s_an_state != 0) {
     return s_an_state == 1;
   }
@@ -1239,6 +1242,7 @@ void an_decode(const void* raw) {
 // Une source 128x1 flottante, une marche par texel, dans l'espace d'AFFICHAGE du jeu (celui du
 // tampon UI). NEAREST des deux cotes : le texel i de la cible lit le texel i de la source.
 bool make_ramp_tex(GLuint* tex, float lo, float hi) {
+  gl_query_census::Armed _ap("hdr-out-ramp-tex");
   std::vector<float> data((size_t)kRampN * 4, 1.f);
   for (int i = 0; i < kRampN; i++) {
     const float v = lo + (hi - lo) * ((float)i / (float)(kRampN - 1));
@@ -1289,6 +1293,7 @@ bool make_target_fbo(GLuint* fbo, GLuint* tex, int w, int h, GLenum internal_fmt
 // des CODES bruts (octet, mot 10 bits, motif de bits du demi-flottant) : aucune tolerance
 // flottante ne peut fusionner ou separer deux niveaux par accident.
 bool read_levels(int n, GLenum fmt, uint64_t* out_levels) {
+  gl_query_census::Armed _ap("hdr-out-read-levels");
   while (glGetError() != GL_NO_ERROR) {
   }
   std::vector<uint32_t> codes((size_t)n, 0u);
@@ -2679,6 +2684,7 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
   if (!s_active.load() || s_an_state < 0) {
     return;
   }
+  gl_query_census::Armed _ap("hdr-out-analyze");
   const uint64_t every = (s_an_mode == 1) ? kAnalyzeEverySync : kAnalyzeEvery;
   if ((s_frames % every) != 0) {
     return;
@@ -2772,6 +2778,7 @@ void push_present_uniforms(Shader& shader) {
 // Verdict 11 : les deux rampes, par le VRAI quad final, vers le format REEL de la fenetre.
 // Tourne aussi en phase OFF (le bras de comparaison), d'ou sa propre fenetre.
 static void probe_ramps(Shader& /*shader*/) {
+  gl_query_census::Armed _ap("hdr-out-probe-ramps");
   if (!ramp_window_open() || s_rp_state < 0) {
     return;
   }
@@ -2843,6 +2850,7 @@ static void probe_ramps(Shader& /*shader*/) {
 }
 
 void probe_present(Shader& shader) {
+  gl_query_census::Armed _ap("hdr-out-probe-present");
   probe_ramps(shader);
   if (!probe_window_open() || s_pp_state < 0) {
     return;
@@ -2939,6 +2947,7 @@ bool play_window_open() {
 // et figee rendrait toujours la meme somme ; c'est une grandeur LUE d'un dessin, pas le reflet
 // de nos propres variables. L'appelant restaure FBO, viewport et parametres courants.
 bool ramp_response(GLuint prog, const CurveParams& p, double* out) {
+  gl_query_census::Armed _ap("hdr-out-ramp-response");
   if (s_tf_state < 0) {
     return false;
   }
@@ -3123,6 +3132,7 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
 }
 
 void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+  gl_query_census::Armed _ap("hdr-out-probe-tonemap");
   if (play_window_open()) {
     probe_gameplay(shader, dst_fbo, dst_w, dst_h);
     return;

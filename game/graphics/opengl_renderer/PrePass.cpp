@@ -10,6 +10,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/buckets.h"
@@ -67,6 +68,7 @@ int g_probe_w = 0, g_probe_h = 0;
 int g_probe_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse (publie)
 
 void ensure_fbo(int w, int h) {
+  gl_query_census::Armed _ap("prepass-ensure-fbo");
   if (g_fbo && g_w == w && g_h == h) {
     return;
   }
@@ -193,6 +195,7 @@ GLuint screen_ao_texture() {
 }
 
 void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
+  gl_query_census::Armed _ap("prepass-first-camera");
   if (g_frame_ran) {
     return;
   }
@@ -391,6 +394,7 @@ void ensure_probe(int w, int h) {
 #endif
 
 void proof_post_opaque(SharedRenderState* rs) {
+  gl_query_census::Armed _ap("prepass-proof");
   if (!g_probe_frame) {
     return;
   }

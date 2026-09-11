@@ -16,6 +16,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/system/autoport_proof.h"
 
@@ -254,6 +255,7 @@ void AmbientOcclusionPass::ensure_quad() {
 }
 
 void AmbientOcclusionPass::free_targets() {
+  gl_query_census::Armed _ap("ao-free-targets");
   if (m_ao_fbo[0]) {
     // defect #6: drain before deleting targets the previous frame's blur/composite may
     // still reference in Adreno's deferred queue (only runs on a resolution change).
@@ -350,6 +352,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                     GLuint depth_tex,
                                     int depth_w,
                                     int depth_h) {
+  gl_query_census::Armed _ap("ao-estimate");
   if (!m_shaders || depth_tex == 0 || depth_w <= 0 || depth_h <= 0) {
     return false;
   }

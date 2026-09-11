@@ -9,6 +9,7 @@
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/rss_census.h"
 #include "game/system/asset_manifest.h"
+#include "game/graphics/gl_query_census.h"
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
@@ -1158,8 +1159,8 @@ class TieLoadStage : public LoaderStage {
             contact_vi += count;
           }
           contact_mapping_ok = contact_mapping_ok && contact_vi == contact_nv;
-          GLint contact_max_tex = 0;
-          glGetIntegerv(GL_MAX_TEXTURE_SIZE, &contact_max_tex);
+          // perf-gl-waits : une limite du contexte, lue UNE fois pour toute la course.
+          const GLint contact_max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
           if (contact_mapping_ok && contact_verts && contact_anchors.size() <= (size_t)contact_max_tex) {
             glGenBuffers(1, &tree_out.contact_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, tree_out.contact_buffer);
@@ -1607,6 +1608,7 @@ bool MercLoaderStage::run(Timer& /*timer*/, LoaderInput& data) {
     // probe was active and faulted on the first frame past the probe's
     // cap). Force the driver to finalize both BOs once at upload
     // completion — one-time per level, read-only, no behavioral change.
+    gl_query_census::Armed _ap("loader-f1a-defuse");
     for (GLenum tgt : {(GLenum)GL_ELEMENT_ARRAY_BUFFER, (GLenum)GL_ARRAY_BUFFER}) {
       GLuint buf = (tgt == GL_ELEMENT_ARRAY_BUFFER) ? data.lev_data->merc_indices
                                                     : data.lev_data->merc_vertices;

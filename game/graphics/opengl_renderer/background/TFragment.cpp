@@ -6,6 +6,7 @@
 #include <cstring>
 #include <limits>
 
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
@@ -792,6 +793,7 @@ void TFragment::render_tree(int geom,
     glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
     if (sh_st.debug) {
+      gl_query_census::Armed _ap("pbr-shadow-debug");
       while (glGetError() != GL_NO_ERROR) {
       }
     }
@@ -816,6 +818,7 @@ void TFragment::render_tree(int geom,
       sh_st.cast_indices += (u64)pbr_depth_index_count;
     }
     if (sh_st.debug) {
+      gl_query_census::Armed _ap("pbr-shadow-debug");
       GLenum dbg_err = glGetError();
       if (dbg_err != GL_NO_ERROR) {
         lg::warn("PBR-SHADOW-DBG tfrag depth pass glerr=0x{:x} idx={}", (u32)dbg_err,
@@ -1049,7 +1052,8 @@ void TFragment::render_tree(int geom,
   bool a42_log_this_frame = false;
   {
     static int s_tree_log_ctr = 0;
-    if ((s_tree_log_ctr++ % 300) == 0) {
+    // perf-gl-waits : la sonde A42 (et toute sa queue) reste inerte hors armement.
+    if (gl_query_census::probes_armed() && (s_tree_log_ctr++ % 300) == 0) {
       a42_log_this_frame = true;
       int vis_cnt = 0;
       for (size_t i = 0; i < tree.vis->vis_nodes.size(); i++) {

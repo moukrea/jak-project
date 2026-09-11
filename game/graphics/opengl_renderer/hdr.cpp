@@ -12,6 +12,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
@@ -541,6 +542,7 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
   if ((s_frames % kProbeEvery) != 0) {
     return;
   }
+  gl_query_census::Armed _ap("hdr-overbright-probe");
   ensure_probe();
   if (s_probe_state != 1) {
     return;

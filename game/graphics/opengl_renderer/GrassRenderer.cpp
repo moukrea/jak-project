@@ -22,6 +22,7 @@
 
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
+#include "game/graphics/gl_query_census.h"
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
@@ -1826,6 +1827,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     if (!sync_log) {
       return;
     }
+    gl_query_census::Armed _ap("grass-gpusync");
     auto t0s = std::chrono::steady_clock::now();
     glFinish();
     lg::info("[recharged-grass] R19SYNC frame={} {} finished in {:.1f} ms (draw_n={})", m_frame,

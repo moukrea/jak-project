@@ -1,4 +1,5 @@
 #include "game/graphics/fire_red_census.h"
+#include "game/graphics/gl_query_census.h"
 #include "TextureAnimator.h"
 
 #include <cstdio>
@@ -2606,7 +2607,9 @@ void TextureAnimator::run_fixed_animation_array(int idx,
     // membranes suspected of white-washing the title scene).
     {
 #ifdef __ANDROID__
-      static const bool s_fa_dump = true;
+      // perf-gl-waits : ce vidage fait un glReadPixels bloquant ; il etait arme EN DUR sur
+      // l'appareil. Il suit desormais la prop des sondes, eteinte par defaut.
+      static const bool s_fa_dump = gl_query_census::probes_armed();
 #else
       static const bool s_fa_dump = getenv("GJ2VIS_SKY") != nullptr;
 #endif
@@ -3045,7 +3048,8 @@ GLint TextureAnimator::run_clouds(const SkyInput& input, bool hires) {
   // desktop: env GJ2VIS_SKY only, so the oracle is untouched by default.
   {
 #ifdef __ANDROID__
-    static const bool s_sky_dump = true;
+    // perf-gl-waits : meme glReadPixels bloquant, meme armement en dur — sous la prop des sondes.
+    static const bool s_sky_dump = gl_query_census::probes_armed();
 #else
     static const bool s_sky_dump = getenv("GJ2VIS_SKY") != nullptr;
 #endif

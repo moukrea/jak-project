@@ -30,6 +30,7 @@
 #include "common/util/simd_util.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
@@ -1376,6 +1377,7 @@ void pbr_shadow_ensure_resources() {
   if (st.fbo[0] || st.depth_tex[0]) {
     return;  // already tried once (valid or permanently failed)
   }
+  gl_query_census::Armed _ap("pbr-shadow-resources");
   // Save FBO + viewport; we bind our own to clear the fresh depth textures to 1.0.
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
@@ -1385,8 +1387,7 @@ void pbr_shadow_ensure_resources() {
   // the driver's GL_MAX_TEXTURE_SIZE so a weak GPU (Adreno 618) never asks for an
   // unsupported allocation. (Genuine OOM at the top tier is caught below via glGetError.)
   {
-    GLint max_tex = 0;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_tex);
+    const GLint max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
     if (max_tex > 0 && st.size > max_tex) {
       st.size = max_tex;
     }
@@ -1537,6 +1538,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
 #endif
   if (st.debug && st.valid && st.have_mvp && frame_idx % 60 == 0) {
 #ifndef __ANDROID__
+    gl_query_census::Armed _ap_dbg("pbr-shadow-debug");
     GLint dbg_prev_fbo = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &dbg_prev_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);

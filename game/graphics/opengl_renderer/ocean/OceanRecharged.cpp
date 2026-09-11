@@ -12,6 +12,7 @@
 #include "fmt/core.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/runtime.h"
@@ -409,6 +410,7 @@ void OceanRecharged::rebuild_mask_texture() {
 }
 
 void OceanRecharged::run_probe(SharedRenderState* render_state) {
+  gl_query_census::Armed _ap("ocean-probe");
   if (!m_probe_fbo) {
     return;
   }

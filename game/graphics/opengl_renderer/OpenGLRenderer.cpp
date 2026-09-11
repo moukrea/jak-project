@@ -17,6 +17,7 @@
 #include "common/util/rss_census.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/gl_query_census.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DepthCue.h"
@@ -1138,7 +1139,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     auto prof = m_profiler.root()->make_scoped_child("frame-setup");
     setup_frame(settings);
     if (settings.gpu_sync) {
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
   }
 
@@ -1206,7 +1207,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     do_pcrtc_effects(settings.pmode_alp_register, settings.brightness_contrast_color,
                      settings.brightness_contrast_alpha, &m_render_state, prof);
     if (settings.gpu_sync) {
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
   }
 
@@ -1252,7 +1253,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     // add a profile bar for the imgui stuff
     // vif_interrupt_callback(0);
     if (settings.gpu_sync) {
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
   }
 
@@ -1322,7 +1323,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
 
   if (settings.gpu_sync) {
     g_current_renderer = "gpu-sync";
-    glFinish();
+    { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
   }
 
   g_current_renderer = "end";
@@ -1710,6 +1711,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
       }
       if (src && src->valid && src->zbuf_stencil_id && src->width > 0 && src->height > 0 &&
           src->width * src->height <= 1920 * 1080) {
+        gl_query_census::Armed _ap_probe("refset-scene-probe");
         const int nw = src->width, nh = src->height;
         std::vector<float> depth((size_t)nw * nh, 0.f);
         GLint oldread = 0;
@@ -1741,7 +1743,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
 
     // lg::info("Render: {} end", g_current_renderer);
@@ -1820,7 +1822,7 @@ void OpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma,
     lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
 
     // lg::info("Render: {} end", g_current_renderer);
@@ -1866,7 +1868,7 @@ void OpenGLRenderer::dispatch_buckets_jak3(DmaFollower dma,
     lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
-      glFinish();
+      { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
     }
 
     // lg::info("Render: {} end", g_current_renderer);
@@ -2033,6 +2035,7 @@ void OpenGLRenderer::finish_screenshot(const std::string& output_name,
                                        GLuint fbo,
                                        int read_buffer,
                                        bool quick_screenshot) {
+  gl_query_census::Armed _ap("screenshot-readback");
   std::vector<u32> buffer(width * height);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   GLint oldbuf, oldreadbuf;
