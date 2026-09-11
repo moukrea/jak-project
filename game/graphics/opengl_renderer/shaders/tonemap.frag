@@ -193,7 +193,17 @@ void main() {
   float ceiling = max(u_hdr_ceiling, 1.0);
   vec3 c = max(src.rgb * u_hdr_exposure, vec3(0.0));
   bool expand_shape = (u_hdr_shape == 1) ? (u_hdr_gamma > 1.0) : (u_hdr_top > u_hdr_anchor);
-  if (ceiling > 1.0 && u_hdr_anchor > 0.0 && u_hdr_anchor < 1.0 && expand_shape) {
+  // `ceiling > 1.0` ETAIT ICI, et c'etait LE defaut mesure le 11/09 (proof-essai20-diagnostic-
+  // truemax.txt, appareil eae4df44 a luminosite systeme maximale) : la marge etant ACHETEE au
+  // retro-eclairage, un joueur deja au maximum n'en obtient AUCUNE, le plafond retombe a 1,000,
+  // cette condition devient fausse et la sortie HDR redevient BIT A BIT le SDR. Mesure :
+  // `hdr_out_dyn_free_frames=0`, `hdr_out_play_gain_new_x10000=0` sur 2519 images. C'est mot
+  // pour mot « on retombe litteralement sur le pas de diff ON/OFF ».
+  // La marge de l'ecran n'est PAS la seule plage disponible : la scene laisse une part de la
+  // plage d'affichage VIDE sous le blanc (son haut mesure 0,62 a 0,86 en encodage d'affichage).
+  // Le plafond reste `ceiling` — le shader n'ecrit jamais au-dessus de ce que l'ecran accepte —
+  // mais la DECISION d'etirer appartient desormais au C++, qui la prend sur le contenu.
+  if (u_hdr_anchor > 0.0 && u_hdr_anchor < 1.0 && expand_shape) {
     // SORTIE HDR : on ETIRE, on ne comprime pas. Toujours une seule compression de plage dans
     // la chaine — celle-ci n'en est pas une, elle est bornee par le plafond de l'ecran.
     c = (u_hdr_shape == 1) ? hdr_power(c, u_hdr_anchor, u_hdr_gamma, ceiling)
