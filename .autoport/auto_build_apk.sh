@@ -155,6 +155,35 @@ say "auto-builder démarré (branche $(git branch --show-current), verrou pris)"
 # `grep -c` et JAMAIS `grep -q` : sous `-o pipefail`, `-q` sort a la premiere
 # correspondance, SIGPIPE le producteur en amont, le pipeline rend 141 et le test se lit
 # a l'envers. Piege maison, deja documente deux fois dans ce fichier.
+# ------------------------------------------------------------------------------------------------
+# UNE INSTALLATION EFFACE L'APP-OP QUI DONNE LA SURFACE — ET CA A COUTE UN ESSAI ENTIER.
+# Mesure du 2026-09-11 (recharged-gating-real, essai 3), deux fois de suite sur eae4df44 :
+#   05:17  lib/proof_run.sh pose MIUIOP(10020) (« afficher sur l'ecran verrouille ») : ignore -> allow
+#   05:22  la course rend frames=6960, crash=0
+#   05:25:54 et 05:31:50  CE script reinstalle l'APK
+#   05:30 et 05:33:15  `appops get` rend « MIUIOP(10020): ignore ; rejectTime=+1m1s » — le systeme
+#          a REFUSE la surface a notre paquet dans la minute qui suit l'installation.
+# Entre les deux lectures, un `am start` a 05:31:00 avait rendu `A35-RENDER frame=1` : le binaire
+# dessine. La porte de fermeture de l'essai 2, elle, a lance l'appli APRES l'installation de
+# 05:25:54 et n'a jamais vu de rendu — verdict « the deployed build does not boot on device » sur
+# un moteur qui venait de dessiner 6960 images, et un essai brule.
+# Correctif au POINT DE PRODUCTION : celui qui installe repose l'app-op tout de suite, et le dit.
+# Aussi appelee a chaque tour, pour rattraper un effacement venu d'ailleurs (l'owner qui installe
+# un build de jak-builds efface le meme app-op). On ne touche QUE l'app-op de NOTRE paquet, jamais
+# un reglage systeme de l'owner ; un echec n'interrompt rien.
+appop_surface_verrouillee(){          # $1 = raison, journalisee
+  local A S P avant apres
+  A="${ADB:-/home/emeric/Android/platform-tools/adb}"; S=eae4df44; P=org.opengoal.gk.jak1
+  avant=$(timeout 15 "$A" -s "$S" shell appops get "$P" 2>/dev/null \
+            | tr -d '\r' | sed -n 's/^MIUIOP(10020): \([a-z]*\).*/\1/p' | head -1)
+  [ -n "$avant" ] || return 0         # pas un MIUI, ou app-op absent : rien a faire, rien a dire
+  [ "$avant" = allow ] && return 0    # deja pose : silence, sinon le journal se remplit
+  timeout 15 "$A" -s "$S" shell appops set "$P" 10020 allow >/dev/null 2>&1
+  apres=$(timeout 15 "$A" -s "$S" shell appops get "$P" 2>/dev/null \
+            | tr -d '\r' | sed -n 's/^MIUIOP(10020): \([a-z]*\).*/\1/p' | head -1)
+  say "reconciliation: app-op MIUI 10020 (surface sur ecran verrouille) $avant -> ${apres:-inconnu} — $1"
+}
+
 fg_bloque_depuis=""
 reconcilier_telephone(){
   local ADBX SERX PKGX APKX man_c man_g want_c want_g here fg dev_c dev_g compx got_c got_g i age apk_c
@@ -196,6 +225,10 @@ reconcilier_telephone(){
 
   here=$("$ADBX" devices 2>/dev/null | grep -cE "^${SERX}[[:space:]]+device$" || true)
   [ "${here:-0}" -eq 0 ] && return 0   # telephone absent : ce n'est pas une erreur, on retentera
+
+  # Le telephone est la : on s'assure que notre paquet peut obtenir une surface, meme ecran
+  # verrouille ou face contre table. Silencieux quand c'est deja le cas.
+  appop_surface_verrouillee "tour de reconciliation"
 
   # L'OVERRIDE EXTERNE D'ABORD — c'est LUI que le moteur lit, pas le pack.
   # Mesure du 2026-08-11 20:08, trace d'execution sur le Redmi :
@@ -245,8 +278,17 @@ reconcilier_telephone(){
     return 0
   fi
 
+  # `mCurrentFocus` NE SUFFIT PAS, et c'est ce qui a laisse passer les deux installations de
+  # 05:24:56 et 05:31:50 (2026-09-11) pendant qu'une mesure tournait : sur ce MIUI, la fenetre
+  # `ScreenOnProximitySensorGuide` prend le focus des que le capteur de proximite est couvert
+  # (telephone pose face contre table — sa position normale ici), et `mCurrentFocus` ne nomme
+  # alors plus notre paquet. `mFocusedApp`, lui, le nommait toujours :
+  #   mCurrentFocus=Window{ae01a0 u0 ScreenOnProximitySensorGuide}
+  #   mFocusedApp=ActivityRecord{a04eeaa u0 org.opengoal.gk.jak1/org.opengoal.gk.MainActivity}
+  # On lit les DEUX lignes : une seule qui nomme le paquet suffit a differer l'installation. La
+  # borne de 25 min ci-dessous est inchangee, donc un jeu laisse ouvert ne bloque toujours rien.
   fg=$("$ADBX" -s "$SERX" shell dumpsys window 2>/dev/null \
-         | grep -a 'mCurrentFocus' | grep -ac "$PKGX" || true)
+         | grep -aE 'mCurrentFocus|mFocusedApp' | grep -ac "$PKGX" || true)
   if [ "${fg:-0}" -gt 0 ]; then
     : "${fg_bloque_depuis:=$(date +%s)}"
     if [ $(( $(date +%s) - fg_bloque_depuis )) -lt 1500 ]; then
@@ -263,6 +305,9 @@ reconcilier_telephone(){
     return 0
   fi
   echo "$apk_id" > .autoport/.redmi_installed_apk
+  # L'installation VIENT d'effacer l'app-op : on le repose avant meme de relancer LoaderActivity,
+  # sinon le lancement ci-dessous est deja celui qui se voit refuser la surface.
+  appop_surface_verrouillee "juste apres l'installation"
   # 2026-09-11 — CHAINE D'INSTALLATION MEMORISEE. deploy_verify tirait l'APK ENTIER (671 Mo)
   # du telephone a chaque fermeture pour lire l'empreinte d'UN fichier qu'il contient. Celui qui
   # installe la connait deja : on l'ecrit ici, avec de quoi prouver que le fichier sur le
