@@ -4646,7 +4646,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: to-test
+  status: open
   priority: 18
   game: jak1
   gate:
@@ -4674,7 +4674,14 @@ items:
     automatiques sur ce que l''ecran annonce, aucun appareil code en dur. Publier le format RETENU et
     la liste annoncee. Plusieurs formats disponibles ET choix a incidence mesurable : l''offrir en reglage
     ; sinon le dire. Dolby Vision HORS PERIMETRE (licence) : le constater. ANNONCER N''EST PAS ACCORDER
-    : aucune marge rendue = verdict 11 ROUGE, et on le DIT.'
+    : aucune marge rendue = verdict 11 ROUGE, et on le DIT. (14) RETABLI — J''AVAIS PERDU CE VERDICT EN
+    RACCOURCISSANT, ET L''ITEM EST PASSE 14/14 SANS JAMAIS LE MESURER. Refus owner du 10/09 puis du 11/09
+    : « un rendu tres j''ai pousse le contraste au maximum, c''est pas beau », « comme si on poussait
+    la teinte/saturation/contraste au max sur un filtre photoshop ». PAS DE CONTRASTE NI DE SATURATION
+    CRAMES : publier, sur les MEMES images, l''excursion de contraste et de saturation de la sortie HDR
+    par rapport a la sortie SDR. Un ecart au-dela d''un plafond DECLARE est un DEFAUT. Les teintes restent
+    celles attendues : publier la derive de teinte moyenne. Gagner en amplitude sans cramer est le but
+    entier de l''item — une amplitude obtenue EN cramant ne vaut rien.'
   known_cause: 'LIS D''ABORD `prompts/item-hdr-display-output-contrat.md` — OBLIGATOIRE. Cette consigne
     est un resume plafonne ; le contrat complet, les verdicts 1-8 detailles, les quinze refus de l''owner
     et les chiffres deja mesures (et sur QUEL ecran) y sont. Resume : l''owner voit une MINI difference
@@ -4776,6 +4783,9 @@ items:
       (enfin si ca a une incidence). Pour Dolby Vision je crois qu'il faut une licence
   - date: '2026-09-11'
     text: HDR10+ on drop complet alors !
+  - date: '2026-09-11'
+    text: le HDR produit un rendu tres « j'ai pousse le contraste au maximum », c'est pas beau. les warp
+      gates aussi emettent les particules rouges degueulasses
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4788,7 +4798,7 @@ items:
   block_reason: null
   proof_env: []
   device_serial: eae4df44
-  delivered: '2026-09-11'
+  delivered: null
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
@@ -6979,7 +6989,7 @@ items:
 - id: fire-red-particles
   priority: 17
   device: true
-  feature: Les particules rouges au-dessus des feux, allumees ou eteintes
+  feature: Les particules rouges etrangeres, sur les feux comme sur les portails
   gate:
     key: fire_debug_particles
     op: ==
@@ -6991,12 +7001,15 @@ items:
     feux et qui n''appartient pas au jeu d''origine — sonde, temoin, marqueur de debug, couleur de secours
     quand une texture manque. Publier la liste et le compte de dessins par image ; il doit tomber a 0.
     Nommer la cause trouvee : un reste de debug se SUPPRIME, une couleur de secours se corrige a sa source.
-    L''aspect des feux redevient celui d''origine.'
-  where: 'les feux du jeu, par exemple a Sandover : plus aucune particule rouge etrange au-dessus des
-    flammes, sortie HDR allumee comme eteinte'
+    L''aspect des feux redevient celui d''origine. S''AJOUTE (refus 11/09) : les PORTAILS DE TELEPORTATION
+    en emettent aussi. Le recensement ne se limite donc pas aux feux : il couvre TOUT emetteur de particules
+    du jeu. Publier la liste des emetteurs inspectes et le compte de dessins rouges etrangers par emetteur
+    ; tous a 0. Corriger a la source commune si elle existe, plutot qu''emetteur par emetteur.'
+  where: 'les feux du jeu ET les portails de teleportation : plus aucune particule rouge etrange au-dessus,
+    sortie HDR allumee comme eteinte'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: to-test
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7009,7 +7022,9 @@ items:
     text: je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca
       fait des particules rouges bizarres, probablement un des tests/debugs qui est reste la et qui maintenant
       reste... Faut degager ca c'est horrible
-  delivered: '2026-09-11'
+  - date: '2026-09-11'
+    text: les warp gates aussi emettent les particules rouges degueulasses
+  delivered: null
 - id: lighting-legacy-purge
   priority: 17
   device: true
