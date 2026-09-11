@@ -147,7 +147,22 @@ while true; do
     # une caisse. C'est `autoport status --changed` qui rend ce service maintenant : il ne sort
     # rien quand rien n'a bouge, et il parle des features dans les mots de l'owner.
     if [ -x ./.autoport/autoport ]; then
+      # NE PAS MANGER LE CURSEUR DE L'OWNER. `status --changed` avance un curseur PARTAGE
+      # (.autoport/.last_status_digest) : le premier qui lit consomme la notification pour tout
+      # le monde. Mesure du 2026-09-12 : a 01:21 `hdr-output-regime` est devenu testable, a 01:33
+      # ce publieur a lu le changement et l'a range dans SON journal, et a 01:42 le superviseur a
+      # lu un `--changed` vide alors que la liste de l'owner avait bouge. watch.py evite deja le
+      # piege avec son propre curseur ; ici on RESTAURE celui-ci apres lecture.
+      MEMO=.autoport/.last_status_digest
+      MEMO_AVANT=""
+      MEMO_EXISTAIT=0
+      if [ -f "$MEMO" ]; then MEMO_EXISTAIT=1; MEMO_AVANT=$(cat "$MEMO" 2>/dev/null || true); fi
       CHG=$(./.autoport/autoport status --changed 2>/dev/null || true)
+      if [ "$MEMO_EXISTAIT" = 1 ]; then
+        printf '%s\n' "$MEMO_AVANT" > "$MEMO" 2>/dev/null || true
+      else
+        rm -f "$MEMO" 2>/dev/null || true
+      fi
       [ -n "$CHG" ] && { echo "$(date +%H:%M:%S) A TESTER :"; echo "$CHG"; } >> "$LOG"
     fi
   else
