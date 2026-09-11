@@ -173,7 +173,7 @@ CMAKE_FEATURE_ARGS=(
 # Grecharged-loader-packfix: *.gd (the DGO manifests) MUST be part of the key. They decide
 # which objects get LINKED into each CGO, so editing one changes the output while every
 # .gc byte stays identical — the cache then serves a stale CGO and the "rebuild" is a
-# silent no-op. That is how mesh-browser-pc.o survived a full rebuild still unlinked.
+# silent no-op. That is how a newly added .o once survived a full rebuild still unlinked.
 src_fingerprint() { # $1 = goalc binary path
   { find "goal_src" "game/assets/${GAME}" -type f \( -name '*.gc' -o -name '*.gp' -o -name '*.gs' -o -name '*.gd' -o -name '*.json' \) -print0 2>/dev/null | sort -z | xargs -0 sha256sum
     sha256sum "$1"
@@ -347,7 +347,7 @@ build_android() {
   # out/<game>-android-text/ over the freshly built desktop bank, so a one-shot copy
   # of that dir silently freezes Android's text at the day it was made: every text id
   # added afterwards renders as "UNKNOWN ID <n>" on device only. That is exactly how
-  # the MESH BROWSER row (#x1728) shipped as "UNKNOWN ID 5928" while every desktop
+  # a menu row added at the time (#x1728) shipped as "UNKNOWN ID 5928" while every desktop
   # build showed the right label. Deriving the overrides on every build is the only
   # thing that keeps them honest — the dir holds EN/FR only (the two languages with
   # an android override json); all other languages fall through to the fresh banks.
@@ -355,7 +355,14 @@ build_android() {
     log "== android text-bank overrides (EN/FR press-start + current text ids) =="
     bash .autoport/gtt_build_android_text.sh > .autoport/logs/build-android-text.log 2>&1 \
       || { tail -20 .autoport/logs/build-android-text.log >&2; die "android text-bank override build failed"; }
-    grep -aq 'MESH BROWSER' "out/${GAME}-android-text/0COMMON.TXT" \
+    # mesh-browser-removal (2026-09-11) : l'ancre etait le libelle de cette rangee de debug, qui
+    # vient d'etre supprimee du jeu. La garde s'ancre DESORMAIS sur le libelle le PLUS RECENT du
+    # banc — Recharged Water (#x17e5) — car c'est lui qui detecte le plus tot un override perime :
+    # un override fige avant lui manque forcement l'id, et il faudra re-ancrer a chaque fois qu'un
+    # libelle plus recent devient la reference. La CASSE est celle du banc compile (Titre), verifiee
+    # sur out/jak1/iso/0COMMON.TXT et sur l'override android : l'ancienne ancre etait en MAJUSCULES
+    # et n'aurait plus jamais matche depuis le passage des libelles en Titre.
+    grep -aq 'Recharged Water' "out/${GAME}-android-text/0COMMON.TXT" \
       || die "android EN bank lacks a text id the desktop bank has — the override went stale again"
     log "android text overrides refreshed: $(ls out/${GAME}-android-text/*COMMON.TXT | wc -l) bank(s)"
   fi

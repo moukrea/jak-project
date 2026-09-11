@@ -3,8 +3,6 @@ add_subdirectory(grass_bake)
 add_subdirectory(mesh_audit)
 add_subdirectory(tess_audit)
 add_subdirectory(tess_sign)
-add_subdirectory(mesh_index)
-add_subdirectory(mb_pick_ref)
 
 add_executable(dgo_unpacker
         dgo_unpacker.cpp)
