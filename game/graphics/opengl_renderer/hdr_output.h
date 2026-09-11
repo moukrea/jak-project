@@ -46,7 +46,8 @@
 //     demande — il doit rester a zero).
 //
 // PREUVE (`lib/proof_run.sh hdr-display-output device`) : quand le harnais mesure cet item,
-// `frame_end` deroule un auto-test en trois phases — etat charge, ON, OFF — en passant par le
+// `frame_end` deroule un auto-test en CINQ phases — etat charge, ON, OFF, ON a ecran presentant
+// SIMULE, ON sur l'autre chemin annonce — en passant par le
 // MEME chemin que le menu (`request`). La phase ON n'est lancee qu'une fois qu'une SCENE est
 // dessinee (sonde de contenu : tons moyens dans l'image tone-mappee ; x86 essai 3 : les phases
 // tournaient pendant l'intro noire, 10 s avant le titre), avec un plafond de 120 s publie.
@@ -61,7 +62,9 @@
 // plus hauts en scRGB ; blanc de reference qui suit le pic en PQ recompose), puis une CINQUIEME
 // phase qui rebascule sur l'AUTRE chemin annonce par les caps (PQ quand scRGB a ete retenu, et
 // inversement) pour que la preuve porte CHAQUE chemin, jamais un seul. `hdr_out_defects` est la
-// somme de ONZE verdicts publies un par un ; le onzieme est l'EFFET MESURE.
+// somme de QUATORZE verdicts publies un par un (`hdr_out_defect_1_*` a `hdr_out_defect_14_*`) ;
+// le onzieme est l'EFFET MESURE, et il lit `hl_ext_levels` — la fenetre [15/16, kFixedTop], la ou
+// une courbe a plafond > 1 ecrit ses codes neufs — et non `hl_levels`, borne a 1,0.
 
 #include <cstdint>
 #include <functional>
@@ -167,7 +170,8 @@ bool active();   // la surface est HDR EN CE MOMENT (apres bascule reussie)
 
 // L'etat de la surface tel que la PLATEFORME le lit apres (re)creation. `colorspace` est la
 // valeur EGL brute rendue par eglQuerySurface(EGL_GL_COLORSPACE_KHR), 0 si non interrogeable.
-// `mode` : kModeNone (SDR), kModeHdr10Pq (PQ + 10 bits), kModeScrgbLinear (scRGB + 16 bits).
+// `mode` : kModeNone (SDR), kModeHdr10Pq (PQ + 10 bits), kModeHlg (HLG + 10 bits),
+// kModeScrgbLinear (scRGB + 16 bits).
 struct SurfaceState {
   bool hdr = false;
   int red_bits = 0;
@@ -244,8 +248,8 @@ float headroom_linear();
 // Le plafond du tone map, dans l'ESPACE D'AFFICHAGE du tampon (gamma ~2,2) : headroom^(1/2,2),
 // 1,0 hors HDR. C'est ce que `u_hdr_ceiling` recoit.
 float tonemap_ceiling();
-// Le quad final : `u_out_mode` (0 recopie, 1 PQ, 2 scRGB lineaire), `u_out_paper_white`,
-// `u_out_max_nits`.
+// Le quad final : `u_out_mode` (0 recopie, 1 PQ, 2 scRGB lineaire, 3 HLG), `u_out_paper_white`,
+// `u_out_max_nits` (POUSSE mais lu par aucune ligne du shader — voir FINDINGS).
 void push_present_uniforms(Shader& shader);
 
 // -------------------------------------------------------------------- sondes de preuve ----

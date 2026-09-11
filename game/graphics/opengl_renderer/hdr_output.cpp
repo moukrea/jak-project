@@ -615,6 +615,12 @@ struct ProbeStats {
   uint64_t ramp_samples = 0;
   uint64_t shadow_levels = 0;
   uint64_t hl_levels = 0;
+  // FENETRE ETENDUE (essai 16). `hl_levels` ne couvre que [15/16, 1] de la scene : une courbe a
+  // plafond > 1 ecrit ses codes NEUFS au-dessus de 1,0, la ou cette fenetre ne regarde pas. En
+  // phase 3 (ecran presentant simule, plafond 2,06) elle rendait 17, exactement comme en OFF —
+  // le verdict aurait ete rouge sur un VRAI ecran HDR, pour une raison d'INSTRUMENT. Celle-ci
+  // couvre [15/16, kFixedTop] : l'espace ou la courbe ecrit reellement.
+  uint64_t hl_ext_levels = 0;
   // Verdict 10 : la reponse du tone map a un STIMULUS FIXE (rampe 0..3 dans l'espace du
   // tampon). `hl_max` ci-dessus est pris sur la SCENE, qui bouge entre la phase 1 et la phase
   // 3 : mesure du 10/09, 1,877 en reel contre 1,221 en pic simule alors que le plafond, lui,
@@ -680,7 +686,7 @@ int s_pp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
 // Sonde de RAMPES (verdict 11) : deux sources 128x1 en tons du jeu (ombres, hautes lumieres) et
 // une cible au FORMAT REEL DE LA FENETRE — c'est la quantification de la sortie qu'on mesure,
 // pas celle d'un FBO flottant de confort. La cible est refaite des que le format change.
-GLuint s_rp_fbo = 0, s_rp_tex = 0, s_rp_src[2] = {0, 0};
+GLuint s_rp_fbo = 0, s_rp_tex = 0, s_rp_src[3] = {0, 0, 0};
 GLenum s_rp_fmt = 0;
 int s_rp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
 int s_rp_read_type = 0;  // le type de relecture REELLEMENT accepte, publie
@@ -769,10 +775,10 @@ GLenum s_an_read_type = 0;
 size_t s_an_bytes = 0;
 float s_an_last_key = 0.f, s_an_last_hi = 0.f, s_an_last_peak = 0.f;
 
-// La SERIE (verdict 13). Un echantillon toutes les kDynEvery images, apres l'auto-test, avec la
-// REPONSE du programme `tonemap` a un stimulus FIXE : si la courbe etait unique et figee, cette
-// reponse serait constante. C'est une grandeur LUE d'un dessin, pas un miroir de nos variables.
-constexpr uint64_t kDynEvery = 20;
+// La SERIE (verdict 13). Un echantillon toutes les kPlayEvery images (la sonde de jeu la pousse),
+// apres l'auto-test, avec la REPONSE du programme `tonemap` a un stimulus FIXE : si la courbe
+// etait unique et figee, cette reponse serait constante. C'est une grandeur LUE d'un dessin, pas
+// un miroir de nos variables.
 constexpr size_t kDynSeriesMax = 160;
 constexpr size_t kDynChunk = 20;
 struct DynSample {
@@ -1444,6 +1450,7 @@ void publish_all() {
     autoport_proof::publish((k + "ratio_max_x1000").c_str(), (uint64_t)s_ph[p].ratio_max_x1000);
     autoport_proof::publish((k + "shadow_levels").c_str(), s_pr[p].shadow_levels);
     autoport_proof::publish((k + "hl_levels").c_str(), s_pr[p].hl_levels);
+    autoport_proof::publish((k + "hl_ext_levels").c_str(), s_pr[p].hl_ext_levels);
     autoport_proof::publish((k + "ramp_samples").c_str(), s_pr[p].ramp_samples);
   }
   // CHAQUE CHEMIN annonce, nomme par son mode et non par son numero de phase : c'est ce que
@@ -1469,6 +1476,7 @@ void publish_all() {
     autoport_proof::publish((k + "ratio_max_x1000").c_str(), (uint64_t)s_ph[p].ratio_max_x1000);
     autoport_proof::publish((k + "shadow_levels").c_str(), s_pr[p].shadow_levels);
     autoport_proof::publish((k + "hl_levels").c_str(), s_pr[p].hl_levels);
+    autoport_proof::publish((k + "hl_ext_levels").c_str(), s_pr[p].hl_ext_levels);
     autoport_proof::publish((k + "ceiling_x100").c_str(),
                             (uint64_t)std::lround(s_ph[p].last_ceiling * 100.f));
     autoport_proof::publish((k + "hl_max_x1000").c_str(),
@@ -1493,6 +1501,23 @@ void publish_all() {
   autoport_proof::publish("hdr_out_shadow_levels_off", s_pr[2].shadow_levels);
   autoport_proof::publish("hdr_out_hl_levels_on", s_pr[1].hl_levels);
   autoport_proof::publish("hdr_out_hl_levels_off", s_pr[2].hl_levels);
+  // La fenetre que le verdict 11 lit DESORMAIS, et le rapport qui se lit sans calcul. Les trois
+  // colonnes de phase (`ph_on_`, `ph_off_`, `ph_onsim_`) portent la meme grandeur : c'est la
+  // phase presentante SIMULEE qui montre si la correction de fenetre a pris.
+  autoport_proof::publish("hdr_out_hl_ext_levels_on", s_pr[1].hl_ext_levels);
+  autoport_proof::publish("hdr_out_hl_ext_levels_off", s_pr[2].hl_ext_levels);
+  autoport_proof::publish("hdr_out_hl_ext_levels_onsim", s_pr[3].hl_ext_levels);
+  autoport_proof::publish(
+      "hdr_out_hl_ext_gain_x100",
+      (uint64_t)(s_pr[2].hl_ext_levels > 0
+                     ? std::lround(100.0 * (double)s_pr[1].hl_ext_levels / (double)s_pr[2].hl_ext_levels)
+                     : 0));
+  autoport_proof::publish(
+      "hdr_out_hl_ext_gain_sim_x100",
+      (uint64_t)(s_pr[2].hl_ext_levels > 0
+                     ? std::lround(100.0 * (double)s_pr[3].hl_ext_levels / (double)s_pr[2].hl_ext_levels)
+                     : 0));
+  autoport_proof::publish("hdr_out_ramp_ext_top_x100", (uint64_t)std::lround(kFixedTop * 100.f));
   autoport_proof::publish("hdr_out_ratio_max_x1000", (uint64_t)s_ratio_max_x1000);
   autoport_proof::publish("hdr_out_window_lever_requests", s_lever_requests);
   // Les phases ON et OFF ne comptent leurs images bonnes qu'a partir de l'application effective
@@ -1737,7 +1762,12 @@ void compute_verdicts() {
   const ProbeStats& pon = s_pr[1];
   const ProbeStats& poff = s_pr[2];
   const bool shadows_richer = poff.shadow_levels > 0 && pon.shadow_levels >= 2 * poff.shadow_levels;
-  const bool hl_richer = poff.hl_levels > 0 && pon.hl_levels >= 2 * poff.hl_levels;
+  // ESSAI 16 — la fenetre du comptage etait FAUSSE. `hl_levels` ne couvre que [15/16, 1] de la
+  // scene ; une courbe a plafond 2,06 ecrit ses codes neufs AU-DESSUS de 1,0. En phase 3 (ecran
+  // presentant simule) elle rendait 17, exactement comme en OFF : ce verdict aurait ete ROUGE
+  // sur un vrai ecran HDR pour une raison d'instrument, pas de dalle. `hl_ext_levels` couvre
+  // [15/16, kFixedTop]. `hl_levels` reste publie tel quel : la correction doit se relire.
+  const bool hl_richer = poff.hl_ext_levels > 0 && pon.hl_ext_levels >= 2 * poff.hl_ext_levels;
   const bool over_sdr_white = s_ratio_max_x1000 > 1000;
   s_d[11] = (shadows_richer && hl_richer && over_sdr_white) ? 0 : 1;
   // 12 : L'AMPLITUDE, PAS LE COMPTAGE (item, point 11 ; refus owner du 10/09 : « quasi 0 diff
@@ -2006,6 +2036,12 @@ void set_system_caps(uint32_t sys_types_mask,
   s_sys.max_avg = max_avg_lum_nits;
   s_sys.min_lum_x10000 = min_lum_x10000;
   s_sys.wide_gamut = wide_gamut;
+  // Le verdict PRESENTE/DECODE est mis en cache au PREMIER appel et ne l'etait jamais invalide :
+  // un appel arrive avant que le Java n'ait livre les capacites figeait « aucun_pic_annonce »
+  // pour toute la course, sur un ecran qui en annonce un. Les caps changent -> le verdict se
+  // reprend.
+  s_presents_cache = -1;
+  s_presents_reason = "pas_encore_decide";
   rebuild_caps_text_locked();
   lg::info("[hdr-display-output] capacites systeme : {}", s_caps_text);
 }
@@ -2486,7 +2522,8 @@ static void probe_ramps(Shader& /*shader*/) {
     bool ok = true;
     if (!s_rp_src[0]) {
       ok = make_ramp_tex(&s_rp_src[0], 0.f, kRampWindow) &&
-           make_ramp_tex(&s_rp_src[1], 1.f - kRampWindow, 1.f);
+           make_ramp_tex(&s_rp_src[1], 1.f - kRampWindow, 1.f) &&
+           make_ramp_tex(&s_rp_src[2], 1.f - kRampWindow, kFixedTop);
     }
     ok = ok && make_target_fbo(&s_rp_fbo, &s_rp_tex, kRampN, 1, fmt);
     s_rp_fmt = fmt;
@@ -2505,9 +2542,9 @@ static void probe_ramps(Shader& /*shader*/) {
   glBindFramebuffer(GL_FRAMEBUFFER, s_rp_fbo);
   glViewport(0, 0, kRampN, 1);
   glActiveTexture(GL_TEXTURE0);
-  uint64_t lv[2] = {0, 0};
+  uint64_t lv[3] = {0, 0, 0};
   bool ok = true;
-  for (int r = 0; r < 2 && ok; r++) {
+  for (int r = 0; r < 3 && ok; r++) {
     glBindTexture(GL_TEXTURE_2D, s_rp_src[r]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     ok = read_levels(kRampN, fmt, &lv[r]);
@@ -2529,10 +2566,13 @@ static void probe_ramps(Shader& /*shader*/) {
   if (lv[1] > pr.hl_levels) {
     pr.hl_levels = lv[1];
   }
+  if (lv[2] > pr.hl_ext_levels) {
+    pr.hl_ext_levels = lv[2];
+  }
   if (pr.ramp_samples == 1 || (pr.ramp_samples % 10) == 0) {
-    lg::info("[hdr-display-output] rampes phase {} #{} : ombres={}/{} hautes={}/{} format=0x{:x} relecture={} bits",
-             s_phase, pr.ramp_samples, lv[0], (uint64_t)kRampN, lv[1], (uint64_t)kRampN,
-             (unsigned)fmt, s_rp_read_type);
+    lg::info("[hdr-display-output] rampes phase {} #{} : ombres={}/{} hautes={}/{} hautes_etendues={}/{} format=0x{:x} relecture={} bits",
+             s_phase, pr.ramp_samples, lv[0], (uint64_t)kRampN, lv[1], (uint64_t)kRampN, lv[2],
+             (uint64_t)kRampN, (unsigned)fmt, s_rp_read_type);
   }
 }
 
