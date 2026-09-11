@@ -14,9 +14,9 @@
 #   6. un `owner_test: false` n'est jamais parque       -> pin_parked_owner_false
 #
 # INCONNU = DEFAUT. Chaque temoin manquant, degenere ou muet AJOUTE au compte. Un bac a sable
-# qui n'a pas tourne, un bras d'ablation qui publie autant que le bras neuf, un backlog ou il
-# n'y avait rien a liberer : tout cela rend la porte ROUGE. Sans cette polarite, une porte `== 0`
-# sur un nettoyage est verte par INACTION.
+# qui n'a pas tourne, un bras d'ablation qui publie autant que le bras neuf, un controle seme
+# que le rattrapage ne libere pas : tout cela rend la porte ROUGE. Sans cette polarite, une
+# porte `== 0` sur un nettoyage est verte par INACTION.
 set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "pin_census_ran=0"; exit 1; }
@@ -117,10 +117,29 @@ out['parked_list'] = ','.join('%s:%s' % (i, 'true' if o else 'false') for i, o i
 # l'orchestrateur qui l'ecrira, au tour suivant. Ce qu'on mesure ici, c'est que le mecanisme
 # LIBERE ce qu'il doit et NE TOUCHE PAS a ce qui attend vraiment l'owner — et qu'il ECRIT sur
 # le disque, ce que la version d'avant ne faisait pas.
+# LE CONTROLE EST SEME, PAS ATTENDU (12/09, essai 2). Le juger sur ce que le backlog REEL porte
+# a la seconde de la course, c'est une porte qui vire au ROUGE le jour ou le correctif MARCHE :
+# des que `free_machine_proved` a libere `perf-ocean-idle`, il n'y a plus rien a liberer,
+# `promoter_freed` tombe a zero, et les temoins `rien-a-liberer` et `promotion-non-ecrite`
+# s'accusent eux-memes. Meme faute que le temoin lu a `HEAD:`, corrigee le meme jour.
+# On SEME donc dans la copie deux items : un `owner_test: false` parque qui DOIT sortir, un
+# `owner_test: true` parque qui DOIT rester. Le mecanisme a des lors toujours quelque chose a
+# faire, quel que soit l'etat du backlog reel — lequel reste publie tel quel (`parked`,
+# `parked_owner_false`, `parked_list`) : c'est l'etat du jour, pas le verdict.
+CTL_FREE, CTL_KEEP = 'zzz-pin-ctl-machine', 'zzz-pin-ctl-owner'
 with tempfile.TemporaryDirectory() as d:
     copy = os.path.join(d, 'backlog.yaml')
     shutil.copyfile(os.path.join(ap, 'backlog.yaml'), copy)
+    # `items` est la derniere clef du document : deux entrees ajoutees en fin de fichier
+    # evitent de re-serialiser 328 Ko et de dependre du rendu du dumper.
+    with open(copy, 'a', encoding='utf-8') as fh:
+        fh.write('- id: %s\n  status: to-test\n  owner_test: false\n'
+                 '  feature: controle positif seme par la preuve\n' % CTL_FREE)
+        fh.write('- id: %s\n  status: to-test\n  owner_test: true\n'
+                 '  feature: controle negatif seme par la preuve\n' % CTL_KEEP)
     sb = B.load(copy)
+    semes = {i for i, _o in sb.parked_for_owner()}
+    out['ctl_seeded'] = int(CTL_FREE in semes) + int(CTL_KEEP in semes)
     before_true = {i for i, o in sb.parked_for_owner() if o}
     try:
         freed = sb.machine_proved_to_validated()
@@ -131,9 +150,13 @@ with tempfile.TemporaryDirectory() as d:
     after = reread.parked_for_owner()
     out['promoter_freed'] = len(freed)
     out['promoter_left'] = sum(1 for _i, o in after if not o)
-    out['promoter_persisted'] = int(all(
-        (reread.get(i) or {}).get('status') == 'validated' for i in freed)) if freed else 0
+    out['promoter_persisted'] = int(bool(freed) and all(
+        (reread.get(i) or {}).get('status') == 'validated' for i in freed))
     out['promoter_touched_owner_true'] = len(before_true - {i for i, o in after if o})
+    # LES DEUX CONTROLES, LUS SUR LE DISQUE RELU : l'un doit avoir change de statut, l'autre non.
+    out['ctl_freed'] = int(CTL_FREE in freed
+                           and (reread.get(CTL_FREE) or {}).get('status') == 'validated')
+    out['ctl_kept'] = int((reread.get(CTL_KEEP) or {}).get('status') == 'to-test')
     out['promoter_freed_list'] = ','.join(freed) or '-'
 
 for k, v in out.items():
@@ -212,7 +235,12 @@ t_doc=0
 # sur une copie du backlog reel, pas l'etat du fichier a la seconde ou cette preuve tourne :
 # c'est l'orchestrateur qui ecrira, au tour suivant, et lui seul.
 t_parked=$(bn promoter_left); [ "$t_parked" -ge 0 ] 2>/dev/null || t_parked=1
-[ "$(bn parked_owner_false)" -ge 1 ] 2>/dev/null || faute rien-a-liberer
+# LA POLARITE VIENT DU CONTROLE SEME, plus de l'etat du backlog a la seconde de la course :
+# « il n'y a plus rien a liberer » est le SUCCES du rattrapage, jamais un defaut. Le controle
+# garantit qu'il y a toujours un parque a sortir et un parque a laisser.
+[ "$(bn ctl_seeded)" = 2 ] || faute controle-non-seme
+[ "$(bn ctl_freed)" = 1 ] || faute controle-non-libere
+[ "$(bn ctl_kept)" = 1 ] || faute controle-owner-emporte
 [ "$(bn promoter_persisted)" = 1 ] || faute promotion-non-ecrite
 [ "$(bn promoter_touched_owner_true)" = 0 ] || faute promotion-trop-large
 

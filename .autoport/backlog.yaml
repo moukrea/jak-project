@@ -7704,7 +7704,7 @@ items:
   prompt: prompts/item-hdr-curve-input.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-output-regime
-  status: in-progress
+  status: to-test
   priority: 19
   game: jak1
   device: true
@@ -7747,6 +7747,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   prompt: prompts/item-hdr-output-regime.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+  delivered: '2026-09-12'
 - id: hdr-glow-range
   status: validated
   priority: 18
@@ -7826,7 +7827,7 @@ items:
   notes: 'issu des signalements du chantier A, 11/09 : defaut ouvert PAR le chantier A sur un chemin sans
     preuve.'
 - id: harness-proof-props-pin
-  status: open
+  status: in-progress
   priority: 16
   game: jak1
   device: false
@@ -7859,6 +7860,7 @@ items:
   prompt: prompts/item-harness-proof-props-pin.md
   notes: 'issu du signalement de hdr-glow-range, 11/09 : un epinglage silencieusement perdu fait mesurer
     l''autre regime.'
+  no_code: true
 - id: glow-targets-not-built-on-jak1
   status: open
   priority: 21
