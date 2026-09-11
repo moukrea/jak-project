@@ -1,0 +1,36 @@
+# LISTE PROPOSEE — AUCUN FICHIER N'A ETE SUPPRIME
+# Journaux de plus de 20 Mo, non modifies depuis plus de 3 jours.
+# Le menage existant (disk_reclaim.sh) ne les atteint pas : il ne touche qu'aux
+# phases portant un jeton owner-ok, et le poids est ailleurs.
+
+   399.5 Mo  2026-09-03  .autoport/reports/Gpbr-props-reach-draw/logcat_F_redmi_pack_on.log
+   388.4 Mo  2026-09-03  .autoport/reports/Gpbr-props-reach-draw/logcat_G_redmi_pack_on.log
+   386.2 Mo  2026-09-03  .autoport/reports/Gpbr-props-reach-draw/logcat_H_redmi_pack_off.log
+   383.0 Mo  2026-09-03  .autoport/reports/Gpbr-props-reach-draw/logcat_I_redmi_pack_off.log
+   381.0 Mo  2026-09-03  .autoport/reports/Gpbr-props-reach-draw/logcat_J_redmi_no_pack.log
+   179.2 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/repro-soak.log
+   107.2 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/proof.log
+   106.8 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/proof-APRES.log
+    85.5 Mo  2026-09-07  .autoport/reports/lighting-hdr/notes/essai14/previous-20260907T214420Z-proof-engine.log
+    56.0 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/repro-owner16h38.log
+    53.8 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/repro-scene.log
+    40.5 Mo  2026-08-30  .autoport/reports/Gloadgate-crash-regression/repro-geyser.log
+    38.8 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-inj1-village3-start-brusque-logcat.txt
+    37.2 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-nat-village3-farside-brusque-logcat.txt
+    35.6 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-nat-citadel-start-brusque-logcat.txt
+    33.5 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-nat-finalboss-start-brusque-logcat.txt
+    31.9 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-nat-snow-start-brusque-logcat.txt
+    30.2 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-nat-village3-start-brusque-logcat.txt
+    28.7 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev7-abl1-citadel-start-brusque-logcat.txt
+    28.7 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev7-abl1-finalboss-start-brusque-logcat.txt
+    28.6 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-ctl-finalboss-start-brusque-logcat.txt
+    28.1 Mo  2026-08-30  .autoport/reports/Gloading-screen-window/window-avant.log
+    27.4 Mo  2026-08-30  .autoport/reports/Gloading-screen-window/window-apres.log
+    27.4 Mo  2026-09-06  .autoport/reports/cutscene-npc-flicker/proof-off-engine.log
+    26.9 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-ctl-snow-start-brusque-logcat.txt
+    25.2 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-ctl2-finalboss-start-brusque-logcat.txt
+    24.7 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev7-abl0-citadel-start-brusque-logcat.txt
+    23.4 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-ctl3-finalboss-start-brusque-logcat.txt
+    22.8 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev7-abl0-finalboss-start-brusque-logcat.txt
+    21.8 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev6-ctlw-finalboss-start-brusque-logcat.txt
+    21.2 Mo  2026-09-03  .autoport/reports/Ghd-skin-origin-stretch/device/dev7-inj2-village3-start-brusque-logcat.txt
