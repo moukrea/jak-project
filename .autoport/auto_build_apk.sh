@@ -177,6 +177,23 @@ reconcilier_telephone(){
     [ "$age" -lt 3600 ] && return 0
   fi
 
+  # 2026-09-11 — NI PAR-DESSUS UNE PREUVE EN COURS. Le verrou ci-dessus couvre les LIVRAISONS
+  # du worker, pas ses COURSES DE MESURE. Signalement du worker lighting-legacy-purge, mesure
+  # directe du 11/09 a 03:54:49 : ce reconciliateur a reinstalle l'APK pendant une course, le
+  # process du jeu est passe de 12642 a 13021 et le chemin /data/app/ a change sous elle. La
+  # course est sortie en frames=0 et se lisait comme une regression du moteur. Trois essais ont
+  # ete brules sur des diagnostics de ce faux rouge.
+  # Plafond d'age : une course figee ne doit pas bloquer les installations pour toujours.
+  pr_age=0
+  for pr in $(ps -eo pid= -o etimes= -o args= 2>/dev/null \
+                | awk '/[p]roof_run\.sh/ {print $2}'); do
+    [ "$pr" -gt "$pr_age" ] 2>/dev/null && pr_age=$pr
+  done
+  if [ "$pr_age" -gt 0 ] && [ "$pr_age" -lt 2400 ]; then
+    say "reconciliation: une course de preuve tourne depuis ${pr_age}s — RETENTEE au prochain tour"
+    return 0
+  fi
+
   here=$("$ADBX" devices 2>/dev/null | grep -cE "^${SERX}[[:space:]]+device$" || true)
   [ "${here:-0}" -eq 0 ] && return 0   # telephone absent : ce n'est pas une erreur, on retentera
 
