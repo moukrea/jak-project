@@ -832,3 +832,16 @@ publie les deux cotes pendant une course de recouvrement. Accessoirement : `hdr_
 construit PARESSEUSEMENT a la premiere analyse, donc seulement sortie HDR active — `hdr_progs_scanned`
 et `shade_programs_seen` valent un de plus ou un de moins selon ce reglage. Aucune porte ne les lit
 aujourd'hui ; une porte future qui les lirait verrait un ecart qui n'est qu'un reglage.
+
+GUARD a-format-latched-at-construction-ignores-the-menu game/graphics/opengl_renderer/sprite/GlowRenderer.cpp basculer le maitre en jeu
+**Un format LATCHE a la construction ignore la bascule du menu.** Le 2026-09-11, le chantier A a
+elargi le ciel et le halo en flottant. Mais GlowRenderer.cpp:184, SkyBlendCPU.cpp:21 et
+SkyBlendGPU.cpp:19 choisissent le format des cibles A LA CONSTRUCTION du renderer : allumer le
+maitre Recharged depuis le menu ne recree pas les cibles, l'elargissement ne prend qu'au prochain
+demarrage. Pire, sur cette meme preuve le tampon de SCENE est reste `RGBA8` alors que le maitre
+etait epingle ON, parce que `chain_active()` depend d'un AUTRE reglage — le HDR de l'eclairage
+recharge — eteint dans le settings.ini du Redmi.
+Verrou : une porte qui mesure apres une bascule en jeu lit des etages 8 bits sur un binaire
+correct. Toute preuve d'un item de format publie le format EFFECTIF qu'elle a observe
+(`hdr_src_scene_fmt` et les etages), epingle au LANCEUR le reglage dont elle depend, et ne conclut
+jamais d'une bascule de menu.

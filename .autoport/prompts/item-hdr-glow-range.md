@@ -8,13 +8,13 @@
 - (aucun retour de l'owner enregistre sur cet item)
 
 ## Cause connue
-RELEVE DU 11/09 SUR LA PREUVE DE `hdr-source-range` (reports/hdr-source-range/proof.txt). La porte du chantier A a tenu sur `hdr_src_clamped_stages` = 0 / 16 sources vues, mais la MOITIE HALO de son propre livrable n'a jamais ete mesuree : `hdr_src_glow_state` = 2, ce que hdr.cpp:695 traduit par « JAMAIS TENTE » ; `hdr_src_glow_frames` = 0, `hdr_src_glow_px` = 0, `hdr_src_glow_overbright_px` = 0. Ce zero-la ne dit pas « pas de depassement », il dit « pas de mesure ». Le site d'appel existe (sprite/GlowRenderer.cpp:667, dernier etage de la chaine de reduction) : il n'est atteint que si le halo DESSINE. La course de preuve n'est donc pas passee par un endroit qui en porte. Owner 11/09 : « c'es […suite dans le contrat]
+RELEVE DU 11/09 SUR LA PREUVE ET LES SIGNALEMENTS DE `hdr-source-range` (reports/hdr-source-range/proof.txt et FINDINGS.txt).
+LE FAIT CENTRAL : sur 10 560 images d'appareil et 8 573 images x86 — dont un teleport dans village1 — `GlowRenderer::flush()` (GlowRenderer.cpp:859) est sorti sur `!m_next_sprite` A CHAQUE FOIS. Pas UN sprite de halo n'a ete soumis. D'ou `hdr_src_glow_state` = 2, que hdr.cpp:695 traduit par « JAMAIS TENTE », et 0 image, 0 pixel, 0 depassement. Ce zero ne dit pas « pas de depassement » : il dit « pas de mesure ». Le chemin du halo — sonde plus cinq reductions, 2,18 Mo — n'est couvert par AUCUNE porte d'AUCUN item, et AUCUNE scene connue du harnais ne l'exerce. Il peut […suite dans le contrat]
 
 ## Livrable
 `hdr_glow_range_defects` = 0, somme de termes publies SEPAREMENT.
-1. `hdr_glow_state` dit que la sonde A TOURNE. Les quatre raisons du retour anticipe de `probe_glow` (mesure eteinte, largeur nulle, hauteur nulle, cible trop grande) deviennent quatre valeurs publiees DISTINCTES : un zero ne doit plus jamais pouvoir se lire comme un « pas de depassement ».
-2. `hdr_glow_frames` > 0 et `hdr_glow_px` > 0, avec le lieu de la course publie. La preuve passe par un endroit ou le halo dessine vraiment : un feu ou un portail de teleportation (hutte du Sage vert, Sandover Village).
-3. `hdr_glow_overbright_px` et `hdr_glow_max_x1000` publies tous les deux. Un halo qui ne depasse jamais 1,0 est un RESULT […suite dans le contrat]
+1. LA COUVERTURE D'ABORD, pas le depassement. Publier `hdr_glow_flush_calls` et `hdr_glow_sprites_submitted` sur toute la course. Etablir si ce chemin est ATTEIGNABLE sur ce portage, et nommer ce qui l'alimente. S'il ne l'est pas, c'est CA la reponse de l'item : on la publie chiffree, on ne va pas chercher une scene qui n'existe peut-etre pas. Ne pas confondre avec le halo que l'owner VOIT sur les feux et les portails — s'il est dessine par un autre chemin, dire lequel.
+2. `hdr_glow_state` dit que la sonde A TOURNE ou POURQUOI elle n'a pas tourne. Les quatre raisons du retour anticipe de `probe_glow` (mesure eteinte, largeur n […suite dans le contrat]
 
 ## Preuve exigee
 `hdr_glow_range_defects == 0` dans `reports/hdr-glow-range/proof.txt`.

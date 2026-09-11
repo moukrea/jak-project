@@ -4958,16 +4958,9 @@ items:
     ce prompt ne repete pas. Le chemin valide fait color.rgb *= rt_mod : le soleil teinte le bake au lieu
     de s''y ajouter, donc il ne peut jamais eclairer ce que le bake a laisse sombre. La decomposition
     a pourtant une forme CLOSE. SPEC 3.1 et 5.2.'
-  deliverable: 'tools/light_bake ecrit <niveau>.lightbake A COTE du fr3 : palette B, residu artistique,
-    visibilite du ciel, AO, normales coudees, sondes, regimes, emetteurs. La palette A n''est JAMAIS reecrite.
-    Le moteur verifie la reconstruction au chargement. SPEC 5 en entier, format octet par octet en 5.4.
-    PREUVE : `FEATURE lighting-bake armed=1 hits=<index de couleur reconstruits et verifies>` + la ligne
-    `bake_reconstruction_maxdelta=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la
-    MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-bake"),
-    jamais armed(), et n''en ecris pas un second. AMENDEMENT 09-09 (perf) : les trois LUT TOD par arbre
-    : les deux statiques televersees une fois au chargement ; la dynamique reecrite seulement quand itimes
-    change et jamais dans la texture que le GPU lit encore (ping-pong avec orphaning) ; tod_uploads_per_frame
-    publie.'
+  deliverable: |-
+    tools/light_bake ecrit <niveau>.lightbake A COTE du fr3 : palette B, residu artistique, visibilite du ciel, AO, normales coudees, sondes, regimes, emetteurs. La palette A n'est JAMAIS reecrite. Le moteur verifie la reconstruction au chargement. SPEC 5 en entier, format octet par octet en 5.4. PREUVE : `FEATURE lighting-bake armed=1 hits=<index de couleur reconstruits et verifies>` + la ligne `bake_reconstruction_maxdelta=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-bake"), jamais armed(), et n'en ecris pas un second. AMENDEMENT 09-09 (perf) : les trois LUT TOD par arbre : les deux statiques televersees une fois au chargement ; la dynamique reecrite seulement quand itimes change et jamais dans la texture que le GPU lit encore (ping-pong avec orphaning) ; tod_uploads_per_frame publie.
+    AVERTISSEMENT DU 11/09 (reports/hdr-source-range/FINDINGS.txt) : les cles `tod-palette-*` sont enregistrees DANS UNE BOUCLE PAR ARBRE (TFragment.cpp:512, Tie3.cpp:679, Shrub.cpp:471) : les N arbres s'ecrasent dans `s_inputs` et il ne reste que 2 entrees par famille quel que soit le niveau. `hdr_plan_s2_bytes_total` et `_bytes_8bit` SOUS-COMPTENT donc les palettes d'un facteur N_arbres : le chiffrage memoire du PLAN §2.1 pour ce chantier est un PLANCHER, pas un total. Le recompter par arbre avant de dimensionner quoi que ce soit.
   out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -7738,6 +7731,8 @@ items:
     DEUX AVERTISSEMENTS REMONTES PAR LE CHANTIER B LE 11/09 (reports/hdr-curve-input/FINDINGS.txt), a trancher ICI et pas ailleurs :
     A. L'ANCRE RESTE SOURDE. Seul `peak` passe au maximum ; `key` (log-moyenne) et `hi` (le centile qui place l'ancre) restent tires des tuiles MOYENNES. Ce chantier ne peut pas placer un sommet juste sur une ancre dont la surdite n'a jamais ete mesuree : publier l'ecart entre l'ancre tiree des moyennes et l'ancre tiree des maximums, puis dire laquelle est retenue et pourquoi.
     B. LA CONDITION DE MARGE CHANGE DE SENS SOUS CE CHANTIER. Avec `xp = clampf(peak, 0.02, 4.0)` et un pic VRAI (~15 mesure) au lieu du pic sourd (~1,6), `room = cmax > xp*(1+kMinTopGain)` devient FAUX des que l'ecran n'accorde aucune marge (cmax = 1) : la sortie HDR retombe sur la branche identite-SDR a TOUTES les images. Le regime doit donc etre choisi par une condition qui reste vraie quand l'entree devient juste — sinon le chantier B eteint le HDR en le reparant.
+    C. LE REGIME DE SA PROPRE FEATURE, EPINGLE. Sur la preuve du chantier A, maitre Recharged EPINGLE ON, le tampon de SCENE est reste `RGBA8` : `chain_active()` etait FAUX parce que le reglage HDR de l'eclairage recharge est eteint dans le settings.ini du Redmi. Les dix etages de source sont flottants, leur consommateur ne l'est pas — la precision gagnee en amont est requantifiee a l'ecriture de scene. Ce chantier epingle ce reglage LUI-MEME et publie `hdr_src_scene_fmt` a cote de son verdict : sans ca, il mesure un binaire correct dans une configuration ou son effet ne peut pas atteindre la dalle.
+    D. `publish_plan()` (hdr_output.cpp:1966) est garde par `planning()` = `feature_is("hdr-plan")` SEUL : aucune cle `hdr_plan_*` n'est publiee sous un autre item, y compris les items que le plan a engendres. Le chantier A a du republier son denominateur depuis hdr.cpp pour contourner le mur. Republier ce dont ce chantier a besoin, ou elargir la garde — mais le dire.
   where: 'Options > Recharged > Eclairage Recharge : la ligne de sortie HDR dit quel transport et quel
     regime sont utilises, au lieu d''un simple Oui/Non'
   out_of_scope: Ne fabrique aucune difference visible quand le systeme n'accorde pas de marge. C'est un
@@ -7761,26 +7756,19 @@ items:
     value: 0
   depends_on:
   - hdr-source-range
-  known_cause: 'RELEVE DU 11/09 SUR LA PREUVE DE `hdr-source-range` (reports/hdr-source-range/proof.txt).
-    La porte du chantier A a tenu sur `hdr_src_clamped_stages` = 0 / 16 sources vues, mais la MOITIE HALO
-    de son propre livrable n''a jamais ete mesuree : `hdr_src_glow_state` = 2, ce que hdr.cpp:695 traduit
-    par « JAMAIS TENTE » ; `hdr_src_glow_frames` = 0, `hdr_src_glow_px` = 0, `hdr_src_glow_overbright_px`
-    = 0. Ce zero-la ne dit pas « pas de depassement », il dit « pas de mesure ». Le site d''appel existe
-    (sprite/GlowRenderer.cpp:667, dernier etage de la chaine de reduction) : il n''est atteint que si
-    le halo DESSINE. La course de preuve n''est donc pas passee par un endroit qui en porte. Owner 11/09
-    : « c''est pas le portail de la jungle, c''est la hutte du Sage vert a Sandover Village ! et cet effet
-    est visible sur tous les feux et portails de teleportation anyway ». Le ciel, lui, a bien ete mesure
-    : 30 820 607 pixels sur 151 123 968 different du chemin 8 bits, mais `hdr_src_sky_max_x1000` = 996
-    et `hdr_src_sky_overbright_px` = 0 — le ciel a gagne de la PRECISION, pas de l''AMPLITUDE. AVERTISSEMENT
-    DU WORKER DE `hdr-curve-input` (reports/hdr-curve-input/FINDINGS.txt) : `ref_peak_now` (hdr_output.cpp)
-    et `probe_scene` (hdr.cpp) font des relectures SYNCHRONES pendant qu''on mesure. Toute cadence relevee
-    sous instrument est fausse par construction.'
+  known_cause: |-
+    RELEVE DU 11/09 SUR LA PREUVE ET LES SIGNALEMENTS DE `hdr-source-range` (reports/hdr-source-range/proof.txt et FINDINGS.txt).
+    LE FAIT CENTRAL : sur 10 560 images d'appareil et 8 573 images x86 — dont un teleport dans village1 — `GlowRenderer::flush()` (GlowRenderer.cpp:859) est sorti sur `!m_next_sprite` A CHAQUE FOIS. Pas UN sprite de halo n'a ete soumis. D'ou `hdr_src_glow_state` = 2, que hdr.cpp:695 traduit par « JAMAIS TENTE », et 0 image, 0 pixel, 0 depassement. Ce zero ne dit pas « pas de depassement » : il dit « pas de mesure ». Le chemin du halo — sonde plus cinq reductions, 2,18 Mo — n'est couvert par AUCUNE porte d'AUCUN item, et AUCUNE scene connue du harnais ne l'exerce. Il peut etre casse depuis des mois sans que rien le voie.
+    DEUX DECLARATIONS FAUSSES DEJA CORRIGEES PAR LE CHANTIER A, a ne pas re-supposer : le site GlowRenderer.cpp:574 declarait lire la COULEUR de scene vers une cible 8 bits alors que le blit de la ligne 587 ne copie que `GL_DEPTH_BUFFER_BIT` — le halo ne lit jamais la couleur de scene ; et PLAN.md §2.2 (« le glow lit la scene dans une cible 8 bits : un soleil a 15x y contribue comme un blanc a 1,0 ») reposait sur cette declaration.
+    AVERTISSEMENT DE MESURE (reports/hdr-curve-input/FINDINGS.txt) : `ref_peak_now` (hdr_output.cpp) et `probe_scene` (hdr.cpp) font des relectures SYNCHRONES pendant qu'on mesure. Toute cadence relevee sous instrument est fausse par construction.
   deliverable: |-
     `hdr_glow_range_defects` = 0, somme de termes publies SEPAREMENT.
-    1. `hdr_glow_state` dit que la sonde A TOURNE. Les quatre raisons du retour anticipe de `probe_glow` (mesure eteinte, largeur nulle, hauteur nulle, cible trop grande) deviennent quatre valeurs publiees DISTINCTES : un zero ne doit plus jamais pouvoir se lire comme un « pas de depassement ».
-    2. `hdr_glow_frames` > 0 et `hdr_glow_px` > 0, avec le lieu de la course publie. La preuve passe par un endroit ou le halo dessine vraiment : un feu ou un portail de teleportation (hutte du Sage vert, Sandover Village).
-    3. `hdr_glow_overbright_px` et `hdr_glow_max_x1000` publies tous les deux. Un halo qui ne depasse jamais 1,0 est un RESULTAT, pas un echec — mais il doit etre MESURE et dit comme tel, jamais suppose. Publier le denominateur a cote.
-    4. Le cout en cadence sur le Redmi, AVANT et APRES, mesure HORS course de mesure : les sondes font des relectures synchrones, une cadence relevee sous instrument ne vaut rien. Publier les deux cadences, le nombre d'images de chaque releve, et le meme lieu pour les deux. La memoire est deja chiffree par le chantier A (6 904 320 o d'etages flottants, 196 608 o restes en 8 bits, 7 100 928 o au total) : la reprendre, ne pas la refaire.
+    1. LA COUVERTURE D'ABORD, pas le depassement. Publier `hdr_glow_flush_calls` et `hdr_glow_sprites_submitted` sur toute la course. Etablir si ce chemin est ATTEIGNABLE sur ce portage, et nommer ce qui l'alimente. S'il ne l'est pas, c'est CA la reponse de l'item : on la publie chiffree, on ne va pas chercher une scene qui n'existe peut-etre pas. Ne pas confondre avec le halo que l'owner VOIT sur les feux et les portails — s'il est dessine par un autre chemin, dire lequel.
+    2. `hdr_glow_state` dit que la sonde A TOURNE ou POURQUOI elle n'a pas tourne. Les quatre raisons du retour anticipe de `probe_glow` (mesure eteinte, largeur nulle, hauteur nulle, cible trop grande) deviennent quatre valeurs DISTINCTES : un zero ne doit plus jamais pouvoir se lire comme « pas de depassement ».
+    3. Si et seulement si la sonde tourne : `hdr_glow_overbright_px`, `hdr_glow_max_x1000` et leur denominateur, tous les trois. Un halo qui ne depasse jamais 1,0 est un RESULTAT, pas un echec — mais il doit etre mesure et dit comme tel, jamais suppose.
+    4. `ASSERT(status == GL_FRAMEBUFFER_COMPLETE)` nu a GlowRenderer.cpp:250, sans repli : sur un pilote qui accepterait la sonde et refuserait un etage, le processus MEURT a l'init du renderer et le symptome ne ressemble pas a sa cause. Repli 8 bits MESURE, compte publie.
+    5. Le format des etages est LATCHE a la construction (GlowRenderer.cpp:184, SkyBlendCPU.cpp:21, SkyBlendGPU.cpp:19) : basculer le maitre Recharged en jeu ne recree pas les cibles. Publier si la bascule prend effet ou si elle exige un redemarrage — une porte qui mesurerait apres bascule lirait des etages 8 bits sur un binaire correct.
+    6. Le cout en cadence sur le Redmi, AVANT et APRES, releve HORS course de mesure : deux courses, meme lieu, meme binaire, nombre d'images de chacune publie. La memoire est deja chiffree par le chantier A (6 904 320 o d'etages flottants, 196 608 o restes en 8 bits) : la reprendre, ne pas la refaire.
   where: 'Le halo : les feux et les portails de teleportation — hutte du Sage vert, Sandover Village.'
   out_of_scope: 'Ne change ni la courbe ni son ancre : c''est le chantier B. Le format du tampon de scene
     (`hdr_src_scene_fmt` = RGBA8) n''est pas de ce chantier. Aucun appareil code en dur.'
@@ -7789,3 +7777,39 @@ items:
   proof_timeout: 300
   notes: 'issu du releve du 11/09 : le chantier A a tenu sa porte sans mesurer sa moitie halo.'
   prompt: prompts/item-hdr-glow-range.md
+- id: hdr-sky-gpu-alpha
+  status: open
+  priority: 20
+  game: jak1
+  device: false
+  owner_test: false
+  feature: 'Le chemin GPU du ciel : son poids de melange peut depasser 1,0 depuis que la cible est flottante'
+  gate:
+    key: hdr_sky_gpu_alpha_defects
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-source-range
+  known_cause: 'SIGNALEMENT DU CHANTIER A, 11/09 (reports/hdr-source-range/FINDINGS.txt), SkyBlendGPU.cpp:175.
+    Sur la cible flottante ouverte par `hdr-source-range`, l''accumulation `glBlendFunc(GL_ONE, GL_ONE)`
+    laisse desormais l''ALPHA du ciel DEPASSER 1,0 la ou le 8 bits le saturait. Aucun facteur de melange
+    a fonction fixe ne le bornerait sans changer sa valeur ailleurs : `GL_SRC_ALPHA_SATURATE` rend 1 sur
+    le canal alpha. Ce chemin n''est PAS celui de l''appareil (`use_sky_cpu` vaut vrai par defaut, BucketRenderer.h:43,
+    bascule ImGui seule) et n''est couvert par AUCUNE preuve : un poids de melange superieur a 1,0 y sur-composerait
+    le ciel SUR BUREAU sans qu''aucune porte le voie. L''owner a valide la sortie HDR sur PC le 11/09
+    : ce chemin cesse d''etre un coin mort.'
+  deliverable: |-
+    `hdr_sky_gpu_alpha_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Le chemin GPU du ciel est EXERCE par la preuve — publier `hdr_sky_gpu_frames` et le dire explicitement si la bascule `use_sky_cpu` a du etre forcee. Un zero d'images se lit « pas mesure », jamais « pas de defaut ».
+    2. L'alpha maximum accumule, publie : `hdr_sky_gpu_alpha_max_x1000`, avec son denominateur en composantes relues. C'est la grandeur qui dit si le debordement existe.
+    3. Si elle depasse 1,0 : le supplement est borne A SA SOURCE — le poids du melange — et non par un ecretage en aval. Publier la valeur avant et apres, sur la MEME course.
+    4. Le chemin CPU du ciel, celui de l'appareil, reste identique AU BIT : publier son maximum et son compte de pixels differents avant/apres cet item.
+  where: 'Le ciel, chemin GPU (bureau) : `SkyBlendGPU`, bascule `use_sky_cpu` dans ImGui.'
+  out_of_scope: 'Ne touche pas au chemin CPU du ciel, ni a la courbe, ni au format des etages. Ne fabrique
+    aucune difference visible sur l''appareil : ce chemin n''y tourne pas.'
+  max_turns: 500
+  max_retries: 4
+  proof_timeout: 300
+  prompt: prompts/item-hdr-sky-gpu-alpha.md
+  notes: 'issu des signalements du chantier A, 11/09 : defaut ouvert PAR le chantier A sur un chemin sans
+    preuve.'
