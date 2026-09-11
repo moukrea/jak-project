@@ -2973,7 +2973,7 @@ items:
   build: build du 2026-07-22, remplace depuis
 - id: recharged-naming
   feature: Le nom des jeux et de la collection Recharged
-  status: open
+  status: in-progress
   priority: 21
   owner_feedback:
   - date: '2026-09-11'
@@ -4646,7 +4646,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: to-test
   priority: 18
   game: jak1
   gate:
@@ -4798,7 +4798,7 @@ items:
   block_reason: null
   proof_env: []
   device_serial: eae4df44
-  delivered: null
+  delivered: '2026-09-11'
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
@@ -5948,8 +5948,8 @@ items:
   device_serial: eae4df44
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
-  status: to-test
-  priority: 21
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: gl_unarmed_driver_queries_per_frame
@@ -5992,6 +5992,13 @@ items:
   prompt: prompts/item-perf-gl-waits.md
   device_serial: eae4df44
   delivered: '2026-09-11'
+  owner_ok:
+    date: '2026-09-11'
+    text: Validé
+    build_sha: 3c724a60cc77fbc9
+  owner_feedback:
+  - date: '2026-09-11'
+    text: Validé
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
   status: open
@@ -6621,8 +6628,8 @@ items:
   block_reason: null
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
-  status: to-test
-  priority: 19
+  status: validated
+  priority: null
   game: jak1
   device: true
   gate:
@@ -6679,8 +6686,14 @@ items:
       quand l''occlusion ambiante est off plutot que grise, c''est plus simple a comprendre [...] ca devrait
       d''ailleurs etre comme ca que ca se comporte pour les autres options qui dependent d''une autre
       option)'
+  - date: '2026-09-11'
+    text: Validé
   prompt: prompts/item-recharged-gating-real.md
   delivered: '2026-09-11'
+  owner_ok:
+    date: '2026-09-11'
+    text: Validé
+    build_sha: 3c724a60cc77fbc9
 - id: res-menu-truth
   feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
   status: open
@@ -6990,34 +7003,43 @@ items:
 - id: fire-red-particles
   priority: 17
   device: true
-  feature: Les particules rouges etrangeres, sur les feux comme sur les portails
+  feature: Les aplats noirs et rouges qui recouvrent les feux et les portails
   gate:
-    key: fire_debug_particles
+    key: fire_foreign_overdraw
     op: ==
     value: 0
-  known_cause: 'Aucun cycle n''a etabli de cause. Owner 10/09 sur le Honor : des particules rouges bizarres
-    au-dessus des feux, PRESENTES que la sortie HDR soit allumee ou eteinte — donc sans rapport avec elle.
-    Il soupconne un reste de test ou de debug laisse dans le code.'
-  deliverable: '`fire_debug_particles` = 0 : recenser TOUT ce qui dessine en rouge sur ou au-dessus des
-    feux et qui n''appartient pas au jeu d''origine — sonde, temoin, marqueur de debug, couleur de secours
-    quand une texture manque. Publier la liste et le compte de dessins par image ; il doit tomber a 0.
-    Nommer la cause trouvee : un reste de debug se SUPPRIME, une couleur de secours se corrige a sa source.
-    L''aspect des feux redevient celui d''origine. S''AJOUTE (refus 11/09) : les PORTAILS DE TELEPORTATION
-    en emettent aussi. Le recensement ne se limite donc pas aux feux : il couvre TOUT emetteur de particules
-    du jeu. Publier la liste des emetteurs inspectes et le compte de dessins rouges etrangers par emetteur
-    ; tous a 0. Corriger a la source commune si elle existe, plutot qu''emetteur par emetteur.'
-  where: 'les feux du jeu ET les portails de teleportation : plus aucune particule rouge etrange au-dessus,
-    sortie HDR allumee comme eteinte'
+  known_cause: 'DEUX ESSAIS PASSES AU VERT SUR UN DEFAUT INTACT. Ce que l''owner voit n''est PAS « des
+    particules rouges » — ses captures du 11/09 montrent de GRANDES FORMES POLYGONALES NOIRES ET ROUGES
+    qui RECOUVRENT l''effet. Le feu et le portail sont corrects DESSOUS : quelque chose se dessine par-dessus
+    avec une texture qui ne se resout pas, ou un quad de sprite rempli d''une couleur de secours. Meme
+    signature sur deux effets differents = une cause commune. La porte cherchait des « dessins rouges
+    etrangers » (`fire_debug_particles`, `fire_pack_foreign_*`) et n''en trouvait aucun : elle mesurait
+    la mauvaise chose. SECONDE PISTE, AU MOINS AUSSI FORTE : les deux preuves ont tourne sur le REDMI
+    (eae4df44), l''owner voit le defaut sur son HONOR. Il est possible que ca ne se reproduise tout simplement
+    pas sur l''appareil mesure.'
+  deliverable: '`fire_foreign_overdraw` = 0. (1) SUR L''APPAREIL OU L''OWNER LE VOIT : reproduire d''abord.
+    Si le defaut n''apparait pas sur le Redmi, le DIRE et mesurer sur le Honor (AREE026206000788) — deux
+    preuves passees au vert sur le mauvais telephone valent zero. (2) CE QUI EST DESSINE, pas ce qui est
+    arme : pour chaque dessin du chemin des particules et des sprites, publier l''etat de son echantillonneur
+    — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0.
+    (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d''origine
+    ; des aplats satures rouges ou noirs absents de l''origine sont un DEFAUT, quel que soit leur nombre.
+    (4) CAUSE COMMUNE : le feu de Sandover et le portail de la jungle montrent la MEME signature — nommer
+    le site partage et le corriger la, pas effet par effet. (5) Publier la liste des effets inspectes
+    et le verdict de chacun.'
+  where: 'la hutte de Sandover au-dessus du feu, et la hutte de la jungle par-dessus le portail : plus
+    aucune forme noire ou rouge par-dessus l''effet'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: to-test
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
-  max_retries: 6
+  max_retries: 10
   proof_timeout: 300
   prompt: prompts/item-fire-red-particles.md
-  notes: Insere le 11/09 sur retour owner du 10/09 au soir.
+  notes: 'budget : porte a 10 le 11/09. DEUX essais sont passes au vert sur un defaut intact, mesures
+    sur le Redmi alors que l''owner le voit sur son Honor : l''item est desormais epingle sur le HONOR.'
   owner_feedback:
   - date: '2026-09-10'
     text: je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca
@@ -7025,7 +7047,13 @@ items:
       reste... Faut degager ca c'est horrible
   - date: '2026-09-11'
     text: les warp gates aussi emettent les particules rouges degueulasses
-  delivered: '2026-09-11'
+  - date: '2026-09-11'
+    text: 'Heuuuu tu te fous de ma gueule, la warp gate est pleine des particules rouges comme sur le
+      feu ... Qui d''ailleurs n''est pas corrige !!! FOUTAGE DE GUEULE !!! [captures fournies : de GRANDES
+      FORMES POLYGONALES NOIRES ET ROUGES par-dessus l''effet, dans la hutte de Sandover au-dessus du
+      feu, et dans la hutte de la jungle par-dessus le portail]'
+  delivered: null
+  device_serial: AREE026206000788
 - id: lighting-legacy-purge
   priority: 17
   device: true
@@ -7090,7 +7118,7 @@ items:
     reduit : raccourcis known_cause / deliverable / out_of_scope. Raccourcis known_cause / deliverable
     / out_of_scope : au-dela du plafond, le worker garderait l''ancien fichier.'
 - id: mesh-browser-removal
-  priority: 20
+  priority: null
   device: true
   feature: Le navigateur de mesh quitte le jeu, entrees de menu et raccourcis compris
   gate:
@@ -7108,7 +7136,7 @@ items:
   where: 'Options et overlay tactile : plus aucune trace du navigateur de mesh, et aucune autre ligne
     de menu deplacee au passage'
   out_of_scope: Ne pas toucher aux autres outils de debug. On retire celui-la, entierement.
-  status: to-test
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7121,7 +7149,13 @@ items:
   - date: '2026-09-11'
     text: TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET
       BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE
+  - date: '2026-09-11'
+    text: Validé
   delivered: '2026-09-11'
+  owner_ok:
+    date: '2026-09-11'
+    text: Validé
+    build_sha: 3c724a60cc77fbc9
 - id: title-tap-prompt-regression
   priority: 21
   device: true
@@ -7273,7 +7307,7 @@ items:
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
 - id: hdr-desktop-output
-  status: in-progress
+  status: validated
   priority: 19
   game: jak1
   device: false

@@ -1,0 +1,38 @@
+# Les aplats noirs et rouges qui recouvrent les feux et les portails — CONTRAT COMPLET
+
+Ce fichier porte ce que la consigne, plafonnee a 2560 octets, ne peut pas contenir.
+La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
+
+## Cause connue
+
+DEUX ESSAIS PASSES AU VERT SUR UN DEFAUT INTACT. Ce que l'owner voit n'est PAS « des particules rouges » — ses captures du 11/09 montrent de GRANDES FORMES POLYGONALES NOIRES ET ROUGES qui RECOUVRENT l'effet. Le feu et le portail sont corrects DESSOUS : quelque chose se dessine par-dessus avec une texture qui ne se resout pas, ou un quad de sprite rempli d'une couleur de secours. Meme signature sur deux effets differents = une cause commune. La porte cherchait des « dessins rouges etrangers » (`fire_debug_particles`, `fire_pack_foreign_*`) et n'en trouvait aucun : elle mesurait la mauvaise chose. SECONDE PISTE, AU MOINS AUSSI FORTE : les deux preuves ont tourne sur le REDMI (eae4df44), l'owner voit le defaut sur son HONOR. Il est possible que ca ne se reproduise tout simplement pas sur l'appareil mesure.
+
+## Livrable — le contrat, en entier
+
+`fire_foreign_overdraw` = 0. (1) SUR L'APPAREIL OU L'OWNER LE VOIT : reproduire d'abord. Si le defaut n'apparait pas sur le Redmi, le DIRE et mesurer sur le Honor (AREE026206000788) — deux preuves passees au vert sur le mauvais telephone valent zero. (2) CE QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites, publier l'etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d'origine ; des aplats satures rouges ou noirs absents de l'origine sont un DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : le feu de Sandover et le portail de la jungle montrent la MEME signature — nommer le site partage et le corriger la, pas effet par effet. (5) Publier la liste des effets inspectes et le verdict de chacun.
+
+## Hors perimetre
+
+Ne pas retoucher les particules d'origine ni leur cadence : on retire ce qui n'a rien a faire la, on ne redessine pas le feu.
+
+## Ou l'owner regardera
+
+la hutte de Sandover au-dessus du feu, et la hutte de la jungle par-dessus le portail : plus aucune forme noire ou rouge par-dessus l'effet
+
+## Tous les refus de l'owner, dans l'ordre, mot pour mot
+
+### 2026-09-10
+> je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca fait des particules rouges bizarres, probablement un des tests/debugs qui est reste la et qui maintenant reste... Faut degager ca c'est horrible
+
+### 2026-09-11
+> les warp gates aussi emettent les particules rouges degueulasses
+
+### 2026-09-11
+> Heuuuu tu te fous de ma gueule, la warp gate est pleine des particules rouges comme sur le feu ... Qui d'ailleurs n'est pas corrige !!! FOUTAGE DE GUEULE !!! [captures fournies : de GRANDES FORMES POLYGONALES NOIRES ET ROUGES par-dessus l'effet, dans la hutte de Sandover au-dessus du feu, et dans la hutte de la jungle par-dessus le portail]
+
+## Pourquoi ce fichier existe
+
+Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
+iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est
+plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.
+
