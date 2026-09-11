@@ -6593,7 +6593,7 @@ items:
   block_reason: null
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
-  status: open
+  status: in-progress
   priority: 19
   game: jak1
   device: true
@@ -7015,7 +7015,7 @@ items:
     ce qui reste agit vraiment'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7034,6 +7034,7 @@ items:
   - date: '2026-09-10'
     text: les anciens reglages d'eclairage, vire les dessuite avant qu'ils nous embetent, on en veut pas
       de toute facons
+  delivered: '2026-09-11'
 - id: mesh-browser-removal
   priority: 20
   device: true
@@ -7097,3 +7098,122 @@ items:
   - date: '2026-09-11'
     text: TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur
       start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
+- id: census-false-reds
+  priority: 28
+  device: false
+  owner_test: false
+  feature: Le recensement d'eclairage ne publie plus de mesures fabriquees
+  gate:
+    key: census_unfalsifiable_gates
+    op: ==
+    value: 0
+  known_cause: 'Quatre signalements du worker lighting-legacy-purge (11/09), non corriges a dessein :
+    `kGateNames[2]`/`kGateTokens[2]` listent `u_rt_probe_on`, jeton qui n''existe plus que dans des COMMENTAIRES
+    du blob livre — glGetUniformLocation rend -1 partout et `light_census_rb_bad_2` est EPINGLE a 0 par
+    construction. `gate_probe(int)` n''a plus aucun appelant : le composite D est INATTEIGNABLE et le
+    3e terme du composite A est une TAUTOLOGIE. `shade_proof.cpp:128` pose `reads_a_gate` AVANT le test
+    de commentaire : faux rouge latent, deja vrai pour 9 des 11 noms herites. `hdr.cpp:212` garde des
+    jetons d''un shader SUPPRIME.'
+  deliverable: '`census_unfalsifiable_gates` = 0 : aucune cle publiee par le recensement ne peut valoir
+    sa valeur par construction. Pour chaque cle : nommer sa source, prouver qu''un changement du monde
+    la fait bouger. Retirer les jetons morts des tables, et les commentaires qui les portent encore dans
+    les shaders livres. ATTENTION : reduire une table RENOMME des cles publiees que d''autres portes lisent
+    — publier la correspondance avant/apres.'
+  where: 'rien a voir : instrument ; owner_test=false'
+  out_of_scope: Ne pas toucher au rendu. On corrige ce que l'instrument affirme, pas ce qu'il regarde.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-census-false-reds.md
+  notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
+    des workers.
+- id: dead-cover-and-legends
+  priority: 29
+  device: false
+  owner_test: false
+  feature: Plus de conditions mortes ni de legendes perimees dans les sorties vivantes
+  gate:
+    key: dead_legend_sites
+    op: ==
+    value: 0
+  known_cause: 'Signalements du worker lighting-legacy-purge (11/09) : `background_common.cpp:1145` teste
+    `disp == 2` (tessellation) alors que la variable recoit la constante 1, et `(bis & 128)` alors qu''elle
+    recoit 0 — deux conditions structurellement mortes, et le seau `disp_tess` est publie avec une legende
+    qui nomme un programme qui n''existe plus. `refset.cpp:2355` nomme encore la subdivision retiree.
+    `MeshSubdivide.h:106` cite un champ supprime de gfx.h.'
+  deliverable: '`dead_legend_sites` = 0 : recenser toute condition dont l''issue est fixee par construction
+    et toute legende nommant un programme, un champ ou un reglage retire. Les supprimer. Publier le recensement
+    avant/apres. Aucun changement de comportement attendu : ce sont des chemins morts.'
+  where: 'rien a voir : nettoyage ; owner_test=false'
+  out_of_scope: Ne rien supprimer qui soit encore lu. Un doute se signale, ne se tranche pas ici.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-dead-cover-and-legends.md
+  notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
+    des workers.
+- id: builder-checkpoint-steals-work
+  priority: 22
+  device: false
+  owner_test: false
+  feature: Un checkpoint du constructeur n'emporte plus le travail d'un chantier
+  gate:
+    key: checkpoint_stolen_files
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker lighting-legacy-purge (11/09) : la purge d''eclairage commandee
+    par l''owner a ete emportee EN ENTIER par deux commits « [autoport/builder] checkpoint automatique
+    » (2605a2f595, a2dcd34b3f). Aucun ne porte le prefixe du chantier : `git log --grep` ne retrouve pas
+    le travail, et un revert ou une bisection d''un « checkpoint constructeur » defait en silence une
+    suppression demandee par l''owner. Le superviseur a fait la MEME faute la meme nuit (d408802e22) en
+    commitant l''index d''un worker.'
+  deliverable: '`checkpoint_stolen_files` = 0 : un commit de checkpoint ne contient QUE ce que le constructeur
+    a produit lui-meme. Il nomme ses chemins, il ne valide jamais l''index. Publier, sur les 50 derniers
+    commits, le nombre de fichiers de chantier emportes par un checkpoint : il vaut 0. Meme regle pour
+    tout script du harnais qui commite.'
+  where: 'rien a voir : tracabilite ; owner_test=false'
+  out_of_scope: Ne pas reecrire l'historique. On empeche la recidive, on ne repare pas le passe.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-builder-checkpoint-steals-work.md
+  notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
+    des workers.
+- id: proof-context-on-zero-frames
+  priority: 23
+  device: true
+  owner_test: false
+  feature: Une course qui ne dessine rien dit POURQUOI, au lieu de se lire comme un moteur mort
+  gate:
+    key: zero_frames_without_context
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker lighting-legacy-purge (11/09) : proof_run ne savait pas distinguer
+    « le moteur est casse » de « le systeme empeche de dessiner ». Cause reelle trouvee au 6e essai :
+    l''app-op MIUI 10020 a `ignore` — corrigee au point de production. Mais CINQ courses avaient ete brulees,
+    et trois essais entiers ont diagnostique a partir de zero. Le worker s''est aussi trompe en chemin
+    : proximite et lumiere ambiante ne sont PAS deux temoins independants, c''est la meme puce.'
+  deliverable: '`zero_frames_without_context` = 0 : toute course rendant frames=0 publie, a cote, l''etat
+    qui l''explique ou l''exclut — fenetre focalisee, verrou d''ecran, app-op 10020, surfaceDestroyed,
+    et le dernier marqueur de rendu atteint. Un frames=0 sans ce bloc est un defaut de l''instrument.
+    Deux temoins cites comme independants doivent venir de composants differents : le publier.'
+  where: 'rien a voir : instrument ; owner_test=false'
+  out_of_scope: Ne pas toucher au moteur. On documente la course, on ne la repare pas.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-proof-context-on-zero-frames.md
+  notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
+    des workers.
