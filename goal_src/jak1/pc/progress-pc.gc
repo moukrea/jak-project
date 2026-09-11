@@ -1696,21 +1696,12 @@
 ;; SUPPRIMES de ce corps GELE comme du corps livre, avec les rangees qu'ils nommaient.
 ;; lighting-legacy-purge (2026-09-11) : *hemisphere-ambient-label* est SUPPRIME de ce corps
 ;; GELE comme du corps livre, avec la rangee qu'il ne nommait deja plus.
-;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
-;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
-;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
-;; four options ALWAYS render as real labels (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) even
-;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
-;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only. Defined
-;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
-(define *pbr-iso-both-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-nm-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-pom-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-neither-label* (new 'global 'string 32 (the-as string #f)))
-(format (clear *pbr-iso-both-label*) "BOTH")
-(format (clear *pbr-iso-nm-label*) "NORMAL-MAP ONLY")
-(format (clear *pbr-iso-pom-label*) "PARALLAX ONLY")
-(format (clear *pbr-iso-neither-label*) "NEITHER")
+;; lighting-legacy-purge (2026-09-11, essai 3) : les 4 libelles d'OPTION du carrousel PBR ISOLATE
+;; (*pbr-iso-both/nm/pom/neither-label*) sont SUPPRIMES. La rangee PBR ISOLATE etait deja partie ;
+;; ces globales restaient definies et FORMATEES au chargement du fichier, donc internees comme
+;; symboles et presentes comme chaines dans le CGO, sans aucune rangee pour les afficher. Le
+;; recensement ne les cherchait pas : elles auraient survecu a une porte verte. Verifiable sur
+;; l'ARTEFACT : `strings GAME.CGO | grep "NORMAL-MAP ONLY"` doit rendre ZERO.
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -3184,15 +3175,11 @@
   (text-id zero))
 
 (defun carousell-option-string ((id text-id))
-  "Resolve a carousell OPTION text-id to its display string. The PBR ISOLATE debug options
-   (0x1724-0x1727) resolve to RUNTIME GLOBAL strings (*pbr-iso-*-label*) so they never render as
+  "Resolve a carousell OPTION text-id to its display string. The reserved tag ids
+   (#x17b0.., #x17b9.., #x17dc..) resolve to RUNTIME GLOBAL strings so they never render as
    'Unknown ID' when the Android COMMON.TXT bank is stale; every other id uses the normal text bank
-   exactly as before (identical behaviour for all non-isolate carousells)."
+   exactly as before."
   (cond
-    ((= id (text-id pc-text-pbr-iso-both)) *pbr-iso-both-label*)
-    ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
-    ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
-    ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
     ;; Grecharged-secondary-motion: the three PHYSICS DETAIL option strings use the same runtime-global
     ;; route, keyed on the reserved tag ids #x17b9..#x17bb (never present in any text bank).
     ((= id (the-as text-id #x17b9)) *physics-light-label*)
@@ -7586,21 +7573,12 @@
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
 ;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
 )
-;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
-;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
-;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
-;; four options ALWAYS render as real labels (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) even
-;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
-;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only. Defined
-;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
-(define *pbr-iso-both-label* (new 'global 'string 128 (the-as string #f)))
-(define *pbr-iso-nm-label* (new 'global 'string 128 (the-as string #f)))
-(define *pbr-iso-pom-label* (new 'global 'string 128 (the-as string #f)))
-(define *pbr-iso-neither-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *pbr-iso-both-label*) "BOTH")
-(format (clear *pbr-iso-nm-label*) "NORMAL-MAP ONLY")
-(format (clear *pbr-iso-pom-label*) "PARALLAX ONLY")
-(format (clear *pbr-iso-neither-label*) "NEITHER")
+;; lighting-legacy-purge (2026-09-11, essai 3) : les 4 libelles d'OPTION du carrousel PBR ISOLATE
+;; (*pbr-iso-both/nm/pom/neither-label*) sont SUPPRIMES. La rangee PBR ISOLATE etait deja partie ;
+;; ces globales restaient definies et FORMATEES au chargement du fichier, donc internees comme
+;; symboles et presentes comme chaines dans le CGO, sans aucune rangee pour les afficher. Le
+;; recensement ne les cherchait pas : elles auraient survecu a une porte verte. Verifiable sur
+;; l'ARTEFACT : `strings GAME.CGO | grep "NORMAL-MAP ONLY"` doit rendre ZERO.
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
@@ -9532,15 +9510,11 @@
   (text-id zero))
 
 (defun carousell-option-string ((id text-id))
-  "Resolve a carousell OPTION text-id to its display string. The PBR ISOLATE debug options
-   (0x1724-0x1727) resolve to RUNTIME GLOBAL strings (*pbr-iso-*-label*) so they never render as
+  "Resolve a carousell OPTION text-id to its display string. The reserved tag ids
+   (#x17b0.., #x17b9.., #x17dc..) resolve to RUNTIME GLOBAL strings so they never render as
    'Unknown ID' when the Android COMMON.TXT bank is stale; every other id uses the normal text bank
-   exactly as before (identical behaviour for all non-isolate carousells)."
+   exactly as before."
   (cond
-    ((= id (text-id pc-text-pbr-iso-both)) *pbr-iso-both-label*)
-    ((= id (text-id pc-text-pbr-iso-nm)) *pbr-iso-nm-label*)
-    ((= id (text-id pc-text-pbr-iso-pom)) *pbr-iso-pom-label*)
-    ((= id (text-id pc-text-pbr-iso-neither)) *pbr-iso-neither-label*)
     ;; Grecharged-hd-models5: the eight HD LOOK option strings use the same runtime-global route, keyed
     ;; on the reserved tag ids #x17b0..#x17b6 + #x17bc (never present in any text bank).
     ((= id (the-as text-id #x17b0)) *hd-look-original-label*)

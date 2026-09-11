@@ -833,11 +833,8 @@
   (pc-text-envprobe-low #x1721)
   (pc-text-envprobe-mid #x1722)
   (pc-text-envprobe-high #x1723)
-  ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell strings (Both / Normal-map only / Parallax only / Neither).
-  (pc-text-pbr-iso-both #x1724)
-  (pc-text-pbr-iso-nm #x1725)
-  (pc-text-pbr-iso-pom #x1726)
-  (pc-text-pbr-iso-neither #x1727)
+  ;; lighting-legacy-purge (2026-09-11) : les 4 ids d'OPTION de PBR ISOLATE (#x1724-#x1727)
+  ;; sont SUPPRIMES avec la rangee et ses libelles. Plus aucun lecteur.
   ;; Grecharged-mesh-browser: the "MESH BROWSER" launcher row in Recharged Settings. The label is a
   ;; runtime global string (durable against stale text banks); this id only tags the button so
   ;; respond-common can match it.

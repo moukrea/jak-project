@@ -1034,6 +1034,14 @@ constexpr const char* kLegacyGoalSymbols[] = {
     // sa chaine vivait encore dans le CGO. Un residu que rien ne cherchait aurait survecu a
     // une porte verte ; il est dans la liste pour que le zero le couvre.
     "*hemisphere-ambient-label*",
+    // essai 3 : les 4 libelles d'OPTION du carrousel PBR ISOLATE. La rangee etait partie des
+    // l'essai 1, mais ces globales restaient definies et FORMATEES au chargement de
+    // progress-pc.gc : symboles internes, chaines dans le CGO, plus aucune rangee pour les
+    // afficher. Rien ne les cherchait — elles auraient survecu a une porte verte.
+    "*pbr-iso-both-label*",
+    "*pbr-iso-nm-label*",
+    "*pbr-iso-pom-label*",
+    "*pbr-iso-neither-label*",
 };
 constexpr int kLegacyGoalCount = (int)(sizeof(kLegacyGoalSymbols) / sizeof(char*));
 
