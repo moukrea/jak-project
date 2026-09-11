@@ -7016,20 +7016,22 @@ items:
     corrects DESSOUS : quelque chose se dessine par-dessus avec une texture qui ne se resout pas, ou un
     quad de sprite rempli d''une couleur de secours. Meme signature sur deux effets differents = une cause
     commune. La porte cherchait des « dessins rouges etrangers » (`fire_debug_particles`, `fire_pack_foreign_*`)
-    et n''en trouvait aucun : elle mesurait la mauvaise chose. SECONDE PISTE, AU MOINS AUSSI FORTE : les
-    deux preuves ont tourne sur le REDMI (eae4df44), l''owner voit le defaut sur son HONOR. Il est possible
-    que ca ne se reproduise tout simplement pas sur l''appareil mesure.'
-  deliverable: '`fire_foreign_overdraw` = 0. (1) SUR L''APPAREIL OU L''OWNER LE VOIT : reproduire d''abord.
-    Si le defaut n''apparait pas sur le Redmi, le DIRE et mesurer sur le Honor (AREE026206000788) — deux
-    preuves passees au vert sur le mauvais telephone valent zero. (2) CE QUI EST DESSINE, pas ce qui est
-    arme : pour chaque dessin du chemin des particules et des sprites, publier l''etat de son echantillonneur
-    — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0.
-    (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d''origine
-    ; des aplats satures rouges ou noirs absents de l''origine sont un DEFAUT, quel que soit leur nombre.
-    (4) CAUSE COMMUNE : TOUS les feux et TOUS les portails montrent la meme signature — l''owner l''a
-    constate. Nommer le site partage et le corriger LA, jamais effet par effet ; une correction qui ne
-    vaudrait que pour un feu est un DEFAUT. (5) Publier la liste des effets inspectes et le verdict de
-    chacun.'
+    et n''en trouvait aucun : elle mesurait la mauvaise chose. SECONDE PISTE : l''owner voit le defaut
+    sur son HONOR, les deux preuves ont tourne sur le REDMI. Mais elles mesuraient la mauvaise grandeur,
+    donc « ca ne se reproduit pas sur le Redmi » n''a JAMAIS ete etabli. Le Redmi est le seul appareil
+    branche : on commence par y chercher le defaut avec la BONNE mesure.'
+  deliverable: '`fire_foreign_overdraw` = 0. (1) REPRODUIRE AVANT DE CORRIGER, sur le Redmi eae4df44 —
+    le SEUL appareil branche. Les deux verts precedents ne prouvent rien : ils mesuraient l''armement
+    d''un debug, pas ce qui est dessine. Si, avec la bonne mesure, le defaut N''APPARAIT PAS sur le Redmi,
+    c''est un RESULTAT : le dire, le publier, et s''arreter la — l''owner branchera son Honor. (2) CE
+    QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites,
+    publier l''etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de
+    dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules
+    contre la reference d''origine ; des aplats satures rouges ou noirs absents de l''origine sont un
+    DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : TOUS les feux et TOUS les portails montrent
+    la meme signature — l''owner l''a constate. Nommer le site partage et le corriger LA, jamais effet
+    par effet ; une correction qui ne vaudrait que pour un feu est un DEFAUT. (5) Publier la liste des
+    effets inspectes et le verdict de chacun.'
   where: 'Sandover Village : le feu dans la hutte, et le portail de la hutte du Sage vert. Puis n''importe
     quel autre feu ou portail — l''effet est partout.'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
@@ -7041,8 +7043,9 @@ items:
   max_retries: 10
   proof_timeout: 300
   prompt: prompts/item-fire-red-particles.md
-  notes: 'budget : porte a 10 le 11/09. DEUX essais sont passes au vert sur un defaut intact, mesures
-    sur le Redmi alors que l''owner le voit sur son Honor : l''item est desormais epingle sur le HONOR.'
+  notes: 'budget : porte a 10 le 11/09. Deux essais verts sur un defaut intact, la porte mesurait l''armement
+    au lieu de ce qui est dessine. APPAREIL : Redmi eae4df44, le seul branche ; l''owner voit le defaut
+    sur son Honor, mais la non-reproduction sur Redmi n''a jamais ete etablie avec la bonne mesure.'
   owner_feedback:
   - date: '2026-09-10'
     text: je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca
@@ -7058,8 +7061,10 @@ items:
   - date: '2026-09-11'
     text: c'est pas le portail de la jungle, c'est la hutte du Sage vert a Sandover Village ! et cet effet
       est visible sur tous les feux et portails de teleportation anyway
+  - date: '2026-09-11'
+    text: tu as le Redmi a disposition, pas le Honor, ne l'oublies pas !
   delivered: null
-  device_serial: AREE026206000788
+  device_serial: eae4df44
 - id: lighting-legacy-purge
   priority: 17
   device: true
