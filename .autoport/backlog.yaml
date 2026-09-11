@@ -6671,7 +6671,12 @@ items:
     en consequence (aujourd'hui 25/40 sur l'appareil contre 60/40 par defaut). Table finale dans reports/perf-stock-60/final.md,
     comparee ligne a ligne a baseline.md.
   out_of_scope: 'Aucune optimisation dans cet item : il mesure. Ne touche a aucune feature validee.'
-  notes: 'Point de vue : les trois vantages.'
+  notes: 'Point de vue : les trois vantages. | REPERE OWNER du 11/09, premier gain du lot mesure PAR LUI,
+    au compteur d''images du jeu (en haut a gauche) sur son Honor : 71 -> 74 et 84 -> 91 apres perf-gl-waits
+    et perf-merc-defuse, soit +4 % et +8 %. Il note lui-meme que « le HONOR ne struggle pas, c''est probablement
+    plus sur le Redmi » : ces deux chantiers retirent du travail PAR IMAGE, donc le gain relatif croit
+    la ou l''image est deja serree. Le Redmi plafonne vers 44 img/s. Ces deux points sont la premiere
+    reference reelle du lot ; toute mesure de perf doit pouvoir se comparer a eux.'
   hits_means: regimes a 60
   proof_timeout: 1800
   proof_env:
@@ -6685,6 +6690,10 @@ items:
   prompt: prompts/item-perf-stock-60.md
   device_serial: eae4df44
   block_reason: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: 74 au lieu de 71 et 91 au lieu de 84 respectivement... mais le HONOR ne struggle pas, c'est
+      probablement plus sur le Redmi
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
   status: validated
