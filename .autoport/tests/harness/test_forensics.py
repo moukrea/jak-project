@@ -136,7 +136,7 @@ def test_notes_commits_and_timestamps_do_not_reset_failure_streak(orch, tmp_path
     notes.parent.mkdir(parents=True)
     notes.write_text("print('new diagnosis')\n")
     source.touch()
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)  # git-sandbox-ok
     subprocess.run(["git", "-c", "user.name=test", "-c", "user.email=test@example.invalid",
                     "-c", "commit.gpgsign=false", "commit", "-qm", "checkpoint"],
                    cwd=tmp_path, check=True)

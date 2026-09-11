@@ -43,6 +43,7 @@
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
+#include "game/system/checkpoint_census.h"
 #include "game/system/naming_census.h"
 #include "game/system/settings_case_l10n.h"
 #include "game/system/touch_screen.h"
@@ -1365,6 +1366,10 @@ void pc_autoport_frame() {
   // recharged-naming : le recensement du nommage. Muet tant que le harnais ne nomme pas
   // cet item (voir game/system/naming_census.h).
   naming_census::tick();
+  // builder-checkpoint-steals-work : le recensement des commits du constructeur et des scripts
+  // du harnais qui ecrivent dans git. Muet tant que le harnais ne nomme pas cet item, une seule
+  // passe par course (voir game/system/checkpoint_census.h).
+  checkpoint_census::tick();
   autoport_proof::frame_tick();
   // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a
   // CHAQUE image et non toutes les 60 : `flush()` emet la derniere valeur publiee, donc une

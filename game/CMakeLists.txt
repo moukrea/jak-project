@@ -384,6 +384,7 @@ set(RUNTIME_SOURCE
         system/perf_baseline.cpp
         system/water_census.cpp
         system/naming_census.cpp
+        system/checkpoint_census.cpp
         system/settings_case_l10n.cpp
         system/npc_flicker.cpp
         system/recharged_gating.cpp

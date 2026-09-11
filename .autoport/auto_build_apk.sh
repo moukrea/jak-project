@@ -103,6 +103,13 @@ range_touches_game(){
 mark_built(){ printf '%s\n' "$1" > "$STAMP"; git rev-parse HEAD > "$COMMIT_STAMP" 2>/dev/null || true; }
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
+
+# L'INSTANTANE QUI A REMPLACE LE CHECKPOINT. `checkpoint_snapshot` enregistre un arbre sale sans
+# commiter, sans toucher l'index ni l'arbre de travail du worker : voir l'en-tete de la librairie
+# pour l'accident qu'elle rend impossible. Sourcee ici, avant la boucle, pour qu'une librairie
+# absente se voie au demarrage et non au milieu d'une passe.
+# shellcheck source=lib/checkpoint_snapshot.sh
+. .autoport/lib/checkpoint_snapshot.sh || { echo "lib/checkpoint_snapshot.sh introuvable" >> "$LOG"; exit 1; }
 # VERROU D'INSTANCE UNIQUE. Le 2026-08-11 trois instances tournaient en meme temps apres un
 # cycle kill/respawn : chacune lancait son propre build arm64 sur le meme arbre. Le verrou rend
 # le doublon impossible au lieu de le nettoyer a la main.
@@ -457,8 +464,10 @@ while true; do
   # fabrique pendant que le worker ecrivait le moteur : 366 lignes ajoutees et 52 retirees non
   # commitees. L'owner a donc teste un moteur a MOITIE reecrit et l'a trouve pire — "des petits
   # flickers qui font plus glitch qu'intentionnels". Un build livrable se fait depuis un etat
-  # COMMITE, donc auto-coherent. On attend simplement le prochain point de commit du worker :
-  # il en fait regulierement, la livraison continue, mais plus jamais a moitie.
+  # COHERENT : ce que le compilateur accepte, et dont on garde une trace exacte. Ce fut un commit
+  # jusqu'au 2026-09-11 ; c'est desormais un instantane, parce qu'un commit prenait la propriete
+  # d'un travail que le constructeur n'avait pas fait.
+  SNAP=""   # une passe sur arbre propre ne doit pas reprendre l'instantane de la passe d'avant
   dirty=$(git status --porcelain -- goal_src/ game/ android/ common/ goalc/ 2>/dev/null | grep -c . || true)
   if [ "${dirty:-0}" -gt 0 ]; then
     # Un arbre sale n'est pas forcement a moitie ecrit : le seul test objectif, c'est qu'il
@@ -467,9 +476,20 @@ while true; do
     # garde-fou pose a 18:50 aurait bloque toute livraison pendant des heures — l'owner a demande
     # l'inverse.
     if timeout 900 ./build/goalc/goalc --user-auto --cmd '(make-group "iso")' >> "$LOG" 2>&1; then
-      git add -- goal_src/ game/ android/ common/ goalc/ >> "$LOG" 2>&1
-      git commit -q -m "[autoport/builder] checkpoint automatique du constructeur : l'arbre compile, etat coherent livrable" >> "$LOG" 2>&1
-      say "arbre sale mais COMPILE — checkpoint commite, build autorise"
+      # LE CONSTRUCTEUR NE COMMITE PLUS RIEN (2026-09-11, item builder-checkpoint-steals-work).
+      # Ces deux lignes etaient `git add -- goal_src/ game/ android/ common/ goalc/` suivi d'un
+      # `git commit`. Le constructeur ne PRODUIT rien sous ces cinq dossiers : tout ce qu'elles
+      # ramassaient appartenait a un chantier en cours. La purge d'eclairage commandee par
+      # l'owner est partie entiere dans 2605a2f595 et a2dcd34b3f, sous un sujet qui ne nomme
+      # aucun chantier. Un instantane conserve l'etat bati sans se l'approprier : HEAD ne bouge
+      # pas, l'index du worker n'est pas valide, l'arbre n'est pas touche.
+      SNAP=$(checkpoint_snapshot "arbre sale mais compile — build $(date -Is)")
+      if [ -n "$SNAP" ]; then
+        checkpoint_snapshot_prune 100
+        say "arbre sale mais COMPILE — instantane $SNAP (aucun commit, aucun fichier de chantier emporte), build autorise"
+      else
+        say "arbre sale mais COMPILE — instantane IMPOSSIBLE (git a refuse) ; build autorise, toujours aucun commit"
+      fi
     else
       say "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
       continue
@@ -604,7 +624,7 @@ while true; do
   TBLX=.autoport/reports/Grecharged-secondary-motion/keira-room-table.txt
   {
     echo "TAG: $TAGX      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)"
-    echo "date: $(date -Is)     commit: $sha     build AUTOMATIQUE (etat commite et compile)"
+    echo "date: $(date -Is)     commit: $sha     build AUTOMATIQUE (etat compile${SNAP:+, instantane ${SNAP:0:12}})"
     echo
     echo "MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :"
     if [ -f "$TBLX" ]; then

@@ -439,6 +439,7 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/perf_baseline.cpp"
     "${JAK_ROOT}/game/system/water_census.cpp"
     "${JAK_ROOT}/game/system/naming_census.cpp"
+    "${JAK_ROOT}/game/system/checkpoint_census.cpp"
     "${JAK_ROOT}/game/system/settings_case_l10n.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/recharged_gating.cpp"

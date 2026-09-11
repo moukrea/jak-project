@@ -24,8 +24,8 @@ class ProvenanceTests(unittest.TestCase):
         self.source = self.write(p.RENDERER + '/renderer.cpp', 'historical renderer\n')
         self.write('game/kernel/test.cpp', 'kernel\n')
         self.write('common/test.h', 'common\n')
-        self.git('add', '.')
-        self.git('commit', '-qm', 'anchor')
+        self.git('add', '.')  # git-sandbox-ok
+        self.git('commit', '-qm', 'anchor')  # git-sandbox-ok
         self.anchor = self.git('rev-parse', 'HEAD').decode().strip()
         self.binary = self.write('build/game/gk', 'binary fixture\n')
         for name in p.PORTABLE_SETTINGS:
@@ -102,7 +102,7 @@ class ProvenanceTests(unittest.TestCase):
 
     def test_head_change_invalidates(self):
         self.seal()
-        self.git('commit', '--allow-empty', '-qm', 'new head')
+        self.git('commit', '--allow-empty', '-qm', 'new head')  # git-sandbox-ok
         with self.assertRaisesRegex(ValueError, 'HEAD changed'):
             self.verify()
 
@@ -110,10 +110,10 @@ class ProvenanceTests(unittest.TestCase):
         self.write('game/system/new.cpp', 'new system source\n')
         self.write('game/overlord/new.cpp', 'new source outside regular roots\n')
         self.write('common/new.h', 'new common source\n')
-        self.git('add', 'game/kernel/test.cpp')
+        self.git('add', 'game/kernel/test.cpp')  # git-sandbox-ok
         certificate = self.seal('candidate')
-        self.git('add', 'game', 'common')
-        self.git('commit', '-qm', 'commit sealed edits')
+        self.git('add', 'game', 'common')  # git-sandbox-ok
+        self.git('commit', '-qm', 'commit sealed edits')  # git-sandbox-ok
         self.assertNotEqual(self.git('rev-parse', 'HEAD').decode().strip(), certificate['base_commit'])
         self.assertEqual(self.verify()['base_commit'], certificate['base_commit'])
         self.source.write_text('later source mutation\n')
@@ -124,7 +124,7 @@ class ProvenanceTests(unittest.TestCase):
         self.seal('candidate')
         self.write('proof.txt', 'unrelated runtime state\n')
         self.git('add', 'proof.txt')
-        self.git('commit', '-qm', 'runtime state')
+        self.git('commit', '-qm', 'runtime state')  # git-sandbox-ok
         self.verify()
 
     def test_staged_unstaged_and_new_game_sources(self):
