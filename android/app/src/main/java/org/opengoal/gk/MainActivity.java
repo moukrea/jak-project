@@ -267,6 +267,22 @@ public class MainActivity extends SDLActivity {
         // ahead of SDLActivity's own load.)
         super.onCreate(savedInstanceState);
 
+        // autoport/lighting-legacy-purge 2026-09-11 : c'est MainActivity qui
+        // DESSINE (surface SDL). Tant qu'elle n'est pas REPRISE, la boucle de
+        // rendu ne tourne pas et la preuve rend frames=0 avec crash=0 — un faux
+        // rouge qui ressemble a une panne moteur. showWhenLocked la fait vivre
+        // par-dessus le verrou ; requestDismissKeyguard en demande la levee.
+        try {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+            android.app.KeyguardManager km = getSystemService(android.app.KeyguardManager.class);
+            if (km != null) {
+                km.requestDismissKeyguard(this, null);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "keyguard: " + t);
+        }
+
         // Grecharged-buildsys-firstboot (autoport 2026-07): the runtime reads from
         // <game-root>/assets/iso (already validated above), NOT files/iso_data/<game>.
         // There is no internal iso_data check anymore — external is the only mode.

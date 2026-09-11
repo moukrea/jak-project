@@ -1096,10 +1096,11 @@ class TieLoadStage : public LoaderStage {
           // un VAO different selon un reglage.
           //
           // LA LONGUEUR EST FORCEE SUR CELLE DU VBO DE SOMMETS, ET CE N'EST PAS DE LA PARANOIA :
-          // `mesh_presubdivide_level` (Loader.cpp:627) tourne APRES `unpack()` et INVENTE des
-          // sommets — sur TIE il est derriere debug.opengoal.mesh.subdivtie, donc eteint par
-          // defaut, mais il peut etre allume. Un tableau plus court laisserait l'attribut 7 lire
-          // hors des bornes pour les sommets inventes. On complete donc a ZERO : un sommet que la
+          // `mesh_presubdivide_level` tournait APRES `unpack()` et INVENTAIT des sommets. Cet
+          // appel a ete RETIRE par la purge des reglages hereditaires (lighting-legacy-purge,
+          // 2026-09-11) : MeshSubdivide.cpp n'est plus compile dans le jeu. Tant que cet appel
+          // existait, un tableau plus court laissait l'attribut 7 lire hors des bornes pour les
+          // sommets inventes. On complete donc a ZERO : un sommet que la
           // passe de classement n'a pas vu est FIGE, jamais aleatoire — la meme regle que pour un
           // mur, et le cas est dit a voix haute.
           // Runtime-only compact contact indices: 0 is neutral, never inferred from color_index.

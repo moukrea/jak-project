@@ -858,7 +858,6 @@ add_library(gk SHARED
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
     "${JAK_ROOT}/common/custom_data/MeshOrient.cpp"
-    "${JAK_ROOT}/common/custom_data/MeshSubdivide.cpp"
     # Gprecompute-deterministic-bake: the per-vertex tangent derivation moved out of
     # TFrag3Data.cpp into its own TU so the LOAD path cannot call it. MeshConsolidate.cpp
     # (retangent_level_from_final_normals) and TFrag3Data.cpp (tangent_derive_diag) still

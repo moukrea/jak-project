@@ -177,6 +177,23 @@ public class LoaderActivity extends AppCompatActivity {
         // the user another full decompress on next launch.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // autoport/lighting-legacy-purge 2026-09-11 : l'attribut de manifeste
+        // showWhenLocked autorise l'affichage PAR-DESSUS le verrou, mais il ne
+        // DEMANDE pas sa levee. requestDismissKeyguard le fait, et c'est le seul
+        // geste qui vaille quand l'appareil de preuve est reveille mais verrouille.
+        // Aucun reglage systeme durable n'est pose : la demande ne vit que le
+        // temps de l'activite.
+        try {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+            android.app.KeyguardManager km = getSystemService(android.app.KeyguardManager.class);
+            if (km != null) {
+                km.requestDismissKeyguard(this, null);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "keyguard: " + t);
+        }
+
         if (getIntent() != null
                 && getIntent().getBooleanExtra(EXTRA_ASSET_ROOT_INVALID, false)) {
             chooserBanner = "ASSETS FOLDER NOT FOUND — pick it again.";
