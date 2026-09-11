@@ -1084,7 +1084,34 @@ def close_gate(item: dict) -> tuple[str, str]:
         acq_serial = ""
         if item.get("device", False):
             acq_serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL") or _pick_device()
-        for script in sorted(acquis_dir.glob("*.sh")):
+        # 2026-09-11 — ROTATION. Mesure du 11/09 : les sept gardes se partagent trois courses du
+        # jeu (220 s de budget) et la fermeture tourne 2 a 2,7 fois par chantier — ~15 min de
+        # rituel par chantier, 4,7 h sur les 46 fermetures enregistrees. Owner : « un test random
+        # quand ca boucle a la place pourquoi pas ».
+        # LA GARANTIE QUI VA AVEC : le balayage COMPLET tombe des que le chantier va etre
+        # presente a l'owner — c'est le build qu'il testera — et au plus tard toutes les trois
+        # fermetures. Une fermeture intermediaire, qui ne lui livre rien, n'en fait qu'une, a
+        # tour de role. Une garde qui echoue bloque toujours : fail-CLOSED inchange.
+        _scripts = [x for x in sorted(acquis_dir.glob("*.sh")) if x.name != "_lib.sh"]
+        _rot = AUTOPORT_DIR / ".acquis_rotation"
+        _idx, _depuis = 0, 99
+        try:
+            _idx, _depuis = (int(x) for x in _rot.read_text().split()[:2])
+        except Exception:  # noqa: BLE001 — pas de compteur = balayage complet
+            pass
+        _complet = bool(item.get("owner_test", True)) or _depuis >= 3 or not _scripts
+        if _complet:
+            _choisis, _depuis_neuf, _idx_neuf = _scripts, 0, _idx
+        else:
+            _choisis = [_scripts[_idx % len(_scripts)]]
+            _depuis_neuf, _idx_neuf = _depuis + 1, _idx + 1
+        log(f"· acquis : {'balayage complet' if _complet else 'rotation'} "
+            f"({len(_choisis)}/{len(_scripts)} garde(s))", "dim")
+        try:
+            _rot.write_text(f"{_idx_neuf} {_depuis_neuf}\n")
+        except Exception:  # noqa: BLE001
+            pass
+        for script in _choisis:
             try:
                 r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
                                    capture_output=True, text=True, timeout=600)
@@ -1412,6 +1439,32 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     prompt_path = AUTOPORT_DIR / item.get("prompt", "")
     if not item.get("prompt") or not prompt_path.exists():
         return Outcome("blocked", f"prompt absent : {prompt_path}")
+
+    # 2026-09-11 — CONSIGNE PERIMEE. La fabrication d'un prompt sait raccourcir les citations de
+    # l'owner, jamais le livrable — et le livrable gagne un verdict a chaque refus. Au-dela de
+    # PROMPT_MAX elle ECHOUE et laisse l'ANCIEN fichier en place : le worker lit alors une version
+    # depassee de son cahier des charges, et rien ne le dit. Mesure du 11/09 : quatre chantiers
+    # ouverts etaient dans ce cas. On refuse de demarrer plutot que de gacher un essai.
+    _bl = None
+    try:
+        from lib import backlog as _bl          # noqa: PLC0415 — local, comme cli_backend
+    except Exception as e:                      # noqa: BLE001
+        log(f"· controle de fraicheur de la consigne indisponible : {e}", "yellow")
+    if _bl is not None:
+        try:
+            _perime = _bl.render_prompt(item) != prompt_path.read_text(encoding="utf-8")
+        except _bl.BacklogError as e:
+            return Outcome("blocked",
+                           f"consigne INFABRICABLE : {e}. Raccourcis known_cause / deliverable / "
+                           "out_of_scope : au-dela du plafond, le worker garderait l'ancien fichier.")
+        except Exception as e:                  # noqa: BLE001
+            log(f"· fraicheur de la consigne non verifiable : {e}", "yellow")
+            _perime = False
+        if _perime:
+            return Outcome("blocked",
+                           f"consigne PERIMEE : {prompt_path.name} ne correspond plus au backlog. "
+                           "Refabrique-la avant de relancer — sinon le worker travaille sur un "
+                           "cahier des charges depasse.")
     if not GENERIC_VALIDATOR.exists():
         return Outcome("blocked", f"validateur absent : {GENERIC_VALIDATOR}")
 

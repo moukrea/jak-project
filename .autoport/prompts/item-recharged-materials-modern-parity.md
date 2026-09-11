@@ -11,7 +11,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh recharged-materials-modern-parity device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh recharged-materials-modern-parity x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : Options > Recharged : le rendu des matieres.
 
 ## Hors perimetre

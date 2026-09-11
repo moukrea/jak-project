@@ -1,11 +1,10 @@
 # Voir a travers l'eau, et voir le ciel dedans
 
 ## Defaut cite
-- 2026-09-09 : « tu pense encore et toujours que la target c'est le Redmi. non ça va aller sur PC, des devices hyper puissantes, des devices faibles... donc faut pas focus sur le pire, le pire sert de test et on peut avoir des réglages variables avec plus ou moins de techno embarquées et qualité d'effets a guise ave… »
 - 2026-09-09 : « bah je valide, beau boulot ! »
 
 ## Cause connue
-LIS D'ABORD prompts/SPEC-refonte-eau.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. DepthCue fait deja la seule copie couleur de l'ecran, au bucket 64 apres ocean-near (SPEC 2.5) ; sur GPU a tuiles chaque copie coute deux resolves (SPEC 10). Le cube de ciel capture est la passe P3 de l'eclairage (item lighting-regimes).
+LIS D'ABORD prompts/SPEC-refonte-eau.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. DepthCue fait deja la seule copie couleur de l'ecran, au bucket 64 apres ocean-near (SPEC 2.5) ; sur GPU a tuiles chaque copie coute deux resolves (SPEC 10). Le cube de ciel capture est la passe P3 de l'eclairage (item lighting-regimes). NOTE 09-09 (perf) : perf-fbo-passes invalide depth/stencil apres la derniere lecture : W0 se place AVANT ce point, marque par un commentaire nomme dans android_opengl_renderer.cpp et OpenGLRenderer.cpp. Porte water_scene_copies_per_frame == 1 inchangee.
 
 ## Livrable
 W0 avec couleur : UNE copie apres les alphas, partagee avec DepthCue (qui cesse de blitter la sienne). Refraction avec REJET des echantillons devant la surface. Reflet du cube P3 via env_specular de shade(). Echelle a 4 crans reglable : ciel / cube / planaire 1/4 sur les plans immobiles listes / SSR sur toute l'eau avec repli cube. SPEC 5.6, 6. Publie water_fresnel_max (<= plafond) et water_env_source. PREUVE : `FEATURE water-refraction-reflection armed=1 hits=<pixels d'eau refractes>` + la ligne `water_scene_copies_per_frame=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-refraction-reflection"), jamais armed(), et n'en ecris pas un second.
