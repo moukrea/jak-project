@@ -44,7 +44,6 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/background/background_common.cpp
         graphics/opengl_renderer/background/foliage_wind.cpp
         graphics/opengl_renderer/background/Hfrag.cpp
-        graphics/opengl_renderer/background/MeshBrowserGizmos.cpp
         graphics/opengl_renderer/background/Shrub.cpp
         graphics/opengl_renderer/background/TFragment.cpp
         graphics/opengl_renderer/background/Tie3.cpp
@@ -381,6 +380,7 @@ set(RUNTIME_SOURCE
         system/settings_case_l10n.cpp
         system/npc_flicker.cpp
         system/recharged_gating.cpp
+        system/mesh_browser_census.cpp
         system/SystemThread.cpp
         tools/filter_menu/filter_menu.cpp
         tools/subtitle_editor/subtitle_editor_db.cpp

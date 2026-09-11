@@ -94,7 +94,6 @@ const Row kOptions[kOptCount] = {
     {"enhanced-models", kMaster, Kind::kToggle, &GS::recharged_enhanced_models, NOI, NOF, 0, true},
     {"foliage-wind", kMaster, Kind::kToggle, &GS::recharged_foliage_wind, NOI, NOF, 0, true},
     {"crisp-title-logo", kMaster, Kind::kToggle, &GS::recharged_crisp_title_logo, NOI, NOF, 0, true},
-    {"mesh-browser-checker", kMaster, Kind::kMode, NOB, &GS::recharged_mesh_browser_checker, NOF, 0, false},
 
     {"grass-near-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_near_dist, 30.0, true},
     {"grass-card-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_card_dist, 95.0, true},

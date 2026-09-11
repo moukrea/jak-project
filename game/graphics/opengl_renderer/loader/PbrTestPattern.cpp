@@ -23,7 +23,7 @@ constexpr int kMapDim = 256;
 
 // Cached-once property/env reads, same idiom as pbr_killswitch() in background_common.cpp.
 // `present` (optional) reports, on the FIRST read only, whether the prop/env was explicitly set —
-// the mesh-browser fallback needs to tell "no override" apart from "overridden to 0".
+// the CHECKER-DEBUG rule below needs to tell "no override" apart from "overridden to 0".
 int read_cached(int& cached, int def, int lo, int hi, const char* prop, const char* env,
                 bool* present = nullptr) {
   if (cached < 0) {
@@ -270,13 +270,6 @@ int mode() {
     prop_present = false;
   }
 #endif
-  // Grecharged-mesh-browser: with NO prop/env override, the debug mesh browser's menu toggle owns
-  // the pattern (the owner has no adb). This is read fresh on every call (hence at every level
-  // load) so a menu flip + re-warp takes effect. When the prop/env IS set, it still wins in either
-  // direction — the supervisor's headless A/B is byte-for-byte unchanged.
-  if (!prop_present) {
-    return std::clamp(recharged_gating::mode(recharged_gating::kMeshBrowserChecker), 0, 4);
-  }
   return prop_mode;
 }
 
@@ -347,21 +340,6 @@ void make_base_rgba(std::vector<u8>& out, int dim) {
       put(out, dim, px, py, 40, 60, 240);
     }
   }
-}
-
-u32 checker_base_gl() {
-  // Grecharged-mesh-browser V2: lazily-created shared checker BASE texture for the freecam's
-  // per-draw checker override (see header). Same pattern data as the substitution path
-  // (make_base_rgba at kMapDim) and the same upload parameters as the shared N/R/H maps.
-  static u32 s_checker_base = 0;
-  if (s_checker_base == 0) {
-    std::vector<u8> buf;
-    make_base_rgba(buf, kMapDim);
-    s_checker_base = upload_map(buf, kMapDim);
-    lg::info("pbr TESTPATTERN: generated shared checker BASE dim={} (gl id {})", kMapDim,
-             s_checker_base);
-  }
-  return s_checker_base;
 }
 
 const SharedMaps& shared_maps() {

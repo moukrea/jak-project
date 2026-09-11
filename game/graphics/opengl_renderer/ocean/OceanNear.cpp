@@ -35,16 +35,6 @@ void OceanNear::render(DmaFollower& dma,
     return;
   }
 
-  // Grecharged-mesh-browser V2.6-bis isolation: only the targeted mesh renders — drain the
-  // bucket exactly like the disabled path.
-  if (Gfx::g_global_settings.mb_isolation_on()) {
-    Gfx::g_global_settings.mb_cur_isolated_skips++;
-    while (dma.current_tag_offset() != render_state->next_bucket) {
-      dma.read_and_advance();
-    }
-    return;
-  }
-
   // water-ocean-mesh (SPEC-refonte-eau §5.1) : sous `recharged_water`, le bucket 63 consomme son
   // DMA sans dessiner, et la clipmap prend sa place — c'est la position W2a, apres tous les
   // opaques et tous les alphas, la seule ou la profondeur de scene est lisible.

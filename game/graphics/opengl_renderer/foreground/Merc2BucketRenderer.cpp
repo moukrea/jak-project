@@ -18,16 +18,6 @@ void Merc2BucketRenderer::render(DmaFollower& dma,
     return;
   }
 
-  // Grecharged-mesh-browser V2.6-bis isolation: only the targeted mesh renders — drain the
-  // bucket exactly like the disabled path.
-  if (Gfx::g_global_settings.mb_isolation_on()) {
-    Gfx::g_global_settings.mb_cur_isolated_skips++;
-    while (dma.current_tag_offset() != render_state->next_bucket) {
-      dma.read_and_advance();
-    }
-    return;
-  }
-
   m_renderer->render(dma, render_state, prof, &m_debug_stats);
 
   m_empty = m_debug_stats.num_predicted_draws == 0;

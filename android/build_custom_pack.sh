@@ -397,26 +397,6 @@ fi
 #    staging line here on purpose. The owner's kilobyte-push route survives untouched: a
 #    surfaces.json dropped in the EXTERNAL asset dir still beats the installed one.
 
-# 1bis. MESH BROWSER INDEX — ALWAYS. DERIVED data (produced by tools/mesh_index from a
-#    tools/tess_sign sweep), so by the owner's structural rule it ships INSIDE the APK.
-#    The debug mesh browser is useless without it: the index is what lists every mesh of a
-#    level with its material, centroid, bounding box and offline grade, sorted worst-first.
-#    Caught at delivery time: the browser was about to ship with ZERO index entries.
-MIDX_SRC="custom_assets/${GAME}/mesh_index"
-if [ -d "$ROOT/$MIDX_SRC" ]; then
-  mkdir -p "$STAGE/mesh_index"
-  n_midx=0
-  while IFS= read -r idx; do
-    [ -n "$idx" ] || continue
-    base="$(basename "$idx")"
-    ln -s "$idx" "$STAGE/mesh_index/$base"
-    MEMBERS+=("mesh_index/$base")
-    n_midx=$((n_midx + 1))
-  done < <(find "$ROOT/$MIDX_SRC" -maxdepth 1 -type f -name 'mesh_index_*.txt' 2>/dev/null | sort)
-  [ "$n_midx" -gt 0 ] || fail "$MIDX_SRC/ exists but holds no mesh_index_*.txt"
-  echo "[custom-pack] mesh-browser index: $n_midx level(s)"
-fi
-
 # 2. grassbake precompute tables — ALWAYS (validated feature; 0 is OK).
 if [ -d "$FR3_DIR" ]; then
   mkdir -p "$STAGE/fr3"
@@ -656,7 +636,7 @@ if [ "$FILE_COUNT" -eq 0 ]; then
 else
   (
     cd "$STAGE"
-    # preserve zip paths (recharged_assets/, fr3/, recharged_textures/, mesh_index/).
+    # preserve zip paths (recharged_assets/, fr3/, recharged_textures/).
     # -n: store these suffixes without deflating. Now that the ~214 MB of stock .fr3 ride along,
     # deflate would burn minutes of CPU for nothing — measured, village1.fr3 gives back 1.4%
     # (11759452 -> 11592718), and .meshweld is already zstd'd, .png already deflated.

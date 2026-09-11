@@ -513,11 +513,6 @@
 ;; enter/toggle/cycle/commit logic is reused verbatim.
 (define-extern pc-get-touch-tap (function (pointer int64) (pointer int64) (pointer int64) none))
 
-;; Grecharged-mesh-browser: forward decl so the Recharged Settings "MESH BROWSER" button can open the
-;; overlay (defined later in pc/mesh-browser-pc.gc). Plain function (not a method) to avoid needing
-;; the mesh-browser type here.
-(define-extern mesh-browser-open! (function none))
-
 (defconstant MENU_TOUCH_MAX_ROWS 12)   ;; >= PROGRESS_PC_PAGE_HEIGHT (+ scroll extra)
 
 ;; synthetic-press sequence tokens
@@ -1401,7 +1396,7 @@
        ;; the ENHANCED MODELS toggle — physics will also drive stock NPCs, so the only disable
        ;; predicate is the recharged master, exactly like FOLIAGE WIND. on-change persists + pushes
        ;; to the C++ solver (the per-frame update-to-os bridge pushes it too, so it applies live).
-       ;; APPENDED AT THE TAIL, immediately before MESH BROWSER + Back, so no existing row index
+       ;; APPENDED AT THE TAIL, immediately before Back, so no existing row index
        ;; moves (the index-shift bug class fixed in Gmenu-flag-off; see init-game-options).
        ;; row present only with --physics.
        (flag-row FLAG_PHYSICS
@@ -1426,10 +1421,6 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* physics?))))))
-       ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
-       ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
-       ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
-       ;; global string; always enabled (a debug tool must stay reachable even with master OFF).
        ;; Grecharged-managed-assets: HD TEXTURE PACK on-off toggle — the DOWNLOADED
        ;; pack (managed_assets/<game>/, installed by the asset manager or
        ;; `gk --assets install`). ON => the compressed KTX2 pack replaces the baked
@@ -1438,9 +1429,12 @@
        ;; precedence rule), and WHICH preset to fetch is an install-time decision that
        ;; belongs to the downloader, not to a render toggle. Real label via
        ;; *managed-assets-label* (name-override); value bound in init-game-options from
-       ;; the array LENGTH, and the row sits last-but-two (before MESH BROWSER + Back) so
+       ;; mesh-browser-removal : la rangee de debug qui suivait celle-ci est SUPPRIMEE, donc
+       ;; cette rangee est desormais l'avant-derniere (juste avant Back) ; aucun index anterieur
+       ;; ne bouge, seules les constantes de longueur totale perdent 1.
+       ;; the array LENGTH, and the row sits last-but-one (just before Back) so
        ;; no existing index shifts — only the total-length constants gain +1, exactly as
-       ;; the tail MESH BROWSER and PHYSICS rows did before it.
+       ;; the tail PHYSICS rows did before it.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func
             (lambda ()
@@ -1451,7 +1445,6 @@
               (pc-set-managed-assets! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t)
        ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
@@ -2446,16 +2439,14 @@
 ;; --debug so it stays #f; test/checker builds pass --debug so it becomes #t.
 (define *debug-menus-visible?* (#if FLAG_DEBUG_MENUS #t #f))
 
-;; The DEBUG category page (developer/debug tooling; hidden in final builds). Holds the Mesh Browser
-;; launcher (freecam / gizmos / checker-damier / mark tools) and the PBR test-preset & isolate carousells
+;; The DEBUG category page (developer/debug tooling; hidden in final builds). Holds the PBR
+;; test-preset & isolate carousells
 ;; (MOVED here out of the graphics zone — they are focus tools, not player-facing rendering options).
+;; mesh-browser-removal : le lanceur de l'outil de debug qui ouvrait cette page est SUPPRIME du code.
 ;; The preset/isolate rows are FRESH carousells wired in init-game-options (value = int-backup scratch,
 ;; write-back mapped 1:1 by option-type in respond-common, exactly like their old recharged-menu twins).
 (define-options-array *opt-debug*
        game-option
-       ;; Freecam / Mesh Browser launcher (the checker/damier + gizmos toggles live inside the overlay).
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t
-            :hint (text-id pc-text-hint-debug))
        ;; lighting-legacy-purge (2026-09-11) : PBR TEST PRESET et PBR ISOLATE RETIREES de la page
        ;; DEBUG de ce corps GELE — outils de bisection de l'ancien monde, sans objet apres la refonte.
        ;; Back
@@ -4031,10 +4022,12 @@
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* recharged-textures?))
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
   ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
-  ;; MESH BROWSER, Back) instead of the flag arithmetic every other row uses: the row was
-  ;; appended at the tail precisely so it needs no index bookkeeping, and length-3 stays
+  ;; Back) instead of the flag arithmetic every other row uses: the row was
+  ;; appended at the tail precisely so it needs no index bookkeeping, and length-2 stays
   ;; right after the HD-missing collapse shrinks the array too.
-  (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
+  ;; mesh-browser-removal : la rangee de debug qui suivait celle-ci est retiree, la queue perd 1 :
+  ;; l'adressage depuis la fin passe de -3 a -2.
+  (let ((mp-idx (+ -2 (-> *recharged-options-pc* length))))
     (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
     (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*))
   ;; lighting-legacy-purge (2026-09-11) : la rangee PBR MATERIALS est RETIREE, son bras aussi ; le
@@ -4049,9 +4042,9 @@
   ;; (+ 9 hud-N hd-N) and FOLIAGE WIND sits at (+ 4 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 4 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 9 hud-N) and no collapse ever fires.
-  ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
-  ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
-  ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
+  ;; mesh-browser-removal : la rangee de debug posee juste avant Back est SUPPRIMEE, la queue perd 1 ;
+  ;; elle etait apres tout ce que le cablage et le collapse touchent, donc SEULES les constantes de
+  ;; longueur totale ci-dessous perdent 1 (base fw-idx et indices du collapse inchanges).
   ;; Gprecompute-deterministic-bake: +1 on the PBR-block term (9 -> 10) for the new MESH SUBDIVISION
   ;; row, which is FLAG_PBR-gated like DISPLACEMENT. NOTE for whoever revives this frozen body: the
   ;; term was ALREADY stale before this change — the array carries 12 PBR rows after PBR MATERIALS
@@ -4063,7 +4056,8 @@
   ;; lighting-legacy-purge (2026-09-11) : plus AUCUNE rangee de ce tableau GELE n'est gatee par
   ;; FLAG_PBR — tous les termes FLAG_PBR_N disparaissent. Recompte a la main sur le tableau :
   ;; 12 rangees inconditionnelles + hud + hd + 2 physique.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N (* 2 FLAG_PHYSICS_N)))
+  ;; mesh-browser-removal : la rangee de debug est retiree, la queue perd 1 (12 -> 11).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -4099,19 +4093,18 @@
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
   ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
   ;; so a boot-only proof leg would never see this line.)
-  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail OUVRE LE MESH BROWSER"). The old
+  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail ouvre le mauvais outil"). The old
   ;; wiring addressed the tail by hand as `length-3 = PHYSICS, length-2 = PHYSICS DETAIL,
-  ;; length-1 = Back` — it FORGOT the MESH BROWSER row, so the tail is FOUR deep and every write
-  ;; landed one slot late: the PHYSICS DETAIL *label* was painted onto the MESH BROWSER button, and
-  ;; respond-common dispatches buttons on the STATIC `name` (pc-text-mesh-browser), never on
-  ;; name-override — so the row reading "PHYSICS DETAIL" opened the mesh browser. Born wrong.
+  ;; length-1 = Back` — it FORGOT the debug launcher row (since removed), so the tail was FOUR deep
+  ;; and every write landed one slot late: the PHYSICS DETAIL *label* was painted onto the debug
+  ;; button, and respond-common dispatches buttons on the STATIC `name`, never on name-override —
+  ;; so the row reading "PHYSICS DETAIL" ran the debug tool. Born wrong.
   ;; The fix is NOT `-4`: hand-counted tail offsets are the bug class (same class as Gmenu-flag-off).
   ;; The rows are now SELF-LOCATING — `physics-quality` is the option-type of exactly ONE row in the
   ;; whole array, so we FIND it and take the on-off row immediately before it. Any future row
   ;; inserted anywhere (incl. at the tail) is now harmless, and a mis-order fails LOUDLY instead of
   ;; silently stealing another row's action. The [PHYS-MENU] line is the permanent artifact gate:
-  ;; it prints both resolved indices AND next-is-meshbrowser=1, i.e. positive proof that the
-  ;; mesh-browser button was left untouched.
+  ;; it prints both resolved indices and the live length.
   ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
   ;; scratch (le motif de carrousel partage); respond-common maps it 1:1 to physics-quality.
   (#when FLAG_PHYSICS
@@ -4132,13 +4125,9 @@
        (set! (-> *recharged-options-pc* (+ det-idx -1) name-override) *physics-label*)
        (set! (-> *recharged-options-pc* det-idx value-to-modify) (&-> *progress-carousell* int-backup))
        (set! (-> *recharged-options-pc* det-idx name-override) *physics-detail-label*)
-       (format 0 "[PHYS-MENU] rows wired: toggle=~D detail=~D next-is-meshbrowser=~D len=~D (self-located)~%"
+       (format 0 "[PHYS-MENU] rows wired: toggle=~D detail=~D len=~D (self-located)~%"
                (+ det-idx -1)
                det-idx
-               (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
-                        (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
-                           (the int (text-id pc-text-mesh-browser))))
-                   1 0)
                (-> *recharged-options-pc* length))))))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
@@ -4147,21 +4136,22 @@
   ;; compiled only with --hd-models; without it the ENHANCED MODELS row is absent from the static array.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      ;; Grecharged-mesh-browser: +1 on both length constants for the tail MESH BROWSER row. (With
-      ;; FLAG_PBR on this whole guard is dead — the real length includes the ~9 PBR rows — but keep
-      ;; the no-PBR arithmetic correct: remove one row from a length that is now one larger.)
+      ;; mesh-browser-removal : -1 sur les DEUX constantes de longueur, la rangee de debug de queue
+      ;; est supprimee. (Avec FLAG_PBR cette garde est morte — la longueur reelle inclut les rangees
+      ;; PBR — mais l'arithmetique sans PBR doit rester juste.)
       ;; Grecharged-secondary-motion: +2 on both length constants for the two tail PHYSICS rows
-      ;; (same treatment as the tail MESH BROWSER row above — they sit after everything the
+      ;; (same treatment as the tail debug row above — they sit after everything the
       ;; collapse loop touches, so only the total-length terms change).
       ;; lighting-legacy-purge (2026-09-11) : plus aucune rangee FLAG_PBR dans ce tableau GELE —
       ;; les termes FLAG_PBR_N sortent, ici comme dans la garde fw-idx ci-dessus (12 rangees
       ;; inconditionnelles + hud + hd + 2 physique).
-      (when (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N)))
+      ;; mesh-browser-removal : MEME terme que la garde fw-idx ci-dessus, MEME -1 (12 -> 11, 11 -> 10).
+      (when (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N)))
           (while (< i (+ 9 FLAG_RECHARGED_HUD_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N))))
+        (set! (-> *recharged-options-pc* length) (+ 10 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N))))
       (begin
         (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
@@ -4556,14 +4546,6 @@
               ((= (-> options (-> obj option-index) option-type) (game-option-type button))
                ;; a button. what?
                (case (-> options (-> obj option-index) name)
-                 ;; Grecharged-mesh-browser: open the debug mesh browser overlay and close the menu so
-                 ;; it owns the screen. Reachable by touch AND gamepad, no adb.
-                 (((text-id pc-text-mesh-browser))
-                  (cpad-clear! 0 x)
-                  (cpad-clear! 0 circle)
-                  (sound-play "select-option")
-                  (mesh-browser-open!)
-                  (set-master-mode 'game))
                  ;; Grecharged-menu-overhaul: title CONTINUE = 1-click load of the most recent save.
                  (((text-id pc-text-continue))
                   (let ((slot (progress-newest-save-slot)))
@@ -6190,11 +6172,6 @@
 ;; enter/toggle/cycle/commit logic is reused verbatim.
 (define-extern pc-get-touch-tap (function (pointer int64) (pointer int64) (pointer int64) none))
 
-;; Grecharged-mesh-browser: forward decl so the Recharged Settings "MESH BROWSER" button can open the
-;; overlay (defined later in pc/mesh-browser-pc.gc). Plain function (not a method) to avoid needing
-;; the mesh-browser type here.
-(define-extern mesh-browser-open! (function none))
-
 (defconstant MENU_TOUCH_MAX_ROWS 12)   ;; >= PROGRESS_PC_PAGE_HEIGHT (+ scroll extra)
 
 ;; synthetic-press sequence tokens
@@ -7287,10 +7264,7 @@
        ;; POSEE ICI, entre CRISP TITLE LOGO et le bloc PHYSICS, et pas ENTRE les deux lignes
        ;; PHYSICS : le cablage auto-localise [PHYS-MENU] d'`init-game-options` sort en FATAL si la ligne
        ;; immediatement AVANT PHYSICS DETAIL n'est pas une on-off (c'est ainsi qu'il retrouve le
-       ;; toggle PHYSICS sans arithmetique). S'inserer la casserait l'audit. Note pour un futur
-       ;; cycle : le meme audit imprime `next-is-meshbrowser=0`, et ce 0 est ANTERIEUR a cette
-       ;; ligne — HD TEXTURE PACK a ete insere entre PHYSICS DETAIL et MESH BROWSER. C'est une
-       ;; observation, pas un verdict : l'audit ne echoue que sur la condition ci-dessus.
+       ;; toggle PHYSICS sans arithmetique). S'inserer la casserait l'audit.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-framerate)
             :option-disabled-func
@@ -7309,7 +7283,7 @@
        ;; the ENHANCED MODELS toggle — physics will also drive stock NPCs, so the only disable
        ;; predicate is the recharged master, exactly like FOLIAGE WIND. on-change persists + pushes
        ;; to the C++ solver (the per-frame update-to-os bridge pushes it too, so it applies live).
-       ;; APPENDED AT THE TAIL, immediately before MESH BROWSER + Back, so no existing row index
+       ;; APPENDED AT THE TAIL, immediately before Back, so no existing row index
        ;; moves (the index-shift bug class fixed in Gmenu-flag-off; see init-game-options).
        ;; row present only with --physics.
        ;; Gmenu-census-cleanup (2026-09-02) : cette rangee porte desormais son PROPRE marqueur
@@ -7350,10 +7324,6 @@
        ;; que l'owner denonce. La cle `physics-quality` RESTE dans settings.ini et reste poussee par
        ;; `pc-set-physics!`, donc la salle de mesure garde son levier ; seule la rangee part.
        ;; A REMETTRE le jour ou `substeps`/`iters`/`collide`/`classmask` auront un lecteur.
-       ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
-       ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
-       ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
-       ;; global string; always enabled (a debug tool must stay reachable even with master OFF).
        ;; Grecharged-managed-assets: HD TEXTURE PACK on-off toggle — the DOWNLOADED
        ;; pack (managed_assets/<game>/, installed by the asset manager or
        ;; `gk --assets install`). ON => the compressed KTX2 pack replaces the baked
@@ -7362,9 +7332,12 @@
        ;; precedence rule), and WHICH preset to fetch is an install-time decision that
        ;; belongs to the downloader, not to a render toggle. Real label via
        ;; *managed-assets-label* (name-override); value bound in init-game-options from
-       ;; the array LENGTH, and the row sits last-but-two (before MESH BROWSER + Back) so
+       ;; mesh-browser-removal : la rangee de debug qui suivait celle-ci est SUPPRIMEE, donc
+       ;; cette rangee est desormais l'avant-derniere (juste avant Back) ; aucun index anterieur
+       ;; ne bouge, seules les constantes de longueur totale perdent 1.
+       ;; the array LENGTH, and the row sits last-but-one (just before Back) so
        ;; no existing index shifts — only the total-length constants gain +1, exactly as
-       ;; the tail MESH BROWSER and PHYSICS rows did before it.
+       ;; the tail PHYSICS rows did before it.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
             (lambda ((val object))
@@ -7372,7 +7345,6 @@
               (pc-set-managed-assets! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t)
        ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
@@ -10644,10 +10616,12 @@
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) gating-id) "textures")
   ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
-  ;; MESH BROWSER, Back) instead of the flag arithmetic every other row uses: the row was
-  ;; appended at the tail precisely so it needs no index bookkeeping, and length-3 stays
+  ;; Back) instead of the flag arithmetic every other row uses: the row was
+  ;; appended at the tail precisely so it needs no index bookkeeping, and length-2 stays
   ;; right after the HD-missing collapse shrinks the array too.
-  (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
+  ;; mesh-browser-removal : la rangee de debug qui suivait celle-ci est retiree, la queue perd 1 :
+  ;; l'adressage depuis la fin passe de -3 a -2.
+  (let ((mp-idx (+ -2 (-> *recharged-options-pc* length))))
     (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
     (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*)
     (set! (-> *recharged-options-pc* mp-idx gating-id) "managed-assets"))
@@ -10664,9 +10638,9 @@
   ;; (+ 9 hud-N hd-N) and FOLIAGE WIND sits at (+ 4 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
   ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 4 FLAG_RECHARGED_HUD_N) — the static
   ;; length is then (+ 9 hud-N) and no collapse ever fires.
-  ;; Grecharged-mesh-browser: +1 for the always-present MESH BROWSER launcher row inserted before
-  ;; Back (it sits at the tail, after every row the wiring/collapse touches, so only the total-length
-  ;; guards below change — the fw-idx base and the collapse loop indices are unaffected).
+  ;; mesh-browser-removal : la rangee de debug posee juste avant Back est SUPPRIMEE, la queue perd 1 ;
+  ;; elle etait apres tout ce que le cablage et le collapse touchent, donc SEULES les constantes de
+  ;; longueur totale ci-dessous perdent 1 (base fw-idx et indices du collapse inchanges).
   ;; Gmenu-flag-off FIX: the full-static-length term was written when 9 PBR rows followed PBR
   ;; MATERIALS; DISPLACEMENT + TEST PRESET + ISOLATE later made it 12 without bumping it, so on an
   ;; hd-models+pbr build the guard mis-read the FULL array as collapsed and wired FOLIAGE WIND and
@@ -10704,7 +10678,8 @@
   ;; tableau plein prive de sa rangee HDR se lirait comme « collapse » et le cablage partirait cinq
   ;; crans trop tot — la classe de bug Gmenu-flag-off.
   ;; lighting-legacy-purge (2026-09-11) : le bloc PBR passe de 11 a 2 rangees (RECHARGED LIGHTING + HDR OUTPUT), PBR MATERIALS et les deux rangees de debug sortent du tableau. Longueur livree = 22, fw-idx = 9.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+  ;; mesh-browser-removal : la rangee de debug est retiree, la queue perd 1 (14 -> 13).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
                     (+ 4 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10800,12 +10775,12 @@
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
   ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
   ;; so a boot-only proof leg would never see this line.)
-  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail OUVRE LE MESH BROWSER"). The old
+  ;; CYCLE-2 REGRESSION FIX (owner 16:40 "l'option Physics Detail ouvre le mauvais outil"). The old
   ;; wiring addressed the tail by hand as `length-3 = PHYSICS, length-2 = PHYSICS DETAIL,
-  ;; length-1 = Back` — it FORGOT the MESH BROWSER row, so the tail is FOUR deep and every write
-  ;; landed one slot late: the PHYSICS DETAIL *label* was painted onto the MESH BROWSER button, and
-  ;; respond-common dispatches buttons on the STATIC `name` (pc-text-mesh-browser), never on
-  ;; name-override — so the row reading "PHYSICS DETAIL" opened the mesh browser. Born wrong.
+  ;; length-1 = Back` — it FORGOT the debug launcher row (since removed), so the tail was FOUR deep
+  ;; and every write landed one slot late: the PHYSICS DETAIL *label* was painted onto the debug
+  ;; button, and respond-common dispatches buttons on the STATIC `name`, never on name-override —
+  ;; so the row reading "PHYSICS DETAIL" ran the debug tool. Born wrong.
   ;; The fix is NOT `-4`: hand-counted tail offsets are the bug class (same class as Gmenu-flag-off).
   ;; Gmenu-census-cleanup (2026-09-02) : L'ANCRAGE CHANGE, LE PRINCIPE NON. La rangee PHYSICS se
   ;; faisait retrouver PAR SA VOISINE — « le carrousel physics-quality est le seul de son type,
@@ -10816,10 +10791,10 @@
   ;; contrat que CRISP TITLE LOGO, FIXED TIMESTEP et ADVANCED MATERIALS. Aucune arithmetique
   ;; d'index, une insertion future ou qu'elle soit laisse le cablage juste, et un rate echoue
   ;; BRUYAMMENT au lieu de peindre « PHYSICS » sur une autre rangee.
-  ;; La ligne [PHYS-MENU] reste la gate d'artefact permanente : elle publie l'indice resolu ET
-  ;; `next-is-meshbrowser`, preuve positive que le bouton MESH BROWSER n'a pas ete touche.
-  ;; (Ce 0/1 est indicatif : depuis l'insertion de DOWNLOADED TEXTURES entre PHYSICS et MESH
-  ;; BROWSER il vaut 0 en fonctionnement normal ; c'est une observation, pas un verdict.)
+  ;; La ligne [PHYS-MENU] reste la gate d'artefact permanente : elle publie l'indice resolu et la
+  ;; longueur vivante du tableau.
+  ;; mesh-browser-removal : la colonne temoin qui comparait la rangee SUIVANTE au bouton de debug
+  ;; disparait avec lui — ce bouton n'existe plus dans le tableau.
   (#when FLAG_PHYSICS
   (let ((ph-idx -1))
     (dotimes (i (-> *recharged-options-pc* length))
@@ -10836,12 +10811,8 @@
       (else
        (set! (-> *recharged-options-pc* ph-idx value-to-modify) (&-> *pc-settings* physics?))
        (set! (-> *recharged-options-pc* ph-idx name-override) *physics-label*)
-       (format 0 "[PHYS-MENU] row wired: toggle=~D next-is-meshbrowser=~D len=~D (self-located)~%"
+       (format 0 "[PHYS-MENU] row wired: toggle=~D len=~D (self-located)~%"
                ph-idx
-               (if (and (< (+ ph-idx 1) (-> *recharged-options-pc* length))
-                        (= (the int (-> *recharged-options-pc* (+ ph-idx 1) name))
-                           (the int (text-id pc-text-mesh-browser))))
-                   1 0)
                (-> *recharged-options-pc* length))))))
   ;; Grecharged-hd-models: wire the ENHANCED MODELS toggle (row (+ 4 hud-N), +1 for the master row) only when the build ships the
   ;; enhanced FR3 set; otherwise collapse the row (shift FOLIAGE WIND, the three AO rows and Back up one
@@ -10855,13 +10826,13 @@
   ;; maps them 1:1 to the *pc-settings* hd-look-* ints.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
-      ;; Grecharged-mesh-browser: +1 on both length constants for the tail MESH BROWSER row. (With
-      ;; FLAG_PBR on this whole guard is dead — the real length includes the ~9 PBR rows — but keep
-      ;; the no-PBR arithmetic correct: remove one row from a length that is now one larger.)
+      ;; mesh-browser-removal : -1 sur la constante de longueur, la rangee de debug de queue est
+      ;; supprimee. (Avec FLAG_PBR cette garde est morte — la longueur reelle inclut les rangees
+      ;; PBR — mais l'arithmetique sans PBR doit rester juste.)
       ;; Gmenu-flag-off FIX: this guard still used the pre-PBR-page arithmetic (full length 11+hud+pbr),
       ;; so on a --pbr build (real full length includes the 13 PBR rows) it could NEVER fire and a build
       ;; with HD assets missing at runtime kept a phantom un-wired ENHANCED MODELS row. Guard on the true
-      ;; full static length and shift every following row (incl. MESH BROWSER + Back) up one.
+      ;; full static length and shift every following row (incl. Back) up one.
       ;; Grecharged-hd-models5: ... and now up FIVE (the whole HD block goes away together — a LOOK
       ;; selector is meaningless without the enhanced FR3 set).
       ;; Grecharged-title-logo-fullres: +1 for the new unconditional CRISP TITLE LOGO row (10 -> 11).
@@ -10875,8 +10846,9 @@
       ;; lighting-legacy-purge : ce terme portait 10 la ou la garde fw-idx portait 11, et il lui
       ;; manquait le terme HDR : il calculait 31 pour une longueur reelle de 32. Les deux gardes
       ;; portent DESORMAIS le meme terme.
+      ;; mesh-browser-removal : MEME terme que la garde fw-idx ci-dessus, MEME -1 (14 -> 13).
       (when (= (-> *recharged-options-pc* length)
-               (+ 14 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+               (+ 13 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -11353,14 +11325,6 @@
               ((= (-> options (-> obj option-index) option-type) (game-option-type button))
                ;; a button. what?
                (case (-> options (-> obj option-index) name)
-                 ;; Grecharged-mesh-browser: open the debug mesh browser overlay and close the menu so
-                 ;; it owns the screen. Reachable by touch AND gamepad, no adb.
-                 (((text-id pc-text-mesh-browser))
-                  (cpad-clear! 0 x)
-                  (cpad-clear! 0 circle)
-                  (sound-play "select-option")
-                  (mesh-browser-open!)
-                  (set-master-mode 'game))
                  (((text-id exit-demo))
                   ;; exit demo!
                   (set! *master-exit* 'force)
@@ -12825,7 +12789,7 @@
 
 (defun gating-scan-rows! ((page string) (arr (array game-option)))
   "Rapporte au C++ les rangees Recharged que CETTE page dessine. Une rangee sans `gating-id`
-   n'est pas une option Recharged (lanceur de sous-menu, Back, Mesh Browser) et n'est pas
+   n'est pas une option Recharged (lanceur de sous-menu, Back) et n'est pas
    rapportee ; le C++ verifie de son cote qu'AUCUNE option a rangee n'a ete oubliee."
   (dotimes (i (length arr))
     (let ((row (-> arr i)))
@@ -12929,7 +12893,7 @@
 ;; ------------------------------------------------------------------------------------------------
 ;; Grecharged-secondary-motion CYCLE 2 — BOOT-TIME menu-layout audit (owner defect E).
 ;;
-;; The regression ("PHYSICS DETAIL opens the MESH BROWSER") lived in init-game-options, which only
+;; The regression ("PHYSICS DETAIL runs the wrong row's action") lived in init-game-options, which only
 ;; runs when the player actually OPENS the options menu — so the wiring proof it emits can never
 ;; appear in a passive boot proof leg. This audits the same invariant against the STATIC row array
 ;; at boot, where every leg can see it. Runs once; called from jak-hd-physics-init, which fires on
@@ -12966,12 +12930,8 @@
          (format 0 "[PHYS-MENU] FATAL: static audit — PHYSICS row not found (len=~D)~%"
                  (-> *recharged-options-pc* length)))
         (else
-         (format 0 "[PHYS-MENU] static audit: toggle=~D next-is-meshbrowser=~D len=~D~%"
+         (format 0 "[PHYS-MENU] static audit: toggle=~D len=~D~%"
                  ph-idx
-                 (if (and (< (+ ph-idx 1) (-> *recharged-options-pc* length))
-                          (= (the int (-> *recharged-options-pc* (+ ph-idx 1) name))
-                             (the int (text-id pc-text-mesh-browser))))
-                     1 0)
                  (-> *recharged-options-pc* length))))))
   (none))
 )

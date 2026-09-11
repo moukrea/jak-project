@@ -835,10 +835,9 @@
   (pc-text-envprobe-high #x1723)
   ;; lighting-legacy-purge (2026-09-11) : les 4 ids d'OPTION de PBR ISOLATE (#x1724-#x1727)
   ;; sont SUPPRIMES avec la rangee et ses libelles. Plus aucun lecteur.
-  ;; Grecharged-mesh-browser: the "MESH BROWSER" launcher row in Recharged Settings. The label is a
-  ;; runtime global string (durable against stale text banks); this id only tags the button so
-  ;; respond-common can match it.
-  (pc-text-mesh-browser #x1728)
+  ;; mesh-browser-removal (2026-09-11) : l'id #x1728 du lanceur de l'outil de debug est SUPPRIME
+  ;; avec la fonction. Les ids restent EXPLICITES : le trou est sans consequence, rien n'est
+  ;; renumerote.
   ;; Grecharged-menu-overhaul: the unified OPTIONS refonte. Category names, internal group headers,
   ;; the conditional title-screen / quit-flow rows, and contextual hints. All are text-ids (NOT
   ;; name-override) so they follow the selected text language across all 6 game languages

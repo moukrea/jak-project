@@ -88,7 +88,6 @@ enum Opt : int {
   kEnhancedModels,
   kFoliageWind,
   kCrispTitleLogo,
-  kMeshBrowserChecker,
 
   // ── sous l'herbe ──
   kGrassNearDist,

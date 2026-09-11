@@ -100,10 +100,21 @@ uint64_t android_renderer_frame_count() {
 #ifndef EGL_METADATA_SCALING_EXT
 #define EGL_METADATA_SCALING_EXT 50000
 #endif
+#ifndef EGL_GL_COLORSPACE_BT2020_HLG_EXT
+#define EGL_GL_COLORSPACE_BT2020_HLG_EXT 0x3540
+#endif
+#ifndef EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT
+#define EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT 0x3360
+#define EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT 0x3361
+#endif
 
 // Luminances de l'ecran annoncees par le systeme (Java -> NativeGk.setDisplayHdrCaps).
 int g_hdr_out_max_lum_nits = 0;
 int g_hdr_out_min_lum_x10000 = 0;
+// Moyenne annoncee par l'ecran (HdrCapabilities.getDesiredMaxAverageLuminance) : MaxFALL des
+// metadonnees CTA861.3. 0 = indisponible, et 0 est aussi ce que la spec demande d'ecrire dans
+// ce cas (un decodeur le lit comme « non renseigne »).
+int g_hdr_out_max_avg_lum_nits = 0;
 
 // Patch SDL D1 (third-party/SDL/src/video/android/SDL_androidwindow.c).
 extern "C" bool SDL_Android_RecreateEGLSurface(SDL_Window* window);
@@ -126,6 +137,7 @@ SDL_EGLint* SDLCALL hdr_surface_attribs_cb(void*, SDL_EGLDisplay, SDL_EGLConfig)
   a[0] = EGL_GL_COLORSPACE_KHR;
   a[1] = s_want_surface_mode == hdr_output::kModeScrgbLinear ? EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT
          : s_want_surface_mode == hdr_output::kModeHdr10Pq   ? EGL_GL_COLORSPACE_BT2020_PQ_EXT
+         : s_want_surface_mode == hdr_output::kModeHlg       ? EGL_GL_COLORSPACE_BT2020_HLG_EXT
                                                              : EGL_GL_COLORSPACE_LINEAR_KHR;
   a[2] = EGL_NONE;
   return a;
@@ -153,6 +165,7 @@ hdr_output::SurfaceState query_surface_state() {
                         (unsigned)eglGetError());
   }
   st.mode = (st.colorspace == EGL_GL_COLORSPACE_BT2020_PQ_EXT && r == 10) ? hdr_output::kModeHdr10Pq
+            : (st.colorspace == EGL_GL_COLORSPACE_BT2020_HLG_EXT && r == 10) ? hdr_output::kModeHlg
             : (st.colorspace == EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT && r == 16)
                 ? hdr_output::kModeScrgbLinear
                 : hdr_output::kModeNone;
@@ -173,6 +186,8 @@ hdr_output::PlatformCaps probe_platform_caps(EGLDisplay dpy) {
   caps.egl_fp16 = has("EGL_EXT_pixel_format_float");
   caps.egl_no_config_ctx = has("EGL_KHR_no_config_context");
   caps.egl_smpte2086 = has("EGL_EXT_surface_SMPTE2086_metadata");
+  caps.egl_bt2020_hlg = has("EGL_EXT_gl_colorspace_bt2020_hlg");
+  caps.egl_cta861_3 = has("EGL_EXT_surface_CTA861_3_metadata");
   // existe-t-il une config 10 bits fenetre ES3 ?
   EGLint attribs[] = {EGL_RED_SIZE,        10, EGL_GREEN_SIZE,   10, EGL_BLUE_SIZE, 10,
                       EGL_ALPHA_SIZE,      2,  EGL_DEPTH_SIZE,   24, EGL_STENCIL_SIZE, 8,
@@ -200,10 +215,10 @@ hdr_output::PlatformCaps probe_platform_caps(EGLDisplay dpy) {
   }
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "HDROUT egl caps bt2020_pq=%d scrgb=%d fp16=%d no_config_ctx=%d "
-                      "smpte2086=%d config_10bit=%d config_fp16=%d",
+                      "smpte2086=%d bt2020_hlg=%d cta861_3=%d config_10bit=%d config_fp16=%d",
                       caps.egl_bt2020_pq, caps.egl_scrgb_linear, caps.egl_fp16,
-                      caps.egl_no_config_ctx, caps.egl_smpte2086, caps.config_10bit,
-                      caps.config_fp16);
+                      caps.egl_no_config_ctx, caps.egl_smpte2086, caps.egl_bt2020_hlg,
+                      caps.egl_cta861_3, caps.config_10bit, caps.config_fp16);
   return caps;
 }
 
@@ -212,10 +227,12 @@ bool switch_surface(uint32_t want_mode, hdr_output::SurfaceState* out) {
   s_want_surface_mode = want_mode;
   const bool scrgb = want_mode == hdr_output::kModeScrgbLinear;
   const bool pq = want_mode == hdr_output::kModeHdr10Pq;
-  SDL_GL_SetAttribute(SDL_GL_RED_SIZE, scrgb ? 16 : pq ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, scrgb ? 16 : pq ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, scrgb ? 16 : pq ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, scrgb ? 16 : pq ? 2 : 8);
+  // HLG (BT.2100) transporte dans le MEME conteneur 10 bits que PQ : seule l'OETF differe.
+  const bool hlg = want_mode == hdr_output::kModeHlg;
+  SDL_GL_SetAttribute(SDL_GL_RED_SIZE, scrgb ? 16 : (pq || hlg) ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, scrgb ? 16 : (pq || hlg) ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, scrgb ? 16 : (pq || hlg) ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, scrgb ? 16 : (pq || hlg) ? 2 : 8);
   SDL_GL_SetAttribute(SDL_GL_FLOATBUFFERS, scrgb ? 1 : 0);
   const bool ok = SDL_Android_RecreateEGLSurface(s_window);
   __android_log_print(ok ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR, kLogTag,
@@ -240,6 +257,29 @@ bool switch_surface(uint32_t want_mode, hdr_output::SurfaceState* out) {
         {EGL_SMPTE2086_WHITE_POINT_Y_EXT, 0.3290},
         {EGL_SMPTE2086_MAX_LUMINANCE_EXT, (double)g_hdr_out_max_lum_nits},
         {EGL_SMPTE2086_MIN_LUMINANCE_EXT, g_hdr_out_min_lum_x10000 / 10000.0},
+    };
+    for (const auto& m : md) {
+      if (!eglSurfaceAttrib(d, s, m.attr, (EGLint)(m.v * k))) {
+        __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                            "HDROUT eglSurfaceAttrib(0x%x) failed: egl error 0x%x",
+                            (unsigned)m.attr, (unsigned)eglGetError());
+      }
+    }
+  }
+  if (ok && pq && s_platform_caps.egl_cta861_3) {
+    // HDR10 se decrit par DEUX metadonnees statiques : la maitrise (SMPTE2086, au-dessus) et la
+    // lumiere du CONTENU (CTA861.3, ici) ; sans la seconde, un decodeur suppose le pire cas et
+    // attenue l'image. MaxCLL = pic annonce par l'ecran, MaxFALL = moyenne annoncee (0 si
+    // indisponible). HLG n'en porte aucune : son OETF est relative, il n'y a rien a decrire.
+    EGLDisplay d = eglGetCurrentDisplay();
+    EGLSurface s = eglGetCurrentSurface(EGL_DRAW);
+    const double k = (double)EGL_METADATA_SCALING_EXT;
+    struct {
+      EGLint attr;
+      double v;
+    } md[] = {
+        {EGL_CTA861_3_MAX_CONTENT_LIGHT_LEVEL_EXT, (double)g_hdr_out_max_lum_nits},
+        {EGL_CTA861_3_MAX_FRAME_AVERAGE_LEVEL_EXT, (double)g_hdr_out_max_avg_lum_nits},
     };
     for (const auto& m : md) {
       if (!eglSurfaceAttrib(d, s, m.attr, (EGLint)(m.v * k))) {

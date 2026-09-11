@@ -33,20 +33,6 @@ inline void gj2vis_probe_bg_slot(int slot, unsigned tex) {
   }
 }
 
-// Grecharged-mesh-browser V2: is THIS draw the freecam's targeted mesh? A "mesh" is one row of the
-// offline mesh index; the only runtime linkage an index row has to StripDraws is its tex id, so the
-// target is (system, tree_tex_id, level). `system` is the caller's own system (0 = TFRAG, 1 = TIE)
-// and `level_name` the caller's own m_level_name — the SAME fr3 name string the GOAL side passes in
-// mb_target_level (both descend from the pc-port/fr3 level name, e.g. "village1"; the renderer copy
-// is truncated to 11 chars by the pc-port handshake, which every jak1 fr3 name fits in). When
-// mb_target_active is false this is ONE compare — the normal path is unchanged.
-inline bool mb_draw_targeted(int system, s32 tree_tex_id, const char* level_name) {
-  const auto& s = Gfx::g_global_settings;
-  return s.mb_target_active && system == s.mb_target_system && tree_tex_id >= 0 &&
-         (u32)tree_tex_id == s.mb_target_tex &&
-         std::strncmp(level_name, s.mb_target_level, sizeof(s.mb_target_level)) == 0;
-}
-
 struct GoalBackgroundCameraData {
   math::Vector4f planes[4];
   math::Vector<s32, 4> itimes[4];
@@ -239,12 +225,7 @@ class PbrDrawBinder {
                             u64 frame_idx);
   // Per-draw: look up tex_id, gate on the runtime toggle + opaque/non-decal rule,
   // bind units 11-15 real-or-neutral, set u_pbr_mode.
-  // mb_checker (Grecharged-mesh-browser V2.2): the freecam Square toggle on the targeted mesh.
-  // The owner's standing checker rule requires the FULL debug material — albedo (bound by the
-  // caller on unit 0) plus the shared checker NORMAL + ROUGHNESS + HEIGHT maps — so the
-  // displacement path (tess/POM) actually engages on the target; V2 swapped only the albedo,
-  // which tests nothing. Overrides whatever material the draw's texture resolves to.
-  void set(s32 tex_id, const DrawMode& mode, bool mb_checker = false);
+  void set(s32 tex_id, const DrawMode& mode);
   // Restore u_pbr_mode to 0 and park the neutral maps if anything was bound. Must be
   // called before the TFRAG3 program is handed to any other renderer.
   void finish();

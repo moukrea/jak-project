@@ -973,96 +973,7 @@ void PbrDrawBinder::set_coverage_context(const char* renderer,
   m_cover_frame = frame_idx;
 }
 
-void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
-  // Grecharged-mesh-browser V2.2 — the freecam Square toggle's FULL checker material (see the
-  // header). Handled FIRST: it must work even when the draw's texture has NO registered PBR
-  // material (want would be 0 and the early-out below would skip the bind entirely), and it does
-  // not depend on the master PBR toggle — it IS the debug material. The killswitch still wins:
-  // it exists to stop a crash loop, and the browser must never fight it.
-  if (mb_checker && !pbr_killswitch()) {
-    if (m_mode_loc == -2) {
-      m_mode_loc = glu::loc(m_program, "u_pbr_mode");
-    }
-    if (m_mode_loc >= 0) {
-      const auto& sm = pbr_testpattern::shared_maps();
-      const auto& neutral = pbr_neutral_maps();
-      glActiveTexture(GL_TEXTURE11);
-      glBindTexture(GL_TEXTURE_2D, sm.normal_tex ? sm.normal_tex : neutral.normal_tex);
-      glActiveTexture(GL_TEXTURE12);
-      glBindTexture(GL_TEXTURE_2D, sm.rough_tex ? sm.rough_tex : neutral.rough_tex);
-      glActiveTexture(GL_TEXTURE13);
-      glBindTexture(GL_TEXTURE_2D, neutral.metal_tex);
-      glActiveTexture(GL_TEXTURE14);
-      glBindTexture(GL_TEXTURE_2D, neutral.ao_tex);
-      glActiveTexture(GL_TEXTURE15);
-      glBindTexture(GL_TEXTURE_2D, sm.height_tex ? sm.height_tex : neutral.height_tex);
-      glActiveTexture(GL_TEXTURE16);
-      glBindTexture(GL_TEXTURE_2D, neutral.specular_tex);
-      glActiveTexture(GL_TEXTURE17);
-      glBindTexture(GL_TEXTURE_2D, neutral.emissive_tex);
-      glActiveTexture(GL_TEXTURE0);
-      m_bound_any = true;
-      const int cwant = 1 | 2 | 16;  // normal + rough + height: the full checker set
-      if (cwant != m_cur_mode) {
-        glUniform1i(m_mode_loc, cwant);
-        lighting_census::gate_pbr_mode(cwant);
-        m_cur_mode = cwant;
-      }
-      // The checker maps are synthetic and well-conditioned: zero normal DC, identity height
-      // stats. The height dome's feature wavelength is 2 squares = 2/squares_per_tile tiles —
-      // with the default 8 squares/tile that is exactly the 0.25 identity, and off-default
-      // square counts keep the tess amplitude at checker-feature scale instead of tile scale.
-      if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
-        if (m_dc_loc == -2) {
-          m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
-        }
-        if (m_dc_loc >= 0) {
-          glUniform2f(m_dc_loc, 0.f, 0.f);
-        }
-        m_cur_dc[0] = 0.f;
-        m_cur_dc[1] = 0.f;
-      }
-      if (m_cur_hstat[0] != 0.5f || m_cur_hstat[1] != 1.0f) {
-        if (m_hstat_loc == -2) {
-          m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
-        }
-        if (m_hstat_loc >= 0) {
-          glUniform2f(m_hstat_loc, 0.5f, 1.0f);
-        }
-        m_cur_hstat[0] = 0.5f;
-        m_cur_hstat[1] = 1.0f;
-      }
-      if (m_cur_upm != 0.5f) {
-        if (m_upm_loc == -2) {
-          m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
-        }
-        if (m_upm_loc >= 0) {
-          glUniform1f(m_upm_loc, 0.5f);
-        }
-        m_cur_upm = 0.5f;
-      }
-      const float clam = 2.0f / (float)std::max(1, pbr_testpattern::squares_per_tile());
-      if (m_cur_lambda != clam) {
-        if (m_lambda_loc == -2) {
-          m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
-        }
-        if (m_lambda_loc >= 0) {
-          glUniform1f(m_lambda_loc, clam);
-        }
-        m_cur_lambda = clam;
-      }
-      // Gpbr-per-texture-materials: the debug checker is a SYNTHETIC material that surfaces.json
-      // does not name, so it takes the identity knobs — same rule as the zeroed DC / identity height
-      // stats just above. Without this the checker would inherit the relief and roughness of
-      // whatever real material the previous draw bound, and the browser's A/B would read a mixture.
-      pbr_push_material_uniforms(m_program, nullptr);
-      // V2.2 per-frame proof: the FULL checker set (normal+rough+height, albedo on unit 0 by the
-      // caller) was bound on a targeted draw this frame.
-      Gfx::g_global_settings.mb_cur_checker_full++;
-      return;
-    }
-    // no u_pbr_mode in this program (non-PBR build): fall through to the normal path.
-  }
+void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
   // SPEC §6.2 : les matieres PBR sont SOUS l'eclairage recharge — une matiere sans lumiere n'a
   // rien a reflechir. Cette porte est le seul endroit qui met `want` (donc u_pbr_mode, donc
   // u_mm_flags qui en derive) a autre chose que 0 : eclairage OFF => u_pbr_mode = 0 partout.
@@ -2474,10 +2385,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
   normal_strength *= relief;
   height_scale *= relief;
-  // Grecharged-mesh-browser V2.1: record the relief factor these uniforms are pushed with — the
-  // proof reads THE VALUE THE SHADER GOT (u_pbr_normal_strength/u_pbr_height_scale scale), not the
-  // menu variable (owner: "relief fonctionne pas" — a variable can move while no uniform does).
-  Gfx::g_global_settings.mb_cur_relief_x100 = (u32)std::lround(relief * 100.0f);
   lgt_keep_1i(id, "u_pbr_debug", pbr_debug);
   // lighting-legacy-purge (2026-09-11) : `u_pbr_bisect` (bissection de menu, masque livre 0),
   // `u_pbr_displacement` (fige a PARALLAX) et les deux uniformes de TESSELLATION ne sont plus

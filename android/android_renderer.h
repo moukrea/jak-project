@@ -27,6 +27,10 @@ uint64_t android_renderer_frame_count();
 void android_hdr_out_probe_early();
 extern int g_hdr_out_max_lum_nits;
 extern int g_hdr_out_min_lum_x10000;
+// Moyenne annoncee par l'ecran : MaxFALL des metadonnees CTA861.3 posees sur la surface PQ.
+// La luminance MOYENNE annoncee (HdrCapabilities.getDesiredMaxAverageLuminance) : MaxFALL des
+// metadonnees CTA861.3. 0 = inconnu, le decodeur suppose alors le pire cas.
+extern int g_hdr_out_max_avg_lum_nits;
 // hdr-display-output : appel natif -> Java (NativeGk.onHdrOutputExtendedRange) qui pose
 // SurfaceControl.Transaction.setExtendedRangeBrightness(sc, current, desired) sur la SDLSurface :
 // `current` = ratio HDR/SDR auquel le tampon est encode (le ratio LU), `desired` = la marge

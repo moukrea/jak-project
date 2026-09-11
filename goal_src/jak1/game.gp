@@ -2129,8 +2129,6 @@
 ;; par le display-loop (main.gc, post-sync-draw), jamais par un processus -- le bit `movie` de
 ;; process-mask gelerait un processus exactement pendant une cinematique.
 (goal-src "pc/cutscene-skip-draw.gc" "pckernel" "text" "cutscene-skip" "pov-camera")
-;; Grecharged-mesh-browser: the debug mesh browser overlay (warp/frame/observe any level's meshes).
-(goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info" "sky-h")
 ;; Grecharged-hd-models3: HD character ANIMATION-RETARGET companion (gated on FLAG_HD_MODELS).
 (goal-src "pc/jak-hd.gc" "pckernel" "pckernel-common" "progress-pc" "target" "sidekick" "bones" "loader")
 (goal-src "pc/jak-hd-physics.gc" "jak-hd")

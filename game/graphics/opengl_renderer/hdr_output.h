@@ -76,7 +76,29 @@ constexpr const char* kItemId = "hdr-display-output";
 
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
-enum Mode : uint32_t { kModeNone = 0, kModeHdr10Pq = 1, kModeScrgbLinear = 2 };
+enum Mode : uint32_t {
+  kModeNone = 0,
+  kModeHdr10Pq = 1,
+  kModeScrgbLinear = 2,
+  kModeHlg = 4,  // BT.2020 HLG (ARIB STD-B67), EGL_EXT_gl_colorspace_bt2020_hlg
+};
+
+// Verdict 13 (refus owner du 11/09 : « Si ca supporte HDR10+ (variable) faut exploiter, si ca
+// supporte seulement HDR10 on utilise en repli, si ca supporte uniquement HLG on utilise en
+// repli »). LE FORMAT, c'est-a-dire ce que l'ECRAN annonce savoir decoder, par ordre de
+// preference decroissant. Distinct de `Mode`, qui est le TRANSPORT que la couche de
+// presentation sait creer : HDR10+ et HDR10 partagent le meme transport PQ. Aucun appareil
+// n'est nomme nulle part — le rang vient du masque annonce et de ce que la plateforme sait
+// produire, rien d'autre.
+enum Format : int {
+  kFmtNone = 0,
+  kFmtScrgb = 1,        // hors classement : seul transport a marge CONTRACTUELLE (API 34+)
+  kFmtHdr10Plus = 2,    // PQ + metadonnees DYNAMIQUES
+  kFmtHdr10 = 3,        // PQ + metadonnees statiques (SMPTE2086 + CTA861.3)
+  kFmtHlg = 4,          // OETF HLG, aucune metadonnee
+  kFmtDolbyVision = 5,  // hors perimetre : licence
+  kFmtCount = 6,
+};
 
 // Types HDR annonces par le systeme (Android `Display.HdrCapabilities`), en masque `1 << type`.
 enum SysType : uint32_t {
@@ -111,6 +133,8 @@ struct PlatformCaps {
   bool egl_fp16 = false;           // EGL_EXT_pixel_format_float
   bool egl_no_config_ctx = false;  // EGL_KHR_no_config_context
   bool egl_smpte2086 = false;      // EGL_EXT_surface_SMPTE2086_metadata
+  bool egl_bt2020_hlg = false;     // EGL_EXT_gl_colorspace_bt2020_hlg
+  bool egl_cta861_3 = false;       // EGL_EXT_surface_CTA861_3_metadata (MaxCLL / MaxFALL)
   bool config_10bit = false;       // un EGLConfig RGB 10/10/10 + fenetre + ES3 existe
   bool config_fp16 = false;        // un EGLConfig RGBA 16F (composantes flottantes) + fenetre + ES3 existe
   bool sdl_display_hdr = false;    // bureau : SDL_PROP_DISPLAY_HDR_ENABLED_BOOLEAN
@@ -123,6 +147,13 @@ void set_platform_caps(const PlatformCaps& caps);
 // n'existe pas pour ce joueur (rangee cachee).
 uint32_t modes_available();
 const char* mode_name(uint32_t mode);
+// Verdict 13 : le FORMAT retenu, choisi seul parmi ceux que l'ecran annonce et que la
+// plateforme sait produire. kFmtNone = aucun.
+int format_chosen();
+const char* format_name(int fmt);
+// Le transport que ce format exige (kModeHdr10Pq pour HDR10 et HDR10+, kModeHlg pour HLG,
+// kModeScrgbLinear pour scRGB). kModeNone si le format n'est pas productible ici.
+uint32_t format_transport(int fmt);
 // Texte des capacites, sans espace, publie sous `hdr_out_display_caps`.
 const char* caps_string();
 

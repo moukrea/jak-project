@@ -6,7 +6,6 @@
 #include <cstring>
 #include <limits>
 
-#include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
@@ -200,32 +199,6 @@ void TFragment::render(DmaFollower& dma,
 
     auto t3prof = prof.make_scoped_child("t3");
     render_matching_trees(lod(), m_tree_kinds, settings, render_state, t3prof);
-
-    // Grecharged-mesh-browser V2: freecam NORMAL GIZMOS overlay for a targeted TFRAG mesh.
-    // One compare (mb_target_active) when the browser is idle — the loader lookup and the
-    // module's own filtering only run while the gizmo toggle is armed.
-    if (Gfx::g_global_settings.mb_target_active && Gfx::g_global_settings.mb_gizmos_target) {
-      const auto* mb_lev = render_state->loader->get_tfrag3_level(level_name);
-      if (mb_lev) {
-        mb_gizmos::render(mb_lev->level.get(), 0, level_name.c_str(), render_state,
-                          t3prof);
-      }
-    }
-    // Grecharged-mesh-browser V2.4: persistent MARKED-polygon highlight — independent of the
-    // gizmo toggle, once per frame (the module stamps the frame), only while the browser
-    // session is open and marks exist. Two relaxed loads when idle.
-    if (Gfx::g_global_settings.mb_pbr_override &&
-        Gfx::g_global_settings.mb_marks_active.load(std::memory_order_relaxed) > 0) {
-      mb_gizmos::render_marks(render_state, t3prof);
-    }
-    // Grecharged-mesh-browser V2.1: pending reticle pick — contribute this level's TFRAG
-    // triangle hits (two relaxed loads when idle; see gfx.h mb_pick_*).
-    if (mb_pick::pending()) {
-      const auto* mb_lev = render_state->loader->get_tfrag3_level(level_name);
-      if (mb_lev) {
-        mb_pick::raytest(mb_lev->level.get(), 0, level_name.c_str());
-      }
-    }
   }
 
   while (dma.current_tag_offset() != render_state->next_bucket) {
@@ -822,10 +795,9 @@ void TFragment::render_tree(int geom,
       while (glGetError() != GL_NO_ERROR) {
       }
     }
-    // Grecharged-mesh-browser V2: this whole-tree depth pass renders into the SUN SHADOW map FBO
-    // (sh_st.fbo above), never the main-view depth buffer, so it cannot leave an invisible
-    // occluder in the camera view. It is deliberately NOT filtered by the freecam hide target:
-    // a hidden TFRAG mesh may still cast its sun shadow (debug-tool tolerance).
+    // Ce passage de profondeur pleine-arborescence dessine dans le FBO de l'ombre du SOLEIL
+    // (sh_st.fbo ci-dessus), jamais dans le tampon de profondeur de la vue principale : il ne
+    // peut pas y laisser d'occulteur invisible.
     if (sh_st.cast_full && tree.index_count > 0) {
       // Round-5 owner bug fix: the caster set must IGNORE camera visibility (an off-screen
       // hut must keep casting its on-screen shadow — vis-culled casters pop shadows in/out
@@ -1140,8 +1112,8 @@ void TFragment::render_tree(int geom,
   // tfrag_tree_names[] entries are constexpr string literals, so storing the pointer is safe.
   pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind], false,
                                   render_state->frame_idx);
-  auto set_pbr = [&](s32 tex_id, const DrawMode& mode, bool mb_checker = false) {
-    pbr_binder.set(tex_id, mode, mb_checker);
+  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
+    pbr_binder.set(tex_id, mode);
   };
 #endif
 
@@ -1164,25 +1136,6 @@ void TFragment::render_tree(int geom,
         continue;
       }
 
-      // Grecharged-mesh-browser V2: freecam target — hide skips the draw, checker swaps the base.
-      const bool mb_targeted = mb_draw_targeted(0, draw.tree_tex_id, m_level_name.c_str());
-      if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
-        Gfx::g_global_settings.mb_ctr_hidden_draws++;
-        draw_idx++;
-        continue;
-      }
-      if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
-        if (Gfx::g_global_settings.mb_isolate) {
-          Gfx::g_global_settings.mb_cur_isolated_skips++;
-          draw_idx++;
-          continue;  // isolation: only the targeted mesh renders
-        }
-        Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
-      }
-      if (mb_targeted) {
-        Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
-      }
-
       s32 tex_idx = draw.tree_tex_id;
       if (tex_idx >= 0) {
         bound_tex = m_textures->at(tex_idx);
@@ -1196,27 +1149,16 @@ void TFragment::render_tree(int geom,
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
-      const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
-      set_pbr(draw.tree_tex_id, draw.mode, mb_checker);
+      set_pbr(draw.tree_tex_id, draw.mode);
 #endif
-      if (mb_checker) {
-        // Bind AFTER the cached setup so the draw-mode glTexParameteri calls landed on the draw's
-        // own texture, not the shared checker (which keeps its REPEAT/mipmap params). The next
-        // iteration rebinds its own bound_tex unconditionally.
-        glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
-        Gfx::g_global_settings.mb_ctr_checker_draws++;
-        Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
-      }
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
       tree.tris_this_frame += draw.num_triangles;
       tree.draws_this_frame++;
       size_t next = draw_idx + 1;
-      // Grecharged-mesh-browser V2: a TARGETED draw must never merge (in either role) — a merged
-      // range would carry the targeted indices along and hide/checker would silently stop working.
-      if (double_draw.kind == DoubleDrawKind::NONE && !mb_targeted) {
+      if (double_draw.kind == DoubleDrawKind::NONE) {
         while (next < tree.draws->size()) {
           const auto& d2 = tree.draws->operator[](next);
           const auto& sd2 = m_cache.draw_idx_temp[next];
@@ -1225,8 +1167,7 @@ void TFragment::render_tree(int geom,
             continue;
           }
           if (d2.tree_tex_id != draw.tree_tex_id || d2.mode.as_int() != draw.mode.as_int() ||
-              sd2.first != first + count ||
-              mb_draw_targeted(0, d2.tree_tex_id, m_level_name.c_str())) {
+              sd2.first != first + count) {
             break;
           }
           count += sd2.second;
@@ -1268,23 +1209,6 @@ void TFragment::render_tree(int geom,
       }
     }
 
-    // Grecharged-mesh-browser V2: freecam target — hide skips the draw, checker swaps the base.
-    const bool mb_targeted = mb_draw_targeted(0, draw.tree_tex_id, m_level_name.c_str());
-    if (mb_targeted && Gfx::g_global_settings.mb_hide_target) {
-      Gfx::g_global_settings.mb_ctr_hidden_draws++;
-      continue;
-    }
-    if (!mb_targeted && Gfx::g_global_settings.mb_target_active) {
-      if (Gfx::g_global_settings.mb_isolate) {
-        Gfx::g_global_settings.mb_cur_isolated_skips++;
-        continue;  // isolation: only the targeted mesh renders
-      }
-      Gfx::g_global_settings.mb_cur_nontarget_draws++;  // per-frame proof: non-target draws submitted
-    }
-    if (mb_targeted) {
-      Gfx::g_global_settings.mb_cur_target_draws++;  // V2.1 per-frame proof: submitted, not hidden
-    }
-
     ASSERT(m_textures);
     s32 tex_idx = draw.tree_tex_id;
     if (tex_idx >= 0) {
@@ -1299,17 +1223,9 @@ void TFragment::render_tree(int geom,
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
-    const bool mb_checker = mb_targeted && Gfx::g_global_settings.mb_checker_target;
 #ifdef OG_FEAT_PBR
-    set_pbr(draw.tree_tex_id, draw.mode, mb_checker);
+    set_pbr(draw.tree_tex_id, draw.mode);
 #endif
-    if (mb_checker) {
-      // Bind AFTER the cached setup (see the batched loop above); this loop rebinds bound_tex
-      // every iteration, so the next draw recovers its own texture.
-      glBindTexture(GL_TEXTURE_2D, pbr_testpattern::checker_base_gl());
-      Gfx::g_global_settings.mb_ctr_checker_draws++;
-      Gfx::g_global_settings.mb_cur_checker_binds++;  // V2.1 per-frame proof
-    }
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
 

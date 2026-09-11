@@ -73,6 +73,7 @@
 #include "game/system/boot_replay.h"
 #include "game/system/pad_replay.h"
 #include "game/system/npc_flicker.h"
+#include "game/system/mesh_browser_census.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"  // perf-instruments : recepteur du flux pc-prof (seaux GOAL, ROOT)  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
@@ -9759,6 +9760,9 @@ Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint 
                                                 jboolean wcg) {
   g_hdr_out_max_lum_nits = (int)maxLum;
   g_hdr_out_min_lum_x10000 = (int)minX10000;
+  // hdr-display-output : la moyenne annoncee sert de MaxFALL dans les metadonnees CTA861.3
+  // posees sur la surface PQ. Sans elle, un decodeur suppose le pire cas.
+  g_hdr_out_max_avg_lum_nits = (int)maxAvg;
   hdr_output::set_system_caps((uint32_t)mask, (int)maxLum, (int)maxAvg, (int)minX10000,
                               wcg != JNI_FALSE);
   env->GetJavaVM(&g_hdr_out_jvm);
@@ -9973,42 +9977,17 @@ Java_org_opengoal_gk_NativeGk_isInWarp(JNIEnv* /*env*/, jclass /*clazz*/) {
                                                            : JNI_FALSE;
 }
 
-// Grecharged-mesh-browser REOPEN (owner 2026-07-29): a RAW multi-touch channel
-// for the debug mesh browser. It exists because the existing touch path
-// (pc-get-touch-tap / onMenuTap) carries a tap EDGE only — one point at one
-// instant. The browser needs continuous gestures (swipe-scroll a 3600+ entry
-// list, drag, pinch-zoom) which a sequence of tap edges cannot express, so the
-// overlay suspends the virtual gamepad while isInMeshBrowser() is true and
-// streams DOWN/MOVE/UP/CANCEL with up to two live pointers through here.
-// Grecharged-mesh-browser REOPEN: defined in game/kernel/jak1/kmachine.cpp (android_kernel).
-extern "C" int pc_mb_is_active();
-extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x1, float y1);
-
-JNIEXPORT jboolean JNICALL
-Java_org_opengoal_gk_NativeGk_isInMeshBrowser(JNIEnv* /*env*/, jclass /*clazz*/) {
-  // V2: the C++ flag is now an int MODE (0=off, 1=list-UI, 2=freecam). This
-  // boolean keeps its historical meaning "the browser owns the screen" for
-  // existing callers (MainActivity's don't-GONE-the-overlay guard): true for
-  // ANY non-zero mode. Callers that must distinguish list-UI (raw touch, pad
-  // suspended) from freecam (pad LIVE) use meshBrowserMode() below.
-  return pc_mb_is_active() != 0 ? JNI_TRUE : JNI_FALSE;
-}
-
-// Grecharged-mesh-browser V2 (freecam): the full int mode, 0=off, 1=list-UI
-// (raw multi-touch routing, virtual pad suspended), 2=FREECAM (the GOAL side
-// is 100% pad-driven, so the virtual pad stays LIVE and the overlay presents
-// a freecam control set). Same atomic getter as isInMeshBrowser — cheap,
-// race-free, safe on the UI thread.
-JNIEXPORT jint JNICALL
-Java_org_opengoal_gk_NativeGk_meshBrowserMode(JNIEnv* /*env*/, jclass /*clazz*/) {
-  return (jint)pc_mb_is_active();
-}
-
+// mesh-browser-removal : LE RAPPORT DE RECENSEMENT DE L'OVERLAY TACTILE.
+// Java vit HORS de libgk.so — aucune sonde C++ ne peut compter les pastilles que
+// `TouchOverlayView` construit. C'est donc l'overlay qui rapporte, une fois par (re)construction
+// de sa disposition : `sites` = pastilles appartenant au navigateur de mesh, `control` =
+// pastilles du jeu normal qui doivent survivre. Le temoin `control` rend le zero falsifiable ;
+// tant que ce pont n'a pas ete appele, la sonde rend une PENALITE, jamais zero.
 JNIEXPORT void JNICALL
-Java_org_opengoal_gk_NativeGk_onBrowserTouch(JNIEnv* /*env*/, jclass /*clazz*/, jint action,
-                                             jint n, jfloat x0, jfloat y0, jfloat x1,
-                                             jfloat y1) {
-  pc_mb_touch_event((int)action, (int)n, (float)x0, (float)y0, (float)x1, (float)y1);
+Java_org_opengoal_gk_NativeGk_autoportOverlayCensus(JNIEnv* /*env*/, jclass /*clazz*/,
+                                                    jint sites, jint control) {
+  mesh_browser_census::report_overlay(sites < 0 ? 0u : (uint32_t)sites,
+                                      control < 0 ? 0u : (uint32_t)control);
 }
 
 JNIEXPORT void JNICALL

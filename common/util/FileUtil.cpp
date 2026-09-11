@@ -500,18 +500,8 @@ fs::path get_bundled_recharged_textures_baked_dir(GameVersion game_version, cons
   return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] / sub / profile;
 }
 
-// Grecharged-mesh-browser: same ship path as the bundled recharged textures above (extracted
-// custom-pack root on Android, checked-out tree on desktop), one subdir over. Holds one
-// mesh_index_<level>.txt per level, produced offline by tools/mesh_index from the tess_sign CSV.
-fs::path get_bundled_mesh_index_dir(GameVersion game_version) {
-  if (g_custom_assets_root) {
-    return *g_custom_assets_root / "mesh_index";
-  }
-  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] / "mesh_index";
-}
-
-// water-census (SPEC-refonte-eau.md §5.8) : meme chemin d'embarquement que le mesh_index
-// ci-dessus, un sous-dossier a cote. Porte `water_inventory.txt` et `water_ocean_maps.txt`,
+// water-census (SPEC-refonte-eau.md §5.8) : meme chemin d'embarquement que les textures
+// rechargees ci-dessus, un sous-dossier a cote. Porte `water_inventory.txt` et `water_ocean_maps.txt`,
 // produits hors ligne par tools/water_bake depuis les fr3 et les tables GOAL de l'ocean.
 // C'est la famille « derivee des ISO », distincte des `recharged_assets` (les notres) : les
 // verdicts, eux, vivent la-bas.

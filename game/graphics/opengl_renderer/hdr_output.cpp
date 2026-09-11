@@ -34,6 +34,7 @@ constexpr int kEglColorspaceSrgb = 0x3089;
 constexpr int kEglColorspaceLinear = 0x308A;
 constexpr int kEglColorspaceBt2020Pq = 0x3340;
 constexpr int kEglColorspaceScrgbLinear = 0x3350;
+constexpr int kEglColorspaceBt2020Hlg = 0x3540;  // EGL_EXT_gl_colorspace_bt2020_hlg
 
 // Quand l'ecran n'annonce pas sa luminance maximale : la valeur par defaut du compositeur
 // Android (SurfaceFlinger, `sDefaultMaxLumiance`), pas le plafond HDR10 de 1000 nits.
@@ -115,6 +116,8 @@ void rebuild_caps_text_locked() {
     add(s_plat.egl_fp16, "fp16");
     add(s_plat.egl_no_config_ctx, "no_config_ctx");
     add(s_plat.egl_smpte2086, "smpte2086");
+    add(s_plat.egl_bt2020_hlg, "bt2020_hlg");
+    add(s_plat.egl_cta861_3, "cta861_3");
     t += e.empty() ? "none" : e;
   }
   t += std::string(";cfg10=") + (s_plat.config_10bit ? "1" : "0");
@@ -125,6 +128,111 @@ void rebuild_caps_text_locked() {
   s_caps_text = t;
 }
 
+// -------------------------------------------------------------------------- les formats --
+// Verdict 13. LE FORMAT est ce que l'ECRAN annonce savoir decoder (masque
+// Display.HdrCapabilities) ; le MODE est le transport que la couche de presentation sait
+// creer. HDR10+ et HDR10 partagent le transport PQ. Chaque ligne se lit dans les capacites :
+// rien ici ne nomme un appareil.
+uint32_t format_transport_locked(int fmt) {
+  switch (fmt) {
+    case kFmtScrgb:
+      return (s_sys.sdk_int >= 34 && s_plat.egl_scrgb_linear && s_plat.egl_fp16 &&
+              s_plat.config_fp16)
+                 ? kModeScrgbLinear
+                 : kModeNone;
+    case kFmtHdr10Plus:  // meme transport que HDR10 ; ce qui manque, ce sont les metadonnees
+    case kFmtHdr10:
+      return (s_plat.egl_bt2020_pq && s_plat.config_10bit) ? kModeHdr10Pq : kModeNone;
+    case kFmtHlg:
+      return (s_plat.egl_bt2020_hlg && s_plat.config_10bit) ? kModeHlg : kModeNone;
+    default:
+      return kModeNone;  // Dolby Vision : licence, hors perimetre — jamais de transport
+  }
+}
+
+uint32_t format_sys_bit(int fmt) {
+  switch (fmt) {
+    case kFmtHdr10Plus: return kSysHdr10Plus;
+    case kFmtHdr10: return kSysHdr10;
+    case kFmtHlg: return kSysHlg;
+    case kFmtDolbyVision: return kSysDolbyVision;
+    default: return 0;  // scRGB n'est pas un format annonce par l'ecran : c'est un transport
+  }
+}
+
+bool format_announced_locked(int fmt) {
+  if (fmt == kFmtScrgb) {
+    // scRGB n'apparait dans aucune HdrCapabilities : il n'est « annonce » que si l'ecran est
+    // HDR par ailleurs ET que l'API 34 contractualise la marge.
+    return (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision)) != 0 &&
+           s_sys.sdk_int >= 34;
+  }
+  return (s_sys.types & format_sys_bit(fmt)) != 0;
+}
+
+bool format_usable_locked(int fmt) {
+  if (fmt == kFmtDolbyVision || fmt == kFmtHdr10Plus) {
+    return false;  // cf. format_reason_locked
+  }
+  return format_announced_locked(fmt) && format_transport_locked(fmt) != kModeNone;
+}
+
+// Pourquoi un format annonce n'est PAS retenu. Jamais vide : une chaine vide laisserait la
+// valeur precedente en place cote preuve.
+const char* format_reason_locked(int fmt) {
+  switch (fmt) {
+    case kFmtDolbyVision:
+      return "licence_hors_perimetre";
+    case kFmtHdr10Plus:
+      // L'ecran sait decoder les metadonnees DYNAMIQUES, mais aucune API publique Android/EGL
+      // n'en laisse poser a une surface applicative (seules SMPTE2086 et CTA861.3, statiques,
+      // existent). Le repli est HDR10, meme transport PQ ; l'adaptation par image que fait
+      // notre courbe tient lieu de metadonnee dynamique, cote application.
+      return format_transport_locked(kFmtHdr10) != kModeNone
+                 ? "pas_d_api_publique_de_metadonnees_dynamiques:repli_hdr10"
+                 : "pas_d_api_dynamique_et_pas_de_transport_pq";
+    case kFmtHlg:
+      if (!format_announced_locked(kFmtHlg)) return "non_annonce_par_l_ecran";
+      if (!s_plat.egl_bt2020_hlg) return "egl_sans_colorspace_bt2020_hlg";
+      if (!s_plat.config_10bit) return "pas_de_config_10bit";
+      return "-";
+    case kFmtHdr10:
+      if (!format_announced_locked(kFmtHdr10)) return "non_annonce_par_l_ecran";
+      if (!s_plat.egl_bt2020_pq) return "egl_sans_colorspace_bt2020_pq";
+      if (!s_plat.config_10bit) return "pas_de_config_10bit";
+      return "-";
+    case kFmtScrgb:
+      if (s_sys.sdk_int < 34) return "sdk<34:aucun_contrat_de_marge_etendue";
+      if (!s_plat.egl_scrgb_linear || !s_plat.egl_fp16) return "egl_sans_scrgb_lineaire_fp16";
+      if (!s_plat.config_fp16) return "pas_de_config_fp16";
+      return "-";
+    default:
+      return "-";
+  }
+}
+
+// L'ORDRE DE PREFERENCE, une fois pour toutes. scRGB passe devant parce qu'il est le SEUL
+// transport dont la marge au-dessus du blanc SDR soit CONTRACTUELLE et LISIBLE
+// (Display.getHdrSdrRatio) ; les trois suivants sont l'ordre demande par l'owner.
+const int kFormatPreference[4] = {kFmtScrgb, kFmtHdr10Plus, kFmtHdr10, kFmtHlg};
+
+int format_chosen_locked() {
+  for (int i = 0; i < 4; i++) {
+    if (format_usable_locked(kFormatPreference[i])) {
+      return kFormatPreference[i];
+    }
+  }
+  return kFmtNone;
+}
+
+// Le rang du format retenu dans la preference, 1 = le meilleur. 0 = aucun.
+int format_rank_locked(int fmt) {
+  for (int i = 0; i < 4; i++) {
+    if (kFormatPreference[i] == fmt) return i + 1;
+  }
+  return 0;
+}
+
 // Les modes que les DEUX couches savent tenir, en MASQUE (plusieurs bits possibles). Separe de
 // `modes_locked()`, qui n'en retient qu'un : l'auto-test a besoin de savoir qu'il en existe un
 // SECOND pour aller le mesurer (spec de l'item : « publier CHAQUE chemin »).
@@ -133,8 +241,9 @@ uint32_t modes_supported() {
   // presentation sait creer une surface dans cet espace. Bureau : SDL peut annoncer un ecran
   // HDR, mais aucune presentation OpenGL en HDR n'existe par SDL3 — donc aucun mode, et la
   // capacite est publiee telle quelle pour que ce soit lisible, pas suppose.
-  // UN SEUL mode est retenu : scRGB des que l'API le contractualise (Android 14+, API 34 :
-  // 1,0 = blanc SDR, marge = Display.getHdrSdrRatio), sinon HDR10 PQ.
+  // Verdict 13 : le masque SUIT DESORMAIS LES FORMATS ANNONCES. Un transport n'y entre que si
+  // un format que l'ecran annonce l'exige, de sorte que mode et format ne puissent jamais
+  // diverger (HDR10 et HDR10+ demandent le PQ, HLG le HLG, scRGB le scRGB lineaire).
   if (!s_sys.reported || !s_plat.probed) {
     return kModeNone;
   }
@@ -143,26 +252,39 @@ uint32_t modes_supported() {
     return kModeNone;
   }
   uint32_t m = kModeNone;
-  if (s_sys.sdk_int >= 34 && s_plat.egl_scrgb_linear && s_plat.egl_fp16 && s_plat.config_fp16) {
-    m |= kModeScrgbLinear;
-  }
-  if (s_plat.egl_bt2020_pq && s_plat.config_10bit) {
-    m |= kModeHdr10Pq;
+  for (int i = 0; i < 4; i++) {
+    const int f = kFormatPreference[i];
+    if (format_announced_locked(f)) {
+      m |= format_transport_locked(f);   // 0 quand la plateforme ne sait pas le produire
+    }
   }
   return m;
 }
 
-// Le mode PREFERE quand personne ne force : scRGB des que l'API le contractualise, sinon PQ.
+// Le mode PREFERE quand personne ne force : celui qu'EXIGE le format retenu.
 uint32_t auto_mode(uint32_t supported) {
-  if (supported & kModeScrgbLinear) {
-    return kModeScrgbLinear;
+  const uint32_t t = format_transport_locked(format_chosen_locked());
+  if (t && (supported & t)) {
+    return t;
   }
-  return supported & kModeHdr10Pq;
+  // Repli : l'ordre de preference des transports, si jamais le format retenu n'est pas dans
+  // le masque (ne devrait pas arriver — modes_supported est construit depuis les formats).
+  if (supported & kModeScrgbLinear) return kModeScrgbLinear;
+  if (supported & kModeHdr10Pq) return kModeHdr10Pq;
+  return supported & kModeHlg;
 }
 
 // L'AUTRE chemin annonce, celui que l'auto-test ira mesurer en phase 4. 0 = il n'y en a qu'un.
 uint32_t alt_mode(uint32_t supported) {
-  return supported & ~auto_mode(supported);
+  // UN SEUL bit. Avec trois transports annonces, `supported & ~auto_mode` en rendait deux ; ce
+  // masque partait tel quel dans `s_test_mode`, et `switch_surface` — qui compare a des valeurs
+  // simples — ne le reconnaissait comme aucun des trois et retombait sur l'espace LINEAR. La
+  // phase 4 mesurait alors du SDR en se croyant sur l'autre chemin.
+  const uint32_t rest = supported & ~auto_mode(supported);
+  if (rest & kModeScrgbLinear) return kModeScrgbLinear;
+  if (rest & kModeHdr10Pq) return kModeHdr10Pq;
+  if (rest & kModeHlg) return kModeHlg;
+  return kModeNone;
 }
 
 // Le mode IMPOSE : auto-test (phase 4) > knob du harnais > aucun. Defini plus bas, apres
@@ -226,6 +348,54 @@ int read_int_knob(const char* prop, const char* env, int absent) {
   }
 #endif
   return absent;
+}
+
+// ---------------------------------------------------- la marge ACCORDEE, mesuree physiquement --
+// ANNONCER N'EST PAS ACCORDER. Avant l'API 34 aucune API ne PUBLIE la marge : `headroom_linear()`
+// la deduit du quotient pic/blanc, tous deux tires du MEME champ annonce. C'est un miroir de
+// notre propre arithmetique — il rend 1,000 par construction, et un 1,000 qui ne peut pas valoir
+// autre chose ne mesure rien (il ne distingue pas « l'ecran n'accorde rien » de « notre modele ne
+// sait pas lire ce qu'il accorde »). Ce que le systeme doit FAIRE pour donner de la marge
+// au-dessus de son blanc SDR est physique : monter la consigne de retro-eclairage du panneau
+// au-dessus du point SDR pendant que la couche HDR est a l'ecran. Le systeme publie cette
+// consigne dans `debug.tracing.screen_brightness` (normalisee, 0..1). On l'echantillonne pendant
+// la phase ON et pendant la phase OFF de l'auto-test : meme scene, meme instant a 150 images
+// pres, un seul parametre change. Si elle ne bouge pas, rien n'a ete accorde — et le 1,000
+// publie devient une MESURE, falsifiable par un ecran qui, lui, bougerait.
+float read_float_prop(const char* prop) {
+#ifdef __ANDROID__
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get(prop, buf) > 0 && buf[0]) {
+    return (float)std::atof(buf);
+  }
+#else
+  (void)prop;
+#endif
+  return -1.f;
+}
+
+struct BacklightProbe {
+  uint64_t samples = 0;
+  double sum = 0.0;
+  float max = -1.f;
+  float min = -1.f;
+};
+BacklightProbe s_bl_on;   // phases ON reelles (1 et 4)
+BacklightProbe s_bl_off;  // phase OFF (2)
+
+void backlight_sample(BacklightProbe& p) {
+  const float v = read_float_prop("debug.tracing.screen_brightness");
+  if (!(v >= 0.f)) {
+    return;  // propriete absente (bureau, ou systeme qui ne la publie pas) : on ne compte rien
+  }
+  p.samples++;
+  p.sum += v;
+  if (p.max < 0.f || v > p.max) {
+    p.max = v;
+  }
+  if (p.min < 0.f || v < p.min) {
+    p.min = v;
+  }
 }
 
 int override_setting() {
@@ -416,7 +586,7 @@ int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
 int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_d[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // La plus grande marge que le systeme ait accordee pendant une phase ON REELLE (pas la phase a
 // pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
 int s_ratio_max_x1000 = 1000;
@@ -956,12 +1126,55 @@ void publish_all() {
   SysCaps sys;
   bool plat_probed = false;
   uint32_t modes = kModeNone;
+  // Verdict 13 : le bloc FORMAT, construit ici, sous le MEME verrou (rien en dessous ne doit
+  // le reprendre). Aucune chaine ne part vide : « - » a la place, sinon publish_text laisserait
+  // la valeur de l'image precedente en place.
+  std::string fmt_announced, fmt_usable, fmt_reasons, fmt_choice_reason;
+  int fmt_chosen = kFmtNone, fmt_rank = 0, fmt_usable_count = 0;
+  bool dv_announced = false, egl_hlg = false, egl_cta = false;
   {
     std::lock_guard<std::mutex> lk(s_mu);
     caps_text = s_caps_text;
     sys = s_sys;
     plat_probed = s_plat.probed;
     modes = modes_locked();
+    egl_hlg = s_plat.egl_bt2020_hlg;
+    egl_cta = s_plat.egl_cta861_3;
+    dv_announced = (s_sys.types & kSysDolbyVision) != 0;
+    fmt_chosen = format_chosen_locked();
+    fmt_rank = format_rank_locked(fmt_chosen);
+    uint32_t usable_transports = 0;
+    for (int i = 0; i < 4; i++) {
+      const int f = kFormatPreference[i];
+      if (format_announced_locked(f)) {
+        if (!fmt_announced.empty()) fmt_announced += ",";
+        fmt_announced += format_name(f);
+      }
+      if (format_usable_locked(f)) {
+        if (!fmt_usable.empty()) fmt_usable += ",";
+        fmt_usable += format_name(f);
+        fmt_usable_count++;
+        usable_transports |= format_transport_locked(f);
+      }
+      if (!fmt_reasons.empty()) fmt_reasons += ";";
+      fmt_reasons += std::string(format_name(f)) + "=" + format_reason_locked(f);
+    }
+    if (dv_announced) {  // annonce mais hors classement : il figure quand meme dans la liste
+      if (!fmt_announced.empty()) fmt_announced += ",";
+      fmt_announced += format_name(kFmtDolbyVision);
+    }
+    fmt_reasons += std::string(";") + format_name(kFmtDolbyVision) + "=" +
+                   format_reason_locked(kFmtDolbyVision);
+    if (fmt_usable_count <= 1) {
+      fmt_choice_reason = "un_seul_format_utilisable";
+    } else if (usable_transports && (usable_transports & (usable_transports - 1)) == 0) {
+      fmt_choice_reason = "formats_multiples_meme_transport_aucune_incidence";
+    } else {
+      fmt_choice_reason = "incidence_non_mesuree:reglage_non_offert";
+    }
+    if (fmt_announced.empty()) fmt_announced = "-";
+    if (fmt_usable.empty()) fmt_usable = "-";
+    if (fmt_reasons.empty()) fmt_reasons = "-";
   }
   autoport_proof::publish_text("hdr_out_display_caps", caps_text.c_str());
   autoport_proof::publish("hdr_out_sys_reported", sys.reported ? 1 : 0);
@@ -972,6 +1185,50 @@ void publish_all() {
   autoport_proof::publish("hdr_out_hdr_sdr_ratio_x1000", (uint64_t)s_ratio_x1000.load());
   autoport_proof::publish("hdr_out_modes_available", modes);
   autoport_proof::publish_text("hdr_out_mode_retained", mode_name(modes));
+  autoport_proof::publish_text("hdr_out_formats_announced", fmt_announced.c_str());
+  autoport_proof::publish_text("hdr_out_formats_usable", fmt_usable.c_str());
+  autoport_proof::publish("hdr_out_formats_usable_count", (uint64_t)fmt_usable_count);
+  autoport_proof::publish_text("hdr_out_format_chosen", format_name(fmt_chosen));
+  autoport_proof::publish("hdr_out_format_chosen_id", (uint64_t)fmt_chosen);
+  autoport_proof::publish("hdr_out_format_chosen_rank", (uint64_t)fmt_rank);
+  autoport_proof::publish_text("hdr_out_format_reasons", fmt_reasons.c_str());
+  autoport_proof::publish("hdr_out_dv_announced", dv_announced ? 1 : 0);
+  autoport_proof::publish_text("hdr_out_dv_reason", "licence_hors_perimetre");
+  autoport_proof::publish("hdr_out_format_choice_offered", 0);
+  autoport_proof::publish_text("hdr_out_format_choice_reason", fmt_choice_reason.c_str());
+  autoport_proof::publish("hdr_out_egl_hlg_available", egl_hlg ? 1 : 0);
+  autoport_proof::publish("hdr_out_egl_cta861_3_available", egl_cta ? 1 : 0);
+  // La marge : ANNONCEE contre ACCORDEE. Hors verrou — headroom_linear() le reprend.
+  const float granted = headroom_linear();
+  autoport_proof::publish("hdr_out_granted_headroom_x1000", (uint64_t)std::lround(granted * 1000.f));
+  autoport_proof::publish("hdr_out_display_grants_headroom", granted > 1.005f ? 1 : 0);
+  autoport_proof::publish_text("hdr_out_granted_source",
+                               sys.ratio_available ? "api34:Display.getHdrSdrRatio"
+                                                   : "sdk<34:pic_annonce/blanc_sdr_du_conteneur");
+  // La CONTRE-EPREUVE physique du 1,000 ci-dessus : la consigne de retro-eclairage pendant la
+  // phase ON contre la phase OFF. Un ecran qui accorde de la marge a une couche HDR la monte ;
+  // un panneau a retro-eclairage global qui ne fait que DECODER le HDR ne la bouge pas.
+  // `hdr_out_grant_measurable` dit si l'instrument a seulement pu lire les deux bras : sans lui,
+  // un zero ne voudrait rien dire (absence de mesure, pas absence de marge).
+  autoport_proof::publish("hdr_out_backlight_samples_on", s_bl_on.samples);
+  autoport_proof::publish("hdr_out_backlight_samples_off", s_bl_off.samples);
+  autoport_proof::publish("hdr_out_backlight_on_max_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_on.max) * 10000.f));
+  autoport_proof::publish("hdr_out_backlight_off_max_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_off.max) * 10000.f));
+  autoport_proof::publish("hdr_out_backlight_on_mean_x10000",
+                          (uint64_t)std::lround(
+                              (s_bl_on.samples ? s_bl_on.sum / (double)s_bl_on.samples : 0.0) * 10000.0));
+  autoport_proof::publish("hdr_out_backlight_off_mean_x10000",
+                          (uint64_t)std::lround(
+                              (s_bl_off.samples ? s_bl_off.sum / (double)s_bl_off.samples : 0.0) * 10000.0));
+  const bool bl_measurable = s_bl_on.samples > 0 && s_bl_off.samples > 0 && s_bl_off.max > 0.f;
+  autoport_proof::publish("hdr_out_grant_measurable", bl_measurable ? 1 : 0);
+  autoport_proof::publish(
+      "hdr_out_backlight_boost_x1000",
+      (uint64_t)(bl_measurable ? std::lround(1000.0 * (double)s_bl_on.max / (double)s_bl_off.max) : 0));
+  autoport_proof::publish("hdr_out_grant_physical",
+                          (bl_measurable && s_bl_on.max > s_bl_off.max * 1.02f) ? 1 : 0);
   autoport_proof::publish("hdr_out_autoconfig_mode", modes ? 1 : 0);
   autoport_proof::publish("hdr_out_setting", s_setting.load() != 0 ? 1 : 0);
   autoport_proof::publish("hdr_out_effective", effective_setting() ? 1 : 0);
@@ -990,9 +1247,15 @@ void publish_all() {
   autoport_proof::publish("hdr_out_sdr_white_nits", (uint64_t)std::lround(sdr_white));
   autoport_proof::publish_text("hdr_out_sdr_white_source", sdr_white_source());
   autoport_proof::publish("hdr_out_paper_white_nits",
-                          (uint64_t)std::lround(s_surface.mode == kModeHdr10Pq ? paper_white() : 0.f));
+                          (uint64_t)std::lround(
+                              (s_surface.mode == kModeHdr10Pq || s_surface.mode == kModeHlg)
+                                  ? paper_white()
+                                  : 0.f));
   autoport_proof::publish("hdr_out_headroom_x100", (uint64_t)std::lround(headroom_linear() * 100.f));
   autoport_proof::publish("hdr_out_erb_requests", s_headroom_requests);
+  // `setExtendedRangeBrightness` est une API 34. Sous ce niveau le pont Java sort en no-op et le
+  // compteur ci-dessus compte des demandes JETEES : il ne prouve rien tout seul.
+  autoport_proof::publish("hdr_out_erb_deliverable", sys.sdk_int >= 34 ? 1 : 0);
   autoport_proof::publish("hdr_out_erb_current_x1000",
                           (uint64_t)std::lround((s_headroom_sent_current < 0.f ? 0.f : s_headroom_sent_current) * 1000.f));
   autoport_proof::publish("hdr_out_erb_desired_x100", (uint64_t)std::lround(s_headroom_request_desired * 100.f));
@@ -1000,7 +1263,10 @@ void publish_all() {
   autoport_proof::publish("hdr_out_present_mode", (uint64_t)s_last_present_mode);
   autoport_proof::publish("hdr_out_peak_nits", (uint64_t)std::lround(announced_peak_nits()));
   autoport_proof::publish("hdr_out_peak_effective_nits", (uint64_t)std::lround(peak_nits()));
-  autoport_proof::publish("hdr_out_peak_sim_nits", (uint64_t)std::lround(s_test_peak));
+  // `s_test_peak` est remis a 0 par finish_selftest() AVANT la publication finale : la cle sortait
+  // 0 dans tout proof complet et ne disait donc jamais quel pic la phase 3 avait simule.
+  autoport_proof::publish("hdr_out_peak_sim_nits",
+                          (uint64_t)std::lround(s_test_peak > 0.f ? s_test_peak : s_ph[3].last_peak));
   const bool pq = s_ph[1].last_mode == kModeHdr10Pq;
   const char* pnames[2] = {"", "sim_"};
   const int pidx[2] = {1, 3};
@@ -1190,7 +1456,7 @@ void publish_all() {
     }
     autoport_proof::publish("hdr_out_dyn_series_stride", (uint64_t)s_dyn_stride);
   }
-  // La grandeur de porte : somme de treize verdicts, chacun publie a cote. « Pas mesurable » = 1.
+  // La grandeur de porte : somme de quatorze verdicts, chacun publie a cote. « Pas mesurable » = 1.
   if (s_defects >= 0) {
     autoport_proof::publish("hdr_out_defect_1_caps_detected", (uint64_t)s_d[1]);
     autoport_proof::publish("hdr_out_defect_2_option_visibility", (uint64_t)s_d[2]);
@@ -1206,9 +1472,10 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_11_effect", (uint64_t)s_d[11]);
     autoport_proof::publish("hdr_out_defect_12_amplitude", (uint64_t)s_d[12]);
     autoport_proof::publish("hdr_out_defect_13_content_adaptive", (uint64_t)s_d[13]);
+    autoport_proof::publish("hdr_out_defect_14_format_choice", (uint64_t)s_d[14]);
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
   } else {
-    autoport_proof::publish("hdr_out_defects", 13);  // auto-test pas au bout : ROUGE, jamais muet
+    autoport_proof::publish("hdr_out_defects", 14);  // auto-test pas au bout : ROUGE, jamais muet
   }
 }
 
@@ -1217,7 +1484,9 @@ void compute_verdicts() {
   const uint32_t modes = modes_locked();
   const bool sys_ok = s_sys.reported, plat_ok = s_plat.probed;
   lk.unlock();
-  const int want_cs = modes == kModeScrgbLinear ? kEglColorspaceScrgbLinear : kEglColorspaceBt2020Pq;
+  const int want_cs = modes == kModeScrgbLinear
+                          ? kEglColorspaceScrgbLinear
+                          : modes == kModeHlg ? kEglColorspaceBt2020Hlg : kEglColorspaceBt2020Pq;
   const int want_bits = modes == kModeScrgbLinear ? 16 : 10;
   // 1 : capacite DETECTEE et publiee, par les deux couches.
   s_d[1] = (sys_ok && plat_ok) ? 0 : 1;
@@ -1444,20 +1713,48 @@ void compute_verdicts() {
   s_dyn_stats.gain_new = gain_new;
   s_dyn_stats.gain_old = gain_old;
   s_dyn_stats.hl_lin = hl_lin;
+  // 14 : LE FORMAT SE CHOISIT SEUL (verdict 13 de l'item, refus owner du 11/09). Ce n'est pas
+  // un miroir de la decision : il la confronte a la SURFACE REELLEMENT OBTENUE en phase ON.
+  int fmt = kFmtNone, fmt_rank = 0;
+  uint32_t fmt_transport = kModeNone;
+  bool higher_all_explained = true, dv_announced = false;
+  {
+    std::lock_guard<std::mutex> lk2(s_mu);
+    fmt = format_chosen_locked();
+    fmt_rank = format_rank_locked(fmt);
+    fmt_transport = format_transport_locked(fmt);
+    dv_announced = (s_sys.types & kSysDolbyVision) != 0;
+    // tout format MIEUX classe que le retenu doit porter une raison nommee (jamais "-")
+    for (int i = 0; i < 4 && kFormatPreference[i] != fmt; i++) {
+      const char* r = format_reason_locked(kFormatPreference[i]);
+      if (!r || r[0] == '\0' || (r[0] == '-' && r[1] == '\0')) {
+        higher_all_explained = false;
+      }
+    }
+  }
+  bool fmt_ok;
+  if (modes == kModeNone) {
+    fmt_ok = (fmt == kFmtNone);          // rien d'annonce : rien de retenu, rangee cachee
+  } else {
+    fmt_ok = fmt != kFmtNone && fmt != kFmtDolbyVision && fmt_rank > 0 && higher_all_explained &&
+             fmt_transport == modes && s_ph[1].frames > 0 && s_ph[1].last_mode == modes;
+  }
+  s_d[14] = fmt_ok ? 0 : 1;
   s_defects = 0;
-  for (int i = 1; i <= 13; i++) {
+  for (int i = 1; i <= 14; i++) {
     s_defects += s_d[i];
   }
   lg::info(
-      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
       "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f} "
       "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={} "
-      "couverture 2%={:.3f} 10%={:.3f} 25%={:.3f} 25%hi={:.3f} 50%={:.3f} moyenne_diluee={:.3f}",
+      "couverture 2%={:.3f} 10%={:.3f} 25%={:.3f} 25%hi={:.3f} 50%={:.3f} moyenne_diluee={:.3f}"
+      " format={} rang={} dv_annonce={}",
       s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
-      s_d[11], s_d[12], s_d[13], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
+      s_d[11], s_d[12], s_d[13], s_d[14], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
       ps.hl_max, on.last_ceiling, onsim.last_ceiling, pon.shadow_levels, poff.shadow_levels,
       pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode), cover, cover10,
-      cover25, cover25_hi, cover50, lift_mean);
+      cover25, cover25_hi, cover50, lift_mean, format_name(fmt), fmt_rank, dv_announced ? 1 : 0);
 }
 
 bool scene_ready() {
@@ -1607,7 +1904,32 @@ const char* mode_name(uint32_t mode) {
   if (mode & kModeScrgbLinear) {
     return "scrgb_linear";
   }
-  return (mode & kModeHdr10Pq) ? "hdr10_pq" : "none";
+  if (mode & kModeHdr10Pq) {
+    return "hdr10_pq";
+  }
+  return (mode & kModeHlg) ? "hlg" : "none";
+}
+
+int format_chosen() {
+  std::lock_guard<std::mutex> lk(s_mu);
+  return format_chosen_locked();
+}
+
+uint32_t format_transport(int fmt) {
+  std::lock_guard<std::mutex> lk(s_mu);
+  return format_transport_locked(fmt);
+}
+
+// Table pure : aucun etat lu, donc aucun verrou.
+const char* format_name(int fmt) {
+  switch (fmt) {
+    case kFmtScrgb: return "scrgb_extended";
+    case kFmtHdr10Plus: return "hdr10plus";
+    case kFmtHdr10: return "hdr10";
+    case kFmtHlg: return "hlg";
+    case kFmtDolbyVision: return "dolby_vision";
+    default: return "none";
+  }
 }
 
 const char* caps_string() {
@@ -1788,8 +2110,20 @@ const char* sdr_white_source() {
 }
 
 float paper_white() {
-  if (s_surface.mode == kModeHdr10Pq && s_active.load()) {
-    return sdr_white_nits();
+  if (!s_active.load()) {
+    return 1.f;
+  }
+  if (s_surface.mode == kModeHdr10Pq) {
+    return sdr_white_nits();  // PQ : des NITS absolus
+  }
+  if (s_surface.mode == kModeHlg) {
+    // HLG est RELATIF : `u_out_paper_white` y est la FRACTION du pic qu'occupe le blanc du jeu,
+    // jamais un nits (post_processing.frag, mode 3). Le tone map fait sortir le plafond a
+    // `headroom^(1/2,2)` en espace d'affichage, soit `headroom` une fois linearise : la fraction
+    // qui met ce plafond exactement au pic de l'ecran est donc 1/headroom. Sans marge accordee
+    // elle vaut 1,0 — le blanc du jeu sort AU pic, rien n'est assombri.
+    const float h = headroom_linear();
+    return h > 1.f ? 1.f / h : 1.f;
   }
   return 1.f;
 }
@@ -1801,9 +2135,20 @@ float headroom_linear() {
   if (s_surface.mode == kModeScrgbLinear) {
     return ratio_linear();
   }
-  // PQ (API < 34) : le compositeur recompose en SDR a l'echelle de maxLuminance ; le blanc SDR
-  // EST ce maximum, il n'y a aucune marge au-dessus (mesure Redmi du 09/09, voir l'en-tete).
-  return 1.f;
+  // PQ / HLG : aucune API ne PUBLIE la marge accordee avant l'API 34. Ce qui est lisible, c'est
+  // le pic ANNONCE par l'ecran et le blanc SDR du conteneur : le compositeur recompose le PQ a
+  // l'echelle du pic annonce, donc la marge EST leur quotient. Quand les deux coincident — le
+  // cas d'un ecran qui annonce le HDR sans rien accorder a une surface applicative — il vaut
+  // 1,000 : ANNONCER N'EST PAS ACCORDER, et ce 1,000 est alors une mesure, pas une constante.
+  const float pk = peak_nits();
+  const float w = sdr_white_nits();
+  if (!(pk > 0.f) || !(w > 0.f)) {
+    return 1.f;
+  }
+  float h = pk / w;
+  if (!(h >= 1.f)) h = 1.f;
+  if (h > kHeadroomMax) h = kHeadroomMax;
+  return h;
 }
 
 float tonemap_ceiling() {
@@ -1951,7 +2296,13 @@ void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
 
 void push_present_uniforms(Shader& shader) {
   const bool on = s_active.load();
-  s_last_present_mode = on ? (s_surface.mode == kModeScrgbLinear ? 2 : 1) : 0;
+  // Le TRANSPORT decide l'encodage du quad final. Une surface HLG qui recevait l'encodage PQ
+  // (tout ce qui n'etait pas scRGB tombait sur 1) sortait une OETF pour une autre : la branche
+  // `u_out_mode == 3` de post_processing.frag n'etait atteinte par personne.
+  s_last_present_mode = !on                                     ? 0
+                        : s_surface.mode == kModeScrgbLinear    ? 2
+                        : s_surface.mode == kModeHlg            ? 3
+                                                                : 1;
   glUniform1i(glGetUniformLocation(shader.id(), "u_out_mode"), s_last_present_mode);
   glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), paper_white());
   glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"), peak_nits());
@@ -2483,6 +2834,14 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     // pic simule, qui n'est qu'un etirement arithmetique de notre cote).
     if (on && (s_phase == 1 || s_phase == 4) && s_frame_ratio_x1000 > s_ratio_max_x1000) {
       s_ratio_max_x1000 = s_frame_ratio_x1000;
+    }
+    // La marge PHYSIQUE, echantillonnee sur les memes phases : ON reel contre OFF.
+    if ((ph.frames % 15) == 0) {
+      if (on && (s_phase == 1 || s_phase == 4)) {
+        backlight_sample(s_bl_on);
+      } else if (!on && s_phase == 2) {
+        backlight_sample(s_bl_off);
+      }
     }
     const bool expect_on = (s_phase == 1 || s_phase == 3 || s_phase == 4);
     const bool expect_off = (s_phase == 2);

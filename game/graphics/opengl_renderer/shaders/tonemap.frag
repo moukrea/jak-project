@@ -74,39 +74,55 @@ vec3 hdr_shoulder(vec3 x, float k) {
 //   * f(t) - p.t = t^2.[(3-2p) + (p-2).t] > 0 pour p <= 1 : la sortie n'est JAMAIS sous
 //     l'identite, donc jamais sous le SDR (qui est <= identite partout). C'est la raison de la
 //     borne T <= C posee cote C++ : elle rend l'assombrissement IMPOSSIBLE, pas seulement rare.
-// Chaque canal s'etire seul : une haute lumiere coloree garde sa couleur au lieu de blanchir.
-vec3 hdr_expand(vec3 x, float a, float T, float C) {
+// L'echelle est COMMUNE aux trois canaux : la courbe est evaluee sur le canal MAXIMUM, et les
+// trois canaux sont multiplies par le MEME facteur, donc les rapports R:G:B sont conserves
+// exactement — teinte et saturation inchangees, seule la luminance monte. C'est ce que le refus
+// owner du 10/09 demande (« rester dans les tons de couleurs attendus ») : traiter chaque canal
+// seul ecrasait le canal fort au plafond pendant que le faible ne bougeait pas — saturation qui
+// explose, teinte qui derive, « contrastes completement crames ». Et comme f >= identite, le
+// facteur m2/m est >= 1 : AUCUN pixel ne peut s'assombrir, la demonstration ci-dessus tient
+// toujours ; le canal maximum sort exactement a m2 <= C, donc rien n'est ecrete.
+float hdr_expand_scalar(float v, float a, float T, float C) {
   float r = max(C - a, 1e-4);
   float w = max(T - a, 1e-4);
   float p = clamp(w / r, 1e-3, 1.0);
-  for (int c = 0; c < 3; c++) {
-    float v = x[c];
-    if (v <= a) {
-      continue;
-    }
-    if (v >= T) {
-      x[c] = C;
-      continue;
-    }
-    float t = (v - a) / w;
-    x[c] = a + r * (p * t + (3.0 - 2.0 * p) * t * t + (p - 2.0) * t * t * t);
+  if (v <= a) {
+    return v;
   }
-  return x;
+  if (v >= T) {
+    return C;
+  }
+  float t = (v - a) / w;
+  return a + r * (p * t + (3.0 - 2.0 * p) * t * t + (p - 2.0) * t * t * t);
+}
+
+vec3 hdr_expand(vec3 x, float a, float T, float C) {
+  float m = max(x.r, max(x.g, x.b));
+  if (m <= a) {
+    return x;
+  }
+  float m2 = hdr_expand_scalar(m, a, T, C);
+  return x * (m2 / max(m, 1e-5));
 }
 
 // LE PIED. Releve les ombres sans toucher au noir : l'apport est v.(1 - v/s)^2, nul en 0 (le
 // noir reste noir, pas de voile laiteux) et nul en s avec une derivee continue. Toujours >= 0 :
-// un relevement ne peut pas assombrir.
-vec3 hdr_toe_lift(vec3 x, float amt) {
+// un relevement ne peut pas assombrir. Meme regle de teinte que l'etirement : la courbe est
+// evaluee sur le canal MAXIMUM et le facteur obtenu s'applique aux trois canaux, donc les
+// rapports R:G:B sont intacts — une ombre bleutee est relevee, pas desaturee.
+float hdr_toe_scalar(float v, float amt) {
   const float s = 0.25;
-  for (int c = 0; c < 3; c++) {
-    float v = x[c];
-    if (v > 0.0 && v < s) {
-      float u = 1.0 - v / s;
-      x[c] = v + amt * v * u * u;
-    }
+  if (v > 0.0 && v < s) {
+    float u = 1.0 - v / s;
+    return v + amt * v * u * u;
   }
-  return x;
+  return v;
+}
+
+vec3 hdr_toe_lift(vec3 x, float amt) {
+  float m = max(x.r, max(x.g, x.b));
+  float m2 = hdr_toe_scalar(m, amt);
+  return x * (m2 / max(m, 1e-5));
 }
 
 vec3 hdr_neutral(vec3 c) {

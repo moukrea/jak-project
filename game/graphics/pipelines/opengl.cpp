@@ -789,9 +789,6 @@ void render_game_frame(int game_width,
       REFSET_SETTING(recharged_enhanced_models);
       REFSET_SETTING(recharged_rt_light_enable);
       REFSET_SETTING(recharged_ao_mode);
-      REFSET_SETTING(mb_target_active);
-      REFSET_SETTING(mb_isolate);
-      REFSET_SETTING(mb_pbr_override);
 #undef REFSET_SETTING
       real("settings.target_fps", settings.target_fps);
     }

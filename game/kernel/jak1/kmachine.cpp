@@ -39,6 +39,7 @@
 #include "game/graphics/fire_red_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/mesh_browser_census.h"
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
@@ -1135,6 +1136,222 @@ static void lighting_legacy_census() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// mesh-browser-removal : LE RECENSEMENT DU NAVIGATEUR DE MESH DE DEBUG.
+//
+// POURQUOI. Owner du 11/09, en validant l'item qui l'a livre : « TERMINE, MAIS IL FAUT SUPPRIMER
+// CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTREES MENU ET BOUTON SUR OVERLAY TACTILE, ET
+// RACCOURCI MANETTE IL ME SEMBLE ». La porte de l'item est `mesh_browser_sites == 0`.
+//
+// UNE PORTE `== 0` EST VERTE PAR INACTION. Publier un zero en dur la passe. Ce qui la rend
+// honnete, ici, c'est que le compte est MESURE sur le binaire livre par quatre sondes qui ne
+// peuvent pas se couvrir l'une l'autre, que chacune porte son TEMOIN (un temoin a zero rend la
+// porte muette, pas verte), et qu'un bras AVANT a ete mesure avec le navigateur encore en place
+// (`reports/mesh-browser-removal/notes/proof-recensement-AVANT.txt`).
+//
+//   1. GOAL    — la table des symboles du runtime, marchee comme dans `dead_probe_census` (pas de
+//                8 octets, cf. find_symbol_in_area). C'est l'image REELLEMENT CHARGEE qui repond,
+//                pas le source : un `mesh-browser-update` toujours dans GAME.CGO s'y voit.
+//                `intern_from_c` est proscrit : il CREERAIT le symbole qu'on pretend supprime.
+//   2. C++     — les champs `mb_*` de `GfxGlobalSettings`, detectes PAR LE COMPILATEUR (idiome
+//                SFINAE). Re-ajouter un champ a gfx.h rearme la porte sans qu'une ligne d'ici ne
+//                bouge — c'est ce qu'un `grep` recopie a la main ne sait pas faire.
+//   3. GATING  — l'option `mesh-browser-checker` de `recharged_gating`, LA table qui autorise une
+//                rangee de menu a exister.
+//   4. OVERLAY — les pastilles du navigateur dans l'overlay tactile Android. Java vit HORS de
+//                libgk.so : aucune sonde C++ ne le voit, c'est donc `TouchOverlayView` qui
+//                rapporte (game/system/mesh_browser_census.h). Tant qu'il n'a rien dit, la sonde
+//                rend 1 : INCONNU = DEFAUT, jamais « propre ».
+namespace {
+
+// L'idiome de detection : la reponse vient de la VRAIE declaration de `GfxGlobalSettings`.
+#define MB_DETECT_FIELD(NAME, FIELD)                                                        \
+  template <typename T, typename = void>                                                    \
+  struct NAME : std::false_type {};                                                         \
+  template <typename T>                                                                     \
+  struct NAME<T, std::void_t<decltype(std::declval<T&>().FIELD)>> : std::true_type {};
+
+MB_DETECT_FIELD(HasMbChecker, recharged_mesh_browser_checker)
+MB_DETECT_FIELD(HasMbTargetActive, mb_target_active)
+MB_DETECT_FIELD(HasMbHideTarget, mb_hide_target)
+MB_DETECT_FIELD(HasMbGizmosTarget, mb_gizmos_target)
+MB_DETECT_FIELD(HasMbIsolate, mb_isolate)
+MB_DETECT_FIELD(HasMbPbrOverride, mb_pbr_override)
+MB_DETECT_FIELD(HasMbPickSerial, mb_pick_serial)
+MB_DETECT_FIELD(HasMbHoverOn, mb_hover_on)
+MB_DETECT_FIELD(HasMbMarksStore, mb_marks_store)
+MB_DETECT_FIELD(HasMbFlipCounters, mb_frame_no)
+// LE TEMOIN de la sonde C++ : un champ du chemin NORMAL, qui doit rester. S'il rend 0, c'est le
+// detecteur qui est casse (nom de type change, en-tete non inclus), pas le navigateur qui a
+// disparu — et la porte doit se lire « muette », pas « verte ».
+MB_DETECT_FIELD(HasRechargedMaster, recharged_master)
+#undef MB_DETECT_FIELD
+
+constexpr u32 kMbCppSites =
+    (u32)HasMbChecker<GfxGlobalSettings>::value + (u32)HasMbTargetActive<GfxGlobalSettings>::value +
+    (u32)HasMbHideTarget<GfxGlobalSettings>::value +
+    (u32)HasMbGizmosTarget<GfxGlobalSettings>::value + (u32)HasMbIsolate<GfxGlobalSettings>::value +
+    (u32)HasMbPbrOverride<GfxGlobalSettings>::value +
+    (u32)HasMbPickSerial<GfxGlobalSettings>::value + (u32)HasMbHoverOn<GfxGlobalSettings>::value +
+    (u32)HasMbMarksStore<GfxGlobalSettings>::value +
+    (u32)HasMbFlipCounters<GfxGlobalSettings>::value;
+constexpr u32 kMbCppCensused = 10;  // combien de champs on CHERCHE : non nul par construction
+
+// La FAMILLE du navigateur cote GOAL. Deux formes, parce qu'aucune seule ne suffit :
+//   * PREFIXES — `mb-`, `*mb-`, `pc-mb-` : la famille courte. Un `strstr("mb-")` attraperait
+//     `climb-...` et rendrait la porte inatteignable a vie ; l'ancrage en DEBUT de nom, lui, est
+//     exact. Le `*` des globales GOAL est traite comme un debut de nom.
+//   * SOUS-CHAINES — `mesh-browser`, `mesh-index`, `mesh-marks` : sans ambiguite ou qu'elles
+//     tombent dans le nom (`*mesh-browser*`, `pc-mesh-index-getf`, ...).
+constexpr const char* kMbSymbolPrefixes[] = {"mb-", "*mb-", "pc-mb-", "mb_", "*mb_"};
+constexpr const char* kMbSymbolSubstrings[] = {"mesh-browser", "mesh_browser", "mesh-index",
+                                               "mesh_index", "mesh-marks", "mesh_marks"};
+constexpr int kMbPrefixCount = (int)(sizeof(kMbSymbolPrefixes) / sizeof(char*));
+constexpr int kMbSubstringCount = (int)(sizeof(kMbSymbolSubstrings) / sizeof(char*));
+
+// LE TEMOIN de la sonde GOAL : des symboles du jeu normal qui doivent repondre. S'ils manquent,
+// c'est la marche de la table qui est cassee, pas le navigateur qui a disparu.
+constexpr const char* kMbGoalControl[] = {"target", "progress", "*target*", "camera-master"};
+constexpr int kMbGoalControlCount = (int)(sizeof(kMbGoalControl) / sizeof(char*));
+
+// La sonde GATING et son temoin.
+constexpr const char* kMbGatingOpts[] = {"mesh-browser-checker"};
+constexpr int kMbGatingCount = (int)(sizeof(kMbGatingOpts) / sizeof(char*));
+constexpr const char* kMbGatingControl[] = {"lighting", "ao-mode"};
+constexpr int kMbGatingControlCount = (int)(sizeof(kMbGatingControl) / sizeof(char*));
+
+bool mb_symbol_matches(const char* nm) {
+  for (int i = 0; i < kMbPrefixCount; i++) {
+    const char* p = kMbSymbolPrefixes[i];
+    if (strncmp(nm, p, strlen(p)) == 0) {
+      return true;
+    }
+    // Une globale GOAL s'ecrit `*nom*` : le `*` de tete ne fait pas partie de la famille.
+    if (nm[0] == '*' && strncmp(nm + 1, p, strlen(p)) == 0) {
+      return true;
+    }
+  }
+  for (int i = 0; i < kMbSubstringCount; i++) {
+    if (strstr(nm, kMbSymbolSubstrings[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
+static void mesh_browser_removal_census() {
+  static u32 s_worst_goal = 0;
+  static u32 s_passes = 0;
+  static std::string s_worst_names;
+
+  // ── sonde 1 : la table des symboles GOAL ──────────────────────────────────────────────────
+  u32 goal_live = 0;
+  u32 goal_control = 0;
+  u32 scanned = 0;
+  std::string names;
+  if (SymbolTable2.offset && LastSymbol.offset) {
+    for (u32 slot = SymbolTable2.offset; slot < LastSymbol.offset; slot += 8) {
+      auto sym = Ptr<Symbol>(slot);
+      if (!info(sym)->hash) {
+        continue;  // slot jamais occupe
+      }
+      u32 stro = info(sym)->str.offset;
+      if (!stro || stro >= (u32)EE_MAIN_MEM_SIZE - 128) {
+        continue;
+      }
+      const char* nm = reinterpret_cast<const char*>(Ptr<u8>(stro + 4).c());
+      size_t nlen = strnlen(nm, 96);
+      if (!nlen || nlen >= 96) {
+        continue;
+      }
+      scanned++;
+      if (mb_symbol_matches(nm)) {
+        goal_live++;
+        if (!names.empty()) {
+          names += ',';
+        }
+        names += nm;
+      }
+      for (int i = 0; i < kMbGoalControlCount; i++) {
+        if (strcmp(nm, kMbGoalControl[i]) == 0) {
+          goal_control++;
+          break;
+        }
+      }
+    }
+  }
+  // La table se remplit au fil des DGO charges : on garde le PIRE, pour qu'une apparition tardive
+  // ne puisse pas etre lavee par une passe propre.
+  if (goal_live >= s_worst_goal) {
+    if (goal_live > s_worst_goal && !names.empty()) {
+      // L'audit des faux positifs se fait sur la LISTE COMPLETE, pas sur la cle tronquee : elle
+      // part dans le journal du moteur, que `proof-engine.log` conserve.
+      lg::warn("[mb-census] {} symboles de la famille : {}", goal_live, names);
+    }
+    s_worst_goal = goal_live;
+    s_worst_names = names;
+  }
+  s_passes++;
+
+  // ── sonde 3 : la table de `recharged_gating` ──────────────────────────────────────────────
+  u32 gating_live = 0;
+  u32 gating_control = 0;
+  for (int i = 0; i < kMbGatingCount; i++) {
+    if (recharged_gating::by_name(kMbGatingOpts[i]) >= 0) {
+      gating_live++;
+    }
+  }
+  for (int i = 0; i < kMbGatingControlCount; i++) {
+    if (recharged_gating::by_name(kMbGatingControl[i]) >= 0) {
+      gating_control++;
+    }
+  }
+
+  // ── sonde 4 : l'overlay tactile, rapporte par Java ────────────────────────────────────────
+  const u32 overlay_live = mesh_browser_census::overlay_sites();
+
+  // ── LA PORTE ──────────────────────────────────────────────────────────────────────────────
+  autoport_proof::publish("mesh_browser_sites",
+                          (u64)s_worst_goal + (u64)kMbCppSites + (u64)gating_live +
+                              (u64)overlay_live);
+  autoport_proof::publish("mesh_browser_goal_sites", s_worst_goal);
+  autoport_proof::publish("mesh_browser_cpp_sites", kMbCppSites);
+  autoport_proof::publish("mesh_browser_gating_sites", gating_live);
+  autoport_proof::publish("mesh_browser_overlay_sites", overlay_live);
+  // Le recensement AVANT : combien de sites on CHERCHE. Un zero ici dirait que la table de
+  // recherche a ete videe, pas que le navigateur a disparu.
+  autoport_proof::publish("mesh_browser_censused",
+                          (u64)kMbCppCensused + (u64)kMbGatingCount + (u64)kMbPrefixCount +
+                              (u64)kMbSubstringCount);
+  // LES TEMOINS. Un temoin a zero rend la porte MUETTE, pas verte.
+  autoport_proof::publish("mesh_browser_symbols_scanned", scanned);
+  autoport_proof::publish("mesh_browser_symbols_known", NumSymbols < 0 ? 0 : (u64)NumSymbols);
+  autoport_proof::publish("mesh_browser_control_goal", goal_control);
+  autoport_proof::publish("mesh_browser_control_cpp",
+                          (u64)(HasRechargedMaster<GfxGlobalSettings>::value ? 1 : 0));
+  autoport_proof::publish("mesh_browser_control_gating", gating_control);
+  autoport_proof::publish("mesh_browser_overlay_control", mesh_browser_census::overlay_control());
+  autoport_proof::publish("mesh_browser_overlay_reports",
+                          mesh_browser_census::overlay_reported());
+  // Le denominateur de CE recensement : `hits` est partage par tout le binaire.
+  autoport_proof::publish("mesh_browser_passes", s_passes);
+  // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere liste
+  // non vide resterait a cote d'un compte a zero.
+  {
+    std::string shown = s_worst_names;
+    if (shown.size() > 300) {
+      shown.resize(300);
+      shown += "...";
+    }
+    autoport_proof::publish_text("mesh_browser_goal_list", shown.empty() ? "-" : shown.c_str());
+  }
+  if (autoport_proof::feature_is("mesh-browser-removal")) {
+    autoport_proof::note_hit(1);
+  }
+}
+
 void pc_autoport_frame() {
   // recharged-gating-real : LE seul point de ce fichier qui tourne une fois par image RENDUE.
   // La valeur EFFECTIVE doit etre dans le champ meme quand aucun `pc-set-*` n'a bouge : un
@@ -1157,6 +1374,9 @@ void pc_autoport_frame() {
       // lighting-legacy-purge : meme cadence et meme raison — la table des symboles se
       // remplit au fil des DGO, une seule passe au demarrage ne verrait pas un symbole tardif.
       lighting_legacy_census();
+      // mesh-browser-removal : idem. La sonde overlay, elle, se met a jour toute seule des que
+      // `TouchOverlayView` rapporte ; on la relit simplement a chaque passe.
+      mesh_browser_removal_census();
     }
   }
   // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
@@ -4107,1343 +4327,6 @@ void pc_set_rt_light(u32 sym) {
 // plus ecrits ; les sections elles-memes restent disponibles dans custom_tex.
 #endif
 
-// ===============================================================================================
-// Grecharged-mesh-browser: the debug MESH BROWSER back end (owner's direct request).
-//
-// The browser lists every displaceable mesh of a level worst-grade-first, lets the owner warp to
-// any one, auto-frames the camera on its bounding box, and toggles the checker / displacement /
-// relief / time-of-day while he judges it. GOAL owns the UI, the warp, the camera orbit and the
-// input; C++ owns the on-disk catalogue (parsing thousands of rows in GOAL would be painful) and
-// the checker toggle. This block is the bridge:
-//   * pc-mesh-index-load!    parse the bundled mesh_index_<level>.txt for a level -> in-memory rows
-//   * pc-mesh-index-count    how many meshes the loaded level has
-//   * pc-mesh-index-*        per-row scalar getters (system/grade/centroid/bbox) keyed by row idx
-//   * pc-mesh-index-name!    copy a row's material name into a GOAL string (font-encoded)
-//   * pc-mesh-index-level!   copy the loaded level's name into a GOAL string
-//   * pc-set-mesh-browser-checker!  drive the real-texture<->checker global (no adb needed)
-//   * pc-mesh-browser-export!  write the selected mesh identifier to files/mesh_select.txt
-// Read-only w.r.t. the render path: nothing here changes a shader; the checker global only
-// re-points an EXISTING debug material, applied at the next level load.
-// ===============================================================================================
-namespace {
-struct MeshIndexRow {
-  int system = 0;  // 0 TFRAG, 1 TIE
-  int tex_id = 0;
-  int shell = 0;
-  int graded = 0;       // 1 if the offline sign test produced a grade
-  int a_sign_x100 = -1;  // percent x100, -1 when ungraded
-  int b_disp_x100 = -1;
-  float cx = 0, cy = 0, cz = 0;
-  float lox = 0, loy = 0, loz = 0;
-  float hix = 0, hiy = 0, hiz = 0;
-  std::string material;
-};
-// V2: indices are CACHED per level (the ray pick below hits up to two levels every frame, so
-// re-parsing thousands of rows per pick would be absurd). std::map nodes never move, so the
-// pointers handed out below stay valid for the process lifetime.
-static std::map<std::string, std::vector<MeshIndexRow>> g_mesh_index_cache;
-std::string g_mesh_index_level;
-// The level the list UI currently reads; all the row getters go through this.
-static const std::vector<MeshIndexRow>* g_mesh_index_cur = nullptr;
-
-// GOAL strings arrive font-encoded uppercase; on-disk index names are lowercase [a-z0-9-].
-std::string mb_clean_level_name(const std::string& level) {
-  std::string lvl_lower = str_util::to_lower(level);
-  std::string clean;
-  for (char c : lvl_lower) {
-    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
-      clean.push_back(c);
-    }
-  }
-  return clean;
-}
-
-// Parse-on-first-request cache lookup. `name` is already cleaned. nullptr = no usable index
-// (missing file / bad header) — failures are NOT cached so a late-pushed index still loads.
-static const std::vector<MeshIndexRow>* mb_load_level_index(const std::string& name) {
-  auto it = g_mesh_index_cache.find(name);
-  if (it != g_mesh_index_cache.end()) {
-    return &it->second;
-  }
-  const auto path =
-      file_util::get_bundled_mesh_index_dir(g_game_version) / ("mesh_index_" + name + ".txt");
-  std::ifstream in(path.string());
-  if (!in) {
-    lg::warn("[mesh-browser] no index for level '{}' at {}", name, path.string());
-    return nullptr;
-  }
-  std::string header;
-  if (!std::getline(in, header)) {
-    return nullptr;
-  }
-  {
-    std::istringstream hs(header);
-    std::string magic;
-    int ver = 0;
-    std::string lname;
-    long count = 0;
-    hs >> magic >> ver >> lname >> count;
-    if (magic != "MESHIDX") {
-      lg::warn("[mesh-browser] bad index header for '{}'", name);
-      return nullptr;
-    }
-    (void)ver;
-    (void)count;
-  }
-  std::vector<MeshIndexRow> rows;
-  std::string line;
-  while (std::getline(in, line)) {
-    if (line.empty()) {
-      continue;
-    }
-    std::istringstream ls(line);
-    MeshIndexRow r;
-    int idx = 0;
-    if (!(ls >> idx >> r.system >> r.tex_id >> r.shell >> r.graded >> r.a_sign_x100 >>
-          r.b_disp_x100 >> r.cx >> r.cy >> r.cz >> r.lox >> r.loy >> r.loz >> r.hix >> r.hiy >>
-          r.hiz)) {
-      continue;
-    }
-    std::getline(ls, r.material);  // rest of line (leading space + spaceless material tail)
-    while (!r.material.empty() && (r.material.front() == ' ' || r.material.front() == '\t')) {
-      r.material.erase(r.material.begin());
-    }
-    if (r.material.empty()) {
-      r.material = "?";
-    }
-    rows.push_back(std::move(r));
-  }
-  auto ins = g_mesh_index_cache.emplace(name, std::move(rows));
-  lg::info("[mesh-browser] loaded {} meshes for level '{}'", ins.first->second.size(), name);
-  return &ins.first->second;
-}
-
-// jak1/kmachine.cpp has no kmachine_extras helper (unlike jak2/3), and the common file's
-// bool_to_symbol is file-local — so provide the same #t/#f GOAL-symbol return here.
-inline u64 mb_bool_to_symbol(bool val) {
-  return val ? static_cast<u64>(s7.offset) + true_symbol_offset(g_game_version) : s7.offset;
-}
-
-// Copy a std::string into a GOAL string buffer (font-encoded, uppercased for the jak1 font), the
-// same pattern as pc_get_display_name. Truncates to the GOAL string's declared allocated length.
-void copy_to_goal_string(u32 str_dest_ptr, const std::string& s) {
-  if (!str_dest_ptr) {
-    return;
-  }
-  std::string up = s;
-  if (g_game_version == GameVersion::Jak1) {
-    up = str_util::to_upper(up);
-  }
-  const auto encoded =
-      get_font_bank_from_game_version(g_game_version)->convert_utf8_to_game(up.c_str());
-  auto* gs = Ptr<String>(str_dest_ptr).c();
-  // String::len is the allocated capacity; keep one byte for the NUL.
-  int cap = (int)gs->len;
-  std::string clipped = (cap > 1 && (int)encoded.size() >= cap) ? encoded.substr(0, cap - 1)
-                                                                : encoded;
-  strcpy(gs->data(), clipped.c_str());
-}
-}  // namespace
-
-// Load and parse the bundled per-level index. Returns the mesh count (0 on any failure — a level
-// without an index simply lists empty, never crashes). `level_name_ptr` is a GOAL string.
-u64 pc_mesh_index_load(u32 level_name_ptr) {
-  g_mesh_index_cur = nullptr;
-  g_mesh_index_level.clear();
-  if (!level_name_ptr) {
-    return 0;
-  }
-  std::string level = Ptr<String>(level_name_ptr).c()->data();
-  std::string clean = mb_clean_level_name(level);
-  if (clean.empty()) {
-    return 0;
-  }
-  g_mesh_index_cur = mb_load_level_index(clean);
-  if (!g_mesh_index_cur) {
-    return 0;
-  }
-  g_mesh_index_level = clean;
-  return (u64)g_mesh_index_cur->size();
-}
-
-u64 pc_mesh_index_count() {
-  return g_mesh_index_cur ? (u64)g_mesh_index_cur->size() : 0;
-}
-
-// One scalar getter, keyed by (row, field). Keeping it a single entry point avoids a dozen tiny
-// externs. field ids: 0 system, 1 graded, 2 a_sign_x100, 3 b_disp_x100, 4 tex_id, 5 shell.
-s64 pc_mesh_index_geti(u32 row, u32 field) {
-  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
-    return -1;
-  }
-  const auto& r = (*g_mesh_index_cur)[row];
-  switch (field) {
-    case 0:
-      return r.system;
-    case 1:
-      return r.graded;
-    case 2:
-      return r.a_sign_x100;
-    case 3:
-      return r.b_disp_x100;
-    case 4:
-      return r.tex_id;
-    case 5:
-      return r.shell;
-    default:
-      return -1;
-  }
-}
-
-// Geometry getter (world metres, GOAL float). field ids: 0 cx 1 cy 2 cz, 3 lox 4 loy 5 loz,
-// 6 hix 7 hiy 8 hiz. The caller multiplies by 4096 to reach GOAL units.
-// Returns the FLOAT BIT PATTERN in the integer return register, NOT a C float: GOAL reads every
-// builtin return from the integer register (x86 RAX / arm64 X0), while a C `float` travels in
-// XMM0/S0 — so a real float return reads back as 0.0 in GOAL on both backends. This exact hole made
-// every centroid/bbox read 0 on device: the browser "warped to the same spot every time" (the
-// owner's report) because that spot was the world origin. Same convention as
-// common/kmachine.cpp::pc_get_axis_scale.
-u64 pc_mesh_index_getf(u32 row, u32 field) {
-  float out = 0.f;
-  const auto bits = [&out]() -> u64 {
-    u32 b;
-    memcpy(&b, &out, sizeof(b));
-    return b;
-  };
-  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
-    return bits();
-  }
-  const auto& r = (*g_mesh_index_cur)[row];
-  switch (field) {
-    case 0:
-      out = r.cx;
-      break;
-    case 1:
-      out = r.cy;
-      break;
-    case 2:
-      out = r.cz;
-      break;
-    case 3:
-      out = r.lox;
-      break;
-    case 4:
-      out = r.loy;
-      break;
-    case 5:
-      out = r.loz;
-      break;
-    case 6:
-      out = r.hix;
-      break;
-    case 7:
-      out = r.hiy;
-      break;
-    case 8:
-      out = r.hiz;
-      break;
-    default:
-      out = 0.f;
-      break;
-  }
-  return bits();
-}
-
-// Copy a row's material name into a GOAL string; returns #t/#f.
-u64 pc_mesh_index_name(u32 row, u32 str_dest_ptr) {
-  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
-    return mb_bool_to_symbol(false);
-  }
-  copy_to_goal_string(str_dest_ptr, (*g_mesh_index_cur)[row].material);
-  return mb_bool_to_symbol(true);
-}
-
-// Copy the loaded level's name into a GOAL string.
-u64 pc_mesh_index_levelname(u32 str_dest_ptr) {
-  if (g_mesh_index_level.empty()) {
-    return mb_bool_to_symbol(false);
-  }
-  copy_to_goal_string(str_dest_ptr, g_mesh_index_level);
-  return mb_bool_to_symbol(true);
-}
-
-// The real-texture <-> checker toggle (settable without adb; see gfx.h field comment).
-void pc_set_mesh_browser_checker(u32 mode) {
-  recharged_gating::set(recharged_gating::kMeshBrowserChecker, (int)std::min(mode, 4u));
-}
-
-// Write the selected mesh identifier to files/mesh_select.txt so the owner can quote it back to us
-// without adb (mirrors pos_dump.txt). Called on selection, not per frame — no throttle needed.
-void pc_mesh_browser_export(u32 row) {
-  if (!g_mesh_index_cur || row >= g_mesh_index_cur->size()) {
-    return;
-  }
-  const auto& r = (*g_mesh_index_cur)[row];
-  const char* sysname = r.system == 1 ? "TIE" : "TFRAG";
-  std::string grade = r.graded ? fmt::format("{:.2f}%", r.a_sign_x100 / 100.0) : "n/a";
-  try {
-    std::string body = fmt::format(
-        "MESH SELECT\n"
-        "level      {}\n"
-        "material   {}\n"
-        "system     {}\n"
-        "tex_id     {}\n"
-        "shell      {}\n"
-        "row        {}\n"
-        "A_sign     {}\n"
-        "centroid_m {:.3f} {:.3f} {:.3f}\n"
-        "warp.pos   {:.2f} {:.2f} {:.2f}\n",
-        g_mesh_index_level, r.material, sysname, r.tex_id, r.shell, row, grade, r.cx, r.cy, r.cz,
-        r.cx, r.cy, r.cz);
-    file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_select.txt", body);
-  } catch (...) {
-    // best-effort; never let a disk error touch the game loop
-  }
-}
-
-// ===============================================================================================
-// Grecharged-mesh-browser V2: reticle-first FREECAM. The list UI is out; the primary flow is now
-// "fly, point the crosshair at a mesh, R1/R2 to target it". That needs three things the V1 bridge
-// did not have:
-//   * a RAY PICK over the index AABBs (up to TWO levels — the freecam can straddle a border),
-//   * a TARGET CHANNEL into Gfx::g_global_settings so the renderer can hide / checker / gizmo the
-//     one targeted mesh (per-draw, gated by the row's tex_id + AABB),
-//   * runtime PROOF counters read back from the render thread, because two V1 toggles shipped
-//     dead — every toggle must now demonstrate on->off->on via observable draw counts.
-// ===============================================================================================
-namespace {
-// The freecam's pick scope: up to two level indices (empty string = slot unused).
-std::string g_mb_pick_lvl[2];
-
-struct MbPickHit {
-  int slot = 0;
-  int row = 0;
-  float t = 0.f;     // metres along the (normalized) ray to the SURFACE the reticle sees
-  float ttri = -1.f; // nearest REAL triangle hit (GOAL units), from the render-thread sweep
-};
-// serial whose triangle results have already been folded+sorted into g_mb_pick_hits.
-u32 g_mb_pick_sorted_serial = 0;
-std::vector<MbPickHit> g_mb_pick_hits;
-// V2.3: the last pick ray (o = raw GOAL units, d = unit), kept for the PICKTRACE forensics line.
-float g_mb_last_ray_o[3] = {0.f, 0.f, 0.f};
-float g_mb_last_ray_d[3] = {0.f, 0.f, 1.f};
-// V2.3: the CURRENT target's identity (row + pick-level slot), for the polygon-mark export.
-int g_mb_target_row = -1;
-int g_mb_target_slot = -1;
-// V2.3: polygon marks appended this session + the resolved export path (see mb_marks_path()).
-u64 g_mb_marks = 0;
-std::string g_mb_marks_path;
-// V2.5 (owner: "en réouvrant ce mode, les marques précédentes devraient subsister"): the mark
-// store is rebuilt from mesh_marks.jsonl on browser open / whenever the published pick-level set
-// changes. GOAL-thread only. g_mb_marks_skipped = file marks for the CURRENT levels that did not
-// fit the store (store full -> oldest lines in the file win); surfaced to the HUD via rt-geti 16.
-bool g_mb_marks_reload_pending = false;
-std::string g_mb_marks_loaded_set;
-u64 g_mb_marks_skipped = 0;
-void mb_marks_reload_maybe();
-}  // namespace
-
-// Set the (up to two) levels the ray pick searches. GOAL strings, same idiom as
-// pc-mesh-index-load!; pass the empty string to leave a slot unused.
-void pc_mb_pick_levels(u32 lvl0, u32 lvl1) {
-  const u32 ptrs[2] = {lvl0, lvl1};
-  for (int i = 0; i < 2; i++) {
-    g_mb_pick_lvl[i].clear();
-    if (ptrs[i]) {
-      g_mb_pick_lvl[i] = mb_clean_level_name(Ptr<String>(ptrs[i]).c()->data());
-    }
-  }
-  // V2.5: the pick levels ARE the "current level" of the mark store — restore this level's
-  // saved marks whenever the set changes (or a browser open left a reload pending).
-  mb_marks_reload_maybe();
-}
-
-// V2.3 EXACT pick: no more AABB candidate pre-filter (a clearly visible mesh could rank >16 in
-// AABB order and never get triangle-tested). This side now only publishes the RAY; the render
-// thread sweeps ALL rendered geometry (mb_pick::raytest) and pc_mb_pick_ready resolves the
-// globally-nearest ray-triangle hits back to index rows. origin/dir are GOAL vectors (origin in
-// raw GOAL units — the camera trans; dir need not be unit). Returns 1 on a published request.
-u64 pc_mb_pick(u32 origin, u32 dir) {
-  g_mb_pick_hits.clear();
-  if (!origin || !dir) {
-    return 0;
-  }
-  const float* o = Ptr<float>(origin).c();
-  const float* d = Ptr<float>(dir).c();
-  float dx = d[0], dy = d[1], dz = d[2];
-  const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
-  if (len < 1e-6f) {
-    return 0;
-  }
-  dx /= len;
-  dy /= len;
-  dz /= len;
-  g_mb_last_ray_o[0] = o[0];
-  g_mb_last_ray_o[1] = o[1];
-  g_mb_last_ray_o[2] = o[2];
-  g_mb_last_ray_d[0] = dx;
-  g_mb_last_ray_d[1] = dy;
-  g_mb_last_ray_d[2] = dz;
-  auto& gs = Gfx::g_global_settings;
-  for (int a = 0; a < 3; a++) {
-    gs.mb_pick_ray_o[a] = o[a];  // GOAL units — triangles are tested in GOAL units
-  }
-  gs.mb_pick_ray_d[0] = dx;
-  gs.mb_pick_ray_d[1] = dy;
-  gs.mb_pick_ray_d[2] = dz;
-  // Browsable-texid filter: the sweep may only test draws whose tree_tex_id is INDEXED (the
-  // mesh_index holds only displaceable materials; the offline reference sweep is scoped the
-  // same way — the runtime must match or the equivalence proof fails by construction).
-  for (int slot = 0; slot < 2; slot++) {
-    gs.mb_pick_flt_n[slot][0] = 0;
-    gs.mb_pick_flt_n[slot][1] = 0;
-    gs.mb_pick_flt_lvl[slot][0] = '\0';
-    if (g_mb_pick_lvl[slot].empty()) {
-      continue;
-    }
-    const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
-    if (!rows) {
-      continue;
-    }
-    strncpy(gs.mb_pick_flt_lvl[slot], g_mb_pick_lvl[slot].c_str(),
-            sizeof(gs.mb_pick_flt_lvl[slot]) - 1);
-    gs.mb_pick_flt_lvl[slot][sizeof(gs.mb_pick_flt_lvl[slot]) - 1] = '\0';
-    for (int sys = 0; sys < 2; sys++) {
-      std::set<u32> texs;
-      for (const auto& r : *rows) {
-        if (r.system == sys) {
-          texs.insert((u32)r.tex_id);
-        }
-      }
-      if ((int)texs.size() > GfxGlobalSettings::MB_PICK_FLT_MAX) {
-        lg::warn("[mb-diag] pick filter overflow: {} indexed texids (cap {}) lvl={} sys={}",
-                 texs.size(), GfxGlobalSettings::MB_PICK_FLT_MAX, g_mb_pick_lvl[slot], sys);
-      }
-      int fn = 0;
-      for (const u32 t : texs) {  // std::set iterates ascending -> array stays sorted
-        if (fn >= GfxGlobalSettings::MB_PICK_FLT_MAX) {
-          break;
-        }
-        gs.mb_pick_flt_tex[slot][sys][fn++] = t;
-      }
-      gs.mb_pick_flt_n[slot][sys] = fn;
-    }
-  }
-  // release pairs with the render thread's acquire: the ray + filter above are visible before
-  // the new serial is.
-  const u32 new_serial = gs.mb_pick_serial.load(std::memory_order_relaxed) + 1;
-  gs.mb_pick_serial.store(new_serial, std::memory_order_release);
-  lg::info("[mb-diag] pick request serial={} (full sweep, flt {}+{}/{}+{})", new_serial,
-           gs.mb_pick_flt_n[0][0], gs.mb_pick_flt_n[0][1], gs.mb_pick_flt_n[1][0],
-           gs.mb_pick_flt_n[1][1]);
-  return 1;
-}
-
-// V2.3: poll the full-sweep ray-test. 0 = still pending (results not published). On the first
-// ready call for a request, resolve each render-thread hit (already sorted ascending t, deduped
-// by (sys, texid, lvl)) back to the index row OWNING the hit triangle: among the rows of the
-// hit's system+texid, the one whose AABB CONTAINS the hit point (0.5 m slack) with the smallest
-// volume wins (tie -> lowest row index); if none contain, the nearest centroid of the
-// system+texid rows; if the level has no such rows at all, the hit is skipped. Appends one
-// PICKTRACE line to mb_pick_trace.txt for offline forensics. Returns 1 + the kept row count.
-// Idempotent after the first ready call.
-u64 pc_mb_pick_ready() {
-  auto& gs = Gfx::g_global_settings;
-  const u32 s = gs.mb_pick_serial.load(std::memory_order_relaxed);
-  if (gs.mb_pick_done.load(std::memory_order_acquire) != s) {
-    return 0;
-  }
-  if (g_mb_pick_sorted_serial != s) {
-    g_mb_pick_sorted_serial = s;
-    g_mb_pick_hits.clear();
-    const int n = std::min(gs.mb_pick_hit_n, GfxGlobalSettings::MB_PICK_MAX);
-    // the hits_out entry whose resolution produced the FIRST kept row (for the trace line)
-    const GfxGlobalSettings::MbRayHit* first_hit = nullptr;
-    for (int i = 0; i < n; i++) {
-      const auto& h = gs.mb_pick_hits_out[i];
-      // which pick-level slot does this hit's level belong to?
-      const std::string hl = mb_clean_level_name(h.lvl);
-      int slot = -1;
-      for (int sl = 0; sl < 2; sl++) {
-        if (!g_mb_pick_lvl[sl].empty() &&
-            strncmp(g_mb_pick_lvl[sl].c_str(), hl.c_str(), sizeof(h.lvl)) == 0) {
-          slot = sl;
-          break;
-        }
-      }
-      if (slot < 0) {
-        continue;
-      }
-      const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
-      if (!rows) {
-        continue;
-      }
-      const float hm[3] = {h.hit[0] / 4096.f, h.hit[1] / 4096.f, h.hit[2] / 4096.f};  // metres
-      // pass 1: containing rows (0.5 m slack), smallest AABB volume wins, tie -> lowest index
-      int best = -1;
-      float best_vol = std::numeric_limits<float>::max();
-      // pass-2 fallback bookkeeping: nearest centroid among system+texid rows
-      int near_row = -1;
-      float near_d2 = std::numeric_limits<float>::max();
-      for (int row = 0; row < (int)rows->size(); row++) {
-        const auto& r = (*rows)[(size_t)row];
-        if (r.system != h.sys || (u32)r.tex_id != h.texid) {
-          continue;
-        }
-        const float dx = r.cx - hm[0], dy = r.cy - hm[1], dz = r.cz - hm[2];
-        const float d2 = dx * dx + dy * dy + dz * dz;
-        if (d2 < near_d2) {
-          near_d2 = d2;
-          near_row = row;
-        }
-        if (hm[0] >= r.lox - 0.5f && hm[0] <= r.hix + 0.5f &&  //
-            hm[1] >= r.loy - 0.5f && hm[1] <= r.hiy + 0.5f &&  //
-            hm[2] >= r.loz - 0.5f && hm[2] <= r.hiz + 0.5f) {
-          const float vol = (r.hix - r.lox) * (r.hiy - r.loy) * (r.hiz - r.loz);
-          if (vol < best_vol) {  // strict: an earlier row keeps a tie
-            best_vol = vol;
-            best = row;
-          }
-        }
-      }
-      if (best < 0) {
-        best = near_row;  // no containing row: nearest centroid of the system+texid rows
-      }
-      if (best < 0) {
-        continue;  // level has no rows of this system+texid at all
-      }
-      bool dup = false;
-      for (const auto& kept : g_mb_pick_hits) {
-        if (kept.slot == slot && kept.row == best) {
-          dup = true;  // keep the first = nearest resolution of this row
-          break;
-        }
-      }
-      if (dup) {
-        continue;
-      }
-      MbPickHit ph;
-      ph.slot = slot;
-      ph.row = best;
-      ph.ttri = h.t;           // GOAL units, as before
-      ph.t = h.t / 4096.f;     // metres
-      g_mb_pick_hits.push_back(ph);
-      if (!first_hit) {
-        first_hit = &h;
-      }
-    }
-    // PICKTRACE: one line per pick, enough for an offline tool to replay the exact ray and
-    // re-find the exact triangle (same enumeration rule as the sweep).
-    try {
-      std::ofstream tf((file_util::get_jak_project_dir() / "mb_pick_trace.txt").string(),
-                       std::ios::app);
-      const int frow = g_mb_pick_hits.empty() ? -1 : g_mb_pick_hits.front().row;
-      const int fslot = g_mb_pick_hits.empty() ? -1 : g_mb_pick_hits.front().slot;
-      tf << fmt::format(
-          "PICKTRACE serial={} lvl0={} lvl1={} o={:.9g},{:.9g},{:.9g} d={:.9g},{:.9g},{:.9g} "
-          "n={} row={} slot={} t={:.9g} tex={} tri={} hit={:.9g},{:.9g},{:.9g}\n",
-          s, g_mb_pick_lvl[0].empty() ? "-" : g_mb_pick_lvl[0],
-          g_mb_pick_lvl[1].empty() ? "-" : g_mb_pick_lvl[1], g_mb_last_ray_o[0],
-          g_mb_last_ray_o[1], g_mb_last_ray_o[2], g_mb_last_ray_d[0], g_mb_last_ray_d[1],
-          g_mb_last_ray_d[2], (int)g_mb_pick_hits.size(), frow, fslot,
-          first_hit ? first_hit->t : -1.f, first_hit ? first_hit->texid : 0,
-          first_hit ? first_hit->tri : -1, first_hit ? first_hit->hit[0] : 0.f,
-          first_hit ? first_hit->hit[1] : 0.f, first_hit ? first_hit->hit[2] : 0.f);
-    } catch (...) {
-      // best-effort; never let a disk error touch the game loop
-    }
-    lg::info("[mb-diag] pick ready serial={} raw_hits={} kept={}", s, n,
-             (int)g_mb_pick_hits.size());
-  }
-  return 1 + (u64)g_mb_pick_hits.size();
-}
-
-// Hit getter over the last pick. field: 0 row, 1 slot, 2 t in centimetres. -1 out of range.
-u64 pc_mb_pick_geti(s32 idx, s32 field) {
-  if (idx < 0 || idx >= (int)g_mb_pick_hits.size()) {
-    return (u64)-1;
-  }
-  const auto& h = g_mb_pick_hits[(size_t)idx];
-  switch (field) {
-    case 0:
-      return (u64)h.row;
-    case 1:
-      return (u64)h.slot;
-    case 2:
-      // V2.2: after the triangle fold, ttri (GOAL units) is the REAL surface distance the sort
-      // used — report that (converted to metres->cm) so the state export shows the same order the
-      // pick ranked by. Before the fold (or box-only fallback) it is the AABB slab distance.
-      if (h.ttri >= 0.f) {
-        return (u64)(s64)std::lround((h.ttri / 4096.f) * 100.0f);
-      }
-      return (u64)(s64)std::lround(h.t * 100.0f);
-    default:
-      return (u64)-1;
-  }
-}
-
-// Target a picked mesh: publish its identity (system + tex_id + level + GOAL-unit AABB) to the
-// render thread. The three toggle flags are ALWAYS cleared here AND on clear — the single
-// enforcement point that guarantees a hidden mesh can never become un-targetable by a target
-// switch (hide must die with the target it applied to).
-void pc_mb_target_set(s32 row, s32 slot) {
-  if (slot < 0 || slot > 1 || g_mb_pick_lvl[slot].empty()) {
-    return;
-  }
-  const auto* rows = mb_load_level_index(g_mb_pick_lvl[slot]);
-  if (!rows || row < 0 || row >= (int)rows->size()) {
-    return;
-  }
-  const auto& r = (*rows)[(size_t)row];
-  auto& gs = Gfx::g_global_settings;
-  gs.mb_target_system = r.system;
-  gs.mb_target_tex = (u32)r.tex_id;
-  strncpy(gs.mb_target_level, g_mb_pick_lvl[slot].c_str(), sizeof(gs.mb_target_level) - 1);
-  gs.mb_target_level[sizeof(gs.mb_target_level) - 1] = '\0';
-  // index AABB is metres; the renderer compares in GOAL units
-  gs.mb_target_bbox[0] = r.lox * 4096.f;
-  gs.mb_target_bbox[1] = r.loy * 4096.f;
-  gs.mb_target_bbox[2] = r.loz * 4096.f;
-  gs.mb_target_bbox[3] = r.hix * 4096.f;
-  gs.mb_target_bbox[4] = r.hiy * 4096.f;
-  gs.mb_target_bbox[5] = r.hiz * 4096.f;
-  gs.mb_hide_target = false;
-  gs.mb_checker_target = false;
-  gs.mb_gizmos_target = false;
-  // mb_isolate deliberately survives target changes — the new target is re-isolated (owner spec).
-  gs.mb_target_active = true;
-  // V2.3: the target's identity, for the polygon-mark export (pc_mb_mark_poly).
-  g_mb_target_row = row;
-  g_mb_target_slot = slot;
-}
-
-void pc_mb_target_clear() {
-  auto& gs = Gfx::g_global_settings;
-  gs.mb_target_active = false;
-  gs.mb_hide_target = false;
-  gs.mb_checker_target = false;
-  gs.mb_gizmos_target = false;
-  gs.mb_isolate = false;
-  g_mb_target_row = -1;
-  g_mb_target_slot = -1;
-}
-
-// The three per-target toggles (L1/L2 hide, Square checker, Circle normal gizmos).
-void pc_mb_hide_set(s32 v) {
-  Gfx::g_global_settings.mb_hide_target = (v != 0);
-}
-
-void pc_mb_checker_set(s32 v) {
-  Gfx::g_global_settings.mb_checker_target = (v != 0);
-}
-
-void pc_mb_gizmos_set(s32 v) {
-  Gfx::g_global_settings.mb_gizmos_target = (v != 0);
-}
-
-// V2.6-bis (START pad / ISOL overlay pill): render ONLY the targeted mesh while a target is
-// active. Consumed via mb_isolation_on() by the TFRAG/TIE per-draw checks and the world
-// renderers' early-outs.
-void pc_mb_isolate_set(s32 v) {
-  Gfx::g_global_settings.mb_isolate = (v != 0);
-}
-
-// ---- V2.3 hover + polygon mark ----------------------------------------------------------------
-namespace {
-// Seqlock read of the render thread's hover answer (gfx.h mb_hover_*). Retries up to 4 times;
-// false when no stable even-seq snapshot could be taken.
-struct MbHoverSnap {
-  int tri = -1;
-  u32 texid = 0;
-  float v[3][3] = {{0.f}};
-  float nrm[3] = {0.f, 0.f, 0.f};
-};
-bool mb_hover_read(MbHoverSnap* out) {
-  auto& gs = Gfx::g_global_settings;
-  for (int attempt = 0; attempt < 4; attempt++) {
-    const u32 s1 = gs.mb_hover_seq.load(std::memory_order_acquire);
-    if (s1 & 1) {
-      continue;  // writer mid-update
-    }
-    out->tri = gs.mb_hover_tri;
-    out->texid = gs.mb_hover_texid;
-    memcpy(out->v, gs.mb_hover_v, sizeof(out->v));
-    memcpy(out->nrm, gs.mb_hover_nrm, sizeof(out->nrm));
-    const u32 s2 = gs.mb_hover_seq.load(std::memory_order_acquire);
-    if (s1 == s2) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// The polygon-mark JSONL export path: the EXTERNAL game root when one is set (Android — the
-// owner pulls files from there without adb into the app sandbox), else the project dir
-// (desktop). Mirrors how settings.ini resolves (FileUtil.cpp get_user_settings_dir).
-const std::string& mb_marks_path() {
-  if (g_mb_marks_path.empty()) {
-    const auto root = file_util::get_external_game_root();
-    g_mb_marks_path = root ? (*root / "mesh_marks.jsonl").string()
-                           : (file_util::get_jak_project_dir() / "mesh_marks.jsonl").string();
-  }
-  return g_mb_marks_path;
-}
-}  // namespace
-
-// GOAL pushes the freecam reticle ray every frame while hovering (on != 0); the render thread's
-// gizmo pass answers with the nearest cached face via the seqlock. on == 0 stops the hover.
-void pc_mb_hover_ray(u32 origin, u32 dir, u32 on) {
-  auto& gs = Gfx::g_global_settings;
-  if (!on || !origin || !dir) {
-    gs.mb_hover_on.store(0, std::memory_order_release);
-    return;
-  }
-  const float* o = Ptr<float>(origin).c();
-  const float* d = Ptr<float>(dir).c();
-  float dx = d[0], dy = d[1], dz = d[2];
-  const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
-  if (len < 1e-6f) {
-    gs.mb_hover_on.store(0, std::memory_order_release);
-    return;
-  }
-  for (int a = 0; a < 3; a++) {
-    gs.mb_hover_ray_o[a] = o[a];  // raw GOAL units, like the pick ray
-  }
-  gs.mb_hover_ray_d[0] = dx / len;
-  gs.mb_hover_ray_d[1] = dy / len;
-  gs.mb_hover_ray_d[2] = dz / len;
-  gs.mb_hover_on.store(1, std::memory_order_release);
-}
-
-// V2.4 helper: remove the JSONL line(s) of an unmarked polygon. The key (level, row, tri)
-// uniquely identifies a mark's line — the writer below emits these three fields verbatim, so a
-// substring match on all three is exact (no JSON parser needed for a file we ourselves write).
-// Rewrites the file without the matching line(s); on any IO error the file is left as it was.
-void mb_marks_remove_line(const std::string& lvl, int row, int tri) {
-  const std::string k_lvl = fmt::format("\"level\":\"{}\"", lvl);
-  const std::string k_row = fmt::format("\"row\":{},", row);
-  const std::string k_tri = fmt::format("\"tri\":{},", tri);
-  try {
-    std::ifstream in(mb_marks_path());
-    if (!in) {
-      return;
-    }
-    std::vector<std::string> keep;
-    std::string line;
-    while (std::getline(in, line)) {
-      if (line.find(k_lvl) != std::string::npos && line.find(k_row) != std::string::npos &&
-          line.find(k_tri) != std::string::npos) {
-        continue;  // the unmarked polygon's record
-      }
-      if (!line.empty()) {
-        keep.push_back(line);
-      }
-    }
-    in.close();
-    std::ofstream out(mb_marks_path(), std::ios::trunc);
-    for (const auto& l : keep) {
-      out << l << "\n";
-    }
-  } catch (...) {
-    // best-effort; never let a disk error touch the game loop
-  }
-}
-
-// ---- V2.5: resume a marking session -----------------------------------------------------------
-// The owner marks polygons across app runs; mesh_marks.jsonl survives but the store used to start
-// empty, so old marks neither highlighted nor unmarked. Reload rebuilds the ACTIVE store from the
-// file, restricted to the published pick levels (other levels' lines stay in the file, untouched
-// and unloaded). We parse only the file we ourselves write, so a string scan per key is exact;
-// any line that fails a field is skipped without crashing (owner robustness requirement).
-namespace {
-bool mb_json_num(const std::string& s, const char* key, double* out) {
-  const auto p = s.find(key);
-  if (p == std::string::npos) {
-    return false;
-  }
-  const char* c = s.c_str() + p + std::strlen(key);
-  char* end = nullptr;
-  const double v = std::strtod(c, &end);
-  if (end == c) {
-    return false;
-  }
-  *out = v;
-  return true;
-}
-bool mb_json_vec3(const std::string& s, const char* key, float* out, float scale) {
-  const auto p = s.find(key);
-  if (p == std::string::npos) {
-    return false;
-  }
-  const char* c = s.c_str() + p + std::strlen(key);
-  for (int i = 0; i < 3; i++) {
-    while (*c == '[' || *c == ',' || *c == ' ') {
-      c++;
-    }
-    char* end = nullptr;
-    const double v = std::strtod(c, &end);
-    if (end == c) {
-      return false;
-    }
-    out[i] = (float)(v * scale);
-    c = end;
-  }
-  return true;
-}
-
-void mb_marks_reload_maybe() {
-  const std::string set = g_mb_pick_lvl[0] + "|" + g_mb_pick_lvl[1];
-  if (!g_mb_marks_reload_pending && set == g_mb_marks_loaded_set) {
-    return;
-  }
-  if (g_mb_pick_lvl[0].empty() && g_mb_pick_lvl[1].empty()) {
-    return;  // no level names yet — stay pending until pc_mb_pick_levels publishes them
-  }
-  auto& gs = Gfx::g_global_settings;
-  std::vector<GfxGlobalSettings::MbMark> loaded;
-  // V2.6: the store is dynamic and the file can carry thousands of marks — dedupe must be O(1)
-  // per line (the old per-line linear scan was quadratic and would stall the GOAL thread).
-  std::unordered_set<std::string> seen;
-  u64 skipped_full = 0;
-  try {
-    std::ifstream in(mb_marks_path());
-    std::string line;
-    while (in && std::getline(in, line)) {
-      auto lp = line.find("\"level\":\"");
-      if (lp == std::string::npos) {
-        continue;
-      }
-      lp += 9;
-      const auto le = line.find('"', lp);
-      if (le == std::string::npos) {
-        continue;
-      }
-      const std::string lvl = line.substr(lp, le - lp);
-      if (lvl.empty() || lvl.size() >= sizeof(GfxGlobalSettings::MbMark{}.lvl)) {
-        continue;
-      }
-      if (lvl != g_mb_pick_lvl[0] && lvl != g_mb_pick_lvl[1]) {
-        continue;  // another level's mark: keep its line, never load or touch it
-      }
-      GfxGlobalSettings::MbMark m;
-      double row = 0.0, tri = 0.0;
-      // the vertices are stored in metres (4 decimals); the store wants GOAL units
-      if (!mb_json_num(line, "\"row\":", &row) || !mb_json_num(line, "\"tri\":", &tri) ||
-          !mb_json_vec3(line, "\"v0_m\":", m.v[0], 4096.f) ||
-          !mb_json_vec3(line, "\"v1_m\":", m.v[1], 4096.f) ||
-          !mb_json_vec3(line, "\"v2_m\":", m.v[2], 4096.f) ||
-          !mb_json_vec3(line, "\"face_normal\":", m.nrm, 1.f)) {
-        continue;  // corrupt line: ignored without crash
-      }
-      std::memset(m.lvl, 0, sizeof(m.lvl));
-      std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
-      m.sys = line.find("\"system\":\"TIE\"") != std::string::npos ? 1 : 0;
-      m.row = (int)row;
-      m.tri = (int)tri;
-      if (!seen.insert(lvl + "|" + std::to_string(m.row) + "|" + std::to_string(m.tri)).second) {
-        continue;  // duplicate (level, row, tri): first file line wins, same as before
-      }
-      if ((int)loaded.size() >= GfxGlobalSettings::MB_MARKS_SANITY) {
-        skipped_full++;  // sanity bound only (1M): the oldest lines in the file win, HUD says so
-        continue;
-      }
-      loaded.push_back(m);
-    }
-  } catch (...) {
-    return;  // disk error: leave the store as it was, try again on the next trigger
-  }
-  const u64 n_loaded = (u64)loaded.size();
-  {
-    std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-    gs.mb_marks_store = std::move(loaded);
-    gs.mb_marks_gen++;
-    gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
-  }
-  g_mb_marks = n_loaded;
-  g_mb_marks_skipped = skipped_full;
-  g_mb_marks_loaded_set = set;
-  g_mb_marks_reload_pending = false;
-}
-}  // namespace
-
-// Mark the hovered polygon — or, V2.4, UNMARK it when it is already marked (the owner re-aims
-// and presses the same button; the mark leaves the persistent-highlight store AND its line
-// leaves mesh_marks.jsonl). Marks are appended as one JSON line (identity + geometry + the
-// row's offline verdict) for offline orientation forensics. Returns the ACTIVE mark count after
-// the toggle, or (u64)-1 when there is no stable hover hit / no target.
-u64 pc_mb_mark_poly() {
-  MbHoverSnap hs;
-  if (!mb_hover_read(&hs) || hs.tri < 0 || g_mb_target_row < 0 || g_mb_target_slot < 0 ||
-      g_mb_pick_lvl[g_mb_target_slot].empty()) {
-    return (u64)-1;
-  }
-  const auto* rows = mb_load_level_index(g_mb_pick_lvl[g_mb_target_slot]);
-  if (!rows || g_mb_target_row >= (int)rows->size()) {
-    return (u64)-1;
-  }
-  const auto& r = (*rows)[(size_t)g_mb_target_row];
-  auto& gs = Gfx::g_global_settings;
-  const std::string& lvl = g_mb_pick_lvl[g_mb_target_slot];
-
-  // UNMARK: same (level, row, tri) already in the store -> remove it there and in the JSONL.
-  {
-    bool removed = false;
-    {
-      std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-      for (size_t i = 0; i < gs.mb_marks_store.size(); i++) {
-        const auto& m = gs.mb_marks_store[i];
-        if (m.tri == hs.tri && m.row == g_mb_target_row &&
-            std::strncmp(lvl.c_str(), m.lvl, sizeof(m.lvl)) == 0) {
-          gs.mb_marks_store.erase(gs.mb_marks_store.begin() + (ptrdiff_t)i);
-          gs.mb_marks_gen++;
-          gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
-          removed = true;
-          break;
-        }
-      }
-    }
-    if (removed) {
-      mb_marks_remove_line(lvl, g_mb_target_row, hs.tri);  // file IO outside the lock
-      g_mb_marks = (u64)gs.mb_marks_active.load(std::memory_order_relaxed);
-      return g_mb_marks;
-    }
-  }
-
-  // V2.6: the store is dynamic (std::vector, no 256 cap). Only the 1M sanity bound can refuse a
-  // mark, and it must NEVER do so silently (owner rule): bump the skipped counter the HUD's
-  // "STORE FULL" line displays, and skip the JSONL append too so file and store stay in step.
-  if (gs.mb_marks_active.load(std::memory_order_relaxed) >= GfxGlobalSettings::MB_MARKS_SANITY) {
-    g_mb_marks_skipped++;
-    return g_mb_marks;
-  }
-  try {
-    std::ofstream f(mb_marks_path(), std::ios::app);
-    f << fmt::format(
-        "{{\"game\":\"jak1\",\"level\":\"{}\",\"system\":\"{}\",\"row\":{},\"shell\":{},"
-        "\"material\":\"{}\",\"tex_id\":{},\"tri\":{},"
-        "\"v0_m\":[{:.4f},{:.4f},{:.4f}],\"v1_m\":[{:.4f},{:.4f},{:.4f}],"
-        "\"v2_m\":[{:.4f},{:.4f},{:.4f}],\"face_normal\":[{:.6f},{:.6f},{:.6f}],"
-        "\"offline_verdict\":{{\"graded\":{},\"a_sign_x100\":{},\"b_disp_x100\":{}}},"
-        "\"centroid_m\":[{:.4f},{:.4f},{:.4f}],"
-        "\"aabb_m\":[[{:.4f},{:.4f},{:.4f}],[{:.4f},{:.4f},{:.4f}]]}}\n",
-        g_mb_pick_lvl[g_mb_target_slot], r.system == 1 ? "TIE" : "TFRAG", g_mb_target_row,
-        r.shell, r.material, r.tex_id, hs.tri,  //
-        hs.v[0][0] / 4096.f, hs.v[0][1] / 4096.f, hs.v[0][2] / 4096.f,  //
-        hs.v[1][0] / 4096.f, hs.v[1][1] / 4096.f, hs.v[1][2] / 4096.f,  //
-        hs.v[2][0] / 4096.f, hs.v[2][1] / 4096.f, hs.v[2][2] / 4096.f,  //
-        hs.nrm[0], hs.nrm[1], hs.nrm[2],  //
-        r.graded, r.a_sign_x100, r.b_disp_x100,  //
-        r.cx, r.cy, r.cz, r.lox, r.loy, r.loz, r.hix, r.hiy, r.hiz);
-  } catch (...) {
-    // best-effort; never let a disk error touch the game loop
-  }
-  // V2.4: enter the persistent-highlight store (the renderer draws every entry each frame).
-  {
-    GfxGlobalSettings::MbMark m;
-    std::memset(m.lvl, 0, sizeof(m.lvl));
-    std::strncpy(m.lvl, lvl.c_str(), sizeof(m.lvl) - 1);
-    m.sys = r.system;
-    m.row = g_mb_target_row;
-    m.tri = hs.tri;
-    std::memcpy(m.v, hs.v, sizeof(m.v));
-    std::memcpy(m.nrm, hs.nrm, sizeof(m.nrm));
-    std::lock_guard<std::mutex> lk(gs.mb_marks_mu);
-    gs.mb_marks_store.push_back(m);
-    gs.mb_marks_gen++;
-    gs.mb_marks_active.store((int)gs.mb_marks_store.size(), std::memory_order_relaxed);
-  }
-  g_mb_marks = (u64)gs.mb_marks_active.load(std::memory_order_relaxed);
-  return g_mb_marks;
-}
-
-// Runtime proof counters, written by the render thread. This is how a toggle DEMONSTRATES
-// on->off->on instead of merely claiming it (two V1 toggles shipped dead; never again).
-// field: 0 hidden draws, 1 checker draws, 2 gizmo passes, 3 gizmo faces (all monotonic).
-// V2.1 adds the PER-FRAME published counters (owner: every toggle dead — only a per-frame count
-// can show the target's submitted draws hitting ZERO while hidden):
-// 4 target draws submitted last frame, 5 checker binds last frame, 6 gizmo line prims last frame,
-// 7 the relief factor (x100) the PBR uniforms were pushed with last frame.
-u64 pc_mb_rt_geti(s32 field) {
-  const auto& gs = Gfx::g_global_settings;
-  switch (field) {
-    case 0:
-      return gs.mb_ctr_hidden_draws;
-    case 1:
-      return gs.mb_ctr_checker_draws;
-    case 2:
-      return gs.mb_ctr_gizmo_draws;
-    case 3:
-      return gs.mb_ctr_gizmo_faces;
-    case 4:
-      return gs.mb_frame_target_draws;
-    case 5:
-      return gs.mb_frame_checker_binds;
-    case 6:
-      return gs.mb_frame_gizmo_prims;
-    case 7:
-      return gs.mb_frame_relief_x100;
-    // V2.2 (owner: Square must engage the FULL checker material; gizmos must be ON SCREEN):
-    // 8 full checker-set binds (normal+rough+height) on the target's draws last frame,
-    // 9 target draws submitted on the TESS program last frame (displacement path TAKEN),
-    // 10 framebuffer pixels the gizmo pass actually changed last frame (readback proof).
-    case 8:
-      return gs.mb_frame_checker_full;
-    case 9:
-      return gs.mb_frame_target_tess;
-    case 10:
-      return gs.mb_frame_gizmo_px;
-    // V2.3: 11 wireframe edges drawn last frame, 12 hovered triangle ordinal (-1 = none),
-    // 13 ACTIVE polygon marks (V2.4: unmarking decrements — no longer a session total).
-    case 11:
-      return gs.mb_frame_wire;
-    case 12: {
-      MbHoverSnap hs;
-      return mb_hover_read(&hs) ? hs.tri : -1;
-    }
-    case 13:
-      return (s64)g_mb_marks;
-    // V2.4: 14 marked triangles DRAWN last frame by the persistent-highlight pass (the proof is
-    // 14 == 13 while the browser is open), 15 depth-test samples that PASSED in the gizmo
-    // visible sub-pass last frame (GL_SAMPLES_PASSED occlusion query; falls with occlusion).
-    case 14:
-      return gs.mb_frame_marked;
-    case 15:
-      return gs.mb_frame_gizmo_occ;
-    // V2.5: 16 = file marks for the CURRENT levels skipped at the last reload because the store
-    // was full (oldest lines in the file win). >0 makes the HUD say so (owner feedback rule).
-    // V2.6: the store is dynamic; only the 1M sanity bound can fill it, and live marks refused
-    // at that bound also land here so the refusal is announced on screen, never silent.
-    case 16:
-      return (s64)g_mb_marks_skipped;
-    // V2.6-bis isolation proof: 17 TFRAG+TIE color draws submitted for NON-target meshes last
-    // frame (isolation ON must drive it to 0), 18 render work suppressed by isolation last frame
-    // (per-draw skips + one per world-renderer early-out).
-    case 17:
-      return gs.mb_frame_nontarget_draws;
-    case 18:
-      return gs.mb_frame_isolated_skips;
-    default:
-      return 0;
-  }
-}
-
-// ===============================================================================================
-// Grecharged-mesh-browser REOPEN (owner, 2026-07-29: "C'est impossible a parcourir via le tactile")
-//
-// WHY THIS EXISTS. The browser shipped "touch-capable" and was unusable on the only device the
-// owner has. The cause is structural, not a tuning miss: the ONLY touch signal that reached GOAL
-// was pc-get-touch-tap, which carries a single TAP EDGE and nothing else — no finger-down/up state,
-// no motion, no second finger (android/gk_android_main.cpp: g_menu_tap_{x,y,seq}). With taps alone a
-// 3613-row list cannot be scrolled at all and the 3D view cannot be orbited or zoomed. Worse, the
-// overlay only forwards those taps while NativeGk.isInMenu() is true, and the browser runs in
-// master-mode 'game — so in practice NO touch reached the browser whatsoever.
-//
-// This block is the missing channel: a small gesture recogniser fed with RAW multi-touch from the
-// Android overlay (TouchOverlayView -> NativeGk.onBrowserTouch -> pc_mb_touch_event) and read once
-// per frame by GOAL. It recognises finger-drag (with velocity for inertia), two-finger pinch,
-// two-finger drag, and taps, and it counts every event so a device run can PROVE the chain.
-//
-// WHY IT LIVES HERE. jak1/kmachine.cpp is compiled into BOTH the desktop and the Android builds and
-// its make_function_symbol_from_c registrations execute on both (InitMachine_PCPort <-
-// InitMachineScheme <- InitHeapAndSymbol, reached on Android via android_runtime_full.cpp). One
-// registration site therefore binds these builtins everywhere. Putting them in common/kmachine.cpp
-// instead would bind them on desktop ONLY — android_runtime_compat.cpp deliberately skips that
-// file's registrations, which is the trap pc-get-touch-tap has to work around with a second
-// hand-written binding.
-//
-// COSTS NOTHING WHEN CLOSED: Java only calls pc_mb_touch_event while GOAL has raised the active
-// flag (pc-mb-set-active!), which only the browser sets, and which it clears on close.
-// ===============================================================================================
-namespace {
-// A tap is a press that stayed still and short. Anything else is a drag (and may fling).
-constexpr double kMbTapMaxMove = 0.03;   // fraction of the screen, summed |dx|+|dy|
-constexpr int64_t kMbTapMaxMs = 500;
-constexpr double kMbFlingMinVel = 0.20;  // screen-fractions/second below which we don't fling
-
-int64_t mb_now_ms() {
-  using namespace std::chrono;
-  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
-}
-
-struct MbTouch {
-  std::mutex m;
-  std::atomic<int> active{0};  // GOAL raised the browser flag (read by JNI, no lock)
-
-  int fingers = 0;
-  // previous sample, per gesture kind (invalidated when the finger count changes so a
-  // finger going down or up never injects a bogus jump delta)
-  bool have_prev1 = false;
-  double prev_x = 0, prev_y = 0;
-  bool have_prev2 = false;
-  double prev_dist = 0, prev_cx = 0, prev_cy = 0;
-
-  // accumulated since the last GOAL poll (consumed by pc_mb_touch_poll)
-  double acc_dx = 0, acc_dy = 0, acc_pinch = 0, acc_2dx = 0, acc_2dy = 0;
-
-  // press bookkeeping, for the tap / fling decision at release
-  double down_x = 0, down_y = 0, moved = 0;
-  int64_t down_ms = 0, last_ms = 0;
-  double vel_y = 0;  // low-passed vertical velocity, screen-fractions/second
-
-  // monotonic edges GOAL watches (it never has to see the event, only that one happened)
-  uint32_t down_seq = 0, up_seq = 0, tap_seq = 0;
-  double tap_x = 0, tap_y = 0;
-  double fling_v = 0;  // latched at the release that ended a drag
-
-  // evidence counters — these are what a device run reads back to prove gestures arrived
-  uint64_t n_events = 0, n_taps = 0, n_drags = 0, n_pinches = 0, n_flings = 0;
-};
-MbTouch g_mb;
-
-// The per-frame snapshot. GOAL latches once (pc-mb-touch-poll!) then reads fields freely, so the
-// deltas can be consumed exactly once and every getter in a frame sees a consistent gesture.
-struct MbTouchFrame {
-  int fingers = 0, x = 0, y = 0, dx = 0, dy = 0, pinch = 0, d2x = 0, d2y = 0;
-  int tap_x = 0, tap_y = 0, down_x = 0, down_y = 0, fling = 0;
-  uint32_t tap_seq = 0, down_seq = 0, up_seq = 0;
-  uint64_t n_events = 0, n_taps = 0, n_drags = 0, n_pinches = 0, n_flings = 0;
-};
-MbTouchFrame g_mb_frame;
-
-inline int mb_q(double normalized) {
-  // normalized screen fraction -> the 0..10000 fixed-point GOAL already uses for touch
-  return (int)std::lround(normalized * 10000.0);
-}
-}  // namespace
-
-// Raw multi-touch in, from the Android UI thread. `action`: 0 DOWN, 1 MOVE, 2 UP, 3 CANCEL.
-// `n` is the number of pointers still down AFTER this event (so the final UP reports 0).
-// Coordinates are normalized [0,1] over the view. Called from JNI only; a no-op everywhere else,
-// which is why the desktop build links and runs unchanged with an all-zero gesture state.
-extern "C" void pc_mb_touch_event(int action, int n, float x0, float y0, float x1, float y1) {
-  std::lock_guard<std::mutex> lk(g_mb.m);
-  const int64_t now = mb_now_ms();
-  g_mb.n_events++;
-
-  switch (action) {
-    case 0: {  // DOWN
-      if (n <= 1) {
-        g_mb.down_x = x0;
-        g_mb.down_y = y0;
-        g_mb.down_ms = now;
-        g_mb.moved = 0;
-        g_mb.vel_y = 0;
-        g_mb.down_seq++;
-        g_mb.prev_x = x0;
-        g_mb.prev_y = y0;
-        g_mb.have_prev1 = true;
-      } else {
-        // a second finger landed: end the one-finger drag cleanly, start the pinch fresh
-        g_mb.have_prev1 = false;
-      }
-      g_mb.have_prev2 = false;
-      g_mb.last_ms = now;
-      g_mb.fingers = n;
-      break;
-    }
-    case 1: {  // MOVE
-      g_mb.fingers = n;
-      if (n >= 2) {
-        const double dist = std::hypot((double)x1 - x0, (double)y1 - y0);
-        const double cx = 0.5 * ((double)x0 + x1), cy = 0.5 * ((double)y0 + y1);
-        if (g_mb.have_prev2) {
-          const double dd = dist - g_mb.prev_dist;
-          g_mb.acc_pinch += dd;
-          g_mb.acc_2dx += cx - g_mb.prev_cx;
-          g_mb.acc_2dy += cy - g_mb.prev_cy;
-          if (std::fabs(dd) > 0.002) {
-            g_mb.n_pinches++;
-          }
-        }
-        g_mb.prev_dist = dist;
-        g_mb.prev_cx = cx;
-        g_mb.prev_cy = cy;
-        g_mb.have_prev2 = true;
-        g_mb.have_prev1 = false;  // one-finger drag is suppressed while two are down
-      } else if (n == 1) {
-        if (g_mb.have_prev1) {
-          const double ddx = (double)x0 - g_mb.prev_x, ddy = (double)y0 - g_mb.prev_y;
-          g_mb.acc_dx += ddx;
-          g_mb.acc_dy += ddy;
-          g_mb.moved += std::fabs(ddx) + std::fabs(ddy);
-          const double dt = (double)(now - g_mb.last_ms) / 1000.0;
-          if (dt > 0.001) {
-            // low-pass so one jittery sample can't launch a wild fling
-            g_mb.vel_y = 0.5 * g_mb.vel_y + 0.5 * (ddy / dt);
-          }
-          if (std::fabs(ddx) + std::fabs(ddy) > 0.0005) {
-            g_mb.n_drags++;
-          }
-        }
-        g_mb.prev_x = x0;
-        g_mb.prev_y = y0;
-        g_mb.have_prev1 = true;
-        g_mb.have_prev2 = false;
-      }
-      g_mb.last_ms = now;
-      break;
-    }
-    case 2:    // UP
-    case 3: {  // CANCEL
-      if (n <= 0) {
-        // the gesture ended: it was either a tap (still + short) or a drag that may fling
-        if (action == 2 && g_mb.moved < kMbTapMaxMove && (now - g_mb.down_ms) < kMbTapMaxMs) {
-          g_mb.tap_x = g_mb.down_x;
-          g_mb.tap_y = g_mb.down_y;
-          g_mb.tap_seq++;
-          g_mb.n_taps++;
-        } else if (action == 2 && std::fabs(g_mb.vel_y) > kMbFlingMinVel) {
-          g_mb.fling_v = g_mb.vel_y;
-          g_mb.n_flings++;
-        }
-        g_mb.vel_y = 0;
-      }
-      // Only a gesture that ENDED raises the up edge. ACTION_POINTER_UP fires with fingers still
-      // down (lifting one of two during a pinch); raising the edge there made GOAL end the drag
-      // mid-pinch, which felt like the zoom "letting go" halfway.
-      if (n <= 0) {
-        g_mb.up_seq++;
-      }
-      g_mb.fingers = n < 0 ? 0 : n;
-      g_mb.have_prev1 = false;
-      g_mb.have_prev2 = false;
-      g_mb.last_ms = now;
-      break;
-    }
-    default:
-      break;
-  }
-}
-
-// What mode is the browser in? Read by the Android overlay (JNI) to decide touch routing.
-// V2: the raw MODE, no longer a bool — 0 closed, 1 list-UI (raw touch to the gesture channel),
-// 2 FREECAM (touch stays on the virtual gamepad + look area). Existing Java treats nonzero as
-// "browser active", which remains correct until the overlay learns mode 2.
-extern "C" int pc_mb_is_active() {
-  return g_mb.active.load(std::memory_order_acquire);
-}
-
-// GOAL sets the mode. 0 restores the normal virtual-gamepad routing exactly.
-void pc_mb_set_active(u32 on) {
-  g_mb.active.store((int)on, std::memory_order_release);
-  // V2.2: an OPEN browser forces the Recharged path on (recharged_master_active, gfx.h) — the
-  // owner previews PBR/tess in the browser even when the master perf-toggle is saved OFF.
-  // Closed -> false: the normal path is untouched by the tool.
-  Gfx::g_global_settings.mb_pbr_override = (on != 0);
-  // V2.6-bis: closing the browser restores the world (isolation must never outlive the tool).
-  if (on == 0) {
-    Gfx::g_global_settings.mb_isolate = false;
-  }
-  // V2.5: every browser open resumes the previous marking session. If the pick levels are
-  // already published this reloads now; otherwise it stays pending for pc_mb_pick_levels
-  // (the GOAL open/freecam-entry paths publish the active levels right after this call).
-  if (on != 0) {
-    g_mb_marks_reload_pending = true;
-    mb_marks_reload_maybe();
-  }
-}
-
-// Latch one frame of gesture state and CONSUME the accumulated deltas. Returns the finger count.
-s64 pc_mb_touch_poll() {
-  std::lock_guard<std::mutex> lk(g_mb.m);
-  g_mb_frame.fingers = g_mb.fingers;
-  g_mb_frame.x = mb_q(g_mb.prev_x);
-  g_mb_frame.y = mb_q(g_mb.prev_y);
-  g_mb_frame.dx = mb_q(g_mb.acc_dx);
-  g_mb_frame.dy = mb_q(g_mb.acc_dy);
-  g_mb_frame.pinch = mb_q(g_mb.acc_pinch);
-  g_mb_frame.d2x = mb_q(g_mb.acc_2dx);
-  g_mb_frame.d2y = mb_q(g_mb.acc_2dy);
-  g_mb_frame.tap_seq = g_mb.tap_seq;
-  g_mb_frame.down_seq = g_mb.down_seq;
-  g_mb_frame.up_seq = g_mb.up_seq;
-  g_mb_frame.tap_x = mb_q(g_mb.tap_x);
-  g_mb_frame.tap_y = mb_q(g_mb.tap_y);
-  g_mb_frame.down_x = mb_q(g_mb.down_x);
-  g_mb_frame.down_y = mb_q(g_mb.down_y);
-  g_mb_frame.fling = mb_q(g_mb.fling_v);
-  g_mb_frame.n_events = g_mb.n_events;
-  g_mb_frame.n_taps = g_mb.n_taps;
-  g_mb_frame.n_drags = g_mb.n_drags;
-  g_mb_frame.n_pinches = g_mb.n_pinches;
-  g_mb_frame.n_flings = g_mb.n_flings;
-  // consumed exactly once
-  g_mb.acc_dx = g_mb.acc_dy = g_mb.acc_pinch = g_mb.acc_2dx = g_mb.acc_2dy = 0;
-  g_mb.fling_v = 0;
-  return g_mb_frame.fingers;
-}
-
-// Field getter over the latched frame. Field ids mirror the MB_T_* constants in mesh-browser-pc.gc.
-s64 pc_mb_touch_geti(u32 field) {
-  switch (field) {
-    case 0: return g_mb_frame.fingers;
-    case 1: return g_mb_frame.x;
-    case 2: return g_mb_frame.y;
-    case 3: return g_mb_frame.dx;
-    case 4: return g_mb_frame.dy;
-    case 5: return g_mb_frame.pinch;
-    case 6: return g_mb_frame.d2x;
-    case 7: return g_mb_frame.d2y;
-    case 8: return (s64)g_mb_frame.tap_seq;
-    case 9: return g_mb_frame.tap_x;
-    case 10: return g_mb_frame.tap_y;
-    case 11: return (s64)g_mb_frame.up_seq;
-    case 12: return g_mb_frame.fling;
-    case 13: return (s64)g_mb_frame.down_seq;
-    case 14: return g_mb_frame.down_x;
-    case 15: return g_mb_frame.down_y;
-    case 16: return (s64)g_mb_frame.n_events;
-    case 17: return (s64)g_mb_frame.n_taps;
-    case 18: return (s64)g_mb_frame.n_drags;
-    case 19: return (s64)g_mb_frame.n_pinches;
-    case 20: return (s64)g_mb_frame.n_flings;
-    default: return 0;
-  }
-}
-
-// ---- browser state dump ------------------------------------------------------------------------
-// files/mesh_browser_state.txt: the browser's OBSERVABLE state, written only while it is open and
-// only when something changed. This is what makes the touch claim falsifiable — inject a gesture,
-// read the file, and the state either moved or it did not. It doubles as the owner's copy-out
-// (he has no adb, but the supervisor can read it back for him).
-namespace {
-std::string g_mb_state_body;
-}
-
-void pc_mb_state_begin() {
-  g_mb_state_body.clear();
-}
-
-void pc_mb_state_line(u32 str_ptr) {
-  if (!str_ptr) {
-    return;
-  }
-  auto* gs = Ptr<String>(str_ptr).c();
-  g_mb_state_body += gs->data();
-  g_mb_state_body += '\n';
-}
-
-void pc_mb_state_end() {
-  try {
-    uint64_t ev, tp, dr, pn, fl;
-    {
-      std::lock_guard<std::mutex> lk(g_mb.m);
-      ev = g_mb.n_events;
-      tp = g_mb.n_taps;
-      dr = g_mb.n_drags;
-      pn = g_mb.n_pinches;
-      fl = g_mb.n_flings;
-    }
-    g_mb_state_body += fmt::format(
-        "touch_events={} taps={} drags={} pinches={} flings={} marks={} marks_file={}\n", ev, tp,
-        dr, pn, fl, g_mb_marks, g_mb_marks_path.empty() ? "-" : g_mb_marks_path);
-    file_util::write_text_file(file_util::get_jak_project_dir() / "mesh_browser_state.txt",
-                               g_mb_state_body);
-  } catch (...) {
-    // best-effort; a disk error must never touch the game loop
-  }
-}
-
 void InitMachine_PCPort() {
   // PC Port added functions
   init_common_pc_port_functions(
@@ -5545,42 +4428,6 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-crisp-title-logo!", (void*)pc_set_crisp_title_logo);
   // lighting-legacy-purge (2026-09-11) : `pc-set-mesh-subdiv-rounds!` est SUPPRIME avec la
   // pre-subdivision, qui n'etait atteignable que sous le mode TESSELLATION jamais livre.
-  // Grecharged-mesh-browser: the debug mesh-browser back end (index load + row getters + checker
-  // toggle + identifier export). See the block above InitMachine_PCPort.
-  make_function_symbol_from_c("pc-mesh-index-load!", (void*)pc_mesh_index_load);
-  make_function_symbol_from_c("pc-mesh-index-count", (void*)pc_mesh_index_count);
-  make_function_symbol_from_c("pc-mesh-index-geti", (void*)pc_mesh_index_geti);
-  make_function_symbol_from_c("pc-mesh-index-getf", (void*)pc_mesh_index_getf);
-  make_function_symbol_from_c("pc-mesh-index-name!", (void*)pc_mesh_index_name);
-  make_function_symbol_from_c("pc-mesh-index-level!", (void*)pc_mesh_index_levelname);
-  make_function_symbol_from_c("pc-set-mesh-browser-checker!", (void*)pc_set_mesh_browser_checker);
-  make_function_symbol_from_c("pc-mesh-browser-export!", (void*)pc_mesh_browser_export);
-  // REOPEN (owner 2026-07-29 "impossible a parcourir via le tactile"): the real gesture channel.
-  // pc-get-touch-tap carries a tap edge and nothing else, so swipe/drag/pinch/fling were not
-  // merely unbound, they had no data source at all. These bind on desktop AND Android from here.
-  make_function_symbol_from_c("pc-mb-set-active!", (void*)pc_mb_set_active);
-  make_function_symbol_from_c("pc-mb-touch-poll!", (void*)pc_mb_touch_poll);
-  make_function_symbol_from_c("pc-mb-touch-geti", (void*)pc_mb_touch_geti);
-  make_function_symbol_from_c("pc-mb-state-begin!", (void*)pc_mb_state_begin);
-  make_function_symbol_from_c("pc-mb-state-line!", (void*)pc_mb_state_line);
-  make_function_symbol_from_c("pc-mb-state-end!", (void*)pc_mb_state_end);
-  // V2 freecam: reticle ray pick over up to two levels' index AABBs + the target channel into
-  // g_global_settings (hide/checker/gizmos per targeted mesh) + the runtime proof counters.
-  make_function_symbol_from_c("pc-mb-pick-levels!", (void*)pc_mb_pick_levels);
-  make_function_symbol_from_c("pc-mb-pick!", (void*)pc_mb_pick);
-  make_function_symbol_from_c("pc-mb-pick-ready?", (void*)pc_mb_pick_ready);
-  make_function_symbol_from_c("pc-mb-pick-geti", (void*)pc_mb_pick_geti);
-  make_function_symbol_from_c("pc-mb-target-set!", (void*)pc_mb_target_set);
-  make_function_symbol_from_c("pc-mb-target-clear!", (void*)pc_mb_target_clear);
-  make_function_symbol_from_c("pc-mb-hide-set!", (void*)pc_mb_hide_set);
-  make_function_symbol_from_c("pc-mb-checker-set!", (void*)pc_mb_checker_set);
-  make_function_symbol_from_c("pc-mb-gizmos-set!", (void*)pc_mb_gizmos_set);
-  make_function_symbol_from_c("pc-mb-isolate-set!", (void*)pc_mb_isolate_set);
-  make_function_symbol_from_c("pc-mb-rt-geti", (void*)pc_mb_rt_geti);
-  // V2.3: hover ray (render thread answers with the exact polygon under the reticle) + the
-  // polygon-mark JSONL export for offline orientation forensics.
-  make_function_symbol_from_c("pc-mb-hover-ray!", (void*)pc_mb_hover_ray);
-  make_function_symbol_from_c("pc-mb-mark-poly!", (void*)pc_mb_mark_poly);
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
 #ifdef OG_FEAT_HD_MODELS

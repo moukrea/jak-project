@@ -294,7 +294,6 @@
   "progress-draw.o"
   "progress.o"
   "progress-pc.o" ;; added
-  "mesh-browser-pc.o" ;; added
   "jak-hd.o" ;; added (Grecharged-hd-models3 companion)
   "jak-hd-physics.o" ;; added (Grecharged-secondary-motion chain sim)
   "phys-room.o" ;; added (Grecharged-secondary-motion salle de test sans joueur)

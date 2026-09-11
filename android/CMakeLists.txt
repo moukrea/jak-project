@@ -438,6 +438,7 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/settings_case_l10n.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/recharged_gating.cpp"
+    "${JAK_ROOT}/game/system/mesh_browser_census.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,
     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
@@ -763,10 +764,6 @@ add_library(gk SHARED
     # foliage-wind : la loi, le recensement et la porte `wind_divergent_pairs`. Un .cpp neuf doit
     # etre liste ICI ET dans game/CMakeLists.txt : sinon x86 passe et l'arm64 meurt au LIEN.
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/foliage_wind.cpp"
-    # Grecharged-mesh-browser V2 — normal-orientation gizmo pass; TFragment.cpp and
-    # Tie3.cpp call mb_gizmos::render unconditionally, so libgk.so fails to link
-    # without it (attempt-1 added it to the desktop game/CMakeLists.txt only).
-    "${JAK_ROOT}/game/graphics/opengl_renderer/background/MeshBrowserGizmos.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/TFragment.cpp"
     # village-missing — shrub (foliage: palm trees, plants, bushes, grass) for
     # the title flythrough over Sandover village. Pure-GOAL DMA (shrubbery.gc
