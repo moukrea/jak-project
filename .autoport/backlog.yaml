@@ -7024,7 +7024,7 @@ items:
     Donc si, a traiter ! » — ce signalement devient donc un item au lieu de rester une ligne de rapport.
     Prio 21 : juste apres, comme il l''a demande.'
 - id: fire-red-particles
-  priority: 17
+  priority: null
   device: true
   feature: Les aplats noirs et rouges qui recouvrent les feux et les portails
   gate:
@@ -7062,7 +7062,7 @@ items:
     quel autre feu ou portail — l''effet est partout.'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: to-test
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7091,8 +7091,16 @@ items:
     text: tu as le Redmi a disposition, pas le Honor, ne l'oublies pas !
   - date: '2026-09-11'
     text: si le defaut se reproduit pas sur Redmi, passe a autre chose plutot que bloquer
+  - date: '2026-09-11'
+    text: C'est bon pour les particules bizarres rouges et noires là, j'ai plus le soucis sur le Honor,
+      validé !
   delivered: '2026-09-11'
   device_serial: eae4df44
+  owner_ok:
+    date: '2026-09-11'
+    text: C'est bon pour les particules bizarres rouges et noires là, j'ai plus le soucis sur le Honor,
+      validé !
+    build_sha: 27a0e103e0e543ad
 - id: lighting-legacy-purge
   priority: 17
   device: true
