@@ -62,7 +62,7 @@
 // plus hauts en scRGB ; blanc de reference qui suit le pic en PQ recompose), puis une CINQUIEME
 // phase qui rebascule sur l'AUTRE chemin annonce par les caps (PQ quand scRGB a ete retenu, et
 // inversement) pour que la preuve porte CHAQUE chemin, jamais un seul. `hdr_out_defects` est la
-// somme de QUATORZE verdicts publies un par un (`hdr_out_defect_1_*` a `hdr_out_defect_14_*`) ;
+// somme de QUINZE verdicts publies un par un (`hdr_out_defect_1_*` a `hdr_out_defect_15_*`) ;
 // le onzieme est l'EFFET MESURE, et il lit `hl_ext_levels` — la fenetre [15/16, kFixedTop], la ou
 // une courbe a plafond > 1 ecrit ses codes neufs — et non `hl_levels`, borne a 1,0.
 
@@ -229,8 +229,14 @@ bool take_window_lever_request(bool* on, float* desired, float* brightness_targe
 struct CurveParams {
   float ceiling = 1.f;  // u_hdr_ceiling — plafond, dans l'espace d'affichage du tampon
   float anchor = 2.f;   // u_hdr_anchor  — >= 1 : aucune expansion, chemin SDR strict
-  float top = 2.f;      // u_hdr_top     — la valeur de scene qui sort AU plafond ; <= ceiling
-  float toe = 0.f;      // u_hdr_toe     — relevement du pied
+  float top = 2.f;      // u_hdr_top     — forme 0 seulement : la valeur de scene qui sort AU plafond
+  float toe = 0.f;      // u_hdr_toe     — relevement du pied ; NUL dans la courbe livree
+  // LA FORME (refus owner du 11/09, « j'ai pousse le contraste au maximum »). 1 = gamma borne,
+  // la courbe LIVREE : sa pente log-log vaut `gamma` partout au-dessus de l'ancre, donc aucune
+  // bande de tons n'est etiree plus qu'une autre. 0 = la fenetre Hermite REFUSEE le 11/09,
+  // gardee comme bras de mesure de la sonde de jeu reel et nulle part ailleurs.
+  int shape = 1;        // u_hdr_shape
+  float gamma = 1.f;    // u_hdr_gamma — l'EXPOSANT DE CONTRASTE ; 1,0 = aucun etirement
 };
 CurveParams curve_params();
 // Fil GL : pousse les quatre uniformes de la courbe sur le programme `tonemap`.

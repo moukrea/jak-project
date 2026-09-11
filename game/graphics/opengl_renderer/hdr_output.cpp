@@ -778,7 +778,7 @@ int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
 int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_d[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // La plus grande marge que le systeme ait accordee pendant une phase ON REELLE (pas la phase a
 // pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
 int s_ratio_max_x1000 = 1000;
@@ -889,7 +889,47 @@ constexpr float kToeMax = 0.12f;
 // Le point de fonctionnement FIGE de l'auto-test. Les verdicts 3, 4, 5 et 10 comparent des
 // PHASES ; une courbe qui bouge sous eux les rendrait incomparables (lecon « verdict mesure sur
 // une scene MOUVANTE »). L'adaptation au contenu se mesure APRES, sur du jeu reel.
-constexpr float kPinAnchor = 0.75f, kPinTop = 1.05f, kPinToe = 0.06f;
+constexpr float kPinTop = 1.05f;
+
+// ----------------------------------------------------------------- LA COURBE LIVREE ----
+// Refus owner du 11/09 : « le HDR produit un rendu tres j'ai pousse le contraste au maximum,
+// c'est pas beau ». La cause n'est pas un reglage, c'est LA FORME de la fenetre Hermite. Au
+// point de fonctionnement livre le 11/09 (a=0,262 T=0,965 C=1,877, relus dans proof.txt) sa
+// pente vaut 1 a l'ancre, 3,20 au milieu de la fenetre et 0 au sommet : un facteur TROIS sur le
+// contraste local, et il tombe DANS LES TONS MOYENS puisque l'ancre etait a 26 % du blanc.
+// Aucune valeur d'ancre ne le repare — resserrer la fenetre AGGRAVE la pente (p = (T-a)/(C-a)
+// diminue, la pente mediane vaut (1,5 - 0,25.p)/p) : a ancre 0,75 elle depasse 7.
+//
+// La courbe livree est donc un GAMMA BORNE : out = a.(x/a)^K, ecrete au plafond. Sa pente
+// log-log — le contraste, la seule grandeur que l'oeil lit comme « pousse » — vaut K PARTOUT
+// au-dessus de l'ancre. Il n'existe plus de bande de tons etiree plus qu'une autre.
+//
+// kGammaMax est LE PLAFOND DECLARE du verdict 15. Il n'est pas un gout : la sonde de jeu reel
+// redessine la MEME image avec la courbe refusee du 11/09 et publie son exposant a cote, si
+// bien que le plafond se lit contre l'image que l'owner a refusee, pas contre un chiffre invente.
+constexpr float kGammaMax = 1.35f;
+// L'ANCRE de la courbe livree : une FRACTION de la luminance log-moyenne de la scene, donc une
+// grandeur de contenu et non un calibrage. Sous l'ancre la sortie est BIT A BIT celle du SDR.
+// Elle est basse a dessein : l'exposant necessaire pour atteindre le plafond vaut
+// ln(C/a)/ln(pic/a), et il DIMINUE quand l'ancre descend — etaler la marge sur beaucoup de
+// decades est exactement ce qui evite de la concentrer en une bande raide. C'est le contraire
+// de l'intuition qui a produit la courbe refusee.
+constexpr float kAnchorKeyFrac = 0.5f;
+constexpr float kAnchorLo = 0.02f, kAnchorHi = 0.25f;
+// Le point de fonctionnement FIGE de l'auto-test, dans la forme livree.
+constexpr float kPinAnchorP = 0.12f;
+
+// ------------------------------------------- VERDICT 15 : LES PLAFONDS DECLARES ----
+// « Un ecart au-dela d'un plafond DECLARE est un DEFAUT » (livrable, point 14). Les voici,
+// publies tels quels dans proof.txt a cote des mesures :
+constexpr double kExpCap = 1.35;      // exposant de contraste global (pente log-log)
+constexpr double kBandCap = 1.50;     // pente log-log LOCALE, la pire bande de luminance
+constexpr double kSatCap = 1.05;      // rapport de saturation moyenne HDR/SDR
+constexpr double kHueCapDeg = 2.0;    // derive de teinte moyenne, en degres
+// 16 bandes sur [1e-4 ; 1] : un facteur 1,78 de luminance par bande. La resolution compte —
+// des bandes larges MOYENNENT la pente et effacent precisement le defaut qu'on cherche, une
+// courbe douce en moyenne et raide sur une plage de tons.
+constexpr int kExcBands = 16;
 
 struct DynState {
   bool primed = false;
@@ -956,8 +996,41 @@ struct PlayStats {
                                            // si un zero vient de la courbe ou du pas du tampon
 };
 PlayStats s_play;
-GLuint s_pl_fbo[3] = {0, 0, 0}, s_pl_tex[3] = {0, 0, 0};
+GLuint s_pl_fbo[4] = {0, 0, 0, 0}, s_pl_tex[4] = {0, 0, 0, 0};
 int s_pl_state = 0;
+
+// L'EXCURSION (verdict 15 ; livrable point 14, refus owner du 11/09 « j'ai pousse le contraste
+// au maximum ... comme si on poussait la teinte/saturation/contraste au max sur un filtre
+// photoshop »). Ce que l'oeil appelle « contraste pousse » est la PENTE LOG-LOG : de combien
+// l'ecart de luminance entre deux pixels voisins est multiplie. Elle est INVARIANTE par
+// changement global de luminosite et par le gamma d'encodage — une image simplement plus
+// claire rend 1,000. C'est donc la seule grandeur qui separe « plus lumineux » de « plus
+// contraste », et c'est exactement la question de l'owner.
+//   * `sx..syy` : la regression de ln(Y_hdr) sur ln(Y_sdr) sur TOUS les pixels retenus. Sa
+//     pente est l'exposant de contraste GLOBAL.
+//   * `bn/bx/by` : les memes sommes par BANDE de luminance SDR. La pente entre deux bandes
+//     voisines est l'exposant LOCAL : c'est lui qui attrape une courbe douce en moyenne mais
+//     brutale sur une plage de tons — precisement le defaut de la fenetre Hermite, plate aux
+//     deux bouts et a 3,2 au milieu. Une moyenne seule l'aurait laisse passer.
+//   * saturation et teinte : mesurees pixel par pixel sur les MEMES images.
+struct ExcStats {
+  uint64_t n = 0;
+  double sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  uint64_t bn[kExcBands] = {0};
+  double bx[kExcBands] = {0}, by[kExcBands] = {0};
+  uint64_t sat_n = 0;
+  double sat_off = 0, sat_on = 0, sat_worst = 0;
+  uint64_t hue_n = 0;
+  double hue_sum = 0, hue_worst = 0;
+};
+// La courbe LIVREE contre le SDR, et la courbe REFUSEE le 11/09 contre le meme SDR.
+ExcStats s_exc, s_exc17;
+struct ExcOut {
+  uint64_t n = 0, bands = 0;
+  double exp_g = 0, rms = 0, band_max = 0;
+  double sat_ratio = 0, sat_worst = 0, hue_mean = 0, hue_worst = 0;
+};
+ExcOut s_exc_out, s_exc17_out;
 // Ce que les verdicts 12 et 13 ont lu, garde pour etre publie a cote d'eux : un verdict qu'on
 // ne peut pas relire n'est pas une preuve.
 struct DynStats {
@@ -1167,12 +1240,14 @@ void dyn_update(float raw_key, float raw_hi, float raw_peak) {
   s_dyn_updates++;
 }
 
-// Les quatre uniformes de la courbe, sur le programme deja actif.
+// Les SIX uniformes de la courbe, sur le programme deja actif.
 void set_curve(GLuint prog, const CurveParams& p) {
   glUniform1f(glGetUniformLocation(prog, "u_hdr_ceiling"), p.ceiling);
   glUniform1f(glGetUniformLocation(prog, "u_hdr_anchor"), p.anchor);
   glUniform1f(glGetUniformLocation(prog, "u_hdr_top"), p.top);
   glUniform1f(glGetUniformLocation(prog, "u_hdr_toe"), p.toe);
+  glUniform1i(glGetUniformLocation(prog, "u_hdr_shape"), p.shape);
+  glUniform1f(glGetUniformLocation(prog, "u_hdr_gamma"), p.gamma);
 }
 // Le bras SDR : plafond 1,0 et aucune expansion. C'est EXACTEMENT ce que le joueur voit
 // interrupteur eteint.
@@ -1406,6 +1481,119 @@ float pq_eotf_nits(float v) {
 double lum_linear(float r, float g, float b) {
   auto lin = [](float x) { return std::pow((double)(x < 0.f ? 0.f : x), 2.2); };
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+// L'ANGLE DE TEINTE, en degres, dans le plan opposant-couleur de l'encodage d'affichage. On ne
+// cherche pas une teinte colorimetrique exacte : on cherche si NOTRE courbe la fait DERIVER, et
+// pour ca il suffit d'un angle stable calcule des deux cotes de la meme facon.
+double hue_deg(const float* c) {
+  const double a = (double)c[0] - 0.5 * ((double)c[1] + (double)c[2]);
+  const double b = 0.8660254037844386 * ((double)c[1] - (double)c[2]);
+  double h = std::atan2(b, a) * 57.29577951308232;
+  if (h < 0.0) {
+    h += 360.0;
+  }
+  return h;
+}
+
+// Le plancher de la population : sous 1e-4 de luminance lineaire (soit 0,015 dans l'espace
+// d'affichage) un demi-flottant ne porte plus assez de bits pour que le logarithme veuille dire
+// quelque chose. Les bandes couvrent [1e-4 ; 1].
+constexpr double kExcLogLo = -9.210340371976182;  // ln(1e-4)
+
+void exc_accumulate(ExcStats& e, const float* sdr, const float* hdr) {
+  const double ys = lum_linear(sdr[0], sdr[1], sdr[2]);
+  const double yh = lum_linear(hdr[0], hdr[1], hdr[2]);
+  if (!std::isfinite(ys) || !std::isfinite(yh) || ys <= 1e-4 || yh <= 1e-6) {
+    return;
+  }
+  const double x = std::log(ys), y = std::log(yh);
+  e.n++;
+  e.sx += x;
+  e.sy += y;
+  e.sxx += x * x;
+  e.sxy += x * y;
+  e.syy += y * y;
+  int b = (int)((x - kExcLogLo) / ((0.0 - kExcLogLo) / (double)kExcBands));
+  if (b < 0) {
+    b = 0;
+  }
+  if (b >= kExcBands) {
+    b = kExcBands - 1;
+  }
+  e.bn[b]++;
+  e.bx[b] += x;
+  e.by[b] += y;
+  const float ms = std::fmax(sdr[0], std::fmax(sdr[1], sdr[2]));
+  const float mh = std::fmax(hdr[0], std::fmax(hdr[1], hdr[2]));
+  const float ns = std::fmin(sdr[0], std::fmin(sdr[1], sdr[2]));
+  const float nh = std::fmin(hdr[0], std::fmin(hdr[1], hdr[2]));
+  if (!(ms > 0.05f) || !(mh > 0.05f)) {
+    return;
+  }
+  const double ss = 1.0 - (double)ns / (double)ms;
+  const double sh = 1.0 - (double)nh / (double)mh;
+  e.sat_n++;
+  e.sat_off += ss;
+  e.sat_on += sh;
+  const double dsat = std::fabs(sh - ss);
+  if (dsat > e.sat_worst) {
+    e.sat_worst = dsat;
+  }
+  if (ss > 0.05) {
+    double dh = std::fabs(hue_deg(hdr) - hue_deg(sdr));
+    if (dh > 180.0) {
+      dh = 360.0 - dh;
+    }
+    e.hue_n++;
+    e.hue_sum += dh;
+    if (dh > e.hue_worst) {
+      e.hue_worst = dh;
+    }
+  }
+}
+
+ExcOut exc_reduce(const ExcStats& e) {
+  ExcOut o;
+  o.n = e.n;
+  if (e.n < 3000) {
+    return o;
+  }
+  const double n = (double)e.n;
+  const double den = n * e.sxx - e.sx * e.sx;
+  if (den > 1e-9) {
+    o.exp_g = (n * e.sxy - e.sx * e.sy) / den;
+  }
+  const double vx = e.sxx / n - (e.sx / n) * (e.sx / n);
+  const double vy = e.syy / n - (e.sy / n) * (e.sy / n);
+  if (vx > 1e-9 && vy > 0.0) {
+    o.rms = std::sqrt(vy / vx);
+  }
+  const double need = 0.01 * n;  // une bande qui porte moins de 1 % des pixels ne juge rien
+  for (int j = 0; j + 1 < kExcBands; j++) {
+    if ((double)e.bn[j] < need || (double)e.bn[j + 1] < need) {
+      continue;
+    }
+    const double dx = e.bx[j + 1] / (double)e.bn[j + 1] - e.bx[j] / (double)e.bn[j];
+    const double dy = e.by[j + 1] / (double)e.bn[j + 1] - e.by[j] / (double)e.bn[j];
+    if (!(dx > 1e-6)) {
+      continue;
+    }
+    o.bands++;
+    const double sl = dy / dx;
+    if (sl > o.band_max) {
+      o.band_max = sl;
+    }
+  }
+  if (e.sat_n && e.sat_off > 1e-9) {
+    o.sat_ratio = e.sat_on / e.sat_off;
+  }
+  o.sat_worst = e.sat_worst;
+  if (e.hue_n) {
+    o.hue_mean = e.hue_sum / (double)e.hue_n;
+  }
+  o.hue_worst = e.hue_worst;
+  return o;
 }
 
 void publish_all() {
@@ -1800,6 +1988,9 @@ void publish_all() {
   autoport_proof::publish("hdr_out_dyn_ceiling_min_x100", (uint64_t)std::lround(s_dyn_stats.c_min * 100.0));
   autoport_proof::publish("hdr_out_dyn_ceiling_max_x100", (uint64_t)std::lround(s_dyn_stats.c_max * 100.0));
   autoport_proof::publish("hdr_out_anchor_x1000", (uint64_t)std::lround(s_cur.anchor * 1000.f));
+  autoport_proof::publish("hdr_out_shape", (uint64_t)s_cur.shape);
+  autoport_proof::publish("hdr_out_gamma_x1000", (uint64_t)std::lround(s_cur.gamma * 1000.f));
+  autoport_proof::publish("hdr_out_gamma_cap_x1000", (uint64_t)std::lround(kGammaMax * 1000.f));
   autoport_proof::publish("hdr_out_top_x1000", (uint64_t)std::lround(s_cur.top * 1000.f));
   autoport_proof::publish("hdr_out_toe_x1000", (uint64_t)std::lround(s_cur.toe * 1000.f));
   autoport_proof::publish("hdr_out_key_x1000", (uint64_t)std::lround(s_dyn.key * 1000.f));
@@ -1847,7 +2038,36 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_12_amplitude", (uint64_t)s_d[12]);
     autoport_proof::publish("hdr_out_defect_13_content_adaptive", (uint64_t)s_d[13]);
     autoport_proof::publish("hdr_out_defect_14_format_choice", (uint64_t)s_d[14]);
+    autoport_proof::publish("hdr_out_defect_15_no_crush", (uint64_t)s_d[15]);
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
+    // VERDICT 15 — les quatre plafonds DECLARES, puis les quatre mesures, puis la meme mesure
+    // sur la courbe REFUSEE le 11/09. Un signe : `x1000` sur les exposants et les rapports,
+    // `x100` sur les degres.
+    autoport_proof::publish("hdr_out_ct_exp_cap_x1000", (uint64_t)std::lround(kExpCap * 1000.0));
+    autoport_proof::publish("hdr_out_ct_band_cap_x1000", (uint64_t)std::lround(kBandCap * 1000.0));
+    autoport_proof::publish("hdr_out_sat_cap_x1000", (uint64_t)std::lround(kSatCap * 1000.0));
+    autoport_proof::publish("hdr_out_hue_cap_deg_x100", (uint64_t)std::lround(kHueCapDeg * 100.0));
+    autoport_proof::publish("hdr_out_ct_exp_x1000", (uint64_t)std::lround(s_exc_out.exp_g * 1000.0));
+    autoport_proof::publish("hdr_out_ct_rms_x1000", (uint64_t)std::lround(s_exc_out.rms * 1000.0));
+    autoport_proof::publish("hdr_out_ct_band_max_x1000",
+                            (uint64_t)std::lround(s_exc_out.band_max * 1000.0));
+    autoport_proof::publish("hdr_out_ct_bands", (uint64_t)s_exc_out.bands);
+    autoport_proof::publish("hdr_out_ct_px", (uint64_t)s_exc_out.n);
+    autoport_proof::publish("hdr_out_sat_ratio_x1000",
+                            (uint64_t)std::lround(s_exc_out.sat_ratio * 1000.0));
+    autoport_proof::publish("hdr_out_sat_worst_x1000",
+                            (uint64_t)std::lround(s_exc_out.sat_worst * 1000.0));
+    autoport_proof::publish("hdr_out_hue_mean_deg_x100",
+                            (uint64_t)std::lround(s_exc_out.hue_mean * 100.0));
+    autoport_proof::publish("hdr_out_hue_worst_deg_x100",
+                            (uint64_t)std::lround(s_exc_out.hue_worst * 100.0));
+    autoport_proof::publish("hdr_out_ct17_exp_x1000",
+                            (uint64_t)std::lround(s_exc17_out.exp_g * 1000.0));
+    autoport_proof::publish("hdr_out_ct17_band_max_x1000",
+                            (uint64_t)std::lround(s_exc17_out.band_max * 1000.0));
+    autoport_proof::publish("hdr_out_ct17_rms_x1000",
+                            (uint64_t)std::lround(s_exc17_out.rms * 1000.0));
+    autoport_proof::publish("hdr_out_ct17_px", (uint64_t)s_exc17_out.n);
   } else {
     autoport_proof::publish("hdr_out_defects", 14);  // auto-test pas au bout : ROUGE, jamais muet
   }
@@ -2154,21 +2374,48 @@ void compute_verdicts() {
              fmt_transport == modes && s_ph[1].frames > 0 && s_ph[1].last_mode == modes;
   }
   s_d[14] = fmt_ok ? 0 : 1;
+  // 15 : PAS DE CONTRASTE NI DE SATURATION CRAMES (livrable, point 14 ; refus owner du 10/09
+  //      puis du 11/09 : « un rendu tres j'ai pousse le contraste au maximum, c'est pas beau »,
+  //      « comme si on poussait la teinte/saturation/contraste au max sur un filtre photoshop »).
+  //      CE VERDICT AVAIT ETE PERDU EN RACCOURCISSANT L'ITEM, ET L'ITEM EST PASSE 14/14 SANS
+  //      JAMAIS LE MESURER — c'est pour ca que la porte etait verte et l'image refusee.
+  //      Mesure sur les MEMES images, quatre grandeurs, quatre plafonds DECLARES :
+  //        * l'exposant de contraste GLOBAL (pente de ln(Y_hdr) sur ln(Y_sdr)) <= kExpCap ;
+  //        * l'exposant LOCAL le pire, entre deux bandes de luminance voisines <= kBandCap.
+  //          C'est celui qui compte : une courbe peut etre douce en moyenne et brutale sur une
+  //          plage de tons, et c'est exactement le defaut de la fenetre Hermite ;
+  //        * le rapport de saturation moyenne <= kSatCap ;
+  //        * la derive de teinte moyenne <= kHueCapDeg.
+  //      Et une exigence d'EFFET, pour que le verdict ne puisse pas etre vert par inaction :
+  //      la pire bande doit etre STRICTEMENT sous celle de la courbe refusee le 11/09, qui est
+  //      redessinee sur la meme image au meme instant. Le plafond n'est donc pas un chiffre
+  //      invente : il se lit contre l'image que l'owner a refusee.
+  s_exc_out = exc_reduce(s_exc);
+  s_exc17_out = exc_reduce(s_exc17);
+  const ExcOut& ex = s_exc_out;
+  const ExcOut& ex17 = s_exc17_out;
+  const bool exc_measured = ex.n >= 3000 && ex.bands >= 2 && ex17.n >= 3000 && ex17.bands >= 2;
+  const bool exc_ok = exc_measured && ex.exp_g <= kExpCap && ex.band_max <= kBandCap &&
+                      ex.sat_ratio <= kSatCap && ex.hue_mean <= kHueCapDeg &&
+                      ex.band_max < ex17.band_max;
+  s_d[15] = exc_ok ? 0 : 1;
   s_defects = 0;
-  for (int i = 1; i <= 14; i++) {
+  for (int i = 1; i <= 15; i++) {
     s_defects += s_d[i];
   }
   lg::info(
-      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
       "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f} "
       "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={} "
       "couverture 2%={:.3f} 10%={:.3f} 25%={:.3f} 25%hi={:.3f} 50%={:.3f} moyenne_diluee={:.3f}"
-      " format={} rang={} dv_annonce={}",
+      " format={} rang={} dv_annonce={}"
+      " exposant={:.3f} bande={:.3f} (refusee 11/09 : {:.3f}) saturation={:.3f} teinte={:.2f} n={}",
       s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
-      s_d[11], s_d[12], s_d[13], s_d[14], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
+      s_d[11], s_d[12], s_d[13], s_d[14], s_d[15], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
       ps.hl_max, on.last_ceiling, onsim.last_ceiling, pon.shadow_levels, poff.shadow_levels,
       pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode), cover, cover10,
-      cover25, cover25_hi, cover50, lift_mean, format_name(fmt), fmt_rank, dv_announced ? 1 : 0);
+      cover25, cover25_hi, cover50, lift_mean, format_name(fmt), fmt_rank, dv_announced ? 1 : 0,
+      ex.exp_g, ex.band_max, ex17.band_max, ex.sat_ratio, ex.hue_mean, ex.n);
 }
 
 bool scene_ready() {
@@ -2690,6 +2937,49 @@ float tonemap_ceiling() {
   return tonemap_ceiling_for(s_surface.mode, s_active.load());
 }
 
+// LA COURBE REFUSEE LE 11/09 — bras de MESURE, et rien d'autre. Aucun chemin de rendu ne
+// l'appelle : seule la sonde de jeu reel la redessine, sur la MEME image et au MEME instant que
+// la courbe livree, pour que l'excursion de contraste publiee par le verdict 15 se lise contre
+// l'image que l'owner a refusee et non contre un chiffre invente. Le code est celui de l'essai
+// 17, recopie tel quel : la reference doit etre exacte, pas approchee.
+CurveParams refused_params_11_09(float cmax) {
+  CurveParams p;
+  p.shape = 0;
+  if (!(cmax > 1.f)) {
+    return sdr_params();
+  }
+  const float kh = smoothstep01(kKeyDark, kKeyBright, s_dyn.key);
+  const float a = clampf(s_dyn.hi, kAnchorDark, kAnchorBright);
+  const float hz = smoothstep01(kPeakLo, kPeakHi, s_dyn.peak);
+  const float c = 1.f + (cmax - 1.f) * hz;
+  // LE SOMMET : la valeur de scene qui sort AU plafond. Il etait pris au point de saturation
+  // de la courbe SDR (knee + 2(1-knee), soit ~1,05) : une CONSTANTE DE CALIBRAGE deguisee —
+  // ce que le verdict 10 interdit — et, pire, une fenetre posee AU-DESSUS de tout ce que la
+  // scene contient. Mesure du 10/09 18:09 sur le Honor, village2-dock : sommet = 0,917 alors
+  // que le pic de la scene valait 0,666. Resultat lu au meme instant : 36,8 % de l'image
+  // relevee de plus de 2 % (c'est le PIED, qui travaille sur les ombres) mais 0,7 % seulement
+  // relevee d'un quart. Les hautes lumieres n'etaient pas etirees : elles etaient hors de la
+  // fenetre. C'est « un yota au niveau des trucs qui brillent », en chiffre.
+  // Le sommet suit donc LE HAUT DE LA SCENE — ce qui brille le plus ici sort au plafond ici,
+  // et le pic bouge avec le contenu (metadonnee dynamique, pas un filtre unique). `s_dyn.peak`
+  // est deja lisse et limite en vitesse par `smooth_to`, donc la transition reste douce.
+  // La borne a la moitie de la marge est conservee : elle garantit p <= 1, donc une sortie
+  // jamais sous le SDR. Le pic n'est que la moyenne des deux tuiles les plus claires : le
+  // dernier centime d'image sature au plafond, mais la pente y est nulle (Hermite), donc sans
+  // contour visible.
+  const float w = clampf(s_dyn.peak - a, kMinWidth, (c - a) * kMaxWidthFrac);
+  p.ceiling = c;
+  p.anchor = a;
+  p.top = a + w;
+  p.toe = kToeMax * (1.f - kh);
+  const float t = p.top;
+  if (!(t > a)) {
+    p = sdr_params();  // degenere : on ne pousse jamais une fenetre vide au shader
+    p.ceiling = 1.f;
+  }
+  return p;
+}
+
 CurveParams curve_params() {
   CurveParams p;
   const float cmax = tonemap_ceiling();
@@ -2705,42 +2995,55 @@ CurveParams curve_params() {
   } else if (pin) {
     // Auto-test : point de fonctionnement FIGE, pour que les phases restent comparables.
     p.ceiling = cmax;
-    p.anchor = kPinAnchor;
+    p.anchor = kPinAnchorP;
     p.top = std::fmin(kPinTop, cmax);
-    p.toe = kPinToe;
+    p.toe = 0.f;
+    p.shape = 1;
+    p.gamma = kGammaMax;
     s_dyn_pinned_frames++;
   } else {
     // LIBRE : la courbe suit la scene. Rien ici n'est un nombre d'ecran — `cmax` est la seule
     // reference de sortie et il vient du systeme.
-    const float kh = smoothstep01(kKeyDark, kKeyBright, s_dyn.key);
-    const float a = clampf(s_dyn.hi, kAnchorDark, kAnchorBright);
-    // De combien de la marge cette scene a besoin : une scene sans haute lumiere n'en reclame
-    // aucune, et la sortie est alors celle du SDR — c'est voulu, pas un echec.
+    //
+    // TROIS GRANDEURS DE CONTENU, ET RIEN D'AUTRE :
+    //   `peak` dit COMBIEN de marge cette scene merite (une grotte sans source n'en reclame
+    //          aucune : sa sortie HDR est alors celle du SDR, c'est voulu) ;
+    //   `key`  dit OU la courbe commence — l'ancre est une fraction de la log-moyenne, donc
+    //          elle descend dans une scene sombre et monte en plein jour ;
+    //   `peak` dit encore OU elle finit : le haut de la scene sort AU plafond.
+    // L'exposant s'en DEDUIT : K = ln(C/a) / ln(pic/a). Il n'est pas choisi, il est ce qu'il
+    // faut pour poser le haut de la scene sur le plafond — et il est BORNE a kGammaMax. Quand
+    // la borne mord, on ne force pas : on RENONCE a la fin de la marge et le plafond redescend
+    // a ce que l'exposant borne sait produire. C'est la regle du livrable, point 14 : « une
+    // amplitude obtenue EN cramant ne vaut rien ».
     const float hz = smoothstep01(kPeakLo, kPeakHi, s_dyn.peak);
-    const float c = 1.f + (cmax - 1.f) * hz;
-    // LE SOMMET : la valeur de scene qui sort AU plafond. Il etait pris au point de saturation
-    // de la courbe SDR (knee + 2(1-knee), soit ~1,05) : une CONSTANTE DE CALIBRAGE deguisee —
-    // ce que le verdict 10 interdit — et, pire, une fenetre posee AU-DESSUS de tout ce que la
-    // scene contient. Mesure du 10/09 18:09 sur le Honor, village2-dock : sommet = 0,917 alors
-    // que le pic de la scene valait 0,666. Resultat lu au meme instant : 36,8 % de l'image
-    // relevee de plus de 2 % (c'est le PIED, qui travaille sur les ombres) mais 0,7 % seulement
-    // relevee d'un quart. Les hautes lumieres n'etaient pas etirees : elles etaient hors de la
-    // fenetre. C'est « un yota au niveau des trucs qui brillent », en chiffre.
-    // Le sommet suit donc LE HAUT DE LA SCENE — ce qui brille le plus ici sort au plafond ici,
-    // et le pic bouge avec le contenu (metadonnee dynamique, pas un filtre unique). `s_dyn.peak`
-    // est deja lisse et limite en vitesse par `smooth_to`, donc la transition reste douce.
-    // La borne a la moitie de la marge est conservee : elle garantit p <= 1, donc une sortie
-    // jamais sous le SDR. Le pic n'est que la moyenne des deux tuiles les plus claires : le
-    // dernier centime d'image sature au plafond, mais la pente y est nulle (Hermite), donc sans
-    // contour visible.
-    const float w = clampf(s_dyn.peak - a, kMinWidth, (c - a) * kMaxWidthFrac);
+    float c = 1.f + (cmax - 1.f) * hz;
+    const float a = clampf(kAnchorKeyFrac * s_dyn.key, kAnchorLo, kAnchorHi);
+    const float xp = std::fmax(s_dyn.peak, a * 1.05f);
+    float gamma = 1.f;
+    if (c > a * 1.001f && xp > a * 1.001f) {
+      gamma = std::log(c / a) / std::log(xp / a);
+      if (gamma < 1.f) {
+        gamma = 1.f;
+      }
+      if (gamma > kGammaMax) {
+        gamma = kGammaMax;
+        c = std::fmin(c, a * std::pow(xp / a, gamma));
+      }
+    }
     p.ceiling = c;
     p.anchor = a;
-    p.top = a + w;
-    p.toe = kToeMax * (1.f - kh);
-    const float t = p.top;
-    if (!(t > a)) {
-      p = sdr_params();  // degenere : on ne pousse jamais une fenetre vide au shader
+    p.top = xp;
+    p.toe = 0.f;   // LE PIED EST RETIRE : un relevement est un voile laiteux, pas du detail.
+                   // La richesse des ombres que le verdict 11 mesure vient de la PROFONDEUR
+                   // du tampon de fenetre (17 niveaux en RGBA8, 98 en 10 bits PQ) — elle est
+                   // reelle et elle ne coute aucun contraste. Owner du 10/09 : « on gagne pas
+                   // de richesse dans les zones sombres parce que cette richesse n'est deja
+                   // plus la ». Exactement : on ne l'invente donc pas.
+    p.shape = 1;
+    p.gamma = gamma;
+    if (!(gamma > 1.f) || !(c > 1.f)) {
+      p = sdr_params();   // degenere : on ne pousse jamais une courbe vide au shader
       p.ceiling = 1.f;
     }
     s_dyn_free_frames++;
@@ -3138,7 +3441,7 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
   const GLuint prog = shader.id();
   if (s_pl_state == 0) {
     bool ok = true;
-    for (int i = 0; i < 3 && ok; i++) {
+    for (int i = 0; i < 4 && ok; i++) {
       ok = make_float_fbo(&s_pl_fbo[i], &s_pl_tex[i], kTmW, kTmH, nullptr);
     }
     s_pl_state = ok ? 1 : -1;
@@ -3149,12 +3452,16 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       return;
     }
   }
-  // TROIS BRAS DU MEME PROGRAMME SUR LA MEME IMAGE : le SDR livre, la sortie HDR d'aujourd'hui,
-  // et celle REFUSEE le 10/09 (plafond seul, aucune expansion). La scene ne bouge pas entre eux.
-  const CurveParams legs[3] = {sdr_params(), s_cur, legacy_params(tonemap_ceiling())};
-  std::vector<float> img[3];
+  // QUATRE BRAS DU MEME PROGRAMME SUR LA MEME IMAGE : le SDR livre, la sortie HDR
+  // d'aujourd'hui, celle REFUSEE le 10/09 (plafond seul, aucune expansion) et celle REFUSEE le
+  // 11/09 (fenetre Hermite). La scene ne bouge pas entre eux. Le quatrieme bras n'existe que
+  // pour le verdict 15 : sans lui, le plafond de contraste declare n'aurait aucune reference
+  // mesuree et serait le « chiffre invente » que le livrable interdit.
+  const CurveParams legs[4] = {sdr_params(), s_cur, legacy_params(tonemap_ceiling()),
+                               refused_params_11_09(tonemap_ceiling())};
+  std::vector<float> img[4];
   bool ok = true;
-  for (int i = 0; i < 3 && ok; i++) {
+  for (int i = 0; i < 4 && ok; i++) {
     set_curve(prog, legs[i]);
     glBindFramebuffer(GL_FRAMEBUFFER, s_pl_fbo[i]);
     glViewport(0, 0, kTmW, kTmH);
@@ -3229,6 +3536,10 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       s_play.sum_off += lum_linear(img[0][i], img[0][i + 1], img[0][i + 2]);
       s_play.sum_on += lum_linear(img[1][i], img[1][i + 1], img[1][i + 2]);
     }
+    // VERDICT 15 : l'excursion, sur le MEME pixel de la MEME image, pour la courbe livree et
+    // pour celle que l'owner a refusee le 11/09.
+    exc_accumulate(s_exc, &img[0][i], &img[1][i]);
+    exc_accumulate(s_exc17, &img[0][i], &img[3][i]);
   }
   // LA SERIE. La reponse au stimulus fixe, et les parametres effectifs a cet instant.
   double resp = 0.0;

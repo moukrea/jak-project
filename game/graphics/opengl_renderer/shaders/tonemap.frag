@@ -50,6 +50,22 @@ uniform float u_hdr_ceiling;
 uniform float u_hdr_anchor;
 uniform float u_hdr_top;
 uniform float u_hdr_toe;
+// hdr-display-output, refus owner du 11/09 (« le HDR produit un rendu tres j'ai pousse le
+// contraste au maximum, c'est pas beau »). LA FORME DE LA COURBE, et c'est elle la cause :
+//   0 = FENETRE HERMITE, la courbe LIVREE le 11/09 et refusee. Elle etire [ancre, sommet] vers
+//       [ancre, plafond] : la pente y vaut 1 a l'ancre, 0 au sommet, et jusqu'a (1,5 - 0,25.p)/p
+//       au milieu — 3,2 fois l'identite au point de fonctionnement mesure ce jour-la
+//       (a=0,262 T=0,965 C=1,877). Un facteur 3,2 sur la pente DANS LES TONS MOYENS, c'est le
+//       curseur « contraste » pousse a fond, et ca ne se rattrape par aucun reglage.
+//       Conservee, et UNIQUEMENT comme bras de mesure : la sonde de jeu reel la redessine pour
+//       que l'excursion publiee ait une reference qui est l'image que l'owner a refusee.
+//   1 = GAMMA BORNE, la courbe livree. out = a.(x/a)^K au-dessus de l'ancre, ecretee au plafond.
+//       Sa pente log-log — le CONTRASTE, la seule grandeur que l'oeil lit comme « pousse » —
+//       vaut K PARTOUT au-dessus de l'ancre : aucune bande de tons n'est etiree plus qu'une
+//       autre, il n'y a plus de zone « photoshop ». K est borne cote C++ (u_hdr_gamma) et c'est
+//       ce plafond DECLARE que le verdict 15 mesure sur les pixels dessines.
+uniform int u_hdr_shape;
+uniform float u_hdr_gamma;
 
 out vec4 color;
 in vec2 tex_coord;
@@ -125,6 +141,36 @@ vec3 hdr_toe_lift(vec3 x, float amt) {
   return x * (m2 / max(m, 1e-5));
 }
 
+// L'ETIREMENT A CONTRASTE BORNE — la courbe LIVREE.
+//   out(x) = x                       pour x <= a
+//   out(x) = min(a.(x/a)^K, C)       pour x > a
+// Trois proprietes, et ce sont exactement celles que le refus du 11/09 reclame :
+//   * d.log(out)/d.log(x) = K EXACTEMENT sur tout [a, x_sat]. Le contraste local est le MEME
+//     partout : il n'existe aucune bande de tons ou la courbe serait plus raide qu'ailleurs.
+//     C'est la difference de nature avec la fenetre Hermite, dont la pente passe de 1 a 3,2
+//     puis a 0 en traversant les tons moyens ;
+//   * K >= 1 et x >= a => a.(x/a)^K >= x : la sortie n'est JAMAIS sous l'identite, donc jamais
+//     sous le SDR (qui est <= identite partout). `below_sdr_px` reste structurellement a zero ;
+//   * echelle COMMUNE aux trois canaux (courbe evaluee sur le canal maximum, facteur applique
+//     aux trois) : les rapports R:G:B sont conserves au bit pres, donc teinte et saturation ne
+//     bougent pas — seule la luminance monte. L'ecretage au plafond ne peut pas les casser non
+//     plus : il agit sur le canal MAXIMUM, avant la multiplication.
+float hdr_power_scalar(float v, float a, float K, float C) {
+  if (v <= a) {
+    return v;
+  }
+  return min(a * pow(v / a, K), C);
+}
+
+vec3 hdr_power(vec3 x, float a, float K, float C) {
+  float m = max(x.r, max(x.g, x.b));
+  if (m <= a) {
+    return x;
+  }
+  float m2 = hdr_power_scalar(m, a, K, C);
+  return x * (m2 / max(m, 1e-5));
+}
+
 vec3 hdr_neutral(vec3 c) {
   const float kStart = 0.76;
   const float kDesat = 0.15;
@@ -146,10 +192,12 @@ void main() {
   vec4 src = texture(tex_T0, tex_coord);
   float ceiling = max(u_hdr_ceiling, 1.0);
   vec3 c = max(src.rgb * u_hdr_exposure, vec3(0.0));
-  if (ceiling > 1.0 && u_hdr_anchor > 0.0 && u_hdr_anchor < 1.0 && u_hdr_top > u_hdr_anchor) {
+  bool expand_shape = (u_hdr_shape == 1) ? (u_hdr_gamma > 1.0) : (u_hdr_top > u_hdr_anchor);
+  if (ceiling > 1.0 && u_hdr_anchor > 0.0 && u_hdr_anchor < 1.0 && expand_shape) {
     // SORTIE HDR : on ETIRE, on ne comprime pas. Toujours une seule compression de plage dans
     // la chaine — celle-ci n'en est pas une, elle est bornee par le plafond de l'ecran.
-    c = hdr_expand(c, u_hdr_anchor, u_hdr_top, ceiling);
+    c = (u_hdr_shape == 1) ? hdr_power(c, u_hdr_anchor, u_hdr_gamma, ceiling)
+                           : hdr_expand(c, u_hdr_anchor, u_hdr_top, ceiling);
     c = hdr_toe_lift(c, u_hdr_toe);
     // L'alpha traverse INTACT : la passe 2D qui suit melange contre le dst-alpha de ce tampon.
     color = vec4(min(c, vec3(ceiling)), src.a);
