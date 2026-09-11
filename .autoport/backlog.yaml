@@ -4646,7 +4646,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: blocked
+  status: open
   priority: 18
   game: jak1
   gate:
@@ -4661,26 +4661,29 @@ items:
   history: []
   prompt: prompts/item-hdr-display-output.md
   owner_ok: null
-  where: 'Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur ton Honor, les
+  where: 'Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur le Redmi, les
     zones brillantes doivent vraiment ressortir, sans que le reste change.'
-  deliverable: '`hdr_out_defects` = 0. Verdicts 1-10 : voir SPEC 4.5 et l''historique de l''item. (11)
-    SOURCE AVANT COMPRESSION (refus 10/09) : la sortie HDR consomme la scene HDR AVANT le tone map SDR.
-    Publier l''identite du tampon lu et le nombre de compressions SDR subies par ce chemin : il doit valoir
-    0. Lire l''image deja compressee = DEFAUT, quel que soit le reste. (12) RICHESSE DANS LES OMBRES,
-    mesuree sur du jeu reel : le detail distinguable sous le blanc SDR augmente franchement par rapport
-    a OFF ; inchange = DEFAUT. (13) PAS DE CONTRASTE CRAME : publier l''excursion de saturation et de
-    contraste par rapport a la sortie SDR sur les memes images ; un ecart au-dela du plafond declare est
-    un DEFAUT, et les teintes restent celles attendues. (14) AMPLITUDE PILOTEE PAR LA SCENE : la marge
-    accordee est exploitee AU MAXIMUM de ce que la scene contient — une scene lumineuse doit approcher
-    la marge, une scene nocturne ne doit pas y etre forcee. Publier, par scene, la marge accordee, la
-    marge utilisee et le pic de la scene. Un plafond fixe et prudent = DEFAUT. Preuve sur le Honor.'
-  known_cause: 'Refus 10/09 apres test sur le Honor. L''owner decrit un filtre pose APRES le tone map
-    SDR : pas de gain dans les ombres (la richesse n''y est plus quand on traite l''image) et des contrastes
-    crames facon curseur photoshop pousse a fond. C''est la lecture a retenir tant qu''une mesure ne la
-    contredit pas : la sortie HDR doit partir de la scene HDR AVANT compression SDR, pas de son resultat.'
+  deliverable: '`hdr_out_defects` = 0. Verdicts 1-8 : voir SPEC 4.5. (9) Pas d''assombrissement, mesure
+    sur du JEU REEL, plusieurs niveaux, nombre d''images publie. (10) ADAPTATION A L''ECRAN : la SEULE
+    reference est le pic ANNONCE, quel qu''il soit ; aucune constante de calibrage. Prouve par l''EFFET
+    : a deux pics annonces, la meme radiance sort differemment, et au pic reel l''image n''est pas plus
+    sombre qu''a 1000. (11) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000` atteint une fraction majoritaire
+    de la marge REELLEMENT accordee (`hdr_out_ratio_max_x1000`) sur du jeu reel. Un compteur de niveaux
+    ne vaut plus verdict. (12) ADAPTATION AU CONTENU, distincte de (10) : la courbe suit la scene dans
+    le TEMPS, facon Dolby Vision / HDR10+, jamais un filtre unique. Publier la SERIE des parametres sur
+    un parcours plein jour / interieur / grotte : ils CHANGENT, transition lissee. Courbe constante =
+    DEFAUT. Preuve sur le Redmi eae4df44. ANNONCER N''EST PAS ACCORDER : si le systeme ne rend aucune
+    marge, le verdict 11 sort ROUGE et on le DIT.'
+  known_cause: 'Refus 10/09. L''owner voit une MINI difference ON/OFF — « quasi 0 diff », « un yota sur
+    les trucs qui brillent » : l''interrupteur agit, l''effet est trop faible. Sur le HONOR : marge accordee
+    2251, hautes lumieres livrees 1445 — on n''utilise pas la marge obtenue ; et les compteurs de NIVEAUX
+    (17->128) montaient quand meme, compter des paliers n''est pas mesurer une amplitude. Second grief
+    : courbe STATIQUE, la meme partout. APPAREIL CHANGE le 11/09 : le Redmi annonce 500 nits, 3 formats
+    HDR et les extensions EGL. Les chiffres ci-dessus sont ceux du Honor : les remesurer.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'budget : porte a 18 le 11/09, les verdicts changent a chaque refus de l''owner.'
+  notes: 'budget : porte a 18 le 10/09. Appareil de preuve = Redmi eae4df44 depuis le 11/09 (500 nits
+    annonces) : un seul telephone pour le HDR et le lot perf.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4757,6 +4760,12 @@ items:
       dans la lumiere est faked ce qui donne ces contrastes completement debiles. [...] Bah je suis pas
       d'accord ! dans le noir on va pas aller chercher a couvrir du 0 a 2,54x [...] mais c'est un panel
       bien plus large que 0 a 1, et on peut en tirer un maximum partie du coup !
+  - date: '2026-09-11'
+    text: donc ca veut dire que pour le chantier HDR, on peut garder le Redmi, a 500 nits c'est top !
+      Donc on l'utilisera pour l'HDR aussi !
+  - date: '2026-09-11'
+    text: pour le chantier HDR, on peut garder le Redmi, a 500 nits c'est top ! Donc on l'utilisera pour
+      l'HDR aussi !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4765,12 +4774,10 @@ items:
   - debug.opengoal.level.warp=village2-dock
   - debug.opengoal.tod.fast=1
   proof_timeout: 240
-  block_reason: 'EN ATTENTE DU HONOR. Rouvert le 10/09 (« PAS VALIDE DU TOUT ») avec quatre verdicts neufs,
-    dont la source AVANT compression SDR. Le Redmi est branche a la place et l''item est epingle sur le
-    Honor : sans lui, zero echantillon.'
+  block_reason: null
   proof_env:
   - ANDROID_SERIAL=AREE026206000788
-  device_serial: AREE026206000788
+  device_serial: eae4df44
   delivered: null
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
@@ -6593,7 +6600,7 @@ items:
   block_reason: null
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
-  status: in-progress
+  status: to-test
   priority: 19
   game: jak1
   device: true
@@ -6652,7 +6659,7 @@ items:
       d''ailleurs etre comme ca que ca se comporte pour les autres options qui dependent d''une autre
       option)'
   prompt: prompts/item-recharged-gating-real.md
-  delivered: null
+  delivered: '2026-09-11'
 - id: res-menu-truth
   feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
   status: open
@@ -7054,7 +7061,7 @@ items:
   where: 'Options et overlay tactile : plus aucune trace du navigateur de mesh, et aucune autre ligne
     de menu deplacee au passage'
   out_of_scope: Ne pas toucher aux autres outils de debug. On retire celui-la, entierement.
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
