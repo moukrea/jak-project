@@ -460,6 +460,74 @@ float announced_peak_nits() {
   return max_lum > 0 ? (float)max_lum : kDefaultMaxNits;
 }
 
+// BT.2408 : le blanc GRAPHIQUE du PQ. C'est la reference normative de la recommandation, pas
+// un calibrage maison : en PQ le blanc de l'interface se place a 203 nits absolus quel que soit
+// le pic du panneau, et tout ce qui est au-dessus est de la haute lumiere.
+constexpr float kGraphicsWhiteNits = 203.f;
+
+// L'ecran PRESENTE-t-il le HDR, ou se contente-t-il de le DECODER ?
+//
+// La distinction commande tout le chemin PQ. Sur un ecran qui PRESENTE, le blanc graphique se
+// pose a 203 nits et le panneau garde `pic/203` au-dessus pour les hautes lumieres. Sur un ecran
+// qui DECODE, le compositeur ramene le signal PQ a l'echelle de son propre blanc SDR : y poser le
+// blanc a 203 nits n'ouvre aucune marge, ca ne fait qu'ASSOMBRIR l'image de 203/pic — le refus
+// owner du 09/09 (« tout est BEAUCOUP plus sombre, les a-plats blancs sont gris »).
+//
+// AUCUN APPAREIL N'EST NOMME ICI. La decision se lit dans la FORME de ce que l'ecran annonce, et
+// chaque entree est publiee pour qu'un lecteur puisse la refaire :
+//   * API 34+ : `Display.getHdrSdrRatio()` existe — c'est un CONTRAT, l'ecran presente ;
+//   * avant, trois signaux publics, TOUS exiges. L'asymetrie des erreurs impose cette prudence :
+//     un faux « presente » assombrit l'image (defaut visible), un faux « decode » laisse
+//     seulement la feature inerte (etat d'avant). Donc :
+//       - `isWideColorGamut()` : un panneau qui presente du BT.2020 est large par construction ;
+//       - `maxAverage < max` : un vrai panneau HDR ne tient pas son pic en plein ecran ; une
+//         declaration de complaisance recopie le meme nombre dans les deux champs ;
+//       - `minLuminance > 0` : un vrai panneau declare son noir.
+//     Et le pic doit valoir au moins deux fois le blanc graphique, sans quoi l'ancrage a 203
+//     n'achete pas de marge : il ne ferait qu'assombrir.
+struct PresentVerdict {
+  bool presents;
+  const char* reason;
+};
+int s_test_presents = 0;        // auto-test phase 3 : simule un ecran qui PRESENTE
+int s_presents_cache = -1;      // -1 = pas encore decide (les caps arrivent apres le demarrage)
+const char* s_presents_reason = "pas_encore_decide";
+
+PresentVerdict display_presents_hdr() {
+  if (s_test_presents) {
+    return PresentVerdict{true, "auto-test:ecran_presentant_simule"};
+  }
+  if (s_presents_cache < 0) {
+    SysCaps c;
+    {
+      std::lock_guard<std::mutex> lk(s_mu);
+      c = s_sys;
+    }
+    const char* why = nullptr;
+    bool yes = false;
+    if (c.ratio_available) {
+      yes = true; why = "api34:Display.getHdrSdrRatio_est_un_contrat";
+    } else if (c.max_lum <= 0) {
+      why = "aucun_pic_annonce";
+    } else if (!c.wide_gamut) {
+      why = "isWideColorGamut=false:l_ecran_ne_presente_pas_le_bt2020";
+    } else if (!(c.max_avg > 0 && c.max_avg < c.max_lum)) {
+      why = "maxAverage=max:declaration_degeneree";
+    } else if (c.min_lum_x10000 <= 0) {
+      why = "minLuminance=0:aucun_noir_declare";
+    } else if ((float)c.max_lum < 2.f * kGraphicsWhiteNits) {
+      why = "pic_annonce_sous_deux_fois_le_blanc_graphique";
+    } else {
+      yes = true; why = "forme_des_capacites:gamut_large+maxAverage<max+minLuminance>0";
+    }
+    s_presents_reason = why;
+    s_presents_cache = yes ? 1 : 0;
+    lg::info("[hdr-display-output] l'ecran {} le HDR : {}", yes ? "PRESENTE" : "ne fait que DECODER",
+             why);
+  }
+  return PresentVerdict{s_presents_cache > 0, s_presents_reason};
+}
+
 // Le pic EFFECTIF : auto-test > propriete de debug > annonce.
 float peak_nits() {
   if (s_test_peak > 0.f) {
@@ -527,6 +595,9 @@ struct PhaseStats {
   uint32_t last_mode = 0;
   float last_ceiling = 1.f;
   float last_peak = 0.f;
+  // Le blanc SDR EN VIGUEUR dans la phase. Le verdict 10 compare deux regimes qui n'ont pas la
+  // meme reference : sans lui, il comparerait des nits a des nits d'echelles differentes.
+  float last_sdr_white = 0.f;
   int ratio_max_x1000 = 1000;  // la plus grande marge que le SYSTEME ait accordee dans la phase
 };
 // Les sondes, cumulees PAR PHASE (1 = ON reel, 3 = ON pic simule).
@@ -591,12 +662,15 @@ int s_d[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
 int s_ratio_max_x1000 = 1000;
 uint32_t s_alt_mode = kModeNone;  // le chemin mesure en phase 4 (0 = il n'y en avait qu'un)
-// RECOMPOSITION : un ecran qui PRESENTE le PQ tient son blanc SDR a un nombre de nits fixe ; un
-// ecran qui le RECOMPOSE vers son propre SDR fait suivre ce blanc au pic du signal. Lu sur le
-// blanc UI deja mesure des phases 1 et 3 (aucun instrument neuf) : -1 = pas mesurable, 1 =
-// recompose (donc AUCUNE marge ne peut exister, quel que soit notre code), 0 = presente.
-int s_recomposed = -1;
-int s_recomposed_ppm = 0;  // (w_sim/w_real)/(pic_sim/pic_reel) x 1000, la grandeur qui le dit
+// La « RECOMPOSITION » mesuree par les essais 13 et 14 est RETIREE (essai 15). Elle lisait
+// (w_sim/w_reel) / (pic_sim/pic_reel) sur la sonde de blanc UI. Or cette sonde dessine le texel
+// blanc dans un FBO HORS ECRAN avec notre propre programme (`probe_present`) : ni le compositeur
+// ni la dalle ne sont dans la boucle. Le blanc y est encode a `u_out_paper_white`, c'est-a-dire
+// `paper_white() == sdr_white_nits() == peak_nits()` — doubler le pic doublait donc le blanc
+// mesure PAR CONSTRUCTION, sur n'importe quel ecran. Le quotient valait 1,000 a 0,0 % pres parce
+// qu'il etait notre propre arithmetique, pas parce que la dalle recomposait quoi que ce soit.
+// Ce qui reste, et qui est vrai : `hdr_out_presents_hdr` (la FORME des capacites annoncees) et
+// `hdr_out_grant_physical` (la consigne de retro-eclairage ON contre OFF, lue du systeme).
 
 // Sonde de blanc UI (probe_present) : ce que le quad final ECRIT pour un blanc (1,1,1) du jeu,
 // dans le mode courant, et ce qu'il ecrirait en recopie SDR (u_out_mode = 0) pour le meme blanc
@@ -684,6 +758,8 @@ DynState s_dyn;
 CurveParams s_cur;              // les parametres pousses pour l'image en cours
 uint64_t s_dyn_updates = 0;     // analyses de scene consommees
 uint64_t s_dyn_pinned_frames = 0, s_dyn_free_frames = 0;
+// Images ou la feature est ACTIVE mais ou la courbe est restee celle du SDR faute de marge.
+uint64_t s_dyn_sdr_frames = 0;
 int s_an_state = 0;             // 0 pas cree, 1 pret, -1 indisponible
 int s_an_mode = 0;              // 2 = PBO asynchrone, 1 = relecture directe, 0 = aucune
 GLuint s_an_fbo = 0, s_an_tex = 0, s_an_pbo[kAnSlots] = {0, 0};
@@ -1102,6 +1178,19 @@ bool read_levels(int n, GLenum fmt, uint64_t* out_levels) {
   return true;
 }
 
+// ARIB STD-B67 (BT.2100 HLG), inverse de `hlg_oetf` de post_processing.frag. Rend la scene
+// RELATIVE : 1,0 = le pic de l'ecran, jamais des nits — le HLG n'en connait pas.
+double hlg_inverse_oetf(double e) {
+  const double a = 0.17883277, b = 0.28466892, c = 0.55991073;
+  if (e < 0.0) {
+    return 0.0;
+  }
+  if (e <= 0.5) {
+    return (e * e) / 3.0;
+  }
+  return (std::exp((e - c) / a) + b) / 12.0;
+}
+
 float pq_eotf_nits(float v) {
   // SMPTE ST 2084, inverse de l'OETF de post_processing.frag.
   const double m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625,
@@ -1200,7 +1289,7 @@ void publish_all() {
   autoport_proof::publish_text("hdr_out_format_reasons", fmt_reasons.c_str());
   autoport_proof::publish("hdr_out_dv_announced", dv_announced ? 1 : 0);
   autoport_proof::publish_text("hdr_out_dv_reason", "licence_hors_perimetre");
-  autoport_proof::publish("hdr_out_format_choice_offered", 0);
+  autoport_proof::publish("hdr_out_format_choice_offered", fmt_usable_count > 1 ? 1 : 0);
   autoport_proof::publish_text("hdr_out_format_choice_reason", fmt_choice_reason.c_str());
   autoport_proof::publish("hdr_out_egl_hlg_available", egl_hlg ? 1 : 0);
   autoport_proof::publish("hdr_out_egl_cta861_3_available", egl_cta ? 1 : 0);
@@ -1210,7 +1299,19 @@ void publish_all() {
   autoport_proof::publish("hdr_out_display_grants_headroom", granted > 1.005f ? 1 : 0);
   autoport_proof::publish_text("hdr_out_granted_source",
                                sys.ratio_available ? "api34:Display.getHdrSdrRatio"
-                                                   : "sdk<34:pic_annonce/blanc_sdr_du_conteneur");
+                                                   : "sdk<34:pic_annonce/blanc_sdr_de_l_ecran");
+  // LA DECISION QUI COMMANDE TOUT LE CHEMIN PQ, avec ses entrees, pour qu'elle se refasse a la
+  // main. Aucun appareil n'y est nomme : seule la FORME des capacites annoncees decide.
+  {
+    const PresentVerdict pv = display_presents_hdr();
+    autoport_proof::publish("hdr_out_presents_hdr", pv.presents ? 1 : 0);
+    autoport_proof::publish_text("hdr_out_presents_reason", pv.reason);
+    autoport_proof::publish("hdr_out_caps_max_avg_nits", (uint64_t)(sys.max_avg < 0 ? 0 : sys.max_avg));
+    autoport_proof::publish("hdr_out_caps_min_lum_x10000",
+                            (uint64_t)(sys.min_lum_x10000 < 0 ? 0 : sys.min_lum_x10000));
+    autoport_proof::publish("hdr_out_caps_wide_gamut", sys.wide_gamut ? 1 : 0);
+    autoport_proof::publish("hdr_out_graphics_white_nits", (uint64_t)std::lround(kGraphicsWhiteNits));
+  }
   // La CONTRE-EPREUVE physique du 1,000 ci-dessus : la consigne de retro-eclairage pendant la
   // phase ON contre la phase OFF. Un ecran qui accorde de la marge a une couche HDR la monte ;
   // un panneau a retro-eclairage global qui ne fait que DECODER le HDR ne la bouge pas.
@@ -1235,12 +1336,10 @@ void publish_all() {
       (uint64_t)(bl_measurable ? std::lround(1000.0 * (double)s_bl_on.max / (double)s_bl_off.max) : 0));
   autoport_proof::publish("hdr_out_grant_physical",
                           (bl_measurable && s_bl_on.max > s_bl_off.max * 1.02f) ? 1 : 0);
-  // La TROISIEME contre-epreuve, et la seule qui soit optique : doubler le pic du SIGNAL double
-  // le blanc rendu => le compositeur remet le PQ a l'echelle de son propre SDR. Sur un ecran qui
-  // PRESENTE le HDR, le blanc SDR ne bouge pas quand le pic du signal bouge.
-  autoport_proof::publish("hdr_out_recomposed_measurable", (uint64_t)(s_recomposed >= 0 ? 1 : 0));
-  autoport_proof::publish("hdr_out_recomposed", (uint64_t)(s_recomposed > 0 ? 1 : 0));
-  autoport_proof::publish("hdr_out_recomposed_follow_x1000", (uint64_t)(s_recomposed_ppm < 0 ? 0 : s_recomposed_ppm));
+  // `hdr_out_recomposed*` a ete RETIRE ici (essai 15). Ces trois cles lisaient la sonde de blanc
+  // UI, qui dessine HORS ECRAN avec notre propre programme : le blanc y est encode a
+  // `sdr_white_nits()`, donc doubler le pic doublait le blanc mesure quelle que soit la dalle.
+  // `follow = 1,000` a 0,0 % pres etait notre arithmetique, pas une propriete de l'ecran.
   autoport_proof::publish("hdr_out_autoconfig_mode", modes ? 1 : 0);
   autoport_proof::publish("hdr_out_setting", s_setting.load() != 0 ? 1 : 0);
   autoport_proof::publish("hdr_out_effective", effective_setting() ? 1 : 0);
@@ -1436,6 +1535,13 @@ void publish_all() {
   autoport_proof::publish("hdr_out_dyn_readback", (uint64_t)s_an_mode);
   autoport_proof::publish("hdr_out_dyn_pinned_frames", s_dyn_pinned_frames);
   autoport_proof::publish("hdr_out_dyn_free_frames", s_dyn_free_frames);
+  autoport_proof::publish("hdr_out_dyn_sdr_frames", s_dyn_sdr_frames);
+  autoport_proof::publish_text(
+      "hdr_out_dyn_frozen_reason",
+      s_dyn_sdr_frames == 0
+          ? "-"
+          : (display_presents_hdr().presents ? "marge_accordee_a_1,000_malgre_un_ecran_presentant"
+                                             : "aucune_marge:l_ecran_ne_fait_que_decoder_le_hdr"));
   autoport_proof::publish("hdr_out_dyn_resp_min_x100", (uint64_t)std::lround(s_dyn_stats.r_min * 100.0));
   autoport_proof::publish("hdr_out_dyn_resp_max_x100", (uint64_t)std::lround(s_dyn_stats.r_max * 100.0));
   autoport_proof::publish("hdr_out_dyn_resp_span_pct", (uint64_t)std::lround(s_dyn_stats.r_span * 100.0));
@@ -1567,7 +1673,10 @@ void compute_verdicts() {
     if (on.last_mode == kModeHdr10Pq) {
       const double expect = ref * (double)real_sdr_white;
       white_ok = expect > 0.0 && ui_mean >= 0.99 * expect && pr.ui_white_min >= 0.98 * expect;
-    } else if (on.last_mode == kModeScrgbLinear) {
+    } else if (on.last_mode == kModeScrgbLinear || on.last_mode == kModeHlg) {
+      // scRGB comme HLG : `measured` est deja en multiples du blanc SDR (pour le HLG, la sonde
+      // applique l'OETF inverse ARIB STD-B67 puis remet la marge). Sans cette branche, tout
+      // ecran qui n'annonce QUE du HLG lisait le verdict 8 rouge sans aucun defaut reel.
       white_ok = ref > 0.0 && ui_mean >= 0.99 * ref && pr.ui_white_min >= 0.98 * ref;
     }
   }
@@ -1588,50 +1697,35 @@ void compute_verdicts() {
     play_dark_ok = d <= 5.0 && s_play.below_sdr_px == 0;
   }
   s_d[9] = (dark_ok && play_dark_ok) ? 0 : 1;
-  // 10 : la courbe s'adapte au pic ANNONCE. Phase 3 = ON avec un pic simule (1000 nits, ou le
-  //      double si l'ecran annonce deja >= 900), memes mesures que la phase 1 :
-  //      * scRGB : blanc SDR ANCRE (le blanc UI ne bouge pas, +-1 %), plafond plus haut, et les
-  //        hautes lumieres ecrites par le tone map montent plus haut ;
-  //      * PQ (API < 34, PQ recompose en SDR a l'echelle du pic) : le blanc de reference SUIT le
-  //        pic dans la meme proportion (+-3 %) et le plafond reste 1,0 — c'est la seule
-  //        adaptation qui existe sur ces ecrans, les hautes lumieres ne peuvent pas s'etendre.
+  // 10 : LA COURBE S'ADAPTE AU PIC ANNONCE — mesure sur ce qui est DESSINE.
+  //      La phase 3 simule un ecran qui PRESENTE le HDR a un pic double. Deux exigences :
+  //        * le blanc du jeu reste ANCRE au blanc SDR DE SON REGIME (±1 %) : il ne s'assombrit
+  //          dans aucun des deux. Chaque phase est ramenee a son propre blanc (`last_sdr_white`
+  //          en PQ, 1,0 en scRGB et en HLG ou la mesure est deja relative) ;
+  //        * le plafond MONTE, et la rampe a STIMULUS FIXE relue apres le tone map monte avec
+  //          lui (> 1 %). C'est la moitie qui a du contenu : elle sort d'un dessin.
+  //      L'ancienne branche PQ comparait le blanc simule au blanc reel divise par le rapport des
+  //      pics. Le blanc etant ENCODE a `u_out_paper_white == sdr_white_nits()`, ce quotient
+  //      valait 1,000 sur n'importe quelle dalle : un miroir de notre propre arithmetique, VERT
+  //      PAR CONSTRUCTION. Retire — c'etait le faux vert de l'essai 14.
   const PhaseStats& onsim = s_ph[3];
   bool peak_ok = false;
-  if (pr.ui_samples > 0 && ps.ui_samples > 0 && onsim.frames > 0 && onsim.active_frames == onsim.frames &&
-      onsim.last_peak > 0.f && on.last_peak > 0.f && onsim.last_peak != on.last_peak) {
+  if (pr.ui_samples > 0 && ps.ui_samples > 0 && onsim.frames > 0 &&
+      onsim.active_frames == onsim.frames && onsim.last_peak > on.last_peak) {
     const double w_real = pr.ui_white_sum / (double)pr.ui_samples;
+    const double ref_real = pr.ui_ref_sum / (double)pr.ui_samples;
     const double w_sim = ps.ui_white_sum / (double)ps.ui_samples;
-    if (on.last_mode == kModeScrgbLinear && onsim.last_mode == kModeScrgbLinear) {
-      const bool anchored = w_real > 0.0 && std::fabs(w_sim / w_real - 1.0) <= 0.01;
-      // La montee se lit sur le STIMULUS FIXE, jamais sur la scene : elle bouge entre les deux
-      // phases (10/09 : hl_max 1,877 en reel contre 1,221 en pic simule, plafond pourtant monte
-      // de 1,88 a 2,33 — la scene, pas la courbe). Le plafond seul serait un miroir de notre
-      // propre arithmetique ; la somme sur la rampe est LUE d'un dessin.
-      const bool higher = onsim.last_ceiling > on.last_ceiling + 1e-3f && pr.hl_fixed_sum > 0.0 &&
-                          ps.hl_fixed_samples > 0 && ps.hl_fixed_sum > pr.hl_fixed_sum * 1.01;
-      peak_ok = anchored && higher;
-    } else if (on.last_mode == kModeHdr10Pq && onsim.last_mode == kModeHdr10Pq) {
-      const double want = (double)onsim.last_peak / (double)on.last_peak;
-      const bool follows = w_real > 0.0 && std::fabs((w_sim / w_real) / want - 1.0) <= 0.03;
-      peak_ok = follows && std::fabs(on.last_ceiling - 1.f) < 1e-3f && std::fabs(onsim.last_ceiling - 1.f) < 1e-3f;
-    }
+    const double ref_sim = ps.ui_ref_sum / (double)ps.ui_samples;
+    const double norm_real = (on.last_mode == kModeHdr10Pq) ? (double)on.last_sdr_white : 1.0;
+    const double norm_sim = (onsim.last_mode == kModeHdr10Pq) ? (double)onsim.last_sdr_white : 1.0;
+    const bool anchored = ref_real > 0.0 && ref_sim > 0.0 && norm_real > 0.0 && norm_sim > 0.0 &&
+                          std::fabs((w_real / norm_real) / ref_real - 1.0) <= 0.01 &&
+                          std::fabs((w_sim / norm_sim) / ref_sim - 1.0) <= 0.01;
+    const bool higher = onsim.last_ceiling > on.last_ceiling + 1e-3f && pr.hl_fixed_sum > 0.0 &&
+                        ps.hl_fixed_samples > 0 && ps.hl_fixed_sum > pr.hl_fixed_sum * 1.01;
+    peak_ok = anchored && higher;
   }
   s_d[10] = peak_ok ? 0 : 1;
-  // La RECOMPOSITION, nommee. Ce n'est pas un verdict : c'est le FAIT physique dont les verdicts
-  // 11 et 12 dependent. Meme mesure que la branche PQ du verdict 10, isolee et publiee seule,
-  // parce qu'un lecteur doit pouvoir distinguer « notre code ne livre pas l'amplitude » de
-  // « l'ecran ne peut rien montrer au-dessus de son blanc ». Sans elle, les deux sortent 1.
-  if (pr.ui_samples > 0 && ps.ui_samples > 0 && on.last_peak > 0.f && onsim.last_peak > 0.f &&
-      on.last_peak != onsim.last_peak) {
-    const double w_real = pr.ui_white_sum / (double)pr.ui_samples;
-    const double w_sim = ps.ui_white_sum / (double)ps.ui_samples;
-    const double want = (double)onsim.last_peak / (double)on.last_peak;
-    if (w_real > 0.0 && want > 0.0) {
-      const double follow = (w_sim / w_real) / want;
-      s_recomposed_ppm = (int)std::lround(follow * 1000.0);
-      s_recomposed = std::fabs(follow - 1.0) <= 0.05 ? 1 : 0;
-    }
-  }
   // 11 : L'EFFET, MESURE (refus owner du 10/09 : « on/off j'ai aucun changement a l'ecran ...
   //      l'image doit gagner en richesse dans les ombres et lumieres »). Trois planchers, tous
   //      les trois exiges — « identique a OFF » est un defaut au meme titre qu'« assombri »,
@@ -1816,6 +1910,7 @@ void finish_selftest() {
   s_test_force.store(-1);  // le reglage du joueur reprend
   s_test_mode = kModeNone;
   s_test_peak = 0.f;
+  s_test_presents = 0;
   s_selftest_done = true;
   compute_verdicts();
   publish_all();
@@ -1854,7 +1949,13 @@ void selftest_step() {
     s_test_force.store(1);
     const float ann = announced_peak_nits();
     s_test_peak = (ann >= 0.9f * kSimPeakNits) ? 2.f * ann : kSimPeakNits;
-    lg::info("[hdr-display-output] auto-test : phase ON imposee avec pic SIMULE {} nits (annonce {})",
+    // ET un ecran qui PRESENTE le HDR. Sans cela, sur un ecran qui ne fait que decoder, le blanc
+    // SDR suit le pic simule (il EST le pic) : le plafond reste 1,0 dans les deux phases et la
+    // comparaison ne mesure plus rien — c'est le miroir des essais 13 et 14. En simulant les deux
+    // ensemble, la phase 3 fait passer la courbe par le regime qu'un vrai ecran HDR lui impose,
+    // et ce qui est compare ensuite est DESSINE (rampe a stimulus fixe), pas calcule.
+    s_test_presents = 1;
+    lg::info("[hdr-display-output] auto-test : phase ON imposee sur un ecran SIMULE presentant, pic {} nits (annonce {})",
              s_test_peak, ann);
   } else if (s_frames == s_phase_start + 3 * kPhaseFrames) {
     // L'AUTRE chemin annonce par les caps. Le Honor ne rend aucune marge en scRGB (essai 6) et
@@ -1866,6 +1967,7 @@ void selftest_step() {
     }
     s_alt_mode = alt;
     s_test_peak = 0.f;
+    s_test_presents = 0;
     if (alt != kModeNone) {
       // Les onze verdicts sont deja tous calculables ici (phases 0-3 faites) : on les POSE sur
       // le disque AVANT de rebasculer la surface. Une bascule PQ qui tuerait la course
@@ -2124,7 +2226,12 @@ float sdr_white_nits() {
   if (s_white_override > 0.f) {
     return s_white_override;
   }
-  return peak_nits();
+  // ICI se joue tout le chemin PQ. Rendre `peak_nits()` faisait de `headroom_linear()` le
+  // quotient d'un nombre par lui-meme : 1,000 sur TOUT ecran PQ, quel que soit le panneau, donc
+  // `tonemap_ceiling()` a 1 et `curve_params()` sur `sdr_params()` — la sortie « HDR » etait
+  // l'image SDR exacte dans un conteneur 10 bits. C'est le « quasi 0 diff off vs on » du 10/09,
+  // et ce n'etait pas une limite du Redmi : c'etait vrai partout.
+  return display_presents_hdr().presents ? kGraphicsWhiteNits : peak_nits();
 }
 
 const char* sdr_white_source() {
@@ -2145,7 +2252,11 @@ const char* sdr_white_source() {
     std::lock_guard<std::mutex> lk(s_mu);
     max_lum = s_sys.max_lum;
   }
-  return max_lum > 0 ? "pq:HdrCapabilities.maxLuminance" : "pq:compositor_default_500";
+  if (display_presents_hdr().presents) {
+    return "pq:BT.2408_blanc_graphique_203nits";
+  }
+  return max_lum > 0 ? "pq:HdrCapabilities.maxLuminance(ecran_qui_decode)"
+                     : "pq:compositor_default_500(ecran_qui_decode)";
 }
 
 float paper_white() {
@@ -2174,11 +2285,12 @@ float headroom_linear() {
   if (s_surface.mode == kModeScrgbLinear) {
     return ratio_linear();
   }
-  // PQ / HLG : aucune API ne PUBLIE la marge accordee avant l'API 34. Ce qui est lisible, c'est
-  // le pic ANNONCE par l'ecran et le blanc SDR du conteneur : le compositeur recompose le PQ a
-  // l'echelle du pic annonce, donc la marge EST leur quotient. Quand les deux coincident — le
-  // cas d'un ecran qui annonce le HDR sans rien accorder a une surface applicative — il vaut
-  // 1,000 : ANNONCER N'EST PAS ACCORDER, et ce 1,000 est alors une mesure, pas une constante.
+  // PQ / HLG : aucune API ne PUBLIE la marge accordee avant l'API 34. La marge est le quotient
+  // du pic ANNONCE par le blanc SDR, et c'est `sdr_white_nits()` qui porte la seule decision qui
+  // compte : sur un ecran qui PRESENTE, le blanc est le blanc graphique BT.2408 (203 nits) et la
+  // marge vaut `pic/203` ; sur un ecran qui ne fait que DECODER, le blanc EST le pic et la marge
+  // vaut 1,000. ANNONCER N'EST PAS ACCORDER : ce 1,000-la est un constat sur l'ecran, pas une
+  // constante — et il est publie avec sa raison (`hdr_out_presents_reason`).
   const float pk = peak_nits();
   const float w = sdr_white_nits();
   if (!(pk > 0.f) || !(w > 0.f)) {
@@ -2203,6 +2315,12 @@ CurveParams curve_params() {
   const bool pin = measuring() && !s_selftest_done;
   if (!s_active.load() || !(cmax > 1.f)) {
     p = sdr_params();  // sortie SDR : identite stricte avec ce qui precede l'item
+    // Le verdict 13 (la courbe suit la scene) tombait rouge ICI, en silence : sans marge, ni
+    // `s_dyn_pinned_frames` ni `s_dyn_free_frames` ne bougent, et rien ne disait que la cause
+    // n'etait pas un defaut d'adaptation mais l'absence de toute marge a repartir.
+    if (s_active.load()) {
+      s_dyn_sdr_frames++;
+    }
   } else if (pin) {
     // Auto-test : point de fonctionnement FIGE, pour que les phases restent comparables.
     p.ceiling = cmax;
@@ -2467,7 +2585,13 @@ void probe_present(Shader& shader) {
     return;
   }
   double measured = 0.0;
-  if (s_surface.mode == kModeHdr10Pq) {
+  if (s_surface.mode == kModeHlg) {
+    // HLG (ARIB STD-B67) est RELATIF : l'OETF inverse rend une scene [0,1] ou 1,0 est le pic de
+    // l'ecran. Le blanc du jeu y est pose a la fraction `paper_white() == 1/marge` de ce pic ;
+    // on remultiplie par la marge pour rendre, comme en scRGB, des MULTIPLES du blanc SDR.
+    const float m = std::fmin(r1, std::fmin(g1, b1));
+    measured = hlg_inverse_oetf((double)m) * (double)headroom_linear();
+  } else if (s_surface.mode == kModeHdr10Pq) {
     // Blanc D65 : les trois canaux PQ sont egaux (la matrice 709->2020 conserve le blanc) ; on
     // prend le plus faible pour ne jamais flatter la mesure.
     const float m = std::fmin(r1, std::fmin(g1, b1));
@@ -2866,13 +2990,23 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     ph.last_mode = s_surface.mode;
     ph.last_ceiling = s_last_ceiling;
     ph.last_peak = peak_nits();
+    ph.last_sdr_white = sdr_white_nits();
     if (s_frame_ratio_x1000 > ph.ratio_max_x1000) {
       ph.ratio_max_x1000 = s_frame_ratio_x1000;
     }
     // Verdict 11 : la marge accordee par le SYSTEME, sur une phase ON REELLE (jamais celle a
     // pic simule, qui n'est qu'un etirement arithmetique de notre cote).
-    if (on && (s_phase == 1 || s_phase == 4) && s_frame_ratio_x1000 > s_ratio_max_x1000) {
-      s_ratio_max_x1000 = s_frame_ratio_x1000;
+    // Elle ne se lit PAS au meme endroit selon la route : scRGB la LIT (`Display.getHdrSdrRatio`,
+    // API 34), PQ et HLG la DEDUISENT du pic annonce contre le blanc SDR de l'ecran. N'alimenter
+    // cette grandeur que depuis l'atomique scRGB rendait les verdicts 11 et 12 rouges PAR
+    // CONSTRUCTION sur toute route PQ, y compris sur un ecran qui accorde vraiment de la marge.
+    if (on && (s_phase == 1 || s_phase == 4)) {
+      const int granted = (s_surface.mode == kModeScrgbLinear)
+                              ? s_frame_ratio_x1000
+                              : (int)std::lround(headroom_linear() * 1000.f);
+      if (granted > s_ratio_max_x1000) {
+        s_ratio_max_x1000 = granted;
+      }
     }
     // La marge PHYSIQUE, echantillonnee sur les memes phases : ON reel contre OFF.
     if ((ph.frames % 15) == 0) {
