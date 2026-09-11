@@ -1331,6 +1331,18 @@ constexpr float kRgRampTop = 4.f;         // la rampe couvre [0, 4] : au-dela le
 constexpr float kRgIdentCeiling = 64.f;   // le bras IDENTITE : `knee*64` >= 60, donc l'epaule ne
                                           // touche RIEN dans [0, 4]
 
+// LE PAS DU CONTENEUR a la valeur v : un demi-flottant porte 10 bits de mantisse, donc son ULP
+// vaut 2^(exposant-10). C'est la plus petite difference que la cible 16F sache ECRIRE ; en
+// dessous, deux valeurs y sont le MEME nombre. Toute tolerance de comparaison se dit dans cette
+// unite et pas dans une constante inventee.
+double half_ulp(double v) {
+  const double a = std::fabs(v);
+  if (!(a > 6e-5)) {
+    return 6e-8;  // sous-normaux du 16F : le plus petit pas representable
+  }
+  return std::ldexp(1.0, (int)std::floor(std::log2(a)) - 10);
+}
+
 bool regime_measuring() {
   return autoport_proof::feature_is(kRegimeId) && autoport_proof::armed_for(kRegimeId);
 }
@@ -1354,6 +1366,17 @@ uint64_t s_rg_maxdiff_x1e6 = 0;          // max |livre - SDR| sur rampe ET scene
 uint64_t s_rg_below_sdr_px = 0;          // bras SIMULE strictement SOUS le bras SDR
 uint64_t s_rg_exc_sdr_px = 0;            // sous `knee` : le bras SIMULE differe du bras SDR
 uint64_t s_rg_exc_ident_px = 0;          // sous `knee*C_sim` : il differe de l'IDENTITE
+// LA MAGNITUDE, EN PAS DU CONTENEUR. Un COMPTE d'ecarts ne dit pas si l'ecart est un defaut de
+// courbe ou le dernier bit d'un demi-flottant : les deux se comptent pareil. On publie donc
+// l'ecart le plus GRAND, exprime en ULP de la cible 16F — l'unite dans laquelle « identique au
+// bit » a un sens. Au-dessus de 1 ULP le conteneur SAIT representer la difference : c'est une
+// modification. A 1 ULP ou moins, aucune ecriture dans ce tampon ne pourrait la distinguer.
+uint64_t s_rg_exc_max_ulp_x1000 = 0;
+uint64_t s_rg_below_max_ulp_x1000 = 0;
+uint64_t s_rg_below_ramp_px = 0, s_rg_below_scene_px = 0;
+uint64_t s_rg_exc_ramp_px = 0, s_rg_exc_scene_px = 0;
+uint64_t s_rg_below_over_ulp_px = 0;     // ecarts SOUS le SDR qui depassent 1,5 ULP
+uint64_t s_rg_exc_over_ulp_px = 0;       // excursions sous seuil qui depassent 1,5 ULP
 uint64_t s_rg_sim_gain_x1e6 = 0;         // max (simule - SDR) : le bras SIMULE fait-il QUELQUE CHOSE
 float s_rg_sim_ceiling = 0.f;            // le plafond simule effectivement utilise
 float s_rg_knee = 0.f;                   // le genou reellement pousse au shader
@@ -4972,7 +4995,18 @@ void publish_regime_verdict() {
                           (uint64_t)std::lround(s_rg_knee * s_rg_sim_ceiling * 1000.f));
   autoport_proof::publish("hdr_regime_exc_vs_sdr_px", s_rg_exc_sdr_px);
   autoport_proof::publish("hdr_regime_exc_vs_identity_px", s_rg_exc_ident_px);
-  autoport_proof::publish("hdr_regime_eps_x1e6", (uint64_t)10);  // 1e-5, publie tel qu'applique
+  // LA MAGNITUDE A COTE DU COMPTE. `*_any_px` compte tout ecart non nul, `*_px` seulement ceux
+  // qui depassent 1,5 ULP du conteneur. Les deux ensemble disent si un compte non nul est une
+  // courbe ou le dernier bit d'un demi-flottant, ce qu'aucun des deux ne dit seul.
+  autoport_proof::publish("hdr_regime_exc_any_px", s_rg_exc_ramp_px + s_rg_exc_scene_px);
+  autoport_proof::publish("hdr_regime_exc_any_ramp_px", s_rg_exc_ramp_px);
+  autoport_proof::publish("hdr_regime_exc_any_scene_px", s_rg_exc_scene_px);
+  autoport_proof::publish("hdr_regime_exc_max_ulp_x1000", s_rg_exc_max_ulp_x1000);
+  autoport_proof::publish("hdr_regime_below_any_px", s_rg_below_ramp_px + s_rg_below_scene_px);
+  autoport_proof::publish("hdr_regime_below_any_ramp_px", s_rg_below_ramp_px);
+  autoport_proof::publish("hdr_regime_below_any_scene_px", s_rg_below_scene_px);
+  autoport_proof::publish("hdr_regime_below_max_ulp_x1000", s_rg_below_max_ulp_x1000);
+  autoport_proof::publish("hdr_regime_tolerance_ulp_x1000", (uint64_t)1500);
   const int d4 = (compared > 0 && s_rg_exc_sdr_px == 0 && s_rg_exc_ident_px == 0) ? 0 : 1;
 
   // --- TERME 5 : la ligne de menu porte le TRANSPORT retenu et le REGIME courant. Ce n'est pas
@@ -5113,8 +5147,13 @@ void probe_regime(Shader& shader,
   // cible ; l'ecart residuel d'un `x/C*C` en flottant vaut ~1 ulp (6e-8 relatif), cinq ordres de
   // grandeur sous ce seuil, lui-meme cinquante fois sous le pas d'un demi-flottant. Une courbe
   // qui modifie vraiment un pixel le fait de beaucoup plus.
-  const double eps_rel = 1e-5;
-  auto walk = [&](const std::vector<float>* a, int n, uint64_t* px_out) {
+  // LA TOLERANCE SE DIT EN PAS DU CONTENEUR, PAS EN CONSTANTE. Les quatre bras passent par le
+  // meme programme et la meme cible 16F ; sous 1 ULP de cette cible, deux valeurs y SONT le meme
+  // nombre et aucune ecriture ne pourrait les separer. On compte donc a 1,5 ULP — et on publie
+  // en plus l'ecart MAXIMUM en ULP, pour qu'un lecteur voie si le compte est du dernier bit ou
+  // d'une vraie courbe. Un compte seul ne distingue pas les deux.
+  auto walk = [&](const std::vector<float>* a, int n, uint64_t* px_out, uint64_t* below_out,
+                  uint64_t* exc_out) {
     for (int t = 0; t < n; t++) {
       const size_t k = (size_t)t * 4;
       if (k + 2 >= a[0].size() || k + 2 >= a[3].size()) {
@@ -5129,24 +5168,51 @@ void probe_regime(Shader& shader,
         continue;
       }
       (*px_out)++;
-      const double eps = eps_rel * std::fmax(1.0, (double)in);
-      // TERME 2 — en R0 l'image est IDENTIQUE AU BIT a la sortie SDR. Mesure sans tolerance :
-      // les deux bras y ont le meme plafond et prennent la meme branche du shader.
+      // TERME 2 — en R0 l'image est IDENTIQUE AU BIT a la sortie SDR. Mesure SANS tolerance :
+      // les deux bras y ont le meme plafond et prennent la meme branche du shader, donc le
+      // moindre bit d'ecart est un defaut.
       const uint64_t dx = (uint64_t)std::llround(std::fabs((double)live - (double)sdr) * 1e6);
       if (dx > s_rg_maxdiff_x1e6) {
         s_rg_maxdiff_x1e6 = dx;
       }
-      // TERME 3 — AUCUN pixel ne passe sous le niveau SDR. Teste sur le bras livre ET sur le bras
-      // simule : sans ce dernier, en R0, le test serait satisfait par inaction.
-      if ((double)live < (double)sdr - eps || (double)sim < (double)sdr - eps) {
-        s_rg_below_sdr_px++;
+      // TERME 3 — AUCUN pixel ne passe sous le niveau SDR.
+      const double u_below = half_ulp(std::fmax((double)sim, (double)sdr));
+      const double d_below = (double)sdr - (double)sim;  // > 0 = le simule est SOUS le SDR
+      if (d_below > 0.0) {
+        const uint64_t r = (uint64_t)std::llround(1000.0 * d_below / u_below);
+        if (r > s_rg_below_max_ulp_x1000) {
+          s_rg_below_max_ulp_x1000 = r;
+        }
+        (*below_out)++;
+        if (d_below > 1.5 * u_below) {
+          s_rg_below_over_ulp_px++;
+          s_rg_below_sdr_px++;
+        }
       }
-      // TERME 4 — aucun pixel sous le seuil declare n'est modifie, dans les deux acceptions.
-      if ((double)in <= thr_sdr && std::fabs((double)sim - (double)sdr) > eps) {
-        s_rg_exc_sdr_px++;
+      if ((double)live < (double)sdr - 1.5 * half_ulp((double)sdr)) {
+        s_rg_below_sdr_px++;  // le bras LIVRE, lui, ne doit jamais y passer non plus
       }
-      if ((double)in <= thr_ident && std::fabs((double)sim - (double)in) > eps) {
-        s_rg_exc_ident_px++;
+      // TERME 4 — aucun pixel sous le seuil DECLARE n'est modifie, dans les deux acceptions.
+      if ((double)in <= thr_sdr) {
+        const double d = std::fabs((double)sim - (double)sdr);
+        const double u = half_ulp(std::fmax((double)sim, (double)sdr));
+        const uint64_t r = (uint64_t)std::llround(1000.0 * d / u);
+        if (r > s_rg_exc_max_ulp_x1000) {
+          s_rg_exc_max_ulp_x1000 = r;
+        }
+        if (d > 0.0) {
+          (*exc_out)++;
+        }
+        if (d > 1.5 * u) {
+          s_rg_exc_over_ulp_px++;
+          s_rg_exc_sdr_px++;
+        }
+      }
+      if ((double)in <= thr_ident) {
+        const double d = std::fabs((double)sim - (double)in);
+        if (d > 1.5 * half_ulp(std::fmax((double)sim, (double)in))) {
+          s_rg_exc_ident_px++;
+        }
       }
       // LE TEMOIN D'EFFET : le bras simule fait-il QUELQUE CHOSE ? Un zero ici dirait que les
       // trois termes ci-dessus sont verts parce que rien ne bouge.
@@ -5159,8 +5225,8 @@ void probe_regime(Shader& shader,
       }
     }
   };
-  walk(ramp, kRampN, &s_rg_ramp_px);
-  walk(scene, kRgTmW * kRgTmH, &s_rg_scene_px);
+  walk(ramp, kRampN, &s_rg_ramp_px, &s_rg_below_ramp_px, &s_rg_exc_ramp_px);
+  walk(scene, kRgTmW * kRgTmH, &s_rg_scene_px, &s_rg_below_scene_px, &s_rg_exc_scene_px);
   s_rg_runs++;
 }
 
