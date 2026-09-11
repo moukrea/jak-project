@@ -3,6 +3,7 @@
 
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/system/autoport_proof.h"
 
 #include "game/system/npc_flicker.h"
 
@@ -4416,6 +4417,204 @@ void Merc2::setup_merc_vao() {
   );
 }
 
+// ── perf-merc-defuse : LE CONTOURNEMENT PILOTE NE FAIT PLUS ATTENDRE LE FIL DE RENDU ────────
+//
+// CE QUE FAISAIT LE BLOC. Sur Android, avant les premieres draws merc d'un niveau, on mappait
+// 16 octets en LECTURE de son IBO puis de son VBO (`GL_MAP_READ_BIT`). Un map en lecture sans
+// `GL_MAP_UNSYNCHRONIZED_BIT` est une BARRIERE : le pilote attend que toute commande qui
+// reference le tampon soit terminee — donc l'image precedente entiere. Mesure A35-PERF
+// (framerate-uncap essai 4) : 19,4 ms medians, 52 ms max, pour ZERO draw. C'est cette attente,
+// et elle seule, que cet item retire.
+//
+// POURQUOI LE GESTE NE DISPARAIT PAS. Le SIGSEGV Adreno 618 qu'il desamorce (null+0x28 dans
+// libGLESv2_adreno+0x13a414, sur une draw merc d'un niveau televerse par tranches de 32768,
+// LoaderStages.cpp:1578-1600) a resiste a tout ce qui n'etait pas une couverture PAR IMAGE :
+//   * run-16 / run-17 (F1a-routed-logcat-run16/17.log.gz) : la sonde qui mappait par draw
+//     protegeait exactement les images qu'elle couvrait, et le jeu tombait a la PREMIERE image
+//     passe son plafond — puis a la premiere image passe le plafond DOUBLE ;
+//   * run-5 / run-7 (F1d-routed-logcat-run5/7.log.gz) : avec le map PLEIN de fin de chargement
+//     (LoaderStages.cpp:1611) DEJA en place et un `glFinish` de completion en plus, misty est
+//     tombee 2 fois sur 2, 8 ms apres le glFinish.
+// Un map au chargement ne suffit pas, un vidage de file non plus : c'est la RECURRENCE par
+// image qui desamorce. On garde donc le geste, on lui retire l'attente.
+//
+// CE QUI REMPLACE LE MAP. `glCopyBufferSubData` de 16 octets du tampon vers un brouillon : pour
+// construire la commande, le pilote doit resoudre le stockage interne du tampon SOURCE — le
+// meme travail que le map lui impose — mais la commande part dans le flux GPU et le fil
+// appelant ne l'attend pas. Le map historique reste joignable par propriete, comme filet.
+//
+// LE REGLAGE (`OG_MERC_DEFUSE` / `debug.opengoal.merc.defuse`) :
+//   copy   glCopyBufferSubData 16 o vers un brouillon — commande GPU, aucune attente. DEFAUT
+//          sur Android.
+//   map    le contournement historique, map 16 o en LECTURE. Le filet.
+//   none   rien du tout. DEFAUT hors Android : le bureau n'a jamais porte ce bloc, et une
+//          conduite neuve sur x86 serait un changement que personne n'a demande.
+// Le bras d'ablation du harnais (`proof_run --off` nommant cet item) rend `map` : OFF doit
+// egaler l'ABSENCE du correctif, pas une troisieme conduite.
+//
+// CE QUE LA PORTE LIT. `merc_defuse_defects` compte quatre choses, et deux d'entre elles
+// existent pour qu'un zero obtenu SANS RIEN FAIRE ne passe pas :
+//   1. il reste des maps en LECTURE par image (le defaut vise) ;
+//   2. le bloc fait encore attendre plus d'une image sur deux au-dela d'une milliseconde — une
+//      porte qui ne lirait que le nombre de maps serait verte si `glCopyBufferSubData` etait,
+//      chez ce pilote, une copie CPU synchrone : elle lit donc l'EFFET, pas le geste ;
+//   3. aucun seau de niveau merc n'a ete traite de la course (instrument muet) ;
+//   4. moins de deux niveaux distincts ont fourni des draws merc — donc aucune premiere draw
+//      d'un niveau FRAICHEMENT televerse, c'est-a-dire la situation meme que le contournement
+//      existe pour survivre.
+namespace {
+
+enum MercDefuseMode { kMercDefuseNone = 0, kMercDefuseMap = 1, kMercDefuseCopy = 2 };
+
+// Cumuls de la course. Ecrits depuis le fil GL uniquement ; atomiques parce que la publication
+// les relit sans verrou.
+std::atomic<uint64_t> g_md_frames{0};       // images ou au moins un seau de niveau merc est passe
+std::atomic<uint64_t> g_md_buckets{0};      // seaux de niveau traites, tous flushs confondus
+std::atomic<uint64_t> g_md_touched{0};      // desamorcages executes
+std::atomic<uint64_t> g_md_maps{0};         // glMapBufferRange(READ) emis par le bloc
+std::atomic<uint64_t> g_md_maps_max{0};     // pire image
+std::atomic<uint64_t> g_md_copies{0};
+std::atomic<uint64_t> g_md_copies_max{0};
+std::atomic<uint64_t> g_md_us_total{0};
+std::atomic<uint64_t> g_md_us_max{0};
+std::atomic<uint64_t> g_md_slow_frames{0};  // images ou le bloc a coute plus d'1 ms
+std::atomic<uint64_t> g_md_levels{0};       // load_id distincts ayant fourni des draws merc
+std::atomic<uint64_t> g_md_small{0};        // seaux sautes : tampon de moins de 16 octets
+
+// Accumulateurs de l'image en cours. Fil GL uniquement, jamais relus ailleurs.
+uint64_t g_md_f_maps = 0;
+uint64_t g_md_f_copies = 0;
+uint64_t g_md_f_us = 0;
+
+// LE PLANCHER DE NON-VACUITE, CALIBRE SUR LA POPULATION REELLE. Une course appareil de l'item
+// charge `title` puis `village1` (proof-engine.log de perf-gl-waits), et le plan de preuve y
+// ajoute la traversee `village1-hut -> beach-start -> jungle-start` de perf_baseline. Deux
+// niveaux distincts est donc le plancher, pas une ambition.
+constexpr uint64_t kMercDefuseMinLevels = 2;
+
+// Les load_id deja vus. Petite table : un niveau recharge prend un load_id neuf, et huit seaux
+// de niveau au plus vivent en meme temps (Merc2.h).
+u64 g_md_level_ids[32] = {0};
+int g_md_level_n = 0;
+
+void md_note_level(u64 load_id) {
+  for (int i = 0; i < g_md_level_n; i++) {
+    if (g_md_level_ids[i] == load_id) {
+      return;
+    }
+  }
+  if (g_md_level_n < (int)(sizeof(g_md_level_ids) / sizeof(g_md_level_ids[0]))) {
+    g_md_level_ids[g_md_level_n++] = load_id;
+  }
+  g_md_levels++;
+}
+
+MercDefuseMode merc_defuse_mode() {
+  static const MercDefuseMode s_mode = [] {
+    char v[64] = {0};
+    if (const char* e = std::getenv("OG_MERC_DEFUSE")) {
+      std::snprintf(v, sizeof(v), "%s", e);
+    }
+#ifdef __ANDROID__
+    if (!v[0]) {
+      char buf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.merc.defuse", buf) > 0 && buf[0]) {
+        std::snprintf(v, sizeof(v), "%s", buf);
+      }
+    }
+#endif
+    if (!std::strcmp(v, "map")) {
+      return kMercDefuseMap;
+    }
+    if (!std::strcmp(v, "none")) {
+      return kMercDefuseNone;
+    }
+    if (!std::strcmp(v, "copy")) {
+      return kMercDefuseCopy;
+    }
+#ifdef __ANDROID__
+    return kMercDefuseCopy;
+#else
+    return kMercDefuseNone;
+#endif
+  }();
+  // OFF DOIT EGALER L'ABSENCE. Lu une fois : `armed_for` ne change pas de reponse en cours de
+  // course, et ce bloc tourne quatre fois par image.
+  static const bool s_armed = autoport_proof::armed_for("perf-merc-defuse");
+  return s_armed ? s_mode : kMercDefuseMap;
+}
+
+const char* merc_defuse_mode_name(MercDefuseMode m) {
+  return m == kMercDefuseCopy ? "copy" : (m == kMercDefuseMap ? "map" : "none");
+}
+
+// Fin d'image : verser les accumulateurs dans les cumuls, puis publier. Appelee depuis le fil
+// GL, a la PREMIERE passe d'une image neuve — donc elle decrit l'image PRECEDENTE, entiere.
+void md_close_frame(MercDefuseMode mode) {
+  if (g_md_f_maps > g_md_maps_max.load(std::memory_order_relaxed)) {
+    g_md_maps_max.store(g_md_f_maps, std::memory_order_relaxed);
+  }
+  if (g_md_f_copies > g_md_copies_max.load(std::memory_order_relaxed)) {
+    g_md_copies_max.store(g_md_f_copies, std::memory_order_relaxed);
+  }
+  if (g_md_f_us > g_md_us_max.load(std::memory_order_relaxed)) {
+    g_md_us_max.store(g_md_f_us, std::memory_order_relaxed);
+  }
+  g_md_us_total += g_md_f_us;
+  if (g_md_f_us > 1000) {
+    g_md_slow_frames++;
+  }
+  g_md_f_maps = 0;
+  g_md_f_copies = 0;
+  g_md_f_us = 0;
+
+  const uint64_t frames = g_md_frames.load(std::memory_order_relaxed);
+  if (frames == 0 || (frames % 60) != 0) {
+    return;
+  }
+  const uint64_t maps_pf = g_md_maps_max.load(std::memory_order_relaxed);
+  const uint64_t slow = g_md_slow_frames.load(std::memory_order_relaxed);
+  const uint64_t levels = g_md_levels.load(std::memory_order_relaxed);
+  autoport_proof::publish("merc_defuse_mode", (uint64_t)mode);
+  autoport_proof::publish_text("merc_defuse_mode_name", merc_defuse_mode_name(mode));
+  autoport_proof::publish("merc_defuse_frames", frames);
+  autoport_proof::publish("merc_defuse_buckets_total", g_md_buckets.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_touched_total", g_md_touched.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_levels_seen", levels);
+  autoport_proof::publish("merc_defuse_maps_total", g_md_maps.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_maps_per_frame", maps_pf);
+  autoport_proof::publish("merc_defuse_copies_total", g_md_copies.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_copies_per_frame",
+                          g_md_copies_max.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_block_us_max", g_md_us_max.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_block_us_total",
+                          g_md_us_total.load(std::memory_order_relaxed));
+  autoport_proof::publish("merc_defuse_slow_frames", slow);
+  autoport_proof::publish("merc_defuse_buckets_too_small",
+                          g_md_small.load(std::memory_order_relaxed));
+  uint64_t defects = 0;
+  if (maps_pf > 0) {
+    defects++;  // 1. le map en LECTURE par image subsiste
+  }
+  if (slow * 2 > frames) {
+    defects++;  // 2. le bloc fait encore attendre plus d'une image sur deux
+  }
+  if (frames == 0) {
+    defects++;  // 3. instrument muet
+  }
+  if (levels < kMercDefuseMinLevels) {
+    defects++;  // 4. aucun niveau FRAIS n'a fourni de draws merc
+  }
+  autoport_proof::publish("merc_defuse_defects", defects);
+  // `hits` est PARTAGE par tout le binaire : on ne le remplit que quand le harnais nomme CET
+  // item, sinon la ligne FEATURE de n'importe quel autre item serait satisfaite par ce bloc.
+  if (autoport_proof::feature_is("perf-merc-defuse")) {
+    autoport_proof::note_hit(1);
+  }
+}
+
+}  // namespace
+
 void Merc2::flush_draw_buckets(SharedRenderState* render_state,
                                ScopedProfilerNode& prof,
                                MercDebugStats* stats) {
@@ -4455,9 +4654,21 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
   }
 
+  // perf-merc-defuse : la frontiere d'image du fil GL, vue d'ici. `md_close_frame` decrit
+  // l'image PRECEDENTE en entier — un flush de milieu d'image ne doit pas cloturer un compte.
+  const MercDefuseMode defuse_mode = merc_defuse_mode();
+  if (m_next_free_level_bucket && m_defuse_stat_frame != render_state->frame_idx) {
+    if (m_defuse_stat_frame != UINT64_MAX) {
+      md_close_frame(defuse_mode);
+    }
+    m_defuse_stat_frame = render_state->frame_idx;
+    g_md_frames++;
+  }
+
   for (u32 li = 0; li < m_next_free_level_bucket; li++) {
     const auto& lev_bucket = m_level_draw_buckets[li];
     const auto* lev = lev_bucket.level;
+    g_md_buckets++;
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
@@ -4495,40 +4706,63 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
       m_vao_load_id = UINT64_MAX;
     }
     if (!skip_defuse) {
-      // perf-gl-waits : contournement pilote DELIBERE (chantier suivant) — son comportement ne
-      // change pas ici, il est seulement DECLARE pour que le recensement le nomme.
-      gl_query_census::Armed _ap("merc-f1a-f1d-defuse");
+      // perf-merc-defuse : le desamorcage F1a/F1d. Le GESTE est celui qui a toujours marche —
+      // toucher l'IBO puis le VBO de ce niveau, une fois par image, avant ses premieres draws —
+      // mais il ne passe plus par un map en LECTURE, qui est une barriere. Voir le bloc de
+      // commentaire au-dessus de `flush_draw_buckets` pour les courses qui ont etabli que la
+      // recurrence PAR IMAGE est ce qui desamorce.
       auto defuse_prof = prof.make_scoped_child("defuse");
+      const auto defuse_t0 = std::chrono::steady_clock::now();
+      g_md_touched++;
+      md_note_level(lev->load_id);
+      // Les deux tampons doivent porter au moins les 16 octets qu'on touche. Un seau sans
+      // geometrie n'existe pas en pratique ; le compte le dit au lieu de le supposer.
+      const bool defuse_big_enough =
+          lev->level &&
+          lev->level->merc_data.indices.size() * sizeof(u32) >= 16 &&
+          lev->merc_vertex_count * sizeof(tfrag3::MercVertex) >= 16;
+      if (!defuse_big_enough) {
+        g_md_small++;
+      } else if (defuse_mode == kMercDefuseMap) {
+        // LE FILET, tel quel. Map en lecture de 16 octets de l'IBO puis du VBO : le
+        // contournement historique, conserve pour qu'une propriete suffise a y revenir si le
+        // pilote refuse la commande de copie. C'est aussi la conduite que rend le bras
+        // d'ablation, pour que OFF egale l'ABSENCE du correctif.
+        gl_query_census::Armed _ap("merc-f1a-f1d-defuse");
 #ifdef __ANDROID__
-    // F1a Adreno workaround: specific merc glDrawElements SIGSEGV inside
-    // the driver (null+0x28) with state-legal, GPU==CPU-verified data.
-    // A read-only map+unmap of the index BO immediately before the draws
-    // defuses it deterministically (run-16: the killer draw executed on
-    // exactly the frames a per-draw map probe covered and faulted on the
-    // first frame past its cap; a load-time-only sync decayed by draw
-    // time, run-17). Tiny mapped range, read-only — forces the driver to
-    // finalize the BO for this frame's draws. Cost: one map/unmap per
-    // level bucket per frame.
-    {
-      void* p = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, 16, GL_MAP_READ_BIT);
-      if (p) {
-        glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-      }
-    }
-    // F1d: same defuse for the VERTEX buffer — the one draw-state object no
-    // prior touch covered. The first merc draw consuming a freshly-loaded
-    // level's vertex BO faults in the driver's draw-state walk (run5/run7:
-    // misty 2/2, identical fault 8 ms AFTER a load-completion glFinish, with
-    // the index BO mapped+memcmp'd and the texture/FBO verified at the same
-    // draw). A read-only map forces the driver to materialize the BO's
-    // internal storage object, which command-drain (glFinish) does not.
-    {
-      void* p = glMapBufferRange(GL_ARRAY_BUFFER, 0, 16, GL_MAP_READ_BIT);
-      if (p) {
-        glUnmapBuffer(GL_ARRAY_BUFFER);
-      }
-    }
+        for (GLenum tgt : {(GLenum)GL_ELEMENT_ARRAY_BUFFER, (GLenum)GL_ARRAY_BUFFER}) {
+          void* p = glMapBufferRange(tgt, 0, 16, GL_MAP_READ_BIT);
+          if (p) {
+            glUnmapBuffer(tgt);
+          }
+          g_md_f_maps++;
+          g_md_maps++;
+        }
 #endif
+      } else if (defuse_mode == kMercDefuseCopy) {
+        // LA COMMANDE GPU. 16 octets du tampon vers un brouillon : le pilote doit resoudre le
+        // stockage interne du tampon SOURCE pour construire la commande — ce que le map lui
+        // imposait — mais rien n'attend le GPU ici. Le brouillon est cree une fois pour la vie
+        // du contexte, comme `m_vao`.
+        if (!m_defuse_scratch) {
+          glGenBuffers(1, &m_defuse_scratch);
+          glBindBuffer(GL_COPY_WRITE_BUFFER, m_defuse_scratch);
+          glBufferData(GL_COPY_WRITE_BUFFER, 16, nullptr, GL_DYNAMIC_COPY);
+        } else {
+          glBindBuffer(GL_COPY_WRITE_BUFFER, m_defuse_scratch);
+        }
+        for (GLenum tgt : {(GLenum)GL_ELEMENT_ARRAY_BUFFER, (GLenum)GL_ARRAY_BUFFER}) {
+          glCopyBufferSubData(tgt, GL_COPY_WRITE_BUFFER, 0, 0, 16);
+          g_md_f_copies++;
+          g_md_copies++;
+        }
+        // GL_COPY_WRITE_BUFFER n'est pas un etat du VAO : le delier ne touche ni l'IBO ni le
+        // VBO que les draws qui suivent consomment.
+        glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+      }
+      g_md_f_us += (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
+                       std::chrono::steady_clock::now() - defuse_t0)
+                       .count();
     }
     if (!skip_vao) {
       auto vao_prof = prof.make_scoped_child("vao");

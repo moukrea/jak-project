@@ -232,6 +232,11 @@ class Merc2 {
   int m_num_defused_levs = 0;
   GLuint m_vao_vertex_buffer = 0;
   u64 m_vao_load_id = UINT64_MAX;
+  // perf-merc-defuse : le brouillon de 16 octets vers lequel le desamorcage COPIE, et l'image
+  // sur laquelle le recensement du bloc est ouvert. Le brouillon vit aussi longtemps que le
+  // contexte GL, comme `m_vao` (cree dans le constructeur, jamais recree).
+  GLuint m_defuse_scratch = 0;
+  u64 m_defuse_stat_frame = UINT64_MAX;
   // bone-UBO ring cursor (in bone vectors, always alignment-rounded): each
   // flush uploads at the cursor instead of offset 0 so the write never lands
   // on a window in-flight draws are still reading (implicit-sync elimination)
