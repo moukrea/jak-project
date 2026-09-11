@@ -7045,13 +7045,17 @@ items:
     chaque chemin herite : tous a 0. Un binaire ou l''ancien chemin n''est PAS COMPILE vaut mieux qu''un
     drapeau a zero. S''AJOUTE (refus 11/09, LE PLUS GRAVE) : RETIRER LA LIGNE SANS RETIRER LE CODE EST
     PIRE QUE NE RIEN FAIRE. L''owner avait le PBR actif sur son Honor ; la ligne de menu a disparu, l''effet
-    est TOUJOURS LA, et il n''a plus aucun moyen de l''eteindre. Pour CHAQUE reglage herite retire du
-    menu, prouver que son chemin n''est plus EXECUTE : compteur d''execution publie, a 0, sur une course
-    reelle — et si le reglage etait ACTIF dans le settings.ini de l''owner, la course doit partir de CE
-    fichier-la, pas d''un settings neuf. Un reglage retire du menu et encore executable est un DEFAUT
-    plus grave que le reglage lui-meme. Verifier nommement le PBR.'
-  where: 'Options > Recharged > Recharged Lighting : plus aucune ligne de l''ancien monde, ET plus aucun
-    de leurs effets visibles en jeu — verifie nommement le PBR, que tu avais actif.'
+    est TOUJOURS LA, et il n''a plus aucun moyen de l''eteindre. Pour CHAQUE reglage herite : le code
+    est SUPPRIME de l''arbre, pas debranche ni laisse a zero. Owner 11/09 : « faut supprimer le code !
+    On en veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer ». PREUVE, la meme
+    que pour le navigateur de mesh : les symboles du chemin herite sont a ZERO occurrence dans le libgk.so
+    livre, et ses fichiers source ont quitte l''arbre et les deux CMakeLists. Publier le recensement symbole
+    par symbole, avant et apres. Un compteur d''execution a 0 ne suffit PAS : du code non compile est
+    le seul etat qui ne peut pas revenir — et si le reglage etait ACTIF dans le settings.ini de l''owner,
+    la course doit partir de CE fichier-la, pas d''un settings neuf. Un reglage retire du menu et encore
+    executable est un DEFAUT plus grave que le reglage lui-meme. Verifier nommement le PBR.'
+  where: 'Options > Recharged > Recharged Lighting : plus aucune ligne de l''ancien monde, et plus aucun
+    de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
   status: open
@@ -7078,6 +7082,9 @@ items:
       actives et tout un tas de merdes, et visiblement ils sont toujours actives (ca se voit in-game)
       sans possibilite de les desactiver du coup... J'aurais pense que ca retirait aussi le code mort,
       et c'est pas du tout le cas vu que je me cogne toujours le PBR !
+  - date: '2026-09-11'
+    text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
+      eviter de polluer !
   delivered: null
 - id: mesh-browser-removal
   priority: 20
