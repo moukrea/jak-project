@@ -36,14 +36,50 @@ if [ ! -f "$F" ]; then
   exit 0
 fi
 
+# Les ids que le backlog porte VRAIMENT. Un renvoi `-> item:<id>` vers un id inexistant est un
+# signalement perdu avec l'air d'etre traite : mesure du 2026-09-12, trois signalements de
+# hdr-output-regime pointaient `hdr-output-visible`, qui n'existe dans aucun item.
+IDS=$(python3 - "$ROOT/.autoport/backlog.yaml" <<'PYIDS' 2>/dev/null
+import sys, yaml
+try:
+    d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+except Exception:
+    sys.exit(0)
+for it in d.get("items") or []:
+    i = it.get("id")
+    if i:
+        print(i)
+PYIDS
+)
+
 brutes=0
+fantomes=0
 while IFS= read -r l; do
   case "$l" in ''|'#'*) continue ;; esac
   printf '%s' "$l" | grep -qiE '^[[:space:]]*AUCUN[[:space:]]*$' && continue
-  printf '%s' "$l" | grep -qE '\-> *(item:[A-Za-z0-9_-]+|ecarte:.+)' && continue
+  if printf '%s' "$l" | grep -qE '\-> *item:[A-Za-z0-9_-]+'; then
+    # Chaque renvoi de la ligne doit resoudre. Sans backlog lisible, on ne juge pas.
+    if [ -n "$IDS" ]; then
+      for cible in $(printf '%s' "$l" | grep -oE '\-> *item:[A-Za-z0-9_-]+' | sed 's/.*item://'); do
+        if ! printf '%s\n' "$IDS" | grep -qxF "$cible"; then
+          fantomes=$((fantomes+1))
+          echo "  RENVOI FANTOME : '$cible' n'est un item d'aucun backlog — $l"
+        fi
+      done
+    fi
+    continue
+  fi
+  printf '%s' "$l" | grep -qE '\-> *ecarte:.+' && continue
   brutes=$((brutes+1))
   echo "  NON TRIE : $l"
 done < "$F"
+
+if [ "$fantomes" -gt 0 ]; then
+  echo "$fantomes renvoi(s) vers un item inexistant dans $F."
+  echo "Ouvre l'item, ou renvoie vers un id qui existe : un renvoi fantome est un signalement perdu."
+  [ -n "$STRICT" ] && exit 1
+  echo "  (mode alerte : la fermeture n'est pas bloquee)"
+fi
 
 if [ "$brutes" -gt 0 ]; then
   echo "$brutes signalement(s) sans suite dans $F."
@@ -52,5 +88,7 @@ if [ "$brutes" -gt 0 ]; then
   echo "  (mode alerte : la fermeture n'est pas bloquee)"
   exit 0
 fi
+# Un renvoi fantome n'est pas « trie » : ne pas rendre un vert qui contredit l'alerte au-dessus.
+[ "$fantomes" -gt 0 ] && exit 0
 echo "  ok: signalements de $ITEM tous tries"
 exit 0

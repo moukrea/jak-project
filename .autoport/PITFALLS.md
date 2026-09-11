@@ -858,3 +858,15 @@ Verrou : le halo que l'owner voit sur les feux et les portails de Sandover passe
 (village1-part.gc:691, village1-part2.gc:1826), qui ont compte 16 385 088 et 204 397 sprites sur la
 meme course. Avant de toucher un fichier nomme « glow », compter au POINT D'APPEL : un fichier qui
 porte le bon nom n'est pas un chemin qui tourne.
+
+GUARD the-teardown-wipes-properties-set-before-the-run .autoport/lib/proof_run.sh poser un setprop depuis l hote avant une course
+**Le teardown efface TOUTE propriete `debug.opengoal.*` posee avant la course.** `proof_run.sh` lit
+`proof_props` depuis le backlog (ligne 145), puis lance `lib/device_teardown.sh` (ligne 471) qui
+efface toutes les `debug.opengoal.*` lues sur l'appareil, et seulement APRES pose les siennes
+(lignes 473 a 486). Un `setprop` fait depuis l'hote avant le lancement meurt entre sa pose et le
+demarrage, sans un mot. Mesure du 2026-09-11 23:16 : `debug.opengoal.recharged=0` pose, relu a 1.
+Verrou : un reglage de course se pose par `proof_props` dans le backlog, JAMAIS par un `setprop`
+depuis l'hote. Et quoi qu'il arrive, la preuve publie le regime OBSERVE apres amorcage, pas le
+regime demande. Corollaire a ne pas confondre : `set_status` relit le disque sous verrou, le
+backlog n'est PAS reecrit depuis une copie memoire — accuser le backlog ici envoie chercher au
+mauvais endroit.

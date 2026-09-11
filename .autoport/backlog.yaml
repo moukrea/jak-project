@@ -7050,7 +7050,7 @@ items:
   out_of_scope: Ne pas retraduire le jeu ni toucher aux 23 bancs livres. On repare la CHAINE de la surcharge
     tactile.
   owner_test: true
-  status: todo
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7740,6 +7740,18 @@ items:
   max_turns: 800
   max_retries: 8
   proof_timeout: 300
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_HDR=1
+  - OG_HDR_OUT=1
+  - OG_HDR_OUT_MODE=1
+  - OG_HDR_OUT_PEAK=1000
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.hdr=1
+  - debug.opengoal.hdr.out=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
   prompt: prompts/item-hdr-output-regime.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-glow-range
@@ -7833,15 +7845,17 @@ items:
     value: 0
   depends_on: []
   known_cause: |-
-    SIGNALEMENT DU 11/09 23:33 (reports/hdr-glow-range/FINDINGS.txt, dernier point). Le worker a ecrit `proof_props: debug.opengoal.recharged=0` sur son item et `proof_run.sh` a relu 1 dans la MEME minute. Il a contourne en posant la propriete depuis l'hote pendant l'amorcage et en VERIFIANT par une cle du proof (`hdr_glow_fmt_latched_float`).
-    ATTENTION — LE MECANISME QU'IL NOMME N'EST PAS ETABLI. Il accuse l'orchestrateur de reecrire `backlog.yaml` depuis sa copie memoire. La lecture du code ne le soutient PAS : `set_status` (lib/backlog.py:202) prend le verrou, RELIT le disque, ne pose que les champs passes, et reecrit ce document frais ; `load_backlog()` (orchestrator.py:438) relit a chaque tour. Aucun commit n'a touche backlog.yaml entre 23:00 et 23:35. Le premier travail est donc de REPRODUIRE la perte et de NOMMER l'ecrivain, pas de reparer le coupable suppose.
-    Constat annexe verifie : `machine_proved_to_validated` (lib/backlog.py:165) n'a AUCUN appelant, ni dans le harnais ni dans les tests — l'orchestrateur pose `validated` par `set_status` (orchestrator.py:1857 et 2026). C'est du code mort qui mute `self.items` sans ecrire ; s'il etait rebranche tel quel il ferait exactement la perte decrite.
+    MECANISME ETABLI LE 12/09 — ce n'est PAS une reecriture du backlog.
+    `proof_run.sh` lit `proof_props` depuis le backlog a la ligne 145, puis lance `lib/device_teardown.sh` a la ligne 471, qui efface TOUTES les proprietes commencant par `debug.opengoal.` lues sur l'appareil, et seulement APRES pose les siennes (lignes 473 a 486). Une propriete posee par le worker depuis l'hote AVANT la course est donc effacee entre sa pose et le lancement. Seul `proof_props`, qui traverse le teardown dans une variable du script, survit. Signale par le worker du chantier C (reports/hdr-output-regime/FINDINGS.txt, dernier point), verifie ligne a ligne.
+    CE QUE J'AVAIS REFUSE D'ECRIRE, ET QUI ETAIT BIEN FAUX. Le worker de `hdr-glow-range` accusait l'orchestrateur de reecrire `backlog.yaml` depuis sa copie memoire. `set_status` (lib/backlog.py:202) prend le verrou, RELIT le disque et ne pose que les champs passes ; `load_backlog()` (orchestrator.py:438) relit a chaque tour ; aucun commit n'a touche le backlog entre 23:00 et 23:35 le 11/09. L'accusation ne tient pas. Le vrai coupable est le teardown.
+    CONSTAT ANNEXE VERIFIE : `machine_proved_to_validated` (lib/backlog.py:165) n'a AUCUN appelant, ni dans le harnais ni dans les tests — l'orchestrateur pose `validated` par `set_status` (orchestrator.py:1857 et 2026). C'est du code mort qui mute `self.items` sans jamais ecrire ; rebranche tel quel, il ferait exactement la perte que le worker imaginait.
   deliverable: |-
     `pin_props_defects` = 0, somme de termes publies SEPAREMENT.
-    1. LA PERTE EST REPRODUITE ET SON ECRIVAIN EST NOMME. Un test ecrit un champ sur un item pendant qu'un tour d'orchestrateur passe, et publie qui l'a efface — ou publie que RIEN ne l'efface, auquel cas la cause est ailleurs et l'item la nomme. Un zero de perte se lit « pas reproduit », jamais « repare ».
-    2. Le chemin de lecture de `proof_props` est trace de bout en bout : ce que le fichier porte, ce que `proof_run.sh` extrait, ce que l'appareil rend a `getprop`. Publier les trois. L'ecart entre le premier et le troisieme est la grandeur qui compte.
+    1. L'EFFACEMENT CESSE D'ETRE SILENCIEUX. Le teardown publie ce qu'il efface : le nombre de proprietes `debug.opengoal.*` trouvees posees a son passage, et leurs noms. Un worker qui en a pose une depuis l'hote doit pouvoir le LIRE dans la preuve, au lieu de mesurer l'autre regime sans rien voir. Un zero se lit « rien n'etait pose », jamais « rien n'a ete efface ».
+    2. Le chemin de lecture de `proof_props` est trace de bout en bout : ce que le fichier porte, ce que `proof_run.sh` extrait, ce que l'appareil rend a `getprop` APRES le teardown. Publier les trois. L'ecart entre le premier et le troisieme est la grandeur qui compte.
     3. Une course publie DESORMAIS le regime OBSERVE, pas le regime demande : au moins une cle par propriete epinglee, relue apres l'amorcage. C'est ce qui rend l'epinglage verifiable sans relire le backlog.
     4. `machine_proved_to_validated` : soit elle est rebranchee et ecrit par `set_status`, soit elle est SUPPRIMEE. Une fonction morte qui muterait l'etat en memoire est un piege arme.
+    5. Le chemin recommande est DIT quelque part qu'un worker lit : poser un reglage de course par `proof_props` dans le backlog, jamais par un `setprop` depuis l'hote avant la course.
   where: 'Le harnais : lib/backlog.py, orchestrator.py, lib/proof_run.sh.'
   out_of_scope: Ne touche a aucun code du jeu. Ne change aucun statut d'item existant.
   max_turns: 500
@@ -7886,3 +7900,37 @@ items:
   proof_timeout: 300
   prompt: prompts/item-glow-targets-not-built-on-jak1.md
   notes: 'issu de la mesure de hdr-glow-range, 11/09 : chemin inatteignable, cibles allouees quand meme.'
+- id: hdr-output-visible
+  status: open
+  priority: 22
+  game: jak1
+  device: true
+  owner_test: false
+  feature: La ligne de sortie HDR dit le regime COURANT, pas celui de l'ouverture du menu
+  gate:
+    key: hdr_visible_defects
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-output-regime
+  known_cause: |-
+    TROIS SIGNALEMENTS DU CHANTIER C, 12/09 (reports/hdr-output-regime/FINDINGS.txt). Ils y sont explicitement laisses HORS PERIMETRE, et ils pointaient un id qui n'existait dans aucun item : cet item est cet id.
+    1. Le libelle de la rangee est reformate par `init-game-options`, qui ne tourne qu'a l'OUVERTURE du menu (progress-pc.gc:1769, appelants 12778 et 12908). Si le regime change PENDANT que la page est affichee — le joueur baisse la luminosite systeme, la marge mesuree passe au-dessus de 1,005 et le regime passe de R0 a R1 — la ligne montre encore l'etat de l'ouverture. Elle dirait « pas de marge » alors que la marge vient d'etre accordee.
+    2. La raison du regime est construite dans un tampon `char` STATIQUE unique dont `regime_now()` rend l'ADRESSE. Le code voisin `s_presents_reason` a le meme motif. Tous les appels connus sont sur le fil GL, mais rien ne prouve qu'aucun autre fil n'appelle `sdr_white_source()` : une chaine melangee se lirait comme une valeur, pas comme une course.
+    3. Le bras SIMULE du temoin prend `peak_nits() / kGraphicsWhiteNits` comme plafond, c'est-a-dire la marge que l'ecran accorderait S'IL PRESENTAIT. Sur un ecran qui presente REELLEMENT (regime R2) ce bras devient egal au bras livre et le temoin cesse de distinguer les deux. Aucun ecran R2 n'est disponible ici : c'est l'item qui jugera R1 et R2 qui doit donner au bras simule un plafond DIFFERENT de celui du bras livre.
+  deliverable: |-
+    `hdr_visible_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Le libelle suit le regime COURANT pendant que la page est affichee. Publier `hdr_visible_relabel_events` (le nombre de fois ou la ligne a ete recalculee page ouverte) et `hdr_visible_stale_frames` (images ou la ligne affichee contredit le regime courant) : le second est le verdict, le premier est son denominateur. Un zero d'evenements se lit « le regime n'a pas change pendant la mesure », jamais « rien a corriger » : la course doit FAIRE changer le regime et publier qu'elle l'a fait.
+    2. La raison du regime cesse de sortir par un tampon statique partage, ou bien un temoin publie prouve qu'un seul fil l'appelle — publier le compte d'appels par fil, pas une affirmation.
+    3. Le bras simule du temoin prend un plafond DIFFERENT de celui du bras livre, et la preuve publie les deux plafonds cote a cote. Sans ecran R2 disponible, publier que le cas R2 n'est pas mesure ici plutot que de le declarer tenu.
+    4. Rien de ce que le chantier C a livre ne regresse : reprendre ses cles de regime et montrer qu'elles gardent leurs valeurs.
+  where: 'Options > Recharged > Eclairage Recharge : la ligne de sortie HDR, page ouverte, pendant qu''on
+    change la luminosite systeme.'
+  out_of_scope: 'Ne change ni la courbe, ni le choix du regime, ni le transport retenu : c''est le chantier
+    C qui les a tranches. On repare ce que la ligne DIT et ce que le temoin DISTINGUE.'
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-hdr-output-visible.md
+  notes: issu des trois signalements hors perimetre du chantier C, 12/09 ; ils pointaient cet id avant
+    qu'il existe.
