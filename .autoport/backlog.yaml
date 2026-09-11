@@ -4663,7 +4663,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: in-progress
+  status: blocked
   priority: 18
   game: jak1
   gate:
@@ -4675,6 +4675,7 @@ items:
   max_retries: 24
   depends_on:
   - lighting-hdr
+  - hdr-study
   history: []
   prompt: prompts/item-hdr-display-output.md
   owner_ok: null
@@ -4686,26 +4687,31 @@ items:
     AVANT COMPRESSION : la sortie HDR consomme la scene HDR AVANT le tone map vers SDR. Publier l''identite
     du tampon lu et le nombre de compressions SDR subies par ce chemin : il vaut 0. Elever le plafond
     d''un tone map qui a deja ecrase N''EST PAS lire la scene HDR. Lire une image deja compressee = DEFAUT,
-    quel que soit le reste. (12) RETABLI apres perte — RICHESSE DANS LES OMBRES, mesuree sur du jeu reel
-    : le detail distinguable SOUS le blanc SDR augmente franchement par rapport a OFF. Inchange = DEFAUT.
-    C''est la moitie du HDR et elle n''a jamais ete mesuree. (13) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000`
-    atteint l''essentiel de la marge REELLEMENT accordee. (14) ADAPTATION AU CONTENU : la courbe suit
-    la scene dans le TEMPS ; serie publiee ; constante = DEFAUT. (15) LE FORMAT SE CHOISIT SEUL : scRGB
-    > HDR10 > HLG, replis automatiques, format retenu publie. HDR10+ et Dolby Vision ecartes. (16) PAS
-    DE CONTRASTE NI DE SATURATION CRAMES : excursion publiee contre la sortie SDR sur les MEMES images,
-    plafond declare, derive de teinte publiee. (17) NEUF, refus 11/09 — ON DOIT SE VOIR : l''owner decrit
-    « l''effet rien du tout, p''tetre un chouille plus sature ». La difference ON/OFF doit etre EVIDENTE
-    a l''oeil et chiffree : publier, sur les memes images, ce qui separe les deux etats dans les ombres
-    ET dans les hautes lumieres. Un ecart qui ne tient qu''a la saturation est un DEFAUT : la saturation
-    n''est pas du detail. Preuve sur le Redmi eae4df44.'
-  known_cause: 'QUATRE TOURS, ET LA PLAINTE DE FOND N''A JAMAIS ETE MESUREE. L''owner dit la MEME chose
-    depuis le 10/09 : « on dirait qu''on traite le rendu tonemape a destination du SDR » et « on gagne
-    pas de richesse dans les ombres parce que cette richesse n''est deja plus la dans l''image qu''on
-    traite ». J''avais ecrit DEUX verdicts pour ca le 10/09 — SOURCE AVANT COMPRESSION et RICHESSE DANS
-    LES OMBRES — et je les ai PERDUS en raccourcissant la consigne (commit c054ce9a48). L''item est donc
-    passe 15/15 sans que ni l''un ni l''autre soit mesure, quatre fois de suite. Les verdicts sont retablis
-    ci-dessous et cette liste NE DOIT PLUS JAMAIS RETRECIR : le contrat porte le detail, la consigne peut
-    le resumer, mais aucun verdict ne disparait.'
+    quel que soit le reste. (12) RICHESSE DANS LES OMBRES — DURCI apres le 5e refus : compter des PALIERS
+    ne vaut plus verdict. `shadow_gain` compare aujourd''hui 10 bits a 8 bits de quantification ; c''est
+    de la finesse d''encodage, pas du detail visible, et l''owner ne voit rien. Mesurer l''ECART DE LUMINANCE
+    entre valeurs voisines dans les ombres, en nits livres a la dalle, sur du jeu reel : ce que l''oeil
+    peut distinguer doit augmenter. Un gain qui ne tient qu''au nombre de paliers est un DEFAUT. (13)
+    AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000` atteint l''essentiel de la marge REELLEMENT accordee.
+    (14) ADAPTATION AU CONTENU : la courbe suit la scene dans le TEMPS ; serie publiee ; constante = DEFAUT.
+    (15) LE FORMAT SE CHOISIT SEUL : scRGB > HDR10 > HLG, replis automatiques, format retenu publie. HDR10+
+    et Dolby Vision ecartes. (16) PAS DE CONTRASTE NI DE SATURATION CRAMES : excursion publiee contre
+    la sortie SDR sur les MEMES images, plafond declare, derive de teinte publiee. (17) NEUF, refus 11/09
+    — ON DOIT SE VOIR : l''owner decrit « l''effet rien du tout, p''tetre un chouille plus sature ». La
+    difference ON/OFF doit etre EVIDENTE a l''oeil et chiffree : publier, sur les memes images, ce qui
+    separe les deux etats dans les ombres ET dans les hautes lumieres. Un ecart qui ne tient qu''a la
+    saturation est un DEFAUT : la saturation n''est pas du detail. Preuve sur le Redmi eae4df44. (18)
+    NEUF, refus 11/09 — LE FORMAT SE VOIT DANS LE JEU : l''owner ne lit que « HDR output On/Off ». La
+    ligne affiche le format effectivement retenu (HDR10, HLG, scRGB) et, quand plusieurs sont utilisables,
+    laisse choisir.'
+  known_cause: 'L''ETUDE hdr-study DOIT ETRE LUE AVANT TOUTE CORRECTION : cet item en depend. Refus 11/09,
+    cinquieme. L''owner ne voit toujours AUCUN gain dans les ombres. Le code dit pourquoi, en toutes lettres
+    : `hdr_out_shadow_gain_x100` compare des NOMBRES DE PALIERS (10 bits contre 8), et son commentaire
+    l''assume — « le SEUL gain que ce chemin livre quand l''ecran n''accorde aucune marge : la finesse
+    ». 17 -> 127 niveaux est un effet de profondeur de quantification, PAS du detail visible. C''est exactement
+    le piege « compter des paliers n''est pas mesurer une amplitude » que j''avais ferme pour les hautes
+    lumieres et JAMAIS applique aux ombres. L''owner demande aussi si l''espace de couleur du calcul est
+    assez riche pour commencer, et ne voit aucune mention du format retenu dans le jeu.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
   notes: 'budget : porte a 24 le 11/09. Deux verdicts centraux avaient ete PERDUS par le superviseur en
@@ -4814,6 +4820,13 @@ items:
       around du blanc dans le ciel pour que ca pop un peu plus. Certes il n'y a plus l'effet filtre de
       l'espace, mais la en gros il y a l'effet « rien du tout », on tire pas du tout profit du HDR pour
       gagner en detail dans les ombres et lumieres, on tire profit de rien du tout !
+  - date: '2026-09-11'
+    text: bah ca devrait aussi avoir pour impact d'avoir plus de details dans les ombres, il me semble
+      que c'est un des benefices du HDR.. c'est pas du tout le cas ici, juste les endroits les plus brillants
+      brillent plus. j'ai pas vu si ca s'ajustait au fil de l'eau non plus (mais ca c'est peut-etre imperceptible)
+      et je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer...
+      je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur (d'ailleurs
+      je vois aucune mention de HDR10/HLG in game juste HDR output On/Off)
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4823,7 +4836,9 @@ items:
   - debug.opengoal.tod.fast=1
   - debug.opengoal.hdr.out=1
   proof_timeout: 300
-  block_reason: null
+  block_reason: 'EN ATTENTE DE L''ETUDE hdr-study. Owner 11/09 : « avant la prochaine iteration faut vraiment
+    creuser le sujet en profondeur ». Cinq refus, cinq corrections a l''aveugle : on arrete d''iterer
+    tant que l''etude n''a pas repondu.'
   proof_env: []
   device_serial: eae4df44
   delivered: null
@@ -7223,7 +7238,12 @@ items:
     ecran tactile, pas sur la plateforme. Tactile present : « Appuie sur start ou touche l''écran ». Absent
     (SHIELD, PC a la manette) : « Appuie sur start ». Publier, pour la course, le fait tactile lu par
     le moteur ET l''identifiant de la chaine affichee : ils doivent concorder. Verifier dans chaque langue
-    installee.'
+    installee. REFUS 11/09 : apres l''essai qui a passe la porte, l''owner lit TOUJOURS « Appuie sur start
+    » sur son telephone. La porte est donc verte sur un defaut intact. Avant de corriger quoi que ce soit,
+    REPRODUIRE : afficher, sur une course reelle, le fait tactile lu par le moteur ET l''identifiant de
+    chaine effectivement rendu a l''ecran-titre. Si les deux concordent alors que l''owner voit l''autre
+    texte, c''est que la chaine rendue n''est pas celle qu''on croit — remonter jusqu''au banc de texte.
+    Mesurer sur le Redmi, qui a un ecran tactile.'
   where: 'l''ecran-titre sur ton telephone : « Appuie sur start ou touche l''écran »'
   out_of_scope: Ne pas retoucher le comportement du tap lui-meme, seulement le texte affiche.
   status: open
@@ -7239,6 +7259,10 @@ items:
   - date: '2026-09-11'
     text: TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur
       start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
+  - date: '2026-09-11'
+    text: non, ca dit toujours Appuie sur start.
+  delivered: null
+  device_serial: eae4df44
 - id: census-false-reds
   priority: 28
   device: false
@@ -7320,7 +7344,7 @@ items:
     tout script du harnais qui commite.'
   where: 'rien a voir : tracabilite ; owner_test=false'
   out_of_scope: Ne pas reecrire l'historique. On empeche la recidive, on ne repare pas le passe.
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7464,3 +7488,49 @@ items:
   - date: '2026-09-11'
     text: dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous
       menus des reglages realtime lighting, p'tetre dans les autres aussi
+- id: hdr-study
+  status: open
+  priority: 17
+  game: jak1
+  device: true
+  owner_test: false
+  feature: Comprendre pourquoi le HDR ne gagne rien dans les ombres, avant d'y retoucher
+  gate:
+    key: hdr_study_questions_open
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: 'Cinq refus de l''owner sur hdr-display-output, cinq corrections a l''aveugle, et la meme
+    plainte a chaque fois : aucun gain dans les ombres, un effet qui se resume a « les endroits brillants
+    brillent plus ». Owner 11/09 : « je me demande si l''espace couleur dans lequel on calcule le HDR
+    est assez riche pour commencer... avant la prochaine iteration faut vraiment creuser le sujet en profondeur
+    ». Il a raison : chaque tour a regle une courbe sans jamais etablir CE QUI ENTRE dans cette courbe.
+    Et le code avoue deja une partie du probleme — le gain dans les ombres publie compare des nombres
+    de paliers de quantification, pas de la luminance.'
+  deliverable: 'Un document, pas une correction : `reports/hdr-study/ETUDE.md`. AUCUN changement de rendu.
+    Il repond, mesure a l''appui, a six questions — chacune avec le chiffre releve sur l''appareil et
+    le site de code qui le produit. (1) LA CHAINE COMPLETE, du calcul d''eclairage au pixel envoye a la
+    dalle : chaque etape nommee, son format et sa precision (nombre de bits, virgule flottante ou entier,
+    espace lineaire ou encode). Ou la scene perd-elle sa plage ? (2) LE TAMPON DE CALCUL est-il assez
+    riche ? Publier sa profondeur reelle et la plage de valeurs qu''il contient sur du jeu reel — combien
+    de scenes depassent 1,0, et de combien. (3) LES OMBRES : quelle est la plus petite difference de luminance
+    distinguable, en nits livres, en SDR puis en HDR, sur les memes images ? Si le HDR n''en gagne pas,
+    DIRE POURQUOI. (4) LA COURBE VARIE-T-ELLE VRAIMENT dans le temps sur un parcours reel, et de combien
+    ? L''owner ne l''a pas vu — mesurer si c''est imperceptible ou inexistant. (5) LE FORMAT : ce que
+    chaque transport (scRGB, HDR10, HLG) change reellement a l''image sur cet appareil, et pourquoi un
+    seul est utilisable. (6) CE QUI EMPECHE le gain attendu : la liste des causes, classees par ce qu''elles
+    coutent a corriger. Le document se termine par une RECOMMANDATION : ce qu''il faut changer, dans quel
+    ordre, et ce qui est hors de portee sur ce materiel.'
+  where: 'rien a voir : c''est une etude, elle ne change pas le rendu ; owner_test=false'
+  out_of_scope: AUCUNE correction, aucun changement de rendu, aucune option ajoutee. Ce chantier produit
+    un document et des mesures. Corriger avant d'avoir compris est precisement ce qui a coute cinq refus.
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-hdr-study.md
+  notes: 'Insere le 11/09 apres le 5e refus. L''owner : « avant la prochaine iteration faut vraiment creuser
+    le sujet en profondeur ». hdr-display-output en depend.'
+  owner_feedback:
+  - date: '2026-09-11'
+    text: je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer
+      ... je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur
