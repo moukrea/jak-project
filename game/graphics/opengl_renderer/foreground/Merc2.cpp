@@ -4452,7 +4452,7 @@ void Merc2::setup_merc_vao() {
 // Le bras d'ablation du harnais (`proof_run --off` nommant cet item) rend `map` : OFF doit
 // egaler l'ABSENCE du correctif, pas une troisieme conduite.
 //
-// CE QUE LA PORTE LIT. `merc_defuse_defects` compte quatre choses, et deux d'entre elles
+// CE QUE LA PORTE LIT. `merc_defuse_defects` compte cinq choses, et trois d'entre elles
 // existent pour qu'un zero obtenu SANS RIEN FAIRE ne passe pas :
 //   1. il reste des maps en LECTURE par image (le defaut vise) ;
 //   2. le bloc fait encore attendre plus d'une image sur deux au-dela d'une milliseconde — une
@@ -4461,7 +4461,10 @@ void Merc2::setup_merc_vao() {
 //   3. aucun seau de niveau merc n'a ete traite de la course (instrument muet) ;
 //   4. moins de deux niveaux distincts ont fourni des draws merc — donc aucune premiere draw
 //      d'un niveau FRAICHEMENT televerse, c'est-a-dire la situation meme que le contournement
-//      existe pour survivre.
+//      existe pour survivre ;
+//   5. le geste du mode retenu n'a JAMAIS tire — mode `none`, ou tous les seaux sautes. Sans ce
+//      compte, « zero map par image » serait tenu a la perfection par un bloc qui ne fait rien,
+//      et le SIGSEGV reviendrait sous une porte verte.
 namespace {
 
 enum MercDefuseMode { kMercDefuseNone = 0, kMercDefuseMap = 1, kMercDefuseCopy = 2 };
@@ -4604,6 +4607,20 @@ void md_close_frame(MercDefuseMode mode) {
   }
   if (levels < kMercDefuseMinLevels) {
     defects++;  // 4. aucun niveau FRAIS n'a fourni de draws merc
+  }
+  // 5. LE ZERO DE MAPS NE S'OBTIENT PAS EN NE FAISANT RIEN. Un mode inerte (`none`), ou des
+  //    seaux tous sautes faute de 16 octets, rendraient les criteres 1 et 2 verts sans qu'AUCUN
+  //    desamorcage n'ait eu lieu : le SIGSEGV que ce bloc existe pour survivre reviendrait sous
+  //    une porte VERTE. On exige donc que le geste du mode retenu ait reellement tire. Le compte
+  //    est publie a cote du verdict : une porte qui interdit une conduite doit dire laquelle a eu
+  //    lieu.
+  const uint64_t acts =
+      (mode == kMercDefuseCopy)
+          ? g_md_copies.load(std::memory_order_relaxed)
+          : (mode == kMercDefuseMap ? g_md_maps.load(std::memory_order_relaxed) : 0);
+  autoport_proof::publish("merc_defuse_acts_total", acts);
+  if (acts == 0) {
+    defects++;
   }
   autoport_proof::publish("merc_defuse_defects", defects);
   // `hits` est PARTAGE par tout le binaire : on ne le remplit que quand le harnais nomme CET
