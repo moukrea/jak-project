@@ -558,13 +558,18 @@
 ;; `__pc-touch-screen?` rend 1 quand la PLATEFORME a declare un ecran tactile
 ;; (PackageManager.FEATURE_TOUCHSCREEN sur Android, SDL_GetTouchDevices sur le bureau), 0 sinon.
 ;; Il ne dit PAS « on est sur Android » : la SHIELD est Android et rend 0, donc « Appuie sur start ».
-;; `__pc-title-prompt-drawn` declare ce qui vient d'etre remis a `print-game-text` : l'identifiant
-;; de texte CHOISI et la CHAINE elle-meme. Le C++ relit le fait tactile de son cote et lit les
-;; octets de la chaine — il ne prend pas la parole de GOAL pour une mesure. Les deux symboles sont
+;; `__pc-title-prompt-drawn` declare ce qui vient d'etre DESSINE : l'identifiant de texte CHOISI,
+;; la CHAINE elle-meme, puis trois hauteurs en pixels rendues par le MEME code de mise en page —
+;; ce que la boite livree a dessine, ce que le texte demande, ce que l'ancienne boite de 40 px
+;; dessinait, puis les deux ENTREES du repli : la largeur brute rendue par `get-string-length`
+;; et `relative-x-scale`, toutes deux au millieme. Les grandeurs passent en ENTIERS : un flottant GOAL arrive en C comme un motif de
+;; bits dans un registre entier, et un parametre `float` cote C lirait xmm0, c'est-a-dire rien.
+;; Le C++ relit le fait tactile de son cote, lit les octets de la chaine, et compare dessine a
+;; demande — il ne prend pas la parole de GOAL pour une mesure. Les deux symboles sont
 ;; enregistres par `InitMachine_PCPort` (game/kernel/jak1/kmachine.cpp), hors de la liste a17 et
 ;; hors de tout `#ifdef` : ils sont relies sur l'appareil comme sur le bureau.
 (define-extern __pc-touch-screen? (function int))
-(define-extern __pc-title-prompt-drawn (function int string none))
+(define-extern __pc-title-prompt-drawn (function int string int int int int none))
 ;; Grecharged-settings-case-l10n : LE RECENSEMENT DU MENU RECHARGED. GOAL parcourt les tableaux
 ;; d'options REELLEMENT compiles et rapporte, ligne par ligne, l'identifiant de banc qui alimente
 ;; son libelle ET la chaine que le menu DESSINE. Le C++ relit les 23 bancs livres et juge toutes

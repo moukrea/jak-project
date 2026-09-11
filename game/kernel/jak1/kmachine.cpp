@@ -1566,7 +1566,19 @@ void pc_autoport_hit(s64 n) {
 //   * l'id dessine ne correspond pas au fait tactile ;
 //   * la banque ne porte pas la chaine — `lookup-text!` rend alors « UNKNOWN ID <n> », et c'est
 //     exactement comme cela que #x1728 avait fini a l'ecran (MESH BROWSER, « UNKNOWN ID 5928 ») ;
-//   * la chaine est vide.
+//   * la chaine est vide ;
+//   * L'INVITE NE TIENT PAS SUR UNE LIGNE. Refus de l'owner du 11/09 : la porte etait VERTE et
+//     le defaut INTACT, parce qu'elle lisait la chaine REMISE a `print-game-text` et jamais ce
+//     qui arrive a l'ecran. Rien n'etait coupe : la boite faisait 352 de large, l'invite 378,1,
+//     et elle se REPLIAIT en deux lignes au pire endroit. La trace de dessin de l'appareil
+//     (`FONT-STR`, armee une fois par la meme fonction GOAL) l'a montre mot pour mot :
+//       FONT-STR len=26 str=Appuie sur start ou touche
+//       FONT-STR len=21 str=le~Y~-14H~-1V~Zcran            (= « l'ecran »)
+//     GOAL declare donc le nombre de LIGNES que la mise en page a dessinees et celui qu'elle
+//     demande, tous deux rendus par `print-game-text` lui-meme, et la porte exige : les deux
+//     egaux, ET egaux a UN. `title_prompt_raw_width_q` / `title_prompt_scaled_width_q` sont
+//     publies a cote — la seconde est exactement la grandeur que `print-game-text` compare a la
+//     largeur de la boite (448), donc un lecteur peut refaire le calcul sans le code.
 constexpr u32 kTitlePromptPlainId = 0x16e;   // (press-start) — engine/ui/text-h.gc:112
 constexpr u32 kTitlePromptTapId = 0x17e7;    // (pc-text-press-start-or-tap) — text-h.gc
 
@@ -1574,9 +1586,15 @@ s32 pc_touch_screen_present() {
   return touch_screen::present() ? 1 : 0;
 }
 
-void pc_title_prompt_drawn(s64 text_id, u32 shown_str) {
+void pc_title_prompt_drawn(s64 text_id,
+                           u32 shown_str,
+                           s64 drawn_lines,
+                           s64 needed_lines,
+                           s64 raw_width_q,
+                           s64 scaled_width_q) {
   static u64 s_frames = 0;
   static u64 s_wrong = 0;
+  static u64 s_cut = 0;
 
   const char* shown = shown_str ? Ptr<String>(shown_str).c()->data() : nullptr;
   const u32 len = shown ? (u32)strlen(shown) : 0;
@@ -1587,9 +1605,19 @@ void pc_title_prompt_drawn(s64 text_id, u32 shown_str) {
   const u32 want = touch ? kTitlePromptTapId : kTitlePromptPlainId;
   const bool measured = touch_screen::source() != touch_screen::kNone;
 
+  // CE QUI EST DESSINE, pas ce qui est remis. `needed_lines` est le nombre de lignes que la mise
+  // en page produit sans plafond de hauteur, `drawn_lines` celui que la boite livree a rendu ;
+  // les deux sortent de `print-game-text`, divises par la hauteur de ligne qu'il a lui-meme
+  // employee. Zero veut dire que personne n'a mesure : c'est une faute, pas un zero. Plus d'une
+  // ligne veut dire que l'invite est coupee en deux — le defaut que l'owner lit.
+  const bool cut = needed_lines != 1 || drawn_lines != 1;
+
   s_frames++;
-  if (!measured || (u32)text_id != want || len == 0 || unknown) {
+  if (!measured || (u32)text_id != want || len == 0 || unknown || cut) {
     s_wrong++;
+  }
+  if (cut) {
+    s_cut++;
   }
 
   autoport_proof::publish("title_prompt_wrong", s_wrong);
@@ -1604,6 +1632,16 @@ void pc_title_prompt_drawn(s64 text_id, u32 shown_str) {
   autoport_proof::publish("title_prompt_want_id", want);
   autoport_proof::publish("title_prompt_len", len);
   autoport_proof::publish("title_prompt_unknown_id", unknown ? 1 : 0);
+  autoport_proof::publish("title_prompt_drawn_lines", (u64)(drawn_lines < 0 ? 0 : drawn_lines));
+  autoport_proof::publish("title_prompt_needed_lines", (u64)(needed_lines < 0 ? 0 : needed_lines));
+  autoport_proof::publish("title_prompt_cut", s_cut);
+  // LES DEUX ENTREES DU REPLI, au millieme. `print-game-text` compare, mot par mot,
+  // `get-string-length x relative-x-scale` a la largeur de la boite : sans ces deux nombres on ne
+  // peut pas savoir OU la ligne se coupe, et donc pas savoir ce que l'ecran montre.
+  autoport_proof::publish("title_prompt_raw_width_q", (u64)(raw_width_q < 0 ? 0 : raw_width_q));
+  autoport_proof::publish("title_prompt_scaled_width_q",
+                          (u64)(scaled_width_q < 0 ? 0 : scaled_width_q));
+
   // Les 16 premiers octets de ce qui est REELLEMENT remis a print-game-text : le rapport dit
   // quelle invite l'appareil dessine, sans capture d'ecran.
   if (shown) {

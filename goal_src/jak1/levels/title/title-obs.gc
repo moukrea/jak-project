@@ -5,6 +5,12 @@
 (require "engine/target/logic-target.gc")
 (require "levels/demo/static-screen.gc")
 
+;; title-tap-prompt-regression : drapeau UN-COUP de la trace de chaines dessinees. Arme
+;; `*font-str-trace*` (font.gc) au premier dessin de l'invite du titre et jamais plus : six lignes
+;; dans le journal pour toute la vie du processus, zero cout en jeu.
+(define *title-prompt-str-trace-armed* 0)
+
+
 ;; DECOMP BEGINS
 
 (deftype logo (process-drawable)
@@ -839,20 +845,77 @@
         (set-setting! 'allow-progress #f 0.0 0)
         (apply-settings *setting-control*))
       (when (and (< (mod (-> *display* real-frame-counter) 300) 270) (not *progress-process*))
-        (let ((gp-0 (new 'stack 'font-context *font-default-matrix* 80 170 0.0 (font-color default) (font-flags shadow kerning))))
-          (let ((v1-12 gp-0)) (set! (-> v1-12 width) (the float 352)))
+        (let ((gp-0 (new 'stack 'font-context *font-default-matrix* 32 170 0.0 (font-color default) (font-flags shadow kerning))))
+          ;; title-tap-prompt-regression : L'INVITE TIENT SUR UNE SEULE LIGNE, DANS TOUTES LES
+          ;; LANGUES.
+          ;;
+          ;; Le choix du texte se fait sur la PRESENCE d'un ecran tactile, jamais sur la
+          ;; plateforme : la SHIELD est Android et n'a pas d'ecran tactile, elle doit lire
+          ;; « Appuie sur start ».
+          ;;
+          ;; CE QUE L'OWNER VOYAIT ENCORE LE 11/09 apres que la porte soit passee. La chaine
+          ;; remise a `print-game-text` etait la bonne — la porte la lisait et la trouvait juste —
+          ;; mais la boite faisait 352 de large et « Appuie sur start ou touche l'ecran » en
+          ;; mesure 378,1 (mesure de l'appareil : `title_prompt_raw_width_q=378137`). Elle se
+          ;; repliait donc en DEUX lignes, coupees au pire endroit, ce que la trace de dessin de
+          ;; l'appareil montre mot pour mot :
+          ;;     FONT-STR len=26 str=Appuie sur start ou touche
+          ;;     FONT-STR len=21 str=le~Y~-14H~-1V~Zcran        (= « l'ecran »)
+          ;; Rien n'etait coupe : `print-game-text` ne rogne aucune ligne (sa garde
+          ;; `(>= sv-156 f30-2)`, text.gc:388, ne couvre que le rognage des espaces). C'est la
+          ;; LARGEUR qui decidait, et aucune grandeur publiee ne la regardait.
+          ;;
+          ;; Deux leviers, dans cet ordre. La boite passe a 448 de large — meme centre qu'avant
+          ;; (32 + 448/2 = 256, comme 80 + 352/2), la place gagnee vient des marges vides de
+          ;; l'ecran-titre. Le francais (378,1) y tient alors a PLEINE TAILLE. Si une langue
+          ;; deborde encore — l'allemand mesure 565,6 — on reduit l'echelle de la police juste
+          ;; ce qu'il faut : `print-game-text` compare `get-string-length x relative-x-scale x
+          ;; scale` a la largeur de la boite, donc `scale = 0,98 x boite / largeur-effective`
+          ;; garantit la ligne unique, avec 2 % de marge.
+          (let ((v1-12 gp-0)) (set! (-> v1-12 width) (the float 448)))
           (let ((v1-13 gp-0)) (set! (-> v1-13 height) (the float 40)))
           (set! (-> gp-0 flags) (font-flags shadow kerning middle middle-vert large))
-          ;; title-tap-prompt-regression : l'invite se choisit sur la PRESENCE d'un ecran tactile,
-          ;; jamais sur la plateforme. Tactile : « Appuie sur start ou touche l'ecran ». Sans
-          ;; tactile (SHIELD, PC a la manette) : « Appuie sur start », mot pour mot comme avant.
-          ;; On declare ensuite au C++ l'id CHOISI et la CHAINE remise a `print-game-text` : c'est
-          ;; lui qui relit le fait tactile et juge, GOAL ne se note pas lui-meme.
           (let* ((s4-0 (if (nonzero? (__pc-touch-screen?))
                            (text-id pc-text-press-start-or-tap)
                            (text-id press-start)))
-                 (s3-0 (lookup-text! *common-text* s4-0 #f)))
-            (print-game-text s3-0 gp-0 #f 128 22)
-            (__pc-title-prompt-drawn (the int s4-0) s3-0)))))
+                 (s3-0 (lookup-text! *common-text* s4-0 #f))
+                 ;; `get-string-length` rend des unites de police BRUTES : il ne depend ni de
+                 ;; l'echelle de la font-context ni du format de l'ecran. Les deux facteurs qui
+                 ;; manquent sont donc `relative-x-scale` (le format) et l'echelle qu'on va poser.
+                 (w-raw (get-string-length s3-0 gp-0))
+                 (w-eff (* w-raw (-> *video-parms* relative-x-scale)))
+                 (fit (if (< w-eff (-> gp-0 width))
+                          1.0
+                          (/ (* 0.98 (-> gp-0 width)) w-eff))))
+            (set! (-> gp-0 scale) fit)
+            ;; La hauteur d'une ligne suit l'echelle : c'est la meme grandeur que celle dont
+            ;; `print-game-text` rend un multiple, donc le quotient EST le nombre de lignes.
+            (let* ((line-h (* 22.0 fit))
+                   ;; ce que la mise en page DEMANDE, boite sans plafond en hauteur
+                   (h-need 0.0)
+                   (h-drawn 0.0))
+              (set! (-> gp-0 height) 4096.0)
+              (set! (-> gp-0 flags) (font-flags shadow kerning middle large))
+              (set! h-need (print-game-text s3-0 gp-0 #t 128 22))
+              (set! (-> gp-0 height) (the float 40))
+              (set! (-> gp-0 flags) (font-flags shadow kerning middle middle-vert large))
+              ;; UNE SEULE FOIS PAR PROCESSUS : la trace bornee de font.gc publie, pour les six
+              ;; prochains appels de `draw-string`, la chaine REELLEMENT remise au dessin. C'est
+              ;; le seul endroit du chemin ou l'on voit les LIGNES apres repli — `print-game-text`
+              ;; ne rend qu'une hauteur, et la chaine d'entree ne dit pas ou la ligne se coupe.
+              (when (zero? *title-prompt-str-trace-armed*)
+                (set! *title-prompt-str-trace-armed* 1)
+                (set! *font-str-trace* 6))
+              (set! h-drawn (print-game-text s3-0 gp-0 #f 128 22))
+              ;; SIX ARGUMENTS AU PLUS. Un pont GOAL->C passe ses arguments en registres ; le
+              ;; septieme n'existe pas et arrive comme le contenu laisse par quelqu'un d'autre.
+              ;; Mesure du 11/09 : un 7e parametre a rendu 1058642329, c'est-a-dire le MOTIF DE
+              ;; BITS de 0,6 — la valeur d'un flottant qui trainait, pas la grandeur demandee.
+              (__pc-title-prompt-drawn (the int s4-0)
+                                       s3-0
+                                       (the int (/ h-drawn line-h))
+                                       (the int (/ h-need line-h))
+                                       (the int (* 1000.0 w-raw))
+                                       (the int (* 1000.0 (* w-eff fit)))))))))
   :code anim-loop
   :post target-no-move-post)
