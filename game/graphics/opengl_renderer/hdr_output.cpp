@@ -591,6 +591,12 @@ int s_d[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
 int s_ratio_max_x1000 = 1000;
 uint32_t s_alt_mode = kModeNone;  // le chemin mesure en phase 4 (0 = il n'y en avait qu'un)
+// RECOMPOSITION : un ecran qui PRESENTE le PQ tient son blanc SDR a un nombre de nits fixe ; un
+// ecran qui le RECOMPOSE vers son propre SDR fait suivre ce blanc au pic du signal. Lu sur le
+// blanc UI deja mesure des phases 1 et 3 (aucun instrument neuf) : -1 = pas mesurable, 1 =
+// recompose (donc AUCUNE marge ne peut exister, quel que soit notre code), 0 = presente.
+int s_recomposed = -1;
+int s_recomposed_ppm = 0;  // (w_sim/w_real)/(pic_sim/pic_reel) x 1000, la grandeur qui le dit
 
 // Sonde de blanc UI (probe_present) : ce que le quad final ECRIT pour un blanc (1,1,1) du jeu,
 // dans le mode courant, et ce qu'il ecrirait en recopie SDR (u_out_mode = 0) pour le meme blanc
@@ -1229,6 +1235,12 @@ void publish_all() {
       (uint64_t)(bl_measurable ? std::lround(1000.0 * (double)s_bl_on.max / (double)s_bl_off.max) : 0));
   autoport_proof::publish("hdr_out_grant_physical",
                           (bl_measurable && s_bl_on.max > s_bl_off.max * 1.02f) ? 1 : 0);
+  // La TROISIEME contre-epreuve, et la seule qui soit optique : doubler le pic du SIGNAL double
+  // le blanc rendu => le compositeur remet le PQ a l'echelle de son propre SDR. Sur un ecran qui
+  // PRESENTE le HDR, le blanc SDR ne bouge pas quand le pic du signal bouge.
+  autoport_proof::publish("hdr_out_recomposed_measurable", (uint64_t)(s_recomposed >= 0 ? 1 : 0));
+  autoport_proof::publish("hdr_out_recomposed", (uint64_t)(s_recomposed > 0 ? 1 : 0));
+  autoport_proof::publish("hdr_out_recomposed_follow_x1000", (uint64_t)(s_recomposed_ppm < 0 ? 0 : s_recomposed_ppm));
   autoport_proof::publish("hdr_out_autoconfig_mode", modes ? 1 : 0);
   autoport_proof::publish("hdr_out_setting", s_setting.load() != 0 ? 1 : 0);
   autoport_proof::publish("hdr_out_effective", effective_setting() ? 1 : 0);
@@ -1366,6 +1378,18 @@ void publish_all() {
   // Verdict 11 : ses trois grandeurs, lisibles sans decoder un verdict.
   autoport_proof::publish("hdr_out_ramp_steps", (uint64_t)kRampN);
   autoport_proof::publish("hdr_out_ramp_read_bits", (uint64_t)s_rp_read_type);
+  // Le SEUL gain que ce chemin livre quand l'ecran n'accorde aucune marge : la finesse. Publie
+  // en rapport pour qu'il se lise sans calcul a la main — 10 bits contre 8 dans les ombres.
+  autoport_proof::publish(
+      "hdr_out_shadow_gain_x100",
+      (uint64_t)(s_pr[2].shadow_levels > 0
+                     ? std::lround(100.0 * (double)s_pr[1].shadow_levels / (double)s_pr[2].shadow_levels)
+                     : 0));
+  autoport_proof::publish(
+      "hdr_out_hl_gain_x100",
+      (uint64_t)(s_pr[2].hl_levels > 0
+                     ? std::lround(100.0 * (double)s_pr[1].hl_levels / (double)s_pr[2].hl_levels)
+                     : 0));
   autoport_proof::publish("hdr_out_shadow_levels_on", s_pr[1].shadow_levels);
   autoport_proof::publish("hdr_out_shadow_levels_off", s_pr[2].shadow_levels);
   autoport_proof::publish("hdr_out_hl_levels_on", s_pr[1].hl_levels);
@@ -1593,6 +1617,21 @@ void compute_verdicts() {
     }
   }
   s_d[10] = peak_ok ? 0 : 1;
+  // La RECOMPOSITION, nommee. Ce n'est pas un verdict : c'est le FAIT physique dont les verdicts
+  // 11 et 12 dependent. Meme mesure que la branche PQ du verdict 10, isolee et publiee seule,
+  // parce qu'un lecteur doit pouvoir distinguer « notre code ne livre pas l'amplitude » de
+  // « l'ecran ne peut rien montrer au-dessus de son blanc ». Sans elle, les deux sortent 1.
+  if (pr.ui_samples > 0 && ps.ui_samples > 0 && on.last_peak > 0.f && onsim.last_peak > 0.f &&
+      on.last_peak != onsim.last_peak) {
+    const double w_real = pr.ui_white_sum / (double)pr.ui_samples;
+    const double w_sim = ps.ui_white_sum / (double)ps.ui_samples;
+    const double want = (double)onsim.last_peak / (double)on.last_peak;
+    if (w_real > 0.0 && want > 0.0) {
+      const double follow = (w_sim / w_real) / want;
+      s_recomposed_ppm = (int)std::lround(follow * 1000.0);
+      s_recomposed = std::fabs(follow - 1.0) <= 0.05 ? 1 : 0;
+    }
+  }
   // 11 : L'EFFET, MESURE (refus owner du 10/09 : « on/off j'ai aucun changement a l'ecran ...
   //      l'image doit gagner en richesse dans les ombres et lumieres »). Trois planchers, tous
   //      les trois exiges — « identique a OFF » est un defaut au meme titre qu'« assombri »,
