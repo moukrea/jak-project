@@ -5948,7 +5948,7 @@ items:
   device_serial: eae4df44
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
-  status: in-progress
+  status: to-test
   priority: 21
   game: jak1
   gate:
@@ -5991,6 +5991,7 @@ items:
   block_reason: null
   prompt: prompts/item-perf-gl-waits.md
   device_serial: eae4df44
+  delivered: '2026-09-11'
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
   status: open
@@ -7009,7 +7010,7 @@ items:
     sortie HDR allumee comme eteinte'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7042,12 +7043,18 @@ items:
     qui le remplace. Puis, pour chacun, soit il est SUPPRIME du code (pas debranche), soit il est explicitement
     rattache au chemin unique de la refonte. Publier la table avant/apres et le compte d''execution de
     chaque chemin herite : tous a 0. Un binaire ou l''ancien chemin n''est PAS COMPILE vaut mieux qu''un
-    drapeau a zero.'
-  where: 'Options > Recharged > Recharged Lighting : plus aucune ligne qui pilote l''ancien monde, et
-    ce qui reste agit vraiment'
+    drapeau a zero. S''AJOUTE (refus 11/09, LE PLUS GRAVE) : RETIRER LA LIGNE SANS RETIRER LE CODE EST
+    PIRE QUE NE RIEN FAIRE. L''owner avait le PBR actif sur son Honor ; la ligne de menu a disparu, l''effet
+    est TOUJOURS LA, et il n''a plus aucun moyen de l''eteindre. Pour CHAQUE reglage herite retire du
+    menu, prouver que son chemin n''est plus EXECUTE : compteur d''execution publie, a 0, sur une course
+    reelle — et si le reglage etait ACTIF dans le settings.ini de l''owner, la course doit partir de CE
+    fichier-la, pas d''un settings neuf. Un reglage retire du menu et encore executable est un DEFAUT
+    plus grave que le reglage lui-meme. Verifier nommement le PBR.'
+  where: 'Options > Recharged > Recharged Lighting : plus aucune ligne de l''ancien monde, ET plus aucun
+    de leurs effets visibles en jeu — verifie nommement le PBR, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: to-test
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7066,7 +7073,12 @@ items:
   - date: '2026-09-10'
     text: les anciens reglages d'eclairage, vire les dessuite avant qu'ils nous embetent, on en veut pas
       de toute facons
-  delivered: '2026-09-11'
+  - date: '2026-09-11'
+    text: les reglages anciens sont bien supprimes du menu lighting... Mais sur le Honor j'avais les PBR
+      actives et tout un tas de merdes, et visiblement ils sont toujours actives (ca se voit in-game)
+      sans possibilite de les desactiver du coup... J'aurais pense que ca retirait aussi le code mort,
+      et c'est pas du tout le cas vu que je me cogne toujours le PBR !
+  delivered: null
 - id: mesh-browser-removal
   priority: 20
   device: true
@@ -7289,3 +7301,68 @@ items:
   - date: '2026-09-11'
     text: ba oui le support HDR sur PC et Linux go ! meme si on a rien pour tester, faut se plug sur ce
       qu'il faut et zou ! HDR10+ on drop complet alors !
+- id: menu-dpad-steps
+  priority: 24
+  device: true
+  feature: Une pression sur la croix deplace d'UN cran, jamais deux
+  gate:
+    key: menu_step_overshoots
+    op: ==
+    value: 0
+  known_cause: 'Owner 11/09 : « parcourir les menus au d-pad tactile est un peu pete [...] quand on appuie
+    un cran vers le bas par exemple, parfois ca saute deux items ou plus au lieu d''un seul, pareil dans
+    les sous menus ». Non teste a la manette : le recensement doit dire si le defaut est propre au TACTILE
+    ou commun aux deux entrees.'
+  deliverable: '`menu_step_overshoots` = 0 : une pression franche deplace la selection d''UN cran. Publier,
+    par entree (tactile ET manette) et par page (menu principal ET sous-menus), le nombre de pressions
+    et le nombre de crans parcourus : le rapport vaut 1. Nommer la cause — repetition automatique declenchee
+    trop tot, evenement compte deux fois, ou pas de temporisation entre deux lectures. La repetition en
+    maintien reste possible, mais elle commence apres un delai declare et avance a cadence declaree.'
+  where: 'Options, puis n''importe quel sous-menu : une pression = une ligne, au doigt comme a la manette'
+  out_of_scope: Ne pas retoucher la mise en page des menus ni l'ordre des lignes.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-menu-dpad-steps.md
+  notes: Insere le 11/09 sur retour owner.
+  owner_feedback:
+  - date: '2026-09-11'
+    text: parcourir les menus au d-pad tactile est un peu pete, pas teste a la manette mais quand on appuie
+      un cran vers le bas par example, parfois ca saute deux ou plus items au lieu d'un seul, pareil dans
+      les sous menus et compagnie
+- id: menu-back-label
+  priority: 24
+  device: true
+  feature: Le « Retour » des sous-menus affiche le bon texte, pas une chaine au hasard
+  gate:
+    key: menu_label_wrong
+    op: ==
+    value: 0
+  known_cause: 'Owner 11/09 : « dans les sous-menus, la string « Retour » n''est pas la, ca prend une
+    string random dans les sous menus des reglages realtime lighting, p''tetre dans les autres aussi ».
+    Une chaine prise au hasard sent l''identifiant hors bornes ou l''index decale dans le banc de texte
+    — la page « Recharged Lighting » est construite a l''execution, ses lignes ne sont pas numerotees
+    a la main.'
+  deliverable: '`menu_label_wrong` = 0 : CHAQUE ligne de CHAQUE sous-menu affiche le texte qui lui correspond.
+    Publier, pour toutes les pages, le couple (identifiant demande, texte effectivement affiche) et le
+    compte de ceux qui ne concordent pas. Verifier dans CHAQUE langue installee : un identifiant hors
+    bornes ne se voit pas dans la langue ou la table est la plus longue. Nommer la cause plutot que corriger
+    la seule ligne « Retour ».'
+  where: 'Options > Recharged > Recharged Lighting, puis les autres sous-menus : la ligne de retour dit
+    « Retour », et aucune ligne ne porte un texte qui n''a rien a y faire'
+  out_of_scope: Ne pas retraduire le jeu ni toucher aux polices. On corrige la correspondance identifiant/texte.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-menu-back-label.md
+  notes: Insere le 11/09 sur retour owner.
+  owner_feedback:
+  - date: '2026-09-11'
+    text: dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous
+      menus des reglages realtime lighting, p'tetre dans les autres aussi
