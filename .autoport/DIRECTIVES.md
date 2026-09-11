@@ -61,3 +61,15 @@ d'outil meurt dans la seconde : c'est le processus long qui pose le verrou.
 recopiées de `proof.txt`, ce que l'owner doit regarder, ce qui n'est pas prouvé. Les notes de
 labo vont dans `reports/<id>/notes/`, qu'aucune porte ne lit. Ton rapport porte la ligne
 `DIRECTIVES <version>` que ton prompt te donne.
+
+## Signalements
+
+Tout ce que tu vois de cassé et que tu ne corriges PAS — hors périmètre, défaut latent, coût non
+mesuré, code mort — va dans `reports/<id>/FINDINGS.txt`, une ligne par trouvaille :
+
+    <fichier:ligne ou zone> | <ce qui cloche, une phrase> | <ce que ça coûte de le laisser>
+
+Écris le fichier même vide (`AUCUN`). Une trouvaille laissée dans ta prose est une dette
+invisible : personne ne relit un rapport fermé, et on la retrouve par hasard des mois plus tard.
+La porte de fermeture lit ce fichier ; le superviseur en fait des chantiers ou les écarte devant
+l'owner.

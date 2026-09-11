@@ -1125,6 +1125,25 @@ def close_gate(item: dict) -> tuple[str, str]:
                         "pas tant qu'il n'est pas rétabli.\n" + tail)
             console.print(f"[green]close-gate acquis: {script.name} ok[/green]")
 
+    # 2026-09-11 — SIGNALEMENTS DU WORKER. Ce qu'il a vu de casse sans le corriger doit devenir
+    # un chantier ou etre ecarte devant l'owner, jamais dormir dans un rapport ferme. Voir
+    # lib/findings_gate.sh : alerte par defaut, bloquant avec `.autoport/.findings_gate_strict`.
+    _fg = AUTOPORT_DIR / "lib" / "findings_gate.sh"
+    if _fg.exists():
+        try:
+            _r = subprocess.run(["bash", str(_fg), iid], cwd=REPO_ROOT,
+                                capture_output=True, text=True, timeout=120)
+            _msg = (_r.stdout + _r.stderr).strip()
+            if _r.returncode != 0:
+                return ("fail", "CLOSE-GATE/signalements : des trouvailles du worker n'ont "
+                                "aucune suite.\n" + _msg)
+            if _msg:
+                console.print(f"[yellow]close-gate signalements: {_msg}[/yellow]"
+                              if "absent" in _msg or "NON TRIE" in _msg
+                              else f"[green]close-gate signalements: {_msg.strip()}[/green]")
+        except subprocess.TimeoutExpired:
+            return ("fail", "CLOSE-GATE/signalements : findings_gate.sh n'a pas repondu en 120 s")
+
     # GATE 4 — l'oeil de l'owner est la porte FINALE. Un item passe donc en
     # `to-test`, jamais directement en `validated` : seul `owner_ok` le ferme.
     #
