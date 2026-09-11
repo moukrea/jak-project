@@ -186,6 +186,15 @@ std::string s_curve_module = "non_resolu";
 // lecture de ce que le GPU a RECU, pas de nos propres variables.
 uint64_t s_uniform_match = 0, s_uniform_mismatch = 0;
 int s_live_out_mode = -1;
+// Combien des trois uniformes le PROGRAMME porte reellement. Un uniforme qu'aucune ligne du
+// shader ne lit est INACTIF : le compilateur GLSL le retire, `glGetUniformLocation` rend -1, et
+// il n'existe aucun etat a relire. Le comparer a une valeur poussee serait comparer 0 a 500 et
+// declarer un ecart qui n'existe pas. Mesure du 11/09 : `u_out_max_nits` est dans ce cas
+// (15 401 images sur 15 401) — c'est le code mort deja signale pour hdr-display-output, et c'est
+// cette sonde qui l'a rendu CHIFFRE. Le compte est publie : un verdict sur zero champ comparable
+// serait vert par inaction.
+int s_uniform_fields = 0;
+std::string s_uniform_inactive = "-";
 
 // ------------------------------------------------------------------- la repetition d'encodage --
 // « la courbe exercee a deux pics SIMULES » : on rejoue le VRAI quad final, avec les VRAIS
@@ -687,8 +696,8 @@ void compute_verdicts() {
   //    `present_params_for()` rend ici. Un chemin de presentation recopie cote bureau divergerait.
   //    (Le nom du symbole est publie a cote, mais il n'entre pas dans le verdict : `gk` n'exporte
   //    pas sa table dynamique, donc `dladdr` ne peut nommer que le MODULE.)
-  s_d[5] = (s_curve_calls > 0 && s_present_calls > 0 && s_uniform_match > 0 &&
-            s_uniform_mismatch == 0)
+  s_d[5] = (s_curve_calls > 0 && s_present_calls > 0 && s_uniform_fields >= 2 &&
+            s_uniform_match > 0 && s_uniform_mismatch == 0)
                ? 0
                : 1;
 
@@ -824,6 +833,8 @@ void publish_all() {
   autoport_proof::publish("hdr_desktop_present_calls", s_present_calls);
   autoport_proof::publish("hdr_desktop_uniform_match_frames", s_uniform_match);
   autoport_proof::publish("hdr_desktop_uniform_mismatch_frames", s_uniform_mismatch);
+  autoport_proof::publish("hdr_desktop_uniform_fields_compared", (uint64_t)std::max(0, s_uniform_fields));
+  autoport_proof::publish_text("hdr_desktop_uniform_inactive", s_uniform_inactive.c_str());
   autoport_proof::publish("hdr_desktop_live_out_mode", (uint64_t)std::max(0, s_live_out_mode));
 
   publish_leg("pq_lo", s_pq_lo);
@@ -1164,10 +1175,37 @@ void probe_present(Shader& shader) {
     const hdr_output::PresentParams want =
         hdr_output::present_params_for(active ? s_created_mode : hdr_output::kModeNone);
     s_curve_calls++;
-    const bool same = mode == (GLint)want.out_mode &&
-                      std::fabs(white - want.paper_white) <= 1e-3f * std::max(1.f, want.paper_white) &&
-                      std::fabs(nits - want.max_nits) <= 1e-3f * std::max(1.f, want.max_nits);
-    if (same) {
+    int fields = 0;
+    bool same = true;
+    std::string inactive;
+    auto note_inactive = [&](const char* n) {
+      if (!inactive.empty()) {
+        inactive += ",";
+      }
+      inactive += n;
+    };
+    if (l_mode >= 0) {
+      fields++;
+      same = same && mode == (GLint)want.out_mode;
+    } else {
+      note_inactive("u_out_mode");
+    }
+    if (l_white >= 0) {
+      fields++;
+      same = same && std::fabs(white - want.paper_white) <=
+                         1e-3f * std::max(1.f, std::fabs(want.paper_white));
+    } else {
+      note_inactive("u_out_paper_white");
+    }
+    if (l_nits >= 0) {
+      fields++;
+      same = same && std::fabs(nits - want.max_nits) <= 1e-3f * std::max(1.f, std::fabs(want.max_nits));
+    } else {
+      note_inactive("u_out_max_nits");
+    }
+    s_uniform_fields = fields;
+    s_uniform_inactive = inactive.empty() ? "-" : inactive;
+    if (fields >= 2 && same) {
       s_uniform_match++;
     } else {
       s_uniform_mismatch++;
