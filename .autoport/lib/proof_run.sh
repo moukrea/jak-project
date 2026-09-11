@@ -445,6 +445,24 @@ else
   # (LoaderActivity.java:178, FLAG_KEEP_SCREEN_ON).
   timeout 15 "$ADB" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
   timeout 15 "$ADB" -s "$SERIAL" shell wm dismiss-keyguard >/dev/null 2>&1
+  # ECRAN VERROUILLE : MIUI REFUSE la surface a NOTRE paquet, et ca se lit comme un moteur mort.
+  # Mesure du 2026-09-11 (lighting-legacy-purge, essais 3 a 5 brules) : ecran ALLUME, activite
+  # lancee, `surfaceCreated` puis `surfaceDestroyed` 117 ms plus tard, jamais recreee =>
+  # `g_renderer_ready` jamais pose => fil GOAL bloque => `A37-HANG frame stuck at 1` =>
+  # `frames=0`. La cause n'est ni le mode poche ni l'orientation : c'est l'app-op MIUI 10020
+  # (« afficher sur l'ecran verrouille ») a `ignore` sur org.opengoal.gk.jak1, qui emet
+  # `MIUILOG- Show when locked PermissionDenied pkg : org.opengoal.gk.jak1` (66 occurrences).
+  # Passe a `allow` : 0 refus, 0 `surfaceDestroyed`, `A35-RENDER renderer ready`, 7080 images —
+  # appareil toujours face contre table et verrouille. On ne touche que l'app-op de NOTRE paquet ;
+  # aucun reglage systeme de l'owner. Un echec ici n'arrete rien : il se lit dans le journal.
+  if OP_AVANT=$(timeout 15 "$ADB" -s "$SERIAL" shell appops get "$PKG" 2>/dev/null \
+                | tr -d '\r' | sed -n 's/^MIUIOP(10020): \([a-z]*\).*/\1/p' | head -1) \
+     && [ -n "$OP_AVANT" ] && [ "$OP_AVANT" != allow ]; then
+    timeout 15 "$ADB" -s "$SERIAL" shell appops set "$PKG" 10020 allow >/dev/null 2>&1
+    OP_APRES=$(timeout 15 "$ADB" -s "$SERIAL" shell appops get "$PKG" 2>/dev/null \
+               | tr -d '\r' | sed -n 's/^MIUIOP(10020): \([a-z]*\).*/\1/p' | head -1)
+    log "app-op MIUI 10020 (afficher sur ecran verrouille) : $OP_AVANT -> ${OP_APRES:-inconnu}"
+  fi
   WAKE=$(timeout 15 "$ADB" -s "$SERIAL" shell dumpsys power 2>/dev/null \
          | grep -o 'mWakefulness=[A-Za-z]*' | head -1 | tr -d '\r')
   log "ecran : ${WAKE:-inconnu}"
