@@ -4646,7 +4646,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: in-progress
+  status: to-test
   priority: 18
   game: jak1
   gate:
@@ -4669,10 +4669,12 @@ items:
     atteint l''essentiel de la marge REELLEMENT accordee. (12) La courbe suit la scene dans le TEMPS ;
     serie publiee sur plein jour / interieur / grotte ; constante = DEFAUT. (13) NEUF, refus 11/09 — LE
     FORMAT SE CHOISIT SEUL, POUR TOUT ECRAN : le jeu tournera sur des centaines d''appareils. Preference
-    HDR10+ > HDR10 > HLG, replis automatiques sur ce que l''ecran annonce, aucun appareil code en dur.
-    Publier le format RETENU et la liste annoncee. Plusieurs formats disponibles ET choix a incidence
-    mesurable : l''offrir en reglage ; sinon le dire. Dolby Vision HORS PERIMETRE (licence) : le constater.
-    ANNONCER N''EST PAS ACCORDER : aucune marge rendue = verdict 11 ROUGE, et on le DIT.'
+    scRGB > HDR10 > HLG. HDR10+ ECARTE par decision de l''owner du 11/09 : aucune API publique ne laisse
+    une application poser des metadonnees DYNAMIQUES ; notre courbe (verdict 12) en tient lieu, replis
+    automatiques sur ce que l''ecran annonce, aucun appareil code en dur. Publier le format RETENU et
+    la liste annoncee. Plusieurs formats disponibles ET choix a incidence mesurable : l''offrir en reglage
+    ; sinon le dire. Dolby Vision HORS PERIMETRE (licence) : le constater. ANNONCER N''EST PAS ACCORDER
+    : aucune marge rendue = verdict 11 ROUGE, et on le DIT.'
   known_cause: 'LIS D''ABORD `prompts/item-hdr-display-output-contrat.md` — OBLIGATOIRE. Cette consigne
     est un resume plafonne ; le contrat complet, les verdicts 1-8 detailles, les quinze refus de l''owner
     et les chiffres deja mesures (et sur QUEL ecran) y sont. Resume : l''owner voit une MINI difference
@@ -4772,6 +4774,8 @@ items:
       HDR10+ (variable) faut exploiter, si ca supporte seulement HDR10 on utilise en repli, si ca supporte
       uniquement HLG on utilise en repli etc... Et quand l'ecran supporte les trois on laisse le choix
       (enfin si ca a une incidence). Pour Dolby Vision je crois qu'il faut une licence
+  - date: '2026-09-11'
+    text: HDR10+ on drop complet alors !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4779,12 +4783,12 @@ items:
   - debug.opengoal.lighting=1
   - debug.opengoal.level.warp=village2-dock
   - debug.opengoal.tod.fast=1
-  proof_timeout: 240
+  - debug.opengoal.hdr.out=1
+  proof_timeout: 300
   block_reason: null
-  proof_env:
-  - ANDROID_SERIAL=AREE026206000788
+  proof_env: []
   device_serial: eae4df44
-  delivered: null
+  delivered: '2026-09-11'
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
@@ -5934,7 +5938,7 @@ items:
   device_serial: eae4df44
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
-  status: open
+  status: in-progress
   priority: 21
   game: jak1
   gate:
@@ -7231,3 +7235,42 @@ items:
   prompt: prompts/item-proof-context-on-zero-frames.md
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
+- id: hdr-desktop-output
+  status: open
+  priority: 19
+  game: jak1
+  device: false
+  owner_test: false
+  feature: La sortie HDR existe aussi sur PC, Windows comme Linux
+  gate:
+    key: hdr_desktop_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: 'Mesure du 11/09 : `hdr_output.cpp` est compile sur les DEUX plateformes, mais tout ce
+    qui touche a l''ecran — lecture des capacites, demande de marge, bascule de surface — est entre `#ifdef
+    __ANDROID__`. Sur bureau ces fonctions rendent « rien » : il n''y a AUCUN chemin de sortie HDR. L''owner
+    l''avait demande des le 06/09 (« idem sur PC/Linux/Android TV »), ca n''avait jamais ete ouvert. Il
+    n''a aucun ecran HDR sur PC : « meme si on a rien pour tester, faut se plug sur ce qu''il faut ».'
+  deliverable: '`hdr_desktop_defects` = 0. (1) DETECTION : les capacites HDR de l''ecran sont lues sur
+    Windows ET sur Linux, et publiees comme sur Android ; la ligne de menu n''apparait que si un mode
+    est annonce. (2) TRANSPORT : sortie HDR10 (PQ) avec metadonnees STATIQUES (SMPTE2086 + MaxCLL/MaxFALL)
+    ; publier le format retenu, l''espace de couleur reellement obtenu, et la raison de chaque rejet.
+    (3) MEME COURBE QU''ANDROID : l''adaptation au pic annonce et au contenu est le code COMMUN, pas une
+    copie — publier que les deux plateformes appellent la meme fonction. (4) OFF = identique au bit a
+    la sortie SDR actuelle. (5) SANS ECRAN HDR, la preuve est machine : espace de couleur demande et OBTENU,
+    metadonnees effectivement posees, et la courbe exercee a deux pics SIMULES. Ne jamais conclure « ca
+    marche » sur un ecran SDR : dire ce qui est prouve et ce qui attend du materiel. (6) Aucune regression
+    du rendu SDR sur bureau.'
+  where: 'rien a voir tant que l''owner n''a pas d''ecran HDR sur PC : la preuve est machine. owner_test=false'
+  out_of_scope: 'HDR10+ et Dolby Vision sont ECARTES par decision de l''owner du 11/09 : « HDR10+ on drop
+    complet ». Ne pas toucher au chemin Android, qui a son propre item.'
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-hdr-desktop-output.md
+  notes: Insere le 11/09 sur ordre de l'owner. Le chemin bureau n'existait pas du tout.
+  owner_feedback:
+  - date: '2026-09-11'
+    text: ba oui le support HDR sur PC et Linux go ! meme si on a rien pour tester, faut se plug sur ce
+      qu'il faut et zou ! HDR10+ on drop complet alors !

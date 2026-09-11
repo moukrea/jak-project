@@ -1,21 +1,25 @@
-# hdr-display-output — CONTRAT COMPLET
+# Sortir un vrai signal HDR sur les ecrans qui le supportent — CONTRAT COMPLET
 
-Ce fichier porte ce que la consigne (2 560 octets) ne peut pas contenir. La consigne
-ORDONNE de le lire : elle est un resume, pas le contrat.
+Ce fichier porte ce que la consigne, plafonnee a 2560 octets, ne peut pas contenir.
+La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
-## Les verdicts 1 a 8, dans le detail
+## Cause connue
 
-Voir `prompts/SPEC-refonte-lumiere.md` section 4.5 pour le texte normatif. Rappel :
-1. capacite DETECTEE et publiee (`hdr_out_display_caps`)
-2. option visible SEULEMENT si l'ecran annonce un mode
-3. vrai interrupteur : `hdr_out_forced_on` = 0, choix persistant au redemarrage
-4. activee : sortie dans l'espace annonce, UN SEUL tone map (`hdr_out_tonemaps_applied` = 1)
-5. desactivee : identique au BIT a lighting-hdr (`hdr_out_defect_5_off_identical` = 0)
-6. auto-configuration au premier demarrage, choix conserve
-7. `hdr_out_menu_parent` = eclairage — la ligne vit sous Options > Recharged > Eclairage Recharge
-8. `hdr_out_ui_white_nits` >= blanc SDR du systeme : UI, sous-titres, sprites BLANCS, jamais gris
+LIS D'ABORD `prompts/item-hdr-display-output-contrat.md` — OBLIGATOIRE. Cette consigne est un resume plafonne ; le contrat complet, les verdicts 1-8 detailles, les quinze refus de l'owner et les chiffres deja mesures (et sur QUEL ecran) y sont. Resume : l'owner voit une MINI difference ON/OFF ; il decrit un filtre pose APRES le tone map SDR. Courbe STATIQUE. Preuve sur le Redmi eae4df44.
 
-## Historique des refus de l'owner, dans l'ordre
+## Livrable — le contrat, en entier
+
+`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat. (9) Pas d'assombrissement, sur du JEU REEL, plusieurs niveaux, images comptees. (10) La SEULE reference est le pic ANNONCE, aucune constante ; prouve par l'EFFET a deux pics. (11) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000` atteint l'essentiel de la marge REELLEMENT accordee. (12) La courbe suit la scene dans le TEMPS ; serie publiee sur plein jour / interieur / grotte ; constante = DEFAUT. (13) NEUF, refus 11/09 — LE FORMAT SE CHOISIT SEUL, POUR TOUT ECRAN : le jeu tournera sur des centaines d'appareils. Preference scRGB > HDR10 > HLG. HDR10+ ECARTE par decision de l'owner du 11/09 : aucune API publique ne laisse une application poser des metadonnees DYNAMIQUES ; notre courbe (verdict 12) en tient lieu, replis automatiques sur ce que l'ecran annonce, aucun appareil code en dur. Publier le format RETENU et la liste annoncee. Plusieurs formats disponibles ET choix a incidence mesurable : l'offrir en reglage ; sinon le dire. Dolby Vision HORS PERIMETRE (licence) : le constater. ANNONCER N'EST PAS ACCORDER : aucune marge rendue = verdict 11 ROUGE, et on le DIT.
+
+## Hors perimetre
+
+Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique SDR/HDR exigee. Pas de nouveau chemin LDR demande.
+
+## Ou l'owner regardera
+
+Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur le Redmi, les zones brillantes doivent vraiment ressortir, sans que le reste change.
+
+## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
 ### 2026-09-06
 > Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça l'exploite pas ! Et quand ça supporte par le HDR ça devrait être... Tonemappé je crois qu'on dit ? Vers du SDR pour les écrans qui ne sont pas HDR, en gros par défaut ça devrait être tonemappé en SDR (de la meilleure façon possible pour pas écraser les détails de trop) sauf quand on active le HDR (une option en plus?) qui apparaît si l'écran le supporte, idem sur PC/Linux/Android TV, etc. Et bien sûr ca pourrait faire partie de l'auto-detection au first start
@@ -62,17 +66,15 @@ Voir `prompts/SPEC-refonte-lumiere.md` section 4.5 pour le texte normatif. Rappe
 ### 2026-09-11
 > pour le chantier HDR, on peut garder le Redmi, a 500 nits c'est top ! Donc on l'utilisera pour l'HDR aussi !
 
-## Ce qui a ete mesure, et sur quel ecran
+### 2026-09-11
+> faudrait pas perdre des infos, sinon justement le principe iteratif est un peu detruit... Si trop long, faut p'tetre s'assurer que l'info soit quelque part en complement avec une instruction de le lire de facon obligatoire. [...] ca devrait s'ajuster automatiquement par le code, parce que le jeu n'est pas destine a tourner que sur le HONOR ou le Redmi, il va tourner sur tout un tas de devices avec des specs differentes, des ecrans differents, du support HDR different. Si ca supporte HDR10+ (variable) faut exploiter, si ca supporte seulement HDR10 on utilise en repli, si ca supporte uniquement HLG on utilise en repli etc... Et quand l'ecran supporte les trois on laisse le choix (enfin si ca a une incidence). Pour Dolby Vision je crois qu'il faut une licence
 
-- HONOR (jusqu'au 10/09) : marge accordee 2 251, hautes lumieres livrees 1 445, ombres 17->127,
-  hautes lumieres 17->128, assombrissement 0 %. CES CHIFFRES NE VALENT QUE POUR CET ECRAN.
-- Le Honor a annonce 480 nits pendant des jours en accordant un rapport de 1,000 : l'image ON
-  etait l'image SDR exacte. ANNONCER N'EST PAS ACCORDER.
-- REDMI (a partir du 11/09, appareil de preuve) : annonce HDR10, HLG, HDR10+ a 500 nits,
-  extensions EGL bt2020_pq / scrgb_linear / fp16 / SMPTE2086 presentes. Tout est a REMESURER.
+### 2026-09-11
+> HDR10+ on drop complet alors !
 
 ## Pourquoi ce fichier existe
 
-L'owner, 11/09 : « faudrait pas perdre des infos, sinon justement le principe iteratif est un
-peu detruit ». Chaque refus ajoute un verdict ; la consigne est plafonnee. Ce qui en sort
-atterrit ICI, jamais a la poubelle.
+Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
+iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est
+plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.
+
