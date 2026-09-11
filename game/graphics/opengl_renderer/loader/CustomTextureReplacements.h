@@ -158,44 +158,16 @@ struct PbrMaterialMaps {
   // size = the feature's world size, which is what the tessellation amplitude is scaled by.
   float height_lambda_tiles = 0.25f;
 
-  // ===== Grecharged-materials-modern-parity — THE MODERN MATERIAL STACK ============================
-  // Everything below is per-material and OPT-IN. `mm_flags == 0` (the default) means this material
-  // is untouched by the modern layer no matter what the menu says, which is how "OFF == stock"
-  // stays true per material and not just globally.
-  //
-  // The eight fields above are all MEASURED from the PNGs at load. These are AUTHORED: they are
-  // read from `surfaces.json` (see mm_params_reload), because a scattering colour or a coat weight
-  // is an artistic decision about the surface, not a statistic of its texture. That file is
-  // authored in the ASSET repository and installed under managed_assets/<game>/, never shipped in
-  // the APK (owner, 2026-08-29), with an external-dir copy taking precedence so re-tuning costs a
-  // kilobyte push instead of a 581 MB APK.
-  u32 thickness_tex = 0;  // <tex>_thickness.png — 1 = thin/translucent, 0 = optically thick
-  // TRUE when this material's occlusion/roughness/metallic were unpacked from one _orm.png. Kept as
-  // its own field rather than as a bit inside mm_flags because mm_flags is REBUILT from scratch on
-  // every re-stamp (and cleared to 0 whenever the master is off), so a bit living only there would
-  // be lost the first time the owner toggled the row off and on again. Anything derived from the
-  // TEXTURES has to be recoverable from the textures.
+  // lighting-legacy-purge (2026-09-11) : la pile « Materiaux avances » (epaisseur sous-surfacique,
+  // diffusion, vernis, anisotropie et leurs bits de capacite) est SUPPRIMEE. Sa rangee de menu
+  // livrait OFF : `mm_flags` valait 0 sur chaque matiere et le chunk du shader sortait avant
+  // d'ecrire un pixel. `orm_packed` survit seul, parce qu'il decrit les CARTES du chemin PBR.
+  // VRAI quand l'occlusion/rugosite/metallicite de cette matiere ont ete depaquetees d'un seul
+  // _orm.png. Derive des TEXTURES, donc recalculable a partir d'elles.
   bool orm_packed = false;
-  u32 mm_flags = 0;  // capability bits, see pbr_modern_uniforms.glsl (1 sss, 2 coat, 4 aniso,
-                     // 8 energy, 16 spec-occlusion, 32 thickness map, 64 filmic, 128 ORM).
-                     // Derived, never authored directly: mm_apply_params() rebuilds it from the
-                     // surfaces.json record ORed with the texture-derived bits it recomputes from
-                     // thickness_tex / orm_packed.
-  float sss_color[3] = {1.f, 1.f, 1.f};  // scattering colour, LINEAR
-  float sss_strength = 0.f;
-  float sss_thickness = 0.5f;  // fallback when no _thickness.png
-  float sss_power = 6.f;       // transmission falloff
-  float sss_distort = 0.2f;    // normal distortion of the transmission vector
-  float sss_wrap = 0.f;        // terminator wrap
-  float sss_ambient = 0.25f;   // share of skylight that also transmits
-  float coat_weight = 0.f;
-  float coat_rough = 0.10f;
-  float aniso = 0.f;        // [-0.95, 0.95]
-  float aniso_angle = 0.f;  // radians
 
   // ===== Gpbr-per-texture-materials — LES BOUTONS DE MATIERE DU CHEMIN PBR LUI-MEME ==============
-  // Contrairement au bloc mm_* ci-dessus, ceux-ci ne sont PAS derriere la ligne de menu MODERN
-  // MATERIALS : relief, rugosite, metallicite, reflectance et le signe du canal vert de la normal
+  // Relief, rugosite, metallicite, reflectance et le signe du canal vert de la normal
   // map sont les parametres du chemin PBR, qui est actif par defaut. Les mettre derriere une ligne
   // eteinte par defaut rendrait tout preset INERTE — le defaut « unite feature-gatee ».
   // CHAQUE DEFAUT CI-DESSOUS EST L'IDENTITE : un materiau sans enregistrement dans surfaces.json
@@ -241,10 +213,6 @@ struct PbrMaterialMaps {
 // and whenever the MODERN MATERIALS menu row is toggled (kmachine's pc_set_modern_materials).
 // Materials already registered are re-stamped in place, so a toggle applies edits without a level
 // reload.
-// True when the MODERN MATERIAL STACK is live: the menu row ANDed with the Recharged master,
-// overridable by debug.opengoal.mm.on / OG_MM_ON for the headless harness (which has no menu to
-// navigate). Every consumer must ask THIS, never the gfx field directly, or the override splits.
-bool mm_master_active();
 // ASK for a re-read. Callable from ANY thread (kmachine's pc_set_modern_materials runs on the GOAL
 // kernel thread when the menu row is toggled) because all it does is set an atomic flag. The actual
 // re-read — which mutates the material registry the renderers walk — is serviced on the GL thread by
@@ -256,10 +224,9 @@ void mm_request_params_reload();
 void mm_service_reload();
 // GL THREAD ONLY. Re-read surfaces.json and re-stamp every registered material now.
 void mm_params_reload();
-// Stamp the authored parameters (and the "defaults" fallback) onto a freshly-built material. Called
-// by the loader right before register_pbr_material(). No-op when the modern master is off, which is
-// what keeps an un-toggled build bit-identical.
-void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
+// lighting-legacy-purge (2026-09-11) : `mm_master_active` et `mm_apply_params` sont SUPPRIMES avec
+// la pile moderne. `mm_params_reload` / `mm_service_reload` restent : ils lisent surfaces.json pour
+// la MOITIE PBR (`pbrmat_apply_params`), qui n'a jamais ete derriere cette rangee.
 // Gpbr-per-texture-materials. Stamp the PBR-path material knobs (pm_* above) from the SAME
 // surfaces.json records. Called from the same two sites as mm_apply_params — but with NO gate: the
 // PBR path is on by default, so gating these on the MODERN MATERIALS menu row would make every
@@ -301,44 +268,14 @@ void pbr_reach_note_pushed(const std::string& key,
                            const float* mat_readback,   // 4 floats relus de u_pbr_mat, ou nullptr
                            const float* mat2_readback,  // 2 floats relus de u_pbr_mat2, ou nullptr
                            int mode);
-// Meme contrat que note_pushed, pour la MOITIE MODERNE : clearcoat et aniso ne voyagent pas dans
-// u_pbr_mat mais dans u_mm_coat / u_mm_aniso, poussees par un bloc separe. Sans cette relecture
-// leurs valeurs publiees seraient recopiees de nos variables, c'est-a-dire mesurees par leur
-// EFFET SUPPOSE — et quand l'effet est absent « le modele est faux » et « rien n'a ete pousse »
-// deviennent indistinguables. Appelee HORS de la garde de changement d'etat du binder : la garde
-// evite de RE-pousser, elle ne change pas ce que l'objet programme contient, donc la relecture est
-// valide meme pour un draw qui n'a rien repousse.
-void pbr_reach_note_mm(const std::string& key,
-                       const float* coat_readback,   // 4 floats de u_mm_coat, ou nullptr
-                       const float* aniso_readback,  // 2 floats de u_mm_aniso, ou nullptr
-                       int mm_flags);
 void pbr_reach_note_draw();
 // Avance quand une matiere NOUVELLE apparait ou qu'une matiere passe a « poussee », pour que
 // l'ecrivain de diag re-emette le fichier. Jamais par draw.
 u32 pbr_reach_generation();
 // Les lignes PBRREACH / PBRVAL. Vide tant qu'aucune matiere n'a ete rencontree.
 std::string pbr_reach_section();
-// STATE-PUSH COUNTER. NOT a draw counter, and NOT evidence that the modern chunk executed.
-// It is called from INSIDE PbrDrawBinder::set()'s state-change guard
-// (`if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps)`), so it ticks once per MATERIAL
-// TRANSITION: 50 consecutive draws sharing one material count 1, not 50. It also fires on the CPU
-// at uniform-bind time, before any fragment runs — a bind whose draw is later scissored or
-// depth-killed, or whose modern chunk is skipped by the `u_pbr_debug == 0` gate of
-// pbr_modern.glsl:40, still increments it. Read it as "how many times the modern uniform block was
-// re-pushed", never as "how many draws entered the modern chunk". Per channel because SSS and
-// clearcoat opt in independently.
-void mm_note_active_draw(int flags);
-// BIND COUNTER. Called on EVERY PbrDrawBinder::set() bind, OUTSIDE the state-change guard, so it
-// counts the real PBR binds: `total` for all of them, `flagged` for those carrying a non-zero
-// mm_flags. The gap between `flagged` here and mm_note_active_draw's total IS the state-reuse rate
-// (equal = every bind changed material; flagged >> pushes = the binder is coalescing). Like the
-// counter above it fires on the CPU, so it proves a bind happened, never that a fragment ran.
-void mm_note_bind(int flags);
-// One line per material with a non-zero mm_flags, then the counts line, then a NOTE line spelling
-// out what those counts do NOT prove. Emitted UNCONDITIONALLY: an OFF leg publishes explicit zeros
-// instead of going silent, because a missing line is indistinguishable from an uncompiled block or
-// a stale file.
-std::string mm_params_diag_section();
+// lighting-legacy-purge (2026-09-11) : les compteurs de la pile moderne (`mm_note_active_draw`,
+// `mm_note_bind`) et sa section de diagnostic sont SUPPRIMES avec elle.
 
 // Registry key for a texture's PBR maps. Keyed on "<tpage>/<name>", NOT the
 // bare debug name: two textures can share a name across tpages (the base

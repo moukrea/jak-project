@@ -64,11 +64,12 @@
           // that is ALREADY reversed for this face, so every corner the census scores correct is
           // left bit-identical; and it runs BEFORE the handedness sign below, which is then derived
           // from the corrected T.
-          if ((u_pbr_bisect2 & 2) == 0 && abs(fdetJ) > 1e-9 && dot(fTuv, fdPdu) < 0.0) {
+          // lighting-legacy-purge (2026-09-11) : u_pbr_bisect2 RETIRE, valeur livree figee a 0 (chemin complet).
+          if (abs(fdetJ) > 1e-9 && dot(fTuv, fdPdu) < 0.0) {
             fTuv = -fTuv;
           }
           float fhs = dot(cross(N, fTuv), fdPdv);
-          float fhw = ((u_pbr_bisect2 & 1) == 0 && abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
+          float fhw = (abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
                           ? (fhs < 0.0 ? -1.0 : 1.0)
                           : (s.T.w < 0.0 ? -1.0 : 1.0);
           fBuv = cross(N, fTuv) * fhw;
@@ -100,13 +101,13 @@
         // OFFSET can be expressed in), so the parallax shift and the normal-map shading were
         // pointing in DIFFERENT directions — they now agree, which is the other half of the
         // "displacement direction" defect.
-        // stable_frame survives as (a) the fallback where no per-vertex tangent exists — there is
+        // stable_frame survives as the fallback where no per-vertex tangent exists — there is
         // no UV reference to use there, and a continuous arbitrary frame still beats a
-        // per-triangle one — and (b) bisect bit 32768, the live A/B killswitch (SET = the old
-        // world frame, so the owner's previous build is one prop away).
+        // per-triangle one.
         // ===================================================================================
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         vec3 fTn = fTuv, fBn = fBuv;
-        if ((u_pbr_bisect & 32768) != 0 || f_tan_fb > 0.5) {
+        if (f_tan_fb > 0.5) {
           stable_frame(N, fTn, fBn);
         }
         // ★ OWNER CHECKER VERDICT, BUG A: the SAME uv the base colour is sampled with (line ~600,
@@ -129,7 +130,7 @@
         #define TESS_COVER_MIN 0.01
         // ===== ROUND 24 FIX 1 — THE HOLE BETWEEN THE TWO TIERS ======================================
         // MEASURED on device at the owner's vantage (mode 34, R = tess_disp_w = falloff*seam over the
-        // maps-bearing tfrag3_tess pixels): mean 0.581, and 63.0% of those pixels sit in the band
+        // maps-bearing tessellated pixels (etage retire le 2026-09-11)): mean 0.581, and 63.0% of those pixels sit in the band
         // 0.05..0.95 — neither fully tessellated nor released to the parallax tier. The old handoff
         // was BINARY (`tess_disp_w > 0.01` => POM suppressed), so every one of those pixels received
         // `w x` of the tessellation amplitude and ZERO parallax: a hole covering most of the level,
@@ -145,33 +146,28 @@
         // every fragment and the transition between them is continuous by construction.
         //
         // POM_MICRO_FLOOR is the second half, and it is the standard frequency split rather than a
-        // fudge: tfrag3_tess.tese fetches its height at the mip whose texel matches the GENERATED
+        // fudge: the retired tessellation stage fetched its height at the mip whose texel matches the GENERATED
         // VERTEX SPACING (~15.7 cm at 17 m), so everything finer than that spacing is, by
         // construction, NOT representable by the geometry. That residual is what parallax is for, so
         // a floor of relief stays with the POM even where the tessellation is at full strength —
         // macro from the vertices, micro from the march, which is how displacement mapping is
         // combined in modern renderers.
         #define POM_MICRO_FLOOR 0.35
-        // tess_disp_w now carries the REALISED displacement fraction (tfrag3_tess.tese), i.e. the
+        // tess_disp_w now carries the REALISED displacement fraction (etage de tessellation, retire), i.e. the
         // tier weight times the height swing the band-limited fetch actually resolved. Dividing it
         // by the FULL-DETAIL swing this stage samples gives the share of the material's relief the
         // geometry really delivered here; the parallax carries the complement. Where the band limit
         // has flattened the field (far patches) the ratio goes to 0 and the parallax comes back to
         // full strength instead of sitting at its micro floor.
-        float dev_full = clamp(abs(hnorm(textureLod(tex_PBR_H, uv, 0.0).r) - 0.5) * 2.0, 0.0, 1.0);
-        float tess_w = (u_pbr_tess_active != 0)
-                           ? clamp(clamp(tess_disp_w, 0.0, 1.0) / max(dev_full, 0.02), 0.0, 1.0)
-                           : 0.0;
+        // lighting-legacy-purge (2026-09-11) : l'etage TESSELLATION est RETIRE du binaire, pas
+        // mis a zero. `u_pbr_tess_active` n'existe plus et `tess_disp_w` vaut 0 chez tous ses
+        // ecrivains : le poids valait deja 0, le PARALLAX porte tout le relief.
+        float tess_w = 0.0;
         float pom_w = max(1.0 - tess_w, POM_MICRO_FLOOR);
-        // Bisect bit 268435456 restores the ROUND-23 binary handoff exactly (POM suppressed whenever
-        // the tess tier touched the fragment at all), so this fix is a one-setprop A/B at the same
-        // vantage in the same boot.
-        if ((u_pbr_bisect & 268435456) != 0) {
-          pom_w = (u_pbr_tess_active != 0 && tess_disp_w > TESS_COVER_MIN) ? 0.0 : 1.0;
-        }
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         bool tess_displaced = tess_w > TESS_COVER_MIN;
-        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && u_pbr_displacement != 0 &&
-            tess_displaced) {
+        // lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX).
+        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && tess_displaced) {
           f_disp_cover = 1.0;
         }
         // ===== ROUND 24 DEAD-ZONE DIAGNOSTIC (u_pbr_debug == 33) =====================================
@@ -199,7 +195,8 @@
           // v_tess_disp_w = falloff*seam*|h_band-0.5|*2, so the metres the tese actually moved this
           // vertex are (w/2)*amp_m — computed from the tese's OWN band-limited height, which is
           // strictly more truthful than re-deriving it from a lod-0 fetch here.
-          float dz_tess_cm = 0.5 * clamp(tess_disp_w, 0.0, 1.0) * dz_amp_m * 100.0;
+          // lighting-legacy-purge (2026-09-11) : l'etage qui alimentait ce diagnostic est retire.
+          float dz_tess_cm = 0.0;
           f_disp_diag.r = clamp(dz_tess_cm * 0.1, 0.0, 1.0);
           f_disp_diag.b = clamp(length(s.P_rel) * (1.0 / 40.0), 0.0, 1.0);
           // ROUND 24, mode 34 — the DECOMPOSITION of that amplitude, so a dead zone names its own
@@ -209,18 +206,19 @@
           //       RMS height deviation should give ~8 cm, the device reported 1.38 cm.
           //   G = |h-0.5| * 2, this material's local height deviation at lod 0 (1.0 = full swing)
           //   B = amp_m in metres (clamped at 1 m) — the per-material amplitude the law solved for
-          f_disp_diag2 = vec3(clamp(tess_disp_w, 0.0, 1.0),
+          // lighting-legacy-purge (2026-09-11) : composant R retire avec son etage.
+          f_disp_diag2 = vec3(0.0,
                               clamp(abs(dz_h - 0.5) * 2.0, 0.0, 1.0),
                               clamp(dz_amp_m, 0.0, 1.0));
         }
         // Height map (bit 16): the same mobile-tuned POM march as the standalone path
         // (already proven on Adreno 618 there — same cost class, so it ships here too).
-        // ★ BUG B: gated on u_pbr_tess_active, NOT on the global u_pbr_displacement. A draw only
-        // skips the march when THIS program actually tessellated it; every draw the tess program
-        // does not cover (TIE walls and props, shrubs, hfrag, non-opaque trees, anything past the
-        // 30 m tesc gate) keeps its parallax instead of going flat.
+        // La porte est u_pbr_tess_active (par PROGRAMME) : un dessin ne saute la marche que si CE
+        // programme l'a reellement tessele. lighting-legacy-purge (2026-09-11) : le tier
+        // TESSELLATION n'est plus livre, seul le PARALLAX l'est.
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            (u_pbr_bisect & 128) == 0 && pom_w > TESS_COVER_MIN) {
+            pom_w > TESS_COVER_MIN) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // ===========================================================================
@@ -250,7 +248,7 @@
           //       (POM_MAX_TAN, tan(theta) <= 1) and a fraction of one feature wavelength
           //       (POM_MAX_FEATURE_FRAC). No absolute constant clips a whole material any
           //       more, and the depth itself now comes from pom_depth_uv() — the same
-          //       feature-scaled law tfrag3_tess.tese displaces real vertices by.
+          //       feature-scaled law by which the retired tessellation stage displaced real vertices.
           // Bisect bit 33554432 = the legacy un-faded 0.08 UV offset, so this is still a
           // live same-vantage A/B with one setprop.
           // ===========================================================================
@@ -280,18 +278,7 @@
           float pom_cap = min(POM_MAX_TAN * depth_uv,
                               POM_MAX_FEATURE_FRAC * lambda_world_m *
                                   max(u_pbr_uv_per_m, 0.02));
-          // Bisect bit 33554432 restores the ROUND-20 law EXACTLY — the build the owner played and
-          // called "complètement plat", not some older variant — so before/after is one setprop
-          // apart at the same vantage in the same boot. (It used to restore a pre-round-20 cell,
-          // which made the A/B measure the wrong pair: round 20's 3 cm world cap is the term that
-          // actually flattened it, and that cell never exercised it.)
-          if ((u_pbr_bisect & 33554432) != 0) {
-            pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);  // r20: fade to ZERO
-            depth_uv = u_pbr_height_scale;                             // r20: raw UV depth scale
-            pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
-                          0.03 * max(u_pbr_uv_per_m, 0.02));           // r20: flat 3 cm world cap
-            pom_drive = 1.0;  // r20: linear drive => the r20 step counts too (see n_layers below)
-          }
+          // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
           // REOPEN #3: STEEP POM tier — 16 steps head-on to 32 at grazing (was 10-28);
           // the loop bound below already allows 32. Occlusion test + secant interpolation
           // (the industry steep-parallax + refinement) were already in place.
@@ -343,11 +330,9 @@
             float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
             uv += duv_step * (1.0 - w);
             // ROUND 22 COVERAGE: the march ACTUALLY ran on this fragment (non-degenerate offset),
-            // so the parallax tier displaced it. Gated on the global displacement setting too, so
-            // "displacement OFF" reads as zero coverage.
-            if (u_pbr_displacement != 0) {
-              f_disp_cover = 1.0;
-            }
+            // so the parallax tier displaced it.
+            // lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX).
+            f_disp_cover = 1.0;
           }
         }
         // PBR POLISH — inputs for the HEIGHT-FIELD SELF-SHADOW (owner defect 3: the relief reads
@@ -360,8 +345,8 @@
         // 6 taps only run near the camera, where relief is resolvable at all.
         float fh0 = 1.0;
         float fh_ms_uv = 0.0;
-        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && (u_pbr_bisect & 524288) == 0 &&
-            length(s.P_rel) < 35.0) {
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && length(s.P_rel) < 35.0) {
           // PBR POLISH #17: normalised, so the shadow ray and the occluder heights it compares
           // against live in the SAME material-scaled space the march assumes. On the shipped maps
           // this alone strengthens the contact shadow a lot: a map that only spanned 0.18 of the
@@ -386,7 +371,8 @@
         // Scaled, DC-REMOVED tangent-space surface gradient of this fragment (0 where no normal
         // map): reused below for the mean-preserving detail term.
         vec2 fg = vec2(0.0);
-        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
           vec3 nraw = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
           nraw.y *= u_pbr_mat.w;  // Gpbr-per-texture-materials: espace de la normal map, +1 OpenGL
                                   // / -1 DirectX. Etait suppose OpenGL pour TOUTES les textures
@@ -421,11 +407,10 @@
           // precisely the owner's hard dark/light plates, and precisely why they scale with relief
           // and vanish at relief 0. Subtracting the DC makes the perturbation ZERO-MEAN: pure
           // relief, no net re-aim. Offline (shader-exact) on the grass at relief 2.5: chunk-to-
-          // chunk brightness spread 61.4% -> 3.0%. Bit 8192 restores the raw map for the A/B.
+          // chunk brightness spread 61.4% -> 3.0%.
           vec2 g = clamp(nraw.xy / max(nraw.z, 0.05), vec2(-4.0), vec2(4.0));
-          if ((u_pbr_bisect & 8192) == 0) {
-            g -= u_pbr_normal_dc;
-          }
+          // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+          g -= u_pbr_normal_dc;
           // ROUND 22: +/-8 -> +/-24, the companion of the 0..12 strength clamp above (8 saturated
           // at relief ~1 for any gradient of interest, freezing the top of the slider).
           fg = clamp(g * u_pbr_normal_strength, vec2(-24.0), vec2(24.0));
@@ -473,7 +458,8 @@
         // tunes F0 within [0, 0.08]; the raw map survives as a true specular COLOR only
         // where _metallic declares metalness.
         vec3 F0;
-        if ((u_pbr_mode & 32) != 0 && (u_pbr_bisect & 16) == 0) {
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        if ((u_pbr_mode & 32) != 0) {
           vec3 spec_raw = pow(texture(tex_PBR_S, uv).rgb, vec3(2.2));
           F0 = mix(min(spec_raw, vec3(0.08)), spec_raw, metal);
         } else {
@@ -510,10 +496,9 @@
         // (rough < 0.30) or METALLIC texels keep a visible highlight. This is the visible-highlight
         // ENVELOPE riding ON TOP of the physical BRDF, NOT a replacement — the normal-mapped
         // DIFFUSE relief the owner LIKES (fdetail below) is untouched, so PBR-ON = Lighting-only
-        // + depth, MINUS the gloss. Bisect bit 4096 = envelope OFF (device A/B killswitch proving
-        // the matte path is active: the old glassy sheen returns when set).
+        // + depth, MINUS the gloss.
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         float matte_gate = max(1.0 - smoothstep(0.30, 0.60, rough), metal);
-        if ((u_pbr_bisect & 4096) != 0) matte_gate = 1.0;
         // ===============================================================================
         // REOPEN OWNER ARCHITECTURE: BASE = the validated BAKED-MODULATION composite (the
         // fought-for object relief) — the baked influence ALWAYS remains; the PBR layer
@@ -532,8 +517,9 @@
         // bounded fdetail ratio below, not in the macro gate. Taking the terminator from the
         // smooth normal N also makes fmod the SAME expression as the accepted pbr-OFF branch,
         // which is the owner's acceptance criterion made structural: PBR ON == Lighting-only,
-        // PLUS depth. Bit 16384 = legacy (terminator from Nm) for the device A/B.
-        vec3 fNterm = ((u_pbr_bisect & 16384) != 0) ? Nm : N;
+        // PLUS depth.
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        vec3 fNterm = N;
         float fterm_y = smoothstep(0.0, 0.35, dot(fNterm, L));
         float fterm_g = smoothstep(0.0, 0.35, dot(fNterm, Mn));
         float flit_y = fterm_y * sun_occ;
@@ -569,10 +555,9 @@
         // baked-modulation look (which applies fmod exactly once with no added spec).
         // Compress fmod toward 1 (gamma 0.70) in the FUSED branch only, so the fused
         // overall contrast matches the accepted look and the specular ADDS sparkle
-        // instead of stacking another lit/shadow multiply. Bisect 2048 = compress off
-        // (device A/B measurement of exactly this rebalance).
-        if ((u_pbr_bisect & 2048) == 0) fmod = pow(max(fmod, vec3(0.0)), vec3(0.70));
-        if ((u_pbr_bisect & 512) != 0) fmod = vec3(1.0);  // bisect: baked-modulation off
+        // instead of stacking another lit/shadow multiply.
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        fmod = pow(max(fmod, vec3(0.0)), vec3(0.70));
         // Bounded perturbed/smooth N.L ratio (=1 for a flat map => map-free pixels match
         // the accepted baked-modulation look exactly).
         // MEAN-PRESERVING detail. dot(N,L) + g.(T.L, B.L) is the UN-normalised (bump) response of
@@ -587,12 +572,9 @@
         // relief with no brightness step. Offline (shader-exact) on the grass at relief 1.0:
         // material-border delta -19.5% -> +1.4%, and the detail amplitude RISES 21.5% -> 32.0%.
         // fg == 0 on map-free pixels => fdt == 1 exactly => pbr-OFF look preserved bit for bit.
-        float fndl_y = ((u_pbr_bisect & 16384) != 0)
-                           ? dot(Nm, L)
-                           : (dot(N, L) + fg.x * dot(fTn, L) + fg.y * dot(fBn, L));
-        float fndl_g = ((u_pbr_bisect & 16384) != 0)
-                           ? dot(Nm, Mn)
-                           : (dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn));
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        float fndl_y = dot(N, L) + fg.x * dot(fTn, L) + fg.y * dot(fBn, L);
+        float fndl_g = dot(N, Mn) + fg.x * dot(fTn, Mn) + fg.y * dot(fBn, Mn);
         // PBR POLISH — OWNER PLAYTEST #17 REBALANCE: "TRÈS CONTRASTÉ À LA LUMIÈRE (mais quand même
         // plat), TRÈS PLAT À L'OMBRE." Both halves of that sentence are one imbalance. The DIRECT
         // N.L detail ratio was allowed a [0.45, 1.9] swing — a factor of 4.2 between the darkest
@@ -604,10 +586,10 @@
         // actually read as geometry (the cavity below, the now material-scaled self-shadow, and
         // the band-limited real displacement in the tess stage). fg == 0 on map-free pixels still
         // makes this EXACTLY 1.0, so the accepted pbr-OFF look is untouched either way.
-        // Bisect 8388608 = the legacy wide clamp back, for the live A/B.
-        float fdt_lo = ((u_pbr_bisect & 8388608) != 0) ? 0.45 : 0.60;
-        float fdt_hi = ((u_pbr_bisect & 8388608) != 0) ? 1.9 : 1.55;
-        float fdt_soft = ((u_pbr_bisect & 8388608) != 0) ? 0.30 : 0.38;
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        float fdt_lo = 0.60;
+        float fdt_hi = 1.55;
+        float fdt_soft = 0.38;
         float fdt_y =
             clamp((max(fndl_y, 0.0) + fdt_soft) / (max(dot(N, L), 0.0) + fdt_soft), fdt_lo, fdt_hi);
         float fdt_g = clamp((max(fndl_g, 0.0) + fdt_soft) / (max(dot(N, Mn), 0.0) + fdt_soft),
@@ -631,9 +613,9 @@
         // the ratio stays near 1 and carries no brightness step against an unmapped neighbour.
         // Weighted by the AMBIENT SHARE (1 - fdirw): full strength in shadow and at night, fading
         // out where a sun already carries the relief, so full-sun pixels are untouched.
-        // Bisect bit 262144 = ambient relief off (the device A/B for this term).
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         float fdt_amb = 1.0;
-        if ((u_pbr_bisect & 262144) == 0 && dot(fg, fg) > 0.0) {
+        if (dot(fg, fg) > 0.0) {
           const vec3 FUS_LUMA = vec3(0.299, 0.587, 0.114);
           float famb_ls = dot(rt_amb_eval(N), FUS_LUMA);
           float famb_lb = dot(rt_amb_eval(Nm), FUS_LUMA);
@@ -656,10 +638,10 @@
         // per-texel detail term that every shipped material can produce from its height map (none
         // of the 7 bundled materials ships an _ao map, which is precisely why an _ao-only ambient
         // occlusion left them flat).
-        // Bisect bit 2097152 = cavity off (the live A/B for exactly this fix).
         // ===================================================================================
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         float fcav = 1.0;
-        if ((u_pbr_mode & 16) != 0 && (u_pbr_bisect & 2097152) == 0) {
+        if ((u_pbr_mode & 16) != 0) {
           fcav = pbr_cavity(uv);
         }
         const float PBR_CAV_DIR = 0.35;  // how much of the cavity survives in full direct sun
@@ -670,7 +652,7 @@
         float fdetail = mix(1.0, fdt_y * fms_y, fw_y * sun_occ) *
                         mix(1.0, fdt_g * fms_g, clamp(fw_g, 0.0, 1.0) * moon_occ) *
                         mix(1.0, fdt_amb, 1.0 - fdirw) * fcav_mul;
-        if ((u_pbr_bisect & 256) != 0) fdetail = 1.0;  // bisect: detail-relight ratio off
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
         // relaxed where the direct sun dominates (AO never occludes the suns).
         float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
@@ -691,17 +673,15 @@
         // diffuse). The old view-dependent (1 - Fenv) grayed rough surfaces seen edge-on
         // (the ground at grazing) — a film NOT scaled by the specular slider, which is
         // exactly the owner's "sheen survives specular=0" datapoint.
-        fbase_lin *= ((u_pbr_bisect & 8) != 0 ? vec3(1.0) : (vec3(1.0) - F0 * fspecocc)) *
-                     (1.0 - metal);
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        fbase_lin *= (vec3(1.0) - F0 * fspecocc) * (1.0 - metal);
         // BOTH analytic suns, Cook-Torrance with the HEIGHT-CORRELATED SMITH VISIBILITY
         // term (REOPEN: the old separable Schlick G + naive F was exactly the grazing-
         // sheen bug; Vis contains the 1/(4 NdV NdL) denominator). Cast shadows kill each
         // sun's specular via its own occ; the yellow sun also night-fades (fw_y).
         vec3 fspec_direct = vec3(0.0);
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         for (int i = 0; i < 2; i++) {
-          if ((u_pbr_bisect & (i == 0 ? 1 : 2)) != 0) {
-            continue;  // bisect: this sun's GGX specular zeroed
-          }
           vec3 Li = (i == 0) ? L : Mn;
           vec3 lc = (i == 0) ? u_rt_sun_color * fw_y : u_rt_moon_color;
           // PBR POLISH: the height-field self-shadow gates the highlight too — a texel the relief
@@ -741,13 +721,9 @@
         vec3 fenv_sharp;
         // (§2.4) la premiere branche lisait le cube de FollowProbe sous `u_rt_probe_on != 0`,
         // porte ecrite a 0 inconditionnellement : jamais prise. Retiree avec la grille.
-        if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
-          fenv_sharp = rt_sh_ambient(Rf);
-        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 2) {
-          fenv_sharp = rt_ibl_ambient(Rf);
-        } else {
-          fenv_sharp = famb_base;
-        }
+        // lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1.
+        // lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH).
+        fenv_sharp = rt_sh_ambient(Rf);
         // REOPEN #6 VIEW-STABILITY: collapse the sharp view-dependent reflection (Rf, the
         // camera-dependent "highlight shifts with the camera" the owner saw on rock/sand) to the
         // view-INDEPENDENT irradiance (famb_base, from the perturbed Nm) by rough ~0.50 — well
@@ -766,9 +742,10 @@
         vec3 famb_spec = famb_env * (F0 * kAB.x + kAB.y);
         // SPEC §4.7 : occlusion speculaire derivee de l'AO d'ecran, sur le seul speculaire ambiant.
         famb_spec *= clamp(pow(NdV + sao, rough * rough) - 1.0 + sao, 0.0, 1.0);
-        if ((u_pbr_bisect & 4) != 0) famb_spec = vec3(0.0);  // bisect: ambient/IBL specular off
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
         // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
-        vec3 emissive = ((u_pbr_mode & 64) != 0 && (u_pbr_bisect & 32) == 0)
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+        vec3 emissive = ((u_pbr_mode & 64) != 0)
                             ? pow(texture(tex_PBR_E, uv).rgb, vec3(2.2)) *
                                   max(u_pbr_emissive_str, 0.0)
                             : vec3(0.0);
@@ -782,11 +759,12 @@
         // pas ete supprimee : c'est la meme formule, appliquee une seule fois, sur l'image
         // entiere et non par chemin d'ombrage. Ce que ce chemin produit au-dela de 1,0 est
         // desormais CONSERVE par le tampon RGBA16F au lieu d'etre ecrase ici.
-        // Le bit `u_pbr_bisect & 1024` (« shoulder off, hard clamp ») n'a plus d'objet : il
-        // n'y a plus de genou local a court-circuiter. Il est retire, pas neutralise, pour
-        // que le recensement de hdr.cpp ne trouve aucune compression de plage dans ce texte.
+        // Le bit de bisection 1024 (« shoulder off, hard clamp ») n'a plus d'objet : il n'y a
+        // plus de genou local a court-circuiter. Il est retire, pas neutralise, pour que le
+        // recensement de hdr.cpp ne trouve aucune compression de plage dans ce texte.
         vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
-        float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
+        // lighting-legacy-purge : DISTANCE DES OMBRES figee (ex-reglage, item lighting-shadows)
+        float ffar_rng = 150.0;
         float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(s.P_rel));
         vec3 fbaked = max(s.baked.rgb * s.tex0.rgb, vec3(0.0));
         color.rgb = mix(fdisp, fbaked, ffar_t);

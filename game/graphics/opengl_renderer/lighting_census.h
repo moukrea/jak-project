@@ -124,6 +124,17 @@ void roi_model(uint64_t hash, const char* name);
 // pas supporte (GLES sans EXT_disjoint_timer_query).
 bool gpu_frame_totals(uint64_t* ns, uint64_t* frames);
 
+// ── lighting-legacy-purge : la part SHADER de `lighting_legacy_sites` ───────────────────────
+// Combien des noms d'uniformes de l'ancien monde repondent encore sur un programme REELLEMENT
+// LIE (`glGetUniformLocation >= 0`), cumule sur la course. Zero = ces uniformes ne sont plus
+// compiles dans ce binaire. Les trois autres fonctions sont les denominateurs sans lesquels ce
+// zero ne serait pas falsifiable : le nombre de noms recenses, le nombre de programmes sondes,
+// et le nombre de programmes ou un nom SURVIVANT de la refonte a repondu.
+uint32_t legacy_uniform_sites();
+uint32_t legacy_uniform_censused();
+uint64_t legacy_uniform_programs();
+uint64_t legacy_uniform_control();
+
 // Publie tout de suite (fin de course).
 void publish();
 

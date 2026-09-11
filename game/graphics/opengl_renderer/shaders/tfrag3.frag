@@ -9,7 +9,6 @@ in vec3 v_fringe_rel;  // Grecharged-grass-overhang2: camera-relative world pos 
 in vec3 v_world;       // Grecharged-lightprobes: absolute world pos (game units) for probe lookup
 in vec3 v_normal;      // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
 in vec4 v_tangent;     // Grecharged-pbr-realtime-fusion REOPEN#7: per-vertex tangent (xyz world, w handedness)
-in float v_tess_disp_w;  // ROUND 23: tess displacement weight actually applied here (0 = tier faded out)
 uniform sampler2D tex_T0;
 
 uniform float alpha_min;
@@ -67,9 +66,9 @@ void main() {
     vec3 N;
     if (u_rt_flat_normal == 0 && Nsl2 > 0.2) {  // valid smooth normal present (default)
       Ns *= inversesqrt(Nsl2);
-      // ROUND 26, DEFECT D2 : la main du repere ne doit pas dependre de la camera. Bit 2 du
-      // bisect restaure l'ancien comportement camera-signe pour un A/B a chaud.
-      N = ((u_pbr_bisect & 2) != 0 && dot(Ns, gN) < 0.0) ? -Ns : Ns;
+      // ROUND 26, DEFECT D2 : la main du repere ne doit pas dependre de la camera.
+      // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+      N = Ns;
     } else {
       N = gN;                                  // A/B force-plat, ou pas de normale reconstruite
     }
@@ -89,7 +88,6 @@ void main() {
     s.uv = tex_coord;
     s.vnormal = v_normal;
     s.T = v_tangent;
-    s.tess_disp_w = v_tess_disp_w;
     s.gN = gN;
     s.V = Vv;
     s.N = N;
@@ -147,7 +145,8 @@ void main() {
   // It is also after the fog mix, so the tag reaches the framebuffer unblended (a fogged tag would
   // drift toward fog_color and break the classification at distance).
   if (u_pbr_debug == 30) {
-    color.rgb = u_pbr_tess_active != 0 ? vec3(1.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    // lighting-legacy-purge (2026-09-11) : plus aucun programme tesselé, la marque jaune ne peut plus sortir.
+    color.rgb = vec3(1.0, 0.0, 0.0);
   } else if (u_pbr_debug == 31) {
     color.rgb = vec3(f_disp_cover);
   } else if (u_pbr_debug == 32) {

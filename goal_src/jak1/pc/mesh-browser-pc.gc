@@ -1144,39 +1144,6 @@
         (pc-set-pbr-green-sun! v))))
   (none))
 
-(defun mb-disp-name ()
-  (case (-> *pc-settings* pbr-displacement)
-    ((0) "OFF")
-    ((1) "PARALLAX")
-    ((2) "TESSELLATION")
-    (else "?")))
-
-(defun mesh-browser-bump-disp ((obj mesh-browser) (dir int))
-  ;; drive the pc-settings field the menu owns; update-to-os re-asserts it to C++.
-  ;; WRAPS (0 1 2 0 ...) like every other carousel: with a clamp, a single DISP+ tap while the
-  ;; device already sits at TESSELLATION is a silent no-op — the finger does something only
-  ;; sometimes, which reads as "touch is broken" precisely when the owner has been testing tess.
-  (set! (-> *pc-settings* pbr-displacement) (mod (+ (-> *pc-settings* pbr-displacement) dir 3) 3))
-  ;; V2.1: ALSO push DIRECTLY, event-driven. Measured on the Redmi at the title freecam: the
-  ;; update-to-os per-frame push chain lagged ~6-7 s behind the variable (the renderer-side
-  ;; rtf_relief counter exposed it), so a button press looked dead for seconds — the owner's
-  ;; "activer/desactiver le relief fonctionne pas" in one measurement. Direct push = same-frame
-  ;; effect, same pattern as pc-mb-hide-set! (which is instant); update-to-os keeps re-asserting
-  ;; the same value afterwards, so there is no fight.
-  (#when FLAG_PBR
-    (pc-set-pbr-displacement! (the int (-> *pc-settings* pbr-displacement))))
-  (none))
-
-(defun mesh-browser-bump-relief ((obj mesh-browser) (d float))
-  (set! (-> *pc-settings* pbr-texture-relief)
-        (fmax 0.0 (fmin 3.0 (+ (-> *pc-settings* pbr-texture-relief) d))))
-  ;; [mb-diag] names WHEN the bump executed (GK_STDOUT), paired with the C++ [mb-diag] push line.
-  (format 0 "[mb-diag-goal] bump-relief -> ~f~%" (-> *pc-settings* pbr-texture-relief))
-  ;; V2.1 direct push — see mesh-browser-bump-disp for the measured 6-7 s update-to-os lag.
-  (#when FLAG_PBR
-    (pc-set-pbr-texture-relief! (the int (* 100.0 (-> *pc-settings* pbr-texture-relief)))))
-  (none))
-
 (defun mesh-browser-set-tod ((obj mesh-browser) (h float))
   (set! *mb-tod-hold?* #t)
   (set! *mb-tod-hour* (mb-wrap h 24.0))
@@ -1251,10 +1218,10 @@
         (format (clear (-> obj sub-buf)) "~fH" *mb-tod-hour*)
         (format (clear (-> obj sub-buf)) "CYCLE"))
     (mesh-browser-text buf
-      (string-format "TEXTURE=~S  DISPLACEMENT=~S  RELIEF=~f  TOD=~S"
+      ;; lighting-legacy-purge : DISPLACEMENT et RELIEF etaient des reglages de l'ancien monde ;
+      ;; leurs commandes de mise au point sortent avec eux.
+      (string-format "TEXTURE=~S  TOD=~S"
                      (if (-> obj checker?) "CHECKER" "REAL")
-                     (mb-disp-name)
-                     (-> *pc-settings* pbr-texture-relief)
                      (-> obj sub-buf))
       0.02 0.155 (font-color cyan))
     (mesh-browser-text buf
@@ -1263,12 +1230,10 @@
     ;; every control reachable by finger — no gamepad, no adb
     (mb-button buf (mb-cell-x0 0) MB_RA_TOP (mb-cell-x1 0) MB_RA_BOT
                (if (-> obj checker?) "REAL" "CHECKER") (-> obj checker?))
-    (mb-button buf (mb-cell-x0 1) MB_RA_TOP (mb-cell-x1 1) MB_RA_BOT "DISP-" #f)
-    (mb-button buf (mb-cell-x0 2) MB_RA_TOP (mb-cell-x1 2) MB_RA_BOT "DISP+" #f)
-    (mb-button buf (mb-cell-x0 3) MB_RA_TOP (mb-cell-x1 3) MB_RA_BOT "REL-" #f)
-    (mb-button buf (mb-cell-x0 4) MB_RA_TOP (mb-cell-x1 4) MB_RA_BOT "REL+" #f)
-    (mb-button buf (mb-cell-x0 5) MB_RA_TOP (mb-cell-x1 5) MB_RA_BOT "SPIN-" #f)
-    (mb-button buf (mb-cell-x0 6) MB_RA_TOP (mb-cell-x1 6) MB_RA_BOT "SPIN+" #f)
+    ;; lighting-legacy-purge : les quatre cellules DISP-/DISP+/REL-/REL+ sont retirees ; SPIN
+    ;; remonte en 1 et 2 pour que la grille reste contigue (le dispatch de tap suit, meme index).
+    (mb-button buf (mb-cell-x0 1) MB_RA_TOP (mb-cell-x1 1) MB_RA_BOT "SPIN-" #f)
+    (mb-button buf (mb-cell-x0 2) MB_RA_TOP (mb-cell-x1 2) MB_RA_BOT "SPIN+" #f)
     (mb-button buf (mb-cell-x0 0) MB_RB_TOP (mb-cell-x1 0) MB_RB_BOT "TOD-" #f)
     (mb-button buf (mb-cell-x0 1) MB_RB_TOP (mb-cell-x1 1) MB_RB_BOT "TOD+" #f)
     (mb-button buf (mb-cell-x0 2) MB_RB_TOP (mb-cell-x1 2) MB_RB_BOT "DAY" #f)
@@ -1286,12 +1251,8 @@
       (when (mb-tap-in? (mb-cell-x0 i) MB_RA_TOP (mb-cell-x1 i) MB_RA_BOT)
         (case i
           ((0) (mesh-browser-toggle-checker obj))
-          ((1) (mesh-browser-bump-disp obj -1))
-          ((2) (mesh-browser-bump-disp obj 1))
-          ((3) (mesh-browser-bump-relief obj -0.25))
-          ((4) (mesh-browser-bump-relief obj 0.25))
-          ((5) (mesh-browser-bump-spin obj -0.196))
-          ((6) (mesh-browser-bump-spin obj 0.196))))
+          ((1) (mesh-browser-bump-spin obj -0.196))
+          ((2) (mesh-browser-bump-spin obj 0.196))))
       (when (mb-tap-in? (mb-cell-x0 i) MB_RB_TOP (mb-cell-x1 i) MB_RB_BOT)
         (case i
           ((0) (mesh-browser-bump-tod obj -1.0))
@@ -1359,10 +1320,6 @@
       (set! (-> obj obs-dist) (fmax 2048.0 (fmin 819200.0 (* (-> obj obs-dist) (+ 1.0 (* ly 0.00015))))))))
   (cond
     ((cpad-pressed? 0 square) (mesh-browser-toggle-checker obj))
-    ((cpad-pressed? 0 l2) (mesh-browser-bump-disp obj -1))
-    ((cpad-pressed? 0 r2) (mesh-browser-bump-disp obj 1))
-    ((cpad-pressed? 0 up) (mesh-browser-bump-relief obj 0.25))
-    ((cpad-pressed? 0 down) (mesh-browser-bump-relief obj -0.25))
     ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
     ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
     ((cpad-hold? 0 l1) (mesh-browser-bump-spin obj -0.03))
@@ -1635,9 +1592,7 @@
      (set! (-> obj fc-gizmos?) #f)
      (set! (-> obj fc-isolate?) #f))  ;; C++ target-clear also drops mb_isolate — mirror
     ((cpad-pressed? 0 left) (mesh-browser-bump-tod obj -1.0))
-    ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0))
-    ((cpad-pressed? 0 up) (mesh-browser-bump-relief obj 0.25))
-    ((cpad-pressed? 0 down) (mesh-browser-bump-relief obj -0.25)))
+    ((cpad-pressed? 0 right) (mesh-browser-bump-tod obj 1.0)))
   ;; CAMERA: same look-through-other channel as OBSERVE, re-armed every frame.
   (let ((fwd (new 'stack-no-clear 'vector))
         (dwn (new 'stack-no-clear 'vector)))
@@ -1744,8 +1699,8 @@
     (+! s (* 23 (the int (* 0.01 (-> obj obs-dist)))))
     (+! s (* 29 (the int (* 100.0 (-> obj spin)))))
     (+! s (* 31 (if (-> obj checker?) 1 0)))
-    (+! s (* 37 (-> *pc-settings* pbr-displacement)))
-    (+! s (* 41 (the int (* 100.0 (-> *pc-settings* pbr-texture-relief)))))
+    ;; lighting-legacy-purge : les termes 37 (DISPLACEMENT) et 41 (RELIEF) sortent de l'empreinte
+    ;; avec leurs reglages — elle change de valeur, et c'est voulu.
     (+! s (* 43 (the int (* 10.0 *mb-tod-hour*))))
     ;; FREECAM: every fly step (decimetre-resolution position), look, retarget and toggle must move
     ;; the signature so it dumps within 8 frames. The rt counters are deliberately NOT in the sig —
@@ -1907,8 +1862,8 @@
   (if *mb-tod-hold?*
       (format (clear (-> obj sub-buf)) "~f" *mb-tod-hour*)
       (format (clear (-> obj sub-buf)) "CYCLE"))
-  (format (clear (-> obj line-buf)) "checker=~D disp=~S relief=~f tod=~S"
-          (if (-> obj checker?) 1 0) (mb-disp-name) (-> *pc-settings* pbr-texture-relief) (-> obj sub-buf))
+  (format (clear (-> obj line-buf)) "checker=~D tod=~S"
+          (if (-> obj checker?) 1 0) (-> obj sub-buf))
   (pc-mb-state-line! (-> obj line-buf))
   (pc-mb-state-end!)
   (none))

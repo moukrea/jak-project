@@ -106,8 +106,10 @@ float hnorm(float h) {
 // physically-correct calibration point (depth = 0.25 * lambda_world) and it must not move by a
 // single ULP. drive(1.5) = 1.7641, drive(2.0) = 2.6390, drive(3.0) = 4.6555 — a 4.66x deeper field
 // at the top of the slider instead of the old 1.0x (frozen).
-// tfrag3_tess.tese carries the IDENTICAL law and the identical constant, so the two displacement
-// tiers still show the same depth by construction. Change one, change both.
+// lighting-legacy-purge (2026-09-11) : l'etage de tessellation portait la MEME loi et la MEME
+// constante, pour que les deux paliers de deplacement montrent la meme profondeur par
+// construction. Il est retire ; le PARALLAX est desormais le seul palier, et cette loi n'a plus
+// de jumelle a suivre.
 #define PBR_DRIVE_EXP 1.4
 // The lateral shift may never exceed the feature depth itself (tan(theta) <= 1)...
 // ROUND 22: 1.0 -> 2.0. With the deeper field this term must not become the new freeze point.
@@ -150,9 +152,10 @@ float hnorm(float h) {
 // POM_DEPTH_MAX_M * drive, which follows it. Only the lateral slide is bounded, which is the
 // difference between parallax and swimming.
 #define POM_MAX_FEATURE_FRAC 0.25
-// The amplitude law itself, kept numerically IDENTICAL to tfrag3_tess.tese's (TESS_DEPTH_K,
-// TESS_DEPTH_MAX_RATIO, TESS_DEPTH_MAX_M and its 0.005*relief floor) so the two displacement tiers
-// cannot drift apart. Change one, change both.
+// The amplitude law itself. lighting-legacy-purge (2026-09-11) : elle etait tenue numeriquement
+// IDENTIQUE a celle de l'etage de tessellation (TESS_DEPTH_K, TESS_DEPTH_MAX_RATIO,
+// TESS_DEPTH_MAX_M et son plancher 0,005*relief) pour que les deux paliers ne derivent pas. Cet
+// etage est retire : la loi ci-dessous est seule, et ses valeurs sont celles qui etaient livrees.
 #define POM_DEPTH_K 5.0
 // ROUND 22: 0.5 -> 1.25. The base term is 0.25*drive*lambda, which reaches 1.164*lambda at rel 3 —
 // below 1.25, so this rail does not bite anywhere inside the slider (it first binds at rel 3.157,
@@ -183,7 +186,7 @@ float pom_depth_uv(out float lambda_world_m, out float drive) {
 }
 
 // ===== ROUND 26, DEFECT D2 — ONE NEUTRAL FOR BOTH DISPLACEMENT TIERS ===========================
-// The tessellation tier displaces about h = 0.5 (tfrag3_tess.tese: `disp = (h - 0.5) * amp`, and
+// The tessellation tier displaced about h = 0.5 (`disp = (h - 0.5) * amp`, retire le 2026-09-11), and
 // hnorm() re-centres every material on 0.5 by construction). The POM march referenced h = 1.0
 // (`map_d = 1.0 - h`), i.e. it treated the polygon as the TOP of the height field. So the two tiers
 // disagreed about where the surface is by half a depth — and, because hnorm() puts the mean at 0.5,
@@ -197,13 +200,10 @@ float pom_depth_uv(out float lambda_world_m, out float drive) {
 // "macro from the vertices, micro from the march", now with one agreed surface between them.
 // For a symmetric two-level map — the checkerboard, h in {0,1} — this is BIT-IDENTICAL to the old
 // expression (white 0.0, black 1.0 either way), so it cannot change what the owner is judging now.
-// Bisect bit 1073741824 restores the h = 1.0 reference for a same-boot A/B. (2097152 is already
-// taken by the cavity killswitch in pbr_fused.glsl — every bit from 4 to 2^29 is now allocated.)
+// lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (le repere
+// herite h = 1.0 n'etait jamais pris).
 float pom_carve(float h_raw) {
   float h = hnorm(h_raw);
-  if ((u_pbr_bisect & 1073741824) != 0) {
-    return 1.0 - h;  // legacy: polygon == top of the height field
-  }
   return clamp((0.5 - h) * 2.0, 0.0, 1.0);
 }
 
@@ -213,15 +213,12 @@ float pom_carve(float h_raw) {
 // INDIRECT DIFFUSE can be evaluated twice (smooth normal vs normal-mapped normal) and the relief
 // therefore survives where no sun reaches. Identical expressions => the ambient-specular term it
 // replaces is bit-for-bit unchanged.
+// lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1 (l'ambiante
+// est inconditionnelle, le repli sur le residuel d'ombre a disparu avec son reglage).
+// lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH) ;
+// les tiers IBL et HEMISPHERE ne sont plus atteignables.
 vec3 rt_amb_eval(vec3 n) {
-  if (u_rt_ambient_on == 0) {
-    return vec3(clamp(u_rt_shadow_residual, 0.0, 1.0));
-  } else if (u_rt_ambient_model == 1) {
-    return rt_sh_ambient(n);
-  } else if (u_rt_ambient_model == 2) {
-    return rt_ibl_ambient(n);
-  }
-  return mix(u_rt_ground_color, u_rt_sky_color, clamp(n.y * 0.5 + 0.5, 0.0, 1.0));
+  return rt_sh_ambient(n);
 }
 
 // Grecharged-pbr-realtime-fusion PBR POLISH (owner playtest #16, defect 3: the displacement

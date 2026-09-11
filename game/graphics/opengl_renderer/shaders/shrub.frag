@@ -60,7 +60,8 @@ void main() {
     bool has_vn = dot(v_normal, v_normal) > 1e-6;
     vec3 N = has_vn ? normalize(v_normal) : gN;
     vec3 Vv = -normalize(v_fringe_rel);
-    if ((!has_vn || (u_pbr_bisect & 134217728) != 0) && dot(N, Vv) < 0.0) N = -N;
+    // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+    if (!has_vn && dot(N, Vv) < 0.0) N = -N;
     Surface s;
     s.base = color;
     s.baked = fragment_color;
@@ -69,7 +70,6 @@ void main() {
     s.uv = tex_coord;
     s.vnormal = v_normal;
     s.T = vec4(0.0, 0.0, 0.0, 1.0);  // shrub n'a pas de tangente par sommet
-    s.tess_disp_w = 0.0;
     s.gN = gN;
     s.V = Vv;
     s.N = N;

@@ -63,7 +63,8 @@ void main() {
     vec3 N;
     if (u_rt_flat_normal == 0 && Nsl2 > 0.2) {
       Ns *= inversesqrt(Nsl2);
-      N = ((u_pbr_bisect & 2) != 0 && dot(Ns, gN) < 0.0) ? -Ns : Ns;
+      // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
+      N = Ns;
     } else {
       N = gN;
     }
@@ -75,7 +76,6 @@ void main() {
     s.uv = tex_coord;
     s.vnormal = v_normal;
     s.T = v_tangent;
-    s.tess_disp_w = 0.0;
     s.gN = gN;
     s.V = Vv;
     s.N = N;

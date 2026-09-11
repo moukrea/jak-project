@@ -486,7 +486,7 @@
     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
     (("recharged-grass-card-dist") (set! (-> obj recharged-grass-card-dist) (file-stream-read-float file)))
     ;; Ggrass-density-presets: GRASS DENSITY preset index (0..4). Clamped on read exactly like
-    ;; mesh-subdiv below; out-of-range falls back to 2 (MEDIUM), the shipped default.
+    ;; les carrousels hd-look ci-dessous ; out-of-range falls back to 2 (MEDIUM), the shipped default.
     ;; Ggrass-density-presets — MIGRATION D'UN settings.ini ECRIT AVANT CE LOT. OBLIGATOIRE.
     ;; `doini-keys` exige que le CORPS de la clause CONSOMME la valeur. Une cle laissee SANS clause
     ;; ne consomme rien : le tour suivant lit « 150.0000 » COMME UNE CLE, n'y trouve pas de `=`, et
@@ -510,40 +510,30 @@
        (set! (-> obj recharged-grass-density-preset) (if (and (>= v 0) (<= v 4)) v 2))))
     (("recharged-grass-precomputed?") (set! (-> obj recharged-grass-precomputed?) (file-stream-read-symbol file)))
     (("recharged-grass-overhang?") (set! (-> obj recharged-grass-overhang?) (file-stream-read-symbol file)))
-    (("pbr-materials?") (set! (-> obj pbr-materials?) (file-stream-read-symbol file)))
-    (("pbr-texture-relief") (set! (-> obj pbr-texture-relief) (file-stream-read-float file)))
-    (("pbr-specular-intensity") (set! (-> obj pbr-specular-intensity) (file-stream-read-float file)))
-    (("pbr-displacement") (set! (-> obj pbr-displacement) (file-stream-read-int file)))
-    ;; Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision rounds, 0..3).
-    ;; Clamped on read like the hd-look carousells, and PUSHED HERE: the refinement runs on the
-    ;; loader thread, and the FIRST level load happens before the first per-frame update-to-os
-    ;; push, so a settings-load push is what makes the persisted choice effective at boot.
-    (("mesh-subdiv")
-     (let ((v (file-stream-read-int file)))
-       (set! (-> obj mesh-subdiv) (if (and (>= v 0) (<= v 3)) v 1)))
-     (pc-set-mesh-subdiv-rounds! (-> obj mesh-subdiv)))
-    (("pbr-test-preset") (set! (-> obj pbr-test-preset) (file-stream-read-int file)))
-    ;; Gmenu-census-cleanup (2026-09-02) : PBR ISOLATE n'a plus de rangee dans un build livre
-    ;; (elle est passee sous FLAG_PBR_DEBUG). Or cette valeur DEGRADE le rendu — elle eteint la
-    ;; carte de normales ou le parallaxe via le masque u_pbr_bisect de pc-set-pbr-isolate!. Un
-    ;; settings.ini qui en porte une non nulle laisserait donc le joueur avec des cartes eteintes
-    ;; ET aucun moyen de revenir, puisque la rangee qui servait a annuler est justement celle
-    ;; qu'on retire. On lit la cle quand meme (ne pas la lire desynchroniserait le parcours du
-    ;; fichier) et on la RAMENE A 0 (BOTH = chemin fusionne complet), sauf dans un build
-    ;; `--pbr --debug` ou la rangee existe et ou l'on veut justement conserver le reglage.
-    (("pbr-isolate")
-     (let ((v (file-stream-read-int file)))
-       (set! (-> obj pbr-isolate) (#if FLAG_PBR_DEBUG v 0))))
-    ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK master. #f = accepted PBR path.
-    (("modern-materials?") (set! (-> obj modern-materials?) (file-stream-read-symbol file)))
-    (("realtime-lighting?") (set! (-> obj realtime-lighting?) (file-stream-read-symbol file)))
-    (("realtime-ambient?") (set! (-> obj realtime-ambient?) (file-stream-read-symbol file)))
-    (("realtime-ambient-strength") (set! (-> obj realtime-ambient-strength) (file-stream-read-float file)))
-    (("realtime-ambient-contrast") (set! (-> obj realtime-ambient-contrast) (file-stream-read-float file)))
-    (("realtime-ambient-model") (set! (-> obj realtime-ambient-model) (file-stream-read-int file)))
-    (("realtime-shadow-dist") (set! (-> obj realtime-shadow-dist) (file-stream-read-float file)))
-    (("realtime-shadow-strength") (set! (-> obj realtime-shadow-strength) (file-stream-read-float file)))
-    (("realtime-shadow-quality") (set! (-> obj realtime-shadow-quality) (file-stream-read-int file)))
+    ;; lighting-legacy-purge (2026-09-11) : reglages d'eclairage de l'ancien monde RETIRES.
+    ;; Ces clauses ne stockent plus rien : elles CONSOMMENT la valeur d'un settings.ini ecrit
+    ;; avant ce lot. `doini-keys` (pckernel-common.gc) exige que le CORPS consomme — une cle
+    ;; laissee SANS clause ne consomme rien, la ligne suivante est lue COMME UNE CLE,
+    ;; `pc-settings-read-throw-error` ferme le fichier, et TOUS les reglages suivants de
+    ;; l'owner repartent au defaut avant d'etre persistes. La cle disparait du fichier au
+    ;; premier commit-to-file (elle n'est plus ECRITE) ; ces clauses deviennent alors sans
+    ;; objet. Le `(none)` final aligne le type de la branche sur celui des autres clauses.
+    (("pbr-materials?") (file-stream-read-symbol file) (none))
+    (("pbr-texture-relief") (file-stream-read-float file) (none))
+    (("pbr-specular-intensity") (file-stream-read-float file) (none))
+    (("pbr-displacement") (file-stream-read-int file) (none))
+    (("mesh-subdiv") (file-stream-read-int file) (none))
+    (("pbr-test-preset") (file-stream-read-int file) (none))
+    (("pbr-isolate") (file-stream-read-int file) (none))
+    (("modern-materials?") (file-stream-read-symbol file) (none))
+    (("realtime-lighting?") (file-stream-read-symbol file) (none))
+    (("realtime-ambient?") (file-stream-read-symbol file) (none))
+    (("realtime-ambient-strength") (file-stream-read-float file) (none))
+    (("realtime-ambient-contrast") (file-stream-read-float file) (none))
+    (("realtime-ambient-model") (file-stream-read-int file) (none))
+    (("realtime-shadow-dist") (file-stream-read-float file) (none))
+    (("realtime-shadow-strength") (file-stream-read-float file) (none))
+    (("realtime-shadow-quality") (file-stream-read-int file) (none))
     (("recharged-foliage-wind?") (set! (-> obj recharged-foliage-wind?) (file-stream-read-symbol file)))
     ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. #f = stock pipeline.
     (("crisp-title-logo?") (set! (-> obj crisp-title-logo?) (file-stream-read-symbol file)))
@@ -551,7 +541,7 @@
     (("ao-quality") (set! (-> obj ao-quality) (file-stream-read-int file)))
     (("ao-strength") (set! (-> obj ao-strength) (file-stream-read-int file)))
     (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
-    ;; Grecharged-hd-models5: per-character HD LOOK selections (ints, like pbr-displacement).
+    ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
     ;; CLAMPED on load (hd-models4 cycle 5): a look index is ALSO the carousell index, and the JAK
     ;; carousell lost an option when the owner had jakf-hd removed on 2026-08-05. A settings.ini
     ;; written before that removal can carry hd-look-jak = 6, which would both fall through to
@@ -642,24 +632,8 @@
   (format file "recharged-grass-density-preset = ~D~%" (-> obj recharged-grass-density-preset))
   (format file "recharged-grass-precomputed? = ~A~%" (-> obj recharged-grass-precomputed?))
   (format file "recharged-grass-overhang? = ~A~%" (-> obj recharged-grass-overhang?))
-  (format file "pbr-materials? = ~A~%" (-> obj pbr-materials?))
-  (format file "pbr-texture-relief = ~f~%" (-> obj pbr-texture-relief))
-  (format file "pbr-specular-intensity = ~f~%" (-> obj pbr-specular-intensity))
-  (format file "pbr-displacement = ~D~%" (-> obj pbr-displacement))
-  ;; Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision rounds, 0..3).
-  (format file "mesh-subdiv = ~D~%" (-> obj mesh-subdiv))
-  (format file "pbr-test-preset = ~D~%" (-> obj pbr-test-preset))
-  (format file "pbr-isolate = ~D~%" (-> obj pbr-isolate))
-  ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK master. #f = accepted PBR path.
-  (format file "modern-materials? = ~A~%" (-> obj modern-materials?))
-  (format file "realtime-lighting? = ~A~%" (-> obj realtime-lighting?))
-  (format file "realtime-ambient? = ~A~%" (-> obj realtime-ambient?))
-  (format file "realtime-ambient-strength = ~f~%" (-> obj realtime-ambient-strength))
-  (format file "realtime-ambient-contrast = ~f~%" (-> obj realtime-ambient-contrast))
-  (format file "realtime-ambient-model = ~D~%" (-> obj realtime-ambient-model))
-  (format file "realtime-shadow-dist = ~f~%" (-> obj realtime-shadow-dist))
-  (format file "realtime-shadow-strength = ~f~%" (-> obj realtime-shadow-strength))
-  (format file "realtime-shadow-quality = ~D~%" (-> obj realtime-shadow-quality))
+  ;; lighting-legacy-purge : les 16 cles d'eclairage de l'ancien monde ne sont plus ECRITES ;
+  ;; elles disparaissent du settings.ini au premier commit-to-file.
   (format file "recharged-foliage-wind? = ~A~%" (-> obj recharged-foliage-wind?))
   ;; Grecharged-title-logo-fullres: title-screen JAK AND DAXTER logo (and ND boot logo) at NATIVE resolution while the 3D world stays at RENDER SCALE. #f = stock pipeline.
   (format file "crisp-title-logo? = ~A~%" (-> obj crisp-title-logo?))
@@ -667,7 +641,7 @@
   (format file "ao-quality = ~D~%" (-> obj ao-quality))
   (format file "ao-strength = ~D~%" (-> obj ao-strength))
   (format file "recharged-enhanced-models? = ~A~%" (-> obj recharged-enhanced-models?))
-  ;; Grecharged-hd-models5: per-character HD LOOK selections (ints, like pbr-displacement).
+  ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
   (format file "hd-look-jak = ~D~%" (-> obj hd-look-jak))
   (format file "hd-look-daxter = ~D~%" (-> obj hd-look-daxter))
   (format file "hd-look-keira = ~D~%" (-> obj hd-look-keira))

@@ -1,6 +1,7 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -65,6 +66,71 @@ std::unordered_map<unsigned, std::array<int, 4>> s_locs;
 
 const char* const kGateNames[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_on",
                                    "u_pbr_shadow_on"};
+
+// ── lighting-legacy-purge : LES UNIFORMES DE L'ANCIEN MONDE, SONDES SUR LE PROGRAMME LIE ────
+// L'owner a fait retirer dix reglages d'eclairage anterieurs a la refonte. Retirer la rangee de
+// menu et le champ de reglage ne prouve RIEN sur ce que la carte dessine : un uniforme reste
+// dans le programme lie tant que le texte du shader le declare, et un shader Android est fige
+// dans un blob que personne ne relit a la main. La seule grandeur qui repond vraiment est
+// `glGetUniformLocation` sur le programme REELLEMENT LIE : >= 0 = l'ancien monde est encore
+// compile dans ce binaire, < 0 = il n'y est pas.
+//
+// LE ZERO DOIT ETRE FALSIFIABLE. Un tableau de dix noms qui rend zero, c'est aussi ce que
+// rendrait une sonde branchee sur rien. On sonde donc, DANS LE MEME APPEL et sur le MEME
+// programme, deux noms qui doivent SURVIVRE a la purge (`u_pbr_mode`, `u_rt_light_on` : les
+// deux portes du chemin unique de la refonte). `lighting_legacy_uniform_control` compte les
+// programmes ou au moins l'un des deux repond. Un controle a zero rend la porte MUETTE, pas
+// verte.
+const char* const kLegacyUniformNames[] = {
+    "u_rt_ambient_on",       // ex AMBIANTE on/off       (realtime-ambient?)
+    "u_rt_ambient_model",    // ex MODELE D'AMBIANCE      (realtime-ambient-model)
+    "u_rt_ambient_contrast", // ex CONTRASTE D'AMBIANCE   (knob mort : pousse, jamais lu)
+    "u_rt_shadow_range",     // ex DISTANCE DES OMBRES    (realtime-shadow-dist)
+    "u_rt_shadow_res",       // ex QUALITE DES OMBRES     (realtime-shadow-quality)
+    "u_rt_shadow_residual",  // ex FORCE DES OMBRES       (realtime-shadow-strength)
+    "u_pbr_displacement",    // ex PROFONDEUR DE SURFACE  (pbr-displacement)
+    "u_pbr_bisect",          // ex PBR ISOLATE            (outil de bisection)
+    "u_pbr_bisect2",         // ex PBR ISOLATE            (second masque)
+    "u_mm_flags",            // ex MATERIAUX AVANCES      (modern-materials?)
+    // Il restait DECLARE et LU apres le retrait de son etage : un drapeau a zero, pas une
+    // absence. Le livrable exige l'inverse, il est donc supprime des shaders ET cherche ici.
+    "u_pbr_tess_active",     // ex PROFONDEUR DE SURFACE, palier TESSELLATION
+};
+constexpr int kLegacyUniformCount = (int)(sizeof(kLegacyUniformNames) / sizeof(char*));
+
+// Les deux temoins. Ils appartiennent au chemin UNIQUE de la refonte et ne partent jamais.
+const char* const kLegacyControlNames[2] = {"u_pbr_mode", "u_rt_light_on"};
+
+// Un bit par nom de `kLegacyUniformNames`, cumule sur toute la course : un nom trouve une seule
+// fois, sur un seul programme, suffit a dire que l'ancien monde est encore la. Le PIRE cas est
+// donc conserve, jamais lave par un programme propre.
+// Ecrits sur le fil GL, lus sur le fil GOAL (kmachine.cpp) : atomiques relaches. Le compteur
+// n'a qu'un ecrivain, il n'y a donc rien a serialiser, seulement une lecture a rendre definie.
+std::atomic<uint32_t> s_legacy_uniform_mask{0};
+std::atomic<uint64_t> s_legacy_uniform_programs{0};  // denominateur : programmes distincts sondes
+std::atomic<uint64_t> s_legacy_uniform_control{0};   // temoin : programmes ou un nom SURVIVANT repond
+std::unordered_map<unsigned, char> s_legacy_probed;
+
+// Sonde un programme une seule fois. Appelee depuis la relecture d'un draw par image, donc sur
+// le programme que le renderer vient de lier : on sonde ce qui DESSINE, pas une table de source.
+void legacy_probe_program(unsigned prog) {
+  if (s_legacy_probed.count(prog)) {
+    return;
+  }
+  s_legacy_probed.emplace(prog, 1);
+  s_legacy_uniform_programs.fetch_add(1, std::memory_order_relaxed);
+  for (int i = 0; i < kLegacyUniformCount; i++) {
+    if (glGetUniformLocation(prog, kLegacyUniformNames[i]) >= 0) {
+      s_legacy_uniform_mask.fetch_or(1u << i, std::memory_order_relaxed);
+    }
+  }
+  for (int i = 0; i < 2; i++) {
+    if (glGetUniformLocation(prog, kLegacyControlNames[i]) >= 0) {
+      s_legacy_uniform_control.fetch_add(1, std::memory_order_relaxed);
+      break;
+    }
+  }
+}
 
 // ── temps GPU ───────────────────────────────────────────────────────────────────────────────
 enum Pass {
@@ -282,6 +348,35 @@ void harvest(int slot) {
 void publish_gpu_locked();
 
 void publish_locked() {
+  // ── lighting-legacy-purge ─────────────────────────────────────────────────────────────────
+  // LA PART SHADER de `lighting_legacy_sites`. kmachine.cpp y ajoute la part GOAL (symboles) et
+  // la part C++ (options de `recharged_gating`) et publie la somme. Ici on publie SA part et
+  // TOUS ses denominateurs : un chiffre sans son denominateur n'est pas une mesure.
+  {
+    const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+    int found = 0;
+    std::string names;
+    for (int i = 0; i < kLegacyUniformCount; i++) {
+      if (mask & (1u << i)) {
+        found++;
+        if (names.size() < 180) {
+          if (!names.empty()) {
+            names += ',';
+          }
+          names += kLegacyUniformNames[i];
+        }
+      }
+    }
+    autoport_proof::publish("lighting_legacy_uniform_sites", (uint64_t)found);
+    autoport_proof::publish("lighting_legacy_uniform_censused", (uint64_t)kLegacyUniformCount);
+    autoport_proof::publish("lighting_legacy_uniform_programs",
+                            s_legacy_uniform_programs.load(std::memory_order_relaxed));
+    autoport_proof::publish("lighting_legacy_uniform_control",
+                            s_legacy_uniform_control.load(std::memory_order_relaxed));
+    // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere
+    // liste non vide resterait a cote d'un compte a zero.
+    autoport_proof::publish_text("lighting_legacy_uniform_list", names.empty() ? "-" : names.c_str());
+  }
   if (!active()) {
     publish_gpu_locked();
     return;
@@ -325,6 +420,7 @@ void publish_locked() {
     autoport_proof::publish(key, s_rb_mismatch_by_gate[i]);
   }
   autoport_proof::publish("light_census_frames", s_frames);
+
   publish_gpu_locked();
 }
 
@@ -642,6 +738,21 @@ void note_world_draw(Kind k) {
   if (k != Kind::DepthOnly) {
     shade_proof::note_world_draw();
   }
+  // lighting-legacy-purge : la sonde des uniformes de l'ancien monde vit AVANT la garde
+  // `active()`. `active()` est `armed_for("lighting-census")` : laisser la sonde derriere
+  // rendrait la porte d'un item MUETTE des que le harnais desarme un AUTRE item — la faute
+  // exacte que `armed_for` existe pour empecher. Un draw sur seize suffit : la resolution est
+  // memorisee par programme, et tous les programmes du monde passent en quelques images.
+  {
+    static uint64_t s_legacy_draw_n = 0;
+    if ((s_legacy_draw_n++ % 16) == 0) {
+      int lprog = 0;
+      glGetIntegerv(GL_CURRENT_PROGRAM, &lprog);
+      if (lprog > 0) {
+        legacy_probe_program((unsigned)lprog);
+      }
+    }
+  }
   if (!active()) {
     return;
   }
@@ -818,6 +929,27 @@ void frame_end() {
   // differents par deux compteurs qui doivent s'additionner (mesure : hits=1058023 contre
   // A=1038620, 19403 draws d'ecart, soit une centaine d'images de retard).
   publish_locked();
+}
+
+// lighting-legacy-purge : la part SHADER du recensement, lue par kmachine.cpp sur le fil GOAL.
+uint32_t legacy_uniform_sites() {
+  const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+  uint32_t n = 0;
+  for (int i = 0; i < kLegacyUniformCount; i++) {
+    if (mask & (1u << i)) {
+      n++;
+    }
+  }
+  return n;
+}
+uint32_t legacy_uniform_censused() {
+  return (uint32_t)kLegacyUniformCount;
+}
+uint64_t legacy_uniform_programs() {
+  return s_legacy_uniform_programs.load(std::memory_order_relaxed);
+}
+uint64_t legacy_uniform_control() {
+  return s_legacy_uniform_control.load(std::memory_order_relaxed);
 }
 
 void publish() {

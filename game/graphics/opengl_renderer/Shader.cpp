@@ -23,112 +23,9 @@
 #include "shaders_android_blob.h"
 #endif
 
-// REOPEN #3 TESSELLATION: the live context's tessellation capability. Desktop GL exposes
-// the tess stages from core 4.0 (glad fills GLVersion); GLES exposes them from core 3.2.
-// Queried once, lazily, so it is safe to call from any renderer path after context creation.
-// REOPEN #3 TESSELLATION driver-defensive: the FINAL usability of the tess program. Set true
-// only when the TFRAG3_TESS program was actually built AND linked okay() on the live context.
-// Distinct from gl_context_supports_tessellation() (which only reflects capability), because a
-// context that advertises tessellation can still fail to build/link the tess program.
-static bool s_tfrag3_tess_program_ok = false;
-bool gl_tfrag3_tess_program_ok() {
-  return s_tfrag3_tess_program_ok;
-}
-
-bool gl_context_supports_tessellation() {
-  static int cached = -1;
-  if (cached != -1) {
-    return cached != 0;
-  }
-  bool ok = false;
-#ifdef __ANDROID__
-  // GLES: tessellation is CORE from GLES 3.2. Parse the major.minor from GL_VERSION
-  // ("OpenGL ES 3.2 ...") rather than trusting a build-time constant.
-  const char* ver = (const char*)glGetString(GL_VERSION);
-  if (ver) {
-    // find the first "<major>.<minor>" run.
-    int major = 0, minor = 0;
-    for (const char* p = ver; *p; ++p) {
-      if (*p >= '0' && *p <= '9' && p[1] == '.') {
-        major = *p - '0';
-        minor = (p[2] >= '0' && p[2] <= '9') ? p[2] - '0' : 0;
-        break;
-      }
-    }
-    ok = (major > 3) || (major == 3 && minor >= 2);
-  }
-#else
-  // Desktop GL: glad's GLVersion is populated at load; tess is core from 4.0.
-  ok = (GLVersion.major > 4) || (GLVersion.major == 4 && GLVersion.minor >= 0);
-#endif
-  // Driver-defensive: the version report is not enough. glPatchParameteri is a loaded
-  // function pointer (glad's macro expands to glad_glPatchParameteri) that can be NULL on a
-  // driver even when GL_VERSION advertises tessellation. Calling a NULL fn-ptr crashes, so
-  // require the entry point to be actually resolved before declaring tessellation usable.
-  // REOPEN#7 TESS ROOT CAUSE + FIX: glad loads only the CORE name "glPatchParameteri" via
-  // SDL_GL_GetProcAddress. GLES 3.2 drivers (Adreno 6xx/8xx) commonly export ONLY the suffixed
-  // "glPatchParameteriEXT"/"glPatchParameteriOES" even though tessellation is a core 3.2 feature,
-  // so the core fn-ptr is NULL and tessellation was wrongly disabled (owner: "tess still falls
-  // back"). Resolve the suffixed entry points and bind them to glad's pointer before giving up.
-  if (ok && glPatchParameteri == nullptr) {
-    void* p = (void*)SDL_GL_GetProcAddress("glPatchParameteriEXT");
-    const char* which = "EXT";
-    if (!p) {
-      p = (void*)SDL_GL_GetProcAddress("glPatchParameteriOES");
-      which = "OES";
-    }
-    if (p) {
-      glad_glPatchParameteri = (PFNGLPATCHPARAMETERIPROC)p;
-      lg::warn(
-          "[recharged] REOPEN#7 TESS: core glPatchParameteri was NULL; bound via {} suffix — "
-          "tessellation ENABLED on this driver",
-          which);
-    }
-  }
-  if (ok && glPatchParameteri == nullptr) {
-    ok = false;
-    lg::warn(
-        "[recharged] REOPEN#7 TESS: glPatchParameteri unresolved (core + EXT + OES all NULL) — "
-        "tessellation disabled");
-  }
-  cached = ok ? 1 : 0;
-  if (!ok) {
-    lg::warn("REOPEN#3 TESS: GL context has no tessellation stages — tess programs disabled");
-  }
-  // OWNER PLAYTEST #8 (2026-07-24): the renderer emitted NOTHING about why tessellation falls back;
-  // the supervisor could not extract any GL/capability log on the Honor. Emit a single greppable
-  // GK_STDOUT line (lg::warn routes to stdout) reporting the capability query result: EXT/core
-  // tessellation present, and whether the glPatchParameteri entry point actually resolved.
-  {
-    const char* glver = (const char*)glGetString(GL_VERSION);
-    lg::warn("[pbr-tess] capability query: supports_tessellation={} glPatchParameteri={} GL_VERSION='{}'",
-             ok ? 1 : 0, (void*)glPatchParameteri ? "RESOLVED" : "NULL(unresolved)",
-             glver ? glver : "(null)");
-  }
-  return ok;
-}
-
-// The driver's tessellation-level ceiling. Latched once on the GL thread; the query itself must
-// not leave a GL error behind on drivers that do not implement the enum.
-int gl_max_tess_gen_level() {
-  static int cached = -1;
-  if (cached < 0) {
-    int mx = 0;
-#if defined(GL_MAX_TESS_GEN_LEVEL)
-    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &mx);
-#elif defined(GL_MAX_TESS_GEN_LEVEL_EXT)
-    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL_EXT, &mx);
-#endif
-    while (glGetError() != GL_NO_ERROR) {
-    }  // swallow the query error on drivers without it
-    if (mx < 1 || mx > 4096) {
-      mx = 64;  // GL/GLES minimum-maximum is 64
-    }
-    cached = mx;
-    lg::warn("[pbr-tess] GL_MAX_TESS_GEN_LEVEL = {}", cached);
-  }
-  return cached;
-}
+// lighting-legacy-purge (2026-09-11) : `gl_context_supports_tessellation`,
+// `gl_tfrag3_tess_program_ok` et `gl_max_tess_gen_level` sont SUPPRIMES avec le programme
+// TFRAG3_TESS, leur unique client.
 
 // ===========================================================================================
 // Grecharged-pbr-realtime-fusion ROUND 22 — SHADER `#include` (shared GLSL chunks).
@@ -156,27 +53,17 @@ int gl_max_tess_gen_level() {
 namespace {
 constexpr int kMaxIncludeDepth = 4;
 
-// Grecharged-materials-modern-parity — the COMPANION CHUNK table. `extension` is spliced verbatim
-// immediately after `base` wherever `base` is included (see the long rationale at the splice site
-// below). The whole modern material stack lives in these three files and in nothing else:
-//   pbr_modern_uniforms.glsl  -> global scope: the u_mm_* uniforms + tex_PBR_TH
-//   pbr_modern_helpers.glsl   -> global scope: anisotropic GGX, clearcoat, occlusion, tone curve
-//   pbr_modern.glsl           -> inside the fused branch: the shading itself
-// The order matters and is guaranteed by the hosts: uniforms are included first (tfrag3.frag:27 and
-// friends), helpers next (:259), the fused branch last (:476).
-// In a build without --pbr, OG_FEAT_PBR is undefined, the table is empty, and the text is never even
-// spliced — the generated GLSL is byte-for-byte the pre-phase source.
+// lighting-legacy-purge (2026-09-11) : la TABLE DES CHUNKS COMPAGNONS est VIDE. Elle ne portait
+// que les trois fichiers de la pile « Materiaux avances » (pbr_modern_uniforms.glsl,
+// pbr_modern_helpers.glsl, pbr_modern.glsl), supprimes avec elle : un compagnon qui nomme un
+// fichier ABSENT fait echouer la construction du shader a l'execution, sans erreur de compilation.
+// La structure et la boucle de raccordement restent — c'est le mecanisme, pas la pile.
 struct ChunkCompanion {
   const char* base;
   const char* extension;
 };
 constexpr ChunkCompanion kChunkCompanions[] = {
-#ifdef OG_FEAT_PBR
-    {"pbr_uniforms.glsl", "pbr_modern_uniforms.glsl"},
-    {"pbr_helpers.glsl", "pbr_modern_helpers.glsl"},
-    {"pbr_fused.glsl", "pbr_modern.glsl"},
-#endif
-    {nullptr, nullptr},  // sentinel: a zero-length array is not valid C++
+    {nullptr, nullptr},  // sentinelle : un tableau de longueur nulle n'est pas du C++ valide
 };
 
 // Resolve one chunk by file name (e.g. "pbr_fused.glsl"). Returns false when it does not exist.
@@ -330,80 +217,21 @@ Shader::Shader(const std::string& shader_name, GameVersion version) : m_name(sha
   auto frag_src =
       file_util::read_text_file(file_util::get_file_path({shader_folder, shader_name + ".frag"}));
 #endif
-  build(shader_name, vert_src, "", "", frag_src, version);
+  build(shader_name, vert_src, frag_src, version);
 }
 
-// REOPEN #3 TESSELLATION: a 4-stage program (vert + tesc + tese + frag). Stage source names
-// may differ (the tess program reuses tfrag3.frag as its fragment source). Fails SOFT on a
-// context without tessellation support.
-Shader::Shader(const std::string& vert_name,
-               const std::string& tesc_name,
-               const std::string& tese_name,
-               const std::string& frag_name,
-               GameVersion version)
-    : m_name(vert_name) {
-  if (!gl_context_supports_tessellation()) {
-    // Soft-fail: no crash, no program. The caller must gate on okay().
-    m_is_okay = false;
-    return;
-  }
-#ifdef __ANDROID__
-  std::string vert_src, tesc_src, tese_src, frag_src;
-  auto lookup = [](const std::string& name, std::string& vert, std::string& tesc,
-                   std::string& tese, std::string& frag) -> bool {
-    for (const auto& s : gk_android_shaders::kShaders) {
-      if (s.name == name) {
-        vert = std::string(s.vert_src);
-        frag = std::string(s.frag_src);
-        tesc = std::string(s.tesc_src);
-        tese = std::string(s.tese_src);
-        return true;
-      }
-    }
-    return false;
-  };
-  {
-    std::string dummy_tesc, dummy_tese, dummy_frag, dummy_vert;
-    // vert + tesc + tese all come from the vert_name entry (the tess set is authored as one
-    // named group: tfrag3_tess.{vert,tesc,tese}); the fragment source comes from frag_name.
-    if (!lookup(vert_name, vert_src, tesc_src, tese_src, dummy_frag)) {
-      lg::error("REOPEN#3 TESS shader group '{}' missing from the GLES blob", vert_name);
-      m_is_okay = false;
-      return;
-    }
-    if (!lookup(frag_name, dummy_vert, dummy_tesc, dummy_tese, frag_src)) {
-      lg::error("REOPEN#3 TESS frag source '{}' missing from the GLES blob", frag_name);
-      m_is_okay = false;
-      return;
-    }
-  }
-#else
-  auto vert_src =
-      file_util::read_text_file(file_util::get_file_path({shader_folder, vert_name + ".vert"}));
-  auto tesc_src =
-      file_util::read_text_file(file_util::get_file_path({shader_folder, tesc_name + ".tesc"}));
-  auto tese_src =
-      file_util::read_text_file(file_util::get_file_path({shader_folder, tese_name + ".tese"}));
-  auto frag_src =
-      file_util::read_text_file(file_util::get_file_path({shader_folder, frag_name + ".frag"}));
-#endif
-  build(vert_name, vert_src, tesc_src, tese_src, frag_src, version);
-}
+// lighting-legacy-purge (2026-09-11) : le constructeur a QUATRE ETAGES (vert+tesc+tese+frag) est
+// SUPPRIME avec le programme TFRAG3_TESS, son unique client.
 
 void Shader::build(const std::string& shader_name,
                    const std::string& vert_src_in,
-                   const std::string& tesc_src_in,
-                   const std::string& tese_src_in,
                    const std::string& frag_src_in,
                    GameVersion version) {
   // ROUND 22: shared GLSL chunks. Expand `#include "<name>.glsl"` FIRST — before the per-game
   // template substitution and before the OG_PBR define is injected — so both apply to the
   // expanded text exactly as they did when the code was inline in tfrag3.frag.
   std::string vert_src = expand_includes(vert_src_in);
-  std::string tesc_src = expand_includes(tesc_src_in);
-  std::string tese_src = expand_includes(tese_src_in);
   std::string frag_src = expand_includes(frag_src_in);
-  const bool has_tess = !tesc_src.empty() && !tese_src.empty();
 
   // Per-game template tokens, substituted at runtime on both desktop and
   // Android (the Android GLES blob keeps them verbatim — jak2 is a 416-line
@@ -419,22 +247,14 @@ void Shader::build(const std::string& shader_name,
     }
     src = std::regex_replace(src, std::regex("SCISSOR_HEIGHT"), scissor_height);
   };
-  // The tessellation-evaluation stage applies the SAME camera transform + SCISSOR_ADJUST *
-  // HEIGHT_SCALE the vert normally does (it produces gl_Position), so it needs the vert-like
-  // token substitution too. tesc/frag only need SCISSOR_HEIGHT (harmless if absent).
   subst_tokens(vert_src, true);
   subst_tokens(frag_src, false);
-  if (has_tess) {
-    subst_tokens(tesc_src, false);
-    subst_tokens(tese_src, true);
-  }
 
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: inject the shader-side feature define right after the
   // #version directive (which is NOT the first line on desktop — the source files
   // open with comments; GLSL requires #version to stay first-in-effect, so the
-  // define must land after it). Guards the OG_PBR preprocessor block in tfrag3.frag —
-  // and the height-displacement OG_PBR block in the tess stages.
+  // define must land after it). Guards the OG_PBR preprocessor block in tfrag3.frag.
   auto inject_pbr_define = [](std::string& src) {
     if (src.empty()) {
       return;
@@ -449,10 +269,6 @@ void Shader::build(const std::string& shader_name,
   };
   inject_pbr_define(vert_src);
   inject_pbr_define(frag_src);
-  if (has_tess) {
-    inject_pbr_define(tesc_src);
-    inject_pbr_define(tese_src);
-  }
 #endif
 
   constexpr int len = 1024;
@@ -492,38 +308,9 @@ void Shader::build(const std::string& shader_name,
     m_is_okay = false;
     return;
   }
-  if (has_tess) {
-    m_tesc_shader = compile_stage(GL_TESS_CONTROL_SHADER, tesc_src, "tess-control");
-    if (!m_tesc_shader) {
-      // REOPEN#7 TESS BUILD: surface the tess-control compile failure with a greppable tag so the
-      // device logcat shows the REAL GL error instead of a silent tessellation fallback.
-      lg::error("[recharged] REOPEN#7 TESS BUILD: tess-control (tesc) stage of '{}' FAILED to "
-                "compile — see the 'Failed to compile tess-control' GL InfoLog above",
-                shader_name.c_str());
-      m_is_okay = false;
-      return;
-    }
-    m_tese_shader = compile_stage(GL_TESS_EVALUATION_SHADER, tese_src, "tess-eval");
-    if (!m_tese_shader) {
-      // REOPEN#7 TESS BUILD: surface the tess-eval compile failure with a greppable tag so the
-      // device logcat shows the REAL GL error instead of a silent tessellation fallback.
-      lg::error("[recharged] REOPEN#7 TESS BUILD: tess-eval (tese) stage of '{}' FAILED to "
-                "compile — see the 'Failed to compile tess-eval' GL InfoLog above",
-                shader_name.c_str());
-      m_is_okay = false;
-      return;
-    }
-    // OWNER PLAYTEST #8: log the SUCCESS path too — a passing build previously logged nothing, so a
-    // driver that compiles tess fine but falls back for another reason left the supervisor blind.
-    lg::warn("[pbr-tess] '{}' tess-control + tess-eval stages COMPILED OK", shader_name.c_str());
-  }
 
   m_program = glCreateProgram();
   glAttachShader(m_program, m_vert_shader);
-  if (has_tess) {
-    glAttachShader(m_program, m_tesc_shader);
-    glAttachShader(m_program, m_tese_shader);
-  }
   glAttachShader(m_program, m_frag_shader);
   glLinkProgram(m_program);
 
@@ -531,27 +318,10 @@ void Shader::build(const std::string& shader_name,
   if (!compile_ok) {
     glGetProgramInfoLog(m_program, len, nullptr, err);
     lg::error("Failed to link shader {}:\n{}", shader_name.c_str(), err);
-    if (has_tess) {
-      // REOPEN#7 TESS BUILD: the 4-stage TFRAG3_TESS program failed to LINK. Re-dump the program
-      // InfoLog under a greppable tag so the device logcat shows the REAL GL link error (e.g. a
-      // fragment input with no producer varying) instead of a silent tessellation fallback.
-      lg::error("[recharged] REOPEN#7 TESS BUILD: tess program '{}' FAILED to LINK — GL "
-                "ProgramInfoLog:\n{}",
-                shader_name.c_str(), err);
-    }
     m_is_okay = false;
     return;
   }
   shade_proof::note_program_linked(shader_name, (unsigned)m_program);
-  if (has_tess) {
-    // OWNER PLAYTEST #8: log the LINK SUCCESS + any (usually empty) program InfoLog for the tess
-    // program, so the supervisor's Honor logcat proves the program linked (isolating the fallback
-    // to the capability query or the per-draw gate, not a build failure).
-    GLsizei link_len = 0;
-    glGetProgramInfoLog(m_program, len, &link_len, err);
-    lg::warn("[pbr-tess] '{}' program LINKED OK (link infolog: {})", shader_name.c_str(),
-             link_len > 0 ? err : "(empty)");
-  }
 
   // uniform samplers must be named matching the texture unit
   glUseProgram(m_program);
@@ -575,10 +345,6 @@ void Shader::build(const std::string& shader_name,
 
   glDeleteShader(m_vert_shader);
   glDeleteShader(m_frag_shader);
-  if (has_tess) {
-    glDeleteShader(m_tesc_shader);
-    glDeleteShader(m_tese_shader);
-  }
   m_is_okay = true;
 }
 
@@ -647,24 +413,9 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::OCEAN_PROBE) = {"ocean_probe", version};
 #ifdef OG_FEAT_PBR
   at(ShaderId::PBR_DEPTH) = {"pbr_depth", version};
-  // REOPEN #3 TESSELLATION: only build the tess program on a tess-capable context; on a
-  // context without the stages the 4-arg ctor fails soft (m_is_okay == false) and the
-  // routing in TFragment never selects it. vert/tesc/tese share the tfrag3_tess group;
-  // the fragment source is the plain tfrag3.frag (reused unchanged).
-  at(ShaderId::TFRAG3_TESS) = {"tfrag3_tess", "tfrag3_tess", "tfrag3_tess", "tfrag3", version};
-  // Record the FINAL usability: the tess program is only usable when the context advertises
-  // tessellation AND the program actually built+linked. Last build wins if this runs per-Display.
-  s_tfrag3_tess_program_ok =
-      gl_context_supports_tessellation() && at(ShaderId::TFRAG3_TESS).okay();
-  // OWNER PLAYTEST #8: the single decisive [pbr-tess] line — combines the capability query with the
-  // program build result. displacement=Tessellation runs REAL tessellation only when program_ok=1;
-  // program_ok=0 => the GL thread demotes to Parallax (see background_common '[pbr-tess] fallback').
-  lg::warn("[pbr-tess] TFRAG3_TESS build result: context_supports={} program_okay={} => "
-           "tess_program_ok={} ({})",
-           gl_context_supports_tessellation() ? 1 : 0, at(ShaderId::TFRAG3_TESS).okay() ? 1 : 0,
-           s_tfrag3_tess_program_ok ? 1 : 0,
-           s_tfrag3_tess_program_ok ? "REAL tessellation available"
-                                    : "will fall back to Parallax");
+  // lighting-legacy-purge (2026-09-11) : le programme TFRAG3_TESS n'est plus construit — il
+  // n'existe plus. Le mode DISPLACEMENT = TESSELLATION qui l'aurait selectionne n'a jamais ete
+  // livre.
 #endif
 
 #ifdef __ANDROID__
@@ -674,12 +425,6 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   // activate() if they are ever used.
   int failed = 0;
   for (int i = 0; i < (int)ShaderId::MAX_SHADERS; ++i) {
-#ifdef OG_FEAT_PBR
-    // REOPEN #3: the tess program may legitimately be soft-disabled on a GLES < 3.2 context.
-    if (i == (int)ShaderId::TFRAG3_TESS && !gl_context_supports_tessellation()) {
-      continue;
-    }
-#endif
     if (!m_shaders[i].okay()) {
       failed++;
     }
@@ -693,14 +438,6 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   }
 #else
   for (int i = 0; i < (int)ShaderId::MAX_SHADERS; ++i) {
-#ifdef OG_FEAT_PBR
-    // REOPEN #3 TESSELLATION: the tess program is allowed to fail soft on a context without
-    // tessellation support (e.g. GL < 4.0). It is only ever selected when
-    // gl_context_supports_tessellation() is true, so a soft-failed tess program is benign.
-    if (i == (int)ShaderId::TFRAG3_TESS) {
-      continue;
-    }
-#endif
     ASSERT_MSG(m_shaders[i].okay(), "error compiling shader");
   }
 #endif

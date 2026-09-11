@@ -875,7 +875,7 @@ void Shrub::render_tree(int idx,
     // buffer, mirroring the TFragment / Tie3 caster passes. pbr_shadow_begin_frame is
     // idempotent per frame (accumulates additively across tfrag/tie/shrub). SHRUB is the
     // active program on entry (first_tfrag_draw_setup above); we restore it after.
-    if ((recharged_gating::on(recharged_gating::kPbr) ||
+    if ((recharged_gating::on(recharged_gating::kLighting) ||
          recharged_gating::on(recharged_gating::kRtLight)) &&
         tree.index_count > 0 &&
         (pbr_shadow_caster_mask(render_state->frame_idx) & 4) &&
@@ -936,7 +936,7 @@ void Shrub::render_tree(int idx,
     }
     // Shrub RECEIVER bind (defect B): sample the sun map so shrubs receive cast shadows.
     // SHRUB is the active program here, so pbr_shadow_bind_receiver's glUniform calls land on it.
-    if ((recharged_gating::on(recharged_gating::kPbr) ||
+    if ((recharged_gating::on(recharged_gating::kLighting) ||
          recharged_gating::on(recharged_gating::kRtLight)) &&
         pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::SHRUB].id(),

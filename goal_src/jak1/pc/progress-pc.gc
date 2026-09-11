@@ -841,29 +841,23 @@
 (def-progress-carousell *carousell-ao-strength* (pc-text-ao-weaker pc-text-ao-default pc-text-ao-stronger))
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
-(def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell, five named steps. It REUSES the
 ;; five text-ids that the shipped shadow-quality row already draws — no new string id is allocated, so
 ;; the rendering of these labels is already proven in every shipped language.
 (def-progress-carousell *carousell-grass-density* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
-(def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
 ;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
-(def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
 ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
 ;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
 ;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
 ;; and are present in every shipped COMMON.TXT — so NO new text id is allocated and no text bank is
 ;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
-(def-progress-carousell *carousell-mesh-subdiv* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
-(def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
 ;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell — in-menu term bisection so the
 ;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
 ;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
-(def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
 ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (LIGHT / FULL / MAXIMUM). Uses the same
 ;; stale-text-bank-proof mechanism as the PBR ISOLATE / HD LOOK options, NOT the COMMON.TXT bank:
 ;; each entry is a RESERVED tag id (#x17b9..#x17bb, past the last allocated id #x17b6) that
@@ -1314,20 +1308,8 @@
               (pc-set-recharged-textures! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 2b PBR MATERIALS (Grecharged-pbr-materials) on-off toggle. Cloned from LOAD CUSTOM ASSETS.
-       ;; Real label via *pbr-materials-label* (name-override); value bound to *pc-settings* pbr-materials?
-       ;; in init-game-options. The on-change ONLY persists (the per-frame update-to-os push in
-       ;; hud-classes-pc.gc applies pc-set-pbr! + pc-set-pbr-sun!). Row present only with --pbr.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* pbr-materials?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
+       ;; lighting-legacy-purge (2026-09-11) : PBR MATERIALS RETIREE — le rendu PBR est
+       ;; INCONDITIONNEL sous RECHARGED LIGHTING.
        ;; 3 ENHANCED MODELS (Grecharged-hd-models) on-off toggle. Loads jak2 detailed character models
        ;; (Jak/Daxter/Samos/Keira, jak1-look) in place of the stock low-poly meshes. Real label via
        ;; *enhanced-models-label*; value bound to *pc-settings* recharged-enhanced-models? in
@@ -1391,133 +1373,10 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
-       ;; Realtime Lighting On/Off (Grecharged-realtime-lighting)
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; dead-follow-probe (2026-09-10) : la rangee ENV PROBE est RETIREE de ce corps GELE aussi —
-       ;; le corps livre (#unless FLAG_MENU_OVERHAUL) l'avait perdue le 2026-09-02. Toutes les
-       ;; rangees PBR qui la suivaient reculent d'un cran (+6..+16 -> +5..+15 dans le cablage plus
-       ;; bas) et le terme PBR de la garde de longueur passe de 10 a 9.
-       ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
-       ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
-       ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
-       ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
-       ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 0.5 :slider-step-size 0.05 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Ambient Contrast slider (0.0 .. 1.5; disabled when Realtime Lighting off). Bound directly to
-       ;; the *pc-settings* realtime-ambient-contrast float (ambient contrast level).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 1.5 :slider-step-size 0.1 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Shadow Distance slider (realtime cast-shadow range, meters)
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 20.0 :param2 200.0 :slider-step-size 10.0 :slider-show-decimal? #f
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Shadow Quality carousell (Low/Med/High = 1024/2048/4096)
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
-       ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF slider (0.0 .. 3.0; disabled unless PBR MATERIALS on).
-       ;; Multiplies the PBR normal-map strength + parallax height (1.0 = pre-slider look). Bound
-       ;; directly to the *pc-settings* pbr-texture-relief float. Gated on pbr-materials? (this tunable
-       ;; lives in the PBR material path, NOT the realtime-lighting path).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 3.0 :slider-step-size 0.25 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Gpbr-fusion REOPEN #2: SPECULAR INTENSITY slider (0.0 .. 2.0; disabled unless PBR MATERIALS on).
-       ;; Scales the fused GGX specular. Bound directly to the *pc-settings* pbr-specular-intensity float.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 2.0 :slider-step-size 0.1 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation; disabled unless PBR
-       ;; MATERIALS on). Carousell mirrors rt-ambient-model: no :on-change, value written via respond-common.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-displacement) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
-       ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell — the
-       ;; PRE-SUBDIVISION ROUND COUNT the loader hands the hardware tessellator (0 OFF, no refinement
-       ;; at all / 1 the shipped default / 2 MID / 3 HIGH). Sits immediately after DISPLACEMENT and
-       ;; carries the SAME disable predicate, because the refinement only ever runs in the
-       ;; tessellation displacement mode — greyed exactly when DISPLACEMENT is greyed.
-       ;; APPLIES AT THE NEXT LEVEL LOAD, not immediately: the refinement runs on the LOADER thread
-       ;; while a level is unpacked, so the level already resident keeps the geometry it was built
-       ;; with until it is reloaded.
-       ;; Carousell mirrors pbr-displacement: :name is a placeholder (the real label comes from the
-       ;; *mesh-subdiv-label* name-override) and there is no :on-change — respond-common backs the
-       ;; value up into int-backup and writes it back.
-       ;; row present only with --pbr, like the DISPLACEMENT row it shadows.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
-       ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell. ALWAYS ENABLED (no
-       ;; option-disabled-func) — the STOCK preset turns recharged-master? off, so this row must stay usable
-       ;; to switch back. Carousell mirrors rt-ambient-model; the write-back arm applies the whole config.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
-       ;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell (Both/Normal-map only/Parallax
-       ;; only/Neither; disabled unless PBR MATERIALS on). The owner's in-menu term bisection at his own vantage —
-       ;; drives the real facet fix. Carousell mirrors pbr-displacement: no :on-change, value written via respond-common.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; lighting-legacy-purge (2026-09-11) : les rangees REALTIME LIGHTING, AMBIENT MODEL,
+       ;; AMBIENT STRENGTH, AMBIENT CONTRAST, SHADOW DISTANCE, SHADOW QUALITY, TEXTURE RELIEF,
+       ;; SPECULAR INTENSITY, DISPLACEMENT, MESH SUBDIVISION, PBR TEST PRESET et PBR ISOLATE sont
+       ;; RETIREES de ce corps GELE comme du corps livre : leurs champs pc-settings n'existent plus.
        ;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : EAU RECHARGEE. Rangee AUTO-LOCALISEE
        ;; par son marqueur `hint`, jamais par un index : c'est le contrat des rangees HDR OUTPUT et
        ;; PHYSICS, et c'est ce qui la rend immune aux renumerotations du bloc PBR.
@@ -1557,7 +1416,7 @@
               (commit-to-file *pc-settings*)
               (none))))
        ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell row — LIGHT / FULL / MAXIMUM (the
-       ;; data-driven chain levels). Carousell mirrors pbr-displacement: :name is a placeholder, the
+       ;; data-driven chain levels). Meme motif de carrousel : :name is a placeholder, the
        ;; real label comes from the *physics-detail-label* name-override, there is no :on-change
        ;; (respond-common backs up / writes the value back), and the row is greyed while its feature
        ;; toggle is off — here PHYSICS, exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
@@ -1686,7 +1545,8 @@
         (rch *recharged-options-pc*)
         (grs *grass-options-pc*)
         (n 0))
-    (let ((fw (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))   ;; foliage-wind base index in *recharged-options-pc*
+    ;; lighting-legacy-purge (2026-09-11) : PBR MATERIALS n'existe plus, le terme FLAG_PBR_N sort.
+    (let ((fw (+ 4 FLAG_RECHARGED_HUD_N))   ;; foliage-wind base index in *recharged-options-pc*
           (hud FLAG_RECHARGED_HUD_N))
       ;; Grecharged-menu-overhaul V3 (owner 2026-08-02): while copying each source row by its
       ;; flag-aware index, also stamp its BESPOKE per-row hint on the shared row object (so it
@@ -1717,25 +1577,17 @@
         (begin (set! (-> dst n) (-> gfx 10)) (set! n (+ n 1))))        ;; Frame rate (desktop, by-name)
       ;; --- MATÉRIAUX & DÉTAIL ---
       (set! (-> dst n) *grp-materials*) (set! n (+ n 1))
-      (#when FLAG_PBR
-        (set! (-> dst n) (-> rch (+ 4 hud))) (set! (-> dst n hint) (text-id pc-text-hint-pbr)) (set! n (+ n 1))       ;; PBR Materials
-        (set! (-> dst n) (-> rch (+ fw 12))) (set! (-> dst n hint) (text-id pc-text-hint-relief)) (set! n (+ n 1))    ;; Relief (Off/Parallax/Tessellation)
-        (set! (-> dst n) (-> rch (+ fw 10))) (set! (-> dst n hint) (text-id pc-text-hint-texrelief)) (set! n (+ n 1)) ;; Texture Relief (strength)
-        (set! (-> dst n) (-> rch (+ fw 11))) (set! (-> dst n hint) (text-id pc-text-hint-specular)) (set! n (+ n 1))) ;; Specular Intensity
+      ;; lighting-legacy-purge (2026-09-11) : PBR MATERIALS, RELIEF, TEXTURE RELIEF et SPECULAR
+      ;; INTENSITY sont RETIREES du tableau source ; leurs copies dans la page fusionnee aussi.
       (set! (-> dst n) (-> rch (+ 3 hud))) (set! (-> dst n hint) (text-id pc-text-hint-rtextures)) (set! n (+ n 1))   ;; Recharged Textures
       (set! (-> dst n) (-> rch (+ 2 hud))) (set! (-> dst n hint) (text-id pc-text-hint-customassets)) (set! n (+ n 1));; Load Custom Assets
       ;; --- ÉCLAIRAGE ---
       (set! (-> dst n) *grp-lighting*) (set! n (+ n 1))
-      (#when FLAG_PBR (set! (-> dst n) (-> rch (+ fw 4))) (set! (-> dst n hint) (text-id pc-text-hint-rtlight)) (set! n (+ n 1)))  ;; Realtime Lighting
       (set! (-> dst n) (-> rch (+ fw 1))) (set! (-> dst n hint) (text-id pc-text-hint-ao)) (set! n (+ n 1))           ;; Ambient Occlusion
       (set! (-> dst n) (-> rch (+ fw 2))) (set! (-> dst n hint) (text-id pc-text-hint-aoquality)) (set! n (+ n 1))    ;; AO Quality
       (set! (-> dst n) (-> rch (+ fw 3))) (set! (-> dst n hint) (text-id pc-text-hint-aostrength)) (set! n (+ n 1))   ;; AO Strength
-      (#when FLAG_PBR
-        (set! (-> dst n) (-> rch (+ fw 5))) (set! (-> dst n hint) (text-id pc-text-hint-ambmodel)) (set! n (+ n 1))   ;; Ambient Model
-        (set! (-> dst n) (-> rch (+ fw 6))) (set! (-> dst n hint) (text-id pc-text-hint-ambstrength)) (set! n (+ n 1));; Ambient Strength
-        (set! (-> dst n) (-> rch (+ fw 7))) (set! (-> dst n hint) (text-id pc-text-hint-ambcontrast)) (set! n (+ n 1));; Ambient Contrast
-        (set! (-> dst n) (-> rch (+ fw 8))) (set! (-> dst n hint) (text-id pc-text-hint-shadowdist)) (set! n (+ n 1)) ;; Shadow Distance
-        (set! (-> dst n) (-> rch (+ fw 9))) (set! (-> dst n hint) (text-id pc-text-hint-shadowquality)) (set! n (+ n 1))) ;; Shadow Quality
+      ;; lighting-legacy-purge (2026-09-11) : REALTIME LIGHTING, AMBIENT MODEL/STRENGTH/CONTRAST et
+      ;; SHADOW DISTANCE/QUALITY sont RETIREES du tableau source ; leurs copies aussi.
       ;; --- VÉGÉTATION (the Grass sub-submenu is DISSOLVED inline here) ---
       (set! (-> dst n) *grp-vegetation*) (set! n (+ n 1))
       (set! (-> dst n) (-> grs 0)) (set! (-> dst n hint) (text-id pc-text-hint-grass)) (set! n (+ n 1))       ;; Recharged Grass
@@ -1838,59 +1690,18 @@
 ;; shown via name-override like every other recharged row.
 (define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *managed-assets-label*) "DOWNLOADED TEXTURES")
-;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
-;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
-(#when FLAG_PBR
-(define *pbr-materials-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *pbr-materials-label*) "PBR MATERIALS"))
-;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
-;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
-(#when FLAG_PBR
-(define *realtime-lighting-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *realtime-lighting-label*) "REALTIME LIGHTING")
-(define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
-;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
-;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
-;; convention => no unknown-ID garbage).
-(format (clear *hemisphere-ambient-label*) "BAKED AMBIENT")
-(define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
-(define *ambient-contrast-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-contrast-label*) "AMBIENT CONTRAST")
-(define *shadow-distance-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *shadow-distance-label*) "SHADOW DISTANCE")
-(define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *shadow-quality-label*) "SHADOW QUALITY")
-;; Gpbr-fusion REOPEN #2: PBR TEXTURE RELIEF + SPECULAR INTENSITY slider labels.
-(define *texture-relief-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *texture-relief-label*) "TEXTURE RELIEF")
-(define *specular-intensity-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *specular-intensity-label*) "SPECULAR INTENSITY")
-;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
-(define *displacement-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *displacement-label*) "DISPLACEMENT")
-;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell row label (name-override, runtime
-;; global — no text-id, so nothing to add to a text bank). English-only uppercase ASCII, like the
-;; DISPLACEMENT label it sits under.
-(define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
-;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell label.
-(define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
-;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell label.
-(define *pbr-isolate-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *pbr-isolate-label*) "PBR ISOLATE")
-(define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
-;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
-;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
-;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
-(format (clear *ambient-model-label*) "AMBIENT MODEL"))
+;; lighting-legacy-purge (2026-09-11) : les libelles PBR MATERIALS, REALTIME LIGHTING, AMBIENT
+;; STRENGTH, AMBIENT CONTRAST, AMBIENT MODEL, SHADOW DISTANCE, SHADOW QUALITY, TEXTURE RELIEF,
+;; SPECULAR INTENSITY, DISPLACEMENT, MESH SUBDIVISION, PBR TEST PRESET et PBR ISOLATE sont
+;; SUPPRIMES de ce corps GELE comme du corps livre, avec les rangees qu'ils nommaient.
+;; lighting-legacy-purge (2026-09-11) : *hemisphere-ambient-label* est SUPPRIME de ce corps
+;; GELE comme du corps livre, avec la rangee qu'il ne nommait deja plus.
 ;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
 ;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
 ;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
 ;; four options ALWAYS render as real labels (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) even
 ;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
-;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only, matching *pbr-isolate-label*. Defined
+;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only. Defined
 ;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
 (define *pbr-iso-both-label* (new 'global 'string 32 (the-as string #f)))
 (define *pbr-iso-nm-label* (new 'global 'string 32 (the-as string #f)))
@@ -2654,18 +2465,8 @@
        ;; Freecam / Mesh Browser launcher (the checker/damier + gizmos toggles live inside the overlay).
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id pc-text-mesh-browser) :scale #t
             :hint (text-id pc-text-hint-debug))
-       ;; PBR TEST PRESET carousell (one-click intended-config presets). ALWAYS enabled — the STOCK preset
-       ;; turns recharged-master? off, so this row must stay usable to switch back.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t
-            :hint (text-id pc-text-hint-pbrpreset)))
-       ;; PBR ISOLATE carousell (in-menu term bisection). Disabled unless master + PBR materials are on.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
-            :hint (text-id pc-text-hint-pbrisolate)
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; lighting-legacy-purge (2026-09-11) : PBR TEST PRESET et PBR ISOLATE RETIREES de la page
+       ;; DEBUG de ce corps GELE — outils de bisection de l'ancien monde, sans objet apres la refonte.
        ;; Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
@@ -4106,14 +3907,8 @@
     (else
      (set! (-> *options-hub* 4) *hub-back-row*)
      (set! (-> *options-hub* length) 5)))
-  ;; Grecharged-menu-overhaul RECADRAGE: wire the DEBUG page's PBR TEST PRESET (row 1) + PBR ISOLATE
-  ;; (row 2) carousells (int-backup scratch; respond-common maps them 1:1 to *pc-settings* by option-type,
-  ;; exactly like their former in-graphics twins). Present only with --pbr.
-  (#when FLAG_PBR
-  (set! (-> *opt-debug* 1 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *opt-debug* 1 name-override) *pbr-test-preset-label*)
-  (set! (-> *opt-debug* 2 value-to-modify) (&-> *progress-carousell* int-backup))
-  (set! (-> *opt-debug* 2 name-override) *pbr-isolate-label*))
+  ;; lighting-legacy-purge (2026-09-11) : le cablage des deux carrousels de la page DEBUG part avec
+  ;; leurs rangees.
   (set! (-> *options-remap* (progress-screen auto-save)) *ok-options*)
   (set! (-> *options-remap* (progress-screen pal-change-to-60hz)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen pal-now-60hz)) *yes-no-options*)
@@ -4255,13 +4050,8 @@
   (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
     (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
     (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*))
-  ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 4 hud-N), +1 for the
-  ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
-  ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
-  ;; (0 when --pbr is off).
-  (#when FLAG_PBR
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*))
+  ;; lighting-legacy-purge (2026-09-11) : la rangee PBR MATERIALS est RETIREE, son bras aussi ; le
+  ;; terme `FLAG_PBR_N` isole qui decalait toute la suite disparait avec elle.
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle (+1 for the master row throughout). It sits
   ;; at index 5 while the ENHANCED MODELS row is present (static length 10) and at index 4 after that
   ;; row collapsed (length 9) — wire by live length so re-inits stay correct in both states. Must run
@@ -4283,9 +4073,12 @@
   ;; ours to silently "fix". The shipped body (#unless FLAG_MENU_OVERHAUL) is exact.
   ;; The HD-collapse guard below needs NO change: it is deliberately kept for the NO-PBR case only
   ;; (see its own comment), and with --pbr off this row does not exist.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
-                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
-                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
+  ;; lighting-legacy-purge (2026-09-11) : plus AUCUNE rangee de ce tableau GELE n'est gatee par
+  ;; FLAG_PBR — tous les termes FLAG_PBR_N disparaissent. Recompte a la main sur le tableau :
+  ;; 12 rangees inconditionnelles + hud + hd + 2 physique.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N (* 2 FLAG_PHYSICS_N)))
+                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_HD_MODELS_N)
+                    (+ 4 FLAG_RECHARGED_HUD_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousell rows follow FOLIAGE WIND. All
@@ -4298,60 +4091,11 @@
     (set! (-> *recharged-options-pc* (+ fw-idx 2) name-override) *ao-quality-label*)
     (set! (-> *recharged-options-pc* (+ fw-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 3) name-override) *ao-strength-label*)
-    ;; Grecharged-realtime-lighting: wire the realtime-lighting rows (always present with --pbr, so they
-    ;; sit right after AO STRENGTH at fw-idx+4..+10, before Back). REALTIME/BAKED bind to the pc-settings
-    ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
-    ;; carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in respond-common).
-    (#when FLAG_PBR
-      ;; dead-follow-probe (2026-09-10) : la rangee ENV PROBE (ex-+5) est RETIREE. Tous les bras
-      ;; qui la suivaient RECULENT d'un cran (+6..+16 -> +5..+15) et le terme PBR de la garde de
-      ;; longueur ci-dessus passe de 10 a 9. ATTENTION : les commentaires de ce bloc citent encore
-      ;; les ANCIENS numeros de rangee (+11/+12, +13, +14, +15/+16) ; le code fait foi.
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
-      ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
-      ;; to realtime-ambient-model in respond-common).
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *ambient-model-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
-      ;; Grecharged-directional-ambient: AMBIENT CONTRAST slider bound directly to the float.
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-contrast))
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-contrast-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-quality-label*)
-      ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders (rows +11/+12, before Back).
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *texture-relief-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *specular-intensity-label*)
-      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
-      ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *displacement-label*)
-      ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
-      ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
-      ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
-      ;; not at the tail, the two rows that used to follow DISPLACEMENT move down one slot: PBR TEST
-      ;; PRESET +14 -> +15 and PBR ISOLATE +15 -> +16 (renumbered below), and the PBR term of both
-      ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
-      ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
-      ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *mesh-subdiv-label*)
-      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +15, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
-      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +16, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*)
-      ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
-      ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
-      ))
+    ;; lighting-legacy-purge (2026-09-11) : tout le bras d'eclairage de l'ancien monde
+    ;; (REALTIME LIGHTING, AMBIENT MODEL/STRENGTH/CONTRAST, SHADOW DISTANCE/QUALITY, TEXTURE
+    ;; RELIEF, SPECULAR INTENSITY, DISPLACEMENT, MESH SUBDIVISION, PBR TEST PRESET, PBR
+    ;; ISOLATE) est RETIRE de ce corps GELE avec ses rangees et ses champs pc-settings.
+    )
   ;; water-ocean-mesh : la rangee EAU RECHARGEE, AUTO-LOCALISEE par son `hint` (meme contrat que
   ;; HDR OUTPUT et PHYSICS). La ligne est publiee a CHAQUE ouverture du menu : idx<0 = rangee
   ;; absente du CGO, et personne ne peut le croire cable sans le lire.
@@ -4382,7 +4126,7 @@
   ;; it prints both resolved indices AND next-is-meshbrowser=1, i.e. positive proof that the
   ;; mesh-browser button was left untouched.
   ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
-  ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
+  ;; scratch (le motif de carrousel partage); respond-common maps it 1:1 to physics-quality.
   (#when FLAG_PHYSICS
   (let ((det-idx -1))
     (dotimes (i (-> *recharged-options-pc* length))
@@ -4422,16 +4166,19 @@
       ;; Grecharged-secondary-motion: +2 on both length constants for the two tail PHYSICS rows
       ;; (same treatment as the tail MESH BROWSER row above — they sit after everything the
       ;; collapse loop touches, so only the total-length terms change).
-      (when (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N)))
-        (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
-          (while (< i (+ 9 FLAG_RECHARGED_HUD_N FLAG_PBR_N))
+      ;; lighting-legacy-purge (2026-09-11) : plus aucune rangee FLAG_PBR dans ce tableau GELE —
+      ;; les termes FLAG_PBR_N sortent, ici comme dans la garde fw-idx ci-dessus (12 rangees
+      ;; inconditionnelles + hud + hd + 2 physique).
+      (when (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N)))
+        (let ((i (+ 4 FLAG_RECHARGED_HUD_N)))
+          (while (< i (+ 9 FLAG_RECHARGED_HUD_N))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i 1)))
             (+! i 1)))
-        (set! (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 2 FLAG_PHYSICS_N))))
+        (set! (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N (* 2 FLAG_PHYSICS_N))))
       (begin
-        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) value-to-modify)
+        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
-        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N) name-override) *enhanced-models-label*))))
+        (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) name-override) *enhanced-models-label*))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
@@ -4619,14 +4366,8 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
-                    (game-option-type shadow-quality)
                     (game-option-type grass-density)
-                    (game-option-type rt-ambient-model)
-                    (game-option-type pbr-displacement)
-                    (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
-                    (game-option-type pbr-test-preset)
-                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -4716,14 +4457,8 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
-                    (game-option-type shadow-quality)
                     (game-option-type grass-density)
-                    (game-option-type rt-ambient-model)
-                    (game-option-type pbr-displacement)
-                    (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
-                    (game-option-type pbr-test-preset)
-                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -5089,18 +4824,10 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-quality)))
                  (((game-option-type ao-strength))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
-                 (((game-option-type shadow-quality))
-                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
-                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, like shadow-quality).
+                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, meme motif de carrousel).
                  (((game-option-type grass-density)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* recharged-grass-density-preset)))
-                 (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
-                 (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
-                 ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
-                 (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* mesh-subdiv)))
-                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
+                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, meme motif de carrousel).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
-                 (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
-                 (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -5149,17 +4876,11 @@
                     (((game-option-type ambient-occlusion)) (set! (-> *progress-carousell* current-carousell) *carousell-ambient-occlusion*))
                     (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
-                    (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     ;; Ggrass-density-presets: GRASS DENSITY carousell list.
                     (((game-option-type grass-density)) (set! (-> *progress-carousell* current-carousell) *carousell-grass-density*))
-                    (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
-                    (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
-                    (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* current-carousell) *carousell-mesh-subdiv*))
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
-                    (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
-                    (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -5212,70 +4933,10 @@
                (set! (-> *pc-settings* ao-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type ao-strength))
                (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
-              (((game-option-type shadow-quality))
-               (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
-              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, like shadow-quality).
+              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, meme motif de carrousel).
               (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) (-> *progress-carousell* int-backup)))
-              (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
-              (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
-              ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
-              (((game-option-type mesh-subdiv)) (set! (-> *pc-settings* mesh-subdiv) (-> *progress-carousell* int-backup)))
-              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
+              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, meme motif de carrousel).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
-              (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
-              ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
-              ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
-              ;; row/slider reflects it and the shared commit-to-file at the end of the else-branch persists all.
-              (((game-option-type pbr-test-preset))
-               (set! (-> *pc-settings* pbr-test-preset) (-> *progress-carousell* int-backup))
-               (case (-> *pc-settings* pbr-test-preset)
-                 ((0) ;; ALL-IN
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 2.0)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.2) ;; REOPEN #6: matte showcase (rough=matte via matte_gate; low spec only on smooth/metal)
-                  (set! (-> *pc-settings* pbr-displacement) 2)
-                  (set! (-> *pc-settings* realtime-ambient-model) 2))
-                 ((1) ;; FUSED (shipped config)
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric shipped default
-                  (set! (-> *pc-settings* pbr-displacement) 1))
-                 ((2) ;; FUSED FLAT (FUSED but displacement OFF)
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric default
-                  (set! (-> *pc-settings* pbr-displacement) 0))
-                 ((3) ;; PBR ONLY
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-displacement) 1))
-                 ((4) ;; RT ONLY
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #f)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t))
-                 ((5) ;; STOCK
-                  (set! (-> *pc-settings* recharged-master?) #f)
-                  (set! (-> *pc-settings* recharged-textures?) #f)
-                  (set! (-> *pc-settings* pbr-materials?) #f)
-                  (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #f))))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -5492,14 +5153,8 @@
       (((game-option-type ambient-occlusion)) (set! lst *carousell-ambient-occlusion*) (set! idx (-> *pc-settings* ambient-occlusion)))
       (((game-option-type ao-quality)) (set! lst *carousell-ao-quality*) (set! idx (-> *pc-settings* ao-quality)))
       (((game-option-type ao-strength)) (set! lst *carousell-ao-strength*) (set! idx (-> *pc-settings* ao-strength)))
-      (((game-option-type shadow-quality)) (set! lst *carousell-shadow-quality*) (set! idx (-> *pc-settings* realtime-shadow-quality)))
       (((game-option-type grass-density)) (set! lst *carousell-grass-density*) (set! idx (-> *pc-settings* recharged-grass-density-preset)))
-      (((game-option-type rt-ambient-model)) (set! lst *carousell-rt-ambient-model*) (set! idx (-> *pc-settings* realtime-ambient-model)))
-      (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
-      (((game-option-type mesh-subdiv)) (set! lst *carousell-mesh-subdiv*) (set! idx (-> *pc-settings* mesh-subdiv)))
       (((game-option-type physics-quality)) (set! lst *carousell-physics-quality*) (set! idx (-> *pc-settings* physics-quality)))
-      (((game-option-type pbr-isolate)) (set! lst *carousell-pbr-isolate*) (set! idx (-> *pc-settings* pbr-isolate)))
-      (((game-option-type pbr-test-preset)) (set! lst *carousell-pbr-test-preset*) (set! idx (-> *pc-settings* pbr-test-preset)))
       (((game-option-type lod-bg)) (set! lst *carousell-lod-bg*) (set! idx (case (-> *pc-settings* lod-force-tfrag) ((0) 0) ((1 2) 1) (else 2))))
       (((game-option-type lod-fg)) (set! lst *carousell-lod-bg*) (set! idx (if (-> *pc-settings* ps2-lod-dist?) 1 0)))
       (((game-option-type speaker)) (set! lst *carousell-speaker*) (set! idx (case (-> *pc-settings* subtitle-speaker?) ((#t) 0) ((#f) 1) (('auto) 2) (else 0))))
@@ -5746,14 +5401,8 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
-                      (game-option-type shadow-quality)
                       (game-option-type grass-density)
-                      (game-option-type rt-ambient-model)
-                      (game-option-type pbr-displacement)
-                      (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
-                      (game-option-type pbr-test-preset)
-                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -5839,14 +5488,8 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
-                      (game-option-type shadow-quality)
                       (game-option-type grass-density)
-                      (game-option-type rt-ambient-model)
-                      (game-option-type pbr-displacement)
-                      (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
-                      (game-option-type pbr-test-preset)
-                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -6896,29 +6539,23 @@
 (def-progress-carousell *carousell-ao-strength* (pc-text-ao-weaker pc-text-ao-default pc-text-ao-stronger))
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
-(def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell, five named steps. It REUSES the
 ;; five text-ids that the shipped shadow-quality row already draws — no new string id is allocated, so
 ;; the rendering of these labels is already proven in every shipped language.
 (def-progress-carousell *carousell-grass-density* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
-(def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
 ;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
-(def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
 ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
 ;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
 ;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
 ;; and are present in every shipped COMMON.TXT — so NO new text id is allocated and no text bank is
 ;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
-(def-progress-carousell *carousell-mesh-subdiv* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
-(def-progress-carousell *carousell-pbr-test-preset* (pc-text-preset-allin pc-text-preset-fused pc-text-preset-fused-flat pc-text-preset-pbr-only pc-text-preset-rt-only pc-text-preset-stock))
 ;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell — in-menu term bisection so the
 ;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
 ;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
-(def-progress-carousell *carousell-pbr-isolate* (pc-text-pbr-iso-both pc-text-pbr-iso-nm pc-text-pbr-iso-pom pc-text-pbr-iso-neither))
 ;; Grecharged-hd-models5: the four per-character HD LOOK carousells (JAK / DAXTER / KEIRA / SAMOS).
 ;; Their OPTION strings use the PBR-ISOLATE durability mechanism, NOT the COMMON.TXT text bank:
 ;; each entry is a RESERVED tag id (#x17b0..#x17b6 + #x17bc, past the last allocated text-h.gc id #x17ac)
@@ -7419,17 +7056,8 @@
               (pc-set-recharged-textures! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 2b PBR MATERIALS (Grecharged-pbr-materials) on-off toggle. Cloned from LOAD CUSTOM ASSETS.
-       ;; Real label via *pbr-materials-label* (name-override); value bound to *pc-settings* pbr-materials?
-       ;; in init-game-options. The on-change ONLY persists (the per-frame update-to-os push in
-       ;; hud-classes-pc.gc applies pc-set-pbr! + pc-set-pbr-sun!). Row present only with --pbr.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* pbr-materials?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
+       ;; lighting-legacy-purge (2026-09-11) : PBR MATERIALS RETIREE — rattachee au chemin unique :
+       ;; le rendu PBR est desormais INCONDITIONNEL sous RECHARGED LIGHTING.
        ;; 3 ENHANCED MODELS (Grecharged-hd-models) on-off toggle. Loads jak2 detailed character models
        ;; (Jak/Daxter/Samos/Keira, jak1-look) in place of the stock low-poly meshes. Real label via
        ;; *enhanced-models-label*; value bound to *pc-settings* recharged-enhanced-models? in
@@ -7448,7 +7076,7 @@
        ;; 3b-3e Grecharged-hd-models5: the four per-character HD LOOK carousells, immediately after the
        ;; ENHANCED MODELS toggle they refine. Same FLAG_HD_MODELS gate as that row (5 HD rows total when
        ;; --hd-models is on, 0 otherwise) and they collapse with it when the enhanced FR3 set is absent
-       ;; at runtime. Carousell mirrors pbr-displacement: :name is a placeholder, the real label comes
+       ;; at runtime. Meme motif de carrousel : :name is a placeholder, the real label comes
        ;; from a name-override runtime global, there is no :on-change (respond-common backs up / writes
        ;; back the value), and the row is greyed unless its feature toggle is on — here ENHANCED MODELS,
        ;; exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
@@ -7517,12 +7145,23 @@
        ;; HDR a continue de tourner. `recharged-lighting?` est LE maitre de la refonte lumiere :
        ;; OFF = l'eclairage d'origine, ON = notre refonte, et le reste du Recharged (modeles HD,
        ;; herbe, textures, HUD) n'est PAS touche — c'est ce qui le distingue du master du projet.
-       ;; Le champ legacy `realtime-lighting?` SURVIT uniquement pour la persistance
-       ;; (lu/ecrit par pckernel.gc) : une cle presente dans un settings.ini livre et privee
-       ;; de sa clause de lecture ferait repartir tout le reste du fichier au defaut.
+       ;; lighting-legacy-purge (2026-09-11) : le champ legacy `realtime-lighting?` est SUPPRIME de
+       ;; pc-settings. Sa CLE `settings.ini` garde une clause de lecture qui la CONSOMME sans rien
+       ;; stocker (pckernel.gc) : sans elle, tout le reste du fichier repartirait au defaut.
        ;; `pc-set-rt-light!` suit desormais le maitre unique `recharged-lighting?`.
+       ;; lighting-legacy-purge (2026-09-11) : MARQUEUR STATIQUE. `rch-hdr-row-parent` reperait le
+       ;; parent de HDR OUTPUT par l'`option-type` de SHADOW QUALITY, unique et present DANS LE
+       ;; TABLEAU STATIQUE. Cette rangee est retiree, et le seul appel de `rch-hdr-row-parent` qui
+       ;; compte pour la preuve — `(pc-hdr-output-note! 2 ...)` en forme de niveau 0 — tourne AU
+       ;; CHARGEMENT DU FICHIER, avant `init-game-options`. Un repere pose au cablage
+       ;; (`name-override`) rendrait donc 0 a cet instant : verdict 7 de hdr-display-output casse
+       ;; par un acquis voisin. `:hint` est ecrit ICI, dans le tableau statique, et lu par personne
+       ;; d'autre dans le corps livre (`pc-text-hint-rtlight` #x1761 : zero autre occurrence dans
+       ;; ce fichier — c'est le hint de l'ancienne rangee REALTIME LIGHTING, que celle-ci a
+       ;; remplacee en place). Meme contrat que HDR OUTPUT, PHYSICS et EAU RECHARGEE.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-rtlight)
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-lighting?) (the-as symbol val))
@@ -7545,30 +7184,12 @@
        ;; reglage n'avait plus ni lecteur ni rangee, seulement un ecrivain. Le recensement qui
        ;; le prouve est `dead_probe_census` (kmachine.cpp), grandeur `dead_probe_sites`.
        ;; A REFAIRE DE ZERO le jour ou une grille de sondes revient et ou `u_rt_probe_on` peut
-       ;; valoir 1 ; les text-ids `pc-text-envprobe-low/-mid/-high` sont RESTES en place (la
-       ;; rangee MESH SUBDIVISION les reutilise pour afficher Off/Low/Mid/High).
-       ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
-       ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
-       ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
-       ;; Glighting-hdr : les QUATRE rangees qui suivent (AMBIENT MODEL, AMBIENT STRENGTH, SHADOW
-       ;; DISTANCE, SHADOW QUALITY) se grisaient sur `realtime-lighting?`. Cette valeur a pour defaut
-       ;; #f et vient de perdre sa SEULE ligne de menu (remplacee ci-dessus) : les livrer telles
-       ;; quelles, c'etait quatre reglages grises A VIE, sans aucun geste possible depuis le jeu pour
-       ;; les degriser — une regression que l'owner verrait. Elles se grisent DESORMAIS sur
-       ;; `recharged-lighting?`, ce que la SPEC-refonte-lumiere 6.2 dit deja : ces sous-options
-       ;; vivent SOUS « ECLAIRAGE RECHARGE ». Ni le nombre de rangees ni leur ordre ne change, donc
-       ;; aucun index fw-idx ne bouge et la garde [RCH-MENU] reste valable.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t))
-       ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
-       ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 0.5 :slider-step-size 0.05 :slider-show-decimal? #t
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
+       ;; valoir 1 ; les text-ids `pc-text-envprobe-low/-mid/-high` sont RESTES en place (ce sont
+       ;; des donnees de langue : les retirer renumeroterait un banc).
+       ;; lighting-legacy-purge (2026-09-11) : AMBIENT MODEL RETIREE — reglage de l'ancien monde,
+       ;; remplace par les items lighting-interiors et lighting-bake de la refonte.
+       ;; lighting-legacy-purge (2026-09-11) : AMBIENT STRENGTH RETIREE — reglage de l'ancien
+       ;; monde, remplace par l'item lighting-bake de la refonte.
        ;; Gmenu-census-cleanup (2026-09-02) — AMBIENT CONTRAST est RETIREE : elle ne change RIEN.
        ;; La valeur voyage correctement jusqu'au shader (background_common.cpp:3114 pousse bien
        ;; `u_rt_ambient_contrast`), et c'est precisement ce qui rendait le defaut invisible : la
@@ -7577,26 +7198,18 @@
        ;; curiosity path », ouvert par `if (u_rt_probe_on != 0)` (tfrag3.frag:532 -> :691), et
        ;; `u_rt_probe_on` vaut TOUJOURS 0 (FollowProbe.cpp:224, seul ecrivain). `pbr_fused.glsl`
        ;; et `pbr_helpers.glsl`, qui portent le chemin LIVRE, ne la mentionnent pas du tout.
-       ;; La cle `realtime-ambient-contrast` reste dans settings.ini : rien ne la lit, elle ne
-       ;; coute rien, et la rangee revient telle quelle si le bloc redevient atteignable.
-       ;; Shadow Distance slider (realtime cast-shadow range, meters)
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 20.0 :param2 200.0 :slider-step-size 10.0 :slider-show-decimal? #f
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Shadow Quality carousell (Low/Med/High = 1024/2048/4096)
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t))
+       ;; lighting-legacy-purge (2026-09-11) : la cle `realtime-ambient-contrast` n'est plus ECRITE ;
+       ;; elle garde une clause de lecture qui la CONSOMME, pour les settings.ini deja livres.
+       ;; lighting-legacy-purge (2026-09-11) : SHADOW DISTANCE et SHADOW QUALITY RETIREES —
+       ;; reglages de l'ancien monde, remplaces par l'item lighting-shadows de la refonte.
        ;; hdr-display-output (essai 3) : HDR OUTPUT — la sortie HDR vers l'ECRAN, sous-option de
        ;; RECHARGED LIGHTING (refus owner 09/09 : elle vivait dans Graphics, hors des reglages
        ;; Recharged dont elle depend). Derniere rangee du bloc eclairage, grisee comme lui. Ne
        ;; s'affiche que si l'ecran annonce un mode (pc-get-hdr-output-modes > 0) — sinon RETIREE du
        ;; tableau vivant (rch-hdr-row-hide-once!), jamais seulement grisee. Se retrouve par son
        ;; marqueur `hint` (pc-text-hint-hdr-output, affiche par rien), pas par un index ; le bloc
-       ;; PBR de la garde de longueur passe de 10 a 11 et les bras fw-idx qui suivent reculent de 1.
+       ;; lighting-legacy-purge (2026-09-11) : le bloc PBR ne compte plus que DEUX rangees,
+       ;; RECHARGED LIGHTING et HDR OUTPUT — c'est le terme `(* 2 FLAG_PBR_N)` des deux gardes.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-hdr-output)
@@ -7606,64 +7219,16 @@
               (pc-set-hdr-output! (if val 1 0))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF slider (0.0 .. 3.0; disabled unless PBR MATERIALS on).
-       ;; Multiplies the PBR normal-map strength + parallax height (1.0 = pre-slider look). Bound
-       ;; directly to the *pc-settings* pbr-texture-relief float. Gated on pbr-materials? (this tunable
-       ;; lives in the PBR material path, NOT the realtime-lighting path).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 3.0 :slider-step-size 0.25 :slider-show-decimal? #t
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Gpbr-fusion REOPEN #2: SPECULAR INTENSITY slider (0.0 .. 2.0; disabled unless PBR MATERIALS on).
-       ;; Scales the fused GGX specular. Bound directly to the *pc-settings* pbr-specular-intensity float.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 2.0 :slider-step-size 0.1 :slider-show-decimal? #t
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
-       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation; disabled unless PBR
-       ;; MATERIALS on). Carousell mirrors rt-ambient-model: no :on-change, value written via respond-common.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-displacement) :name (text-id msaa) :scale #t))
-       ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell — the
-       ;; PRE-SUBDIVISION ROUND COUNT the loader hands the hardware tessellator (0 OFF, no refinement
-       ;; at all / 1 the shipped default / 2 MID / 3 HIGH). Sits immediately after DISPLACEMENT and
-       ;; carries the SAME disable predicate, because the refinement only ever runs in the
-       ;; tessellation displacement mode — greyed exactly when DISPLACEMENT is greyed.
-       ;; APPLIES AT THE NEXT LEVEL LOAD, not immediately: the refinement runs on the LOADER thread
-       ;; while a level is unpacked, so the level already resident keeps the geometry it was built
-       ;; with until it is reloaded.
-       ;; Carousell mirrors pbr-displacement: :name is a placeholder (the real label comes from the
-       ;; *mesh-subdiv-label* name-override) and there is no :on-change — respond-common backs the
-       ;; value up into int-backup and writes it back.
-       ;; row present only with --pbr, like the DISPLACEMENT row it shadows.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t))
-       ;; Gmenu-census-cleanup (owner 2026-08-31 : « PBR test preset et PBR isolate c'est quoi ? ») :
-       ;; ces DEUX carrousels sont des OUTILS DE MISE AU POINT. Notre propre source les marquait
-       ;; « DEBUG, removable » depuis le jour de leur pose, et personne ne les avait retires — ils
-       ;; sont restes dans le menu du JOUEUR, qui a fini par demander ce que c'etait.
-       ;; Ils passent de (flag-row FLAG_PBR ...) a (flag-row FLAG_PBR_DEBUG ...) : ABSENTS du CGO
-       ;; d'un build livre, PRESENTS dans un build `--pbr --debug` quand on doit bisecter. Rien
-       ;; n'est perdu : `pbr-isolate` reste une cle de settings.ini (pckernel.gc:500 / :610), donc
-       ;; le levier survit sans rangee de menu, et `--debug` est deja dans FLAG_LIST (build.sh:89)
-       ;; donc le marqueur ogflags distingue les deux builds.
-       ;; PBR TEST PRESET : applique une CONFIGURATION entiere d'un coup (dont le preset STOCK qui
-       ;; eteint recharged-master?), c'etait ma table de bisection, jamais un reglage de joueur.
-       (flag-row FLAG_PBR_DEBUG
-       (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
-       ;; PBR ISOLATE : eteint la carte de normales ou le parallaxe pour savoir lequel des deux
-       ;; produit un artefact. Bisection de terme, pas un reglage de qualite.
-       (flag-row FLAG_PBR_DEBUG
-       (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; lighting-legacy-purge (2026-09-11) : TEXTURE RELIEF RETIREE — reglage de l'ancien monde,
+       ;; remplace par l'item pbr-per-material de la refonte.
+       ;; lighting-legacy-purge (2026-09-11) : SPECULAR INTENSITY RETIREE — reglage de l'ancien
+       ;; monde, remplace par l'item pbr-per-material de la refonte.
+       ;; lighting-legacy-purge (2026-09-11) : DISPLACEMENT RETIREE — reglage de l'ancien monde,
+       ;; supprime (le chemin TESSELLATION n'a jamais ete livre).
+       ;; lighting-legacy-purge (2026-09-11) : MESH SUBDIVISION RETIREE — reglage de l'ancien monde,
+       ;; supprime (le chemin TESSELLATION n'a jamais ete livre).
+       ;; lighting-legacy-purge (2026-09-11) : PBR TEST PRESET et PBR ISOLATE RETIREES — outils de
+       ;; bisection de l'ancien monde, ils n'ont plus d'objet apres la refonte.
        ;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : EAU RECHARGEE. Rangee AUTO-LOCALISEE
        ;; par son marqueur `hint`, jamais par un index : c'est le contrat des rangees HDR OUTPUT et
        ;; PHYSICS, et c'est ce qui la rend immune aux renumerotations du bloc PBR.
@@ -7674,29 +7239,8 @@
               (set! (-> *pc-settings* recharged-water?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; Grecharged-materials-modern-parity: MODERN MATERIALS on-off toggle. Master for the modern
-       ;; material stack (subsurface scattering, clearcoat, anisotropy, energy compensation, ORM
-       ;; packing) layered on top of the accepted PBR path. Default OFF => the shading stays
-       ;; bit-identical to the accepted PBR path. Real label via *modern-materials-label*
-       ;; (name-override); the row is SELF-LOCATED in init-game-options by its unique marker
-       ;; :hint (text-id pc-text-hint-render) — the RETIRED "RENDU" category hint: referenced by
-       ;; NOTHING else in the whole tree (the Recharged/Rendering category no longer exists), so it
-       ;; is a unique, side-effect-free marker, and a field nothing in the shipping menu reads. Any
-       ;; future insertion leaves the wiring correct and a miss fails LOUDLY. Do NOT give it a
-       ;; distinctive :name instead: row names are dispatched on elsewhere in the progress code
-       ;; (the autosave relabel+lock). NOT pc-text-hint-pbr: build-graphics-unified! stamps that one
-       ;; onto the shared PBR MATERIALS row object, which would make the marker ambiguous the day
-       ;; FLAG_MENU_OVERHAUL is turned on.
-       ;; :on-change ONLY persists — hud-classes-pc.gc pushes pc-set-modern-materials! every frame.
-       ;; Row present only with --pbr, like PBR MATERIALS itself.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :hint (text-id pc-text-hint-render)
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* modern-materials?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none))))
+       ;; lighting-legacy-purge (2026-09-11) : MODERN MATERIALS RETIREE — reglage de l'ancien monde,
+       ;; remplace par l'item lighting-materials de la refonte.
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -8002,26 +7546,6 @@
 ;; shown via name-override like every other recharged row.
 (define *managed-assets-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *managed-assets-label*) "Downloaded Textures")
-;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
-;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
-(#when FLAG_PBR
-(define *pbr-materials-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *pbr-materials-label*) "PBR Materials"))
-;; Gmenu-census-cleanup (owner 2026-08-31 : « Modern Materials c'est quoi ? »). « MODERN » ne
-;; disait rien : moderne par rapport a quoi ? La rangee est l'ETAGE SUPERIEUR de PBR MATERIALS —
-;; elle est grisee quand PBR MATERIALS est eteinte, et elle ajoute par-dessus lui la diffusion de
-;; la lumiere sous la peau et les feuilles, le vernis brillant, les reflets etires du bois et de
-;; la paille, plus une correction d'energie. D'ou « ADVANCED MATERIALS » : le meme sujet que la
-;; rangee dont elle depend, un cran plus loin, ce que sa position et son grisage disent deja.
-;; Ce n'est PAS un doublon de PBR MATERIALS et ca ne se fond pas dedans : c'est un etage OPTIONNEL,
-;; par defaut ETEINT, avec un cout GPU propre, et l'A/B du 2026-09-02 le mesure des deux cotes
-;; (0 matiere / 0 draw marque contre 27 matieres / 29 903 draws marques a scene identique).
-;; Longueur : « ADVANCED MATERIALS » = 18 caracteres, sous le plus long libelle deja livre
-;; (« DYNAMIC RENDER SCALE », 20). Le tampon reste dimensionne 32.
-;; Uppercase ASCII : la police du menu jak1 n'a pas de minuscules. Present only with --pbr.
-(#when FLAG_PBR
-(define *modern-materials-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *modern-materials-label*) "Advanced Materials"))
 ;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
 ;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
 (#when FLAG_PBR
@@ -8039,61 +7563,35 @@
 ;; hdr-display-output : libelle de la rangee HDR OUTPUT (name-override sur un text-id valide).
 (define *hdr-output-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *hdr-output-label*) "HDR Output")
-(define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
-;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
-;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
-;; convention => no unknown-ID garbage).
-(format (clear *hemisphere-ambient-label*) "BAKED AMBIENT")
-(define *ambient-strength-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *ambient-strength-label*) "Ambient Strength")
+;; lighting-legacy-purge (2026-09-11) : *hemisphere-ambient-label* (« BAKED AMBIENT ») est
+;; SUPPRIME. C'etait le libelle de la curiosite de projection de sonde de l'ancien monde ; il
+;; ne portait plus AUCUNE rangee (aucun name-override ne le lisait) et occupait une chaine de
+;; 64 octets dans le CGO. Sa rangee avait disparu avant lui.
 ;; Gmenu-census-cleanup : le libelle AMBIENT CONTRAST est SUPPRIME avec sa rangee (morte : ses
 ;; 4 lectures shader vivent dans un bloc que `u_rt_probe_on == 0` rend inatteignable). Le
 ;; supprimer, au lieu de le laisser orphelin, est ce qui rend le retrait verifiable sur
 ;; l'ARTEFACT : `strings GAME.CGO | grep "AMBIENT CONTRAST"` doit rendre ZERO.
-(define *shadow-distance-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *shadow-distance-label*) "Shadow Distance")
-(define *shadow-quality-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *shadow-quality-label*) "Shadow Quality")
-;; Gpbr-fusion REOPEN #2: PBR TEXTURE RELIEF + SPECULAR INTENSITY slider labels.
-(define *texture-relief-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *texture-relief-label*) "Texture Relief")
-(define *specular-intensity-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *specular-intensity-label*) "Specular Intensity")
-;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
-(define *displacement-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *displacement-label*) "Displacement")
-;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell row label (name-override, runtime
-;; global — no text-id, so nothing to add to a text bank). English-only uppercase ASCII, like the
-;; DISPLACEMENT label it sits under.
-(define *mesh-subdiv-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *mesh-subdiv-label*) "Mesh Subdivision")
+;; lighting-legacy-purge (2026-09-11) : les libelles SHADOW DISTANCE, SHADOW QUALITY, TEXTURE
+;; RELIEF, SPECULAR INTENSITY, DISPLACEMENT, MESH SUBDIVISION, AMBIENT STRENGTH, AMBIENT MODEL,
+;; PBR MATERIALS et ADVANCED MATERIALS sont SUPPRIMES avec leurs rangees. Comme pour AMBIENT
+;; CONTRAST plus haut, les supprimer (au lieu de les laisser orphelins) est ce qui rend le retrait
+;; verifiable sur l'ARTEFACT : `strings GAME.CGO | grep "Shadow Quality"` doit rendre ZERO.
 ;; Gmenu-census-cleanup : le libelle ENV PROBE est SUPPRIME avec sa rangee (morte : le seul
 ;; ecrivain de `u_rt_probe_on` ecrit 0). Meme raison qu'AMBIENT CONTRAST — le retrait se prouve
 ;; sur l'artefact. Les libelles d'OPTIONS `pc-text-envprobe-low/-mid/-high` RESTENT : la rangee
 ;; MESH SUBDIVISION les reutilise tels quels pour afficher Off/Low/Mid/High.
-;; Gmenu-census-cleanup : les libelles des DEUX outils de mise au point PBR suivent leurs rangees
-;; sous FLAG_PBR_DEBUG. Ce n'est pas cosmetique, c'est ce qui rend le retrait PROUVABLE SUR
-;; L'ARTEFACT plutot que sur une course : dans un CGO livre `strings GAME.CGO | grep "PBR TEST
-;; PRESET"` doit rendre ZERO, et rendre 1 dans un CGO `--pbr --debug`. Un libelle laisse dans le
-;; binaire aurait fait passer le grep quoi qu'il arrive — le controle par ABSENCE aurait ete muet.
-;; Les libelles d'OPTIONS du carrousel (*pbr-iso-both-label* etc.) restent inconditionnels : le
-;; resolveur partage carousell-option-string les cite dans toutes les configurations.
-(#when FLAG_PBR_DEBUG
-(define *pbr-test-preset-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
-(define *pbr-isolate-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *pbr-isolate-label*) "PBR ISOLATE"))
-(define *ambient-model-label* (new 'global 'string 128 (the-as string #f)))
+;; lighting-legacy-purge (2026-09-11) : les libelles PBR TEST PRESET et PBR ISOLATE sont
+;; SUPPRIMES avec leurs rangees de mise au point.
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
 ;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
-(format (clear *ambient-model-label*) "Ambient Model"))
+)
 ;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
 ;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
 ;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
 ;; four options ALWAYS render as real labels (BOTH / NORMAL-MAP ONLY / PARALLAX ONLY / NEITHER) even
 ;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
-;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only, matching *pbr-isolate-label*. Defined
+;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only. Defined
 ;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
 (define *pbr-iso-both-label* (new 'global 'string 128 (the-as string #f)))
 (define *pbr-iso-nm-label* (new 'global 'string 128 (the-as string #f)))
@@ -8272,7 +7770,6 @@
     (scl10n-add-label! #x17c0 *grass-settings-label*)
     (scl10n-add-label! #x17c1 *load-custom-assets-label*)
     (scl10n-add-label! #x17c2 *recharged-textures-label*)
-    (#when FLAG_PBR (scl10n-add-label! #x17c4 *pbr-materials-label*))
     (#when FLAG_HD_MODELS
       (scl10n-add-label! #x17c5 *enhanced-models-label*)
       (scl10n-add-label! #x17c6 *hd-look-jak-label*)
@@ -8285,15 +7782,10 @@
     (scl10n-add-label! #x1713 *ao-strength-label*)
     (#when FLAG_PBR
       (scl10n-add-label! #x17cb *recharged-lighting-label*)
-      (scl10n-add-label! #x17cc *ambient-model-label*)
-      (scl10n-add-label! #x17cd *ambient-strength-label*)
-      (scl10n-add-label! #x17ce *shadow-distance-label*)
-      (scl10n-add-label! #x17cf *shadow-quality-label*)
-      (scl10n-add-label! #x17d0 *texture-relief-label*)
-      (scl10n-add-label! #x17d1 *specular-intensity-label*)
-      (scl10n-add-label! #x17d2 *displacement-label*)
-      (scl10n-add-label! #x17d3 *mesh-subdiv-label*)
-      (scl10n-add-label! #x17d4 *modern-materials-label*))
+      ;; lighting-legacy-purge (2026-09-11) : les enregistrements l10n des rangees retirees partent
+      ;; avec leurs libelles. Les text-ids #x17c4 et #x17cc..#x17d4 restent LIBRES dans le banc :
+      ;; ce sont des donnees de langue, les retirer renumeroterait un banc.
+      )
     ;; water-ocean-mesh : rangee INCONDITIONNELLE (le drapeau eau ne depend d'aucun FLAG_*), donc
     ;; son enregistrement l10n vit HORS du (#when FLAG_PBR ...) ci-dessus. Id #x17e5 : #x17db etait
     ;; pris (GRASS OVERHANG) et #x17dc..#x17e3 sont reserves (framerate-uncap).
@@ -8512,23 +8004,27 @@
     idx))
 (defun rch-hdr-row-parent ()
   "1 si la rangee HDR OUTPUT est dans *recharged-options-pc* IMMEDIATEMENT apres la rangee
-   SHADOW QUALITY (seule de son option-type : la fin du bloc RECHARGED LIGHTING) et dans AUCUN
-   tableau graphique ; 0 sinon. Lu sur les tableaux tels qu'ils sont, jamais suppose."
+   RECHARGED LIGHTING et dans AUCUN tableau graphique ; 0 sinon. Lu sur les tableaux tels
+   qu'ils sont, jamais suppose.
+   lighting-legacy-purge (2026-09-11) : le repere etait l'option-type de la rangee SHADOW QUALITY,
+   unique et STATIQUE. Elle est retiree ; le parent est desormais RECHARGED LIGHTING, retrouvee par
+   son `:hint` pc-text-hint-rtlight — ecrit dans le TABLEAU STATIQUE, donc lisible par l'appel de
+   niveau 0 qui tourne AVANT init-game-options. Un repere pose au cablage rendrait 0 a cet instant."
   (let ((h (rch-hdr-row-index))
-        (sq -1)
+        (rl -1)
         (in-gfx 0))
     (dotimes (i (-> *recharged-options-pc* length))
-      (when (and (< sq 0)
-                 (= (the int (-> *recharged-options-pc* i option-type))
-                    (the int (game-option-type shadow-quality))))
-        (set! sq i)))
+      (when (and (< rl 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-rtlight))))
+        (set! rl i)))
     (dotimes (i (-> *graphic-options-pc* length))
       (when (= (the int (-> *graphic-options-pc* i hint)) (the int (text-id pc-text-hint-hdr-output)))
         (set! in-gfx 1)))
     (dotimes (i (-> *graphic-options-pc-android* length))
       (when (= (the int (-> *graphic-options-pc-android* i hint)) (the int (text-id pc-text-hint-hdr-output)))
         (set! in-gfx 1)))
-    (if (and (>= h 0) (>= sq 0) (= h (+ sq 1)) (zero? in-gfx)) 1 0)))
+    (if (and (>= h 0) (>= rl 0) (= h (+ rl 1)) (zero? in-gfx)) 1 0)))
 (defun rch-hdr-row-hide-once! ()
   "Retire la rangee HDR OUTPUT du tableau vivant si l'ecran n'annonce aucun mode. Idempotent."
   (when (and (not *rch-hdr-row-hidden?*) (= (pc-get-hdr-output-modes) 0))
@@ -10921,14 +10417,9 @@
     (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
     (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*)
     (set! (-> *recharged-options-pc* mp-idx gating-id) "managed-assets"))
-  ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 4 hud-N), +1 for the
-  ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
-  ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
-  ;; (0 when --pbr is off).
-  (#when FLAG_PBR
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*)
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) gating-id) "pbr"))
+  ;; lighting-legacy-purge (2026-09-11) : la rangee PBR MATERIALS est RETIREE du tableau, donc son
+  ;; bras de cablage aussi. Le terme `FLAG_PBR_N` isole qui decalait toute la suite disparait avec
+  ;; elle : le rendu PBR est INCONDITIONNEL sous RECHARGED LIGHTING.
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle (+1 for the master row throughout). It sits
   ;; at index 5 while the ENHANCED MODELS row is present (static length 10) and at index 4 after that
   ;; row collapsed (length 9) — wire by live length so re-inits stay correct in both states. Must run
@@ -10978,9 +10469,10 @@
   ;; `*rch-hdr-row-hidden?*` retranche alors 1 a la longueur pleine attendue. Sans ce terme, un
   ;; tableau plein prive de sa rangee HDR se lirait comme « collapse » et le cablage partirait cinq
   ;; crans trop tot — la classe de bug Gmenu-flag-off.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 11 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
-                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
-                    (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
+  ;; lighting-legacy-purge (2026-09-11) : le bloc PBR passe de 11 a 2 rangees (RECHARGED LIGHTING + HDR OUTPUT), PBR MATERIALS et les deux rangees de debug sortent du tableau. Longueur livree = 22, fw-idx = 9.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+                    (+ 4 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N))
+                    (+ 4 FLAG_RECHARGED_HUD_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     (set! (-> *recharged-options-pc* fw-idx gating-id) "foliage-wind")
@@ -11007,78 +10499,29 @@
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* recharged-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *recharged-lighting-label*)
       (set! (-> *recharged-options-pc* (+ fw-idx 4) gating-id) "lighting")
-      ;; Gmenu-census-cleanup (2026-09-02) : ENV PROBE (ex-+5) et AMBIENT CONTRAST (ex-+8) sont
-      ;; RETIREES du tableau — elles ne changeaient RIEN a l'ecran (voir leurs pierres tombales
-      ;; dans le tableau plus haut). Tous les bras qui les suivaient RECULENT donc de deux crans
-      ;; au total, et le terme PBR des deux gardes de longueur passe de 12 a 10. La garde
-      ;; d'alignement [RCH-MENU] plus bas verifie que chaque carrousel retombe bien sur SON
-      ;; option-type : c'est le controle qui manquait aux renumerotations precedentes.
-      ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
-      ;; to realtime-ambient-model in respond-common).
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *ambient-model-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) gating-id) "rt-ambient-model")
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) gating-id) "rt-ambient-strength")
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) gating-id) "rt-shadow-dist")
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-quality-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) gating-id) "rt-shadow-res")
-      ;; hdr-display-output essai 3 : fw-idx+9 est la rangee HDR OUTPUT (cablee plus bas par son
-      ;; marqueur `hint`, jamais par cet index) ; tout ce qui suit recule d'un cran.
-      ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders.
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *texture-relief-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) gating-id) "pbr-relief")
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *specular-intensity-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) gating-id) "pbr-specular")
-      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
-      ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *displacement-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) gating-id) "pbr-displacement")
-      ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
-      ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
-      ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
-      ;; not at the tail, the two rows that used to follow DISPLACEMENT move down one slot: PBR TEST
-      ;; PRESET +14 -> +15 and PBR ISOLATE +15 -> +16 (renumbered below), and the PBR term of both
-      ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
-      ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
-      ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *mesh-subdiv-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) gating-id) "mesh-subdiv")
-      ;; Gmenu-census-cleanup : les deux bras des outils de mise au point PBR sont desormais sous
-      ;; FLAG_PBR_DEBUG, EXACTEMENT comme leurs rangees. Il le FAUT : sans ce gate, dans un build
-      ;; livre ou les deux rangees sont absentes, fw-idx+15 et fw-idx+16 designent MODERN MATERIALS
-      ;; et CRISP TITLE LOGO — on peindrait « PBR TEST PRESET » sur une autre ligne et on
-      ;; repointerait sa valeur. C'est la classe de bug Gmenu-flag-off, en pire.
-      (#when FLAG_PBR_DEBUG
-        (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-        (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
-        (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-        (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*))
+      ;; lighting-legacy-purge (2026-09-11) : les bras +5..+8 (AMBIENT MODEL, AMBIENT STRENGTH,
+      ;; SHADOW DISTANCE, SHADOW QUALITY), +10..+13 (TEXTURE RELIEF, SPECULAR INTENSITY,
+      ;; DISPLACEMENT, MESH SUBDIVISION) et le bloc FLAG_PBR_DEBUG (+14/+15) sont RETIRES avec
+      ;; leurs rangees. Le bloc PBR ne porte plus que RECHARGED LIGHTING (+4) et HDR OUTPUT,
+      ;; cette derniere restant AUTO-LOCALISEE par son marqueur `hint` et jamais par un index.
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ;; Gmenu-census-cleanup : GARDE D'ALIGNEMENT. Les bras ci-dessus sont des decalages FIXES
       ;; depuis fw-idx, et un decalage perime est la classe de bug Gmenu-flag-off : le libelle
-      ;; d'une rangee se peint alors sur une AUTRE et repointe sa valeur, en silence. Quatre des
-      ;; rangees de ce bloc ont un option-type UNIQUE dans tout le tableau ; on verifie qu'elles
-      ;; tombent bien la ou on vient d'ecrire. La ligne est publiee a CHAQUE ouverture du menu,
-      ;; donc n'importe quelle trace de course la contient : mis=0 ou le cablage est faux.
+      ;; d'une rangee se peint alors sur une AUTRE et repointe sa valeur, en silence.
+      ;; lighting-legacy-purge (2026-09-11) : les quatre temoins visaient des rangees qui viennent
+      ;; d'etre RETIREES. La garde est RECIBLEE sur les TROIS option-type qui restent uniques dans
+      ;; tout le tableau a des decalages connus — ambient-occlusion (+1), ao-quality (+2),
+      ;; ao-strength (+3). Le format de sortie ne change pas : c'est une grandeur lue par la preuve.
+      ;; La ligne est publiee a CHAQUE ouverture du menu, donc n'importe quelle trace de course la
+      ;; contient : mis=0 ou le cablage est faux.
       (let ((mis 0))
-        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 5) option-type))
-                  (the int (game-option-type rt-ambient-model))) (+! mis 1))
-        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 8) option-type))
-                  (the int (game-option-type shadow-quality))) (+! mis 1))
-        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 12) option-type))
-                  (the int (game-option-type pbr-displacement))) (+! mis 1))
-        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 13) option-type))
-                  (the int (game-option-type mesh-subdiv))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 1) option-type))
+                  (the int (game-option-type ambient-occlusion))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 2) option-type))
+                  (the int (game-option-type ao-quality))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 3) option-type))
+                  (the int (game-option-type ao-strength))) (+! mis 1))
         (format 0 "[RCH-MENU] pbr rows aligned: mis=~D fw=~D len=~D~%"
                 mis fw-idx (-> *recharged-options-pc* length)))
       ;; hdr-display-output essai 3 : la rangee HDR OUTPUT, AUTO-LOCALISEE par son marqueur `hint`
@@ -11095,7 +10538,12 @@
            (set! (-> *recharged-options-pc* h value-to-modify) (&-> *pc-settings* hdr-output?))
            (set! (-> *recharged-options-pc* h name-override) *hdr-output-label*)
             (set! (-> *recharged-options-pc* h gating-id) "hdr-output")
-           (format 0 "[HDROUT-MENU] row wired: idx=~D after-shadow-quality=~D len=~D (self-located)~%"
+           ;; lighting-legacy-purge (2026-09-11) : la cle s'appelait `after-shadow-quality` ; la rangee
+           ;; SHADOW QUALITY n'existe plus et le parent est RECHARGED LIGHTING. La SEMANTIQUE est
+           ;; inchangee (1 = HDR OUTPUT suit immediatement son parent), seul le nom cessait d'etre
+           ;; vrai : il devient `after-parent`. Le marqueur `[HDROUT-MENU]`, lui, ne bouge pas — c'est
+           ;; lui que les scripts de livraison cherchent dans le pack GAME.CGO.
+           (format 0 "[HDROUT-MENU] row wired: idx=~D after-parent=~D len=~D (self-located)~%"
                    h (rch-hdr-row-parent) (-> *recharged-options-pc* length)))))
       (rch-hdr-row-hide-once!)
       (pc-hdr-output-note! 0 (if *rch-hdr-row-hidden?* 0 1))
@@ -11169,7 +10617,7 @@
   ;; Grecharged-hd-models5: the HD block is FIVE rows now (ENHANCED MODELS + the four LOOK carousells),
   ;; so the collapse removes 5 slots instead of 1 and the wiring arm binds all five. hd-idx = the first
   ;; HD row; the four LOOK rows are hd-idx+1..+4 and each points value-to-modify at the shared
-  ;; *progress-carousell* int-backup scratch (the pbr-displacement carousell pattern) — respond-common
+  ;; *progress-carousell* int-backup scratch (le motif de carrousel partage) — respond-common
   ;; maps them 1:1 to the *pc-settings* hd-look-* ints.
   (#when FLAG_HD_MODELS
   (if (zero? (pc-enhanced-models-available?))
@@ -11190,14 +10638,17 @@
       ;; reason: a stale 13 here would silently disable the HD-collapse).
       ;; Gfixed-tick-interpolation: 12 -> 13, MEME terme et MEME raison que la garde fw-idx
       ;; ci-dessus (un 13 perime ici desactiverait silencieusement le collapse HD).
+      ;; lighting-legacy-purge : ce terme portait 10 la ou la garde fw-idx portait 11, et il lui
+      ;; manquait le terme HDR : il calculait 31 pour une longueur reelle de 32. Les deux gardes
+      ;; portent DESORMAIS le meme terme.
       (when (= (-> *recharged-options-pc* length)
-               (+ 14 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 10 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N))
-        (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+               (+ 14 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+        (let ((i (+ 4 FLAG_RECHARGED_HUD_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
             (+! i 1)))
         (+! (-> *recharged-options-pc* length) (* -5 FLAG_HD_MODELS_N)))
-      (let ((hd-idx (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
+      (let ((hd-idx (+ 4 FLAG_RECHARGED_HUD_N)))
         (set! (-> *recharged-options-pc* hd-idx value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
         (set! (-> *recharged-options-pc* hd-idx name-override) *enhanced-models-label*)
@@ -11262,33 +10713,8 @@
        (set! (-> *recharged-options-pc* ft-idx name-override) *fixed-tick-label*)
        (format 0 "[FIXEDTICK-MENU] row wired: idx=~D len=~D (self-located)~%"
                ft-idx (-> *recharged-options-pc* length)))))
-  ;; Grecharged-materials-modern-parity: wire MODERN MATERIALS. SELF-LOCATING by its unique marker
-  ;; :hint (text-id pc-text-hint-render) — the retired "RENDU" category hint, referenced by NOTHING
-  ;; else in the tree, and `hint` is read by nothing in the shipping menu. Same contract as CRISP
-  ;; TITLE LOGO above: any future row insertion anywhere leaves this correct, and a miss fails
-  ;; LOUDLY ([MM-MENU] ROW NOT FOUND) instead of silently painting the label onto another row (the
-  ;; Gmenu-flag-off bug class). NO index arithmetic. Guarded by FLAG_PBR because the row itself is
-  ;; a (flag-row FLAG_PBR ...) — without --pbr the row does not exist and the scan would cry wolf.
-  ;; Runs after the HD-models collapse, like CRISP TITLE LOGO, so it sees the FINAL live array.
-  (#when FLAG_PBR
-  (let ((mm-idx -1))
-    (dotimes (i (-> *recharged-options-pc* length))
-      (when (and (< mm-idx 0)
-                 (= (the int (-> *recharged-options-pc* i hint))
-                    (the int (text-id pc-text-hint-render)))
-                 (= (the int (-> *recharged-options-pc* i option-type))
-                    (the int (game-option-type on-off))))
-        (set! mm-idx i)))
-    (cond
-      ((< mm-idx 0)
-       (format 0 "[MM-MENU] ROW NOT FOUND: MODERN MATERIALS row absent (len=~D) — row left UNWIRED~%"
-               (-> *recharged-options-pc* length)))
-      (else
-       (set! (-> *recharged-options-pc* mm-idx value-to-modify) (&-> *pc-settings* modern-materials?))
-       (set! (-> *recharged-options-pc* mm-idx name-override) *modern-materials-label*)
-        (set! (-> *recharged-options-pc* mm-idx gating-id) "modern-materials")
-       (format 0 "[MM-MENU] row wired: idx=~D len=~D (self-located)~%"
-               mm-idx (-> *recharged-options-pc* length))))))
+  ;; lighting-legacy-purge (2026-09-11) : MODERN MATERIALS est RETIREE du tableau ; son bloc
+  ;; d'auto-localisation part avec elle (il crierait [MM-MENU] ROW NOT FOUND a chaque init).
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
@@ -11465,18 +10891,12 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
-                    (game-option-type shadow-quality)
                     (game-option-type grass-density)
-                    (game-option-type rt-ambient-model)
-                    (game-option-type pbr-displacement)
-                    (game-option-type mesh-subdiv)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
                     (game-option-type physics-quality)
-                    (game-option-type pbr-test-preset)
-                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -11566,18 +10986,12 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
-                    (game-option-type shadow-quality)
                     (game-option-type grass-density)
-                    (game-option-type rt-ambient-model)
-                    (game-option-type pbr-displacement)
-                    (game-option-type mesh-subdiv)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
                     (game-option-type physics-quality)
-                    (game-option-type pbr-test-preset)
-                    (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
                     (game-option-type lod-fg)
                     (game-option-type speaker)
@@ -11910,23 +11324,15 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-quality)))
                  (((game-option-type ao-strength))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
-                 (((game-option-type shadow-quality))
-                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
-                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, like shadow-quality).
+                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, meme motif de carrousel).
                  (((game-option-type grass-density)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* recharged-grass-density-preset)))
-                 (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
-                 (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
-                 ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
-                 (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* mesh-subdiv)))
-                 ;; Grecharged-hd-models5: per-character HD LOOK backups (1:1, like pbr-displacement).
+                 ;; Grecharged-hd-models5: per-character HD LOOK backups (1:1, meme motif de carrousel).
                  (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-jak)))
                  (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-daxter)))
                  (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-keira)))
                  (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-samos)))
-                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
+                 ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, meme motif de carrousel).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
-                 (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
-                 (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
                   (case (-> *pc-settings* lod-force-tfrag)
                     ((0) (set! (-> *progress-carousell* int-backup) 0))
@@ -11976,13 +11382,9 @@
                     (((game-option-type ambient-occlusion)) (set! (-> *progress-carousell* current-carousell) *carousell-ambient-occlusion*))
                     (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
-                    (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
                     ;; Ggrass-density-presets: GRASS DENSITY carousell list.
                     (((game-option-type grass-density)) (set! (-> *progress-carousell* current-carousell) *carousell-grass-density*))
-                    (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
-                    (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
-                    (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* current-carousell) *carousell-mesh-subdiv*))
                     ;; Grecharged-hd-models5: per-character HD LOOK carousell lists.
                     (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-jak*))
                     (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-daxter*))
@@ -11990,8 +11392,6 @@
                     (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-samos*))
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
-                    (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
-                    (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type lod-fg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
                     (((game-option-type speaker)) (set! (-> *progress-carousell* current-carousell) *carousell-speaker*))
@@ -12044,75 +11444,15 @@
                (set! (-> *pc-settings* ao-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type ao-strength))
                (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
-              (((game-option-type shadow-quality))
-               (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
-              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, like shadow-quality).
+              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, meme motif de carrousel).
               (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) (-> *progress-carousell* int-backup)))
-              (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
-              (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
-              ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
-              (((game-option-type mesh-subdiv)) (set! (-> *pc-settings* mesh-subdiv) (-> *progress-carousell* int-backup)))
-              ;; Grecharged-hd-models5: per-character HD LOOK write-backs (1:1, like pbr-displacement).
+              ;; Grecharged-hd-models5: per-character HD LOOK write-backs (1:1, meme motif de carrousel).
               (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-keira)) (set! (-> *pc-settings* hd-look-keira) (-> *progress-carousell* int-backup)))
               (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) (-> *progress-carousell* int-backup)))
-              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
+              ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, meme motif de carrousel).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
-              (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
-              ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
-              ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
-              ;; row/slider reflects it and the shared commit-to-file at the end of the else-branch persists all.
-              (((game-option-type pbr-test-preset))
-               (set! (-> *pc-settings* pbr-test-preset) (-> *progress-carousell* int-backup))
-               (case (-> *pc-settings* pbr-test-preset)
-                 ((0) ;; ALL-IN
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 2.0)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.2) ;; REOPEN #6: matte showcase (rough=matte via matte_gate; low spec only on smooth/metal)
-                  (set! (-> *pc-settings* pbr-displacement) 2)
-                  (set! (-> *pc-settings* realtime-ambient-model) 2))
-                 ((1) ;; FUSED (shipped config)
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric shipped default
-                  (set! (-> *pc-settings* pbr-displacement) 1))
-                 ((2) ;; FUSED FLAT (FUSED but displacement OFF)
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-texture-relief) 1.5)
-                  (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric default
-                  (set! (-> *pc-settings* pbr-displacement) 0))
-                 ((3) ;; PBR ONLY
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #t)
-                  (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-displacement) 1))
-                 ((4) ;; RT ONLY
-                  (set! (-> *pc-settings* recharged-master?) #t)
-                  (set! (-> *pc-settings* recharged-textures?) #t)
-                  (set! (-> *pc-settings* pbr-materials?) #f)
-                  (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t))
-                 ((5) ;; STOCK
-                  (set! (-> *pc-settings* recharged-master?) #f)
-                  (set! (-> *pc-settings* recharged-textures?) #f)
-                  (set! (-> *pc-settings* pbr-materials?) #f)
-                  (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #f))))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -12524,18 +11864,12 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
-                      (game-option-type shadow-quality)
                       (game-option-type grass-density)
-                      (game-option-type rt-ambient-model)
-                      (game-option-type pbr-displacement)
-                      (game-option-type mesh-subdiv)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
                       (game-option-type physics-quality)
-                      (game-option-type pbr-test-preset)
-                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -12621,18 +11955,12 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
-                      (game-option-type shadow-quality)
                       (game-option-type grass-density)
-                      (game-option-type rt-ambient-model)
-                      (game-option-type pbr-displacement)
-                      (game-option-type mesh-subdiv)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
                       (game-option-type physics-quality)
-                      (game-option-type pbr-test-preset)
-                      (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
                       (game-option-type lod-fg)
                       (game-option-type speaker)
@@ -13204,11 +12532,7 @@
       (scl10n-scan-carousell! *carousell-ambient-occlusion*)
       (scl10n-scan-carousell! *carousell-ao-quality*)
       (scl10n-scan-carousell! *carousell-ao-strength*)
-      (scl10n-scan-carousell! *carousell-shadow-quality*)
       (scl10n-scan-carousell! *carousell-grass-density*)
-      (scl10n-scan-carousell! *carousell-rt-ambient-model*)
-      (scl10n-scan-carousell! *carousell-pbr-displacement*)
-      (scl10n-scan-carousell! *carousell-mesh-subdiv*)
       (#when FLAG_HD_MODELS
         (scl10n-scan-carousell! *carousell-hd-look-jak*)
         (scl10n-scan-carousell! *carousell-hd-look-daxter*)

@@ -1797,13 +1797,10 @@
   (pc-set-managed-assets! (if (-> obj managed-assets?) 1 0))
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))
   (#when FLAG_GRASS_OVERHANG (pc-set-grass-overhang! (if (-> obj recharged-grass-overhang?) 1 0)))
-  ;; Grecharged-pbr-materials: push the PBR toggle + the current sun/shadow lighting every frame.
+  ;; Grecharged-pbr-materials / lighting-legacy-purge : le rendu PBR est INCONDITIONNEL sous
+  ;; RECHARGED LIGHTING — il n'y a plus d'interrupteur PBR ni de pile MODERN MATERIALS a pousser.
+  ;; Ne restent que le soleil, les lumieres et le maitre de la refonte.
   (#when FLAG_PBR
-    (pc-set-pbr! (if (-> obj pbr-materials?) 1 0))
-    ;; Grecharged-materials-modern-parity: push the MODERN MATERIALS master every frame, right
-    ;; next to the PBR master it layers on (same int-FFI 0/1 convention). C++ ANDs it with the
-    ;; Recharged master; a flip also re-reads the surface table surfaces.json.
-    (pc-set-modern-materials! (if (-> obj modern-materials?) 1 0))
     (pc-set-pbr-sun! (-> *time-of-day-context* current-shadow)
                      (-> *time-of-day-context* current-sun sun-color)
                      (-> *time-of-day-context* current-sun env-color))
@@ -1821,39 +1818,13 @@
     ;; Glighting-hdr: recharged-lighting? is the sole lighting master, including the RT
     ;; composite. Push it and the baked sub-option every frame. The sun direction already
     ;; reaches the renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
-    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))
-    (pc-set-rt-ambient! (if (-> obj realtime-ambient?) 1 0))
-    ;; Grecharged-directional-ambient: send strength (0..0.5 float) as an int PERCENT 0..50 (int-FFI).
-    (pc-set-rt-ambient-strength! (the int (* 100.0 (-> obj realtime-ambient-strength))))
-    ;; Grecharged-directional-ambient: send contrast (0..1.5 float) as an int PERCENT 0..150 (int-FFI).
-    (pc-set-rt-ambient-contrast! (the int (* 100.0 (-> obj realtime-ambient-contrast))))
-    ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF (0..3 float) as int PERCENT 0..300; SPECULAR INTENSITY (0..2) as 0..200.
-    (pc-set-pbr-texture-relief! (the int (* 100.0 (-> obj pbr-texture-relief))))
-    (pc-set-pbr-specular-intensity! (the int (* 100.0 (-> obj pbr-specular-intensity))))
-    ;; Gpbr-fusion REOPEN #3: DISPLACEMENT mode as a raw int index (0 OFF / 1 PARALLAX / 2 TESSELLATION).
-    (pc-set-pbr-displacement! (the int (-> obj pbr-displacement)))
-    ;; Gpbr-fusion REOPEN #10: PBR ISOLATE carousell as a raw int index (0 BOTH / 1 NORMAL-MAP ONLY / 2 PARALLAX ONLY / 3 NEITHER); C++ maps it to the u_pbr_bisect mask.
-    (pc-set-pbr-isolate! (the int (-> obj pbr-isolate)))
-    ;; Grecharged-directional-ambient ROUND 2: ambient MODEL index (0 hemisphere / 1 SH / 2 IBL).
-    (pc-set-rt-ambient-model! (-> obj realtime-ambient-model))
-    (pc-set-rt-shadow-dist! (the int (-> obj realtime-shadow-dist)))
-    ;; ROUND-5: send strength (0..1 float) as an int PERCENT 0..100 (int-FFI convention).
-    (pc-set-rt-shadow-strength! (the int (* 100.0 (-> obj realtime-shadow-strength))))
-    (pc-set-rt-shadow-res! (cond ((= (-> obj realtime-shadow-quality) 0) 512)
-                                 ((= (-> obj realtime-shadow-quality) 1) 1024)
-                                 ((= (-> obj realtime-shadow-quality) 3) 4096)
-                                 ((= (-> obj realtime-shadow-quality) 4) 8192)
-                                 (else 2048))))
+    ;; lighting-legacy-purge : les poussees par image de l'ambiante, des ombres, du relief et
+    ;; des carrousels de debug sont RETIREES avec leurs reglages. Ne reste que le maitre.
+    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0)))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo)
   ;; at NATIVE resolution while the 3D world stays at RENDER SCALE. 0 = stock pipeline.
   (pc-set-crisp-title-logo! (if (-> obj crisp-title-logo?) 1 0))
-  ;; Gprecompute-deterministic-bake: push the MESH SUBDIVISION level (pre-subdivision ROUND COUNT,
-  ;; raw int 0 OFF / 1 DEFAULT / 2 MID / 3 HIGH). Unconditional, like the crisp-logo push above.
-  ;; NOTE: this only updates the value the LOADER will read — the refinement runs on the loading
-  ;; thread while a level is unpacked, so a change takes effect at the NEXT LEVEL LOAD, never on
-  ;; the level already resident. (settings-load pushes it too, so boot loads see the saved value.)
-  (pc-set-mesh-subdiv-rounds! (-> obj mesh-subdiv))
   (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
   ;; Grecharged-secondary-motion: push the chain-physics toggle + quality level (0/1 + level index).
   (#when FLAG_PHYSICS (pc-set-physics! (if (-> obj physics?) 1 0) (-> obj physics-quality)))

@@ -2330,14 +2330,10 @@ QualificationJson qualification_effective_options() {
 #else
   if (const char* value = std::getenv("OG_RT_LIGHT")) rt = std::atoi(value);
 #endif
-  auto subdiv = tfrag3::mesh_subdiv_config_from_env();
-  bool subdiv_on = recharged_gating::on(recharged_gating::kPbr) && gs.recharged_pbr_displacement == 2;
-#if !AUTOPORT_ORIGIN_ABLATE
-  if (subdiv.forced_max_edge_m >= 0.f) subdiv_on = subdiv.forced_max_edge_m > 0.f;
-#endif
-  if (subdiv.forced_max_rounds < 0)
-    subdiv.max_rounds = std::max(0, std::min(6, gs.recharged_mesh_subdiv_rounds));
-  subdiv_on = subdiv_on && subdiv.max_rounds > 0 && subdiv.max_edge_m > 0.f;
+  // lighting-legacy-purge (2026-09-11) : la PRE-SUBDIVISION est supprimee (elle n'etait
+  // atteignable que sous le mode TESSELLATION jamais livre), donc l'option effective ne peut plus
+  // etre qu'ETEINTE. Elle reste PUBLIEE, a zero : une cle qui disparait d'un rapport se lit comme
+  // une mesure absente, pas comme une valeur nulle.
   const float grass_near = std::min(80.f, std::max(8.f, gs.recharged_grass_near_dist));
   const float grass_card = std::min(200.f, std::max(grass_near + 5.f, gs.recharged_grass_card_dist));
   bool grass_overhang = false;
@@ -2356,9 +2352,7 @@ QualificationJson qualification_effective_options() {
           {"grass_density_preset", grass_bake::clamp_density_preset(gs.recharged_grass_density_preset)},
           {"grass_precomputed", gs.recharged_grass_precomputed}, {"grass_overhang", grass_overhang},
           {"foliage_wind", foliage_wind::enabled()},
-          {"modern_materials", recharged_gating::on(recharged_gating::kModernMaterials)},
-          {"subdivision", subdiv_on}, {"subdivision_rounds", subdiv.max_rounds},
-          {"subdivision_max_edge_m", subdiv.max_edge_m},
+          {"subdivision", false}, {"subdivision_rounds", 0},
           {"load_custom_assets", gs.load_custom_assets},
           {"lod_tfrag", gs.lod_tfrag}, {"lod_tie", gs.lod_tie}, {"hack_no_tex", gs.hack_no_tex},
           {"crisp_title_logo", recharged_gating::on(recharged_gating::kCrispTitleLogo)}

@@ -1311,7 +1311,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // shiny-overlay categories, which would double-cast the same geometry).
   if (((!use_envmap && category == tfrag3::TieCategory::NORMAL) ||
        (use_envmap && category == tfrag3::TieCategory::NORMAL_ENVMAP)) &&
-      (recharged_gating::on(recharged_gating::kPbr) ||
+      (recharged_gating::on(recharged_gating::kLighting) ||
        recharged_gating::on(recharged_gating::kRtLight)) &&
       (pbr_shadow_caster_mask(render_state->frame_idx) & 2) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
@@ -1539,7 +1539,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // active so a replaced TIE surface receives the same shadowed direct term as tfrag. The depth
   // pass itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only.
   // (Round-3 defect A/B: the envmap base needs this too, and always did.)
-  if ((recharged_gating::on(recharged_gating::kPbr) ||
+  if ((recharged_gating::on(recharged_gating::kLighting) ||
        recharged_gating::on(recharged_gating::kRtLight)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[pbr_program].id(),
@@ -2458,7 +2458,7 @@ void Tie3::render_tree_wind(int idx,
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
   // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.
-  if ((recharged_gating::on(recharged_gating::kPbr) ||
+  if ((recharged_gating::on(recharged_gating::kLighting) ||
        recharged_gating::on(recharged_gating::kRtLight)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TIE_WIND].id(),

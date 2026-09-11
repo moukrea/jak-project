@@ -35,16 +35,12 @@ uniform float u_pbr_height_scale;
 uniform float u_pbr_uv_per_m;
 // ROUND 20 correction: this height MAP's characteristic feature wavelength, in TILES (measured at
 // load from the map's own mip-energy spectrum). The parallax depth follows the FEATURE size, the
-// same law tfrag3_tess.tese displaces real vertices by — so Parallax and Tessellation show the
-// same depth, produced two different ways.
+// meme loi que celle par laquelle l'etage de tessellation deplacait de vrais sommets : les deux
+// paliers montraient la meme profondeur, produite de deux facons. lighting-legacy-purge
+// (2026-09-11) : cet etage est retire, le PARALLAX est seul.
 uniform float u_pbr_height_lambda;
-// ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste PLATS".
-// 1 only on the TFRAG3_TESS program, i.e. only where the tessellation stages actually displaced
-// real vertices. The POM used to be suppressed by the GLOBAL u_pbr_displacement == 2 setting, which
-// silently killed the parallax on every draw the tess program does not cover — all TIE walls and
-// props, shrubs, hfrag, and every patch past the tesc's 30 m gate — leaving them with NO
-// displacement at all. Suppression is per-PROGRAM now, so nothing is ever left flat.
-uniform int u_pbr_tess_active;
+// `u_pbr_tess_active` est SUPPRIME le 2026-09-11 par lighting-legacy-purge, avec l'etage
+// TESSELLATION : il ne valait 1 que sur le programme de tessellation, lui-meme retire.
 // Owner round-3 mandate 2026-07-18: lighting split calibration. u_pbr_direct scales the
 // realtime direct DIFFUSE (the baked vertex color already contains the baked sun's
 // diffuse — this is the double-dose control); u_pbr_indirect scales the baked-GI
@@ -121,92 +117,9 @@ uniform vec2 u_pbr_normal_dc;
 // (only 18-75% of the nominal range was ever reached). (0.5, 1.0) = identity, so a draw without a
 // height map is bit-for-bit unchanged.
 uniform vec2 u_pbr_height_stat;
-// REOPEN #3 TERM BISECTION (owner: the plastic sheen SURVIVES specular-intensity = 0, so
-// it is NOT in the slider-scaled specular sum — identify the culprit by zeroing ONE term
-// at a time on device). Prop debug.opengoal.pbr.bisect, default 0 = full path unchanged.
-// Set bit => that term is ZEROED/DISABLED in the fused rt+pbr branch:
-//    1 = yellow-sun GGX specular          2 = green-sun GGX specular
-//    4 = ambient/IBL specular (famb_spec) 8 = Fresnel-on-diffuse (the line-651 kd darkening)
-//   16 = _specular-map F0 (fall back to metallic-derived)   32 = emissive
-//   64 = normal-map perturbation (Nm = smooth N)           128 = parallax/POM
-//  256 = detail-relight ratio fdetail     512 = baked-modulation lit/shadow fmod
-// 1024 = C1 shoulder tone map (linear clamp instead)  2048 = fused-contrast fmod compress off
-// 4096 = REOPEN #6 matte-dielectric ENVELOPE off (restores the old glossy sheen for A/B: the
-//        default matte look vs the pre-#6 glass — the owner's "path active?" killswitch)
-// ---- SUPERVISOR LIVE A/B FIX (2026-07-24): relief=0 smooth vs relief=2.5 HARD PLATES. The
-// three bits below are the A/B killswitches for the three halves of that root cause; all
-// three default to 0 == the NEW (fixed) behaviour, set the bit to get the old one back.
-// 8192 = normal-map DC removal OFF (legacy: apply the map with its raw mean tilt)
-// 16384 = macro lit/shadow terminator back on the normal-MAPPED Nm (legacy) instead of N
-// 32768 = normal-map tangent frame back on the per-chunk UV tangent (legacy) instead of the
-//         seam-stable world frame
-// REOPEN #10: the IN-MENU "PBR ISOLATE" carousell (Recharged Settings) seeds this mask via the
-// recharged_pbr_isolate setting so the OWNER can bisect the residual grass-facet term at his own
-// vantage with NO adb (BOTH=0, NORMAL-MAP ONLY=128 [POM off], PARALLAX ONLY=64 [nm off], NEITHER=192).
-// Prime suspect now (tangent frame proven continuous @ REOPEN#9, base normal smooth): the PARALLAX/
-// POM at bit 128 — the steep march (below) samples the height map at a data-dependent iteration count;
-// where it clips at UV-chart/triangle boundaries it can read a per-triangle offset that reads as a
-// facet at high relief. The owner's PARALLAX-ONLY vs NORMAL-MAP-ONLY flip names it; the debug prop/env
-// still override the mask for the supervisor's full-term headless A/B.
-// ---- PBR POLISH, OWNER PLAYTEST #17 (2026-07-25). Same convention: 0 == the NEW behaviour,
-// set the bit to get the previous build back, so every one of this round's fixes is a live A/B
-// at the owner's own vantage with one setprop and no rebuild.
-// 2097152 = height-field CAVITY / micro-AO off (the "flat in shadow" fix — the direction-
-//           INDEPENDENT relief term that replaces the ~1.0 ambient RATIO)
-// 4194304 = tess-eval displacement back to the ALIASED textureLod(...,0.0) height fetch
-//           (legacy) instead of the mip matched to the tessellated vertex spacing
-// 8388608 = direct N.L detail ratio back to its legacy wide [0.45, 1.9] clamp (the
-//           "très contrasté à la lumière" half of the rebalance)
-// ---- PBR POLISH, OWNER PLAYTEST #18 (2026-07-25) — GROUND relief. Same convention.
-// 16777216 = tessellation level law back to the legacy DISTANCE-ONLY 128/d (read by
-//            tfrag3_tess.tesc and .tese) instead of the world-space-edge-length law, so the
-//            ground-density fix is a live same-vantage A/B.
-// 33554432 = parallax GRAZING FADE + world-cm offset cap OFF, i.e. the legacy un-attenuated
-//            0.08 UV offset back (the owner's "au sol le displacement est HORIZONTAL, ça s'étale
-//            à plat" — see the POM march). Applies to BOTH POM branches.
-//            This bit is 33554432 and NOT the next free-LOOKING 262144: 262144 was already taken
-//            by round #17's ambient-relief A/B (the fdt_amb site below). The first device A/B run
-//            of this round used the overloaded bit and measured the side effect at the SAME ORDER
-//            OF MAGNITUDE as the parallax signal itself — it silently confounded both A/Bs. Always
-//            scan ALL of *.frag/*.tesc/*.tese for a bit before claiming it is free.
-// 67108864 = ROUND 20 tess-eval displacement AMPLITUDE law back to the hardcoded constant
-//            WORLD_TILES_PER_M instead of THIS material's MEASURED authored UV density
-//            (u_pbr_uv_per_m). Read in tfrag3_tess.tese:220-221 as `legacy_uv_law`.
-//            ⚠ THIS ENTRY WAS MISSING from the list until round 23, and round 23 very nearly
-//            re-used the bit for the shrub normal flip below — which would have confounded a
-//            shrub-polarity A/B with a ground-displacement change in the very same frame: the
-//            EXACT trap the 33554432 note above was written to prevent. The scan rule is only as
-//            good as this list, so when you take a bit, document it HERE in the same edit.
-// 134217728 = ROUND 23 shrub two-sided normal flip back to LEGACY unconditional (owner defect C,
-//            "the polarity FLIPS surface to surface"). Default 0 = the flip applies ONLY to the
-//            screen-space derivative fallback normal, whose cross(dFdx, dFdy) sign is arbitrary; a
-//            consolidated per-vertex normal is then left exactly as the mesh data authored it, so
-//            the displacement/POM frame it feeds can no longer depend on which side the CAMERA is
-//            on. Read in shrub.frag (the u_rt_light_on branch).
-uniform int u_pbr_bisect;
-// Gpbr-per-texture-materials — BISECT BANK 2. Bank 1 above is FULL: bits 1 .. 1073741824 are all
-// taken (scanned over every *.glsl/*.frag/*.vert/*.tesc/*.tese before this line was written, per
-// the scan rule at bit 33554432), and 2147483648 does not fit a GLSL ES signed int. So the next
-// A/B killswitch opens a second bank rather than overloading a used bit — the exact trap the
-// 33554432 note describes, which once confounded two A/Bs in the same frame.
-// Same convention as bank 1: 0 == the NEW (fixed) behaviour, set the bit to get the old one back.
-// Prop debug.opengoal.pbr.bisect2 / env OG_PBR_BISECT2, default 0.
-//    1 = per-FACE tangent HANDEDNESS off, i.e. back to the baked per-VERTEX v_tangent.w.
-//        Handedness is a property of a FACE (the sign of the UV Jacobian) and .w is one sign per
-//        VERTEX; on village1, 45.9% of triangles carry a mirrored UV chart and 33484 face corners
-//        of the seven PBR materials sit on a vertex whose incident faces MIX handedness, so
-//        whichever sign ships, the other side renders its relief inverted in V. Read in
-//        pbr_fused.glsl, tfrag3.frag and tfrag3_tess.tese.
-//    2 = per-FACE tangent DIRECTION off, i.e. back to the baked per-VERTEX tangent even where it
-//        points AGAINST its own face's dP/du. Same defect class as bit 1 and measured the same way:
-//        1052 face corners of the seven PBR materials (0.111%) run their normal-map X perturbation
-//        and their POM U march backwards. The fix only ever flips an ALREADY-reversed tangent, so a
-//        corner the census scores correct is left bit-identical. Read at the same three sites.
-uniform int u_pbr_bisect2;
-// REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
-// (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
-// happens in the tess evaluation stage; the frag POM must then stand down).
-uniform int u_pbr_displacement;
+// lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet ; outil de mise au point).
+// lighting-legacy-purge (2026-09-11) : u_pbr_bisect2 RETIRE, valeur livree figee a 0 (chemin complet ; outil de mise au point).
+// lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX ; le mode TESSELLATION n'a jamais ete livre).
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.

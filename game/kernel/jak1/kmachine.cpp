@@ -37,6 +37,7 @@
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/fire_red_census.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
@@ -46,10 +47,10 @@
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
-// [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
-// to pbr_tan_diag.txt below, and [cover] pbr_coverage_section() the per-frame displacement coverage
-// tally (which PBR-bound draws actually get displaced). Header is GL-free (PBR material registry
-// only), so the kernel can include it without dragging in the GL loader.
+// Registre de matieres PBR (en-tete SANS GL, le noyau peut l'inclure). lighting-legacy-purge
+// (2026-09-11) : l'ecrivain de `pbr_tan_diag.txt` vivait dans `pc_set_pbr_isolate`, supprime avec
+// la rangee PBR ISOLATE ; les sections de diagnostic (POM, couverture, reach) existent toujours
+// dans ce module et n'ont plus d'appelant.
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/sceGraphicsInterface.h"
 #include "game/kernel/common/fileio.h"
@@ -403,8 +404,7 @@ AutoSplitterBlock g_auto_splitter_block_jak1;
 // GENERAL crash-loop guard: a persisted setting must NEVER brick the game. A sentinel file
 // ("recharged-boot-guard") next to settings.ini holds a consecutive-unhealthy-boot count. At
 // boot we bump it; if it already reached 2 (two boots that died before reaching healthy
-// gameplay) we defensively reset the two risky settings in settings.ini (pbr-displacement ->
-// Off, pbr-test-preset -> default) and clamp them for this session. After 60s of healthy
+// gameplay) we defensively reset the risky setting in settings.ini (pbr-test-preset -> default). After 60s of healthy
 // running the sentinel is deleted so a normal session never trips it. Mirrors the AO-specific
 // ao-boot-guard style (fs::* via ghc + file_util text IO) but is a distinct GENERAL guard.
 namespace {
@@ -415,10 +415,12 @@ fs::path recharged_boot_guard_path() {
 fs::path recharged_settings_ini_path() {
   return file_util::get_user_settings_dir(g_game_version) / "settings.ini";
 }
-bool s_recharged_guard_tripped = false;      // this boot resets/clamps the risky settings
+// lighting-legacy-purge (2026-09-11) : `s_recharged_guard_tripped` est SUPPRIME. Son UNIQUE
+// lecteur etait `pc_set_pbr_displacement`, qui refusait la valeur risquee pour la session ; le
+// reglage n'existe plus. La garde continue de REMETTRE settings.ini d'aplomb au bootage.
 double s_recharged_boot_t = -1.0;            // steady_clock boot time (for the healthy clear)
-// Rewrite the VALUE on `pbr-displacement = <n>` -> 0 and `pbr-test-preset = <n>` -> default (1),
-// preserving every other line byte-for-byte. Missing file / missing key is skipped gracefully.
+// Rewrite the VALUE on `pbr-test-preset = <n>` -> default (1), preserving every other line
+// byte-for-byte. Missing file / missing key is skipped gracefully.
 void recharged_reset_risky_ini() {
   const auto ini = recharged_settings_ini_path();
   if (!file_util::file_exists(ini.string())) {
@@ -446,9 +448,9 @@ void recharged_reset_risky_ini() {
       return line;
     }
     std::string trimmed = key.substr(ks, ke - ks + 1);
-    if (trimmed == "pbr-displacement") {
-      return line.substr(0, eq) + "= 0";
-    }
+    // lighting-legacy-purge (2026-09-11) : `pbr-displacement` n'existe plus dans settings.ini. La
+    // remise a zero de sa ligne est SUPPRIMEE ; la garde ne remet plus d'aplomb que
+    // `pbr-test-preset`, le seul reglage risque qui reste.
     if (trimmed == "pbr-test-preset") {
       return line.substr(0, eq) + "= 1";
     }
@@ -481,7 +483,7 @@ void recharged_reset_risky_ini() {
 // UNE COURSE DE REFERENCE NE MODIFIE PAS LES REGLAGES QU'ELLE MESURE.
 // `lighting-origin-bitexact`, 2026-09-07. Cette garde compte les demarrages « morts avant le
 // jeu » dans un fichier a cote de `settings.ini`, et au DEUXIEME elle REECRIT `settings.ini`
-// (pbr-displacement -> Off, pbr-test-preset -> defaut). Or une course `refset` est toujours
+// (pbr-test-preset -> defaut). Or une course `refset` est toujours
 // tuee au bout de son plan : elle n'atteint jamais les 60 s « saines » qui effacent le
 // sentinelle, donc trois courses successives suffisent a faire changer les reglages SOUS la
 // comparaison. Mesure : sentinelle a 2 et `settings.ini` reecrit a 01:31:38 entre deux rejeux
@@ -523,8 +525,7 @@ void recharged_crash_loop_guard_boot() {
     recharged_reset_risky_ini();
     lg::warn(
         "[recharged] crash-loop guard: settings reset (2 consecutive boots died before "
-        "gameplay) — pbr-displacement -> Off, pbr-test-preset -> default");
-    s_recharged_guard_tripped = true;
+        "gameplay) — pbr-test-preset -> default");
     try {
       file_util::write_text_file(guard, "1");  // count this boot as unhealthy until it survives
     } catch (...) {
@@ -965,6 +966,213 @@ static void dead_probe_census() {
 #endif
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// lighting-legacy-purge : LE RECENSEMENT DES REGLAGES D'ECLAIRAGE DE L'ANCIEN MONDE.
+//
+// POURQUOI. L'owner (10/09) : « Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance
+// des ombres [...] c'est des trucs anciens [...] j'ai peur que ca rentre en collision avec notre
+// nouvelle approche ». Sa crainte est fondee : `lighting-ao-indirect` a trouve un verrou
+// safe-boot herite qui epinglait l'AO a zero en silence, ligne de menu sur HBAO et moteur a
+// zero. Un reglage qu'on croit mort et qui pilote encore un chemin de code est exactement ce
+// que ce recensement rend impossible a ignorer.
+//
+// CE QU'IL COMPTE. `lighting_legacy_sites` = le nombre de SITES de l'ancien monde encore VIVANTS
+// dans CE binaire, somme de trois sondes independantes qui ne peuvent pas se couvrir l'une
+// l'autre :
+//   1. GOAL   — le pont `pc-set-*` ou le libelle `*...-label*` est-il encore un symbole de la
+//               table du noyau ? On MARCHE la table (pas de 8 octets, cf. dead_probe_census) et
+//               on compare la CLE ENTIERE : `pc-set-rt-ambient!` est un prefixe de
+//               `pc-set-rt-ambient-model!`, un `strstr` compterait deux fois le meme symbole.
+//               `intern_from_c` est proscrit ici : il CREERAIT le symbole cherche.
+//   2. C++    — l'option existe-t-elle encore dans la table de `recharged_gating` ? C'est LA
+//               table qui decide qu'une rangee apparait dans « Recharged Lighting » : une option
+//               absente est une rangee qui ne peut plus revenir par accident.
+//   3. SHADER — l'uniforme repond-il encore sur un programme REELLEMENT LIE ? Mesure par
+//               `lighting_census.cpp` sur le fil GL (`glGetUniformLocation`), la seule grandeur
+//               qui voie ce que la carte a compile — un shader Android est fige dans un blob.
+//
+// POURQUOI CE ZERO EST FALSIFIABLE. Trois temoins sont publies a cote, et un temoin a zero rend
+// la porte MUETTE, pas verte :
+//   `lighting_legacy_censused`         combien de sites on cherche (non nul par construction) ;
+//   `lighting_legacy_symbols_scanned`  combien de symboles la marche a vus (zero = table vide) ;
+//   `lighting_legacy_control_goal`     combien de symboles SURVIVANTS de la refonte repondent ;
+//   `lighting_legacy_control_gating`   idem pour les options de la refonte ;
+//   `lighting_legacy_uniform_control`  idem pour les uniformes (publie par lighting_census).
+// Sans eux, un zero obtenu parce que la sonde n'est branchee sur rien serait indistinguable
+// d'un zero obtenu parce que l'ancien monde a ete retire.
+namespace {
+
+// Les symboles GOAL de l'ancien monde : les 14 ponts supprimes et les 12 libelles de rangee.
+constexpr const char* kLegacyGoalSymbols[] = {
+    "pc-set-pbr!",
+    "pc-set-modern-materials!",
+    "pc-set-rt-shadow-res!",
+    "pc-set-rt-shadow-dist!",
+    "pc-set-rt-shadow-strength!",
+    "pc-set-rt-ambient!",
+    "pc-set-rt-ambient-strength!",
+    "pc-set-rt-ambient-contrast!",
+    "pc-set-rt-ambient-model!",
+    "pc-set-pbr-texture-relief!",
+    "pc-set-pbr-specular-intensity!",
+    "pc-set-pbr-displacement!",
+    "pc-set-pbr-isolate!",
+    "pc-set-mesh-subdiv-rounds!",
+    "*pbr-materials-label*",
+    "*modern-materials-label*",
+    "*ambient-model-label*",
+    "*ambient-strength-label*",
+    "*shadow-distance-label*",
+    "*shadow-quality-label*",
+    "*texture-relief-label*",
+    "*specular-intensity-label*",
+    "*displacement-label*",
+    "*mesh-subdiv-label*",
+    "*pbr-test-preset-label*",
+    "*pbr-isolate-label*",
+    // Le libelle de la curiosite de projection de sonde : il ne portait plus de rangee, mais
+    // sa chaine vivait encore dans le CGO. Un residu que rien ne cherchait aurait survecu a
+    // une porte verte ; il est dans la liste pour que le zero le couvre.
+    "*hemisphere-ambient-label*",
+};
+constexpr int kLegacyGoalCount = (int)(sizeof(kLegacyGoalSymbols) / sizeof(char*));
+
+// LE TEMOIN de la sonde GOAL : quatre symboles du chemin unique de la refonte, qui doivent
+// repondre. La marche les trouve par le MEME code que les autres ; s'ils manquent, c'est la
+// marche qui est cassee, pas l'ancien monde qui a disparu.
+constexpr const char* kLegacyGoalControl[] = {
+    "pc-set-rt-light!",
+    "pc-set-recharged-master!",
+    "*recharged-lighting-label*",
+    "*ambient-occlusion-label*",
+};
+constexpr int kLegacyGoalControlCount = (int)(sizeof(kLegacyGoalControl) / sizeof(char*));
+
+// Les options de `recharged_gating` de l'ancien monde.
+constexpr const char* kLegacyGatingOpts[] = {
+    "pbr",          "pbr-relief",    "pbr-specular",       "pbr-displacement",
+    "pbr-isolate",  "mesh-subdiv",   "modern-materials",   "rt-shadow-res",
+    "rt-shadow-dist", "rt-shadow-strength", "rt-ambient",  "rt-ambient-model",
+    "rt-ambient-strength", "rt-ambient-contrast",
+};
+constexpr int kLegacyGatingCount = (int)(sizeof(kLegacyGatingOpts) / sizeof(char*));
+
+// LE TEMOIN de la sonde C++ : trois options du chemin unique, qui restent.
+constexpr const char* kLegacyGatingControl[] = {"lighting", "ao-mode", "hdr-output"};
+constexpr int kLegacyGatingControlCount = (int)(sizeof(kLegacyGatingControl) / sizeof(char*));
+
+}  // namespace
+
+static void lighting_legacy_census() {
+  static u32 s_worst_goal = 0;
+  static u32 s_passes = 0;
+  static std::string s_worst_names;
+
+  // ── sonde 1 : la table des symboles GOAL ──────────────────────────────────────────────────
+  u32 goal_live = 0;
+  u32 goal_control = 0;
+  u32 scanned = 0;
+  std::string names;
+  if (SymbolTable2.offset && LastSymbol.offset) {
+    for (u32 slot = SymbolTable2.offset; slot < LastSymbol.offset; slot += 8) {
+      auto sym = Ptr<Symbol>(slot);
+      if (!info(sym)->hash) {
+        continue;  // slot jamais occupe
+      }
+      u32 stro = info(sym)->str.offset;
+      if (!stro || stro >= (u32)EE_MAIN_MEM_SIZE - 128) {
+        continue;
+      }
+      const char* nm = reinterpret_cast<const char*>(Ptr<u8>(stro + 4).c());
+      size_t nlen = strnlen(nm, 96);
+      if (!nlen || nlen >= 96) {
+        continue;
+      }
+      scanned++;
+      for (int i = 0; i < kLegacyGoalCount; i++) {
+        if (strcmp(nm, kLegacyGoalSymbols[i]) == 0) {
+          goal_live++;
+          if (names.size() < 160) {
+            if (!names.empty()) {
+              names += ',';
+            }
+            names += nm;
+          }
+          break;
+        }
+      }
+      for (int i = 0; i < kLegacyGoalControlCount; i++) {
+        if (strcmp(nm, kLegacyGoalControl[i]) == 0) {
+          goal_control++;
+          break;
+        }
+      }
+    }
+  }
+  // La table se remplit au fil des DGO : on garde le PIRE, pour qu'une apparition tardive ne
+  // puisse pas etre lavee par une passe propre.
+  if (goal_live >= s_worst_goal) {
+    s_worst_goal = goal_live;
+    s_worst_names = names;
+  }
+  s_passes++;
+
+  // ── sonde 2 : la table de `recharged_gating` ──────────────────────────────────────────────
+  u32 gating_live = 0;
+  u32 gating_control = 0;
+  std::string gating_names;
+  for (int i = 0; i < kLegacyGatingCount; i++) {
+    if (recharged_gating::by_name(kLegacyGatingOpts[i]) >= 0) {
+      gating_live++;
+      if (gating_names.size() < 160) {
+        if (!gating_names.empty()) {
+          gating_names += ',';
+        }
+        gating_names += kLegacyGatingOpts[i];
+      }
+    }
+  }
+  for (int i = 0; i < kLegacyGatingControlCount; i++) {
+    if (recharged_gating::by_name(kLegacyGatingControl[i]) >= 0) {
+      gating_control++;
+    }
+  }
+
+  // ── sonde 3 : les uniformes, mesures sur le fil GL ────────────────────────────────────────
+  const u32 uniform_live = lighting_census::legacy_uniform_sites();
+
+  // ── LA PORTE ──────────────────────────────────────────────────────────────────────────────
+  autoport_proof::publish("lighting_legacy_sites",
+                          (u64)s_worst_goal + (u64)gating_live + (u64)uniform_live);
+  autoport_proof::publish("lighting_legacy_goal_sites", s_worst_goal);
+  autoport_proof::publish("lighting_legacy_gating_sites", gating_live);
+  autoport_proof::publish("lighting_legacy_shader_sites", uniform_live);
+  // Le recensement AVANT : combien de sites on CHERCHE. Non nul par construction ; un zero ici
+  // dirait que la table de recherche a ete videe, pas que l'ancien monde a disparu.
+  autoport_proof::publish("lighting_legacy_censused",
+                          (u64)kLegacyGoalCount + (u64)kLegacyGatingCount +
+                              (u64)lighting_census::legacy_uniform_censused());
+  // Les temoins. Un temoin a zero rend la porte MUETTE, pas verte.
+  autoport_proof::publish("lighting_legacy_symbols_scanned", scanned);
+  autoport_proof::publish("lighting_legacy_control_goal", goal_control);
+  autoport_proof::publish("lighting_legacy_control_gating", gating_control);
+  autoport_proof::publish("lighting_legacy_uniform_programs",
+                          lighting_census::legacy_uniform_programs());
+  autoport_proof::publish("lighting_legacy_uniform_control",
+                          lighting_census::legacy_uniform_control());
+  // Le denominateur de CE recensement : `hits` est partage par tout le binaire.
+  autoport_proof::publish("lighting_legacy_passes", s_passes);
+  // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere liste
+  // non vide resterait a cote d'un compte a zero.
+  autoport_proof::publish_text("lighting_legacy_goal_list",
+                               s_worst_names.empty() ? "-" : s_worst_names.c_str());
+  autoport_proof::publish_text("lighting_legacy_gating_list",
+                               gating_names.empty() ? "-" : gating_names.c_str());
+  if (autoport_proof::feature_is("lighting-legacy-purge")) {
+    autoport_proof::note_hit(1);
+  }
+}
+
 void pc_autoport_frame() {
   // recharged-gating-real : LE seul point de ce fichier qui tourne une fois par image RENDUE.
   // La valeur EFFECTIVE doit etre dans le champ meme quand aucun `pc-set-*` n'a bouge : un
@@ -984,6 +1192,9 @@ void pc_autoport_frame() {
     static u32 s_dead_probe_n = 0;
     if ((s_dead_probe_n++ % 60) == 0) {
       dead_probe_census();
+      // lighting-legacy-purge : meme cadence et meme raison — la table des symboles se
+      // remplit au fil des DGO, une seule passe au demarrage ne verrait pas un symbole tardif.
+      lighting_legacy_census();
     }
   }
   // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
@@ -1514,28 +1725,9 @@ void pc_set_crisp_title_logo(u32 on) {
   recharged_gating::set(recharged_gating::kCrispTitleLogo, v);
 }
 
-// Gprecompute-deterministic-bake: push the MESH SUBDIVISION level from GOAL
-// (pc-set-mesh-subdiv-rounds!, menu row OPTIONS > GRAPHICS > MESH SUBDIVISION). This is the number
-// of PRE-SUBDIVISION ROUNDS the loader hands the hardware tessellator: 0 = no refinement at all,
-// 1 = the shipped default, 2-3 = denser for machines with the budget. Loader.cpp clamps and reads
-// it once per level load, so a change here only takes effect at the NEXT LEVEL LOAD (the
-// refinement runs on the loading thread). Clamped both ways: GOAL passes a raw int and a negative
-// or out-of-range value must not reach the loader. Logs on CHANGE only (update-to-os pushes this
-// every frame), so a device log proves the GOAL->C++ link without spamming.
-void pc_set_mesh_subdiv_rounds(s32 rounds) {
-  const int v = std::max(0, std::min((int)rounds, 3));
-  // Log the FIRST push as well as every change. update-to-os pushes this every frame, so
-  // "on change only" would print nothing at all when the setting sits at its default — and then a
-  // device log could not tell "the GOAL->C++ link works and the value is 1" from "the link is dead".
-  // One line at boot proves the link; after that only real changes speak.
-  static bool first_push = true;
-  // Valeur VOULUE : le champ porte l'effective (stock sous un ancetre eteint).
-  if (first_push || (double)v != recharged_gating::desired(recharged_gating::kMeshSubdiv)) {
-    lg::info("[mesh-subdiv] level -> {} round(s) (applies at next level load)", v);
-    first_push = false;
-  }
-  recharged_gating::set(recharged_gating::kMeshSubdiv, v);
-}
+// lighting-legacy-purge (2026-09-11) : `pc_set_mesh_subdiv_rounds` est SUPPRIME. La
+// pre-subdivision qu'il pilotait n'etait atteignable que sous DISPLACEMENT = 2
+// (TESSELLATION), un mode jamais livre et retire par cet item.
 
 // Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
 // (-> *pc-settings* recharged-enhanced-models?). 0 = off (stock low-poly). Applies live to
@@ -3763,32 +3955,12 @@ void pc_set_jak_ledge(u32 vec) {
   Gfx::g_global_settings.recharged_jak_ledge[3] = 1.0f;
 }
 
-// Grecharged-materials-modern-parity: MODERN MATERIALS master pushed from GOAL every frame
-// (menu row "MODERN MATERIALS", Recharged Settings, default OFF == stock).
-void pc_set_modern_materials(u32 sym) {
-#ifdef OG_FEAT_PBR
-  const bool on = (sym != 0);
-  // Valeur VOULUE : le champ porte l'effective, et un parent eteint y ecrit stock — comparer le
-  // champ relancerait la relecture de surfaces.json au basculement du parent.
-  const bool changed =
-      (recharged_gating::desired(recharged_gating::kModernMaterials) != (on ? 1.0 : 0.0));
-  recharged_gating::set(recharged_gating::kModernMaterials, on);
-  if (changed) {
-    // Same idiom as pc_set_physics: flipping the row RE-READS the tuning file, so the owner can
-    // drop a surfaces.json in the external asset dir on the device and toggle the row to apply it with no
-    // rebuild and no relaunch.
-    custom_tex::mm_request_params_reload();
-  }
-#else
-  (void)sym;
-#endif
-}
+// lighting-legacy-purge (2026-09-11) : `pc_set_modern_materials` est SUPPRIME avec la pile
+// « Materiaux avances ». La rangee livrait OFF : la pile n'a jamais touche un pixel.
 
 #ifdef OG_FEAT_PBR
-// Grecharged-pbr-materials: runtime PBR toggle pushed from GOAL.
-void pc_set_pbr(u32 sym) {
-  recharged_gating::set(recharged_gating::kPbr, (sym != 0));
-}
+// lighting-legacy-purge (2026-09-11) : `pc_set_pbr` est SUPPRIME. Le rendu PBR n'est plus une
+// option : il est INCONDITIONNEL sous « lighting ».
 
 // Grecharged-directional-ambient ITEM B (owner playtest #2, 2026-07-20): the mood COLOR values the
 // realtime-lighting path consumes — current-sun sun-color/env-color, light-group 0 colors, and
@@ -3918,43 +4090,11 @@ void pc_set_pbr_lights(u32 lg) {
 // pushed from GOAL each frame. rt-light! = master.
 void pc_set_rt_light(u32 sym) {
   recharged_gating::set(recharged_gating::kRtLight, (sym != 0));
-}
-// Grecharged-directional-ambient: hemisphere ambient enable + base strength. rt-ambient! =
-// enable (mirrors rt-light!); rt-ambient-strength! = base level (mirrors pc-set-rt-shadow-dist!:
-// takes a plain u32 from GOAL, stored as a float; the GL side clamps out-of-range back to 0.2).
-void pc_set_rt_ambient(u32 sym) {
-  recharged_gating::set(recharged_gating::kRtAmbient, (sym != 0));
-}
-void pc_set_rt_ambient_strength(u32 pct) {
-  // GOAL sends an int PERCENT 0..50 (0.2 -> 20); mirror pc_set_rt_shadow_strength's *0.01 convention.
-  recharged_gating::set(recharged_gating::kRtAmbientStrength, (float)pct * 0.01f);
-}
-// REOPEN #2 menu sliders: TEXTURE RELIEF (percent 0..300) + SPECULAR INTENSITY (percent 0..200),
-// same *0.01 int-percent convention as the ambient-strength setter above.
-void pc_set_pbr_texture_relief(u32 pct) {
-  // [mb-diag] change-only trace: v2.1 measured the GOAL variable moving ~6-7 s before this
-  // bridge saw the new value; this line names WHEN the push actually lands (logcat GK_*).
-  static u32 s_last_pct = 0xffffffff;
-  if (pct != s_last_pct) {
-    s_last_pct = pct;
-    lg::info("[mb-diag] relief push pct={}", pct);
-  }
-  recharged_gating::set(recharged_gating::kPbrRelief, (float)pct * 0.01f);
-}
-void pc_set_pbr_specular_intensity(u32 pct) {
-  recharged_gating::set(recharged_gating::kPbrSpecular, (float)pct * 0.01f);
-}
-// REOPEN #3 DISPLACEMENT carousel: raw mode int (0 Off / 1 Parallax / 2 Tessellation).
-void pc_set_pbr_displacement(u32 mode) {
-  int m = (int)std::min(mode, 2u);
-  // GENERAL crash-loop guard, session clamp (defense in depth): if the boot guard tripped this
-  // session, refuse the risky displacement value regardless of what GOAL pushes.
-  if (s_recharged_guard_tripped) {
-    m = 0;
-  }
-  recharged_gating::set(recharged_gating::kPbrDisplacement, m);
-  // Healthy clear: this is pushed every frame by GOAL update-to-os. Once we've survived 60s past
-  // boot, delete the boot sentinel once so a normal session never trips the guard next launch.
+  // lighting-legacy-purge (2026-09-11) : le NETTOYAGE SAIN du sentinel de la garde anti-boucle
+  // vivait dans `pc_set_pbr_displacement`, supprime par cet item. Sans lui la garde ne s'effacerait
+  // plus jamais et un bootage rugueux la ferait mordre a chaque lancement suivant — un changement
+  // de comportement que cet item n'a pas le droit de faire. Il est donc DEPLACE ici : meme pousse
+  // par image depuis `update-to-os` (hud-classes-pc.gc:1823), meme condition, meme effet.
   static bool did_clear = false;
   if (!did_clear && s_recharged_boot_t >= 0.0) {
     double now =
@@ -3967,140 +4107,19 @@ void pc_set_pbr_displacement(u32 mode) {
     }
   }
 }
-// REOPEN #10 PBR ISOLATE carousel (DEBUG, removable): the owner's IN-MENU term bisection.
-// GOAL pushes the raw carousel INDEX; map it to the u_pbr_bisect MASK the fused shader reads
-// (128 = POM/parallax off @ tfrag3.frag L587, 64 = normal-map off @ L634). This lets the owner
-// flip Both / Normal-map-only / Parallax-only / Neither at his own grass vantage with no adb,
-// so his bisection — not another headless guess — names the residual facet term.
-void pc_set_pbr_isolate(u32 idx) {
-  int mask = 0;
-  const char* label = "BOTH";
-  switch (idx) {
-    case 1:
-      mask = 128;  // NORMAL-MAP ONLY: parallax/POM off
-      label = "NORMAL-MAP ONLY";
-      break;
-    case 2:
-      mask = 64;  // PARALLAX ONLY: normal-map perturbation off
-      label = "PARALLAX ONLY";
-      break;
-    case 3:
-      mask = 192;  // NEITHER: both off (128 | 64)
-      label = "NEITHER";
-      break;
-    default:
-      mask = 0;  // BOTH (default): full fused path
-      label = "BOTH";
-      break;
-  }
-  recharged_gating::set(recharged_gating::kPbrIsolate, mask);
-  // REOPEN #11 (owner: the PBR-ISOLATE carousel "flip does nothing"): PROVE the menu value
-  // actually reaches the fused shader's u_pbr_bisect mask by writing the ACTIVE carousel index +
-  // resolved bisect mask to a device-pullable diag file EACH TIME IT CHANGES. The Honor obscures
-  // logcat, so a FILE is the only reliable channel: the supervisor pulls it with
-  //   run-as org.opengoal.gk.jak1 cat files/pbr_tan_diag.txt
-  // and confirms flipping the menu changes index/mask on device. This is called every frame with
-  // the current index, so gate the write on an ACTUAL change to avoid per-frame disk churn.
-  static int s_last_isolate_mask = -1;
-#ifdef OG_FEAT_PBR
-  // 2026-07-26: the file now also carries the [pom] block, which only fills in once a level's
-  // materials are resolved — long after the carousel settles on its boot value. Re-emit whenever
-  // the material set changes too, or the block would forever read "materials=0".
-  static u32 s_last_pom_gen = 0;
-  const u32 pom_gen = custom_tex::pbr_pom_diag_generation();
-  bool pom_changed = pom_gen != s_last_pom_gen;
-  s_last_pom_gen = pom_gen;
-  // ROUND 21: the [cover] block's numbers change every frame, so its generation advances only once
-  // every ~300 completed frames (~5 s) — enough to keep the pulled file live without per-frame disk
-  // churn, and it never advances at all while nothing is being counted (PBR off).
-  static u32 s_last_cover_gen = 0;
-  const u32 cover_gen = custom_tex::pbr_coverage_generation();
-  if (cover_gen != s_last_cover_gen) {
-    s_last_cover_gen = cover_gen;
-    pom_changed = true;
-  }
-  // Gpbr-props-reach-draw : meme mecanique pour le recensement par MATIERE. Sa generation
-  // n'avance que quand une matiere NOUVELLE est rencontree ou passe a « poussee », jamais par
-  // draw — donc aucune ecriture disque par image.
-  static u32 s_last_reach_gen = 0;
-  const u32 reach_gen = custom_tex::pbr_reach_generation();
-  if (reach_gen != s_last_reach_gen) {
-    s_last_reach_gen = reach_gen;
-    pom_changed = true;
-  }
-#else
-  const bool pom_changed = false;
-#endif
-  if (mask != s_last_isolate_mask || pom_changed) {
-    s_last_isolate_mask = mask;
-    try {
-      std::string body = fmt::format(
-          "[pbr-isolate] active: index={} mask={} label=\"{}\"\n"
-          "  resolved bits: normal-map-off(bit64)={} parallax/POM-off(bit128)={}\n"
-          "  wiring: GOAL carousel -> pc-set-pbr-isolate! -> pc_set_pbr_isolate(idx) ->\n"
-          "          Gfx::g_global_settings.recharged_pbr_isolate -> background_common u_pbr_bisect\n"
-          "  (fused path only: realtime-lighting ON + pbr-materials ON. Flip the menu to change this.)\n",
-          idx, mask, label, (mask & 64) ? 1 : 0, (mask & 128) ? 1 : 0);
-#ifdef OG_FEAT_PBR
-      body += custom_tex::pbr_pom_diag_section();
-      body += custom_tex::pbr_coverage_section();
-      // Grecharged-materials-modern-parity: the modern stack's per-material parameters as the
-      // renderer actually resolved them, plus the BIND and STATE-PUSH counters. The Honor obscures
-      // logcat and the owner has no adb, so a pullable file is the only proof channel that
-      // survives both. NOTE, corrected 2026-08-31: this used to say "a counter answers 'did the
-      // code path run'". It does NOT. Both counters tick on the CPU at bind time; neither proves a
-      // fragment executed, and the modern chunk can be skipped wholesale by the `u_pbr_debug == 0`
-      // gate of pbr_modern.glsl:40 while they keep rising. That is why the section publishes
-      // u_pbr_debug next to them — read the NOTE line it emits, not the totals alone.
-      body += custom_tex::mm_params_diag_section();
-      // Gpbr-props-reach-draw : le recensement par MATIERE — quelle entree de surfaces.json a ete
-      // trouvee, quelles valeurs sont RELUES dans l'objet programme, et si un draw les portait.
-      body += custom_tex::pbr_reach_section();
-#endif
-      file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
-      // ===== Gpbr-props-reach-draw : FICHIER PROPRE, ET C'EST UNE CORRECTION MESUREE ============
-      // `pbr_tan_diag.txt` a DEUX ECRIVAINS — celui-ci et TFrag3Data.cpp:1504 — et le dernier
-      // ecrase l'autre. Sur x86 c'est celui-ci qui gagnait, sur le Redmi c'est celui du
-      // chargement de niveau : la course F du 2026-09-02 a rendu un fichier de 62 lignes de
-      // couverture de tangentes et ZERO ligne PBRREACH, alors que le meme binaire en publiait
-      // 40 sur x86. Un recensement qui existe et qu'un autre ecrivain efface est indiscernable
-      // d'un recensement qui n'a rien vu. Il a donc son PROPRE fichier, avec UN SEUL ecrivain.
-      // (Le conflit entre les deux autres sections preexiste a cette phase et n'est pas touche ici,
-      // mais il est reel et signale dans le rapport.)
-#ifdef OG_FEAT_PBR
-      const std::string reach = custom_tex::pbr_reach_section();
-      if (!reach.empty()) {
-        file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_reach.txt", reach);
-      }
-#endif
-    } catch (...) {
-      // best-effort diag; never let a file error affect the render path
-    }
-  }
-}
-void pc_set_rt_ambient_contrast(u32 pct) {
-  // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.
-  recharged_gating::set(recharged_gating::kRtAmbientContrast, (float)pct * 0.01f);
-}
-// Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
-void pc_set_rt_ambient_model(u32 model) {
-  recharged_gating::set(recharged_gating::kRtAmbientModel, (int)model);
-}
-// ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
-// take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
-void pc_set_rt_shadow_res(u32 res) {
-  recharged_gating::set(recharged_gating::kRtShadowRes, (int)res);
-}
-void pc_set_rt_shadow_dist(u32 dist_m) {
-  recharged_gating::set(recharged_gating::kRtShadowDist, (float)dist_m);
-}
-// ROUND 5: cast-shadow Strength (how much a shadow darkens). GOAL passes call args in GPRs,
-// so a C float parameter would read an unset FP register (garbage) — every pc-set setter
-// therefore takes an integer. Strength arrives as an INT PERCENT 0..100 (0.8 -> 80); store
-// it back as a float 0..1. The shader residual is computed 1 - this.
-void pc_set_rt_shadow_strength(u32 pct) {
-  recharged_gating::set(recharged_gating::kRtShadowStrength, (float)pct * 0.01f);
-}
+// lighting-legacy-purge (2026-09-11) : `pc_set_rt_ambient`, `pc_set_rt_ambient_strength`,
+// `pc_set_pbr_texture_relief` et `pc_set_pbr_specular_intensity` sont SUPPRIMES. L'ambiante est
+// desormais inconditionnelle sous l'eclairage ; sa force, le RELIEF et la SPECULAIRE sont figes
+// dans RechargedFixed (gfx.h) sur leurs valeurs livrees.
+// lighting-legacy-purge (2026-09-11) : `pc_set_pbr_displacement`, `pc_set_pbr_isolate`,
+// `pc_set_rt_ambient_contrast`, `pc_set_rt_ambient_model`, `pc_set_rt_shadow_res`,
+// `pc_set_rt_shadow_dist` et `pc_set_rt_shadow_strength` sont SUPPRIMES. DISPLACEMENT vaut
+// desormais RechargedFixed::kPbrDisplacement (PARALLAX), PBR ISOLATE valait 0 = chemin complet,
+// le CONTRASTE d'ambiante n'avait aucun lecteur GLSL, et le modele / la resolution / la portee /
+// la force de l'ombre sont figes dans RechargedFixed.
+// AVEC eux part le seul ecrivain de `pbr_tan_diag.txt` et `pbr_reach.txt` : ces deux fichiers de
+// diagnostic vivaient DANS `pc_set_pbr_isolate` (sections POM / couverture / reach). Ils ne sont
+// plus ecrits ; les sections elles-memes restent disponibles dans custom_tex.
 #endif
 
 // ===============================================================================================
@@ -5518,40 +5537,26 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-grass-overhang!", (void*)pc_set_grass_overhang);
 #endif
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: runtime toggle + mood/TOD sun push
-  make_function_symbol_from_c("pc-set-pbr!", (void*)pc_set_pbr);
-  // Grecharged-materials-modern-parity: MODERN MATERIALS master (default OFF == stock)
-  make_function_symbol_from_c("pc-set-modern-materials!", (void*)pc_set_modern_materials);
+  // Grecharged-pbr-materials: mood/TOD sun push. lighting-legacy-purge (2026-09-11) :
+  // `pc-set-pbr!` et `pc-set-modern-materials!` sont SUPPRIMES — le PBR est inconditionnel
+  // sous « lighting » et la pile moderne n'existe plus.
   make_function_symbol_from_c("pc-set-pbr-sun!", (void*)pc_set_pbr_sun);
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-green-sun!", (void*)pc_set_pbr_green_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
   // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master
   make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
-  make_function_symbol_from_c("pc-set-rt-shadow-res!", (void*)pc_set_rt_shadow_res);
-  make_function_symbol_from_c("pc-set-rt-shadow-dist!", (void*)pc_set_rt_shadow_dist);
-  make_function_symbol_from_c("pc-set-rt-shadow-strength!", (void*)pc_set_rt_shadow_strength);
-  // Grecharged-directional-ambient: hemisphere ambient enable + base strength
-  make_function_symbol_from_c("pc-set-rt-ambient!", (void*)pc_set_rt_ambient);
-  make_function_symbol_from_c("pc-set-rt-ambient-strength!", (void*)pc_set_rt_ambient_strength);
-  // REOPEN #2 menu sliders: PBR TEXTURE RELIEF + SPECULAR INTENSITY
-  make_function_symbol_from_c("pc-set-pbr-texture-relief!", (void*)pc_set_pbr_texture_relief);
-  make_function_symbol_from_c("pc-set-pbr-specular-intensity!",
-                              (void*)pc_set_pbr_specular_intensity);
-  // REOPEN #3: DISPLACEMENT carousel (Off/Parallax/Tessellation)
-  make_function_symbol_from_c("pc-set-pbr-displacement!", (void*)pc_set_pbr_displacement);
-  // REOPEN #10: PBR ISOLATE carousel (in-menu term bisection: Both/NM-only/Parallax-only/Neither)
-  make_function_symbol_from_c("pc-set-pbr-isolate!", (void*)pc_set_pbr_isolate);
-  make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
-  make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
+  // lighting-legacy-purge (2026-09-11) : les ponts de l'ombre portee (res/dist/force), de
+  // l'ambiante (interrupteur/force/modele/contraste), du RELIEF, de la SPECULAIRE, du
+  // DISPLACEMENT et de PBR ISOLATE sont SUPPRIMES. Leurs valeurs livrees vivent dans
+  // RechargedFixed (gfx.h).
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
   // Grecharged-title-logo-fullres: CRISP TITLE LOGO toggle (native-res title/boot logo draw)
   make_function_symbol_from_c("pc-set-crisp-title-logo!", (void*)pc_set_crisp_title_logo);
-  // Gprecompute-deterministic-bake: MESH SUBDIVISION level (pre-subdivision round count 0..3).
-  // Registered UNCONDITIONALLY, like the setting field itself (gfx.h, outside OG_FEAT_PBR).
-  make_function_symbol_from_c("pc-set-mesh-subdiv-rounds!", (void*)pc_set_mesh_subdiv_rounds);
+  // lighting-legacy-purge (2026-09-11) : `pc-set-mesh-subdiv-rounds!` est SUPPRIME avec la
+  // pre-subdivision, qui n'etait atteignable que sous le mode TESSELLATION jamais livre.
   // Grecharged-mesh-browser: the debug mesh-browser back end (index load + row getters + checker
   // toggle + identifier export). See the block above InitMachine_PCPort.
   make_function_symbol_from_c("pc-mesh-index-load!", (void*)pc_mesh_index_load);

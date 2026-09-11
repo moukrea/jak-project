@@ -48,7 +48,7 @@ struct Row {
   // passer : une rangee qui perd son `gating-id` (parce que le cablage GOAL a derive d'un cran)
   // disparait du recensement, et c'est justement la classe de bug qu'on ne veut plus laisser
   // filer en silence. `false` = l'option existe mais n'est reglable que par settings.ini, ou sa
-  // rangee est absente du build livre (`pbr-isolate` n'apparait qu'avec --pbr --debug).
+  // rangee est absente du build livre (`pbr-exposure` n'a aucune rangee : il sert au HDR).
   bool row;
 };
 
@@ -112,30 +112,17 @@ const Row kOptions[kOptCount] = {
     {"ao-quality", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_quality, NOF, 1, true},
     {"ao-strength", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_strength, NOF, 1, true},
     {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0, false},
-    {"rt-shadow-res", kLighting, Kind::kParamI, NOB, PI(recharged_rt_shadow_res), NOF, 2048, true},
-    {"rt-shadow-dist", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_dist), 150.0, true},
-    {"rt-shadow-strength", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_strength),
-     0.8, false},
-    {"rt-ambient", kLighting, Kind::kToggle, PB(recharged_rt_ambient_enable), NOI, NOF, 0, false},
-    {"rt-ambient-model", kRtAmbient, Kind::kParamI, NOB, PI(recharged_rt_ambient_model), NOF, 1, true},
-    {"rt-ambient-strength", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_strength),
-     0.2, true},
-    {"rt-ambient-contrast", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_contrast),
-     1.0, false},
     {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0, false},
     {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96, false},
     {"hdr-curve", kHdr, Kind::kParamI, NOB, &GS::recharged_hdr_curve, NOF, 0, false},
     {"hdr-exposure", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_exposure, 1.0, false},
     {"hdr-output", kLighting, Kind::kExternal, NOB, NOI, NOF, 0, true},
-    {"pbr", kLighting, Kind::kToggle, PB(recharged_pbr_enable), NOI, NOF, 0, true},
-
-    {"pbr-relief", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_texture_relief), 1.5, true},
-    {"pbr-specular", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_spec_intensity), 0.15, true},
-    {"pbr-displacement", kPbr, Kind::kMode, NOB, PI(recharged_pbr_displacement), NOF, 0, true},
-    {"pbr-exposure", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_exposure), 1.0, false},
-    {"pbr-isolate", kPbr, Kind::kMode, NOB, PI(recharged_pbr_isolate), NOF, 0, false},
-    {"mesh-subdiv", kPbr, Kind::kParamI, NOB, &GS::recharged_mesh_subdiv_rounds, NOF, 1, true},
-    {"modern-materials", kPbr, Kind::kToggle, PB(recharged_modern_materials), NOI, NOF, 0, true},
+    // lighting-legacy-purge (2026-09-11) : les quatorze options de l'ancien monde sont RETIREES de
+    // la table, pas mises a zero. Le rendu PBR n'est plus une option : il est INCONDITIONNEL sous
+    // « lighting ». Ce que portaient les autres est fige dans RechargedFixed (gfx.h).
+    // `pbr-exposure` avait `pbr` pour parent ; il n'a aucun pont GOAL, il sert au HDR, et il est
+    // donc REPARENTE a `lighting` — pas supprime.
+    {"pbr-exposure", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_pbr_exposure), 1.0, false},
 };
 
 #undef PB
@@ -364,8 +351,8 @@ void check_table_once() {
     int opt;
     const char* name;
   } anchors[] = {{kMaster, "master"},   {kLighting, "lighting"}, {kGrassOverhang, "grass-overhang"},
-                 {kAoMode, "ao-mode"},  {kHdrOutput, "hdr-output"}, {kPbr, "pbr"},
-                 {kModernMaterials, "modern-materials"}};
+                 {kAoMode, "ao-mode"},  {kHdrOutput, "hdr-output"},
+                 {kPbrExposure, "pbr-exposure"}};
   for (const auto& a : anchors) {
     if (std::strcmp(kOptions[a.opt].name, a.name) != 0) {
       g_table_ok = false;
@@ -383,8 +370,7 @@ void check_table_once() {
 // porte `pbr-materials? = #f`). Chaque fenetre eteinte est donc precedee d'une fenetre ou TOUTES
 // les options sont forcees au maximum : `exec_on` est le temoin de couverture, et une option dont
 // `exec_on` vaut zero est comptee NON COUVERTE — un defaut, jamais un silence.
-const int kParents[] = {kLighting, kPbr,      kAoMode,        kRtAmbient,
-                        kGrass,    kWater,    kEnhancedModels, kMaster};
+const int kParents[] = {kLighting, kAoMode, kGrass, kWater, kEnhancedModels, kMaster};
 constexpr int kParentCount = (int)(sizeof(kParents) / sizeof(kParents[0]));
 
 constexpr uint64_t kWarmFrames = 60;

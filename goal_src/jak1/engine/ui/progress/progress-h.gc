@@ -188,15 +188,12 @@
      (ambient-occlusion)
      (ao-quality)
      (ao-strength)
-     (shadow-quality)
-     (rt-ambient-model)
-     ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation), mirroring rt-ambient-model.
-     (pbr-displacement)
-     ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
-     (pbr-test-preset)
-     ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (in-menu term bisection), mirroring pbr-displacement.
-     (pbr-isolate)
-     ;; Grecharged-hd-models5: per-character HD LOOK carousells, each mirroring pbr-displacement.
+     ;; lighting-legacy-purge (2026-09-11) : SHADOW QUALITY, AMBIENT MODEL, DISPLACEMENT, PBR TEST
+     ;; PRESET, PBR ISOLATE et MESH SUBDIVISION sont RETIRES — reglages d'eclairage de l'ancien
+     ;; monde. Aucune valeur numerique de cet enum n'est ecrite en dur nulle part (verifie par
+     ;; recensement : zero `the-as game-option-type`, zero litteral), la renumerotation est donc
+     ;; sans consequence, comme pour `follow-probe` le 2026-09-10.
+     ;; Grecharged-hd-models5: per-character HD LOOK carousells, each mirroring the carousell pattern.
      ;; hd-look-jak = Original/HD/Jak II/Jak 3; hd-look-daxter = Original/HD/Pants;
      ;; hd-look-keira = Original/HD/Jak 3; hd-look-samos = Original/HD/Young.
      (hd-look-jak)
@@ -204,7 +201,7 @@
      (hd-look-keira)
      (hd-look-samos)
      ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (Light/Full/Maximum), mirroring
-     ;; pbr-displacement. The PHYSICS on/off row itself needs no new type — it reuses the generic
+     ;; le meme motif de carrousel. The PHYSICS on/off row itself needs no new type — it reuses the generic
      ;; on-off type, exactly like the ENHANCED MODELS toggle it sits next to.
      (physics-quality)
      ;; Grecharged-menu-overhaul: a NON-SELECTABLE group-header row. Focus (up/down + initial entry)
@@ -212,10 +209,6 @@
      ;; visually separate the internal groups of the unified OPTIONS category pages (Ecran / Performance /
      ;; HUD in AFFICHAGE; General / Materiaux / Eclairage / Vegetation in RENDU; etc.).
      (group-header)
-     ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell
-     ;; (Off / Low / Mid / High = 0/1/2/3 pre-subdivision rounds), mirroring pbr-displacement.
-     ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.
-     (mesh-subdiv)
      ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell (Very Low / Low / Medium /
      ;; High / Very High = 0..4 pre-baked density presets), mirroring shadow-quality (same five labels).
      ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.

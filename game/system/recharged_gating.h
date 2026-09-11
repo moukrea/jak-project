@@ -102,28 +102,15 @@ enum Opt : int {
   kAoQuality,
   kAoStrength,
   kRtLight,
-  kRtShadowRes,
-  kRtShadowDist,
-  kRtShadowStrength,
-  kRtAmbient,
-  kRtAmbientModel,
-  kRtAmbientStrength,
-  kRtAmbientContrast,
   kHdr,
   kHdrKnee,
   kHdrCurve,
   kHdrExposure,
   kHdrOutput,
-  kPbr,
-
-  // ── sous PBR MATERIALS ──
-  kPbrRelief,
-  kPbrSpecular,
-  kPbrDisplacement,
+  // lighting-legacy-purge (2026-09-11) : les quatorze options de l'ancien monde sont RETIREES de
+  // la table, pas mises a zero. Le rendu PBR n'est plus une option : il est INCONDITIONNEL sous
+  // « lighting ». Ce que portaient les autres est fige dans RechargedFixed (gfx.h).
   kPbrExposure,
-  kPbrIsolate,
-  kMeshSubdiv,
-  kModernMaterials,
 
   kOptCount
 };

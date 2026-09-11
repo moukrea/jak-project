@@ -9,53 +9,28 @@ class Shader {
  public:
   static constexpr char shader_folder[] = "game/graphics/opengl_renderer/shaders/";
   Shader(const std::string& shader_name, GameVersion version);
-  // REOPEN #3 TESSELLATION: a shader with tessellation-control + tessellation-evaluation
-  // stages. vert_name/frag_name may differ from tesc_name/tese_name (the tess program reuses
-  // the plain tfrag3 fragment source). If the current GL context has no tessellation support,
-  // construction fails SOFT (m_is_okay stays false, one log line) — it never crashes; the
-  // caller must gate program selection on okay().
-  Shader(const std::string& vert_name,
-         const std::string& tesc_name,
-         const std::string& tese_name,
-         const std::string& frag_name,
-         GameVersion version);
   Shader() = default;
   void activate() const;
   bool okay() const { return m_is_okay; }
   u64 id() const { return m_program; }
 
  private:
-  // Shared build of the linked program from already-substituted stage sources. tesc_src/tese_src
-  // empty => a plain 2-stage vert+frag program (the legacy path). Returns via members.
+  // Shared build of the linked program from already-substituted stage sources (vert + frag).
+  // Returns via members.
   void build(const std::string& shader_name,
              const std::string& vert_src,
-             const std::string& tesc_src,
-             const std::string& tese_src,
              const std::string& frag_src,
              GameVersion version);
   std::string m_name;
   u64 m_frag_shader = 0;
   u64 m_vert_shader = 0;
-  u64 m_tesc_shader = 0;
-  u64 m_tese_shader = 0;
   u64 m_program = 0;
   bool m_is_okay = false;
 };
 
-// REOPEN #3 TESSELLATION: true when the live GL/GLES context exposes the tessellation stages
-// (desktop GL >= 4.0, or GLES >= 3.2). Cached after the first query. A Shader with tess stages
-// must never be selected/activated when this is false.
-bool gl_context_supports_tessellation();
-
-// REOPEN #3 TESSELLATION driver-defensive: true only when the TFRAG3_TESS program was actually
-// built AND linked okay() on the live context (capability advertised is not enough). Callers must
-// gate the tess draw path on this in addition to gl_context_supports_tessellation().
-bool gl_tfrag3_tess_program_ok();
-
-// The live driver's GL_MAX_TESS_GEN_LEVEL (the highest tessellation level a tesc may request).
-// Queried once on the GL thread and cached; falls back to the GL/GLES minimum-maximum of 64 on
-// drivers that do not answer. Callers must clamp any requested tess level to this.
-int gl_max_tess_gen_level();
+// lighting-legacy-purge (2026-09-11) : `gl_context_supports_tessellation`,
+// `gl_tfrag3_tess_program_ok` et `gl_max_tess_gen_level` sont SUPPRIMES avec le programme
+// TFRAG3_TESS, jamais livre.
 
 // note: update the constructor in Shader.cpp
 enum class ShaderId {
@@ -123,11 +98,9 @@ enum class ShaderId {
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials round-4 mandate B: depth-only sun shadow-map pass.
   PBR_DEPTH = 53,
-  // REOPEN #3 TESSELLATION displacement: TFRAG3 with a tess control+eval stage that
-  // displaces the surface by the PBR height map (u_pbr_displacement == 2). vert =
-  // tfrag3_tess.vert (pass-through), tesc = tfrag3.tesc, tese = tfrag3.tese, frag =
-  // tfrag3.frag (reused unchanged). Only compiled/selected on a tess-capable context.
-  TFRAG3_TESS = 54,
+  // lighting-legacy-purge (2026-09-11) : `TFRAG3_TESS` (l'ancien 54, DERNIER enumerateur) est
+  // SUPPRIME : le mode DISPLACEMENT = TESSELLATION n'a jamais ete livre. Etant le dernier, son
+  // retrait ne renumerote AUCUN autre identifiant.
 #endif
   MAX_SHADERS
 };

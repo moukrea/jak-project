@@ -68,6 +68,23 @@ struct GfxRendererModule {
 static constexpr int PAT_MOD_COUNT = 4;
 static constexpr int PAT_EVT_COUNT = 20;
 static constexpr int PAT_MAT_COUNT = 34;
+// lighting-legacy-purge (2026-09-11) — LES VALEURS DE L'ANCIEN MONDE, FIGEES.
+// L'owner a fait retirer dix reglages d'eclairage anterieurs a la refonte. Ils ne sont pas
+// « eteints » : le champ, le pont GOAL, la rangee de menu et l'option de `recharged_gating`
+// n'existent plus. Ce qu'ils portaient est desormais UNE CONSTANTE, celle que le jeu livrait.
+// Toute evolution de ces valeurs appartient a l'item de la refonte nomme en regard.
+namespace RechargedFixed {
+constexpr float kPbrTextureRelief = 1.5f;      // ex `pbr-texture-relief`  -> pbr-per-material
+constexpr float kPbrSpecIntensity = 0.15f;     // ex `pbr-specular-intensity` -> pbr-per-material
+constexpr int kPbrDisplacement = 1;            // ex `pbr-displacement` : PARALLAX. Le mode 2
+                                               // TESSELLATION n'a jamais ete livre.
+constexpr int kRtShadowRes = 2048;             // ex `realtime-shadow-quality` -> lighting-shadows
+constexpr float kRtShadowDist = 150.0f;        // ex `realtime-shadow-dist`    -> lighting-shadows
+constexpr float kRtShadowStrength = 0.8f;      // ex `realtime-shadow-strength`-> lighting-shadows
+constexpr float kRtAmbientStrength = 0.2f;     // ex `realtime-ambient-strength` -> lighting-bake
+constexpr int kRtAmbientModel = 1;             // ex `realtime-ambient-model` : SH -> lighting-interiors
+}  // namespace RechargedFixed
+
 struct GfxGlobalSettings {
   bool debug = true;  // graphics debugging
 
@@ -274,7 +291,12 @@ struct GfxGlobalSettings {
   u32 mb_cur_relief_x100 = 0;    // relief factor the shader uniforms were pushed with (x100)
   // V2.2 (owner: Square swapped only the ALBEDO; gizmos emitted but nothing showed):
   u32 mb_cur_checker_full = 0;  // FULL checker set binds (normal+rough+height) on target draws
-  u32 mb_cur_target_tess = 0;   // target draws submitted on the TESS program (displacement TAKEN)
+  // lighting-legacy-purge (2026-09-11) : ce compteur n'a PLUS DE SITE D'ECRITURE — son unique
+  // incrementation vivait dans la boucle de dessin TESSELLEE de TFragment, supprimee avec le
+  // programme TFRAG3_TESS. Il est laisse en place et vaut structurellement 0, ce qui est la
+  // VERITE (aucun draw ne peut plus etre tesselle) ; sa rangee GOAL est a retirer par l'item de la
+  // refonte qui possede le navigateur de maillages.
+  u32 mb_cur_target_tess = 0;   // ex : draws cibles soumis sur le programme TESSELLE
   u32 mb_cur_gizmo_px = 0;      // framebuffer pixels the gizmo pass actually CHANGED this frame
   u32 mb_frame_target_draws = 0;
   u32 mb_frame_checker_binds = 0;
@@ -458,46 +480,24 @@ struct GfxGlobalSettings {
   // hangs on a ledge, so the ledge-top grass parts around his hands. w = 1.0 while hanging,
   // 0.0 otherwise (GOAL pushes a null vector to clear it when he lets go).
   float recharged_jak_ledge[4] = {0.f, 0.f, 0.f, 0.f};
-  // ----------------------------------------------------------------------------------------------
-  // Gprecompute-deterministic-bake (owner 2026-08-26) — MESH PRE-SUBDIVISION LEVEL, AS A SETTING.
-  //
-  // The offline-deterministic pre-subdivision (MeshSubdivide.h) hands the hardware tessellator
-  // patches small enough that it stops clipping at GL_MAX_TESS_GEN_LEVEL. It used to run at a fixed
-  // 3 rounds whenever the tessellation displacement mode was on — a two-digit geometry multiplier
-  // applied to every target automatically. Measured on the test device at lvl=title: 3 rounds gave
-  // 7 700 915 tris/frame at 82,8 ms and forced the renderer down to 768x432, while 1 round gave
-  // 65 318 tris/frame at 8,1-17,9 ms at 1920x1080.
-  //
-  // It is a CHOICE now. 0 = off (no refinement at all), 1 = shipped default (one round: the ground
-  // patch reaches the threshold the tessellator needs), 2-3 = denser, for machines with the budget.
-  // Pushed from GOAL via pc-set-mesh-subdiv-rounds! (menu: DISPLAY > MESH SUBDIVISION) and applied
-  // at the NEXT level load, since the refinement happens on the loader thread.
-  // debug.opengoal.mesh.subdivrounds / OG_MESH_SUBDIV_ROUNDS still override it for A/B work.
-  int recharged_mesh_subdiv_rounds = 1;
+  // lighting-legacy-purge (2026-09-11) : `recharged_mesh_subdiv_rounds` est RETIRE. La
+  // pre-subdivision n'etait atteignable que sous DISPLACEMENT = 2 (TESSELLATION), un mode qui
+  // n'a jamais ete livre et qui disparait avec cet item : le reglage ne pouvait plus rien
+  // changer a l'image.
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: runtime toggle + per-frame mood/TOD sun state (raw GOAL vectors)
-  bool recharged_pbr_enable = true;
+  // Grecharged-pbr-materials: per-frame mood/TOD sun state (raw GOAL vectors). Le rendu PBR
+  // n'est plus une option (lighting-legacy-purge) : il est INCONDITIONNEL sous « lighting ».
   float recharged_pbr_shadow[3] = {0.f, -1.f, 0.f};     // *time-of-day-context* current-shadow (light travel dir)
   float recharged_pbr_sun_color[3] = {1.f, 1.f, 1.f};   // mood-sun sun-color
   float recharged_pbr_ambient[3] = {0.25f, 0.25f, 0.3f}; // mood-sun env-color
   float recharged_pbr_exposure = 1.0f;
-  // REOPEN #2 menu sliders: TEXTURE RELIEF (multiplier on normal-strength + POM height;
-  // 1.0 = pre-slider look, shipped default 1.5) and SPECULAR INTENSITY (fused spec scale).
-  // REOPEN #6 (owner playtest #4: matte is the norm): SPECULAR INTENSITY shipped default is now
-  // LOW (0.15) — rough dielectrics are matte by construction (the shader matte_gate); the slider
-  // only trims the residual highlight on genuinely smooth/metal texels. Owner dials up for shiny.
-  float recharged_pbr_texture_relief = 1.5f;
-  float recharged_pbr_spec_intensity = 0.15f;
-  // REOPEN #3 DISPLACEMENT menu carousel: 0 = Off, 1 = Parallax (steep POM, default),
-  // 2 = Tessellation (GLES3.2/GL4.x tess displacement, near ground/walls).
-  int recharged_pbr_displacement = 1;
-  // REOPEN #10 PBR ISOLATE menu carousel (DEBUG, removable): the owner's IN-MENU term
-  // bisection so he can isolate the residual grass-facet source at his own vantage with no
-  // adb. Stored here as the resolved u_pbr_bisect MASK (not the carousel index): 0 = BOTH
-  // (nm+POM), 128 = NORMAL-MAP ONLY (POM off), 64 = PARALLAX ONLY (normal-map off),
-  // 192 = NEITHER. Seeds pbr_bisect in the fused path; the debug prop/env still override.
-  int recharged_pbr_isolate = 0;
+  // lighting-legacy-purge (2026-09-11) : TEXTURE RELIEF et SPECULAR INTENSITY sont figes dans
+  // RechargedFixed::kPbrTextureRelief / kPbrSpecIntensity — les valeurs livrees, telles quelles.
+  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT est fige a RechargedFixed::kPbrDisplacement
+  // (1 = PARALLAX, le POM). Le mode 2 TESSELLATION n'a jamais ete livre : il est SUPPRIME.
+  // lighting-legacy-purge (2026-09-11) : PBR ISOLATE (la bissection de debug du fused path)
+  // est SUPPRIME. Le masque livre valait 0 = chemin complet.
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;
@@ -518,37 +518,20 @@ struct GfxGlobalSettings {
   // is the dominant/only sun above the horizon, i.e. night) the cast-shadow direction. Zero
   // until the first push (renderer treats a below-horizon / zero green sun as no contribution).
   float recharged_pbr_green_sun[3] = {0.f, 0.f, 0.f};
-  // Grecharged-materials-modern-parity: MODERN MATERIAL STACK master (menu row "MODERN
-  // MATERIALS", Recharged Settings, default OFF == stock). ANDed with the Recharged master by
-  // every consumer via Gfx::recharged_active(). When false the loader ignores _orm/_thickness
-  // maps and surfaces.json entirely, and every draw pushes u_mm_flags = 0, so the shading is
-  // bit-identical to the accepted PBR path.
-  bool recharged_modern_materials = false;
+  // lighting-legacy-purge (2026-09-11) : MODERN MATERIALS est SUPPRIME. La rangee livrait OFF,
+  // donc `u_mm_flags` valait 0 a chaque draw et la pile moderne n'a jamais touche un pixel :
+  // son absence EST la valeur livree. Les shaders pbr_modern*.glsl partent avec elle.
   // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
   // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
   // (the tfrag3 sun-only path is taken only when this is on). Set from GOAL via pc-set-rt-light!.
   // Default OFF => a --pbr build with the toggle off is the existing owner-accepted
   // pbr-materials behavior; a non-pbr build has none of this (stock).
   bool recharged_rt_light_enable = false;
-  // Grecharged-realtime-lighting ROUND 2: sun shadow-map QUALITY (resolution) + DISTANCE.
-  // recharged_rt_shadow_res = depth-texture edge in texels (1024 Low / 2048 Med / 4096 High
-  // on mobile); recharged_rt_shadow_dist = the realtime shadow range = the ortho box HALF-
-  // extent in meters (box = 2x). Defaults reproduce round-1 (1024, 40 m half = 80 m box).
-  // Driven from GOAL via pc-set-rt-shadow-res! / pc-set-rt-shadow-dist!, overridable by the
-  // debug props debug.opengoal.rt.shadowres / .shadowdist (env OG_RT_SHADOWRES/DIST) for A/B.
-  int recharged_rt_shadow_res = 2048;
-  float recharged_rt_shadow_dist = 150.0f;
-  float recharged_rt_shadow_strength = 0.8f;  // ROUND-5: cast-shadow darkening (0..1); shader residual = 1 - this
-  // Grecharged-directional-ambient: hemisphere ambient (replaces the flat ~0.2 floor).
-  bool recharged_rt_ambient_enable = true;     // ON by default (the improvement over the flat floor)
-  float recharged_rt_ambient_strength = 0.2f;  // ambient base level (== the old ~0.2 flat floor)
-  // Grecharged-directional-ambient ROUND 2: ambient MODEL (0 = HEMISPHERE, 1 = SH, 2 = IBL). Selectable
-  // in Recharged Settings (a quality tier). Only read on the rt path; OFF==stock unaffected.
-  // Default SH (1): the shipped/out-of-box directional model (supervisor 2026-07-20 — hemisphere is
-  // N.y-only so it must not be the download default; SH varies over the full normal + carries the
-  // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
-  int recharged_rt_ambient_model = 1;
-  float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
+  // lighting-legacy-purge (2026-09-11) : la QUALITE / la DISTANCE / la FORCE de l'ombre portee,
+  // l'interrupteur d'ambiante, sa FORCE, son MODELE et son CONTRASTE sont RETIRES. Les cinq
+  // premiers sont figes dans RechargedFixed (kRtShadowRes/Dist/Strength, kRtAmbientStrength,
+  // kRtAmbientModel) ; l'ambiante est desormais inconditionnelle sous l'eclairage (elle livrait
+  // deja ON) et le CONTRASTE etait un knob mort — uniform declare, aucun lecteur GLSL.
   // dead-follow-probe (2026-09-10) : `recharged_follow_probe` est SUPPRIME. Son unique
   // consommateur, FollowProbe.cpp, a disparu avec SPEC-refonte-lumiere §2.4 et sa rangee de menu
   // ENV PROBE le 2026-09-02 : le champ etait ecrit par `pc_set_follow_probe` et lu par PERSONNE

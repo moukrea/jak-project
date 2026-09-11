@@ -501,7 +501,6 @@ const PbrNeutralMaps& pbr_neutral_maps() {
     s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
     s.specular_tex = make1x1(0, 0, 0);      // fusion: F0 map absent (bit32 gates reads)
     s.emissive_tex = make1x1(0, 0, 0);      // fusion: no self-illumination (bit64 gates)
-    s.thickness_tex = make1x1(255, 255, 255);  // modern: unit 19 never incomplete (bit1+32 gate it)
     glActiveTexture(prev_active);
   }
   return s;
@@ -523,8 +522,6 @@ void pbr_park_neutral_maps() {
   glBindTexture(GL_TEXTURE_2D, neutral.specular_tex);
   glActiveTexture(GL_TEXTURE17);
   glBindTexture(GL_TEXTURE_2D, neutral.emissive_tex);
-  glActiveTexture(GL_TEXTURE19);  // modern: subsurface thickness (18 is shrub's wind-anchor LUT)
-  glBindTexture(GL_TEXTURE_2D, neutral.thickness_tex);
   glActiveTexture(GL_TEXTURE0);
 }
 
@@ -1077,7 +1074,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
   // the texture, resolved once per level.
-  if (recharged_gating::on(recharged_gating::kPbr) && !pbr_killswitch() &&
+  if (recharged_gating::on(recharged_gating::kLighting) && !pbr_killswitch() &&
       tex_id >= 0 && !mode.get_decal() && m_draws &&
       !m_draws->empty()) {
     for (auto& e : *m_draws) {
@@ -1168,8 +1165,6 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     glBindTexture(GL_TEXTURE_2D, maps->specular_tex ? maps->specular_tex : neutral.specular_tex);
     glActiveTexture(GL_TEXTURE17);
     glBindTexture(GL_TEXTURE_2D, maps->emissive_tex ? maps->emissive_tex : neutral.emissive_tex);
-    glActiveTexture(GL_TEXTURE19);  // modern: subsurface thickness
-    glBindTexture(GL_TEXTURE_2D, maps->thickness_tex ? maps->thickness_tex : neutral.thickness_tex);
     glActiveTexture(GL_TEXTURE0);
     m_bound_any = true;
   }
@@ -1269,73 +1264,10 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     custom_tex::pbr_reach_note_pushed(ent->key, have ? rb_mat : nullptr,
                                       (have && rl.mat2 >= 0) ? rb_mat2 : nullptr, want);
   }
-  // ===== Grecharged-materials-modern-parity: the MODERN MATERIAL STACK block =====================
-  // mm_flags already carries the master AND the per-material opt-in: mm_apply_params() cleared it
-  // to 0 at load time if either was absent, and re-stamps every registered material when the menu
-  // row is toggled. So there is no second gate to keep in sync here — if it is non-zero, this
-  // material asked for the layer and the owner switched it on.
-  // `want == 0` means this draw resolved no PBR material at all, in which case the modern layer has
-  // nothing to ride on and must be off regardless of what the last draw pushed.
-  const int mm_want = (want != 0 && maps) ? (int)maps->mm_flags : 0;
-  const void* mm_key = (mm_want != 0) ? (const void*)maps : nullptr;
-  // TWO counters, on purpose: this one is OUTSIDE the guard and counts every bind, the
-  // mm_note_active_draw() below is INSIDE it and counts only material TRANSITIONS (uniform
-  // re-pushes) — so the pair reads as bind volume vs state-reuse instead of a single number that
-  // has silently meant "transitions" while being labelled "draws".
-  custom_tex::mm_note_bind(mm_want);
-  if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps) {
-    if (m_mm_flags_loc == -2) {
-      m_mm_flags_loc = glu::loc(m_program, "u_mm_flags");
-      m_mm_sss_loc = glu::loc(m_program, "u_mm_sss");
-      m_mm_sss2_loc = glu::loc(m_program, "u_mm_sss2");
-      m_mm_coat_loc = glu::loc(m_program, "u_mm_coat");
-      m_mm_aniso_loc = glu::loc(m_program, "u_mm_aniso");
-    }
-    if (m_mm_flags_loc >= 0) {
-      glUniform1i(m_mm_flags_loc, mm_want);
-      if (mm_want != 0) {
-        // Only pushed for a material that actually opted in. A draw with mm_flags == 0 leaves the
-        // parameter uniforms holding the previous material's values, which is harmless precisely
-        // because the shader chunk never reads them without the gate.
-        if (m_mm_sss_loc >= 0) {
-          glUniform4f(m_mm_sss_loc, maps->sss_color[0], maps->sss_color[1], maps->sss_color[2],
-                      maps->sss_strength);
-        }
-        if (m_mm_sss2_loc >= 0) {
-          glUniform4f(m_mm_sss2_loc, maps->sss_thickness, maps->sss_power, maps->sss_distort,
-                      maps->sss_wrap);
-        }
-        if (m_mm_coat_loc >= 0) {
-          glUniform4f(m_mm_coat_loc, maps->coat_weight, maps->coat_rough, maps->sss_ambient, 0.f);
-        }
-        if (m_mm_aniso_loc >= 0) {
-          glUniform2f(m_mm_aniso_loc, maps->aniso, maps->aniso_angle);
-        }
-      }
-      custom_tex::mm_note_active_draw(mm_want);
-    }
-    m_cur_mm_flags = mm_want;
-    m_cur_mm_maps = mm_key;
-  }
-  // Gpbr-props-reach-draw : la meme relecture pour la MOITIE MODERNE. Posee HORS de la garde de
-  // changement d'etat ci-dessus a dessein : la garde evite de RE-pousser des uniformes identiques,
-  // elle ne change pas ce que l'objet programme CONTIENT — donc un draw qui n'a rien repousse
-  // utilise quand meme ces valeurs, et les relire ici les attribue au bon materiau. Une seule fois
-  // par matiere (`reach_probe`), comme la moitie PBR : glGetUniformfv est synchrone.
-  if (reach_probe && mm_want != 0 && m_mm_flags_loc >= 0) {
-    float rb_coat[4] = {0.f, 0.f, 0.f, 0.f};
-    float rb_aniso[2] = {0.f, 0.f};
-    const bool have_coat = m_mm_coat_loc >= 0;
-    const bool have_aniso = m_mm_aniso_loc >= 0;
-    if (have_coat) {
-      glGetUniformfv(m_program, m_mm_coat_loc, rb_coat);
-    }
-    if (have_aniso) {
-      glGetUniformfv(m_program, m_mm_aniso_loc, rb_aniso);
-    }
-    custom_tex::pbr_reach_note_mm(ent->key, have_coat ? rb_coat : nullptr,
-                                  have_aniso ? rb_aniso : nullptr, mm_want);
-  }
+  // lighting-legacy-purge (2026-09-11) : le bloc de la pile « Materiaux avances » est SUPPRIME.
+  // Sa rangee de menu livrait OFF, `mm_apply_params` remettait donc `mm_flags` a 0 sur CHAQUE
+  // matiere, et le draw poussait `u_mm_flags = 0` : le chunk du shader sortait avant d'ecrire un
+  // pixel. Son absence EST la valeur livree — uniformes, compteurs et relecture comprises.
 }
 
 void PbrDrawBinder::finish() {
@@ -1349,19 +1281,6 @@ void PbrDrawBinder::finish() {
       lighting_census::gate_pbr_mode(0);
     }
     m_cur_mode = 0;
-  }
-  // Grecharged-materials-modern-parity: and the modern gate back to 0. The TFRAG3 program is shared
-  // with renderers that never call set(), so leaving a non-zero u_mm_flags behind would let a later
-  // draw enter the modern chunk carrying the last material's scattering colour.
-  if (m_cur_mm_flags != 0) {
-    if (m_mm_flags_loc == -2) {
-      m_mm_flags_loc = glu::loc(m_program, "u_mm_flags");
-    }
-    if (m_mm_flags_loc >= 0) {
-      glUniform1i(m_mm_flags_loc, 0);
-    }
-    m_cur_mm_flags = 0;
-    m_cur_mm_maps = nullptr;
   }
   if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
     if (m_dc_loc == -2) {
@@ -1660,7 +1579,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // SPEC §6.2 : les ombres portees sont SOUS l'eclairage recharge. Eteindre l'eclairage passe
   // par ici, remet `read_valid` a faux, et pbr_shadow_bind_receiver pousse alors
   // u_pbr_shadow_on = 0 — le composite E de shade.glsl s'eteint avec le reste.
-  if (!(recharged_gating::on(recharged_gating::kPbr) ||
+  if (!(recharged_gating::on(recharged_gating::kLighting) ||
         recharged_gating::on(recharged_gating::kRtLight)) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     // Feature off: also invalidate the read side so receivers stop sampling a map that
@@ -1669,71 +1588,17 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
     st.have_mvp = false;
     return false;
   }
-  // ROUND 2 Shadow Quality (resolution) + Shadow Distance settings. Read once per frame
-  // (statics), overridable by debug prop / env for headless A/B. A resolution change
-  // reallocates the depth textures (this runs on the GL thread). Distance sets shadow_half.
-  static u64 s_cfg_frame = ~0ull;
-  static int s_req_res = 2048;
-  static float s_req_dist = 150.0f;
-  if (frame_idx != s_cfg_frame) {
-    s_cfg_frame = frame_idx;
-    int rr = Gfx::g_global_settings.recharged_rt_shadow_res;
-    float rd = Gfx::g_global_settings.recharged_rt_shadow_dist;
-#ifdef __ANDROID__
-    {
-      char v[PROP_VALUE_MAX];
-      if (__system_property_get("debug.opengoal.rt.shadowres", v) > 0 && v[0]) {
-        rr = atoi(v);
-      }
-      if (__system_property_get("debug.opengoal.rt.shadowdist", v) > 0 && v[0]) {
-        rd = (float)atof(v);
-      }
-    }
-#else
-    if (const char* e = std::getenv("OG_RT_SHADOWRES")) {
-      rr = std::atoi(e);
-    }
-    if (const char* e = std::getenv("OG_RT_SHADOWDIST")) {
-      rd = (float)std::atof(e);
-    }
-#endif
-    // ROUND-4: snap resolution to the FIVE supported tiers (Very Low 512 / Low 1024 /
-    // Med 2048 / High 4096 / Very High 8192); clamp distance to a sane range.
-    if (rr >= 6144) {
-      rr = 8192;
-    } else if (rr >= 3072) {
-      rr = 4096;
-    } else if (rr >= 1536) {
-      rr = 2048;
-    } else if (rr >= 768) {
-      rr = 1024;
-    } else {
-      rr = 512;
-    }
-    if (rd < 15.0f) {
-      rd = 15.0f;
-    }
-    if (rd > 200.0f) {
-      rd = 200.0f;
-    }
-    s_req_res = rr;
-    s_req_dist = rd;
-  }
-  st.shadow_half = s_req_dist;
-  if (st.depth_tex[0] && s_req_res != st.size) {
-    // Resolution changed at runtime: tear down + rebuild the depth textures at the new size.
-    glDeleteFramebuffers(2, st.fbo);
-    glDeleteTextures(2, st.depth_tex);
-    st.fbo[0] = 0;
-    st.fbo[1] = 0;
-    st.depth_tex[0] = 0;
-    st.depth_tex[1] = 0;
-    st.size = s_req_res;
-    st.read_valid = false;
-    st.have_mvp = false;
-    st.frame = ~0ull;
-  } else if (!st.depth_tex[0]) {
-    st.size = s_req_res;  // first allocation happens at the requested resolution
+  // lighting-legacy-purge (2026-09-11) : la QUALITE et la DISTANCE de l'ombre portee ne sont plus
+  // des reglages. Elles valent ce que le jeu LIVRAIT — RechargedFixed::kRtShadowRes (2048, le
+  // palier « Med » ou l'ancienne echelle tombait deja) et kRtShadowDist (150 m de demi-etendue,
+  // dans les bornes 15..200 de l'ancien clamp) — donc ni le paliers-snap, ni le clamp, ni les
+  // surcharges de propriete `debug.opengoal.rt.shadowres` / `.shadowdist` n'ont plus d'objet : une
+  // surcharge de propriete sur un reglage supprime est exactement la survivance que cet item
+  // retire. La resolution ne changeant plus en cours de course, la reallocation des textures de
+  // profondeur part avec elle : la premiere allocation suffit.
+  st.shadow_half = RechargedFixed::kRtShadowDist;
+  if (!st.depth_tex[0]) {
+    st.size = RechargedFixed::kRtShadowRes;
   }
   pbr_shadow_ensure_resources();
   if (!st.valid) {
@@ -2052,16 +1917,10 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   if (leg_loc >= 0) {
     glUniform1f(leg_loc, st.legacy_strength);
   }
-  // ROUND 2: feed the shader the Shadow Distance (range) + Shadow Quality (resolution) so it
-  // can do the smooth distance fade and size the PCF texel + normal-offset bias.
-  GLint rng_loc = glu::loc(program, "u_rt_shadow_range");
-  if (rng_loc >= 0) {
-    glUniform1f(rng_loc, st.shadow_half);
-  }
-  GLint res_loc = glu::loc(program, "u_rt_shadow_res");
-  if (res_loc >= 0) {
-    glUniform1f(res_loc, (float)st.size);
-  }
+  // lighting-legacy-purge (2026-09-11) : `u_rt_shadow_range` et `u_rt_shadow_res` ne sont plus
+  // pousses — les deux grandeurs sont desormais des CONSTANTES (RechargedFixed::kRtShadowDist /
+  // kRtShadowRes), ecrites en dur cote shader. Continuer a les pousser rendrait -1 a
+  // `glGetUniformLocation` et la ligne ne serait que du bruit.
   if (st.debug) {
     static int dbg_calls = 0;
     if (dbg_calls++ % 240 == 0) {
@@ -2111,25 +1970,26 @@ void pbr_push_debug_tag(GLuint program) {
 // LE DEFAUT MESURE. `first_tfrag_draw_setup` poussait ses 70 uniformes de la famille ECLAIRAGE
 // SANS AUCUNE CONDITION, y compris quand l'ECLAIRAGE RECHARGE est ETEINT. Dans cet etat les
 // quatre portes que les shaders consultent valent toutes zero et rien ne peut les relever :
-//   u_pbr_mode      PbrDrawBinder::set sort avant d'ecrire quoi que ce soit (l.1067 : « les
-//                   matieres PBR sont SOUS l'eclairage recharge »), l'option `pbr` ayant pour
-//                   parent `kLighting` (recharged_gating.cpp:128).
-//   u_rt_light_on   `Gfx::lighting_active(...)` le met a 0 (l.2644) ; `rt-light` a le meme parent.
-//   u_rt_ambient_on idem (l.2908).
+//   u_pbr_mode      PbrDrawBinder::set sort avant d'ecrire quoi que ce soit (« les matieres PBR
+//                   sont SOUS l'eclairage recharge ») : la porte est `kLighting` lui-meme depuis
+//                   lighting-legacy-purge, le PBR n'etant plus une option.
+//   u_rt_light_on   `Gfx::lighting_active(...)` le met a 0 ; `rt-light` a le meme parent.
 //   u_pbr_shadow_on le receveur n'est meme pas APPELE : ses trois appelants le gardent derriere
-//                   `recharged_gating::on(kPbr) || on(kRtLight)` (TFragment.cpp:909, Tie3.cpp,
+//                   `recharged_gating::on(kLighting) || on(kRtLight)` (TFragment.cpp, Tie3.cpp,
 //                   Shrub.cpp).
 // Aucune des valeurs poussees n'est donc lue par un chemin actif du shader, et le processeur
 // payait 54 recherches de nom + 54 appels de pilote PAR HOTE ET PAR IMAGE pour rien.
 //
 // CE QUI CONTINUE D'ETRE POUSSE, ETEINT (`lgt_keep_1i`) — et pourquoi :
-//   * les PORTES elles-memes (u_pbr_mode, u_mm_flags, u_pbr_shadow_on, u_rt_light_on,
-//     u_rt_ambient_on) : ne PAS les pousser laisserait le programme sur la valeur ALLUMEE de
-//     l'image precedente et rallumerait l'eclairage. Un uniforme est un etat de programme.
+//   * les PORTES elles-memes (u_pbr_mode, u_pbr_shadow_on, u_rt_light_on) : ne PAS les pousser
+//     laisserait le programme sur la valeur ALLUMEE de l'image precedente et rallumerait
+//     l'eclairage. Un uniforme est un etat de programme. (`u_mm_flags` et `u_rt_ambient_on` ont
+//     disparu avec la pile « Materiaux avances » et l'interrupteur d'ambiante —
+//     lighting-legacy-purge.)
 //   * les NEUF unites de texture `tex_PBR_*` : une unite non posee retombe a 0, deux
 //     echantillonneurs sur la meme unite est le piege de completude connu de cet arbre.
-//   * u_pbr_debug et u_pbr_tess_active : tfrag3.frag:150-151 les lit HORS de toute porte
-//     d'eclairage (les modes de recensement de couverture 30/31).
+//   * u_pbr_debug : tfrag3.frag le lit HORS de toute porte d'eclairage (les modes de recensement
+//     de couverture 30/31).
 //
 // LE COMPTEUR N'EST PAS UN MIROIR DE LA GARDE. Il est incremente DANS le wrapper qui fait
 // l'appel GL, pas au point de decision : un site d'eclairage qui echapperait a la garde serait
@@ -2330,7 +2190,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   sh.activate();
   auto id = sh.id();
 #ifdef OG_FEAT_PBR
-  const bool legacy_host = shader == ShaderId::TFRAG3 || shader == ShaderId::TFRAG3_TESS;
+  const bool legacy_host = shader == ShaderId::TFRAG3;
   lighting_census::host_paths(legacy_host || shader == ShaderId::ETIE_BASE ||
                                  shader == ShaderId::TIE_WIND || shader == ShaderId::SHRUB,
                              legacy_host);
@@ -2338,17 +2198,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lighting_census::host_paths(false, false);
 #endif
 #ifdef OG_FEAT_PBR
-  // ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste
-  // PLATS alors que le damier est bien présent". The fragment POM was gated on the GLOBAL setting
-  // (u_pbr_displacement != 2), so selecting Tessellation switched the parallax OFF on every draw
-  // the tess program does not cover — all TIE props/walls, shrubs, hfrag, the non-opaque tfrag
-  // trees, and every patch past the tesc's 30 m gate. Those draws then had NO displacement at all:
-  // flat chunks right next to raised ones, exactly what the checkerboard exposed. The suppression
-  // has to be per-PROGRAM: only the program that actually runs the tessellation stages may skip
-  // the POM, everything else keeps it. Every other caller (Tie3, Shrub, Hfrag) passes a non-tess
-  // ShaderId and therefore gets 0 = "run the POM".
-  lgt_keep_1i(id, "u_pbr_tess_active",
-              shader == ShaderId::TFRAG3_TESS ? 1 : 0);
+  // lighting-legacy-purge (2026-09-11) : `u_pbr_tess_active` n'est plus pousse. Il ne valait 1 que
+  // pour le programme TFRAG3_TESS, supprime avec le mode DISPLACEMENT = TESSELLATION jamais livre :
+  // la valeur poussee etait 0 sur TOUS les hotes restants, ce que la valeur par defaut d'un uniforme
+  // entier vaut deja.
 #endif
   glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
   lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
@@ -2422,10 +2275,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // + 1 samplerCube = 15, against a GL_MAX_TEXTURE_IMAGE_UNITS floor of 16 on GLES 3.2. ONE slot
   // left. The next channel that wants a map must pack into an existing one (as _orm does for
   // occlusion/roughness/metallic) rather than take a unit.
-  lgt_keep_1i(id, "tex_PBR_TH", 19);
-  // The modern stack's gate: OFF for every program at setup. The per-draw binder raises it only for
-  // a material that opted in, and lowers it again in finish().
-  lgt_keep_1i(id, "u_mm_flags", 0);
+  // lighting-legacy-purge (2026-09-11) : `tex_PBR_TH` (unite 19, l'epaisseur sous-surfacique) et
+  // `u_mm_flags` partent avec la pile « Materiaux avances » : plus aucun shader ne les declare.
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
@@ -2486,8 +2337,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // multiplies normal strength + POM height (1.0 = the previous look; shipped default 1.5
   // = noticeably stronger relief). SPECULAR INTENSITY scales the fused specular sum.
   // Debug props still override for headless calibration.
-  float relief = gs.recharged_pbr_texture_relief;
-  float spec_intensity = gs.recharged_pbr_spec_intensity;
+  // lighting-legacy-purge (2026-09-11) : TEXTURE RELIEF et SPECULAR INTENSITY ne sont plus des
+  // curseurs. Ils valent la CONSTANTE que le jeu livrait.
+  float relief = RechargedFixed::kPbrTextureRelief;
+  float spec_intensity = RechargedFixed::kPbrSpecIntensity;
   // Owner round-3 mandate (macro shading): lighting-split calibration. Indirect 1.0 =
   // the baked-GI term reproduces legacy brightness in full baked shadow by construction
   // (see tfrag3.frag); direct scales the realtime sun DIFFUSE because the baked color
@@ -2518,48 +2371,19 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // REOPEN #3 TERM BISECTION (owner: sheen survives specular=0): bitmask zeroing ONE
   // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
   // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
-  // REOPEN #10: seed the mask from the IN-MENU "PBR ISOLATE" carousel (recharged_pbr_isolate,
-  // resolved to the 0/128/64/192 mask in pc_set_pbr_isolate) so the owner can flip
-  // Both / Normal-map-only / Parallax-only / Neither at his vantage with no adb. The debug
-  // prop/env below still OVERRIDE it for headless supervisor A/B on the full term set.
-  int pbr_bisect = recharged_gating::mode(recharged_gating::kPbrIsolate);
-  // Gpbr-per-texture-materials: bisect BANK 2 (bank 1's 31 bits are all taken). Debug-only:
-  // no menu row, no GOAL setter — 0 is the shipped/fixed behaviour.
-  int pbr_bisect2 = 0;
-  // Grecharged-materials-modern-parity. Deliberately NOT new u_pbr_bisect bits: that mask is FULL
-  // (every bit from 1 to 2^30 is allocated, and bit 2 is already double-booked between the green-sun
-  // specular and a normal-convention flip, which silently confounds any A/B run on it). The modern
-  // stack gets its own two knobs instead — an exposure multiplier and a per-channel isolation viz —
-  // so nothing here can collide with an existing killswitch.
-  float mm_exposure = 1.0f;
-  int mm_debug = 0;
-  // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
-  // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
-  int pbr_displacement = recharged_gating::mode(recharged_gating::kPbrDisplacement);
-  // NEAR-FIELD TESSELLATION CEILING (owner playtest #17 "glorified bump"): the shipped tesc capped
-  // near-field tessellation at level 12, which under-resolved the height field — the displacement
-  // had nowhere near enough vertices to become real depth. This is the ceiling of the new
-  // inverse-distance level law, clamped below to what the driver actually allows.
-  // OWNER PLAYTEST #18 ("la tessellation manque de relief EN PARTICULIER AU SOL"): raised 32 -> 64
-  // together with the tesc's world-space-edge-length law. Measured at the owner's own vantage with
-  // tools/tess_audit, the GROUND mean generated-segment size within 5 m is 9.68 cm at cap 32 (the
-  // law saturates: mean achieved level 31.99/32) versus 5.60 cm at cap 64, which is what puts the
-  // ground inside the mandated 5-10 cm/segment target. 64 is the GL/GLES minimum-maximum for
-  // GL_MAX_TESS_GEN_LEVEL and is what both test devices report, and the clamp below still defers to
-  // whatever the live driver actually allows.
-  float pbr_tess_max = 64.0f;
-  // Target size in METRES of one generated tessellation segment in the near field — the density knob
-  // the new level law solves for (tfrag3_tess.tesc::tess_seg_target_m). Raising it is the cheapest
-  // perf lever (cost ~ 1/seg^2).
-  // ROUND #19: 0.06 -> 0.025. At 6 cm the tessellated ground was still ~2.4x coarser than the 5 cm
-  // height features it exists to displace (measured GROUND-with-a-height-map v/feature 0.85 within
-  // 5 m), which is why the supervisor's device A/B found tessellation moving the ground band by
-  // 0.77/255 while the parallax it replaces moved 2.27. 2.5 cm is Nyquist for a 5 cm feature, and it
-  // only became REACHABLE this round: at 6 cm a 4.6 m ground patch already saturated the 64-level
-  // ceiling, so asking for 2.5 cm without the offline pre-subdivision would simply have been
-  // clipped. Measured after pre-subdivision: v/feature 0.85 -> 2.37 within 5 m. This is the
-  // TESSELLATION tier's knob — the parallax and stock tiers never reach this code.
-  float pbr_tess_seg = 0.025f;
+  // lighting-legacy-purge (2026-09-11) : la bissection PBR ISOLATE est SUPPRIMEE. Le masque livre
+  // valait 0 = chemin fuse COMPLET, et l'uniforme `u_pbr_bisect` part avec la rangee de menu.
+  // lighting-legacy-purge (2026-09-11) : la banque 2 de la bissection part avec la banque 1.
+  // Elle n'avait ni rangee de menu ni pont GOAL, seulement un override de mise au point, et sa
+  // valeur livree valait 0 = chemin fuse COMPLET. `u_pbr_bisect2` n'est plus declare par aucun
+  // shader : continuer a le pousser serait un glUniform sur un emplacement -1, une fois par draw.
+  // lighting-legacy-purge (2026-09-11) : les deux knobs de la pile « Materiaux avances »
+  // (`u_mm_exposure`, `u_mm_debug`) partent avec elle.
+  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT n'est plus un carrousel. Il vaut
+  // RechargedFixed::kPbrDisplacement (1 = PARALLAX / POM), la valeur livree ; le mode 2
+  // TESSELLATION n'a jamais ete livre et ses deux knobs (plafond de niveau, taille de segment)
+  // partent avec lui, comme les shaders tfrag3_tess.*.
+  const int pbr_displacement = RechargedFixed::kPbrDisplacement;
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -2608,39 +2432,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (prop_cache::property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
       wr_indirect = atof(v);
     }
-    if (prop_cache::property_get("debug.opengoal.pbr.relief", v) > 0) {
-      relief = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.specint", v) > 0) {
-      spec_intensity = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.bisect", v) > 0) {
-      pbr_bisect = atoi(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.bisect2", v) > 0) {
-      pbr_bisect2 = atoi(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.mm.exposure", v) > 0) {
-      mm_exposure = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.mm.debug", v) > 0) {
-      mm_debug = atoi(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.displacement", v) > 0) {
-      pbr_displacement = atoi(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.tessmax", v) > 0) {
-      pbr_tess_max = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.tessseg", v) > 0) {
-      // A NEGATIVE value means "not set, keep the compiled default". adb cannot delete a property
-      // (setprop '' is an error), so a harness that wants the default back must be able to say so
-      // with a value; without this a "-1" would clamp to 0.01 and silently pick 1 cm segments.
-      const float sv = atof(v);
-      if (sv > 0.f) {
-        pbr_tess_seg = sv;
-      }
-    }
   }
 #else
   // (OG_PBR_DEBUG is read by pbr_debug_mode() at the pbr_debug initialiser above.)
@@ -2677,33 +2468,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = prop_cache::env_get("OG_PBR_WR_INDIRECT")) {
     wr_indirect = atof(e);
   }
-  if (const char* e = prop_cache::env_get("OG_PBR_RELIEF")) {
-    relief = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_SPECINT")) {
-    spec_intensity = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_BISECT")) {
-    pbr_bisect = atoi(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_BISECT2")) {
-    pbr_bisect2 = atoi(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_MM_EXPOSURE")) {
-    mm_exposure = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_MM_DEBUG")) {
-    mm_debug = atoi(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_DISPLACEMENT")) {
-    pbr_displacement = atoi(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_TESSMAX")) {
-    pbr_tess_max = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_TESSSEG")) {
-    pbr_tess_seg = atof(e);
-  }
 #endif
   // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
   relief = std::max(0.0f, std::min(relief, 3.0f));
@@ -2714,49 +2478,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // proof reads THE VALUE THE SHADER GOT (u_pbr_normal_strength/u_pbr_height_scale scale), not the
   // menu variable (owner: "relief fonctionne pas" — a variable can move while no uniform does).
   Gfx::g_global_settings.mb_cur_relief_x100 = (u32)std::lround(relief * 100.0f);
-  // The tess ceiling can never exceed what the driver reports as GL_MAX_TESS_GEN_LEVEL.
-  pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
   lgt_keep_1i(id, "u_pbr_debug", pbr_debug);
-  lgt_1i(id, "u_pbr_bisect", pbr_bisect);
-  lgt_1i(id, "u_pbr_bisect2", pbr_bisect2);
-  pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
-  // Driver-defensive fallback (GL thread): tessellation (mode 2) instant-crashes drivers where
-  // the tess entry points/program are unusable. Demote the EFFECTIVE mode to Parallax (1) so the
-  // frag shader runs POM (its POM gate is u_pbr_displacement != 2) instead of standing down with
-  // no displacement. Warn once.
-  if (pbr_displacement == 2 &&
-      (!gl_context_supports_tessellation() || !gl_tfrag3_tess_program_ok())) {
-    pbr_displacement = 1;
-    static bool warned_tess_fallback = false;
-    if (!warned_tess_fallback) {
-      warned_tess_fallback = true;
-      // OWNER PLAYTEST #8: name the EXACT reason for the Tessellation->Parallax demotion so the
-      // supervisor's Honor logcat shows why (capability query vs program build), not just silence.
-      const char* reason = !gl_context_supports_tessellation()
-                               ? "capability query failed (no tess stages / glPatchParameteri NULL)"
-                               : "tess program build/link failed";
-      lg::warn("[pbr-tess] fallback: displacement Tessellation(2)->Parallax(1) reason=\"{}\"", reason);
-      lg::warn(
-          "[recharged] tessellation unavailable on this driver — displacement falling back to "
-          "Parallax");
-    }
-  }
-  // mode 0 (Off) also zeroes the height scale so BOTH the frag POM and any tess
-  // displacement see no height contribution.
-  if (pbr_displacement == 0) {
-    height_scale = 0.0f;
-  }
-  // [cover] ROUND 21: publish the EFFECTIVE displacement gates (post prop/env override, post
-  // tess->parallax demotion, post mode-0 zeroing) so PbrDrawBinder::set can classify each draw
-  // against the very values the shaders were just handed. Reading gs directly there would miss all
-  // three corrections. Three relaxed stores per program setup; nothing is rendered from them.
-  pbr_cover_publish_gates(height_scale, pbr_bisect, pbr_debug, pbr_displacement);
-  lgt_1i(id, "u_pbr_displacement", pbr_displacement);
-  lgt_1f(id, "u_pbr_tess_max", pbr_tess_max);
-  // OWNER #18: the near-field target segment size the tesc level law solves for. Clamped to a sane
-  // band (1 cm .. 2 m) so a bad prop can neither melt the GPU nor silently disable displacement.
-  pbr_tess_seg = std::clamp(pbr_tess_seg, 0.01f, 2.0f);
-  lgt_1f(id, "u_pbr_tess_seg", pbr_tess_seg);
+  // lighting-legacy-purge (2026-09-11) : `u_pbr_bisect` (bissection de menu, masque livre 0),
+  // `u_pbr_displacement` (fige a PARALLAX) et les deux uniformes de TESSELLATION ne sont plus
+  // pousses : le repli « Tessellation -> Parallaxe » n'a plus d'objet puisque le mode 2 n'existe
+  // plus, et la mise a zero de `height_scale` sous le mode 0 non plus. Le recensement de couverture
+  // recoit desormais la constante, pas une variable.
+  pbr_cover_publish_gates(height_scale, 0, pbr_debug, pbr_displacement);
   lgt_3f(id, "u_pbr_sun_color", gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);
@@ -2859,25 +2587,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
   // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
   rt_light_on = Gfx::lighting_active(rt_light_on != 0) ? 1 : 0;
-  // ROUND-5 cast-shadow Strength (0..1): how much a shadowed fragment darkens. The shader
-  // wants the RESIDUAL brightness a fully-occluded fragment keeps = clamp(1 - strength, 0, 1)
-  // (default strength 0.8 => residual 0.2). Overridable per-frame like rt.intensity.
-  float rt_shadow_strength = gs.recharged_rt_shadow_strength;  // default 0.8
-#ifdef __ANDROID__
-  {
-    char rv[PROP_VALUE_MAX];
-    if (prop_cache::property_get("debug.opengoal.rt.shadowstrength", rv) > 0 && rv[0]) {
-      rt_shadow_strength = atof(rv);
-    }
-  }
-#else
-  if (const char* e = prop_cache::env_get("OG_RT_SHADOWSTRENGTH")) {
-    rt_shadow_strength = atof(e);
-  }
-#endif
-  // residual = clamp(1 - strength, 0, 1); guard NaN / out-of-range to a sane 0..1.
-  float rt_shadow_residual =
-      (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
+  // lighting-legacy-purge (2026-09-11) : la FORCE de l'ombre portee n'est plus un reglage. Le
+  // residuel que le shader lisait (1 - force = 0,2 a la valeur livree) y est desormais ecrit en
+  // dur : `u_rt_shadow_residual` n'est plus pousse, et la surcharge de propriete
+  // `debug.opengoal.rt.shadowstrength` part avec le reglage qu'elle surchargeait.
   lgt_keep_1i(id, "u_rt_light_on", rt_light_on);
   lighting_census::gate_rt_light(rt_light_on);
   lgt_keep_3f(id, "u_rt_sun_dir", light_dir[0], light_dir[1], light_dir[2]);
@@ -3087,8 +2800,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lgt_3f(id, "u_rt_moon_color",
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
   lgt_1f(id, "u_rt_shadow_conf", rt_shadow_conf);  // playtest #4 stepless shadow handoff
-  // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
-  lgt_1f(id, "u_rt_shadow_residual", rt_shadow_residual);
 
   // === Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). ===
   // The ambient base is directional: an up-hemisphere SKY tint and a down-hemisphere GROUND bounce,
@@ -3098,68 +2809,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // (round-7 night-leak discipline). Golden rule: this only reshapes the ambient base; the direct-sun
   // term is untouched so sunlit surfaces are unchanged.
   // SPEC §6.2 : l'ambiante est sous l'eclairage recharge.
-  int rt_ambient_on = recharged_gating::on(recharged_gating::kRtAmbient) ? 1 : 0;
-  float rt_ambient_strength = gs.recharged_rt_ambient_strength;  // default ~0.2 (== old floor)
-#ifdef __ANDROID__
-  {
-    char rv[PROP_VALUE_MAX];
-    if (prop_cache::property_get("debug.opengoal.rt.ambient", rv) > 0 && rv[0]) {
-      rt_ambient_on = atoi(rv);
-    }
-    if (prop_cache::property_get("debug.opengoal.rt.ambientstrength", rv) > 0 && rv[0]) {
-      rt_ambient_strength = atof(rv);
-    }
-  }
-#else
-  if (const char* e = prop_cache::env_get("OG_RT_AMBIENT")) {
-    rt_ambient_on = atoi(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTSTRENGTH")) {
-    rt_ambient_strength = atof(e);
-  }
-#endif
-  // lighting-hdr : l'override epingle LE SOUS-DRAPEAU, jamais la composition. Sans cette
-  // ligne, poser la propriete rallumerait l'ambiante directionnelle alors que l'ECLAIRAGE RECHARGE est
-  // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
-  // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
-  rt_ambient_on = Gfx::lighting_active(rt_ambient_on != 0) ? 1 : 0;
-  if (!(rt_ambient_strength >= 0.0f && rt_ambient_strength <= 1.0f)) {
-    rt_ambient_strength = 0.2f;
-  }
-  // Grecharged-directional-ambient: AZIMUTHAL ambient CONTRAST — the owner's Ambient Contrast control =
-  // the directional SPREAD of the ambient base around its mean (a levels/contrast notion, NOT a
-  // brightness). From pc-settings; overridable per-frame by a debug prop / env for on-device A/B.
-  float rt_ambient_contrast = gs.recharged_rt_ambient_contrast;
-#ifdef __ANDROID__
-  {
-    char rv[PROP_VALUE_MAX];
-    if (prop_cache::property_get("debug.opengoal.rt.ambientcontrast", rv) > 0 && rv[0]) {
-      rt_ambient_contrast = atof(rv);
-    }
-  }
-#else
-  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTCONTRAST")) {
-    rt_ambient_contrast = atof(e);
-  }
-#endif
-  // Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 HEMISPHERE, 1 SH, 2 IBL). From
-  // pc-settings; overridable per-frame by a debug prop / env for on-device A/B without menu navigation.
-  int rt_ambient_model = gs.recharged_rt_ambient_model;
-#ifdef __ANDROID__
-  {
-    char rv[PROP_VALUE_MAX];
-    if (prop_cache::property_get("debug.opengoal.rt.ambientmodel", rv) > 0 && rv[0]) {
-      rt_ambient_model = atoi(rv);
-    }
-  }
-#else
-  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTMODEL")) {
-    rt_ambient_model = atoi(e);
-  }
-#endif
-  if (rt_ambient_model < 0 || rt_ambient_model > 2) {
-    rt_ambient_model = 0;
-  }
+  // lighting-legacy-purge (2026-09-11) : l'ambiante directionnelle n'a plus d'interrupteur — elle
+  // est INCONDITIONNELLE sous l'eclairage (elle livrait deja ON). Sa FORCE vaut la constante
+  // livree, son MODELE reste SH (kRtAmbientModel = 1, la valeur livree) et son CONTRASTE etait un
+  // knob MORT : uniforme declare, pousse, et AUCUN lecteur GLSL. Les surcharges de propriete
+  // `debug.opengoal.rt.ambient[strength|contrast|model]` partent avec les reglages qu'elles
+  // surchargeaient : une surcharge sur un reglage supprime est exactement la survivance que cet
+  // item retire. La garde NaN/hors-borne sur la force disparait avec la variable — une constante
+  // n'a pas besoin d'etre validee.
+  const float rt_ambient_strength = RechargedFixed::kRtAmbientStrength;
   // Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle to force the OLD flat per-face
   // screen-derivative normal instead of the reconstructed SMOOTH per-vertex normal. Default 0 = smooth
   // (the fix). Set 1 to reproduce the pre-fix faceted look for a same-build before/after comparison.
@@ -3310,59 +2968,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         shc[c][i] *= fnorm[i];
       }
     }
-    // Grecharged-directional-ambient (owner playtest #5): AMBIENT orientation = a per-sun elevation-weighted
-    // BLEND of the YELLOW-sun and GREEN-sun azimuths (each an azimuthal key + fixed 0.5 up-tilt). Each sun's
-    // azimuthal contribution is scaled by its OWN smoothed natural elevation weight (ambW_y / ambW_g), and the
-    // MAGNITUDE of the summed key carries the directionality (the shader's rt_shape = 1 + k*dot(N,amb_key) is
-    // unchanged):
-    //   - one sun comfortably up  => key ~= that sun's unit azimuth (mag ~1) => full directional form;
-    //   - DARK NEUTRAL MIDDLE (both suns below the horizon) => both weights ~0 => key -> ~0 => rt_shape -> 1
-    //     => the ambient collapses to its near-uniform SH/hemisphere base, NO lateral orientation to "flip";
-    //   - the two suns are ANTIPHASE so their azimuthal parts CANCEL through the crossover => the orientation
-    //     eases OUT (fades toward neutral) then IN toward green, never snapping ~180deg. Symmetric at dawn.
-    // A/B: debug.opengoal.rt.ambfade "0" restores the OLD locked-yellow full-strength key (reproduces the snap).
-    float amb_key[3];
-    {
-      float amb_fade = 1.0f;
-#ifdef __ANDROID__
-      { char rv[PROP_VALUE_MAX];
-        if (prop_cache::property_get("debug.opengoal.rt.ambfade", rv) > 0 && rv[0]) amb_fade = atof(rv); }
-#else
-      if (const char* e = prop_cache::env_get("OG_RT_AMBFADE")) amb_fade = atof(e);
-#endif
-      float wY = (amb_fade > 0.5f) ? ambW_y : 1.0f;   // ambfade off => OLD behaviour (yellow, full directionality)
-      float wG = (amb_fade > 0.5f) ? ambW_g : 0.0f;
-      // per-sun azimuthal key (unit): the sun's horizontal azimuth + a fixed 0.5 up-tilt, normalized.
-      float yk[3], gk[3];
-      for (int pass = 0; pass < 2; pass++) {
-        const float* d = (pass == 0) ? light_dir : moon_dir;  // yellow sun, then green sun
-        float* out = (pass == 0) ? yk : gk;
-        float hx = d[0], hz = d[2];
-        float hl = std::sqrt(hx * hx + hz * hz);
-        if (hl > 1e-4f) { float s = 0.85f / hl; out[0] = hx * s; out[1] = 0.5f; out[2] = hz * s; }
-        else { out[0] = 0.f; out[1] = 1.f; out[2] = 0.f; }
-        float l = std::sqrt(out[0]*out[0] + out[1]*out[1] + out[2]*out[2]);
-        out[0] /= l; out[1] /= l; out[2] /= l;
-      }
-      amb_key[0] = wY * yk[0] + wG * gk[0];
-      amb_key[1] = wY * yk[1] + wG * gk[1];
-      amb_key[2] = wY * yk[2] + wG * gk[2];
-      // clamp magnitude to <=1 (one sun up => full directionality; dark middle => ->0 = neutral). Do NOT
-      // re-normalize below 1 — the faded magnitude IS the dark-middle orientation collapse.
-      float akl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
-      if (akl > 1.0f) { amb_key[0] /= akl; amb_key[1] /= akl; amb_key[2] /= akl; }
-    }
-    lgt_keep_1i(id, "u_rt_ambient_on", rt_ambient_on);
-    lgt_1i(id, "u_rt_ambient_model", rt_ambient_model);
-    lgt_3f(id, "u_rt_ambient_key", amb_key[0], amb_key[1], amb_key[2]);
-    lgt_1f(id, "u_rt_ambient_contrast", rt_ambient_contrast);
+    // lighting-legacy-purge (2026-09-11) : `u_rt_ambient_key` n'est plus pousse et son CALCUL
+    // (`amb_key`, le melange azimutal des deux soleils) part avec lui : il etait le seul des sept
+    // entrees de l'ambiante directionnelle a n'avoir aucun autre consommateur. Les six autres
+    // (sky/ground/env_*/sun_glow) restent CALCULEES : la projection L2 en tire `shc[9]`, qui est
+    // toujours poussee.
     lgt_1i(id, "u_rt_flat_normal", rt_flat_normal);
-    lgt_3f(id, "u_rt_sky_color", sky[0], sky[1], sky[2]);
-    lgt_3f(id, "u_rt_ground_color", ground[0], ground[1], ground[2]);
-    lgt_3f(id, "u_rt_env_zenith", env_zenith[0], env_zenith[1], env_zenith[2]);
-    lgt_3f(id, "u_rt_env_horizon", env_horizon[0], env_horizon[1], env_horizon[2]);
-    lgt_3f(id, "u_rt_env_ground", env_ground[0], env_ground[1], env_ground[2]);
-    lgt_3f(id, "u_rt_sun_glow", sun_glow[0], sun_glow[1], sun_glow[2]);
     lgt_3fv(id, "u_rt_sh[0]", 9, &shc[0][0]);
 
     // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
@@ -3456,11 +3067,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // zero reflectance would kill dielectric Fresnel.
   lgt_4f(id, "u_pbr_mat", 0.9f, 0.f, 0.04f, 1.f);
   lgt_2f(id, "u_pbr_mat2", 1.f, 1.f);
-  // Grecharged-materials-modern-parity: frame-constant half of the modern stack. Both are the
-  // identity by default (exposure 1.0, viz off), so a program that never sees a non-zero u_mm_flags
-  // is untouched by them.
-  lgt_1f(id, "u_mm_exposure", mm_exposure);
-  lgt_1i(id, "u_mm_debug", mm_debug);
   lgt_1f(id, "u_pbr_direct", pbr_direct);
   lgt_1f(id, "u_pbr_indirect", pbr_indirect);
   lgt_1f(id, "u_pbr_baked_weight", pbr_baked_weight);

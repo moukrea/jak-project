@@ -485,20 +485,10 @@ u64 add_texture(TexturePool& pool,
       // Gpbr-material-props: stamp the AUTHORED half HERE too. This is the MANAGED-pack path, and
       // until this line it was the only registration site that never called them — so every one of
       // the 172 materials the asset pack ships arrived with its maps and WITHOUT its properties.
-      // It did not look broken: the re-stamp walk at the end of mm_params_reload() covers whatever
-      // is already in the registry, so the handful of materials registered BEFORE the first reload
-      // got their record and every one after it silently took the identity. Measured on a village1
-      // run before this line existed: 25 materials bound maps, ONE reached a draw with authored
-      // knobs. An un-authored material renders exactly like a correctly-authored default, which is
-      // why nothing anywhere reported a problem.
-      custom_tex::mm_apply_params(mat_key, &maps);
       custom_tex::pbrmat_apply_params(mat_key, &maps);
       auto prev = custom_tex::register_pbr_material(mat_key, maps);
-      // thickness_tex is OURS (post-dating this branch's base) and is a real GL id: the
-      // managed path never loads a _thickness map, but a previous PNG-path registration
-      // under the same key may have left one, so it belongs in the free list.
-      for (GLuint oid : {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex, prev.height_tex,
-                         prev.specular_tex, prev.emissive_tex, prev.thickness_tex}) {
+      for (GLuint oid : {prev.normal_tex, prev.rough_tex, prev.metal_tex, prev.ao_tex,
+                         prev.height_tex, prev.specular_tex, prev.emissive_tex}) {
         if (oid && !pbr_testpattern::owns(oid)) {
           glDeleteTextures(1, &oid);
         }
@@ -538,25 +528,11 @@ u64 add_texture(TexturePool& pool,
     const auto* e =
         custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc);
     const char* e_src = e ? e->src : "-";
-    // ===== Grecharged-materials-modern-parity: the two NEW suffixes ==============================
-    // Probed ONLY when the MODERN MATERIALS master is up, so a build with the row off resolves
-    // exactly the seven-map set it resolved before this phase — an _orm.png or _thickness.png
-    // sitting in the pack is invisible to it. That matters more than it looks: an ORM map carries
-    // an AO channel, and AO changes the accepted shading. Gating the PROBE (not just the shading)
-    // is what makes the layer's absence indistinguishable from it never having existed.
-    //   _thickness = subsurface thickness (1 thin / 0 opaque), the SSS channel's depth input.
-    //   _orm       = OCCLUSION + ROUGHNESS + METALLIC packed as R/G/B (the glTF convention).
-    const bool mm_on = custom_tex::mm_master_active();
-    const custom_tex::ReplacementImage* th = nullptr;
-    const char* th_src = "-";
-    const custom_tex::ReplacementImage* orm = nullptr;
-    const char* orm_src = "-";
-    if (mm_on) {
-      th = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_thickness", bsrc);
-      th_src = th ? th->src : "-";
-      orm = custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_orm", bsrc);
-      orm_src = orm ? orm->src : "-";
-    }
+    // lighting-legacy-purge (2026-09-11) : les deux suffixes de la pile « Materiaux avances »
+    // (_thickness et _orm) ne sont plus SONDES. Ils ne l'etaient que sous la rangee MODERN
+    // MATERIALS, qui livrait OFF : un _orm.png ou un _thickness.png pose dans le pack etait deja
+    // invisible pour le jeu livre. Le retrait de la sonde reproduit donc exactement le jeu de sept
+    // cartes que le chargeur resolvait.
     // NOTE: lookup_suffixed returns a pointer into a single per-call thread-local
     // buffer, so it must be consumed (uploaded) before the next call. Below we
     // re-fetch each map immediately before its upload to keep that contract.
@@ -572,7 +548,7 @@ u64 add_texture(TexturePool& pool,
     // C'est exactement « le PBR ne s'applique qu'aux textures qui ont des cartes depuis un bail ».
     const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
     const bool surf_authored = custom_tex::pbrmat_has_record(mat_key);
-    if (n || r || m || h || s || e || th || orm || tp_apply || surf_authored) {
+    if (n || r || m || h || s || e || tp_apply || surf_authored) {
       auto make_map = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
@@ -595,64 +571,9 @@ u64 add_texture(TexturePool& pool,
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         return id;
       };
-      // ===== Grecharged-materials-modern-parity: SINGLE-CHANNEL upload ============================
-      // make_map above uploads every map as GL_RGBA — 4 bytes per texel even for a map the shader
-      // only ever reads `.r` from. For a packed _orm that is the difference between 3 B/texel and
-      // 12: the three channels come out of ONE png and go up as three GL_R8 textures, which sample
-      // as (r, 0, 0, 1) so the existing `.r` reads in the frozen fused chunk are unchanged. That is
-      // the whole trick — the packing is undone on the CPU, so no shader had to learn about it.
-      // GL_UNPACK_ALIGNMENT must drop to 1: a single-channel row of, say, 129 texels is not a
-      // multiple of 4 and the default alignment would skew every row after the first.
-      auto make_channel = [&](const char* kind, const custom_tex::ReplacementImage* img, int chan) -> u32 {
-        if (!img || img->rgba.empty()) {
-          return 0;
-        }
-        std::vector<u8> plane;
-        plane.resize((size_t)img->w * (size_t)img->h);
-        for (size_t i = 0; i < plane.size(); i++) {
-          plane[i] = img->rgba[i * 4 + (size_t)chan];
-        }
-        GLuint id = 0;
-        glGenTextures(1, &id);
-        glBindTexture(GL_TEXTURE_2D, id);
-        GLint prev_align = 4;
-        glGetIntegerv(GL_UNPACK_ALIGNMENT, &prev_align);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, img->w, img->h, 0, GL_RED, GL_UNSIGNED_BYTE,
-                     plane.data());
-        if (asset_manifest::enabled()) {
-          asset_manifest::record("texture-map",
-                                 fmt::format("{}/{}/{}/{}/r8-channel{}/{}x{}", tex.debug_tpage_name,
-                                             tex.debug_name, kind, img->src, chan, img->w, img->h),
-                                 0, plane.data(), plane.size());
-        }
-        glPixelStorei(GL_UNPACK_ALIGNMENT, prev_align);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        return id;
-      };
-      // The four SCALAR maps — roughness, metallic, AO, height — are sampled as `.r` and nothing
-      // else, anywhere in the pipeline. Uploading them as GL_RGBA8 therefore spends three quarters
-      // of their VRAM on channels no shader reads. With the modern stack up they go as GL_R8: the
-      // sampled value is identical (an R8 texture reads (r, 0, 0, 1)), the mip chain is identical,
-      // and a 2048x2048 map costs 4 MiB instead of 16.
-      // Gated on the master even though the RESULT is provably unchanged, because "OFF == stock"
-      // in this fork means the GL state too, not just the pixels — and because it keeps the whole
-      // memory story inside one switch the owner controls.
-      size_t mm_vram_saved = 0;
-      auto make_scalar = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
-        if (!img) {
-          return 0;
-        }
-        if (!mm_on) {
-          return make_map(kind, img);
-        }
-        mm_vram_saved += (size_t)img->w * (size_t)img->h * 3;
-        return make_channel(kind, img, 0);
-      };
+      // lighting-legacy-purge (2026-09-11) : le depot MONO-CANAL GL_R8 (`make_channel`) part avec
+      // la pile « Materiaux avances » : il n'etait atteignable que sous sa rangee de menu, livree
+      // OFF, donc chaque carte scalaire montait deja en GL_RGBA par `make_map`.
       custom_tex::PbrMaterialMaps maps;
       // Re-fetch each present map immediately before upload (thread-local buffer reuse).
       if (n) {
@@ -712,14 +633,14 @@ u64 add_texture(TexturePool& pool,
               tex.debug_name, ri->src, ri->w, ri->h, mn / 255.f,
               npx ? (float)(sum / (double)npx / 255.0) : 0.f, mx / 255.f);
         }
-        maps.rough_tex = make_scalar("roughness", ri);
+        maps.rough_tex = make_map("roughness", ri);
       }
       if (m) {
-        maps.metal_tex = make_scalar("metallic",
+        maps.metal_tex = make_map("metallic",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic", bsrc));
       }
       if (a) {
-        maps.ao_tex = make_scalar("ao",
+        maps.ao_tex = make_map("ao",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc));
       }
       if (h) {
@@ -780,7 +701,7 @@ u64 add_texture(TexturePool& pool,
                 maps.height_lambda_tiles);
           }
         }
-        maps.height_tex = make_scalar("height", hi);
+        maps.height_tex = make_map("height", hi);
       }
       if (s) {
         maps.specular_tex = make_map("specular",
@@ -790,57 +711,15 @@ u64 add_texture(TexturePool& pool,
         maps.emissive_tex = make_map("emissive",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc));
       }
-      // ===== Grecharged-materials-modern-parity: ORM UNPACK + THICKNESS ===========================
-      // ORM = Occlusion / Roughness / Metallic packed into R / G / B, the glTF-standard layout every
-      // modern authoring tool exports. Two things it buys, both of them the reason the owner asked
-      // for it ("to bound memory/APK size"):
-      //   * ONE png instead of three in the pack the owner downloads,
-      //   * 3 bytes per texel of VRAM instead of 12 — three GL_R8 planes against three GL_RGBA
-      //     uploads of the same three scalars.
-      // A DEDICATED map always wins over the packed one: if a material ships both _roughness.png and
-      // _orm.png, the dedicated file is the more specific statement of intent and the ORM channel is
-      // ignored. That also makes the migration path safe — drop an _orm.png next to an existing set
-      // and nothing changes until the dedicated files are removed.
-      if (orm) {
-        const auto* oi =
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_orm", bsrc);
-        if (oi && !oi->rgba.empty()) {
-          int used = 0;
-          if (!maps.ao_tex) {
-            maps.ao_tex = make_channel("ao-orm", oi, 0);
-            used++;
-          }
-          if (!maps.rough_tex) {
-            maps.rough_tex = make_channel("roughness-orm", oi, 1);
-            used++;
-          }
-          if (!maps.metal_tex) {
-            maps.metal_tex = make_channel("metallic-orm", oi, 2);
-            used++;
-          }
-          if (used) {
-            maps.orm_packed = true;  // shows up in the u_mm_debug 7 capability tag
-          }
-          lg::info(
-              "pbr ORM unpack: {} src={} {}x{} -> {} R8 plane(s) (ao={} rough={} metal={}); "
-              "{} B/texel vs {} B/texel unpacked, 1 file vs {}",
-              tex.debug_name, oi->src, oi->w, oi->h, used, maps.ao_tex ? 1 : 0,
-              maps.rough_tex ? 1 : 0, maps.metal_tex ? 1 : 0, used, used * 4, used);
-        }
-      }
-      if (th) {
-        // The capability BIT is derived from thickness_tex by mm_apply_params, not set here — see
-        // PbrMaterialMaps::orm_packed for why anything texture-derived must stay recomputable.
-        maps.thickness_tex = make_map("thickness",
-            custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_thickness", bsrc));
-      }
+      // lighting-legacy-purge (2026-09-11) : le depaquetage d'un _orm.png et le chargement de la
+      // carte d'EPAISSEUR partent avec la pile « Materiaux avances ». Les deux ne dependaient que de
+      // la sonde retiree plus haut, elle-meme sous une rangee livree OFF.
       if (tp_apply) {
         // Checker N/R/H replace whatever this material had; metal/ao/spec/emissive are dropped so
         // the test isolates displacement + normal orientation + roughness response.
         const auto& sm = pbr_testpattern::shared_maps();
         for (GLuint own : {maps.normal_tex, maps.rough_tex, maps.metal_tex, maps.ao_tex,
-                           maps.height_tex, maps.specular_tex, maps.emissive_tex,
-                           maps.thickness_tex}) {
+                           maps.height_tex, maps.specular_tex, maps.emissive_tex}) {
           if (own && !pbr_testpattern::owns(own)) {
             glDeleteTextures(1, &own);
           }
@@ -860,16 +739,6 @@ u64 add_texture(TexturePool& pool,
         lg::info("pbr TESTPATTERN: {} base=CHECKER maps=CHECKER(N,R,H) squares/tile={} mode={}",
                  tex.debug_name, pbr_testpattern::squares_per_tile(), tp_mode);
       }
-      // Grecharged-materials-modern-parity: stamp the AUTHORED half of the material on last, after
-      // every measured statistic and after the test pattern has had its say. It is a no-op unless
-      // the MODERN MATERIALS master is up AND surfaces.json names this texture (or ships a
-      // [defaults] block), and it clears mm_flags to 0 in every other case — so a material nobody
-      // authored reaches the renderer exactly as the accepted PBR path built it.
-      // Gpbr-material-props: the COMPOSITE key, like the managed path above and like the registry.
-      // This site used to pass the bare name, which worked only because the old text file keyed its
-      // blocks that way. One key shape at every call site, and surf_resolve_key still recovers a
-      // bare-name record for a hand-written external override.
-      custom_tex::mm_apply_params(mat_key, &maps);
       // Gpbr-per-texture-materials: and the PBR-path half of the same block — relief, roughness,
       // metallicity, reflectance, normal-map handedness. Deliberately NOT gated on the MODERN
       // MATERIALS row (see pbrmat_apply_params): the PBR path is on by default, so a gate there
@@ -879,12 +748,10 @@ u64 add_texture(TexturePool& pool,
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       // Key on "<tpage>/<name>" (branch fix): two textures can share a bare name across
       // tpages, and a bare-name registry let the second registration delete the first
-      // material's GL ids out from under it. thickness_tex is OURS and stays in the free
-      // list — it is a real GL id and dropping it here would leak one texture per reload.
+      // material's GL ids out from under it.
       auto prev = custom_tex::register_pbr_material(mat_key, maps);
-      GLuint old_ids[8] = {prev.normal_tex,   prev.rough_tex,    prev.metal_tex,
-                           prev.ao_tex,       prev.height_tex,   prev.specular_tex,
-                           prev.emissive_tex, prev.thickness_tex};
+      GLuint old_ids[7] = {prev.normal_tex,   prev.rough_tex,  prev.metal_tex, prev.ao_tex,
+                           prev.height_tex,   prev.specular_tex, prev.emissive_tex};
       for (GLuint oid : old_ids) {
         // NEVER delete the shared checker ids: every material points at the same three.
         if (oid && !pbr_testpattern::owns(oid)) {
@@ -898,11 +765,10 @@ u64 add_texture(TexturePool& pool,
       // Per-texture binding log (owner REOPEN #2) — correlates base source, per-map
       // source, and the shader defaults so mixed provenance / missing maps are visible.
       lg::info(
-          "pbr binding: {} base={} N={} R={} M={} AO={} H={} S={} E={} TH={} ORM={} "
-          "mm_flags=0x{:x} r8_saved={} KiB defaults[rough=0.9 metal=0 ao=1]",
+          "pbr binding: {} base={} N={} R={} M={} AO={} H={} S={} E={} "
+          "defaults[rough=0.9 metal=0 ao=1]",
           tex.debug_name, bsrc_str, n_src, r ? r_src : "-", m ? m_src : "-", a ? a_src : "-",
-          h ? h_src : "-", s ? s_src : "-", e ? e_src : "-", th ? th_src : "-",
-          orm ? orm_src : "-", maps.mm_flags, mm_vram_saved / 1024);
+          h ? h_src : "-", s ? s_src : "-", e ? e_src : "-");
     } else {
       // Maps existed but same-source pairing / absence yielded NONE — make the
       // mixed-provenance suppression visible per texture.

@@ -757,7 +757,7 @@ void Loader::loader_thread() {
       // Gated on the PBR / realtime-lighting features that actually consume the reconstructed normal: a
       // STOCK player (recharged master off) pays zero added load cost and stays byte-identical. Runs on
       // this loader thread (not the GL/main thread) behind the load screen, so no ANR.
-      if (recharged_gating::on(recharged_gating::kPbr) ||
+      if (recharged_gating::on(recharged_gating::kLighting) ||
           recharged_gating::on(recharged_gating::kRtLight)) {
         auto p = scoped_prof("global-weld");
         tfrag3::reconstruct_level_global_weld(*result);
@@ -774,7 +774,7 @@ void Loader::loader_thread() {
       // per-vertex seam weights that stop the tessellator from tearing at boundaries that cannot
       // displace identically. Its per-level audit numbers are appended to files/mesh_audit.txt so
       // the coverage claim is checkable off-device on a phone whose logcat is obscured.
-      if (recharged_gating::on(recharged_gating::kPbr) ||
+      if (recharged_gating::on(recharged_gating::kLighting) ||
           recharged_gating::on(recharged_gating::kRtLight)) {
         const auto cfg = tfrag3::mesh_consolidate_config_from_env();
         const bool do_shrub = (cfg.bits & tfrag3::kMeshBitNoShrub) == 0;
@@ -804,94 +804,10 @@ void Loader::loader_thread() {
         }
       }
 
-      // Grecharged-pbr-realtime-fusion round #19 (supervisor device measurement 2026-07-25): the
-      // hardware tessellator maxes out at GL_MAX_TESS_GEN_LEVEL (64) PER PATCH, so a 3-5 m tfrag
-      // ground triangle cannot be brought anywhere near the ~2.5 cm segment a centimetre-scale
-      // height feature needs — measured on the ground band, tessellation moved 0.77/255 of a pixel
-      // against displacement-OFF while the parallax it replaces moved 2.27. The industry answer is
-      // mesh prep, not shader tuning: hand the tessellator SMALLER PATCHES. This pass splits every
-      // tess-eligible tfrag triangle whose longest edge exceeds the threshold, conformally (green
-      // closure, no T-vertices), with midpoints that are exact averages of their two parents.
-      // It runs AFTER the consolidation on purpose: the .meshweld sidecar's fingerprint is the
-      // per-tree vertex/index count of the ORIGINAL geometry, so the owner-validated precompute
-      // keeps validating untouched, and every midpoint inherits already-snapped positions, already
-      // smoothed normals and already-computed seam weights — which is exactly why a shared edge
-      // cannot tear: both sides average identical endpoints and land on identical midpoints.
-      // Gated on the tessellation displacement mode, so parallax and stock pay nothing.
-      {
-        auto scfg = tfrag3::mesh_subdiv_config_from_env();
-        const auto& gs = Gfx::g_global_settings;
-        bool want = recharged_gating::on(recharged_gating::kPbr) &&
-                    gs.recharged_pbr_displacement == 2;
-#if !AUTOPORT_ORIGIN_ABLATE
-        if (scfg.forced_max_edge_m >= 0.f) {
-          want = scfg.forced_max_edge_m > 0.f;  // prop/env override, for the device A/B
-        }
-#endif
-        // Gprecompute-deterministic-bake (owner 2026-08-26: « ca devrait etre une option ajustable et
-        // pas un truc qui se fait automatiquement »). The ROUND COUNT is a user setting now, not a
-        // constant: 0 turns the refinement off outright, 1 is the shipped default, 2-3 for machines
-        // with the budget. The debug prop/env still outranks it so an A/B stays possible.
-        if (scfg.forced_max_rounds < 0) {
-          scfg.max_rounds = std::max(0, std::min(6, gs.recharged_mesh_subdiv_rounds));
-        }
-        if (scfg.max_rounds <= 0) {
-          want = false;  // explicitly asked for no refinement
-        }
-        if (want && scfg.max_edge_m > 0.f) {
-          auto p = scoped_prof("mesh-presubdivide");
-          // Only the geom LOD TFragment actually draws, and only materials that ship a height map:
-          // a surface with no displacement SOURCE cannot be displaced at any tessellation level, so
-          // refining it would be pure vertex cost (measured on village1's near ground: 62-77% of it).
-          scfg.only_geom = Gfx::g_global_settings.lod_tfrag;
-          // TIE pass (off unless debug.opengoal.mesh.subdivtie / OG_MESH_SUBDIV_TIE says otherwise;
-          // Tie3 has no tessellation program, so TIE relief comes from per-pixel POM and extra
-          // triangles buy nothing — see SubdivConfig::include_tie). Same reasoning as lod_tfrag:
-          // only the geom LOD Tie3 actually draws is worth refining.
-          scfg.only_geom_tie = Gfx::g_global_settings.lod_tie;
-          std::function<bool(const tfrag3::Texture&)> has_height;
-#ifdef OG_FEAT_PBR
-          has_height = [](const tfrag3::Texture& t) {
-            return custom_tex::has_suffixed(t.debug_tpage_name, t.debug_name, "_height",
-                                            custom_tex::base_source(t.debug_tpage_name,
-                                                                    t.debug_name));
-          };
-#endif
-          tfrag3::SubdivStats sst;
-          tfrag3::SubdivStats sst_tie;
-          tfrag3::mesh_presubdivide_level(*result, scfg, &sst, has_height, &sst_tie);
-          // ROUND 32 — the refinement INVENTS vertices AFTER mesh_consolidate's pass 12 / 12c have
-          // run, and interpolates their frames: a midpoint normal is the normalized sum of its
-          // parents' (MeshSubdivide.cpp:273-282) and its tangent is the summed T carrying parent A's
-          // handedness verbatim (MeshSubdivide.cpp:367-380), re-orthogonalised against nothing. On
-          // village1 that is roughly a third of every vertex the tessellator touches, created after
-          // the only passes that check them. So re-establish both invariants here, on the refined
-          // mesh: the displacement-sign one (dot(N_v, outward(f)) > 0 at every corner of every face)
-          // and the parallax one (T valid for every face that shares it). Both are per-tree, need no
-          // weld and no authority, and cost well under a second on village1. tools/tess_sign makes
-          // the SAME call pair in the SAME order after its own subdivision, so what is graded
-          // offline is what loads here.
-          u64 pr_ok = 0, pr_unsat = 0, pr_den = 0;
-          const u64 pr_fix =
-              tfrag3::mesh_positivity_repair_level(*result, &pr_ok, &pr_unsat, &pr_den);
-          u64 tr_ok = 0, tr_unsat = 0, tr_den = 0;
-          const u64 tr_fix =
-              tfrag3::retangent_positive_from_final_normals(*result, &tr_ok, &tr_unsat, &tr_den);
-          lg::info(
-              "[mesh-subdiv] level={} post-subdivision positivity: normals den={} ok={} repaired={} "
-              "unsat={} | tangents den={} ok={} repaired={} unsat={}",
-              result->level_name, pr_den, pr_ok, pr_fix, pr_unsat, tr_den, tr_ok, tr_fix, tr_unsat);
-          std::string text = fmt::format("===== PRE-SUBDIVISION level={} =====\n{}",
-                                         result->level_name,
-                                         tfrag3::format_subdiv_stats(sst, scfg));
-          if (scfg.include_tie) {
-            // only when the TIE pass actually ran, so the log is not polluted with a zero block.
-            text += tfrag3::format_subdiv_stats(sst_tie, scfg, "tie");
-          }
-          lg::info("[mesh-subdiv] {}", text);
-          tfrag3::mesh_audit_append_file(text);
-        }
-      }
+      // lighting-legacy-purge (2026-09-11) : la PRE-SUBDIVISION de maillage est SUPPRIMEE. Elle
+      // n'etait atteignable que sous DISPLACEMENT = 2 (TESSELLATION) — `want` exigeait ce mode — et
+      // ce mode n'a jamais ete livre : il disparait avec cet item, comme les shaders tfrag3_tess.*.
+      // Le nombre de tours (`mesh-subdiv`) ne pouvait donc rien changer a l'image livree.
 
       fmt::print(
           "------------> Load from file: {:.3f}s, import {:.3f}s, decomp {:.3f}s unpack {:.3f}s\n",
@@ -2314,10 +2230,8 @@ void Loader::update(TexturePool& texture_pool) {
           // the ids join the same throttled garbage list as the base textures.
           const auto dead = custom_tex::release_pbr_material(
               custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name));
-          // + thickness_tex: our own map, added after this branch's base. Leaving it out
-          // would have made the branch's leak fix leak exactly one texture per material.
-          for (u32 id : {dead.normal_tex, dead.rough_tex, dead.metal_tex, dead.ao_tex, dead.height_tex,
-                         dead.specular_tex, dead.emissive_tex, dead.thickness_tex}) {
+          for (u32 id : {dead.normal_tex, dead.rough_tex, dead.metal_tex, dead.ao_tex,
+                         dead.height_tex, dead.specular_tex, dead.emissive_tex}) {
             // the shared test-pattern maps are owned by pbr_testpattern, never freed here
             if (id && !pbr_testpattern::owns(id)) {
               m_garbage_textures.push_back(id);

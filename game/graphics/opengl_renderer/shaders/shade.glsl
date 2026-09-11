@@ -51,54 +51,21 @@ uniform vec3 u_rt_sun_color;
 // its intensity (weaker than sun) AND the (1-sun_elev) crossover weight => 0 by day, full at night.
 uniform vec3 u_rt_moon_dir;
 uniform vec3 u_rt_moon_color;
-// Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). u_rt_ambient_on
-// = master (1 => directional sky/ground base by world normal, 0 => the legacy flat floor for A/B).
-// u_rt_sky_color = up-hemisphere (sky) tint, u_rt_ground_color = down-hemisphere (ground bounce) tint;
-// both track the mood/TOD ambient and already carry the ambient LEVEL (strength x gentle night-fade),
-// so shadowed / away-from-sun faces regain FORM (top-lit, underside-dark) with AO fully OFF.
-uniform int u_rt_ambient_on;
-uniform vec3 u_rt_sky_color;
-uniform vec3 u_rt_ground_color;
-// Grecharged-directional-ambient ROUND 2: ambient MODEL selector + SH / IBL inputs. u_rt_ambient_model:
-// 0 = HEMISPHERE, 1 = SH (L2 irradiance of the mood/TOD sky), 2 = IBL (procedural sky environment
-// sampled by N). All three feed the SAME base->composite below (golden rule + night-fade automatic).
-// u_rt_sh[9] = L2 SH coeffs pre-scaled C++-side by the cosine-convolution A_l/pi, so the eval returns
-// reflected radiance directly. u_rt_env_zenith/horizon/ground + u_rt_sun_glow drive the IBL procedural
-// sky (mean-normalized C++-side to the hemisphere mean). All read ONLY inside u_rt_light_on => OFF==stock.
-uniform int u_rt_ambient_model;
-// Grecharged-directional-ambient: AZIMUTHAL directional-contrast fill. u_rt_ambient_key = a tilted
-// world direction (horizontal component = the sun azimuth so it tracks TOD, fixed upward tilt), NOT
-// elevation-faded so it PERSISTS with the sun off. u_rt_ambient_contrast = the owner's Ambient
-// Contrast control (directional SPREAD around the ambient mean, a levels/contrast notion, NOT a
-// brightness scalar). base *= (1 + contrast * dot(N, key)) => faces at different horizontal
-// orientations (rock bumps, the curved hut wall; N.y≈0) differ even sun-off => FORM. Read ONLY
-// inside u_rt_light_on => OFF==stock.
-uniform vec3 u_rt_ambient_key;
-uniform float u_rt_ambient_contrast;
+// lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1 (ambiante toujours active).
+// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH par u_rt_sh.
+// Grecharged-directional-ambient ROUND 2 : entrees de l'ambiante SH. u_rt_sh[9] = coefficients SH
+// L2 deja mis a l'echelle cote C++ par la convolution cosinus A_l/pi, donc l'evaluation rend
+// directement la radiance reflechie. Lues UNIQUEMENT sous u_rt_light_on => OFF == stock.
+// lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH).
+// lighting-legacy-purge (2026-09-11) : u_rt_ambient_contrast RETIRE, il etait declare et jamais lu.
 // Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle. 0 (default) = SMOOTH per-vertex
 // normal (the fix); 1 = force the OLD flat per-face screen-derivative normal (pre-fix look, same build).
 uniform int u_rt_flat_normal;
 uniform vec3 u_rt_sh[9];
-uniform vec3 u_rt_env_zenith;
-uniform vec3 u_rt_env_horizon;
-uniform vec3 u_rt_env_ground;
-uniform vec3 u_rt_sun_glow;
-// Grecharged-realtime-lighting ROUND 2: sun shadow-map RANGE (ortho half-extent in meters,
-// == the Shadow Distance setting) and RESOLUTION (depth-tex edge in texels, == the Shadow
-// Quality setting). Range drives the smooth distance FADE at the realtime-zone edge (no hard
-// pop as the camera approaches/recedes); resolution drives the PCF texel size and the
-// world-space normal-offset bias (crisper edges + correct relief at higher res). Both default
-// in-shader to the round-1 values (40 m half, 1024) when unset.
-uniform float u_rt_shadow_range;
-uniform float u_rt_shadow_res;
-// Grecharged-realtime-lighting ROUND 5: cast-shadow RESIDUAL — the brightness a fully
-// occluded fragment KEEPS (owner real-world obs: a clear-sky cast shadow is only ~80-85%
-// darker than lit, it still catches ~15-20% skylight, so it must NOT be pure black). We
-// have no ambient yet, so this is a cheat: 0.0 == black (round-4 look), 0.2 == default
-// (clear-sky). Fed from the "Shadow Strength" setting as (1 - strength). Applies to the
-// CAST-SHADOW occlusion term ONLY — the N.L dark side (ndl->0) stays genuinely black
-// (owner: un-lit black is intended, do not change it).
-uniform float u_rt_shadow_residual;
+// lighting-legacy-purge (2026-09-11) : u_rt_shadow_range RETIRE, valeur livree figee a 150.0.
+// lighting-legacy-purge (2026-09-11) : u_rt_shadow_res RETIRE, valeur livree figee a 2048.0.
+// lighting-legacy-purge (2026-09-11) : u_rt_shadow_residual RETIRE, valeur livree figee a 0.2
+// (le plancher de ciel = 1 - Shadow Strength, force livree 0,8).
 // Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE. The direct-sun term is gated by the
 // REAL sun elevation (the sky-parms visible-sun dome vector's up-component), NOT the mood
 // current-sun. 1.0 = sun well above the horizon; smooth ramp near the horizon; 0.0 = sun
@@ -140,19 +107,7 @@ vec3 rt_sh_ambient(vec3 n) {
          + u_rt_sh[8] * (0.546274 * (x * x - y * y));
   return max(r, vec3(0.0));
 }
-// Grecharged-directional-ambient ROUND 2 — IBL: a procedural SKY ENVIRONMENT sampled by the normal
-// (prefiltered sky irradiance). Vertical bands ground->warm HORIZON->zenith, plus a soft sun-ward glow
-// (elevation-faded C++-side => 0 at night). Sharper horizon + defined glow than the L2 SH => reads as
-// the actual sky, richest of the three. Golden-rule/night-safe via the shared composite below.
-vec3 rt_ibl_ambient(vec3 d) {
-  float u = clamp(d.y, -1.0, 1.0);
-  vec3 up = mix(u_rt_env_horizon, u_rt_env_zenith, smoothstep(0.0, 0.55, u));
-  vec3 dn = mix(u_rt_env_horizon, u_rt_env_ground, smoothstep(0.0, 0.45, -u));
-  vec3 band = u >= 0.0 ? up : dn;
-  float g = max(dot(d, normalize(u_rt_sun_dir)), 0.0);
-  g = g * g; g = g * g;   // pow 4 soft glow lobe
-  return band + u_rt_sun_glow * g;
-}
+// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH par u_rt_sh.
 // SPEC-refonte-lumiere §2.4 — RETIRE : la grille de sondes de FollowProbe.
 // Douze uniformes (dont QUATRE unites de texture sampler3D et un samplerCube) et deux
 // fonctions, tous derriere `u_rt_probe_on != 0`. Le seul ecrivain de cette porte etait
@@ -201,7 +156,6 @@ struct Surface {
   vec4  T;            // tangente MikkTSpace ; (0,0,0,1) quand l'hote n'en a pas
   vec3  shadow_N;     // normale qui porte l'offset de la carte d'ombre
   float shadow_ndl;   // le N.L qui module cet offset
-  float tess_disp_w;  // poids de deplacement par tessellation (0 = pas de tier)
 };
 
 // Rend la couleur ombree. Le brouillard, l'alpha et le discard restent a l'hote : ce n'est pas
@@ -233,8 +187,10 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
     vec3 sm_dbg_suv = vec3(-1.0);  // viz mode 14: shadow-space UV + in-box flag
     float sm_dbg_inbox = 0.0;
     if (u_pbr_shadow_on != 0) {
-      float rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
-      float res = u_rt_shadow_res > 1.0 ? u_rt_shadow_res : 2048.0;
+      // lighting-legacy-purge : DISTANCE DES OMBRES figee (ex-reglage, item lighting-shadows)
+      float rng = 150.0;
+      // lighting-legacy-purge : RESOLUTION DES OMBRES figee (ex-reglage, item lighting-shadows)
+      float res = 2048.0;
       float texel = 1.0 / res;
       float texel_world = (2.0 * rng) / res;  // world meters per shadow texel
       // La normale et le N.L qui pilotent l'OFFSET de la carte d'ombre viennent de Surface :
@@ -320,7 +276,8 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       // ROUND-5 CORRECTION (owner, correct physics 2026-07-19): the residual ~0.2 is a
       // UNIFORM SKY-FILL FLOOR, not a cast-shadow-only term. A face turned AWAY from the
       // sun is lit only by skylight EXACTLY like a cast shadow, so BOTH keep ~0.2 —
-      // nothing is pure black anywhere. floor = 1 - Shadow Strength (u_rt_shadow_residual).
+      // nothing is pure black anywhere. floor = 0.2 (lighting-legacy-purge : la litterale
+      // livree de 1 - Shadow Strength, l'ancien reglage a disparu).
       // The sun adds on top, gated by BOTH N.L and the cast-shadow occlusion:
       //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ
       // => away-from-sun faces AND cast shadows sit at the SAME floor level (measure both).
@@ -373,10 +330,6 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       // rt ON + pbr OFF (u_pbr_mode==0) falls through to the BAKED-MODULATION
       // path below, with a neutral shadow factor that preserves the baked base.
       if (u_pbr_mode != 0) {
-        // ROUND 23 adapter (same idiom as s.T in shrub.frag): the shared chunk reads a
-        // plain `tess_disp_w`, so each including program supplies it. Only this one has a
-        // tessellation path, so only this one forwards a real varying.
-        float tess_disp_w = s.tess_disp_w;
         #include "pbr_fused.glsl"
         ao_applied = true;  // pbr_fused.glsl a multiplie sa part ambiante par `sao`
       // Le composite D (« BAKED AMBIENT », projection par sondes) etait garde par
@@ -443,9 +396,9 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
 // 21c2d4ca7d) ; etie_base, tie_wind et shrub n'avaient QUE `if (u_rt_light_on != 0)` et
 // retombaient sur le rendu d'origine quand elle etait fausse. Les laisser dans le texte commun
 // SANS garde les donnerait aux trois autres hotes, et ce n'est pas un no-op : avec le master
-// arme et les defauts de gfx.h (recharged_pbr_enable = true l. 422, recharged_rt_light_enable
-// = false l. 474) on a u_rt_light_on == 0, u_pbr_mode != 0 et u_pbr_shadow_on == 1 — donc C,
-// puis E. Cette configuration n'est couverte par AUCUN des deux jeux de reference : la porte
+// arme et la configuration LIVREE (le rendu PBR est inconditionnel sous RECHARGED LIGHTING
+// depuis lighting-legacy-purge ; recharged_rt_light_enable reste faux par defaut) on a
+// u_rt_light_on == 0, u_pbr_mode != 0 et u_pbr_shadow_on == 1 — donc C, puis E. Cette configuration n'est couverte par AUCUN des deux jeux de reference : la porte
 // `refset_replay_maxdiff == 0` ne l'aurait pas vue, et l'owner aurait recu un changement de
 // pixels que personne n'a demande.
 // La garde est un #ifdef, pas une variable : le texte du modele reste OCTET POUR OCTET le meme
@@ -488,11 +441,12 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
         // and same remedy as the handedness above (see pbr_fused.glsl for the measured population).
         // Flips only an ALREADY-reversed tangent, and runs before the handedness sign, which is then
         // derived from the corrected T.
-        if ((u_pbr_bisect2 & 2) == 0 && abs(fdetJ) > 1e-9 && dot(Tn, fdPdu) < 0.0) {
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect2 RETIRE, valeur livree figee a 0 (chemin complet).
+        if (abs(fdetJ) > 1e-9 && dot(Tn, fdPdu) < 0.0) {
           Tn = -Tn;
         }
         float fhs = dot(cross(Nsurf, Tn), fdPdv);
-        Bn = cross(Nsurf, Tn) * (((u_pbr_bisect2 & 1) == 0 && abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
+        Bn = cross(Nsurf, Tn) * ((abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
                                      ? (fhs < 0.0 ? -1.0 : 1.0)
                                      : (s.T.w < 0.0 ? -1.0 : 1.0));
       } else {
@@ -507,17 +461,13 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       // ROUND 22 COVERAGE INSTRUMENTATION — same rule as the fused path (u_pbr_debug 31): a
       // tessellated draw already had its real geometry moved, so it counts as covered here even
       // though the POM march below is skipped for it.
-      if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && u_pbr_displacement != 0 &&
-          u_pbr_tess_active != 0) {
-        f_disp_cover = 1.0;
-      }
-      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. A draw the tess-eval already moved must not run a
-      // 16-32 step POM march on top of it: two displacements stacked. ★ BUG B: the gate is
-      // u_pbr_tess_active (per-PROGRAM), not the global u_pbr_displacement setting — otherwise
-      // selecting Tessellation flattens every draw the tess program does not cover.
+      // lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX).
+      // lighting-legacy-purge (2026-09-11) : la couverture par TESSELLATION est retiree avec son etage.
+      // PBR POLISH bug fix — DOUBLE DISPLACEMENT. La porte `u_pbr_tess_active == 0` (par PROGRAMME)
+      // empechait un dessin deja deplace par la tess-eval d'empiler une marche POM. Elle est
+      // SUPPRIMEE avec son etage par lighting-legacy-purge (2026-09-11) : elle etait vraie partout.
       // Everything else on this fallback path is deliberately untouched.
-      if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-          u_pbr_tess_active == 0) {
+      if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
         // Parallax occlusion mapping, mobile-tuned: grazing-angle-scaled linear march
         // with early-out + one secant refine. Height convention: 1.0 (white) = surface
         // level, lower = carved in — so a neutral white map yields zero offset and the
@@ -548,14 +498,7 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
         float pom_cap = min(POM_MAX_TAN * depth_uv,
                             POM_MAX_FEATURE_FRAC * lambda_world_m *
                                 max(u_pbr_uv_per_m, 0.02));
-        // Same round-20 restoration as the fused path, so the A/B pair is identical on both.
-        if ((u_pbr_bisect & 33554432) != 0) {
-          pom_graze = smoothstep(POM_GRAZE_LO, POM_GRAZE_HI, Vt.z);
-          depth_uv = u_pbr_height_scale;
-          pom_cap = min(POM_MAX_TAN * u_pbr_height_scale,
-                        0.03 * max(u_pbr_uv_per_m, 0.02));
-          pom_drive = 1.0;  // r20: linear drive => the r20 step counts too
-        }
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (le repli round-20 n'etait jamais pris).
         // ROUND 22: identical sqrt(drive) step scaling as the fused path (1.0x at rel 1), so the
         // deeper field is resolved instead of stair-stepped. Loop bound below raised to 64.
         float n_layers = clamp(mix(28.0, 10.0, clamp(Vt.z, 0.0, 1.0)) * sqrt(pom_drive), 8.0, 64.0);
@@ -587,9 +530,8 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
           float w = clamp(before / max(before - after, 1e-5), 0.0, 1.0);
           uv += duv_step * (1.0 - w);
           // ROUND 22 COVERAGE: the march actually ran here (see the fused path).
-          if (u_pbr_displacement != 0) {
-            f_disp_cover = 1.0;
-          }
+          // lighting-legacy-purge (2026-09-11) : u_pbr_displacement RETIRE, valeur livree figee a 1 (PARALLAX).
+          f_disp_cover = 1.0;
         }
       }
       vec3 N = Nsurf;
@@ -606,17 +548,14 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
         }
         // Same DC-removed surface-gradient decode as the fused path above (the constant-tilt
         // plate defect is a property of the MAPS, so the rt-OFF "bidon" fallback carries it too;
-        // the owner's PBR-only preset showed the identical plates). Same A/B bits: 8192 = raw
-        // map, 32768 = per-chunk UV frame instead of the seam-stable one. The path is otherwise
+        // the owner's PBR-only preset showed the identical plates). The path is otherwise
         // untouched — it stays the standalone fallback the owner accepted.
+        // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0
+        // (repere UV stable + retrait de la composante continue, tous deux toujours actifs).
         vec3 sTn = Tn, sBn = Bn;
-        if ((u_pbr_bisect & 32768) == 0) {
-          stable_frame(Nsurf, sTn, sBn);
-        }
+        stable_frame(Nsurf, sTn, sBn);
         vec2 sg = clamp(nm.xy / max(nm.z, 0.05), vec2(-4.0), vec2(4.0));
-        if ((u_pbr_bisect & 8192) == 0) {
-          sg -= u_pbr_normal_dc;
-        }
+        sg -= u_pbr_normal_dc;
         sg = clamp(sg * u_pbr_normal_strength, vec2(-24.0), vec2(24.0));  // ROUND 22, see fused path
         nm = normalize(vec3(sg, 1.0));
         N = normalize(mat3(sTn, sBn, Nsurf) * nm);

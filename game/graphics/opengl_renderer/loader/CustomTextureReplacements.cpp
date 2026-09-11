@@ -961,31 +961,15 @@ const PbrMaterialMaps* find_pbr_material(const std::string& tex_key) {
 // ===================================================================================================
 namespace {
 
-struct MmParamSet {
-  u32 authored_flags = 0;  // bits 1/2/4/8/16/64 only — 32 and 128 are texture-derived
-  float sss_color[3] = {1.f, 1.f, 1.f};
-  float sss_strength = 0.f;
-  float sss_thickness = 0.5f;
-  float sss_power = 6.f;
-  float sss_distort = 0.2f;
-  float sss_wrap = 0.f;
-  float sss_ambient = 0.25f;
-  float coat_weight = 0.f;
-  float coat_rough = 0.10f;
-  float aniso = 0.f;
-  float aniso_angle = 0.f;
-};
-
-std::unordered_map<std::string, MmParamSet> g_mm_params;
-MmParamSet g_mm_defaults;
-bool g_mm_has_defaults = false;
+// lighting-legacy-purge (2026-09-11) : `MmParamSet` et ses tables sont SUPPRIMES avec la pile
+// « Materiaux avances ». Les cles qu'ils lisaient dans surfaces.json (sss*, clearcoat*, aniso*,
+// energy, specocc, filmic) sont desormais TOLEREES ET IGNOREES par le lecteur : elles restent
+// legales dans le fichier authore, elles ne pilotent plus rien.
 bool g_mm_loaded = false;
 
-// Gpbr-per-texture-materials — the SECOND parameter set the same blocks fill. Kept separate from
-// MmParamSet on purpose: MmParamSet feeds u_mm_flags, which is gated on the MODERN MATERIALS menu
-// row and is therefore CLEARED whenever the row is off. These knobs drive the PBR path itself
-// (relief, roughness, metallicity, reflectance, normal-map handedness), which is on by default —
-// sharing the struct would drag them behind that gate and make every preset inert.
+// Gpbr-per-texture-materials — LES BOUTONS DE MATIERE du chemin PBR : relief, rugosite,
+// metallicite, reflectance, sens du canal vert de la normal map. C'est desormais le SEUL jeu de
+// parametres que surfaces.json remplit.
 // EVERY DEFAULT HERE IS THE IDENTITY: an un-named material comes out of the parser exactly as the
 // accepted PBR path built it.
 struct PbrMatParams {
@@ -1023,38 +1007,9 @@ std::unordered_map<std::string, std::string> g_pbrmat_family;
 // managed_assets uses for its own bare-name fallback, on purpose — one rule, not two.
 std::unordered_map<std::string, std::string> g_surf_bare;
 
-// Texture-derived capability bits. The loader owns these (a map is either bound or it is not); the
-// file owns everything else. Keeping them in one named constant is what makes the re-stamp on reload
-// safe: authored bits are recomputed, these are carried over.
-// The texture-derived capability bits, RECOMPUTED from the maps every time rather than carried in
-// mm_flags. See PbrMaterialMaps::orm_packed for why: mm_flags is rebuilt (and zeroed when the master
-// is off) on every re-stamp, so a bit that only lived there would not survive a menu toggle.
-u32 mm_texture_bits(const PbrMaterialMaps& m) {
-  return (m.thickness_tex ? 32u : 0u) | (m.orm_packed ? 128u : 0u);
-}
 
 }  // namespace
 
-bool mm_master_active() {
-  // The OWNER's switch is the menu row; this override exists for the headless harness, which has no
-  // menu to navigate (and for a supervisor A/B on device with one setprop). -1 = no override.
-  //   android: debug.opengoal.mm.on      desktop: OG_MM_ON
-  int ov = -1;
-#ifdef __ANDROID__
-  char v[PROP_VALUE_MAX];
-  if (__system_property_get("debug.opengoal.mm.on", v) > 0) {
-    ov = atoi(v);
-  }
-#else
-  if (const char* e = getenv("OG_MM_ON")) {
-    ov = atoi(e);
-  }
-#endif
-  if (ov >= 0) {
-    return ov != 0;
-  }
-  return recharged_gating::on(recharged_gating::kModernMaterials);
-}
 
 namespace {
 
@@ -1107,31 +1062,6 @@ void surf_note_apply(const std::string& from, const std::string& key, bool found
   }
 }
 
-// Recompute the authored capability bits from the values. A channel is ON exactly when its own
-// parameter says it does something, so a block can never claim a capability it does not use — and
-// an all-zero block is indistinguishable from no block at all, which is the behaviour we want.
-void mm_recompute_flags(MmParamSet* p, bool energy_on, bool specocc_on, bool filmic_on) {
-  u32 f = 0;
-  if (p->sss_strength > 1e-4f) {
-    f |= 1u;
-  }
-  if (p->coat_weight > 1e-4f) {
-    f |= 2u;
-  }
-  if (std::fabs(p->aniso) > 1e-3f) {
-    f |= 4u;
-  }
-  if (energy_on) {
-    f |= 8u;
-  }
-  if (specocc_on) {
-    f |= 16u;
-  }
-  if (filmic_on) {
-    f |= 64u;
-  }
-  p->authored_flags = f;
-}
 
 }  // namespace
 
@@ -1150,9 +1080,6 @@ void mm_service_reload() {
 }
 
 void mm_params_reload() {
-  g_mm_params.clear();
-  g_mm_defaults = MmParamSet();
-  g_mm_has_defaults = false;
   g_mm_loaded = true;
   // Gpbr-per-texture-materials: the PBR-path knobs come out of the SAME blocks, so they are cleared
   // and refilled by the SAME pass. One file, one parser, two destinations.
@@ -1247,13 +1174,8 @@ void mm_params_reload() {
     // and every field is seeded from a default-constructed struct, so a record carrying NONE of
     // the keys below leaves both structs untouched: the identity. `who` only names the offender
     // in the warnings.
-    auto read_record = [&](const std::string& who, const nlohmann::json& rec, MmParamSet* out_mm,
+    auto read_record = [&](const std::string& who, const nlohmann::json& rec,
                            PbrMatParams* out_pm, std::string* out_family) {
-      // energy / spec-occlusion default ON inside ANY record: they are strict quality wins with no
-      // artistic choice attached (they only make the existing specular obey energy conservation and
-      // stop it leaking through the surface), so a three-key record still gets them. "energy": 0
-      // and "specocc": 0 turn them off for an A/B. This is the rule the text parser had, unchanged.
-      bool energy_on = true, specocc_on = true, filmic_on = false;
       for (auto it = rec.begin(); it != rec.end(); ++it) {
         const std::string& k = it.key();
         const nlohmann::json& v = it.value();
@@ -1263,38 +1185,15 @@ void mm_params_reload() {
           if (v.is_string()) {
             *out_family = v.get<std::string>();
           }
-        } else if (k == "sss") {
-          if (v.is_array() && v.size() >= 3) {
-            for (int i = 0; i < 3; i++) {
-              out_mm->sss_color[i] = num(v[i], out_mm->sss_color[i]);
-            }
-          }
-        } else if (k == "sss_strength") {
-          out_mm->sss_strength = num(v, out_mm->sss_strength);
-        } else if (k == "sss_thickness") {
-          out_mm->sss_thickness = num(v, out_mm->sss_thickness);
-        } else if (k == "sss_power") {
-          out_mm->sss_power = num(v, out_mm->sss_power);
-        } else if (k == "sss_distort") {
-          out_mm->sss_distort = num(v, out_mm->sss_distort);
-        } else if (k == "sss_wrap") {
-          out_mm->sss_wrap = num(v, out_mm->sss_wrap);
-        } else if (k == "sss_ambient") {
-          out_mm->sss_ambient = num(v, out_mm->sss_ambient);
-        } else if (k == "clearcoat") {
-          out_mm->coat_weight = num(v, out_mm->coat_weight);
-        } else if (k == "clearcoat_rough") {
-          out_mm->coat_rough = num(v, out_mm->coat_rough);
-        } else if (k == "aniso") {
-          out_mm->aniso = num(v, out_mm->aniso);
-        } else if (k == "aniso_angle") {
-          out_mm->aniso_angle = num(v, out_mm->aniso_angle);
-        } else if (k == "energy") {
-          energy_on = num(v, 1.f) != 0.f;
-        } else if (k == "specocc") {
-          specocc_on = num(v, 1.f) != 0.f;
-        } else if (k == "filmic") {
-          filmic_on = num(v, 0.f) != 0.f;
+        } else if (k == "sss" || k == "sss_strength" || k == "sss_thickness" ||
+                   k == "sss_power" || k == "sss_distort" || k == "sss_wrap" ||
+                   k == "sss_ambient" || k == "clearcoat" || k == "clearcoat_rough" ||
+                   k == "aniso" || k == "aniso_angle" || k == "energy" || k == "specocc" ||
+                   k == "filmic") {
+          // lighting-legacy-purge (2026-09-11) : les cles de la pile « Materiaux avances » sont
+          // TOLEREES ET IGNOREES. Elles restent legales dans un surfaces.json authore — les refuser
+          // ferait crier « cle inconnue » sur les 172 fiches livrees — mais plus rien ne les lit.
+          (void)v;
           // ---- the PBR-PATH knobs. Same record, but these land in out_pm and are NOT behind the
           // MODERN MATERIALS menu row (see PbrMatParams).
         } else if (k == "relief") {
@@ -1332,18 +1231,14 @@ void mm_params_reload() {
           lg::warn("[mm] surfaces.json: {}: unknown key `{}` — skipped", who, k);
         }
       }
-      mm_recompute_flags(out_mm, energy_on, specocc_on, filmic_on);
     };
 
     // Optional top-level "defaults", same shape as a material record: what a texture nobody named
     // falls back to (mm_apply_params / pbrmat_apply_params). Absent => un-named stays the identity.
     if (has_defaults_block) {
-      MmParamSet cur;
       PbrMatParams pcur;
       std::string fam;
-      read_record("defaults", root["defaults"], &cur, &pcur, &fam);
-      g_mm_defaults = cur;
-      g_mm_has_defaults = true;
+      read_record("defaults", root["defaults"], &pcur, &fam);
       g_pbrmat_defaults = pcur;
       g_pbrmat_has_defaults = true;
     }
@@ -1355,15 +1250,13 @@ void mm_params_reload() {
           lg::warn("[mm] surfaces.json: material `{}` is not an object — skipped", it.key());
           continue;
         }
-        MmParamSet cur;
         PbrMatParams pcur;
         std::string fam;
-        read_record(it.key(), it.value(), &cur, &pcur, &fam);
+        read_record(it.key(), it.value(), &pcur, &fam);
         // The JSON key IS the engine replacement key "<tpage>/<name>", so it is stored VERBATIM.
         // The bare-name fallback already lives downstream in mm_apply_params/pbrmat_apply_params;
         // normalising here as well would give one material two ways to be found and hide which one
         // matched.
-        g_mm_params[it.key()] = cur;
         g_pbrmat_params[it.key()] = pcur;
         if (!fam.empty()) {
           g_pbrmat_family[it.key()] = fam;
@@ -1375,9 +1268,6 @@ void mm_params_reload() {
     // A throw anywhere above would leave a HALF-LOADED table, which is worse than an empty one: the
     // materials past the bad record would silently keep whatever the previous reload installed. So
     // everything this function fills is wiped, and the engine goes back to the identity.
-    g_mm_params.clear();
-    g_mm_defaults = MmParamSet();
-    g_mm_has_defaults = false;
     g_pbrmat_params.clear();
     g_pbrmat_defaults = PbrMatParams();
     g_pbrmat_has_defaults = false;
@@ -1388,7 +1278,7 @@ void mm_params_reload() {
     return;
   }
   lg::info("[mm] surfaces.json parsed: {} material records, defaults={}, {} unknown keys", n_mat,
-           g_mm_has_defaults ? 1 : 0, n_unknown);
+           g_pbrmat_has_defaults ? 1 : 0, n_unknown);
 
   // Build the bare-name index. Two passes because a name is only an alias if it is UNIQUE: count
   // first, then keep the singletons. The ambiguous ones are NAMED in the log rather than dropped
@@ -1457,7 +1347,6 @@ void mm_params_reload() {
   // derived bits survive; authored ones are recomputed from the freshly parsed file (or cleared, if
   // the master went off).
   for (auto& kv : g_pbr_materials) {
-    mm_apply_params(kv.first, &kv.second);
     // Gpbr-material-props: the PBR-path knobs are re-stamped on the SAME walk, so a freshly
     // installed (or pushed) surfaces.json reaches them through the same menu toggle that
     // reloads the modern half.
@@ -1465,78 +1354,14 @@ void mm_params_reload() {
   }
 }
 
-void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
-  if (!maps) {
-    return;
-  }
-  // Master off => every authored bit is dropped and the texture-derived ones carry no meaning, so
-  // the draw pushes u_mm_flags = 0 and the shader chunk returns before writing a pixel. This single
-  // line is the whole of "modern OFF == stock".
-  if (!mm_master_active()) {
-    maps->mm_flags = 0;
-    return;
-  }
-  if (!g_mm_loaded) {
-    mm_params_reload();
-  }
-  const MmParamSet* p = nullptr;
-  // Same resolution as the PBR half — see surf_resolve_key. The two callers hand us two different
-  // shapes of name (bare at level load, "<tpage>/<name>" on the re-stamp walk) and both must land
-  // on the same record, or the modern layer would apply to a material whose PBR knobs did not.
-  bool via_alias = false;
-  const std::string key = surf_resolve_key(tex_debug_name, &via_alias);
-  (void)via_alias;  // reported once from the PBR half; both halves resolve identically
-  auto it = g_mm_params.find(key);
-  if (it != g_mm_params.end()) {
-    p = &it->second;
-  } else if (g_mm_has_defaults) {
-    p = &g_mm_defaults;
-  }
-  if (!p) {
-    // Not named, and no "defaults" record: this material stays exactly as the accepted PBR path
-    // built it.
-    // Per-material opt-in means the un-named case has to be the identity, and it is.
-    maps->mm_flags = 0;
-    return;
-  }
-  maps->sss_color[0] = p->sss_color[0];
-  maps->sss_color[1] = p->sss_color[1];
-  maps->sss_color[2] = p->sss_color[2];
-  maps->sss_strength = p->sss_strength;
-  maps->sss_thickness = p->sss_thickness;
-  maps->sss_power = p->sss_power;
-  maps->sss_distort = p->sss_distort;
-  maps->sss_wrap = p->sss_wrap;
-  maps->sss_ambient = p->sss_ambient;
-  maps->coat_weight = p->coat_weight;
-  maps->coat_rough = p->coat_rough;
-  maps->aniso = p->aniso;
-  maps->aniso_angle = p->aniso_angle;
-  maps->mm_flags = mm_texture_bits(*maps) | p->authored_flags;
-  // A thickness map is only meaningful to the SSS channel.
-  if ((maps->mm_flags & 1u) == 0) {
-    maps->mm_flags &= ~32u;
-  }
-  // NORMALISATION, and it is load-bearing: the shader gates the whole modern chunk on
-  // `u_mm_flags != 0`. Bits 32 and 128 describe how the material was AUTHORED (a thickness map is
-  // bound; the channels came out of a packed _orm) and change no arithmetic on their own. If one of
-  // them could survive alone, the gate would open on a material with no active channel and the
-  // recomposition would rewrite `color` with an arithmetically-equal but not bit-guaranteed value —
-  // "OFF == stock" would become "OFF ~= stock". So: no functional bit, no flags at all.
-  constexpr u32 kMmFunctionalBits = 1u | 2u | 4u | 8u | 16u | 64u;
-  if ((maps->mm_flags & kMmFunctionalBits) == 0) {
-    maps->mm_flags = 0;
-  }
-}
 
 void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
   if (!maps) {
     return;
   }
-  // NO GATE, and that is the point. mm_apply_params() returns here when the MODERN MATERIALS menu
-  // row is off, because everything it stamps only reaches the shader through u_mm_flags. These
-  // knobs drive the PBR path itself, which is on by default — gating them on a row that ships OFF
-  // would make every record of surfaces.json inert while still LOOKING wired.
+  // AUCUNE PORTE, et c'est le point : ces boutons pilotent le chemin PBR lui-meme, qui est
+  // inconditionnel sous « lighting ». Les mettre derriere une rangee de menu rendrait chaque fiche
+  // de surfaces.json inerte tout en AYANT L'AIR cablee.
   if (!g_mm_loaded) {
     mm_params_reload();
   }
@@ -1598,105 +1423,9 @@ bool pbrmat_has_record(const std::string& tex_debug_name) {
   return found;
 }
 
-namespace {
-// Per-channel active-draw counters. Written from the GL thread only, read by the diag writer, so
-// relaxed atomics are enough and cost nothing on the hot path.
-std::atomic<u64> g_mm_draws_total{0};
-std::atomic<u64> g_mm_draws_sss{0};
-std::atomic<u64> g_mm_draws_coat{0};
-std::atomic<u64> g_mm_draws_aniso{0};
-std::atomic<u64> g_mm_draws_energy{0};
-std::atomic<u64> g_mm_draws_specocc{0};
-// BIND counters, ticked OUTSIDE the state-change guard by mm_note_bind(). g_mm_binds_total counts
-// every PbrDrawBinder::set() bind; g_mm_binds_flagged only those carrying a non-zero mm_flags. The
-// counters above are re-pushes of the uniform block, these are binds — publishing both is what
-// makes the state-reuse rate readable instead of guessed.
-std::atomic<u64> g_mm_binds_total{0};
-std::atomic<u64> g_mm_binds_flagged{0};
-}  // namespace
-
-void mm_note_active_draw(int flags) {
-  if (flags == 0) {
-    return;
-  }
-  g_mm_draws_total.fetch_add(1, std::memory_order_relaxed);
-  if (flags & 1) {
-    g_mm_draws_sss.fetch_add(1, std::memory_order_relaxed);
-  }
-  if (flags & 2) {
-    g_mm_draws_coat.fetch_add(1, std::memory_order_relaxed);
-  }
-  if (flags & 4) {
-    g_mm_draws_aniso.fetch_add(1, std::memory_order_relaxed);
-  }
-  if (flags & 8) {
-    g_mm_draws_energy.fetch_add(1, std::memory_order_relaxed);
-  }
-  if (flags & 16) {
-    g_mm_draws_specocc.fetch_add(1, std::memory_order_relaxed);
-  }
-}
-
-void mm_note_bind(int flags) {
-  g_mm_binds_total.fetch_add(1, std::memory_order_relaxed);
-  if (flags != 0) {
-    g_mm_binds_flagged.fetch_add(1, std::memory_order_relaxed);
-  }
-}
-
-std::string mm_params_diag_section() {
-  std::string out;
-  int n = 0;
-  // MEASURED, NOT ASSUMED. The NOTE line below says energy/specocc equal the push total "by
-  // construction". That is true of the SHIPPED surfaces.json (0 of 172 records overrides them) —
-  // but the parser prefers an EXTERNAL recharged-assets surfaces.json over the installed one, and
-  // an override carrying "energy": 0 would falsify the sentence while the sentence kept printing.
-  // So we count the counter-examples on the same walk and publish them: 0/0 proves the claim FOR
-  // THIS RUN, non-zero refutes it in place.
-  int n_no_energy = 0, n_no_specocc = 0;
-  for (const auto& kv : g_pbr_materials) {
-    if (kv.second.mm_flags == 0) {
-      continue;
-    }
-    if ((kv.second.mm_flags & 8u) == 0) {
-      n_no_energy++;
-    }
-    if ((kv.second.mm_flags & 16u) == 0) {
-      n_no_specocc++;
-    }
-    const auto& m = kv.second;
-    out += fmt::format(
-        "[mm] {} flags=0x{:x} sss=({:.3f},{:.3f},{:.3f})x{:.2f} th={:.2f}{} pow={:.1f} "
-        "wrap={:.2f} amb={:.2f} coat={:.2f}/{:.2f} aniso={:.2f}@{:.2f}\n",
-        kv.first, m.mm_flags, m.sss_color[0], m.sss_color[1], m.sss_color[2], m.sss_strength,
-        m.sss_thickness, (m.mm_flags & 32u) ? "(map)" : "", m.sss_power, m.sss_wrap, m.sss_ambient,
-        m.coat_weight, m.coat_rough, m.aniso, m.aniso_angle);
-    n++;
-  }
-  const u64 tot = g_mm_draws_total.load(std::memory_order_relaxed);
-  const u64 energy = g_mm_draws_energy.load(std::memory_order_relaxed);
-  const u64 specocc = g_mm_draws_specocc.load(std::memory_order_relaxed);
-  // NO GUARD. The old `if (n || tot)` made an OFF leg SILENT, and a missing line reads the same as
-  // an uncompiled block or a stale file. Zeros are a measurement; absence is not.
-  out += fmt::format(
-      "[mm] {} material(s) carry the modern stack; PBR BINDS total={} flagged={}; "
-      "STATE-PUSHES total={} sss={} coat={} aniso={}\n",
-      n, g_mm_binds_total.load(std::memory_order_relaxed),
-      g_mm_binds_flagged.load(std::memory_order_relaxed), tot,
-      g_mm_draws_sss.load(std::memory_order_relaxed),
-      g_mm_draws_coat.load(std::memory_order_relaxed),
-      g_mm_draws_aniso.load(std::memory_order_relaxed));
-  // And the line that stops the numbers above from being read as something they are not.
-  out += fmt::format(
-      "[mm] NOTE energy={} specocc={} == STATE-PUSHES total; counter-examples this run: "
-      "materials WITHOUT bit8={} WITHOUT bit16={} (0/0 => the equality is a property of the loaded "
-      "surfaces.json, measured here, not assumed) -> these two carry no information. "
-      "STATE-PUSHES counts uniform re-pushes (material transitions), NOT draws and NOT fragment "
-      "executions. Modern chunk gate: u_pbr_debug={} (pbr_modern.glsl:40 requires ==0; non-zero "
-      "SKIPS the whole chunk while these counters still rise).\n",
-      energy, specocc, n_no_energy, n_no_specocc, ::pbr_debug_mode());
-  return out;
-}
+// lighting-legacy-purge (2026-09-11) : les compteurs par canal de la pile « Materiaux avances »
+// (`mm_note_active_draw`, `mm_note_bind`) et `mm_params_diag_section` sont SUPPRIMES avec elle. Ils
+// comptaient des pousses d'uniformes qui n'existent plus.
 
 PbrMaterialMaps release_pbr_material(const std::string& tex_key) {
   PbrMaterialMaps prev;
@@ -1739,12 +1468,10 @@ std::string pbr_pom_diag_section() {
   if (g_pom_diag.empty()) {
     return {};
   }
-  const auto& gs = Gfx::g_global_settings;
   // The SAME value background_common.cpp pushes to u_pbr_height_scale: a 0.05 base folded with the
-  // menu's TEXTURE RELIEF slider, clamped to 0..3 there. Recomputed (not read back) because the GL
-  // side owns no persistent copy — if these two ever drift, the [pom] numbers are the ones to
-  // distrust, not the render.
-  const float relief = std::max(0.0f, std::min(gs.recharged_pbr_texture_relief, 3.0f));
+  // TEXTURE RELIEF factor. lighting-legacy-purge (2026-09-11) : ce facteur n'est plus un curseur,
+  // c'est RechargedFixed::kPbrTextureRelief — la valeur livree.
+  const float relief = RechargedFixed::kPbrTextureRelief;
   const float height_scale = 0.05f * relief;
   std::string out;
   // Header: what question this block answers. The owner and the supervisor both asked for the
@@ -1755,9 +1482,7 @@ std::string pbr_pom_diag_section() {
   out += "[pom] # and what is the FINAL offset (UV and world cm) after every cap?\n";
   out +=
       "[pom] # gates: has_height = (mode & 16) -> no height map means the POM samples nothing;\n";
-  out +=
-      "[pom] #        bisect & 128 = the menu's PBR-ISOLATE forcing parallax/POM off entirely;\n";
-  out += "[pom] #        displacement = the DISPLACEMENT carousel (0 Off / 1 Parallax / 2 Tess).\n";
+  out += "[pom] #        displacement = fige a PARALLAX (RechargedFixed::kPbrDisplacement).\n";
   out += "[pom] # off45 = the offset a 45 deg view direction produces (tan(45) = 1), i.e. the\n";
   out += "[pom] #         full depth: off45_uv = amp_m * uv_per_m, off45_cm = amp_m * 100.\n";
   u32 with_height = 0;
@@ -1776,12 +1501,12 @@ std::string pbr_pom_diag_section() {
     out += fmt::format(
         "[pom] mat={} uv_per_m={:.4f} tile_m={:.3f} height_lambda_tiles={:.4f} "
         "lambda_world_m={:.4f} amp_m={:.5f} depth_uv={:.5f} off45_uv={:.5f} off45_cm={:.2f} "
-        "mode={} has_height={} displacement={} bisect={} drive={:.4f} amp_base={:.5f} "
+        "mode={} has_height={} displacement={} drive={:.4f} amp_base={:.5f} "
         "cap_ratio={:.5f} cap_abs={:.5f} amp_argmin={} pom_cap_tan={:.5f} pom_cap_feat={:.5f} "
         "pom_cap_argmin={}\n",
         name, e.uv_per_m, tile_m, e.lambda_tiles, lam_m, L.amp_m, L.depth_uv, L.depth_uv,
-        L.amp_m * 100.f, e.mode, has_height ? 1 : 0, gs.recharged_pbr_displacement,
-        gs.recharged_pbr_isolate, L.drive, L.amp_base, L.cap_ratio, L.cap_abs, L.amp_argmin,
+        L.amp_m * 100.f, e.mode, has_height ? 1 : 0, RechargedFixed::kPbrDisplacement,
+        L.drive, L.amp_base, L.cap_ratio, L.cap_abs, L.amp_argmin,
         L.cap_tan, L.cap_feat, L.cap_argmin);
   }
   out += fmt::format("[pom] materials={} with_height={}\n", g_pom_diag.size(), with_height);
@@ -1917,11 +1642,7 @@ struct ReachRec {
   bool authored = false;      // surfaces.json nomme cette matiere
   bool pushed = false;        // ses parametres ont ete RELUS dans l'objet programme
   bool from_readback = false; // reflectance/metallic viennent du programme, pas de nos variables
-  bool mm_from_readback = false;  // clearcoat/aniso idem, mais depuis u_mm_coat / u_mm_aniso
   int mode = 0;               // u_pbr_mode au moment du push
-  int mm_flags = 0;           // u_mm_flags au moment du push
-  float clearcoat = 0.f;
-  float aniso = 0.f;
   float reflectance = 0.f;
   float metallic = 0.f;
   float rough = 0.f;
@@ -1945,10 +1666,6 @@ void pbr_reach_note_seen(const std::string& key, const PbrMaterialMaps& maps) {
     r.family = (fam == g_pbrmat_family.end()) ? "-" : fam->second;
   }
   r.authored = maps.pm_authored;
-  if (!r.mm_from_readback) {
-    r.clearcoat = maps.coat_weight;
-    r.aniso = maps.aniso;
-  }
   if (!r.from_readback) {
     // Repli CPU tant qu'aucune relecture n'a eu lieu. Marque comme tel dans la ligne publiee.
     r.reflectance = maps.pm_reflectance;
@@ -1982,27 +1699,8 @@ void pbr_reach_note_pushed(const std::string& key,
   (void)mat2_readback;
 }
 
-void pbr_reach_note_mm(const std::string& key,
-                       const float* coat_readback,
-                       const float* aniso_readback,
-                       int mm_flags) {
-  auto it = g_reach.find(key);
-  if (it == g_reach.end()) {
-    return;
-  }
-  ReachRec& r = it->second;
-  r.mm_flags = mm_flags;
-  // u_mm_coat = (coat_weight, coat_rough, sss_ambient, 0) et u_mm_aniso = (aniso, aniso_angle) —
-  // voir PbrDrawBinder::set. Les deux sortent de l'objet programme.
-  if (coat_readback) {
-    r.clearcoat = coat_readback[0];
-    r.mm_from_readback = true;
-  }
-  if (aniso_readback) {
-    r.aniso = aniso_readback[0];
-    r.mm_from_readback = true;
-  }
-}
+// lighting-legacy-purge (2026-09-11) : `pbr_reach_note_mm` est SUPPRIME. Il relisait
+// u_mm_coat / u_mm_aniso, deux uniformes de la pile « Materiaux avances » qui n'existe plus.
 
 void pbr_reach_note_draw() {
   g_reach_draws++;
@@ -2030,8 +1728,7 @@ std::string pbr_reach_section() {
     if (kv.second->pushed) {
       pushed++;
       if (kv.second->authored &&
-          (kv.second->clearcoat > 0.f || std::fabs(kv.second->aniso) > 0.f ||
-           std::fabs(kv.second->reflectance - 0.04f) > 1e-6f ||
+          (std::fabs(kv.second->reflectance - 0.04f) > 1e-6f ||
            kv.second->metallic > 0.f || std::fabs(kv.second->rough - 0.9f) > 1e-6f)) {
         non_identity++;
       }
@@ -2040,7 +1737,7 @@ std::string pbr_reach_section() {
   std::string out = "\n";
   out += fmt::format(
       "PBRREACH plateforme={} matieres_dans_table={} matieres_rencontrees={} avec_record={} "
-      "params_deposes={} draws_consommes={} hors_identite={} modern_master={} "
+      "params_deposes={} draws_consommes={} hors_identite={} "
       "textures_chargees={} textures_nommees={}\n",
 #ifdef __ANDROID__
       "redmi",
@@ -2048,31 +1745,25 @@ std::string pbr_reach_section() {
       "x86",
 #endif
       (int)g_pbrmat_params.size(), (int)sorted.size(), with_record, pushed, g_reach_draws,
-      non_identity, mm_master_active() ? 1 : 0, (int)g_surf_seen_tex.size(),
-      (int)g_surf_named_tex.size());
+      non_identity, (int)g_surf_seen_tex.size(), (int)g_surf_named_tex.size());
   for (const auto& kv : sorted) {
     const ReachRec& r = *kv.second;
     out += fmt::format(
-        "PBRVAL matiere={} famille={} clearcoat={:.4f} aniso={:.4f} reflectance={:.4f} "
-        "metallic={:.4f} rugosite={:.4f} atteint_draw={} record={} source={} source_mm={} "
-        "mode=0x{:x} mm_flags=0x{:x}\n",
-        kv.first, r.family.empty() ? "-" : r.family, r.clearcoat, r.aniso, r.reflectance,
-        r.metallic, r.rough, r.pushed ? 1 : 0, r.authored ? "oui" : "NO_RECORD",
-        r.from_readback ? "readback" : "cpu", r.mm_from_readback ? "readback" : "cpu", r.mode,
-        r.mm_flags);
+        "PBRVAL matiere={} famille={} reflectance={:.4f} "
+        "metallic={:.4f} rugosite={:.4f} atteint_draw={} record={} source={} mode=0x{:x}\n",
+        kv.first, r.family.empty() ? "-" : r.family, r.reflectance, r.metallic, r.rough,
+        r.pushed ? 1 : 0, r.authored ? "oui" : "NO_RECORD",
+        r.from_readback ? "readback" : "cpu", r.mode);
   }
   out += fmt::format(
       "PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette "
       "son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que "
       "reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet "
-      "programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit "
-      "la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent "
-      "u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a {}) ; hors de "
-      "ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees "
-      "sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent "
-      "quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder "
-      "ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.\n",
-      mm_master_active() ? "1" : "0");
+      "programme que ce draw utilise, pas recopies depuis nos variables. textures_chargees / "
+      "textures_nommees sont prises a la DECISION D'INSCRIPTION, une par texture et par "
+      "chargement : elles disent quelle part des surfaces que le jeu charge la table nomme, ce que "
+      "le recensement du binder ne peut pas voir puisqu'il ne rencontre que des matieres "
+      "inscrites.\n");
   return out;
 }
 #endif
