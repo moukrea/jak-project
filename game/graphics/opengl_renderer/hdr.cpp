@@ -28,6 +28,19 @@ namespace hdr {
 namespace {
 
 constexpr const char* kItemId = "lighting-hdr";
+// L'ETUDE (`hdr-study`). Elle ne change RIEN au rendu : elle a besoin des memes INSTRUMENTS.
+// La sonde de marge ci-dessous ne tournait que sous `lighting-hdr` ; sous tout autre item elle
+// rendait `hdr_probe_px=0 / hdr_overbright_px=0 / hdr_probe_state=1`, c'est-a-dire « la scene ne
+// depasse jamais 1,0 » et « la sonde n'a jamais tourne » AU MEME ENDROIT DU PROOF. Les seize
+// preuves appareil de `hdr-display-output` portent ce zero ambigu : aucune ne mesure la plage du
+// tampon de calcul, qui est precisement la question de l'etude.
+constexpr const char* kStudyId = "hdr-study";
+
+// Le harnais mesure-t-il un item qui a besoin de ces instruments ? JAMAIS consulte pour decider
+// de ce que le jeu DESSINE : seulement pour allumer une sonde ou publier une grandeur.
+bool instrumented() {
+  return autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId);
+}
 
 thread_local bool s_frame_active = false;
 thread_local bool s_frame_chain = false;
@@ -462,7 +475,7 @@ bool tonemap_draw(Shader& shader,
   const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
   const float effective_exposure = e_moved * Gfx::g_global_settings.recharged_hdr_exposure;
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"), effective_exposure);
-  if (autoport_proof::feature_is(kItemId) && s_frames % 30 == 0) {
+  if (instrumented() && s_frames % 30 == 0) {
     autoport_proof::publish_text("hdr_exposure_x1000",
                                  std::to_string(std::llround(effective_exposure * 1000.f)).c_str());
   }
@@ -536,7 +549,7 @@ void note_aux_scene_read(const char* site, GLenum src_fmt, GLenum dst_fmt) {
 }
 
 void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
-  if (!autoport_proof::feature_is(kItemId) || !format_is_float(fmt)) {
+  if (!instrumented() || !format_is_float(fmt)) {
     return;  // instrument : ne tourne que sous mesure, et seulement sur un tampon flottant
   }
   if ((s_frames % kProbeEvery) != 0) {

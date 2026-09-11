@@ -77,6 +77,13 @@ namespace hdr_output {
 
 constexpr const char* kItemId = "hdr-display-output";
 
+// L'ETUDE (item `hdr-study`). Elle ne change RIEN au rendu : elle ALLUME les memes sondes que
+// `kItemId` pour relever, sur l'appareil, les chiffres qui repondent aux six questions du
+// livrable. Un identifiant separe est necessaire parce que `proof_run.sh` pose
+// `debug.opengoal.feature=<id-de-l-item>` : sous `hdr-study`, `feature_is(kItemId)` est FAUX et
+// toutes les sondes de ce fichier se taisaient — la ligne FEATURE et les cles seraient absentes.
+constexpr const char* kStudyId = "hdr-study";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {

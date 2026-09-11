@@ -980,6 +980,16 @@ float s_top_gain_max = 1.f;     // sommet / haut de scene, tel que la courbe l'a
 float s_range_avail_at_top = 1.f;
 float s_ceiling_max = 1.f;      // le plus haut plafond d'ecran vu sur la course
 uint64_t s_dyn_updates = 0;     // analyses de scene consommees
+// QUESTION 2 DE L'ETUDE — « le tampon de calcul est-il assez riche ? ». On compte, sur le PIC
+// BRUT de scene que l'analyse remonte chaque image, combien d'images en portent un au-dessus de
+// 1,0 et de combien. Le denominateur est publie a cote : un « 0 image au-dessus de 1,0 » ne se
+// distingue d'une sonde qui n'a jamais tourne que par lui.
+uint64_t s_study_scene_samples = 0;
+uint64_t s_study_scene_over1 = 0;
+float s_study_scene_peak_max = 0.f;
+// Le format du tampon d'interface REELLEMENT passe a `frame_end` : la derniere etape avant le
+// quad final, et celle ou le tone map ecrit. Releve, jamais suppose.
+GLenum s_study_ui_fmt = 0;
 uint64_t s_dyn_pinned_frames = 0, s_dyn_free_frames = 0;
 // Images ou la feature est ACTIVE mais ou la courbe est restee celle du SDR faute de marge.
 uint64_t s_dyn_sdr_frames = 0;
@@ -1105,7 +1115,18 @@ struct DynStats {
 DynStats s_dyn_stats;
 
 bool measuring() {
-  return autoport_proof::feature_is(kItemId) && autoport_proof::armed_for(kItemId);
+  // `hdr-study` (l'etude) n'ajoute AUCUN geste de rendu : elle a besoin des memes sondes que
+  // `hdr-display-output` pour relever ses chiffres sur l'appareil. Sans cette branche,
+  // `proof_run.sh hdr-study device` pose `debug.opengoal.feature=hdr-study`, `feature_is(kItemId)`
+  // est faux, et TOUTES les cles `hdr_out_*` disparaissent du proof.
+  return (autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId)) &&
+         autoport_proof::armed_for(kItemId);
+}
+
+// L'ETUDE mesure-t-elle ? Sert uniquement a decider si le bloc `hdr_study_*` est publie et si
+// le `hits=` de l'item `hdr-study` doit compter : le reste du fichier ne consulte jamais ceci.
+bool studying() {
+  return autoport_proof::feature_is(kStudyId) && autoport_proof::armed_for(kStudyId);
 }
 
 bool probe_window_open() {
@@ -1275,6 +1296,13 @@ void dyn_update(float raw_key, float raw_hi, float raw_peak) {
   s_an_last_key = raw_key;
   s_an_last_hi = raw_hi;
   s_an_last_peak = raw_peak;  // le pic BRUT reste publie : la correction doit se relire
+  s_study_scene_samples++;
+  if (raw_peak > 1.f) {
+    s_study_scene_over1++;
+  }
+  if (raw_peak > s_study_scene_peak_max) {
+    s_study_scene_peak_max = raw_peak;
+  }
   raw_peak = peak_impulse_reject(raw_peak);
   const auto now = std::chrono::steady_clock::now();
   if (!s_dyn.primed) {
@@ -1666,6 +1694,242 @@ ExcOut exc_reduce(const ExcStats& e) {
   }
   o.hue_worst = e.hue_worst;
   return o;
+}
+
+// ============================================================================================
+// L'ETUDE (`hdr-study`) — SIX QUESTIONS, SIX MESURES, ET LE COMPTE DE CELLES QUI RESTENT SANS
+// REPONSE. Ce bloc n'ajoute AUCUN geste de rendu : il ne fait que RELIRE l'etat que les sondes
+// de ce fichier ont deja rempli et le republier sous un nom qui dit a quelle question il repond.
+//
+// POURQUOI UNE PORTE « QUESTIONS OUVERTES » ET PAS UN VERDICT. Le livrable de l'etude est un
+// DOCUMENT ; la seule chose qu'une machine peut garantir, c'est que chaque question a ete
+// mesuree sur l'appareil et non devinee. `hdr_study_questions_open` compte donc les questions
+// dont la mesure de soutien MANQUE ou est VIDE (denominateur nul). Il ne dit rien de la qualite
+// de l'image — c'est l'owner qui juge, et ce chantier ne change rien a ce qu'il voit.
+//
+// CE QUI REND LE ZERO FALSIFIABLE. Chaque question exige un COMPTE D'ECHANTILLONS non nul, pris
+// par une sonde distincte : images de scene analysees (Q2), pixels d'ombre profonde du jeu reel
+// (Q3), echantillons de rampe dans LES DEUX bras (Q3 et Q5), echantillons d'adaptation (Q4),
+// capacites sondees (Q5). Un binaire qui ne tourne pas, une sonde qui echoue, un auto-test qui
+// n'arrive pas au bout : la valeur monte, elle ne descend jamais toute seule.
+void publish_study() {
+  if (!studying()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  // ---- ce que l'etude lit, une bonne fois, sous le verrou -----------------------------------
+  SysCaps sys;
+  PlatformCaps plat;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    sys = s_sys;
+    plat = s_plat;
+  }
+  const SurfaceState surf = s_surface;
+  const PresentVerdict pv = display_presents_hdr();
+
+  // ---- Q1 : LA CHAINE, etage par etage, en BITS REELLEMENT OBSERVES -------------------------
+  // Les trois etages que le chemin d'affichage traverse apres l'ombrage. `scene_color_format()`
+  // est le format RETENU (apres l'echelle de repli), `s_study_ui_fmt` celui que `frame_end` a
+  // recu pour l'image, `surf.red_bits` ce que `glGetIntegerv(GL_RED_BITS)` a rendu sur la
+  // fenetre. Aucun n'est suppose : le troisieme surtout, qui dement une demande non exaucee.
+  const GLenum f_scene = hdr::scene_color_format();
+  const bool scene_float = hdr::format_is_float(f_scene);
+  const int ui_bits = (s_study_ui_fmt == GL_RGBA16F) ? 16 : (s_study_ui_fmt == 0 ? 0 : 8);
+  int q1_stages = 0;
+  q1_stages += (f_scene != 0) ? 1 : 0;
+  q1_stages += (s_study_ui_fmt != 0) ? 1 : 0;
+  q1_stages += (surf.red_bits > 0) ? 1 : 0;
+  autoport_proof::publish_text("hdr_study_q1_scene_fmt", hdr::format_name(f_scene));
+  autoport_proof::publish("hdr_study_q1_scene_bits", (uint64_t)(scene_float ? 16 : 8));
+  autoport_proof::publish("hdr_study_q1_scene_float", (uint64_t)(scene_float ? 1 : 0));
+  autoport_proof::publish_text("hdr_study_q1_ui_fmt",
+                               s_study_ui_fmt == 0 ? "-" : hdr::format_name(s_study_ui_fmt));
+  autoport_proof::publish("hdr_study_q1_ui_bits", (uint64_t)ui_bits);
+  autoport_proof::publish("hdr_study_q1_win_bits", (uint64_t)surf.red_bits);
+  autoport_proof::publish("hdr_study_q1_win_colorspace", (uint64_t)surf.colorspace);
+  autoport_proof::publish("hdr_study_q1_stages_measured", (uint64_t)q1_stages);
+  // L'ESPACE, pas seulement la profondeur : le tampon de scene porte l'encodage d'affichage du
+  // jeu (`pow(x,1/2.2)`), et le tone map applique sa courbe LA-DEDANS. `hdr_oetf_progs` (publie
+  // par hdr.cpp) en est le recensement ; ici on publie la consequence qui interesse l'etude.
+  autoport_proof::publish_text("hdr_study_q1_scene_space", "encodage_d_affichage_pow_1_sur_2,2");
+  const bool q1_closed = (q1_stages == 3);
+
+  // ---- Q2 : LE TAMPON EST-IL ASSEZ RICHE ? --------------------------------------------------
+  // Deux temoins independants. Celui-ci compte les IMAGES dont le pic de scene brut depasse 1,0
+  // (l'analyse de scene tourne a chaque image ou la courbe est libre) ; `hdr_probe_*`, publie
+  // par hdr.cpp, compte les PIXELS. Deux sondes, deux denominateurs : un desaccord se voit.
+  autoport_proof::publish("hdr_study_q2_scene_samples", s_study_scene_samples);
+  autoport_proof::publish("hdr_study_q2_over1_frames", s_study_scene_over1);
+  autoport_proof::publish("hdr_study_q2_peak_max_x1000",
+                          (uint64_t)std::lround(s_study_scene_peak_max * 1000.f));
+  autoport_proof::publish("hdr_study_q2_depth_bits", (uint64_t)(scene_float ? 16 : 8));
+  autoport_proof::publish("hdr_study_q2_fallback_step", (uint64_t)(scene_float ? 0 : 1));
+  const bool q2_closed = (s_study_scene_samples > 0);
+
+  // ---- Q3 : LES OMBRES ----------------------------------------------------------------------
+  // Le comptage de codes DISTINCTS sur du JEU REEL, fenetre [0, 1/16] : c'est la grandeur que le
+  // contrat designe comme « des paliers de quantification, pas de la luminance ». On la republie
+  // TELLE QUELLE, et on publie a cote ce qu'elle NE dit pas — la luminance livree.
+  uint64_t deep_off = 0, deep_on = 0;
+  for (int i = 0; i < 256; i++) {
+    deep_off += s_play.code_off_deep[i] ? 1 : 0;
+  }
+  for (int i = 0; i < 1024; i++) {
+    deep_on += s_play.code_on_deep[i] ? 1 : 0;
+  }
+  autoport_proof::publish("hdr_study_q3_deep_px", s_play.deep_px);
+  autoport_proof::publish("hdr_study_q3_deep_levels_sdr", deep_off);
+  autoport_proof::publish("hdr_study_q3_deep_levels_hdr", deep_on);
+  autoport_proof::publish("hdr_study_q3_ramp_levels_sdr", s_pr[2].shadow_levels);
+  autoport_proof::publish("hdr_study_q3_ramp_levels_hdr", s_pr[1].shadow_levels);
+  autoport_proof::publish("hdr_study_q3_ramp_samples_sdr", s_pr[2].ramp_samples);
+  autoport_proof::publish("hdr_study_q3_ramp_samples_hdr", s_pr[1].ramp_samples);
+  // LA LUMINANCE, elle. Le blanc SDR livre par la fenetre courante, et la lumiere que represente
+  // le HAUT de la fenetre d'ombres profondes : (1/16) en encodage d'affichage vaut (1/16)^2,2 en
+  // lumiere, soit 0,29 % du blanc. Le pas de quantification moyen dans cette bande est cette
+  // lumiere divisee par le nombre de codes que chaque etat y separe.
+  const double white_nits = (double)sdr_white_nits();
+  const double band_lin = std::pow(1.0 / 16.0, 2.2);
+  const double band_nits = band_lin * white_nits;
+  autoport_proof::publish("hdr_study_q3_white_nits", (uint64_t)std::lround(white_nits));
+  autoport_proof::publish("hdr_study_q3_band_nits_x1000", (uint64_t)std::lround(band_nits * 1000.0));
+  autoport_proof::publish(
+      "hdr_study_q3_step_sdr_nits_x100000",
+      (uint64_t)(deep_off ? std::lround(band_nits * 100000.0 / (double)deep_off) : 0));
+  autoport_proof::publish(
+      "hdr_study_q3_step_hdr_nits_x100000",
+      (uint64_t)(deep_on ? std::lround(band_nits * 100000.0 / (double)deep_on) : 0));
+  // LE GAIN DE LUMIERE, pas de paliers. La courbe livree rend l'IDENTITE sous l'ancre
+  // (tonemap.frag, `hdr_power` : `if (v <= a) return v;`). On l'evalue au MILIEU de la fenetre
+  // d'ombres profondes, avec les parametres COURANTS : si la valeur sort inchangee, le gain de
+  // luminance dans les ombres vaut exactement 1,000 et le dire est une mesure, pas une opinion.
+  {
+    const float v = 1.f / 32.f;
+    const float a = s_cur.anchor, K = s_cur.gamma, C = std::fmax(s_cur.ceiling, 1.f);
+    float out = v;
+    if (a > 0.f && a < 1.f) {
+      if (s_cur.shape == 1) {
+        out = (v <= a) ? v : std::fmin(a * std::pow(v / a, K), C);
+      } else {
+        const float r = std::fmax(C - a, 1e-4f), w = std::fmax(s_cur.top - a, 1e-4f);
+        const float p = std::fmax(std::fmin(w / r, 1.f), 1e-3f);
+        out = (v <= a) ? v
+                       : (v >= s_cur.top ? C : a + r * (p * ((v - a) / w) +
+                                                        (3.f - 2.f * p) * ((v - a) / w) * ((v - a) / w) +
+                                                        (p - 2.f) * ((v - a) / w) * ((v - a) / w) * ((v - a) / w)));
+      }
+    }
+    // Le PIED est le seul terme du shader qui touche vraiment les ombres ; il est publie a cote.
+    const float s = 0.25f;
+    if (out > 0.f && out < s && s_cur.toe > 0.f) {
+      const float u = 1.f - out / s;
+      out = out + s_cur.toe * out * u * u;
+    }
+    // Gain en LUMIERE : les deux valeurs sont en encodage d'affichage, la lumiere est leur
+    // puissance 2,2. Un rapport de 1,000 veut dire « la meme lumiere, au bit pres ».
+    const double gain = std::pow((double)out / (double)v, 2.2);
+    autoport_proof::publish("hdr_study_q3_lum_gain_x1000", (uint64_t)std::lround(gain * 1000.0));
+  }
+  autoport_proof::publish("hdr_study_q3_anchor_x1000", (uint64_t)std::lround(s_cur.anchor * 1000.f));
+  autoport_proof::publish("hdr_study_q3_toe_x1000", (uint64_t)std::lround(s_cur.toe * 1000.f));
+  autoport_proof::publish("hdr_study_q3_ceiling_x1000", (uint64_t)std::lround(s_cur.ceiling * 1000.f));
+  // Sous quelle FRACTION du blanc, en lumiere, la sortie est-elle identique au SDR ? C'est
+  // `ancre^2,2`. A 0,208 d'ancre, 3,1 % du blanc : tout ce que l'oeil appelle « les ombres ».
+  autoport_proof::publish(
+      "hdr_study_q3_identity_below_pct_x100",
+      (uint64_t)std::lround(std::pow(std::fmax((double)s_cur.anchor, 0.0), 2.2) * 10000.0));
+  const bool q3_closed =
+      s_play.deep_px > 0 && s_pr[1].ramp_samples > 0 && s_pr[2].ramp_samples > 0;
+
+  // ---- Q4 : LA COURBE VARIE-T-ELLE DANS LE TEMPS ? -----------------------------------------
+  autoport_proof::publish("hdr_study_q4_samples", (uint64_t)s_dyn_stats.samples);
+  autoport_proof::publish("hdr_study_q4_updates", s_dyn_updates);
+  autoport_proof::publish("hdr_study_q4_anchor_span_x1000",
+                          (uint64_t)std::lround((s_dyn_stats.a_max - s_dyn_stats.a_min) * 1000.0));
+  autoport_proof::publish("hdr_study_q4_top_span_x1000",
+                          (uint64_t)std::lround((s_dyn_stats.t_max - s_dyn_stats.t_min) * 1000.0));
+  autoport_proof::publish("hdr_study_q4_ceiling_span_x1000",
+                          (uint64_t)std::lround((s_dyn_stats.c_max - s_dyn_stats.c_min) * 1000.0));
+  autoport_proof::publish("hdr_study_q4_resp_span_pct", (uint64_t)std::lround(s_dyn_stats.r_span * 100.0));
+  autoport_proof::publish("hdr_study_q4_sdr_frames", s_dyn_sdr_frames);
+  autoport_proof::publish("hdr_study_q4_free_frames", s_dyn_free_frames);
+  autoport_proof::publish("hdr_study_q4_pinned_frames", s_dyn_pinned_frames);
+  const bool q4_closed = s_dyn_stats.samples > 0;
+
+  // ---- Q5 : LE FORMAT -----------------------------------------------------------------------
+  // Les trois transports, chacun avec la raison MESUREE qui le rend possible ou non. Le contrat
+  // scRGB est une borne d'API (34+), les deux autres des extensions EGL plus un EGLConfig qui
+  // existe vraiment : ce sont des faits sondes au demarrage, pas des suppositions.
+  const int scrgb_ok = (sys.sdk_int >= 34 && plat.egl_scrgb_linear && plat.egl_fp16 && plat.config_fp16) ? 1 : 0;
+  const int pq_ok = (plat.egl_bt2020_pq && plat.config_10bit) ? 1 : 0;
+  const int hlg_ok = (plat.egl_bt2020_hlg && plat.config_10bit) ? 1 : 0;
+  autoport_proof::publish("hdr_study_q5_scrgb_usable", (uint64_t)scrgb_ok);
+  autoport_proof::publish("hdr_study_q5_pq_usable", (uint64_t)pq_ok);
+  autoport_proof::publish("hdr_study_q5_hlg_usable", (uint64_t)hlg_ok);
+  autoport_proof::publish("hdr_study_q5_transports_evaluated", (uint64_t)(plat.probed && sys.reported ? 3 : 0));
+  autoport_proof::publish("hdr_study_q5_sdk_int", (uint64_t)sys.sdk_int);
+  autoport_proof::publish("hdr_study_q5_mode_used", (uint64_t)surf.mode);
+  autoport_proof::publish_text("hdr_study_q5_mode_name", mode_name(surf.mode));
+  autoport_proof::publish("hdr_study_q5_presents_hdr", (uint64_t)(pv.presents ? 1 : 0));
+  autoport_proof::publish_text("hdr_study_q5_presents_reason", pv.reason);
+  const bool q5_closed = plat.probed && sys.reported && surf.red_bits > 0;
+
+  // ---- Q6 : CE QUI EMPECHE LE GAIN ----------------------------------------------------------
+  // Cinq causes, chacune adossee a une grandeur DEJA mesuree ci-dessus. On publie le COMPTE de
+  // celles qui ont pu etre evaluees (le denominateur) a cote du compte de celles qui mordent :
+  // sans lui, « 0 cause » ne se distingue pas de « rien n'a ete regarde ».
+  int evaluated = 0, blockers = 0;
+  std::string list;
+  auto note = [&](bool can_eval, bool hits, const char* name) {
+    if (!can_eval) {
+      return;
+    }
+    evaluated++;
+    if (hits) {
+      blockers++;
+      if (!list.empty()) {
+        list += ",";
+      }
+      list += name;
+    }
+  };
+  // 1. L'ecran ne PRESENTE pas le HDR : aucune nit au-dessus de son blanc diffus n'est possible.
+  note(sys.reported, !pv.presents, "ecran_ne_presente_pas");
+  // 2. La marge accordee vaut 1,000 : le plafond du tone map retombe a 1 et la courbe HDR
+  //    degenere en un simple relevement de tons moyens A L'INTERIEUR de la plage SDR.
+  note(s_frames > 0, s_ratio_max_x1000 <= 1005, "marge_accordee_a_1");
+  // 3. Le pied est nul : le SEUL terme du shader qui touche les ombres ne fait rien.
+  note(s_dyn_stats.samples > 0, s_cur.toe <= 0.f, "pied_nul");
+  // 4. Sous l'ancre la sortie est l'identite : les ombres sont, par construction, le SDR.
+  note(s_dyn_stats.samples > 0, s_cur.anchor > 0.f, "identite_sous_l_ancre");
+  // 5. Le tampon de scene ne depasse jamais 1,0 : il n'y a rien a etaler au-dessus du blanc.
+  note(s_study_scene_samples > 0, s_study_scene_over1 == 0, "scene_jamais_au_dessus_de_1");
+  autoport_proof::publish("hdr_study_q6_evaluated", (uint64_t)evaluated);
+  autoport_proof::publish("hdr_study_q6_blockers", (uint64_t)blockers);
+  autoport_proof::publish_text("hdr_study_q6_list", list.empty() ? "-" : list.c_str());
+  const bool q6_closed = (evaluated == 5);
+
+  // ---- LE COMPTE ----------------------------------------------------------------------------
+  const bool closed[6] = {q1_closed, q2_closed, q3_closed, q4_closed, q5_closed, q6_closed};
+  uint64_t open = 0;
+  std::string open_list;
+  for (int i = 0; i < 6; i++) {
+    autoport_proof::publish((std::string("hdr_study_q") + (char)('1' + i) + "_closed").c_str(),
+                            (uint64_t)(closed[i] ? 1 : 0));
+    if (!closed[i]) {
+      open++;
+      if (!open_list.empty()) {
+        open_list += ",";
+      }
+      open_list += "q";
+      open_list += (char)('1' + i);
+    }
+  }
+  autoport_proof::publish_text("hdr_study_questions_open_list", open_list.empty() ? "-" : open_list.c_str());
+  autoport_proof::publish("hdr_study_questions_open", open);
+  // LE GESTE DE L'ETUDE, c'est CETTE publication. `hits` est partage par tout le binaire : on ne
+  // le compte QUE sous l'item `hdr-study`, sinon le compteur de tous les autres items monterait.
+  autoport_proof::note_hit();
 }
 
 void publish_all() {
@@ -2191,6 +2455,7 @@ void publish_all() {
   } else {
     autoport_proof::publish("hdr_out_defects", 17);  // auto-test pas au bout : ROUGE, jamais muet
   }
+  publish_study();  // l'etude relit ce qui precede ; elle ne mesure rien de neuf par elle-meme
 }
 
 void compute_verdicts() {
@@ -4093,6 +4358,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
 
 void frame_end(uint64_t sites, GLenum ui_fmt) {
   const bool on = s_active.load();
+  s_study_ui_fmt = ui_fmt;  // question 1 de l'etude : l'etage d'affichage, releve et non suppose
   if (on) {
     s_hits++;
     autoport_proof::note_hit();  // AU SITE DU GESTE : une image presentee en HDR

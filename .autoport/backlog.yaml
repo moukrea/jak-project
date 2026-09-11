@@ -7344,7 +7344,7 @@ items:
     tout script du harnais qui commite.'
   where: 'rien a voir : tracabilite ; owner_test=false'
   out_of_scope: Ne pas reecrire l'historique. On empeche la recidive, on ne repare pas le passe.
-  status: in-progress
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7489,7 +7489,7 @@ items:
     text: dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous
       menus des reglages realtime lighting, p'tetre dans les autres aussi
 - id: hdr-study
-  status: open
+  status: in-progress
   priority: 17
   game: jak1
   device: true
@@ -7527,6 +7527,13 @@ items:
   max_turns: 800
   max_retries: 6
   proof_timeout: 300
+  proof_props:
+  - debug.opengoal.hdr=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.level.warp=village2-dock
+  - debug.opengoal.tod.fast=1
+  - debug.opengoal.hdr.out=1
   prompt: prompts/item-hdr-study.md
   notes: 'Insere le 11/09 apres le 5e refus. L''owner : « avant la prochaine iteration faut vraiment creuser
     le sujet en profondeur ». hdr-display-output en depend.'
