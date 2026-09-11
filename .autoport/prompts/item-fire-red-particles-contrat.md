@@ -5,11 +5,11 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
-DEUX ESSAIS PASSES AU VERT SUR UN DEFAUT INTACT. Ce que l'owner voit n'est PAS « des particules rouges » — ses captures du 11/09 montrent de GRANDES FORMES POLYGONALES NOIRES ET ROUGES qui RECOUVRENT l'effet. Le feu et le portail sont corrects DESSOUS : quelque chose se dessine par-dessus avec une texture qui ne se resout pas, ou un quad de sprite rempli d'une couleur de secours. Meme signature sur deux effets differents = une cause commune. La porte cherchait des « dessins rouges etrangers » (`fire_debug_particles`, `fire_pack_foreign_*`) et n'en trouvait aucun : elle mesurait la mauvaise chose. SECONDE PISTE, AU MOINS AUSSI FORTE : les deux preuves ont tourne sur le REDMI (eae4df44), l'owner voit le defaut sur son HONOR. Il est possible que ca ne se reproduise tout simplement pas sur l'appareil mesure.
+DEUX ESSAIS PASSES AU VERT SUR UN DEFAUT INTACT. Ce que l'owner voit n'est PAS « des particules rouges » — ses captures du 11/09 montrent de GRANDES FORMES POLYGONALES NOIRES ET ROUGES qui RECOUVRENT l'effet. LES DEUX CAPTURES SONT A SANDOVER VILLAGE : un feu dans une hutte, et le portail de la HUTTE DU SAGE VERT (pas la jungle — correction de l'owner). Et ce n'est pas local : « cet effet est visible sur TOUS les feux et portails de teleportation ». Le feu et le portail sont corrects DESSOUS : quelque chose se dessine par-dessus avec une texture qui ne se resout pas, ou un quad de sprite rempli d'une couleur de secours. Meme signature sur deux effets differents = une cause commune. La porte cherchait des « dessins rouges etrangers » (`fire_debug_particles`, `fire_pack_foreign_*`) et n'en trouvait aucun : elle mesurait la mauvaise chose. SECONDE PISTE, AU MOINS AUSSI FORTE : les deux preuves ont tourne sur le REDMI (eae4df44), l'owner voit le defaut sur son HONOR. Il est possible que ca ne se reproduise tout simplement pas sur l'appareil mesure.
 
 ## Livrable — le contrat, en entier
 
-`fire_foreign_overdraw` = 0. (1) SUR L'APPAREIL OU L'OWNER LE VOIT : reproduire d'abord. Si le defaut n'apparait pas sur le Redmi, le DIRE et mesurer sur le Honor (AREE026206000788) — deux preuves passees au vert sur le mauvais telephone valent zero. (2) CE QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites, publier l'etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d'origine ; des aplats satures rouges ou noirs absents de l'origine sont un DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : le feu de Sandover et le portail de la jungle montrent la MEME signature — nommer le site partage et le corriger la, pas effet par effet. (5) Publier la liste des effets inspectes et le verdict de chacun.
+`fire_foreign_overdraw` = 0. (1) SUR L'APPAREIL OU L'OWNER LE VOIT : reproduire d'abord. Si le defaut n'apparait pas sur le Redmi, le DIRE et mesurer sur le Honor (AREE026206000788) — deux preuves passees au vert sur le mauvais telephone valent zero. (2) CE QUI EST DESSINE, pas ce qui est arme : pour chaque dessin du chemin des particules et des sprites, publier l'etat de son echantillonneur — texture resolue, texture MANQUANTE, ou repli. Le compte de dessins a texture non resolue vaut 0. (3) COULEUR : publier la distribution des couleurs du seau particules contre la reference d'origine ; des aplats satures rouges ou noirs absents de l'origine sont un DEFAUT, quel que soit leur nombre. (4) CAUSE COMMUNE : TOUS les feux et TOUS les portails montrent la meme signature — l'owner l'a constate. Nommer le site partage et le corriger LA, jamais effet par effet ; une correction qui ne vaudrait que pour un feu est un DEFAUT. (5) Publier la liste des effets inspectes et le verdict de chacun.
 
 ## Hors perimetre
 
@@ -17,7 +17,7 @@ Ne pas retoucher les particules d'origine ni leur cadence : on retire ce qui n'a
 
 ## Ou l'owner regardera
 
-la hutte de Sandover au-dessus du feu, et la hutte de la jungle par-dessus le portail : plus aucune forme noire ou rouge par-dessus l'effet
+Sandover Village : le feu dans la hutte, et le portail de la hutte du Sage vert. Puis n'importe quel autre feu ou portail — l'effet est partout.
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -29,6 +29,9 @@ la hutte de Sandover au-dessus du feu, et la hutte de la jungle par-dessus le po
 
 ### 2026-09-11
 > Heuuuu tu te fous de ma gueule, la warp gate est pleine des particules rouges comme sur le feu ... Qui d'ailleurs n'est pas corrige !!! FOUTAGE DE GUEULE !!! [captures fournies : de GRANDES FORMES POLYGONALES NOIRES ET ROUGES par-dessus l'effet, dans la hutte de Sandover au-dessus du feu, et dans la hutte de la jungle par-dessus le portail]
+
+### 2026-09-11
+> c'est pas le portail de la jungle, c'est la hutte du Sage vert a Sandover Village ! et cet effet est visible sur tous les feux et portails de teleportation anyway
 
 ## Pourquoi ce fichier existe
 
