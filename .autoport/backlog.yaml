@@ -6047,8 +6047,8 @@ items:
     text: Validé
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
-  status: in-progress
-  priority: 22
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: merc_defuse_defects
@@ -6092,6 +6092,14 @@ items:
   block_reason: null
   prompt: prompts/item-perf-merc-defuse.md
   device_serial: eae4df44
+  delivered: '2026-09-11'
+  owner_ok:
+    date: '2026-09-11'
+    text: Le fil de rendu qui n'attend plus le GPU au milieu de chaque image -> Validé
+    build_sha: 19db233695d52d73
+  owner_feedback:
+  - date: '2026-09-11'
+    text: Le fil de rendu qui n'attend plus le GPU au milieu de chaque image -> Validé
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
   status: open
@@ -7232,7 +7240,7 @@ items:
     text: Validé
     build_sha: 3c724a60cc77fbc9
 - id: title-tap-prompt-regression
-  priority: 21
+  priority: null
   device: true
   feature: Au titre, l'invite dit « touche l'ecran » quand il y a un ecran tactile
   gate:
@@ -7254,7 +7262,7 @@ items:
     Mesurer sur le Redmi, qui a un ecran tactile.'
   where: 'l''ecran-titre sur ton telephone : « Appuie sur start ou touche l''écran »'
   out_of_scope: Ne pas retoucher le comportement du tap lui-meme, seulement le texte affiche.
-  status: to-test
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7269,8 +7277,14 @@ items:
       start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
   - date: '2026-09-11'
     text: non, ca dit toujours Appuie sur start.
+  - date: '2026-09-11'
+    text: 'L''invite de l''écran-titre : elle doit dire « Appuie sur start ou touche l''écran » -> Validé'
   delivered: '2026-09-11'
   device_serial: eae4df44
+  owner_ok:
+    date: '2026-09-11'
+    text: 'L''invite de l''écran-titre : elle doit dire « Appuie sur start ou touche l''écran » -> Validé'
+    build_sha: 19db233695d52d73
 - id: census-false-reds
   priority: 28
   device: false
@@ -7610,10 +7624,14 @@ items:
       rond pendant des jours... je prefere des heures de planification pour un resultat beton que 45 iterations
       qui echouent
 - id: hdr-source-range
-  status: open
+  status: in-progress
   priority: 17
   game: jak1
   device: true
+  proof_env:
+  - OG_RECHARGED=1
+  proof_props:
+  - debug.opengoal.recharged=1
   owner_test: false
   feature: Le ciel et le halo cessent d'ecreter les couleurs a 1,0
   gate:
