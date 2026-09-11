@@ -328,8 +328,53 @@ class Backlog:
         return text
 
     # ---------------------------------------------------------------- controle
+    def verdicts_shrunk(self):
+        """Les items dont le livrable a PERDU des verdicts depuis le dernier releve.
+
+        2026-09-11 : le superviseur a perdu DEUX verdicts centraux de hdr-display-output en
+        raccourcissant la consigne pour tenir sous le plafond. L'item est ensuite passe 15/15
+        quatre fois de suite sans que la plainte de fond de l'owner soit mesuree une seule fois.
+        Le deversement automatique protege de la TRONCATURE ; il ne protege pas d'une
+        SUPPRESSION. Cette garde-ci, si."""
+        import json as _json
+        chemin = os.path.join(os.path.dirname(self.path), ".verdict_counts.json")
+        try:
+            with open(chemin, encoding="utf-8") as fh:
+                avant = _json.load(fh)
+        except Exception:  # noqa: BLE001 — pas de releve : rien a comparer
+            return []
+        perdus = []
+        for it in self.items:
+            if it.get("status") not in ACTIONABLE:
+                continue
+            ref = avant.get(it["id"])
+            if ref is None:
+                continue
+            n = self.verdict_count(it)
+            if n < ref:
+                perdus.append((it["id"], ref, n))
+        return perdus
+
+    def stamp_verdicts(self):
+        """Fige le releve courant. A appeler APRES un retrait volontaire et motive."""
+        import json as _json
+        chemin = os.path.join(os.path.dirname(self.path), ".verdict_counts.json")
+        etat = {it["id"]: self.verdict_count(it) for it in self.items
+                if it.get("status") in ACTIONABLE}
+        _atomic_write(chemin, _json.dumps(etat, indent=0, sort_keys=True))
+        return etat
+
+    def verdict_count(self, item):
+        """Combien de verdicts numerotes porte un livrable. Sert a interdire qu'il RETRECISSE."""
+        import re as _re
+        return len(_re.findall(r"\((\d+)\)", item.get("deliverable") or ""))
+
     def lint(self):
         problems = []
+        for iid, avant, apres in self.verdicts_shrunk():
+            problems.append("%s : le livrable est passe de %d a %d verdicts — un verdict PERDU "
+                            "est un defaut que plus rien ne mesure (11/09 : deux perdus sur "
+                            "hdr-display-output, 4 essais verts pour rien)" % (iid, avant, apres))
         seen = set()
         for it in self.items:
             iid = it.get("id")

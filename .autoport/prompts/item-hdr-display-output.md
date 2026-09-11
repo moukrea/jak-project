@@ -5,13 +5,13 @@
 # Sortir un vrai signal HDR sur les ecrans qui le supportent
 
 ## Defaut cite
-- 2026-09-11 : « le HDR produit un rendu tres « j'ai pousse le contraste au m… »
+- 2026-09-11 : « C'est a chier ! On retombe litteralement sur le pas de diff… »
 
 ## Cause connue
-LIS D'ABORD `prompts/item-hdr-display-output-contrat.md` — OBLIGATOIRE. Cette consigne est un resume plafonne ; le contrat complet, les verdicts 1-8 detailles, les quinze refus de l'owner et les chiffres deja mesures (et sur QUEL ecran) y sont. Resume : l'owner voit une MINI difference ON/OFF ; il decrit un filtre pose APRES le tone map SDR. Courbe STATIQUE. Preuve sur le Redmi eae4df44.
+QUATRE TOURS, ET LA PLAINTE DE FOND N'A JAMAIS ETE MESUREE. L'owner dit la MEME chose depuis le 10/09 : « on dirait qu'on traite le rendu tonemape a destination du SDR » et « on gagne pas de richesse dans les ombres parce que cette richesse n'est deja plus la dans l'image qu'on traite ». J'avais ecrit DEUX verdicts pour ca le 10/09 — SOURCE AVANT COMPRESSION et RICHESSE DANS LES OMBRES — et je les ai PERDUS en raccourcissant la consigne (commit c054ce9a48). L'item est donc passe 15/15 sans que ni l'un ni l'autre soit mesure, quatre fois de suite. Les verdicts sont retablis ci-dessous et cette liste NE DOIT PLUS JAMAIS RETRECIR : le contrat porte le detail, la consigne peut le resumer, mais a […suite dans le contrat]
 
 ## Livrable
-`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat. (9) Pas d'assombrissement, sur du JEU REEL, plusieurs niveaux, images comptees. (10) La SEULE reference est le pic ANNONCE, aucune constante ; prouve par l'EFFET a deux pics. (11) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000` atteint l'essentiel de la marge REELLEMENT accordee. (12) La courbe suit la scene dans le TEMPS ; serie publiee sur plein jour / interieur / grotte ; constante = DEFAUT. (13) NEUF, refus 11/09 — LE FORMAT SE CHOISIT SEUL, POUR TOUT ECRAN : le jeu tournera sur des centaines d'appareils. Preference scRGB > HDR10 > HLG. HDR10+ ECARTE par decision de l'owner du 11/09 : aucune API publique ne laisse une application poser des metadonnees DYNAMIQUES ; notre courbe (verdict 12) en tient lieu, replis automatiques sur ce que l'ecran annonce, aucun appareil code en dur. Publier le format RETENU et la liste an […suite dans le contrat]
+`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat, a lire. (9) PAS D'ASSOMBRISSEMENT, sur du JEU REEL, plusieurs niveaux, images comptees. (10) ADAPTATION A L'ECRAN : seule reference = le pic ANNONCE, aucune constante ; prouve par l'EFFET a deux pics. (11) RETABLI apres perte — SOURCE AVANT COMPRESSION : la sortie HDR consomme la scene HDR AVANT le tone map vers SDR. Publier l'identite du tampon lu et le nombre de compressions SDR subies par ce chemin : il vaut 0. Elever le plafond d'un tone map qui a deja ecrase N'EST PAS lire la scene HDR. Lire une image deja compressee = DEFAUT, quel que soit le reste. (12) RETABLI apres perte — RICHESSE DANS LES OMBRES, mesuree sur du jeu […suite dans le contrat]
 
 ## Preuve exigee
 `hdr_out_defects == 0` dans `reports/hdr-display-output/proof.txt`.

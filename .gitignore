@@ -228,3 +228,4 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 .autoport/.acquis_rotation
 .autoport/.findings_gate_strict
 .autoport/.prompt_fingerprints.json
+.autoport/.verdict_counts.json

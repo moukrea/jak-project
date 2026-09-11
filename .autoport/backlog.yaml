@@ -4658,7 +4658,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: to-test
+  status: open
   priority: 18
   game: jak1
   gate:
@@ -4667,7 +4667,7 @@ items:
     value: 0
   device: true
   max_turns: 300
-  max_retries: 18
+  max_retries: 24
   depends_on:
   - lighting-hdr
   history: []
@@ -4675,33 +4675,36 @@ items:
   owner_ok: null
   where: 'Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur le Redmi, les
     zones brillantes doivent vraiment ressortir, sans que le reste change.'
-  deliverable: '`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat. (9) Pas d''assombrissement,
-    sur du JEU REEL, plusieurs niveaux, images comptees. (10) La SEULE reference est le pic ANNONCE, aucune
-    constante ; prouve par l''EFFET a deux pics. (11) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000`
-    atteint l''essentiel de la marge REELLEMENT accordee. (12) La courbe suit la scene dans le TEMPS ;
-    serie publiee sur plein jour / interieur / grotte ; constante = DEFAUT. (13) NEUF, refus 11/09 — LE
-    FORMAT SE CHOISIT SEUL, POUR TOUT ECRAN : le jeu tournera sur des centaines d''appareils. Preference
-    scRGB > HDR10 > HLG. HDR10+ ECARTE par decision de l''owner du 11/09 : aucune API publique ne laisse
-    une application poser des metadonnees DYNAMIQUES ; notre courbe (verdict 12) en tient lieu, replis
-    automatiques sur ce que l''ecran annonce, aucun appareil code en dur. Publier le format RETENU et
-    la liste annoncee. Plusieurs formats disponibles ET choix a incidence mesurable : l''offrir en reglage
-    ; sinon le dire. Dolby Vision HORS PERIMETRE (licence) : le constater. ANNONCER N''EST PAS ACCORDER
-    : aucune marge rendue = verdict 11 ROUGE, et on le DIT. (14) RETABLI — J''AVAIS PERDU CE VERDICT EN
-    RACCOURCISSANT, ET L''ITEM EST PASSE 14/14 SANS JAMAIS LE MESURER. Refus owner du 10/09 puis du 11/09
-    : « un rendu tres j''ai pousse le contraste au maximum, c''est pas beau », « comme si on poussait
-    la teinte/saturation/contraste au max sur un filtre photoshop ». PAS DE CONTRASTE NI DE SATURATION
-    CRAMES : publier, sur les MEMES images, l''excursion de contraste et de saturation de la sortie HDR
-    par rapport a la sortie SDR. Un ecart au-dela d''un plafond DECLARE est un DEFAUT. Les teintes restent
-    celles attendues : publier la derive de teinte moyenne. Gagner en amplitude sans cramer est le but
-    entier de l''item — une amplitude obtenue EN cramant ne vaut rien.'
-  known_cause: 'LIS D''ABORD `prompts/item-hdr-display-output-contrat.md` — OBLIGATOIRE. Cette consigne
-    est un resume plafonne ; le contrat complet, les verdicts 1-8 detailles, les quinze refus de l''owner
-    et les chiffres deja mesures (et sur QUEL ecran) y sont. Resume : l''owner voit une MINI difference
-    ON/OFF ; il decrit un filtre pose APRES le tone map SDR. Courbe STATIQUE. Preuve sur le Redmi eae4df44.'
+  deliverable: '`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat, a lire. (9) PAS D''ASSOMBRISSEMENT,
+    sur du JEU REEL, plusieurs niveaux, images comptees. (10) ADAPTATION A L''ECRAN : seule reference
+    = le pic ANNONCE, aucune constante ; prouve par l''EFFET a deux pics. (11) RETABLI apres perte — SOURCE
+    AVANT COMPRESSION : la sortie HDR consomme la scene HDR AVANT le tone map vers SDR. Publier l''identite
+    du tampon lu et le nombre de compressions SDR subies par ce chemin : il vaut 0. Elever le plafond
+    d''un tone map qui a deja ecrase N''EST PAS lire la scene HDR. Lire une image deja compressee = DEFAUT,
+    quel que soit le reste. (12) RETABLI apres perte — RICHESSE DANS LES OMBRES, mesuree sur du jeu reel
+    : le detail distinguable SOUS le blanc SDR augmente franchement par rapport a OFF. Inchange = DEFAUT.
+    C''est la moitie du HDR et elle n''a jamais ete mesuree. (13) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000`
+    atteint l''essentiel de la marge REELLEMENT accordee. (14) ADAPTATION AU CONTENU : la courbe suit
+    la scene dans le TEMPS ; serie publiee ; constante = DEFAUT. (15) LE FORMAT SE CHOISIT SEUL : scRGB
+    > HDR10 > HLG, replis automatiques, format retenu publie. HDR10+ et Dolby Vision ecartes. (16) PAS
+    DE CONTRASTE NI DE SATURATION CRAMES : excursion publiee contre la sortie SDR sur les MEMES images,
+    plafond declare, derive de teinte publiee. (17) NEUF, refus 11/09 — ON DOIT SE VOIR : l''owner decrit
+    « l''effet rien du tout, p''tetre un chouille plus sature ». La difference ON/OFF doit etre EVIDENTE
+    a l''oeil et chiffree : publier, sur les memes images, ce qui separe les deux etats dans les ombres
+    ET dans les hautes lumieres. Un ecart qui ne tient qu''a la saturation est un DEFAUT : la saturation
+    n''est pas du detail. Preuve sur le Redmi eae4df44.'
+  known_cause: 'QUATRE TOURS, ET LA PLAINTE DE FOND N''A JAMAIS ETE MESUREE. L''owner dit la MEME chose
+    depuis le 10/09 : « on dirait qu''on traite le rendu tonemape a destination du SDR » et « on gagne
+    pas de richesse dans les ombres parce que cette richesse n''est deja plus la dans l''image qu''on
+    traite ». J''avais ecrit DEUX verdicts pour ca le 10/09 — SOURCE AVANT COMPRESSION et RICHESSE DANS
+    LES OMBRES — et je les ai PERDUS en raccourcissant la consigne (commit c054ce9a48). L''item est donc
+    passe 15/15 sans que ni l''un ni l''autre soit mesure, quatre fois de suite. Les verdicts sont retablis
+    ci-dessous et cette liste NE DOIT PLUS JAMAIS RETRECIR : le contrat porte le detail, la consigne peut
+    le resumer, mais aucun verdict ne disparait.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'budget : porte a 18 le 10/09. Appareil de preuve = Redmi eae4df44 depuis le 11/09 (500 nits
-    annonces) : un seul telephone pour le HDR et le lot perf.'
+  notes: 'budget : porte a 24 le 11/09. Deux verdicts centraux avaient ete PERDUS par le superviseur en
+    raccourcissant ; les essais passes sous une liste incomplete ne se comptent pas contre le worker.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4798,6 +4801,14 @@ items:
   - date: '2026-09-11'
     text: le HDR produit un rendu tres « j'ai pousse le contraste au maximum », c'est pas beau. les warp
       gates aussi emettent les particules rouges degueulasses
+  - date: '2026-09-11'
+    text: C'est a chier ! On retombe litteralement sur le pas de diff ON/OFF (p'tetre un chouille plus
+      sature a ON), on profite absolument pas des capacites offertes par les ecrans compatibles HDR ni
+      le fait qu'on fasse tout notre rendu en HDR, on dirait toujours qu'on traite le rendu tonemape a
+      destination du SDR et que [...] on y mette juste un poil plus de saturation, et peut-etre un hack
+      around du blanc dans le ciel pour que ca pop un peu plus. Certes il n'y a plus l'effet filtre de
+      l'espace, mais la en gros il y a l'effet « rien du tout », on tire pas du tout profit du HDR pour
+      gagner en detail dans les ombres et lumieres, on tire profit de rien du tout !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4810,7 +4821,7 @@ items:
   block_reason: null
   proof_env: []
   device_serial: eae4df44
-  delivered: '2026-09-11'
+  delivered: null
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
