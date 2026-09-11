@@ -733,7 +733,7 @@ items:
   - Gpbr-per-texture-materials
   - Gpbr-material-props
   - Gpbr-props-reach-draw
-  prompt: null
+  prompt: prompts/item-pbr-per-material.md
   owner_ok: null
   where: Options > Recharged > PBR Materials, puis regarde le sable, la pierre et le tissu de Sandover
   delivered: '2026-09-02'
@@ -2769,7 +2769,7 @@ items:
   depends_on: []
   history:
   - Grecharged-grass-wear
-  prompt: null
+  prompt: prompts/item-recharged-grass-wear.md
   owner_ok: null
   device: false
   notes: 'statut force : spike de conception seulement, aucune ligne de code : le jeton dit que l''implementation
@@ -2830,7 +2830,7 @@ items:
   depends_on: []
   history:
   - Grecharged-ambient-occlusion
-  prompt: null
+  prompt: prompts/item-recharged-ambient-occlusion.md
   owner_ok: null
   where: 'Options > Recharged > Ambient Occlusion : les creux et les angles de Sandover'
   delivered: '2026-07-16'
@@ -2897,7 +2897,7 @@ items:
   depends_on: []
   history:
   - Grecharged-directional-ambient
-  prompt: null
+  prompt: prompts/item-recharged-directional-ambient.md
   owner_ok: null
   where: 'Options > Recharged : le relief des zones a l''ombre'
   delivered: '2026-07-20'
@@ -2918,7 +2918,7 @@ items:
   depends_on: []
   history:
   - Grecharged-lightprobes
-  prompt: null
+  prompt: prompts/item-recharged-lightprobes.md
   owner_ok: null
   where: les interieurs (hutte du Sage Vert) contre l'exterieur
   delivered: '2026-07-22'
@@ -2986,7 +2986,7 @@ items:
   depends_on: []
   history:
   - Grecharged-naming
-  prompt: null
+  prompt: prompts/item-recharged-naming.md
   owner_ok: null
   where: 'le nom du jeu partout ou il apparait : icone du lanceur, ecran-titre, menus. « Jak and Daxter:
     Recharged », jamais « The Precursor Legacy » ni « OpenGOAL ».'
@@ -3895,7 +3895,7 @@ items:
   depends_on: []
   history:
   - Grecharged-hud-jak1
-  prompt: null
+  prompt: prompts/item-recharged-hud-jak1.md
   owner_ok: null
   device: true
   notes: 'statut force : l''owner a ordonne le 2026-07-09 de parquer le HUD (« revisit later, more important
@@ -3914,7 +3914,7 @@ items:
   depends_on: []
   history:
   - Grecharged-materials-modern-parity
-  prompt: null
+  prompt: prompts/item-recharged-materials-modern-parity.md
   owner_ok: null
   where: 'Options > Recharged : le rendu des matieres'
   delivered: '2026-08-31'
@@ -3934,7 +3934,7 @@ items:
   depends_on: []
   history:
   - Gjak2-polish
-  prompt: null
+  prompt: prompts/item-jak2-polish.md
   owner_ok: null
   device: true
   notes: 'statut force : l''owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1'
@@ -6979,7 +6979,7 @@ items:
     flammes, sortie HDR allumee comme eteinte'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -6992,6 +6992,7 @@ items:
     text: je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca
       fait des particules rouges bizarres, probablement un des tests/debugs qui est reste la et qui maintenant
       reste... Faut degager ca c'est horrible
+  delivered: '2026-09-11'
 - id: lighting-legacy-purge
   priority: 17
   device: true
@@ -7014,7 +7015,7 @@ items:
     ce qui reste agit vraiment'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800

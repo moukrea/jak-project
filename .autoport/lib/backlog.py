@@ -31,6 +31,17 @@ except ImportError:                                   # pragma: no cover - non P
 
 import yaml
 
+# 2026-09-11 — LECTEUR EN C. PyYAML embarque un analyseur ecrit en Python et un autre en C ; le
+# second etait installe et inutilise. Mesure sur le backlog reel (328 Ko) : 1 992 ms contre
+# 136 ms. Chaque ecriture relisant le fichier entier, une modification passe de ~2,4 s a ~0,5 s.
+# L'ECRIVAIN n'est PAS bascule : `_dump` est personnalise (representer de chaines, ordre des
+# cles) et reecrit le fichier a l'octet pres. Le dumper C changerait ce rendu et rendrait chaque
+# `git diff` du backlog illisible — c'est ce diff qui porte l'historique des decisions de l'owner.
+try:                                  # noqa: SIM105
+    from yaml import CSafeLoader as _Loader
+except ImportError:                   # machine sans libyaml : on garde le lecteur Python
+    from yaml import SafeLoader as _Loader
+
 AP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_PATH = os.path.join(AP, "backlog.yaml")
 # Le verrou porte un nom deja couvert par .gitignore (`.autoport/.auto_*.lock`) : le
@@ -383,7 +394,7 @@ class Backlog:
 
 def _read(path):
     with open(os.fspath(path), encoding="utf-8") as fh:
-        doc = yaml.safe_load(fh) or {}
+        doc = yaml.load(fh, Loader=_Loader) or {}
     if not isinstance(doc, dict) or "items" not in doc:
         raise BacklogError("%s : pas un backlog (clef `items` absente)" % path)
     return doc

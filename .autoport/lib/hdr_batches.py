@@ -64,7 +64,11 @@ def normalized(text):
 
 def contract(root):
     import yaml
-    doc = yaml.safe_load((root / '.autoport/backlog.yaml').read_text())
+    try:                              # lecteur C si disponible (voir lib/backlog.py)
+        from yaml import CSafeLoader as _L
+    except ImportError:
+        from yaml import SafeLoader as _L
+    doc = yaml.load((root / '.autoport/backlog.yaml').read_text(), Loader=_L)
     items = doc['items'] if isinstance(doc, dict) else doc
     plan = next(x['proof_plan'] for x in items if x['id'] == 'lighting-hdr')
     if plan['mode'] != 'multi_process_batches' or plan['owner_authorized'] is not True:

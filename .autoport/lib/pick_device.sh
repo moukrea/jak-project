@@ -36,11 +36,18 @@ if [ -n "${ANDROID_SERIAL:-}" ]; then
     *:*|*_adb-tls-*) echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' est une adresse reseau : refuse." >&2; exit 3 ;;
   esac
   if attache "$ANDROID_SERIAL"; then echo "$ANDROID_SERIAL"; exit 0; fi
-  # Epingle et absent : on NE se rabat PAS sur un autre telephone. Une campagne de mesure
-  # epinglee (ligne de base perf sur le Redmi, sortie HDR sur le Honor) mesurée sur l'autre
-  # appareil rend des chiffres faux que rien ne signale. Mieux vaut aucune mesure.
-  echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' est EPINGLE et absent : aucun repli." >&2
-  exit 3
+  # Epingle et absent. Deux cas, et la nuance compte — la version du 10/09 les confondait et
+  # cassait `test_hdr_falls_back_from_missing_redmi_to_usb_honor` :
+  #  - epingle par l'ITEM (`device_serial`, ANDROID_SERIAL_STRICT pose par proof_run) : AUCUN
+  #    repli. Une campagne de mesure epinglee et mesuree sur l'autre telephone rend des chiffres
+  #    faux que rien ne signale. Mieux vaut aucune mesure.
+  #  - epingle par l'ENVIRONNEMENT seul : on se rabat, comme le veut CLAUDE.md (« l'appareil de
+  #    preuve est celui branche en USB, Honor compris ») et comme le test l'exige.
+  if [ -n "${ANDROID_SERIAL_STRICT:-}" ]; then
+    echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' epingle par l'ITEM et absent : aucun repli." >&2
+    exit 3
+  fi
+  echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' ne repond pas ; on cherche autre chose." >&2
 fi
 
 MEILLEUR=""; MEILLEUR_RANG=99

@@ -396,7 +396,11 @@ else
   # L'appareil est CHOISI a l'execution : n'importe lequel branche en USB fait l'affaire, et la
   # preuve dira lequel. Un numero de serie ecrit en dur a coute une nuit entiere le 2026-09-06,
   # quand le Honor de l'owner occupait le port USB a la place du Redmi.
-  SERIAL=$(ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
+  # L'epingle de l'ITEM (`device_serial`) est STRICTE : pas de repli sur un autre telephone.
+  # Une epingle venue de l'environnement seul reste souple (voir lib/pick_device.sh).
+  _pin_strict=""; [ -z "${ANDROID_SERIAL:-}" ] && [ -n "$ITEM_SERIAL" ] && _pin_strict=1
+  SERIAL=$(ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" ANDROID_SERIAL_STRICT="$_pin_strict" \
+           bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
   case "$SERIAL" in
     *[0-9].[0-9]*.[0-9]*|*:*)
       log "serial '$SERIAL' est une adresse reseau. La SHIELD (192.168.1.32) est INTERDITE."
