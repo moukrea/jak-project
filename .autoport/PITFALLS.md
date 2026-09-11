@@ -812,3 +812,23 @@ consequence se MESURE contre une grandeur independante de l'entree ; lui donner 
 injecter la reponse attendue et la relire. Un contrat d'entree se compose d'un petit nombre de
 boutons et d'un grand nombre de resultats qu'ils doivent produire — confondre les deux transforme
 une direction juste en machine a faux verts.
+
+GUARD a-measured-run-cannot-measure-its-own-cadence game/graphics/opengl_renderer/hdr.cpp mesurer la cadence sous instrument
+**Une course SOUS INSTRUMENT ne peut pas mesurer sa propre cadence.** Le 2026-09-11, le chantier B
+a releve que `ref_peak_now` (hdr_output.cpp) fait un `glReadPixels` SYNCHRONE pleine resolution
+(2,4 Mo a 640x480) une analyse sur 16, et que `probe_scene` (hdr.cpp) fait sa propre relecture
+synchrone une image sur 30 des que `hdr-curve-input` est mesure. Les deux figent le pipeline.
+Verrou : toute grandeur de CADENCE exigee par un livrable se releve HORS de la course qui mesure
+la feature — deux courses, meme lieu, meme binaire, et on publie le nombre d'images de chacune.
+Un cout en img/s chiffre pendant que les sondes tournent est faux par construction, pas bruite.
+
+GUARD a-key-that-changed-its-reduction-is-a-new-quantity game/graphics/opengl_renderer/hdr_output.cpp comparer une cle entre deux courses
+**Une cle dont la REDUCTION change n'est plus la meme grandeur.** `hdr_plan_s5_curve_input_peak_x1000`
+lit `s_study_scene_peak_max`, passe de la MOYENNE des tuiles au MAXIMUM le 2026-09-11. La valeur
+historique 1617 citee par le plan HDR et toute valeur posterieure ne mesurent plus la meme chose.
+Comparer les deux conclurait a une derive de la scene la ou seule la reduction a bouge.
+Verrou : quand on change la reduction derriere une cle publiee, on change AUSSI son nom, ou on
+publie les deux cotes pendant une course de recouvrement. Accessoirement : `hdr_max_reduce` est
+construit PARESSEUSEMENT a la premiere analyse, donc seulement sortie HDR active — `hdr_progs_scanned`
+et `shade_programs_seen` valent un de plus ou un de moins selon ce reglage. Aucune porte ne les lit
+aujourd'hui ; une porte future qui les lirait verrait un ecart qui n'est qu'un reglage.

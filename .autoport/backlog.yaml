@@ -7633,7 +7633,7 @@ items:
       rond pendant des jours... je prefere des heures de planification pour un resultat beton que 45 iterations
       qui echouent
 - id: hdr-source-range
-  status: in-progress
+  status: validated
   priority: 17
   game: jak1
   device: true
@@ -7671,11 +7671,19 @@ items:
   prompt: prompts/item-hdr-source-range.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-curve-input
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   device: true
   owner_test: false
+  proof_env:
+  - OG_RECHARGED=1
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.hdr=1
+  - debug.opengoal.hdr.out=1
+  - debug.opengoal.level.warp=village2-dock
   feature: La courbe se regle sur ce que la scene contient vraiment
   gate:
     key: hdr_curve_input_deaf_ratio_x100
@@ -7725,11 +7733,11 @@ items:
     in game juste HDR output On/Off ». Et son arbitrage du jour : quand aucune marge n''est accordee,
     la sortie HDR promet LE CONTENEUR et rien d''autre — et elle le DIT. Fabriquer une difference visible
     a marge nulle est ce qui a produit cinq refus.'
-  deliverable: '`hdr_regime_defects` = 0, somme de termes publies SEPAREMENT : le regime est publie a
-    chaque image ; en regime sans marge, l''image est IDENTIQUE AU BIT a la sortie SDR (`ui_maxdiff_vs_sdr`
-    = 0) ; en regime avec marge, aucun pixel ne passe sous le niveau SDR ; aucun pixel sous le seuil declare
-    n''est modifie ; et la ligne de menu porte le transport retenu (HDR10, HLG, scRGB) ainsi que le regime
-    courant. Le blanc est PLACE, pas etire.'
+  deliverable: |-
+    `hdr_regime_defects` = 0, somme de termes publies SEPAREMENT : le regime est publie a chaque image ; en regime sans marge, l'image est IDENTIQUE AU BIT a la sortie SDR (`ui_maxdiff_vs_sdr` = 0) ; en regime avec marge, aucun pixel ne passe sous le niveau SDR ; aucun pixel sous le seuil declare n'est modifie ; et la ligne de menu porte le transport retenu (HDR10, HLG, scRGB) ainsi que le regime courant. Le blanc est PLACE, pas etire.
+    DEUX AVERTISSEMENTS REMONTES PAR LE CHANTIER B LE 11/09 (reports/hdr-curve-input/FINDINGS.txt), a trancher ICI et pas ailleurs :
+    A. L'ANCRE RESTE SOURDE. Seul `peak` passe au maximum ; `key` (log-moyenne) et `hi` (le centile qui place l'ancre) restent tires des tuiles MOYENNES. Ce chantier ne peut pas placer un sommet juste sur une ancre dont la surdite n'a jamais ete mesuree : publier l'ecart entre l'ancre tiree des moyennes et l'ancre tiree des maximums, puis dire laquelle est retenue et pourquoi.
+    B. LA CONDITION DE MARGE CHANGE DE SENS SOUS CE CHANTIER. Avec `xp = clampf(peak, 0.02, 4.0)` et un pic VRAI (~15 mesure) au lieu du pic sourd (~1,6), `room = cmax > xp*(1+kMinTopGain)` devient FAUX des que l'ecran n'accorde aucune marge (cmax = 1) : la sortie HDR retombe sur la branche identite-SDR a TOUTES les images. Le regime doit donc etre choisi par une condition qui reste vraie quand l'entree devient juste — sinon le chantier B eteint le HDR en le reparant.
   where: 'Options > Recharged > Eclairage Recharge : la ligne de sortie HDR dit quel transport et quel
     regime sont utilises, au lieu d''un simple Oui/Non'
   out_of_scope: Ne fabrique aucune difference visible quand le systeme n'accorde pas de marge. C'est un
@@ -7739,3 +7747,45 @@ items:
   proof_timeout: 300
   prompt: prompts/item-hdr-output-regime.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+- id: hdr-glow-range
+  status: open
+  priority: 18
+  game: jak1
+  device: true
+  owner_test: false
+  feature: 'Le halo mesure pour de vrai : la sonde du chantier A n''a jamais tourne, et le cout en cadence
+    n''est pas chiffre'
+  gate:
+    key: hdr_glow_range_defects
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-source-range
+  known_cause: 'RELEVE DU 11/09 SUR LA PREUVE DE `hdr-source-range` (reports/hdr-source-range/proof.txt).
+    La porte du chantier A a tenu sur `hdr_src_clamped_stages` = 0 / 16 sources vues, mais la MOITIE HALO
+    de son propre livrable n''a jamais ete mesuree : `hdr_src_glow_state` = 2, ce que hdr.cpp:695 traduit
+    par « JAMAIS TENTE » ; `hdr_src_glow_frames` = 0, `hdr_src_glow_px` = 0, `hdr_src_glow_overbright_px`
+    = 0. Ce zero-la ne dit pas « pas de depassement », il dit « pas de mesure ». Le site d''appel existe
+    (sprite/GlowRenderer.cpp:667, dernier etage de la chaine de reduction) : il n''est atteint que si
+    le halo DESSINE. La course de preuve n''est donc pas passee par un endroit qui en porte. Owner 11/09
+    : « c''est pas le portail de la jungle, c''est la hutte du Sage vert a Sandover Village ! et cet effet
+    est visible sur tous les feux et portails de teleportation anyway ». Le ciel, lui, a bien ete mesure
+    : 30 820 607 pixels sur 151 123 968 different du chemin 8 bits, mais `hdr_src_sky_max_x1000` = 996
+    et `hdr_src_sky_overbright_px` = 0 — le ciel a gagne de la PRECISION, pas de l''AMPLITUDE. AVERTISSEMENT
+    DU WORKER DE `hdr-curve-input` (reports/hdr-curve-input/FINDINGS.txt) : `ref_peak_now` (hdr_output.cpp)
+    et `probe_scene` (hdr.cpp) font des relectures SYNCHRONES pendant qu''on mesure. Toute cadence relevee
+    sous instrument est fausse par construction.'
+  deliverable: |-
+    `hdr_glow_range_defects` = 0, somme de termes publies SEPAREMENT.
+    1. `hdr_glow_state` dit que la sonde A TOURNE. Les quatre raisons du retour anticipe de `probe_glow` (mesure eteinte, largeur nulle, hauteur nulle, cible trop grande) deviennent quatre valeurs publiees DISTINCTES : un zero ne doit plus jamais pouvoir se lire comme un « pas de depassement ».
+    2. `hdr_glow_frames` > 0 et `hdr_glow_px` > 0, avec le lieu de la course publie. La preuve passe par un endroit ou le halo dessine vraiment : un feu ou un portail de teleportation (hutte du Sage vert, Sandover Village).
+    3. `hdr_glow_overbright_px` et `hdr_glow_max_x1000` publies tous les deux. Un halo qui ne depasse jamais 1,0 est un RESULTAT, pas un echec — mais il doit etre MESURE et dit comme tel, jamais suppose. Publier le denominateur a cote.
+    4. Le cout en cadence sur le Redmi, AVANT et APRES, mesure HORS course de mesure : les sondes font des relectures synchrones, une cadence relevee sous instrument ne vaut rien. Publier les deux cadences, le nombre d'images de chaque releve, et le meme lieu pour les deux. La memoire est deja chiffree par le chantier A (6 904 320 o d'etages flottants, 196 608 o restes en 8 bits, 7 100 928 o au total) : la reprendre, ne pas la refaire.
+  where: 'Le halo : les feux et les portails de teleportation — hutte du Sage vert, Sandover Village.'
+  out_of_scope: 'Ne change ni la courbe ni son ancre : c''est le chantier B. Le format du tampon de scene
+    (`hdr_src_scene_fmt` = RGBA8) n''est pas de ce chantier. Aucun appareil code en dur.'
+  max_turns: 600
+  max_retries: 4
+  proof_timeout: 300
+  notes: 'issu du releve du 11/09 : le chantier A a tenu sa porte sans mesurer sa moitie halo.'
+  prompt: prompts/item-hdr-glow-range.md
