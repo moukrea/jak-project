@@ -7010,7 +7010,7 @@ items:
     sortie HDR allumee comme eteinte'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7025,7 +7025,7 @@ items:
       reste... Faut degager ca c'est horrible
   - date: '2026-09-11'
     text: les warp gates aussi emettent les particules rouges degueulasses
-  delivered: null
+  delivered: '2026-09-11'
 - id: lighting-legacy-purge
   priority: 17
   device: true
@@ -7058,7 +7058,7 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: open
+  status: blocked
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7086,6 +7086,9 @@ items:
     text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
       eviter de polluer !
   delivered: null
+  block_reason: 'consigne INFABRICABLE : prompt de lighting-legacy-purge au-dessus de 2560 octets meme
+    reduit : raccourcis known_cause / deliverable / out_of_scope. Raccourcis known_cause / deliverable
+    / out_of_scope : au-dela du plafond, le worker garderait l''ancien fichier.'
 - id: mesh-browser-removal
   priority: 20
   device: true
@@ -7270,7 +7273,7 @@ items:
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
 - id: hdr-desktop-output
-  status: open
+  status: in-progress
   priority: 19
   game: jak1
   device: false
@@ -7302,6 +7305,8 @@ items:
   max_turns: 800
   max_retries: 6
   proof_timeout: 300
+  proof_env:
+  - OG_HDR_OUT=1
   prompt: prompts/item-hdr-desktop-output.md
   notes: Insere le 11/09 sur ordre de l'owner. Le chemin bureau n'existait pas du tout.
   owner_feedback:
