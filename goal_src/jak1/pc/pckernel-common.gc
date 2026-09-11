@@ -728,6 +728,10 @@
   (draw-pc-fps-counter)
   ;; Grecharged-hd-models3: spawn/despawn the HD character companion (gated on the setting + player).
   (#when FLAG_HD_MODELS (maybe-spawn-jak-hd!))
+  ;; hdr-output-regime : le libelle de la rangee « sortie HDR » suit le transport et le regime.
+  ;; La garde est un ordre de CHARGEMENT, pas un reglage : `progress-pc.gc` pose le drapeau a la
+  ;; fin de son niveau superieur, donc tant qu'il n'est pas la on ne saute nulle part.
+  (when *hdr-label-hook-ready?* (rch-hdr-refresh-label-if-changed!))
   (none))
 
 (defmethod update-cheats ((obj pc-settings))

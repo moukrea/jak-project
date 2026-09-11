@@ -99,6 +99,16 @@ constexpr const char* kPlanId = "hdr-plan";
 // exactement comme le dessin qu'elle remplace.
 constexpr const char* kCurveInputId = "hdr-curve-input";
 
+// hdr-output-regime (chantier C du plan HDR, §3 et §7.1). TROIS REGIMES DE SORTIE, et le jeu dit
+// lequel il utilise. Le regime n'est pas un reglage : c'est un CONSTAT sur ce que le systeme
+// accorde, et il ne nomme aucun appareil.
+//   R0 — aucune marge : le conteneur 10 bits, et rien d'autre. La sortie HDR est le SDR AU BIT.
+//   R1 — l'ecran DECODE mais le systeme ACCORDE : la marge est achetee au retro-eclairage.
+//   R2 — l'ecran PRESENTE : la marge est celle de la dalle, le blanc du jeu est le blanc BT.2408.
+// Cet identifiant ne decide QUE de la publication du bloc `hdr_regime_*` et du declenchement de
+// la sonde a quatre bras. Le choix du regime, lui, tourne en PRODUCTION.
+constexpr const char* kRegimeId = "hdr-output-regime";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {
@@ -261,6 +271,60 @@ struct CurveParams {
   float gamma = 1.f;    // u_hdr_gamma — l'EXPOSANT DE CONTRASTE ; 1,0 = aucun etirement
 };
 CurveParams curve_params();
+
+// hdr-output-regime, C2 du plan (§1.3) : LA SORTIE HDR PLACE LE BLANC, ELLE NE L'ETIRE PLUS.
+// La MEME epaule que le SDR, sur [0, cmax] au lieu de [0, 1]. Trois proprietes, toutes
+// demontrables et toutes mesurees par `probe_regime` :
+//   * sous `knee * cmax` la sortie est l'IDENTITE — l'image reste l'image, par construction de
+//     la courbe et non par reglage ;
+//   * `C.epaule(x/C)` croit avec C (l'epaule est concave et passe par l'origine), donc la sortie
+//     HDR n'est JAMAIS sous la sortie SDR : l'assombrissement est impossible, pas seulement rare ;
+//   * a cmax = 1 (regime R0) elle EST la sortie SDR, terme a terme.
+// C'est la courbe que l'owner a appelee « un yota » le 10/09 : a marge nulle elle ne fabrique
+// rien, et c'est l'arbitrage du 11/09 — la sortie HDR promet le CONTENEUR, et elle le DIT.
+CurveParams placement_params(float cmax);
+
+// hdr-output-regime : le regime, son nom court et la RAISON qui l'a decide. Un seul site de
+// decision ; `sdr_white_nits_for` et `sdr_white_source` en derivent au lieu de la recopier.
+struct RegimeVerdict {
+  int level;           // 0 = aucune marge, 1 = marge accordee, 2 = l'ecran presente
+  const char* name;    // "aucune-marge" / "marge-accordee" / "ecran-presente"
+  const char* reason;  // la raison MESUREE, jamais une constante
+};
+RegimeVerdict output_regime();
+
+// hdr-output-regime, C5 du plan : ce que la ligne de menu doit DIRE, empaquete pour le pont GOAL
+// qui ne passe que des entiers — `format_chosen() * 16 + output_regime().level`.
+int menu_state_packed();
+// Et ce que GOAL a REELLEMENT formate, rapporte depuis `rch-hdr-refresh-label!`. La preuve
+// compare ces trois nombres a ce que le C++ sait : une ligne de menu se LIT, elle ne se croit pas.
+void note_menu_label(int transport_id, int regime, int len);
+
+// hdr-output-regime : le regime publie a CHAQUE image (terme 1 du verdict). Appele depuis
+// `hdr::tonemap_draw`, hors de toute garde d'item — sans quoi la cle serait absente des courses
+// de cet item, ce que `publish_plan()` a deja coute au chantier A.
+void publish_regime();
+
+// hdr-output-regime : LA SONDE A QUATRE BRAS. Fil GL, dans `hdr::tonemap_draw` apres le vrai
+// dessin. Rejoue LE MEME programme `tonemap` hors ecran sur une rampe synthetique et sur la
+// scene, avec quatre jeux d'uniformes :
+//   1. IDENTITE   `placement_params(64)` — l'entree telle que le SHADER la voit ; aucune valeur
+//                  n'est recalculee cote CPU, donc aucun miroir ;
+//   2. SDR        `sdr_params()` — ce que le joueur voit interrupteur eteint ;
+//   3. LIVRE      les parametres REELLEMENT pousses cette image ;
+//   4. SIMULE     le placement au plafond que CET ecran annoncerait s'il presentait. Il ne va
+//                  nulle part : c'est une cible hors ecran. Sans lui, `below_sdr_px` serait
+//                  VACUEUX en R0, ou le bras livre vaut le bras SDR terme a terme.
+// `knee` est le genou reellement pousse au shader, pas une constante.
+void probe_regime(Shader& shader,
+                  GLuint src_tex,
+                  GLuint dst_fbo,
+                  int dst_w,
+                  int dst_h,
+                  float knee);
+// hdr-output-regime : le verdict, somme de termes publies SEPAREMENT. Appele depuis `publish_all`.
+void publish_regime_verdict();
+
 // Fil GL : pousse les quatre uniformes de la courbe sur le programme `tonemap`.
 void push_tonemap_uniforms(Shader& shader);
 // Fil GL, dans hdr::tonemap_draw APRES le vrai dessin (programme, texture de scene et VAO encore

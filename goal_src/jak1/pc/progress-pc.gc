@@ -7525,6 +7525,37 @@
 ;; hdr-display-output : libelle de la rangee HDR OUTPUT (name-override sur un text-id valide).
 (define *hdr-output-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *hdr-output-label*) "HDR Output")
+;; hdr-output-regime : la ligne de sortie HDR DIT quel transport et quel regime sont utilises,
+;; au lieu d'un simple Oui/Non. Owner 11/09 : « je vois aucune mention de HDR10/HLG in game ».
+;; Le C++ empaquette les deux dans un entier (format_id * 16 + regime) ; on reformate ici et on
+;; RAPPORTE ce qu'on a ecrit, pour que la preuve lise la ligne au lieu de la croire.
+;; ASCII seul (la police n'a pas d'accent) et 18 caracteres au plus : « ~S: ON » replierait
+;; au-dela de 22, et print-game-text replie, il ne rogne pas.
+(defun rch-hdr-refresh-label! ()
+  (let* ((st (pc-get-hdr-output-state))
+         (tr (/ st 16))
+         (rg (- st (* tr 16))))
+    (cond
+      ((zero? tr) (format (clear *hdr-output-label*) "HDR Output"))
+      (else
+        (format (clear *hdr-output-label*) "~S ~S"
+                (cond ((= tr 1) "scRGB") ((= tr 4) "HLG") (else "HDR10"))
+                (cond ((= rg 2) "display HDR") ((= rg 1) "headroom") (else "no headroom")))))
+    (pc-hdr-output-label-note! tr rg (length *hdr-output-label*))
+    (none)))
+
+;; hdr-output-regime : l'etat empaquete de la derniere mise en forme. On ne reformate QUE s'il a
+;; change : un `format` par image pour une chaine qui bouge une fois par heure serait du gaspillage,
+;; et un libelle reformate sous le dessin du menu est une ligne qui scintille.
+(define *hdr-output-state-last* -1)
+(defun rch-hdr-refresh-label-if-changed! ()
+  (let ((st (pc-get-hdr-output-state)))
+    (when (!= st *hdr-output-state-last*)
+      (set! *hdr-output-state-last* st)
+      (rch-hdr-refresh-label!)))
+  (none))
+;; Le crochet est arme SEULEMENT ici, apres que la fonction et le libelle existent tous les deux.
+(set! *hdr-label-hook-ready?* #t)
 ;; lighting-legacy-purge (2026-09-11) : *hemisphere-ambient-label* (« BAKED AMBIENT ») est
 ;; SUPPRIME. C'etait le libelle de la curiosite de projection de sonde de l'ancien monde ; il
 ;; ne portait plus AUCUNE rangee (aucun name-override ne le lisait) et occupait une chaine de
@@ -10745,6 +10776,8 @@
                    (-> *recharged-options-pc* length)))
           (else
            (set! (-> *recharged-options-pc* h value-to-modify) (&-> *pc-settings* hdr-output?))
+           ;; hdr-output-regime : le libelle porte le transport et le regime AVANT d'etre pose.
+           (rch-hdr-refresh-label!)
            (set! (-> *recharged-options-pc* h name-override) *hdr-output-label*)
             (set! (-> *recharged-options-pc* h gating-id) "hdr-output")
            ;; lighting-legacy-purge (2026-09-11) : la cle s'appelait `after-shadow-quality` ; la rangee

@@ -645,6 +645,35 @@ PresentVerdict display_presents_hdr() {
   return PresentVerdict{s_presents_cache > 0, s_presents_reason};
 }
 
+// hdr-output-regime : LE SEUL SITE DE DECISION DU REGIME (plan §3.3). La meme expression vivait
+// en TROIS exemplaires — `publish_plan()`, `sdr_white_nits_for()` et `sdr_white_source()` — sans
+// qu'aucune fonction ne la porte. Trois copies d'une decision, c'est trois occasions de diverger,
+// et c'est aussi pourquoi R0/R1/R2 n'existaient nulle part hors de l'instrument du plan.
+// AUCUN APPAREIL N'EST NOMME : tout vient de ce que l'ecran ANNONCE et de ce que le systeme
+// ACCORDE, y compris quand il n'accorde rien.
+char s_regime_reason[192] = "pas_encore_decide";
+RegimeVerdict regime_now() {
+  const PresentVerdict pv = display_presents_hdr();
+  if (pv.presents) {
+    return RegimeVerdict{2, "ecran-presente", pv.reason};
+  }
+  // LA LOI QUI GOUVERNE R1, ET ELLE NE NOMME AUCUNE DALLE : sur un ecran qui ne fait que
+  // DECODER, la marge vaut `luminosite maximale du panneau / luminosite courante du joueur`.
+  // A luminosite maximale elle vaut 1,000 PARTOUT. Ce n'est pas une limite de l'appareil
+  // d'epreuve : c'est vrai de toute dalle.
+  const float g = measured_grant();
+  if (g > 1.005f) {
+    std::snprintf(s_regime_reason, sizeof(s_regime_reason),
+                  "retroeclairage:consigne_obtenue_x1000=%d_sur_%llu_echantillons",
+                  (int)std::lround(g * 1000.f), (unsigned long long)s_bl_grant_samples);
+    return RegimeVerdict{1, "marge-accordee", s_regime_reason};
+  }
+  std::snprintf(s_regime_reason, sizeof(s_regime_reason),
+                "aucune_marge:%s+retroeclairage_x1000=%d", pv.reason,
+                (int)std::lround(g * 1000.f));
+  return RegimeVerdict{0, "aucune-marge", s_regime_reason};
+}
+
 // Le pic EFFECTIF : auto-test > propriete de debug > annonce.
 float peak_nits() {
   if (s_test_peak > 0.f) {
@@ -1291,6 +1320,54 @@ bool make_float_fbo(GLuint* fbo, GLuint* tex, int w, int h, const float* fill) {
   return true;
 }
 
+// ============================================================ hdr-output-regime : l'etat ====
+// Tout ce bloc n'existe que pour la PREUVE de cet item. Les compteurs montent en production
+// (`s_regime_frames`, la ligne de menu) ; la sonde a quatre bras, elle, ne tourne que sous la
+// mesure de `hdr-output-regime`.
+constexpr int kRgTmW = 32, kRgTmH = 32;   // l'echantillon de SCENE : ce qui est reellement dessine
+constexpr uint64_t kRgEvery = 30;         // une sonde sur 30 images
+constexpr float kRgRampTop = 4.f;         // la rampe couvre [0, 4] : au-dela le tampon ne porte
+                                          // rien que la sonde de pixels ait jamais vu
+constexpr float kRgIdentCeiling = 64.f;   // le bras IDENTITE : `knee*64` >= 60, donc l'epaule ne
+                                          // touche RIEN dans [0, 4]
+
+bool regime_measuring() {
+  return autoport_proof::feature_is(kRegimeId) && autoport_proof::armed_for(kRegimeId);
+}
+
+uint64_t s_regime_frames = 0;      // images ou le regime a ete pousse au shader ET publie
+uint64_t s_regime_r[3] = {0, 0, 0};  // images par regime : un regime qui BASCULE se lit
+int s_regime_last = -1;
+
+// La ligne de menu, rapportee par GOAL (`rch-hdr-refresh-label!`).
+uint64_t s_menu_notes = 0;
+int s_menu_transport = -1, s_menu_regime = -1, s_menu_len = -1;
+
+// La sonde a quatre bras.
+int s_rg_state = 0;                // 0 pas tente, 1 pret, -1 indisponible
+GLuint s_rg_fbo = 0, s_rg_tex = 0;       // cible scene 32x32
+GLuint s_rg_rfbo = 0, s_rg_rtex = 0;     // cible rampe 128x1
+GLuint s_rg_ramp = 0;                    // la rampe elle-meme
+uint64_t s_rg_runs = 0;
+uint64_t s_rg_ramp_px = 0, s_rg_scene_px = 0;
+uint64_t s_rg_maxdiff_x1e6 = 0;          // max |livre - SDR| sur rampe ET scene, x1e6
+uint64_t s_rg_below_sdr_px = 0;          // bras SIMULE strictement SOUS le bras SDR
+uint64_t s_rg_exc_sdr_px = 0;            // sous `knee` : le bras SIMULE differe du bras SDR
+uint64_t s_rg_exc_ident_px = 0;          // sous `knee*C_sim` : il differe de l'IDENTITE
+uint64_t s_rg_sim_gain_x1e6 = 0;         // max (simule - SDR) : le bras SIMULE fait-il QUELQUE CHOSE
+float s_rg_sim_ceiling = 0.f;            // le plafond simule effectivement utilise
+float s_rg_knee = 0.f;                   // le genou reellement pousse au shader
+uint64_t s_rg_gl_errors = 0;
+
+// Avertissement A du contrat : l'ANCRE tiree des tuiles MOYENNES contre celle tiree des MAXIMUMS.
+// Mesure, publiee, et suivie du verdict : la courbe livree n'a PLUS D'ANCRE, donc aucune des deux
+// n'est retenue. On la mesure quand meme, parce que « non mesure » et « sans effet » ne sont pas
+// la meme phrase.
+uint64_t s_anchor_samples = 0;
+float s_anchor_mean_last = 0.f, s_anchor_max_last = 0.f;
+uint64_t s_anchor_gap_max_x1000 = 0;
+
+
 // ----------------------------------------------- l'analyse de scene et son lissage ----
 
 float clampf(float v, float lo, float hi) {
@@ -1415,12 +1492,13 @@ CurveParams sdr_params() {
   p.toe = 0.f;
   return p;
 }
-// Le bras REFUSE le 10/09 : le plafond seul, la courbe SDR etiree sur [0, plafond]. Aucune
-// expansion — c'est precisement pourquoi l'owner n'a vu « qu'un yota ».
+// hdr-output-regime : ce « bras refuse le 10/09 » EST le placement du blanc, et c'est desormais
+// la courbe LIVREE (C2 du plan, §1.3). L'owner n'y a vu « qu'un yota » parce que la marge etait
+// nulle, pas parce que la courbe etait fausse : a marge nulle il N'Y A qu'un yota a montrer, et
+// l'arbitrage du 11/09 est que la sortie HDR le DISE au lieu de fabriquer une difference.
+// La definition ne vit plus qu'a un endroit, `placement_params`.
 CurveParams legacy_params(float ceiling) {
-  CurveParams p = sdr_params();
-  p.ceiling = ceiling;
-  return p;
+  return placement_params(ceiling);
 }
 
 // La cible d'analyse et son anneau de PBO. La lecture est ASYNCHRONE : `glReadPixels` ecrit
@@ -1489,6 +1567,31 @@ void an_texel(const void* raw, size_t i, float c[3]) {
 // `max_ok` dit si l'etage 1 a ete DESSINE pour cette lecture : un tampon de PBO rempli avant que
 // la pyramide soit prete porte des lignes hautes jamais ecrites. Faux => on reprend exactement le
 // calcul d'avant, sur les tuiles moyennes.
+// L'ANCRE SE DEDUIT DU PLAFOND DE CONTRASTE, elle ne se choisit pas.
+// La courbe livree est out(x) = a.(x/a)^K sur [a, pic], et son exposant K est le CONTRASTE que
+// l'oeil lit. Il est borne a kGammaMax (verdict 15). Plutot que de poser l'ancre puis de
+// constater que K deborde, on pose K = kGammaMax et on en DEDUIT l'ancre :
+//     ln(sommet/a) / ln(pic/a) = K   =>   ln a = (K.ln pic - ln sommet) / (K - 1)
+// Une seule formule, et elle fait exactement ce qu'il faut dans les deux regimes :
+//   * beaucoup de plage disponible (marge achetee au retro-eclairage) : l'ancre DESCEND, la
+//     courbe etale son gain sur beaucoup de decades et reste douce ;
+//   * peu de plage (joueur a luminosite maximale : seul le vide laisse par la scene reste) :
+//     l'ancre MONTE — ~0,29 pour un sommet a 1,33x — et SEULES les zones claires bougent, ce
+//     qui est mot pour mot le critere d'acceptation (« les zones brillantes doivent vraiment
+//     ressortir, sans que le reste change »).
+float deduced_anchor(float xp, float c) {
+  const double K = (double)kGammaTarget;
+  if (!(xp > 1e-4f) || !(c > xp * 1.0001f)) {
+    return kAnchorLo;
+  }
+  const double la = (K * std::log((double)xp) - std::log((double)c)) / (K - 1.0);
+  const double a = std::exp(la);
+  if (!std::isfinite(a)) {
+    return kAnchorLo;
+  }
+  return (float)a;
+}
+
 void an_decode(const void* raw, bool max_ok, float ref_peak, float exposure) {
   const size_t n = (size_t)kAnW * kAnTileH;
   std::vector<float> mx(n, 0.f);
@@ -1525,15 +1628,37 @@ void an_decode(const void* raw, bool max_ok, float ref_peak, float exposure) {
   float peak = 0.5f * (mx[0] + mx[1]);
   if (max_ok) {
     float top = 0.f;
+    // hdr-output-regime, AVERTISSEMENT A du contrat : la MEME statistique d'ordre, sur les MEMES
+    // tuiles, mais celles de l'etage de MAXIMUM au lieu de celles de moyenne. C'est l'ecart entre
+    // les deux que l'avertissement reclame — « seul `peak` passe au maximum ; `hi`, le centile qui
+    // place l'ancre, reste tire des tuiles MOYENNES ». On le MESURE au lieu de le supposer.
+    std::vector<float> mxm(n, 0.f);
     for (size_t i = 0; i < n; i++) {
       float c[3];
       an_texel(raw, n + i, c);  // etage 1 : lignes 16..31
       const float m = std::fmax(c[0], std::fmax(c[1], c[2]));
+      mxm[i] = m;
       if (m > top) {
         top = m;
       }
     }
     peak = top;
+    std::partial_sort(mxm.begin(), mxm.begin() + khi + 1, mxm.end(), std::greater<float>());
+    const float hi_max = mxm[khi];
+    // Les deux ancres que ces deux centiles DEDUIRAIENT, a plafond egal. La courbe livree n'en
+    // utilise plus aucune (C2) ; ce chiffre dit de combien elle se serait trompee si elle en
+    // utilisait une, et il est publie a cote du verdict pour que le chantier suivant n'ait pas a
+    // le redecouvrir.
+    const float cref = std::fmax(1.001f, tonemap_ceiling());
+    s_anchor_mean_last = deduced_anchor(clampf(hi, 0.02f, 4.f), cref);
+    s_anchor_max_last = deduced_anchor(clampf(hi_max, 0.02f, 4.f), cref);
+    const uint64_t gap =
+        (uint64_t)std::llround(std::fabs((double)s_anchor_max_last - (double)s_anchor_mean_last) *
+                               1000.0);
+    if (gap > s_anchor_gap_max_x1000) {
+      s_anchor_gap_max_x1000 = gap;
+    }
+    s_anchor_samples++;
   }
   dyn_update(key, hi, peak);
 
@@ -2173,7 +2298,7 @@ void publish_plan() {
   s3_inputs += (sys.max_lum > 0) ? 1 : 0;
   s3_inputs += (s_bl_base_samples > 0) ? 1 : 0;
   const float grant = measured_grant();
-  const int regime = pv.presents ? 2 : (grant > 1.005f ? 1 : 0);
+  const int regime = regime_now().level;  // hdr-output-regime : un seul site de decision
   autoport_proof::publish("hdr_plan_s3_inputs_read", (uint64_t)s3_inputs);
   autoport_proof::publish("hdr_plan_s3_regime", (uint64_t)regime);
   autoport_proof::publish("hdr_plan_s3_presents", (uint64_t)(pv.presents ? 1 : 0));
@@ -2333,6 +2458,7 @@ void publish_curve_input() {
 }
 
 void publish_all() {
+  publish_regime_verdict();  // hdr-output-regime : hors de toute garde d'un AUTRE item
   // Le verrou ne couvre que la COPIE des capacites : sdr_white_nits(), paper_white() et
   // sdr_white_source() le reprennent (mutex non recursif — un publish_all qui le tenait
   // pendant ces appels a fige gk x86 a l'image 105, smoke du 09/09).
@@ -3418,6 +3544,7 @@ void selftest_step() {
   }
 }
 
+
 }  // namespace
 
 // ------------------------------------------------------------------------------ capacites --
@@ -3732,15 +3859,17 @@ float sdr_white_nits_for(uint32_t mode) {
   // `tonemap_ceiling()` a 1 et `curve_params()` sur `sdr_params()` — la sortie « HDR » etait
   // l'image SDR exacte dans un conteneur 10 bits. C'est le « quasi 0 diff off vs on » du 10/09,
   // et ce n'etait pas une limite du Redmi : c'etait vrai partout.
-  if (display_presents_hdr().presents) {
+  // hdr-output-regime : la decision est prise UNE fois, par `regime_now()`. Ce site n'en tire
+  // plus que la consequence sur le blanc.
+  //   R2 — l'ecran PRESENTE : le blanc du jeu est le blanc graphique BT.2408.
+  //   R1 — il DECODE mais le systeme ACCORDE : la marge s'ACHETE au retro-eclairage, et le blanc
+  //        SDR descend d'autant dans le signal pour que le contenu SDR emette la MEME lumiere.
+  //   R0 — aucune marge : le blanc EST le pic, la marge vaut 1,000. Un constat, pas une constante.
+  const RegimeVerdict rg = regime_now();
+  if (rg.level == 2) {
     return kGraphicsWhiteNits;
   }
-  // Ecran qui DECODE : le compositeur n'accorde rien, et le pic annonce contre lui-meme rendait
-  // 1,000 par construction. La marge, ici, s'ACHETE au retro-eclairage — et on n'en retient que
-  // ce que le systeme a REELLEMENT pose, lu sur sa propre consigne. Le blanc SDR descend d'autant
-  // dans le signal pour que le contenu SDR emette la meme lumiere qu'avant.
-  const float g = measured_grant();
-  return g > 1.005f ? peak_nits() / g : peak_nits();
+  return rg.level == 1 ? peak_nits() / measured_grant() : peak_nits();
 }
 
 float sdr_white_nits() {
@@ -3765,10 +3894,11 @@ const char* sdr_white_source() {
     std::lock_guard<std::mutex> lk(s_mu);
     max_lum = s_sys.max_lum;
   }
-  if (display_presents_hdr().presents) {
+  const int lv = regime_now().level;  // hdr-output-regime : la MEME decision, pas une copie
+  if (lv == 2) {
     return "pq:BT.2408_blanc_graphique_203nits";
   }
-  if (measured_grant() > 1.005f) {
+  if (lv == 1) {
     return "pq:pic_annonce/marge_MESUREE_au_retroeclairage(ecran_qui_decode)";
   }
   return max_lum > 0 ? "pq:HdrCapabilities.maxLuminance(ecran_qui_decode)"
@@ -3884,67 +4014,89 @@ CurveParams refused_params_11_09(float cmax) {
   return p;
 }
 
-// L'ANCRE SE DEDUIT DU PLAFOND DE CONTRASTE, elle ne se choisit pas.
-// La courbe livree est out(x) = a.(x/a)^K sur [a, pic], et son exposant K est le CONTRASTE que
-// l'oeil lit. Il est borne a kGammaMax (verdict 15). Plutot que de poser l'ancre puis de
-// constater que K deborde, on pose K = kGammaMax et on en DEDUIT l'ancre :
-//     ln(sommet/a) / ln(pic/a) = K   =>   ln a = (K.ln pic - ln sommet) / (K - 1)
-// Une seule formule, et elle fait exactement ce qu'il faut dans les deux regimes :
-//   * beaucoup de plage disponible (marge achetee au retro-eclairage) : l'ancre DESCEND, la
-//     courbe etale son gain sur beaucoup de decades et reste douce ;
-//   * peu de plage (joueur a luminosite maximale : seul le vide laisse par la scene reste) :
-//     l'ancre MONTE — ~0,29 pour un sommet a 1,33x — et SEULES les zones claires bougent, ce
-//     qui est mot pour mot le critere d'acceptation (« les zones brillantes doivent vraiment
-//     ressortir, sans que le reste change »).
-float deduced_anchor(float xp, float c) {
-  const double K = (double)kGammaTarget;
-  if (!(xp > 1e-4f) || !(c > xp * 1.0001f)) {
-    return kAnchorLo;
+
+// ------------------------------------------------------ hdr-output-regime : les trois regimes --
+
+CurveParams placement_params(float cmax) {
+  CurveParams p = sdr_params();
+  p.ceiling = std::fmax(1.f, cmax);
+  return p;
+}
+
+RegimeVerdict output_regime() {
+  return regime_now();
+}
+
+int menu_state_packed() {
+  return format_chosen() * 16 + regime_now().level;
+}
+
+void note_menu_label(int transport_id, int regime, int len) {
+  s_menu_notes++;
+  s_menu_transport = transport_id;
+  s_menu_regime = regime;
+  s_menu_len = len;
+}
+
+// LE REGIME, PUBLIE A CHAQUE IMAGE (terme 1 du verdict). Appele depuis `push_tonemap_uniforms`,
+// c'est-a-dire au site ou le regime ATTEINT le shader — et non depuis le site du dessin, qui
+// fournit le DENOMINATEUR un cran plus haut (`hdr_regime_tonemap_draws`, compte dans hdr.cpp
+// APRES le `glDrawArrays`). Un compteur et son denominateur poses au meme endroit ne prouvent
+// que leur propre egalite.
+// Hors de toute garde d'item : `publish_plan()` est garde par `planning()` seul, et c'est
+// exactement ce mur qui a oblige le chantier A a republier son denominateur ailleurs.
+void publish_regime() {
+  const RegimeVerdict rg = regime_now();
+  s_regime_frames++;
+  if (rg.level >= 0 && rg.level <= 2) {
+    s_regime_r[rg.level]++;
   }
-  const double la = (K * std::log((double)xp) - std::log((double)c)) / (K - 1.0);
-  const double a = std::exp(la);
-  if (!std::isfinite(a)) {
-    return kAnchorLo;
-  }
-  return (float)a;
+  s_regime_last = rg.level;
+  autoport_proof::publish("hdr_regime", (uint64_t)rg.level);
+  autoport_proof::publish_text("hdr_regime_name", rg.name);
+  autoport_proof::publish_text("hdr_regime_reason", rg.reason);
+  autoport_proof::publish_text("hdr_regime_transport", mode_name(s_surface.mode));
+  autoport_proof::publish("hdr_regime_frames", s_regime_frames);
+  autoport_proof::publish("hdr_regime_r0_frames", s_regime_r[0]);
+  autoport_proof::publish("hdr_regime_r1_frames", s_regime_r[1]);
+  autoport_proof::publish("hdr_regime_r2_frames", s_regime_r[2]);
+  autoport_proof::publish("hdr_regime_ceiling_x1000",
+                          (uint64_t)std::lround(tonemap_ceiling() * 1000.f));
 }
 
 CurveParams curve_params() {
   CurveParams p;
   const float cmax = tonemap_ceiling();
   const bool pin = measuring() && !s_selftest_done;
-  // LA PLAGE DISPONIBLE A DEUX SOURCES, ET LA SECONDE NE DEMANDE RIEN AU SYSTEME.
-  //   (a) ce que le systeme accorde AU-DESSUS du blanc SDR : `cmax`, >= 1. Avant l'API 34 il
-  //       s'achete au retro-eclairage, donc il vaut 1,000 des que le joueur est deja au maximum —
-  //       mesure sur eae4df44 le 11/09, `hdr_out_bl_grant_max_x1000=1000` ;
-  //   (b) ce que la SCENE laisse vide sous ce plafond. Le haut de la scene mesure 0,62 a 0,86
-  //       en encodage d'affichage : la sortie SDR laisse donc 14 a 38 % de la plage d'affichage
-  //       INUTILISEE a chaque image. La remplir ne demande aucune lumiere de plus a la dalle.
-  // L'ancienne condition `cmax > 1` ne connaissait que (a). C'est elle qui rendait la sortie HDR
-  // BIT A BIT identique au SDR chez l'owner — `dyn_free_frames=0` sur 2519 images.
   const float xp = clampf(s_dyn.peak, 0.02f, 4.f);
-  const bool room = cmax > xp * (1.f + kMinTopGain);
   if (cmax / xp > s_range_avail_max) {
     s_range_avail_max = cmax / xp;
   }
-  // L'AUTO-TEST GARDE SON POINT DE FONCTIONNEMENT D'AVANT, AU BIT. Les verdicts 3, 4, 5, 8 et 10
-  // comparent des PHASES ; les changer sous eux les rendrait incomparables avec ce qui a deja ete
-  // mesure. Le point fige n'existait que quand le systeme accordait une marge (`cmax > 1`) : il
-  // continue de n'exister que la. La plage prise au vide de la scene ne sert donc QUE le jeu
-  // reel — c'est-a-dire exactement ce que l'owner regarde.
-  if (!s_active.load() || !room || (pin && !(cmax > 1.f))) {
+  // ------------------------------------------------------------------ hdr-output-regime, C2 --
+  // LA SORTIE HDR PLACE LE BLANC, ELLE NE L'ETIRE PLUS — et c'est le REGIME qui decide, pas le
+  // CONTENU. L'ancienne condition `room = cmax > xp * (1 + kMinTopGain)` lisait le pic de scene :
+  // avec le pic SOURD (~1,6) elle etait vraie presque partout et la courbe re-etalonnait l'image
+  // (cinq refus, dont « j'ai pousse le contraste au maximum » le 11/09) ; avec le pic JUSTE que
+  // le chantier B vient de livrer (~15 mesure), elle devient fausse des que l'ecran n'accorde
+  // rien — la meme ligne de code aurait donc change de sens sous ce chantier. Une condition qui
+  // s'inverse quand son entree devient juste ne peut pas porter trois regimes : c'est
+  // l'avertissement B de `reports/hdr-curve-input/FINDINGS.txt`, tranche ici.
+  //
+  // Ce qui est livre maintenant est l'epaule SDR, la MEME, sur [0, cmax] au lieu de [0, 1] :
+  //   R0 (cmax = 1)  -> `placement_params(1)` EST `sdr_params()` : la sortie HDR est le SDR au
+  //                     bit, dans un conteneur 10 bits. C'est la seule sortie honnete quand le
+  //                     systeme n'accorde rien, et la ligne de menu le DIT (C5).
+  //   R1/R2 (cmax>1) -> meme courbe, meme forme, plage plus large : ce qui est sous `knee*cmax`
+  //                     traverse a l'identique, et seules les hautes lumieres montent.
+  // Aucun etirement, aucune ancre, aucun genou deduit : il n'y a plus de reglage de courbe a
+  // regler sur une ancre dont la surdite n'a jamais ete mesuree (avertissement A).
+  if (!s_active.load()) {
     p = sdr_params();  // sortie SDR : identite stricte avec ce qui precede l'item
-    // Le verdict 13 (la courbe suit la scene) tombait rouge ICI, en silence : sans marge, ni
-    // `s_dyn_pinned_frames` ni `s_dyn_free_frames` ne bougent, et rien ne disait que la cause
-    // n'etait pas un defaut d'adaptation mais l'absence de toute marge a repartir.
-    if (s_active.load()) {
-      // La scene deborde deja le plafond de l'ecran : on garde l'epaule SDR, mais sur [0, cmax]
-      // et non sur [0, 1] — sinon on ecreterait ce que l'ecran sait encore montrer.
-      p.ceiling = std::fmax(1.f, cmax);
-      s_dyn_sdr_frames++;
-    }
-  } else if (pin) {
-    // Auto-test : point de fonctionnement FIGE, pour que les phases restent comparables.
+  } else if (pin && cmax > 1.f) {
+    // L'AUTO-TEST GARDE SON POINT DE FONCTIONNEMENT D'AVANT, AU BIT. Les verdicts 3, 4, 5, 8 et
+    // 10 de `hdr-display-output` comparent des PHASES ; les changer sous eux les rendrait
+    // incomparables avec ce qui a deja ete mesure. Ce bras ne tourne QUE sous la mesure de cet
+    // item-la, et il ne sort jamais a l'ecran du joueur.
     p.ceiling = cmax;
     p.anchor = kPinAnchorP;
     p.top = std::fmin(kPinTop, cmax);
@@ -3953,82 +4105,11 @@ CurveParams curve_params() {
     p.gamma = kGammaMax;
     s_dyn_pinned_frames++;
   } else {
-    // LIBRE : la courbe suit la scene. Rien ici n'est un nombre d'ecran — `cmax` est la seule
-    // reference de sortie et il vient du systeme.
-    //
-    // TROIS GRANDEURS DE CONTENU, ET RIEN D'AUTRE :
-    //   `peak` dit COMBIEN de marge cette scene merite (une grotte sans source n'en reclame
-    //          aucune : sa sortie HDR est alors celle du SDR, c'est voulu) ;
-    //   `key`  dit OU la courbe commence — l'ancre est une fraction de la log-moyenne, donc
-    //          elle descend dans une scene sombre et monte en plein jour ;
-    //   `peak` dit encore OU elle finit : le haut de la scene sort AU plafond.
-    // L'exposant s'en DEDUIT : K = ln(C/a) / ln(pic/a). Il n'est pas choisi, il est ce qu'il
-    // faut pour poser le haut de la scene sur le plafond — et il est BORNE a kGammaMax. Quand
-    // la borne mord, on ne force pas : on RENONCE a la fin de la marge et le plafond redescend
-    // a ce que l'exposant borne sait produire. C'est la regle du livrable, point 14 : « une
-    // amplitude obtenue EN cramant ne vaut rien ».
-    const float hz = smoothstep01(kPeakLo, kPeakHi, s_dyn.peak);
-    // LE SOMMET : la valeur que le HAUT DE LA SCENE doit atteindre. Il part du haut de la scene
-    // et monte VERS le plafond de l'ecran, d'une fraction `hz` qui est une grandeur de contenu :
-    // une grotte sans source ne merite rien (hz=0, sommet = haut de scene, aucune courbe), un
-    // plein jour merite toute la plage (hz=1, sommet = plafond). Aucune constante d'ecran ici.
-    // L'ancienne forme partait de 1,0 (`c = 1 + (cmax-1).hz`) : elle ne voyait donc QUE la marge
-    // au-dessus du blanc SDR et rendait exactement 1,000 — aucune courbe — des que le systeme
-    // n'accordait rien.
-    float c = xp + (cmax - xp) * hz;
-    // L'ancre est DEDUITE pour que l'exposant vaille exactement le plafond declare (voir
-    // `deduced_anchor`). Les bornes ne servent qu'aux degenerescences : jamais sous kAnchorLo,
-    // jamais au-dessus de kAnchorCeil, et toujours strictement sous le haut de la scene.
-    const float a = clampf(deduced_anchor(xp, c), kAnchorLo,
-                           std::fmin(kAnchorCeil, xp * 0.95f));
-    float gamma = 1.f;
-    if (c > a * 1.001f && xp > a * 1.001f) {
-      gamma = std::log(c / a) / std::log(xp / a);
-      if (gamma < 1.f) {
-        gamma = 1.f;
-      }
-      if (gamma > kGammaMax) {
-        gamma = kGammaMax;
-        c = std::fmin(c, a * std::pow(xp / a, gamma));
-      }
-    }
-    // LE PLAFOND POUSSE AU SHADER EST CELUI DE L'ECRAN, PAS LE SOMMET DE LA COURBE. Les deux
-    // etaient confondus, et ca ne se voyait pas tant que le sommet valait le plafond. Depuis que
-    // le sommet peut valoir 0,85 (plage prise au vide de la scene), ecreter a 0,85 ferait sortir
-    // SOUS le SDR tout pixel que la scene porte au-dessus — un assombrissement, verdict 9.
-    p.ceiling = std::fmax(1.f, cmax);
-    p.anchor = a;
-    p.top = xp;
-    s_curve_top = a * std::pow(xp / a, gamma);
-    if (s_curve_top > s_curve_top_max) {
-      s_curve_top_max = s_curve_top;
-    }
-    if (s_curve_top / xp > s_top_gain_max) {
-      s_top_gain_max = s_curve_top / xp;
-      s_range_avail_at_top = cmax / xp;
-    }
-    // LE PLAFOND MAXIMUM NE SE LIT QUE SUR LES IMAGES LIVREES. Pris sur toute la course il
-    // valait 2,064 — le plafond de la phase 3 de l'auto-test, qui SIMULE un ecran presentant a
-    // pic double. Comparer le plus clair du jeu reel a un plafond simule rendait le verdict 12
-    // inatteignable par construction.
+    p = placement_params(cmax);
+    s_curve_top = xp;
+    s_dyn_sdr_frames++;
     if (p.ceiling > s_ceiling_max) {
       s_ceiling_max = p.ceiling;
-    }
-    p.toe = 0.f;   // LE PIED EST RETIRE : un relevement est un voile laiteux, pas du detail.
-                   // La richesse des ombres que le verdict 11 mesure vient de la PROFONDEUR
-                   // du tampon de fenetre (17 niveaux en RGBA8, 98 en 10 bits PQ) — elle est
-                   // reelle et elle ne coute aucun contraste. Owner du 10/09 : « on gagne pas
-                   // de richesse dans les zones sombres parce que cette richesse n'est deja
-                   // plus la ». Exactement : on ne l'invente donc pas.
-    p.shape = 1;
-    p.gamma = gamma;
-    if (!(gamma > 1.f) || !(c > xp * (1.f + kMinTopGain))) {
-      p = sdr_params();   // degenere : on ne pousse jamais une courbe vide au shader
-      p.ceiling = std::fmax(1.f, cmax);
-      s_curve_top = xp;
-      s_dyn_sdr_frames++;
-    } else {
-      s_dyn_free_frames++;
     }
   }
   s_cur = p;
@@ -4038,6 +4119,7 @@ CurveParams curve_params() {
 
 void push_tonemap_uniforms(Shader& shader) {
   set_curve(shader.id(), curve_params());
+  publish_regime();  // hdr-output-regime : le regime est publie LA OU il atteint le shader
 }
 
 // ------------------------------------------ hdr-curve-input : LA REDUCTION PAR MAXIMUM ----
@@ -4821,6 +4903,265 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
         s_play.gain_ref > 0.0 ? s_play.gain_new / s_play.gain_ref : 0.0,
         s_play.gain_ref > 0.0 ? s_play.gain_old / s_play.gain_ref : 0.0, resp);
   }
+}
+
+// ============================================= hdr-output-regime : LE VERDICT, TERME PAR TERME ==
+void publish_regime_verdict() {
+  if (!regime_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  const RegimeVerdict rg = regime_now();
+  const int fmt = format_chosen();
+
+  // --- LE REGIME DE SA PROPRE FEATURE, EPINGLE (avertissement C du contrat). Sur la preuve du
+  //     chantier A, maitre Recharged epingle ON, le tampon de SCENE etait reste RGBA8 : les dix
+  //     etages de source etaient flottants, leur consommateur ne l'etait pas. Un binaire correct
+  //     mesure dans une configuration ou son effet ne peut pas atteindre la dalle est un faux
+  //     vert en puissance. Ici il est ROUGE, et il dit pourquoi.
+  const GLenum scene_fmt = hdr::scene_color_format();
+  const bool scene_float = hdr::format_is_float(scene_fmt);
+  const bool chain = hdr::chain_active();
+  const bool out_active = s_active.load();
+  autoport_proof::publish_text("hdr_regime_scene_fmt", hdr::format_name(scene_fmt));
+  autoport_proof::publish("hdr_regime_scene_float", (uint64_t)(scene_float ? 1 : 0));
+  autoport_proof::publish("hdr_regime_chain_active", (uint64_t)(chain ? 1 : 0));
+  autoport_proof::publish("hdr_regime_out_active", (uint64_t)(out_active ? 1 : 0));
+  autoport_proof::publish("hdr_regime_probe_runs", s_rg_runs);
+  const int d0 = (out_active && chain && scene_float && s_rg_runs > 0) ? 0 : 1;
+
+  // --- TERME 1 : le regime est publie a CHAQUE image. Le denominateur vient d'un cran plus haut
+  //     (hdr.cpp compte les dessins APRES le glDrawArrays) : deux compteurs poses au meme endroit
+  //     ne prouveraient que leur propre egalite.
+  const uint64_t draws = hdr::chain_census().tonemap_draws;
+  autoport_proof::publish("hdr_regime_published_frames", s_regime_frames);
+  autoport_proof::publish("hdr_regime_tonemap_draws", draws);
+  // Le defaut est « le regime n'a PAS ete publie sur une image dessinee », donc `publie < dessine`.
+  // Publier une fois de plus n'en est pas un : `publish_all` peut tomber entre la pose des
+  // uniformes et le `glDrawArrays`, et un verdict qui exigerait l'egalite stricte rendrait rouge
+  // un instant d'echantillonnage au lieu d'un defaut.
+  const int d1 = (draws > 0 && s_regime_frames >= draws) ? 0 : 1;
+
+  // --- TERME 2 : en regime SANS MARGE, l'image est IDENTIQUE AU BIT a la sortie SDR.
+  autoport_proof::publish("hdr_regime_maxdiff_vs_sdr_x1e6", s_rg_maxdiff_x1e6);
+  autoport_proof::publish("hdr_regime_ramp_px", s_rg_ramp_px);
+  autoport_proof::publish("hdr_regime_scene_px", s_rg_scene_px);
+  const uint64_t compared = s_rg_ramp_px + s_rg_scene_px;
+  int d2 = 1;
+  if (compared > 0) {
+    // En R0 l'identite est EXIGEE ; en R1/R2 le bras livre DOIT au contraire s'ecarter du SDR,
+    // sinon la marge accordee ne sert a rien. Le verdict n'est donc pas le meme des deux cotes,
+    // et il ne peut pas etre vert par defaut : un regime non mesure reste rouge.
+    d2 = (rg.level == 0) ? (s_rg_maxdiff_x1e6 == 0 ? 0 : 1) : (s_rg_maxdiff_x1e6 > 0 ? 0 : 1);
+  }
+
+  // --- TERME 3 : en regime AVEC MARGE, aucun pixel ne passe sous le niveau SDR.
+  autoport_proof::publish("hdr_regime_below_sdr_px", s_rg_below_sdr_px);
+  autoport_proof::publish("hdr_regime_sim_ceiling_x1000",
+                          (uint64_t)std::lround(s_rg_sim_ceiling * 1000.f));
+  autoport_proof::publish("hdr_regime_sim_gain_x1e6", s_rg_sim_gain_x1e6);
+  autoport_proof::publish_text("hdr_regime_sim_source",
+                              "pic_annonce_du_systeme/blanc_graphique_BT2408");
+  // Le temoin d'effet garde ce terme de la vacuite : si le bras simule ne fait RIEN, « aucun
+  // pixel sous le SDR » est vrai par inaction et ne vaut pas un vert.
+  const int d3 = (compared > 0 && s_rg_sim_gain_x1e6 > 0 && s_rg_below_sdr_px == 0) ? 0 : 1;
+
+  // --- TERME 4 : aucun pixel sous le seuil DECLARE n'est modifie. Les deux acceptions.
+  autoport_proof::publish("hdr_regime_thr_vs_sdr_x1000",
+                          (uint64_t)std::lround(s_rg_knee * 1000.f));
+  autoport_proof::publish("hdr_regime_thr_identity_x1000",
+                          (uint64_t)std::lround(s_rg_knee * s_rg_sim_ceiling * 1000.f));
+  autoport_proof::publish("hdr_regime_exc_vs_sdr_px", s_rg_exc_sdr_px);
+  autoport_proof::publish("hdr_regime_exc_vs_identity_px", s_rg_exc_ident_px);
+  autoport_proof::publish("hdr_regime_eps_x1e6", (uint64_t)10);  // 1e-5, publie tel qu'applique
+  const int d4 = (compared > 0 && s_rg_exc_sdr_px == 0 && s_rg_exc_ident_px == 0) ? 0 : 1;
+
+  // --- TERME 5 : la ligne de menu porte le TRANSPORT retenu et le REGIME courant. Ce n'est pas
+  //     une affirmation : GOAL rapporte ce qu'il a REELLEMENT formate, et on le confronte a ce
+  //     que le C++ sait. Une ligne de menu se lit, elle ne se croit pas.
+  autoport_proof::publish("hdr_regime_menu_notes", s_menu_notes);
+  autoport_proof::publish("hdr_regime_menu_transport", (uint64_t)(s_menu_transport + 1));
+  autoport_proof::publish("hdr_regime_menu_regime", (uint64_t)(s_menu_regime + 1));
+  autoport_proof::publish("hdr_regime_menu_len", (uint64_t)(s_menu_len + 1));
+  autoport_proof::publish("hdr_regime_format_chosen_id", (uint64_t)fmt);
+  autoport_proof::publish_text("hdr_regime_format_chosen", format_name(fmt));
+  const int d5 = (s_menu_notes > 0 && s_menu_transport == fmt && s_menu_regime == rg.level &&
+                  s_menu_len > 0 && s_menu_len <= 18)
+                     ? 0
+                     : 1;
+
+  // --- AVERTISSEMENT A DU CONTRAT : l'ANCRE tiree des tuiles MOYENNES contre celle tiree des
+  //     MAXIMUMS. Mesuree ici, et le verdict qui suit est le seul honnete : la courbe LIVREE
+  //     N'A PLUS D'ANCRE (C2), donc AUCUNE des deux n'est retenue. On la mesure quand meme —
+  //     « non mesure » et « sans effet » ne sont pas la meme phrase, et le chantier suivant doit
+  //     savoir laquelle des deux il lit.
+  autoport_proof::publish("hdr_regime_anchor_samples", s_anchor_samples);
+  autoport_proof::publish("hdr_regime_anchor_from_means_x1000",
+                          (uint64_t)std::lround(s_anchor_mean_last * 1000.f));
+  autoport_proof::publish("hdr_regime_anchor_from_max_x1000",
+                          (uint64_t)std::lround(s_anchor_max_last * 1000.f));
+  autoport_proof::publish("hdr_regime_anchor_gap_max_x1000", s_anchor_gap_max_x1000);
+  autoport_proof::publish_text("hdr_regime_anchor_retained",
+                               "aucune:la_courbe_livree_place_le_blanc_sans_ancre");
+
+  autoport_proof::publish("hdr_regime_gl_errors", s_rg_gl_errors);
+  autoport_proof::publish("hdr_regime_d0_pin", (uint64_t)d0);
+  autoport_proof::publish("hdr_regime_d1_published", (uint64_t)d1);
+  autoport_proof::publish("hdr_regime_d2_identity", (uint64_t)d2);
+  autoport_proof::publish("hdr_regime_d3_below_sdr", (uint64_t)d3);
+  autoport_proof::publish("hdr_regime_d4_excursion", (uint64_t)d4);
+  autoport_proof::publish("hdr_regime_d5_menu", (uint64_t)d5);
+  autoport_proof::publish("hdr_regime_defects", (uint64_t)(d0 + d1 + d2 + d3 + d4 + d5));
+}
+
+// ================================================ hdr-output-regime : LA SONDE A QUATRE BRAS ==
+// Elle ne mesure RIEN cote CPU : les quatre bras sont le MEME programme `tonemap`, rejoue hors
+// ecran avec quatre jeux d'uniformes, et lus par le meme chemin. Aucune valeur n'est recalculee
+// en C++, donc aucune porte ne se lit sur ses propres variables.
+void probe_regime(Shader& shader,
+                  GLuint src_tex,
+                  GLuint dst_fbo,
+                  int dst_w,
+                  int dst_h,
+                  float knee) {
+  gl_query_census::Armed _ap("hdr-out-probe-regime");
+  if (!regime_measuring() || s_rg_state < 0 || !s_active.load() || (s_frames % kRgEvery) != 0) {
+    return;
+  }
+  if (s_rg_state == 0) {
+    const bool a = make_float_fbo(&s_rg_fbo, &s_rg_tex, kRgTmW, kRgTmH, nullptr);
+    const bool b = a && make_float_fbo(&s_rg_rfbo, &s_rg_rtex, kRampN, 1, nullptr);
+    const bool c = b && make_ramp_tex(&s_rg_ramp, 0.f, kRgRampTop);
+    s_rg_state = c ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    if (s_rg_state < 0) {
+      lg::error("[hdr-output-regime] sonde indisponible : cibles hors ecran refusees");
+      return;
+    }
+  }
+  const GLuint prog = shader.id();
+  // LE PLAFOND SIMULE, et ce qu'il est exactement. C'est le plafond que CET ecran accorderait
+  // s'il PRESENTAIT : son pic ANNONCE (`HdrCapabilities.maxLuminance`, lu du systeme) rapporte au
+  // blanc graphique BT.2408, converti dans l'espace d'affichage du tampon. Ce n'est ni une
+  // constante ni un appareil nomme.
+  // POURQUOI CE BRAS EXISTE : en R0 le bras LIVRE vaut le bras SDR terme a terme, donc
+  // `below_sdr_px` et l'excursion y seraient satisfaits PAR INACTION — une porte verte qui ne
+  // mesure rien. Ce bras exerce la MEME fonction de placement a un plafond > 1 et rend ces deux
+  // termes falsifiables sur un ecran qui n'accorde rien. Il ecrit dans une cible hors ecran de
+  // 32x32 : il ne fabrique AUCUNE difference visible, ce que le perimetre interdit.
+  const float h_sim = std::fmax(1.05f, peak_nits() / kGraphicsWhiteNits);
+  const float c_sim = std::pow(h_sim, 1.f / 2.2f);
+  s_rg_sim_ceiling = c_sim;
+  s_rg_knee = knee;
+  const CurveParams arms[4] = {placement_params(kRgIdentCeiling),  // 0 IDENTITE
+                               sdr_params(),                       // 1 SDR livre
+                               s_cur,                              // 2 ce qui part a l'ecran
+                               placement_params(c_sim)};           // 3 le placement a marge
+  GLint saved_tex = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  std::vector<float> ramp[4], scene[4];
+  bool ok = true;
+  glActiveTexture(GL_TEXTURE0);
+  // --- LA RAMPE : l'entree est BALAYEE, donc la propriete est prouvee sur tout le domaine, pas
+  //     sur les valeurs que la scene a bien voulu porter cette image-la.
+  glBindTexture(GL_TEXTURE_2D, s_rg_ramp);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_rg_rfbo);
+  glViewport(0, 0, kRampN, 1);
+  for (int i = 0; i < 4 && ok; i++) {
+    set_curve(prog, arms[i]);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kRampN, 1, ramp[i]);
+  }
+  // --- LA SCENE : les MEMES bras sur ce qui est REELLEMENT dessine. Echantillonnage au plus
+  //     proche : un filtrage lineaire moyennerait, et c'est precisement ce qui a rendu l'entree
+  //     de la courbe sourde d'un facteur 9 (chantier B).
+  glBindTexture(GL_TEXTURE_2D, src_tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_rg_fbo);
+  glViewport(0, 0, kRgTmW, kRgTmH);
+  for (int i = 0; i < 4 && ok; i++) {
+    set_curve(prog, arms[i]);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kRgTmW, kRgTmH, scene[i]);
+  }
+  // On rend EXACTEMENT l'etat d'avant : uniformes livres, cible, viewport, texture et filtrage.
+  set_curve(prog, s_cur);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+  if (!ok) {
+    lg::error("[hdr-output-regime] sonde a quatre bras : relecture refusee");
+    s_rg_state = -1;
+    return;
+  }
+  if (glGetError() != GL_NO_ERROR) {
+    s_rg_gl_errors++;
+  }
+  // LES DEUX SEUILS DECLARES, et ils viennent du genou REELLEMENT pousse au shader :
+  //   `knee`         : sous lui l'epaule SDR est deja l'identite, donc le placement ne peut pas
+  //                    s'en ecarter — c'est le seuil « rien n'est modifie par rapport au SDR » ;
+  //   `knee * C`     : sous lui le placement lui-meme est l'identite — c'est le seuil « l'image
+  //                    reste l'image », celui que le plan ecrit 0,96.C.
+  const double thr_sdr = (double)knee;
+  const double thr_ident = (double)knee * (double)c_sim;
+  // La tolerance est PUBLIEE. Les quatre bras passent par le meme programme et le meme format de
+  // cible ; l'ecart residuel d'un `x/C*C` en flottant vaut ~1 ulp (6e-8 relatif), cinq ordres de
+  // grandeur sous ce seuil, lui-meme cinquante fois sous le pas d'un demi-flottant. Une courbe
+  // qui modifie vraiment un pixel le fait de beaucoup plus.
+  const double eps_rel = 1e-5;
+  auto walk = [&](const std::vector<float>* a, int n, uint64_t* px_out) {
+    for (int t = 0; t < n; t++) {
+      const size_t k = (size_t)t * 4;
+      if (k + 2 >= a[0].size() || k + 2 >= a[3].size()) {
+        break;
+      }
+      const float in = std::fmax(a[0][k], std::fmax(a[0][k + 1], a[0][k + 2]));
+      const float sdr = std::fmax(a[1][k], std::fmax(a[1][k + 1], a[1][k + 2]));
+      const float live = std::fmax(a[2][k], std::fmax(a[2][k + 1], a[2][k + 2]));
+      const float sim = std::fmax(a[3][k], std::fmax(a[3][k + 1], a[3][k + 2]));
+      if (!std::isfinite(in) || !std::isfinite(sdr) || !std::isfinite(live) ||
+          !std::isfinite(sim)) {
+        continue;
+      }
+      (*px_out)++;
+      const double eps = eps_rel * std::fmax(1.0, (double)in);
+      // TERME 2 — en R0 l'image est IDENTIQUE AU BIT a la sortie SDR. Mesure sans tolerance :
+      // les deux bras y ont le meme plafond et prennent la meme branche du shader.
+      const uint64_t dx = (uint64_t)std::llround(std::fabs((double)live - (double)sdr) * 1e6);
+      if (dx > s_rg_maxdiff_x1e6) {
+        s_rg_maxdiff_x1e6 = dx;
+      }
+      // TERME 3 — AUCUN pixel ne passe sous le niveau SDR. Teste sur le bras livre ET sur le bras
+      // simule : sans ce dernier, en R0, le test serait satisfait par inaction.
+      if ((double)live < (double)sdr - eps || (double)sim < (double)sdr - eps) {
+        s_rg_below_sdr_px++;
+      }
+      // TERME 4 — aucun pixel sous le seuil declare n'est modifie, dans les deux acceptions.
+      if ((double)in <= thr_sdr && std::fabs((double)sim - (double)sdr) > eps) {
+        s_rg_exc_sdr_px++;
+      }
+      if ((double)in <= thr_ident && std::fabs((double)sim - (double)in) > eps) {
+        s_rg_exc_ident_px++;
+      }
+      // LE TEMOIN D'EFFET : le bras simule fait-il QUELQUE CHOSE ? Un zero ici dirait que les
+      // trois termes ci-dessus sont verts parce que rien ne bouge.
+      const double g = (double)sim - (double)sdr;
+      if (g > 0.0) {
+        const uint64_t gx = (uint64_t)std::llround(g * 1e6);
+        if (gx > s_rg_sim_gain_x1e6) {
+          s_rg_sim_gain_x1e6 = gx;
+        }
+      }
+    }
+  };
+  walk(ramp, kRampN, &s_rg_ramp_px);
+  walk(scene, kRgTmW * kRgTmH, &s_rg_scene_px);
+  s_rg_runs++;
 }
 
 void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {

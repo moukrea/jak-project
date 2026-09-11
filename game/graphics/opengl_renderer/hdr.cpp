@@ -589,6 +589,13 @@ bool tonemap_draw(Shader& shader,
   // hdr-display-output : sondes de preuve seulement — rejouent CE programme hors ecran (bras SDR
   // / bras HDR, et sur du jeu reel le bras REFUSE du 10/09) ; restaurent dst_fbo + viewport.
   hdr_output::probe_tonemap(shader, dst_fbo, dst_w, dst_h);
+  // hdr-output-regime : la sonde a QUATRE bras. Le meme programme, rejoue hors ecran sur une
+  // rampe puis sur la scene, avec l'IDENTITE, le SDR, ce qui part a l'ecran, et le placement au
+  // plafond que cet ecran accorderait s'il presentait. `src_tex` est passe explicitement — la
+  // liaison de l'unite 0 a pu changer sous `analyze_scene` et `probe_tonemap`. Le genou transmis
+  // est celui REELLEMENT pousse au shader trois lignes plus haut, pas une constante recopiee.
+  hdr_output::probe_regime(shader, src_tex, dst_fbo, dst_w, dst_h,
+                           Gfx::g_global_settings.recharged_hdr_knee);
   glUseProgram(saved_program);
   glBindVertexArray(saved_vao);
   glBindBuffer(GL_ARRAY_BUFFER, saved_array_buffer);

@@ -163,6 +163,17 @@
 (define-extern pc-get-hdr-output-modes (function int))
 (define-extern pc-set-hdr-output! (function int none))
 (define-extern pc-hdr-output-note! (function int int none))
+(define-extern pc-get-hdr-output-state (function int))
+(define-extern pc-hdr-output-label-note! (function int int int none))
+;; hdr-output-regime : le libelle de la rangee HDR suit le regime EN CONTINU, pas seulement a
+;; l'ouverture du menu — un joueur qui baisse la luminosite systeme passe de R0 a R1 sans rouvrir
+;; quoi que ce soit, et la ligne mentirait jusqu'a la prochaine ouverture.
+;; Le crochet vit dans `progress-pc.gc` (c'est la que le libelle est defini) et `update` de
+;; `pc-settings` l'appelle a chaque image. CE DRAPEAU EST LA GARDE D'ORDRE DE CHARGEMENT : il
+;; reste #f tant que `progress-pc.gc` n'a pas tourne son niveau superieur, donc `update` ne peut
+;; pas sauter dans un symbole non lie pendant l'amorcage.
+(define *hdr-label-hook-ready?* #f)
+(define-extern rch-hdr-refresh-label-if-changed! (function none))
 ;; hdr-display-output : #t des que la clause de lecture `hdr-output?` (pckernel.gc) a vu la cle.
 ;; Defini ICI (pckernel-impl est compile avant pckernel-common ET pckernel, game.gp:2118-2121) parce
 ;; que `load-settings` (pckernel-common.gc) le lit et que la clause (pckernel.gc) l'ecrit.

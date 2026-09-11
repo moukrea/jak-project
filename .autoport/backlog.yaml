@@ -7740,12 +7740,6 @@ items:
   max_turns: 800
   max_retries: 8
   proof_timeout: 300
-  proof_env:
-  - OG_RECHARGED=1
-  - OG_HDR=1
-  - OG_HDR_OUT=1
-  - OG_HDR_OUT_MODE=1
-  - OG_HDR_OUT_PEAK=1000
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.hdr=1

@@ -1942,6 +1942,16 @@ void pc_hdr_output_note(u32 kind, u32 value) {
     hdr_output::note_menu_parent((int)value);
   }
 }
+// hdr-output-regime : ce que la ligne de menu doit DIRE. Empaquete pour le pont GOAL, qui ne
+// passe que des entiers : format_id * 16 + regime (format_id = hdr_output::Format,
+// regime 0 = aucune marge, 1 = marge accordee au retro-eclairage, 2 = l'ecran presente).
+u64 pc_get_hdr_output_state() {
+  return (u64)hdr_output::menu_state_packed();
+}
+// Ce que GOAL a REELLEMENT ecrit dans le libelle. La preuve compare a ce que le C++ sait.
+void pc_hdr_output_label_note(u32 transport, u32 regime, u32 len) {
+  hdr_output::note_menu_label((int)transport, (int)regime, (int)len);
+}
 
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
@@ -4522,6 +4532,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-get-hdr-output-modes", (void*)pc_get_hdr_output_modes);
   make_function_symbol_from_c("pc-set-hdr-output!", (void*)pc_set_hdr_output);
   make_function_symbol_from_c("pc-hdr-output-note!", (void*)pc_hdr_output_note);
+  // hdr-output-regime : le transport et le regime, et le rapport de ce que le menu a formate
+  make_function_symbol_from_c("pc-get-hdr-output-state", (void*)pc_get_hdr_output_state);
+  make_function_symbol_from_c("pc-hdr-output-label-note!", (void*)pc_hdr_output_label_note);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);
