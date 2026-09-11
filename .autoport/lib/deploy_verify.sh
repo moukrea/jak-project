@@ -68,9 +68,33 @@ A=$(sha256sum "$TMP/apk.so" | cut -d' ' -f1)
 [ "$B" = "$A" ] || die "build libgk.so != APK-bundled libgk.so — APK bundled a STALE .so (reassemble the APK after building)"
 DP=$("$ADB" -s "$SERIAL" shell pm path "$PKG" 2>/dev/null | sed 's/package://' | tr -d '\r' | head -1)
 [ -n "$DP" ] || die "package not installed on device $SERIAL"
-"$ADB" -s "$SERIAL" pull "$DP" "$TMP/dev.apk" >/dev/null 2>&1 || die "could not pull device APK"
-unzip -p "$TMP/dev.apk" "$SO_REL" > "$TMP/dev.so" 2>/dev/null || die "device APK has no $SO_REL"
-D=$(sha256sum "$TMP/dev.so" | cut -d' ' -f1)
+# 2026-09-11 — RACCOURCI PROUVE. Tirer 671 Mo a chaque fermeture pour lire l'empreinte d'un
+# seul fichier coutait 17 a 60 s. L'installeur enregistre ce qu'il a installe ET l'identite du
+# fichier pose sur le telephone (chemin, taille, date). Si le telephone porte TOUJOURS ce
+# fichier-la — meme chemin, meme taille, meme date — alors son libgk.so est celui enregistre,
+# et la chaine se ferme sans rien transferer. Toute divergence, y compris un APK pose a la main
+# par l'owner depuis jak-builds, fait retomber sur le tirage complet. Jamais l'inverse.
+CHAIN=".autoport/.installed_chain"
+D=""
+if [ -s "$CHAIN" ]; then
+  IFS='|' read -r c_ser c_pkg c_path c_size c_mtime c_sha < "$CHAIN"
+  if [ "$c_ser" = "$SERIAL" ] && [ "$c_pkg" = "$PKG" ] && [ "$c_path" = "$DP" ] && [ -n "$c_sha" ]; then
+    # NB : le shell du telephone decoupe le format sur l'espace et prend « %Y » pour un
+    # chemin. Separateur sans espace, obligatoire.
+    now=$("$ADB" -s "$SERIAL" shell stat -c '%s:%Y' "$DP" 2>/dev/null | tr -d '\r')
+    if [ "$now" = "$c_size:$c_mtime" ]; then
+      D="$c_sha"
+      echo "  (chaine lue sur l'empreinte d'installation — APK non tire)"
+    fi
+  fi
+fi
+if [ -z "$D" ]; then
+  "$ADB" -s "$SERIAL" pull "$DP" "$TMP/dev.apk" >/dev/null 2>&1 || die "could not pull device APK"
+fi
+if [ -z "$D" ]; then
+  unzip -p "$TMP/dev.apk" "$SO_REL" > "$TMP/dev.so" 2>/dev/null || die "device APK has no $SO_REL"
+  D=$(sha256sum "$TMP/dev.so" | cut -d' ' -f1)
+fi
 [ "$A" = "$D" ] || die "APK libgk.so != DEVICE libgk.so — device is running a STALE install (reinstall the APK)"
 echo "  ok: chain build==APK==device ($(echo $B|cut -c1-16))"
 

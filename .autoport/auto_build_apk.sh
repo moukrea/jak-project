@@ -246,6 +246,20 @@ reconcilier_telephone(){
     return 0
   fi
   echo "$apk_id" > .autoport/.redmi_installed_apk
+  # 2026-09-11 — CHAINE D'INSTALLATION MEMORISEE. deploy_verify tirait l'APK ENTIER (671 Mo)
+  # du telephone a chaque fermeture pour lire l'empreinte d'UN fichier qu'il contient. Celui qui
+  # installe la connait deja : on l'ecrit ici, avec de quoi prouver que le fichier sur le
+  # telephone est bien celui-la (chemin + taille + date, releves APRES l'installation). Un APK
+  # pose par quelqu'un d'autre — l'owner qui installe un build de jak-builds — change taille et
+  # date, et deploy_verify retombe alors sur le tirage complet.
+  {
+    so_sha=$(unzip -p "$APKX" lib/arm64-v8a/libgk.so 2>/dev/null | sha256sum | cut -d" " -f1)
+    dpath=$("$ADBX" -s "$SERX" shell pm path "$PKGX" 2>/dev/null | sed "s/package://" | tr -d "\r" | head -1)
+    dstat=$("$ADBX" -s "$SERX" shell stat -c "%s:%Y" "$dpath" 2>/dev/null | tr -d "\r")
+    [ -n "$so_sha" ] && [ -n "$dpath" ] && [ -n "$dstat" ] && \
+      printf "%s|%s|%s|%s|%s\n" "$SERX" "$PKGX" "$dpath" "$dstat" "$so_sha" \
+        > .autoport/.installed_chain
+  } 2>/dev/null || true
   # Lancement par l'activite RESOLUE (LoaderActivity), JAMAIS MainActivity : c'est
   # LoaderActivity, et elle seule, qui reextrait les packs et ecrit les tampons
   # .cgo_pack_stamp_jak1 / .custom_pack_stamp_jak1 que deploy_verify relit. Un lancement
