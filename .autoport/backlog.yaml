@@ -6952,7 +6952,7 @@ items:
   where: 'rien a voir : recensement ; owner_test=false'
   out_of_scope: Ne pas toucher au rendu ni aux uniformes qui ont un lecteur. Seuls les sept sont vises.
   owner_test: false
-  status: blocked
+  status: open
   game: jak1
   depends_on:
   - gl-uniforms-off-cost
@@ -6972,7 +6972,7 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
-  block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport/prompts/item-gl-uniforms-dead-seven.md'
+  block_reason: ''
 - id: lighting-off-math-still-runs
   feature: Eclairage eteint, le processeur calcule encore l'eclairage entier a chaque image
   priority: 20
@@ -7001,7 +7001,7 @@ items:
   out_of_scope: Ne pas toucher au rendu allume ni aux poussees (gl-uniforms-off-cost les a deja coupees).
     On vise le CALCUL, pas l'envoi.
   owner_test: false
-  status: blocked
+  status: open
   game: jak1
   depends_on:
   - gl-uniforms-off-cost
@@ -7021,7 +7021,7 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
-  block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport/prompts/item-lighting-off-math-still-runs.md'
+  block_reason: ''
 - id: android-text-overrides-dropped
   priority: 21
   device: true
@@ -7171,7 +7171,7 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: blocked
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7199,9 +7199,7 @@ items:
     text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
       eviter de polluer !
   delivered: null
-  block_reason: 'consigne INFABRICABLE : prompt de lighting-legacy-purge au-dessus de 2560 octets meme
-    reduit : raccourcis known_cause / deliverable / out_of_scope. Raccourcis known_cause / deliverable
-    / out_of_scope : au-dela du plafond, le worker garderait l''ancien fichier.'
+  block_reason: ''
 - id: mesh-browser-removal
   priority: null
   device: true
@@ -7742,6 +7740,7 @@ items:
   proof_timeout: 300
   proof_props:
   - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
   - debug.opengoal.hdr=1
   - debug.opengoal.hdr.out=1
   - debug.opengoal.level.warp=village1-hut
@@ -7843,6 +7842,7 @@ items:
     `proof_run.sh` lit `proof_props` depuis le backlog a la ligne 145, puis lance `lib/device_teardown.sh` a la ligne 471, qui efface TOUTES les proprietes commencant par `debug.opengoal.` lues sur l'appareil, et seulement APRES pose les siennes (lignes 473 a 486). Une propriete posee par le worker depuis l'hote AVANT la course est donc effacee entre sa pose et le lancement. Seul `proof_props`, qui traverse le teardown dans une variable du script, survit. Signale par le worker du chantier C (reports/hdr-output-regime/FINDINGS.txt, dernier point), verifie ligne a ligne.
     CE QUE J'AVAIS REFUSE D'ECRIRE, ET QUI ETAIT BIEN FAUX. Le worker de `hdr-glow-range` accusait l'orchestrateur de reecrire `backlog.yaml` depuis sa copie memoire. `set_status` (lib/backlog.py:202) prend le verrou, RELIT le disque et ne pose que les champs passes ; `load_backlog()` (orchestrator.py:438) relit a chaque tour ; aucun commit n'a touche le backlog entre 23:00 et 23:35 le 11/09. L'accusation ne tient pas. Le vrai coupable est le teardown.
     CONSTAT ANNEXE VERIFIE : `machine_proved_to_validated` (lib/backlog.py:165) n'a AUCUN appelant, ni dans le harnais ni dans les tests — l'orchestrateur pose `validated` par `set_status` (orchestrator.py:1857 et 2026). C'est du code mort qui mute `self.items` sans jamais ecrire ; rebranche tel quel, il ferait exactement la perte que le worker imaginait.
+    LE CODE MORT A UN COUT MESURE, CE N'EST PAS UNE PROPRETE. `perf-ocean-idle` porte `owner_test: false` (son `where` dit « rien a voir : identique au pixel ») et sa porte TIENT : `ocean_work_without_map` = 0 avec ses denominateurs publies — 17 700 images de dessin d'ocean, 17 097 avec carte, 603 images ou le chemin au repos a saute le travail, donc pas un vert par inaction. Il est pourtant reste `to-test` du 10/09 au 12/09, et il bloque `perf-stock-60`, l'objectif de toute la campagne de cadence. Deux defauts s'additionnent : l'orchestrateur l'a PARQUE POUR L'OWNER le 10/09 (« a TESTER PAR L'OWNER », avec la commande `autoport ok ») alors que l'item dit qu'il n'y a rien a regarder, et la seule fonction qui le sortirait de la n'a aucun appelant. Un item dont personne ne peut prononcer le verdict gele sa dependance pour toujours.
   deliverable: |-
     `pin_props_defects` = 0, somme de termes publies SEPAREMENT.
     1. L'EFFACEMENT CESSE D'ETRE SILENCIEUX. Le teardown publie ce qu'il efface : le nombre de proprietes `debug.opengoal.*` trouvees posees a son passage, et leurs noms. Un worker qui en a pose une depuis l'hote doit pouvoir le LIRE dans la preuve, au lieu de mesurer l'autre regime sans rien voir. Un zero se lit « rien n'etait pose », jamais « rien n'a ete efface ».
@@ -7850,6 +7850,7 @@ items:
     3. Une course publie DESORMAIS le regime OBSERVE, pas le regime demande : au moins une cle par propriete epinglee, relue apres l'amorcage. C'est ce qui rend l'epinglage verifiable sans relire le backlog.
     4. `machine_proved_to_validated` : soit elle est rebranchee et ecrit par `set_status`, soit elle est SUPPRIMEE. Une fonction morte qui muterait l'etat en memoire est un piege arme.
     5. Le chemin recommande est DIT quelque part qu'un worker lit : poser un reglage de course par `proof_props` dans le backlog, jamais par un `setprop` depuis l'hote avant la course.
+    6. UN ITEM `owner_test: false` N'EST JAMAIS PARQUE POUR L'OWNER. Publier le compte d'items parques par la porte de fermeture et, pour chacun, la valeur de `owner_test` qu'il portait. Un parking sur un item qui dit n'avoir rien a montrer est un defaut, pas une precaution : il gele tout ce qui en depend sans que personne puisse le debloquer. Le cas mesure est `perf-ocean-idle`, gele deux jours devant `perf-stock-60`.
   where: 'Le harnais : lib/backlog.py, orchestrator.py, lib/proof_run.sh.'
   out_of_scope: Ne touche a aucun code du jeu. Ne change aucun statut d'item existant.
   max_turns: 500
