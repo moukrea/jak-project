@@ -91,6 +91,46 @@ set(SDL_INSTALL       OFF CACHE BOOL "" FORCE)
 set(SDL_AUDIO         ON  CACHE BOOL "" FORCE)
 set(SDL_VIDEO         ON  CACHE BOOL "" FORCE)
 set(SDL_RENDER        OFF CACHE BOOL "" FORCE)
+# ---------------------------------------------------------------------------
+# SDL_REVISION : UNE CONSTANTE, PAS LE `git describe` DE NOTRE DEPOT.
+# `third-party/SDL/CMakeLists.txt:3703` appelle `git_describe()` des que `SDL_REVISION` est
+# vide, et `cmake/GetGitRevisionDescription.cmake` pose alors `.git/HEAD` et
+# `.git/refs/heads/<branche>` en ENTREES de la regle `RERUN_CMAKE` de CET arbre — celui qui
+# produit le `libgk.so` LIVRE. Tout commit force donc une reconfiguration, et le harnais commite
+# plusieurs fois par heure.
+# CE QUE CA COUTE, MESURE — pas suppose (12/09, quatre paires alternees, capture versionnee sous
+# `.autoport/lib/census/capture-build-android-reinvalidates-itself/avant-chronometrage.txt`) :
+# 33 ms sans commit contre 255-260 ms apres un commit fabrique. ZERO cible recompilee et
+# `libgk.so` identique au bit pres : aucun objet de cet arbre ne depend de `SDL_revision.h`
+# (`ninja -C build-android -t deps` en compte 0). La reconstruction complete que l'on redoutait
+# ici N'A PAS LIEU — mais la reconfiguration, elle, se joue bel et bien a chaque commit, et la
+# chaine de revision du build livre bouge sans qu'une ligne de source ait change.
+#
+# LA CONSTANTE EST DERIVEE, JAMAIS ECRITE EN DUR : elle sort de l'en-tete de version du SDL
+# vendu, donc une montee de version la suit d'elle-meme. Un en-tete qui ne porterait plus ces
+# defines ARRETE la configuration, au lieu de retomber en silence sur le `git describe`.
+# ELLE VIT DANS LE SOURCE, PAS DANS LE CACHE : un arbre reconfigure a neuf la recoit des sa
+# premiere configuration — le bureau, lui, n'a la sienne que dans le cache de son arbre.
+# `FORCE` est indispensable : SDL pose sa propre entree de cache VIDE, qu'un `set(... CACHE ...)`
+# ordinaire n'ecraserait pas (meme raison que les douze lignes ci-dessus).
+# Ce fichier n'est lu que sous `if(ANDROID)` (`CMakeLists.txt:65`, suivi d'un `return()`) : le
+# build de bureau, traite par son propre item, ne voit rien d'ici.
+set(_sdl_version_header "${JAK_ROOT}/third-party/SDL/include/SDL3/SDL_version.h")
+foreach(_part MAJOR MINOR MICRO)
+    file(STRINGS "${_sdl_version_header}" _sdl_ver_line
+         REGEX "^#define[ \t]+SDL_${_part}_VERSION[ \t]+[0-9]+")
+    if(NOT _sdl_ver_line)
+        message(FATAL_ERROR
+            "SDL_${_part}_VERSION introuvable dans ${_sdl_version_header} : SDL_REVISION "
+            "retomberait sur le git describe de notre depot, et chaque commit reconfigurerait "
+            "l'arbre arm64 livre. Repare la derivation ici, ne laisse pas passer le repli.")
+    endif()
+    list(GET _sdl_ver_line 0 _sdl_ver_line)
+    string(REGEX REPLACE "^#define[ \t]+SDL_${_part}_VERSION[ \t]+([0-9]+).*$" "\\1"
+           _sdl_${_part} "${_sdl_ver_line}")
+endforeach()
+set(SDL_REVISION "SDL-${_sdl_MAJOR}.${_sdl_MINOR}.${_sdl_MICRO}-jak-project-android"
+    CACHE STRING "Revision SDL figee : derivee de SDL_version.h, jamais du git describe" FORCE)
 add_subdirectory("${JAK_ROOT}/third-party/SDL" sdl_build EXCLUDE_FROM_ALL)
 
 # ---------------------------------------------------------------------------

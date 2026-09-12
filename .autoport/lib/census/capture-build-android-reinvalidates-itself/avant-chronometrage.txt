@@ -1,0 +1,13 @@
+# chronometrage AVANT — build-android non repare, 2026-09-12T18:01:40+02:00
+# colonnes : ms rc cmake_rerun
+sans_commit_1=33 0 0
+apres_commit_1=255 0 1
+sans_commit_2=33 0 0
+apres_commit_2=259 0 1
+sans_commit_3=33 0 0
+apres_commit_3=257 0 1
+sans_commit_4=35 0 0
+apres_commit_4=260 0 1
+describe_final=harness-avant-plan-2026-09-11-154-gad8178de0f
+entrees_git=2
+so_sha=19446dedd409e52972c8fad9390f3471

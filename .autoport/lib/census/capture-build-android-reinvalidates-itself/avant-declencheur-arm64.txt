@@ -1,0 +1,30 @@
+# capture AVANT — build-android, arbre arm64 LIVRE, non modifie
+# prise le 2026-09-12T18:00:41+02:00 par l'essai 1 de build-android-reinvalidates-itself
+head_avant=c65c9a71bd2e00aa1f4799abf4dae000769503a5
+describe_avant=harness-avant-plan-2026-09-11-149-gc65c9a71bd
+sdl_revision_avant=SDL-3.4.4-harness-avant-plan-2026-09-11-149-gc65c9a71bd (
+cache_sdl_revision_avant=
+rerun_cmake_entrees_git=2
+entree_git: /home/emeric/code/jak-project/.git/HEAD
+entree_git: /home/emeric/code/jak-project/.git/refs/heads/physics-keira-clean
+settle_rc=0
+settle_s=0
+settle_aretes=1
+settle_travail=0
+so_sha_avant=19446dedd409e52972c8fad9390f3471
+so_octets_avant=141439656
+so_chaines_sdl3=0
+sans_commit_rc=0
+sans_commit_s=0
+sans_commit_aretes=1
+sans_commit_travail=0
+commit_fabrique=7d96ea7017441a94668b73ad1a2c955326ba3dfb
+describe_apres_commit=harness-avant-plan-2026-09-11-150-g7d96ea7017
+apres_commit_rc=0
+apres_commit_s=0
+apres_commit_aretes=3
+apres_commit_travail=0
+apres_commit_explain_git=1
+sdl_revision_apres_commit=SDL-3.4.4-harness-avant-plan-2026-09-11-150-g7d96ea7017 (
+so_sha_apres_commit=19446dedd409e52972c8fad9390f3471
+rerun_cmake_entrees_git_apres=2
