@@ -8,14 +8,11 @@ layout (location = 2) in int time_of_day_index;
 // bound at location 3 by Tie3.cpp (same VAO as the base pass). Feeds the realtime-lighting smooth-
 // normal path instead of the flat per-face screen-derivative normal.
 layout (location = 3) in vec3 normal_in;
-// Grecharged-pbr-realtime-fusion ROUND 22: the per-vertex MikkTSpace tangent (xyz = world tangent,
-// w = handedness) was ALREADY bound at attribute location 5 on the TIE VAO (Tie3.cpp binds the
-// tangent_buffer there for the whole tree, and the wind pass draws from that same VAO) — this
-// shader simply never declared it, which is why the wind foliage had no tangent frame and hence no
-// PBR material path. Declaring it costs nothing when PBR is off; an unbound location 5 reads
-// (0,0,0,1), which the fused chunk detects as degenerate and answers with the CONTINUOUS
-// normal-derived basis (never a screen-space derivative frame).
-layout (location = 5) in vec4 tangent_in;
+// lighting-legacy-purge (2026-09-12) : l'attribut de tangente MikkTSpace (location 5) et son
+// varying ont ete RETIRES avec la pile de matiere, leur unique consommateur. Le C++ continue de
+// lier l'attribut : un attribut lie que le shader ne declare plus est simplement INACTIF, c'est
+// legal en GL. Le format fr3 et TFRAG3_VERSION sont INCHANGES — on lit un champ qu'on n'utilise
+// plus, les fr3 livres restent valides.
 #endif
 
 #include "frame_ubo.glsl"
@@ -77,8 +74,6 @@ out vec3 v_fringe_rel;
 // Grecharged-lightprobes: absolute world position (GOAL game units) for probe lookup.
 out vec3 v_world;
 out vec3 v_normal;  // Grecharged-directional-ambient: smooth per-vertex world normal (root-cause fix)
-// ROUND 22: per-vertex tangent -> the continuous PBR TBN in the fragment (mirrors tfrag3.vert).
-out vec4 v_tangent;
 #endif
 
 void main() {
@@ -121,7 +116,6 @@ void main() {
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space authored TIE normal (wind sways position; base normal is fine)
-  v_tangent = tangent_in;  // ROUND 22: continuous per-vertex tangent for the fused PBR TBN
 #endif
   float Q = fog_constant / transformed.w;
 

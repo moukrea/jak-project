@@ -11,9 +11,6 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
-#ifdef OG_FEAT_PBR
-#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
-#endif
 
 // Gjak2-visuals probe: one-shot per background (tie/tfrag) anim-slot bind —
 // diffable our-x86 (env GJ2VIS_SKY) vs device (always) to see which title
@@ -147,126 +144,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             ShaderId shader);
 
 #ifdef OG_FEAT_PBR
-// Grecharged-pbr-materials hardening (owner "beaucoup de violet" class): 1x1 neutral
-// PBR maps. The tfrag3 program declares tex_PBR_N/R/M/AO on units 11-14 whenever the
-// build has PBR; Adreno samples garbage/magenta from an incomplete or unbound unit
-// regardless of the u_pbr_mode branch, so those units must ALWAYS carry a complete
-// texture during tfrag draws — including when zero PBR materials are registered
-// (e.g. a partial albedo-only drop dir). Texel values match the shader's absent-map
-// constants (flat normal, rough 0.7, metal 0, ao 1, height 1 = zero POM depth).
-// GL-thread only.
-struct PbrNeutralMaps {
-  GLuint normal_tex = 0, rough_tex = 0, metal_tex = 0, ao_tex = 0, height_tex = 0;
-  // Grecharged-pbr-realtime-fusion: specular (F0) + emissive neutrals — black = "map
-  // absent" (the shader gates on u_pbr_mode bits 32/64, so these are only Adreno
-  // never-unbound safety, like the rest).
-  GLuint specular_tex = 0, emissive_tex = 0;
-};
-const PbrNeutralMaps& pbr_neutral_maps();
-// Bind the neutrals to units 11-17 and restore active unit 0.
-void pbr_park_neutral_maps();
-
-// Grecharged-pbr-materials round-4 coverage unification: the per-draw PBR material
-// bind was originally a lambda local to TFragment's draw loop. Tie3 draws its
-// non-envmap categories with the SAME TFRAG3 program but never bound PBR maps, so a
-// replaced TIE texture rendered its albedo without the BRDF (the owner-seen
-// half-PBR). This helper factors that exact lambda so TFragment and Tie3 share ONE
-// implementation. Semantics are byte-identical to the original TFragment lambda when
-// no PBR material is registered (empty draw list => set() early-returns, finish() is
-// a no-op).
-struct PbrDrawEntry {
-  s32 tex_idx;
-  custom_tex::PbrMaterialMaps maps;
-  // Grecharged-pbr-realtime-fusion ROUND 20: this material's MEASURED authored UV density, in
-  // texture tiles per world metre (see measure_uv_density_* below). 0.5 = the constant the
-  // shaders used to assume, so an unmeasured entry reproduces the old behaviour exactly.
-  float uv_per_m = 0.5f;
-  // Gpbr-props-reach-draw : la CLE de registre "<tpage>/<nom>" de ce materiau. Le binder ne
-  // dispose que d'un index de texture ; le recensement doit nommer la matiere, et seuls les
-  // constructeurs de liste (TFragment / Tie3 / Shrub) connaissent la cle. Une chaine par
-  // materiau et par niveau.
-  std::string key;
-};
-using PbrDrawList = std::vector<PbrDrawEntry>;
-
-// Grecharged-pbr-realtime-fusion ROUND 20: the AUTHORED UV density of one material, in texture
-// tiles per world metre, measured from the level's own geometry (median over index-buffer edges).
-// 0.5 = the constant the shaders used to assume (one tile every 2 m).
-float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
-float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
-// ROUND 22: the SHRUB variant. Shrub owns different draw/vertex types (ShrubDraw +
-// ShrubGpuVertex) and stores its texcoords in 4096-scale, so it needs its own walk — without it
-// every shrub material would fall back to the 0.5 tiles/m default and its POM amplitude (which is
-// derived from the material's real feature size in metres) would be wrong.
-float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples);
-
-// autoport 2026-08-26 : memoriser une densite mesuree au CHARGEMENT, pour que les trois
-// mesures ci-dessus deviennent des lectures et que `unpacked.vertices` (57 Mo/niveau) puisse
-// etre libere apres televersement. systeme 0=tfrag 1=tie 2=shrub.
-void uv_density_store(const tfrag3::Level& lev, int system, s32 tex_idx, float dens, u32 samples);
-void uv_density_forget_level(const tfrag3::Level& lev);
-
-class PbrDrawBinder {
- public:
-  // program = the TFRAG3 program id (u_pbr_mode lives there); draws = the level's
-  // resolved PBR material list. ONLY use on paths where the active program IS TFRAG3
-  // (never ETIE/ETIE_BASE/envmap).
-  void begin(GLuint program, const PbrDrawList* draws);
-  // [cover] ROUND 21 DISPLACEMENT COVERAGE: the binder cannot know which PROGRAM is bound or which
-  // renderer owns the draws, but the caller knows both — so it hands them over ONCE, right after
-  // begin(). renderer/tree_kind must be string literals (their pointers are stored by the counter);
-  // tree_kind may be nullptr. tess_program = "the bound program is TFRAG3_TESS", i.e. the exact
-  // value first_tfrag_draw_setup pushed as u_pbr_tess_active, which is what the fragment POM gate
-  // tests. Without this call the draws are simply not counted (no guessing). Instrumentation only:
-  // nothing here changes what is rendered. begin() clears it.
-  void set_coverage_context(const char* renderer,
-                            const char* tree_kind,
-                            bool tess_program,
-                            u64 frame_idx);
-  // Per-draw: look up tex_id, gate on the runtime toggle + opaque/non-decal rule,
-  // bind units 11-15 real-or-neutral, set u_pbr_mode.
-  void set(s32 tex_id, const DrawMode& mode);
-  // Restore u_pbr_mode to 0 and park the neutral maps if anything was bound. Must be
-  // called before the TFRAG3 program is handed to any other renderer.
-  void finish();
-
- private:
-  GLuint m_program = 0;
-  const PbrDrawList* m_draws = nullptr;
-  GLint m_mode_loc = -2;
-  // u_pbr_normal_dc: this material's mean normal-map gradient, pushed alongside the mode so the
-  // shader can subtract it (zero-mean relief => no brightness plate at material borders).
-  GLint m_dc_loc = -2;
-  float m_cur_dc[2] = {0.f, 0.f};
-  // u_pbr_height_stat = (height_mean, height_norm) of this draw's height map, pushed alongside the
-  // mode so the shader can recentre/rescale the height field per material (the shipped maps are
-  // neither mean-centred nor normalised). (0.5, 1.0) = identity.
-  GLint m_hstat_loc = -2;
-  float m_cur_hstat[2] = {0.5f, 1.0f};
-  // ROUND 20: u_pbr_uv_per_m = this material's measured authored UV density (texture tiles per
-  // world metre), pushed alongside the mode so the tessellation displacement and the POM world cap
-  // both work in THIS material's feature size instead of a hardcoded 0.5 tiles/m. 0.5 = identity.
-  GLint m_upm_loc = -2;
-  float m_cur_upm = 0.5f;
-  // ROUND 20 correction: u_pbr_height_lambda = this height MAP's characteristic FEATURE WAVELENGTH
-  // in tiles (measured at load from the map's own mip-energy spectrum). The tess amplitude follows
-  // the feature size, not the tile: the offline audit found tiles spanning 2.3-7.9 m, so "depth =
-  // a fraction of a tile" would build metre-tall grass hills. Comes from the MAP (like the height
-  // stat), not from PbrDrawEntry. 0.25 = identity default.
-  GLint m_lambda_loc = -2;
-  float m_cur_lambda = 0.25f;
-  // lighting-legacy-purge (2026-09-11) : les emplacements et l'etat de la pile « Materiaux
-  // avances » sont SUPPRIMES avec elle.
-  int m_cur_mode = 0;
-  bool m_bound_any = false;
-  // [cover] ROUND 21 draw context (see set_coverage_context). m_cover_renderer == nullptr means
-  // "this caller does not report coverage" and the counters are left alone entirely.
-  const char* m_cover_renderer = nullptr;
-  const char* m_cover_kind = nullptr;
-  bool m_cover_tess = false;
-  u64 m_cover_frame = 0;
-};
-
 // Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING, WORLD-scale
 // (owner clarification 2026-07-18: the hut's shadow on the ground, not characters). A
 // depth-only pass renders the camera-vis-culled tfrag NORMAL trees AND the TIE NORMAL

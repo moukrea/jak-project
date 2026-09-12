@@ -83,31 +83,79 @@ const char* const kGateNames[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_on
 // programmes ou au moins l'un des deux repond. Un controle a zero rend la porte MUETTE, pas
 // verte.
 const char* const kLegacyUniformNames[] = {
-    "u_rt_ambient_on",       // ex AMBIANTE on/off       (realtime-ambient?)
-    "u_rt_ambient_model",    // ex MODELE D'AMBIANCE      (realtime-ambient-model)
-    "u_rt_ambient_contrast", // ex CONTRASTE D'AMBIANCE   (knob mort : pousse, jamais lu)
-    "u_rt_shadow_range",     // ex DISTANCE DES OMBRES    (realtime-shadow-dist)
-    "u_rt_shadow_res",       // ex QUALITE DES OMBRES     (realtime-shadow-quality)
-    "u_rt_shadow_residual",  // ex FORCE DES OMBRES       (realtime-shadow-strength)
-    "u_pbr_displacement",    // ex PROFONDEUR DE SURFACE  (pbr-displacement)
-    "u_pbr_bisect",          // ex PBR ISOLATE            (outil de bisection)
-    "u_pbr_bisect2",         // ex PBR ISOLATE            (second masque)
-    "u_mm_flags",            // ex MATERIAUX AVANCES      (modern-materials?)
+    // ── les onze deja recenses : reglages d'eclairage retires avant l'essai 8 ───────────────
+    "u_rt_ambient_on",        // ex AMBIANTE on/off          (realtime-ambient?)
+    "u_rt_ambient_model",     // ex MODELE D'AMBIANCE        (realtime-ambient-model)
+    "u_rt_ambient_contrast",  // ex CONTRASTE D'AMBIANCE     (knob mort : pousse, jamais lu)
+    "u_rt_shadow_range",      // ex DISTANCE DES OMBRES      (realtime-shadow-dist)
+    "u_rt_shadow_res",        // ex QUALITE DES OMBRES       (realtime-shadow-quality)
+    "u_rt_shadow_residual",   // ex FORCE DES OMBRES         (realtime-shadow-strength)
+    "u_pbr_displacement",     // ex PROFONDEUR DE SURFACE    (pbr-displacement)
+    "u_pbr_bisect",           // ex PBR ISOLATE              (outil de bisection)
+    "u_pbr_bisect2",          // ex PBR ISOLATE              (second masque)
+    "u_mm_flags",             // ex MATERIAUX AVANCES        (modern-materials?)
     // Il restait DECLARE et LU apres le retrait de son etage : un drapeau a zero, pas une
     // absence. Le livrable exige l'inverse, il est donc supprime des shaders ET cherche ici.
-    "u_pbr_tess_active",     // ex PROFONDEUR DE SURFACE, palier TESSELLATION
+    "u_pbr_tess_active",      // ex PROFONDEUR DE SURFACE, palier TESSELLATION
+    // ── essai 8 : LA PILE DE MATIERE ELLE-MEME ─────────────────────────────────────────────
+    // Owner du 11/09 : « faut supprimer le code ! On en veut plus ». Tant que ces noms
+    // n'etaient pas cherches, `lighting_legacy_sites == 0` n'accusait RIEN : la porte etait
+    // verte avec la pile PBR entiere encore compilee dans le programme lie.
+    "u_pbr_mode",             // maitre de la branche PBR (choix du modele d'ombrage)
+    "u_pbr_mat",              // parametres de materiau, paquet 1 (rugosite/metal/ao)
+    "u_pbr_mat2",             // parametres de materiau, paquet 2
+    "u_pbr_normal_strength",  // force de la carte de normales
+    "u_pbr_normal_dc",        // composante continue retiree a la carte de normales
+    "u_pbr_height_scale",     // amplitude du parallaxe/relief
+    "u_pbr_height_lambda",    // pas de la marche du parallaxe
+    "u_pbr_height_stat",      // statistique de hauteur du bake, poussee au shader
+    "u_pbr_spec_intensity",   // intensite speculaire
+    "u_pbr_ambient",          // terme ambiant de la pile PBR
+    "u_pbr_exposure",         // exposition de la pile PBR
+    "u_pbr_direct",           // poids de l'eclairage direct
+    "u_pbr_indirect",         // poids de l'eclairage indirect
+    "u_pbr_baked_weight",     // melange entre lumiere cuite et lumiere calculee
+    "u_pbr_emissive_str",     // force de l'emissif
+    "u_pbr_uv_tile",          // repetition des UV de materiau
+    "u_pbr_uv_per_m",         // densite d'UV par metre monde
+    "u_pbr_light_dir",        // direction de la lumiere principale du chemin PBR
+    "u_pbr_light_color",      // couleur de la lumiere principale du chemin PBR
+    "u_pbr_sun_dir",          // direction du soleil (relight monde)
+    "u_pbr_sun_color",        // couleur du soleil (relight monde)
+    "u_pbr_world_relight",    // interrupteur du relight monde
+    "u_pbr_wr_direct",        // part directe du relight monde
+    "u_pbr_wr_indirect",      // part indirecte du relight monde
+    "u_pbr_legacy_shadow",    // repli d'ombre de l'ancien chemin PBR
+    "tex_PBR_N",              // echantillonneur : normales
+    "tex_PBR_R",              // echantillonneur : rugosite
+    "tex_PBR_M",              // echantillonneur : metal
+    "tex_PBR_AO",             // echantillonneur : occlusion ambiante
+    "tex_PBR_H",              // echantillonneur : hauteur
+    "tex_PBR_S",              // echantillonneur : speculaire
+    "tex_PBR_E",              // echantillonneur : emissif
 };
 constexpr int kLegacyUniformCount = (int)(sizeof(kLegacyUniformNames) / sizeof(char*));
+// Le masque porte UN BIT PAR NOM. Un `1u << i` sur un `uint32_t` avec i >= 32 est un decalage
+// au-dela de la largeur du type : comportement INDEFINI, et les noms de queue jamais comptes —
+// un faux vert silencieux. Le masque est donc un `uint64_t`, et cette assertion casse le build
+// le jour ou la table depasse 64 noms plutot que de laisser la sonde mentir.
+static_assert(kLegacyUniformCount <= 64,
+              "kLegacyUniformNames depasse la largeur de s_legacy_uniform_mask (64 bits)");
 
-// Les deux temoins. Ils appartiennent au chemin UNIQUE de la refonte et ne partent jamais.
-const char* const kLegacyControlNames[2] = {"u_pbr_mode", "u_rt_light_on"};
+// LES DEUX TEMOINS, ET POURQUOI CEUX-LA. Un temoin doit SURVIVRE a la purge qu'il atteste :
+// `u_pbr_mode` etait temoin jusqu'a l'essai 7, mais l'essai 8 le SUPPRIME — il est desormais une
+// CIBLE (kLegacyUniformNames). Un temoin qui meurt avec la cible rend un vrai zero indistinguable
+// d'une sonde debranchee. Restent deux noms declares dans les programmes MONDE et conserves par
+// la refonte : `u_pbr_shadow_on` (la carte d'ombres, chemin unique) et `u_rt_light_on` (le maitre
+// de la refonte). Aucun autre uniforme ne remplit les deux conditions.
+const char* const kLegacyControlNames[2] = {"u_pbr_shadow_on", "u_rt_light_on"};
 
 // Un bit par nom de `kLegacyUniformNames`, cumule sur toute la course : un nom trouve une seule
 // fois, sur un seul programme, suffit a dire que l'ancien monde est encore la. Le PIRE cas est
 // donc conserve, jamais lave par un programme propre.
 // Ecrits sur le fil GL, lus sur le fil GOAL (kmachine.cpp) : atomiques relaches. Le compteur
 // n'a qu'un ecrivain, il n'y a donc rien a serialiser, seulement une lecture a rendre definie.
-std::atomic<uint32_t> s_legacy_uniform_mask{0};
+std::atomic<uint64_t> s_legacy_uniform_mask{0};
 std::atomic<uint64_t> s_legacy_uniform_programs{0};  // denominateur : programmes distincts sondes
 std::atomic<uint64_t> s_legacy_uniform_control{0};   // temoin : programmes ou un nom SURVIVANT repond
 std::unordered_map<unsigned, char> s_legacy_probed;
@@ -122,7 +170,7 @@ void legacy_probe_program(unsigned prog) {
   s_legacy_uniform_programs.fetch_add(1, std::memory_order_relaxed);
   for (int i = 0; i < kLegacyUniformCount; i++) {
     if (glGetUniformLocation(prog, kLegacyUniformNames[i]) >= 0) {
-      s_legacy_uniform_mask.fetch_or(1u << i, std::memory_order_relaxed);
+      s_legacy_uniform_mask.fetch_or(1ull << i, std::memory_order_relaxed);
     }
   }
   for (int i = 0; i < 2; i++) {
@@ -354,11 +402,11 @@ void publish_locked() {
   // la part C++ (options de `recharged_gating`) et publie la somme. Ici on publie SA part et
   // TOUS ses denominateurs : un chiffre sans son denominateur n'est pas une mesure.
   {
-    const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+    const uint64_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
     int found = 0;
     std::string names;
     for (int i = 0; i < kLegacyUniformCount; i++) {
-      if (mask & (1u << i)) {
+      if (mask & (1ull << i)) {
         found++;
         if (names.size() < 180) {
           if (!names.empty()) {
@@ -369,6 +417,10 @@ void publish_locked() {
       }
     }
     autoport_proof::publish("lighting_legacy_uniform_sites", (uint64_t)found);
+    // Meme grandeur, sous le nom que le contrat de l'essai 8 nomme : combien de NOMS de la table
+    // ont repondu au moins une fois (popcount du masque). Les deux cles sont publiees pour que
+    // les portes ecrites avant l'essai 8 continuent de lire la leur.
+    autoport_proof::publish("lighting_legacy_uniform_live", (uint64_t)found);
     autoport_proof::publish("lighting_legacy_uniform_censused", (uint64_t)kLegacyUniformCount);
     autoport_proof::publish("lighting_legacy_uniform_programs",
                             s_legacy_uniform_programs.load(std::memory_order_relaxed));
@@ -935,10 +987,10 @@ void frame_end() {
 
 // lighting-legacy-purge : la part SHADER du recensement, lue par kmachine.cpp sur le fil GOAL.
 uint32_t legacy_uniform_sites() {
-  const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+  const uint64_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
   uint32_t n = 0;
   for (int i = 0; i < kLegacyUniformCount; i++) {
-    if (mask & (1u << i)) {
+    if (mask & (1ull << i)) {
       n++;
     }
   }

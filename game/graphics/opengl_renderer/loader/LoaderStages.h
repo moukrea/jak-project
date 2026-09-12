@@ -5,7 +5,7 @@
 std::vector<std::unique_ptr<LoaderStage>> make_loader_stages();
 // `replacing_gl` != 0 : Grecharged-texture-hotreload — re-resoudre une texture DEJA residente.
 // La fonction fait exactement le meme travail que pour un chargement (mêmes portes, meme
-// precedence, memes cartes PBR), puis, au lieu de donner une nouvelle entree au pool, elle
+// precedence), puis, au lieu de donner une nouvelle entree au pool, elle
 // SUBSTITUE l'objet GL nomme dans l'entree existante (TexturePool::swap_gl_texture) : tous les
 // slots VRAM qui liaient l'ancien objet lient le nouveau a la sortie. Rend l'identifiant GL a
 // utiliser desormais — `replacing_gl` lui-meme si la substitution n'a pas pu se faire.

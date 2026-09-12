@@ -8,8 +8,7 @@
 // bundled > stock — the caller (add_texture) enforces it via
 // custom_tex::base_source() + managed::lookup_base().
 //
-// M1/PR1 scope: BASE (albedo) swaps only. Suffixed PBR maps ship in the
-// packs too but need the normal-XY shader mode; they activate in PR2.
+// Portee : substitutions de BASE (albedo) uniquement.
 
 #include <optional>
 #include <string>
@@ -30,7 +29,7 @@ struct CompressedTex {
   rpack::EntryStats stats; // precomputed offline (normal DC, height mean/norm/lambda)
 };
 
-// Gpbr-material-props: where the asset manager installs this game's managed
+// Ou l'asset manager installe le contenu manage de ce jeu
 // content — RPACK shards AND the small non-shard EXTRAS published beside them
 // (the surface-property table). Exported because the surface reader lives in
 // CustomTextureReplacements.cpp and must not re-derive this path: two copies of
@@ -52,16 +51,8 @@ bool active();
 std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
                                          const std::string& tex_name);
 
-// Look up a managed companion map ("normal", "roughness", "metallic", "ao",
-// "height", "specular", "emissive"). Same-source rule: only call this when
-// the BASE came from the managed pack.
-std::optional<CompressedTex> lookup_map(const std::string& tpage_name,
-                                        const std::string& tex_name,
-                                        const char* map_kind);
-
 // Existence-only probe (no payload read).
 bool has_base(const std::string& tpage_name, const std::string& tex_name);
-bool has_map(const std::string& tpage_name, const std::string& tex_name, const char* map_kind);
 
 // Upload a parsed KTX2 to the currently-bound GL_TEXTURE_2D via
 // glTexStorage2D + glCompressedTexSubImage2D (or glTexSubImage2D for the
@@ -69,10 +60,6 @@ bool has_map(const std::string& tpage_name, const std::string& tex_name, const c
 // call glGenerateMipmap. Returns false (with a log) on unsupported format
 // or GL error; caller falls back to the stock path.
 bool upload_bound_texture(const CompressedTex& tex);
-
-// Create a standalone GL texture for a companion PBR map (trilinear, REPEAT,
-// all offline mip levels, no glGenerateMipmap). Returns 0 on failure.
-u32 create_map_texture(const CompressedTex& tex);
 
 // Publish the GPU profile detected from the live context into
 // managed_assets/<game>/gpu_profile.txt. The Android downloader runs BEFORE
