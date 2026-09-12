@@ -7171,13 +7171,21 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
   max_retries: 6
   proof_timeout: 300
   prompt: prompts/item-lighting-legacy-purge.md
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_RT_LIGHT=1
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.rt.light=1
   notes: 'Owner 10/09 au soir : « vire les dessuite avant qu''ils nous embetent, on en veut pas de toute
     facons ». Prio 17, avant la sortie HDR.'
   owner_feedback:
@@ -7827,7 +7835,7 @@ items:
   notes: 'issu des signalements du chantier A, 11/09 : defaut ouvert PAR le chantier A sur un chemin sans
     preuve.'
 - id: harness-proof-props-pin
-  status: in-progress
+  status: validated
   priority: 16
   game: jak1
   device: false
@@ -7931,3 +7939,71 @@ items:
   prompt: prompts/item-hdr-output-visible.md
   notes: issu des trois signalements hors perimetre du chantier C, 12/09 ; ils pointaient cet id avant
     qu'il existe.
+- id: harness-verdict-integrity
+  status: open
+  priority: 24
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Le verdict d'un item de harnais est aussi epingle et aussi falsifiable que celui d'un item
+    moteur
+  gate:
+    key: verdict_integrity_defects
+    op: ==
+    value: 0
+  depends_on:
+  - harness-proof-props-pin
+  known_cause: |-
+    CINQ SIGNALEMENTS DU 12/09 (reports/harness-proof-props-pin/FINDINGS.txt).
+    1. `validators/generic.sh:23` refuse une preuve dont une source de `game/ common/ android/ goal_src/` est plus RECENTE qu'elle, mais ne regarde PAS `.autoport/`. Or le verdict d'un item de harnais vit maintenant dans `lib/census/<id>.sh` : il peut etre edite APRES la course sans que la porte s'en apercoive. Le precedent `builder-checkpoint-steals-work` avait mis sa somme dans `game/system/checkpoint_census.cpp` exactement pour ca.
+    2. Le teardown de FIN de course (trap EXIT de proof_run.sh, ~ligne 460) ne recoit pas `AUTOPORT_TEARDOWN_REPORT` : ce qu'il efface apres la course reste muet, et la course suivante repart d'un etat dont personne n'a le releve.
+    3. Le bras x86 relit l'environnement par `printenv` DU SHELL QUI EXPORTE, pas par `/proc/<pid>/environ` du `gk` lance : il attrape un `export` refuse, pas un lanceur qui filtrerait l'environnement. Le cote appareil n'a pas ce trou.
+    4. La liste de SECOURS de `device_teardown.sh:62-69` est ecrite a la main et son propre en-tete recense cinq proprietes qu'elle avait ratees. Si le `getprop` global echoue, `teardown_props_found` ne porte que ce que la liste connait, et un compte faible se lit « rien n'etait pose » au lieu de « getprop muet ».
+    5. MECHE LENTE DEJA ALLUMEE : `lib/census/harness-proof-props-pin.sh` et `lib/pin_props_selftest.sh` cherchent l'etat d'AVANT et le bras d'ablation dans les 60 DERNIERS commits du fichier. `orchestrator.py` et `proof_run.sh` bougent tous les jours : le jour ou la fenetre est depassee, la porte vire au ROUGE sans qu'aucun defaut existe.
+  deliverable: |-
+    `verdict_integrity_defects` = 0, somme de termes publies SEPAREMENT.
+    1. La fraicheur du validateur couvre les sources qui PRODUISENT le verdict, `.autoport/` comprise. Publier le nombre de fichiers epingles et leur empreinte RECALCULEE a la lecture, pas seulement recopiee. Une preuve plus vieille que son propre juge est refusee.
+    2. Le teardown de FIN de course dit ce qu'il efface, comme celui du debut. Publier le compte et les noms. Un zero se lit « rien n'etait pose », jamais « pas regarde ».
+    3. Le bras x86 relit `/proc/<pid>/environ` du processus MESURE. Publier le compte de variables relues a cet endroit, et le comparer a celui du shell : l'ecart est la grandeur qui compte.
+    4. Un `getprop` global muet est DISTINGUE d'un appareil sans proprietes : deux cles, pas une.
+    5. La fenetre de recherche de l'etat d'AVANT cesse d'etre un nombre de commits. Ancrer sur une empreinte de contenu ou sur la revision qui a introduit le bras, et publier laquelle a servi. Une porte qui rougit parce qu'un fichier voisin a bouge est un faux rouge programme.
+  where: Invisible. C'est l'integrite des preuves du harnais lui-meme.
+  out_of_scope: Ne touche a aucun code du jeu. Ne change le verdict d'aucun item deja ferme.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-harness-verdict-integrity.md
+  notes: issu des sept signalements de harness-proof-props-pin, 12/09.
+- id: harness-close-gate-code-free
+  status: open
+  priority: 23
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: La porte de fermeture cesse de bruler un essai par item de harnais, et ne promeut plus sans
+    relire le verdict
+  gate:
+    key: close_gate_code_free_defects
+    op: ==
+    value: 0
+  depends_on:
+  - harness-proof-props-pin
+  known_cause: |-
+    DEUX SIGNALEMENTS DU 12/09 (reports/harness-proof-props-pin/FINDINGS.txt).
+    1. `orchestrator.py:1033` (GATE 1) : un item dont le perimetre INTERDIT de toucher `game/ android/ goalc/ goal_src/` echoue FORCEMENT a sa premiere fermeture, parce que `no_code` n'est pose par personne a la creation de l'item et que rien ne le dit au LANCEMENT de l'essai — seulement a sa fermeture. Cout mesure : l'essai 1 de `harness-proof-props-pin` le 12/09, porte machine TENUE, refusee pour un drapeau absent. Un essai entier par item de harnais, et ca se repete a chaque nouvel item.
+    2. `lib/backlog.py:machine_proved_to_validated` s'appelle « machine_proved » mais promeut TOUT `to-test` portant `owner_test: false`, SANS relire le verdict du validateur. Sans danger aujourd'hui parce que seule la porte de fermeture pose `to-test`, et apres sa porte. Mais la fonction vient d'etre rebranchee : un `to-test` pose a la main, par un superviseur ou par une future voie de parking, serait valide sans qu'aucune preuve n'ait tenu. La garde manquante est « la porte a-t-elle tenu », pas « l'owner a-t-il regarde ».
+  deliverable: |-
+    `close_gate_code_free_defects` = 0, somme de termes publies SEPAREMENT.
+    1. GATE 1 se prononce au LANCEMENT, pas seulement a la fermeture : un item dont le perimetre interdit le code est reconnu comme tel avant que l'essai brule. Publier le compte d'items lances sans `no_code` alors que leur perimetre l'exige.
+    2. Aucun essai n'est plus refuse pour ce seul drapeau. Preuve a deux bras : le bras d'AVANT doit refuser, le bras d'APRES doit passer, sur le MEME item jetable.
+    3. La promotion machine relit le VERDICT : un `to-test` dont la porte n'a pas tenu n'est pas promu. Semer les deux controles dans une copie jetable — un item dont la porte a tenu, qui doit sortir ; un item dont elle n'a pas tenu, qui doit rester — et publier les deux.
+    4. Le nom de la fonction et ce qu'elle fait cessent de diverger : soit elle verifie ce que son nom promet, soit elle change de nom. Dire lequel.
+  where: Invisible. C'est la porte de fermeture du harnais.
+  out_of_scope: Ne touche a aucun code du jeu. Ne promeut aucun item existant au passage.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-harness-close-gate-code-free.md
+  notes: 'issu des signalements de harness-proof-props-pin, 12/09 : un essai brule par item de harnais.'

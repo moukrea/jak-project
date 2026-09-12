@@ -870,3 +870,15 @@ depuis l'hote. Et quoi qu'il arrive, la preuve publie le regime OBSERVE apres am
 regime demande. Corollaire a ne pas confondre : `set_status` relit le disque sous verrou, le
 backlog n'est PAS reecrit depuis une copie memoire — accuser le backlog ici envoie chercher au
 mauvais endroit.
+
+GUARD orchestrator-py-is-never-reloaded .autoport/orchestrator.py corriger l orchestrateur pendant qu il tourne
+**Un correctif dans `orchestrator.py` est INERTE tant que l'orchestrateur n'a pas redemarre.** Le
+processus charge son propre module UNE fois ; il ne recharge explicitement que `backlog.py`
+(orchestrator.py:451), `deploy_verify` et `proof_run` (1404, 1416). Mesure du 2026-09-12 :
+`free_machine_proved` est ajoute au fichier a 01:30 et appele a la ligne 2047, sa preuve tient sur
+un backlog jetable SEME — et a 02:12, apres plusieurs tours, `perf-ocean-idle` etait toujours
+`to-test` dans le backlog REEL. Le processus tournait depuis la veille 13:49.
+Verrou : un item qui corrige `orchestrator.py` ne peut PAS prouver son effet sur le harnais vivant.
+Sa preuve doit porter sur une copie jetable, et son rapport doit DIRE que l'effet n'arrivera qu'au
+prochain demarrage. Ne jamais lire l'etat du backlog reel comme la preuve qu'un tel correctif
+marche : un redemarrage tue la course en cours, ce n'est pas un geste gratuit.
