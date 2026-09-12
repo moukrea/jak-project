@@ -1911,6 +1911,7 @@ void pbr_push_debug_tag(GLuint program) {
 namespace lgt {
 struct Census {
   bool measured = false;  // le harnais mesure CET item (les DEUX bras de l'ablation)
+  bool own = false;       // le harnais mesure gl-uniforms-off-cost LUI-MEME, pas un voisin
   bool armed = false;     // notre correctif est-il arme ? (`armed_for`, jamais `armed`)
   bool lit = false;       // regime de l'appel en cours
   uint64_t pushes_off = 0, pushes_on = 0, skipped_off = 0;
@@ -2002,6 +2003,146 @@ inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat 
   glUniform3f(glu::loc(id, n), a, b, c);
 }
 
+// ── lighting-off-math-still-runs ─────────────────────────────────────────────────────────────
+// LE DEFAUT, MESURE PAR L'ITEM PRECEDENT. `gl-uniforms-off-cost` a coupe les POUSSEES, pas les
+// CALCULS : eclairage eteint, sa preuve du 10/09 donne `uniform_off_pushes=0` et
+// `uniform_off_skipped_per_setup=52`, et pourtant `uniform_setup_ns_per_frame_off=341068` ns —
+// 0,34 ms par image, sur 16 appels, a produire des valeurs que PLUS AUCUN chemin actif ne recoit.
+// Le gros du reliquat est la projection L2 de l'ambiante procedurale : 256 echantillons de
+// Fibonacci, un `sin` et un `cos` chacun, 9 coefficients sur 3 canaux, recalcules a chaque appel.
+// Elle tourne alors que ses deux seuls consommateurs (`u_rt_sh[0]`, `u_rt_flat_normal`) sont sautes.
+//
+// CE QUI REND LA COUPE SURE, et c'est MESURE, pas suppose : une valeur dont le SEUL consommateur
+// est une poussee de la famille SAUTABLE est morte des l'instant ou la poussee est sautee —
+// `uniform_off_pushes=0` sur 16248 images le dit. Il ne reste donc a examiner que ce qui SORT
+// autrement : une poussee CONSERVEE, un global, un recensement, une statique. Chacun est nomme
+// ici, et chacun est soit RE-HEBERGE (le regime eteint impose une constante, on l'ecrit
+// directement), soit la raison ecrite de GARDER son bloc.
+//
+// CE QUI SORT DES BLOCS, ET CE QU'ON EN FAIT :
+//   `u_rt_sun_dir` (poussee CONSERVEE) — `light_dir[0..2]` part a (0,1,0), sa valeur
+//       d'initialisation. Les trois shaders qui le `normalize()` HORS GARDE (etie_base.frag:84,
+//       tie_wind.frag:83, shrub.frag:77) ne rangent le resultat que dans `s.shadow_ndl`, lu sous
+//       `u_pbr_shadow_on != 0` — porte tenue a 0 ; shade.glsl:269 le lit sous `u_rt_light_on != 0`,
+//       a 0 lui aussi. La valeur n'atteint donc aucune image : seule sa NON-DEGENERESCENCE compte
+//       (un `normalize(vec3(0))` rendrait NaN sur Adreno), et (0,1,0) est unitaire. C'est un
+//       re-hebergement exact, pas une approximation.
+//   `u_rt_light_on` (poussee CONSERVEE) — reste 0 SANS calcul : `Gfx::lighting_active(x)` vaut
+//       `x && recharged_lighting_active()` (gfx.h:589-591), donc eteint le resultat est 0 quelle
+//       que soit l'entree. Les deux lectures d'environnement et le `recharged_gating::on()` qui le
+//       precedent ne peuvent pas le relever. `lighting_census::gate_rt_light()` recoit la meme
+//       constante, au meme endroit qu'avant.
+//   `lighting_census::gate_probe(0)` — remonte HORS du bloc d'ambiante : c'est une constante, elle
+//       n'a jamais eu besoin du calcul qui l'entourait.
+//   le lissage de transition (EMA attempt-10/11) — ses statiques sortent du corps de la fonction
+//       pour pouvoir etre INVALIDEES quand le bloc est saute. Sinon, a la rallumee, l'EMA
+//       ramperait pendant ~10 images depuis une valeur vieille de N images : l'a-coup que
+//       attempt-10 avait precisement supprime. Invalidees, elles se re-sement sur la valeur brute
+//       a la premiere image rallumee, ce qui est exactement le comportement de l'amorcage.
+//   `g_pbr_glob_*` et `pbr_cover_publish_gates(...)` — GARDES. Voir `kPbrParams` / `kMatGlobals`
+//       ci-dessous : ce sont les deux seuls blocs de la famille GARDEE, et ils portent leur raison.
+namespace lgtmath {
+
+// LES BLOCS. Deux familles, et l'ordre compte : tout ce qui est < `kBlockedCount` appartient a la
+// famille BLOQUEE — celle que la porte `lighting_off_math_blocks == 0` juge.
+enum Block : int {
+  // ── famille BLOQUEE : sortie consommee UNIQUEMENT par des poussees sautables ────────────────
+  kSunDir = 0,      // normalisation du vecteur soleil d'ombre (repli du groupe de lumieres)
+  kLightGroup,      // les 3 lumieres directes (dir + couleur) + l'override du soleil visible
+  kRtGate,          // composition de `u_rt_light_on` et lecture de l'intensite
+  kSunColor,        // teinte soleil normalisee puis melangee vers le blanc
+  kSunElev,         // elevation du soleil jaune (smoothstep sur la sinusoide d'elevation)
+  kGreenSun,        // direction et poids d'elevation du soleil VERT
+  kShadowConf,      // confiance de l'ombre portee du soleil proprietaire
+  kHandoffEma,      // passe-bas temporel des cinq scalaires de transition
+  kFlatNormal,      // lecture du basculement normale plate (mise au point)
+  kAmbientSh,       // ambiante hemispherique + PROJECTION L2 (256 echantillons) + normalisation
+  kPbrAmbient,      // couleur d'ambiante PBR (groupe de lumieres ou ambiante d'humeur)
+  kExposure,        // `hdr::chain_active()` et le choix d'exposition
+  kBlockedCount,
+  // ── famille GARDEE : sortie consommee AILLEURS, la raison est ecrite ─────────────────────────
+  // `kPbrParams` : les surcharges d'environnement des scalaires de matiere, puis le clamp de
+  //   relief. Sa sortie alimente `pbr_cover_publish_gates(height_scale, ...)`, dont les quatre
+  //   atomiques sont relues par `PbrDrawBinder::set` (background_common.cpp:1053-1056).
+  // `kMatGlobals` : `g_pbr_glob_normal_strength|height_scale|spec`, relus par le binder de
+  //   matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau.
+  // Les deux sont des constantes, des `atof` sur un cache de proprietes et trois clamps : aucune
+  // trigonometrie, aucune boucle. Les garder coute un epsilon et evite de raisonner sur un
+  // consommateur hors de ce fichier ; c'est le marche que le livrable autorise explicitement.
+  kPbrParams = kBlockedCount,
+  kMatGlobals,
+  kBlockCount
+};
+
+struct Census {
+  bool measured = false;  // le harnais mesure CET item (les DEUX bras de l'ablation)
+  bool armed = false;     // notre correctif est-il arme ? (`armed_for`, jamais `armed`)
+  bool lit = false;       // regime de l'appel en cours, fige pour l'image par RechargedFrameScope
+  uint64_t ran_off = 0;   // LA PORTE : corps de bloc BLOQUE execute, eclairage eteint
+  uint64_t ran_on = 0;
+  uint64_t skipped_off = 0;  // LE COMPTE D'AVANT : ce que le defaut executait et qu'on supprime
+  uint64_t kept_off = 0, kept_on = 0;
+  uint32_t reached_off = 0;  // masque des blocs BLOQUES vraiment ATTEINTS eteint
+  uint32_t ran_off_mask = 0;  // masque des blocs BLOQUES qui ont FUITE eteint (nomme le coupable)
+};
+inline Census g_m;  // fil GL uniquement, comme `lgt::g_c`
+
+// LES STATIQUES DU LISSAGE, sorties du corps de `first_tfrag_draw_setup` — voir l'en-tete.
+struct HandoffEma {
+  u64 frame = ~0ull;
+  float sunelev = 1.0f, moon = 0.0f, conf = 0.0f, ambY = 1.0f, ambG = 0.0f;
+  bool seeded = false;
+};
+inline HandoffEma g_ho;
+
+// Vrai si le corps du bloc doit tourner. LE COMPTEUR N'EST PAS UN MIROIR DE LA GARDE : il est
+// incremente ICI, au seul endroit qui decide, et le masque `ran_off_mask` NOMME tout bloc qui
+// s'executerait quand meme — une porte a zero qui ne dirait pas QUI a fuite serait un demi-verdict.
+inline bool block(int id) {
+  if (id >= kBlockedCount) {  // famille GARDEE : jamais sautee, comptee a part
+    if (g_m.measured) {
+      (g_m.lit ? g_m.kept_on : g_m.kept_off)++;
+    }
+    return true;
+  }
+  if (g_m.lit || !g_m.armed) {
+    if (g_m.measured) {
+      if (g_m.lit) {
+        g_m.ran_on++;
+      } else {
+        g_m.ran_off++;
+        g_m.ran_off_mask |= 1u << id;
+      }
+    }
+    return true;
+  }
+  if (g_m.measured) {
+    g_m.skipped_off++;
+    g_m.reached_off |= 1u << id;
+    // `hits` du VALIDATEUR : il ne compte que sous CET item (`measured`), sinon un item voisin
+    // verrait son propre `hits` rempli par un chemin qu'il n'a pas demande.
+    autoport_proof::note_hit();
+  }
+  return false;
+}
+
+// Vrai quand le regime allume (ou le bras desarme) autorise un geste qui n'est pas un bloc : le
+// vidage de mise au point Android, qui IMPRIMERAIT des valeurs par defaut si les blocs qui les
+// produisent ont ete sautes. Ce n'est pas un calcul, il ne consomme donc pas de numero de bloc —
+// en consommer un ferait diverger `skipped_per_setup` entre x86 et arm64.
+inline bool lit_or_disarmed() {
+  return g_m.lit || !g_m.armed;
+}
+
+inline uint32_t popcount(uint32_t v) {
+  uint32_t n = 0;
+  for (; v; v &= v - 1) {
+    n++;
+  }
+  return n;
+}
+}  // namespace lgtmath
+
 // Ouvre et ferme le recensement d'UN appel de `first_tfrag_draw_setup`. `lit` est lu UNE fois :
 // sous `Gfx::RechargedFrameScope` (OpenGLRenderer.cpp:1089) la valeur est deja figee pour toute
 // l'image, tous les sites d'un meme appel s'accordent donc. Le chronometre ne tourne QUE sous
@@ -2009,12 +2150,25 @@ inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat 
 struct LgtSetupScope {
   std::chrono::steady_clock::time_point t0;
   explicit LgtSetupScope(uint64_t frame_idx) {
-    static const bool s_measured = autoport_proof::feature_is("gl-uniforms-off-cost");
+    // lighting-off-math-still-runs : le CHRONOMETRE tourne aussi sous CET item, et sous la MEME
+    // grandeur (`uniform_setup_ns_per_frame_off`). C'est la condition pour que les deux mesures se
+    // comparent : meme instrument, meme denominateur, meme nom. Le `hits=` de gl-uniforms-off-cost
+    // reste, lui, reserve a gl-uniforms-off-cost (`s_own` ci-dessous) — un compteur partage qui
+    // monterait sous un autre item rendrait « rien ne prouve que la feature a tire » indeclenchable.
+    static const bool s_own = autoport_proof::feature_is("gl-uniforms-off-cost");
+    static const bool s_math = autoport_proof::feature_is("lighting-off-math-still-runs");
+    static const bool s_measured = s_own || s_math;
     static const bool s_armed = autoport_proof::armed_for("gl-uniforms-off-cost");
+    static const bool s_math_armed = autoport_proof::armed_for("lighting-off-math-still-runs");
     auto& c = lgt::g_c;
     c.measured = s_measured;
+    c.own = s_own;
     c.armed = s_armed;
     c.lit = Gfx::recharged_lighting_active();
+    auto& m = lgtmath::g_m;
+    m.measured = s_math;
+    m.armed = s_math_armed;
+    m.lit = c.lit;
     if (s_measured) {
       if (frame_idx != c.last_frame) {
         c.last_frame = frame_idx;
@@ -2037,7 +2191,7 @@ struct LgtSetupScope {
     } else {
       c.setups_off++;
       c.ns_off += ns;
-      if (c.armed) {
+      if (c.own && c.armed) {
         // `hits` est un compteur PARTAGE : son denominateur propre est `uniform_off_setups`.
         autoport_proof::note_hit();
       }
@@ -2087,6 +2241,61 @@ struct LgtSetupScope {
     autoport_proof::publish("uniform_off_gate_armed", c.armed ? 1u : 0u);
     autoport_proof::publish("uniform_regime_lighting", c.lit ? 1u : 0u);
     autoport_proof::publish("uniform_regime_master", Gfx::recharged_master_active() ? 1u : 0u);
+
+    // ── lighting-off-math-still-runs : le recensement des BLOCS DE CALCUL ────────────────────
+    // Publie depuis le meme endroit que le recensement des poussees, avec les MEMES
+    // denominateurs (`frames_off`, `setups_off`), pour que les deux items se lisent cote a cote.
+    const auto& m = lgtmath::g_m;
+    if (!m.measured) {
+      return;
+    }
+    // LA PORTE. Un zero obtenu parce que la course n'est JAMAIS passee par l'etat eteint serait
+    // un vert par INACTION : sans couverture on publie une SENTINELLE, jamais zero. Le plancher
+    // est mesure sur la population NON filtree — les images de la course, pas les blocs.
+    const uint64_t kNoCoverage = 9999;
+    const bool covered = c.frames_off >= 60 && c.setups_off >= 60;
+    autoport_proof::publish("lighting_off_math_blocks", covered ? m.ran_off : kNoCoverage);
+    // QUI a fuite, si la porte n'est pas verte : le masque des blocs BLOQUES executes eteint.
+    autoport_proof::publish("lighting_off_math_leak_mask", m.ran_off_mask);
+    // LE COMPTE D'AVANT, non nul : ce que le defaut executait a chaque appel et qui ne s'execute
+    // plus. C'est le pendant exact de `uniform_off_skipped` chez gl-uniforms-off-cost.
+    autoport_proof::publish("lighting_off_math_blocks_skipped", m.skipped_off);
+    autoport_proof::publish("lighting_off_math_blocks_skipped_per_setup",
+                            c.setups_off ? m.skipped_off / c.setups_off : 0);
+    autoport_proof::publish("lighting_off_math_blocks_skipped_per_frame",
+                            c.frames_off ? m.skipped_off / c.frames_off : 0);
+    // TEMOIN DE NON-VACUITE, et le plus important des trois : le nombre de blocs BLOQUES
+    // DISTINCTS reellement ATTEINTS eteint. S'il est sous `lighting_math_blocks_blocked`, un bloc
+    // n'a jamais ete rencontre et son zero ne prouve rien pour lui.
+    autoport_proof::publish("lighting_off_math_blocks_reached",
+                            lgtmath::popcount(m.reached_off));
+    autoport_proof::publish("lighting_off_math_reached_mask", m.reached_off);
+    autoport_proof::publish("lighting_math_blocks_declared", (uint64_t)lgtmath::kBlockCount);
+    autoport_proof::publish("lighting_math_blocks_blocked", (uint64_t)lgtmath::kBlockedCount);
+    autoport_proof::publish("lighting_math_blocks_kept",
+                            (uint64_t)(lgtmath::kBlockCount - lgtmath::kBlockedCount));
+    // CE QUI TOURNE ENCORE, ETEINT, ET POURQUOI : la famille GARDEE, comptee separement. Une
+    // porte a zero qui tairait ce chiffre cacherait ce qui reste.
+    autoport_proof::publish("lighting_off_kept_blocks", m.kept_off);
+    autoport_proof::publish("lighting_off_kept_blocks_per_setup",
+                            c.setups_off ? m.kept_off / c.setups_off : 0);
+    autoport_proof::publish_text("lighting_kept_block_list", "pbr_params,mat_globals");
+    // Le bras ALLUME, pour que « 0 eteint » se lise contre un non-zero allume.
+    autoport_proof::publish("lighting_on_math_blocks", m.ran_on);
+    autoport_proof::publish("lighting_on_math_blocks_per_setup",
+                            c.setups_on ? m.ran_on / c.setups_on : 0);
+    // Les denominateurs, publies A COTE de la valeur.
+    autoport_proof::publish("lighting_math_frames_off", c.frames_off);
+    autoport_proof::publish("lighting_math_frames_on", c.frames_on);
+    autoport_proof::publish("lighting_math_setups_off", c.setups_off);
+    autoport_proof::publish("lighting_math_setups_on", c.setups_on);
+    autoport_proof::publish("lighting_math_covered", covered ? 1u : 0u);
+    // Le regime, epingle a cote de la valeur : un drapeau non epingle, c'est le reglage laisse
+    // par un autre item qui decide.
+    autoport_proof::publish("lighting_math_armed", m.armed ? 1u : 0u);
+    autoport_proof::publish("lighting_math_regime_lighting", c.lit ? 1u : 0u);
+    autoport_proof::publish("lighting_math_regime_master",
+                            Gfx::recharged_master_active() ? 1u : 0u);
   }
 };
 #endif
@@ -2209,13 +2418,22 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   pbr_park_neutral_maps();
   const auto& gs = Gfx::g_global_settings;
   // Sun direction is surface->sun; the GOAL shadow vector is light-travel (sun->surface), so negate.
-  float sd[3] = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
-  float sl = std::sqrt(sd[0] * sd[0] + sd[1] * sd[1] + sd[2] * sd[2]);
-  if (sl < 1e-5f) {
-    sd[0] = 0.f;
-    sd[1] = 1.f;
-    sd[2] = 0.f;
-    sl = 1.f;
+  // lighting-off-math-still-runs : les valeurs d'initialisation SONT celles de la branche
+  // degeneree ci-dessous — bloc saute, `sd`/`sl` restent (0,1,0)/1, exactement ce que le repli du
+  // groupe de lumieres produisait deja quand le vecteur d'ombre n'est pas encore pousse.
+  float sd[3] = {0.f, 1.f, 0.f};
+  float sl = 1.f;
+  if (lgtmath::block(lgtmath::kSunDir)) {
+    sd[0] = -gs.recharged_pbr_shadow[0];
+    sd[1] = -gs.recharged_pbr_shadow[1];
+    sd[2] = -gs.recharged_pbr_shadow[2];
+    sl = std::sqrt(sd[0] * sd[0] + sd[1] * sd[1] + sd[2] * sd[2]);
+    if (sl < 1e-5f) {
+      sd[0] = 0.f;
+      sd[1] = 1.f;
+      sd[2] = 0.f;
+      sl = 1.f;
+    }
   }
   // The mood tables store sun-color / env-color as 0..255-scale floats (e.g.
   // village1 sun-color (255,128,0)); pushing them raw made lit explode ~100x and
@@ -2295,6 +2513,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // TESSELLATION n'a jamais ete livre et ses deux knobs (plafond de niveau, taille de segment)
   // partent avec lui, comme les shaders tfrag3_tess.*.
   const int pbr_displacement = RechargedFixed::kPbrDisplacement;
+  // lighting-off-math-still-runs : BLOC GARDE. Les surcharges ci-dessous et les clamps qui les
+  // suivent produisent `normal_strength` / `height_scale` / `spec_intensity`, relus HORS de cette
+  // fonction : `pbr_cover_publish_gates` (quatre atomiques, relues par PbrDrawBinder::set) et
+  // `g_pbr_glob_*` (relus par le binder de matiere). Ce sont des `atof` sur un cache de
+  // proprietes et trois clamps — ni trigonometrie ni boucle ; on les garde plutot que de
+  // raisonner sur un consommateur hors fichier. Le recensement le compte a part
+  // (`lighting_off_kept_blocks`), jamais dans la porte.
+  if (lgtmath::block(lgtmath::kPbrParams)) {
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -2385,6 +2611,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
   normal_strength *= relief;
   height_scale *= relief;
+  }  // lighting-off-math-still-runs : fin du bloc GARDE `kPbrParams`
   lgt_keep_1i(id, "u_pbr_debug", pbr_debug);
   // lighting-legacy-purge (2026-09-11) : `u_pbr_bisect` (bissection de menu, masque livre 0),
   // `u_pbr_displacement` (fige a PARALLAX) et les deux uniformes de TESSELLATION ne sont plus
@@ -2398,8 +2625,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // shader's accumulation loop. u_pbr_sun_dir/u_pbr_sun_color stay set above (viz/other
   // code reads them). Each color is pre-weighted by its levels.x morph weight in GOAL's
   // TOD interpolation, so dir0+dir1 sum ~1 across hour transitions (energy conserved).
-  float light_dir[9];
-  float light_color[9];
+  // lighting-off-math-still-runs : les initialiseurs comptent. `light_dir[0..2]` = (0,1,0) est la
+  // valeur que la poussee CONSERVEE `u_rt_sun_dir` emporte quand le bloc est saute : unitaire,
+  // donc jamais NaN sous les trois `normalize()` hors garde des shaders monde, et jamais lue
+  // puisque `u_rt_light_on` et `u_pbr_shadow_on` valent 0. `light_color` a zero = lumiere eteinte.
+  float light_dir[9] = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f};
+  float light_color[9] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+  if (lgtmath::block(lgtmath::kLightGroup)) {
   if (gs.recharged_pbr_lg_valid) {
     for (int i = 0; i < 3; i++) {
       // GOAL dir is light-travel (sun->surface); shader wants surface->light, so negate.
@@ -2451,6 +2683,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       light_dir[2] = ss[2] / ssl;
     }
   }
+  }  // lighting-off-math-still-runs : fin du bloc `kLightGroup`
   lgt_3fv(id, "u_pbr_light_dir", 3, light_dir);
   lgt_3fv(id, "u_pbr_light_color", 3, light_color);
 
@@ -2461,13 +2694,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
   // SPEC §6.2 : sous l'eclairage recharge (recharged_gating::on compose les trois niveaux).
-  int rt_light_on = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
+  // lighting-off-math-still-runs : 0 est le RESULTAT du regime eteint, pas un repli prudent.
+  // `Gfx::lighting_active(x)` vaut `x && recharged_lighting_active()` (gfx.h:589-591) : eteint,
+  // la recomposition finale ci-dessous rend 0 quelle que soit l'entree, donc ni la porte
+  // `recharged_gating::on()` ni les deux surcharges d'environnement ne peuvent le relever. La
+  // poussee CONSERVEE `u_rt_light_on` et `lighting_census::gate_rt_light()` recoivent donc la
+  // meme valeur qu'avant, sans la calculer.
+  int rt_light_on = 0;
   // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
   // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
   // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
   // the lit-vs-shadow gap. Reverted to the owner-ACCEPTED 1.5 (daylight "nickel") to avoid regressing
   // the validated look. Still per-frame overridable via debug.opengoal.rt.intensity.
   float rt_intensity = 1.5f;
+  if (lgtmath::block(lgtmath::kRtGate)) {
+  rt_light_on = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
@@ -2491,6 +2732,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
   // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
   rt_light_on = Gfx::lighting_active(rt_light_on != 0) ? 1 : 0;
+  }  // lighting-off-math-still-runs : fin du bloc `kRtGate`
   // lighting-legacy-purge (2026-09-11) : la FORCE de l'ombre portee n'est plus un reglage. Le
   // residuel que le shader lisait (1 - force = 0,2 a la valeur livree) y est desormais ecrit en
   // dur : `u_rt_shadow_residual` n'est plus pousse, et la surcharge de propriete
@@ -2500,7 +2742,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lgt_keep_3f(id, "u_rt_sun_dir", light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.
-  {
+  if (lgtmath::block(lgtmath::kSunColor)) {
     float msc[3] = {gs.recharged_pbr_sun_color[0] * sun_scale,
                     gs.recharged_pbr_sun_color[1] * sun_scale,
                     gs.recharged_pbr_sun_color[2] * sun_scale};
@@ -2528,7 +2770,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // the sky-sun vector is not yet populated, so daytime is never wrongly darkened.
   float rt_sun_elev = 1.0f;
   float sun_up_raw = 1.0f;  // yellow-sun elevation sine (default fully-up until the first sky-sun push)
-  {
+  if (lgtmath::block(lgtmath::kSunElev)) {
     const float* ss = gs.recharged_pbr_sky_sun;
     float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
     if (ssl > 1e-4f) {
@@ -2546,6 +2788,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       rt_sun_elev = rt_smoothstep(-0.05f, 0.18f, up);
     }
   }
+  // lighting-off-math-still-runs : la surcharge de mise au point appartient au bloc `kSunElev` —
+  // sa seule sortie est `rt_sun_elev`, qui ne sort pas de la famille sautable.
+  if (lgtmath::lit_or_disarmed()) {
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
@@ -2558,6 +2803,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_sun_elev = atof(e);
   }
 #endif
+  }
   // u_rt_sun_elev is uploaded AFTER the attempt-10 handoff low-pass below (so the SMOOTHED value reaches
   // the shaders); the raw rt_sun_elev computed here is the EMA target, still used by the prop override above.
   // === Grecharged-directional-ambient (owner playtest #3): the GREEN SUN = Jak's 2ND SUN ===
@@ -2575,7 +2821,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float moon_dir[3] = {0.0f, 1.0f, 0.0f};  // safe default (up) until the first green-sun push arrives
   float green_elev = 0.0f;                 // green sun's OWN elevation weight (0 below horizon / unpushed)
   float green_up_raw = -1.0f;              // green-sun elevation sine (default below horizon until pushed)
-  {
+  if (lgtmath::block(lgtmath::kGreenSun)) {
     const float* gsun = gs.recharged_pbr_green_sun;
     float gln = std::sqrt(gsun[0] * gsun[0] + gsun[1] * gsun[1] + gsun[2] * gsun[2]);
     if (gln > 1e-4f) {
@@ -2587,6 +2833,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   const float MOON_GREEN[3] = {0.76f, 1.0f, 0.47f};   // precursor green-sun colour (194,254,120)/255
   float moon_intensity = 0.40f;                        // WEAKER than the yellow sun (owner: green sun weaker)
+  // lighting-off-math-still-runs : les deux surcharges de mise au point appartiennent au bloc
+  // `kGreenSun` — leurs seules sorties sont `moon_intensity` et `green_elev`, et `moon_scale`
+  // ci-dessous vaut 0 sans elles puisque `green_elev` reste a sa valeur « sous l'horizon ».
+  if (lgtmath::lit_or_disarmed()) {
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
     if (prop_cache::property_get("debug.opengoal.rt.moonintensity", rv) > 0 && rv[0]) moon_intensity = atof(rv); }
@@ -2609,6 +2859,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (g >= 0.0f) green_elev = g;
   }
 #endif
+  }
   float moon_scale = moon_intensity * green_elev;  // real green-sun elevation weight => day+night when up
   // OWNER PLAYTEST #4 (attempt-9b fix) — SHADOW-HANDOFF via a GRAZING-GATED elevation fade of the OWNING sun.
   // History: attempt-8's dominance formula was DEAD CODE (conf==1 always, the antiphase suns are never both
@@ -2623,8 +2874,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // daylight (yellow well up) keeps full shadows; deep-night green-sun shadows return once the green sun is
   // high. The direct LIGHT still ramps in at the horizon (rt_sun_elev/green_elev, -0.05..0.18) — only the
   // SHADOW waits for non-grazing elevation. Golden rule intact (this gates only the direct-sun cast shadow).
-  float owning_up = (pbr_shadow_state().shadow_light == 1) ? green_up_raw : sun_up_raw;
-  float rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
+  float rt_shadow_conf = 0.0f;
+  if (lgtmath::block(lgtmath::kShadowConf)) {
+    float owning_up = (pbr_shadow_state().shadow_light == 1) ? green_up_raw : sun_up_raw;
+    rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
+  }
 
   // === OWNER PLAYTEST #4 (attempt-10) — TEMPORAL per-frame low-pass of the sun<->green-sun HANDOFF ===
   // The yellow<->green handoff must be smooth PER-CHANNEL (R,G,B), not just in luminance. The three handoff
@@ -2643,7 +2897,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // (no daylight regression, sunlit A/B unchanged). Runs unconditionally; OFF==stock preserved by the
   // shader u_rt_light_on gate. A/B-defeatable (raw = the pre-fix step) via debug.opengoal.rt.handoffsmooth
   // ("0"/invalid => alpha 1 => no smoothing).
+  // lighting-off-math-still-runs : la lecture de l'alpha, les deux poids d'orientation et l'EMA
+  // elle-meme forment UN bloc (`kHandoffEma`) : l'alpha n'alimente que l'EMA, et l'EMA n'alimente
+  // que des poussees sautables. Sauter le bloc rend la fonction muette pour les statiques, d'ou
+  // l'INVALIDATION dans la branche `else` plus bas — sans elle, la rallumee ferait ramper l'EMA
+  // pendant ~10 images depuis une valeur vieille de N images, exactement l'a-coup que attempt-10
+  // a supprime.
   float handoff_alpha = 0.10f;
+  float ambW_y = 1.0f, ambW_g = 0.0f;
+  if (lgtmath::block(lgtmath::kHandoffEma)) {
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
     if (prop_cache::property_get("debug.opengoal.rt.handoffsmooth", rv) > 0 && rv[0]) handoff_alpha = atof(rv); }
@@ -2664,34 +2926,45 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // handoff low-pass => stepless at any TOD speed; steady day => ambW_y==1/ambW_g==0 (daylight byte-identical).
   float ambW_y_raw = rt_smoothstep(-0.05f, 0.18f, sun_up_raw);
   float ambW_g_raw = rt_smoothstep(-0.05f, 0.18f, green_up_raw);
-  float ambW_y = ambW_y_raw, ambW_g = ambW_g_raw;
+  ambW_y = ambW_y_raw;
+  ambW_g = ambW_g_raw;
   {
-    static u64 s_ho_frame = ~0ull;
-    static float s_ho_sunelev = 1.0f, s_ho_moon = 0.0f, s_ho_conf = 0.0f;
-    static float s_ho_ambY = 1.0f, s_ho_ambG = 0.0f;  // ambient-orientation elevation weights (playtest #5)
-    static bool s_ho_seed = false;
-    if (!s_ho_seed) {  // seed to the current raw values so we don't ramp from the defaults on boot
-      s_ho_sunelev = rt_sun_elev; s_ho_moon = moon_scale; s_ho_conf = rt_shadow_conf;
-      s_ho_ambY = ambW_y_raw; s_ho_ambG = ambW_g_raw; s_ho_seed = true;
+    // lighting-off-math-still-runs : les six statiques ont quitte le corps de la fonction pour
+    // `lgtmath::g_ho` ; l'etat et les valeurs sont identiques, seul leur lieu change.
+    auto& ho = lgtmath::g_ho;
+    if (!ho.seeded) {  // seed to the current raw values so we don't ramp from the defaults on boot
+      ho.sunelev = rt_sun_elev; ho.moon = moon_scale; ho.conf = rt_shadow_conf;
+      ho.ambY = ambW_y_raw; ho.ambG = ambW_g_raw; ho.seeded = true;
     }
-    if (render_state->frame_idx != s_ho_frame) {  // advance the EMA exactly once per frame
-      s_ho_frame = render_state->frame_idx;
-      s_ho_sunelev += handoff_alpha * (rt_sun_elev - s_ho_sunelev);
-      s_ho_moon += handoff_alpha * (moon_scale - s_ho_moon);
-      s_ho_conf += handoff_alpha * (rt_shadow_conf - s_ho_conf);
-      s_ho_ambY += handoff_alpha * (ambW_y_raw - s_ho_ambY);
-      s_ho_ambG += handoff_alpha * (ambW_g_raw - s_ho_ambG);
+    if (render_state->frame_idx != ho.frame) {  // advance the EMA exactly once per frame
+      ho.frame = render_state->frame_idx;
+      ho.sunelev += handoff_alpha * (rt_sun_elev - ho.sunelev);
+      ho.moon += handoff_alpha * (moon_scale - ho.moon);
+      ho.conf += handoff_alpha * (rt_shadow_conf - ho.conf);
+      ho.ambY += handoff_alpha * (ambW_y_raw - ho.ambY);
+      ho.ambG += handoff_alpha * (ambW_g_raw - ho.ambG);
     }
-    rt_sun_elev = s_ho_sunelev;
-    moon_scale = s_ho_moon;
-    rt_shadow_conf = s_ho_conf;
-    ambW_y = s_ho_ambY;
-    ambW_g = s_ho_ambG;
+    rt_sun_elev = ho.sunelev;
+    moon_scale = ho.moon;
+    rt_shadow_conf = ho.conf;
+    ambW_y = ho.ambY;
+    ambW_g = ho.ambG;
+  }
+  } else {
+    // L'INVALIDATION. Le lissage n'a pas avance pendant que l'eclairage etait eteint : sa valeur
+    // decrit une epoque revolue. On le desamorce, il se re-semera sur la valeur BRUTE a la
+    // premiere image rallumee — le comportement exact de l'amorcage, jamais une rampe depuis
+    // du perime.
+    lgtmath::g_ho.seeded = false;
   }
   lgt_1f(id, "u_rt_sun_elev", rt_sun_elev);  // moved: upload the SMOOTHED value
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
+  // lighting-off-math-still-runs : eclairage eteint, les blocs qui produisent ces cinq grandeurs
+  // ne tournent plus — le vidage imprimerait leurs valeurs d'initialisation en les faisant passer
+  // pour une mesure. On le tait. Ce n'est pas un calcul : il ne consomme pas de numero de bloc.
+  if (lgtmath::lit_or_disarmed())
   { char dv[PROP_VALUE_MAX]; static int gdbg = 0;
     if (prop_cache::property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
       lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} conf={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
@@ -2727,6 +3000,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // (the fix). Set 1 to reproduce the pre-fix faceted look for a same-build before/after comparison.
   // Not exposed in the menu (debug-only); driven by a prop/env during device capture.
   int rt_flat_normal = 0;
+  if (lgtmath::block(lgtmath::kFlatNormal)) {
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
@@ -2739,7 +3013,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_flat_normal = atoi(e);
   }
 #endif
-  {
+  }
+  // lighting-off-math-still-runs : LA PORTE `u_rt_probe_on` EST RE-HEBERGEE ICI. C'est une
+  // constante — le recensement de l'item 0 la lit a 0 — et elle etait enfermee au fond du bloc
+  // d'ambiante, le plus cher de la fonction. Sortie, elle continue d'etre enregistree a chaque
+  // appel, eclairage allume comme eteint, exactement comme avant.
+  lighting_census::gate_probe(0);
+  if (lgtmath::block(lgtmath::kAmbientSh)) {
     // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
     // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
     // toward white so it reads as natural skylight. amb_scale (1/255) converts the raw GOAL 0..255 color.
@@ -2928,19 +3208,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                   (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
       lgt_1f(id, "u_rt_green_amp",
                   (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
-      lighting_census::gate_probe(0);
+      // lighting-off-math-still-runs : `lighting_census::gate_probe(0)` est remonte AVANT ce bloc.
     }
   }
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
   // full-realtime indirect); at the default weight 1.0 it stays viz-only.
+  if (lgtmath::block(lgtmath::kPbrAmbient)) {
   if (gs.recharged_pbr_lg_valid) {
     lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_lg_ambi[0] * amb_scale,
                 gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
   } else {
     lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_ambient[0] * amb_scale,
                 gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
+  }
   }
   // lighting-hdr (SPEC §8 item 2) : LES COMPOSITES C ET E CEDENT LEUR EXPOSITION AU SITE UNIQUE.
   // Quand la chaine HDR est active, ils poussent 1,0 et c'est `tonemap` qui expose, une fois,
@@ -2950,15 +3232,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // resultat est identique en dessous du genou, et il n'y a plus qu'un seul reglage d'exposition
   // sur le chemin. Chaine inactive : rien ne change, le composite garde son exposition, sinon
   // eteindre le HDR assombrirait le monde.
-  lgt_1f(id, "u_pbr_exposure",
-              hdr::chain_active() ? 1.0f : exposure);
+  // lighting-off-math-still-runs : l'ARGUMENT d'une poussee sautable est evalue meme quand la
+  // poussee est sautee — c'est une des formes du defaut mesure. `hdr::chain_active()` est un appel,
+  // pas une variable : il passe donc sous un bloc.
+  if (lgtmath::block(lgtmath::kExposure)) {
+    lgt_1f(id, "u_pbr_exposure", hdr::chain_active() ? 1.0f : exposure);
+  }
   // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
   // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
   // of height_scale, so what PbrDrawBinder multiplies by a material factor is the value the shader
   // really got, never a pre-clamp one. finish() reposes these same three numbers.
-  g_pbr_glob_normal_strength = normal_strength;
-  g_pbr_glob_height_scale = height_scale;
-  g_pbr_glob_spec = spec_intensity;
+  // lighting-off-math-still-runs : BLOC GARDE. Ces trois globales sont relues par le binder de
+  // matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau : leur
+  // consommateur est HORS de cette fonction, donc hors de la preuve que gl-uniforms-off-cost a
+  // faite sur les poussees. Trois affectations, aucun calcul ; on les garde et on le dit.
+  if (lgtmath::block(lgtmath::kMatGlobals)) {
+    g_pbr_glob_normal_strength = normal_strength;
+    g_pbr_glob_height_scale = height_scale;
+    g_pbr_glob_spec = spec_intensity;
+  }
   lgt_1f(id, "u_pbr_normal_strength", normal_strength);
   lgt_1f(id, "u_pbr_height_scale", height_scale);
   lgt_1f(id, "u_pbr_emissive_str", emissive_str);
