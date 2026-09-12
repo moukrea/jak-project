@@ -128,8 +128,8 @@ void note_fragment_source(const std::string& name, const std::string& src) {
     const size_t tlen = std::string(tok).size();
     size_t p = 0;
     while ((p = src.find(tok, p)) != std::string::npos) {
-      // jeton entier : `u_pbr_mode` ne doit pas matcher dans `u_pbr_mode2` si un tel nom
-      // apparait un jour.
+      // jeton entier : le nom ne compte que s'il n'est pas la partie initiale d'un identifiant
+      // plus long ; un jeton qui n'est qu'un PREFIXE ne doit jamais matcher.
       const char after = (p + tlen < src.size()) ? src[p + tlen] : '\0';
       const bool whole = !((after >= 'a' && after <= 'z') || (after >= 'A' && after <= 'Z') ||
                            (after >= '0' && after <= '9') || after == '_');

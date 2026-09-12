@@ -829,9 +829,9 @@ void Shrub::render_tree(int idx,
     // first_tfrag_draw_setup (which pushes the frame-constant PBR uniforms and parks the neutral
     // maps on units 11-17) and BEFORE the wind-LUT bind below, which now uses unit 18.
     pbr_binder.begin(render_state->shaders[ShaderId::SHRUB].id(), &m_pbr_draws);
-    // [cover] shrub is never the tess program, so every height-mapped shrub draw must land in
-    // disp_pom. Its own renderer label keeps it separate in the coverage census.
-    pbr_binder.set_coverage_context("shrub", nullptr, false, render_state->frame_idx);
+    // [cover] every height-mapped shrub draw must land in disp_pom, never in disp_none. Its own
+    // renderer label keeps it separate in the coverage census.
+    pbr_binder.set_coverage_context("shrub", nullptr, render_state->frame_idx);
 #endif
 
     glBindVertexArray(tree.vao);

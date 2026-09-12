@@ -850,9 +850,8 @@
 ;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
-;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell — in-menu term bisection so the
-;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
-;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
+;; Gpbr-fusion REOPEN #10 : le carrousel PBR ISOLATE est RETIRE, avec le pont C
+;; `pc_set_pbr_isolate` et l'uniforme `u_pbr_bisect` : aucun des trois n'existe plus.
 ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell (LIGHT / FULL / MAXIMUM). Uses the same
 ;; stale-text-bank-proof mechanism as the PBR ISOLATE / HD LOOK options, NOT the COMMON.TXT bank:
 ;; each entry is a RESERVED tag id (#x17b9..#x17bb, past the last allocated id #x17b6) that
@@ -6517,9 +6516,8 @@
 ;; touched: a stale Android COMMON.TXT cannot turn these four entries into "Unknown ID".
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell — one-click intended-config
 ;; presets. On confirm the write-back arm applies the whole config (booleans + sliders + carousells).
-;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell — in-menu term bisection so the
-;; owner isolates the residual grass-facet source at his OWN vantage with no adb. Index -> u_pbr_bisect mask
-;; in pc_set_pbr_isolate: BOTH 0, NORMAL-MAP ONLY 128 (POM off), PARALLAX ONLY 64 (normal-map off), NEITHER 192.
+;; Gpbr-fusion REOPEN #10 : le carrousel PBR ISOLATE est RETIRE, avec le pont C
+;; `pc_set_pbr_isolate` et l'uniforme `u_pbr_bisect` : aucun des trois n'existe plus.
 ;; Grecharged-hd-models5: the four per-character HD LOOK carousells (JAK / DAXTER / KEIRA / SAMOS).
 ;; Their OPTION strings use the PBR-ISOLATE durability mechanism, NOT the COMMON.TXT text bank:
 ;; each entry is a RESERVED tag id (#x17b0..#x17b6 + #x17bc, past the last allocated text-h.gc id #x17ac)

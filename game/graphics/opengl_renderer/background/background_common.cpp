@@ -808,21 +808,19 @@ float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_s
   return pbr_uv_density_median(samples);
 }
 
-// [cover] ROUND 21 DISPLACEMENT COVERAGE: the EFFECTIVE displacement gates, mirrored from
-// first_tfrag_draw_setup (which is where the prop/env overrides, the tess->parallax driver demotion
-// and the mode-0 height-scale zeroing are all resolved). PbrDrawBinder::set reads them to classify
-// each PBR-bound draw against the same conditions the shaders branch on. Diagnostics only: nothing
-// in the render path reads these back.
+// [cover] DISPLACEMENT COVERAGE: les DEUX grandeurs qui restent portes effectives du
+// displacement, recopiees depuis first_tfrag_draw_setup (la ou les surcharges prop/env et le clamp
+// de relief sont resolus) : l'echelle de hauteur post-clamp et le mode de visualisation de debug.
+// PbrDrawBinder::set les relit pour classer chaque draw PBR selon la meme condition que le
+// fragment. La bissection (`u_pbr_bisect`) et le carrousel DISPLACEMENT (`u_pbr_displacement`,
+// dont le mode 2 TESSELLATION) sont RETIRES : ils ne sont plus ni pousses ni publies ici.
+// Diagnostic seulement : rien dans le chemin de rendu ne relit ces atomiques.
 static std::atomic<float> g_cover_height_scale{0.f};
-static std::atomic<int> g_cover_bisect{0};
 static std::atomic<int> g_cover_debug{0};
-static std::atomic<int> g_cover_displacement{1};
 
-static void pbr_cover_publish_gates(float height_scale, int bisect, int debug, int displacement) {
+static void pbr_cover_publish_gates(float height_scale, int debug) {
   g_cover_height_scale.store(height_scale, std::memory_order_relaxed);
-  g_cover_bisect.store(bisect, std::memory_order_relaxed);
   g_cover_debug.store(debug, std::memory_order_relaxed);
-  g_cover_displacement.store(displacement, std::memory_order_relaxed);
 }
 
 namespace {
@@ -831,7 +829,7 @@ namespace {
 // pour que tout draw qui ne passe pas par le binder (HFRAG en particulier) soit inchange.
 // Ecrites et lues sur le SEUL thread GL (setup de programme puis draws du meme thread), d'ou des
 // float nus et non des atomiques : ce sont les valeurs POST-clamp, celles que le programme a
-// vraiment recues (en particulier height_scale = 0 quand u_pbr_displacement == 0).
+// vraiment recues.
 // Les initialiseurs sont les valeurs de depart de first_tfrag_draw_setup (3.0 / 0.05 AVANT le
 // facteur TEXTURE RELIEF, 0.15 = gfx.h recharged_pbr_spec_intensity), pour qu'un binder qui
 // tournerait avant tout setup n'invente pas une valeur. En pratique le setup passe toujours en
@@ -980,24 +978,21 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   // never inherit a stale label, and re-supplied by the caller right after begin().
   m_cover_renderer = nullptr;
   m_cover_kind = nullptr;
-  m_cover_tess = false;
   m_cover_frame = 0;
 }
 
 void PbrDrawBinder::set_coverage_context(const char* renderer,
                                          const char* tree_kind,
-                                         bool tess_program,
                                          u64 frame_idx) {
   m_cover_renderer = renderer;
   m_cover_kind = tree_kind;
-  m_cover_tess = tess_program;
   m_cover_frame = frame_idx;
 }
 
 void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
   // SPEC §6.2 : les matieres PBR sont SOUS l'eclairage recharge — une matiere sans lumiere n'a
-  // rien a reflechir. Cette porte est le seul endroit qui met `want` (donc u_pbr_mode, donc
-  // u_mm_flags qui en derive) a autre chose que 0 : eclairage OFF => u_pbr_mode = 0 partout.
+  // rien a reflechir. Cette porte est le seul endroit qui met `want` (donc u_pbr_mode) a autre
+  // chose que 0 : eclairage OFF => u_pbr_mode = 0 partout.
   int want = 0;
   const custom_tex::PbrMaterialMaps* maps = nullptr;
   // ROUND 20: the matching entry itself, so the per-material measured UV density can be read.
@@ -1060,24 +1055,24 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     return;
   }
   if (want != 0) {
-    // [cover] ROUND 21 DISPLACEMENT COVERAGE. This draw is about to bind PBR maps and push
-    // u_pbr_mode, so it is exactly one "PBR-bound draw" — count it, and classify HOW (if at all) it
-    // receives displacement, using the same conditions the shaders branch on:
-    //   tfrag3_tess.tese:180  (mode & 16) && u_pbr_displacement == 2 && u_pbr_height_scale > 0
-    //   tfrag3.frag:905/1690  (mode & 16) && u_pbr_debug != 8 && u_pbr_height_scale > 0 &&
-    //                         (u_pbr_bisect & 128) == 0 && u_pbr_tess_active == 0
-    // Neither open = the owner's FLAT CHUNK. Integer-only, no allocation, and only ever reached on
-    // a draw that already does the PBR bind, so PBR-off frames pay nothing.
+    // [cover] DISPLACEMENT COVERAGE. This draw is about to bind PBR maps and push u_pbr_mode, so
+    // it is exactly one "PBR-bound draw" — count it, and classify whether it receives displacement.
+    // There is now a SINGLE gate to mirror, the fragment POM one, as the shaders branch on it
+    // today: pbr_fused.glsl:220-221, reached from tfrag3.frag:32 -> shade.glsl:335, reads
+    //   (u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 && pom_w > ...
+    // (the last term is a per-pixel coverage weight, so the CPU mirrors the three uniform terms).
+    // Le seau de displacement par SOMMET est RETIRE avec le programme TFRAG3_TESS et les shaders
+    // tfrag3_tess.*, qui n'existent plus ; `u_pbr_bisect` et `u_pbr_tess_active` sont SUPPRIMES
+    // eux aussi — aucun shader ne les declare.
+    // Gate closed with a height map = the owner's FLAT CHUNK. Integer-only, no allocation, and only
+    // ever reached on a draw that already does the PBR bind, so PBR-off frames pay nothing.
     if (m_cover_renderer) {
       const bool has_height = (want & 16) != 0;
       const float hs = g_cover_height_scale.load(std::memory_order_relaxed);
-      const int bis = g_cover_bisect.load(std::memory_order_relaxed);
       const int dbg = g_cover_debug.load(std::memory_order_relaxed);
-      const int disp = g_cover_displacement.load(std::memory_order_relaxed);
-      const bool tess_disp = m_cover_tess && disp == 2 && hs > 0.f;
-      const bool pom_disp = !m_cover_tess && hs > 0.f && (bis & 128) == 0 && dbg != 8;
+      const bool pom_disp = hs > 0.f && dbg != 8;
       custom_tex::pbr_coverage_note_draw(m_cover_frame, m_cover_renderer, m_cover_kind, has_height,
-                                         has_height && tess_disp, has_height && pom_disp);
+                                         has_height && pom_disp);
     }
     // Bind ALL SEVEN units every time: the real map when present, the 1x1 neutral
     // default when absent. No unit is ever left unbound or holding another draw's map
@@ -2083,8 +2078,8 @@ enum Block : int {
   kBlockedCount,
   // ── famille GARDEE : sortie consommee AILLEURS, la raison est ecrite ─────────────────────────
   // `kPbrParams` : les surcharges d'environnement des scalaires de matiere, puis le clamp de
-  //   relief. Sa sortie alimente `pbr_cover_publish_gates(height_scale, ...)`, dont les quatre
-  //   atomiques sont relues par `PbrDrawBinder::set` (background_common.cpp:1053-1056).
+  //   relief. Sa sortie alimente `pbr_cover_publish_gates(height_scale, ...)`, dont les deux
+  //   atomiques sont relues par `PbrDrawBinder::set`.
   // `kMatGlobals` : `g_pbr_glob_normal_strength|height_scale|spec`, relus par le binder de
   //   matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau.
   // Les deux sont des constantes, des `atof` sur un cache de proprietes et trois clamps : aucune
@@ -2529,14 +2524,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // shader : continuer a le pousser serait un glUniform sur un emplacement -1, une fois par draw.
   // lighting-legacy-purge (2026-09-11) : les deux knobs de la pile « Materiaux avances »
   // (`u_mm_exposure`, `u_mm_debug`) partent avec elle.
-  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT n'est plus un carrousel. Il vaut
-  // RechargedFixed::kPbrDisplacement (1 = PARALLAX / POM), la valeur livree ; le mode 2
+  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT n'est plus un carrousel. Le mode 2
   // TESSELLATION n'a jamais ete livre et ses deux knobs (plafond de niveau, taille de segment)
-  // partent avec lui, comme les shaders tfrag3_tess.*.
-  const int pbr_displacement = RechargedFixed::kPbrDisplacement;
+  // sont partis avec lui, comme les shaders tfrag3_tess.*. dead-cover-and-legends (2026-09-12) :
+  // plus aucune variable locale ne porte le mode ici — le seul mode possible est le PARALLAX, donc
+  // personne n'a plus a le lire.
   // lighting-off-math-still-runs : BLOC GARDE. Les surcharges ci-dessous et les clamps qui les
   // suivent produisent `normal_strength` / `height_scale` / `spec_intensity`, relus HORS de cette
-  // fonction : `pbr_cover_publish_gates` (quatre atomiques, relues par PbrDrawBinder::set) et
+  // fonction : `pbr_cover_publish_gates` (deux atomiques, relues par PbrDrawBinder::set) et
   // `g_pbr_glob_*` (relus par le binder de matiere). Ce sont des `atof` sur un cache de
   // proprietes et trois clamps — ni trigonometrie ni boucle ; on les garde plutot que de
   // raisonner sur un consommateur hors fichier. Le recensement le compte a part
@@ -2637,9 +2632,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // lighting-legacy-purge (2026-09-11) : `u_pbr_bisect` (bissection de menu, masque livre 0),
   // `u_pbr_displacement` (fige a PARALLAX) et les deux uniformes de TESSELLATION ne sont plus
   // pousses : le repli « Tessellation -> Parallaxe » n'a plus d'objet puisque le mode 2 n'existe
-  // plus, et la mise a zero de `height_scale` sous le mode 0 non plus. Le recensement de couverture
-  // recoit desormais la constante, pas une variable.
-  pbr_cover_publish_gates(height_scale, 0, pbr_debug, pbr_displacement);
+  // plus, et la mise a zero de `height_scale` sous le mode 0 non plus. dead-cover-and-legends
+  // (2026-09-12) : le recensement de couverture ne recoit plus du tout ces deux grandeurs — une
+  // constante n'est pas une porte.
+  pbr_cover_publish_gates(height_scale, pbr_debug);
 
   // Round-4 multi-light (mandate C): build 3 direct lights from *time-of-day-context*
   // light-group 0 (soleil dir0 + lune verte dir1 + fill dir2). Bound as arrays for the

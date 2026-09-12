@@ -103,7 +103,8 @@ struct SubdivConfig {
   // -1 = not set by prop/env; the caller's feature gate decides. >= 0 overrides it (0 = force off).
   float forced_max_edge_m = -1.f;
   // Gprecompute-deterministic-bake: -1 = the prop/env said nothing about the ROUND COUNT, so the
-  // caller's user setting (Gfx::g_global_settings.recharged_mesh_subdiv_rounds) owns it. >= 0 means
+  // caller's own default for the pass owns it. There is no user setting to defer to any more:
+  // `recharged_mesh_subdiv_rounds` est RETIRE de game/graphics/gfx.h. >= 0 means
   // debug.opengoal.mesh.subdivrounds / OG_MESH_SUBDIV_ROUNDS was set and wins, for A/B work.
   int forced_max_rounds = -1;
 
@@ -113,9 +114,10 @@ struct SubdivConfig {
   // TIE geometry is NEVER handed to the tessellator. Tie3.cpp binds only TFRAG3 / ETIE_BASE /
   // TIE_WIND; there is no glPatchParameteri and no GL_PATCHES anywhere in Tie3.cpp, so no TIE draw
   // can ever enter a tessellation control/evaluation stage. A device coverage dump says the same
-  // thing from the other end: `renderer=tie pbr_height=10 disp_tess=0 disp_pom=10` -- ten TIE draws
-  // carry a height map, zero of them are tessellated, all ten are displaced by PARALLAX OCCLUSION
-  // MAPPING instead. POM is a per-PIXEL raymarch in the fragment shader: its quality is a function
+  // thing from the other end: `renderer=tie pbr_height=10 disp_pom=10` -- ten TIE draws carry a
+  // height map and all ten are displaced by PARALLAX OCCLUSION MAPPING. (La colonne `disp_tess`
+  // de ce vidage est RETIREE avec le programme TFRAG3_TESS : il n'y a plus de seau tesselle a
+  // imprimer.) POM is a per-PIXEL raymarch in the fragment shader: its quality is a function
   // of screen resolution and step count, NOT of triangle density. Subdividing a TIE wall therefore
   // buys exactly zero pixels of extra relief while costing vertices, index memory and load time.
   //

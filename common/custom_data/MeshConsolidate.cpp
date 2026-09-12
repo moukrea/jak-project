@@ -2656,12 +2656,14 @@ void mesh_consolidate(Level& lev,
       // clusters has to pick one, and the classic rule is "the cluster of the largest incident
       // face". That rule is wrong for displacement, and measurably so.
       //
-      // The tessellator moves the vertex along THIS normal for EVERY patch that references it
-      // (tfrag3_tess.tese:421 `world += N * disp`). A box-edge vertex shared by a big top face and a
-      // small side face gets the top face's normal under the largest-face rule; the side patch then
-      // displaces along a direction ~90 degrees from its own outward, so dot(N, outward) sits at or
-      // below zero and half of its checker squares move the wrong way. The vertex normal is not just
-      // a shading quantity here — it is the displacement axis of every face that uses it.
+      // The tessellator MOVED the vertex along THIS normal for EVERY patch that referenced it
+      // (`tfrag3_tess.tese`:421 `world += N * disp` — ce shader est SUPPRIME du moteur ; la loi de
+      // deplacement survit en copie CPU dans `tools/tess_audit/`). A box-edge vertex shared by a big
+      // top face and a small side face gets the top face's normal under the largest-face rule; the
+      // side patch then displaced along a direction ~90 degrees from its own outward, so
+      // dot(N, outward) sits at or below zero and half of its checker squares moved the wrong way.
+      // The vertex normal is not just a shading quantity here — it is the displacement axis of every
+      // face that uses it.
       //
       // So choose, among the clusters this vertex actually touches, the one whose normal has the
       // best WORST-CASE agreement with the vertex's own incident faces: maximise
@@ -2758,9 +2760,10 @@ void mesh_consolidate(Level& lev,
   //     renderer-side notion of "outward" at all: the shading normal is the ONLY thing that
   //     distinguishes the two sides of a world surface.
   //
-  //     THE WELL-POSED REQUIREMENT. tfrag3_tess.tese displaces the vertex along the INTERPOLATED
-  //     vertex normal for EVERY patch that references it, and the fragment stage then lights it with
-  //     that same normal. So what has to hold is
+  //     THE WELL-POSED REQUIREMENT. `tfrag3_tess.tese` displaced the vertex along the INTERPOLATED
+  //     vertex normal for EVERY patch that referenced it, and the fragment stage then lit it with
+  //     that same normal (ce shader est SUPPRIME du moteur ; la loi de deplacement survit en copie
+  //     CPU dans `tools/tess_audit/`). So what has to hold is
   //
   //         for every face f and every corner vertex v of f:  dot(N_v, n_geom(f) * fsign[f]) > 0
   //
@@ -3455,7 +3458,9 @@ void mesh_consolidate(Level& lev,
     //
     //      for every face f and every corner vertex v of f:   dot(N_v, outward(f)) > 0
     //
-    // because tfrag3_tess.tese displaces the vertex along N_v for EVERY patch that references it.
+    // because `tfrag3_tess.tese` displaced the vertex along N_v for EVERY patch that referenced it
+    // (ce shader est SUPPRIME du moteur ; la loi de deplacement survit en copie CPU dans
+    // `tools/tess_audit/`).
     // The cluster choice above maximises the worst case only among the clusters the vertex touches;
     // where no cluster satisfies every incident face, the right answer is not one of the cluster
     // normals at all but the CHEBYSHEV CENTRE of the incident unit outward directions — the

@@ -34,9 +34,11 @@
 #include "third-party/stb_image/stb_image.h"
 
 #ifdef OG_FEAT_PBR
-// Grecharged-materials-modern-parity: the modern shader chunk is gated on `u_pbr_debug == 0`
-// (pbr_modern.glsl:40), so a debug visualisation being armed SKIPS the whole chunk while our
-// counters keep rising. The diag section publishes the mode so that hole is never silent.
+// Grecharged-materials-modern-parity: `pbr_modern.glsl` et sa garde `u_pbr_debug == 0` sont
+// SUPPRIMES — le chunk moderne n'est plus saute en bloc par une visualisation. Mais le mode de
+// debug reste une porte de ce que le fragment CALCULE (pbr_fused.glsl:220 ferme le POM a
+// `u_pbr_debug == 8`) pendant que nos compteurs, eux, continuent de monter. La section de diag
+// publie le mode pour que ce trou ne soit jamais silencieux.
 // Declared here at GLOBAL scope rather than included: background_common.h (which declares it at
 // :376) includes THIS header at its :15, so including it back would close an include cycle.
 int pbr_debug_mode();
@@ -151,7 +153,7 @@ PomLaw pom_law_eval(float rel, float lam_m, float upm) {
 // inside the per-PBR-draw bind (so it is never touched when PBR is off) and read by the kernel
 // thread's diag writer. Two frames are kept: the one being accumulated and the last COMPLETED one,
 // which is what the dump reports — a mid-frame snapshot would under-count by construction.
-enum CoverCounter { kCovDraws = 0, kCovHeight, kCovTess, kCovPom, kCovNone, kCovN };
+enum CoverCounter { kCovDraws = 0, kCovHeight, kCovPom, kCovNone, kCovN };
 constexpr int kCoverSlots = 8;
 // One small text write every ~5 s at 60 fps (see pbr_coverage_generation) instead of one per frame.
 constexpr u32 kCoverPublishEveryFrames = 300;
@@ -241,7 +243,7 @@ u32 cover_read(const std::atomic<u32>* c, int i) {
 // One "[cover] renderer=<name>" row of the LAST COMPLETED frame. `pad` reproduces the requested
 // column alignment; a missing renderer prints its zero row so the block always answers for both.
 std::string cover_renderer_line(const char* name, const char* pad) {
-  u32 c[kCovN] = {0, 0, 0, 0, 0};
+  u32 c[kCovN] = {};
   for (int i = 0; i < kCoverSlots; i++) {
     const char* n = g_cover_last.renderers[i].name.load(std::memory_order_relaxed);
     if (n && strcmp(n, name) == 0) {
@@ -251,8 +253,8 @@ std::string cover_renderer_line(const char* name, const char* pad) {
       break;
     }
   }
-  return fmt::format("[cover] renderer={}{}pbr_height={} disp_tess={} disp_pom={} disp_none={}\n",
-                     name, pad, c[kCovHeight], c[kCovTess], c[kCovPom], c[kCovNone]);
+  return fmt::format("[cover] renderer={}{}pbr_height={} disp_pom={} disp_none={}\n", name, pad,
+                     c[kCovHeight], c[kCovPom], c[kCovNone]);
 }
 #endif
 
@@ -1559,15 +1561,14 @@ void pbr_coverage_note_draw(u64 frame_idx,
                             const char* renderer,
                             const char* tree_kind,
                             bool has_height,
-                            bool disp_tess,
                             bool disp_pom) {
   if (frame_idx != g_cover_cur_frame.load(std::memory_order_relaxed)) {
     cover_roll(frame_idx);
   }
-  // Exactly one bucket per height-mapped draw. Tessellation wins when both are somehow reported:
-  // the tess-eval displaces the vertices and the fragment POM stands down on that program, so a
-  // tess draw can never also be a POM draw.
-  const int bucket = disp_tess ? kCovTess : (disp_pom ? kCovPom : kCovNone);
+  // Exactly one bucket per height-mapped draw: the fragment POM gate is open, or it is not. The
+  // vertex-displacement bucket is RETIRE, with the TFRAG3_TESS program that fed it (that program
+  // and its tfrag3_tess.* shaders n'existent plus), so no draw can be in two buckets any more.
+  const int bucket = disp_pom ? kCovPom : kCovNone;
   g_cover_cur.total[kCovDraws].fetch_add(1, std::memory_order_relaxed);
   if (has_height) {
     g_cover_cur.total[kCovHeight].fetch_add(1, std::memory_order_relaxed);
@@ -1591,22 +1592,21 @@ std::string pbr_coverage_section() {
   }
   // 100.0 with no height-mapped draw at all: nothing was asked to displace, so nothing is missing.
   const double cov_pct =
-      t[kCovHeight] ? 100.0 * (double)(t[kCovTess] + t[kCovPom]) / (double)t[kCovHeight] : 100.0;
+      t[kCovHeight] ? 100.0 * (double)t[kCovPom] / (double)t[kCovHeight] : 100.0;
   std::string out;
   out += "[cover] # OWNER BUG B (\"des chunks entiers (LA PLUPART) sont juste PLATS\"): WHICH\n";
   out += "[cover] # PBR-bound draws actually RECEIVE displacement, counted at the bind site.\n";
   out += "[cover] #   pbr_draws  = draws that bound a PBR material this frame (height or not)\n";
   out += "[cover] #   pbr_height = of those, the ones with a height map (u_pbr_mode bit 16)\n";
-  out += "[cover] #   disp_tess  = displaced for real by the TFRAG3_TESS program (vertex)\n";
-  out += "[cover] #   disp_pom   = non-tess program, so the fragment POM runs on it\n";
-  out += "[cover] #   disp_none  = NEITHER -> the FLAT CHUNK count; must be ~0 unless the\n";
+  out += "[cover] #   disp_pom   = the fragment POM gate is open, so the draw is displaced\n";
+  out += "[cover] #   disp_none  = gate CLOSED -> the FLAT CHUNK count; must be ~0 unless the\n";
   out += "[cover] #                DISPLACEMENT setting is Off (u_pbr_height_scale == 0).\n";
   out += "[cover] # Numbers are the LAST COMPLETED frame.\n";
   out += fmt::format(
-      "[cover] frame={} pbr_draws={} pbr_height={} disp_tess={} disp_pom={} disp_none={} "
+      "[cover] frame={} pbr_draws={} pbr_height={} disp_pom={} disp_none={} "
       "coverage_pct={:.1f}\n",
-      g_cover_last_frame.load(std::memory_order_relaxed), t[kCovDraws], t[kCovHeight], t[kCovTess],
-      t[kCovPom], t[kCovNone], cov_pct);
+      g_cover_last_frame.load(std::memory_order_relaxed), t[kCovDraws], t[kCovHeight], t[kCovPom],
+      t[kCovNone], cov_pct);
   out += cover_renderer_line("tfrag", " ");
   out += cover_renderer_line("tie", "   ");
   // Any other PBR-capable renderer that started reporting (none today, but the rows must not be
@@ -1626,10 +1626,9 @@ std::string pbr_coverage_section() {
       continue;
     }
     const auto& s = g_cover_last.kinds[i];
-    out +=
-        fmt::format("[cover] tfrag_kind={} pbr_height={} disp_tess={} disp_pom={} disp_none={}\n",
-                    n, cover_read(s.c, kCovHeight), cover_read(s.c, kCovTess),
-                    cover_read(s.c, kCovPom), cover_read(s.c, kCovNone));
+    out += fmt::format("[cover] tfrag_kind={} pbr_height={} disp_pom={} disp_none={}\n", n,
+                       cover_read(s.c, kCovHeight), cover_read(s.c, kCovPom),
+                       cover_read(s.c, kCovNone));
   }
   return out;
 }

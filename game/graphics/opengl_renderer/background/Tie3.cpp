@@ -1470,11 +1470,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   PbrDrawBinder pbr_binder;
   const ShaderId pbr_program = use_envmap ? ShaderId::ETIE_BASE : ShaderId::TFRAG3;
   pbr_binder.begin(render_state->shaders[pbr_program].id(), &m_pbr_draws);
-  // [cover] ROUND 21 DISPLACEMENT COVERAGE: TIE's PBR draws are NEVER on the tess program (that
-  // one is tfrag-only), so tess_program = false — every TIE draw with a height map must land in
-  // disp_pom, never in disp_none. The two branches report under distinct renderer labels so the
-  // coverage census can tell the envmap half from the plain half. No tree kind here.
-  pbr_binder.set_coverage_context(use_envmap ? "tie_envmap" : "tie", nullptr, false,
+  // [cover] DISPLACEMENT COVERAGE: every TIE draw with a height map must land in disp_pom, never
+  // in disp_none. The two branches report under distinct renderer labels so the coverage census
+  // can tell the envmap half from the plain half. No tree kind here.
+  pbr_binder.set_coverage_context(use_envmap ? "tie_envmap" : "tie", nullptr,
                                   render_state->frame_idx);
   // Round-4 mandate B: bind the sun shadow matrix + sampler on the program that is actually
   // active so a replaced TIE surface receives the same shadowed direct term as tfrag. The depth
@@ -2349,9 +2348,9 @@ void Tie3::render_tree_wind(int idx,
   // wind draws index the SAME level texture table as the static TIE draws), same binder.
   PbrDrawBinder pbr_binder;
   pbr_binder.begin(render_state->shaders[ShaderId::TIE_WIND].id(), &m_pbr_draws);
-  // [cover] the wind program is not the tess program, so every height-mapped wind draw must land
-  // in disp_pom. Distinct renderer label so the coverage census separates it from static TIE.
-  pbr_binder.set_coverage_context("tie_wind", nullptr, false, render_state->frame_idx);
+  // [cover] every height-mapped wind draw must land in disp_pom, never in disp_none. Distinct
+  // renderer label so the coverage census separates it from static TIE.
+  pbr_binder.set_coverage_context("tie_wind", nullptr, render_state->frame_idx);
 #endif
   glBindVertexArray(tree.vao);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);

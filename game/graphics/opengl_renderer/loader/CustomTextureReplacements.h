@@ -330,16 +330,15 @@ std::string pbr_pom_diag_section();
 //   tree_kind  : optional sub-label with the same lifetime rule (tfrag3::tfrag_tree_names[kind]);
 //                nullptr when the caller has no cheap tree kind.
 //   has_height : this draw has a height map bound (u_pbr_mode bit 16).
-//   disp_tess  : the draw is rendered by the TFRAG3_TESS program AND the tess-eval displacement
-//                gate is open (real vertex displacement).
-//   disp_pom   : the draw is rendered by a non-tess program AND the fragment POM gate is open.
-// Both false with has_height = the "flat chunk" bucket. Callers own the gate mirroring (the
-// effective height scale / bisect / debug values live on the GL side).
+//   disp_pom   : the fragment POM gate is open on this draw (the only displacement there is).
+// The `disp_tess` bucket is RETIRE, with the TFRAG3_TESS program and its tfrag3_tess.* shaders:
+// there is no vertex displacement left to count, and it must not be recreated.
+// disp_pom false with has_height = the "flat chunk" bucket. Callers own the gate mirroring (the
+// effective height scale / debug values live on the GL side).
 void pbr_coverage_note_draw(u64 frame_idx,
                             const char* renderer,
                             const char* tree_kind,
                             bool has_height,
-                            bool disp_tess,
                             bool disp_pom);
 // Advances every ~300 completed frames once counting has started, so the diag writer re-emits the
 // file with live coverage numbers without doing per-frame disk I/O.

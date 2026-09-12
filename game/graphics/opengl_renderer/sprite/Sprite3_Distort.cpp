@@ -192,7 +192,7 @@ struct FireDistortSamplerState {
 FireDistortSamplerState g_fire_dz;
 int g_fire_dz_probe_tick = 0;
 
-// LE MIROIR DU NUANCEUR, sur les MEMES entrees que lui. `sprite3_distort_instanced.vert`
+// LE MIROIR DU NUANCEUR, sur les MEMES entrees que lui. `sprite_distort_instanced.vert`
 // place cinq sommets par tranche : deux a l'echelle sx, deux a sy (sz pour la texture), et le
 // centre. La projection est ecrite en dur dans le nuanceur (offset 2048, x/256, y/-128,
 // HEIGHT_SCALE=1 en jak1) et le fragment echantillonne (s, (1-t) - (1 - 448/512)/2).

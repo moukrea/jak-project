@@ -1156,11 +1156,11 @@ void TFragment::render_tree(int geom,
   // in the shader, only rgb is relit.
   PbrDrawBinder pbr_binder;
   pbr_binder.begin(render_state->shaders[tfrag_shader_id].id(), &m_pbr_draws);
-  // [cover] ROUND 21 DISPLACEMENT COVERAGE: hand the binder ce que seul cet appelant sait — quel
-  // renderer possede les draws. Le drapeau « programme tesselle » vaut desormais toujours faux : le
-  // programme TESSELLE a ete supprime (lighting-legacy-purge).
+  // [cover] DISPLACEMENT COVERAGE: hand the binder ce que seul cet appelant sait — quel renderer
+  // possede les draws. Le drapeau « programme tesselle » est parti avec le programme qu'il
+  // nommait : le programme TESSELLE a ete SUPPRIME (lighting-legacy-purge).
   // tfrag_tree_names[] entries are constexpr string literals, so storing the pointer is safe.
-  pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind], false,
+  pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind],
                                   render_state->frame_idx);
   auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
     pbr_binder.set(tex_id, mode);
