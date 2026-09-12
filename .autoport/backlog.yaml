@@ -8112,7 +8112,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-output-visible
-  status: open
+  status: in-progress
   priority: 22
   game: jak1
   device: true
@@ -8142,6 +8142,14 @@ items:
   max_turns: 600
   max_retries: 5
   proof_timeout: 300
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.hdr=1
+  - debug.opengoal.hdr.out=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.tracing.screen_brightness=0.2000
   prompt: prompts/item-hdr-output-visible.md
   notes: issu des trois signalements hors perimetre du chantier C, 12/09 ; ils pointaient cet id avant
     qu'il existe.
@@ -8957,7 +8965,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-shadow-range
-  status: in-progress
+  status: to-test
   priority: 21
   game: jak1
   device: true
@@ -9000,6 +9008,14 @@ items:
   notes: 'budget : 8 essais — le sujet est celui que l''owner reclame depuis le debut de la chaine HDR,
     et c''est le premier ou son appareil accorde enfin de la marge. Issu de son retour du 12/09 sur le
     Honor.'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: dd79a8eb64c808ac
+    proof_bytes: 34308
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-12'
 - id: build-android-reinvalidates-itself
   status: validated
   priority: 18

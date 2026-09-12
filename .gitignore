@@ -176,6 +176,7 @@ build-pbrtest/
 .autoport/backups/
 .autoport/recalled/
 .autoport/gtf-arm64-set/
+.autoport/.logcat/
 .autoport/*.mp4
 .autoport/**/*.mp4
 build-*/
