@@ -5209,6 +5209,18 @@
                             opt-x0))
                 (option-y y-off)
                 (locked? #f))
+            ;; hdr-output-visible : CE QUI EST DESSINE. Quand la rangee de sortie HDR passe dans
+            ;; cette boucle, on rapporte au C++ l'etat que son libelle porte A CET INSTANT. C'est
+            ;; la seule sonde qui dise a la fois « la page est affichee » et « voici la ligne
+            ;; qu'elle montre » ; le C++ la compare au regime courant depuis SON fil, a SON
+            ;; instant — un juge et son juge sur le meme fil ne comparent qu'une expression a
+            ;; elle-meme. La garde est un ordre de CHARGEMENT, le meme drapeau que le crochet par
+            ;; image : tant que le niveau superieur de ce fichier n'a pas tourne, ni le libelle ni
+            ;; l'etat n'existent, et on ne saute nulle part.
+            (when (and *hdr-label-hook-ready?*
+                       (nonzero? (-> options index name-override))
+                       (= (-> options index name-override) *hdr-output-label*))
+              (pc-hdr-output-label-drawn! *hdr-output-state-last*))
             ;; Check if the option should be disabled
             (when (and (nonzero? (-> options index option-disabled-func))
                        (!= (-> options index option-disabled-func) #f)
@@ -11960,6 +11972,18 @@
                 (option-x 17)
                 (option-y y-off)
                 (locked? #f))
+            ;; hdr-output-visible : CE QUI EST DESSINE. Quand la rangee de sortie HDR passe dans
+            ;; cette boucle, on rapporte au C++ l'etat que son libelle porte A CET INSTANT. C'est
+            ;; la seule sonde qui dise a la fois « la page est affichee » et « voici la ligne
+            ;; qu'elle montre » ; le C++ la compare au regime courant depuis SON fil, a SON
+            ;; instant — un juge et son juge sur le meme fil ne comparent qu'une expression a
+            ;; elle-meme. La garde est un ordre de CHARGEMENT, le meme drapeau que le crochet par
+            ;; image : tant que le niveau superieur de ce fichier n'a pas tourne, ni le libelle ni
+            ;; l'etat n'existent, et on ne saute nulle part.
+            (when (and *hdr-label-hook-ready?*
+                       (nonzero? (-> options index name-override))
+                       (= (-> options index name-override) *hdr-output-label*))
+              (pc-hdr-output-label-drawn! *hdr-output-state-last*))
             ;; Check if the option should be disabled
             (when (option-locked? (-> options index))
               (set! locked? #t))

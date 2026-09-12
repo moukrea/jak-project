@@ -2000,6 +2000,13 @@ void pc_hdr_output_label_note(u32 transport, u32 regime, u32 len) {
   hdr_output::note_menu_label((int)transport, (int)regime, (int)len);
 }
 
+// hdr-output-visible : ce que la boucle de dessin du menu a REELLEMENT dessine, une fois par
+// image ou la rangee de sortie HDR passe. L'argument est l'etat empaquete que le libelle porte a
+// cet instant ; le C++ le compare au regime courant depuis SON fil, jamais depuis celui-ci.
+void pc_hdr_output_label_drawn(u32 state) {
+  hdr_output::note_menu_label_drawn((int)state);
+}
+
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
@@ -4582,6 +4589,8 @@ void InitMachine_PCPort() {
   // hdr-output-regime : le transport et le regime, et le rapport de ce que le menu a formate
   make_function_symbol_from_c("pc-get-hdr-output-state", (void*)pc_get_hdr_output_state);
   make_function_symbol_from_c("pc-hdr-output-label-note!", (void*)pc_hdr_output_label_note);
+  // hdr-output-visible : la rangee vient d'etre DESSINEE, avec cet etat de libelle
+  make_function_symbol_from_c("pc-hdr-output-label-drawn!", (void*)pc_hdr_output_label_drawn);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);

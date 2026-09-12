@@ -165,6 +165,12 @@
 (define-extern pc-hdr-output-note! (function int int none))
 (define-extern pc-get-hdr-output-state (function int))
 (define-extern pc-hdr-output-label-note! (function int int int none))
+;; hdr-output-visible : la rangee vient d'etre DESSINEE. Declaree ICI parce que la boucle de
+;; dessin du menu (progress-pc.gc, `draw-option-list`) est PLUS HAUT dans le fichier que le
+;; libelle qu'elle sonde : sans ces trois declarations avancees, le compilateur GOAL refuse.
+(define-extern pc-hdr-output-label-drawn! (function int none))
+(define-extern *hdr-output-label* string)
+(define-extern *hdr-output-state-last* int)
 ;; hdr-output-regime : le libelle de la rangee HDR suit le regime EN CONTINU, pas seulement a
 ;; l'ouverture du menu — un joueur qui baisse la luminosite systeme passe de R0 a R1 sans rouvrir
 ;; quoi que ce soit, et la ligne mentirait jusqu'a la prochaine ouverture.

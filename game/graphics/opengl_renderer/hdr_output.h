@@ -118,6 +118,20 @@ constexpr const char* kRegimeId = "hdr-output-regime";
 // vaut exactement zero tant que l'ecran n'accorde aucune marge.
 constexpr const char* kShadowId = "hdr-shadow-range";
 
+// hdr-output-visible : LA LIGNE DIT LE REGIME COURANT, PAS CELUI DE L'OUVERTURE DU MENU. Reprend
+// les TROIS signalements que le chantier C a laisses hors perimetre le 12/09 :
+//   1. le libelle n'etait reformate qu'a l'OUVERTURE du menu — corrige par le crochet par image
+//      pose par le chantier C lui-meme ; ce qui manquait, c'est le TEMOIN qui le prouve ;
+//   2. la raison du regime sortait par un tampon `char` STATIQUE partage, et `menu_state_packed()`
+//      est appele par le fil EE a chaque image de logique pendant que le fil GL publie la meme
+//      adresse : deux fils, un tampon, aucune preuve ;
+//   3. le bras SIMULE de `probe_regime` prend le plafond que l'ecran accorderait S'IL PRESENTAIT,
+//      donc en R2 il DEVIENT le bras livre et le temoin cesse de distinguer les deux.
+// Cet identifiant ne decide QUE de la publication du bloc `hdr_visible_*` et de l'elargissement
+// de la garde du bloc `hdr_regime_*` (terme 4 : montrer que le chantier C ne regresse pas). Les
+// trois correctifs, eux, tournent en PRODUCTION et ne consultent aucun identifiant.
+constexpr const char* kVisibleId = "hdr-output-visible";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {
@@ -308,6 +322,13 @@ int menu_state_packed();
 // Et ce que GOAL a REELLEMENT formate, rapporte depuis `rch-hdr-refresh-label!`. La preuve
 // compare ces trois nombres a ce que le C++ sait : une ligne de menu se LIT, elle ne se croit pas.
 void note_menu_label(int transport_id, int regime, int len);
+
+// hdr-output-visible : CE QUI EST DESSINE. Rapporte par la boucle de dessin du menu, une fois par
+// rangee et par image, quand la rangee de sortie HDR passe : `state` est l'etat empaquete que le
+// LIBELLE porte a cet instant. C'est la seule sonde qui dit a la fois « la page est affichee » et
+// « voici la ligne qu'elle montre » ; le fil GL la compare ensuite au regime courant, depuis son
+// propre fil et a son propre instant — jamais un miroir.
+void note_menu_label_drawn(int state);
 
 // hdr-output-regime : le regime publie a CHAQUE image (terme 1 du verdict). Appele depuis
 // `hdr::tonemap_draw`, hors de toute garde d'item — sans quoi la cle serait absente des courses

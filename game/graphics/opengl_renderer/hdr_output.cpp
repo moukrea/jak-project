@@ -11,6 +11,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "common/log/log.h"
@@ -34,6 +35,7 @@ AUTOPORT_FEATURE_SITE(kPlanId);
 AUTOPORT_FEATURE_SITE(kStudyId);
 AUTOPORT_FEATURE_SITE(kItemId);
 AUTOPORT_FEATURE_SITE(kShadowId);
+AUTOPORT_FEATURE_SITE(kVisibleId);
 
 // Valeurs EGL brutes (EGL_KHR_gl_colorspace / EGL_EXT_gl_colorspace_bt2020_pq /
 // EGL_EXT_gl_colorspace_scrgb_linear), reprises ici pour que la publication ne depende pas des
@@ -656,8 +658,58 @@ PresentVerdict display_presents_hdr() {
 // et c'est aussi pourquoi R0/R1/R2 n'existaient nulle part hors de l'instrument du plan.
 // AUCUN APPAREIL N'EST NOMME : tout vient de ce que l'ecran ANNONCE et de ce que le systeme
 // ACCORDE, y compris quand il n'accorde rien.
-char s_regime_reason[192] = "pas_encore_decide";
+// hdr-output-visible, TERME 2 : LE TAMPON DE RAISON N'EST PLUS PARTAGE, ET UN TEMOIN LE MONTRE.
+// `regime_now()` est appele par DEUX fils. Le fil GL le traverse pour les uniformes, la
+// publication et la sonde ; le fil EE le traverse a CHAQUE image de logique par
+// `menu_state_packed()`, depuis le crochet de libelle que le chantier C a pose dans
+// `(update pc-settings)`. Un seul tampon `char` statique pour les deux, c'est un `snprintf` qui
+// court contre le `publish_text` de la ligne 4109 : une chaine melangee se lirait comme une
+// VALEUR, jamais comme une course, et c'est exactement le signalement 2 du chantier C.
+// `thread_local` donne son tampon a chaque appelant. Ce qui suit le PROUVE au lieu de l'affirmer :
+// on compte les fils ET les ADRESSES de tampon distinctes, et la porte exige autant d'adresses
+// que de fils. Une affirmation « tous les appels sont sur le fil GL » ne se verifie pas ; un
+// compte par fil, si.
+struct RegimeCaller {
+  uint64_t tid = 0;
+  uint64_t calls = 0;
+  const void* buf = nullptr;
+};
+constexpr int kRegimeCallerMax = 8;
+std::mutex s_rn_mu;
+RegimeCaller s_rn[kRegimeCallerMax];
+int s_rn_threads = 0;        // fils distincts observes
+uint64_t s_rn_calls = 0;     // appels, tous fils confondus
+uint64_t s_rn_overflow = 0;  // appels d'un 9e fil : le temoin le DIT au lieu de les avaler
+uint64_t s_rn_buf_moved = 0;  // un MEME fil dont l'adresse de tampon bouge : jamais attendu
+std::atomic<uint64_t> s_rn_gl_tid{0};  // le fil GL, NOMME par frame_end() et par personne d'autre
+
+void note_regime_caller(const void* buf) {
+  const uint64_t tid = (uint64_t)std::hash<std::thread::id>{}(std::this_thread::get_id());
+  std::lock_guard<std::mutex> lk(s_rn_mu);
+  s_rn_calls++;
+  for (int i = 0; i < s_rn_threads; i++) {
+    if (s_rn[i].tid == tid) {
+      s_rn[i].calls++;
+      if (s_rn[i].buf != buf) {
+        s_rn[i].buf = buf;
+        s_rn_buf_moved++;
+      }
+      return;
+    }
+  }
+  if (s_rn_threads >= kRegimeCallerMax) {
+    s_rn_overflow++;
+    return;
+  }
+  s_rn[s_rn_threads].tid = tid;
+  s_rn[s_rn_threads].calls = 1;
+  s_rn[s_rn_threads].buf = buf;
+  s_rn_threads++;
+}
+
+thread_local char s_regime_reason[192] = "pas_encore_decide";
 RegimeVerdict regime_now() {
+  note_regime_caller(s_regime_reason);
   const PresentVerdict pv = display_presents_hdr();
   if (pv.presents) {
     return RegimeVerdict{2, "ecran-presente", pv.reason};
@@ -1349,7 +1401,12 @@ double half_ulp(double v) {
 }
 
 bool regime_measuring() {
-  return autoport_proof::feature_is(kRegimeId) && autoport_proof::armed_for(kRegimeId);
+  // hdr-output-visible, TERME 4 : « rien de ce que le chantier C a livre ne regresse : reprendre
+  // SES cles de regime ». Sans cet elargissement, `publish_regime_verdict()` est muet sous cet
+  // item et ses cles disparaissent du proof — le mur exact que le signalement D du chantier C
+  // decrit pour `publish_plan()`. Le bloc ne change RIEN au rendu : il relit et il publie.
+  return (autoport_proof::feature_is(kRegimeId) || autoport_proof::feature_is(kVisibleId)) &&
+         autoport_proof::armed_for(kRegimeId);
 }
 
 uint64_t s_regime_frames = 0;      // images ou le regime a ete pousse au shader ET publie
@@ -1359,6 +1416,30 @@ int s_regime_last = -1;
 // La ligne de menu, rapportee par GOAL (`rch-hdr-refresh-label!`).
 uint64_t s_menu_notes = 0;
 int s_menu_transport = -1, s_menu_regime = -1, s_menu_len = -1;
+
+// hdr-output-visible : LE TEMOIN DU LIBELLE. `s_vis_label_state` est l'etat empaquete que GOAL a
+// DERNIEREMENT formate, ecrit par le fil EE ; le fil GL le relit a chaque image publiee et le
+// compare a l'etat COURANT qu'il calcule lui-meme. Les deux membres viennent de deux fils et de
+// deux instants : ce n'est pas un miroir, c'est une mesure de RETARD.
+std::atomic<int> s_vis_label_state{-1};
+std::atomic<int> s_vis_drawn_state{-1};
+std::atomic<uint64_t> s_vis_drawn_notes{0};
+std::atomic<uint64_t> s_vis_relabels{0};  // recalculs du libelle : LE DENOMINATEUR du verdict
+uint64_t s_vis_frames = 0;        // images publiees ou un libelle existait deja
+uint64_t s_vis_stale_any = 0;     // images ou il contredisait le regime courant, retard compris
+uint64_t s_vis_stale_frames = 0;  // ... AU-DELA de la grace : le verdict
+uint64_t s_vis_stale_run = 0, s_vis_stale_max_run = 0;
+uint64_t s_vis_changes = 0;       // changements de regime vus par le fil GL
+int s_vis_last_regime = -1;
+uint64_t s_vis_row_frames = 0;    // images ou la RANGEE a ete dessinee
+uint64_t s_vis_row_stale = 0;     // ... et ou la ligne dessinee contredisait le regime courant
+uint64_t s_vis_drawn_seen = 0;    // derniere valeur de s_vis_drawn_notes consommee par le fil GL
+// LA GRACE, EN IMAGES DESSINEES, ET PUBLIEE. Le libelle se recalcule sur le fil EE et le fil GL
+// le relit : un changement de regime met au plus une image de logique a traverser, et la cadence
+// des deux fils n'est pas la meme. Le defaut d'origine — rien avant la PROCHAINE ouverture de
+// menu — franchit cette grace de trois ordres de grandeur. `hdr_visible_stale_max_run` publie la
+// plus longue contradiction observee : c'est lui qui rend la grace falsifiable.
+constexpr uint64_t kVisGraceFrames = 8;
 
 // La sonde a quatre bras.
 int s_rg_state = 0;                // 0 pas tente, 1 pret, -1 indisponible
@@ -1384,6 +1465,23 @@ uint64_t s_rg_below_over_ulp_px = 0;     // ecarts SOUS le SDR qui depassent 1,5
 uint64_t s_rg_exc_over_ulp_px = 0;       // excursions sous seuil qui depassent 1,5 ULP
 uint64_t s_rg_sim_gain_x1e6 = 0;         // max (simule - SDR) : le bras SIMULE fait-il QUELQUE CHOSE
 float s_rg_sim_ceiling = 0.f;            // le plafond simule effectivement utilise
+float s_rg_sim_live_ceiling = 0.f;       // le plafond du bras LIVRE, publie a cote du simule
+uint64_t s_rg_sim_forced = 0;            // images ou la separation a du etre IMPOSEE (R2)
+// hdr-output-visible, TERME 3. Le bras SIMULE de `probe_regime` est un CONTROLE : il exerce la
+// meme fonction de placement a un plafond > 1 pour rendre falsifiables des termes qui seraient
+// verts par inaction en R0. Son plafond est `pic_annonce / blanc_graphique` — c'est-a-dire la
+// marge que l'ecran accorderait S'IL PRESENTAIT. Or en R2 `sdr_white_nits_for` rend deja le blanc
+// graphique : le plafond LIVRE devient cette meme expression, les deux bras coincident, et le
+// controle cesse de controler. On les SEPARE par construction, et la preuve publie les deux
+// plafonds cote a cote au lieu d'affirmer qu'ils different.
+constexpr float kSimSepEps = 0.002f;     // 2 millimes de plafond : en dessous, c'est le MEME bras
+constexpr float kSimSepFactor = 1.25f;   // la separation imposee, nommee et publiee
+float separated_sim_ceiling(float c_sim, float c_live) {
+  if (std::fabs(c_sim - c_live) > kSimSepEps) {
+    return c_sim;
+  }
+  return c_live * kSimSepFactor;
+}
 float s_rg_knee = 0.f;                   // le genou reellement pousse au shader
 uint64_t s_rg_gl_errors = 0;
 
@@ -4089,6 +4187,20 @@ void note_menu_label(int transport_id, int regime, int len) {
   s_menu_transport = transport_id;
   s_menu_regime = regime;
   s_menu_len = len;
+  // hdr-output-visible : l'etat que le LIBELLE porte desormais. GOAL n'appelle ce site qu'APRES
+  // avoir reformate la chaine, donc ce compteur est le nombre de RECALCULS — le denominateur du
+  // verdict — et jamais le nombre d'appels du crochet.
+  s_vis_label_state.store(transport_id * 16 + regime);
+  s_vis_relabels.fetch_add(1);
+}
+
+// hdr-output-visible : CE QUI EST DESSINE. Appele par la boucle de dessin du menu, une fois par
+// image ou la rangee de sortie HDR passe. On ne juge RIEN ici : on depose l'etat et on compte,
+// le fil GL comparera depuis son propre fil (un juge et son juge sur le meme fil au meme instant
+// ne comparent que l'expression a elle-meme).
+void note_menu_label_drawn(int state) {
+  s_vis_drawn_state.store(state);
+  s_vis_drawn_notes.fetch_add(1);
 }
 
 // LE REGIME, PUBLIE A CHAQUE IMAGE (terme 1 du verdict). Appele depuis `push_tonemap_uniforms`,
@@ -4098,8 +4210,185 @@ void note_menu_label(int transport_id, int regime, int len) {
 // que leur propre egalite.
 // Hors de toute garde d'item : `publish_plan()` est garde par `planning()` seul, et c'est
 // exactement ce mur qui a oblige le chantier A a republier son denominateur ailleurs.
+// hdr-output-visible, TERME 1 : LE LIBELLE SUIT-IL LE REGIME COURANT ? Compte sur le fil GL, a
+// chaque image publiee. `want` est l'etat COURANT, calcule ici ; `have` est celui que GOAL a
+// formate sur le fil EE. Le compte tourne dans les DEUX bras, arme ou non : un instrument qui ne
+// s'allume que sous son propre item mesure un binaire que l'owner n'a pas.
+void visible_tick(const RegimeVerdict& rg) {
+  const int want = format_chosen() * 16 + rg.level;
+  const int have = s_vis_label_state.load();
+  if (rg.level != s_vis_last_regime) {
+    if (s_vis_last_regime >= 0) {
+      s_vis_changes++;  // un CHANGEMENT, pas un etat : c'est lui que la course doit provoquer
+    }
+    s_vis_last_regime = rg.level;
+  }
+  if (have < 0) {
+    return;  // le crochet GOAL n'a pas encore arme : il n'y a pas de ligne, donc rien a comparer
+  }
+  s_vis_frames++;
+  if (have != want) {
+    s_vis_stale_any++;
+    s_vis_stale_run++;
+    if (s_vis_stale_run > s_vis_stale_max_run) {
+      s_vis_stale_max_run = s_vis_stale_run;
+    }
+    if (s_vis_stale_run > kVisGraceFrames) {
+      s_vis_stale_frames++;
+    }
+  } else {
+    s_vis_stale_run = 0;
+  }
+  // CE QUI EST DESSINE. La rangee n'est comptee que les images ou la boucle de dessin du menu
+  // l'a REELLEMENT traversee. Un zero ici se lit « la page n'a pas ete ouverte pendant la
+  // course », jamais « rien a corriger » : il est publie A COTE du verdict et pas a sa place.
+  const uint64_t notes = s_vis_drawn_notes.load();
+  if (notes != s_vis_drawn_seen) {
+    s_vis_drawn_seen = notes;
+    s_vis_row_frames++;
+    if (s_vis_drawn_state.load() != want) {
+      s_vis_row_stale++;
+    }
+  }
+}
+
+// hdr-output-visible : LE BLOC, ET SES CINQ TERMES PUBLIES SEPAREMENT. Fil GL, a chaque image.
+void publish_visible(const RegimeVerdict& rg) {
+  if (!autoport_proof::feature_is(kVisibleId)) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  autoport_proof::note_hit_for(kVisibleId);
+
+  // --- TERME 1 : le libelle suit le regime COURANT, et la course a FAIT changer le regime.
+  autoport_proof::publish("hdr_visible_relabel_events", s_vis_relabels.load());
+  autoport_proof::publish("hdr_visible_regime_changes", s_vis_changes);
+  autoport_proof::publish("hdr_visible_judged_frames", s_vis_frames);
+  autoport_proof::publish("hdr_visible_stale_frames", s_vis_stale_frames);
+  autoport_proof::publish("hdr_visible_stale_any_frames", s_vis_stale_any);
+  autoport_proof::publish("hdr_visible_stale_max_run", s_vis_stale_max_run);
+  autoport_proof::publish("hdr_visible_grace_frames", kVisGraceFrames);
+  autoport_proof::publish("hdr_visible_row_drawn_frames", s_vis_row_frames);
+  autoport_proof::publish("hdr_visible_row_stale_frames", s_vis_row_stale);
+  autoport_proof::publish("hdr_visible_label_state", (uint64_t)(s_vis_label_state.load() + 1));
+  autoport_proof::publish("hdr_visible_regime_now", (uint64_t)rg.level);
+  autoport_proof::publish("hdr_visible_r0_frames", s_regime_r[0]);
+  autoport_proof::publish("hdr_visible_r1_frames", s_regime_r[1]);
+  autoport_proof::publish("hdr_visible_r2_frames", s_regime_r[2]);
+  autoport_proof::publish("hdr_visible_grant_x1000",
+                          (uint64_t)std::lround(measured_grant() * 1000.f));
+  autoport_proof::publish("hdr_visible_bl_base_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_base) * 10000.f));
+  autoport_proof::publish("hdr_visible_bl_now_x10000",
+                          (uint64_t)std::lround(std::fmax(0.f, s_bl_now) * 10000.f));
+  const int d1 = (s_vis_changes >= 2) ? 0 : 1;
+  const int d2 = (s_vis_frames > 0 && s_vis_stale_frames == 0) ? 0 : 1;
+
+  // --- TERME 2 : la raison du regime ne sort plus d'un tampon PARTAGE, et le compte par fil le
+  //     montre. Le verdict exige DEUX choses : que les deux fils aient ete observes (sans quoi la
+  //     separation n'a rien a separer) et qu'il y ait exactement autant d'ADRESSES de tampon que
+  //     de fils. Un `thread_local` non tenu rendrait une seule adresse pour deux fils.
+  uint64_t calls_gl = 0, calls_nongl = 0;
+  int bufs = 0;
+  std::string table;
+  {
+    std::lock_guard<std::mutex> lk(s_rn_mu);
+    const uint64_t gl = s_rn_gl_tid.load();
+    for (int i = 0; i < s_rn_threads; i++) {
+      bool seen = false;
+      for (int j = 0; j < i; j++) {
+        if (s_rn[j].buf == s_rn[i].buf) {
+          seen = true;
+        }
+      }
+      if (!seen) {
+        bufs++;
+      }
+      if (gl != 0 && s_rn[i].tid == gl) {
+        calls_gl += s_rn[i].calls;
+      } else {
+        calls_nongl += s_rn[i].calls;
+      }
+      if (!table.empty()) {
+        table += ",";
+      }
+      table += fmt::format("{}:{}", (gl != 0 && s_rn[i].tid == gl) ? "gl" : "autre", s_rn[i].calls);
+    }
+    autoport_proof::publish("hdr_visible_reason_threads", (uint64_t)s_rn_threads);
+    autoport_proof::publish("hdr_visible_reason_bufs", (uint64_t)bufs);
+    autoport_proof::publish("hdr_visible_regime_calls", s_rn_calls);
+    autoport_proof::publish("hdr_visible_reason_overflow", s_rn_overflow);
+    autoport_proof::publish("hdr_visible_reason_buf_moved", s_rn_buf_moved);
+  }
+  autoport_proof::publish("hdr_visible_regime_calls_gl", calls_gl);
+  autoport_proof::publish("hdr_visible_regime_calls_nongl", calls_nongl);
+  autoport_proof::publish_text("hdr_visible_reason_table", table.empty() ? "-" : table.c_str());
+  const int d3 = (s_rn_threads >= 2 && bufs == s_rn_threads && s_rn_overflow == 0 &&
+                  s_rn_buf_moved == 0 && calls_gl > 0 && calls_nongl > 0)
+                     ? 0
+                     : 1;
+
+  // --- TERME 3 : le bras SIMULE porte un plafond DIFFERENT de celui du bras livre, et les deux
+  //     sont publies cote a cote. La regle de separation est elle-meme SONDEE : on lui donne deux
+  //     plafonds EGAUX et on publie ce qu'elle rend, parce qu'aucun ecran R2 n'est disponible ici
+  //     pour l'exercer sur le chemin livre. Le cas R2 est donc publie NON MESURE, pas tenu.
+  const float c_live = s_rg_sim_live_ceiling;
+  const float c_sim = s_rg_sim_ceiling;
+  const float gap = std::fabs(c_sim - c_live);
+  const float probe = separated_sim_ceiling(c_live > 0.f ? c_live : 1.f, c_live > 0.f ? c_live : 1.f);
+  autoport_proof::publish("hdr_visible_sim_ceiling_x1000", (uint64_t)std::lround(c_sim * 1000.f));
+  autoport_proof::publish("hdr_visible_live_ceiling_x1000", (uint64_t)std::lround(c_live * 1000.f));
+  autoport_proof::publish("hdr_visible_sim_gap_x1000", (uint64_t)std::lround(gap * 1000.f));
+  autoport_proof::publish("hdr_visible_sim_eps_x1000", (uint64_t)std::lround(kSimSepEps * 1000.f));
+  autoport_proof::publish("hdr_visible_sim_forced_runs", s_rg_sim_forced);
+  autoport_proof::publish("hdr_visible_sim_probe_x1000", (uint64_t)std::lround(probe * 1000.f));
+  autoport_proof::publish("hdr_visible_probe_runs", s_rg_runs);
+  const int sep_ok =
+      (std::fabs(probe - (c_live > 0.f ? c_live : 1.f)) > kSimSepEps) ? 1 : 0;
+  autoport_proof::publish("hdr_visible_sim_sep_rule_ok", (uint64_t)sep_ok);
+  autoport_proof::publish("hdr_visible_r2_measured", (uint64_t)(s_regime_r[2] > 0 ? 1 : 0));
+  autoport_proof::publish_text(
+      "hdr_visible_r2_note",
+      s_regime_r[2] > 0 ? "R2_observe_pendant_la_course"
+                        : "non_mesure_ici:aucun_ecran_R2_disponible_le_cas_reste_NON_TENU");
+  const int d4 = (s_rg_runs > 0 && gap > kSimSepEps && sep_ok == 1) ? 0 : 1;
+
+  // --- TERME 4 : rien de ce que le chantier C a livre ne regresse. On reprend SES grandeurs, et
+  //     uniquement celles qui ne dependent pas du regime — le regime, lui, CHANGE par contrat ici.
+  const bool part = (s_regime_r[0] + s_regime_r[1] + s_regime_r[2]) == s_regime_frames;
+  autoport_proof::publish("hdr_visible_c_regime_frames", s_regime_frames);
+  autoport_proof::publish("hdr_visible_c_partition_ok", (uint64_t)(part ? 1 : 0));
+  autoport_proof::publish("hdr_visible_c_below_sdr_px", s_rg_below_sdr_px);
+  autoport_proof::publish("hdr_visible_c_gl_errors", s_rg_gl_errors);
+  autoport_proof::publish("hdr_visible_c_menu_notes", s_menu_notes);
+  autoport_proof::publish("hdr_visible_c_menu_len", (uint64_t)(s_menu_len + 1));
+  const int d5 = (s_regime_frames > 0 && part && s_rg_below_sdr_px == 0 && s_rg_gl_errors == 0 &&
+                  s_menu_notes > 0 && s_menu_len > 0 && s_menu_len <= 18)
+                     ? 0
+                     : 1;
+
+  // --- TERME 0 : le regime de SA PROPRE feature, epingle. Un binaire correct mesure dans une
+  //     configuration ou son effet ne peut pas atteindre la dalle est un faux vert en puissance.
+  const bool chain = hdr::chain_active();
+  const bool out_active = s_active.load();
+  const bool armed = s_vis_label_state.load() >= 0;
+  autoport_proof::publish("hdr_visible_out_active", (uint64_t)(out_active ? 1 : 0));
+  autoport_proof::publish("hdr_visible_chain_active", (uint64_t)(chain ? 1 : 0));
+  autoport_proof::publish("hdr_visible_label_armed", (uint64_t)(armed ? 1 : 0));
+  const int d0 = (out_active && chain && armed) ? 0 : 1;
+
+  autoport_proof::publish("hdr_visible_d0_pin", (uint64_t)d0);
+  autoport_proof::publish("hdr_visible_d1_no_change", (uint64_t)d1);
+  autoport_proof::publish("hdr_visible_d2_stale", (uint64_t)d2);
+  autoport_proof::publish("hdr_visible_d3_reason_shared", (uint64_t)d3);
+  autoport_proof::publish("hdr_visible_d4_sim_degenerate", (uint64_t)d4);
+  autoport_proof::publish("hdr_visible_d5_regression", (uint64_t)d5);
+  autoport_proof::publish("hdr_visible_defects", (uint64_t)(d0 + d1 + d2 + d3 + d4 + d5));
+}
+
 void publish_regime() {
   const RegimeVerdict rg = regime_now();
+  visible_tick(rg);
+  publish_visible(rg);
   s_regime_frames++;
   if (rg.level >= 0 && rg.level <= 2) {
     s_regime_r[rg.level]++;
@@ -5121,8 +5410,16 @@ void probe_regime(Shader& shader,
   // termes falsifiables sur un ecran qui n'accorde rien. Il ecrit dans une cible hors ecran de
   // 32x32 : il ne fabrique AUCUNE difference visible, ce que le perimetre interdit.
   const float h_sim = std::fmax(1.05f, peak_nits() / kGraphicsWhiteNits);
-  const float c_sim = std::pow(h_sim, 1.f / 2.2f);
+  const float c_sim_raw = std::pow(h_sim, 1.f / 2.2f);
+  // hdr-output-visible, TERME 3 : le bras simule garde un plafond DIFFERENT de celui du bras
+  // livre, y compris en R2 ou les deux expressions se rejoignent (signalement 3 du chantier C).
+  const float c_live = s_cur.ceiling;
+  const float c_sim = separated_sim_ceiling(c_sim_raw, c_live);
+  if (c_sim != c_sim_raw) {
+    s_rg_sim_forced++;
+  }
   s_rg_sim_ceiling = c_sim;
+  s_rg_sim_live_ceiling = c_live;
   s_rg_knee = knee;
   const CurveParams arms[4] = {placement_params(kRgIdentCeiling),  // 0 IDENTITE
                                sdr_params(),                       // 1 SDR livre
@@ -5844,6 +6141,12 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
   // obtenue apres. Sans ce suivi hors auto-test, le chemin LIVRE au joueur n'aurait pas de base.
   if ((s_frames % 5) == 0) {
     backlight_track();
+  }
+  // hdr-output-visible : le fil GL se NOMME ici, au seul endroit du fichier dont le fil est connu
+  // sans deduction. Le recensement d'appelants de `regime_now()` s'en sert pour separer « gl » de
+  // « autre » ; sans ce point d'ancrage il publierait deux nombres sans savoir lequel est lequel.
+  if (s_rn_gl_tid.load() == 0) {
+    s_rn_gl_tid.store((uint64_t)std::hash<std::thread::id>{}(std::this_thread::get_id()));
   }
   if (!autoport_proof::armed_for(kItemId)) {
     s_frames++;
