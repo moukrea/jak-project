@@ -28,19 +28,36 @@ namespace {
 
 constexpr const char* kItemId = "lighting-census";
 
-// Les cinq chemins du §2.3, dans l'ordre du tableau de la spec. L'ordre COMPTE : `rt && pbr`
-// (B) est teste avant `rt && probe` (D), exactement comme la spec les enumere.
-enum Path { kA = 0, kB, kC, kD, kE, kUnaccounted, kPathCount };
+// Les chemins du §2.3, dans l'ordre du tableau de la spec. L'ordre COMPTE : `rt && pbr` (B) est
+// teste en premier, exactement comme la spec les enumere.
+//
+// LE COMPOSITE D (« sondes ») A QUITTE CETTE TABLE (census-false-reds, 2026-09-12). Sa condition
+// etait `u_rt_probe_on != 0`. Cet uniforme n'est plus declare par aucun shader depuis le retrait
+// de la grille de FollowProbe, et son unique enregistreur CPU recevait le litteral 0 : aucun etat
+// de ce binaire ne pouvait ranger un draw dans D. `light_census_D` n'etait donc pas un compte a
+// zero, c'etait un zero de CONSTRUCTION — la chose meme que cet item retire. Les draws qu'il
+// aurait pris tombent, comme avant, dans A : la troisieme clause de A (`s_gate_probe == 0`) etait
+// une tautologie, elle part avec lui. Correspondance de cles dans `lib/census/census-false-reds.sh`.
+enum Path { kA = 0, kB, kC, kE, kUnaccounted, kPathCount };
 
-// Les quatre portes. Une seule valeur par porte : elles sont poussees sur le programme
+// Les TROIS portes vivantes. Une seule valeur par porte : elles sont poussees sur le programme
 // COURANT, toujours avant les draws du renderer qui vient de les pousser.
-int s_gate_rt_light = 0;
-int s_gate_pbr_mode = 0;
-int s_gate_probe = 0;
-int s_gate_shadow = 0;
+//
+// CHAQUE PORTE PORTE SES DEUX DENOMINATEURS. `s_gate_writes` dit combien de fois un site du
+// renderer l'a enregistree (0 = une variable que personne n'ecrit), `s_gate_progs` combien de
+// programmes REELLEMENT LIES declarent son uniforme (0 = la relecture ne peut jamais etre en
+// desaccord, donc `light_census_rb_bad_<nom>` vaut 0 par construction). Les deux sont publies :
+// c'est ce qui permet a `census_engine_dead_gates` d'etre une mesure et non une declaration.
+enum Gate { kGateRtLight = 0, kGatePbrMode, kGateShadow, kGateCount };
+const char* const kGateNames[kGateCount] = {"u_rt_light_on", "u_pbr_mode", "u_pbr_shadow_on"};
+int s_gate[kGateCount] = {};
+uint64_t s_gate_writes[kGateCount] = {};
+uint64_t s_gate_nonzero[kGateCount] = {};
+uint64_t s_gate_progs[kGateCount] = {};
 bool s_host_shade = false;
 bool s_host_legacy = false;
 int s_gate_no_tex = 0;
+uint64_t s_gate_no_tex_writes = 0;
 
 // Compteurs. Le total est compte a part : `total - somme(A..E) - non-classes` doit rendre 0,
 // et ce residu est publie plutot que suppose.
@@ -57,16 +74,14 @@ int s_phase = 0;  // 0 libre, 1 ORIGINE, 2 RECHARGED, 3 ORIGINE-LUMIERE
 uint64_t s_rb_checks = 0;
 uint64_t s_rb_mismatch = 0;
 uint64_t s_rb_noloc = 0;
-uint64_t s_rb_mismatch_by_gate[4] = {};
+uint64_t s_rb_mismatch_by_gate[kGateCount] = {};
+uint64_t s_rb_noloc_by_gate[kGateCount] = {};
 uint64_t s_draw_idx_in_frame = 0;
 uint64_t s_verify_slot = 0;
 
 // Emplacements par programme, resolus une fois. -1 = l'uniforme n'existe pas dans ce programme
 // (le cas de hfrag), ce qui n'est PAS une erreur mais se compte.
-std::unordered_map<unsigned, std::array<int, 4>> s_locs;
-
-const char* const kGateNames[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_on",
-                                   "u_pbr_shadow_on"};
+std::unordered_map<unsigned, std::array<int, kGateCount>> s_locs;
 
 // ── lighting-legacy-purge : LES UNIFORMES DE L'ANCIEN MONDE, SONDES SUR LE PROGRAMME LIE ────
 // L'owner a fait retirer dix reglages d'eclairage anterieurs a la refonte. Retirer la rangee de
@@ -385,12 +400,11 @@ void publish_locked() {
   autoport_proof::publish("light_census_A", s_count[kA]);
   autoport_proof::publish("light_census_B", s_count[kB]);
   autoport_proof::publish("light_census_C", s_count[kC]);
-  autoport_proof::publish("light_census_D", s_count[kD]);
   autoport_proof::publish("light_census_E", s_count[kE]);
   autoport_proof::publish("light_census_unaccounted", s_count[kUnaccounted]);
   autoport_proof::publish("light_census_total", s_total);
   autoport_proof::publish("light_census_classified",
-                          s_count[kA] + s_count[kB] + s_count[kC] + s_count[kD] + s_count[kE]);
+                          s_count[kA] + s_count[kB] + s_count[kC] + s_count[kE]);
   // La somme DOIT egaler le total : on publie le residu, on ne l'affirme pas.
   uint64_t sum = 0;
   for (int i = 0; i < kPathCount; i++) {
@@ -403,7 +417,7 @@ void publish_locked() {
   autoport_proof::publish("light_census_un_stock", s_un_stock);
   // Les trois references, separement.
   static const char* kPhasePrefix[4] = {"lc_free_", "lc_orig_", "lc_rech_", "lc_orig_light_"};
-  static const char* kPathSuffix[kPathCount] = {"A", "B", "C", "D", "E", "un"};
+  static const char* kPathSuffix[kPathCount] = {"A", "B", "C", "E", "un"};
   for (int p = 1; p <= 3; p++) {
     for (int i = 0; i < kPathCount; i++) {
       char key[64];
@@ -415,11 +429,40 @@ void publish_locked() {
   autoport_proof::publish("light_census_rb_checks", s_rb_checks);
   autoport_proof::publish("light_census_rb_mismatch", s_rb_mismatch);
   autoport_proof::publish("light_census_rb_noloc", s_rb_noloc);
-  for (int i = 0; i < 4; i++) {
-    char key[64];
-    std::snprintf(key, sizeof(key), "light_census_rb_bad_%d", i);
+
+  // ── census-false-reds : CHAQUE PORTE REND SES COMPTES, ET LE RECENSEMENT SE JUGE LUI-MEME ──
+  // Les cles etaient indexees par POSITION (`light_census_rb_bad_2`). Une position ne nomme pas
+  // sa source : le jour ou la table a perdu une entree, la cle d'une porte vivante a pris le
+  // numero d'une porte morte. Elles sont desormais indexees par le NOM de l'uniforme — la
+  // correspondance avant/apres est publiee par `lib/census/census-false-reds.sh`, qui verifie
+  // AUSSI qu'aucune ancienne cle ne sort encore de ce binaire.
+  //
+  // UNE PORTE EST MORTE quand aucun de ses deux canaux de preuve ne peut bouger : aucun
+  // programme lie ne declare son uniforme (la relecture ne peut jamais etre en desaccord), ou
+  // aucun site du renderer ne l'enregistre (sa valeur est une constante de construction). Le
+  // compte est publie AVEC son denominateur : un zero sans `light_census_gates_audited` serait
+  // aussi ce que rendrait une table vide.
+  uint64_t dead_gates = 0;
+  for (int i = 0; i < kGateCount; i++) {
+    char key[96];
+    std::snprintf(key, sizeof(key), "light_census_rb_bad_%s", kGateNames[i]);
     autoport_proof::publish(key, s_rb_mismatch_by_gate[i]);
+    std::snprintf(key, sizeof(key), "light_census_rb_noloc_%s", kGateNames[i]);
+    autoport_proof::publish(key, s_rb_noloc_by_gate[i]);
+    std::snprintf(key, sizeof(key), "light_census_gate_progs_%s", kGateNames[i]);
+    autoport_proof::publish(key, s_gate_progs[i]);
+    std::snprintf(key, sizeof(key), "light_census_gate_writes_%s", kGateNames[i]);
+    autoport_proof::publish(key, s_gate_writes[i]);
+    std::snprintf(key, sizeof(key), "light_census_gate_nonzero_%s", kGateNames[i]);
+    autoport_proof::publish(key, s_gate_nonzero[i]);
+    if (s_gate_progs[i] == 0 || s_gate_writes[i] == 0) {
+      dead_gates++;
+    }
   }
+  autoport_proof::publish("light_census_gates_audited", (uint64_t)kGateCount);
+  autoport_proof::publish("light_census_rb_programs", (uint64_t)s_locs.size());
+  autoport_proof::publish("light_census_gate_writes_no_tex", s_gate_no_tex_writes);
+  autoport_proof::publish("census_engine_dead_gates", dead_gates);
   autoport_proof::publish("light_census_frames", s_frames);
 
   publish_gpu_locked();
@@ -708,17 +751,26 @@ bool active() {
   return s_cached == 1;
 }
 
+namespace {
+// L'ENREGISTREMENT COMPTE SES PROPRES APPELS. Une porte dont le recorder n'est jamais appele est
+// une constante deguisee en mesure : le compteur le dit, au lieu de le laisser deviner.
+void record_gate(int g, int v) {
+  s_gate[g] = v;
+  s_gate_writes[g]++;
+  if (v != 0) {
+    s_gate_nonzero[g]++;
+  }
+}
+}  // namespace
+
 void gate_rt_light(int v) {
-  s_gate_rt_light = v;
+  record_gate(kGateRtLight, v);
 }
 void gate_pbr_mode(int v) {
-  s_gate_pbr_mode = v;
-}
-void gate_probe(int v) {
-  s_gate_probe = v;
+  record_gate(kGatePbrMode, v);
 }
 void gate_shadow(int v) {
-  s_gate_shadow = v;
+  record_gate(kGateShadow, v);
 }
 void host_paths(bool shade, bool legacy) {
   s_host_shade = shade;
@@ -726,6 +778,7 @@ void host_paths(bool shade, bool legacy) {
 }
 void gate_no_tex(int v) {
   s_gate_no_tex = v;
+  s_gate_no_tex_writes++;
 }
 
 void set_phase(int phase) {
@@ -774,15 +827,13 @@ void note_world_draw(Kind k) {
     // ETIE envmap ne porte pas shade() ; les hotes le contournent aussi sans textures.
     s_un_stock++;
     path = kUnaccounted;
-  } else if (s_gate_rt_light != 0 && s_gate_pbr_mode != 0) {
+  } else if (s_gate[kGateRtLight] != 0 && s_gate[kGatePbrMode] != 0) {
     path = kB;
-  } else if (s_gate_rt_light != 0 && s_gate_probe == 0) {
+  } else if (s_gate[kGateRtLight] != 0) {
     path = kA;
-  } else if (s_gate_rt_light != 0) {
-    path = kD;
-  } else if (s_host_legacy && s_gate_pbr_mode != 0) {
+  } else if (s_host_legacy && s_gate[kGatePbrMode] != 0) {
     path = kC;
-  } else if (s_host_legacy && s_gate_shadow != 0) {
+  } else if (s_host_legacy && s_gate[kGateShadow] != 0) {
     path = kE;
   } else {
     // Aucune branche applicable a cet hote : le draw garde le rendu d'ORIGINE.
@@ -806,16 +857,24 @@ void note_world_draw(Kind k) {
     if (prog > 0) {
       auto it = s_locs.find((unsigned)prog);
       if (it == s_locs.end()) {
-        std::array<int, 4> locs{};
-        for (int i = 0; i < 4; i++) {
+        std::array<int, kGateCount> locs{};
+        for (int i = 0; i < kGateCount; i++) {
           locs[i] = glGetUniformLocation((unsigned)prog, kGateNames[i]);
+          // LE DENOMINATEUR DE LA RELECTURE, PAR PORTE. Compte une fois par PROGRAMME (la
+          // resolution est memorisee), jamais par draw : c'est « combien de programmes lies
+          // declarent ce nom », la seule grandeur qui dise si un desaccord est possible.
+          if (locs[i] >= 0) {
+            s_gate_progs[i]++;
+          }
         }
         it = s_locs.emplace((unsigned)prog, locs).first;
       }
-      const int shadow[4] = {s_gate_rt_light, s_gate_pbr_mode, s_gate_probe, s_gate_shadow};
-      for (int i = 0; i < 4; i++) {
+      const int shadow[kGateCount] = {s_gate[kGateRtLight], s_gate[kGatePbrMode],
+                                      s_gate[kGateShadow]};
+      for (int i = 0; i < kGateCount; i++) {
         if (it->second[i] < 0) {
           s_rb_noloc++;
+          s_rb_noloc_by_gate[i]++;
           continue;
         }
         int real = 0;

@@ -1,15 +1,18 @@
 #pragma once
 
-// lighting_census — RECENSEMENT DES CINQ CHEMINS D'OMBRAGE DU DECOR + TEMPS GPU PAR PASSE.
+// lighting_census — RECENSEMENT DES CHEMINS D'OMBRAGE DU DECOR + TEMPS GPU PAR PASSE.
 //
 // POURQUOI. SPEC-refonte-lumiere.md §2.3 : le chemin qui ombre un fragment du decor depend de
-// QUATRE booleens d'uniforme, et il y a donc cinq composites exclusifs :
+// booleens d'uniforme, et il y a donc des composites exclusifs :
 //
 //     B · PBR fusionne  : u_rt_light_on != 0 && u_pbr_mode != 0
-//     A · modulation    : u_rt_light_on != 0 && u_pbr_mode == 0 && u_rt_probe_on == 0
-//     D · sondes        : u_rt_light_on != 0 && u_rt_probe_on != 0        (annonce MORT)
+//     A · modulation    : u_rt_light_on != 0 && u_pbr_mode == 0
 //     C · PBR autonome  : hote legacy && u_rt_light_on == 0 && u_pbr_mode != 0
 //     E · relight legacy: sinon, hote legacy && u_pbr_shadow_on != 0
+//
+// Le composite D (« sondes ») a ete RETIRE le 2026-09-12 (census-false-reds) : sa porte n'est
+// declaree par aucun shader et son enregistreur recevait un litteral, donc `light_census_D` etait
+// un zero de CONSTRUCTION et non un compte. Voir l'en-tete de `lighting_census.cpp`.
 //
 // C/E existent seulement dans tfrag3.frag (TFRAG3 et TFRAG3_TESS). Les hotes contournent
 // tous shade() quand gfx_hack_no_tex != 0 : ces draws sont non classes.
@@ -18,22 +21,27 @@
 // pouvait prouver qu'il n'avait rien casse. Ce module compte, PAR DRAW, dans quel chemin le
 // draw est tombe, et publie la repartition par `autoport_proof`.
 //
-// AU SITE DE DECISION, PAS DEDUIT. Les quatre valeurs sont enregistrees LA OU ELLES SONT
-// POUSSEES (`glUniform1i`), c'est-a-dire exactement ce que l'objet programme contient quand le
-// draw part. Il n'y a que huit sites de poussee dans tout `game/graphics/` :
+// AU SITE DE DECISION, PAS DEDUIT. Les valeurs sont enregistrees LA OU ELLES SONT POUSSEES
+// (`glUniform1i`), c'est-a-dire exactement ce que l'objet programme contient quand le draw
+// part. Les sites de poussee de `game/graphics/` :
 //   u_pbr_mode        background_common.cpp  (first_tfrag_draw_setup, PbrDrawBinder::set x2,
 //                                             PbrDrawBinder::finish)
 //   u_pbr_shadow_on   background_common.cpp  (first_tfrag_draw_setup, pbr_shadow_bind_receiver)
 //   u_rt_light_on     background_common.cpp  (first_tfrag_draw_setup)
-//   u_rt_probe_on     FollowProbe.cpp        (update_and_bind, constante 0, inconditionnel)
 //
 // UNE OMBRE N'EST PAS UNE MESURE. Un miroir CPU de ce qu'on croit avoir pousse serait
 // infalsifiable. Une fois par image, sur un draw dont l'indice tourne, le module RELIT les
-// quatre uniformes sur le programme reellement lie (`glGetUniformiv`) et compare. Les deux
+// uniformes sur le programme reellement lie (`glGetUniformiv`) et compare. Les deux
 // compteurs `light_census_rb_checks` / `light_census_rb_mismatch` sont publies cote a cote :
 // un ecart non nul dit que le recensement ment, et ou.
 //
-// LE SEAU « NON CLASSE » EST DETAILLE. `hfrag.frag` ne declare AUCUN des quatre uniformes ; les
+// ET LA RELECTURE REND SES DENOMINATEURS. Une porte dont AUCUN programme lie ne declare
+// l'uniforme ne peut pas etre en desaccord : son `light_census_rb_bad_<nom>` vaut 0 quoi qu'il
+// arrive. `light_census_gate_progs_<nom>` (programmes ou le nom repond) et
+// `light_census_gate_writes_<nom>` (appels de l'enregistreur) sont donc publies par porte, et
+// `census_engine_dead_gates` compte celles dont aucun des deux canaux ne peut bouger.
+//
+// LE SEAU « NON CLASSE » EST DETAILLE. `hfrag.frag` ne declare AUCUN de ces uniformes ; les
 // passes de profondeur et de projecteur d'ombre ne portent pas de couleur ; et un draw sans
 // branche applicable a son hote, ou qui contourne shade(), reste hors des chemins de la refonte.
 // Les trois seaux sont comptes separement — un seau « exclu » n'est pas un seau « correct ».
@@ -55,7 +63,7 @@ enum class Kind : int {
   Tie,       // TIE / ETIE, passe de base et passe envmap
   TieWind,   // TIE_WIND
   Shrub,     // arbustes
-  Hfrag,     // hfrag : le programme ne declare aucun des quatre uniformes
+  Hfrag,     // hfrag : le programme ne declare aucun de ces uniformes
   DepthOnly  // prepasse de profondeur / projecteur d'ombre : aucune couleur produite
 };
 
@@ -63,10 +71,9 @@ enum class Kind : int {
 // `armed()` : un `armed()` global desarmerait le correctif d'un autre item.)
 bool active();
 
-// ── enregistrement des quatre portes, AU SITE DE POUSSEE ────────────────────────────────────
+// ── enregistrement des portes, AU SITE DE POUSSEE ───────────────────────────────────────────
 void gate_rt_light(int v);
 void gate_pbr_mode(int v);
-void gate_probe(int v);
 void gate_shadow(int v);
 
 // Programme courant et bypass, enregistres par first_tfrag_draw_setup.

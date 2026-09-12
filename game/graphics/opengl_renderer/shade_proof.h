@@ -32,14 +32,16 @@
 //
 //   `shade_hosts`              programmes qui PORTENT une region marquee. Un 1 obtenu en
 //                              n'en marquant qu'un seul se lit tout de suite.
-//   `shade_hosts_missing`      programmes dont le texte lit une des quatre portes d'ombrage
-//                              (`u_rt_light_on`, `u_pbr_mode`, `u_rt_probe_on`,
-//                              `u_pbr_shadow_on`) et qui NE portent aucune region marquee.
-//                              Un shader monde qui garde son propre eclairage y tombe.
-//   `shade_gate_reads_outside` occurrences de ces quatre portes lues HORS de toute region
-//                              marquee, commentaires exclus. C'est la vraie definition de
-//                              « un seul modele » : apres l'item, aucun hote ne decide plus
-//                              rien de l'eclairage dans son propre texte.
+//   `shade_hosts_missing`      programmes dont le texte lit une des portes d'ombrage
+//                              (`u_rt_light_on`, `u_pbr_mode`, `u_pbr_shadow_on`) et qui NE
+//                              portent aucune region marquee. Un shader monde qui garde son
+//                              propre eclairage y tombe. « Lire » = hors commentaire : une
+//                              occurrence commentee va dans `shade_gate_reads_in_comment`,
+//                              le temoin qui dit que ce filtre a mordu.
+//   `shade_gate_reads_outside` occurrences de ces portes lues HORS de toute region marquee,
+//                              commentaires exclus. C'est la vraie definition de « un seul
+//                              modele » : apres l'item, aucun hote ne decide plus rien de
+//                              l'eclairage dans son propre texte.
 //
 // `hits` = draws monde partis avec un programme qui porte le modele. Compte AU SITE DU GESTE
 // (le draw), pas au site du predicat, et seulement quand la feature est armee : c'est ce qui

@@ -110,10 +110,13 @@ vec3 rt_sh_ambient(vec3 n) {
 // lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH par u_rt_sh.
 // SPEC-refonte-lumiere §2.4 — RETIRE : la grille de sondes de FollowProbe.
 // Douze uniformes (dont QUATRE unites de texture sampler3D et un samplerCube) et deux
-// fonctions, tous derriere `u_rt_probe_on != 0`. Le seul ecrivain de cette porte etait
+// fonctions, tous derriere la porte de sondes. Le seul ecrivain de cette porte etait
 // FollowProbe::update_and_bind, qui poussait la constante 0 a chaque draw : les quatre
 // sampler3D etaient lies a une texture 1x1x1 NOIRE que personne n echantillonnait.
-// Mesure : light_census_D=0 sur 11004086 draws monde (course du 2026-09-05).
+// Mesure : 0 draw monde classe dans ce composite sur 11004086 (course du 2026-09-05). Le nom de
+// la porte ne figure plus dans ce texte (census-false-reds, 2026-09-12) : le blob Android embarque
+// les commentaires, et un jeton qui ne survit qu'en commentaire finit par etre recense comme s'il
+// etait du code.
 // OWNER FINAL ARCHITECTURE (2026-07-21) — amplitudes de la MODULATION BAKEE (chemin A, celui que
 // l'owner a valide le 2026-07-19). Proprietes debug.opengoal.rt.litboost / .shadowmul / .tintlit /
 // .tintshadow / .greenamp. Leur ecrivain etait FollowProbe::update_and_bind ; il est desormais
@@ -309,8 +312,7 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       // N.L (no hard edge); cast-shadow edges keep the 16-tap Poisson PCF softness carried
       // inside sun_occ / moon_occ (and the shadow-conf handoff fade already mixed into occ).
       // The probe system no longer projects onto world geometry on this default path — it is
-      // a RESOURCE for future PBR/water; the old probe-fed composite survives only behind
-      // the default-OFF "BAKED AMBIENT" curiosity toggle (u_rt_probe_on), the else below.
+      // a RESOURCE for future PBR/water; the old probe-fed composite is GONE with its gate.
       // Realtime Lighting OFF never reaches here => pure vanilla baked (OFF == stock).
       // ===============================================================================
       // Grecharged-pbr-realtime-fusion (owner 2026-07-20: "c'est là que ça va briller").
@@ -332,11 +334,12 @@ vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp
       if (u_pbr_mode != 0) {
         #include "pbr_fused.glsl"
         ao_applied = true;  // pbr_fused.glsl a multiplie sa part ambiante par `sao`
-      // Le composite D (« BAKED AMBIENT », projection par sondes) etait garde par
-      // `u_rt_probe_on != 0`. Son SEUL ecrivain etait FollowProbe::update_and_bind, qui
-      // poussait la constante 0 inconditionnellement a chaque draw : la branche n'a jamais
-      // tourne. Le recensement de l'item lighting-census le mesure — light_census_D=0 sur
-      // 11004086 draws monde, course du 2026-09-05. SPEC-refonte-lumiere §2.4.
+      // Le composite D (« BAKED AMBIENT », projection par sondes) etait garde par la porte de
+      // sondes. Son SEUL ecrivain etait FollowProbe::update_and_bind, qui poussait la constante 0
+      // inconditionnellement a chaque draw : la branche n'a jamais tourne. Le recensement de
+      // lighting-census l'a mesure — 0 draw monde sur 11004086, course du 2026-09-05 — puis a
+      // RETIRE le seau (census-false-reds, 2026-09-12) : un zero que rien ne peut lever n'est pas
+      // un compte. SPEC-refonte-lumiere §2.4.
       } else {
         float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
         float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));

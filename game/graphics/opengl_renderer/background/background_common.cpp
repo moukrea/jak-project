@@ -2052,8 +2052,9 @@ inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat 
 //       que soit l'entree. Les deux lectures d'environnement et le `recharged_gating::on()` qui le
 //       precedent ne peuvent pas le relever. `lighting_census::gate_rt_light()` recoit la meme
 //       constante, au meme endroit qu'avant.
-//   `lighting_census::gate_probe(0)` — remonte HORS du bloc d'ambiante : c'est une constante, elle
-//       n'a jamais eu besoin du calcul qui l'entourait.
+//   l'enregistrement de la porte de sondes — remonte HORS du bloc d'ambiante : c'etait une
+//       constante, elle n'a jamais eu besoin du calcul qui l'entourait. SUPPRIME depuis
+//       (census-false-reds, 2026-09-12) : plus aucun shader ne declare cet uniforme.
 //   le lissage de transition (EMA attempt-10/11) — ses statiques sortent du corps de la fonction
 //       pour pouvoir etre INVALIDEES quand le bloc est saute. Sinon, a la rallumee, l'EMA
 //       ramperait pendant ~10 images depuis une valeur vieille de N images : l'a-coup que
@@ -3034,11 +3035,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   }
-  // lighting-off-math-still-runs : LA PORTE `u_rt_probe_on` EST RE-HEBERGEE ICI. C'est une
-  // constante — le recensement de l'item 0 la lit a 0 — et elle etait enfermee au fond du bloc
-  // d'ambiante, le plus cher de la fonction. Sortie, elle continue d'etre enregistree a chaque
-  // appel, eclairage allume comme eteint, exactement comme avant.
-  lighting_census::gate_probe(0);
+  // census-false-reds (2026-09-12) : l'enregistrement de la porte de sondes est SUPPRIME d'ici.
+  // lighting-off-math-still-runs l'avait sorti du bloc d'ambiante pour qu'il tourne a chaque
+  // appel ; il recevait le litteral 0, et plus aucun shader ne declare l'uniforme. C'etait donc
+  // une constante enregistree pour elle-meme : le composite qu'elle gardait est parti avec elle
+  // du recensement. Rien d'autre de ce bloc ne change.
   if (lgtmath::block(lgtmath::kAmbientSh)) {
     // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
     // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
@@ -3182,8 +3183,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 
     // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
     // Ce que la classe faisait vraiment, mesure a l'appui :
-    //   * elle poussait `u_rt_probe_on = 0` en CONSTANTE INCONDITIONNELLE a chaque draw, ce qui
-    //     fermait le composite D dans les cinq shaders monde (light_census_D=0 sur 11004086 draws) ;
+    //   * elle poussait la porte de sondes a 0 en CONSTANTE INCONDITIONNELLE a chaque draw, ce
+    //     qui fermait le composite D dans les cinq shaders monde (mesure du 2026-09-05 : 0 draw
+    //     sur 11004086) ;
     //   * elle liait une texture 1x1x1 NOIRE sur QUATRE unites (4-7) pour des `sampler3D` que
     //     personne n'echantillonnait, plus un samplerCube sur l'unite 3 ;
     //   * elle rasterisait au CPU une face de cube par image et appelait
@@ -3194,8 +3196,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     //     le depot. Les supprimer avec elle les ferait retomber au defaut GL 0 : ombres noires,
     //     aucun gain a la lumiere. Elles sont donc reprises ici A L'IDENTIQUE, valeurs et
     //     proprietes de debug Android comprises.
-    // `u_rt_probe_on` n'a plus d'ecrivain, et n'en a plus besoin : l'uniforme n'est plus declare
-    // dans aucun shader. Le recensement de l'item 0 continue de lire la porte a 0.
+    // La porte de sondes n'a plus d'ecrivain, et n'en a plus besoin : l'uniforme n'est plus
+    // declare dans aucun shader. Depuis census-false-reds (2026-09-12) le recensement ne la lit
+    // plus non plus : un zero qu'aucun etat ne peut lever n'est pas une mesure.
     {
       // gl-uniforms-dead-seven (2026-09-12) : `u_rt_shadow_mul` et `u_rt_tint_shadow` ne sont
       // plus pousses, et les deux proprietes de debug qui les alimentaient partent avec eux.
@@ -3228,7 +3231,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                   (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
       lgt_1f(id, "u_rt_green_amp",
                   (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
-      // lighting-off-math-still-runs : `lighting_census::gate_probe(0)` est remonte AVANT ce bloc.
+      // lighting-off-math-still-runs : l'enregistrement de la porte de sondes etait remonte AVANT
+      // ce bloc ; census-false-reds l'a supprime (constante sans lecteur).
     }
   }
 

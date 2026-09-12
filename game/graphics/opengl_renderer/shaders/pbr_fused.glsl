@@ -719,8 +719,8 @@
         vec3 famb_base = max(rt_amb_eval(Nm), vec3(0.0));
         vec3 Rf = reflect(-Vv, Nm);
         vec3 fenv_sharp;
-        // (§2.4) la premiere branche lisait le cube de FollowProbe sous `u_rt_probe_on != 0`,
-        // porte ecrite a 0 inconditionnellement : jamais prise. Retiree avec la grille.
+        // (§2.4) la premiere branche lisait le cube de FollowProbe sous la porte de sondes,
+        // ecrite a 0 inconditionnellement : jamais prise. Retiree avec la grille.
         // lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1.
         // lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH).
         fenv_sharp = rt_sh_ambient(Rf);

@@ -293,14 +293,21 @@ int verdict_sites_three_configs() {
 // Les jetons d'une COMPRESSION DE PLAGE dans un texte fragment. Ce sont des identifiants, pas
 // des motifs generiques : `min(x, 1.0)` sur un facteur intermediaire n'est pas une compression
 // de l'image, et le compter rendrait le recensement inexploitable.
+//
+// DEUX JETONS ONT QUITTE CETTE TABLE (census-false-reds, 2026-09-12) : `MM_KNEE` et
+// `mm_tonemap_aces` nommaient `pbr_modern.glsl`, fichier SUPPRIME de l'arbre. Aucun texte
+// compile par ce binaire ne peut plus les porter : ils ne pouvaient plus correspondre a rien, et
+// une entree qui ne peut plus correspondre gonfle le denominateur d'un recensement sans jamais
+// pouvoir en changer le numerateur. `RT_KNEE` reste : `pbr_fused.glsl` est toujours compile, et
+// c'est la remise en place de son epaule que cette table surveille.
 const char* kCompressionTokens[] = {
-    "RT_KNEE",          // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
-    "MM_KNEE",          // l'epaule de pbr_modern.glsl, idem
-    "mm_tonemap_aces",  // la courbe ACES opt-in de pbr_modern, idem
+    "RT_KNEE",  // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
 };
+constexpr int kCompressionTokenCount =
+    (int)(sizeof(kCompressionTokens) / sizeof(kCompressionTokens[0]));
 
-// Le recensement lit le CODE, pas les commentaires. Les trois jetons ci-dessus apparaissent
-// justement dans les commentaires qui expliquent leur retrait : les compter la rendrait la
+// Le recensement lit le CODE, pas les commentaires. Le jeton ci-dessus apparait justement dans
+// le commentaire qui explique son deplacement : les compter la rendrait la
 // grandeur inexploitable — et pire, la rendrait sensible a une phrase. On retire donc `//...`
 // et les blocs avant de chercher. En cas de doute, l'erreur va vers le ROUGE (un commentaire
 // mal retire fait monter le compte), jamais vers un faux vert.
@@ -334,6 +341,23 @@ std::string strip_comments(const std::string& src) {
     }
   }
   return out;
+}
+
+// LE TEMOIN DU DETECTEUR. `tonemap_sites_shader` vaut 0 parce qu'aucun shader ne compresse plus
+// — mais un detecteur BRANCHE SUR RIEN rendrait le meme 0. On lui donne donc, une fois, un texte
+// de synthese qui porte le jeton en CODE et un leurre en COMMENTAIRE : il doit voir le premier et
+// ignorer le second. Les deux reponses sont publiees ; un temoin faux rend la cle inexploitable
+// au lieu de la laisser passer pour une mesure.
+int compression_detector_witness() {
+  static int s_ok = -1;
+  if (s_ok < 0) {
+    std::string probe = "float x = 1.0;\n// leurre : RT_KNEE cite en commentaire\n";
+    const bool sees_comment_only = strip_comments(probe).find(kCompressionTokens[0]) != std::string::npos;
+    probe += "float k = RT_KNEE;\n";
+    const bool sees_code = strip_comments(probe).find(kCompressionTokens[0]) != std::string::npos;
+    s_ok = (sees_code && !sees_comment_only) ? 1 : 0;
+  }
+  return s_ok;
 }
 
 uint64_t count_occurrences(const std::string& hay, const std::string& needle) {
@@ -1839,6 +1863,12 @@ void frame_end(GLenum scene_format) {
   autoport_proof::publish("tonemap_sites_config", (uint64_t)s_cfg_now);
   autoport_proof::publish("tonemap_sites_explicit", explicit_sites);
   autoport_proof::publish("tonemap_sites_shader", shader_sites);
+  // Le denominateur du terme shader et le temoin de son detecteur : sans eux, `0` se lit comme
+  // « aucun shader ne compresse » alors qu'il pourrait dire « la table est vide » ou
+  // « le detecteur ne voit rien ».
+  autoport_proof::publish("hdr_compression_tokens", (uint64_t)kCompressionTokenCount);
+  autoport_proof::publish("hdr_compression_detector_ok",
+                          (uint64_t)(compression_detector_witness() ? 1 : 0));
   autoport_proof::publish("tonemap_sites_implicit", implicit_sites);
   autoport_proof::publish("tonemap_draws", s_tonemap_draws);
   autoport_proof::publish("hdr_progs_scanned", s_progs.size());

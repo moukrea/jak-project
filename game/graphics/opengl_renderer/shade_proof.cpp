@@ -14,15 +14,23 @@ constexpr const char* kItemId = "lighting-unify";
 constexpr const char* kBegin = "@shade-model-begin";
 constexpr const char* kEnd = "@shade-model-end";
 
-// Les quatre portes du §2.3. Ce sont elles qui, aujourd'hui, choisissent le composite dans le
-// texte de chaque hote ; apres l'item, aucune ne doit plus etre lue hors du chunk partage.
-const char* const kGateTokens[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_on",
-                                    "u_pbr_shadow_on"};
+// Les portes du §2.3. Ce sont elles qui, aujourd'hui, choisissent le composite dans le texte de
+// chaque hote ; apres l'item, aucune ne doit plus etre lue hors du chunk partage.
+//
+// `u_rt_probe_on` A QUITTE CETTE TABLE (census-false-reds, 2026-09-12). Plus aucun shader ne le
+// declare : il ne survivait que dans des commentaires, et un jeton qui n'existe qu'en commentaire
+// n'apporte rien a un recensement qui ne compte que le code. Cette table doit rester IDENTIQUE a
+// `kGateNames` de `lighting_census.cpp` — la derive entre les deux est comptee par
+// `lib/census/census-false-reds.sh`.
+constexpr int kGateTokenCount = 3;
+const char* const kGateTokens[kGateTokenCount] = {"u_rt_light_on", "u_pbr_mode",
+                                                  "u_pbr_shadow_on"};
 
 struct ProgInfo {
   uint64_t model_fp = 0;   // empreinte des regions marquees ; 0 = aucune region
   uint64_t model_lines = 0;  // lignes de ce modele-la
   uint64_t gate_outside = 0;
+  uint64_t gate_in_comment = 0;
   bool reads_a_gate = false;
 };
 
@@ -37,6 +45,7 @@ uint64_t s_track_checks = 0;
 uint64_t s_track_mismatch = 0;
 uint64_t s_frames = 0;
 uint64_t s_src_lines = 0;  // lignes de source fragment compilees, tous hotes marques confondus
+uint64_t s_gate_in_comment = 0;  // occurrences ECARTEES parce que commentees : le temoin du filtre
 
 uint64_t fnv1a(const char* p, size_t n, uint64_t h = 1469598103934665603ull) {
   for (size_t i = 0; i < n; i++) {
@@ -125,16 +134,26 @@ void note_fragment_source(const std::string& name, const std::string& src) {
       const bool whole = !((after >= 'a' && after <= 'z') || (after >= 'A' && after <= 'Z') ||
                            (after >= '0' && after <= '9') || after == '_');
       if (whole) {
-        info.reads_a_gate = true;
-        bool inside = false;
-        for (const auto& r : regions) {
-          if (p >= r.first && p < r.second) {
-            inside = true;
-            break;
+        // LE TEST DE COMMENTAIRE VIENT D'ABORD (census-false-reds, 2026-09-12). `reads_a_gate`
+        // etait pose ICI, avant lui : un programme dont la SEULE occurrence d'une porte etait un
+        // commentaire comptait dans `shade_hosts_missing` comme un hote reste sur sa propre copie.
+        // Faux rouge latent, et deja vrai pour la plupart des noms herites du texte de cet arbre.
+        // Une porte LUE est une porte lue par le compilateur GLSL, pas par un lecteur humain.
+        const bool commented = line_is_comment(src, line_start_of(src, p), p);
+        if (commented) {
+          info.gate_in_comment++;
+        } else {
+          info.reads_a_gate = true;
+          bool inside = false;
+          for (const auto& r : regions) {
+            if (p >= r.first && p < r.second) {
+              inside = true;
+              break;
+            }
           }
-        }
-        if (!inside && !line_is_comment(src, line_start_of(src, p), p)) {
-          info.gate_outside++;
+          if (!inside) {
+            info.gate_outside++;
+          }
         }
       }
       p += tlen;
@@ -208,7 +227,7 @@ void frame_end() {
   // les deux ne mesurent pas la meme chose et se lisent ensemble.
   std::set<uint64_t> fps;
   uint64_t model_lines = 0;
-  uint64_t hosts = 0, missing = 0, outside = 0;
+  uint64_t hosts = 0, missing = 0, outside = 0, commented = 0;
   for (const auto& [name, info] : s_progs) {
     if (info.model_fp != 0) {
       if (fps.insert(info.model_fp).second) {
@@ -221,13 +240,21 @@ void frame_end() {
       missing++;
     }
     outside += info.gate_outside;
+    commented += info.gate_in_comment;
   }
+  s_gate_in_comment = commented;
 
   autoport_proof::publish("shade_variants", fps.size());
   autoport_proof::publish("shade_model_lines", model_lines);
   autoport_proof::publish("shade_hosts", hosts);
   autoport_proof::publish("shade_hosts_missing", missing);
   autoport_proof::publish("shade_gate_reads_outside", outside);
+  // LES DEUX DENOMINATEURS DU FILTRE. `shade_gate_reads_in_comment` est le temoin GRATUIT que le
+  // test de commentaire a bien mordu quelque part : a zero, `shade_gate_reads_outside` serait le
+  // meme chiffre avec ou sans filtre, et le filtre ne prouverait rien. `shade_gate_tokens` dit
+  // sur combien de noms tout cela a ete cherche.
+  autoport_proof::publish("shade_gate_reads_in_comment", s_gate_in_comment);
+  autoport_proof::publish("shade_gate_tokens", (uint64_t)kGateTokenCount);
   autoport_proof::publish("shade_programs_seen", s_progs.size());
   autoport_proof::publish("shade_draws_no_model", s_draws_no_model);
   autoport_proof::publish("shade_world_frag_lines", s_src_lines);
