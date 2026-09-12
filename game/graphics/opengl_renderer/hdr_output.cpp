@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,7 @@ namespace {
 AUTOPORT_FEATURE_SITE(kPlanId);
 AUTOPORT_FEATURE_SITE(kStudyId);
 AUTOPORT_FEATURE_SITE(kItemId);
+AUTOPORT_FEATURE_SITE(kShadowId);
 
 // Valeurs EGL brutes (EGL_KHR_gl_colorspace / EGL_EXT_gl_colorspace_bt2020_pq /
 // EGL_EXT_gl_colorspace_scrgb_linear), reprises ici pour que la publication ne depende pas des
@@ -2485,6 +2487,7 @@ void publish_curve_input() {
 
 void publish_all() {
   publish_regime_verdict();  // hdr-output-regime : hors de toute garde d'un AUTRE item
+  publish_shadow_verdict();  // hdr-shadow-range : idem, sa propre garde et rien d'autre
   // Le verrou ne couvre que la COPIE des capacites : sdr_white_nits(), paper_white() et
   // sdr_white_source() le reprennent (mutex non recursif — un publish_all qui le tenait
   // pendant ces appels a fige gk x86 a l'image 105, smoke du 09/09).
@@ -4049,6 +4052,30 @@ CurveParams placement_params(float cmax) {
   return p;
 }
 
+// ------------------------------------------------------- hdr-shadow-range : LE PIED DE LA COURBE --
+// LE PLAFOND D'AFFICHAGE OU LE PIED EST PLEIN. Il n'est pas un reglage de gout : au-dessus de ce
+// plafond la marge accordee depasse le domaine du pied (le quart bas de l'affichage), et en
+// demander davantage ne separerait plus de paliers, cela ne ferait que voiler. La valeur est
+// PUBLIEE (`hdr_shadow_full_headroom_x1000`) pour qu'un lecteur voie sur quelle echelle le pied
+// est interpole, et non un nombre pose dans le code.
+constexpr float kToeFullHeadroom = 1.5f;
+
+// LE PIED SUIT LA MARGE, ET IL VAUT EXACTEMENT ZERO QUAND IL N'Y EN A PAS.
+// C'est la seule forme compatible avec le perimetre : « ne fabrique aucune difference sur un
+// ecran qui n'accorde pas de marge ». En R0 le plafond du tone map vaut 1,000 (mesure :
+// `hdr_out_ceiling_x100=100` sur le Redmi), donc `cmax > 1.f` est faux, le pied est nul, et
+// `hdr_toe_lift` rend son entree AU BIT — l'identite que `hdr-output-regime` a verrouillee tient
+// par construction, pas par reglage.
+// L'interpolation est CONTINUE en cmax = 1 : un ecran qui accorde un cheveu de marge ne saute
+// pas d'un coup a un pied plein. Une marche a cet endroit se verrait comme un clignotement des
+// ombres quand le joueur touche la luminosite systeme, la marge etant ACHETEE au retro-eclairage.
+float shadow_toe_for(float cmax) {
+  if (!(cmax > 1.f)) {
+    return 0.f;
+  }
+  return kToeMax * clampf((cmax - 1.f) / (kToeFullHeadroom - 1.f), 0.f, 1.f);
+}
+
 RegimeVerdict output_regime() {
   return regime_now();
 }
@@ -4132,6 +4159,13 @@ CurveParams curve_params() {
     s_dyn_pinned_frames++;
   } else {
     p = placement_params(cmax);
+    // hdr-shadow-range : LE PIED, POSE ICI ET NULLE PART AILLEURS. Il ne va PAS dans
+    // `placement_params` : cette fonction sert aussi de BRAS DE MESURE a `probe_regime`
+    // (arms[3], le placement a marge simulee) et a `legacy_params`. Y poser le pied ferait
+    // compter a `hdr_regime_exc_vs_sdr_px` le relevement des ombres comme une excursion sous le
+    // seuil declare, et le terme 4 d'un item deja tenu rougirait pour le travail d'un autre.
+    // Le pied appartient a la courbe LIVREE ; les bras de mesure des voisins restent intacts.
+    p.toe = shadow_toe_for(p.ceiling);
     s_curve_top = xp;
     s_dyn_sdr_frames++;
     if (p.ceiling > s_ceiling_max) {
@@ -5231,6 +5265,383 @@ void probe_regime(Shader& shader,
   walk(ramp, kRampN, &s_rg_ramp_px, &s_rg_below_ramp_px, &s_rg_exc_ramp_px);
   walk(scene, kRgTmW * kRgTmH, &s_rg_scene_px, &s_rg_below_scene_px, &s_rg_exc_scene_px);
   s_rg_runs++;
+}
+
+// ====================================================== hdr-shadow-range : LA SONDE D'OMBRES ==
+// Elle ne mesure RIEN cote CPU dans l'image : les cinq bras sont le MEME programme `tonemap`,
+// rejoue hors ecran avec cinq jeux d'uniformes, lus par le meme chemin que `probe_regime`.
+// Aucune porte ne se lit donc sur ses propres variables.
+namespace {
+
+// LA FENETRE JUGEE : LE PREMIER DIXIEME DE LA PLAGE D'AFFICHAGE. Elle est a 1/10 parce que c'est
+// ce que le livrable demande, et elle est PUBLIEE (`hdr_shadow_window_x1000`). Le fichier porte
+// deja une fenetre d'ombres a 1/16 (`kRampWindow`, sondes de `hdr-display-output`) : reutiliser
+// celle-la et l'appeler « le premier dixieme » aurait publie un nombre juste sous un nom faux.
+constexpr float kShWindow = 0.10f;
+// LA FIN DU PIED. Ce n'est pas un reglage : c'est le `s` de `hdr_toe_scalar` dans tonemap.frag.
+// Au-dessus, la fonction rend son entree telle quelle. La constante est ici pour que le TEMOIN
+// de non-regression des hautes lumieres interroge exactement le domaine que le shader epargne.
+constexpr float kShToeEnd = 0.25f;
+constexpr uint64_t kShEvery = 30;   // une sonde sur 30 images, comme `probe_regime`
+constexpr int kShTmW = 32, kShTmH = 32;
+constexpr float kShRampTop = 4.f;
+constexpr size_t kShRenderCap = 400000;  // plafond du recensement des valeurs de rendu
+
+enum : int { kShIdent = 0, kShSdr = 1, kShLive = 2, kShRoom = 3, kShToe = 4, kShArms = 5 };
+
+GLuint s_sh_fbo = 0, s_sh_tex = 0, s_sh_rfbo = 0, s_sh_rtex = 0, s_sh_ramp = 0;
+int s_sh_state = 0;
+uint64_t s_sh_runs = 0, s_sh_gl_errors = 0;
+uint64_t s_sh_scene_px = 0;     // pixels de scene examines (le denominateur du recensement)
+uint64_t s_sh_win_px = 0;       // ceux qui tombent dans la fenetre jugee (la population FILTREE)
+uint64_t s_sh_hl_px = 0, s_sh_hl_touched_px = 0;
+uint64_t s_sh_below_sdr_px = 0, s_sh_below_max_ulp_x1000 = 0;
+uint64_t s_sh_hl_max_notoe_x1000 = 0, s_sh_hl_max_toe_x1000 = 0;
+double s_sh_sum[kShArms] = {0, 0, 0, 0, 0};
+float s_sh_sim_ceiling = 1.f, s_sh_sim_toe = 0.f;
+// LES PALIERS QUE L'IMAGE PORTE REELLEMENT, par bras, dans la fenetre. Ce sont les codes que
+// CHAQUE etat livrerait a la fenetre pour EXACTEMENT LES MEMES pixels — la population est fixee
+// une fois pour toutes par le bras SDR. Compter chaque bras sur sa propre population comparerait
+// deux ensembles differents et ne dirait rien.
+bool s_sh_code8[kShArms][256] = {{false}};
+bool s_sh_code10[kShArms][1024] = {{false}};
+// CE QUE LE RENDU PRODUIT, avant tout conteneur : les motifs de bits DISTINCTS que le bras
+// IDENTITE porte dans la fenetre. Si ce nombre est tres au-dessus des paliers 8 bits, alors le
+// conteneur EST le facteur limitant et l'elargir peut rendre quelque chose ; s'il leur est egal,
+// le defaut est en amont et aucun conteneur ne le repare.
+std::set<uint32_t> s_sh_render_bits;
+uint64_t s_sh_render_capped = 0;
+
+int sh_code8(double v) {
+  const int c = (int)std::lround(v * 255.0);
+  return c < 0 ? 0 : (c > 255 ? 255 : c);
+}
+int sh_code10(double v) {
+  // LE MEME ENCODAGE QUE `post_processing.frag` mode 1, et la MEME convention que
+  // `probe_gameplay` (4849-4854) : la valeur d'affichage part en nits par la gamma 2,2 et le
+  // blanc SDR effectif, puis l'OETF PQ rend le code 10 bits. C'est une propriete de NOTRE
+  // encodage — combien de nuances le signal SEPARE — jamais une affirmation sur ce que la dalle
+  // emet. Aucun photometre n'est en jeu.
+  const double nits = std::pow(v < 0.0 ? 0.0 : v, 2.2) * (double)sdr_white_nits();
+  const int c = (int)std::lround(pq_oetf_from_nits(nits) * 1023.0);
+  return c < 0 ? 0 : (c > 1023 ? 1023 : c);
+}
+bool shadow_measuring() {
+  return autoport_proof::feature_is(kShadowId) && autoport_proof::armed_for(kShadowId);
+}
+
+}  // namespace
+
+void probe_shadow(Shader& shader, GLuint src_tex, GLuint dst_fbo, int dst_w, int dst_h) {
+  gl_query_census::Armed _ap("hdr-shadow-probe");
+  if (!shadow_measuring() || s_sh_state < 0 || !s_active.load() ||
+      (s_frames % kShEvery) != 0) {
+    return;
+  }
+  if (s_sh_state == 0) {
+    const bool a = make_float_fbo(&s_sh_fbo, &s_sh_tex, kShTmW, kShTmH, nullptr);
+    const bool b = a && make_float_fbo(&s_sh_rfbo, &s_sh_rtex, kRampN, 1, nullptr);
+    const bool c = b && make_ramp_tex(&s_sh_ramp, 0.f, kShRampTop);
+    s_sh_state = c ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    if (s_sh_state < 0) {
+      lg::error("[hdr-shadow-range] sonde indisponible : cibles hors ecran refusees");
+      return;
+    }
+  }
+  // AU SITE DU GESTE, ET SOUS L'IDENTITE DE CET ITEM. `hits=` de la ligne FEATURE est le
+  // compteur GLOBAL du binaire : il monte pour n'importe qui. Seul `note_hit_for` attribue la
+  // prise, et c'est lui que la porte lit (`proof_feature_own_hits`).
+  autoport_proof::note_hit_for(kShadowId);
+  const GLuint prog = shader.id();
+  // LE PLAFOND SIMULE : celui que CET ecran accorderait s'il PRESENTAIT, tire de son pic
+  // ANNONCE par le systeme rapporte au blanc graphique BT.2408. Meme definition que
+  // `probe_regime`, au bit — deux definitions du meme plafond dans un fichier en feraient deux
+  // grandeurs differentes portant un seul nom.
+  const float h_sim = std::fmax(1.05f, peak_nits() / kGraphicsWhiteNits);
+  const float c_sim = std::pow(h_sim, 1.f / 2.2f);
+  s_sh_sim_ceiling = c_sim;
+  CurveParams room = placement_params(c_sim);
+  CurveParams toe = placement_params(c_sim);
+  // LE PIED VIENT DE LA FONCTION DE PRODUCTION, PAS D'UNE CONSTANTE RECOPIEE. Si la politique du
+  // pied changeait et que ce bras gardait son ancienne valeur, la preuve decrirait une courbe
+  // que le joueur ne recevrait jamais.
+  toe.toe = shadow_toe_for(c_sim);
+  s_sh_sim_toe = toe.toe;
+  const CurveParams arms[kShArms] = {placement_params(kRgIdentCeiling),  // 0 le RENDU, nu
+                                     sdr_params(),                      // 1 le SDR livre
+                                     s_cur,                             // 2 ce qui part a l'ecran
+                                     room,                              // 3 le conteneur seul
+                                     toe};                              // 4 conteneur + pied
+  GLint saved_tex = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  std::vector<float> ramp[kShArms], scene[kShArms];
+  bool ok = true;
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, s_sh_ramp);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_sh_rfbo);
+  glViewport(0, 0, kRampN, 1);
+  for (int i = 0; i < kShArms && ok; i++) {
+    set_curve(prog, arms[i]);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kRampN, 1, ramp[i]);
+  }
+  glBindTexture(GL_TEXTURE_2D, src_tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_sh_fbo);
+  glViewport(0, 0, kShTmW, kShTmH);
+  for (int i = 0; i < kShArms && ok; i++) {
+    set_curve(prog, arms[i]);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kShTmW, kShTmH, scene[i]);
+  }
+  set_curve(prog, s_cur);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+  if (!ok) {
+    lg::error("[hdr-shadow-range] sonde a cinq bras : relecture refusee");
+    s_sh_state = -1;
+    return;
+  }
+  if (glGetError() != GL_NO_ERROR) {
+    s_sh_gl_errors++;
+  }
+  // --- LES HAUTES LUMIERES, SUR LA RAMPE. Elles s'interrogent la et pas sur la scene : une
+  //     grotte peut ne porter AUCUN pixel au-dessus du pied, et un temoin sans population est
+  //     vert par inaction. La rampe balaie [0, 4], sa population au-dessus du pied est donc
+  //     garantie et elle ne depend pas de ce que le niveau a bien voulu contenir. Elle n'a pas
+  //     non plus de plancher d'ULP : ses entrees sont des demi-flottants exacts.
+  auto hl_walk = [&](const std::vector<float>* a, int n) {
+    for (int t = 0; t < n; t++) {
+      const size_t k = (size_t)t * 4;
+      if (k + 2 >= a[kShRoom].size() || k + 2 >= a[kShToe].size()) {
+        break;
+      }
+      const float room_v = std::fmax(a[kShRoom][k], std::fmax(a[kShRoom][k + 1], a[kShRoom][k + 2]));
+      const float toe_v = std::fmax(a[kShToe][k], std::fmax(a[kShToe][k + 1], a[kShToe][k + 2]));
+      if (!std::isfinite(room_v) || !std::isfinite(toe_v)) {
+        continue;
+      }
+      if ((double)room_v < (double)kShToeEnd) {
+        continue;
+      }
+      s_sh_hl_px++;
+      const uint64_t rq = (uint64_t)std::llround((double)room_v * 1000.0);
+      const uint64_t tq = (uint64_t)std::llround((double)toe_v * 1000.0);
+      if (rq > s_sh_hl_max_notoe_x1000) {
+        s_sh_hl_max_notoe_x1000 = rq;
+      }
+      if (tq > s_sh_hl_max_toe_x1000) {
+        s_sh_hl_max_toe_x1000 = tq;
+      }
+      const double d = std::fabs((double)toe_v - (double)room_v);
+      if (d > 1.5 * half_ulp(std::fmax((double)toe_v, (double)room_v))) {
+        s_sh_hl_touched_px++;
+      }
+    }
+  };
+  hl_walk(ramp, kRampN);
+  hl_walk(scene, kShTmW * kShTmH);
+
+  // --- LA SCENE : les paliers, la luminosite moyenne, et le plancher sous le SDR.
+  for (int t = 0; t < kShTmW * kShTmH; t++) {
+    const size_t k = (size_t)t * 4;
+    if (k + 2 >= scene[kShToe].size()) {
+      break;
+    }
+    float m[kShArms];
+    bool fine = true;
+    for (int i = 0; i < kShArms; i++) {
+      m[i] = std::fmax(scene[i][k], std::fmax(scene[i][k + 1], scene[i][k + 2]));
+      fine = fine && std::isfinite(m[i]);
+    }
+    if (!fine) {
+      continue;
+    }
+    s_sh_scene_px++;
+    for (int i = 0; i < kShArms; i++) {
+      s_sh_sum[i] += (double)m[i];
+    }
+    // AUCUN PIXEL NE PASSE SOUS LE SDR, y compris le bras qui porte le pied. Le seuil est le pas
+    // du CONTENEUR (1,5 ULP d'un demi-flottant), pas une constante de confort : sous un ULP deux
+    // valeurs SONT le meme nombre dans cette cible. La pire violation est retenue sans tolerance.
+    const double d_below = (double)m[kShSdr] - (double)m[kShToe];
+    if (d_below > 0.0) {
+      const double u = half_ulp(std::fmax((double)m[kShSdr], (double)m[kShToe]));
+      const uint64_t r = (uint64_t)std::llround(1000.0 * d_below / u);
+      if (r > s_sh_below_max_ulp_x1000) {
+        s_sh_below_max_ulp_x1000 = r;
+      }
+      if (d_below > 1.5 * u) {
+        s_sh_below_sdr_px++;
+      }
+    }
+    // LA POPULATION EST CHOISIE PAR LE BRAS SDR, ET PAR LUI SEUL. C'est « les pixels que le
+    // joueur voit sombres aujourd'hui » ; on compte ensuite combien de nuances CHAQUE etat
+    // separe pour ces memes pixels-la. Un bras qui les releve peut sortir de la fenetre : c'est
+    // le but, et ce n'est pas une raison de changer d'ensemble en cours de comptage.
+    if (!((double)m[kShSdr] < (double)kShWindow)) {
+      continue;
+    }
+    s_sh_win_px++;
+    for (int i = 0; i < kShArms; i++) {
+      s_sh_code8[i][sh_code8((double)m[i])] = true;
+      s_sh_code10[i][sh_code10((double)m[i])] = true;
+    }
+    if (s_sh_render_bits.size() < kShRenderCap) {
+      uint32_t b = 0;
+      std::memcpy(&b, &m[kShIdent], sizeof(b));
+      s_sh_render_bits.insert(b);
+    } else {
+      s_sh_render_capped++;
+    }
+  }
+  s_sh_runs++;
+}
+
+void publish_shadow_verdict() {
+  if (!shadow_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  // --- TERME 0 : LE REGIME DE SA PROPRE FEATURE, EPINGLE ET PUBLIE. Une mesure faite chaine
+  //     eteinte, en 8 bits, ne dit rien de ce sujet : elle serait ROUGE ici, et elle dit pourquoi.
+  const GLenum scene_fmt = hdr::scene_color_format();
+  const bool scene_float = hdr::format_is_float(scene_fmt);
+  const bool chain = hdr::chain_active();
+  const bool out_active = s_active.load();
+  const RegimeVerdict rg = regime_now();
+  autoport_proof::publish_text("hdr_shadow_scene_fmt", hdr::format_name(scene_fmt));
+  autoport_proof::publish("hdr_shadow_scene_float", (uint64_t)(scene_float ? 1 : 0));
+  autoport_proof::publish("hdr_shadow_chain_active", (uint64_t)(chain ? 1 : 0));
+  autoport_proof::publish("hdr_shadow_out_active", (uint64_t)(out_active ? 1 : 0));
+  autoport_proof::publish("hdr_shadow_regime", (uint64_t)rg.level);
+  autoport_proof::publish_text("hdr_shadow_regime_name", rg.name);
+  autoport_proof::publish("hdr_shadow_runs", s_sh_runs);
+  autoport_proof::publish("hdr_shadow_gl_errors", s_sh_gl_errors);
+  autoport_proof::publish("hdr_shadow_sim_ceiling_x1000",
+                          (uint64_t)std::lround(s_sh_sim_ceiling * 1000.f));
+  autoport_proof::publish("hdr_shadow_sim_toe_x1000",
+                          (uint64_t)std::lround(s_sh_sim_toe * 1000.f));
+  // CE QUE LA COURBE LIVREE PORTE EN CE MOMENT. Sur un ecran sans marge il vaut ZERO, et c'est
+  // le temoin que le perimetre est tenu : aucune difference fabriquee la ou rien n'est accorde.
+  autoport_proof::publish("hdr_shadow_live_toe_x1000",
+                          (uint64_t)std::lround(s_cur.toe * 1000.f));
+  autoport_proof::publish("hdr_shadow_live_ceiling_x1000",
+                          (uint64_t)std::lround(s_cur.ceiling * 1000.f));
+  autoport_proof::publish("hdr_shadow_full_headroom_x1000",
+                          (uint64_t)std::lround(kToeFullHeadroom * 1000.f));
+  const int d0 = (out_active && chain && scene_float && s_sh_runs > 0 &&
+                  s_sh_sim_ceiling > 1.005f)
+                     ? 0
+                     : 1;
+
+  // --- TERME 1 : LA POPULATION. Le plancher est dimensionne sur la population FILTREE (les
+  //     pixels sombres), jamais sur le total : un plancher pose sur le total serait une
+  //     sentinelle qu'une scene sombre n'atteint pas, et le verdict serait rouge pour une raison
+  //     d'instrument. 1000 pixels sombres, c'est ~30 sondes de 32x32 a un tiers d'image sombre.
+  autoport_proof::publish("hdr_shadow_window_x1000", (uint64_t)std::lround(kShWindow * 1000.f));
+  autoport_proof::publish("hdr_shadow_toe_end_x1000", (uint64_t)std::lround(kShToeEnd * 1000.f));
+  autoport_proof::publish("hdr_shadow_scene_px", s_sh_scene_px);
+  autoport_proof::publish("hdr_shadow_win_px", s_sh_win_px);
+  autoport_proof::publish("hdr_shadow_hl_px", s_sh_hl_px);
+  const int d1 = (s_sh_runs >= 10 && s_sh_win_px >= 1000 && s_sh_hl_px >= 1000) ? 0 : 1;
+
+  // --- TERME 2 : LE CONTENEUR, SEPAREMENT DE L'IMAGE. Combien de codes DISTINCTS chaque
+  //     conteneur peut porter dans la fenetre jugee. Ces deux nombres ne dependent d'aucune
+  //     image : ils sortent des MEMES fonctions d'encodage que les codes comptes plus bas, donc
+  //     aucun n'est un chiffre invente. Ils repondent a « le conteneur peut-il porter plus ? »,
+  //     et a rien d'autre — la question « l'image en porte-t-elle plus ? » est le terme 3.
+  const uint64_t cap8 = (uint64_t)(sh_code8((double)kShWindow) - sh_code8(0.0) + 1);
+  const uint64_t cap10 = (uint64_t)(sh_code10((double)kShWindow) - sh_code10(0.0) + 1);
+  autoport_proof::publish("hdr_shadow_container_levels_sdr", cap8);
+  autoport_proof::publish("hdr_shadow_container_levels_hdr", cap10);
+  const int d2 = (cap8 > 0 && cap10 > cap8) ? 0 : 1;
+
+  // --- TERME 3 : CE QUE L'IMAGE PORTE REELLEMENT. C'est la grandeur du livrable : le nombre de
+  //     paliers distincts rendus entre le noir et le premier dixieme, en sortie SDR puis en
+  //     sortie HDR, sur les MEMES pixels d'une scene sombre. Trois nombres, pas un :
+  //       RENDU     ce que le tampon flottant porte avant tout conteneur ;
+  //       SDR       ce que 8 bits en laissent passer ;
+  //       MARGE     ce que le conteneur 10 bits en laisse passer, PIED NUL ;
+  //       PIED      ce que la courbe livree en laisse passer sur un ecran qui accorde.
+  //     Le verdict exige les DEUX ecarts : le conteneur doit apporter, et le pied doit apporter
+  //     AU-DELA du conteneur. Sans la seconde condition, « conteneur plus large, autant de
+  //     paliers utilises » passerait pour un gain — ce que le livrable interdit explicitement.
+  uint64_t lv[kShArms] = {0, 0, 0, 0, 0};
+  for (int i = 0; i < kShArms; i++) {
+    for (int c = 0; c < 1024; c++) {
+      lv[i] += s_sh_code10[i][c] ? 1 : 0;
+    }
+  }
+  uint64_t lv8_sdr = 0;
+  for (int c = 0; c < 256; c++) {
+    lv8_sdr += s_sh_code8[kShSdr][c] ? 1 : 0;
+  }
+  const uint64_t render_levels = (uint64_t)s_sh_render_bits.size();
+  autoport_proof::publish("hdr_shadow_render_levels", render_levels);
+  autoport_proof::publish("hdr_shadow_render_capped", s_sh_render_capped);
+  autoport_proof::publish("hdr_shadow_image_levels_sdr", lv8_sdr);
+  autoport_proof::publish("hdr_shadow_image_levels_room", lv[kShRoom]);
+  autoport_proof::publish("hdr_shadow_image_levels_toe", lv[kShToe]);
+  autoport_proof::publish("hdr_shadow_image_levels_live", lv[kShLive]);
+  autoport_proof::publish("hdr_shadow_gain_room_x100",
+                          lv8_sdr ? (uint64_t)std::lround(100.0 * (double)lv[kShRoom] /
+                                                          (double)lv8_sdr)
+                                  : 0);
+  autoport_proof::publish("hdr_shadow_gain_toe_x100",
+                          lv[kShRoom] ? (uint64_t)std::lround(100.0 * (double)lv[kShToe] /
+                                                              (double)lv[kShRoom])
+                                      : 0);
+  const int d3 = (lv8_sdr > 0 && lv[kShRoom] > lv8_sdr && lv[kShToe] > lv[kShRoom]) ? 0 : 1;
+
+  // --- TERME 4 : RIEN NE S'ASSOMBRIT GLOBALEMENT. C'est le retour de l'owner du 11/09, il tient
+  //     toujours. La luminosite MOYENNE de l'image, sur la meme scene, HDR eteint puis allume :
+  //     elle ne baisse pas. Et le plancher par PIXEL est publie a cote — une moyenne qui monte
+  //     pendant qu'une region s'effondre serait verte, et ce serait un faux vert.
+  const double n = (double)(s_sh_scene_px ? s_sh_scene_px : 1);
+  autoport_proof::publish("hdr_shadow_mean_sdr_x10000",
+                          (uint64_t)std::lround(10000.0 * s_sh_sum[kShSdr] / n));
+  autoport_proof::publish("hdr_shadow_mean_room_x10000",
+                          (uint64_t)std::lround(10000.0 * s_sh_sum[kShRoom] / n));
+  autoport_proof::publish("hdr_shadow_mean_toe_x10000",
+                          (uint64_t)std::lround(10000.0 * s_sh_sum[kShToe] / n));
+  autoport_proof::publish("hdr_shadow_mean_live_x10000",
+                          (uint64_t)std::lround(10000.0 * s_sh_sum[kShLive] / n));
+  autoport_proof::publish("hdr_shadow_below_sdr_px", s_sh_below_sdr_px);
+  autoport_proof::publish("hdr_shadow_below_max_ulp_x1000", s_sh_below_max_ulp_x1000);
+  autoport_proof::publish("hdr_shadow_tolerance_ulp_x1000", (uint64_t)1500);
+  const int d4 = (s_sh_scene_px > 0 && s_sh_below_sdr_px == 0 &&
+                  s_sh_sum[kShToe] >= s_sh_sum[kShSdr])
+                     ? 0
+                     : 1;
+
+  // --- TERME 5 : LES HAUTES LUMIERES NE REGRESSENT PAS. Ce que l'owner voit DEJA ne doit pas
+  //     etre echange contre ce qu'il ne voit pas encore. La mesure est l'ecart entre le bras a
+  //     marge SANS pied et le MEME bras AVEC pied : au-dessus de la fin du pied, le shader rend
+  //     son entree telle quelle, donc l'ecart doit etre nul AU BIT. La population est celle de la
+  //     rampe, garantie non vide ; le compte et les deux maximums sont publies.
+  autoport_proof::publish("hdr_shadow_hl_touched_px", s_sh_hl_touched_px);
+  autoport_proof::publish("hdr_shadow_hl_max_notoe_x1000", s_sh_hl_max_notoe_x1000);
+  autoport_proof::publish("hdr_shadow_hl_max_toe_x1000", s_sh_hl_max_toe_x1000);
+  const int d5 = (s_sh_hl_px >= 1000 && s_sh_hl_touched_px == 0 &&
+                  s_sh_hl_max_toe_x1000 == s_sh_hl_max_notoe_x1000)
+                     ? 0
+                     : 1;
+
+  autoport_proof::publish("hdr_shadow_d0_regime", (uint64_t)d0);
+  autoport_proof::publish("hdr_shadow_d1_population", (uint64_t)d1);
+  autoport_proof::publish("hdr_shadow_d2_container", (uint64_t)d2);
+  autoport_proof::publish("hdr_shadow_d3_image", (uint64_t)d3);
+  autoport_proof::publish("hdr_shadow_d4_no_darkening", (uint64_t)d4);
+  autoport_proof::publish("hdr_shadow_d5_highlights", (uint64_t)d5);
+  autoport_proof::publish("hdr_shadow_defects", (uint64_t)(d0 + d1 + d2 + d3 + d4 + d5));
 }
 
 void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {

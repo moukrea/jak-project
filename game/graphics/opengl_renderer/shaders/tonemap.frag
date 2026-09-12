@@ -136,7 +136,17 @@ float hdr_toe_scalar(float v, float amt) {
 }
 
 vec3 hdr_toe_lift(vec3 x, float amt) {
+  // PIED NUL = IDENTITE AU BIT, ET C'EST UNE SORTIE, PAS UN CALCUL QUI SE TROUVE JUSTE.
+  // Sans ce retour, un pied de 0,0 passait quand meme par `x * (m2 / max(m, 1e-5))` : pour un
+  // pixel dont le canal maximum vaut moins de 1e-5 — le fond d'une grotte, exactement la matiere
+  // de cet item — le facteur vaut m/1e-5 < 1 et le pixel S'ASSOMBRIT. Le regime « aucune marge »
+  // pousse un pied nul a chaque image : l'identite au bit que `hdr-output-regime` a verrouillee
+  // (`hdr_regime_maxdiff_vs_sdr_x1e6 = 0`) serait tombee sur les pixels les plus sombres, et
+  // elle serait tombee SEULEMENT la — invisible a toute sonde qui moyenne.
   float m = max(x.r, max(x.g, x.b));
+  if (!(amt > 0.0) || !(m > 0.0)) {
+    return x;
+  }
   float m2 = hdr_toe_scalar(m, amt);
   return x * (m2 / max(m, 1e-5));
 }
@@ -214,6 +224,18 @@ void main() {
   } else {
     c = c / ceiling;
     c = (u_hdr_curve == 1) ? hdr_neutral(c) : hdr_shoulder(c, u_hdr_knee);
+    // hdr-shadow-range : LE PIED, SUR LE CHEMIN QUE LE JOUEUR EMPRUNTE REELLEMENT.
+    // Il etait appele UNIQUEMENT dans la branche du dessus, or `sdr_params()` pose
+    // `u_hdr_anchor = 2.0` et `placement_params` la recopie : la condition de la branche
+    // (`u_hdr_anchor < 1.0`) est FAUSSE dans les trois regimes, et le seul appel de
+    // `hdr_toe_lift` n'etait donc atteignable que par le bras d'auto-test. Le pied etait cable
+    // de bout en bout et mort : c'est la mesure du « personne n'a encore travaille le bas ».
+    // Il est pose APRES l'epaule, donc dans l'espace d'AFFICHAGE normalise [0, 1] : son domaine
+    // (v < 0,25) est le quart bas de ce que l'ecran montre, et non une valeur de scene. Il est
+    // pose AVANT `min(c, 1.0)` mais ne peut pas le solliciter : `hdr_toe_scalar` rend v tel quel
+    // des que v >= 0,25. Les hautes lumieres traversent donc au bit, et cela se MESURE
+    // (`hdr_shadow_hl_touched_px`).
+    c = hdr_toe_lift(c, u_hdr_toe);
     color = vec4(min(c, vec3(1.0)) * ceiling, src.a);
   }
 }

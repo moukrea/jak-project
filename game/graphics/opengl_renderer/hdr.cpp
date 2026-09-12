@@ -649,6 +649,10 @@ bool tonemap_draw(Shader& shader,
   // est celui REELLEMENT pousse au shader trois lignes plus haut, pas une constante recopiee.
   hdr_output::probe_regime(shader, src_tex, dst_fbo, dst_w, dst_h,
                            Gfx::g_global_settings.recharged_hdr_knee);
+  // hdr-shadow-range : la sonde d'OMBRES, cinq bras. Meme mecanique et meme restauration d'etat
+  // que la ligne du dessus ; elle separe ce que le CONTENEUR peut porter dans le bas de la plage
+  // de ce que l'IMAGE y porte reellement, et ce que le PIED de la courbe ajoute par-dessus.
+  hdr_output::probe_shadow(shader, src_tex, dst_fbo, dst_w, dst_h);
   glUseProgram(saved_program);
   glBindVertexArray(saved_vao);
   glBindBuffer(GL_ARRAY_BUFFER, saved_array_buffer);

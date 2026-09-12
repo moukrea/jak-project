@@ -109,6 +109,15 @@ constexpr const char* kCurveInputId = "hdr-curve-input";
 // la sonde a quatre bras. Le choix du regime, lui, tourne en PRODUCTION.
 constexpr const char* kRegimeId = "hdr-output-regime";
 
+// hdr-shadow-range : LE BAS DE LA PLAGE. `hdr-output-regime` a travaille le HAUT et s'est
+// INTERDIT le bas — son livrable exige « aucun pixel ne passe sous le niveau SDR » et « aucun
+// pixel sous le seuil declare n'est modifie ». Les ombres ne bougeaient donc pas PAR CONTRAT,
+// pas par manque de matiere : la scene est calculee en RGBA16F et la fenetre HDR porte des
+// codes 10 bits. Cet identifiant ne decide QUE du declenchement de la sonde d'ombres et de la
+// publication du bloc `hdr_shadow_*` ; le PIED de la courbe, lui, tourne en PRODUCTION — et il
+// vaut exactement zero tant que l'ecran n'accorde aucune marge.
+constexpr const char* kShadowId = "hdr-shadow-range";
+
 // Modes de sortie, en masque. `modes_available()` n'en retient qu'UN (le meilleur que la
 // plateforme sait tenir) : scRGB si l'API le contractualise, sinon HDR10 PQ.
 enum Mode : uint32_t {
@@ -324,6 +333,25 @@ void probe_regime(Shader& shader,
                   float knee);
 // hdr-output-regime : le verdict, somme de termes publies SEPAREMENT. Appele depuis `publish_all`.
 void publish_regime_verdict();
+
+// hdr-shadow-range : LA SONDE D'OMBRES, CINQ BRAS SUR LA MEME IMAGE. Meme mecanique que
+// `probe_regime` — le MEME programme `tonemap` rejoue hors ecran, aucune valeur recalculee en
+// C++ — mais les cinq bras separent ce que la question demande de separer :
+//   0. IDENTITE   ce que le RENDU produit, avant tout conteneur (plafond 64 : l'epaule dort).
+//   1. SDR        ce que le joueur voit interrupteur eteint (le denominateur).
+//   2. LIVRE      ce qui part a l'ecran en ce moment (`s_cur`).
+//   3. MARGE      le placement au plafond simule, PIED NUL : le CONTENEUR seul s'elargit.
+//   4. MARGE+PIED le meme plafond avec le pied que la courbe livree porterait sur cet ecran.
+// L'ecart 3 - 1 est ce que le CONTENEUR apporte ; l'ecart 4 - 3 est ce que le RENDU apporte.
+// Un conteneur plus large portant le meme nombre de paliers n'est pas un gain, et seuls ces
+// deux ecarts publies SEPAREMENT le disent.
+void probe_shadow(Shader& shader,
+                  GLuint src_tex,
+                  GLuint dst_fbo,
+                  int dst_w,
+                  int dst_h);
+// hdr-shadow-range : le verdict, somme de termes publies SEPAREMENT. Appele depuis `publish_all`.
+void publish_shadow_verdict();
 
 // Fil GL : pousse les quatre uniformes de la courbe sur le programme `tonemap`.
 void push_tonemap_uniforms(Shader& shader);
