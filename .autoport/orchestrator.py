@@ -66,6 +66,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from lib import cli_backend
+from lib import freshness
 from lib import impossible as impossible_state
 from lib import gate_verdict
 from lib import safe_reload
@@ -1547,13 +1548,25 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
                           'stat -c "%Y %n" files/*.txt 2>/dev/null').stdout
             if "gk_crash.txt" in stat_out:
                 continue  # the app's own crash channel fired -> it crashed
-            fresh = []
-            for ln in stat_out.splitlines():
-                bits = ln.split(None, 1)
-                if len(bits) == 2 and bits[0].strip().isdigit() and int(bits[0]) >= t0:
-                    fresh.append(bits[1].strip())
+            # L'EGALITE N'EST PLUS UNE FRAICHEUR (harness-subsecond-freshness-is-blind,
+            # 2026-09-12). Cette selection etait un `int(bits[0]) >= t0` : les DEUX cotes sont a
+            # la seconde entiere — `stat -c "%Y %n"` de toybox n'a pas de sous-seconde, et
+            # `date +%s` non plus — donc un artefact ecrit par la course PRECEDENTE, jusqu'a
+            # 0,9 s AVANT `t0`, porte le meme entier que lui et passait pour « produit pendant ».
+            # Le `force-stop`, le `rm -f files/gk_crash.txt` et le `date` tiennent tres largement
+            # dans une seconde. La porte de fermeture pouvait donc se declarer « prouvee par les
+            # artefacts de l'app » sur un fichier de la course d'avant, EN VERT.
+            # La resolution reste symetrique (seconde des deux cotes, c'est tout ce que
+            # l'appareil sait rendre) ; c'est donc l'ambiguite qui est traitee, et elle l'est du
+            # cote FERME : `douteux` n'est pas une preuve, et il est NOMME au lieu d'etre tu.
+            fresh, douteux = freshness.classer_artefacts(stat_out, t0)
             focused = any(pkg in l for l in sh("shell", "dumpsys", "window").stdout.splitlines()
                           if "mCurrentFocus" in l)
+            if douteux and not fresh:
+                console.print(f"[yellow]close-gate boot-check: artefacts {douteux} au MEME "
+                              f"horodatage entier que t0={t0} ({freshness.RESOLUTION_APPAREIL} "
+                              f"des deux cotes) — DOUTEUX, pas frais : ils peuvent venir de la "
+                              f"course precedente. Cette tentative ne les compte pas.[/yellow]")
             if fresh and focused:
                 console.print(f"[green]close-gate boot-check: log-silent device — proved by "
                               f"app artifacts {fresh} (pid {pid} stable, no gk_crash.txt)[/green]")

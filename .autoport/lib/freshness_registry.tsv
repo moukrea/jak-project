@@ -1,0 +1,73 @@
+# lib/freshness_registry.tsv — LA POPULATION DES LECTURES D'HORODATAGE DU HARNAIS VIVANT.
+#
+# Une ligne par (fichier, motif). Le recensement `lib/census/harness-subsecond-freshness-is-blind.sh`
+# balaie les scripts .sh/.py de `.autoport/` (hors reports/ logs/ archive/ backups/ scratch/ tmp/
+# __pycache__ et *.bak*) et EXIGE que chaque occurrence trouvee soit couverte par une ligne d'ici.
+# Une occurrence que personne ne couvre est un DEFAUT (`sf_non_classe`) ; une ligne d'ici que plus
+# aucune occurrence ne rencontre est un DEFAUT aussi (`sf_regles_mortes`) — un registre qui garde
+# ses morts ne recense plus rien. C'est ainsi qu'une lecture d'horodatage NEUVE ne peut pas entrer
+# dans le harnais sans etre regardee.
+#
+# classe :
+#   corrige        comparaison de fraicheur, lue a la MEME resolution des deux cotes, egalite = DOUTEUX.
+#   laisse         comparaison de fraicheur laissee en l'etat, avec sa raison. Elle est DANS le compte.
+#   non-fraicheur  lecture d'horodatage qui ne classe aucun artefact (age, identite, affichage, semis).
+#   prose          un commentaire ou une docstring qui CITE un motif. Ne s'execute pas.
+#
+# colonnes : chemin <TAB> motif (sous-chaine litterale de la ligne) <TAB> classe <TAB> raison
+.autoport/acquis/font-urbanist.sh	$(stat -c %Y "$ISO/GAME.CGO"	non-fraicheur	age du CGO contre un seuil de 60 s : detecte un build EN COURS, n'ordonne aucun artefact.
+.autoport/acquis/_lib.sh	stat -c %Y out/jak1/iso/GAME.CGO	non-fraicheur	meme garde anti-course a 60 s que font-urbanist.sh.
+.autoport/acquis/_lib.sh	age=$(( now - $(stat -c %Y "$log"	non-fraicheur	age du journal contre ACQ_TTL : une duree, pas un ordre entre deux fichiers.
+.autoport/acquis/_lib.sh	-newer "$log"	laisse	GNU find -newer compare a la NANOSECONDE (mesure du 12/09 sur cette machine) et il est STRICT : resolution symetrique, seule l'egalite exacte passe. Remplacer un test d'un mot par une boucle sur N fichiers pour une fenetre de l'ordre du tic d'inode ne se paie pas.
+.autoport/acquis/subtitles.sh	-nt "$CFG/OpenGOAL/jak1/settings/settings.ini"	laisse	bash -nt compare a la NANOSECONDE (mesure du 12/09) et il est STRICT. Meme raison.
+.autoport/auto_build_apk.sh	stat -c %Y .autoport/.deploy-in-progress	non-fraicheur	age de verrou.
+.autoport/auto_build_apk.sh	stat -c %Y "$LOCK"	non-fraicheur	age de verrou.
+.autoport/auto_build_apk.sh	stat -c '%s-%Y'	laisse	IDENTITE taille-mtime d'un APK contre celle memorisee, pas un ordonnancement : une collision exigerait deux APK de meme taille A L'OCTET poses dans la meme seconde. La taille porte le pouvoir discriminant.
+.autoport/auto_build_apk.sh	shell stat -c "%s:%Y"	non-fraicheur	releve ecrit dans .installed_chain ; la comparaison vit dans deploy_verify.sh et y est classee.
+.autoport/lib/build_freshness_selftest.sh	stat -c %Y` arrondit	prose	commentaire du banc de build_x86.sh.
+.autoport/lib/build_x86.sh	MEME `stat -c %Y`	prose	commentaire.
+.autoport/lib/build_x86.sh	`stat -c %Y` arrondit a la seconde entiere	prose	commentaire.
+.autoport/lib/census/build-tree-reinvalidates-itself.sh	fromtimestamp	non-fraicheur	horodatage lu dans le journal de ninja, regroupe par jour : aucun appel a stat.
+.autoport/lib/census/build-tree-reinvalidates-itself.sh	`stat -c %Y` arrondissait	prose	commentaire.
+.autoport/lib/deploy_verify.sh	Cette comparaison lisait `stat -c %Y`	prose	commentaire du correctif.
+.autoport/lib/deploy_verify.sh	NEWEST_SRC_NS=$(find game/graphics	corrige	les deux cotes en nanosecondes (fr_mtime_ns / fr_plus_recent_ns) ; egalite = douteux, refusee.
+.autoport/lib/deploy_verify.sh	APK=$(find android -name	non-fraicheur	selection du plus recent APK par tri : aucun verdict de fraicheur n'en sort.
+.autoport/lib/deploy_verify.sh	shell stat -c '%s:%Y'	laisse	IDENTITE taille:mtime du fichier pose sur le telephone contre celle enregistree par l'installeur. Et elle est FAIL-SAFE : toute divergence retombe sur le tirage complet de l'APK, jamais l'inverse — le raccourci ne peut couter que du temps.
+.autoport/lib/deploy_verify_assets.sh	NEWEST_BUILT_NS=$(find "$ISO_DIR"	corrige	les deux cotes en nanosecondes via fr_plus_recent_ns ; egalite = douteux, refusee.
+.autoport/lib/deploy_verify_assets.sh	NEWEST_SRC_NS=$(find "goal_src/${GAME}"	corrige	le cote source de la meme comparaison.
+.autoport/lib/freshness.py	os.stat(chemin).st_mtime_ns	corrige	LE comparateur lui-meme, cote python.
+.autoport/lib/freshness.py	`find -printf %T@` en rend dix	prose	docstring.
+.autoport/lib/freshness.py	`stat -c %.9Y` suit la locale	prose	docstring.
+.autoport/lib/freshness.py	`stat -c "%Y %n"` d'appareil	prose	docstring.
+.autoport/lib/freshness.sh	v=$(stat -c %.9Y	corrige	LE comparateur lui-meme, cote shell.
+.autoport/lib/freshness.sh	`stat -c %Y` et `find -printf %T@	prose	en-tete.
+.autoport/lib/freshness.sh	`stat -c %.9Y` rend	prose	en-tete.
+.autoport/lib/freshness.sh	lit des `%T@` sur stdin	prose	en-tete.
+.autoport/lib/freshness.sh	`find -printf %T@` en rend DIX	prose	commentaire de fr_ns_de.
+.autoport/lib/freshness.sh	Le PLUS RECENT d'un flux de `%T@`	prose	commentaire de fr_plus_recent_ns.
+.autoport/lib/impossible.py	os.path.getmtime(path)	laisse	flottant des DEUX cotes (symetrique, pleine resolution). Le `>=` accepte l'egalite, mais la fenetre s'y reduit au tic d'inode, et le second lecteur porte deja une marge explicite (stamp + 1.0).
+.autoport/lib/incremental_push.sh	-newer "$apk"	laisse	GNU find -newer, nanoseconde et strict.
+.autoport/lib/preflight.py	rep.stat().st_mtime + 60	laisse	MARGE EXPLICITE de 60 s : a cette echelle ni la seconde ni la nanoseconde ne decident quoi que ce soit.
+.autoport/lib/proof_impossible.sh	stat -c %Y "$LOCK"	non-fraicheur	age de verrou publie.
+.autoport/lib/proof_run.sh	stat -c %Y "$cgo"	non-fraicheur	age du CGO contre 60 s, garde anti-course.
+.autoport/lib/proof_run.sh	stat -c %Y "$LOCK_F"	non-fraicheur	age de verrou publie.
+.autoport/lib/subsecond_freshness_selftest.sh	`stat -c %Y` d'un cote	prose	en-tete du banc.
+.autoport/lib/subsecond_freshness_selftest.sh	`find -printf %T@ | cut -d. -f1`	prose	en-tete du banc.
+.autoport/lib/verdict_sources.sh	[ "$f" -nt "$REF" ]	laisse	bash -nt, nanoseconde et strict.
+.autoport/orchestrator.py	datetime.fromtimestamp(state.rate_reset_at	non-fraicheur	affichage d'une echeance d'API.
+.autoport/orchestrator.py	when = datetime.fromtimestamp(epoch	non-fraicheur	affichage.
+.autoport/orchestrator.py	datetime.fromtimestamp(token.stat().st_mtime)	non-fraicheur	affichage de la date d'un jeton owner-ok.
+.autoport/orchestrator.py	'stat -c "%Y %n" files/*.txt	corrige	lecture des artefacts de l'appareil, classee par freshness.classer_artefacts : resolution symetrique (seconde des deux cotes, tout ce que toybox sait rendre) et egalite = DOUTEUX, jamais fraicheur.
+.autoport/orchestrator.py	`stat -c "%Y %n"` de toybox	prose	commentaire du correctif.
+.autoport/orchestrator.py	SCOPE_STAMP.stat().st_mtime_ns	non-fraicheur	empreinte d'un jeton : detecte un CHANGEMENT par inegalite, n'ordonne rien.
+.autoport/orchestrator.py	stamps.append(f"{d}:{st.st_mtime_ns}	non-fraicheur	meme empreinte de changement.
+.autoport/orchestrator.py	hp.stat().st_mtime < started_at	laisse	flottant des DEUX cotes (st_mtime contre time.time()) : symetrique et a pleine resolution.
+.autoport/tests/harness/test_cli_backend.py	sent = memo.stat().st_mtime	non-fraicheur	amorce d'un banc de watch.py.
+.autoport/tests/harness/test_proof.py	tard = p.stat().st_mtime + 10	non-fraicheur	semis d'une source volontairement perimee dans un banc.
+.autoport/tools/refset_campaign.py	old = {p: (p.stat().st_mtime_ns	non-fraicheur	photo AVANT d'un couple (mtime,inode) : detection de changement.
+.autoport/tools/refset_campaign.py	(source.stat().st_mtime_ns, source.stat().st_ino) != signature	non-fraicheur	la comparaison de cette photo, par inegalite.
+.autoport/validators/generic.sh	-newer "$PF"	laisse	GNU find -newer, nanoseconde et strict — ET le validateur ne se modifie pas (DIRECTIVES, regle 5). S'il fallait le durcir, c'est au superviseur de trancher.
+.autoport/watch.py	memo.stat().st_mtime < report_interval	non-fraicheur	etranglement d'un rapport a 1800 s.
+.autoport/lib/census/harness-subsecond-freshness-is-blind.sh	MOTIF = re.compile(	non-fraicheur	le motif du balayage lui-meme : il DECRIT les lectures d'horodatage du harnais, il n'en fait aucune. Un instrument qui se recense doit se classer, sinon il compte sa propre existence comme un defaut.
+.autoport/lib/census/harness-subsecond-freshness-is-blind.sh	|\s-ot\s|-newer|fromtimestamp	non-fraicheur	la suite du meme motif, coupee sur deux lignes.
+.autoport/tests/harness/test_freshness.py	rend NEUF chiffres	prose	commentaire du banc de regression du comparateur.

@@ -21,7 +21,12 @@
 # .so truly reflects HEAD. This script proves the RESULT reached the device; the
 # clean-rebuild discipline guarantees the .so CONTENT matches the source.
 set -uo pipefail
+# LE COMPARATEUR DE FRAICHEUR, RESOLU AVANT LE `cd` : ce script change de repertoire, et un
+# chemin relatif a `$0` ne survivrait pas au changement.
+FR_LIB=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/freshness.sh
 cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=freshness.sh
+. "$FR_LIB" || { echo "DEPLOY-VERIFY FAIL: lib/freshness.sh introuvable ($FR_LIB) — ce script ne compare plus aucun horodatage lui-meme et refuse de deviner." >&2; exit 1; }
 SERIAL="${1:-eae4df44}"
 GAME="${2:-jak1}"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
@@ -43,11 +48,26 @@ if ! "$ADB" devices 2>/dev/null | grep -qE "^${SERIAL}[[:space:]]+device$"; then
 fi
 
 [ -f "$BUILT" ] || die "no built libgk.so at $BUILT"
-SO_MTIME=$(stat -c %Y "$BUILT")
 
 # 1. Freshness vs source.
-NEWEST_SRC=$(find game/graphics game/kernel android -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.vert' -o -name '*.frag' \) -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)
-if [ -n "$NEWEST_SRC" ] && [ "$SO_MTIME" -lt "$NEWEST_SRC" ]; then die "libgk.so ($(date -d @$SO_MTIME +%H:%M)) is OLDER than newest source ($(date -d @$NEWEST_SRC +%H:%M)) — STALE build, rebuild before deploy"; fi
+# A LA NANOSECONDE, DES DEUX COTES (harness-subsecond-freshness-is-blind, 2026-09-12).
+# Cette comparaison lisait `stat -c %Y` d'un cote et `find -printf %T@ | cut -d. -f1` de
+# l'autre : DEUX troncatures a la seconde entiere, puis un `-lt` qui declarait l'egalite
+# fraiche. Un libgk.so lie a 14:32:03,1 et une source reecrite a 14:32:03,9 passaient donc
+# pour frais, et le `echo` ci-dessous imprimait un vert IMMERITE. Le depot est en btrfs et
+# stocke bien la nanoseconde : la perte etait entierement dans la lecture.
+# L'EGALITE NE VAUT PLUS FRAICHEUR : a horodatage egal, rien ne dit lequel a ete ecrit en
+# premier, et cette porte se trompe toujours du cote PERMISSIF quand elle devine.
+FR_SITE=deploy_verify/libgk-vs-source
+SO_NS=$(fr_mtime_ns "$BUILT"); SO_MTIME=$(( SO_NS / 1000000000 ))
+NEWEST_SRC_NS=$(find game/graphics game/kernel android -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.vert' -o -name '*.frag' \) -printf '%T@\n' 2>/dev/null | fr_plus_recent_ns)
+NEWEST_SRC=$(( NEWEST_SRC_NS / 1000000000 ))
+if [ "$NEWEST_SRC_NS" != 0 ]; then
+  case "$(fr_verdict "$SO_NS" "$NEWEST_SRC_NS")" in
+    perime)  die "libgk.so ($(date -d @$SO_MTIME +%H:%M:%S), ${SO_NS}ns) is OLDER than newest source ($(date -d @$NEWEST_SRC +%H:%M:%S), ${NEWEST_SRC_NS}ns) — STALE build, rebuild before deploy" ;;
+    douteux) die "libgk.so et la source la plus recente portent le MEME horodatage a la nanoseconde ($SO_NS) : DOUTEUX, pas frais — rien ne dit lequel a ete ecrit en premier. Rebatis avant de deployer." ;;
+  esac
+fi
 echo "  ok: libgk.so newer than newest source"
 
 # 2. (removed) "newer than HEAD commit time" — FALSE-POSITIVES on the normal

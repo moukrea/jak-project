@@ -20,7 +20,11 @@
 # Usage: deploy_verify_assets.sh [SERIAL] [GAME]   (defaults: eae4df44 jak1)
 # Exit 0 = device provably runs the fresh GOAL CGO/DGO set; nonzero = NOT.
 set -uo pipefail
+# LE COMPARATEUR DE FRAICHEUR, RESOLU AVANT LE `cd` (voir lib/deploy_verify.sh).
+FR_LIB=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/freshness.sh
 cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=freshness.sh
+. "$FR_LIB" || { echo "DEPLOY-ASSETS FAIL: lib/freshness.sh introuvable ($FR_LIB) — ce script ne compare plus aucun horodatage lui-meme et refuse de deviner." >&2; exit 1; }
 SERIAL="${1:-eae4df44}"
 GAME="${2:-jak1}"
 ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
@@ -51,10 +55,20 @@ LOCAL_FILES=$(cd "$ISO_DIR" && ls *.CGO *.DGO 2>/dev/null)
 N_LOCAL=$(echo "$LOCAL_FILES" | wc -l)
 
 # 1. Freshness: newest built asset vs newest GOAL source.
-NEWEST_BUILT=$(find "$ISO_DIR" -type f \( -name '*.CGO' -o -name '*.DGO' \) -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)
-NEWEST_SRC=$(find "goal_src/${GAME}" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)
-if [ -n "$NEWEST_SRC" ] && [ -n "$NEWEST_BUILT" ] && [ "$NEWEST_BUILT" -lt "$NEWEST_SRC" ]; then
-  die "built CGO/DGO ($(date -d @$NEWEST_BUILT +%H:%M)) OLDER than newest goal_src/$GAME ($(date -d @$NEWEST_SRC +%H:%M)) — rebuild the GOAL chain before deploy"
+# A LA NANOSECONDE, DES DEUX COTES (harness-subsecond-freshness-is-blind, 2026-09-12). Les deux
+# cotes etaient tronques a la seconde entiere par `cut -d. -f1`, puis compares par `-lt` : un
+# `.gc` reecrit dans la seconde qui suit l'ecriture du dernier CGO etait INVISIBLE, et le `echo`
+# ci-dessous imprimait un vert IMMERITE sur une chaine GOAL perimee. Meme faute, meme jour, meme
+# correctif que `lib/deploy_verify.sh` — l'egalite est DOUTEUSE, pas fraiche.
+FR_SITE=deploy_verify_assets/cgo-vs-goal_src
+NEWEST_BUILT_NS=$(find "$ISO_DIR" -type f \( -name '*.CGO' -o -name '*.DGO' \) -printf '%T@\n' 2>/dev/null | fr_plus_recent_ns)
+NEWEST_SRC_NS=$(find "goal_src/${GAME}" -type f -printf '%T@\n' 2>/dev/null | fr_plus_recent_ns)
+NEWEST_BUILT=$(( NEWEST_BUILT_NS / 1000000000 )); NEWEST_SRC=$(( NEWEST_SRC_NS / 1000000000 ))
+if [ "$NEWEST_SRC_NS" != 0 ] && [ "$NEWEST_BUILT_NS" != 0 ]; then
+  case "$(fr_verdict "$NEWEST_BUILT_NS" "$NEWEST_SRC_NS")" in
+    perime)  die "built CGO/DGO ($(date -d @$NEWEST_BUILT +%H:%M:%S), ${NEWEST_BUILT_NS}ns) OLDER than newest goal_src/$GAME ($(date -d @$NEWEST_SRC +%H:%M:%S), ${NEWEST_SRC_NS}ns) — rebuild the GOAL chain before deploy" ;;
+    douteux) die "le CGO/DGO le plus recent et la source GOAL la plus recente portent le MEME horodatage a la nanoseconde ($NEWEST_BUILT_NS) : DOUTEUX, pas frais. Rebatis la chaine GOAL avant de deployer." ;;
+  esac
 fi
 echo "  ok: $N_LOCAL built CGO/DGO newer than newest goal_src/$GAME"
 

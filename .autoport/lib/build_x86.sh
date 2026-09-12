@@ -48,8 +48,15 @@
 set -uo pipefail
 export LC_ALL=C
 
+# LE COMPARATEUR DE FRAICHEUR, RESOLU AVANT LE `cd`. Cette porte lisait deja a la nanoseconde
+# depuis le 12/09 ; ce qu'elle ne faisait pas, c'est refuser l'EGALITE
+# (harness-subsecond-freshness-is-blind). Elle partage desormais le seul comparateur du harnais
+# au lieu d'en porter une copie : deux regles ecrites a deux endroits divergent en silence.
+FR_LIB=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/freshness.sh
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "build_x86: hors depot git" >&2; exit 2; }
 cd "$ROOT" || exit 2
+# shellcheck source=freshness.sh
+. "$FR_LIB" || { echo "build_x86: lib/freshness.sh introuvable ($FR_LIB) — cette porte ne compare plus aucun horodatage elle-meme et refuse de deviner." >&2; exit 2; }
 
 DIR=build; TARGET=gk; J=$(nproc 2>/dev/null || echo 4); CHECK_ONLY=0
 while [ $# -gt 0 ]; do
@@ -229,7 +236,8 @@ fi
 # en 0 avec `bx_bin_fresh=1`. Les horodatages sont donc lus en nanosecondes entieres — le point
 # decimal retire, `LC_ALL=C` garantit que c'en est un — et les secondes restent publiees telles
 # quelles pour qui les lit.
-mtime_ns(){ local v; v=$(stat -c %.9Y "$1" 2>/dev/null | tr -d '.,'); case "${v:-}" in ''|*[!0-9]*) echo 0 ;; *) echo "$v" ;; esac; }
+mtime_ns(){ fr_mtime_ns "$1"; }
+FR_SITE=build_x86/binaire-vs-entrees-ninja
 BMN=$(mtime_ns "$DIR/$BINOUT")
 NEWESTN=0; NEWEST_NAME=aucune; NDEPS=0
 while IFS= read -r d; do
@@ -242,7 +250,14 @@ done <<EOF
 $(q_inputs "$BINOUT")
 EOF
 BM=$(( BMN / 1000000000 )); NEWEST=$(( NEWESTN / 1000000000 ))
-FRESH=1; [ "$BMN" -ge "$NEWESTN" ] || FRESH=0
+# L'EGALITE N'EST PLUS UNE FRAICHEUR. `-ge` la declarait fraiche ; a horodatage egal, rien ne
+# dit lequel a ete ecrit en premier, et cette porte se trompe toujours du cote PERMISSIF quand
+# elle devine. Ce n'est pas theorique : sur le btrfs de cette machine, deux fichiers ecrits a la
+# suite recoivent le MEME horodatage a la nanoseconde (l'horloge de l'inode avance par tics
+# d'environ 300 us). Mesure du 12/09 sur l'arbre livre : le binaire precede sa plus recente
+# entree de 2,5 s, la marge reelle est donc de quatre ordres de grandeur au-dessus du tic.
+VERDICT=$(fr_verdict "$BMN" "$NEWESTN")
+FRESH=0; [ "$VERDICT" = frais ] && FRESH=1
 pub bx_bin          "$BINOUT"
 pub bx_bin_mtime    "$BM"
 pub bx_bin_mtime_ns "$BMN"
@@ -251,12 +266,18 @@ pub bx_newest_dep   "$NEWEST"
 pub bx_newest_dep_ns "$NEWESTN"
 pub bx_newest_name  "$NEWEST_NAME"
 pub bx_bin_fresh    "$FRESH"
+pub bx_bin_verdict  "$VERDICT"
 pub bx_bin_lag_s    "$(( NEWEST - BM ))"
 pub bx_bin_lag_ns   "$(( NEWESTN - BMN ))"
 
 if [ "$FRESH" = 0 ]; then
-  say "BINAIRE PERIME : $DIR/$BINOUT date de $(date -d "@$BM" '+%F %T'), et $NEWEST_NAME de $(date -d "@$NEWEST" '+%F %T')."
-  say "le lien n'a PAS ete fait. Une preuve prise sur ce binaire decrirait un autre code que le tien."
+  if [ "$VERDICT" = douteux ]; then
+    say "BINAIRE DOUTEUX : $DIR/$BINOUT et $NEWEST_NAME portent le MEME horodatage a la nanoseconde ($BMN)."
+    say "rien ne dit lequel a ete ecrit en premier, donc rien ne prouve que le lien a ete fait APRES."
+  else
+    say "BINAIRE PERIME : $DIR/$BINOUT date de $(date -d "@$BM" '+%F %T'), et $NEWEST_NAME de $(date -d "@$NEWEST" '+%F %T')."
+    say "le lien n'a PAS ete fait. Une preuve prise sur ce binaire decrirait un autre code que le tien."
+  fi
   exit 4
 fi
 if [ "${RESWORK:-0}" != 0 ]; then
