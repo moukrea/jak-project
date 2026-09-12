@@ -8735,11 +8735,15 @@ items:
   out_of_scope: Ne change aucun code du moteur. Ne touche pas au build Android, seulement au build de
     bureau.
   max_turns: 600
-  max_retries: 5
+  max_retries: 7
   proof_timeout: 600
   prompt: prompts/item-build-tree-reinvalidates-itself.md
   notes: 'issu du signalement de census-audit-blind-spots, 12/09 : ~7 min par cycle et un binaire perime
-    avec un code de retour nul.'
+    avec un code de retour nul. | budget : porte a 7 essais le 2026-09-12. L''essai 1 a tenu sa porte
+    et a ete refuse a cause d''une erreur du SUPERVISEUR — j''avais declare `code_scope: jeu` sur un chantier
+    dont la correction vit entierement dans l''outillage. Un essai perdu pour une faute qui n''est pas
+    la sienne. Les essais 2 et 3 sont de vrais echecs (preuve non produite, puis crash=1 plus une empreinte
+    de sources de verdict qui a bouge entre la course et le jugement).'
   no_code: true
   code_scope_source: out_of_scope:ne-change-aucun-code-du-moteur;commits:10-chemins-0-moteur
 - id: water-ocean-mesh-hit-counter-cost
