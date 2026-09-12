@@ -725,6 +725,84 @@ uint64_t s_skygpu_seed_clamped = 0, s_skygpu_seed_free = 0;
 int s_skygpu_seed_layers = 0;
 uint64_t s_skygpu_pub_frames = 0;
 
+// ------------------------------------------------ sky-gpu-path-robustness (etat) ----------
+constexpr const char* kSkyRobustId = "sky-gpu-path-robustness";
+// La somme des termes de `hdr-sky-gpu-alpha`, RANGEE a la publication : le terme 5 de cet
+// item-ci exige qu'elle vaille toujours zero, et il la lit au lieu de la recalculer.
+uint64_t s_skygpu_defects_last = 0;
+
+// LE RECENSEMENT DU MODE DE MELANGE, PAR VALEUR. `kSlots` valeurs distinctes nommees ;
+// `overflow` compte les OCCURRENCES au-dela (pas les valeurs), et le dire evite de lire un
+// zero de debordement comme « une seule valeur vue ».
+struct ModeCensus {
+  static constexpr int kSlots = 4;
+  uint64_t total = 0, expected = 0, unexpected = 0, distinct = 0, overflow = 0;
+  uint64_t value[kSlots] = {0, 0, 0, 0};
+  uint64_t count[kSlots] = {0, 0, 0, 0};
+};
+constexpr uint64_t kSkyExpectedAlpha = 0x8000000068ull;  // Cs + Cd
+
+bool mode_note(ModeCensus* c, uint64_t alpha_data) {
+  c->total++;
+  bool slotted = false;
+  for (int i = 0; i < ModeCensus::kSlots; i++) {
+    if (c->count[i] && c->value[i] == alpha_data) {
+      c->count[i]++;
+      slotted = true;
+      break;
+    }
+  }
+  if (!slotted) {
+    for (int i = 0; i < ModeCensus::kSlots; i++) {
+      if (!c->count[i]) {
+        c->value[i] = alpha_data;
+        c->count[i] = 1;
+        c->distinct++;
+        slotted = true;
+        break;
+      }
+    }
+    if (!slotted) {
+      c->overflow++;
+    }
+  }
+  const bool ok = (alpha_data == kSkyExpectedAlpha);
+  if (ok) {
+    c->expected++;
+  } else {
+    c->unexpected++;
+  }
+  return ok;
+}
+
+// LE CONTROLE SEME DU REPLI. Dans une course reelle le jeu n'envoie QUE le mode attendu : un
+// `unexpected == 0` serait vert avec l'ASSERT nu encore en place. On fait donc passer, dans la
+// MEME course et par la MEME fonction, une valeur attendue ET une valeur qui ne l'est pas, sur
+// un recensement JETABLE : le bras « attendu » doit rendre vrai, le bras « autre » doit rendre
+// faux — et rendre, pas tuer le processus.
+bool mode_seed_ok() {
+  ModeCensus c;
+  const bool a = mode_note(&c, kSkyExpectedAlpha);
+  const bool b = mode_note(&c, kSkyExpectedAlpha ^ 0xffull);
+  return a && !b && c.total == 2 && c.expected == 1 && c.unexpected == 1 && c.distinct == 2 &&
+         c.overflow == 0;
+}
+
+ModeCensus s_skyrob_gpu_modes, s_skyrob_cpu_modes;
+int s_skyrob_ctor_seen = 0, s_skyrob_ctor_prev_is_buf = 0;
+uint64_t s_skyrob_ctor_prev_fbo = 0, s_skyrob_ctor_ab = 0, s_skyrob_ctor_fb = 0;
+uint64_t s_skyrob_ctor_err = 0, s_skyrob_ctor_drained = 0;
+int s_skyrob_ns_seen = 0, s_skyrob_ns_is_buffer = -1;
+uint64_t s_skyrob_ns_fbo = 0, s_skyrob_ns_err = 0, s_skyrob_ns_drained = 0;
+uint64_t s_skyrob_ns_before = 0, s_skyrob_ns_after = 0;
+uint64_t s_skyrob_samp_declared = 0, s_skyrob_samp_assigned = 0;
+std::string s_skyrob_samp_names;
+int s_skyrob_cpu_eff = -1, s_skyrob_cpu_def = -1, s_skyrob_cpu_json_present = -1;
+int s_skyrob_cpu_json_has_key = -1, s_skyrob_cpu_json_value = -1, s_skyrob_cpu_override = -1;
+int s_skyrob_cpu_rt = -1, s_skyrob_cpu_applied = -1;
+std::string s_skyrob_cpu_src;
+uint64_t s_skyrob_pub_frames = 0;
+
 uint64_t s_sky_px = 0, s_sky_overbright = 0, s_sky_max_x1000 = 0;
 uint64_t s_sky_differs = 0, s_sky_max_diff_x1000 = 0;
 uint64_t s_stage_fallbacks = 0;
@@ -783,7 +861,76 @@ void note_stage_fallback(const char* name) {
 
 // ==================== hdr-sky-gpu-alpha — le recueil (voir hdr.h) ============================
 bool sky_gpu_alpha_measuring() {
-  return autoport_proof::feature_is(kSkyGpuAlphaId);
+  // `sky-gpu-path-robustness` reprend LES MEMES cles d'alpha pour montrer qu'aucune ne bouge
+  // (terme 5 de son contrat). L'instrument doit donc tourner aussi sous cet item-la : le
+  // republier sans le faire tourner rendrait des zeros d'INACTION.
+  return autoport_proof::feature_is(kSkyGpuAlphaId) || autoport_proof::feature_is(kSkyRobustId);
+}
+
+bool sky_robustness_measuring() {
+  return autoport_proof::feature_is(kSkyRobustId);
+}
+
+bool sky_blend_mode_supported(bool gpu_path, uint64_t alpha_data) {
+  return mode_note(gpu_path ? &s_skyrob_gpu_modes : &s_skyrob_cpu_modes, alpha_data);
+}
+
+void note_sky_ctor_bindings(uint64_t prev_fbo_name,
+                            int prev_name_is_buffer,
+                            uint64_t array_buffer_binding,
+                            uint64_t framebuffer_binding,
+                            uint64_t gl_error,
+                            uint64_t drained_errors) {
+  s_skyrob_ctor_seen = 1;
+  s_skyrob_ctor_prev_fbo = prev_fbo_name;
+  s_skyrob_ctor_prev_is_buf = prev_name_is_buffer;
+  s_skyrob_ctor_ab = array_buffer_binding;
+  s_skyrob_ctor_fb = framebuffer_binding;
+  s_skyrob_ctor_err = gl_error;
+  s_skyrob_ctor_drained = drained_errors;
+}
+
+void note_sky_namespace_seed(uint64_t fbo_name,
+                             int is_buffer,
+                             uint64_t bind_error,
+                             uint64_t binding_before,
+                             uint64_t binding_after,
+                             uint64_t drained_errors) {
+  s_skyrob_ns_seen = 1;
+  s_skyrob_ns_fbo = fbo_name;
+  s_skyrob_ns_is_buffer = is_buffer;
+  s_skyrob_ns_err = bind_error;
+  s_skyrob_ns_before = binding_before;
+  s_skyrob_ns_after = binding_after;
+  s_skyrob_ns_drained = drained_errors;
+}
+
+void note_sky_samplers(uint64_t declared, uint64_t assigned, const char* names) {
+  s_skyrob_samp_declared = declared;
+  s_skyrob_samp_assigned = assigned;
+  s_skyrob_samp_names = names ? names : "";
+}
+
+void note_sky_cpu_setting(int effective,
+                          int compiled_default,
+                          int json_present,
+                          int json_has_key,
+                          int json_value,
+                          int override_val,
+                          int roundtrip_ok,
+                          const char* source) {
+  s_skyrob_cpu_eff = effective;
+  s_skyrob_cpu_def = compiled_default;
+  s_skyrob_cpu_json_present = json_present;
+  s_skyrob_cpu_json_has_key = json_has_key;
+  s_skyrob_cpu_json_value = json_value;
+  s_skyrob_cpu_override = override_val;
+  s_skyrob_cpu_rt = roundtrip_ok;
+  s_skyrob_cpu_src = source ? source : "";
+}
+
+void note_sky_cpu_applied(int applied) {
+  s_skyrob_cpu_applied = applied;
 }
 
 void note_sky_path_mode(int mode) {
@@ -1250,6 +1397,124 @@ void publish_sky_gpu_alpha() {
   autoport_proof::publish("hdr_sky_gpu_defect_7_bound_never_bounds", d7);
   autoport_proof::publish("hdr_sky_gpu_defect_8_value_moved_elsewhere", d8);
   autoport_proof::publish("hdr_sky_gpu_alpha_defects", d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8);
+  // RANGEE pour le terme 5 de `sky-gpu-path-robustness`, qui LIT ce verdict au lieu de le
+  // recalculer : deux calculs a deux endroits divergent en silence.
+  s_skygpu_defects_last = d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8;
+}
+
+// ============ CHANTIER `sky-gpu-path-robustness` — LA PORTE ==================================
+// `sky_gpu_robustness_defects` est une SOMME DE TERMES PUBLIES SEPAREMENT, dans l'ordre du
+// contrat. Chaque terme exige d'abord que SA mesure ait eu lieu : un zero obtenu sur un chemin
+// qui n'a pas tourne se lit « pas mesure », jamais « pas de defaut ».
+void publish_mode_census(const std::string& p, const ModeCensus& c) {
+  autoport_proof::publish((p + "_total").c_str(), c.total);
+  autoport_proof::publish((p + "_expected").c_str(), c.expected);
+  autoport_proof::publish((p + "_unexpected").c_str(), c.unexpected);
+  autoport_proof::publish((p + "_distinct").c_str(), c.distinct);
+  autoport_proof::publish((p + "_overflow").c_str(), c.overflow);
+  for (int i = 0; i < ModeCensus::kSlots; i++) {
+    autoport_proof::publish((p + "_v" + std::to_string(i)).c_str(), c.value[i]);
+    autoport_proof::publish((p + "_n" + std::to_string(i)).c_str(), c.count[i]);
+  }
+}
+
+void publish_sky_robustness() {
+  if (!sky_robustness_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  s_skyrob_pub_frames++;
+  if ((s_skyrob_pub_frames % 30) != 1) {
+    return;
+  }
+  autoport_proof::note_hit();
+
+  // --- 1. LES DEUX ESPACES DE NOMS, RELUS. `prev_fbo_name` est le nom que l'ancien code liait
+  // dans `GL_ARRAY_BUFFER` ; `prev_name_is_buffer` dit ce qu'il etait vraiment.
+  autoport_proof::publish("sky_gpu_ctor_seen", (uint64_t)s_skyrob_ctor_seen);
+  autoport_proof::publish("sky_gpu_ctor_prev_fbo_name", s_skyrob_ctor_prev_fbo);
+  autoport_proof::publish("sky_gpu_ctor_prev_name_is_buffer",
+                          (uint64_t)s_skyrob_ctor_prev_is_buf);
+  autoport_proof::publish("sky_gpu_ctor_array_buffer_binding", s_skyrob_ctor_ab);
+  autoport_proof::publish("sky_gpu_ctor_framebuffer_binding", s_skyrob_ctor_fb);
+  autoport_proof::publish("sky_gpu_ctor_gl_error", s_skyrob_ctor_err);
+  autoport_proof::publish("sky_gpu_ctor_gl_error_drained", s_skyrob_ctor_drained);
+  // LE CONTROLE SEME : le geste fautif, sur un nom de framebuffer NON NUL. `ns_seed_ok` exige
+  // que le nom ne soit pas un tampon ET que le pilote l'ait montre — en refusant (erreur) ou en
+  // liant pour de bon un nom de framebuffer comme tampon de sommets.
+  autoport_proof::publish("sky_gpu_ns_seed_seen", (uint64_t)s_skyrob_ns_seen);
+  autoport_proof::publish("sky_gpu_ns_seed_fbo_name", s_skyrob_ns_fbo);
+  autoport_proof::publish("sky_gpu_ns_seed_is_buffer", (uint64_t)(s_skyrob_ns_is_buffer + 1));
+  autoport_proof::publish("sky_gpu_ns_seed_bind_error", s_skyrob_ns_err);
+  autoport_proof::publish("sky_gpu_ns_seed_binding_before", s_skyrob_ns_before);
+  autoport_proof::publish("sky_gpu_ns_seed_binding_after", s_skyrob_ns_after);
+  autoport_proof::publish("sky_gpu_ns_seed_drained", s_skyrob_ns_drained);
+  // LA DEMONSTRATION : le pilote a REFUSE (erreur GL), ou il a ACCEPTE et la liaison de tampon
+  // de sommets porte maintenant le nom du framebuffer alors qu'elle ne le portait pas avant.
+  // `is_buffer` n'entre PAS dans le verdict : il vaut 1 sur cette machine, et c'est le pire cas
+  // (le nom designe un tampon vivant etranger), pas une refutation.
+  const int ns_seed_ok =
+      (s_skyrob_ns_seen == 1 && s_skyrob_ns_fbo != 0 &&
+       (s_skyrob_ns_err != 0 ||
+        (s_skyrob_ns_after == s_skyrob_ns_fbo && s_skyrob_ns_before != s_skyrob_ns_fbo)))
+          ? 1
+          : 0;
+  autoport_proof::publish("sky_gpu_ns_seed_ok", (uint64_t)ns_seed_ok);
+
+  // --- 2. LES ECHANTILLONNEURS, COMPTES PAR LE PILOTE puis RELUS un par un.
+  autoport_proof::publish("sky_gpu_sampler_declared", s_skyrob_samp_declared);
+  autoport_proof::publish("sky_gpu_sampler_assigned", s_skyrob_samp_assigned);
+  autoport_proof::publish_text("sky_gpu_sampler_names",
+                               s_skyrob_samp_names.empty() ? "-" : s_skyrob_samp_names.c_str());
+
+  // --- 3. LE MODE DE MELANGE, PAR VALEUR, SUR LES DEUX CHEMINS, plus le controle seme qui rend
+  // le repli falsifiable (le jeu n'envoie que le mode attendu : sans lui, le terme serait vert
+  // avec l'ASSERT nu encore en place).
+  publish_mode_census("sky_gpu_blend_mode", s_skyrob_gpu_modes);
+  publish_mode_census("sky_cpu_blend_mode", s_skyrob_cpu_modes);
+  const int seed_ok = mode_seed_ok() ? 1 : 0;
+  autoport_proof::publish("sky_blend_mode_seed_ok", (uint64_t)seed_ok);
+
+  // --- 4. LE REGLAGE, SA PROVENANCE, ET CE QUE LE MOTEUR EN A FAIT.
+  autoport_proof::publish("sky_cpu_effective", (uint64_t)(s_skyrob_cpu_eff + 1));
+  autoport_proof::publish("sky_cpu_compiled_default", (uint64_t)(s_skyrob_cpu_def + 1));
+  autoport_proof::publish("sky_cpu_json_present", (uint64_t)(s_skyrob_cpu_json_present + 1));
+  autoport_proof::publish("sky_cpu_json_has_key", (uint64_t)(s_skyrob_cpu_json_has_key + 1));
+  autoport_proof::publish("sky_cpu_json_value", (uint64_t)(s_skyrob_cpu_json_value + 1));
+  autoport_proof::publish("sky_cpu_override", (uint64_t)(s_skyrob_cpu_override + 1));
+  autoport_proof::publish("sky_cpu_roundtrip_ok", (uint64_t)(s_skyrob_cpu_rt + 1));
+  autoport_proof::publish("sky_cpu_applied", (uint64_t)(s_skyrob_cpu_applied + 1));
+  autoport_proof::publish_text("sky_cpu_source",
+                               s_skyrob_cpu_src.empty() ? "-" : s_skyrob_cpu_src.c_str());
+
+  // --- 5. RIEN DE `hdr-sky-gpu-alpha` NE BOUGE : son verdict est republie tel quel, a cote des
+  // cles d'alpha que sa propre publication vient d'ecrire dans la MEME image.
+  autoport_proof::publish("sky_alpha_item_published", (uint64_t)(s_skygpu_pub_frames > 0 ? 1 : 0));
+  autoport_proof::publish("sky_alpha_item_defects", s_skygpu_defects_last);
+
+  // --- LES TERMES, SEPARES.
+  const uint64_t d1 = (s_skyrob_ctor_seen == 0 || s_skyrob_ctor_ab != 0 ||
+                       s_skyrob_ctor_fb != s_skyrob_ctor_prev_fbo || s_skyrob_ctor_err != 0 ||
+                       ns_seed_ok != 1)
+                          ? 1u
+                          : 0u;
+  const uint64_t d2 =
+      (s_skyrob_samp_declared == 0 || s_skyrob_samp_assigned != s_skyrob_samp_declared) ? 1u : 0u;
+  const uint64_t d3 = (s_skyrob_gpu_modes.total == 0 || s_skyrob_cpu_modes.total == 0 ||
+                       seed_ok != 1 || s_skyrob_gpu_modes.distinct == 0)
+                          ? 1u
+                          : 0u;
+  const uint64_t d4 = (s_skyrob_cpu_src.empty() || s_skyrob_cpu_rt != 1 ||
+                       s_skyrob_cpu_eff < 0 || s_skyrob_cpu_applied < 0 ||
+                       s_skyrob_cpu_applied != s_skyrob_cpu_eff)
+                          ? 1u
+                          : 0u;
+  const uint64_t d5 = (s_skygpu_pub_frames == 0 || s_skygpu_defects_last != 0) ? 1u : 0u;
+  autoport_proof::publish("sky_gpu_defect_1_ctor_binding_wrong", d1);
+  autoport_proof::publish("sky_gpu_defect_2_sampler_unit_implicit", d2);
+  autoport_proof::publish("sky_gpu_defect_3_blend_mode_unmeasured", d3);
+  autoport_proof::publish("sky_gpu_defect_4_sky_cpu_not_persistent", d4);
+  autoport_proof::publish("sky_gpu_defect_5_alpha_regressed", d5);
+  autoport_proof::publish("sky_gpu_robustness_defects", d1 + d2 + d3 + d4 + d5);
 }
 
 // ============ CHANTIER `hdr-glow-range` — LA PORTE, ET LA COUVERTURE QUI LA PORTE ============
@@ -1482,6 +1747,7 @@ void frame_end(GLenum scene_format) {
   publish_source_range();
   publish_glow_range();
   publish_sky_gpu_alpha();
+  publish_sky_robustness();
   if (!autoport_proof::armed_for(kItemId)) {
     s_drew_this_frame = false;
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify

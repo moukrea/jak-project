@@ -297,6 +297,70 @@ void note_sky_gpu_alpha(uint64_t components,
                         uint64_t seed_free_x1000,
                         int seed_layers);
 
+// ============ CHANTIER `sky-gpu-path-robustness` — LE CHEMIN GPU DU CIEL, SANS DEFAUT IMPLICITE
+// Quatre signalements du 12/09 sur un chemin que `hdr-sky-gpu-alpha` venait d'ouvrir a la mesure.
+// Rien ici n'est un verdict : ce sont des grandeurs relues, publiees a cote du verdict que
+// `publish_sky_robustness()` compose.
+bool sky_robustness_measuring();
+
+// LE MODE DE MELANGE PS2 DU CIEL, RECENSE LA OU L'ASSERT NU MOURAIT. Rend vrai pour le mode
+// attendu (`Cs + Cd`, 0x8000000068) ; faux veut dire REPLI : l'appelant saute la couche et
+// continue, il ne tue pas le processus. `gpu_path` separe les deux chemins, qui portaient le
+// meme ASSERT. Le recensement est PAR VALEUR : une somme ne dirait pas QUEL mode est arrive.
+bool sky_blend_mode_supported(bool gpu_path, uint64_t alpha_data);
+
+// LES DEUX LIAISONS, RELUES A LA SORTIE DU CONSTRUCTEUR de `SkyBlendGPU`. Il y bindait un nom de
+// FRAMEBUFFER dans `GL_ARRAY_BUFFER` : deux espaces de noms sans rapport. On ne l'affirme pas
+// corrige, on relit l'etat. `prev_name_is_buffer` est le temoin de la confusion : le nom que
+// l'ancien code liait comme tampon de sommets n'en etait pas un.
+void note_sky_ctor_bindings(uint64_t prev_fbo_name,
+                            int prev_name_is_buffer,
+                            uint64_t array_buffer_binding,
+                            uint64_t framebuffer_binding,
+                            uint64_t gl_error,
+                            uint64_t drained_errors);
+
+// LE CONTROLE SEME DE L'ESPACE DE NOMS. Les liaisons relues ci-dessus ne disent rien tant que
+// `prev_fbo_name` vaut 0 : l'ancien `glBindBuffer(GL_ARRAY_BUFFER, old_framebuffer)` liait alors
+// 0, exactement comme le correctif, et le terme serait VERT sur l'ancien binaire. Ce controle
+// refait le geste fautif SUR UN VRAI NOM DE FRAMEBUFFER, non nul, et publie ce que le pilote en
+// fait : soit il refuse (erreur GL), soit il accepte et la liaison CHANGE pour le nom du
+// framebuffer. Les deux issues prouvent la confusion ; un silence des deux cotes dirait que le
+// controle lui-meme est mort.
+//
+// `is_buffer` est PUBLIE, jamais exige : la mesure du 12/09 rend VRAI — le nom 1 designe a la
+// fois notre framebuffer et un tampon de sommets vivant appartenant a quelqu'un d'autre. C'est
+// le pire cas, pas une absence de defaut : l'ancien code liait un objet ETRANGER sans la moindre
+// erreur GL. Un controle qui aurait exige `is_buffer == 0` aurait pris cette demonstration pour
+// une refutation.
+void note_sky_namespace_seed(uint64_t fbo_name,
+                             int is_buffer,
+                             uint64_t bind_error,
+                             uint64_t binding_before,
+                             uint64_t binding_after,
+                             uint64_t drained_errors);
+
+// LES ECHANTILLONNEURS DU PROGRAMME `sky_blend`, tels que LE PILOTE les declare (un uniforme non
+// lu est RETIRE par le compilateur GLSL : un grep sur le source mentirait). `assigned` ne compte
+// que ceux dont l'unite a ete posee ET RELUE egale a ce qu'on voulait.
+void note_sky_samplers(uint64_t declared, uint64_t assigned, const char* names);
+
+// LE REGLAGE `use_sky_cpu` RESOLU AU DEMARRAGE, ET SA PROVENANCE. `override_val` : -1 absent,
+// 0/1 pose. `roundtrip_ok` : le champ survit a un aller-retour de serialisation — c'est ce qui
+// fait de lui un reglage PERSISTANT et pas un champ oublie dans `to_json`.
+void note_sky_cpu_setting(int effective,
+                          int compiled_default,
+                          int json_present,
+                          int json_has_key,
+                          int json_value,
+                          int override_val,
+                          int roundtrip_ok,
+                          const char* source);
+
+// LA VALEUR REELLEMENT PORTEE par `SharedRenderState` au moment du bucket ciel : sans elle, un
+// reglage resolu au demarrage et jamais applique serait indistinguable d'un reglage applique.
+void note_sky_cpu_applied(int applied);
+
 // ------------------------------ l'etat du recensement de chaine, relu par un autre module -----
 // Les memes grandeurs que `frame_end` publie deja sous `hdr_*` / `tonemap_*`. Un module qui doit
 // DECIDER sur elles (et pas seulement les publier) les lit ici, au lieu de relire un proof.txt.

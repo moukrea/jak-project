@@ -18,6 +18,7 @@
 #include "common/util/rss_census.h"
 
 #include "game/graphics/gfx.h"
+#include "game/settings/settings.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
@@ -107,6 +108,55 @@ OpenGLRenderer::OpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
       m_render_state.perf_sprite_instance = true;
     }
   }
+  // ===== sky-gpu-path-robustness : `use_sky_cpu` EST UN REGLAGE, PLUS UNE CASE IMGUI SEULE ===
+  // Il valait vrai en dur et seule la case ImGui le basculait : le chemin GPU du ciel n'etait
+  // joignable par aucune course automatique ni par aucun reglage d'owner, et tout defaut qui y
+  // vivait restait invisible. Il est resolu ICI, une fois, en couches, et sa PROVENANCE est
+  // publiee — sans elle, « vrai » ne dit pas si c'est le defaut compile, le fichier de l'owner
+  // ou une surcharge du harnais.
+  {
+    const bool compiled_default = game_settings::DebugSettings().sky_cpu;
+    const bool json_value = Gfx::g_debug_settings.sky_cpu;
+    int json_present = 0, json_has_key = 0;
+    try {
+      const auto path = file_util::get_user_misc_dir(version) / "debug-settings.json";
+      if (file_util::file_exists(path.string())) {
+        json_present = 1;
+        json_has_key =
+            file_util::read_text_file(path).find("\"sky_cpu\"") != std::string::npos ? 1 : 0;
+      }
+    } catch (const std::exception& e) {
+      lg::warn("[sky-cpu] debug-settings.json illisible : {}", e.what());
+    }
+    const int ov = Gfx::read_override("debug.opengoal.sky.cpu", "OG_SKY_CPU");
+    const bool effective = (ov >= 0) ? (ov != 0) : json_value;
+    m_render_state.use_sky_cpu = effective;
+    // LE TEMOIN DE PERSISTANCE. Le piege d'un champ ajoute a une structure serialisee est de
+    // l'oublier dans `to_json` : il se lit, il ne s'ecrit pas, et le reglage disparait au
+    // prochain demarrage sans qu'aucune erreur ne sorte. On fait donc l'aller-retour, sur une
+    // copie JETABLE — le fichier de l'owner n'est pas touche — et avec la valeur CONTRAIRE au
+    // defaut, sinon un champ absent du json rendrait le defaut et passerait pour conserve.
+    int roundtrip_ok = 0;
+    try {
+      game_settings::DebugSettings probe;
+      probe.sky_cpu = !compiled_default;
+      json j = probe;
+      game_settings::DebugSettings back;
+      game_settings::from_json(j, back);
+      roundtrip_ok = (back.sky_cpu == !compiled_default) ? 1 : 0;
+    } catch (const std::exception& e) {
+      lg::warn("[sky-cpu] aller-retour de serialisation echoue : {}", e.what());
+    }
+    const char* source = (ov >= 0) ? (std::getenv("OG_SKY_CPU") ? "env:OG_SKY_CPU"
+                                                               : "prop:debug.opengoal.sky.cpu")
+                         : json_has_key ? "debug-settings.json"
+                                        : "defaut-compile";
+    hdr::note_sky_cpu_setting(effective ? 1 : 0, compiled_default ? 1 : 0, json_present,
+                              json_has_key, json_value ? 1 : 0, ov, roundtrip_ok, source);
+    lg::info("[sky-cpu] effectif={} provenance={} (json={} cle={} surcharge={})", effective,
+             source, json_present, json_has_key, ov);
+  }
+
   // requires OpenGL 4.3
 #ifndef __APPLE__
   // setup OpenGL errors
@@ -1338,7 +1388,13 @@ void OpenGLRenderer::draw_renderer_selection_window() {
 
   ImGui::Checkbox("Use old single-draw", &m_render_state.no_multidraw);
   ImGui::SliderFloat("Fog Adjust", &m_render_state.fog_intensity, 0, 10);
-  ImGui::Checkbox("Sky CPU", &m_render_state.use_sky_cpu);
+  // sky-gpu-path-robustness : la case ECRIT le reglage et le RANGE. Elle etait le seul moyen de
+  // basculer ce chemin et son geste mourait avec le processus. `debug-settings.json` appartient
+  // au moteur : un seul ecrivain, pas de course avec GOAL comme sur `settings.ini`.
+  if (ImGui::Checkbox("Sky CPU", &m_render_state.use_sky_cpu)) {
+    Gfx::g_debug_settings.sky_cpu = m_render_state.use_sky_cpu;
+    Gfx::g_debug_settings.save_settings();
+  }
   ImGui::Checkbox("Occlusion Cull", &m_render_state.use_occlusion_culling);
   ImGui::Checkbox("Blackout Loads", &m_enable_fast_blackout_loads);
 

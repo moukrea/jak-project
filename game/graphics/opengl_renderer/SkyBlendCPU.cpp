@@ -233,11 +233,17 @@ SkyBlendStats SkyBlendCPU::do_sky_blends(DmaFollower& dma,
     // first is an adgif
     AdgifHelper adgif(setup_data.data + 16);
     ASSERT(adgif.is_normal_adgif());
-    ASSERT(adgif.alpha().data == 0x8000000068);  // Cs + Cd
 
     // next is the actual draw
     auto draw_data = dma.read_and_advance();
     ASSERT(draw_data.size_bytes == 6 * 16);
+
+    // sky-gpu-path-robustness : LE MEME ASSERT NU VIVAIT ICI, sur le chemin de L'APPAREIL — ou
+    // un ASSERT est un SIGABRT dont la pile ne nomme pas le ciel. Meme repli, meme recensement,
+    // compteur separe : les deux chemins doivent pouvoir se lire l'un sans l'autre.
+    if (!hdr::sky_blend_mode_supported(false, adgif.alpha().data)) {
+      continue;
+    }
 
     GifTag draw_or_blend_tag(draw_data.data);
 

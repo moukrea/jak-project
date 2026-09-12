@@ -32,6 +32,13 @@ struct DebugSettings {
   bool alternate_style = false;
   bool ignore_hide_imgui = false;
   bool treat_pad0_as_pad1 = false;
+  // sky-gpu-path-robustness : le chemin CPU du ciel. Il valait vrai en dur (BucketRenderer.h) et
+  // SEULE la case ImGui « Sky CPU » le basculait — aucun fichier, aucune propriete : le chemin
+  // GPU n'etait joignable par aucune course ni par aucun reglage d'owner. Il vit ici, avec les
+  // autres reglages que le MOTEUR possede et ecrit (`debug-settings.json`) ; `settings.ini` est
+  // a GOAL, qui le reecrit en entier — une cle posee la sans champ GOAL serait effacee au
+  // premier reglage change en jeu.
+  bool sky_cpu = true;
 
   std::vector<DebugTextFilter> text_filters = {};
   bool text_check_range = false;

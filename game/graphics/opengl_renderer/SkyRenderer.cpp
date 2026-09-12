@@ -72,6 +72,10 @@ void SkyBlendHandler::handle_sky_copies(DmaFollower& dma,
     static uint64_t s_alternate = 0;
     hdr::note_sky_path_mode(s_override);
     bool cpu = render_state->use_sky_cpu;
+    // sky-gpu-path-robustness : la valeur REELLEMENT portee par l'etat de rendu, relue au point
+    // ou elle DECIDE. Un reglage resolu au demarrage et jamais applique publierait le meme
+    // chiffre qu'un reglage applique ; ici on lit le consommateur, pas le resolveur.
+    hdr::note_sky_cpu_applied(cpu ? 1 : 0);
     if (s_override == 1) {
       cpu = false;
     } else if (s_override == 2) {

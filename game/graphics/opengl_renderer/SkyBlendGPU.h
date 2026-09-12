@@ -64,6 +64,29 @@ class SkyBlendGPU {
     float rgb_max = 0.f;
   };
 
+  // ===================== sky-gpu-path-robustness =======================================
+  // CHAQUE ECHANTILLONNEUR RECOIT SON UNITE EXPLICITEMENT. `tex_T0` reposait sur la valeur par
+  // defaut d'un echantillonneur (l'unite 0) pendant que `tex_prev` etait pose a la main : deux
+  // regles dans le meme programme, et un futur site qui changerait l'unite active lirait la
+  // mauvaise texture SANS AUCUNE ERREUR GL. La liste des echantillonneurs vient du PILOTE
+  // (`GL_ACTIVE_UNIFORMS`), jamais du texte du shader : un uniforme non lu est retire par le
+  // compilateur GLSL et n'existe plus dans le programme lie.
+  struct SamplerBinding {
+    GLint loc = -1;
+    GLint unit = 0;
+  };
+  // LE CONTROLE SEME DE L'ESPACE DE NOMS (voir hdr.h). Le geste fautif, refait une fois par
+  // course SOUS MESURE sur un vrai nom de framebuffer : c'est ce qui rend le terme 1 falsifiable
+  // quand le framebuffer lie a la construction se trouve etre 0.
+  void run_namespace_seed();
+  bool m_ns_seed_done = false;
+
+  void ensure_sampler_units(GLuint prog);  // recense et pose, une fois par programme
+  void apply_sampler_units();              // repose a chaque tirage (etat de programme)
+
+  std::vector<SamplerBinding> m_sampler_units;
+  GLuint m_sampler_prog = 0;
+
   bool make_target(int idx, Target* out);
   void destroy_target(Target* t);
   // UNE accumulation : copier la cible dans son operande `prev`, puis la redessiner en ajoutant

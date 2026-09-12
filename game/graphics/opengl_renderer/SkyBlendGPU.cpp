@@ -1,6 +1,8 @@
 #include "SkyBlendGPU.h"
 
 #include <cstdio>
+#include <cstring>
+#include <string>
 
 #include "common/log/log.h"
 
@@ -9,13 +11,37 @@
 
 #include "fmt/format.h"
 
+namespace {
+// sky-gpu-path-robustness : L'UNITE DE CHAQUE ECHANTILLONNEUR, NOMMEE. Ce qui n'est pas dans
+// cette table n'est pas pose, et le compte publie le dit — un echantillonneur ajoute au shader
+// sans passer ici fera rougir la porte au lieu de lire la texture du voisin en silence.
+struct SamplerWant {
+  const char* name;
+  GLint unit;
+};
+constexpr SamplerWant kSkySamplerUnits[] = {{"tex_T0", 0}, {"tex_prev", 1}};
+}  // namespace
+
 SkyBlendGPU::SkyBlendGPU() {
+  // sky-gpu-path-robustness : on VIDE les erreurs GL en attente avant de mesurer les notres, et
+  // on compte ce qu'on a vide. Sans ce drain, un `glGetError` en fin de constructeur pourrait
+  // accuser ce chantier d'une erreur laissee par un voisin ; sans le COMPTE, le drain lui-meme
+  // cacherait qu'il y avait quelque chose a vider.
+  uint64_t drained_errors = 0;
+  while (glGetError() != GL_NO_ERROR && drained_errors < 64) {
+    drained_errors++;
+  }
+
   // generate textures for sky blending
   glGenFramebuffers(2, m_framebuffers);
   glGenTextures(2, m_textures);
 
   GLint old_framebuffer;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_framebuffer);
+  // LE TEMOIN DE LA CONFUSION D'ESPACES DE NOMS. L'ancien code liait CE nom — un nom de
+  // FRAMEBUFFER — dans `GL_ARRAY_BUFFER`. `glIsBuffer` dit ce qu'il est vraiment ; on ne
+  // l'affirme pas, on le demande au pilote.
+  const int prev_name_is_buffer = glIsBuffer((GLuint)old_framebuffer) ? 1 : 0;
 
   // setup the framebuffers
   for (int i = 0; i < 2; i++) {
@@ -82,7 +108,20 @@ SkyBlendGPU::SkyBlendGPU() {
   glGenBuffers(1, &m_gl_vertex_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, m_gl_vertex_buffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * 6, nullptr, GL_DYNAMIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, old_framebuffer);
+  // sky-gpu-path-robustness : CHAQUE LIAISON DANS SON ESPACE DE NOMS. C'etait
+  // `glBindBuffer(GL_ARRAY_BUFFER, old_framebuffer)` : un nom de FRAMEBUFFER, issu de
+  // `glGetIntegerv(GL_FRAMEBUFFER_BINDING)`, passe comme nom de tampon de SOMMETS. Les deux
+  // espaces n'ont aucun rapport ; sur un pilote strict c'est GL_INVALID_VALUE, et le code ne
+  // survivait que parce que `do_sky_blends` relie le bon tampon a chaque tirage.
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, old_framebuffer);
+  // ON RELIT L'ETAT, on ne l'affirme pas : les DEUX noms lies, plus l'erreur GL du constructeur.
+  GLint ab_now = -1, fb_now = -1;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &ab_now);
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb_now);
+  const GLenum ctor_err = glGetError();
+  hdr::note_sky_ctor_bindings((uint64_t)old_framebuffer, prev_name_is_buffer, (uint64_t)ab_now,
+                              (uint64_t)fb_now, (uint64_t)ctor_err, drained_errors);
 
   // we only draw squares
   m_vertex_data[0].x = 0;
@@ -138,6 +177,85 @@ void SkyBlendGPU::init_textures(TexturePool& tex_pool, GameVersion version) {
 // Une cible de la taille d'un etage, dans le format que le pilote a ACCEPTE pour cet etage.
 // Le blit qui alimente `prev` est une copie : deux formats differents en feraient une
 // conversion, et l'accumulation ne serait plus celle qu'on croit mesurer.
+// ==================== sky-gpu-path-robustness — L'ESPACE DE NOMS, SEME ======================
+// INSTRUMENT SEUL. Aucune cible du jeu n'est touchee et la liaison est remise ou elle etait.
+void SkyBlendGPU::run_namespace_seed() {
+  uint64_t drained = 0;
+  while (glGetError() != GL_NO_ERROR && drained < 64) {
+    drained++;
+  }
+  GLint before = -1;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &before);
+  const GLuint fbo_name = m_framebuffers[0];  // un VRAI nom de framebuffer, non nul
+  const int is_buffer = glIsBuffer(fbo_name) ? 1 : 0;
+  glBindBuffer(GL_ARRAY_BUFFER, fbo_name);  // LE GESTE FAUTIF, delibere et mesure
+  const GLenum err = glGetError();
+  GLint after = -1;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &after);
+  glBindBuffer(GL_ARRAY_BUFFER, (GLuint)(before < 0 ? 0 : before));
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  hdr::note_sky_namespace_seed((uint64_t)fbo_name, is_buffer, (uint64_t)err,
+                               (uint64_t)(before < 0 ? 0 : before), (uint64_t)after, drained);
+}
+
+// ==================== sky-gpu-path-robustness — LES UNITES D'ECHANTILLONNEUR ================
+// Le recensement vient du PILOTE : `GL_ACTIVE_UNIFORMS` ne liste que ce que le programme LIE
+// contient reellement (un uniforme declare mais jamais lu est retire par le compilateur GLSL).
+// On pose l'unite, puis on la RELIT : un `glUniform1i` sur une localisation -1 est ignore en
+// silence, et compter les appels au lieu des relectures publierait un succes imaginaire.
+void SkyBlendGPU::ensure_sampler_units(GLuint prog) {
+  if (m_sampler_prog == prog) {
+    return;
+  }
+  m_sampler_prog = prog;
+  m_sampler_units.clear();
+  uint64_t declared = 0, assigned = 0;
+  std::string names;
+  GLint n = 0;
+  glGetProgramiv(prog, GL_ACTIVE_UNIFORMS, &n);
+  for (GLint i = 0; i < n; i++) {
+    char name[128] = {0};
+    GLsizei len = 0;
+    GLint sz = 0;
+    GLenum type = 0;
+    glGetActiveUniform(prog, (GLuint)i, (GLsizei)sizeof(name) - 1, &len, &sz, &type, name);
+    if (type != GL_SAMPLER_2D) {
+      continue;
+    }
+    declared++;
+    if (!names.empty()) {
+      names += ";";
+    }
+    names += name;
+    GLint unit = -1;
+    for (const auto& want : kSkySamplerUnits) {
+      if (std::strcmp(name, want.name) == 0) {
+        unit = want.unit;
+        break;
+      }
+    }
+    const GLint loc = glGetUniformLocation(prog, name);
+    if (unit < 0 || loc < 0) {
+      continue;  // pas dans la table, ou retire du programme : il MANQUE, et le compte le dira
+    }
+    glUniform1i(loc, unit);
+    GLint back = -1;
+    glGetUniformiv(prog, loc, &back);
+    if (back == unit) {
+      assigned++;
+      m_sampler_units.push_back({loc, unit});
+    }
+  }
+  hdr::note_sky_samplers(declared, assigned, names.c_str());
+}
+
+void SkyBlendGPU::apply_sampler_units() {
+  for (const auto& b : m_sampler_units) {
+    glUniform1i(b.loc, b.unit);
+  }
+}
+
 bool SkyBlendGPU::make_target(int idx, Target* out) {
   GLint old_framebuffer;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_framebuffer);
@@ -252,7 +370,10 @@ void SkyBlendGPU::run_seed_control(SharedRenderState* render_state, GLuint src_t
   if (loc_prev < 0 || loc_limit < 0) {
     return;  // les localisations manquent : `m_uniform_ok` le dit deja, on n'invente rien
   }
-  glUniform1i(loc_prev, 1);
+  // sky-gpu-path-robustness : UNE SEULE REGLE pour les unites d'echantillonneur, ici comme au
+  // tirage livre. Un `glUniform1i(loc_prev, 1)` ecrit a la main ici serait la deuxieme regle.
+  ensure_sampler_units(prog);
+  apply_sampler_units();
 
   // pleine intensite sur chaque couche : c'est le point du controle.
   for (auto& vert : m_vertex_data) {
@@ -314,6 +435,11 @@ SkyBlendStats SkyBlendGPU::do_sky_blends(DmaFollower& dma,
   GLint old_framebuffer;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_framebuffer);
 
+  if (measuring && !m_ns_seed_done) {
+    m_ns_seed_done = true;
+    run_namespace_seed();
+  }
+
   while (dma.current_tag().qwc == 6) {
     // assuming that the vif and gif-tag is correct
     auto setup_data = dma.read_and_advance();
@@ -321,11 +447,20 @@ SkyBlendStats SkyBlendGPU::do_sky_blends(DmaFollower& dma,
     // first is an adgif
     AdgifHelper adgif(setup_data.data + 16);
     ASSERT(adgif.is_normal_adgif());
-    ASSERT(adgif.alpha().data == 0x8000000068);  // Cs + Cd
 
     // next is the actual draw
     auto draw_data = dma.read_and_advance();
     ASSERT(draw_data.size_bytes == 6 * 16);
+
+    // sky-gpu-path-robustness : L'ASSERT NU EST DEVENU UN REPLI MESURE.
+    // C'etait `ASSERT(adgif.alpha().data == 0x8000000068)` — le chemin SUPPOSAIT le melange PS2
+    // `Cs + Cd` et tuait le processus sur toute autre valeur, avec une pile qui ne nomme pas le
+    // ciel. Les deux paquets du tirage sont DEJA consommes a ce point : sauter la couche laisse
+    // le flux DMA aligne, le ciel perd une couche au lieu du jeu entier, et le recensement dit
+    // PAR VALEUR quel mode est arrive.
+    if (!hdr::sky_blend_mode_supported(true, adgif.alpha().data)) {
+      continue;
+    }
 
     GifTag draw_or_blend_tag(draw_data.data);
 
@@ -370,9 +505,10 @@ SkyBlendStats SkyBlendGPU::do_sky_blends(DmaFollower& dma,
     const GLint loc_prev = glGetUniformLocation(prog, "tex_prev");
     const GLint loc_limit = glGetUniformLocation(prog, "alpha_limit");
     m_uniform_ok = (loc_prev >= 0 && loc_limit >= 0) ? 1 : 0;
-    if (m_uniform_ok) {
-      glUniform1i(loc_prev, 1);
-    }
+    // sky-gpu-path-robustness : les unites viennent de la MEME regle pour tous les
+    // echantillonneurs du programme, `tex_T0` compris — il reposait sur la valeur par defaut.
+    ensure_sampler_units(prog);
+    apply_sampler_units();
 
     // if the first is set, it disables alpha. we can just clear here, so it's easier to find
     // in renderdoc.

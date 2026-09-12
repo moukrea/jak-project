@@ -14,6 +14,7 @@ void to_json(json& j, const DebugSettings& obj) {
   json_serialize(monospaced_font);
   json_serialize(alternate_style);
   json_serialize(ignore_hide_imgui);
+  json_serialize(sky_cpu);
   json_serialize(text_filters);
   json_serialize(text_check_range);
   json_serialize(text_max_range);
@@ -28,6 +29,7 @@ void from_json(const json& j, DebugSettings& obj) {
   json_deserialize_if_exists(monospaced_font);
   json_deserialize_if_exists(alternate_style);
   json_deserialize_if_exists(ignore_hide_imgui);
+  json_deserialize_if_exists(sky_cpu);
   json_deserialize_if_exists(text_filters);
   json_deserialize_if_exists(text_check_range);
   json_deserialize_if_exists(text_max_range);
