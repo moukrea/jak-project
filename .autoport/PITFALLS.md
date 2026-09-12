@@ -904,3 +904,16 @@ ne se declenche jamais ressemble exactement a une garde satisfaite.
 Verrou : une garde nouvelle doit etre vue ECHOUER une fois, sur une entree fabriquee pour ca, avant
 d'etre crue. Meme classe que le compteur publie sans site d'ecriture et que la garde dont la seule
 occurrence est son propre en-tete : dans les trois cas le vert vient de l'absence, pas de la mesure.
+
+GUARD a-mechanism-that-stores-its-truth-in-an-ignored-directory .autoport/orchestrator.py ranger un verdict dans logs/
+**Un mecanisme dont la verite vit dans un dossier NON VERSIONNE n'a pas de memoire.** Deux fois
+dans la nuit du 2026-09-12 : la promotion machine relit le verdict de la porte dans
+`logs/<id>/validator-NNN.txt`, et `.gitignore:174` exclut tout `.autoport/logs/` ; la porte, elle,
+ne laisse aucune trace du verdict DANS l'item, qui est pourtant la seule verite versionnee du
+travail. Sur un clone neuf ou apres une purge de journaux, un item prouve reste gele — la panne
+exacte que `perf-ocean-idle` a vecue deux jours.
+Verrou : quand une decision future depend d'un fait, ce fait s'ecrit la ou il survit — dans l'item,
+avec sa date et l'empreinte de ce qui a ete juge. Le journal est une trace de lecture, jamais une
+source. Corollaire du meme soir : une autorite qui reconnait un perimetre en cherchant des
+TOURNURES francaises dans une phrase depend de la facon dont le superviseur ecrit ce jour-la ; un
+champ explicite fait foi, la prose n'est qu'un repli, et chaque repli se COMPTE.
