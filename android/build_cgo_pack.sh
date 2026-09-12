@@ -95,15 +95,14 @@ fi
 # tiennent. Ajouter une traduction fait monter les deux cotes ; en perdre une fait ECHOUER
 # l'empaquetage. Un seuil fixe, lui, aurait laisse passer sept langues perdues sur huit.
 touch_variant_gate(){
-  python3 - "$STAGE" "$TEXT_SRC" <<'PYGATE'
-import glob, json, os, struct, sys
-stage, text_src = sys.argv[1], sys.argv[2]
+  python3 - "$1" "$TEXT_SRC" <<'PYGATE'
+import glob, json, os, struct, sys, zipfile
+src, text_src = sys.argv[1], sys.argv[2]
 
-def bank_ids(path):
-    d = open(path, 'rb').read()
+def bank_ids(name, d):
     tag, length, ver = struct.unpack_from('<III', d, 0)
     if tag != 0xFFFFFFFF or ver != 2:
-        raise ValueError('%s: not a V2 linked object (tag=%08x ver=%d)' % (path, tag, ver))
+        raise ValueError('%s: not a V2 linked object (tag=%08x ver=%d)' % (name, tag, ver))
     w = lambda i: struct.unpack_from('<I', d, length + 4 * i)[0]
     n, lang, out = w(1), w(2), {}
     for k in range(n):
@@ -112,31 +111,51 @@ def bank_ids(path):
         out[tid] = d[off:d.index(b'\x00', off)]
     return lang, n, out
 
+# Les bancs viennent SOIT du fermage de symlinks qu'on s'apprete a zipper, SOIT du zip deja
+# sur le disque quand le repack est saute. Les deux passent par la MEME porte : un paquet
+# qu'on ne reconstruit pas n'est pas un paquet qu'on n'a pas besoin de regarder.
+def banks(src):
+    if os.path.isdir(src):
+        for p in sorted(glob.glob(os.path.join(src, '*COMMON.TXT'))):
+            yield os.path.basename(p), open(p, 'rb').read()
+    else:
+        with zipfile.ZipFile(src) as z:
+            for nm in sorted(x for x in z.namelist() if x.endswith('COMMON.TXT')):
+                yield os.path.basename(nm), z.read(nm)
+
 TOUCH, PLAIN = 0x17e7, 0x16e
 want = sorted(os.path.basename(p) for p in glob.glob(os.path.join(text_src, 'game_custom_text_*.json'))
               if '%x' % TOUCH in json.load(open(p, encoding='utf-8')))
-got, bad = [], []
-for path in sorted(glob.glob(os.path.join(stage, '*COMMON.TXT'))):
+got, bad, seen = [], [], 0
+for name, data in banks(src):
+    seen += 1
     try:
-        lang, n, ids = bank_ids(path)
+        lang, n, ids = bank_ids(name, data)
     except Exception as e:
-        bad.append('%s: illisible (%s)' % (os.path.basename(path), e)); continue
+        bad.append('%s: illisible (%s)' % (name, e)); continue
     t = ids.get(TOUCH)
     if t is None:
         continue
     if not t:
-        bad.append('%s (langue %d): #x17e7 est VIDE' % (os.path.basename(path), lang)); continue
+        bad.append('%s (langue %d): #x17e7 est VIDE' % (name, lang)); continue
     if t == ids.get(PLAIN):
         bad.append('%s (langue %d): #x17e7 == #x16e, la variante tactile n\'existe pas' %
-                   (os.path.basename(path), lang)); continue
+                   (name, lang)); continue
     got.append(lang)
-print('[cgo-pack] touch-variant: %d banc(s) livre(s) portent #x17e7 distinct de #x16e '
+print('[cgo-pack] touch-variant [%s]: %d banc(s) sur %d lus portent #x17e7 distinct de #x16e '
       '(langues %s) ; %d source(s) le promettent (%s)'
-      % (len(got), ','.join(str(l) for l in sorted(got)) or '-', len(want),
+      % (src, len(got), seen, ','.join(str(l) for l in sorted(got)) or '-', len(want),
          ' '.join(s.replace('game_custom_text_', '').replace('.json', '') for s in want) or '-'))
 for b in bad:
     print('[cgo-pack]   DEFAUT: ' + b, file=sys.stderr)
 if bad:
+    sys.exit(1)
+# LE PLANCHER DE VACUITE. Sans lui, une source qui ne rend AUCUN banc (chemin faux, structure
+# du zip changee) donnerait got=[] — et la porte accuserait la variante tactile au lieu
+# d'accuser son propre instrument.
+if seen == 0:
+    print('[cgo-pack]   DEFAUT: aucun banc *COMMON.TXT lu dans %s — c\'est la PORTE qui est '
+          'aveugle, pas forcement le paquet' % src, file=sys.stderr)
     sys.exit(1)
 if len(want) == 0:
     print('[cgo-pack]   DEFAUT: aucune source ne definit "17e7" — la variante tactile a disparu '
@@ -179,6 +198,14 @@ if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
   cv=$(grep -E '^version=' "$MANIFEST" | cut -d= -f2 || echo "")
   cfc=$(grep -E '^file_count=' "$MANIFEST" | cut -d= -f2 || echo "")
   if [ -n "$newest" ] && [ "$zmt" -ge "$newest" ] && [ "$cv" = "$VERSION" ] && [ "$cfc" = "$WANT_FC" ]; then
+    # LA PORTE TOURNE AUSSI QUAND ON NE REPACKE PAS. Sans cette ligne elle etait
+    # CONDITIONNELLE a un repack, et c'est exactement la condition qui manque le jour ou ca
+    # compte : l'ANCIENNE formule de `version` (celle qui hachait l'overlay) devient
+    # IDENTIQUE a la nouvelle des que l'overlay etait DROP — c'est-a-dire pendant tout
+    # l'incident. Un zip fabrique a cette epoque presente donc la bonne `version`, le
+    # repack est saute, et il repart vers l'APK sans que rien ne l'ait regarde. On lit le
+    # zip LUI-MEME, jamais les sources dont il est cense sortir.
+    touch_variant_gate "$ZIP_REL" || fail "le paquet deja sur le disque ne porte pas la variante tactile (voir ci-dessus). L'empaquetage ECHOUE au lieu de le relivrer tel quel."
     echo "[cgo-pack] up to date: $ZIP_REL (version=$VERSION file_count=$cfc)"
     exit 0
   fi
@@ -202,7 +229,7 @@ echo "[cgo-pack] text banks: $N_DTXT"
 # The touch-variant gate runs HERE, on the STAGED banks — the bytes that go into the zip,
 # never the sources they were built from. A gate that read the sources would have passed
 # every single time the overlay shipped a frozen bank.
-touch_variant_gate || fail "la variante tactile n'est pas dans les bancs a empaqueter (voir ci-dessus). L'empaquetage ECHOUE au lieu de livrer un texte degrade en silence."
+touch_variant_gate "$STAGE" || fail "la variante tactile n'est pas dans les bancs a empaqueter (voir ci-dessus). L'empaquetage ECHOUE au lieu de livrer un texte degrade en silence."
 
 # --- HARD completeness + consistency gates ---
 got=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
