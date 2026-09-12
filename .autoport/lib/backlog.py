@@ -41,6 +41,13 @@ try:                                                  # noqa: SIM105
 except ImportError:                                   # pragma: no cover
     import impossible as _impossible
 
+# LE LECTEUR UNIQUE du verdict d'un essai — `logs/<id>/validator-NNN.txt`, ecrit par la
+# machine. Meme double forme d'import, pour la meme raison.
+try:                                                  # noqa: SIM105
+    from lib import gate_verdict as _gate_verdict
+except ImportError:                                   # pragma: no cover
+    import gate_verdict as _gate_verdict
+
 # 2026-09-11 — LECTEUR EN C. PyYAML embarque un analyseur ecrit en Python et un autre en C ; le
 # second etait installe et inutilise. Mesure sur le backlog reel (328 Ko) : 1 992 ms contre
 # 136 ms. Chaque ecriture relisant le fichier entier, une modification passe de ~2,4 s a ~0,5 s.
@@ -156,6 +163,8 @@ class Backlog:
         self.path = os.fspath(path)
         self.version = doc.get("version", 1)
         self.items = list(doc.get("items") or [])
+        # Ce que la derniere `machine_proved_to_validated` a REFUSE de promouvoir, et pourquoi.
+        self.machine_promotion_refused = []
 
     # ---------------------------------------------------------------- lecture
     def get(self, item_id):
@@ -181,6 +190,33 @@ class Backlog:
         return [(it.get("id"), bool(it.get("owner_test", True)))
                 for it in self.items if it.get("status") == "to-test"]
 
+    def machine_promotion_plan(self):
+        """PROMOTION/relit-le-verdict — pour chaque `to-test` : promouvoir ou non, et POURQUOI.
+
+        La decision et son ECRITURE sont separees ici parce que la decision se MESURE : un banc
+        jetable appelle cette fonction sur une copie du backlog et compare son plan aux deux
+        controles qu'il a SEMES — un item dont la porte a tenu, qui doit sortir ; un item dont
+        elle n'a pas tenu, qui doit rester.
+
+        DEUX conditions, jamais une seule :
+          `owner_test: false` — l'item dit lui-meme n'avoir rien a montrer a l'owner ;
+          `porte tenue`       — le DERNIER journal de validation de l'item porte « [<id> ok] »
+                                et aucun « [<id> FAIL] ». C'est le verdict de `generic.sh`,
+                                relu tel qu'il a ete ecrit, jamais une intention.
+
+        INCONNU = DEFAUT : pas de journal, ou un journal muet, et l'item RESTE. On ne valide
+        rien sur un silence.
+        """
+        logs = self._logs_dir()
+        plan = []
+        for iid, owner_test in self.parked_for_owner():
+            v = _gate_verdict.validator_verdict(logs, iid)
+            plan.append({"id": iid, "owner_test": bool(owner_test), "green": bool(v["green"]),
+                         "verdict": v["reason"], "journal": v["file"], "seq": v["seq"],
+                         "line": v["line"],
+                         "promote": (not owner_test) and bool(v["green"])})
+        return plan
+
     def machine_proved_to_validated(self):
         """`owner_test: false` + porte tenue = `validated`, sans passer par l'owner.
 
@@ -199,12 +235,27 @@ class Backlog:
         2026-09-11 ; ceux parques AVANT, eux, ne pouvaient plus sortir de `to-test` par aucun
         chemin. `perf-ocean-idle` y a dormi du 10/09 au 12/09 devant `perf-stock-60`. Cette
         fonction est le rattrapage, et elle tourne a chaque tour de boucle.
+
+        2026-09-12 (harness-close-gate-code-free) — ELLE RELIT LE VERDICT. Elle s'appelle
+        « machine_proved » et ne verifiait QUE `owner_test: false` : elle croyait la porte sur
+        parole, parce que seule la porte posait `to-test`, et apres sa porte. Ce n'est plus une
+        garantie depuis qu'elle a un appelant — un `to-test` pose a la main, par un superviseur
+        ou par une future voie de parking, serait valide sans qu'aucune preuve n'ait tenu. La
+        garde manquante etait « la porte a-t-elle tenu », pas « l'owner a-t-il regarde ». LE NOM
+        RESTE, c'est la fonction qui verifie desormais ce qu'il promet.
+
+        Ce qu'elle REFUSE est rendu dans `self.machine_promotion_refused` : un `owner_test:
+        false` qu'on ne peut pas promouvoir gele tout ce qui en depend, exactement comme
+        `perf-ocean-idle` du 10 au 12/09. Ca se DIT a chaque tour, jamais ca se tait.
         """
         promus = []
-        for iid, owner_test in self.parked_for_owner():
-            if not owner_test:
-                self.set_status(iid, "validated")
-                promus.append(iid)
+        self.machine_promotion_refused = []
+        for e in self.machine_promotion_plan():
+            if e["promote"]:
+                self.set_status(e["id"], "validated")
+                promus.append(e["id"])
+            elif not e["owner_test"]:
+                self.machine_promotion_refused.append((e["id"], e["verdict"], e["journal"]))
         return promus
 
     def no_device_marker(self):
@@ -300,6 +351,11 @@ class Backlog:
         """Les rapports du harnais qui a ecrit CE backlog — pas ceux du depot courant. Un
         banc jetable pose son backlog.yaml ailleurs et y trouve ses propres etats."""
         return os.path.join(os.path.dirname(os.path.abspath(self.path)), "reports")
+
+    def _logs_dir(self):
+        """Les journaux de validation du harnais qui a ecrit CE backlog. Jumeau exact de
+        `_reports_dir` : un banc jetable pose son backlog ailleurs et y lit SES verdicts."""
+        return os.path.join(os.path.dirname(os.path.abspath(self.path)), "logs")
 
     # ---- releve des verdicts : le nombre ne descend jamais tout seul -------------------------
     def _verdict_ref_path(self):

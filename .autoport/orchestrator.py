@@ -67,6 +67,7 @@ from rich.panel import Panel
 
 from lib import cli_backend
 from lib import impossible as impossible_state
+from lib import gate_verdict
 
 BACKEND = "claude"
 
@@ -1650,7 +1651,20 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
     # GATE 1 — real translation-layer code change (anti-stub false-green).
     # An item was once marked done with ZERO code. Require a real change since
     # the supervisor anchor, unless the item declares `no_code: true`.
-    if not item.get("no_code", False):
+    #
+    # GATE1/perimetre-sans-code — ELLE NE BRULE PLUS UN ESSAI POUR UN DRAPEAU ABSENT.
+    # Un item dont le perimetre INTERDIT `game/ android/ goalc/ goal_src/` echouait ici
+    # FORCEMENT tant que personne n'avait pose `no_code: true` a la main, et rien ne le
+    # disait au LANCEMENT : seulement ici, une fois l'essai depense. Mesure du 2026-09-12,
+    # essai 1 de `harness-proof-props-pin` : porte machine TENUE, refusee pour ce seul
+    # drapeau. La question a une reponse LISIBLE dans le perimetre de l'item ; c'est
+    # `gate_verdict.code_free_item` qui la lit, ici comme au lancement, au meme endroit.
+    _sans_code, _pourquoi_sans_code = gate_verdict.code_free_item(item)
+    if _sans_code and not item.get("no_code", False):
+        log(f"· GATE 1 : le perimetre de {iid} interdit le code du jeu ({_pourquoi_sans_code}) "
+            f"— aucun code de portage n'est exige. Le drapeau `no_code` manquait ; il n'est "
+            f"plus une condition de fermeture.", "dim")
+    if not _sans_code:
         anchor = _supervisor_anchor(iid)
         # LA MÊME liste que GATE 0, lue au même endroit et consignée. Elle codait
         # `["game/","android/","goalc/","goal_src/"]` en dur — `common/` manquait.
@@ -2657,7 +2671,53 @@ def free_machine_proved(bk) -> list[str]:
     for iid in freed:
         log(f"✓ {iid} : preuve machine (owner_test: false) — validé sans l'owner, "
             f"il n'a rien à regarder.", "bold green")
+    # CE QUI EST REFUSÉ SE DIT. Un `owner_test: false` que la porte n'a pas tenu ne peut sortir
+    # de `to-test` par AUCUN chemin — ni l'owner (il n'a rien à regarder), ni la promotion
+    # machine (le verdict est rouge ou absent). Il gèle tout ce qui en dépend : le taire, c'est
+    # refabriquer `perf-ocean-idle`, en pire, parce que cette fois rien ne le nommerait.
+    for iid, verdict, journal in getattr(bk, "machine_promotion_refused", []):
+        log(f"⚠ {iid} : parqué `to-test` avec `owner_test: false`, mais la porte n'a PAS tenu "
+            f"({verdict}, journal {journal}) — NON promu. Aucun chemin ne le sortira de là "
+            f"tant que sa preuve n'aura pas tenu : relance un essai ou tranche.", "yellow")
     return freed
+
+
+def launch_item(bk, item: dict) -> dict:
+    """LE LANCEMENT D'UN ESSAI : l'item passe `in-progress`, et son périmètre est PRONONCÉ ICI.
+
+    GATE1/perimetre-sans-code — AU POINT DE PRODUCTION, PAS AU POINT DE CONTRÔLE. GATE 1
+    refuse un vert obtenu sans une ligne de code moteur ; un item dont le périmètre INTERDIT
+    `game/ android/ goalc/ goal_src/` échouait donc forcément à sa PREMIÈRE fermeture tant
+    que personne n'avait posé `no_code: true` à la main. Rien ne le disait au lancement :
+    l'essai partait, travaillait, tenait sa porte machine, et se faisait refuser sur un
+    drapeau absent. Mesure du 2026-09-12 : essai 1 de `harness-proof-props-pin`, un essai
+    entier brûlé, et le même coût à chaque nouvel item de harnais.
+
+    Le périmètre le dit en toutes lettres ; `gate_verdict.code_free_item` le lit, et le
+    drapeau est POSÉ dans `backlog.yaml` — dans l'écriture `in-progress` qui a lieu de toute
+    façon, jamais une seconde. Le prononcé est journalisé : `logs/no-code-at-launch.log`
+    garde la trace de ce qui a été LANCÉ, qu'un recensement du backlog d'aujourd'hui ne
+    pourrait pas reconstruire.
+
+    Ce que ça ne fait PAS : inventer un périmètre. Un `out_of_scope` muet n'interdit rien, et
+    GATE 1 exige le code comme avant.
+    """
+    iid = item["id"]
+    logs_root = os.path.join(os.path.dirname(os.path.abspath(bk.path)), "logs")
+    sans_code, pourquoi = gate_verdict.code_free_item(item)
+    pose = bool(sans_code) and not item.get("no_code", False)
+    journal = gate_verdict.note_launch(logs_root, iid, pose, pourquoi) if sans_code else ""
+    if pose:
+        log(f"· {iid} : son périmètre interdit le code du jeu ({pourquoi}) — `no_code: true` "
+            f"posé AU LANCEMENT. Sans ça, la porte de fermeture aurait refusé cet essai sur "
+            f"ce seul drapeau, porte machine tenue ou non.", "yellow")
+    bk.set_status(iid, "in-progress", **({"no_code": True} if pose else {}))
+    if pose:
+        # `bk.items` a été remplacé par la relecture du disque : l'objet que `run_attempt` et
+        # la porte de fermeture reçoivent est celui-ci, on le met d'accord avec le fichier.
+        item["no_code"] = True
+    return {"code_free": bool(sans_code), "posed": pose, "reason": pourquoi or "-",
+            "journal": journal or "-", "logs_root": logs_root}
 
 
 def release_stale_in_progress(bk) -> list[str]:
@@ -2815,7 +2875,8 @@ def main(argv: list[str] | None = None) -> int:
 
         iid = item["id"]
         started = time.time()
-        bk.set_status(iid, "in-progress")
+        # Le périmètre de l'item est prononcé ICI, pas à sa fermeture : voir `launch_item`.
+        launch_item(bk, item)
         try:
             out = run_attempt(item, state)
         except StateConflict as e:
