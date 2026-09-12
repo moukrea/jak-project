@@ -258,6 +258,45 @@ void note_glow_flush(uint64_t pending);  // `GlowRenderer::flush`, AVANT son ret
 // eux que passe le halo que l'owner voit sur les feux et les portails.
 void note_sprite_frame(bool jak1_path, uint64_t sprites_2d, uint64_t aux_sprites);
 
+// ============ CHANTIER `hdr-sky-gpu-alpha` — LE POIDS DE MELANGE DU CIEL, CHEMIN GPU =========
+// Le chantier A a ouvert la cible du ciel en flottant. Le chemin GPU (`SkyBlendGPU`, bureau
+// seul : `use_sky_cpu` vaut vrai par defaut et seule une case ImGui le bascule) accumulait ses
+// couches par `glBlendFunc(GL_ONE, GL_ONE)` : sur une cible flottante l'ALPHA — un POIDS DE
+// MELANGE, pas une couleur — a cesse de saturer a 1,0. Ce bloc mesure la grandeur au POINT OU
+// ELLE EST PRODUITE (relecture de la cible, pas du consommateur) et publie, dans la MEME course,
+// la valeur d'AVANT (temoin a borne infinie) a cote de celle d'APRES.
+//
+// Les zeros de ce bloc sont falsifiables par construction : `frames`/`readbacks`/`components`
+// sont les denominateurs, et `before_over_px` est la POPULATION QUE LE CORRECTIF VIDE — s'il est
+// nul, le vert ne prouve rien et le defaut 4 le dit.
+bool sky_gpu_alpha_measuring();
+
+// Le chemin choisi pour la course. `mode` : 0 = celui du jeu (case ImGui), 1 = GPU force,
+// 2 = ALTERNE (un appel sur deux) — c'est le seul mode qui exerce les DEUX chemins dans une
+// course et qui donne donc au chemin CPU, celui de l'appareil, ses propres grandeurs.
+void note_sky_path_mode(int mode);
+void note_sky_cpu_call();  // `SkyBlendCPU::do_sky_blends` vient d'etre choisi
+void note_sky_gpu_call();  // `SkyBlendGPU::do_sky_blends` vient d'etre choisi
+
+// Une relecture de cible vient d'avoir lieu. `stage_float` dit si l'etage est REELLEMENT
+// flottant : sur un etage 8 bits le materiel borne tout seul et le verdict serait vide.
+// `uniform_ok` : 1 si `tex_prev` ET `alpha_limit` ont une localisation dans le programme lie
+// (un uniforme non lu est RETIRE par le compilateur GLSL et rend -1 : on le teste, on ne le
+// suppose pas).
+void note_sky_gpu_alpha(uint64_t components,
+                        uint64_t alpha_over,
+                        uint64_t alpha_max_x1000,
+                        uint64_t rgb_max_x1000,
+                        uint64_t before_alpha_over,
+                        uint64_t before_alpha_max_x1000,
+                        uint64_t before_rgb_max_x1000,
+                        bool stage_float,
+                        int uniform_ok,
+                        bool witness_ready,
+                        uint64_t seed_clamped_x1000,
+                        uint64_t seed_free_x1000,
+                        int seed_layers);
+
 // ------------------------------ l'etat du recensement de chaine, relu par un autre module -----
 // Les memes grandeurs que `frame_end` publie deja sous `hdr_*` / `tonemap_*`. Un module qui doit
 // DECIDER sur elles (et pas seulement les publier) les lit ici, au lieu de relire un proof.txt.

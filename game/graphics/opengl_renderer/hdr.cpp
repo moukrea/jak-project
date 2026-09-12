@@ -713,6 +713,18 @@ uint64_t s_glow_px = 0, s_glow_overbright = 0, s_glow_max_x1000 = 0, s_glow_fram
 // 1 = relecture refusee par le pilote, 2 = jamais tente, 3 = a tourne.
 int s_glow_state = 0;
 // Le ciel CPU, compte AU SITE DE L'ADDITION — la ou `_mm_adds_epu8` saturait.
+// ------------------------------------------------------ hdr-sky-gpu-alpha (etat) ----------
+constexpr const char* kSkyGpuAlphaId = "hdr-sky-gpu-alpha";
+int s_sky_path_mode = 0;
+uint64_t s_sky_gpu_calls = 0, s_sky_cpu_calls = 0;
+uint64_t s_skygpu_readbacks = 0, s_skygpu_components = 0;
+uint64_t s_skygpu_a_over = 0, s_skygpu_a_max_x1000 = 0, s_skygpu_rgb_max_x1000 = 0;
+uint64_t s_skygpu_b_over = 0, s_skygpu_b_max_x1000 = 0, s_skygpu_b_rgb_max_x1000 = 0;
+int s_skygpu_stage_float = 0, s_skygpu_uniform_ok = -1, s_skygpu_witness = 0;
+uint64_t s_skygpu_seed_clamped = 0, s_skygpu_seed_free = 0;
+int s_skygpu_seed_layers = 0;
+uint64_t s_skygpu_pub_frames = 0;
+
 uint64_t s_sky_px = 0, s_sky_overbright = 0, s_sky_max_x1000 = 0;
 uint64_t s_sky_differs = 0, s_sky_max_diff_x1000 = 0;
 uint64_t s_stage_fallbacks = 0;
@@ -767,6 +779,60 @@ void note_stage_fallback(const char* name) {
   // encore. C'est le COMPTE qui est publie, et le format effectif recense juste apres le dira.
   lg::warn("[hdr-source-range] flottant refuse par le pilote pour {}", name ? name : "?");
   s_stage_fallbacks++;
+}
+
+// ==================== hdr-sky-gpu-alpha — le recueil (voir hdr.h) ============================
+bool sky_gpu_alpha_measuring() {
+  return autoport_proof::feature_is(kSkyGpuAlphaId);
+}
+
+void note_sky_path_mode(int mode) {
+  s_sky_path_mode = mode;
+}
+
+void note_sky_cpu_call() {
+  s_sky_cpu_calls++;
+}
+
+void note_sky_gpu_call() {
+  s_sky_gpu_calls++;
+}
+
+void note_sky_gpu_alpha(uint64_t components,
+                        uint64_t alpha_over,
+                        uint64_t alpha_max_x1000,
+                        uint64_t rgb_max_x1000,
+                        uint64_t before_alpha_over,
+                        uint64_t before_alpha_max_x1000,
+                        uint64_t before_rgb_max_x1000,
+                        bool stage_float,
+                        int uniform_ok,
+                        bool witness_ready,
+                        uint64_t seed_clamped_x1000,
+                        uint64_t seed_free_x1000,
+                        int seed_layers) {
+  s_skygpu_readbacks++;
+  s_skygpu_components += components;
+  s_skygpu_a_over += alpha_over;
+  s_skygpu_b_over += before_alpha_over;
+  if (alpha_max_x1000 > s_skygpu_a_max_x1000) {
+    s_skygpu_a_max_x1000 = alpha_max_x1000;
+  }
+  if (rgb_max_x1000 > s_skygpu_rgb_max_x1000) {
+    s_skygpu_rgb_max_x1000 = rgb_max_x1000;
+  }
+  if (before_alpha_max_x1000 > s_skygpu_b_max_x1000) {
+    s_skygpu_b_max_x1000 = before_alpha_max_x1000;
+  }
+  if (before_rgb_max_x1000 > s_skygpu_b_rgb_max_x1000) {
+    s_skygpu_b_rgb_max_x1000 = before_rgb_max_x1000;
+  }
+  s_skygpu_stage_float = stage_float ? 1 : 0;
+  s_skygpu_uniform_ok = uniform_ok;
+  s_skygpu_witness = witness_ready ? 1 : 0;
+  s_skygpu_seed_clamped = seed_clamped_x1000;
+  s_skygpu_seed_free = seed_free_x1000;
+  s_skygpu_seed_layers = seed_layers;
 }
 
 void note_sky_wide(uint64_t over_px,
@@ -1081,6 +1147,111 @@ void publish_source_range() {
   autoport_proof::publish("hdr_overbright_px", s_glow_overbright);
 }
 
+// ============ CHANTIER `hdr-sky-gpu-alpha` — LA PORTE =======================================
+// `hdr_sky_gpu_alpha_defects` est une SOMME DE TERMES PUBLIES SEPAREMENT. L'ordre est celui du
+// contrat : la COUVERTURE d'abord (le chemin a-t-il tourne, l'etage est-il vraiment flottant),
+// la GRANDEUR ensuite, et le TEMOIN qui rend son zero falsifiable. Un `alpha_max <= 1,0` obtenu
+// sur un chemin qui n'a pas tourne, ou sur un etage 8 bits que le materiel borne tout seul, est
+// un vert par INACTION : les termes 1 et 2 le refusent avant que le terme 3 soit seulement lu.
+void publish_sky_gpu_alpha() {
+  if (!sky_gpu_alpha_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  s_skygpu_pub_frames++;
+  if ((s_skygpu_pub_frames % 30) != 1) {
+    return;
+  }
+  autoport_proof::note_hit();
+
+  // --- le regime, epingle et publie A COTE du verdict.
+  autoport_proof::publish("hdr_sky_gpu_master_on", Gfx::recharged_master_active() ? 1 : 0);
+  autoport_proof::publish("hdr_sky_gpu_armed", autoport_proof::armed_for(kSkyGpuAlphaId) ? 1 : 0);
+  autoport_proof::publish("hdr_sky_gpu_mode", (uint64_t)(s_sky_path_mode < 0 ? 0
+                                                                             : s_sky_path_mode));
+  // LE DIRE EXPLICITEMENT : la bascule `use_sky_cpu` a-t-elle ete forcee pour cette course ?
+  autoport_proof::publish("hdr_sky_gpu_forced", s_sky_path_mode != 0 ? 1 : 0);
+  autoport_proof::publish_text("hdr_sky_gpu_mode_name",
+                               s_sky_path_mode == 1   ? "gpu-force"
+                               : s_sky_path_mode == 2 ? "alterne-gpu-cpu"
+                                                      : "choix-du-jeu");
+
+  // --- 1. LA COUVERTURE. Trois denominateurs, tous publies : un zero sur l'un d'eux se lit
+  // « pas mesure », jamais « pas de defaut ».
+  autoport_proof::publish("hdr_sky_gpu_frames", s_sky_gpu_calls);
+  autoport_proof::publish("hdr_sky_cpu_frames", s_sky_cpu_calls);
+  autoport_proof::publish("hdr_sky_gpu_readbacks", s_skygpu_readbacks);
+  autoport_proof::publish("hdr_sky_gpu_alpha_components", s_skygpu_components);
+
+  // --- 2. LA GRANDEUR, APRES : ce que la cible livree contient REELLEMENT, relu sur elle.
+  autoport_proof::publish("hdr_sky_gpu_alpha_max_x1000", s_skygpu_a_max_x1000);
+  autoport_proof::publish("hdr_sky_gpu_alpha_over_px", s_skygpu_a_over);
+
+  // --- 3. LA MEME GRANDEUR, AVANT, SUR LA MEME COURSE : le temoin refait l'accumulation sans
+  // borne, sur les memes couches, dans sa propre cible. `bounded_px` est ce que le correctif a
+  // REELLEMENT borne — c'est la population que le correctif VIDE.
+  autoport_proof::publish("hdr_sky_gpu_alpha_before_max_x1000", s_skygpu_b_max_x1000);
+  autoport_proof::publish("hdr_sky_gpu_alpha_before_over_px", s_skygpu_b_over);
+  autoport_proof::publish("hdr_sky_gpu_alpha_bounded_px",
+                          s_skygpu_b_over > s_skygpu_a_over ? s_skygpu_b_over - s_skygpu_a_over
+                                                            : 0);
+  // Le RGB des DEUX cotes : la borne ne devait toucher QUE le poids. Si ces deux nombres
+  // different, le correctif a repris la plage que le chantier A avait ouverte.
+  autoport_proof::publish("hdr_sky_gpu_rgb_max_x1000", s_skygpu_rgb_max_x1000);
+  autoport_proof::publish("hdr_sky_gpu_rgb_before_max_x1000", s_skygpu_b_rgb_max_x1000);
+
+  autoport_proof::publish("hdr_sky_gpu_stage_float", (uint64_t)s_skygpu_stage_float);
+  autoport_proof::publish("hdr_sky_gpu_uniform_ok", (uint64_t)(s_skygpu_uniform_ok + 1));
+  autoport_proof::publish("hdr_sky_gpu_witness_ready", (uint64_t)s_skygpu_witness);
+
+  // --- 4. LE CHEMIN CPU, celui de l'appareil, mesure DANS LA MEME COURSE par son propre
+  // instrument (`note_sky_wide`, inchange par cet item). `differs_px` est son temoin d'effet :
+  // il ne peut valoir zero que si le conteneur flottant ne change rien.
+  autoport_proof::publish("hdr_sky_cpu_px", s_sky_px);
+  autoport_proof::publish("hdr_sky_cpu_max_x1000", s_sky_max_x1000);
+  autoport_proof::publish("hdr_sky_cpu_overbright_px", s_sky_overbright);
+  autoport_proof::publish("hdr_sky_cpu_differs_px", s_sky_differs);
+  autoport_proof::publish("hdr_sky_cpu_max_diff_x1000", s_sky_max_diff_x1000);
+
+  // --- LE CONTROLE SEME. Les couches du ciel se partagent 128 d'intensite : la somme de leurs
+  // alphas ne depasse jamais 1,0 dans le jeu (mesure : `before_max` ci-dessus). Une borne
+  // qu'aucune donnee ne touche rend le terme 3 vert QUOI QU'ON AIT ECRIT dans le shader. Deux
+  // controles semes le rendent falsifiable, sur le MEME binaire et la MEME course : le bras
+  // LIBRE empile huit couches a pleine intensite et DOIT depasser 1,0 (la population est
+  // atteignable) ; le bras BORNE empile les memes et DOIT rendre exactement 1,0 (la borne borne).
+  autoport_proof::publish("hdr_sky_gpu_seed_layers", (uint64_t)s_skygpu_seed_layers);
+  autoport_proof::publish("hdr_sky_gpu_seed_free_x1000", s_skygpu_seed_free);
+  autoport_proof::publish("hdr_sky_gpu_seed_clamped_x1000", s_skygpu_seed_clamped);
+
+  // --- LES TERMES, SEPARES.
+  const uint64_t d1 =
+      (s_sky_gpu_calls == 0 || s_skygpu_readbacks == 0 || s_skygpu_components == 0) ? 1u : 0u;
+  const uint64_t d2 = s_skygpu_stage_float ? 0u : 1u;
+  const uint64_t d3 = (s_skygpu_a_max_x1000 > 1000u || s_skygpu_a_over > 0u) ? 1u : 0u;
+  const uint64_t d4 =
+      (s_skygpu_witness == 0 || s_skygpu_uniform_ok != 1 || s_skygpu_b_max_x1000 == 0) ? 1u : 0u;
+  const uint64_t d5 = (s_skygpu_rgb_max_x1000 != s_skygpu_b_rgb_max_x1000) ? 1u : 0u;
+  const uint64_t d6 = (s_sky_cpu_calls == 0 || s_sky_px == 0 || s_sky_differs == 0) ? 1u : 0u;
+  // 7 : la borne BORNE, prouve sur une valeur SEMEE au-dessus de 1,0 — sinon le terme 3 est vert
+  // par inaction. Les deux bras sont exiges : un bras libre qui ne depasse pas dirait que le
+  // controle lui-meme est mort.
+  const uint64_t d7 =
+      (s_skygpu_seed_free <= 1000u || s_skygpu_seed_clamped != 1000u) ? 1u : 0u;
+  // 8 : ... et elle ne change RIEN AILLEURS. Le grief contre les facteurs a fonction fixe etait
+  // qu'aucun ne borne sans deplacer la valeur la ou elle ne saturait pas. Sur les donnees
+  // reelles, ou rien ne depasse, la valeur livree doit egaler la valeur NON BORNEE du temoin.
+  const uint64_t d8 =
+      (s_skygpu_a_over == 0u && s_skygpu_a_max_x1000 != s_skygpu_b_max_x1000) ? 1u : 0u;
+  autoport_proof::publish("hdr_sky_gpu_defect_1_path_unexercised", d1);
+  autoport_proof::publish("hdr_sky_gpu_defect_2_stage_not_float", d2);
+  autoport_proof::publish("hdr_sky_gpu_defect_3_alpha_overflow", d3);
+  autoport_proof::publish("hdr_sky_gpu_defect_4_witness_dead", d4);
+  autoport_proof::publish("hdr_sky_gpu_defect_5_rgb_regressed", d5);
+  autoport_proof::publish("hdr_sky_gpu_defect_6_cpu_path_silent", d6);
+  autoport_proof::publish("hdr_sky_gpu_defect_7_bound_never_bounds", d7);
+  autoport_proof::publish("hdr_sky_gpu_defect_8_value_moved_elsewhere", d8);
+  autoport_proof::publish("hdr_sky_gpu_alpha_defects", d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8);
+}
+
 // ============ CHANTIER `hdr-glow-range` — LA PORTE, ET LA COUVERTURE QUI LA PORTE ============
 // L'ORDRE EST CELUI DU CONTRAT : la couverture D'ABORD, le depassement seulement si la sonde a
 // tourne. Un `hdr_glow_overbright_px=0` publie sans `hdr_glow_flush_calls` a cote ne vaut rien.
@@ -1310,6 +1481,7 @@ void frame_end(GLenum scene_format) {
   // publier meme quand l'autre est desarme.
   publish_source_range();
   publish_glow_range();
+  publish_sky_gpu_alpha();
   if (!autoport_proof::armed_for(kItemId)) {
     s_drew_this_frame = false;
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify

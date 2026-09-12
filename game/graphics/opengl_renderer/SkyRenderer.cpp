@@ -1,6 +1,9 @@
 #include "SkyRenderer.h"
 
+#include <cstdlib>
+
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/pipelines/opengl.h"
 
 #include "third-party/imgui/imgui.h"
@@ -50,10 +53,36 @@ void SkyBlendHandler::handle_sky_copies(DmaFollower& dma,
     }
     return;
   } else {
-    if (render_state->use_sky_cpu) {
+    // hdr-sky-gpu-alpha — LE CHOIX DU CHEMIN, ET POURQUOI IL EST PILOTABLE.
+    // `use_sky_cpu` vaut vrai par defaut (BucketRenderer.h) et SEULE une case ImGui le bascule :
+    // le chemin GPU du ciel n'etait donc joignable par aucune course automatique, et le defaut
+    // ouvert par `hdr-source-range` y vivait sans qu'aucune porte le voie. `OG_SKY_GPU` donne au
+    // harnais le geste que l'owner fait a la souris — rien de plus :
+    //   absent / 0 : le jeu decide (case ImGui). C'est ce que voit l'owner, et c'est ce que
+    //                l'appareil fait : `getenv` y rend nul, le chemin CPU reste seul.
+    //   1          : chemin GPU force.
+    //   2          : ALTERNE un appel sur deux. C'est le seul mode qui exerce LES DEUX chemins
+    //                dans UNE course : le chemin CPU — celui de l'appareil — garde ainsi ses
+    //                propres grandeurs (`hdr_sky_cpu_*`) a cote de celles du GPU, au lieu d'un
+    //                zero qui se lirait « pas de defaut » alors qu'il dit « pas mesure ».
+    static const int s_override = [] {
+      const char* e = std::getenv("OG_SKY_GPU");
+      return e ? std::atoi(e) : 0;
+    }();
+    static uint64_t s_alternate = 0;
+    hdr::note_sky_path_mode(s_override);
+    bool cpu = render_state->use_sky_cpu;
+    if (s_override == 1) {
+      cpu = false;
+    } else if (s_override == 2) {
+      cpu = ((s_alternate++ & 1u) != 0u);
+    }
+    if (cpu) {
+      hdr::note_sky_cpu_call();
       m_gpu_stats = m_shared_cpu_blender->do_sky_blends(dma, render_state, prof);
 
     } else {
+      hdr::note_sky_gpu_call();
       m_gpu_stats = m_shared_gpu_blender->do_sky_blends(dma, render_state, prof);
     }
   }
