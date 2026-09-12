@@ -237,7 +237,7 @@ g(){ printf '%s\n' "$CHG" | sed -n "s/^$1=//p" | tail -1; }
 # Les preuves DEJA sur le disque de cet arbre : combien portaient le temoin vacue, combien
 # changent de sens. `.autoport/reports/` est GITIGNORE — le compte depend donc de l'arbre, et on
 # dit LEQUEL plutot que de le taire.
-SEEN=0; FLIP=0
+SEEN=0; FLIP=0; FLIPL=""
 for pf in "$AP"/reports/*/proof.txt; do
   [ -f "$pf" ] || continue
   iid=$(basename "$(dirname "$pf")")
@@ -247,9 +247,13 @@ for pf in "$AP"/reports/*/proof.txt; do
   case ",$F_LIST," in *",$iid,"*) continue ;; esac
   [ -f "$AP/lib/census/$iid.sh" ] && continue
   FLIP=$((FLIP+1))
+  # NOMMER, pas seulement COMPTER. « 15 preuves changent de sens » n'est pas une liste : le
+  # rapport doit pouvoir dire LESQUELLES, sinon personne ne sait laquelle rouvrir.
+  FLIPL="${FLIPL:+$FLIPL,}$iid"
 done
 pub fh_proofs_seen "$SEEN"
 pub fh_proofs_flip "$FLIP"
+pub fh_proofs_flip_list "${FLIPL:--}"
 pub fh_proofs_measured_in "$ROOT"
 d4=0; why4=""
 f4(){ d4=$((d4+1)); why4="${why4:+$why4+}$1"; }
@@ -258,6 +262,9 @@ f4(){ d4=$((d4+1)); why4="${why4:+$why4+}$1"; }
 [ -n "$(g fh_witness_none_live_list)" ] || f4 liste-non-publiee
 [ "$(e proof_feature_sites_list_truncated)" = 0 ] || f4 liste-des-sites-tronquee-classement-faux
 [ "$(g fh_witness_none_live_truncated)" = 0 ] || f4 liste-des-items-qui-changent-tronquee
+# Le compte et la liste disent la MEME chose ou l'un des deux ment : un `fh_proofs_flip=15`
+# a cote d'une liste vide serait un chiffre que personne ne peut verifier.
+[ "$FLIP" = 0 ] || [ -n "$FLIPL" ] || f4 preuves-qui-changent-comptees-mais-non-nommees
 pub fh_d4_change_list "$d4"
 pub fh_d4_why "${why4:--}"
 
