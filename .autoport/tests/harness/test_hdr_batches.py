@@ -235,7 +235,7 @@ def batch(root, plan, requests, name='001', crash=0, replaces=(), bad=None):
                 'version=2\ncase=' + case + '\nbin=1234567890abcdef\ndata=abcdef1234567890\ninput=1111111111111111\nconfig=2222222222222222\nflavour=normal\ncapture_lf=100\npng=' + hdr.fnv(target) + '\n')
             options = {'master': True, 'lighting': phase == 2, 'hdr': phase == 2, 'rt_light': phase == 2,
                        'others': {'textures': True, 'grass': True},
-                       'output': {'profile': 'sdr', 'curve': 2, 'exposure': 1, 'pbr_exposure': 1, 'knee': .8}}
+                       'output': {'profile_const': 'sdr', 'curve': 2, 'exposure': 1, 'pbr_exposure': 1, 'knee': .8}}
             lines.append('REFSET effective case=' + case + ' options=' + json.dumps(options))
             key = f'hdr_{view.replace("-", "_")}_h{hour}_p{phase}_'
             values[key + 'cap_lf'] = '100'
@@ -376,7 +376,7 @@ def test_temporal_complete_cell_survives_later_crash_for_explicit_replacement(tm
         case = prefix.split('case=', 1)[1]
         options = json.loads(encoded)
         options['temporal'] = {'samples': 2, 'sample': 0, 'spacing_lf': 12,
-                               'particle_step': 'once-per-logic-frame'}
+                               'particle_step_const': 'once-per-logic-frame'}
         lines.append(prefix + ' options=' + json.dumps(options))
         extra_case = case + '-t01'
         source = path / 'captures' / (case + '.png')
@@ -1287,7 +1287,7 @@ def temporal_particle_batch(root, plan, mutate=lambda case, sample, options: Non
                 .replace('capture_lf=100', 'capture_lf=' + str(repin + age)))
             options = json.loads(encoded)
             options['temporal'] = dict(samples=2, sample=sample, spacing_lf=12,
-                                       particle_step='once-per-logic-frame')
+                                       particle_step_const='once-per-logic-frame')
             if modern:
                 options['temporal'].update(particle_repin_lf=repin, particle_age=age)
             mutate(case, sample, options)
@@ -1308,7 +1308,7 @@ def test_temporal_particle_dates_are_not_configuration(tmp_path, plan):
     first, second = [parsed['pairs'][('village1-eco-blue', hour)]['options'] for hour in (12, 18)]
     assert first == second
     assert first[0]['temporal'] == dict(samples=2, sample=0, spacing_lf=12,
-        particle_step='once-per-logic-frame', particle_age=11)
+        particle_step_const='once-per-logic-frame', particle_age=11)
     assert hdr.sha(path / 'engine.log') == before
     result(tmp_path, plan)
     assert json.loads((tmp_path / 'measurements.json').read_text())['errors'] == []

@@ -954,3 +954,23 @@ que le SUPERVISEUR commitait des corrections de harnais pendant que l'item tourn
 Verrou : ne pas editer une source de verdict tant qu'un item est `in-progress`. Le backlog lui-meme
 n'en est pas une (seul le SOUS-ARBRE `gate` de l'item l'est), donc ouvrir un item ou trier des
 signalements reste sans danger. Verifier avant d'ecrire : `bash lib/verdict_sources.sh <id>`.
+
+GUARD a-half-written-lib-file-kills-the-orchestrator .autoport/lib/backlog.py editer une lib rechargee pendant qu un item tourne
+**Un fichier de `lib/` a moitie ecrit TUE la boucle.** `orchestrator.load_backlog()` fait
+`importlib.reload(backlog)` a chaque tour, et `backlog.py:62` recharge `gate_verdict`, qui appelle
+`impossible`. Mesure du 2026-09-12 : a 15:33:16 le worker de `harness-naming-authority-completion`
+editait ces deux fichiers, `gate_verdict` appelait deja `impossible.arm_name` que `impossible` ne
+portait pas encore, `AttributeError` a l'import, processus MORT. Dix minutes d'arret complet, sans
+personne pour le voir la nuit. Vingt minutes plus tard l'arbre etait coherent et l'import repassait.
+Verrou : le rechargement qui rend les correctifs vivants rend AUSSI la boucle tuable. Item ouvert
+`harness-reload-must-not-kill-the-loop`. En attendant, verifier `ps` a chaque quart d'heure de
+supervision et relancer par `setsid bash ./launch.sh --quiet` : le crash ne laisse AUCUNE alerte,
+juste une trace en fin de journal.
+
+GUARD a-green-suite-decays-because-no-gate-reads-it .autoport/orchestrator.py croire un vert de suite obtenu le matin
+**Un vert de suite se perime en quelques heures parce qu'AUCUNE porte ne la lance.** Mesure du
+2026-09-12 : 556 verts a 06:16, 44 rouges a 15:45. La cause etait un renommage de cles fait par un
+item qui a mis a jour le LECTEUR sans les tests qui le citent ; sa porte etait verte et son essai a
+ete accepte. `grep -n pytest .autoport/orchestrator.py .autoport/validators/` ne rend rien.
+Verrou : tant que la porte de fermeture ne lit pas la suite, tout chantier « la suite redevient un
+signal » perd son acquis dans la journee. Item ouvert `harness-suite-must-be-a-close-gate`.
