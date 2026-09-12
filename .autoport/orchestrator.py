@@ -154,6 +154,47 @@ NO_START_MAX_SLEEP = 6 * 3600      # never sleep longer than this on one refusal
 API_529_STORM_THRESHOLD = 3
 API_529_SLEEP = 600
 
+# ============================================================
+# A LAUNCHER ABORT IS NOT A FAILED ATTEMPT (2026-09-12)
+# ============================================================
+# `claude -p` emits its `result`, then keeps waiting for the background tasks the
+# worker started (a build, a device run) because their notifications can re-engage
+# the model. Past a ceiling it KILLS them and exits 0, printing one bare line:
+#
+#     Background tasks still running after 600s; terminating. Set
+#     CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 to wait indefinitely.
+#
+# The worker concluded NOTHING, yet the half-laid tree went to the validator, which
+# reported an incoherent state (engine source newer than the proof, binary sha not
+# the one on disk, an x86 proof on a device item) and the attempt was COUNTED.
+# Census of the attempt logs, 2026-09-12: FOUR attempts destroyed this way —
+# Grecharged-mesh-browser 6, refset-replay-stable 2, lighting-hdr 7 and
+# lighting-legacy-purge 8, the last of which exhausted the budget of an item the
+# owner had put at priority 17.
+#
+# READ ON A BARE LINE ONLY. That literal lives in this file, in backlog.yaml, in the
+# item prompt and in the workers' own tool calls — all of which travel as JSON
+# events. Scanning the whole stream would let any worker that merely MENTIONS the
+# string abort its own attempt, which is how counting "529" anywhere once turned 58
+# of our own SIGTERMs into fake Anthropic outages. Measured on the real logs: the
+# four killed attempts carry it as a bare stdout line (bare=1, json=0), while
+# `gl-uniforms-dead-seven` attempt 2 and `harness-aborted-attempt-not-counted`
+# attempt 1 only quote it (bare=0, json>=1).
+BG_ABORT_RE = re.compile(r"Background tasks still running after\s+(\d+)\s*s\s*;\s*terminating")
+
+# The ceiling IN FORCE, in milliseconds. `launch.sh` exports it, but an orchestrator
+# started any other way would silently fall back to the CLI's 600 s — so we post it
+# on the child's environment ourselves and name it in the journal. Raising it only
+# pushes the boundary back; the recognition above is what stops burning attempts.
+_BG_CEILING_ENV = os.environ.get("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS", "").strip()
+BG_WAIT_CEILING_MS = int(_BG_CEILING_ENV) if _BG_CEILING_ENV.isdigit() else 45 * 60 * 1000
+BG_CEILING_SOURCE = "le lanceur" if _BG_CEILING_ENV.isdigit() else "l'orchestrateur (défaut)"
+
+# An aborted attempt costs nothing to the retry budget — but a worker that ALWAYS
+# leaves background tasks behind would then loop forever on the same item. Past this
+# many aborts in a row, the attempt IS counted, and the journal says why.
+MAX_ABORTED_IN_A_ROW = 3
+
 # The worker's progress is judged on ARTIFACTS, not output.
 NO_PROGRESS_SEC = 45 * 60
 
@@ -350,7 +391,7 @@ def format_duration(seconds: float) -> str:
 # that moved under it.
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
-              "rate_interrupts", "last_update")
+              "rate_interrupts", "aborted", "last_update")
 
 
 class StateConflict(Exception):
@@ -383,6 +424,8 @@ def load_state() -> dict:
         "fingerprints": dict(raw.get("fingerprints") or {}),
         "attempt_seq": dict(raw.get("attempt_seq") or {}),
         "rate_interrupts": dict(raw.get("rate_interrupts") or {}),
+        # Attempts the LAUNCHER killed: counted apart from `retries`, on purpose.
+        "aborted": dict(raw.get("aborted") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -722,6 +765,54 @@ def count_api_529(path: Path) -> int:
                 continue
         n += sum(1 for s in _api_error_statuses(ev) if s == 529)
     return n
+
+
+def launcher_abort_seconds(line: str) -> int | None:
+    """How long the CLI waited before killing the worker's background tasks, or None.
+
+    `line` must be a BARE CLI line — one that failed to parse as JSON. The literal is
+    quoted all over the harness and the workers' own tool calls, and every one of
+    those copies reaches us inside a JSON event; a scan of the whole stream would let
+    a worker abort its own attempt by talking about aborts. The `{` guard makes the
+    rule hold even if a caller forgets it."""
+    if line.lstrip().startswith("{"):
+        return None
+    m = BG_ABORT_RE.search(line)
+    return int(m.group(1)) if m else None
+
+
+def launcher_abort_from_log(path: Path) -> int | None:
+    """Same reading over a finished attempt log: bare lines only, first one wins."""
+    try:
+        with path.open(errors="replace") as fh:
+            for raw in fh:
+                line = raw.rstrip("\n")
+                if not line.strip():
+                    continue
+                try:
+                    json.loads(line)
+                except ValueError:
+                    waited = launcher_abort_seconds(line)
+                    if waited is not None:
+                        return waited
+    except OSError:
+        return None
+    return None
+
+
+def _aborted_record(state: dict, item_id: str) -> dict:
+    """Per-item abort accounting: `total` ever, `streak` since the last COUNTED attempt.
+
+    Tolerates the plain int an older state.json may carry."""
+    book = state.setdefault("aborted", {})
+    rec = book.get(item_id)
+    if isinstance(rec, int):
+        rec = {"total": rec, "streak": rec}
+    elif not isinstance(rec, dict):
+        rec = {"total": 0, "streak": 0}
+    rec = {"total": int(rec.get("total", 0) or 0), "streak": int(rec.get("streak", 0) or 0)}
+    book[item_id] = rec
+    return rec
 
 
 def fatal_config_reason(path: Path) -> str:
@@ -1450,6 +1541,7 @@ class Outcome:
       fail            counted, fingerprinted, retried
       stuck           same failure 3x -> blocked
       blocked         max_retries, missing input, fatal config
+      aborted         the launcher killed the worker's background tasks: NOT counted
       interrupted     signal / scope change / duplicate worker: NOT counted
       no-start        refused at the door, zero work: NOT counted
       infra           529 storm: NOT counted
@@ -1519,6 +1611,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if BACKEND == "claude":
         env["CLAUDE_EFFORT"] = effort
         env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
+        # La borne d'attente des taches de fond voyage avec l'essai : un orchestrateur
+        # demarre sans launch.sh retombait en silence sur les 600 s de la CLI.
+        env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = str(BG_WAIT_CEILING_MS)
     else:
         for key in ("CLAUDE_EFFORT", "CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDECODE"):
             env.pop(key, None)
@@ -1535,6 +1630,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     pstate = PrettyState(t0=time.monotonic())
     stderr_tail: list[str] = []
     abort_reason = ""       # "" | scope | no-progress | post-result | hard-silence
+    launcher_abort_sec: int | None = None   # la CLI a tue les taches de fond du worker
     rc = -1
 
     with attempt_log.open("x") as f:
@@ -1646,6 +1742,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     # a session refused to start, and `--quiet` used to throw it
                     # away: 230 consecutive no-starts over 19.7 h whose cause could
                     # never be recovered. It is printed whatever the verbosity.
+                    if launcher_abort_sec is None:
+                        launcher_abort_sec = launcher_abort_seconds(line)
                     stderr_tail.append(line)
                     del stderr_tail[:-40]
                     console.print(f"[magenta]{BACKEND}:[/magenta] [dim]{_truncate(line, 300)}[/dim]")
@@ -1679,10 +1777,23 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             "event": "attempt_end", "exit_code": rc,
             "ended_at": datetime.now(timezone.utc).isoformat(),
             "abort_reason": abort_reason, "halted": HALT,
+            "launcher_abort_s": launcher_abort_sec,
             "tool_calls": pstate.tool_calls,
             "tokens_in": pstate.tokens_in, "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
         }) + "\n")
+        if launcher_abort_sec is not None:
+            # Dit en toutes lettres DANS le journal de l'essai : un essai qui disparait
+            # sans un mot est ce qui a coute quatre essais sans que personne le voie.
+            f.write(json.dumps({
+                "event": "attempt_aborted", "cause": "launcher-bg-tasks",
+                "waited_s": launcher_abort_sec,
+                "ceiling_ms": BG_WAIT_CEILING_MS,
+                "ceiling_source": BG_CEILING_SOURCE,
+                "message": (f"le lanceur a termine les taches de fond du worker apres "
+                            f"{launcher_abort_sec}s (borne en vigueur "
+                            f"{BG_WAIT_CEILING_MS}ms) : essai ABORTE"),
+            }) + "\n")
 
     if BACKEND == "codex" and (pstate.cli_failed or not pstate.result_seen) and rc == 0:
         rc = 1
@@ -1714,6 +1825,36 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if abort_reason == "scope":
         _checkpoint(f"essai {seq} annulé — changement de périmètre (non compté)")
         return Outcome("interrupted", "périmètre changé pendant l'essai")
+
+    # ---- L'ESSAI QUE LE LANCEUR A TUE ------------------------------------
+    # Ni un echec du worker, ni un arbre a juger : la CLI a coupe les taches de fond
+    # qu'il attendait. On le DIT — duree atteinte et borne en vigueur —, on sauve le
+    # travail, et on rend la main SANS toucher `retries`, `fingerprints`, ni le
+    # validateur. Le garde-fou est le nombre d'abandons D'AFFILEE : au-dela, l'essai
+    # est compte, faute de quoi un worker qui laisse toujours des taches de fond ferait
+    # tourner son item sans fin.
+    if launcher_abort_sec is not None:
+        rec = _aborted_record(state, iid)
+        rec["total"] += 1
+        rec["streak"] += 1
+        save_state(state)
+        dit = (f"essai {seq} TUÉ PAR LE LANCEUR : {BACKEND} a attendu "
+               f"{launcher_abort_sec} s les tâches de fond du worker, puis les a "
+               f"TERMINÉES. Borne en vigueur : "
+               f"CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS={BG_WAIT_CEILING_MS} ms "
+               f"({BG_WAIT_CEILING_MS // 1000} s), posée par {BG_CEILING_SOURCE}.")
+        if rec["streak"] <= MAX_ABORTED_IN_A_ROW:
+            log(f"⏹ {dit} Essai NON COMPTÉ, ni empreinté, VALIDATEUR NON LANCÉ "
+                f"(abandons d'affilée : {rec['streak']}/{MAX_ABORTED_IN_A_ROW}, "
+                f"{rec['total']} en tout sur cet item). Le travail est commité.", "yellow")
+            _checkpoint(f"essai {seq} tué par le lanceur après {launcher_abort_sec}s "
+                        f"d'attente des tâches de fond (non compté)")
+            return Outcome("aborted",
+                           f"tâches de fond terminées par le lanceur après "
+                           f"{launcher_abort_sec} s (borne {BG_WAIT_CEILING_MS} ms)")
+        log(f"⏹ {dit} C'est le {rec['streak']}e abandon D'AFFILÉE sur cet item : au-delà "
+            f"de {MAX_ABORTED_IN_A_ROW}, l'essai EST compté — sinon l'item tourne sans "
+            f"fin sans jamais être jugé.", "red")
 
     fatal = fatal_config_reason(attempt_log) if (rc != 0 and (not did_work or BACKEND == "codex")) else ""
     if fatal:
@@ -1756,6 +1897,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
 
     state["retries"][iid] = int(state["retries"].get(iid, 0)) + 1
     attempt_count = state["retries"][iid]
+    _aborted_record(state, iid)["streak"] = 0   # un essai JUGE remet la serie a zero
     save_state(state)
 
     gate_reason = ""
@@ -2097,6 +2239,14 @@ def main(argv: list[str] | None = None) -> int:
                 for ln in out.stderr_tail[-10:]:
                     log(f"  {ln}", "dim")
             no_start_streak = 0
+
+        elif out.kind == "aborted":
+            # Le lanceur a coupe les taches de fond du worker : l'essai n'a pas eu lieu.
+            # On rouvre l'item tel quel — ni compte, ni empreinte, ni validateur.
+            bk.set_status(iid, "open")
+            log(f"⏹ {iid} : essai ABORTÉ — {out.reason}. Ni compté, ni empreinté, "
+                f"validateur non lancé. Le travail est commité.", "yellow")
+            nap(10)
 
         elif out.kind == "interrupted":
             bk.set_status(iid, "open")
