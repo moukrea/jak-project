@@ -340,7 +340,13 @@ def axe_noms(root: Path, I_neuf) -> None:
         d = root / ("garde-" + cas)
         d.mkdir(parents=True, exist_ok=True)
         (d / nom).write_text("proof_wait_s=0\n", encoding="utf-8")
+        # LE PROLOGUE DU SCRIPT FAIT PARTIE DE SON ENVIRONNEMENT. `proof_run.sh` ne fabrique
+        # plus aucun nom : il `eval`-ue au prologue ce que l'autorite lui rend, et la garde
+        # compare ce qu'elle a recu a ce que l'autorite redonne. Rejouer la garde sans ce
+        # prologue laisse `$AP_NAME_wait` non lie, et `set -u` tue le bac a sable avant que la
+        # garde n'ait rien juge : on mesurerait un banc casse, pas une garde.
         script = ('set -uo pipefail\nAP=%s\nD=%s\nSUF=-off\nID=banc\n'
+                  'eval "$(python3 "$AP/lib/impossible.py" names "$SUF")"\n'
                   'log(){ :; }\ndie3(){ printf "DIE3 %%s\\n" "$1" >&2; exit 9; }\n%s\n'
                   'exit 0\n' % (str(AP), str(d), garde))
         r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=120)
