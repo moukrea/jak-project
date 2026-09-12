@@ -35,7 +35,13 @@ ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "ird_census_ran=0"; 
 AP="$ROOT/.autoport"
 cd "$ROOT" || exit 1
 
-pub(){ printf '%s=%s\n' "$1" "${2:--}"; }
+# LE MOISSONNEUR DE proof_run.sh NE GARDE QUE `^cle=valeur$` SANS ESPACE
+# (`grep -aE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$'`). Une valeur avec des espaces — « 6 h 38 »,
+# « plus de 2 h », le texte rendu a l'owner — n'arrive JAMAIS dans proof.txt : elle serait
+# publiee dans le journal du moteur et absente de la preuve, c'est-a-dire lue par personne,
+# exactement le defaut que cet item corrige. On colle donc les espaces ici, au point de
+# publication, plutot que de toucher au moissonneur qui est hors perimetre.
+pub(){ printf '%s=%s\n' "$1" "$(printf '%s' "${2:--}" | tr -s '[:space:]' '_')"; }
 
 # ================================================================= le banc, les deux axes ===
 BN=$(timeout 900 python3 "$AP/lib/impossible_read_selftest.py" 2>/dev/null)
@@ -297,6 +303,8 @@ pub impossible_bucket_638 "$(l bucket_638)"
 pub impossible_bucket_30 "$(l bucket_30)"
 pub impossible_status_stable_60s "$(n stat_neuf_stable_60s)"
 pub impossible_status_change_palier "$(n stat_neuf_change_palier)"
+pub impossible_age_638_s 23880
+pub impossible_age_30_s 30
 pub impossible_live_states "$(ln_ live_states)"
 pub impossible_live_list "$(l live_list)"
 pub deploy_lock_pid_this_run "$(l w_deploy_lock_pid)"
@@ -310,8 +318,12 @@ pub engine_dirty_list "$(s src_engine_dirty_list)"
 # LES BRUTS, recopies tels quels : c'est ce qui rend la somme lisible et falsifiable. Sous un
 # prefixe a eux — le moissonneur garde la DERNIERE valeur d'une cle, et un homonyme ecraserait
 # un terme du verdict.
-printf '%s\n' "$BN" | sed -n 's/^\([a-z_][a-z0-9_]*\)=/ird_bn_\1=/p'
-printf '%s\n' "$LV" | sed -n 's/^\([a-z_][a-z0-9_]*\)=/ird_live_\1=/p'
+# MEME REGLE QU'AU-DESSUS, pour la meme raison : espaces colles, valeur vide rendue `-`.
+# Un brut qui n'arrive pas dans proof.txt n'est pas un brut, c'est une ligne de journal.
+brut(){ awk -v p="$1" -F= '/^[a-z_][a-z0-9_]*=/ {k=$1; sub(/^[^=]*=/,"",$0);
+          gsub(/[[:space:]]+/,"_",$0); if($0=="") $0="-"; printf "%s%s=%s\n", p, k, $0}'; }
+printf '%s\n' "$BN" | brut ird_bn_
+printf '%s\n' "$LV" | brut ird_live_
 
 # LES OCTETS JUGES. Un chemin n'est pas une provenance.
 for f in orchestrator.py lib/backlog.py lib/impossible.py lib/proof_impossible.sh \
