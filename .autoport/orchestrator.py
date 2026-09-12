@@ -391,7 +391,7 @@ def format_duration(seconds: float) -> str:
 # that moved under it.
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
-              "rate_interrupts", "aborted", "last_update")
+              "rate_interrupts", "aborted", "commit_paths", "last_update")
 
 
 class StateConflict(Exception):
@@ -426,6 +426,9 @@ def load_state() -> dict:
         "rate_interrupts": dict(raw.get("rate_interrupts") or {}),
         # Attempts the LAUNCHER killed: counted apart from `retries`, on purpose.
         "aborted": dict(raw.get("aborted") or {}),
+        # Comptabilité de l'indexation git : indexés / refusés / commits vides évités,
+        # séparément. Un seul booléen ne dit pas si UN chemin a fait tomber les 63 autres.
+        "commit_paths": dict(raw.get("commit_paths") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -942,27 +945,143 @@ def worker_paths() -> list[str]:
     return sorted({p for p in dirty_paths() if p and not _is_harness_state(p)})
 
 
+# Les chemins du MOTEUR. Un fichier sale sous l'un d'eux est du code qui part dans un
+# binaire ; sale et non commité, c'est un binaire que personne ne peut rejouer depuis HEAD.
+_ENGINE_PREFIXES = ("game/", "common/", "android/", "goal_src/", "goalc/")
+
+
+def engine_dirty_paths() -> list[str]:
+    """Les chemins sales qui portent du code moteur, tels que git les rapporte."""
+    return sorted({p for p in dirty_paths() if p and p.startswith(_ENGINE_PREFIXES)})
+
+
+def foreign_dirty_engine_paths(baseline) -> list[str]:
+    """Ce qui était sale AVANT l'essai et l'est ENCORE à la porte : le travail d'un AUTRE.
+
+    La causalité est dans le `baseline` : un chemin que l'essai a trouvé sale en arrivant,
+    il ne l'a pas produit. S'il est toujours sale au moment de conclure, l'essai a mesuré
+    un binaire bâti par-dessus le chantier non commité de quelqu'un d'autre — le 2026-09-12,
+    l'APK publié à 03:05 portait 6390 suppressions qu'aucun commit ne décrivait."""
+    if not baseline:
+        return []
+    return sorted(set(engine_dirty_paths()) & set(baseline))
+
+
+# COMPTABILITÉ DE L'INDEXATION. Publiée terme par terme, jamais réduite à un booléen :
+# « le commit a échoué » ne dit pas si UN chemin a fait tomber les 63 autres.
+COMMIT_PATHS_STATS: dict = {
+    "batches": 0,          # appels avec au moins un chemin
+    "indexed": 0,          # chemins que `git add` a ACCEPTÉS
+    "refused": 0,          # chemins que `git add` a REFUSÉS, nommés dans le journal
+    "rescued": 0,          # chemins indexés APRÈS qu'un refus ait fait tomber le lot entier
+    "empty_avoided": 0,    # commits vides évités, DITS dans le journal
+    "commits": 0,
+    "last_refused": [],    # [[chemin, raison rendue par git]] du dernier appel
+}
+
+
+def _git_add_one(path: str) -> tuple[bool, str]:
+    """Indexe UN chemin. Rend (ok, la raison que git a donnée) — jamais une exception."""
+    r = subprocess.run(["git", "add", "--", path],
+                       cwd=REPO_ROOT, capture_output=True, text=True)
+    if r.returncode == 0:
+        return True, ""
+    why = " ".join(((r.stderr or r.stdout) or "").split())[:200]
+    return False, why or f"git add a rendu {r.returncode} sans un mot"
+
+
+def _staged_under(paths: list[str]) -> bool:
+    """Y a-t-il quelque chose d'indexé sous ces chemins ?
+
+    `git diff --cached --pathspec-from-file` N'EXISTE PAS (git 2.53 sort en 129, usage) :
+    l'ancien garde-fou rendait donc TOUJOURS 129, ne valait jamais 0, et le commit vide
+    partait quand même jusqu'à git pour échouer là-bas, sans que rien ne le dise. Les
+    pathspecs en argv, elles, sont acceptées et TOLÉRANTES : un chemin inconnu n'y fait
+    pas d'erreur."""
+    r = subprocess.run(["git", "diff", "--cached", "--name-only", "-z", "--", *paths],
+                       cwd=REPO_ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        return True                        # inconnu : on laisse git trancher au commit
+    return bool(r.stdout.replace("\0", "").strip())
+
+
 def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
-    """Commit ONLY `paths`. Returns True if a commit was created."""
+    """Commit ONLY `paths`. Returns True if a commit was created.
+
+    UN CHEMIN QUI REFUSE DE S'INDEXER N'EMPORTE PLUS LES AUTRES. Le 2026-09-12 à 02:26,
+    à la fermeture de `lighting-legacy-purge`, un seul `git add` portait les 64 chemins
+    sales ; l'un d'eux — `PbrTestPattern.cpp`, dont la suppression était DÉJÀ INDEXÉE,
+    donc absent de l'arbre COMME de l'index — a fait sortir git en fatal, et AUCUN des 64
+    n'a été commité. 357 insertions et 6390 suppressions ont survécu dans l'arbre sans
+    qu'aucun commit les décrive, et l'APK publié à 03:05 en portait le code.
+
+    Le lot rapide reste tenté d'abord (un seul `git add` pour 64 chemins). S'il tombe, on
+    reprend CHEMIN PAR CHEMIN : chaque refus est nommé avec la raison de git, et les autres
+    passent. Le commit garde d'abord la liste ENTIÈRE — `git commit -- <chemin>` sait
+    committer une suppression déjà indexée que `git add` refuse — et n'est retenté sans les
+    chemins fautifs que s'il tombe à son tour."""
     if not paths:
         return False
+    stats = COMMIT_PATHS_STATS
+    stats["batches"] += 1
+    stats["last_refused"] = []
+
     spec = "\0".join(paths)
     add = subprocess.run(["git", "add", "--pathspec-from-file=-", "--pathspec-file-nul"],
                          cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
+    indexed: list[str] = list(paths)
+    refused: list[list[str]] = []
     if add.returncode != 0:
-        log(f"git add a échoué : {add.stderr.strip()[:300]}", "yellow")
+        why = " ".join(((add.stderr or add.stdout) or "").split())[:200]
+        log(f"git add du lot a échoué ({why}) — REPRISE CHEMIN PAR CHEMIN sur "
+            f"{len(paths)} chemin(s) : un chemin fautif n'emporte plus les autres", "yellow")
+        indexed = []
+        for one in paths:
+            ok, reason = _git_add_one(one)
+            if ok:
+                indexed.append(one)
+            else:
+                refused.append([one, reason])
+                log(f"  chemin REFUSÉ par git add : {one} — {reason}", "yellow")
+        stats["rescued"] += len(indexed)
+    stats["indexed"] += len(indexed)
+    stats["refused"] += len(refused)
+    stats["last_refused"] = refused
+
+    if not _staged_under(paths):
+        # DIT, jamais silencieux : un essai qui se ferme sur un commit vide laisse croire
+        # que son travail est enregistré.
+        stats["empty_avoided"] += 1
+        log(f"COMMIT VIDE ÉVITÉ pour {item_id} : {len(paths)} chemin(s) présentés, "
+            f"{len(indexed)} indexé(s), {len(refused)} refusé(s), RIEN d'indexé sous eux.",
+            "yellow")
+        for one, reason in refused:
+            log(f"  chemin refusé et NON COMMITÉ : {one} — {reason}", "yellow")
         return False
-    staged = subprocess.run(["git", "diff", "--cached", "--quiet",
-                             "--pathspec-from-file=-", "--pathspec-file-nul"],
-                            cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
-    if staged.returncode == 0:
-        return False                       # nothing of ours actually changed
-    r = subprocess.run(["git", "commit", "-m", f"[autoport/{item_id}] {message}",
-                        "--pathspec-from-file=-", "--pathspec-file-nul"],
-                       cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
-    if r.returncode != 0:
-        log(f"git commit a échoué : {(r.stderr or r.stdout).strip()[:300]}", "yellow")
+
+    def _commit(plist: list[str]):
+        if not plist:
+            return None
+        return subprocess.run(["git", "commit", "-m", f"[autoport/{item_id}] {message}",
+                               "--pathspec-from-file=-", "--pathspec-file-nul"],
+                              cwd=REPO_ROOT, input="\0".join(plist),
+                              capture_output=True, text=True)
+
+    r = _commit(paths)
+    if (r is None or r.returncode != 0) and refused:
+        why = " ".join((((r.stderr or r.stdout) if r else "") or "").split())[:200]
+        log(f"git commit a refusé le lot entier ({why}) — nouvelle tentative SANS les "
+            f"{len(refused)} chemin(s) refusé(s)", "yellow")
+        r = _commit(indexed)
+    if r is None or r.returncode != 0:
+        why = " ".join((((r.stderr or r.stdout) if r else "") or "").split())[:300]
+        log(f"git commit a échoué : {why}", "yellow")
+        for one, reason in refused:
+            log(f"  chemin refusé et NON COMMITÉ : {one} — {reason}", "yellow")
         return False
+    stats["commits"] += 1
+    log(f"  commit {item_id} : {len(indexed)} chemin(s) indexé(s), "
+        f"{len(refused)} refusé(s)", "yellow" if refused else "green")
     return True
 
 
@@ -1110,14 +1229,31 @@ def owner_said_yes(item: dict) -> bool:
     return (OWNER_OK_DIR / str(item.get("id", ""))).exists()
 
 
-def close_gate(item: dict) -> tuple[str, str]:
+def close_gate(item: dict, pre_dirty_engine=()) -> tuple[str, str]:
     """Run after generic.sh exits 0. Returns (status, reason):
       ("pass", "")            -> all gates clear; the item is validated
       ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
       ("awaiting-owner", "")  -> gates clear, the owner still has to look
+
+    `pre_dirty_engine` : les chemins moteur que l'essai a trouvés SALES en arrivant.
     """
     iid = item["id"]
     item = _reread_item(iid, item)
+
+    # GATE 0 — L'ARBRE NE PORTE PAS LE TRAVAIL NON COMMITÉ D'UN AUTRE ITEM.
+    # 2026-09-12 : un `git add` fatal a laissé 64 fichiers d'un item BLOQUÉ dans l'arbre ;
+    # les essais suivants ont bâti, mesuré et publié un binaire que ce code habitait et
+    # qu'aucun commit ne décrit. Une porte verte posée là-dessus juge un binaire que
+    # personne ne peut reproduire depuis HEAD. On refuse de conclure, on NOMME les chemins.
+    foreign = foreign_dirty_engine_paths(pre_dirty_engine)
+    if foreign:
+        montre = ", ".join(foreign[:12]) + (" …" if len(foreign) > 12 else "")
+        return ("fail",
+                f"CLOSE-GATE/arbre-sale: {len(foreign)} fichier(s) moteur sont sales depuis "
+                f"AVANT cet essai et le sont encore — ils appartiennent à un autre item et "
+                f"aucun commit ne les décrit. Le binaire mesuré n'est pas reproductible "
+                f"depuis HEAD. Chemins : {montre}. Le superviseur doit les commiter ou les "
+                f"défaire ; cet essai ne doit ni se les approprier ni les effacer.")
 
     # GATE 1 — real translation-layer code change (anti-stub false-green).
     # An item was once marked done with ZERO code. Require a real change since
@@ -1559,6 +1695,14 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     log_dir = LOG_ROOT / iid
     log_dir.mkdir(parents=True, exist_ok=True)
     seq = next_attempt_seq(state, iid)
+    # CE QUE L'ESSAI TROUVE SALE EN ARRIVANT. Il ne l'a pas produit : c'est la ligne de
+    # base de GATE 0. Dit tout de suite, au POINT DE PRODUCTION — un arbre hérité sale
+    # invalide tout ce que l'essai mesurera ensuite.
+    pre_dirty_engine = engine_dirty_paths()
+    if pre_dirty_engine:
+        log(f"⚠ l'arbre porte DÉJÀ {len(pre_dirty_engine)} fichier(s) moteur sales, non "
+            f"commités, hérités d'un autre essai : {', '.join(pre_dirty_engine[:8])}"
+            + (" …" if len(pre_dirty_engine) > 8 else ""), "yellow")
     attempt_log = log_dir / f"attempt-{seq:03d}.jsonl"
     validator_log = log_dir / f"validator-{seq:03d}.txt"
     started_at = time.time()
@@ -1806,14 +1950,27 @@ def run_attempt(item: dict, state: dict) -> Outcome:
 
         The path list is recomputed here rather than reused: the validator and
         the close-gate run between the worker's exit and this commit."""
+        ok, paths = False, []
         try:
             paths = worker_paths()
-            if git_commit_paths(iid, label, paths):
-                log(f"  checkpoint commité ({len(paths)} chemin(s))", "green")
-                return True
+            ok = git_commit_paths(iid, label, paths)
         except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
             log(f"checkpoint impossible : {e}", "yellow")
-        return False
+        # La comptabilité de l'indexation SURVIT à l'essai : sans elle, « le commit a échoué »
+        # resterait une ligne de console que personne ne relit. Écrite À PART : un state.json
+        # qu'un autre orchestrateur a bougé ne doit PAS transformer un commit réussi en échec.
+        try:
+            book = state.setdefault("commit_paths", {})
+            for k, v in COMMIT_PATHS_STATS.items():
+                if isinstance(v, int):
+                    book[k] = int(v)
+            book["last_refused"] = list(COMMIT_PATHS_STATS.get("last_refused") or [])
+            save_state(state)
+        except Exception as e:  # noqa: BLE001
+            log(f"comptabilité d'indexation non enregistrée : {e}", "yellow")
+        if ok:
+            log(f"  checkpoint commité ({len(paths)} chemin(s))", "green")
+        return ok
 
     # ---- VOID OUTCOMES: work saved, nothing counted ----------------------
     # A signal, a scope change or a refusal at the door is OUR interruption, not
@@ -1902,7 +2059,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
 
     gate_reason = ""
     if v.returncode == 0:
-        gate_status, gate_reason = close_gate(item)
+        gate_status, gate_reason = close_gate(item, pre_dirty_engine)
         if gate_status in ("pass", "awaiting-owner"):
             if _checkpoint(item.get("feature", iid)
                            + ("" if gate_status == "pass"
