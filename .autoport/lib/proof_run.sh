@@ -904,18 +904,48 @@ fi
 # la MEME regle. Il n'ecrit rien dans proof.txt : ni les champs de la machine, ni sa propre ligne.
 # POLARITE : un recensement qui echoue n'ecrit pas ses cles, donc le validateur est ROUGE. On ne
 # fabrique jamais la cle manquante.
+#
+# LE RECENSEMENT EST LUI AUSSI UN TEMOIN (proof-feature-hits-is-vacuous, 2026-09-12). Un item de
+# harnais n'a AUCUN site dans le moteur : son `proof_feature_own_hits` vaut zero, et c'est normal.
+# La porte a donc besoin de savoir que SON instrument a tourne — sinon « aucun site moteur » et
+# « instrument jamais lance » se lisent pareil. Ces trois cles sortent de la MACHINE :
+#   proof_census_present  le crochet existe-t-il pour cet item
+#   proof_census_rc       ce que le recensement a rendu (0 = abouti ; -1 = pas de crochet)
+#   proof_census_keys     combien de `cle=valeur` il a produites
+# ET ELLES NE SONT PAS FALSIFIABLES PAR LUI. Sa sortie passait jusqu'ici directement dans le
+# journal du moteur, ou le moissonneur ne distingue pas les deux voix : un recensement pouvait
+# donc ecrire son propre `proof_census_rc=0`, ou le `proof_feature_*` que le moteur seul doit
+# produire, et juger sa propre course. On la filtre au POINT DE PRODUCTION, et on publie le
+# nombre de lignes jetees.
 CENSUS="$AP/lib/census/$ID.sh"
 if [ -f "$CENSUS" ]; then
   CT0=$(date +%s)
+  COUT="$D/.census$SUF.out.$$"
   log "recensement de harnais : $CENSUS (armed=$ARMED)"
   if AUTOPORT_CENSUS_ID="$ID" AUTOPORT_CENSUS_ARMED="$ARMED" AUTOPORT_CENSUS_DIR="$D" \
      timeout -k 15 "${AUTOPORT_CENSUS_TIMEOUT:-900}" bash "$CENSUS" \
-     >> "$RAWLOG" 2>"$D/proof$SUF-census.log"; then
+     > "$COUT" 2>"$D/proof$SUF-census.log"; then
+    CRC=0
     log "recensement fini en $(( $(date +%s) - CT0 ))s"
   else
-    log "recensement SORTI EN ERREUR (code $?) apres $(( $(date +%s) - CT0 ))s : ses cles"
+    CRC=$?
+    log "recensement SORTI EN ERREUR (code $CRC) apres $(( $(date +%s) - CT0 ))s : ses cles"
     log "manqueront a proof.txt et le validateur sera rouge. Journal : $D/proof$SUF-census.log"
   fi
+  CKEYS=$(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$' "$COUT" 2>/dev/null || true)
+  CDROP=$(grep -cE '^(proof_feature_|proof_census_)[A-Za-z0-9_]*=' "$COUT" 2>/dev/null || true)
+  grep -vE '^(proof_feature_|proof_census_)[A-Za-z0-9_]*=' "$COUT" >> "$RAWLOG" 2>/dev/null
+  [ "${CDROP:-0}" = 0 ] || log "$CDROP ligne(s) du recensement JETEE(S) : un recensement ne publie ni proof_feature_*, ni proof_census_*"
+  rm -f "$COUT"
+  extra "proof_census_present=1"
+  extra "proof_census_rc=$CRC"
+  extra "proof_census_keys=${CKEYS:-0}"
+  extra "proof_census_dropped=${CDROP:-0}"
+else
+  extra "proof_census_present=0"
+  extra "proof_census_rc=-1"
+  extra "proof_census_keys=0"
+  extra "proof_census_dropped=0"
 fi
 
 # ============================================== recopie de ce que le MOTEUR a dit ===========
@@ -947,7 +977,7 @@ KVLINES=$(grep -aE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$' "$NORM" \
              END{for(i=1;i<=n;i++){k=ord[i];
                  if(k!="source" && k!="serial" && k!="binary" && k!="sha" && k!="started_at" &&
                     k!="duration_s" && k!="crash" && k!="frames" && k!="local_lib_md5" &&
-                    k!="device_lib_md5") printf "%s=%s\n", k, v[k]}}')
+                    k!="device_lib_md5" && k !~ /^proof_census_/) printf "%s=%s\n", k, v[k]}}')
 rm -f "$NORM"
 
 if [ -n "$HDR_BATCH" ]; then

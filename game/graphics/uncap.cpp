@@ -17,6 +17,7 @@
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
+AUTOPORT_FEATURE_SITE("framerate-uncap");
 
 namespace uncap {
 
@@ -581,7 +582,7 @@ void on_render_frame() {
   }
 
   if (armed()) {
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("framerate-uncap");
   }
   publish(s);
 }

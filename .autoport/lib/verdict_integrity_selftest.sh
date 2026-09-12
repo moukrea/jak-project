@@ -89,6 +89,18 @@ ecrit_preuve(){  # ecrit_preuve <dossier> <avec-empreinte:0|1>
     # prouverait que la frappe. C'est le meme script que celui que le juge rappellera.
     [ "$avec" = 1 ] && ( cd "$d" && bash .autoport/lib/verdict_sources.sh "$SBID" kv )
     echo "FEATURE $SBID armed=1 hits=7"
+    # Le temoin d'armement est ATTRIBUE depuis le 12/09 (proof-feature-hits-is-vacuous) : `hits=`
+    # est le compteur global du binaire, la porte lit le compte PROPRE a l'item. Une preuve de
+    # bac a sable qui ne porte pas ces cles decrirait un producteur perime, et la jambe `ok` —
+    # le controle qui doit PASSER — rougirait pour une raison etrangere a ce qu'elle mesure.
+    echo "proof_feature_id=$SBID"
+    echo "proof_feature_state=hit"
+    echo "proof_feature_declared=1"
+    echo "proof_feature_own_hits=7"
+    echo "proof_feature_global_hits=4419755"
+    echo "proof_census_present=0"
+    echo "proof_census_rc=-1"
+    echo "proof_census_keys=0"
     echo "sb_gate=0"
   } > "$pf"
 }

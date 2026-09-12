@@ -25,6 +25,7 @@
 
 namespace hdr_desktop {
 namespace {
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // ------------------------------------------------------------------------------ EGL a nu --
 // Les valeurs et les signatures EGL sont reprises ici plutot qu'incluses : le binaire de bureau
@@ -1137,7 +1138,7 @@ void frame_begin() {
   }
   // Le compteur de l'item, AU SITE DU GESTE : une image ou le chemin de sortie HDR bureau a
   // tourne. Desarme (`--off`), `note_hit` ne compte rien et la sonde ne tourne pas.
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kItemId);
   // ROUGE, JAMAIS MUET. La cle de porte doit exister des la premiere image : si le quad final
   // n'etait jamais atteint (ecran de chargement, renderer coupe), une preuve SANS
   // `hdr_desktop_defects` se lirait « le moteur n'emet pas cette grandeur » au lieu de « les

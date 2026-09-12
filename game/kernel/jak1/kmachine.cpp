@@ -104,6 +104,10 @@
 // in android/gk_android_main.cpp. Called from diag_flags_maybe(); OFF by default.
 extern "C" void gk_set_diag_norepair(bool on);
 #endif
+AUTOPORT_FEATURE_SITE("title-tap-prompt-regression");
+AUTOPORT_FEATURE_SITE("mesh-browser-removal");
+AUTOPORT_FEATURE_SITE("lighting-legacy-purge");
+AUTOPORT_FEATURE_SITE("dead-follow-probe");
 
 using namespace ee;
 
@@ -904,7 +908,7 @@ static void dead_probe_census() {
   }
 
   constexpr u32 cpp_field = HasDeadFollowProbeField<GfxGlobalSettings>::value ? 1u : 0u;
-  autoport_proof::note_hit(1);
+  autoport_proof::note_hit_for("dead-follow-probe", 1);
   autoport_proof::publish("dead_probe_cpp_field", cpp_field);
   autoport_proof::publish("dead_probe_symbols", s_worst);
   autoport_proof::publish("dead_probe_sites", cpp_field + s_worst);
@@ -1135,7 +1139,7 @@ static void lighting_legacy_census() {
   autoport_proof::publish_text("lighting_legacy_gating_list",
                                gating_names.empty() ? "-" : gating_names.c_str());
   if (autoport_proof::feature_is("lighting-legacy-purge")) {
-    autoport_proof::note_hit(1);
+    autoport_proof::note_hit_for("lighting-legacy-purge", 1);
   }
 }
 
@@ -1351,7 +1355,7 @@ static void mesh_browser_removal_census() {
     autoport_proof::publish_text("mesh_browser_goal_list", shown.empty() ? "-" : shown.c_str());
   }
   if (autoport_proof::feature_is("mesh-browser-removal")) {
-    autoport_proof::note_hit(1);
+    autoport_proof::note_hit_for("mesh-browser-removal", 1);
   }
 }
 
@@ -1656,7 +1660,7 @@ void pc_title_prompt_drawn(s64 text_id,
   } else {
     autoport_proof::publish_text("title_prompt_head", "-");
   }
-  autoport_proof::note_hit(1);
+  autoport_proof::note_hit_for("title-tap-prompt-regression", 1);
 }
 
 void pc_scl10n_begin(s64 current_language) {

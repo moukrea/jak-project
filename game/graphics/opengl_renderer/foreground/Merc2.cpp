@@ -164,6 +164,7 @@ static bool gecho_merc_on() {
 #include "game/runtime.h"
 
 #include "third-party/imgui/imgui.h"
+AUTOPORT_FEATURE_SITE("perf-merc-defuse");
 
 // F1a bisection knobs: the first merc draw SIGSEGVs inside the Adreno driver
 // with state-legal parameters (runs 4-8). Toggle GL stages off via marker
@@ -4626,7 +4627,7 @@ void md_close_frame(MercDefuseMode mode) {
   // `hits` est PARTAGE par tout le binaire : on ne le remplit que quand le harnais nomme CET
   // item, sinon la ligne FEATURE de n'importe quel autre item serait satisfaite par ce bloc.
   if (autoport_proof::feature_is("perf-merc-defuse")) {
-    autoport_proof::note_hit(1);
+    autoport_proof::note_hit_for("perf-merc-defuse", 1);
   }
 }
 

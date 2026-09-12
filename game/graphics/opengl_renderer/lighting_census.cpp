@@ -27,6 +27,7 @@ namespace lighting_census {
 namespace {
 
 constexpr const char* kItemId = "lighting-census";
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // Les chemins du §2.3, dans l'ordre du tableau de la spec. L'ordre COMPTE : `rt && pbr` (B) est
 // teste en premier, exactement comme la spec les enumere.
@@ -844,7 +845,7 @@ void note_world_draw(Kind k) {
   s_count_phase[s_phase][path]++;
   if (path != kUnaccounted) {
     // `hits` = draws monde CLASSES dans un des cinq chemins (le denominateur nomme au §7.2).
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for(kItemId);
   }
 
   // ── un draw par image : relire ce que le PROGRAMME contient vraiment ──────────────────────

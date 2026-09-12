@@ -21,6 +21,7 @@
 namespace {
 
 constexpr const char* kItemId = "water-ocean-mesh";
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // 1 metre = 4096 unites GOAL. La cellule de houle vaut 12288 unites (3 m) ; on la reprend telle
 // quelle plutot que de refabriquer 3.0f * 4096.0f, pour que le pas des anneaux soit un diviseur
@@ -647,7 +648,7 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   }
   if (any_wave) {
     m_verts_moved += verts_this_frame;
-    autoport_proof::note_hit(verts_this_frame);
+    autoport_proof::note_hit_for(kItemId, verts_this_frame);
   }
 
   // La sonde ne tourne que sur une image FRAICHE : comparer la hauteur de jeu de cette image a

@@ -15,6 +15,7 @@ namespace checkpoint_census {
 namespace {
 
 constexpr const char* kItem = "builder-checkpoint-steals-work";
+AUTOPORT_FEATURE_SITE(kItem);
 constexpr const char* kCensus = ".autoport/lib/checkpoint_census.py";
 constexpr const char* kSelftest = ".autoport/lib/checkpoint_selftest.sh";
 constexpr const char* kGuard = ".autoport/lib/checkpoint_snapshot.sh";
@@ -101,7 +102,7 @@ void run_once() {
     autoport_proof::publish("checkpoint_census_ran", 0);
     autoport_proof::publish("checkpoint_stolen_files", 1);
     autoport_proof::publish_text("checkpoint_stolen_files_terms", "recensement=absent");
-    autoport_proof::note_hit(1);
+    autoport_proof::note_hit_for(kItem, 1);
     return;
   }
 
@@ -200,7 +201,7 @@ void run_once() {
   publish_sha(repo, "checkpoint_guard_sha", kGuard);
   publish_sha(repo, "checkpoint_builder_sha", kBuilder);
 
-  autoport_proof::note_hit(1);
+  autoport_proof::note_hit_for(kItem, 1);
 }
 
 }  // namespace

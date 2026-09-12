@@ -66,7 +66,41 @@ bool armed_for(const char* id);
 
 // Le chemin de code de la feature vient de tourner. No-op quand la feature est desarmee : c'est
 // ce qui fait la difference entre les deux bras de l'ablation.
+//
+// CE COMPTEUR-CI EST GLOBAL, ET IL LE RESTE (proof-feature-hits-is-vacuous, 2026-09-12). Un site
+// qui l'appelle sans nommer d'item remplit le `hits=` de TOUS les items a la fois : c'est ce qui
+// rendait « rien ne prouve que la feature a tire » indeclenchable. Sa prise est desormais rangee
+// dans le seau `__unattributed`, publie sous `proof_feature_hits_unattributed`, et AUCUN item ne
+// peut s'en prevaloir. Un site qui sait a quel item il appartient appelle `note_hit_for`.
 void note_hit(uint64_t n = 1);
+
+// LE MEME GESTE, ATTRIBUE. La prise est comptee pour `id` ET dans le total global. C'est ce
+// compte-la — `proof_feature_own_hits` — que `validators/generic.sh` lit pour decider si
+// l'instrument de l'item mesure a tourne. Deux items qui tirent sur la meme course rendent donc
+// deux comptes DIFFERENTS, ce que le compteur partage ne pouvait pas faire.
+// L'armement reste GLOBAL (voir `note_hit`) : le bras `--off` doit publier `hits=0` partout,
+// sinon l'ablation ne separe rien.
+void note_hit_for(const char* id, uint64_t n = 1);
+
+// CE BINAIRE PORTE UN SITE DE L'ITEM `id`. Enregistre au CHARGEMENT, avant toute image : c'est
+// ce qui separe les deux zeros que la porte confondait —
+//   `absent`             : aucun site de cet item n'est compile ici (item de harnais, ou
+//                          instrument jamais ecrit) ;
+//   `declared_unreached` : le site existe et n'a pas ete atteint par la course (defaut).
+// Une declaration faite a l'EXECUTION ne saurait pas les distinguer : un chemin jamais atteint
+// ne s'enregistrerait pas plus qu'un chemin absent. On utilise la macro, pas la fonction.
+void register_site(const char* id);
+struct FeatureSite {
+  explicit FeatureSite(const char* id) { register_site(id); }
+};
+
+#define AUTOPORT_FEATURE_SITE_JOIN2(a, b) a##b
+#define AUTOPORT_FEATURE_SITE_JOIN(a, b) AUTOPORT_FEATURE_SITE_JOIN2(a, b)
+// A poser au niveau NAMESPACE du .cpp qui porte le site (jamais dans une fonction : la
+// construction serait paresseuse et l'enregistrement suivrait l'execution).
+#define AUTOPORT_FEATURE_SITE(id)                                            \
+  [[maybe_unused]] static const ::autoport_proof::FeatureSite                \
+      AUTOPORT_FEATURE_SITE_JOIN(g_autoport_feature_site_, __LINE__)(id)
 
 // Une grandeur mesuree, publiee telle quelle sur sa propre ligne (`cle=valeur`). La DERNIERE
 // valeur publiee pour une cle gagne — c'est la regle de moissonnage de proof_run.sh. La cle doit

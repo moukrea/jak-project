@@ -14,6 +14,7 @@
 #include "game/system/autoport_proof.h"
 
 #include "fmt/core.h"
+AUTOPORT_FEATURE_SITE("recharged-naming");
 
 namespace naming_census {
 namespace {
@@ -404,7 +405,7 @@ void tick() {
     g_done = true;
   }
 
-  autoport_proof::note_hit(sites + 1);
+  autoport_proof::note_hit_for("recharged-naming", sites + 1);
   autoport_proof::publish("naming_wrong_sites", wrong);
   autoport_proof::publish("naming_sites", sites);
   autoport_proof::publish("naming_langs", langs);

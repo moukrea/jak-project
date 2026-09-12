@@ -53,6 +53,7 @@ uint64_t g_frames = 0, g_frames_with_miss = 0, g_last_frame_with_miss = 0;
 
 // --------------------------------------------------------------- gl-uniforms-dead-seven ----
 constexpr const char* kItemId = "gl-uniforms-dead-seven";
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // Les sept nommes par l'item, recenses PAR LEUR NOM meme quand plus personne ne les pousse : un
 // recensement qui ne porterait que sur ce qui est encore pousse serait vide apres la correction,
@@ -198,7 +199,7 @@ void census_frame() {
   autoport_proof::publish("dead7_pushes", seven_pushes);
 
   // `hits` est PARTAGE par tout le binaire : ne le remplir que quand le harnais mesure CET item.
-  autoport_proof::note_hit(1);
+  autoport_proof::note_hit_for(kItemId, 1);
 
   for (auto& kv : g_names) {
     kv.second.pushes_frame = 0;

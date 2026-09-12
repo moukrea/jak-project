@@ -11,6 +11,7 @@ namespace shade_proof {
 namespace {
 
 constexpr const char* kItemId = "lighting-unify";
+AUTOPORT_FEATURE_SITE(kItemId);
 constexpr const char* kBegin = "@shade-model-begin";
 constexpr const char* kEnd = "@shade-model-end";
 
@@ -197,7 +198,7 @@ void note_world_draw() {
   // donc monter `shade_draws_no_model`, pas `hits`.
   if (s_shade_programs.count(s_bound)) {
     s_hits++;
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for(kItemId);
   } else {
     s_draws_no_model++;
   }

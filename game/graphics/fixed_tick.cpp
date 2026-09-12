@@ -14,6 +14,7 @@
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
+AUTOPORT_FEATURE_SITE("fixed-tick-interpolation");
 
 namespace fixed_tick {
 
@@ -619,7 +620,7 @@ void on_render_frame(u64 anim_interp_n) {
     // PREUVE DE CABLAGE. `hits` ne monte que lorsque l'horloge a REELLEMENT gouverne une
     // image ; desarmee elle n'appelle pas, et le bras d'ablation publie `hits=0`. Un
     // compteur qui monte des deux cotes ne separe rien.
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("fixed-tick-interpolation");
     census_frame();
   } else if (s.census_have) {
     // Desarmement en pleine course (le joueur decoche la case) : on rebase la montre du

@@ -29,6 +29,9 @@
 
 namespace hdr_output {
 namespace {
+AUTOPORT_FEATURE_SITE(kPlanId);
+AUTOPORT_FEATURE_SITE(kStudyId);
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // Valeurs EGL brutes (EGL_KHR_gl_colorspace / EGL_EXT_gl_colorspace_bt2020_pq /
 // EGL_EXT_gl_colorspace_scrgb_linear), reprises ici pour que la publication ne depende pas des
@@ -2209,7 +2212,7 @@ void publish_study() {
   autoport_proof::publish("hdr_study_questions_open", open);
   // LE GESTE DE L'ETUDE, c'est CETTE publication. `hits` est partage par tout le binaire : on ne
   // le compte QUE sous l'item `hdr-study`, sinon le compteur de tous les autres items monterait.
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kStudyId);
 }
 
 // ============================================================================================
@@ -2420,7 +2423,7 @@ void publish_plan() {
   autoport_proof::publish("hdr_plan_sections_open", open);
   // LE GESTE DU PLAN, c'est CETTE publication. `hits` est partage par tout le binaire : on ne le
   // compte QUE sous l'item `hdr-plan`, sinon le compteur de tous les autres items monterait.
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kPlanId);
 }
 
 // ------------------------------------------------ hdr-curve-input : LE BLOC DE CE CHANTIER ----
@@ -5397,7 +5400,7 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
   s_study_ui_fmt = ui_fmt;  // question 1 de l'etude : l'etage d'affichage, releve et non suppose
   if (on) {
     s_hits++;
-    autoport_proof::note_hit();  // AU SITE DU GESTE : une image presentee en HDR
+    autoport_proof::note_hit_for(kItemId);  // AU SITE DU GESTE : une image presentee en HDR
   }
   if (on && !effective_setting()) {
     s_forced_on_frames++;  // la capacite a force ce que le reglage n'a pas demande

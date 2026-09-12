@@ -13,6 +13,7 @@
 #include "game/system/autoport_proof.h"
 
 #include "fmt/core.h"
+AUTOPORT_FEATURE_SITE("recharged-settings-case-l10n");
 
 namespace settings_case_l10n {
 namespace {
@@ -456,7 +457,7 @@ void end_census() {
     defects = kVacuous;
   }
 
-  autoport_proof::note_hit(rows * langs + 1);
+  autoport_proof::note_hit_for("recharged-settings-case-l10n", rows * langs + 1);
   autoport_proof::publish("settings_case_l10n_defects", defects);
   autoport_proof::publish("settings_case_l10n_rows", rows);
   autoport_proof::publish("settings_case_l10n_drawn", g_notes);

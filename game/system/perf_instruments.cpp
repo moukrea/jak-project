@@ -39,6 +39,7 @@ namespace perf_instruments {
 namespace {
 
 constexpr const char* kItemId = "perf-instruments";
+AUTOPORT_FEATURE_SITE(kItemId);
 
 // Les 35 seaux `with-profiler` de jak1 (main.gc, drawable.gc, pc-related). L'ordre est celui de
 // la publication ; les noms sont ceux passes a `pc-prof`, la cle remplace `-` par `_`.
@@ -588,7 +589,7 @@ void publish_window() {
       }
     }
     autoport_proof::publish("perf_instruments_expected", g_expected.size());
-    autoport_proof::note_hit(g_expected.size() - missing);
+    autoport_proof::note_hit_for(kItemId, g_expected.size() - missing);
   }
   autoport_proof::publish("perf_instruments_missing", missing);
   autoport_proof::publish_text("perf_instruments_missing_keys",

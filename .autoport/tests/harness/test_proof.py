@@ -69,6 +69,18 @@ def _proof(root, **over):
         "duration_s": "62",
         "crash": "0",
         "frames": "1800",
+        # LE TEMOIN D'ARMEMENT EST ATTRIBUE DEPUIS LE 12/09 (proof-feature-hits-is-vacuous) : le
+        # `hits=` de la ligne FEATURE est le compteur GLOBAL du binaire, et la porte lit le compte
+        # PROPRE a l'item. Une preuve produite par la machine porte donc ces cles ; un fixture qui
+        # ne les porte pas decrit un producteur perime, pas une course saine.
+        "proof_feature_id": ITEM,
+        "proof_feature_state": "hit",
+        "proof_feature_declared": "1",
+        "proof_feature_own_hits": "37",
+        "proof_feature_global_hits": "4419755",
+        "proof_census_present": "0",
+        "proof_census_rc": "-1",
+        "proof_census_keys": "0",
     }
     champs.update({k: str(v) for k, v in over.items()
                    if k not in ("feature", "gate", "sans_epingle")})
@@ -155,9 +167,15 @@ def test_une_source_moteur_editee_apres_la_preuve_ne_passe_pas(tmp_path):
 
 
 def test_une_feature_qui_na_pas_tire_ne_passe_pas(tmp_path):
-    """`hits=0` : le code est là, il n'a jamais été atteint. C'est l'angle mort historique."""
+    """`hits=0` : le code est là, il n'a jamais été atteint. C'est l'angle mort historique.
+
+    Depuis le 12/09 la situation se dit dans l'état : un site DÉCLARÉ dans le binaire dont le
+    compte propre reste à zéro. Le `hits=` global, lui, monte pour tout le monde — c'est
+    précisément pour ça qu'il ne pouvait plus servir de témoin.
+    """
     root, gk, sha = _repo(tmp_path)
-    _proof(root, sha_reel=sha, feature=f"FEATURE {ITEM} armed=1 hits=0")
+    _proof(root, sha_reel=sha, feature=f"FEATURE {ITEM} armed=1 hits=0",
+           proof_feature_state="declared_unreached", proof_feature_own_hits="0")
     code, out = _juge(root)
     assert code == 1
     assert "hits" in out

@@ -30,6 +30,7 @@ namespace prepass {
 namespace {
 
 constexpr const char* kItemId = "lighting-ao-indirect";
+AUTOPORT_FEATURE_SITE(kItemId);
 // Une image sondee sur N sous mesure : la relecture couleur + stencil pleine resolution coute
 // une synchronisation GPU, on ne la paie pas a chaque image.
 constexpr uint64_t kProbeEvery = 60;
@@ -788,7 +789,7 @@ void proof_post_opaque(SharedRenderState* rs) {
   g_leak_px += leak;
   g_excluded_px += excl;
   g_hit_px += hits;
-  autoport_proof::note_hit(hits);
+  autoport_proof::note_hit_for(kItemId, hits);
   publish_all();
   clear_stencil();
 #endif

@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "game/system/autoport_proof.h"
+AUTOPORT_FEATURE_SITE("fire-red-particles");
 
 namespace fire_red_census {
 namespace {
@@ -917,7 +918,7 @@ void end_frame() {
   publish_overdraw();
   if (sprites > 0) {
     // Le chemin de la feature a tourne SUR des sprites de feu : c'est ce que `hits` doit dire.
-    autoport_proof::note_hit(1);
+    autoport_proof::note_hit_for("fire-red-particles", 1);
   }
 }
 

@@ -45,7 +45,42 @@ else
   f=$(kv frames); [ "${f:-0}" -ge "$FMIN" ] 2>/dev/null || bad "frames=${f:-absent} sous le seuil $FMIN : rien n'a ete dessine assez longtemps"
   [ "$DEV" = 0 ] || [ "$src" = device ] || bad "l'item exige l'appareil, la preuve est en source=$src"
   dm=$(kv device_lib_md5); case "${dm:-vide}" in vide|absent-*) ;; *) [ "$dm" = "$(kv local_lib_md5)" ] || bad "le libgk.so de l'appareil ($dm) n'est pas celui du build ($(kv local_lib_md5))" ;; esac
-  grep -qE "^FEATURE $P armed=1 hits=[1-9][0-9]*$" "$PF" || bad "ligne 'FEATURE $P armed=1 hits=>0' absente : rien ne prouve que la feature a tire"
+  # ---- LE TEMOIN « L'INSTRUMENT DE CET ITEM A TOURNE » (proof-feature-hits-is-vacuous, 12/09) ---
+  # `hits=` de la ligne FEATURE est le compteur GLOBAL du binaire : `dead_probe_census()` le
+  # remplissait a chaque passe, le recensement d'eclairage a chaque draw. « armed=1 hits>0 » etait
+  # donc VRAI POUR N'IMPORTE QUEL ITEM, y compris ceux dont tout le travail vit dans
+  # `lib/census/<id>.sh` et qui ne touchent pas une ligne du moteur. La porte lit desormais le
+  # compte PROPRE a l'item, publie par le moteur a cote du global, et elle NOMME les deux zeros
+  # que ce compteur confondait : un instrument ABSENT du binaire n'est pas un instrument PRESENT
+  # que la course n'a pas atteint.
+  grep -qE "^FEATURE $P armed=1 hits=[0-9]+$" "$PF" || bad "ligne 'FEATURE $P armed=1' absente : la course n'a pas ete lancee sur cet item, ou elle l'a lancee DESARME"
+  own=$(kv proof_feature_own_hits); fstate=$(kv proof_feature_state); glob=$(kv proof_feature_global_hits)
+  CEN=".autoport/lib/census/$P.sh"
+  if [ -z "$fstate" ] || [ -z "$own" ]; then
+    bad "la preuve ne porte ni 'proof_feature_state=' ni 'proof_feature_own_hits=' : elle sort d'un moteur qui ne sait pas attribuer une prise a un item, et son 'hits=' ne prouve donc rien. Rebatis gk et reproduis-la."
+  else
+    case "$fstate" in
+      hit)
+        [ "${own:-0}" -gt 0 ] 2>/dev/null || bad "proof_feature_state=hit avec proof_feature_own_hits=$own : l'etat et le compte se contredisent" ;;
+      declared_unreached)
+        bad "un site moteur nomme $P est bien compile dans ce binaire, mais il n'a JAMAIS tire pendant la course (proof_feature_own_hits=0, compteur global=$glob) : l'instrument de l'item n'a pas ete atteint" ;;
+      absent)
+        if [ -f "$CEN" ]; then
+          # Item de HARNAIS : aucun site moteur, c'est normal — son verdict vit dans son
+          # recensement. Le temoin devient donc « ce recensement a tourne et a publie », et il
+          # sort de la MACHINE (proof_run.sh), pas du recensement lui-meme.
+          [ "$(kv proof_census_present)" = 1 ] || bad "aucun site moteur ne nomme $P : son temoin est son recensement, et la preuve ne dit pas qu'il a ete lance (proof_census_present=$(kv proof_census_present))"
+          [ "$(kv proof_census_rc)" = 0 ] || bad "aucun site moteur ne nomme $P : son recensement est son seul temoin, et il est sorti en $(kv proof_census_rc)"
+          [ "$(kv proof_census_keys)" -gt 0 ] 2>/dev/null || bad "aucun site moteur ne nomme $P : son recensement n'a publie AUCUNE cle (proof_census_keys=$(kv proof_census_keys))"
+        else
+          bad "aucun site moteur ne nomme $P dans ce binaire (proof_feature_state=absent) et cet item n'a pas de recensement : rien ne prouve que l'instrument de CET item a tourne. 'hits=$glob' est le compteur GLOBAL, il monte pour tout le monde. Attribue la prise de ton instrument — note_hit_for(\"$P\", ...) et AUTOPORT_FEATURE_SITE(\"$P\") — ou publie ton verdict par un recensement."
+        fi ;;
+      sans_item)
+        bad "proof_feature_state=sans_item : le moteur n'a recu ni AUTOPORT_FEATURE ni debug.opengoal.feature, la course ne se rattache a aucun item" ;;
+      *)
+        bad "proof_feature_state=$fstate : etat que le validateur ne connait pas" ;;
+    esac
+  fi
   if [ -n "$GK" ]; then v=$(kv "$GK")
     if [ -z "$v" ]; then bad "le proof ne porte pas '$GK=' : le moteur doit emettre cette grandeur"
     else awk -v a="$v" -v b="$GV" -v o="$GO" 'BEGIN{n=(a+0==a&&b+0==b);r=(o=="=="?(n?a+0==b+0:a==b):o=="!="?(n?a+0!=b+0:a!=b):o=="<"?a+0<b+0:o=="<="?a+0<=b+0:o==">"?a+0>b+0:o==">="?a+0>=b+0:0);exit r?0:1}' \

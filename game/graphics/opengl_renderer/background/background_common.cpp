@@ -41,6 +41,8 @@
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/system/autoport_proof.h"
+AUTOPORT_FEATURE_SITE("gl-uniforms-off-cost");
+AUTOPORT_FEATURE_SITE("lighting-off-math-still-runs");
 
 #ifdef OG_FEAT_GRASS_OVERHANG
 // ROUND 10 forensics switch (see GrassFringeFade::dbg). Cached + throttled like grass_droop_len():
@@ -2137,7 +2139,7 @@ inline bool block(int id) {
     g_m.reached_off |= 1u << id;
     // `hits` du VALIDATEUR : il ne compte que sous CET item (`measured`), sinon un item voisin
     // verrait son propre `hits` rempli par un chemin qu'il n'a pas demande.
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("lighting-off-math-still-runs");
   }
   return false;
 }
@@ -2209,7 +2211,7 @@ struct LgtSetupScope {
       c.ns_off += ns;
       if (c.own && c.armed) {
         // `hits` est un compteur PARTAGE : son denominateur propre est `uniform_off_setups`.
-        autoport_proof::note_hit();
+        autoport_proof::note_hit_for("gl-uniforms-off-cost");
       }
     }
     // LA PORTE : poussees de la famille SAUTABLE faites alors que l'eclairage est ETEINT.

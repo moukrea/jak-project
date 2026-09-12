@@ -14,6 +14,7 @@
 #include "game/system/autoport_proof.h"
 
 #include "fmt/format.h"
+AUTOPORT_FEATURE_SITE("water-census");
 
 namespace water_census {
 namespace {
@@ -205,7 +206,7 @@ void census() {
     seen.insert(n);
     if (verdict.count(n)) {
       assigned++;
-      autoport_proof::note_hit();
+      autoport_proof::note_hit_for("water-census");
     } else {
       unassigned++;
     }
@@ -227,7 +228,7 @@ void census() {
       looks_unmapped++;
     } else {
       looks_mapped++;
-      autoport_proof::note_hit();
+      autoport_proof::note_hit_for("water-census");
     }
   }
 

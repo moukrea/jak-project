@@ -24,6 +24,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
+AUTOPORT_FEATURE_SITE("anim-interp-low-fps");
 
 namespace render_pace {
 
@@ -1378,7 +1379,7 @@ void on_render_frame(const GoalReadout& g) {
   }
 
   if (armed()) {
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("anim-interp-low-fps");
   }
   publish();
 

@@ -46,6 +46,8 @@
 #include "game/system/npc_flicker.h"
 
 #include "third-party/imgui/imgui.h"
+AUTOPORT_FEATURE_SITE("recharged-texture-hotreload");
+AUTOPORT_FEATURE_SITE("cutscene-npc-flicker");
 
 // ============================================================================================
 // Gcutscene-npc-flicker — L'AGE D'UN NIVEAU, ET POURQUOI LE MAIRE DISPARAISSAIT
@@ -1873,7 +1875,7 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
         s_htr_reuploaded++;
         if (g_last_add_texture_fp != old_fp) {
           s_htr_pixels_changed++;
-          autoport_proof::note_hit();
+          autoport_proof::note_hit_for("recharged-texture-hotreload");
         }
         lev->tex_upload_fp[i] = g_last_add_texture_fp;
       }
@@ -2001,7 +2003,7 @@ void Loader::update(TexturePool& texture_pool) {
       } else if (merc_live && keepalive_armed) {
         lev->frames_since_last_used = 0;
         s_npcf_merc_keepalive_frames++;
-        autoport_proof::note_hit();
+        autoport_proof::note_hit_for("cutscene-npc-flicker");
       } else {
         lev->frames_since_last_used++;
       }

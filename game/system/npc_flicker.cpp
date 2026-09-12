@@ -17,6 +17,7 @@
 #include "fmt/core.h"
 
 #include "game/system/autoport_proof.h"
+AUTOPORT_FEATURE_SITE("cutscene-npc-flicker");
 
 namespace npc_flicker {
 namespace {
@@ -1188,7 +1189,7 @@ void end_census() {
   if (npc_seen > 0) {
     // La feature a tire : un PNJ a ete evalue pendant une cinematique. C'est le compte que
     // `FEATURE <id> armed=1 hits=<n>` publie, et il reste a zero dans le bras desarme.
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("cutscene-npc-flicker");
   }
   if (g_scene == kOwnerScene) {
     g_owner_scene_frames++;

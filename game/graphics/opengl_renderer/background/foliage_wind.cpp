@@ -27,6 +27,7 @@
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+AUTOPORT_FEATURE_SITE("foliage-wind");
 
 namespace foliage_wind {
 namespace {
@@ -1305,7 +1306,7 @@ void recompute_and_publish_locked() {
   if (measured) {
     // Le chemin de code a tire : des paires reelles ont ete jugees sur des instances reellement
     // dessinees, brise allumee. Aucun `note_hit` quand rien n'a ete mesure.
-    autoport_proof::note_hit();
+    autoport_proof::note_hit_for("foliage-wind");
   }
 
   static u64 s_logged = 0;

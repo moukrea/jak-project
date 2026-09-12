@@ -49,6 +49,7 @@ constexpr const char* kPlanId = "hdr-plan";
 // maitre Recharged allume (sous maitre eteint le rendu d'origine doit rester identique au bit)
 // et le bras arme (c'est lui que `proof_run.sh --off` renverse pour donner le AVANT).
 constexpr const char* kSourceRangeId = "hdr-source-range";
+AUTOPORT_FEATURE_SITE(kSourceRangeId);
 
 // LE CHANTIER B (`hdr-curve-input`). Il a besoin de la sonde de marge ci-dessous pour la meme
 // raison que l'etude et le plan : `hdr_probe_max_x1000` est le TEMOIN de reference du plan
@@ -73,6 +74,7 @@ bool source_range_measuring() {
 // mesure ». Sous cet item la sonde de halo a le droit de tourner (elle est gardee par le meme
 // `||` plus bas) et le bloc `hdr_glow_*` est publie.
 constexpr const char* kGlowRangeId = "hdr-glow-range";
+AUTOPORT_FEATURE_SITE(kGlowRangeId);
 bool glow_range_measuring() {
   return autoport_proof::feature_is(kGlowRangeId);
 }
@@ -739,6 +741,7 @@ int s_glow_state = 0;
 // Le ciel CPU, compte AU SITE DE L'ADDITION — la ou `_mm_adds_epu8` saturait.
 // ------------------------------------------------------ hdr-sky-gpu-alpha (etat) ----------
 constexpr const char* kSkyGpuAlphaId = "hdr-sky-gpu-alpha";
+AUTOPORT_FEATURE_SITE(kSkyGpuAlphaId);
 int s_sky_path_mode = 0;
 uint64_t s_sky_gpu_calls = 0, s_sky_cpu_calls = 0;
 uint64_t s_skygpu_readbacks = 0, s_skygpu_components = 0;
@@ -751,6 +754,7 @@ uint64_t s_skygpu_pub_frames = 0;
 
 // ------------------------------------------------ sky-gpu-path-robustness (etat) ----------
 constexpr const char* kSkyRobustId = "sky-gpu-path-robustness";
+AUTOPORT_FEATURE_SITE(kSkyRobustId);
 // La somme des termes de `hdr-sky-gpu-alpha`, RANGEE a la publication : le terme 5 de cet
 // item-ci exige qu'elle vaille toujours zero, et il la lit au lieu de la recalculer.
 uint64_t s_skygpu_defects_last = 0;
@@ -1265,7 +1269,7 @@ void publish_source_range() {
   // LE GESTE DE CE CHANTIER : `note_hit` ne compte que sous le bras ARME, c'est ce qui rend
   // l'ablation lisible (`armed=0 hits=0`). `hits` est partage par tout le binaire : on ne
   // l'incremente que sous notre propre item.
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kSourceRangeId);
 
   autoport_proof::publish("hdr_src_clamped_stages", stages_clamped);
   autoport_proof::publish("hdr_src_stages_seen", stages_seen);
@@ -1332,7 +1336,7 @@ void publish_sky_gpu_alpha() {
   if ((s_skygpu_pub_frames % 30) != 1) {
     return;
   }
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(autoport_proof::feature_is(kSkyRobustId) ? kSkyRobustId : kSkyGpuAlphaId);
 
   // --- le regime, epingle et publie A COTE du verdict.
   autoport_proof::publish("hdr_sky_gpu_master_on", Gfx::recharged_master_active() ? 1 : 0);
@@ -1450,7 +1454,7 @@ void publish_sky_robustness() {
   if ((s_skyrob_pub_frames % 30) != 1) {
     return;
   }
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kSkyRobustId);
 
   // --- 1. LES DEUX ESPACES DE NOMS, RELUS. `prev_fbo_name` est le nom que l'ancien code liait
   // dans `GL_ARRAY_BUFFER` ; `prev_name_is_buffer` dit ce qu'il etait vraiment.
@@ -1565,7 +1569,7 @@ void publish_glow_range() {
   if ((s_glow_range_frames % 30) != 1) {
     return;
   }
-  autoport_proof::note_hit();
+  autoport_proof::note_hit_for(kGlowRangeId);
 
   // ── 1. LA COUVERTURE. Le chemin, du producteur DMA au flush, avec son denominateur. ────────
   autoport_proof::publish("hdr_glow_flush_calls", s_glow_flush_calls);
