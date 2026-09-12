@@ -43,6 +43,8 @@
 #include <cstdint>
 #include <string>
 
+#include "common/versions/versions.h"
+
 #include "game/graphics/pipelines/opengl.h"
 
 class Shader;
@@ -257,6 +259,52 @@ void note_glow_flush(uint64_t pending);  // `GlowRenderer::flush`, AVANT son ret
 // lit le bucket glow) ; `sprites_2d` et `aux_sprites` sont les CHEMINS CONCURRENTS — c'est par
 // eux que passe le halo que l'owner voit sur les feux et les portails.
 void note_sprite_frame(bool jak1_path, uint64_t sprites_2d, uint64_t aux_sprites);
+
+// ============ CHANTIER `glow-targets-not-built-on-jak1` — LES CIBLES QU'ON NE PAIE PLUS ======
+// CE QUE LA MESURE DU 11/09 A ETABLI (reports/hdr-glow-range/proof.txt, appareil eae4df44) :
+// sur 9 091 images de sprites jak1, `hdr_glow_flush_calls` = 0, `hdr_glow_dma_enters` = 0,
+// `hdr_glow_sprites_submitted` = 0, pendant que 16 385 088 sprites 2D et 204 397 distorteurs
+// passaient par les deux AUTRES chemins. `GlowRenderer` etait pourtant construit en membre de
+// `Sprite3` et allouait ses six cibles — la sonde et cinq reductions — pour 6 822 400 o.
+//
+// LE PREDICAT EST UNIQUE, ET IL SUIT LE DISPATCH. `Sprite3::render` envoie Jak1 sur
+// `render_jak1`, qui ne nomme jamais `glow_dma_and_draw` ; tous les autres jeux vont sur
+// `render_jak2`, seul appelant. `glow_targets_needed()` recopie CE dispatch et rien d'autre :
+// c'est la meme fonction qui decide de construire et qui est publiee par jeu, de sorte qu'une
+// divergence entre la decision et ce que la preuve annonce est impossible par construction.
+bool glow_targets_measuring();
+bool glow_targets_needed(GameVersion version);
+
+// Une image de `Sprite3::render`, avec le jeu OBSERVE (pas suppose : `render_state->version`),
+// ce que le predicat en dit, et si une instance est detenue a cet instant.
+void note_glow_targets_frame(GameVersion version_at_render,
+                             bool needed,
+                             bool owned,
+                             uint64_t owned_bytes);
+
+// Une construction REELLE pour le chemin de rendu. `lazy` distingue le site normal (haut de
+// `Sprite3::render`) du filet pose dans `glow_dma_and_draw` : si le filet tire, c'est que la
+// decision du haut a manque, et le compte le dit au lieu de le taire.
+void note_glow_targets_ctor(uint64_t owned_bytes, bool lazy);
+
+// LE TEMOIN DE REVERSIBILITE, ET LE `AVANT` DE LA MEME COURSE.
+// -----------------------------------------------------------
+// Un `glow_targets_bytes_after=0` sans un `avant` non nul mesure DANS LA MEME COURSE ne prouve
+// rien : il se lit aussi bien « les cibles ne sont plus allouees » que « l'instrument n'a jamais
+// regarde ». Et un item qui debranche du code sans montrer que le chemin debranche se rebranche
+// n'a pas livre une condition, il a livre une suppression.
+//
+// Ce temoin resout les deux d'un seul geste : quand — et SEULEMENT quand — la course est armee
+// sur cet item, `Sprite3::render` construit UNE fois un `GlowRenderer` complet, releve ce qu'il
+// a reellement alloue et l'etat de ses six cibles, puis lui rend ses noms GL. Le cout est
+// transitoire (une image), le chiffre est produit par le constructeur REEL, et le jeu livre a
+// l'owner — non arme — ne le paie jamais.
+bool glow_targets_witness_due();
+void note_glow_targets_witness(uint64_t bytes,
+                               int stages_created,
+                               int stages_complete,
+                               int gl_names_freed,
+                               int gl_names_expected);
 
 // ============ CHANTIER `hdr-sky-gpu-alpha` — LE POIDS DE MELANGE DU CIEL, CHEMIN GPU =========
 // Le chantier A a ouvert la cible du ciel en flottant. Le chemin GPU (`SkyBlendGPU`, bureau

@@ -333,6 +333,65 @@ GlowRenderer::GlowRenderer() {
   hdr::note_glow_ctor(m_ogl.stage_fmt.is_float, ds_bytes,
                       (uint64_t)m_ogl.probe_fbo_w * (uint64_t)m_ogl.probe_fbo_h * texel_bytes,
                       stages_created, stages_complete, stage_fallbacks);
+
+  // glow-targets-not-built-on-jak1 : LA MEME grandeur, retenue par l'instance elle-meme. Les
+  // compteurs `hdr-glow-range` ci-dessus sont CUMULES sur tout le processus ; le temoin de
+  // reversibilite a besoin de ce qu'UNE instance a coute, et le chemin de rendu de ce qu'IL
+  // detient. Deux lectures d'un seul releve, jamais deux formules.
+  m_alloc_bytes =
+      ds_bytes + (uint64_t)m_ogl.probe_fbo_w * (uint64_t)m_ogl.probe_fbo_h * texel_bytes;
+  m_stages_created = stages_created;
+  m_stages_complete = stages_complete;
+}
+
+int GlowRenderer::destroy_gl_objects() {
+  if (m_gl_released) {
+    return 0;
+  }
+  m_gl_released = true;
+
+  // LA LISTE EST CELLE DU CONSTRUCTEUR, dans son ordre : quatre tampons, deux VAO, huit
+  // textures (la sonde couleur, la sonde profondeur, la texture de profondeur du blit et les
+  // cinq reductions), six FBO (la sonde et les cinq reductions), un renderbuffer.
+  const GLuint bufs[4] = {m_ogl.vertex_buffer, m_ogl.index_buffer,
+                          m_ogl_downsampler.vertex_buffer, m_ogl_downsampler.index_buffer};
+  const GLuint vaos[2] = {m_ogl.vao, m_ogl_downsampler.vao};
+  GLuint texs[3 + kDownsampleIterations] = {m_ogl.probe_fbo_rgba_tex, m_ogl.probe_fbo_depth_tex,
+                                            m_ogl.depth_texture};
+  GLuint fbos[1 + kDownsampleIterations] = {m_ogl.probe_fbo};
+  for (int i = 0; i < kDownsampleIterations; i++) {
+    texs[3 + i] = m_ogl.downsample_fbos[i].tex;
+    fbos[1 + i] = m_ogl.downsample_fbos[i].fbo;
+  }
+
+  // ON COMPTE CE QUE LE PILOTE RECONNAIT, PAS CE QU'ON LUI DEMANDE. `glIs*` avant et apres :
+  // un `glDelete*` sur un contexte perdu, ou sur un nom qui n'a jamais ete lie, rendrait le
+  // meme journal vert si on comptait les appels.
+  auto live = [&]() {
+    int n = 0;
+    for (GLuint b : bufs) {
+      n += glIsBuffer(b) ? 1 : 0;
+    }
+    for (GLuint v : vaos) {
+      n += glIsVertexArray(v) ? 1 : 0;
+    }
+    for (GLuint t : texs) {
+      n += glIsTexture(t) ? 1 : 0;
+    }
+    for (GLuint f : fbos) {
+      n += glIsFramebuffer(f) ? 1 : 0;
+    }
+    n += glIsRenderbuffer(m_ogl.first_ds_depth_rb) ? 1 : 0;
+    return n;
+  };
+
+  m_gl_live_before = live();
+  glDeleteBuffers(4, bufs);
+  glDeleteVertexArrays(2, vaos);
+  glDeleteTextures(3 + kDownsampleIterations, texs);
+  glDeleteFramebuffers(1 + kDownsampleIterations, fbos);
+  glDeleteRenderbuffers(1, &m_ogl.first_ds_depth_rb);
+  return m_gl_live_before - live();
 }
 
 namespace {

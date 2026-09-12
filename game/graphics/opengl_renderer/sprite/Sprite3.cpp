@@ -546,9 +546,58 @@ void hdr_owner_cloud_after(const nlohmann::json& event) {
   owner_cloud_composition.before.rgba.clear();
 }
 
+namespace {
+// glow-targets-not-built-on-jak1 : construire un `GlowRenderer` PREND et LAISSE des liaisons GL
+// (FBO, VAO, tampons, renderbuffer, unite de texture). A l'initialisation du renderer c'etait
+// sans consequence — rien n'etait en cours. Maintenant que la construction peut arriver au
+// premier appel de `render`, il y a un etat d'image a ne pas perdre : on le releve et on le
+// remet. Ce garde ne tourne QUE sur les jeux qui demandent le chemin, ou sous le temoin arme.
+struct ScopedGlBindings {
+  GLint draw_fbo = 0, read_fbo = 0, vao = 0, abuf = 0, ebuf = 0, rbuf = 0;
+  GLint active_tex = GL_TEXTURE0, tex2d = 0;
+  ScopedGlBindings() {
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fbo);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &abuf);
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ebuf);
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &rbuf);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active_tex);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex2d);
+  }
+  ~ScopedGlBindings() {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)tex2d);
+    glActiveTexture((GLenum)active_tex);
+    glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)rbuf);
+    // Le VAO d'abord : la liaison d'indices en fait PARTIE, la remettre ensuite rend la valeur
+    // relevee sur ce meme VAO, donc un no-op. La liaison de sommets, elle, est globale.
+    glBindVertexArray((GLuint)vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)ebuf);
+    glBindBuffer(GL_ARRAY_BUFFER, (GLuint)abuf);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)read_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)draw_fbo);
+  }
+};
+}  // namespace
+
 Sprite3::Sprite3(const std::string& name, int my_id)
     : BucketRenderer(name, my_id), m_direct(name, my_id, 1024) {
   opengl_setup();
+}
+
+GlowRenderer* Sprite3::ensure_glow_renderer(GameVersion version, bool lazy) {
+  if (m_glow_renderer) {
+    return m_glow_renderer.get();
+  }
+  if (!hdr::glow_targets_needed(version)) {
+    return nullptr;
+  }
+  ScopedGlBindings keep;
+  m_glow_renderer = std::make_unique<GlowRenderer>();
+  hdr::note_glow_targets_ctor(m_glow_renderer->allocated_bytes(), lazy);
+  return m_glow_renderer.get();
 }
 
 void Sprite3::opengl_setup() {
@@ -1007,6 +1056,31 @@ void Sprite3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedPr
              owner_sprite_lf(), m_name, render_state->perf_sprite_instance,
              render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1);
   }
+  // glow-targets-not-built-on-jak1 : LE TEMOIN DE REVERSIBILITE, ET L'`AVANT` DE CETTE COURSE.
+  // Il ne tourne QUE si le harnais a arme CET item, une seule fois dans la vie du processus, et
+  // il rend ses noms GL avant de rendre la main. Le binaire que l'owner lance — non arme — ne
+  // construit jamais ces cibles. Ce que ce temoin publie n'est pas une opinion sur le
+  // constructeur : c'est le constructeur REEL qui vient de tourner.
+  if (hdr::glow_targets_witness_due()) {
+    ScopedGlBindings keep;
+    auto probe = std::make_unique<GlowRenderer>();
+    const uint64_t bytes = probe->allocated_bytes();
+    const int created = probe->stages_created();
+    const int complete = probe->stages_complete();
+    const int freed = probe->destroy_gl_objects();
+    hdr::note_glow_targets_witness(bytes, created, complete, freed, probe->gl_names_live_before());
+  }
+
+  // LA DECISION, SUR LE JEU OBSERVE. `render_state->version` est ce que le dispatch ci-dessous
+  // va lire : le predicat ne peut pas se tromper de jeu, et il est publie a cote du compte
+  // d'octets que l'instance detient (zero quand il n'y en a pas).
+  {
+    const bool glow_needed = hdr::glow_targets_needed(render_state->version);
+    GlowRenderer* glow = ensure_glow_renderer(render_state->version, false);
+    hdr::note_glow_targets_frame(render_state->version, glow_needed, glow != nullptr,
+                                 glow ? glow->allocated_bytes() : 0);
+  }
+
   switch (render_state->version) {
     case GameVersion::Jak1:
       render_jak1(dma, render_state, prof);
@@ -1219,7 +1293,11 @@ void Sprite3::render_jak1(DmaFollower& dma,
 
 void Sprite3::draw_debug_window() {
   ImGui::Checkbox("Glow", &m_enable_glow);
-  ImGui::Checkbox("new glow", &m_glow_renderer.new_mode);
+  if (m_glow_renderer) {
+    ImGui::Checkbox("new glow", &m_glow_renderer->new_mode);
+  } else {
+    ImGui::TextUnformatted("glow: cibles non construites (ce jeu n'a pas de chemin de halo)");
+  }
   ImGui::Separator();
   ImGui::Text("Distort sprites: %d", m_distort_stats.total_sprites);
   ImGui::Text("2D Group 0 (World) blocks: %d sprites: %d", m_debug_stats.blocks_2d_grp0,
@@ -1233,7 +1311,9 @@ void Sprite3::draw_debug_window() {
   ImGui::Checkbox("Distort", &m_distort_enable);
   ImGui::Checkbox("Distort instancing", &m_enable_distort_instancing);
   ImGui::Separator();
-  m_glow_renderer.draw_debug_window();
+  if (m_glow_renderer) {
+    m_glow_renderer->draw_debug_window();
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

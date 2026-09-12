@@ -14,6 +14,25 @@ class GlowRenderer {
   void flush(SharedRenderState* render_state, ScopedProfilerNode& prof);
   void draw_debug_window();
 
+  // glow-targets-not-built-on-jak1 : CE QUE CETTE INSTANCE A REELLEMENT ALLOUE, compte sur le
+  // format que le pilote a ACCEPTE (jamais sur celui demande — voir le repli du constructeur) et
+  // sur les dimensions reellement passees a `glTexImage2D`. Un chiffre releve dans le
+  // constructeur, pas recalcule ailleurs a partir des memes constantes : deux formules qui
+  // derivent ne se verraient jamais.
+  uint64_t allocated_bytes() const { return m_alloc_bytes; }
+  int stages_created() const { return m_stages_created; }
+  int stages_complete() const { return m_stages_complete; }
+
+  // Rend au pilote les noms GL que le constructeur a pris. Retourne le nombre de noms que LE
+  // PILOTE reconnaissait comme objets avant l'appel (`glIs*`) et ne reconnait plus apres — pas
+  // le nombre de `glDelete*` emis : une suppression qui ne supprimerait rien rendrait zero, et
+  // c'est la seule facon de rendre le temoin de reversibilite falsifiable. Un temoin qui
+  // construirait sans rendre laisserait exactement la fuite que cet item supprime.
+  // Volontairement PAS un destructeur : les autres renderers de ce moteur n'en ont pas, et en
+  // ajouter un ferait tourner des `glDelete*` a l'extinction, hors de tout contexte courant.
+  int destroy_gl_objects();
+  int gl_names_live_before() const { return m_gl_live_before; }
+
 #ifdef __ANDROID__
   // GLES/Adreno: the "new" glow-probe path copies the scene depth by sampling the
   // probe FBO's packed GL_DEPTH24_STENCIL8 texture as a regular sampler2D and
@@ -136,6 +155,13 @@ class GlowRenderer {
   } m_ogl_downsampler;
 
   DrawMode m_default_draw_mode;
+
+  // glow-targets-not-built-on-jak1 : releve par le constructeur, lu par le temoin.
+  uint64_t m_alloc_bytes = 0;
+  int m_stages_created = 0;
+  int m_stages_complete = 0;
+  int m_gl_live_before = 0;
+  bool m_gl_released = false;
 
   struct SpriteRecord {
     u32 tbp;

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "common/dma/gs.h"
@@ -79,7 +80,15 @@ class Sprite3 : public BucketRenderer {
                                ScopedProfilerNode& prof,
                                bool double_draw);
 
-  GlowRenderer m_glow_renderer;
+  // glow-targets-not-built-on-jak1 : POSSEDE, plus INCORPORE. Membre par valeur, le
+  // constructeur de `GlowRenderer` tournait a l'initialisation du renderer QUEL QUE SOIT LE JEU
+  // et allouait ses six cibles — 6 822 400 o mesures le 11/09 sur eae4df44 — pour un chemin que
+  // `render_jak1` n'atteint jamais (flush_calls=0 sur 9 091 images). Le pointeur reste nul tant
+  // que le jeu OBSERVE ne demande pas le chemin.
+  std::unique_ptr<GlowRenderer> m_glow_renderer;
+  // Construit l'instance si le jeu la demande et qu'elle manque encore, rend nul sinon. `lazy`
+  // distingue le site du haut de `render` du filet de `glow_dma_and_draw`.
+  GlowRenderer* ensure_glow_renderer(GameVersion version, bool lazy);
   void glow_dma_and_draw(DmaFollower& dma,
                          SharedRenderState* render_state,
                          ScopedProfilerNode& prof);

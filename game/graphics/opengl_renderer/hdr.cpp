@@ -75,6 +75,12 @@ bool source_range_measuring() {
 // `||` plus bas) et le bloc `hdr_glow_*` est publie.
 constexpr const char* kGlowRangeId = "hdr-glow-range";
 AUTOPORT_FEATURE_SITE(kGlowRangeId);
+
+// `glow-targets-not-built-on-jak1` : son propre identifiant, son propre site. Le `hits=` de la
+// ligne FEATURE est GLOBAL ; c'est `note_hit_for` qui remplit `proof_feature_own_hits`, le seul
+// compte que `validators/generic.sh` accepte comme temoin « l'instrument de CET item a tourne ».
+constexpr const char* kGlowTargetsId = "glow-targets-not-built-on-jak1";
+AUTOPORT_FEATURE_SITE(kGlowTargetsId);
 bool glow_range_measuring() {
   return autoport_proof::feature_is(kGlowRangeId);
 }
@@ -1102,6 +1108,26 @@ void note_glow_probe_reason(int reason) {
     s_glow_reason_max = reason;
   }
 }
+
+// ---- `glow-targets-not-built-on-jak1` : l'etat, tout entier ici, jamais dans un renderer. ----
+// La valeur de reference du 11/09 (reports/hdr-glow-range/proof.txt, appareil eae4df44) : ce que
+// les six cibles coutaient quand le maitre Recharged etait ON. Elle ne sert QU'A chiffrer ce
+// qu'une course n'a pas pu certifier ; jamais a remplacer une mesure.
+constexpr uint64_t kGlowTargetsMeasured0911 = 6822400;
+int s_gt_version = 0;              // le jeu OBSERVE (GameVersion), 0 = aucune image encore
+uint64_t s_gt_frames = 0;          // images de `Sprite3::render` vues par cet instrument
+uint64_t s_gt_owned_frames = 0;    // ... dont celles ou une instance etait detenue
+uint64_t s_gt_needed_frames = 0;   // ... dont celles ou le predicat demandait la construction
+uint64_t s_gt_owned_bytes = 0;     // octets detenus PAR LE CHEMIN DE RENDU a la derniere image
+uint64_t s_gt_ctors = 0;           // constructions faites pour le chemin de rendu
+uint64_t s_gt_lazy_ctors = 0;      // ... dont celles tirees par le filet de `glow_dma_and_draw`
+uint64_t s_gt_applied_frames = 0;  // images ou detenu == demande (la decision a ete APPLIQUEE)
+uint64_t s_gt_broken_frames = 0;   // images ou detenu != demande
+int s_gt_witness_state = 0;        // 0 = pas encore, 1 = fait
+uint64_t s_gt_witness_bytes = 0;
+int s_gt_witness_created = 0, s_gt_witness_complete = 0;
+int s_gt_witness_freed = 0, s_gt_witness_expected = 0;
+uint64_t s_gt_pub_frames = 0;
 }  // namespace
 
 void note_glow_ctor(bool latched_float,
@@ -1154,6 +1180,76 @@ void note_sprite_frame(bool jak1_path, uint64_t sprites_2d, uint64_t aux_sprites
   }
   s_sprite_2d += sprites_2d;
   s_sprite_aux += aux_sprites;
+}
+
+// ============ `glow-targets-not-built-on-jak1` — LE PREDICAT, PUIS SES TEMOINS ===============
+bool glow_targets_measuring() {
+  return autoport_proof::feature_is(kGlowTargetsId);
+}
+
+bool glow_targets_needed(GameVersion version) {
+  // LE DISPATCH, RECOPIE. `Sprite3::render` envoie Jak1 sur `render_jak1` — qui ne nomme jamais
+  // `glow_dma_and_draw` — et Jak2/Jak3/JakX sur `render_jak2`, son unique appelant. Toute autre
+  // valeur est un jeu que ce binaire ne connait pas : on garde le chemin plutot que de le
+  // debrancher a l'aveugle, et le compte le dira.
+  switch (version) {
+    case GameVersion::Jak1:
+      return false;
+    case GameVersion::Jak2:
+    case GameVersion::Jak3:
+    case GameVersion::JakX:
+      return true;
+  }
+  return true;
+}
+
+void note_glow_targets_frame(GameVersion version_at_render,
+                             bool needed,
+                             bool owned,
+                             uint64_t owned_bytes) {
+  s_gt_version = (int)version_at_render;
+  s_gt_frames++;
+  s_gt_owned_bytes = owned_bytes;
+  if (needed) {
+    s_gt_needed_frames++;
+  }
+  if (owned) {
+    s_gt_owned_frames++;
+  }
+  if (owned == needed) {
+    s_gt_applied_frames++;
+  } else {
+    s_gt_broken_frames++;
+  }
+}
+
+void note_glow_targets_ctor(uint64_t owned_bytes, bool lazy) {
+  s_gt_ctors++;
+  if (lazy) {
+    s_gt_lazy_ctors++;
+  }
+  s_gt_owned_bytes = owned_bytes;
+}
+
+bool glow_targets_witness_due() {
+  return glow_targets_measuring() && s_gt_witness_state == 0;
+}
+
+void note_glow_targets_witness(uint64_t bytes,
+                               int stages_created,
+                               int stages_complete,
+                               int gl_names_freed,
+                               int gl_names_expected) {
+  s_gt_witness_state = 1;
+  s_gt_witness_bytes = bytes;
+  s_gt_witness_created = stages_created;
+  s_gt_witness_complete = stages_complete;
+  s_gt_witness_freed = gl_names_freed;
+  s_gt_witness_expected = gl_names_expected;
+  lg::info(
+      "[glow-targets] temoin de reversibilite : {} o alloues, {}/{} etages complets, {}/{} noms "
+      "GL rendus",
+      bytes, stages_complete, stages_created, gl_names_freed, gl_names_expected);
 }
 
 void probe_glow(GLuint fbo, int w, int h, GLenum fmt) {
@@ -1676,6 +1772,101 @@ void publish_glow_range() {
                           d_no_witness + d_ctor_missing + d_stage_incomplete + d_probe_refus +
                               d_state_mute + d_unexplained + d_no_denominator);
 }
+
+// ============ CHANTIER `glow-targets-not-built-on-jak1` — LA PORTE ==========================
+// L'ORDRE EST CELUI DU CONTRAT : le jeu OBSERVE, puis le predicat publie POUR CHAQUE JEU, puis
+// l'AVANT et l'APRES de la MEME course, puis les chemins restes vivants. La porte ne vient
+// qu'apres, et c'est une somme de termes publies separement.
+void publish_glow_targets() {
+  if (!glow_targets_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  s_gt_pub_frames++;
+  if ((s_gt_pub_frames % 30) != 1) {
+    return;
+  }
+  autoport_proof::note_hit_for(kGlowTargetsId);
+
+  // -- 1. LE JEU OBSERVE. Pas celui d'un argument de lancement ni d'un global : celui que
+  //    `Sprite3::render` a lu dans `render_state->version` a l'image precedente.
+  const GameVersion seen = (GameVersion)(s_gt_version ? s_gt_version : (int)GameVersion::Jak1);
+  const bool needed_here = s_gt_version != 0 && glow_targets_needed(seen);
+  autoport_proof::publish("glow_targets_game_id", (uint64_t)s_gt_version);
+  autoport_proof::publish_text("glow_targets_game",
+                               s_gt_version ? game_version_names[seen] : "aucune-image");
+  autoport_proof::publish("glow_targets_needed_here", needed_here ? 1 : 0);
+
+  // -- 2. LE PREDICAT, POUR CHAQUE JEU. C'est la MEME fonction que celle qui decide de
+  //    construire : la table ne peut pas diverger de la decision.
+  autoport_proof::publish("glow_targets_decision_jak1",
+                          glow_targets_needed(GameVersion::Jak1) ? 1 : 0);
+  autoport_proof::publish("glow_targets_decision_jak2",
+                          glow_targets_needed(GameVersion::Jak2) ? 1 : 0);
+  autoport_proof::publish("glow_targets_decision_jak3",
+                          glow_targets_needed(GameVersion::Jak3) ? 1 : 0);
+  autoport_proof::publish("glow_targets_decision_jakx",
+                          glow_targets_needed(GameVersion::JakX) ? 1 : 0);
+
+  // -- 3. CE QUE LE CHEMIN DE RENDU DETIENT, ET SES DENOMINATEURS.
+  autoport_proof::publish("glow_targets_frames", s_gt_frames);
+  autoport_proof::publish("glow_targets_needed_frames", s_gt_needed_frames);
+  autoport_proof::publish("glow_targets_owned_frames", s_gt_owned_frames);
+  autoport_proof::publish("glow_targets_applied_frames", s_gt_applied_frames);
+  autoport_proof::publish("glow_targets_broken_frames", s_gt_broken_frames);
+  autoport_proof::publish("glow_targets_ctors", s_gt_ctors);
+  autoport_proof::publish("glow_targets_lazy_ctors", s_gt_lazy_ctors);
+
+  // -- 4. L'AVANT ET L'APRES, DANS LA MEME COURSE. L'avant sort du constructeur REEL, execute
+  //    une fois par le temoin ; l'apres est ce que le chemin de rendu detient a cette image.
+  autoport_proof::publish("glow_targets_bytes_before", s_gt_witness_bytes);
+  autoport_proof::publish("glow_targets_bytes_after", s_gt_owned_bytes);
+  autoport_proof::publish("glow_targets_witness_state", (uint64_t)s_gt_witness_state);
+  autoport_proof::publish("glow_targets_witness_stages_created", (uint64_t)s_gt_witness_created);
+  autoport_proof::publish("glow_targets_witness_stages_complete", (uint64_t)s_gt_witness_complete);
+  autoport_proof::publish("glow_targets_witness_gl_freed", (uint64_t)s_gt_witness_freed);
+  autoport_proof::publish("glow_targets_witness_gl_expected", (uint64_t)s_gt_witness_expected);
+
+  // -- 5. LES CHEMINS RESTES VIVANTS (livrable 4). `publish_glow_range` ne publie QUE sous son
+  //    propre armement : sans ces trois lignes, la course de CET item n'aurait aucun temoin que
+  //    les sprites ont continue a etre dessines pendant qu'on retirait les cibles.
+  autoport_proof::publish("glow_targets_sprite_render_calls", s_sprite_render_calls);
+  autoport_proof::publish("glow_targets_other_2d_sprites", s_sprite_2d);
+  autoport_proof::publish("glow_targets_other_aux_sprites", s_sprite_aux);
+  autoport_proof::publish("glow_targets_glow_dma_enters", s_glow_dma_enters);
+  autoport_proof::publish("glow_targets_glow_flush_calls", s_glow_flush_calls);
+
+  // -- 6. LES SIX CONDITIONS DE CERTIFICATION, CHACUNE SUR SA LIGNE. Un rouge se lit sans
+  //    relire le code : c'est celle qui vaut 0 qui a manque.
+  const uint64_t c_frames = (s_gt_frames > 0 && s_gt_version != 0) ? 1 : 0;
+  const uint64_t c_applied = (s_gt_frames > 0 && s_gt_broken_frames == 0) ? 1 : 0;
+  const uint64_t c_witness_ran = (s_gt_witness_state == 1) ? 1 : 0;
+  const uint64_t c_before_nonzero = (s_gt_witness_bytes > 0) ? 1 : 0;
+  const uint64_t c_six_stages =
+      (s_gt_witness_created == 6 && s_gt_witness_complete == s_gt_witness_created) ? 1 : 0;
+  const uint64_t c_freed_all =
+      (s_gt_witness_expected > 0 && s_gt_witness_freed == s_gt_witness_expected) ? 1 : 0;
+  autoport_proof::publish("glow_targets_c_frames", c_frames);
+  autoport_proof::publish("glow_targets_c_decision_applied", c_applied);
+  autoport_proof::publish("glow_targets_c_witness_ran", c_witness_ran);
+  autoport_proof::publish("glow_targets_c_before_nonzero", c_before_nonzero);
+  autoport_proof::publish("glow_targets_c_six_stages", c_six_stages);
+  autoport_proof::publish("glow_targets_c_freed_all", c_freed_all);
+
+  // -- LA PORTE. Deux termes, publies separement.
+  //    `live` : les octets que le chemin de rendu detient alors que le jeu observe ne peut PAS
+  //             les atteindre. C'est la grandeur que l'item supprime.
+  //    `uncertified` : les octets que la course n'a pas su certifier comme rendus. Une course
+  //             ou rien n'aurait tourne publierait `live=0` par inaction ; ce terme l'empeche,
+  //             et il est chiffre EN OCTETS pour que la porte garde une seule unite.
+  const uint64_t live_waste = needed_here ? 0 : s_gt_owned_bytes;
+  const bool certified =
+      c_frames && c_applied && c_witness_ran && c_before_nonzero && c_six_stages && c_freed_all;
+  const uint64_t uncertified =
+      certified ? 0u : (s_gt_witness_bytes ? s_gt_witness_bytes : kGlowTargetsMeasured0911);
+  autoport_proof::publish("glow_targets_live_waste_bytes", live_waste);
+  autoport_proof::publish("glow_targets_uncertified_bytes", uncertified);
+  autoport_proof::publish("glow_targets_waste_bytes", live_waste + uncertified);
+}
 }  // namespace
 
 ChainCensus chain_census() {
@@ -1795,6 +1986,7 @@ void frame_end(GLenum scene_format) {
   // publier meme quand l'autre est desarme.
   publish_source_range();
   publish_glow_range();
+  publish_glow_targets();
   publish_sky_gpu_alpha();
   publish_sky_robustness();
   if (!autoport_proof::armed_for(kItemId)) {

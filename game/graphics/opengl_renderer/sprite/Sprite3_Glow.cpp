@@ -267,6 +267,13 @@ void Sprite3::glow_dma_and_draw(DmaFollower& dma,
   // (Sprite3.cpp:1084) ; `render_jak1` ne le nomme pas. Le compteur le dit au lieu de le
   // supposer — c'est lui qui separe « le bucket etait vide » de « personne n'a lu de bucket ».
   hdr::note_glow_dma_enter();
+  // glow-targets-not-built-on-jak1 : LE FILET. Ce site n'est atteint que depuis `render_jak2`,
+  // ou la decision prise en haut de `Sprite3::render` a deja construit l'instance. Si elle
+  // manque quand meme, on la construit ICI plutot que de perdre le halo — et `lazy=true` fait
+  // monter `glow_targets_lazy_ctors`, de sorte qu'un filet qui tire se voit dans la preuve au
+  // lieu de se taire. La lecture du DMA, elle, continue dans tous les cas : ne pas la faire
+  // desynchroniserait le suiveur.
+  GlowRenderer* glow = ensure_glow_renderer(render_state->version, true);
   auto maybe_consts_setup = dma.read_and_advance();
   if (maybe_consts_setup.size_bytes != sizeof(SpriteGlowConsts)) {
     return;
@@ -307,19 +314,18 @@ void Sprite3::glow_dma_and_draw(DmaFollower& dma,
     // Gjak2-polish 2026-08-31 — INSTRUMENT, PAS CORRECTIF (voir le bloc gj2_glow_* ci-dessus).
     // L'owner a rejete DEUX correctifs de glow a l'aveugle. On ne corrige pas une troisieme
     // fois sans mesure : on rend le defaut ABLATABLE et ses entrees LISIBLES.
-    if (m_enable_glow && !gj2_glow_disabled()) {
-      if (m_glow_renderer.at_max_capacity()) {
-        m_glow_renderer.flush(render_state, prof);
+    if (glow && m_enable_glow && !gj2_glow_disabled()) {
+      if (glow->at_max_capacity()) {
+        glow->flush(render_state, prof);
       }
       // Bascule d'A/B du correctif jak1 DEJA porte (GlowRenderer.h:16-27, new_mode=false sur
       // Android) : le remettre a true doit FAIRE REVENIR la boule. C'est le controle positif.
       const int mode_override = gj2_glow_mode_override();
-      const bool use_new_mode =
-          (mode_override < 0) ? m_glow_renderer.new_mode : (mode_override != 0);
-      m_glow_renderer.new_mode = use_new_mode;
-      auto* out = m_glow_renderer.alloc_sprite();
+      const bool use_new_mode = (mode_override < 0) ? glow->new_mode : (mode_override != 0);
+      glow->new_mode = use_new_mode;
+      auto* out = glow->alloc_sprite();
       if (!glow_math(&consts, use_new_mode, vecdata_xfer.data, shader_xfer.data, out)) {
-        m_glow_renderer.cancel_sprite();
+        glow->cancel_sprite();
       } else {
         // Les GRANDEURS D'ENTREE du glow, telles que l'authoring les envoie, a cote des
         // grandeurs de SORTIE. C'est le « state-dump glow size/interp » que le prompt de
@@ -340,5 +346,7 @@ void Sprite3::glow_dma_and_draw(DmaFollower& dma,
     }
   }
 
-  m_glow_renderer.flush(render_state, prof);
+  if (glow) {
+    glow->flush(render_state, prof);
+  }
 }
