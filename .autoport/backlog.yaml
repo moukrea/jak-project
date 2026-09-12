@@ -2776,7 +2776,7 @@ items:
   build: build du 2026-07-13, remplace depuis
 - id: recharged-grass-wear
   feature: L'usure et la hauteur variable de l'herbe
-  status: blocked
+  status: open
   priority: 79
   owner_feedback: []
   gate:
@@ -2798,10 +2798,7 @@ items:
     quatorze criteres. Son contenu avait ete efface de l''item par une regeneration le 11/09, il est restaure
     ici. | budget : 8 essais — l''item repart avec une architecture deja concue mais aucune ligne de code,
     et ses quatorze criteres sont les plus nombreux du backlog.'
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
+  block_reason: null
   spec: prompts/SPEC-refonte-herbe.md
   code_scope: jeu
   owner_test: true
@@ -7673,7 +7670,7 @@ items:
   where: 'Options > Recharged > Recharged Lighting, puis les autres sous-menus : la ligne de retour dit
     « Retour », et aucune ligne ne porte un texte qui n''a rien a y faire'
   out_of_scope: Ne pas retraduire le jeu ni toucher aux polices. On corrige la correspondance identifiant/texte.
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7685,6 +7682,14 @@ items:
   - date: '2026-09-11'
     text: dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous
       menus des reglages realtime lighting, p'tetre dans les autres aussi
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: a369026321ce593b
+    proof_bytes: 35327
+    attempt: 3
+    journal: validator-003.txt
+  delivered: '2026-09-12'
 - id: hdr-study
   status: validated
   priority: 17
@@ -9201,7 +9206,7 @@ items:
   prompt: prompts/item-build-and-harness-leftovers.md
   notes: issu des neuf signalements restants de build-tree-reinvalidates-itself, 12/09 ; terminus, pas
     de successeur.
-- status: blocked
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9239,11 +9244,8 @@ items:
   notes: 'SPEC sections 1, 14. Premier item de la campagne : rien d''autre ne demarre avant lui.'
   hits_means: releves de cadence effectivement pris
   prompt: prompts/item-grass-baseline-cost.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9285,11 +9287,8 @@ items:
   notes: SPEC sections 1, 16. Gain le moins risque de la campagne.
   hits_means: instances emises par l'expansion
   prompt: prompts/item-grass-dead-tail.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9329,11 +9328,8 @@ items:
   notes: 'SPEC sections 1, 10. Fondation : aucun enrichissement visuel avant elle.'
   hits_means: chunks testes par le culling
   prompt: prompts/item-grass-chunk-cull.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9376,11 +9372,8 @@ items:
   notes: 'SPEC sections 2, 3, 9. La cle de la campagne : tout ce qui suit en depend.'
   hits_means: triangles de sol classes par au moins une source
   prompt: prompts/item-grass-surface-truth.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9419,11 +9412,8 @@ items:
   notes: SPEC section 9. Seule affirmation de l'owner restee indeterminee a l'investigation.
   hits_means: paires de triangles testees
   prompt: prompts/item-grass-overlay-meshes.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9466,11 +9456,8 @@ items:
   notes: SPEC section 9. Premier item de la campagne que l'owner verra a l'oeil.
   hits_means: brins situes dans une bande de transition
   prompt: prompts/item-grass-path-transitions.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9509,11 +9496,8 @@ items:
   notes: SPEC section 6. La couleur, le vent et l'interaction par touffe en dependent.
   hits_means: touffes effectivement montees
   prompt: prompts/item-grass-clumps.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9551,11 +9535,8 @@ items:
   notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
   hits_means: brins ayant recu une variante
   prompt: prompts/item-grass-blade-variants.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9596,11 +9577,8 @@ items:
   notes: 'SPEC section 7. Depend des touffes : la couleur par touffe n''existe pas sans elles.'
   hits_means: brins ayant recu une couleur derivee de leur touffe
   prompt: prompts/item-grass-shading.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9644,11 +9622,8 @@ items:
   notes: 'SPEC section 8. Correction owner 12/09 : la charpente de breeze.glsl, jamais son reglage.'
   hits_means: brins animes par le champ de vent
   prompt: prompts/item-grass-wind.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9686,11 +9661,8 @@ items:
   notes: 'SPEC sections 4, 8. Aucune analyse au chargement : c''est un interdit de contrat.'
   hits_means: touffes portant une exposition cuite
   prompt: prompts/item-grass-wind-exposure.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9730,11 +9702,8 @@ items:
   notes: 'SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.'
   hits_means: contacts dynamiques appliques
   prompt: prompts/item-grass-interaction-direction.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9778,11 +9747,8 @@ items:
   notes: SPEC section 15. Elargissement par DONNEES, pas par code, une fois le socle en place.
   hits_means: brins poses hors de training
   prompt: prompts/item-grass-levels.md
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
-- status: blocked
+  block_reason: null
+- status: open
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9825,12 +9791,9 @@ items:
   hits_means: aretes de sol classees
   owner_feedback: []
   owner_ok: null
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
+  block_reason: null
   prompt: prompts/item-grass-edge-truth.md
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9876,12 +9839,9 @@ items:
   hits_means: brins situes dans une bande de retombee
   owner_feedback: []
   owner_ok: null
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
+  block_reason: null
   prompt: prompts/item-grass-edge-falloff.md
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9925,12 +9885,9 @@ items:
   hits_means: brins ayant recu un profil
   owner_feedback: []
   owner_ok: null
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
+  block_reason: null
   prompt: prompts/item-grass-biome-profiles.md
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9974,12 +9931,9 @@ items:
   hits_means: franchissements de seuil observes
   owner_feedback: []
   owner_ok: null
-  block_reason: 'verrou de phase 3 : l''owner a valide la refonte de l''herbe le 2026-09-12, ce qui autorisait
-    la CREATION des items, pas leur execution. Sa consigne dit qu''aucune implementation ne commence avant
-    une instruction explicite et SEPAREE. Rien d''autre a corriger : contrat, porte et livrable sont prets
-    ; un mot de l''owner les rouvre tous.'
+  block_reason: null
   prompt: prompts/item-grass-lod-popin.md
-- status: open
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -10020,3 +9974,4 @@ items:
   prompt: prompts/item-harness-stale-proof-caught-before-the-run.md
   owner_feedback: []
   owner_ok: null
+  no_code: true

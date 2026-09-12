@@ -9,9 +9,10 @@ import sys; sys.path.insert(0,'.autoport')
 from lib import backlog as B
 bl=B.load()
 ids=['grass-baseline-cost','grass-dead-tail','grass-chunk-cull','grass-surface-truth',
-     'grass-overlay-meshes','grass-path-transitions','grass-clumps','grass-blade-variants',
-     'grass-shading','grass-wind','grass-wind-exposure','grass-interaction-direction',
-     'grass-levels','recharged-grass-wear']
+     'grass-overlay-meshes','grass-edge-truth','grass-path-transitions','grass-clumps',
+     'grass-blade-variants','grass-shading','grass-wind','grass-wind-exposure',
+     'grass-biome-profiles','grass-edge-falloff','grass-interaction-direction',
+     'grass-lod-popin','grass-levels','recharged-grass-wear']
 n=0
 for i in ids:
     it=bl.get(i)
