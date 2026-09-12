@@ -35,8 +35,12 @@ C'est un ordre de l'owner, pas une préférence.
 
 * **Ne reconfigure jamais avec `cmake -B`** sur un arbre déjà configuré : ça repart de zéro
   et écrase les options. Utilise le dossier de build existant.
-* **`cmake --build build --target gk -j`** (cible unique) suffit pour le moteur x86 ;
-  `build-android` pour l'arm64. L'arbre complet est long et inutile la plupart du temps.
+* **Le build de bureau passe par `.autoport/lib/build_x86.sh --target gk`**, jamais par
+  `cmake --build build` — que `hooks/pre-tool.sh` refuse depuis le 12/09. La porte lance
+  le MÊME ninja, mais elle répare `build/.ninja_deps` avant et **sort en 4** si le binaire
+  est plus vieux qu'une de ses 46 entrées. Sans elle, trois passes ont rendu 0 en laissant
+  `build/game/gk` NON RELIÉ, en recompilant 335 cibles à chaque fois (444 s ; 0,4 s après).
+  Pour l'arm64, `cmake --build build-android --target gk -j` reste la commande.
 * **Rebâtis `goalc` après tout changement de header sérialisé.** Un `--target gk` relie
   `libcommon` avec le nouveau champ et laisse `libcompiler` sur l'ancien : `goalc` part en
   SIGSEGV dans `serialize`, et le symptôme ne ressemble pas à sa cause.

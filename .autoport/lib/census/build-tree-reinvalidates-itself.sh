@@ -13,6 +13,8 @@
 #   3. LE LIEN            binaire contre CHACUNE de ses entrees directes, et la porte sort en 4
 #                         sur un binaire perime — les DEUX bras joues             -> br_defaut_3
 #   4. LE GAIN            secondes AVANT (journal de ninja du 12/09) contre APRES -> br_defaut_4
+#   5. LA GARDE           on ne peut pas passer A COTE de la porte, et l'ordre permanent la
+#                         NOMME au lieu de prescrire la commande refusee   -> br_defaut_5
 #
 # TROIS SOURCES, jamais une seule :
 #   - LA CAPTURE AVANT (`<id>.d/`), prise sur l'arbre DEFECTUEUX avant toute reparation, versionnee
@@ -119,6 +121,19 @@ pub br_banc_apres_aretes  "$(b bf_e_2e_passe_aretes)"
 pub br_banc_lien_sain_rc  "$(b bf_f_sain_rc)"
 pub br_banc_lien_perime_rc "$(b bf_f_perime_rc)"
 pub br_banc_lien_perime_frais "$(b bf_f_perime_frais)"
+# LA GARDE ET L'ORDRE (jambe G). La porte ne vaut que si l'on ne peut pas passer a cote : on
+# publie les DEUX BRAS de `hooks/pre-tool.sh` et le fait que l'ordre permanent la NOMME.
+pub br_garde_refuse_cmake  "$(b bf_g_refuse_cmake)"
+pub br_garde_refuse_ninja  "$(b bf_g_refuse_ninja)"
+pub br_garde_laisse_porte  "$(b bf_g_laisse_porte)"
+pub br_garde_laisse_arm64  "$(b bf_g_laisse_arm64)"
+pub br_garde_laisse_avide  "$(b bf_g_laisse_avide)"
+pub br_ordre_lignes        "$(b bf_g_ordre_lignes)"
+pub br_ordre_nomme_porte   "$(b bf_g_ordre_nomme_porte)"
+# LE TEMOIN D'AVANT, ancre sur un COMMIT NOMME : la MEME lecture sur l'etat herite rend 0.
+pub br_ordre_avant_ref     "$(g "$BN" bf_g_ordre_avant_ref)"
+pub br_ordre_avant_lignes  "$(b bf_g_ordre_avant_lignes)"
+pub br_ordre_avant_nomme   "$(b bf_g_ordre_avant_nomme)"
 
 # ========================================== 3. L'ARBRE VIVANT, TROIS INVOCATIONS =============
 # La PREMIERE absorbe ce qui restait a faire (une regeneration cmake apres un commit, par
@@ -215,8 +230,30 @@ else
   D4=1; pub br_gain_s -1
 fi
 
+# 5. LA GARDE ET L'ORDRE. Les quatre termes ci-dessus jugent LA PORTE ; aucun ne juge ce qui
+# OBLIGE a y passer. L'essai 1 a livre la porte et la garde, et a laisse DEUX textes prescrire
+# encore la commande refusee — `tests/harness/test_pretool_guard.sh:20` l'exigeait meme VERTE
+# (echec mesure le 12/09), et `orchestrator.py` la recopiait dans le prompt de CHAQUE essai.
+# Le defaut serait donc revenu par la porte d'a cote avec ce compte a zero.
+# LES DEUX BRAS DE LA GARDE, jamais un seul : une garde qui refuse TOUT serait verte sur le
+# premier. Et la population de l'ordre est publiee : un bloc introuvable rend 0 ligne, pas 0
+# defaut.
+D5=0
+[ "$(b bf_g_refuse_cmake)" = 2 ] || D5=$((D5+1))
+[ "$(b bf_g_refuse_ninja)" = 2 ] || D5=$((D5+1))
+[ "$(b bf_g_laisse_porte)" = 0 ] || D5=$((D5+1))
+[ "$(b bf_g_laisse_arm64)" = 0 ] || D5=$((D5+1))
+[ "$(b bf_g_laisse_avide)" = 0 ] || D5=$((D5+1))
+[ "$(sup "$(b bf_g_ordre_lignes)" 0)" = 1 ]      || D5=$((D5+1))
+[ "$(sup "$(b bf_g_ordre_nomme_porte)" 0)" = 1 ] || D5=$((D5+1))
+# Le temoin d'avant : la population qu'il a LUE doit etre non nulle (une ancre disparue rend
+# 0 ligne, et « 0 mention » sur 0 ligne ne prouve rien), et la mention doit y etre ABSENTE.
+[ "$(sup "$(b bf_g_ordre_avant_lignes)" 0)" = 1 ] || D5=$((D5+1))
+[ "$(b bf_g_ordre_avant_nomme)" = 0 ]            || D5=$((D5+1))
+
 pub br_defaut_1_cause  "$D1"
 pub br_defaut_2_zero   "$D2"
 pub br_defaut_3_lien   "$D3"
 pub br_defaut_4_gain   "$D4"
-pub build_reinvalidation_defects "$(( D1 + D2 + D3 + D4 ))"
+pub br_defaut_5_garde  "$D5"
+pub build_reinvalidation_defects "$(( D1 + D2 + D3 + D4 + D5 ))"

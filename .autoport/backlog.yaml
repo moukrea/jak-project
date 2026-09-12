@@ -8732,6 +8732,7 @@ items:
   notes: 'issu du signalement de census-audit-blind-spots, 12/09 : ~7 min par cycle et un binaire perime
     avec un code de retour nul.'
   no_code: true
+  code_scope_source: out_of_scope:ne-change-aucun-code-du-moteur;commits:10-chemins-0-moteur
 - id: water-ocean-mesh-hit-counter-cost
   status: open
   priority: 30

@@ -135,3 +135,49 @@ A=$(bash "$PORTE" --dir "$T" --target app --check-only 2>/dev/null); RCA=$?
 pub bf_f_perime_rc    "$RCA"
 pub bf_f_perime_frais "$(g "$A" bx_bin_fresh)"
 pub bf_f_perime_retard "$(g "$A" bx_bin_lag_s)"
+
+# ========== G. LA PORTE EST-ELLE LA SEULE ENTREE, ET L'ORDRE LA NOMME-T-IL ? =================
+# LES QUATRE JAMBES CI-DESSUS MESURENT LA PORTE. Aucune ne mesure ce qui OBLIGE a y passer : si
+# la regle de `hooks/pre-tool.sh` disparaissait, ou si l'ordre permanent continuait de prescrire
+# la commande qu'elle refuse, `build_reinvalidation_defects` resterait a 0 pendant que le defaut
+# revient — vert par INACTION. C'est le cas mesure de l'essai 1 : la garde refusait deja
+# `cmake --build build`, et le banc de la garde (`tests/harness/test_pretool_guard.sh:20`) ET
+# l'ordre injecte dans le prompt de CHAQUE worker (`orchestrator.py`) le prescrivaient encore.
+#
+# ON FAIT JOUER LA VRAIE GARDE, sur sa vraie entree (le JSON d'un appel d'outil), et sur les
+# DEUX BRAS : ce qu'elle doit refuser, et ce qu'elle doit laisser passer. Un seul bras serait
+# tenu par une garde qui refuse tout.
+garde(){
+  printf '{"tool_name":"Bash","tool_input":{"command":%s}}' \
+    "$(printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))' 2>/dev/null)" \
+    | bash "$ROOT/.autoport/hooks/pre-tool.sh" >/dev/null 2>&1
+  echo $?
+}
+pub bf_g_refuse_cmake   "$(garde 'cmake --build build --target gk -j8')"
+pub bf_g_refuse_ninja   "$(garde 'ninja -C build gk -j8')"
+# LES CONTROLES : la porte elle-meme, l'arbre arm64 (la regle ne vise QUE le bureau, sinon elle
+# casserait le seul chemin de l'appareil) et l'essai a vide, qui ne construit rien.
+pub bf_g_laisse_porte   "$(garde 'bash .autoport/lib/build_x86.sh --target gk')"
+pub bf_g_laisse_arm64   "$(garde 'cmake --build build-android --target gk -j')"
+pub bf_g_laisse_avide   "$(garde 'ninja -C build -n gk')"
+
+# L'ORDRE PERMANENT. Le bloc « BUILD & DELIVERY EFFICIENCY » d'`orchestrator.py` est recopie dans
+# le prompt de chaque essai : c'est le POINT DE PRODUCTION de la commande qu'un worker tape. On
+# mesure qu'il NOMME la porte, et on publie le nombre de lignes lues — un bloc introuvable rend
+# une population nulle, jamais un vert.
+ORD=$(sed -n '/## BUILD & DELIVERY EFFICIENCY/,/## PROOF ECONOMY/p' "$ROOT/.autoport/orchestrator.py" 2>/dev/null)
+pub bf_g_ordre_lignes "$(printf '%s' "$ORD" | grep -c . || true)"
+pub bf_g_ordre_nomme_porte "$(printf '%s' "$ORD" | grep -c 'lib/build_x86\.sh' || true)"
+
+# LE TEMOIN D'AVANT. Sans lui, « l'ordre nomme la porte » ne prouve que l'etat du jour : une
+# presence est verte par construction des qu'on l'a ecrite. On relit le MEME bloc, avec la MEME
+# commande, sur l'etat HERITE — et il rend 0. L'ancre est un COMMIT NOMME et PUBLIE, jamais
+# `HEAD:` : lu a `HEAD:`, un temoin d'avant s'accuse lui-meme des le commit qui le corrige.
+# `a1b3c45da7` est le commit de l'essai 1 : il avait livre la porte ET la garde, et l'ordre y
+# prescrivait encore la commande que la garde refuse.
+BF_AVANT_REF=a1b3c45da7
+ORD_AV=$(git -C "$ROOT" show "$BF_AVANT_REF:.autoport/orchestrator.py" 2>/dev/null \
+         | sed -n '/## BUILD & DELIVERY EFFICIENCY/,/## PROOF ECONOMY/p')
+pub bf_g_ordre_avant_ref    "$BF_AVANT_REF"
+pub bf_g_ordre_avant_lignes "$(printf '%s' "$ORD_AV" | grep -c . || true)"
+pub bf_g_ordre_avant_nomme  "$(printf '%s' "$ORD_AV" | grep -c 'lib/build_x86\.sh' || true)"
