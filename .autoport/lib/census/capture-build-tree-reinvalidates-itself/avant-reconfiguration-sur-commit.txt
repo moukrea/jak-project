@@ -1,0 +1,24 @@
+# CE QUI FAISAIT RECONFIGURER CMAKE A CHAQUE COMMIT — capture BRUTE, prise le 2026-09-12
+# a 16:45 sur build/build.ninja AVANT que lib/build_x86.sh ne pose la constante.
+# Elle ne peut plus etre refaite une fois la constante posee : le manifeste regenere
+# ne porte plus ces entrees.
+#
+# La regle RERUN_CMAKE de ninja prend .git/HEAD et la ref de la branche en ENTREE :
+# SDL les y met par cmake/GetGitRevisionDescription.cmake, appele depuis
+# third-party/SDL/CMakeLists.txt:3705 pour deriver SDL_REVISION du `git describe` de
+# NOTRE depot. Tout commit — y compris un commit du superviseur qu un essai n a pas
+# fait — regenere donc SDL3/SDL_revision.h, puis SDL.c.o, libSDL3.so, libcommon.so,
+# et RELIE game/gk.
+describe_au_moment_de_la_capture=harness-avant-plan-2026-09-11-144-gb34e42e055
+sdl_revision_genere=SDL-3.4.4-harness-avant-plan-2026-09-11-144-gb34e42e055
+cache_sdl_revision=SDL_REVISION:STRING=
+rerun_cmake_entrees_git=2
+# les entrees, nommees :
+entree=/home/emeric/code/jak-project/.git/HEAD
+entree=/home/emeric/code/jak-project/.git/refs/heads/physics-keira-clean
+#
+# LE COUT, MESURE DEUX FOIS SUR CET ITEM (recensement, premiere des trois invocations) :
+essai3_br_live_recompile1=7   # course du 12/09 16:16, describe passe de 141 a 142 pendant
+essai4_br_live_recompile1=7   # course du 12/09 16:30, describe passe de 142 a 144 pendant
+# Les deux courses avaient bati par la porte JUSTE AVANT de lancer : les 7 aretes ne
+# viennent donc PAS d une edition de source, seulement de commits exterieurs.

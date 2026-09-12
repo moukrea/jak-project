@@ -321,9 +321,49 @@ D5=0
 [ "$(sup "$(b bf_g_ordre_avant_lignes)" 0)" = 1 ] || D5=$((D5+1))
 [ "$(b bf_g_ordre_avant_nomme)" = 0 ]            || D5=$((D5+1))
 
+# 6. LE COMMIT EXTERIEUR. Les cinq termes ci-dessus jugent une construction qui suit une EDITION
+# (ou son absence). Aucun ne jugeait le troisieme declencheur, et c'est lui qui a tue les courses
+# des essais 3 et 4 : `.git/HEAD` et `.git/refs/heads/<branche>` etaient des ENTREES de la regle
+# `RERUN_CMAKE`, posees par `GetGitRevisionDescription.cmake` parce que SDL derivait son
+# `SDL_REVISION` du `git describe` de NOTRE depot. Un commit du superviseur, pendant une course
+# qu'il ne regarde pas, regenerait donc `SDL_revision.h` et RELIAIT `game/gk` : `br_live_recompile1`
+# a rendu 7 DEUX fois de suite, sur deux arbres bati par la porte moins d'une minute avant.
+# LES DEUX POPULATIONS, jamais une seule : le temoin d'AVANT est la capture BRUTE versionnee,
+# prise sur le manifeste avant la pose et qu'on ne peut plus refaire ; l'APRES est lu sur le
+# manifeste regenere. Une capture absente rend 0 entree, c'est-a-dire le chiffre meme qu'on
+# attend de l'apres : on exige donc que l'avant soit NON NUL.
+AV_GIT="$E/avant-reconfiguration-sur-commit.txt"
+GIT_AVANT=$(num "$(sed -n 's/^rerun_cmake_entrees_git=//p' "$AV_GIT" 2>/dev/null | tail -1)")
+GIT_APRES=$(num "$(g "$P3" bx_cmake_git_inputs)")
+SDL_PIN=$(g "$P3" bx_sdl_pin)
+SDL_REV=$(g "$P3" bx_sdl_revision)
+SDL_DESC=$(g "$P3" bx_describe)
+pub br_commit_capture     "$([ -s "$AV_GIT" ] && echo 1 || echo 0)"
+pub br_commit_capture_sha "$(sha256sum "$AV_GIT" 2>/dev/null | cut -c1-16)"
+pub br_commit_git_avant   "$GIT_AVANT"
+pub br_commit_git_apres   "$GIT_APRES"
+pub br_commit_sdl_pin     "${SDL_PIN:--}"
+pub br_commit_sdl_rev     "${SDL_REV:--}"
+pub br_commit_describe    "${SDL_DESC:--}"
+pub br_commit_repose3     "$(num "$(g "$P3" bx_sdl_pinned)")"
+D6=0
+[ -s "$AV_GIT" ] || D6=$((D6+1))
+[ "$(sup "$GIT_AVANT" 0)" = 1 ] || D6=$((D6+1))
+[ "$GIT_APRES" = 0 ] || D6=$((D6+1))
+# LA POSE A PRIS : ce que l'en-tete GENERE porte, pas ce que la porte dit avoir demande.
+[ -n "$SDL_PIN" ] && [ "$SDL_REV" = "$SDL_PIN" ] || D6=$((D6+1))
+# ET ELLE A DECOUPLE : la chaine de revision ne porte plus le `describe`. Un `describe` vide
+# rendrait cette comparaison vraie pour rien — on exige donc de l'avoir lu.
+[ -n "$SDL_DESC" ] || D6=$((D6+1))
+case "$SDL_REV" in *"$SDL_DESC"*) D6=$((D6+1)) ;; esac
+# IDEMPOTENCE. `CMakeCache.txt` est une ENTREE de `RERUN_CMAKE` : une porte qui le reecrit a
+# chaque invocation se salit elle-meme a chaque invocation. La TROISIEME ne doit rien reposer.
+[ "$(num "$(g "$P3" bx_sdl_pinned)")" = 0 ] || D6=$((D6+1))
+
 pub br_defaut_1_cause  "$D1"
 pub br_defaut_2_zero   "$D2"
 pub br_defaut_3_lien   "$D3"
 pub br_defaut_4_gain   "$D4"
 pub br_defaut_5_garde  "$D5"
-pub build_reinvalidation_defects "$(( D1 + D2 + D3 + D4 + D5 ))"
+pub br_defaut_6_commit "$D6"
+pub build_reinvalidation_defects "$(( D1 + D2 + D3 + D4 + D5 + D6 ))"

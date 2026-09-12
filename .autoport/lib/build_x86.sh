@@ -114,6 +114,43 @@ pub bx_deps_corrupt_before "$CORRUPT_BEFORE"
 pub bx_deps_recompacted    "$REPAIRED"
 pub bx_deps_quarantined    "$QUARANTINED"
 
+# ------------------------------------------ 1 bis. CE QUE LE MANIFESTE PREND DANS `.git` ----
+# POURQUOI (mesure du 12/09, DEUX courses de cet item, capture brute sous
+# `lib/census/capture-build-tree-reinvalidates-itself/avant-reconfiguration-sur-commit.txt`).
+# `third-party/SDL/CMakeLists.txt:3705` derive `SDL_REVISION` du `git describe` de NOTRE depot.
+# `cmake/GetGitRevisionDescription.cmake` pose alors `.git/HEAD` et `.git/refs/heads/<branche>`
+# en ENTREES de la regle `RERUN_CMAKE` : TOUT commit — y compris un commit du superviseur que
+# l'essai en cours n'a pas fait — regenere `SDL3/SDL_revision.h`, puis `SDL.c.o`, `libSDL3.so`,
+# `libcommon.so`, et RELIE `game/gk`. 7 aretes et des bibliotheques dont l'empreinte bouge sans
+# qu'une ligne du moteur ait change : c'est la confusion que cette porte existe pour empecher,
+# entree par l'autre bout. Les courses des essais 3 et 4 sont mortes exactement la-dessus.
+#
+# ON NE RECONFIGURE PAS POUR AUTANT. `SDL_REVISION` est une entree de CACHE (branche `else()`
+# de SDL, `CMakeCache.txt:1193`, vide). On lui donne une constante DANS LE CACHE DE CET ARBRE
+# DE BUREAU, et la regeneration que ninja joue DEJA d'elle-meme la lit : aucun `cmake -B` — que
+# `hooks/pre-tool.sh` refuse et qui jetterait le cache d'objets —, et aucun fichier du SOURCE
+# touche, donc le build Android, qui partage `third-party/SDL`, reste hors de portee.
+# LA POSE EST IDEMPOTENTE, et elle doit l'etre : `CMakeCache.txt` est lui-meme une ENTREE de
+# `RERUN_CMAKE`: le reecrire a chaque invocation rendrait la porte sale a chaque invocation,
+# c'est-a-dire le defaut qu'elle mesure, fabrique par elle.
+SDL_PIN='SDL-3.4.4-jak-project-desktop'
+CACHE="$DIR/CMakeCache.txt"
+SDL_PINNED=0
+if [ "$CHECK_ONLY" = 0 ] && [ -f "$CACHE" ]; then
+  cur=$(sed -n 's/^SDL_REVISION:STRING=//p' "$CACHE" | head -1)
+  if [ "$cur" != "$SDL_PIN" ]; then
+    if grep -q '^SDL_REVISION:STRING=' "$CACHE"; then
+      sed -i "s|^SDL_REVISION:STRING=.*|SDL_REVISION:STRING=$SDL_PIN|" "$CACHE"
+    else
+      printf 'SDL_REVISION:STRING=%s\n' "$SDL_PIN" >> "$CACHE"
+    fi
+    SDL_PINNED=1
+    say "SDL_REVISION fige a '$SDL_PIN' dans $CACHE : un commit ne regenerera plus SDL_revision.h."
+  fi
+fi
+pub bx_sdl_pin    "$SDL_PIN"
+pub bx_sdl_pinned "$SDL_PINNED"
+
 # ------------------------------------------------------------------ 2. LA CONSTRUCTION ------
 LOG="$DIR/.build_x86.log"
 EDGES=0; WEDGES=0; OEDGES=0; OLIST=aucune; SECS=0; RC=0
@@ -160,6 +197,16 @@ pub bx_residual_edges "${RESID:-0}"
 pub bx_residual_work  "${RESWORK:-0}"
 pub bx_residual_other "${RESOTHER:-0}"
 pub bx_residual_other_list "${RESLIST:-aucune}"
+
+# CE QUE `.git` PESE ENCORE SUR LE MANIFESTE, lu sur le manifeste REGENERE et non sur la copie :
+# c'est la grandeur qui dit si un commit peut encore declencher une reconfiguration. Zero est le
+# seul chiffre acceptable, et le temoin d'AVANT (non nul) vit dans la capture versionnee.
+# `bx_sdl_revision` est ce que l'en-tete porte REELLEMENT : la constante posee, ou le `describe`
+# si la pose n'a pas pris — la difference se lit, elle ne se suppose pas.
+pub bx_cmake_git_inputs "$(grep -o "$ROOT/\.git/[A-Za-z0-9_./-]*" "$DIR/build.ninja" 2>/dev/null | sort -u | grep -c . || true)"
+pub bx_sdl_revision "$(sed -n 's/.*define SDL_REVISION "\([^"]*\)".*/\1/p' \
+  "$DIR/third-party/SDL/include-revision/SDL3/SDL_revision.h" 2>/dev/null | tail -1)"
+pub bx_describe "$(git describe --tags 2>/dev/null | tr -d ' ')"
 
 # ---------------------------------------------------------- 4. LE BINAIRE ET SES ENTREES ----
 # `ninja -t query` donne les entrees DIRECTES d'une sortie : les `.a`, les `.so`, le `.o` du
