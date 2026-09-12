@@ -690,6 +690,12 @@
 ;; avalerait celui-ci en silence. `pckernel-impl.gc` etait exclu pour une autre raison : lui
 ;; donner la dependance "text" fait un CYCLE (text -> pad.gc -> `*pc-settings*`).
 (define-extern android-text-touch-census! (function none))
+;; menu-back-label : le recensement « chaque rangee affiche son propre texte ». Meme place et meme
+;; raison que les trois ci-dessus — il a besoin des tableaux du menu, que `init-game-options` ne
+;; cable qu'a l'ouverture, et il BATIT lui-meme les huit pages dynamiques par leurs constructeurs
+;; livres. Une seule passe par demarrage, apres la 700e image : derriere `res-menu-audit!` et
+;; `scl10n-census!`, qui se servent des memes emplacements partages.
+(define-extern menu-label-census! (function none))
 
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
@@ -712,6 +718,8 @@
   ;; android-text-overrides-dropped : voir le define-extern plus haut. Ne fait rien tant que
   ;; `*common-text*` n'a pas change.
   (android-text-touch-census!)
+  ;; menu-back-label : voir le define-extern plus haut. Une seule passe par demarrage.
+  (menu-label-census!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))

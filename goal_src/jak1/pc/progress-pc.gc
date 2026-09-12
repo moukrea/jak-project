@@ -9072,19 +9072,99 @@
 (define-perm *temp-options-alloced* symbol #f)
 
 ;; this is to avoid changing the value of *temp-options* or reallocating the options when reloading file
+;; ================================================================================================
+;; menu-back-label (owner 2026-09-11 : « dans les sous-menus, la string "Retour" n'est pas la, ca
+;; prend une string random dans les sous menus des reglages realtime lighting »).
+;;
+;; LA CAUSE, ET ELLE N'EST PAS DANS LA RANGEE « RETOUR ». Ces 200 emplacements sont PARTAGES par
+;; les huit ecrans construits a l'execution (resolution, moniteur, manette, les trois pages de
+;; binds, le lecteur de flava, et la page de choix generique d'ou sortent AMBIENT OCCLUSION, AO
+;; QUALITY, AO STRENGTH...). Chaque emplacement portait un tampon de libelle POSE UNE FOIS POUR
+;; TOUTES dans son champ `name-override`. Or les quinze sites de dessin lisent ce champ ainsi :
+;; « non nul => il y a un libelle explicite, l'afficher ; nul => traduire `name` ». Avec un tampon
+;; accroche a demeure, la premiere branche etait prise TOUJOURS, pour toute rangee du tableau :
+;; une rangee qui ne se donne pas de libelle affichait donc celui de l'occupant PRECEDENT du meme
+;; emplacement. Ouvrir AMBIENT OCCLUSION (4 valeurs + en-tete) remplit les emplacements 0..4 ;
+;; ouvrir ensuite AO QUALITY (3 valeurs + en-tete) n'en remplit que 0..3 et pose son « Retour »
+;; en 4 — qui affiche la 4e valeur d'AO. C'est le « string random » du rapport, au geste pres.
+;; Le banc de texte est HORS DE CAUSE : `(text-id back)` = #x13e est present dans les 23 bancs
+;; livres (« Retour » en francais), et `lookup-text!` n'y est jamais arrive.
+;;
+;; LA CORRECTION EST AU POINT DE PRODUCTION. Le tampon quitte la rangee : il vit dans
+;; `*temp-option-labels*`, a l'index de l'emplacement, et `name-override` part a ZERO. « Non nul »
+;; redevient donc ce que les quinze lecteurs croient lire : un libelle que le constructeur de CETTE
+;; rangee a pose, par `temp-option-label!`. Aucun site de dessin n'est touche.
+;;
+;; ET LE CHAMP N'EST PAS LE SEUL. Un emplacement reutilise rend TOUT ce que son constructeur
+;; n'ecrit pas : `on-confirm` (la rangee « RESTORE DEFAULTS » des binds en laisse une, et le
+;; `respond-common` de ce fichier lance `on-confirm` SANS regarder le type de rangee — un
+;; « Retour » pouvait donc reinitialiser des touches), `on-change`, `value-to-modify`, `param2`,
+;; `param3`, `hint`, `gating-id`, `slider-*`, `bind-info`. Deux commentaires de ce fichier
+;; avouaient deja la classe, champ par champ, en la corrigeant un champ a la fois.
+;; `temp-option-reset!` la ferme d'un coup : tout constructeur RAMENE d'abord son emplacement a
+;; neuf, et ce qu'il ne pose pas vaut zero, jamais l'heritage du voisin.
+;; ================================================================================================
 (unless *temp-options-alloced*
   (define *temp-options* (new 'static 'boxed-array :type game-option :length 200 :allocated-length 200))
+  ;; Les tampons de libelle, UN par emplacement, alloues ici comme avant — seule leur ADRESSE de
+  ;; rangement change. Les accrocher a la rangee est precisement ce qui rendait « il y a un
+  ;; libelle » indistinguable de « il y a un tampon ».
+  (define *temp-option-labels* (new 'static 'boxed-array :type string :length 200 :allocated-length 200))
   (dotimes (i (-> *temp-options* length))
     (set! (-> *temp-options* i) (new 'global 'game-option))
-    (set! (-> *temp-options* i name-override) (new 'global 'string 128 (the-as string #f))))
+    (set! (-> *temp-option-labels* i) (new 'global 'string 128 (the-as string #f)))
+    (set! (-> *temp-options* i name-override) (the-as string 0)))
   (true! *temp-options-alloced*))
+
+(defmacro temp-option-reset! (option)
+  "RAMENE A NEUF l'emplacement de `*temp-options*` qu'un constructeur s'apprete a remplir.
+   A appeler en PREMIER dans tout constructeur de rangee dynamique : ce qu'il n'ecrit pas ensuite
+   vaut zero, au lieu de valoir ce que l'ecran precedent avait laisse la. Voir le pave ci-dessus."
+  `(begin
+     (set! (-> ,option option-type) (game-option-type button))
+     (set! (-> ,option name) (text-id zero))
+     ;; ZERO, PAS `#f`. En GOAL `#f` est le symbole s7, un pointeur NON NUL : un champ `basic`
+     ;; qui le porte se lit « non nul » et le dessin prendrait ce non-libelle pour un libelle —
+     ;; mesure du 2026-09-12, 12 rangees Back sorties en `src=override text=#f`. Les rangees
+     ;; statiques, elles, portent un vrai 0 parce que le compilateur statique laisse le champ a
+     ;; zero ; c'est cette valeur-la que les quinze lecteurs attendent.
+     (set! (-> ,option name-override) (the-as string 0))
+     (set! (-> ,option scale) #f)
+     (set! (-> ,option param1) 0.0)
+     (set! (-> ,option param2) 0.0)
+     (set! (-> ,option param3) (game-option-menu invalid))
+     (set! (-> ,option value-to-modify) (the-as pointer 0))
+     (set! (-> ,option option-disabled-func) #f)
+     (set! (-> ,option on-change) (the-as (function object none) 0))
+     (set! (-> ,option on-confirm) (the-as (function none) 0))
+     (set! (-> ,option slider-step-size) 0.0)
+     (set! (-> ,option slider-show-decimal?) #f)
+     (set! (-> ,option hint) (text-id zero))
+     (set! (-> ,option gating-id) (the-as string 0))
+     (set! (-> ,option bind-info port) 0)
+     (set! (-> ,option bind-info device-type) 0)
+     (set! (-> ,option bind-info for-buttons?) #f)
+     (set! (-> ,option bind-info input-idx) 0)
+     (set! (-> ,option bind-info analog-min-range?) #f)))
+
+(defmacro temp-option-label! (option)
+  "Accroche a `option` le tampon de libelle de SON emplacement, VIDE, et le rend. C'est le seul
+   geste qui rend `name-override` non nul sur une rangee de `*temp-options*` : un emplacement dont
+   le constructeur ne l'appelle pas affiche la traduction de son `name`, comme le fait la branche
+   `menu`/`button`/`choice-value` de `draw-options` depuis toujours.
+   L'index est `(length *temp-options*)` : le constructeur n'a pas encore incremente, c'est donc
+   l'emplacement qu'il est en train de remplir."
+  `(let ((buf (-> *temp-option-labels* (length *temp-options*))))
+     (set! (-> ,option name-override) buf)
+     (clear buf)))
 
 (defmacro add-flava-player-option (text-id flava)
   "add a music player w/ flava button to *temp-options* with specified size"
   `(let ((option (-> *temp-options* (length *temp-options*))))
+    ;; menu-back-label : l'emplacement est RAMENE A NEUF avant d'etre rempli. Ce qui suit est
+    ;; tout ce que cette rangee porte ; le reste vaut zero, pas l'heritage de l'ecran precedent.
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type button-flava))
-    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) ,text-id)
     (set! (-> option param1) (the float ,flava))
     (set! (-> option scale) #t)
@@ -9093,13 +9173,15 @@
 (defmacro add-back-option ()
   "add *back-button* to *temp-options*"
   `(let ((option (-> *temp-options* (length *temp-options*))))
+    ;; menu-back-label : LA RANGEE QUE L'OWNER A VUE MENTIR. Elle ne se donne aucun libelle —
+    ;; son texte est la traduction de `(text-id back)`. Tant qu'un tampon vide restait accroche
+    ;; a `name-override`, le dessin preferait ce tampon et affichait ce que l'ecran precedent y
+    ;; avait laisse. `temp-option-reset!` remet `name-override` a ZERO : la traduction reprend.
+    ;; recharged-gating-real essai 2 avait deja rencontre la classe sur `option-disabled-func` et
+    ;; l'avait fermee un champ a la fois ; le reset les ferme tous, `on-confirm` compris — la
+    ;; rangee « RESTORE DEFAULTS » des pages de binds en laissait une derriere elle.
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type button))
-    ;; recharged-gating-real essai 2 : les emplacements de `*temp-options*` sont REUTILISES d'un
-    ;; ecran dynamique a l'autre — un champ qu'un constructeur ne pose pas reste celui de
-    ;; l'occupant precedent. Une rangee posee ici doit donc l'etre COMPLETEMENT : sans cette
-    ;; ligne, une rangee heritant de la lambda « grisee » d'un ecran precedent serait inerte
-    ;; sans que rien ne dise pourquoi — la faute meme que cet item existe pour supprimer.
-    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id back))
     (set! (-> option scale) #t)
     (1+! (-> *temp-options* length))))
@@ -9107,6 +9189,9 @@
 (defmacro add-message-option (text)
   "adds an option that isn't selectable but displays some text"
   `(let ((option (-> *temp-options* (length *temp-options*))))
+    ;; menu-back-label : meme defaut que `add-back-option` — cette rangee tire son texte de son
+    ;; `name`, et un tampon accroche le masquait.
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type button))
     (set! (-> option option-disabled-func) (lambda () #t))
     (set! (-> option name) ,text)
@@ -9117,11 +9202,13 @@
   "add a resolution button to *temp-options*, labelled cleanly via name-override
    ('W x H' in the menu font), avoiding the localized resolution-fmt glyphs."
   `(let ((option (-> *temp-options* (length *temp-options*))))
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type resolution))
-    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id resolution-fmt))
-    ;; format 'W x H' into the pre-allocated name-override string for this slot.
-    (format (clear (-> option name-override)) "~D X ~D" ,x ,y)
+    ;; format 'W x H' into this slot's label buffer, which `temp-option-label!` attaches (and
+    ;; empties) for THIS row -- menu-back-label : c'est le seul geste qui rend `name-override`
+    ;; non nul, donc « il y a un libelle » redevient une affirmation, pas un etat de l'allocateur.
+    (format (temp-option-label! option) "~D X ~D" ,x ,y)
     (set! (-> option param1) (the float ,x))
     (set! (-> option param2) (the float ,y))
     (set! (-> option scale) #t)
@@ -9130,10 +9217,10 @@
 (defmacro add-named-resolution-option (label x y)
   "add a resolution button labelled via name-override (e.g. NATIVE W x H)"
   `(let ((option (-> *temp-options* (length *temp-options*))))
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type resolution))
-    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id resolution-fmt))
-    (format (clear (-> option name-override)) "~S ~D X ~D" ,label ,x ,y)
+    (format (temp-option-label! option) "~S ~D X ~D" ,label ,x ,y)
     (set! (-> option param1) (the float ,x))
     (set! (-> option param2) (the float ,y))
     (set! (-> option scale) #t)
@@ -9490,11 +9577,13 @@
   "add a display button to *temp-options* with specified size"
   `(let ((option (-> *temp-options* (length *temp-options*)))
         (name (pc-get-display-name ,display-id *pc-cpp-temp-string*)))
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type monitor))
-    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-    (set! (-> option option-disabled-func) #f)
     ;; Use the name of the display if it's available
-    (if name (copy-string<-string (-> option name-override) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
+    ;; menu-back-label : le libelle n'est accroche que dans la branche qui en POSE un. Sans nom
+    ;; d'ecran, `name-override` reste nul et la rangee sort par son `name` — avant, elle sortait
+    ;; par le tampon de l'occupant precedent, `name` pose ou non.
+    (if name (copy-string<-string (temp-option-label! option) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
     (set! (-> option param1) (the float ,display-id))
     (set! (-> option scale) #t)
     (1+! (-> *temp-options* length))))
@@ -9510,11 +9599,11 @@
   "add a controller option to *temp-options* with specified size"
   `(let ((option (-> *temp-options* (length *temp-options*)))
         (name (pc-get-controller-name ,controller-id *pc-cpp-temp-string*)))
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type controller))
-    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-    (set! (-> option option-disabled-func) #f)
     ;; Use the name of the controller if it's available
-    (if name (copy-string<-string (-> option name-override) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
+    ;; menu-back-label : meme regle que `add-monitor-option` juste au-dessus.
+    (if name (copy-string<-string (temp-option-label! option) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
     (set! (-> option param1) (the float ,controller-id))
     (set! (-> option scale) #t)
     (1+! (-> *temp-options* length))))
@@ -9576,6 +9665,7 @@
     (dotimes (i 4)
       ;; two for each direction (low/high)
       (let ((option (-> *temp-options* (length *temp-options*))))
+        (temp-option-reset! option)
         (set! (-> option bind-info port) 0)
         ;; only for keyboards
         (set! (-> option bind-info device-type) 1)
@@ -9583,12 +9673,11 @@
         (set! (-> option bind-info input-idx) i)
         (set! (-> option bind-info analog-min-range?) #t)
         (set! (-> option option-type) (game-option-type binding-assignment))
-        ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-        (set! (-> option option-disabled-func) #f)
-        (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *analog-bind-names* (* i 2))))
+        (copy-string<-string (temp-option-label! option) (-> *analog-bind-names* (* i 2)))
         (set! (-> option scale) #t)
         (1+! (-> *temp-options* length)))
       (let ((option (-> *temp-options* (length *temp-options*))))
+        (temp-option-reset! option)
         (set! (-> option bind-info port) 0)
         ;; only for keyboards
         (set! (-> option bind-info device-type) 1)
@@ -9596,14 +9685,13 @@
         (set! (-> option bind-info input-idx) i)
         (set! (-> option bind-info analog-min-range?) #f)
         (set! (-> option option-type) (game-option-type binding-assignment))
-        ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-        (set! (-> option option-disabled-func) #f)
-        (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *analog-bind-names* (+ 1 (* i 2)))))
+        (copy-string<-string (temp-option-label! option) (-> *analog-bind-names* (+ 1 (* i 2))))
         (set! (-> option scale) #t)
         (1+! (-> *temp-options* length)))))
   ;; Add Button bindings
   (dotimes (i 16)
     (let ((option (-> *temp-options* (length *temp-options*))))
+      (temp-option-reset! option)
       (set! (-> option bind-info port) 0)
       (case screen
         (((progress-screen controller-binds)) (set! (-> option bind-info device-type) 0))
@@ -9613,16 +9701,13 @@
       (set! (-> option bind-info input-idx) i)
       (set! (-> option bind-info analog-min-range?) #f)
       (set! (-> option option-type) (game-option-type binding-assignment))
-      ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-      (set! (-> option option-disabled-func) #f)
-      (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *button-bind-names* i)))
+      (copy-string<-string (temp-option-label! option) (-> *button-bind-names* i))
       (set! (-> option scale) #t)
       (1+! (-> *temp-options* length))))
   ;; We add a restore defaults button at the bottom of each binding menu
   (let ((option (-> *temp-options* (length *temp-options*))))
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type confirmation))
-    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
-    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id restore-defaults))
     (set! (-> option scale) #t)
     ;; No closures :(
@@ -9772,28 +9857,25 @@
   ;; l'en-tete : meme motif que `add-message-option` (une rangee `button` que `option-locked?`
   ;; declare grisee, donc inerte au confirm).
   (let ((option (-> *temp-options* (length *temp-options*))))
+    ;; menu-back-label : `temp-option-reset!` remplace les remises a zero champ par champ que cet
+    ;; en-tete faisait a la main (`on-confirm`, `gating-id`) — meme geste, sans oubli possible.
+    (temp-option-reset! option)
     (set! (-> option option-type) (game-option-type button))
     (set! (-> option option-disabled-func) (lambda () #t))
-    ;; `on-confirm` remis a zero pour la meme raison : l'ecran des binds laisse une lambda
-    ;; « restaurer les defauts » sur l'emplacement qu'il a occupe, et personne ne l'efface.
-    (set! (-> option on-confirm) (the-as (function none) 0))
-    (set! (-> option gating-id) (the string #f))
     (set! (-> option name) (text-id zero))
     (set! (-> option scale) #t)
-    (format (clear (-> option name-override)) "~S" *rch-choice-label*)
+    (format (temp-option-label! option) "~S" *rch-choice-label*)
     (1+! (-> *temp-options* length)))
   (let ((lst (rch-choice-carousell-for *rch-choice-type*)))
     (when lst
       (dotimes (i (length lst))
         (let ((option (-> *temp-options* (length *temp-options*))))
+          (temp-option-reset! option)
           (set! (-> option option-type) (game-option-type choice-value))
-          (set! (-> option option-disabled-func) #f)
-          (set! (-> option on-confirm) (the-as (function none) 0))
-          (set! (-> option gating-id) (the string #f))
           (set! (-> option name) (-> lst i))
           (set! (-> option scale) #t)
           (set! (-> option param1) (the float i))
-          (format (clear (-> option name-override)) "~S" (carousell-option-string (-> lst i)))
+          (format (temp-option-label! option) "~S" (carousell-option-string (-> lst i)))
           (1+! (-> *temp-options* length))))))
   (add-back-option)
   *temp-options*)
@@ -12934,6 +13016,285 @@
 ;; n'interroge le C++ que lorsque `*common-text*` est pret (sans banc de texte, les libelles
 ;; rapportes ne voudraient rien dire), et son drapeau se consomme a la lecture : un tour saute
 ;; n'est pas perdu, il sera repris a l'image suivante.
+;; ================================================================================================
+;; menu-back-label — LE RECENSEMENT « CHAQUE RANGEE AFFICHE SON PROPRE TEXTE ».
+;;
+;; CE QU'IL MESURE. Pour CHAQUE rangee de CHAQUE page du menu — les pages statiques par le tableau
+;; de routage `*options-remap*`, les pages baties a l'execution par LEURS VRAIS CONSTRUCTEURS — il
+;; recopie la regle de dessin (`name-override` s'il y en a un, sinon la traduction de `name`) et
+;; publie le couple (identifiant demande, texte effectivement affiche). `menu_label_wrong` compte
+;; les rangees dont le texte ne vient pas de leur propre identifiant.
+;;
+;; POURQUOI IL BATIT LES PAGES LUI-MEME. Les huit ecrans dynamiques n'existent qu'apres un geste du
+;; joueur, et la course de preuve n'ouvre aucun menu : lire les tableaux tels quels ne recenserait
+;; que du vide. On appelle donc les constructeurs livres — pas une copie de leur logique, qui
+;; deriverait le jour ou l'un d'eux change.
+;;
+;; LE MARQUEUR, ET POURQUOI IL REND LE ZERO FALSIFIABLE. Avant chaque construction, TOUS les
+;; tampons de libelle recoivent une chaine reconnaissable. Un constructeur qui pose un libelle
+;; l'efface (`temp-option-label!`) ; une rangee qui n'en pose pas garde `name-override` a zero et
+;; sort par son `name`. Une rangee qui AFFICHE le marqueur affiche donc, par construction, le
+;; libelle d'un occupant precedent de son emplacement — le defaut de l'owner, rendu visible au lieu
+;; d'etre devine. Apres le correctif ce compte tombe a zero : c'est exactement pour ca que le
+;; CONTROLE SEME ci-dessous existe. Un zero sur une population vide ne prouve rien.
+;; ================================================================================================
+
+(define *menu-label-poison* (new 'global 'string 32 (the-as string #f)))
+(format (clear *menu-label-poison*) "ZZ-LEFTOVER-ZZ")
+(define *menu-label-census-done?* #f)
+(define *menu-label-page* (new 'global 'string 64 (the-as string #f)))
+(define *mlbl-line* (new 'global 'string 128 (the-as string #f)))
+;; Les pages deja recensees : quinze ecrans routent vers `*ok-options*` ou `*yes-no-options*`, et
+;; les compter quinze fois gonflerait le denominateur sans rien recenser de plus.
+(define *menu-label-seen* (new 'static 'boxed-array :type (array game-option) :length 0 :allocated-length 80))
+
+(define *mlbl-rows* 0)
+(define *mlbl-wrong* 0)
+(define *mlbl-leftover* 0)
+(define *mlbl-empty* 0)
+(define *mlbl-missing* 0)
+(define *mlbl-pages* 0)
+(define *mlbl-dyn-pages* 0)
+(define *mlbl-dyn-rows* 0)
+(define *mlbl-logged* 0)
+(define *mlbl-override-rows* 0)
+(define *mlbl-false-override* 0)
+(define *mlbl-no-id* 0)
+(define *mlbl-yesno-ok* 0)
+(define *mlbl-seed-caught* 0)
+(define *mlbl-seed-false* 0)
+(define *mlbl-seed-back-ok* 0)
+
+(defconstant MENU-LABEL-LOG-CAP 1000)
+
+(defun menu-label-poison! ()
+  "Ecrit le marqueur dans TOUS les tampons de libelle des emplacements partages. Voir le pave."
+  (dotimes (i (-> *temp-option-labels* length))
+    (copy-string<-string (-> *temp-option-labels* i) *menu-label-poison*))
+  (none))
+
+(defun menu-label-drawn ((row game-option))
+  "Le texte que le dessin mettrait dans `option-str` pour cette rangee : son `name-override` s'il
+   y en a un, sinon la traduction de son `name`. RECOPIE de la branche menu/button/choice-value de
+   `draw-options`, pas devinee — un comparateur qui invente sa propre regle ne juge que lui-meme."
+  (cond
+    ((nonzero? (-> row name-override)) (-> row name-override))
+    ((nonzero? (-> row name)) (lookup-text! *common-text* (-> row name) #f))
+    ;; ZERO, pas `#f` : le comparateur teste `zero?`, et s7 passerait pour un texte.
+    (else (the-as string 0))))
+
+(defun menu-label-scan! ((page string) (arr (array game-option)) (dynamic? symbol))
+  "Recense une page. Une rangee est FAUSSE quand son texte est vide, quand c'est le marqueur d'un
+   occupant precedent, ou quand elle demande au banc un identifiant qu'il ne porte pas."
+  (when arr
+    (1+! *mlbl-pages*)
+    (if dynamic? (1+! *mlbl-dyn-pages*))
+    (dotimes (i (-> arr length))
+      (let* ((row (-> arr i))
+             (ov (-> row name-override))
+             (txt (menu-label-drawn row))
+             (bad 0))
+        (1+! *mlbl-rows*)
+        (if dynamic? (1+! *mlbl-dyn-rows*))
+        (if (nonzero? ov) (1+! *mlbl-override-rows*))
+        (cond
+          ((and (nonzero? ov) (= ov (the-as string #f)))
+           ;; `#f` N'EST PAS ZERO : le symbole s7 est un pointeur non nul, et un champ `basic`
+           ;; qui le porte se lit « il y a un libelle » chez les quinze lecteurs. Une rangee dans
+           ;; cet etat n'affiche pas son texte — c'est le meme defaut que le tampon herite, par
+           ;; une autre porte, et le comparateur doit le nommer au lieu de le laisser passer.
+           (set! bad 1)
+           (1+! *mlbl-false-override*))
+          ((or (zero? txt) (zero? (length txt)))
+           ;; RIEN N'EST DESSINE. Deux situations que rien ne separait, et qui ne se jugent pas
+           ;; pareil :
+           ;;  - la rangee NE DEMANDE AUCUN TEXTE (ni `name`, ni `name-override`). `draw-options`
+           ;;    laisse alors `option-str` a #f et n'imprime rien : ce sont les quatre
+           ;;    emplacements de sauvegarde des ecrans memcard et la rangee OUI/NON, dont le texte
+           ;;    vient d'une AUTRE fonction de dessin (`draw-memcard-file-select`, la branche
+           ;;    `yes-no`). Elles sont COMPTEES et NOMMEES dans le journal, pas retirees en
+           ;;    silence : « exclu » n'est pas « correct ».
+           ;;  - la rangee DEMANDE un texte et n'en obtient aucun : c'est un defaut.
+           (cond
+             ((and (zero? ov) (zero? (-> row name))) (1+! *mlbl-no-id*))
+             (else (set! bad 1) (1+! *mlbl-empty*))))
+          ((string= txt *menu-label-poison*)
+           (set! bad 1)
+           (1+! *mlbl-leftover*))
+          ((and (zero? ov)
+                (nonzero? (-> row name))
+                (not (lookup-text-impl! *common-text* (-> row name) #t #t)))
+           (set! bad 1)
+           (1+! *mlbl-missing*)))
+        (+! *mlbl-wrong* bad)
+        ;; LE COUPLE (identifiant demande, texte affiche), une ligne par rangee. Ce n'est PAS une
+        ;; ligne `cle=valeur` : le moissonneur de proof_run.sh n'en prendrait qu'une seule par nom,
+        ;; et le tableau complet est precisement ce que le livrable demande de publier. Le
+        ;; recensement d'artefact le relit dans le journal brut.
+        ;; DEUX `format`, UNE SEULE LIGNE ECRITE. `format` n'accepte que six arguments ; le
+        ;; premier appel compose l'en-tete DANS UNE CHAINE, le second ecrit la ligne entiere d'un
+        ;; coup. Deux ecritures sur la sortie auraient pu devenir deux lignes de logcat sur
+        ;; l'appareil, et le recensement d'artefact aurait lu des rangees sans texte.
+        (when (< *mlbl-logged* MENU-LABEL-LOG-CAP)
+          (1+! *mlbl-logged*)
+          (format (clear *mlbl-line*) "MENULBL page=~S row=~D type=~D id=~D"
+                  page i (the int (-> row option-type)) (the int (-> row name)))
+          (format 0 "~S src=~S ok=~D text=|~S|~%"
+                  *mlbl-line*
+                  (if (nonzero? ov) "override" "bank")
+                  (- 1 bad)
+                  (if (zero? txt) "<vide>" txt))))))
+  (none))
+
+(defun menu-label-seed-control! ()
+  "LE CONTROLE SEME, et il est la raison d'etre du zero attendu. Deux rangees jetables, dans deux
+   emplacements qu'aucune page n'atteint, JAMAIS dessinees : la premiere reproduit le defaut au
+   geste pres (le tampon de l'emplacement accroche sans qu'aucun libelle n'y soit pose — l'etat
+   dans lequel l'allocateur laissait CHAQUE rangee avant ce correctif), la seconde le geste
+   correct. Le comparateur doit accuser la premiere et laisser la seconde : sans elles,
+   `menu_label_wrong=0` se lirait aussi bien sur un comparateur qui ne regarde rien du tout."
+  (menu-label-poison!)
+  (let ((bad (-> *temp-options* 198))
+        (good (-> *temp-options* 199)))
+    (temp-option-reset! bad)
+    (set! (-> bad option-type) (game-option-type button))
+    (set! (-> bad name) (text-id back))
+    (set! (-> bad scale) #t)
+    (set! (-> bad name-override) (-> *temp-option-labels* 198))
+    (temp-option-reset! good)
+    (set! (-> good option-type) (game-option-type button))
+    (set! (-> good name) (text-id back))
+    (set! (-> good scale) #t)
+    (set! *mlbl-seed-caught* (if (string= (menu-label-drawn bad) *menu-label-poison*) 1 0))
+    (set! *mlbl-seed-false* (if (string= (menu-label-drawn good) *menu-label-poison*) 1 0))
+    (let ((g (menu-label-drawn good))
+          (b (lookup-text! *common-text* (text-id back) #f)))
+      (set! *mlbl-seed-back-ok*
+            (if (and (nonzero? g) (nonzero? (length g)) (string= g b)) 1 0))
+      (format 0 "MENULBL page=seed row=0 type=8 id=~D src=override ok=0 text=|~S|~%"
+              (the int (text-id back)) (menu-label-drawn bad))
+      (format 0 "MENULBL page=seed row=1 type=8 id=~D src=bank ok=1 text=|~S|~%"
+              (the int (text-id back)) g)))
+  ;; LA RANGEE OUI/NON ne lit ni `name` ni `name-override` : la branche `yes-no` de `draw-options`
+  ;; compose son texte des deux ids OUI et NON. Elle n'est donc pas jugee par la regle generale —
+  ;; elle est jugee par LA SIENNE, ici, une fois, et le resultat est publie.
+  (let ((y (lookup-text! *common-text* (text-id yes) #f))
+        (n (lookup-text! *common-text* (text-id no) #f)))
+    (set! *mlbl-yesno-ok*
+          (if (and (nonzero? y) (nonzero? (length y)) (nonzero? n) (nonzero? (length n))
+                   (lookup-text-impl! *common-text* (text-id yes) #t #t)
+                   (lookup-text-impl! *common-text* (text-id no) #t #t))
+            1 0)))
+  (none))
+
+(defun menu-label-choices-from! ((arr (array game-option)))
+  "Les pages de CHOIX atteignables depuis `arr` : pour chaque rangee qui en ouvre une, on la batit
+   par son vrai constructeur et on la recense. C'est cette famille que l'owner nomme — AMBIENT
+   OCCLUSION, AO QUALITY, AO STRENGTH vivent dans « Recharged Lighting »."
+  (when arr
+    (dotimes (i (-> arr length))
+      (let ((ty (-> arr i option-type)))
+        (when (rch-choice-carousell-for ty)
+          (menu-label-poison!)
+          (set! *rch-choice-type* ty)
+          (format (clear *rch-choice-label*) "CHOIX-~D" (the int ty))
+          (build-option-choice-options!)
+          (format (clear *menu-label-page*) "choice-~D" (the int ty))
+          (menu-label-scan! *menu-label-page* *temp-options* #t)))))
+  (none))
+
+(defun menu-label-census-dynamic! ()
+  "Les huit ecrans batis a l'execution, chacun par SON constructeur livre."
+  (menu-label-poison!)
+  (build-resolution-options)
+  (menu-label-scan! "resolution" *temp-options* #t)
+  (menu-label-poison!)
+  (build-monitor-options)
+  (menu-label-scan! "monitor" *temp-options* #t)
+  (menu-label-poison!)
+  (build-controller-options)
+  (menu-label-scan! "controller" *temp-options* #t)
+  (menu-label-poison!)
+  (build-binding-reassignment-options (progress-screen controller-binds))
+  (menu-label-scan! "controller-binds" *temp-options* #t)
+  (menu-label-poison!)
+  (build-binding-reassignment-options (progress-screen keyboard-binds))
+  (menu-label-scan! "keyboard-binds" *temp-options* #t)
+  (menu-label-poison!)
+  (build-binding-reassignment-options (progress-screen mouse-binds))
+  (menu-label-scan! "mouse-binds" *temp-options* #t)
+  (menu-label-poison!)
+  (build-flava-player-options 0)
+  (menu-label-scan! "flava-player" *temp-options* #t)
+  (none))
+
+(defun menu-label-census! ()
+  "Une fois par demarrage, apres la 700e image : le recensement complet. Voir le pave ci-dessus.
+   Il ne laisse rien derriere lui — `*temp-options*` est reconstruit par le menu a chaque entree
+   sur un ecran dynamique, et `*rch-choice-type*` est rendu tel qu'il a ete trouve."
+  (when (and (not *menu-label-census-done?*)
+             *common-text*
+             (> (the int (-> *display* real-frame-counter)) 700))
+    (set! *menu-label-census-done?* #t)
+    ;; Le menu n'est cable qu'a son OUVERTURE, et la course de preuve n'ouvre rien : meme geste que
+    ;; `scl10n-census!` et `gating-census-boot!`, pour la meme raison.
+    (init-game-options (the-as progress #f))
+    (let ((saved-choice *rch-choice-type*))
+      (menu-label-seed-control!)
+      ;; 1. LES PAGES STATIQUES, par le tableau de routage du menu lui-meme — pas par une liste de
+      ;;    noms ecrite ici, qui deriverait au premier ecran ajoute.
+      (set! (-> *menu-label-seen* length) 0)
+      (dotimes (i (the int (progress-screen max)))
+        (let ((arr (-> *options-remap* i))
+              (dup #f))
+          (when (and arr (!= arr *temp-options*))
+            (dotimes (j (-> *menu-label-seen* length))
+              (if (= (-> *menu-label-seen* j) arr) (set! dup #t)))
+            (when (not dup)
+              (set! (-> *menu-label-seen* (-> *menu-label-seen* length)) arr)
+              (1+! (-> *menu-label-seen* length))
+              (format (clear *menu-label-page*) "screen-~D" i)
+              (menu-label-scan! *menu-label-page* arr #f)))))
+      ;; 2. LES PAGES BATIES A L'EXECUTION.
+      (menu-label-census-dynamic!)
+      ;; 3. LES PAGES DE CHOIX, telles que les rangees du menu y menent.
+      (menu-label-choices-from! *recharged-options-pc*)
+      (menu-label-choices-from! *rlighting-options-pc*)
+      (menu-label-choices-from! *grass-options-pc*)
+      (set! *rch-choice-type* saved-choice))
+    ;; LA PUBLICATION. Le denominateur et les temoins sortent de TOUTE condition : un zero obtenu
+    ;; « rien n'a ete parcouru » ne doit pas se lire comme un zero obtenu « tout est juste ».
+    ;; LE MOTEUR NE PUBLIE PAS LA CLE DE LA PORTE. Il publie SA moitie — ce qu'il a pu mesurer
+    ;; dans la langue CHARGEE. L'autre moitie (« aucun identifiant demande ne manque dans AUCUNE
+    ;; des langues livrees ») se lit sur les 23 bancs `<n>COMMON.TXT`, que le jeu ne charge pas,
+    ;; et c'est `lib/census/menu-back-label.sh` qui la mesure et publie le total sous
+    ;; `menu_label_wrong`. Si ce recensement ne tourne pas, la cle MANQUE et la porte est rouge :
+    ;; publier ici la cle de la porte la rendrait verte par silence sur toute la dimension langue.
+    (__pc-autoport-publish "menu_label_engine_wrong" *mlbl-wrong*)
+    (__pc-autoport-publish "menu_label_rows" *mlbl-rows*)
+    (__pc-autoport-publish "menu_label_pages" *mlbl-pages*)
+    (__pc-autoport-publish "menu_label_dynamic_pages" *mlbl-dyn-pages*)
+    (__pc-autoport-publish "menu_label_dynamic_rows" *mlbl-dyn-rows*)
+    (__pc-autoport-publish "menu_label_override_rows" *mlbl-override-rows*)
+    (__pc-autoport-publish "menu_label_leftover_rows" *mlbl-leftover*)
+    (__pc-autoport-publish "menu_label_false_override_rows" *mlbl-false-override*)
+    (__pc-autoport-publish "menu_label_empty_rows" *mlbl-empty*)
+    (__pc-autoport-publish "menu_label_no_identifier_rows" *mlbl-no-id*)
+    (__pc-autoport-publish "menu_label_yesno_ok" *mlbl-yesno-ok*)
+    (__pc-autoport-publish "menu_label_missing_id_rows" *mlbl-missing*)
+    (__pc-autoport-publish "menu_label_logged" *mlbl-logged*)
+    (__pc-autoport-publish "menu_label_log_cap" MENU-LABEL-LOG-CAP)
+    (__pc-autoport-publish "menu_label_seed_caught" *mlbl-seed-caught*)
+    (__pc-autoport-publish "menu_label_seed_false" *mlbl-seed-false*)
+    (__pc-autoport-publish "menu_label_seed_back_ok" *mlbl-seed-back-ok*)
+    (__pc-autoport-publish "menu_label_bank_language"
+                           (if *common-text* (-> *common-text* language-id) -1))
+    (__pc-autoport-publish "menu_label_bank_entries"
+                           (if *common-text* (-> *common-text* length) 0))
+    (__pc-autoport-publish "menu_label_back_id" (the int (text-id back)))
+    (__pc-autoport-hit-for "menu-back-label" 1))
+  (none))
+
 (defun gating-census-boot! ()
   "Sous mesure SEULEMENT : force le cablage du menu quand le C++ reclame un recensement, pour que
    la course puisse recenser sans qu'un humain ouvre le menu. Hors mesure on ne touche a rien — le
