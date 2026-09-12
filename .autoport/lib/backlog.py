@@ -32,6 +32,15 @@ except ImportError:                                   # pragma: no cover - non P
 
 import yaml
 
+# LE LECTEUR UNIQUE de l'etat nomme « preuve impossible ». Ce module est importe tantot comme
+# `lib.backlog` (l'orchestrateur, la CLI) tantot comme `backlog` tout court (validators/
+# generic.sh insere `.autoport/lib` dans le chemin) : les deux formes sont essayees, sinon
+# `autoport status` mourrait selon QUI l'appelle.
+try:                                                  # noqa: SIM105
+    from lib import impossible as _impossible
+except ImportError:                                   # pragma: no cover
+    import impossible as _impossible
+
 # 2026-09-11 — LECTEUR EN C. PyYAML embarque un analyseur ecrit en Python et un autre en C ; le
 # second etait installe et inutilise. Mesure sur le backlog reel (328 Ko) : 1 992 ms contre
 # 136 ms. Chaque ecriture relisant le fichier entier, une modification passe de ~2,4 s a ~0,5 s.
@@ -264,6 +273,11 @@ class Backlog:
             self._verdict_bump(item_id, self.verdict_count(self.get(item_id) or {}), autorise)
         return self.get(item_id)
 
+    def _reports_dir(self):
+        """Les rapports du harnais qui a ecrit CE backlog — pas ceux du depot courant. Un
+        banc jetable pose son backlog.yaml ailleurs et y trouve ses propres etats."""
+        return os.path.join(os.path.dirname(os.path.abspath(self.path)), "reports")
+
     # ---- releve des verdicts : le nombre ne descend jamais tout seul -------------------------
     def _verdict_ref_path(self):
         return os.path.join(os.path.dirname(self.path), ".verdict_counts.json")
@@ -348,6 +362,29 @@ class Backlog:
                     lines.append("  Ou regarder : %s" % it["where"])
         a_tester = "\n".join(lines)
 
+        # ------------------------------------------------ LA PREUVE IMPOSSIBLE
+        # Un item dont la preuve est IMPOSSIBLE ne se lit pas comme un item qui n'a rien
+        # produit. L'etat nomme existe depuis le 12/09 (lib/proof_impossible.sh) ; personne
+        # ne le lisait. Il remonte ici, avec DEPUIS QUAND : une impossibilite de 30 secondes
+        # et une de six heures ne se lisent pas pareil.
+        actionnables = [it for it in self.items if it.get("status") in ACTIONABLE]
+        etats = _impossible.read_all(self._reports_dir(),
+                                     [it.get("id") for it in actionnables])
+        par_id = {it.get("id"): it for it in actionnables}
+        lines, dlines = [], []
+        if etats:
+            lines = ["## Preuve impossible",
+                     "%d chantier(s) que le harnais ne peut PAS mesurer en ce moment. Ce "
+                     "n'est pas « rien produit » : c'est « rien de mesurable », et voila "
+                     "la cause et depuis quand." % len(etats)]
+            dlines = ["## Preuve impossible"]
+            for iid, st in etats.items():
+                feat = (par_id.get(iid) or {}).get("feature", iid)
+                lines.extend(_impossible.lines(st, feat))
+                dlines.extend(_impossible.digest_lines(st, feat))
+        empeche = "\n".join(lines)
+        empeche_digest = "\n".join(dlines)
+
         lines = []
         if debt:
             lines = ["## Dette a trier",
@@ -372,12 +409,15 @@ class Backlog:
                 lines.append("  %s" % (it.get("block_reason") or "raison non enregistree"))
         bloque = "\n".join(lines)
 
-        text = "\n\n".join(b for b in (en_cours, a_tester, bloque, dette) if b)
+        text = "\n\n".join(b for b in (en_cours, empeche, a_tester, bloque, dette) if b)
         if not changed_only:
             return text
-        # `--changed` ne surveille que « A tester » : la dette ne bouge pas d'elle-meme et
-        # ne doit pas reveiller un digest.
-        digest = hashlib.sha256(a_tester.encode("utf-8")).hexdigest()
+        # `--changed` surveille « A tester » ET « Preuve impossible » : la dette ne bouge pas
+        # d'elle-meme et ne doit pas reveiller un digest, mais une machine qui ne peut plus
+        # mesurer, si. L'age y entre par son PALIER et non a la seconde — sinon le digest se
+        # reveillerait a chaque appel et il n'y aurait plus de digest du tout.
+        digest = hashlib.sha256(
+            (a_tester + "\n" + empeche_digest).encode("utf-8")).hexdigest()
         previous = ""
         try:
             with open(DIGEST_MEMO, encoding="utf-8") as fh:

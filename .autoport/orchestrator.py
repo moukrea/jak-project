@@ -66,6 +66,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from lib import cli_backend
+from lib import impossible as impossible_state
 
 BACKEND = "claude"
 
@@ -400,7 +401,7 @@ def format_duration(seconds: float) -> str:
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
               "rate_interrupts", "aborted", "commit_paths", "foreign_cause",
-              "last_update")
+              "proof_impossible", "last_update")
 
 
 class StateConflict(Exception):
@@ -442,6 +443,10 @@ def load_state() -> dict:
         # `retries`, sur le meme principe que `aborted`. Un essai classe ici n'a jamais
         # brule le budget de l'item.
         "foreign_cause": dict(raw.get("foreign_cause") or {}),
+        # Les essais dont la preuve etait IMPOSSIBLE : etats LUS par la porte (`read`) et
+        # verdicts REQUALIFIES (`total`), comptes a part de `retries` comme `aborted` et
+        # `foreign_cause`. Une machine qui ne peut pas mesurer ne debite jamais le budget.
+        "proof_impossible": dict(raw.get("proof_impossible") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -897,6 +902,93 @@ def _foreign_reset(state: dict, item_id: str) -> None:
     if rec["streak"]:
         rec["streak"] = 0
         save_state(state)
+
+
+# ============================================================
+# L'ESSAI DONT LA PREUVE ÉTAIT IMPOSSIBLE — LU, NOMMÉ, JAMAIS COMPTÉ
+# ============================================================
+# Signalement du 2026-09-12 (reports/harness-attempt-not-burned-by-foreign-cause/FINDINGS.txt,
+# ligne 4). `lib/proof_run.sh` ÉCRIT depuis ce jour-là un état nommé quand aucune preuve
+# n'était possible — binaire absent, appareil absent, verrou de déploiement tenu au-delà de la
+# borne. Personne ne le LISAIT : le validateur rendait « proof.txt absent ou vide », l'essai
+# était compté, empreinté, et la consigne renvoyée au worker lui demandait de produire une
+# preuve que la machine lui interdisait de produire. Le constructeur a tenu le verrou 6 h 38 :
+# rien, nulle part, ne l'a dit.
+#
+# ICI la porte de fermeture LIT cet état AVANT tout le reste, et rend `impossible` : ni `fail`
+# — l'essai n'a pas échoué —, ni `pass` — rien n'a été mesuré. Comme pour une cause extérieure,
+# `retries` est remis comme avant, et un plafond empêche la boucle sans fin.
+MAX_IMPOSSIBLE_IN_A_ROW = 3
+
+
+def _impossible_record(state: dict, item_id: str) -> dict:
+    """`total` depuis toujours, `streak` depuis le dernier essai COMPTÉ, `since` la date."""
+    book = state.setdefault("proof_impossible", {})
+    rec = book.get(item_id)
+    if not isinstance(rec, dict):
+        rec = {}
+    rec = {"total": int(rec.get("total", 0) or 0),
+           "streak": int(rec.get("streak", 0) or 0),
+           "since": rec.get("since", ""),
+           "last": rec.get("last", ""),
+           "reason": rec.get("reason", ""),
+           "read": int(rec.get("read", 0) or 0)}
+    book[item_id] = rec
+    return rec
+
+
+def requalify_impossible_attempt(state: dict, item_id: str,
+                                 st: dict) -> tuple[str, str]:
+    """La preuve était IMPOSSIBLE : l'essai est CLASSÉ À PART, jamais débité.
+
+    Rend `("requalifie"|"bloque", ce qu'il faut dire)`. Dans les DEUX cas `retries` revient
+    comme avant l'essai. Au-delà de MAX_IMPOSSIBLE_IN_A_ROW d'affilée on n'essaie plus non
+    plus : l'item est BLOQUÉ et la cause est nommée au superviseur — une machine qui ne peut
+    pas mesurer ne se débloque pas en réessayant."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rec = _impossible_record(state, item_id)
+    rec["total"] += 1
+    rec["streak"] += 1
+    rec["read"] += 1
+    rec["last"] = now
+    rec["since"] = rec["since"] or now
+    rec["reason"] = st.get("reason", "inconnue")
+    avant = int(state.setdefault("retries", {}).get(item_id, 0) or 0)
+    state["retries"][item_id] = max(0, avant - 1)
+    verrou = ""
+    if int(st.get("lock_held_s", -1)) >= 0:
+        verrou = (f" Verrou de déploiement pid {st.get('lock_pid')}, VIVANT, tenu depuis "
+                  f"{impossible_state.human(st['lock_held_s'])}.")
+    elif str(st.get("lock_pid", "-")) not in ("-", ""):
+        verrou = f" Verrou pid {st.get('lock_pid')} : ne répond plus."
+    dit = (f"essai CLASSÉ À PART, NON COMPTÉ : la preuve était IMPOSSIBLE "
+           f"({impossible_state.cause(st)}), bras {st.get('arm')}, depuis "
+           f"{impossible_state.human(st.get('since_s', -1))}.{verrou} "
+           f"retries {avant} → {state['retries'][item_id]}. "
+           f"{rec['streak']}e d'affilée sur cet item, {rec['total']} en tout, "
+           f"depuis {rec['since']}.")
+    if rec["streak"] > MAX_IMPOSSIBLE_IN_A_ROW:
+        return ("bloque",
+                dit + f" Au-delà de {MAX_IMPOSSIBLE_IN_A_ROW} d'affilée on n'essaie plus : "
+                      f"l'item est BLOQUÉ tant que la machine ne peut pas mesurer. Aucun "
+                      f"essai n'a été débité pour autant.")
+    return ("requalifie", dit)
+
+
+def _impossible_reset(state: dict, item_id: str) -> None:
+    """Un essai JUGÉ remet la série à zéro — le compte `total` et `read`, jamais."""
+    rec = _impossible_record(state, item_id)
+    if rec["streak"]:
+        rec["streak"] = 0
+        save_state(state)
+
+
+def impossible_read_counts(state: dict) -> tuple[int, int]:
+    """(états LUS par la porte, verdicts REQUALIFIÉS) — ce que le livrable demande de publier."""
+    book = state.get("proof_impossible") or {}
+    lus = sum(int((v or {}).get("read", 0) or 0) for v in book.values() if isinstance(v, dict))
+    req = sum(int((v or {}).get("total", 0) or 0) for v in book.values() if isinstance(v, dict))
+    return (lus, req)
 
 
 def fatal_config_reason(path: Path) -> str:
@@ -1434,17 +1526,51 @@ def owner_said_yes(item: dict) -> bool:
     return (OWNER_OK_DIR / str(item.get("id", ""))).exists()
 
 
-def close_gate(item: dict, pre_dirty_engine=()) -> tuple[str, str]:
-    """Run after generic.sh exits 0. Returns (status, reason):
+def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
+               since: float = 0.0) -> tuple[str, str]:
+    """La porte de fermeture. Returns (status, reason):
       ("pass", "")            -> all gates clear; the item is validated
       ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
       ("foreign", reason)     -> CAUSE EXTÉRIEURE : rien de jugeable, l'essai ne compte pas
+      ("impossible", reason)  -> AUCUNE PREUVE N'ÉTAIT POSSIBLE : nommée, datée, non comptée
       ("awaiting-owner", "")  -> gates clear, the owner still has to look
 
     `pre_dirty_engine` : les chemins moteur que l'essai a trouvés SALES en arrivant.
+    `validator_ok`     : ce que `generic.sh` a rendu. Elle est appelée dans les DEUX cas —
+                         GATE -1 doit voir un essai que le validateur a refusé, puisque c'est
+                         précisément là que « preuve impossible » se lisait « pas de preuve ».
+    `since`            : l'instant où l'essai a commencé. GATE -1 n'accepte qu'un état écrit
+                         APRÈS : l'impossibilité d'un essai précédent ne requalifie pas celui-ci.
     """
     iid = item["id"]
     item = _reread_item(iid, item)
+
+    # GATE -1 — UNE PREUVE IMPOSSIBLE SE LIT « IMPOSSIBLE », JAMAIS « PAS DE PREUVE ».
+    # `lib/proof_run.sh` écrit un état nommé à chacune de ses sorties 3 ; jusqu'au 12/09
+    # personne ne le lisait. Le validateur disait « proof.txt absent ou vide » et l'essai
+    # brûlait pour une machine indisponible. On lit l'état, on NOMME la cause, et on publie
+    # DEPUIS QUAND — une impossibilité de 30 s et une de six heures ne se lisent pas pareil.
+    _imp = impossible_state.read(str(AUTOPORT_DIR / "reports"), iid, since=since)
+    if _imp is not None:
+        _verrou = ""
+        if _imp["lock_held_s"] >= 0:
+            _verrou = (f" Le verrou de déploiement (pid {_imp['lock_pid']}) RÉPOND ENCORE et "
+                       f"est tenu depuis {impossible_state.human(_imp['lock_held_s'])}.")
+        elif _imp["lock_pid"] not in ("-", ""):
+            _verrou = f" Le verrou pid {_imp['lock_pid']} ne répond plus."
+        return ("impossible",
+                f"CLOSE-GATE/preuve-impossible: aucune preuve n'était possible pour cet essai "
+                f"— {impossible_state.cause(_imp)}. Bras {_imp['arm']}, état {_imp['file']} "
+                f"écrit le {_imp['at']}, impossible depuis "
+                f"{impossible_state.human(_imp['since_s'])}.{_verrou} "
+                f"Ce n'est pas « pas de preuve » : la machine n'a rien pu mesurer. L'essai "
+                f"n'est pas compté ; c'est la CAUSE qu'il faut lever, pas la preuve qu'il "
+                f"faut réécrire.")
+
+    # Le validateur a refusé et rien n'était impossible : son verdict tient tel quel, les
+    # portes suivantes n'ont rien à juger.
+    if not validator_ok:
+        return ("fail", "")
 
     # GATE 0 — L'ARBRE NE PORTE PAS LE TRAVAIL NON COMMITÉ D'UN AUTRE ITEM.
     # 2026-09-12 : un `git add` fatal a laissé 64 fichiers d'un item BLOQUÉ dans l'arbre ;
@@ -2282,8 +2408,29 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     save_state(state)
 
     gate_reason = ""
+    # LA PORTE DE FERMETURE EST APPELÉE DANS LES DEUX CAS. GATE -1 — « preuve impossible » —
+    # doit voir l'essai que le validateur vient de refuser : c'est là, et nulle part ailleurs,
+    # qu'une machine indisponible se lisait « proof.txt absent ou vide ».
+    gate_status, gate_reason = close_gate(item, pre_dirty_engine,
+                                          validator_ok=(v.returncode == 0),
+                                          since=started_at)
+
+    if gate_status == "impossible":
+        _imp = impossible_state.read(str(AUTOPORT_DIR / "reports"), iid, since=started_at)
+        verdict, dit = requalify_impossible_attempt(state, iid, _imp or {})
+        save_state(state)
+        with validator_log.open("a") as f:
+            f.write("\n\n" + gate_reason + "\n\n" + dit + "\n")
+        if verdict == "requalifie":
+            log(dit, "yellow")
+            _checkpoint(f"essai {seq} classé à part — PREUVE IMPOSSIBLE (non compté)")
+            return Outcome("impossible", gate_reason + "\n\n" + dit)
+        log(dit, "red")
+        _checkpoint(f"essai {seq} classé à part — PREUVE IMPOSSIBLE (non compté ; "
+                    f"item BLOQUÉ, la cause doit être levée)")
+        return Outcome("blocked", gate_reason + "\n\n" + dit)
+
     if v.returncode == 0:
-        gate_status, gate_reason = close_gate(item, pre_dirty_engine)
         # UNE CAUSE EXTÉRIEURE NE BRÛLE PLUS UN ESSAI. La saleté est celle d'un AUTRE item,
         # que le périmètre de celui-ci lui interdit de commiter ou de défaire. On DÉFAIT le
         # compte, on NOMME les chemins, et l'essai est classé à part — jamais empreinté
@@ -2304,6 +2451,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             return Outcome("blocked", gate_reason + "\n\n" + dit)
         if gate_status in ("pass", "awaiting-owner"):
             _foreign_reset(state, iid)
+            _impossible_reset(state, iid)
             if _checkpoint(item.get("feature", iid)
                            + ("" if gate_status == "pass"
                               else " (porte passée — EN ATTENTE DU TEST DE L'OWNER)")):
@@ -2313,8 +2461,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             f.write("\n\n" + gate_reason + "\n")
         log(gate_reason, "yellow")
 
-    # L'essai est COMPTÉ : la série de requalifications s'arrête ici.
+    # L'essai est COMPTÉ : les séries de requalifications s'arrêtent ici.
     _foreign_reset(state, iid)
+    _impossible_reset(state, iid)
 
     failure_text = validator_log.read_text(errors="replace")
     fp, key_lines = fingerprint_failure(failure_text, REPO_ROOT)
@@ -2652,6 +2801,17 @@ def main(argv: list[str] | None = None) -> int:
                 f"non empreinté. Le travail est commité.\n{out.reason}", "yellow")
             no_start_streak = 0
             nap(30)
+
+        elif out.kind == "impossible":
+            # AUCUNE PREUVE N'ÉTAIT POSSIBLE. Ni « pas de preuve », ni un échec du worker :
+            # la machine ne pouvait rien mesurer, la cause est NOMMÉE et DATÉE. `autoport
+            # status` et le digest de l'owner la portent aussi — cet item ne se lit plus
+            # comme un item qui n'a rien produit.
+            bk.set_status(iid, "open")
+            log(f"⏹ {iid} : essai CLASSÉ À PART — PREUVE IMPOSSIBLE, non compté, non "
+                f"empreinté. Le travail est commité.\n{out.reason}", "yellow")
+            no_start_streak = 0
+            nap(60)
 
         elif out.kind == "aborted":
             # Le lanceur a coupe les taches de fond du worker : l'essai n'a pas eu lieu.

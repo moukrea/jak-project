@@ -198,15 +198,22 @@ def test_codex_success_still_waits_for_owner(orch, codex_repo, monkeypatch):
     # l'orchestrateur, donc sur un message qui n'accusait pas le faux. Le faux porte desormais
     # la signature reelle ET verifie qu'on lui passe bien cette ligne de base : s'il derive de
     # nouveau, c'est ici que ca rougit, avec le bon nom.
+    # 2026-09-12, seconde derive : GATE -1 (« preuve impossible ») a donne a `close_gate` un
+    # `validator_ok` et un `since`, parce qu'elle doit voir AUSSI un essai que le validateur a
+    # refuse. Le faux les prend et les VERIFIE : ici, le validateur a passe, et `since` est
+    # l'instant ou l'essai a commence — jamais zero, sinon l'etat d'un essai precedent
+    # requalifierait celui-ci.
     vus = []
-    def faux_close_gate(item, pre_dirty_engine):
-        vus.append((item['id'], pre_dirty_engine))
+    def faux_close_gate(item, pre_dirty_engine, validator_ok=True, since=0.0):
+        vus.append((item['id'], pre_dirty_engine, validator_ok, since))
         return ('awaiting-owner', '')
     monkeypatch.setattr(orch, 'close_gate', faux_close_gate)
     monkeypatch.setattr(orch, 'git_push', lambda: None)
     assert orch.run_attempt(dict(ITEM), orch.load_state()).kind == 'awaiting-owner'
-    assert [iid for iid, _ in vus] == ['demo']
+    assert [v[0] for v in vus] == ['demo']
     assert isinstance(vus[0][1], list)
+    assert vus[0][2] is True
+    assert vus[0][3] > 0
 
 
 def test_codex_midrun_transport_failure_is_infra(orch, codex_repo):
