@@ -136,6 +136,43 @@ pub bf_f_perime_rc    "$RCA"
 pub bf_f_perime_frais "$(g "$A" bx_bin_fresh)"
 pub bf_f_perime_retard "$(g "$A" bx_bin_lag_s)"
 
+# ---- F BIS. LE MEME DEFAUT DANS LA MEME SECONDE. `stat -c %Y` arrondit : un lien saute dont
+# l'entree est reecrite 0,4 s plus tard porte le MEME horodatage entier que le binaire, et la
+# comparaison `-ge` le declare frais. Ce n'est pas une hypothese — la porte D'AVANT est rejouee
+# plus bas sur l'etat seme ici et rend `bf_f_infrasec_avant_rc=0`. Les horodatages sont POSES,
+# jamais attendus : `touch -d '@<epoch>.<ns>'` rend la jambe deterministe au lieu de la faire
+# dependre d'une course contre la seconde qui tourne.
+# LES DEUX BRAS, dans la MEME seconde : le binaire ECRIT APRES ses entrees (il est frais, la
+# porte doit laisser passer) puis une entree ecrite APRES le binaire (elle ne l'est plus). Sans
+# le premier, une porte qui refuserait tout ecart infra-seconde serait verte sur le second.
+for f in a.o b.o c.o m.o; do touch -d '@1700000000.100000000' "$T/$f"; done
+touch -d '@1700000000.500000000' "$T/app"
+SS=$(bash "$PORTE" --dir "$T" --target app --check-only 2>/dev/null); RCSS=$?
+pub bf_f_infrasec_sain_rc    "$RCSS"
+pub bf_f_infrasec_sain_frais "$(g "$SS" bx_bin_fresh)"
+touch -d '@1700000000.900000000' "$T/a.o"
+SD=$(bash "$PORTE" --dir "$T" --target app --check-only 2>/dev/null); RCSD=$?
+pub bf_f_infrasec_perime_rc    "$RCSD"
+pub bf_f_infrasec_perime_frais "$(g "$SD" bx_bin_fresh)"
+pub bf_f_infrasec_retard_ns    "$(g "$SD" bx_bin_lag_ns)"
+# CE QUE LA SECONDE ENTIERE EN DISAIT : les deux bras y portent le MEME horodatage, donc l'ancien
+# comparateur ne pouvait pas les separer. Publie a cote, il dit POURQUOI la jambe existe.
+pub bf_f_infrasec_retard_s     "$(g "$SD" bx_bin_lag_s)"
+# LE TEMOIN D'AVANT, et il n'est pas facultatif : sans lui, « la porte sort en 4 » est vert par
+# CONSTRUCTION des qu'on l'a ecrit, et rien ne dit que le defaut existait. On fait jouer LA PORTE
+# D'AVANT — celle du commit NOMME `14ba12bd23`, jamais `HEAD:`, qui s'accuserait lui-meme des le
+# commit qui corrige — sur EXACTEMENT l'etat seme ci-dessus. Elle doit rendre 0 et `frais=1`.
+# LA POPULATION EST PUBLIEE A COTE : une reference disparue rend un script VIDE, que `bash` sort
+# en 0 — soit le chiffre meme qu'on attend. `bf_f_infrasec_avant_octets` separe « la porte
+# d'avant a laisse passer » de « il n'y avait aucune porte a jouer ».
+BF_INFRASEC_AVANT_REF=14ba12bd23
+git -C "$ROOT" show "$BF_INFRASEC_AVANT_REF:.autoport/lib/build_x86.sh" > "$T/porte-avant.sh" 2>/dev/null
+PA=$(bash "$T/porte-avant.sh" --dir "$T" --target app --check-only 2>/dev/null); RCPA=$?
+pub bf_f_infrasec_avant_ref     "$BF_INFRASEC_AVANT_REF"
+pub bf_f_infrasec_avant_octets  "$(stat -c %s "$T/porte-avant.sh" 2>/dev/null || echo 0)"
+pub bf_f_infrasec_avant_rc      "$RCPA"
+pub bf_f_infrasec_avant_frais   "$(g "$PA" bx_bin_fresh)"
+
 # ========== G. LA PORTE EST-ELLE LA SEULE ENTREE, ET L'ORDRE LA NOMME-T-IL ? =================
 # LES QUATRE JAMBES CI-DESSUS MESURENT LA PORTE. Aucune ne mesure ce qui OBLIGE a y passer : si
 # la regle de `hooks/pre-tool.sh` disparaissait, ou si l'ordre permanent continuait de prescrire

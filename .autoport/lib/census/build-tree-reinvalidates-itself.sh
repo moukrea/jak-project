@@ -97,12 +97,31 @@ for p in pts[1:]:
 for i, g in enumerate(groups[-2:], 1):
     print("inv%d_aretes=%d" % (i, len(g)))
     print("inv%d_s=%d" % (i, round(max(x[1] for x in g))))
+# LA POPULATION : combien d'invocations le journal a RETENUES pour la journee de la mesure. Le
+# livrable en demande trois ; le journal de ninja n'en garde qu'une par cible et par sortie, et
+# c'est lui qui decide. Publier le compte dit ce sur quoi le « avant » repose, au lieu de laisser
+# croire que deux etaient tout ce qu'il y avait.
+import datetime
+jour = datetime.date.fromtimestamp(groups[-1][0][0])
+print("jour=%s" % jour)
+print("jour_invocations=%d" % sum(
+    1 for g in groups if datetime.date.fromtimestamp(g[0][0]) == jour))
 PY
 )
 A1E=$(num "$(g "$INV" inv1_aretes)"); A1S=$(num "$(g "$INV" inv1_s)")
 A2E=$(num "$(g "$INV" inv2_aretes)"); A2S=$(num "$(g "$INV" inv2_s)")
 pub br_avant_inv1_aretes "$A1E"; pub br_avant_inv1_s "$A1S"
 pub br_avant_inv2_aretes "$A2E"; pub br_avant_inv2_s "$A2S"
+pub br_avant_jour        "$(g "$INV" jour)"
+pub br_avant_invocations "$(num "$(g "$INV" jour_invocations)")"
+# LA TROISIEME MESURE DU COTE « AVANT » : la reconstruction COMPLETE qu'a coutee la reparation,
+# chronometree a part (`avant-reconstruction-complete.txt`, 2026-09-12 15:47). Elle n'est PAS une
+# troisieme invocation consecutive sans edition — c'est la passe qui a suivi le recompactage — et
+# elle est publiee sous son propre nom pour qu'on ne la lise pas comme telle. Elle chiffre le prix
+# d'UNE invocation dans l'etat defectueux, que la boucle payait a chaque fois.
+AV_RECON="$E/avant-reconstruction-complete.txt"
+pub br_avant_recon_aretes "$(num "$(sed -n 's/^aretes_jouees=\([0-9]*\).*/\1/p' "$AV_RECON" 2>/dev/null | tail -1)")"
+pub br_avant_recon_s      "$(num "$(sed -n 's/^REPAIR_BUILD_SECONDS=\([0-9]*\).*/\1/p' "$AV_RECON" 2>/dev/null | tail -1)")"
 
 # ================================================================== 2. LE BANC ===============
 BN=$(timeout 600 bash "$BANC" 2>/dev/null)
@@ -121,6 +140,21 @@ pub br_banc_apres_aretes  "$(b bf_e_2e_passe_aretes)"
 pub br_banc_lien_sain_rc  "$(b bf_f_sain_rc)"
 pub br_banc_lien_perime_rc "$(b bf_f_perime_rc)"
 pub br_banc_lien_perime_frais "$(b bf_f_perime_frais)"
+# LE LIEN SAUTE DANS LA MEME SECONDE (jambe F infra-seconde). `stat -c %Y` arrondissait : une
+# entree reecrite 0,4 s apres le binaire portait le MEME horodatage entier, et la porte le
+# declarait frais. Les DEUX BRAS, plus le temoin d'AVANT ancre sur le commit `14ba12bd23` et la
+# POPULATION qu'il a lue — une reference disparue rend un script vide, que `bash` sort en 0,
+# c'est-a-dire le chiffre meme qu'on attend de la porte d'avant.
+pub br_banc_infrasec_sain_rc      "$(b bf_f_infrasec_sain_rc)"
+pub br_banc_infrasec_sain_frais   "$(b bf_f_infrasec_sain_frais)"
+pub br_banc_infrasec_perime_rc    "$(b bf_f_infrasec_perime_rc)"
+pub br_banc_infrasec_perime_frais "$(b bf_f_infrasec_perime_frais)"
+pub br_banc_infrasec_retard_ns    "$(b bf_f_infrasec_retard_ns)"
+pub br_banc_infrasec_retard_s     "$(b bf_f_infrasec_retard_s)"
+pub br_banc_infrasec_avant_ref    "$(g "$BN" bf_f_infrasec_avant_ref)"
+pub br_banc_infrasec_avant_octets "$(b bf_f_infrasec_avant_octets)"
+pub br_banc_infrasec_avant_rc     "$(b bf_f_infrasec_avant_rc)"
+pub br_banc_infrasec_avant_frais  "$(b bf_f_infrasec_avant_frais)"
 # LA GARDE ET L'ORDRE (jambe G). La porte ne vaut que si l'on ne peut pas passer a cote : on
 # publie les DEUX BRAS de `hooks/pre-tool.sh` et le fait que l'ordre permanent la NOMME.
 pub br_garde_refuse_cmake  "$(b bf_g_refuse_cmake)"
@@ -231,6 +265,16 @@ D3=0
 [ "$(b bf_f_sain_rc)" = 0 ]       || D3=$((D3+1))
 [ "$(b bf_f_perime_rc)" = 4 ]     || D3=$((D3+1))
 [ "$(b bf_f_perime_frais)" = 0 ]  || D3=$((D3+1))
+# LE MEME DEFAUT DANS LA MEME SECONDE, les deux bras — et le temoin d'avant, qui doit rendre 0
+# sur une population NON NULLE : « la porte d'avant laissait passer » et « il n'y avait aucune
+# porte a jouer » rendraient le meme rc.
+[ "$(b bf_f_infrasec_sain_rc)" = 0 ]      || D3=$((D3+1))
+[ "$(b bf_f_infrasec_sain_frais)" = 1 ]   || D3=$((D3+1))
+[ "$(b bf_f_infrasec_perime_rc)" = 4 ]    || D3=$((D3+1))
+[ "$(b bf_f_infrasec_perime_frais)" = 0 ] || D3=$((D3+1))
+[ "$(sup "$(b bf_f_infrasec_avant_octets)" 0)" = 1 ] || D3=$((D3+1))
+[ "$(b bf_f_infrasec_avant_rc)" = 0 ]     || D3=$((D3+1))
+[ "$(b bf_f_infrasec_avant_frais)" = 1 ]  || D3=$((D3+1))
 
 # 4. LE GAIN, en secondes, compare a ce que le journal du 12/09 a garde. Pas de seuil invente :
 # la plus LENTE des invocations d'apres doit rester sous la plus RAPIDE de celles d'avant.
@@ -249,6 +293,12 @@ if [ "$AVMIN" -gt 0 ] 2>/dev/null && [ "$APMAX" -ge 0 ] 2>/dev/null && [ "$APMAX
 else
   D4=1; pub br_gain_s -1
 fi
+# CE SUR QUOI LE « AVANT » REPOSE, juge et non pas seulement publie : au moins deux invocations
+# retenues par le journal pour la journee de la mesure, et la reconstruction complete chiffree.
+# Un chiffre d'avant qui se reduirait a UNE seule invocation ne serait plus une mesure de regime.
+[ "$(sup "$(num "$(g "$INV" jour_invocations)")" 1)" = 1 ] || D4=$((D4+1))
+[ "$(sup "$(num "$(sed -n 's/^aretes_jouees=\([0-9]*\).*/\1/p' "$AV_RECON" 2>/dev/null | tail -1)")" 0)" = 1 ] || D4=$((D4+1))
+[ "$(sup "$(num "$(sed -n 's/^REPAIR_BUILD_SECONDS=\([0-9]*\).*/\1/p' "$AV_RECON" 2>/dev/null | tail -1)")" 0)" = 1 ] || D4=$((D4+1))
 
 # 5. LA GARDE ET L'ORDRE. Les quatre termes ci-dessus jugent LA PORTE ; aucun ne juge ce qui
 # OBLIGE a y passer. L'essai 1 a livre la porte et la garde, et a laisse DEUX textes prescrire

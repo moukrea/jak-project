@@ -24,8 +24,12 @@
 #   1. AVANT — elle CHARGE le journal de dependances et refuse de construire sur un journal
 #      casse : recompactage (`ninja -t recompact`), et mise en quarantaine si ca ne suffit pas.
 #      La perte est rendue impossible au POINT DE PRODUCTION, pas detectable au controle.
-#   2. APRES — elle compare l'horodatage du binaire a celui de CHACUNE de ses entrees directes.
-#      Un binaire plus vieux qu'une de ses dependances SORT EN 4. Jamais zero.
+#   2. APRES — elle compare l'horodatage du binaire a celui de CHACUNE de ses entrees directes,
+#      A LA NANOSECONDE. Un binaire plus vieux qu'une de ses dependances SORT EN 4. Jamais zero.
+#      La seconde entiere ne suffisait pas : un lien saute dont l'entree est reecrite 0,4 s plus
+#      tard portait le MEME `stat -c %Y`, et la porte le declarait frais (mesure : jambe F
+#      infra-seconde du banc, ou la porte du commit 14ba12bd23 rend 0 sur l'etat que celle-ci
+#      refuse en 4).
 #   3. APRES — elle rejoue le graphe a vide : une construction reussie ne laisse AUCUNE arete de
 #      compilation ou de lien a faire. S'il en reste, elle SORT EN 5 et les NOMME.
 # Les trois verdicts sont publies en `cle=valeur` sur la sortie standard, et recopies dans
@@ -171,25 +175,37 @@ if [ -z "$BINOUT" ] || [ ! -f "$DIR/$BINOUT" ]; then
   say "la cible $TARGET ne designe aucun fichier sur le disque : rien a juger, et c'est un defaut."
   exit 4
 fi
-BM=$(stat -c %Y "$DIR/$BINOUT" 2>/dev/null || echo 0)
-NEWEST=0; NEWEST_NAME=aucune; NDEPS=0
+# A LA NANOSECONDE, PAS A LA SECONDE. `stat -c %Y` arrondit a la seconde entiere : un lien saute
+# dont l'entree est reecrite DANS LA MEME SECONDE passait la comparaison `-ge` — la porte rendait
+# 0 sur un binaire qu'elle aurait du refuser. Ce n'est pas une hypothese : le banc le seme
+# (`lib/build_freshness_selftest.sh`, jambe F infra-seconde, 0,4 s d'ecart) et la porte y sortait
+# en 0 avec `bx_bin_fresh=1`. Les horodatages sont donc lus en nanosecondes entieres — le point
+# decimal retire, `LC_ALL=C` garantit que c'en est un — et les secondes restent publiees telles
+# quelles pour qui les lit.
+mtime_ns(){ local v; v=$(stat -c %.9Y "$1" 2>/dev/null | tr -d '.,'); case "${v:-}" in ''|*[!0-9]*) echo 0 ;; *) echo "$v" ;; esac; }
+BMN=$(mtime_ns "$DIR/$BINOUT")
+NEWESTN=0; NEWEST_NAME=aucune; NDEPS=0
 while IFS= read -r d; do
   [ -n "$d" ] || continue
   [ -f "$DIR/$d" ] || continue
   NDEPS=$((NDEPS+1))
-  m=$(stat -c %Y "$DIR/$d" 2>/dev/null || echo 0)
-  if [ "$m" -gt "$NEWEST" ]; then NEWEST=$m; NEWEST_NAME=$d; fi
+  m=$(mtime_ns "$DIR/$d")
+  if [ "$m" -gt "$NEWESTN" ]; then NEWESTN=$m; NEWEST_NAME=$d; fi
 done <<EOF
 $(q_inputs "$BINOUT")
 EOF
-FRESH=1; [ "$BM" -ge "$NEWEST" ] || FRESH=0
+BM=$(( BMN / 1000000000 )); NEWEST=$(( NEWESTN / 1000000000 ))
+FRESH=1; [ "$BMN" -ge "$NEWESTN" ] || FRESH=0
 pub bx_bin          "$BINOUT"
 pub bx_bin_mtime    "$BM"
+pub bx_bin_mtime_ns "$BMN"
 pub bx_deps_seen    "$NDEPS"
 pub bx_newest_dep   "$NEWEST"
+pub bx_newest_dep_ns "$NEWESTN"
 pub bx_newest_name  "$NEWEST_NAME"
 pub bx_bin_fresh    "$FRESH"
 pub bx_bin_lag_s    "$(( NEWEST - BM ))"
+pub bx_bin_lag_ns   "$(( NEWESTN - BMN ))"
 
 if [ "$FRESH" = 0 ]; then
   say "BINAIRE PERIME : $DIR/$BINOUT date de $(date -d "@$BM" '+%F %T'), et $NEWEST_NAME de $(date -d "@$NEWEST" '+%F %T')."

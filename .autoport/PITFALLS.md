@@ -989,7 +989,11 @@ jette la note : boucle fermee, ~7 min par cycle de preuve, pour toujours. Le con
 abime EN QUEUE, qui se repare tout seul — c'est pourquoi personne ne l'avait vu.
 Verrou : `.autoport/lib/build_x86.sh` est la porte unique du build de bureau. Elle repare le
 journal AVANT (recompactage, puis quarantaine), compare le binaire a CHACUNE de ses entrees
-directes APRES et SORT EN 4 s'il est plus vieux, rejoue le graphe a vide et SORT EN 5 s'il reste
-une arete de compilation. `hooks/pre-tool.sh` refuse `cmake --build build` et `ninja -C build` et
-renvoie vers elle ; aucun script du harnais ne construit l'arbre de bureau, ce point d'appel est
-donc le seul. Banc : `lib/build_freshness_selftest.sh` (six jambes, chacune avec son controle).
+directes APRES — A LA NANOSECONDE — et SORT EN 4 s'il est plus vieux, rejoue le graphe a vide et
+SORT EN 5 s'il reste une arete de compilation. `hooks/pre-tool.sh` refuse `cmake --build build` et
+`ninja -C build` et renvoie vers elle ; aucun script du harnais ne construit l'arbre de bureau, ce
+point d'appel est donc le seul. Banc : `lib/build_freshness_selftest.sh` (sept jambes, chacune avec
+son controle). La seconde entiere ne suffisait pas : une entree reecrite 0,4 s APRES le binaire
+portait le meme `stat -c %Y`, et la porte du commit `14ba12bd23` rendait 0 avec `bx_bin_fresh=1`
+sur l'etat que la jambe F infra-seconde lui fait rejouer (`bf_f_infrasec_avant_rc=0` contre
+`bf_f_infrasec_perime_rc=4` aujourd'hui).
