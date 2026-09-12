@@ -87,3 +87,19 @@ PAS ete mesure », « defaut latent », « laisse tel quel ». Pour chacun :
 
 Un signalement sans item est une dette invisible : personne ne la relit, et elle se retrouve par
 hasard des mois plus tard.
+
+## Ce que je lis a chaque quart d'heure, en plus du backlog
+
+Ajoute le 2026-09-12 apres la nuit ou une preuve a pu etre impossible six heures sans que personne
+le voie.
+
+* `.autoport/.auto_build_apk.pid` et `.autoport/.auto_push_builds.pid` : `kill -0`, jamais un motif.
+  Le constructeur est mort quatre heures le 11/09 sans que je le remarque.
+* L'etat « preuve impossible » ecrit par `lib/proof_impossible.sh` a cote du `proof.txt` de l'item
+  en cours. Ni la porte de fermeture ni `autoport status` ne le lisent encore — item
+  `harness-proof-impossible-must-be-read`. D'ici la, c'est moi le seul lecteur.
+* L'arbre : `git status --porcelain` limite aux prefixes moteur. Un fichier sale qui n'appartient
+  pas a l'item en cours veut dire qu'un essai precedent a laisse son travail derriere lui, et que
+  tout ce qui se bati depuis mesure un binaire qu'aucun commit ne decrit.
+* Le commit du dernier APK bati (`.autoport/.last_apk_build_commit`) contre HEAD : c'est ce qui dit
+  si le build en ligne correspond a ce que l'owner croit tester.
