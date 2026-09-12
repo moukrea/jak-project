@@ -7995,7 +7995,7 @@ items:
   prompt: prompts/item-harness-close-gate-code-free.md
   notes: 'issu des signalements de harness-proof-props-pin, 12/09 : un essai brule par item de harnais.'
 - id: harness-aborted-attempt-not-counted
-  status: in-progress
+  status: validated
   priority: 18
   game: jak1
   device: false
