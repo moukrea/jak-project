@@ -384,6 +384,29 @@ extra "deploy_lock_age_s=$LOCK_AGE"
   echo "proof_wait_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$D/proof$SUF-wait.txt"
 
+# L'ECRIVAIN ET LE LECTEUR, VERIFIES L'UN CONTRE L'AUTRE, A CHAQUE COURSE (NOMMAGE/un-seul-endroit).
+# Le fichier qu'on vient d'ecrire doit porter EXACTEMENT le nom que `lib/impossible.py` derive
+# pour CE bras : ce module est le seul que les recensements interrogent. Le 12/09, le bras
+# d'ablation ecrivait son attente pendant qu'un lecteur cherchait un nom code EN DUR, celui du
+# bras livre : l'attente de l'ablation n'etait lue par personne, sous une porte verte. On ne le
+# detecte pas apres coup — une divergence de nom ne survit plus a une course.
+WAITNAME=$(python3 "$AP/lib/impossible.py" name wait "$SUF" 2>/dev/null)
+[ -s "$D/${WAITNAME:-nom-non-derive}" ] || die3 nommage-divergent \
+  "l'attente de ce bras n'est pas lisible sous le nom que lib/impossible.py derive ('${WAITNAME:--}') : un lecteur du bras '${SUF:-livre}' lirait un fichier que personne n'ecrit"
+log "attente de ce bras publiee sous '$WAITNAME', nom derive par lib/impossible.py"
+
+# HYGIENE DES ETATS « PREUVE IMPOSSIBLE » (PURGE/etat-perime). Un etat qui ne decrit plus le
+# present s'en va ICI, au point de production : celui de cet item et de CE bras, qu'on est en
+# train de re-mesurer, et ceux des AUTRES items, que plus personne n'essaie. L'autre bras de cet
+# item n'est jamais touche : une ablation impossible pendant qu'on mesure le bras livre doit
+# rester lisible, sinon un essai brulerait pour une machine indisponible que plus rien ne
+# nommerait. Non bloquant : l'hygiene ne doit jamais empecher une mesure.
+if PURGED=$(python3 "$AP/lib/impossible.py" purge --reports "$AP/reports" --item "$ID" --arm "$SUF" 2>&1); then
+  log "hygiene des etats impossibles : $(printf '%s' "$PURGED" | tail -1)"
+else
+  log "hygiene des etats impossibles : echec (non bloquant) — $(printf '%s' "$PURGED" | tail -1)"
+fi
+
 # La preuve doit venir de la course qu'on lance MAINTENANT. On retire l'ancienne d'abord :
 # si la course echoue, il ne reste rien qui puisse passer une porte. L'etat nomme de la course
 # PRECEDENTE part avec elle : une cle de texte qu'on ne vide jamais finit par accuser une

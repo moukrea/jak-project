@@ -975,6 +975,51 @@ def requalify_impossible_attempt(state: dict, item_id: str,
     return ("requalifie", dit)
 
 
+# JOURNAL/preuve-impossible — LE JOURNAL DE VALIDATION NE COMMENCE PLUS PAR UN DIAGNOSTIC QUE
+# LA PORTE VA CONTREDIRE. `validators/generic.sh` écrit « proof.txt absent ou vide » en
+# PREMIER quand la preuve était impossible : c'est la seule chose qu'il puisse voir, et
+# DIRECTIVES 5 interdit d'y toucher. Le verdict qui requalifie — « aucune preuve n'était
+# possible » — était apposé PLUS BAS dans le même fichier. Qui lit de haut en bas lisait donc
+# d'abord le mauvais diagnostic, et repartait chercher un défaut de worker là où il n'y avait
+# qu'une machine indisponible.
+#
+# Ici l'orchestrateur RÉÉCRIT le journal de cet essai : la cause nommée d'abord, le texte du
+# validateur ensuite, tel quel et sans en retirer un octet. Le journal d'un essai ORDINAIRE
+# n'est jamais touché.
+ENTETE_IMPOSSIBLE = "PREUVE IMPOSSIBLE"
+CONTREDIT = "proof.txt absent ou vide"
+
+
+def journal_contredit(texte: str) -> bool:
+    """La première ligne accuse-t-elle une absence que le reste du journal requalifie."""
+    premiere = next((l for l in (texte or "").splitlines() if l.strip()), "")
+    return CONTREDIT in premiere and ENTETE_IMPOSSIBLE not in premiere
+
+
+def ecrire_journal_impossible(validator_log: Path, st: dict, gate_reason: str,
+                              dit: str) -> int:
+    """Réécrit le journal de l'essai : la cause d'abord. Rend 1 si la première ligne du
+    validateur contredisait le verdict — c'est ce compte-là qu'on publie."""
+    try:
+        corps = validator_log.read_text(errors="replace")
+    except OSError:
+        corps = ""
+    contredisait = 1 if journal_contredit(corps) else 0
+    entete = (f"{ENTETE_IMPOSSIBLE} : aucune mesure n'était possible pour cet essai — "
+              f"{impossible_state.cause(st or {})}. Bras {(st or {}).get('arm', '?')}, "
+              f"impossible depuis "
+              f"{impossible_state.human((st or {}).get('since_s', -1))}. Ce que le validateur "
+              f"écrit plus bas décrit l'ABSENCE de preuve, pas un défaut du travail : l'essai "
+              f"n'est pas compté.")
+    try:
+        validator_log.write_text(entete + "\n\n" + corps.rstrip("\n")
+                                 + "\n\n" + gate_reason + "\n\n" + dit + "\n",
+                                 encoding="utf-8")
+    except OSError:
+        pass
+    return contredisait
+
+
 def _impossible_reset(state: dict, item_id: str) -> None:
     """Un essai JUGÉ remet la série à zéro — le compte `total` et `read`, jamais."""
     rec = _impossible_record(state, item_id)
@@ -2057,6 +2102,26 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     validator_log = log_dir / f"validator-{seq:03d}.txt"
     started_at = time.time()
 
+    # PURGE/changement-d-item — L'ÉTAT « PREUVE IMPOSSIBLE » QUI NE DÉCRIT PLUS LE PRÉSENT PART
+    # ICI, au moment où la file change d'item. Rien ne le purgeait (signalement du 12/09) :
+    # `proof_run.sh` n'efface que le sien, à sa propre relance, sur le MÊME item et le MÊME
+    # bras. Un item abandonné en cours de route gardait donc son état pour toujours, et
+    # `autoport status` annonçait à l'owner une impossibilité périmée dont l'âge grandissait
+    # tout seul. Les états de CET essai, eux, ne sont pas encore écrits : on ne purge que le
+    # passé — et l'autre bras de cet item n'est jamais touché.
+    try:
+        _hyg = impossible_state.purge(str(AUTOPORT_DIR / "reports"),
+                                      current_item=iid, since=started_at)
+        for _rec in _hyg["purged"]:
+            log(f"· état « preuve impossible » purgé : {_rec['item']}/{_rec['file']} "
+                f"({_rec['reason']}, {impossible_state.human(_rec['age_s'])}, "
+                f"cause {_rec['cause']})", "dim")
+        if _hyg["purged"] or _hyg["standing"]:
+            log(f"· hygiène des états impossibles : {len(_hyg['purged'])} purgé(s), "
+                f"{len(_hyg['standing'])} encore debout", "dim")
+    except Exception as _e:                      # noqa: BLE001
+        log(f"· purge des états « preuve impossible » impossible : {_e}", "yellow")
+
     prompt_path = AUTOPORT_DIR / item.get("prompt", "")
     if not item.get("prompt") or not prompt_path.exists():
         return Outcome("blocked", f"prompt absent : {prompt_path}")
@@ -2419,8 +2484,10 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         _imp = impossible_state.read(str(AUTOPORT_DIR / "reports"), iid, since=started_at)
         verdict, dit = requalify_impossible_attempt(state, iid, _imp or {})
         save_state(state)
-        with validator_log.open("a") as f:
-            f.write("\n\n" + gate_reason + "\n\n" + dit + "\n")
+        _contredit = ecrire_journal_impossible(validator_log, _imp or {}, gate_reason, dit)
+        if _contredit:
+            log("· journal de validation réécrit : sa première ligne accusait une absence de "
+                "preuve que la porte requalifie en preuve IMPOSSIBLE", "dim")
         if verdict == "requalifie":
             log(dit, "yellow")
             _checkpoint(f"essai {seq} classé à part — PREUVE IMPOSSIBLE (non compté)")

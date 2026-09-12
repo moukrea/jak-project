@@ -17,7 +17,7 @@
 #     chemin impossible est fabrique par un `chmod 000` reel — `git add` ET `git commit`
 #     sortent en 128 et le chemin reste sale —, jamais par un drapeau. Chaque cause est jouee
 #     par DEUX codes : celui du disque et celui d'AVANT ce chantier, ancre par MARQUEUR.
-#   - LA COURSE EN TRAIN DE SE FAIRE : `reports/<id>/proof-wait.txt`, ecrit par `proof_run.sh`
+#   - LA COURSE EN TRAIN DE SE FAIRE : l'attente de CE bras, nommee par `lib/impossible.py`, ecrit par `proof_run.sh`
 #     juste avant d'amorcer. C'est la duree d'attente de CETTE course, pas une relecture de
 #     script.
 #   - CE DEPOT, MAINTENANT : l'arbre sale, le registre de mise de cote, `state.json`.
@@ -84,10 +84,19 @@ print('quarantine_is_harness_state=%d' % int(
 print('prefixes=%s' % ','.join(O.engine_prefixes()))
 print('ceiling=%d' % int(getattr(O, 'MAX_FOREIGN_IN_A_ROW', -1)))
 
-# 5. L'ATTENTE DE CETTE COURSE, ecrite par proof_run.sh avant l'amorcage.
+# 5. L'ATTENTE DE CETTE COURSE, ecrite par proof_run.sh avant l'amorcage. LE NOM VIENT DE
+# `lib/impossible.py`, JAMAIS D'UN LITTERAL : ce lecteur cherchait `proof-wait.txt` code en dur
+# pendant que le bras d'ablation ecrivait `proof-off-wait.txt`. L'attente de l'ablation n'etait
+# donc lue par personne, sous une porte verte (signalement du 12/09).
+import os as _os                                                            # noqa: E402
+sys.path.insert(0, _os.path.join(root, '.autoport', 'lib'))
+import impossible as _I                                                     # noqa: E402
+_suf = _I.arm_suffix(_os.environ.get('AUTOPORT_CENSUS_ARMED', '1'))
 w = {}
 if cdir:
-    f = Path(cdir) / 'proof-wait.txt'
+    f = Path(cdir) / _I.arm_name('wait', _suf)
+    print('wait_name_read=%s' % f.name)
+    print('wait_arm=%s' % (_suf or 'livre'))
     if f.exists():
         for line in f.read_text(errors='replace').splitlines():
             if '=' in line:

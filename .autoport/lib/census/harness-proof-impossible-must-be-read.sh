@@ -19,7 +19,7 @@
 #     d'AVANT ce chantier, ancre par MARQUEUR et jamais par `HEAD:`.
 #   - CE DEPOT, MAINTENANT : `state.json`, les etats debout dans `reports/`, et le texte que
 #     le VRAI `./.autoport/autoport status` rend a la seconde ou le recensement tourne.
-#   - LA COURSE EN TRAIN DE SE FAIRE : `reports/<id>/proof-wait.txt`, ecrit par proof_run.sh.
+#   - LA COURSE EN TRAIN DE SE FAIRE : l'attente de CE bras, nommee par `lib/impossible.py`, ecrit par proof_run.sh.
 #
 # INCONNU = DEFAUT. Chaque temoin manquant, degenere ou muet AJOUTE au compte.
 #
@@ -100,10 +100,16 @@ if '## Preuve impossible' in out:
 print('status_has_section=%d' % int(bool(bloc)))
 print('status_text=%s' % (bloc.replace('\n', ' | ')[:300] or '-'))
 
-# 4. L'ATTENTE DE CETTE COURSE, ecrite par proof_run.sh avant l'amorcage.
+# 4. L'ATTENTE DE CETTE COURSE, ecrite par proof_run.sh avant l'amorcage. LE NOM VIENT DE
+# `lib/impossible.py`, JAMAIS D'UN LITTERAL : ce lecteur cherchait `proof-wait.txt` code en dur
+# pendant que le bras d'ablation ecrivait `proof-off-wait.txt`. L'attente de l'ablation n'etait
+# donc lue par personne, sous une porte verte (signalement du 12/09).
+_suf = I.arm_suffix(os.environ.get('AUTOPORT_CENSUS_ARMED', '1'))
 w = {}
 if cdir:
-    f = Path(cdir) / 'proof-wait.txt'
+    f = Path(cdir) / I.arm_name('wait', _suf)
+    print('wait_name_read=%s' % f.name)
+    print('wait_arm=%s' % (_suf or 'livre'))
     if f.exists():
         for line in f.read_text(errors='replace').splitlines():
             if '=' in line:
