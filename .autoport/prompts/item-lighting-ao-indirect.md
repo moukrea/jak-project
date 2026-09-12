@@ -5,7 +5,7 @@
 # L'occlusion ambiante multiplie l'indirect, plus l'image finale
 
 ## Defaut cite
-- 2026-09-12 : « L'occlusion Ambiante... toujours pareil sur les plantes, et… »
+- 2026-09-12 : « pour l'occlusion ambiante par contre je remarque que en qual… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. ao_composite.frag multiplie l'image opaque FINALE, apres l'encodage gamma, ce qui assombrit aussi le direct — d'ou le masque de luminance, qui est le symptome du mauvais emplacement. SPEC 4.7.
