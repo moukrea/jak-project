@@ -14,6 +14,11 @@ SEPT SIGNALEMENTS DU 12/09 (reports/harness-impossible-single-namer/FINDINGS.txt
 6. `impossible.py purge()`, `orchestrator.py:2127`, `proof_run.sh:414` : le verrou serialise le JOURNAL, pas le `os.remove` de l'etat. Deux purges simultanees peuvent courir sur le meme fichier.
 7. `backlog.py bloc_impossible` : la section « Preuve impossible » du texte rendu a l'owner n'a plus de borne — elle liste tout etat debout du disque, dans la file ou non.
 
+TROIS SIGNALEMENTS DE PLUS, du 12/09, ajoutes ICI plutot que dans un item neuf — c'est le terminus.
+8. LE PERIMETRE RESTE DEVINE POUR PRESQUE TOUT LE DEPOT. Le champ `code_scope` existe et fait foi, mais la mesure du 12/09 rend `vd_live_scope_explicit=0` sur 228 items. Le superviseur l'a depuis pose sur les items de harnais ouverts ; il reste 240 items muets, dont la decision est donc DEVINEE dans leur prose. Peupler le champ la ou le perimetre est sans ambiguite, publier le compte d'items encore muets, et NE PAS deviner pour les ambigus : les nommer.
+9. `lib/backlog.py:258` (`machine_promotion_refused`) rend un triplet `(id, verdict, journal)` : l'orchestrateur qui l'imprime ne peut pas dire si le verdict vient de l'item ou du journal de repli. Une origine non dite se lit comme l'origine attendue.
+10. `census/harness-gate-verdict-must-outlive-its-log.sh:65` : le terme de non-regression REJOUE le recensement du chantier precedent, qui rejoue lui-meme son banc. Une chaine de rejeux finit par mesurer le temps de la machine plutot que le defaut.
+
 ## Livrable — le contrat, en entier
 
 `naming_authority_defects` = 0, somme de termes publies SEPAREMENT.

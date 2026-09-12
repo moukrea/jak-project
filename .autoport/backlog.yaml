@@ -8286,7 +8286,7 @@ items:
   notes: issu des signalements de harness-impossible-state-hygiene, 12/09 ; range en p30 pour laisser
     passer le jeu.
 - id: harness-gate-verdict-must-outlive-its-log
-  status: in-progress
+  status: validated
   priority: 31
   game: jak1
   device: false
@@ -8319,7 +8319,7 @@ items:
   prompt: prompts/item-harness-gate-verdict-must-outlive-its-log.md
   notes: issu des signalements de harness-close-gate-code-free, 12/09 ; range derriere le jeu.
 - id: harness-verdict-sources-are-incomplete
-  status: open
+  status: in-progress
   priority: 32
   game: jak1
   device: false
@@ -8507,6 +8507,11 @@ items:
     5. `impossible_hygiene_selftest.py:458` : `src_detection_intacte` affirme `git diff --quiet HEAD -- lib/proof_impossible.sh`. Un test de PROPRETE D'ARBRE dans un recensement fait rougir tout chantier qui touche ce fichier, pour une raison qui n'est pas la sienne.
     6. `impossible.py purge()`, `orchestrator.py:2127`, `proof_run.sh:414` : le verrou serialise le JOURNAL, pas le `os.remove` de l'etat. Deux purges simultanees peuvent courir sur le meme fichier.
     7. `backlog.py bloc_impossible` : la section « Preuve impossible » du texte rendu a l'owner n'a plus de borne — elle liste tout etat debout du disque, dans la file ou non.
+
+    TROIS SIGNALEMENTS DE PLUS, du 12/09, ajoutes ICI plutot que dans un item neuf — c'est le terminus.
+    8. LE PERIMETRE RESTE DEVINE POUR PRESQUE TOUT LE DEPOT. Le champ `code_scope` existe et fait foi, mais la mesure du 12/09 rend `vd_live_scope_explicit=0` sur 228 items. Le superviseur l'a depuis pose sur les items de harnais ouverts ; il reste 240 items muets, dont la decision est donc DEVINEE dans leur prose. Peupler le champ la ou le perimetre est sans ambiguite, publier le compte d'items encore muets, et NE PAS deviner pour les ambigus : les nommer.
+    9. `lib/backlog.py:258` (`machine_promotion_refused`) rend un triplet `(id, verdict, journal)` : l'orchestrateur qui l'imprime ne peut pas dire si le verdict vient de l'item ou du journal de repli. Une origine non dite se lit comme l'origine attendue.
+    10. `census/harness-gate-verdict-must-outlive-its-log.sh:65` : le terme de non-regression REJOUE le recensement du chantier precedent, qui rejoue lui-meme son banc. Une chaine de rejeux finit par mesurer le temps de la machine plutot que le defaut.
   deliverable: |-
     `naming_authority_defects` = 0, somme de termes publies SEPAREMENT.
     1. UN SEUL nommeur : publier le compte de sites qui fabriquent un nom d'etat sans passer par l'autorite. Zero, et le compte est obtenu par recensement, pas par affirmation.
@@ -8525,3 +8530,4 @@ items:
   prompt: prompts/item-harness-naming-authority-completion.md
   notes: issu des sept signalements de harness-impossible-single-namer, 12/09 ; terminus de la chaine
     de harnais.
+  code_scope: harnais
