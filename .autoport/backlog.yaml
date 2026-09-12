@@ -8319,7 +8319,7 @@ items:
   prompt: prompts/item-harness-gate-verdict-must-outlive-its-log.md
   notes: issu des signalements de harness-close-gate-code-free, 12/09 ; range derriere le jeu.
 - id: harness-verdict-sources-are-incomplete
-  status: in-progress
+  status: validated
   priority: 32
   game: jak1
   device: false
@@ -8451,7 +8451,7 @@ items:
   prompt: prompts/item-mesh-consolidate-without-consumer.md
   notes: issu du signalement de dead-cover-and-legends, 12/09.
 - id: dead-published-keys-round-2
-  status: open
+  status: in-progress
   priority: 33
   game: jak1
   device: false
@@ -8512,6 +8512,11 @@ items:
     8. LE PERIMETRE RESTE DEVINE POUR PRESQUE TOUT LE DEPOT. Le champ `code_scope` existe et fait foi, mais la mesure du 12/09 rend `vd_live_scope_explicit=0` sur 228 items. Le superviseur l'a depuis pose sur les items de harnais ouverts ; il reste 240 items muets, dont la decision est donc DEVINEE dans leur prose. Peupler le champ la ou le perimetre est sans ambiguite, publier le compte d'items encore muets, et NE PAS deviner pour les ambigus : les nommer.
     9. `lib/backlog.py:258` (`machine_promotion_refused`) rend un triplet `(id, verdict, journal)` : l'orchestrateur qui l'imprime ne peut pas dire si le verdict vient de l'item ou du journal de repli. Une origine non dite se lit comme l'origine attendue.
     10. `census/harness-gate-verdict-must-outlive-its-log.sh:65` : le terme de non-regression REJOUE le recensement du chantier precedent, qui rejoue lui-meme son banc. Une chaine de rejeux finit par mesurer le temps de la machine plutot que le defaut.
+
+    TROIS DE PLUS, du 12/09 (reports/harness-verdict-sources-are-incomplete/FINDINGS.txt). Meme terminus.
+    11. `lib/verdict_sources.sh` retire tout `#` precede d'une espace, Y COMPRIS a l'interieur d'une chaine entre guillemets : une citation qui contient un croisillon perd sa fin, et la derivation epingle alors autre chose que ce qu'elle croit lire.
+    12. La population de sceaux vit dans `.autoport/reports/`, dossier GITIGNORE : dans un arbre fraichement clone elle vaut zero, et le terme qui la mesure ne dit rien. Meme classe que le verdict range dans les journaux, deja corrige ce matin.
+    13. `proof_run.sh:459` fait `rm -f "$OUTFILE"` au DEBUT de chaque course : le dossier d'un item ne peut donc JAMAIS fournir une paire de sceaux a son propre recensement. Le terme se mesure toujours sur les autres, jamais sur soi.
   deliverable: |-
     `naming_authority_defects` = 0, somme de termes publies SEPAREMENT.
     1. UN SEUL nommeur : publier le compte de sites qui fabriquent un nom d'etat sans passer par l'autorite. Zero, et le compte est obtenu par recensement, pas par affirmation.

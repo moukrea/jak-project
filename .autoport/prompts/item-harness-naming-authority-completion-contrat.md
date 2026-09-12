@@ -19,6 +19,11 @@ TROIS SIGNALEMENTS DE PLUS, du 12/09, ajoutes ICI plutot que dans un item neuf â
 9. `lib/backlog.py:258` (`machine_promotion_refused`) rend un triplet `(id, verdict, journal)` : l'orchestrateur qui l'imprime ne peut pas dire si le verdict vient de l'item ou du journal de repli. Une origine non dite se lit comme l'origine attendue.
 10. `census/harness-gate-verdict-must-outlive-its-log.sh:65` : le terme de non-regression REJOUE le recensement du chantier precedent, qui rejoue lui-meme son banc. Une chaine de rejeux finit par mesurer le temps de la machine plutot que le defaut.
 
+TROIS DE PLUS, du 12/09 (reports/harness-verdict-sources-are-incomplete/FINDINGS.txt). Meme terminus.
+11. `lib/verdict_sources.sh` retire tout `#` precede d'une espace, Y COMPRIS a l'interieur d'une chaine entre guillemets : une citation qui contient un croisillon perd sa fin, et la derivation epingle alors autre chose que ce qu'elle croit lire.
+12. La population de sceaux vit dans `.autoport/reports/`, dossier GITIGNORE : dans un arbre fraichement clone elle vaut zero, et le terme qui la mesure ne dit rien. Meme classe que le verdict range dans les journaux, deja corrige ce matin.
+13. `proof_run.sh:459` fait `rm -f "$OUTFILE"` au DEBUT de chaque course : le dossier d'un item ne peut donc JAMAIS fournir une paire de sceaux a son propre recensement. Le terme se mesure toujours sur les autres, jamais sur soi.
+
 ## Livrable â€” le contrat, en entier
 
 `naming_authority_defects` = 0, somme de termes publies SEPAREMENT.

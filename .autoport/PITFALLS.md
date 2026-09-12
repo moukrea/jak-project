@@ -941,3 +941,16 @@ dans le journal. Un telephone verrouille se distingue d'un telephone endormi (`a
 TOP_SLEEPING) et d'un app-op MIUI 10020 a `ignore` (surface refusee, `frames=0`) : trois causes,
 trois symptomes differents, une seule qui ressemble a une decision de l'owner. Deverrouiller
 appartient a l'owner : mon perimetre s'arrete a installer, lancer et lire.
+
+GUARD editing-a-shared-verdict-source-reddens-every-in-flight-proof .autoport/acquis editer une garde pendant qu un item tourne
+**Editer une source de verdict PARTAGEE rougit toutes les preuves en vol.** Depuis le 2026-09-12,
+`verdict_sources_sha` couvre `lib/backlog.py`, `lib/proof_run.sh`, `lib/device_teardown.sh`,
+`lib/impossible.py`, `lib/proof_impossible.sh`, `lib/pick_device.sh`, `lib/verdict_sources.sh`,
+`validators/generic.sh`, le recensement de l'item ET les HUIT scripts de `.autoport/acquis/`.
+Toucher l'un d'eux pendant qu'un item mesure fait refuser sa preuve pour « source du VERDICT
+editee APRES la preuve » — un rouge qui ne decrit aucun defaut du travail. Mesure du meme jour :
+les essais 1 a 3 de `android-text-overrides-dropped` ont ete refuses en partie pour cela, parce
+que le SUPERVISEUR commitait des corrections de harnais pendant que l'item tournait.
+Verrou : ne pas editer une source de verdict tant qu'un item est `in-progress`. Le backlog lui-meme
+n'en est pas une (seul le SOUS-ARBRE `gate` de l'item l'est), donc ouvrir un item ou trier des
+signalements reste sans danger. Verifier avant d'ecrire : `bash lib/verdict_sources.sh <id>`.
