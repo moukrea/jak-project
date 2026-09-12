@@ -917,3 +917,14 @@ avec sa date et l'empreinte de ce qui a ete juge. Le journal est une trace de le
 source. Corollaire du meme soir : une autorite qui reconnait un perimetre en cherchant des
 TOURNURES francaises dans une phrase depend de la facon dont le superviseur ecrit ce jour-la ; un
 champ explicite fait foi, la prose n'est qu'un repli, et chaque repli se COMPTE.
+
+GUARD git-show-piped-into-grep-q-dies-on-sigpipe .autoport/lib chercher un marqueur dans une revision
+**`git show <rev>:<fichier> | grep -q <marqueur>` sous `set -o pipefail` echoue PAR INTERMITTENCE.**
+`grep -q` sort des la premiere occurrence trouvee ; `git show`, qui ecrit encore, meurt en SIGPIPE
+(code 141) ; `pipefail` fait alors echouer tout le tube ALORS QUE LE MARQUEUR A ETE TROUVE. Le
+resultat depend de la taille du fichier et de l'ordonnancement : le meme script passe et echoue sur
+la meme entree. Signale le 2026-09-12 comme une classe entiere dans `.autoport/lib/*.sh`.
+Verrou : ne jamais fermer un tube tot sous `pipefail`. Ecrire la revision dans une variable ou un
+fichier temporaire d'abord, ou remplacer `grep -q` par `grep -c` / `grep >/dev/null` avec le code de
+retour lu explicitement. Meme famille que le faux rouge deja consigne sur `grep -q` dans un tube
+lors d'une livraison GOAL vers Android.

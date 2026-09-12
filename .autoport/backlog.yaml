@@ -7945,7 +7945,7 @@ items:
   notes: issu des trois signalements hors perimetre du chantier C, 12/09 ; ils pointaient cet id avant
     qu'il existe.
 - id: harness-verdict-integrity
-  status: in-progress
+  status: validated
   priority: 24
   game: jak1
   device: false
@@ -8140,7 +8140,7 @@ items:
   prompt: prompts/item-harness-test-suite-is-not-a-signal.md
   notes: 'issu des signalements de harness-commit-paths-all-or-nothing, 12/09 : 7 rouges a HEAD.'
 - id: sky-gpu-path-robustness
-  status: open
+  status: in-progress
   priority: 25
   game: jak1
   device: false
@@ -8171,6 +8171,14 @@ items:
   max_turns: 600
   max_retries: 5
   proof_timeout: 300
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_SKY_CPU=0
+  - OG_SKY_GPU=2
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
   prompt: prompts/item-sky-gpu-path-robustness.md
   notes: issu des quatre signalements de hdr-sky-gpu-alpha, 12/09.
 - id: harness-proof-impossible-must-be-read
@@ -8303,3 +8311,39 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-gate-verdict-must-outlive-its-log.md
   notes: issu des signalements de harness-close-gate-code-free, 12/09 ; range derriere le jeu.
+- id: harness-verdict-sources-are-incomplete
+  status: open
+  priority: 32
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Tout ce qui PRONONCE un verdict est epingle, y compris le critere lui-meme
+  gate:
+    key: verdict_sources_defects
+    op: ==
+    value: 0
+  depends_on:
+  - harness-verdict-integrity
+  known_cause: |-
+    SEPT SIGNALEMENTS DU 12/09 (reports/harness-verdict-integrity/FINDINGS.txt). Le chantier precedent epingle les SCRIPTS qui produisent un verdict. Il en reste trois familles dehors, et un piege intermittent.
+    1. LE CRITERE LUI-MEME n'est pas epingle. `gate.key/op/value` et `frames_min` vivent dans `backlog.yaml`, que l'orchestrateur reecrit, et `verdict_sources_sha` ne les couvre pas. Un critere peut donc changer apres la course sans que la fraicheur s'en apercoive. Le critere produit le verdict autant que le script qui le calcule.
+    2. LES HUIT SCRIPTS D'ACQUIS (`.autoport/acquis/*.sh`) prononcent un verdict a CHAQUE fermeture (GATE 3) et ne sont epingles par rien : ni la fraicheur moteur, ni `verdict_sources`.
+    3. LA DERIVATION LIT LES COMMENTAIRES COMME DES CITATIONS : l'en-tete de `lib/ablation_anchor.sh` NOMME ses anciens lecteurs, ce qui les epingle par erreur. Un commentaire ne doit pas creer une dependance.
+    4. Les cles du teardown de FIN sont AJOUTEES a `proof.txt` apres le `mv` atomique, depuis le `trap EXIT` : un lecteur peut ouvrir le fichier entre les deux. Meme classe que la porte qui lit un artefact en cours d'ecriture.
+    5. DEUX BACS A SABLE ne copiaient pas les fichiers que la porte s'est mis a appeler (`pin_props_selftest.sh` pour `impossible.py`, `test_proof.py` pour `verdict_sources.sh`). Un bac a sable incomplet fabrique un rouge qui ne decrit aucun defaut.
+  deliverable: |-
+    `verdict_sources_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Le CRITERE entre dans l'empreinte epinglee : publier l'empreinte du critere jugee et celle relue a la fermeture. Preuve a deux bras — modifier le critere apres la course doit REFUSER dans le bras d'APRES et passer dans celui d'AVANT.
+    2. Les scripts d'acquis entrent dans la meme empreinte. Publier leur nombre et leur empreinte collective : un compte de huit qui tombe a sept est un defaut, pas un detail.
+    3. La derivation ignore les commentaires. Publier le compte de fichiers epingles avant et apres ce changement, et la liste de ceux qui sortent : chacun doit etre justifiable.
+    4. `proof.txt` n'est plus ecrit apres son propre `mv` : tout ce qu'il porte y est avant. Publier le compte d'ecritures posterieures observees, qui doit etre zero, et le CONSTATER sur une course reelle, pas sur une intention.
+    5. Un bac a sable declare ce qu'il copie a partir de la MEME liste que la porte reelle. Publier l'ecart entre les deux listes : zero, ou le defaut est compte.
+  where: Invisible. C'est ce qui a le droit de changer entre une preuve et son verdict.
+  out_of_scope: 'Ne touche a aucun code du jeu. Ne change aucun critere existant au passage. Priorite
+    32 volontaire : la refonte de l''eclairage passe AVANT.'
+  max_turns: 500
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-verdict-sources-are-incomplete.md
+  notes: issu des sept signalements de harness-verdict-integrity, 12/09 ; range derriere le jeu.
