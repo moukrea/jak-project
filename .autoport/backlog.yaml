@@ -43,6 +43,8 @@ items:
   - date: '2026-09-06'
     text: Validé
   device_serial: AREE026206000788
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:4
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
   status: validated
@@ -137,6 +139,8 @@ items:
     a corriger dans le code : rebrancher le Redmi et rouvrir. Les DEUX causes sont deja nommees : le niveau
     du maire vieillissait pendant qu''il etait a l''ecran, et le chargeur jetait ce que le jeu demande
     en gardant ce dont il n''a pas besoin.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:18
 - id: cutscene-skip
   feature: Passer une cinematique en maintenant Cercle, avec la cartouche « Skip »
   status: validated
@@ -353,6 +357,8 @@ items:
     trois fois de suite avec la meme empreinte, d''ou le blocage. Rien a corriger dans le code : rebrancher
     le Redmi et rouvrir. Acquis de la serie : le recensement affirmait « ces canaux ne bougent pas » sans
     jamais le verifier.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:20
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: blocked
@@ -411,6 +417,8 @@ items:
       du lighting, commençant par reprendre le HDR/blancs brûlés !
   block_reason: 'Même empreinte d''échec ''c6fa8779424b'' 3 essais de suite : le worker n''apprend plus
     du validateur. On arrête cet item au lieu de brûler du quota dessus.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:26
 - id: grass-overhang
   feature: L'herbe qui retombe par-dessus le bord des plateformes
   status: archived
@@ -553,6 +561,8 @@ items:
     reste sous un plafond declare et proche de zero pour les troncs epais ; seuls feuillage, petites branches
     et lianes bougent. Une plateforme posee sur un tronc suit le tronc, donc n''oscille pas. Les lianes
     qui grimpent ne traversent pas le tronc.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:24
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: validated
@@ -1642,6 +1652,8 @@ items:
     moins 10 minutes de jeu en mouvement sur le Redmi.'
   out_of_scope: Ne touche pas a la chaine de peau stock, ni aux modeles HD eux-memes. Le residu du squelette
     pilote se traite ici, pas dans hd-models.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: cine-cut
   feature: Les coupes de camera des cinematiques qui glissent au lieu de couper
   status: archived
@@ -3023,6 +3035,8 @@ items:
     Legacy » ni de « OpenGOAL » dans un titre, un libelle ou un nom affiche. Publier aussi le compte de
     langues inspectees : un recensement qui n''en couvre qu''une ne prouve rien.'
   out_of_scope: Ne pas renommer le paquet Android ni casser les sauvegardes existantes.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:43
 - id: recharged-mesh-consolidation
   feature: Les coutures visibles sur les meshes du jeu
   status: validated
@@ -3200,6 +3214,8 @@ items:
   device: true
   where: bascule les textures Recharged en pleine partie, sans redemarrer
   known_cause: Aucun cycle n'a tourne sur cet item.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:11
 - id: touch-longjump-regression
   feature: Le long jump au tactile qui ne part plus
   status: validated
@@ -3510,6 +3526,8 @@ items:
     le reste du casting. | 2026-09-07 : retire de la demande de test courante ; le statut to-test contredisait
     le report en bas de pile demande le 5 septembre. A reclasser lors de la reprise de la physique, avec
     un perimetre et un test concret avant toute nouvelle demande a l''owner.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:2
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
   status: validated
@@ -3780,6 +3798,8 @@ items:
     et supprime le glissement de phase et le rebase de sortie (69953 us de temps de jeu fabrique -> 0).
     Mesure sur LE MEME binaire (sha=b8ee88a7d5d85599) et la meme course, OG_TICK_ALPHA_UNIFIED 0 -> 1
     : tick_pose_err_pct_x100 9390 -> 0, tick_worst_dev_pct_x100 9390 -> 35.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:5
 - id: grass-crash
   feature: L'herbe fait planter le jeu
   status: validated
@@ -4030,6 +4050,8 @@ items:
     text: Traduire celles qui restent en anglais dans toutes les langues supportées par le jeu !
   - date: '2026-09-06'
     text: Validé
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:33
 - id: audits-abandonnes
   feature: Audits de juin abandonnes (pixel-match du menu, images anglaises de reference)
   status: archived
@@ -4191,6 +4213,8 @@ items:
     - 3
     fixed_master: 1
     preserve_archives: true
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:46
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
   status: validated
@@ -4244,6 +4268,8 @@ items:
   proof_timeout: 900
   owner_test: false
   supervisor_recovery: true
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: refset-replay-stable
   feature: La garde de reference d'image doit rendre le meme chiffre deux fois de suite
   status: validated
@@ -4288,6 +4314,8 @@ items:
     (« La garde est intermittente : rejoue deux fois avant de conclure »). Le rapport de lighting-unify
     demandait explicitement d''ouvrir cet item ; il n''existait pas.'
   owner_feedback: []
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:3
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: validated
@@ -4627,6 +4655,8 @@ items:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py
   - .autoport/tests/harness/test_hdr_batches.py
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:74
 - id: lighting-origin-bitexact
   feature: Maitre eteint, l'image doit etre identique au bit au jeu d'origine
   status: validated
@@ -4672,6 +4702,8 @@ items:
     le defaut VISIBLE par l''owner de sortir. Deux natures differentes, deux items.'
   owner_feedback: []
   supervisor_recovery: true
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:15
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
   status: blocked
@@ -4856,6 +4888,8 @@ items:
   proof_env: []
   device_serial: eae4df44
   delivered: null
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: to-test
@@ -4936,6 +4970,8 @@ items:
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
   delivered: '2026-09-12'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:48
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -5392,6 +5428,8 @@ items:
   hits_means: prototypes et looks d'eau classes
   supervisor_recovery: true
   owner_test: false
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
   status: open
@@ -5462,6 +5500,8 @@ items:
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
   delivered: null
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:4
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
@@ -5944,6 +5984,8 @@ items:
   - debug.opengoal.want.display=beach,display
   block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport'
   prompt: prompts/item-perf-instruments.md
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:17
 - id: perf-stock-baseline
   feature: La ligne de base du jeu STOCK sur le Redmi, et la courbe cadence selon l'echelle
   status: validated
@@ -5996,6 +6038,8 @@ items:
   block_reason: null
   prompt: prompts/item-perf-stock-baseline.md
   device_serial: eae4df44
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:11
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
   status: validated
@@ -6049,6 +6093,8 @@ items:
   owner_feedback:
   - date: '2026-09-11'
     text: Validé
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:22
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
   status: validated
@@ -6104,6 +6150,8 @@ items:
   owner_feedback:
   - date: '2026-09-11'
     text: Le fil de rendu qui n'attend plus le GPU au milieu de chaque image -> Validé
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:2
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
   status: open
@@ -6318,6 +6366,8 @@ items:
   prompt: prompts/item-perf-ocean-idle.md
   delivered: '2026-09-10'
   owner_test: false
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:5
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
   status: open
@@ -6766,6 +6816,8 @@ items:
     date: '2026-09-11'
     text: Validé
     build_sha: 3c724a60cc77fbc9
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:9
 - id: res-menu-truth
   feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
   status: open
@@ -6819,6 +6871,8 @@ items:
       en accord, etc etc.. Faut vraiment que tu testes tout la dessus, c'est pas bon en l'etat
   prompt: prompts/item-res-menu-truth.md
   delivered: null
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:5
 - id: gl-uniforms-off-cost
   priority: 20
   device: false
@@ -6862,6 +6916,8 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:1
 - id: dead-follow-probe
   priority: 20
   device: false
@@ -6899,6 +6955,8 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: hd-stretch-flag-in-game-logic
   priority: 20
   device: true
@@ -6937,6 +6995,8 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: gl-uniforms-dead-seven
   feature: Sept parametres d'eclairage partent a chaque image et aucun shader ne les lit
   priority: 20
@@ -6984,6 +7044,8 @@ items:
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
   block_reason: ''
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:4
 - id: lighting-off-math-still-runs
   feature: Eclairage eteint, le processeur calcule encore l'eclairage entier a chaque image
   priority: 20
@@ -7033,6 +7095,8 @@ items:
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
   block_reason: ''
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:1
 - id: android-text-overrides-dropped
   priority: 21
   device: true
@@ -7079,6 +7143,8 @@ items:
     : l''essai 3 avait verifie sa porte de production dans les DEUX sens (8 bancs / 8 sources ; rc=1 sur
     le banc gele du 31/08). Il reste 2 essais sur 6. A ROUVRIR d''un seul geste des que l''owner deverrouille
     le telephone.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:6
 - id: fire-red-particles
   priority: null
   device: true
@@ -8387,7 +8453,7 @@ items:
   notes: 'issu du signalement de census-false-reds, 12/09 : le temoin d''armement est vacue pour tout
     le monde.'
 - id: census-audit-blind-spots
-  status: in-progress
+  status: validated
   priority: 34
   game: jak1
   device: false
@@ -8485,7 +8551,7 @@ items:
   prompt: prompts/item-dead-published-keys-round-2.md
   notes: issu des signalements de dead-cover-and-legends, 12/09 ; range derriere l'eclairage.
 - id: harness-naming-authority-completion
-  status: open
+  status: in-progress
   priority: 35
   game: jak1
   device: false
@@ -8555,6 +8621,8 @@ items:
     1. `lib/hdr_batches.py:709` : `options.get('particle_step_const') != 'once-per-logic-frame'` est une ASSERTION VIDE. La valeur qu'elle verifie est une chaine litterale posee par le code lui-meme : la condition ne peut donc jamais etre vraie, et le protocole qu'elle est censee garantir n'est verifie par personne.
     2. `shaders/pbr_fused.glsl:165-171` : `float tess_w = 0.0;` est un LITTERAL depuis le retrait de l'etage de tessellation. Tout ce qui en decoule — `tess_displaced` et sa branche — est du code mort dans un shader fige dans les chunks cote Android. Le prochain qui lira ces lignes croira toucher un deplacement qui n'existe plus.
     Meme classe que les cinq clés que le chantier precedent vient de retirer : une valeur decidee a l'ecriture rend creux tout ce qui la consomme.
+    3. HUIT LEGENDES citent un nom SCREAMING_SNAKE qui n'a plus AUCUNE occurrence de code dans l'arbre ni dans les en-tetes des API reliees : GMERC_TFRAG_TEX_LEVEL0 et LEVEL1, ENTER_10, TESS_DISP_K, POM_MAX_WORLD_M (trois fois), UNKNOWN_PROCESS. Mesure du 12/09 : 844 jetons juges, 8 perimes, 827 exclus comme vocabulaire etranger.
+    4. `lib/census/census-false-reds.sh:116-138` lit encore UNE ligne par site d'appel et ne connait pas les directives de preprocesseur : il ne verrait ni un appel etale sur deux lignes, ni deux appels sur une meme ligne, ni un site qu'un `#ifdef` exclut du build. Sur la population du jour les deux detecteurs coincident — 55 sites, 0 multi-lignes, 1 site ecarte par la construction — donc c'est une faiblesse LATENTE, a corriger avant qu'elle morde.
   deliverable: |-
     `dead_literals_r3_defects` = 0, somme de DEUX termes publies SEPAREMENT.
     1. L'assertion cesse d'etre vide : soit elle verifie une valeur qui peut varier, soit elle disparait avec ce qu'elle pretendait garantir. Publier, sur le commit d'AVANT, la preuve qu'elle ne pouvait pas echouer — une valeur fabriquee qui aurait du la declencher et ne la declenche pas — et sur celui d'APRES, qu'elle se declenche.
@@ -8569,3 +8637,70 @@ items:
   prompt: prompts/item-dead-literals-round-3.md
   notes: issu des deux signalements de dead-published-keys-round-2, 12/09 ; les deux ids que le worker
     avait nommes sont fondus en un.
+- id: build-tree-reinvalidates-itself
+  status: open
+  priority: 18
+  game: jak1
+  device: false
+  owner_test: false
+  code_scope: jeu
+  feature: Une construction sans edition cesse de tout recompiler, et de laisser un binaire perime derriere
+    elle
+  gate:
+    key: build_reinvalidation_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: |-
+    MESURE DU 12/09 (reports/census-audit-blind-spots/FINDINGS.txt), horodatee.
+    Une construction incrementale SANS AUCUNE edition de source recompile les 338 cibles de `runtime` a chaque invocation de `cmake --build build --target gk`. Pire : les DEUX premieres invocations ont laisse `build/game/gk` NON RELIE — `libruntime.a` a 14:43:15 pour un `gk` reste a 14:36:03 — et il a fallu une TROISIEME passe de 445 s pour que le lien se fasse.
+    LE CODE DE RETOUR ETAIT 0 AUX TROIS PASSES. Un worker qui fait confiance a ce zero mesure donc un binaire d'AVANT son propre changement, et seul un `ls -la` compare le revele. C'est la classe de defaut la plus chere du projet : une preuve qui decrit un autre binaire que celui qu'on croit.
+    COUT : environ sept minutes par cycle de preuve, sur chaque item qui bati. Multiplie par le nombre d'essais d'une journee, c'est le poste de gaspillage le plus gros que la journee ait mesure.
+  deliverable: |-
+    `build_reinvalidation_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA CAUSE EST NOMMEE, pas contournee : publier ce qui invalide les 338 cibles — horodatage regenere, fichier genere a chaque configuration, dependance sur un repertoire. Un correctif qui reduit le temps sans nommer la cause ne compte pas.
+    2. Une construction sans edition de source recompile ZERO cible : publier le compte de cibles recompilees, AVANT et APRES, sur deux invocations consecutives.
+    3. LE LIEN NE PEUT PLUS ETRE SAUTE EN SILENCE : publier, apres chaque construction, l'horodatage du binaire et celui de la bibliotheque la plus recente dont il depend. Un binaire plus vieux que sa dependance est un DEFAUT, pas un avertissement, et il ne peut plus sortir avec un code de retour nul.
+    4. Le gain est chiffre en secondes, mesure sur trois invocations consecutives, AVANT et APRES.
+  where: Invisible dans le jeu. Le gain se voit sur la duree de chaque essai.
+  out_of_scope: Ne change aucun code du moteur. Ne touche pas au build Android, seulement au build de
+    bureau.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 600
+  prompt: prompts/item-build-tree-reinvalidates-itself.md
+  notes: 'issu du signalement de census-audit-blind-spots, 12/09 : ~7 min par cycle et un binaire perime
+    avec un code de retour nul.'
+- id: water-ocean-mesh-hit-counter-cost
+  status: open
+  priority: 30
+  game: jak1
+  device: true
+  owner_test: false
+  code_scope: jeu
+  feature: Quatorze millions d'incrementations par seconde depuis un seul instrument de recensement
+  gate:
+    key: hit_counter_cost_defects
+    op: ==
+    value: 0
+  depends_on:
+  - proof-feature-hits-is-vacuous
+  known_cause: |-
+    MESURE DU 12/09 (reports/census-audit-blind-spots/proof.txt, table `proof_feature_hits_table`), rendue lisible par le comptage par feature livre le matin meme.
+    `water-ocean-mesh` porte 4 536 325 248 prises sur les 4 546 910 549 du compteur global, soit 99,8 %, en 318 secondes de course. C'est environ QUATORZE MILLIONS d'incrementations atomiques par seconde depuis un seul site, celui d'un item encore ouvert.
+    Pour comparaison, `lighting-census` en porte 6,9 millions et `lighting-unify` 3,6 millions : trois ordres de grandeur en dessous. L'ecart suggere un compteur place PAR SOMMET ou par iteration de boucle interne plutot que par evenement.
+    Le cout processeur de cet instrument n'est mesure par personne, et il tourne en regime de production sur un appareil qui plafonne a ~44 img/s.
+  deliverable: |-
+    `hit_counter_cost_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'ABORD : publier le temps processeur par image imputable a cet instrument, mesure sur l'appareil, instrument arme puis desarme, meme lieu et meme binaire. Un gain non chiffre n'est pas un gain.
+    2. Le site est NOMME et sa granularite dite : par sommet, par iteration, par evenement. Publier le compte de prises et le compte d'EVENEMENTS reels que l'instrument voulait compter. L'ecart entre les deux est le defaut.
+    3. Apres correction, le compte de prises est du meme ordre que le compte d'evenements : publier les deux. Un instrument qui compte trois ordres de grandeur au-dessus de ce qu'il observe ne mesure plus, il chauffe.
+    4. Ce que l'instrument prouvait continue d'etre prouve : reprendre les cles de `water-ocean-mesh` et montrer qu'elles gardent leur sens.
+  where: Invisible a l'oeil. Le gain se voit sur la cadence dans les niveaux qui portent de l'eau.
+  out_of_scope: Ne change pas le rendu de l'eau. Ne retire pas l'instrument, on corrige sa granularite.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 420
+  prompt: prompts/item-water-ocean-mesh-hit-counter-cost.md
+  notes: issu du signalement de census-audit-blind-spots, 12/09 ; visible seulement depuis que les prises
+    sont comptees par feature.
