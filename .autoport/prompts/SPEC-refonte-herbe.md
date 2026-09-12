@@ -361,37 +361,120 @@ repli est immediat : retirer un niveau de la liste le ramene a son rendu d'origi
 
 ---
 
-## 16. CE QUI N'EST PAS DANS CETTE CAMPAGNE
+## 16. LE BORD SUR LE VIDE ET LA RETOMBEE PROGRESSIVE
 
-L'OVERHANG. L'owner a precise le 2026-09-12 : « sur le hang, j'ai parke parce que c'etait pas bon,
-donc attention ». Le parcage du 2026-07-15 est un VERDICT DE QUALITE, pas un report de file.
+CORRECTION DU 2026-09-12. Le superviseur avait ecrit ici que l'overhang etait HORS campagne, en
+lisant le parcage du 2026-07-15 comme un verdict definitif. C'etait une FAUTE DE LECTURE : la
+section 9 du prompt de mission de l'owner exige la feature, en toutes lettres. Owner, le meme jour :
+« on recycle pas la daube qu'on avait fait par le passe, mais j'ai clairement dit dans mon giga
+prompt que je voulais la feature ». Le parcage condamne LA TENTATIVE, pas L'OBJECTIF.
 
-Aucun item de cette campagne ne le rouvre. La correction de l'oracle de bord (section 9) rend un
-douzieme round POSSIBLE, elle ne le declenche pas. Et corriger l'oracle ne repond pas a la question
-de la PRIMITIVE : quatre ont ete rejetees de pres — plaques de couleur unie, ficelles, mousse,
-cartes texturees — et la lecon ecrite au parcage est qu'un quad de couleur unie ne se lit jamais
-comme de l'herbe a cette resolution. Le repli honnete, si la primitive echoue encore, est de garder
-la bande peinte d'origine et de la rendre en deux ou trois couches de parallaxe animees.
+EXIGENCE, mot pour mot depuis le prompt de mission : « L'herbe doit atteindre proprement les bords
+des plateformes et creer une retombee progressive vers le vide. »
 
-DECISION DU SUPERVISEUR, 2026-09-12, sur delegation de l'owner (« ce qui attend ma decision sur
-l'herbe, tranche pour moi »).
+COMPORTEMENT ATTENDU, les onze points de l'owner :
 
-**L'overhang ne fait pas partie de cette campagne, et il n'y entrera pas de lui-meme.** Raisons,
-dans l'ordre de poids :
+* loin du bord, l'herbe reste orientee normalement ;
+* en se rapprochant d'un veritable bord donnant sur le vide, elle se penche progressivement ;
+* plus la racine est proche du bord, plus l'inclinaison vers le vide devient marquee ;
+* les brins les plus proches peuvent tendre vers le bas ;
+* la direction de la retombee doit etre coherente avec le veritable vide et la gravite ;
+* les racines doivent toujours rester attachees a une surface support valide ;
+* aucun brin ne doit etre genere arbitrairement au-dela de la surface ;
+* aucun brin ne doit flotter ;
+* aucune racine ne doit migrer dans le vide ;
+* le resultat doit reprendre et remplacer visuellement le role de l'ancienne texture d'overhang
+  lorsqu'elle existe ;
+* les variations de familles, de tailles, de touffes et de vent doivent rester compatibles avec la
+  retombee.
 
-1. Onze rounds, aucun accepte, et un parcage prononce sur la QUALITE.
-2. Quatre primitives rejetees a distance de jugement — plaques de couleur unie, ficelles, mousse,
-   cartes texturees. La lecon ecrite au parcage est qu'un quad de couleur unie ne se lit JAMAIS
-   comme de l'herbe sur ce moteur a cette resolution. Corriger l'oracle de bord repond a la question
-   « ou poser des brins », pas a la question « a quoi doit ressembler un brin la-bas ».
-3. Les quatorze items de la campagne livrent tous quelque chose que l'owner peut voir. Un
-   quinzieme, avec cet historique et cette question ouverte, serait le pari le moins probable du lot.
+CE QUE LA TENTATIVE PRECEDENTE A PRODUIT, et que la methode doit rendre IMPOSSIBLE PAR
+CONSTRUCTION : herbe flottant dans le vide ; brins a l'envers ; brins detaches du sol ; alignements
+sur des lignes inexistantes ; resultats incoherents ; instabilites au changement de distance.
 
-**CE QUI LE FERAIT REVENIR, ET SOUS QUELLE FORME.** Quand `grass-surface-truth`,
-`grass-path-transitions` et `grass-clumps` sont valides par l'owner, la donnee de bord est juste et
-il existe enfin des touffes a faire retomber. Le premier geste ne sera alors PAS des brins : ce sera
-le repli que le journal de parcage nomme lui-meme — garder la bande peinte d'origine et la rendre
-en deux ou trois couches de parallaxe animees. C'est bon marche, ce n'est aucune des quatre
-primitives rejetees, et cela se juge en un regard.
+HUIT CHOSES A NE JAMAIS CONFONDRE, ordre de l'owner : une limite de triangle ; une couture d'UV ;
+une separation de materiau ; une rupture de normale ; la limite d'un chunk ; la limite d'un mesh
+superpose ; une transition vers un chemin ; UN VERITABLE BORD DE SURFACE SUPPORT DONNANT SUR LE
+VIDE. C'est exactement la confusion decrite en section 2, et elle a coute onze rounds.
 
-Un item d'overhang ne sera propose qu'a ce moment-la, et avec un accord explicite de l'owner.
+DIX CAS GEOMETRIQUES A TRAITER : plateformes etroites, coins convexes, coins concaves, ilots,
+pentes proches d'une falaise, surfaces empilees, ponts, surplombs, cavites, bords partiellement
+masques par un autre mesh.
+
+« Toutes les informations statiques necessaires a l'overhang doivent etre baked. » — section 4 de
+cette SPEC porte deja `distance au bord reel et direction sortante` dans la liste A AJOUTER AU BAKE.
+
+DECOUPAGE EN DEUX ITEMS, et c'est structurant. Les onze rounds sont morts parce que personne n'a
+separe « OU est le bord » de « QUOI dessiner la-bas » : le round 4 est un faux vert precisement
+parce que ses metriques de placement passaient pendant que l'owner ne voyait aucun brin.
+
+* `grass-edge-truth` etablit la donnee : le bord reel par SONDE GEOMETRIQUE vers l'exterieur,
+  jamais par absence de voisin texture. Il ne dessine RIEN. Il se juge seul.
+* `grass-edge-falloff` consomme cette donnee et livre la retombee. Il ne peut pas etre vert sur une
+  donnee fausse, puisque la donnee a sa propre porte.
+
+CE QUI EST EXCLU, ET SEULEMENT CELA : les quatre primitives deja refusees de pres — plaques de
+couleur unie, ficelles, mousse, cartes texturees posees comme une jupe. La retombee se fait avec
+LES BRINS DU SYSTEME, courbes, racines attachees. Ce n'est aucune des quatre.
+
+---
+
+## 17. LOD ET ABSENCE DE POP-IN
+
+Section 11 du prompt de mission, absente de la premiere redaction de cette SPEC. Ajoutee le
+2026-09-12 apres relecture.
+
+ONZE GARANTIES EXIGEES : aucune apparition soudaine des touffes ; aucune disparition brutale ;
+aucune redistribution des positions ; aucune rotation arbitraire ; aucun changement soudain de
+couleur ; aucune rupture visible des zones de chemin ; aucune rupture visible des transitions vers
+le sable ; aucune disparition soudaine de l'overhang ; aucune oscillation permanente autour d'un
+seuil de LOD ; stabilite lors des mouvements rapides de camera et du streaming ; coherence entre la
+silhouette proche et la lecture lointaine.
+
+LEVIERS A ETUDIER, liste de l'owner : cross-fade, dithering, morphing, densite deterministe
+imbriquee, clusters hierarchiques, representations lointaines derivees des MEMES touffes,
+hysteresis, plage de transition, melange entre representations, conservation d'un seed commun,
+prechargement des chunks.
+
+ATOUT DEJA EN MAIN : les paliers sont IMBRIQUES PAR CONSTRUCTION (section 4) — un palier bas est le
+prefixe exact du tableau de candidats. « Aucune redistribution des positions » est donc deja vrai
+entre paliers, et c'est la moitie du probleme de pop-in qui est reglee avant de commencer.
+
+LES REPRESENTATIONS LOINTAINES DOIVENT CONSERVER : les grandes masses d'herbe, les chemins, les
+zones sans herbe, les transitions principales, les differences de biome, les grands motifs de
+hauteur, l'overhang lorsque sa silhouette reste perceptible, une impression coherente de mouvement.
+
+---
+
+## 18. IDENTITE PAR BIOME ET PAR ZONE
+
+Section 3 du prompt de mission, absente de la premiere redaction de cette SPEC. Ajoutee le
+2026-09-12 apres relecture.
+
+« Geyser Rock ne doit pas utiliser exactement la meme herbe que la jungle ou les autres zones. »
+
+LE SYSTEME DOIT PERMETTRE : des profils de vegetation par biome, par niveau, et par sous-zone
+lorsque necessaire ; des familles communes reutilisees intelligemment ; des variantes locales ; des
+proportions differentes entre familles ; des variations de densite, de hauteur, de forme, de
+couleur, de vent, de rigidite, de comportement PRES DES BORDS, et de reponse aux interactions.
+
+LA TEXTURE DE SOL EST UN INDICE UTILE MAIS FAIBLE. Elle peut informer la couleur generale, le type
+de terrain, l'humidite apparente, le caractere de la zone, certaines familles probables. Elle NE
+DOIT PAS etre interpretee comme une verite absolue imposant un unique type de brin, et sa basse
+resolution ne doit pas limiter la diversite. Plusieurs variantes de brins et plusieurs types de
+touffes doivent pouvoir coexister sur une meme famille de texture.
+
+Un profil est une DONNEE, pas du code : il se cuit, il se lit, il se remplace sans recompiler.
+
+---
+
+## 19. CE QUI N'EST PAS DANS CETTE CAMPAGNE
+
+* LA MODELISATION DE VEGETAUX COMPLEXES. Contrainte non negociable n. 1 de l'owner : pas de fleurs,
+  pas de fougeres, pas de plantes detaillees, aucun asset de maillage. La diversite vient de brins
+  simples, de leur regroupement, de leur shading, de leurs parametres et de leur distribution.
+* LES QUATRE PRIMITIVES D'OVERHANG DEJA REFUSEES DE PRES : plaques de couleur unie, ficelles,
+  mousse, cartes texturees posees comme une jupe. La feature, elle, est DANS la campagne (section
+  16) ; c'est la maniere de la rendre qui est contrainte.
+* TOUTE ANALYSE STATIQUE AU CHARGEMENT (section 4).
+* LES CINQ ACQUIS DE LA SECTION 0, qu'aucun item ne rouvre.

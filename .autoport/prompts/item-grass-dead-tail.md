@@ -20,4 +20,4 @@ Le proof se produit par `lib/proof_run.sh grass-dead-tail device` — jamais a l
 Ou l'owner regardera : Rien a voir. Le gain se mesure en memoire et en temps de chargement..
 
 ## Hors perimetre
-Ne rouvre PAS l'overhang : l'owner l'a parque sur un verdict de qualite. On conditionne la construction d'une queue que rien ne dessine, on ne touche ni a son code ni a son apparence. Tout ce qui n'est pas cet item.
+Ne rouvre pas l'ANCIENNE tentative d'overhang : on conditionne la construction d'une queue que rien ne dessine, on ne touche ni a son code ni a son apparence. La feature de retombee, elle, EST dans la campagne : `grass-edge-truth` puis `grass-edge-falloff`. Tout ce qui n'est pas cet item.

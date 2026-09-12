@@ -18,7 +18,7 @@ PREUVE : `FEATURE grass-path-transitions armed=1 hits=<brins situes dans une ban
 
 ## Hors perimetre
 
-Ne touche pas au bord donnant sur le VIDE : c'est un autre sujet et il n'est pas dans cette campagne. Ne change ni la densite globale ni les distances d'affichage. Tout ce qui n'est pas cet item.
+Ne touche pas au bord donnant sur le VIDE : c'est le sujet de `grass-edge-truth` et `grass-edge-falloff`, deux items distincts de cette meme campagne. Ne change ni la densite globale ni les distances d'affichage. Tout ce qui n'est pas cet item.
 
 ## Ou l'owner regardera
 

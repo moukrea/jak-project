@@ -23,4 +23,4 @@ Le proof se produit par `lib/proof_run.sh grass-path-transitions device` — jam
 Ou l'owner regardera : Sur le niveau d'entrainement et a Sandover : le bord des chemins et des zones de terre. L'herbe doit couvrir jusqu'a la limite reelle, sans bande pelee laissant voir la texture, et le chemin doit rester degage..
 
 ## Hors perimetre
-Ne touche pas au bord donnant sur le VIDE : c'est un autre sujet et il n'est pas dans cette campagne. Ne change ni la densite globale ni les distances d'affichage. Tout ce qui n'est pas cet item.
+Ne touche pas au bord donnant sur le VIDE : c'est le sujet de `grass-edge-truth` et `grass-edge-falloff`, deux items distincts de cette meme campagne. Ne change ni la densite globale ni les distances d'affichage. Tout ce qui n'est pas cet item.

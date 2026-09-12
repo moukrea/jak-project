@@ -22,4 +22,4 @@ Le proof se produit par `lib/proof_run.sh grass-surface-truth x86` — jamais a 
 Ou l'owner regardera : Rien a voir dans le jeu. C'est une vue de debug : chaque triangle colore par son materiau de collision, et les desaccords en evidence..
 
 ## Hors perimetre
-NE CHANGE AUCUN PLACEMENT. Ne touche ni au bord, ni aux transitions, ni a l'overhang — ce sont les items suivants, et ils dependent de celui-ci. Tout ce qui n'est pas cet item.
+NE CHANGE AUCUN PLACEMENT. Ne touche ni au bord sur le vide (`grass-edge-truth`), ni aux transitions (`grass-path-transitions`), ni a la retombee (`grass-edge-falloff`) — ce sont les items suivants, et ils dependent de celui-ci. Tout ce qui n'est pas cet item.

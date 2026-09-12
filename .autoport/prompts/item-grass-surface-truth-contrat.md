@@ -18,7 +18,7 @@ PREUVE : `FEATURE grass-surface-truth armed=1 hits=<triangles de sol classes par
 
 ## Hors perimetre
 
-NE CHANGE AUCUN PLACEMENT. Ne touche ni au bord, ni aux transitions, ni a l'overhang — ce sont les items suivants, et ils dependent de celui-ci. Tout ce qui n'est pas cet item.
+NE CHANGE AUCUN PLACEMENT. Ne touche ni au bord sur le vide (`grass-edge-truth`), ni aux transitions (`grass-path-transitions`), ni a la retombee (`grass-edge-falloff`) — ce sont les items suivants, et ils dependent de celui-ci. Tout ce qui n'est pas cet item.
 
 ## Ou l'owner regardera
 
