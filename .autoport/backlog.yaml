@@ -4892,7 +4892,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: to-test
+  status: open
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -4917,13 +4917,17 @@ items:
       et y applique quand meme l'occlusion ambiante dessus, donc on a des ombres d'occlusion ambiante
       qui flottent au dessus des brins d'herbe/feuilles/plantes qui composent les shrubs, c'est distrayant,
       ca devrait tenir compte de l'alpha !
+  - date: '2026-09-12'
+    text: L'occlusion Ambiante... toujours pareil sur les plantes, et en faible qualite le flou cache
+      le damier mais n'est pas bon pour autant, c'est un flou vraiment degueulasse qui bouge dans tous
+      les sens c'est pas agreable.
   gate:
     key: ao_direct_leak_px
     op: ==
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 6
+  max_retries: 10
   depends_on:
   - lighting-hdr
   - perf-instruments
@@ -4938,23 +4942,19 @@ items:
     ce prompt ne repete pas. ao_composite.frag multiplie l''image opaque FINALE, apres l''encodage gamma,
     ce qui assombrit aussi le direct — d''ou le masque de luminance, qui est le symptome du mauvais emplacement.
     SPEC 4.7.'
-  deliverable: 'Prepasse profondeur+normale+rugosite. L''AO ecrit une texture ; shade() l''applique au
-    SEUL terme indirect, en lineaire, avant le tone map. SPEC 4.6, 4.7. PREUVE : `FEATURE lighting-ao-indirect
-    armed=1 hits=<px dont l''indirect a recu l''AO>` + `ao_direct_leak_px=` seule sur sa ligne ; `--off`
-    rend `armed=0 hits=0` dans la MEME scene. Acquis 10/09 a tenir : l''ancienne AO n''est pas compilee,
-    les deux chemins sont comptes, la ligne vit dans « Recharged Lighting ». S''AJOUTE (refus 10/09 au
-    soir) : (a) AUCUN MOTIF VISIBLE, A TOUTE QUALITE : pas de damier ni de pixelisation dans le resultat.
-    Publier, par palier de qualite, la force du motif periodique mesuree dans le tampon d''AO ; elle reste
-    sous un plafond declare. Une passe de lissage bon marche est autorisee et son cout est publie. Un
-    palier de qualite plus laid qu''AO ETEINTE est un DEFAUT, pas un compromis. (b) L''ALPHA EST RESPECTE
-    : aucun fragment transparent de geometrie a decoupe (shrubs, feuillages) ne recoit d''AO. Publier
-    le compte de fragments sous le seuil d''alpha ayant recu de l''AO : il vaut 0. Plus d''ombre flottant
-    au-dessus des brins d''herbe.'
+  deliverable: |-
+    Prepasse profondeur+normale+rugosite. L'AO ecrit une texture ; shade() l'applique au SEUL terme indirect, en lineaire, avant le tone map. SPEC 4.6, 4.7. PREUVE : `FEATURE lighting-ao-indirect armed=1 hits=<px dont l'indirect a recu l'AO>` + `ao_direct_leak_px=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene. Acquis 10/09 a tenir : l'ancienne AO n'est pas compilee, les deux chemins sont comptes, la ligne vit dans « Recharged Lighting ». S'AJOUTE (refus 10/09 au soir) : (a) AUCUN MOTIF VISIBLE, A TOUTE QUALITE : pas de damier ni de pixelisation dans le resultat. Publier, par palier de qualite, la force du motif periodique mesuree dans le tampon d'AO ; elle reste sous un plafond declare. Une passe de lissage bon marche est autorisee et son cout est publie. Un palier de qualite plus laid qu'AO ETEINTE est un DEFAUT, pas un compromis. (b) L'ALPHA EST RESPECTE : aucun fragment transparent de geometrie a decoupe (shrubs, feuillages) ne recoit d'AO. Publier le compte de fragments sous le seuil d'alpha ayant recu de l'AO : il vaut 0. Plus d'ombre flottant au-dessus des brins d'herbe. S'AJOUTE (REFUS DE L'OWNER, 2026-09-12, teste sur le HONOR, mot pour mot) : « L'occlusion Ambiante... toujours pareil sur les plantes, et en faible qualite le flou cache le damier mais n'est pas bon pour autant, c'est un flou vraiment degueulasse qui bouge dans tous les sens c'est pas agreable. »
+    (c) LES PLANTES, ENCORE. La porte a rendu `ao_on_alpha_px=0` sur 11 160 041 pixels couverts, avec son temoin desarme a 8 742 : la mesure est falsifiable et elle tient. L'owner voit pourtant LE MEME defaut. La porte ne mesure donc PAS ce qu'il regarde. Trouver ce qu'il voit AVANT de recoder : le fragment juge par l'estimateur n'est peut-etre pas celui qui est DESSINE — autre passe, autre niveau de detail, autre chemin (shrub contre tfrag contre TIE), ou une ombre qui ne vient pas de l'AO du tout. Publier ce qui est mesure AU POINT DE DESSIN du brin d'herbe, pas a l'entree de l'estimateur. Une porte verte que l'oeil de l'owner contredit est une porte qui mesure a cote.
+    (d) LE FLOU BOUGE. En qualite faible, le lissage cache le damier mais devient lui-meme le defaut : « un flou vraiment degueulasse qui bouge dans tous les sens ». C'est de l'INSTABILITE TEMPORELLE, une grandeur que rien ne mesure aujourd'hui : la force du motif periodique est un chiffre PAR IMAGE et ne dit rien de ce qui change d'une image a l'autre. Publier une mesure de variation TEMPORELLE du tampon d'AO, camera immobile, scene immobile : elle doit rester sous un plafond declare, a CHAQUE palier. Et cacher un defaut derriere un flou n'est pas le corriger — si le palier faible ne peut pas etre propre, il vaut mieux qu'il n'applique pas d'AO du tout.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting
     OFF ; tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC
     1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
     Precision par variable dans shade() : SPEC 4.4 amendee.'
-  notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage.'
+  notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage. | budget
+    : porte a 10 essais le 2026-09-12 apres le REFUS de l''owner sur le Honor. L''item repart avec DEUX
+    verdicts neufs — les plantes que sa porte verte ne voit pas, et l''instabilite temporelle du flou
+    — dont le second exige une grandeur qui n''existe pas encore. Quatre essais avaient deja servi a la
+    version d''avant ces verdicts.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
   supervisor_recovery: true
@@ -7244,11 +7244,11 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: blocked
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
-  max_retries: 6
+  max_retries: 12
   proof_timeout: 300
   prompt: prompts/item-lighting-legacy-purge.md
   proof_env:
@@ -7260,7 +7260,10 @@ items:
   - debug.opengoal.lighting=1
   - debug.opengoal.rt.light=1
   notes: 'Owner 10/09 au soir : « vire les dessuite avant qu''ils nous embetent, on en veut pas de toute
-    facons ». Prio 17, avant la sortie HDR.'
+    facons ». Prio 17, avant la sortie HDR. | budget : porte a 12 essais le 2026-09-12 sur la parole de
+    l''owner — « oui, plus d''essais ! ». Ses sept premiers essais ont tourne sans consigne utilisable
+    (prompt au-dessus du plafond, donc aucun fichier ecrit) et le huitieme, le seul complet, a ete TUE
+    a 600 s par le lanceur pendant que son build tournait. Aucun essai n''a ete equitable.'
   owner_feedback:
   - date: '2026-09-10'
     text: Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres, Qualite des ombres,
@@ -7280,7 +7283,7 @@ items:
     text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
       eviter de polluer !
   delivered: null
-  block_reason: max_retries (6) épuisé
+  block_reason: ''
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:12
 - id: mesh-browser-removal
@@ -7851,6 +7854,12 @@ items:
   delivered: '2026-09-12'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:8
+  owner_feedback:
+  - date: '2026-09-12'
+    text: scRGB display HDR c'est ce que ca dit pour le HDR on/off sur HONOR, en effet toggled on on a
+      plus de details/pop dans les hauts blanc/zones brillantes, peut-etre un chouille plus de saturation
+      globale (vraiment un chouilla) et pas plus de detail dans les ombres.... peut etre que c'est vraiment
+      le max de ce qu'on peut esperer en l'etat ? je sais pas
 - id: hdr-glow-range
   status: validated
   priority: 18
@@ -8698,7 +8707,7 @@ items:
   notes: issu des deux signalements de dead-published-keys-round-2, 12/09 ; les deux ids que le worker
     avait nommes sont fondus en un.
 - id: build-tree-reinvalidates-itself
-  status: in-progress
+  status: open
   priority: 18
   game: jak1
   device: false
