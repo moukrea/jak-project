@@ -7012,7 +7012,7 @@ items:
   out_of_scope: Ne pas toucher au rendu allume ni aux poussees (gl-uniforms-off-cost les a deja coupees).
     On vise le CALCUL, pas l'envoi.
   owner_test: false
-  status: in-progress
+  status: validated
   game: jak1
   depends_on:
   - gl-uniforms-off-cost
@@ -7981,7 +7981,7 @@ items:
   prompt: prompts/item-harness-verdict-integrity.md
   notes: issu des sept signalements de harness-proof-props-pin, 12/09.
 - id: harness-close-gate-code-free
-  status: open
+  status: in-progress
   priority: 23
   game: jak1
   device: false
@@ -8204,7 +8204,7 @@ items:
   prompt: prompts/item-harness-proof-impossible-must-be-read.md
   notes: issu du signalement de harness-attempt-not-burned-by-foreign-cause, 12/09.
 - id: harness-impossible-state-hygiene
-  status: open
+  status: validated
   priority: 21
   game: jak1
   device: false
@@ -8235,3 +8235,38 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-impossible-state-hygiene.md
   notes: issu des signalements de harness-proof-impossible-must-be-read, 12/09.
+- id: harness-impossible-single-namer
+  status: open
+  priority: 30
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Un seul endroit nomme les fichiers d'etat, et l'impossibilite se lit partout ou elle existe
+  gate:
+    key: single_namer_defects
+    op: ==
+    value: 0
+  depends_on:
+  - harness-impossible-state-hygiene
+  known_cause: |-
+    QUATRE SIGNALEMENTS DU 12/09 (reports/harness-impossible-state-hygiene/FINDINGS.txt). Le chantier precedent a donne au LECTEUR un nommeur unique. L'ECRIVAIN ne s'en sert pas encore.
+    1. `lib/proof_impossible.sh:44` fabrique toujours son nom tout seul (`"$D/proof$SUF-impossible.txt"`) au lieu de le deriver de `lib/impossible.py`. C'est EXACTEMENT la divergence qui rendait l'attente du bras d'ablation illisible, deplacee d'un cran en amont. Deux endroits qui fabriquent un nom finissent toujours par en fabriquer deux differents.
+    2. `validators/generic.sh:22` ecrit encore « proof.txt absent ou vide » en PREMIER sur sa sortie standard. L'orchestrateur reecrit desormais l'en-tete du JOURNAL, mais qui lit la sortie du validateur lui-meme lit toujours le mauvais diagnostic.
+    3. `logs/impossible-purges.log` est en ajout seul, sans rotation ni borne, avec DEUX ecrivains — l'orchestrateur au changement d'item, `proof_run.sh` au debut de course. Il grandit pour toujours, et deux ecrivains sur un fichier est la faute qui a deja coute une nuit ici.
+    4. `lib/backlog.py:394` ne lit les etats impossibles que des items ACTIONABLE : un etat debout sur un item `validated` ou hors file n'apparait JAMAIS dans le texte de l'owner, meme si le fichier existe. La purge le couvre en partie, pas entierement.
+  deliverable: |-
+    `single_namer_defects` = 0, somme de termes publies SEPAREMENT.
+    1. L'ECRIVAIN et le LECTEUR derivent leur nom du MEME endroit. Publier, par bras, le nom produit par l'ecrivain et celui attendu par le lecteur : l'egalite est le verdict, sur les deux bras, ablation comprise. Un seul bras teste ne prouve rien — c'est le bras d'ablation qui etait aveugle.
+    2. La sortie du validateur ne commence plus par un diagnostic que la porte va contredire. Publier le compte de sorties ou les deux se contredisaient, mesure sur un etat SEME.
+    3. Le journal des purges a UN seul ecrivain et une borne. Publier sa taille et le nombre d'ecrivains observes.
+    4. Un etat debout sur un item hors file apparait quand meme dans le texte rendu. Preuve a deux bras : un etat SEME sur un item `validated` doit figurer dans le bras d'APRES et manquer dans celui d'AVANT. C'est le texte RENDU qui est juge.
+  where: Invisible. C'est la coherence des noms de fichiers d'etat du harnais.
+  out_of_scope: 'Ne touche a aucun code du jeu. Ne change ni la detection de l''impossibilite ni les motifs
+    de purge. Priorite 30 volontaire : la refonte de l''eclairage passe AVANT ce chantier.'
+  max_turns: 500
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-impossible-single-namer.md
+  notes: issu des signalements de harness-impossible-state-hygiene, 12/09 ; range en p30 pour laisser
+    passer le jeu.
