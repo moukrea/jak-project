@@ -382,6 +382,34 @@ norm(){ sed -E 's/\r$//
                 s/^[[:space:]]*[0-9]+\.[0-9]+[[:space:]]+//
                 s/^\[[0-9:]+\] *//' "$1"; }
 
+# LE COMPTE D'IMAGES, UNE SEULE DEFINITION. Il est lu DEUX fois : une fois apres la course,
+# pour que le contexte de zero-image et le recensement de l'item le connaissent, et une fois a
+# la composition, pour publier l'ECART. Deux greps recopies divergeraient a la premiere
+# correction ; celui-ci est le seul.
+compter_images(){   # compter_images <journal-normalise>
+  local n
+  if [ "$MODE" = x86 ]; then
+    n=$(grep -aoE '^(PACE-SWAP-X86|AUTOPORT-FRAMES) n=[0-9]+' "$1" | grep -oE '[0-9]+$' | sort -n | tail -1)
+    n=$(( ${n:-0} + 0 )); [ "$n" -gt 0 ] && n=$((n+1))
+  else
+    n=$(grep -aoE '^(A35-RENDER frame|PACE-SWAP n|AUTOPORT-FRAMES n)=[0-9]+' "$1" | grep -oE '[0-9]+$' | sort -n | tail -1)
+    n=$(( ${n:-0} + 0 ))
+  fi
+  printf '%s' "$n"
+}
+
+# ================================================== CONTEXTE-ZERO-IMAGE : la bibliotheque ====
+# `frames=0` se lit exactement comme « le moteur est mort ». Le 11/09 il a fallu SIX essais
+# pour trouver que le systeme refusait la surface a notre paquet (app-op MIUI 10020 a `ignore`),
+# et CINQ courses ont ete brulees en chemin. Toute course publie desormais, a cote de son
+# compte d'images, l'etat qui l'explique ou l'exclut. La lecture, la table des composants et le
+# detecteur vivent dans `lib/zf_context.sh` — un seul endroit, que le banc de l'item SOURCE.
+# UN CHARGEMENT RATE NE SE TAIT PAS : il publie `zf_context_present=0`, que le detecteur
+# accuse des que la course ne dessine rien.
+ZF_LIB_OK=0
+if [ -f "$AP/lib/zf_context.sh" ] && . "$AP/lib/zf_context.sh"; then ZF_LIB_OK=1
+else log "lib/zf_context.sh introuvable ou illisible : cette course ne publiera AUCUN contexte de zero-image"; fi
+
 # ---------------------------------------------------------- l'item, s'il est deja ecrit ----
 # lib/backlog.py est le chantier D et peut ne pas exister encore : on retombe alors sur une
 # lecture directe du yaml, et a defaut sur les valeurs par defaut. Un runner qui meurt parce
@@ -503,7 +531,7 @@ HDR_REPLAY
   then
     rm -f "$TMP"; die3 hdr-replay "l'agregation HDR du lot $HDR_BATCH a echoue"
   fi
-  mv -f "$TMP" "$OUTFILE"
+mv -f "$TMP" "$OUTFILE"
   seal_et_arme
   log "recomputed $OUTFILE from $HDR_BATCH with original timestamp"
   exit 0
@@ -1126,6 +1154,16 @@ else
   extra "proof_props_observed_match=$PROP_OBS_MATCH"
   extra "proof_prop_obs_feature=$(timeout 15 "$ADB" -s "$SERIAL" shell 'getprop debug.opengoal.feature' 2>/dev/null | tr -d '\r' | sed 's/^$/-/')"
 
+  # LE SYSTEME EST INTERROGE MAINTENANT, PENDANT QUE LE PROCESSUS MESURE VIT ENCORE
+  # (proof-context-on-zero-frames). Une fenetre focalisee relue apres l'arret de l'activite
+  # nomme le lanceur d'applications, pas notre course : le temoin dirait « pas focalisee »
+  # a chaque fois, y compris sur les courses qui ont dessine 8000 images.
+  if [ "$ZF_LIB_OK" = 1 ]; then
+    ZFBRUT="$D/.contexte-brut$SUF.$$.txt"
+    zf_sonder_systeme "$ADB" "$SERIAL" "$PKG" "$ZFBRUT" \
+      || log "sondes de contexte : zf_sonder_systeme a rendu $? — les temoins manquants se liront 'inconnu'"
+  fi
+
 
   if [ -n "$HDR_BATCH" ]; then
     # Stop the producer before closing its log: otherwise captures can land
@@ -1148,6 +1186,30 @@ else
       || die3 hdr-collecte "hdr_batches.py finish a echoue sur $HDR_BATCH"
   fi
 fi
+
+# ============================== CONTEXTE-ZERO-IMAGE : ce que cette course a fait, et pourquoi =
+# LE COMPTE D'IMAGES EST ETABLI ICI, AVANT LE RECENSEMENT, pour deux raisons mesurables.
+# (1) Un item de harnais ne pouvait pas savoir si SA course avait dessine : `frames=` n'etait
+#     calcule qu'apres lui. (2) La sortie du recensement est APPENDUE au journal du moteur :
+#     une ligne de recensement qui ressemble a un compteur d'images entrait dans le total.
+#     L'ecart entre ce compte-ci et celui relu a la composition est publie.
+# LE CONTEXTE SORT A CHAQUE COURSE, PAS SEULEMENT QUAND RIEN N'A ETE DESSINE : un collecteur
+# place sous `if frames -eq 0` confondrait « rien a expliquer » et « jamais appele », et la
+# course courante ne pourrait plus temoigner que l'instrument fonctionne sur un VRAI appareil.
+ZFNORM="$D/.zf$SUF.norm.$$"
+norm "$RAWLOG" > "$ZFNORM" 2>/dev/null
+FRAMES=$(compter_images "$ZFNORM")
+rm -f "$ZFNORM"
+ZFCTX="$D/.contexte-zero$SUF.$$.txt"
+if [ "$ZF_LIB_OK" = 1 ]; then
+  zf_contexte "$MODE" "${ZFBRUT:--}" "$RAWLOG" "$FRAMES" "${PKG:-}" > "$ZFCTX" 2>/dev/null \
+    || log "zf_contexte a rendu $? : le bloc de contexte sera incomplet"
+else
+  { echo "zf_context_present=0"; echo "zf_context_lib=absente"; echo "zf_frames=$FRAMES"; } > "$ZFCTX"
+fi
+while IFS= read -r _zfl; do [ -n "$_zfl" ] && extra "$_zfl"; done < "$ZFCTX"
+rm -f "${ZFBRUT:-/dev/null}"
+log "contexte de course : verdict=$(sed -n 's/^zf_verdict=//p' "$ZFCTX" | tail -1) images=$FRAMES temoins=$(sed -n 's/^zf_witness_known=//p' "$ZFCTX" | tail -1)/$(sed -n 's/^zf_witness_required=//p' "$ZFCTX" | tail -1)"
 
 # ======================================== recensement de harnais (generique) ================
 # Un item dont la grandeur ne vit PAS dans une image — le backlog, les scripts, l'historique —
@@ -1186,6 +1248,7 @@ if [ -f "$CENSUS" ]; then
   COUT="$D/.census$SUF.out.$$"
   log "recensement de harnais : $CENSUS (armed=$ARMED)"
   if AUTOPORT_CENSUS_ID="$ID" AUTOPORT_CENSUS_ARMED="$ARMED" AUTOPORT_CENSUS_DIR="$D" \
+     AUTOPORT_CENSUS_CONTEXT="$ZFCTX" \
      timeout -k 15 "${AUTOPORT_CENSUS_TIMEOUT:-900}" bash "$CENSUS" \
      > "$COUT" 2>"$D/$AP_NAME_census"; then
     CRC=0
@@ -1223,13 +1286,12 @@ T1=$(date +%s)
 NORM="$D/.$AP_NAME_proof.norm.$$"
 norm "$RAWLOG" > "$NORM" 2>/dev/null
 
-if [ "$MODE" = x86 ]; then
-  FRAMES=$(grep -aoE '^(PACE-SWAP-X86|AUTOPORT-FRAMES) n=[0-9]+' "$NORM" | grep -oE '[0-9]+$' | sort -n | tail -1)
-  FRAMES=$(( ${FRAMES:-0} + 0 )); [ "$FRAMES" -gt 0 ] && FRAMES=$((FRAMES+1))
-else
-  FRAMES=$(grep -aoE '^(A35-RENDER frame|PACE-SWAP n|AUTOPORT-FRAMES n)=[0-9]+' "$NORM" | grep -oE '[0-9]+$' | sort -n | tail -1)
-  FRAMES=$(( ${FRAMES:-0} + 0 ))
-fi
+# LE COMPTE PUBLIE EST CELUI D'AVANT LE RECENSEMENT (voir CONTEXTE-ZERO-IMAGE). On le RELIT
+# ici sur le journal complet et on publie l'ECART : non nul, il nomme une ligne apparue APRES
+# la course — c'est-a-dire une sortie de recensement qui se fait passer pour une image.
+ZFRECOMPTE=$(compter_images "$NORM")
+extra "zf_frames_recount=$ZFRECOMPTE"
+extra "zf_frames_recount_delta=$((ZFRECOMPTE - FRAMES))"
 
 FEATLINE=$(grep -aE "^FEATURE $ID armed=[01] hits=[0-9]+" "$NORM" | tail -1)
 # Les `cle=valeur` SEULES SUR LEUR LIGNE, derniere valeur gagnante, les champs reserves du
@@ -1293,6 +1355,9 @@ TMP="$D/.$AP_NAME_proof.tmp.$$"
   else echo "# FEATURE $ID absente de la sortie du moteur : le moteur n'emet pas encore cette ligne."; fi
   [ -n "$KVLINES" ] && printf '%s\n' "$KVLINES"
 } > "$TMP"
+# LE BRUT DES SONDES ET LE BLOC DE CONTEXTE ONT FINI LEUR OFFICE : leurs cles sont dans le
+# temporaire qu'on renomme, et le recensement les a lues. Ils s'en vont avec la course.
+rm -f "${ZFCTX:-/dev/null}"
 # tmp + rename : un validateur ne doit JAMAIS lire un proof.txt a moitie ecrit.
 mv -f "$TMP" "$OUTFILE"
 # ... ET RIEN APRES. Le sceau prend l'empreinte ici ; le `trap` la relit a la sortie du
