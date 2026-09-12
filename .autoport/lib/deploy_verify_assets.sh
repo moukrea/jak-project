@@ -81,17 +81,19 @@ echo "DEPLOY-ASSETS PASS: device $SERIAL runs the fresh GOAL set ($N_LOCAL/$N_LO
 # 3. *COMMON.TXT match (jak1 only). The text banks carry the menu strings (e.g. the
 # AO carousell values); they ride the cgo pack overlay (files/cgo/<game>). A stale
 # re-extract or a never-pushed bank shows the owner "unknown ID". Match every device
-# TXT against the android overlay source:
-#   - files/cgo/<game>/*COMMON.TXT  vs  out/<game>-android-text/  (android overlay banks)
+# TXT against the banks the build produced:
+#   - files/cgo/<game>/*COMMON.TXT  vs  out/<game>/iso/  (the banks the cgo pack ships)
 # We only assert on TXT files PRESENT on the device: fail on content mismatch, or on
 # a device TXT with no local counterpart; do NOT fail on extra local files.
 if [ "$GAME" = "jak1" ]; then
-  # Since Grecharged-loader-packfix, out/<game>-android-text holds ONLY the banks that carry an
-  # android override (jak1: 0=EN, 1=FR); every OTHER language rides the cgo pack as the FRESH
-  # desktop bank from out/<game>/iso (build_cgo_pack.sh: override replaces, others fall through).
-  # The effective golden for a device bank is therefore: the override if one exists, else the
-  # desktop bank. The old single-dir compare failed banks 2..24 as "no local counterpart" and
-  # never content-verified them at all.
+  # android-text-overrides-dropped (2026-09-12) : LE GOLDEN EST `out/<game>/iso`, POINT.
+  # Cet appel visait `out/<game>-android-text` — le dossier de l'overlay de texte android, qui
+  # n'existe plus (la variante tactile vit desormais sous son propre id dans le banc normal).
+  # `[ -d "$ldir" ]` rendait donc 0 avec un « skip », et TOUTE la verification TXT de l'appareil
+  # etait sautee en silence, y compris pour les 23 bancs bureau qui, eux, existaient. Une garde
+  # d'existence qui saute quand sa cible disparait ne protege plus rien : c'est la meme faute que
+  # le `[ -x <script archive> ]` de build_cgo_pack.sh, qui est ce qui a fait perdre le texte.
+  # Le parametre de repli reste en place (non utilise) plutot que de changer la signature.
   txt_match(){ # $1=device dir  $2=local override dir  $3=label  $4=local fallback dir
     local ddir="$1" ldir="$2" label="$3" ldir2="${4:-}"
     "$ADB" -s "$SERIAL" shell "run-as $PKG sh -c 'ls $ddir/*COMMON.TXT'" >/dev/null 2>&1 || { echo "  ($label) no device TXT at $ddir — skip"; return 0; }
@@ -112,5 +114,5 @@ if [ "$GAME" = "jak1" ]; then
     [ "$tmis"  -eq 0 ] || die "$tmis device TXT($label) STALE — device shows OLD text (re-push $label banks)"
     echo "  ok ($label): $n device *COMMON.TXT byte-identical to override/desktop goldens"
   }
-  txt_match "files/cgo/${GAME}"      "out/${GAME}-android-text"  "overlay"  "out/${GAME}/iso"
+  txt_match "files/cgo/${GAME}"      "out/${GAME}/iso"  "banques"
 fi

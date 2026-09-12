@@ -2,8 +2,8 @@
 # External-asset-root feature (autoport 2026-07): build the SLIM "CGO pack" that
 # the assets-slim APK ships. Unlike build_asset_bundle.sh (which packs the FULL
 # ~1.6 GiB runtime set — iso data + fr3 + arm64 code), this packs ONLY the tiny
-# arch-specific code layer: every *.CGO/*.DGO from the ARM64 build, plus any
-# android *COMMON.TXT text overrides. The bulky iso data + fr3 come from the
+# arch-specific code layer: every *.CGO/*.DGO from the ARM64 build, plus every
+# rebuilt *.TXT text bank. The bulky iso data + fr3 come from the
 # user's external asset root instead; the CGO pack is unpacked to
 # <filesDir>/cgo/<game>/ and handed to fake_iso as the FIRST-scanned overlay dir,
 # so the freshly-built arm64 code (matching HEAD libgk.so) always wins over any
@@ -14,9 +14,15 @@
 #   *.TXT           ALL rebuilt text banks (out/<game>/iso/*.TXT — COMMON + SUBTIT,
 #                   every language; they carry port-custom text ids so they are
 #                   PACKAGE artifacts per the Grecharged-buildsys-packaging rule;
-#                   the source-derived <game>_assets.zip ships NO TXT), with the
-#                   android *COMMON.TXT overrides (out/<game>-android-text/)
-#                   overlaid over the same-named desktop banks.
+#                   the source-derived <game>_assets.zip ships NO TXT).
+#
+# There is NO LONGER an "android text override" overlay. It was a build-time
+# rewrite of #x16e in a separate out/<game>-android-text/ copy that this packer laid
+# over the desktop banks; it froze whole languages three times (the worst: #x1728
+# shipped as "UNKNOWN ID 5928" on device only) and it decided by PLATFORM, which is
+# wrong — the SHIELD is Android with no touchscreen. Both wordings now live in the
+# SAME bank under two ids (#x16e without touch, #x17e7 with) and GOAL picks at
+# RUNTIME from a fact the platform posts. See the touch-variant gate below.
 #
 # Output:
 #   android/app/src/<game>/assets-slim/bundle/<game>_cgo.zip           (DEFLATE)
@@ -36,9 +42,9 @@ cd "$(git rev-parse --show-toplevel)"
 ARM64_CODE="out/${GAME}-arm64-full/iso"
 # x86 oracle copies — used ONLY for the "arm64 != x86" KERNEL.CGO assertion.
 ISO_BUILD="out/${GAME}/iso"
-# android-only localized text overrides (per-arch-independent, but they ride the
-# CGO pack so a slim build still overlays them via fake_iso precedence).
-ANDROID_TEXT="out/${GAME}-android-text"
+# Text sources — read ONLY by the touch-variant gate below, to learn which languages
+# are SUPPOSED to carry a touch wording. Never packed.
+TEXT_SRC="game/assets/${GAME}/text"
 OUT_DIR="android/app/src/${GAME}/assets-slim/bundle"
 STAGE="out/${GAME}-cgo-pack-stage"
 ZIP_REL="${OUT_DIR}/${GAME}_cgo.zip"
@@ -70,79 +76,79 @@ if [ "$GAME" = "jak1" ]; then
   [ "$N_DTXT" -eq 46 ] || fail "jak1 expects exactly 46 TXT banks (23 COMMON + 23 SUBTIT), found $N_DTXT in $ISO_BUILD"
 fi
 
-# android *COMMON.TXT overrides (optional; present for jak1). They REPLACE the
-# same-named desktop banks (no count change).
-mapfile -t TEXT_FILES < <([ -d "$ANDROID_TEXT" ] && find "$ANDROID_TEXT" -maxdepth 1 -type f -name '*COMMON.TXT' -printf '%f\n' | sort || true)
-N_TEXT=${#TEXT_FILES[@]}
+# LA PORTE DE LA VARIANTE TACTILE — AU POINT DE PRODUCTION, PAS AU POINT DE CONTROLE.
+#
+# Ce qui s'est passe trois fois : une surcharge de texte fabriquee a cote du banc, laissee
+# derriere par le build, et livree gelee (ou pas livree du tout) sans que rien ne le dise.
+# La derniere fois, `.autoport/gtt_build_android_text.sh` a ete ARCHIVE ; la garde de
+# fraicheur d'ici a teste `[ -x <ce chemin> ]`, l'a trouve faux, a DROP l'overlay et a
+# laisse partir le banc bureau. L'owner a lu « Appuie sur start » sur un telephone sans
+# bouton start.
+#
+# La lecon est dans la garde elle-meme : elle dependait d'un fichier EXTERIEUR, donc elle
+# est morte en silence quand ce fichier a bouge. Celle-ci n'appelle RIEN. Le decodeur de
+# banc est ecrit ici, en entier ; aucun script de `.autoport/` n'est dans son chemin.
+#
+# CE QU'ELLE EXIGE, ET POURQUOI CE N'EST PAS « >= 1 ». La reference n'est pas une constante
+# mais les SOURCES : chaque `game_custom_text_<lang>.json` qui definit "17e7" promet une
+# variante tactile. La porte compte ces promesses et exige autant de bancs livres qui la
+# tiennent. Ajouter une traduction fait monter les deux cotes ; en perdre une fait ECHOUER
+# l'empaquetage. Un seuil fixe, lui, aurait laisse passer sept langues perdues sur huit.
+touch_variant_gate(){
+  python3 - "$STAGE" "$TEXT_SRC" <<'PYGATE'
+import glob, json, os, struct, sys
+stage, text_src = sys.argv[1], sys.argv[2]
 
-# --- OVERLAY FRESHNESS GATE (autoport Gfont-urbanist 2026-08-28) ------------------
-# MEASURED FAILURE, not a precaution. An override here REPLACES the freshly built
-# desktop bank, so an overlay that stops being regenerated FREEZES that language's
-# text at the day it was last made — and nothing downstream can tell. Only build.sh
-# regenerated it (.autoport/gtt_build_android_text.sh); the delivery chain actually
-# in use (auto_build_apk.sh -> build_arm64_full_consistent.sh -> gradle -> here)
-# never calls build.sh. Result: out/jak1-android-text/{0,1}COMMON.TXT sat at
-# 2026-08-11 02:05 for 17 days. The owner read mixed case on his laptop
-# (out/jak1/iso) and ALL CAPS on the Redmi (this overlay). Same class as the
-# #x1728 "UNKNOWN ID 5928" bug the comments above already record — the third time.
-#
-# The check is by CONTENT (md5 of the desktop bank the override was derived from,
-# recorded in $ANDROID_TEXT/PROVENANCE), never by mtime: a bank rewritten
-# identically keeps its content and gets a fresh mtime, so mtime answers the wrong
-# question in both directions.
-#
-# On mismatch we REGENERATE (the text build costs ~0.3 s). If regeneration is not
-# possible we DROP the override and ship the fresh desktop bank, loudly: losing the
-# android-only wording of ONE string id is a bounded, visible cost; freezing an
-# entire language is unbounded and invisible. We never hard-fail here — the owner's
-# standing order is that a build always reaches him.
-android_text_stale(){
-  local p b want got
-  for p in "$ANDROID_TEXT"/*COMMON.TXT; do
-    [ -e "$p" ] || continue
-    b=$(basename "$p")
-    want=$(awk -v k="$b" '$1==k{print $2}' "$ANDROID_TEXT/PROVENANCE" 2>/dev/null | head -1)
-    got=$(md5sum "$ISO_BUILD/$b" 2>/dev/null | cut -d' ' -f1)
-    if [ -z "$want" ] || [ "$want" != "$got" ]; then echo "$b"; fi
-  done
+def bank_ids(path):
+    d = open(path, 'rb').read()
+    tag, length, ver = struct.unpack_from('<III', d, 0)
+    if tag != 0xFFFFFFFF or ver != 2:
+        raise ValueError('%s: not a V2 linked object (tag=%08x ver=%d)' % (path, tag, ver))
+    w = lambda i: struct.unpack_from('<I', d, length + 4 * i)[0]
+    n, lang, out = w(1), w(2), {}
+    for k in range(n):
+        tid, ptr = w(4 + 2 * k), w(5 + 2 * k)
+        off = length + ptr + 4
+        out[tid] = d[off:d.index(b'\x00', off)]
+    return lang, n, out
+
+TOUCH, PLAIN = 0x17e7, 0x16e
+want = sorted(os.path.basename(p) for p in glob.glob(os.path.join(text_src, 'game_custom_text_*.json'))
+              if '%x' % TOUCH in json.load(open(p, encoding='utf-8')))
+got, bad = [], []
+for path in sorted(glob.glob(os.path.join(stage, '*COMMON.TXT'))):
+    try:
+        lang, n, ids = bank_ids(path)
+    except Exception as e:
+        bad.append('%s: illisible (%s)' % (os.path.basename(path), e)); continue
+    t = ids.get(TOUCH)
+    if t is None:
+        continue
+    if not t:
+        bad.append('%s (langue %d): #x17e7 est VIDE' % (os.path.basename(path), lang)); continue
+    if t == ids.get(PLAIN):
+        bad.append('%s (langue %d): #x17e7 == #x16e, la variante tactile n\'existe pas' %
+                   (os.path.basename(path), lang)); continue
+    got.append(lang)
+print('[cgo-pack] touch-variant: %d banc(s) livre(s) portent #x17e7 distinct de #x16e '
+      '(langues %s) ; %d source(s) le promettent (%s)'
+      % (len(got), ','.join(str(l) for l in sorted(got)) or '-', len(want),
+         ' '.join(s.replace('game_custom_text_', '').replace('.json', '') for s in want) or '-'))
+for b in bad:
+    print('[cgo-pack]   DEFAUT: ' + b, file=sys.stderr)
+if bad:
+    sys.exit(1)
+if len(want) == 0:
+    print('[cgo-pack]   DEFAUT: aucune source ne definit "17e7" — la variante tactile a disparu '
+          'des sources, pas seulement du paquet', file=sys.stderr)
+    sys.exit(1)
+if len(got) < len(want):
+    print('[cgo-pack]   DEFAUT: %d banc(s) portent la variante tactile pour %d source(s) qui la '
+          'promettent — le texte partirait degrade, en silence, sur un appareil sans bouton start'
+          % (len(got), len(want)), file=sys.stderr)
+    sys.exit(1)
+PYGATE
 }
-TEXT_DROPPED=""
-if [ "$N_TEXT" -gt 0 ]; then
-  STALE_TXT=$(android_text_stale)
-  if [ -n "$STALE_TXT" ]; then
-    echo "[cgo-pack] android text overlay STALE (md5 != desktop bank): $(echo $STALE_TXT | tr '\n' ' ')"
-    if [ "$GAME" = "jak1" ] && [ -x .autoport/gtt_build_android_text.sh ] && [ -x build/goalc/goalc ] \
-       && git diff --quiet -- game/assets/jak1/game_text.gp 2>/dev/null; then
-      echo "[cgo-pack]   regenerating the overlay from the CURRENT text sources…"
-      mkdir -p .autoport/logs
-      if bash .autoport/gtt_build_android_text.sh > .autoport/logs/cgo-pack-android-text.log 2>&1; then
-        echo "[cgo-pack]   overlay regenerated"
-      else
-        echo "[cgo-pack]   overlay regeneration FAILED — see .autoport/logs/cgo-pack-android-text.log" >&2
-        tail -12 .autoport/logs/cgo-pack-android-text.log >&2 || true
-      fi
-      STALE_TXT=$(android_text_stale)
-    else
-      echo "[cgo-pack]   cannot regenerate here (needs jak1 + build/goalc/goalc + clean game_text.gp)" >&2
-    fi
-  fi
-  if [ -n "$STALE_TXT" ]; then
-    # Still stale: drop the frozen overrides from the pack. The FRESH desktop banks
-    # ship in their place — current text, minus the android-only wording.
-    for b in $STALE_TXT; do
-      echo "[cgo-pack]   DROPPING frozen override $b — the fresh $ISO_BUILD/$b ships instead (android-only wording for that bank is lost this build; text is NEVER frozen)" >&2
-    done
-    mapfile -t TEXT_FILES < <(
-      for b in "${TEXT_FILES[@]}"; do
-        printf '%s\n' "$STALE_TXT" | grep -qxF "$b" || printf '%s\n' "$b"
-      done
-    )
-    TEXT_DROPPED="$(echo $STALE_TXT | tr '\n' ' ')"
-    N_TEXT=${#TEXT_FILES[@]}
-  else
-    echo "[cgo-pack] android text overlay FRESH: $N_TEXT bank(s) derived from the current desktop banks (md5-checked)"
-  fi
-fi
 
 WANT_FC=$((N_CODE + N_DTXT))
 
@@ -150,17 +156,13 @@ WANT_FC=$((N_CODE + N_DTXT))
 # build_asset_bundle.sh — any code/text change forces on-device re-unpack.
 VERSION="${CGO_PACK_VERSION:-}"
 if [ -z "$VERSION" ]; then
-  # Hash the EFFECTIVE member contents: arm64 code + every TXT bank, where an
-  # android override (same name) wins over the desktop copy.
+  # Hash the EFFECTIVE member contents: arm64 code + every TXT bank. There is exactly
+  # one source per member now that the override overlay is gone, so this list is the
+  # staging loops below, read twice. `.autoport/lib/release_verify.sh` recomputes the
+  # same hash from the APK: keep the two in step.
   VERSION="c$( {
       for f in "${CODE_FILES[@]}"; do printf '%s\0' "$ARM64_CODE/$f"; done
-      # KEEP IN SYNC with the staging loops below: hash the OVERRIDE only when it is
-      # an EFFECTIVE member (i.e. it survived the freshness gate). Testing the file's
-      # existence on disk instead would hash a frozen bank that the pack no longer
-      # ships, and the version would then describe something we do not deliver.
-      for f in "${DESKTOP_TXT[@]}"; do
-        if printf '%s\n' "${TEXT_FILES[@]:-}" | grep -qxF "$f"; then printf '%s\0' "$ANDROID_TEXT/$f"; else printf '%s\0' "$ISO_BUILD/$f"; fi
-      done
+      for f in "${DESKTOP_TXT[@]}"; do printf '%s\0' "$ISO_BUILD/$f"; done
     } | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 fi
 
@@ -169,7 +171,6 @@ mkdir -p "$OUT_DIR"
 # All source trees whose mtimes gate a repack (ISO_BUILD gates the desktop TXT
 # banks; over-invalidation from unrelated iso files is safe, stale reuse is not).
 SRC_DIRS=("$ARM64_CODE" "$ISO_BUILD")
-[ -d "$ANDROID_TEXT" ] && SRC_DIRS+=("$ANDROID_TEXT")
 
 # --- Staleness skip: zip current vs all sources AND version+count match. ---
 if [ -f "$ZIP_REL" ] && [ -f "$MANIFEST" ]; then
@@ -192,16 +193,16 @@ for f in "${CODE_FILES[@]}"; do
   ln -s "$ROOT/$ARM64_CODE/$f" "$STAGE/$f"
 done
 
-# 2. ALL rebuilt TXT banks at zip root (desktop set), then the android
-#    *COMMON.TXT overrides overlaid over their same-named desktop banks.
+# 2. ALL rebuilt TXT banks at zip root. One source, no overlay.
 for f in "${DESKTOP_TXT[@]}"; do
   ln -s "$ROOT/$ISO_BUILD/$f" "$STAGE/$f"
 done
-for f in "${TEXT_FILES[@]}"; do
-  [ -e "$STAGE/$f" ] || fail "android text override $f has no desktop bank counterpart in $ISO_BUILD"
-  ln -sf "$ROOT/$ANDROID_TEXT/$f" "$STAGE/$f"
-done
-echo "[cgo-pack] text banks: $N_DTXT (android overrides: $N_TEXT)"
+echo "[cgo-pack] text banks: $N_DTXT"
+
+# The touch-variant gate runs HERE, on the STAGED banks — the bytes that go into the zip,
+# never the sources they were built from. A gate that read the sources would have passed
+# every single time the overlay shipped a frozen bank.
+touch_variant_gate || fail "la variante tactile n'est pas dans les bancs a empaqueter (voir ci-dessus). L'empaquetage ECHOUE au lieu de livrer un texte degrade en silence."
 
 # --- HARD completeness + consistency gates ---
 got=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
@@ -215,7 +216,7 @@ if [ -f "$ISO_BUILD/KERNEL.CGO" ]; then
   k_x86=$(md5sum "$ISO_BUILD/KERNEL.CGO" | cut -d' ' -f1)
   [ "$k_stg" != "$k_x86" ] || fail "staged KERNEL.CGO == x86 oracle (would SIGILL on the arm64 device)"
 fi
-echo "[cgo-pack] completeness OK: code=$N_CODE text=$N_TEXT; arm64 KERNEL.CGO verified."
+echo "[cgo-pack] completeness OK: code=$N_CODE text=$N_DTXT; arm64 KERNEL.CGO verified."
 
 RAW_BYTES=$(find -L "$STAGE" -type f -printf '%s\n' | awk '{s+=$1} END{print s+0}')
 FILE_COUNT=$(find -L "$STAGE" -type f | wc -l | tr -d ' ')
@@ -245,11 +246,10 @@ file_count=${FILE_COUNT}
 raw_bytes=${RAW_BYTES}
 zip_bytes=${ZIP_BYTES}
 flags=${FLAG_MARKER}
-android_overrides=${N_TEXT}
-android_overrides_dropped=${TEXT_DROPPED:-none}
+text_banks=${N_DTXT}
 EOF
 
 rm -rf "$STAGE"   # the symlink farm is transient; the zip + manifest are the artifacts
 
 echo "[cgo-pack] done: ${ZIP_REL}"
-echo "[cgo-pack]   files=${FILE_COUNT} (code=${N_CODE} txt=${N_DTXT} android-overrides=${N_TEXT})  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=${VERSION}"
+echo "[cgo-pack]   files=${FILE_COUNT} (code=${N_CODE} txt=${N_DTXT})  raw=${RAW_BYTES}B  zip=${ZIP_BYTES}B  version=${VERSION}"

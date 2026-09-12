@@ -30,7 +30,6 @@ T=$(mktemp -d .autoport/tmp/relverif.XXXXXX); trap 'rm -rf "$T"' EXIT
 
 ARM64_CODE="out/${GAME}-arm64-full/iso"
 ISO_BUILD="out/${GAME}/iso"
-ANDROID_TEXT="out/${GAME}-android-text"
 FR3_DIR="out/${GAME}/fr3"
 
 # ---------- 1. cgo pack: version == recompute (code + TXT effectifs) ----------
@@ -39,8 +38,10 @@ unzip -o -q "$APK" "assets/bundle/${GAME}_cgo.manifest.properties" -d "$T" \
 GOT_CGO=$(grep -E '^version=' "$T/assets/bundle/${GAME}_cgo.manifest.properties" | cut -d= -f2)
 EXPECT_CGO="c$( {
     find "$ARM64_CODE" -maxdepth 1 -type f \( -name '*.CGO' -o -name '*.DGO' \) -print0
-    while IFS= read -r f; do
-      if [ -f "$ANDROID_TEXT/$f" ]; then printf '%s\0' "$ANDROID_TEXT/$f"; else printf '%s\0' "$ISO_BUILD/$f"; fi
+    # android-text-overrides-dropped : l'overlay `out/<game>-android-text` n'existe plus (la
+    # variante tactile vit sous son propre id dans le banc normal). Une seule source par banc,
+    # comme dans android/build_cgo_pack.sh — les deux formules doivent rester identiques.
+    while IFS= read -r f; do printf '%s\0' "$ISO_BUILD/$f"
     done < <(find "$ISO_BUILD" -maxdepth 1 -type f -name '*.TXT' -printf '%f\n' | sort)
   } | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 [ "$GOT_CGO" = "$EXPECT_CGO" ] \

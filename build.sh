@@ -342,30 +342,12 @@ build_android() {
   local n; n=$(ls "$STAGE"/*.CGO "$STAGE"/*.DGO | wc -l)
   log "arm64 consistent set: $n files at $STAGE"
 
-  # Grecharged-loader-packfix: regenerate the ANDROID text-bank overrides from the
-  # text sources that were just compiled. build_cgo_pack.sh PREFERS any bank found in
-  # out/<game>-android-text/ over the freshly built desktop bank, so a one-shot copy
-  # of that dir silently freezes Android's text at the day it was made: every text id
-  # added afterwards renders as "UNKNOWN ID <n>" on device only. That is exactly how
-  # a menu row added at the time (#x1728) shipped as "UNKNOWN ID 5928" while every desktop
-  # build showed the right label. Deriving the overrides on every build is the only
-  # thing that keeps them honest — the dir holds EN/FR only (the two languages with
-  # an android override json); all other languages fall through to the fresh banks.
-  if [ "$GAME" = "jak1" ] && [ -x .autoport/gtt_build_android_text.sh ]; then
-    log "== android text-bank overrides (EN/FR press-start + current text ids) =="
-    bash .autoport/gtt_build_android_text.sh > .autoport/logs/build-android-text.log 2>&1 \
-      || { tail -20 .autoport/logs/build-android-text.log >&2; die "android text-bank override build failed"; }
-    # mesh-browser-removal (2026-09-11) : l'ancre etait le libelle de cette rangee de debug, qui
-    # vient d'etre supprimee du jeu. La garde s'ancre DESORMAIS sur le libelle le PLUS RECENT du
-    # banc — Recharged Water (#x17e5) — car c'est lui qui detecte le plus tot un override perime :
-    # un override fige avant lui manque forcement l'id, et il faudra re-ancrer a chaque fois qu'un
-    # libelle plus recent devient la reference. La CASSE est celle du banc compile (Titre), verifiee
-    # sur out/jak1/iso/0COMMON.TXT et sur l'override android : l'ancienne ancre etait en MAJUSCULES
-    # et n'aurait plus jamais matche depuis le passage des libelles en Titre.
-    grep -aq 'Recharged Water' "out/${GAME}-android-text/0COMMON.TXT" \
-      || die "android EN bank lacks a text id the desktop bank has — the override went stale again"
-    log "android text overrides refreshed: $(ls out/${GAME}-android-text/*COMMON.TXT | wc -l) bank(s)"
-  fi
+  # android-text-overrides-dropped (2026-09-12) : LE BLOC DE REGENERATION DE L'OVERLAY A DISPARU.
+  # Il etait garde par `[ -x .autoport/gtt_build_android_text.sh ]` ; ce script a ete ARCHIVE le
+  # 2026-09-05 (640daa5017), la garde est devenue fausse, et TOUT le bloc — y compris ses deux
+  # `die` — a ete saute en silence a chaque build depuis. Il n'y a plus d'overlay a regenerer :
+  # la variante tactile vit sous son propre id (#x17e7) dans les bancs normaux, et
+  # `android/build_cgo_pack.sh` ECHOUE si elle n'y est pas.
 
   # Grecharged-hd-models3 (BRICK 2): enhanced HD character fr3 overlay. SURGICAL merc swap on
   # the stock fr3 (tools/hd_merc_swap) — only the 4 replaced characters change; EVERY

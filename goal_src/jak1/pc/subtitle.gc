@@ -1319,3 +1319,84 @@
 
 ;; start the subtitle process when this file loads.
 (subtitle-start)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; android-text-overrides-dropped
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; LE RECENSEMENT DES VARIANTES TACTILES DANS LE BANC *CHARGE*.
+;;
+;; CE QUE CE RECENSEMENT REPOND, ET POURQUOI IL LIT LE BANC CHARGE.
+;; ---------------------------------------------------------------
+;; Le defaut (owner, 11/09) : l'ecran-titre affichait « Appuie sur start » sur un telephone
+;; qui n'a pas de bouton start. La variante tactile n'etait pas du GOAL : c'etait une
+;; SURCHARGE de #x16e dans un banc « android » fabrique a la CONSTRUCTION, que
+;; `android/build_cgo_pack.sh` recouvrait sur le banc bureau. Le generateur a ete archive
+;; (640daa5017), la garde de fraicheur a declare l'overlay perime, n'a pas pu le regenerer
+;; et l'a ABANDONNE : le banc bureau, sans variante, est parti sur l'appareil. Troisieme
+;; perte de cette classe (la 1re : #x1728 rendu « UNKNOWN ID 5928 »).
+;;
+;; La correction de fond vit desormais dans les DEUX ids d'un MEME banc — #x16e sans tactile,
+;; #x17e7 avec — et le choix se fait a l'execution (title-obs.gc:878). Ce recensement est le
+;; TEMOIN de cet acquis : il lit les octets que le jeu a CHARGES, jamais une source ni un
+;; fichier du disque. Un banc relu sur le disque dirait ce qui a ete livre ; seul
+;; `*common-text*` dit ce que le programme utilise — et c'est exactement la distinction que
+;; la copie gelee de 17 jours avait effacee (PC juste, telephone faux, MEME commit).
+;;
+;; POURQUOI CINQ GRANDEURS ET PAS UNE.
+;; -----------------------------------
+;; `android_text_touch_variant_ids` seul est un zero qui ne parle de rien : banc pas encore
+;; charge, id absent du banc, ou id present mais identique a la variante bureau sont trois
+;; pannes differentes qu'un seul compteur confond. Les quatre autres les separent, et le
+;; denominateur (`android_text_touch_pairs`) est publie DEHORS de toute condition : une paire
+;; retiree de la table ferait tomber le numerateur a zero sans que rien ne le dise.
+;;
+;; LA COMPARAISON EST CONTRE CE QUI SERAIT DESSINE SANS TACTILE, pas contre une constante.
+;; `touch` est cherche SANS repli (`lookup-text-impl!` avec `fallback-call?` a #t) : il doit
+;; etre dans CE banc-ci. `plain` est cherche AVEC repli, parce que c'est litteralement la
+;; chaine que `target-title-wait` dessinerait si la plateforme ne declarait pas de tactile.
+;; Un banc ou les deux ids porteraient le meme texte ne compte donc pas : la variante tactile
+;; n'y existe pas, quoi qu'en dise la table des ids.
+
+;; La table des paires : (variante TACTILE . variante SANS tactile). Une seule paire
+;; aujourd'hui ; le denominateur publie ci-dessous la nomme pour que son retrait se voie.
+(defconstant ANDROID-TEXT-TOUCH-PAIRS 1)
+
+;; Le banc du dernier recensement. Le recensement se refait quand le banc CHANGE (chargement,
+;; changement de langue), pas a chaque image : parcourir 1067 entrees 60 fois par seconde
+;; couterait plus cher que ce qu'il mesure.
+(define *android-text-census-bank* (the-as game-text-info #f))
+(define *android-text-census-done?* #f)
+
+(defun android-text-touch-census! ()
+  "Publie combien d'ids du banc de texte CHARGE portent la variante tactile et non celle du
+   bureau. Voir le pave ci-dessus. Appele une fois par image depuis `npc-census-tick`."
+  (when (or (not *android-text-census-done?*) (!= *android-text-census-bank* *common-text*))
+    (set! *android-text-census-done?* #t)
+    (set! *android-text-census-bank* *common-text*)
+    (let ((loaded 0)
+          (entries 0)
+          (lang 0)
+          (present 0)
+          (variants 0))
+      (when *common-text*
+        (set! loaded 1)
+        (set! entries (-> *common-text* length))
+        (set! lang (-> *common-text* language-id))
+        ;; paire 1/1 : #x17e7 (tactile) contre #x16e (sans tactile).
+        (let ((touch (lookup-text-impl! *common-text* (text-id pc-text-press-start-or-tap) #t #t)))
+          (when touch
+            (set! present (+ present 1))
+            (let ((plain (lookup-text! *common-text* (text-id press-start) #f)))
+              (when (and (nonzero? (length touch)) (not (string= touch plain)))
+                (set! variants (+ variants 1)))))))
+      ;; Le denominateur et le temoin de chargement sortent de TOUTE condition : sans eux, un
+      ;; zero obtenu banc non charge serait indistinguable d'un zero obtenu banc sans variante.
+      (__pc-autoport-publish "android_text_touch_pairs" ANDROID-TEXT-TOUCH-PAIRS)
+      (__pc-autoport-publish "android_text_bank_loaded" loaded)
+      (__pc-autoport-publish "android_text_bank_entries" entries)
+      (__pc-autoport-publish "android_text_bank_language" lang)
+      (__pc-autoport-publish "android_text_touch_ids_present" present)
+      (__pc-autoport-publish "android_text_touch_variant_ids" variants)
+      (__pc-autoport-hit 1)))
+  (none))

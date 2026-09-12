@@ -679,6 +679,17 @@
 ;; ne cable qu'a l'ouverture. Il ne tourne qu'UNE fois, apres la 180e image (le panneau est
 ;; mesure), et remet `*pc-settings*` dans l'etat exact ou il l'a trouve.
 (define-extern res-menu-audit! (function none))
+;; android-text-overrides-dropped : le temoin des variantes tactiles du banc de texte CHARGE.
+;; Ici parce que `*common-text*` change en dehors de toute image de menu (chargement initial,
+;; changement de langue) et que ce tick est le seul point qui tourne a CHAQUE image. Le
+;; recensement lui-meme ne parcourt rien tant que le banc n'a pas change : voir
+;; goal_src/jak1/pc/subtitle.gc. `subtitle.o` est charge dans les memes DGO que `main.o`
+;; (dgos/engine.gd:318 et game.gd:314), avant la premiere image. Il vit la et pas dans
+;; `progress-pc.gc` avec les trois autres recensements : ceux-la sont A L'INTERIEUR de
+;; `(#unless FLAG_MENU_OVERHAUL ...)` (progress-pc.gc:6065-12924), et une TU feature-gatee
+;; avalerait celui-ci en silence. `pckernel-impl.gc` etait exclu pour une autre raison : lui
+;; donner la dependance "text" fait un CYCLE (text -> pad.gc -> `*pc-settings*`).
+(define-extern android-text-touch-census! (function none))
 
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
@@ -698,6 +709,9 @@
   (gating-census-boot!)
   ;; res-menu-truth : voir le define-extern plus haut. Une seule passe par demarrage.
   (res-menu-audit!)
+  ;; android-text-overrides-dropped : voir le define-extern plus haut. Ne fait rien tant que
+  ;; `*common-text*` n'a pas change.
+  (android-text-touch-census!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))
