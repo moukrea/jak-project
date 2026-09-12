@@ -150,6 +150,39 @@ die3(){
 EXTRA=""
 extra(){ EXTRA="${EXTRA:+$EXTRA
 }$*"; }
+
+# ================================================== PROOF-SCELLE/rien-apres-le-mv =============
+# CE QU'UN `mv` ATOMIQUE PROMET, ET CE QU'ON LUI REPRENAIT (harness-verdict-sources-are-incomplete,
+# 2026-09-12). `proof.txt` est ecrit dans un temporaire puis renomme : un lecteur ne voit jamais
+# un demi-fichier. Le teardown de FIN, lui, AJOUTAIT ses cles apres ce `mv`, depuis le
+# `trap EXIT` — la preuve redevenait un fichier qu'on complete, et qui l'ouvrait entre les deux
+# la lisait amputee. Tout ce que la preuve porte y est desormais AVANT son `mv`.
+#
+# ET ON LE CONSTATE, on ne le decrete pas. Au `mv`, on scelle l'empreinte du fichier a cote
+# (`proof<suf>.seal`) ; a la sortie du processus, on y ajoute celle relue. Deux empreintes
+# differentes = une ecriture posterieure, nommee et datee. Le sceau SURVIT a la course : c'est la
+# course suivante qui le lit (le recensement tourne AVANT le `mv`), et
+# `lib/census/harness-verdict-sources-are-incomplete.sh` en fait une population.
+PROOF_COMPOSEE=0
+SEALFILE="$D/proof$SUF.seal"
+seal_write(){
+  PROOF_COMPOSEE=1
+  printf 'seal_sha=%s\nseal_bytes=%s\nseal_at=%s\n' \
+    "$(sha256sum "$OUTFILE" 2>/dev/null | cut -c1-64)" \
+    "$(stat -c %s "$OUTFILE" 2>/dev/null)" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$SEALFILE"
+}
+seal_check(){
+  [ -s "$SEALFILE" ] || return 0
+  grep -q '^exit_sha=' "$SEALFILE" 2>/dev/null && return 0
+  if [ -s "$OUTFILE" ]; then
+    printf 'exit_sha=%s\nexit_bytes=%s\n' \
+      "$(sha256sum "$OUTFILE" 2>/dev/null | cut -c1-64)" "$(stat -c %s "$OUTFILE" 2>/dev/null)" >> "$SEALFILE"
+  else
+    printf 'exit_sha=-\nexit_bytes=0\n' >> "$SEALFILE"
+  fi
+}
+seal_et_arme(){ seal_write; trap 'seal_check' EXIT; }
 # `debug.opengoal.hdr.out` -> `hdr_out` : la cle de proof.txt doit tenir dans [A-Za-z0-9_].
 prop_key(){ printf '%s' "${1#debug.opengoal.}" | tr -c 'A-Za-z0-9_' '_'; }
 
@@ -284,6 +317,7 @@ HDR_REPLAY
     rm -f "$TMP"; die3 hdr-replay "l'agregation HDR du lot $HDR_BATCH a echoue"
   fi
   mv -f "$TMP" "$OUTFILE"
+  seal_et_arme
   log "recomputed $OUTFILE from $HDR_BATCH with original timestamp"
   exit 0
 fi
@@ -681,9 +715,14 @@ else
       } > "$D/$nom"
     fi
     rm -f "$rep"
-    # LES CLES REJOIGNENT LA PREUVE QUAND IL Y EN A UNE. Une preuve impossible (`die3`) a efface
-    # `proof.txt` : on n'en fabrique pas une en y ajoutant des lignes.
-    [ -s "$OUTFILE" ] && cat "$D/$nom" >> "$OUTFILE"
+    # LES CLES ENTRENT DANS LA PREUVE AVANT SON `mv`, JAMAIS APRES (PROOF-SCELLE/rien-apres-le-mv).
+    # Elles etaient ajoutees au fichier deja renomme : on reprenait au `mv` ce qu'il promettait.
+    # Elles passent desormais par `extra`, donc dans le temporaire. Appelee depuis le `trap EXIT`
+    # (la composition a eu lieu, ou `die3` a efface la preuve), cette fonction n'ecrit plus rien
+    # dans `proof.txt` : son rapport vit sous son propre nom, lu par qui veut.
+    if [ "$PROOF_COMPOSEE" = 0 ]; then
+      while IFS= read -r _tdl; do [ -n "$_tdl" ] && extra "$_tdl"; done < "$D/$nom"
+    fi
     log "teardown de fin : $(sed -n 's/^teardown_fin_props_found=//p' "$D/$nom") propriete(s) trouvee(s) posee(s) [$(sed -n 's/^teardown_fin_props_list=//p' "$D/$nom")], publie sous '$nom'"
   }
   trap 'teardown_fin' EXIT
@@ -949,6 +988,12 @@ else
   extra "proof_census_dropped=0"
 fi
 
+# LE TEARDOWN DE FIN, AVANT LA COMPOSITION (PROOF-SCELLE/rien-apres-le-mv). Il tournait au
+# `trap EXIT`, donc APRES le `mv` : ses cles etaient ajoutees a une preuve deja scellee. Il tourne
+# ici, apres le recensement (qui peut encore vouloir l'appareil) et avant que quoi que ce soit
+# soit ecrit. Le `trap` reste en place pour les sorties anormales, ou il ne touche plus la preuve.
+declare -F teardown_fin >/dev/null && teardown_fin
+
 # ============================================== recopie de ce que le MOTEUR a dit ===========
 T1=$(date +%s)
 NORM="$D/.proof$SUF.norm.$$"
@@ -1026,5 +1071,8 @@ TMP="$D/.proof$SUF.tmp.$$"
 } > "$TMP"
 # tmp + rename : un validateur ne doit JAMAIS lire un proof.txt a moitie ecrit.
 mv -f "$TMP" "$OUTFILE"
+# ... ET RIEN APRES. Le sceau prend l'empreinte ici ; le `trap` la relit a la sortie du
+# processus. Deux valeurs differentes nomment l'ecriture posterieure au lieu de la laisser muette.
+seal_et_arme
 log "ecrit $OUTFILE (frames=$FRAMES crash=$CRASH duree=$((T1-T0))s) ; sortie moteur : $RAWLOG"
 exit 0

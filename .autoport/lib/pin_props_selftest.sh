@@ -77,20 +77,44 @@ monte_bras() {
   git -C "$dir" config user.email pin@sandbox >/dev/null 2>&1  # git-sandbox-ok
   git -C "$dir" config user.name pin >/dev/null 2>&1           # git-sandbox-ok
 
-  if [ "$nom" = neuf ]; then
-    cp "$AP/lib/proof_run.sh" "$AP/lib/device_teardown.sh" "$dir/.autoport/lib/" || return 1
-  else
+  # CE QUE LE BAC A SABLE COPIE SORT DU NOMMEUR DU VERDICT, jamais d'une enumeration tapee ici
+  # (harness-verdict-sources-are-incomplete, 2026-09-12). Cette liste etait ecrite a la main : le
+  # jour ou `proof_run.sh` a gagne `lib/impossible.py`, la garde de nommage n'a derive aucun nom,
+  # le bras neuf est sorti en 3 (« nommage-divergent ») sans produire AUCUNE preuve
+  # (`arm_neuf_proof=0`, 12/09), et la porte d'un item DEJA VALIDE est restee rouge sans que
+  # personne le sache. Un bac a sable qui declare sa propre liste diverge du depot a chaque
+  # dependance que la porte gagne ; celui-ci ne peut plus : il copie la liste que la PORTE epingle.
+  local rel
+  : > "$dir/.sandbox-manifest"
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mkdir -p "$dir/$(dirname "$rel")" || return 1
+    cp "$ROOT/$rel" "$dir/$rel" || return 1
+    printf '%s\n' "$rel" >> "$dir/.sandbox-manifest"
+  done < <(bash "$AP/lib/verdict_sources.sh" "$ITEM" list)
+  chmod +x "$dir/.autoport/lib/"*.sh 2>/dev/null
+  chmod +x "$dir/.autoport/acquis/"*.sh "$dir/.autoport/validators/"*.sh 2>/dev/null
+  # CONTROLE POSITIF, SUR DEMANDE EXPLICITE. Une mutation `sed` appliquee au `proof_run.sh` de ce
+  # bras. Elle ne peut qu'ABIMER la course : aucun appelant ne peut s'en servir pour rendre un
+  # verdict plus vert. `lib/verdict_sources_selftest.sh` s'en sert pour ARMER le sceau — sans une
+  # course ou le sceau DOIT rougir, un sceau qui ne regarderait rien passerait au vert.
+  if [ -n "${AUTOPORT_PIN_SED_NEUF:-}" ] && [ "$nom" = neuf ]; then
+    sed -i "$AUTOPORT_PIN_SED_NEUF" "$dir/.autoport/lib/proof_run.sh" || return 1
+  fi
+  # CE QUE LE BAC CONTIENT VRAIMENT, pour qui veut mesurer l'ecart avec la liste de la porte
+  # (lib/census/harness-verdict-sources-are-incomplete.sh). On publie le DISQUE, pas ce que la
+  # boucle ci-dessus a cru copier.
+  if [ -n "${AUTOPORT_PIN_MANIFEST:-}" ] && [ "$nom" = neuf ]; then
+    ( cd "$dir" && find .autoport -type f \
+        \( -path '.autoport/lib/*' -o -path '.autoport/validators/*' -o -path '.autoport/acquis/*' \) \
+      | LC_ALL=C sort ) > "$AUTOPORT_PIN_MANIFEST"
+  fi
+  # LE BRAS D'ABLATION : les MEMES fichiers, sauf les deux qu'on remonte au commit d'avant.
+  if [ "$nom" != neuf ]; then
     [ -n "$C_PROOF" ] && [ -n "$C_TEAR" ] || return 1
     git -C "$ROOT" show "$C_PROOF:.autoport/lib/proof_run.sh" > "$dir/.autoport/lib/proof_run.sh" || return 1
     git -C "$ROOT" show "$C_TEAR:.autoport/lib/device_teardown.sh" > "$dir/.autoport/lib/device_teardown.sh" || return 1
   fi
-  # LES MODULES QUE `proof_run.sh` APPELLE A L'EXECUTION, pas seulement ceux qu'on ablate.
-  # Sans `impossible.py`, la garde de nommage ne derive aucun nom et la course sort en 3
-  # (« nommage-divergent ») : le bras neuf ne produisait plus AUCUNE preuve. Mesure du
-  # 2026-09-12 — `arm_neuf_proof=0` sur un bac a sable qui n'avait aucun defaut a montrer.
-  cp "$AP/lib/pick_device.sh" "$AP/lib/impossible.py" "$AP/lib/proof_impossible.sh" \
-     "$AP/lib/verdict_sources.sh" "$dir/.autoport/lib/" || return 1
-  chmod +x "$dir/.autoport/lib/"*.sh
 
   # LE BACKLOG DU BAC A SABLE : un item, deux proprietes epinglees. C'est « ce que le fichier
   # porte », le premier des trois chiffres de la trace.
@@ -228,6 +252,20 @@ court_bras() {
   # Combien de cles de TRACE ce bras publie-t-il ? Le bras vieux doit en publier ZERO.
   kv "arm_${nom}_trace_keys" \
      "$(grep -cE '^(teardown_|proof_props_|proof_prop_obs_)' "$pf")"
+  # LE SCEAU DE LA COURSE (PROOF-SCELLE/rien-apres-le-mv, harness-verdict-sources-are-incomplete).
+  # C'est le SEUL endroit du harnais ou le vrai `proof_run.sh` passe par le teardown de FIN — le
+  # chemin qui ajoutait ses cles a `proof.txt` APRES son `mv` atomique. L'empreinte prise au `mv`
+  # et celle relue a la sortie du processus se lisent ici, sur une course reelle : egales, rien
+  # n'a ete ecrit apres le `mv`.
+  local sf="$2/.autoport/reports/$ITEM/proof.seal"
+  if [ -s "$sf" ]; then
+    kv "arm_${nom}_seal_lu"     1
+    kv "arm_${nom}_seal_sha"    "$(sed -n 's/^seal_sha=//p' "$sf" | tail -1)"
+    kv "arm_${nom}_seal_exit"   "$(sed -n 's/^exit_sha=//p' "$sf" | tail -1)"
+    kv "arm_${nom}_seal_disque" "$(sha256sum "$pf" | cut -c1-64)"
+  else
+    kv "arm_${nom}_seal_lu" 0
+  fi
   return 0
 }
 

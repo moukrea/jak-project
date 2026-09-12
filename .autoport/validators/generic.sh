@@ -48,6 +48,29 @@ else
   [ "$(kv verdict_sources_count)" = "$vs_cnt" ] || bad "verdict_sources_count=$(kv verdict_sources_count) dans la preuve, $vs_cnt sur le disque : la liste des sources du verdict a change depuis la course"
   vsn=$(bash .autoport/lib/verdict_sources.sh "$P" newer "$PF" 2>/dev/null | paste -sd, -)
   [ -z "$vsn" ] || bad "source du VERDICT editee APRES la preuve ($vsn) : la preuve est plus vieille que son propre juge"
+  # LE CRITERE PRODUIT LE VERDICT AUTANT QUE LE SCRIPT QUI LE CALCULE
+  # (harness-verdict-sources-are-incomplete, 2026-09-12). `gate.key/op/value`, `frames_min` et
+  # `device` vivent dans `backlog.yaml`, que l'orchestrateur reecrit toutes les secondes :
+  # epingler le FICHIER ferait rougir des preuves que personne n'a touchees, et ne rien epingler
+  # laissait DESSERRER un seuil apres la course sans temoin. On epingle le SOUS-ARBRE de l'item,
+  # canonise par le meme nommeur que celui qui l'a publie, et recalcule ICI.
+  vc_now=$(bash .autoport/lib/verdict_sources.sh "$P" criterion_sha 2>/dev/null)
+  vc_proof=$(kv verdict_criterion_sha)
+  if [ -z "$vc_proof" ]; then
+    bad "la preuve ne porte pas 'verdict_criterion_sha=' : elle vient d'un producteur qui n'epinglait pas le CRITERE dont elle est jugee. Reproduis-la."
+  elif [ "$vc_proof" != "$vc_now" ]; then
+    bad "verdict_criterion_sha=$vc_proof recopie dans la preuve, $vc_now recalcule sur le disque : le CRITERE a change depuis la course (preuve: $(kv verdict_criterion) ; disque: $(bash .autoport/lib/verdict_sources.sh "$P" criterion 2>/dev/null))"
+  fi
+  # LES ACQUIS DE L'OWNER JUGENT A CHAQUE FERMETURE (GATE 3) et n'etaient epingles par rien.
+  # Un compte de huit qui tombe a sept est un defaut, pas un detail : le nombre ET l'empreinte.
+  va_now=$(bash .autoport/lib/verdict_sources.sh "$P" acquis_sha 2>/dev/null)
+  va_cnt=$(bash .autoport/lib/verdict_sources.sh "$P" acquis_count 2>/dev/null)
+  va_proof=$(kv verdict_acquis_sha)
+  if [ -z "$va_proof" ]; then
+    bad "la preuve ne porte pas 'verdict_acquis_sha=' : elle vient d'un producteur qui n'epinglait pas les gardes d'acquis de l'owner. Reproduis-la."
+  elif [ "$va_proof" != "$va_now" ] || [ "$(kv verdict_acquis_count)" != "$va_cnt" ]; then
+    bad "acquis : $(kv verdict_acquis_count) script(s)/$va_proof dans la preuve, $va_cnt/$va_now sur le disque — une garde d'acquis VALIDE PAR L'OWNER a change ou disparu depuis la course"
+  fi
   [ "$(kv sha)" = "$(sha256sum "$bin" 2>/dev/null | cut -c1-16)" ] || bad "sha=$(kv sha) n'est pas celui de $bin sur le disque"
   [ "$(kv binary)" = "$bin" ] || bad "binary=$(kv binary) ne correspond pas a source=$src"
   [ "$(kv crash)" = 0 ] || bad "crash=$(kv crash)"

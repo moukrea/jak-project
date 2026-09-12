@@ -21,7 +21,27 @@ from conftest import AUTOPORT
 
 VALIDATOR = AUTOPORT / "validators" / "generic.sh"
 NAMER = AUTOPORT / "lib" / "verdict_sources.sh"
+ROOT = AUTOPORT.parent
 ITEM = "test-item-preuve"
+# Les familles de fichiers que le nommeur du verdict peut nommer : c'est sur elles, et sur elles
+# seules, que l'ecart entre « ce que le bac a sable contient » et « ce que la porte epingle » a
+# un sens. Le reste du bac a sable (backlog.yaml, reports/, build/) n'est pas une source.
+FAMILLES = (".autoport/lib/", ".autoport/validators/", ".autoport/acquis/")
+
+
+def sources_du_verdict():
+    """LA LISTE DE LA PORTE REELLE, pas celle du bac a sable.
+
+    harness-verdict-sources-are-incomplete, 2026-09-12. Ce fichier copiait DEUX fichiers, cites
+    a la main. Le jour ou la porte a gagne un appel a `lib/verdict_sources.sh`, les douze jambes
+    ci-dessous ont rougi pour la meme raison — nommeur absent — et le controle positif est tombe :
+    une suite ou tout est rouge ne distingue plus un defaut d'un decor incomplet. Un bac a sable
+    monte a la main diverge du depot a chaque dependance que la porte gagne. Celui-ci ne le peut
+    plus : sa liste EST celle du nommeur.
+    """
+    r = subprocess.run(["bash", ".autoport/lib/verdict_sources.sh", ITEM, "list"],
+                       cwd=ROOT, capture_output=True, text=True)
+    return [l for l in r.stdout.splitlines() if l.strip()]
 
 
 def _repo(tmp_path):
@@ -33,14 +53,13 @@ def _repo(tmp_path):
     (root / "build" / "game").mkdir(parents=True)
     for d in ("game", "common", "android", "goal_src"):
         (root / d).mkdir(parents=True)
-    (VALIDATOR.parent / "generic.sh").exists() or pytest.skip("generic.sh absent")
-    (root / ".autoport" / "validators" / "generic.sh").write_bytes(VALIDATOR.read_bytes())
-    # LE NOMMEUR DES SOURCES DU VERDICT (harness-verdict-integrity, 2026-09-12). Depuis que la
-    # porte épingle les sources qui PRODUISENT le verdict, elle rappelle ce script pour
-    # RECALCULER l'empreinte. Sans lui dans le bac à sable, les onze jambes ci-dessous
-    # rougissaient toutes pour la même raison — « absent » — et le contrôle positif tombait :
-    # une suite où tout est rouge ne distingue plus un défaut d'un décor incomplet.
-    (root / ".autoport" / "lib" / "verdict_sources.sh").write_bytes(NAMER.read_bytes())
+    VALIDATOR.exists() or pytest.skip("generic.sh absent")
+    liste = sources_du_verdict()
+    liste or pytest.skip("le nommeur des sources du verdict ne rend rien")
+    for rel in liste:
+        dst = root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes((ROOT / rel).read_bytes())
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
 
     # Le binaire jugé. Son empreinte réelle est la seule chose que le worker ne peut pas taper.
@@ -245,3 +264,36 @@ def test_le_validateur_ne_lit_jamais_le_rapport_du_worker(tmp_path):
         encoding="utf-8")
     code, out = _juge(root)
     assert code == 1, "le rapport du worker ne doit jamais suffire"
+
+
+def test_le_bac_a_sable_contient_exactement_ce_que_la_porte_epingle(tmp_path):
+    """Un bac a sable incomplet fabrique un rouge qui ne decrit AUCUN defaut.
+
+    Mesure du 12/09 : `1 failed, 556 passed`, ECHECS-ATTENDUS.yaml vide, douze jambes tombees
+    ensemble parce que la porte venait de gagner une dependance que ce fichier ne copiait pas.
+    L'ecart entre les deux listes est donc une grandeur, pas une intention : il se mesure, et il
+    vaut zero. `AUTOPORT_SANDBOX_MANIFEST` le rend lisible depuis
+    `lib/census/harness-verdict-sources-are-incomplete.sh`.
+    """
+    root, gk, sha = _repo(tmp_path)
+    attendu = set(sources_du_verdict())
+    trouve = set()
+    for chemin in (root / ".autoport").rglob("*"):
+        if not chemin.is_file():
+            continue
+        rel = chemin.relative_to(root).as_posix()
+        if rel.startswith(FAMILLES):
+            trouve.add(rel)
+    manque = sorted(attendu - trouve)
+    en_trop = sorted(trouve - attendu)
+    cible = os.environ.get("AUTOPORT_SANDBOX_MANIFEST")
+    if cible:
+        with open(cible, "w", encoding="utf-8") as f:
+            f.write("sandbox=test_proof.py\n")
+            f.write("attendu=%d\ntrouve=%d\n" % (len(attendu), len(trouve)))
+            f.write("manque=%d\nen_trop=%d\n" % (len(manque), len(en_trop)))
+            f.write("manque_liste=%s\n" % (",".join(manque) or "-"))
+            f.write("en_trop_liste=%s\n" % (",".join(en_trop) or "-"))
+    assert attendu, "la porte n'epingle rien : l'ecart serait vide de sens"
+    assert not manque, "le bac a sable ne copie pas %s" % manque
+    assert not en_trop, "le bac a sable porte des fichiers que la porte n'epingle pas : %s" % en_trop
