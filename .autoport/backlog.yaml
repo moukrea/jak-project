@@ -7061,7 +7061,7 @@ items:
   out_of_scope: Ne pas retraduire le jeu ni toucher aux 23 bancs livres. On repare la CHAINE de la surcharge
     tactile.
   owner_test: true
-  status: open
+  status: blocked
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7072,6 +7072,13 @@ items:
     que remonte le worker n''est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage !
     Donc si, a traiter ! » — ce signalement devient donc un item au lieu de rester une ligne de rapport.
     Prio 21 : juste apres, comme il l''a demande.'
+  block_reason: 'appareil PRESENT mais ECRAN VERROUILLE depuis 08:36 : MIUI refuse `adb install` (INSTALL_FAILED_USER_RESTRICTED)
+    sans qu''aucune boite de dialogue existe (`adb_install_need_confirm`=0, `mScreenLocked`=true). Le
+    telephone garde donc un APK perime et aucune preuve d''appareil ne peut decrire le binaire. Les essais
+    1 a 4 ont ete refuses pour CA et pour la fraicheur des sources de verdict, jamais pour le travail
+    : l''essai 3 avait verifie sa porte de production dans les DEUX sens (8 bancs / 8 sources ; rc=1 sur
+    le banc gele du 31/08). Il reste 2 essais sur 6. A ROUVRIR d''un seul geste des que l''owner deverrouille
+    le telephone.'
 - id: fire-red-particles
   priority: null
   device: true
@@ -8140,7 +8147,7 @@ items:
   prompt: prompts/item-harness-test-suite-is-not-a-signal.md
   notes: 'issu des signalements de harness-commit-paths-all-or-nothing, 12/09 : 7 rouges a HEAD.'
 - id: sky-gpu-path-robustness
-  status: in-progress
+  status: validated
   priority: 25
   game: jak1
   device: false
