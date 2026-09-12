@@ -92,6 +92,17 @@ grep -ahE '^MENULBL page=' "$SNAP.norm" 2>/dev/null \
 ROWS_LOGGED=$(grep -c . "$TSV" 2>/dev/null) || ROWS_LOGGED=0
 pub menu_label_rows_logged "$ROWS_LOGGED"
 pub menu_label_table "$TSV"
+# CE QUE LE JOURNAL A PERDU EN ROUTE. Le moteur compte les lignes qu'il EMET
+# (`menu_label_logged`) ; ce script compte celles qu'il RETROUVE. Sur l'appareil, `logcat` peut en
+# jeter sous rafale. La difference ne fabrique pas de faux vert — le verdict par rangee vient du
+# moteur, qui les a TOUTES vues — mais elle retrecit la population sur laquelle la verification
+# multi-langues porte. Elle est donc PUBLIEE et NOMMEE, jamais laissee muette, et le denominateur
+# de la verification (`menu_label_lang_ids`) est publie a cote.
+DROPPED=$(( ${ENG_LOGGED:-0} - ROWS_LOGGED ))
+[ "$DROPPED" -ge 0 ] || DROPPED=0
+pub menu_label_rows_dropped "$DROPPED"
+[ "$DROPPED" -eq 0 ] || note "$DROPPED ligne(s) MENULBL emises par le moteur et absentes du journal"
+
 if [ "${ROWS_LOGGED:-0}" -lt 100 ]; then
   note "tableau des couples quasi vide ($ROWS_LOGGED lignes)"
   PENALTY=$((PENALTY + 1000))
