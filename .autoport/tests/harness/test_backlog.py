@@ -508,11 +508,14 @@ def test_lint_accepts_a_budget_above_the_default_when_notes_say_why(bpath):
 
 
 def test_the_real_backlog_carries_sane_budgets():
+    # Une clef ABSENTE veut dire « le defaut s'applique » : 18 items du lot perf n'en portent
+    # aucune. Les indexer durement faisait sortir ce test en KeyError, c'est-a-dire sur un
+    # defaut du test et non du backlog (2026-09-12).
     for it in bl.load().items:
         note = it.get("notes") or ""
         if bl.BUDGET_NOTE not in note:
-            assert it["max_turns"] <= bl.DEFAULT_MAX_TURNS, it["id"]
-            assert it["max_retries"] <= bl.DEFAULT_MAX_RETRIES, it["id"]
+            assert it.get("max_turns", bl.DEFAULT_MAX_TURNS) <= bl.DEFAULT_MAX_TURNS, it["id"]
+            assert it.get("max_retries", bl.DEFAULT_MAX_RETRIES) <= bl.DEFAULT_MAX_RETRIES, it["id"]
 
 
 def test_cli_status_all_flag(bpath):

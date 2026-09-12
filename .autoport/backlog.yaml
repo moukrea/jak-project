@@ -112,8 +112,10 @@ items:
     deja nommees — le niveau du maire vieillissait pendant qu''il etait a l''ecran, et le chargeur jetait
     ce que le jeu DEMANDE en gardant ce dont il n''a pas besoin. Le fichier de l''owner (reports/cutscene-npc-flicker/owner-honor/)
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
-    390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
-    l''ont ete faute d''appareil, pas faute d''idees.'
+    390 images cause=soumis-mais-non-dessine. | budget : porte a 8 essais le 2026-09-06, les essais brules
+    l''ont ete faute d''appareil, pas faute d''idees. | budget : porte a 8 essais le 2026-09-06, les essais
+    brules l''ont ete faute d''appareil, pas faute d''idees. (Justification RESTAUREE le 2026-09-12 depuis
+    le commit 5b3cee5f64 : elle avait ete effacee par une reecriture ulterieure de `notes`.)'
   known_cause: |-
     LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
     SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
@@ -325,7 +327,10 @@ items:
     REELLEMENT atteintes ; les paliers que le Redmi ne peut pas tenir se mesurent la ou ils sont atteignables,
     la preuve disant sur quelle machine. Acquis de la serie precedente : le residu vit dans UN canal d''animation
     immobile, et le recensement affirmait « ces canaux ne bougent pas » sans jamais le verifier. | budget
-    porte a 8 essais le 2026-09-06 : les essais brules l''ont ete faute d''appareil, pas faute d''idees.'
+    : porte a 8 essais le 2026-09-06, les essais brules l''ont ete faute d''appareil, pas faute d''idees.
+    | budget : porte a 8 essais le 2026-09-06, les essais brules l''ont ete faute d''appareil, pas faute
+    d''idees. (Justification RESTAUREE le 2026-09-12 depuis le commit 5b3cee5f64 : elle avait ete effacee
+    par une reecriture ulterieure de `notes`.)'
   known_cause: 'Owner 2026-09-05 : propre a 30 et 60, jitter a 45. Ce sont exactement les cadences ou
     les 60 ticks/s de la logique tombent en compte ENTIER par image (2 ticks a 30, 1 a 60). A 45 il en
     faudrait 1,333 : la suite reelle est 1,2,1,1,2... et le reste doit etre absorbe par l''alpha d''interpolation.
@@ -4480,7 +4485,13 @@ items:
     owner ; sortie ecran HDR native ensuite.
   notes: 'Reprise apres disque plein le 09/09 : l''orchestrateur est mort en plein essai 61 (/home a 100
     %, 128 Ko libres — 37 Go de snapshots APK/.so laisses par Codex dans reports/lighting-hdr/notes, purges).
-    L''item etait reste ''in-progress'' sans worker.'
+    L''item etait reste ''in-progress'' sans worker. | budget : max_turns porte a 1000 le 2026-09-06.
+    Les six essais n''etaient pas perdus — quatre verdicts sur six au vert (saturation <= origine, courbe
+    monotone sur 8000 points, jeu ORIGINE-LUMIERE rejoue sur 13439 images, interrupteur d''eclairage propre
+    dans les trois configurations) — et le blocage gelait les dix chantiers d''eclairage qui en dependent.
+    DEUX verdicts restaient : hdr_defect_2_hl_contrast et hdr_defect_4_master_off_bitexact. (Justification
+    RESTAUREE le 2026-09-12 depuis le commit 70909297ed : elle avait ete effacee par la note du disque
+    plein du 09/09.)'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images passees par le tone map
   proof_props:
@@ -8097,7 +8108,7 @@ items:
   prompt: prompts/item-harness-attempt-not-burned-by-foreign-cause.md
   notes: issu des huit signalements de harness-commit-paths-all-or-nothing, 12/09.
 - id: harness-test-suite-is-not-a-signal
-  status: in-progress
+  status: validated
   priority: 19
   game: jak1
   device: false
@@ -8163,7 +8174,7 @@ items:
   prompt: prompts/item-sky-gpu-path-robustness.md
   notes: issu des quatre signalements de hdr-sky-gpu-alpha, 12/09.
 - id: harness-proof-impossible-must-be-read
-  status: open
+  status: in-progress
   priority: 20
   game: jak1
   device: false
