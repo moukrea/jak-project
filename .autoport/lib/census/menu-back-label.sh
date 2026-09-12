@@ -58,6 +58,9 @@ ENG_SEED_FALSE=$(eng menu_label_seed_false)
 ENG_SEED_BACK=$(eng menu_label_seed_back_ok)
 ENG_YESNO=$(eng menu_label_yesno_ok)
 ENG_DYNPAGES=$(eng menu_label_dynamic_pages)
+ENG_CHOICE=$(eng menu_label_choice_pages)
+ENG_RCHFULL=$(eng menu_label_rch_full_rows)
+ENG_MASTER=$(eng menu_label_recharged_master)
 
 num(){ case "${1:-}" in ''|*[!-0-9]*) return 1 ;; *) return 0 ;; esac; }
 
@@ -81,6 +84,17 @@ num "$ENG_LANG"   || { ENG_LANG=-1;  note "menu_label_bank_language absent"; PEN
 [ "${ENG_ROWS:-0}" -gt 100 ] 2>/dev/null || { note "menu_label_rows=$ENG_ROWS : le recensement n'a presque rien parcouru"; PENALTY=$((PENALTY + 1000)); }
 [ "${ENG_DYNPAGES:-0}" -ge 7 ] 2>/dev/null || { note "menu_label_dynamic_pages=${ENG_DYNPAGES:--} : les pages baties a l'execution n'ont pas ete recensees"; PENALTY=$((PENALTY + 1000)); }
 [ "${ENG_LOGGED:-0}" -ge "${ENG_ROWS:-0}" ] 2>/dev/null || { note "journal TRONQUE : $ENG_LOGGED lignes pour $ENG_ROWS rangees"; PENALTY=$((PENALTY + 1000)); }
+# LES DEUX POPULATIONS QUE L'OWNER NOMME, ET QU'UNE COURSE A DEJA MANQUEES. Le 12/09 a 22:50 la
+# porte est sortie VERTE sur sept pages dynamiques et ZERO page de choix : l'interrupteur Recharged
+# etait eteint, `rch-page-mask!` avait vide les trois pages Recharged vivantes, et le recensement
+# cherchait les pages de choix dans des tableaux vides. Un vert sur une population qui EXCLUT le
+# defaut rapporte est un faux vert. Les deux planchers ci-dessous le rendent impossible : les pages
+# de choix viennent desormais du ROUTEUR (au moins les quatre carrousels non conditionnels :
+# occlusion ambiante, sa qualite, sa force, la densite d'herbe) et la page Recharged est recensee
+# dans sa PHOTO non masquee, qui porte ses rangees quel que soit le reglage de la machine.
+[ "${ENG_CHOICE:-0}" -ge 4 ] 2>/dev/null || { note "menu_label_choice_pages=${ENG_CHOICE:--} : les pages de choix — celles que l'owner nomme — n'ont pas ete recensees"; PENALTY=$((PENALTY + 1000)); }
+[ "${ENG_RCHFULL:-0}" -ge 5 ] 2>/dev/null || { note "menu_label_rch_full_rows=${ENG_RCHFULL:--} : la page Recharged non masquee est vide, le recensement ne l'a pas vue"; PENALTY=$((PENALTY + 1000)); }
+pub menu_label_recharged_master "${ENG_MASTER:--1}"
 
 # ── 2. LE TABLEAU DES COUPLES (identifiant demande, texte affiche) ────────────────────────────
 OUT_DIR="${AUTOPORT_CENSUS_DIR:-.autoport/reports/menu-back-label}"

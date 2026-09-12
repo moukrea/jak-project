@@ -13060,6 +13060,7 @@
 (define *mlbl-override-rows* 0)
 (define *mlbl-false-override* 0)
 (define *mlbl-no-id* 0)
+(define *mlbl-choice-pages* 0)
 (define *mlbl-yesno-ok* 0)
 (define *mlbl-seed-caught* 0)
 (define *mlbl-seed-false* 0)
@@ -13187,20 +13188,30 @@
             1 0)))
   (none))
 
-(defun menu-label-choices-from! ((arr (array game-option)))
-  "Les pages de CHOIX atteignables depuis `arr` : pour chaque rangee qui en ouvre une, on la batit
-   par son vrai constructeur et on la recense. C'est cette famille que l'owner nomme — AMBIENT
-   OCCLUSION, AO QUALITY, AO STRENGTH vivent dans « Recharged Lighting »."
-  (when arr
-    (dotimes (i (-> arr length))
-      (let ((ty (-> arr i option-type)))
+(defun menu-label-census-choices! ()
+  "TOUTES les pages de CHOIX atteignables, demandees AU ROUTEUR lui-meme — `rch-choice-carousell-for`
+   pour chaque type de rangee qui existe. C'est la famille que l'owner nomme : AMBIENT OCCLUSION,
+   AO QUALITY, AO STRENGTH s'ouvrent depuis « Recharged Lighting ».
+
+   POURQUOI PAS DEPUIS LES TABLEAUX VIVANTS. Ils sont MASQUES de leurs rangees verrouillees a
+   chaque cablage (`gating-census!` appelle `rch-page-mask!`), et l'interrupteur Recharged eteint
+   les vide. Mesure de la course appareil du 2026-09-12 22:50 : la page Recharged livree ne portait
+   plus que « Interrupteur Recharged » et « Retour », les pages Lighting et Grass plus que
+   « Retour », et le recensement a donc rendu SEPT pages dynamiques et AUCUNE page de choix — juste
+   celles que le defaut concerne. Le routeur, lui, ne depend d'aucun reglage : un type qu'il route
+   est une page que le joueur peut ouvrir, master allume ou eteint."
+  (let ((saved *rch-choice-type*))
+    (dotimes (i (+ 1 (the int (game-option-type choice-value))))
+      (let ((ty (the-as game-option-type i)))
         (when (rch-choice-carousell-for ty)
+          (1+! *mlbl-choice-pages*)
           (menu-label-poison!)
           (set! *rch-choice-type* ty)
-          (format (clear *rch-choice-label*) "CHOIX-~D" (the int ty))
+          (format (clear *rch-choice-label*) "CHOIX-~D" i)
           (build-option-choice-options!)
-          (format (clear *menu-label-page*) "choice-~D" (the int ty))
-          (menu-label-scan! *menu-label-page* *temp-options* #t)))))
+          (format (clear *menu-label-page*) "choice-~D" i)
+          (menu-label-scan! *menu-label-page* *temp-options* #t))))
+    (set! *rch-choice-type* saved))
   (none))
 
 (defun menu-label-census-dynamic! ()
@@ -13264,10 +13275,16 @@
               (menu-label-scan! *menu-label-page* arr #f)))))
       ;; 2. LES PAGES BATIES A L'EXECUTION.
       (menu-label-census-dynamic!)
-      ;; 3. LES PAGES DE CHOIX, telles que les rangees du menu y menent.
-      (menu-label-choices-from! *recharged-options-pc*)
-      (menu-label-choices-from! *rlighting-options-pc*)
-      (menu-label-choices-from! *grass-options-pc*)
+      ;; 3. LES TROIS PAGES RECHARGED TELLES QU'ELLES SONT LIVREES, avant masquage. Les tableaux
+      ;;    VIVANTS parcourus en (1) sont amputes de leurs rangees verrouillees — interrupteur
+      ;;    Recharged eteint, ils ne portent plus qu'un « Retour ». La PHOTO prise par
+      ;;    `rch-mask-snapshot!` porte la page complete : c'est elle qui repond a « CHAQUE ligne de
+      ;;    CHAQUE sous-menu », quel que soit le reglage de la machine de mesure.
+      (menu-label-scan! "recharged-complet" *rch-mask-src-rch* #f)
+      (menu-label-scan! "lighting-complet" *rch-mask-src-lgt* #f)
+      (menu-label-scan! "grass-complet" *rch-mask-src-grs* #f)
+      ;; 4. LES PAGES DE CHOIX, demandees au routeur.
+      (menu-label-census-choices!)
       (set! *rch-choice-type* saved-choice))
     ;; LA PUBLICATION. Le denominateur et les temoins sortent de TOUTE condition : un zero obtenu
     ;; « rien n'a ete parcouru » ne doit pas se lire comme un zero obtenu « tout est juste ».
@@ -13282,6 +13299,16 @@
     (__pc-autoport-publish "menu_label_pages" *mlbl-pages*)
     (__pc-autoport-publish "menu_label_dynamic_pages" *mlbl-dyn-pages*)
     (__pc-autoport-publish "menu_label_dynamic_rows" *mlbl-dyn-rows*)
+    (__pc-autoport-publish "menu_label_choice_pages" *mlbl-choice-pages*)
+    ;; LE CONTEXTE QUI EXPLIQUE OU EXCLUT UNE POPULATION MAIGRE. Master eteint => les trois pages
+    ;; Recharged VIVANTES ne portent plus qu'un « Retour », et un compte de rangees faible se lit
+    ;; alors comme un reglage, pas comme un recensement casse.
+    (__pc-autoport-publish "menu_label_recharged_master"
+                           (if (-> *pc-settings* recharged-master?) 1 0))
+    (__pc-autoport-publish "menu_label_masked_rows" *rch-mask-masked-n*)
+    (__pc-autoport-publish "menu_label_rch_live_rows" (-> *recharged-options-pc* length))
+    (__pc-autoport-publish "menu_label_rch_full_rows" (-> *rch-mask-src-rch* length))
+    (__pc-autoport-publish "menu_label_lgt_full_rows" (-> *rch-mask-src-lgt* length))
     (__pc-autoport-publish "menu_label_override_rows" *mlbl-override-rows*)
     (__pc-autoport-publish "menu_label_leftover_rows" *mlbl-leftover*)
     (__pc-autoport-publish "menu_label_false_override_rows" *mlbl-false-override*)
