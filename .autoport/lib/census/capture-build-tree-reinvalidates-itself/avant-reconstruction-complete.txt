@@ -1,0 +1,6 @@
+# La reconstruction complete qu'a coutee la reparation du journal de dependances.
+# Lancee le 2026-09-12 a 15:47 sur build/ apres 'ninja -t recompact', cible gk, -j6.
+# C'est le prix d'UNE invocation dans l'etat defectueux : la boucle le payait a CHAQUE fois.
+aretes_jouees=338
+REPAIR_BUILD_SECONDS=512.46 rc=0
+CMAKE_RC=0

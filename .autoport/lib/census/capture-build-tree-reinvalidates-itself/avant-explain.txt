@@ -1,0 +1,669 @@
+# capture AVANT reparation, arbre build/ defectueux, 2026-09-12T15:46:27+02:00
+# commande : ninja -C build -f build.explain.ninja -n -d explain gk   (copie du manifeste : evite la regeneration cmake)
+# ninja 1.13.1
+ninja explain: stored deps info out of date for 'third-party/SDL/CMakeFiles/SDL3-shared.dir/src/SDL.c.o' (1788996454370480565 vs 1789217114136859232)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/assets/AssetManager.cpp.o' (1788116340207111724 vs 1789217148985523755)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/audio/audio_formats.cpp.o' (1788116308021524515 vs 1789217120090972770)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/cross_os_debug/xdbg.cpp.o' (1788116303704445753 vs 1789217116238899315)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/custom_data/MeshConsolidate.cpp.o' (1788788155412202925 vs 1789217172280967972)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/custom_data/TFrag3Data.cpp.o' (1788788154542187085 vs 1789217170701937862)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/dma/dma_copy.cpp.o' (1788116325235838581 vs 1789217117345920425)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/formatter/formatter.cpp.o' (1788116347806250365 vs 1789217131140183465)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/global_profiler/GlobalProfiler.cpp.o' (1788116358346442665 vs 1789217133422226981)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/Interpreter.cpp.o' (1788116374564738558 vs 1789217148028505506)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/Object.cpp.o' (1788116356139402399 vs 1789217130152164625)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/PrettyPrinter.cpp.o' (1788116359051455527 vs 1789217129369149694)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/PrettyPrinter2.cpp.o' (1788116366322588185 vs 1789217131130183275)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/Printer.cpp.o' (1788116370591666072 vs 1789217134960256310)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/Reader.cpp.o' (1788116382920891011 vs 1789217152483590459)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/goos/TextDB.cpp.o' (1788116373088711629 vs 1789217143191413268)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/log/log.cpp.o' (1788116382539884060 vs 1789217152075582679)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/repl/config.cpp.o' (1788116391563048682 vs 1789217152191584891)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/repl/nrepl/ReplClient.cpp.o' (1788116373266714877 vs 1789217136355282911)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/repl/nrepl/ReplServer.cpp.o' (1788116375445754632 vs 1789217139177336725)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/repl/repl_wrapper.cpp.o' (1788116416004494602 vs 1789217172144965379)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/serialization/subtitles/subtitles_v1.cpp.o' (1788116407106332261 vs 1789217173584992838)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/serialization/subtitles/subtitles_v2.cpp.o' (1788116416467503050 vs 1789217181971152753)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/serialization/subtitles/subtitles.cpp.o' (1788116393072076214 vs 1789217164532820224)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/serialization/text/text_ser.cpp.o' (1788116396132132042 vs 1789217169220909620)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/defenum.cpp.o' (1788116395689123960 vs 1789217164103812043)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/deftype.cpp.o' (1788116407971348042 vs 1789217171363950486)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/state.cpp.o' (1788116401940238008 vs 1789217163264796044)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/Type.cpp.o' (1788116414800472636 vs 1789217182223157558)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/TypeFieldLookup.cpp.o' (1788116418181534321 vs 1789217183864188851)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/type_system/TypeSystem.cpp.o' (1788116446141333716 vs 1789217203833569643)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/AssetsLock.cpp.o' (1788116429659847671 vs 1789217194666394836)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/dgo_util.cpp.o' (1788116413294445159 vs 1789217173394989215)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/DgoReader.cpp.o' (1788116431328904712 vs 1789217188966286142)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/DgoWriter.cpp.o' (1788116427106762503 vs 1789217184985210227)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/FileUtil.cpp.o' (1788116453330464984 vs 1789217205497601374)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/font/dbs/font_db_jak1.cpp.o' (1788116450983422129 vs 1789217204421580856)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/font/dbs/font_db_jak2.cpp.o' (1788116500558327330 vs 1789217243865333002)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/font/dbs/font_db_jak3.cpp.o' (1788116473108826122 vs 1789217226683005355)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/font/font_utils.cpp.o' (1788116452419448350 vs 1789217200897513656)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/print_float.cpp.o' (1788116448951385026 vs 1789217186581240662)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/read_iso_file.cpp.o' (1788116463379648475 vs 1789217197593450651)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/util/unicode_util.cpp.o' (1788116458263555059 vs 1789217191472333929)
+ninja explain: stored deps info out of date for 'common/CMakeFiles/common.dir/versions/versions.cpp.o' (1788996455218500156 vs 1789217191808340336)
+ninja explain: output third-party/discord-rpc/CMakeFiles/clangformat doesn't exist
+ninja explain: stored deps info out of date for 'game/sound/CMakeFiles/sound.dir/989snd/player.cpp.o' (1788116483195010288 vs 1789217198821474068)
+ninja explain: stored deps info out of date for 'game/sound/CMakeFiles/sound.dir/sndshim.cpp.o' (1788116496635255697 vs 1789217200053497562)
+ninja explain: stored deps info out of date for 'third-party/SDL/libSDL3.so.0.4.4' (1788996454712488466 vs 1789217192059345123)
+ninja explain: third-party/SDL/CMakeFiles/SDL3-shared.dir/src/SDL.c.o is dirty
+ninja explain: stored deps info out of date for 'common/libcommon.so' (1788996458769582193 vs 1789217247003392841)
+ninja explain: common/CMakeFiles/common.dir/assets/AssetManager.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/audio/audio_formats.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/cross_os_debug/xdbg.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/custom_data/MeshConsolidate.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/custom_data/TFrag3Data.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/dma/dma_copy.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/formatter/formatter.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/global_profiler/GlobalProfiler.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/Interpreter.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/Object.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/PrettyPrinter.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/PrettyPrinter2.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/Printer.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/Reader.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/goos/TextDB.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/log/log.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/repl/config.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/repl/nrepl/ReplClient.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/repl/nrepl/ReplServer.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/repl/repl_wrapper.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/serialization/subtitles/subtitles_v1.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/serialization/subtitles/subtitles_v2.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/serialization/subtitles/subtitles.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/serialization/text/text_ser.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/defenum.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/deftype.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/state.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/Type.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/TypeFieldLookup.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/type_system/TypeSystem.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/AssetsLock.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/dgo_util.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/DgoReader.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/DgoWriter.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/FileUtil.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/font/dbs/font_db_jak1.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/font/dbs/font_db_jak2.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/font/dbs/font_db_jak3.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/font/font_utils.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/print_float.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/read_iso_file.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/util/unicode_util.cpp.o is dirty
+ninja explain: common/CMakeFiles/common.dir/versions/versions.cpp.o is dirty
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/external/discord_jak1.cpp.o' (1788116495294231211 vs 1789217198431466631)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/external/discord_jak2.cpp.o' (1788116496172247243 vs 1789217201435523915)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/external/discord_jak3.cpp.o' (1788116498446288765 vs 1789217203281559117)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/external/discord_jakx.cpp.o' (1788116497758276203 vs 1789217201912533011)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/external/discord.cpp.o' (1788116500881333227 vs 1789217204742586977)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/display.cpp.o' (1788930320262067507 vs 1789217211079707818)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/graphics/fire_red_census.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/fixed_tick.cpp.o' (1788984761446516622 vs 1789217204340579311)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/graphics/gl_query_census.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/render_pace.cpp.o' (1788984767460628919 vs 1789217215444791056)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/uncap.cpp.o' (1788984765521592713 vs 1789217213792759553)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/gfx.cpp.o' (1788930320714074973 vs 1789217214807778908)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/screenshot.cpp.o' (1788116503472380538 vs 1789217206906628243)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/background_common.cpp.o' (1788984773356739012 vs 1789217225060974425)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/foliage_wind.cpp.o' (1788996474196938596 vs 1789217226073993742)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Hfrag.cpp.o' (1788996462754674256 vs 1789217218420847806)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Shrub.cpp.o' (1788996471688880654 vs 1789217226484001561)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/TFragment.cpp.o' (1788984779114846528 vs 1789217236773197764)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Tie3.cpp.o' (1788984779965862418 vs 1789217239679253179)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BlitDisplays.cpp.o' (1788976368288198785 vs 1789217226438000683)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BucketRenderer.cpp.o' (1788976369147211881 vs 1789217224007954345)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/CollideMeshRenderer.cpp.o' (1788976371542248395 vs 1789217229738063612)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/lighting_census.cpp.o' (1788984772974731879 vs 1789217236765197611)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/shade_proof.cpp.o' (1788984775734783415 vs 1789217237482211284)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o' (1788984777701820144 vs 1789217248531421979)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr_desktop.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr_output.cpp.o' (1788984787044994601 vs 1789217259776636412)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/refset.cpp.o' (1788984829186781479 vs 1789217316203712411)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/debug_gui.cpp.o' (1788930343821456643 vs 1789217244415343490)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DepthCue.cpp.o' (1788976375644310934 vs 1789217247515402605)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DirectRenderer.cpp.o' (1788984792581097972 vs 1789217263592709180)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DirectRenderer2.cpp.o' (1788976377221334977 vs 1789217247583403902)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/EyeRenderer.cpp.o' (1788976388883512776 vs 1789217262477687918)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_Build.cpp.o' (1788976378426353349 vs 1789217249991449820)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_DMA.cpp.o' (1788976381804404849 vs 1789217255082546901)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp.o' (1788976385577462372 vs 1789217258851618773)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2.cpp.o' (1788976383996438269 vs 1789217257098585345)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2BucketRenderer.cpp.o' (1788976386743480149 vs 1789217259282626992)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Merc2.cpp.o' (1788984804846326990 vs 1789217291523241783)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Merc2BucketRenderer.cpp.o' (1788976390896543466 vs 1789217260719654394)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Shadow2.cpp.o' (1788976390553538237 vs 1789217264952735114)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/CustomTextureReplacements.cpp.o' (1788984814216501951 vs 1789217313404659036)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/Loader.cpp.o' (1788984798463207804 vs 1789217288306180437)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/LoaderStages.cpp.o' (1788930372268926517 vs 1789217282624072086)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/ManagedAssets.cpp.o' (1788930379959053537 vs 1789217289326199888)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/GpuCaps.cpp.o' (1788930373784951558 vs 1789217269898829431)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/assets/AssetCli.cpp.o' (1788116581256800823 vs 1789217280642034291)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/assets/CurlTransport.cpp.o' (1788116571971631283 vs 1789217272047870410)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/PbrTestPattern.cpp.o' (1788930378912036243 vs 1789217274985926436)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp.o' (1788996460837629969 vs 1789217279488012285)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMid_PS2.cpp.o' (1788976407230792494 vs 1789217297506355874)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMid.cpp.o' (1788976400719693227 vs 1789217289406201413)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMidAndFar.cpp.o' (1788976402153715090 vs 1789217292875267565)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanNear_PS2.cpp.o' (1788976408874817558 vs 1789217302546451983)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanNear.cpp.o' (1788976402560721295 vs 1789217296369334192)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanRecharged.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanTexture_PC.cpp.o' (1788976404519751162 vs 1789217302560452250)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanTexture.cpp.o' (1788976414837908470 vs 1789217305778513615)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/GrassRenderer.cpp.o' (1788984801475264045 vs 1789217323125844408)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/AmbientOcclusion.cpp.o' (1788996463320687332 vs 1789217306563528584)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/PrePass.cpp.o' (1788996462625671276 vs 1789217308634568076)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/gl_uniform_cache.cpp.o' (1788996456310525384 vs 1789217300403411118)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/prop_cache.cpp.o' (1788996458871584549 vs 1789217304805495060)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/frame_ubo.cpp.o' (1788996467328779927 vs 1789217311431621413)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/opengl_utils.cpp.o' (1788976416197929205 vs 1789217313888668266)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o' (1788984815432524657 vs 1789217342784219270)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ProgressRenderer.cpp.o' (1788976417678951784 vs 1789217315351696164)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Shader.cpp.o' (1788976441270311452 vs 1789217337591120244)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Shadow_PS2.cpp.o' (1788976428254113010 vs 1789217321813819389)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ShadowRenderer.cpp.o' (1788976426762090263 vs 1789217322895840022)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyBlendCPU.cpp.o' (1788976426633088296 vs 1789217324389868511)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyBlendGPU.cpp.o' (1788976425798075566 vs 1789217325522890117)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyRenderer.cpp.o' (1788976428455116075 vs 1789217327331924613)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SlowTimeEffect.cpp.o' (1788976431879168277 vs 1789217323112844160)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/GlowRenderer.cpp.o' (1788976436870244370 vs 1789217329060957583)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3_Distort.cpp.o' (1788976437758257908 vs 1789217337111111091)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp.o' (1788976437793258442 vs 1789217333840048715)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3.cpp.o' (1788984820787624648 vs 1789217367406688791)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureAnimator.cpp.o' (1788976449417435661 vs 1789217353563424817)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureAnimatorDefs.cpp.o' (1788976450140446684 vs 1789217347541309982)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureUploadHandler.cpp.o' (1788976446723394588 vs 1789217338010128234)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/VisDataHandler.cpp.o' (1788976446108385212 vs 1789217338297133707)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Warp.cpp.o' (1788976446163386050 vs 1789217340091167917)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o' (1788984811090443581 vs 1789217358472518427)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/sceGraphicsInterface.cpp.o' (1788930435352968493 vs 1789217347549310135)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/texture/TextureConverter.cpp.o' (1788116665058330976 vs 1789217343972241924)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/texture/TexturePool.cpp.o' (1788930450356216306 vs 1789217369035719855)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/fileio.cpp.o' (1788793159784871351 vs 1789217340674179034)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kdgo.cpp.o' (1788116664146314323 vs 1789217342765218908)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kdsnetm.cpp.o' (1788116663465301888 vs 1789217343053224400)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/klink.cpp.o' (1788930437939011207 vs 1789217346819296214)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/klisten.cpp.o' (1788116666105350093 vs 1789217345784276478)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kmachine.cpp.o' (1788984823256670751 vs 1789217379560920559)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kmalloc.cpp.o' (1787783107363987320 vs 1789217346527290646)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kmemcard.cpp.o' (1788116674637505884 vs 1789217361292572202)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kprint.cpp.o' (1788116668600395651 vs 1789217350387364253)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/kscheme.cpp.o' (1786158635501257026 vs 1789217349434346080)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/common/ksocket.cpp.o' (1786158638397308261 vs 1789217349947355863)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/fileio.cpp.o' (1786158641212358063 vs 1789217349784352755)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/kboot.cpp.o' (1788984805166332966 vs 1789217353964432464)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/kdgo.cpp.o' (1786158644408414606 vs 1789217353250418848)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/klink.cpp.o' (1788984813582490113 vs 1789217361798581852)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/klisten.cpp.o' (1788930441415068622 vs 1789217352779409867)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o' (1788984830457805211 vs 1789217394005195994)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/kprint.cpp.o' (1788930447437168091 vs 1789217356776486086)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/kscheme.cpp.o' (1788930450967226398 vs 1789217360516557405)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak1/ksound.cpp.o' (1788930449895208691 vs 1789217358074510838)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/fileio.cpp.o' (1786158655460610135 vs 1789217359307534350)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kboot.cpp.o' (1786158661257712694 vs 1789217363992623689)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kdgo.cpp.o' (1787775216908909004 vs 1789217370141740946)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/klink.cpp.o' (1788930456061785828 vs 1789217371344763886)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/klisten.cpp.o' (1786158667398821339 vs 1789217364070625177)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kmachine.cpp.o' (1788930462488416696 vs 1789217378903908030)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kmachine_extras.cpp.o' (1788930493747933018 vs 1789217414659589849)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kmalloc.cpp.o' (1786158670326873140 vs 1789217365959661198)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kprint.cpp.o' (1786158676372980104 vs 1789217367883697887)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/kscheme.cpp.o' (1786158682610090447 vs 1789217372513786178)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak2/ksound.cpp.o' (1786158677351997424 vs 1789217369737733242)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/fileio.cpp.o' (1786158679573036718 vs 1789217370362745160)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kboot.cpp.o' (1786158688088187363 vs 1789217374681827520)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kdgo.cpp.o' (1786158682645091067 vs 1789217373150798325)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/klink.cpp.o' (1786158688323191520 vs 1789217375839849602)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/klisten.cpp.o' (1786158686976167690 vs 1789217374292820102)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kmachine.cpp.o' (1788930464405448360 vs 1789217390138122254)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kmachine_extras.cpp.o' (1788930501440060071 vs 1789217429485872569)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kmalloc.cpp.o' (1786158690264225860 vs 1789217375519843500)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kprint.cpp.o' (1786158693317279873 vs 1789217377846887874)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/kscheme.cpp.o' (1786158700294403308 vs 1789217381957966268)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jak3/ksound.cpp.o' (1786158694629303084 vs 1789217377933889533)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/fileio.cpp.o' (1786158697845359981 vs 1789217377850887950)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kboot.cpp.o' (1786158704146471457 vs 1789217383944004139)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kdgo.cpp.o' (1786158699792394427 vs 1789217380985947732)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/klink.cpp.o' (1786158706920520533 vs 1789217383101988083)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/klisten.cpp.o' (1786158704584479206 vs 1789217381520957934)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kmachine.cpp.o' (1788930471346563009 vs 1789217391030139263)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kmachine_extras.cpp.o' (1788930506617145582 vs 1789217436272001973)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kmalloc.cpp.o' (1786158707987539410 vs 1789217384036005893)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kprint.cpp.o' (1786158712794624455 vs 1789217385021024676)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/kscheme.cpp.o' (1786158719950751057 vs 1789217390619131426)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/kernel/jakx/ksound.cpp.o' (1786158713268632840 vs 1789217385894041324)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/bones.cpp.o' (1788930470323546111 vs 1789217391158141704)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_cache.cpp.o' (1788930483459763086 vs 1789217400671323109)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_edge_grab.cpp.o' (1788930478060673908 vs 1789217393236181330)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_func.cpp.o' (1788930484289776795 vs 1789217397072254479)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_mesh.cpp.o' (1788930486487813101 vs 1789217398656284685)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_probe.cpp.o' (1788930492497912371 vs 1789217401560340062)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/draw_string.cpp.o' (1788930492933919573 vs 1789217402197352209)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_effect.cpp.o' (1788930495180956688 vs 1789217404005386686)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_effect2.cpp.o' (1788930498765416849 vs 1789217401705342827)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_merc.cpp.o' (1788930504957118163 vs 1789217412898556268)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_tie.cpp.o' (1788930506100137043 vs 1789217413308564087)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/joint.cpp.o' (1788930505938134367 vs 1789217415471605333)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/merc_blend_shape.cpp.o' (1788930504377108583 vs 1789217408884479725)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ocean_vu0.cpp.o' (1788930508982184646 vs 1789217410867517539)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ocean.cpp.o' (1788930509467192657 vs 1789217408506472516)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ripple.cpp.o' (1788930510286983203 vs 1789217411543530429)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/shadow.cpp.o' (1788930514362273510 vs 1789217420040692461)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sky_tng.cpp.o' (1788930513793264112 vs 1789217418085655180)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle_launcher.cpp.o' (1788930514197270785 vs 1789217420966710118)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle.cpp.o' (1788930516451317504 vs 1789217421775725545)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/test_func.cpp.o' (1788930513704262642 vs 1789217417956652720)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/texture.cpp.o' (1788930514697279044 vs 1789217417871651099)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/tfrag.cpp.o' (1788930519348355867 vs 1789217422611741487)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/tie_methods.cpp.o' (1788930523145381020 vs 1789217428320850353)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak1_functions/time_of_day.cpp.o' (1788930519196353356 vs 1789217423522758859)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/bones.cpp.o' (1786158789238976863 vs 1789217423890765877)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_cache.cpp.o' (1788271720798239658 vs 1789217427901842363)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_edge_grab.cpp.o' (1788271720524234722 vs 1789217428129846711)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_func.cpp.o' (1788271719966224671 vs 1789217427499834698)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_hash.cpp.o' (1788271721686255654 vs 1789217433805954948)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_mesh.cpp.o' (1788271722406268624 vs 1789217431628913434)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/debug.cpp.o' (1786158801241189199 vs 1789217431088903137)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/font.cpp.o' (1786158816119452417 vs 1789217436312002735)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/foreground.cpp.o' (1786158809110328415 vs 1789217435383985039)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/generic_effect.cpp.o' (1786158815562442563 vs 1789217438818050523)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/generic_merc.cpp.o' (1786158821943555453 vs 1789217443083131853)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/joint.cpp.o' (1786158818275490560 vs 1789217442122113527)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/lights.cpp.o' (1786158812134381915 vs 1789217436658009333)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/merc_blend_shape.cpp.o' (1786158815448440546 vs 1789217438236039425)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/nav_control.cpp.o' (1786158816227454328 vs 1789217437468024779)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/nav_mesh.cpp.o' (1786158821109540699 vs 1789217441180095564)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ocean_vu0.cpp.o' (1786158827542654509 vs 1789217444931167093)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ocean.cpp.o' (1786158825368616048 vs 1789217442287116674)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ripple.cpp.o' (1786158826341633262 vs 1789217443745144477)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/shadow.cpp.o' (1786158833856766215 vs 1789217448551236123)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sky.cpp.o' (1786158832871748788 vs 1789217449648257042)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sparticle_launcher.cpp.o' (1786158832441741181 vs 1789217445689181547)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sparticle.cpp.o' (1786158833744764233 vs 1789217445912185800)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/spatial_hash.cpp.o' (1786158837338827817 vs 1789217451041283606)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/squid.cpp.o' (1786158836040804853 vs 1789217448315231623)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/texture.cpp.o' (1786158834256773292 vs 1789217447362213450)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak2_functions/vortex.cpp.o' (1786158839938873816 vs 1789217449658257233)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_func.cpp.o' (1786158845483971916 vs 1789217451003282881)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/debug.cpp.o' (1786158843541937559 vs 1789217451634294914)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/font.cpp.o' (1786158857278180573 vs 1789217459835451301)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/foreground.cpp.o' (1786158847354005000 vs 1789217453766335569)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/generic_effect.cpp.o' (1786158854360128948 vs 1789217458084417910)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/joint.cpp.o' (1786158846562991006 vs 1789217454285345466)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/lights.cpp.o' (1786158847881014323 vs 1789217456631390203)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sky.cpp.o' (1786158857058176680 vs 1789217461325479714)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/texture.cpp.o' (1786158853919121146 vs 1789217455219363277)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/particle_curves.cpp.o' (1786158858365199804 vs 1789217458181419760)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/cloth.cpp.o' (1786158854853137670 vs 1789217456663390813)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_cache.cpp.o' (1786158862560274020 vs 1789217460980473135)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_hash.cpp.o' (1786158865030317719 vs 1789217465251554579)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_edge_grab.cpp.o' (1786158869157390733 vs 1789217463437519988)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_mesh.cpp.o' (1786158869410395209 vs 1789217463960529961)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/spatial_hash.cpp.o' (1786158868107372156 vs 1789217465322555933)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sparticle.cpp.o' (1786158868761383727 vs 1789217464160533775)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sparticle_launcher.cpp.o' (1786158871789437297 vs 1789217466812584346)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/nav_control.cpp.o' (1786158866808349175 vs 1789217464116532936)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/nav_engine.cpp.o' (1786158871689435528 vs 1789217466576579846)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/merc_blend_shape.cpp.o' (1786158876671523668 vs 1789217468048607916)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/wvehicle_part.cpp.o' (1786158876216515619 vs 1789217466419576852)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ripple.cpp.o' (1786158878805561422 vs 1789217470372652233)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/shadow.cpp.o' (1786158886460696852 vs 1789217474863737873)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ocean.cpp.o' (1786158879360571241 vs 1789217470184648648)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ocean_vu0.cpp.o' (1786158885939687635 vs 1789217473966720767)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/jak3_functions/generic_merc.cpp.o' (1786158892858810044 vs 1789217480544846205)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/mips2c/mips2c_table.cpp.o' (1788930521875397607 vs 1789217474626733353)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/common/fake_iso.cpp.o' (1787775236964272391 vs 1789217482977892600)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/common/iso_api.cpp.o' (1786158880036583201 vs 1789217468488616306)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/common/iso.cpp.o' (1786158885755684380 vs 1789217471456672904)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/common/sbank.cpp.o' (1786158884396660337 vs 1789217470979663808)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/common/ssound.cpp.o' (1786158887688718578 vs 1789217470896662225)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/fake_iso.cpp.o' (1788793163814945586 vs 1789217480803851144)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/iso.cpp.o' (1786158896431873256 vs 1789217477185782151)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/ramdisk.cpp.o' (1786158892302800207 vs 1789217473374709479)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/srpc.cpp.o' (1788930522880414207 vs 1789217481334861269)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/ssound.cpp.o' (1786158894489838899 vs 1789217473881719147)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak1/stream.cpp.o' (1787775232365189059 vs 1789217478299803394)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/dma.cpp.o' (1786158895934864464 vs 1789217476766774161)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/iso_api.cpp.o' (1787775236658266846 vs 1789217480273841037)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/iso_cd.cpp.o' (1787775241168348565 vs 1789217484976930719)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/iso_queue.cpp.o' (1786158900140938875 vs 1789217478102799638)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/iso.cpp.o' (1786158901632965271 vs 1789217480465844698)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/spustreams.cpp.o' (1786158905568034888 vs 1789217479385824104)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/srpc.cpp.o' (1786158907552069989 vs 1789217481948872978)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/ssound.cpp.o' (1786158906519051713 vs 1789217480311841762)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/stream.cpp.o' (1787775238460299497 vs 1789217484268917218)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/streamlist.cpp.o' (1786158905371031403 vs 1789217482371881044)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak2/vag.cpp.o' (1786158908828092563 vs 1789217484199915903)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak3/iso_cd.cpp.o' (1787775248787486617 vs 1789217495322127990)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak3/iso_api.cpp.o' (1787775241325351410 vs 1789217486332956577)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak3/dvd_driver.cpp.o' (1787775242744377121 vs 1789217487557979937)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jak3/stream.cpp.o' (1787775243384388718 vs 1789217487225973606)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jakx/iso_cd.cpp.o' (1787775253452571145 vs 1789217497582171087)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jakx/iso_api.cpp.o' (1787775246116438220 vs 1789217488186991932)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jakx/dvd_driver.cpp.o' (1787775248666484425 vs 1789217490019026866)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/overlord/jakx/stream.cpp.o' (1787775248503481471 vs 1789217490254031348)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/runtime.cpp.o' (1788930526566475090 vs 1789217497689173127)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/sce/libpad.cpp.o' (1788930527095483828 vs 1789217494859119161)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/sce/sif_ee_memcard.cpp.o' (1787779410036883964 vs 1789217494909120115)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/sce/sif_ee.cpp.o' (1787775254571591420 vs 1789217494028103315)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/settings/settings.cpp.o' (1787775273632936796 vs 1789217514051485137)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/Deci2Server.cpp.o' (1786158948604796269 vs 1789217492132067160)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/hid/devices/game_controller.cpp.o' (1787775263422751796 vs 1789217502779270189)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/hid/devices/keyboard.cpp.o' (1787775262355732462 vs 1789217500945235216)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/hid/devices/mouse.cpp.o' (1787775263107746088 vs 1789217502773270075)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/hid/display_manager.cpp.o' (1787775266181801787 vs 1789217508265374803)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/hid/input_manager.cpp.o' (1788930535205617785 vs 1789217518560571120)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/IOP_Kernel.cpp.o' (1787775266860814090 vs 1789217504089295170)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/autoport_proof.cpp.o' (1788984814361504659 vs 1789217501925253904)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/touch_screen.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/perf_instruments.cpp.o' (1788994928663994401 vs 1789217508871386359)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/perf_baseline.cpp.o' are missing
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/water_census.cpp.o' are missing
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/naming_census.cpp.o' are missing
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/checkpoint_census.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/settings_case_l10n.cpp.o' (1788984823967684027 vs 1789217520032599190)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/npc_flicker.cpp.o' (1788984820705623117 vs 1789217513959483382)
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/recharged_gating.cpp.o' are missing
+ninja explain: deps for 'game/CMakeFiles/runtime.dir/system/mesh_browser_census.cpp.o' are missing
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/system/SystemThread.cpp.o' (1787775267305822153 vs 1789220709220585488)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/tools/filter_menu/filter_menu.cpp.o' (1788930531662559264 vs 1789217524307680710)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_db.cpp.o' (1787775276878995611 vs 1789217530215793371)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_repl_client.cpp.o' (1786159011254904638 vs 1789217530595800617)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor.cpp.o' (1787775278298021323 vs 1789217529548780652)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/LoadingScreenTextures.cpp.o' (1788930532980581034 vs 1789217529662782826)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/runtime.dir/graphics/opengl_renderer/RechargedHudTextures.cpp.o' (1788930531867630155 vs 1789217527593743372)
+ninja explain: stored deps info out of date for 'game/CMakeFiles/gk.dir/main.cpp.o' (1788788544886351231 vs 1789217548585143653)
+ninja explain: third-party/SDL/libSDL3.so.0.4.4 is dirty
+ninja explain: game/sound/CMakeFiles/sound.dir/989snd/player.cpp.o is dirty
+ninja explain: game/sound/CMakeFiles/sound.dir/sndshim.cpp.o is dirty
+ninja explain: stored deps info out of date for 'third-party/imgui/libimgui.so' (1788996455147498515 vs 1789217195139403855)
+ninja explain: third-party/SDL/libSDL3.so.0.4.4 is dirty
+ninja explain: game/CMakeFiles/runtime.dir/external/discord_jak1.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/external/discord_jak2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/external/discord_jak3.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/external/discord_jakx.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/external/discord.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/display.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/fire_red_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/fixed_tick.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/gl_query_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/render_pace.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/uncap.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/gfx.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/screenshot.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/background_common.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/foliage_wind.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Hfrag.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Shrub.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/TFragment.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Tie3.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BlitDisplays.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BucketRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/CollideMeshRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/lighting_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/shade_proof.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr_desktop.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr_output.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/refset.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/debug_gui.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DepthCue.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DirectRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/DirectRenderer2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/EyeRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_Build.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_DMA.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Generic2BucketRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Merc2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Merc2BucketRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/foreground/Shadow2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/CustomTextureReplacements.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/Loader.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/LoaderStages.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/ManagedAssets.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/GpuCaps.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/assets/AssetCli.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/assets/CurlTransport.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/PbrTestPattern.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMid_PS2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMid.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanMidAndFar.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanNear_PS2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanNear.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanRecharged.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanTexture_PC.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ocean/OceanTexture.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/GrassRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/AmbientOcclusion.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/PrePass.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/gl_uniform_cache.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/prop_cache.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/frame_ubo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/opengl_utils.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ProgressRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Shader.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Shadow_PS2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ShadowRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyBlendCPU.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyBlendGPU.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SlowTimeEffect.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/GlowRenderer.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3_Distort.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/sprite/Sprite3.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureAnimator.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureAnimatorDefs.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/TextureUploadHandler.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/VisDataHandler.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Warp.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/sceGraphicsInterface.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/texture/TextureConverter.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/texture/TexturePool.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/fileio.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kdgo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kdsnetm.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/klink.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/klisten.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kmachine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kmalloc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kmemcard.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kprint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/kscheme.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/common/ksocket.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/fileio.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/kboot.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/kdgo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/klink.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/klisten.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/kprint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/kscheme.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak1/ksound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/fileio.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kboot.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kdgo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/klink.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/klisten.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kmachine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kmachine_extras.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kmalloc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kprint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/kscheme.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak2/ksound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/fileio.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kboot.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kdgo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/klink.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/klisten.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kmachine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kmachine_extras.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kmalloc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kprint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/kscheme.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jak3/ksound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/fileio.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kboot.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kdgo.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/klink.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/klisten.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kmachine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kmachine_extras.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kmalloc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kprint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/kscheme.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/kernel/jakx/ksound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/bones.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_cache.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_edge_grab.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_func.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_mesh.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/collide_probe.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/draw_string.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_effect.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_effect2.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_merc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/generic_tie.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/joint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/merc_blend_shape.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ocean_vu0.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ocean.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/ripple.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/shadow.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sky_tng.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle_launcher.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/test_func.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/texture.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/tfrag.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/tie_methods.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak1_functions/time_of_day.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/bones.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_cache.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_edge_grab.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_func.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_hash.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/collide_mesh.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/debug.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/font.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/foreground.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/generic_effect.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/generic_merc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/joint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/lights.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/merc_blend_shape.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/nav_control.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/nav_mesh.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ocean_vu0.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ocean.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/ripple.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/shadow.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sky.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sparticle_launcher.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/sparticle.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/spatial_hash.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/squid.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/texture.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak2_functions/vortex.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_func.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/debug.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/font.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/foreground.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/generic_effect.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/joint.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/lights.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sky.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/texture.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/particle_curves.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/cloth.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_cache.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_hash.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_edge_grab.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/collide_mesh.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/spatial_hash.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sparticle.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/sparticle_launcher.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/nav_control.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/nav_engine.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/merc_blend_shape.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/wvehicle_part.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ripple.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/shadow.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ocean.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/ocean_vu0.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/jak3_functions/generic_merc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/mips2c/mips2c_table.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/common/fake_iso.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/common/iso_api.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/common/iso.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/common/sbank.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/common/ssound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/fake_iso.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/iso.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/ramdisk.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/srpc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/ssound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak1/stream.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/dma.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/iso_api.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/iso_cd.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/iso_queue.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/iso.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/spustreams.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/srpc.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/ssound.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/stream.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/streamlist.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak2/vag.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak3/iso_cd.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak3/iso_api.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak3/dvd_driver.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jak3/stream.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jakx/iso_cd.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jakx/iso_api.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jakx/dvd_driver.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/overlord/jakx/stream.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/runtime.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/sce/libpad.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/sce/sif_ee_memcard.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/sce/sif_ee.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/settings/settings.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/Deci2Server.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/hid/devices/game_controller.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/hid/devices/keyboard.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/hid/devices/mouse.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/hid/display_manager.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/hid/input_manager.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/IOP_Kernel.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/autoport_proof.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/touch_screen.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/perf_instruments.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/perf_baseline.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/water_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/naming_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/checkpoint_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/settings_case_l10n.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/npc_flicker.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/recharged_gating.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/mesh_browser_census.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/system/SystemThread.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/tools/filter_menu/filter_menu.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_db.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor_repl_client.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/tools/subtitle_editor/subtitle_editor.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/LoadingScreenTextures.cpp.o is dirty
+ninja explain: game/CMakeFiles/runtime.dir/graphics/opengl_renderer/RechargedHudTextures.cpp.o is dirty
+ninja explain: stored deps info out of date for 'game/gk' (1788994934009076546 vs 1789217550744184824)
+ninja explain: game/CMakeFiles/gk.dir/main.cpp.o is dirty
+ninja explain: game/libruntime.a is dirty
+ninja explain: third-party/imgui/libimgui.so is dirty
+ninja explain: third-party/SDL/libSDL3.so.0.4.4 is dirty
+ninja explain: game/sound/libsound.a is dirty
+ninja explain: common/libcommon.so is dirty

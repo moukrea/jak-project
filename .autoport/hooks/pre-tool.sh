@@ -149,7 +149,25 @@ while IFS= read -r seg; do
   # 3b. cmake -B : une reconfiguration invalide tout le cache d'objets (~1300).
   if [ "$CW" = cmake ] && [[ $seg =~ (^|[[:space:]])-B([[:space:]]|=) ]]; then
     refuse "\`cmake -B\` reconfigure et jette le cache d'objets." \
-           "construis sans reconfigurer : cmake --build build --target gk -j\$(nproc)" ;
+           "construis sans reconfigurer : .autoport/lib/build_x86.sh --target gk" ;
+  fi
+  # 3b-bis. LA CONSTRUCTION DE BUREAU PASSE PAR SA PORTE (build-tree-reinvalidates-itself, 12/09).
+  # `cmake --build build` a rendu 0 sur trois passes d'affilee en laissant `build/game/gk` NON
+  # RELIE — `libruntime.a` a 14:43:15 pour un `gk` reste a 14:36:03 — et en recompilant les 338
+  # cibles a chaque fois, parce que `build/.ninja_deps` etait illisible a partir du milieu. Ni
+  # l'un ni l'autre n'est visible dans son code de retour. `lib/build_x86.sh` lance EXACTEMENT le
+  # meme ninja, mais il repare le journal avant, compare le binaire a chacune de ses entrees
+  # apres, et SORT EN 4 sur un binaire perime. Aucun script du harnais ne construit l'arbre de
+  # bureau : ce point d'appel-ci est le seul, donc c'est ici que la perte se rend impossible.
+  # `build-android` et `build-arm64` ne sont pas concernes : le motif exige `build` tout court.
+  if [ "$CW" = cmake ] && [[ $seg =~ (^|[[:space:]])--build[[:space:]]+\.?/?build([[:space:]]|/|$) ]]; then
+    refuse "\`cmake --build build\` rend 0 sur un binaire qu'il n'a pas relie, et recompile tout." \
+           "passe par la porte : .autoport/lib/build_x86.sh --target gk   (elle lance le meme ninja, et elle juge le lien)" ;
+  fi
+  if [ "$CW" = ninja ] && [[ $seg =~ (^|[[:space:]])-C[[:space:]]+\.?/?build([[:space:]]|/|$) ]] \
+     && [[ ! $seg =~ (^|[[:space:]])-(n|t)([[:space:]]|$) ]]; then
+    refuse "\`ninja -C build\` construit sans juger ni le journal de dependances ni le lien." \
+           "passe par la porte : .autoport/lib/build_x86.sh --target gk   (un essai a vide reste permis : ninja -C build -n ...)" ;
   fi
   # 3c. adb sans -s : viser le mauvais appareil rend un resultat FAUX, pas une erreur visible.
   case "$CW" in

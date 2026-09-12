@@ -1,0 +1,55 @@
+# build-tree-reinvalidates-itself — ce qui a ete MESURE sur l'arbre `build/` AVANT reparation.
+# Transcription des sorties ; aucune n'est reconstituee de memoire. 2026-09-12, ninja 1.13.1.
+# Ce fichier n'entre dans aucun chiffre publie : il dit d'ou viennent avant-explain.txt et
+# avant-edges.txt, pris au meme moment sur le meme arbre.
+
+[15:43] ninja -C build -n -d explain gk
+    ninja: warning: premature end of file; recovering
+    ninja explain: .../CMakeFiles/VerifyGlobs.cmake_force is dirty
+    [0/2] Re-checking globbed directories...
+    ninja explain: .../CMakeFiles/cmake.verify_globs is dirty
+    [1/2] Re-running CMake...
+  -> la mesure s'arrete a la regeneration du manifeste. C'est pour cela que la capture publiee
+     est prise sur une COPIE du manifeste (`-f build.explain.ninja`), ou cette etape n'existe pas.
+
+[15:43-15:45] trois chargements successifs du journal de dependances
+    ls -la build/.ninja_deps
+      2831988 octets  15:43      (1er chargement : avertissement)
+      2831988 octets  15:43      (2e  chargement : MEME avertissement, MEME taille)
+      2831988 octets  15:45      (3e  chargement : idem)
+  -> la reprise de ninja n'a rien retreci. CONTROLE (lib/build_freshness_selftest.sh, jambe D) :
+     un journal abime EN QUEUE, lui, retrecit et cesse d'avertir des le 2e chargement
+     (152 -> 148 octets). Le journal de `build/` n'etait donc pas dans ce cas-la.
+
+[15:44] les globs ne bougent pas — ce n'est pas cmake qui reinvalide
+    94 globs `CONFIGURE_DEPENDS` compares a leur liste enregistree : 0 divergent.
+  -> `cmake.verify_globs` n'est reecrit qu'en cas de divergence (`file(TOUCH_NOCREATE)`), donc
+     `RERUN_CMAKE` ne se joue pas. La cause est ailleurs.
+
+[15:44] etat du journal, par enregistrement
+    ninja -C build -t deps
+      1486 enregistrements, 461 PERIMES (objet plus recent que son enregistrement)
+      dont game/CMakeFiles/runtime.dir : 358 enregistrements, 269 perimes
+      objets .o presents sur le disque dans runtime.dir : 374
+      -> 16 objets n'ont AUCUN enregistrement.
+
+    ninja -C build -t deps game/CMakeFiles/runtime.dir/system/SystemThread.cpp.o
+      #deps 435, deps mtime 1787775267305822153 (STALE)      [= 30 aout 21:01]
+      objet sur le disque : 12 sept. 14:51
+
+[15:45] L'EXPERIENCE QUI FERME LA CAUSE — un enregistrement neuf n'est jamais relu
+    rm build/game/CMakeFiles/runtime.dir/system/SystemThread.cpp.o
+    ninja -C build -f build.explain.ninja <cet objet>      (2,5 s, code de retour 0)
+    ls -la build/.ninja_deps      2831988 -> 2833752 octets   (+1764 : l'enregistrement EST ecrit)
+    ninja -t deps <cet objet>     deps mtime 1787775267305822153 (STALE)   <-- INCHANGE
+  -> ninja ecrit bien son enregistrement neuf a la fin du fichier, et le chargement suivant ne le
+     voit pas : il s'arrete avant. L'objet reste eternellement plus recent que son enregistrement,
+     donc eternellement sale. 320 objets etaient dans cet etat, 11 sans aucun enregistrement.
+
+[15:46] LA REPARATION
+    ninja -C build -f build.explain.ninja -t recompact
+      2831988 -> 2064332 octets
+    ninja -t deps <cet objet>     plus aucun avertissement au chargement.
+  -> le recompactage reecrit le journal a partir de ce qu'il a pu lire. Les enregistrements
+     tombes du mauvais cote sont perdus : il faut UNE construction complete, une seule fois.
+     C'est celle de `avant-reconstruction-complete.txt`.

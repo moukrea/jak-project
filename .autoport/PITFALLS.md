@@ -974,3 +974,22 @@ item qui a mis a jour le LECTEUR sans les tests qui le citent ; sa porte etait v
 ete accepte. `grep -n pytest .autoport/orchestrator.py .autoport/validators/` ne rend rien.
 Verrou : tant que la porte de fermeture ne lit pas la suite, tout chantier « la suite redevient un
 signal » perd son acquis dans la journee. Item ouvert `harness-suite-must-be-a-close-gate`.
+
+GUARD build-x86-door .autoport/hooks/pre-tool.sh build_x86.sh
+**`cmake --build build` rend 0 sur un binaire qu'il n'a pas relie, et recompile tout.** Mesure du
+2026-09-12 : une construction SANS AUCUNE EDITION relançait 335 aretes — 320 « stored deps info out
+of date », 11 « deps for X are missing » — et deux passes de suite ont laisse `build/game/gk` NON
+RELIE (`libruntime.a` a 14:43:15 pour un `gk` reste a 14:36:03), code de retour 0 aux trois fois.
+Cause nommee : `build/.ninja_deps` etait illisible a partir de son milieu (« premature end of file;
+recovering » a chaque chargement, taille inchangee a trois chargements), donc tout enregistrement
+ecrit APRES la coupure tombait du mauvais cote. Experience : `SystemThread.cpp.o` recompile a 15:45,
+le journal grossit de 1 764 octets, `ninja -t deps` rend toujours l'enregistrement du 30 aout.
+L'objet est plus recent que son enregistrement, ninja le recompile, note, et le chargement suivant
+jette la note : boucle fermee, ~7 min par cycle de preuve, pour toujours. Le contraire d'un journal
+abime EN QUEUE, qui se repare tout seul — c'est pourquoi personne ne l'avait vu.
+Verrou : `.autoport/lib/build_x86.sh` est la porte unique du build de bureau. Elle repare le
+journal AVANT (recompactage, puis quarantaine), compare le binaire a CHACUNE de ses entrees
+directes APRES et SORT EN 4 s'il est plus vieux, rejoue le graphe a vide et SORT EN 5 s'il reste
+une arete de compilation. `hooks/pre-tool.sh` refuse `cmake --build build` et `ninja -C build` et
+renvoie vers elle ; aucun script du harnais ne construit l'arbre de bureau, ce point d'appel est
+donc le seul. Banc : `lib/build_freshness_selftest.sh` (six jambes, chacune avec son controle).
