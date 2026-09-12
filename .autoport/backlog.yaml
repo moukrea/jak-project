@@ -4858,7 +4858,7 @@ items:
   delivered: null
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: to-test
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -4935,7 +4935,7 @@ items:
   - OG_LIGHTING=1
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
-  delivered: null
+  delivered: '2026-09-12'
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -7061,7 +7061,7 @@ items:
   out_of_scope: Ne pas retraduire le jeu ni toucher aux 23 bancs livres. On repare la CHAINE de la surcharge
     tactile.
   owner_test: true
-  status: blocked
+  status: open
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7321,7 +7321,7 @@ items:
     — publier la correspondance avant/apres.'
   where: 'rien a voir : instrument ; owner_test=false'
   out_of_scope: Ne pas toucher au rendu. On corrige ce que l'instrument affirme, pas ce qu'il regarde.
-  status: open
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7349,7 +7349,7 @@ items:
     avant/apres. Aucun changement de comportement attendu : ce sont des chemins morts.'
   where: 'rien a voir : nettoyage ; owner_test=false'
   out_of_scope: Ne rien supprimer qui soit encore lu. Un doute se signale, ne se tranche pas ici.
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
@@ -8354,3 +8354,68 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-verdict-sources-are-incomplete.md
   notes: issu des sept signalements de harness-verdict-integrity, 12/09 ; range derriere le jeu.
+- id: proof-feature-hits-is-vacuous
+  status: open
+  priority: 28
+  game: jak1
+  device: false
+  owner_test: false
+  feature: Le temoin « la feature etait armee » cesse d'etre satisfait par n'importe quel item
+  gate:
+    key: feature_hits_defects
+    op: ==
+    value: 0
+  depends_on:
+  - census-false-reds
+  known_cause: |-
+    SIGNALEMENT DU 12/09 (reports/census-false-reds/FINDINGS.txt). `validators/generic.sh` exige dans chaque preuve la ligne `FEATURE <id> armed=1 hits=N`. Or `hits` est un compteur PARTAGE par TOUT le binaire (`game/system/autoport_proof.cpp`, `note_hit`), et `dead_probe_census()` (kmachine.cpp:907) l'incremente SANS CONDITION a chaque image.
+    CONSEQUENCE : la ligne est satisfaite pour N'IMPORTE QUEL item, y compris ceux dont tout le travail vit dans `lib/census/<id>.sh` et qui ne touchent pas une ligne du moteur. Le temoin censé dire « l'instrument de CETTE feature a tourne » ne dit rien du tout. Deja consigne comme piege le 09/09 — 4 419 755 hits pour 11 160 tone maps — mais jamais corrige au point ou la porte le LIT.
+    C'est un generateur de faux verts qui porte sur TOUTES les preuves, y compris celles du jeu.
+  deliverable: |-
+    `feature_hits_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Le compteur lu par la porte est PROPRE A LA FEATURE mesuree : publier le compte de la feature et le compte global cote a cote, et l'ecart entre les deux. Deux items differents sur la meme course doivent rendre deux comptes differents.
+    2. Un item dont AUCUN site moteur n'appartient a sa feature rend un compte de feature NUL et la porte le dit, au lieu de le lire comme arme. Preuve a deux bras : un item de harnais pur doit sortir a zero, un item moteur non nul, sur la MEME course.
+    3. La porte distingue « feature absente du binaire » de « feature presente mais jamais atteinte ». Deux etats nommes, pas un seul zero.
+    4. Aucune preuve existante ne devient rouge pour cette seule raison sans que le rapport le dise : publier la liste des items dont le temoin change de sens.
+  where: Invisible. C'est le temoin que chaque preuve doit porter pour etre acceptee.
+  out_of_scope: Ne change aucun critere d'item. Ne touche pas aux instruments eux-memes, seulement a ce
+    que la porte lit.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-proof-feature-hits-is-vacuous.md
+  notes: 'issu du signalement de census-false-reds, 12/09 : le temoin d''armement est vacue pour tout
+    le monde.'
+- id: census-audit-blind-spots
+  status: open
+  priority: 34
+  game: jak1
+  device: false
+  owner_test: false
+  feature: L'audit du recensement voit aussi les drapeaux d'hote et les tables de surveillance
+  gate:
+    key: census_blind_spot_defects
+    op: ==
+    value: 0
+  depends_on:
+  - census-false-reds
+  known_cause: |-
+    QUATRE SIGNALEMENTS DU 12/09 (reports/census-false-reds/FINDINGS.txt). L'audit qui vient de retirer trois cles infalsifiables garde quatre angles morts.
+    1. `hdr.cpp:296` : `RT_KNEE` est le dernier jeton de `kCompressionTokens` et n'a plus AUCUNE occurrence dans le CODE des shaders, une seule en commentaire. `tonemap_sites_shader` ne peut monter que si quelqu'un REMET l'identifiant : c'est une table de SURVEILLANCE, pas une mesure de l'etat courant, et un relecteur lit son zero comme « aucun shader ne compresse ».
+    2. L'audit juge les PORTES (uniformes) et les JETONS (tables de texte), pas les DRAPEAUX D'HOTE. `s_host_legacy` et `s_host_shade` selectionnent les seaux C et E : un seau rendu inatteignable par un drapeau d'hote fige ne serait pas compte. Meme classe que ce qu'on vient de retirer.
+    3. `lib/census/census-false-reds.sh` lit UNE ligne par site d'appel : un appel etale sur plusieurs lignes, ou deux appels sur la meme ligne, ne rendent qu'un site, et un argument illisible est classe NON litteral, donc vers le VERT.
+    4. `lighting_census.cpp:120` prend `u_pbr_mode` comme temoin « survit a la purge », alors que `lib/census/lighting-legacy-purge.sh` le liste parmi les 36 uniformes que cet item doit SUPPRIMER. Le jour ou la purge aboutit, le temoin tombe de moitie sans que personne l'ait voulu.
+  deliverable: |-
+    `census_blind_spot_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Une table de SURVEILLANCE est nommee comme telle et ne se lit plus comme une mesure : publier separement « jetons surveilles » et « jetons observes dans le code », et dire quand les deux divergent.
+    2. Les drapeaux d'hote entrent dans l'audit : publier le compte de seaux rendus inatteignables par un drapeau fige. Semer un drapeau fige et verifier que le compte monte.
+    3. Le detecteur de site d'appel cesse de raisonner a la ligne : publier le compte de sites trouves et le compte d'arguments illisibles, separement. Un argument illisible ne tombe plus vers le vert.
+    4. Un temoin ne peut plus etre un uniforme qu'un autre item doit supprimer : publier l'intersection entre les temoins de survie et les listes de suppression des items ouverts. Elle doit etre vide, ou le defaut est compte.
+  where: Invisible. C'est l'instrument qui juge les instruments d'eclairage.
+  out_of_scope: 'Ne change aucun critere d''item. Priorite 34 volontaire : les chantiers d''eclairage
+    passent AVANT.'
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-census-audit-blind-spots.md
+  notes: issu des signalements de census-false-reds, 12/09 ; range derriere l'eclairage.
