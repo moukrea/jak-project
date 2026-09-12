@@ -36,6 +36,15 @@ done
 case "$BACKEND" in claude|codex) ;; *) echo "Backend inconnu: $BACKEND" >&2; exit 2 ;; esac
 export AUTOPORT_BACKEND="$BACKEND"
 
+# LE PLAFOND D'ATTENTE DES TACHES DE FOND. Par defaut le CLI attend 600 s les taches de fond
+# d'un worker qui a rendu la main, puis les TERMINE. Sur un item qui bati l'arm64 ou lance une
+# course d'appareil, 600 s ne suffisent pas : l'essai est coupe au milieu, le validateur juge un
+# arbre incoherent, et l'essai est COMPTE. Mesure du 2026-09-12 : quatre essais detruits comme ca
+# — Grecharged-mesh-browser 6, refset-replay-stable 2, lighting-hdr 7, et lighting-legacy-purge 8,
+# qui a epuise le budget d'un item que l'owner avait mis en priorite 17. On donne 45 minutes, pas
+# l'infini : une tache de fond qui ne finit jamais doit finir par rendre la main.
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-2700000}"
+
 if ! [ -x "$VENV/bin/python" ]; then
     echo "ERROR: Python venv not found at $VENV" >&2
     echo "       Run sudo ./setup-fedora.sh first." >&2

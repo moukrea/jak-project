@@ -6952,7 +6952,7 @@ items:
   where: 'rien a voir : recensement ; owner_test=false'
   out_of_scope: Ne pas toucher au rendu ni aux uniformes qui ont un lecteur. Seuls les sept sont vises.
   owner_test: false
-  status: open
+  status: in-progress
   game: jak1
   depends_on:
   - gl-uniforms-off-cost
@@ -7171,7 +7171,7 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: in-progress
+  status: blocked
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7207,7 +7207,7 @@ items:
     text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
       eviter de polluer !
   delivered: null
-  block_reason: ''
+  block_reason: max_retries (6) épuisé
 - id: mesh-browser-removal
   priority: null
   device: true
@@ -8007,3 +8007,35 @@ items:
   proof_timeout: 300
   prompt: prompts/item-harness-close-gate-code-free.md
   notes: 'issu des signalements de harness-proof-props-pin, 12/09 : un essai brule par item de harnais.'
+- id: harness-aborted-attempt-not-counted
+  status: open
+  priority: 18
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Un essai TUE par le lanceur ne compte pas comme un essai rate
+  gate:
+    key: aborted_attempt_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: |-
+    RECENSEMENT DU 12/09 SUR LES JOURNAUX. Le CLI attend 600 s les taches de fond d'un worker qui a rendu la main, puis les TERMINE : « Background tasks still running after 600s; terminating ». Le worker n'a rien conclu, mais l'orchestrateur enchaine sur le validateur, qui juge un arbre incoherent — source moteur plus recente que la preuve, sha du binaire different de celui du disque, preuve x86 sur un item qui exige l'appareil — et l'essai est COMPTE dans `max_retries`.
+    QUATRE ESSAIS DETRUITS AINSI : Grecharged-mesh-browser essai 6, refset-replay-stable essai 2, lighting-hdr essai 7, et lighting-legacy-purge essai 8 le 12/09 a 02:2x. Ce dernier a epuise le budget d'un item que l'owner avait mis en PRIORITE 17 (« vire les dessuite avant qu'ils nous embetent »), et l'item est maintenant BLOQUE sur « max_retries (6) epuise ». Les sept essais precedents de cet item avaient tourne sans consigne utilisable : le seul essai equitable est celui qui a ete coupe.
+    ATTENUATION DEJA POSEE, INSUFFISANTE : `launch.sh` exporte `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS` a 45 minutes depuis le 12/09. Ca ne prend effet qu'au prochain demarrage de l'orchestrateur, et ca ne fait que reculer la borne : un build plus long brulerait encore un essai.
+  deliverable: |-
+    `aborted_attempt_defects` = 0, somme de termes publies SEPAREMENT.
+    1. L'orchestrateur RECONNAIT un essai tue par le lanceur : la ligne « Background tasks still running after ...; terminating » dans la sortie du worker est lue, et l'essai est marque ABORTE. Publier le compte d'essais abortes reconnus.
+    2. Un essai aborte N'INCREMENTE PAS `max_retries`. Preuve a deux bras sur un etat jetable : le bras d'AVANT compte l'essai, le bras d'APRES ne le compte pas, meme entree.
+    3. Un essai aborte ne passe PAS au validateur : juger un arbre que le worker n'a pas fini de poser produit des constats qui ne decrivent aucun defaut du travail. Publier le compte de validations evitees.
+    4. Le journal le DIT en toutes lettres, avec la duree atteinte et la borne en vigueur : un essai qui disparait sans un mot est ce qui a coute quatre essais sans que personne le voie.
+  where: Invisible. C'est la comptabilite des essais du harnais.
+  out_of_scope: 'Ne touche a aucun code du jeu. Ne debloque et ne reouvre aucun item au passage : rendre
+    ses essais a lighting-legacy-purge est une decision de l''owner, pas de ce chantier.'
+  max_turns: 500
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-aborted-attempt-not-counted.md
+  notes: 'issu du recensement du 12/09 : quatre essais detruits par le plafond de 600 s, dont celui qui
+    a bloque un item de priorite 17.'

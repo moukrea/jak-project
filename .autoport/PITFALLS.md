@@ -882,3 +882,15 @@ Verrou : un item qui corrige `orchestrator.py` ne peut PAS prouver son effet sur
 Sa preuve doit porter sur une copie jetable, et son rapport doit DIRE que l'effet n'arrivera qu'au
 prochain demarrage. Ne jamais lire l'etat du backlog reel comme la preuve qu'un tel correctif
 marche : un redemarrage tue la course en cours, ce n'est pas un geste gratuit.
+
+GUARD background-tasks-terminated-at-600s-burn-the-attempt launch.sh rendre la main avec un build en fond
+**Rendre la main avec une tache de fond en vol fait TUER l'essai a 600 s, et l'essai est COMPTE.**
+Le CLI attend 600 s les taches de fond d'un worker qui a fini son tour, puis les termine :
+« Background tasks still running after 600s; terminating ». Le validateur juge alors un arbre
+incoherent — source moteur plus recente que la preuve, sha du binaire different, preuve x86 sur un
+item d'appareil — et l'essai compte dans `max_retries`. Recensement du 2026-09-12 : quatre essais
+detruits ainsi (Grecharged-mesh-browser 6, refset-replay-stable 2, lighting-hdr 7,
+lighting-legacy-purge 8). Le dernier a epuise le budget d'un item de priorite 17 et l'a BLOQUE.
+Verrou : ne jamais rendre la main tant qu'un build ou une course vit — attendre CHAIN_DONE. Cote
+harnais, `launch.sh` exporte desormais `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS` a 45 minutes ; ca ne
+prend effet qu'au PROCHAIN demarrage de l'orchestrateur, le processus en cours garde 600 s.
