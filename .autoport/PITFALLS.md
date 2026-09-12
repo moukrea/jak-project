@@ -894,3 +894,13 @@ lighting-legacy-purge 8). Le dernier a epuise le budget d'un item de priorite 17
 Verrou : ne jamais rendre la main tant qu'un build ou une course vit — attendre CHAIN_DONE. Cote
 harnais, `launch.sh` exporte desormais `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS` a 45 minutes ; ca ne
 prend effet qu'au PROCHAIN demarrage de l'orchestrateur, le processus en cours garde 600 s.
+
+GUARD a-command-never-verified-silently-disarms-its-guard .autoport/orchestrator.py ecrire une garde sans verifier sa commande
+**Une commande jamais verifiee DESARME sa garde en silence.** Mesure du 2026-09-12 :
+`git diff --cached --quiet --pathspec-from-file=-` n'est pas une invocation git valide — elle sort
+en 129 avec l'usage. Le garde-fou « rien de nous n'a change » de l'orchestrateur ne valait donc
+JAMAIS 0, et n'a jamais servi depuis le jour ou il a ete ecrit. Rien ne l'a signale : une garde qui
+ne se declenche jamais ressemble exactement a une garde satisfaite.
+Verrou : une garde nouvelle doit etre vue ECHOUER une fois, sur une entree fabriquee pour ca, avant
+d'etre crue. Meme classe que le compteur publie sans site d'ecriture et que la garde dont la seule
+occurrence est son propre en-tete : dans les trois cas le vert vient de l'absence, pas de la mesure.

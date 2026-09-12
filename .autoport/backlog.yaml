@@ -6270,7 +6270,7 @@ items:
   block_reason: null
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
-  status: to-test
+  status: validated
   priority: 36
   game: jak1
   gate:
@@ -7786,7 +7786,7 @@ items:
     ou l''owner regarde le halo des feux et des portails.'
   prompt: prompts/item-hdr-glow-range.md
 - id: hdr-sky-gpu-alpha
-  status: open
+  status: in-progress
   priority: 20
   game: jak1
   device: false
@@ -8027,7 +8027,7 @@ items:
   notes: 'issu du recensement du 12/09 : quatre essais detruits par le plafond de 600 s, dont celui qui
     a bloque un item de priorite 17.'
 - id: harness-commit-paths-all-or-nothing
-  status: open
+  status: validated
   priority: 17
   game: jak1
   device: false
@@ -8056,3 +8056,68 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-commit-paths-all-or-nothing.md
   notes: 'issu du signalement de gl-uniforms-dead-seven, 12/09 : 64 fichiers perdus par un seul chemin.'
+- id: harness-attempt-not-burned-by-foreign-cause
+  status: open
+  priority: 17
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Un essai ne brule plus pour une cause exterieure a l'item
+  gate:
+    key: foreign_cause_defects
+    op: ==
+    value: 0
+  depends_on:
+  - harness-commit-paths-all-or-nothing
+  known_cause: |-
+    QUATRE SIGNALEMENTS DU 12/09 (reports/harness-commit-paths-all-or-nothing/FINDINGS.txt). Tous disent la meme chose : un essai est COMPTE pour une salete que l'item n'a pas le droit de nettoyer, ou pour une ressource qu'il ne controle pas.
+    1. GATE 0 rend `fail` quand l'arbre est sale : l'essai compte, et la consigne renvoyee au worker lui demande de nettoyer l'arbre d'un AUTRE item — ce que son perimetre lui interdit. Il peut bruler ses cinq essais dessus.
+    2. Un chemin refuse par `git add` et non committable reste sale INDEFINIMENT : represente et re-refuse a chaque essai suivant. Le correctif du 12/09 ne le PERD plus, il ne le RESOUT pas. Une salete permanente declenche GATE 0 en boucle sur tous les items qui suivent.
+    3. Deux listes independantes du meme territoire : GATE 0 lit ('game/','common/','android/', 'goal_src/','goalc/'), GATE 1 code en dur ['game/','android/','goalc/','goal_src/'] — sans `common/`. Un fichier de `common/` compte comme du vrai travail pour une porte et pas pour l'autre.
+    4. Le constructeur a tenu `.autoport/.deploy-in-progress` pendant 6 h 38 (cycle arm64 legitime). `lib/proof_run.sh` attend jusqu'a 1800 s puis sort en 3 SANS ecrire de preuve. Une preuve peut donc etre impossible pendant des heures sans qu'aucun compteur ne le dise.
+  deliverable: |-
+    `foreign_cause_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Une salete ETRANGERE a l'item ne compte plus comme un essai rate : elle est nommee, publiee, et l'essai est classe a part. Publier le compte de fichiers sales etrangers et le compte d'essais ainsi requalifies. Un zero se lit « aucune salete etrangere », jamais « pas regarde ».
+    2. Un chemin durablement non committable est SIGNALE une fois et cesse d'etre represente : publier la liste des chemins mis de cote et depuis quand. Une salete permanente qui rebloque chaque item est pire que la perte qu'elle remplace.
+    3. Le territoire moteur est defini a UN SEUL endroit, lu par les deux portes. Publier la liste effective que chaque porte a utilisee : deux listes identiques, ou le defaut est compte.
+    4. Un verrou de deploiement tenu trop longtemps est MESURE : publier la duree d'attente et la sortie 3 de `proof_run.sh` comme un etat NOMME, pas comme une absence de preuve. Une preuve impossible doit se lire « impossible », jamais « pas produite ».
+  where: Invisible. C'est la comptabilite des essais et la definition du territoire moteur.
+  out_of_scope: Ne touche a aucun code du jeu. Ne nettoie pas l'arbre, ne debloque aucun item.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-attempt-not-burned-by-foreign-cause.md
+  notes: issu des huit signalements de harness-commit-paths-all-or-nothing, 12/09.
+- id: harness-test-suite-is-not-a-signal
+  status: open
+  priority: 19
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: 'La suite de tests du harnais redevient un signal : verte quand rien ne casse'
+  gate:
+    key: test_suite_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: |-
+    DEUX SIGNALEMENTS DU 12/09 (reports/harness-commit-paths-all-or-nothing/FINDINGS.txt), verifies par le worker dans un worktree DETACHE sur HEAD, donc sans aucune de ses modifications.
+    1. SEPT tests echouent deja a HEAD : cinq dans `test_backlog.py`, deux dans `test_cli_backend.py`. « Personne ne sait depuis quand. » Une suite qui rougit en permanence n'est plus un signal : un vrai regressif s'y noie.
+    2. `tests/harness/test_proof_busy.py::test_prompt_mentionnant_compilateur_ne_bloque_pas` lit les processus REELS de la machine : il echoue des qu'un vrai `ninja` ou `clang++` tourne. Constate pendant ce chantier, constructeur arm64 actif. Faux rouge aleatoire selon ce que fait le constructeur au meme moment.
+    CONTEXTE CONNU : `test_real_backlog_only_fails_lint_on_missing_gates` exige que le backlog livre n'ait qu'une famille de reproche ; il en reste trois budgets au-dessus du defaut sans raison ecrite, et c'est une decision de l'OWNER, pas un defaut de code. Ce chantier dit lesquels des sept echecs sont des defauts et lesquels sont des attentes de decision.
+  deliverable: |-
+    `test_suite_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Les sept echecs sont TRIES et publies un par un : defaut de code, attente d'une decision de l'owner, ou test devenu faux. Publier le compte de chaque categorie. Un total sans ventilation ne vaut rien.
+    2. Aucun test ne depend plus de ce que la machine fait au meme moment : celui qui lit les processus reels lit une liste INJECTEE. Prouver par deux courses, l'une avec un `ninja` factice en cours, l'autre sans, memes resultats.
+    3. La suite passe en entier, ou chaque echec restant porte la raison ECRITE de sa survie et le nom de qui doit trancher. Publier la liste.
+    4. Publier la date du dernier commit ou la suite etait entierement verte, pour que « depuis quand » cesse d'etre inconnu.
+  where: Invisible. C'est le filet du harnais lui-meme.
+  out_of_scope: 'Ne touche a aucun code du jeu. Ne desactive aucun test pour le faire passer, et n''ecrit
+    aucune raison « budget : » a la place de l''owner.'
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-test-suite-is-not-a-signal.md
+  notes: 'issu des signalements de harness-commit-paths-all-or-nothing, 12/09 : 7 rouges a HEAD.'
