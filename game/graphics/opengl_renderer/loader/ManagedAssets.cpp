@@ -241,9 +241,19 @@ bool has_base(const std::string& tpage_name, const std::string& tex_name) {
   return has_entry(tpage_name, tex_name, "albedo");
 }
 
+bool has_map(const std::string& tpage_name, const std::string& tex_name, const char* map_kind) {
+  return has_entry(tpage_name, tex_name, map_kind);
+}
+
 std::optional<CompressedTex> lookup_base(const std::string& tpage_name,
                                          const std::string& tex_name) {
   return lookup_entry(tpage_name, tex_name, "albedo");
+}
+
+std::optional<CompressedTex> lookup_map(const std::string& tpage_name,
+                                        const std::string& tex_name,
+                                        const char* map_kind) {
+  return lookup_entry(tpage_name, tex_name, map_kind);
 }
 
 void record_detected_profile(const std::string& profile) {
@@ -266,6 +276,24 @@ void record_detected_profile(const std::string& profile) {
   }
   file_util::write_text_file(p, profile);
   lg::info("managed assets: recorded GPU profile '{}' for the next launch", profile);
+}
+
+u32 create_map_texture(const CompressedTex& tex) {
+  GLuint id = 0;
+  glGenTextures(1, &id);
+  glBindTexture(GL_TEXTURE_2D, id);
+  if (!upload_bound_texture(tex)) {
+    glDeleteTextures(1, &id);
+    return 0;
+  }
+  // Same sampler state as the PNG-sourced companion maps (make_map in
+  // LoaderStages): trilinear over the OFFLINE chain, REPEAT wrap. The tess
+  // path's textureLod() and pbr_cavity() both depend on real mip levels.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  return id;
 }
 
 bool upload_bound_texture(const CompressedTex& tex) {

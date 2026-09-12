@@ -14,10 +14,10 @@ constexpr const char* kItemId = "lighting-unify";
 constexpr const char* kBegin = "@shade-model-begin";
 constexpr const char* kEnd = "@shade-model-end";
 
-// Les portes du §2.3. Ce sont elles qui, aujourd'hui, choisissent le composite dans le texte de
-// chaque hote ; apres l'item, aucune ne doit plus etre lue hors du chunk partage. La porte des
-// MATIERES a quitte la liste avec la pile qu'elle commandait (lighting-legacy-purge).
-const char* const kGateTokens[3] = {"u_rt_light_on", "u_rt_probe_on", "u_pbr_shadow_on"};
+// Les quatre portes du §2.3. Ce sont elles qui, aujourd'hui, choisissent le composite dans le
+// texte de chaque hote ; apres l'item, aucune ne doit plus etre lue hors du chunk partage.
+const char* const kGateTokens[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_on",
+                                    "u_pbr_shadow_on"};
 
 struct ProgInfo {
   uint64_t model_fp = 0;   // empreinte des regions marquees ; 0 = aucune region
@@ -119,7 +119,7 @@ void note_fragment_source(const std::string& name, const std::string& src) {
     const size_t tlen = std::string(tok).size();
     size_t p = 0;
     while ((p = src.find(tok, p)) != std::string::npos) {
-      // jeton entier : `u_rt_light_on` ne doit pas matcher dans `u_rt_light_on2` si un tel nom
+      // jeton entier : `u_pbr_mode` ne doit pas matcher dans `u_pbr_mode2` si un tel nom
       // apparait un jour.
       const char after = (p + tlen < src.size()) ? src[p + tlen] : '\0';
       const bool whole = !((after >= 'a' && after <= 'z') || (after >= 'A' && after <= 'Z') ||

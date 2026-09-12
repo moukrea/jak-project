@@ -220,4 +220,10 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
   s32 m_fringe_tex_a = -1;
   s32 m_fringe_tex_b = -1;
 
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials: per-level list of textures with a registered PBR
+  // material set (resolved in update_load; no level-name gating). Type + per-draw
+  // bind now shared with Tie3 via background_common's PbrDrawBinder (round-4).
+  PbrDrawList m_pbr_draws;
+#endif
 };

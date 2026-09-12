@@ -79,6 +79,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/GpuCaps.cpp
         assets/AssetCli.cpp
         assets/CurlTransport.cpp
+        graphics/opengl_renderer/loader/PbrTestPattern.cpp
         graphics/opengl_renderer/ocean/CommonOceanRenderer.cpp
         graphics/opengl_renderer/ocean/OceanMid_PS2.cpp
         graphics/opengl_renderer/ocean/OceanMid.cpp

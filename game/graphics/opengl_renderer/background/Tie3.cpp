@@ -20,6 +20,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -308,6 +309,52 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       }
     }
   }
+#ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4: resolve every texture in this level that has a
+  // registered PBR material set (no level-name gating). Mirrors TFragment::update_load.
+  m_pbr_draws.clear();
+  for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
+    if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
+      const auto mat_key = custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name,
+                                                        lev_data->textures[ti].debug_name);
+      // Gpbr-props-reach-draw : une matiere AUTHOREE SANS AUCUNE CARTE n'a rien qui lise la densite
+      // UV — elle pilote l'amplitude POM/tessellation, qui exigent toutes deux une carte de hauteur.
+      // Sauter la marche de geometrie garde les nouvelles entrees gratuites au chargement.
+      const bool has_any_map = maps->normal_tex || maps->rough_tex || maps->metal_tex ||
+                               maps->ao_tex || maps->height_tex || maps->specular_tex ||
+                               maps->emissive_tex;
+      // Grecharged-pbr-realtime-fusion ROUND 20: same measured authored UV density as TFragment,
+      // walked over the TIE geo-0 static draws (same StripDraw / PreloadedVertex types).
+      u32 nsamp = 0;
+      float dens = 0.5f;
+      if (has_any_map) {
+        dens = measure_uv_density_tie(*lev_data, (s32)ti, &nsamp);
+        if (dens <= 0.f) {
+          dens = 0.5f;
+        }
+      }
+      m_pbr_draws.push_back({(s32)ti, *maps, dens, mat_key});
+      if (has_any_map) {
+        // [pom] device diagnostic: same hand-off as TFragment — TIE materials are exactly the draws
+        // the per-PROGRAM tess gate now keeps the POM on, so they must appear in the dump too.
+        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+        lg::info(
+            "pbr uv density (tie): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, "
+            "ratio {:.2f}x) samples={}",
+            lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
+      } else {
+        lg::info(
+            "pbr authored-only material (tie): {} (aucune carte compagnon ; u_pbr_mode bit 256, "
+            "les constantes authorees de surfaces.json remplacent les cartes absentes)",
+            lev_data->textures[ti].debug_name);
+      }
+    }
+  }
+  if (!m_pbr_draws.empty()) {
+    lg::info("Grecharged-pbr-materials: Tie3 level {} has {} PBR material(s)", lev_data->level_name,
+             m_pbr_draws.size());
+  }
+#endif
   m_wind_vectors.clear();
 
   // We changed level! free opengl resources allocated for the previous
@@ -564,13 +611,17 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // Grecharged-mesh-consolidation: per-vertex SEAM WEIGHT (1 = displace normally, 0 = do not
       // displace). mesh_consolidate() zeroes it at boundaries whose two sides cannot displace
       // identically, so the tessellation evaluation shader can fade displacement to exactly zero
-      // along a shared edge on BOTH sides — that is what closes the see-through slits.
+      // along a shared edge on BOTH sides — that is what closes the see-through slits. Bound here
+      // (before the tangent VBO swaps GL_ARRAY_BUFFER below) so it reads the vertex buffer.
       glEnableVertexAttribArray(6);
       glVertexAttribPointer(6, 1, GL_UNSIGNED_SHORT, GL_TRUE, sizeof(tfrag3::PreloadedVertex),
                             (void*)offsetof(tfrag3::PreloadedVertex, seam_w));
 
-      // lighting-legacy-purge (essai 8) : la TANGENTE par sommet (ancienne location 5) n'est plus
-      // liee — plus aucun `.vert` ne declare cet attribut.
+      // REOPEN#7: per-vertex tangent at location 5 (loc 4 = envmap tint). Non-envmap TIE draws use
+      // the TFRAG3 shader which reads location 5 as the tangent for the continuous PBR TBN.
+      glBindBuffer(GL_ARRAY_BUFFER, loader_data->tie_data[l_geo][l_tree].tangent_buffer);
+      glEnableVertexAttribArray(5);
+      glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
 
       // Grecharged-foliage-wind3 (defaut D2) : poids + phase de balancement, DEUX octets par
       // sommet, sur la LOCATION 7. Elle est libre et c'est verifie et non suppose : les shaders de
@@ -1231,7 +1282,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // order (tfrag before tie) does not matter. Same GL-state dance as the TFragment
   // caster pass. Vertex layout is compatible: TIE draws with the TFRAG3 program, so
   // attribute 0 is the world position pbr_depth.vert consumes.
-  // Round-5 addendum 2 (mandate F): la passe de profondeur est mondiale, sans condition de matiere.
+  // Round-5 addendum 2 (mandate F): world-wide — no m_pbr_draws gate (see TFragment).
   // ROUND 2 (owner defect #3): the envmap TIE geometry (shiny huts, metal props, bridges)
   // must ALSO cast — its opaque base draw is the NORMAL_ENVMAP category. Cast for both the
   // plain NORMAL and the NORMAL_ENVMAP base draws (never the TRANS/WATER or *_SECOND_DRAW
@@ -1388,7 +1439,23 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   };
 
 #ifdef OG_FEAT_PBR
+  // Grecharged-pbr-materials round-4 coverage unification: bind PBR material maps per draw via
+  // the shared PbrDrawBinder; u_pbr_mode restored to 0 + neutrals parked in finish() below.
+  // ★ ROUND 22 (owner defect A, "la plupart des endroits n'ont toujours pas de displacement du
+  // tout"): the binder used to run on the NON-envmap TFRAG3 path ONLY — the envmap branch drew
+  // through ETIE_BASE, which had no PBR uniforms and no material bind, so EVERY envmapped TIE
+  // object was structurally incapable of showing relief at any slider value. etie_base.frag now
+  // carries the same shared fused chunk tfrag3.frag does, so the binder runs on both branches;
+  // the only difference is WHICH program the uniforms land on.
+  PbrDrawBinder pbr_binder;
   const ShaderId pbr_program = use_envmap ? ShaderId::ETIE_BASE : ShaderId::TFRAG3;
+  pbr_binder.begin(render_state->shaders[pbr_program].id(), &m_pbr_draws);
+  // [cover] ROUND 21 DISPLACEMENT COVERAGE: TIE's PBR draws are NEVER on the tess program (that
+  // one is tfrag-only), so tess_program = false — every TIE draw with a height map must land in
+  // disp_pom, never in disp_none. The two branches report under distinct renderer labels so the
+  // coverage census can tell the envmap half from the plain half. No tree kind here.
+  pbr_binder.set_coverage_context(use_envmap ? "tie_envmap" : "tie", nullptr, false,
+                                  render_state->frame_idx);
   // Round-4 mandate B: bind the sun shadow matrix + sampler on the program that is actually
   // active so a replaced TIE surface receives the same shadowed direct term as tfrag. The depth
   // pass itself is driven by TFragment (tfrag NORMAL casters); Tie3 is receiver-only.
@@ -1435,6 +1502,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                   draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+      // ROUND 22: unconditional — the binder targets ETIE_BASE on the envmap branch and TFRAG3
+      // on the plain one, so both now get the material maps + u_pbr_mode.
+      pbr_binder.set(draw.tree_tex_id, draw.mode);
+#endif
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -1499,6 +1571,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                 draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_active && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
+#ifdef OG_FEAT_PBR
+    // ROUND 22: unconditional — see the merged-draw loop above.
+    pbr_binder.set(draw.tree_tex_id, draw.mode);
+#endif
 
     prof.add_draw_call();
 
@@ -1549,6 +1625,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   }
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
+#ifdef OG_FEAT_PBR
+  // Reset u_pbr_mode to 0 + park neutral maps so no material leaks into later users of this
+  // program (TFRAG3 is shared with tfrag/shrub; ETIE_BASE with the other envmap categories).
+  pbr_binder.finish();
+#endif
 
   if (!m_hide_wind && category == tfrag3::TieCategory::NORMAL) {
     auto wind_prof = prof.make_scoped_child("wind");
@@ -2242,6 +2323,15 @@ void Tie3::render_tree_wind(int idx,
     pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TIE_WIND].id(),
                              settings.camera.trans.data());
   }
+  // ★ ROUND 22 (owner defect A): the wind path never bound PBR material maps, so every
+  // wind-animated TIE object was structurally flat. tie_wind.frag now carries the same shared
+  // fused chunk tfrag3.frag does, so the material bind runs here too — same PbrDrawList (the
+  // wind draws index the SAME level texture table as the static TIE draws), same binder.
+  PbrDrawBinder pbr_binder;
+  pbr_binder.begin(render_state->shaders[ShaderId::TIE_WIND].id(), &m_pbr_draws);
+  // [cover] the wind program is not the tess program, so every height-mapped wind draw must land
+  // in disp_pom. Distinct renderer label so the coverage census separates it from static TIE.
+  pbr_binder.set_coverage_context("tie_wind", nullptr, false, render_state->frame_idx);
 #endif
   glBindVertexArray(tree.vao);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
@@ -2285,6 +2375,11 @@ void Tie3::render_tree_wind(int idx,
     }
     auto double_draw =
         setup_tfrag_shader_cached(render_state, draw.mode, shader_id, bound_tex, draw_state_cache);
+#ifdef OG_FEAT_PBR
+    // ROUND 22: per-draw PBR material bind for the wind path (see the binder set up above).
+    // InstancedStripDraw::tree_tex_id is the same level texture index the static draws use.
+    pbr_binder.set(draw.tree_tex_id, draw.mode);
+#endif
 
     int off = 0;
     for (auto& grp : draw.instance_groups) {
@@ -2362,6 +2457,11 @@ void Tie3::render_tree_wind(int idx,
       }
     }
   }
+#ifdef OG_FEAT_PBR
+  // ROUND 22: restore u_pbr_mode to 0 + park the neutral maps so the next TIE_WIND user (another
+  // tree, another level) never inherits this tree's last material.
+  pbr_binder.finish();
+#endif
 }
 
 Tie3AnotherCategory::Tie3AnotherCategory(const std::string& name,

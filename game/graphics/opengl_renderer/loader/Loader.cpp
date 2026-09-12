@@ -36,6 +36,9 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
+#ifdef OG_FEAT_PBR
+#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
+#endif
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/asset_manifest.h"
@@ -540,6 +543,7 @@ void report_level_ram(const std::string& name, const tfrag3::Level& lev, const c
 void report_merc_detail(const std::string& name, const tfrag3::Level& lev, const char* moment);
 void release_uploaded_merc_vertices(tfrag3::Level& lev);
 void compact_merc_vertex_pool(tfrag3::Level& lev);
+void precompute_uv_density(tfrag3::Level& lev);
 void release_uploaded_vertices(tfrag3::Level& lev, int systeme);
 }  // namespace
 
@@ -802,7 +806,7 @@ void Loader::loader_thread() {
 
       // lighting-legacy-purge (2026-09-11) : la PRE-SUBDIVISION de maillage est SUPPRIMEE. Elle
       // n'etait atteignable que sous DISPLACEMENT = 2 (TESSELLATION) — `want` exigeait ce mode — et
-      // ce mode n'a jamais ete livre : il disparait avec cet item, comme les shaders du programme tesselle.
+      // ce mode n'a jamais ete livre : il disparait avec cet item, comme les shaders tfrag3_tess.*.
       // Le nombre de tours (`mesh-subdiv`) ne pouvait donc rien changer a l'image livree.
 
       fmt::print(
@@ -1003,6 +1007,52 @@ void release_uploaded_tangents(tfrag3::Level& lev, int systeme) {
         drop(t.unpacked.tangents);
       }
     }
+  }
+}
+
+// autoport 2026-08-26 — LIBERER LES SOMMETS CPU APRES TELEVERSEMENT.
+// `unpacked.vertices` = 57,0 Mo par niveau (A50-LEVRAM, village1), le plus gros poste des
+// 122,1 Mo qu'un niveau garde en RAM. Ils sont deja dans le GPU. Pour TFRAG et TIE, les seuls
+// lecteurs apres chargement sont les trois mesures de densite UV du chemin PBR, appelees une
+// fois par niveau DEPUIS LE RENDU — donc trop tard pour liberer. On mesure ici, on memorise,
+// on libere.
+// SHRUB EST EPARGNE : `Shrub::update_load` (Shrub.cpp:191, :203, :336) lit `unpacked.vertices`
+// DIRECTEMENT — compte de sommets, LUT d'ancrage de vent, liste d'index d'ombre — et le RENDU
+// l'appelle APRES la fin du chargement. Sa densite UV est mesuree ici sur des sommets vivants.
+// Les INDEX restent : TFragment leur passe `unpacked.indices.data()` a chaque frame.
+// MESURE SEULE. Elle lit les sommets CPU des TROIS systemes, donc elle doit tourner tant
+// qu'AUCUN d'eux n'est rendu. Son appelant est la boucle d'etapes, JUSTE APRES l'etape
+// `texture` : c'est `add_texture` qui inscrit les materiaux PBR du niveau au registre que la
+// boucle ci-dessous interroge, et a cet instant tfrag n'a pas encore televerse, donc les trois
+// systemes portent encore leurs sommets. Les liberations suivent, par systeme.
+// Ne mesurer que ce que le rendu mesurerait : les textures portant un materiau PBR.
+// MEME CLE QUE LES TROIS CONSOMMATEURS REELS (TFragment.cpp:373, Tie3.cpp:346, Shrub.cpp:140) :
+// `pbr_material_key(debug_tpage_name, debug_name)`. Avec la seule `debug_name`, le cache serait
+// rempli pour un ENSEMBLE DIFFERENT de textures, le rendu raterait le cache, parcourrait des
+// sommets liberes et retomberait sur la densite constante 0.5 — un faux silencieux sur le POM.
+void precompute_uv_density(tfrag3::Level& lev) {
+  for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
+    const auto* mm = custom_tex::find_pbr_material(custom_tex::pbr_material_key(
+        lev.textures[ti].debug_tpage_name, lev.textures[ti].debug_name));
+    if (!mm) {
+      continue;
+    }
+    // Gpbr-props-reach-draw : une matiere AUTHOREE SANS CARTE est desormais inscrite au registre
+    // (c'etait le defaut). Elle n'a rien qui lise la densite UV — trois marches de geometrie pour
+    // un nombre que personne ne consulte.
+    if (!(mm->normal_tex || mm->rough_tex || mm->metal_tex || mm->ao_tex || mm->height_tex ||
+          mm->specular_tex || mm->emissive_tex)) {
+      continue;
+    }
+    u32 n = 0;
+    const float d_tfrag = measure_uv_density_tfrag(lev, (s32)ti, &n);
+    uv_density_store(lev, 0, (s32)ti, d_tfrag, n);
+    n = 0;
+    const float d_tie = measure_uv_density_tie(lev, (s32)ti, &n);
+    uv_density_store(lev, 1, (s32)ti, d_tie, n);
+    n = 0;
+    const float d_shrub = measure_uv_density_shrub(lev, (s32)ti, &n);
+    uv_density_store(lev, 2, (s32)ti, d_shrub, n);
   }
 }
 
@@ -2009,9 +2059,16 @@ void Loader::update(TexturePool& texture_pool) {
         // Aucune etape suivante ne lit ces tableaux : shrub lit les siens (epargnes), collide la
         // collision, merc les donnees merc, hfrag le hfrag.
         // ORDRE DES ETAPES : tie(0), texture(1), tfrag(2), shrub, collide, merc, hfrag, stall.
-        // ORDRE : la liberation suit immediatement l'etape qui a televerse le systeme.
-        //
+        // La densite UV se mesure JUSTE APRES `texture` et pas avant : elle ne parcourt que les
+        // textures qui portent un materiau PBR, et c'est `add_texture` — donc l'etape `texture`
+        // elle-meme — qui INSCRIT les materiaux de ce niveau au registre. La mesurer plus tot
+        // (dans le fil de chargement, par exemple) trouverait un registre vide pour ce niveau,
+        // n'ecrirait aucun echantillon, et le rendu retomberait en silence sur la densite
+        // constante 0,5 : le faux vert exact que ce cache existe pour empecher.
+        // A cet instant les sommets des TROIS systemes sont encore la — tfrag n'a pas encore
+        // televerse — donc la mesure voit tout ce qu'elle doit voir.
         if (done && stage->name() == "texture" && !lev->cpu_geo_released[1]) {
+          precompute_uv_density(*lev->level);
           release_uploaded_vertices(*lev->level, 1);
           lev->cpu_geo_released[1] = true;
           heap_purge("geo-tie-rendue");
@@ -2065,14 +2122,21 @@ void Loader::update(TexturePool& texture_pool) {
         report_level_ram(name, *lev->level, "charge");
         report_merc_detail(name, *lev->level, "charge");
         // ARME 2026-08-26. Les sommets CPU de TFRAG et TIE partent apres televersement.
+        // Ce qui rend le geste sur : la densite UV du chemin PBR est MESUREE ET MEMORISEE juste
+        // avant la liberation (meme cle que les trois consommateurs :
+        // pbr_material_key(debug_tpage_name, debug_name)), donc leurs lectures tardives
+        // (`Tie3::load_from_fr3_data`, `TFragment::handle_initialization`, appelees par le RENDU
+        // APRES ce point malgre leur nom) trouvent le cache au lieu des sommets.
         // SHRUB EST EPARGNE : `Shrub::update_load` lit ses sommets DIRECTEMENT (compte, LUT de
-        // vent, index d'ombre) et pas seulement pour une mesure — les liberer casse l'herbe et
+        // vent, index d'ombre) et pas seulement pour la densite — les liberer casse l'herbe et
         // les ombres. Les INDEX de tous les systemes restent : le rendu les relit chaque frame.
         // La fonction s'abstient aussi sur les niveaux a herbe vive (rescan a la demande du menu).
         // REPLI : le cas normal libere DES LA FIN DE L'ETAPE `tfrag` (voir la boucle d'etapes
         // plus haut) ; on ne passe ici que si cette etape n'a pas ete atteinte. Le drapeau
-        // garantit UN SEUL passage.
-        //
+        // garantit UN SEUL passage — la mesure de densite UV n'est pas rejouable.
+        // Repli : une etape n'a pas ete atteinte. La mesure ne se rejoue QUE si RIEN n'est
+        // encore parti : relancee apres une liberation partielle, elle reecrirait le cache du
+        // systeme deja libere avec zero echantillon, ce qui est pire que de ne rien ecrire.
         // Gloading-screen-window : CHRONOMETRER CE BLOC. Il s'execute sur le thread de rendu, SANS
         // BUDGET, exactement a l'image ou le niveau devient resident -- c'est-a-dire a l'image ou
         // la barriere de chargement s'ouvre et ou l'ecran de chargement va se lever. Mesure x86
@@ -2083,7 +2147,12 @@ void Loader::update(TexturePool& texture_pool) {
         // NATURE : des durees, en ms. REPERE : `steady_clock` du thread de rendu.
         // CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : quatre valeurs de l'ordre de la ms.
         Timer t_pret;
-        double ms_rel = 0.0, ms_merc = 0.0, ms_rap = 0.0;
+        double ms_uv = 0.0, ms_rel = 0.0, ms_merc = 0.0, ms_rap = 0.0;
+        if (!lev->cpu_geo_released[0] && !lev->cpu_geo_released[1]) {
+          Timer t0;
+          precompute_uv_density(*lev->level);
+          ms_uv = t0.getMs();
+        }
         {
           Timer t0;
           for (int sys = 0; sys < 2; sys++) {
@@ -2106,9 +2175,9 @@ void Loader::update(TexturePool& texture_pool) {
           ms_rap = t0.getMs();
         }
         heap_purge("niveau-pret");
-        fmt::print("LSWIN-COUT niveau={} liberation_ms={:.1f} merc_ms={:.1f} "
+        fmt::print("LSWIN-COUT niveau={} uv_ms={:.1f} liberation_ms={:.1f} merc_ms={:.1f} "
                    "rapport_ms={:.1f} total_ms={:.1f}\n",
-                   name, ms_rel, ms_merc, ms_rap, t_pret.getMs());
+                   name, ms_uv, ms_rel, ms_merc, ms_rap, t_pret.getMs());
         // ... et une seconde, une fois le rendu relance (cf. Loader.h::m_frames_until_purge).
         m_frames_until_purge = 120;
         lk.lock();
@@ -2171,6 +2240,22 @@ void Loader::update(TexturePool& texture_pool) {
             texture_pool.unload_texture(PcTextureId::from_combo_id(tex.combo_id),
                                         lev->textures.at(i));
           }
+#ifdef OG_FEAT_PBR
+          // Grecharged-managed-assets: the companion PBR maps live in their own
+          // registry, not in lev->textures, so eviction used to leak them (up to
+          // 7 full-resolution textures per material, freed only if a later level
+          // happened to re-register the same name). Release them with the level;
+          // the ids join the same throttled garbage list as the base textures.
+          const auto dead = custom_tex::release_pbr_material(
+              custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name));
+          for (u32 id : {dead.normal_tex, dead.rough_tex, dead.metal_tex, dead.ao_tex,
+                         dead.height_tex, dead.specular_tex, dead.emissive_tex}) {
+            // the shared test-pattern maps are owned by pbr_testpattern, never freed here
+            if (id && !pbr_testpattern::owns(id)) {
+              m_garbage_textures.push_back(id);
+            }
+          }
+#endif
         }
         lk.unlock();
         for (auto tex : lev->textures) {
@@ -2193,8 +2278,8 @@ void Loader::update(TexturePool& texture_pool) {
               m_garbage_buffers.push_back(tie_tree.wind_indices);
             }
             // Grecharged-foliage-wind3 : le VBO du poids de balancement suit le meme cycle de vie
-            // que le VBO de sommets ci-dessus. (La fuite du VBO de TANGENTES signalee ici
-            // disparait avec le VBO lui-meme : lighting-legacy-purge essai 8.)
+            // que le VBO de sommets ci-dessus. (Note en passant, PAS corrigee ici parce qu'elle
+            // est anterieure et hors perimetre : `tangent_buffer` n'est collecte NULLE PART.)
             m_garbage_buffers.push_back(tie_tree.sway_buffer);
             if (tie_tree.contact_buffer) m_garbage_buffers.push_back(tie_tree.contact_buffer);
             if (tie_tree.contact_texture) m_garbage_textures.push_back(tie_tree.contact_texture);
@@ -2229,6 +2314,12 @@ void Loader::update(TexturePool& texture_pool) {
           mercs.erase(it);
         }
 
+        // autoport 2026-08-26 : la cle du cache de densite UV est un `const tfrag3::Level*`.
+        // Sans cet oubli, l'allocateur peut reutiliser l'adresse du niveau evince pour le
+        // suivant et rendre un FAUX HIT (densite d'un autre niveau, POM faux et silencieux).
+        // `lev` est la reference prise plus haut sur `m_loaded_tfrag3_levels.at(*to_unload)`.
+        uv_density_forget_level(*lev->level);
+        load_gate::mark_level_evicted(*to_unload);
         m_loaded_tfrag3_levels.erase(*to_unload);
       }
     }

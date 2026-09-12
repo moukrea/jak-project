@@ -3,8 +3,8 @@
 // hdr — LA CHAINE HDR ET SON RECENSEMENT (item `lighting-hdr`, SPEC-refonte-lumiere §4.5).
 //
 // LE DEFAUT. §2.3 cause 6 : `make_fbo(..., GL_RGBA8, ...)` partout, et un genou de compression
-// ecrit A LA MAIN dans chaque chemin d'ombrage (`RT_KNEE` et ses jumeaux, chacun dans son
-// morceau de GLSL). Aucune marge au-dessus de 1 : un eclat speculaire,
+// ecrit A LA MAIN dans chaque chemin d'ombrage (`RT_KNEE` dans pbr_fused.glsl, `MM_KNEE` et
+// une courbe ACES dans pbr_modern.glsl). Aucune marge au-dessus de 1 : un eclat speculaire,
 // un bloom, une adaptation d'exposition n'ont pas la place d'exister, et « combien de fois
 // l'image est-elle compressee avant l'ecran » n'a pas de reponse.
 //

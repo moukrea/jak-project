@@ -293,17 +293,14 @@ int verdict_sites_three_configs() {
 // Les jetons d'une COMPRESSION DE PLAGE dans un texte fragment. Ce sont des identifiants, pas
 // des motifs generiques : `min(x, 1.0)` sur un facteur intermediaire n'est pas une compression
 // de l'image, et le compter rendrait le recensement inexploitable.
-// lighting-legacy-purge (essai 8) : la table est VIDE. Les trois genoux qu'elle nommait vivaient
-// dans des morceaux de GLSL qui ont quitte l'arbre ; un jeton qui ne peut plus jamais correspondre
-// est une entree morte dans une table vivante. La sentinelle nulle existe parce qu'un tableau de
-// longueur zero n'est pas du C++ valide ; la boucle de lecture la saute. Le MECANISME reste : un
-// genou ecrit a la main dans un futur shader doit etre ajoute ici pour etre recense.
 const char* kCompressionTokens[] = {
-    nullptr,
+    "RT_KNEE",          // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
+    "MM_KNEE",          // l'epaule de pbr_modern.glsl, idem
+    "mm_tonemap_aces",  // la courbe ACES opt-in de pbr_modern, idem
 };
 
-// Le recensement lit le CODE, pas les commentaires. Un jeton retire apparait justement dans le
-// commentaire qui explique son retrait : le compter la rendrait la
+// Le recensement lit le CODE, pas les commentaires. Les trois jetons ci-dessus apparaissent
+// justement dans les commentaires qui expliquent leur retrait : les compter la rendrait la
 // grandeur inexploitable — et pire, la rendrait sensible a une phrase. On retire donc `//...`
 // et les blocs avant de chercher. En cas de doute, l'erreur va vers le ROUGE (un commentaire
 // mal retire fait monter le compte), jamais vers un faux vert.
@@ -435,8 +432,9 @@ bool chain_active() {
   // CE QUE CE TEMOIN NE COUVRE PAS, ecrit ici pour que personne ne le lise plus large qu'il
   // n'est : l'ablation est en C++. Les shaders, eux, sont les MEMES dans les deux binaires. Un
   // eventuel debordement de l'item qui vivrait UNIQUEMENT dans du GLSL atteint sous master OFF
-  // ne serait pas vu par cette comparaison. Les chemins d'ombrage modifies sont tous gardes par
-  // une porte que le mode ORIGINE laisse a zero — c'est un argument de lecture, pas une mesure.
+  // ne serait pas vu par cette comparaison. Les chemins modifies (`pbr_fused`, `pbr_modern`,
+  // composites C/E de `shade.glsl`) sont tous gardes par `u_pbr_mode != 0`, que le mode ORIGINE
+  // laisse a zero — c'est un argument de lecture, pas une mesure.
   return false;
 #else
   int ov = -1;
@@ -563,11 +561,11 @@ bool tonemap_draw(Shader& shader,
   shader.activate();
   glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
   // lighting-hdr : LE SITE UNIQUE PORTE L'EXPOSITION DES DEUX ETAGES.
-  // L'exposition de l'ombrage est rendue ici, une seule fois. Le facteur repris est
-  // `E_pbr^(1/2,2)` et pas `E_pbr` : les chemins d'ombrage l'appliquaient en LINEAIRE avant leur
-  // `pow(1/2,2)`, ce site l'applique APRES, dans l'espace d'affichage du tampon. C'est l'egalite
-  // exacte, pas un reglage approche — sans l'exposant, le deplacement changerait la luminance de
-  // tout le decor.
+  // Les composites C et E poussent desormais `u_pbr_exposure = 1,0` (background_common.cpp) et
+  // rendent leur exposition ici. Le facteur repris est `E_pbr^(1/2,2)` et pas `E_pbr` : eux
+  // l'appliquaient en LINEAIRE avant leur `pow(1/2,2)`, ce site l'applique APRES, dans l'espace
+  // d'affichage du tampon. C'est l'egalite exacte, pas un reglage approche — sans l'exposant, le
+  // deplacement changerait la luminance de tout le decor.
   const float e_pbr = Gfx::g_global_settings.recharged_pbr_exposure;
   const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
   const float effective_exposure = e_moved * Gfx::g_global_settings.recharged_hdr_exposure;
@@ -618,7 +616,7 @@ void note_fragment_source(const std::string& name, const std::string& src) {
   ProgInfo info;
   if (name != "tonemap") {
     for (const char* tok : kCompressionTokens) {
-      if (tok && code.find(tok) != std::string::npos) {
+      if (code.find(tok) != std::string::npos) {
         info.has_compression = true;
         break;
       }

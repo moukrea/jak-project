@@ -819,12 +819,20 @@
   (pc-text-model-hemisphere #x1716)
   (pc-text-model-sh #x1717)
   (pc-text-model-ibl #x1718)
-  ;; lighting-legacy-purge (2026-09-12) : les libelles d'OPTION de DISPLACEMENT (#x1719 parallax,
-  ;; #x171a tessellation), du carrousel de debug PBR TEST PRESET (#x171b..#x1720) et d'ENV PROBE
-  ;; (#x1721..#x1723 low/mid/high) sont SUPPRIMES avec les rangees qui les affichaient. ENV PROBE
-  ;; avait survecu au retrait de sa rangee parce que MESH SUBDIVISION les reutilisait : cette
-  ;; rangee est partie elle aussi. Aucun lecteur ne subsiste. Les numeros #x1719..#x1723 sont
-  ;; LIBRES et le restent : rien n'est renumerote, ne les reemployez pas pour un autre libelle.
+  ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell strings (Parallax/Tessellation; Off reuses the generic off id).
+  (pc-text-parallax #x1719)
+  (pc-text-tessellation #x171a)
+  ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell strings (one-click intended-config presets).
+  (pc-text-preset-allin #x171b)
+  (pc-text-preset-fused #x171c)
+  (pc-text-preset-fused-flat #x171d)
+  (pc-text-preset-pbr-only #x171e)
+  (pc-text-preset-rt-only #x171f)
+  (pc-text-preset-stock #x1720)
+  ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell strings (Low/Mid/High; Off reuses the generic off id).
+  (pc-text-envprobe-low #x1721)
+  (pc-text-envprobe-mid #x1722)
+  (pc-text-envprobe-high #x1723)
   ;; lighting-legacy-purge (2026-09-11) : les 4 ids d'OPTION de PBR ISOLATE (#x1724-#x1727)
   ;; sont SUPPRIMES avec la rangee et ses libelles. Plus aucun lecteur.
   ;; mesh-browser-removal (2026-09-11) : l'id #x1728 du lanceur de l'outil de debug est SUPPRIME
@@ -889,9 +897,10 @@
   (pc-text-hint-advanced #x1758)
   (pc-text-hint-vulkan #x1759)
   (pc-text-hint-master #x175a)
-  ;; lighting-legacy-purge (2026-09-12) : les indices #x175b (hint PBR), #x175c (hint RELIEF),
-  ;; #x175d (hint TEXTURE RELIEF) et #x175e (hint SPECULAR) sont SUPPRIMES avec leurs rangees.
-  ;; Trou explicite, non renumerote : ne pas reemployer ces numeros.
+  (pc-text-hint-pbr #x175b)
+  (pc-text-hint-relief #x175c)
+  (pc-text-hint-texrelief #x175d)
+  (pc-text-hint-specular #x175e)
   (pc-text-hint-rtextures #x175f)
   (pc-text-hint-customassets #x1760)
   (pc-text-hint-rtlight #x1761)
@@ -912,8 +921,8 @@
   (pc-text-hint-foliagewind #x1770)
   (pc-text-hint-overhang #x1771)
   (pc-text-hint-rhud #x1772)
-  ;; lighting-legacy-purge (2026-09-12) : #x1773 (hint PBR TEST PRESET) et #x1774 (hint PBR
-  ;; ISOLATE) sont SUPPRIMES avec leurs rangees de mise au point. Trou explicite, non renumerote.
+  (pc-text-hint-pbrpreset #x1773)
+  (pc-text-hint-pbrisolate #x1774)
   (pc-text-hint-enhancedmodels #x1775)
   ;; --- GAMEPLAY ---
   (pc-text-hint-playhints #x1776)
@@ -1018,8 +1027,7 @@
   (pc-text-user-textures #x17c1)
   (pc-text-builtin-textures #x17c2)
   (pc-text-downloaded-textures #x17c3)
-  ;; lighting-legacy-purge (2026-09-12) : #x17c4 (libelle de rangee PBR MATERIALS) est SUPPRIME
-  ;; avec sa rangee. Trou explicite, non renumerote.
+  (pc-text-pbr-materials #x17c4)
   (pc-text-enhanced-models #x17c5)
   (pc-text-look-jak #x17c6)
   (pc-text-look-daxter #x17c7)
@@ -1031,10 +1039,11 @@
   (pc-text-ambient-strength #x17cd)
   (pc-text-shadow-distance #x17ce)
   (pc-text-shadow-quality #x17cf)
-  ;; lighting-legacy-purge (2026-09-12) : #x17d0 (TEXTURE RELIEF), #x17d1 (SPECULAR INTENSITY),
-  ;; #x17d2 (DISPLACEMENT), #x17d3 (MESH SUBDIVISION) et #x17d4 (ADVANCED MATERIALS) sont
-  ;; SUPPRIMES avec leurs rangees. Trou explicite, non renumerote : le plus haut id declare du
-  ;; banc n'a PAS bouge, ne reemployez pas ces numeros.
+  (pc-text-texture-relief #x17d0)
+  (pc-text-specular-intensity #x17d1)
+  (pc-text-displacement #x17d2)
+  (pc-text-mesh-subdivision #x17d3)
+  (pc-text-advanced-materials #x17d4)
   (pc-text-crisp-title-logo #x17d5)
   (pc-text-fixed-timestep #x17d6)
   (pc-text-recharged-grass #x17d7)
