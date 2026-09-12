@@ -20,6 +20,7 @@ import pytest
 from conftest import AUTOPORT
 
 VALIDATOR = AUTOPORT / "validators" / "generic.sh"
+NAMER = AUTOPORT / "lib" / "verdict_sources.sh"
 ITEM = "test-item-preuve"
 
 
@@ -34,6 +35,12 @@ def _repo(tmp_path):
         (root / d).mkdir(parents=True)
     (VALIDATOR.parent / "generic.sh").exists() or pytest.skip("generic.sh absent")
     (root / ".autoport" / "validators" / "generic.sh").write_bytes(VALIDATOR.read_bytes())
+    # LE NOMMEUR DES SOURCES DU VERDICT (harness-verdict-integrity, 2026-09-12). Depuis que la
+    # porte épingle les sources qui PRODUISENT le verdict, elle rappelle ce script pour
+    # RECALCULER l'empreinte. Sans lui dans le bac à sable, les onze jambes ci-dessous
+    # rougissaient toutes pour la même raison — « absent » — et le contrôle positif tombait :
+    # une suite où tout est rouge ne distingue plus un défaut d'un décor incomplet.
+    (root / ".autoport" / "lib" / "verdict_sources.sh").write_bytes(NAMER.read_bytes())
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
 
     # Le binaire jugé. Son empreinte réelle est la seule chose que le worker ne peut pas taper.
@@ -63,8 +70,17 @@ def _proof(root, **over):
         "crash": "0",
         "frames": "1800",
     }
-    champs.update({k: str(v) for k, v in over.items() if k not in ("feature", "gate")})
+    champs.update({k: str(v) for k, v in over.items()
+                   if k not in ("feature", "gate", "sans_epingle")})
     lignes = [f"{k}={v}" for k, v in champs.items()]
+    # L'EMPREINTE DES SOURCES DU VERDICT SORT DU NOMMEUR, elle n'est pas tapée ici : une valeur
+    # écrite à la main ne prouverait que la frappe, et c'est exactement ce que `lib/proof_run.sh`
+    # fait au moment de produire la preuve. `sans_epingle=True` reproduit une preuve venue d'un
+    # producteur qui n'épinglait pas — le cas que la porte doit refuser.
+    if not over.get("sans_epingle"):
+        kv = subprocess.run(["bash", ".autoport/lib/verdict_sources.sh", ITEM, "kv"],
+                            cwd=root, capture_output=True, text=True)
+        lignes += [l for l in kv.stdout.splitlines() if l]
     lignes.append(over.get("feature", f"FEATURE {ITEM} armed=1 hits=37"))
     lignes.append(over.get("gate", "episodes=0"))
     p = root / ".autoport" / "reports" / ITEM / "proof.txt"
@@ -94,6 +110,27 @@ def test_une_preuve_ecrite_a_la_main_ne_passe_pas(tmp_path):
     code, out = _juge(root)
     assert code == 1
     assert "sha=deadbeefdeadbeef" in out
+
+
+def test_une_preuve_qui_n_epingle_pas_les_sources_du_verdict_ne_passe_pas(tmp_path):
+    """Le verdict d'un item de harnais vit dans des SCRIPTS, éditables après la course.
+    Une preuve qui ne porte pas l'empreinte de ses propres juges est refusée."""
+    root, gk, sha = _repo(tmp_path)
+    _proof(root, sha_reel=sha, sans_epingle=True)
+    code, out = _juge(root)
+    assert code == 1
+    assert "verdict_sources_sha" in out
+
+
+def test_une_source_du_verdict_editee_apres_la_preuve_ne_passe_pas(tmp_path):
+    """Le pendant, côté `.autoport/` : la porte relit le disque, pas la ligne recopiée."""
+    root, gk, sha = _repo(tmp_path)
+    _proof(root, sha_reel=sha)
+    juge = root / ".autoport" / "validators" / "generic.sh"
+    juge.write_bytes(juge.read_bytes() + b"\n# edite APRES la course\n")
+    code, out = _juge(root)
+    assert code == 1
+    assert "a change depuis la course" in out
 
 
 def test_une_preuve_absente_ne_passe_pas(tmp_path):
