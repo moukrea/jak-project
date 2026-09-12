@@ -36,6 +36,11 @@ kv(){ printf '%s=%s\n' "$1" "${2:--}"; }
 
 SANDITEM="sandbox-verdict-sources"
 
+# LE NOM DE LA PREUVE SORT DE L'AUTORITE DE NOMMAGE, une fois, et sert aux trois lectures plus
+# bas : un banc qui reecrit ce nom de son cote lirait un fichier vide le jour ou le nom bouge, et
+# une grandeur absente se publie en tiret — un banc muet ressemble a un banc satisfait.
+PROOFNAME=$(python3 "$AP/lib/impossible.py" name proof "")
+
 # ============================================ un depot jetable juge par le VRAI validateur =====
 # LA LISTE DE CE QU'ON COPIE SORT DU NOMMEUR, jamais d'une enumeration tapee ici : c'est la regle
 # du point 5, et ce banc se l'applique a lui-meme.
@@ -77,7 +82,7 @@ pose_preuve(){  # pose_preuve <dossier> : une preuve comme la machine l'ecrit, l
     ( cd "$dir" && bash .autoport/lib/verdict_sources.sh "$SANDITEM" kv )
     echo "FEATURE $SANDITEM armed=1 hits=37"
     echo "episodes=0"
-  } > "$dir/.autoport/reports/$SANDITEM/proof.txt"
+  } > "$dir/.autoport/reports/$SANDITEM/$PROOFNAME"
 }
 
 juge(){  # juge <dossier> -> code de retour ; la sortie va dans $JUGE_OUT
@@ -93,7 +98,7 @@ constats(){ printf '%s\n' "$JUGE_OUT" | sed -n 's/.*FAIL\] \([0-9]\{1,\}\) const
 if monte "$SB/crit"; then
   kv vsq_crit_monte 1
   pose_preuve "$SB/crit"
-  kv vsq_crit_sha_preuve "$(sed -n 's/^verdict_criterion_sha=//p' "$SB/crit/.autoport/reports/$SANDITEM/proof.txt" | tail -1)"
+  kv vsq_crit_sha_preuve "$(sed -n 's/^verdict_criterion_sha=//p' "$SB/crit/.autoport/reports/$SANDITEM/$PROOFNAME" | tail -1)"
   juge "$SB/crit"; kv vsq_crit_avant_rc $?
   kv vsq_crit_avant_sortie "$(printf '%s' "$JUGE_OUT" | tr ' \n' '__' | cut -c1-120)"
   critere "$SB/crit" 'key: episodes, op: "<=", value: 9'
@@ -113,7 +118,7 @@ fi
 if monte "$SB/acq"; then
   kv vsq_acq_monte 1
   pose_preuve "$SB/acq"
-  kv vsq_acq_count_preuve "$(sed -n 's/^verdict_acquis_count=//p' "$SB/acq/.autoport/reports/$SANDITEM/proof.txt" | tail -1)"
+  kv vsq_acq_count_preuve "$(sed -n 's/^verdict_acquis_count=//p' "$SB/acq/.autoport/reports/$SANDITEM/$PROOFNAME" | tail -1)"
   juge "$SB/acq"; kv vsq_acq_complet_rc $?
   VICTIME=$( cd "$SB/acq" && ls -1 .autoport/acquis/*.sh | LC_ALL=C sort | tail -1 )
   rm -f "$SB/acq/$VICTIME"
@@ -181,7 +186,14 @@ fi
 # processus : deux empreintes differentes NOMMENT une ecriture posterieure. Le recensement tourne
 # AVANT le `mv` de sa propre course — c'est donc la course PRECEDENTE, et celles des autres items,
 # qu'on lit ici. Un zero sans population ne prouve rien : `vsq_seal_paires` le dit.
-paires=0; ecarts=0; derive=0; liste=""
+# LA PAIRE DE SA PROPRE COURSE PRECEDENTE (signalement 13 du 12/09). `lib/proof_run.sh` efface
+# `proof<suf>.txt` au DEBUT de chaque course : le dossier d'un item ne pouvait donc JAMAIS
+# fournir une paire a son PROPRE recensement, et le terme se mesurait toujours sur les autres.
+# La course archive maintenant la paire d'avant sous les noms `prev_proof`/`prev_seal` que
+# l'autorite derive ; le glob ci-dessous les prend sans rien savoir d'elles, et on publie a part
+# combien de paires viennent du dossier de L'ITEM EN COURS.
+SOI="${AUTOPORT_PHASE_ID:-}"
+paires=0; ecarts=0; derive=0; liste=""; soi=0
 for sf in "$AP"/reports/*/proof*.seal; do
   [ -f "$sf" ] || continue
   ss=$(sed -n 's/^seal_sha=//p' "$sf" | tail -1)
@@ -190,9 +202,11 @@ for sf in "$AP"/reports/*/proof*.seal; do
   pf="${sf%.seal}.txt"; [ -s "$pf" ] || continue
   paires=$((paires+1))
   nom=${sf#"$AP"/reports/}
+  case "$nom" in "$SOI"/*) [ -n "$SOI" ] && soi=$((soi+1)) ;; esac
   [ "$ss" = "$es" ] || { ecarts=$((ecarts+1)); liste="${liste:+$liste,}$nom"; }
   [ "$(sha256sum "$pf" | cut -c1-64)" = "$es" ] || derive=$((derive+1))
 done
+kv vsq_seal_paires_soi "$soi"
 kv vsq_seal_paires "$paires"
 kv vsq_seal_ecarts "$ecarts"
 kv vsq_seal_derive_disque "$derive"

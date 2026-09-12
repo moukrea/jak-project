@@ -75,9 +75,36 @@ for _a in "$AP"/acquis/*.sh; do [ -f "$_a" ] && SOCLE="$SOCLE $_a"; done
 # une jambe de pytest a ce fichier-la pour source de verdict, au meme titre qu'un script de `lib/`. Le `#` d'un commentaire shell ou python ouvre
 # en debut de mot : `${1#debug.}`, `"$#"` et `'^#'` ne sont donc pas touches.
 VS_COMMENTS="${AUTOPORT_VS_COMMENTS:-0}"
+# LE CROISILLON D'UNE CHAINE N'OUVRE PAS UN COMMENTAIRE (signalement 11 du 12/09). Le `sed`
+# d'avant retirait tout ` #` jusqu'a la fin de ligne, guillemets compris : une CITATION qui
+# contient un croisillon — `grep -oE '^#include'`, `"debug.opengoal.x=#t"` — perdait sa fin, et
+# la derivation epinglait alors autre chose que ce qu'elle croyait lire. On suit donc l'etat de
+# guillemet, caractere par caractere, et l'etat repart a chaque LIGNE : un heredoc ou une chaine
+# multi-lignes ne doit pas contaminer les lignes suivantes.
+# LE SENS DE L'ERREUR EST CHOISI : en cas de doute on GARDE le texte. Garder ne peut qu'AJOUTER
+# un fichier a la liste epinglee ; couper en PERD un, et un verdict qui perd une de ses sources
+# est exactement le defaut que ce fichier existe pour empecher.
+decommente(){
+  awk '{
+    n = length($0); q = 0; out = $0;
+    for (i = 1; i <= n; i++) {
+      c = substr($0, i, 1);
+      if (q == 0) {
+        if (c == "\047") { q = 1 }
+        else if (c == "\"") { q = 2 }
+        else if (c == "#") {
+          p = (i == 1) ? " " : substr($0, i - 1, 1);
+          if (p == " " || p == "\t") { out = substr($0, 1, i - 1); break }
+        }
+      } else if (q == 1) { if (c == "\047") q = 0 }
+      else { if (c == "\\") i++; else if (c == "\"") q = 0 }
+    }
+    print out
+  }' "$1"
+}
 cites(){
   if [ "$VS_COMMENTS" = 1 ]; then cat -- "$1"
-  else sed -e 's/^[[:space:]]*#.*$//' -e 's/[[:space:]]#.*$//' -- "$1"
+  else decommente "$1"
   fi 2>/dev/null | grep -oE '(lib|validators|acquis|tests)/[A-Za-z0-9_./-]+\.(sh|py)' | sort -u
 }
 
@@ -141,6 +168,12 @@ case "$WHAT" in
   acquis_list)   acquis_liste ;;
   acquis_count)  acquis_count ;;
   acquis_sha)    acquis_sha ;;
+  decomment)
+    # LA SORTIE DU DECOMMENTEUR sur UN fichier. Le banc s'en sert pour comparer, ligne a ligne,
+    # ce que la regle d'AVANT coupait et ce que celle-ci garde. Sans ca il faudrait recopier la
+    # regle dans le banc — un deuxieme nommeur, et la meme divergence un cran plus loin.
+    [ -n "$REF" ] || { echo "verdict_sources.sh <id> decomment <fichier>" >&2; exit 2; }
+    decommente "$REF" ;;
   newer)
     [ -n "$REF" ] || { echo "verdict_sources.sh newer <fichier>" >&2; exit 2; }
     for f in $LISTE; do [ "$f" -nt "$REF" ] && printf '%s\n' "$f"; done; : ;;

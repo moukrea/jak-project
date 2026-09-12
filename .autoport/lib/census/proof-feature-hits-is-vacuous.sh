@@ -37,8 +37,18 @@ pub(){ printf '%s=%s\n' "$1" "${2:--}"; }
 num(){ case "${1:-}" in ''|*[!0-9-]*|-) echo -1 ;; *) echo "$1" ;; esac; }
 
 # ---------------------------------------------------------- ce que le MOTEUR a dit de la course
-ENG="${AUTOPORT_CENSUS_DIR:-$AP/reports/$ID}/proof-engine.log"
-[ "${AUTOPORT_CENSUS_ARMED:-1}" = 1 ] || ENG="${AUTOPORT_CENSUS_DIR:-$AP/reports/$ID}/proof-off-engine.log"
+# NOMMAGE/un-seul-endroit — LE NOM DU JOURNAL MOTEUR VIENT DE `lib/impossible.py`, PAR BRAS.
+# Il etait ecrit ici DEUX fois en dur, un litteral par bras : le jour ou l'extension change,
+# ce recensement lit un fichier que plus personne n'ecrit et publie des `-1` silencieux.
+ENGNAME=$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import impossible as I; print(I.arm_name("engine", I.arm_suffix(sys.argv[2])))' \
+          "$AP/lib" "${AUTOPORT_CENSUS_ARMED:-1}" 2>/dev/null)
+[ -n "$ENGNAME" ] || { echo "fh_census_ran=0"; echo "fh_engine_name_missing=1"; exit 1; }
+ENG="${AUTOPORT_CENSUS_DIR:-$AP/reports/$ID}/$ENGNAME"
+# Meme regle pour la preuve du bras LIVRE — c'est celle que `validators/generic.sh` ouvre, et
+# celle qu'on relit sur les items deja sur le disque. Un litteral ici fabriquerait des fixtures
+# que le juge n'ouvre pas : il refuserait pour « preuve absente », jamais pour ce qu'on mesure.
+PROOFNAME=$(python3 "$AP/lib/impossible.py" name proof "" 2>/dev/null)
+[ -n "$PROOFNAME" ] || { echo "fh_census_ran=0"; echo "fh_proof_name_missing=1"; exit 1; }
 e(){ grep -aE "^$1=" "$ENG" 2>/dev/null | tail -1 | sed "s/^$1=//"; }
 
 F_ID=$(e proof_feature_id);            F_STATE=$(e proof_feature_state)
@@ -149,7 +159,7 @@ joue(){   # $1 = suffixe de fixture, le reste = lignes de proof.txt
   { echo "source=x86"; echo "binary=build/game/gk"; echo "sha=0000000000000000"
     echo "crash=0"; echo "frames=100000"
     printf '%s\n' "$@" | sed "s/@ID@/$fid/g"
-  } > "$d/proof.txt"
+  } > "$d/$PROOFNAME"
   AUTOPORT_PHASE_ID="$fid" bash "$AP/validators/generic.sh" >/dev/null 2>"$ERRD/$sfx.err"
   echo $?
 }
@@ -238,7 +248,7 @@ g(){ printf '%s\n' "$CHG" | sed -n "s/^$1=//p" | tail -1; }
 # changent de sens. `.autoport/reports/` est GITIGNORE — le compte depend donc de l'arbre, et on
 # dit LEQUEL plutot que de le taire.
 SEEN=0; FLIP=0; FLIPL=""
-for pf in "$AP"/reports/*/proof.txt; do
+for pf in "$AP"/reports/*/"$PROOFNAME"; do
   [ -f "$pf" ] || continue
   iid=$(basename "$(dirname "$pf")")
   case "$iid" in $FIX_PFX-*) continue ;; esac

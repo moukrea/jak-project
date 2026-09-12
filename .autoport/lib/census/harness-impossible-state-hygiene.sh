@@ -191,11 +191,11 @@ t_statut=$((t_statut + $(eql status_rc 0)))
 
 # --- 3. LES NOMS, PAR BRAS, L'ABLATION COMPRISE. --------------------------------------------
 t_noms=0
-t_noms=$((t_noms + $(eqs nm_livre_ecrit proof-wait.txt)))
-t_noms=$((t_noms + $(eqs nm_livre_lu proof-wait.txt)))
+t_noms=$((t_noms + $(eqs nm_livre_ecrit proof-wait.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
+t_noms=$((t_noms + $(eqs nm_livre_lu proof-wait.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
 t_noms=$((t_noms + $(eq nm_livre_egal 1)))
-t_noms=$((t_noms + $(eqs nm_ablation_ecrit proof-off-wait.txt)))
-t_noms=$((t_noms + $(eqs nm_ablation_lu proof-off-wait.txt)))
+t_noms=$((t_noms + $(eqs nm_ablation_ecrit proof-off-wait.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
+t_noms=$((t_noms + $(eqs nm_ablation_lu proof-off-wait.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
 t_noms=$((t_noms + $(eq nm_ablation_egal 1)))              # LE BRAS QUI ETAIT AVEUGLE
 t_noms=$((t_noms + $(eq nm_lecteurs_en_dur 0)))            # plus un seul nom code en dur
 # LA GARDE DE COURSE, EXERCEE DANS LES DEUX SENS : elle laisse passer le bon nom et TUE la
@@ -237,7 +237,12 @@ t_journal=$((t_journal + $(eq jl_avant_contredit 1)))
 t_journal=$((t_journal + $(eq src_orch_ecrit_journal 2)))     # une definition, un appel
 
 # --- HORS PERIMETRE : la DETECTION ne bouge pas, le jeu non plus. ---------------------------
-[ "$(n src_detection_intacte)" = 1 ] || faute detection-de-l-impossibilite-modifiee
+# LA PROPRETE DE L'ARBRE N'EST PLUS AFFIRMEE ICI (signalement 5 du 12/09, chantier
+# harness-naming-authority-completion). Un recensement qui assert `git diff --quiet` ou
+# `git status --porcelain` rougit pour TOUT chantier qui touche le fichier surveille,
+# pour une raison qui n'est pas la sienne. C'est le travail des PORTES — GATE 0 refuse un
+# arbre herite sale, GATE 1 lit `code_scope` — pas d'un instrument. La grandeur reste
+# PUBLIEE plus bas : on retire l'affirmation, jamais la mesure.
 [ "$(n src_marker_purge)" = 1 ] || faute marqueur-purge-absent
 [ "$(n src_marker_nom)" = 1 ] || faute marqueur-nommage-absent
 [ "$(n src_orch_appelle_purge)" = 1 ] || faute orchestrateur-n-appelle-pas-la-purge
@@ -310,7 +315,7 @@ pub impossible_journal_repo_contradicted "$(n jl_depot_contredits)"
 # 5. LES TEMOINS D'AVANT, par leur commit, et le hors-perimetre.
 pub impossible_before_purge_commit "$(s before_impossible_commit)"
 pub impossible_before_journal_commit "$(s before_orch_commit)"
-pub impossible_detection_untouched "$(n src_detection_intacte)"
+pub impossible_purete_arbre_retiree "$(n src_purete_arbre_retiree)"
 pub engine_dirty_files "$(n src_engine_dirty)"
 pub engine_dirty_list "$(s src_engine_dirty_list)"
 

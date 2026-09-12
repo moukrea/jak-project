@@ -50,8 +50,18 @@ s(){ printf '%s\n' "$BN" | sed -n "s/^$1=//p" | tail -1; }
 # -1 = la cle manque. Jamais 0 : un zero passerait une porte `== 0`.
 n(){ local v; v=$(s "$1"); case "$v" in ''|*[!0-9-]*) echo -1 ;; *) echo "$v" ;; esac; }
 
-# ================================================= le recensement PRECEDENT, rejoue tel quel =
-PREV=$(timeout 600 bash "$AP/lib/census/harness-close-gate-code-free.sh" 2>/dev/null)
+# ============================ le BANC du chantier precedent, une fois, sans rejouer sa porte =
+# LA CHAINE DE REJEUX EST COUPEE (signalement 10 du 12/09). Ce terme lancait
+# `census/harness-close-gate-code-free.sh`, qui lance lui-meme son banc : un recensement qui
+# rejoue un recensement qui rejoue un banc finit par mesurer le temps de la machine plutot que
+# le defaut, et il RE-JUGE un item dont le verdict n'est pas son affaire. On interroge
+# maintenant le banc DIRECTEMENT — meme profondeur que n'importe quel autre recensement — et on
+# ne lit que les TEMOINS BRUTS que ce chantier-ci pourrait casser. Les agregats du chantier
+# precedent (`close_gate_code_free_defects`, `cf_lancement`, `cf_porte`, `cf_promotion`,
+# `cf_nom`) restent le travail de SA porte, pas de celle-ci.
+PREV_T0=$(date +%s)
+PREV=$(timeout 600 python3 "$AP/lib/close_gate_code_free_selftest.py" 2>/dev/null)
+PREV_S=$(( $(date +%s) - PREV_T0 ))
 q(){ printf '%s\n' "$PREV" | sed -n "s/^$1=//p" | tail -1; }
 qn(){ local v; v=$(q "$1"); case "$v" in ''|*[!0-9-]*) echo -1 ;; *) echo "$v" ;; esac; }
 
@@ -65,7 +75,7 @@ eqq(){ [ "$(qn "$1")" = "$2" ] && echo 0 || echo 1; }
 # Le banc doit AVOIR tourne, chaque bras doit avoir joue, et les temoins d'AVANT doivent etre
 # ancres par MARQUEUR — jamais par `HEAD:`, ou ils s'accuseraient eux-memes des le commit.
 [ -n "$BN" ] || faute banc-muet
-[ -n "$PREV" ] || faute recensement-precedent-muet
+[ -n "$PREV" ] || faute banc-precedent-muet
 for bras in ec_apres ec_avant pu_apres_avec pu_apres_purge pu_avant_avec pu_avant_purge \
             sc_apres sc_avant rl; do
   [ "$(n "${bras}_ran")" = 1 ] || faute "bras-$bras-muet"
@@ -182,25 +192,28 @@ t_perimetre=$((t_perimetre + $([ "$(s live_scope_devine_liste)" = "-" ] && echo 
 t_perimetre=$((t_perimetre + $([ "$(n live_items)" -gt 0 ] 2>/dev/null && echo 0 || echo 1)))
 t_perimetre=$((t_perimetre + $(eq live_scope_illisible 0)))
 
-# --- 4. LA NON-REGRESSION DU CHANTIER PRECEDENT, REJOUE. -----------------------------------
+# --- 4. LA NON-REGRESSION DU CHANTIER PRECEDENT, SUR SES TEMOINS BRUTS. ---------------------
+# Les cles lues ici sont celles du BANC (`lc_apres_*`, `pm_apres_*`), pas les agregats que son
+# recensement en tire : on ne recopie pas sa porte, on ne la rejoue pas, et on ne se met pas a
+# dependre de son arithmetique.
 t_regression=0
-t_regression=$((t_regression + $(eqq cf_census_ran 1)))
-t_regression=$((t_regression + $(eqq close_gate_code_free_defects 0)))
-t_regression=$((t_regression + $(eqq cf_lancement 0)))
-t_regression=$((t_regression + $(eqq cf_porte 0)))
-t_regression=$((t_regression + $(eqq cf_promotion 0)))
-t_regression=$((t_regression + $(eqq cf_nom 0)))
-t_regression=$((t_regression + $(eqq cf_witness_penalty 0)))
+t_regression=$((t_regression + $(eqq lc_apres_ran 1)))
+t_regression=$((t_regression + $(eqq pm_apres_ran 1)))
 # SES BANCS SEMES ONT BIEN TOURNE : le compte d'items promus par sa propre promotion, et la
 # liste de ce qu'elle a refuse, mot pour mot.
-t_regression=$((t_regression + $(eqq cf_promo_promoted_after 1)))
-t_regression=$((t_regression + $([ "$(q cf_promo_refused_after)" = \
+t_regression=$((t_regression + $(eqq pm_apres_promus_n 1)))
+t_regression=$((t_regression + $([ "$(q pm_apres_refuses)" = \
   "rouge:porte-refusee,muet:journal-absent,regresse:porte-refusee" ] && echo 0 || echo 1)))
-t_regression=$((t_regression + $(eqq cf_launch_journal_lines 2)))
-t_regression=$((t_regression + $(eqq cf_launch_journal_posed 1)))
+t_regression=$((t_regression + $(eqq lc_apres_journal_lignes 2)))
+t_regression=$((t_regression + $(eqq lc_apres_journal_poses 1)))
 
 # --- HORS PERIMETRE : le jeu n'est pas touche. ----------------------------------------------
-[ "$(n src_engine_dirty)" = 0 ] || faute code-du-jeu-modifie
+# LA PROPRETE DE L'ARBRE N'EST PLUS AFFIRMEE ICI (signalement 5 du 12/09, chantier
+# harness-naming-authority-completion). Un recensement qui assert `git diff --quiet` ou
+# `git status --porcelain` rougit pour TOUT chantier qui touche le fichier surveille,
+# pour une raison qui n'est pas la sienne. C'est le travail des PORTES — GATE 0 refuse un
+# arbre herite sale, GATE 1 lit `code_scope` — pas d'un instrument. La grandeur reste
+# PUBLIEE plus bas : on retire l'affirmation, jamais la mesure.
 
 TOTAL=$((t_ecriture + t_purge + t_perimetre + t_regression + penalty))
 
@@ -253,15 +266,16 @@ pub vd_scope_decisions_after "$(s sc_apres_decisions)"
 pub vd_scope_decisions_before "$(s sc_avant_decisions)"
 pub vd_scope_sources_after "$(s sc_apres_sources)"
 # 4. LES QUATRE TERMES DU CHANTIER PRECEDENT, REJOUES.
-pub vd_prev_defects "$(qn close_gate_code_free_defects)"
-pub vd_prev_terms "$(q close_gate_code_free_defects_terms)"
-pub vd_prev_lancement "$(qn cf_lancement)"
-pub vd_prev_porte "$(qn cf_porte)"
-pub vd_prev_promotion "$(qn cf_promotion)"
-pub vd_prev_nom "$(qn cf_nom)"
-pub vd_prev_penalty "$(qn cf_witness_penalty)"
-pub vd_prev_promo_refused "$(q cf_promo_refused_after)"
-pub vd_prev_promo_promoted "$(qn cf_promo_promoted_after)"
+# LA PROFONDEUR DE REJEU, PUBLIEE : 1 = ce recensement appelle un banc, comme tous les autres.
+# 2 voudrait dire qu'il rejoue la porte d'un autre item, et c'est ce qu'on vient de retirer.
+pub vd_prev_rejeux_profondeur 1
+pub vd_prev_banc_secondes "$PREV_S"
+pub vd_prev_lancement_ran "$(qn lc_apres_ran)"
+pub vd_prev_promotion_ran "$(qn pm_apres_ran)"
+pub vd_prev_journal_lignes "$(qn lc_apres_journal_lignes)"
+pub vd_prev_journal_poses "$(qn lc_apres_journal_poses)"
+pub vd_prev_promo_refused "$(q pm_apres_refuses)"
+pub vd_prev_promo_promoted "$(qn pm_apres_promus_n)"
 # 5. LES TEMOINS D'AVANT, par leur commit, et le hors-perimetre.
 pub vd_before_orch_commit "$(s before_orch_commit)"
 pub vd_before_backlog_commit "$(s before_backlog_commit)"

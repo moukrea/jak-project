@@ -108,7 +108,7 @@ for kvp in "${HDR_PROPS[@]}"; do
     echo "proof_run: property reserved by HDR campaign" >&2; exit 2 ;; esac
 done
 
-# --- PROLOGUE-SANS-DOSSIER : les trois seules sorties 3 qui ne peuvent PAS ecrire d'etat
+# --- PROLOGUE-SANS-DOSSIER : les seules sorties 3 qui ne peuvent PAS ecrire d'etat
 # nomme, parce qu'a ce point on ne sait pas encore ou l'ecrire. Tout ce qui suit passe par
 # `die3`. La porte de l'item `harness-attempt-not-burned-by-foreign-cause` compte les
 # sorties 3 nues APRES ce bloc : il doit y en avoir zero.
@@ -118,8 +118,24 @@ AP=.autoport
 D=$AP/reports/$ID
 mkdir -p "$D" || exit 3
 SUF=""; [ "$OFF" = 1 ] && SUF="-off"
-OUTFILE="$D/proof$SUF.txt"
-RAWLOG="$D/proof$SUF-engine.log"
+# NOMMAGE/un-seul-endroit — TOUS LES NOMS DE CE BRAS SORTENT DE L'AUTORITE, EN UN SEUL APPEL.
+# Ce script en fabriquait SIX a la main (`proof$SUF.txt`, `-engine.log`, `.seal`, `-wait.txt`,
+# `-impossible.txt`, `-census.log`) tout en demandant les deux autres a `lib/impossible.py` :
+# il etait le DEUXIEME nommeur, et l'effacement de l'etat refabriquait son nom. Une regle
+# ecrite dans deux langages diverge en silence — c'est comme ca que l'attente du bras
+# d'ablation s'est retrouvee lue par personne, sous une porte verte.
+# LA SORTIE 3 CI-DESSOUS EST NUE, ET C'EST SA PLACE : tant que l'autorite n'a pas parle, on ne
+# sait pas sous quel nom ecrire l'etat « preuve impossible ». C'est exactement la raison d'etre
+# de ce prologue.
+AP_NAMES=$(python3 "$AP/lib/impossible.py" names "$SUF" 2>&1) || {
+  echo "proof_run: lib/impossible.py ne derive aucun nom pour le bras '${SUF:-livre}' : $AP_NAMES" >&2; exit 3; }
+eval "$AP_NAMES"
+for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal; do
+  eval "_v=\${AP_NAME_$_k:-}"
+  [ -n "$_v" ] || { echo "proof_run: l'autorite n'a pas nomme '$_k' pour le bras '${SUF:-livre}'" >&2; exit 3; }
+done
+OUTFILE="$D/$AP_NAME_proof"
+RAWLOG="$D/$AP_NAME_engine"
 ARMED=1; [ "$OFF" = 1 ] && ARMED=0
 
 log(){ printf '[proof_run %s] %s\n' "$ID" "$*" >&2; }
@@ -164,7 +180,7 @@ extra(){ EXTRA="${EXTRA:+$EXTRA
 # course suivante qui le lit (le recensement tourne AVANT le `mv`), et
 # `lib/census/harness-verdict-sources-are-incomplete.sh` en fait une population.
 PROOF_COMPOSEE=0
-SEALFILE="$D/proof$SUF.seal"
+SEALFILE="$D/$AP_NAME_seal"
 seal_write(){
   PROOF_COMPOSEE=1
   printf 'seal_sha=%s\nseal_bytes=%s\nseal_at=%s\n' \
@@ -264,7 +280,7 @@ fi
 if [ -n "$HDR_AGGREGATE" ]; then
   rm -f "$OUTFILE"
   HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$HDR_AGGREGATE"
-  TMP="$D/.proof$SUF.tmp.$$"
+  TMP="$D/.$AP_NAME_proof.tmp.$$"
   if ! python3 - "$HDR_BATCH" "$BIN" "$MODE" > "$TMP" <<'HDR_REPLAY'
 import datetime, hashlib, json, os, re, sys
 from pathlib import Path
@@ -427,7 +443,7 @@ extra "deploy_lock_age_s=$LOCK_AGE"
   echo "deploy_lock_alive=$LOCK_ALIVE"
   echo "deploy_lock_age_s=$LOCK_AGE"
   echo "proof_wait_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} > "$D/proof$SUF-wait.txt"
+} > "$D/$AP_NAME_wait"
 
 # L'ECRIVAIN ET LE LECTEUR, VERIFIES L'UN CONTRE L'AUTRE, A CHAQUE COURSE (NOMMAGE/un-seul-endroit).
 # Le fichier qu'on vient d'ecrire doit porter EXACTEMENT le nom que `lib/impossible.py` derive
@@ -435,7 +451,14 @@ extra "deploy_lock_age_s=$LOCK_AGE"
 # d'ablation ecrivait son attente pendant qu'un lecteur cherchait un nom code EN DUR, celui du
 # bras livre : l'attente de l'ablation n'etait lue par personne, sous une porte verte. On ne le
 # detecte pas apres coup — une divergence de nom ne survit plus a une course.
+# LA VERIFICATION RESTE, ET ELLE A CHANGE DE SENS. L'ecrivain ne fabrique plus de nom : il a
+# recu le sien de l'autorite dans le prologue. Ce qu'on verifie n'est donc plus « les deux
+# regles concordent-elles » — il n'y a plus qu'une regle — mais que la valeur eval'ee n'a pas
+# ete ecrasee en route et que le fichier est bien LA, sous ce nom, avant qu'un lecteur le
+# cherche. La deuxieme interrogation de l'autorite est independante de la premiere.
 WAITNAME=$(python3 "$AP/lib/impossible.py" name wait "$SUF" 2>/dev/null)
+[ "$WAITNAME" = "$AP_NAME_wait" ] || die3 nommage-divergent \
+  "le nom d'attente eval'e ('$AP_NAME_wait') ne correspond plus a ce que lib/impossible.py derive ('${WAITNAME:--}') : une variable a ete ecrasee entre le prologue et ici"
 [ -s "$D/${WAITNAME:-nom-non-derive}" ] || die3 nommage-divergent \
   "l'attente de ce bras n'est pas lisible sous le nom que lib/impossible.py derive ('${WAITNAME:--}') : un lecteur du bras '${SUF:-livre}' lirait un fichier que personne n'ecrit"
 log "attente de ce bras publiee sous '$WAITNAME', nom derive par lib/impossible.py"
@@ -452,11 +475,31 @@ else
   log "hygiene des etats impossibles : echec (non bloquant) — $(printf '%s' "$PURGED" | tail -1)"
 fi
 
+# LA PAIRE DE LA COURSE PRECEDENTE EST ARCHIVEE AVANT D'ETRE DETRUITE (signalement 13 du
+# 12/09). `proof<suf>.txt` s'efface ici, au DEBUT de la course ; son sceau, lui, survivait seul.
+# Le recensement de CETTE course tourne pendant la course : il trouvait donc un sceau sans
+# preuve, et le dossier d'un item ne pouvait JAMAIS fournir une paire (preuve, sceau) a son
+# PROPRE recensement — le terme se mesurait toujours sur les autres items, jamais sur soi.
+# La paire d'avant est deplacee sous les noms que l'autorite derive pour elle.
+# PAIRE-PRECEDENTE/debut  (le banc leve ce bloc TEL QUEL et le rejoue dans un bac a sable :
+# une recopie dans le banc mesurerait la recopie, pas le geste.)
+if [ -s "$OUTFILE" ] && [ -s "$SEALFILE" ]; then
+  mv -f "$OUTFILE"  "$D/$AP_NAME_prev_proof" 2>/dev/null || true
+  mv -f "$SEALFILE" "$D/$AP_NAME_prev_seal"  2>/dev/null || true
+  log "paire (preuve, sceau) de la course precedente archivee sous '$AP_NAME_prev_proof' / '$AP_NAME_prev_seal'"
+else
+  # UNE PAIRE INCOMPLETE N'EST PAS UNE PAIRE : on ne laisse pas trainer la moitie d'avant, qui
+  # se lirait comme la paire de la course d'avant-hier.
+  rm -f "$D/$AP_NAME_prev_proof" "$D/$AP_NAME_prev_seal"
+fi
+# PAIRE-PRECEDENTE/fin
+
 # La preuve doit venir de la course qu'on lance MAINTENANT. On retire l'ancienne d'abord :
 # si la course echoue, il ne reste rien qui puisse passer une porte. L'etat nomme de la course
 # PRECEDENTE part avec elle : une cle de texte qu'on ne vide jamais finit par accuser une
-# course qui n'existe plus.
-rm -f "$OUTFILE" "$D/proof$SUF-impossible.txt"
+# course qui n'existe plus. AUCUN de ces noms n'est fabrique ici : ils viennent du prologue,
+# donc de `lib/impossible.py`.
+rm -f "$OUTFILE" "$D/$AP_NAME_impossible"
 
 SHA=$(sha256sum "$BIN" | cut -c1-16)
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -964,13 +1007,14 @@ if [ -f "$CENSUS" ]; then
   log "recensement de harnais : $CENSUS (armed=$ARMED)"
   if AUTOPORT_CENSUS_ID="$ID" AUTOPORT_CENSUS_ARMED="$ARMED" AUTOPORT_CENSUS_DIR="$D" \
      timeout -k 15 "${AUTOPORT_CENSUS_TIMEOUT:-900}" bash "$CENSUS" \
-     > "$COUT" 2>"$D/proof$SUF-census.log"; then
+     > "$COUT" 2>"$D/$AP_NAME_census"; then
     CRC=0
     log "recensement fini en $(( $(date +%s) - CT0 ))s"
   else
     CRC=$?
     log "recensement SORTI EN ERREUR (code $CRC) apres $(( $(date +%s) - CT0 ))s : ses cles"
-    log "manqueront a proof.txt et le validateur sera rouge. Journal : $D/proof$SUF-census.log"
+    # NOM-LITTERAL-ATTENDU: message-rendu-a-l-humain-pas-un-chemin
+    log "manqueront a proof.txt et le validateur sera rouge. Journal : $D/$AP_NAME_census"
   fi
   CKEYS=$(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$' "$COUT" 2>/dev/null || true)
   CDROP=$(grep -cE '^(proof_feature_|proof_census_)[A-Za-z0-9_]*=' "$COUT" 2>/dev/null || true)
@@ -996,7 +1040,7 @@ declare -F teardown_fin >/dev/null && teardown_fin
 
 # ============================================== recopie de ce que le MOTEUR a dit ===========
 T1=$(date +%s)
-NORM="$D/.proof$SUF.norm.$$"
+NORM="$D/.$AP_NAME_proof.norm.$$"
 norm "$RAWLOG" > "$NORM" 2>/dev/null
 
 if [ "$MODE" = x86 ]; then
@@ -1054,7 +1098,7 @@ HDR_OWNER
   ) || die3 hdr-mesures-owner "hdr_batches.owner_regressions a echoue"
 fi
 
-TMP="$D/.proof$SUF.tmp.$$"
+TMP="$D/.$AP_NAME_proof.tmp.$$"
 {
   echo "source=$MODE"
   [ -n "$SERIAL" ] && echo "serial=$SERIAL"

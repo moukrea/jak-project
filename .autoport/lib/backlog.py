@@ -283,7 +283,14 @@ class Backlog:
                 self.set_status(e["id"], "validated")
                 promus.append(e["id"])
             elif not e["owner_test"]:
-                self.machine_promotion_refused.append((e["id"], e["verdict"], e["journal"]))
+                # VERDICT/origine-dite
+                # L'ORIGINE VOYAGE AVEC LE VERDICT (signalement 9 du 12/09). Ce triplet rendait
+                # `(id, verdict, journal)` : qui l'imprime ne peut pas dire si le verdict vient
+                # du CHAMP de l'item ou du JOURNAL de repli, et une origine non dite se lit
+                # comme l'origine attendue. `source` est deja calculee juste au-dessus, dans
+                # `machine_promotion_plan` ; elle ne se devine plus a l'affichage.
+                self.machine_promotion_refused.append(
+                    (e["id"], e["verdict"], e["journal"], e["source"]))
         return promus
 
     def no_device_marker(self):
@@ -375,6 +382,45 @@ class Backlog:
             self._verdict_bump(item_id, self.verdict_count(self.get(item_id) or {}), autorise)
         return self.get(item_id)
 
+    def set_scope(self, item_id, scope, source="-"):
+        """PERIMETRE/champ-explicite — LE SEUL ECRIVAIN de `code_scope`, et il prend le verrou.
+
+        Signalement 8 du 12/09 : le champ fait foi depuis ce matin, et 240 items sur 242 ne le
+        portaient pas — leur perimetre etait donc DEVINE dans leur prose, a chaque fermeture.
+        Peupler ce champ a la main dans `backlog.yaml` ne marche pas : l'orchestrateur reecrit
+        le fichier en continu et efface l'edition en quelques secondes. On passe donc par ici,
+        comme `set_status` : verrou, relecture du disque, modification, rename atomique.
+
+        `scope` DOIT etre une valeur que `lib/gate_verdict.py` sait lire. Un champ illisible
+        n'est pas un perimetre : il est compte a part et la porte retombe sur la devinette. On
+        refuse plutot que d'ecrire quelque chose que l'autorite ne reconnait pas.
+        """
+        valeur = _gate_verdict.normalise(scope)
+        if (valeur not in _gate_verdict.SCOPE_SANS_CODE
+                and valeur not in _gate_verdict.SCOPE_AVEC_CODE):
+            raise BacklogError(
+                "perimetre inconnu : %r. `lib/gate_verdict.py` lit %s (sans code) et %s (avec "
+                "code) ; ecrire autre chose rendrait le champ ILLISIBLE, et la porte "
+                "retomberait sur la prose — le defaut qu'on corrige."
+                % (scope, "|".join(_gate_verdict.SCOPE_SANS_CODE),
+                   "|".join(_gate_verdict.SCOPE_AVEC_CODE)))
+        with _Lock(self.path):
+            fresh = _read(self.path)
+            target = None
+            for it in fresh["items"]:
+                if it.get("id") == item_id:
+                    target = it
+                    break
+            if target is None:
+                raise BacklogError("item inconnu : %s" % item_id)
+            target[_gate_verdict.SCOPE_FIELD] = valeur
+            if source and source != "-":
+                target["code_scope_source"] = str(source)
+            _atomic_write(self.path, _dump(fresh))
+        self.items = fresh["items"]
+        self.version = fresh.get("version", 1)
+        return self.get(item_id)
+
     def _reports_dir(self):
         """Les rapports du harnais qui a ecrit CE backlog — pas ceux du depot courant. Un
         banc jetable pose son backlog.yaml ailleurs et y trouve ses propres etats."""
@@ -448,18 +494,37 @@ class Backlog:
         """Les etats « preuve impossible » DEBOUT, tous items confondus, file ou pas."""
         return _impossible.read_all(self._reports_dir())
 
-    def bloc_impossible(self, etats):
+    # TEXTE/bloc-borne
+    # LE BLOC EST BORNE, ET IL DIT CE QU'IL NE MONTRE PAS (signalement 7 du 12/09). Depuis que
+    # ce renderer lit TOUT etat debout du disque — file ou pas — sa longueur n'a plus de borne :
+    # un disque qui garde trente etats perimes noie le texte rendu a l'owner sous trente
+    # paragraphes. Une borne qui se TAIT serait pire qu'un texte long : elle cacherait
+    # exactement l'etat qu'on cherche. On en montre donc un nombre fixe, LES PLUS ANCIENS
+    # D'ABORD — une impossibilite de six heures passe devant une de trente secondes — et on
+    # PUBLIE le compte de ceux qu'on n'affiche pas.
+    BLOC_IMPOSSIBLE_MAX = 8
+
+    def bloc_impossible(self, etats, borne=None):
         """Le bloc rendu a l'owner, et sa version pour le digest. UN SEUL renderer : un bras
-        de mesure qui reecrirait ce texte ne mesurerait que sa propre recopie."""
+        de mesure qui reecrirait ce texte ne mesurerait que sa propre recopie.
+
+        `borne` : combien d'etats au plus sont DETAILLES. Les autres sont comptes et nommes sur
+        une ligne — jamais tus."""
+        borne = self.BLOC_IMPOSSIBLE_MAX if borne is None else int(borne)
         par_id = {it.get("id"): it for it in self.items}
         lines, dlines = [], []
         if etats:
+            # LES PLUS ANCIENS D'ABORD : l'age est la grandeur qui decide, pas l'ordre du disque.
+            ordre = sorted(etats.items(),
+                           key=lambda kv: -int((kv[1] or {}).get("since_s") or 0))
+            montres = ordre if borne <= 0 else ordre[:borne]
+            caches = [] if borne <= 0 else ordre[borne:]
             lines = ["## Preuve impossible",
                      "%d chantier(s) que le harnais ne peut PAS mesurer en ce moment. Ce "
                      "n'est pas « rien produit » : c'est « rien de mesurable », et voila "
                      "la cause et depuis quand." % len(etats)]
             dlines = ["## Preuve impossible"]
-            for iid, st in etats.items():
+            for iid, st in montres:
                 it = par_id.get(iid)
                 feat = (it or {}).get("feature", iid)
                 statut = (it or {}).get("status") or "hors backlog"
@@ -467,7 +532,26 @@ class Backlog:
                     feat = "%s [hors file : %s]" % (feat, statut)
                 lines.extend(_impossible.lines(st, feat))
                 dlines.extend(_impossible.digest_lines(st, feat))
+            if caches:
+                noms = ", ".join(iid for iid, _ in caches[:12])
+                if len(caches) > 12:
+                    noms += ", …"
+                queue = ("+ %d etat(s) de plus, non detailles ici (borne %d, les plus anciens "
+                         "d'abord) : %s" % (len(caches), borne, noms))
+                lines.append(queue)
+                # LE DIGEST PORTE LE COMPTE, PAS LES NOMS : son hash ne doit pas changer parce
+                # qu'un item s'est ajoute a une liste que personne ne lit.
+                dlines.append("+ %d etat(s) non detailles (borne %d)" % (len(caches), borne))
         return "\n".join(lines), "\n".join(dlines)
+
+    def bloc_impossible_counts(self, etats, borne=None):
+        """Combien d'etats le bloc DETAILLE, et combien il n'affiche pas. Publie a part : une
+        borne dont personne ne connait l'effet n'est pas une borne."""
+        borne = self.BLOC_IMPOSSIBLE_MAX if borne is None else int(borne)
+        total = len(etats or {})
+        montres = total if borne <= 0 else min(total, borne)
+        return {"total": total, "montres": montres, "caches": total - montres,
+                "borne": borne}
 
     def status_report(self, changed_only=False, show_all=False):
         """Les blocs, en francais simple. Un item `validated` n'y apparait jamais.
@@ -716,8 +800,12 @@ def render_prompt(item, max_bytes=PROMPT_MAX):
         src = "device" if item.get("device") else "x86"
         out += ["", "## Preuve exigee"]
         if gate:
-            out.append("`%s %s %s` dans `reports/%s/proof.txt`."
-                       % (gate["key"], gate["op"], gate["value"], iid))
+            # LE NOM DE LA PREUVE VIENT DE L'AUTORITE, jusque dans la consigne rendue au
+            # worker : une consigne qui nomme un fichier que plus personne n'ecrit envoie
+            # chercher au mauvais endroit, et c'est le pire endroit ou se tromper de nom.
+            out.append("`%s %s %s` dans `reports/%s/%s`."
+                       % (gate["key"], gate["op"], gate["value"], iid,
+                          _impossible.arm_name("proof", "")))
         else:
             out.append("Aucun critere machine n'est encore ecrit pour cet item. Ecris-le "
                        "d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le "

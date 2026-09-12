@@ -112,6 +112,13 @@ KINDS = {
     "census": "-census.log",         # le journal du recensement de harnais
     "env": "-env.txt",               # l'environnement RELU du processus mesure (bras x86)
     "teardown": "-teardown-fin.txt",  # ce que le teardown de FIN de course a efface (appareil)
+    "seal": ".seal",                 # l'empreinte de proof.txt au `mv`, et celle relue a la sortie
+    # LA PAIRE DE LA COURSE PRECEDENTE (signalement 13 du 12/09). `lib/proof_run.sh` efface
+    # `proof<suf>.txt` au DEBUT de chaque course : le dossier d'un item ne pouvait donc JAMAIS
+    # fournir une paire (preuve, sceau) a son PROPRE recensement, qui tourne pendant la course.
+    # La paire de la course d'avant est ARCHIVEE sous ces deux noms avant l'effacement.
+    "prev_proof": "-prev.txt",       # la preuve de la course PRECEDENTE de ce bras
+    "prev_seal": "-prev.seal",       # son sceau, pose au `mv` et complete a la sortie
 }
 
 
@@ -304,30 +311,40 @@ def purge(reports_dir, current_item=None, current_suffix=None, since=0.0, now=No
     "standing": [...]}` — les DEUX comptes, separement, jamais leur difference."""
     now = time.time() if now is None else now
     purged, standing = [], []
-    for iid, suf, p, stamp in scan(reports_dir):
-        why = purge_reason(reports_dir, iid, suf, stamp, current_item=current_item,
-                           current_suffix=current_suffix, since=since)
-        rec = {"item": iid, "arm": "ablation" if suf else "livre", "suffix": suf,
-               "file": os.path.relpath(p, reports_dir), "age_s": max(0, int(now - stamp)),
-               "reason": why or "-"}
-        try:
-            with open(p, encoding="utf-8", errors="replace") as fh:
-                rec["cause"] = parse(fh.read()).get("proof_impossible_reason") or "inconnue"
-        except OSError:
-            rec["cause"] = "inconnue"
-        if not why:
-            standing.append(rec)
-            continue
-        try:
-            os.remove(p)
-        except OSError as exc:                                  # noqa: BLE001
-            rec["reason"] = "echec-de-purge"
-            rec["cause"] = "%s: %s" % (type(exc).__name__, exc)
-            standing.append(rec)
-            continue
-        purged.append(rec)
-    if journal and purged:
-        write_journal(reports_dir, purged, now, who=who)
+    # PURGE/verrou-partage (signalement 6 du 12/09). Le verrou serialisait le JOURNAL et pas le
+    # `os.remove` : deux purges lancees ensemble scannaient le meme disque, decidaient toutes
+    # les deux de retirer le meme fichier, et la seconde tombait sur un `FileNotFoundError` que
+    # ce code range en « echec-de-purge » — un etat DEJA retire etait donc rendu comme DEBOUT.
+    # Le geste entier — scan, decision, retrait, journal — tient maintenant sous le MEME verrou
+    # que le journal. Une seule purge a la fois, et la perdante voit un disque deja propre.
+    with _Verrou(journal_lock_path(reports_dir)):
+        for iid, suf, p, stamp in scan(reports_dir):
+            why = purge_reason(reports_dir, iid, suf, stamp, current_item=current_item,
+                               current_suffix=current_suffix, since=since)
+            rec = {"item": iid, "arm": "ablation" if suf else "livre", "suffix": suf,
+                   "file": os.path.relpath(p, reports_dir), "age_s": max(0, int(now - stamp)),
+                   "reason": why or "-"}
+            try:
+                with open(p, encoding="utf-8", errors="replace") as fh:
+                    rec["cause"] = parse(fh.read()).get("proof_impossible_reason") or "inconnue"
+            except OSError:
+                rec["cause"] = "inconnue"
+            if not why:
+                standing.append(rec)
+                continue
+            try:
+                os.remove(p)
+            except OSError as exc:                                  # noqa: BLE001
+                rec["reason"] = "echec-de-purge"
+                rec["cause"] = "%s: %s" % (type(exc).__name__, exc)
+                standing.append(rec)
+                continue
+            purged.append(rec)
+        if journal and purged:
+            # LE VERROU EST DEJA TENU par ce processus : `flock` se prend par DESCRIPTION de
+            # fichier ouvert, et un second `open` du meme verrou depuis le meme processus se
+            # bloquerait lui-meme. On le dit, on ne le reprend pas.
+            write_journal(reports_dir, purged, now, who=who, deja_verrouille=True)
     return {"purged": purged, "standing": standing}
 
 
@@ -418,15 +435,20 @@ def journal_line(rec, stamp, who):
                int(rec.get("age_s") or 0), _one(rec.get("cause"), "inconnue")[:120]))
 
 
-def write_journal(reports_dir, purged, now=None, who=None):
-    """LE SEUL SITE D'ECRITURE du journal des purges. Rend le nombre de lignes ajoutees."""
+def write_journal(reports_dir, purged, now=None, who=None, deja_verrouille=False):
+    """LE SEUL SITE D'ECRITURE du journal des purges. Rend le nombre de lignes ajoutees.
+
+    `deja_verrouille` : l'appelant (`purge`) tient DEJA le verrou du journal, parce que le
+    retrait des fichiers est serialise par le meme. Le reprendre ici bloquerait le processus
+    contre lui-meme."""
     if not purged:
         return 0
     now = time.time() if now is None else now
     path = purge_journal_path(reports_dir)
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
     corps = "".join(journal_line(rec, stamp, _who(who)) for rec in purged)
-    with _Verrou(journal_lock_path(reports_dir)):
+
+    def _ecrire():
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             try:
@@ -440,7 +462,12 @@ def write_journal(reports_dir, purged, now=None, who=None):
                 fh.flush()
         except OSError:
             return 0                  # un journal illisible ne doit pas empecher la purge
-    return len(purged)
+        return len(purged)
+
+    if deja_verrouille:
+        return _ecrire()
+    with _Verrou(journal_lock_path(reports_dir)):
+        return _ecrire()
 
 
 # Une ligne BIEN FORMEE, relue par le meme module qui l'ecrit. Un journal dont les lignes se
@@ -641,6 +668,23 @@ def _cli(argv):
     if cmd == "name" and len(argv) >= 2:
         print(arm_name(argv[1], argv[2] if len(argv) > 2 else ""))
         return 0
+    # NOMMAGE/un-seul-endroit — TOUS LES NOMS D'UN BRAS, EN UN APPEL, DIRECTEMENT EVALUABLES
+    # PAR BASH. `lib/proof_run.sh` nommait SIX fichiers a la main (`proof$SUF-engine.log`,
+    # `proof$SUF.seal`, `proof$SUF-wait.txt`, `proof$SUF-impossible.txt`, `proof$SUF-census.log`)
+    # en plus de demander deux noms a ce module : c'etait le deuxieme nommeur, et l'effacement
+    # de l'etat refabriquait son nom. Un seul appel, une seule regle, zero litteral cote bash.
+    #     eval "$(python3 lib/impossible.py names -off)"   ->  $AP_NAME_proof, $AP_NAME_seal, ...
+    if cmd == "names":
+        suf = argv[1] if len(argv) > 1 else ""
+        if suf not in SUFFIXES:
+            print("bras inconnu : %r" % suf, file=sys.stderr)
+            return 2
+        for kind in sorted(KINDS):
+            print("AP_NAME_%s=%s" % (kind, arm_name(kind, suf)))
+        print("AP_NAME_ARM=%s" % ("ablation" if suf else "livre"))
+        print("AP_NAME_SUFFIX=%s" % (suf or "-"))
+        print("AP_NAME_COUNT=%d" % len(KINDS))
+        return 0
     if cmd == "purge":
         r = purge(opt("--reports", ".autoport/reports"), current_item=opt("--item"),
                   current_suffix=opt("--arm"), since=float(opt("--since", 0.0) or 0.0),
@@ -680,7 +724,8 @@ def _cli(argv):
         for rec in deb:
             print("%s %s %ss" % (rec["item"], rec["file"], rec["age_s"]))
         return 0
-    print("usage: impossible.py name <%s> [bras] | purge [--reports D] [--item ID] "
+    print("usage: impossible.py name <%s> [bras] | names [bras] | "
+          "purge [--reports D] [--item ID] "
           "[--arm BRAS] [--since T] [--who QUI] | why [--reports D] --item ID | "
           "journal [--reports D] | standing [--reports D]" % "|".join(sorted(KINDS)),
           file=sys.stderr)

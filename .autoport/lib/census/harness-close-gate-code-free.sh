@@ -149,7 +149,12 @@ t_nom=$((t_nom + $(eq src_marker_promo_backlog 1)))
 t_nom=$((t_nom + $(eq src_marker_promo_autorite 1)))
 
 # --- HORS PERIMETRE : le jeu n'est pas touche. ----------------------------------------------
-[ "$(n src_engine_dirty)" = 0 ] || faute code-du-jeu-modifie
+# LA PROPRETE DE L'ARBRE N'EST PLUS AFFIRMEE ICI (signalement 5 du 12/09, chantier
+# harness-naming-authority-completion). Un recensement qui assert `git diff --quiet` ou
+# `git status --porcelain` rougit pour TOUT chantier qui touche le fichier surveille,
+# pour une raison qui n'est pas la sienne. C'est le travail des PORTES — GATE 0 refuse un
+# arbre herite sale, GATE 1 lit `code_scope` — pas d'un instrument. La grandeur reste
+# PUBLIEE plus bas : on retire l'affirmation, jamais la mesure.
 
 TOTAL=$((t_lancement + t_porte + t_promotion + t_nom + penalty))
 

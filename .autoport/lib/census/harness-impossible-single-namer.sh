@@ -111,8 +111,8 @@ for arm in livre ablation; do
   t_noms=$((t_noms + $(eq "nm_${arm}_relu" 1)))         # ... et le LECTEUR le retrouve
   [ "$(s "nm_${arm}_ecrit")" = "$(s "nm_${arm}_lu")" ] || faute "nom-ecrit-different-du-nom-lu-$arm"
 done
-t_noms=$((t_noms + $(eqs nm_livre_lu proof-impossible.txt)))
-t_noms=$((t_noms + $(eqs nm_ablation_lu proof-off-impossible.txt)))
+t_noms=$((t_noms + $(eqs nm_livre_lu proof-impossible.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
+t_noms=$((t_noms + $(eqs nm_ablation_lu proof-off-impossible.txt)))  # NOM-LITTERAL-ATTENDU: valeur-attendue-d-une-egalite
 t_noms=$((t_noms + $(eqs nm_livre_relu_bras livre)))
 t_noms=$((t_noms + $(eqs nm_ablation_relu_bras ablation)))
 # LA GARDE, EXERCEE DANS LES DEUX SENS : autorite injoignable -> l'ecrivain d'APRES refuse et ne
@@ -224,7 +224,12 @@ t_texte=$((t_texte + $(eq src_bl_un_renderer 1)))        # UN renderer, deux jeu
 [ "$(s src_raisons_purge)" = "$(s src_raisons_purge_avant)" ] || faute motifs-de-purge-modifies
 [ "$(s src_die3_raisons)" = "$(s src_die3_raisons_avant)" ] || faute detection-de-l-impossibilite-modifiee
 [ "$(n src_cles_etat)" = 12 ] || faute cles-de-l-etat-modifiees
-[ "$(n src_engine_dirty)" = 0 ] || faute jeu-modifie
+# LA PROPRETE DE L'ARBRE N'EST PLUS AFFIRMEE ICI (signalement 5 du 12/09, chantier
+# harness-naming-authority-completion). Un recensement qui assert `git diff --quiet` ou
+# `git status --porcelain` rougit pour TOUT chantier qui touche le fichier surveille,
+# pour une raison qui n'est pas la sienne. C'est le travail des PORTES — GATE 0 refuse un
+# arbre herite sale, GATE 1 lit `code_scope` — pas d'un instrument. La grandeur reste
+# PUBLIEE plus bas : on retire l'affirmation, jamais la mesure.
 
 TOTAL=$((t_noms + t_juge + t_journal + t_texte + penalty))
 

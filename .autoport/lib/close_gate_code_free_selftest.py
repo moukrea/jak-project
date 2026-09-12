@@ -267,7 +267,11 @@ def axe_promotion(prefixe: str, root: Path, B, apres: bool) -> None:
     kv("%s_promus" % prefixe, ",".join(i.rsplit("-", 1)[1] for i in promus) or "-")
     kv("%s_refuses" % prefixe,
        ",".join("%s:%s" % (i.rsplit("-", 1)[1], r)
-                for i, r, _ in getattr(bk, "machine_promotion_refused", [])) or "-")
+                for i, r, _j, _o in getattr(bk, "machine_promotion_refused", [])) or "-")
+    # L'ORIGINE DU VERDICT, A COTE ET JAMAIS A LA PLACE (signalement 9 du 12/09).
+    kv("%s_refuses_origines" % prefixe,
+       ",".join("%s:%s" % (i.rsplit("-", 1)[1], o)
+                for i, _r, _j, o in getattr(bk, "machine_promotion_refused", [])) or "-")
     kv("%s_statuts" % prefixe, statuts(B, chemin, PR_IDS))
     for iid in PR_IDS:
         court = iid.rsplit("-", 1)[1]

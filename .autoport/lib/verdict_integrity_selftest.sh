@@ -37,6 +37,11 @@ kv(){ printf '%s=%s\n' "$1" "$2"; }
 
 # ================================================= A. LE JUGE EPINGLE SES PROPRES SOURCES =====
 SBID=sandbox-verdict
+
+# LES NOMS DES FICHIERS D'UNE COURSE SORTENT DE L'AUTORITE DE NOMMAGE, jamais d'un litteral tape
+# ici : un banc qui cherche un nom qu'il a reecrit de son cote ne trouve plus rien le jour ou le
+# nom bouge, et « fichier absent » se lit exactement comme « la course n'a rien produit ».
+eval "$(python3 "$AP/lib/impossible.py" names "")"
 VAL="$SB/val"
 
 monte_validateur(){  # monte_validateur <dossier>
@@ -76,7 +81,7 @@ YAML
 }
 
 ecrit_preuve(){  # ecrit_preuve <dossier> <avec-empreinte:0|1>
-  local d=$1 avec=$2 pf="$1/.autoport/reports/$SBID/proof.txt"
+  local d=$1 avec=$2 pf="$1/.autoport/reports/$SBID/$AP_NAME_proof"
   {
     echo "source=x86"
     echo "binary=build/game/gk"

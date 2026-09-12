@@ -260,8 +260,12 @@ t_compta=$((t_compta + $(eql counts_fn 1)))
 t_compta=$((t_compta + $(eqs compta_reason build-en-cours)))
 
 # --- HORS PERIMETRE : la detection ne bouge pas, le jeu non plus. ---------------------------
-[ "$(n src_untouched_lib_proof_run_sh)" = 1 ] || faute proof_run-modifie-hors-perimetre
-[ "$(n src_untouched_lib_proof_impossible_sh)" = 1 ] || faute proof_impossible-modifie
+# LA PROPRETE DE L'ARBRE N'EST PLUS AFFIRMEE ICI (signalement 5 du 12/09, chantier
+# harness-naming-authority-completion). Un recensement qui assert `git diff --quiet` ou
+# `git status --porcelain` rougit pour TOUT chantier qui touche le fichier surveille,
+# pour une raison qui n'est pas la sienne. C'est le travail des PORTES — GATE 0 refuse un
+# arbre herite sale, GATE 1 lit `code_scope` — pas d'un instrument. La grandeur reste
+# PUBLIEE plus bas : on retire l'affirmation, jamais la mesure.
 
 TOTAL=$((t_gate + t_statut + t_semis + t_age + t_compta + penalty))
 

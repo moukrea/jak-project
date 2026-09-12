@@ -111,9 +111,17 @@ t_seal=$((t_seal + $(ge vsq_seal_bac_props 2)))
 # posterieure. Sans cette jambe, `vsq_seal_bac_ecart=0` ne distingue pas « rien apres le mv » de
 # « le sceau ne regarde rien ».
 t_seal=$((t_seal + $(eq vsq_seal_sonde_detectee 1)))
-t_seal=$((t_seal + $(eq vsq_seal_ecarts 0)))            # la population du disque, si elle existe
-[ "$(( $(n vsq_seal_paires) + $(n vsq_seal_bac_lu) ))" -ge 1 ] 2>/dev/null \
-  || faute sceau-population-vide
+# LA POPULATION DU DISQUE EST PUBLIEE, PAS COMPTEE (signalement 12 du 12/09). Elle vit dans
+# `.autoport/reports/`, dossier GITIGNORE : sur un clone neuf elle vaut ZERO, et un
+# `vsq_seal_ecarts=0` sur zero paire est un vert par INACTION — la meme classe que le verdict
+# range dans les journaux, corrige le meme jour. Ce qui COMPTE est la paire FABRIQUEE dans le
+# bac a sable, qui existe partout ou ce banc tourne. Le disque garde son terme, sous garde de
+# denominateur : il ne peut plus rien affirmer quand il est vide.
+if [ "$(n vsq_seal_paires)" -gt 0 ] 2>/dev/null; then
+  t_seal=$((t_seal + $(eq vsq_seal_ecarts 0)))
+fi
+pub_src=$([ "$(n vsq_seal_paires)" -gt 0 ] 2>/dev/null && echo les-deux || echo bac-a-sable)
+[ "$(n vsq_seal_bac_lu)" -ge 1 ] 2>/dev/null || faute sceau-population-fabriquee-vide
 [ -n "$(g vsq_seal_ablation_commit)" ] && [ "$(g vsq_seal_ablation_commit)" != "-" ] \
   || faute ablation-sans-ancre
 
@@ -141,6 +149,9 @@ pub vs_critere_non_epingle   "$t_crit"
 pub vs_acquis_non_epingles   "$t_acq"
 pub vs_prose_fait_dependance "$t_der"
 pub vs_ecriture_apres_mv     "$t_seal"
+pub vs_seal_population_source "$pub_src"
+pub vs_seal_paires_disque     "$(n vsq_seal_paires)"
+pub vs_seal_paires_soi        "$(n vsq_seal_paires_soi)"
 pub vs_bac_a_sable_divergent "$t_bac"
 pub vs_witness_penalty       "$penalty"
 

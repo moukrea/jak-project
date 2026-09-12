@@ -45,6 +45,31 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 AP = HERE.parent.parent
 REPO = AP.parent
+sys.path.insert(0, str(AP / "lib"))
+import impossible as _NOMS                    # noqa: E402  — L'AUTORITE DE NOMMAGE
+
+
+def _sq(txt):
+    """Un mot passe a `bash -c` : entre apostrophes, toujours."""
+    return "'" + str(txt).replace("'", "'\\''") + "'"
+
+
+def _eval_sous_autorite(expr: str, suffix: str) -> str:
+    """Evalue une expression de chemin de `proof_run.sh` DANS SON PROPRE ENVIRONNEMENT.
+
+    C'est la CONVERSION d'un temoin litteral en temoin de COMPORTEMENT (signalement 4 du 12/09).
+    Ce banc comptait la presence de la chaine `proof$SUF-wait.txt` dans le script : tout
+    renommage le faisait rougir sans qu'aucun defaut existe, et surtout il ne mesurait RIEN de
+    ce que le script fait. On prend maintenant l'expression que le script ecrit vraiment, on
+    rejoue son prologue — le meme appel a l'autorite — et on regarde le nom qui en SORT.
+    LA MESURE RESTE FALSIFIABLE : un `proof-wait.txt` re-fabrique en dur rendrait le MEME nom
+    sur les deux bras, la ou l'autorite en donne deux."""
+    prologue = 'eval "$(python3 %s names %s)"; ' % (
+        _sq(AP / "lib" / "impossible.py"), _sq(suffix))
+    corps = 'D=.; SUF=%s; OUTFILE="$D/$AP_NAME_proof"; ' % _sq(suffix)
+    r = subprocess.run(["bash", "-c", prologue + corps + expr],
+                       capture_output=True, text=True, timeout=60)
+    return (r.stdout or "").strip()
 MARKER = "requalify_foreign_attempt"
 ITEM_ID = "zzz-banc-foreign-cause"
 
@@ -286,7 +311,9 @@ def arm_etat_nomme(root: Path) -> None:
                         "deploy-in-progress pid=4242 vivant"],
                        capture_output=True, text=True, timeout=120)
     kv("lock_script_rc", r.returncode)
-    f = d / "proof-impossible.txt"
+    # LE NOM VIENT DE L'AUTORITE : ce banc le fabriquait, et il ne voyait donc que le bras
+    # LIVRE. Un etat pose sur l'ablation lui restait invisible.
+    f = d / _NOMS.arm_name("impossible", "")
     kv("lock_file", 1 if f.exists() else 0)
     if not f.exists():
         return
@@ -335,9 +362,46 @@ def arm_proof_run() -> None:
     kv("pr_bare_exit3_lines", ",".join(str(x) for x in nues) or "-")
     kv("pr_die3_calls", sum(1 for l in lignes if "die3 " in l and not l.startswith("die3()")))
     kv("pr_publishes_wait", sum(1 for l in lignes if 'extra "proof_wait_s=' in l))
-    kv("pr_writes_wait_file", sum(1 for l in lignes if 'proof$SUF-wait.txt' in l))
-    kv("pr_clears_impossible",
-       sum(1 for l in lignes if 'rm -f "$OUTFILE" "$D/proof$SUF-impossible.txt"' in l))
+
+    # ------------------------------------------------------------------------------------
+    # DEUX TEMOINS CONVERTIS : ils comptaient un LITTERAL DE CODE, ils mesurent maintenant le
+    # nom que le script PRODUIT, sur LES DEUX BRAS. Le verdict reste `1`, la porte de
+    # `harness-attempt-not-burned-by-foreign-cause` n'a pas bouge d'une ligne — mais un
+    # renommage de l'autorite ne la fait plus rougir sans defaut, et une re-fabrication de nom
+    # en dur la fait rougir alors qu'avant elle passait.
+    # ------------------------------------------------------------------------------------
+    cible_wait = ""
+    cibles_rm = []
+    for l in lignes:
+        t = l.strip()
+        if not cible_wait and t.startswith("} >") and "wait" in t:
+            cible_wait = 'printf "%s" ' + t.split(">", 1)[1].strip()
+        # TOUS les sites d'effacement, pas le premier : `die3` en a un qui ne retire que
+        # la preuve — c'est correct, il ecrit l'etat juste apres. Ce qu'on verifie est
+        # que le harnais, PRIS ENSEMBLE, efface la preuve ET l'etat nomme du bras qu'il
+        # re-mesure.
+        if t.startswith('rm -f "$OUTFILE"'):
+            cibles_rm.append('printf "%s\\n" ' + t[len("rm -f"):].strip())
+    kv("pr_clear_sites", len(cibles_rm))
+    ok_wait, ok_rm = 1, 1
+    for suf, arm in (("", "livre"), ("-off", "ablation")):
+        attendu_wait = _NOMS.arm_name("wait", suf)
+        vu = os.path.basename(_eval_sous_autorite(cible_wait, suf)) if cible_wait else ""
+        kv("pr_wait_name_%s" % arm, vu or "-")
+        kv("pr_wait_name_attendu_%s" % arm, attendu_wait)
+        if vu != attendu_wait:
+            ok_wait = 0
+        efface = []
+        for c in cibles_rm:
+            efface += [os.path.basename(x) for x in
+                       _eval_sous_autorite(c, suf).splitlines() if x.strip()]
+        kv("pr_clears_list_%s" % arm, ",".join(efface) or "-")
+        doit = {_NOMS.arm_name("proof", suf), _NOMS.arm_name("impossible", suf)}
+        if not doit.issubset(set(efface)):
+            ok_rm = 0
+    kv("pr_writes_wait_file", ok_wait)
+    kv("pr_clears_impossible", ok_rm)
+    kv("pr_temoins_convertis", 2)
 
 
 # ============================================== le territoire, compte dans la SOURCE ========

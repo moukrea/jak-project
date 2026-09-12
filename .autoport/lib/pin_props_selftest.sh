@@ -26,6 +26,11 @@ SERIAL_FAKE="SANDBOXPIN01"
 PKG="org.opengoal.gk.jak1"
 ITEM="sandbox-pin"
 
+# LES NOMS DES FICHIERS D'UNE COURSE SORTENT DE L'AUTORITE DE NOMMAGE, jamais d'un litteral tape
+# ici : un banc qui cherche un nom qu'il a reecrit de son cote ne trouve plus rien le jour ou le
+# nom bouge, et « fichier absent » se lit exactement comme « la course n'a rien produit ».
+eval "$(python3 "$AP/lib/impossible.py" names "")"
+
 # Les deux proprietes que l'item declare, et la valeur que l'appareil doit rendre.
 DECL1="debug.opengoal.hdr.out=2"
 DECL2="debug.opengoal.recharged=1"
@@ -211,7 +216,7 @@ ADB_EOF
 # Rend 0 si `proof.txt` a ete ecrit. Publie, prefixees par le bras, les grandeurs lues DANS ce
 # proof.txt — jamais une valeur que ce script aurait choisie.
 court_bras() {
-  local nom=$1 dir=$2 pf="$2/.autoport/reports/$ITEM/proof.txt"
+  local nom=$1 dir=$2 pf="$2/.autoport/reports/$ITEM/$AP_NAME_proof"
   ( cd "$dir" && ANDROID_SERIAL="$SERIAL_FAKE" ADB="$dir/adb" AUTOPORT_PKG="$PKG" \
       AUTOPORT_PROOF_WAIT_MAX=120 AUTOPORT_LOGCAT_PIDDIR="$dir/.logcat" \
       timeout -k 10 300 bash .autoport/lib/proof_run.sh "$ITEM" device --timeout 10 \
@@ -257,7 +262,7 @@ court_bras() {
   # chemin qui ajoutait ses cles a `proof.txt` APRES son `mv` atomique. L'empreinte prise au `mv`
   # et celle relue a la sortie du processus se lisent ici, sur une course reelle : egales, rien
   # n'a ete ecrit apres le `mv`.
-  local sf="$2/.autoport/reports/$ITEM/proof.seal"
+  local sf="$2/.autoport/reports/$ITEM/$AP_NAME_seal"
   if [ -s "$sf" ]; then
     kv "arm_${nom}_seal_lu"     1
     kv "arm_${nom}_seal_sha"    "$(sed -n 's/^seal_sha=//p' "$sf" | tail -1)"

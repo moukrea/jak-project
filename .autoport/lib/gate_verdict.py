@@ -47,7 +47,19 @@ import datetime
 import hashlib
 import os
 import re
+import sys
 import unicodedata
+
+# L'AUTORITE DE NOMMAGE des fichiers d'une course. Ce module PRONONCE le verdict d'un essai et
+# empreinte la preuve jugee : s'il fabriquait le nom du fichier de son cote, il deviendrait un
+# DEUXIEME nommeur, et le jour ou le nom bouge il empreinterait un fichier que plus personne
+# n'ecrit — verdict rendu sur une absence, sans un mot. `impossible` n'importe qu'os/re/sys/time :
+# aucun cycle possible.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from lib import impossible as _noms
+except ImportError:
+    import impossible as _noms
 
 # ============================================================ GATE1/perimetre-sans-code =====
 # LES TOURNURES QUE LE SUPERVISEUR ECRIT dans `out_of_scope` quand il ouvre un item dont le
@@ -329,7 +341,8 @@ def validator_verdict(logs_root, item_id: str) -> dict:
 # PREUVE JUGEE — un chemin n'est pas une provenance, un numero d'essai non plus. La promotion
 # lit ce champ EN PREMIER ; le journal n'est plus qu'un REPLI, et chaque repli est COMPTE.
 VERDICT_FIELD = "gate_verdict"
-PROOF_FILE = "proof.txt"
+# Le nom de la preuve du bras LIVRE, demande a l'autorite plutot que reecrit ici.
+PROOF_FILE = _noms.arm_name("proof", "")
 SRC_ITEM = "item"                    # le champ de l'item a repondu
 SRC_JOURNAL = "journal"              # LE REPLI : il a fallu ouvrir logs/<id>/validator-NNN.txt
 

@@ -18,6 +18,12 @@ import textwrap
 import pytest
 
 from conftest import AUTOPORT
+import sys
+sys.path.insert(0, str(AUTOPORT / "lib"))
+# L'AUTORITE DE NOMMAGE des fichiers d'une course. Une preuve semee sous un nom reecrit ici
+# serait invisible au juge : il refuserait pour « preuve absente » et le test passerait au vert
+# sans avoir jamais exerce le critere qu'il croit mesurer.
+import impossible as NOMS  # noqa: E402
 
 VALIDATOR = AUTOPORT / "validators" / "generic.sh"
 NAMER = AUTOPORT / "lib" / "verdict_sources.sh"
@@ -114,7 +120,7 @@ def _proof(root, **over):
         lignes += [l for l in kv.stdout.splitlines() if l]
     lignes.append(over.get("feature", f"FEATURE {ITEM} armed=1 hits=37"))
     lignes.append(over.get("gate", "episodes=0"))
-    p = root / ".autoport" / "reports" / ITEM / "proof.txt"
+    p = root / ".autoport" / "reports" / ITEM / NOMS.arm_name("proof", "")
     p.write_text("\n".join(lignes) + "\n", encoding="utf-8")
     return p
 
@@ -168,6 +174,7 @@ def test_une_preuve_absente_ne_passe_pas(tmp_path):
     root, gk, sha = _repo(tmp_path)
     code, out = _juge(root)
     assert code == 1
+    # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
     assert "proof.txt absent" in out
     assert "proof_run.sh" in out, "le message doit dire COMMENT produire la preuve"
 
@@ -238,7 +245,7 @@ def test_l_ablation_qui_tire_encore_ne_passe_pas(tmp_path):
     """Feature désarmée mais compteur non nul : la porte mesure autre chose que la feature."""
     root, gk, sha = _repo(tmp_path)
     _proof(root, sha_reel=sha)
-    (root / ".autoport" / "reports" / ITEM / "proof-off.txt").write_text(
+    (root / ".autoport" / "reports" / ITEM / NOMS.arm_name("proof", "-off")).write_text(
         f"source=x86\nFEATURE {ITEM} armed=0 hits=12\n", encoding="utf-8")
     code, out = _juge(root)
     assert code == 1

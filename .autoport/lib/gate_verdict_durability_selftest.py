@@ -130,7 +130,11 @@ def semer_preuve(dossier: Path, iid: str, octets: bytes) -> str:
     """La preuve jugee, sur le disque. Rend l'empreinte RECALCULEE ICI sur ces octets."""
     d = dossier / "reports" / iid
     d.mkdir(parents=True, exist_ok=True)
-    (d / "proof.txt").write_bytes(octets)
+    # LE NOM VIENT DE L'AUTORITE : une preuve semee sous un nom que l'autorite n'ecrit plus
+    # serait invisible au juge, et le banc mesurerait alors sa propre faute de frappe.
+    sys.path.insert(0, str(AP / "lib"))
+    import impossible as _NOMS
+    (d / _NOMS.arm_name("proof", "")).write_bytes(octets)
     return hashlib.sha256(octets).hexdigest()[:16]
 
 

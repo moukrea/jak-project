@@ -20,6 +20,14 @@ import time
 import uuid
 
 PHASE = 'lighting-census'
+
+# L'AUTORITE DE NOMMAGE des fichiers d'une course de preuve. La campagne COPIE ce que
+# `proof_run.sh` vient d'ecrire : un nom reecrit ici ne trouverait plus rien a copier, et la
+# campagne conclurait sur une course qu'elle n'a pas lue.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+import impossible as NOMS  # noqa: E402
+NOM_PREUVE = NOMS.arm_name('proof', '')
+NOM_JOURNAL = NOMS.arm_name('engine', '')
 OUTPUT_KEYS = {'OG_REFSET_DIR', 'OG_REFSET_ASSET_MANIFEST', 'OG_PAD_REPLAY_TRACE', 'OG_REFSET_RUN_ID'}
 
 
@@ -198,8 +206,8 @@ def complete(proof, log, mode):
 
 def reusable(receipt, current):
     try:
-        proof = Path(receipt['attempt']) / 'proof-original.txt'
-        log = Path(receipt['attempt']) / 'proof-engine.log'
+        proof = Path(receipt['attempt']) / 'proof-original.txt'  # NOM-LITTERAL-ATTENDU: genre-propre-a-la-campagne-refset
+        log = Path(receipt['attempt']) / NOM_JOURNAL
         return (receipt['state'] == 'complete' and receipt['exit_code'] == 0
                 and receipt['before'] == receipt['after'] == current
                 and receipt['artifacts'] == tree(receipt['artifact_roots'])
@@ -270,7 +278,7 @@ def run(args):
                 raise InterruptedError(f'interrupted by signal {signum}')
         previous = {s: signal.signal(s, interrupt) for s in (signal.SIGINT, signal.SIGTERM)}
         originals = root / '.autoport/reports' / PHASE
-        old = {p: (p.stat().st_mtime_ns, p.stat().st_ino) if p.exists() else None for p in (originals / 'proof.txt', originals / 'proof-engine.log')}
+        old = {p: (p.stat().st_mtime_ns, p.stat().st_ino) if p.exists() else None for p in (originals / NOM_PREUVE, originals / NOM_JOURNAL)}
         try:
             selected = configuration(root, replace=runtime, expected=before_env, save=attempt / 'proof-env-selection.json')
             child_env = {k: v for k, v in os.environ.items() if not k.startswith('OG_')}
@@ -279,7 +287,7 @@ def run(args):
             child_env['AUTOPORT_PROOF_WAIT_MAX'] = '60'
             receipt['state'] = 'running'
             json_write(receipt_path, receipt)
-            with (attempt / 'proof-run.log').open('xb') as log:
+            with (attempt / 'proof-run.log').open('xb') as log:  # NOM-LITTERAL-ATTENDU: genre-propre-a-la-campagne-refset
                 process = subprocess.Popen(['bash', str(proof_run_path(root, args)), PHASE, 'x86', '--timeout', str(args.timeout)], cwd=root, env=child_env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 receipt['pid'] = process.pid
                 json_write(receipt_path, receipt)
@@ -308,10 +316,10 @@ def run(args):
                     receipt['restored'] = False
             for source, signature in old.items():
                 if source.exists() and (source.stat().st_mtime_ns, source.stat().st_ino) != signature:
-                    shutil.copy2(source, attempt / ('proof-original.txt' if source.name == 'proof.txt' else source.name))
+                    shutil.copy2(source, attempt / ('proof-original.txt' if source.name == NOM_PREUVE else source.name))  # NOM-LITTERAL-ATTENDU: genre-propre-a-la-campagne-refset
             try:
                 receipt['after'] = identity(root, env, args)
-                paths = [attempt / 'proof-original.txt', attempt / 'proof-engine.log', attempt / 'proof-run.log', attempt / 'consumed.tsv', attempt / 'pad-state.trace']
+                paths = [attempt / 'proof-original.txt', attempt / NOM_JOURNAL, attempt / 'proof-run.log', attempt / 'consumed.tsv', attempt / 'pad-state.trace']  # NOM-LITTERAL-ATTENDU: genre-propre-a-la-campagne-refset
                 reference = resolved(root, runtime.get('OG_REFSET_DIR', env.get('OG_REFSET_DIR', '')))
                 receipt['reference_root'] = str(reference)
                 receipt['references'] = reference_tree(reference)
@@ -329,8 +337,8 @@ def run(args):
                         paths.append(attempt / 'qualification-assets-original.tsv')
                 receipt['artifact_roots'] = list(map(str, paths))
                 receipt['artifacts'] = tree(paths)
-                proof = (attempt / 'proof-original.txt').read_text()
-                log = (attempt / 'proof-engine.log').read_text(errors='replace')
+                proof = (attempt / 'proof-original.txt').read_text()  # NOM-LITTERAL-ATTENDU: genre-propre-a-la-campagne-refset
+                log = (attempt / NOM_JOURNAL).read_text(errors='replace')
                 fields = dict(re.findall(r'^([\w]+)=([^\r\n]+)$', proof, re.M))
                 proof_start = datetime.fromisoformat(fields['started_at'].replace('Z', '+00:00')).timestamp()
                 binary_sha = before['binary'][str(root / 'build/game/gk')]

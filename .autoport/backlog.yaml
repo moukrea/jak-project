@@ -7223,6 +7223,8 @@ items:
     text: C'est bon pour les particules bizarres rouges et noires là, j'ai plus le soucis sur le Honor,
       validé !
     build_sha: 27a0e103e0e543ad
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: lighting-legacy-purge
   priority: 17
   device: true
@@ -7279,6 +7281,8 @@ items:
       eviter de polluer !
   delivered: null
   block_reason: max_retries (6) épuisé
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:12
 - id: mesh-browser-removal
   priority: null
   device: true
@@ -7364,6 +7368,8 @@ items:
     date: '2026-09-11'
     text: 'L''invite de l''écran-titre : elle doit dire « Appuie sur start ou touche l''écran » -> Validé'
     build_sha: 19db233695d52d73
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:21
 - id: census-false-reds
   priority: 28
   device: false
@@ -7396,6 +7402,8 @@ items:
   prompt: prompts/item-census-false-reds.md
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:8
 - id: dead-cover-and-legends
   priority: 29
   device: false
@@ -7424,6 +7432,8 @@ items:
   prompt: prompts/item-dead-cover-and-legends.md
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:13
 - id: builder-checkpoint-steals-work
   priority: 22
   device: false
@@ -7454,6 +7464,8 @@ items:
   prompt: prompts/item-builder-checkpoint-steals-work.md
   notes: Insere le 11/09 depuis FINDINGS.txt de lighting-legacy-purge, premier passage du canal de retour
     des workers.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:5
 - id: proof-context-on-zero-frames
   priority: 23
   device: true
@@ -7524,6 +7536,8 @@ items:
   - date: '2026-09-11'
     text: ba oui le support HDR sur PC et Linux go ! meme si on a rien pour tester, faut se plug sur ce
       qu'il faut et zou ! HDR10+ on drop complet alors !
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: menu-dpad-steps
   priority: 24
   device: true
@@ -7642,6 +7656,8 @@ items:
   - date: '2026-09-11'
     text: je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer
       ... je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:3
 - id: hdr-plan
   status: validated
   priority: 17
@@ -7702,6 +7718,8 @@ items:
     text: mais attention planifies de fou avant en prenant tout en compte, on va arreter de tourner en
       rond pendant des jours... je prefere des heures de planification pour un resultat beton que 45 iterations
       qui echouent
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:11
 - id: hdr-source-range
   status: validated
   priority: 17
@@ -7740,6 +7758,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-hdr-source-range.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:7
 - id: hdr-curve-input
   status: validated
   priority: 18
@@ -7782,6 +7802,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-hdr-curve-input.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:8
 - id: hdr-output-regime
   status: to-test
   priority: 19
@@ -7827,6 +7849,8 @@ items:
   prompt: prompts/item-hdr-output-regime.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
   delivered: '2026-09-12'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:8
 - id: hdr-glow-range
   status: validated
   priority: 18
@@ -7869,6 +7893,8 @@ items:
     et la course ne mesure pas le binaire livre) et le teleport vers la hutte du Sage vert — le lieu meme
     ou l''owner regarde le halo des feux et des portails.'
   prompt: prompts/item-hdr-glow-range.md
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:5
 - id: hdr-sky-gpu-alpha
   status: validated
   priority: 20
@@ -7912,6 +7938,8 @@ items:
   prompt: prompts/item-hdr-sky-gpu-alpha.md
   notes: 'issu des signalements du chantier A, 11/09 : defaut ouvert PAR le chantier A sur un chemin sans
     preuve.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:6
 - id: harness-proof-props-pin
   status: validated
   priority: 16
@@ -7947,6 +7975,8 @@ items:
   notes: 'issu du signalement de hdr-glow-range, 11/09 : un epinglage silencieusement perdu fait mesurer
     l''autre regime.'
   no_code: true
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:8
 - id: glow-targets-not-built-on-jak1
   status: open
   priority: 21
@@ -8053,6 +8083,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-harness-verdict-integrity.md
   notes: issu des sept signalements de harness-proof-props-pin, 12/09.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:12
 - id: harness-close-gate-code-free
   status: validated
   priority: 23
@@ -8085,6 +8117,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-harness-close-gate-code-free.md
   notes: 'issu des signalements de harness-proof-props-pin, 12/09 : un essai brule par item de harnais.'
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:6
 - id: harness-aborted-attempt-not-counted
   status: validated
   priority: 18
@@ -8117,6 +8151,8 @@ items:
   prompt: prompts/item-harness-aborted-attempt-not-counted.md
   notes: 'issu du recensement du 12/09 : quatre essais detruits par le plafond de 600 s, dont celui qui
     a bloque un item de priorite 17.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:64
 - id: harness-commit-paths-all-or-nothing
   status: validated
   priority: 17
@@ -8147,6 +8183,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-commit-paths-all-or-nothing.md
   notes: 'issu du signalement de gl-uniforms-dead-seven, 12/09 : 64 fichiers perdus par un seul chemin.'
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:3
 - id: harness-attempt-not-burned-by-foreign-cause
   status: validated
   priority: 17
@@ -8180,6 +8218,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-attempt-not-burned-by-foreign-cause.md
   notes: issu des huit signalements de harness-commit-paths-all-or-nothing, 12/09.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:6
 - id: harness-test-suite-is-not-a-signal
   status: validated
   priority: 19
@@ -8212,6 +8252,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-test-suite-is-not-a-signal.md
   notes: 'issu des signalements de harness-commit-paths-all-or-nothing, 12/09 : 7 rouges a HEAD.'
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:6
 - id: sky-gpu-path-robustness
   status: validated
   priority: 25
@@ -8254,6 +8296,8 @@ items:
   - OG_WANT_DISPLAY=beach,display
   prompt: prompts/item-sky-gpu-path-robustness.md
   notes: issu des quatre signalements de hdr-sky-gpu-alpha, 12/09.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:9
 - id: harness-proof-impossible-must-be-read
   status: validated
   priority: 20
@@ -8284,6 +8328,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-proof-impossible-must-be-read.md
   notes: issu du signalement de harness-attempt-not-burned-by-foreign-cause, 12/09.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:6
 - id: harness-impossible-state-hygiene
   status: validated
   priority: 21
@@ -8316,6 +8362,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-impossible-state-hygiene.md
   notes: issu des signalements de harness-proof-impossible-must-be-read, 12/09.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:7
 - id: harness-impossible-single-namer
   status: validated
   priority: 30
@@ -8351,6 +8399,8 @@ items:
   prompt: prompts/item-harness-impossible-single-namer.md
   notes: issu des signalements de harness-impossible-state-hygiene, 12/09 ; range en p30 pour laisser
     passer le jeu.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:8
 - id: harness-gate-verdict-must-outlive-its-log
   status: validated
   priority: 31
@@ -8384,6 +8434,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-gate-verdict-must-outlive-its-log.md
   notes: issu des signalements de harness-close-gate-code-free, 12/09 ; range derriere le jeu.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:5
 - id: harness-verdict-sources-are-incomplete
   status: validated
   priority: 32
@@ -8420,6 +8472,8 @@ items:
   proof_timeout: 240
   prompt: prompts/item-harness-verdict-sources-are-incomplete.md
   notes: issu des sept signalements de harness-verdict-integrity, 12/09 ; range derriere le jeu.
+  code_scope: harnais
+  code_scope_source: commits:n-a-touche-que-le-harnais:7
 - id: proof-feature-hits-is-vacuous
   status: validated
   priority: 28
@@ -8452,6 +8506,8 @@ items:
   prompt: prompts/item-proof-feature-hits-is-vacuous.md
   notes: 'issu du signalement de census-false-reds, 12/09 : le temoin d''armement est vacue pour tout
     le monde.'
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:25
 - id: census-audit-blind-spots
   status: validated
   priority: 34
@@ -8486,6 +8542,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-census-audit-blind-spots.md
   notes: issu des signalements de census-false-reds, 12/09 ; range derriere l'eclairage.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:2
 - id: mesh-consolidate-without-consumer
   status: open
   priority: 29
@@ -8550,6 +8608,8 @@ items:
   proof_timeout: 300
   prompt: prompts/item-dead-published-keys-round-2.md
   notes: issu des signalements de dead-cover-and-legends, 12/09 ; range derriere l'eclairage.
+  code_scope: jeu
+  code_scope_source: commits:a-livre-du-moteur:3
 - id: harness-naming-authority-completion
   status: in-progress
   priority: 35

@@ -2,8 +2,15 @@
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[3]
+
+# L'AUTORITE DE NOMMAGE des fichiers d'une course. Ces tests decoupent une TRANCHE du vrai
+# `proof_run.sh` : s'ils lui passaient un nom de sortie reecrit ici, ils verifieraient un
+# fichier que la course n'ecrit plus, et l'assertion tomberait sur une absence sans le dire.
+sys.path.insert(0, str(ROOT / '.autoport' / 'lib'))
+import impossible as NOMS  # noqa: E402
 
 
 def _prelude(source):
@@ -35,7 +42,7 @@ fi
     env = dict(os.environ, ADB=str(adb), AP=str(ROOT / '.autoport'),
                ANDROID_SERIAL='eae4df44', ITEM_SERIAL='', HDR_CAMPAIGN='test',
                ID='test-selection', D=str(tmp_path), SUF='',
-               OUTFILE=str(tmp_path / 'proof.txt'))
+               OUTFILE=str(tmp_path / NOMS.arm_name('proof', '')))
     result = subprocess.run(['bash', '-c', script], env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout == 'AREE026206000788'
@@ -48,13 +55,13 @@ def test_proof_rejects_network_override(tmp_path):
     result = subprocess.run(['bash', '-c', _prelude(source) + source[start:end]],
         env=dict(os.environ, AP=str(ROOT / '.autoport'), ANDROID_SERIAL='192.0.2.1:5555',
                  ITEM_SERIAL='', ID='test-selection', D=str(tmp_path), SUF='',
-                 OUTFILE=str(tmp_path / 'proof.txt')),
+                 OUTFILE=str(tmp_path / NOMS.arm_name('proof', ''))),
         text=True, capture_output=True)
     assert result.returncode == 3
     assert 'adresse reseau' in result.stderr
     # LA SORTIE 3 EST UN ETAT NOMME, pas une absence. Une preuve impossible doit se lire
     # « impossible » : le refus ecrit son fichier, avec sa raison.
-    nomme = tmp_path / 'proof-impossible.txt'
+    nomme = tmp_path / NOMS.arm_name('impossible', '')
     assert nomme.exists(), result.stderr
     corps = nomme.read_text()
     # `pick_device.sh` refuse l'adresse reseau AVANT le filtre du script : c'est donc lui

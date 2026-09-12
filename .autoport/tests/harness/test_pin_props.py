@@ -201,8 +201,11 @@ def test_un_to_test_dont_la_porte_n_a_pas_tenu_n_est_PAS_promu(B, tmp_path):
     assert etats["sans-journal"] == "to-test"
     assert etats["regressee"] == "to-test"
     # CE QUI EST REFUSE EST NOMME : un parque qu'aucun chemin ne sortira doit se dire.
-    assert sorted(i for i, _r, _j in b.machine_promotion_refused) == \
+    assert sorted(i for i, _r, _j, _o in b.machine_promotion_refused) == \
         ["refusee", "regressee", "sans-journal"]
+    # ET L'ORIGINE DU VERDICT VOYAGE AVEC LUI : `champ` quand la porte l'a ecrit dans l'item,
+    # `journal` quand il a fallu retomber sur le journal du validateur.
+    assert all(o for _i, _r, _j, o in b.machine_promotion_refused)
 
 
 def test_parked_for_owner_publie_le_owner_test_de_chaque_parque(B, tmp_path):

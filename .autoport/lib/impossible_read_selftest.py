@@ -43,6 +43,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 AP = HERE.parent.parent
 REPO = AP.parent
+sys.path.insert(0, str(AP / "lib"))
+import impossible as _NOMS                    # noqa: E402  — L'AUTORITE DE NOMMAGE
+sys.path.insert(0, str(AP / "lib"))
+import impossible as _NOMS                    # noqa: E402  — L'AUTORITE DE NOMMAGE
 
 # Les marqueurs qui datent CE chantier dans chacun des deux lecteurs.
 MARKER_ORCH = "CLOSE-GATE/preuve-impossible"
@@ -81,7 +85,9 @@ def semer(reports: Path, item_id: str, suffix: str = "", lock_pid: str = "",
         ["bash", str(AP / "lib" / "proof_impossible.sh"), str(d), item_id, suffix,
          RAISON, DETAIL, "1800", "1800", BUSY],
         cwd=faux_root, capture_output=True, text=True, timeout=120)
-    f = d / ("proof%s-impossible.txt" % suffix)
+    # LE NOM VIENT DE L'AUTORITE : ce banc fabriquait le sien, et il aurait fallu le reparer
+    # le jour ou l'extension change — un nommeur de plus, exactement ce qu'on retire.
+    f = d / _NOMS.arm_name("impossible", suffix)
     if age_s and f.exists():
         t = time.time() - age_s
         os.utime(f, (t, t))
@@ -203,11 +209,14 @@ def controles_porte(root: Path) -> None:
     # b. ETAT PERIME : une course ULTERIEURE a ecrit proof.txt. Il n'est plus debout.
     f = semer(reports, ITEM_ID, lock_pid=str(os.getpid()))
     vieillir(f, 600)
-    (reports / ITEM_ID / "proof.txt").write_text("source=x86\nframes=13504\n", encoding="utf-8")
+    # LE NOM DE LA PREUVE VIENT DE L'AUTORITE : ecrite sous un autre nom, elle ne perimerait
+    # rien et le controle (b) passerait au vert sans jamais avoir mesure la peremption.
+    (reports / ITEM_ID / _NOMS.arm_name("proof", "")).write_text(
+        "source=x86\nframes=13504\n", encoding="utf-8")
     st, _ = mod.close_gate(ITEM, (), validator_ok=False, since=0.0)
     kv("ctrl_perime_status", st)
     kv("ctrl_perime_is_impossible", 1 if st == "impossible" else 0)
-    (reports / ITEM_ID / "proof.txt").unlink()
+    (reports / ITEM_ID / _NOMS.arm_name("proof", "")).unlink()
 
     # b'. le MEME etat, proof.txt retire : il redevient debout. Sans ce tour, (b) pourrait
     # etre vert parce que le semis a echoue.
@@ -405,16 +414,20 @@ def temoins_source() -> None:
     # UN SEUL LECTEUR. Ni la porte ni le statut ne fabriquent le nom du fichier : ils passent
     # par lib/impossible.py, sinon il y aurait deux definitions de « preuve impossible ».
     bl = (AP / "lib" / "backlog.py").read_text(encoding="utf-8")
-    kv("src_orch_builds_filename", src.count("-impossible.txt"))
-    kv("src_bl_builds_filename", bl.count("-impossible.txt"))
+    # L'AIGUILLE EST DEMANDEE A L'AUTORITE, pas recopiee : ce compte-ci est l'INSTRUMENT de
+    # l'unicite du nommeur, il doit donc suivre l'autorite sans qu'on y revienne.
+    _motif = _NOMS.KINDS["impossible"]
+    kv("src_orch_builds_filename", src.count(_motif))     # NOM-LITTERAL-ATTENDU: compte-de-sites-c-est-l-instrument
+    kv("src_bl_builds_filename", bl.count(_motif))
     kv("src_orch_uses_reader", src.count("impossible_state."))
     kv("src_bl_uses_reader", bl.count("_impossible."))
-    # HORS PERIMETRE : la detection ne bouge pas, le jeu non plus.
-    for rel in ("lib/proof_run.sh", "lib/proof_impossible.sh"):
-        r = subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", "HEAD", "--",
-                            ".autoport/" + rel], capture_output=True, timeout=60)
-        kv("src_untouched_" + rel.replace("/", "_").replace(".", "_"),
-           1 if r.returncode == 0 else 0)
+    # LES DEUX TESTS DE PROPRETE D'ARBRE SONT RETIRES (signalement 5 du 12/09, chantier
+    # harness-naming-authority-completion). `src_untouched_lib_proof_run_sh` et son jumeau
+    # affirmaient `git diff --quiet HEAD` : tout chantier qui touche l'un de ces fichiers
+    # rougissait ce recensement pour une raison qui n'etait pas la sienne. La proprete de
+    # l'arbre et le perimetre sont le travail des PORTES — GATE 0 refuse un arbre herite sale,
+    # GATE 1 lit `code_scope` — jamais d'un instrument de mesure.
+    kv("src_purete_arbre_retiree", 2)
     r = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--",
                         "game/", "common/", "android/", "goal_src/", "goalc/"],
                        capture_output=True, text=True, timeout=120)

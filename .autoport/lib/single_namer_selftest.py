@@ -250,7 +250,9 @@ def axe_juge(root: Path, I, O, blob_avant: str) -> None:
     # LE CONTROLE A LAISSER : un echec ORDINAIRE. proof.txt est la, aucun etat nomme a cote.
     # Sa date est ancienne : le juge doit trouver sa premiere source « plus recente » tout de
     # suite, sinon il parcourt tout l'arbre moteur pour rien.
-    pf = dord / "proof.txt"
+    # Le nom de la preuve sort de l'autorite, comme l'etat seme juste au-dessus : un controle
+    # ecrit sous un nom que le juge n'ouvre pas rendrait « absent » et se lirait comme un succes.
+    pf = dord / I.arm_name("proof", "")
     pf.write_text("source=x86\nframes=12\ncrash=0\nbinary=build/game/gk\n", encoding="utf-8")
     os.utime(pf, (1_000_000_000, 1_000_000_000))
 
@@ -263,6 +265,7 @@ def axe_juge(root: Path, I, O, blob_avant: str) -> None:
     kv("vl_apres_l1_dit_absent", 1 if "absent ou vide" in l1 else 0)
     kv("vl_apres_l1_nomme_cause", 1 if RAISON in l1 else 0)
     kv("vl_apres_l1_nomme_age", 1 if "6 h 38" in l1 else 0)
+    # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
     kv("vl_apres_corps_intact", 1 if "proof.txt absent ou vide" in txt else 0)
     kv("vl_apres_constats", constats(txt))
     kv("vl_apres_contredit", 1 if O.journal_contredit(txt) else 0)
@@ -333,6 +336,7 @@ def fichiers_du_harnais() -> list:
 
 def enregistrements(n, item="zzz-banc", why="changement-d-item"):
     return [{"item": "%s-%d" % (item, i), "arm": "livre", "suffix": "",
+             # NOM-LITTERAL-ATTENDU: champ-de-faux-enregistrement-de-journal
              "file": "%s-%d/proof-impossible.txt" % (item, i), "age_s": 120 + i,
              "reason": why, "cause": "verrou-de-deploiement"} for i in range(n)]
 
@@ -392,6 +396,7 @@ def axe_journal(root: Path, I, blob_avant: str) -> None:
     prog = ("import sys; sys.path.insert(0, %r)\n"
             "import impossible as I\n"
             "recs = [{'item': 'z%%s-%%d' %% (sys.argv[2], i), 'arm': 'livre', 'suffix': '',\n"
+            # NOM-LITTERAL-ATTENDU: champ-de-faux-enregistrement-de-journal
             "         'file': 'z/proof-impossible.txt', 'age_s': i, 'reason': 'essai-precedent',\n"
             "         'cause': 'verrou'} for i in range(%d)]\n"
             "I.write_journal(sys.argv[1], recs, who='proc-' + sys.argv[2])\n"

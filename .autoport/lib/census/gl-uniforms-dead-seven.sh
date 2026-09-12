@@ -20,7 +20,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 D="${AUTOPORT_CENSUS_DIR:?}"
 
 # ---- 1. la course d'avant -------------------------------------------------------------------
-A="$D/notes/avant-proof.txt"
+A="$D/notes/avant-proof.txt"  # NOM-LITTERAL-ATTENDU: note-d-item-pas-un-fichier-de-course
 if [ -s "$A" ]; then
   kv(){ sed -n "s/^$1=//p" "$A" | tail -1; }
   for k in dead_uniform_pushes dead_uniform_names uniform_pushes_total uniform_names_seen \

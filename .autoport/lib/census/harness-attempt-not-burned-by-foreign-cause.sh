@@ -106,8 +106,14 @@ print('wait_file=%d' % int(bool(w)))
 for k in ('proof_wait_s', 'proof_wait_max_s', 'proof_wait_why',
           'deploy_lock_pid', 'deploy_lock_alive', 'deploy_lock_age_s', 'proof_wait_at'):
     print('w_%s=%s' % (k, w.get(k, '-') or '-'))
-# L'etat nomme de CETTE course, s'il existe (il n'existe pas quand la course aboutit).
-print('impossible_file=%d' % int(bool(cdir) and Path(cdir, 'proof-impossible.txt').exists()))
+# L'etat nomme de CETTE course, s'il existe (il n'existe pas quand la course aboutit). LE NOM
+# VIENT DE L'AUTORITE, PAR BRAS (signalement 2 du 12/09) : ce lecteur cherchait
+# `proof-impossible.txt` code en dur, donc le bras LIVRE seulement. Un etat pose sur le bras
+# d'ablation restait invisible — la MEME divergence que celle du fichier d'attente, corrigee
+# deux lignes plus haut, laissee intacte deux lignes plus bas.
+_nom_imp = _I.arm_name('impossible', _suf)
+print('impossible_name_read=%s' % _nom_imp)
+print('impossible_file=%d' % int(bool(cdir) and Path(cdir, _nom_imp).exists()))
 PY
 ) || LV=""
 l(){ printf '%s\n' "$LV" | sed -n "s/^$1=//p" | tail -1; }

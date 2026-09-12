@@ -3,8 +3,11 @@
 # (lib/proof_run.sh), jamais `report.txt` ecrit par le worker. Il ACCUMULE ses constats : une
 # porte qui sort a la premiere erreur masque les suivantes. Aucune citation d'owner ici.
 set -uo pipefail; cd "$(git rev-parse --show-toplevel)" || exit 1
-P="${AUTOPORT_PHASE_ID:?AUTOPORT_PHASE_ID manquant}"; D=".autoport/reports/$P"; PF="$D/proof.txt"; N=0
+P="${AUTOPORT_PHASE_ID:?AUTOPORT_PHASE_ID manquant}"; D=".autoport/reports/$P"; N=0
 bad(){ echo "[$P FAIL] $*" >&2; N=$((N+1)); }; kv(){ sed -n "s/^$1=//p" "$PF" 2>/dev/null | tail -1; }
+# NOMMAGE/un-seul-endroit — LE JUGE NE FABRIQUE PLUS AUCUN NOM. Il ecrivait `proof.txt` et
+# `proof-off.txt` en dur : deux litteraux de plus, dans le seul fichier dont la parole ferme un
+# item. Ils viennent de `lib/impossible.py`, comme ceux de l'ecrivain.
 eval "$(python3 - "$P" <<'PY'
 import sys, yaml
 sys.path.insert(0, '.autoport/lib')
@@ -12,9 +15,13 @@ try: it = __import__('backlog').load().get(sys.argv[1]) or {}
 except Exception: it = next((c for c in ((yaml.safe_load(open('.autoport/backlog.yaml', encoding='utf-8')) or {}).get('items') or []) if c.get('id') == sys.argv[1]), {})
 g = it.get('gate') or {}
 q = lambda s: "'" + str(s).replace("'", "'\\''") + "'"
+import impossible as _I
+print("PFN=%s OFFN=%s" % (q(_I.arm_name('proof', '')), q(_I.arm_name('proof', '-off'))))
 print("GK=%s GO=%s GV=%s DEV=%d FMIN=%s" % (q(g.get('key', '')), q(g.get('op', '')), q(g.get('value', '')), 1 if it.get('device') else 0, q(it.get('frames_min', 300))))
 PY
 )"
+[ -n "${PFN:-}" ] && [ -n "${OFFN:-}" ] || { echo "[$P FAIL] lib/impossible.py n'a nomme ni la preuve ni son ablation : ce juge ne fabrique pas de nom de remplacement, il refuse." >&2; exit 1; }
+PF="$D/$PFN"
 if [ ! -s "$PF" ]; then
   # NOMMAGE/premiere-ligne — LA CAUSE NOMMEE PASSE DEVANT (harness-impossible-single-namer, 12/09).
   # Ce juge ne peut voir qu'une chose quand aucune mesure n'etait possible : proof.txt absent. Il
@@ -25,6 +32,7 @@ if [ ! -s "$PF" ]; then
   # constat qui suit est le meme, au mot pres, et il compte toujours pour un.
   imp=$(python3 .autoport/lib/impossible.py why --reports .autoport/reports --item "$P" 2>/dev/null)
   [ -z "$imp" ] || echo "[$P PREUVE IMPOSSIBLE] $imp" >&2
+  # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
   bad "proof.txt absent ou vide. Produis-le : .autoport/lib/proof_run.sh $P $([ "${DEV:-0}" = 1 ] && echo device || echo x86)"
 else
   src=$(kv source); bin=build/game/gk; [ "$src" = device ] && bin=build-android/lib/arm64-v8a/libgk.so
@@ -118,8 +126,8 @@ else
     else awk -v a="$v" -v b="$GV" -v o="$GO" 'BEGIN{n=(a+0==a&&b+0==b);r=(o=="=="?(n?a+0==b+0:a==b):o=="!="?(n?a+0!=b+0:a!=b):o=="<"?a+0<b+0:o=="<="?a+0<=b+0:o==">"?a+0>b+0:o==">="?a+0>=b+0:0);exit r?0:1}' \
            || bad "$GK=$v viole le critere $GK $GO $GV"; fi
   fi
-  OFF="$D/proof-off.txt"
-  [ ! -s "$OFF" ] || grep -qE "^FEATURE $P armed=0 hits=0$" "$OFF" || bad "ablation : proof-off.txt ne montre pas 'armed=0 hits=0' — la feature tire encore desarmee"
+  OFF="$D/$OFFN"
+  [ ! -s "$OFF" ] || grep -qE "^FEATURE $P armed=0 hits=0$" "$OFF" || bad "ablation : $OFFN ne montre pas 'armed=0 hits=0' — la feature tire encore desarmee"
 fi
 [ "$N" = 0 ] || { echo "[$P FAIL] $N constat(s) ci-dessus, aucun n'a ete masque par un autre." >&2; exit 1; }
 echo "[$P ok] source=$(kv source) sha=$(kv sha) frames=$(kv frames) crash=0${GK:+ ; $GK $GO $GV tenu}"

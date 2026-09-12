@@ -43,6 +43,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 AP = HERE.parent.parent
 REPO = AP.parent
+sys.path.insert(0, str(AP / "lib"))
+import impossible as _NOMS                    # noqa: E402  — L'AUTORITE DE NOMMAGE
+
+
+def _sq(txt):
+    """Un chemin passe a `bash -c` : entre apostrophes, toujours."""
+    return "'" + str(txt).replace("'", "'\\''") + "'"
 
 # Les marqueurs qui datent CE chantier, un par fichier touche.
 MARKER_PURGE = "PURGE/etat-perime"            # lib/impossible.py : la purge et ses raisons
@@ -112,7 +119,9 @@ def semer(depot: Path, reports: Path, item_id: str, suffix: str = "",
         ["bash", str(AP / "lib" / "proof_impossible.sh"), str(d), item_id, suffix,
          RAISON, DETAIL, "1800", "1800", BUSY],
         cwd=depot, capture_output=True, text=True, timeout=120)
-    f = d / ("proof%s-impossible.txt" % suffix)
+    # LE NOM VIENT DE L'AUTORITE, PAS D'UN `%s` RECOPIE : ce banc fabriquait le sien, et il
+    # aurait fallu le corriger le jour ou l'extension change — trois bancs de plus a reparer.
+    f = d / _NOMS.arm_name("impossible", suffix)
     if age_s and f.exists():
         t = time.time() - age_s
         os.utime(f, (t, t))
@@ -133,8 +142,10 @@ def axe_purge(root: Path, I_neuf, I_vieux) -> None:
         fa_off = semer(depot, reports, ITEM_A, "-off", age_s=30)    # A LAISSER : l'autre bras
         fb = semer(depot, reports, ITEM_B, "", age_s=23880)         # a purger : item abandonne
         fc = semer(depot, reports, ITEM_C, "", age_s=600)           # a purger : course aboutie
-        (reports / ITEM_C / "proof.txt").write_text("source=x86\nframes=13504\n",
-                                                    encoding="utf-8")
+        # Le nom de la preuve sort de l'AUTORITE : semee sous un autre nom, elle ne rendrait
+        # aucun etat perime et la purge n'aurait rien a purger — un banc vert par inaction.
+        (reports / ITEM_C / _NOMS.arm_name("proof", "")).write_text(
+            "source=x86\nframes=13504\n", encoding="utf-8")
         avant_n = len(mod.scan(str(reports))) if hasattr(mod, "scan") else -1
         kv("pg_%s_seeded" % tag, sum(1 for f in (fa, fa_off, fb, fc) if f.exists()))
         kv("pg_%s_scan_avant" % tag, avant_n)
@@ -276,6 +287,14 @@ def nom_ecrit_par_le_script(suffix: str) -> str:
     On ne recopie pas le nom ici : on prend la ligne de redirection du script, on en garde la
     cible, et on la fait evaluer par bash avec `D` et `SUF` poses. Un banc qui reecrirait le
     nom mesurerait sa propre recopie.
+
+    L'ENVIRONNEMENT DE L'EVALUATION EST CELUI DU SCRIPT (12/09). `proof_run.sh` ne fabrique
+    plus aucun nom : il `eval`-ue au prologue ce que `lib/impossible.py names` lui rend. Poser
+    seulement `D` et `SUF` laissait donc `$AP_NAME_wait` vide, et ce banc aurait accuse le
+    script d'ecrire un fichier sans nom. On rejoue le MEME prologue, par le MEME appel.
+    ET LA MESURE RESTE FALSIFIABLE : si le script re-fabriquait `proof-wait.txt` en dur, le
+    bras d'ablation rendrait `proof-wait.txt` la ou l'autorite dit `proof-off-wait.txt`, et
+    `nm_ablation_egal` tomberait a 0.
     """
     src = (AP / "lib" / "proof_run.sh").read_text(encoding="utf-8")
     cible = ""
@@ -286,7 +305,10 @@ def nom_ecrit_par_le_script(suffix: str) -> str:
             break
     if not cible:
         return ""
-    r = subprocess.run(["bash", "-c", 'D=.; SUF="%s"; printf "%%s" %s' % (suffix, cible)],
+    prologue = 'eval "$(python3 %s names \'%s\')"; ' % (
+        _sq(str(AP / "lib" / "impossible.py")), suffix)
+    r = subprocess.run(["bash", "-c",
+                        '%sD=.; SUF="%s"; printf "%%s" %s' % (prologue, suffix, cible)],
                        capture_output=True, text=True, timeout=60)
     return os.path.basename(r.stdout.strip())
 
@@ -344,6 +366,7 @@ def axe_noms(root: Path, I_neuf) -> None:
 
 # ==================================================================== 4. LE JOURNAL =========
 VALIDATEUR_IMPOSSIBLE = (
+    # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
     "[{iid} FAIL] proof.txt absent ou vide. Produis-le : "
     ".autoport/lib/proof_run.sh {iid} x86\n"
     "[{iid} FAIL] 1 constat(s) ci-dessus, aucun n'a ete masque par un autre.\n")
@@ -391,6 +414,7 @@ def axe_journal(root: Path, O_neuf, blob_vieux: str) -> None:
         # LE TEXTE DU VALIDATEUR EST INTACT : on ne masque pas son constat, on cesse de le
         # laisser en tete. Le verdict de la porte et la requalification y sont aussi.
         kv("jl_apres_corps_intact",
+           # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
            1 if "proof.txt absent ou vide" in texte else 0)
         kv("jl_apres_porte_presente", 1 if raison_porte[:40] in texte else 0)
         kv("jl_apres_dit_present", 1 if dit[:30] in texte else 0)
@@ -448,16 +472,18 @@ def temoins_source() -> None:
     kv("src_marker_purge", 1 if MARKER_PURGE in imp else 0)
     kv("src_marker_nom", 1 if MARKER_NOM in imp else 0)
     kv("src_marker_journal", 1 if MARKER_JOURNAL in orch else 0)
+    kv("src_purete_arbre_retiree", 1)   # le compte de tests de proprete retires de CE banc
     # LA PURGE EST APPELEE AU POINT DE PRODUCTION : l'orchestrateur au changement d'item, et
     # le producteur de preuve au debut de chaque course.
     kv("src_orch_appelle_purge", orch.count("impossible_state.purge("))
     kv("src_proof_run_appelle_purge", pr.count('impossible.py" purge'))
     kv("src_proof_run_derive_nom", pr.count('impossible.py" name wait'))
     kv("src_orch_ecrit_journal", orch.count("ecrire_journal_impossible("))
-    # HORS PERIMETRE : le jeu n'est pas touche, et la DETECTION de l'impossibilite non plus.
-    r = subprocess.run(["git", "-C", str(REPO), "diff", "--quiet", "HEAD", "--",
-                        ".autoport/lib/proof_impossible.sh"], capture_output=True, timeout=60)
-    kv("src_detection_intacte", 1 if r.returncode == 0 else 0)
+    # LE TEST DE PROPRETE D'ARBRE EST RETIRE (signalement 5 du 12/09). `src_detection_intacte`
+    # affirmait `git diff --quiet HEAD -- lib/proof_impossible.sh` : un recensement rougissait
+    # donc pour TOUT chantier qui touche ce fichier, pour une raison qui n'etait pas la sienne.
+    # La proprete de l'arbre et le perimetre sont le travail des PORTES de l'orchestrateur
+    # (GATE 0 et GATE 1, qui lisent `code_scope`), pas d'un instrument de mesure.
     r = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--",
                         "game/", "common/", "android/", "goal_src/", "goalc/"],
                        capture_output=True, text=True, timeout=120)

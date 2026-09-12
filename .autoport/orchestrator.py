@@ -988,6 +988,7 @@ def requalify_impossible_attempt(state: dict, item_id: str,
 # validateur ensuite, tel quel et sans en retirer un octet. Le journal d'un essai ORDINAIRE
 # n'est jamais touché.
 ENTETE_IMPOSSIBLE = "PREUVE IMPOSSIBLE"
+# NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
 CONTREDIT = "proof.txt absent ou vide"
 
 
@@ -1911,8 +1912,11 @@ def _item_header(item: dict, seq: int) -> str:
         f"- ce que l'OWNER doit voir marcher : {item.get('feature', '(non renseigné)')}",
     ]
     if gate:
+        # LE NOM DE LA PREUVE VIENT DE L'AUTORITE, jusque dans la consigne du worker : lui
+        # donner un nom que plus personne n'ecrit, c'est l'envoyer chercher au mauvais endroit.
+        _pf = impossible_state.arm_name("proof", "")
         lines.append(f"- critère machine : `{gate.get('key')} {gate.get('op')} "
-                     f"{gate.get('value')}` lu dans `.autoport/reports/{item['id']}/proof.txt`")
+                     f"{gate.get('value')}` lu dans `.autoport/reports/{item['id']}/{_pf}`")
     if item.get("device"):
         lines.append("- preuve exigée SUR APPAREIL USB : le worker est autorisé à lancer "
                      "`lib/proof_run.sh <id> device` ; `lib/pick_device.sh` choisit "
@@ -2681,10 +2685,15 @@ def free_machine_proved(bk) -> list[str]:
     # de `to-test` par AUCUN chemin — ni l'owner (il n'a rien à regarder), ni la promotion
     # machine (le verdict est rouge ou absent). Il gèle tout ce qui en dépend : le taire, c'est
     # refabriquer `perf-ocean-idle`, en pire, parce que cette fois rien ne le nommerait.
-    for iid, verdict, journal in getattr(bk, "machine_promotion_refused", []):
+    # L'ORIGINE DU VERDICT EST DITE (signalement 9 du 12/09). Ce quadruplet rendait trois
+    # champs : qui lisait cette ligne ne pouvait pas savoir si le verdict venait du CHAMP de
+    # l'item ou du JOURNAL de repli. Une origine tue se lit comme l'origine attendue — et c'est
+    # exactement la confusion que `harness-gate-verdict-must-outlive-its-log` a coutee.
+    for iid, verdict, journal, origine in getattr(bk, "machine_promotion_refused", []):
         log(f"⚠ {iid} : parqué `to-test` avec `owner_test: false`, mais la porte n'a PAS tenu "
-            f"({verdict}, journal {journal}) — NON promu. Aucun chemin ne le sortira de là "
-            f"tant que sa preuve n'aura pas tenu : relance un essai ou tranche.", "yellow")
+            f"({verdict}, verdict lu depuis {origine}, journal {journal}) — NON promu. Aucun "
+            f"chemin ne le sortira de là tant que sa preuve n'aura pas tenu : relance un essai "
+            f"ou tranche.", "yellow")
     return freed
 
 

@@ -5,6 +5,13 @@ import subprocess
 import tempfile
 import unittest
 
+import sys
+
+# L'AUTORITE DE NOMMAGE : le fichier de course qu'on commite ici doit porter le nom que la
+# course ecrit vraiment, sinon le test verifie qu'un chemin quelconque ne casse pas le sceau.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+import impossible as NOMS  # noqa: E402
+
 spec = importlib.util.spec_from_file_location('provenance', Path(__file__).with_name('refset_provenance.py'))
 p = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p)
@@ -122,8 +129,8 @@ class ProvenanceTests(unittest.TestCase):
 
     def test_candidate_unrelated_commit_preserves_certificate(self):
         self.seal('candidate')
-        self.write('proof.txt', 'unrelated runtime state\n')
-        self.git('add', 'proof.txt')
+        self.write(NOMS.arm_name('proof', ''), 'unrelated runtime state\n')
+        self.git('add', NOMS.arm_name('proof', ''))
         self.git('commit', '-qm', 'runtime state')  # git-sandbox-ok
         self.verify()
 

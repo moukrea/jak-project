@@ -10,6 +10,11 @@ import tempfile
 import time
 import unittest
 
+# L'AUTORITE DE NOMMAGE des fichiers d'une course. Le faux moteur ci-dessous tourne dans un
+# depot jetable dont le `.autoport/lib` est bidon : il doit donc joindre la VRAIE autorite par
+# son chemin. Un nom reecrit ici ferait produire au faux moteur un fichier que la campagne
+# n'ouvre pas — la campagne echouerait sur une absence, jamais sur ce que le test mesure.
+AP_LIB = Path(__file__).resolve().parents[2] / 'lib'
 TOOL = Path(__file__).resolve().parents[2] / 'tools/refset_campaign.py'
 spec = importlib.util.spec_from_file_location('refset_campaign', TOOL)
 runner = importlib.util.module_from_spec(spec)
@@ -33,6 +38,9 @@ FAKE_PRODUCER = '''#!/usr/bin/env bash
 exec python3 - <<'ENGINE'
 from pathlib import Path
 import datetime, hashlib, json, os, time
+import sys
+sys.path.insert(0, %AP_LIB%)
+import impossible as NOMS
 root=Path.cwd()
 if (root/'force-failure').exists(): raise SystemExit(7)
 mode=os.environ['OG_REFSET']
@@ -68,10 +76,10 @@ diff=int(os.environ.get('OG_TEST_DIFF', '0'))
 proof=f'source=x86\\nstarted_at={datetime.datetime.now(datetime.timezone.utc).isoformat()}\\nsha={hashlib.sha256((root/"build/game/gk").read_bytes()).hexdigest()[:16]}\\ncrash=0\\nframes=50\\nrefset_provenance_bad=0\\nrefset_steps=1\\nrefset_captured={captured}\\n'
 if mode == 'replay': proof+=f'refset_compared=1\\nrefset_replay_maxdiff=254\\nrefset_replay_run_maxdiff={diff}\\nrefset_replay_diffpx={diff}\\nrefset_missing=0\\nrefset_size_bad=0\\nrefset_decode_bad=0\\n'
 if os.environ.get('OG_REFSET_QUALIFY_STATE') == '1': proof+='refset_qualification_state_bad=0\\nrefset_qualification_receipt_written=1\\n'
-(d/'proof.txt').write_text(proof)
-(d/'proof-engine.log').write_text(f'REFSET done steps=1 captured={captured} compared={compared} maxdiff={diff} diffpx={diff} missing=0\\n')
+(d/NOMS.arm_name('proof', '')).write_text(proof)
+(d/NOMS.arm_name('engine', '')).write_text(f'REFSET done steps=1 captured={captured} compared={compared} maxdiff={diff} diffpx={diff} missing=0\\n')
 ENGINE
-'''
+'''.replace('%AP_LIB%', repr(str(AP_LIB)))
 
 
 class CampaignTests(unittest.TestCase):

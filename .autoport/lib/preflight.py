@@ -50,6 +50,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# L'AUTORITE DE NOMMAGE des fichiers d'une course de preuve. Un nom de preuve reecrit ici
+# divergerait en silence du nom que la course ECRIT : le controle de fraicheur ne trouverait
+# plus rien a examiner et se tairait, ce qui se lit exactement comme « rien a signaler ».
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import impossible as _NOMS  # noqa: E402  (apres sys.path : l'autorite vit a cote de ce fichier)
+
 # The worker's prompt never carries more than this many preflight findings.
 MAX_PROMPT_FINDINGS = 5
 
@@ -188,7 +194,8 @@ def check_report_not_stale(item_id=None):
         return
     rep_dir = ROOT / ".autoport" / "reports" / item_id
     rep = None
-    for name in ("proof.txt", "report.txt"):
+    # `report.txt` n'est pas un fichier de course : il n'a pas de genre dans l'autorite.
+    for name in (_NOMS.arm_name("proof", ""), "report.txt"):
         cand = rep_dir / name
         if cand.exists():
             rep = cand

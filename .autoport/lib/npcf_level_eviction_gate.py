@@ -164,6 +164,7 @@ def audit(loader_src, common_src):
         "l'occasion est PUBLIEE a cote du verdict",
         all(f'publish("{k}"' in loader for k in
             ("npc_evict_pressure_frames", "npc_loaded_levels_max", "npc_level_age_max")),
+        # NOM-LITTERAL-ATTENDU: message-rendu-a-l-humain-pas-un-chemin
         "npc_evict_pressure_frames / npc_loaded_levels_max / npc_level_age_max doivent sortir"
         " dans proof.txt : sans eux le lecteur du rapport ne peut pas voir que la course"
         " n'a rien exerce"))

@@ -5,10 +5,16 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
+# L'AUTORITE DE NOMMAGE des fichiers d'une course : « le lot n'a PAS ecrit la preuve » ne se
+# verifie que sur le nom que la course ecrit vraiment. Un litteral perime rendrait ces trois
+# assertions vraies pour toujours, sans rien mesurer.
+sys.path.insert(0, str(ROOT / '.autoport' / 'lib'))
+import impossible as NOMS  # noqa: E402
 spec = importlib.util.spec_from_file_location('hdr_batches', ROOT / '.autoport/lib/hdr_batches.py')
 hdr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hdr)
@@ -139,7 +145,7 @@ def test_normal_proof_adds_owner_guard_preserving_engine_measurements(tmp_path, 
     diagnostics = json.loads((tmp_path / 'measurements.json').read_text())['owner_regressions']
     assert diagnostics['missing'] == cases
     assert diagnostics['measured'] == []
-    assert not (tmp_path / 'proof.txt').exists()
+    assert not (tmp_path / NOMS.arm_name('proof', '')).exists()
 
 
 def test_batch_proof_replaces_engine_owner_claims_without_duplicate_keys(tmp_path):
@@ -405,7 +411,7 @@ def test_complete_synthetic_multiple_processes(tmp_path, plan):
     assert r['hdr_owner_regressions_measured'] == 0
     assert r['hdr_owner_regressions_missing'] == 0
     assert r['hdr_defect_7_owner_regressions'] == 0
-    assert not (tmp_path / 'proof.txt').exists()
+    assert not (tmp_path / NOMS.arm_name('proof', '')).exists()
 
 
 @pytest.mark.parametrize('forged_engine_verdict', [False, True])
@@ -436,7 +442,7 @@ def test_owner_cases_not_measured_by_complete_regional_set(tmp_path, plan, forge
     assert diagnostics['findings'] == [
         {'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'}
         for case in cases]
-    assert not (tmp_path / 'proof.txt').exists()
+    assert not (tmp_path / NOMS.arm_name('proof', '')).exists()
 
 
 @pytest.mark.parametrize('owner_cases', [False, True])

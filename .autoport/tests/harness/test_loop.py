@@ -6,10 +6,18 @@ inside the worker's commit and its trace became invisible in the history. The
 orchestrator now stages exactly the dirty paths, minus the harness's own state.
 """
 import subprocess
+import sys
 import textwrap
+from pathlib import Path
 
 import pytest
 import yaml
+
+# L'AUTORITE DE NOMMAGE des fichiers d'une course : la preuve d'un item est du TRAVAIL, pas de
+# l'etat de harnais. Un nom reecrit ici ferait passer l'assertion sur un chemin que plus personne
+# n'ecrit, et la liste d'exclusion pourrait avaler la vraie preuve sans que le test bronche.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lib"))
+import impossible as NOMS  # noqa: E402
 
 from test_selection import FAKE_BACKLOG, _items
 
@@ -73,7 +81,7 @@ def test_the_exclusion_list_is_prefix_aware(orch):
                     ".autoport/prompts/item-x.md", ".autoport/archive/journal-05.md"):
         assert orch._is_harness_state(harness), harness
     for work in ("game/fix.cpp", "goal_src/jak1/pc/phys-room.gc",
-                 ".autoport/reports/demo/proof.txt", ".autoport/validators/generic.sh",
+                 ".autoport/reports/demo/" + NOMS.arm_name("proof", ""), ".autoport/validators/generic.sh",
                  ".autoport/lib/proof_run.sh"):
         assert not orch._is_harness_state(work), work
 
