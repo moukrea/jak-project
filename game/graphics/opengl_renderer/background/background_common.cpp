@@ -168,6 +168,26 @@ DoubleDraw compute_double_draw(DrawMode mode) {
   return double_draw;
 }
 
+// lighting-ao-indirect : MEME regle que ci-dessus, reduite au seul seuil et sans ASSERT — la
+// prepasse de profondeur la lit au CHARGEMENT, sur des draws qu'elle ne dessinera peut-etre
+// jamais ; une donnee inattendue ne doit pas tuer le jeu la ou le draw principal, lui, n'aurait
+// rien jete.
+float prepass_alpha_min(const DrawMode& mode) {
+  if (!mode.get_at_enable()) {
+    return 0.f;
+  }
+  if (mode.get_alpha_test() != DrawMode::AlphaTest::GEQUAL) {
+    // ALWAYS ne jette rien ; NEVER + FB_ONLY est le hack « pas de z-write », pas un test.
+    return 0.f;
+  }
+  const float a = mode.get_aref() / 127.f;
+  if (mode.get_alpha_fail() == GsTest::AlphaFail::FB_ONLY && !mode.get_depth_write_enable()) {
+    // le draw ne s'ecrit que dans le framebuffer : compute_double_draw remet alpha_min a 0.
+    return 0.f;
+  }
+  return a;
+}
+
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap) {
   glActiveTexture(tex_unit);
 

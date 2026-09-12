@@ -49,6 +49,17 @@ class AmbientOcclusionPass {
   // restaure tout l'etat GL qu'elle touche.
   bool estimate(SharedRenderState* rs, GLuint depth_tex, int depth_w, int depth_h);
 
+  // ── LE RECENSEMENT DU MOTIF (refus owner du 2026-09-10 (a)) ──────────────────────────────
+  // Sous mesure seulement. `set_measure_quality(q)` impose le palier de qualite de l'image
+  // (q dans 0..2 ; -1 = aucune contrainte) : la preuve fait tourner les TROIS paliers dans UNE
+  // course en les alternant d'une image sondee a l'autre, parce que `AO_FORCE_QUALITY` est fige
+  // pour toute la course. `request_pattern_census(true)` demande la relecture du tampon d'AO de
+  // cette image et l'accumulation de la force du motif pour le palier courant.
+  static void set_measure_quality(int q);
+  static void request_pattern_census(bool on);
+  // Publie ao_pattern_* . Appele par le module de prepasse quand il publie le reste.
+  static void publish_pattern_census();
+
   // La texture d'AO pleine resolution de la derniere estimation (0 si aucune).
   GLuint texture() const { return m_ao_full_tex; }
   int texture_w() const { return m_ao_full_w; }

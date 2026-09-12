@@ -156,6 +156,12 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
     // draws the whole tree on the multidraw path where no per-frame count is otherwise
     // computed.
     u32 index_count = 0;
+    // lighting-ao-indirect : la partition du flux d'indices statique en plages, une par draw qui
+    // JETTE (alpha_min > 0, donc a texturer dans la prepasse), les autres fusionnees entre
+    // voisines adjacentes. Batie paresseusement au premier passage de la prepasse ; `tex` porte
+    // l'ID de texture du fr3, PAS le nom GL (la resolution se fait au dessin).
+    std::vector<prepass::DepthRange> prepass_ranges;
+    bool prepass_ranges_built = false;
     // lighting-legacy-purge (2026-09-11) : le tampon d'index a plat pour GL_PATCHES est SUPPRIME
     // avec le programme TESSELLE, jamais livre.
 #endif

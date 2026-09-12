@@ -61,8 +61,37 @@ class DepthContributor {
   // L'implementation lie son VAO et son EBO, dessine ses buffers statiques complets, et rend
   // le nombre d'indices dessines. Elle ne restaure rien : le module remet VAO 0 et l'etat
   // GL d'avant a la fin.
+  //
+  // ELLE NE FAIT PLUS SON PROPRE glDrawElements : elle appelle `draw_depth_range` par plage,
+  // parce que l'alpha-test du feuillage (SPEC §4.6) exige la texture du draw et son seuil, et
+  // parce que la passe de CLASSIFICATION de la preuve rejoue EXACTEMENT les memes plages. Une
+  // implementation qui dessinerait elle-meme serait muette dans le deuxieme bras.
   virtual uint64_t draw_depth_prepass(SharedRenderState* rs) = 0;
 };
+
+// Une plage d'indices de l'EBO courant, avec de quoi rejouer l'alpha-test de la passe
+// principale. `tex` == 0 (ou `cut_aref` <= 0) = aucun test : la plage est opaque par
+// construction et ne coute aucun bind.
+//
+// `cut_aref` est le seuil sur l'alpha de TEXTURE, deja divise par la borne superieure de
+// `fragment_color.a` (= 4.0) : voir l'en-tete de prepass_world.frag. `cut_amb` est le seuil
+// NON divise (alpha_min), qui borne la bande ambigue comptee par `ao_alpha_fringe_px`.
+struct DepthRange {
+  uint32_t tex = 0;       // nom GL de la texture du draw (0 = aucune)
+  float cut_aref = 0.f;   // seuil conservateur sur T0.a (0 = pas de test)
+  float cut_amb = 0.f;    // alpha_min du draw, pour la bande ambigue
+  uint32_t first = 0;     // premier index dans l'EBO lie
+  uint32_t count = 0;     // nombre d'indices
+};
+
+// Calcule le `alpha_min` que `compute_double_draw` donnerait a ce mode de draw, et remplit
+// `cut_aref` / `cut_amb`. Declare ici pour que les trois contributeurs partagent la meme regle.
+DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, uint32_t count);
+
+// Dessine UNE plage. Pose `tex_T0` / `u_cut_aref` / `u_cut_amb` (memoises), compte le draw au
+// recensement, et rend `count`. A n'appeler QUE depuis `draw_depth_prepass`.
+// `gl_mode` = GL_TRIANGLES ou GL_TRIANGLE_STRIP, selon le buffer du contributeur.
+uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r);
 
 // Appele par les DEUX renderers (bureau, Android) la ou ils initialisaient `m_ao_pass`.
 void init_shaders(ShaderLibrary& shaders);

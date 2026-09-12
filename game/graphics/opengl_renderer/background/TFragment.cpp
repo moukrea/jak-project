@@ -605,9 +605,50 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
     }
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-    lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-    glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
-    total += (uint64_t)tree.index_count;
+    // lighting-ao-indirect : plages bâties une fois par arbre. Le feuillage a decoupe doit
+    // passer son alpha-test ici, sinon l'AO voit un quad plein la ou l'image voit des brins
+    // (owner 2026-09-10, defaut b). Les draws sans test se fusionnent entre voisins adjacents :
+    // le cout en draws ne monte que pour ce qui jette vraiment.
+    if (!tree.prepass_ranges_built) {
+      tree.prepass_ranges.clear();
+      if (tree.draws) {
+        for (const auto& draw : *tree.draws) {
+          u32 count = 0;
+          for (const auto& vg : draw.vis_groups) {
+            count += vg.num_inds;
+          }
+          if (count == 0) {
+            continue;
+          }
+          const u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+          const float am = prepass_alpha_min(draw.mode);
+          // tree_tex_id negatif = emplacement de texture animee : pas de nom GL stable ici,
+          // on le traite comme opaque plutot que de lier n'importe quoi.
+          if (am <= 0.f || draw.tree_tex_id < 0) {
+            if (!tree.prepass_ranges.empty() && tree.prepass_ranges.back().cut_aref <= 0.f &&
+                tree.prepass_ranges.back().first + tree.prepass_ranges.back().count == first) {
+              tree.prepass_ranges.back().count += count;
+            } else {
+              tree.prepass_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
+            }
+          } else {
+            tree.prepass_ranges.push_back(
+                prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first, count});
+          }
+        }
+      } else {
+        // pas de liste de draws : on ne sait rien du decoupage, un seul draw opaque.
+        tree.prepass_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, 0, tree.index_count});
+      }
+      tree.prepass_ranges_built = true;
+    }
+    for (const auto& r : tree.prepass_ranges) {
+      const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
+                               ? m_textures->at(r.tex)
+                               : 0;
+      total += prepass::draw_depth_range(tree.draw_mode,
+                                         prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count));
+    }
   }
   return total;
 #else

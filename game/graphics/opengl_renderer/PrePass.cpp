@@ -55,8 +55,39 @@ bool g_ao_valid = false;   // g_ao.texture() decrit cette image
 uint64_t g_last_indices = 0;
 int g_last_levels = 0;
 
+// ── L'ALPHA-TEST DU FEUILLAGE, ET LE DETECTEUR QUI LE JUGE ────────────────────────────────────
+// Refus owner du 2026-09-10 (b). L'etat memoise des plages (le programme garde ses uniformes
+// entre deux draws, mais pas entre deux passes : tout ceci est remis a une valeur IMPOSSIBLE au
+// debut de chaque passe, sinon un uniforme non repose se croit pose).
+bool g_cut_armed = true;  // faux = bras de CONTROLE : la decoupe est desarmee, rien d'autre ne bouge
+float g_last_aref = -1.f;
+float g_last_amb = -1.f;
+GLuint g_last_tex = 0xffffffffu;
+bool g_cut_uniforms_ok = false;  // les quatre uniformes de la decoupe existent dans le programme
+uint64_t g_cut_ranges = 0;    // plages qui portent un test d'alpha
+uint64_t g_total_ranges = 0;  // toutes les plages — son denominateur
+
+// La classification : un FBO couleur RGBA8 qui PARTAGE la profondeur de la prepasse. Bureau
+// seulement — l'item se prouve sur x86 et une relecture par image n'a rien a faire sur
+// l'appareil. Ce qui suit n'existe donc pas dans le .so arm64 : ce n'est pas un drapeau a zero,
+// c'est du code qui n'est pas COMPILE.
+#ifndef __ANDROID__
+GLuint g_class_fbo = 0, g_class_tex = 0;
+int g_class_w = 0, g_class_h = 0;
+GLuint g_class_depth_src = 0;
+int g_class_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse (publie)
+#endif
+
+uint64_t g_alpha_frames = 0;
+uint64_t g_on_alpha_px = 0;       // bras LIVRE : le gagnant est sous le seuil -> doit valoir 0
+uint64_t g_alpha_cover_px = 0;    // bras LIVRE : pixels gagnes par la prepasse — le denominateur
+uint64_t g_alpha_fringe_px = 0;   // bras LIVRE : gagnants dans la bande ambigue (voir le .frag)
+uint64_t g_witness_px = 0;        // bras CONTROLE : le meme detecteur, decoupe desarmee -> > 0
+uint64_t g_witness_cover_px = 0;  // bras CONTROLE : son propre denominateur
+
 // Preuve.
 bool g_probe_frame = false;
+uint64_t g_probe_seq = 0;  // combien d'images sondees ont commence — choisit le palier d'AO
 uint64_t g_probe_frames = 0;
 uint64_t g_probe_px = 0;
 uint64_t g_leak_px = 0;
@@ -138,87 +169,155 @@ bool is_world_bucket(int id) {
   }
 }
 
+// ── LA PASSE, ET SON DETECTEUR ────────────────────────────────────────────────────────────────
+// Un passage de prepasse = poser l'etat, dessiner TOUTES les plages de TOUS les contributeurs,
+// restaurer. Il est appele deux fois sur une image sondee : une fois pour de vrai (decoupe
+// ARMEE, c'est cette profondeur que l'estimateur d'AO consomme), une fois en CONTROLE (decoupe
+// DESARMEE). Le detecteur qui les juge est le MEME, et c'est le bras desarme qui prouve qu'il
+// sait rendre autre chose que zero : sans lui, `ao_on_alpha_px = 0` serait un vert par inaction.
+
+// Le FBO de classification : une couleur RGBA8 a nous, et LA PROFONDEUR DE LA PREPASSE, partagee.
+// C'est ce partage qui rend le test possible : en GL_EQUAL, seul le fragment qui a GAGNE la
+// profondeur repasse, donc la couleur relue decrit le fragment que l'estimateur d'AO a vu.
 #ifndef __ANDROID__
-void publish_all() {
-  autoport_proof::publish("ao_direct_leak_px", g_leak_px);
-  autoport_proof::publish("ao_hit_px", g_hit_px);
-  autoport_proof::publish("ao_probe_px", g_probe_px);
-  autoport_proof::publish("ao_probe_frames", g_probe_frames);
-  autoport_proof::publish("ao_leak_excluded_px", g_excluded_px);
-  autoport_proof::publish("ao_probe_unmarked_px", g_unmarked_px);
-  autoport_proof::publish("ao_prepass_indices", g_last_indices);
-  autoport_proof::publish("ao_prepass_levels", (uint64_t)g_last_levels);
-  autoport_proof::publish("ao_screen_ao_active", g_ao_valid ? 1 : 0);
-  autoport_proof::publish_text("ao_apply_site", "shade.glsl:shade_body");
+void ensure_class(int w, int h) {
+  if (g_class_fbo && g_class_w == w && g_class_h == h && g_class_depth_src == g_depth_tex) {
+    return;
+  }
+  if (g_class_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &g_class_fbo);
+    glDeleteTextures(1, &g_class_tex);
+    g_class_fbo = 0;
+    g_class_tex = 0;
+  }
+  g_class_w = w;
+  g_class_h = h;
+  g_class_depth_src = g_depth_tex;
+  glGenTextures(1, &g_class_tex);
+  glBindTexture(GL_TEXTURE_2D, g_class_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glGenFramebuffers(1, &g_class_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, g_class_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_class_tex, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, g_depth_tex, 0);
+  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(1, bufs);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[lighting-ao-indirect] FBO de classification incomplet ({}x{})", w, h);
+    g_class_state = -1;
+  } else {
+    g_class_state = 1;
+  }
 }
 #endif
 
-}  // namespace
-
-// ------------------------------------------------------------------------- contributeurs ----
-DepthContributor::DepthContributor() {
-  g_contributors.push_back(this);
+// Dessine toutes les plages de tous les contributeurs. Un contributeur par (renderer, niveau) :
+// plusieurs instances d'un renderer (un bucket par categorie) cachent le meme niveau ; la
+// premiere qui le nomme dessine, les autres se taisent.
+uint64_t draw_all_contributors(SharedRenderState* rs, int* out_levels) {
+  std::unordered_set<std::string> seen;
+  uint64_t total = 0;
+  for (DepthContributor* c : g_contributors) {
+    const std::string& level = c->prepass_level_name();
+    if (level.empty()) {
+      continue;
+    }
+    std::string key = c->prepass_kind();
+    key += ':';
+    key += level;
+    if (!seen.insert(key).second) {
+      continue;
+    }
+    total += c->draw_depth_prepass(rs);
+  }
+  if (out_levels) {
+    *out_levels = (int)seen.size();
+  }
+  return total;
 }
 
-DepthContributor::~DepthContributor() {
-  g_contributors.erase(std::remove(g_contributors.begin(), g_contributors.end(), this),
-                       g_contributors.end());
+// Remet a une valeur IMPOSSIBLE l'etat memoise par `draw_depth_range`.
+void forget_range_state() {
+  g_last_aref = -2.f;
+  g_last_amb = -2.f;
+  g_last_tex = 0xffffffffu;
 }
 
-// ------------------------------------------------------------------------------- module ----
-void init_shaders(ShaderLibrary& shaders) {
-  g_shaders = &shaders;
-  g_ao.init_shaders(shaders);
-}
-
-AmbientOcclusionPass& ao_pass() {
-  return g_ao;
-}
-
-void set_output_hint(int w, int h) {
-  g_ao.set_output_hint(w, h);
-}
-
-void frame_begin(SharedRenderState* /*rs*/) {
-  g_frame++;
-  g_frame_ran = false;
-  g_ao_valid = false;
-  g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0;
-}
-
-bool screen_ao_active() {
-  return g_ao_valid && g_ao.texture() != 0;
-}
-
-GLuint screen_ao_texture() {
-  return screen_ao_active() ? g_ao.texture() : 0;
-}
-
-void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
-  gl_query_census::Armed _ap("prepass-first-camera");
-  if (g_frame_ran) {
+#ifndef __ANDROID__
+// Rejoue les MEMES plages en GL_EQUAL contre la profondeur qui vient d'etre ecrite, sans aucun
+// discard, et relit la classification du fragment GAGNANT de chaque pixel :
+//   R = il est sous le seuil d'alpha      G = il a gagne (denominateur)      B = bande ambigue
+// La decoupe du detecteur est TOUJOURS armee : c'est la profondeur d'entree qui distingue les
+// deux bras, pas le predicat.
+void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint64_t* cover,
+                        uint64_t* fringe) {
+  ensure_class(w, h);
+  if (g_class_state != 1 || !g_shaders) {
     return;
   }
-  g_frame_ran = true;
-  g_last_indices = 0;
-  g_last_levels = 0;
-  if (!rs || rs->version != GameVersion::Jak1 || !g_shaders) {
-    return;
+  while (glGetError() != GL_NO_ERROR) {
   }
-  if (AmbientOcclusionPass::effective_mode() == 0) {
-    return;  // AO eteinte : ni prepasse ni estimation — OFF == absence
-  }
-  // Le bras `--off` du harnais : l'item entier s'efface (prepasse comprise), hits reste a 0.
-  if (!autoport_proof::armed_for(kItemId)) {
-    return;
-  }
-  const int w = rs->render_fb_w;
-  const int h = rs->render_fb_h;
-  if (w <= 0 || h <= 0) {
-    return;
-  }
+  const GLuint id = (*g_shaders)[ShaderId::PREPASS_WORLD].id();
+  glBindFramebuffer(GL_FRAMEBUFFER, g_class_fbo);
+  glViewport(0, 0, w, h);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  GLfloat prev_clear[4] = {0.f, 0.f, 0.f, 0.f};
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, prev_clear);
+  glClearColor(0.f, 0.f, 0.f, 0.f);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(prev_clear[0], prev_clear[1], prev_clear[2], prev_clear[3]);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_EQUAL);
+  glDepthMask(GL_FALSE);
+  glUniform1i(glu::loc(id, "u_cut_mode"), 1);
+  const bool saved_armed = g_cut_armed;
+  g_cut_armed = true;
+  forget_range_state();
+  draw_all_contributors(rs, nullptr);
+  g_cut_armed = saved_armed;
+  glUniform1i(glu::loc(id, "u_cut_mode"), 0);
 
-  // ---- sauvegarde de l'etat GL : on tourne au milieu du render() d'un renderer de decor ----
+  std::vector<uint8_t> px((size_t)w * h * 4);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, g_class_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+  const GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+    lg::error("[lighting-ao-indirect] relecture de la classification refusee (gl=0x{:x})",
+              (unsigned)err);
+    g_class_state = -1;
+    return;
+  }
+  for (size_t i = 0; i < px.size(); i += 4) {
+    if (px[i + 1] < 128) {
+      continue;  // aucun fragment de la prepasse n'a gagne ce pixel
+    }
+    (*cover)++;
+    if (px[i] >= 128) {
+      (*on)++;
+    } else if (px[i + 2] >= 128) {
+      (*fringe)++;
+    }
+  }
+}
+#endif
+
+// LE passage. `armed` = la decoupe d'alpha est active (le chemin LIVRE). `classify` = enchaine
+// la passe de classification et range ses comptes dans les trois sorties.
+uint64_t run_prepass(SharedRenderState* rs,
+                     const GoalBackgroundCameraData& cam,
+                     int w,
+                     int h,
+                     bool armed,
+                     bool classify,
+                     uint64_t* on,
+                     uint64_t* cover,
+                     uint64_t* fringe,
+                     int* out_levels) {
   GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
   GLint prev_vao = 0;
   const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
@@ -269,26 +368,29 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   glUniformMatrix4fv(glu::loc(id, "pc_camera"), 1, GL_FALSE, newcam[0].data());
   glUniform4f(glu::loc(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2],
               cam.trans[3]);
+  glUniform1i(glu::loc(id, "tex_T0"), 0);
+  glUniform1i(glu::loc(id, "u_cut_mode"), 0);
+  // Un uniforme DECLARE mais jamais lu est RETIRE par le compilateur GLSL, et `glu::loc` rend
+  // alors -1 : la decoupe serait muette sans qu'une seule erreur ne sorte. On demande au pilote,
+  // et on le publie — c'est la seule facon de savoir qui lit.
+  g_cut_uniforms_ok = (glu::loc(id, "u_cut_aref") != -1) && (glu::loc(id, "u_cut_amb") != -1) &&
+                      (glu::loc(id, "u_cut_mode") != -1) && (glu::loc(id, "tex_T0") != -1);
 
-  // Un contributeur par (renderer, niveau) : plusieurs instances d'un renderer (un bucket par
-  // categorie) cachent le meme niveau ; la premiere qui le nomme dessine, les autres se taisent.
-  std::unordered_set<std::string> seen;
-  uint64_t total = 0;
-  for (DepthContributor* c : g_contributors) {
-    const std::string& level = c->prepass_level_name();
-    if (level.empty()) {
-      continue;
-    }
-    std::string key = c->prepass_kind();
-    key += ':';
-    key += level;
-    if (!seen.insert(key).second) {
-      continue;
-    }
-    total += c->draw_depth_prepass(rs);
+  g_cut_armed = armed;
+  forget_range_state();
+  const uint64_t total = draw_all_contributors(rs, out_levels);
+  g_cut_armed = true;
+
+#ifndef __ANDROID__
+  if (classify && on && cover && fringe) {
+    run_classification(rs, w, h, on, cover, fringe);
   }
-  g_last_indices = total;
-  g_last_levels = (int)seen.size();
+#else
+  (void)classify;
+  (void)on;
+  (void)cover;
+  (void)fringe;
+#endif
 
   // ---- restauration ----
   glBindVertexArray((GLuint)prev_vao);
@@ -319,10 +421,213 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0);
   glActiveTexture((GLenum)prev_active_tex);
+  return total;
+}
+
+#ifndef __ANDROID__
+void publish_all() {
+  autoport_proof::publish("ao_direct_leak_px", g_leak_px);
+  autoport_proof::publish("ao_hit_px", g_hit_px);
+  autoport_proof::publish("ao_probe_px", g_probe_px);
+  autoport_proof::publish("ao_probe_frames", g_probe_frames);
+  autoport_proof::publish("ao_leak_excluded_px", g_excluded_px);
+  autoport_proof::publish("ao_probe_unmarked_px", g_unmarked_px);
+  autoport_proof::publish("ao_prepass_indices", g_last_indices);
+  autoport_proof::publish("ao_prepass_levels", (uint64_t)g_last_levels);
+  autoport_proof::publish("ao_screen_ao_active", g_ao_valid ? 1 : 0);
+  autoport_proof::publish_text("ao_apply_site", "shade.glsl:shade_body");
+  // ── (b) L'ALPHA EST RESPECTE ────────────────────────────────────────────────────────────
+  // `ao_on_alpha_px` est LA grandeur que le livrable demande : le nombre de pixels dont le
+  // fragment que l'estimateur d'AO a vu est un texel sous le seuil d'alpha. Il vaut 0.
+  // `ao_alpha_witness_px` est le MEME detecteur sur le MEME contenu, la decoupe desarmee : il
+  // est non nul, et c'est lui qui interdit de lire le 0 d'a cote comme un vert par inaction.
+  // `ao_alpha_cover_px` / `ao_alpha_witness_cover_px` sont leurs denominateurs.
+  // `ao_alpha_fringe_px` compte la bande que le seuil CONSERVATEUR laisse passer (voir
+  // prepass_world.frag) : il dit ce que la borne tod.a <= 1 coute reellement.
+  autoport_proof::publish("ao_on_alpha_px", g_on_alpha_px);
+  autoport_proof::publish("ao_alpha_witness_px", g_witness_px);
+  autoport_proof::publish("ao_alpha_cover_px", g_alpha_cover_px);
+  autoport_proof::publish("ao_alpha_witness_cover_px", g_witness_cover_px);
+  autoport_proof::publish("ao_alpha_fringe_px", g_alpha_fringe_px);
+  autoport_proof::publish("ao_alpha_frames", g_alpha_frames);
+  // Combien de plages de la prepasse portent un test d'alpha, et sur combien : si ce rapport
+  // etait nul, tout le reste serait vide de sens.
+  autoport_proof::publish("ao_cut_ranges", g_cut_ranges);
+  autoport_proof::publish("ao_total_ranges", g_total_ranges);
+  autoport_proof::publish("ao_cut_uniforms_ok", g_cut_uniforms_ok ? 1 : 0);
+  // ── (a) AUCUN MOTIF VISIBLE ─────────────────────────────────────────────────────────────
+  AmbientOcclusionPass::publish_pattern_census();
+}
+#endif
+
+}  // namespace
+
+// ------------------------------------------------------------------------- contributeurs ----
+DepthContributor::DepthContributor() {
+  g_contributors.push_back(this);
+}
+
+DepthContributor::~DepthContributor() {
+  g_contributors.erase(std::remove(g_contributors.begin(), g_contributors.end(), this),
+                       g_contributors.end());
+}
+
+// ------------------------------------------------------------------------------- module ----
+void init_shaders(ShaderLibrary& shaders) {
+  g_shaders = &shaders;
+  g_ao.init_shaders(shaders);
+}
+
+AmbientOcclusionPass& ao_pass() {
+  return g_ao;
+}
+
+void set_output_hint(int w, int h) {
+  g_ao.set_output_hint(w, h);
+}
+
+void frame_begin(SharedRenderState* /*rs*/) {
+  g_frame++;
+  g_frame_ran = false;
+  g_ao_valid = false;
+  g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0;
+  if (g_probe_frame) {
+    g_probe_seq++;
+  }
+}
+
+// ── LES PLAGES DE LA PREPASSE ─────────────────────────────────────────────────────────────────
+DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, uint32_t count) {
+  DepthRange r;
+  r.first = first;
+  r.count = count;
+  if (gl_tex != 0 && alpha_min > 0.f) {
+    r.tex = gl_tex;
+    // LA BORNE, ET ELLE EST PROUVEE, PAS SUPPOSEE. La passe principale jette quand
+    // `fragment_color.a * T0.a < alpha_min`, avec `fragment_color.a = tod.a * 4`
+    // (tfrag3.vert:92-95, shrub.vert:112-119) ; la prepasse n'a pas l'indice de temps-du-jour.
+    // Mais l'alpha de la LUT est SATURE A 128, pas a 255, la ou elle est produite :
+    // `o[3] = std::min(128, temp[color][3] >> 6)` (background_common.cpp, interp_time_of_day_slow)
+    // et le registre `sat = _mm_set_epi16(128, 255, 255, 255, ...)` de la version SIMD.
+    // Donc tod.a <= 128/255 et `fragment_color.a <= 4 * 128/255 = 2.008` : le seuil conservateur
+    // le plus SERRE qui existe est alpha_min / 2.008. Le prendre a 4 laissait 6x plus de pixels
+    // dans la bande ambigue qu'il n'en retirait (mesure du 12/09 : 49 081 contre 7 824).
+    // Ce qui reste dans [alpha_min/2.008, alpha_min) est compte : `ao_alpha_fringe_px`.
+    r.cut_aref = alpha_min * (255.f / 512.f);
+    r.cut_amb = alpha_min;
+  }
+  return r;
+}
+
+uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
+  if (r.count == 0 || !g_shaders) {
+    return 0;
+  }
+  const GLuint id = (*g_shaders)[ShaderId::PREPASS_WORLD].id();
+  // Le bras de CONTROLE desarme la decoupe SANS toucher a rien d'autre : meme geometrie, meme
+  // programme, meme ordre, meme plages. C'est la seule difference entre les deux bras.
+  const float aref = g_cut_armed ? r.cut_aref : 0.f;
+  g_total_ranges++;
+  if (r.cut_aref > 0.f) {
+    g_cut_ranges++;
+  }
+  if (aref != g_last_aref) {
+    glUniform1f(glu::loc(id, "u_cut_aref"), aref);
+    g_last_aref = aref;
+  }
+  if (r.cut_amb != g_last_amb) {
+    glUniform1f(glu::loc(id, "u_cut_amb"), r.cut_amb);
+    g_last_amb = r.cut_amb;
+  }
+  // Un sampler declare et non lie rend un comportement indefini sur Adreno : la plage sans test
+  // lie quand meme le 1x1 blanc.
+  const GLuint want_tex = (r.cut_aref > 0.f && r.tex != 0) ? (GLuint)r.tex : g_white_tex;
+  if (want_tex != g_last_tex) {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, want_tex);
+    g_last_tex = want_tex;
+  }
+  lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+  glDrawElements((GLenum)gl_mode, (GLsizei)r.count, GL_UNSIGNED_INT,
+                 (void*)((size_t)r.first * sizeof(uint32_t)));
+  return r.count;
+}
+
+bool screen_ao_active() {
+  return g_ao_valid && g_ao.texture() != 0;
+}
+
+GLuint screen_ao_texture() {
+  return screen_ao_active() ? g_ao.texture() : 0;
+}
+
+void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
+  gl_query_census::Armed _ap("prepass-first-camera");
+  if (g_frame_ran) {
+    return;
+  }
+  g_frame_ran = true;
+  g_last_indices = 0;
+  g_last_levels = 0;
+  if (!rs || rs->version != GameVersion::Jak1 || !g_shaders) {
+    return;
+  }
+  if (AmbientOcclusionPass::effective_mode() == 0) {
+    return;  // AO eteinte : ni prepasse ni estimation — OFF == absence
+  }
+  // Le bras `--off` du harnais : l'item entier s'efface (prepasse comprise), hits reste a 0.
+  if (!autoport_proof::armed_for(kItemId)) {
+    return;
+  }
+  const int w = rs->render_fb_w;
+  const int h = rs->render_fb_h;
+  if (w <= 0 || h <= 0) {
+    return;
+  }
+
+  // ── LE BRAS LIVRE ───────────────────────────────────────────────────────────────────────────
+  // La prepasse avec la decoupe d'alpha ARMEE : c'est CETTE profondeur que l'estimateur d'AO
+  // consomme, donc c'est elle que le detecteur juge.
+  int levels = 0;
+  uint64_t on = 0, cover = 0, fringe = 0;
+  const uint64_t total = run_prepass(rs, cam, w, h, /*armed=*/true, g_probe_frame, &on, &cover,
+                                     &fringe, &levels);
+  g_last_indices = total;
+  g_last_levels = levels;
+  if (g_probe_frame) {
+    g_alpha_frames++;
+    g_on_alpha_px += on;
+    g_alpha_cover_px += cover;
+    g_alpha_fringe_px += fringe;
+  }
+
+  // (a) LE RECENSEMENT DU MOTIF. `AO_FORCE_QUALITY` est fige pour toute la course : les trois
+  // paliers ne peuvent etre juges dans la MEME scene qu'en les alternant d'une image sondee a
+  // l'autre. Le cout — la chaine d'AO se redimensionne a chaque bascule — ne se paie qu'une
+  // image sur soixante, et seulement sous mesure.
+  if (g_probe_frame) {
+    AmbientOcclusionPass::set_measure_quality((int)(g_probe_seq % 3));
+    AmbientOcclusionPass::request_pattern_census(true);
+  } else {
+    AmbientOcclusionPass::set_measure_quality(-1);
+  }
 
   // L'estimation lit la profondeur de la prepasse et ecrit sa texture R8. Elle sauvegarde et
-  // restaure elle-meme tout ce qu'elle touche ; le FBO de rendu est deja re-lie.
+  // restaure elle-meme tout ce qu'elle touche ; le FBO de rendu est deja re-lie — et il DOIT
+  // l'etre, parce que `ao_draws_on_scene` compare ses cibles au FBO qu'elle trouve en entrant.
   g_ao_valid = (total > 0) && g_ao.estimate(rs, g_depth_tex, w, h);
+
+  // ── LE BRAS DE CONTROLE ─────────────────────────────────────────────────────────────────────
+  // Le MEME dessin, la decoupe DESARMEE : les texels transparents ecrivent a nouveau de la
+  // profondeur, et le MEME detecteur les compte. Sans ce bras, `ao_on_alpha_px = 0` ne se
+  // distinguerait pas d'un detecteur casse. Il ecrase la profondeur de la prepasse, ce qui est
+  // sans consequence : l'estimation vient de la consommer et personne d'autre ne la lit.
+  if (g_probe_frame) {
+    uint64_t won = 0, wcover = 0, wfringe = 0;
+    run_prepass(rs, cam, w, h, /*armed=*/false, true, &won, &wcover, &wfringe, nullptr);
+    g_witness_px += won;
+    g_witness_cover_px += wcover;
+  }
 }
 
 void bind_screen_ao(GLuint program, SharedRenderState* rs) {

@@ -23,6 +23,7 @@
 
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 // ============================================================================
 // Grecharged-ambient-occlusion
@@ -353,6 +354,285 @@ void upload_common_uniforms(GLuint id,
 
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// LE RECENSEMENT DU MOTIF PERIODIQUE (refus owner du 2026-09-10 (a) : « en qualite faible ca
+// fait des damiers bugges/pixelises la ou elle s'applique »).
+//
+// Le damier est une STRUCTURE DE PERIODE p : l'AP est estimee a 1/p de la resolution puis
+// remontee, donc un upsample rate laisse des blocs de p pixels. On le mesure sans supposer
+// l'alignement des blocs : pour chaque phase f de 0..p-1 on moyenne |A(x+1,y) - A(x,y)| sur
+// les paires dont x % p == f. Un champ SANS structure de periode p rend des moyennes egales,
+// donc max(moy)/moy(moy) == 1 ; un champ en BLOCS durs met toute l'energie de bord dans une
+// seule phase et le rapport tend vers p. C'est exactement « la force du motif periodique ».
+//
+// Tout ceci est SOUS MESURE SEULEMENT : s_measure_quality vaut -1 et s_pattern_census_request
+// vaut faux par defaut, et personne ici ne les arme. Hors mesure le chemin est un `if` faux.
+// ---------------------------------------------------------------------------
+namespace {
+
+// Le palier impose par la sonde (-1 = aucune contrainte) et l'armement d'UNE image.
+int s_measure_quality = -1;
+bool s_pattern_census_request = false;
+
+// LE PLAFOND DECLARE. Un champ sans structure de periode p rend 1000 ; un champ en blocs durs
+// tend vers 1000*p (4000 au palier bas). 1600 laisse la courbure d'un champ lisse reconstruit
+// au bilineaire et refuse tout ce qui se voit.
+constexpr uint64_t kAoPatternCeilingX1000 = 1600;
+
+// Accumulateurs par palier de qualite (0..2).
+uint64_t s_pat_sum_milli[3] = {0, 0, 0};
+uint64_t s_pat_frames[3] = {0, 0, 0};
+uint64_t s_pat_worst_milli[3] = {0, 0, 0};
+uint64_t s_pat_px[3] = {0, 0, 0};
+
+// ── CE QUE LE TEST DE PHASE NE PEUT PAS VOIR ─────────────────────────────────────────────────
+// Le test ci-dessus juge une structure de periode p EN ECRAN. Le bruit de rotation des trois
+// estimateurs, lui, est ancre sur une CELLULE DU MONDE (`floor(P / max(1024, dcam*0.02))`,
+// ao_ssao.frag / ao_gtao.frag / ao_hbao.frag) : sa projection a l'ecran n'est periodique dans
+// aucune direction, et un test de phase le lit a 1000 comme un champ parfaitement lisse. Publier
+// ce 1000 tout seul serait un vert par inaction. Deux grandeurs SANS ECHELLE le completent, sur
+// la MEME relecture et pour zero cout de plus :
+//   grain      = |A(x+1) - A(x)| moyen, en millienes de la pleine echelle. Ce que l'oeil appelle
+//                « ca grouille » : il doit BAISSER quand la qualite monte, pas l'inverse.
+//   lag_rough  = 8 * moy|delta_1| / moy|delta_8|. Un champ localement LINEAIRE rend 1000 ; un
+//                bruit par pixel rend BEAUCOUP PLUS (delta_1 sature) ; un champ en cellules
+//                plus larges que 8 px rend MOINS (delta_1 est plat a l'interieur). Les deux
+//                modes de laideur s'ecartent de 1000, et dans des sens opposes.
+uint64_t s_grain_sum[3] = {0, 0, 0};
+uint64_t s_rough_sum[3] = {0, 0, 0};
+
+// Le cout de l'INSTRUMENT, pas du rendu : la relecture n'existe que sous mesure, elle ne pese
+// sur aucune image livree. Publie pour qu'on puisse le soustraire d'une lecture de cadence.
+uint64_t s_pat_readback_us_total = 0;
+uint64_t s_pat_readback_calls = 0;
+// 1 si la relecture du tampon d'AO a rendu une erreur GL (grandeur non mesurable ici).
+uint64_t s_pat_unsupported = 0;
+
+// Tampon de relecture, garde d'une image a l'autre pour ne pas reallouer par image.
+std::vector<uint8_t> s_pat_buf;
+
+// La force du motif dans UNE direction : `horizontal` choisit la paire (x,x+1) a phase x % p,
+// sinon la paire (y,y+1) a phase y % p. Rend -1.0 si la population comptee est trop maigre
+// pour juger (moins de 4096 paires) ; la population lue est rendue dans tous les cas.
+double phase_ratio(const uint8_t* A,
+                   int w,
+                   int h,
+                   int p,
+                   bool horizontal,
+                   uint64_t* population_out) {
+  std::vector<uint64_t> sum((size_t)p, 0);
+  std::vector<uint64_t> cnt((size_t)p, 0);
+  uint64_t total = 0;
+  if (horizontal) {
+    for (int y = 0; y < h; y++) {
+      const uint8_t* row = A + (size_t)y * (size_t)w;
+      for (int x = 0; x + 1 < w; x++) {
+        const uint8_t a = row[x];
+        const uint8_t b = row[x + 1];
+        // L'AO est INACTIVE au-dessus de 250 (ciel, surfaces non occultees) : la paire ne dit
+        // rien du motif, elle ne doit ni monter ni diluer une moyenne.
+        if (std::min(a, b) >= 250) {
+          continue;
+        }
+        const int f = x % p;
+        sum[(size_t)f] += (uint64_t)std::abs((int)a - (int)b);
+        cnt[(size_t)f]++;
+        total++;
+      }
+    }
+  } else {
+    for (int y = 0; y + 1 < h; y++) {
+      const uint8_t* row = A + (size_t)y * (size_t)w;
+      const uint8_t* nxt = row + w;
+      const int f = y % p;
+      for (int x = 0; x < w; x++) {
+        const uint8_t a = row[x];
+        const uint8_t b = nxt[x];
+        if (std::min(a, b) >= 250) {
+          continue;
+        }
+        sum[(size_t)f] += (uint64_t)std::abs((int)a - (int)b);
+        cnt[(size_t)f]++;
+        total++;
+      }
+    }
+  }
+  *population_out = total;
+  if (total < 4096) {
+    return -1.0;
+  }
+  double max_mean = 0.0;
+  double acc = 0.0;
+  int used = 0;
+  for (int f = 0; f < p; f++) {
+    if (cnt[(size_t)f] == 0) {
+      continue;
+    }
+    const double m = (double)sum[(size_t)f] / (double)cnt[(size_t)f];
+    if (m > max_mean) {
+      max_mean = m;
+    }
+    acc += m;
+    used++;
+  }
+  if (used == 0) {
+    return -1.0;
+  }
+  const double mean_of_means = acc / (double)used;
+  return max_mean / std::max(mean_of_means, 1e-6);
+}
+
+// La granularite et la rugosite de retard, sur les MEMES paires horizontales que ci-dessus.
+// Rend faux si la population est trop maigre pour juger.
+bool grain_and_roughness(const uint8_t* A, int w, int h, double* grain_x1000,
+                         double* rough_x1000) {
+  uint64_t s1 = 0, n1 = 0, s8 = 0, n8 = 0;
+  for (int y = 0; y < h; y++) {
+    const uint8_t* row = A + (size_t)y * (size_t)w;
+    for (int x = 0; x + 1 < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = row[x + 1];
+      if (std::min(a, b) >= 250) {
+        continue;
+      }
+      s1 += (uint64_t)std::abs((int)a - (int)b);
+      n1++;
+    }
+    for (int x = 0; x + 8 < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = row[x + 8];
+      if (std::min(a, b) >= 250) {
+        continue;
+      }
+      s8 += (uint64_t)std::abs((int)a - (int)b);
+      n8++;
+    }
+  }
+  if (n1 < 4096 || n8 < 4096) {
+    return false;
+  }
+  const double m1 = (double)s1 / (double)n1;
+  const double m8 = (double)s8 / (double)n8;
+  *grain_x1000 = 1000.0 * m1 / 255.0;
+  *rough_x1000 = 1000.0 * 8.0 * m1 / std::max(m8, 1e-6);
+  return true;
+}
+
+// Relit le tampon d'AO pleine resolution et accumule la force du motif pour `quality`.
+// `scale` donne la periode candidate : p = max(2, round(1/scale)) — 4 au palier bas, 2 ailleurs.
+void pattern_census(int quality, float scale, GLuint ao_full_fbo, int w, int h) {
+  if (quality < 0 || quality > 2 || ao_full_fbo == 0 || w <= 1 || h <= 1) {
+    return;
+  }
+  const auto t0 = std::chrono::steady_clock::now();
+
+  // Le binding de LECTURE courant, a rendre tel quel : la passe vient de restaurer son etat.
+  GLint prev_read_fbo = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
+  GLint prev_pack = 4;
+  glGetIntegerv(GL_PACK_ALIGNMENT, &prev_pack);
+
+  const size_t n = (size_t)w * (size_t)h;
+  if (s_pat_buf.size() < n) {
+    s_pat_buf.resize(n);
+  }
+
+  while (glGetError() != GL_NO_ERROR) {
+  }  // vidange : on veut l'erreur de NOTRE relecture, pas celle d'un voisin
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, ao_full_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, s_pat_buf.data());
+  const GLenum err = glGetError();
+  glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
+
+  const auto t_end_gl = std::chrono::steady_clock::now();
+  if (err != GL_NO_ERROR) {
+    // Rien a accumuler : une moyenne sur zero image se lirait comme un succes.
+    s_pat_unsupported = 1;
+    autoport_proof::publish("ao_pattern_unsupported", s_pat_unsupported);
+    s_pat_readback_calls++;
+    s_pat_readback_us_total += (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
+                                   t_end_gl - t0)
+                                   .count();
+    return;
+  }
+
+  const int p = std::max(2, (int)std::lround(1.0 / (double)std::max(scale, 1e-6f)));
+  uint64_t pop_h = 0, pop_v = 0;
+  const double rh = phase_ratio(s_pat_buf.data(), w, h, p, true, &pop_h);
+  const double rv = phase_ratio(s_pat_buf.data(), w, h, p, false, &pop_v);
+
+  double ratio = -1.0;
+  if (rh > 0.0) {
+    ratio = rh;
+  }
+  if (rv > ratio) {
+    ratio = rv;
+  }
+  if (ratio > 0.0) {
+    const uint64_t milli = (uint64_t)std::max<int64_t>(0, std::llround(ratio * 1000.0));
+    s_pat_sum_milli[quality] += milli;
+    s_pat_frames[quality]++;
+    if (milli > s_pat_worst_milli[quality]) {
+      s_pat_worst_milli[quality] = milli;
+    }
+    s_pat_px[quality] += ((rh > 0.0) ? pop_h : 0) + ((rv > 0.0) ? pop_v : 0);
+    double grain = 0.0, rough = 0.0;
+    if (grain_and_roughness(s_pat_buf.data(), w, h, &grain, &rough)) {
+      s_grain_sum[quality] += (uint64_t)std::max<int64_t>(0, std::llround(grain));
+      s_rough_sum[quality] += (uint64_t)std::max<int64_t>(0, std::llround(rough));
+    }
+  }
+
+  s_pat_readback_calls++;
+  s_pat_readback_us_total +=
+      (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - t0)
+          .count();
+}
+
+}  // namespace
+
+void AmbientOcclusionPass::set_measure_quality(int q) {
+  s_measure_quality = (q >= 0 && q <= 2) ? q : -1;
+}
+
+void AmbientOcclusionPass::request_pattern_census(bool on) {
+  s_pattern_census_request = on;
+}
+
+void AmbientOcclusionPass::publish_pattern_census() {
+  autoport_proof::publish("ao_pattern_ratio_q0_x1000",
+                          s_pat_frames[0] ? (s_pat_sum_milli[0] / s_pat_frames[0]) : 0);
+  autoport_proof::publish("ao_pattern_ratio_q1_x1000",
+                          s_pat_frames[1] ? (s_pat_sum_milli[1] / s_pat_frames[1]) : 0);
+  autoport_proof::publish("ao_pattern_ratio_q2_x1000",
+                          s_pat_frames[2] ? (s_pat_sum_milli[2] / s_pat_frames[2]) : 0);
+  autoport_proof::publish("ao_pattern_worst_q0_x1000", s_pat_worst_milli[0]);
+  autoport_proof::publish("ao_pattern_worst_q1_x1000", s_pat_worst_milli[1]);
+  autoport_proof::publish("ao_pattern_worst_q2_x1000", s_pat_worst_milli[2]);
+  // LE DENOMINATEUR : une moyenne sans son compte d'images ne se juge pas.
+  autoport_proof::publish("ao_pattern_frames_q0", s_pat_frames[0]);
+  autoport_proof::publish("ao_pattern_frames_q1", s_pat_frames[1]);
+  autoport_proof::publish("ao_pattern_frames_q2", s_pat_frames[2]);
+  autoport_proof::publish("ao_pattern_px_q0", s_pat_px[0]);
+  autoport_proof::publish("ao_pattern_px_q1", s_pat_px[1]);
+  autoport_proof::publish("ao_pattern_px_q2", s_pat_px[2]);
+  autoport_proof::publish("ao_grain_q0_x1000", s_pat_frames[0] ? (s_grain_sum[0] / s_pat_frames[0]) : 0);
+  autoport_proof::publish("ao_grain_q1_x1000", s_pat_frames[1] ? (s_grain_sum[1] / s_pat_frames[1]) : 0);
+  autoport_proof::publish("ao_grain_q2_x1000", s_pat_frames[2] ? (s_grain_sum[2] / s_pat_frames[2]) : 0);
+  autoport_proof::publish("ao_lag_rough_q0_x1000", s_pat_frames[0] ? (s_rough_sum[0] / s_pat_frames[0]) : 0);
+  autoport_proof::publish("ao_lag_rough_q1_x1000", s_pat_frames[1] ? (s_rough_sum[1] / s_pat_frames[1]) : 0);
+  autoport_proof::publish("ao_lag_rough_q2_x1000", s_pat_frames[2] ? (s_rough_sum[2] / s_pat_frames[2]) : 0);
+  autoport_proof::publish("ao_pattern_ceiling_x1000", kAoPatternCeilingX1000);
+  autoport_proof::publish("ao_pattern_unsupported", s_pat_unsupported);
+  // Le cout de l'INSTRUMENT (relecture seule), pas du rendu.
+  autoport_proof::publish("ao_pattern_readback_us_total", s_pat_readback_us_total);
+  autoport_proof::publish("ao_pattern_readback_calls", s_pat_readback_calls);
+}
+
 bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                     GLuint depth_tex,
                                     int depth_w,
@@ -371,6 +651,11 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   }
   if (quality > 2) {
     quality = 2;
+  }
+  // Sous mesure : le palier impose par la sonde, pour que les trois paliers soient juges dans
+  // la MEME course et sur la MEME scene. Hors mesure, s_measure_quality vaut -1 et ceci est mort.
+  if (s_measure_quality >= 0 && s_measure_quality <= 2) {
+    quality = s_measure_quality;
   }
   const int dbg = effective_debug();  // 2 = raw estimator debug (depth bands), sinon 0
 
@@ -675,5 +960,11 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                           ao_has_composite<AmbientOcclusionPass>::value ? 1 : 0);
   autoport_proof::publish("ao_legacy_witness_selftest",
                           ao_has_composite<AoLegacyWitnessControl>::value ? 1 : 0);
+  // Le recensement du motif, UNE image par armement : la sonde arme, `estimate` consomme.
+  if (produced && dbg != 2 && s_pattern_census_request) {
+    s_pattern_census_request = false;
+    pattern_census(quality, scale, m_ao_full_fbo, m_ao_full_w, m_ao_full_h);
+  }
+
   return produced;
 }

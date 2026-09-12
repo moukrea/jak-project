@@ -127,6 +127,11 @@ DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap)
 // GL state.
 DoubleDraw compute_double_draw(DrawMode mode);
 
+// lighting-ao-indirect : le `alpha_min` que `compute_double_draw` donnerait a ce mode, sans
+// construire un DoubleDraw. C'est le seuil que la passe principale applique a `color.a`
+// (tfrag3.frag:130, shrub.frag:84). 0 = ce draw ne jette rien, la prepasse n'a pas a le texturer.
+float prepass_alpha_min(const DrawMode& mode);
+
 // Gperf-particles: per-draw GL state cache for the tfrag-family loops. A local
 // cache lives at the top of each tree-render function (per-render reset). When
 // render_state->perf_state_cache is off, setup_tfrag_shader_cached is exactly

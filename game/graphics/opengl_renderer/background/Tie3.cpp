@@ -1156,10 +1156,16 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
   const bool env_cat = (category == tfrag3::TieCategory::NORMAL_ENVMAP);
   auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
   bool& ranges_built = env_cat ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built;
+  // lighting-ao-indirect : la prepasse de profondeur a besoin des MEMES draws, mais avec leur
+  // texture — une coalescence qui traverse une frontiere de texture efface l'identite dont
+  // l'alpha-test du feuillage depend. On construit donc les deux jeux dans la MEME boucle : la
+  // passe soleil garde ses plages fusionnees a fond, la prepasse les siennes.
+  auto& pre_ranges = env_cat ? tree.prepass_ranges_env : tree.prepass_ranges;
   if (ranges_built) {
     return;
   }
   ranges.clear();
+  pre_ranges.clear();
   for (size_t di = tree.category_draw_indices[cast_cat];
        di < tree.category_draw_indices[cast_cat + 1]; di++) {
     const auto& draw = (*tree.draws)[di];
@@ -1175,6 +1181,19 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
       ranges.back().second += count;  // coalesce adjacent draws
     } else {
       ranges.emplace_back(first, count);
+    }
+    const float am = prepass_alpha_min(draw.mode);
+    // tree_tex_id negatif = emplacement de texture animee : aucun nom GL stable, on le traite
+    // comme opaque plutot que de lier n'importe quoi.
+    if (am <= 0.f || draw.tree_tex_id < 0) {
+      if (!pre_ranges.empty() && pre_ranges.back().cut_aref <= 0.f &&
+          pre_ranges.back().first + pre_ranges.back().count == first) {
+        pre_ranges.back().count += count;
+      } else {
+        pre_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
+      }
+    } else {
+      pre_ranges.push_back(prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first, count});
     }
   }
   ranges_built = true;
@@ -1205,12 +1224,13 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
     ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP);
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-    for (const auto* ranges : {&tree.pbr_full_ranges, &tree.pbr_full_ranges_env}) {
+    for (const auto* ranges : {&tree.prepass_ranges, &tree.prepass_ranges_env}) {
       for (const auto& r : *ranges) {
-        lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-        glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
-                       (void*)((size_t)r.first * sizeof(u32)));
-        total += (uint64_t)r.second;
+        const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
+                                 ? m_textures->at(r.tex)
+                                 : 0;
+        total += prepass::draw_depth_range(
+            tree.draw_mode, prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count));
       }
     }
   }

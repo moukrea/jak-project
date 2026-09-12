@@ -66,9 +66,19 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
     }
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
-    lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-    glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
-    total += (uint64_t)tree.caster_index_count;
+    if (tree.caster_groups.empty()) {
+      // partition inconnue (buffer bati hors OG_FEAT_PBR) : un seul draw, sans texture.
+      total += prepass::draw_depth_range(
+          GL_TRIANGLES, prepass::make_depth_range(0, 0.f, 0, tree.caster_index_count));
+      continue;
+    }
+    // Un draw par groupe : le feuillage a decoupe doit passer son alpha-test ici, sinon l'AO
+    // voit un quad plein la ou l'image voit des brins (owner 2026-09-10, defaut b).
+    for (const auto& g : tree.caster_groups) {
+      const GLuint tex = (m_textures && g.tex_id < m_textures->size()) ? m_textures->at(g.tex_id) : 0;
+      total += prepass::draw_depth_range(GL_TRIANGLES,
+                                         prepass::make_depth_range(tex, g.alpha_min, g.first, g.count));
+    }
   }
   return total;
 }
@@ -423,35 +433,57 @@ void Shrub::update_load(const LevelData* loader_data) {
         float dz = vtx[i].z - vtx[j].z;
         return dx * dx + dy * dy + dz * dz;
       };
-      for (u32 idx : tree.indices) {
-        if (idx == UINT32_MAX) {
-          a = UINT32_MAX;
-          b = UINT32_MAX;
-          continue;
-        }
-        if (a != UINT32_MAX && b != UINT32_MAX) {
-          if (edge_sq(a, b) <= kMaxEdgeSq && edge_sq(b, idx) <= kMaxEdgeSq &&
-              edge_sq(a, idx) <= kMaxEdgeSq) {
-            caster.push_back(a);
-            caster.push_back(b);
-            caster.push_back(idx);
-          } else {
-            dropped++;
+      // lighting-ao-indirect : le MEME assainissement, mais DRAW PAR DRAW. Le buffer produit
+      // est identique (les tranches [first_index_index, +num_indices) pavent `indices` dans
+      // l'ordre) ; ce qu'on gagne, c'est la frontiere entre draws — donc la TEXTURE et le seuil
+      // d'alpha-test de chaque groupe, que la prepasse de profondeur doit rejouer pour ne pas
+      // occulter au travers des trous du feuillage. `a`/`b` repartent a vide a chaque draw :
+      // une bande ne traverse pas une frontiere de draw.
+      std::vector<Tree::CasterGroup> groups;
+      groups.reserve(tree.static_draws.size());
+      for (const auto& draw : tree.static_draws) {
+        const u32 first_out = (u32)caster.size();
+        a = UINT32_MAX;
+        b = UINT32_MAX;
+        for (u32 k = 0; k < draw.num_indices; k++) {
+          const u32 idx = tree.indices[draw.first_index_index + k];
+          if (idx == UINT32_MAX) {
+            a = UINT32_MAX;
+            b = UINT32_MAX;
+            continue;
           }
+          if (a != UINT32_MAX && b != UINT32_MAX) {
+            if (edge_sq(a, b) <= kMaxEdgeSq && edge_sq(b, idx) <= kMaxEdgeSq &&
+                edge_sq(a, idx) <= kMaxEdgeSq) {
+              caster.push_back(a);
+              caster.push_back(b);
+              caster.push_back(idx);
+            } else {
+              dropped++;
+            }
+          }
+          a = b;
+          b = idx;
         }
-        a = b;
-        b = idx;
+        const u32 count_out = (u32)caster.size() - first_out;
+        if (count_out > 0) {
+          groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode), first_out, count_out});
+        }
       }
       glGenBuffers(1, &m_trees[l_tree].caster_index_buffer);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].caster_index_buffer);
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, caster.size() * sizeof(u32), caster.data(),
                    GL_STATIC_DRAW);
       m_trees[l_tree].caster_index_count = (u32)caster.size();
+      m_trees[l_tree].caster_groups = std::move(groups);
       // restore the VAO's element binding to the stock stream for the main draws.
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].index_buffer);
       if (dropped > 0) {
-        lg::info("shrub caster sanitize: tree {} kept {} tris, dropped {} sliver tris (> {} m)",
-                 l_tree, caster.size() / 3, dropped, (int)kMaxEdgeMeters);
+        lg::info(
+            "shrub caster sanitize: tree {} kept {} tris, dropped {} sliver tris (> {} m), {} "
+            "groups",
+            l_tree, caster.size() / 3, dropped, (int)kMaxEdgeMeters,
+            m_trees[l_tree].caster_groups.size());
       }
     }
 #endif

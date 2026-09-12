@@ -200,6 +200,12 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     // ranges for the NORMAL_ENVMAP category so they don't clobber the NORMAL ranges above.
     std::vector<std::pair<u32, u32>> pbr_full_ranges_env;
     bool pbr_full_ranges_env_built = false;
+    // lighting-ao-indirect : les MEMES plages, mais SANS coalescence par-dessus une frontiere
+    // de texture — bâties dans la meme boucle que ci-dessus. La prepasse de profondeur doit
+    // rejouer l'alpha-test du feuillage a decoupe ; deux draws ne fusionnent que s'ils sont
+    // adjacents ET tous deux sans test. `tex` porte l'ID de texture du fr3, pas le nom GL.
+    std::vector<prepass::DepthRange> prepass_ranges;
+    std::vector<prepass::DepthRange> prepass_ranges_env;
 #endif
   };
 
