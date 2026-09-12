@@ -461,7 +461,13 @@ if world['nfiles'] == 0 or not world['shader_files'] or not world['declared'] or
 
 # LES TEMOINS DE CORPUS. Une porte VIVANTE doit y repondre : a zero, le corpus n'est pas lu et
 # « aucune occurrence » ne prouverait rien.
-CTL_UNIFORM = 'u_pbr_mode'          # uniforme bien vivant, declare et pousse
+# UN TEMOIN NE PEUT PAS ETRE UNE CHOSE QU'UN ITEM OUVERT DOIT SUPPRIMER
+# (census-audit-blind-spots, 2026-09-12). C'etait `u_pbr_mode`, que
+# `lib/census/lighting-legacy-purge.sh` liste parmi les 36 uniformes que cet item-la doit
+# SUPPRIMER : le jour de la purge, `census_corpus_control` serait tombe a 2/3 et la porte de CE
+# recensement serait devenue rouge pour toujours, sans que personne ne l'ait decide.
+# `u_rt_light_on` est declare par `shade.glsl`, qu'aucune liste de suppression ne vise.
+CTL_UNIFORM = 'u_rt_light_on'       # uniforme bien vivant, declare et pousse
 CTL_SHADER = 'tfrag3.frag'          # fichier de shader bien present
 CTL_ENUM = 'TFRAG3'                 # programme bien present dans ShaderId
 ctl = (1 if CTL_UNIFORM in world['declared'] else 0) \

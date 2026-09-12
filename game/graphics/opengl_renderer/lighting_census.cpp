@@ -115,8 +115,19 @@ const char* const kLegacyUniformNames[] = {
 };
 constexpr int kLegacyUniformCount = (int)(sizeof(kLegacyUniformNames) / sizeof(char*));
 
-// Les deux temoins. Ils appartiennent au chemin UNIQUE de la refonte et ne partent jamais.
-const char* const kLegacyControlNames[2] = {"u_pbr_mode", "u_rt_light_on"};
+// LE TEMOIN. Il appartient au chemin UNIQUE de la refonte et ne part jamais.
+//
+// IL N'Y EN A PLUS QU'UN (census-audit-blind-spots, 2026-09-12). La table portait aussi
+// `u_pbr_mode`, que `lib/census/lighting-legacy-purge.sh` liste parmi les 36 uniformes que CET
+// ITEM-LA doit SUPPRIMER : le jour ou la purge aboutit, le temoin serait tombe de moitie sans
+// que personne ne l'ait decide, et le zero de `lighting_legacy_uniform_sites` serait devenu moins
+// falsifiable. Un temoin de survie ne peut pas etre une chose qu'un item ouvert doit detruire.
+// `u_pbr_shadow_on` ne convient pas non plus : il est declare par `pbr_uniforms.glsl`, que la
+// meme liste veut voir QUITTER l'arbre. `u_rt_light_on` vit dans `shade.glsl`, qu'aucune liste ne
+// vise, et les quatre programmes du monde qui incluent `shade.glsl` le declarent — le compte
+// mesure a l'essai 8 (4 programmes sur 5 sondes) est donc inchange.
+const char* const kLegacyControlNames[] = {"u_rt_light_on"};
+constexpr int kLegacyControlCount = (int)(sizeof(kLegacyControlNames) / sizeof(char*));
 
 // Un bit par nom de `kLegacyUniformNames`, cumule sur toute la course : un nom trouve une seule
 // fois, sur un seul programme, suffit a dire que l'ancien monde est encore la. Le PIRE cas est
@@ -141,7 +152,7 @@ void legacy_probe_program(unsigned prog) {
       s_legacy_uniform_mask.fetch_or(1u << i, std::memory_order_relaxed);
     }
   }
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < kLegacyControlCount; i++) {
     if (glGetUniformLocation(prog, kLegacyControlNames[i]) >= 0) {
       s_legacy_uniform_control.fetch_add(1, std::memory_order_relaxed);
       break;

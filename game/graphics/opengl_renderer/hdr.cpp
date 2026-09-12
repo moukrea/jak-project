@@ -302,6 +302,17 @@ int verdict_sites_three_configs() {
 // une entree qui ne peut plus correspondre gonfle le denominateur d'un recensement sans jamais
 // pouvoir en changer le numerateur. `RT_KNEE` reste : `pbr_fused.glsl` est toujours compile, et
 // c'est la remise en place de son epaule que cette table surveille.
+//
+// CETTE TABLE EST UNE TABLE DE SURVEILLANCE, ET ELLE LE DIT (census-audit-blind-spots,
+// 2026-09-12). `RT_KNEE` n'a plus AUCUNE occurrence dans le CODE des shaders — une seule, dans le
+// commentaire ci-dessus, qui explique son deplacement. `tonemap_sites_shader` ne peut donc monter
+// que si quelqu'un REMET l'identifiant : ce zero dit « aucun des noms SURVEILLES n'apparait », il
+// ne dit PAS « aucun shader ne compresse », et un relecteur lisait la seconde phrase.
+// Le marqueur ci-dessous est lu par `lib/census/blind_spots.py` : une table dont les jetons
+// SURVEILLES sont plus nombreux que les jetons OBSERVES dans le code et qui ne se declare pas est
+// comptee comme un defaut. Les deux grandeurs sortent separement, par table, a chaque preuve
+// (`blind_table_kCompressionTokens_watched` / `_observed`).
+//   AUTOPORT_WATCH_TABLE(kCompressionTokens)
 const char* kCompressionTokens[] = {
     "RT_KNEE",  // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
 };
