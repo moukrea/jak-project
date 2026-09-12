@@ -2703,7 +2703,14 @@ def launch_item(bk, item: dict) -> dict:
     GATE 1 exige le code comme avant.
     """
     iid = item["id"]
-    logs_root = os.path.join(os.path.dirname(os.path.abspath(bk.path)), "logs")
+    # LE PRONONCÉ NE PEUT PAS TUER UN LANCEMENT. Il est confortable, pas décisif : GATE 1 lit
+    # le périmètre par la MÊME autorité, donc un drapeau qu'on n'a pas pu poser ne brûle plus
+    # rien. Un backlog réduit — un bouchon de test, une implémentation partielle — n'a ni
+    # `path` ni champs libres : il obtient son `in-progress`, et rien d'autre ne casse.
+    try:
+        logs_root = os.path.join(os.path.dirname(os.path.abspath(bk.path)), "logs")
+    except (AttributeError, TypeError):
+        logs_root = str(LOG_ROOT)
     sans_code, pourquoi = gate_verdict.code_free_item(item)
     pose = bool(sans_code) and not item.get("no_code", False)
     journal = gate_verdict.note_launch(logs_root, iid, pose, pourquoi) if sans_code else ""
@@ -2711,7 +2718,11 @@ def launch_item(bk, item: dict) -> dict:
         log(f"· {iid} : son périmètre interdit le code du jeu ({pourquoi}) — `no_code: true` "
             f"posé AU LANCEMENT. Sans ça, la porte de fermeture aurait refusé cet essai sur "
             f"ce seul drapeau, porte machine tenue ou non.", "yellow")
-    bk.set_status(iid, "in-progress", **({"no_code": True} if pose else {}))
+    try:
+        bk.set_status(iid, "in-progress", **({"no_code": True} if pose else {}))
+    except TypeError:
+        bk.set_status(iid, "in-progress")
+        pose = False
     if pose:
         # `bk.items` a été remplacé par la relecture du disque : l'objet que `run_attempt` et
         # la porte de fermeture reçoivent est celui-ci, on le met d'accord avec le fichier.

@@ -129,6 +129,19 @@ def _backlog(tmp_path, items):
     return p
 
 
+def _verdict(tmp_path, iid, tenue, seq=1):
+    """Le journal que `validators/generic.sh` ECRIT, a l'octet pres.
+
+    2026-09-12 (harness-close-gate-code-free) : la promotion machine relit ce verdict. Sans
+    journal, un `to-test` en `owner_test: false` RESTE — inconnu = defaut.
+    """
+    d = tmp_path / "logs" / iid
+    d.mkdir(parents=True, exist_ok=True)
+    texte = ("[%s ok] source=x86 sha=deadbeefdeadbeef frames=900 crash=0\n" % iid if tenue
+             else "[%s FAIL] frames=12 sous le seuil 300\n" % iid)
+    (d / ("validator-%03d.txt" % seq)).write_text(texte)
+
+
 @pytest.fixture()
 def B():
     sys.path.insert(0, str(AP / "lib"))
@@ -145,6 +158,8 @@ def test_un_owner_test_false_parque_est_libere_ET_ECRIT_SUR_LE_DISQUE(B, tmp_pat
         {"id": "aux-yeux", "status": "to-test", "owner_test": True},
         {"id": "defaut-implicite", "status": "to-test"},
     ])
+    for iid in ("machine", "aux-yeux", "defaut-implicite"):
+        _verdict(tmp_path, iid, True)
     b = B.load(p)
     assert b.machine_proved_to_validated() == ["machine"]
     relu = yaml.safe_load(p.read_text())["items"]
@@ -157,9 +172,37 @@ def test_un_owner_test_false_parque_est_libere_ET_ECRIT_SUR_LE_DISQUE(B, tmp_pat
 
 def test_le_rattrapage_est_idempotent(B, tmp_path):
     p = _backlog(tmp_path, [{"id": "machine", "status": "to-test", "owner_test": False}])
+    _verdict(tmp_path, "machine", True)
     b = B.load(p)
     b.machine_proved_to_validated()
     assert B.load(p).machine_proved_to_validated() == []
+
+
+def test_un_to_test_dont_la_porte_n_a_pas_tenu_n_est_PAS_promu(B, tmp_path):
+    """2026-09-12 — LA GARDE MANQUANTE. `machine_proved_to_validated` ne verifiait que
+    `owner_test: false` : elle croyait la porte sur parole. Un `to-test` pose a la main serait
+    valide sans qu'aucune preuve n'ait tenu. Trois semis, un seul doit sortir."""
+    p = _backlog(tmp_path, [
+        {"id": "tenue", "status": "to-test", "owner_test": False},
+        {"id": "refusee", "status": "to-test", "owner_test": False},
+        {"id": "sans-journal", "status": "to-test", "owner_test": False},
+        {"id": "regressee", "status": "to-test", "owner_test": False},
+    ])
+    _verdict(tmp_path, "tenue", False, seq=1)
+    _verdict(tmp_path, "tenue", True, seq=2)          # le DERNIER verdict compte
+    _verdict(tmp_path, "refusee", False)
+    _verdict(tmp_path, "regressee", True, seq=1)
+    _verdict(tmp_path, "regressee", False, seq=2)     # ... dans les deux sens
+    b = B.load(p)
+    assert b.machine_proved_to_validated() == ["tenue"]
+    etats = {it["id"]: it["status"] for it in yaml.safe_load(p.read_text())["items"]}
+    assert etats["tenue"] == "validated"
+    assert etats["refusee"] == "to-test"
+    assert etats["sans-journal"] == "to-test"
+    assert etats["regressee"] == "to-test"
+    # CE QUI EST REFUSE EST NOMME : un parque qu'aucun chemin ne sortira doit se dire.
+    assert sorted(i for i, _r, _j in b.machine_promotion_refused) == \
+        ["refusee", "regressee", "sans-journal"]
 
 
 def test_parked_for_owner_publie_le_owner_test_de_chaque_parque(B, tmp_path):
