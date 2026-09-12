@@ -23,41 +23,33 @@
 #include "shaders_android_blob.h"
 #endif
 
-// lighting-legacy-purge (2026-09-11) : `gl_context_supports_tessellation`,
-// `gl_tfrag3_tess_program_ok` et `gl_max_tess_gen_level` sont SUPPRIMES avec le programme
-// TFRAG3_TESS, leur unique client.
+// lighting-legacy-purge (2026-09-11) : les trois indicateurs de capacite de TESSELLATION
+// sont SUPPRIMES avec le programme tesselle, leur unique client.
 
 // ===========================================================================================
-// Grecharged-pbr-realtime-fusion ROUND 22 — SHADER `#include` (shared GLSL chunks).
+// SHADER `#include` (shared GLSL chunks).
 //
-// Owner defect A ("la plupart des endroits n'ont toujours pas de displacement du tout") was
-// STRUCTURAL: only tfrag3 carried the fused rt+pbr path, so TIE-envmap (etie_base), wind-animated
-// TIE (tie_wind) and every shrub was incapable of showing relief at ANY slider value. Porting that
-// ~1000-line path by copy-paste into three more shaders would guarantee permanent divergence — and
-// the owner's mandate is that both displacement tiers show the same depth BY CONSTRUCTION. So the
-// path lives ONCE, in shaders/pbr_uniforms.glsl + pbr_helpers.glsl + pbr_fused.glsl, and every
-// consumer pulls it in with a `#include "<name>.glsl"` line.
+// Un chemin d'ombrage partage par plusieurs programmes vit UNE seule fois, dans un fichier
+// `.glsl` de `shaders/`, et chaque consommateur le tire par une ligne `#include "<nom>.glsl"`.
+// Le recopier dans chaque shader garantirait une divergence permanente.
 //
 // The chunks are NOT standalone shaders (no `#version`). On Android they ride the generated GLES
 // blob as a second array (gk_android_shaders::kChunks, see shaders/preprocess.py); on desktop they
 // are read from the shader folder. ONE expander serves both, and it runs BEFORE subst_tokens and
-// BEFORE inject_pbr_define so the template tokens and the OG_PBR define apply to the expanded text
-// exactly as they did when the code was inline.
+// BEFORE the OG_PBR define is injected, so the template tokens and that define apply to the
+// expanded text exactly as they did when the code was inline.
 //
-// A chunk's text is emitted VERBATIM — that is what makes the extraction provably a no-op for
-// tfrag3.frag (.autoport/gpbrf_r22_include_expand.py re-expands it and diffs against the
-// pre-extraction file; the diff is empty). For the same reason a chunk carries no doc header of
-// its own: the "names that must be in scope" contract is documented at each consumer's adapter
-// preamble (grep "PBR FUSED CHUNK CONTRACT").
+// A chunk's text is emitted VERBATIM — that is what makes an extraction provably a no-op for the
+// consumer. For the same reason a chunk carries no doc header of its own: the "names that must be
+// in scope" contract is documented at each consumer's adapter preamble.
 // ===========================================================================================
 namespace {
 constexpr int kMaxIncludeDepth = 4;
 
 // lighting-legacy-purge (2026-09-11) : la TABLE DES CHUNKS COMPAGNONS est VIDE. Elle ne portait
-// que les trois fichiers de la pile « Materiaux avances » (pbr_modern_uniforms.glsl,
-// pbr_modern_helpers.glsl, pbr_modern.glsl), supprimes avec elle : un compagnon qui nomme un
-// fichier ABSENT fait echouer la construction du shader a l'execution, sans erreur de compilation.
-// La structure et la boucle de raccordement restent — c'est le mecanisme, pas la pile.
+// que les fichiers de la pile « Materiaux avances », supprimes avec elle : un compagnon qui nomme
+// un fichier ABSENT fait echouer la construction du shader a l'execution, sans erreur de
+// compilation. La structure et la boucle de raccordement restent — c'est le mecanisme, pas la pile.
 struct ChunkCompanion {
   const char* base;
   const char* extension;
@@ -66,7 +58,7 @@ constexpr ChunkCompanion kChunkCompanions[] = {
     {nullptr, nullptr},  // sentinelle : un tableau de longueur nulle n'est pas du C++ valide
 };
 
-// Resolve one chunk by file name (e.g. "pbr_fused.glsl"). Returns false when it does not exist.
+// Resolve one chunk by file name (e.g. "shade.glsl"). Returns false when it does not exist.
 bool find_shader_chunk(const std::string& name, std::string* out) {
 #ifdef __ANDROID__
   for (const auto& c : gk_android_shaders::kChunks) {
@@ -89,7 +81,7 @@ bool find_shader_chunk(const std::string& name, std::string* out) {
 // Replace every line of the form   [whitespace] #include "NAME.glsl" [whitespace]
 // with that chunk's text, recursively (max kMaxIncludeDepth). A MISSING chunk is NEVER silent:
 // it logs an error and the source is returned UNCHANGED, so the raw `#include` directive reaches
-// the GLSL compiler and the stage fails loudly instead of quietly losing the PBR path.
+// the GLSL compiler and the stage fails loudly instead of quietly losing the shading path.
 std::string expand_includes(const std::string& src, int depth = 0) {
   if (src.find("#include") == std::string::npos) {
     return src;
@@ -150,7 +142,7 @@ std::string expand_includes(const std::string& src, int depth = 0) {
       lg::error(
           "[recharged] SHADER INCLUDE: chunk '{}' NOT FOUND (desktop: {}{}; android: not in the "
           "GLES blob's kChunks). The shader source is left UNCHANGED so this fails loudly at "
-          "compile time instead of silently dropping the PBR path.",
+          "compile time instead of silently dropping the shading path.",
           name, Shader::shader_folder, name);
       missing = true;
       out += line;
@@ -162,7 +154,7 @@ std::string expand_includes(const std::string& src, int depth = 0) {
     // injection point, so it lands in the same scope with the same locals visible. It is how the
     // MODERN MATERIAL STACK (subsurface scattering, clearcoat, anisotropy, energy compensation,
     // specular/horizon occlusion) is added to all four world programs WITHOUT editing one byte of
-    // pbr_uniforms / pbr_helpers / pbr_fused / tfrag3.frag / tfrag3_tess.*.
+    // the base chunks they extend.
     //
     // WHY NOT JUST EDIT THOSE FILES: they carry the look the owner ACCEPTED. Round 27 of the
     // fusion phase edited them, the owner's verdict was "beaucoup, beaucoup moins bien qu'avant",

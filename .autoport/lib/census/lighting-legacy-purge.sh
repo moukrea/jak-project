@@ -211,9 +211,21 @@ pub lighting_legacy_build_refs "$BUILD_REFS"
 # qu'on les lit. Seules des chaines DISTINCTIVES sont cherchees : « Displacement », « Low »,
 # « Stock » vivent ailleurs dans le jeu et rendraient un faux rouge.
 TXT_BANK="out/jak1/iso/0COMMON.TXT"
+# essai 9 : LES LIBELLES D'OPTION ET DE RANGEE, PAS SEULEMENT LES RANGEES. Sept chaines
+# supplementaires, mesurees le 2026-09-12 : les quatre libelles de rangee #x17cc..#x17cf (MODELE
+# D'AMBIANCE, FORCE DE L'AMBIANCE, DISTANCE DES OMBRES, QUALITE DES OMBRES) et les trois libelles
+# d'OPTION du carrousel PBR ISOLATE #x1725..#x1727 vivaient encore dans les 23 bancs de texte
+# livres, sans plus aucun `scl10n-add-label!` ni aucun lecteur GOAL. C'est la classe de defaut que
+# l'owner a deja refusee : la rangee part, son libelle reste dans le CGO.
+# Les libelles d'option d'AMBIENT MODEL ("Hemisphere", "SH", "IBL") et ceux de PBR ISOLATE
+# ("Both", "Neither") NE SONT PAS dans cette liste : ce sont des mots courts qui peuvent apparaitre
+# legitimement dans une autre chaine du banc, et une porte inatteignable ne vaut rien. Ils sont
+# retires du code au meme titre ; leur absence se lit dans le diff de `text-h.gc`.
 TXT_STRINGS=(
   "PBR Materials" "Texture Relief" "Specular Intensity" "Mesh Subdivision"
   "Advanced Materials" "Physical material lighting" "isolate normal/parallax"
+  "Ambient Model" "Ambient Strength" "Shadow Distance" "Shadow Quality"
+  "Normal-Map Only" "Parallax Only"
 )
 if [ -f "$TXT_BANK" ]; then
   ARTIFACTS=$((ARTIFACTS + 1))
@@ -264,9 +276,22 @@ fi
 # course n'a pas publie sa part : la porte doit etre ROUGE, jamais verte par silence.
 ENG=""
 if [ -n "$ENG_SNAP" ]; then
-  # On lit l'INSTANTANE pris avant la premiere ecriture, jamais le journal vivant.
-  # `ENG_LINES` publie le denominateur : zero ligne du moteur est un SILENCE, pas un zero.
-  ENG_RAW=$(grep -ahE '^lighting_legacy_sites=[0-9]+$' "$ENG_SNAP" 2>/dev/null | tr -d '\r')
+  # LA NORMALISATION DU PREFIXE, ET POURQUOI ELLE EST LA. Rien n'arrive nu : sur x86 le journal
+  # prefixe chaque ligne du temps ecoule (`    4.423 ...`), sur l'APPAREIL `logcat -v time`
+  # prefixe la date, le niveau, le tag et le pid (`09-12 17:41:02.123 I/GK_STDOUT( 1234): ...`).
+  # Ancre sur `^` sans les enlever, le motif ne trouvait RIEN sur appareil : mesure du 12/09,
+  # course device de 17:41 — le moteur avait publie ses huit cles, et ce script a conclu « valeur
+  # moteur absente » puis `lighting_legacy_sites=9001`. Le zero du moteur etait la, personne ne
+  # le lisait. La definition est RECOPIEE de `norm()` de `lib/proof_run.sh` et non appelee : ce
+  # script tourne dans son propre shell, et une fonction qu'on croit heritee rend la tranche
+  # muette au lieu de rouge.
+  # L'ancrage sur `^` et `$` RESTE apres normalisation : un motif flottant pourrait prendre une
+  # cle plus longue qui finit par le meme nom.
+  ENG_RAW=$(sed -E 's/\r$//
+                    s/^[0-9]{2}-[0-9]{2} [0-9:.]+ +[A-Z]\/[^(]*\( *[0-9]+\): *//
+                    s/^[[:space:]]*[0-9]+\.[0-9]+[[:space:]]+//
+                    s/^\[[0-9:]+\] *//' "$ENG_SNAP" 2>/dev/null |
+            grep -ahE '^lighting_legacy_sites=[0-9]+$')
   ENG_LINES=$(printf '%s' "$ENG_RAW" | grep -c . )
   ENG=$(printf '%s\n' "$ENG_RAW" | tail -1 | sed 's/^lighting_legacy_sites=//')
   pub lighting_legacy_engine_lines "${ENG_LINES:-0}"

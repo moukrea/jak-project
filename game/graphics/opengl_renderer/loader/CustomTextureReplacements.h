@@ -8,8 +8,7 @@
 //      Gfx::g_global_settings.load_custom_assets, and
 //   2. the package-BUNDLED first-party set under
 //      custom_assets/<game>/recharged_textures (get_bundled_recharged_textures_dir):
-//      base swaps gated by Gfx::g_global_settings.recharged_textures, the bundle's
-//      _height/_normal/_roughness PBR maps gated by the PBR path instead.
+//      base swaps gated by Gfx::g_global_settings.recharged_textures.
 // Precedence is user > bundled > stock, and every gate is composed with the Recharged
 // master via Gfx::recharged_active().
 
@@ -81,271 +80,26 @@ std::string font_atlas_section();
 // Grecharged / Gshield-load-and-crash : niveau PRE-CUIT (baked). Les memes images
 // que le niveau PNG, mais deja compressees GPU (ASTC) et deja mipmappees hors ligne.
 // Aucun stbi_load, aucun glGenerateMipmap, aucune passe de mesure CPU : les
-// statistiques PBR viennent du sidecar produit par la cuisson.
+// statistiques viennent du sidecar produit par la cuisson.
 //
-// Measured cause this tier exists for (SHIELD, 2026-08-26): one `add_texture` on a PBR
+// Measured cause this tier exists for (SHIELD, 2026-08-26): one `add_texture` on a heavy
 // material costs `stage texture took 1799 ms` on the PNG path — a 2048x2048 stbi_load per
-// map (151-330 ms), each map decoded TWICE (probe pass + re-fetch), then glGenerateMipmap
+// image (151-330 ms), each decoded TWICE (probe pass + re-fetch), then glGenerateMipmap
 // (68-235 ms). The already-proven KTX2 path serves the same material in 87 ms.
 //
 // Source ranking is UNCHANGED apart from the new rung:
 //   user PNG > managed KTX2 > BAKED KTX2 > bundled PNG > stock.
 // The baked tier replaces the BUNDLED PNG tier and therefore carries the bundled tier's
-// gates: the base swap follows `recharged_textures`, the companion maps follow the master
-// (exactly like lookup()/resolve_suffixed()). It is INERT unless the GPU's PREFERRED PROFILE is
+// gates: the base swap follows `recharged_textures`
+// (exactly like lookup()). It is INERT unless the GPU's PREFERRED PROFILE is
 // the ASTC one — not merely unless the GPU can read ASTC, which a desktop GL 4.6 driver also
 // advertises (measured 2026-08-26: 28 `custom texture BAKED` lines in an x86 run, against what
 // this comment used to claim). With the profile gate the desktop path is what it was.
 std::optional<managed_assets::CompressedTex> lookup_baked_base(const std::string& tpage_name,
                                                                const std::string& tex_name);
-// `map_kind` is the managed-pack spelling ("normal", "roughness", "height", ...); the file on
-// disk carries it as a suffix ("<material>_normal.ktx2"). SAME-SOURCE rule: only call this when
-// the BASE came from the baked tier.
-std::optional<managed_assets::CompressedTex> lookup_baked_map(const std::string& tpage_name,
-                                                              const std::string& tex_name,
-                                                              const char* map_kind);
 // At least one baked material indexed AND a GPU that reads ASTC.
 bool baked_available();
 
-#ifdef OG_FEAT_PBR
-// Grecharged-pbr-materials: look up a replacement PNG whose NAME part carries a
-// suffix (e.g. "_normal"), reusing the same index/scan as lookup(). The returned
-// pointer is backed by a per-call thread-local buffer; it is valid only until the
-// next lookup_suffixed() call on this thread (add_texture consumes it immediately).
-const ReplacementImage* lookup_suffixed(const std::string& tpage_name,
-                                        const std::string& tex_name,
-                                        const char* suffix,
-                                        BaseSource base_src);
-
-// Existence-only probe for a suffixed map. Same key construction, same source gating and
-// same-source pairing rule as lookup_suffixed(), but it stops at the index: no file read, no
-// PNG decode. Used by the pre-subdivision pass to bound itself to surfaces that actually have
-// a displacement source.
-bool has_suffixed(const std::string& tpage_name,
-                  const std::string& tex_name,
-                  const char* suffix,
-                  BaseSource base_src);
-
-// Grecharged-pbr-materials: registry mapping a texture debug-name to its extra
-// PBR material GL textures. GL ids, 0 = absent.
-struct PbrMaterialMaps {
-  u32 normal_tex = 0;
-  u32 rough_tex = 0;
-  u32 metal_tex = 0;
-  u32 ao_tex = 0;
-  u32 height_tex = 0;  // <tex>_height.png — drives parallax occlusion mapping
-  // Grecharged-pbr-realtime-fusion (owner: "faut câbler specular et emissive aussi"):
-  u32 specular_tex = 0;  // <tex>_specular.png — F0 / specular color (specular workflow)
-  u32 emissive_tex = 0;  // <tex>_emissive.png — unlit self-illumination, added on top
-  // MEAN tangent-space surface gradient (n.xy / n.z, per-texel clamp +-4) of <tex>_normal.png,
-  // measured over every texel when the map is decoded. Non-zero means the map carries a constant
-  // TILT rather than pure relief; the shader subtracts it so the perturbation is zero-mean (see
-  // tfrag3.frag u_pbr_normal_dc — a non-zero DC was the owner's hard brightness-plate defect).
-  float normal_dc_x = 0.f;
-  float normal_dc_y = 0.f;
-  // HEIGHT-MAP STATISTICS of <tex>_height.png's red channel, measured over every texel when the
-  // map is decoded. The shipped height maps are NEITHER normalised NOR mean-centred: measured on
-  // the 7 bundled maps, vil1-jng-leafyground spans 0.0627..0.4627 (mean 0.3225), vil-wallplaster
-  // means 0.8068, vil1-sages-strawroof-01 spans only 0.298..0.478. So the naive (h - 0.5) both
-  // OFFSETS the whole material (net-inward for a dark map, net-outward for a bright one) and
-  // wastes most of the nominal amplitude (only 18-75% of it is ever used). These two numbers let
-  // the shader recentre and rescale per material: (h - height_mean) * height_norm + 0.5 refills
-  // 0..1 around the material's own mid. The defaults (0.5, 1.0) are the IDENTITY transform.
-  float height_mean = 0.5f;  // mean of <tex>_height.png's red channel, 0..1
-  float height_norm = 1.0f;  // 0.5 / robust half-range; (h-mean)*norm+0.5 refills 0..1
-  // ROUND 20: characteristic feature WAVELENGTH of the height field, in TILES (1 tile = the whole
-  // texture). Measured at load from the map's own mip-energy spectrum. x the material's world tile
-  // size = the feature's world size, which is what the tessellation amplitude is scaled by.
-  float height_lambda_tiles = 0.25f;
-
-  // lighting-legacy-purge (2026-09-11) : la pile « Materiaux avances » (epaisseur sous-surfacique,
-  // diffusion, vernis, anisotropie et leurs bits de capacite) est SUPPRIMEE. Sa rangee de menu
-  // livrait OFF : `mm_flags` valait 0 sur chaque matiere et le chunk du shader sortait avant
-  // d'ecrire un pixel. `orm_packed` survit seul, parce qu'il decrit les CARTES du chemin PBR.
-  // VRAI quand l'occlusion/rugosite/metallicite de cette matiere ont ete depaquetees d'un seul
-  // _orm.png. Derive des TEXTURES, donc recalculable a partir d'elles.
-  bool orm_packed = false;
-
-  // ===== Gpbr-per-texture-materials — LES BOUTONS DE MATIERE DU CHEMIN PBR LUI-MEME ==============
-  // Relief, rugosite, metallicite, reflectance et le signe du canal vert de la normal
-  // map sont les parametres du chemin PBR, qui est actif par defaut. Les mettre derriere une ligne
-  // eteinte par defaut rendrait tout preset INERTE — le defaut « unite feature-gatee ».
-  // CHAQUE DEFAUT CI-DESSOUS EST L'IDENTITE : un materiau sans enregistrement dans surfaces.json
-  // rend exactement ce qu'il rendait avant cette phase (les multiplicateurs valent 1, et les
-  // valeurs absolues reproduisent au bit pres les constantes que le shader portait en dur).
-  float pm_relief = 1.f;          // multiplie la force de la normal map (globale x celui-ci)
-  float pm_relief_depth = 1.f;    // multiplie la profondeur parallaxe/displacement
-  float pm_relief_lambda = 0.f;   // > 0 remplace la longueur d'onde MESUREE height_lambda_tiles
-  float pm_spec = 1.f;            // multiplie l'intensite speculaire
-  float pm_rough_nomap = 0.9f;    // rugosite quand AUCUNE _roughness n'est liee (constante shader)
-  float pm_rough_scale = 1.f;     // multiplie la _roughness liee
-  float pm_metal_nomap = 0.f;     // metallicite quand AUCUNE _metallic n'est liee
-  float pm_metal_scale = 1.f;     // multiplie la _metallic liee
-  float pm_reflectance = 0.04f;   // F0 dielectrique (la constante 0.04 du shader)
-  float pm_normal_y = 1.f;        // +1 = normal maps vert-en-haut (OpenGL), -1 = vert-en-bas (DX)
-  bool pm_authored = false;       // un enregistrement de surfaces.json a nomme ce materiau
-
-  // Grecharged-managed-assets: the normal map came from a GPU-compressed pack and stores only
-  // X/Y (BC5 / EAC RG11 / ASTC two-channel). Sets u_pbr_mode bit 128 so the shader rebuilds Z.
-  // PNG-sourced maps are 3-channel and leave this false.
-  bool normal_is_rg = false;
-};
-
-// ===== Gpbr-material-props — surfaces.json =========================================================
-// Per-material AUTHORED parameters. The table is authored in the ASSET repository and published as
-// a release extra, so the GAME repo (and therefore the APK) carries none of it. Two sources, first
-// hit wins: <external recharged assets dir>/surfaces.json (the owner's kilobyte-push override) then
-// managed_assets/<game>/surfaces.json (what the asset manager installed). Shape:
-//
-//     { "schema_version": 1, "game": "jak1",
-//       "families": { ... },            // authoring/tooling only, the engine ignores it
-//       "defaults": { ... },            // optional, same shape as a material record
-//       "materials": {
-//         "village1-vis-tfrag/vil-beach-01": {
-//            "family": "sand", "relief_depth": 0.8, "roughness": 0.95, ... } } }
-//
-// Keys are the engine replacement key "<tpage>/<name>". EVERY property key is optional and an
-// absent one leaves the field at its struct default, which is the identity — so an empty record and
-// no record at all behave the same. `defaults` applies to every material that carries PBR maps and
-// is not named. A schema_version other than 1 loads NOTHING; unknown keys are reported and skipped.
-//
-// mm_params_reload() re-reads the file and bumps the generation counter; it is called at first use
-// and whenever the MODERN MATERIALS menu row is toggled (kmachine's pc_set_modern_materials).
-// Materials already registered are re-stamped in place, so a toggle applies edits without a level
-// reload.
-// ASK for a re-read. Callable from ANY thread (kmachine's pc_set_modern_materials runs on the GOAL
-// kernel thread when the menu row is toggled) because all it does is set an atomic flag. The actual
-// re-read — which mutates the material registry the renderers walk — is serviced on the GL thread by
-// mm_service_reload(). Doing the parse where the request comes from would race a level load:
-// register_pbr_material() is a GL-thread writer into the same map.
-void mm_request_params_reload();
-// GL THREAD ONLY. Performs a pending re-read, if one was requested. Called once per frame from
-// PbrDrawBinder::begin(), which is already the GL-thread entry point for everything PBR.
-void mm_service_reload();
-// GL THREAD ONLY. Re-read surfaces.json and re-stamp every registered material now.
-void mm_params_reload();
-// lighting-legacy-purge (2026-09-11) : `mm_master_active` et `mm_apply_params` sont SUPPRIMES avec
-// la pile moderne. `mm_params_reload` / `mm_service_reload` restent : ils lisent surfaces.json pour
-// la MOITIE PBR (`pbrmat_apply_params`), qui n'a jamais ete derriere cette rangee.
-// Gpbr-per-texture-materials. Stamp the PBR-path material knobs (pm_* above) from the SAME
-// surfaces.json records. Called from the same two sites as mm_apply_params — but with NO gate: the
-// PBR path is on by default, so gating these on the MODERN MATERIALS menu row would make every
-// preset inert. Parses the file on first use if nobody has yet. A material the file does not name
-// keeps the pm_* defaults, which ARE the pre-phase behaviour.
-void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
-
-// ===== Gpbr-props-reach-draw ====================================================================
-// VRAI quand surfaces.json NOMME ce materiau exactement, ou via l'index de noms nus uniques
-// (surf_resolve_key). Le bloc optionnel `defaults` est DELIBEREMENT ignore ici : `defaults` est un
-// repli pour des matieres qui portent deja des cartes, et le laisser repondre VRAI ferait de CHAQUE
-// texture du jeu une matiere authoree — des milliers d'entrees vides inscrites au registre.
-bool pbrmat_has_record(const std::string& tex_debug_name);
-
-// ===== Gpbr-props-reach-draw — LE RECENSEMENT « LA PROPRIETE ATTEINT-ELLE UN DRAW » ==============
-// Owner 2026-08-31 : « ça applique le PBR uniquement aux 7 textures PBR qui étaient dans le projet
-// depuis un bail et ça ignore les autres ». Le defaut est INVISIBLE par construction : chaque defaut
-// de la table EST l'identite, donc une matiere dont les proprietes ne sont jamais deposees rend
-// exactement ce que rend une matiere correctement authoree par defaut. Il n'existe aucun message
-// « aucune correspondance » a chercher. La seule reponse est de publier la resolution de CHAQUE
-// matiere rencontree, absences comprises.
-//
-// TROIS temps, et ils sont separes exprès :
-//   note_seen()   : appele AVANT la sortie anticipee du binder, des que le registre a rendu une
-//                   entree pour la texture de ce draw. Une matiere resolue puis ignoree est donc
-//                   comptee comme RENCONTREE avec params_deposes = 0 — la forme exacte du defaut.
-//   note_pushed() : appele APRES glUniform, et il ne stocke PAS ce qu'on a voulu ecrire : il stocke
-//                   ce que `glGetUniformfv` RELIT DANS L'OBJET PROGRAMME. Une valeur relue du
-//                   programme que le draw suivant utilise n'est pas une variable a nous.
-//   note_draw()   : un bind portant une matiere poussee, immediatement avant que l'appelant emette
-//                   son draw. COMPTE CPU : il ne prouve pas qu'un fragment a tourne, et la ligne
-//                   NOTE de la section le dit.
-// `needs_probe()` borne le cout : `glGetUniformfv` est une requete SYNCHRONE qui draine le pipeline
-// du pilote (cf. le commentaire glGetFloatv de LoaderStages.cpp:270 — 8 blocages de 1,2 a 2,1 s
-// quand il tournait par texture). Il ne tourne donc qu'UNE FOIS par materiau, jamais par draw.
-bool pbr_reach_needs_probe(const std::string& key);
-void pbr_reach_note_seen(const std::string& key, const PbrMaterialMaps& maps);
-void pbr_reach_note_pushed(const std::string& key,
-                           const float* mat_readback,   // 4 floats relus de u_pbr_mat, ou nullptr
-                           const float* mat2_readback,  // 2 floats relus de u_pbr_mat2, ou nullptr
-                           int mode);
-void pbr_reach_note_draw();
-// Avance quand une matiere NOUVELLE apparait ou qu'une matiere passe a « poussee », pour que
-// l'ecrivain de diag re-emette le fichier. Jamais par draw.
-u32 pbr_reach_generation();
-// Les lignes PBRREACH / PBRVAL. Vide tant qu'aucune matiere n'a ete rencontree.
-std::string pbr_reach_section();
-// lighting-legacy-purge (2026-09-11) : les compteurs de la pile moderne (`mm_note_active_draw`,
-// `mm_note_bind`) et sa section de diagnostic sont SUPPRIMES avec elle.
-
-// Registry key for a texture's PBR maps. Keyed on "<tpage>/<name>", NOT the
-// bare debug name: two textures can share a name across tpages (the base
-// lookup has always used the full key), and a bare-name registry let the
-// second registration delete the first material's maps out from under it.
-inline std::string pbr_material_key(const std::string& tpage_name, const std::string& tex_name) {
-  return tpage_name + "/" + tex_name;
-}
-
-// Register (overwrite) the PBR maps for a texture. Returns the PREVIOUS entry by
-// value (all-zero if none) so the caller can glDeleteTextures the old GL ids on a
-// level-reload path.
-PbrMaterialMaps register_pbr_material(const std::string& tex_key, const PbrMaterialMaps& maps);
-
-// Look up the registered PBR maps for a texture, or nullptr if none.
-const PbrMaterialMaps* find_pbr_material(const std::string& tex_key);
-
-// Remove a texture's entry and return its maps so the caller can free the GL
-// ids (level unload). All-zero when nothing was registered. Without this the
-// companion maps of an evicted level stayed resident for the whole session.
-PbrMaterialMaps release_pbr_material(const std::string& tex_key);
-
-// Grecharged-pbr-realtime-fusion 2026-07-26, [pom] DEVICE DIAGNOSTIC. The owner and the
-// supervisor both asked the same question about the flat parallax — "is the POM branch even
-// executed on this draw, and what is the FINAL offset after every cap, in UV and in world cm?".
-// The shader cannot answer it (no printf on GLES), so the CPU mirrors the exact same amplitude law
-// per material and dumps it into the pullable pbr_tan_diag.txt. The renderers call
-// pbr_pom_diag_note() as they resolve a level's materials (they own the measured UV density,
-// which is geometry-derived and therefore not part of PbrMaterialMaps); the kernel's diag writer
-// calls pbr_pom_diag_section() to render the block. This is diagnostics only — nothing here is
-// read by the render path.
-void pbr_pom_diag_note(const std::string& tex_debug_name,
-                       const PbrMaterialMaps& maps,
-                       float uv_per_m);
-// Bumped every time a note() actually changes the recorded set, so the diag writer can tell that
-// a level load brought new materials in and re-emit the file (it is otherwise only written when
-// the isolate carousel moves, which happens before any level is loaded).
-u32 pbr_pom_diag_generation();
-// The rendered "[pom]" block, one line per PBR-bound material plus a summary line. Empty string
-// when nothing has been noted yet.
-std::string pbr_pom_diag_section();
-
-// Grecharged-pbr-realtime-fusion ROUND 21, [cover] DISPLACEMENT COVERAGE counters. The owner's
-// bug B is "des chunks entiers (LA PLUPART) sont juste PLATS": the question is not whether the POM
-// law is right, it is WHICH PBR-bound draws receive ANY displacement at all. These counters answer
-// it with numbers instead of eyeballs: every draw that binds a PBR material is classified, once,
-// at the bind site (PbrDrawBinder::set) into exactly one displacement bucket. Counted per frame and
-// snapshotted at the frame boundary, so the dump always reports one complete frame.
-//   frame_idx  : SharedRenderState::frame_idx — used to detect the frame boundary.
-//   renderer   : the renderer that owns the draw, a STRING LITERAL ("tfrag"/"tie"); the pointer is
-//                stored, so it must have static storage duration.
-//   tree_kind  : optional sub-label with the same lifetime rule (tfrag3::tfrag_tree_names[kind]);
-//                nullptr when the caller has no cheap tree kind.
-//   has_height : this draw has a height map bound (u_pbr_mode bit 16).
-//   disp_pom   : the fragment POM gate is open on this draw (the only displacement there is).
-// The `disp_tess` bucket is RETIRE, with the TFRAG3_TESS program and its tfrag3_tess.* shaders:
-// there is no vertex displacement left to count, and it must not be recreated.
-// disp_pom false with has_height = the "flat chunk" bucket. Callers own the gate mirroring (the
-// effective height scale / debug values live on the GL side).
-void pbr_coverage_note_draw(u64 frame_idx,
-                            const char* renderer,
-                            const char* tree_kind,
-                            bool has_height,
-                            bool disp_pom);
-// Advances every ~300 completed frames once counting has started, so the diag writer re-emits the
-// file with live coverage numbers without doing per-frame disk I/O.
-u32 pbr_coverage_generation();
-// The rendered "[cover]" block. Empty string until one full frame has been counted.
-std::string pbr_coverage_section();
-#endif
 
 // ===== Grecharged-texture-hotreload — BASCULER LES TEXTURES RECHARGED SANS REDEMARRER ========
 // Le contrat d'avant etait ecrit noir sur blanc dans le pousseur GOAL (hud-classes-pc.gc) :

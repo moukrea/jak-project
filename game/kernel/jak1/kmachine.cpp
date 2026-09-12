@@ -1111,12 +1111,30 @@ static void lighting_legacy_census() {
   // ── sonde 3 : les uniformes, mesures sur le fil GL ────────────────────────────────────────
   const u32 uniform_live = lighting_census::legacy_uniform_sites();
 
+  // ── sonde 4 : L'AMBIANTE SH A-T-ELLE SURVECU A LA PURGE ? ─────────────────────────────────
+  // Verdict de l'owner-superviseur du 2026-09-12, mesure sur le checkpoint de l'essai 8 : retirer
+  // `pbr_fused.glsl` et `pbr_helpers.glsl` retirait les DEUX SEULS appelants de `rt_sh_ambient()`.
+  // Un uniforme declare mais jamais LU est RETIRE par le compilateur GLSL, donc les neuf
+  // coefficients de l'ambiante directionnelle — feature VALIDEE par l'owner — partaient vers
+  // l'emplacement -1, 230 880 fois, sans un seul message. « Purger l'ancien monde ne veut pas dire
+  // emporter une feature que l'owner a validee » : un zero de lecteurs est donc compte comme un
+  // SITE de l'ancien monde, au meme titre qu'un uniforme herite encore vivant. La polarite est
+  // celle du reste du recensement — TOUT INCONNU VAUT DEFAUT : si la sonde n'a vu aucun programme
+  // du tout (`legacy_uniform_programs() == 0`), le compte est le meme rouge, parce qu'alors elle
+  // ne peut rien attester.
+  const u64 sh_readers = lighting_census::sh_reader_programs();
+  const u64 sh_lost = (sh_readers == 0) ? 1 : 0;
+
   // ── LA PORTE ──────────────────────────────────────────────────────────────────────────────
   autoport_proof::publish("lighting_legacy_sites",
-                          (u64)s_worst_goal + (u64)gating_live + (u64)uniform_live);
+                          (u64)s_worst_goal + (u64)gating_live + (u64)uniform_live + sh_lost);
   autoport_proof::publish("lighting_legacy_goal_sites", s_worst_goal);
   autoport_proof::publish("lighting_legacy_gating_sites", gating_live);
   autoport_proof::publish("lighting_legacy_shader_sites", uniform_live);
+  // La part « feature validee perdue » de la porte, et sa grandeur brute a cote : un 1 qui ne
+  // dirait pas COMBIEN de programmes lisent la SH ne serait pas une mesure.
+  autoport_proof::publish("lighting_legacy_sh_lost", sh_lost);
+  autoport_proof::publish("lighting_legacy_sh_readers", sh_readers);
   // Le recensement AVANT : combien de sites on CHERCHE. Non nul par construction ; un zero ici
   // dirait que la table de recherche a ete videe, pas que l'ancien monde a disparu.
   autoport_proof::publish("lighting_legacy_censused",

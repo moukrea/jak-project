@@ -36,7 +36,6 @@ struct LevelData {
 
   struct TieOpenGL {
     GLuint vertex_buffer;
-    GLuint tangent_buffer;  // REOPEN#7 per-vertex tangent VBO (parallel to vertex_buffer), loc 5
     // Grecharged-foliage-wind3 (defaut D2) : balancement par sommet, DEUX octets (poids + phase
     // d'instance), VBO parallele a vertex_buffer, attribut 7 du VAO TIE. Meme cycle de vie que
     // vertex_buffer : cree par TieLoadStage, collecte par Loader::update.
@@ -52,8 +51,6 @@ struct LevelData {
   };
   std::array<std::vector<TieOpenGL>, tfrag3::TIE_GEOS> tie_data;
   std::array<std::vector<GLuint>, tfrag3::TIE_GEOS> tfrag_vertex_data;
-  // REOPEN#7 per-vertex tangent VBOs (parallel 1:1 to tfrag_vertex_data), attribute location 5.
-  std::array<std::vector<GLuint>, tfrag3::TIE_GEOS> tfrag_tangent_data;
   std::vector<GLuint> shrub_vertex_data;
   // foliage-wind (owner 2026-09-03) : poids + phase de balancement par sommet SHRUB, deux octets,
   // VBO parallele a shrub_vertex_data (1:1), attribut 7 du VAO shrub — le meme attribut que le TIE.
@@ -68,10 +65,8 @@ struct LevelData {
   // rien ne le dise.
   size_t merc_vertex_count = 0;
   // Gmemory-ceiling-and-crash : vrai des que les tangentes et les sommets CPU de tfrag/tie de
-  // ce niveau ont ete rendus. Le drapeau existe parce que la liberation N'EST PAS idempotente :
-  // `precompute_uv_density_then_release_vertices` MESURE la densite UV avant de liberer, donc un
-  // second passage la re-mesurerait sur des tableaux vides et ecraserait le cache avec la valeur
-  // par defaut — un faux silencieux sur le relief, exactement le defaut que ce cache evite.
+  // ce niveau ont ete rendus. Le drapeau existe pour garantir UN SEUL passage : un second
+  // passage travaillerait sur des tableaux deja vides.
   bool cpu_geo_released[2] = {false, false};  // [0] = tfrag, [1] = tie
   std::unordered_map<std::string, const tfrag3::MercModel*> merc_model_lookup;
 

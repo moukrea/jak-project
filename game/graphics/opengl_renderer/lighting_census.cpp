@@ -29,17 +29,20 @@ namespace {
 constexpr const char* kItemId = "lighting-census";
 AUTOPORT_FEATURE_SITE(kItemId);
 
-// Les chemins du §2.3, dans l'ordre du tableau de la spec. L'ordre COMPTE : `rt && pbr` (B) est
-// teste en premier, exactement comme la spec les enumere.
+// Les chemins du §2.3. IL N'EN RESTE QU'UN.
 //
-// LE COMPOSITE D (« sondes ») A QUITTE CETTE TABLE (census-false-reds, 2026-09-12). Sa condition
-// etait `u_rt_probe_on != 0`. Cet uniforme n'est plus declare par aucun shader depuis le retrait
-// de la grille de FollowProbe, et son unique enregistreur CPU recevait le litteral 0 : aucun etat
-// de ce binaire ne pouvait ranger un draw dans D. `light_census_D` n'etait donc pas un compte a
-// zero, c'etait un zero de CONSTRUCTION — la chose meme que cet item retire. Les draws qu'il
-// aurait pris tombent, comme avant, dans A : la troisieme clause de A (`s_gate_probe == 0`) etait
-// une tautologie, elle part avec lui. Correspondance de cles dans `lib/census/census-false-reds.sh`.
-enum Path { kA = 0, kB, kC, kE, kUnaccounted, kPathCount };
+// LE COMPOSITE D (« sondes ») A QUITTE CETTE TABLE (census-false-reds, 2026-09-12) : son uniforme
+// n'etait plus declare par aucun shader et son unique enregistreur recevait le litteral 0 — un
+// zero de CONSTRUCTION, pas un compte.
+//
+// LES COMPOSITES B, C ET E L'ONT QUITTEE A LEUR TOUR (lighting-legacy-purge, 2026-09-12). B etait
+// la pile de matiere fusionnee, C l'ombrage de materiaux autonome, E le relight des receveurs
+// d'origine : les trois sont SUPPRIMES de l'arbre, et leur condition commune `u_pbr_mode` n'est
+// plus declaree par aucun shader. Garder leurs seaux aurait publie trois zeros qu'aucun etat de ce
+// binaire ne peut lever — exactement le defaut que `census-false-reds` a retire de D. Les draws
+// qu'ils prenaient tombent desormais soit dans A (eclairage recharge arme), soit dans le seau
+// `un_stock` (rendu d'origine). Correspondance de cles dans `lib/census/census-false-reds.sh`.
+enum Path { kA = 0, kUnaccounted, kPathCount };
 
 // Les TROIS portes vivantes. Une seule valeur par porte : elles sont poussees sur le programme
 // COURANT, toujours avant les draws du renderer qui vient de les pousser.
@@ -49,14 +52,18 @@ enum Path { kA = 0, kB, kC, kE, kUnaccounted, kPathCount };
 // programmes REELLEMENT LIES declarent son uniforme (0 = la relecture ne peut jamais etre en
 // desaccord, donc `light_census_rb_bad_<nom>` vaut 0 par construction). Les deux sont publies :
 // c'est ce qui permet a `census_engine_dead_gates` d'etre une mesure et non une declaration.
-enum Gate { kGateRtLight = 0, kGatePbrMode, kGateShadow, kGateCount };
-const char* const kGateNames[kGateCount] = {"u_rt_light_on", "u_pbr_mode", "u_pbr_shadow_on"};
+// `u_pbr_mode` A QUITTE CETTE TABLE (lighting-legacy-purge, 2026-09-12) avec la pile de matiere
+// qu'elle commandait : plus aucun shader ne la declare, et son enregistreur n'avait plus aucun
+// appelant — ses deux denominateurs etaient tombes a zero, donc `light_census_rb_bad_u_pbr_mode`
+// etait un zero de construction. Cette table doit rester IDENTIQUE a `kGateTokens` de
+// `shade_proof.cpp` ; la derive est comptee par `lib/census/census-false-reds.sh`.
+enum Gate { kGateRtLight = 0, kGateShadow, kGateCount };
+const char* const kGateNames[kGateCount] = {"u_rt_light_on", "u_pbr_shadow_on"};
 int s_gate[kGateCount] = {};
 uint64_t s_gate_writes[kGateCount] = {};
 uint64_t s_gate_nonzero[kGateCount] = {};
 uint64_t s_gate_progs[kGateCount] = {};
 bool s_host_shade = false;
-bool s_host_legacy = false;
 int s_gate_no_tex = 0;
 uint64_t s_gate_no_tex_writes = 0;
 
@@ -99,21 +106,64 @@ std::unordered_map<unsigned, std::array<int, kGateCount>> s_locs;
 // programmes ou au moins l'un des deux repond. Un controle a zero rend la porte MUETTE, pas
 // verte.
 const char* const kLegacyUniformNames[] = {
-    "u_rt_ambient_on",       // ex AMBIANTE on/off       (realtime-ambient?)
-    "u_rt_ambient_model",    // ex MODELE D'AMBIANCE      (realtime-ambient-model)
-    "u_rt_ambient_contrast", // ex CONTRASTE D'AMBIANCE   (knob mort : pousse, jamais lu)
-    "u_rt_shadow_range",     // ex DISTANCE DES OMBRES    (realtime-shadow-dist)
-    "u_rt_shadow_res",       // ex QUALITE DES OMBRES     (realtime-shadow-quality)
-    "u_rt_shadow_residual",  // ex FORCE DES OMBRES       (realtime-shadow-strength)
-    "u_pbr_displacement",    // ex PROFONDEUR DE SURFACE  (pbr-displacement)
-    "u_pbr_bisect",          // ex PBR ISOLATE            (outil de bisection)
-    "u_pbr_bisect2",         // ex PBR ISOLATE            (second masque)
-    "u_mm_flags",            // ex MATERIAUX AVANCES      (modern-materials?)
+    // ── les onze deja recenses : reglages d'eclairage retires avant l'essai 8 ───────────────
+    "u_rt_ambient_on",        // ex AMBIANTE on/off          (realtime-ambient?)
+    "u_rt_ambient_model",     // ex MODELE D'AMBIANCE        (realtime-ambient-model)
+    "u_rt_ambient_contrast",  // ex CONTRASTE D'AMBIANCE     (knob mort : pousse, jamais lu)
+    "u_rt_shadow_range",      // ex DISTANCE DES OMBRES      (realtime-shadow-dist)
+    "u_rt_shadow_res",        // ex QUALITE DES OMBRES       (realtime-shadow-quality)
+    "u_rt_shadow_residual",   // ex FORCE DES OMBRES         (realtime-shadow-strength)
+    "u_pbr_displacement",     // ex PROFONDEUR DE SURFACE    (pbr-displacement)
+    "u_pbr_bisect",           // ex PBR ISOLATE              (outil de bisection)
+    "u_pbr_bisect2",          // ex PBR ISOLATE              (second masque)
+    "u_mm_flags",             // ex MATERIAUX AVANCES        (modern-materials?)
     // Il restait DECLARE et LU apres le retrait de son etage : un drapeau a zero, pas une
     // absence. Le livrable exige l'inverse, il est donc supprime des shaders ET cherche ici.
-    "u_pbr_tess_active",     // ex PROFONDEUR DE SURFACE, palier TESSELLATION
+    "u_pbr_tess_active",      // ex PROFONDEUR DE SURFACE, palier TESSELLATION
+    // ── essai 8 : LA PILE DE MATIERE ELLE-MEME ─────────────────────────────────────────────
+    // Owner du 11/09 : « faut supprimer le code ! On en veut plus ». Tant que ces noms
+    // n'etaient pas cherches, `lighting_legacy_sites == 0` n'accusait RIEN : la porte etait
+    // verte avec la pile PBR entiere encore compilee dans le programme lie.
+    "u_pbr_mode",             // maitre de la branche PBR (choix du modele d'ombrage)
+    "u_pbr_mat",              // parametres de materiau, paquet 1 (rugosite/metal/ao)
+    "u_pbr_mat2",             // parametres de materiau, paquet 2
+    "u_pbr_normal_strength",  // force de la carte de normales
+    "u_pbr_normal_dc",        // composante continue retiree a la carte de normales
+    "u_pbr_height_scale",     // amplitude du parallaxe/relief
+    "u_pbr_height_lambda",    // pas de la marche du parallaxe
+    "u_pbr_height_stat",      // statistique de hauteur du bake, poussee au shader
+    "u_pbr_spec_intensity",   // intensite speculaire
+    "u_pbr_ambient",          // terme ambiant de la pile PBR
+    "u_pbr_exposure",         // exposition de la pile PBR
+    "u_pbr_direct",           // poids de l'eclairage direct
+    "u_pbr_indirect",         // poids de l'eclairage indirect
+    "u_pbr_baked_weight",     // melange entre lumiere cuite et lumiere calculee
+    "u_pbr_emissive_str",     // force de l'emissif
+    "u_pbr_uv_tile",          // repetition des UV de materiau
+    "u_pbr_uv_per_m",         // densite d'UV par metre monde
+    "u_pbr_light_dir",        // direction de la lumiere principale du chemin PBR
+    "u_pbr_light_color",      // couleur de la lumiere principale du chemin PBR
+    "u_pbr_sun_dir",          // direction du soleil (relight monde)
+    "u_pbr_sun_color",        // couleur du soleil (relight monde)
+    "u_pbr_world_relight",    // interrupteur du relight monde
+    "u_pbr_wr_direct",        // part directe du relight monde
+    "u_pbr_wr_indirect",      // part indirecte du relight monde
+    "u_pbr_legacy_shadow",    // repli d'ombre de l'ancien chemin PBR
+    "tex_PBR_N",              // echantillonneur : normales
+    "tex_PBR_R",              // echantillonneur : rugosite
+    "tex_PBR_M",              // echantillonneur : metal
+    "tex_PBR_AO",             // echantillonneur : occlusion ambiante
+    "tex_PBR_H",              // echantillonneur : hauteur
+    "tex_PBR_S",              // echantillonneur : speculaire
+    "tex_PBR_E",              // echantillonneur : emissif
 };
 constexpr int kLegacyUniformCount = (int)(sizeof(kLegacyUniformNames) / sizeof(char*));
+// Le masque porte UN BIT PAR NOM. Un `1u << i` sur un `uint32_t` avec i >= 32 est un decalage
+// au-dela de la largeur du type : comportement INDEFINI, et les noms de queue jamais comptes —
+// un faux vert silencieux. Le masque est donc un `uint64_t`, et cette assertion casse le build
+// le jour ou la table depasse 64 noms plutot que de laisser la sonde mentir.
+static_assert(kLegacyUniformCount <= 64,
+              "kLegacyUniformNames depasse la largeur de s_legacy_uniform_mask (64 bits)");
 
 // LE TEMOIN. Il appartient au chemin UNIQUE de la refonte et ne part jamais.
 //
@@ -134,9 +184,19 @@ constexpr int kLegacyControlCount = (int)(sizeof(kLegacyControlNames) / sizeof(c
 // donc conserve, jamais lave par un programme propre.
 // Ecrits sur le fil GL, lus sur le fil GOAL (kmachine.cpp) : atomiques relaches. Le compteur
 // n'a qu'un ecrivain, il n'y a donc rien a serialiser, seulement une lecture a rendre definie.
-std::atomic<uint32_t> s_legacy_uniform_mask{0};
+std::atomic<uint64_t> s_legacy_uniform_mask{0};
 std::atomic<uint64_t> s_legacy_uniform_programs{0};  // denominateur : programmes distincts sondes
 std::atomic<uint64_t> s_legacy_uniform_control{0};   // temoin : programmes ou un nom SURVIVANT repond
+// L'AMBIANTE SH DIRECTIONNELLE DOIT SURVIVRE A LA PURGE, ET C'EST UNE MESURE.
+// Verdict du 2026-09-12 mesure sur le checkpoint de l'essai 8 : supprimer `pbr_fused.glsl` et
+// `pbr_helpers.glsl` retirait les DEUX SEULS appelants de `rt_sh_ambient()`. Le compilateur GLSL
+// jette alors `u_rt_sh[9]` — un uniforme DECLARE mais jamais LU n'existe pas dans le programme
+// lie — et les neuf coefficients partent vers l'emplacement -1, 230 880 fois. La feature validee
+// par l'owner (Grecharged-directional-ambient ROUND 2) serait morte SANS UN SEUL message.
+// La seule grandeur qui le voie est `glGetUniformLocation` sur le programme REELLEMENT LIE : ce
+// compteur dit combien de programmes du monde LISENT encore la SH. Zero = la feature est partie ;
+// la porte de l'item le compte comme un SITE (kmachine.cpp), donc un rouge, jamais un silence.
+std::atomic<uint64_t> s_sh_reader_programs{0};
 std::unordered_map<unsigned, char> s_legacy_probed;
 
 // Sonde un programme une seule fois. Appelee depuis la relecture d'un draw par image, donc sur
@@ -149,7 +209,7 @@ void legacy_probe_program(unsigned prog) {
   s_legacy_uniform_programs.fetch_add(1, std::memory_order_relaxed);
   for (int i = 0; i < kLegacyUniformCount; i++) {
     if (glGetUniformLocation(prog, kLegacyUniformNames[i]) >= 0) {
-      s_legacy_uniform_mask.fetch_or(1u << i, std::memory_order_relaxed);
+      s_legacy_uniform_mask.fetch_or(1ull << i, std::memory_order_relaxed);
     }
   }
   for (int i = 0; i < kLegacyControlCount; i++) {
@@ -157,6 +217,11 @@ void legacy_probe_program(unsigned prog) {
       s_legacy_uniform_control.fetch_add(1, std::memory_order_relaxed);
       break;
     }
+  }
+  // Le nom interroge est celui de l'ELEMENT 0 du tableau, pas celui du tableau : c'est la forme
+  // que GL resout, et la meme que `gl_uniform_cache.cpp` pousse (`kKept`).
+  if (glGetUniformLocation(prog, "u_rt_sh[0]") >= 0) {
+    s_sh_reader_programs.fetch_add(1, std::memory_order_relaxed);
   }
 }
 
@@ -381,11 +446,11 @@ void publish_locked() {
   // la part C++ (options de `recharged_gating`) et publie la somme. Ici on publie SA part et
   // TOUS ses denominateurs : un chiffre sans son denominateur n'est pas une mesure.
   {
-    const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+    const uint64_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
     int found = 0;
     std::string names;
     for (int i = 0; i < kLegacyUniformCount; i++) {
-      if (mask & (1u << i)) {
+      if (mask & (1ull << i)) {
         found++;
         if (names.size() < 180) {
           if (!names.empty()) {
@@ -396,11 +461,17 @@ void publish_locked() {
       }
     }
     autoport_proof::publish("lighting_legacy_uniform_sites", (uint64_t)found);
+    // Meme grandeur, sous le nom que le contrat de l'essai 8 nomme : combien de NOMS de la table
+    // ont repondu au moins une fois (popcount du masque). Les deux cles sont publiees pour que
+    // les portes ecrites avant l'essai 8 continuent de lire la leur.
+    autoport_proof::publish("lighting_legacy_uniform_live", (uint64_t)found);
     autoport_proof::publish("lighting_legacy_uniform_censused", (uint64_t)kLegacyUniformCount);
     autoport_proof::publish("lighting_legacy_uniform_programs",
                             s_legacy_uniform_programs.load(std::memory_order_relaxed));
     autoport_proof::publish("lighting_legacy_uniform_control",
                             s_legacy_uniform_control.load(std::memory_order_relaxed));
+    autoport_proof::publish("lighting_legacy_sh_readers",
+                            s_sh_reader_programs.load(std::memory_order_relaxed));
     // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere
     // liste non vide resterait a cote d'un compte a zero.
     autoport_proof::publish_text("lighting_legacy_uniform_list", names.empty() ? "-" : names.c_str());
@@ -410,13 +481,9 @@ void publish_locked() {
     return;
   }
   autoport_proof::publish("light_census_A", s_count[kA]);
-  autoport_proof::publish("light_census_B", s_count[kB]);
-  autoport_proof::publish("light_census_C", s_count[kC]);
-  autoport_proof::publish("light_census_E", s_count[kE]);
   autoport_proof::publish("light_census_unaccounted", s_count[kUnaccounted]);
   autoport_proof::publish("light_census_total", s_total);
-  autoport_proof::publish("light_census_classified",
-                          s_count[kA] + s_count[kB] + s_count[kC] + s_count[kE]);
+  autoport_proof::publish("light_census_classified", s_count[kA]);
   // La somme DOIT egaler le total : on publie le residu, on ne l'affirme pas.
   uint64_t sum = 0;
   for (int i = 0; i < kPathCount; i++) {
@@ -429,7 +496,7 @@ void publish_locked() {
   autoport_proof::publish("light_census_un_stock", s_un_stock);
   // Les trois references, separement.
   static const char* kPhasePrefix[4] = {"lc_free_", "lc_orig_", "lc_rech_", "lc_orig_light_"};
-  static const char* kPathSuffix[kPathCount] = {"A", "B", "C", "E", "un"};
+  static const char* kPathSuffix[kPathCount] = {"A", "un"};
   for (int p = 1; p <= 3; p++) {
     for (int i = 0; i < kPathCount; i++) {
       char key[64];
@@ -778,15 +845,11 @@ void record_gate(int g, int v) {
 void gate_rt_light(int v) {
   record_gate(kGateRtLight, v);
 }
-void gate_pbr_mode(int v) {
-  record_gate(kGatePbrMode, v);
-}
 void gate_shadow(int v) {
   record_gate(kGateShadow, v);
 }
-void host_paths(bool shade, bool legacy) {
+void host_paths(bool shade) {
   s_host_shade = shade;
-  s_host_legacy = legacy;
 }
 void gate_no_tex(int v) {
   s_gate_no_tex = v;
@@ -827,9 +890,9 @@ void note_world_draw(Kind k) {
 
   int path;
   if (k == Kind::Hfrag) {
-    // Le programme hfrag ne declare aucun des quatre uniformes : ce draw ne PEUT pas tomber
-    // dans un des cinq chemins. Ce n'est pas une lacune du recensement, c'est un fait du
-    // shader, et c'est la moitie du seau non classe.
+    // Le programme hfrag ne declare aucune des deux portes : ce draw ne PEUT pas tomber dans le
+    // chemin unique. Ce n'est pas une lacune du recensement, c'est un fait du shader, et c'est la
+    // moitie du seau non classe.
     s_un_hfrag++;
     path = kUnaccounted;
   } else if (k == Kind::DepthOnly) {
@@ -839,14 +902,8 @@ void note_world_draw(Kind k) {
     // ETIE envmap ne porte pas shade() ; les hotes le contournent aussi sans textures.
     s_un_stock++;
     path = kUnaccounted;
-  } else if (s_gate[kGateRtLight] != 0 && s_gate[kGatePbrMode] != 0) {
-    path = kB;
   } else if (s_gate[kGateRtLight] != 0) {
     path = kA;
-  } else if (s_host_legacy && s_gate[kGatePbrMode] != 0) {
-    path = kC;
-  } else if (s_host_legacy && s_gate[kGateShadow] != 0) {
-    path = kE;
   } else {
     // Aucune branche applicable a cet hote : le draw garde le rendu d'ORIGINE.
     s_un_stock++;
@@ -855,7 +912,7 @@ void note_world_draw(Kind k) {
   s_count[path]++;
   s_count_phase[s_phase][path]++;
   if (path != kUnaccounted) {
-    // `hits` = draws monde CLASSES dans un des cinq chemins (le denominateur nomme au §7.2).
+    // `hits` = draws monde CLASSES dans le chemin unique (le denominateur nomme au §7.2).
     autoport_proof::note_hit_for(kItemId);
   }
 
@@ -881,8 +938,7 @@ void note_world_draw(Kind k) {
         }
         it = s_locs.emplace((unsigned)prog, locs).first;
       }
-      const int shadow[kGateCount] = {s_gate[kGateRtLight], s_gate[kGatePbrMode],
-                                      s_gate[kGateShadow]};
+      const int shadow[kGateCount] = {s_gate[kGateRtLight], s_gate[kGateShadow]};
       for (int i = 0; i < kGateCount; i++) {
         if (it->second[i] < 0) {
           s_rb_noloc++;
@@ -1006,10 +1062,10 @@ void frame_end() {
 
 // lighting-legacy-purge : la part SHADER du recensement, lue par kmachine.cpp sur le fil GOAL.
 uint32_t legacy_uniform_sites() {
-  const uint32_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
+  const uint64_t mask = s_legacy_uniform_mask.load(std::memory_order_relaxed);
   uint32_t n = 0;
   for (int i = 0; i < kLegacyUniformCount; i++) {
-    if (mask & (1u << i)) {
+    if (mask & (1ull << i)) {
       n++;
     }
   }
@@ -1023,6 +1079,9 @@ uint64_t legacy_uniform_programs() {
 }
 uint64_t legacy_uniform_control() {
   return s_legacy_uniform_control.load(std::memory_order_relaxed);
+}
+uint64_t sh_reader_programs() {
+  return s_sh_reader_programs.load(std::memory_order_relaxed);
 }
 
 void publish() {

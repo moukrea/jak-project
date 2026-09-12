@@ -37,7 +37,6 @@
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/prop_cache.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
-#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/system/autoport_proof.h"
@@ -499,778 +498,6 @@ std::array<math::Vector4f, 4> make_new_cam_mat(const math::Vector4f cam_T_w[4],
 }
 
 #ifdef OG_FEAT_PBR
-const PbrNeutralMaps& pbr_neutral_maps() {
-  static PbrNeutralMaps s;
-  if (!s.normal_tex) {
-    // Create on unit 11 so the lazy-create binds never clobber the caller's active
-    // unit binding — every caller rebinds 11-14 immediately after.
-    GLint prev_active = GL_TEXTURE0;
-    glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active);
-    glActiveTexture(GL_TEXTURE11);
-    auto make1x1 = [](u8 r, u8 g, u8 b) {
-      GLuint id = 0;
-      glGenTextures(1, &id);
-      glBindTexture(GL_TEXTURE_2D, id);
-      const u8 px[4] = {r, g, b, 255};
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      return id;
-    };
-    s.normal_tex = make1x1(128, 128, 255);  // flat tangent-space normal
-    s.rough_tex = make1x1(230, 230, 230);   // 0.9 ROUGH (REOPEN #2: missing map must never read smooth)
-    s.metal_tex = make1x1(0, 0, 0);
-    s.ao_tex = make1x1(255, 255, 255);
-    s.height_tex = make1x1(255, 255, 255);  // surface level -> POM depth 0, zero offset
-    s.specular_tex = make1x1(0, 0, 0);      // fusion: F0 map absent (bit32 gates reads)
-    s.emissive_tex = make1x1(0, 0, 0);      // fusion: no self-illumination (bit64 gates)
-    glActiveTexture(prev_active);
-  }
-  return s;
-}
-
-void pbr_park_neutral_maps() {
-  const auto& neutral = pbr_neutral_maps();
-  glActiveTexture(GL_TEXTURE11);
-  glBindTexture(GL_TEXTURE_2D, neutral.normal_tex);
-  glActiveTexture(GL_TEXTURE12);
-  glBindTexture(GL_TEXTURE_2D, neutral.rough_tex);
-  glActiveTexture(GL_TEXTURE13);
-  glBindTexture(GL_TEXTURE_2D, neutral.metal_tex);
-  glActiveTexture(GL_TEXTURE14);
-  glBindTexture(GL_TEXTURE_2D, neutral.ao_tex);
-  glActiveTexture(GL_TEXTURE15);
-  glBindTexture(GL_TEXTURE_2D, neutral.height_tex);
-  glActiveTexture(GL_TEXTURE16);
-  glBindTexture(GL_TEXTURE_2D, neutral.specular_tex);
-  glActiveTexture(GL_TEXTURE17);
-  glBindTexture(GL_TEXTURE_2D, neutral.emissive_tex);
-  glActiveTexture(GL_TEXTURE0);
-}
-
-// REOPEN #2 A/B killswitch: debug.opengoal.pbr.kill=1 (env OG_PBR_KILL) forces the fused
-// PBR material path OFF (u_pbr_mode stays 0) while everything else stays live — proves
-// on-device that the new path is ACTIVE (obvious visual delta at the same vantage).
-static bool pbr_killswitch() {
-  static int cached = -1;
-  if (cached < 0) {
-    cached = 0;
-#ifdef __ANDROID__
-    char v[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.pbr.kill", v) > 0) {
-      cached = atoi(v) != 0 ? 1 : 0;
-    }
-#else
-    if (const char* e = std::getenv("OG_PBR_KILL")) {
-      cached = atoi(e) != 0 ? 1 : 0;
-    }
-#endif
-  }
-  return cached == 1;
-}
-
-// ===========================================================================
-// Grecharged-pbr-realtime-fusion ROUND 20: MEASURED AUTHORED UV DENSITY.
-//
-// The tessellation displacement samples the height map in a WORLD-SPACE projection at a hardcoded
-// 0.5 tiles/m (WORLD_TILES_PER_M) and displaces by a constant amplitude, while the fragment stage
-// (parallax / normal / cavity) samples at the AUTHORED uv, so its depth is expressed in UV units
-// and is therefore proportional to the real tile size. Wherever a material's authored UV density
-// differs from 0.5 tiles/m the two stages describe DIFFERENT-SIZED features on the same surface.
-// These helpers measure the real density from the level's own geometry: for every edge of the
-// index buffer belonging to a draw that uses this texture, tiles-per-metre = |d(uv)| / |d(pos)|.
-// The MEDIAN is robust against the degenerate/stretched edges strips always contain.
-// ===========================================================================
-namespace {
-constexpr size_t kUvDensityMaxSamples = 8192;
-
-void pbr_collect_uv_density(const std::vector<tfrag3::StripDraw>& draws,
-                            const std::vector<u32>& indices,
-                            const std::vector<tfrag3::PreloadedVertex>& verts,
-                            s32 tex_idx,
-                            std::vector<float>& out) {
-  for (const auto& draw : draws) {
-    if (draw.tree_tex_id != tex_idx) {
-      continue;
-    }
-    u64 count = 0;
-    for (const auto& vg : draw.vis_groups) {
-      count += vg.num_inds;
-    }
-    const u64 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
-    for (u64 k = 0; k + 1 < count; ++k) {
-      if (out.size() >= kUvDensityMaxSamples) {
-        return;
-      }
-      const u64 ia = first + k;
-      const u64 ib = ia + 1;
-      if (ib >= indices.size()) {
-        break;
-      }
-      const u32 va = indices[ia];
-      const u32 vb = indices[ib];
-      if (va == vb) {
-        continue;  // strip restart / degenerate
-      }
-      if (va >= verts.size() || vb >= verts.size()) {
-        continue;
-      }
-      const auto& pa = verts[va];
-      const auto& pb = verts[vb];
-      const float dx = pa.x - pb.x;
-      const float dy = pa.y - pb.y;
-      const float dz = pa.z - pb.z;
-      // positions are GAME UNITS (4096 per metre), texcoords are TILE units.
-      const float dm = std::sqrt(dx * dx + dy * dy + dz * dz) * (1.f / 4096.f);
-      const float du = pa.s - pb.s;
-      const float dv = pa.t - pb.t;
-      const float dt = std::sqrt(du * du + dv * dv);
-      if (dm < 1e-4f || dt < 1e-6f) {
-        continue;
-      }
-      out.push_back(dt / dm);
-    }
-  }
-}
-
-// ROUND 22 — the SHRUB overload (owner defect A: the PBR path is being ported to shrub, and
-// without a measured density every shrub material would silently use the 0.5 tiles/m fallback,
-// i.e. the WRONG parallax amplitude). Shrub cannot reuse the walk above for two concrete reasons:
-//   * ShrubDraw addresses its index range DIRECTLY (first_index_index / num_indices) instead of
-//     through StripDraw's vis_groups + unpacked.idx_of_first_idx_in_full_buffer, and
-//   * ShrubGpuVertex stores texcoords in 4096-SCALE tile units (shrub.vert divides by 4096 before
-//     sampling), whereas PreloadedVertex stores plain tile units.
-// Both are handled here, so the number this returns is the SAME quantity as the tfrag/tie one:
-// authored texture tiles per world metre.
-void pbr_collect_uv_density_shrub(const std::vector<tfrag3::ShrubDraw>& draws,
-                                  const std::vector<u32>& indices,
-                                  const std::vector<tfrag3::ShrubGpuVertex>& verts,
-                                  s32 tex_idx,
-                                  std::vector<float>& out) {
-  for (const auto& draw : draws) {
-    if ((s32)draw.tree_tex_id != tex_idx) {
-      continue;
-    }
-    const u64 first = draw.first_index_index;
-    const u64 count = draw.num_indices;
-    for (u64 k = 0; k + 1 < count; ++k) {
-      if (out.size() >= kUvDensityMaxSamples) {
-        return;
-      }
-      const u64 ia = first + k;
-      const u64 ib = ia + 1;
-      if (ib >= indices.size()) {
-        break;
-      }
-      const u32 va = indices[ia];
-      const u32 vb = indices[ib];
-      if (va == vb) {
-        continue;  // degenerate
-      }
-      // UINT32_MAX is the strip-restart code; it fails the bounds test below like any other
-      // out-of-range index, which is exactly the behaviour the tfrag/tie walk relies on too.
-      if (va >= verts.size() || vb >= verts.size()) {
-        continue;
-      }
-      const auto& pa = verts[va];
-      const auto& pb = verts[vb];
-      const float dx = pa.x - pb.x;
-      const float dy = pa.y - pb.y;
-      const float dz = pa.z - pb.z;
-      // positions are GAME UNITS (4096 per metre)
-      const float dm = std::sqrt(dx * dx + dy * dy + dz * dz) * (1.f / 4096.f);
-      const float du = pa.s - pb.s;
-      const float dv = pa.t - pb.t;
-      // ...and shrub texcoords are 4096-scale TILE units (see shrub.vert: tex_coord.xy /= 4096).
-      const float dt = std::sqrt(du * du + dv * dv) * (1.f / 4096.f);
-      if (dm < 1e-4f || dt < 1e-6f) {
-        continue;
-      }
-      out.push_back(dt / dm);
-    }
-  }
-}
-
-float pbr_uv_density_median(const std::vector<float>& samples) {
-  if (samples.size() < 16) {
-    return 0.f;  // "unknown" — callers fall back to 0.5
-  }
-  std::vector<float> copy = samples;
-  const size_t mid = copy.size() / 2;
-  std::nth_element(copy.begin(), copy.begin() + mid, copy.end());
-  return copy[mid];
-}
-}  // namespace
-
-// autoport 2026-08-26 — CACHE DE DENSITE UV, POUR POUVOIR LIBERER LES SOMMETS CPU.
-// `unpacked.vertices` pese 57,0 Mo par niveau (mesure `A50-LEVRAM`, village1) et il est
-// DEJA televerse dans le GPU. Apres chargement, ses seuls lecteurs sont ces trois mesures
-// de densite, appelees une fois par niveau depuis le chemin de rendu — donc APRES le
-// chargement, ce qui interdisait de liberer le tableau. On memorise le resultat au
-// chargement : les mesures deviennent des lectures, et les sommets peuvent partir.
-// Cle : (niveau, systeme, index de texture). systeme 0=tfrag 1=tie 2=shrub.
-namespace {
-std::map<std::tuple<const tfrag3::Level*, int, s32>, std::pair<float, u32>> g_uv_density_cache;
-std::mutex g_uv_density_mutex;
-
-bool uv_density_cached(const tfrag3::Level& lev, int system, s32 tex_idx, float* dens,
-                       u32* out_samples) {
-  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
-  const auto it = g_uv_density_cache.find({&lev, system, tex_idx});
-  if (it == g_uv_density_cache.end()) {
-    return false;
-  }
-  *dens = it->second.first;
-  if (out_samples) {
-    *out_samples = it->second.second;
-  }
-  return true;
-}
-}  // namespace
-
-void uv_density_store(const tfrag3::Level& lev, int system, s32 tex_idx, float dens, u32 samples) {
-  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
-  g_uv_density_cache[{&lev, system, tex_idx}] = {dens, samples};
-}
-
-void uv_density_forget_level(const tfrag3::Level& lev) {
-  std::lock_guard<std::mutex> lk(g_uv_density_mutex);
-  for (auto it = g_uv_density_cache.begin(); it != g_uv_density_cache.end();) {
-    it = (std::get<0>(it->first) == &lev) ? g_uv_density_cache.erase(it) : std::next(it);
-  }
-}
-
-float measure_uv_density_tfrag(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
-  {
-    float cached = 0.f;
-    if (uv_density_cached(lev, 0, tex_idx, &cached, out_samples)) {
-      return cached;
-    }
-  }
-  std::vector<float> samples;
-  samples.reserve(1024);
-  // GEOM 0 only: the highest-detail tree carries the authored UVs, and the lower LODs share them.
-  for (const auto& tree : lev.tfrag_trees[0]) {
-    pbr_collect_uv_density(tree.draws, tree.unpacked.indices, tree.unpacked.vertices, tex_idx,
-                           samples);
-    if (samples.size() >= kUvDensityMaxSamples) {
-      break;
-    }
-  }
-  if (out_samples) {
-    *out_samples = (u32)samples.size();
-  }
-  return pbr_uv_density_median(samples);
-}
-
-float measure_uv_density_tie(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
-  {
-    float cached = 0.f;
-    if (uv_density_cached(lev, 1, tex_idx, &cached, out_samples)) {
-      return cached;
-    }
-  }
-  std::vector<float> samples;
-  samples.reserve(1024);
-  // TieTree's unpacked vertices are the same tfrag3::PreloadedVertex type, and its static_draws are
-  // the same tfrag3::StripDraw — so the exact same edge walk applies.
-  for (const auto& tree : lev.tie_trees[0]) {
-    pbr_collect_uv_density(tree.static_draws, tree.unpacked.indices, tree.unpacked.vertices,
-                           tex_idx, samples);
-    if (samples.size() >= kUvDensityMaxSamples) {
-      break;
-    }
-  }
-  if (out_samples) {
-    *out_samples = (u32)samples.size();
-  }
-  return pbr_uv_density_median(samples);
-}
-
-float measure_uv_density_shrub(const tfrag3::Level& lev, s32 tex_idx, u32* out_samples) {
-  {
-    float cached = 0.f;
-    if (uv_density_cached(lev, 2, tex_idx, &cached, out_samples)) {
-      return cached;
-    }
-  }
-  std::vector<float> samples;
-  samples.reserve(1024);
-  // Shrub has no geom-LOD array — one tree list, all of it authored.
-  for (const auto& tree : lev.shrub_trees) {
-    pbr_collect_uv_density_shrub(tree.static_draws, tree.indices, tree.unpacked.vertices, tex_idx,
-                                 samples);
-    if (samples.size() >= kUvDensityMaxSamples) {
-      break;
-    }
-  }
-  if (out_samples) {
-    *out_samples = (u32)samples.size();
-  }
-  return pbr_uv_density_median(samples);
-}
-
-// [cover] DISPLACEMENT COVERAGE: les DEUX grandeurs qui restent portes effectives du
-// displacement, recopiees depuis first_tfrag_draw_setup (la ou les surcharges prop/env et le clamp
-// de relief sont resolus) : l'echelle de hauteur post-clamp et le mode de visualisation de debug.
-// PbrDrawBinder::set les relit pour classer chaque draw PBR selon la meme condition que le
-// fragment. La bissection (`u_pbr_bisect`) et le carrousel DISPLACEMENT (`u_pbr_displacement`,
-// dont le mode 2 TESSELLATION) sont RETIRES : ils ne sont plus ni pousses ni publies ici.
-// Diagnostic seulement : rien dans le chemin de rendu ne relit ces atomiques.
-static std::atomic<float> g_cover_height_scale{0.f};
-static std::atomic<int> g_cover_debug{0};
-
-static void pbr_cover_publish_gates(float height_scale, int debug) {
-  g_cover_height_scale.store(height_scale, std::memory_order_relaxed);
-  g_cover_debug.store(debug, std::memory_order_relaxed);
-}
-
-namespace {
-// Gpbr-per-texture-materials : les valeurs GLOBALES que first_tfrag_draw_setup vient de pousser.
-// PbrDrawBinder les remultiplie par le facteur DU MATERIAU et finish() les repose telles quelles,
-// pour que tout draw qui ne passe pas par le binder (HFRAG en particulier) soit inchange.
-// Ecrites et lues sur le SEUL thread GL (setup de programme puis draws du meme thread), d'ou des
-// float nus et non des atomiques : ce sont les valeurs POST-clamp, celles que le programme a
-// vraiment recues.
-// Les initialiseurs sont les valeurs de depart de first_tfrag_draw_setup (3.0 / 0.05 AVANT le
-// facteur TEXTURE RELIEF, 0.15 = gfx.h recharged_pbr_spec_intensity), pour qu'un binder qui
-// tournerait avant tout setup n'invente pas une valeur. En pratique le setup passe toujours en
-// premier et les ecrase ; c'est un filet, pas la source.
-float g_pbr_glob_normal_strength = 3.f, g_pbr_glob_height_scale = 0.05f, g_pbr_glob_spec = 0.15f;
-
-// Gpbr-per-texture-materials : emplacements des cinq uniformes de matiere, resolus paresseusement
-// comme les m_*_loc du binder (meme glGetUniformLocation, meme regle "-1 = absent du programme"),
-// mais tenus PAR PROGRAMME dans un seul endroit plutot qu'en cinq membres de plus que begin()
-// devrait remettre en phase. Thread GL uniquement.
-struct PbrMatUniformLocs {
-  GLint normal_strength = -1;
-  GLint height_scale = -1;
-  GLint spec_intensity = -1;
-  GLint mat = -1;
-  GLint mat2 = -1;
-};
-
-static const PbrMatUniformLocs& pbr_mat_uniform_locs(GLuint program) {
-  static GLuint cached_program = 0;
-  static PbrMatUniformLocs locs;
-  if (program != cached_program) {
-    cached_program = program;
-    locs.normal_strength = glu::loc(program, "u_pbr_normal_strength");
-    locs.height_scale = glu::loc(program, "u_pbr_height_scale");
-    locs.spec_intensity = glu::loc(program, "u_pbr_spec_intensity");
-    locs.mat = glu::loc(program, "u_pbr_mat");
-    locs.mat2 = glu::loc(program, "u_pbr_mat2");
-  }
-  return locs;
-}
-
-// Pousse les cinq uniformes de matiere. `maps == nullptr` => l'IDENTITE : les valeurs globales
-// telles que first_tfrag_draw_setup les a poussees, et les constantes que le shader portait en dur.
-// C'est le meme jeu de valeurs que finish() repose, donc un draw sans materiau resolu ne peut pas
-// heriter des reglages du precedent.
-// Gpbr-per-texture-materials — THE RUNTIME PROOF THAT THE KNOBS REACH A DRAW, not just the parser.
-// The phase's success criterion (2) is "two distinct materials render measurably different relief in
-// the same scene". A [pbrmat] parse line proves a FILE was read; it says nothing about what any draw
-// received, and the whole class of defect this fork keeps hitting is a value that moves in a variable
-// while no uniform does. So the distinct (relief, depth, spec, rough, F0) sets actually PUSHED are
-// collected PER DRAW PASS — the vector is cleared by PbrDrawBinder::begin() — and the high-water
-// mark is logged. Two or more entries in one pass IS the measurement; one entry would mean every
-// material is receiving the same numbers whatever the surface table says.
-std::vector<std::array<float, 5>> g_pbrmat_pass_sets;
-size_t g_pbrmat_logged_hwm = 0;
-// Gpbr-material-props — the RUN-WIDE census, beside the per-pass one, and it exists because the
-// per-pass mark cannot answer this phase's question. A pass only ever sees what the camera happened
-// to FRAME, so its high-water mark under-counts by construction: with 25 materials binding maps in
-// this level it read 2, and that 2 is a property of where the camera stood, not of the material
-// table. This set is never cleared, so every distinct knob set that ever reached a draw is logged
-// ONCE with the uniform values it produced. Still one level and one run — a material drawn here is
-// in the scene — but no longer hostage to a viewpoint.
-std::vector<std::array<float, 5>> g_pbrmat_run_sets;
-
-static void pbr_push_material_uniforms(GLuint program, const custom_tex::PbrMaterialMaps* maps) {
-  const auto& l = pbr_mat_uniform_locs(program);
-  const float relief = maps ? maps->pm_relief : 1.f;
-  const float depth = maps ? maps->pm_relief_depth : 1.f;
-  const float spec = maps ? maps->pm_spec : 1.f;
-  if (l.normal_strength >= 0) {
-    glUniform1f(l.normal_strength, g_pbr_glob_normal_strength * relief);
-  }
-  if (l.height_scale >= 0) {
-    glUniform1f(l.height_scale, g_pbr_glob_height_scale * depth);
-  }
-  if (l.spec_intensity >= 0) {
-    glUniform1f(l.spec_intensity, g_pbr_glob_spec * spec);
-  }
-  if (l.mat >= 0) {
-    glUniform4f(l.mat, maps ? maps->pm_rough_nomap : 0.9f, maps ? maps->pm_metal_nomap : 0.f,
-                maps ? maps->pm_reflectance : 0.04f, maps ? maps->pm_normal_y : 1.f);
-  }
-  if (l.mat2 >= 0) {
-    glUniform2f(l.mat2, maps ? maps->pm_rough_scale : 1.f, maps ? maps->pm_metal_scale : 1.f);
-  }
-  if (!maps) {
-    return;  // the finish()/setup identity reset is not a material and must not be counted as one
-  }
-  const std::array<float, 5> k{relief, depth, spec, maps->pm_rough_nomap, maps->pm_reflectance};
-  if (std::find(g_pbrmat_pass_sets.begin(), g_pbrmat_pass_sets.end(), k) ==
-      g_pbrmat_pass_sets.end()) {
-    g_pbrmat_pass_sets.push_back(k);
-    if (g_pbrmat_pass_sets.size() > g_pbrmat_logged_hwm) {
-      g_pbrmat_logged_hwm = g_pbrmat_pass_sets.size();
-      lg::info(
-          "[pbrmat-draw] {} DISTINCT material knob sets pushed in ONE draw pass; newest "
-          "relief={:.3f} depth={:.3f} spec={:.3f} rough={:.3f} F0={:.3f} -> "
-          "u_pbr_normal_strength={:.4f} u_pbr_height_scale={:.5f} u_pbr_spec_intensity={:.4f}",
-          g_pbrmat_pass_sets.size(), k[0], k[1], k[2], k[3], k[4],
-          g_pbr_glob_normal_strength * relief, g_pbr_glob_height_scale * depth,
-          g_pbr_glob_spec * spec);
-    }
-  }
-  if (std::find(g_pbrmat_run_sets.begin(), g_pbrmat_run_sets.end(), k) ==
-      g_pbrmat_run_sets.end()) {
-    g_pbrmat_run_sets.push_back(k);
-    lg::info(
-        "[pbrmat-run] distinct knob set #{} reached a draw: relief={:.3f} depth={:.3f} "
-        "spec={:.3f} rough={:.3f} F0={:.3f} -> u_pbr_normal_strength={:.4f} "
-        "u_pbr_height_scale={:.5f} u_pbr_spec_intensity={:.4f}",
-        g_pbrmat_run_sets.size(), k[0], k[1], k[2], k[3], k[4],
-        g_pbr_glob_normal_strength * relief, g_pbr_glob_height_scale * depth,
-        g_pbr_glob_spec * spec);
-  }
-}
-
-}  // namespace
-
-// Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
-// local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
-// the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
-void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
-  // Grecharged-materials-modern-parity: service a pending surfaces.json re-read HERE, on the GL
-  // thread. The request comes from the GOAL kernel thread (the MODERN MATERIALS menu row), and the
-  // re-read walks the same material registry a level load writes into — parsing it where the
-  // request arrives would be a two-thread mutation of one std::unordered_map. This is the PBR
-  // path's existing once-per-renderer GL-thread entry point, so it costs an atomic load per call
-  // and nothing else.
-  custom_tex::mm_service_reload();
-  // Gpbr-per-texture-materials: the distinct-knob-set census is PER DRAW PASS, so that
-  // "two materials differ" is a statement about one scene and not about a whole run.
-  g_pbrmat_pass_sets.clear();
-  m_program = program;
-  m_draws = draws;
-  m_mode_loc = -2;
-  m_dc_loc = -2;
-  m_cur_dc[0] = 0.f;
-  m_cur_dc[1] = 0.f;
-  // (0.5, 1.0) is the IDENTITY height normalisation that first_tfrag_draw_setup pushes as this
-  // program's default, so this cached value matches the program state — not a stale guess.
-  m_hstat_loc = -2;
-  m_cur_hstat[0] = 0.5f;
-  m_cur_hstat[1] = 1.0f;
-  // ROUND 20: 0.5 tiles/m is the default first_tfrag_draw_setup pushes for u_pbr_uv_per_m, so this
-  // cached value matches the program state (same contract as the hstat identity above).
-  m_upm_loc = -2;
-  m_cur_upm = 0.5f;
-  // ROUND 20 correction: same contract for the feature-wavelength uniform — 0.25 tiles is the
-  // identity default first_tfrag_draw_setup pushes.
-  m_lambda_loc = -2;
-  m_cur_lambda = 0.25f;
-  m_cur_mode = 0;
-  m_bound_any = false;
-  // [cover] the draw context is per-caller, not per-program state: cleared here so a binder can
-  // never inherit a stale label, and re-supplied by the caller right after begin().
-  m_cover_renderer = nullptr;
-  m_cover_kind = nullptr;
-  m_cover_frame = 0;
-}
-
-void PbrDrawBinder::set_coverage_context(const char* renderer,
-                                         const char* tree_kind,
-                                         u64 frame_idx) {
-  m_cover_renderer = renderer;
-  m_cover_kind = tree_kind;
-  m_cover_frame = frame_idx;
-}
-
-void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
-  // SPEC §6.2 : les matieres PBR sont SOUS l'eclairage recharge — une matiere sans lumiere n'a
-  // rien a reflechir. Cette porte est le seul endroit qui met `want` (donc u_pbr_mode) a autre
-  // chose que 0 : eclairage OFF => u_pbr_mode = 0 partout.
-  int want = 0;
-  const custom_tex::PbrMaterialMaps* maps = nullptr;
-  // ROUND 20: the matching entry itself, so the per-material measured UV density can be read.
-  const PbrDrawEntry* ent = nullptr;
-  // alpha-blended (TRANS "vis-alpha" tree) draws now take the PBR path too — round-4
-  // coverage unification; alpha still comes from the legacy fragment_color*T0 product
-  // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
-  // the texture, resolved once per level.
-  if (recharged_gating::on(recharged_gating::kLighting) && !pbr_killswitch() &&
-      tex_id >= 0 && !mode.get_decal() && m_draws &&
-      !m_draws->empty()) {
-    for (auto& e : *m_draws) {
-      if (e.tex_idx == tex_id) {
-        maps = &e.maps;
-        ent = &e;
-        break;
-      }
-    }
-    if (maps) {
-      want = (maps->normal_tex ? 1 : 0) | (maps->rough_tex ? 2 : 0) | (maps->metal_tex ? 4 : 0) |
-             (maps->ao_tex ? 8 : 0) | (maps->height_tex ? 16 : 0) |
-             (maps->specular_tex ? 32 : 0) | (maps->emissive_tex ? 64 : 0) |
-             // Grecharged-managed-assets: X/Y-only normal (compressed pack) — the shader
-             // reconstructs Z. Only meaningful alongside bit 1.
-             ((maps->normal_tex && maps->normal_is_rg) ? 128 : 0);
-      // ===== Gpbr-props-reach-draw : BIT 256, MATIERE AUTHOREE SANS AUCUNE CARTE =================
-      // Owner 2026-08-31 : « ça applique le PBR uniquement aux 7 textures PBR qui étaient dans le
-      // projet depuis un bail ». C'etait litteral : les bits ci-dessus sont tous derives d'une
-      // TEXTURE, donc `want` restait 0 pour une matiere que surfaces.json nomme mais qui ne porte
-      // aucune carte compagnon — et la porte `u_pbr_mode != 0` de chaque shader la renvoyait au
-      // chemin d'avant. Ses `roughness`, `metallic`, `reflectance`, `spec`, `normal_y` authores
-      // sont pourtant EXACTEMENT les valeurs que le shader lit quand la carte correspondante
-      // manque (tfrag3.frag:876-889 lit u_pbr_mat.x/.y/.z sous `(mode & 2/4) == 0`) : les champs
-      // s'appellent pm_rough_NOMAP et pm_metal_NOMAP. Ils etaient inatteignables.
-      // Le bit 256 n'allume aucune branche de carte (aucun shader ne le teste) : il ouvre la porte,
-      // et toutes les lectures retombent sur les constantes authorees. Une matiere que personne ne
-      // nomme garde want = 0 et rend exactement ce qu'elle rendait — « non authoree == stock ».
-      if (want == 0 && maps->pm_authored) {
-        want = 256;
-      }
-    }
-  }
-  // Gpbr-props-reach-draw : le recensement est pris AVANT la sortie anticipee, exprès. Une matiere
-  // que le registre resout puis que le binder ignore doit apparaitre RENCONTREE avec
-  // params_deposes = 0 — sinon le defaut de l'owner disparait de sa propre mesure.
-  const bool reach_probe = ent && custom_tex::pbr_reach_needs_probe(ent->key);
-  if (reach_probe) {
-    custom_tex::pbr_reach_note_seen(ent->key, *maps);
-  }
-  if (ent && want != 0) {
-    custom_tex::pbr_reach_note_draw();
-  }
-  if (want == 0 && m_cur_mode == 0) {
-    return;
-  }
-  if (m_mode_loc == -2) {
-    m_mode_loc = glu::loc(m_program, "u_pbr_mode");
-  }
-  if (m_mode_loc < 0) {
-    return;
-  }
-  if (want != 0) {
-    // [cover] DISPLACEMENT COVERAGE. This draw is about to bind PBR maps and push u_pbr_mode, so
-    // it is exactly one "PBR-bound draw" — count it, and classify whether it receives displacement.
-    // There is now a SINGLE gate to mirror, the fragment POM one, as the shaders branch on it
-    // today: pbr_fused.glsl (marqueur `POM_GATE`), reached from tfrag3.frag -> shade.glsl, reads
-    //   (u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0
-    // dead-published-keys-round-2 (2026-09-12) : le miroir est EXACT, trois termes contre trois.
-    // Il en portait trois contre quatre : le quatrieme du fragment, `pom_w > TESS_COVER_MIN`, etait
-    // un poids par PIXEL hors d'atteinte d'un site de bind — mais il etait aussi VRAI par
-    // construction (`tess_w` fige a 0 depuis le retrait de l'etage de tessellation), donc il est
-    // parti du shader sans changer un pixel au lieu de rester un ecart que le CPU ne pouvait pas
-    // combler. Le recensement de l'item compte les termes des DEUX cotes : l'egalite est le
-    // verdict.
-    // Le seau de displacement par SOMMET est RETIRE avec le programme TFRAG3_TESS et les shaders
-    // tfrag3_tess.*, qui n'existent plus ; `u_pbr_bisect` et `u_pbr_tess_active` sont SUPPRIMES
-    // eux aussi — aucun shader ne les declare.
-    // Gate closed with a height map = the owner's FLAT CHUNK. Integer-only, no allocation, and only
-    // ever reached on a draw that already does the PBR bind, so PBR-off frames pay nothing.
-    if (m_cover_renderer) {
-      const bool has_height = (want & 16) != 0;
-      const float hs = g_cover_height_scale.load(std::memory_order_relaxed);
-      const int dbg = g_cover_debug.load(std::memory_order_relaxed);
-      const bool pom_disp = hs > 0.f && dbg != 8;
-      custom_tex::pbr_coverage_note_draw(m_cover_frame, m_cover_renderer, m_cover_kind, has_height,
-                                         has_height && pom_disp);
-    }
-    // Bind ALL SEVEN units every time: the real map when present, the 1x1 neutral
-    // default when absent. No unit is ever left unbound or holding another draw's map
-    // while the PBR shader path is active.
-    const auto& neutral = pbr_neutral_maps();
-    glActiveTexture(GL_TEXTURE11);
-    glBindTexture(GL_TEXTURE_2D, maps->normal_tex ? maps->normal_tex : neutral.normal_tex);
-    glActiveTexture(GL_TEXTURE12);
-    glBindTexture(GL_TEXTURE_2D, maps->rough_tex ? maps->rough_tex : neutral.rough_tex);
-    glActiveTexture(GL_TEXTURE13);
-    glBindTexture(GL_TEXTURE_2D, maps->metal_tex ? maps->metal_tex : neutral.metal_tex);
-    glActiveTexture(GL_TEXTURE14);
-    glBindTexture(GL_TEXTURE_2D, maps->ao_tex ? maps->ao_tex : neutral.ao_tex);
-    glActiveTexture(GL_TEXTURE15);
-    glBindTexture(GL_TEXTURE_2D, maps->height_tex ? maps->height_tex : neutral.height_tex);
-    glActiveTexture(GL_TEXTURE16);
-    glBindTexture(GL_TEXTURE_2D, maps->specular_tex ? maps->specular_tex : neutral.specular_tex);
-    glActiveTexture(GL_TEXTURE17);
-    glBindTexture(GL_TEXTURE_2D, maps->emissive_tex ? maps->emissive_tex : neutral.emissive_tex);
-    glActiveTexture(GL_TEXTURE0);
-    m_bound_any = true;
-  }
-  if (want != m_cur_mode) {
-    glUniform1i(m_mode_loc, want);
-    lighting_census::gate_pbr_mode(want);
-    m_cur_mode = want;
-  }
-  // Push this material's normal-map DC (mean surface gradient) alongside the mode. Zero when the
-  // draw has no normal map, so a map-free draw can never inherit the previous material's tilt.
-  const float dcx = (want & 1) ? maps->normal_dc_x : 0.f;
-  const float dcy = (want & 1) ? maps->normal_dc_y : 0.f;
-  if (dcx != m_cur_dc[0] || dcy != m_cur_dc[1]) {
-    if (m_dc_loc == -2) {
-      m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
-    }
-    if (m_dc_loc >= 0) {
-      glUniform2f(m_dc_loc, dcx, dcy);
-    }
-    m_cur_dc[0] = dcx;
-    m_cur_dc[1] = dcy;
-  }
-  // Push this material's height-map statistics (mean, normalisation) alongside the mode. The
-  // identity (0.5, 1.0) when the draw has no height map, so a map-free draw can never inherit the
-  // previous material's normalisation.
-  const float hsm = (want & 16) ? maps->height_mean : 0.5f;
-  const float hsn = (want & 16) ? maps->height_norm : 1.0f;
-  if (hsm != m_cur_hstat[0] || hsn != m_cur_hstat[1]) {
-    if (m_hstat_loc == -2) {
-      m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
-    }
-    if (m_hstat_loc >= 0) {
-      glUniform2f(m_hstat_loc, hsm, hsn);
-    }
-    m_cur_hstat[0] = hsm;
-    m_cur_hstat[1] = hsn;
-  }
-  // ROUND 20: push this material's MEASURED authored UV density (texture tiles per world metre).
-  // The tess displacement derives its world-space height LOOKUP RATE from it (so one height-map
-  // tile spans exactly one painted tile) and the POM world-depth cap converts its metre limit with
-  // it. 0.5 when no material is resolved for this draw => exactly the constant shaders hardcoded.
-  const float upm = maps ? ent->uv_per_m : 0.5f;
-  if (upm != m_cur_upm) {
-    if (m_upm_loc == -2) {
-      m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
-    }
-    if (m_upm_loc >= 0) {
-      glUniform1f(m_upm_loc, upm);
-    }
-    m_cur_upm = upm;
-  }
-  // ROUND 20 correction: push this height MAP's characteristic feature wavelength (in tiles), which
-  // is what the tess AMPLITUDE follows. Measured tiles are 2.3-7.9 m wide and hold many features
-  // each, so scaling the depth by the tile would build metre-tall hills; scaling it by the feature
-  // wavelength keeps the relief at feature scale. Identity 0.25 when the draw has no height map, so
-  // a map-free draw can never inherit the previous material's wavelength (same rule as the hstat).
-  // Gpbr-per-texture-materials: an AUTHORED wavelength (surfaces.json `relief_lambda`, > 0) replaces
-  // the MEASURED one. The measured field is left untouched so the re-stamp on the next reload does
-  // not destroy it — the override lives only in what is pushed.
-  const float lam = (want & 16) ? ((maps->pm_relief_lambda > 0.f) ? maps->pm_relief_lambda
-                                                                  : maps->height_lambda_tiles)
-                                : 0.25f;
-  if (lam != m_cur_lambda) {
-    if (m_lambda_loc == -2) {
-      m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
-    }
-    if (m_lambda_loc >= 0) {
-      glUniform1f(m_lambda_loc, lam);
-    }
-    m_cur_lambda = lam;
-  }
-  // ===== Gpbr-per-texture-materials: THE PER-TEXTURE MATERIAL KNOBS ==============================
-  // Owner 2026-08-28: « on applique un specular truc machin et un relief globalement, ça devrait
-  // être texture par texture ». Until now relief/spec were frame-constant and per-PROGRAM (pushed
-  // once by first_tfrag_draw_setup) and roughness/metallic/F0 were literals inside the shader, so a
-  // sand and a cut-stone wall could not differ. Here they become per-DRAW, multiplied onto the
-  // globals the setup pushed.
-  // `want == 0 || !maps` => the IDENTITY (globals x 1 and the shader's own constants), so a draw
-  // with no resolved material renders exactly as before and cannot inherit the previous one.
-  pbr_push_material_uniforms(m_program, (want != 0) ? maps : nullptr);
-  // Gpbr-props-reach-draw : la PREUVE que les boutons sont dans le programme que le draw suivant
-  // va utiliser — relus de l'objet programme par glGetUniformfv, pas recopies de nos variables.
-  // UNE SEULE FOIS par materiau (`reach_probe`) : glGetUniformfv est une requete synchrone qui
-  // draine le pipeline du pilote, et la faire par draw couterait ce que le commentaire
-  // glGetFloatv de LoaderStages.cpp:270 a deja mesure (des blocages de plus d'une seconde).
-  if (reach_probe && want != 0) {
-    const auto& rl = pbr_mat_uniform_locs(m_program);
-    float rb_mat[4] = {0.f, 0.f, 0.f, 0.f};
-    float rb_mat2[2] = {0.f, 0.f};
-    const bool have = rl.mat >= 0;
-    if (have) {
-      glGetUniformfv(m_program, rl.mat, rb_mat);
-      if (rl.mat2 >= 0) {
-        glGetUniformfv(m_program, rl.mat2, rb_mat2);
-      }
-    }
-    custom_tex::pbr_reach_note_pushed(ent->key, have ? rb_mat : nullptr,
-                                      (have && rl.mat2 >= 0) ? rb_mat2 : nullptr, want);
-  }
-  // lighting-legacy-purge (2026-09-11) : le bloc de la pile « Materiaux avances » est SUPPRIME.
-  // Sa rangee de menu livrait OFF, `mm_apply_params` remettait donc `mm_flags` a 0 sur CHAQUE
-  // matiere, et le draw poussait `u_mm_flags = 0` : le chunk du shader sortait avant d'ecrire un
-  // pixel. Son absence EST la valeur livree — uniformes, compteurs et relecture comprises.
-}
-
-void PbrDrawBinder::finish() {
-  // The TFRAG3 program is shared; reset PBR mode to 0 so other users are unaffected.
-  if (m_cur_mode != 0) {
-    if (m_mode_loc == -2) {
-      m_mode_loc = glu::loc(m_program, "u_pbr_mode");
-    }
-    if (m_mode_loc >= 0) {
-      glUniform1i(m_mode_loc, 0);
-      lighting_census::gate_pbr_mode(0);
-    }
-    m_cur_mode = 0;
-  }
-  if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
-    if (m_dc_loc == -2) {
-      m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
-    }
-    if (m_dc_loc >= 0) {
-      glUniform2f(m_dc_loc, 0.f, 0.f);
-    }
-    m_cur_dc[0] = 0.f;
-    m_cur_dc[1] = 0.f;
-  }
-  // Same for the height normalisation: back to the identity (0.5, 1.0) the program defaults to.
-  if (m_cur_hstat[0] != 0.5f || m_cur_hstat[1] != 1.0f) {
-    if (m_hstat_loc == -2) {
-      m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
-    }
-    if (m_hstat_loc >= 0) {
-      glUniform2f(m_hstat_loc, 0.5f, 1.0f);
-    }
-    m_cur_hstat[0] = 0.5f;
-    m_cur_hstat[1] = 1.0f;
-  }
-  // ROUND 20: same for the measured UV density — back to the 0.5 tiles/m default the program
-  // carries, so no later TFRAG3 user inherits this material's density.
-  if (m_cur_upm != 0.5f) {
-    if (m_upm_loc == -2) {
-      m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
-    }
-    if (m_upm_loc >= 0) {
-      glUniform1f(m_upm_loc, 0.5f);
-    }
-    m_cur_upm = 0.5f;
-  }
-  // ROUND 20 correction: and the feature wavelength back to its 0.25-tile identity.
-  if (m_cur_lambda != 0.25f) {
-    if (m_lambda_loc == -2) {
-      m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
-    }
-    if (m_lambda_loc >= 0) {
-      glUniform1f(m_lambda_loc, 0.25f);
-    }
-    m_cur_lambda = 0.25f;
-  }
-  // Gpbr-per-texture-materials: repose the GLOBAL relief/spec exactly as first_tfrag_draw_setup
-  // pushed them, and the shader's own constants for the material vector. The TFRAG3 program is
-  // shared with renderers that never call set() (HFRAG in particular), and those must see the
-  // frame-constant globals, never the last material's multipliers.
-  pbr_push_material_uniforms(m_program, nullptr);
-  // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
-  // draws this frame; restores active unit 0.
-  if (m_bound_any) {
-    pbr_park_neutral_maps();
-    m_bound_any = false;
-  }
-}
 
 // ===========================================================================
 // Grecharged-pbr-materials round-4 mandate B: sun shadow mapping.
@@ -1905,9 +1132,6 @@ void pbr_push_debug_tag(GLuint program) {
 // LE DEFAUT MESURE. `first_tfrag_draw_setup` poussait ses 70 uniformes de la famille ECLAIRAGE
 // SANS AUCUNE CONDITION, y compris quand l'ECLAIRAGE RECHARGE est ETEINT. Dans cet etat les
 // quatre portes que les shaders consultent valent toutes zero et rien ne peut les relever :
-//   u_pbr_mode      PbrDrawBinder::set sort avant d'ecrire quoi que ce soit (« les matieres PBR
-//                   sont SOUS l'eclairage recharge ») : la porte est `kLighting` lui-meme depuis
-//                   lighting-legacy-purge, le PBR n'etant plus une option.
 //   u_rt_light_on   `Gfx::lighting_active(...)` le met a 0 ; `rt-light` a le meme parent.
 //   u_pbr_shadow_on le receveur n'est meme pas APPELE : ses trois appelants le gardent derriere
 //                   `recharged_gating::on(kLighting) || on(kRtLight)` (TFragment.cpp, Tie3.cpp,
@@ -1916,12 +1140,11 @@ void pbr_push_debug_tag(GLuint program) {
 // payait 54 recherches de nom + 54 appels de pilote PAR HOTE ET PAR IMAGE pour rien.
 //
 // CE QUI CONTINUE D'ETRE POUSSE, ETEINT (`lgt_keep_1i`) — et pourquoi :
-//   * les PORTES elles-memes (u_pbr_mode, u_pbr_shadow_on, u_rt_light_on) : ne PAS les pousser
+//   * les PORTES elles-memes (u_pbr_shadow_on, u_rt_light_on) : ne PAS les pousser
 //     laisserait le programme sur la valeur ALLUMEE de l'image precedente et rallumerait
-//     l'eclairage. Un uniforme est un etat de programme. (`u_mm_flags` et `u_rt_ambient_on` ont
-//     disparu avec la pile « Materiaux avances » et l'interrupteur d'ambiante —
-//     lighting-legacy-purge.)
-//   * les NEUF unites de texture `tex_PBR_*` : une unite non posee retombe a 0, deux
+//     l'eclairage. Un uniforme est un etat de programme. (Les portes et les unites de texture de
+//     la pile de MATERIAUX ont disparu avec elle — lighting-legacy-purge.)
+//   * l'unite de texture de la carte d'ombres : une unite non posee retombe a 0, deux
 //     echantillonneurs sur la meme unite est le piege de completude connu de cet arbre.
 //   * u_pbr_debug : tfrag3.frag le lit HORS de toute porte d'eclairage (les modes de recensement
 //     de couverture 30/31).
@@ -2063,8 +1286,12 @@ inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat 
 //       ramperait pendant ~10 images depuis une valeur vieille de N images : l'a-coup que
 //       attempt-10 avait precisement supprime. Invalidees, elles se re-sement sur la valeur brute
 //       a la premiere image rallumee, ce qui est exactement le comportement de l'amorcage.
-//   `g_pbr_glob_*` et `pbr_cover_publish_gates(...)` — GARDES. Voir `kPbrParams` / `kMatGlobals`
-//       ci-dessous : ce sont les deux seuls blocs de la famille GARDEE, et ils portent leur raison.
+//   `g_pbr_glob_*` et `pbr_cover_publish_gates(...)` — N'EXISTENT PLUS. Les deux sortaient de la
+//       pile de matiere, SUPPRIMEE de l'arbre par `lighting-legacy-purge` (2026-09-12). La famille
+//       GARDEE, qui n'avait que ces deux blocs, est donc VIDE : `lighting_math_blocks_guarded`
+//       publie 0, et `lighting_off_kept_blocks` vaut 0 parce qu'il n'y a plus rien a garder — ce
+//       n'est pas un zero de construction, c'est le compte d'une famille dont les deux membres
+//       sont partis avec leur code.
 namespace lgtmath {
 
 // LES BLOCS. Deux familles, et l'ordre compte : tout ce qui est < `kBlockedCount` appartient a la
@@ -2081,27 +1308,23 @@ enum Block : int {
   kHandoffEma,      // passe-bas temporel des cinq scalaires de transition
   kFlatNormal,      // lecture du basculement normale plate (mise au point)
   kAmbientSh,       // ambiante hemispherique + PROJECTION L2 (256 echantillons) + normalisation
-  kPbrAmbient,      // couleur d'ambiante PBR (groupe de lumieres ou ambiante d'humeur)
-  kExposure,        // `hdr::chain_active()` et le choix d'exposition
+  // `kPbrAmbient` (couleur d'ambiante PBR) et `kExposure` (`hdr::chain_active()` et le choix
+  // d'exposition) ONT QUITTE CETTE TABLE avec les poussees qu'ils entouraient : `u_pbr_ambient` et
+  // `u_pbr_exposure` sont partis avec la pile de matiere (lighting-legacy-purge, 2026-09-12). Une
+  // legende qui nomme un bloc supprime fait croire a un masque de fuite qu'aucun code ne peut
+  // lever. L'exposition, elle, n'est pas perdue : le site unique est `hdr.cpp` (`u_hdr_exposure`).
   kBlockedCount,
   // ── famille GARDEE : sortie consommee AILLEURS, la raison est ecrite ─────────────────────────
-  // `kPbrParams` : les surcharges d'environnement des scalaires de matiere, puis le clamp de
-  //   relief. dead-published-keys-round-2 (2026-09-12) : MOTIF REEXAMINE. Ce qui la justifie
-  //   ENCORE : les trois scalaires `normal_strength`, `height_scale`, `spec_intensity`, tous
-  //   produits ici et relus hors de la fonction — les trois par `kMatGlobals` (`g_pbr_glob_*`),
-  //   et `height_scale` une seconde fois par `pbr_cover_publish_gates`. Ce qui NE la justifie
-  //   PLUS : `pbr_debug`. Des DEUX atomiques de `pbr_cover_publish_gates`, la seconde recoit
-  //   `pbr_debug`, calcule par `pbr_debug_mode()` HORS du bloc garde ; sauter le bloc ne la
-  //   changerait pas. Le motif a maigri de moitie de ce cote-la quand la fonction est passee de
-  //   quatre atomiques a deux, et il n'en reste qu'un seul argument dependant.
-  // `kMatGlobals` : `g_pbr_glob_normal_strength|height_scale|spec`, relus par le binder de
-  //   matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau.
-  // Les deux sont des constantes, des `atof` sur un cache de proprietes et trois clamps : aucune
-  // trigonometrie, aucune boucle. Les garder coute un epsilon et evite de raisonner sur un
-  // consommateur hors de ce fichier ; c'est le marche que le livrable autorise explicitement.
-  kPbrParams = kBlockedCount,
-  kMatGlobals,
-  kBlockCount
+  // ELLE EST VIDE DEPUIS lighting-legacy-purge (2026-09-12). Elle n'a jamais eu que deux membres,
+  // `kPbrParams` (les surcharges des scalaires de matiere et le clamp de relief) et `kMatGlobals`
+  // (`g_pbr_glob_*`, relus par le binder de matiere). Les DEUX blocs, leurs sorties et leur
+  // consommateur ont quitte l'arbre avec la pile de matiere : il ne reste rien a garder, et une
+  // legende qui nommerait encore ces deux blocs decrirait du code supprime.
+  // Le MECANISME reste : un futur bloc dont la sortie est consommee hors de cette fonction se
+  // declare ici, apres `kBlockedCount`, et `block()` le comptera dans `kept_*` sans jamais le
+  // sauter. Les deux denominateurs sont publies (`lighting_math_blocks_blocked` /
+  // `lighting_math_blocks_guarded`), donc le 0 de `lighting_off_kept_blocks` se lit.
+  kBlockCount = kBlockedCount
 };
 
 struct Census {
@@ -2341,18 +1564,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   sh.activate();
   auto id = sh.id();
 #ifdef OG_FEAT_PBR
-  const bool legacy_host = shader == ShaderId::TFRAG3;
-  lighting_census::host_paths(legacy_host || shader == ShaderId::ETIE_BASE ||
-                                 shader == ShaderId::TIE_WIND || shader == ShaderId::SHRUB,
-                             legacy_host);
+  // lighting-legacy-purge (2026-09-12) : le second argument est parti avec les composites qu'il
+  // designait. `legacy_host` disait « cet hote porte AUSSI C et E » ; les deux sont SUPPRIMES de
+  // shade.glsl, TFRAG3 n'a plus rien de plus que les trois autres.
+  lighting_census::host_paths(shader == ShaderId::TFRAG3 || shader == ShaderId::ETIE_BASE ||
+                              shader == ShaderId::TIE_WIND || shader == ShaderId::SHRUB);
 #else
-  lighting_census::host_paths(false, false);
-#endif
-#ifdef OG_FEAT_PBR
-  // lighting-legacy-purge (2026-09-11) : `u_pbr_tess_active` n'est plus pousse. Il ne valait 1 que
-  // pour le programme TFRAG3_TESS, supprime avec le mode DISPLACEMENT = TESSELLATION jamais livre :
-  // la valeur poussee etait 0 sur TOUS les hotes restants, ce que la valeur par defaut d'un uniforme
-  // entier vaut deja.
+  lighting_census::host_paths(false);
 #endif
   glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
   lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
@@ -2396,38 +1614,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   frame_ubo::update_and_bind(settings, render_state);
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
-  // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
-  lgt_keep_1i(id, "u_pbr_mode", 0);
-  lighting_census::gate_pbr_mode(0);
-  // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
-  // material's measured statistics and restores this default in finish().
-  lgt_2f(id, "u_pbr_height_stat", 0.5f, 1.0f);
-  // ROUND 20: default authored UV density = the 0.5 tiles/m the shaders used to hardcode. The
-  // per-draw binder overrides it with the material's measured density, and restores it in finish().
-  lgt_1f(id, "u_pbr_uv_per_m", 0.5f);
-  // ROUND 20 correction: identity feature wavelength (0.25 tile); the per-draw binder overrides it
-  // with the height map's measured spectrum and restores this in finish().
-  lgt_1f(id, "u_pbr_height_lambda", 0.25f);
-  lgt_keep_1i(id, "tex_PBR_N", 11);
-  lgt_keep_1i(id, "tex_PBR_R", 12);
-  lgt_keep_1i(id, "tex_PBR_M", 13);
-  lgt_keep_1i(id, "tex_PBR_AO", 14);
-  lgt_keep_1i(id, "tex_PBR_H", 15);
-  // Grecharged-pbr-realtime-fusion: specular (F0) + emissive maps on units 16/17
-  // (probe samplers sit on 3-7, DirectRenderer starts at 20 — no collision; GLES 3.x
-  // guarantees >=32 combined units and the fragment stage uses 14 samplers <= 16).
-  lgt_keep_1i(id, "tex_PBR_S", 16);
-  lgt_keep_1i(id, "tex_PBR_E", 17);
-  // Grecharged-materials-modern-parity: subsurface THICKNESS on unit 19. 18 is shrub's wind-anchor
-  // LUT (tex_T18), 20-29 belong to DirectRenderer, so 19 is the only free slot below the auto-bind
-  // range. SAMPLER BUDGET, stated because it is now the binding constraint and not a comfortable
-  // one: the world fragment stage declares tex_T0 + 8 PBR maps + the shadow map + 4 probe sampler3D
-  // + 1 samplerCube = 15, against a GL_MAX_TEXTURE_IMAGE_UNITS floor of 16 on GLES 3.2. ONE slot
-  // left. The next channel that wants a map must pack into an existing one (as _orm does for
-  // occlusion/roughness/metallic) rather than take a unit.
-  // lighting-legacy-purge (2026-09-11) : `tex_PBR_TH` (unite 19, l'epaisseur sous-surfacique) et
-  // `u_mm_flags` partent avec la pile « Materiaux avances » : plus aucun shader ne les declare.
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
@@ -2443,9 +1629,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                   pbr_shadow_state().depth_tex[1 - pbr_shadow_state().write]);
     glActiveTexture(GL_TEXTURE0);
   }
-  // Units 11-15 must be complete for EVERY draw of this program — including when zero
-  // PBR materials are registered this level (see pbr_neutral_maps in background_common.h).
-  pbr_park_neutral_maps();
   const auto& gs = Gfx::g_global_settings;
   // Sun direction is surface->sun; the GOAL shadow vector is light-travel (sun->surface), so negate.
   // lighting-off-math-still-runs : les valeurs d'initialisation SONT celles de la branche
@@ -2471,92 +1654,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // pushing the raw engine values (1:1 pass-through in the pc layer).
   float sun_scale = 1.0f / 255.0f;
   float amb_scale = 1.0f / 255.0f;
-  float exposure = gs.recharged_pbr_exposure;
-  // Owner mandate 2026-07-18 ("giga flat"): relief tunables, defaults CALIBRATED on
-  // device at the owner sage-wall vantage (-112 42 205 h8; calib combo C beat A/B/D/E:
-  // deep mortar relief, no grazing smear — see device/calib/). Extra UV tiling 1.0 =
-  // native texel density (2x read busier and smeared at grazing on this wall).
-  float normal_strength = 3.0f;
-  // REOPEN #6 (owner playtest #5: the "~10cm epoxy float" = the POM depth is ~100x too large,
-  // the texture swims off the geometry). Calibrated DOWN to a surface-locked micro-relief:
-  // 0.02 (was 0.07) UV-space depth. The primary relief now comes from the NORMAL-MAP SHADING
-  // (surface-locked, cannot float — normal_strength stays strong); POM only adds a subtle,
-  // CLAMPED (see tfrag3.frag surface-lock) occlusion parallax that stays welded to the surface.
-  // Tessellation (the real geometric displacement) keeps its ~5cm depth via TESS_DISP_K in the
-  // tese (bumped to compensate this reduction) — real vertices never float.
-  // REOPEN#7 (owner: the neutered 0.02 was OVER-corrected => displacement invisible): with the new
-  // per-vertex-tangent CONTINUOUS TBN the parallax is properly surface-locked, so the depth is
-  // restored to a clearly VISIBLE micro-relief (0.05 UV base, * relief slider, then hard-clamped in
-  // the shader to 0.08 UV total) — visible depth that stays welded to the surface, no epoxy float.
-  float height_scale = 0.05f;
-  float uv_tile = 1.0f;
-  // Grecharged-pbr-realtime-fusion: emissive intensity multiplier (fused rt+pbr path).
-  float emissive_str = 1.0f;
-  // REOPEN #2 menu sliders (owner: tunables in SETTINGS, not adb props): TEXTURE RELIEF
-  // multiplies normal strength + POM height (1.0 = the previous look; shipped default 1.5
-  // = noticeably stronger relief). SPECULAR INTENSITY scales the fused specular sum.
-  // Debug props still override for headless calibration.
-  // lighting-legacy-purge (2026-09-11) : TEXTURE RELIEF et SPECULAR INTENSITY ne sont plus des
-  // curseurs. Ils valent la CONSTANTE que le jeu livrait.
-  float relief = RechargedFixed::kPbrTextureRelief;
-  float spec_intensity = RechargedFixed::kPbrSpecIntensity;
-  // Owner round-3 mandate (macro shading): lighting-split calibration. Indirect 1.0 =
-  // the baked-GI term reproduces legacy brightness in full baked shadow by construction
-  // (see tfrag3.frag); direct scales the realtime sun DIFFUSE because the baked color
-  // already carries the baked sun (double-dose control). 0.3 = device-calibrated at the
-  // owner sage-wall vantage (-112 42 205 h8): largest value whose ON-vs-OFF macro
-  // luminance-profile correlation passed the 0.8 gate across BOTH calibration boots
-  // (refined sweep corr_h 0.933 / coarse boot 0.822; ratio 1.10; 0.5 scored 0.78=FAIL).
-  float pbr_direct = 0.3f;
-  float pbr_indirect = 1.0f;
-  // Round-4bis mandate E: 1.0 = round-3 hybrid (indirect = baked vertex GI), 0.0 = FULL
-  // REALTIME (indirect = light-group ambi * AO, baked term gone). Prop-tunable for the
-  // owner's day/night A/B; default stays the owner-accepted round-3 hybrid.
-  float pbr_baked_weight = 1.0f;
   float pbr_shadow_bias = 0.0f;  // debug compare-ref override (see tfrag3.frag)
-  // Round-5 addendum 2 MANDATE F ("light the world like Jak"): world-wide per-face N.L
-  // mood-light relight of LEGACY world fragments. 1.0 = on (blend fully to the relit
-  // term), 0.0 = old flat legacy-darkening only. wr_direct/wr_indirect calibrate against
-  // double-brightening (the baked vertex color already carries the baked sun): indirect
-  // slightly below 1 makes headroom for the directional term the sun-facing faces gain.
-  float world_relight = 1.0f;
-  float wr_direct = 0.25f;
-  float wr_indirect = 0.85f;
   // Per-channel isolation viz (critique 2 "prove each map does work"): value semantics
   // documented at the u_pbr_debug uniform in tfrag3.frag. 0 (absent) = normal render.
   // ROUND 22: the prop/env read moved to pbr_debug_mode() above so the non-background renderers
   // (hfrag/merc2/generic/emerc) can be told the same mode. Value is unchanged.
   int pbr_debug = pbr_debug_mode();
-  // REOPEN #3 TERM BISECTION (owner: sheen survives specular=0): bitmask zeroing ONE
-  // fused-path lighting term at a time — semantics documented at u_pbr_bisect in
-  // tfrag3.frag. Absent prop = 0 = full path (no behavioural change).
-  // lighting-legacy-purge (2026-09-11) : la bissection PBR ISOLATE est SUPPRIMEE. Le masque livre
-  // valait 0 = chemin fuse COMPLET, et l'uniforme `u_pbr_bisect` part avec la rangee de menu.
-  // lighting-legacy-purge (2026-09-11) : la banque 2 de la bissection part avec la banque 1.
-  // Elle n'avait ni rangee de menu ni pont GOAL, seulement un override de mise au point, et sa
-  // valeur livree valait 0 = chemin fuse COMPLET. `u_pbr_bisect2` n'est plus declare par aucun
-  // shader : continuer a le pousser serait un glUniform sur un emplacement -1, une fois par draw.
-  // lighting-legacy-purge (2026-09-11) : les deux knobs de la pile « Materiaux avances »
-  // (`u_mm_exposure`, `u_mm_debug`) partent avec elle.
-  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT n'est plus un carrousel. Le mode 2
-  // TESSELLATION n'a jamais ete livre et ses deux knobs (plafond de niveau, taille de segment)
-  // sont partis avec lui, comme les shaders tfrag3_tess.*. dead-cover-and-legends (2026-09-12) :
-  // plus aucune variable locale ne porte le mode ici — le seul mode possible est le PARALLAX, donc
-  // personne n'a plus a le lire.
-  // lighting-off-math-still-runs : BLOC GARDE. Les surcharges ci-dessous et les clamps qui les
-  // suivent produisent `normal_strength` / `height_scale` / `spec_intensity`, relus HORS de cette
-  // fonction : `g_pbr_glob_*` (les trois, via `kMatGlobals`, relus par le binder de matiere) et
-  // `pbr_cover_publish_gates` (`height_scale`, relu par PbrDrawBinder::set). Ce sont des `atof`
-  // sur un cache de proprietes et trois clamps — ni trigonometrie ni boucle ; on les garde plutot
-  // que de raisonner sur un consommateur hors fichier. Le recensement le compte a part
-  // (`lighting_off_kept_blocks`), jamais dans la porte.
-  // dead-published-keys-round-2 (2026-09-12) : MOTIF REEXAMINE apres le passage de
-  // `pbr_cover_publish_gates` de quatre atomiques a deux. CE QUI N'Y EST PLUS : `pbr_debug`, le
-  // second argument de cet appel, est calcule par `pbr_debug_mode()` HORS de ce bloc — sauter le
-  // bloc ne le change pas, il ne justifie donc plus la garde. Des deux atomiques, seule celle qui
-  // recoit `height_scale` en depend encore. CE QUI LA JUSTIFIE ENCORE : les trois scalaires, par
-  // `kMatGlobals`. La garde reste, sur un motif de trois sorties et non plus de quatre.
-  if (lgtmath::block(lgtmath::kPbrParams)) {
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
@@ -2568,106 +1671,29 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (prop_cache::property_get("debug.opengoal.pbr.ambscale", v) > 0) {
       amb_scale = atof(v);
     }
-    if (prop_cache::property_get("debug.opengoal.pbr.exposure", v) > 0) {
-      exposure = atof(v);
-    }
     // (debug.opengoal.pbr.debug is read by pbr_debug_mode() at the pbr_debug initialiser above.)
-    if (prop_cache::property_get("debug.opengoal.pbr.nstrength", v) > 0) {
-      normal_strength = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.height", v) > 0) {
-      height_scale = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.uvtile", v) > 0) {
-      uv_tile = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.emissive", v) > 0) {
-      emissive_str = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.direct", v) > 0) {
-      pbr_direct = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.indirect", v) > 0) {
-      pbr_indirect = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.bakedw", v) > 0) {
-      pbr_baked_weight = atof(v);
-    }
     if (prop_cache::property_get("debug.opengoal.pbr.shadowbias", v) > 0) {
       pbr_shadow_bias = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.worldrelight", v) > 0) {
-      world_relight = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.wrdirect", v) > 0) {
-      wr_direct = atof(v);
-    }
-    if (prop_cache::property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
-      wr_indirect = atof(v);
     }
   }
 #else
   // (OG_PBR_DEBUG is read by pbr_debug_mode() at the pbr_debug initialiser above.)
-  if (const char* e = prop_cache::env_get("OG_PBR_NSTRENGTH")) {
-    normal_strength = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_HEIGHT")) {
-    height_scale = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_UVTILE")) {
-    uv_tile = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_EMISSIVE")) {
-    emissive_str = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_DIRECT")) {
-    pbr_direct = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_INDIRECT")) {
-    pbr_indirect = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_BAKEDW")) {
-    pbr_baked_weight = atof(e);
-  }
   if (const char* e = prop_cache::env_get("OG_PBR_SHADOWBIAS")) {
     pbr_shadow_bias = atof(e);
   }
-  if (const char* e = prop_cache::env_get("OG_PBR_WORLDRELIGHT")) {
-    world_relight = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_WR_DIRECT")) {
-    wr_direct = atof(e);
-  }
-  if (const char* e = prop_cache::env_get("OG_PBR_WR_INDIRECT")) {
-    wr_indirect = atof(e);
-  }
 #endif
-  // REOPEN #2: clamp the sliders and fold TEXTURE RELIEF into the relief tunables.
-  relief = std::max(0.0f, std::min(relief, 3.0f));
-  spec_intensity = std::max(0.0f, std::min(spec_intensity, 3.0f));
-  normal_strength *= relief;
-  height_scale *= relief;
-  }  // lighting-off-math-still-runs : fin du bloc GARDE `kPbrParams`
   lgt_keep_1i(id, "u_pbr_debug", pbr_debug);
-  // lighting-legacy-purge (2026-09-11) : `u_pbr_bisect` (bissection de menu, masque livre 0),
-  // `u_pbr_displacement` (fige a PARALLAX) et les deux uniformes de TESSELLATION ne sont plus
-  // pousses : le repli « Tessellation -> Parallaxe » n'a plus d'objet puisque le mode 2 n'existe
-  // plus, et la mise a zero de `height_scale` sous le mode 0 non plus. dead-cover-and-legends
-  // (2026-09-12) : le recensement de couverture ne recoit plus du tout ces deux grandeurs — une
-  // constante n'est pas une porte.
-  pbr_cover_publish_gates(height_scale, pbr_debug);
 
   // Round-4 multi-light (mandate C): build 3 direct lights from *time-of-day-context*
-  // light-group 0 (soleil dir0 + lune verte dir1 + fill dir2). Bound as arrays for the
-  // shader's accumulation loop. u_pbr_sun_dir/u_pbr_sun_color stay set above (viz/other
-  // code reads them). Each color is pre-weighted by its levels.x morph weight in GOAL's
-  // TOD interpolation, so dir0+dir1 sum ~1 across hour transitions (energy conserved).
+  // light-group 0 (soleil dir0 + lune verte dir1 + fill dir2). Seule la direction de la
+  // lumiere 0 survit a la purge des materiaux : c'est elle que `u_rt_sun_dir` recoit, donc
+  // l'ombrage temps reel, le biais de pente de la carte d'ombres et la passe de profondeur
+  // s'accordent tous sur la meme position du soleil.
   // lighting-off-math-still-runs : les initialiseurs comptent. `light_dir[0..2]` = (0,1,0) est la
   // valeur que la poussee CONSERVEE `u_rt_sun_dir` emporte quand le bloc est saute : unitaire,
   // donc jamais NaN sous les trois `normalize()` hors garde des shaders monde, et jamais lue
-  // puisque `u_rt_light_on` et `u_pbr_shadow_on` valent 0. `light_color` a zero = lumiere eteinte.
+  // puisque `u_rt_light_on` et `u_pbr_shadow_on` valent 0.
   float light_dir[9] = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f};
-  float light_color[9] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
   if (lgtmath::block(lgtmath::kLightGroup)) {
   if (gs.recharged_pbr_lg_valid) {
     for (int i = 0; i < 3; i++) {
@@ -2681,16 +1707,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         light_dir[i * 3 + 0] = 0.f;
         light_dir[i * 3 + 1] = 1.f;
         light_dir[i * 3 + 2] = 0.f;
-        light_color[i * 3 + 0] = 0.f;
-        light_color[i * 3 + 1] = 0.f;
-        light_color[i * 3 + 2] = 0.f;
       } else {
         light_dir[i * 3 + 0] = d[0] / dl;
         light_dir[i * 3 + 1] = d[1] / dl;
         light_dir[i * 3 + 2] = d[2] / dl;
-        light_color[i * 3 + 0] = gs.recharged_pbr_lg_color[i][0] * lvl * sun_scale;
-        light_color[i * 3 + 1] = gs.recharged_pbr_lg_color[i][1] * lvl * sun_scale;
-        light_color[i * 3 + 2] = gs.recharged_pbr_lg_color[i][2] * lvl * sun_scale;
       }
     }
   } else {
@@ -2699,12 +1719,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     light_dir[0] = sd[0] / sl;
     light_dir[1] = sd[1] / sl;
     light_dir[2] = sd[2] / sl;
-    light_color[0] = gs.recharged_pbr_sun_color[0] * sun_scale;
-    light_color[1] = gs.recharged_pbr_sun_color[1] * sun_scale;
-    light_color[2] = gs.recharged_pbr_sun_color[2] * sun_scale;
     for (int k = 3; k < 9; k++) {
       light_dir[k] = (k % 3 == 1) ? 1.f : 0.f;  // (0,1,0) dirs
-      light_color[k] = 0.f;
     }
   }
   // Round-5 suspect (c) coherence: when the visible-sun dome vector is valid (pushed +
@@ -2721,8 +1737,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
   }
   }  // lighting-off-math-still-runs : fin du bloc `kLightGroup`
-  lgt_3fv(id, "u_pbr_light_dir", 3, light_dir);
-  lgt_3fv(id, "u_pbr_light_color", 3, light_color);
 
   // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
   // Master toggle comes from the pc-settings (recharged_rt_*), overridable per-frame by a
@@ -3252,63 +2266,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
   }
 
-  // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun
-  // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
-  // full-realtime indirect); at the default weight 1.0 it stays viz-only.
-  if (lgtmath::block(lgtmath::kPbrAmbient)) {
-  if (gs.recharged_pbr_lg_valid) {
-    lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_lg_ambi[0] * amb_scale,
-                gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
-  } else {
-    lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_ambient[0] * amb_scale,
-                gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
-  }
-  }
-  // lighting-hdr (SPEC §8 item 2) : LES COMPOSITES C ET E CEDENT LEUR EXPOSITION AU SITE UNIQUE.
-  // Quand la chaine HDR est active, ils poussent 1,0 et c'est `tonemap` qui expose, une fois,
-  // pour toute l'image. Ce n'est pas un changement d'apparence : C applique `pow(lit * E, 1/2,2)`,
-  // donc exposer en LINEAIRE avant l'encodage revient EXACTEMENT a multiplier la valeur encodee
-  // par `E^(1/2,2)` — c'est ce facteur que le site reprend (hdr.cpp, `u_hdr_exposure`). Le
-  // resultat est identique en dessous du genou, et il n'y a plus qu'un seul reglage d'exposition
-  // sur le chemin. Chaine inactive : rien ne change, le composite garde son exposition, sinon
-  // eteindre le HDR assombrirait le monde.
-  // lighting-off-math-still-runs : l'ARGUMENT d'une poussee sautable est evalue meme quand la
-  // poussee est sautee — c'est une des formes du defaut mesure. `hdr::chain_active()` est un appel,
-  // pas une variable : il passe donc sous un bloc.
-  if (lgtmath::block(lgtmath::kExposure)) {
-    lgt_1f(id, "u_pbr_exposure", hdr::chain_active() ? 1.0f : exposure);
-  }
-  // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
-  // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
-  // of height_scale, so what PbrDrawBinder multiplies by a material factor is the value the shader
-  // really got, never a pre-clamp one. finish() reposes these same three numbers.
-  // lighting-off-math-still-runs : BLOC GARDE. Ces trois globales sont relues par le binder de
-  // matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau : leur
-  // consommateur est HORS de cette fonction, donc hors de la preuve que gl-uniforms-off-cost a
-  // faite sur les poussees. Trois affectations, aucun calcul ; on les garde et on le dit.
-  if (lgtmath::block(lgtmath::kMatGlobals)) {
-    g_pbr_glob_normal_strength = normal_strength;
-    g_pbr_glob_height_scale = height_scale;
-    g_pbr_glob_spec = spec_intensity;
-  }
-  lgt_1f(id, "u_pbr_normal_strength", normal_strength);
-  lgt_1f(id, "u_pbr_height_scale", height_scale);
-  lgt_1f(id, "u_pbr_emissive_str", emissive_str);
-  lgt_1f(id, "u_pbr_spec_intensity", spec_intensity);
-  // Gpbr-per-texture-materials: the per-material vector, at its IDENTITY — (0.9, 0, 0.04, 1) and
-  // (1, 1) ARE the constants the shader used to carry in-line. Pushed here so every program that
-  // never sees a PbrDrawBinder (HFRAG, shrub, tie_wind, etie_base) still has a DEFINED value
-  // instead of the GL default zero — a zero .w would mirror every normal map's green channel and a
-  // zero reflectance would kill dielectric Fresnel.
-  lgt_4f(id, "u_pbr_mat", 0.9f, 0.f, 0.04f, 1.f);
-  lgt_2f(id, "u_pbr_mat2", 1.f, 1.f);
-  lgt_1f(id, "u_pbr_direct", pbr_direct);
-  lgt_1f(id, "u_pbr_indirect", pbr_indirect);
-  lgt_1f(id, "u_pbr_baked_weight", pbr_baked_weight);
   lgt_1f(id, "u_pbr_shadow_bias", pbr_shadow_bias);
-  lgt_1f(id, "u_pbr_world_relight", world_relight);
-  lgt_1f(id, "u_pbr_wr_direct", wr_direct);
-  lgt_1f(id, "u_pbr_wr_indirect", wr_indirect);
 #endif
 }
 

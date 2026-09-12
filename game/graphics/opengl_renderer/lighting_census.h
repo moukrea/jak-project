@@ -24,10 +24,12 @@
 // AU SITE DE DECISION, PAS DEDUIT. Les valeurs sont enregistrees LA OU ELLES SONT POUSSEES
 // (`glUniform1i`), c'est-a-dire exactement ce que l'objet programme contient quand le draw
 // part. Les sites de poussee de `game/graphics/` :
-//   u_pbr_mode        background_common.cpp  (first_tfrag_draw_setup, PbrDrawBinder::set x2,
-//                                             PbrDrawBinder::finish)
 //   u_pbr_shadow_on   background_common.cpp  (first_tfrag_draw_setup, pbr_shadow_bind_receiver)
 //   u_rt_light_on     background_common.cpp  (first_tfrag_draw_setup)
+// `u_pbr_mode` A QUITTE CETTE LISTE (lighting-legacy-purge, 2026-09-12) : la pile de matiere qui
+// la poussait — `PbrDrawBinder::set` / `::finish` — a QUITTE L'ARBRE, et plus aucun shader ne la
+// declare. Ses deux denominateurs etant tombes a zero, la porte n'aurait plus pu etre en
+// desaccord avec quoi que ce soit.
 //
 // UNE OMBRE N'EST PAS UNE MESURE. Un miroir CPU de ce qu'on croit avoir pousse serait
 // infalsifiable. Une fois par image, sur un draw dont l'indice tourne, le module RELIT les
@@ -73,11 +75,10 @@ bool active();
 
 // ── enregistrement des portes, AU SITE DE POUSSEE ───────────────────────────────────────────
 void gate_rt_light(int v);
-void gate_pbr_mode(int v);
 void gate_shadow(int v);
 
 // Programme courant et bypass, enregistres par first_tfrag_draw_setup.
-void host_paths(bool shade, bool legacy);
+void host_paths(bool shade);
 void gate_no_tex(int v);
 
 // ── un draw monde vient de partir ───────────────────────────────────────────────────────────
@@ -141,6 +142,12 @@ uint32_t legacy_uniform_sites();
 uint32_t legacy_uniform_censused();
 uint64_t legacy_uniform_programs();
 uint64_t legacy_uniform_control();
+// Combien de programmes LIES lisent encore l'ambiante SH directionnelle (`u_rt_sh[0]`). Un
+// uniforme declare mais jamais LU est RETIRE par le compilateur GLSL : ce compte est la seule
+// grandeur qui distingue « la feature validee par l'owner a survecu a la purge » de « ses deux
+// seuls appelants sont partis avec la pile de matiere et personne ne l'a vu ». Zero est un SITE
+// de l'ancien monde au sens de la porte (kmachine.cpp), pas un silence.
+uint64_t sh_reader_programs();
 
 // Publie tout de suite (fin de course).
 void publish();

@@ -151,20 +151,6 @@ add_subdirectory("${JAK_ROOT}/third-party/SDL" sdl_build EXCLUDE_FROM_ALL)
 # OFF so HEAD behavior is unchanged.
 option(JAK_SWAMP_CAPTURE "owner swamp-crash capture build" OFF)
 
-# ---------------------------------------------------------------------------
-# CHECKER-DEBUG build (owner standing rule 2026-07-26): the PBR checkerboard is
-# the acceptance test for parallax AND tessellation, and the owner has no adb —
-# so every owner build ships with a companion APK where the test pattern is
-# already ON (PbrTestPattern.cpp mode() default 1 instead of 0). Only the
-# DEFAULT moves: debug.opengoal.pbr.testpattern / OG_PBR_TESTPATTERN still
-# override it, so headless A/B is unaffected. Declared before the targets so
-# the definition is in scope for gk (which compiles PbrTestPattern.cpp).
-# Default OFF => the normal build is byte-for-byte unchanged.
-option(OG_PBR_CHECKER_DEBUG "Ship the PBR checkerboard test pattern enabled by default" OFF)
-if(OG_PBR_CHECKER_DEBUG)
-  add_compile_definitions(OG_PBR_CHECKER_DEBUG)
-endif()
-
 add_library(android_kernel STATIC
     # Android compat — globals + logging shims that the desktop runtime
     # would provide via game/runtime.cpp.
@@ -647,9 +633,9 @@ endif()
 set(SHADERS_SRC_DIR "${JAK_ROOT}/game/graphics/opengl_renderer/shaders")
 set(GEN_SHADERS_DIR "${CMAKE_BINARY_DIR}/shaders")
 set(GEN_SHADERS_HEADER "${GEN_SHADERS_DIR}/shaders_android_blob.h")
-# Grecharged-pbr-realtime-fusion ROUND 22: `*.glsl` = the SHARED CHUNKS (pbr_uniforms /
-# pbr_helpers / pbr_fused) that tfrag3 / shrub / tie_wind / etie_base all `#include`. They are
-# not shaders (no #version) but they ARE blob inputs, so editing one must regenerate the blob.
+# `*.glsl` = les MORCEAUX PARTAGES que les programmes monde `#include`. Ce ne sont pas des
+# shaders (pas de `#version`) mais ce SONT des entrees du blob : editer l'un d'eux doit donc
+# regenerer le blob.
 # Grecharged-materials-modern-parity: CONFIGURE_DEPENDS added. The note below used to end "adding a
 # NEW chunk file needs a cmake re-configure, not just a rebuild" — and that is a booby trap, because
 # preprocess.py discovers chunks by globbing at RUN time, so a new chunk WOULD have been picked up
@@ -859,7 +845,6 @@ add_library(gk SHARED
     # Assert), which is why they can join the list as-is.
     "${JAK_ROOT}/common/util/RPack.cpp"
     "${JAK_ROOT}/common/util/Ktx2Subset.cpp"
-    "${JAK_ROOT}/game/graphics/opengl_renderer/loader/PbrTestPattern.cpp"
     "${JAK_ROOT}/common/custom_data/TFrag3Data.cpp"
     "${JAK_ROOT}/common/custom_data/MeshConsolidate.cpp"
     "${JAK_ROOT}/common/custom_data/MeshOrient.cpp"

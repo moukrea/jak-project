@@ -70,12 +70,13 @@ const char* const kSeven[] = {"u_pbr_sun_dir",    "u_pbr_sun_color",       "u_rt
 // LES POUSSEES GARDEES, NOMMEES, JAMAIS SILENCIEUSEMENT EXCLUES.
 // Un uniforme que le pilote dit sans lecteur ne se retire pas quand son lecteur EXISTE ailleurs :
 // le retirer cimenterait une perte au lieu de nettoyer une dette. `u_rt_sh[0]` — l'ambiante
-// directionnelle SH (L2), validee par l'owner — est lu par `rt_sh_ambient()`, que
-// `pbr_fused.glsl:726` et `pbr_helpers.glsl:221` appellent au commit temoin `a06fb3868e`. Ces
-// deux fichiers sont SUPPRIMES dans le checkpoint non commite de `lighting-legacy-purge`
-// (essai 8, bloque le 12/09 a 02:26) : dans CET arbre la fonction n'a plus d'appelant, le
-// compilateur GLSL retire l'uniforme, et la poussee des neuf coefficients ne va nulle part.
-// Sur un arbre propre a `a06fb3868e` cette liste serait VIDE.
+// directionnelle SH (L2), validee par l'owner — est lu par `rt_sh_ambient()`.
+// MISE A JOUR lighting-legacy-purge, 2026-09-12. Ses deux appelants d'alors, `pbr_fused.glsl:726`
+// et `pbr_helpers.glsl:221`, ont QUITTE L'ARBRE avec la pile de matiere. La fonction n'est pas
+// morte avec eux : elle est appelee par le composite SURVIVANT de `shade.glsl` (le bras OMBRE de
+// la modulation du cuit), et `lighting_legacy_sh_readers` compte les programmes LIES qui la
+// lisent — 4 sur la course x86 du 12/09. Cette entree reste donc ce qu'elle etait : une garde
+// contre un retrait par confusion, pas le constat d'une perte.
 // La preuve publie le compte ET la liste (`kept_uniform_pushes`, `kept_uniform_list`) : ce qui
 // est garde se lit, il ne disparait pas du denominateur.
 const char* const kKept[] = {"u_rt_sh[0]"};

@@ -296,28 +296,35 @@ int verdict_sites_three_configs() {
 // des motifs generiques : `min(x, 1.0)` sur un facteur intermediaire n'est pas une compression
 // de l'image, et le compter rendrait le recensement inexploitable.
 //
-// DEUX JETONS ONT QUITTE CETTE TABLE (census-false-reds, 2026-09-12) : `MM_KNEE` et
-// `mm_tonemap_aces` nommaient `pbr_modern.glsl`, fichier SUPPRIME de l'arbre. Aucun texte
-// compile par ce binaire ne peut plus les porter : ils ne pouvaient plus correspondre a rien, et
-// une entree qui ne peut plus correspondre gonfle le denominateur d'un recensement sans jamais
-// pouvoir en changer le numerateur. `RT_KNEE` reste : `pbr_fused.glsl` est toujours compile, et
-// c'est la remise en place de son epaule que cette table surveille.
+// LA TABLE EST VIDE DEPUIS lighting-legacy-purge (2026-09-12). Les trois jetons qu'elle nommait
+// (`MM_KNEE`, `mm_tonemap_aces`, `RT_KNEE`) vivaient dans `pbr_modern.glsl` et `pbr_fused.glsl`,
+// deux morceaux de GLSL qui ont QUITTE L'ARBRE : aucun texte compile par ce binaire ne peut plus
+// les porter, et une entree qui ne peut plus correspondre gonfle le denominateur d'un recensement
+// sans jamais pouvoir en changer le numerateur. La sentinelle nulle existe parce qu'un tableau de
+// longueur zero n'est pas du C++ valide ; la boucle de lecture la saute.
 //
 // CETTE TABLE EST UNE TABLE DE SURVEILLANCE, ET ELLE LE DIT (census-audit-blind-spots,
-// 2026-09-12). `RT_KNEE` n'a plus AUCUNE occurrence dans le CODE des shaders — une seule, dans le
-// commentaire ci-dessus, qui explique son deplacement. `tonemap_sites_shader` ne peut donc monter
-// que si quelqu'un REMET l'identifiant : ce zero dit « aucun des noms SURVEILLES n'apparait », il
-// ne dit PAS « aucun shader ne compresse », et un relecteur lisait la seconde phrase.
-// Le marqueur ci-dessous est lu par `lib/census/blind_spots.py` : une table dont les jetons
-// SURVEILLES sont plus nombreux que les jetons OBSERVES dans le code et qui ne se declare pas est
-// comptee comme un defaut. Les deux grandeurs sortent separement, par table, a chaque preuve
+// 2026-09-12). Le MECANISME reste : un genou ecrit a la main dans un futur shader doit etre
+// ajoute ici pour etre recense. `tonemap_sites_shader` a zero dit « aucun des noms SURVEILLES
+// n'apparait » — il ne dit PAS « aucun shader ne compresse », et un relecteur lisait la seconde
+// phrase. Le marqueur ci-dessous est lu par `lib/census/blind_spots.py` : les deux grandeurs
+// sortent separement, par table, a chaque preuve
 // (`blind_table_kCompressionTokens_watched` / `_observed`).
 //   AUTOPORT_WATCH_TABLE(kCompressionTokens)
-const char* kCompressionTokens[] = {
-    "RT_KNEE",  // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
+constexpr const char* const kCompressionTokens[] = {
+    nullptr,
 };
-constexpr int kCompressionTokenCount =
-    (int)(sizeof(kCompressionTokens) / sizeof(kCompressionTokens[0]));
+// Le compte des jetons REELS, sentinelle nulle exclue : `hdr_compression_tokens` doit publier le
+// denominateur du recensement, pas la taille d'un tableau qui porte un marqueur de fin.
+constexpr int kCompressionTokenCount = [] {
+  int n = 0;
+  for (const char* t : kCompressionTokens) {
+    if (t) {
+      n++;
+    }
+  }
+  return n;
+}();
 
 // Le recensement lit le CODE, pas les commentaires. Le jeton ci-dessus apparait justement dans
 // le commentaire qui explique son deplacement : les compter la rendrait la
@@ -364,10 +371,14 @@ std::string strip_comments(const std::string& src) {
 int compression_detector_witness() {
   static int s_ok = -1;
   if (s_ok < 0) {
+    // Le jeton de la sonde est un LITTERAL a elle : la table est vide depuis
+    // lighting-legacy-purge, et lire `kCompressionTokens[0]` y prendrait la sentinelle nulle.
+    // Le detecteur teste le MECANISME `strip_comments`, pas le contenu de la table.
+    const char* kWitnessToken = "RT_KNEE";
     std::string probe = "float x = 1.0;\n// leurre : RT_KNEE cite en commentaire\n";
-    const bool sees_comment_only = strip_comments(probe).find(kCompressionTokens[0]) != std::string::npos;
+    const bool sees_comment_only = strip_comments(probe).find(kWitnessToken) != std::string::npos;
     probe += "float k = RT_KNEE;\n";
-    const bool sees_code = strip_comments(probe).find(kCompressionTokens[0]) != std::string::npos;
+    const bool sees_code = strip_comments(probe).find(kWitnessToken) != std::string::npos;
     s_ok = (sees_code && !sees_comment_only) ? 1 : 0;
   }
   return s_ok;
@@ -469,9 +480,8 @@ bool chain_active() {
   // CE QUE CE TEMOIN NE COUVRE PAS, ecrit ici pour que personne ne le lise plus large qu'il
   // n'est : l'ablation est en C++. Les shaders, eux, sont les MEMES dans les deux binaires. Un
   // eventuel debordement de l'item qui vivrait UNIQUEMENT dans du GLSL atteint sous master OFF
-  // ne serait pas vu par cette comparaison. Les chemins modifies (`pbr_fused`, `pbr_modern`,
-  // composites C/E de `shade.glsl`) sont tous gardes par `u_pbr_mode != 0`, que le mode ORIGINE
-  // laisse a zero — c'est un argument de lecture, pas une mesure.
+  // ne serait pas vu par cette comparaison. Les chemins d'ombrage modifies sont tous gardes par
+  // une porte que le mode ORIGINE laisse a zero — c'est un argument de lecture, pas une mesure.
   return false;
 #else
   int ov = -1;
@@ -598,11 +608,11 @@ bool tonemap_draw(Shader& shader,
   shader.activate();
   glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
   // lighting-hdr : LE SITE UNIQUE PORTE L'EXPOSITION DES DEUX ETAGES.
-  // Les composites C et E poussent desormais `u_pbr_exposure = 1,0` (background_common.cpp) et
-  // rendent leur exposition ici. Le facteur repris est `E_pbr^(1/2,2)` et pas `E_pbr` : eux
-  // l'appliquaient en LINEAIRE avant leur `pow(1/2,2)`, ce site l'applique APRES, dans l'espace
-  // d'affichage du tampon. C'est l'egalite exacte, pas un reglage approche — sans l'exposant, le
-  // deplacement changerait la luminance de tout le decor.
+  // L'exposition de l'ombrage est rendue ici, une seule fois. Le facteur repris est
+  // `E_pbr^(1/2,2)` et pas `E_pbr` : les chemins d'ombrage l'appliquaient en LINEAIRE avant leur
+  // `pow(1/2,2)`, ce site l'applique APRES, dans l'espace d'affichage du tampon. C'est l'egalite
+  // exacte, pas un reglage approche — sans l'exposant, le deplacement changerait la luminance de
+  // tout le decor.
   const float e_pbr = Gfx::g_global_settings.recharged_pbr_exposure;
   const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
   const float effective_exposure = e_moved * Gfx::g_global_settings.recharged_hdr_exposure;
@@ -653,7 +663,7 @@ void note_fragment_source(const std::string& name, const std::string& src) {
   ProgInfo info;
   if (name != "tonemap") {
     for (const char* tok : kCompressionTokens) {
-      if (code.find(tok) != std::string::npos) {
+      if (tok && code.find(tok) != std::string::npos) {
         info.has_compression = true;
         break;
       }

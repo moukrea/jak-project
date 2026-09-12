@@ -28,9 +28,8 @@ class Shader {
   bool m_is_okay = false;
 };
 
-// lighting-legacy-purge (2026-09-11) : `gl_context_supports_tessellation`,
-// `gl_tfrag3_tess_program_ok` et `gl_max_tess_gen_level` sont SUPPRIMES avec le programme
-// TFRAG3_TESS, jamais livre.
+// lighting-legacy-purge (2026-09-11) : les trois indicateurs de capacite de TESSELLATION
+// sont SUPPRIMES avec le programme tesselle, jamais livre.
 
 // note: update the constructor in Shader.cpp
 enum class ShaderId {

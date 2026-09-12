@@ -9,7 +9,6 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
-#include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/kernel/jak2/kscheme.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -349,53 +348,6 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
       }
     }
   }
-#ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: resolve every texture in this level that has a
-  // registered PBR material set (no level-name gating).
-  m_pbr_draws.clear();
-  for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
-    if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
-      const auto mat_key = custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name,
-                                                        lev_data->textures[ti].debug_name);
-      // Gpbr-props-reach-draw : une matiere AUTHOREE SANS AUCUNE CARTE n'a rien qui lise la densite
-      // UV — elle pilote l'amplitude POM/tessellation, qui exigent toutes deux une carte de hauteur.
-      // Sauter la marche de geometrie garde les nouvelles entrees gratuites au chargement.
-      const bool has_any_map = maps->normal_tex || maps->rough_tex || maps->metal_tex ||
-                               maps->ao_tex || maps->height_tex || maps->specular_tex ||
-                               maps->emissive_tex;
-      // Grecharged-pbr-realtime-fusion ROUND 20: measure THIS material's authored UV density from
-      // the level's own geometry, so the tess displacement uses the material's real feature size
-      // instead of the shaders' hardcoded 0.5 tiles/m. 0 = not enough samples => keep the old 0.5.
-      u32 nsamp = 0;
-      float dens = 0.5f;
-      if (has_any_map) {
-        dens = measure_uv_density_tfrag(*lev_data, (s32)ti, &nsamp);
-        if (dens <= 0.f) {
-          dens = 0.5f;
-        }
-      }
-      m_pbr_draws.push_back({(s32)ti, *maps, dens, mat_key});
-      if (has_any_map) {
-        // [pom] device diagnostic: the measured density is geometry-derived, so this is the only
-        // place that knows it — hand it to the diag registry the pbr_tan_diag.txt writer reads.
-        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
-        lg::info(
-            "pbr uv density: {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, ratio "
-            "{:.2f}x) samples={}",
-            lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
-      } else {
-        lg::info(
-            "pbr authored-only material: {} (aucune carte compagnon ; u_pbr_mode bit 256, les "
-            "constantes authorees de surfaces.json remplacent les cartes absentes)",
-            lev_data->textures[ti].debug_name);
-      }
-    }
-  }
-  if (!m_pbr_draws.empty()) {
-    lg::info("Grecharged-pbr-materials: level {} has {} PBR material(s)", lev_data->level_name,
-             m_pbr_draws.size());
-  }
-#endif
 
   discard_tree_cache();
   for (int geom = 0; geom < GEOM_MAX; ++geom) {
@@ -483,17 +435,13 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
         // Grecharged-mesh-consolidation: per-vertex SEAM WEIGHT (1 = displace normally, 0 = do not
         // displace). mesh_consolidate() zeroes it at boundaries whose two sides cannot displace
         // identically, so the tessellation evaluation shader can fade displacement to exactly zero
-        // along a shared edge on BOTH sides — that is what closes the see-through slits. Bound here
-        // (before the tangent VBO swaps GL_ARRAY_BUFFER below) so it reads the vertex buffer.
+        // along a shared edge on BOTH sides — that is what closes the see-through slits.
         glEnableVertexAttribArray(6);
         glVertexAttribPointer(6, 1, GL_UNSIGNED_SHORT, GL_TRUE, sizeof(tfrag3::PreloadedVertex),
                               (void*)offsetof(tfrag3::PreloadedVertex, seam_w));
-        // REOPEN#7: per-vertex tangent at location 5 (free on the tfrag VAO) from the parallel
-        // tangent VBO => the PBR frag builds a CONTINUOUS TBN (no screen-derivative cracks). Uses
-        // the SAME [geom][tree_idx] index as tree_cache.vertex_buffer above.
-        glBindBuffer(GL_ARRAY_BUFFER, loader_data->tfrag_tangent_data[geom][tree_idx]);
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
+        // lighting-legacy-purge (essai 8) : la TANGENTE par sommet (ancienne location 5) n'est plus
+        // liee. Aucun `.vert` de cet arbre ne declare cet attribut depuis la suppression de la pile
+        // de MATERIAUX : le VBO parallele et sa liaison etaient de la bande passante pour personne.
         glGenBuffers(1, &tree_cache.single_draw_index_buffer);
         glGenBuffers(1, &tree_cache.index_buffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree_cache.index_buffer);
@@ -714,7 +662,7 @@ void TFragment::render_tree(int geom,
 
   // lighting-legacy-purge (2026-09-11) : le programme TESSELLE est SUPPRIME. Il n'etait choisi que
   // sous DISPLACEMENT = 2, un mode jamais livre : le jeu livre a toujours dessine le tfrag avec
-  // TFRAG3. Les shaders tfrag3_tess.* partent avec lui.
+  // TFRAG3. Les shaders du programme tesselle partent avec lui.
   const ShaderId tfrag_shader_id = ShaderId::TFRAG3;
 
   first_tfrag_draw_setup(settings.camera, render_state, tfrag_shader_id);
@@ -767,9 +715,8 @@ void TFragment::render_tree(int geom,
   prof.add_tri(total_tris);
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials round-4 mandate B: sun shadow depth pass. Perf-gated — only
-  // runs when a PBR material is registered in this level (m_pbr_draws non-empty) and the
-  // runtime PBR toggle is on. Only for NORMAL tfrag geometry (kind == NORMAL). The tree
+  // Grecharged-pbr-materials round-4 mandate B: sun shadow depth pass. Seulement pour la
+  // geometrie tfrag NORMALE (kind == NORMAL). The tree
   // VAO + element buffer are already bound; primitive restart is enabled process-wide for
   // these strips (see the glEnable(GL_PRIMITIVE_RESTART[_FIXED_INDEX]) above). Renders the
   // camera-vis-culled geometry into the 1024 depth FBO from the mood-sun direction, in the
@@ -777,9 +724,8 @@ void TFragment::render_tree(int geom,
   // begin_frame runs for EVERY tree kind (not just NORMAL casters): the frame transition
   // inside it promotes last frame's completed map to the read side, which receivers of
   // any kind need before their draws sample it.
-  // Round-5 addendum 2 (mandate F, world-wide): no m_pbr_draws gate — the sun shadow +
-  // world relight apply to the whole world when the feature is on, not just levels with
-  // a registered PBR material.
+  // Round-5 addendum 2 (mandate F, world-wide): aucune condition de matiere — l'ombre du soleil
+  // s'applique au monde entier quand la fonction est allumee.
   const bool pbr_shadow_frame_ok =
       (recharged_gating::on(recharged_gating::kLighting) ||
        recharged_gating::on(recharged_gating::kRtLight)) &&
@@ -1146,26 +1092,6 @@ void TFragment::render_tree(int geom,
     fringe_on_state = want;
   };
 
-#ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials round-4: per-draw PBR material bind via the shared
-  // PbrDrawBinder (same code Tie3 now uses). Units 11-15 are free in this renderer
-  // (base tex = 0, TOD LUT = 10); shared TFRAG3 program so u_pbr_mode is restored to 0
-  // in binder.finish() at the end of the draw loop. Round-4 coverage unification: the
-  // binder no longer excludes alpha-blended (TRANS "vis-alpha" tree) draws — those now
-  // take the PBR path too; alpha still comes from the legacy fragment_color*T0 product
-  // in the shader, only rgb is relit.
-  PbrDrawBinder pbr_binder;
-  pbr_binder.begin(render_state->shaders[tfrag_shader_id].id(), &m_pbr_draws);
-  // [cover] DISPLACEMENT COVERAGE: hand the binder ce que seul cet appelant sait — quel renderer
-  // possede les draws. Le drapeau « programme tesselle » est parti avec le programme qu'il
-  // nommait : le programme TESSELLE a ete SUPPRIME (lighting-legacy-purge).
-  // tfrag_tree_names[] entries are constexpr string literals, so storing the pointer is safe.
-  pbr_binder.set_coverage_context("tfrag", tfrag3::tfrag_tree_names[(int)tree.kind],
-                                  render_state->frame_idx);
-  auto set_pbr = [&](s32 tex_id, const DrawMode& mode) {
-    pbr_binder.set(tex_id, mode);
-  };
-#endif
 
 
   if (render_state->no_multidraw && render_state->batch_singledraw) {
@@ -1199,9 +1125,6 @@ void TFragment::render_tree(int geom,
       glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
       set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                  (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
-#ifdef OG_FEAT_PBR
-      set_pbr(draw.tree_tex_id, draw.mode);
-#endif
 
       int first = singledraw_indices.first;
       int count = singledraw_indices.second;
@@ -1273,9 +1196,6 @@ void TFragment::render_tree(int geom,
     glUniform1i(m_uniforms.decal, draw.mode.get_decal() ? 1 : 0);
     set_fringe(fringe_fade.on && draw.tree_tex_id >= 0 &&
                (draw.tree_tex_id == m_fringe_tex_a || draw.tree_tex_id == m_fringe_tex_b));
-#ifdef OG_FEAT_PBR
-    set_pbr(draw.tree_tex_id, draw.mode);
-#endif
     tree.tris_this_frame += draw.num_triangles;
     tree.draws_this_frame++;
 
@@ -1327,12 +1247,6 @@ void TFragment::render_tree(int geom,
   }
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
-#ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: the TFRAG3 program is shared; reset PBR mode to 0 and
-  // park units 11-15 on the neutral 1x1 defaults (magenta-class hardening) so no
-  // material map leaks into later draws this frame. Restores active unit 0.
-  pbr_binder.finish();
-#endif
 #ifdef __ANDROID__
   // A42 probe tail: GL error state + an FBO readback where the village
   // should be (left third, mid height) right after this tree's draws.

@@ -20,12 +20,13 @@ constexpr const char* kEnd = "@shade-model-end";
 //
 // `u_rt_probe_on` A QUITTE CETTE TABLE (census-false-reds, 2026-09-12). Plus aucun shader ne le
 // declare : il ne survivait que dans des commentaires, et un jeton qui n'existe qu'en commentaire
-// n'apporte rien a un recensement qui ne compte que le code. Cette table doit rester IDENTIQUE a
-// `kGateNames` de `lighting_census.cpp` — la derive entre les deux est comptee par
-// `lib/census/census-false-reds.sh`.
-constexpr int kGateTokenCount = 3;
-const char* const kGateTokens[kGateTokenCount] = {"u_rt_light_on", "u_pbr_mode",
-                                                  "u_pbr_shadow_on"};
+// n'apporte rien a un recensement qui ne compte que le code.
+// `u_pbr_mode` L'A QUITTEE A SON TOUR (lighting-legacy-purge, 2026-09-12) : la porte des MATIERES
+// est partie avec la pile qu'elle commandait, et aucun texte compile par ce binaire ne la declare
+// plus. Cette table doit rester IDENTIQUE a `kGateNames` de `lighting_census.cpp` — la derive
+// entre les deux est comptee par `lib/census/census-false-reds.sh`.
+constexpr int kGateTokenCount = 2;
+const char* const kGateTokens[kGateTokenCount] = {"u_rt_light_on", "u_pbr_shadow_on"};
 
 struct ProgInfo {
   uint64_t model_fp = 0;   // empreinte des regions marquees ; 0 = aucune region

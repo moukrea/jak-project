@@ -74,10 +74,9 @@ static constexpr int PAT_MAT_COUNT = 34;
 // n'existent plus. Ce qu'ils portaient est desormais UNE CONSTANTE, celle que le jeu livrait.
 // Toute evolution de ces valeurs appartient a l'item de la refonte nomme en regard.
 namespace RechargedFixed {
-constexpr float kPbrTextureRelief = 1.5f;      // ex `pbr-texture-relief`  -> pbr-per-material
-constexpr float kPbrSpecIntensity = 0.15f;     // ex `pbr-specular-intensity` -> pbr-per-material
-constexpr int kPbrDisplacement = 1;            // ex `pbr-displacement` : PARALLAX. Le mode 2
-                                               // TESSELLATION n'a jamais ete livre.
+// lighting-legacy-purge (essai 8) : TEXTURE RELIEF, SPECULAR INTENSITY et DISPLACEMENT n'ont
+// meme plus de constante. La pile de MATERIAUX qu'ils reglaient est SUPPRIMEE de l'arbre ; elle
+// sera refaite par l'item `pbr-per-material`.
 constexpr int kRtShadowRes = 2048;             // ex `realtime-shadow-quality` -> lighting-shadows
 constexpr float kRtShadowDist = 150.0f;        // ex `realtime-shadow-dist`    -> lighting-shadows
 constexpr float kRtShadowStrength = 0.8f;      // ex `realtime-shadow-strength`-> lighting-shadows
@@ -185,8 +184,8 @@ struct GfxGlobalSettings {
   // Defaut ON. Pourquoi ce drapeau existe (owner 2026-09-06) : il avait eteint « Realtime
   // Lighting » et voyait toujours les blancs brules. C'est mecanique — `recharged_rt_light_enable`
   // ne voulait pas dire « notre eclairage », il voulait dire « prendre le composite A/B plutot
-  // que C/E » : l'eteindre ACTIVE le composite C (shade.glsl, `u_rt_light_on == 0 &&
-  // u_pbr_mode != 0`). Il n'existait aucun interrupteur pour l'eclairage lui-meme.
+  // que C/E » : l'eteindre ACTIVAIT le composite C de `shade.glsl`. Il n'existait aucun
+  // interrupteur pour l'eclairage lui-meme.
   // AUCUN consommateur d'eclairage ne lit ce drapeau ni son sous-drapeau directement : ils
   // passent tous par Gfx::lighting_active(), qui compose les TROIS niveaux en un seul endroit.
   bool recharged_lighting = true;
@@ -231,8 +230,7 @@ struct GfxGlobalSettings {
   // Grecharged-bundled-textures: use the package-BUNDLED first-party replacement textures
   // (the owner's Recharged set, extracted from the APK custom pack). Set from GOAL via
   // pc-set-recharged-textures!. OFF == stock base textures (user custom_assets replacements
-  // keep their own load_custom_assets gate and always win over the bundle; the bundle's
-  // _height/_normal/_roughness PBR maps follow the PBR path, not this flag). Default ON so a
+  // keep their own load_custom_assets gate and always win over the bundle). Default ON so a
   // plain install shows the Recharged look; the MASTER still forces stock when OFF.
   bool recharged_textures = true;
   // Grecharged-managed-assets: use the DOWNLOADED texture pack (managed_assets/
@@ -283,18 +281,15 @@ struct GfxGlobalSettings {
   // changer a l'image.
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials: per-frame mood/TOD sun state (raw GOAL vectors). Le rendu PBR
-  // n'est plus une option (lighting-legacy-purge) : il est INCONDITIONNEL sous « lighting ».
+  // Per-frame mood/TOD sun state (raw GOAL vectors). Ces champs ALIMENTENT la carte d'ombres et
+  // l'eclairage temps reel ; la pile de MATERIAUX qui les lisait aussi est supprimee.
   float recharged_pbr_shadow[3] = {0.f, -1.f, 0.f};     // *time-of-day-context* current-shadow (light travel dir)
   float recharged_pbr_sun_color[3] = {1.f, 1.f, 1.f};   // mood-sun sun-color
   float recharged_pbr_ambient[3] = {0.25f, 0.25f, 0.3f}; // mood-sun env-color
   float recharged_pbr_exposure = 1.0f;
-  // lighting-legacy-purge (2026-09-11) : TEXTURE RELIEF et SPECULAR INTENSITY sont figes dans
-  // RechargedFixed::kPbrTextureRelief / kPbrSpecIntensity — les valeurs livrees, telles quelles.
-  // lighting-legacy-purge (2026-09-11) : DISPLACEMENT est fige a RechargedFixed::kPbrDisplacement
-  // (1 = PARALLAX, le POM). Le mode 2 TESSELLATION n'a jamais ete livre : il est SUPPRIME.
-  // lighting-legacy-purge (2026-09-11) : PBR ISOLATE (la bissection de debug du fused path)
-  // est SUPPRIME. Le masque livre valait 0 = chemin complet.
+  // lighting-legacy-purge (essai 8) : TEXTURE RELIEF, SPECULAR INTENSITY, DISPLACEMENT et la
+  // bissection de mise au point n'ont plus ni champ, ni constante, ni code : la pile de MATERIAUX
+  // est SUPPRIMEE de l'arbre.
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;
@@ -316,13 +311,11 @@ struct GfxGlobalSettings {
   // until the first push (renderer treats a below-horizon / zero green sun as no contribution).
   float recharged_pbr_green_sun[3] = {0.f, 0.f, 0.f};
   // lighting-legacy-purge (2026-09-11) : MODERN MATERIALS est SUPPRIME. La rangee livrait OFF,
-  // donc `u_mm_flags` valait 0 a chaque draw et la pile moderne n'a jamais touche un pixel :
-  // son absence EST la valeur livree. Les shaders pbr_modern*.glsl partent avec elle.
+  // donc la pile moderne n'a jamais touche un pixel : son absence EST la valeur livree. Ses
+  // morceaux de GLSL partent avec elle.
   // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
-  // rewrite separate from the pbr-materials toggle above. recharged_rt_light_enable = master
-  // (the tfrag3 sun-only path is taken only when this is on). Set from GOAL via pc-set-rt-light!.
-  // Default OFF => a --pbr build with the toggle off is the existing owner-accepted
-  // pbr-materials behavior; a non-pbr build has none of this (stock).
+  // rewrite. recharged_rt_light_enable = master (the tfrag3 sun-only path is taken only when this
+  // is on). Set from GOAL via pc-set-rt-light!. Default OFF => stock.
   bool recharged_rt_light_enable = false;
   // lighting-legacy-purge (2026-09-11) : la QUALITE / la DISTANCE / la FORCE de l'ombre portee,
   // l'interrupteur d'ambiante, sa FORCE, son MODELE et son CONTRASTE sont RETIRES. Les cinq
