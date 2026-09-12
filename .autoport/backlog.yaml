@@ -6952,7 +6952,7 @@ items:
   where: 'rien a voir : recensement ; owner_test=false'
   out_of_scope: Ne pas toucher au rendu ni aux uniformes qui ont un lecteur. Seuls les sept sont vises.
   owner_test: false
-  status: in-progress
+  status: validated
   game: jak1
   depends_on:
   - gl-uniforms-off-cost
@@ -7151,22 +7151,9 @@ items:
     ombres [...] c''est des trucs anciens [...] j''ai peur que ca rentre en collision avec notre nouvelle
     approche ». Sa crainte est fondee : lighting-ao-indirect a trouve un verrou safe-boot herite qui epinglait
     l''AO a zero en silence, ligne de menu sur HBAO et moteur a zero.'
-  deliverable: '`lighting_legacy_sites` = 0. Recenser CHAQUE reglage d''eclairage anterieur a la refonte,
-    avec pour chacun : le chemin de code qu''il pilote, s''il s''execute encore, et l''item de la refonte
-    qui le remplace. Puis, pour chacun, soit il est SUPPRIME du code (pas debranche), soit il est explicitement
-    rattache au chemin unique de la refonte. Publier la table avant/apres et le compte d''execution de
-    chaque chemin herite : tous a 0. Un binaire ou l''ancien chemin n''est PAS COMPILE vaut mieux qu''un
-    drapeau a zero. S''AJOUTE (refus 11/09, LE PLUS GRAVE) : RETIRER LA LIGNE SANS RETIRER LE CODE EST
-    PIRE QUE NE RIEN FAIRE. L''owner avait le PBR actif sur son Honor ; la ligne de menu a disparu, l''effet
-    est TOUJOURS LA, et il n''a plus aucun moyen de l''eteindre. Pour CHAQUE reglage herite : le code
-    est SUPPRIME de l''arbre, pas debranche ni laisse a zero. Owner 11/09 : « faut supprimer le code !
-    On en veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer ». PREUVE, la meme
-    que pour le navigateur de mesh : les symboles du chemin herite sont a ZERO occurrence dans le libgk.so
-    livre, et ses fichiers source ont quitte l''arbre et les deux CMakeLists. Publier le recensement symbole
-    par symbole, avant et apres. Un compteur d''execution a 0 ne suffit PAS : du code non compile est
-    le seul etat qui ne peut pas revenir — et si le reglage etait ACTIF dans le settings.ini de l''owner,
-    la course doit partir de CE fichier-la, pas d''un settings neuf. Un reglage retire du menu et encore
-    executable est un DEFAUT plus grave que le reglage lui-meme. Verifier nommement le PBR.'
+  deliverable: |-
+    `lighting_legacy_sites` = 0. Recenser CHAQUE reglage d'eclairage anterieur a la refonte, avec pour chacun : le chemin de code qu'il pilote, s'il s'execute encore, et l'item de la refonte qui le remplace. Puis, pour chacun, soit il est SUPPRIME du code (pas debranche), soit il est explicitement rattache au chemin unique de la refonte. Publier la table avant/apres et le compte d'execution de chaque chemin herite : tous a 0. Un binaire ou l'ancien chemin n'est PAS COMPILE vaut mieux qu'un drapeau a zero. S'AJOUTE (refus 11/09, LE PLUS GRAVE) : RETIRER LA LIGNE SANS RETIRER LE CODE EST PIRE QUE NE RIEN FAIRE. L'owner avait le PBR actif sur son Honor ; la ligne de menu a disparu, l'effet est TOUJOURS LA, et il n'a plus aucun moyen de l'eteindre. Pour CHAQUE reglage herite : le code est SUPPRIME de l'arbre, pas debranche ni laisse a zero. Owner 11/09 : « faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer ». PREUVE, la meme que pour le navigateur de mesh : les symboles du chemin herite sont a ZERO occurrence dans le libgk.so livre, et ses fichiers source ont quitte l'arbre et les deux CMakeLists. Publier le recensement symbole par symbole, avant et apres. Un compteur d'execution a 0 ne suffit PAS : du code non compile est le seul etat qui ne peut pas revenir — et si le reglage etait ACTIF dans le settings.ini de l'owner, la course doit partir de CE fichier-la, pas d'un settings neuf. Un reglage retire du menu et encore executable est un DEFAUT plus grave que le reglage lui-meme. Verifier nommement le PBR.
+    VERDICT AJOUTE LE 12/09, MESURE SUR LE CHECKPOINT DE L'ESSAI 8. Supprimer `pbr_fused.glsl` et `pbr_helpers.glsl` retire les DEUX SEULS appelants de `rt_sh_ambient()` : `u_rt_sh[9]` n'a plus aucun lecteur, le compilateur GLSL le retire, et les neuf coefficients d'ambiante directionnelle SH — feature VALIDEE par l'owner (Grecharged-directional-ambient ROUND 2) — sont pousses vers un emplacement inexistant : 230 880 poussees mesurees sous `kept_uniform_list=u_rt_sh[0]`. Cet item doit donc PUBLIER que l'ambiante SH survit a la purge : un compte de lecteurs de `u_rt_sh` non nul dans les programmes LIES, et le meme rendu d'ambiante avant/apres. Purger l'ancien monde ne veut pas dire emporter une feature que l'owner a validee.
   where: 'Options > Recharged > Recharged Lighting : plus aucune ligne de l''ancien monde, et plus aucun
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
@@ -8008,7 +7995,7 @@ items:
   prompt: prompts/item-harness-close-gate-code-free.md
   notes: 'issu des signalements de harness-proof-props-pin, 12/09 : un essai brule par item de harnais.'
 - id: harness-aborted-attempt-not-counted
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   device: false
@@ -8039,3 +8026,33 @@ items:
   prompt: prompts/item-harness-aborted-attempt-not-counted.md
   notes: 'issu du recensement du 12/09 : quatre essais detruits par le plafond de 600 s, dont celui qui
     a bloque un item de priorite 17.'
+- id: harness-commit-paths-all-or-nothing
+  status: open
+  priority: 17
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  feature: Un chemin qui refuse de s'indexer ne fait plus perdre le commit de tout un essai
+  gate:
+    key: commit_paths_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: |-
+    SIGNALEMENT DU 12/09 (reports/gl-uniforms-dead-seven/FINDINGS.txt), verifie sur l'arbre. `orchestrator.py:854 git_commit_paths` fait UN SEUL `git add` pour tous les chemins sales. Le 12/09 a 02:26, a la fermeture de `lighting-legacy-purge`, un chemin a fait sortir git en fatal — « game/graphics/opengl_renderer/loader/PbrTestPattern.cpp ne correspond a aucun fichier » — et AUCUN des 64 fichiers n'a ete commite.
+    CE QUE CA A COUTE, MESURE. L'arbre porte depuis 357 insertions et 6390 suppressions que decrit aucun commit. Le constructeur bati depuis l'ARBRE : l'APK publie a 03:05 sur le commit cbc8e8598b porte donc du code d'un AUTRE item, bloque, dont l'essai avait ete tue. Pire, la mesure de `gl-uniforms-dead-seven` le chiffre : `kept_uniform_pushes=230880`, `kept_uniform_list=u_rt_sh[0]` — les neuf coefficients d'ambiante directionnelle SH, feature VALIDEE par l'owner (Grecharged-directional-ambient ROUND 2), partent vers un emplacement que le pilote ne connait plus, parce que les deux seuls appelants de `rt_sh_ambient()` (pbr_fused.glsl, pbr_helpers.glsl) sont supprimes dans ce checkpoint. La feature est ETEINTE dans tout binaire bati sur cet arbre, sans un mot.
+    ET LE DANGER SUIVANT : le premier item qui commitera un de ces fichiers emportera le travail d'un autre sous son nom. C'est deja arrive le 11/09 avec six shaders a moitie purges.
+  deliverable: |-
+    `commit_paths_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Un chemin qui refuse de s'indexer n'emporte plus les autres : l'indexation se fait chemin par chemin, ou le lot est retente sans le chemin fautif. Publier le compte de chemins indexes et le compte de chemins refuses, separement — jamais un seul booleen.
+    2. Un refus est DIT dans le journal avec le chemin et la raison rendue par git, et l'essai ne se ferme pas en silence sur un commit vide. Publier le compte de commits vides evites.
+    3. Preuve a deux bras sur un depot jetable : un lot contenant un chemin impossible, juge par le code d'AVANT (zero fichier commite) et par celui d'APRES (tous les autres commites). Le chemin impossible est REPRODUIT, pas simule par un drapeau.
+    4. La porte de fermeture refuse de conclure quand l'arbre reste sale sur des chemins moteur qui n'appartiennent pas a l'item courant : publier le compte de fichiers sales etrangers a l'item. Un essai qui bati sur le travail non commite d'un autre item mesure un binaire que personne ne peut reproduire.
+  where: Invisible. C'est la facon dont le harnais enregistre le travail d'un essai.
+  out_of_scope: Ne touche a aucun code du jeu. Ne commite et ne restaure rien de l'arbre courant.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 240
+  prompt: prompts/item-harness-commit-paths-all-or-nothing.md
+  notes: 'issu du signalement de gl-uniforms-dead-seven, 12/09 : 64 fichiers perdus par un seul chemin.'
