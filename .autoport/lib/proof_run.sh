@@ -108,6 +108,10 @@ for kvp in "${HDR_PROPS[@]}"; do
     echo "proof_run: property reserved by HDR campaign" >&2; exit 2 ;; esac
 done
 
+# --- PROLOGUE-SANS-DOSSIER : les trois seules sorties 3 qui ne peuvent PAS ecrire d'etat
+# nomme, parce qu'a ce point on ne sait pas encore ou l'ecrire. Tout ce qui suit passe par
+# `die3`. La porte de l'item `harness-attempt-not-burned-by-foreign-cause` compte les
+# sorties 3 nues APRES ce bloc : il doit y en avoir zero.
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "proof_run: pas dans un depot git" >&2; exit 3; }
 cd "$ROOT" || exit 3
 AP=.autoport
@@ -119,6 +123,26 @@ RAWLOG="$D/proof$SUF-engine.log"
 ARMED=1; [ "$OFF" = 1 ] && ARMED=0
 
 log(){ printf '[proof_run %s] %s\n' "$ID" "$*" >&2; }
+# --- FIN-DU-PROLOGUE-SANS-DOSSIER ---
+
+# UNE PREUVE IMPOSSIBLE SE LIT « IMPOSSIBLE », JAMAIS « PAS PRODUITE ». Ce script sortait en 3
+# en EFFACANT proof.txt et sans rien ecrire d'autre : binaire absent, appareil absent, ou
+# verrou de deploiement tenu au-dela de la borne. Le 2026-09-12 le constructeur a tenu
+# `.autoport/.deploy-in-progress` 6 h 38 d'affilee — aucune preuve n'etait possible pendant ce
+# temps et aucun compteur ne le disait. `die3` ecrit un etat NOMME a cote de proof.txt (jamais
+# DEDANS : une preuve impossible ne devient pas une preuve parce qu'on l'a nommee), puis sort
+# en 3 comme avant.
+WAITED_S=0          # secondes reellement attendues qu'un build finisse
+BUSY_WHY=""         # ce qui occupait la machine, tel que busy_reason l'a nomme
+die3(){
+  local raison="$1"; shift
+  local detail="$*"
+  log "PREUVE IMPOSSIBLE ($raison) : $detail"
+  rm -f "$OUTFILE"
+  bash "$AP/lib/proof_impossible.sh" "$D" "$ID" "$SUF" "$raison" "$detail" \
+       "$WAITED_S" "${WAITMAX:-0}" "$BUSY_WHY" || true
+  exit 3
+}
 
 # Une ligne de plus dans le bloc que proof.txt recopie apres les champs de la machine. Les cles
 # posees ici viennent du RUNNER (ce qu'il a lu, pose, relu), jamais du moteur.
@@ -199,8 +223,7 @@ else
   BIN=build-android/lib/arm64-v8a/libgk.so   # le build ARM64 LIVRE. build-arm64/ n'a jamais
 fi                                            # produit de binaire : c'est un faux rouge.
 if [ ! -s "$BIN" ]; then
-  log "binaire absent : $BIN — rien a juger, aucune preuve ecrite."
-  rm -f "$OUTFILE"; exit 3
+  die3 binaire-absent "$BIN est absent ou vide : rien a juger"
 fi
 # Recompute from an immutable existing run, preserving its original execution
 # timestamp and counters. This path performs no device action and never freshens a run.
@@ -257,7 +280,7 @@ original_end = datetime.datetime.fromisoformat(run['started_at'].replace('Z', '+
 os.utime(sys.stdout.fileno(), (original_end, original_end))
 HDR_REPLAY
   then
-    rm -f "$TMP"; log "HDR aggregate failed; no proof emitted"; exit 3
+    rm -f "$TMP"; die3 hdr-replay "l'agregation HDR du lot $HDR_BATCH a echoue"
   fi
   mv -f "$TMP" "$OUTFILE"
   log "recomputed $OUTFILE from $HDR_BATCH with original timestamp"
@@ -298,21 +321,55 @@ busy_reason(){
   echo ""; return 0
 }
 waited=0
+first_why=""
 while :; do
   why=$(busy_reason)
   [ -z "$why" ] && break
+  [ -z "$first_why" ] && first_why=$why
   if [ "$waited" -ge "$WAITMAX" ]; then
-    log "un build ecrit encore apres ${waited}s ($why) : ON N'A PAS MESURE. Relance quand il a fini."
-    rm -f "$OUTFILE"; exit 3
+    WAITED_S=$waited; BUSY_WHY=$why
+    die3 build-en-cours "un build ecrit encore apres ${waited}s (borne ${WAITMAX}s) : $why"
   fi
   [ "$waited" = 0 ] && log "attente : $why"
   sleep 15; waited=$((waited+15))
 done
 [ "$waited" -gt 0 ] && log "build fini apres ${waited}s d'attente, on mesure."
+WAITED_S=$waited
+BUSY_WHY=$first_why
+
+# LE VERROU, MESURE MEME QUAND ON N'A PAS ATTENDU. Un `proof_wait_s=0` ne dit rien tout seul :
+# il faut savoir s'il y avait un verrou, s'il repondait encore, et depuis quand il etait la.
+# Le 2026-09-12 le constructeur a tenu le sien 6 h 38 sans qu'aucune grandeur ne le dise.
+LOCK_F="$AP/.deploy-in-progress"; LOCK_PID="-"; LOCK_ALIVE=0; LOCK_AGE=-1
+if [ -f "$LOCK_F" ]; then
+  LOCK_PID=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK_F" | head -1); LOCK_PID=${LOCK_PID:--}
+  [ "$LOCK_PID" != "-" ] && kill -0 "$LOCK_PID" 2>/dev/null && LOCK_ALIVE=1
+  LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$LOCK_F" 2>/dev/null || date +%s) ))
+fi
+extra "proof_wait_s=$WAITED_S"
+extra "proof_wait_max_s=$WAITMAX"
+extra "proof_wait_why=${BUSY_WHY:--}"
+extra "deploy_lock_pid=$LOCK_PID"
+extra "deploy_lock_alive=$LOCK_ALIVE"
+extra "deploy_lock_age_s=$LOCK_AGE"
+# LE MEME ETAT, LU PAR LE RECENSEMENT DE CETTE COURSE. proof.txt n'existe pas encore quand le
+# recensement tourne : sans ce fichier, un item de harnais ne pourrait juger l'attente que sur
+# du texte de script. Ecrit ici, il vient de LA course en train de se faire.
+{
+  echo "proof_wait_s=$WAITED_S"
+  echo "proof_wait_max_s=$WAITMAX"
+  echo "proof_wait_why=${BUSY_WHY:--}"
+  echo "deploy_lock_pid=$LOCK_PID"
+  echo "deploy_lock_alive=$LOCK_ALIVE"
+  echo "deploy_lock_age_s=$LOCK_AGE"
+  echo "proof_wait_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$D/proof$SUF-wait.txt"
 
 # La preuve doit venir de la course qu'on lance MAINTENANT. On retire l'ancienne d'abord :
-# si la course echoue, il ne reste rien qui puisse passer une porte.
-rm -f "$OUTFILE"
+# si la course echoue, il ne reste rien qui puisse passer une porte. L'etat nomme de la course
+# PRECEDENTE part avec elle : une cle de texte qu'on ne vide jamais finit par accuser une
+# course qui n'existe plus.
+rm -f "$OUTFILE" "$D/proof$SUF-impossible.txt"
 
 SHA=$(sha256sum "$BIN" | cut -c1-16)
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -423,7 +480,8 @@ if [ "$MODE" = x86 ]; then
     export OG_REFSET_PHASES=2,3 OG_REFSET_VANTAGES="$HDR_VANTAGES" OG_REFSET_HOURS="$HDR_HOURS"
     log "HDR x86 snapshot: binary, portable settings and rendering sources"
     python3 "$AP/lib/hdr_batches.py" prepare --source x86 --batch "$HDR_BATCH" \
-      --binary "$BIN" --vantages "$HDR_VANTAGES" --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" || exit 3
+      --binary "$BIN" --vantages "$HDR_VANTAGES" --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" \
+      || die3 hdr-prepare-x86 "hdr_batches.py prepare a echoue sur $HDR_BATCH"
   fi
   log "x86 : $BIN pendant ${TIMEOUT}s (armed=$ARMED)"
   # stdbuf : une sortie redirigee est bufferisee par BLOCS. 70 lignes produites, 0 comptees,
@@ -445,10 +503,11 @@ if [ "$MODE" = x86 ]; then
   fi
   grep -qaE 'SIGSEGV|SIGILL|SIGABRT|terminate called|Segmentation fault' "$RAWLOG" && CRASH=1
   if [ -n "$HDR_BATCH" ]; then
-    cp "$RAWLOG" "$HDR_BATCH/engine.log" || exit 3
+    cp "$RAWLOG" "$HDR_BATCH/engine.log" || die3 hdr-log-x86 "copie du journal vers $HDR_BATCH impossible"
     python3 "$AP/lib/hdr_batches.py" finish --source x86 --batch "$HDR_BATCH" \
       --binary "$BIN" --remote "$HDR_REMOTE" --crash "$CRASH" \
-      --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" || exit 3
+      --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" \
+      || die3 hdr-finish-x86 "hdr_batches.py finish a echoue sur $HDR_BATCH"
   fi
 
 # =========================================================================== appareil =======
@@ -460,11 +519,10 @@ else
   # Une epingle venue de l'environnement seul reste souple (voir lib/pick_device.sh).
   _pin_strict=""; [ -z "${ANDROID_SERIAL:-}" ] && [ -n "$ITEM_SERIAL" ] && _pin_strict=1
   SERIAL=$(ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" ANDROID_SERIAL_STRICT="$_pin_strict" \
-           bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
+           bash "$AP/lib/pick_device.sh") || die3 appareil-non-choisi "pick_device.sh n'a designe aucun appareil USB"
   case "$SERIAL" in
     *[0-9].[0-9]*.[0-9]*|*:*)
-      log "serial '$SERIAL' est une adresse reseau. La SHIELD (192.168.1.32) est INTERDITE."
-      rm -f "$OUTFILE"; exit 3 ;;
+      die3 appareil-reseau "serial '$SERIAL' est une adresse reseau ; la SHIELD est INTERDITE" ;;
   esac
   ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"; [ -x "$ADB" ] || ADB=adb
   PKG="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
@@ -475,8 +533,7 @@ else
   trap 'bash '"$AP"'/lib/device_teardown.sh "'"$SERIAL"'" >&2 || true' EXIT
 
   if [ "$(timeout 15 "$ADB" -s "$SERIAL" get-state 2>/dev/null | tr -d '\r')" != device ]; then
-    log "appareil $SERIAL absent : aucune preuve APPAREIL possible."
-    rm -f "$OUTFILE"; exit 3
+    die3 appareil-absent "adb ne voit pas $SERIAL : aucune preuve APPAREIL possible"
   fi
   # md5 du .so REELLEMENT INSTALLE. Un commit qui ne touche que du C++ n'atteint pas toujours
   # le telephone (« deja a jour » avec le vieux libgk) : cette ligne rend l'ecart VISIBLE.
@@ -581,13 +638,15 @@ else
         "debug.opengoal.refset=capture" "debug.opengoal.refset.dir=$HDR_REMOTE" \
         "debug.opengoal.refset.phases=2,3" "debug.opengoal.refset.vantages=$HDR_VANTAGES" \
         "debug.opengoal.refset.hours=$HDR_HOURS"; do
-      timeout 15 "$ADB" -s "$SERIAL" shell "setprop ${kvp%%=*} '${kvp#*=}'" || exit 3
+      timeout 15 "$ADB" -s "$SERIAL" shell "setprop ${kvp%%=*} '${kvp#*=}'" \
+        || die3 hdr-setprop "setprop ${kvp%%=*} a echoue sur $SERIAL"
       effective=$(timeout 15 "$ADB" -s "$SERIAL" shell getprop "${kvp%%=*}" | tr -d '\r')
-      [ "$effective" = "${kvp#*=}" ] || { log "HDR property did not apply: ${kvp%%=*}"; exit 3; }
+      [ "$effective" = "${kvp#*=}" ] || die3 hdr-prop-non-appliquee "${kvp%%=*} relu a '$effective'"
     done
     python3 "$AP/lib/hdr_batches.py" prepare --batch "$HDR_BATCH" --adb "$ADB" \
       --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --vantages "$HDR_VANTAGES" \
-      --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" || exit 3
+      --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" \
+      || die3 hdr-prepare-appareil "hdr_batches.py prepare a echoue sur $HDR_BATCH"
     log "HDR batch: $HDR_BATCH ; refset=$HDR_REMOTE"
   fi
 
@@ -663,7 +722,7 @@ else
     # Stop the producer before closing its log: otherwise captures can land
     # after their effective-setting trace has already been disconnected.
     if ! timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1; then
-      log "HDR producer stop failed: no batch or proof emitted"; exit 3
+      die3 hdr-arret-producteur "am force-stop $PKG a echoue sur $SERIAL"
     fi
     sleep 1  # Let the live logcat reader drain the stopped process's tail.
   fi
@@ -673,10 +732,11 @@ else
   kill "$LPID" 2>/dev/null; wait "$LPID" 2>/dev/null; rm -f "$PIDDIR/$ID$SUF.pid"
   if [ -n "$HDR_BATCH" ]; then
     # The producer and its log reader are stopped; collect immutable sources.
-    cp "$RAWLOG" "$HDR_BATCH/engine.log" || exit 3
+    cp "$RAWLOG" "$HDR_BATCH/engine.log" || die3 hdr-log-appareil "copie du journal vers $HDR_BATCH impossible"
     python3 "$AP/lib/hdr_batches.py" finish --batch "$HDR_BATCH" --adb "$ADB" \
       --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --remote "$HDR_REMOTE" \
-      --crash "$CRASH" --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" || { log "HDR batch collection failed"; exit 3; }
+      --crash "$CRASH" --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" \
+      || die3 hdr-collecte "hdr_batches.py finish a echoue sur $HDR_BATCH"
   fi
 fi
 
@@ -737,7 +797,7 @@ rm -f "$NORM"
 
 if [ -n "$HDR_BATCH" ]; then
   HDR_MEASURES=$(python3 "$AP/lib/hdr_batches.py" aggregate --batch "$HDR_BATCH") || {
-    log "HDR aggregate failed: no proof emitted"; exit 3; }
+    die3 hdr-agregation "hdr_batches.py aggregate a echoue sur $HDR_BATCH"; }
   # The aggregate owns these verdicts and every key it emits, including owner cases.
   KVLINES=$(awk -F= 'NR==FNR {replaced[$1]=1; next}
     !($1 in replaced) && $1 !~ /^(hdr_tonemap_defects|hdr_defect_1_saturation|hdr_defect_2_hl_contrast|hdr_defect_3_curve|hdr_defect_4_origine_lumiere_set|hdr_defect_5_sites_three_configs|hdr_defect_6_intermediate_narrowing)$/ {print}' \
@@ -760,7 +820,7 @@ hdr.dump(Path(sys.argv[2]) / 'measurements.json', {'owner_regressions': diagnost
 for key, value in values.items():
     print(f'{key}={value}')
 HDR_OWNER
-  ) || { log "HDR owner measurements failed: no proof emitted"; exit 3; }
+  ) || die3 hdr-mesures-owner "hdr_batches.owner_regressions a echoue"
 fi
 
 TMP="$D/.proof$SUF.tmp.$$"

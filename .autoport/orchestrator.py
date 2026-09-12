@@ -34,6 +34,14 @@ worker sessions lasted under three minutes because a Ctrl-C burned a retry,
 ran the validator on an untouched tree and appended a fingerprint. Those three
 paths now commit the work and return WITHOUT touching `retries` or
 `fingerprints`.
+
+NI UNE CAUSE EXTERIEURE (2026-09-12) : quand l'arbre porte, AVANT l'essai et ENCORE a
+la porte, le chantier non commite d'un AUTRE item, GATE 0 rend `foreign` et non `fail`.
+Le perimetre d'un worker lui INTERDIT de commiter ou de defaire l'arbre d'un autre :
+lui debiter un essai, c'est le punir d'un ordre qu'on lui interdit d'executer. `retries`
+est remis comme avant, les chemins sont nommes, et le compte part dans `foreign_cause`.
+Au-dela de MAX_FOREIGN_IN_A_ROW d'affilee l'item est BLOQUE pour le superviseur — on ne
+compte toujours aucun essai, mais on ne boucle pas non plus.
 """
 
 from __future__ import annotations
@@ -391,7 +399,8 @@ def format_duration(seconds: float) -> str:
 # that moved under it.
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
-              "rate_interrupts", "aborted", "commit_paths", "last_update")
+              "rate_interrupts", "aborted", "commit_paths", "foreign_cause",
+              "last_update")
 
 
 class StateConflict(Exception):
@@ -429,6 +438,10 @@ def load_state() -> dict:
         # Comptabilité de l'indexation git : indexés / refusés / commits vides évités,
         # séparément. Un seul booléen ne dit pas si UN chemin a fait tomber les 63 autres.
         "commit_paths": dict(raw.get("commit_paths") or {}),
+        # Les essais qu'une cause EXTERIEURE a l'item a requalifies : comptes a part de
+        # `retries`, sur le meme principe que `aborted`. Un essai classe ici n'a jamais
+        # brule le budget de l'item.
+        "foreign_cause": dict(raw.get("foreign_cause") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -818,6 +831,74 @@ def _aborted_record(state: dict, item_id: str) -> dict:
     return rec
 
 
+# ============================================================
+# L'ESSAI QU'UNE CAUSE EXTÉRIEURE A GÂCHÉ — CLASSÉ À PART, JAMAIS COMPTÉ
+# ============================================================
+# Signalement du 2026-09-12 : GATE 0 rendait `fail` quand l'arbre portait le travail non
+# commité d'un AUTRE item. L'essai était COMPTÉ, empreinté, et la consigne renvoyée au worker
+# lui demandait de nettoyer un arbre que son périmètre lui INTERDIT de toucher. Un item
+# pouvait brûler ses cinq essais sur une saleté qu'il n'avait pas le droit de nettoyer.
+#
+# Combien de fois d'AFFILÉE avant d'appeler le superviseur. Sans plafond, un arbre que
+# personne ne nettoie ferait tourner l'item sans fin — la boucle de 230 itérations du
+# 2026-08-31, sous un autre nom. Au-delà on ne compte pas davantage d'essais : on BLOQUE.
+MAX_FOREIGN_IN_A_ROW = 3
+
+
+def _foreign_record(state: dict, item_id: str) -> dict:
+    """`total` depuis toujours, `streak` depuis le dernier essai COMPTÉ, `since` la date."""
+    book = state.setdefault("foreign_cause", {})
+    rec = book.get(item_id)
+    if not isinstance(rec, dict):
+        rec = {}
+    rec = {"total": int(rec.get("total", 0) or 0),
+           "streak": int(rec.get("streak", 0) or 0),
+           "since": rec.get("since", ""),
+           "last": rec.get("last", ""),
+           "paths": list(rec.get("paths") or [])}
+    book[item_id] = rec
+    return rec
+
+
+def requalify_foreign_attempt(state: dict, item_id: str,
+                              paths: list[str]) -> tuple[str, str]:
+    """L'essai n'a pas échoué : il a mesuré l'arbre d'un AUTRE item. On le CLASSE À PART.
+
+    Rend `("requalifie"|"bloque", ce qu'il faut dire)`. Dans les DEUX cas `retries` est remis
+    comme avant l'essai : un essai n'a jamais à brûler pour une saleté que le périmètre de
+    l'item lui interdit de nettoyer. Au-delà de MAX_FOREIGN_IN_A_ROW d'affilée on n'en compte
+    pas davantage non plus — on BLOQUE l'item et on nomme le superviseur, seul habilité à
+    commiter ou défaire l'arbre d'un autre."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rec = _foreign_record(state, item_id)
+    rec["total"] += 1
+    rec["streak"] += 1
+    rec["last"] = now
+    rec["since"] = rec["since"] or now
+    rec["paths"] = sorted(paths)[:32]
+    avant = int(state.setdefault("retries", {}).get(item_id, 0) or 0)
+    state["retries"][item_id] = max(0, avant - 1)
+    montre = ", ".join(sorted(paths)[:8]) + (" …" if len(paths) > 8 else "")
+    dit = (f"essai CLASSÉ À PART, NON COMPTÉ : {len(paths)} fichier(s) moteur sales hérités "
+           f"d'un autre item — {montre}. retries {avant} → {state['retries'][item_id]}. "
+           f"{rec['streak']}e d'affilée sur cet item, {rec['total']} en tout, "
+           f"depuis {rec['since']}.")
+    if rec["streak"] > MAX_FOREIGN_IN_A_ROW:
+        return ("bloque",
+                dit + f" Au-delà de {MAX_FOREIGN_IN_A_ROW} d'affilée on n'essaie plus : "
+                      f"l'item est BLOQUÉ, le superviseur doit commiter ou défaire ces "
+                      f"chemins. Aucun essai n'a été débité pour autant.")
+    return ("requalifie", dit)
+
+
+def _foreign_reset(state: dict, item_id: str) -> None:
+    """Un essai JUGÉ remet la série de requalifications à zéro."""
+    rec = _foreign_record(state, item_id)
+    if rec["streak"]:
+        rec["streak"] = 0
+        save_state(state)
+
+
 def fatal_config_reason(path: Path) -> str:
     """A model/auth/request error that will repeat forever, not a rate limit."""
     for ev in _iter_events(path):
@@ -893,6 +974,7 @@ _HARNESS_STATE_FILES = {
     ".autoport/.directives_issued",
     ".autoport/.last_apk_build_sha",
     ".autoport/.last_owner_notify.json",
+    ".autoport/.commit_quarantine.json",
     ".autoport/DIRECTIVES.md",
 }
 
@@ -945,14 +1027,35 @@ def worker_paths() -> list[str]:
     return sorted({p for p in dirty_paths() if p and not _is_harness_state(p)})
 
 
+# ============================================================
+# LE TERRITOIRE MOTEUR — UNE SEULE DÉFINITION, LUE PAR LES DEUX PORTES
+# ============================================================
 # Les chemins du MOTEUR. Un fichier sale sous l'un d'eux est du code qui part dans un
 # binaire ; sale et non commité, c'est un binaire que personne ne peut rejouer depuis HEAD.
+#
+# 2026-09-12 — IL Y EN AVAIT DEUX. GATE 0 lisait cette constante (cinq dossiers, `common/`
+# compris) ; GATE 1 en codait une AUTRE en dur dans son corps, sans `common/`. Un fichier de
+# `common/` était donc du travail réel pour une porte et rien du tout pour l'autre, et la
+# divergence grossissait au prochain dossier ajouté. Une seule liste désormais — et chaque
+# porte ENREGISTRE celle qu'elle a effectivement employée dans `GATE_TERRITORY` : une
+# constante partagée ne prouve rien tant qu'on n'a pas mesuré que la porte la LIT.
 _ENGINE_PREFIXES = ("game/", "common/", "android/", "goal_src/", "goalc/")
+
+# Ce que chaque porte a REELLEMENT lu, rempli au moment de la lecture. Une liste vide se lit
+# « cette porte n'a pas encore tourné », jamais « elle lit la bonne ».
+GATE_TERRITORY: dict = {"gate0": [], "gate1": [], "source": "_ENGINE_PREFIXES"}
+
+
+def engine_prefixes(gate: str = "") -> tuple[str, ...]:
+    """LA liste du territoire moteur. `gate` consigne QUI l'a lue."""
+    if gate:
+        GATE_TERRITORY[gate] = list(_ENGINE_PREFIXES)
+    return _ENGINE_PREFIXES
 
 
 def engine_dirty_paths() -> list[str]:
     """Les chemins sales qui portent du code moteur, tels que git les rapporte."""
-    return sorted({p for p in dirty_paths() if p and p.startswith(_ENGINE_PREFIXES)})
+    return sorted({p for p in dirty_paths() if p and p.startswith(engine_prefixes("gate0"))})
 
 
 def foreign_dirty_engine_paths(baseline) -> list[str]:
@@ -962,6 +1065,10 @@ def foreign_dirty_engine_paths(baseline) -> list[str]:
     il ne l'a pas produit. S'il est toujours sale au moment de conclure, l'essai a mesuré
     un binaire bâti par-dessus le chantier non commité de quelqu'un d'autre — le 2026-09-12,
     l'APK publié à 03:05 portait 6390 suppressions qu'aucun commit ne décrivait."""
+    # LA PORTE DÉCLARE SON TERRITOIRE MÊME QUAND ELLE N'A RIEN À REFUSER. Sans cette ligne,
+    # un arbre propre — le cas courant — laissait `GATE_TERRITORY["gate0"]` vide, et la
+    # comparaison des deux listes ne comparait rien.
+    engine_prefixes("gate0")
     if not baseline:
         return []
     return sorted(set(engine_dirty_paths()) & set(baseline))
@@ -976,13 +1083,69 @@ COMMIT_PATHS_STATS: dict = {
     "rescued": 0,          # chemins indexés APRÈS qu'un refus ait fait tomber le lot entier
     "empty_avoided": 0,    # commits vides évités, DITS dans le journal
     "commits": 0,
+    "quarantined": 0,      # chemins MIS DE COTE parce que durablement non committables
+    "quarantined_skipped": 0,  # presentations evitees grace a la mise de cote
     "last_refused": [],    # [[chemin, raison rendue par git]] du dernier appel
 }
 
 
-def _git_add_one(path: str) -> tuple[bool, str]:
-    """Indexe UN chemin. Rend (ok, la raison que git a donnée) — jamais une exception."""
-    r = subprocess.run(["git", "add", "--", path],
+# ============================================================
+# LA MISE DE CÔTÉ — un chemin durablement non committable est SIGNALÉ UNE FOIS
+# ============================================================
+# Signalement du 2026-09-12 : le correctif « un chemin refusé n'emporte plus les autres » ne
+# PERD plus le lot, mais il ne RÉSOUT pas le chemin fautif. Un chemin que `git add` refuse ET
+# que `git commit` ne sait pas davantage prendre reste sale INDÉFINIMENT : il est re-présenté
+# et re-refusé à chaque essai, et il rallume GATE 0 sur tous les items qui suivent. Une saleté
+# permanente qui reboucle est pire que la perte qu'elle remplace.
+#
+# La mise de côté est DATÉE et publiée : elle ne fait pas disparaître le chemin, elle arrête
+# de le représenter et le NOMME à chaque passage. Le superviseur tranche ; aucun worker n'a le
+# droit de nettoyer l'arbre d'un autre item.
+def quarantine_path() -> Path:
+    """Lu par une fonction, jamais figé à l'import : un banc déplace `AUTOPORT_DIR`."""
+    return AUTOPORT_DIR / ".commit_quarantine.json"
+
+
+def load_quarantine() -> dict:
+    try:
+        raw = json.loads(quarantine_path().read_text())
+    except (OSError, ValueError):
+        return {}
+    return {k: v for k, v in raw.items() if isinstance(v, dict)} if isinstance(raw, dict) else {}
+
+
+def save_quarantine(book: dict) -> None:
+    f = quarantine_path()
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_name(f.name + f".tmp.{os.getpid()}")
+        tmp.write_text(json.dumps(book, indent=2, sort_keys=True))
+        os.replace(tmp, f)
+    except OSError as e:  # noqa: BLE001 — un registre qu'on ne peut pas écrire se DIT
+        log(f"mise de côté NON enregistrée ({e}) : le chemin sera re-présenté", "yellow")
+
+
+def _still_refused(path: str) -> bool:
+    """Le chemin est-il TOUJOURS sale ET toujours refusé, après la tentative de commit ?
+
+    Les deux conditions, jamais une seule : la suppression déjà indexée du 12/09 est refusée
+    par `git add` mais `git commit -- <chemin>` sait la prendre — elle n'est pas durable et
+    ne doit surtout pas être mise de côté."""
+    st = subprocess.run(["git", "status", "--porcelain=v1", "-uall", "--", path],
+                        cwd=REPO_ROOT, capture_output=True, text=True)
+    if st.returncode != 0 or not st.stdout.strip():
+        return False
+    return not _git_add_one(path, dry=True)[0]
+
+
+def _git_add_one(path: str, dry: bool = False) -> tuple[bool, str]:
+    """Indexe UN chemin. Rend (ok, la raison que git a donnée) — jamais une exception.
+
+    `dry=True` SONDE sans toucher à l'index (`git add -n`) : même code de retour, même
+    message de git, index intact. C'est ce qu'il faut pour REMESURER un refus après coup —
+    une mesure qui indexe au passage laisserait un chemin en attente dans l'index du worker
+    suivant."""
+    r = subprocess.run(["git", "add"] + (["-n"] if dry else []) + ["--", path],
                        cwd=REPO_ROOT, capture_output=True, text=True)
     if r.returncode == 0:
         return True, ""
@@ -1005,6 +1168,28 @@ def _staged_under(paths: list[str]) -> bool:
     return bool(r.stdout.replace("\0", "").strip())
 
 
+def _mettre_de_cote(refused: list, book: dict) -> None:
+    """Après la tentative de commit : les refus qui SURVIVENT sont mis de côté, une fois.
+
+    Un refus qui a disparu (la suppression déjà indexée que `git commit` a prise) n'est PAS
+    durable et ne doit rien déclencher : on remesure au lieu de croire le premier refus."""
+    neufs = []
+    for one, reason in refused:
+        if one in book or not _still_refused(one):
+            continue
+        book[one] = {"since": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                     "reason": reason[:200], "item": "", "refusals": 1}
+        neufs.append(one)
+    if not neufs:
+        return
+    COMMIT_PATHS_STATS["quarantined"] += len(neufs)
+    save_quarantine(book)
+    for one in neufs:
+        log(f"  chemin MIS DE CÔTÉ (signalé une fois, plus jamais re-présenté) : {one} — "
+            f"{book[one]['reason']}. Le superviseur tranche ; ce registre est "
+            f"{quarantine_path()}.", "yellow")
+
+
 def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
     """Commit ONLY `paths`. Returns True if a commit was created.
 
@@ -1025,6 +1210,22 @@ def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
     stats = COMMIT_PATHS_STATS
     stats["batches"] += 1
     stats["last_refused"] = []
+
+    # LES CHEMINS DÉJÀ MIS DE CÔTÉ NE SONT PLUS PRÉSENTÉS — mais ils sont NOMMÉS, avec leur
+    # date. Les représenter, c'est refaire échouer le même `git add` à chaque essai de chaque
+    # item, indéfiniment.
+    book = load_quarantine()
+    mis_de_cote = [x for x in paths if x in book]
+    paths = [x for x in paths if x not in book]
+    if mis_de_cote:
+        stats["quarantined_skipped"] += len(mis_de_cote)
+        for one in mis_de_cote:
+            log(f"  chemin MIS DE CÔTÉ le {book[one].get('since', '?')}, NON re-présenté : "
+                f"{one} — {book[one].get('reason', 'raison non enregistrée')}", "yellow")
+    if not paths:
+        log(f"RIEN À PRÉSENTER pour {item_id} : les {len(mis_de_cote)} chemin(s) du lot sont "
+            f"tous mis de côté. Le superviseur doit les commiter ou les défaire.", "yellow")
+        return False
 
     spec = "\0".join(paths)
     add = subprocess.run(["git", "add", "--pathspec-from-file=-", "--pathspec-file-nul"],
@@ -1057,6 +1258,9 @@ def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
             "yellow")
         for one, reason in refused:
             log(f"  chemin refusé et NON COMMITÉ : {one} — {reason}", "yellow")
+        # ICI AUSSI : c'est le cas où le lot ne contient QUE des chemins impossibles. Sans
+        # cette ligne ils seraient re-présentés à chaque essai, pour toujours.
+        _mettre_de_cote(refused, book)
         return False
 
     def _commit(plist: list[str]):
@@ -1073,6 +1277,7 @@ def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
         log(f"git commit a refusé le lot entier ({why}) — nouvelle tentative SANS les "
             f"{len(refused)} chemin(s) refusé(s)", "yellow")
         r = _commit(indexed)
+    _mettre_de_cote(refused, book)
     if r is None or r.returncode != 0:
         why = " ".join((((r.stderr or r.stdout) if r else "") or "").split())[:300]
         log(f"git commit a échoué : {why}", "yellow")
@@ -1233,6 +1438,7 @@ def close_gate(item: dict, pre_dirty_engine=()) -> tuple[str, str]:
     """Run after generic.sh exits 0. Returns (status, reason):
       ("pass", "")            -> all gates clear; the item is validated
       ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
+      ("foreign", reason)     -> CAUSE EXTÉRIEURE : rien de jugeable, l'essai ne compte pas
       ("awaiting-owner", "")  -> gates clear, the owner still has to look
 
     `pre_dirty_engine` : les chemins moteur que l'essai a trouvés SALES en arrivant.
@@ -1246,9 +1452,24 @@ def close_gate(item: dict, pre_dirty_engine=()) -> tuple[str, str]:
     # qu'aucun commit ne décrit. Une porte verte posée là-dessus juge un binaire que
     # personne ne peut reproduire depuis HEAD. On refuse de conclure, on NOMME les chemins.
     foreign = foreign_dirty_engine_paths(pre_dirty_engine)
+    # UN CHEMIN DÉJÀ MIS DE CÔTÉ NE REBLOQUE PLUS — il est NOMMÉ à chaque passage, jamais
+    # tu. Sans cette exception, une saleté permanente rallumerait cette porte sur tous les
+    # items qui suivent, pour toujours : pire que la perte qu'elle remplace.
+    _book = load_quarantine()
+    _ecarte = [x for x in foreign if x in _book]
+    foreign = [x for x in foreign if x not in _book]
+    if _ecarte:
+        log(f"· arbre : {len(_ecarte)} chemin(s) MIS DE CÔTÉ, durablement non committables, "
+            f"nommés et non bloquants — "
+            + ", ".join(f"{x} (depuis {_book[x].get('since', '?')})" for x in _ecarte[:8]),
+            "yellow")
     if foreign:
         montre = ", ".join(foreign[:12]) + (" …" if len(foreign) > 12 else "")
-        return ("fail",
+        # `foreign`, JAMAIS `fail` : l'essai n'a pas échoué, il n'avait rien de reproductible
+        # à juger. Le périmètre d'un worker lui interdit de commiter ou de défaire l'arbre
+        # d'un autre item — le compter, c'est lui débiter un essai pour un ordre qu'on lui
+        # interdit d'exécuter (signalement du 2026-09-12).
+        return ("foreign",
                 f"CLOSE-GATE/arbre-sale: {len(foreign)} fichier(s) moteur sont sales depuis "
                 f"AVANT cet essai et le sont encore — ils appartiennent à un autre item et "
                 f"aucun commit ne les décrit. Le binaire mesuré n'est pas reproductible "
@@ -1260,7 +1481,9 @@ def close_gate(item: dict, pre_dirty_engine=()) -> tuple[str, str]:
     # the supervisor anchor, unless the item declares `no_code: true`.
     if not item.get("no_code", False):
         anchor = _supervisor_anchor(iid)
-        paths = ["game/", "android/", "goalc/", "goal_src/"]
+        # LA MÊME liste que GATE 0, lue au même endroit et consignée. Elle codait
+        # `["game/","android/","goalc/","goal_src/"]` en dur — `common/` manquait.
+        paths = list(engine_prefixes("gate1"))
         committed = subprocess.run(["git", "diff", "--name-only", anchor, "--", *paths],
                                    cwd=REPO_ROOT, capture_output=True, text=True).stdout.splitlines()
         dirty = subprocess.run(["git", "status", "--porcelain", "--", *paths],
@@ -1675,6 +1898,7 @@ class Outcome:
       pass            gates clear, the owner does not need to look
       awaiting-owner  gates clear, the owner has to look  -> to-test
       fail            counted, fingerprinted, retried
+      foreign         l'arbre portait le chantier d'un AUTRE item: NOT counted
       stuck           same failure 3x -> blocked
       blocked         max_retries, missing input, fatal config
       aborted         the launcher killed the worker's background tasks: NOT counted
@@ -2060,7 +2284,26 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     gate_reason = ""
     if v.returncode == 0:
         gate_status, gate_reason = close_gate(item, pre_dirty_engine)
+        # UNE CAUSE EXTÉRIEURE NE BRÛLE PLUS UN ESSAI. La saleté est celle d'un AUTRE item,
+        # que le périmètre de celui-ci lui interdit de commiter ou de défaire. On DÉFAIT le
+        # compte, on NOMME les chemins, et l'essai est classé à part — jamais empreinté
+        # comme un mode d'échec du worker.
+        if gate_status == "foreign":
+            etrangers = foreign_dirty_engine_paths(pre_dirty_engine)
+            verdict, dit = requalify_foreign_attempt(state, iid, etrangers)
+            save_state(state)
+            with validator_log.open("a") as f:
+                f.write("\n\n" + gate_reason + "\n\n" + dit + "\n")
+            if verdict == "requalifie":
+                log(dit, "yellow")
+                _checkpoint(f"essai {seq} classé à part — arbre sale hérité (non compté)")
+                return Outcome("foreign", gate_reason)
+            log(dit, "red")
+            _checkpoint(f"essai {seq} classé à part — arbre sale hérité (non compté ; "
+                        f"item BLOQUÉ, le superviseur doit trancher)")
+            return Outcome("blocked", gate_reason + "\n\n" + dit)
         if gate_status in ("pass", "awaiting-owner"):
+            _foreign_reset(state, iid)
             if _checkpoint(item.get("feature", iid)
                            + ("" if gate_status == "pass"
                               else " (porte passée — EN ATTENTE DU TEST DE L'OWNER)")):
@@ -2069,6 +2312,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         with validator_log.open("a") as f:
             f.write("\n\n" + gate_reason + "\n")
         log(gate_reason, "yellow")
+
+    # L'essai est COMPTÉ : la série de requalifications s'arrête ici.
+    _foreign_reset(state, iid)
 
     failure_text = validator_log.read_text(errors="replace")
     fp, key_lines = fingerprint_failure(failure_text, REPO_ROOT)
@@ -2396,6 +2642,16 @@ def main(argv: list[str] | None = None) -> int:
                 for ln in out.stderr_tail[-10:]:
                     log(f"  {ln}", "dim")
             no_start_streak = 0
+
+        elif out.kind == "foreign":
+            # L'arbre portait le travail non commité d'un AUTRE item : l'essai n'a pas
+            # échoué, il n'avait rien de reproductible à juger. Ni compté, ni empreinté,
+            # et `retries` a été remis comme avant.
+            bk.set_status(iid, "open")
+            log(f"⏹ {iid} : essai CLASSÉ À PART — cause EXTÉRIEURE à l'item, non compté, "
+                f"non empreinté. Le travail est commité.\n{out.reason}", "yellow")
+            no_start_streak = 0
+            nap(30)
 
         elif out.kind == "aborted":
             # Le lanceur a coupe les taches de fond du worker : l'essai n'a pas eu lieu.
