@@ -6075,6 +6075,13 @@
 
 (#unless FLAG_MENU_OVERHAUL
 
+;; menu-dpad-steps (autoport) : crans parcourus par respond-common dans l'image courante.
+(define *mds-steps* 0)
+;; menu-dpad-steps (autoport) : les bits de FRONT lus AVANT que les bras du menu ne les
+;; consomment (4 = front haut, 8 = front bas). Sans cette photo la sonde de fin de methode
+;; publierait toujours zero : le correctif retire le front dans le bras qui vient d'agir.
+(define *mds-edges* 0)
+
 
 #| Code for the progress menu in the PC port. The original code is still loaded, this just has some overriden functions. |#
 
@@ -11173,6 +11180,8 @@
       ;; Gtouch-menus: fold any pending touch tap into this frame's input (additive
       ;; to the d-pad). Sets the *menu-touch* *? flags the guards below OR in.
       (menu-touch-drive! obj)
+      ;; menu-dpad-steps : photo des fronts AVANT que les bras ne les consomment (voir *mds-edges*).
+      (set! *mds-edges* (+ (if (cpad-pressed? 0 up) 4 0) (if (cpad-pressed? 0 down) 8 0)))
       (cond
         ((or (cpad-pressed? 0 up) (-> *menu-touch* up?))
          ;; pressed up (Gtouch-fix: tap-scroll above the visible list too)
@@ -11180,6 +11189,17 @@
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
+           (1+! *mds-steps*)
+           ;; menu-dpad-steps : CONSOMMER le front, sinon il est relu. Mesure du 13/09 sur
+           ;; l'appareil, horloge a pas fixe armee : `display-loop` (main.gc:1855-1869) rend la
+           ;; main `*fixed-tick-catchup*` fois de plus par image DESSINEE, donc l'arbre des
+           ;; processus — et ce menu — repasse plusieurs fois pour UNE SEULE lecture du pad
+           ;; (`service-cpads` ne tourne qu'au `swap-display`, drawable.gc:1195). `button0-rel 0`
+           ;; restait arme et UNE pression rendait TROIS crans. On retire le bit de front, comme
+           ;; `respond-memcard` le fait deja pour x et circle (progress.gc:811-812).
+           ;; Le MAINTIEN n'est jamais retire : les curseurs gauche/droite en dependent, et le
+           ;; temoin « aucune repetition automatique » aussi.
+           (logclear! (cpad-pressed 0) (pad-buttons up))
            (cond
              ((> (-> obj option-index) 0)
               (1-! (-> obj option-index))
@@ -11193,6 +11213,9 @@
          (when (not (-> obj selected-option))
            (if (!= (length options) 1) (sound-play "cursor-up-down"))
            (set! (-> obj last-option-index-change) (-> *display* real-frame-counter))
+           (1+! *mds-steps*)
+           ;; menu-dpad-steps : CONSOMMER le front (voir le bras HAUT ci-dessus pour la mesure).
+           (logclear! (cpad-pressed 0) (pad-buttons down))
            (cond
              ((< (-> obj option-index) (1- (length options)))
               (1+! (-> obj option-index))
@@ -11203,6 +11226,9 @@
          ;; holding left. sliders use hold. (Gtouch-menus: touch left/hold-left too.)
          (cond
            ((or (cpad-pressed? 0 left) (-> *menu-touch* left?))
+            (logclear! (cpad-pressed 0) (pad-buttons left))
+            ;; meme cause que le bras haut : sous les ticks de rattrapage le front etait relu a
+            ;; chaque passe. Le MAINTIEN reste intact, les curseurs en dependent.
             ;; navigate left.
             (when (or (-> obj selected-option) (= (-> options (-> obj option-index) option-type) (game-option-type yes-no)))
               (let ((sound? #f))
@@ -11304,6 +11330,9 @@
          ;; holding right (Gtouch-menus: touch right/hold-right too.)
          (cond
            ((or (cpad-pressed? 0 right) (-> *menu-touch* right?))
+            (logclear! (cpad-pressed 0) (pad-buttons right))
+            ;; meme cause que le bras haut : sous les ticks de rattrapage le front etait relu a
+            ;; chaque passe. Le MAINTIEN reste intact, les curseurs en dependent.
             ;; pressed right
             (when (or (-> obj selected-option) (= (-> options (-> obj option-index) option-type) (game-option-type yes-no)))
               (let ((sound? #f))
@@ -11831,6 +11860,20 @@
             (when (nonzero? (-> options (-> obj option-index) on-confirm))
               ((-> options (-> obj option-index) on-confirm)))
             (commit-to-file *pc-settings*)))))))
+  ;; menu-dpad-steps (autoport) : une passe de respond-common remontee au recensement C++.
+  ;; m = 1 haut tenu | 2 bas tenu | 4 front haut | 8 front bas | 16 tap haut | 32 tap bas
+  (let ((m (+ (if (cpad-hold? 0 up) 1 0)
+              (if (cpad-hold? 0 down) 2 0)
+              *mds-edges*
+              (if (-> *menu-touch* up?) 16 0)
+              (if (-> *menu-touch* down?) 32 0))))
+    (__pc-menu-dpad-frame m *mds-steps* (the int (-> obj display-state)))
+    ;; trace bornee : seulement quand un cran est parcouru, pour le diagnostic humain
+    (when (nonzero? *mds-steps*)
+      (format 0 "MDS scr=~D m=~D idx=~D s=~D~%"
+              (the int (-> obj display-state)) m (-> obj option-index) *mds-steps*))
+    (set! *mds-steps* 0)
+    (set! *mds-edges* 0))
   (none))
 
 (defmethod respond-memcard ((obj progress))

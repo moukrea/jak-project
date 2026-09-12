@@ -376,6 +376,8 @@ set(RUNTIME_SOURCE
         system/iop_thread.cpp
         system/load_gate.cpp
         system/autoport_proof.cpp
+        # menu-dpad-steps : le recensement des crans parcourus par pression.
+        system/menu_dpad_census.cpp
         # title-tap-prompt-regression : le fait « cet appareil a un ecran tactile ».
         # Un .cpp neuf doit AUSSI etre liste dans android/CMakeLists.txt, sinon l'arm64 meurt au lien.
         system/touch_screen.cpp

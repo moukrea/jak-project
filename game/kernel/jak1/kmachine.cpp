@@ -39,6 +39,7 @@
 #include "game/graphics/fire_red_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/menu_dpad_census.h"
 #include "game/system/mesh_browser_census.h"
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
@@ -1401,6 +1402,8 @@ void pc_autoport_frame() {
   // passe par course (voir game/system/checkpoint_census.h).
   checkpoint_census::tick();
   autoport_proof::frame_tick();
+  // menu-dpad-steps : le recensement des crans par pression, publie sur changement.
+  menu_dpad_census::publish_tick();
   // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a
   // CHAQUE image et non toutes les 60 : `flush()` emet la derniere valeur publiee, donc une
   // consultation survenue dans les dernieres images d'une course en sortirait effacee.
@@ -1596,6 +1599,13 @@ void pc_autoport_hit_for(u32 id_str, s64 n) {
     return;
   }
   autoport_proof::note_hit_for(id, (u64)(n < 0 ? 0 : n));
+}
+
+// menu-dpad-steps : une passe de `respond-common` remontee au recensement. GOAL donne l'etat
+// brut (masque des directions tenues et des fronts, crans parcourus par CETTE image, page
+// courante) ; la machine a etats — ouverture, cumul, cloture d'une pression — vit en C++.
+void pc_menu_dpad_frame(s64 mask, s64 steps, s64 screen) {
+  menu_dpad_census::note_frame((int)mask, (int)steps, (int)screen);
 }
 
 // ─── Grecharged-settings-case-l10n — LE PONT DU RECENSEMENT DU MENU ───────────────────────────
@@ -4649,6 +4659,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-autoport-hit", (void*)pc_autoport_hit);
   // proof-feature-hits-is-vacuous : la prise ATTRIBUEE, pour un instrument ecrit en GOAL.
   make_function_symbol_from_c("__pc-autoport-hit-for", (void*)pc_autoport_hit_for);
+  make_function_symbol_from_c("__pc-menu-dpad-frame", (void*)pc_menu_dpad_frame);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
   make_function_symbol_from_c("__pc-scl10n-label", (void*)pc_scl10n_label);

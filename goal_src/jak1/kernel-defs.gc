@@ -561,6 +561,10 @@
 ;; L'identifiant doit aussi porter un `AUTOPORT_FEATURE_SITE` dans kmachine.cpp.
 (define-extern __pc-autoport-hit-for (function string int none))
 
+;; menu-dpad-steps : une passe de respond-common. mask 1=haut tenu 2=bas tenu 4=front haut
+;; 8=front bas 16=tap haut 32=tap bas ; steps = crans de CETTE image ; screen = display-state.
+(define-extern __pc-menu-dpad-frame (function int int int none))
+
 ;; title-tap-prompt-regression : L'INVITE DE L'ECRAN-TITRE SE CHOISIT SUR LE TACTILE.
 ;; `__pc-touch-screen?` rend 1 quand la PLATEFORME a declare un ecran tactile
 ;; (PackageManager.FEATURE_TOUCHSCREEN sur Android, SDL_GetTouchDevices sur le bureau), 0 sinon.

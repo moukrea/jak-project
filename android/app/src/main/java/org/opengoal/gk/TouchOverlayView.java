@@ -58,6 +58,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -119,6 +120,40 @@ public class TouchOverlayView extends View {
     private static final long FADE_OUT_MS = 600;
     private static final long HEARTBEAT_MS = 250;      // idle check + menu-mode poll
 
+    // -----------------------------------------------------------------
+    // menu-dpad-steps (autoport) : une pression = un cran.
+    //
+    // Le seuil nu actionnait sur la position INSTANTANEE : 7.6 px de vue separent le bord
+    // interieur de la branche dessinee du seuil de relache (moyeu dessine 28.64 px contre une
+    // zone morte de 21.01 px), soit ~0.5 mm — la derive normale du centroide d'un pouce pose.
+    // Chaque re-franchissement etait un cran de plus. La direction est desormais VERROUILLEE
+    // pour la duree du geste : relache sous un seuil PLUS BAS (hysteresis) et seulement apres
+    // un sejour, et changer de direction sans lever demande un franchissement FRANC tenu.
+    private static final float MENU_DPAD_RELEASE_RATIO = 0.50f; // relache sous dead*0.50
+    private static final long  MENU_DPAD_REARM_MS      = 150L;  // ... et seulement apres ce sejour
+    private static final float MENU_DPAD_SWITCH_RATIO  = 1.60f; // changer de direction sans lever
+    private static final long  MENU_DPAD_SWITCH_MS     = 150L;  // ... apres ce sejour dans la neuve
+
+    // Pilote d'auto-test (arme UNIQUEMENT quand le harnais mesure cet item ; jamais pour le joueur).
+    private static final long MDS_BOOT_WAIT_MS   = 20000; // laisser le jeu demarrer
+    private static final long MDS_HOLD_MS        = 250;   // duree d'une pression pilotee
+    private static final long MDS_GAP_MS         = 700;   // repos entre deux pressions
+    private static final int  MDS_PRESSES_PER_PAGE = 6;
+    private static final int  MDS_SEED_GESTURES  = 4;
+    // Creux du centroide seme, VISE en proportion de la zone morte — jamais un nombre de px en
+    // dur. Un creux fixe de 9.6 px ne passait sous l'ancien seuil que tant que radius <= 173 :
+    // au-dela, `dead` et `wdt` grandissent avec le rayon mais pas le creux, le controle seme ne
+    // seme plus rien, et la porte rougit par vacuite sur un ecran plus grand — un faux rouge
+    // illisible. Le creux vise `dead * MDS_SEED_TARGET_RATIO` : SOUS l'ancien seuil (dead) donc
+    // il declenche la relache de la regle d'origine, et AU-DESSUS du nouveau
+    // (dead*MENU_DPAD_RELEASE_RATIO = 0.50*dead) donc le verrou ne bronche pas. Les deux marges
+    // valent 0.25*dead, quel que soit l'ecran.
+    private static final float MDS_SEED_TARGET_RATIO = 0.75f;
+    // Le jeu met ~45 s apres l'attachement de la vue avant qu'un START ouvre quoi que ce soit :
+    // 40 essais a 1500 ms = ~60 s de budget apres les 20 s d'attente de demarrage.
+    private static final int  MDS_MENU_OPEN_TRIES  = 40;
+    private static final long MDS_MENU_OPEN_GAP_MS = 1500;
+
     // PlayStation face-button tints.
     private static final int COL_TRIANGLE = Color.argb(0xFF, 0x4A, 0xD9, 0x91);
     private static final int COL_CIRCLE   = Color.argb(0xFF, 0xF0, 0x55, 0x55);
@@ -161,6 +196,18 @@ public class TouchOverlayView extends View {
         long lastLogMs;     // per-pointer actuation-log throttle (camera/wake)
         // d-pad bits currently held by this stick-in-menu pointer.
         boolean dUp, dDown, dLeft, dRight;
+        // menu-dpad-steps: direction VERROUILLEE pour la duree du geste (0 = aucune).
+        int latchedDir;
+        long centreSinceMs;    // depuis quand sous le seuil de relache (0 = pas sous le seuil)
+        long neutralSinceMs;   // depuis quand aucune direction verrouillee (0 = jamais relache)
+        int candidateDir;      // direction candidate au changement a chaud
+        long candidateSinceMs;
+        int pressEdges;        // fronts MONTANTS reellement emis par ce geste
+        // menu-dpad-steps: compteur FANTOME. La regle d'ORIGINE (quatre seuils nus, sans
+        // memoire) est rejouee a chaque image mais n'emet RIEN : elle mesure, dans la course
+        // livree, le nombre de crans que le geste aurait produits SANS le correctif.
+        int legacyEdges;
+        boolean lUpWas, lDownWas, lLeftWas, lRightWas;
     }
 
     private final List<Ctl> controls = new ArrayList<>();
@@ -191,6 +238,10 @@ public class TouchOverlayView extends View {
     private boolean padSuppressed = false;
     private boolean mapLogged = false;
 
+    // menu-dpad-steps (autoport) : bras d'ablation. ARME PAR DEFAUT — un correctif derriere un
+    // drapeau eteint n'existe pas pour l'owner — et arme aussi quand le pont natif manque.
+    private static boolean sMenuDpadLatchArmed = true;
+
     public TouchOverlayView(Context context) {
         super(context);
         setFocusable(false);
@@ -217,6 +268,17 @@ public class TouchOverlayView extends View {
         text.setFakeBoldText(true);
 
         buildControls();
+
+        // menu-dpad-steps: lu UNE fois. armed_for() rend vrai sauf quand le harnais mesure
+        // CET item avec armed=0 ; un pont natif absent laisse le correctif ACTIF.
+        try {
+            sMenuDpadLatchArmed = NativeGk.isAutoportArmedFor("menu-dpad-steps");
+        } catch (Throwable th) {
+            sMenuDpadLatchArmed = true;
+        }
+        Log.i(TAG, "menu-dpad-steps: latch armed=" + sMenuDpadLatchArmed
+                + " (release=" + MENU_DPAD_RELEASE_RATIO + "*dead after " + MENU_DPAD_REARM_MS
+                + "ms, switch=" + MENU_DPAD_SWITCH_RATIO + "*dead after " + MENU_DPAD_SWITCH_MS + "ms)");
 
         Log.i(TAG, "overlay-visibility: hidden at start (alpha=0, invisible "
                 + "until first touch; fades after 10s idle)");
@@ -679,8 +741,18 @@ public class TouchOverlayView extends View {
                 break;
             case KIND_STICK:
                 if (t.stickMenuMode) {
+                    // menu-dpad-steps: retenir les compteurs du geste AVANT que le Touch soit
+                    // retire de `active` — le pilote d'auto-test les publie apres l'UP.
+                    mdsLastPressEdges = t.pressEdges;
+                    mdsLastLegacyEdges = t.legacyEdges;
                     releaseDpad(t);
-                    logActuate(t, "menu-dpad", "release -> onPadButton(DPAD_*) pressed=0", true);
+                    t.latchedDir = 0;
+                    t.centreSinceMs = 0L;
+                    t.neutralSinceMs = 0L;
+                    t.candidateDir = 0;
+                    t.candidateSinceMs = 0L;
+                    logActuate(t, "menu-dpad", "release -> onPadButton(DPAD_*) pressed=0"
+                            + " [edges=" + t.pressEdges + " legacy=" + t.legacyEdges + "]", true);
                 } else {
                     NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_LEFTX, 0);
                     NativeGk.onPadAxis(SDL_GAMEPAD_AXIS_LEFTY, 0);
@@ -728,6 +800,16 @@ public class TouchOverlayView extends View {
                 boolean inMenu = queryMenu();
                 boolean inWarp = queryWarp();
                 t.stickMenuMode = (inMenu || inWarp);
+                // menu-dpad-steps: un geste = un Touch neuf, mais on remet l'etat a plat
+                // explicitement pour que la lecture du code ne depende pas de l'allocation.
+                t.latchedDir = 0;
+                t.centreSinceMs = 0L;
+                t.neutralSinceMs = 0L;
+                t.candidateDir = 0;
+                t.candidateSinceMs = 0L;
+                t.pressEdges = 0;
+                t.legacyEdges = 0;
+                t.lUpWas = t.lDownWas = t.lLeftWas = t.lRightWas = false;
                 logActuate(t, t.stickMenuMode ? "menu-dpad" : "left-stick",
                         "down mode=" + (t.stickMenuMode ? "MENU(d-pad)" : "GAMEPLAY(analog)")
                                 + " (native isInMenu=" + inMenu + " isInWarp=" + inWarp + ")", true);
@@ -748,17 +830,88 @@ public class TouchOverlayView extends View {
         float dead = maxR * 0.22f;
 
         if (t.stickMenuMode) {
-            boolean up = dy < -dead, down = dy > dead;
-            boolean left = dx < -dead, right = dx > dead;
-            // Edge-trigger each direction so we don't spam press/press.
-            setDpad(t, SDL_GAMEPAD_BUTTON_DPAD_UP, up, t.dUp);    t.dUp = up;
-            setDpad(t, SDL_GAMEPAD_BUTTON_DPAD_DOWN, down, t.dDown); t.dDown = down;
-            setDpad(t, SDL_GAMEPAD_BUTTON_DPAD_LEFT, left, t.dLeft); t.dLeft = left;
-            setDpad(t, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, right, t.dRight); t.dRight = right;
-            if (up || down || left || right) {
-                logActuateThrottled(t, "menu-dpad", "drag -> onPadButton(DPAD"
-                        + (up ? "_UP" : "") + (down ? "_DOWN" : "")
-                        + (left ? "_LEFT" : "") + (right ? "_RIGHT" : "") + ") pressed=1");
+            // menu-dpad-steps (autoport) — COMPTEUR FANTOME, calcule QUEL QUE SOIT l'etat du
+            // bras d'ablation et qui n'emet JAMAIS rien : la regle d'ORIGINE (quatre seuils
+            // nus, sans memoire) rejouee en ombre. Elle donne, dans la course livree, combien
+            // de crans ce geste aurait produits SANS le correctif.
+            boolean lUp = dy < -dead, lDown = dy > dead, lLeft = dx < -dead, lRight = dx > dead;
+            if (lUp    && !t.lUpWas)    t.legacyEdges++;   t.lUpWas    = lUp;
+            if (lDown  && !t.lDownWas)  t.legacyEdges++;   t.lDownWas  = lDown;
+            if (lLeft  && !t.lLeftWas)  t.legacyEdges++;   t.lLeftWas  = lLeft;
+            if (lRight && !t.lRightWas) t.legacyEdges++;   t.lRightWas = lRight;
+
+            float ax = Math.abs(dx), ay = Math.abs(dy);
+            float mag = Math.max(ax, ay);
+            int rawDir = 0;
+            if (mag > dead) {
+                rawDir = (ay >= ax)
+                        ? (dy < 0 ? SDL_GAMEPAD_BUTTON_DPAD_UP : SDL_GAMEPAD_BUTTON_DPAD_DOWN)
+                        : (dx < 0 ? SDL_GAMEPAD_BUTTON_DPAD_LEFT : SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+            }
+            long now = SystemClock.uptimeMillis();
+
+            if (!sMenuDpadLatchArmed) {
+                // Bras d'ablation : le comportement d'origine, au bit pres.
+                boolean up = lUp, down = lDown, left = lLeft, right = lRight;
+                setDpadCounted(t, SDL_GAMEPAD_BUTTON_DPAD_UP, up, t.dUp);    t.dUp = up;
+                setDpadCounted(t, SDL_GAMEPAD_BUTTON_DPAD_DOWN, down, t.dDown); t.dDown = down;
+                setDpadCounted(t, SDL_GAMEPAD_BUTTON_DPAD_LEFT, left, t.dLeft); t.dLeft = left;
+                setDpadCounted(t, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, right, t.dRight); t.dRight = right;
+                if (up || down || left || right) {
+                    logActuateThrottled(t, "menu-dpad", "drag [UNLATCHED] -> onPadButton(DPAD"
+                            + (up ? "_UP" : "") + (down ? "_DOWN" : "")
+                            + (left ? "_LEFT" : "") + (right ? "_RIGHT" : "") + ") pressed=1");
+                }
+                return;
+            }
+
+            if (t.latchedDir == 0) {
+                boolean rearmed = (t.neutralSinceMs == 0L)
+                        || (now - t.neutralSinceMs >= MENU_DPAD_REARM_MS);
+                if (rawDir != 0 && rearmed) {
+                    pressDir(t, rawDir);
+                    t.latchedDir = rawDir;
+                    t.centreSinceMs = 0L;
+                    logActuateThrottled(t, "menu-dpad", "latch -> onPadButton(sdl="
+                            + rawDir + ") pressed=1 [one press = one step]");
+                }
+            } else {
+                if (mag < dead * MENU_DPAD_RELEASE_RATIO) {
+                    if (t.centreSinceMs == 0L) t.centreSinceMs = now;
+                    if (now - t.centreSinceMs >= MENU_DPAD_REARM_MS) {
+                        releaseDir(t, t.latchedDir);
+                        logActuateThrottled(t, "menu-dpad", "unlatch -> onPadButton(sdl="
+                                + t.latchedDir + ") pressed=0 [centre held "
+                                + MENU_DPAD_REARM_MS + "ms]");
+                        t.latchedDir = 0;
+                        t.neutralSinceMs = now;
+                        t.centreSinceMs = 0L;
+                        t.candidateDir = 0;
+                        t.candidateSinceMs = 0L;
+                    }
+                } else {
+                    t.centreSinceMs = 0L;
+                    if (rawDir != 0 && rawDir != t.latchedDir
+                            && mag > dead * MENU_DPAD_SWITCH_RATIO) {
+                        if (t.candidateDir != rawDir) {
+                            t.candidateDir = rawDir;
+                            t.candidateSinceMs = now;
+                        } else if (now - t.candidateSinceMs >= MENU_DPAD_SWITCH_MS) {
+                            releaseDir(t, t.latchedDir);
+                            pressDir(t, rawDir);
+                            logActuateThrottled(t, "menu-dpad", "switch -> onPadButton(sdl="
+                                    + rawDir + ") pressed=1 [held past "
+                                    + MENU_DPAD_SWITCH_RATIO + "*dead for "
+                                    + MENU_DPAD_SWITCH_MS + "ms]");
+                            t.latchedDir = rawDir;
+                            t.candidateDir = 0;
+                            t.candidateSinceMs = 0L;
+                        }
+                    } else {
+                        t.candidateDir = 0;
+                        t.candidateSinceMs = 0L;
+                    }
+                }
             }
         } else {
             float nx = dx, ny = dy;
@@ -777,6 +930,33 @@ public class TouchOverlayView extends View {
     private void setDpad(Touch t, int sdlButton, boolean now, boolean was) {
         if (now == was) return;
         NativeGk.onPadButton(sdlButton, now);
+    }
+
+    // menu-dpad-steps: identique a setDpad, plus le comptage du front MONTANT. Le bras
+    // d'ablation doit compter ses fronts lui aussi, sinon les deux bras ne se comparent pas.
+    private void setDpadCounted(Touch t, int sdlButton, boolean now, boolean was) {
+        if (now == was) return;
+        if (now) t.pressEdges++;
+        NativeGk.onPadButton(sdlButton, now);
+    }
+
+    // menu-dpad-steps: verrouille UNE direction. Les trois autres sont explicitement relachees
+    // dans l'etat local, de sorte que releaseDpad() ne peut pas laisser trainer un drapeau.
+    private void pressDir(Touch t, int d) {
+        NativeGk.onPadButton(d, true);
+        t.dUp    = (d == SDL_GAMEPAD_BUTTON_DPAD_UP);
+        t.dDown  = (d == SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+        t.dLeft  = (d == SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+        t.dRight = (d == SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
+        t.pressEdges++;
+    }
+
+    private void releaseDir(Touch t, int d) {
+        NativeGk.onPadButton(d, false);
+        if (d == SDL_GAMEPAD_BUTTON_DPAD_UP) t.dUp = false;
+        else if (d == SDL_GAMEPAD_BUTTON_DPAD_DOWN) t.dDown = false;
+        else if (d == SDL_GAMEPAD_BUTTON_DPAD_LEFT) t.dLeft = false;
+        else if (d == SDL_GAMEPAD_BUTTON_DPAD_RIGHT) t.dRight = false;
     }
 
     private void releaseDpad(Touch t) {
@@ -844,10 +1024,17 @@ public class TouchOverlayView extends View {
         super.onAttachedToWindow();
         // Stay hidden until the first touch; the heartbeat only runs while shown.
         lastTouchMs = SystemClock.uptimeMillis();
+        // menu-dpad-steps (autoport): no-op sauf si le harnais mesure CET item.
+        try {
+            mdsStart();
+        } catch (Throwable th) {
+            Log.e(TAG, "MDS start threw", th);
+        }
     }
 
     @Override
     protected void onDetachedFromWindow() {
+        mdsHandler.removeCallbacksAndMessages(null);
         stopHeartbeat();
         super.onDetachedFromWindow();
     }
@@ -933,6 +1120,315 @@ public class TouchOverlayView extends View {
             handler.postDelayed(this, HEARTBEAT_MS);
         }
     };
+
+    // ---------------------------------------------------------------------
+    // menu-dpad-steps (autoport) : le PILOTE D'AUTO-TEST
+    //
+    // Arme UNIQUEMENT quand le harnais mesure CET item (NativeGk.isMenuDpadSelftestArmed()).
+    // Hors mesure il ne rejoue AUCUN evenement et n'emet AUCUN onPadButton : le joueur ne sent
+    // rien. Sequence par postDelayed sur le fil UI — aucun Thread.sleep, aucune boucle
+    // bloquante. Chaque etape est enveloppee dans un try/catch(Throwable) qui journalise et
+    // clot la campagne avec les jambes DEJA finies, pour qu'aucune exception ne remonte au fil
+    // UI du jeu.
+    //
+    // Trois jambes :
+    //   1 manette        — onPadButton, le point d'entree exact d'une vraie manette
+    //   2 tactile franc  — gestes rejoues au MILIEU de la branche dessinee
+    //   3 tactile seme   — CONTROLE : reproduit la derive de centroide d'un pouce pose sur le
+    //                      bord INTERIEUR de la branche. Le creux met dy a 20.0 px : SOUS
+    //                      l'ancien seuil (21.01) et AU-DESSUS du nouveau seuil de relache
+    //                      (10.5). L'ancienne regle emet donc 3 fronts pour UN geste (le defaut
+    //                      de l'owner), la nouvelle en emet 1.
+    // ---------------------------------------------------------------------
+
+    private final Handler mdsHandler = new Handler(Looper.getMainLooper());
+    private boolean mdsStarted = false;
+    private int mdsLegsDone = 0;     // bitmask : 1 manette, 2 tactile franc, 4 tactile seme
+    private int mdsOpenTries = 0;
+    private int mdsSubTries = 0;
+    private int mdsS0 = -1;          // ecran de la page racine
+    private int mdsCount = 0;        // pressions / gestes faits dans la jambe courante
+    private long mdsDownTime = 0;    // downTime du geste tactile en cours
+    private float mdsPx = 0, mdsPy = 0;
+    private int mdsLastPressEdges = 0;   // renseignes par releaseTouch, AVANT retrait de `active`
+    private int mdsLastLegacyEdges = 0;
+
+    private void mdsStart() {
+        if (mdsStarted) return;
+        boolean armed = false;
+        try {
+            armed = NativeGk.isMenuDpadSelftestArmed();
+        } catch (Throwable th) {
+            armed = false;
+        }
+        if (!armed) return;   // joueur : rien, jamais
+        mdsStarted = true;
+        Log.i(TAG, "MDS armed: boot wait " + MDS_BOOT_WAIT_MS + "ms, then "
+                + MDS_MENU_OPEN_TRIES + " open tries at " + MDS_MENU_OPEN_GAP_MS + "ms");
+        mdsPost(MDS_BOOT_WAIT_MS, 1);
+    }
+
+    private void mdsPost(long delay, final int step) {
+        mdsHandler.postDelayed(new Runnable() {
+            @Override public void run() { mdsStep(step); }
+        }, delay);
+    }
+
+    private void mdsStep(int step) {
+        try {
+            mdsRun(step);
+        } catch (Throwable th) {
+            Log.e(TAG, "MDS step=" + step + " threw; closing campaign with legs=" + mdsLegsDone, th);
+            mdsFinish();
+        }
+    }
+
+    private void mdsFinish() {
+        try {
+            NativeGk.menuDpadLeg(0);
+            NativeGk.menuDpadDone(mdsLegsDone);
+            Log.i(TAG, "MDS done legs=" + mdsLegsDone);
+        } catch (Throwable th) {
+            Log.e(TAG, "MDS finish threw", th);
+        }
+    }
+
+    // Une pression manette : c'est le point d'entree exact d'une vraie manette.
+    private void mdsPad(int sdlButton, boolean pressed) {
+        NativeGk.onPadButton(sdlButton, pressed);
+    }
+
+    // Rejeu d'un evenement tactile en espace VUE (celui que onTouchEvent recoit).
+    private void mdsSend(int action, float x, float y, long downTime) {
+        MotionEvent ev = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0);
+        ev.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        dispatchTouchEvent(ev);
+        ev.recycle();
+    }
+
+    private void mdsRun(int step) {
+        final float baseR = cLeftStick.radius * 0.62f;
+        final float dead = baseR * 0.22f;
+        final float wdt = baseR * 0.30f;
+        final float arm = baseR * 0.78f;
+        // Geste SEME : depart au bord INTERIEUR de la branche dessinee, creux proportionnel.
+        final float seedTop = cLeftStick.cy + wdt + 1.0f;
+        final float seedDip = (wdt + 1.0f) - dead * MDS_SEED_TARGET_RATIO;
+        final float seedBottom = seedTop - seedDip;   // dy = dead * MDS_SEED_TARGET_RATIO
+
+        switch (step) {
+            // ---- 1. geometrie -------------------------------------------------
+            case 1:
+                NativeGk.menuDpadGeometry(Math.round(dead * 100f), Math.round(wdt * 100f),
+                        Math.round(seedDip * 100f));
+                Log.i(TAG, "MDS geometry radius=" + cLeftStick.radius + " dead=" + dead
+                        + " armInner=" + wdt + " armOuter=" + arm
+                        + " seedTop=" + seedTop + " seedBottom=" + seedBottom
+                        + " (dy=" + (seedBottom - cLeftStick.cy) + ", target=" + (dead * MDS_SEED_TARGET_RATIO)
+                        + ") seedDip=" + seedDip
+                        + " (view px; padSuppressed=" + padSuppressed + ")");
+                mdsOpenTries = 0;
+                mdsPost(0, 2);
+                break;
+
+            // ---- 2. ouvrir le menu --------------------------------------------
+            case 2: {
+                boolean inMenu = NativeGk.isInMenu();
+                Log.i(TAG, "MDS open-menu try=" + mdsOpenTries + " inMenu=" + inMenu);
+                if (inMenu) { mdsPost(0, 10); break; }
+                if (mdsOpenTries >= MDS_MENU_OPEN_TRIES) {
+                    Log.e(TAG, "MDS open-menu FAILED after " + mdsOpenTries + " tries");
+                    mdsFinish();   // legs=0 : le recensement rendra un defaut, c'est voulu
+                    break;
+                }
+                mdsOpenTries++;
+                mdsPad(SDL_GAMEPAD_BUTTON_START, true);
+                mdsPost(MDS_HOLD_MS, 3);
+                break;
+            }
+            case 3:
+                mdsPad(SDL_GAMEPAD_BUTTON_START, false);
+                mdsPost(MDS_MENU_OPEN_GAP_MS, 2);
+                break;
+
+            // ---- 3. jambe MANETTE ---------------------------------------------
+            // Le menu s'ouvre a l'index 0 et les premieres lignes de la page racine sont de
+            // type `menu` : un SOUTH y ouvre une page a coup sur. Descendre d'abord risquait
+            // de tomber sur une bascule, que SOUTH SELECTIONNE — respond-common ignore alors
+            // HAUT/BAS et les pressions suivantes ne bougeraient rien.
+            case 10:
+                NativeGk.menuDpadLeg(1);
+                mdsS0 = NativeGk.menuDpadScreen();
+                mdsSubTries = 0;
+                Log.i(TAG, "MDS leg=1 (pad) root screen s0=" + mdsS0);
+                mdsPost(0, 11);
+                break;
+            case 11:
+                mdsSubTries++;
+                mdsPad(SDL_GAMEPAD_BUTTON_SOUTH, true);
+                mdsPost(MDS_HOLD_MS, 12);
+                break;
+            case 12:
+                mdsPad(SDL_GAMEPAD_BUTTON_SOUTH, false);
+                mdsPost(1500, 13);
+                break;
+            case 13: {
+                int now = NativeGk.menuDpadScreen();
+                Log.i(TAG, "MDS submenu try=" + mdsSubTries + " screen=" + now + " s0=" + mdsS0);
+                if (now != mdsS0 || mdsSubTries >= 4) {
+                    if (now == mdsS0) {
+                        Log.w(TAG, "MDS submenu did NOT change after " + mdsSubTries
+                                + " tries; continuing anyway (the census will say so)");
+                    }
+                    mdsCount = 0;
+                    mdsPost(0, 15);
+                } else {
+                    mdsPost(0, 11);
+                }
+                break;
+            }
+            case 15:
+                if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsPost(0, 20); break; }
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+                mdsPost(MDS_HOLD_MS, 16);
+                break;
+            case 16:
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, false);
+                NativeGk.menuDpadGesture(1, 1);   // la jambe manette ne passe pas par updateStick
+                mdsCount++;
+                mdsPost(MDS_GAP_MS, 15);
+                break;
+            case 20:   // revenir en arriere
+                mdsPad(SDL_GAMEPAD_BUTTON_EAST, true);
+                mdsPost(MDS_HOLD_MS, 21);
+                break;
+            case 21:
+                mdsPad(SDL_GAMEPAD_BUTTON_EAST, false);
+                mdsPost(1500, 22);
+                break;
+            case 22: {
+                int now = NativeGk.menuDpadScreen();
+                if (now != mdsS0) {
+                    Log.w(TAG, "MDS back did NOT return to s0=" + mdsS0 + " (screen=" + now
+                            + "); continuing anyway");
+                } else {
+                    Log.i(TAG, "MDS back to root screen=" + now);
+                }
+                mdsCount = 0;
+                mdsPost(0, 23);
+                break;
+            }
+            case 23:
+                if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsPost(0, 30); break; }
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+                mdsPost(MDS_HOLD_MS, 24);
+                break;
+            case 24:
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, false);
+                NativeGk.menuDpadGesture(1, 1);
+                mdsCount++;
+                mdsPost(MDS_GAP_MS, 23);
+                break;
+
+            // ---- 4. jambe TACTILE FRANCHE : milieu de la branche BAS dessinee ---
+            case 30:
+                mdsLegsDone |= 1;
+                NativeGk.menuDpadLeg(2);
+                mdsCount = 0;
+                mdsPx = cLeftStick.cx;
+                mdsPy = cLeftStick.cy + (wdt + arm) * 0.5f;
+                Log.i(TAG, "MDS leg=2 (touch, frank) point=(" + mdsPx + "," + mdsPy
+                        + ") dy=" + (mdsPy - cLeftStick.cy) + " dead=" + dead);
+                mdsPost(0, 31);
+                break;
+            case 31:
+                if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsPost(0, 40); break; }
+                mdsLastPressEdges = 0;
+                mdsLastLegacyEdges = 0;
+                mdsDownTime = SystemClock.uptimeMillis();
+                mdsSend(MotionEvent.ACTION_DOWN, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 32);
+                break;
+            case 32:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 33);
+                break;
+            case 33:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 34);
+                break;
+            case 34:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(Math.max(0, MDS_HOLD_MS - 180), 35);
+                break;
+            case 35:
+                mdsSend(MotionEvent.ACTION_UP, mdsPx, mdsPy, mdsDownTime);
+                NativeGk.menuDpadGesture(mdsLastPressEdges, mdsLastLegacyEdges);
+                Log.i(TAG, "MDS leg=2 gesture " + mdsCount + " edges=" + mdsLastPressEdges
+                        + " legacy=" + mdsLastLegacyEdges);
+                mdsCount++;
+                mdsPost(MDS_GAP_MS, 31);
+                break;
+
+            // ---- 5. jambe TACTILE SEMEE : le CONTROLE -------------------------
+            case 40:
+                mdsLegsDone |= 2;
+                NativeGk.menuDpadLeg(3);
+                mdsCount = 0;
+                mdsPx = cLeftStick.cx;
+                mdsPy = seedTop;   // juste DANS la branche dessinee
+                Log.i(TAG, "MDS leg=3 (touch, seeded) point=(" + mdsPx + "," + mdsPy
+                        + ") dy=" + (mdsPy - cLeftStick.cy) + " dip=" + seedDip
+                        + " -> dyDip=" + (seedBottom - cLeftStick.cy)
+                        + " dead=" + dead + " oldThreshold=" + dead
+                        + " releaseThreshold=" + (dead * MENU_DPAD_RELEASE_RATIO));
+                mdsPost(0, 41);
+                break;
+            case 41:
+                if (mdsCount >= MDS_SEED_GESTURES) { mdsPost(0, 50); break; }
+                mdsLastPressEdges = 0;
+                mdsLastLegacyEdges = 0;
+                mdsDownTime = SystemClock.uptimeMillis();
+                mdsSend(MotionEvent.ACTION_DOWN, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 42);
+                break;
+            case 42:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, seedBottom, mdsDownTime);
+                mdsPost(60, 43);
+                break;
+            case 43:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 44);
+                break;
+            case 44:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, seedBottom, mdsDownTime);
+                mdsPost(60, 45);
+                break;
+            case 45:
+                mdsSend(MotionEvent.ACTION_MOVE, mdsPx, mdsPy, mdsDownTime);
+                mdsPost(60, 46);
+                break;
+            case 46:
+                mdsSend(MotionEvent.ACTION_UP, mdsPx, mdsPy, mdsDownTime);
+                NativeGk.menuDpadGesture(mdsLastPressEdges, mdsLastLegacyEdges);
+                Log.i(TAG, "MDS leg=3 gesture " + mdsCount + " edges=" + mdsLastPressEdges
+                        + " legacy=" + mdsLastLegacyEdges);
+                mdsCount++;
+                mdsPost(MDS_GAP_MS, 41);
+                break;
+
+            // ---- 6. fin --------------------------------------------------------
+            case 50:
+                mdsLegsDone |= 4;
+                mdsFinish();
+                break;
+
+            default:
+                Log.e(TAG, "MDS unknown step=" + step);
+                mdsFinish();
+                break;
+        }
+    }
 
     // ---------------------------------------------------------------------
     // Actuation logging (the same-behavior contract trail)

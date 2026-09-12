@@ -295,4 +295,51 @@ public final class NativeGk {
      * Returns 0 on success.
      */
     public static native int writeTestSave(String path);
+
+    // -----------------------------------------------------------------
+    // menu-dpad-steps (autoport)
+    //
+    // Le correctif du d-pad tactile (verrou de direction pour la duree du
+    // geste) et son pilote d'auto-test vivent dans TouchOverlayView. Ces
+    // entrees ne portent aucune logique : elles delegent a
+    // autoport_proof:: / menu_dpad_census:: cote natif.
+    // -----------------------------------------------------------------
+
+    /**
+     * Armement du correctif pour l'item nomme. VRAI par defaut (y compris si
+     * le pont natif manque) : un correctif derriere un drapeau eteint
+     * n'existe pas pour l'owner. Faux uniquement quand le harnais mesure CET
+     * item avec armed=0 (le bras d'ablation).
+     */
+    public static native boolean isAutoportArmedFor(String id);
+
+    /** Vrai quand le harnais mesure l'item {@code menu-dpad-steps} : le pilote d'auto-test s'arme. Jamais vrai pour le joueur. */
+    public static native boolean isMenuDpadSelftestArmed();
+
+    /** Jambe courante de la campagne : 0 repos, 1 manette, 2 tactile franc, 3 tactile seme. */
+    public static native void menuDpadLeg(int leg);
+
+    /**
+     * Fin d'un geste pilote. {@code edges} = fronts montants REELLEMENT emis
+     * pour ce geste ; {@code legacyEdges} = ce que la regle d'ORIGINE (quatre
+     * seuils nus, sans memoire) aurait emis pour le MEME geste, calculee en
+     * ombre a chaque image sans jamais toucher le jeu. Sur un geste seme, la
+     * paire attendue est (1, 3) : c'est la mesure, dans la course livree, du
+     * defaut que le correctif supprime.
+     */
+    public static native void menuDpadGesture(int edges, int legacyEdges);
+
+    /**
+     * Geometrie de la croix, en px de VUE x100 : zone morte, bord interieur de
+     * la branche dessinee, et amplitude du creux du controle SEME. Le creux est
+     * publie pour que l'owner puisse juger si le stimulus est realiste ou taille
+     * pour passer.
+     */
+    public static native void menuDpadGeometry(int deadX100, int armInnerX100, int seedDipX100);
+
+    /** Campagne terminee : bitmask des jambes finies (1 manette, 2 tactile franc, 4 tactile seme). */
+    public static native void menuDpadDone(int legsDone);
+
+    /** Dernier display-state vu par GOAL, -1 si aucun. Sert a prouver qu'on a change de page. */
+    public static native int menuDpadScreen();
 }

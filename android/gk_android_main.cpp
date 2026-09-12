@@ -75,6 +75,8 @@
 #include "game/system/pad_replay.h"
 #include "game/system/npc_flicker.h"
 #include "game/system/mesh_browser_census.h"
+#include "game/system/autoport_proof.h"    // menu-dpad-steps : armement par item + item sous mesure
+#include "game/system/menu_dpad_census.h"  // menu-dpad-steps : recensement (ecrit par la phase de recensement)
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"  // perf-instruments : recepteur du flux pc-prof (seaux GOAL, ROOT)  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
@@ -9957,6 +9959,60 @@ JNIEXPORT jboolean JNICALL
 Java_org_opengoal_gk_NativeGk_isInMenu(JNIEnv* /*env*/, jclass /*clazz*/) {
   return g_overlay_in_menu.load(std::memory_order_acquire) ? JNI_TRUE
                                                            : JNI_FALSE;
+}
+
+// menu-dpad-steps (autoport) : pont Java -> recensement/armement. Aucune logique propre ici :
+// chaque entree delegue telle quelle. Le correctif Java (verrou de direction de la croix) lit
+// `isAutoportArmedFor("menu-dpad-steps")` pour son bras d'ablation, et le pilote d'auto-test ne
+// s'arme que si le harnais mesure CET item (`feature_is`).
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isAutoportArmedFor(JNIEnv* env, jclass /*clazz*/, jstring id) {
+  if (id == nullptr) {
+    return JNI_TRUE;  // pas d'identifiant = arme (le defaut sur est le correctif ACTIF)
+  }
+  const char* utf = env->GetStringUTFChars(id, nullptr);
+  const bool armed = (utf == nullptr) ? true : autoport_proof::armed_for(utf);
+  if (utf != nullptr) {
+    env->ReleaseStringUTFChars(id, utf);
+  }
+  return armed ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isMenuDpadSelftestArmed(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return autoport_proof::feature_is("menu-dpad-steps") ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_menuDpadLeg(JNIEnv* /*env*/, jclass /*clazz*/, jint leg) {
+  menu_dpad_census::set_leg((int)leg);
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_menuDpadGesture(JNIEnv* /*env*/,
+                                              jclass /*clazz*/,
+                                              jint edges,
+                                              jint legacy_edges) {
+  menu_dpad_census::note_gesture((int)edges, (int)legacy_edges);
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_menuDpadGeometry(JNIEnv* /*env*/,
+                                               jclass /*clazz*/,
+                                               jint dead_x100,
+                                               jint arm_inner_x100,
+                                               jint seed_dip_x100) {
+  menu_dpad_census::note_geometry((int)dead_x100, (int)arm_inner_x100, (int)seed_dip_x100);
+}
+
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_menuDpadDone(JNIEnv* /*env*/, jclass /*clazz*/, jint legs_done) {
+  menu_dpad_census::note_campaign_done((int)legs_done);
+}
+
+JNIEXPORT jint JNICALL
+Java_org_opengoal_gk_NativeGk_menuDpadScreen(JNIEnv* /*env*/, jclass /*clazz*/) {
+  return (jint)menu_dpad_census::current_screen();
 }
 
 // Phase Gtitle-tap (autoport): expose "the title PRESS START screen is up" to

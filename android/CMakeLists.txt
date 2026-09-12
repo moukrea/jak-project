@@ -456,6 +456,8 @@ add_library(android_kernel STATIC
     # Le publicateur de preuve moissonne par .autoport/lib/proof_run.sh (ligne FEATURE,
     # compteur d'images, cle=valeur). Sans lui, toute preuve APPAREIL sort avec frames=0.
     "${JAK_ROOT}/game/system/autoport_proof.cpp"
+    # menu-dpad-steps : le recensement des crans parcourus par pression.
+    "${JAK_ROOT}/game/system/menu_dpad_census.cpp"
     # title-tap-prompt-regression : le fait « cet appareil a un ecran tactile », pose par le JNI
     # (PackageManager) cote Android et par SDL cote bureau. Lu par le pont GOAL de kmachine.
     "${JAK_ROOT}/game/system/touch_screen.cpp"
