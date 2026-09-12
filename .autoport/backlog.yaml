@@ -7244,7 +7244,7 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7282,10 +7282,17 @@ items:
   - date: '2026-09-11'
     text: bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour
       eviter de polluer !
-  delivered: null
+  delivered: '2026-09-12'
   block_reason: ''
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:12
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: ed0f635f73af3ae8
+    proof_bytes: 33301
+    attempt: 9
+    journal: validator-009.txt
 - id: mesh-browser-removal
   priority: null
   device: true
@@ -8787,7 +8794,7 @@ items:
   notes: issu du signalement de census-audit-blind-spots, 12/09 ; visible seulement depuis que les prises
     sont comptees par feature.
 - id: harness-reload-must-not-kill-the-loop
-  status: open
+  status: validated
   priority: 19
   game: jak1
   device: false
@@ -8818,8 +8825,15 @@ items:
   proof_timeout: 300
   prompt: prompts/item-harness-reload-must-not-kill-the-loop.md
   notes: 'issu de la panne du 12/09 15:33 : dix minutes d''arret complet du harnais.'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: 0a5143daca88674b
+    proof_bytes: 41924
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-suite-must-be-a-close-gate
-  status: open
+  status: in-progress
   priority: 20
   game: jak1
   device: false
@@ -8923,7 +8937,14 @@ items:
   proof_timeout: 900
   prompt: prompts/item-build-android-reinvalidates-itself.md
   notes: 'issu du signalement de build-tree-reinvalidates-itself, 12/09 : le meme defaut sur l''arbre
-    qui produit l''APK livre.'
+    qui produit l''APK livre. | ARBITRAGE DU SUPERVISEUR, 12/09 18:45 — FAUX BLOCAGE, l''item repart.
+    Les trois essais ont ete refuses sur « proof.txt absent ou vide », mais le travail EST commite (a13ba06809
+    et eaef20e3fc, 18:04 et 18:06) et la preuve EXISTE : 34 340 octets ecrits a 18:21, `build_android_reinval_defects=0`,
+    avec ses empreintes de sources et de critere. La preuve est simplement arrivee APRES que le validateur
+    a regarde, trois fois. C''est le defaut deja ouvert sous `harness-proof-file-has-no-writer-lock` :
+    le juge passe avant la fin de la chaine. AU PROCHAIN ESSAI : ne PAS refaire le travail, verifier qu''il
+    tient toujours, et surtout ne pas rendre la main avant que proof.txt soit ecrit.'
+  block_reason: ''
 - id: harness-subsecond-freshness-is-blind
   status: open
   priority: 22
@@ -8979,6 +9000,7 @@ items:
     1. AUCUN ecrivain unique, AUCUN verrou sur `reports/<id>/proof.txt`. Un essai TUE laisse son `proof_run.sh` VIVANT : il finit sa course et ecrit sa preuve par-dessus celle de l'essai suivant. Le validateur juge alors la course d'AVANT en croyant juger celle d'apres.
     2. RIEN N'EMPECHE UN COMMIT EXTERIEUR PENDANT UNE COURSE. Mesure du 12/09 : le SUPERVISEUR a commite a 16:12:59 pendant une course, et l'empreinte des sources de verdict a bouge entre la mesure et son jugement. L'essai a ete refuse pour une raison qui ne decrivait aucun defaut de son travail. Le meme defaut s'est reproduit dans l'heure.
     C'est la meme famille que les quatre essais detruits par le plafond de 600 s : un essai perdu pour une cause qui n'est pas la sienne, sauf qu'ici la consequence est pire — un verdict rendu sur la MAUVAISE course.
+    3. DEUXIEME CAS MESURE LE MEME JOUR. `build-android-reinvalidates-itself` a ete BLOQUE le 12/09 a 18:12 sur trois refus identiques « proof.txt absent ou vide », alors que son travail etait commite a 18:04 et 18:06 et que sa preuve — 34 340 octets, porte tenue — a ete ecrite a 18:21. Le juge est passe trois fois avant la fin de la chaine. La garde anti-boucle a alors lu trois empreintes d'echec identiques et a bloque l'item, ce qui a demande un arbitrage humain pour un travail qui etait fait. Publier le compte d'essais juges avant l'ecriture de leur propre preuve : c'est la grandeur qui manque.
   deliverable: |-
     `proof_writer_defects` = 0, somme de termes publies SEPAREMENT.
     1. UN SEUL ecrivain par `proof.txt`, par verrou : une seconde course sur le meme item attend ou refuse, elle n'ecrase pas. Publier le compte de tentatives d'ecriture concurrentes rencontrees.
