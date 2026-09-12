@@ -136,9 +136,20 @@ pub br_ordre_avant_lignes  "$(b bf_g_ordre_avant_lignes)"
 pub br_ordre_avant_nomme   "$(b bf_g_ordre_avant_nomme)"
 
 # ========================================== 3. L'ARBRE VIVANT, TROIS INVOCATIONS =============
-# La PREMIERE absorbe ce qui restait a faire (une regeneration cmake apres un commit, par
-# exemple) : elle est publiee, elle n'est pas jugee. Les DEUX SUIVANTES sont les « deux
-# invocations consecutives sans edition » du livrable, et elles doivent rendre zero.
+# LES TROIS DOIVENT RENDRE ZERO, LA PREMIERE COMPRISE. Elle etait « publiee, pas jugee », au
+# motif qu'elle absorbait ce qui restait a faire apres un commit. C'est precisement ce qu'elle
+# ne doit PAS faire ICI : ce recensement ne tourne QUE dans une course, APRES que
+# `lib/proof_run.sh` a empreinte `build/game/gk` et l'a fait tourner 600 s. Si la premiere
+# invocation RELIE ce binaire, le `sha=` de la preuve ne designe plus aucun fichier du disque
+# et `validators/generic.sh:82` le refuse — la preuve decrirait un autre code que celui
+# qu'elle a mesure, le defaut meme que cet item combat, retourne contre sa propre preuve.
+#
+# MESURE DU 12/09, essai 2 : le commit e4d57b3499 pose, `build/.../SDL3/SDL_revision.h`
+# portait encore `138-ga547333fe7` quand `git describe` disait `139-ge4d57b3499`. SDL derive
+# son `SDL_REVISION` du `git describe` de NOTRE depot, et cmake se rejoue a chaque
+# construction (`cmake.verify_globs` est toujours sale) : la premiere construction apres un
+# commit regenere l'en-tete, puis `SDL.c.o`, `libSDL3.so`, `libcommon.so` — et RELIE `gk`.
+# LA REGLE QUI EN SORT : on bati par la porte AVANT de lancer la course, jamais pendant.
 P1=$(timeout 800 bash "$PORTE" --dir build --target gk 2>/dev/null); R1=$?
 P2=$(timeout 300 bash "$PORTE" --dir build --target gk 2>/dev/null); R2=$?
 P3=$(timeout 300 bash "$PORTE" --dir build --target gk 2>/dev/null); R3=$?
@@ -173,6 +184,12 @@ pub br_live_dep_nom    "$(g "$P3" bx_newest_name)"
 pub br_live_dep_vues   "$(num "$(g "$P3" bx_deps_seen)")"
 pub br_live_bin_frais  "$(num "$(g "$P3" bx_bin_fresh)")"
 pub br_live_bin_retard "$(num "$(g "$P3" bx_bin_lag_s)")"
+# QUI A RELIE, ET CONTRE QUOI. Publie a cote du compte : un `sha` different de celui de la
+# preuve DIT que la course a mesure un autre fichier, au lieu de le laisser deviner.
+pub br_live_bin_sha "$(sha256sum "build/game/gk" 2>/dev/null | cut -c1-16)"
+pub br_live_describe "$(git describe --tags 2>/dev/null | tr -d " ")"
+pub br_live_sdl_revision "$(sed -n 's/.*define SDL_REVISION "\([^"]*\)".*/\1/p' \
+  build/third-party/SDL/include-revision/SDL3/SDL_revision.h 2>/dev/null | tail -1)"
 
 # ================================================================= 4. LES QUATRE TERMES =====
 sup(){ [ "${1:--1}" -gt "${2:-0}" ] 2>/dev/null && echo 1 || echo 0; }
@@ -196,6 +213,9 @@ D1=0
 # l'arbre jetable une fois la porte passee.
 D2=0
 [ "$R1" = 0 ] && [ "$R2" = 0 ] && [ "$R3" = 0 ] || D2=$((D2+1))
+# LA PREMIERE AUSSI : si elle bati, elle relie le binaire que la preuve vient d'empreinter.
+[ "$(num "$(g "$P1" bx_work_edges)")" = 0 ] || D2=$((D2+1))
+[ "$(num "$(g "$P1" bx_residual_work)")" = 0 ] || D2=$((D2+1))
 [ "$(num "$(g "$P2" bx_work_edges)")" = 0 ] || D2=$((D2+1))
 [ "$(num "$(g "$P3" bx_work_edges)")" = 0 ] || D2=$((D2+1))
 [ "$(num "$(g "$P2" bx_residual_work)")" = 0 ] || D2=$((D2+1))
