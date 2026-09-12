@@ -27,6 +27,30 @@ GLint loc(GLuint program, const char* name);
 // A l'edition de liens d'un programme (Shader.cpp) : ses entrees sont oubliees.
 void invalidate(GLuint program);
 
+// LE RECENSEMENT DES UNIFORMES SANS LECTEUR (item `gl-uniforms-dead-seven`).
+// -------------------------------------------------------------------------
+// Sept reglages d'eclairage partaient a chaque image vers des uniformes qu'AUCUN shader ne lit.
+// Un `grep` du nom ne pouvait pas le dire : six des sept etaient DECLARES dans un shader, et un
+// uniforme declare mais jamais lu est retire par le compilateur GLSL — il n'a pas d'emplacement.
+// La seule autorite sur « ce shader lit-il ce nom » est donc le PILOTE, pas le texte.
+//
+// Ce module est deja le passage OBLIGE de toute poussee d'uniforme du decor (`lgt_*` et les
+// appels nus passent tous par `loc()`), ce qui en fait le seul endroit ou compter AU POINT
+// D'APPEL : une liste de sites connus ne prouverait que la liste.
+//
+// La mesure : pour chaque nom vu, on interroge TOUS les programmes lies (`note_program`) ; un
+// nom dont aucun programme ne rend d'emplacement n'a aucun lecteur dans l'arbre. `readers` est
+// donc une grandeur produite par le compilateur GLSL, pas par nous.
+//
+// Publie sous `AUTOPORT_FEATURE=gl-uniforms-dead-seven` : `dead_uniform_pushes` (la porte),
+// ses denominateurs, la LISTE des noms morts, le recensement nomme des sept, et deux temoins
+// semes — un nom mort fabrique et un nom vivant certain — sans lesquels un zero obtenu parce
+// que l'instrument ne tourne pas serait indistinguable d'un zero obtenu parce qu'il n'y a plus
+// rien a compter.
+
+// Un programme vient d'etre lie (Shader.cpp). Le recensement l'interrogera pour chaque nom.
+void note_program(GLuint program);
+
 // Une fois par image (tete de dispatch des deux renderers) : bascule et publie les compteurs.
 void frame_begin();
 

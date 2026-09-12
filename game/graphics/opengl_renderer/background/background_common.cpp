@@ -1791,7 +1791,9 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   GLint mvp_loc = glu::loc(program, "u_pbr_shadow_mvp");
   GLint tex_loc = glu::loc(program, "tex_PBR_SHADOW");
   GLint on_loc = glu::loc(program, "u_pbr_shadow_on");
-  GLint leg_loc = glu::loc(program, "u_pbr_legacy_shadow");
+  // gl-uniforms-dead-seven : `u_pbr_legacy_shadow` n'est declare dans AUCUN shader de
+  // l'arbre — le recensement rend 0 lecteur sur tous les programmes lies. Sa poussee est
+  // retiree ; `st.legacy_strength` reste lu par les proprietes de debug, sans destinataire.
   GLint cd_loc = glu::loc(program, "u_pbr_shadow_cam_delta");
   if (tex_loc >= 0) {
     glUniform1i(tex_loc, 9);
@@ -1827,9 +1829,6 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   if (sl_loc >= 0) {
     glUniform1i(sl_loc, st.read_shadow_light);
   }
-  if (leg_loc >= 0) {
-    glUniform1f(leg_loc, st.legacy_strength);
-  }
   // lighting-legacy-purge (2026-09-11) : `u_rt_shadow_range` et `u_rt_shadow_res` ne sont plus
   // pousses — les deux grandeurs sont desormais des CONSTANTES (RechargedFixed::kRtShadowDist /
   // kRtShadowRes), ecrites en dur cote shader. Continuer a les pousser rendrait -1 a
@@ -1838,9 +1837,9 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
     static int dbg_calls = 0;
     if (dbg_calls++ % 240 == 0) {
       lg::info(
-          "PBR-SHADOW-DBG bind_receiver prog={} mvp_loc={} tex_loc={} on_loc={} leg_loc={} "
+          "PBR-SHADOW-DBG bind_receiver prog={} mvp_loc={} tex_loc={} on_loc={} "
           "on={} read_mvp0={:.4f}",
-          program, mvp_loc, tex_loc, on_loc, leg_loc, (st.valid && st.read_valid) ? 1 : 0,
+          program, mvp_loc, tex_loc, on_loc, (st.valid && st.read_valid) ? 1 : 0,
           st.read_mvp[0]);
     }
   }
@@ -2218,7 +2217,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     sd[2] = 0.f;
     sl = 1.f;
   }
-  lgt_3f(id, "u_pbr_sun_dir", sd[0] / sl, sd[1] / sl, sd[2] / sl);
   // The mood tables store sun-color / env-color as 0..255-scale floats (e.g.
   // village1 sun-color (255,128,0)); pushing them raw made lit explode ~100x and
   // clamp to saturated hues. Scale to 0..1 HERE (GL boundary) so GOAL keeps
@@ -2394,9 +2392,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // plus, et la mise a zero de `height_scale` sous le mode 0 non plus. Le recensement de couverture
   // recoit desormais la constante, pas une variable.
   pbr_cover_publish_gates(height_scale, 0, pbr_debug, pbr_displacement);
-  lgt_3f(id, "u_pbr_sun_color", gs.recharged_pbr_sun_color[0] * sun_scale,
-              gs.recharged_pbr_sun_color[1] * sun_scale,
-              gs.recharged_pbr_sun_color[2] * sun_scale);
 
   // Round-4 multi-light (mandate C): build 3 direct lights from *time-of-day-context*
   // light-group 0 (soleil dir0 + lune verte dir1 + fill dir2). Bound as arrays for the
@@ -2902,7 +2897,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     // `u_rt_probe_on` n'a plus d'ecrivain, et n'en a plus besoin : l'uniforme n'est plus declare
     // dans aucun shader. Le recensement de l'item 0 continue de lire la porte a 0.
     {
-      int dbg_litboost = 0, dbg_shadowmul = 0, dbg_tintlit = -1, dbg_tintshadow = -1;
+      // gl-uniforms-dead-seven (2026-09-12) : `u_rt_shadow_mul` et `u_rt_tint_shadow` ne sont
+      // plus pousses, et les deux proprietes de debug qui les alimentaient partent avec eux.
+      // Mesure : `glu::census_frame` interroge le pilote programme par programme, et AUCUN des
+      // programmes lies ne rend d'emplacement pour ces deux noms — ils sont DECLARES dans
+      // shade.glsl mais jamais lus, donc le compilateur GLSL les retire. Pousser une valeur que
+      // personne ne lit fabrique une fausse constante et un reglage fantome cote Android.
+      int dbg_litboost = 0, dbg_tintlit = -1;
       // `u_rt_detail`, `u_rt_detail_norm` et `u_rt_sun_boost` ne sont plus pousses : apres le
       // retrait du composite D ils n'ont plus AUCUN site de lecture dans les cinq shaders monde
       // (mesure `grep -c`), et pousser une valeur que personne ne lit fabrique une fausse
@@ -2917,20 +2918,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
           }
         };
         rd("debug.opengoal.rt.litboost", dbg_litboost);
-        rd("debug.opengoal.rt.shadowmul", dbg_shadowmul);
         rd("debug.opengoal.rt.tintlit", dbg_tintlit);
-        rd("debug.opengoal.rt.tintshadow", dbg_tintshadow);
         rd("debug.opengoal.rt.greenamp", dbg_greenamp);
       }
 #endif
       lgt_1f(id, "u_rt_lit_boost",
                   (dbg_litboost > 0) ? (float)dbg_litboost / 100.f : 1.15f);
-      lgt_1f(id, "u_rt_shadow_mul",
-                  (dbg_shadowmul > 0) ? (float)dbg_shadowmul / 100.f : 0.65f);
       lgt_1f(id, "u_rt_tint_lit",
                   (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
-      lgt_1f(id, "u_rt_tint_shadow",
-                  (dbg_tintshadow >= 0) ? (float)dbg_tintshadow / 100.f : 0.12f);
       lgt_1f(id, "u_rt_green_amp",
                   (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
       lighting_census::gate_probe(0);
@@ -2966,7 +2961,6 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   g_pbr_glob_spec = spec_intensity;
   lgt_1f(id, "u_pbr_normal_strength", normal_strength);
   lgt_1f(id, "u_pbr_height_scale", height_scale);
-  lgt_1f(id, "u_pbr_uv_tile", uv_tile);
   lgt_1f(id, "u_pbr_emissive_str", emissive_str);
   lgt_1f(id, "u_pbr_spec_intensity", spec_intensity);
   // Gpbr-per-texture-materials: the per-material vector, at its IDENTITY — (0.9, 0, 0.04, 1) and

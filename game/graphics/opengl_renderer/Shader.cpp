@@ -342,6 +342,9 @@ void Shader::build(const std::string& shader_name,
   // apres suppression ne doit jamais servir un emplacement perime).
   frame_ubo::bind_program(m_program);
   glu::invalidate(m_program);
+  // gl-uniforms-dead-seven : le recensement des uniformes sans lecteur interroge CHAQUE programme
+  // lie. Enregistre ici, au seul endroit du depot ou un programme existe.
+  glu::note_program(m_program);
 
   glDeleteShader(m_vert_shader);
   glDeleteShader(m_frag_shader);
