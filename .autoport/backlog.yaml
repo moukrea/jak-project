@@ -7244,7 +7244,7 @@ items:
     de leurs effets en jeu — le PBR nommement, que tu avais actif.'
   out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
     l''ancien et on dit ce qui le remplace.'
-  status: open
+  status: in-progress
   game: jak1
   depends_on: []
   max_turns: 800
@@ -8707,7 +8707,7 @@ items:
   notes: issu des deux signalements de dead-published-keys-round-2, 12/09 ; les deux ids que le worker
     avait nommes sont fondus en un.
 - id: build-tree-reinvalidates-itself
-  status: in-progress
+  status: validated
   priority: 18
   game: jak1
   device: false
@@ -8746,6 +8746,13 @@ items:
     de sources de verdict qui a bouge entre la course et le jugement).'
   no_code: true
   code_scope_source: out_of_scope:ne-change-aucun-code-du-moteur;commits:10-chemins-0-moteur
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: 3c78366e4ccc1f72
+    proof_bytes: 35363
+    attempt: 4
+    journal: validator-004.txt
 - id: water-ocean-mesh-hit-counter-cost
   status: open
   priority: 30
@@ -8883,3 +8890,145 @@ items:
   notes: 'budget : 8 essais — le sujet est celui que l''owner reclame depuis le debut de la chaine HDR,
     et c''est le premier ou son appareil accorde enfin de la marge. Issu de son retour du 12/09 sur le
     Honor.'
+- id: build-android-reinvalidates-itself
+  status: open
+  priority: 18
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  feature: L'arbre arm64 livre porte le meme declencheur que le bureau vient de couper
+  gate:
+    key: build_android_reinval_defects
+    op: ==
+    value: 0
+  depends_on:
+  - build-tree-reinvalidates-itself
+  known_cause: |-
+    SIGNALEMENT DU 12/09 (reports/build-tree-reinvalidates-itself/FINDINGS.txt). `build-android/build.ninja` et `build-android/CMakeCache.txt:645` portent EXACTEMENT le defaut que l'essai 4 vient de couper sur le bureau : `SDL_REVISION` derive d'un `git describe`, donc CHAQUE COMMIT invalide l'arbre et relance une reconstruction complete.
+    CE QUE CA COUTE ICI, ET C'EST PIRE QUE SUR LE BUREAU : l'arm64 est l'arbre qui produit l'APK LIVRE a l'owner. Le harnais commite plusieurs fois par heure — chaque item, chaque tri de signalement, chaque note de superviseur. Le constructeur repart donc de zero en permanence, et c'est lui qui tient le verrou de deploiement pendant ce temps : le meme verrou qui a bloque une preuve 6 h 38 le 12/09.
+    Le bureau vient de passer de 335 cibles a 0 et de 444 s a 1 s. L'ordre de grandeur attendu ici est le meme.
+  deliverable: |-
+    `build_android_reinval_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Une construction arm64 sans edition de source recompile ZERO cible, y compris APRES un commit. Publier le compte de cibles sur trois invocations consecutives dont une suit un commit fabrique pour l'essai.
+    2. La constante posee ne fige AUCUN numero de version en dur : publier d'ou elle est derivee. Le bureau a laisse ce defaut derriere lui, ne pas le recopier.
+    3. La constante survit a une reconfiguration : publier le resultat d'un arbre reconfigure a neuf. Si elle ne vit que dans le cache, l'item le DIT et le corrige.
+    4. Le binaire livre est IDENTIQUE avant et apres : empreinte du `.so` arm64 publiee des deux cotes. Un gain de temps qui change le binaire n'est pas un gain.
+    5. Le gain est chiffre en secondes, mesure, pas estime.
+  where: Invisible dans le jeu. Le gain se voit sur la duree de chaque livraison et sur le verrou de deploiement.
+  out_of_scope: Ne touche a aucun code du moteur. Ne change pas le build de bureau, il vient d'etre traite.
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 900
+  prompt: prompts/item-build-android-reinvalidates-itself.md
+  notes: 'issu du signalement de build-tree-reinvalidates-itself, 12/09 : le meme defaut sur l''arbre
+    qui produit l''APK livre.'
+- id: harness-subsecond-freshness-is-blind
+  status: open
+  priority: 22
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  feature: Les comparaisons de fraicheur cessent d'etre aveugles a la seconde
+  gate:
+    key: subsecond_freshness_defects
+    op: ==
+    value: 0
+  depends_on:
+  - build-tree-reinvalidates-itself
+  known_cause: |-
+    QUATRE SIGNALEMENTS DU 12/09 (reports/build-tree-reinvalidates-itself/FINDINGS.txt), avec un balayage des 223 scripts du harnais vivant.
+    1. `lib/deploy_verify.sh:50` compare `SO_MTIME` (`stat -c %Y`, SECONDE ENTIERE) a `NEWEST_SRC` (`find -printf %T@` TRONQUE par `cut -d. -f1`) avec `-lt`. Deux fichiers ecrits dans la meme seconde sont declares a egalite : une source plus recente que le binaire passe pour fraiche.
+    2. `lib/deploy_verify_assets.sh:56` : meme motif sur la chaine GOAL, les deux cotes tronques.
+    3. `orchestrator.py:1548` : le boot-check de la porte de fermeture accepte tout artefact dont le mtime, seconde entiere, est superieur ou egal a `t0`. Un artefact ecrit juste AVANT le debut passe donc pour produit PENDANT.
+    4. Le meme balayage publie la population : c'est une classe, pas trois accidents.
+    CE QUE CA COUTE : une fraicheur est un verdict binaire, et chacune de ces comparaisons se trompe du cote PERMISSIF — elle accepte un artefact perime. C'est exactement le defaut le plus cher du projet : une preuve qui decrit un autre binaire que celui qu'on croit.
+  deliverable: |-
+    `subsecond_freshness_defects` = 0, somme de termes publies SEPAREMENT.
+    1. Chaque comparaison de fraicheur lit la MEME resolution des deux cotes : publier, site par site, la resolution employee. Une troncature d'un cote et pas de l'autre est un defaut compte.
+    2. L'egalite ne vaut plus fraicheur : a mtime egal, l'artefact est declare DOUTEUX et la porte le dit, au lieu de l'accepter. Publier le compte de cas d'egalite rencontres.
+    3. Preuve a deux bras sur un bac a sable : deux fichiers ecrits dans la MEME seconde, le plus recent etant la source. Le bras d'AVANT accepte, celui d'APRES refuse.
+    4. La population complete est publiee : le compte de sites balayes, le compte de sites corriges, et la liste de ceux laisses en l'etat avec leur raison.
+  where: Invisible. C'est ce qui decide si une preuve decrit le bon binaire.
+  out_of_scope: Ne touche a aucun code du jeu. Ne change aucun critere d'item.
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-harness-subsecond-freshness-is-blind.md
+  notes: 'issu des signalements de build-tree-reinvalidates-itself, 12/09 : une classe, pas trois accidents.'
+- id: harness-proof-file-has-no-writer-lock
+  status: open
+  priority: 23
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  feature: Une course tuee ne peut plus ecraser la preuve de celle qui lui succede
+  gate:
+    key: proof_writer_defects
+    op: ==
+    value: 0
+  depends_on:
+  - build-tree-reinvalidates-itself
+  known_cause: |-
+    DEUX SIGNALEMENTS DU 12/09 (reports/build-tree-reinvalidates-itself/FINDINGS.txt), dont un CHIFFRE et reproduit dans l'heure.
+    1. AUCUN ecrivain unique, AUCUN verrou sur `reports/<id>/proof.txt`. Un essai TUE laisse son `proof_run.sh` VIVANT : il finit sa course et ecrit sa preuve par-dessus celle de l'essai suivant. Le validateur juge alors la course d'AVANT en croyant juger celle d'apres.
+    2. RIEN N'EMPECHE UN COMMIT EXTERIEUR PENDANT UNE COURSE. Mesure du 12/09 : le SUPERVISEUR a commite a 16:12:59 pendant une course, et l'empreinte des sources de verdict a bouge entre la mesure et son jugement. L'essai a ete refuse pour une raison qui ne decrivait aucun defaut de son travail. Le meme defaut s'est reproduit dans l'heure.
+    C'est la meme famille que les quatre essais detruits par le plafond de 600 s : un essai perdu pour une cause qui n'est pas la sienne, sauf qu'ici la consequence est pire — un verdict rendu sur la MAUVAISE course.
+  deliverable: |-
+    `proof_writer_defects` = 0, somme de termes publies SEPAREMENT.
+    1. UN SEUL ecrivain par `proof.txt`, par verrou : une seconde course sur le meme item attend ou refuse, elle n'ecrase pas. Publier le compte de tentatives d'ecriture concurrentes rencontrees.
+    2. Une preuve porte l'identite de la COURSE qui l'a produite, et la porte refuse une preuve dont l'identite ne correspond pas a l'essai courant. Preuve a deux bras : une preuve d'un essai precedent, semee, doit etre ACCEPTEE dans le bras d'avant et REFUSEE dans celui d'apres.
+    3. Un `proof_run.sh` orphelin est detecte et arrete quand son essai a ete tue : publier le compte d'orphelins trouves et arretes.
+    4. Un commit exterieur pendant une course est DIT : publier le compte de commits survenus entre le debut de la course et son jugement, et lesquels ont touche une source de verdict. Ne pas l'interdire — le superviseur doit pouvoir travailler — mais le rendre visible pour que le refus nomme la vraie cause.
+  where: Invisible. C'est la garantie que le verdict porte sur la bonne course.
+  out_of_scope: Ne touche a aucun code du jeu. N'interdit aucun commit.
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-harness-proof-file-has-no-writer-lock.md
+  notes: issu des signalements de build-tree-reinvalidates-itself, 12/09 ; le second reproduit dans l'heure.
+- id: build-and-harness-leftovers
+  status: open
+  priority: 37
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  feature: 'Le reliquat du chantier de la construction : neuf petites choses, aucune urgente'
+  gate:
+    key: build_leftovers_defects
+    op: ==
+    value: 0
+  depends_on:
+  - build-tree-reinvalidates-itself
+  known_cause: |-
+    NEUF SIGNALEMENTS DU 12/09 (reports/build-tree-reinvalidates-itself/FINDINGS.txt), reunis ici parce qu'aucun ne merite son propre chantier. CE CHANTIER N'OUVRE PAS DE SUCCESSEUR : ses propres signalements s'ajoutent a lui.
+    1. `gate_verdict.py:118` : `code_scope` tranche en premier et la prose n'est JAMAIS relue. Un champ qui CONTREDIT l'`out_of_scope` passe sans un mot. Publier le compte de contradictions.
+    2. `orchestrator.py:1682` : le message de refus dit encore « mets `no_code: true` », alors que le champ qui fait foi depuis le 12/09 est `code_scope`. Le message envoie au mauvais endroit.
+    3. `third-party/discord-rpc/src/CMakeLists.txt` : la cible `clangformat` n'a AUCUNE sortie, donc elle se rejoue a chaque construction.
+    4. `.gitignore:181` : le motif `build-*/` n'est pas ancre et avale tout dossier commencant par `build-` a n'importe quelle profondeur, y compris une capture d'essai.
+    5. `build/game/CMakeFiles/runtime.dir` : 374 objets sur le disque pour 358 enregistrements et 338 aretes. Une quinzaine d'orphelins que rien ne nettoie.
+    6. `lib/build_x86.sh` : la constante posee contient le numero de version de SDL EN DUR, et elle ne vit que dans le cache de l'arbre — un arbre reconfigure a neuf la perd.
+    7. Sept scripts construisent `build-android`/`build-arm64` chacun a leur facon (`d1_build.sh`, `d3_build.sh`, `c2_run.sh`, `c3_run.sh`, `c4_run.sh`, `qemu_repro.sh`, `lib/emitter_stress.sh`) : autant de chemins qui peuvent diverger.
+    8. `PITFALLS.md:12` promet que `preflight.py` verifie le verrou a chaque tentative ; a verifier et corriger l'un ou l'autre.
+    9. `census/build-tree-reinvalidates-itself.sh` compare son gain a un journal FIGE dans la capture versionnee : la reference vieillira.
+    10. `build/.ninja_deps` : la corruption est reparee et detectee a chaque construction, mais CE QUI L'A ECRITE n'est pas etabli. Tant qu'on ne le sait pas, elle peut revenir.
+  deliverable: |-
+    `build_leftovers_defects` = 0, somme de DIX termes publies SEPAREMENT, un par point.
+    Pour chacun : le defaut est RETROUVE sur le commit d'avant par le meme detecteur, puis absent apres. Un point qui ne peut pas etre retrouve avant n'est pas corrige, il est declare NON REPRODUIT et son terme le dit.
+    Le point 10 est le seul qui peut se conclure par « cause non etablie » : publier alors ce qui a ete ecarte et ce qui reste possible, pas un silence.
+  where: Invisible. Petit outillage et petites incoherences.
+  out_of_scope: 'Ne touche a aucun code du jeu. N''ouvre AUCUN item successeur : ses propres signalements
+    s''ajoutent a celui-ci. Priorite 37 : tout le reste passe avant.'
+  max_turns: 700
+  max_retries: 6
+  proof_timeout: 600
+  prompt: prompts/item-build-and-harness-leftovers.md
+  notes: issu des neuf signalements restants de build-tree-reinvalidates-itself, 12/09 ; terminus, pas
+    de successeur.
