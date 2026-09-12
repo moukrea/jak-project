@@ -928,3 +928,16 @@ Verrou : ne jamais fermer un tube tot sous `pipefail`. Ecrire la revision dans u
 fichier temporaire d'abord, ou remplacer `grep -q` par `grep -c` / `grep >/dev/null` avec le code de
 retour lu explicitement. Meme famille que le faux rouge deja consigne sur `grep -q` dans un tube
 lors d'une livraison GOAL vers Android.
+
+GUARD miui-refuses-adb-install-while-the-screen-is-locked .autoport/auto_build_apk.sh installer pendant que le telephone est verrouille
+**MIUI refuse `adb install` tant que l'ecran est VERROUILLE**, meme allume, meme avec le debogage
+USB autorise. Le message est `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`, ce qui
+laisse croire a un refus humain devant une boite de dialogue alors qu'aucune n'est apparue :
+`adb_install_need_confirm` vaut 0. Mesure du 2026-09-12 08:36 sur eae4df44, `mScreenOn=true` et
+`mScreenLocked=true` ; le meme echec figure dans le journal du 14:19 d'un jour precedent, suivi
+d'une reussite quatre minutes plus tard une fois l'ecran deverrouille.
+Verrou : lire `dumpsys deviceidle | grep mScreenLocked` AVANT de conclure a un refus, et le DIRE
+dans le journal. Un telephone verrouille se distingue d'un telephone endormi (`am start` bloque par
+TOP_SLEEPING) et d'un app-op MIUI 10020 a `ignore` (surface refusee, `frames=0`) : trois causes,
+trois symptomes differents, une seule qui ressemble a une decision de l'owner. Deverrouiller
+appartient a l'owner : mon perimetre s'arrete a installer, lancer et lire.
