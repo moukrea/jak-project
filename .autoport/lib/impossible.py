@@ -130,6 +130,12 @@ KINDS = {
     # recensement de harnais tourne : sans ce fichier, un item ne pourrait juger l'ecrivain que
     # sur du texte de script. Meme raison, meme forme que `wait`.
     "run": "-run.txt",               # identite de la course, concurrence, orphelins, commits
+    # LA LECTURE DU JUGE, FAITE AU DEMARRAGE (harness-stale-proof-caught-before-the-run, 12/09).
+    # `lib/stale_precheck.sh` rejoue au DEBUT de la course les deux comparaisons de fraicheur que
+    # `validators/generic.sh` fera a la fin, contre la preuve qui existe a cet instant. Ce qu'il
+    # a lu est ecrit la, par la MACHINE, avant que la course ne puisse rien changer : le
+    # recensement de l'item le relit, il ne le fabrique pas.
+    "stale": "-stale-precheck.txt",
 }
 
 

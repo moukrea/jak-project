@@ -130,7 +130,7 @@ SUF=""; [ "$OFF" = 1 ] && SUF="-off"
 AP_NAMES=$(python3 "$AP/lib/impossible.py" names "$SUF" 2>&1) || {
   echo "proof_run: lib/impossible.py ne derive aucun nom pour le bras '${SUF:-livre}' : $AP_NAMES" >&2; exit 3; }
 eval "$AP_NAMES"
-for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal writer run; do
+for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal writer run stale; do
   eval "_v=\${AP_NAME_$_k:-}"
   [ -n "$_v" ] || { echo "proof_run: l'autorite n'a pas nomme '$_k' pour le bras '${SUF:-livre}'" >&2; exit 3; }
 done
@@ -550,6 +550,53 @@ case "$TIMEOUT" in *[!0-9]*|"") echo "proof_run: --timeout '$TIMEOUT' n'est pas 
 # empreinte. `validators/generic.sh` la RECALCULE a la lecture : une valeur recopiee ne prouve
 # que la recopie. La liste sort du meme nommeur des deux cotes (lib/verdict_sources.sh).
 while IFS= read -r vsl; do [ -n "$vsl" ] && extra "$vsl"; done < <(bash "$AP/lib/verdict_sources.sh" "$ID" kv 2>/dev/null)
+
+# ------------------------------- LA LECTURE DU JUGE, FAITE ICI PLUTOT QU'UNE HEURE PLUS TARD ----
+# harness-stale-proof-caught-before-the-run, 2026-09-12. `validators/generic.sh` refuse une
+# preuve dont une source — moteur ou verdict — est plus recente qu'elle. Le constat est juste ;
+# c'est le MOMENT ou il tombe qui coute : sur les 791 verdicts archives, 12 lignes de refus pour
+# ce motif, 9 essais, 5 items, et l'essai 1 de `menu-back-label` a couru 43 minutes avant de
+# mourir la-dessus. L'outil existait deja (`lib/verdict_sources.sh <id> newer`) : personne ne le
+# lisait au bon moment. On le lit MAINTENANT, contre la preuve qui existe a cet instant — celle
+# que le juge aurait lue si l'essai s'etait termine la.
+# ON NE BLOQUE PAS. La course qui demarre est le remede : la refuser ferait payer a l'essai
+# suivant le defaut de l'essai d'avant. On NOMME, on PUBLIE, et le code rendu dit lequel des deux
+# cas est arrive — 5 pour une peremption vue, jamais 3, qui reste l'echec de mesure de `die3`.
+# LE RECENSEMENT NE PEUT PAS FABRIQUER CES CLES : elles sont ecrites ici, par la machine, avant
+# que la course n'ait rien mesure. Le nom du fichier vient de l'autorite de nommage, comme les
+# autres bras.
+# UN SEUL APPEL : deux lectures de la meme grandeur a deux instants peuvent differer, et la
+# seconde ecraserait la premiere sans que rien ne le dise. Le stdout porte les cles, le stderr
+# l'explication, et le code rendu est celui de CET appel-la.
+SP_RC=0
+SP_ERR="$D/.stale$SUF.err.$$"
+SP_KV=$(bash "$AP/lib/stale_precheck.sh" "$ID" --arm "$SUF" 2>"$SP_ERR") || SP_RC=$?
+SP_OUT=$(head -20 "$SP_ERR" 2>/dev/null); rm -f "$SP_ERR"
+while IFS= read -r spl; do [ -n "$spl" ] && extra "$spl"; done < <(printf '%s\n' "$SP_KV")
+extra "stale_precheck_exit=$SP_RC"
+{
+  printf '%s\n' "$SP_KV"
+  echo "stale_precheck_exit=$SP_RC"
+  echo "stale_precheck_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "stale_precheck_run_pid=$$"
+} > "$D/$AP_NAME_stale"
+SP_NAME=$(python3 "$AP/lib/impossible.py" name stale "$SUF" 2>/dev/null)
+[ "$SP_NAME" = "$AP_NAME_stale" ] && [ -s "$D/${SP_NAME:-nom-non-derive}" ] \
+  || log "la lecture de fraicheur de ce bras n'est pas lisible sous le nom que lib/impossible.py derive ('${SP_NAME:--}')"
+# LE REGISTRE DES COURSES PASSEES PAR CETTE LECTURE. Sans lui, « le motif a disparu des refus
+# tardifs » n'aurait aucun denominateur : un zero sur zero course n'est pas une reussite. Il vit
+# a cote des verdicts qu'il faut lui apparier, dans `logs/`, et il est append-only.
+mkdir -p "$AP/logs" 2>/dev/null
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  "$(date +%s)" "$ID" "${SUF:-livre}" "$SP_RC" \
+  "$(printf '%s\n' "$SP_KV" | sed -n 's/^stale_precheck_files_compared=//p' | tail -1)" \
+  "$(printf '%s\n' "$SP_KV" | sed -n 's/^stale_precheck_stale_total=//p' | tail -1)" \
+  "$(printf '%s\n' "$SP_KV" | sed -n 's/^stale_precheck_ref_present=//p' | tail -1)" \
+  >> "$AP/logs/stale-precheck.tsv" 2>/dev/null || true
+if [ "$SP_RC" != 0 ]; then
+  log "PEREMPTION VUE AVANT LA COURSE (code $SP_RC) : la preuve qui etait la datait d'avant une edition."
+  while IFS= read -r spl; do [ -n "$spl" ] && log "  $spl"; done < <(printf '%s\n' "$SP_OUT")
+fi
 
 # ------------------------------------------------------- attendre qu'aucun build n'ecrive ----
 # Un gk lance pendant que auto_build_apk.sh reecrit out/jak1/iso/ meurt en SIGILL sur un

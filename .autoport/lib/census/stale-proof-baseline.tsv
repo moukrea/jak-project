@@ -1,0 +1,25 @@
+# lib/census/stale-proof-baseline.tsv — LE COUT D'AVANT, GELE.
+#
+# Le denominateur de `harness-stale-proof-caught-before-the-run` vient de `logs/<id>/validator-*.txt`,
+# qui est GITIGNORE : hors de l'arbre livre, le compte serait different, et un recensement qui
+# n'y lirait rien publierait zero — un zero AVANT rendrait tout l'item vide. On gele donc ici ce
+# que la mesure a lu, avec l'EMPREINTE de chaque verdict retenu : le recensement recompte sur le
+# disque quand les journaux sont la, et il publie l'ECART. Un chemin n'est pas une preuve ; une
+# empreinte de contenu en est une.
+#
+# motif compte : les deux lignes de refus « source moteur editee APRES la preuve » et
+# « source du VERDICT editee APRES la preuve ». Un meme verdict peut en porter les deux :
+# c'est pourquoi LIGNES et ESSAIS se publient separement (12 lignes sur 9 essais).
+#
+# mesure le 2026-09-12, HEAD 11df071096f8, sur 791 verdicts archives.
+# colonnes : item <TAB> journal <TAB> lignes-du-motif <TAB> sha256-16 du journal
+#TOTAL	verdicts_scannes	791
+android-text-overrides-dropped	validator-003.txt	2	0f0dcb6a1f6615c9
+android-text-overrides-dropped	validator-004.txt	2	0f0dcb6a1f6615c9
+lighting-hdr	validator-007.txt	1	5cdcea7404febc62
+lighting-hdr	validator-010.txt	1	0655691fbe25641d
+lighting-hdr	validator-038.txt	1	31b77e6a50a4d85d
+lighting-legacy-purge	validator-002.txt	1	4f1655ad38eeb716
+lighting-legacy-purge	validator-008.txt	1	f5e473c9b19ef677
+menu-back-label	validator-001.txt	2	da6c0ce7ffa8a2aa
+mesh-browser-removal	validator-001.txt	1	87111ff8222f9df4
