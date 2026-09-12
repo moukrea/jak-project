@@ -103,3 +103,19 @@ le voie.
   tout ce qui se bati depuis mesure un binaire qu'aucun commit ne decrit.
 * Le commit du dernier APK bati (`.autoport/.last_apk_build_commit`) contre HEAD : c'est ce qui dit
   si le build en ligne correspond a ce que l'owner croit tester.
+
+### L'appareil : ne jamais conclure « absent » sur `adb` seul
+
+Ajoute le 2026-09-12 apres avoir annonce six fois « appareil absent » sans jamais verifier si la
+panne etait de MON cote. `adb devices` peut rendre une liste vide parce que son serveur est mort,
+parce qu'une autre instance l'a pris, ou parce que le cable a bouge — et dans les trois cas la
+consequence est la meme pour moi : je saute 35 items sur un diagnostic non verifie.
+
+Avant d'ecrire « absent », lire les DEUX :
+
+* `lsusb | grep -i 'xiaomi\|honor\|huawei\|google'` — le bus USB, que `adb` ne peut pas mentir.
+* `adb devices -l` — et si le bus montre le telephone mais pas `adb`, la panne est cote hote :
+  `adb kill-server && adb start-server` avant de conclure.
+
+Et quand l'appareil revient : retirer `.autoport/.no-device`, verifier `mScreenLocked` (MIUI refuse
+l'installation ecran verrouille) et l'app-op MIUI 10020 (sans lui, pas de surface, `frames=0`).
