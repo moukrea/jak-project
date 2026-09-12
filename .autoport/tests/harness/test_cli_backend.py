@@ -15,6 +15,19 @@ from test_attempt import item_repo, ITEM
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def _modele(cmd):
+    """Le modele que la ligne de commande EPINGLE, '' si elle laisse la CLI sur le sien.
+
+    Les deux tests qui exigeaient l'ABSENCE de `--model` mesuraient en realite le fichier
+    `.autoport/codex/profiles.json` du jour : verts avec `manager_model: ""`, rouges des que
+    l'owner y a nomme un modele. On lit l'invariant, plus la donnee livree.
+    """
+    if '--model' not in cmd:
+        return ''
+    assert cmd.count('--model') == 1, cmd
+    return cmd[cmd.index('--model') + 1]
+
+
 @pytest.fixture
 def codex_repo(orch, item_repo, monkeypatch):
     monkeypatch.setattr(orch, 'BACKEND', 'codex')
@@ -100,7 +113,16 @@ def test_cli_options_are_isolated_and_toml_valid(tmp_path):
     p = cb.codex_profile(ROOT)
     cmd = cb.worker_command(ROOT, 'codex', p, 'high', 30)
     assert cmd[:2] == ['codex', 'exec']
-    assert '--model' not in cmd
+    # `--model` SUIT le profil actif, il ne se decrete pas ici. Ce test exigeait son absence :
+    # il etait vert tant que `manager_model` valait "" et il est devenu rouge le 2026-09-07 a
+    # 18:02, quand l'owner a fixe Astra (50e9dc5af6) — une DONNEE livree, pas une regression de
+    # code. On mesure desormais l'invariant, dans les DEUX regimes, sur des profils injectes :
+    # un verdict de test ne doit pas dependre du fichier de configuration du jour.
+    assert _modele(cmd) == p['manager_model']
+    assert _modele(cb.worker_command(ROOT, 'codex', dict(p, manager_model=''), 'high', 30)) == ''
+    nomme = cb.worker_command(ROOT, 'codex', dict(p, manager_model='modele-injecte'), 'high', 30)
+    assert _modele(nomme) == 'modele-injecte'
+    assert nomme.count('--model') == 1
     for i, token in enumerate(cmd):
         if token == '-c':
             tomllib.loads(cmd[i+1])
@@ -171,9 +193,20 @@ def test_phase_claim_excludes_other_cli_and_recovers_dead_holder(tmp_path):
 def test_codex_success_still_waits_for_owner(orch, codex_repo, monkeypatch):
     fake_codex(codex_repo, WORK)
     orch.GENERIC_VALIDATOR.write_text('exit 0\n')
-    monkeypatch.setattr(orch, 'close_gate', lambda item: ('awaiting-owner',''))
+    # Le faux prenait UN argument ; `close_gate` en recoit DEUX depuis que GATE 0 lit la ligne
+    # de base de l'arbre (ff60991381, 2026-09-12). Le test mourait en TypeError DANS
+    # l'orchestrateur, donc sur un message qui n'accusait pas le faux. Le faux porte desormais
+    # la signature reelle ET verifie qu'on lui passe bien cette ligne de base : s'il derive de
+    # nouveau, c'est ici que ca rougit, avec le bon nom.
+    vus = []
+    def faux_close_gate(item, pre_dirty_engine):
+        vus.append((item['id'], pre_dirty_engine))
+        return ('awaiting-owner', '')
+    monkeypatch.setattr(orch, 'close_gate', faux_close_gate)
     monkeypatch.setattr(orch, 'git_push', lambda: None)
     assert orch.run_attempt(dict(ITEM), orch.load_state()).kind == 'awaiting-owner'
+    assert [iid for iid, _ in vus] == ['demo']
+    assert isinstance(vus[0][1], list)
 
 
 def test_codex_midrun_transport_failure_is_infra(orch, codex_repo):
@@ -238,7 +271,8 @@ def test_supervisor_resume_targets_exact_codex_thread():
     assert cmd[0] == 'codex'
     assert cmd[-2:] == ['resume','test-thread-id']
     assert '--last' not in cmd
-    assert '--model' not in cmd
+    # Meme cause qu'au-dessus : le modele vient du profil actif, pas d'un decret de ce test.
+    assert _modele(cmd) == cb.codex_profile(ROOT)['manager_model']
 
 
 def test_watch_queues_each_change_once_to_exact_supervisor(tmp_path, monkeypatch):

@@ -297,6 +297,25 @@ case "$TIMEOUT" in *[!0-9]*|"") echo "proof_run: --timeout '$TIMEOUT' n'est pas 
 # accidents ont ete lus comme des defauts du jeu. Ici on ATTEND : on ne rend jamais un faux
 # rouge parce qu'un builder tournait.
 WAITMAX="${AUTOPORT_PROOF_WAIT_MAX:-1800}"
+# LA SEULE PORTE DE SORTIE DE CETTE GARDE VERS LE SYSTEME (harness-test-suite-is-not-a-signal,
+# 2026-09-12). `busy_reason` n'interroge plus les processus en direct : elle passe par ici, et le
+# banc de tests remplace CETTE fonction par une liste INJECTEE. Avant, le test qui verifie qu'un
+# prompt citant « ninja » ne bloque pas lisait les processus REELS de la machine : il rougissait
+# des qu'un vrai constructeur arm64 tournait au meme moment. Un test dont le verdict depend de ce
+# que la machine fait a cote n'est pas un signal.
+#   $1 = comm     -> le NOM du processus, correspondance ENTIERE (pgrep -x)
+#   $2 = cmdline  -> la LIGNE DE COMMANDE complete, correspondance partielle (pgrep -f)
+# Le lanceur Java ne s'appelle pas « gradle » : son nom est « java » et l'outil vit dans ses
+# arguments. C'est pourquoi les deux lectures existent, et pourquoi elles ne sont pas
+# interchangeables : chercher « goalc » dans les lignes de commande accuserait le prompt qui
+# cite `goalc/`.
+busy_procs(){
+  case "$1" in
+    comm)    pgrep -x "$2" >/dev/null 2>&1 ;;
+    cmdline) pgrep -f "$2" >/dev/null 2>&1 ;;
+    *)       return 1 ;;
+  esac
+}
 busy_reason(){
   local f="$AP/.deploy-in-progress" p pat cgo age
   if [ -f "$f" ]; then
@@ -309,10 +328,10 @@ busy_reason(){
   # Les compilateurs se reconnaissent au nom du processus : le prompt d'un superviseur
   # peut contenir « goalc/ » dans ses arguments sans qu'aucun compilateur tourne.
   for pat in '[n]inja(-build)?' '[g]oalc' '[c]c1plus'; do
-    if pgrep -x "$pat" >/dev/null 2>&1; then echo "processus $pat en cours"; return 0; fi
+    if busy_procs comm "$pat"; then echo "processus $pat en cours"; return 0; fi
   done
   # Le lanceur Java porte le nom de l'outil dans ses arguments.
-  if pgrep -f '[g]radle' >/dev/null 2>&1; then echo "processus [g]radle en cours"; return 0; fi
+  if busy_procs cmdline '[g]radle'; then echo "processus [g]radle en cours"; return 0; fi
   cgo=out/jak1/iso/GAME.CGO
   if [ -f "$cgo" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$cgo" 2>/dev/null || echo 0) ))
