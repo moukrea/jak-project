@@ -1398,5 +1398,9 @@
       (__pc-autoport-publish "android_text_bank_language" lang)
       (__pc-autoport-publish "android_text_touch_ids_present" present)
       (__pc-autoport-publish "android_text_touch_variant_ids" variants)
-      (__pc-autoport-hit 1)))
+      ;; LA PRISE EST ATTRIBUEE A CET ITEM, pas au compteur global. `__pc-autoport-hit` remplissait
+      ;; le `hits=` PARTAGE du binaire : le validateur lisait `proof_feature_state=absent` et
+      ;; refusait la course pour « rien ne prouve que l'instrument de CET item a tourne », alors
+      ;; que le recensement ci-dessus venait de publier ses cinq grandeurs.
+      (__pc-autoport-hit-for "android-text-overrides-dropped" 1)))
   (none))

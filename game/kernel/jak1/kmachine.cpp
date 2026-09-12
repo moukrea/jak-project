@@ -105,6 +105,10 @@
 extern "C" void gk_set_diag_norepair(bool on);
 #endif
 AUTOPORT_FEATURE_SITE("title-tap-prompt-regression");
+// android-text-overrides-dropped : l'instrument est le recensement GOAL de subtitle.gc, qui tire
+// par `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer
+// au CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("android-text-overrides-dropped");
 AUTOPORT_FEATURE_SITE("mesh-browser-removal");
 AUTOPORT_FEATURE_SITE("lighting-legacy-purge");
 AUTOPORT_FEATURE_SITE("dead-follow-probe");
@@ -1567,6 +1571,27 @@ s32 pc_autoport_disarmed_for(u32 id_str) {
 // denominateur, sinon son chiffre ne parle de rien.
 void pc_autoport_hit(s64 n) {
   autoport_proof::note_hit((u64)(n < 0 ? 0 : n));
+}
+
+// proof-feature-hits-is-vacuous (12/09) — LE MEME GESTE, MAIS ATTRIBUE, DEPUIS GOAL.
+// `__pc-autoport-hit` ci-dessus ne remplit que le compteur GLOBAL : sa prise atterrit dans le
+// seau `__unattributed` et AUCUN item ne peut s'en prevaloir. Un instrument ecrit entierement en
+// GOAL ne pouvait donc pas prouver que L'INSTRUMENT DE SON ITEM avait tire — le validateur le
+// refusait avec `proof_feature_state=absent`, et la seule issue offerte au C++
+// (`note_hit_for`) n'avait pas de pont. Celui-ci le donne : GOAL nomme son item, la prise est
+// comptee pour lui dans `proof_feature_own_hits` ET dans le total global.
+// L'identifiant nomme ici doit AUSSI porter un `AUTOPORT_FEATURE_SITE` au niveau namespace de ce
+// fichier (voir en haut) : sans lui l'item resterait `absent` meme en tirant, parce que l'etat
+// « ce binaire porte un site de cet item » s'enregistre au CHARGEMENT, pas a l'execution.
+void pc_autoport_hit_for(u32 id_str, s64 n) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  if (!id) {
+    // Un pont muet ne doit pas attribuer une prise a n'importe qui : on retombe sur le compteur
+    // global, ou elle sera rangee dans `__unattributed` et ne verdira aucun item.
+    autoport_proof::note_hit((u64)(n < 0 ? 0 : n));
+    return;
+  }
+  autoport_proof::note_hit_for(id, (u64)(n < 0 ? 0 : n));
 }
 
 // ─── Grecharged-settings-case-l10n — LE PONT DU RECENSEMENT DU MENU ───────────────────────────
@@ -4598,6 +4623,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-autoport-publish", (void*)pc_autoport_publish);
   make_function_symbol_from_c("__pc-autoport-disarmed-for", (void*)pc_autoport_disarmed_for);
   make_function_symbol_from_c("__pc-autoport-hit", (void*)pc_autoport_hit);
+  // proof-feature-hits-is-vacuous : la prise ATTRIBUEE, pour un instrument ecrit en GOAL.
+  make_function_symbol_from_c("__pc-autoport-hit-for", (void*)pc_autoport_hit_for);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
   make_function_symbol_from_c("__pc-scl10n-label", (void*)pc_scl10n_label);

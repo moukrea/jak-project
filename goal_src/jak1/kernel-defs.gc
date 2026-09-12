@@ -554,6 +554,13 @@
 ;; binaire : publier a cote son propre denominateur avec `__pc-autoport-publish`.
 (define-extern __pc-autoport-hit (function int none))
 
+;; LA MEME PRISE, ATTRIBUEE A UN ITEM NOMME. `__pc-autoport-hit` ci-dessus ne remplit que le
+;; compteur GLOBAL : sa prise va au seau `__unattributed` et ne prouve pour PERSONNE que
+;; l'instrument d'un item a tire (`proof_feature_state=absent`). Un recensement ecrit en GOAL
+;; nomme donc son item ici, et `proof_feature_own_hits` le compte pour lui seul.
+;; L'identifiant doit aussi porter un `AUTOPORT_FEATURE_SITE` dans kmachine.cpp.
+(define-extern __pc-autoport-hit-for (function string int none))
+
 ;; title-tap-prompt-regression : L'INVITE DE L'ECRAN-TITRE SE CHOISIT SUR LE TACTILE.
 ;; `__pc-touch-screen?` rend 1 quand la PLATEFORME a declare un ecran tactile
 ;; (PackageManager.FEATURE_TOUCHSCREEN sur Android, SDL_GetTouchDevices sur le bureau), 0 sinon.
