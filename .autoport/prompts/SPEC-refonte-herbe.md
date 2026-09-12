@@ -373,4 +373,25 @@ cartes texturees — et la lecon ecrite au parcage est qu'un quad de couleur uni
 comme de l'herbe a cette resolution. Le repli honnete, si la primitive echoue encore, est de garder
 la bande peinte d'origine et de la rendre en deux ou trois couches de parallaxe animees.
 
-Un item d'overhang ne sera propose qu'apres un accord explicite et separe de l'owner.
+DECISION DU SUPERVISEUR, 2026-09-12, sur delegation de l'owner (« ce qui attend ma decision sur
+l'herbe, tranche pour moi »).
+
+**L'overhang ne fait pas partie de cette campagne, et il n'y entrera pas de lui-meme.** Raisons,
+dans l'ordre de poids :
+
+1. Onze rounds, aucun accepte, et un parcage prononce sur la QUALITE.
+2. Quatre primitives rejetees a distance de jugement — plaques de couleur unie, ficelles, mousse,
+   cartes texturees. La lecon ecrite au parcage est qu'un quad de couleur unie ne se lit JAMAIS
+   comme de l'herbe sur ce moteur a cette resolution. Corriger l'oracle de bord repond a la question
+   « ou poser des brins », pas a la question « a quoi doit ressembler un brin la-bas ».
+3. Les quatorze items de la campagne livrent tous quelque chose que l'owner peut voir. Un
+   quinzieme, avec cet historique et cette question ouverte, serait le pari le moins probable du lot.
+
+**CE QUI LE FERAIT REVENIR, ET SOUS QUELLE FORME.** Quand `grass-surface-truth`,
+`grass-path-transitions` et `grass-clumps` sont valides par l'owner, la donnee de bord est juste et
+il existe enfin des touffes a faire retomber. Le premier geste ne sera alors PAS des brins : ce sera
+le repli que le journal de parcage nomme lui-meme — garder la bande peinte d'origine et la rendre
+en deux ou trois couches de parallaxe animees. C'est bon marche, ce n'est aucune des quatre
+primitives rejetees, et cela se juge en un regard.
+
+Un item d'overhang ne sera propose qu'a ce moment-la, et avec un accord explicite de l'owner.
