@@ -5295,6 +5295,7 @@ uint64_t s_sh_runs = 0, s_sh_gl_errors = 0;
 uint64_t s_sh_scene_px = 0;     // pixels de scene examines (le denominateur du recensement)
 uint64_t s_sh_win_px = 0;       // ceux qui tombent dans la fenetre jugee (la population FILTREE)
 uint64_t s_sh_hl_px = 0, s_sh_hl_touched_px = 0;
+uint64_t s_sh_toe_touched_px = 0;  // sous la frontiere : le pied AGIT-il ?
 uint64_t s_sh_below_sdr_px = 0, s_sh_below_max_ulp_x1000 = 0;
 uint64_t s_sh_hl_max_notoe_x1000 = 0, s_sh_hl_max_toe_x1000 = 0;
 double s_sh_sum[kShArms] = {0, 0, 0, 0, 0};
@@ -5429,7 +5430,25 @@ void probe_shadow(Shader& shader, GLuint src_tex, GLuint dst_fbo, int dst_w, int
       if (!std::isfinite(room_v) || !std::isfinite(toe_v)) {
         continue;
       }
-      if ((double)room_v < (double)kShToeEnd) {
+      // LA FRONTIERE DU PIED SE LIT DANS L'ESPACE OU ON RELIT, PAS DANS CELUI OU IL AGIT.
+      // Le shader normalise AVANT le pied et re-echelonne APRES :
+      //     c = c / ceiling ; epaule ; c = hdr_toe_lift(c, toe) ; sortie = min(c,1) * ceiling
+      // Le pied agit donc pour `c < 0,25`, ce qui se relit a `sortie < 0,25 * ceiling` — et non
+      // a `sortie < 0,25`. L'essai 1 interrogeait 0,25 tout court : la bande [0,25 ; 0,377] y
+      // etait comptee comme une haute lumiere touchee, 92 091 pixels sur 224 384, alors que le
+      // pied y travaille EXACTEMENT comme il doit. C'etait l'instrument qui lisait dans la
+      // mauvaise echelle, pas la courbe qui debordait — et la preuve de ce diagnostic est que
+      // les deux maximums etaient DEJA egaux au milli pres (1,506 contre 1,506).
+      // La frontiere est publiee (`hdr_shadow_toe_end_eff_x1000`) : personne n'a a la recalculer.
+      const double toe_end_eff = (double)kShToeEnd * (double)s_sh_sim_ceiling;
+      if ((double)room_v < toe_end_eff) {
+        // SOUS LA FRONTIERE : on compte ce que le pied TOUCHE. Sans ce compte, « rien au-dessus
+        // n'est touche » serait vrai d'un pied qui ne fait rien du tout, et le terme serait vert
+        // par inaction. Les deux moities se lisent ensemble ou pas du tout.
+        if (std::fabs((double)toe_v - (double)room_v) >
+            1.5 * half_ulp(std::fmax((double)toe_v, (double)room_v))) {
+          s_sh_toe_touched_px++;
+        }
         continue;
       }
       s_sh_hl_px++;
@@ -5628,9 +5647,13 @@ void publish_shadow_verdict() {
   //     son entree telle quelle, donc l'ecart doit etre nul AU BIT. La population est celle de la
   //     rampe, garantie non vide ; le compte et les deux maximums sont publies.
   autoport_proof::publish("hdr_shadow_hl_touched_px", s_sh_hl_touched_px);
+  autoport_proof::publish("hdr_shadow_toe_touched_px", s_sh_toe_touched_px);
+  autoport_proof::publish("hdr_shadow_toe_end_eff_x1000",
+                          (uint64_t)std::lround(kShToeEnd * s_sh_sim_ceiling * 1000.f));
   autoport_proof::publish("hdr_shadow_hl_max_notoe_x1000", s_sh_hl_max_notoe_x1000);
   autoport_proof::publish("hdr_shadow_hl_max_toe_x1000", s_sh_hl_max_toe_x1000);
   const int d5 = (s_sh_hl_px >= 1000 && s_sh_hl_touched_px == 0 &&
+                  s_sh_toe_touched_px > 0 &&
                   s_sh_hl_max_toe_x1000 == s_sh_hl_max_notoe_x1000)
                      ? 0
                      : 1;
