@@ -207,11 +207,34 @@ class Backlog:
                 promus.append(iid)
         return promus
 
+    def no_device_marker(self):
+        """Le drapeau « aucun appareil de preuve branche », pose par le superviseur.
+
+        2026-09-12 06:42 : le Redmi a disparu de l'USB en pleine nuit. `android-text-overrides-dropped`
+        a brule un essai en 25 minutes sur le SEUL constat « l'item exige l'appareil », et les 35
+        items d'appareil de la file l'auraient suivi un par un. La requalification qui evite ca
+        (GATE -1) vit dans `orchestrator.py`, que le processus en cours ne relit jamais : elle etait
+        ecrite et inerte. `backlog.py`, lui, est recharge a chaque tour — c'est donc ici que la file
+        peut se corriger sans redemarrage.
+
+        Le fichier porte sa raison et sa date. Tant qu'il existe, `next_open` saute les items qui
+        exigent l'appareil et rend le travail qui n'en a pas besoin. Le retirer suffit a tout
+        reprendre : aucun statut n'est touche, aucun essai n'est debite.
+        """
+        chemin = os.path.join(os.path.dirname(self.path), ".no-device")
+        return chemin if os.path.exists(chemin) else None
+
     def next_open(self):
-        """Le premier `open` dont toutes les dependances sont `validated`, par priorite."""
+        """Le premier `open` dont toutes les dependances sont `validated`, par priorite.
+
+        Saute les items d'appareil tant que `.autoport/.no-device` existe : voir `no_device_marker`.
+        """
+        sans_appareil = self.no_device_marker() is not None
         candidates = []
         for it in self.items:
             if it.get("status") != "open":
+                continue
+            if sans_appareil and it.get("device"):
                 continue
             deps = it.get("depends_on") or []
             blocked = False

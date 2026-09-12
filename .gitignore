@@ -108,6 +108,9 @@ _new-all-types.gc
 .autoport/.auto_*.pid
 .autoport/.auto_*.lock
 .autoport/.build-request
+# Pose par le superviseur quand aucun appareil de preuve n'est joignable ; la file saute alors
+# les items d'appareil (Backlog.next_open). Etat local, jamais versionne.
+.autoport/.no-device
 .autoport/.build-count
 .autoport/.deploy-in-progress
 .autoport/**/*.bak
