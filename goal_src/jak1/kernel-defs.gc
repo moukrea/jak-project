@@ -587,6 +587,12 @@
 (define-extern __pc-scl10n-uncovered (function string none))
 (define-extern __pc-scl10n-end (function none))
 (define-extern __pc-scl10n-wanted? (function int))
+;; menu-back-label : 1 quand le harnais mesure CET item. Le recensement « chaque rangee affiche son
+;; propre texte » force alors `init-game-options` au demarrage pour recenser les pages CABLEES sans
+;; qu'un humain ouvre le menu. Hors mesure il ne fait rien : forcer le cablage pour tout le monde
+;; tirerait `rch-hdr-row-hide-once!`, un coup UNIQUE, avant que l'ecran ait annonce ses modes HDR.
+;; Un pont non relie rend 0, donc le recensement se TAIT — et sa preuve rougit, faute de cles.
+(define-extern __pc-menu-label-wanted? (function int))
 ;; Ghd-skin-origin-stretch : le compte de la porte. Arguments, dans l'ordre : moitie GOAL du
 ;; verdict, images de t-pose VUES, images ou l'ecart HD/pilote a bouge, sauts de racine (publie a
 ;; cote, hors somme), occasions de pose de bind, cumul des fois ou un correctif a tourne.

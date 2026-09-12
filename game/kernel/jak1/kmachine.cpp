@@ -110,6 +110,10 @@ AUTOPORT_FEATURE_SITE("title-tap-prompt-regression");
 // au CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
 AUTOPORT_FEATURE_SITE("android-text-overrides-dropped");
 AUTOPORT_FEATURE_SITE("mesh-browser-removal");
+// menu-back-label : l'instrument est le recensement GOAL de progress-pc.gc, qui tire par
+// `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
+// CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("menu-back-label");
 AUTOPORT_FEATURE_SITE("lighting-legacy-purge");
 AUTOPORT_FEATURE_SITE("dead-follow-probe");
 
@@ -1729,6 +1733,17 @@ void pc_scl10n_end() {
 // qui est sous drapeau, jamais le correctif — les libelles traduits sont dans le banc pour tous.
 s32 pc_scl10n_wanted() {
   return autoport_proof::feature_is("recharged-settings-case-l10n") ? 1 : 0;
+}
+
+// menu-back-label : 1 quand le harnais mesure CET item. Meme patron, meme raison que les deux
+// ci-dessus — le recensement « chaque rangee affiche son propre texte » a besoin des tableaux
+// CABLES, et `init-game-options` ne tourne qu'a l'ouverture du menu. Le forcer pour tout le monde
+// changerait le jeu livre, et pas d'une facon anodine : `rch-hdr-row-hide-once!` est un coup
+// UNIQUE, et le tirer avant que l'ecran ait annonce ses modes HDR retirerait la rangee HDR OUTPUT
+// pour de bon. C'est l'INSTRUMENT qui est sous drapeau, jamais le correctif : la correction des
+// libelles vit dans les constructeurs de rangees et s'applique a tout le monde, mesure ou pas.
+s32 pc_menu_label_wanted() {
+  return autoport_proof::feature_is("menu-back-label") ? 1 : 0;
 }
 
 // ─── Ghd-skin-origin-stretch — LE COMPTE DE LA PORTE, ASSEMBLE EN UN SEUL ENDROIT ─────────────
@@ -4640,6 +4655,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-scl10n-uncovered", (void*)pc_scl10n_uncovered);
   make_function_symbol_from_c("__pc-scl10n-end", (void*)pc_scl10n_end);
   make_function_symbol_from_c("__pc-scl10n-wanted?", (void*)pc_scl10n_wanted);
+  // menu-back-label : l'instrument du recensement des libelles de menu, sous drapeau d'item.
+  make_function_symbol_from_c("__pc-menu-label-wanted?", (void*)pc_menu_label_wanted);
   make_function_symbol_from_c("__pc-hd-proof", (void*)pc_hd_proof);
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);

@@ -13232,12 +13232,19 @@
   "Une fois par demarrage, apres la 700e image : le recensement complet. Voir le pave ci-dessus.
    Il ne laisse rien derriere lui — `*temp-options*` est reconstruit par le menu a chaque entree
    sur un ecran dynamique, et `*rch-choice-type*` est rendu tel qu'il a ete trouve."
+  ;; SOUS MESURE SEULEMENT, et c'est l'INSTRUMENT qui est sous drapeau, jamais le correctif : les
+  ;; libelles sont corriges dans les constructeurs de rangees, pour tout le monde. Ce qui est
+  ;; gate ici, c'est le `init-game-options` force ci-dessous — le jeu ne cable le menu qu'a son
+  ;; OUVERTURE, et le forcer au demarrage pour tous tirerait `rch-hdr-row-hide-once!`, un coup
+  ;; UNIQUE, avant que l'ecran ait annonce ses modes HDR : la rangee HDR OUTPUT disparaitrait pour
+  ;; de bon. Meme garde, meme raison, que `scl10n-census!` et `gating-census-boot!`.
+  ;; La 700e image nous place derriere `res-menu-audit!` et `scl10n-census!`, qui se servent des
+  ;; memes emplacements partages.
   (when (and (not *menu-label-census-done?*)
              *common-text*
+             (nonzero? (__pc-menu-label-wanted?))
              (> (the int (-> *display* real-frame-counter)) 700))
     (set! *menu-label-census-done?* #t)
-    ;; Le menu n'est cable qu'a son OUVERTURE, et la course de preuve n'ouvre rien : meme geste que
-    ;; `scl10n-census!` et `gating-census-boot!`, pour la meme raison.
     (init-game-options (the-as progress #f))
     (let ((saved-choice *rch-choice-type*))
       (menu-label-seed-control!)
