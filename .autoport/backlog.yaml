@@ -2776,23 +2776,54 @@ items:
   build: build du 2026-07-13, remplace depuis
 - id: recharged-grass-wear
   feature: L'usure et la hauteur variable de l'herbe
-  status: blocked
-  priority: 225
+  status: open
+  priority: 75
   owner_feedback: []
-  gate: null
+  gate:
+    key: grass_wear_defects
+    op: ==
+    value: 0
   game: jak1
   max_turns: 800
-  max_retries: 6
-  depends_on: []
+  max_retries: 8
+  depends_on:
+  - grass-clumps
+  - grass-levels
   history:
   - Grecharged-grass-wear
   prompt: prompts/item-recharged-grass-wear.md
   owner_ok: null
-  device: false
-  notes: 'statut force : spike de conception seulement, aucune ligne de code : le jeton dit que l''implementation
-    attend le feu vert de l''owner, ses 14 criteres d''acceptation sont dans le document'
-  block_reason: 'spike de conception seulement, aucune ligne de code : le jeton dit que l''implementation
-    attend le feu vert de l''owner, ses 14 criteres d''acceptation sont dans le document'
+  device: true
+  notes: 'SPEC section 12. Le spike de l''owner du 12/07 fait foi : prompts/phase-Grecharged-grass-wear.md,
+    quatorze criteres. Son contenu avait ete efface de l''item par une regeneration le 11/09, il est restaure
+    ici. | budget : 8 essais — l''item repart avec une architecture deja concue mais aucune ligne de code,
+    et ses quatorze criteres sont les plus nombreux du backlog.'
+  block_reason: ''
+  spec: prompts/SPEC-refonte-herbe.md
+  code_scope: jeu
+  owner_test: true
+  known_cause: |-
+    LIS D'ABORD prompts/SPEC-refonte-herbe.md (contrat) PUIS prompts/phase-Grecharged-grass-wear.md — 11 274 octets, la SPEC VERBATIM de l'owner du 2026-07-12 et les quatorze criteres qu'il a poses. SPEC section 12.
+    POURQUOI CET ITEM ETAIT VIDE. Il portait un spike de conception de 402 lignes — architecture en quatre couches, quatorze criteres d'acceptation, budget chiffre, decoupage en treize etapes — et ZERO ligne de code. Une regeneration de son prompt le 11/09 a efface tout ce contenu : l'item ne portait plus ni cause, ni livrable, ni retour d'owner. Un worker lance dessus serait reparti de zero. Le spike, lui, n'a jamais bouge. Il se REPREND, il ne se refait pas.
+    CE QUE L'OWNER DEMANDE, ses mots : « L'herbe 3D est actuellement placee automatiquement sur les surfaces identifiees comme utilisant une texture d'herbe. Le resultat visuel fonctionne bien, mais l'ensemble parait artificiel, car tous les brins ou groupes d'herbe ont approximativement la meme hauteur. [...] Le systeme doit produire une impression d'usure naturelle : herbe plus courte dans les zones frequemment parcourues ou importantes pour le gameplay, et plus haute dans les zones ou le joueur est peu susceptible de passer. [...] Le resultat doit donner l'impression que la vegetation a ete placee et ajustee manuellement par un level artist, bien que tout soit genere programmatiquement. »
+    ETAT MESURE : la hauteur est aujourd'hui du BRUIT BLANC PUR par brin, un hachage de la graine du triangle. Aucun signal spatial. `GrassInstance` est verrouille a 64 octets, donc un tampon satellite est obligatoire, sur le motif de celui de la lumiere.
+    DONNEES REELLEMENT DISPONIBLES HORS LIGNE : 1 233 orbes posees, 26 cellules posees et 28 declarees, 110 mouches eclaireuses portees par des caisses, 553 acteurs portant un champ `path`, la collision complete par triangle et la praticabilite par le mode de `pat-surface`. NON DISPONIBLE : le maillage de navigation. Le champ existe dans la structure d'acteur mais l'extracteur ne l'exporte pas — seules 494 REFERENCES le sont. Ne pas le supposer disponible.
+  deliverable: |-
+    `grass_wear_defects` = 0, somme de termes publies SEPAREMENT. Les quatorze criteres de l'owner sont dans le spike et font foi ; les quatre termes ci-dessous sont la facon dont la machine les juge.
+    1. LE CHAMP EXISTE ET IL EST SPATIAL : publier la correlation entre la hauteur d'un brin et celle de ses voisins, aujourd'hui nulle par construction, au-dessus d'un plancher declare. Un bruit blanc a la correlation d'un bruit blanc, et c'est exactement ce que l'owner refuse.
+    2. LES REGLES SE VERIFIENT CHACUNE : herbe plus courte pres des collectibles et le long des trajectoires, plus haute dans les recoins, et RIEN sur les murs sans gameplay. Publier la hauteur moyenne de chaque population nommee, et l'ecart entre elles. Une paroi qui recoit de l'herbe courte est un defaut : c'est le cinquieme critere de l'owner.
+    3. AUCUNE BANDE BINAIRE : publier une mesure de nettete des frontieres du champ, sous un plafond declare, plus l'histogramme des hauteurs. Un histogramme a deux pics veut dire un masque, pas une transition.
+    4. LES COLLECTIBLES RESTENT LISIBLES : publier le compte de collectibles dont la hauteur d'herbe environnante depasse un plancher de lisibilite declare, qui vaut zero. C'est le deuxieme critere de l'owner et il prime sur l'effet.
+    5. TOUT EST CUIT : publier le compte d'operations d'analyse de trajet executees au chargement, qui vaut zero. Le runtime lit un tampon, il ne recalcule aucun itineraire.
+    PREUVE : `FEATURE recharged-grass-wear armed=1 hits=<brins dont la hauteur est pilotee par le champ>` + la ligne `grass_wear_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur le niveau d''entrainement et a Sandover : l''herbe doit etre plus courte la ou on passe
+    et plus haute dans les recoins, sans qu''on voie ni bande ni couloir dessine. Les collectibles restent
+    visibles.'
+  out_of_scope: 'Ne modifie ni la collision, ni le gameplay, ni la position des collectibles. Ne remplace
+    aucun mesh ni aucune texture de chemin : les vraies surfaces de chemin restent des zones d''exclusion
+    explicites, traitees par grass-path-transitions. Tout ce qui n''est pas cet item.'
+  proof_timeout: 420
+  hits_means: brins dont la hauteur est pilotee par le champ de passage
 - id: jak1-shadow-cast
   feature: L'ombre de Jak au sol
   status: validated
@@ -7125,7 +7156,7 @@ items:
   out_of_scope: Ne pas retraduire le jeu ni toucher aux 23 bancs livres. On repare la CHAINE de la surcharge
     tactile.
   owner_test: true
-  status: open
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7145,6 +7176,14 @@ items:
     le telephone.'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:6
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: ec31f0e661d308ab
+    proof_bytes: 32030
+    attempt: 5
+    journal: validator-005.txt
+  delivered: '2026-09-12'
 - id: fire-red-particles
   priority: null
   device: true
@@ -7994,7 +8033,7 @@ items:
   code_scope: harnais
   code_scope_source: commits:n-a-touche-que-le-harnais:8
 - id: glow-targets-not-built-on-jak1
-  status: open
+  status: in-progress
   priority: 21
   game: jak1
   device: true
@@ -8833,7 +8872,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: harness-suite-must-be-a-close-gate
-  status: in-progress
+  status: validated
   priority: 20
   game: jak1
   device: false
@@ -8867,6 +8906,13 @@ items:
   prompt: prompts/item-harness-suite-must-be-a-close-gate.md
   notes: 'issu de la mesure du 12/09 : 556 verts a 06:16, 44 rouges a 15:45, aucune porte ne lance la
     suite.'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: 0f5dcd0669b88859
+    proof_bytes: 34974
+    attempt: 1
+    journal: validator-001.txt
 - id: hdr-shadow-range
   status: open
   priority: 21
@@ -8905,7 +8951,7 @@ items:
     et c''est le premier ou son appareil accorde enfin de la marge. Issu de son retour du 12/09 sur le
     Honor.'
 - id: build-android-reinvalidates-itself
-  status: open
+  status: validated
   priority: 18
   game: jak1
   device: false
@@ -8945,6 +8991,13 @@ items:
     le juge passe avant la fin de la chaine. AU PROCHAIN ESSAI : ne PAS refaire le travail, verifier qu''il
     tient toujours, et surtout ne pas rendre la main avant que proof.txt soit ecrit.'
   block_reason: ''
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: b0fc2c57def31e80
+    proof_bytes: 34322
+    attempt: 6
+    journal: validator-006.txt
 - id: harness-subsecond-freshness-is-blind
   status: open
   priority: 22
@@ -9054,3 +9107,528 @@ items:
   prompt: prompts/item-build-and-harness-leftovers.md
   notes: issu des neuf signalements restants de build-tree-reinvalidates-itself, 12/09 ; terminus, pas
     de successeur.
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: grass-baseline-cost
+  priority: 62
+  device: true
+  feature: Le cout reel de l'herbe, mesure avant qu'on y touche
+  gate:
+    key: grass_baseline_gaps
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, et il porte le lien vers
+    l''investigation complete que l''owner a validee le 12/09. SPEC section 1. Le seul chiffre dont on
+    dispose vient d''un rapport de plantage d''aout : herbe ON 4,6 a 6,0 img/s contre OFF 20,0 a 21,1
+    sur le Redmi, soit un facteur 3,5 pour 726 851 instances. Ce rapport le dit lui-meme : « Ce cout existait
+    avant, il etait simplement invisible parce que le jeu mourait d''abord. » Aucune mesure fine n''existe
+    : ni par palier, ni decomposee entre preparation, sommets et fragments, ni comparee au nombre d''instances
+    reellement dessinees. Sans cette base, aucun gain ulterieur de la campagne n''est demontrable.'
+  deliverable: |-
+    `grass_baseline_gaps` = 0 : aucune des grandeurs exigees ci-dessous ne manque. Un zero se lit « tout est mesure », jamais « rien a mesurer ».
+    1. LE COUT PAR IMAGE, sur l'appareil, herbe ALLUMEE puis ETEINTE, aux CINQ paliers, au MEME vantage et sur le MEME binaire. Publier chaque cadence et le nombre d'images de chaque releve. Un releve de moins de 300 images ne compte pas.
+    2. LA DECOMPOSITION : temps de preparation cote processeur, temps de dessin, et le compte d'instances SOUMISES contre celles reellement DANS LE CHAMP DE VISION. C'est l'ecart entre ces deux comptes qui chiffre ce que le culling rendra.
+    3. LE CHARGEMENT, decompose comme il l'est deja — source, expansion, televersement — par palier, plus la memoire des deux tampons.
+    4. LE COMPTE D'INSTANCES CONSTRUITES ET JAMAIS DESSINEES, publie seul sur sa ligne. Un journal d'aout l'estime a 110 472 sur 726 851 ; cet item le MESURE sur le binaire courant.
+    PREUVE : `FEATURE grass-baseline-cost armed=1 hits=<releves de cadence effectivement pris>` + la ligne `grass_baseline_gaps=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Rien a voir. C'est une mesure, aucun pixel ne bouge.
+  out_of_scope: Ne change RIEN. Aucune optimisation, aucun reglage, aucun shader. Cet item mesure l'etat
+    present et s'arrete la. Tout ce qui n'est pas cet item.
+  notes: 'SPEC sections 1, 14. Premier item de la campagne : rien d''autre ne demarre avant lui.'
+  hits_means: releves de cadence effectivement pris
+  prompt: prompts/item-grass-baseline-cost.md
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-baseline-cost
+  history: []
+  id: grass-dead-tail
+  priority: 63
+  device: true
+  feature: L'herbe cesse de construire et de televerser ce que rien ne dessine
+  gate:
+    key: grass_dead_instances
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, et il porte le lien vers
+    l''investigation complete que l''owner a validee le 12/09. SPEC section 1. `expand()` emet a chaque
+    chargement la queue des trois zones d''overhang — twins de comb, twins de lean, scatter de zone 2,
+    cartes de zone 3 — et n''est gardee par AUCUN `#ifdef`. Or `OG_FEAT_GRASS_OVERHANG` est OFF dans les
+    deux arbres livres, donc le compte de dessin retombe sur `nondroop_n` et cette queue n''est jamais
+    dessinee. Un journal d''aout chiffre la queue a 110 472 instances sur 726 851, soit 15,2 % du tampon,
+    construites, ecrites dans le bake, televersees au GPU, jamais dessinees. Sur beach c''etait 71 %.
+    C''est le gain le moins risque de toute la campagne : rien de visible ne change.'
+  deliverable: |-
+    `grass_dead_instances` = 0, somme de termes publies SEPAREMENT.
+    1. AUCUNE INSTANCE CONSTRUITE N'EST JAMAIS DESSINEE. Publier le compte d'instances emises par l'expansion et le compte d'instances atteintes par un appel de dessin, separement. L'egalite est le verdict.
+    2. LE GAIN EST CHIFFRE, AVANT ET APRES, sur la MEME course et le MEME palier : octets televerses, temps d'expansion, temps de chargement total. Un gain non chiffre n'est pas un gain.
+    3. RIEN DE VISIBLE NE CHANGE : l'image est IDENTIQUE AU BIT a celle d'avant, mesuree sur un vantage nomme. Si elle differe, l'item s'arrete et le DIT.
+    4. LE CHEMIN RESTE CONSTRUCTIBLE : publier un temoin qui dit que la queue est emise quand l'option est allumee a la compilation. On ne supprime pas, on conditionne.
+    PREUVE : `FEATURE grass-dead-tail armed=1 hits=<instances emises par l'expansion>` + la ligne `grass_dead_instances=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: Rien a voir. Le gain se mesure en memoire et en temps de chargement.
+  out_of_scope: 'Ne rouvre PAS l''overhang : l''owner l''a parque sur un verdict de qualite. On conditionne
+    la construction d''une queue que rien ne dessine, on ne touche ni a son code ni a son apparence. Tout
+    ce qui n''est pas cet item.'
+  notes: SPEC sections 1, 16. Gain le moins risque de la campagne.
+  hits_means: instances emises par l'expansion
+  prompt: prompts/item-grass-dead-tail.md
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-baseline-cost
+  history: []
+  id: grass-chunk-cull
+  priority: 64
+  device: true
+  feature: L'herbe hors du champ de vision cesse de couter
+  gate:
+    key: grass_offscreen_submitted
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, et il porte le lien vers
+    l''investigation complete que l''owner a validee le 12/09. SPEC section 10. Il y a DEUX appels de
+    dessin et AUCUN culling : le vertex shader s''execute pour les 727 000 instances a chaque image, et
+    les hors-portee sont repliees sur un point degenere apres avoir ete transformees. Aucun frustum, aucun
+    chunk au dessin — la grille de chunks existante n''est construite que sous un drapeau de diagnostic
+    et n''est lue que par un journal. S''y ajoutent une trentaine de `glGetUniformLocation` par image
+    sans cache, ce qui sur Adreno est un appel de pilote par nom. C''est la fondation de toute la campagne
+    : aucun enrichissement visuel n''est accepte avant elle.'
+  deliverable: |-
+    `grass_offscreen_submitted` = 0, somme de termes publies SEPAREMENT.
+    1. AUCUNE INSTANCE HORS DU CHAMP N'EST SOUMISE. Publier, a TROIS orientations de camera nommees, le compte d'instances soumises et le compte d'instances dont la boite englobante intersecte le frustum. L'ecart est le defaut.
+    2. LE COUT DE SOUMISSION EST MESURE, pas suppose : temps processeur de preparation et nombre d'appels de dessin, AVANT et APRES. Passer de deux appels a plusieurs dizaines peut couter plus qu'il ne rapporte, et c'est cette mesure qui tranche.
+    3. LA PARTITION EST CUITE ET DETERMINISTE : bounds par chunk dans le fichier, une touffe traversant une frontiere appartient au chunk de son ORIGINE. Publier le compte de chunks et la dispersion du nombre d'instances par chunk.
+    4. L'IMAGE NE CHANGE PAS : identique au bit a un vantage nomme, camera immobile. Le culling retire du travail, jamais des pixels.
+    PREUVE : `FEATURE grass-chunk-cull armed=1 hits=<chunks testes par le culling>` + la ligne `grass_offscreen_submitted=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: Rien a voir. Le gain se mesure en cadence, surtout camera tournee vers le vide.
+  out_of_scope: Ne change ni la densite, ni les distances d'affichage, ni le rendu d'un brin. Ne touche
+    pas au LOD, qui est un autre item. Tout ce qui n'est pas cet item.
+  notes: 'SPEC sections 1, 10. Fondation : aucun enrichissement visuel avant elle.'
+  hits_means: chunks testes par le culling
+  prompt: prompts/item-grass-chunk-cull.md
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-chunk-cull
+  history: []
+  id: grass-surface-truth
+  priority: 65
+  device: false
+  feature: Une surface porte de l'herbe selon DEUX sources, pas selon trois noms de texture
+  gate:
+    key: grass_surface_unclassified
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, et il porte le lien vers
+    l''investigation complete que l''owner a validee le 12/09. SPEC sections 2 et 3. C''est la cle de
+    toute la campagne. L''eligibilite tient aujourd''hui a TROIS noms de texture exacts — `tra-grass`,
+    `bch-grassfringe`, `bch-leafyground-hang-2x1` — et c''est de la que vient la cause racine des onze
+    rounds d''overhang : le detecteur de bord declare qu''une arete ouvre sur le vide quand aucun AUTRE
+    TRIANGLE TEXTURE HERBE ne la partage, si bien qu''un changement de materiau est indiscernable d''un
+    precipice. Or `pat-surface` porte, sur CHAQUE triangle de collision de CHAQUE niveau, un champ de
+    materiau de 23 valeurs dont `grass`, `sand`, `dirt`, `stone`. Le bake lit ce champ et n''en utilise
+    QUE les bits de mode. Aucun site du moteur ne lit les bits 6 a 11.'
+  deliverable: |-
+    `grass_surface_unclassified` = 0, somme de termes publies SEPAREMENT.
+    1. LES DEUX SOURCES SONT LUES ET PUBLIEES SEPAREMENT : pour chaque triangle de sol, la classification par nom de texture et celle par materiau de collision. Publier les deux comptes par niveau, et le compte de triangles qu'AUCUNE des deux ne classe — c'est lui qui doit valoir zero.
+    2. LE DESACCORD SE COMPTE, IL NE SE DEVINE PAS. Publier le compte de triangles ou les deux sources divergent, avec les noms de texture impliques. Un desaccord n'est pas un defaut de cet item : c'est une donnee que les items suivants utiliseront. Le cacher en serait un.
+    3. RIEN NE CHANGE ENCORE DANS LE PLACEMENT : le compte de brins poses et leurs positions sont IDENTIQUES a ceux d'avant. Cet item lit et publie, il ne place pas.
+    4. LA LECTURE MARCHE SUR LES DIX NIVEAUX qui portent des textures de sol herbeux, pas seulement sur celui qui a de l'herbe. Publier le recensement par niveau.
+    PREUVE : `FEATURE grass-surface-truth armed=1 hits=<triangles de sol classes par au moins une source>` + la ligne `grass_surface_unclassified=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu. C''est une vue de debug : chaque triangle colore par son materiau de
+    collision, et les desaccords en evidence.'
+  out_of_scope: NE CHANGE AUCUN PLACEMENT. Ne touche ni au bord, ni aux transitions, ni a l'overhang —
+    ce sont les items suivants, et ils dependent de celui-ci. Tout ce qui n'est pas cet item.
+  notes: 'SPEC sections 2, 3, 9. La cle de la campagne : tout ce qui suit en depend.'
+  hits_means: triangles de sol classes par au moins une source
+  prompt: prompts/item-grass-surface-truth.md
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-surface-truth
+  history: []
+  id: grass-overlay-meshes
+  priority: 66
+  device: false
+  feature: Les meshes de sable ou de terre poses par-dessus un sol herbeux, etablis ou ecartes
+  gate:
+    key: grass_overlay_unclassified
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 9. L''owner affirme qu''un second mesh est parfois pose AU-DESSUS d''un sol herbeux
+    pour simuler l''absence d''herbe. L''investigation n''a PAS pu le confirmer ni l''infirmer : c''est
+    la seule de ses affirmations restee indeterminee. Le seul compteur voisin, les triangles strictement
+    coincidents, vaut zero sur training — mais il ne regarde que les triangles DEJA filtres par les trois
+    textures d''herbe, donc un triangle de sable n''y entre jamais. Et le systeme actuel traverserait
+    la superposition par construction : le terrain tfrag n''est jamais collecte comme occulteur, seuls
+    les objets TIE le sont.'
+  deliverable: |-
+    `grass_overlay_unclassified` = 0, somme de termes publies SEPAREMENT.
+    1. LA MESURE D'ABORD, SANS PREJUGE. Sur les dix niveaux, compter les paires de triangles de sol dont les empreintes au sol se recouvrent, normales toutes deux vers le haut, ecart vertical faible, et textures DIFFERENTES dont l'une est herbeuse. Publier le compte par niveau et la liste des textures impliquees. Un zero se lit « la superposition n'existe pas », et c'est une reponse valable qui ferme l'item.
+    2. LA CONTRE-EPREUVE PAR LA COLLISION : croiser avec le materiau. Un triangle de collision `grass` recouvert d'un triangle de rendu texture sable ou terre EST la superposition, prouvee par deux sources qui ne se copient pas. Publier le compte des deux methodes et leur intersection.
+    3. LA CLASSIFICATION EST NOMMEE : chaque superposition trouvee est rangee en vrai chemin, patch decoratif, ou cas ambigu. Publier les trois comptes. Un cas ambigu est NOMME, pas arbitre en silence.
+    4. RIEN NE CHANGE DANS LE PLACEMENT. Cet item mesure et publie ; c'est l'item des transitions qui agira.
+    PREUVE : `FEATURE grass-overlay-meshes armed=1 hits=<paires de triangles testees>` + la ligne `grass_overlay_unclassified=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu. Vue de debug : les superpositions trouvees, colorees par leur classe.'
+  out_of_scope: Ne place ni ne retire aucun brin. Tout ce qui n'est pas cet item.
+  notes: SPEC section 9. Seule affirmation de l'owner restee indeterminee a l'investigation.
+  hits_means: paires de triangles testees
+  prompt: prompts/item-grass-overlay-meshes.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-surface-truth
+  - grass-overlay-meshes
+  history: []
+  id: grass-path-transitions
+  priority: 67
+  device: true
+  feature: L'herbe s'arrete progressivement au bord des chemins, sans bande vide ni decoupe nette
+  gate:
+    key: grass_transition_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 9. La transition est aujourd''hui BINAIRE : une surface porte de l''herbe ou n''en
+    porte pas, et la frontiere suit exactement des aretes de triangles. Il n''existe aucun champ de distance,
+    aucun poids, aucune reduction a l''approche. Un correctif partiel existe deja et doit etre generalise
+    : quand un triangle plat conserve partage son arete d''epaule avec une levre rejetee par le filtre
+    de pente, cette arete est traitee comme INTERIEURE, si bien que l''herbe remplit jusqu''a l''epaule
+    au lieu de s''arreter court. C''est exactement le remede au grief de bande vide de l''owner.'
+  deliverable: |-
+    `grass_transition_defects` = 0, somme de termes publies SEPAREMENT.
+    1. PAS DE BANDE VIDE : la largeur entre le dernier brin et la limite reelle de la zone nue, mesuree sur des vantages NOMMES couvrant un chemin traversant et une zone de terre, reste sous un plafond DECLARE. Publier la largeur mesuree et le plafond.
+    2. PAS D'INVASION : le compte de brins dont la racine tombe sur une surface non herbeuse vaut zero, avec son denominateur — le compte de brins testes — publie a cote.
+    3. PAS DE DECOUPE PROCEDURALE PARFAITE : publier une mesure de rectitude du bord, sous un plafond declare. Une frontiere qui suit exactement les aretes de triangles est un defaut, pas une transition.
+    4. LA TRANSITION EST PROGRESSIVE ET DETERMINISTE : densite et hauteur decroissent sur une distance declaree, et deux chargements donnent la MEME frontiere au brin pres.
+    PREUVE : `FEATURE grass-path-transitions armed=1 hits=<brins situes dans une bande de transition>` + la ligne `grass_transition_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur le niveau d''entrainement et a Sandover : le bord des chemins et des zones de terre. L''herbe
+    doit couvrir jusqu''a la limite reelle, sans bande pelee laissant voir la texture, et le chemin doit
+    rester degage.'
+  out_of_scope: 'Ne touche pas au bord donnant sur le VIDE : c''est un autre sujet et il n''est pas dans
+    cette campagne. Ne change ni la densite globale ni les distances d''affichage. Tout ce qui n''est
+    pas cet item.'
+  notes: SPEC section 9. Premier item de la campagne que l'owner verra a l'oeil.
+  hits_means: brins situes dans une bande de transition
+  prompt: prompts/item-grass-path-transitions.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-chunk-cull
+  history: []
+  id: grass-clumps
+  priority: 68
+  device: true
+  feature: L'herbe pousse en touffes coherentes, plus en bruit blanc de brins independants
+  gate:
+    key: grass_clump_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 6. Il n''existe AUCUNE touffe. Le placement est un tirage barycentrique uniforme
+    par triangle, graine par triangle, et chaque brin tire ses cinq proprietes d''un hachage independant.
+    Une recherche exhaustive ne trouve aucune structure de regroupement : le mot « tuft » du code designe
+    une decoupe de fragment a l''interieur d''une carte, et `D_TARGET = 150 tufts/m^2` est un abus de
+    langage pour brins/m^2.'
+  deliverable: |-
+    `grass_clump_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE REGROUPEMENT EST MESURE, pas affirme : publier une statistique de dispersion spatiale des racines, comparee a celle du tirage uniforme actuel sur la MEME surface. Elle doit s'ecarter d'un plancher declare. Une touffe qu'aucune mesure ne distingue d'un tirage uniforme n'existe pas.
+    2. LES TOUFFES NE SE RESSEMBLENT PAS : publier la dispersion du nombre de brins par touffe et celle de leur rayon. Deux touffes identiques cote a cote sont un defaut.
+    3. LES PALIERS RESTENT IMBRIQUES : un palier inferieur retire des brins DANS les memes touffes, il ne redistribue rien. Publier le compte de touffes dont l'origine bouge entre deux paliers : zero.
+    4. LE DETERMINISME TIENT : deux chargements donnent les memes touffes aux memes endroits. Publier une empreinte de l'ensemble des origines.
+    PREUVE : `FEATURE grass-clumps armed=1 hits=<touffes effectivement montees>` + la ligne `grass_clump_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement : l''herbe doit se lire par groupes, avec des brins dominants
+    et des brins peripheriques, au lieu d''un tapis uniforme.'
+  out_of_scope: Ne change ni la densite moyenne, ni la couleur, ni le vent — ce sont les items suivants,
+    qui dependent de celui-ci. Tout ce qui n'est pas cet item.
+  notes: SPEC section 6. La couleur, le vent et l'interaction par touffe en dependent.
+  hits_means: touffes effectivement montees
+  prompt: prompts/item-grass-clumps.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-clumps
+  history: []
+  id: grass-blade-variants
+  priority: 69
+  device: true
+  feature: Plusieurs silhouettes de brins simples, au lieu d'une seule forme hachee
+  gate:
+    key: grass_variant_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun
+    asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets
+    en proche, deux quads croises en moyen, une carte suspendue pour l''overhang. Hauteur, courbure, largeur,
+    teinte et phase sont cinq hachages de la MEME forme. L''owner l''a dit et c''est verifie.'
+  deliverable: |-
+    `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LES VARIANTES EXISTENT ET SONT DISTRIBUEES : publier le compte de brins par variante et le compare aux proportions declarees par le profil. Un ecart au-dela d'une tolerance declaree est le defaut.
+    2. LE BUDGET GEOMETRIQUE TIENT : publier le nombre de sommets par variante et le total de sommets transformes par image, compare a la mesure de reference. La diversite ne se paie pas en geometrie.
+    3. LE PALIER COMMANDE LE NOMBRE DE VARIANTES, et la selection reste DETERMINISTE : un brin donne recoit la meme variante a tous les paliers qui la proposent. Publier le compte de brins changeant de variante entre deux paliers : zero.
+    4. AUCUNE MODELISATION : publier le compte d'assets de maillage charges par le systeme d'herbe, qui vaut zero. C'est l'ordre explicite de l'owner.
+    PREUVE : `FEATURE grass-blade-variants armed=1 hits=<brins ayant recu une variante>` + la ligne `grass_variant_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement, de pres : les brins ne doivent plus avoir tous la meme silhouette.
+    Hauteurs, largeurs, courbures et pointes differentes.'
+  out_of_scope: Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne
+    change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
+  notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
+  hits_means: brins ayant recu une variante
+  prompt: prompts/item-grass-blade-variants.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-clumps
+  history: []
+  id: grass-shading
+  priority: 70
+  device: true
+  feature: 'L''herbe cesse d''etre un aplat : du relief par la couleur, pas par la geometrie'
+  gate:
+    key: grass_shading_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 7. Le degrade racine-pointe existe et il est correct. Ce qui manque est la variation
+    SPATIALE : `inst_gcol` n''est PAS un echantillonnage du terrain sous le brin, c''est la moyenne de
+    la TEXTURE ENTIERE du draw source, mise en cache par identifiant. Avec trois noms de texture admis,
+    il existe au plus TROIS couleurs de sol dans tout le champ, et UNE seule en pratique sur Geyser Rock.
+    Le commentaire de `grass.vert:462-468` qui annonce « per-location » est FAUX. La seule variation spatiale
+    reelle est la lumiere cuite du centroide du TRIANGLE : 11 080 valeurs pour 847 000 brins.'
+  deliverable: |-
+    `grass_shading_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA VARIATION SPATIALE EXISTE : publier le nombre de couleurs de base distinctes dans le champ, aujourd'hui egal a un, au-dessus d'un plancher declare. Et la publier PAR TOUFFE, pas par triangle.
+    2. LE DEGRADE EST MESURE : publier l'ecart de luminance entre la racine et la pointe d'un meme brin, au-dessus d'un plancher declare, et le meme ecart entre la face eclairee et la face opposee.
+    3. LA LUMIERE CUITE GAGNE EN RESOLUTION : publier le nombre de valeurs d'eclairage distinctes servies au champ, avant et apres. Une valeur par triangle devient une valeur par touffe.
+    4. LA DIRECTION ARTISTIQUE TIENT : aucune de ces variations ne depasse une amplitude declaree. Le rendu reste stylise, il ne part pas vers le photorealisme, et l'owner juge.
+    PREUVE : `FEATURE grass-shading armed=1 hits=<brins ayant recu une couleur derivee de leur touffe>` + la ligne `grass_shading_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement, de pres : les brins ne doivent plus ressembler a des aplats de
+    couleur. Base plus sombre, pointe plus claire, et des touffes voisines qui ne sont pas de la meme
+    teinte.'
+  out_of_scope: Aucun ajout de geometrie. Aucune dependance a un systeme graphique indisponible sur les
+    backends reellement supportes. Tout ce qui n'est pas cet item.
+  notes: 'SPEC section 7. Depend des touffes : la couleur par touffe n''existe pas sans elles.'
+  hits_means: brins ayant recu une couleur derivee de leur touffe
+  prompt: prompts/item-grass-shading.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-clumps
+  history: []
+  id: grass-wind
+  priority: 71
+  device: true
+  feature: Un vent qui a une direction, et qui courbe le brin au lieu de le faire pivoter
+  gate:
+    key: grass_wind_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 8. L''herbe a UN SEUL SINUS a 0,271 Hz, sans rafale, et surtout SANS DIRECTION
+    DE VENT : chaque brin oscille le long de son propre lacet aleatoire, donc le champ n''a aucun cap
+    commun. ATTENTION, ORDRE DE L''OWNER DU 12/09 : « le shader breeze.glsl est tres peu satisfaisant
+    aussi, tres rigide, pas ouf du tout, donc attention ». L''item `foliage-wind` porte DEUX REFUS COMPLETS.
+    On reprend sa CHARPENTE TEMPORELLE — plusieurs bandes de frequence, un cap commun qui derive, un front
+    de rafale — et PAS sa loi de flexion, qui fait pivoter l''element autour d''un point d''ancrage, mouvement
+    d''objet dur. Un brin SE COURBE : la deflexion s''accumule le long de la tige et LA POINTE RETARDE
+    SUR LA BASE.'
+  deliverable: |-
+    `grass_wind_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE CHAMP A UN CAP : publier la dispersion angulaire des directions de flexion sur une scene et une camera fixes. Elle est maximale aujourd'hui ; elle doit s'effondrer sous un plafond declare autour du cap du vent.
+    2. LE BRIN SE COURBE, IL NE PIVOTE PAS : publier le retard de phase entre la base et la pointe d'un meme brin, aujourd'hui nul, au-dessus d'un plancher declare. C'est la grandeur qui separe cette loi de celle que l'owner a refusee deux fois.
+    3. LA TOUFFE BOUGE ENSEMBLE SANS BOUGER PAREIL : publier la correlation des phases a l'interieur d'une touffe et entre touffes voisines. La premiere haute, la seconde basse, toutes deux sous plafond et plancher declares.
+    4. L'ANIMATION EST STABLE : aucun scintillement. Publier la variation image a image de la position d'une pointe, camera et scene immobiles, sous un plafond declare.
+    RISQUE A MESURER, PAS A SUPPOSER : `grass_occ::publish()` est partage avec `foliage-wind`, item ouvert et deja au bord du rejet definitif. Publier un temoin disant que ses grandeurs ne bougent pas.
+    PREUVE : `FEATURE grass-wind armed=1 hits=<brins animes par le champ de vent>` + la ligne `grass_wind_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement : l''herbe doit onduler dans UNE direction qui change lentement,
+    avec des rafales qui traversent la zone, et les brins d''une meme touffe doivent bouger ensemble sans
+    bouger exactement pareil.'
+  out_of_scope: Ne touche pas au vent du feuillage, qui est un autre item. Ne reprend PAS sa loi de flexion.
+    Tout ce qui n'est pas cet item.
+  notes: 'SPEC section 8. Correction owner 12/09 : la charpente de breeze.glsl, jamais son reglage.'
+  hits_means: brins animes par le champ de vent
+  prompt: prompts/item-grass-wind.md
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-wind
+  history: []
+  id: grass-wind-exposure
+  priority: 72
+  device: false
+  feature: Une touffe abritee bouge moins qu'une touffe exposee, et c'est cuit
+  gate:
+    key: grass_exposure_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 8. L''amplitude du vent est aujourd''hui la meme partout : rien ne distingue une
+    touffe en plein vent d''une touffe dans un recoin. L''owner veut cette difference, et elle ne peut
+    pas etre calculee au chargement — ce serait une analyse de la geometrie environnante, exactement ce
+    que le contrat interdit.'
+  deliverable: |-
+    `grass_exposure_defects` = 0, somme de termes publies SEPAREMENT.
+    1. L'EXPOSITION EST CUITE, UN SCALAIRE PAR TOUFFE : publier sa distribution. Une distribution concentree sur une seule valeur veut dire que la mesure ne distingue rien.
+    2. LA DIFFERENCE EST MESUREE SUR DEUX POPULATIONS NOMMEES : un jeu de touffes exposees et un jeu de touffes abritees, choisis a la main dans le niveau. L'ecart d'amplitude entre les deux est au-dessus d'un plancher declare.
+    3. LE RUNTIME N'ANALYSE RIEN : publier le compte d'operations de lancer de rayon executees au chargement et par image, qui vaut zero. Le moteur multiplie une valeur lue, rien d'autre.
+    4. LE COUT DE CUISSON EST CHIFFRE, par niveau, et le fichier ne grossit pas au-dela d'un plafond declare.
+    PREUVE : `FEATURE grass-wind-exposure armed=1 hits=<touffes portant une exposition cuite>` + la ligne `grass_exposure_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement : une touffe en plein vent sur une plateforme degagee doit bouger
+    nettement plus qu''une touffe coincee contre une paroi.'
+  out_of_scope: Ne change pas la loi de vent elle-meme, qui est l'item precedent. Tout ce qui n'est pas
+    cet item.
+  notes: 'SPEC sections 4, 8. Aucune analyse au chargement : c''est un interdit de contrat.'
+  hits_means: touffes portant une exposition cuite
+  prompt: prompts/item-grass-wind-exposure.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-clumps
+  history: []
+  id: grass-interaction-direction
+  priority: 73
+  device: true
+  feature: L'herbe se couche dans la direction du pas, au lieu de s'ecraser en rond
+  gate:
+    key: grass_interaction_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 11. Le systeme est plus riche que l''owner ne le croit — Jak, une trainee de quatre
+    echantillons espaces de 0,15 s, la prise de rebord, huit acteurs ecrasables et huit occultants, montee
+    0,25 s, descente 0,6 s, pierres tombales de 8 s — mais la FORME reste un disque. La direction du deplacement
+    est connue par la trainee et n''est JAMAIS utilisee comme vecteur. PIEGE MATERIEL A RECONDUIRE : sur
+    Adreno 618, les lectures de tableaux d''uniformes a index DYNAMIQUE rendent des ordures. Le code deroule
+    a index litteral et plafonne a huit occulteurs pour cette raison. Ce bug NE SE VOIT PAS sur x86.'
+  deliverable: |-
+    `grass_interaction_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA FLEXION SUIT LE MOUVEMENT : publier l'angle entre la direction de flexion moyenne et la direction de deplacement, sur une traversee scriptee, sous un plafond declare. Aujourd'hui cet angle est aleatoire par construction.
+    2. LE DEGAGEMENT LATERAL EXISTE : publier l'ecart entre la flexion au centre du contact et celle sur ses bords. Un ecart nul veut dire qu'on ecrase encore en rond.
+    3. RIEN NE REGRESSE DE L'ACQUIS : le relevement amorti, les pierres tombales, l'annulation a la casse d'une caisse et la distinction entre acteurs caches et acteurs aplatis gardent leurs grandeurs. Publier chacune.
+    4. LE DEROULAGE A INDEX LITTERAL EST CONSERVE : publier le compte de lectures de tableau d'uniformes a index dynamique dans les shaders du chemin herbe, qui vaut zero. Preuve sur l'APPAREIL, pas sur x86 : ce defaut y est invisible.
+    PREUVE : `FEATURE grass-interaction-direction armed=1 hits=<contacts dynamiques appliques>` + la ligne `grass_interaction_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Sur le niveau d''entrainement : marche dans l''herbe et regarde devant les pieds de Jak. L''herbe
+    doit se coucher devant lui et se degager sur les cotes, pas s''aplatir en disque.'
+  out_of_scope: Ne change pas la portee ni le nombre d'interacteurs des paliers bas, qui gardent la loi
+    radiale actuelle en repli. Tout ce qui n'est pas cet item.
+  notes: 'SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.'
+  hits_means: contacts dynamiques appliques
+  prompt: prompts/item-grass-interaction-direction.md
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-herbe.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - grass-surface-truth
+  - grass-path-transitions
+  - grass-chunk-cull
+  history: []
+  id: grass-levels
+  priority: 74
+  device: true
+  feature: L'herbe existe ailleurs que sur Geyser Rock
+  gate:
+    key: grass_level_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
+    12/09. SPEC section 15. `background_common.h:110` porte `kGrassLevels[] = {"training"}`. Dix niveaux
+    portent des textures de sol herbeux : training, beach, village1, village2, jungle, rolling, ogre,
+    swamp, finalboss, firecanyon. Un seul a de l''herbe. `beach` y a ete ajoute puis RETIRE le 31/08 sur
+    la parole de l''owner. Aucun item du backlog ne porte cet elargissement, et il n''entre en collision
+    avec rien.'
+  deliverable: |-
+    `grass_level_defects` = 0, somme de termes publies SEPAREMENT, PAR NIVEAU ajoute.
+    1. LA CLASSIFICATION TIENT SUR LE NIVEAU : publier le compte de triangles eligibles et le compte de desaccords entre les deux sources. Un niveau dont le desaccord depasse une proportion declaree n'est PAS ajoute, et l'item le dit.
+    2. LE COUT EST CHIFFRE AVANT D'AJOUTER : temps de cuisson, taille des cinq bakes, temps de chargement, cadence sur l'appareil, herbe allumee et eteinte. Un niveau qui fait tomber la cadence sous un plancher declare n'est pas ajoute.
+    3. LE REPLI EST IMMEDIAT : retirer un niveau de la liste le ramene a son rendu d'origine, identique au bit. Le prouver sur un niveau retire.
+    4. GEYSER ROCK NE REGRESSE PAS : reprendre ses grandeurs et montrer qu'elles gardent leurs valeurs. C'est le seul niveau valide par l'owner, il sert de non-regression.
+    ORDRE DE DEPLOIEMENT : village1 d'abord — ses terrasses a faces de chute en terre sont le cas exact qui a fait echouer onze rounds — puis jungle, qui a deux textures d'overhang et une texture de chemin listee parmi les sols herbeux.
+    PREUVE : `FEATURE grass-levels armed=1 hits=<brins poses hors de training>` + la ligne `grass_level_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'A Sandover puis dans la jungle : il doit y avoir de l''herbe, et elle doit ressembler a celle
+    de Geyser Rock sans en etre la copie.'
+  out_of_scope: N'ajoute aucun niveau sans que son cout soit chiffre. Ne touche pas au rendu, qui est
+    fixe par les items precedents. Tout ce qui n'est pas cet item.
+  notes: SPEC section 15. Elargissement par DONNEES, pas par code, une fois le socle en place.
+  hits_means: brins poses hors de training
+  prompt: prompts/item-grass-levels.md
