@@ -7349,7 +7349,7 @@ items:
     avant/apres. Aucun changement de comportement attendu : ce sont des chemins morts.'
   where: 'rien a voir : nettoyage ; owner_test=false'
   out_of_scope: Ne rien supprimer qui soit encore lu. Un doute se signale, ne se tranche pas ici.
-  status: in-progress
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -8251,7 +8251,7 @@ items:
   prompt: prompts/item-harness-impossible-state-hygiene.md
   notes: issu des signalements de harness-proof-impossible-must-be-read, 12/09.
 - id: harness-impossible-single-namer
-  status: open
+  status: in-progress
   priority: 30
   game: jak1
   device: false
@@ -8355,7 +8355,7 @@ items:
   prompt: prompts/item-harness-verdict-sources-are-incomplete.md
   notes: issu des sept signalements de harness-verdict-integrity, 12/09 ; range derriere le jeu.
 - id: proof-feature-hits-is-vacuous
-  status: open
+  status: validated
   priority: 28
   game: jak1
   device: false
@@ -8405,6 +8405,7 @@ items:
     2. L'audit juge les PORTES (uniformes) et les JETONS (tables de texte), pas les DRAPEAUX D'HOTE. `s_host_legacy` et `s_host_shade` selectionnent les seaux C et E : un seau rendu inatteignable par un drapeau d'hote fige ne serait pas compte. Meme classe que ce qu'on vient de retirer.
     3. `lib/census/census-false-reds.sh` lit UNE ligne par site d'appel : un appel etale sur plusieurs lignes, ou deux appels sur la meme ligne, ne rendent qu'un site, et un argument illisible est classe NON litteral, donc vers le VERT.
     4. `lighting_census.cpp:120` prend `u_pbr_mode` comme temoin « survit a la purge », alors que `lib/census/lighting-legacy-purge.sh` le liste parmi les 36 uniformes que cet item doit SUPPRIMER. Le jour ou la purge aboutit, le temoin tombe de moitie sans que personne l'ait voulu.
+    5. DEUX ANGLES MORTS DE PLUS, signales le 12/09 par dead-cover-and-legends : le detecteur de legendes ne juge pas les noms d'uniforme a UN SEUL segment (seau `legend_uniform_single_segment_excluded`), et deux familles de jetons de forme CODE lui echappent, `Classe::membre` et les noms SCREAMING_SNAKE hors ligne de definition. Les couvrir et publier le compte de jetons nouvellement juges.
   deliverable: |-
     `census_blind_spot_defects` = 0, somme de termes publies SEPAREMENT.
     1. Une table de SURVEILLANCE est nommee comme telle et ne se lit plus comme une mesure : publier separement « jetons surveilles » et « jetons observes dans le code », et dire quand les deux divergent.
@@ -8419,3 +8420,67 @@ items:
   proof_timeout: 300
   prompt: prompts/item-census-audit-blind-spots.md
   notes: issu des signalements de census-false-reds, 12/09 ; range derriere l'eclairage.
+- id: mesh-consolidate-without-consumer
+  status: open
+  priority: 29
+  game: jak1
+  device: true
+  owner_test: false
+  feature: Le soudage de normales tourne a chaque chargement de niveau pour un consommateur supprime
+  gate:
+    key: mesh_consolidate_waste_ms_x100
+    op: ==
+    value: 0
+  depends_on:
+  - dead-cover-and-legends
+  known_cause: |-
+    SIGNALEMENT DU 12/09 (reports/dead-cover-and-legends/FINDINGS.txt). Tout l'appareil de soudage des normales et de reparation de positivite de `common/custom_data/MeshConsolidate.cpp` (~2650-3470) existe pour garantir un invariant, `dot(N_v, outward(f)) > 0`, dont le SEUL consommateur moteur etait le tessellateur `tfrag3_tess.tese`, SUPPRIME.
+    Le fichier reste compile (common/CMakeLists.txt:39, android/CMakeLists.txt:864) et appele a CHAQUE chargement de niveau (loader/Loader.cpp:779-799). C'est donc du temps processeur paye a chaque transition, sur un appareil qui plafonne a ~44 img/s et que le tueur de memoire visite.
+    L'invariant ne survit que dans les outils HORS LIGNE `tools/tess_audit/` et `tools/tess_sign/`, qui ne tournent pas dans le jeu. Le worker precedent n'avait le droit que de corriger les legendes ; dire si le calcul lui-meme doit partir est le travail de cet item.
+  deliverable: |-
+    `mesh_consolidate_waste_ms_x100` = 0 : plus une milliseconde de chargement depensee pour un invariant que rien ne consomme dans le moteur.
+    1. LE COUT D'ABORD, avant de retirer quoi que ce soit : publier le temps passe dans cet appareil par chargement de niveau, mesure sur l'appareil, AVANT et APRES. Un gain non chiffre n'est pas un gain.
+    2. RECENSER LES CONSOMMATEURS au point d'appel, pas par une liste de noms : publier le compte de lecteurs de l'invariant dans le binaire LIVRE. Un zero doit venir d'une mesure, pas d'un grep.
+    3. Les outils hors ligne gardent leur chemin : publier un temoin qui dit que `tools/tess_audit` et `tools/tess_sign` compilent et produisent encore le meme resultat.
+    4. Aucun maillage livre ne change : empreinte des fr3 produits identique avant et apres, publiee. Si elle change, l'item s'arrete et le dit.
+  where: Invisible a l'oeil. Le gain se voit sur le temps de chargement des niveaux.
+  out_of_scope: Ne touche pas aux outils hors ligne eux-memes. Ne change aucun asset livre.
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 420
+  prompt: prompts/item-mesh-consolidate-without-consumer.md
+  notes: issu du signalement de dead-cover-and-legends, 12/09.
+- id: dead-published-keys-round-2
+  status: open
+  priority: 33
+  game: jak1
+  device: false
+  owner_test: false
+  feature: Cinq cles publiees de plus qui ne mesurent rien
+  gate:
+    key: dead_keys_r2_defects
+    op: ==
+    value: 0
+  depends_on:
+  - dead-cover-and-legends
+  known_cause: |-
+    CINQ SIGNALEMENTS DU 12/09 (reports/dead-cover-and-legends/FINDINGS.txt), tous du meme genre que les 24 que l'item vient de retirer, mais hors de son perimetre.
+    1. `refset.cpp:2352` : `grass_overhang` est PUBLIEE et le binaire livre ne peut pas la faire bouger — initialisee `false` a :2338, reaffectee uniquement sous un `#ifdef` absent du build.
+    2. `refset.cpp:3859,3866,3871` : trois cles publiees a valeur de CHAINE LITTERALE dans le bras `lighting-hdr` (`profile=sdr`, `method=...`, `particle_st...`). Une constante publiee se lit comme une mesure.
+    3. Les captures de qualification faites AVANT ce commit portent `subdivision` et `subdivision_rounds` dans leurs options effectives : comparer une capture ancienne a une neuve conclura a une derive la ou seul le champ a disparu.
+    4. `pbr_fused.glsl:220-221` et son miroir CPU : la porte du POM a quatre termes cote shader, et le miroir CPU n'en reflete pas autant. Un miroir partiel se lit comme un accord.
+    5. `background_common.cpp` (~2530-2636) : le bloc `lgtmath::kPbrParams` reste GARDE au motif qu'il alimente `pbr_cover_publish_gates`, fonction qui vient de passer de quatre atomiques a deux. Le motif de la garde a maigri de moitie sans etre reexamine ; seul `height_scale` la justifie encore.
+  deliverable: |-
+    `dead_keys_r2_defects` = 0, somme de termes publies SEPAREMENT, un par signalement.
+    1. Chaque cle retiree est d'abord RETROUVEE par le meme detecteur sur le commit d'avant : publier le compte trouve avant et le compte trouve apres. Un zero apres sans un non-nul avant ne prouve rien.
+    2. Une valeur litterale cesse d'etre publiee comme une mesure, ou elle est renommee pour dire qu'elle est une constante. Publier laquelle des deux voies a ete prise, cle par cle.
+    3. Le miroir CPU du POM reflete EXACTEMENT les termes du shader : publier le compte de termes de chaque cote, l'egalite est le verdict.
+    4. Le motif de la garde de `kPbrParams` est reexamine et publie : ce qui la justifie encore, et ce qui n'y est plus.
+    5. Les captures anciennes sont marquees comme portant un champ disparu, pour qu'une comparaison ne conclue pas a une derive.
+  where: Invisible. Ce sont des mesures publiees dans les preuves.
+  out_of_scope: 'Ne change aucun rendu. Priorite 33 volontaire : les chantiers d''eclairage passent AVANT.'
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 300
+  prompt: prompts/item-dead-published-keys-round-2.md
+  notes: issu des signalements de dead-cover-and-legends, 12/09 ; range derriere l'eclairage.

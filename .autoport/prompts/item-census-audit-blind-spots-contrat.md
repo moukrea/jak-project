@@ -10,6 +10,7 @@ QUATRE SIGNALEMENTS DU 12/09 (reports/census-false-reds/FINDINGS.txt). L'audit q
 2. L'audit juge les PORTES (uniformes) et les JETONS (tables de texte), pas les DRAPEAUX D'HOTE. `s_host_legacy` et `s_host_shade` selectionnent les seaux C et E : un seau rendu inatteignable par un drapeau d'hote fige ne serait pas compte. Meme classe que ce qu'on vient de retirer.
 3. `lib/census/census-false-reds.sh` lit UNE ligne par site d'appel : un appel etale sur plusieurs lignes, ou deux appels sur la meme ligne, ne rendent qu'un site, et un argument illisible est classe NON litteral, donc vers le VERT.
 4. `lighting_census.cpp:120` prend `u_pbr_mode` comme temoin « survit a la purge », alors que `lib/census/lighting-legacy-purge.sh` le liste parmi les 36 uniformes que cet item doit SUPPRIMER. Le jour ou la purge aboutit, le temoin tombe de moitie sans que personne l'ait voulu.
+5. DEUX ANGLES MORTS DE PLUS, signales le 12/09 par dead-cover-and-legends : le detecteur de legendes ne juge pas les noms d'uniforme a UN SEUL segment (seau `legend_uniform_single_segment_excluded`), et deux familles de jetons de forme CODE lui echappent, `Classe::membre` et les noms SCREAMING_SNAKE hors ligne de definition. Les couvrir et publier le compte de jetons nouvellement juges.
 
 ## Livrable — le contrat, en entier
 
