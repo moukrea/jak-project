@@ -1825,6 +1825,14 @@ void publish_glow_targets() {
   autoport_proof::publish("glow_targets_witness_stages_complete", (uint64_t)s_gt_witness_complete);
   autoport_proof::publish("glow_targets_witness_gl_freed", (uint64_t)s_gt_witness_freed);
   autoport_proof::publish("glow_targets_witness_gl_expected", (uint64_t)s_gt_witness_expected);
+  // LE REGIME QUI DONNE SON ECHELLE A L'`AVANT`. Les six cibles prennent 8 o par texel quand le
+  // format d'etage est flottant, 4 sinon : 6 822 400 o contre 3 411 200 pour les MEMES cibles.
+  // Sans ces deux lignes, le nombre publie ci-dessus se lirait comme une constante alors qu'il
+  // depend du maitre Recharged — et un ecart d'un facteur deux passerait pour une mesure.
+  autoport_proof::publish("glow_targets_recharged_master", Gfx::recharged_master_active() ? 1 : 0);
+  autoport_proof::publish(
+      "glow_targets_stage_float",
+      source_stage_format(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE).is_float ? 1 : 0);
 
   // -- 5. LES CHEMINS RESTES VIVANTS (livrable 4). `publish_glow_range` ne publie QUE sous son
   //    propre armement : sans ces trois lignes, la course de CET item n'aurait aucun temoin que
