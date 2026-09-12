@@ -9,8 +9,14 @@
 # invalide l'arbre et relance une RECONSTRUCTION COMPLETE », « l'ordre de grandeur du bureau »
 # (335 cibles, 444 s). C'EST FAUX SUR CET ARBRE, et la capture versionnee du 12/09 le chiffre :
 # un commit fabrique y coute 255-260 ms et ZERO cible recompilee, contre 33 ms sans commit.
-# Aucun objet de `build-android` ne depend de `SDL_revision.h` (`ninja -t deps` en compte 0),
-# donc la regeneration de l'en-tete ne propage rien. LE DECLENCHEUR, LUI, EST BIEN LA : `.git/HEAD`
+# LA RAISON, MESUREE : les deux arbres ne compilent PAS le meme `SDL_revision.h`. Le bureau lit
+# celui que cmake GENERE (`build/third-party/SDL/include-revision/...`), et c'est pour ca qu'il a
+# recompile 7 cibles. `build-android` lit celui du SOURCE — `third-party/SDL/include/SDL3/
+# SDL_revision.h`, la version doc de SDL, versionnee, qui pose `#define SDL_REVISION ""`. L'en-tete
+# genere de l'arbre arm64 n'est donc lu par PERSONNE (`ninja -t deps` : 0 renvoi vers
+# `include-revision`), sa regeneration ne propage rien, et `SDL_GetRevision()` y a toujours rendu
+# la chaine VIDE — `strings libgk.so | grep -c SDL-3` vaut 0 avant comme apres.
+# LE DECLENCHEUR, LUI, EST BIEN LA : `.git/HEAD`
 # et `.git/refs/heads/<branche>` etaient DEUX ENTREES de `RERUN_CMAKE`, et ninja le NOMME
 # (`output build.ninja older than most recent input .../.git/refs/heads/physics-keira-clean`).
 # Ce recensement juge donc ce qui est vrai : le declencheur est coupe, la constante est derivee
@@ -255,8 +261,14 @@ SO_SHA=$(sha256sum "$SO" 2>/dev/null | cut -c1-32)
 pub ba_so_sha        "${SO_SHA:--}"
 pub ba_so_sha_avant  "${AV_SO:--}"
 pub ba_so_octets     "$(num "$(stat -c %s "$SO" 2>/dev/null || echo "")")"
-# POURQUOI il ne bouge pas, mesure et non suppose : la chaine de revision n'est dans AUCUNE
-# section du `.so`, et aucun objet de l'arbre ne depend de l'en-tete qui la porte.
+# POURQUOI il ne bouge pas — le MECANISME, mesure, pas une coincidence constatee. L'en-tete que
+# cet arbre COMPILE n'est pas celui que cmake genere : `ninja -t deps` nomme
+# `third-party/SDL/include/SDL3/SDL_revision.h`, la version du SOURCE, qui pose
+# `#define SDL_REVISION ""`. L'en-tete genere n'a donc AUCUN lecteur ici, et la chaine de revision
+# n'est dans aucune section du `.so`. On publie les trois : le chemin REELLEMENT compile, le
+# nombre de renvois vers l'en-tete genere, et les chaines du binaire.
+DEPS_ENTETE=$(ninja -C "$D" -t deps 2>/dev/null | grep -o '[^ ]*SDL3/SDL_revision\.h' | sort -u | head -1)
+pub ba_entete_compile "${DEPS_ENTETE:--}"
 pub ba_so_chaines_sdl "$(num "$(strings -a "$SO" 2>/dev/null | grep -c 'SDL-3' || true)")"
 pub ba_deps_sur_entete "$(num "$(ninja -C "$D" -t deps 2>/dev/null | grep -c 'include-revision/SDL3/SDL_revision.h' || true)")"
 
@@ -266,6 +278,11 @@ D4=0
 [ "$SO_SHA" = "$AV_SO" ] || D4=$((D4+1))
 # Et il n'a pas bouge NON PLUS pendant les trois invocations de ce recensement.
 [ -n "$SO_AVANT_INV" ] && [ "$SO_AVANT_INV" = "$SO_SHA" ] || D4=$((D4+1))
+# LE PLANCHER DE VACUITE DU MECANISME : `ba_deps_sur_entete=0` se lit « l'en-tete genere n'a aucun
+# lecteur », mais un journal de dependances VIDE rendrait le meme zero. On exige donc que ce
+# journal NOMME un `SDL_revision.h` — celui du source — avant de conclure quoi que ce soit du 0.
+[ -n "$DEPS_ENTETE" ] || D4=$((D4+1))
+[ "$(num "$(ninja -C "$D" -t deps 2>/dev/null | grep -c 'include-revision/SDL3/SDL_revision.h' || true)")" = 0 ] || D4=$((D4+1))
 
 # =========================================================== 5. LE GAIN, CHIFFRE ============
 # LE MOINS FLATTEUR DES DEUX COTES : le MINIMUM d'avant contre le MAXIMUM d'apres. Le bruit de
