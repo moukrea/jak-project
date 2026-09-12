@@ -8703,7 +8703,7 @@ items:
   game: jak1
   device: false
   owner_test: false
-  code_scope: jeu
+  code_scope: harnais
   feature: Une construction sans edition cesse de tout recompiler, et de laisser un binaire perime derriere
     elle
   gate:
@@ -8731,6 +8731,7 @@ items:
   prompt: prompts/item-build-tree-reinvalidates-itself.md
   notes: 'issu du signalement de census-audit-blind-spots, 12/09 : ~7 min par cycle et un binaire perime
     avec un code de retour nul.'
+  no_code: true
 - id: water-ocean-mesh-hit-counter-cost
   status: open
   priority: 30
