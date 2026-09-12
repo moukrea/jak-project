@@ -69,6 +69,7 @@ from lib import cli_backend
 from lib import impossible as impossible_state
 from lib import gate_verdict
 from lib import safe_reload
+from lib import suite_gate
 
 BACKEND = "claude"
 
@@ -1783,6 +1784,43 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
                               else f"[green]close-gate signalements: {_msg.strip()}[/green]")
         except subprocess.TimeoutExpired:
             return ("fail", "CLOSE-GATE/signalements : findings_gate.sh n'a pas repondu en 120 s")
+
+    # GATE SUITE — LA SUITE DU HARNAIS EST LUE ICI, ET NULLE PART AILLEURS.
+    # MARQUEUR : CLOSE-GATE/suite
+    #
+    # Mesure du 2026-09-12 : 556 verts a 06:16, QUARANTE-QUATRE rouges a 15:45. L'item qui les
+    # avait cassees (`dead-published-keys-round-2`, trois cles renommees en `_const`, lecteur
+    # mis a jour, tests non) a ete ACCEPTE, porte verte, et personne n'a rien vu — parce que
+    # `grep -n pytest orchestrator.py validators/` ne rendait RIEN. Aucune porte ne lancait la
+    # suite : le vert du matin ne protegeait de rien des l'apres-midi, et le chantier qui
+    # l'avait obtenu perdait son acquis en quelques heures.
+    #
+    # LE COUT EST DIT, JAMAIS AVALE. La suite prend 90 a 190 s (80 s mesurees le 12/09 sur 560
+    # tests). Le budget retenu et la duree MESUREE sont journalises a chaque fermeture ; un
+    # depassement est annonce en clair et ne refuse rien — ce n'est pas la faute de l'item qui
+    # ferme. Le plafond dur, lui, refuse : une suite tuee n'a rien prouve.
+    #
+    # LE CALCUL N'EST PAS ICI. `lib/suite_gate.py` est le seul producteur du verdict ; cette
+    # porte, le recensement de l'item et le banc l'appellent tous les trois. Deux regles
+    # ecrites a deux endroits divergent en silence.
+    _sg = suite_gate.judge(REPO_ROOT, AUTOPORT_DIR, iid)
+    log(f"· suite : {_sg['collected']} test(s) collecte(s), {_sg['failed']} rouge(s), "
+        f"{_sg['unwaived']} sans dispense, {_sg['duration_s']}s "
+        f"(budget {_sg['budget_s']}s) — registre {_sg['registry_sha']} "
+        f"({_sg['registry_entries']} entree(s), dont {_sg['self_added']} de cet item)",
+        "dim" if _sg["verdict"] == "pass" else "yellow")
+    if _sg["over_budget"]:
+        log(f"· suite : {_sg['duration_s']}s DEPASSENT le budget de {_sg['budget_s']}s. "
+            f"Ce n'est pas un refus, c'est un cout qui derive et qu'on refuse d'avaler.",
+            "yellow")
+    if _sg["verdict"] != "pass":
+        return ("fail",
+                "CLOSE-GATE/suite: la suite du harnais refuse cette fermeture.\n"
+                + _sg["reason"]
+                + f"\n(suite : {_sg['collected']} collecte(s), {_sg['failed']} rouge(s), "
+                  f"{_sg['duration_s']}s ; registre {_sg['registry_sha']} ; base "
+                  f"{_sg['base_ref']} ; reproduis avec : python3 "
+                  f"{AUTOPORT_DIR.name}/lib/suite_gate.py judge --item {iid})")
 
     # GATE 4 — l'oeil de l'owner est la porte FINALE. Un item passe donc en
     # `to-test`, jamais directement en `validated` : seul `owner_ok` le ferme.
