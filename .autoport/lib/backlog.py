@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import importlib
 import json
 import hashlib
 import os
@@ -41,12 +42,24 @@ try:                                                  # noqa: SIM105
 except ImportError:                                   # pragma: no cover
     import impossible as _impossible
 
-# LE LECTEUR UNIQUE du verdict d'un essai — `logs/<id>/validator-NNN.txt`, ecrit par la
-# machine. Meme double forme d'import, pour la meme raison.
+# L'AUTORITE du verdict d'un essai — le champ `gate_verdict` de l'item, et en repli
+# `logs/<id>/validator-NNN.txt`. Meme double forme d'import, pour la meme raison.
 try:                                                  # noqa: SIM105
     from lib import gate_verdict as _gate_verdict
 except ImportError:                                   # pragma: no cover
     import gate_verdict as _gate_verdict
+
+# VERDICT/dans-l-item — L'AUTORITE VOYAGE AVEC CE FICHIER, TOUJOURS DU MEME MILLESIME.
+# `orchestrator.load_backlog` fait `importlib.reload(backlog)` a chaque tour : c'est ce qui
+# permet a ce fichier-ci de corriger la file sans redemarrer la boucle (voir `no_device_marker`).
+# Mais recharger CE module ne recharge PAS `gate_verdict` : l'import ci-dessus retrouve l'objet
+# deja pose dans `sys.modules`, celui du demarrage. Un orchestrateur lance AVANT ce chantier
+# aurait donc execute le `machine_promotion_plan` NEUF contre une autorite VIEILLE, sans
+# `verdict_from_item` — `AttributeError`, avale par le `try` de `free_machine_proved`, et la
+# promotion machine s'arretait en silence jusqu'au prochain redemarrage. Exactement le gel que ce
+# chantier corrige, refabrique par le chantier lui-meme. On recharge donc l'autorite ICI, au
+# POINT DE PRODUCTION : `backlog.py` et l'autorite qu'il appelle ne peuvent plus diverger.
+importlib.reload(_gate_verdict)
 
 # 2026-09-11 — LECTEUR EN C. PyYAML embarque un analyseur ecrit en Python et un autre en C ; le
 # second etait installe et inutilise. Mesure sur le backlog reel (328 Ko) : 1 992 ms contre
@@ -206,14 +219,29 @@ class Backlog:
 
         INCONNU = DEFAUT : pas de journal, ou un journal muet, et l'item RESTE. On ne valide
         rien sur un silence.
+
+        VERDICT/dans-l-item (2026-09-12) — LE CHAMP DE L'ITEM EST LU EN PREMIER, LE JOURNAL
+        N'EST QU'UN REPLI. `logs/<id>/validator-NNN.txt` est exclu du depot par `.gitignore` :
+        sur un clone neuf, ou apres une purge de journaux, il n'existe pas, et cette fonction
+        rendait `journal-absent` pour TOUS les items parques. Fail-CLOSED, donc rien de faux
+        n'etait valide — mais un item dont la porte avait REELLEMENT tenu gelait pour toujours,
+        et ses dependants avec. La porte ecrit desormais son verdict dans l'item (voir
+        `orchestrator.pronounce_gate`), et le backlog est VERSIONNE. `source` dit d'ou vient
+        chaque reponse : `item` ou `journal`. Un repli n'est pas une faute — c'est ainsi que se
+        lisent les items parques AVANT ce chantier — mais il est COMPTE et publie, parce qu'un
+        repli silencieux est exactement ce qui a permis a la panne de durer deux jours.
         """
         logs = self._logs_dir()
         plan = []
         for iid, owner_test in self.parked_for_owner():
-            v = _gate_verdict.validator_verdict(logs, iid)
+            v = _gate_verdict.verdict_from_item(self.get(iid) or {})
+            if v is None:
+                # LE REPLI, et lui seul : le champ manque ou ne se lit pas.
+                v = dict(_gate_verdict.validator_verdict(logs, iid),
+                         source=_gate_verdict.SRC_JOURNAL)
             plan.append({"id": iid, "owner_test": bool(owner_test), "green": bool(v["green"]),
                          "verdict": v["reason"], "journal": v["file"], "seq": v["seq"],
-                         "line": v["line"],
+                         "line": v["line"], "source": v["source"],
                          "promote": (not owner_test) and bool(v["green"])})
         return plan
 

@@ -2096,6 +2096,11 @@ class Outcome:
     key_lines: list[str] = field(default_factory=list)
     resume_at: int | None = None
     stderr_tail: list[str] = field(default_factory=list)
+    # VERDICT/dans-l-item : ce que la porte doit pouvoir ECRIRE dans l'item quand elle prononce.
+    # Le numero d'essai et le nom du journal sont calcules dans `run_attempt` et mouraient avec
+    # elle ; la boucle en avait besoin et ne pouvait pas les reconstruire.
+    seq: int = 0
+    journal: str = "-"
 
 
 def run_attempt(item: dict, state: dict) -> Outcome:
@@ -2538,7 +2543,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                            + ("" if gate_status == "pass"
                               else " (porte passée — EN ATTENTE DU TEST DE L'OWNER)")):
                 git_push()
-            return Outcome(gate_status)
+            return Outcome(gate_status, seq=seq, journal=validator_log.name)
         with validator_log.open("a") as f:
             f.write("\n\n" + gate_reason + "\n")
         log(gate_reason, "yellow")
@@ -2683,6 +2688,42 @@ def free_machine_proved(bk) -> list[str]:
     return freed
 
 
+def pronounce_gate(bk, item_id: str, status: str, result: str,
+                   seq: int = 0, journal: str = "-", **fields) -> dict:
+    """VERDICT/dans-l-item — LA PORTE ECRIT CE QU'ELLE A RENDU DANS L'ITEM, PAS AILLEURS.
+
+    Signalement du 12/09 : la porte posait `to-test` et `delivered`, et RIEN D'AUTRE. La seule
+    preuve qu'elle avait tenu etait `logs/<id>/validator-NNN.txt`, que `.gitignore` exclut du
+    depot. Sur un clone neuf, ou apres une purge de journaux, `machine_proved_to_validated`
+    lisait `journal-absent` pour tous les items parques : fail-CLOSED, donc aucun faux vert, mais
+    un item PROUVE gelait pour toujours et gelait ses dependants. `perf-ocean-idle` a vecu ca
+    deux jours avec un journal ; sans journal, rien ne l'aurait jamais reveille.
+
+    Le backlog est la seule verite du travail ET il est versionne : le verdict s'ecrit LA.
+    `gate_verdict.gate_record` en fixe la forme — resultat, date, empreinte des OCTETS de la
+    preuve jugee, essai, journal. La racine des rapports est derivee du backlog qu'on ECRIT, pas
+    d'une globale : un banc jetable pose son backlog ailleurs et y trouve ses propres preuves.
+
+    LE PRONONCE NE PEUT PAS TUER UNE FERMETURE. Si l'ecriture du champ echoue, on repose le
+    statut sans lui : un item ferme sans sa trace se rattrape, un item que la boucle a laisse
+    tomber en plein prononce, non.
+    """
+    try:
+        reports = bk._reports_dir()
+    except (AttributeError, TypeError):
+        reports = str(AUTOPORT_DIR / "reports")
+    record = gate_verdict.gate_record(result, reports, item_id, seq, journal)
+    try:
+        bk.set_status(item_id, status, gate_verdict=record, **fields)
+    except Exception as e:                                              # noqa: BLE001
+        log(f"⚠ {item_id} : le verdict de la porte n'a pas pu etre ecrit dans l'item ({e}) — "
+            f"le statut est pose sans lui, et la promotion machine devra relire le journal.",
+            "yellow")
+        bk.set_status(item_id, status, **fields)
+        return {}
+    return record
+
+
 def launch_item(bk, item: dict) -> dict:
     """LE LANCEMENT D'UN ESSAI : l'item passe `in-progress`, et son périmètre est PRONONCÉ ICI.
 
@@ -2713,12 +2754,24 @@ def launch_item(bk, item: dict) -> dict:
     except (AttributeError, TypeError):
         logs_root = str(LOG_ROOT)
     sans_code, pourquoi = gate_verdict.code_free_item(item)
+    # PERIMETRE/champ-explicite — LA MEME DECISION, ET D'OU ELLE VIENT. `code_free_item` est le
+    # raccourci que GATE 1 appelle : il rend la decision, jamais sa provenance. On redemande donc
+    # la decision COMPLETE a la meme autorite — un appel pur, sans entree/sortie. Ce n'est pas
+    # une redite a factoriser : le compte d'appels de `code_free_item` dans ce fichier est le
+    # temoin d'un AUTRE item (`src_gate1_lit_autorite`, harness-close-gate-code-free), et le
+    # fondre ici le ferait rougir sans rien corriger.
+    provenance = gate_verdict.scope_decision(item)["source"]
     pose = bool(sans_code) and not item.get("no_code", False)
-    journal = gate_verdict.note_launch(logs_root, iid, pose, pourquoi) if sans_code else ""
+    journal = (gate_verdict.note_launch(logs_root, iid, pose, pourquoi, provenance)
+               if sans_code else "")
     if pose:
-        log(f"· {iid} : son périmètre interdit le code du jeu ({pourquoi}) — `no_code: true` "
-            f"posé AU LANCEMENT. Sans ça, la porte de fermeture aurait refusé cet essai sur "
-            f"ce seul drapeau, porte machine tenue ou non.", "yellow")
+        log(f"· {iid} : son périmètre interdit le code du jeu ({pourquoi}, source "
+            f"{provenance}) — `no_code: true` posé AU LANCEMENT. Sans ça, la porte de "
+            f"fermeture aurait refusé cet essai sur ce seul drapeau, porte machine tenue ou "
+            f"non.", "yellow")
+    if provenance == gate_verdict.SRC_PROSE:
+        log(f"· {iid} : son périmètre a été DEVINÉ dans une phrase ({pourquoi}). Le champ "
+            f"`code_scope: none` le dirait sans deviner — ce repli est compté.", "dim")
     try:
         bk.set_status(iid, "in-progress", **({"no_code": True} if pose else {}))
     except TypeError:
@@ -2729,7 +2782,7 @@ def launch_item(bk, item: dict) -> dict:
         # la porte de fermeture reçoivent est celui-ci, on le met d'accord avec le fichier.
         item["no_code"] = True
     return {"code_free": bool(sans_code), "posed": pose, "reason": pourquoi or "-",
-            "journal": journal or "-", "logs_root": logs_root}
+            "source": provenance, "journal": journal or "-", "logs_root": logs_root}
 
 
 def release_stale_in_progress(bk) -> list[str]:
@@ -2897,7 +2950,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         if out.kind == "pass":
-            bk.set_status(iid, "validated")
+            pronounce_gate(bk, iid, "validated", gate_verdict.VERDICT_TENUE,
+                           out.seq, out.journal)
             log(f"✓ {iid} validé en {format_duration(time.time() - started)} "
                 f"({state['retries'].get(iid, 1)} essai(s)).", "bold green")
             no_start_streak = 0
@@ -2907,8 +2961,9 @@ def main(argv: list[str] | None = None) -> int:
             # « Dette a trier » avec les orphelins de juillet au lieu de « A tester », et
             # l'owner ne voit jamais qu'on vient de lui livrer quelque chose (perf-ocean-idle,
             # 10/09 : livre a 09h55, invisible dans son digest de 10h18).
-            bk.set_status(iid, "to-test",
-                          delivered=datetime.now().date().isoformat())
+            pronounce_gate(bk, iid, "to-test", gate_verdict.VERDICT_TENUE,
+                           out.seq, out.journal,
+                           delivered=datetime.now().date().isoformat())
             console.print(Panel.fit(
                 f"[bold yellow]⏸ {iid} — À TESTER PAR L'OWNER[/bold yellow]\n\n"
                 f"{item.get('feature', '')}\n\n"
