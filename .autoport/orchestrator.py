@@ -405,7 +405,7 @@ def format_duration(seconds: float) -> str:
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
               "rate_interrupts", "aborted", "commit_paths", "foreign_cause",
-              "proof_impossible", "last_update")
+              "proof_impossible", "proof_writer", "last_update")
 
 
 class StateConflict(Exception):
@@ -451,6 +451,10 @@ def load_state() -> dict:
         # verdicts REQUALIFIES (`total`), comptes a part de `retries` comme `aborted` et
         # `foreign_cause`. Une machine qui ne peut pas mesurer ne debite jamais le budget.
         "proof_impossible": dict(raw.get("proof_impossible") or {}),
+        # Les essais dont le JUGE a du attendre la fin de la course qui ecrivait leur preuve.
+        # Un compteur qu'on n'ecrit nulle part ne vaut rien : celui-ci est ECRIT ici, releve
+        # par le recensement de `harness-proof-file-has-no-writer-lock`, et il nomme le pid.
+        "proof_writer": dict(raw.get("proof_writer") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -1026,6 +1030,48 @@ def ecrire_journal_impossible(validator_log: Path, st: dict, gate_reason: str,
     except OSError:
         pass
     return contredisait
+
+
+# ============================================================
+# L'ECRIVAIN DE LA PREUVE, ATTENDU AVANT DE JUGER
+# ============================================================
+PROOF_WRITER_WAIT_MAX = int(os.environ.get("AUTOPORT_JUDGE_WAIT_MAX", "1200"))
+
+
+def proof_writer_alive(item_id: str) -> tuple[int, str]:
+    """Le pid de la course qui ECRIT la preuve de cet item, et l'instant ou elle a pris le
+    verrou. (0, "") quand personne n'ecrit.
+
+    Le nom du verrou vient de l'AUTORITE (`lib/impossible.py`), comme celui de la preuve : un
+    nom fabrique ici serait le deuxieme nommeur, et il divergerait en silence."""
+    for suffix in impossible_state.SUFFIXES:
+        path = Path(impossible_state.arm_path(str(AUTOPORT_DIR / "reports"), item_id,
+                                              "writer", suffix))
+        try:
+            champs = impossible_state.parse(path.read_text(errors="replace"))
+        except OSError:
+            continue
+        pid = champs.get("pid", "")
+        if pid.isdigit() and impossible_state.pid_alive(int(pid)):
+            return int(pid), champs.get("at", "-")
+    return 0, ""
+
+
+def wait_for_proof_writer(item_id: str, ceiling: int = PROOF_WRITER_WAIT_MAX) -> tuple[int, int]:
+    """Attendre, borne, que plus aucune course n'ecrive la preuve de cet item.
+
+    Rend (secondes attendues, pid rencontre). Un zero en deuxieme position veut dire que
+    personne n'ecrivait : le juge est passe apres la chaine, comme il doit."""
+    pid, _ = proof_writer_alive(item_id)
+    if not pid:
+        return 0, 0
+    debut = time.monotonic()
+    while time.monotonic() - debut < ceiling:
+        vivant, _ = proof_writer_alive(item_id)
+        if not vivant:
+            break
+        time.sleep(2)
+    return int(time.monotonic() - debut), pid
 
 
 def _impossible_reset(state: dict, item_id: str) -> None:
@@ -2264,6 +2310,15 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             env.pop(key, None)
     env["AUTOPORT_PHASE_ID"] = iid                       # = l'id d'item
     env["AUTOPORT_PHASE_VALIDATOR"] = str(GENERIC_VALIDATOR)
+    # L'IDENTITE DE CET ESSAI, POSEE UNE FOIS ET LUE DES DEUX COTES
+    # (harness-proof-file-has-no-writer-lock, 2026-09-12). `lib/proof_run.sh` la recopie dans
+    # `proof_attempt_id=` ; `validators/generic.sh` la relit dans SON environnement et refuse
+    # une preuve qui porte celle d'un autre essai. Sans elle, un `proof_run.sh` orphelin d'un
+    # essai TUE pouvait ecrire sa preuve par-dessus celle de l'essai suivant, et le juge lisait
+    # la course d'AVANT en croyant juger celle d'apres. Aucun espace : `proof.txt` jette toute
+    # valeur qui en porte un.
+    attempt_token = f"{iid}@{seq}#{int(started_at)}"
+    env["AUTOPORT_ATTEMPT_ID"] = attempt_token
 
     # 2026-08-17 : le prompt passe par STDIN, plus jamais en argv. Un argument
     # unique est plafonne a MAX_ARG_STRLEN (~128 Ko) sur Linux ; le contrat a
@@ -2547,10 +2602,27 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                            resume_at=int(time.time()) + API_529_SLEEP)
 
     # ---- COUNTED OUTCOMES ------------------------------------------------
+    # LE JUGE NE PASSE PAS AVANT LA FIN DE LA CHAINE
+    # (harness-proof-file-has-no-writer-lock, 2026-09-12). Le 12/09 a 18:12,
+    # `build-android-reinvalidates-itself` a ete BLOQUE sur trois refus identiques « proof.txt
+    # absent ou vide » : son travail etait commite a 18:04 et 18:06, sa preuve — 34 340 octets,
+    # porte tenue — a ete ecrite a 18:21, et le juge etait passe trois fois avant. La garde
+    # anti-boucle a lu trois empreintes d'echec identiques et a bloque l'item, ce qui a demande
+    # un arbitrage humain pour un travail qui etait fait. Le verrou d'ecriture dit qu'une course
+    # ECRIT : on l'attend, borne, et on le DIT. On ne relance rien, on ne tue rien.
+    waited_writer, writer_pid = wait_for_proof_writer(iid)
+    if writer_pid:
+        log(f"· une course ECRIVAIT la preuve de {iid} (pid={writer_pid}) — juge retenu "
+            f"{waited_writer} s, le temps qu'elle finisse", "yellow")
+        state.setdefault("proof_writer", {})[iid] = {
+            "waited_s": waited_writer, "pid": writer_pid,
+            "at": datetime.now(timezone.utc).isoformat()}
+        save_state(state)
     log(f"{BACKEND} est sorti en {rc}. Validateur…", "dim")
     with validator_log.open("w") as f:
         v = subprocess.run(["bash", str(GENERIC_VALIDATOR)], cwd=REPO_ROOT,
-                           env={**os.environ, "AUTOPORT_PHASE_ID": iid},
+                           env={**os.environ, "AUTOPORT_PHASE_ID": iid,
+                                "AUTOPORT_ATTEMPT_ID": attempt_token},
                            stdout=f, stderr=subprocess.STDOUT)
 
     state["retries"][iid] = int(state["retries"].get(iid, 0)) + 1

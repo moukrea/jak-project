@@ -17,10 +17,11 @@ g = it.get('gate') or {}
 q = lambda s: "'" + str(s).replace("'", "'\\''") + "'"
 import impossible as _I
 print("PFN=%s OFFN=%s" % (q(_I.arm_name('proof', '')), q(_I.arm_name('proof', '-off'))))
+print("WRN=%s RUNN=%s" % (q(_I.arm_name('writer', '')), q(_I.arm_name('run', ''))))
 print("GK=%s GO=%s GV=%s DEV=%d FMIN=%s" % (q(g.get('key', '')), q(g.get('op', '')), q(g.get('value', '')), 1 if it.get('device') else 0, q(it.get('frames_min', 300))))
 PY
 )"
-[ -n "${PFN:-}" ] && [ -n "${OFFN:-}" ] || { echo "[$P FAIL] lib/impossible.py n'a nomme ni la preuve ni son ablation : ce juge ne fabrique pas de nom de remplacement, il refuse." >&2; exit 1; }
+[ -n "${PFN:-}" ] && [ -n "${OFFN:-}" ] && [ -n "${WRN:-}" ] && [ -n "${RUNN:-}" ] || { echo "[$P FAIL] lib/impossible.py n'a nomme ni la preuve ni son ablation : ce juge ne fabrique pas de nom de remplacement, il refuse." >&2; exit 1; }
 PF="$D/$PFN"
 if [ ! -s "$PF" ]; then
   # NOMMAGE/premiere-ligne — LA CAUSE NOMMEE PASSE DEVANT (harness-impossible-single-namer, 12/09).
@@ -32,6 +33,25 @@ if [ ! -s "$PF" ]; then
   # constat qui suit est le meme, au mot pres, et il compte toujours pour un.
   imp=$(python3 .autoport/lib/impossible.py why --reports .autoport/reports --item "$P" 2>/dev/null)
   [ -z "$imp" ] || echo "[$P PREUVE IMPOSSIBLE] $imp" >&2
+  # ========================================= COURSE-EN-VOL/debut ==============================
+  # « ABSENTE » ET « PAS ENCORE ECRITE » NE SE LISENT PLUS PAREIL
+  # (harness-proof-file-has-no-writer-lock, 2026-09-12). Le 12/09 a 18:12,
+  # `build-android-reinvalidates-itself` a ete BLOQUE sur trois refus identiques « proof.txt
+  # absent ou vide » alors que son travail etait commite a 18:04 et 18:06 et que sa preuve —
+  # 34 340 octets, porte tenue — a ete ecrite a 18:21. Le juge etait simplement passe AVANT la
+  # fin de la chaine, trois fois, et la garde anti-boucle a lu trois empreintes identiques. Le
+  # verrou d'ecriture dit, lui, qu'une course EST en train d'ecrire : on le NOMME.
+  envol="$D/${WRN:-}"
+  if [ -n "${WRN:-}" ] && [ -s "$envol" ]; then
+    wpid=$(sed -n 's/^pid=//p' "$envol" | tail -1)
+    wat=$(sed -n 's/^at=//p' "$envol" | tail -1)
+    wess=$(sed -n 's/^attempt=//p' "$envol" | tail -1)
+    case "${wpid:-}" in ''|*[!0-9]*) wpid="" ;; esac
+    if [ -n "$wpid" ] && kill -0 "$wpid" 2>/dev/null; then
+      echo "[$P COURSE EN VOL] une course ECRIT en ce moment la preuve de cet item : pid=$wpid, essai=${wess:--}, demarree a ${wat:--}. Ce refus ne decrit AUCUN defaut du travail juge — le juge est passe avant la fin de la chaine." >&2
+    fi
+  fi
+  # COURSE-EN-VOL/fin
   # NOM-LITTERAL-ATTENDU: message-du-juge-pas-un-chemin
   bad "proof.txt absent ou vide. Produis-le : .autoport/lib/proof_run.sh $P $([ "${DEV:-0}" = 1 ] && echo device || echo x86)"
 else
@@ -51,11 +71,43 @@ else
   if [ -z "$vs_proof" ]; then
     bad "la preuve ne porte pas 'verdict_sources_sha=' : elle vient d'un producteur qui n'epinglait pas les sources de son propre verdict. Reproduis-la."
   elif [ "$vs_proof" != "$vs_now" ]; then
-    bad "verdict_sources_sha=$vs_proof recopie dans la preuve, $vs_now recalcule sur le disque ($vs_cnt fichier(s) epingle(s), liste=$(kv verdict_sources_list)) : une source du VERDICT a change depuis la course"
+    # LA VRAIE CAUSE EST NOMMEE, PAS DEVINEE (harness-proof-file-has-no-writer-lock). Le 12/09
+    # un commit du SUPERVISEUR tombe a 16:12:59 pendant une course a fait bouger cette
+    # empreinte, et l'essai a ete refuse pour un defaut qui n'etait pas le sien. On ne
+    # l'interdit pas — on le DIT, avec les commits survenus depuis le depart de la course.
+    rc_kv=$(bash .autoport/lib/run_commits.sh "$P" "$(kv proof_head_at_start)" kv 2>/dev/null)
+    rc_n=$(printf '%s\n' "$rc_kv" | sed -n 's/^proof_commits_during_run=//p' | tail -1)
+    rc_v=$(printf '%s\n' "$rc_kv" | sed -n 's/^proof_commits_verdict_sources=//p' | tail -1)
+    rc_l=$(printf '%s\n' "$rc_kv" | sed -n 's/^proof_commits_verdict_list=//p' | tail -1)
+    bad "verdict_sources_sha=$vs_proof recopie dans la preuve, $vs_now recalcule sur le disque ($vs_cnt fichier(s) epingle(s), liste=$(kv verdict_sources_list)) : une source du VERDICT a change depuis la course. Commits survenus DEPUIS LE DEPART de cette course : ${rc_n:--1}, dont ${rc_v:--1} touchant une source de verdict [${rc_l:--}]"
   fi
   [ "$(kv verdict_sources_count)" = "$vs_cnt" ] || bad "verdict_sources_count=$(kv verdict_sources_count) dans la preuve, $vs_cnt sur le disque : la liste des sources du verdict a change depuis la course"
   vsn=$(bash .autoport/lib/verdict_sources.sh "$P" newer "$PF" 2>/dev/null | paste -sd, -)
   [ -z "$vsn" ] || bad "source du VERDICT editee APRES la preuve ($vsn) : la preuve est plus vieille que son propre juge"
+  # ===================================== IDENTITE-DE-LA-COURSE/debut ==========================
+  # UNE PREUVE DOIT VENIR DE L'ESSAI QU'ON JUGE, ET ELLE LE DIT
+  # (harness-proof-file-has-no-writer-lock, 2026-09-12). Rien ici ne rattachait `proof.txt` a
+  # l'essai en cours : un `proof_run.sh` orphelin d'un essai TUE pouvait finir sa course et
+  # ecrire SA preuve — `started_at=14:16:05Z`, `crash=1` — par-dessus celle de l'essai suivant,
+  # deja en vol. Le juge lisait alors la course d'AVANT en croyant juger celle d'apres, et seul
+  # l'ordre d'arrivee decidait du verdict. L'orchestrateur pose desormais la meme
+  # `AUTOPORT_ATTEMPT_ID` dans l'environnement de l'essai ET dans celui de ce juge ; la preuve
+  # la porte, et les deux doivent coincider.
+  #
+  # PAS D'IDENTITE POSEE = RIEN A CONTREDIRE. Une course lancee a la main, hors orchestrateur,
+  # n'a aucun essai courant : le juge ne compare pas ce qu'on ne lui a pas donne. Il ne
+  # FABRIQUE pas d'identite pour se rassurer.
+  # Le banc leve ce bloc TEL QUEL : une recopie dans le banc mesurerait la recopie.
+  essai_courant=$(printf '%s' "${AUTOPORT_ATTEMPT_ID:-}" | tr -s '[:space:]' '_')
+  preuve_essai=$(kv proof_attempt_id)
+  if [ -n "$essai_courant" ]; then
+    if [ -z "$preuve_essai" ]; then
+      bad "la preuve ne porte pas 'proof_attempt_id=' : elle sort d'un producteur qui ne rattache pas sa course a un essai. Rien ne dit qu'elle decrit l'essai '$essai_courant' — reproduis-la."
+    elif [ "$preuve_essai" != "$essai_courant" ]; then
+      bad "proof_attempt_id=$preuve_essai dans la preuve, essai courant '$essai_courant' : cette preuve a ete produite par une AUTRE course (course=$(kv proof_run_id), pid=$(kv proof_run_pid), started_at=$(kv started_at)). Le verdict porterait sur la mauvaise course."
+    fi
+  fi
+  # IDENTITE-DE-LA-COURSE/fin
   # LE CRITERE PRODUIT LE VERDICT AUTANT QUE LE SCRIPT QUI LE CALCULE
   # (harness-verdict-sources-are-incomplete, 2026-09-12). `gate.key/op/value`, `frames_min` et
   # `device` vivent dans `backlog.yaml`, que l'orchestrateur reecrit toutes les secondes :

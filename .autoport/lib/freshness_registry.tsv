@@ -71,3 +71,5 @@
 .autoport/lib/census/harness-subsecond-freshness-is-blind.sh	MOTIF = re.compile(	non-fraicheur	le motif du balayage lui-meme : il DECRIT les lectures d'horodatage du harnais, il n'en fait aucune. Un instrument qui se recense doit se classer, sinon il compte sa propre existence comme un defaut.
 .autoport/lib/census/harness-subsecond-freshness-is-blind.sh	|\s-ot\s|-newer|fromtimestamp	non-fraicheur	la suite du meme motif, coupee sur deux lignes.
 .autoport/tests/harness/test_freshness.py	rend NEUF chiffres	prose	commentaire du banc de regression du comparateur.
+.autoport/lib/census/harness-proof-file-has-no-writer-lock.sh	t_preuve = os.path.getmtime(preuve)	corrige	mtime de la preuve, compare STRICTEMENT (>) a celui du journal du juge, les deux lus par le MEME os.path.getmtime : meme resolution des deux cotes, egalite = pas de defaut compte.
+.autoport/lib/census/harness-proof-file-has-no-writer-lock.sh	t_juge = os.path.getmtime(chemin)	corrige	l autre cote de la MEME comparaison : le journal de validation, lu par le meme appel que la preuve.

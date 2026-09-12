@@ -119,6 +119,17 @@ KINDS = {
     # La paire de la course d'avant est ARCHIVEE sous ces deux noms avant l'effacement.
     "prev_proof": "-prev.txt",       # la preuve de la course PRECEDENTE de ce bras
     "prev_seal": "-prev.seal",       # son sceau, pose au `mv` et complete a la sortie
+    # L'ECRIVAIN UNIQUE (harness-proof-file-has-no-writer-lock, 12/09). Un essai TUE laissait
+    # son `proof_run.sh` VIVANT : il finissait sa course et ecrivait sa preuve PAR-DESSUS celle
+    # de l'essai suivant, qui etait deja en vol. Deux ecrivains sur le meme fichier, et seul
+    # l'ordre d'arrivee decidait du verdict. Le verrou porte le pid de l'ecrivain ET celui de
+    # son LANCEUR : un ecrivain vivant dont le lanceur est mort est un ORPHELIN, et c'est la
+    # seule definition — on n'interroge aucun motif de ligne de commande.
+    "writer": "-writer.lock",        # le verrou d'ecriture de CE bras : pid, lanceur, identite
+    # CE QUE LA COURSE EST, LU PENDANT QU'ELLE A LIEU. `proof.txt` n'existe pas encore quand le
+    # recensement de harnais tourne : sans ce fichier, un item ne pourrait juger l'ecrivain que
+    # sur du texte de script. Meme raison, meme forme que `wait`.
+    "run": "-run.txt",               # identite de la course, concurrence, orphelins, commits
 }
 
 

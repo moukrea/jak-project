@@ -130,7 +130,7 @@ SUF=""; [ "$OFF" = 1 ] && SUF="-off"
 AP_NAMES=$(python3 "$AP/lib/impossible.py" names "$SUF" 2>&1) || {
   echo "proof_run: lib/impossible.py ne derive aucun nom pour le bras '${SUF:-livre}' : $AP_NAMES" >&2; exit 3; }
 eval "$AP_NAMES"
-for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal; do
+for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal writer run; do
   eval "_v=\${AP_NAME_$_k:-}"
   [ -n "$_v" ] || { echo "proof_run: l'autorite n'a pas nomme '$_k' pour le bras '${SUF:-livre}'" >&2; exit 3; }
 done
@@ -167,6 +167,177 @@ EXTRA=""
 extra(){ EXTRA="${EXTRA:+$EXTRA
 }$*"; }
 
+# ====================================================== VERROU-ECRIVAIN/debut =================
+# UN SEUL ECRIVAIN PAR `proof.txt`, ET IL DIT QUI IL EST
+# (harness-proof-file-has-no-writer-lock, 2026-09-12).
+#
+# CE QUI EST ARRIVE, MESURE. L'essai 2 de `build-tree-reinvalidates-itself` a ete TUE ; son
+# `proof_run.sh` est reste VIVANT, bloque dans son `timeout ... gk`. Quand le `gk` orphelin a
+# ete retire a 16:23:45, ce script a REPRIS, lance le recensement en lisant les scripts NEUFS du
+# disque, et ecrit `proof.txt` avec SES donnees perimees (`started_at=14:16:05Z`,
+# `duration_s=458`, `crash=1`) — alors que la course de l'essai 3 etait en vol depuis 16:23:25.
+# Deux ecrivains sur le meme fichier, et seul l'ordre d'arrivee decidait du verdict.
+#
+# CE QUE CE BLOC POSE :
+#   * UN VERROU par item ET par bras. `flock` tient sur un descripteur, donc il tombe TOUT SEUL
+#     a la mort de l'ecrivain : un verrou qui survit a son porteur serait le defaut suivant.
+#     Une seconde course ATTEND, puis REFUSE — elle n'ecrase jamais. Le refus ne touche pas
+#     `proof.txt` : effacer la preuve du VOISIN serait recreer le defaut a l'envers.
+#   * L'ORPHELIN, par PID EXACT. Le verrou nomme son ecrivain ET son lanceur. Un ecrivain
+#     VIVANT dont le LANCEUR est mort est un orphelin : son essai a ete tue, plus personne
+#     n'attend sa preuve. On l'arrete, lui et ses descendants, jamais par `pkill -f` — un motif
+#     de ligne de commande se matche lui-meme et ne prouve que la liste des motifs.
+#   * L'IDENTITE DE LA COURSE, qui voyagera dans la preuve : `proof_attempt_id` vient du
+#     LANCEUR (l'orchestrateur le pose dans l'environnement de l'essai), `proof_run_id` de la
+#     course elle-meme. Le juge compare le premier a l'essai qu'il est en train de juger.
+#
+# LE BANC LEVE CE BLOC TEL QUEL et le rejoue dans un bac a sable : une recopie dans le banc
+# mesurerait la recopie, pas le geste. Il ne depend donc que de `$AP`, `$D`, `$ID`, `$SUF`, des
+# noms derives par l'autorite, et des trois fonctions `log`/`extra` que l'appelant fournit.
+PW_CONCURRENT=0        # combien de fois on a TROUVE le verrou tenu par un autre
+PW_ATTENDU=0           # secondes reellement attendues qu'il se libere
+PW_ORPH_TROUVES=0; PW_ORPH_ARRETES=0; PW_ORPH_RESTES=0
+pw_lit(){ sed -n "s/^$2=//p" "$1" 2>/dev/null | tail -1; }
+pw_vivant(){ case "${1:-}" in ''|-|*[!0-9]*) return 1 ;; esac; kill -0 "$1" 2>/dev/null; }
+# L'INSTANT DE DEMARRAGE D'UN PID, pour qu'un NUMERO REUTILISE ne se lise pas « toujours la ».
+# Le nom d'un processus peut contenir une espace et il est entre parentheses : on coupe apres la
+# DERNIERE parenthese fermante, apres quoi `starttime` est le vingtieme champ.
+pw_demarrage(){ sed 's/.*) //' "/proc/${1:-0}/stat" 2>/dev/null | awk '{print $20}'; }
+# UN LANCEUR REPOND quand son pid vit ET que c'est LE MEME processus qu'au depart. Sans la
+# seconde moitie, un pid recycle par le systeme ferait passer un orphelin pour une course
+# surveillee — et c'est l'orphelin qui ecrase la preuve du suivant.
+pw_lanceur_repond(){   # pw_lanceur_repond <pid> <demarrage-attendu>
+  pw_vivant "$1" || return 1
+  case "${2:-}" in ''|-) return 0 ;; esac          # pas de temoin : on s'en tient au pid
+  [ "$(pw_demarrage "$1")" = "$2" ]
+}
+# Les descendants d'un pid, du plus PROFOND au plus proche : tuer le pere d'abord reparente ses
+# fils a init et on ne les retrouve plus. C'est le `gk` orphelin du 12/09, exactement.
+pw_descendants(){
+  local enfant
+  for enfant in $(pgrep -P "$1" 2>/dev/null); do
+    pw_descendants "$enfant"
+    printf '%s\n' "$enfant"
+  done
+}
+# NOTRE PROPRE LIGNEE : on ne s'arrete pas soi-meme, ni le shell qui nous a lances.
+pw_est_des_notres(){
+  local p=$$ n=0
+  while [ "$p" -gt 1 ] && [ "$n" -lt 40 ]; do
+    [ "$p" = "$1" ] && return 0
+    # LE NOM D'UN PROCESSUS PEUT CONTENIR UNE ESPACE, et il est entre parentheses : compter les
+    # champs depuis le debut de /proc/<pid>/stat decale le ppid des qu'un `comm` en porte une.
+    # On coupe apres la DERNIERE parenthese fermante ; le ppid est alors le deuxieme champ.
+    p=$(sed 's/.*) //' "/proc/$p/stat" 2>/dev/null | awk '{print $2}'); [ -n "$p" ] || return 1
+    n=$((n+1))
+  done
+  return 1
+}
+pw_orphelin(){   # pw_orphelin <fichier-verrou> — arrete l'ecrivain orphelin qui le tient
+  local f=$1 pid lanceur d
+  [ -s "$f" ] || return 0
+  pid=$(pw_lit "$f" pid); lanceur=$(pw_lit "$f" launcher)
+  pw_vivant "$pid" || return 0                 # personne dedans : rien a arreter
+  pw_est_des_notres "$pid" && return 0
+  # SON LANCEUR REPOND = CE N'EST PAS UN ORPHELIN. C'est la SEULE definition, et elle se lit
+  # sur un pid exact : un motif de ligne de commande (`pkill -f`) se matche lui-meme et ne
+  # prouve que la liste des motifs.
+  pw_lanceur_repond "$lanceur" "$(pw_lit "$f" launcher_boot)" && return 0
+  PW_ORPH_TROUVES=$((PW_ORPH_TROUVES+1))
+  log "ORPHELIN : l'ecrivain pid=$pid tient $f et son lanceur pid=${lanceur:--} est mort — on l'arrete"
+  for d in $(pw_descendants "$pid"); do kill -TERM "$d" 2>/dev/null || true; done
+  kill -TERM "$pid" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pw_vivant "$pid" || break; sleep 1; done
+  if pw_vivant "$pid"; then kill -KILL "$pid" 2>/dev/null || true; sleep 1; fi
+  if pw_vivant "$pid"; then PW_ORPH_RESTES=$((PW_ORPH_RESTES+1))
+  else PW_ORPH_ARRETES=$((PW_ORPH_ARRETES+1)); fi
+}
+pw_prendre(){   # pw_prendre <fichier-verrou> <borne-s> -> 0 pris, 1 refuse
+  local f=$1 max=$2 attendu=0
+  exec 9>>"$f" || return 1
+  while :; do
+    if flock -n 9; then PW_ATTENDU=$attendu; return 0; fi
+    PW_CONCURRENT=$((PW_CONCURRENT+1))
+    if [ "$attendu" -ge "$max" ]; then PW_ATTENDU=$attendu; return 1; fi
+    [ "$attendu" = 0 ] && log "verrou d'ecriture tenu par pid=$(pw_lit "$f" pid) — on attend (borne ${max}s)"
+    sleep 1; attendu=$((attendu+1))
+  done
+}
+pw_marquer(){   # pw_marquer <fichier-verrou> : QUI ecrit, QUI l'a lance, SOUS QUELLE identite
+  printf 'pid=%s\nlauncher=%s\nlauncher_boot=%s\nitem=%s\narm=%s\nrun=%s\nattempt=%s\nat=%s\n' \
+    "$$" "$PPID" "$(pw_demarrage "$PPID")" "$ID" "${SUF:-livre}" "$PW_RUNID" "$PW_ATTEMPT" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$1"
+}
+# VERROU-ECRIVAIN/fin
+
+# L'IDENTITE DE CETTE COURSE. `AUTOPORT_ATTEMPT_ID` est pose par l'orchestrateur dans
+# l'environnement de l'essai ; il le pose AUSSI dans celui du juge, qui compare les deux. Quand
+# il est absent — course lancee a la main — la preuve porte `-` et le juge ne compare rien : il
+# n'y a alors aucun essai courant a contredire.
+PW_RUNID="$(date -u +%Y%m%dT%H%M%SZ)-$$-$(od -An -N4 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')"
+PW_ATTEMPT="${AUTOPORT_ATTEMPT_ID:--}"
+PW_ATTEMPT=$(printf '%s' "$PW_ATTEMPT" | tr -s '[:space:]' '_')
+[ -n "$PW_ATTEMPT" ] || PW_ATTEMPT="-"
+PW_HEAD_DEPART=$(git rev-parse --verify --quiet HEAD 2>/dev/null || echo "-")
+PW_LOCKF="$D/$AP_NAME_writer"
+PW_RUNF="$D/$AP_NAME_run"
+PW_WAITMAX="${AUTOPORT_PROOF_WRITER_WAIT:-180}"
+
+pw_orphelin "$PW_LOCKF"
+if ! pw_prendre "$PW_LOCKF" "$PW_WAITMAX"; then
+  # ON N'ECRASE PAS, ET ON N'EFFACE PAS. `die3` retire `proof.txt` : ici, ce proof.txt est
+  # peut-etre celui que le VOISIN vient d'ecrire. On sort en 3 avec un etat NOMME, que la porte
+  # de fermeture lit — l'essai n'est alors pas compte pour une course qui n'etait pas la sienne.
+  log "PREUVE IMPOSSIBLE (verrou-ecrivain) : $PW_LOCKF tenu par pid=$(pw_lit "$PW_LOCKF" pid) apres ${PW_ATTENDU}s"
+  bash "$AP/lib/proof_impossible.sh" "$D" "$ID" "$SUF" verrou-ecrivain \
+       "un autre ecrivain (pid=$(pw_lit "$PW_LOCKF" pid), essai=$(pw_lit "$PW_LOCKF" attempt)) tient $PW_LOCKF depuis plus de ${PW_WAITMAX}s : cette course REFUSE d'ecraser sa preuve" \
+       "$PW_ATTENDU" "$PW_WAITMAX" "verrou-ecrivain" \
+    || log "ETAT NOMME NON ECRIT : proof_impossible.sh a refuse (code $?)"
+  exit 3
+fi
+pw_marquer "$PW_LOCKF"
+# LE NETTOYAGE EST INSTALLE AVEC LE VERROU, JAMAIS APRES (DIRECTIVES/verrou). Ce script pose
+# TROIS autres `trap ... EXIT` plus bas ; chacun appelle cette fonction, sinon le dernier pose
+# effacerait la liberation du premier. `flock` tombe de toute facon a la mort du processus : ce
+# qu'on retire ici, c'est le FICHIER, pour qu'aucun lecteur ne trouve le nom d'un cadavre.
+pw_liberer(){ rm -f "$PW_LOCKF" 2>/dev/null || true; }
+trap 'pw_liberer' EXIT
+log "verrou d'ecriture pris ($PW_LOCKF) : pid=$$ lanceur=$PPID essai=$PW_ATTEMPT course=$PW_RUNID"
+extra "proof_run_id=$PW_RUNID"
+extra "proof_run_pid=$$"
+extra "proof_run_launcher_pid=$PPID"
+extra "proof_attempt_id=$PW_ATTEMPT"
+extra "proof_attempt_source=$([ "$PW_ATTEMPT" = "-" ] && echo absent || echo env)"
+extra "proof_writer_lock=$PW_LOCKF"
+extra "proof_writer_concurrent=$PW_CONCURRENT"
+extra "proof_writer_wait_s=$PW_ATTENDU"
+extra "proof_writer_wait_max_s=$PW_WAITMAX"
+extra "proof_orphans_found=$PW_ORPH_TROUVES"
+extra "proof_orphans_stopped=$PW_ORPH_ARRETES"
+extra "proof_orphans_survived=$PW_ORPH_RESTES"
+extra "proof_head_at_start=$PW_HEAD_DEPART"
+
+# LE MEME ETAT, LISIBLE PENDANT LA COURSE. `proof.txt` n'existe pas encore quand le recensement
+# de harnais tourne : sans ce fichier, l'item ne pourrait juger son propre ecrivain que sur du
+# texte de script. Il est RE-ECRIT juste avant le recensement, avec les commits survenus depuis.
+pw_publier_course(){
+  { printf 'proof_run_id=%s\n' "$PW_RUNID"
+    printf 'proof_run_pid=%s\n' "$$"
+    printf 'proof_run_launcher_pid=%s\n' "$PPID"
+    printf 'proof_attempt_id=%s\n' "$PW_ATTEMPT"
+    printf 'proof_writer_lock=%s\n' "$PW_LOCKF"
+    printf 'proof_writer_concurrent=%s\n' "$PW_CONCURRENT"
+    printf 'proof_writer_wait_s=%s\n' "$PW_ATTENDU"
+    printf 'proof_orphans_found=%s\n' "$PW_ORPH_TROUVES"
+    printf 'proof_orphans_stopped=%s\n' "$PW_ORPH_ARRETES"
+    printf 'proof_orphans_survived=%s\n' "$PW_ORPH_RESTES"
+    printf 'proof_head_at_start=%s\n' "$PW_HEAD_DEPART"
+    printf 'proof_run_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    bash "$AP/lib/run_commits.sh" "$ID" "$PW_HEAD_DEPART" kv 2>/dev/null
+  } > "$PW_RUNF"
+}
+pw_publier_course
+
 # ================================================== PROOF-SCELLE/rien-apres-le-mv =============
 # CE QU'UN `mv` ATOMIQUE PROMET, ET CE QU'ON LUI REPRENAIT (harness-verdict-sources-are-incomplete,
 # 2026-09-12). `proof.txt` est ecrit dans un temporaire puis renomme : un lecteur ne voit jamais
@@ -198,7 +369,7 @@ seal_check(){
     printf 'exit_sha=-\nexit_bytes=0\n' >> "$SEALFILE"
   fi
 }
-seal_et_arme(){ seal_write; trap 'seal_check' EXIT; }
+seal_et_arme(){ seal_write; trap 'seal_check; pw_liberer' EXIT; }
 # `debug.opengoal.hdr.out` -> `hdr_out` : la cle de proof.txt doit tenir dans [A-Za-z0-9_].
 prop_key(){ printf '%s' "${1#debug.opengoal.}" | tr -c 'A-Za-z0-9_' '_'; }
 
@@ -611,7 +782,7 @@ hdr_captures_complete(){
 hdr_x86_run(){
   local launch_time rc
   HDR_XPID=""; HDR_STOPPED=0
-  trap 'hdr_x86_stop' EXIT
+  trap 'hdr_x86_stop; pw_liberer' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   stdbuf -oL -eL "$@" > "$RAWLOG" 2>&1 &
@@ -632,7 +803,7 @@ hdr_x86_run(){
   [ "$HDR_STOPPED" = 0 ] || hdr_x86_stop
   wait "$HDR_XPID"; rc=$?
   HDR_XPID=""
-  trap - EXIT INT TERM
+  trap 'pw_liberer' EXIT; trap - INT TERM
   if [ "$HDR_STOPPED" = 1 ] && { [ "$rc" = 143 ] || [ "$rc" = 137 ]; }; then return 0; fi
   return "$rc"
 }
@@ -768,7 +939,7 @@ else
     fi
     log "teardown de fin : $(sed -n 's/^teardown_fin_props_found=//p' "$D/$nom") propriete(s) trouvee(s) posee(s) [$(sed -n 's/^teardown_fin_props_list=//p' "$D/$nom")], publie sous '$nom'"
   }
-  trap 'teardown_fin' EXIT
+  trap 'teardown_fin; pw_liberer' EXIT
 
   if [ "$(timeout 15 "$ADB" -s "$SERIAL" get-state 2>/dev/null | tr -d '\r')" != device ]; then
     die3 appareil-absent "adb ne voit pas $SERIAL : aucune preuve APPAREIL possible"
@@ -1000,6 +1171,15 @@ fi
 # donc ecrire son propre `proof_census_rc=0`, ou le `proof_feature_*` que le moteur seul doit
 # produire, et juger sa propre course. On la filtre au POINT DE PRODUCTION, et on publie le
 # nombre de lignes jetees.
+# LES COMMITS SURVENUS PENDANT LA COURSE, AVANT QUE LE RECENSEMENT NE LISE QUOI QUE CE SOIT
+# (harness-proof-file-has-no-writer-lock). On n'interdit rien — le superviseur doit pouvoir
+# commiter — mais un refus doit pouvoir NOMMER sa vraie cause : le 12/09, un commit tombe a
+# 16:12:59 pendant une course a fait bouger l'empreinte des sources de verdict entre la mesure
+# et son jugement, et l'essai a ete refuse pour un defaut qui n'etait pas le sien.
+while IFS= read -r _rcl; do [ -n "$_rcl" ] && extra "$_rcl"; done \
+  < <(bash "$AP/lib/run_commits.sh" "$ID" "$PW_HEAD_DEPART" kv 2>/dev/null)
+pw_publier_course
+
 CENSUS="$AP/lib/census/$ID.sh"
 if [ -f "$CENSUS" ]; then
   CT0=$(date +%s)
