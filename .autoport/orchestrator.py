@@ -68,6 +68,7 @@ from rich.panel import Panel
 from lib import cli_backend
 from lib import impossible as impossible_state
 from lib import gate_verdict
+from lib import safe_reload
 
 BACKEND = "claude"
 
@@ -513,7 +514,10 @@ def load_backlog():
     if lib not in sys.path:
         sys.path.insert(0, lib)
     import backlog as _bk
-    importlib.reload(_bk)
+    # RECHARGEMENT/filet — un `lib/backlog.py` a moitie ecrit TUAIT la boucle ici meme
+    # (12/09 15:33, dix minutes d'arret). Le filet garde le module deja charge, nomme le
+    # fichier et la ligne, et le tour continue sur du code VIEUX — en le DISANT.
+    safe_reload.reload(_bk, "orchestrator:backlog", log)
     return _bk.load(BACKLOG_PATH)
 
 
@@ -2047,7 +2051,7 @@ def build_instructions(item: dict, seq: int) -> str:
         if lib not in sys.path:
             sys.path.insert(0, lib)
         import directives as _dv
-        importlib.reload(_dv)
+        safe_reload.reload(_dv, "orchestrator:directives", log)   # RECHARGEMENT/filet
         dblock = _dv.block(iid)
         log(f"· directives {_dv.version(iid)} inlinées dans le prompt "
             f"({len(dblock)} caractères)", "dim")
@@ -2059,7 +2063,7 @@ def build_instructions(item: dict, seq: int) -> str:
     pblock = ""
     try:
         import preflight as _pf
-        importlib.reload(_pf)
+        safe_reload.reload(_pf, "orchestrator:preflight", log)    # RECHARGEMENT/filet
         pblock = _pf.prompt_block(iid)
         injected, overflow, sup = _pf.prompt_findings(iid)
         if injected:
@@ -2945,6 +2949,10 @@ def main(argv: list[str] | None = None) -> int:
             break
 
         bk = load_backlog()
+        # RECHARGEMENT/filet — tant qu'un rechargement echoue, le journal le REPETE a chaque
+        # tour et compte les tours poursuivis malgre lui. Un harnais qui tourne sur du code
+        # vieux et se tait, c'est le gel silencieux que ces rechargements corrigeaient.
+        safe_reload.turn_report(log)
         promote_owner_validated(bk)
         free_machine_proved(bk)
 

@@ -49,6 +49,12 @@ try:                                                  # noqa: SIM105
 except ImportError:                                   # pragma: no cover
     import gate_verdict as _gate_verdict
 
+# LE FILET AUTOUR DU RECHARGEMENT CI-DESSOUS. Meme double forme d'import, meme raison.
+try:                                                  # noqa: SIM105
+    from lib import safe_reload as _safe_reload
+except ImportError:                                   # pragma: no cover
+    import safe_reload as _safe_reload
+
 # VERDICT/dans-l-item — L'AUTORITE VOYAGE AVEC CE FICHIER, TOUJOURS DU MEME MILLESIME.
 # `orchestrator.load_backlog` fait `importlib.reload(backlog)` a chaque tour : c'est ce qui
 # permet a ce fichier-ci de corriger la file sans redemarrer la boucle (voir `no_device_marker`).
@@ -59,7 +65,12 @@ except ImportError:                                   # pragma: no cover
 # promotion machine s'arretait en silence jusqu'au prochain redemarrage. Exactement le gel que ce
 # chantier corrige, refabrique par le chantier lui-meme. On recharge donc l'autorite ICI, au
 # POINT DE PRODUCTION : `backlog.py` et l'autorite qu'il appelle ne peuvent plus diverger.
-importlib.reload(_gate_verdict)
+# RECHARGEMENT/filet — ce rechargement-ci a TUE la boucle le 12/09 a 15:33 : un worker
+# renommait `impossible` et `gate_verdict` en meme temps, l'autorite appelait deja le nom neuf,
+# `AttributeError` a l'import, remontee jusqu'a `main`, dix minutes d'arret. On ne le retire
+# pas — sans lui l'autorite diverge du point de production — on le PROTEGE : l'autorite d'AVANT
+# est gardee intacte, l'echec est nomme, et le tour continue en le DISANT.
+_safe_reload.reload(_gate_verdict, "backlog:gate_verdict")
 
 # 2026-09-11 — LECTEUR EN C. PyYAML embarque un analyseur ecrit en Python et un autre en C ; le
 # second etait installe et inutilise. Mesure sur le backlog reel (328 Ko) : 1 992 ms contre
@@ -591,6 +602,13 @@ class Backlog:
         # ------------------------------------------------ LA PREUVE IMPOSSIBLE
         empeche, empeche_digest = self.bloc_impossible(self.impossible_states())
 
+        # ------------------------------------- LE HARNAIS TOURNE-T-IL SUR DU CODE VIEUX ?
+        # RECHARGEMENT/filet. L'etat degrade est LU sur le disque : la boucle qui a refuse le
+        # rechargement est souvent un AUTRE processus que celui qui rend ce texte. Le digest
+        # ne prend que l'IDENTITE du defaut, jamais le compte de tours — sinon il se
+        # reveillerait a chaque tour et cesserait d'etre un digest.
+        degrade, degrade_digest = _safe_reload.owner_block()
+
         lines = []
         if debt:
             lines = ["## Dette a trier",
@@ -615,7 +633,7 @@ class Backlog:
                 lines.append("  %s" % (it.get("block_reason") or "raison non enregistree"))
         bloque = "\n".join(lines)
 
-        text = "\n\n".join(b for b in (en_cours, empeche, a_tester, bloque, dette) if b)
+        text = "\n\n".join(b for b in (degrade, en_cours, empeche, a_tester, bloque, dette) if b)
         if not changed_only:
             return text
         # `--changed` surveille « A tester » ET « Preuve impossible » : la dette ne bouge pas
@@ -623,7 +641,7 @@ class Backlog:
         # mesurer, si. L'age y entre par son PALIER et non a la seconde — sinon le digest se
         # reveillerait a chaque appel et il n'y aurait plus de digest du tout.
         digest = hashlib.sha256(
-            (a_tester + "\n" + empeche_digest).encode("utf-8")).hexdigest()
+            (a_tester + "\n" + empeche_digest + "\n" + degrade_digest).encode("utf-8")).hexdigest()
         previous = ""
         try:
             with open(DIGEST_MEMO, encoding="utf-8") as fh:
