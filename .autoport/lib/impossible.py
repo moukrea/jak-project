@@ -104,6 +104,8 @@ KINDS = {
     "impossible": "-impossible.txt",  # l'etat nomme « preuve impossible »
     "engine": "-engine.log",         # le journal brut du moteur
     "census": "-census.log",         # le journal du recensement de harnais
+    "env": "-env.txt",               # l'environnement RELU du processus mesure (bras x86)
+    "teardown": "-teardown-fin.txt",  # ce que le teardown de FIN de course a efface (appareil)
 }
 
 

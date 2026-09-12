@@ -65,24 +65,35 @@ out['dead_fn_mutates_memory'] = int(bool(re.search(r'it\[.status.\]\s*=', body))
 # PAR MARQUEUR, JAMAIS PAR `HEAD:`. Une fois ce chantier commite, HEAD porte le correctif et le
 # temoin s'accuserait lui-meme : la porte deviendrait rouge au deuxieme essai pour une raison
 # qui n'est pas un defaut. La meme regle vaut pour le bras d'ablation du bac a sable.
+# LA FENETRE N'EST PLUS UN NOMBRE DE COMMITS (harness-verdict-integrity, 2026-09-12). Ce bloc
+# balayait les 60 derniers commits du chemin ; `orchestrator.py` en porte deja 61 et en gagne
+# tous les jours. Le jour ou l'introduction du marqueur sortait de la fenetre, `temoin-avant-absent`
+# tombait et la porte virait au ROUGE sans qu'aucun defaut existe. L'ancre vient desormais de
+# `lib/ablation_anchor.sh` — la revision qui a INTRODUIT le marqueur, historique complet — et la
+# methode retenue est publiee. Mesure du 12/09 : les cinq couples du harnais rendent le MEME
+# commit qu'avec l'ancienne fenetre.
 def sans(rel, marqueur):
     try:
-        log = subprocess.run(['git', '-C', root, 'log', '--format=%H', '-n', '60', '--', rel],
-                             capture_output=True, text=True, timeout=60).stdout.split()
+        sortie = subprocess.run(['bash', os.path.join(ap, 'lib', 'ablation_anchor.sh'),
+                                 root, rel, marqueur, 'kv'],
+                                capture_output=True, text=True, timeout=120).stdout
     except Exception:
-        return None, ''
-    for c in log:
-        try:
-            blob = subprocess.run(['git', '-C', root, 'show', '%s:%s' % (c, rel)],
-                                  capture_output=True, text=True, timeout=30).stdout
-        except Exception:
-            continue
-        if marqueur not in blob:
-            return c, blob
-    return None, ''
+        return None, '', 'erreur'
+    champs = dict(l.split('=', 1) for l in sortie.splitlines() if '=' in l)
+    c = champs.get('anchor_commit', '-')
+    methode = champs.get('anchor_method', 'absent')
+    if not c or c == '-':
+        return None, '', methode
+    try:
+        blob = subprocess.run(['git', '-C', root, 'show', '%s:%s' % (c, rel)],
+                              capture_output=True, text=True, timeout=30).stdout
+    except Exception:
+        return None, '', methode
+    return c, blob, methode
 
-cb, old = sans('.autoport/lib/backlog.py', 'def parked_for_owner')
-co, oldo = sans('.autoport/orchestrator.py', 'free_machine_proved')
+cb, old, mb = sans('.autoport/lib/backlog.py', 'def parked_for_owner')
+co, oldo, mo = sans('.autoport/orchestrator.py', 'free_machine_proved')
+out['dead_fn_before_method'] = '%s/%s' % (mb, mo)
 if cb and co:
     od = 'def machine_proved_to_validated' in old
     oc = len(re.findall(r'\bmachine_proved_to_validated\s*\(', old + oldo)) - (1 if od else 0)

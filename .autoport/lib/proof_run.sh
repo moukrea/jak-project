@@ -291,6 +291,16 @@ fi
 if [ -z "$TIMEOUT" ]; then if [ "$MODE" = x86 ]; then TIMEOUT=120; else TIMEOUT=180; fi; fi
 case "$TIMEOUT" in *[!0-9]*|"") echo "proof_run: --timeout '$TIMEOUT' n'est pas un entier" >&2; exit 2 ;; esac
 
+# ------------------------------------------- les sources qui PRODUISENT CE verdict, epinglees ----
+# harness-verdict-integrity, 2026-09-12. Le validateur epinglait la fraicheur du MOTEUR
+# (`game/ common/ android/ goal_src/`) et ignorait `.autoport/`. Le verdict d'un item de harnais
+# vit pourtant dans `lib/census/<id>.sh` et dans les scripts qu'il appelle : editables APRES la
+# course, sans temoin. On publie ICI — AVANT la course, AVANT le recensement, donc avant que
+# quoi que ce soit puisse se reecrire sous la porte — le nombre de fichiers epingles et leur
+# empreinte. `validators/generic.sh` la RECALCULE a la lecture : une valeur recopiee ne prouve
+# que la recopie. La liste sort du meme nommeur des deux cotes (lib/verdict_sources.sh).
+while IFS= read -r vsl; do [ -n "$vsl" ] && extra "$vsl"; done < <(bash "$AP/lib/verdict_sources.sh" "$ID" kv 2>/dev/null)
+
 # ------------------------------------------------------- attendre qu'aucun build n'ecrive ----
 # Un gk lance pendant que auto_build_apk.sh reecrit out/jak1/iso/ meurt en SIGILL sur un
 # KERNEL.CGO a moitie ecrit, et un `--target gk` partiel casse l'ABI de goalc. Ces deux
@@ -418,6 +428,74 @@ STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 T0=$(date +%s)
 CRASH=0; FRAMES=0; SERIAL=""
 
+# L'ENVIRONNEMENT DU PROCESSUS MESURE, PAS CELUI DU SHELL QUI EXPORTE
+# (harness-verdict-integrity, 2026-09-12). La boucle d'export relit `printenv` : elle attrape un
+# `export` refuse, jamais un lanceur qui filtrerait l'environnement. Le cote appareil n'a pas ce
+# trou — `proof_prop_obs_*` interroge l'appareil lui-meme. Ici on lit `/proc/<pid>/environ` du
+# `gk` REELLEMENT lance. `timeout` forke : le processus mesure est son ENFANT, et on l'identifie
+# par son `exe`, jamais par un nom. UNE SEULE definition pour les DEUX lancements x86 (course
+# ordinaire et campagne HDR) : un lecteur ecrit deux fois diverge, et la moitie non corrigee
+# publierait « epingle » sans avoir rien lu.
+lire_environ_mesure(){  # lire_environ_mesure <pid-du-lanceur>
+  local lanceur=$1 binreal mpid mexe procenv obs kvp
+  local lu=0 nb=-1 match=0 liste="" shellnb
+  binreal=$(readlink -f "$BIN" 2>/dev/null)
+  mpid=""; mexe="-"
+  for _try in $(seq 1 40); do
+    for cand in $(pgrep -P "$lanceur" 2>/dev/null) "$lanceur"; do
+      [ "$(readlink -f "/proc/$cand/exe" 2>/dev/null)" = "$binreal" ] || continue
+      mpid="$cand"; mexe=$(basename "$binreal"); break
+    done
+    [ -n "$mpid" ] && break
+    kill -0 "$lanceur" 2>/dev/null || break
+    sleep 0.25
+  done
+  shellnb=$(printenv | grep -cE '^[A-Za-z_][A-Za-z0-9_]*=')
+  if [ -n "$mpid" ] && [ -r "/proc/$mpid/environ" ]; then
+    procenv="$D/.procenv$SUF.$$"
+    tr '\0' '\n' < "/proc/$mpid/environ" > "$procenv" 2>/dev/null
+    if [ -s "$procenv" ]; then
+      lu=1
+      nb=$(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' "$procenv")
+      for kvp in ${ENVS+"${ENVS[@]}"}; do
+        obs=$(sed -n "s/^${kvp%%=*}=//p" "$procenv" | tail -1)
+        extra "proof_env_proc_obs_$(prop_key "${kvp%%=*}")=${obs:--}"
+        liste="${liste:+$liste,}${kvp%%=*}"
+        [ "$obs" = "${kvp#*=}" ] && match=$((match+1))
+      done
+    fi
+    rm -f "$procenv"
+  fi
+  [ "$lu" = 1 ] || log "environnement du processus mesure NON RELU (pid='${mpid:--}')"
+  extra "proof_env_proc_pid=${mpid:--}"
+  extra "proof_env_proc_exe=$mexe"
+  extra "proof_env_proc_read=$lu"
+  extra "proof_env_proc_count=$nb"
+  extra "proof_env_shell_count=$shellnb"
+  # L'ECART EST LA GRANDEUR QUI COMPTE : ce que le shell porte moins ce que le processus mesure
+  # porte vraiment. Un lanceur qui filtre se lit ICI, et nulle part ailleurs.
+  if [ "$lu" = 1 ]; then extra "proof_env_proc_gap=$((shellnb - nb))"
+  else extra "proof_env_proc_gap=-1"; fi
+  extra "proof_env_proc_match=$match"
+  extra "proof_env_proc_list=${liste:--}"
+  # LA MEME LECTURE, DANS UN FICHIER NOMME PAR L'AUTORITE. `proof.txt` n'existe pas encore quand
+  # le recensement de harnais tourne : sans ce fichier, un item de harnais ne pourrait juger la
+  # relecture que sur du texte de script. Ecrit ici, il vient de LA course en cours.
+  local nom; nom=$(python3 "$AP/lib/impossible.py" name env "$SUF" 2>/dev/null)
+  [ -n "$nom" ] || return 0
+  { echo "proof_env_proc_pid=${mpid:--}"
+    echo "proof_env_proc_exe=$mexe"
+    echo "proof_env_proc_read=$lu"
+    echo "proof_env_proc_count=$nb"
+    echo "proof_env_shell_count=$shellnb"
+    echo "proof_env_proc_match=$match"
+    echo "proof_env_proc_list=${liste:--}"
+    echo "proof_env_binary=$binreal"
+    echo "proof_env_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } > "$D/$nom"
+  log "environnement du processus mesure publie sous '$nom' (pid=${mpid:--} lues=$nb shell=$shellnb)"
+}
+
 # HDR x86 helpers: own only the exact child PID, including interruption cleanup.
 hdr_x86_stop(){
   if [ -n "${HDR_XPID:-}" ] && kill -0 "$HDR_XPID" 2>/dev/null; then
@@ -460,6 +538,7 @@ hdr_x86_run(){
   trap 'exit 143' TERM
   stdbuf -oL -eL "$@" > "$RAWLOG" 2>&1 &
   HDR_XPID=$!
+  lire_environ_mesure "$HDR_XPID"
   launch_time=$(date +%s)
   while kill -0 "$HDR_XPID" 2>/dev/null; do
     if hdr_captures_complete; then
@@ -536,7 +615,10 @@ if [ "$MODE" = x86 ]; then
   else
     stdbuf -oL -eL timeout -k 5 "$TIMEOUT" "$BIN" \
         --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso \
-        -- -boot -debug-mem > "$RAWLOG" 2>&1
+        -- -boot -debug-mem > "$RAWLOG" 2>&1 &
+    RUNPID=$!
+    lire_environ_mesure "$RUNPID"
+    wait "$RUNPID"
     rc=$?
     case "$rc" in
       0|124|137) CRASH=0 ;;   # 124/137 = arret demande par le producteur
@@ -570,9 +652,40 @@ else
   PKG="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
   PIDDIR="$AP/.logcat"; mkdir -p "$PIDDIR"
   export AUTOPORT_LOGCAT_PIDDIR="$PIDDIR"
-  # Le teardown tourne QUOI QU'IL ARRIVE : c'est lui qui empeche une propriete oubliee de
-  # tenir un bouton enfonce jusqu'a la semaine prochaine.
-  trap 'bash '"$AP"'/lib/device_teardown.sh "'"$SERIAL"'" >&2 || true' EXIT
+  # LE TEARDOWN DE FIN DIT CE QU'IL EFFACE, COMME CELUI DU DEBUT (harness-verdict-integrity,
+  # 2026-09-12). Il tourne QUOI QU'IL ARRIVE : c'est lui qui empeche une propriete oubliee de
+  # tenir un bouton enfonce jusqu'a la semaine prochaine. Mais il ne recevait pas
+  # `AUTOPORT_TEARDOWN_REPORT` : ce qu'il effacait APRES la course restait muet, et la course
+  # suivante repartait d'un etat dont personne n'avait le releve. Il ecrit desormais son rapport
+  # sous le nom que `lib/impossible.py` derive, et ses cles rejoignent `proof.txt` quand une
+  # preuve a bien ete ecrite. Les cles sont TOUJOURS ecrites : un zero s'y lit « rien n'etait
+  # pose », jamais « pas regarde ».
+  TEARDOWN_FIN_FAIT=0
+  teardown_fin(){
+    [ "$TEARDOWN_FIN_FAIT" = 0 ] || return 0
+    TEARDOWN_FIN_FAIT=1
+    local rep nom
+    rep="$D/.teardown-fin$SUF.$$.txt"; rm -f "$rep"
+    AUTOPORT_TEARDOWN_REPORT="$rep" bash "$AP/lib/device_teardown.sh" "$SERIAL" >&2 || true
+    nom=$(python3 "$AP/lib/impossible.py" name teardown "$SUF" 2>/dev/null)
+    [ -n "$nom" ] || nom=".teardown-fin$SUF.txt"
+    if [ -s "$rep" ]; then
+      sed 's/^teardown_/teardown_fin_/' "$rep" > "$D/$nom"
+    else
+      { echo "teardown_fin_ran=0";           echo "teardown_fin_skip=rapport-absent"
+        echo "teardown_fin_props_found=0";   echo "teardown_fin_props_list=-"
+        echo "teardown_fin_props_cleared=0"; echo "teardown_fin_props_resisted=0"
+        echo "teardown_fin_resisted_list=-"; echo "teardown_fin_getprop_ok=0"
+        echo "teardown_fin_getprop_total=0"; echo "teardown_fin_props_source=aucun"
+      } > "$D/$nom"
+    fi
+    rm -f "$rep"
+    # LES CLES REJOIGNENT LA PREUVE QUAND IL Y EN A UNE. Une preuve impossible (`die3`) a efface
+    # `proof.txt` : on n'en fabrique pas une en y ajoutant des lignes.
+    [ -s "$OUTFILE" ] && cat "$D/$nom" >> "$OUTFILE"
+    log "teardown de fin : $(sed -n 's/^teardown_fin_props_found=//p' "$D/$nom") propriete(s) trouvee(s) posee(s) [$(sed -n 's/^teardown_fin_props_list=//p' "$D/$nom")], publie sous '$nom'"
+  }
+  trap 'teardown_fin' EXIT
 
   if [ "$(timeout 15 "$ADB" -s "$SERIAL" get-state 2>/dev/null | tr -d '\r')" != device ]; then
     die3 appareil-absent "adb ne voit pas $SERIAL : aucune preuve APPAREIL possible"

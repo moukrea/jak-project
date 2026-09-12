@@ -83,13 +83,13 @@ PY
 # Le temoin « avant » ne se lit JAMAIS a `HEAD:` : des le commit de ce chantier, `HEAD` porte le
 # correctif et le temoin s'accuse lui-meme. On remonte jusqu'au dernier commit ou le marqueur
 # est ABSENT du fichier de test, et on publie le commit retenu.
+# LA FENETRE N'EST PLUS UN NOMBRE DE COMMITS (harness-verdict-integrity, 2026-09-12). Elle
+# balayait les 60 derniers commits du chemin : une meche lente, qui aurait rendu le temoin
+# d'avant introuvable et cette porte ROUGE sans qu'aucun defaut existe. L'ancre vient de
+# `lib/ablation_anchor.sh` — la revision qui a INTRODUIT le marqueur, historique complet.
 MARQUEUR='liste-injectee-2026-09-12'
-AVANT=""
-for sha in $(git log --format=%H -n 60 -- "$SUITE/test_proof_busy.py" 2>/dev/null); do
-  if ! git show "$sha:$SUITE/test_proof_busy.py" 2>/dev/null | grep -q "$MARQUEUR"; then
-    AVANT="$sha"; break
-  fi
-done
+AVANT=$(bash "$(git rev-parse --show-toplevel)/.autoport/lib/ablation_anchor.sh" \
+        "$(git rev-parse --show-toplevel)" "$SUITE/test_proof_busy.py" "$MARQUEUR" commit 2>/dev/null) || AVANT=""
 AVANT_OK=0
 if [ -n "$AVANT" ]; then
   mkdir -p "$TMPD/avant/.autoport/tests/harness" "$TMPD/avant/.autoport/lib"

@@ -21,6 +21,24 @@ else
   src=$(kv source); bin=build/game/gk; [ "$src" = device ] && bin=build-android/lib/arm64-v8a/libgk.so
   neuf=$(find game common android goal_src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.gc' -o -name '*.vert' -o -name '*.frag' \) -newer "$PF" -print -quit 2>/dev/null)
   [ -z "$neuf" ] || bad "source moteur editee APRES la preuve ($neuf) : la preuve ne decrit pas ce binaire"
+  # LA MEME FRAICHEUR POUR LES SOURCES DU VERDICT, `.autoport/` COMPRISE (harness-verdict-integrity).
+  # La ligne ci-dessus ne regarde que le moteur. Le verdict d'un item de HARNAIS vit dans
+  # `lib/census/<id>.sh` et dans les scripts qu'il appelle : ils pouvaient etre edites APRES la
+  # course sans que rien ne le voie. L'empreinte est RECALCULEE ici, a la lecture — une valeur
+  # recopiee de la preuve ne prouverait que la recopie — et la liste vient du MEME nommeur que
+  # celui qui l'a publiee, `lib/verdict_sources.sh`. Une preuve plus vieille que son propre juge
+  # est refusee, empreinte identique ou non : un `touch` ne se voit pas dans un sha.
+  vs_now=$(bash .autoport/lib/verdict_sources.sh "$P" sha 2>/dev/null)
+  vs_cnt=$(bash .autoport/lib/verdict_sources.sh "$P" count 2>/dev/null)
+  vs_proof=$(kv verdict_sources_sha)
+  if [ -z "$vs_proof" ]; then
+    bad "la preuve ne porte pas 'verdict_sources_sha=' : elle vient d'un producteur qui n'epinglait pas les sources de son propre verdict. Reproduis-la."
+  elif [ "$vs_proof" != "$vs_now" ]; then
+    bad "verdict_sources_sha=$vs_proof recopie dans la preuve, $vs_now recalcule sur le disque ($vs_cnt fichier(s) epingle(s), liste=$(kv verdict_sources_list)) : une source du VERDICT a change depuis la course"
+  fi
+  [ "$(kv verdict_sources_count)" = "$vs_cnt" ] || bad "verdict_sources_count=$(kv verdict_sources_count) dans la preuve, $vs_cnt sur le disque : la liste des sources du verdict a change depuis la course"
+  vsn=$(bash .autoport/lib/verdict_sources.sh "$P" newer "$PF" 2>/dev/null | paste -sd, -)
+  [ -z "$vsn" ] || bad "source du VERDICT editee APRES la preuve ($vsn) : la preuve est plus vieille que son propre juge"
   [ "$(kv sha)" = "$(sha256sum "$bin" 2>/dev/null | cut -c1-16)" ] || bad "sha=$(kv sha) n'est pas celui de $bin sur le disque"
   [ "$(kv binary)" = "$bin" ] || bad "binary=$(kv binary) ne correspond pas a source=$src"
   [ "$(kv crash)" = 0 ] || bad "crash=$(kv crash)"

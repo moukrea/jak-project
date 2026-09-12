@@ -33,6 +33,16 @@ set -uo pipefail
 # `rapport` est appele a CHAQUE sortie, y compris les sorties precoces : un fichier absent se lit
 # « le teardown n'a pas tourne », un `teardown_ran=0` se lit « il a tourne et n'a rien pu voir ».
 REPORT="${AUTOPORT_TEARDOWN_REPORT:-}"
+# UN `getprop` GLOBAL MUET N'EST PAS UN APPAREIL SANS PROPRIETES : DEUX CLES, PAS UNE
+# (harness-verdict-integrity, 2026-09-12). L'enumeration globale est la seule source COMPLETE ;
+# la liste de SECOURS ci-dessous est ecrite a la main et son propre en-tete recense cinq
+# proprietes qu'elle avait ratees. Si `getprop` rend zero ligne — adb capricieux, appareil
+# occupe — `teardown_props_found` ne porte plus que ce que la liste connait, et un compte faible
+# se lit « rien n'etait pose » au lieu de « l'enumeration etait muette ». Ces trois cles
+# separent les deux cas : `teardown_getprop_ok` (l'enumeration a-t-elle repondu),
+# `teardown_getprop_total` (combien de proprietes, TOUS espaces de noms confondus, elle a
+# rendues) et `teardown_props_source` (laquelle des deux listes a servi).
+GP_OK=0; GP_TOTAL=0; PROP_SRC=aucun
 rapport() {  # rapport <ran> <skip> <found> <list> <cleared> <resisted> <resisted_list>
   [ -n "$REPORT" ] || return 0
   {
@@ -43,6 +53,9 @@ rapport() {  # rapport <ran> <skip> <found> <list> <cleared> <resisted> <resiste
     printf 'teardown_props_cleared=%s\n' "$5"
     printf 'teardown_props_resisted=%s\n' "$6"
     printf 'teardown_resisted_list=%s\n' "${7:--}"
+    printf 'teardown_getprop_ok=%s\n' "$GP_OK"
+    printf 'teardown_getprop_total=%s\n' "$GP_TOTAL"
+    printf 'teardown_props_source=%s\n' "$PROP_SRC"
   } > "$REPORT" 2>/dev/null || true
 }
 
@@ -88,8 +101,14 @@ fi
 
 # --- 3. TOUTES les debug.opengoal.*, lues sur l'appareil -------------------------------------
 cleared=0; found=0; resisted=0; found_list=""; resisted_list=""; seen=" "
-props=$(timeout 20 "$ADB" -s "$SERIAL" shell getprop 2>/dev/null | tr -d '\r' \
-        | sed -n 's/^\[\(debug\.opengoal\.[^]]*\)\]:.*/\1/p')
+# L'ENUMERATION GLOBALE, ET CE QU'ELLE A VRAIMENT RENDU. On compte TOUTES les proprietes
+# rendues, pas seulement les `debug.opengoal.*` : un appareil normal en porte des centaines.
+# Zero ligne ici ne veut pas dire « aucune propriete posee », ca veut dire « getprop muet ».
+gp_brut=$(timeout 20 "$ADB" -s "$SERIAL" shell getprop 2>/dev/null | tr -d '\r')
+GP_TOTAL=$(printf '%s\n' "$gp_brut" | grep -c '^\[[^]]*\]:')
+[ "$GP_TOTAL" -gt 0 ] && GP_OK=1
+props=$(printf '%s\n' "$gp_brut" | sed -n 's/^\[\(debug\.opengoal\.[^]]*\)\]:.*/\1/p')
+if [ "$GP_OK" = 1 ]; then PROP_SRC=enumere; else PROP_SRC=secours; fi
 # Liste de SECOURS : si `getprop` ne rend rien (adb capricieux, appareil occupe), on efface au
 # moins ce que notre outillage pose le plus souvent. cpad_inject en tete, c'est celle qui a coute.
 fallback="debug.opengoal.cpad_inject debug.opengoal.pad_replay debug.opengoal.pad_trace
@@ -132,4 +151,9 @@ timeout 20 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c \
 rapport 1 - "$found" "${found_list:--}" "$cleared" "$resisted" "${resisted_list:--}"
 echo "[teardown] $SERIAL: $found propriete(s) trouvee(s) posee(s) [${found_list:--}], \
 $cleared effacee(s), $resisted resistante(s), marqueurs fichier retires."
+if [ "$GP_OK" = 0 ]; then
+  echo "[teardown] $SERIAL: ATTENTION — l'enumeration globale getprop n'a rendu AUCUNE ligne. \
+Le compte ci-dessus ne porte que ce que la liste de SECOURS connait ; il ne se lit PAS \
+« rien n'etait pose »." >&2
+fi
 exit 0

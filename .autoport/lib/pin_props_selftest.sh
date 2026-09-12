@@ -41,17 +41,28 @@ kv(){ printf '%s=%s\n' "$1" "$2"; }
 # ---------------------------------------------------------------- le commit d'AVANT le correctif
 # Par MARQUEUR, jamais par date : apres le commit de ce chantier, HEAD porte le correctif et un
 # `git show HEAD:` rendrait deux bras identiques — une ablation vide qui passe au vert.
-commit_sans() {  # commit_sans <chemin> <marqueur>
-  local c
-  for c in $(git -C "$ROOT" log --format=%H -n 60 -- "$1" 2>/dev/null); do
-    if ! git -C "$ROOT" show "$c:$1" 2>/dev/null | grep -qF "$2"; then
-      printf '%s' "$c"; return 0
-    fi
-  done
-  return 1
+#
+# LA FENETRE N'EST PLUS UN NOMBRE DE COMMITS (harness-verdict-integrity, 2026-09-12). Ce bloc
+# balayait les 60 DERNIERS commits du chemin. `orchestrator.py` en porte deja 61 et en gagne
+# tous les jours : le jour ou l'introduction du marqueur sortait de la fenetre, l'ablation
+# devenait introuvable et la porte virait au ROUGE sans qu'aucun defaut existe. On ancre
+# desormais sur la REVISION QUI A INTRODUIT le marqueur (`lib/ablation_anchor.sh`, pioche sur le
+# contenu, historique complet), et on publie la methode retenue et la profondeur.
+# Le sha part dans une variable GLOBALE, jamais sur stdout : cette fonction publie deja des
+# `cle=valeur` la-bas, et une substitution de commande emporterait les deux dans le meme sac.
+ANCRE_COMMIT=""
+ancre() {  # ancre <chemin> <marqueur> <prefixe-de-cle> -> $ANCRE_COMMIT
+  local out c
+  out=$(bash "$AP/lib/ablation_anchor.sh" "$ROOT" "$1" "$2" kv 2>/dev/null) || true
+  kv "ablation_${3}_method" "$(printf '%s\n' "$out" | sed -n 's/^anchor_method=//p' | tail -1)"
+  kv "ablation_${3}_depth"  "$(printf '%s\n' "$out" | sed -n 's/^anchor_depth=//p'  | tail -1)"
+  kv "ablation_${3}_legacy_window" "$(printf '%s\n' "$out" | sed -n 's/^anchor_legacy_window=//p' | tail -1)"
+  c=$(printf '%s\n' "$out" | sed -n 's/^anchor_commit=//p' | tail -1)
+  [ "$c" = "-" ] && c=""
+  ANCRE_COMMIT="$c"
 }
-C_PROOF=$(commit_sans .autoport/lib/proof_run.sh 'proof_props_effective') || C_PROOF=""
-C_TEAR=$(commit_sans .autoport/lib/device_teardown.sh 'AUTOPORT_TEARDOWN_REPORT') || C_TEAR=""
+ancre .autoport/lib/proof_run.sh 'proof_props_effective' proof;        C_PROOF="$ANCRE_COMMIT"
+ancre .autoport/lib/device_teardown.sh 'AUTOPORT_TEARDOWN_REPORT' teardown; C_TEAR="$ANCRE_COMMIT"
 kv ablation_proof_commit "${C_PROOF:0:12}"
 kv ablation_teardown_commit "${C_TEAR:0:12}"
 
@@ -73,7 +84,12 @@ monte_bras() {
     git -C "$ROOT" show "$C_PROOF:.autoport/lib/proof_run.sh" > "$dir/.autoport/lib/proof_run.sh" || return 1
     git -C "$ROOT" show "$C_TEAR:.autoport/lib/device_teardown.sh" > "$dir/.autoport/lib/device_teardown.sh" || return 1
   fi
-  cp "$AP/lib/pick_device.sh" "$dir/.autoport/lib/" || return 1
+  # LES MODULES QUE `proof_run.sh` APPELLE A L'EXECUTION, pas seulement ceux qu'on ablate.
+  # Sans `impossible.py`, la garde de nommage ne derive aucun nom et la course sort en 3
+  # (« nommage-divergent ») : le bras neuf ne produisait plus AUCUNE preuve. Mesure du
+  # 2026-09-12 — `arm_neuf_proof=0` sur un bac a sable qui n'avait aucun defaut a montrer.
+  cp "$AP/lib/pick_device.sh" "$AP/lib/impossible.py" "$AP/lib/proof_impossible.sh" \
+     "$AP/lib/verdict_sources.sh" "$dir/.autoport/lib/" || return 1
   chmod +x "$dir/.autoport/lib/"*.sh
 
   # LE BACKLOG DU BAC A SABLE : un item, deux proprietes epinglees. C'est « ce que le fichier
@@ -189,7 +205,11 @@ court_bras() {
            proof_props_extracted proof_props_effective proof_props_lost proof_props_observed \
            proof_props_observed_match proof_prop_obs_hdr_out proof_prop_obs_recharged \
            frames crash sandbox_engine_saw_hdr_out sandbox_engine_saw_recharged \
-           sandbox_engine_saw_hostpin; do
+           sandbox_engine_saw_hostpin \
+           teardown_getprop_ok teardown_getprop_total teardown_props_source \
+           teardown_fin_ran teardown_fin_props_found teardown_fin_props_list \
+           teardown_fin_props_cleared teardown_fin_getprop_ok teardown_fin_getprop_total \
+           teardown_fin_props_source verdict_sources_count verdict_sources_sha; do
     kv "arm_${nom}_$k" "$(sed -n "s/^$k=//p" "$pf" | tail -1 | tr ' ' '_')"
   done
   # LE GESTE DU WORKER, VU DE LA PREUVE : sa propriete posee a la main est-elle NOMMEE dans ce
