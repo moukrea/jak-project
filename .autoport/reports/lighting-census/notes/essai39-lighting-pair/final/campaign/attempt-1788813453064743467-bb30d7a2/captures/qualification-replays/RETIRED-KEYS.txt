@@ -1,0 +1,27 @@
+RETIRED-KEYS v1 item=dead-published-keys-round-2 date=2026-09-12
+keys=grass_overhang,subdivision,subdivision_rounds
+
+Les captures de ce dossier portent, dans leurs options effectives, des cles que le binaire
+d'aujourd'hui ne publie plus. Leur ABSENCE d'une capture neuve ne vaut pas « la mesure est
+tombee a zero » : c'est le CHAMP qui a disparu. Comparer cle a cle une capture de ce dossier
+a une capture neuve conclurait a une DERIVE du reglage la ou il n'y a qu'un retrait de champ.
+
+Correspondance complete — registre `kRetiredQualificationKeys`, game/graphics/refset.cpp :
+  subdivision                                 RETIREE                                        dead-cover-and-legends, 2026-09-12
+  subdivision_rounds                          RETIREE                                        dead-cover-and-legends, 2026-09-12
+  grass_overhang                              publiee seulement sous OG_FEAT_GRASS_OVERHANG  dead-published-keys-round-2, 2026-09-12
+  profile              -> profile_const       RENOMMEE                                       dead-published-keys-round-2, 2026-09-12
+  method               -> method_const        RENOMMEE                                       dead-published-keys-round-2, 2026-09-12
+  particle_step        -> particle_step_const RENOMMEE                                       dead-published-keys-round-2, 2026-09-12
+
+Le suffixe `_const` dit ce que la cle est : une ETIQUETTE figee dans le binaire, jamais une
+mesure. C'est la raison meme du renommage — les trois valeurs etaient des chaines litterales
+publiees au milieu de grandeurs mesurees.
+
+Les captures elles-memes ne sont PAS retouchees, et ne peuvent pas l'etre :
+`game/graphics/refset_qualification.h` les scelle par `checked_hash` (png, sidecar, state.bin,
+manifeste) et les recus de rejeu les epinglent par `capture_fp`. Les editer les invaliderait
+toutes. Ce fichier est un VOISIN qu'aucune empreinte ne couvre : il marque sans rien casser.
+
+Verifie a chaque course par `.autoport/lib/census/dead-published-keys-round-2.sh`
+(`dead_keys_r2_t5_unmarked_dirs`).

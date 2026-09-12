@@ -1060,9 +1060,15 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode) {
     // [cover] DISPLACEMENT COVERAGE. This draw is about to bind PBR maps and push u_pbr_mode, so
     // it is exactly one "PBR-bound draw" — count it, and classify whether it receives displacement.
     // There is now a SINGLE gate to mirror, the fragment POM one, as the shaders branch on it
-    // today: pbr_fused.glsl:220-221, reached from tfrag3.frag:32 -> shade.glsl:335, reads
-    //   (u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 && pom_w > ...
-    // (the last term is a per-pixel coverage weight, so the CPU mirrors the three uniform terms).
+    // today: pbr_fused.glsl (marqueur `POM_GATE`), reached from tfrag3.frag -> shade.glsl, reads
+    //   (u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0
+    // dead-published-keys-round-2 (2026-09-12) : le miroir est EXACT, trois termes contre trois.
+    // Il en portait trois contre quatre : le quatrieme du fragment, `pom_w > TESS_COVER_MIN`, etait
+    // un poids par PIXEL hors d'atteinte d'un site de bind — mais il etait aussi VRAI par
+    // construction (`tess_w` fige a 0 depuis le retrait de l'etage de tessellation), donc il est
+    // parti du shader sans changer un pixel au lieu de rester un ecart que le CPU ne pouvait pas
+    // combler. Le recensement de l'item compte les termes des DEUX cotes : l'egalite est le
+    // verdict.
     // Le seau de displacement par SOMMET est RETIRE avec le programme TFRAG3_TESS et les shaders
     // tfrag3_tess.*, qui n'existent plus ; `u_pbr_bisect` et `u_pbr_tess_active` sont SUPPRIMES
     // eux aussi — aucun shader ne les declare.
@@ -2080,8 +2086,14 @@ enum Block : int {
   kBlockedCount,
   // ── famille GARDEE : sortie consommee AILLEURS, la raison est ecrite ─────────────────────────
   // `kPbrParams` : les surcharges d'environnement des scalaires de matiere, puis le clamp de
-  //   relief. Sa sortie alimente `pbr_cover_publish_gates(height_scale, ...)`, dont les deux
-  //   atomiques sont relues par `PbrDrawBinder::set`.
+  //   relief. dead-published-keys-round-2 (2026-09-12) : MOTIF REEXAMINE. Ce qui la justifie
+  //   ENCORE : les trois scalaires `normal_strength`, `height_scale`, `spec_intensity`, tous
+  //   produits ici et relus hors de la fonction — les trois par `kMatGlobals` (`g_pbr_glob_*`),
+  //   et `height_scale` une seconde fois par `pbr_cover_publish_gates`. Ce qui NE la justifie
+  //   PLUS : `pbr_debug`. Des DEUX atomiques de `pbr_cover_publish_gates`, la seconde recoit
+  //   `pbr_debug`, calcule par `pbr_debug_mode()` HORS du bloc garde ; sauter le bloc ne la
+  //   changerait pas. Le motif a maigri de moitie de ce cote-la quand la fonction est passee de
+  //   quatre atomiques a deux, et il n'en reste qu'un seul argument dependant.
   // `kMatGlobals` : `g_pbr_glob_normal_strength|height_scale|spec`, relus par le binder de
   //   matiere (background_common.cpp:876-918) pour tout draw qui remultiplie par son materiau.
   // Les deux sont des constantes, des `atof` sur un cache de proprietes et trois clamps : aucune
@@ -2533,11 +2545,17 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // personne n'a plus a le lire.
   // lighting-off-math-still-runs : BLOC GARDE. Les surcharges ci-dessous et les clamps qui les
   // suivent produisent `normal_strength` / `height_scale` / `spec_intensity`, relus HORS de cette
-  // fonction : `pbr_cover_publish_gates` (deux atomiques, relues par PbrDrawBinder::set) et
-  // `g_pbr_glob_*` (relus par le binder de matiere). Ce sont des `atof` sur un cache de
-  // proprietes et trois clamps — ni trigonometrie ni boucle ; on les garde plutot que de
-  // raisonner sur un consommateur hors fichier. Le recensement le compte a part
+  // fonction : `g_pbr_glob_*` (les trois, via `kMatGlobals`, relus par le binder de matiere) et
+  // `pbr_cover_publish_gates` (`height_scale`, relu par PbrDrawBinder::set). Ce sont des `atof`
+  // sur un cache de proprietes et trois clamps — ni trigonometrie ni boucle ; on les garde plutot
+  // que de raisonner sur un consommateur hors fichier. Le recensement le compte a part
   // (`lighting_off_kept_blocks`), jamais dans la porte.
+  // dead-published-keys-round-2 (2026-09-12) : MOTIF REEXAMINE apres le passage de
+  // `pbr_cover_publish_gates` de quatre atomiques a deux. CE QUI N'Y EST PLUS : `pbr_debug`, le
+  // second argument de cet appel, est calcule par `pbr_debug_mode()` HORS de ce bloc — sauter le
+  // bloc ne le change pas, il ne justifie donc plus la garde. Des deux atomiques, seule celle qui
+  // recoit `height_scale` en depend encore. CE QUI LA JUSTIFIE ENCORE : les trois scalaires, par
+  // `kMatGlobals`. La garde reste, sur un motif de trois sorties et non plus de quatre.
   if (lgtmath::block(lgtmath::kPbrParams)) {
 #ifdef __ANDROID__
   // Device-tunable calibration for the PoC: debug props override the defaults so

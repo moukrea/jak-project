@@ -706,7 +706,7 @@ def read_batch(path, expected, measurer):
                     options = effective.get(case, {}).get('temporal', {})
                     if (type(options.get('samples')) is not int or type(options.get('sample')) is not int
                             or options.get('samples') != temporal or options.get('sample') != sample
-                            or options.get('particle_step') != 'once-per-logic-frame'
+                            or options.get('particle_step_const') != 'once-per-logic-frame'
                             or type(options.get('spacing_lf')) is not int or options['spacing_lf'] <= 0):
                         raise ValueError('temporal effective settings absent/incompatible: ' + case)
                     if spacing is not None and spacing != options['spacing_lf']:
@@ -777,7 +777,7 @@ def read_batch(path, expected, measurer):
             if options is None:
                 reasons.append('effective settings absent: ' + case)
             else:
-                if not isinstance(options.get('output'), dict) or not {'profile', 'curve', 'exposure', 'pbr_exposure', 'knee'} <= options['output'].keys():
+                if not isinstance(options.get('output'), dict) or not {'profile_const', 'curve', 'exposure', 'pbr_exposure', 'knee'} <= options['output'].keys():
                     raise ValueError('missing effective output profile')
                 if options.get('master') is not True or options.get('lighting') is not (phase == 2):
                     raise ValueError('wrong effective ON/OFF settings')

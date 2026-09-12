@@ -2317,6 +2317,27 @@ void qualification_init() {
   autoport_proof::publish_text("refset_candidate_qualification", "recording-reconstructed-state");
 }
 
+// dead-published-keys-round-2 (2026-09-12) : LE REGISTRE DES CLES RETIREES de `effective_options`.
+// Une capture ancienne porte des cles que le binaire d'aujourd'hui ne publie plus. Sans ce
+// registre, un relecteur qui compare une capture ancienne a une neuve lit l'absence d'une cle
+// comme une DERIVE du reglage, alors que seul le CHAMP a disparu. Les captures deja prises ne
+// peuvent pas etre marquees en place : `refset_qualification.h` les scelle par `checked_hash`, et
+// les retoucher les invaliderait toutes. Le registre est donc le chemin de resolution, et il est
+// RECOPIE dans le journal de chaque capture neuve (`REFSET retired-keys`), a cote meme de la ligne
+// `REFSET effective` qu'un tel relecteur ouvre.
+// Format d'une entree, lu par `lib/census/dead-published-keys-round-2.sh` :
+//   "<cle>@<item>"                  la cle est RETIREE, elle ne se publie plus nulle part
+//   "<cle>-><nouvelle>@<item>"      la cle est RENOMMEE (`_const` dit : constante, pas mesure)
+//   "<cle>?<OPTION>@<item>"         la cle n'est publiee que si <OPTION> est compilee
+static constexpr const char* kRetiredQualificationKeys[] = {
+    "subdivision@dead-cover-and-legends",
+    "subdivision_rounds@dead-cover-and-legends",
+    "grass_overhang?OG_FEAT_GRASS_OVERHANG@dead-published-keys-round-2",
+    "profile->profile_const@dead-published-keys-round-2",
+    "method->method_const@dead-published-keys-round-2",
+    "particle_step->particle_step_const@dead-published-keys-round-2",
+};
+
 // Called during readback while g_mutex holds the selected phase stable. These are
 // effective gates and clamped settings, never the phase's requested environment values.
 QualificationJson qualification_effective_options() {
@@ -2338,9 +2359,14 @@ QualificationJson qualification_effective_options() {
   // ne vaut pas « zero mesure », la feature qu'elles nommaient n'existe plus.
   const float grass_near = std::min(80.f, std::max(8.f, gs.recharged_grass_near_dist));
   const float grass_card = std::min(200.f, std::max(grass_near + 5.f, gs.recharged_grass_card_dist));
-  bool grass_overhang = false;
+  // dead-published-keys-round-2 (2026-09-12) : `grass_overhang` etait publiee INCONDITIONNELLEMENT
+  // alors que son seul ecrivain vit sous `#ifdef OG_FEAT_GRASS_OVERHANG`, option OFF dans
+  // CMakeLists.txt:32 et OFF dans les deux caches de construction livres. Le binaire livre ne
+  // pouvait donc pas la faire bouger : un `false` en dur au milieu de mesures, la meme faute que
+  // `subdivision`. La DECLARATION et la PUBLICATION passent ensemble sous l'option : le binaire
+  // livre ne publie plus la cle, et un binaire qui compile l'option publie une vraie mesure.
 #ifdef OG_FEAT_GRASS_OVERHANG
-  grass_overhang = recharged_gating::on(recharged_gating::kGrassOverhang);
+  const bool grass_overhang = recharged_gating::on(recharged_gating::kGrassOverhang);
 #endif
   return {{"master", Gfx::recharged_master_active()},
       {"lighting", Gfx::recharged_lighting_active()}, {"rt_light", Gfx::lighting_active(rt != 0)},
@@ -2352,7 +2378,10 @@ QualificationJson qualification_effective_options() {
           {"grass", recharged_gating::on(recharged_gating::kGrass)},
           {"grass_near_dist", grass_near}, {"grass_card_dist", grass_card},
           {"grass_density_preset", grass_bake::clamp_density_preset(gs.recharged_grass_density_preset)},
-          {"grass_precomputed", gs.recharged_grass_precomputed}, {"grass_overhang", grass_overhang},
+          {"grass_precomputed", gs.recharged_grass_precomputed},
+#ifdef OG_FEAT_GRASS_OVERHANG
+          {"grass_overhang", grass_overhang},
+#endif
           {"foliage_wind", foliage_wind::enabled()},
           {"load_custom_assets", gs.load_custom_assets},
           {"lod_tfrag", gs.lod_tfrag}, {"lod_tie", gs.lod_tie}, {"hack_no_tex", gs.hack_no_tex},
@@ -3856,23 +3885,39 @@ bool consume_capture(int w, int h, const void* rgba) {
   auto effective_options = (refset_state::enabled() || autoport_proof::feature_is("lighting-hdr"))
       ? qualification_effective_options() : QualificationJson::object();
   if (autoport_proof::feature_is("lighting-hdr")) {
+    // dead-published-keys-round-2 (2026-09-12) : `profile`, `method` et `particle_step` portaient
+    // une CHAINE LITTERALE au milieu de mesures. Une constante publiee sans le dire se lit comme
+    // une grandeur que le binaire aurait mesuree ; aucune n'en est une. VOIE RETENUE : le
+    // RENOMMAGE, pas le retrait — les trois nomment le protocole de la capture (encodage de
+    // sortie, algorithme de reduction, cadence de la particule) et cette information sert au
+    // relecteur. Le suffixe `_const` est la convention : une cle qui le porte est une ETIQUETTE
+    // figee dans le binaire, jamais une mesure. Le registre `kRetiredQualificationKeys` porte la
+    // correspondance ancien -> nouveau pour les captures deja prises.
     const auto& settings = Gfx::g_global_settings;
     effective_options["output"] = {
-        {"profile", "sdr"}, {"curve", settings.recharged_hdr_curve},
+        {"profile_const", "sdr"}, {"curve", settings.recharged_hdr_curve},
         {"exposure", settings.recharged_hdr_exposure},
         {"pbr_exposure", settings.recharged_pbr_exposure},
         {"knee", settings.recharged_hdr_knee}};
     if (g_hdr_capture_scale > 1) {
       effective_options["native_capture"] = {
           {"width", kShotW * g_hdr_capture_scale}, {"height", kShotH * g_hdr_capture_scale},
-          {"scale", g_hdr_capture_scale}, {"method", kHdrReduction}};
+          {"scale", g_hdr_capture_scale}, {"method_const", kHdrReduction}};
     }
     if (g_temporal_samples > 1) {
       effective_options["temporal"] = {
           {"samples", g_temporal_samples}, {"sample", g_steps[g_cur].sample},
-          {"spacing_lf", g_step_settle}, {"particle_step", "once-per-logic-frame"},
+          {"spacing_lf", g_step_settle}, {"particle_step_const", "once-per-logic-frame"},
           {"particle_repin_lf", g_repin_lf}, {"particle_age", particle_age}};
     }
+    std::string retired_keys;
+    for (const char* entry : kRetiredQualificationKeys) {
+      if (!retired_keys.empty()) retired_keys += ',';
+      retired_keys += entry;
+    }
+    std::printf("REFSET retired-keys case=%s n=%zu keys=%s\n", g_capture_name.c_str(),
+                sizeof(kRetiredQualificationKeys) / sizeof(kRetiredQualificationKeys[0]),
+                retired_keys.c_str());
     std::printf("REFSET effective case=%s options=%s\n", g_capture_name.c_str(),
                 effective_options.dump().c_str());
     std::fflush(stdout);

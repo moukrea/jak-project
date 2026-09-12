@@ -217,8 +217,18 @@
         // programme l'a reellement tessele. lighting-legacy-purge (2026-09-11) : le tier
         // TESSELLATION n'est plus livre, seul le PARALLAX l'est.
         // lighting-legacy-purge (2026-09-11) : u_pbr_bisect RETIRE, valeur livree figee a 0 (chemin complet).
-        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0 &&
-            pom_w > TESS_COVER_MIN) {
+        // dead-published-keys-round-2 (2026-09-12) : le quatrieme terme `pom_w > TESS_COVER_MIN`
+        // est RETIRE de la porte. Il etait VRAI PAR CONSTRUCTION depuis le retrait de l'etage de
+        // tessellation : `tess_w` est fige au litteral 0.0 juste au-dessus, donc
+        // `pom_w = max(1.0 - 0.0, POM_MICRO_FLOOR)` = max(1.0, 0.35) = 1.0, et 1.0 > 0.01 a chaque
+        // pixel de chaque image. Aucun pixel ne change ; `pom_w` reste lu par la marche elle-meme.
+        // CE QU'IL COUTAIT : le miroir CPU de cette porte (background_common.cpp,
+        // PbrDrawBinder::set) ne peut relire que des UNIFORMES — un poids par pixel lui est hors
+        // d'atteinte. Il portait donc trois termes contre quatre, et un miroir PARTIEL se lit comme
+        // un accord. Les deux cotes portent maintenant exactement les MEMES trois termes.
+        // POM_GATE — la porte du POM. Le miroir CPU de background_common.cpp la recopie terme
+        // pour terme ; le recensement de `dead-published-keys-round-2` s'ancre sur ce marqueur.
+        if ((u_pbr_mode & 16) != 0 && u_pbr_debug != 8 && u_pbr_height_scale > 0.0) {
           vec3 Vt = normalize(vec3(dot(Vv, fTuv), dot(Vv, fBuv), max(dot(Vv, N), 0.0)));
           float vz = max(Vt.z, 0.20);
           // ===========================================================================
