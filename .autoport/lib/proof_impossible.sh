@@ -12,9 +12,17 @@
 # ni la moindre cle que le validateur lit. Une preuve impossible ne devient pas une preuve
 # parce qu'on l'a nommee. Il ecrit un fichier A COTE, que seul un recensement lit.
 #
+# NOMMAGE/ecrivain-derive — L'ECRIVAIN NE FABRIQUE PLUS SON NOM (harness-impossible-single-namer,
+# 12/09). Il le concatenait tout seul a partir du suffixe de bras pendant que
+# `lib/impossible.py` le derivait de son cote : deux endroits qui fabriquent un nom finissent
+# toujours par en fabriquer deux differents, et c'est exactement la divergence qui avait rendu
+# l'attente du bras d'ablation illisible sous une porte verte. Le nom vient desormais de
+# l'AUTORITE, et d'elle seule. Si elle ne repond pas, on N'ECRIT RIEN et on sort en 2 : un etat
+# pose sous un nom que personne ne lira serait un silence de plus, deguise en fichier.
+#
 # Usage :
 #   proof_impossible.sh <dir> <id> <suffixe> <raison> <detail> <attendu_s> <borne_s> <pourquoi>
-# Ecrit  : <dir>/proof<suffixe>-impossible.txt
+# Ecrit  : <dir>/<nom que `lib/impossible.py name impossible <suffixe>` derive>
 set -uo pipefail
 
 D=${1:-}; ID=${2:-}; SUF=${3:-}; REASON=${4:-inconnue}; DETAIL=${5:-}
@@ -36,7 +44,18 @@ fi
 
 one(){ printf '%s' "${1:--}" | tr '\n' ' ' | cut -c1-300; }
 
-OUT="$D/proof$SUF-impossible.txt"
+# L'AUTORITE EST A COTE DE CE SCRIPT, pas dans le depot courant : ce script est appele avec un
+# `cwd` quelconque — un banc jetable, un `tmp_path` de test — et un `git rev-parse` y designerait
+# un arbre qui ne porte pas le harnais.
+AP=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)
+NAME=$(python3 "$AP/lib/impossible.py" name impossible "$SUF" 2>/dev/null)
+case "$NAME" in
+  ""|*/*|*[!A-Za-z0-9._-]*)
+    echo "proof_impossible: nom non derivable par $AP/lib/impossible.py pour le bras '${SUF:-livre}' (rendu : '${NAME:--}') : rien ecrit" >&2
+    exit 2 ;;
+esac
+
+OUT="$D/$NAME"
 TMP="$OUT.tmp.$$"
 {
   echo "proof_impossible=1"

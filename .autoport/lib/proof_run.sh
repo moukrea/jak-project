@@ -140,7 +140,8 @@ die3(){
   log "PREUVE IMPOSSIBLE ($raison) : $detail"
   rm -f "$OUTFILE"
   bash "$AP/lib/proof_impossible.sh" "$D" "$ID" "$SUF" "$raison" "$detail" \
-       "$WAITED_S" "${WAITMAX:-0}" "$BUSY_WHY" || true
+       "$WAITED_S" "${WAITMAX:-0}" "$BUSY_WHY" \
+    || log "ETAT NOMME NON ECRIT : proof_impossible.sh a refuse (code $?) — cette course sortira sans rien qui nomme son impossibilite"
   exit 3
 }
 
@@ -411,7 +412,7 @@ log "attente de ce bras publiee sous '$WAITNAME', nom derive par lib/impossible.
 # item n'est jamais touche : une ablation impossible pendant qu'on mesure le bras livre doit
 # rester lisible, sinon un essai brulerait pour une machine indisponible que plus rien ne
 # nommerait. Non bloquant : l'hygiene ne doit jamais empecher une mesure.
-if PURGED=$(python3 "$AP/lib/impossible.py" purge --reports "$AP/reports" --item "$ID" --arm "$SUF" 2>&1); then
+if PURGED=$(python3 "$AP/lib/impossible.py" purge --reports "$AP/reports" --item "$ID" --arm "$SUF" --who course 2>&1); then
   log "hygiene des etats impossibles : $(printf '%s' "$PURGED" | tail -1)"
 else
   log "hygiene des etats impossibles : echec (non bloquant) — $(printf '%s' "$PURGED" | tail -1)"

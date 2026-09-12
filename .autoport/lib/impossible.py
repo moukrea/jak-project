@@ -29,8 +29,14 @@ ne se lisent pas pareil. On publie donc DEUX durees separement :
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
+
+try:
+    import fcntl
+except ImportError:                             # pragma: no cover - non POSIX
+    fcntl = None
 
 # Les deux bras d'une preuve : l'etat livre et son ablation. Chacun porte son propre etat
 # nomme, et chacun est rendu caduc par SON propre proof.txt, jamais par celui de l'autre.
@@ -293,7 +299,7 @@ def purge_reason(reports_dir, item_id, suffix, stamp, current_item=None,
 
 
 def purge(reports_dir, current_item=None, current_suffix=None, since=0.0, now=None,
-          journal=True):
+          journal=True, who=None):
     """Retire les etats qui ne decrivent plus le present. Rend `{"purged": [...],
     "standing": [...]}` — les DEUX comptes, separement, jamais leur difference."""
     now = time.time() if now is None else now
@@ -321,23 +327,168 @@ def purge(reports_dir, current_item=None, current_suffix=None, since=0.0, now=No
             continue
         purged.append(rec)
     if journal and purged:
-        _write_journal(reports_dir, purged, now)
+        write_journal(reports_dir, purged, now, who=who)
     return {"purged": purged, "standing": standing}
 
 
-def _write_journal(reports_dir, purged, now):
-    """Une ligne par etat retire, en ajout seul. Ce qu'on efface se raconte."""
+# ======================================================= JOURNAL/un-seul-ecrivain ===========
+# UN SEUL ECRIVAIN, ET UNE BORNE (signalement du 12/09). Le journal des purges etait ouvert en
+# ajout, sans borne et sans rotation, par deux CHEMINS d'appel — l'orchestrateur au changement
+# d'item, `lib/proof_run.sh` au debut de chaque course. Il grandissait pour toujours, et deux
+# processus qui ecrivent un meme fichier sans s'accorder est la faute qui a deja coute une nuit
+# ici.
+#
+# CE QUI CHANGE. `write_journal` est desormais le SEUL site du harnais qui ouvre ce fichier en
+# ecriture : les deux chemins d'appel passent par lui, et un recensement COMPTE les sites
+# d'ecriture du depot — s'il en apparait un deuxieme, la porte rougit. Les deux processus se
+# serialisent sur un verrou dedie (`<journal>.lock`), jamais sur le journal lui-meme : verrouiller
+# le fichier qu'on s'apprete a faire tourner, c'est tenir un verrou sur l'inode d'hier.
+#
+# LA BORNE EST UNE ROTATION, PAS UNE TRONCATURE. Au-dela de `PURGE_JOURNAL_MAX_BYTES` le journal
+# vivant devient `<journal>.1` et un neuf repart : ce qu'on a efface se raconte encore une
+# generation, et le disque ne croit plus sans fin. Une troncature perdrait le debut, c'est-a-dire
+# exactement l'information ancienne qu'on cherche quand une impossibilite dure.
+#
+# CHAQUE LIGNE DIT QUI L'A ECRITE. `by=` nomme le CODE (il n'y en a qu'un, c'est le verdict) et
+# `who=` nomme l'APPELANT (orchestrateur, course, banc) : sans lui, un journal a un seul ecrivain
+# ne dirait plus pour le compte de qui la purge a eu lieu.
+PURGE_JOURNAL_MAX_BYTES = 1 << 19          # 512 Kio de journal vivant
+PURGE_JOURNAL_KEEP = ".1"                  # une generation gardee a cote, pas plus
+WRITER = "lib/impossible.py"               # le SEUL code qui ouvre ce journal en ecriture
+
+
+def _one(value, defaut="-"):
+    """Un champ de journal ne porte JAMAIS d'espace : la ligne se lit par decoupage."""
+    txt = str(value if value not in (None, "") else defaut)
+    return "_".join(txt.split()) or defaut
+
+
+def _who(who=None):
+    """Qui a DEMANDE la purge. L'appelant le dit ; a defaut on prend le programme lance."""
+    if who:
+        return _one(who)
+    env = os.environ.get("AUTOPORT_JOURNAL_WHO")
+    if env:
+        return _one(env)
+    return _one(os.path.basename(sys.argv[0] or "?"), "?")
+
+
+def journal_lock_path(reports_dir):
+    """Le verrou du journal. A COTE du journal, jamais le journal : on fait tourner le second."""
+    return purge_journal_path(reports_dir) + ".lock"
+
+
+class _Verrou:
+    """Exclusion entre les processus qui journalisent. Sans `fcntl` (non POSIX) on n'invente
+    pas une garantie : on ecrit quand meme, et `journal_stats` publie que le verrou manquait."""
+
+    def __init__(self, path):
+        self.path = path
+        self.fh = None
+
+    def __enter__(self):
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            self.fh = open(self.path, "a+", encoding="utf-8")   # noqa: SIM115
+            if fcntl is not None:
+                fcntl.flock(self.fh.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            self.fh = None
+        return self
+
+    def __exit__(self, *exc):
+        if self.fh is not None:
+            try:
+                if fcntl is not None:
+                    fcntl.flock(self.fh.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+            try:
+                self.fh.close()
+            except OSError:
+                pass
+        return False
+
+
+def journal_line(rec, stamp, who):
+    """UNE ligne, un etat retire. `reason=` garde sa place : `purge_counts` la lit deja."""
+    return ("%s by=%s who=%s item=%s arm=%s file=%s reason=%s age_s=%d cause=%s\n"
+            % (stamp, _one(WRITER), _one(who), _one(rec.get("item")), _one(rec.get("arm")),
+               _one(rec.get("file")), _one(rec.get("reason")),
+               int(rec.get("age_s") or 0), _one(rec.get("cause"), "inconnue")[:120]))
+
+
+def write_journal(reports_dir, purged, now=None, who=None):
+    """LE SEUL SITE D'ECRITURE du journal des purges. Rend le nombre de lignes ajoutees."""
+    if not purged:
+        return 0
+    now = time.time() if now is None else now
     path = purge_journal_path(reports_dir)
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+    corps = "".join(journal_line(rec, stamp, _who(who)) for rec in purged)
+    with _Verrou(journal_lock_path(reports_dir)):
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            try:
+                taille = os.path.getsize(path)
+            except OSError:
+                taille = 0
+            if taille and taille + len(corps.encode("utf-8")) > PURGE_JOURNAL_MAX_BYTES:
+                os.replace(path, path + PURGE_JOURNAL_KEEP)
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(corps)
+                fh.flush()
+        except OSError:
+            return 0                  # un journal illisible ne doit pas empecher la purge
+    return len(purged)
+
+
+# Une ligne BIEN FORMEE, relue par le meme module qui l'ecrit. Un journal dont les lignes se
+# chevauchent se verrait ici, et nulle part ailleurs.
+_LIGNE = re.compile(
+    r"^\S+ by=(?P<by>\S+) who=(?P<who>\S+) item=\S+ arm=\S+ file=\S+ "
+    r"reason=\S+ age_s=\d+ cause=\S*$")
+
+
+def journal_stats(reports_dir):
+    """La TAILLE du journal, sa borne, et les ecrivains OBSERVES dedans.
+
+    `writers` compte les `by=` distincts : c'est le compte que le livrable demande de publier.
+    `callers` compte les `who=` — publie a cote, jamais confondu avec lui : un seul ecrivain
+    qui sert trois appelants reste un seul ecrivain."""
+    path = purge_journal_path(reports_dir)
+    st = {"path": path, "bytes": 0, "rotated_bytes": 0, "lines": 0, "legacy": 0,
+          "malformed": 0, "writers": [], "callers": [],
+          "max_bytes": PURGE_JOURNAL_MAX_BYTES,
+          "lock": os.path.basename(journal_lock_path(reports_dir)),
+          "lock_available": 1 if fcntl is not None else 0}
+    for cle, p in (("bytes", path), ("rotated_bytes", path + PURGE_JOURNAL_KEEP)):
+        try:
+            st[cle] = os.path.getsize(p)
+        except OSError:
+            st[cle] = 0
+    st["over_bound"] = 1 if st["bytes"] > PURGE_JOURNAL_MAX_BYTES else 0
+    by, who = set(), set()
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-        with open(path, "a", encoding="utf-8") as fh:
-            for rec in purged:
-                fh.write("%s item=%s arm=%s file=%s reason=%s age_s=%d cause=%s\n"
-                         % (stamp, rec["item"], rec["arm"], rec["file"], rec["reason"],
-                            rec["age_s"], str(rec["cause"]).replace(" ", "_")[:120]))
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.rstrip("\n")
+                if not line.strip():
+                    continue
+                st["lines"] += 1
+                m = _LIGNE.match(line)
+                if m:
+                    by.add(m.group("by"))
+                    who.add(m.group("who"))
+                elif " reason=" in line and " by=" not in line:
+                    st["legacy"] += 1          # ecrite avant ce chantier : comptee, pas accusee
+                else:
+                    st["malformed"] += 1
     except OSError:
-        pass                          # un journal illisible ne doit pas empecher la purge
+        pass
+    st["writers"] = sorted(by)
+    st["callers"] = sorted(who)
+    return st
 
 
 def purge_counts(reports_dir):
@@ -477,7 +628,9 @@ def digest_lines(st, feature=None):
 # Plutot que de recopier la regle dans un deuxieme langage — c'est cette recopie qui a rendu
 # l'attente du bras d'ablation illisible — il APPELLE ce module :
 #     python3 lib/impossible.py name wait -off        -> proof-off-wait.txt
-#     python3 lib/impossible.py purge --reports D --item ID --arm -off
+#     python3 lib/impossible.py purge --reports D --item ID --arm -off --who course
+#     python3 lib/impossible.py why  --reports D --item ID     -> la cause NOMMEE, une ligne
+#     python3 lib/impossible.py journal --reports D            -> taille, borne, ecrivains
 def _cli(argv):
     """Ecrit a la main, sans argparse : un suffixe de bras COMMENCE par un tiret (`-off`) et
     argparse le lit comme une option. Un outil qui ne sait pas nommer le bras d'ablation est
@@ -490,12 +643,36 @@ def _cli(argv):
         return 0
     if cmd == "purge":
         r = purge(opt("--reports", ".autoport/reports"), current_item=opt("--item"),
-                  current_suffix=opt("--arm"), since=float(opt("--since", 0.0) or 0.0))
+                  current_suffix=opt("--arm"), since=float(opt("--since", 0.0) or 0.0),
+                  who=opt("--who"))
         for rec in r["purged"]:
             print("purge %s/%s (%s, %ds) : %s"
                   % (rec["item"], rec["file"], rec["reason"], rec["age_s"], rec["cause"]),
                   file=sys.stderr)
         print("purged=%d standing=%d" % (len(r["purged"]), len(r["standing"])))
+        return 0
+    # LA PREMIERE LIGNE DU VALIDATEUR (NOMMAGE/premiere-ligne). `validators/generic.sh` ne
+    # peut voir qu'une chose quand la preuve etait impossible : proof.txt absent. Il demande
+    # donc ICI la cause NOMMEE, et l'imprime AVANT son constat. Sortie vide = aucun etat
+    # debout : le validateur dit alors ce qu'il a toujours dit.
+    if cmd == "why":
+        st = read(opt("--reports", ".autoport/reports"), opt("--item", ""),
+                  since=float(opt("--since", 0.0) or 0.0))
+        if not st:
+            return 1
+        print("aucune mesure n'etait possible — %s. Bras %s, etat %s ecrit le %s, "
+              "impossible depuis %s."
+              % (cause(st), st["arm"], st["file"], st["at"], human(st["since_s"])))
+        return 0
+    if cmd == "journal":
+        st = journal_stats(opt("--reports", ".autoport/reports"))
+        for k in ("path", "bytes", "rotated_bytes", "max_bytes", "over_bound", "lines",
+                  "legacy", "malformed", "lock", "lock_available"):
+            print("journal_%s=%s" % (k, st[k]))
+        print("journal_writers=%d" % len(st["writers"]))
+        print("journal_writers_list=%s" % (",".join(st["writers"]) or "-"))
+        print("journal_callers=%d" % len(st["callers"]))
+        print("journal_callers_list=%s" % (",".join(st["callers"]) or "-"))
         return 0
     if cmd == "standing":
         deb = standing(opt("--reports", ".autoport/reports"))
@@ -504,7 +681,8 @@ def _cli(argv):
             print("%s %s %ss" % (rec["item"], rec["file"], rec["age_s"]))
         return 0
     print("usage: impossible.py name <%s> [bras] | purge [--reports D] [--item ID] "
-          "[--arm BRAS] [--since T] | standing [--reports D]" % "|".join(sorted(KINDS)),
+          "[--arm BRAS] [--since T] [--who QUI] | why [--reports D] --item ID | "
+          "journal [--reports D] | standing [--reports D]" % "|".join(sorted(KINDS)),
           file=sys.stderr)
     return 2
 

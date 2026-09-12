@@ -16,6 +16,15 @@ print("GK=%s GO=%s GV=%s DEV=%d FMIN=%s" % (q(g.get('key', '')), q(g.get('op', '
 PY
 )"
 if [ ! -s "$PF" ]; then
+  # NOMMAGE/premiere-ligne — LA CAUSE NOMMEE PASSE DEVANT (harness-impossible-single-namer, 12/09).
+  # Ce juge ne peut voir qu'une chose quand aucune mesure n'etait possible : proof.txt absent. Il
+  # l'ecrivait donc EN PREMIER, et qui lit sa sortie de haut en bas repartait chercher un defaut
+  # de worker la ou il n'y avait qu'une machine indisponible. L'orchestrateur reecrivait bien
+  # l'en-tete du JOURNAL, mais pas la sortie du juge lui-meme. Elle est ici, lue par le SEUL
+  # lecteur de l'etat nomme — aucun nom de fichier code en dur — et elle ne masque rien : le
+  # constat qui suit est le meme, au mot pres, et il compte toujours pour un.
+  imp=$(python3 .autoport/lib/impossible.py why --reports .autoport/reports --item "$P" 2>/dev/null)
+  [ -z "$imp" ] || echo "[$P PREUVE IMPOSSIBLE] $imp" >&2
   bad "proof.txt absent ou vide. Produis-le : .autoport/lib/proof_run.sh $P $([ "${DEV:-0}" = 1 ] && echo device || echo x86)"
 else
   src=$(kv source); bin=build/game/gk; [ "$src" = device ] && bin=build-android/lib/arm64-v8a/libgk.so

@@ -2125,7 +2125,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     # passé — et l'autre bras de cet item n'est jamais touché.
     try:
         _hyg = impossible_state.purge(str(AUTOPORT_DIR / "reports"),
-                                      current_item=iid, since=started_at)
+                                      current_item=iid, since=started_at,
+                                      who="orchestrateur")
         for _rec in _hyg["purged"]:
             log(f"· état « preuve impossible » purgé : {_rec['item']}/{_rec['file']} "
                 f"({_rec['reason']}, {impossible_state.human(_rec['age_s'])}, "

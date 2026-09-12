@@ -406,6 +406,41 @@ class Backlog:
         last_fb = fb[-1]["date"] if fb else ""
         return max(it.get("delivered") or "", last_fb) >= CURRENT_BUILD_SINCE
 
+    # NOMMAGE/tous-les-items — L'ETAT SE LIT PARTOUT OU IL EXISTE
+    # (harness-impossible-single-namer, 12/09). Ce rapport n'interrogeait que les items
+    # ACTIONABLE : un etat debout sur un item `validated`, ou sur un id qui n'est plus dans le
+    # backlog du tout, n'apparaissait JAMAIS dans le texte de l'owner — le fichier etait bien
+    # sur le disque, et personne ne le nommait. C'est le meme defaut que celui qu'on vient de
+    # corriger un cran plus haut : une population filtree a la lecture rend le producteur muet.
+    # La purge en couvre une partie, pas la totalite : elle ne s'execute qu'au changement d'item
+    # et au debut d'une course, et un etat pose APRES la derniere course reste invisible jusqu'a
+    # la suivante. On lit donc CE QUI EST SUR LE DISQUE, et le statut de l'item est imprime a
+    # cote — « hors file » n'est pas « en cours », et les confondre serait l'autre faute.
+    def impossible_states(self):
+        """Les etats « preuve impossible » DEBOUT, tous items confondus, file ou pas."""
+        return _impossible.read_all(self._reports_dir())
+
+    def bloc_impossible(self, etats):
+        """Le bloc rendu a l'owner, et sa version pour le digest. UN SEUL renderer : un bras
+        de mesure qui reecrirait ce texte ne mesurerait que sa propre recopie."""
+        par_id = {it.get("id"): it for it in self.items}
+        lines, dlines = [], []
+        if etats:
+            lines = ["## Preuve impossible",
+                     "%d chantier(s) que le harnais ne peut PAS mesurer en ce moment. Ce "
+                     "n'est pas « rien produit » : c'est « rien de mesurable », et voila "
+                     "la cause et depuis quand." % len(etats)]
+            dlines = ["## Preuve impossible"]
+            for iid, st in etats.items():
+                it = par_id.get(iid)
+                feat = (it or {}).get("feature", iid)
+                statut = (it or {}).get("status") or "hors backlog"
+                if statut not in ACTIONABLE:
+                    feat = "%s [hors file : %s]" % (feat, statut)
+                lines.extend(_impossible.lines(st, feat))
+                dlines.extend(_impossible.digest_lines(st, feat))
+        return "\n".join(lines), "\n".join(dlines)
+
     def status_report(self, changed_only=False, show_all=False):
         """Les blocs, en francais simple. Un item `validated` n'y apparait jamais.
 
@@ -442,27 +477,7 @@ class Backlog:
         a_tester = "\n".join(lines)
 
         # ------------------------------------------------ LA PREUVE IMPOSSIBLE
-        # Un item dont la preuve est IMPOSSIBLE ne se lit pas comme un item qui n'a rien
-        # produit. L'etat nomme existe depuis le 12/09 (lib/proof_impossible.sh) ; personne
-        # ne le lisait. Il remonte ici, avec DEPUIS QUAND : une impossibilite de 30 secondes
-        # et une de six heures ne se lisent pas pareil.
-        actionnables = [it for it in self.items if it.get("status") in ACTIONABLE]
-        etats = _impossible.read_all(self._reports_dir(),
-                                     [it.get("id") for it in actionnables])
-        par_id = {it.get("id"): it for it in actionnables}
-        lines, dlines = [], []
-        if etats:
-            lines = ["## Preuve impossible",
-                     "%d chantier(s) que le harnais ne peut PAS mesurer en ce moment. Ce "
-                     "n'est pas « rien produit » : c'est « rien de mesurable », et voila "
-                     "la cause et depuis quand." % len(etats)]
-            dlines = ["## Preuve impossible"]
-            for iid, st in etats.items():
-                feat = (par_id.get(iid) or {}).get("feature", iid)
-                lines.extend(_impossible.lines(st, feat))
-                dlines.extend(_impossible.digest_lines(st, feat))
-        empeche = "\n".join(lines)
-        empeche_digest = "\n".join(dlines)
+        empeche, empeche_digest = self.bloc_impossible(self.impossible_states())
 
         lines = []
         if debt:
