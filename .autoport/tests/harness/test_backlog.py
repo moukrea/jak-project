@@ -289,8 +289,22 @@ def test_status_report_changed_only_ignores_the_debt(bpath, tmp_path, monkeypatc
 
 
 def test_status_report_of_the_real_backlog_is_french_and_has_no_commit_noise():
-    text = bl.load().status_report()
-    assert "## A tester" in text
+    b = bl.load()
+    text = b.status_report()
+    # `## A tester` ne porte QUE ce qui se teste sur le build courant. Exiger sa presence sans
+    # condition faisait de ce test l'exact CONTRAIRE de
+    # `test_status_report_has_the_three_blocks_and_omits_the_empty_ones`, qui exige son ABSENCE
+    # quand il n'y a rien a tester. Les deux ne peuvent pas etre verts ensemble sur un backlog
+    # a zero `to-test` — et c'est l'etat NORMAL du lendemain d'une passe de validation : le
+    # 2026-09-13, l'owner a valide les cinq derniers `to-test` (1c197e3620) et plus aucun item
+    # n'a pu franchir la porte de fermeture, pour une raison qui n'etait dans le code de
+    # personne. On verifie donc l'INVARIANT du producteur et non un etat du backlog : la
+    # section est la si et seulement si quelque chose est testable maintenant.
+    testable = [it for it in b.by_status("to-test")
+                if it.get("owner_test", True) and b._testable_now(it)]
+    assert ("## A tester" in text) == bool(testable), (
+        "la section et la population divergent : testables = %s"
+        % [it["id"] for it in testable])
     for noise in ("commit", "validator", "attempt", "WIP", "sha=", "[autoport/"):
         assert noise not in text, noise
     validated = [it["feature"] for it in bl.load().items if it["status"] == "validated"]

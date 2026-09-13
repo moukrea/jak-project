@@ -740,6 +740,28 @@ class Backlog:
                     problems.append("%s : PROMPT NON RENDU (%s) — le worker lit le vieux "
                                     "fichier, ton travail ne lui parvient pas"
                                     % (iid, str(exc)[:60]))
+                # 2026-09-13 — LE BACKLOG DOIT DESIGNER SA CONSIGNE, pas seulement pouvoir la
+                # fabriquer. Le controle au-dessus ne juge que le RENDU ; il rend le meme vert
+                # quand `prompt` est None. Le superviseur a cree `firstperson-hd-hide`
+                # (1c197e3620) en ECRIVANT sa consigne et son contrat sur le disque, mais sans
+                # jamais poser le champ : `orchestrator.py` teste `item.get("prompt")` AVANT
+                # d'aller voir le fichier, et aurait bloque l'item sur « prompt absent » alors
+                # que le fichier etait la, a cote. Un essai brule pour un champ vide.
+                # Les consignes sont a cote du backlog qu'elles servent : un backlog sans
+                # dossier `prompts/` n'en attend aucune — les backlogs jetables de la suite
+                # sont dans ce cas, et leur faire ce reproche rendrait le reproche illisible.
+                sacoche = os.path.join(os.path.dirname(os.path.abspath(self.path)), "prompts")
+                if os.path.isdir(sacoche):
+                    rel = it.get("prompt")
+                    if not rel:
+                        problems.append("%s : le backlog ne DESIGNE aucune consigne "
+                                        "(`prompt` vide) — l'orchestrateur bloquera l'item "
+                                        "sur « prompt absent », que le fichier existe ou non"
+                                        % iid)
+                    elif not os.path.exists(os.path.join(os.path.dirname(sacoche), rel)):
+                        problems.append("%s : CONSIGNE ABSENTE du disque (%s) — "
+                                        "l'orchestrateur bloquera l'item au lieu de le "
+                                        "prendre" % (iid, rel))
             if status == "to-test" and it.get("owner_test", True) and not (it.get("where") or "").strip():
                 problems.append("%s : a tester sans « ou regarder » — l'owner ne saurait pas "
                                 "quoi regarder" % iid)

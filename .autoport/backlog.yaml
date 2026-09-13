@@ -3590,7 +3590,7 @@ items:
   depends_on: []
   history:
   - Gfirstperson-hd-hide
-  prompt: null
+  prompt: prompts/item-firstperson-hd-hide.md
   owner_ok: null
   notes: 'statut force : l''owner ferme la premiere personne ET la visiere dans la meme phrase, recopiee
     du jeton owner-ok/Gkeira-visor-deliver | 13/09 : REGRESSION signalee par l''owner, rouvert avec porte
@@ -8923,7 +8923,7 @@ items:
     de harnais.
   code_scope: harnais
 - id: dead-literals-round-3
-  status: in-progress
+  status: open
   priority: 36
   game: jak1
   device: false
@@ -9132,7 +9132,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-shadow-range
-  status: open
+  status: in-progress
   priority: 21
   game: jak1
   device: true
