@@ -1466,10 +1466,22 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   window_fb.multisample_count = 1;
   window_fb.multisampled = false;
 
-  // Grecharged-ambient-occlusion (REOPEN blink fix): size the AO/blur chain by the WINDOW,
-  // not the render-scale-sized scene FBO, so a dynamic render-scale change never recreates
-  // the AO targets (which was one root of the AO clignote).
-  prepass::set_output_hint(settings.window_fb_w, settings.window_fb_h);
+  // Grecharged-ambient-occlusion (REOPEN blink fix): size the AO/blur chain by a resolution
+  // that a dynamic render-scale change does NOT move, so the AO targets are never recreated
+  // mid-play (one root of the AO clignote).
+  //
+  // lighting-ao-indirect, verdict (f) de l'owner (2026-09-12) : ce reglage etait la FENETRE.
+  // Sur l'A35 la fenetre fait 2400x1080 quand la scene fait 800x600 : la chaine d'AO tournait
+  // donc a 3,0 x 1,8 = 5,4 FOIS plus de pixels que la scene qu'elle ombre, pour une AO que
+  // `shade()` reduit ensuite a 800x600. Au palier ELEVE (echelle 1:1) GTAO faisait 160 lectures
+  // de profondeur sur 2,59 Mpx au lieu de 0,48 Mpx — le facteur ~5 de cout que l'owner a vu.
+  // Pire, l'estimateur verrouille sa lecture au centre du texel de PROFONDEUR (`snapped`) :
+  // chaque bloc de 3,0 x 1,8 texels d'AO reconstruisait le MEME point et rendait la MEME
+  // valeur. Ce sur-echantillonnage ne portait aucune information.
+  // `game_res` est la resolution de la scene a l'echelle 100 % : elle ne bouge pas quand le
+  // controleur de render-scale descend, donc la raison d'origine (pas de recreation, pas de
+  // clignotement) tient toujours, et la chaine cesse d'etre surdimensionnee.
+  prepass::set_output_hint(settings.game_res_w, settings.game_res_h);
 
   // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100),
   // keeping the GOAL 4:3 aspect. do_pcrtc_effects resample-blits it to the

@@ -559,16 +559,24 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
     // le cout en draws ne monte que pour ce qui jette vraiment.
     if (!tree.prepass_ranges_built) {
       tree.prepass_ranges.clear();
+      tree.prepass_noz_ranges.clear();
       if (tree.draws) {
         for (const auto& draw : *tree.draws) {
           u32 count = 0;
           for (const auto& vg : draw.vis_groups) {
             count += vg.num_inds;
           }
+          const u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
           if (count == 0) {
             continue;
           }
-          const u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+          if (!prepass_writes_depth(draw.mode)) {
+            // lighting-ao-indirect (c)/(g) : la passe principale coupe le z-write pour ce draw ;
+            // l'ecrire ici ferait de son quad un occluder d'AO invisible.
+            tree.prepass_noz_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
+            prepass::note_noz_range(count);
+            continue;
+          }
           const float am = prepass_alpha_min(draw.mode);
           // tree_tex_id negatif = emplacement de texture animee : pas de nom GL stable ici,
           // on le traite comme opaque plutot que de lier n'importe quoi.
@@ -590,7 +598,9 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
       }
       tree.prepass_ranges_built = true;
     }
-    for (const auto& r : tree.prepass_ranges) {
+    const auto& ranges =
+        prepass::noz_pass_active() ? tree.prepass_noz_ranges : tree.prepass_ranges;
+    for (const auto& r : ranges) {
       const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                ? m_textures->at(r.tex)
                                : 0;

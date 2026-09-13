@@ -68,6 +68,11 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
     if (tree.caster_groups.empty()) {
       // partition inconnue (buffer bati hors OG_FEAT_PBR) : un seul draw, sans texture.
+      // lighting-ao-indirect (c)/(g) : sans partition, on ne sait pas QUELS draws coupent le
+      // z-write — la passe fantome ne dessine donc RIEN ici plutot que d'inventer.
+      if (prepass::noz_pass_active()) {
+        continue;
+      }
       total += prepass::draw_depth_range(
           GL_TRIANGLES, prepass::make_depth_range(0, 0.f, 0, tree.caster_index_count));
       continue;
@@ -75,6 +80,11 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
     // Un draw par groupe : le feuillage a decoupe doit passer son alpha-test ici, sinon l'AO
     // voit un quad plein la ou l'image voit des brins (owner 2026-09-10, defaut b).
     for (const auto& g : tree.caster_groups) {
+      // lighting-ao-indirect (c)/(g) : la prepasse LIVREE dessine les groupes a z-write, la
+      // passe fantome les autres — jamais les deux.
+      if (g.noz != prepass::noz_pass_active()) {
+        continue;
+      }
       const GLuint tex = (m_textures && g.tex_id < m_textures->size()) ? m_textures->at(g.tex_id) : 0;
       total += prepass::draw_depth_range(GL_TRIANGLES,
                                          prepass::make_depth_range(tex, g.alpha_min, g.first, g.count));
@@ -412,7 +422,12 @@ void Shrub::update_load(const LevelData* loader_data) {
         }
         const u32 count_out = (u32)caster.size() - first_out;
         if (count_out > 0) {
-          groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode), first_out, count_out});
+          const bool noz = !prepass_writes_depth(draw.mode);
+          groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode), first_out, count_out,
+                            noz});
+          if (noz) {
+            prepass::note_noz_range(count_out);
+          }
         }
       }
       glGenBuffers(1, &m_trees[l_tree].caster_index_buffer);

@@ -161,6 +161,10 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
     // voisines adjacentes. Batie paresseusement au premier passage de la prepasse ; `tex` porte
     // l'ID de texture du fr3, PAS le nom GL (la resolution se fait au dessin).
     std::vector<prepass::DepthRange> prepass_ranges;
+    // lighting-ao-indirect (c)/(g) : les plages ECARTEES — les draws dont la passe principale
+    // coupe le z-write (`prepass_writes_depth` faux). Elles ne sont PAS dessinees par la
+    // prepasse livree ; seule la passe de mesure « occluder fantome » les rejoue.
+    std::vector<prepass::DepthRange> prepass_noz_ranges;
     bool prepass_ranges_built = false;
     // lighting-legacy-purge (2026-09-11) : le tampon d'index a plat pour GL_PATCHES est SUPPRIME
     // avec le programme TESSELLE, jamais livre.

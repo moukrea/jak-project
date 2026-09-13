@@ -93,6 +93,20 @@ DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, ui
 // `gl_mode` = GL_TRIANGLES ou GL_TRIANGLE_STRIP, selon le buffer du contributeur.
 uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r);
 
+// lighting-ao-indirect : le FBO de la prepasse, pour qui doit RELIRE sa profondeur. Rend 0
+// tant qu'aucune image n'a ete prepassee. `glGetTexImage` sur la texture rendait un tampon
+// entierement nul sans poser d'erreur GL (mesure du 2026-09-13 : 0 couple plan sur 12 etats,
+// 4 images chacun) : on relit par le chemin que le reste du recensement emprunte deja.
+unsigned depth_fbo();
+
+// lighting-ao-indirect : VRAI pendant la passe de mesure « occluder fantome » (image sondee
+// seulement). Les contributeurs dessinent alors leurs plages ECARTEES — celles des draws sans
+// z-write — au lieu de leurs plages livrees. Rend FAUX partout ailleurs.
+bool noz_pass_active();
+// Recense une plage ECARTEE de la prepasse au CHARGEMENT (comptes publies : ao_noz_ranges,
+// ao_noz_inds).
+void note_noz_range(uint32_t inds);
+
 // Appele par les DEUX renderers (bureau, Android) la ou ils initialisaient `m_ao_pass`.
 void init_shaders(ShaderLibrary& shaders);
 // L'estimateur d'AO, possede par ce module (il tournait dans les deux renderers).

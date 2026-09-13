@@ -33,7 +33,7 @@ constexpr const char* kItemId = "lighting-ao-indirect";
 AUTOPORT_FEATURE_SITE(kItemId);
 // Une image sondee sur N sous mesure : la relecture couleur + stencil pleine resolution coute
 // une synchronisation GPU, on ne la paie pas a chaque image.
-constexpr uint64_t kProbeEvery = 60;
+constexpr uint64_t kProbeEvery = 30;  // 12 etats de recensement a couvrir (etait 60 pour 3)
 
 std::vector<DepthContributor*> g_contributors;
 AmbientOcclusionPass g_ao;
@@ -85,6 +85,14 @@ uint64_t g_alpha_cover_px = 0;    // bras LIVRE : pixels gagnes par la prepasse 
 uint64_t g_alpha_fringe_px = 0;   // bras LIVRE : gagnants dans la bande ambigue (voir le .frag)
 uint64_t g_witness_px = 0;        // bras CONTROLE : le meme detecteur, decoupe desarmee -> > 0
 uint64_t g_witness_cover_px = 0;  // bras CONTROLE : son propre denominateur
+
+// lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
+// principale dessine SANS ecrire la profondeur. Recensees au CHARGEMENT par les contributeurs,
+// rejouees par `measure_phantom_occluders` quand `g_noz_pass` est vrai.
+bool g_noz_pass = false;
+uint64_t g_noz_ranges = 0, g_noz_inds = 0;
+uint64_t g_phantom_px = 0, g_phantom_cover_px = 0;
+int g_phantom_state = 0;  // 0 = pas encore mesure, 1 = mesure, -1 = non supporte
 
 // Preuve.
 bool g_probe_frame = false;
@@ -425,11 +433,149 @@ uint64_t run_prepass(SharedRenderState* rs,
   return total;
 }
 
+// lighting-ao-indirect, verdict (c) de l'owner : « publier ce qui est mesure AU POINT DE DESSIN
+// du brin d'herbe, pas a l'entree de l'estimateur ». On rejoue les plages ECARTEES — les quads
+// de feuillage que la passe principale dessine SANS ecrire la profondeur — contre la
+// profondeur LIVREE de la prepasse, en GL_GREATER (convention PS2 : plus grand = plus pres) et
+// sans jamais ecrire. La requete d'occlusion rend le nombre EXACT de pixels ou ce quad se
+// serait pose DEVANT la geometrie reelle : c'est la population que l'owner voit s'assombrir.
+// `ao_phantom_cover_px` est la meme geometrie sans test : le denominateur.
+void measure_phantom_occluders(SharedRenderState* rs,
+                               const GoalBackgroundCameraData& cam,
+                               int w,
+                               int h) {
+#ifdef __ANDROID__
+  // GLES 3 n'a pas GL_SAMPLES_PASSED (seulement GL_ANY_SAMPLES_PASSED, un booleen) : la mesure
+  // n'existe pas dans le .so arm64 — ce n'est pas un drapeau a zero, c'est du code non COMPILE.
+  (void)rs;
+  (void)cam;
+  (void)w;
+  (void)h;
+  g_phantom_state = -1;
+#else
+  if (!g_shaders || !g_fbo) {
+    return;
+  }
+  // `run_prepass` a deja TOUT restaure en sortant : on refait ici exactement son installation
+  // (meme FBO, meme viewport, meme programme, memes uniformes), sans jamais effacer la
+  // profondeur qu'elle vient d'ecrire.
+  GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
+  GLint prev_vao = 0;
+  const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  const GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  const GLboolean prev_stencil = glIsEnabled(GL_STENCIL_TEST);
+  const GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLboolean prev_depth_mask = GL_TRUE;
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  GLint prev_active_tex = GL_TEXTURE0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_vp);
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active_tex);
+  glActiveTexture(GL_TEXTURE0);
+  GLint prev_tex0 = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, g_fbo);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  glDisable(GL_SCISSOR_TEST);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_BLEND);
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_POLYGON_OFFSET_FILL);
+  glEnable(GL_DEPTH_TEST);
+
+  const auto& sh = (*g_shaders)[ShaderId::PREPASS_WORLD];
+  sh.activate();
+  const GLuint id = sh.id();
+  const auto newcam = make_new_cam_mat(cam.rot, cam.perspective, cam.fog.x(), cam.hvdf_off.z());
+  glUniformMatrix4fv(glu::loc(id, "pc_camera"), 1, GL_FALSE, newcam[0].data());
+  glUniform4f(glu::loc(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2], cam.trans[3]);
+  glUniform1i(glu::loc(id, "tex_T0"), 0);
+  glUniform1i(glu::loc(id, "u_cut_mode"), 0);
+
+  glDepthMask(GL_FALSE);
+  glDepthFunc(GL_GREATER);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+  GLuint q[2] = {0, 0};
+  glGenQueries(2, q);
+  g_cut_armed = true;
+  g_noz_pass = true;
+  forget_range_state();
+  glBeginQuery(GL_SAMPLES_PASSED, q[0]);
+  draw_all_contributors(rs, nullptr);
+  glEndQuery(GL_SAMPLES_PASSED);
+
+  glDepthFunc(GL_ALWAYS);
+  forget_range_state();
+  glBeginQuery(GL_SAMPLES_PASSED, q[1]);
+  draw_all_contributors(rs, nullptr);
+  glEndQuery(GL_SAMPLES_PASSED);
+  g_noz_pass = false;
+
+  GLuint hit = 0, cover = 0;
+  glGetQueryObjectuiv(q[0], GL_QUERY_RESULT, &hit);
+  glGetQueryObjectuiv(q[1], GL_QUERY_RESULT, &cover);
+  g_phantom_px += hit;
+  g_phantom_cover_px += cover;
+  glDeleteQueries(2, q);
+  g_phantom_state = 1;
+
+  // ---- restauration : exactement l'etat dans lequel `run_prepass` laisse GL ----
+  glBindVertexArray((GLuint)prev_vao);
+  glUseProgram((GLuint)prev_program);
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+  if (prev_scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+  if (prev_cull) {
+    glEnable(GL_CULL_FACE);
+  }
+  if (prev_blend) {
+    glEnable(GL_BLEND);
+  }
+  if (prev_stencil) {
+    glEnable(GL_STENCIL_TEST);
+  }
+  if (prev_poly_off) {
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  }
+  if (!prev_depth_test) {
+    glDisable(GL_DEPTH_TEST);
+  }
+  glDepthMask(prev_depth_mask);
+  glDepthFunc((GLenum)prev_depth_func);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0);
+  glActiveTexture((GLenum)prev_active_tex);
+#endif
+}
+
 #ifndef __ANDROID__
 void publish_all() {
   autoport_proof::publish("ao_direct_leak_px", g_leak_px);
   autoport_proof::publish("ao_hit_px", g_hit_px);
   autoport_proof::publish("ao_probe_px", g_probe_px);
+  // ── (c)/(g) L'OCCLUDER FANTOME ──────────────────────────────────────────────────────────
+  // `ao_noz_ranges` / `ao_noz_inds` : ce que la prepasse ECARTE desormais (draws sans z-write).
+  // `ao_phantom_px` : les pixels ou ces quads se seraient poses DEVANT la geometrie reelle —
+  // la population qui s'assombrissait. `ao_phantom_cover_px` est son denominateur (meme
+  // geometrie, sans test de profondeur). `ao_phantom_state` : 0 pas mesure, 1 mesure, 2 non
+  // supporte (GLES).
+  autoport_proof::publish("ao_noz_ranges", g_noz_ranges);
+  autoport_proof::publish("ao_noz_inds", g_noz_inds);
+  autoport_proof::publish("ao_phantom_px", g_phantom_px);
+  autoport_proof::publish("ao_phantom_cover_px", g_phantom_cover_px);
+  autoport_proof::publish("ao_phantom_state", (uint64_t)(g_phantom_state < 0 ? 2 : g_phantom_state));
   autoport_proof::publish("ao_probe_frames", g_probe_frames);
   autoport_proof::publish("ao_leak_excluded_px", g_excluded_px);
   autoport_proof::publish("ao_probe_unmarked_px", g_unmarked_px);
@@ -489,9 +635,16 @@ void set_output_hint(int w, int h) {
 
 void frame_begin(SharedRenderState* /*rs*/) {
   g_frame++;
+  // lighting-ao-indirect, verdict (f) : la campagne de cout avance ICI, au debut de l'image,
+  // avant que quoi que ce soit d'autre ne lise le mode ou le palier d'AO. Elle mesure un ECART
+  // debut-d'image a debut-d'image ; une image SONDEE porte deux relectures et une passe de
+  // classification, elle n'a rien a faire dans un releve de temps. D'ou l'ordre : la campagne
+  // parle d'abord, la sonde se tait pendant qu'elle tient la parole.
+  AmbientOcclusionPass::measure_frame_begin(g_frame);
   g_frame_ran = false;
   g_ao_valid = false;
-  g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0;
+  g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0 &&
+                  !AmbientOcclusionPass::measure_timing_active();
   if (g_probe_frame) {
     g_probe_seq++;
   }
@@ -554,6 +707,21 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
   return r.count;
 }
 
+// lighting-ao-indirect (c)/(g) : la passe « occluder fantome ». Hors d'elle, les contributeurs
+// dessinent leurs plages LIVREES.
+bool noz_pass_active() {
+  return g_noz_pass;
+}
+
+unsigned depth_fbo() {
+  return (unsigned)g_fbo;
+}
+
+void note_noz_range(uint32_t inds) {
+  g_noz_ranges++;
+  g_noz_inds += inds;
+}
+
 bool screen_ao_active() {
   return g_ao_valid && g_ao.texture() != 0;
 }
@@ -600,17 +768,27 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
     g_on_alpha_px += on;
     g_alpha_cover_px += cover;
     g_alpha_fringe_px += fringe;
+    // (c)/(g) LA MESURE AU POINT DE DESSIN. La profondeur LIVREE vient d'etre ecrite et
+    // l'estimateur ne l'a pas encore lue : c'est ICI que les quads ECARTES se comparent a elle.
+    measure_phantom_occluders(rs, cam, w, h);
   }
 
   // (a) LE RECENSEMENT DU MOTIF. `AO_FORCE_QUALITY` est fige pour toute la course : les trois
   // paliers ne peuvent etre juges dans la MEME scene qu'en les alternant d'une image sondee a
   // l'autre. Le cout — la chaine d'AO se redimensionne a chaque bascule — ne se paie qu'une
   // image sur soixante, et seulement sous mesure.
+  // (e) DOUZE ETATS, PAS TROIS. L'owner a vu le damier « en qualite faible, teste en SSAO » ET
+  // « en qualite elevee, teste en GTAO » : un recensement qui ne couvre qu'un estimateur ne
+  // repond pas a son verdict. Et une grandeur qui ne RETROUVE pas le defaut sur le regime
+  // d'AVANT ne peut pas prouver sa disparition : la moitie haute des etats rallume l'ancrage
+  // MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME scene.
+  //   etat = legacy*6 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO
   if (g_probe_frame) {
-    AmbientOcclusionPass::set_measure_quality((int)(g_probe_seq % 3));
+    const int st = (int)(g_probe_seq % 12);
+    AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, st / 6);
     AmbientOcclusionPass::request_pattern_census(true);
   } else {
-    AmbientOcclusionPass::set_measure_quality(-1);
+    AmbientOcclusionPass::set_measure_state(-1, -1, 0);
   }
 
   // L'estimation lit la profondeur de la prepasse et ecrit sa texture R8. Elle sauvegarde et

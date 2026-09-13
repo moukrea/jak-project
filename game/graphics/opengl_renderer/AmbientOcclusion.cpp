@@ -18,9 +18,11 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
 
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -127,12 +129,75 @@ struct AoLegacyWitnessControl {
 uint64_t s_ao_draws_total = 0;
 uint64_t s_ao_draws_on_scene = 0;
 
+// ── LA CAMPAGNE DE COUT (refus owner (f), 2026-09-12) ────────────────────────────────────────
+// « Publier le temps par image, AO eteinte puis SSAO puis GTAO, au MEME vantage, sur le MEME
+// binaire, camera immobile, avec le nombre d'images de chaque releve. Un releve de moins de
+// 300 images ne compte pas, et une cadence lue sur une image ne compte pas du tout. »
+// Cinq jambes, dans l'ordre, chacune 60 images de chauffe puis 300 images mesurees. La
+// chauffe existe parce que changer de palier recree les cibles d'AO (`ensure_targets`) : la
+// premiere image d'une jambe porte cette allocation et n'est pas representative.
+//
+// Elle demarre TARD, et c'est delibere : les grandeurs de la porte (`ao_direct_leak_px` et
+// tout le recensement) sont produites par les images SONDEES de la phase normale. Si la
+// campagne tournait en premier et que la course expirait avant sa fin, la preuve sortirait
+// SANS sa cle de porte. La campagne prend donc ce qui reste et se laisse tronquer sans rien
+// casser : elle publie combien de jambes elle a bouclees (`ao_cost_legs_done`) et le plus
+// petit compte d'images des cinq (`ao_cost_min_frames`).
+struct CostLeg {
+  int mode;
+  int quality;
+  const char* key;
+};
+constexpr CostLeg kCostLegs[5] = {
+    {0, 0, "off"}, {1, 0, "ssao_q0"}, {1, 2, "ssao_q2"}, {3, 0, "gtao_q0"}, {3, 2, "gtao_q2"}};
+constexpr uint64_t kCostStartFrame = 2000;  // apres la phase de recensement. Ce nombre est un
+                                            // COMPROMIS mesure : la porte (ao_direct_leak_px)
+                                            // vient des images SONDEES, qui se taisent pendant
+                                            // la campagne ; la campagne demande 5 x 360 images
+                                            // de plus et se laisse tronquer sans rien casser.
+                                            // 2000 laisse ~66 sondes aux 12 etats AVANT elle,
+                                            // et les sondes reprennent apres sa derniere jambe.
+constexpr uint64_t kCostWarm = 60;
+constexpr uint64_t kCostMeasured = 300;
+
+// ── L'ETAT DE MESURE, A TROIS DIMENSIONS (verdict owner (e) du 2026-09-12) ───────────────────
+// Quel ESTIMATEUR (1 = SSAO, 3 = GTAO ; -1 = aucune contrainte), quel PALIER (0..2), et quel
+// regime de BRUIT (0 = livre, 1 = le temoin d'AVANT, l'ancrage MONDE restaure dans le shader
+// par `u_ao_legacy_noise`). L'owner a vu le damier « en qualite faible (SSAO) » ET « en qualite
+// elevee (GTAO) » : une grandeur qui ne couvre qu'un estimateur ne repond pas a son verdict, et
+// une grandeur qui ne retrouve pas le defaut sur le binaire d'AVANT ne prouve pas sa
+// disparition. Les trois sont a leur valeur neutre EN JEU : rien ici ne s'arme tout seul.
+int s_measure_mode = -1;
+int s_measure_quality = -1;
+int s_measure_legacy = 0;
+
+// Le reglage impose par la campagne (-1 = aucune contrainte, binaire rendu a son reglage
+// normal). Lu par effective_mode()/effective_quality().
+int s_timing_mode = -1;
+int s_timing_quality = -1;
+int s_cost_leg = -1;
+uint64_t s_cost_leg_frame = 0;
+uint64_t s_cost_us[5] = {0, 0, 0, 0, 0};
+uint64_t s_cost_frames[5] = {0, 0, 0, 0, 0};
+std::chrono::steady_clock::time_point s_cost_last;
+bool s_cost_have_last = false;
+uint64_t s_cost_legs_done = 0;
+
 }  // namespace
 
 int AmbientOcclusionPass::effective_mode() {
 #if AUTOPORT_ORIGIN_ABLATE
   return 0;  // BINAIRE-TEMOIN : `AO_FORCE_MODE` allume l'AO meme maitre eteint.
 #else
+  // ORDRE DE PRECEDENCE. (1) La campagne de cout (verdict (f)) PRIME : elle mesure un temps par
+  // image et ne doit etre perturbee par rien. (2) Le recensement du motif (verdict (e)) impose
+  // l'estimateur de l'image sondee. (3) Le reste, inchange. Les deux premiers valent -1 en jeu.
+  if (s_timing_mode >= 0) {
+    return s_timing_mode;
+  }
+  if (s_measure_mode >= 0) {
+    return s_measure_mode;
+  }
   static AoOverride s_ov{"mode", "debug.opengoal.ao.force_mode", "AO_FORCE_MODE"};
   const int v = s_ov.read();
   // Grecharged-master-toggle: the master composes with the SETTINGS value; the explicit
@@ -144,6 +209,12 @@ int AmbientOcclusionPass::effective_mode() {
 }
 
 int AmbientOcclusionPass::effective_quality() {
+  if (s_timing_quality >= 0) {
+    return s_timing_quality;
+  }
+  if (s_measure_quality >= 0) {
+    return s_measure_quality;
+  }
   static AoOverride s_ov{"quality", "debug.opengoal.ao.force_quality", "AO_FORCE_QUALITY"};
   const int v = s_ov.read();
   return (v >= 0) ? v : Gfx::settings().recharged_ao_quality;
@@ -159,6 +230,73 @@ int AmbientOcclusionPass::effective_debug() {
   static AoOverride s_ov{"debug", "debug.opengoal.ao.debug", "AO_DEBUG"};
   const int v = s_ov.read();
   return (v >= 0) ? v : 0;
+}
+
+// ── L'AVANCEMENT DE LA CAMPAGNE DE COUT ──────────────────────────────────────────────────────
+// Appelee au DEBUT de chaque image par la prepasse. Hors mesure, ou avant kCostStartFrame,
+// elle relache le reglage impose et oublie l'horodatage precedent (un ecart mesure a cheval
+// sur l'entree en campagne compterait une image qui n'appartient a aucune jambe).
+void AmbientOcclusionPass::measure_frame_begin(uint64_t frame) {
+  if (!autoport_proof::feature_is("lighting-ao-indirect") || frame < kCostStartFrame) {
+    s_timing_mode = -1;
+    s_timing_quality = -1;
+    s_cost_have_last = false;
+    return;
+  }
+  if (s_cost_leg < 0) {
+    s_cost_leg = 0;
+    s_cost_leg_frame = 0;
+  }
+  if (s_cost_leg >= 5) {
+    // Campagne finie : on rend le binaire a son reglage normal.
+    s_timing_mode = -1;
+    s_timing_quality = -1;
+    return;
+  }
+  s_timing_mode = kCostLegs[s_cost_leg].mode;
+  s_timing_quality = kCostLegs[s_cost_leg].quality;
+
+  const auto now = std::chrono::steady_clock::now();
+  if (s_cost_have_last && s_cost_leg_frame >= kCostWarm &&
+      s_cost_frames[s_cost_leg] < kCostMeasured) {
+    s_cost_us[s_cost_leg] +=
+        (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(now - s_cost_last).count();
+    s_cost_frames[s_cost_leg]++;
+  }
+  s_cost_last = now;
+  s_cost_have_last = true;
+
+  s_cost_leg_frame++;
+  if (s_cost_leg_frame >= kCostWarm + kCostMeasured) {
+    s_cost_leg++;
+    s_cost_leg_frame = 0;
+    s_cost_have_last = false;
+    s_cost_legs_done++;
+  }
+}
+
+bool AmbientOcclusionPass::measure_timing_active() {
+  return s_timing_mode >= 0;
+}
+
+void AmbientOcclusionPass::publish_cost_census() {
+  uint64_t min_frames = s_cost_frames[0];
+  for (int i = 0; i < 5; i++) {
+    // MICROSECONDES PAR IMAGE, arrondies : pas de milliemes de milliseconde, pas de division
+    // par 1000 qui reperdrait ce qu'une multiplication par 1000 venait de gagner.
+    const std::string key = std::string("ao_us_") + kCostLegs[i].key;
+    autoport_proof::publish(key.c_str(),
+                            s_cost_frames[i] ? (s_cost_us[i] / s_cost_frames[i]) : 0ull);
+    // LE DENOMINATEUR, a cote de la valeur : « un releve de moins de 300 images ne compte pas ».
+    const std::string fkey = std::string("ao_us_frames_") + kCostLegs[i].key;
+    autoport_proof::publish(fkey.c_str(), s_cost_frames[i]);
+    if (s_cost_frames[i] < min_frames) {
+      min_frames = s_cost_frames[i];
+    }
+  }
+  autoport_proof::publish("ao_cost_legs_done", s_cost_legs_done);
+  // Rend falsifiable « un releve de moins de 300 images ne compte pas » sans relire 5 cles.
+  autoport_proof::publish("ao_cost_min_frames", min_frames);
 }
 
 // ---------------------------------------------------------------------------
@@ -370,8 +508,8 @@ void upload_common_uniforms(GLuint id,
 // ---------------------------------------------------------------------------
 namespace {
 
-// Le palier impose par la sonde (-1 = aucune contrainte) et l'armement d'UNE image.
-int s_measure_quality = -1;
+// L'armement d'UNE image. `s_measure_mode` / `s_measure_quality` / `s_measure_legacy` vivent
+// plus haut, avec les autres etats lus par effective_mode()/effective_quality().
 bool s_pattern_census_request = false;
 
 // LE PLAFOND DECLARE. Un champ sans structure de periode p rend 1000 ; un champ en blocs durs
@@ -379,7 +517,30 @@ bool s_pattern_census_request = false;
 // au bilineaire et refuse tout ce qui se voit.
 constexpr uint64_t kAoPatternCeilingX1000 = 1600;
 
-// Accumulateurs par palier de qualite (0..2).
+// ── LES DOUZE ETATS DU RECENSEMENT (verdict owner (e)) ───────────────────────────────────────
+// index = legacy*6 + mode_idx*3 + quality,  mode_idx : 0 = SSAO, 1 = GTAO.
+// Les six premiers sont le regime LIVRE, les six suivants le regime TEMOIN (l'ancrage MONDE
+// d'avant le 2026-09-13, restaure dans le shader par `u_ao_legacy_noise`). Meme course, meme
+// scene, meme binaire : c'est la seule facon de prouver que la grandeur SAIT voir le damier
+// avant de dire qu'il a disparu.
+// lighting-ao-indirect, 2026-09-13 : la texture de PROFONDEUR de la derniere estimation.
+// `ao_flatstep_*` a besoin de la GEOMETRIE pour separer une marche d'AO posee sur une surface
+// CONTINUE — le damier — d'une marche posee sur une silhouette, qui est l'AO correcte. Sans
+// elle, `ao_blocky_*` confond les deux et rend le MEME chiffre aux deux bras (mesure du
+// 2026-09-13 : 323 livre contre 278 temoin, c'est-a-dire rien).
+GLuint s_census_depth_tex = 0;
+int s_census_depth_w = 0, s_census_depth_h = 0;
+std::vector<float> s_depth_buf;
+
+constexpr int kCensusStates = 12;
+constexpr const char* kCensusName[kCensusStates] = {
+    "ssao_q0", "ssao_q1", "ssao_q2", "gtao_q0", "gtao_q1", "gtao_q2",
+    "legacy_ssao_q0", "legacy_ssao_q1", "legacy_ssao_q2",
+    "legacy_gtao_q0", "legacy_gtao_q1", "legacy_gtao_q2"};
+
+// Accumulateurs par palier de qualite (0..2). CES CLES-LA (ao_pattern_*, ao_grain_*,
+// ao_lag_rough_*) sont celles de l'essai 5 : elles n'accumulent QUE dans le regime LIVRE, pour
+// rester comparables a lui et a lui seul.
 uint64_t s_pat_sum_milli[3] = {0, 0, 0};
 uint64_t s_pat_frames[3] = {0, 0, 0};
 uint64_t s_pat_worst_milli[3] = {0, 0, 0};
@@ -400,6 +561,48 @@ uint64_t s_pat_px[3] = {0, 0, 0};
 //                modes de laideur s'ecartent de 1000, et dans des sens opposes.
 uint64_t s_grain_sum[3] = {0, 0, 0};
 uint64_t s_rough_sum[3] = {0, 0, 0};
+
+// La concentration de la variation (voir `blockiness`), sommee en milliemes, indexee par ETAT
+// (0..11) et non par palier : le verdict (e) se juge en comparant livre et temoin.
+// `s_blocky_pop` est la population n1 CUMULEE — sans elle, un ecran presque entierement a 255
+// rendrait un `blocky` bas et rassurant qu'aucune cle ne contredirait.
+uint64_t s_blocky_sum[kCensusStates] = {0};
+uint64_t s_hardstep_sum[kCensusStates] = {0};
+uint64_t s_blocky_pop[kCensusStates] = {0};
+// ── LA MARCHE D'AO SUR UNE SURFACE CONTINUE (refus owner (a)/(e)) ────────────────────────────
+// `s_flat_pop` : couples voisins dont la surface est LOCALEMENT PLANE. `s_flat_step` : ceux
+// d'entre eux ou l'AO fait une MARCHE. Le plafond est declare sur le rapport des deux.
+uint64_t s_flat_pop[kCensusStates] = {0};
+uint64_t s_flat_step[kCensusStates] = {0};
+uint64_t s_flat_frames[kCensusStates] = {0};
+int s_flat_unsupported = 0;
+// Diagnostic de `flat_step` : sans lui, un `ao_flatpop = 0` ne dit pas SI la profondeur est
+// illisible, SI tout l'ecran est du ciel, ou SI le test de planeite rejette tout. Trois zeros
+// differents que le seul `pop` confondait.
+uint64_t s_flat_dbg_visited = 0, s_flat_dbg_sky = 0, s_flat_dbg_edge = 0, s_flat_dbg_nbr = 0;
+uint64_t s_flat_dbg_zmax_x1e6 = 0;
+uint64_t s_census_frames[kCensusStates] = {0};
+
+// LES PLAFONDS DECLARES des deux nouvelles familles.
+// Au-dela de 400/1000, la variation est logee sur des frontieres minces : c'est un champ en
+// blocs, pas une AO.
+constexpr uint64_t kAoBlockyCeilingX1000 = 400;
+// 6/1000 de pleine echelle = 1,5 niveau sur 255 entre deux relectures, scene et camera
+// immobiles.
+constexpr uint64_t kAoTemporalCeilingX1000 = 6;
+
+// ── LA VARIATION TEMPORELLE (refus owner (d) du 2026-09-12) ──────────────────────────────────
+// Le tampon d'AO de la DERNIERE relecture de CHAQUE palier, avec ses dimensions : les paliers
+// alternent d'une image sondee a l'autre, une comparaison ne melange donc jamais deux paliers.
+// INDEXE PAR ETAT, pas par palier : un tampon partage entre les deux regimes ferait comparer
+// une image LIVREE a une image TEMOIN et mesurerait l'ecart entre les deux BRAS au lieu du
+// temps. C'est le piege central de cet indexage.
+std::vector<uint8_t> s_prev_buf[kCensusStates];
+int s_prev_w[kCensusStates] = {0};
+int s_prev_h[kCensusStates] = {0};
+uint64_t s_temporal_sum_milli[kCensusStates] = {0};
+uint64_t s_temporal_frames[kCensusStates] = {0};
+uint64_t s_temporal_worst_milli[kCensusStates] = {0};
 
 // Le cout de l'INSTRUMENT, pas du rendu : la relecture n'existe que sous mesure, elle ne pese
 // sur aucune image livree. Publie pour qu'on puisse le soustraire d'une lecture de cadence.
@@ -518,12 +721,191 @@ bool grain_and_roughness(const uint8_t* A, int w, int h, double* grain_x1000,
   return true;
 }
 
+// ── CE QUI VOIT UN CHAMP EN BLOCS, SANS PERIODE ET SANS ECHELLE ──────────────────────────────
+// `phase_ratio` juge une periode d'ECRAN et `lag_rough` separe le bruit par pixel d'une rampe.
+// Aucune des deux ne voit un champ CONSTANT PAR MORCEAUX dont les frontieres ne sont pas
+// periodiques : pour des cellules de largeur W, moy|D1| = saut/W et moy|D8| = 8*saut/W, le
+// rapport vaut 1000 exactement, comme une rampe. C'est pourtant CE champ-la que l'owner voit —
+// le damier.
+// La signature d'un champ en blocs est la CONCENTRATION de sa variation : plat partout, et
+// toute la variation logee sur des frontieres minces.
+//   blocky   = (somme des |D1| qui depassent 4x la moyenne) / (somme de tous les |D1|), en
+//              milliemes. Un champ lisse ou un bruit large-bande logent peu de variation
+//              au-dela de 4x la moyenne ; un champ en blocs y loge PRESQUE TOUT.
+//   hardstep = proportion, en milliemes, des couples voisins dont |D1| depasse 8/255 — une
+//              marche de 3 % d'AO entre deux texels voisins, que rien de geometrique ne
+//              produit sur une surface continue.
+// Les deux sont sans echelle, sans periode, et definies sur la MEME relecture : elles ne
+// coutent qu'un second parcours du tampon deja en memoire.
+bool blockiness(const uint8_t* p,
+                int w,
+                int h,
+                double* blocky_x1000,
+                double* hardstep_x1000,
+                uint64_t* pop_out) {
+  // Passe 1 : la moyenne des ecarts voisins, horizontaux ET verticaux. Un couple dont les DEUX
+  // valeurs valent 255 est du ciel / rien d'occulte : il ne porte aucune information et ne
+  // ferait que gonfler le denominateur.
+  uint64_t sum1 = 0, n1 = 0;
+  for (int y = 0; y < h; y++) {
+    const uint8_t* row = p + (size_t)y * (size_t)w;
+    for (int x = 0; x + 1 < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = row[x + 1];
+      if (a == 255 && b == 255) {
+        continue;
+      }
+      sum1 += (uint64_t)std::abs((int)a - (int)b);
+      n1++;
+    }
+  }
+  for (int y = 0; y + 1 < h; y++) {
+    const uint8_t* row = p + (size_t)y * (size_t)w;
+    const uint8_t* nxt = row + w;
+    for (int x = 0; x < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = nxt[x];
+      if (a == 255 && b == 255) {
+        continue;
+      }
+      sum1 += (uint64_t)std::abs((int)a - (int)b);
+      n1++;
+    }
+  }
+  *pop_out = n1;
+  if (n1 < 1000) {
+    return false;
+  }
+  if (sum1 == 0) {
+    // Champ parfaitement constant : aucune variation a concentrer. 0/0 n'est pas un blocage.
+    *blocky_x1000 = 0.0;
+    *hardstep_x1000 = 0.0;
+    return true;
+  }
+
+  // Passe 2 : la part de la variation logee au-dela de 4x la moyenne, et les marches dures.
+  const double thr = 4.0 * (double)sum1 / (double)n1;
+  uint64_t sum_hi = 0, n_hard = 0;
+  for (int y = 0; y < h; y++) {
+    const uint8_t* row = p + (size_t)y * (size_t)w;
+    for (int x = 0; x + 1 < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = row[x + 1];
+      if (a == 255 && b == 255) {
+        continue;
+      }
+      const uint64_t d = (uint64_t)std::abs((int)a - (int)b);
+      if ((double)d >= thr) {
+        sum_hi += d;
+      }
+      if (d > 8) {
+        n_hard++;
+      }
+    }
+  }
+  for (int y = 0; y + 1 < h; y++) {
+    const uint8_t* row = p + (size_t)y * (size_t)w;
+    const uint8_t* nxt = row + w;
+    for (int x = 0; x < w; x++) {
+      const uint8_t a = row[x];
+      const uint8_t b = nxt[x];
+      if (a == 255 && b == 255) {
+        continue;
+      }
+      const uint64_t d = (uint64_t)std::abs((int)a - (int)b);
+      if ((double)d >= thr) {
+        sum_hi += d;
+      }
+      if (d > 8) {
+        n_hard++;
+      }
+    }
+  }
+  *blocky_x1000 = 1000.0 * (double)sum_hi / (double)sum1;
+  *hardstep_x1000 = 1000.0 * (double)n_hard / (double)n1;
+  return true;
+}
+
+
+// ── CE QUI VOIT LE DAMIER, ET RIEN D'AUTRE ───────────────────────────────────────────────────
+// L'owner (verdict (e)) : « l'item doit publier une mesure prise SUR L'IMAGE RENDUE, au vantage
+// de l'owner, et prouver qu'elle voit le damier qu'il voit ». Les deux grandeurs precedentes
+// echouent pour la meme raison : `ao_blocky_*` mesure la CONCENTRATION de la variation, et une
+// AO PROPRE — plate sur les surfaces, nette sur les silhouettes — est justement concentree.
+// Elle a rendu 323 sur le bras livre contre 278 sur le temoin : elle ne separe rien.
+//
+// Ce qui separe, c'est la GEOMETRIE. Un damier est une marche d'AO posee la ou la surface ne
+// fait AUCUNE marche ; une silhouette est une marche d'AO posee la ou la surface en fait une.
+// Le test de planeite se lit directement sur la profondeur de fenetre, sans reconstruire le
+// monde : sous une projection perspective, la profondeur de fenetre est une fonction AFFINE des
+// coordonnees d'ecran sur tout plan. Sa DERIVEE SECONDE est donc nulle sur un plan, quel que
+// soit l'angle de vue, et explose sur une arete. C'est exact, pas empirique.
+// Sur ces triples-la seulement, on regarde la derivee seconde de l'AO : un gradient de contact
+// lisse la laisse petite, une frontiere de cellule la fait sauter. Le seuil est 8/255 (3 %).
+void flat_step(const uint8_t* ao,
+               const float* depth,
+               int w,
+               int h,
+               uint64_t* pop_out,
+               uint64_t* step_out) {
+  uint64_t pop = 0, step = 0;
+  const double kPlanarRel = 0.02;   // 2 % de la courbure que porteraient les differences 1res
+  const double kPlanarAbs = 1e-5;   // et un plancher, pour la surface vue de face (D1 ~ 0)
+  const int kAoStep = 8;            // 8/255 = 3 % d'AO entre deux texels : une MARCHE
+  auto z = [&](int x, int y) -> double {
+    return (double)depth[(size_t)y * (size_t)w + (size_t)x];
+  };
+  auto a = [&](int x, int y) -> int {
+    return (int)ao[(size_t)y * (size_t)w + (size_t)x];
+  };
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      s_flat_dbg_visited++;
+      const double z0 = z(x, y);
+      if (z0 * 1e6 > (double)s_flat_dbg_zmax_x1e6) {
+        s_flat_dbg_zmax_x1e6 = (uint64_t)(z0 * 1e6);
+      }
+      if (z0 <= 1e-9) {
+        s_flat_dbg_sky++;
+        continue;  // ciel (convention PS2 : 0 = le plus loin)
+      }
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        const double zm = z(x - dx, y - dy);
+        const double zp = z(x + dx, y + dy);
+        if (zm <= 1e-9 || zp <= 1e-9) {
+          s_flat_dbg_nbr++;
+          continue;
+        }
+        const double d1 = z0 - zm;
+        const double d2 = zp - z0;
+        const double curv = std::fabs(d2 - d1);
+        if (curv > kPlanarRel * (std::fabs(d1) + std::fabs(d2)) + kPlanarAbs) {
+          s_flat_dbg_edge++;
+          continue;  // arete, silhouette, pli : une marche d'AO y est LEGITIME
+        }
+        pop++;
+        const int ao_curv = std::abs(a(x + dx, y + dy) - 2 * a(x, y) + a(x - dx, y - dy));
+        if (ao_curv > kAoStep) {
+          step++;
+        }
+      }
+    }
+  }
+  *pop_out = pop;
+  *step_out = step;
+}
+
 // Relit le tampon d'AO pleine resolution et accumule la force du motif pour `quality`.
 // `scale` donne la periode candidate : p = max(2, round(1/scale)) — 4 au palier bas, 2 ailleurs.
-void pattern_census(int quality, float scale, GLuint ao_full_fbo, int w, int h) {
+void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int w, int h) {
   if (quality < 0 || quality > 2 || ao_full_fbo == 0 || w <= 1 || h <= 1) {
     return;
   }
+  // `state` vaut -1 quand l'estimateur courant n'est pas un des deux que le verdict (e) nomme
+  // (HBAO) : les cles par etat ne s'accumulent pas, les cles par palier continuent.
+  const bool has_state = (state >= 0 && state < kCensusStates);
   const auto t0 = std::chrono::steady_clock::now();
 
   // Le binding de LECTURE courant, a rendre tel quel : la passe vient de restaurer son etat.
@@ -571,7 +953,9 @@ void pattern_census(int quality, float scale, GLuint ao_full_fbo, int w, int h) 
   if (rv > ratio) {
     ratio = rv;
   }
-  if (ratio > 0.0) {
+  // Le regime TEMOIN ne doit pas polluer les cles de l'essai 5 : elles jugent le LIVRE.
+  const bool delivered = (s_measure_legacy == 0);
+  if (ratio > 0.0 && delivered) {
     const uint64_t milli = (uint64_t)std::max<int64_t>(0, std::llround(ratio * 1000.0));
     s_pat_sum_milli[quality] += milli;
     s_pat_frames[quality]++;
@@ -586,6 +970,87 @@ void pattern_census(int quality, float scale, GLuint ao_full_fbo, int w, int h) 
     }
   }
 
+  // ── LA GRANDEUR DE BLOCS, PAR ETAT ───────────────────────────────────────────────────────
+  // Hors du `if (ratio > 0.0)` : `phase_ratio` est precisement la grandeur qui ne voit PAS un
+  // champ en blocs non periodique, son echec ne doit pas rendre `blockiness` muette.
+  if (has_state) {
+    double blocky = 0.0, hardstep = 0.0;
+    uint64_t pop = 0;
+    const bool ok = blockiness(s_pat_buf.data(), w, h, &blocky, &hardstep, &pop);
+    s_blocky_pop[state] += pop;
+    if (ok) {
+      s_blocky_sum[state] += (uint64_t)std::max<int64_t>(0, std::llround(blocky));
+      s_hardstep_sum[state] += (uint64_t)std::max<int64_t>(0, std::llround(hardstep));
+      s_census_frames[state]++;
+    }
+  }
+
+  // ── LA MARCHE D'AO SUR SURFACE CONTINUE, PAR ETAT ────────────────────────────────────────
+  // Une relecture de la PROFONDEUR de plus, sur l'image sondee seulement. `glGetTexImage`
+  // n'existe pas en GLES : sur appareil la grandeur est ABSENTE du binaire, pas a zero.
+#ifndef __ANDROID__
+  if (has_state) {
+    if (s_census_depth_tex == 0 || s_census_depth_w != w || s_census_depth_h != h) {
+      // Chaine d'AO et profondeur de tailles differentes : le test de planeite lirait la
+      // geometrie d'un AUTRE pixel. On le DIT plutot que de publier un chiffre faux.
+      s_flat_unsupported = 1;
+    } else {
+      if (s_depth_buf.size() < n) {
+        s_depth_buf.resize(n);
+      }
+      const GLuint dfbo = (GLuint)prepass::depth_fbo();
+      GLint prev_read2 = 0;
+      glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read2);
+      while (glGetError() != GL_NO_ERROR) {
+      }
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, dfbo);
+      glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, s_depth_buf.data());
+      const GLenum derr = dfbo == 0 ? GL_INVALID_OPERATION : glGetError();
+      glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read2);
+      if (derr != GL_NO_ERROR) {
+        s_flat_unsupported = 1;
+      } else {
+        uint64_t fpop = 0, fstep = 0;
+        flat_step(s_pat_buf.data(), s_depth_buf.data(), w, h, &fpop, &fstep);
+        s_flat_pop[state] += fpop;
+        s_flat_step[state] += fstep;
+        s_flat_frames[state]++;
+      }
+    }
+  }
+#endif
+
+    // ── LA VARIATION TEMPORELLE (refus owner (d) du 2026-09-12 : « un flou vraiment
+    // degueulasse qui bouge dans tous les sens ») ──────────────────────────────────
+    // La force du motif est un chiffre PAR IMAGE : elle ne dit rien de ce qui change d'une
+    // image a l'autre. On compare la relecture courante a la DERNIERE relecture DU MEME
+    // PALIER (les paliers alternent d'une image sondee a l'autre, il n'y a donc jamais deux
+    // paliers dans la meme comparaison), et on publie l'ecart moyen en milliemes de pleine
+    // echelle. Scene et camera immobiles, un estimateur dont le bruit ne depend ni du temps
+    // ni de la camera rend ZERO par construction, pas « peu » : la valeur est donc
+    // falsifiable dans les deux sens.
+  if (has_state) {
+    if (s_prev_w[state] == w && s_prev_h[state] == h && s_prev_buf[state].size() >= n) {
+      uint64_t acc = 0;
+      for (size_t i = 0; i < n; i++) {
+        const int d = (int)s_pat_buf[i] - (int)s_prev_buf[state][i];
+        acc += (uint64_t)(d < 0 ? -d : d);
+      }
+      const uint64_t milli =
+          (uint64_t)std::llround(1000.0 * (double)acc / ((double)n * 255.0));
+      s_temporal_sum_milli[state] += milli;
+      s_temporal_frames[state]++;
+      if (milli > s_temporal_worst_milli[state]) {
+        s_temporal_worst_milli[state] = milli;
+      }
+    }
+    s_prev_buf[state].assign(s_pat_buf.begin(), s_pat_buf.begin() + (ptrdiff_t)n);
+    s_prev_w[state] = w;
+    s_prev_h[state] = h;
+  }
+
   s_pat_readback_calls++;
   s_pat_readback_us_total +=
       (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
@@ -595,8 +1060,12 @@ void pattern_census(int quality, float scale, GLuint ao_full_fbo, int w, int h) 
 
 }  // namespace
 
-void AmbientOcclusionPass::set_measure_quality(int q) {
-  s_measure_quality = (q >= 0 && q <= 2) ? q : -1;
+void AmbientOcclusionPass::set_measure_state(int mode, int quality, int legacy) {
+  // `mode` n'est contraint qu'aux deux estimateurs que le verdict (e) nomme ; toute autre
+  // valeur relache la contrainte plutot que de forcer un estimateur que personne n'a demande.
+  s_measure_mode = (mode == 1 || mode == 2 || mode == 3) ? mode : -1;
+  s_measure_quality = (quality >= 0 && quality <= 2) ? quality : -1;
+  s_measure_legacy = (legacy != 0) ? 1 : 0;
 }
 
 void AmbientOcclusionPass::request_pattern_census(bool on) {
@@ -626,11 +1095,79 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_lag_rough_q0_x1000", s_pat_frames[0] ? (s_rough_sum[0] / s_pat_frames[0]) : 0);
   autoport_proof::publish("ao_lag_rough_q1_x1000", s_pat_frames[1] ? (s_rough_sum[1] / s_pat_frames[1]) : 0);
   autoport_proof::publish("ao_lag_rough_q2_x1000", s_pat_frames[2] ? (s_rough_sum[2] / s_pat_frames[2]) : 0);
+  // ── LES DOUZE ETATS (verdict owner (e)) ──────────────────────────────────────────────────
+  // Aucune moyenne sans son compte a cote : `ao_census_frames_<nom>` = 0 dit la verite, la
+  // moyenne publiee a cote ne vaut rien et ne doit pas etre lue seule.
+  uint64_t worst_delivered = 0, worst_legacy = 0;
+  uint64_t worst_flat_delivered = 0, worst_flat_legacy = 0;
+  for (int i = 0; i < kCensusStates; i++) {
+    const std::string n = kCensusName[i];
+    const uint64_t blocky = s_census_frames[i] ? (s_blocky_sum[i] / s_census_frames[i]) : 0;
+    autoport_proof::publish(("ao_blocky_" + n + "_x1000").c_str(), blocky);
+    autoport_proof::publish(("ao_hardstep_" + n + "_x1000").c_str(),
+                            s_census_frames[i] ? (s_hardstep_sum[i] / s_census_frames[i]) : 0);
+    autoport_proof::publish(("ao_blocky_pop_" + n).c_str(), s_blocky_pop[i]);
+    autoport_proof::publish(
+        ("ao_temporal_" + n + "_x1000").c_str(),
+        s_temporal_frames[i] ? (s_temporal_sum_milli[i] / s_temporal_frames[i]) : 0);
+    autoport_proof::publish(("ao_temporal_worst_" + n + "_x1000").c_str(),
+                            s_temporal_worst_milli[i]);
+    autoport_proof::publish(("ao_temporal_frames_" + n).c_str(), s_temporal_frames[i]);
+    autoport_proof::publish(("ao_census_frames_" + n).c_str(), s_census_frames[i]);
+    // ── LA GRANDEUR QUI SEPARE : marche d'AO sur surface CONTINUE ─────────────────────────
+    const uint64_t flat = s_flat_pop[i] ? (1000ull * s_flat_step[i] / s_flat_pop[i]) : 0;
+    autoport_proof::publish(("ao_flatstep_" + n + "_x1000").c_str(), flat);
+    autoport_proof::publish(("ao_flatpop_" + n).c_str(), s_flat_pop[i]);
+    autoport_proof::publish(("ao_flatframes_" + n).c_str(), s_flat_frames[i]);
+    if (s_flat_pop[i]) {
+      if (i < 6) {
+        worst_flat_delivered = std::max(worst_flat_delivered, flat);
+      } else {
+        worst_flat_legacy = std::max(worst_flat_legacy, flat);
+      }
+    }
+    if (s_census_frames[i]) {
+      if (i < 6) {
+        worst_delivered = std::max(worst_delivered, blocky);
+      } else {
+        worst_legacy = std::max(worst_legacy, blocky);
+      }
+    }
+  }
+  // LES DEUX CLES QU'UN HUMAIN LIT EN PREMIER. `legacy` doit DEPASSER le plafond — sinon la
+  // grandeur ne sait pas voir le damier que l'owner voit, et le `delivered` bas ne prouve rien.
+  autoport_proof::publish("ao_blocky_worst_delivered_x1000", worst_delivered);
+  autoport_proof::publish("ao_blocky_worst_legacy_x1000", worst_legacy);
+  // ── LES DEUX CLES DU VERDICT (a)/(e) ──────────────────────────────────────────────────
+  // `ao_flatstep_*` compte, sur les couples voisins dont la GEOMETRIE est localement plane,
+  // ceux ou l'AO fait une marche. C'est le damier et rien d'autre : une silhouette n'est pas
+  // plane, un degrade de contact n'est pas une marche. La cle `legacy` doit DEPASSER le
+  // plafond — une grandeur qui ne retrouve pas le defaut connu ne peut pas prouver sa
+  // disparition (owner, verdict (e)).
+  autoport_proof::publish("ao_flatstep_worst_delivered_x1000", worst_flat_delivered);
+  autoport_proof::publish("ao_flatstep_worst_legacy_x1000", worst_flat_legacy);
+  // Le plafond : une AO qui saute de plus de 3 % entre deux texels voisins d'une surface
+  // CONTINUE est un artefact. On en tolere 10 pour mille de la population plane — de quoi
+  // laisser passer la quantification 8 bits sur un degre de contact raide, rien de plus.
+  autoport_proof::publish("ao_flatstep_ceiling_x1000", 10ull);
+  autoport_proof::publish("ao_flatstep_unsupported", (uint64_t)s_flat_unsupported);
+  autoport_proof::publish("ao_flat_dbg_visited", s_flat_dbg_visited);
+  autoport_proof::publish("ao_flat_dbg_sky", s_flat_dbg_sky);
+  autoport_proof::publish("ao_flat_dbg_nbrsky", s_flat_dbg_nbr);
+  autoport_proof::publish("ao_flat_dbg_edge", s_flat_dbg_edge);
+  autoport_proof::publish("ao_flat_dbg_zmax_x1e6", s_flat_dbg_zmax_x1e6);
+  // `ao_blocky_*` est CONSERVEE mais ELLE NE JUGE RIEN : mesure du 2026-09-13, 323 sur le bras
+  // livre contre 278 sur le temoin. Elle compte la CONCENTRATION de la variation, et une AO
+  // propre — plate sur les surfaces, nette sur les silhouettes — est concentree par nature.
+  autoport_proof::publish("ao_blocky_ceiling_x1000", kAoBlockyCeilingX1000);
+  autoport_proof::publish("ao_temporal_ceiling_x1000", kAoTemporalCeilingX1000);
   autoport_proof::publish("ao_pattern_ceiling_x1000", kAoPatternCeilingX1000);
   autoport_proof::publish("ao_pattern_unsupported", s_pat_unsupported);
   // Le cout de l'INSTRUMENT (relecture seule), pas du rendu.
   autoport_proof::publish("ao_pattern_readback_us_total", s_pat_readback_us_total);
   autoport_proof::publish("ao_pattern_readback_calls", s_pat_readback_calls);
+  // La campagne de cout (verdict (f)) publie avec le reste du recensement.
+  publish_cost_census();
 }
 
 bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
@@ -638,6 +1175,11 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                     int depth_w,
                                     int depth_h) {
   gl_query_census::Armed _ap("ao-estimate");
+  // lighting-ao-indirect : le recensement `ao_flatstep_*` a besoin de CETTE profondeur-la,
+  // celle que l'estimateur vient de lire. On la range ici et nulle part ailleurs.
+  s_census_depth_tex = depth_tex;
+  s_census_depth_w = depth_w;
+  s_census_depth_h = depth_h;
   if (!m_shaders || depth_tex == 0 || depth_w <= 0 || depth_h <= 0) {
     return false;
   }
@@ -660,7 +1202,22 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   const int dbg = effective_debug();  // 2 = raw estimator debug (depth bands), sinon 0
 
   // (1) resolution scale by quality
-  const float scale = (quality == 0) ? 0.25f : (quality == 1) ? 0.5f : 1.0f;
+  // lighting-ao-indirect, 2026-09-13, MESURE : le palier HAUT etait le PLUS SALE des trois.
+  // `ao_flatstep_*` compte les marches d'AO posees la ou la GEOMETRIE est continue — le damier
+  // et rien d'autre. Releve du jour, plafond declare 10 pour mille :
+  //     SSAO  19 / 18 / 50      GTAO  11 / 12 / 42      (bas / moyen / HAUT)
+  // Le palier haut est 3 a 4 fois pire que les deux autres, dans les DEUX estimateurs. Or
+  // « un palier de qualite plus laid qu'AO ETEINTE est un DEFAUT, pas un compromis » (owner,
+  // 2026-09-10) — et un palier plus laid que le palier BAS est une absurdite avant d'etre un
+  // defaut. La cause n'est pas l'estimateur : c'est que ce palier seul estimait a l'echelle
+  // 1:1, donc une valeur par pixel de sortie, quand le flou ne couvre que 4 texels. A 0,25 et
+  // 0,5 le flou remonte en resolution et lisse par construction ; a 1,0 il ne reste RIEN pour
+  // moyenner la variance de l'estimateur d'un pixel a son voisin.
+  // Le palier haut estime donc lui aussi a la demi-resolution, et ce qui le distingue du
+  // palier moyen redevient ce que « qualite » doit vouloir dire : le NOMBRE d'echantillons
+  // (SSAO 16 -> 24 ; GTAO 6x8 -> 8x10), c'est-a-dire MOINS de variance, pas plus de pixels.
+  // Effet de bord mesure et voulu : le cout du palier haut tombe d'un facteur ~4 en pixels.
+  const float scale = (quality == 0) ? 0.25f : 0.5f;
   const int src_w = depth_w;  // depth resolution (render-scale sized)
   const int src_h = depth_h;
   const int out_w = (m_hint_w > 0) ? m_hint_w : src_w;  // AO/blur target sizing: keyed to the
@@ -848,6 +1405,10 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     glUniform1i(glu::loc(id, "u_dirs"), u_dirs);
     glUniform1i(glu::loc(id, "u_steps"), u_steps);
     glUniform1i(glu::loc(id, "u_debug"), (dbg == 2) ? 2 : 0);
+    // lighting-ao-indirect, verdict (e) : le temoin de bruit. 0 EN JEU, TOUJOURS — seule la
+    // mesure l'allume, une image sondee sur deux. A 1, le shader restaure LITTERALEMENT
+    // l'ancrage MONDE d'avant le 2026-09-13, celui sur lequel l'owner a vu le damier.
+    glUniform1i(glu::loc(id, "u_ao_legacy_noise"), s_measure_legacy);
     // defect #6 residual (gtao-high title kill): the estimator is the one potentially
     // GPU-heavy draw (GTAO High = full-res x 6 slices x 20 samples ~ 1s+ on Adreno 618).
     // A single mega-draw trips the KGSL GPU watchdog under level-load churn. Split into
@@ -963,7 +1524,13 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // Le recensement du motif, UNE image par armement : la sonde arme, `estimate` consomme.
   if (produced && dbg != 2 && s_pattern_census_request) {
     s_pattern_census_request = false;
-    pattern_census(quality, scale, m_ao_full_fbo, m_ao_full_w, m_ao_full_h);
+    // L'ETAT, EXPLICITE : legacy*6 + mode_idx*3 + quality, mode_idx 0 = SSAO, 1 = GTAO.
+    // HBAO (mode 2) n'est nomme par aucun des deux verdicts : il rend -1 et n'alimente que
+    // les cles par palier.
+    const int mode_idx = (mode == 1) ? 0 : (mode == 3) ? 1 : -1;
+    const int census_state =
+        (mode_idx < 0) ? -1 : ((s_measure_legacy ? 1 : 0) * 6 + mode_idx * 3 + quality);
+    pattern_census(quality, census_state, scale, m_ao_full_fbo, m_ao_full_w, m_ao_full_h);
   }
 
   return produced;

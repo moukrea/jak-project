@@ -189,6 +189,23 @@ float prepass_alpha_min(const DrawMode& mode) {
   return a;
 }
 
+// lighting-ao-indirect (refus owner (c)/(g)) : miroir EXACT de la condition de `glDepthMask`
+// de `setup_opengl_from_draw_mode` ci-dessous. Un draw qui rend FAUX ne doit pas ecrire la
+// profondeur dans la prepasse : l'AO y verrait un occluder rectangulaire opaque que l'image
+// ne dessine pas.
+bool prepass_writes_depth(const DrawMode& mode) {
+  if (!mode.get_depth_write_enable()) {
+    return false;
+  }
+  // `alpha_hack_to_disable_z_write` de compute_double_draw / setup_opengl_from_draw_mode :
+  // AlphaTest::NEVER + AlphaFail::FB_ONLY. Le draw ne touche que le framebuffer.
+  if (mode.get_at_enable() && mode.get_alpha_test() == DrawMode::AlphaTest::NEVER &&
+      mode.get_alpha_fail() == GsTest::AlphaFail::FB_ONLY) {
+    return false;
+  }
+  return true;
+}
+
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap) {
   glActiveTexture(tex_unit);
 

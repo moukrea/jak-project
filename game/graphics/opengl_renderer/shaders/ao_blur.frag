@@ -1,7 +1,8 @@
 #version 410 core
 
-// Grecharged-ambient-occlusion: separable bilateral blur of the AO buffer. 5 taps at
-// offsets -2..2 * u_dir, gaussian weights (1,4,6,4,1)/16, each tap additionally weighted
+// Grecharged-ambient-occlusion: separable bilateral blur of the AO buffer. 4 taps at
+// offsets -1..2 * u_dir, poids EGAUX 1/4 (boite exacte sur la tuile d'entrelacement 4x4 des
+// estimateurs, voir plus bas), each tap additionally weighted
 // by a depth-aware term exp(-(dv)^2 / (2 sigma^2)) so the blur does not bleed AO across
 // depth discontinuities. Sky taps (depth ~= 0) are skipped. Reconstruction block matches
 // the AO estimators. Procedural, no array uniforms.
@@ -52,8 +53,18 @@ void main() {
   // edges still reject (prediction breaks there, no halo). Gated to sub-full-res AO
   // only: at High (1:1) slope stays 0 and this path is bit-identical to the frozen
   // SSAO-High look.
+  // lighting-ao-indirect, 2026-09-13 : LA GARDE SAUTE. Elle reservait la prediction de plan au
+  // sous-echantillonnage (`u_ao_size.y < u_depth_size.y`), pour garder le palier HAUT
+  // bit-identique au « look SSAO-High fige ». C'est precisement ce look que l'owner refuse.
+  // Et la garde est ce qui empeche la boite de 4 de faire son travail au palier haut : sans
+  // prediction, `dv` vaut l'ecart de distance BRUT entre deux texels voisins, qui atteint
+  // plusieurs decimetres sur un sol rasant ; tous les taps tombent sous `exp(-dv^2/2sigma^2)`,
+  // la boite se referme sur son centre, et la tuile d'entrelacement 4x4 ressort telle quelle.
+  // Avec la prediction armee, `dv` est l'ecart au PLAN TANGENT local : ~0 sur une surface
+  // continue, donc les quatre taps passent et la tuile s'annule exactement ; sur une vraie
+  // arete la prediction casse et le rejet tient, inchange.
   float slope = 0.0;
-  if (u_ao_size.y < u_depth_size.y - 0.5) {
+  {
     float dp = texture(u_depth, tex_coord + u_dir).r;
     float dm = texture(u_depth, tex_coord - u_dir).r;
     if (dp > 0.000001 && dm > 0.000001) {
@@ -63,18 +74,26 @@ void main() {
     }
   }
 
-  // gaussian weights for offsets -2,-1,0,1,2
-  float gw0 = 6.0 / 16.0;
-  float gw1 = 4.0 / 16.0;
-  float gw2 = 1.0 / 16.0;
+  // lighting-ao-indirect, refus owner (a)/(e) du 2026-09-12 : BOITE EXACTE DE 4, pas une
+  // gaussienne de 5. Les estimateurs tirent desormais leur rotation d'une tuile d'ecran de
+  // 4x4 texels portant 16 rotations distinctes (ao_ssao/hbao/gtao.frag). Quatre taps
+  // CONSECUTIFS a poids EGAUX — offsets -1,0,+1,+2 — couvrent les quatre phases de la tuile
+  // dans cet axe ; H puis V font donc la moyenne EXACTE des 16 rotations, et le motif
+  // d'echantillonnage s'ANNULE au lieu d'etre etale. Une gaussienne (1,4,6,4,1)/16 ne
+  // l'annule pas : elle en laisse un residu ~= 37 %, ce qui est precisement ce qui faisait
+  // du bruit d'ecran de 2026-07-21 un scintillement. Le poids de profondeur bilateral reste
+  // : sur une vraie discontinuite les taps sont rejetes, la boite se referme sur le centre,
+  // et l'annulation cede la place a la preservation de l'arete — c'est l'ordre voulu.
+  float gw0 = 0.25;
+  float gw1 = 0.25;
 
   float sum = texture(u_ao, tex_coord).r * gw0;
   float wsum = gw0;
 
-  // -2, -1, +1, +2 taps
-  for (int i = 0; i < 4; i++) {
-    float off = (i == 0) ? -2.0 : (i == 1) ? -1.0 : (i == 2) ? 1.0 : 2.0;
-    float gw = (abs(off) < 1.5) ? gw1 : gw2;
+  // -1, +1, +2 taps (le +0 est le centre, deja pris)
+  for (int i = 0; i < 3; i++) {
+    float off = (i == 0) ? -1.0 : (i == 1) ? 1.0 : 2.0;
+    float gw = gw1;
     vec2 tuv = tex_coord + u_dir * off;
     float td = texture(u_depth, tuv).r;
     if (td <= 0.000001) {

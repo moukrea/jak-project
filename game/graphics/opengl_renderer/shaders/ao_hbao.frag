@@ -25,6 +25,10 @@ uniform int u_samples;  // unused here
 uniform int u_dirs;
 uniform int u_steps;
 uniform int u_debug;
+// lighting-ao-indirect : temoin de mesure, 0 en jeu. 1 restaure l'ancrage MONDE de la rotation
+// du noyau (l'etat d'avant le 2026-09-13) pour que la preuve mesure le defaut et sa correction
+// dans la MEME course. Pose par AmbientOcclusion.cpp, uniquement sous mesure.
+uniform int u_ao_legacy_noise;
 
 vec3 world_from_depth(vec2 uv, float d) {
   vec3 ndc = vec3(uv * 2.0 - 1.0, d * 2.0 - 1.0);
@@ -143,17 +147,49 @@ void main() {
   // max clamp 0.10 (was 0.25): same GPU-watchdog/cache-thrash bound as ao_gtao.frag.
   screen_r = clamp(screen_r, 2.0 * max(px.x, px.y), 0.10);
 
-  // REOPEN 2026-07-21 (owner: AO still flickers on movement): the rotation noise was pinned
-  // to gl_FragCoord — as the camera moves a world point slides across pixels and re-rolls its
-  // kernel rotation every frame with no temporal filter = the crawl on all three modes.
-  // Anchor the noise to the WORLD cell instead (P is the true reconstructed world position):
-  // a surface point keeps the SAME rotation frame after frame => temporally stable by
-  // construction. Cells grow with distance so depth-reconstruction error stays << cell; the
-  // 45 m near-field fade means far cells never re-roll visibly. (4096 units = 1 m.)
-  vec3 q = floor(P / max(1024.0, dcam * 0.02));
-  vec3 p3 = fract(q * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  float ign = fract((p3.x + p3.y) * p3.z);
+  // lighting-ao-indirect, REFUS DE L'OWNER (a)/(d)/(e), 2026-09-12 : « en qualite faible j'ai le
+  // damier (SSAO), en qualite elevee j'ai le damier (GTAO) » et « un flou vraiment degueulasse
+  // qui bouge dans tous les sens ». LA CAUSE ETAIT ICI. La rotation du noyau etait ancree a une
+  // CELLULE MONDE de cote max(1024, dcam*0.02) unites (1024 = 0,25 m) : TOUS les fragments d'une
+  // cellule tiraient la MEME rotation, donc la MEME erreur d'estimation. Sur un sol ou un mur a
+  // 3 m, cette cellule se projette en un pave de ~60 pixels de scene : c'est le damier, et il
+  // n'apparait que « la ou elle s'applique » parce que la rotation ne change le resultat qu'au
+  // voisinage d'un occluder — mot pour mot ce que l'owner decrit. Il est present aux DEUX
+  // extremites de qualite et dans les DEUX algorithmes parce que les trois estimateurs
+  // partageaient ce bloc. Et comme le cote de la cellule varie CONTINUMENT avec dcam, tout
+  // deplacement de camera fait glisser la grille : « ca bouge dans tous les sens ».
+  // Pourquoi le recensement de motif l'a lu a 1000 (aucun motif) aux trois paliers : une grille
+  // MONDE projetee n'a de periode dans AUCUNE direction d'ecran. Le test de periode 2/4 ne
+  // pouvait pas la voir. La porte mesurait a cote.
+  //
+  // ECHANTILLONNAGE ENTRELACE D'ECRAN, periode 4x4, 16 rotations distinctes, sans terme de
+  // temps. Deux proprietes, toutes deux par CONSTRUCTION :
+  //   - a camera immobile le tampon d'AO est identique d'une image a l'autre (rien dans `ign`
+  //     ne depend du temps ni de la camera) : la variation temporelle est nulle, pas petite ;
+  //   - le flou en BOITE de 4 taps par axe de `ao_blur.frag` moyenne EXACTEMENT les 16
+  //     rotations de la tuile, donc le motif s'annule au lieu d'etre etale. C'est pourquoi le
+  //     retour a un bruit d'ecran ne ramene pas le scintillement de 2026-07-21 : ce qui
+  //     scintillait, c'etait un bruit d'ecran sous un noyau GAUSSIEN qui ne l'annulait pas ; un
+  //     point du monde qui glisse sur la tuile lit desormais la meme MOYENNE de 16 rotations.
+  // L'index est une permutation par inversion de bits (van der Corput) : deux texels voisins
+  // recoivent des angles eloignes, pas consecutifs.
+  // LE TEMOIN DE MESURE. `u_ao_legacy_noise` restaure l'ancrage MONDE d'avant le 2026-09-13,
+  // et RIEN d'autre. Il vaut 0 en jeu, toujours : seule la preuve l'allume, une image sondee
+  // sur deux, pour que la MEME course, sur la MEME scene et le MEME binaire, publie la
+  // grandeur de blocs des DEUX regimes. L'owner (verdict (e)) : « une grandeur qui ne
+  // retrouve pas le defaut connu ne peut pas prouver sa disparition ».
+  float ign;
+  if (u_ao_legacy_noise != 0) {
+    vec3 q = floor(P / max(1024.0, dcam * 0.02));
+    vec3 p3 = fract(q * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    ign = fract((p3.x + p3.y) * p3.z);
+  } else {
+    ivec2 ao_tile = ivec2(gl_FragCoord.xy) & 3;
+    int ao_rot = ((ao_tile.x & 1) << 3) | ((ao_tile.y & 1) << 2) | (ao_tile.x & 2) |
+                 ((ao_tile.y & 2) >> 1);
+    ign = (float(ao_rot) + 0.5) / 16.0;
+  }
 
   // world-space image of the screen axes at P (same-window-depth unprojection): gives the
   // march direction's TRUE world direction, so the tangent below is analytic (N-based)

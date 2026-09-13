@@ -62,6 +62,10 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
       float alpha_min = 0.f;
       u32 first = 0;
       u32 count = 0;
+      // lighting-ao-indirect (c)/(g) : VRAI quand la passe principale coupe le z-write de ce
+      // draw (`prepass_writes_depth` faux). La prepasse LIVREE ne dessine pas ces groupes ;
+      // seule la passe de mesure « occluder fantome » les rejoue.
+      bool noz = false;
     };
     std::vector<CasterGroup> caster_groups;
     GLuint single_draw_index_buffer;

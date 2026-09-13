@@ -19,6 +19,8 @@
 
 #include "third-party/glad/include/glad/glad.h"
 
+#include <cstdint>
+
 class AmbientOcclusionPass {
  public:
   AmbientOcclusionPass() = default;
@@ -50,15 +52,29 @@ class AmbientOcclusionPass {
   bool estimate(SharedRenderState* rs, GLuint depth_tex, int depth_w, int depth_h);
 
   // ── LE RECENSEMENT DU MOTIF (refus owner du 2026-09-10 (a)) ──────────────────────────────
-  // Sous mesure seulement. `set_measure_quality(q)` impose le palier de qualite de l'image
-  // (q dans 0..2 ; -1 = aucune contrainte) : la preuve fait tourner les TROIS paliers dans UNE
-  // course en les alternant d'une image sondee a l'autre, parce que `AO_FORCE_QUALITY` est fige
-  // pour toute la course. `request_pattern_census(true)` demande la relecture du tampon d'AO de
-  // cette image et l'accumulation de la force du motif pour le palier courant.
-  static void set_measure_quality(int q);
+  // Sous mesure seulement. La preuve fait tourner DOUZE etats dans UNE course en les alternant
+  // d'une image sondee a l'autre, parce que `AO_FORCE_MODE`/`AO_FORCE_QUALITY` sont figes pour
+  // toute la course. `request_pattern_census(true)` demande la relecture du tampon d'AO de
+  // cette image et l'accumulation des grandeurs de l'etat courant.
+  // L'etat complet d'une image sondee : quel ESTIMATEUR (1 = SSAO,
+  // 3 = GTAO), quel PALIER (0..2), et quel regime de BRUIT (0 = livre, 1 = le temoin d'avant).
+  // L'owner a vu le damier « en qualite faible (SSAO) » ET « en qualite elevee (GTAO) » : une
+  // grandeur qui ne couvre qu'un estimateur ne repond pas a son verdict.
+  static void set_measure_state(int mode, int quality, int legacy);
   static void request_pattern_census(bool on);
   // Publie ao_pattern_* . Appele par le module de prepasse quand il publie le reste.
   static void publish_pattern_census();
+
+  // ── LA CAMPAGNE DE COUT (refus owner (f) du 2026-09-12) ──────────────────────────────────
+  // Un debut d'image. Fait avancer la campagne de cout ; sans effet hors mesure. `frame` est le
+  // compteur d'images de la prepasse. Elle demarre TARD (image 3000) pour laisser la phase de
+  // recensement produire les cles de porte avant de prendre le reste de la course.
+  static void measure_frame_begin(uint64_t frame);
+  // VRAI pendant la campagne de cout : la prepasse suspend ses images SONDEES, dont les
+  // relectures fausseraient le temps par image qu'on est en train de mesurer.
+  static bool measure_timing_active();
+  // Publie ao_us_* . Appelee avec le reste du recensement.
+  static void publish_cost_census();
 
   // La texture d'AO pleine resolution de la derniere estimation (0 si aucune).
   GLuint texture() const { return m_ao_full_tex; }

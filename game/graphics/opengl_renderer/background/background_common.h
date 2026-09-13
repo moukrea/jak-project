@@ -129,6 +129,13 @@ DoubleDraw compute_double_draw(DrawMode mode);
 // (tfrag3.frag:130, shrub.frag:84). 0 = ce draw ne jette rien, la prepasse n'a pas a le texturer.
 float prepass_alpha_min(const DrawMode& mode);
 
+// lighting-ao-indirect (refus owner (c)/(g) du 2026-09-12) : VRAI si ce draw ecrit la
+// profondeur dans la passe principale. Miroir EXACT de la condition de `glDepthMask` de
+// `setup_opengl_from_draw_mode` (background_common.cpp:336). Un draw qui rend FAUX ne doit
+// pas entrer dans la prepasse de profondeur : son quad y deviendrait un occluder d'AO que
+// l'image ne dessine pas.
+bool prepass_writes_depth(const DrawMode& mode);
+
 // Gperf-particles: per-draw GL state cache for the tfrag-family loops. A local
 // cache lives at the top of each tree-render function (per-render reset). When
 // render_state->perf_state_cache is off, setup_tfrag_shader_cached is exactly

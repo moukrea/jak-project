@@ -206,6 +206,11 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     // adjacents ET tous deux sans test. `tex` porte l'ID de texture du fr3, pas le nom GL.
     std::vector<prepass::DepthRange> prepass_ranges;
     std::vector<prepass::DepthRange> prepass_ranges_env;
+    // lighting-ao-indirect (c)/(g) : les plages ECARTEES — les draws dont la passe principale
+    // coupe le z-write (`prepass_writes_depth` faux). Jamais dessinees par la prepasse livree ;
+    // seule la passe de mesure « occluder fantome » les rejoue.
+    std::vector<prepass::DepthRange> prepass_noz_ranges;
+    std::vector<prepass::DepthRange> prepass_noz_ranges_env;
 #endif
   };
 

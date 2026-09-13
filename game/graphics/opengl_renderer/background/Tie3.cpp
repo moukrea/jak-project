@@ -2,6 +2,7 @@
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 
+#include <array>
 #include <chrono>
 #include <atomic>
 #include <cmath>
@@ -1110,11 +1111,13 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
   // l'alpha-test du feuillage depend. On construit donc les deux jeux dans la MEME boucle : la
   // passe soleil garde ses plages fusionnees a fond, la prepasse les siennes.
   auto& pre_ranges = env_cat ? tree.prepass_ranges_env : tree.prepass_ranges;
+  auto& pre_noz = env_cat ? tree.prepass_noz_ranges_env : tree.prepass_noz_ranges;
   if (ranges_built) {
     return;
   }
   ranges.clear();
   pre_ranges.clear();
+  pre_noz.clear();
   for (size_t di = tree.category_draw_indices[cast_cat];
        di < tree.category_draw_indices[cast_cat + 1]; di++) {
     const auto& draw = (*tree.draws)[di];
@@ -1130,6 +1133,15 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
       ranges.back().second += count;  // coalesce adjacent draws
     } else {
       ranges.emplace_back(first, count);
+    }
+    // lighting-ao-indirect (c)/(g) : la passe principale coupe le z-write pour ce draw ;
+    // l'ecrire dans la prepasse ferait de son quad un occluder d'AO que l'image ne dessine pas.
+    // La coalescence de `ranges` (passe SOLEIL, ci-dessus) reste INCHANGEE : le `continue` est
+    // pose APRES elle et n'ecarte que `pre_ranges`.
+    if (!prepass_writes_depth(draw.mode)) {
+      pre_noz.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
+      prepass::note_noz_range(count);
+      continue;
     }
     const float am = prepass_alpha_min(draw.mode);
     // tree_tex_id negatif = emplacement de texture animee : aucun nom GL stable, on le traite
@@ -1173,7 +1185,13 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
     ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP);
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-    for (const auto* ranges : {&tree.prepass_ranges, &tree.prepass_ranges_env}) {
+    const std::array<const std::vector<prepass::DepthRange>*, 2> pre_lists =
+        prepass::noz_pass_active()
+            ? std::array<const std::vector<prepass::DepthRange>*, 2>{
+                  &tree.prepass_noz_ranges, &tree.prepass_noz_ranges_env}
+            : std::array<const std::vector<prepass::DepthRange>*, 2>{&tree.prepass_ranges,
+                                                                     &tree.prepass_ranges_env};
+    for (const auto* ranges : pre_lists) {
       for (const auto& r : *ranges) {
         const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                  ? m_textures->at(r.tex)
