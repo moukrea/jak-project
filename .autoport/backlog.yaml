@@ -1,7 +1,7 @@
 # La seule verite du travail. Une feature = un item.
 # Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
 # owner_feedback : les mots de l'owner, dates, jamais reformules.
-version: 4
+version: 5
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
@@ -4923,7 +4923,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: in-progress
+  status: to-test
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5008,9 +5008,16 @@ items:
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
   - OG_UNCAP_FPS=240
-  delivered: '2026-09-12'
+  delivered: '2026-09-13'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:48
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-13'
+    proof_sha: 39b5358f9bf992a4
+    proof_bytes: 43561
+    attempt: 6
+    journal: validator-006.txt
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -5628,14 +5635,18 @@ items:
     PREUVE : `FEATURE water-shore armed=1 hits=<vagues arrivees a d=0 (comptees au deferlement)>` + la
     ligne `waterbake_sdf_coverage_pct=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans
     la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-shore"),
-    jamais armed(), et n''en ecris pas un second.'
+    jamais armed(), et n''en ecris pas un second. CONTRAT SURFACES MEUBLES (prompts/SPEC-surfaces-meubles.md
+    section 10) : publier chaque image la phase du jet de rive en UN scalaire (slot par image, jamais
+    un pointeur), lisible par la coque de sable, et la cle `shore_phase_published=1` ; la coque LIT shore_sdf
+    au bake et cette phase au runtime, elle n''ecrit jamais dans le .waterbake.'
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
     seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
     d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
     Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de tempete, pas de vague au-dessus
     de 0,30 m. La borne |visuel - jeu| <= 0,45 m reste publiee.'
-  notes: 'SPEC sections 5.5, 5.8. Premier lieu : beach. Valeurs par niveau dans water_overrides.txt.'
+  notes: 'SPEC sections 5.5, 5.8. Premier lieu : beach. Valeurs par niveau dans water_overrides.txt. |
+    13/09 : contrat de lecture avec la campagne soft-* (phase du jet publiee).'
   spec: prompts/SPEC-refonte-eau.md
   hits_means: vagues arrivees a d=0 (comptees au deferlement)
   supervisor_recovery: true
@@ -8697,7 +8708,7 @@ items:
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:2
 - id: mesh-consolidate-without-consumer
-  status: open
+  status: in-progress
   priority: 29
   game: jak1
   device: true
@@ -8724,6 +8735,18 @@ items:
   max_turns: 600
   max_retries: 5
   proof_timeout: 420
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_LEVEL_WARP=village1-warp
+  - OG_WANT_LEVELS=village1,beach
+  - OG_MESH_BITS=65536
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.level.warp=village1-warp
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.mesh.bits=65536
   prompt: prompts/item-mesh-consolidate-without-consumer.md
   notes: issu du signalement de dead-cover-and-legends, 12/09.
 - id: dead-published-keys-round-2
@@ -10009,3 +10032,870 @@ items:
     proof_bytes: 38064
     attempt: 1
     journal: validator-001.txt
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: soft-baseline
+  priority: 80
+  device: true
+  feature: 'Les instruments et la baseline des surfaces meubles : l''epaisseur des congeres, mesuree'
+  gate:
+    key: soft_baseline_gaps
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC sections 1 et 13. L''epaisseur de la neige profonde est INCONNUE : les 19 ilots deepsnow
+    de snow sont la collision de congeres TIE, et aucun outil ne relie un draw a son prototype et a ses
+    instances. Le Redmi n''a pas de chronometre GPU par passe exploitable (l''ocean absorbe 92-95 %).
+    La densite du sol n''est auditee que sur village1 (arete 4,885 m). Aucun compteur de triangles de
+    collision par materiau n''existe.'
+  deliverable: |-
+    `soft_baseline_gaps` = 0, somme de termes publies SEPAREMENT.
+    1. L'ECART VISIBLE/COLLISION DES CONGERES EST MESURE : un decodeur des arbres TIE du .fr3 attribue chaque ilot deepsnow (19 a snow, 18 a ogre) a son prototype et publie l'ecart vertical surface rendue -> collision (min, mediane, max par ilot, en unites ET en m). C'est la decision 4 de la SPEC qui en depend.
+    2. LA TABLE MATERIAU x NIVEAU EST VERSIONNEE : `tools/soft_bake --census` publie triangles et aire par pat-material et par niveau, pour les 25 niveaux, et retrouve les chiffres de l'investigation (snow 5968 / 72 181 m² ; deepsnow 762 / 2 332 m² ; beach sand 10 294 / 90 299 m²) a l'unite pres.
+    3. LA DENSITE DU SOL EST CONNUE OU ELLE COMPTE : arete moyenne et mediane des triangles tfrag eligibles pour snow, beach, training, village1 ; compteur de sommets et triangles DESSINES par systeme et par image.
+    4. LE COUT D'UNE TUILE EST MESURE SUR LES DEUX CIBLES : `glTexSubImage2D` d'une R16 64² et 128², et la rasterisation d'un quad dans une R16 attachee, en ms par tuile, sur x86 et sur le Redmi, publies cote a cote.
+    PREUVE : `FEATURE soft-baseline armed=1 hits=<grandeurs de baseline publiees>` + la ligne `soft_baseline_gaps=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Rien a voir dans le jeu : des chiffres. La vue de debug colore la collision par materiau.'
+  out_of_scope: Aucune coque, aucune deformation, aucun changement d'image. Tout ce qui n'est pas cet
+    item.
+  notes: 'SPEC sections 1, 13, 16 (decision 4). Premier item : il leve la seule inconnue qui commande
+    la coque des congeres.'
+  hits_means: grandeurs de baseline publiees
+  prompt: prompts/item-soft-baseline.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-baseline
+  - grass-surface-truth
+  history: []
+  id: soft-surface-truth
+  priority: 81
+  device: false
+  feature: Une surface est de neige ou de sable selon DEUX sources, et jamais aussi de l'herbe
+  gate:
+    key: soft_surface_unclassified
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC sections 1 et 11. sand=5, snow=9, deepsnow=10 dans les bits 6..11 de pat-surface ;
+    le lecteur de ces bits est celui de grass-surface-truth, a PARTAGER. Desaccords connus a compter :
+    jng-beach-01 sur une collision dirt (jungle) ; 2 952 triangles de sable en mode MUR a training.'
+  deliverable: |-
+    `soft_surface_unclassified` = 0, somme de termes publies SEPAREMENT.
+    1. LES DEUX SOURCES SONT LUES ET PUBLIEES SEPAREMENT : par niveau, classification par texture et par materiau pour sand, snow, deepsnow ; le compte de triangles qu'AUCUNE source ne classe doit valoir zero.
+    2. LE DESACCORD SE COMPTE, IL NE SE DEVINE PAS : compte de triangles ou les deux sources divergent, avec les noms de texture impliques, par niveau. Le desaccord n'est pas un defaut de cet item.
+    3. L'EXCLUSIVITE AVEC L'HERBE EST PROUVEE : compte de triangles eligibles a la fois a l'herbe et a la coque = zero, calcule avec le lecteur de grass-surface-truth, pas un second.
+    4. RIEN NE CHANGE ENCORE : aucune coque, aucun placement, image bit-identique ; cet item lit et publie.
+    PREUVE : `FEATURE soft-surface-truth armed=1 hits=<triangles de sol classes par au moins une source>` + la ligne `soft_surface_unclassified=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Rien a voir dans le jeu. Vue de debug : chaque triangle de sol colore par sa classe et ses desaccords.'
+  out_of_scope: Ne cree aucune coque. Ne touche pas au lecteur de l'herbe autrement qu'en l'appelant.
+    Tout ce qui n'est pas cet item.
+  notes: 'SPEC section 11. Meme lecteur que l''herbe, meme regle : le desaccord se publie.'
+  hits_means: triangles de sol classes par au moins une source
+  prompt: prompts/item-soft-surface-truth.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-surface-truth
+  history: []
+  id: soft-support-map
+  priority: 82
+  device: false
+  feature: Le support et l'epaisseur de chaque point de matiere, cuits
+  gate:
+    key: soft_thickness_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC sections 2, 3, 7. Neige compacte et sable : epaisseur du profil (3,5 cm = 143 u au
+    depart) avec falloff aux frontieres ; congeres : lancer de rayon de la surface rendue vers l''ilot
+    de collision le long de la direction de couche. Direction = normale lissee bornee, verticale a plat,
+    NULLE en frontiere. Objets statiques cuits en depressions (caisses jamais mobiles). Murs, faces retournees,
+    pente > seuil : rejetes et comptes.'
+  deliverable: |-
+    `soft_thickness_defects` = 0, somme de termes publies SEPAREMENT.
+    1. CHAQUE SOMMET A UN SUPPORT : compte de sommets de coque sans support sous eux le long de la direction de couche = zero, avec le compte de sommets testes.
+    2. AUCUNE EPAISSEUR NEGATIVE, ET LES CONGERES SONT CHIFFREES : compte d'epaisseurs < 0 = zero ; epaisseur min, mediane, max par ilot deepsnow publiee en unites et en m.
+    3. LES FRONTIERES SONT FIGEES : compte de sommets de frontiere a epaisseur non nulle = zero ; distance aux objets statiques cuite et depressions comptees par niveau (objets, aire).
+    4. LES REJETS SONT NOMMES : murs, faces retournees, pente > seuil, meshes superposes sable-sur-grass (decision 12) — chacun compte par niveau, non nul la ou l'investigation les a vus (training : 2 952 murs).
+    PREUVE : `FEATURE soft-support-map armed=1 hits=<sommets de coque ayant recu une epaisseur>` + la ligne `soft_thickness_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Rien a voir dans le jeu. Vue de debug : epaisseur en rampe, direction en aiguilles, rejets en
+    rouge.'
+  out_of_scope: 'Ne subdivise pas encore, ne serialise pas : c''est soft-bake-format. Tout ce qui n''est
+    pas cet item.'
+  notes: SPEC sections 3, 7, 16 (decisions 3, 5, 9, 12).
+  hits_means: sommets de coque ayant recu une epaisseur
+  prompt: prompts/item-soft-support-map.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-support-map
+  history: []
+  id: soft-bake-format
+  priority: 83
+  device: false
+  feature: 'Le compagnon .softbake : la coque imbriquee, ses chunks, son outil deterministe'
+  gate:
+    key: soft_bake_roundtrip_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 3. Subdivision IMBRIQUEE L0 12,5 cm / L1 25 cm / L2 50 cm / L3 triangle d''origine,
+    niveaux bas = sous-ensembles d''index des niveaux hauts ; sommets de frontiere partages a l''identique
+    avec les voisins. En-tete de la famille des compagnons avec EMPREINTE DE CONTENU du .fr3 (jamais la
+    taille : defaut connu du .grassbake, GrassRenderer.cpp:1032-1036) ; version du compagnon INDEPENDANTE
+    de TFRAG3_VERSION (44, que lighting-bake bumpera).'
+  deliverable: |-
+    `soft_bake_roundtrip_defects` = 0, somme de termes publies SEPAREMENT.
+    1. DEUX CUISSONS SONT BIT-IDENTIQUES et le round-trip integre relit le fichier et compare a zero ecart ; aucun aleatoire, aucune horloge, aucun fil ; `-ffp-contract=off` dans les trois arbres.
+    2. L'INVALIDATION LIT LE CONTENU : un .fr3 reconstruit a taille identique et contenu different declenche le recuit (temoin fabrique dans un bac a sable) ; un changement de la table des profils ou du .waterbake aussi.
+    3. LA CHAINE DE LOD EST IMBRIQUEE PAR CONSTRUCTION : compte d'index de L_k absents de L_k+1 = zero ; compte de sommets de frontiere de chunk presents dans les deux chunks avec le meme index = tous.
+    4. LE COUT EST CHIFFRE : taille du compagnon par niveau et par LOD, temps de cuisson par niveau, sections adressables par chunk ; declenchement automatique par la chaine de build prouve par un temoin.
+    PREUVE : `FEATURE soft-bake-format armed=1 hits=<chunks serialises>` + la ligne `soft_bake_roundtrip_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Rien a voir dans le jeu.
+  out_of_scope: 'Ne charge rien dans le moteur, ne dessine rien : c''est soft-shell-renderer. Tout ce
+    qui n''est pas cet item.'
+  notes: 'SPEC section 3. Patron : tools/grass_bake et son controle de round-trip.'
+  hits_means: chunks serialises
+  prompt: prompts/item-soft-bake-format.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-bake-format
+  history: []
+  id: soft-shell-renderer
+  priority: 84
+  device: true
+  feature: 'La coque remplace le sol dans les trois passes, sans encore se deformer : les 3-4 cm, a l''oeil'
+  gate:
+    key: soft_shell_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC sections 2 et 6. Trois vertex shaders projettent le terrain (tfrag3.vert, prepass_world.vert,
+    pbr_depth.vert) et seul le premier voit les deplacements. La coque a SES programmes couleur / prepasse
+    / ombre soleil, tous incluant `soft_displace.glsl` (Shader::expand_includes). Au chargement, les triangles
+    cedes sortent de l''index du terrain. Deux boucles de dispatch (PC et Android), deux CMakeLists, kChunks.
+    C''est ici que l''owner juge la fine epaisseur.'
+  deliverable: |-
+    `soft_shell_defects` = 0, somme de termes publies SEPAREMENT.
+    1. UN SEUL CODE DE SOMMET, TROIS PASSES : compte de programmes lies incluant `soft_displace.glsl` = 3 ; ecart de profondeur de la coque entre prepasse, ombre et couleur sur vantages nommes = 0 (sonde refset_read_scene_depth).
+    2. LE TERRAIN CEDE, LA COQUE REMPLACE : compte de triangles cedes = compte de triangles eligibles ; compte de pixels de couture (ecart de profondeur > 1 quantum le long des frontieres) = zero ; aucun z-fight mesure.
+    3. L'APPARENCE AU REPOS EST HERITEE : UV, color_index (couleur du jour) et normale des enfants interpoles des parents ; ecart de couleur coque/terrain sur un vantage a epaisseur forcee a 0 = zero.
+    4. OFF = ABSENCE : binaire-temoin sans la couche compilee, image bit-identique ; compagnon absent = `soft_missing=1` et terrain intact ; temps de chargement asynchrone, 0 ms bloque.
+    PREUVE : `FEATURE soft-shell-renderer armed=1 hits=<triangles de coque dessines par image>` + la ligne `soft_shell_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur la neige compacte de Snowy Mountain et le sable de Geyser Rock, a angle rasant et dans l''ombre
+    de contact : Jak parait s''enfoncer de quelques centimetres, sans marche ni scintillement aux bords.
+    C''est le reglage des 3-4 cm que tu juges ; la deformation viendra apres.'
+  out_of_scope: Aucune deformation dynamique, aucune tuile, aucun interacteur. Ne touche pas aux shaders
+    du terrain autrement que pour ceder des index. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 2, 6, 16 (decisions 1, 5). Le premier item visible ; preuve appareil obligatoire
+    (deux boucles).
+  hits_means: triangles de coque dessines par image
+  prompt: prompts/item-soft-shell-renderer.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-shell-renderer
+  history: []
+  id: soft-debug-views
+  priority: 85
+  device: false
+  feature: Les vues de debug de la coque, des le debut
+  gate:
+    key: soft_debug_channels_missing
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 14 et artifact section 28. Chaque defaut doit se lire par niveau, chunk, nappe,
+    materiau, profil, interacteur, palier. Les canaux statiques d''abord : eligibilite et matiere, support
+    (fil de fer), epaisseur, direction, frontieres et falloffs, chunk et LOD (damier), bounds, rejets
+    nommes.'
+  deliverable: |-
+    `soft_debug_channels_missing` = 0, somme de termes publies SEPAREMENT.
+    1. CHAQUE CANAL DECLARE EST DESSINE : compte de canaux declares = compte de canaux rendus, publies par nom.
+    2. CHAQUE DEFAUT EST LOCALISE : tout compteur de defaut de la campagne publie niveau, chunk, nappe, materiau et, quand il existe, l'interacteur ; compte de defauts sans localisation = zero.
+    3. LE MODE DEBUG NE COUTE RIEN ETEINT : instrument_cost_us par image en mode normal ≤ 200 (perf-instrument-cost).
+    4. LES CANAUX DYNAMIQUES ONT LEUR PLACE RESERVEE : tuile, region dirty, compression, bourrelet, age, interacteurs, volumes balayes, priorite, cause d'eviction — declares, remplis par les items suivants, comptes comme absents tant qu'ils ne le sont pas.
+    PREUVE : `FEATURE soft-debug-views armed=1 hits=<canaux de debug dessines>` + la ligne `soft_debug_channels_missing=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Un reglage de debug qui colore la coque par canal ; rien en jeu normal.
+  out_of_scope: Aucun canal dynamique rempli ici. Tout ce qui n'est pas cet item.
+  notes: SPEC section 14. Les vues arrivent AVANT le moteur, pas apres.
+  hits_means: canaux de debug dessines
+  prompt: prompts/item-soft-debug-views.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-shell-renderer
+  history: []
+  id: soft-deform-core
+  priority: 86
+  device: true
+  feature: 'Le moteur de deformation : tuiles par chunk, tampons de contact, volumes balayes'
+  gate:
+    key: soft_deform_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 4. Tuiles R16 compression / R8 bourrelet / R8 age par chunk, pool borne ; DEUX
+    producteurs — rasterisation de quads (Moyen+) et CPU + glTexSubImage2D (Bas) — UN consommateur : le
+    vertex shader de la coque ne sait pas qui a ecrit. Jamais de compute, jamais de relecture (cible flottante
+    non relisible en GLES3). Echantillonnage des segments a la DISTANCE (rayon/2 au plus), pas aux images.
+    Saturation par max. Normales par gradient. Teste avec un interacteur SYNTHETIQUE avant tout acteur
+    reel.'
+  deliverable: |-
+    `soft_deform_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA MEME TRAJECTOIRE DONNE LA MEME TRACE A 30, 60 ET 120 Hz : rejeu d'un segment synthetique (fixed_tick, render_pace) ; ecart de compression par texel ≤ 1 quantum ; compte de trous le long du segment = zero.
+    2. RIEN NE CREUSE SOUS LE SUPPORT : compression max = 1 exactement, profondeur ≤ epaisseur sur tous les texels (compte de depassements = zero), saturation par max prouvee par deux passages superposes.
+    3. LES DEUX PRODUCTEURS SE VALENT : la meme sequence de tampons ecrite par rasterisation et par CPU donne deux tuiles identiques a la tolerance declaree, publiee.
+    4. LE TRAVAIL EST BORNE : tampons par image, tuiles relaxees par image et reports comptes ; `gpu_ms_soft` publie sur x86 ; sur le Redmi, total GPU par image avant/apres et `glFenceSync` si le pilote kgsl le demande.
+    PREUVE : `FEATURE soft-deform-core armed=1 hits=<tampons de contact appliques>` + la ligne `soft_deform_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Rien a voir sans interacteur reel ; la vue de debug montre les tuiles, les regions dirty et la
+    compression.
+  out_of_scope: 'Aucun acteur du jeu : l''interacteur est synthetique. Pas de profil de matiere, pas de
+    bourrelet fin. Tout ce qui n''est pas cet item.'
+  notes: 'SPEC sections 4, 16 (decision 2). Patron : la RT monde de water-interaction, sans la partager.'
+  hits_means: tampons de contact appliques
+  prompt: prompts/item-soft-deform-core.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-deform-core
+  history: []
+  id: soft-actor-channel
+  priority: 87
+  device: true
+  feature: 'Le canal d''acteurs : pieds, vitesses, pas — un tableau, un appel, zero par image en plus'
+  gate:
+    key: soft_channel_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 5. Le canal de l''herbe transporte UNE position racine, 4 echantillons de trainee,
+    ≤ 8 disques, sans velocite ni pied. Le pont GOAL->C accepte 6 arguments GPR ; au-dela, un tableau
+    GOAL inline enregistre une fois (patron *hd-ring*, jak-hd.gc:90). Les tags de pas sont resolus AVANT
+    do-joint-math! ; ne JAMAIS armer le bit 0 des flags d''effect-control chez Jak. Regle perf : scalaires
+    en slot par image, jamais un pointeur lu par le fil de rendu.'
+  deliverable: |-
+    `soft_channel_defects` = 0, somme de termes publies SEPAREMENT.
+    1. JAK TRANSITE ENTIER : trans, transv, quat, drapeaux, ground-pat, classe d'etat et les 4 noeuds de pieds (Lankle 29, Rankle 33, Lball 69, Rball 73) lus apres ja-post ; ecart entre position publiee et `control trans` sur 300 images ≤ 1 u hors interpolation, publie AVEC l'interpolation activee.
+    2. LES ACTEURS MOBILES TRANSITENT AVEC LEUR VITESSE, CHAQUE IMAGE POUR LES N PLUS PROCHES : compte publie par image ; un ennemi disparait du canal a l'image 0 de sa mort (compte par id apres `nav-enemy-die` = zero).
+    3. UN SEUL APPEL AU SITE ND : les tags de pas gauche/droit arrivent avec joint et materiau par un appel unique dans effect-control-method-11 ; compte d'appels FFI supplementaires par image hors le slot = zero.
+    4. LE FIL GOAL NE PAIE RIEN : `goal_busy_ms` ≤ baseline sur le Redmi, publie avant/apres.
+    PREUVE : `FEATURE soft-actor-channel armed=1 hits=<interacteurs publies par image>` + la ligne `soft_channel_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Rien a voir : la vue de debug dessine les capsules et vitesses publiees.'
+  out_of_scope: Aucune deformation par un acteur reel encore ; le canal alimente, il ne stampe pas. Tout
+    ce qui n'est pas cet item.
+  notes: SPEC section 5. Etend le canal de l'herbe, ne le duplique pas.
+  hits_means: interacteurs publies par image
+  prompt: prompts/item-soft-actor-channel.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-actor-channel
+  history: []
+  id: soft-jak-feet
+  priority: 88
+  device: true
+  feature: Les pieds de Jak laissent des empreintes gauche et droite, jamais en l'air
+  gate:
+    key: soft_foot_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 5. Deux capsules cheville -> plante ; contact si la capsule est sous la surface
+    de repos ET root `onground` ET classe d''etat autorisee ; le tag de pas CONFIRME et date, il ne cree
+    pas seul. Le sprite footprntr ND (part 2376 / 94) est desactive quand la coque est active sur ce materiau,
+    sinon double empreinte.'
+  deliverable: |-
+    `soft_foot_defects` = 0, somme de termes publies SEPAREMENT.
+    1. AUCUNE EMPREINTE AERIENNE : compte de tampons de pied avec root hors sol ou en etat jump/falling = zero, avec le compte de contacts testes.
+    2. GAUCHE ET DROITE ALTERNENT : sur une marche scriptee de 20 pas, sequence G/D publiee, compte de doublons = zero ; la forme est la capsule projetee (rectitude publiee), pas un disque.
+    3. PAS DE DOUBLE EMPREINTE : compte de sprites footprntr emis sur un materiau a coque active = zero, non nul coque eteinte.
+    4. LA CONFIRMATION PAR TAG EST MESUREE : compte de contacts confirmes par un tag dans les 2 images, et compte de tags sans contact geometrique (publies, pas juges).
+    PREUVE : `FEATURE soft-jak-feet armed=1 hits=<contacts de pied valides>` + la ligne `soft_foot_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur la neige compacte et le sable : deux pieds distincts, pas de rond ; rien quand Jak saute.'
+  out_of_scope: Pas les jambes, pas les ennemis, pas les profils fins. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 5, 16 (decision 7).
+  hits_means: contacts de pied valides
+  prompt: prompts/item-soft-jak-feet.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-jak-feet
+  history: []
+  id: soft-jak-body
+  priority: 89
+  device: true
+  feature: 'Jambes, receptions, glissades et roulades dans la neige profonde : un sillon continu'
+  gate:
+    key: soft_body_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 5. Capsules hanche->genou->cheville actives seulement si l''epaisseur disponible
+    depasse les chevilles ; reception = disque a la racine selon ground-impact-vel ; glissade = capsule
+    allongee selon transv ; roulade = sphere de la racine balayee ; accroche de rebord = rien.'
+  deliverable: |-
+    `soft_body_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE SILLON EST CONTINU : longueur de trace mesuree / distance parcourue ≥ 0,98 sur une course scriptee dans une congere ; compte de trous = zero.
+    2. LA LARGEUR SUIT L'ETAT : largeur de trace publiee par classe d'etat (marche, course, glissade, roulade, reception) ; l'ordre declare est respecte.
+    3. LES JAMBES NE TRAVAILLENT QUE LA OU IL Y A DE LA MATIERE : compte de tampons de jambe sur une epaisseur < hauteur de cheville = zero.
+    4. RIEN EN ACCROCHE NI EN L'AIR : compte de tampons de corps en edge-grab, jump, falling = zero.
+    PREUVE : `FEATURE soft-jak-body armed=1 hits=<tampons de corps appliques>` + la ligne `soft_body_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Dans une congere de Snowy Mountain : la neige s''ouvre autour des jambes, un sillon suit Jak,
+    une glissade laisse une trace allongee.'
+  out_of_scope: Pas d'ennemi, pas d'objet, pas de bourrelet fin. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 5, 16 (decision 8).
+  hits_means: tampons de corps appliques
+  prompt: prompts/item-soft-jak-body.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-actor-channel
+  history: []
+  id: soft-enemies
+  priority: 90
+  device: true
+  feature: Les ennemis vivants deforment ; les morts, non, par construction
+  gate:
+    key: soft_enemy_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 5. Spheres racine et d''os des nav-enemies balayees ; collision retiree a l''image
+    0 de nav-enemy-die, la chute balistique ne touche pas le sol. snow-bunny, yeti-slave, ice-cube, ram-boss
+    (snow) ; lurkercrab, lurkerpuppy (beach) ; starfish (village1).'
+  deliverable: |-
+    `soft_enemy_defects` = 0, somme de termes publies SEPAREMENT.
+    1. AUCUN FANTOME : compte de tampons d'un id apres son image de mort = zero, compte par ennemi tue pendant la course (non nul : la course tue au moins trois ennemis).
+    2. LES VIVANTS DEFORMENT : compte de tampons par espece pendant la course, non nul pour chaque espece presente.
+    3. LE BUDGET TIENT : N ennemis simultanes (declare par palier) ; priorite publiee (distance x taille x nouveaute) ; compte d'ennemis ignores faute de budget.
+    4. LA SPHERE D'OS EST UTILISEE QUAND ELLE EXISTE : compte de tampons issus d'une sphere d'os vs racine, publie.
+    PREUVE : `FEATURE soft-enemies armed=1 hits=<tampons d ennemis appliques>` + la ligne `soft_enemy_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Un snow-bunny qui traverse la neige compacte laisse des traces ; un yeti tue n'en laisse plus
+    une.
+  out_of_scope: Pas les objets, pas les PNJ. Tout ce qui n'est pas cet item.
+  notes: SPEC section 5 ; fait etabli 3 (aucun corps persistant).
+  hits_means: tampons d ennemis appliques
+  prompt: prompts/item-soft-enemies.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-actor-channel
+  history: []
+  id: soft-objects
+  priority: 91
+  device: true
+  feature: 'La boule de neige, le yakow, les montures : traces d''objets qui bougent vraiment'
+  gate:
+    key: soft_object_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 5. snow-ball = sphere r 2,5 m qui roule le long d''une courbe (transv, quat)
+    ; yakow, seagull, pelican ; zoomer/flutflut = collider ''racer/''flut de Jak. Les caisses ne bougent
+    JAMAIS : objets statiques cuits, pas interacteurs. Aucun OBB dans le jeu.'
+  deliverable: |-
+    `soft_object_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA BOULE LAISSE UNE TRACE CONTINUE : longueur / distance ≥ 0,98, largeur constante (ecart-type publie).
+    2. UN OBJET IMMOBILE CESSE DE CREUSER : compte de tampons d'un objet a transv nul apres saturation = zero.
+    3. LES MONTURES CREUSENT PLUS LARGE : largeur de trace en mode racer et flut > mode normal, publiee.
+    4. AUCUNE CAISSE N'EST UN INTERACTEUR : compte de tampons issus d'un crate = zero ; leurs depressions viennent du bake.
+    PREUVE : `FEATURE soft-objects armed=1 hits=<tampons d objets appliques>` + la ligne `soft_object_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: La boule de neige de Snowy Mountain laisse un sillon ; le yakow de Sandover marque le sable.
+  out_of_scope: Pas les ennemis, pas les PNJ immobiles. Tout ce qui n'est pas cet item.
+  notes: SPEC section 5.
+  hits_means: tampons d objets appliques
+  prompt: prompts/item-soft-objects.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-deform-core
+  history: []
+  id: soft-material-profiles
+  priority: 92
+  device: true
+  feature: 'Trois profils de matiere, en donnees : la neige compacte n''est pas une neige profonde floue'
+  gate:
+    key: soft_profile_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 16 de l''artifact et sections 2, 12 de la SPEC. Profils dans le depot d''assets
+    Recharged (owner 29/08), pas dans l''APK ni en dur : epaisseur, durete, rayon, deplacement lateral,
+    relaxation, vieillissement, shading ; multiplicateur par niveau. Profonde : douce, large, bourrelets
+    ; compacte : dure, nette, persistante ; sable : s''affaisse, pas de bourrelet.'
+  deliverable: |-
+    `soft_profile_defects` = 0, somme de termes publies SEPAREMENT.
+    1. UN PROFIL EST UNE DONNEE : compte de valeurs de profil ecrites en dur dans une source C++ ou GLSL = zero ; changer un profil ne recompile rien (temoin publie).
+    2. LES TROIS PROFILS SONT DISTINCTS, MESURABLEMENT : profondeur par pas, rayon, relaxation a 60 s publies par matiere ; ecarts au-dela des planchers declares sur au moins trois axes.
+    3. LE MULTIPLICATEUR PAR NIVEAU EST LU : epaisseur effective publiee par niveau, egale au profil x multiplicateur.
+    4. LE PROFIL NE DEPEND PAS DU PALIER : les memes valeurs publiees en Bas et en Ultra (compte d'ecarts = zero).
+    PREUVE : `FEATURE soft-material-profiles armed=1 hits=<brins de matiere ayant recu un profil>` + la ligne `soft_profile_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: La neige compacte garde des contours nets et persistants ; la profonde s'ouvre large ; le sable
+    s'affaisse doucement.
+  out_of_scope: 'Pas de bourrelet fin, pas de shading de trace : items suivants. Tout ce qui n''est pas
+    cet item.'
+  notes: SPEC sections 12, 16 (decision 5).
+  hits_means: brins de matiere ayant recu un profil
+  prompt: prompts/item-soft-material-profiles.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-material-profiles
+  history: []
+  id: soft-ridges
+  priority: 93
+  device: true
+  feature: 'Les bourrelets : la matiere repoussee, bornee, du bon cote'
+  gate:
+    key: soft_ridge_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 4 et decision 6 : redistribution partielle vers le cote oppose au mouvement,
+    dans la meme tuile ; bornes 25 % / 5 % / 12 % de h selon la matiere ; nul en frontiere ; fusion ;
+    adoucissement.'
+  deliverable: |-
+    `soft_ridge_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA HAUTEUR POSITIVE EST BORNEE : compte de texels de bourrelet au-dessus de la borne du profil = zero.
+    2. RIEN EN FRONTIERE, RIEN SOUS UN OBJET : compte de texels de bourrelet a distance de frontiere nulle = zero.
+    3. PAS D'OSCILLATION : variation de hauteur par texel entre deux images consecutives sans nouveau tampon ≤ seuil declare ; compte de pics = zero.
+    4. DU BON COTE : compte de bourrelets dont la direction s'oppose au mouvement de l'interacteur ; compte d'inversions = zero.
+    PREUVE : `FEATURE soft-ridges armed=1 hits=<tampons ayant produit un bourrelet>` + la ligne `soft_ridge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Dans la neige profonde, la neige se repousse sur les cotes du sillon ; dans le sable, a peine.
+  out_of_scope: Pas de shading. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 4, 16 (decision 6).
+  hits_means: tampons ayant produit un bourrelet
+  prompt: prompts/item-soft-ridges.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-material-profiles
+  - lighting-unify
+  history: []
+  id: soft-shading
+  priority: 94
+  device: true
+  feature: 'La trace se voit dans la lumiere : normales, albedo, rugosite, dans shade()'
+  gate:
+    key: soft_shading_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 6. Normale par gradient de tuile fournie a la prepasse (RG16F octaedrique)
+    et a shade() via Surface.N ; compression et age modulent Surface.albedo et Surface.roughness AVANT
+    shade() ; pas de second pipeline de matiere ; jamais dFdx pour N.'
+  deliverable: |-
+    `soft_shading_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA NORMALE DE TRACE EXISTE DANS LA PREPASSE : ecart angulaire moyen entre normale de repos et normale de trace, lu dans la cible RG16F sur un vantage nomme, au-dessus d'un plancher declare.
+    2. L'AO REPOND : ecart moyen du R8 d'AO dans une trace vs a cote, publie, non nul.
+    3. ALBEDO ET RUGOSITE SUIVENT LE PROFIL : valeurs publiees dans et hors trace par matiere ; sens declare respecte (compacte plus brillante, profonde plus rugueuse au fond).
+    4. AUCUN dFdx POUR N, AUCUN SECOND MODELE : compte de sites = zero ; tout passe par Surface.
+    PREUVE : `FEATURE soft-shading armed=1 hits=<fragments de coque ombres avec une normale de trace>` + la ligne `soft_shading_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Le fond d'un sillon est plus sombre et rugueux ; une empreinte dans la neige compacte brille
+    un peu.
+  out_of_scope: Pas d'humidite (c'est l'eau). Tout ce qui n'est pas cet item.
+  notes: SPEC section 6. Depend de lighting-unify (shade() unique, valide).
+  hits_means: fragments de coque ombres avec une normale de trace
+  prompt: prompts/item-soft-shading.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-deform-core
+  history: []
+  id: soft-lifecycle
+  priority: 95
+  device: true
+  feature: 'Le cycle de vie : vieillissement, eviction, persistance, changement de palier'
+  gate:
+    key: soft_lifecycle_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 8. Relaxation a cadence fixe par dt accumule ; pool borne, LRU distance x age
+    ; une tuile evincee laisse une copie R8 au quart, reappliquee au retour ; un chunk sous un objet actif
+    ne s''evince pas ; persistance tant que le niveau vit, checkpoint et mort compris ; rien en sauvegarde
+    ; changement de palier = reechantillonnage, JAMAIS de remise a zero.'
+  deliverable: |-
+    `soft_lifecycle_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE POOL EST BORNE EN TOUTE CIRCONSTANCE : memoire de tuiles publiee par image ≤ budget du palier, y compris a un teleport et a un changement de palier.
+    2. L'EVICTION EST INVISIBLE : ecart de hauteur entre une tuile evincee-restauree et l'originale ≤ tolerance declaree ; compte de tuiles evincees sous un objet actif = zero.
+    3. LA PERSISTANCE EST CELLE DECLAREE : traces presentes apres checkpoint et mort de Jak (compte non nul), absentes apres changement de niveau (compte = zero).
+    4. LE CHANGEMENT DE PALIER CONSERVE : compte de tuiles conservees / total au passage Moyen -> Haut -> Moyen, publie ; compte de remises a zero = zero.
+    PREUVE : `FEATURE soft-lifecycle armed=1 hits=<tuiles gerees par le pool>` + la ligne `soft_lifecycle_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: Une trace vieillit et s'adoucit ; en revenant dans une zone, les sillons majeurs sont encore
+    la.
+  out_of_scope: Pas les LOD geometriques. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 8, 16 (decisions 10, 11).
+  hits_means: tuiles gerees par le pool
+  prompt: prompts/item-soft-lifecycle.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-shell-renderer
+  - soft-lifecycle
+  history: []
+  id: soft-chunk-lod
+  priority: 96
+  device: true
+  feature: 'Chunks, culling, LOD : la coque a distance, sans pop et sans couture'
+  gate:
+    key: soft_lod_popin_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 9. Chunks de 8 m par nappe ; CINQ portees de culling publiees separement ;
+    chaine L0-L3 par index avec hysteresis 0,9x/1,1x et morphing ; la tuile est la meme a tous les niveaux
+    ; a distance, mip de tuile plus grossier ; marge d''un texel ecrite des deux cotes d''une frontiere
+    de chunk.'
+  deliverable: |-
+    `soft_lod_popin_defects` = 0, somme de termes publies SEPAREMENT.
+    1. AUCUN SAUT AU SEUIL : sur un travelling franchissant chaque seuil, compte de sommets dont la hauteur bouge de > 1 quantum entre les deux images qui encadrent le seuil = zero ; transitions par seconde camera tenue au seuil ≤ plafond ; les deux seuils d'hysteresis publies.
+    2. LE SILLON TRAVERSE LES CHUNKS : continuite d'une trace a cheval sur deux chunks ≥ 0,98 ; ecart de hauteur entre les deux marges = zero.
+    3. CINQ PORTEES, CINQ COMPTES : chunks rendus, simules, collectes, vieillis, a normales, publies separement ; instances soumises hors champ = zero.
+    4. LA LECTURE LOINTAINE GARDE LES SILLONS : au palier lointain, longueur de sillon majeur conservee ≥ 0,9 de la longueur proche ; petites empreintes effacees (compte publie).
+    PREUVE : `FEATURE soft-chunk-lod armed=1 hits=<franchissements de seuil observes>` + la ligne `soft_lod_popin_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'En s''eloignant d''une zone tracee : rien ne saute, les grands sillons restent lisibles.'
+  out_of_scope: Pas le contrat eau. Tout ce qui n'est pas cet item.
+  notes: SPEC section 9.
+  hits_means: franchissements de seuil observes
+  prompt: prompts/item-soft-chunk-lod.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-shell-renderer
+  - water-shore
+  history: []
+  id: soft-water-contract
+  priority: 97
+  device: true
+  feature: 'Le sable au bord de l''eau : la coque lit le rivage de l''eau, elle ne le redefinit pas'
+  gate:
+    key: soft_shore_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 10. L''eau possede shore_sdf / shore_dir / floor_depth (.waterbake de water-shore)
+    et le sable mouille (shade()). Nous lisons shore_sdf AU BAKE (falloff vers la ligne, EXCLUSION sous
+    -0,5 m : aucune coque sur le fond marin) et la phase du jet de rive au runtime (scalaire publie par
+    water-shore, ajoute a son livrable) pour accelerer la relaxation. Aucune ecriture croisee.'
+  deliverable: |-
+    `soft_shore_defects` = 0, somme de termes publies SEPAREMENT.
+    1. RIEN NE DEPASSE DE L'EAU AU REPOS : compte de texels de coque au-dessus de la surface d'eau sous la ligne = zero.
+    2. L'EAU EFFACE : relaxation mesuree la ou la phase passe vs a cote, ecart au-dessus d'un plancher declare.
+    3. AUCUNE ECRITURE CROISEE : deux compagnons, deux pools ; compte de sites ou la coque ecrit une donnee d'eau ou l'eau une donnee de coque = zero.
+    4. LE REPLI EST DEFINI : sans .waterbake, falloff statique par la mer a y = 0, `soft_shore_missing=1`, pas d'effacement ; le sable au-dessus de 2 m n'attend pas.
+    PREUVE : `FEATURE soft-water-contract armed=1 hits=<texels de coque sous influence du rivage>` + la ligne `soft_shore_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur la plage de Sentinel Beach : le sable n''emerge pas de l''eau, les traces s''effacent la
+    ou la vague passe.'
+  out_of_scope: Ne touche a aucun fichier de l'eau ; l'ajout de la phase est demande a water-shore, pas
+    fait ici. Tout ce qui n'est pas cet item.
+  notes: SPEC sections 10, 16 (decisions 9, 14). Depend de water-shore (p53).
+  hits_means: texels de coque sous influence du rivage
+  prompt: prompts/item-soft-water-contract.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-material-profiles
+  - soft-lifecycle
+  - soft-chunk-lod
+  - lighting-presets
+  history: []
+  id: soft-presets
+  priority: 98
+  device: true
+  feature: Les paliers et le menu des surfaces meubles
+  gate:
+    key: soft_preset_apply_mismatch
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 12. `recharged_soft` : Auto / Tres bas / Bas / Moyen / Haut / Ultra, matrice
+    de depart de l''artifact section 25 ; Tres bas = coque NON CHARGEE ; un palier inferieur reduit resolution,
+    portee, interacteurs, JAMAIS le profil. Menu : recharged_master -> recharged_soft, masquer pas griser,
+    vrai sous-menu (owner 10/09). Chaque OFF bit-identique a l''absence par binaire-temoin.'
+  deliverable: |-
+    `soft_preset_apply_mismatch` = 0, somme de termes publies SEPAREMENT.
+    1. REGLAGE DEMANDE = REGLAGE APPLIQUE : pour chaque axe et chaque palier, valeur demandee et valeur lue publiees, compte d'ecarts = zero.
+    2. TRES BAS EST L'ABSENCE : image bit-identique a OFF et a l'absence de la couche compilee ; compagnon non charge.
+    3. LE PROFIL NE BOUGE PAS AVEC LE PALIER : valeurs de profil identiques en Bas et Ultra (compte d'ecarts = zero).
+    4. LE MENU EST CONFORME : sous-menu present sous recharged_master, entrees masquees quand le maitre est eteint (compte d'entrees grisees = zero).
+    PREUVE : `FEATURE soft-presets armed=1 hits=<axes de reglage appliques>` + la ligne `soft_preset_apply_mismatch=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Options > Recharged > Surfaces meubles : Auto, Tres bas, Bas, Moyen, Haut, Ultra — et rien de
+    grise.'
+  out_of_scope: 'Pas de mesure de budget : items suivants. Tout ce qui n''est pas cet item.'
+  notes: SPEC section 12. Meme forme que lighting-presets et water-presets.
+  hits_means: axes de reglage appliques
+  prompt: prompts/item-soft-presets.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 600
+  depends_on:
+  - soft-presets
+  history: []
+  id: soft-device-budget
+  priority: 99
+  device: true
+  feature: 'Le Redmi tient son budget : Bas et Moyen mesures sur l''appareil'
+  gate:
+    key: soft_device_budget_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 13. Sur le Redmi seul le TOTAL GPU par image est un chiffre (repartition par
+    bucket inexploitable) ; goal_busy_ms ≤ baseline ; budgets proposes Bas 0,6 + 0,2 ms, Moyen 1,5 + 0,3
+    ms ; watchdog kgsl ~2 s.'
+  deliverable: |-
+    `soft_device_budget_defects` = 0, somme de termes publies SEPAREMENT.
+    1. BAS ET MOYEN SOUS BUDGET : total GPU par image et goal_busy_ms publies avec et sans la coque, sur 300 images minimum a un vantage nomme, ecart ≤ budget du palier.
+    2. AUCUN BLOCAGE : compte de blocages kgsl sur 300 images = zero, glFenceSync compte si pose.
+    3. LA MATRICE EST AJUSTEE PAR LA MESURE : valeurs de la section 12 revisees et publiees avec le chiffre qui les justifie.
+    4. LA MEMOIRE EST CELLE DECLAREE : memoire de tuiles et de coque publiee par palier.
+    PREUVE : `FEATURE soft-device-budget armed=1 hits=<images mesurees sur l appareil>` + la ligne `soft_device_budget_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: La cadence en jeu sur le telephone, coque allumee en Bas et en Moyen, et la chauffe sur 10 minutes.
+  out_of_scope: Pas Ultra. Tout ce qui n'est pas cet item.
+  notes: SPEC section 13.
+  hits_means: images mesurees sur l appareil
+  prompt: prompts/item-soft-device-budget.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-presets
+  history: []
+  id: soft-pc-ultra
+  priority: 100
+  device: false
+  feature: 'La coque monte en gamme sur PC : Ultra visible et mesure'
+  gate:
+    key: soft_ultra_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 12 : Ultra = texel 3,1 cm, 320 chunks, 6 capsules de jambes, normales detaillees,
+    seuils de LOD x 1,6. Le pire appareil est le banc d''essai, pas la cible (owner 09/09).'
+  deliverable: |-
+    `soft_ultra_defects` = 0, somme de termes publies SEPAREMENT.
+    1. ULTRA DIFFERE DE MOYEN, MESURABLEMENT : texel, chunks actifs, capsules, seuils publies dans les deux paliers ; ecarts egaux a la matrice.
+    2. LE BUDGET ULTRA TIENT : `gpu_ms_soft` ≤ 6,0 ms et CPU ≤ 0,5 ms sur le vantage nomme, 300 images.
+    3. LA RESOLUTION SE VOIT DANS LA DONNEE : compte de texels par empreinte de pied en Ultra ≥ 4x celui de Moyen.
+    4. AUCUNE DIVERGENCE DE CHEMIN : memes programmes, memes producteurs ; compte de branches de code propres a Ultra = zero.
+    PREUVE : `FEATURE soft-pc-ultra armed=1 hits=<images mesurees en Ultra>` + la ligne `soft_ultra_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur ton PC en Ultra : les empreintes sont fines, les bourrelets detailles, les sillons lointains
+    conserves.'
+  out_of_scope: Pas l'appareil. Tout ce qui n'est pas cet item.
+  notes: SPEC section 12.
+  hits_means: images mesurees en Ultra
+  prompt: prompts/item-soft-pc-ultra.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-surfaces-meubles.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - soft-jak-body
+  - soft-enemies
+  - soft-ridges
+  - soft-chunk-lod
+  history: []
+  id: soft-levels
+  priority: 101
+  device: true
+  feature: 'Niveau par niveau : snow, training, village1, puis beach et ogre'
+  gate:
+    key: soft_level_defects
+    op: ==
+    value: 0
+  known_cause: 'LIS D''ABORD prompts/SPEC-surfaces-meubles.md : c''est le contrat, approuve par l''owner
+    le 13/09. SPEC section 15. Ordre des pilotes : snow compact, congeres de snow, training hors eau,
+    village1 haut, beach (APRES soft-water-contract valide), ogre ; puis village2, intro. Rien sur misty
+    ni sur le fond marin. Chaque niveau est une donnee cuite, rebake cible.'
+  deliverable: |-
+    `soft_level_defects` = 0, somme de termes publies SEPAREMENT.
+    1. CHAQUE NIVEAU PUBLIE SON INVENTAIRE : triangles eligibles, desaccords, epaisseurs (min/mediane/max), rejets, objets statiques cuits.
+    2. LE CHARGEMENT NE BLOQUE PAS : temps de chargement du compagnon par niveau, 0 ms bloque, asynchrone.
+    3. LE COUT PAR IMAGE EST PUBLIE PAR NIVEAU au palier Moyen sur les deux cibles.
+    4. BEACH N'ARRIVE QU'AVEC L'EAU : la coque de beach est cuite sans shore_sdf tant que soft-water-contract n'est pas valide (temoin `soft_shore_missing=1`), et recuite avec quand il l'est.
+    PREUVE : `FEATURE soft-levels armed=1 hits=<niveaux cuits et charges>` + la ligne `soft_level_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'L''herbe... non : la neige et le sable existent partout ou le jeu en a — Snowy Mountain, Geyser
+    Rock, Sandover, puis Sentinel Beach et Mountain Pass.'
+  out_of_scope: Rien sur misty, rien sous la mer, rien sur les autres matieres. Tout ce qui n'est pas
+    cet item.
+  notes: SPEC section 15.
+  hits_means: niveaux cuits et charges
+  prompt: prompts/item-soft-levels.md
+  owner_feedback: []
+  owner_ok: null
