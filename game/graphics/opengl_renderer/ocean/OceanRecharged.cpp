@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,27 @@ namespace {
 
 constexpr const char* kItemId = "water-ocean-mesh";
 AUTOPORT_FEATURE_SITE(kItemId);
+
+// water-ocean-mesh-hit-counter-cost : L'ITEM QUI MESURE L'INSTRUMENT CI-DESSUS.
+// Son chemin de code est le chronometre de `draw` ; il declare donc son site ici, dans la meme
+// unite de traduction, et prend sa prise UNE FOIS PAR IMAGE MESUREE — la granularite qu'il
+// reclame a l'autre.
+constexpr const char* kCostId = "water-ocean-mesh-hit-counter-cost";
+AUTOPORT_FEATURE_SITE(kCostId);
+
+// L'horloge du TEMPS PROCESSEUR DU FIL QUI DESSINE. Une horloge murale compterait les preemptions
+// du telephone dans le cout de l'instrument, et un seul changement de contexte pendant une region
+// de 200 ns la ferait mentir d'un facteur mille. Celle-ci ne compte que les cycles reellement
+// passes dedans. Un echec d'appel ne rend pas zero en silence : il se compte, et son compteur est
+// publie — sinon « l'horloge n'a pas repondu » se lirait « l'instrument est gratuit ».
+u64 cpu_ns(u64* fails) {
+  timespec t{};
+  if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t) != 0) {
+    (*fails)++;
+    return 0;
+  }
+  return (u64)t.tv_sec * 1000000000ull + (u64)t.tv_nsec;
+}
 
 // 1 metre = 4096 unites GOAL. La cellule de houle vaut 12288 unites (3 m) ; on la reprend telle
 // quelle plutot que de refabriquer 3.0f * 4096.0f, pour que le pas des anneaux soit un diviseur
@@ -535,6 +557,102 @@ void OceanRecharged::publish() {
   publish("water_mask_valid_off4", m_mask_valid_off4);
   publish("water_mask_index_offset", m_mask_index_offset);
   publish("water_mask_fallback", m_mask_fallback);
+
+  // ===== water-ocean-mesh-hit-counter-cost ====================================================
+  // CE QUE LE SITE FAIT, DIT EN TROIS GRANDEURS QUE `hits=` CONFONDAIT.
+  //   `hit_counter_calls`  : le nombre d'APPELS de `note_hit_for` emis par ce site.
+  //   `hit_counter_units`  : la somme des `n` passes a ces appels — c'est ce que `hits=` porte.
+  //   `hit_counter_events` : les EVENEMENTS observes, images dessinees a couche A non plate.
+  // Le 12/09, la table par feature a lu 4 536 325 248 pour `water-ocean-mesh` et cet ecart a ete
+  // lu comme quatorze millions d'incrementations par seconde. Il n'y en avait qu'UNE par image :
+  // 4 536 325 248 = 289 824 x 15 652, et 289 824 est le nombre d'indices des trois anneaux.
+  autoport_proof::publish_text("hit_counter_site",
+                               "OceanRecharged.cpp:draw/note_hit_for(water-ocean-mesh)");
+  autoport_proof::publish_text("hit_counter_granularity_before",
+                               "une-prise-par-INDICE-dessine-et-par-image");
+  autoport_proof::publish_text("hit_counter_granularity_after", "une-prise-par-EVENEMENT");
+  publish("hit_counter_calls", m_hit_calls);
+  publish("hit_counter_units", m_hit_units);
+  publish("hit_counter_events", m_hit_events);
+  publish("hit_counter_units_per_call", m_hit_calls ? m_hit_units / m_hit_calls : 0);
+  // CE QUE LE COMPTEUR PORTAIT AVANT, sur CETTE course : `m_verts_moved` accumule exactement la
+  // grandeur qui partait dans `note_hit_for`. Le rapport avant/apres se lit donc sans ressortir
+  // une vieille preuve.
+  publish("hit_counter_units_before", m_verts_moved);
+  publish("hit_counter_units_before_per_call", m_hit_calls ? m_verts_moved / m_hit_calls : 0);
+
+  // LE COUT, MESURE. Temps PROCESSEUR du fil de dessin. `x1000` : des nanosecondes au millieme,
+  // parce qu'un cout par image sous la nanoseconde s'ecrirait « 0 » en entier et se lirait
+  // « gratuit ».
+  publish("hit_counter_cost_samples", m_cost_samples);
+  publish("hit_counter_clock_res_ns", m_clock_res_ns);
+  publish("hit_counter_clock_fail", m_cost_clock_fail);
+  publish("hit_counter_call_ns_total", m_cost_call_ns);
+  publish("hit_counter_call_ns_max", m_cost_call_ns_max);
+  publish("hit_counter_call_ns_x1000", m_hit_calls ? m_cost_call_ns * 1000 / m_hit_calls : 0);
+  publish("hit_counter_floor_ns_total", m_cost_floor_ns);
+  publish("hit_counter_floor_ns_x1000",
+          m_cost_samples ? m_cost_floor_ns * 1000 / m_cost_samples : 0);
+  publish("hit_counter_scan_ns_total", m_cost_scan_ns);
+  publish("hit_counter_scan_ns_x1000", m_cost_samples ? m_cost_scan_ns * 1000 / m_cost_samples : 0);
+  // L'instrument ENTIER par image : l'appel de prise plus le balayage des 1024 texels qui decide
+  // s'il y a un evenement. Le brut, puis le plancher d'horloge retire — une paire de lectures par
+  // region chronometree.
+  const u64 brut = m_cost_call_ns + m_cost_scan_ns;
+  const u64 plancher =
+      m_cost_samples ? m_cost_floor_ns * (m_hit_calls + m_cost_samples) / m_cost_samples : 0;
+  publish("hit_counter_instrument_ns_total", brut);
+  publish("hit_counter_instrument_ns_per_frame_x1000",
+          m_cost_samples ? brut * 1000 / m_cost_samples : 0);
+  publish("hit_counter_instrument_net_ns_per_frame_x1000",
+          (m_cost_samples && brut > plancher) ? (brut - plancher) * 1000 / m_cost_samples : 0);
+
+  // CE QUE L'INSTRUMENT PROUVAIT CONTINUE D'ETRE PROUVE. Les quinze cles inconditionnelles de
+  // `water-ocean-mesh` sont relues DANS LA TABLE QUI SERA MOISSONNEE, pas dans nos variables : une
+  // cle qu'on croit avoir publiee et qu'un nom invalide a fait refuser en silence se verrait ici,
+  // et nulle part ailleurs.
+  static const char* const kWaterKeys[] = {"water_probe_runs",
+                                           "water_probe_alpha_missing",
+                                           "water_probe_span_q256",
+                                           "water_layerA_absmax_q256",
+                                           "water_layerA_nonzero_texels",
+                                           "water_clipmap_frames",
+                                           "water_clipmap_verts_moved",
+                                           "water_layerA_fresh_frames",
+                                           "water_layerA_stale_frames",
+                                           "water_mask_skip_cells",
+                                           "water_mask_draw_cells",
+                                           "water_mask_valid_off0",
+                                           "water_mask_valid_off4",
+                                           "water_mask_index_offset",
+                                           "water_mask_fallback"};
+  constexpr u64 kWaterKeyCount = sizeof(kWaterKeys) / sizeof(kWaterKeys[0]);
+  u64 keys_present = 0;
+  for (const char* k : kWaterKeys) {
+    if (autoport_proof::has_key(k)) {
+      keys_present++;
+    }
+  }
+  publish("hit_counter_water_keys_present", keys_present);
+  publish("hit_counter_water_keys_expected", kWaterKeyCount);
+
+  // LA PORTE, TERME PAR TERME. Chaque terme exige une valeur POSITIVE avant de rendre zero : une
+  // porte qui ne sait dire que « rien n'est arrive » est verte par inaction.
+  const u64 d_gran = (m_hit_calls > 0 && m_hit_units == m_hit_calls) ? 0 : 1;
+  const u64 d_evt = (m_hit_events > 0 && m_hit_units == m_hit_events) ? 0 : 1;
+  const u64 d_cost = (m_cost_samples >= 300 && m_cost_call_ns > 0 && m_cost_floor_ns > 0 &&
+                      m_clock_res_ns > 0 && m_cost_clock_fail == 0)
+                         ? 0
+                         : 1;
+  const u64 d_keys = (keys_present == kWaterKeyCount) ? 0 : 1;
+  const u64 d_qty =
+      (m_verts_moved > 0 && autoport_proof::has_key("water_clipmap_verts_moved")) ? 0 : 1;
+  publish("hit_counter_defect_granularity", d_gran);
+  publish("hit_counter_defect_events", d_evt);
+  publish("hit_counter_defect_cost_unmeasured", d_cost);
+  publish("hit_counter_defect_keys_lost", d_keys);
+  publish("hit_counter_defect_quantity_dropped", d_qty);
+  publish("hit_counter_cost_defects", d_gran + d_evt + d_cost + d_keys + d_qty);
 }
 
 void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& prof) {
@@ -639,6 +757,10 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   // LES `hits` SONT LUS SUR L'EFFET. Un sommet n'est « deplace » que si la couche A n'est pas
   // plate : on ne compte donc que les images ou la houle captee porte au moins un texel non nul.
   // Un compteur qui monterait meme sur une mer d'huile ne separerait rien.
+  // water-ocean-mesh-hit-counter-cost : le chronometre ne tourne que sous mesure.
+  static const bool s_cost_measured = autoport_proof::feature_is(kCostId);
+  u64 fails = 0;
+  const u64 t_scan0 = s_cost_measured ? cpu_ns(&fails) : 0;
   bool any_wave = false;
   m_layer_a_nonzero = 0;
   for (float h : m_layer_a) {
@@ -651,9 +773,52 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
       }
     }
   }
+  const u64 t_scan1 = s_cost_measured ? cpu_ns(&fails) : 0;
   if (any_wave) {
     m_verts_moved += verts_this_frame;
-    autoport_proof::note_hit_for(kItemId, verts_this_frame);
+    m_hit_events++;
+    // LA GRANULARITE CORRIGEE. `note_hit_for` recevait `verts_this_frame`, soit 289 824 — le
+    // nombre d'INDICES dessines par les trois anneaux, et non des sommets. Le compteur portait
+    // donc 289 824 unites par image pour UN evenement : trois ordres de grandeur au-dessus de ce
+    // qu'il observait. L'unite est desormais l'evenement lui-meme, et la grandeur qui s'y cachait
+    // reste publiee, entiere, par `water_clipmap_verts_moved`.
+    const u64 t_call0 = s_cost_measured ? cpu_ns(&fails) : 0;
+    autoport_proof::note_hit_for(kItemId, 1);
+    const u64 t_call1 = s_cost_measured ? cpu_ns(&fails) : 0;
+    m_hit_calls++;
+    m_hit_units += 1;
+    if (s_cost_measured && fails == 0 && t_call1 >= t_call0) {
+      const u64 d = t_call1 - t_call0;
+      m_cost_call_ns += d;
+      if (d > m_cost_call_ns_max) {
+        m_cost_call_ns_max = d;
+      }
+    }
+  }
+  if (s_cost_measured) {
+    // LE PLANCHER, PRIS A LA MEME IMAGE. Deux lectures d'horloge dos a dos, rien entre elles :
+    // c'est ce que l'appareil de mesure coute a lui seul. Sans ce terme, un cout de 200 ns mesure
+    // avec une horloge qui en coute 150 se lirait comme un cout de l'instrument.
+    const u64 f0 = cpu_ns(&fails);
+    const u64 f1 = cpu_ns(&fails);
+    if (fails == 0) {
+      if (f1 >= f0) {
+        m_cost_floor_ns += f1 - f0;
+      }
+      if (t_scan1 >= t_scan0) {
+        m_cost_scan_ns += t_scan1 - t_scan0;
+      }
+      m_cost_samples++;
+    }
+    m_cost_clock_fail += fails;
+    if (m_clock_res_ns == 0) {
+      timespec r{};
+      if (clock_getres(CLOCK_THREAD_CPUTIME_ID, &r) == 0) {
+        m_clock_res_ns = (u64)r.tv_sec * 1000000000ull + (u64)r.tv_nsec;
+      }
+    }
+    // LA PRISE DE CET ITEM-CI, a la granularite qu'il reclame : une par image mesuree.
+    autoport_proof::note_hit_for(kCostId, 1);
   }
 
   // La sonde ne tourne que sur une image FRAICHE : comparer la hauteur de jeu de cette image a

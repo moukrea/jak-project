@@ -113,4 +113,25 @@ class OceanRecharged {
   u32 m_mask_valid_off4 = 0;
   u32 m_mask_index_offset = 0;
   u32 m_mask_fallback = 0;
+
+  // --- water-ocean-mesh-hit-counter-cost : LE RECENSEMENT DU RECENSEMENT -------------------
+  // Le site de prise de `water-ocean-mesh` (OceanRecharged.cpp, fin de `draw`) portait
+  // 4 536 325 248 prises sur une course de 318 s, lues comme « quatorze millions
+  // d'incrementations par seconde ». Ce compte est une SOMME PONDEREE, pas un compte d'appels :
+  // le site appelait `note_hit_for` UNE fois par image avec `n = 289 824`, le nombre d'INDICES
+  // dessines. Les trois compteurs ci-dessous separent enfin les trois grandeurs que ce seul
+  // chiffre confondait — appels, unites comptees, evenements reels — et le chronometre mesure ce
+  // que l'appel coute vraiment. Il ne tourne QUE sous mesure (meme regle que `LgtSetupScope`,
+  // background_common.cpp:1419) : le binaire de l'owner ne paie pas l'instrument qui mesure
+  // l'instrument.
+  u64 m_hit_calls = 0;     // appels de note_hit_for emis par CE site
+  u64 m_hit_units = 0;     // unites passees a ces appels — ce que `hits=` porte
+  u64 m_hit_events = 0;    // evenements observes : images dessinees a couche A non plate
+  u64 m_cost_call_ns = 0;  // temps PROCESSEUR passe DANS ces appels
+  u64 m_cost_call_ns_max = 0;
+  u64 m_cost_scan_ns = 0;   // temps processeur du balayage de la couche A (l'autre moitie)
+  u64 m_cost_floor_ns = 0;  // paire d'horloge a vide, prise a la MEME image : le plancher
+  u64 m_cost_samples = 0;   // images mesurees
+  u64 m_cost_clock_fail = 0;
+  u64 m_clock_res_ns = 0;
 };
