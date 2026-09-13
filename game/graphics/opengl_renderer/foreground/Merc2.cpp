@@ -6,6 +6,7 @@
 #include "game/system/autoport_proof.h"
 
 #include "game/system/npc_flicker.h"
+#include "game/system/overlap_census.h"
 
 // cutscene-npc-flicker (essai 11) : defini plus bas, aupres des compteurs de couverture HD qu'il
 // lit ; le constructeur l'enregistre aupres du recensement.
@@ -1334,6 +1335,12 @@ void Merc2::model_mod_draws(int num_effects,
     // (setup.data - setup.data_offset == g_ee_main_mem).
     const u8* ee0 = ee_base;
     const u8* merc_effect = ee0 + goal_addr;
+    // perf-goal-gl-overlap : l'en-tete de l'effet merc (pointeurs `frag-geo`/`frag-ctrl` a +0/+4
+    // et `frag-cnt` a +18) vit dans le TAS DE NIVEAU, pas dans un display-frame : une seule copie.
+    // Ce sont ces 24 octets que le rendu deREFERENCE ; s'ils bougent pendant le rendu, les
+    // sommets qu'il lit ensuite ne sont plus ceux du modele. La charge utile pointee n'est PAS
+    // surveillee : `overlap_watch_bytes_max` dit ce qui l'est.
+    overlap_census::note_read(overlap_census::kMercMod, goal_addr, 24);
     u16 frag_cnt;
     memcpy(&frag_cnt, merc_effect + 18, 2);
     ASSERT(frag_cnt >= effect.mod.fragment_mask.size());
@@ -2509,6 +2516,11 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     ASSERT(input_data[i] < MAX_SKEL_BONES);
     hd_slot_addr[input_data[i]] = addr;
     // get the matrix data
+    // perf-goal-gl-overlap : lecture HORS chaine, inscrite au POINT D'APPEL. `matrix-area` est
+    // alloue depuis le `global-buf` du `display-frame` (bones.gc:1123), donc double-bufferise :
+    // ce temoin doit rester a zero, et c'est ce qui le rend interessant — il rougirait si le fil
+    // GOAL prenait deux images d'avance.
+    overlap_census::note_read(overlap_census::kBones, addr, (uint32_t)sizeof(MercMat));
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
   }
 
@@ -2671,7 +2683,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
               .count();
         };
         if (std::strstr(name, "eichar")) {
-          const auto& jt = Gfx::g_global_settings.recharged_jak_pos;
+          const auto& jt = Gfx::settings().recharged_jak_pos;
           if (jt[3] > 0.5f) {
             s_cal[0] = wx - jt[0];
             s_cal[1] = wy - jt[1];
@@ -3916,7 +3928,7 @@ void Merc2::switch_to_merc2(SharedRenderState* render_state) {
   glUniform4f(m_merc_uniforms.fog_color, render_state->fog_color[0] / 255.f,
               render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
               render_state->fog_intensity / 255);
-  glUniform1i(m_merc_uniforms.gfx_hack_no_tex, Gfx::g_global_settings.hack_no_tex);
+  glUniform1i(m_merc_uniforms.gfx_hack_no_tex, Gfx::settings().hack_no_tex);
 #ifdef OG_FEAT_PBR
   // ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1): merc2 draws are
   // tagged magenta in debug mode 30 so the coverage census can attribute every screen pixel to the
@@ -3931,7 +3943,7 @@ void Merc2::switch_to_emerc(SharedRenderState* render_state) {
   glUniform4f(m_emerc_uniforms.fog_color, render_state->fog_color[0] / 255.f,
               render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
               render_state->fog_intensity / 255);
-  glUniform1i(m_emerc_uniforms.gfx_hack_no_tex, Gfx::g_global_settings.hack_no_tex);
+  glUniform1i(m_emerc_uniforms.gfx_hack_no_tex, Gfx::settings().hack_no_tex);
 #ifdef OG_FEAT_PBR
   // ROUND 22 coverage instrumentation: emerc draws are tagged lime in debug mode 30.
   pbr_push_debug_tag(render_state->shaders[ShaderId::EMERC].id());

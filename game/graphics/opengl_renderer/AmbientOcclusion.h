@@ -2,7 +2,7 @@
 
 // Grecharged-ambient-occlusion: screen-space ambient occlusion for the OpenGOAL
 // renderer (desktop GL 4.1 + Android GLES 3.2). Three interchangeable estimators
-// (SSAO / HBAO / GTAO) selected by Gfx::g_global_settings.recharged_ao_mode, at a
+// (SSAO / HBAO / GTAO) selected by Gfx::settings().recharged_ao_mode, at a
 // per-quality resolution scale from recharged_ao_quality.
 //
 // lighting-ao-indirect (SPEC-refonte-lumiere §4.7) : cette classe n'est plus qu'un ESTIMATEUR.

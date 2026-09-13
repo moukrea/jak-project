@@ -38,6 +38,7 @@
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/overlap_census.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 
@@ -584,6 +585,14 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       // ecrasee sous nous.
       g_logic_frame_of_input_data.store(d->logic_frame_of_pending_chain,
                                         std::memory_order_relaxed);
+      // perf-goal-gl-overlap : ouvrir la fenetre de surveillance. Sous le MEME verrou que
+      // l'estampille — le fil GOAL est deja relache (chains_picked_up++ plus haut), donc lire
+      // `logic_frame_of_pending_chain` hors du verrou rendrait l'image suivante.
+      overlap_census::render_begin(d->logic_frame_of_pending_chain);
+      // perf-goal-gl-overlap / SPEC lumiere 6.1 regle 5 : adopter le CLICHE des reglages de
+      // l'image que ce rendu dessine. A partir d'ici, `Gfx::settings()` rend ce cliche sur CE
+      // fil ; le fil GOAL continue d'ecrire la structure vivante sans course.
+      Gfx::adopt_settings_for_frame(d->logic_frame_of_pending_chain);
     }
     AndroidRenderOptions options;
     options.game_res_w = Gfx::g_global_settings.game_res_w;
@@ -647,27 +656,42 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
                                 kRenderScaleDefault);
           }
         }
-        // Gperf-particles GOAL/GL overlap — STOPGAP (supervisor 2026-07-04): this
-        // overlap races the GL renderer against the GOAL DMA-chain build, so geometry
-        // pops in/out in real play (the v5 owner regression). DEFAULT OFF (serialized,
-        // v4-parity) until Gperf-particles is reopened + fixed under real gameplay.
-        // Opt back in with the prop set to '2' for the reopened phase's A/B.
+        // perf-goal-gl-overlap (2026-09-13) — RECOUVREMENT ON PAR DEFAUT.
+        //
+        // Le parcage du 2026-07-04 mettait le defaut a OFF : la prop devait valoir '2' pour
+        // rallumer, donc le PREMIER sondage eteignait le recouvrement sur le binaire livre,
+        // alors que le symbole nait a `true`. La course qui l'avait motive — « la geometrie
+        // pope » — a une cause nommee : le rendu relit dans la memoire EE VIVANTE ce que la
+        // chaine ne porte pas. Le recensement de cet item (overlap_census) mesure ces lectures
+        // au POINT D'APPEL et publie `overlap_defects` ; le defaut ne se defend plus par un
+        // interrupteur eteint, il se mesure.
+        //
+        // POLARITE : la prop ECRASE, elle ne DEFINIT pas. Absente -> ON (ce que l'owner joue).
+        // '1' -> OFF, c'est le coupe-circuit d'origine, inchange. Toute autre valeur ('2'
+        // compris, que `proof_props` epingle depuis l'ecriture de l'item) -> ON.
         {
           char ov[16] = {0};
-          bool want =
-              __system_property_get("debug.opengoal.perf.nooverlap", ov) > 0 && ov[0] == '2';
+          const bool have = __system_property_get("debug.opengoal.perf.nooverlap", ov) > 0;
+          const bool want = !(have && ov[0] == '1');
           if (g_perf_overlap.load(std::memory_order_relaxed) != want) {
             g_perf_overlap.store(want, std::memory_order_relaxed);
             __android_log_print(ANDROID_LOG_INFO, kLogTag,
                                 "GPERF-OVERLAP GOAL/GL overlap mode %s",
                                 want ? "ON (build N+1 during GL render N)" : "OFF (serialized)");
           }
+          overlap_census::set_overlap_active(want);
         }
       }
       options.render_scale_pct = s_render_scale;
     }
 
     d->renderer->render(DmaFollower(d->chain_data, d->chain_offset), options);
+
+    // perf-goal-gl-overlap : fermer la fenetre. Les plages hors chaine inscrites pendant le
+    // rendu sont RELUES ici, dans la memoire EE vivante, et comparees a ce que le rendu a
+    // consomme. `has_data_to_render` n'est pas encore efface : la copie de chaine est donc
+    // toujours celle que ce rendu a lue.
+    overlap_census::render_end();
 
     const auto& st = d->renderer->stats();
     gpose_joint_frame_tick((unsigned long long)st.frame_idx);
@@ -1103,6 +1127,13 @@ u32 vsync() {
       return d->frame_idx > init_frame;
     });
     frame_idx_now = d->frame_idx;
+    // perf-goal-gl-overlap — LE DISCRIMINANT DU REGIME, lu sous le verrou qui le protege.
+    // `has_data_to_render` encore VRAI ici veut dire que le fil GOAL repart alors que le fil GL
+    // n'a pas fini son image. Le predicat serialise ci-dessus l'interdit : il attend que
+    // `frame_idx` ait bouge, et le swap suit l'effacement du drapeau. Un regime rend donc des
+    // milliers, l'autre zero — et c'est ce qui empeche `overlap_defects == 0` d'etre le zero
+    // qu'un binaire non recouvrant rendrait tout aussi bien.
+    overlap_census::note_goal_release(d->has_data_to_render);
   }
 
   // ===== Gframerate-variable: cap the EE game-loop rate at target-fps =========
@@ -1401,6 +1432,15 @@ void send_chain(const void* data, u32 offset) {
   d->logic_frame_of_pending_chain = lf_of_this_chain;
   d->chain_data = chain_copy.data.data();
   d->chain_offset = chain_copy.start_offset;
+  // perf-goal-gl-overlap : l'empreinte de la COPIE, prise sur le fil GOAL pendant que le
+  // constructeur est a l'arret. Le fil GL la recomparera a la fin de son rendu : une difference
+  // veut dire que la garde inconditionnelle de send_chain a laisse passer un ecrasement.
+  overlap_census::chain_published(chain_copy.data.data(),
+                                  (uint32_t)chain_copy.data.size(), lf_of_this_chain);
+  // perf-goal-gl-overlap / SPEC lumiere 6.1 regle 5 : figer les reglages de CETTE image dans son
+  // emplacement, sur le fil GOAL, pendant que le constructeur est a l'arret. C'est la seule
+  // fenetre ou la structure n'est pas en train d'etre reecrite.
+  Gfx::snapshot_settings_for_frame(lf_of_this_chain);
   d->has_data_to_render = true;
   d->chains_sent++;  // Gperf-particles overlap: vsync waits picked_up >= sent
   d->ever_copied = true;

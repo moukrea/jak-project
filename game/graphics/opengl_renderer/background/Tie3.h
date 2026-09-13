@@ -89,7 +89,7 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     u32 pad2[3];
   } m_wind_data;
 
-  int lod() const { return Gfx::g_global_settings.lod_tie; }
+  int lod() const { return Gfx::settings().lod_tie; }
 
   // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Dessine les
   // plages statiques completes NORMAL + NORMAL_ENVMAP de chaque arbre du LOD courant ; le chemin

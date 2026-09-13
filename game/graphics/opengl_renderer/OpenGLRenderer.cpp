@@ -1819,7 +1819,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     }
 
     // hack to draw the collision mesh in the middle the drawing
-    if (bucket_id == 31 - 1 && Gfx::g_global_settings.collision_enable) {
+    if (bucket_id == 31 - 1 && Gfx::settings().collision_enable) {
       auto p = prof.make_scoped_child("collision-draw");
       m_collide_renderer.render(&m_render_state, p);
     }
@@ -1892,7 +1892,7 @@ void OpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma,
 
     // hack to draw the collision mesh in the middle the drawing
     if (bucket_id + 1 == (int)jak2::BucketId::TEX_L0_ALPHA &&
-        Gfx::g_global_settings.collision_enable) {
+        Gfx::settings().collision_enable) {
       auto p = prof.make_scoped_child("collision-draw");
       m_collide_renderer.render(&m_render_state, p);
     }
@@ -1938,7 +1938,7 @@ void OpenGLRenderer::dispatch_buckets_jak3(DmaFollower dma,
 
     // hack to draw the collision mesh in the middle the drawing
     if (bucket_id + 1 == (int)jak3::BucketId::TEX_L0_ALPHA &&
-        Gfx::g_global_settings.collision_enable) {
+        Gfx::settings().collision_enable) {
       auto p = prof.make_scoped_child("collision-draw");
       m_collide_renderer.render(&m_render_state, p);
     }

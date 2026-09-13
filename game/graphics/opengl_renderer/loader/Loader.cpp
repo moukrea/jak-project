@@ -569,7 +569,7 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
     }
   }
   lg::info("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})", name,
-           Gfx::g_global_settings.recharged_enhanced_models);
+           Gfx::settings().recharged_enhanced_models);
   {
     static u64 s_hd_stock = 0;
     autoport_proof::publish("hd_fr3_stock", ++s_hd_stock);

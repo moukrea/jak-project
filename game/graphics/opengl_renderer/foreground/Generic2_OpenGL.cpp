@@ -101,7 +101,7 @@ void Generic2::opengl_bind_and_setup_proj(SharedRenderState* render_state) {
               m_drawing_config.fog_max);
   glUniform4f(m_ogl.hvdf_offset, m_drawing_config.hvdf_offset[0], m_drawing_config.hvdf_offset[1],
               m_drawing_config.hvdf_offset[2], m_drawing_config.hvdf_offset[3]);
-  glUniform1i(m_ogl.gfx_hack_no_tex, Gfx::g_global_settings.hack_no_tex);
+  glUniform1i(m_ogl.gfx_hack_no_tex, Gfx::settings().hack_no_tex);
 #ifdef OG_FEAT_PBR
   // ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1): generic draws are
   // tagged violet in debug mode 30 so the coverage census can attribute every screen pixel to the

@@ -86,7 +86,7 @@ GrassFringeFade grass_fringe_fade_params() {
   }
   // Mirror GrassRenderer's near-LOD clamp (GrassRenderer.cpp:990): the texture fades IN over the
   // exact band the droop blades fade OUT in (blade alpha = 1 - smoothstep(0.55*near, near, d)).
-  float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
+  float near_m = std::min(80.0f, std::max(8.0f, Gfx::settings().recharged_grass_near_dist));
   r.on = true;
   r.start_m = near_m * 0.55f;
   r.end_m = near_m;
@@ -894,7 +894,7 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
 #endif
 
   // ---- Compute the light matrix (camera-relative meters). ----
-  const auto& gs = Gfx::g_global_settings;
+  const auto& gs = Gfx::settings();
   // Round-5 addendum suspect (c) — ATTRIBUTABILITY: shadows must extend opposite the
   // VISIBLE sun. Primary = the sky-dome sun direction (*sky-parms* upload-data sun 0 pos,
   // the exact camera->sun vector sparticle-track-sun places the sun sprite with) — it
@@ -1572,8 +1572,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #else
   lighting_census::host_paths(false);
 #endif
-  glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
-  lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
+  glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::settings().hack_no_tex);
+  lighting_census::gate_no_tex(Gfx::settings().hack_no_tex);
   glUniform1i(glu::loc(id, "decal"), false);
   glUniform1i(glu::loc(id, "tex_T0"), 0);
   // lighting-ao-indirect : la texture d'AO d'ecran (unite 8) et ses uniformes, pour chaque
@@ -1629,7 +1629,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                   pbr_shadow_state().depth_tex[1 - pbr_shadow_state().write]);
     glActiveTexture(GL_TEXTURE0);
   }
-  const auto& gs = Gfx::g_global_settings;
+  const auto& gs = Gfx::settings();
   // Sun direction is surface->sun; the GOAL shadow vector is light-travel (sun->surface), so negate.
   // lighting-off-math-still-runs : les valeurs d'initialisation SONT celles de la branche
   // degeneree ci-dessous — bloc saute, `sd`/`sl` restent (0,1,0)/1, exactement ce que le repli du

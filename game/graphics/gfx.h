@@ -356,6 +356,44 @@ namespace Gfx {
 extern GfxGlobalSettings g_global_settings;
 extern game_settings::DebugSettings g_debug_settings;
 
+// ─── perf-goal-gl-overlap — LES REGLAGES SONT LUS DANS UN SLOT, JAMAIS EN VOL ────────────────
+//
+// SPEC-refonte-lumiere §6.1, regle 5 : « tout scalaire pousse par image est ecrit dans un slot
+// indexe par image de logique, et le fil de rendu lit le slot de l'image qu'il rend ; aucun
+// pointeur GOAL n'est jamais lu par le fil de rendu. C'est la condition du recouvrement GOAL/GL. »
+//
+// `g_global_settings` est ECRIT par le fil GOAL — `recharged_gating::apply()` y repose les
+// valeurs effectives a chaque image, et une quinzaine de ponts `pc-set-*!` y ecrivent
+// directement. Sous recouvrement, le fil GL lit pour l'image N ce que GOAL est en train de
+// reecrire pour N+1 : `recharged_jak_pos` (quatre flottants, ecriture non atomique) peut meme
+// se DECHIRER entre ses composantes.
+//
+// Le cliche est pris sur le fil GOAL au moment ou la chaine est figee (`send_chain`), donc dans
+// la seule fenetre ou le constructeur est a l'arret, et adopte par le fil GL au ramassage.
+//
+// POLARITE SURE : `t_on_render_thread` ne passe a vrai qu'au PREMIER cliche adopte. Avant ca —
+// et sur tout autre fil, GOAL et chargeur compris — `settings()` rend la structure vivante,
+// exactement comme avant cet item. Un chemin non converti ne peut donc pas lire une structure
+// vide ; il lit ce qu'il lisait hier.
+inline GfxGlobalSettings g_render_settings;
+inline thread_local bool t_on_render_thread = false;
+
+// LE seul accesseur du fil de rendu. Rend le cliche de l'image en cours de dessin sur le fil de
+// rendu, la structure vivante partout ailleurs.
+inline GfxGlobalSettings& settings() {
+  return t_on_render_thread ? g_render_settings : g_global_settings;
+}
+
+// FIL GOAL — figer les reglages de `logic_frame` dans son emplacement. Appele depuis `send_chain`,
+// sous le verrou qui publie la chaine.
+void snapshot_settings_for_frame(int64_t logic_frame);
+
+// FIL DE RENDU — adopter l'emplacement de `logic_frame` et se declarer fil de rendu. Rend faux si
+// aucun emplacement ne porte cette estampille : les deux ont ete ecrases, donc le fil GOAL a pris
+// plus d'une image d'avance. L'appelant en fait un defaut ; la lecture, elle, retombe sur le
+// dernier cliche connu plutot que sur une structure a moitie reecrite.
+bool adopt_settings_for_frame(int64_t logic_frame);
+
 const GfxRendererModule* GetCurrentRenderer();
 
 // Grecharged-master-toggle: the SINGLE effective-flag helper family. Every recharged

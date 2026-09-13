@@ -78,7 +78,7 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
   void update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_kinds,
                    const LevelData* loader_data);
 
-  int lod() const { return Gfx::g_global_settings.lod_tfrag; }
+  int lod() const { return Gfx::settings().lod_tfrag; }
 
   // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Ne dessine
   // que les arbres opaques hires (NORMAL / DIRT / ICE) du LOD courant, buffers statiques

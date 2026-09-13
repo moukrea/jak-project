@@ -146,13 +146,13 @@ int AmbientOcclusionPass::effective_mode() {
 int AmbientOcclusionPass::effective_quality() {
   static AoOverride s_ov{"quality", "debug.opengoal.ao.force_quality", "AO_FORCE_QUALITY"};
   const int v = s_ov.read();
-  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_quality;
+  return (v >= 0) ? v : Gfx::settings().recharged_ao_quality;
 }
 
 int AmbientOcclusionPass::effective_strength() {
   static AoOverride s_ov{"strength", "debug.opengoal.ao.force_strength", "AO_FORCE_STRENGTH"};
   const int v = s_ov.read();
-  return (v >= 0) ? v : Gfx::g_global_settings.recharged_ao_strength;
+  return (v >= 0) ? v : Gfx::settings().recharged_ao_strength;
 }
 
 int AmbientOcclusionPass::effective_debug() {

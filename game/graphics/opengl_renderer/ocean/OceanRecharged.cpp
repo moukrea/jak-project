@@ -17,6 +17,7 @@
 #include "game/kernel/jak1/kscheme.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/overlap_census.h"
 
 namespace {
 
@@ -93,6 +94,10 @@ u32 read_ocean_map_ptr() {
   if (!type_value || tag != type_value) {
     return 0;
   }
+  // perf-goal-gl-overlap : `*ocean-map*` n'est PAS double-bufferise et `ocean.gc:527` reecrit
+  // `start-corner y` a chaque image. C'est le seul site du recensement dont l'ecrivain GOAL
+  // tourne par image : ce temoin-la peut monter, et s'il monte il nomme la course.
+  overlap_census::note_read(overlap_census::kOcean, v, 80);
   return v;
 }
 

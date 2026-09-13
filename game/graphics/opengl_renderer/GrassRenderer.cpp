@@ -420,7 +420,7 @@ void publish(float dt) {
 #endif
       }
       if (s_trtest == 1) {
-        const auto& jpp = Gfx::g_global_settings.recharged_jak_pos;
+        const auto& jpp = Gfx::settings().recharged_jak_pos;
         if (jpp[3] > 0.5f) {
           add_trample(jpp[0], jpp[1], jpp[2], 1.5f * 4096.f);  // R21f: AT Jak, unmissable
         }
@@ -434,7 +434,7 @@ void publish(float dt) {
   // EVICTED the crates right next to Jak (R21OCC frame=150 showed ntr=16 with tr[0..3] = scarecrows
   // 100-170 m away). Sort every published list by XZ distance to Jak so the 16-slot upload keeps the
   // 16 NEAREST — flatten/cull is invisible past ~40 m, so the near set is the only one that matters.
-  const auto& jkp = Gfx::g_global_settings.recharged_jak_pos;
+  const auto& jkp = Gfx::settings().recharged_jak_pos;
   auto d2jak = [&](const std::array<float, 4>& e) {
     float dx = e[0] - jkp[0], dz = e[2] - jkp[2];
     return dx * dx + dz * dz;
@@ -599,8 +599,8 @@ void begin_contact_frame() {
   s_pub_prev = pub_now;
   const float u_time = refset::enabled() && refset::render_logic_frame() >= 0
       ? (float)refset::render_logic_frame() / 60.f : pub_now;
-  const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
-  const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
+  const auto& jp = Gfx::settings().recharged_jak_pos;
+  const auto& jl = Gfx::settings().recharged_jak_ledge;
   for (int i = 0; i < 4; ++i) {
     contact_jak[i] = jp[i];
     contact_ledge[i] = jl[i];
@@ -881,7 +881,7 @@ bool GrassRenderer::oom_disarm(const void* lev,
   m_cached_load_id = load_id;
   m_cached_precomputed = recharged_gating::on(recharged_gating::kGrassPrecomputed);
   m_cached_preset =
-      grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset);
+      grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset);
   m_cached_floor_gap = floor_gap_m;
   return true;
 }
@@ -998,7 +998,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     // PRE-CALCULE et deterministe. Si aucun palier ne valide, il n'y a PAS D'HERBE et on le dit fort.
     // Jamais de scan en direct : c'est le chemin qu'on retire, on ne s'y rabat pas en cachette.
     const int want_preset =
-        grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset);
+        grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset);
     int served_preset = want_preset;
     try {
     if (want_pre && !floor_gap_overridden) {
@@ -1577,7 +1577,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // triggers a rebuild — that is the culling fix: no pop-in, no de-instancing while moving.
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
       m_cached_preset !=
-          grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset) ||
+          grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset) ||
       m_cached_precomputed != recharged_gating::on(recharged_gating::kGrassPrecomputed)) {
     rebuild(rs, ld, grass_level);
   }
@@ -1647,13 +1647,13 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
               rs->camera_pos[2], rs->camera_pos[3]);
   glUniform1f(glGetUniformLocation(id, "fog_constant"), rs->camera_fog.x());
   glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
-  const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
+  const auto& jp = Gfx::settings().recharged_jak_pos;
   grass_occ::push_contact_uniforms(id);
   // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to
   // match cam_dist. Clamped to a sane range so a bad settings value can't break the LOD.
-  float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
+  float near_m = std::min(80.0f, std::max(8.0f, Gfx::settings().recharged_grass_near_dist));
   float card_m = std::min(200.0f, std::max(near_m + 5.0f,
-                                           Gfx::g_global_settings.recharged_grass_card_dist));
+                                           Gfx::settings().recharged_grass_card_dist));
   glUniform1f(glGetUniformLocation(id, "u_near_dist"), near_m * U);
   glUniform1f(glGetUniformLocation(id, "u_card_dist"), card_m * U);
   // POLISH#4: Jak's ledge-grab point (parts the ledge-top grass while he hangs).
@@ -1869,9 +1869,9 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if ((m_frame % 30) == 0 && !m_chunks.empty()) {
     // LOD reach is now the two ADJUSTABLE distances (mirrors the shader B_END / C_OUT1).
     float blade_end_m = std::min(80.0f, std::max(8.0f,
-                                                 Gfx::g_global_settings.recharged_grass_near_dist));
+                                                 Gfx::settings().recharged_grass_near_dist));
     float card_out_m = std::min(200.0f, std::max(blade_end_m + 5.0f,
-                                                 Gfx::g_global_settings.recharged_grass_card_dist));
+                                                 Gfx::settings().recharged_grass_card_dist));
     float cx = rs->camera_pos.x(), cy = rs->camera_pos.y(), cz = rs->camera_pos.z();
     float mvx = cx - m_last_log_cam[0], mvz = cz - m_last_log_cam[2];
     bool moving = (mvx * mvx + mvz * mvz) > (0.5f * U) * (0.5f * U);

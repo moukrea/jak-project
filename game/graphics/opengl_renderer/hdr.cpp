@@ -252,8 +252,8 @@ int s_curve_mono_bad = 0;
 int s_curve_bound_bad = 0;
 
 int verdict_curve() {
-  const float k = Gfx::g_global_settings.recharged_hdr_knee;
-  const int curve = Gfx::g_global_settings.recharged_hdr_curve;
+  const float k = Gfx::settings().recharged_hdr_knee;
+  const int curve = Gfx::settings().recharged_hdr_curve;
   const float h = 0.001f;
   const int n = 8000;  // 0 .. 8,0 : bien au-dela du maximum mesure (hdr_probe_max_x1000)
   float prev = curve_eval(0.f, k, curve);
@@ -619,18 +619,18 @@ bool tonemap_draw(Shader& shader,
   // `pow(1/2,2)`, ce site l'applique APRES, dans l'espace d'affichage du tampon. C'est l'egalite
   // exacte, pas un reglage approche — sans l'exposant, le deplacement changerait la luminance de
   // tout le decor.
-  const float e_pbr = Gfx::g_global_settings.recharged_pbr_exposure;
+  const float e_pbr = Gfx::settings().recharged_pbr_exposure;
   const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
-  const float effective_exposure = e_moved * Gfx::g_global_settings.recharged_hdr_exposure;
+  const float effective_exposure = e_moved * Gfx::settings().recharged_hdr_exposure;
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"), effective_exposure);
   if (instrumented() && s_frames % 30 == 0) {
     autoport_proof::publish_text("hdr_exposure_x1000",
                                  std::to_string(std::llround(effective_exposure * 1000.f)).c_str());
   }
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_knee"),
-              Gfx::g_global_settings.recharged_hdr_knee);
+              Gfx::settings().recharged_hdr_knee);
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
-              Gfx::g_global_settings.recharged_hdr_curve);
+              Gfx::settings().recharged_hdr_curve);
   // hdr-display-output : les QUATRE parametres de la courbe. Plafond 1,0 et aucune expansion
   // tant que la surface est SDR (identite stricte avec ce qui precede) ; quand la sortie HDR est
   // ACTIVE, le plafond vient de la marge de l'ecran et les trois autres du CONTENU de la scene.
@@ -648,7 +648,7 @@ bool tonemap_draw(Shader& shader,
   // liaison de l'unite 0 a pu changer sous `analyze_scene` et `probe_tonemap`. Le genou transmis
   // est celui REELLEMENT pousse au shader trois lignes plus haut, pas une constante recopiee.
   hdr_output::probe_regime(shader, src_tex, dst_fbo, dst_w, dst_h,
-                           Gfx::g_global_settings.recharged_hdr_knee);
+                           Gfx::settings().recharged_hdr_knee);
   // hdr-shadow-range : la sonde d'OMBRES, cinq bras. Meme mecanique et meme restauration d'etat
   // que la ligne du dessus ; elle separe ce que le CONTENEUR peut porter dans le bas de la plage
   // de ce que l'IMAGE y porte reellement, et ce que le PIED de la courbe ajoute par-dessus.
@@ -1952,7 +1952,7 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
     return;
   }
 
-  const float k = Gfx::g_global_settings.recharged_hdr_knee;
+  const float k = Gfx::settings().recharged_hdr_knee;
   s_probe_frames++;
   for (size_t i = 0; i + 3 < px.size(); i += 4) {
     s_probe_px++;
@@ -2132,7 +2132,7 @@ void frame_end(GLenum scene_format) {
   autoport_proof::publish("hdr_probe_state", (uint64_t)(s_probe_state + 1));  // 0 KO, 1 jamais, 2 OK
   autoport_proof::publish("ldr_ref_delta", s_ldr_ref_delta);
   autoport_proof::publish("hdr_knee_x1000",
-                          (uint64_t)(Gfx::g_global_settings.recharged_hdr_knee * 1000.f + 0.5f));
+                          (uint64_t)(Gfx::settings().recharged_hdr_knee * 1000.f + 0.5f));
 
   // ── LA GRANDEUR DE PORTE ─────────────────────────────────────────────────────────────────
   // `hdr_tonemap_defects` est la SOMME de SIX verdicts, chacun publie A COTE : une somme sans
@@ -2187,7 +2187,7 @@ void frame_end(GLenum scene_format) {
   autoport_proof::publish("hdr_curve_kink_max_x1000", s_curve_kink_max_x1000);
   autoport_proof::publish("hdr_curve_monotone_bad", (uint64_t)s_curve_mono_bad);
   autoport_proof::publish("hdr_curve_unbounded_bad", (uint64_t)s_curve_bound_bad);
-  autoport_proof::publish("hdr_curve_mode", (uint64_t)Gfx::g_global_settings.recharged_hdr_curve);
+  autoport_proof::publish("hdr_curve_mode", (uint64_t)Gfx::settings().recharged_hdr_curve);
   autoport_proof::publish("hdr_cfg_frames_origine_total", s_cfg_frames[1]);
   autoport_proof::publish("hdr_cfg_frames_recharged", s_cfg_frames[2]);
   autoport_proof::publish("hdr_cfg_frames_origine_lumiere", s_cfg_frames[3]);

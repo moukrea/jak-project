@@ -376,6 +376,9 @@ set(RUNTIME_SOURCE
         system/iop_thread.cpp
         system/load_gate.cpp
         system/autoport_proof.cpp
+        # perf-goal-gl-overlap : l'instrument des lectures HORS chaine DMA faites par le fil
+        # de rendu pendant que le fil GOAL construit l'image suivante.
+        system/overlap_census.cpp
         # menu-dpad-steps : le recensement des crans parcourus par pression.
         system/menu_dpad_census.cpp
         # title-tap-prompt-regression : le fait « cet appareil a un ecran tactile ».

@@ -29,6 +29,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/refset.h"
+#include "game/system/overlap_census.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
@@ -63,6 +64,30 @@
 #include "third-party/stb_image/stb_image.h"
 
 constexpr bool run_dma_copy = false;
+
+// perf-goal-gl-overlap — RECOUVREMENT GOAL/GL SUR LE BUREAU, ON PAR DEFAUT.
+//
+// Le bureau serialisait comme Android le faisait : `gl_sync_path` attendait la fin du rendu,
+// puis `gl_vsync` attendait le swap, et seulement apres GOAL construisait l'image suivante. La
+// periode valait T_goal + T_gl au lieu de max(T_goal, T_gl).
+//
+// CE QUI REND LE RECOUVREMENT SUR : les tampons d'image de GOAL sont PHYSIQUEMENT doubles.
+// `*display*` n'a que deux `display-frame` (display-h.gc:178-183) et `display-sync`
+// (drawable.gc:1349-1354) alterne entre eux, donc pendant que le fil GL rend la banque p le fil
+// GOAL ecrit dans la banque 1-p. Ce qui borne GOAL a UNE image d'avance, c'est la garde de
+// `gl_send_chain` ci-dessous : elle attend que le rendu precedent soit fini avant de republier.
+// Sans cette garde, une avance de deux images ecraserait la banque en cours de lecture — et sur
+// le bureau la chaine est en ZERO-COPIE (`run_dma_copy = false`), donc la chaine elle-meme.
+//
+// Coupe-circuit : `OG_NO_GOAL_GL_OVERLAP=1` dans l'environnement. La variable ECRASE, elle ne
+// definit pas : absente, le recouvrement est actif, c'est ce que l'owner joue.
+bool gl_overlap_enabled() {
+  static const bool s_on = [] {
+    const char* e = std::getenv("OG_NO_GOAL_GL_OVERLAP");
+    return !(e && e[0] == '1');
+  }();
+  return s_on;
+}
 
 // Gfixed-tick-anim-interp-2 — STIMULUS DE CADENCE IRREGULIERE, opt-in au PRODUCTEUR
 // (`OG_FRAME_JITTER_PCT=<p>` ; absent => rend la cible telle quelle, cout nul).
@@ -191,6 +216,11 @@ struct GraphicsData {
   std::condition_variable dma_cv;
   u64 frame_idx = 0;
   u64 frame_idx_of_input_data = 0;
+  // perf-goal-gl-overlap : chaines REMISES par le fil GOAL, et chaines RAMASSEES par le fil GL.
+  // `gl_vsync` en mode recouvrement attend `picked_up >= sent` — « ma derniere chaine a commence
+  // a etre rendue » — au lieu d'attendre le swap. Comptes sous `dma_mutex`, comme la chaine.
+  u64 chains_sent = 0;
+  u64 chains_picked_up = 0;
   // lighting-census / refset : la frame de LOGIQUE du jeu que cette chaine dessine.
   // Le numero d'image du renderer ne suffit pas : c'est l'etat GOAL qui doit etre
   // identique d'une course a l'autre, et lui seul est indexe par la frame de logique.
@@ -666,6 +696,15 @@ void render_game_frame(int game_width,
                                             [=] { return g_gfx_data->has_data_to_render; });
     if (got_chain) {
       chain_logic_frame = g_gfx_data->logic_frame_of_input_data;
+      // perf-goal-gl-overlap : signaler le RAMASSAGE. C'est ce compteur que `gl_vsync` attend :
+      // a partir d'ici le fil GOAL peut construire l'image suivante dans l'autre banque.
+      g_gfx_data->chains_picked_up++;
+      g_gfx_data->dma_cv.notify_all();
+      overlap_census::render_begin(chain_logic_frame);
+      // perf-goal-gl-overlap / SPEC lumiere 6.1 regle 5 : adopter le cliche des reglages de
+      // l'image dessinee. Hors horloge de logique (-1) le fil reste sur la structure vivante.
+      Gfx::adopt_settings_for_frame(chain_logic_frame);
+      overlap_census::set_overlap_active(gl_overlap_enabled());
     }
   }
   // render that chain.
@@ -818,10 +857,17 @@ void render_game_frame(int game_width,
   {
     // should be fine to remove this mutex if the game actually waits for vsync to call
     // send_chain again. but let's be safe for now.
+    // perf-goal-gl-overlap : fermer la fenetre de surveillance AVANT de relacher le producteur.
+    // Apres `has_data_to_render = false`, le fil GOAL a le droit d'ecrire : relire les plages
+    // hors chaine plus tard mesurerait une reecriture LEGITIME et fabriquerait un faux defaut.
+    overlap_census::render_end();
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
     g_gfx_data->engine_timer.start();
     g_gfx_data->has_data_to_render = false;
     g_gfx_data->sync_cv.notify_all();
+    // La garde de `gl_send_chain` attend sur `dma_cv` : sans cette notification le fil GOAL
+    // dormirait jusqu'au prochain ramassage, qui ne viendra jamais.
+    g_gfx_data->dma_cv.notify_all();
   }
 }
 
@@ -1154,16 +1200,56 @@ u32 gl_vsync() {
   if (!g_gfx_data) {
     return 0;
   }
-  std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
-  auto init_frame = g_gfx_data->frame_idx_of_input_data;
-  g_gfx_data->sync_cv.wait(lock, [=] {
-    return (MasterExit != RuntimeExitStatus::RUNNING) || g_gfx_data->frame_idx > init_frame;
-  });
-  return g_gfx_data->frame_idx & 1;
+  if (gl_overlap_enabled()) {
+    // perf-goal-gl-overlap : relacher le fil GOAL des que le fil GL a RAMASSE la derniere chaine
+    // remise. C'est le moment ou GOAL peut, sans risque, construire l'image suivante : elle va
+    // dans l'autre banque de `*display*`, et `gl_send_chain` l'empechera de republier avant la
+    // fin du rendu en cours. `chains_sent`/`chains_picked_up` vivent sous `dma_mutex`, comme la
+    // chaine qu'ils comptent — c'est `dma_cv` qui les notifie, pas `sync_cv`.
+    std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
+    const auto sent_now = g_gfx_data->chains_sent;
+    g_gfx_data->dma_cv.wait(lock, [=] {
+      return (MasterExit != RuntimeExitStatus::RUNNING) ||
+             g_gfx_data->chains_picked_up >= sent_now;
+    });
+    // perf-goal-gl-overlap — LE DISCRIMINANT DU REGIME (voir overlap_census.h). Deja sous
+    // `dma_mutex`, le verrou de `has_data_to_render`.
+    overlap_census::note_goal_release(g_gfx_data->has_data_to_render);
+    return g_gfx_data->frame_idx & 1;
+  }
+  u64 idx_now;
+  {
+    std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
+    auto init_frame = g_gfx_data->frame_idx_of_input_data;
+    g_gfx_data->sync_cv.wait(lock, [=] {
+      return (MasterExit != RuntimeExitStatus::RUNNING) || g_gfx_data->frame_idx > init_frame;
+    });
+    idx_now = g_gfx_data->frame_idx;
+  }
+  {
+    // Le MEME temoin dans le bras serialise, et il doit y rendre ZERO : sans cette lecture, le
+    // regime temoin ne publierait rien et le contraste ne serait pas mesure, seulement suppose.
+    // Verrou RELACHE puis repris : `sync_mutex` puis `dma_mutex` imbriques inventeraient un ordre
+    // de verrous que le reste du fichier ne respecte pas.
+    std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
+    overlap_census::note_goal_release(g_gfx_data->has_data_to_render);
+  }
+  return idx_now & 1;
 }
 
 u32 gl_sync_path() {
   if (!g_gfx_data) {
+    return 0;
+  }
+  if (gl_overlap_enabled()) {
+    // perf-goal-gl-overlap : rendre la main tout de suite. Le sens PS2 de `sync-path` est « le
+    // chemin DMA est au repos, mes tampons sont reutilisables » ; ici les tampons de GOAL sont
+    // ceux de l'AUTRE banque de `*display*`, libres par construction. Attendre la fin du rendu
+    // ici re-serialiserait toute l'image : le moteur appelle `sync-path` juste avant `syncv`, en
+    // fin d'image (drawable.gc:1306). La protection de la chaine est la garde de `gl_send_chain`,
+    // pas cette attente.
+    std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
+    g_gfx_data->last_engine_time = g_gfx_data->engine_timer.getSeconds();
     return 0;
   }
   std::unique_lock<std::mutex> lock(g_gfx_data->sync_mutex);
@@ -1184,6 +1270,25 @@ void gl_send_chain(const void* data, u32 offset) {
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
     // Appele depuis le fil GOAL, apres que la pad ait ete lue pour cette frame de logique :
     // `pad_replay::current_frame()` est donc l'index de la frame que cette chaine decrit.
+    //
+    // perf-goal-gl-overlap — LA GARDE, ET ELLE EST INCONDITIONNELLE.
+    // En recouvrement, `gl_vsync` a relache le fil GOAL au RAMASSAGE de la chaine precedente : il
+    // peut donc revenir ici pendant que le fil GL la consomme encore. Republier maintenant
+    // ecraserait la chaine que le rendu suit (zero-copie sur le bureau) et ferait sauter une
+    // banque de `*display*` d'avance. On ATTEND la fin du rendu en cours — c'est ce qui borne
+    // GOAL a UNE image d'avance, et c'est la seule chose qui l'y borne.
+    //
+    // Inconditionnelle, pas gatee sur le recouvrement : en mode serialise `gl_vsync` garantit
+    // deja que le drapeau est retombe, donc l'attente ne coute rien ; et un basculement du
+    // coupe-circuit en cours de route ne peut pas faire courir le producteur contre le lecteur.
+    // L'echappatoire `MasterExit` tient : sans elle, un arret pendant un rendu parquerait le fil
+    // GOAL pour toujours.
+    g_gfx_data->dma_cv.wait(lock, [] {
+      return (MasterExit != RuntimeExitStatus::RUNNING) || !g_gfx_data->has_data_to_render;
+    });
+    if (MasterExit != RuntimeExitStatus::RUNNING) {
+      return;
+    }
     if (g_gfx_data->has_data_to_render) {
       lg::error(
           "Gfx::send_chain called when the graphics renderer has pending data. Was this called "
@@ -1214,7 +1319,20 @@ void gl_send_chain(const void* data, u32 offset) {
                      : 0,
         run_dma_copy);
 
+    // perf-goal-gl-overlap : l'empreinte de ce que le rendu va suivre, prise ICI, sur le fil
+    // GOAL, avant de le relacher. Sur le bureau la chaine est en ZERO-COPIE : ces octets-la sont
+    // la banque vivante de `*display*`, et c'est precisement ce qu'on veut surveiller.
+    if constexpr (run_dma_copy) {
+      const auto& c = g_gfx_data->dma_copier.get_last_result();
+      overlap_census::chain_published(c.data.data(), (uint32_t)c.data.size(),
+                                      g_gfx_data->logic_frame_of_input_data);
+    } else {
+      overlap_census::chain_published(nullptr, 0, g_gfx_data->logic_frame_of_input_data);
+    }
+    // perf-goal-gl-overlap / SPEC lumiere 6.1 regle 5 : figer les reglages de cette image.
+    Gfx::snapshot_settings_for_frame(g_gfx_data->logic_frame_of_input_data);
     g_gfx_data->has_data_to_render = true;
+    g_gfx_data->chains_sent++;
     g_gfx_data->dma_cv.notify_all();
   }
 }

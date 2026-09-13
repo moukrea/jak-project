@@ -5,10 +5,10 @@
 // Textures uploaded by the loader are looked up against two PNG indexes and, on a
 // hit, the PNG is uploaded in place of the baked fr3 texture:
 //   1. the USER drop dir (get_custom_assets_replacements_dir), gated by
-//      Gfx::g_global_settings.load_custom_assets, and
+//      Gfx::settings().load_custom_assets, and
 //   2. the package-BUNDLED first-party set under
 //      custom_assets/<game>/recharged_textures (get_bundled_recharged_textures_dir):
-//      base swaps gated by Gfx::g_global_settings.recharged_textures.
+//      base swaps gated by Gfx::settings().recharged_textures.
 // Precedence is user > bundled > stock, and every gate is composed with the Recharged
 // master via Gfx::recharged_active().
 

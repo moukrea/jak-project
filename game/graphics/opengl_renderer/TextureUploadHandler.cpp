@@ -5,6 +5,7 @@
 
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/pipelines/opengl.h"
+#include "game/system/overlap_census.h"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
@@ -131,6 +132,11 @@ void TextureUploadHandler::flush_uploads(std::vector<TextureUpload>& uploads,
     // up and corrupts the texture memory.
     const u8* ee_mem = (const u8*)render_state->ee_main_memory;
     for (auto& upload : uploads) {
+      // perf-goal-gl-overlap : la page de texture vit dans le `kheap` du niveau (texture.gc:1193),
+      // pas dans un display-frame : elle n'est pas double-bufferisee et un dechargement de niveau
+      // pendant le rendu la remplace sous nous. On surveille l'EN-TETE — ce que le televersement
+      // deREFERENCE pour trouver ses segments — et non les texels.
+      overlap_census::note_read(overlap_census::kTexUpload, (uint32_t)upload.page, 128);
       render_state->texture_pool->handle_upload_now(ee_mem + upload.page, upload.mode, ee_mem,
                                                     render_state->offset_of_s7, m_my_id == 999);
     }

@@ -322,11 +322,11 @@ void owner_composition_report(const OwnerComposition& composition,
                               const OwnerCompositionImage& after,
                               const char* before_stage = "before_world_sprites",
                               const char* after_stage = "after_world_sprites") {
-  const float e = Gfx::g_global_settings.recharged_pbr_exposure;
+  const float e = Gfx::settings().recharged_pbr_exposure;
   const float exposure =
-      (e > 0.f ? std::pow(e, 1.f / 2.2f) : 1.f) * Gfx::g_global_settings.recharged_hdr_exposure;
-  const float knee = Gfx::g_global_settings.recharged_hdr_knee;
-  const bool shoulder = Gfx::g_global_settings.recharged_hdr_curve == 0 && std::isfinite(knee) &&
+      (e > 0.f ? std::pow(e, 1.f / 2.2f) : 1.f) * Gfx::settings().recharged_hdr_exposure;
+  const float knee = Gfx::settings().recharged_hdr_knee;
+  const bool shoulder = Gfx::settings().recharged_hdr_curve == 0 && std::isfinite(knee) &&
                         std::isfinite(exposure);
   for (const auto& roi : composition.rois) {
     if (!roi.actor && roi.case_name.empty())
@@ -352,8 +352,8 @@ void owner_composition_report(const OwnerComposition& composition,
           {"passed_unknown", roi.passed_unknown},
           {"caveat", "bounding_union_includes_background_and_all_layers_not_actor_coverage"},
           {"effective_exposure", exposure},
-          {"knee", Gfx::g_global_settings.recharged_hdr_knee},
-          {"curve", Gfx::g_global_settings.recharged_hdr_curve},
+          {"knee", Gfx::settings().recharged_hdr_knee},
+          {"curve", Gfx::settings().recharged_hdr_curve},
           {"tonemap_stats",
            shoulder ? "not_measured" : "curve_or_parameters_not_supported"},
           {"quantization",
@@ -1615,7 +1615,7 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
                           has_texture("hotdot") || portal_disc;
       const bool sun_texture = has_texture("middot") || has_texture("starflash2");
       const auto camera_m = render_state->camera_pos / 4096.f;
-      const auto& sun_direction = Gfx::g_global_settings.recharged_pbr_sky_sun;
+      const auto& sun_direction = Gfx::settings().recharged_pbr_sky_sun;
       // At the 9950 m sun orbit, 0.05 m covers float rounding (about 0.001 m/ULP)
       // and remains fixed: a temporal mismatch never widens an unmatched region.
       constexpr double sun_tolerance_m = 0.05;

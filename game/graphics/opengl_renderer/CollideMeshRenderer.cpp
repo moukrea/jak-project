@@ -304,26 +304,26 @@ void CollideMeshRenderer::render(SharedRenderState* render_state, ScopedProfiler
     );
     glUniform1i(glGetUniformLocation(shader, "wireframe"), 0);
     glUniform1i(glGetUniformLocation(shader, "wireframe_enabled"),
-                Gfx::g_global_settings.collision_wireframe);
+                Gfx::settings().collision_wireframe);
     glUniform1uiv(glGetUniformLocation(shader, "collision_mode_mask"),
-                  Gfx::g_global_settings.collision_mode_mask.size(),
-                  Gfx::g_global_settings.collision_mode_mask.data());
+                  Gfx::settings().collision_mode_mask.size(),
+                  Gfx::settings().collision_mode_mask.data());
     glUniform1uiv(glGetUniformLocation(shader, "collision_event_mask"),
-                  Gfx::g_global_settings.collision_event_mask.size(),
-                  Gfx::g_global_settings.collision_event_mask.data());
+                  Gfx::settings().collision_event_mask.size(),
+                  Gfx::settings().collision_event_mask.data());
     glUniform1uiv(glGetUniformLocation(shader, "collision_material_mask"),
-                  Gfx::g_global_settings.collision_material_mask.size(),
-                  Gfx::g_global_settings.collision_material_mask.data());
+                  Gfx::settings().collision_material_mask.size(),
+                  Gfx::settings().collision_material_mask.data());
     glUniform1ui(glGetUniformLocation(shader, "collision_skip_mask"),
-                 Gfx::g_global_settings.collision_skip_mask);
+                 Gfx::settings().collision_skip_mask);
     glUniform1ui(glGetUniformLocation(shader, "collision_skip_hide_mask"),
-                 Gfx::g_global_settings.collision_skip_hide_mask);
+                 Gfx::settings().collision_skip_hide_mask);
     glUniform1ui(glGetUniformLocation(shader, "collision_skip_nomask_allowed"),
-                 Gfx::g_global_settings.collision_skip_nomask_allowed);
-    glUniform1i(glGetUniformLocation(shader, "mode"), Gfx::g_global_settings.collision_mode);
+                 Gfx::settings().collision_skip_nomask_allowed);
+    glUniform1i(glGetUniformLocation(shader, "mode"), Gfx::settings().collision_mode);
     glDrawArrays(GL_TRIANGLES, 0, lev->level->collision.vertices.size());
 
-    if (Gfx::g_global_settings.collision_wireframe) {
+    if (Gfx::settings().collision_wireframe) {
       glUniform1i(glGetUniformLocation(shader, "wireframe"), 1);
       glDisable(GL_BLEND);
       glDepthMask(GL_FALSE);

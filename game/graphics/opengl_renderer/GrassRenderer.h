@@ -18,7 +18,7 @@ struct LevelData;  // Grecharged-grass-overhang7: loader/common.h; rebuild() now
 // Grecharged-grass-poc (jak1): scatters real 3D grass over the ground triangles whose tfrag
 // texture is in the grass set (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1) for the
 // levels in the grass allowlist (background_common.h grass_level_enabled: training + beach as of
-// overhang7). Renderer-only, gated by Gfx::g_global_settings.recharged_grass (OFF ==
+// overhang7). Renderer-only, gated by Gfx::settings().recharged_grass (OFF ==
 // byte-identical stock render).
 //
 // CULLING FIX (owner feedback #2, 2026-07-10): placement is WHOLE-LEVEL and
@@ -129,7 +129,7 @@ class GrassRenderer {
   // 726 851 instances. C'est paye sur le thread de RENDU, exactement pendant que l'ecran de
   // chargement doit animer sa silhouette : c'est le gel que l'owner voit (D1/D5).
   //
-  // `grass_bake::expand(const BakeData&, float)` est PURE — elle ne lit ni `Gfx::g_global_settings`,
+  // `grass_bake::expand(const BakeData&, float)` est PURE — elle ne lit ni `Gfx::settings()`,
   // ni `getenv`, ni de propriete systeme, et n'ecrit aucun etat global (son seul effet de bord est
   // un `lg::info` final, et spdlog est sur de multiples threads). Elle se calcule donc sur son
   // propre thread pendant que l'ecran de chargement anime, et `rebuild()` la ramasse une image plus
