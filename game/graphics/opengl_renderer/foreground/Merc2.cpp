@@ -2174,6 +2174,19 @@ struct FpHdCensus {
   u64 anon_draws_inside = 0;   // draws d'envmap (hash=0) pendant la premiere personne
   u64 queries_opened = 0, queries_read = 0;
   u64 outside_measured = 0;    // draws HORS premiere personne REELLEMENT passes sous requete
+  // ── L'ATTRIBUTION EXACTE, PAR L'ESTAMPILLE D'IMAGE DU PAQUET ──────────────────────────────
+  // Une cellule par image recente : `(estampille << 2) | (premiere-personne ? 2 : 0) | 1`.
+  // Ecrite par le FIL GOAL (une fois par image de logique, depuis `npc-census-tick`), lue par le
+  // fil graphique. Une seule valeur atomique par cellule : le lecteur ne peut donc pas voir une
+  // estampille appariee a l'etat d'une AUTRE image.
+  static constexpr size_t kStampRing = 64;
+  std::atomic<u64> stamp_ring[kStampRing] = {};
+  u64 stamp_hits = 0, stamp_miss = 0;
+  // Les MEMES comptes sous l'ancien predicat (« premiere personne maintenant ou a l'image
+  // precedente »), gardes et publies a cote : ce que l'attribution a change se lit, il ne se
+  // raconte pas.
+  u64 window_models[2] = {0, 0};
+  u64 window_draws = 0;
   struct Pend {
     GLuint q;
     int who;
@@ -2203,6 +2216,24 @@ bool fp_armed() {
 bool fp_inside() {
   return s_fp.fp_now.load(std::memory_order_relaxed) != 0 ||
          s_fp.fp_prev.load(std::memory_order_relaxed) != 0;
+}
+
+// LA MEME QUESTION, POSEE A LA BONNE IMAGE. `fp_inside()` ci-dessus lit l'etat COURANT du fil
+// GOAL ; un paquet, lui, est la photo de l'image qui l'a CONSTRUIT. Les deux different exactement
+// une fois par entree en premiere personne, et cette fois-la le paquet legitime de l'image
+// d'AVANT se faisait compter DEDANS. On lit donc l'estampille que `bones.gc` (`:964-967`) ecrit
+// dans chaque paquet — la valeur de `(-> *display* real-frame-counter)` de l'image qui l'a
+// construit — et on demande l'etat de CETTE image-la.
+// POLARITE DU DOUTE : une estampille que l'anneau ne connait pas retombe sur `fp_inside()`,
+// c'est-a-dire vers le ROUGE, et le nombre de ces cas est publie (`firstperson_hd_stamp_miss`).
+bool fp_packet_inside(u32 pkt_stamp) {
+  const u64 v = s_fp.stamp_ring[pkt_stamp % FpHdCensus::kStampRing].load(std::memory_order_relaxed);
+  if ((v & 1u) != 0 && (u32)(v >> 2) == pkt_stamp) {
+    s_fp.stamp_hits++;
+    return (v & 2u) != 0;
+  }
+  s_fp.stamp_miss++;
+  return fp_inside();
 }
 
 // Les onze noms d'atelier HD vivent dans `goal_src/jak1/pc/jak-hd.gc:320-323`. Ceux du JOUEUR —
@@ -2278,12 +2309,16 @@ void fp_harvest() {
 }
 
 // Ouvre la requete autour d'UN draw. Rend le nom de la requete, ou 0 si rien n'est a mesurer.
-GLuint fp_draw_before(u64 hash) {
+GLuint fp_draw_before(u64 hash, u8 pkt_inside) {
   if (!fp_armed()) {
     return 0;
   }
   const int who = fp_who(hash);
-  const bool inside = fp_inside();
+  // `pkt_inside` a ete decide au PAQUET, par son estampille : voir `fp_packet_inside`.
+  const bool inside = pkt_inside != 0;
+  if (who >= 0 && fp_inside()) {
+    s_fp.window_draws++;  // l'ancien predicat, garde pour que l'ecart soit LISIBLE
+  }
   if (who == -2) {
     if (inside) {
       s_fp.anon_draws_inside++;
@@ -2329,6 +2364,25 @@ void fp_draw_after(GLuint q) {
 }
 }  // namespace
 
+// Pose par le fil GOAL (kmachine `pc_fp_note`) une fois par image de logique, AVEC l'estampille
+// de cette image-la — la meme valeur que `bones.gc` ecrit dans les paquets qu'elle construit.
+// `npc-census-tick` tourne dans `post-sync-draw` (engine/game/main.gc:2045), donc DANS l'iteration
+// de l'image et avant que sa chaine DMA ne parte au fil graphique : la cellule est ecrite avant
+// que le paquet qu'elle decrit ne soit lu.
+void merc2_fp_hd_note_frame(u32 stamp, int active) {
+  s_fp.stamp_ring[stamp % FpHdCensus::kStampRing].store(
+      ((u64)stamp << 2) | (active ? 2ull : 0ull) | 1ull, std::memory_order_relaxed);
+}
+
+// Un paquet vient d'arriver : « son image etait-elle en premiere personne ? ». Point d'entree du
+// fil graphique (Merc2::handle_pc_model), la ou l'estampille du paquet est lisible.
+u8 merc2_fp_hd_packet_inside(u32 pkt_stamp) {
+  if (!fp_armed()) {
+    return 0;
+  }
+  return fp_packet_inside(pkt_stamp) ? 1 : 0;
+}
+
 // Pose par le fil GOAL (kmachine `pc_fp_note`) une fois par image de logique.
 void merc2_fp_hd_set_active(int active) {
   s_fp.fp_prev.store(s_fp.fp_now.load(std::memory_order_relaxed), std::memory_order_relaxed);
@@ -2337,7 +2391,7 @@ void merc2_fp_hd_set_active(int active) {
 
 // Un paquet merc vient d'arriver : on le compte AVANT tout dessin, par son nom. C'est le terme
 // sans angle mort.
-void merc2_fp_hd_note_model(const char* name) {
+void merc2_fp_hd_note_model(const char* name, u8 pkt_inside) {
   if (!fp_armed() || !name) {
     return;
   }
@@ -2346,6 +2400,9 @@ void merc2_fp_hd_note_model(const char* name) {
     return;
   }
   if (fp_inside()) {
+    s_fp.window_models[who]++;  // l'ancien predicat, publie a cote
+  }
+  if (pkt_inside != 0) {
     s_fp.inside_models[who]++;
   } else {
     s_fp.outside_models++;
@@ -2369,6 +2426,10 @@ u64 merc2_fp_hd_diag(int which) {
     case 12: return s_fp.inside_models[0];
     case 13: return s_fp.inside_models[1];
     case 14: return s_fp.outside_measured;
+    case 15: return s_fp.stamp_hits;
+    case 16: return s_fp.stamp_miss;
+    case 17: return s_fp.window_models[0] + s_fp.window_models[1];
+    case 18: return s_fp.window_draws;
     default: return 0;
   }
 }
@@ -2521,9 +2582,14 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   u32 pkt_stamp = 0;
   memcpy(&pkt_stamp, setup.data + 124, sizeof(pkt_stamp));
   const bool is_hd_packet = strstr(name, "-hd-lod0") != nullptr;
-  // firstperson-hd-hide : le terme SANS angle mort — un modele HD du joueur qui ARRIVE. Compte
-  // avant toute allocation de draw, donc avant la suppression par pid comme avant l'envmap.
-  merc2_fp_hd_note_model(name);
+  // firstperson-hd-hide : « ce paquet appartient-il a une image de premiere personne ? ». La
+  // question est tranchee ICI, une seule fois, par l'estampille du paquet lui-meme, puis elle
+  // voyage dans chaque draw (`Draw::fp_inside`). Le site de draw ne redemande plus l'etat
+  // COURANT : il a une image d'avance sur celle que le paquet represente.
+  const u8 fp_pkt_inside = merc2_fp_hd_packet_inside(pkt_stamp);
+  // Le terme SANS angle mort — un modele HD du joueur qui ARRIVE. Compte avant toute allocation
+  // de draw, donc avant la suppression par pid comme avant l'envmap.
+  merc2_fp_hd_note_model(name, fp_pkt_inside);
   // Le personnage que l'owner voit est le DRIVER. Un paquet de compagnon HD est donc compte SOUS
   // LE PID DE SON DRIVER, sinon « le PNJ est-il visible ? » n'a pas de reponse quand la
   // couverture est active.
@@ -3971,6 +4037,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   args.jak1_water_mode = uses_water;
   args.disable_fog = model_disables_fog;
   args.hash = hash;
+  // firstperson-hd-hide : la decision prise au paquet suit ses draws jusqu'au site de dessin.
+  args.fp_inside = fp_pkt_inside;
   args.lights = lights;
   args.first_bone = first_bone;
   args.no_texture = render_state->version == GameVersion::Jak3 && model_no_texture;
@@ -4574,6 +4642,7 @@ Merc2::Draw* Merc2::try_alloc_envmap_draw(const tfrag3::MercDraw& mdraw,
   draw->index_count = mdraw.index_count;
   draw->mode = envmap_mode;
   draw->hash = 0;
+  draw->fp_inside = args.fp_inside;
   if (args.jak1_water_mode) {
     draw->mode.enable_ab();
     draw->mode.disable_depth_write();
@@ -4605,6 +4674,7 @@ Merc2::Draw* Merc2::alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawA
   draw->index_count = mdraw.index_count;
   draw->mode = mdraw.mode;
   draw->hash = args.hash;
+  draw->fp_inside = args.fp_inside;
   if (args.jak1_water_mode) {
     draw->mode.set_ab(true);
     draw->mode.disable_depth_write();
@@ -5663,7 +5733,7 @@ void Merc2::do_draws(const Draw* draw_array,
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
-        const GLuint fpq = fp_draw_before(draw.hash);
+        const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
         fp_draw_after(fpq);
@@ -5677,7 +5747,7 @@ void Merc2::do_draws(const Draw* draw_array,
       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
-        const GLuint fpq = fp_draw_before(draw.hash);
+        const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
         fp_draw_after(fpq);
@@ -5709,7 +5779,7 @@ void Merc2::do_draws(const Draw* draw_array,
       }
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
-        const GLuint fpq = fp_draw_before(draw.hash);
+        const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
         fp_draw_after(fpq);

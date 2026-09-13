@@ -279,6 +279,13 @@ class Merc2 {
     // no strip hack for custom models
     u8 no_strip;
     u64 hash;
+    // firstperson-hd-hide : « ce draw appartient-il a une image de PREMIERE PERSONNE ? ».
+    // Decide UNE fois, au paquet, par l'estampille d'image que bones.gc y ecrit (octets
+    // 124..127) — jamais ici. Le site de draw tourne sur le fil graphique et peut avoir une
+    // image de retard sur le fil GOAL : lui demander l'etat COURANT attribuait l'image
+    // d'AVANT l'entree en premiere personne a la premiere personne (mesure appareil du
+    // 2026-09-14 : 2 paquets, 42 draws, 30 px, sur 24 084 images ou le masquage a tire).
+    u8 fp_inside;
   };
 
   // Grecharged-title-logo-fullres: a deferred model contributes at most a handful of draws (the
@@ -336,6 +343,9 @@ class Merc2 {
     // Grecharged-title-logo-fullres: route this model's draws into the native-overlay pools
     // instead of the scaled-pass pools. Always false unless the toggle is on AND the split is armed.
     bool defer_native = false;
+    // firstperson-hd-hide : voir `Draw::fp_inside`. Rempli dans handle_pc_model, ou l'estampille
+    // du paquet est lisible, et recopie tel quel par les DEUX allocateurs de draw.
+    u8 fp_inside = 0;
   };
 
   Draw* alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawArgs& args);

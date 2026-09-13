@@ -142,6 +142,7 @@ u64 merc2_hd_stretch_diag(int which);
 // premiere personne pousse vers le fil graphique. Meme regle de portee que ci-dessus : DEHORS de
 // `namespace jak1`.
 void merc2_fp_hd_set_active(int active);
+void merc2_fp_hd_note_frame(u32 stamp, int active);
 u64 merc2_fp_hd_diag(int which);
 const char* merc2_fp_hd_instrument();
 // Ghd-skin-origin-stretch : registre du rig HD (parent, joint pilote, mode de reciblage et
@@ -1795,7 +1796,16 @@ s32 pc_fp_hide_wanted() {
 //     `jak-hd.gc` consulte, mais le NUMERATEUR, lui, sort de Merc2, c'est-a-dire de ce qui a
 //     vraiment ete dessine. Un masquage qui echouerait laisserait donc la porte rouge, meme si
 //     GOAL croyait avoir masque.
-s64 pc_fp_note(s64 fp_active, s64 kick_sends) {
+s64 pc_fp_note(s64 fp_active, s64 kick_sends, s64 frame_stamp) {
+  // L'ESTAMPILLE DE CETTE IMAGE, POUR QUE CHAQUE PAQUET SOIT JUGE PAR LA SIENNE.
+  // `frame_stamp` = `(logand (-> *display* real-frame-counter) #xffffffff)`, exactement la valeur
+  // que `engine/gfx/foreground/bones.gc:964-967` ecrit aux octets 124..127 du nom de chaque paquet
+  // merc de cette image. Sans elle, le site de draw lisait l'etat COURANT du fil GOAL, qui a une
+  // image d'avance sur le paquet qu'il dessine : a l'ENTREE en premiere personne, l'image
+  // LEGITIME d'avant se faisait compter dedans (appareil eae4df44, 2026-09-14 : 2 paquets,
+  // 42 draws, 30 px, geles des la 23e image d'un total de 24 084 — et `mask_frames` valait
+  // 2 x `fp_frames` a chacune des 544 emissions, donc le masquage n'avait manque AUCUNE image).
+  merc2_fp_hd_note_frame((u32)(frame_stamp & 0xffffffff), fp_active ? 1 : 0);
   merc2_fp_hd_set_active(fp_active ? 1 : 0);
 
   static u64 s_fp_frames = 0;
@@ -1866,6 +1876,17 @@ s64 pc_fp_note(s64 fp_active, s64 kick_sends) {
   autoport_proof::publish("firstperson_hd_queries_read", merc2_fp_hd_diag(9));
   autoport_proof::publish("firstperson_hd_queries_unread", merc2_fp_hd_diag(10));
   autoport_proof::publish("firstperson_hd_queries_ok", merc2_fp_hd_diag(11));
+  // CE QUE L'ATTRIBUTION PAR ESTAMPILLE A CHANGE, LISIBLE PLUTOT QUE RACONTE. `*_window` est le
+  // MEME compte sous l'ANCIEN predicat (« premiere personne maintenant ou a l'image
+  // precedente ») ; l'ecart entre les deux est exactement la ou le fil graphique avait une image
+  // de retard. Et `stamp_miss` dit combien de paquets n'ont PAS trouve leur image dans l'anneau —
+  // ceux-la retombent sur l'ancien predicat, donc vers le rouge. `stamp_miss` non nul avec
+  // `stamp_hits` nul voudrait dire que les deux horloges ne sont pas la meme : ce serait un
+  // instrument casse, pas un verdict.
+  autoport_proof::publish("firstperson_hd_stamp_hits", merc2_fp_hd_diag(15));
+  autoport_proof::publish("firstperson_hd_stamp_miss", merc2_fp_hd_diag(16));
+  autoport_proof::publish("firstperson_hd_inside_models_window", merc2_fp_hd_diag(17));
+  autoport_proof::publish("firstperson_hd_inside_draws_window", merc2_fp_hd_diag(18));
   autoport_proof::publish_text("firstperson_hd_px_instrument", merc2_fp_hd_instrument());
   // Rendu a GOAL : le nombre de paquets HD du joueur deja vus HORS premiere personne. C'est lui,
   // et pas une duree, qui autorise la sequence scriptee a ouvrir la vue — voir main.gc.

@@ -742,7 +742,12 @@
                1
                0))
          ;; ce que Merc2 a deja vu HORS premiere personne : la population de controle.
-         (vus (__pc-fp-note fp *fp-kick-sends*)))
+         ;; L'ESTAMPILLE DE CETTE IMAGE. Meme lecture, meme troncature que
+         ;; `engine/gfx/foreground/bones.gc:964-967`, qui l'ecrit aux octets 124..127 du nom de
+         ;; chaque paquet merc : c'est ce qui permet a Merc2 de juger un paquet sur SON image et
+         ;; non sur l'etat courant du fil GOAL, qui a une image d'avance sur lui.
+         (vus (__pc-fp-note fp *fp-kick-sends*
+                            (logand (the-as int (-> *display* real-frame-counter)) #xffffffff))))
     (when (nonzero? (__pc-fp-hide-wanted?))
       (cond
         ((or (nonzero? fp) (not *target*))

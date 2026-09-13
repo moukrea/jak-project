@@ -606,14 +606,17 @@
 ;;   `__pc-fp-hide-wanted?` 1 quand le harnais mesure CET item : la sequence scriptee qui ouvre la
 ;;                          vue premiere personne ne tourne que sous mesure. 0 dans le jeu livre.
 ;;   `__pc-fp-note`         une image de logique : 1 si `(state-flags first-person-mode)` est pose
-;;                          sur *target*, 0 sinon, puis le nombre d'envois deja faits par la
-;;                          sequence scriptee. Pousse l'etat vers le fil graphique, publie toutes
-;;                          les cles de la porte, et REND le nombre de paquets HD du joueur deja
-;;                          vus HORS premiere personne — la population de controle.
+;;                          sur *target*, 0 sinon ; le nombre d'envois deja faits par la sequence
+;;                          scriptee ; et l'ESTAMPILLE de cette image — la meme valeur que
+;;                          `engine/gfx/foreground/bones.gc:964-967` ecrit dans chaque paquet merc
+;;                          qu'elle construit, sans laquelle le site de draw juge un paquet sur
+;;                          l'etat d'une AUTRE image. Pousse l'etat vers le fil graphique, publie
+;;                          toutes les cles de la porte, et REND le nombre de paquets HD du joueur
+;;                          deja vus HORS premiere personne — la population de controle.
 ;;   `__pc-fp-mask-note`    une image ou la branche premiere-personne du miroir HD a bloque un
 ;;                          compagnon : le temoin qui fera rougir la prochaine regression.
 (define-extern __pc-fp-hide-wanted? (function int))
-(define-extern __pc-fp-note (function int int int))
+(define-extern __pc-fp-note (function int int int int))
 (define-extern __pc-fp-mask-note (function none))
 ;; LE CORRECTIF DU CLIGNOTEMENT, cote GOAL. 1 = le clone garde la pose de l'image precedente au
 ;; lieu de se masquer (game/system/npc_flicker.h, `should_hold_clone`) ; 0 = ancien comportement.

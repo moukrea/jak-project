@@ -126,6 +126,50 @@ pub firstperson_hd_acquis_regions_unchanged "$UNCH"
 # Le terme AVANT doit etre NON NUL du bon cote : au commit de base, AUCUN chemin vivant ne masque
 # les compagnons du joueur en premiere personne — c'est l'etat que l'owner a signale. Un zero des
 # deux cotes voudrait dire que la sonde ne voit rien, pas que le defaut est corrige.
+# ─── 5. LE REGIME DE LA COURSE, LU SUR L'APPAREIL ─────────────────────────────────────────────
+# ESSAI 2 A MESURE L'AUTRE REGIME SANS LE VOIR. Sa course appareil a rendu `outside_models=0`,
+# `kick_sends=0`, `inside_px=999999` — et la raison n'etait dans aucune cle : les reglages
+# PERSISTES de l'appareil (`/sdcard/OpenGOAL/jak1/settings.ini`) portaient
+# `recharged-master? = #f` ET `recharged-enhanced-models? = #f`, laisses par une campagne
+# precedente. Or `goal_src/jak1/pc/jak-hd.gc:3478` ne fait naitre AUCUN compagnon HD sans ces
+# deux-la : il n'y avait litteralement rien a masquer, et la preuve ne pouvait pas le dire.
+# `proof_props` n'atteint pas ce fichier — `debug.opengoal.recharged` surcharge le maitre pour
+# les lecteurs C++ et « ne touche jamais les reglages sauvegardes » (gfx.h:406) — donc le seul
+# temoin honnete de ce regime est le FICHIER, relu ici, apres la course.
+# POLARITE : un regime eteint se lit `0`, jamais `-` ; `-1` veut dire « pas pu lire », et les
+# deux se distinguent par `firstperson_hd_regime_source`.
+DEV=$(bash .autoport/lib/pick_device.sh 2>/dev/null | head -1 | tr -d '[:space:]')
+INI=""
+if [ -n "${DEV:-}" ]; then
+  INI=$(adb -s "$DEV" shell 'cat /sdcard/OpenGOAL/jak1/settings.ini' </dev/null 2>/dev/null || true)
+fi
+if [ -n "$INI" ]; then
+  pubs firstperson_hd_regime_source "appareil:$DEV"
+  ini_bool(){ # <cle-ini> -> 1 si #t, 0 si #f, -1 si la ligne manque
+    local n
+    n=$(printf '%s\n' "$INI" | grep -cE "^$1 = #t" || true)
+    [ "${n:-0}" -gt 0 ] && { echo 1; return; }
+    n=$(printf '%s\n' "$INI" | grep -cE "^$1 = #f" || true)
+    [ "${n:-0}" -gt 0 ] && { echo 0; return; }
+    echo -1
+  }
+  pub firstperson_hd_regime_master   "$(ini_bool 'recharged-master\?')"
+  pub firstperson_hd_regime_enhanced "$(ini_bool 'recharged-enhanced-models\?')"
+  pubs firstperson_hd_regime_look_jak \
+    "$(printf '%s\n' "$INI" | sed -n 's/^hd-look-jak = //p' | head -1)"
+  pubs firstperson_hd_regime_look_daxter \
+    "$(printf '%s\n' "$INI" | sed -n 's/^hd-look-daxter = //p' | head -1)"
+  # Le nombre de lignes lues : un fichier vide ou tronque ne doit pas se lire comme « eteint ».
+  pub firstperson_hd_regime_ini_lines "$(printf '%s\n' "$INI" | grep -c . || true)"
+else
+  pubs firstperson_hd_regime_source "absent"
+  pub firstperson_hd_regime_master -1
+  pub firstperson_hd_regime_enhanced -1
+  pubs firstperson_hd_regime_look_jak "-"
+  pubs firstperson_hd_regime_look_daxter "-"
+  pub firstperson_hd_regime_ini_lines 0
+fi
+
 pub firstperson_hd_paths_before "$(git show "$BASE:$HD" 2>/dev/null | grep -cE 'first-person-mode' || true)"
 pub firstperson_hd_paths_after  "$(grep -cE 'first-person-mode' "$HD" 2>/dev/null || true)"
 exit 0
