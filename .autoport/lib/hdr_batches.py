@@ -672,6 +672,7 @@ def read_batch(path, expected, measurer):
             raise ValueError('temporal capture accounting inconsistent')
         temporal_configs = set()
         particle_metadata_modes = set()
+        particle_step_modes = set()
         for view, hour in requested:
             stem = ('' if view == 'legacy' else view + '-') + f'h{hour:02}'
             for arm in ('recharged', 'origine-lumiere'):
@@ -679,6 +680,7 @@ def read_batch(path, expected, measurer):
                 spacing = None
                 base_options = None
                 sequence_repin = None
+                sequence_steps = None
                 sequence_temporal = None
                 for sample in range(temporal):
                     case = arm + '/' + stem + (f'-t{sample:02}' if sample else '')
@@ -706,7 +708,6 @@ def read_batch(path, expected, measurer):
                     options = effective.get(case, {}).get('temporal', {})
                     if (type(options.get('samples')) is not int or type(options.get('sample')) is not int
                             or options.get('samples') != temporal or options.get('sample') != sample
-                            or options.get('particle_step_const') != 'once-per-logic-frame'
                             or type(options.get('spacing_lf')) is not int or options['spacing_lf'] <= 0):
                         raise ValueError('temporal effective settings absent/incompatible: ' + case)
                     if spacing is not None and spacing != options['spacing_lf']:
@@ -729,10 +730,36 @@ def read_batch(path, expected, measurer):
                         if sequence_repin is not None and sequence_repin != repin:
                             raise ValueError('temporal particle repin changed within sequence')
                         sequence_repin = repin
-                    # Sample and age vary by the validated cadence within a sequence;
+                    # dead-literals-round-3 (2026-09-13) : LA CADENCE DE LA PARTICULE, MESUREE.
+                    # Ce bloc comparait `particle_step_const` a la chaine 'once-per-logic-frame'
+                    # que `refset.cpp` y ecrit lui-meme : la condition ne pouvait pas etre vraie,
+                    # et le protocole qu'elle pretendait garantir — un pas et un seul par frame de
+                    # logique — n'etait verifie par personne. `particle_steps` est le compteur de
+                    # pas du moteur, brut. Entre deux photos separees de `spacing_lf` frames de
+                    # logique il doit avancer d'EXACTEMENT `spacing_lf` : un feu qui gele (delta
+                    # nul) ou qui avance au rythme des images DESSINEES (delta > spacing) rougit
+                    # ici. La difference annule tout decalage d'un pas a l'ancre.
+                    # POURQUOI L'ABSENCE EST TOLEREE, ET CE QUI L'EMPECHE DE L'ETRE EN SILENCE :
+                    # 4455 captures temporelles deja scellees par `refset_qualification.h` ont ete
+                    # prises par un binaire qui ne publiait pas ce compteur ; les rejeter serait
+                    # detruire la donnee de `lighting-hdr`. La tolerance est donc sur le LOT, pas
+                    # sur la capture : un lot melangeant les deux niveaux est FATAL, si bien qu'un
+                    # lot neuf ne peut pas retomber capture par capture au niveau d'avant.
+                    steps = options.get('particle_steps')
+                    particle_step_modes.add(steps is not None)
+                    if len(particle_step_modes) != 1:
+                        raise ValueError('mixed temporal particle step metadata')
+                    if steps is not None:
+                        if type(steps) is not int or steps < 0:
+                            raise ValueError('invalid temporal particle step count: ' + case)
+                        if sequence_steps is not None and steps - sequence_steps != spacing:
+                            raise ValueError('temporal particle step cadence: ' + case)
+                        sequence_steps = steps
+                    # Sample, age and step count vary by the validated cadence within a sequence;
                     # preserve every unknown temporal setting in its invariant.
                     temporal_invariant = {k: v for k, v in options.items()
-                                          if k not in ('sample', 'particle_age', 'particle_repin_lf')}
+                                          if k not in ('sample', 'particle_age', 'particle_repin_lf',
+                                                       'particle_steps')}
                     if sequence_temporal is not None and sequence_temporal != temporal_invariant:
                         raise ValueError('temporal settings changed within sequence')
                     sequence_temporal = temporal_invariant
@@ -825,12 +852,15 @@ def read_batch(path, expected, measurer):
                         stats_last = measurer(base / last[0])
                     if abs(stats_last['luma'] - stats['luma']) > max(10.0, .15 * max(stats['luma'], stats_last['luma'])):
                         reasons.append('non-stationary arm (whole-frame luma changed between temporal samples): ' + case)
-            # The purge timestamp is execution evidence, not a rendering option.
-            # Its source remains sealed; normalize only this copied comparison value
-            # after the full temporal sequence metadata has been checked above.
-            if temporal > 1 and options is not None and 'particle_repin_lf' in options.get('temporal', {}):
+            # The purge timestamp and the raw step counter are execution evidence, not
+            # rendering options: both are anchored on how many logic frames ran BEFORE the
+            # capture plan, which differs from one process to the next. Their source remains
+            # sealed; normalize only these copied comparison values after the full temporal
+            # sequence metadata — cadence included — has been checked above.
+            dates = {'particle_repin_lf', 'particle_steps'}
+            if temporal > 1 and options is not None and dates & options.get('temporal', {}).keys():
                 options = {**options, 'temporal': {k: v for k, v in options['temporal'].items()
-                                                 if k != 'particle_repin_lf'}}
+                                                 if k not in dates}}
             pair.append((stats, options))
         if len(pair) != 2:
             unqualified[(view, hour)] = {'reasons': reasons, 'measured_arms': [{'stats': st, 'options': opt} for st, opt in pair]}

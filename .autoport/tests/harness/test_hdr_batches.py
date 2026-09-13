@@ -1289,7 +1289,8 @@ def temporal_particle_batch(root, plan, mutate=lambda case, sample, options: Non
             options['temporal'] = dict(samples=2, sample=sample, spacing_lf=12,
                                        particle_step_const='once-per-logic-frame')
             if modern:
-                options['temporal'].update(particle_repin_lf=repin, particle_age=age)
+                options['temporal'].update(particle_repin_lf=repin, particle_age=age,
+                                           particle_steps=repin + age)
             mutate(case, sample, options)
             lines.append('REFSET effective case=' + sample_case + ' options=' + json.dumps(options))
             count += 1
@@ -1314,7 +1315,9 @@ def test_temporal_particle_dates_are_not_configuration(tmp_path, plan):
     assert json.loads((tmp_path / 'measurements.json').read_text())['errors'] == []
 
 
-@pytest.mark.parametrize('fault', ['age', 'repin', 'partial', 'mixed', 'bool', 'float', 'negative', 'unknown_in_sequence'])
+@pytest.mark.parametrize('fault', ['age', 'repin', 'partial', 'mixed', 'bool', 'float', 'negative',
+                                   'unknown_in_sequence', 'steps_frozen', 'steps_fast',
+                                   'steps_bool', 'steps_negative', 'steps_absent'])
 def test_temporal_particle_metadata_invalid(tmp_path, plan, fault):
     def mutate(case, sample, options):
         if sample != 1:
@@ -1329,9 +1332,40 @@ def test_temporal_particle_metadata_invalid(tmp_path, plan, fault):
         elif fault == 'float': temporal['particle_repin_lf'] = float(temporal['particle_repin_lf'])
         elif fault == 'negative': temporal['particle_repin_lf'] = -1
         elif fault == 'unknown_in_sequence': temporal['unknown_setting'] = 1
+        # dead-literals-round-3 : la cadence de la particule, desormais MESUREE. Le feu qui gele
+        # entre deux photos et le feu qui avance au rythme des images DESSINEES etaient tous deux
+        # invisibles tant que le lecteur comparait une chaine litterale a elle-meme.
+        elif fault == 'steps_frozen': temporal['particle_steps'] -= 12
+        elif fault == 'steps_fast': temporal['particle_steps'] += 1
+        elif fault == 'steps_bool': temporal['particle_steps'] = True
+        elif fault == 'steps_negative': temporal['particle_steps'] = -1
+        elif fault == 'steps_absent': temporal.pop('particle_steps')
     path = temporal_particle_batch(tmp_path, plan, mutate)
     with pytest.raises(ValueError, match='temporal'):
         hdr.read_batch(path / 'manifest.json', plan, stats)
+
+
+def test_temporal_batch_without_step_counter_still_reads(tmp_path, plan):
+    """dead-literals-round-3 : les 4455 captures temporelles deja scellees ont ete prises par un
+    binaire qui ne publiait pas `particle_steps`. La cadence se verifie sur les lots NEUFS sans
+    rejeter les anciens ; ce qui reste FATAL, c'est un lot qui melange les deux niveaux."""
+    def strip(case, sample, options):
+        options['temporal'].pop('particle_steps')
+    path = temporal_particle_batch(tmp_path, plan, strip)
+    parsed = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert set(parsed['pairs']) == {('village1-eco-blue', 12), ('village1-eco-blue', 18)}
+    assert 'particle_steps' not in parsed['pairs'][('village1-eco-blue', 12)]['options'][0]['temporal']
+
+
+def test_temporal_step_counter_is_execution_evidence_not_configuration(tmp_path, plan):
+    """dead-literals-round-3 : le compteur de pas est ancre sur ce qui a tourne AVANT le plan, il
+    differe donc d'un processus a l'autre. Il est juge, puis retire de la comparaison — comme la
+    date de re-ancrage — sinon deux bras identiques se liraient comme deux configurations."""
+    path = temporal_particle_batch(tmp_path, plan)
+    parsed = hdr.read_batch(path / 'manifest.json', plan, stats)
+    first, second = [parsed['pairs'][('village1-eco-blue', hour)]['options'] for hour in (12, 18)]
+    assert first == second
+    assert 'particle_steps' not in first[0]['temporal']
 
 
 @pytest.mark.parametrize('change', ['render', 'unknown_temporal'])

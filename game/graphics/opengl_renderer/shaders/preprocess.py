@@ -331,6 +331,19 @@ def main(argv: list[str]) -> int:
         sys.stderr.write(f"preprocess.py: no shaders found under {src_dir}\n")
         return 1
 
+    # dead-literals-round-3 (2026-09-13) : CE QUE CETTE PASSE ECRIT, NOMME.
+    # Ce script n'effacait rien : un shader ou un chunk retire de `src_dir` laissait sa copie
+    # dans `out_dir` POUR TOUJOURS. Mesure du 13/09 : `pbr_fused.glsl`, `pbr_helpers.glsl` et
+    # `pbr_uniforms.glsl` y trainaient encore, datees du 12/09 14:18, alors que le commit
+    # c65c9a71bd les avait sorties de l'arbre a 17:52 le meme jour. Le blob livre, lui, etait
+    # propre : la copie orpheline n'atteignait ni `libgk.so` ni l'APK. Elle atteignait le
+    # LECTEUR — quelqu'un qui ouvre `build-android/shaders/pbr_fused.glsl` y lit encore
+    # `float tess_w = 0.0;` et la branche morte qui en decoule, et croit toucher un
+    # deplacement qui n'existe plus. On rend la perte impossible AU POINT DE PRODUCTION :
+    # tout fichier de `out_dir` que ce script sait produire et qu'il n'a PAS ecrit cette fois
+    # est un residu, et il part.
+    written: set[Path] = set()
+
     # Emit individual files (per-shader on disk) so a future phase that
     # wants file-based shader loading already has them. Also collect
     # everything into a single header for direct embedding.
@@ -359,10 +372,12 @@ def main(argv: list[str]) -> int:
     for name, vert_path, frag_path, tesc_path, tese_path in pairs:
         vert_src = to_gles(vert_path.read_text(encoding="utf-8"))
         (out_dir / f"{name}.android.vert").write_text(vert_src, encoding="utf-8")
+        written.add(out_dir / f"{name}.android.vert")
 
         if frag_path is not None:
             frag_src = to_gles(frag_path.read_text(encoding="utf-8"))
             (out_dir / f"{name}.android.frag").write_text(frag_src, encoding="utf-8")
+            written.add(out_dir / f"{name}.android.frag")
         else:
             frag_src = ""
 
@@ -371,6 +386,8 @@ def main(argv: list[str]) -> int:
             tese_src = to_gles(tese_path.read_text(encoding="utf-8"), stage="tese")
             (out_dir / f"{name}.android.tesc").write_text(tesc_src, encoding="utf-8")
             (out_dir / f"{name}.android.tese").write_text(tese_src, encoding="utf-8")
+            written.add(out_dir / f"{name}.android.tesc")
+            written.add(out_dir / f"{name}.android.tese")
         else:
             tesc_src = ""
             tese_src = ""
@@ -410,6 +427,7 @@ def main(argv: list[str]) -> int:
         # Emit the chunk to the output dir under its own name too, so an offline
         # expansion of the generated GLES shaders resolves exactly like the runtime.
         (out_dir / chunk_path.name).write_text(chunk_src, encoding="utf-8")
+        written.add(out_dir / chunk_path.name)
         blob_lines.append(
             "    {"
             f'\n        "{chunk_path.name}",'
@@ -431,10 +449,26 @@ def main(argv: list[str]) -> int:
     (out_dir / "shaders_android_blob.h").write_text(
         "\n".join(blob_lines), encoding="utf-8"
     )
+    written.add(out_dir / "shaders_android_blob.h")
+
+    # LE BALAYAGE DES RESIDUS. On ne touche QUE les noms que ce script sait produire, et
+    # jamais un sous-repertoire : un `out_dir` qui heberge d'autres artefacts de construction
+    # ne doit rien perdre. Chaque suppression est NOMMEE sur stderr — une purge muette serait
+    # le prochain defaut de cette famille.
+    purged = 0
+    for stale in sorted(out_dir.iterdir()):
+        if not stale.is_file() or stale in written:
+            continue
+        if stale.suffix != ".glsl" and not re.fullmatch(
+                r".+\.android\.(vert|frag|tesc|tese)", stale.name):
+            continue
+        stale.unlink()
+        purged += 1
+        sys.stderr.write(f"preprocess.py: purged stale generated shader: {stale.name}\n")
 
     sys.stdout.write(
         f"preprocess.py: emitted {len(pairs)} shader pairs + {len(chunks)} shared chunks "
-        f"+ blob header to {out_dir}\n"
+        f"+ blob header to {out_dir}; purged {purged} stale file(s)\n"
     )
     return 0
 

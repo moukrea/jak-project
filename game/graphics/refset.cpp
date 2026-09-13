@@ -3905,10 +3905,22 @@ bool consume_capture(int w, int h, const void* rgba) {
           {"scale", g_hdr_capture_scale}, {"method_const", kHdrReduction}};
     }
     if (g_temporal_samples > 1) {
+      // dead-literals-round-3 (2026-09-13) : `particle_step_const` reste une ETIQUETTE — la
+      // convention `_const` posee par dead-published-keys-round-2 le dit — mais le LECTEUR
+      // (`lib/hdr_batches.py`) la comparait a la MEME chaine litterale : une assertion qui ne
+      // pouvait pas echouer. Le protocole qu'elle pretendait garantir — le temps des particules
+      // n'avance QUE d'un pas par frame de logique — n'etait donc verifie par personne.
+      // `particle_steps` est ce que le protocole produit VRAIMENT : le compteur de pas, brut,
+      // au moment de la photo. Entre deux photos espacees de `spacing_lf` frames de logique, il
+      // doit avancer d'EXACTEMENT `spacing_lf`. Brut et non recale sur l'ancre a dessein : un
+      // decalage d'un pas a l'ancre (l'ordre entre `wants_particle_repin` et le premier
+      // `particle_step_mode` de cette frame-la n'est pas garanti) s'annule dans la DIFFERENCE,
+      // qui est la seule chose que le lecteur juge.
       effective_options["temporal"] = {
           {"samples", g_temporal_samples}, {"sample", g_steps[g_cur].sample},
           {"spacing_lf", g_step_settle}, {"particle_step_const", "once-per-logic-frame"},
-          {"particle_repin_lf", g_repin_lf}, {"particle_age", particle_age}};
+          {"particle_repin_lf", g_repin_lf}, {"particle_age", particle_age},
+          {"particle_steps", g_part_steps}};
     }
     std::string retired_keys;
     for (const char* entry : kRetiredQualificationKeys) {
