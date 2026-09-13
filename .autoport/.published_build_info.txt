@@ -1,0 +1,14 @@
+TAG: 602cd7-c0e59c      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
+date: 2026-09-13T19:58:43+02:00     commit: 602cd72eb7     build AUTOMATIQUE (etat compile)
+
+MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :
+  chestL        0.1796
+  chestR        0.1926
+
+PACK HD EXTERNE : caa63c1af36ab
+  Si cette version a change depuis ton dernier test, RE-TELECHARGE jak1_hd_assets.zip
+  et RE-EXTRAIS-LE. Les modeles HD ne sont PAS dans l'APK (ils n'y seront jamais) :
+  tout correctif portant sur la GEOMETRIE ou les POIDS DE PEAU voyage uniquement la.
+
+Ce fichier est ecrit AUTOMATIQUEMENT a chaque build, il decrit donc toujours l'APK
+qui est a cote de lui. Si les deux dates divergent, dis-le moi.
