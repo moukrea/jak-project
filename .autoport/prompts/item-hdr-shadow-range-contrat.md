@@ -18,6 +18,7 @@ ET LE HONOR CHANGE TOUT. Il annonce « scRGB display HDR », donc un regime AVEC
 3. RIEN NE S'ASSOMBRIT GLOBALEMENT. C'est le retour de l'owner du 11/09, il tient toujours : publier la luminosite moyenne de l'image, HDR eteint puis allume, sur la meme scene. Elle ne baisse pas.
 4. LES HAUTES LUMIERES NE REGRESSENT PAS : reprendre les cles de `hdr-output-regime` et montrer qu'elles gardent leurs valeurs. Ce que l'owner voit deja ne doit pas etre echange contre ce qu'il ne voit pas encore.
 5. LE REGIME EST EPINGLE ET PUBLIE : `chain_active`, `scene_fmt` et le regime de sortie a cote du verdict. Une mesure faite chaine eteinte, en 8 bits, ne dit rien de ce sujet.
+6. L'EFFET SE VOIT, OU L'ITEM LE DIT (refus de l'owner du 13/09 : « je vois pas plus de détails dans les ombres à on versus off »). La porte precedente etait verte par INACTION : tout etait en negatif. Publier, sur la MEME scene sombre nommee, l'histogramme des luminances du premier dixieme de la plage, sortie HDR eteinte puis allumee : le nombre de paliers distincts REELLEMENT utilises doit croitre au-dessus d'un plancher declare (au moins x1,5), et la difference d'image restreinte aux pixels sombres doit etre non nulle et publiee. Si le contenu de scene n'a rien a offrir dans les ombres (source 8 bits, terme indirect nul), l'item le DIT et nomme l'item de la refonte lumiere qui doit le fournir, au lieu de passer.
 
 ## Hors perimetre
 
@@ -29,7 +30,8 @@ Sur le HONOR, sortie HDR allumee : une scene sombre — interieur, grotte, nuit 
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-13
+> Pour le HDR c'est pas mal mais je vois pas plus de détails dans les ombres à on versus off
 
 ## Pourquoi ce fichier existe
 

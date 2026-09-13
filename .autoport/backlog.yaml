@@ -1,7 +1,7 @@
 # La seule verite du travail. Une feature = un item.
 # Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
 # owner_feedback : les mots de l'owner, dates, jamais reformules.
-version: 5
+version: 6
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
@@ -445,8 +445,8 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: open
-  priority: 34
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -510,6 +510,9 @@ items:
       epais ! et les arbres du niveau pareil, tout leur tronc bouge, a la limite les petites branches
       OK, mais les troncs c'est debile ! Les feuilles OK, les lianes qui grimpent dessus OK (attention
       au clipping) la les troncs serieux quoi !
+  - date: '2026-09-13'
+    text: les shrubs qui bougent au vent, c'est "bien" (validé dans l'idée d'y revenir un jour car le
+      vent simulé est nul)
   gate:
     key: wind_owner_defects_open
     op: ==
@@ -525,7 +528,11 @@ items:
   - Grecharged-foliage-wind2
   - Grecharged-foliage-wind3
   prompt: prompts/item-foliage-wind.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-13'
+    text: les shrubs qui bougent au vent, c'est "bien" (validé dans l'idée d'y revenir un jour car le
+      vent simulé est nul)
+    build_sha: 17fe0f99fa745232
   device: true
   proof_timeout: 240
   proof_env:
@@ -3561,14 +3568,22 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
-  status: validated
-  priority: null
+  status: open
+  priority: 22
   owner_feedback:
   - date: '2026-08-28'
     text: en caméra première personne on se retrouve, quand on utilise les modèles HD, à l'intérieur de
       la tête de Jak, et on voit aussi le modèle HD de Daxter... d'abord faut corriger le problème et
       faire comme avec les modèles originaux, les masquer en vue première personne
-  gate: null
+  - date: '2026-09-13'
+    text: on a une régression sur la vue première personne avec les modèles HD de Jak et Daxter, on les
+      voit de l'intérieur, on avait corrigé ça et c'est revenu, faut corriger à nouveau mais attention
+      à rien casser d'autre (Le pas de temps fixe et le jitter des animations+stretch glitch des modèles
+      HD)
+  gate:
+    key: firstperson_hd_inside_px
+    op: ==
+    value: 0
   game: jak1
   max_turns: 800
   max_retries: 6
@@ -3576,13 +3591,33 @@ items:
   history:
   - Gfirstperson-hd-hide
   prompt: null
-  owner_ok:
-    date: '2026-08-29'
-    text: Pour la vue en premiere personne et la visiere de Keira c'est regle, bien joue
-    build_sha: null
-    source: owner-ok/Gkeira-visor-deliver
+  owner_ok: null
   notes: 'statut force : l''owner ferme la premiere personne ET la visiere dans la meme phrase, recopiee
-    du jeton owner-ok/Gkeira-visor-deliver'
+    du jeton owner-ok/Gkeira-visor-deliver | 13/09 : REGRESSION signalee par l''owner, rouvert avec porte
+    et livrable (l''item d''aout n''en avait pas).'
+  device: true
+  owner_test: true
+  code_scope: jeu
+  proof_timeout: 420
+  hits_means: images en vue premiere personne mesurees
+  known_cause: 'REGRESSION d''un acquis valide le 2026-08-29 (« Pour la vue en premiere personne et la
+    visiere de Keira c''est regle, bien joue »). L''owner, 13/09 : on voit les modeles HD de Jak et Daxter
+    DE L''INTERIEUR en vue premiere personne. Le correctif d''aout existe dans l''historique (`git log
+    -S` sur le masquage premiere personne des modeles HD, `goal_src/jak1/pc/jak-hd.gc`, `Merc2.cpp`) :
+    chercher d''abord QUEL commit l''a defait — pas de temps fixe (`fixed_tick`), interpolation d''animation
+    (`render_pace`, `*anim-interp-on*`), correctif d''etirement HD — avant de le reecrire. CONTRAINTE
+    DE L''OWNER : ne rien casser de ces trois-la.'
+  deliverable: |-
+    `firstperson_hd_inside_px` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUPABLE EST NOMME : publier le commit qui a defait le masquage (bisect sur la grandeur ci-dessous), et la raison.
+    2. AUCUN PIXEL DU MODELE HD DE JAK OU DE DAXTER N'EST DESSINE EN VUE PREMIERE PERSONNE : compte de pixels ecrits par leurs draws pendant que la vue premiere personne est active, sur une sequence scriptee qui l'active : zero, avec le compte d'images en premiere personne comme denominateur (non nul).
+    3. RIEN D'AUTRE NE CASSE : le pas de temps fixe, le jitter d'animation et l'etirement HD gardent leurs cles de preuve (reprendre les cles publiees par leurs items et montrer qu'elles gardent leurs valeurs, avant/apres).
+    4. LE MASQUAGE EST GARDE PAR UN TEMOIN : publier la cle qui dit que le masquage est actif, pour que la prochaine regression rougisse une porte au lieu d'attendre l'oeil de l'owner.
+    PREUVE : `FEATURE firstperson-hd-hide armed=1 hits=<images en vue premiere personne mesurees>` + la ligne `firstperson_hd_inside_px=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'En vue premiere personne (viser), avec les modeles HD : on ne doit voir ni l''interieur de la
+    tete de Jak ni Daxter.'
+  out_of_scope: Ne touche ni au pas de temps fixe, ni a l'interpolation d'animation, ni au correctif d'etirement
+    HD autrement que pour prouver qu'ils tiennent. Tout ce qui n'est pas cet item.
 - id: text-tone
   feature: Le ton des textes du jeu, trop formel
   status: validated
@@ -4923,7 +4958,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: to-test
+  status: open
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -4956,6 +4991,19 @@ items:
     text: pour l'occlusion ambiante par contre je remarque que en qualite faible j'ai le damier (teste
       en SSAO, premier screen), en qualite elevee j'ai le damier (teste en GTAO, deuxieme screen), troisieme
       screen AO off, et j'ai joint un screen ou on voit clairement l'AO au dessus des shrubs
+  - date: '2026-09-13'
+    text: 'Occlusion ambiante : j''ai poussé à l''extrême les tests... Du coup GTAO en qualité élevé et
+      force plus fort (pour exagérer au plus possible)... Sur les façades même en élevé on a un aspect
+      pixelisé, comme si c''était un filtre collé par dessus en pauvre qualité au final (d''ailleurs étrangement
+      aux contact on a comme une petite bande ou l''ao n''a pas d''effet, laissant une bande de quelques
+      pixels éclairée sans AO, c''est distrayant. Idem en SSAO en élevé, idem en HBAO. L''effet est pire
+      en qualité faible, là c''est carrément dégueulasse et inexploitable (plus un damier comme avant
+      c''est mieux hein, mais c''est inconsistant, avec des bandes, pixelisés, ça bouge, c''est laid.
+      Il y a toujours l''occlusion ambiante sur tous les shrubs en dehors de la zone occupée par une texture,
+      donc des ombres qui flottent dans le vide... D''ailleurs à ce propos, les shrubs qui bougent avec
+      le vent... Leur AO reste à la place initiale (en plus de d''avoir de l''AO sur les parties transparentes)
+      alors que le "vent" les fait bouger (un feature qu''on a terminé il y a quelques jours) et ça aussi
+      c''est un désastre.'
   gate:
     key: ao_direct_leak_px
     op: ==
@@ -4984,6 +5032,12 @@ items:
     (e) LE DAMIER EST AUX DEUX BOUTS, ET DANS LES DEUX ALGORITHMES. C'est la precision qui manquait ce matin : il n'est pas un artefact de la qualite basse, il est present en SSAO faible ET en GTAO elevee. Or la porte a publie une force de motif periodique de 9, 15 et 27 pour un plafond de 1 600 aux trois paliers. CETTE MESURE EST DONC REFUTEE PAR L'OEIL AUX DEUX EXTREMITES : elle mesure le tampon d'AO, l'owner voit l'image finale. L'item doit publier une mesure de motif periodique prise SUR L'IMAGE RENDUE, au vantage de l'owner, et prouver qu'elle voit le damier qu'il voit — en le retrouvant sur le binaire d'AVANT. Une grandeur qui ne retrouve pas le defaut connu ne peut pas prouver sa disparition.
     (f) LE COUT N'A JAMAIS ETE CHIFFRE. CORRECTION DU SUPERVISEUR, 12/09 : j'avais lu les compteurs d'images des captures de l'owner comme une mesure. C'EST FAUX et il l'a corrige — « pour le framerate attention c'est juste fortement variable, non on passe pas de 136 a 27, prend pas ca pour une mesure ». Trois captures prises a trois instants ne comparent rien. Il reste que le cout de l'AO n'a ete chiffre par AUCUN essai de cet item. Publier le temps par image, AO eteinte puis SSAO puis GTAO, au MEME vantage, sur le MEME binaire, camera immobile, avec le nombre d'images de chaque releve. Un releve de moins de 300 images ne compte pas, et une cadence lue sur une image ne compte pas du tout.
     (g) LES SHRUBS, AVEC UNE IMAGE. Le quatrieme ecran montre l'AO posee au-dessus du feuillage des shrubs, en exterieur. C'est le meme defaut que le verdict (c), et il est desormais localise : exterieur, shrubs, pas seulement les brins d'herbe.
+    S'AJOUTE (TROISIEME REFUS DE L'OWNER, 2026-09-13, GTAO/SSAO/HBAO en Eleve et force au maximum, puis Faible) :
+    (h) LA BANDE DE CONTACT SANS AO DISPARAIT. Aux contacts entre deux surfaces, quelques pixels restent eclaires sans AO (la zone de rejet des discontinuites de profondeur). Publier la largeur en pixels de la bande ou AO = 1 le long des aretes de contact detectees, par palier : elle vaut 0 ou est declaree et justifiee, jamais « quelques pixels ».
+    (i) L'AO SUIT LE VENT ET LE CONTACT. FAIT MESURE (investigation du 13/09) : `prepass_world.vert:29-38` lit `position_in` BRUTE (commentaire « Pas de vent » a la ligne 8) alors que `shrub.vert:20-21` applique `tie_sway.glsl` et `vegetation_contact.glsl` dans la passe couleur. La prepasse doit appliquer le MEME deplacement de sommet que la couleur pour shrub, TIE (et herbe si elle y participe). Publier l'ecart de position, en pixels, entre la profondeur de prepasse et la profondeur de scene sur des shrubs en mouvement : zero au quantum pres.
+    (j) L'ALPHA EST RESPECTE DANS LA PREPASSE, SUR L'APPAREIL, VENT ALLUME. La porte precedente a rendu zero et l'owner voit encore de l'AO hors des textures : mesurer sur le Redmi, shrubs en mouvement, le compte de pixels d'AO < 1 dont le fragment de couleur est transparent (alpha sous le seuil de decoupe) : zero. Publier aussi le compte de fragments transparents testes, non nul.
+    (k) RIEN NE BOUGE CAMERA FIXE. Camera immobile, scene immobile, vent COUPE pour la mesure : variation du tampon d'AO entre deux images consecutives = 0 texel a tous les paliers. Le « ca bouge dans tous les sens » est ce compte.
+    (l) LA RESOLUTION EST CELLE DU PALIER, ET LE FILTRE EST CONSCIENT DE LA PROFONDEUR. Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de remontee ; en Eleve l'AO est pleine resolution ou filtree par un flou bilateral qui ne traverse pas les aretes (compte de texels ou le filtre a melange deux profondeurs a plus de 1 % d'ecart = zero). Un palier plus laid qu'AO ETEINTE reste un DEFAUT ; Faible doit etre exploitable ou retire du menu.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting
     OFF ; tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC
     1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
@@ -6248,8 +6302,8 @@ items:
   block_reason: null
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
-  status: to-test
-  priority: 24
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: overlap_defects
@@ -6299,10 +6353,17 @@ items:
     attempt: 2
     journal: validator-002.txt
   delivered: '2026-09-13'
+  owner_ok:
+    date: '2026-09-13'
+    text: Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé
+    build_sha: 17fe0f99fa745232
+  owner_feedback:
+  - date: '2026-09-13'
+    text: Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé
 - id: perf-thread-build
   feature: Le fil GOAL tourne sur un gros coeur, dans un binaire release
-  status: to-test
-  priority: 25
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: sched_defects
@@ -6349,6 +6410,13 @@ items:
     attempt: 3
     journal: validator-003.txt
   delivered: '2026-09-13'
+  owner_ok:
+    date: '2026-09-13'
+    text: Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé
+    build_sha: 17fe0f99fa745232
+  owner_feedback:
+  - date: '2026-09-13'
+    text: Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé
 - id: perf-actor-pause-dist
   feature: Les acteurs loin de Jak dorment comme sur PS2, et c'est un reglage
   status: open
@@ -7646,7 +7714,7 @@ items:
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:7
 - id: menu-dpad-steps
-  priority: 24
+  priority: null
   device: true
   feature: Une pression sur la croix deplace d'UN cran, jamais deux
   gate:
@@ -7664,7 +7732,7 @@ items:
     maintien reste possible, mais elle commence apres un delai declare et avance a cadence declaree.'
   where: 'Options, puis n''importe quel sous-menu : une pression = une ligne, au doigt comme a la manette'
   out_of_scope: Ne pas retoucher la mise en page des menus ni l'ordre des lignes.
-  status: to-test
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7679,6 +7747,8 @@ items:
     text: parcourir les menus au d-pad tactile est un peu pete, pas teste a la manette mais quand on appuie
       un cran vers le bas par example, parfois ca saute deux ou plus items au lieu d'un seul, pareil dans
       les sous menus et compagnie
+  - date: '2026-09-13'
+    text: Navigation au D-Pad, validé
   gate_verdict:
     result: porte-tenue
     date: '2026-09-13'
@@ -7687,8 +7757,12 @@ items:
     attempt: 3
     journal: validator-003.txt
   delivered: '2026-09-13'
+  owner_ok:
+    date: '2026-09-13'
+    text: Navigation au D-Pad, validé
+    build_sha: 17fe0f99fa745232
 - id: menu-back-label
-  priority: 24
+  priority: null
   device: true
   feature: Le « Retour » des sous-menus affiche le bon texte, pas une chaine au hasard
   gate:
@@ -7708,7 +7782,7 @@ items:
   where: 'Options > Recharged > Recharged Lighting, puis les autres sous-menus : la ligne de retour dit
     « Retour », et aucune ligne ne porte un texte qui n''a rien a y faire'
   out_of_scope: Ne pas retraduire le jeu ni toucher aux polices. On corrige la correspondance identifiant/texte.
-  status: to-test
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7720,6 +7794,8 @@ items:
   - date: '2026-09-11'
     text: dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous
       menus des reglages realtime lighting, p'tetre dans les autres aussi
+  - date: '2026-09-13'
+    text: Labels retour propres dans les menus, validé
   gate_verdict:
     result: porte-tenue
     date: '2026-09-12'
@@ -7728,6 +7804,10 @@ items:
     attempt: 3
     journal: validator-003.txt
   delivered: '2026-09-12'
+  owner_ok:
+    date: '2026-09-13'
+    text: Labels retour propres dans les menus, validé
+    build_sha: 17fe0f99fa745232
 - id: hdr-study
   status: validated
   priority: 17
@@ -8708,7 +8788,7 @@ items:
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:2
 - id: mesh-consolidate-without-consumer
-  status: in-progress
+  status: validated
   priority: 29
   game: jak1
   device: true
@@ -8740,15 +8820,20 @@ items:
   - OG_LIGHTING=1
   - OG_LEVEL_WARP=village1-warp
   - OG_WANT_LEVELS=village1,beach
-  - OG_MESH_BITS=65536
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.want.levels=village1,beach
-  - debug.opengoal.mesh.bits=65536
   prompt: prompts/item-mesh-consolidate-without-consumer.md
   notes: issu du signalement de dead-cover-and-legends, 12/09.
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-13'
+    proof_sha: bd31a38619d9a598
+    proof_bytes: 39173
+    attempt: 2
+    journal: validator-002.txt
 - id: dead-published-keys-round-2
   status: validated
   priority: 33
@@ -8838,7 +8923,7 @@ items:
     de harnais.
   code_scope: harnais
 - id: dead-literals-round-3
-  status: open
+  status: in-progress
   priority: 36
   game: jak1
   device: false
@@ -8920,7 +9005,7 @@ items:
     attempt: 4
     journal: validator-004.txt
 - id: water-ocean-mesh-hit-counter-cost
-  status: open
+  status: validated
   priority: 30
   game: jak1
   device: true
@@ -8952,6 +9037,19 @@ items:
   prompt: prompts/item-water-ocean-mesh-hit-counter-cost.md
   notes: issu du signalement de census-audit-blind-spots, 12/09 ; visible seulement depuis que les prises
     sont comptees par feature.
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.water=1
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_WATER=1
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-13'
+    proof_sha: d9a028e354ba05fb
+    proof_bytes: 39069
+    attempt: 3
+    journal: validator-003.txt
 - id: harness-reload-must-not-kill-the-loop
   status: validated
   priority: 19
@@ -9034,7 +9132,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-shadow-range
-  status: to-test
+  status: open
   priority: 21
   game: jak1
   device: true
@@ -9066,6 +9164,7 @@ items:
     3. RIEN NE S'ASSOMBRIT GLOBALEMENT. C'est le retour de l'owner du 11/09, il tient toujours : publier la luminosite moyenne de l'image, HDR eteint puis allume, sur la meme scene. Elle ne baisse pas.
     4. LES HAUTES LUMIERES NE REGRESSENT PAS : reprendre les cles de `hdr-output-regime` et montrer qu'elles gardent leurs valeurs. Ce que l'owner voit deja ne doit pas etre echange contre ce qu'il ne voit pas encore.
     5. LE REGIME EST EPINGLE ET PUBLIE : `chain_active`, `scene_fmt` et le regime de sortie a cote du verdict. Une mesure faite chaine eteinte, en 8 bits, ne dit rien de ce sujet.
+    6. L'EFFET SE VOIT, OU L'ITEM LE DIT (refus de l'owner du 13/09 : « je vois pas plus de détails dans les ombres à on versus off »). La porte precedente etait verte par INACTION : tout etait en negatif. Publier, sur la MEME scene sombre nommee, l'histogramme des luminances du premier dixieme de la plage, sortie HDR eteinte puis allumee : le nombre de paliers distincts REELLEMENT utilises doit croitre au-dessus d'un plancher declare (au moins x1,5), et la difference d'image restreinte aux pixels sombres doit etre non nulle et publiee. Si le contenu de scene n'a rien a offrir dans les ombres (source 8 bits, terme indirect nul), l'item le DIT et nomme l'item de la refonte lumiere qui doit le fournir, au lieu de passer.
   where: 'Sur le HONOR, sortie HDR allumee : une scene sombre — interieur, grotte, nuit — et les zones
     d''ombre. Il doit y avoir plus de detail qu''en SDR, sans que l''image s''assombrisse globalement.'
   out_of_scope: 'Ne touche pas au placement du blanc ni au choix du regime : `hdr-output-regime` les a
@@ -9085,6 +9184,9 @@ items:
     attempt: 1
     journal: validator-001.txt
   delivered: '2026-09-12'
+  owner_feedback:
+  - date: '2026-09-13'
+    text: Pour le HDR c'est pas mal mais je vois pas plus de détails dans les ombres à on versus off
 - id: build-android-reinvalidates-itself
   status: validated
   priority: 18
@@ -10898,4 +11000,46 @@ items:
   hits_means: niveaux cuits et charges
   prompt: prompts/item-soft-levels.md
   owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: shrub-trunk-contact
+  priority: 33
+  device: true
+  feature: Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires
+  gate:
+    key: shrub_trunk_squash_defects
+    op: ==
+    value: 0
+  known_cause: 'Signale par l''owner le 13/09. FAIT MESURE (investigation du 13/09) : `shrub.vert:20-21`
+    inclut `tie_sway.glsl` et `vegetation_contact.glsl` et applique la loi de contact de l''HERBE (rayon
+    2,2 m autour de Jak, bande d''altitude -1,5..+2 m, MAX des echantillons) a TOUS les sommets du shrub,
+    tronc compris. Un tronc n''est pas un brin : il ne doit pas se coucher, et les feuilles doivent rester
+    attachees a lui. Il faut une classe par sommet ou par draw (tronc rigide / feuillage souple) — a etablir
+    depuis les donnees (texture, hauteur au-dessus de la racine, prototype), jamais a la main.'
+  deliverable: |-
+    `shrub_trunk_squash_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LE TRONC NE BOUGE PAS : deplacement maximal des sommets classes tronc sous contact, sur les mini-palmiers de Geyser Rock : zero au quantum pres, avec le compte de sommets tronc testes (non nul).
+    2. LES FEUILLES RESTENT ATTACHEES : ecart de deplacement a la jonction feuille/tronc (sommets partages ou coincidents) = zero ; les feuilles bougent toujours sous contact (deplacement max des sommets feuillage NON NUL — un zero global serait un defaut, pas une reussite).
+    3. LA CLASSE VIENT DES DONNEES : publier la regle de classement tronc/feuillage et le compte de sommets par classe et par prototype de shrub, sur les niveaux qui en portent ; aucune liste tenue a la main.
+    4. RIEN D'AUTRE NE CHANGE : le vent des shrubs (valide par l'owner le 13/09) et le contact de l'herbe gardent leurs cles ; OFF bit-identique par binaire-temoin.
+    PREUVE : `FEATURE shrub-trunk-contact armed=1 hits=<sommets de shrub classes>` + la ligne `shrub_trunk_squash_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s''ecartent, le tronc reste droit,
+    rien ne se detache.'
+  out_of_scope: Ne change pas la loi de contact de l'herbe ni le vent. Tout ce qui n'est pas cet item.
+  notes: 'Ne du retour owner du 13/09 sur le build 602cd72eb7. Meme chunk GLSL que l''herbe : vegetation_contact.glsl.'
+  hits_means: sommets de shrub classes
+  prompt: prompts/item-shrub-trunk-contact.md
+  owner_feedback:
+  - date: '2026-09-13'
+    text: je sais pas pour qu'elle raison les mini palmiers... Les feuilles bougent quand on collisionne
+      avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile
+      (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
   owner_ok: null

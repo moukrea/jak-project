@@ -5,7 +5,7 @@
 # Le bas de la plage : du detail dans les ombres, pas seulement dans les hautes lumieres
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-13 : « Pour le HDR c'est pas mal mais je vois pas plus de détails d… »
 
 ## Cause connue
 RETOUR DE L'OWNER DU 12/09, teste sur le HONOR, mot pour mot : « scRGB display HDR c'est ce que ca dit pour le HDR on/off sur HONOR, en effet toggled on on a plus de details/pop dans les hauts blanc/zones brillantes, peut-etre un chouille plus de saturation globale (vraiment un chouilla) et pas plus de detail dans les ombres.... peut etre que c'est vraiment le max de ce qu'on peut esperer en l'etat ? je sais pas »
