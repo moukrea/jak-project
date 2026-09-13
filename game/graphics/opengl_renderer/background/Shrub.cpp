@@ -776,6 +776,8 @@ void Shrub::render_tree(int idx,
     }
 
     first_tfrag_draw_setup(settings.camera, render_state, ShaderId::SHRUB);
+    // mesh-consolidate-without-consumer : location 5 = `seam_w` pour ce VAO (bind ~285).
+    mesh_unconsumed_census::probe_bound_attrib(render_state->shaders[ShaderId::SHRUB].id(), 5);
 
 
     glBindVertexArray(tree.vao);

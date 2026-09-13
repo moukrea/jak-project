@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
 #include <mutex>
 #include <tuple>
 #include <unordered_map>
@@ -2845,3 +2846,103 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     prepass::on_first_camera(state, data.camera);
   }
 }
+
+// =================================================================================================
+// mesh-consolidate-without-consumer (2026-09-13) — LE RECENSEMENT DES CONSOMMATEURS.
+// Aucun grep : le pilote GL est la seule autorite sur « qui lit cet attribut ». Un attribut declare
+// mais jamais lu est RETIRE par le compilateur GLSL, donc absent de la liste des attributs ACTIFS.
+// =================================================================================================
+namespace mesh_unconsumed_census {
+namespace {
+std::set<std::pair<u64, int>> s_seen_pairs;
+uint64_t s_pairs_probed = 0;
+uint64_t s_seam_readers = 0;
+uint64_t s_active_attrs_seen = 0;
+uint64_t s_programs_probed = 0;
+uint64_t s_tess_programs = 0;
+bool s_library_probed = false;
+}  // namespace
+
+void probe_bound_attrib(u64 program, int location) {
+  if (!program) {
+    return;
+  }
+  const auto key = std::make_pair(program, location);
+  if (!s_seen_pairs.insert(key).second) {
+    return;
+  }
+  s_pairs_probed++;
+  GLint n = 0;
+  GLint max_len = 0;
+  glGetProgramiv((GLuint)program, GL_ACTIVE_ATTRIBUTES, &n);
+  glGetProgramiv((GLuint)program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_len);
+  s_active_attrs_seen += (uint64_t)(n < 0 ? 0 : n);
+  if (max_len < 1) {
+    max_len = 1;
+  }
+  std::vector<char> name((size_t)max_len + 1, 0);
+  for (GLint i = 0; i < n; i++) {
+    GLsizei written = 0;
+    GLint size = 0;
+    GLenum type = 0;
+    name[0] = 0;
+    glGetActiveAttrib((GLuint)program, (GLuint)i, max_len, &written, &size, &type, name.data());
+    name[(size_t)max_len] = 0;
+    const GLint loc = glGetAttribLocation((GLuint)program, name.data());
+    if (loc == location) {
+      s_seam_readers++;
+    }
+  }
+}
+
+void probe_library(ShaderLibrary& shaders) {
+  if (s_library_probed) {
+    return;
+  }
+  s_library_probed = true;
+  for (int id = 0; id < (int)ShaderId::MAX_SHADERS; id++) {
+    auto& sh = shaders[(ShaderId)id];
+    if (!sh.okay()) {
+      continue;
+    }
+    s_programs_probed++;
+#if defined(GL_TESS_EVALUATION_SHADER) && defined(GL_TESS_CONTROL_SHADER)
+    GLuint attached[8] = {};
+    GLsizei count = 0;
+    glGetAttachedShaders((GLuint)sh.id(), 8, &count, attached);
+    for (GLsizei i = 0; i < count; i++) {
+      GLint t = 0;
+      glGetShaderiv(attached[i], GL_SHADER_TYPE, &t);
+      if (t == GL_TESS_EVALUATION_SHADER || t == GL_TESS_CONTROL_SHADER) {
+        s_tess_programs++;
+        break;
+      }
+    }
+#endif
+  }
+}
+
+void publish() {
+  // CE SITE EST DANS LE CHEMIN DE DESSIN — appele une fois par arbre et par image. Les comptes ne
+  // bougent qu'a la DECOUVERTE d'un couple neuf (une poignee de fois par course) : republier a
+  // chaque arbre ne ferait que prendre un mutex des milliers de fois par seconde dans un projet
+  // dont la plainte ouverte est le temps par image. On ne republie que ce qui a change.
+  static uint64_t s_last = UINT64_MAX;
+  const uint64_t etat = s_pairs_probed * 1000003u + s_seam_readers * 101u + s_active_attrs_seen +
+                        s_programs_probed * 7u + s_tess_programs * 13u;
+  if (etat == s_last) {
+    return;
+  }
+  s_last = etat;
+  autoport_proof::publish("mesh_seam_attrib_pairs_probed", s_pairs_probed);
+  autoport_proof::publish("mesh_seam_attrib_readers", s_seam_readers);
+  autoport_proof::publish("mesh_seam_attrib_active_seen", s_active_attrs_seen);
+  autoport_proof::publish("mesh_programs_probed", s_programs_probed);
+  autoport_proof::publish("mesh_tess_stage_programs", s_tess_programs);
+#if defined(GL_TESS_EVALUATION_SHADER) && defined(GL_TESS_CONTROL_SHADER)
+  autoport_proof::publish("mesh_tess_enum_known", 1);
+#else
+  autoport_proof::publish("mesh_tess_enum_known", 0);
+#endif
+}
+}  // namespace mesh_unconsumed_census

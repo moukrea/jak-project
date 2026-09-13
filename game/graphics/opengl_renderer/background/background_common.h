@@ -299,3 +299,14 @@ u32 make_index_list_from_vis_and_proto_string(std::pair<int, int>* group_out,
                                               const std::vector<u8>& proto_vis_data,
                                               const u32* idx_in,
                                               u32* num_tris_out);
+
+// mesh-consolidate-without-consumer — LE COMPTE DE LECTEURS, DEMANDE AU PILOTE.
+// `probe_bound_attrib` s'appelle AU POINT D'APPEL : le programme qui va dessiner, et la location a
+// laquelle CE VAO a branche un attribut qu'on croit sans lecteur. Une seule fois par couple.
+// Un attribut qu'aucun etage ne lit est retire par le compilateur GLSL : il n'est pas ACTIF, et
+// c'est le pilote qui le dit. Un grep ne le dirait pas.
+namespace mesh_unconsumed_census {
+void probe_bound_attrib(u64 program, int location);
+void probe_library(ShaderLibrary& shaders);
+void publish();
+}  // namespace mesh_unconsumed_census

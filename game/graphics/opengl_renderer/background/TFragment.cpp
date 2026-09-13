@@ -676,6 +676,12 @@ void TFragment::render_tree(int geom,
   const ShaderId tfrag_shader_id = ShaderId::TFRAG3;
 
   first_tfrag_draw_setup(settings.camera, render_state, tfrag_shader_id);
+  // mesh-consolidate-without-consumer : le compte de lecteurs, demande au PILOTE, sur le programme
+  // qui DESSINE ce VAO (le VAO branche `seam_w` a la location 6, voir glVertexAttribPointer(6, ...)).
+  mesh_unconsumed_census::probe_bound_attrib(
+      render_state->shaders[tfrag_shader_id].id(), 6);
+  mesh_unconsumed_census::probe_library(render_state->shaders);
+  mesh_unconsumed_census::publish();
 
   glBindVertexArray(tree.vao);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);

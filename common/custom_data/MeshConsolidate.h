@@ -356,6 +356,15 @@ constexpr u32 kMeshBitNoTanPositive = 16384;
 // An A/B killswitch for the liveness result, nothing else.
 constexpr u32 kMeshBitNoGroupUnify = 32768;
 
+// mesh-consolidate-without-consumer (2026-09-13). A/B, OFF par defaut comme toutes ses voisines :
+// ON RESTAURE le comportement d'avant cet item sur le chemin du JEU. Le cadre tangent par sommet et
+// le poids de couture `seam_w` n'ont AUCUN lecteur dans le moteur livre — aucun `.vert` ne declare
+// l'attribut, aucun programme lie ne porte d'etage de tessellation, et le seul consommateur de
+// l'invariant, `tfrag3_tess.tese`, est supprime. Le jeu cesse donc de les produire ; les outils hors
+// ligne (`tools/mesh_audit --bake`, `tess_audit`, `tess_sign`) les produisent toujours, parce qu'eux
+// les NOTENT. C'est ce bit qui permet de mesurer le cout evite sur le MEME binaire.
+constexpr u32 kMeshBitKeepUnconsumed = 65536;
+
 // Read the runtime config (Android props / desktop env), so the device and the offline tool agree.
 MeshConsolidateConfig mesh_consolidate_config_from_env();
 
@@ -391,10 +400,31 @@ struct MeshBakeData {
 // normals, colour indices, seam weights) and may append entries to the per-tree colour palettes.
 // Deterministic: identical input -> identical output, on device and offline.
 // Pass a non-null `bake` to also capture the result for the precompute sidecar.
+// LE COUT, MESURE, DE CE QUE PERSONNE NE LIT. Compteurs de processus, sommes sur tous les
+// chargements de niveau de cette instance. Ecrits par le fil de chargement, lus par le fil
+// graphique : atomiques.
+//   mesh_unconsumed_ns()        ns passes a produire des sorties sans lecteur (0 apres l'item)
+//   mesh_unconsumed_skipped()   sommets dont le travail a ete SAUTE (temoin d'anti-vacuite : un
+//                               zero de temps ne vaut que si celui-ci est non nul)
+//   mesh_consolidate_total_ns() ns passes dans TOUT le bloc de consolidation (denominateur)
+//   mesh_consolidate_loads()    chargements de niveau ayant atteint le bloc (DENOMINATEUR : a
+//                               zero, aucune grandeur ci-dessus ne veut dire quoi que ce soit)
+//   mesh_consolidate_sidecar_loads() / _live_loads()  la repartition des deux chemins
+u64 mesh_unconsumed_ns();
+u64 mesh_unconsumed_skipped();
+u64 mesh_consolidate_total_ns();
+u64 mesh_consolidate_loads();
+u64 mesh_consolidate_sidecar_loads();
+u64 mesh_consolidate_live_loads();
+
+// `unconsumed_outputs=false` : l'appelant ne lit ni le cadre tangent ni `seam_w` et demande qu'ils
+// ne soient pas produits. Seul le JEU le passe ; la valeur par defaut `true` garde les trois outils
+// hors ligne bit pour bit identiques.
 void mesh_consolidate(Level& lev,
                       const MeshConsolidateConfig& cfg,
                       MeshAuditReport* out,
-                      MeshBakeData* bake = nullptr);
+                      MeshBakeData* bake = nullptr,
+                      bool unconsumed_outputs = true);
 
 // ---- precompute sidecar ----
 // Bake once offline (tools/mesh_audit --bake), load at level load, pay ~0. Measured on the Redmi the
@@ -406,7 +436,10 @@ bool mesh_consolidate_bake_write(const std::string& level_name,
                                  const std::string& path);
 // Returns false (and leaves the level untouched) if the file is absent, corrupt, or was baked from
 // different geometry — the caller must then run the live pass.
-bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_shrub);
+// `unconsumed_outputs=false` : l'appelant ne lit ni le cadre tangent ni `seam_w` et demande qu'ils
+// ne soient pas produits. Seul le JEU le passe.
+bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_shrub,
+                                 bool unconsumed_outputs = true);
 
 // Human/machine readable per-level block. The offline tool concatenates these for every level of
 // every game; the device writes the current level's block to files/mesh_audit.txt.

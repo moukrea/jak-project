@@ -45,6 +45,7 @@
 #include "third-party/imgui/imgui.h"
 AUTOPORT_FEATURE_SITE("recharged-texture-hotreload");
 AUTOPORT_FEATURE_SITE("cutscene-npc-flicker");
+AUTOPORT_FEATURE_SITE("mesh-consolidate-without-consumer");
 
 // ============================================================================================
 // Gcutscene-npc-flicker — L'AGE D'UN NIVEAU, ET POURQUOI LE MAIRE DISPARAISSAIT
@@ -162,6 +163,20 @@ static void publish_level_age_counters() {
   autoport_proof::publish("npc_merc_vec_empty", s_npcf_merc_vec_empty);
   autoport_proof::publish("npc_merc_key_missing", s_npcf_merc_key_missing);
   autoport_proof::publish("npc_level_age_max", s_npcf_level_age_max);
+  // mesh-consolidate-without-consumer : le temps de chargement paye pour une sortie sans lecteur.
+  // LE DENOMINATEUR D'ABORD — sans chargement consolide, un zero de temps ne mesure rien, et la
+  // grandeur publiee est une SENTINELLE qui fait rougir la porte au lieu de la laisser verte par
+  // inaction.
+  const uint64_t mc_loads = tfrag3::mesh_consolidate_loads();
+  autoport_proof::publish("mesh_consolidate_loads", mc_loads);
+  autoport_proof::publish("mesh_consolidate_sidecar_loads", tfrag3::mesh_consolidate_sidecar_loads());
+  autoport_proof::publish("mesh_consolidate_live_loads", tfrag3::mesh_consolidate_live_loads());
+  autoport_proof::publish("mesh_consolidate_total_ms_x100",
+                          (tfrag3::mesh_consolidate_total_ns() + 5000) / 10000);
+  autoport_proof::publish("mesh_unconsumed_verts_skipped", tfrag3::mesh_unconsumed_skipped());
+  autoport_proof::publish("mesh_consolidate_waste_ms_x100",
+                          mc_loads == 0 ? (uint64_t)999999
+                                        : (tfrag3::mesh_unconsumed_ns() + 5000) / 10000);
   // La ligne que BRAS 2 de la garde (.autoport/lib/npcf_dead_counter_gate.py) inspecte : un
   // compteur imprime ici doit avoir un site d'ecriture ailleurs, sinon la garde mord.
   static uint64_t s_beat = 0;
@@ -776,6 +791,13 @@ void Loader::loader_thread() {
           recharged_gating::on(recharged_gating::kRtLight)) {
         const auto cfg = tfrag3::mesh_consolidate_config_from_env();
         const bool do_shrub = (cfg.bits & tfrag3::kMeshBitNoShrub) == 0;
+        // Le jeu ne lit NI le cadre tangent par sommet NI `seam_w` : mesure, pas suppose — aucun
+        // programme lie ne porte d'etage de tessellation et aucun n'a d'attribut actif a la
+        // location ou ces VAO branchent `seam_w` (cles `mesh_tess_stage_programs`,
+        // `mesh_seam_attrib_readers`). Il demande donc qu'ils ne soient pas produits. Le bit
+        // RESTAURE l'ancien comportement pour mesurer, sur ce meme binaire, ce qu'ils coutaient.
+        const bool mesh_unconsumed = (cfg.bits & tfrag3::kMeshBitKeepUnconsumed) != 0;
+        autoport_proof::note_hit_for("mesh-consolidate-without-consumer");
         // PRECOMPUTE FIRST (the owner's standing preference, and a hard requirement here: measured
         // on the Redmi the live pass costs 45.8 s of village1's load). The sidecar is baked offline
         // by tools/mesh_audit --bake and validated against the fr3's structure, so a rebuilt or
@@ -789,12 +811,13 @@ void Loader::loader_thread() {
           // cannot — so this precedence IS the delivery route for every geometry fix.
           const auto name = tfrag3::mesh_consolidate_bake_name(result->level_name);
           const auto route = file_util::resolve_fr3_asset(g_game_version, name);
-          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, route.path.string(), do_shrub);
+          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, route.path.string(), do_shrub,
+                                                       mesh_unconsumed);
         }
         if (!from_bake) {
           auto p = scoped_prof("mesh-consolidate");
           tfrag3::MeshAuditReport audit;
-          tfrag3::mesh_consolidate(*result, cfg, &audit);
+          tfrag3::mesh_consolidate(*result, cfg, &audit, nullptr, mesh_unconsumed);
           audit.game_name = version_to_game_name(g_game_version);
           const std::string text = tfrag3::format_mesh_audit(audit, cfg);
           lg::info("[mesh-consolidate] {}", text);

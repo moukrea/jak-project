@@ -1225,6 +1225,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // setup OpenGL shader
   first_tfrag_draw_setup(settings.camera, render_state, shader_id);
 
+  // mesh-consolidate-without-consumer : location 6 = `seam_w` pour ce VAO (bind ~570).
+  mesh_unconsumed_census::probe_bound_attrib(render_state->shaders[shader_id].id(), 6);
+
   if (use_envmap) {
     // if we use envmap, use the envmap-style math for the base draw to avoid rounding issue.
     init_etie_cam_uniforms(m_etie_base_uniforms, m_common_data.settings.camera);

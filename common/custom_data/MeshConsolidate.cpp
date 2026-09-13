@@ -510,7 +510,40 @@ bool check_fingerprint(BR& r,
   return r.ok && r.u64v() == n;
 }
 
+// mesh-consolidate-without-consumer (2026-09-13) : LE COUT, MESURE, DE CE QUE PERSONNE NE LIT.
+// Ecrits par le fil de chargement, lus par le fil graphique : atomiques.
+std::atomic<u64> g_unconsumed_ns{0};
+std::atomic<u64> g_unconsumed_skipped{0};
+std::atomic<u64> g_consolidate_total_ns{0};
+std::atomic<u64> g_consolidate_loads{0};
+std::atomic<u64> g_consolidate_sidecar_loads{0};
+std::atomic<u64> g_consolidate_live_loads{0};
+inline u64 ns_since(const std::chrono::steady_clock::time_point& t0) {
+  return (u64)std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now() - t0)
+      .count();
+}
+
 }  // namespace
+
+u64 mesh_unconsumed_ns() {
+  return g_unconsumed_ns.load(std::memory_order_relaxed);
+}
+u64 mesh_unconsumed_skipped() {
+  return g_unconsumed_skipped.load(std::memory_order_relaxed);
+}
+u64 mesh_consolidate_total_ns() {
+  return g_consolidate_total_ns.load(std::memory_order_relaxed);
+}
+u64 mesh_consolidate_loads() {
+  return g_consolidate_loads.load(std::memory_order_relaxed);
+}
+u64 mesh_consolidate_sidecar_loads() {
+  return g_consolidate_sidecar_loads.load(std::memory_order_relaxed);
+}
+u64 mesh_consolidate_live_loads() {
+  return g_consolidate_live_loads.load(std::memory_order_relaxed);
+}
 
 // ---------------------------------------------------------------------------------------------
 
@@ -551,7 +584,8 @@ MeshConsolidateConfig mesh_consolidate_config_from_env() {
 void mesh_consolidate(Level& lev,
                       const MeshConsolidateConfig& cfg,
                       MeshAuditReport* out,
-                      MeshBakeData* bake) {
+                      MeshBakeData* bake,
+                      bool unconsumed_outputs) {
   const auto t_start = std::chrono::steady_clock::now();
   MeshAuditReport rep;
   rep.level_name = lev.level_name;
@@ -562,6 +596,10 @@ void mesh_consolidate(Level& lev,
   const float wide_tol2 = wide_cell * wide_cell;
   const float crease_cos = std::cos(cfg.crease_deg * 3.14159265358979f / 180.f);
   const bool do_shrub = (cfg.bits & kMeshBitNoShrub) == 0;
+  // UNE SORTIE CAPTUREE EST UNE SORTIE LUE. Un bake DOIT tout produire, quoi qu'ait demande
+  // l'appelant : la perte est rendue impossible ici, au point de production, pas detectable plus tard.
+  const bool want_unconsumed = unconsumed_outputs || bake != nullptr;
+  g_consolidate_live_loads.fetch_add(1, std::memory_order_relaxed);
 
   // =============================================================================================
   // 0. GATHER every renderable vertex of every system into one global list.
@@ -3132,11 +3170,15 @@ void mesh_consolidate(Level& lev,
   // So do not patch the sign. Re-run the SAME Lengyel accumulation that produced the tangents in the
   // first place, now against the FINAL normals, so (T, w) is right by construction rather than
   // right-if-nothing-moved. The old flip is subsumed: an inverted normal is just the extreme case.
-  {
+  if (want_unconsumed) {
+    const auto t7b = std::chrono::steady_clock::now();
     const u64 retan = retangent_level_from_final_normals(lev);
     rep.orient_tangent_w_flipped += retan;
     lg::info("[mesh-consolidate] level={} retangent from final normals: {} vertex frames rewritten",
              lev.level_name, retan);
+    g_unconsumed_ns.fetch_add(ns_since(t7b), std::memory_order_relaxed);
+  } else {
+    g_unconsumed_skipped.fetch_add((u64)gvert.size(), std::memory_order_relaxed);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -3150,7 +3192,7 @@ void mesh_consolidate(Level& lev,
   //      Cheap (no rays, no authority), so like pass 12 it runs on every path, including the live
   //      device load, behind a killswitch only.
   // ---------------------------------------------------------------------------------------------
-  if ((cfg.bits & kMeshBitNoTanPositive) == 0) {
+  if (want_unconsumed && (cfg.bits & kMeshBitNoTanPositive) == 0) {
     const auto t12c = std::chrono::steady_clock::now();
     u64 tp_already = 0, tp_unsat = 0, tp_den = 0;
     const u64 tp_fixed =
@@ -3164,6 +3206,7 @@ void mesh_consolidate(Level& lev,
         "repaired={} unsatisfiable={} {:.1f} s",
         lev.level_name, tp_den, tp_already, tp_fixed, tp_unsat,
         std::chrono::duration<double>(std::chrono::steady_clock::now() - t12c).count());
+    g_unconsumed_ns.fetch_add(ns_since(t12c), std::memory_order_relaxed);
   }
 
   measure_normal_delta(rep.nrm_after, nullptr, false);
@@ -3777,7 +3820,8 @@ void mesh_consolidate(Level& lev,
   //    Everywhere else the world-space height lookup in the evaluation shader guarantees both sides
   //    sample the same height, so the relief is preserved at full strength.
   // =============================================================================================
-  if ((cfg.bits & kMeshBitNoSeam) == 0) {
+  if (want_unconsumed && (cfg.bits & kMeshBitNoSeam) == 0) {
+    const auto t9 = std::chrono::steady_clock::now();
     for (u32 g = 0; g < num_groups; g++) {
       bool material = group_multitex[g];
       bool system = group_multisystem[g];
@@ -3813,6 +3857,7 @@ void mesh_consolidate(Level& lev,
         }
       }
     }
+    g_unconsumed_ns.fetch_add(ns_since(t9), std::memory_order_relaxed);
   }
 
   // =============================================================================================
@@ -3946,6 +3991,8 @@ void mesh_consolidate(Level& lev,
   rep.elapsed_ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_start).count();
   rep.ran = true;
+  g_consolidate_total_ns.fetch_add(ns_since(t_start), std::memory_order_relaxed);
+  g_consolidate_loads.fetch_add(1, std::memory_order_relaxed);
   if (out) {
     *out = rep;
   }
@@ -3971,8 +4018,14 @@ static std::string histline(const char* name, const MeshDeltaHist& h, const char
 
 std::string format_mesh_audit(const MeshAuditReport& r, const MeshConsolidateConfig& cfg) {
   std::string o;
-  o += fmt::format("===== MESH AUDIT level={} game={} =====\n", r.level_name,
-                   r.game_name.empty() ? "?" : r.game_name);
+  // mesh-consolidate-without-consumer : LE TEMOIN DE CONTENU. Le recensement de l'item doit pouvoir
+  // dire si le binaire d'un OUTIL HORS LIGNE a ete rebati AVEC ce changement — sans quoi « le bake
+  // reproduit les memes octets » ne prouverait rien de cet item. Un horodatage dirait « plus recent
+  // que » ; ce litteral, lu par `strings` dans l'executable, dit « porte ce code ». Il est ici parce
+  // que `format_mesh_audit` est appelee par les trois outils comme par le jeu : le litteral ne peut
+  // etre elague nulle part.
+  o += fmt::format("===== MESH AUDIT level={} game={} build=MCWC-unconsumed-2026-09-13 =====\n",
+                   r.level_name, r.game_name.empty() ? "?" : r.game_name);
   if (!r.ran) {
     o += "  (no renderable geometry)\n";
     return o;
@@ -4158,7 +4211,9 @@ bool mesh_consolidate_bake_write(const std::string& level_name,
   }
 }
 
-bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_shrub) {
+bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_shrub,
+                                 bool unconsumed_outputs) {
+  const auto t_bake = std::chrono::steady_clock::now();
   std::vector<u8> raw;
   // Round 30 (delivery): the fingerprint of the bytes THIS PROCESS READ, so `md5sum` on the host can
   // prove which of the two copies (packaged vs external) actually reached the renderer. Two rounds of
@@ -4237,9 +4292,17 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
     if (!r.raw(bits.data(), bits_n)) {
       return false;
     }
-    for (u64 i = 0; i < N; i++) {
-      *(u16*)(gvert[i] + trees[gtree[i]].layout->seam_off) =
-          (bits[i >> 3] & (1u << (i & 7))) ? 0xffff : 0;
+    // Les octets sont lus quoi qu'il arrive — le flux doit rester aligne. Ce qu'on ne fait plus,
+    // c'est les RECOPIER dans un attribut de sommet que personne ne lit.
+    if (unconsumed_outputs) {
+      const auto t0 = std::chrono::steady_clock::now();
+      for (u64 i = 0; i < N; i++) {
+        *(u16*)(gvert[i] + trees[gtree[i]].layout->seam_off) =
+            (bits[i >> 3] & (1u << (i & 7))) ? 0xffff : 0;
+      }
+      g_unconsumed_ns.fetch_add(ns_since(t0), std::memory_order_relaxed);
+    } else {
+      g_unconsumed_skipped.fetch_add(N, std::memory_order_relaxed);
     }
   }
   // sparse positions
@@ -4298,27 +4361,35 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
   if (!r.ok) {
     return false;
   }
-  // ROUND 31 — re-derive the tangent frames LAST, once every input they depend on is restored:
-  // the sparse POSITION patch above moves welded vertices, so doing this any earlier would build
-  // the frames from pre-snap geometry and the baked path would disagree with the live one.
-  tan_flips = retangent_level_from_final_normals(lev);
-  // ROUND 32 — and then pass 12c, for the same reason and in the same order as the live path. The
-  // sidecar restores the NORMALS (pass 12's answer is baked into them) but tangents are not stored:
-  // they are a pure function of positions, uvs, indices and the final normals, all of which are
-  // restored above. So the frame has to be re-derived here AND made valid for every face that shares
-  // it, or a baked level's parallax would differ from a live-consolidated one. The killswitch is read
-  // from the same env/prop config the live pass uses, so an A/B bisect covers both paths.
-  {
-    const auto bake_cfg = mesh_consolidate_config_from_env();
-    if ((bake_cfg.bits & kMeshBitNoTanPositive) == 0) {
-      u64 tp_already = 0, tp_unsat = 0, tp_den = 0;
-      const u64 tp_fixed =
-          retangent_positive_from_final_normals(lev, &tp_already, &tp_unsat, &tp_den);
-      lg::info(
-          "[mesh-consolidate] level={} sidecar pass 12c tangent positivity: constrained={} "
-          "already_ok={} repaired={} unsatisfiable={}",
-          lev.level_name, tp_den, tp_already, tp_fixed, tp_unsat);
+  // mesh-consolidate-without-consumer : le cadre tangent et pass 12c ne servent a AUCUN lecteur
+  // du moteur livre. Quand l'appelant dit qu'il ne les lit pas, le sidecar ne les re-derive plus.
+  if (unconsumed_outputs) {
+    const auto t_unc = std::chrono::steady_clock::now();
+    // ROUND 31 — re-derive the tangent frames LAST, once every input they depend on is restored:
+    // the sparse POSITION patch above moves welded vertices, so doing this any earlier would build
+    // the frames from pre-snap geometry and the baked path would disagree with the live one.
+    tan_flips = retangent_level_from_final_normals(lev);
+    // ROUND 32 — and then pass 12c, for the same reason and in the same order as the live path. The
+    // sidecar restores the NORMALS (pass 12's answer is baked into them) but tangents are not stored:
+    // they are a pure function of positions, uvs, indices and the final normals, all of which are
+    // restored above. So the frame has to be re-derived here AND made valid for every face that shares
+    // it, or a baked level's parallax would differ from a live-consolidated one. The killswitch is read
+    // from the same env/prop config the live pass uses, so an A/B bisect covers both paths.
+    {
+      const auto bake_cfg = mesh_consolidate_config_from_env();
+      if ((bake_cfg.bits & kMeshBitNoTanPositive) == 0) {
+        u64 tp_already = 0, tp_unsat = 0, tp_den = 0;
+        const u64 tp_fixed =
+            retangent_positive_from_final_normals(lev, &tp_already, &tp_unsat, &tp_den);
+        lg::info(
+            "[mesh-consolidate] level={} sidecar pass 12c tangent positivity: constrained={} "
+            "already_ok={} repaired={} unsatisfiable={}",
+            lev.level_name, tp_den, tp_already, tp_fixed, tp_unsat);
+      }
     }
+    g_unconsumed_ns.fetch_add(ns_since(t_unc), std::memory_order_relaxed);
+  } else {
+    g_unconsumed_skipped.fetch_add(N, std::memory_order_relaxed);
   }
   lg::info("[mesh-consolidate] level={} loaded PRECOMPUTED sidecar ({} verts, tangent_w_flipped={}) "
            "— live pass skipped",
@@ -4332,6 +4403,9 @@ bool mesh_consolidate_apply_bake(Level& lev, const std::string& path, bool do_sh
       lev.level_name, path, comp_bytes, comp_md5, kBakeVersion, N, tan_flips);
   file_util::asset_route_journal(opened);
   lg::info("{}", opened);
+  g_consolidate_total_ns.fetch_add(ns_since(t_bake), std::memory_order_relaxed);
+  g_consolidate_loads.fetch_add(1, std::memory_order_relaxed);
+  g_consolidate_sidecar_loads.fetch_add(1, std::memory_order_relaxed);
   return true;
 }
 
