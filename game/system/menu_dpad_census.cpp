@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -83,6 +84,18 @@ struct State {
 
   std::set<int> pages_seen;
 
+  // PAR PAGE. Le livrable exige le nombre de pressions ET de crans « par page (menu principal
+  // ET sous-menus) », pas seulement la liste des pages visitees : une page ou le rapport ne
+  // vaut pas 1 doit se lire SANS relire le journal. La cle est `display-state`, la valeur
+  // {pressions, crans, depassements}. Les trois sont alimentes au meme endroit que le total
+  // (`close_press`), donc la somme des pages EGALE le total par construction.
+  struct PageStat {
+    uint64_t presses = 0;
+    uint64_t steps = 0;
+    uint64_t overshoots = 0;
+  };
+  std::map<int, PageStat> page_stat;
+
   uint64_t hold_frames_max = 0;
   uint64_t hold_steps_at_max = 0;
 
@@ -140,6 +153,14 @@ void close_press(State& st, int d) {
     st.hold_steps_at_max = dd.steps_in_press;
   }
   st.pages_seen.insert(dd.press_screen);
+  {
+    State::PageStat& ps = st.page_stat[dd.press_screen];
+    ps.presses++;
+    ps.steps += dd.steps_in_press;
+    if (dd.steps_in_press != 1) {
+      ps.overshoots++;
+    }
+  }
   dd.open = false;
   dd.steps_in_press = 0;
   dd.hold_frames = 0;
@@ -365,6 +386,28 @@ void publish_tick() {
       list += buf;
     }
     autoport_proof::publish_text("menu_step_pages_list", list.empty() ? "-" : list.c_str());
+  }
+  {
+    // `<page>:<pressions>/<crans>/<depassements>`, pages separees par une virgule. AUCUN ESPACE :
+    // `proof.txt` jette toute valeur qui en contient, et la ligne serait publiee pour personne.
+    std::string table;
+    uint64_t pages_bad = 0;
+    for (const auto& kv : st.page_stat) {
+      if (!table.empty()) {
+        table += ",";
+      }
+      char buf[80];
+      snprintf(buf, sizeof(buf), "%d:%llu/%llu/%llu", kv.first,
+               (unsigned long long)kv.second.presses, (unsigned long long)kv.second.steps,
+               (unsigned long long)kv.second.overshoots);
+      table += buf;
+      if (kv.second.steps != kv.second.presses) {
+        pages_bad++;
+      }
+    }
+    autoport_proof::publish_text("menu_step_pages_table", table.empty() ? "-" : table.c_str());
+    // Le scalaire qui dit, sans lire la table, si UNE page a un rapport different de 1.
+    autoport_proof::publish("menu_step_pages_ratio_bad", pages_bad);
   }
 
   autoport_proof::publish("menu_step_hold_frames_max", st.hold_frames_max);

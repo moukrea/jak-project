@@ -1260,8 +1260,36 @@ public class TouchOverlayView extends View {
                 NativeGk.menuDpadLeg(1);
                 mdsS0 = NativeGk.menuDpadScreen();
                 mdsSubTries = 0;
+                mdsCount = 0;
                 Log.i(TAG, "MDS leg=1 (pad) root screen s0=" + mdsS0);
-                mdsPost(0, 11);
+                mdsPost(0, 5);
+                break;
+
+            // ---- 3a. DEUX pressions BAS sur la page RACINE, puis SOUTH -----------------
+            // Deux choses a la fois, et c'est voulu.
+            //  (1) Le livrable veut le compte « par page (menu principal ET sous-menus) ». La
+            //      page racine n'encaissait AUCUNE pression : on y pressait SOUTH tout de suite.
+            //  (2) `*title-pc*` (progress-pc.gc, moitie livree) range ses lignes ainsi :
+            //      0 = nouvelle partie -> save-game-title (18), 1 = charger -> load-game (16),
+            //      2 = OPTIONS -> settings-title (28). Un SOUTH a l'index 0 ouvrait donc la
+            //      page de SAUVEGARDE, et les courses du 13/09 ont mesure 18 puis la boite de
+            //      dialogue memcard 11 (d'UNE rangee) — pas l'endroit que l'owner nomme :
+            //      « Options, puis n'importe quel sous-menu ». Deux BAS amenent a la ligne
+            //      Options, et tout ce qui suit se passe donc DANS les reglages.
+            case 5:
+                if (mdsCount == 0) {
+                    Log.i(TAG, "MDS root-page presses (2x BAS -> ligne Options) on screen="
+                            + NativeGk.menuDpadScreen() + " s0=" + mdsS0);
+                }
+                if (mdsCount >= 2) { mdsPost(0, 11); break; }
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+                mdsPost(MDS_HOLD_MS, 6);
+                break;
+            case 6:
+                mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, false);
+                NativeGk.menuDpadGesture(1, 1);
+                mdsCount++;
+                mdsPost(MDS_GAP_MS, 5);
                 break;
             case 11:
                 mdsSubTries++;
@@ -1288,7 +1316,7 @@ public class TouchOverlayView extends View {
                 break;
             }
             case 15:
-                if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsPost(0, 20); break; }
+                if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsCount = 0; mdsPost(0, 23); break; }
                 mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
                 mdsPost(MDS_HOLD_MS, 16);
                 break;
@@ -1298,26 +1326,11 @@ public class TouchOverlayView extends View {
                 mdsCount++;
                 mdsPost(MDS_GAP_MS, 15);
                 break;
-            case 20:   // revenir en arriere
-                mdsPad(SDL_GAMEPAD_BUTTON_EAST, true);
-                mdsPost(MDS_HOLD_MS, 21);
-                break;
-            case 21:
-                mdsPad(SDL_GAMEPAD_BUTTON_EAST, false);
-                mdsPost(1500, 22);
-                break;
-            case 22: {
-                int now = NativeGk.menuDpadScreen();
-                if (now != mdsS0) {
-                    Log.w(TAG, "MDS back did NOT return to s0=" + mdsS0 + " (screen=" + now
-                            + "); continuing anyway");
-                } else {
-                    Log.i(TAG, "MDS back to root screen=" + now);
-                }
-                mdsCount = 0;
-                mdsPost(0, 23);
-                break;
-            }
+            // LE RETOUR A ETE RETIRE. Mesure du 13/09 11:49 : EAST depuis la page 18 rend la
+            // page 11, et EAST depuis la page 11 rend la page 18 — quatre pressions alternent
+            // sans jamais retrouver s0=27. Le second lot de pressions manette tombait donc une
+            // fois sur deux sur la page 11, d'UNE rangee, ou le curseur ne bouge pas. Les deux
+            // pages du recensement viennent maintenant du cas 5 (racine) et du sous-menu.
             case 23:
                 if (mdsCount >= MDS_PRESSES_PER_PAGE) { mdsPost(0, 30); break; }
                 mdsPad(SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
