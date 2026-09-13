@@ -44,6 +44,7 @@
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
+#include "game/system/sched_affinity.h"
 #include "game/system/checkpoint_census.h"
 #include "game/system/naming_census.h"
 #include "game/system/settings_case_l10n.h"
@@ -1402,6 +1403,11 @@ void pc_autoport_frame() {
   // passe par course (voir game/system/checkpoint_census.h).
   checkpoint_census::tick();
   autoport_proof::frame_tick();
+  // perf-thread-build : sur quel coeur le fil GOAL vient de tourner. Pose ICI, a cote de
+  // `frame_tick`, pour que le denominateur de `cpu_core_goal_pct_big` soit EXACTEMENT
+  // l'image que `proof.txt` compte dans `frames=` — deux compteurs d'images differents
+  // rendraient un pourcentage que personne ne pourrait recouper.
+  sched_affinity::goal_frame();
   // menu-dpad-steps : le recensement des crans par pression, publie sur changement.
   menu_dpad_census::publish_tick();
   // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a

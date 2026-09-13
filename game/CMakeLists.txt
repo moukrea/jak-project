@@ -385,6 +385,7 @@ set(RUNTIME_SOURCE
         # Un .cpp neuf doit AUSSI etre liste dans android/CMakeLists.txt, sinon l'arm64 meurt au lien.
         system/touch_screen.cpp
         system/perf_instruments.cpp
+        system/sched_affinity.cpp
         system/perf_baseline.cpp
         system/water_census.cpp
         system/naming_census.cpp

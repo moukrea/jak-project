@@ -43,6 +43,7 @@
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/kernel/common/kboot.h"
+#include "game/system/sched_affinity.h"
 
 #include "android_gfx.h"
 #include "android_input_audio.h"
@@ -478,6 +479,12 @@ int android_renderer_run() {
   g_a37_gl_thread = pthread_self();
   g_a37_gl_thread_set.store(true);
 
+  // perf-thread-build : le fil GL suit le fil GOAL sur les gros coeurs. Java lui avait deja
+  // donne THREAD_PRIORITY_DISPLAY (SDLActivity.java:2158) mais aucune affinite : EAS pouvait
+  // le poser sur un A55 pendant que GOAL tournait sur un A76, et le recouvrement des deux
+  // (perf-goal-gl-overlap) n'avait plus de sens.
+  sched_affinity::pin_current_thread(sched_affinity::Role::Gl);
+
   // === Phase F3: per-frame render cadence measurement (prop-armed) =========
   // When debug.opengoal.f3.measure=1, record the swap-to-swap delta of every
   // loop iteration (SDL_GetPerformanceCounter) to $HOME/F3-frame-times.csv and
@@ -498,6 +505,8 @@ int android_renderer_run() {
 
   bool running = true;
   while (running && MasterExit == RuntimeExitStatus::RUNNING) {
+    // perf-thread-build : le coeur du fil GL, une fois par tour de boucle de rendu.
+    sched_affinity::gl_frame();
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       // Phase E1: route SDL gamepad events into the GOAL pad path.

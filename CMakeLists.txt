@@ -90,6 +90,27 @@ if(ANDROID)
         set(GOALC_BACKEND "arm64" CACHE STRING "GOAL compiler codegen backend" FORCE)
     endif()
     add_compile_definitions(GOALC_BACKEND_ARM64 OG_ANDROID_NDK_BUILD=1)
+    # ---- autoport/perf-thread-build : le build arm64 livre est un build RELEASE ----------------
+    # Le bloc Clang qui pose `-O3` sur le bureau vit PLUS BAS dans ce fichier, apres le `return()`
+    # ci-dessous : il n'a jamais ete atteint par le chemin Android. L'arm64 ne recevait donc que
+    # `CMAKE_CXX_FLAGS_RELWITHDEBINFO` = `-O2 -g -DNDEBUG`, c'est-a-dire un cran d'optimisation de
+    # MOINS que le bureau, plus 112 Mo d'information de deboguage embarquee dans l'APK
+    # (libgk.so : 142 205 176 octets le 13/09).
+    #
+    # POURQUOI DES OPTIONS ET PAS UN CHANGEMENT DE `CMAKE_BUILD_TYPE`. `CMAKE_CXX_FLAGS_RELEASE`
+    # est VIDE dans ce cache (releve du 13/09) : basculer le type rendrait `-O0` sans `NDEBUG`,
+    # l'inverse exact de ce qu'on veut. Les options de repertoire, elles, passent APRES les flags
+    # de configuration sur la ligne de commande de clang, et le dernier `-O`/`-g` gagne.
+    #
+    # PAS DE `-ffast-math`, ET C'EST LE PERIMETRE QUI L'INTERDIT. Sans lui, clang ne reassocie
+    # aucune expression flottante : `-O3` ne change donc pas un bit de resultat flottant par
+    # rapport a `-O2` (la contraction FMA, elle, est deja `-ffp-contract=on` aux DEUX niveaux).
+    #
+    # `-g0` PLUTOT QU'UN SECOND BUILD SYMBOLISE : la table des symboles (`.symtab`) survit a
+    # `-g0` — seules les sections DWARF partent. Une adresse de plantage nomme donc toujours sa
+    # fonction. Un deuxieme build complet, lui, doublerait chaque cycle arm64.
+    add_compile_options(-O3 -g0)
+    add_compile_definitions(OG_ANDROID_RELEASE_BUILD=1)
     add_subdirectory(android)
     return()
 endif()

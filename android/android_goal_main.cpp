@@ -53,6 +53,7 @@
 // first, then the dispatcher thread is detached, then the SDL main
 // thread enters android_renderer_run() until quit.
 #include "android_renderer.h"
+#include "game/system/sched_affinity.h"
 
 // Forward declaration matches the one at the top of game/main.cpp so the
 // desktop and Android boot entries share a single signature.
@@ -113,6 +114,11 @@ void dispatcher_thread_fn() {
   // fail; truncate so the name actually attaches and is visible in
   // `adb shell ps -T`.
   pthread_setname_np(pthread_self(), "opengoal-rt");
+
+  // perf-thread-build : ce fil EST le chemin critique de l'image. Il se pose son affinite
+  // gros coeurs et sa priorite ICI, depuis lui-meme : `sched_setaffinity(0, ...)` et
+  // `setpriority(..., gettid(), ...)` visent le fil appelant, et rien d'autre ne le peut.
+  sched_affinity::pin_current_thread(sched_affinity::Role::Goal);
 
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "gkernel: dispatcher started (thread tid=%ld)",

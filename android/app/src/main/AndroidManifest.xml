@@ -42,16 +42,27 @@
     <uses-feature android:name="android.hardware.touchscreen"
                   android:required="false"/>
 
+    <!-- autoport/perf-thread-build 2026-09-13 : appCategory=game dit au systeme a quelle
+         famille appartient ce paquet. C'est ce que lisent les couches de gestion d'energie et
+         d'ordonnancement des constructeurs (MIUI compris) pour decider si un premier plan a
+         droit aux gros coeurs ou s'il est un candidat au bridage. Sans cette ligne, le jeu
+         etait une application "inconnue". -->
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
+        android:appCategory="game"
         android:hasFragileUserData="false"
         android:hardwareAccelerated="true"
         android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGoal">
+
+        <!-- profileable : simpleperf / Perfetto peuvent echantillonner ce processus SANS que
+             l'APK soit debuggable. C'est precisement ce qui permet de retirer le caractere
+             debuggable d'un build sans perdre la capacite de le profiler. -->
+        <profileable android:shell="true" />
 
         <!-- Phase 17: LoaderActivity is the LAUNCHER. It extracts the
              APK-bundled iso_data to filesDir on first launch, then

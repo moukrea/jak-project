@@ -1,6 +1,7 @@
 #include "SystemThread.h"
 
 #include "common/common_types.h"
+#include "game/system/sched_affinity.h"
 #include "common/log/log.h"
 #include "common/util/unicode_util.h"
 
@@ -104,6 +105,14 @@ void* bootstrap_thread_func(void* x) {
 #else
   SetThreadDescription(GetCurrentThread(), (LPCWSTR)utf8_string_to_wide_string(thd->name).c_str());
 #endif
+
+  // perf-thread-build : le fil EE porte la boucle GOAL cote PC. On tente un nice negatif
+  // ICI, dans le fil lui-meme — c'est le seul endroit du gestionnaire qui s'y execute.
+  // L'appel echoue sur un bureau ordinaire (RLIMIT_NICE) : le resultat est PUBLIE, jamais
+  // suppose. Aucun effet sur Android, ou l'affinite est posee par sched_affinity lui-meme.
+  if (thd->name == "EE" || thd->name == "EE-Worker") {
+    sched_affinity::raise_pc_thread_priority(thd->name.c_str());
+  }
 
   thd->function(iface);
   lg::debug("[SYSTEM] Thread {} is returning", thd->name.c_str());

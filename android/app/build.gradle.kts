@@ -188,6 +188,16 @@ android {
 
     packaging {
         jniLibs {
+            // autoport/perf-thread-build : le .so EMPAQUETE doit rester bit-identique a
+            // `build-android/lib/arm64-v8a/libgk.so`. `validators/generic.sh` compare
+            // `device_lib_md5` a `local_lib_md5`, et `lib/deploy_verify.sh` compare les sha256 du
+            // build, de l'APK et de l'appareil : un strip fait par AGP casserait la chaine.
+            // Jusqu'ici AGP echouait a stripper ("Unable to strip the following libraries,
+            // packaging them as they are: libgk.so") et la chaine tenait PAR ACCIDENT. Avec
+            // `-g0` le .so devient assez petit pour que ce strip reussisse : on le lui interdit
+            // explicitement plutot que de dependre de son echec.
+            keepDebugSymbols += "**/libgk.so"
+
             // Grecharged-grass-poc: EXTRACT native libs to /data/app/.../lib/arm64/ on
             // install (extractNativeLibs=true). The libgk anti-stub deploy check greps
             // the on-disk device libgk for the grass renderer strings; with libs kept

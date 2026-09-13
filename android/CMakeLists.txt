@@ -467,6 +467,7 @@ add_library(android_kernel STATIC
     # perf-instruments : ou passe le temps d'une image (fil GOAL). Un .cpp neuf absent d'ici
     # meurt au lien arm64.
     "${JAK_ROOT}/game/system/perf_instruments.cpp"
+    "${JAK_ROOT}/game/system/sched_affinity.cpp"
     "${JAK_ROOT}/game/system/perf_baseline.cpp"
     "${JAK_ROOT}/game/system/water_census.cpp"
     "${JAK_ROOT}/game/system/naming_census.cpp"
