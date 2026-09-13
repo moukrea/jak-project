@@ -7642,6 +7642,8 @@ items:
   max_turns: 800
   max_retries: 6
   proof_timeout: 300
+  proof_props:
+  - debug.opengoal.fixed_tick=1
   prompt: prompts/item-menu-dpad-steps.md
   notes: Insere le 11/09 sur retour owner.
   owner_feedback:
@@ -9933,7 +9935,7 @@ items:
   owner_ok: null
   block_reason: null
   prompt: prompts/item-grass-lod-popin.md
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -9975,3 +9977,10 @@ items:
   owner_feedback: []
   owner_ok: null
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-12'
+    proof_sha: e4db4c94acf44a7c
+    proof_bytes: 38064
+    attempt: 1
+    journal: validator-001.txt
