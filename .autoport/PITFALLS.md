@@ -997,3 +997,13 @@ son controle). La seconde entiere ne suffisait pas : une entree reecrite 0,4 s A
 portait le meme `stat -c %Y`, et la porte du commit `14ba12bd23` rendait 0 avec `bx_bin_fresh=1`
 sur l'etat que la jambe F infra-seconde lui fait rejouer (`bf_f_infrasec_avant_rc=0` contre
 `bf_f_infrasec_perime_rc=4` aujourd'hui).
+
+GUARD release-notes-refreshed-only-on-push-lag-behind-the-list .autoport/auto_push_builds.sh rafraichir la description hors publication
+**Une description de release qui ne se reecrit qu'a la publication d'un APK ment entre deux APK.**
+Mesure du 2026-09-13 : `perf-thread-build` testable a 15:43, description mise a jour a 16:49 (66 min) ;
+aucune publication entre 16:49 et 19:14 (2 h 25) — tout item devenu testable dans cette fenetre aurait
+attendu. Owner : « ça devrait toujours être à jour histoire qu'on évite les allers-retours ». Depuis :
+`release_notes.sh` est appele a CHAQUE cycle du publieur, garde par empreinte du texte
+(`.autoport/.release_notes_hash`) donc GitHub n'est sollicite que si la liste a change, et nomme le
+build PUBLIE (`.autoport/.published_build_info.txt`, photographie au televersement), jamais le dernier
+construit. Verifier : `grep 'liste changee' .autoport/logs/auto_push_builds.txt`.

@@ -11,7 +11,13 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 OUT=$(mktemp); trap 'rm -f "$OUT"' EXIT
-INFO=out/artifacts/BUILD-INFO.txt
+# 2026-09-13 — LE BUILD NOMME EST CELUI PUBLIE, pas le dernier construit : le publieur photographie
+# BUILD-INFO au moment du televersement dans .autoport/.published_build_info.txt et nous le passe.
+INFO="${AUTOPORT_RELEASE_INFO:-out/artifacts/BUILD-INFO.txt}"
+# GARDE PAR EMPREINTE : appele a chaque cycle du publieur, ce script ne parle a GitHub que si le texte
+# a change. `--force` (a la publication) court-circuite la garde.
+HASHMEMO=.autoport/.release_notes_hash
+FORCE=0; [ "${1:-}" = "--force" ] && FORCE=1
 COMMIT=$(sed -n 's/.*commit: \([0-9a-f]\{7,\}\).*/\1/p' "$INFO" 2>/dev/null | head -1)
 DATE=$(sed -n 's/^date: \([^ ]*\).*/\1/p' "$INFO" 2>/dev/null | head -1)
 PACK=$(sed -n 's/.*PACK HD EXTERNE : \(.*\)/\1/p' "$INFO" 2>/dev/null | head -1)
@@ -29,16 +35,28 @@ PACK=$(sed -n 's/.*PACK HD EXTERNE : \(.*\)/\1/p' "$INFO" 2>/dev/null | head -1)
   fi
   echo
   if [ -x ./.autoport/autoport ] && [ -f .autoport/backlog.yaml ]; then
-    ./.autoport/autoport status 2>/dev/null \
+    # 2026-09-13 : la rubrique « Bloque » ne figure PAS dans une description de build. Elle listait
+    # les items supplantes ou parques par l'owner (« L'occlusion ambiante (le relief dans les creux) »
+    # a cote de l'occlusion ambiante A TESTER) : deux fois le meme nom sur une page, l'owner ne sait
+    # plus quoi tester. Ici : le build, ce qui est en cours, ce qu'il y a a tester. Le reste est au backlog.
+    ./.autoport/autoport status 2>/dev/null | sed '/^## Bloque/,$d' \
       || echo "_Etat du backlog indisponible — voir \`./.autoport/autoport status\`._"
+    echo "_Les items bloques ou supplantes ne sont pas listes ici : ils sont dans le backlog, pas dans ce build._"
   else
     echo "## A tester"
     echo
     echo "_Backlog absent : lance \`python3 .autoport/tools/migrate_backlog.py\` puis republie._"
   fi
   echo
-  echo "_Description regeneree automatiquement a chaque publication, depuis \`.autoport/backlog.yaml\`._"
+  echo "_Description regeneree automatiquement a chaque publication ET des que la liste a tester change (cycle de 5 min), depuis \`.autoport/backlog.yaml\`._"
 } > "$OUT"
-gh release edit jak1-rtlight-wip --repo moukrea/jak-builds --notes-file "$OUT" >/dev/null 2>&1 \
-  && echo "$(date +%H:%M:%S) description de release mise a jour" \
-  || echo "$(date +%H:%M:%S) ECHEC mise a jour de la description"
+H=$(sha256sum "$OUT" | cut -d" " -f1)
+if [ "$FORCE" = 0 ] && [ -f "$HASHMEMO" ] && [ "$(cat "$HASHMEMO" 2>/dev/null)" = "$H" ]; then
+  exit 0   # rien n'a change : silence, pas d'appel a GitHub
+fi
+if gh release edit jak1-rtlight-wip --repo moukrea/jak-builds --notes-file "$OUT" >/dev/null 2>&1; then
+  printf '%s\n' "$H" > "$HASHMEMO"
+  echo "$(date +%H:%M:%S) description de release mise a jour ($([ "$FORCE" = 1 ] && echo publication || echo liste changee))"
+else
+  echo "$(date +%H:%M:%S) ECHEC mise a jour de la description"
+fi

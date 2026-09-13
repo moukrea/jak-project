@@ -41,6 +41,14 @@ echo "$(date +%H:%M:%S) watcher started (baseline ${LAST:0:8})" >> "$LOG"
 while true; do
   shield_keep_out   # owner 2026-08-30 : la Shield ne doit jamais etre visible d'un tour a l'autre
   sleep 300
+  # DESCRIPTION A JOUR MEME SANS PUBLICATION (owner 2026-09-13 : « ça devrait toujours être à jour
+  # histoire qu'on évite les allers-retours »). Mesure du jour : perf-thread-build testable a 15:43,
+  # description mise a jour a 16:49, 66 min plus tard, parce qu'elle ne l'etait qu'a la publication
+  # d'un APK ; et 2 h 25 sans publication entre 16:49 et 19:14. La garde par empreinte de
+  # release_notes.sh fait que GitHub n'est appele que si la liste a change.
+  if [ -f .autoport/.published_build_info.txt ]; then
+    AUTOPORT_RELEASE_INFO=.autoport/.published_build_info.txt bash .autoport/release_notes.sh >> "$LOG" 2>&1 || true
+  fi
   [ -f "$APK" ] || continue
   # settle: size must be stable across two reads, otherwise gradle is still writing
   s1=$(stat -c %s "$APK"); sleep 20; s2=$(stat -c %s "$APK")
@@ -138,7 +146,10 @@ while true; do
     LAST="$h"; LASTZIP="$zh"
     # DESCRIPTION A JOUR A CHAQUE PUBLICATION (owner 2026-09-01) : il ne doit jamais avoir
     # a deviner ce qu'il y a a tester dans le build en ligne.
-    bash .autoport/release_notes.sh >> "$LOG" 2>&1 || true
+    # 2026-09-13 : on photographie le BUILD-INFO du build PUBLIE, pour que les rafraichissements
+    # entre deux publications nomment le bon commit et pas celui d'un APK encore en attente.
+    cp out/artifacts/BUILD-INFO.txt .autoport/.published_build_info.txt 2>/dev/null || true
+    AUTOPORT_RELEASE_INFO=.autoport/.published_build_info.txt bash .autoport/release_notes.sh --force >> "$LOG" 2>&1 || true
     echo "$(date +%H:%M:%S) PUSHED apk=${h:0:8} zip=${zh:0:8} ($(numfmt --to=iec "$s2" 2>/dev/null || echo "$s2"))" >> "$LOG"
     # 2026-09-03 : `owner_testable.py` est archive. Son intention etait juste — ne prevenir
     # l'owner que quand une grandeur QU'IL PEUT VOIR a bouge — mais son empreinte perceptible
