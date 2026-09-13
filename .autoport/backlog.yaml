@@ -1,7 +1,7 @@
 # La seule verite du travail. Une feature = un item.
 # Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
 # owner_feedback : les mots de l'owner, dates, jamais reformules.
-version: 6
+version: 7
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
@@ -11042,4 +11042,206 @@ items:
     text: je sais pas pour qu'elle raison les mini palmiers... Les feuilles bougent quand on collisionne
       avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile
       (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: harness-busy-guard-matches-gradle-daemon
+  priority: 23
+  device: false
+  feature: La garde « build en cours » ne prend plus le demon Gradle pour un build
+  gate:
+    key: busy_guard_false_positives
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker de hdr-shadow-range (essai 3, 13/09, FINDINGS.txt). `lib/proof_run.sh:~640`
+    (`busy_procs`) teste ninja, goalc et cc1plus par `pgrep -x` sur le NOM du processus — ils meurent
+    avec le build — mais Gradle par correspondance de LIGNE DE COMMANDE (`[g]radle`) : le demon Gradle
+    porte la sienne en permanence et survit 3 h a l''inactivite. Batir un APK puis lancer une preuve donne
+    un rc=3 DETERMINISTE tant que le demon vit, sur un build qui est fini depuis longtemps.'
+  deliverable: |-
+    `busy_guard_false_positives` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'AVANT EST CHIFFRE : compte de sorties rc=3 « build en cours » dans les journaux archives de proof_run dont la seule cause etait un demon Gradle inactif (aucun ninja/goalc/cc1plus vivant, aucune ecriture d'APK dans la minute), publie par item ; non nul.
+    2. LA GARDE MESURE UN BUILD, PAS UN DEMON : Gradle n'est « en cours » que si une tache de build tourne (verrou de build, ecriture recente de l'APK ou processus fils de compilation), jamais par la seule presence du demon. Publier ce que la garde a lu et sa decision.
+    3. LE TEMOIN A DEUX BRAS : dans un bac a sable, un vrai build simule (APK en cours d'ecriture) est refuse ; un demon Gradle seul, inactif, est laisse passer. Les deux verdicts publies cote a cote.
+    4. AUCUN FAUX rc=3 APRES : sur les courses qui suivent la livraison, compte de refus « build en cours » sans build reel = zero, avec le compte de courses observees a cote (un zero sur zero est un defaut).
+    PREUVE : `FEATURE harness-busy-guard-matches-gradle-daemon armed=1 hits=<courses ayant passe la garde de build>` + la ligne `busy_guard_false_positives=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais qui ne meurent plus
+    pour cette cause.'
+  out_of_scope: Ne touche pas aux autres gardes de proof_run ni au validateur. Tout ce qui n'est pas cet
+    item.
+  notes: 'Cout mesure par le worker : rc=3 deterministe apres chaque APK tant que le demon Gradle vit
+    (3 h).'
+  hits_means: courses ayant passe la garde de build
+  prompt: prompts/item-harness-busy-guard-matches-gradle-daemon.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: harness-close-gate-separates-inherited-reds
+  priority: 23
+  device: false
+  feature: Un rouge de la suite ne du commit d'un autre ne tue plus l'essai qui l'herite
+  gate:
+    key: inherited_red_refusals
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker de hdr-shadow-range (essai 3, 13/09, FINDINGS.txt). `lib/suite_gate.py:352`
+    refuse la fermeture avec « La suite etait VERTE et ce build la rend rouge » sans lire ses PROPRES
+    grandeurs `unwaived_new` / `unwaived_known`, qui distinguent un rouge NEUF d''un rouge HERITE. Mesure
+    du 13/09 : les deux rouges qui ont tue l''essai 2 de hdr-shadow-range sont nes de `1c197e3620` ([autoport/supervisor],
+    20:51 — cinq validations de l''owner ont vide « A tester », qu''un test exigeait sans condition),
+    trois commits AVANT le travail de l''essai. L''item les a herites, il ne les a pas fabriques, et il
+    a paye l''essai.'
+  deliverable: |-
+    `inherited_red_refusals` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'AVANT EST CHIFFRE : compte d'essais refuses par la porte de suite dont TOUS les rouges preexistaient au premier commit de l'essai (bisect sur les journaux archives), publie par item ; non nul.
+    2. LA PORTE DISTINGUE : un rouge present a la base de l'essai est HERITE et publie comme tel (`unwaived_known`), un rouge absent a la base et present apres est NEUF (`unwaived_new`) ; seul le NEUF refuse la fermeture. Publier les deux comptes et la base retenue.
+    3. L'HERITE NE MEURT PAS EN SILENCE : un rouge herite est publie dans le rapport de l'essai ET devient un signalement (`-> item:` ou `-> ecarte:`), pour que quelqu'un le repare — l'essai suivant ne doit pas le retrouver.
+    4. LE TEMOIN A DEUX BRAS : dans un bac a sable, un test rouge a la base et apres = fermeture acceptee et publiee comme heritee ; un test rouge seulement apres = refus. Les deux verdicts cote a cote.
+    PREUVE : `FEATURE harness-close-gate-separates-inherited-reds armed=1 hits=<fermetures jugees par la porte de suite>` + la ligne `inherited_red_refusals=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais qui ne meurent plus
+    pour cette cause.'
+  out_of_scope: 'Ne relache aucun refus sur un rouge NEUF : la porte reste aussi dure sur ce que l''essai
+    a casse. Tout ce qui n''est pas cet item.'
+  notes: La suite est porte de fermeture depuis le 12/09 (bab7f316b6) ; ce cas est son premier faux refus
+    mesure.
+  hits_means: fermetures jugees par la porte de suite
+  prompt: prompts/item-harness-close-gate-separates-inherited-reds.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: harness-test-bench-does-not-inherit-the-worker-env
+  priority: 23
+  device: false
+  feature: Le banc de la suite n'herite plus de l'environnement de celui qui la lance
+  gate:
+    key: bench_env_leaks
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker de hdr-shadow-range (essai 3, 13/09, FINDINGS.txt). `tests/harness/test_proof.py:129`
+    (`_juge`) construit son environnement par `dict(os.environ, ...)` : le banc herite TOUT l''environnement
+    de qui lance la suite. Depuis une session de worker, `AUTOPORT_ATTEMPT_ID` est pose : le validateur
+    exige alors `proof_attempt_id=` dans la preuve synthetique, que `_proof` n''ecrit pas, et `test_une_preuve_produite_par_la_machine_passe`
+    — le CONTROLE POSITIF du banc — rougit. Un test qui change de verdict selon qui le lance n''est pas
+    un test.'
+  deliverable: |-
+    `bench_env_leaks` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'AVANT EST CHIFFRE : compte de tests du banc dont le verdict differe entre un lancement depuis un shell nu et depuis une session de worker (variables `AUTOPORT_*` posees), publie par nom ; non nul.
+    2. LE BANC PART D'UN ENVIRONNEMENT MAITRISE : liste blanche des variables transmises (PATH, HOME, LANG et celles que le test pose lui-meme), tout `AUTOPORT_*` du parent retire sauf mention explicite ; publier la liste effective.
+    3. LE CONTROLE POSITIF TIENT SOUS LES DEUX LANCEMENTS : `test_une_preuve_produite_par_la_machine_passe` vert depuis un shell nu ET depuis un environnement de worker simule ; les deux verdicts publies.
+    4. AUCUNE FUITE APRES : compte de variables du parent lisibles depuis un test sonde = celles de la liste blanche, zero autre.
+    PREUVE : `FEATURE harness-test-bench-does-not-inherit-the-worker-env armed=1 hits=<tests du banc executes sous environnement maitrise>` + la ligne `bench_env_leaks=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais qui ne meurent plus
+    pour cette cause.'
+  out_of_scope: Ne change ni le validateur ni ce que la preuve synthetique doit contenir. Tout ce qui
+    n'est pas cet item.
+  notes: Meme classe que « un test qui lit un fichier gitignore rend un verdict different en worktree
+    ».
+  hits_means: tests du banc executes sous environnement maitrise
+  prompt: prompts/item-harness-test-bench-does-not-inherit-the-worker-env.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: harness-proof-run-erases-proof-only-once-it-runs
+  priority: 24
+  device: false
+  feature: Une course qui meurt a la porte ne detruit plus la preuve precedente
+  gate:
+    key: proofs_erased_without_run
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker de hdr-shadow-range (essai 3, 13/09, FINDINGS.txt). `lib/proof_run.sh`
+    efface `proof.txt` AU DEMARRAGE, avant ses gardes. Une course qui meurt sur « build en cours » a DEJA
+    efface la preuve : celle du 12/09 de hdr-shadow-range (34 308 o, porte tenue) a ete detruite par une
+    course qui n''a jamais amorce l''appareil. Seul `proof-prev.txt` a sauve les chiffres.'
+  deliverable: |-
+    `proofs_erased_without_run` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'AVANT EST CHIFFRE : compte de `proof.txt` effaces par une course sortie sur une garde (rc 3, 4) sans avoir lance le moteur, dans les journaux archives ; non nul.
+    2. L'EFFACEMENT SUIT L'AMORCAGE : `proof.txt` n'est efface qu'au moment ou le moteur ou l'appareil est effectivement lance ; toute sortie anterieure laisse la preuve intacte. Publier le point d'effacement et le rc de sortie.
+    3. LE TEMOIN A DEUX BRAS : bac a sable avec une preuve presente ; une course tuee par la garde la laisse (octets identiques), une course qui amorce l'efface. Les deux verdicts cote a cote.
+    4. `proof-prev.txt` RESTE : le filet actuel n'est pas retire ; publier qu'il est toujours ecrit.
+    PREUVE : `FEATURE harness-proof-run-erases-proof-only-once-it-runs armed=1 hits=<courses ayant amorce l appareil ou le moteur>` + la ligne `proofs_erased_without_run=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais qui ne meurent plus
+    pour cette cause.'
+  out_of_scope: Ne change pas ce qui est mesure ni comment ; seulement QUAND l'ancienne preuve disparait.
+    Tout ce qui n'est pas cet item.
+  notes: Le filet proof-prev.txt a sauve une fois ; il ne doit plus etre la seule trace.
+  hits_means: courses ayant amorce l appareil ou le moteur
+  prompt: prompts/item-harness-proof-run-erases-proof-only-once-it-runs.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: harness-proof-run-device-deploys-or-refuses-first
+  priority: 24
+  device: false
+  feature: Une preuve sur appareil deploie le binaire local, ou refuse tout de suite — jamais 400 s trop
+    tard
+  gate:
+    key: stale_binary_runs
+    op: ==
+    value: 0
+  known_cause: 'Signalement du worker de hdr-shadow-range (essai 3, 13/09, FINDINGS.txt). `proof_run.sh
+    <id> device` NE DEPLOIE PAS : il lance l''application deja installee, et le seul temoin d''un binaire
+    perime est `device_lib_md5 != local_lib_md5` au fond du proof, 400 s trop tard. Chaque item appareil
+    reinvente la meme garde (l''essai 2 de hdr-shadow-range s''est fabrique `notes/deploy.sh`, sortie
+    4 sur ecart de md5). C''est aussi la memoire du superviseur « deploy landing guard » : le symptome
+    est `proof_feature_state=absent`, la cause un md5 qui differe.'
+  deliverable: |-
+    `stale_binary_runs` = 0, somme de termes publies SEPAREMENT.
+    1. LE COUT D'AVANT EST CHIFFRE : compte de courses appareil archivees dont `device_lib_md5 != local_lib_md5`, publie par item ; non nul.
+    2. LA VERIFICATION PRECEDE LA MESURE : avant de lancer, la course compare les md5 ; ecart = soit deploiement du build local (quand l'appareil et le verrou du constructeur le permettent), soit refus IMMEDIAT avec un rc nomme et distinct — jamais une mesure sur un binaire perime. Publier la decision et les deux md5.
+    3. PLUS DE GARDE PRIVEE : compte de scripts `notes/deploy*.sh` ou equivalents ecrits par des items apres la livraison = zero.
+    4. LE TEMOIN A DEUX BRAS : bac a sable, md5 egaux = la course mesure ; md5 differents sans deploiement possible = refus avant l'appareil, `proof.txt` intact (item precedent). Les deux verdicts cote a cote.
+    PREUVE : `FEATURE harness-proof-run-device-deploys-or-refuses-first armed=1 hits=<courses appareil ayant verifie le binaire AVANT de mesurer>` + la ligne `stale_binary_runs=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais qui ne meurent plus
+    pour cette cause.'
+  out_of_scope: Ne touche pas au constructeur ni au publieur ; ne fait aucun `adb install` hors du verrou
+    du constructeur. Tout ce qui n'est pas cet item.
+  notes: 'Memoire du superviseur feedback_deploy_landing_guard : ce n''etait qu''une note, jamais un item.'
+  hits_means: courses appareil ayant verifie le binaire AVANT de mesurer
+  prompt: prompts/item-harness-proof-run-device-deploys-or-refuses-first.md
+  owner_feedback: []
   owner_ok: null
