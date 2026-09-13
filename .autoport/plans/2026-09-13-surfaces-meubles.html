@@ -1,0 +1,792 @@
+<title>Surfaces meubles déformables</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;800&family=Literata:opsz,wght@7..72,400;7..72,600&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --paper:#f4f4f1; --paper-2:#eaebe6; --ink:#1b2024; --ink-2:#4a545a; --ink-3:#7a848a;
+  --rule:#d7d9d3; --rule-2:#bfc3bb;
+  --frost:#34607a; --frost-bg:#e0e9ef;
+  --sand:#8a6420; --sand-bg:#f1e9d5;
+  --rust:#9c4423; --rust-bg:#f3e6df;
+  --moss:#3f6b4a; --moss-bg:#e3ece4;
+  --slate:#4b5a72; --slate-bg:#e4e7ee;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121618; --paper-2:#1a2023; --ink:#e6e8e4; --ink-2:#b1b8b6; --ink-3:#818a89;
+    --rule:#2a3236; --rule-2:#3a444a;
+    --frost:#8fbbd6; --frost-bg:#16262f;
+    --sand:#d6ab55; --sand-bg:#2a2313;
+    --rust:#e09068; --rust-bg:#2f1c14;
+    --moss:#8cc496; --moss-bg:#172a1c;
+    --slate:#a6b4cc; --slate-bg:#1a2130;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121618; --paper-2:#1a2023; --ink:#e6e8e4; --ink-2:#b1b8b6; --ink-3:#818a89;
+  --rule:#2a3236; --rule-2:#3a444a; --frost:#8fbbd6; --frost-bg:#16262f; --sand:#d6ab55; --sand-bg:#2a2313;
+  --rust:#e09068; --rust-bg:#2f1c14; --moss:#8cc496; --moss-bg:#172a1c; --slate:#a6b4cc; --slate-bg:#1a2130;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:Literata,Georgia,serif;font-size:16.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:80rem;margin:0 auto;padding:3rem 1.4rem 6rem;display:grid;grid-template-columns:15.5rem 1fr;gap:3rem}
+@media(max-width:64rem){.wrap{grid-template-columns:1fr;gap:1.5rem}nav.toc{position:static!important;max-height:none!important}}
+h1,h2,h3,h4,nav,.chip,.eyebrow,th,caption,.k,.tag{font-family:Chivo,'Helvetica Neue',Arial,sans-serif}
+code,.n,.flow{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+code{font-size:.92em}
+nav.toc{position:sticky;top:1.5rem;align-self:start;max-height:calc(100vh - 3rem);overflow:auto;font-size:.76rem;line-height:1.42;border-right:1px solid var(--rule);padding-right:1rem}
+nav.toc b{display:block;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin:0 0 .6rem}
+nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:.14rem 0;border-left:2px solid transparent;padding-left:.5rem}
+nav.toc a:hover{color:var(--frost);border-left-color:var(--frost)}
+nav.toc a .num{color:var(--ink-3);display:inline-block;min-width:1.6rem}
+nav.toc hr{border:0;border-top:1px solid var(--rule);margin:.7rem 0}
+.eyebrow{font-size:.7rem;font-weight:600;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-3);margin:0 0 .8rem}
+h1{font-size:clamp(2.2rem,5.5vw,3.4rem);line-height:1.03;font-weight:800;letter-spacing:-.025em;margin:0 0 .7rem;text-wrap:balance}
+.deck{font-size:1.13rem;color:var(--ink-2);max-width:46rem;margin:0 0 2rem;text-wrap:pretty}
+h2{font-size:1.55rem;font-weight:600;letter-spacing:-.018em;line-height:1.2;margin:3.4rem 0 .3rem;text-wrap:balance;padding-top:1.2rem;border-top:2px solid var(--ink)}
+h2 .num{color:var(--ink-3);font-weight:400;margin-right:.5rem}
+h3{font-size:1.05rem;font-weight:600;margin:1.8rem 0 .3rem;letter-spacing:-.008em}
+h4{font-size:.8rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:1.4rem 0 .4rem}
+p{margin:0 0 .85rem;max-width:47rem;text-wrap:pretty}
+ul,ol{margin:0 0 .9rem;padding-left:1.15rem;max-width:47rem}
+li{margin-bottom:.3rem}
+strong{font-weight:600}
+code{background:var(--paper-2);padding:.08em .32em;border-radius:2px;border:1px solid var(--rule)}
+a{color:var(--frost)}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--rule-2);margin:0 0 2.4rem}
+.strip div{padding:.9rem 1rem 1rem;border-right:1px solid var(--rule)}
+.strip div:last-child{border-right:0}
+.strip b{display:block;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:1.5rem;font-weight:400;line-height:1;letter-spacing:-.03em}
+.strip span{display:block;margin-top:.4rem;font-family:Chivo,sans-serif;font-size:.72rem;line-height:1.3;color:var(--ink-3)}
+.chip{display:inline-block;font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .48rem;border-radius:2px;white-space:nowrap}
+.c-ok{background:var(--moss-bg);color:var(--moss)}
+.c-part{background:var(--sand-bg);color:var(--sand)}
+.c-no{background:var(--rust-bg);color:var(--rust)}
+.c-ind{background:var(--slate-bg);color:var(--slate)}
+.c-new{background:var(--frost-bg);color:var(--frost)}
+table{width:100%;border-collapse:collapse;margin:1rem 0 1.5rem;font-size:.87rem}
+caption{text-align:left;font-size:.7rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);padding-bottom:.5rem}
+th{text-align:left;font-size:.72rem;font-weight:600;letter-spacing:.04em;color:var(--ink-3);border-bottom:1px solid var(--rule-2);padding:.35rem .7rem .35rem 0;vertical-align:bottom}
+td{border-bottom:1px solid var(--rule);padding:.45rem .7rem .45rem 0;vertical-align:top}
+td.n,th.n{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;padding-right:0}
+.scroll{overflow-x:auto}
+.key{background:var(--frost-bg);border-left:4px solid var(--frost);border-radius:3px;padding:1.1rem 1.3rem;margin:1.3rem 0}
+.key p{margin:0 0 .6rem}.key p:last-child{margin:0}
+.key h3{margin:0 0 .5rem;color:var(--frost)}
+.warn{background:var(--rust-bg);border-left:4px solid var(--rust);border-radius:3px;padding:1.1rem 1.3rem;margin:1.3rem 0}
+.warn p{margin:0 0 .6rem}.warn p:last-child{margin:0}
+.warn h3{margin:0 0 .5rem;color:var(--rust)}
+.dec{background:var(--paper-2);border:1px solid var(--rule-2);border-left:4px solid var(--sand);border-radius:3px;padding:1.1rem 1.3rem;margin:1.1rem 0}
+.dec h3{margin:0 0 .4rem;color:var(--sand);font-size:1rem}
+.dec p{margin:0 0 .5rem}.dec p:last-child{margin:0}
+.flow{background:var(--paper-2);border:1px solid var(--rule-2);border-radius:3px;padding:1rem 1.2rem;margin:1.2rem 0;font-size:.76rem;line-height:1.55;white-space:pre;overflow-x:auto;color:var(--ink-2)}
+.item{border:1px solid var(--rule-2);border-radius:3px;padding:1.1rem 1.3rem;margin:1rem 0;background:var(--paper-2)}
+.item h3{margin:0 0 .2rem;font-size:1.06rem}
+.item .meta{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--ink-3);margin-bottom:.6rem}
+.item p{margin:0 0 .5rem;font-size:.93rem;max-width:49rem}
+.item p:last-child{margin:0}
+.item .k{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:block;margin-top:.7rem;margin-bottom:.15rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem 2rem;max-width:60rem}
+@media(max-width:52rem){.two{grid-template-columns:1fr}}
+.foot{margin-top:4rem;padding-top:1rem;border-top:2px solid var(--ink);font-size:.82rem;color:var(--ink-3);font-family:Chivo,sans-serif}
+</style>
+
+<div class="wrap">
+<nav class="toc">
+<b>Sommaire</b>
+<a href="#s1"><span class="num">1</span>Résumé exécutif</a>
+<a href="#s2"><span class="num">2</span>Périmètre</a>
+<a href="#s3"><span class="num">3</span>Hypothèses vérifiées</a>
+<a href="#s4"><span class="num">4</span>Terrain et matériaux</a>
+<a href="#s5"><span class="num">5</span>Neige profonde</a>
+<a href="#s6"><span class="num">6</span>Neige compacte</a>
+<a href="#s7"><span class="num">7</span>Sable</a>
+<a href="#s8"><span class="num">8</span>Inventaire des niveaux</a>
+<a href="#s9"><span class="num">9</span>Interacteurs</a>
+<a href="#s10"><span class="num">10</span>Exigences</a>
+<a href="#s11"><span class="num">11</span>Support / couche</a>
+<a href="#s12"><span class="num">12</span>Options comparées</a>
+<a href="#s13"><span class="num">13</span>Architecture cible</a>
+<a href="#s14"><span class="num">14</span>Pipeline de bake</a>
+<a href="#s15"><span class="num">15</span>Données runtime</a>
+<a href="#s16"><span class="num">16</span>Profils de matière</a>
+<a href="#s17"><span class="num">17</span>Interactions</a>
+<a href="#s18"><span class="num">18</span>Rendu et passes</a>
+<a href="#s19"><span class="num">19</span>Pentes et repères</a>
+<a href="#s20"><span class="num">20</span>Frontières, objets</a>
+<a href="#s21"><span class="num">21</span>Cycle de vie</a>
+<a href="#s22"><span class="num">22</span>Chunks, culling, LOD</a>
+<a href="#s23"><span class="num">23</span>Eau et rivages</a>
+<a href="#s24"><span class="num">24</span>Autres systèmes</a>
+<a href="#s25"><span class="num">25</span>Réglages, presets</a>
+<a href="#s26"><span class="num">26</span>Baseline, budgets</a>
+<a href="#s27"><span class="num">27</span>Validation</a>
+<a href="#s28"><span class="num">28</span>Vues de debug</a>
+<a href="#s29"><span class="num">29</span>Migration</a>
+<a href="#s30"><span class="num">30</span>Analyse du backlog</a>
+<a href="#s31"><span class="num">31</span>Items proposés</a>
+<a href="#s32"><span class="num">32</span>Risques</a>
+<a href="#s33"><span class="num">33</span>Décisions</a>
+<hr>
+<a href="#s34"><span class="num">34</span><strong>Point d'approbation</strong></a>
+</nav>
+
+<main>
+<p class="eyebrow">Investigation — phase 1 — 13 septembre 2026</p>
+<h1>Surfaces meubles déformables</h1>
+<p class="deck">Neige profonde, neige compacte, sable. Le jeu classe déjà ces trois sols par triangle de collision et personne ne le lit ; la neige profonde n'est pas du terrain mais des congères posées dessus ; et le maillage du sol est trop grossier, de vingt fois, pour porter une empreinte. L'architecture qui en découle remplace la surface éligible par une coque cuite, dense et déformable, qui traverse les trois passes de rendu.</p>
+
+<div class="strip">
+  <div><b>19</b><span>îlots de collision « neige profonde » dans Snowy Mountain — 762 triangles, 2 332 m²</span></div>
+  <div><b>72 181 m²</b><span>de neige compacte, quasi plate (normale médiane 0,995)</span></div>
+  <div><b>206 551 m²</b><span>de sable mesuré sur beach, training et village1</span></div>
+  <div><b>4,9 m</b><span>arête moyenne d'un triangle de sol tfrag (village1)</span></div>
+  <div><b>0</b><span>lecteur du matériau de collision dans le moteur</span></div>
+  <div><b>3</b><span>vertex shaders projettent le terrain ; un seul voit les déformations actuelles</span></div>
+  <div><b>0</b><span>effet de pas défini sur la neige profonde depuis 2001</span></div>
+</div>
+
+<h2 id="s1"><span class="num">1</span>Résumé exécutif</h2>
+
+<h3>L'état réel</h3>
+<p>Le sol de Jak 1 porte, par triangle de collision, un matériau parmi vingt-trois : <code>sand</code> (5), <code>snow</code> (9), <code>deepsnow</code> (10) sont trois valeurs distinctes de <code>pat-material</code> (<code>goal_src/jak1/engine/collide/pat-h.gc:5-28</code>), packées dans les bits 6 à 11 de <code>pat-surface</code> et sérialisées dans chaque <code>.fr3</code> (<code>common/custom_data/Tfrag3Data.h:736-748</code>). Côté GOAL, seuls <code>effect-control.gc</code> (les effets de pas) et deux littéraux de <code>target-death.gc</code> lisent ces trois valeurs ; aucun code de mouvement, d'offset ou d'animation n'en dépend. Côté C++, aucun site ne lit le matériau. La donnée qui classe nos trois sols existe sur les 25 niveaux et ne sert à rien.</p>
+<p>La neige profonde est faite de <strong>congères</strong> : des prototypes TIE (<code>snow-top-01.mb</code>, <code>snow-sloped.mb</code>, <code>snow-flattop.mb</code>…) instanciés sur le terrain, dont les fragments de collision sont dupliqués par instance. Les 762 triangles <code>deepsnow</code> de Snowy Mountain forment 19 îlots déconnectés de 36 ou 42 triangles, sans un seul sommet partagé avec le sol. La neige compacte (5 968 triangles, 72 181 m²) est du terrain tfrag qui partage ses sommets avec la roche. Le sable est du terrain tfrag sur beach, training, village1 — et absent de misty, qui est en terre.</p>
+<p>Le maillage du sol est grossier : arête moyenne de 4,9 m sur village1, médiane des patches 1,03 m. Ses VBO sont statiques par niveau, ses normales n'existent pas dans le <code>.fr3</code> et sont reconstruites au chargement. Trois vertex shaders indépendants le projettent — couleur, prépasse de profondeur pour l'AO, carte d'ombre du soleil — et seul le premier applique les déplacements existants (balancement, contact).</p>
+
+<h3>Pourquoi Jak semble enfoncé</h3>
+<p>Le mécanisme intentionnel se confirme dans sa forme : la congère est un objet TIE dont le solide de collision est un îlot séparé, situé à l'intérieur du volume rendu. Jak marche sur ce solide ; le maillage visible de la congère passe au-dessus. <strong>L'écart vertical entre les deux n'a pas pu être mesuré</strong> : il faut décoder les arbres TIE du <code>.fr3</code> pour relier un draw à son prototype et à ses instances, et aucun outil du dépôt ne le fait. C'est le premier instrument à construire. Les îlots ont 3 à 6 m de dénivelé interne et une pente médiane de 28°, avec 83 faces retournées : l'épaisseur n'est certainement pas uniforme.</p>
+
+<div class="warn">
+<h3>Un trou d'époque, jamais vu</h3>
+<p><code>effect-control.gc</code> dispatche bien les effets de pas par matériau vers <code>group-land-poof-dpsnow</code>, <code>group-run-poof-dpsnow</code>, <code>group-just-footprint-dpsnow</code>, <code>group-slide-poof-dpsnow</code>. <strong>Aucun de ces groupes n'est défini</strong> : cinq symboles sans <code>defpartgroup</code>, les <code>defpart</code> 2251 et 2263 n'existent pas, et le nom de son fabriqué (<code>walk-deepsnow1</code>) ne correspond pas aux banques (<code>walk-dpsnow1</code>). Sur la neige profonde, Jak ne fait ni poussière, ni empreinte, ni bruit. Sur sable et neige compacte, tout existe : <code>group-just-footprint-snow</code> pose un sprite <code>footprntr</code> de 0,6 m orienté par la normale du sol et le lacet de Jak, qui s'efface en 3,5 s.</p>
+</div>
+
+<h3>Ce qui se réutilise</h3>
+<ul>
+<li><strong>La classification</strong> : le lecteur des bits de matériau que <code>grass-surface-truth</code> va écrire ; la règle « deux sources, le désaccord se compte » de la SPEC herbe.</li>
+<li><strong>Les événements de pas</strong> : les animations de Jak portent des tags nommés (<code>effect-walk-step-left/right</code>, <code>effect-run-step-*</code>, <code>effect-land</code>, <code>effect-slide</code>, <code>effect-roll</code>, <code>effect-just-footprint</code>) avec l'index du joint. Un seul appel C au site Naughty Dog, comme la refonte de l'eau le fait à <code>splash-spawn</code>.</li>
+<li><strong>Le squelette</strong> : 84 nœuds, dont <code>Lankle</code> 29, <code>Rankle</code> 33, <code>Lball</code> 69, <code>Rball</code> 73, lisibles en espace monde après <code>ja-post</code>.</li>
+<li><strong>Le patron « hauteur en texture lue par le vertex shader »</strong> : l'océan Recharged lit déjà une texture R32F 32×32 dans son vertex shader et déplace une clipmap de 16 641 sommets. La lecture de texture au sommet est exercée par six shaders, dont celui du terrain pour la couleur du jour.</li>
+<li><strong>Le canal d'acteurs de l'herbe</strong> : position de Jak par image, balayage d'acteurs, disques uploadés, déroulage à index littéral pour Adreno. À étendre, pas à refaire.</li>
+<li><strong>Le patron d'interaction de l'eau</strong> : une render target en espace monde, une file d'impulsions sur le fil de rendu, zéro appel par image et un par événement.</li>
+<li><strong>Le compagnon de niveau</strong> : <code>.grassbake</code>, <code>.lightbake</code>, <code>.waterbake</code> partagent l'en-tête, la règle « absent = non fatal », et l'empreinte du <code>.fr3</code>.</li>
+</ul>
+
+<div class="key">
+<h3>L'architecture recommandée en une phrase</h3>
+<p><strong>Une coque de matière.</strong> Hors ligne, chaque triangle de sol éligible est subdivisé en une chaîne de niveaux de détail imbriqués, ses frontières exactes préservées, et soulevé de l'épaisseur du profil le long d'une direction de couche cuite ; au chargement, ces triangles sont retirés de l'index du terrain et la coque prend leur place. Au runtime, la coque est déplacée dans <em>son</em> vertex shader par des tuiles de hauteur dynamiques par chunk — écrites par des tampons de contact rasterisés, jamais par du compute — et ce vertex shader est le même dans la passe couleur, la prépasse et la carte d'ombre, grâce à un chunk GLSL partagé. Le support de collision ne bouge pas d'une unité.</p>
+<p>La neige profonde applique la même coque à la surface rendue des congères, avec une épaisseur cuite par point jusqu'à l'îlot de collision. La neige compacte et le sable reçoivent une coque de 3 à 4 cm — 123 à 164 unités, 1,1 à 1,4 % de la hauteur de Jak — compressible jusqu'au support.</p>
+</div>
+
+<h3>Les principaux risques</h3>
+<p>Le coût sur puce à tuiles : toute render target supplémentaire se paie en résolution de tuiles sur Adreno, et les chronomètres GPU par passe y sont inexploitables (l'océan absorbe 92 à 95 % du temps mesuré). L'écart visible/collision de la neige profonde, inconnu : si les congères rendues sont très au-dessus de leur collision, la coque doit encaisser des mètres, pas des centimètres. La divergence des trois vertex shaders : une coque visible dans la couleur et absente de l'ombre ou de l'AO est un défaut que le validateur doit voir avant l'œil. Et la place dans la file : la lumière passe d'abord (owner, 7 septembre), puis l'eau, puis l'herbe.</p>
+
+<h3>L'ordre global</h3>
+<p>Instruments et baseline, puis classification, puis la carte support/épaisseur et le format cuit, puis la coque sans déformation dans les trois passes, puis le moteur de déformation et son canal d'acteurs, puis les interactions dans l'ordre Jak → ennemis → objets, puis les profils, les bourrelets et le shading, puis le cycle de vie et les LOD, puis le contrat avec l'eau, les presets, l'Android, et enfin la généralisation niveau par niveau. Vingt-deux items, section 31.</p>
+
+<h2 id="s2"><span class="num">2</span>Périmètre et non-objectifs</h2>
+<p><strong>Dans le périmètre</strong> : neige profonde (congères TIE de snow et ogre), neige compacte (terrain snow), sable (terrain beach, training, village1, village2, intro) ; Jak, ses pieds, ses jambes et ses mouvements réels ; ennemis vivants ; PNJ qui se déplacent réellement (yakow, seagull, pelican) ; la boule de neige, le zoomer et le flut-flut comme interacteurs mobiles ; le rendu dans toutes les passes qui écrivent la profondeur ; cycle de vie, chunking, culling, LOD, streaming ; presets ; contrat avec l'eau et l'herbe ; instruments et vues de debug.</p>
+<p><strong>Explicitement hors périmètre</strong> : corps persistants, cadavres et ragdolls (les ennemis s'évaporent en 16 images après leur animation de mort, collision retirée dès la première) ; simulation granulaire ; toute modification de collision, de navigation ou de gameplay ; refonte du terrain ; refonte de l'eau ; météo ; boue, cendres et autres matières (le marais est en <code>swp-mud</code>, exclu) ; les caisses comme interacteurs mobiles — elles ne bougent jamais en Jak 1 et relèvent des objets statiques cuits.</p>
+<p><strong>À coordonner sans absorber</strong> : la refonte lumière (prépasse, atlas d'ombres, <code>shade()</code>), la refonte eau (rivage, sable mouillé), la refonte herbe (classification, chunking, exclusivité), le lot perf « stock 60 » (rien de nouveau par image sur le fil GOAL).</p>
+
+<h2 id="s3"><span class="num">3</span>Tableau de vérification des hypothèses techniques</h2>
+<p>Le fait que Jak marche sur un support inférieur invisible dans la neige profonde est établi et n'est pas listé. Voici le reste.</p>
+<div class="scroll"><table>
+<caption>Chaque hypothèse, son statut et sa preuve</caption>
+<tr><th style="width:27%">Hypothèse</th><th style="width:8rem">Statut</th><th>Ce que disent le code et les données</th></tr>
+<tr><td>La couche de neige profonde est un mesh séparé du terrain</td><td><span class="chip c-ok">Confirmée</span></td><td>762 triangles <code>deepsnow</code> en 19 îlots déconnectés, 0 sommet partagé avec <code>snow</code>/<code>stone</code>/<code>ice</code> ; la collision d'un niveau agrège les fragments des prototypes TIE dupliqués par instance (<code>extract_collide_frags.cpp:30-45, 256</code>). Ce sont des objets posés, pas du terrain.</td></tr>
+<tr><td>Son épaisseur est uniforme</td><td><span class="chip c-ind">Indéterminée</span></td><td>Écart visible/collision non mesurable sans décodeur TIE du <code>.fr3</code>. Les îlots ont 3 à 6 m de dénivelé interne, pente médiane 28,4°, 83 faces à |ny| &lt; 0,7 : l'uniformité est improbable.</td></tr>
+<tr><td>Une donnée de profondeur ou d'épaisseur existe déjà</td><td><span class="chip c-no">Infirmée</span></td><td>Aucun champ, aucun compagnon, aucun code. Seul le mode (bits 3-5) est lu par le moteur (<code>GrassBakeCore.cpp:816</code>).</td></tr>
+<tr><td>Un offset ou une animation spéciale existe pour les acteurs sur neige profonde</td><td><span class="chip c-no">Infirmée</span></td><td><code>deepsnow</code> lu dans <code>effect-control.gc</code> (7 sites) et <code>target-death.gc:967-968</code> seulement. Seuls <code>ice</code>, <code>quicksand</code>, <code>tube</code>, <code>rotate</code> changent la physique (<code>collide-shape.gc:660-670</code>).</td></tr>
+<tr><td>Les ennemis marchent sur le support inférieur</td><td><span class="chip c-ok">Confirmée</span></td><td>Les nav-enemies à <code>move-to-ground</code> passent par <code>move-to-tri!</code> (<code>collide-shape.gc:1101</code>) : mêmes champs sol que Jak. snow-bunny-117 est placé 0,86 m <em>sous</em> la collision d'une congère.</td></tr>
+<tr><td>Les effets de pas de la neige profonde existent</td><td><span class="chip c-no">Infirmée</span></td><td>Cinq <code>group-*-dpsnow</code> sans définition, parts 2251/2263 absents, sons désaccordés. Rien ne se produit sur <code>deepsnow</code>.</td></tr>
+<tr><td>Le matériau de collision permet une classification fiable</td><td><span class="chip c-ok">Confirmée</span></td><td>sand 5, snow 9, deepsnow 10 par triangle sur tous les niveaux ; <code>gravel</code> n'a aucun triangle dans le jeu. À croiser avec la texture, comme pour l'herbe.</td></tr>
+<tr><td>Visuel et collision du sable sont confondus</td><td><span class="chip c-part">Partielle</span></td><td>Collision : beach = 1 îlot de 10 288 triangles, 0 sommet partagé avec la roche ; training = 42 îlots dont 2 952 triangles en mode MUR. L'appariement rendu↔collision n'a pas été mesuré (même décodeur manquant).</td></tr>
+<tr><td>Du sable humide est représenté</td><td><span class="chip c-no">Infirmée</span></td><td>Aucune texture <code>wet</code>/<code>damp</code> sur 1 471 textures de sol ; seul <code>swp-mud-*</code>. Le sable mouillé est une <em>promesse</em> de <code>water-shore</code> (albédo × 0,6, rugosité 0,15 via <code>shade()</code>).</td></tr>
+<tr><td>Certains niveaux utilisent une implémentation différente</td><td><span class="chip c-part">Partielle</span></td><td>ogre porte 18 îlots <code>deepsnow</code> de 16 triangles, 17 congruents (37 m², ~9 m d'empreinte, 0,5-1,0 m de haut) : même mécanisme TIE, autre prototype.</td></tr>
+<tr><td>Les caisses sont des objets dynamiques</td><td><span class="chip c-no">Infirmée</span></td><td>0 <code>integrate</code>/<code>transv</code> dans <code>crates.gc</code> ; primitive mesh (boîte) avec sphère englobante r 1,7 m ; processus vivant 5 s après la casse. Ce sont des objets statiques.</td></tr>
+<tr><td>Des OBB existent pour les objets</td><td><span class="chip c-no">Infirmée</span></td><td>Toute collision = sphère englobante + triangles. Orientation disponible par <code>quat</code>.</td></tr>
+<tr><td>Le renderer sait faire du compute</td><td><span class="chip c-part">Partielle</span></td><td>Disponible en GL 4.3 et GLES 3.2 ; <strong>0 site</strong> de <code>glDispatchCompute</code>, image store, atomiques, SSBO. Jamais exercé sur Adreno 618 : fiabilité indéterminée, ne pas fonder l'architecture dessus.</td></tr>
+<tr><td>La tessellation existe dans le moteur</td><td><span class="chip c-no">Infirmée</span></td><td>Supprimée par <code>lighting-legacy-purge</code> (<code>c65c9a71bd</code>, 11/09). Les SPEC eau §1.3 et lumière §4.14 la citent encore : périmées sur ce point.</td></tr>
+<tr><td><code>hfrag</code> est un heightfield réutilisable</td><td><span class="chip c-no">Infirmée</span></td><td>Jak 3 seulement (<code>OpenGLRenderer.cpp:252,275</code>), absent d'<code>android/CMakeLists.txt</code>, <code>sampler1D</code>. Cellules de 8 m, hauteur statique.</td></tr>
+<tr><td>L'AO lit la profondeur de la scène</td><td><span class="chip c-no">Infirmée</span></td><td>Elle lit sa propre prépasse (<code>prepass_world.vert</code>, FBO dédié). Une déformation absente de la prépasse est invisible pour l'AO.</td></tr>
+<tr><td>Les ombres sont des shadow maps</td><td><span class="chip c-part">Partielle</span></td><td>Deux systèmes : volumes stencil PS2 au bucket 47 (suivraient un terrain déformé via la profondeur) et carte d'ombre soleil 2048² D16 double-buffée sous <code>kLighting</code>, qui lit la position brute (<code>pbr_depth.vert</code>).</td></tr>
+<tr><td>Le terrain a des normales par sommet</td><td><span class="chip c-part">Partielle</span></td><td>Présentes au VAO (loc 3, 2-10-10-10) mais absentes du <code>.fr3</code> tfrag, reconstruites au chargement (<code>TFrag3Data.cpp:1900-1976</code>). TIE : s8 par prototype.</td></tr>
+<tr><td>Les pièges Adreno sont consignés dans PITFALLS</td><td><span class="chip c-no">Infirmée</span></td><td>0 occurrence sur 999 lignes ; ils vivent dans les commentaires des shaders (<code>grass.vert:53-54, 226-231, 289-304</code>).</td></tr>
+</table></div>
+
+<h2 id="s4"><span class="num">4</span>Architecture actuelle du terrain et des matériaux</h2>
+<div class="flow">EXTRACTION (hors ligne, decompiler)                    TFRAG3_VERSION = 44
+  ISO ──► level ──► .fr3 (zstd, en-tête u64)
+              ├─ tfrag  : PackedTfragVertices (xoff/yoff/zoff u16, cluster, s/t, color_index) — SANS normale
+              ├─ tie    : prototypes + instances, nx/ny/nz s8, has_normals par groupe
+              ├─ shrub
+              └─ collision : CollisionMesh::vertices, 32 o/sommet, pat à +24
+                             (mode bits 3-5, MATÉRIAU bits 6-11, event 14-19)
+                             = fragments du collide-tree tfrag + fragments des protos TIE × instances
+
+CHARGEMENT (Loader / LoaderStages)
+  .fr3 ──► normales tfrag reconstruites par soudure (TFrag3Data.cpp:1900-1976)
+       ──► VBO STATIQUES par niveau (glBufferData STATIC, tranches 32768) : PreloadedVertex 32 o
+           xyz f32 · rgba u8 · st f32 · nor 2-10-10-10 · color_index u16 · seam_w u16
+       ──► compagnons optionnels : .grassbake · .lightbake (à venir) · .waterbake (à venir)
+
+PAR IMAGE
+  cull_check_all_slow : boucle plate sur les VisNode (sphère / 6 plans + bit d'occlusion PS2)
+  make_multidraws_from_vis_string ──► glMultiDrawElements
+  time-of-day : LUT W×1 RGBA8 réécrite par image, texelFetch au sommet par color_index
+  TROIS projections du terrain :
+    tfrag3.vert:66-75      couleur          + tie_sway + tie_contact
+    prepass_world.vert:29   prépasse AO      position brute
+    pbr_depth.vert:6        ombre soleil     position brute</div>
+<p>Deux mécanismes structurants pour nous. La couleur du jour est un <strong>canal indirect par sommet</strong> : un index 16 bits vers une table réécrite chaque image — la preuve qu'un état dynamique par cellule peut atteindre le sommet sans réécrire le VBO. Et les chunks GLSL partagés existent déjà (<code>Shader::expand_includes</code>, <code>Shader.cpp:222-224</code> : <code>frame_ubo.glsl</code>, <code>tie_sway.glsl</code>, <code>vegetation_contact.glsl</code>, <code>shade.glsl</code>, <code>ocean_layer_a.glsl</code>) — le mécanisme qui fera voir un déplacement aux trois passes.</p>
+<p>Le renderer Android (<code>android/android_opengl_renderer.cpp</code>, 2 264 lignes) duplique la liste des buckets (31 contre 52), la boucle de dispatch, la création des FBO et le déclenchement du tonemap ; il partage tous les <code>BucketRenderer</code>, la prépasse, l'herbe. Tout site « par passe » se visite dans les deux boucles, et tout <code>.cpp</code> neuf s'inscrit dans <code>android/CMakeLists.txt:747-818</code>.</p>
+
+<h2 id="s5"><span class="num">5</span>Analyse détaillée de la neige profonde actuelle</h2>
+<div class="scroll"><table>
+<caption>Les îlots deepsnow, mesurés dans les .fr3</caption>
+<tr><th>Niveau</th><th class="n">Triangles</th><th class="n">Îlots</th><th class="n">Aire</th><th>Forme</th><th>Zone</th></tr>
+<tr><td>snow</td><td class="n">762</td><td class="n">19</td><td class="n">2 332 m²</td><td>13 × 42 tris et 6 × 36 tris ; 25 à 366 m² chacun ; 558 sommets uniques</td><td>x [732 ; 906] · z [−3292 ; −3178] · y [218,6 ; 251,3]</td></tr>
+<tr><td>ogre</td><td class="n">≥ 288</td><td class="n">18</td><td class="n">674 m²</td><td>16 tris chacun, 17 congruents : 37 m², ~9 m d'empreinte, 0,5-1,0 m de haut</td><td>deux groupes : x~177 z~−2200 y~37,5 · x~210 z~−3060 y~22</td></tr>
+</table></div>
+<p><strong>Mesh visible et support.</strong> La congère est un prototype TIE ; sa collision est un fragment du prototype, dupliqué par instance. Le support est donc un solide fermé propre à chaque congère, pas une nappe sous le terrain. Les candidats vus par <code>strings</code> dans le <code>.fr3</code> de snow : <code>snow-sloped.mb</code>, <code>snow-top-01.mb</code>, <code>snow-top-02.mb</code>, <code>snow-flattop.mb</code>, <code>snow-flapjack-01.mb</code>. L'attribution îlot → prototype et l'écart vertical restent à mesurer.</p>
+<p><strong>Topologie.</strong> Tous les triangles sont en mode <code>ground</code>, événement 0. Le mode ne borne pas la pente (le test mur/sol est géométrique, <code>collide-reaction-target.gc:152</code>) : les 83 faces à |ny| &lt; 0,7 et les faces retournées (ny min −0,877) sont marchables. Dénivelé interne 3 à 6 m par îlot.</p>
+<p><strong>Objets et acteurs.</strong> 459 acteurs dans snow, 96 dans la boîte des îlots, 3 à l'aplomb d'un triangle deepsnow : snow-bunny-117 (0,86 m sous la collision) et deux émetteurs snow-part (+5,7 et +7,3 m). Aucune orbe, aucune caisse sur une congère. Sur ogre : deux paires de TNT et un ecovent à moins de 15 m, rien dessus.</p>
+<p><strong>Ce qui manque pour la couche</strong> : l'épaisseur par point (surface rendue → îlot de collision), la direction de couche sur des pentes à 28°, et la frontière entre congère et terrain — qui est aujourd'hui une intersection de deux maillages, pas une couture.</p>
+
+<h2 id="s6"><span class="num">6</span>Analyse de la neige compacte</h2>
+<p>5 968 triangles <code>snow</code>, 72 181 m², dans snow uniquement. C'est du terrain : 786 des 3 872 sommets sont partagés avec la roche. Normale médiane 0,995 — quasi plate — avec 61 triangles au-delà de 45°. Voisins : <code>ice</code> (710 triangles, 13 261 m²) et <code>stone</code> (85 191). Textures : 81 dans snow, 59 en <code>snow*</code> (<code>snow</code>, <code>snow-03</code>, <code>snow-clumps</code>, <code>snow-path</code>, <code>snow-path-sides</code>, <code>snow-rock</code>…). Aucune séparation visuel/collision aujourd'hui : c'est le cas simple où la coque de 3 à 4 cm se pose sur un terrain dont la collision et le rendu sont la même surface. Les torches de la neige sont le lieu cité par <code>lighting-local-lights</code> ; <code>lighting-bake</code> livre snow dans sa première fournée ; les vantages <code>snow-start</code> et <code>snow-fort</code> existent dans <code>refset.cpp:213-214</code>.</p>
+
+<h2 id="s7"><span class="num">7</span>Analyse du sable</h2>
+<div class="scroll"><table>
+<caption>Le sable par niveau et par hauteur (mer à y = 0)</caption>
+<tr><th>Niveau</th><th class="n">Triangles</th><th class="n">Aire</th><th>Structure</th><th>Proximité de l'eau</th></tr>
+<tr><td>beach</td><td class="n">10 294</td><td class="n">90 299 m²</td><td>1 îlot, 0 sommet partagé avec la roche ; 612 tris &gt; 45°</td><td>−5..0 m : 16 489 m² · 0..2 m : 18 254 m² · fond marin &lt; −5 m : 26 007 m² → <strong>38 % à ± 2 m de l'eau</strong></td></tr>
+<tr><td>training</td><td class="n">8 728</td><td class="n">56 233 m²</td><td>42 îlots ; 5 776 tris sol + <strong>2 952 tris en mode MUR</strong> ; 2 920 tris &gt; 45°</td><td>eau à y = 0 (<code>training-water</code>) ; bandes non mesurées</td></tr>
+<tr><td>village1</td><td class="n">8 304</td><td class="n">60 019 m²</td><td>1 îlot</td><td>−5..0 m : 19 507 m² · 0..2 m : 23 714 m²</td></tr>
+<tr><td>intro / village2</td><td class="n">2 464 / 616</td><td class="n">11 941 m² / 5 255 m²</td><td>non détaillés</td><td>—</td></tr>
+<tr><td>misty</td><td class="n">0</td><td class="n">0</td><td><code>dirt</code> 21 249 tris, <code>quicksand</code> 232 (3 348 m²)</td><td>le zoomer y roule sur de la terre, pas du sable</td></tr>
+</table></div>
+<p>Textures : <code>bch-beach-01</code> (beach, training), <code>vil-beach-01</code> et <code>vil-beach-01path</code> (village1), <code>jng-beach-01</code> et <code>jng-beach-01path</code> (jungle — sur une collision <code>dirt</code>, un désaccord des deux sources à compter), <code>vil2-beach-01</code>. Pas de sable humide, pas de familles de sable distinctes. Le fond marin sablonneux (26 007 m² sous −5 m à beach) ne recevra pas de coque : décision 9.</p>
+
+<h2 id="s8"><span class="num">8</span>Inventaire des niveaux et surfaces</h2>
+<div class="scroll"><table>
+<caption>Triangles de collision par matériau et par niveau (scanner du chercheur, 23 niveaux sur 25 ; ogre borne basse)</caption>
+<tr><th>Niveau</th><th class="n">deepsnow</th><th class="n">snow</th><th class="n">sand</th><th>Autres sols</th><th>Cas particuliers</th></tr>
+<tr><td>snow</td><td class="n">762 / 2 332 m²</td><td class="n">5 968 / 72 181 m²</td><td class="n">—</td><td>ice 710 (13 261 m²), stone 85 191</td><td>congères TIE, glace, pentes 28°, torches</td></tr>
+<tr><td>ogre</td><td class="n">≥ 288 / 674 m²</td><td class="n">—</td><td class="n">—</td><td>—</td><td>18 congères congruentes, TNT à proximité</td></tr>
+<tr><td>beach</td><td class="n">—</td><td class="n">—</td><td class="n">10 294 / 90 299 m²</td><td>grass 17 768, dirt 416</td><td>rivage, fond marin, lurkercrab, pelican</td></tr>
+<tr><td>training</td><td class="n">—</td><td class="n">—</td><td class="n">8 728 / 56 233 m²</td><td>grass 8 434</td><td>42 îlots, sable en mode mur, herbe acquise, vantages du harnais</td></tr>
+<tr><td>village1</td><td class="n">—</td><td class="n">—</td><td class="n">8 304 / 60 019 m²</td><td>grass 6 022</td><td>yakow, starfish, eau à y = 0</td></tr>
+<tr><td>intro · village2</td><td class="n">—</td><td class="n">—</td><td class="n">2 464 / 11 941 m² · 616 / 5 255 m²</td><td>—</td><td>marginaux, en fin de généralisation</td></tr>
+<tr><td>misty</td><td class="n">—</td><td class="n">—</td><td class="n">0</td><td>dirt 21 249, quicksand 232</td><td>zoomer sur terre</td></tr>
+<tr><td>rolling / village3 / swamp / jungle</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td>grass 36 942 · lava 14 082 · dirt 12 196 · dirt 3 962</td><td>hors périmètre</td></tr>
+</table></div>
+<p><code>gravel</code> : zéro triangle dans tout Jak 1. Le périmètre réel est donc : deux niveaux de neige, trois niveaux de sable significatifs, deux niveaux de sable marginaux.</p>
+
+<h2 id="s9"><span class="num">9</span>Inventaire des interacteurs</h2>
+<h3>Jak</h3>
+<p>Root <code>collide-shape-moving</code> : <code>trans</code>, <code>quat</code>, <code>transv</code> ; drapeaux <code>onground</code>/<code>onsurf</code>/<code>on-water</code> ; <code>ground-pat</code> (le matériau sous lui) ; <code>ground-poly-normal</code> ; <code>ground-touch-point</code> — un seul point, figé en l'air ; <code>ground-impact-vel</code> à l'atterrissage. Collider : six sphères sur la racine (r 2,2 m racine, r 0,7 m corps à 0,7/1,4/2,1 m), <strong>aucune primitive de pied</strong>. Modes <code>'racer</code> et <code>'flut</code> plus gros. Squelette <code>eichar</code> 84 nœuds ; les pieds : <code>Lankle</code> 29, <code>Rankle</code> 33, <code>Lball</code> 69, <code>Rball</code> 73, <code>Ltoes</code> 71, <code>Rtoes</code> 75, matrices monde après <code>ja-post</code>. Le modèle HD (<code>jak-hd.gc</code>) re-cible ces os : on lit toujours <code>eichar</code>.</p>
+<p>États utiles (105 au total) : <code>target-walk</code>, <code>-running-attack</code>, <code>-jump</code>, <code>-double-jump</code>, <code>-falling</code>, <code>-hit-ground</code>, <code>-hit-ground-hard</code>, <code>-slide-down</code>, <code>-flop</code>/<code>-flop-hit-ground</code>, <code>-attack-uppercut</code>, <code>-duck-walk</code>, <code>-edge-grab</code>, <code>-wade-*</code>, <code>-ice-*</code>, <code>-flut-*</code>, <code>-racing-*</code>, <code>-snowball</code>. Aucun ne porte « pied au sol ».</p>
+<p><strong>Événements de pas</strong> : tags d'animation à une key-frame (<code>'effect-name</code>, <code>'effect-joint</code>), résolus par <code>effect-control-method-9</code> <em>avant</em> <code>do-joint-math!</code> — la position du joint est celle des os de l'image précédente. Gauche/droite par le nom. Pas d'orientation de semelle, pas de vitesse, pas de phase. Piège : le bit 0 des flags enverrait les pas dans <code>target-powerup-effect</code> — ne jamais l'armer ; le crochet est un appel dans method-11. Piège fork : sous interpolation d'animation, <code>do-joint-math!</code> recule <code>trans</code> avant de construire les os.</p>
+<h3>Ennemis vivants</h3>
+<p>Les nav-enemies à <code>move-to-ground</code> ont les mêmes champs sol que Jak, par image. Sphères sur racine et sur os (snow-bunny : racine r 1,3 m + corps + tête sur nœud 6 ; yeti-slave r 3 m ; ice-cube r 3,6 m ; ram-boss ; lurkercrab r 3 m + pinces sur nœuds 16/21 ; bonelurker r 6 m). Aucune primitive de pied. Dans le périmètre : snow-bunny, yeti-slave, ice-cube, ram-boss (snow) ; lurkercrab, lurkerpuppy (beach) ; starfish (village1).</p>
+<p><strong>Mort et évaporation</strong> (<code>nav-enemy-die</code>, <code>nav-enemy.gc:807-827</code>) : image 0 → <code>clear-collide-with-as</code>, la collision est retirée ; chute balistique sans collision (16 m/s vers le haut, 5 m/s latéral) pendant l'animation de mort ; puis dissolution de sommets pendant <code>75 / 5 + 1 = 16</code> images ; <code>'death-end</code> masque le dessin ; <code>cleanup-for-death</code>, <code>deactivate</code>. <strong>Conséquence directe</strong> : un collecteur d'interacteurs qui filtre sur <code>collide-with ≠ 0</code> — ce que fait déjà le balayage de l'herbe — perd l'ennemi à l'image 0 de sa mort. Aucun fantôme possible par construction ; la dernière déformation utile est celle de l'image précédente.</p>
+<h3>PNJ</h3>
+<p>Les <code>process-taskable</code> (farmer, sage, explorer, mayor, sculptor…) ont un <code>collide-shape</code> non mobile et zéro intégration : ils ne marchent pas hors cinématique. Se déplacent réellement au sol : <strong>yakow</strong> (village1, r 2,5 m, nav-control, <code>move-to-ground</code>), <strong>seagull</strong> (beach, se pose), <strong>pelican</strong> (beach, trajectoire). Le bateau du pêcheur est une plateforme sur l'eau.</p>
+<h3>Objets</h3>
+<p><strong>Caisses</strong> : prim mesh boîte, sphère r 1,7 m, jamais mobiles → objets statiques du bake, pas interacteurs. <strong>snow-ball</strong> : sphère r 2,5 m qui roule le long d'une courbe, <code>transv</code> et <code>quat</code> disponibles — le seul objet roulant réel sur neige. <strong>Zoomer</strong> et <strong>flut-flut</strong> : à la monte, c'est le collider <code>'racer</code>/<code>'flut</code> de Jak qui compte ; le zoomer roule sur misty (terre), firecanyon, lavatube, rolling, ogre — pas sur du sable. Plateformes : mesh. <strong>Aucun objet n'expose d'OBB</strong> ; l'orientation vient de <code>quat</code>, l'étendue de la sphère englobante.</p>
+<h3>Le canal existant GOAL → C++</h3>
+<p><code>pc-set-jak-pos!</code> chaque image ; balayage d'acteurs toutes les 15 images (3 sous foliage-wind) : <code>pc-grass-occ-add!</code> pour crates et scarecrows, liste blanche de machines, <code>pc-grass-occ-add-moving!</code> pour tout process-drawable dessiné à <code>collide-with ≠ 0</code>. Côté C++ (<code>GrassRenderer.cpp:174-720</code>) : TTL adaptatif, force en fondu (0,25 s / 0,6 s), traînée de Jak à 4 échantillons espacés de 0,15 s, tri par distance, jusqu'à 8 disques uploadés (16 avec les statiques), <code>u_trample2</code> repacké parce qu'Adreno 618 rend zéro sur un tableau de flottants à index dynamique, déroulage littéral sur 8 dans <code>grass.vert:226-234</code>. <strong>Ne transite pas</strong> : vélocité, orientation, capsule, pied. Pont : 6 arguments GPR ; au-delà, la rampe à tableau (<code>pc-hd-skel-joint!</code> en prend 8) ou, mieux, un tableau GOAL inline enregistré une fois, patron <code>*hd-ring*</code> (<code>jak-hd.gc:90</code>).</p>
+
+<h2 id="s10"><span class="num">10</span>Exigences fonctionnelles et visuelles consolidées</h2>
+<h4>Obligatoires</h4>
+<ul>
+<li>Déformation géométrique réelle, visible dans la couleur, la prépasse, la carte d'ombre soleil et les volumes d'ombre PS2 — la même position dans toutes.</li>
+<li>Collision, navigation, tests de sol, sauts, ledges, triggers, caméra : bit-identiques feature allumée ou éteinte. La coque descend vers le support ; le support ne monte jamais.</li>
+<li>Jak pénètre la couche ; aucun relèvement d'acteur.</li>
+<li>Couche de 3 à 4 cm (123 à 164 unités, calibrée par profil et par niveau) sur neige compacte et sable ; épaisseur cuite par point sur les congères ; jamais un creusement sous le support.</li>
+<li>Tout le statique est cuit ; le chargement lit, filtre des index, ne calcule rien de géométrique.</li>
+<li>Déterminisme du bake ; simulation indépendante du framerate par volumes balayés échantillonnés à la distance parcourue.</li>
+<li>Chunking, culling, LOD, éviction et budgets mémoire posés par le format cuit, pas ajoutés après.</li>
+<li>Feature éteinte = absence, prouvée par binaire-témoin, comme l'exigent les SPEC lumière et eau.</li>
+</ul>
+<h4>Améliorations importantes</h4>
+<ul><li>Sillons continus et parois lisibles en neige profonde ; bourrelets bornés ; empreintes gauche/droite distinctes ; traces d'ennemis et de la boule de neige ; glissades et roulades ; shading de la trace (compression, âge) via <code>shade()</code> ; représentation lointaine des sillons majeurs ; effacement par l'eau sous contrat.</li></ul>
+<h4>Raffinements facultatifs</h4>
+<ul><li>Ouverture de la matière le long des jambes au-delà des semelles ; PNJ mobiles ; influence de la chute de neige existante sur le remplissage ; différence sable sec/mouillé au-delà de ce que l'eau fournit.</li></ul>
+<h4>Décisions restant à valider</h4>
+<ul><li>Voir section 33 : quinze décisions, dont la représentation principale, la direction d'épaisseur, la persistance, le contrat avec l'eau et la place dans la file.</li></ul>
+
+<h2 id="s11"><span class="num">11</span>Séparation support / couche visuelle</h2>
+<p><strong>Neige profonde, aujourd'hui</strong> : support = îlot de collision de la congère (solide fermé, mode ground quelle que soit la pente) ; couche = maillage rendu du prototype TIE, au-dessus, écart inconnu. La séparation existe ; elle n'est ni mesurée ni exploitable au runtime.</p>
+<p><strong>Neige compacte et sable, proposé</strong> : le support est le terrain lui-même. La coque est le <em>même</em> ensemble de triangles, subdivisé hors ligne et soulevé de <code>h</code> le long de la direction de couche, avec <code>h → 0</code> sur les sommets de frontière (partagés avec un triangle non éligible, un mur, un objet statique cuit, la ligne d'eau). Les sommets de frontière ne bougent pas : la coque reste soudée au reste du monde, sans marche, sans z-fight à la couture. Au chargement, les triangles éligibles sont retirés de l'index du terrain et la coque prend leur place : elle porte les mêmes UV, le même <code>color_index</code> (interpolés dans les enfants), le même shader de matière, donc la même apparence au repos — plus haute de 3 à 4 cm.</p>
+<div class="scroll"><table>
+<caption>Calibration des 3 à 4 cm</caption>
+<tr><th>Grandeur</th><th class="n">Valeur</th><th>Source</th></tr>
+<tr><td>1 mètre</td><td class="n">4 096 u</td><td><code>METER_LENGTH</code>, <code>types-h.gc:23</code></td></tr>
+<tr><td>3 cm · 4 cm</td><td class="n">122,88 u · 163,84 u</td><td>conversion</td></tr>
+<tr><td>Hauteur du collider de Jak</td><td class="n">2,8 m</td><td>racine + 3 sphères corps, <code>target-util.gc:122-215</code></td></tr>
+<tr><td>3-4 cm en fraction de Jak</td><td class="n">1,07 - 1,43 %</td><td>calcul</td></tr>
+<tr><td>Hauteur de tête</td><td class="n">1,4 m</td><td><code>head-height</code></td></tr>
+<tr><td>Pas de marche · de course</td><td class="n">2,8 m · 6,25 m par cycle</td><td><code>target-util.gc:164-187</code></td></tr>
+<tr><td>Empreinte ND (sprite)</td><td class="n">0,6 m de côté, −0,25 m en x</td><td>part 2376, <code>target-part.gc:1005-1026</code></td></tr>
+<tr><td>Longueur du pied</td><td class="n">indéterminée</td><td>bind-pose dans les <code>.go</code></td></tr>
+</table></div>
+<p>Trois à quatre centimètres à 1,4 m d'œil se lisent à angle rasant et dans l'ombre de contact, pas de face. Le réglage se fait par profil (<code>h</code>) et par niveau (multiplicateur), et se valide à l'œil de l'owner sur une zone pilote — c'est un des rares points où la preuve visuelle est le juge final, et l'item le dit.</p>
+<p><strong>Acteurs et objets</strong> : rien ne change pour eux — ils marchent sur le support. Les objets statiques cuits (caisses, coffres, plateformes, TNT, marches) reçoivent une exclusion et un falloff d'épaisseur : leur base reste posée sur le support, la coque descend à zéro en s'approchant, aucune fente, aucun objet qui flotte. Les collectibles (orbes à 1 233 positions connues) flottent déjà : une coque de 4 cm ne change rien de perceptible ; les cellules et caisses posées au sol sont dans l'inventaire des exclusions.</p>
+
+<h2 id="s12"><span class="num">12</span>Options architecturales comparées</h2>
+<div class="scroll"><table>
+<caption>Dix options, jugées sur les faits du dépôt</caption>
+<tr><th style="width:16%">Option</th><th>Ce que dit le dépôt</th><th style="width:30%">Verdict</th></tr>
+<tr><td><strong>1. Déplacer le mesh visible existant</strong></td><td>Arête 4,9 m, VBO statiques, normales reconstruites, trois vertex shaders divergents, tfrag et TIE partagent un shader avec le balancement.</td><td><span class="chip c-no">Rejetée</span> comme représentation : une empreinte de 0,6 m n'existe pas sur un triangle de 5 m. Reste vraie pour une chose : le terrain doit <em>céder</em> ses triangles à la coque.</td></tr>
+<tr><td><strong>2. Subdivision précalculée du mesh en place</strong></td><td>Toucherait l'extracteur et <code>TFRAG3_VERSION</code> (44, que <code>lighting-bake</code> va bumper), grossirait tous les <code>.fr3</code>, et laisserait les trois shaders divergents.</td><td><span class="chip c-part">Adoptée à moitié</span> : la subdivision est cuite, mais dans un compagnon, pas dans le <code>.fr3</code>, et pour les seuls triangles éligibles.</td></tr>
+<tr><td><strong>3. Proxy mesh / coque déformable</strong></td><td>Patron GrassRenderer : renderer propre, VBO propre, shader propre, inséré après tfrag. Frontières exactes si les enfants héritent des arêtes. Épaisseur, exclusions, falloffs cuits.</td><td><span class="chip c-ok">Recommandée</span> comme représentation : elle seule contrôle ses trois passes et ses frontières.</td></tr>
+<tr><td><strong>4. Heightfield dynamique + déplacement au sommet</strong></td><td>Lecture de texture au sommet exercée par 6 shaders ; l'océan lit R32F 32×32 et déplace 16 641 sommets ; R16/RGBA16F/R32F utilisés ; MRT jamais.</td><td><span class="chip c-ok">Recommandée</span> comme état dynamique : une tuile par chunk, en repère local du chunk, jamais une grille monde.</td></tr>
+<tr><td><strong>5. Tuiles persistantes par chunk</strong></td><td>Chunking cuit prévu par l'herbe ; TBDR : chaque RT se paie ; mémoire bornée nécessaire.</td><td><span class="chip c-ok">Recommandée</span> : pool de tuiles à éviction, copie grossière conservée hors portée.</td></tr>
+<tr><td><strong>6. Grille ou clipmap autour de la caméra</strong></td><td>C'est ce que fait l'eau pour ses rides (transitoires, 0,2 m) et pour sa surface.</td><td><span class="chip c-no">Rejetée</span> pour des traces persistantes : reprojection à chaque déplacement, perte hors fenêtre, deux étages confondus, téléports.</td></tr>
+<tr><td><strong>7. Mise à jour CPU</strong></td><td><code>glTexSubImage2D</code> par image existe (palette TOD ×3, vent des shrubs) ; <code>glBufferData</code> dynamique par image pour merc.</td><td><span class="chip c-part">Repli des paliers bas</span> : tampons de contact calculés sur CPU dans une tuile 64² puis téléversés — déterministe, sans ping-pong, sans relecture.</td></tr>
+<tr><td><strong>8. Mise à jour GPU par rasterisation</strong></td><td>13 fichiers font du render-to-texture ; cible flottante non relisible en octets sur GLES3 (on ne relit jamais) ; compute jamais exercé.</td><td><span class="chip c-ok">Recommandée</span> à partir de Moyen : quads de contact dessinés dans la tuile, ping-pong pour la relaxation, normales par gradient dans le shader de la coque.</td></tr>
+<tr><td><strong>9. Tessellation haut de gamme</strong></td><td>Supprimée du moteur le 11/09 ; outils offline restants.</td><td><span class="chip c-no">Rejetée</span> : diverger de nouveau le code de sommet est exactement ce que la purge a effacé.</td></tr>
+<tr><td><strong>10. Hybride</strong></td><td>3 + 4 + 5 + 8, avec 7 en repli : un seul chemin de sommet, deux producteurs de tuiles.</td><td><span class="chip c-ok">C'est la recommandation.</span></td></tr>
+</table></div>
+<p>Pourquoi cela convient : aux surfaces irrégulières, parce que la coque est la surface elle-même subdivisée ; aux pentes, parce que la direction de couche est cuite par sommet ; aux surfaces superposées, parce qu'une tuile appartient à un chunk <em>et</em> à une nappe ; à OpenGL ES, parce que rien n'y dépasse ce que le dépôt exerce déjà ; aux PC haut de gamme, parce que la résolution des tuiles, la profondeur de la chaîne de LOD et le nombre de chunks actifs montent sans changer de chemin ; aux passes, parce que le déplacement vit dans un chunk GLSL inclus par les trois ; au cycle de vie, parce qu'une tuile s'évince, se dégrade, se sérialise ; aux rivages, parce que la coque lit le SDF cuit de l'eau ; au streaming, parce que le compagnon est par niveau et les tuiles par chunk.</p>
+
+<h2 id="s13"><span class="num">13</span>Architecture cible recommandée</h2>
+<div class="flow">HORS LIGNE — tools/soft_bake  (déterministe, -ffp-contract=off, round-trip intégré)
+  .fr3 ──► classification 2 sources (texture × pat-material) ─► triangles éligibles par matière
+       ──► support : terrain (compact, sable) | îlot de congère (profond)
+       ──► épaisseur h par sommet : profil (3-4 cm) | distance surface→îlot (congère)
+       ──► direction de couche par sommet (normale lissée, bornée, verticale à plat)
+       ──► frontières : distance au bord de matière, aux objets statiques cuits, au shore_sdf (.waterbake)
+       ──► coque : subdivision imbriquée L0 12,5 cm · L1 25 cm · L2 50 cm · L3 = triangle d'origine
+             sommets de frontière figés (h = 0), UV/color_index/normale hérités
+       ──► chunks : grille XZ par nappe, bounds (repos + profondeur max + bourrelet max), repère local
+       ──► <niveau>.softbake  (magie, version, empreinte de contenu du .fr3, tfrag3_version)
+
+CHARGEMENT — Loader (asynchrone, 0 analyse)
+  .softbake ──► VBO/EBO statiques de la coque par chunk et LOD
+            ──► liste des triangles tfrag à RETIRER de l'index du terrain
+            ──► textures statiques par chunk : épaisseur R8, frontière R8
+            ──► absent ou périmé : soft_missing=1, terrain intact
+
+PAR IMAGE — fil de rendu
+  GOAL ──(1 tableau inline, lu par image)──► Jak : trans, transv, quat, onground, ground-pat, état, 4 nœuds de pieds
+       ──(balayage étendu, N plus proches)──► ennemis / snow-ball / yakow : sphères, transv, collide-with≠0
+       ──(1 FFI au site effect-control method-11)──► pas gauche/droit, joint, matériau
+  collecte ─► volumes balayés (pos. précédente → actuelle, pas ≤ rayon/2) ─► priorité sous budget
+  tampons de contact ─► tuile du chunk (R16 compression · R8 bourrelet · R8 âge) par rasterisation | CPU
+  relaxation ─► ping-pong à cadence fixe (dt accumulé), tuiles actives seulement
+  éviction ─► LRU distance/âge, copie 1/4 conservée, pool borné par preset
+
+PASSES — un seul code de sommet : soft_displace.glsl
+  prépasse profondeur (AO)   ─┐
+  carte d'ombre soleil       ─┼─► coque déplacée : p = p_repos − dir · h · compression + dir · bourrelet
+  couleur (shade(), Surface) ─┘   normale = gradient de la tuile, mêlée à la normale cuite
+  volumes stencil PS2 : suivent la profondeur écrite</div>
+<p>Trois principes le tiennent. <strong>Le terrain cède, la coque remplace</strong> : jamais deux surfaces au même endroit, donc pas de z-fight, pas de double shading, et l'apparence au repos est celle du terrain plus l'épaisseur. <strong>Un seul code de sommet</strong> : <code>soft_displace.glsl</code> est inclus par les shaders de la coque dans les trois passes ; le C++ lie les mêmes attributs et uniformes sur les trois programmes, et un compteur publie les programmes liés qui l'incluent. <strong>Deux producteurs, un consommateur</strong> : la tuile est écrite soit par rasterisation (Moyen et au-dessus), soit par CPU (Très bas, Bas) ; le shader de la coque ne sait pas lequel.</p>
+
+<h2 id="s14"><span class="num">14</span>Pipeline de bake</h2>
+<ul>
+<li><strong>Entrées</strong> : <code>.fr3</code> (tfrag, TIE prototypes + instances, collision), table des profils de matière (données Recharged, pas APK — owner 29/08), positions d'acteurs statiques du niveau (caisses, coffres, plateformes, TNT), <code>.waterbake</code> si présent (shore_sdf).</li>
+<li><strong>Classification</strong> : texture × <code>pat-material</code> ; accord = éligible ; désaccord compté et publié par niveau, jamais deviné. Cas connus à compter : <code>jng-beach-01</code> sur <code>dirt</code> ; 2 952 triangles de sable en mode MUR à training (rejetés : la coque ne s'applique qu'au mode sol).</li>
+<li><strong>Support et épaisseur</strong> : compact et sable → <code>h</code> du profil × multiplicateur de niveau, falloff par distance aux frontières ; congères → lancer de rayon de la surface rendue vers l'îlot de collision le long de la direction de couche, borné, publié (min, médiane, max par îlot). Un sommet sans support sous lui est un défaut compté.</li>
+<li><strong>Direction de couche</strong> : normale de sommet lissée, mêlée à la verticale par un poids fonction de la pente (section 19), nulle en frontière.</li>
+<li><strong>Frontières et objets</strong> : distance aux arêtes non éligibles ; dépressions statiques cuites sous les objets posés ; exclusion des faces retournées et des murs ; réduction progressive à la ligne d'eau si <code>.waterbake</code> présent.</li>
+<li><strong>Coque</strong> : subdivision imbriquée par triangle (L0 → L3), les niveaux bas étant des sous-ensembles d'index des niveaux hauts — le patron de préfixe de l'herbe appliqué à des index ; sommets de frontière partagés à l'identique avec les voisins.</li>
+<li><strong>Chunks et bounds</strong> : grille XZ dont le pas dérive du budget de sommets ; une coque traversant une frontière est coupée le long des arêtes de triangles, pas au milieu ; bounds = repos + profondeur max + bourrelet max ; repère local par chunk ; plusieurs nappes par cellule quand deux étages se superposent.</li>
+<li><strong>Sérialisation</strong> : <code>&lt;niveau&gt;.softbake</code>, en-tête de la famille (magie, version du format, <strong>empreinte de contenu</strong> du <code>.fr3</code> — pas sa taille, le défaut connu du <code>.grassbake</code> — et <code>tfrag3_version</code>) ; sections adressables par chunk pour le streaming.</li>
+<li><strong>Déterminisme et cache</strong> : aucun aléatoire, aucune horloge, aucun fil, <code>-ffp-contract=off</code> ; contrôle de round-trip ; rebake ciblé par niveau et par section (profils seuls, frontières seules) ; déclenchement automatique par la chaîne de build ; invalidation si empreinte du <code>.fr3</code>, version du format, table des profils ou <code>.waterbake</code> changent.</li>
+<li><strong>Validation cuite</strong> : compte de sommets sans support, épaisseurs négatives (doivent être 0), sommets de frontière déplacés (0), triangles retournés dans la coque (0), écart maximal entre coque et terrain à la couture (0).</li>
+</ul>
+
+<h2 id="s15"><span class="num">15</span>Modèle de données runtime</h2>
+<div class="scroll"><table>
+<caption>Ce qui vit en mémoire, et à quel coût</caption>
+<tr><th>Donnée</th><th>Portée</th><th class="n">Ordre de grandeur</th><th>Stockée ou dérivée</th></tr>
+<tr><td>Coque : VBO 32 o/sommet + EBO par LOD</td><td>niveau</td><td class="n">10 294 tris × 4^k</td><td>stockée (cuite) ; L2 ≈ 165 k tris pour le sable de beach</td></tr>
+<tr><td>Épaisseur, frontière</td><td>chunk, texture R8 statique</td><td class="n">64² = 4 Ko</td><td>stockée</td></tr>
+<tr><td>Compression</td><td>chunk, tuile R16 dynamique</td><td class="n">64²-256² = 8-128 Ko</td><td>dynamique, pool borné</td></tr>
+<tr><td>Bourrelet, âge</td><td>chunk, R8 + R8</td><td class="n">idem / 2</td><td>dynamique</td></tr>
+<tr><td>Copie grossière</td><td>chunk évincé, R8 1/4</td><td class="n">~0,5-8 Ko</td><td>dérivée à l'éviction</td></tr>
+<tr><td>Interacteurs</td><td>image</td><td class="n">≤ 32 × 64 o</td><td>dynamique, tableau fixe</td></tr>
+<tr><td>Volumes balayés</td><td>image</td><td class="n">≤ 128 segments</td><td>dérivés des positions précédentes</td></tr>
+<tr><td>Régions dirty</td><td>chunk</td><td class="n">1 rect par tuile</td><td>dérivées</td></tr>
+<tr><td>Profils de matière</td><td>global</td><td class="n">3 × ~20 scalaires</td><td>données, rechargeables</td></tr>
+</table></div>
+<p>La compression est normalisée : 0 = repos, 1 = sur le support. L'épaisseur réelle par point vient de la texture statique ; la profondeur monde = épaisseur × compression. Une tuile ne peut donc jamais exprimer un creusement sous le support, par construction. Le bourrelet est borné par le profil (fraction de <code>h</code>) et par la frontière (nul en frontière).</p>
+
+<h2 id="s16"><span class="num">16</span>Profils de matière</h2>
+<p>Valeurs de départ, à calibrer à l'œil sur les zones pilotes. Ce sont des <strong>données</strong>, dans le dépôt d'assets Recharged.</p>
+<div class="scroll"><table>
+<tr><th>Axe</th><th>Neige profonde</th><th>Neige compacte</th><th>Sable</th></tr>
+<tr><td>Épaisseur</td><td>cuite par point (surface → îlot) ; bornée [0,15 ; ?] m selon la mesure à venir</td><td>3-4 cm</td><td>3-4 cm</td></tr>
+<tr><td>Profondeur max</td><td>épaisseur locale ; pieds jusqu'aux genoux si l'épaisseur le permet</td><td>épaisseur (compression totale)</td><td>épaisseur</td></tr>
+<tr><td>Dureté (profondeur par contact)</td><td>faible : un pas enfonce 60-80 % de l'épaisseur disponible sous la semelle</td><td>forte : un pas atteint 50 %, la saturation demande des passages répétés</td><td>moyenne : 70 % au premier pas</td></tr>
+<tr><td>Rayon de compression autour du contact</td><td>large : 1,5 × rayon du contact, profil doux</td><td>étroit : 1,1 ×, contours nets</td><td>1,3 ×, bords qui s'affaissent</td></tr>
+<tr><td>Déplacement latéral / bourrelet</td><td>visible : jusqu'à 25 % de <code>h</code>, côté opposé au mouvement</td><td>faible : ≤ 5 %</td><td>léger : ≤ 12 %, redistribué doucement</td></tr>
+<tr><td>Relaxation</td><td>lente : 20 % en 60 s, bords adoucis d'abord</td><td>très lente : 10 % en 120 s, contours conservés</td><td>moyenne : 30 % en 45 s ; accélérée sous la ligne d'eau (contrat eau)</td></tr>
+<tr><td>Vieillissement du shading</td><td>fond de sillon plus sombre et plus rugueux ; scintillement réduit dans la trace</td><td>trace plus brillante (compactée), rugosité en baisse</td><td>fond plus foncé ; humidité laissée à l'eau</td></tr>
+<tr><td>Niveaux</td><td>snow, ogre</td><td>snow</td><td>beach, training, village1 (+ village2, intro)</td></tr>
+</table></div>
+<p>La neige compacte n'est pas une neige profonde à faible résolution : son profil est plus dur, plus net, plus persistant, et sa relaxation ne remplit pas. Le sable n'a pas les bourrelets de la neige ; il s'affaisse.</p>
+
+<h2 id="s17"><span class="num">17</span>Modèle d'interaction</h2>
+<p><strong>Sources par image</strong>, publiées depuis GOAL en un tableau inline enregistré une fois : Jak (trans, transv, quat, onground, ground-pat, classe d'état parmi marche/course/saut/réception/glissade/roulade/accroche/nage/monture, quatre nœuds de pieds en monde) ; les N interacteurs mobiles les plus proches (id, sphère racine ou d'os, transv, type) ; un événement de pas par tag (gauche/droit, joint, matériau) via un appel unique au site <code>effect-control-method-11</code>.</p>
+<p><strong>Pieds</strong> : deux capsules courtes cheville→plante (Lankle→Lball, Rankle→Rball), rayon du profil ; un pied est en contact si sa capsule est sous la surface de repos de la coque <em>et</em> le root est <code>onground</code> <em>et</em> la classe d'état l'autorise (jamais en <code>falling</code>/<code>jump</code>). Le tag de pas confirme et date le contact ; il ne le crée pas seul (il est résolu une image en retard). Aucune empreinte depuis la racine ; aucune empreinte circulaire par défaut — la forme est la capsule projetée.</p>
+<p><strong>Jambes et mouvements</strong> (neige profonde) : capsules hanche→genou→cheville, actives seulement quand l'épaisseur disponible dépasse la hauteur des chevilles ; réception = disque large à la racine, profondeur selon <code>ground-impact-vel</code> ; glissade = capsule allongée le long de <code>transv</code> ; roulade = sphère de la racine balayée ; accroche de rebord = rien.</p>
+<p><strong>Ennemis</strong> : sphères racine et d'os existantes, balayées ; retirés à l'image 0 de <code>nav-enemy-die</code> par le filtre <code>collide-with ≠ 0</code>. La chute balistique ne touche pas le sol : aucune déformation posthume, et c'est ce qu'on veut.</p>
+<p><strong>Objets</strong> : snow-ball = sphère r 2,5 m balayée, trace continue ; yakow, seagull, pelican par leur sphère ; zoomer et flut-flut par le collider de Jak en mode monté (plus gros, plus profond). Objets statiques : cuits.</p>
+<p><strong>Volumes balayés</strong> : chaque interacteur garde sa position précédente ; le segment est échantillonné tous les <code>rayon / 2</code> au plus, quel que soit le nombre d'images — 30, 60, 120 Hz donnent la même trace à la tolérance d'un texel. Un déplacement supérieur à 5 m entre deux images (téléport, warp) coupe le segment.</p>
+<p><strong>Superposition et saturation</strong> : la compression prend le max avec la valeur existante, jamais la somme ; à 1, plus rien ne creuse. <strong>Priorité sous budget</strong> : Jak toujours ; puis par distance à la caméra × taille apparente × nouveauté ; les interacteurs hors des chunks actifs sont ignorés sans coût.</p>
+
+<h2 id="s18"><span class="num">18</span>Rendu et passes secondaires</h2>
+<p>La coque a ses propres programmes dans les trois passes qui écrivent la profondeur — <code>soft_color</code>, <code>soft_prepass</code>, <code>soft_depth</code> — tous incluant <code>soft_displace.glsl</code> et liés avec les mêmes attributs et uniformes (le patron de <code>PrePass.cpp:264,527</code> et <code>TFragment.cpp:780</code> pour les trois programmes du terrain). Elle se dessine après les tfrag du même niveau, dans la phase opaque, avec la même convention <code>GEQUAL</code> ; en <code>GL_EQUAL</code> sur la passe avant de la refonte lumière, la position doit être bit-identique entre prépasse et couleur : même chunk, mêmes uniformes, <code>highp</code>.</p>
+<p><strong>Normales</strong> : gradient de la tuile de compression (deux différences finies) transformé dans le repère de la coque, mêlé à la normale cuite ; fournies à la prépasse (RG16F octaédrique) pour l'AO et à <code>shade()</code> via <code>Surface.N</code>. Pas de <code>dFdx</code>. <strong>Albédo, rugosité</strong> : la trace module <code>Surface.albedo</code> et <code>Surface.roughness</code> par la compression et l'âge, dans le shader de la coque, avant <code>shade()</code> — pas un second pipeline de matière. <strong>Bounds</strong> : le bsphere du chunk inclut repos, profondeur max et bourrelet max. <strong>Volumes stencil PS2</strong> : suivent la profondeur écrite par la coque, rien à faire. <strong>Reflets</strong> : aucune passe planaire n'existe ; la copie W0 de l'eau prendra la coque comme le reste de la scène.</p>
+<p><strong>Contraintes de backend</strong> : pas de relecture de cible flottante sur GLES3 (on ne relit jamais : les tuiles sont écrites et lues par le GPU seul) ; tableaux d'uniformes déroulés à index littéral ; jamais <code>normalize(mix())</code> ; comparaison manuelle si la coque doit lire l'atlas d'ombre ; <code>glFenceSync</code> si les tuiles montrent le blocage kgsl que l'herbe a connu.</p>
+
+<h2 id="s19"><span class="num">19</span>Pentes et repères</h2>
+<div class="scroll"><table>
+<caption>Direction d'épaisseur : quatre choix, un compromis</caption>
+<tr><th>Direction</th><th>À plat</th><th>Sur pente</th><th>Verdict</th></tr>
+<tr><td>Verticale monde</td><td>parfaite</td><td>épaisseur perpendiculaire = h × cos(pente) → mince à 28°, nulle à 90°</td><td>seule si la pente est faible</td></tr>
+<tr><td>Normale de face</td><td>parfaite</td><td>épaisseur uniforme, mais décalage latéral aux arêtes et discontinuité entre faces</td><td>rejetée : coutures</td></tr>
+<tr><td>Normale de sommet lissée</td><td>parfaite</td><td>uniforme et continue ; léger décalage latéral sur les fortes pentes</td><td><strong>retenue</strong>, bornée</td></tr>
+<tr><td>Gravité</td><td>= verticale</td><td>= verticale</td><td>idem verticale</td></tr>
+</table></div>
+<p>Retenu : <code>dir = normalize(mix(up, N_lissée, w(pente)))</code> avec <code>w</code> nul sous 10°, unitaire au-delà de 35°, cuit par sommet ; la compression se fait le long de <code>dir</code>, vers le support. Les contacts sont projetés le long de <code>dir</code> dans le repère local du chunk (une base cuite par chunk, tangente au plan moyen de la nappe). Deux étages proches sont deux nappes : une tuile ne mélange jamais deux supports. Les faces retournées (ny &lt; 0), les murs (mode 1) et les triangles à pente supérieure au seuil du profil sont rejetés au bake et comptés. Les coutures sont impossibles par construction : sommets de frontière figés, direction nulle en frontière, index de LOD imbriqués.</p>
+
+<h2 id="s20"><span class="num">20</span>Frontières et objets statiques</h2>
+<p>Le bake produit, par sommet, la distance à la frontière la plus proche parmi : arête vers un triangle non éligible, mur, objet statique cuit (empreinte de contact au sol, comme l'herbe : sommets TIE non éligibles densifiés au pas de 0,35 m), ligne d'eau (shore_sdf). L'épaisseur suit un falloff cosinusoïdal sur une distance déclarée par profil (0,3 m pour le sable, 0,5 m pour la neige). Sous une caisse, un coffre, une plateforme, une marche : dépression statique cuite (compression initiale à 1 dans l'empreinte) — l'objet reste posé, la coque se relève autour. Pas de fente : la dépression est plus large que l'empreinte de 0,1 m. Pas de bande exposée : la coque remplace les triangles jusqu'à la frontière exacte. Les objets déjà partiellement enterrés dans une congère sont inventoriés au bake (aujourd'hui : 3 acteurs à l'aplomb, aucun posé). Validation : compte de sommets de frontière déplacés (0), d'objets statiques dont la base est sous la coque au repos (0), de pixels de couture mesurés par la sonde de profondeur sur des vantages nommés.</p>
+
+<h2 id="s21"><span class="num">21</span>Cycle de vie</h2>
+<ul>
+<li><strong>Création</strong> : contact validé (section 17) → tampon rasterisé dans la tuile : forme = capsule projetée, profondeur cible = dureté × épaisseur disponible, appliquée avec une vitesse d'application (pas instantanée : 3 images à 60 Hz, en temps réel), max avec l'existant, saturation à 1. Contact statique (objet immobile) : s'arrête à la saturation. Contact rapide : segments balayés.</li>
+<li><strong>Mise à jour</strong> : régions dirty par tuile ; relaxation à cadence fixe par <code>dt</code> accumulé (jamais par image) sur les tuiles actives ; normales dérivées au rendu, pas stockées ; propagation latérale (bourrelet) dans le même tampon ; travail borné par image (N tampons, M tuiles relaxées, reste reporté).</li>
+<li><strong>Vieillissement</strong> par profil (section 16). La chute de neige existante (particules) n'est pas simulée : un profil peut lui emprunter une constante de remplissage plus forte dans snow.</li>
+<li><strong>Éviction</strong> : pool borné ; LRU par distance à la caméra <em>et</em> âge ; une tuile évincée laisse une copie R8 au quart, réappliquée si le chunk revient : pas de cercle, pas de ligne nette, pas de retour instantané — la copie grossière garde les sillons majeurs. Un chunk sous un objet posé ne s'évince pas tant que l'objet est actif.</li>
+<li><strong>Persistance</strong> (décisions 10-11) : tant que le niveau est chargé, y compris après checkpoint et mort de Jak ; réinitialisation au changement de niveau ; rien dans la sauvegarde. Un chunk déchargé par le streaming garde sa copie grossière tant que le niveau vit.</li>
+<li><strong>Changement de preset</strong> : conversion des tuiles (rééchantillonnage à la nouvelle résolution) sur deux images, pool redimensionné par éviction progressive ; jamais de remise à zéro.</li>
+<li><strong>Perte de contexte</strong> (mobile) : tuiles perdues ; copies grossières CPU restaurées si présentes, sinon repos. Comportement défini, publié.</li>
+</ul>
+
+<h2 id="s22"><span class="num">22</span>Chunking, culling, streaming et LOD</h2>
+<p><strong>Chunks</strong> : grille XZ de 8 m (valeur de départ : 8 m à 6,25 cm de texel = 128² ; à 12,5 cm = 64²), une nappe par étage, coupés le long des arêtes de triangles, bords partagés par construction (sommets de frontière de chunk présents dans les deux chunks avec le même index de LOD ; la tuile porte une marge d'un texel synchronisée à l'écriture des tampons : un tampon qui déborde écrit dans les deux tuiles). Comparaison faite : petits chunks (4 m) coûtent des draws et des marges ; gros (16 m) coûtent des tuiles inutiles et une zone active carrée ; 8 m tient les deux, à confirmer par mesure. Alignés sur notre propre grille, pas sur les VisNode du terrain (qui ne sont pas une grille).</p>
+<p><strong>Culling</strong> : cinq portées distinctes, publiées séparément — rendu (frustum + distance de rendu), simulation (distance de simulation, plus grande, pour que ce qui revient à l'écran soit continu), collecte des interacteurs (chunks actifs seulement), vieillissement (tuiles actives, cadence réduite hors champ), normales (au rendu seulement). Un chunk invisible mais dans la portée de simulation reçoit ses tampons à cadence réduite.</p>
+<p><strong>LOD géométrique</strong> : chaîne imbriquée L0-L3 par index ; sélection par distance avec hystérésis (entrée 0,9 ×, sortie 1,1 ×) ; morphing de la hauteur au seuil par interpolation des deux niveaux sur une plage ; la tuile est la même : aucune redistribution possible. À distance, la tuile est lue à un mip plus grossier : les petites empreintes s'effacent, les sillons survivent. Aucune apparition possible : la coque existe toujours, seule sa densité change.</p>
+<p><strong>Streaming</strong> : le compagnon est adressable par chunk ; un niveau chargé charge sa coque en asynchrone (0 ms bloqué, comme l'herbe : 103-281 ms) ; téléport et warp coupent les segments balayés et déplacent la fenêtre active sans effacer le pool ; retour rapide dans une zone = copies grossières réappliquées.</p>
+
+<h2 id="s23"><span class="num">23</span>Intégration avec l'eau et les rivages</h2>
+<div class="scroll"><table>
+<caption>Le contrat, tel que la SPEC eau le permet</caption>
+<tr><th>Grandeur</th><th>Propriétaire</th><th>Nous</th></tr>
+<tr><td>Hauteur d'eau de jeu</td><td>GOAL (<code>ocean-get-height</code>, inchangée)</td><td>on ne lit rien</td></tr>
+<tr><td>Hauteur d'eau visuelle (A+B+C)</td><td>vertex shader de l'eau</td><td>on ne lit rien : mer à y = 0 pour le bake, jet de rive ≤ 4 m par la phase</td></tr>
+<tr><td><code>shore_sdf</code>, <code>shore_dir</code>, <code>floor_depth</code></td><td><code>water-shore</code>, cuits dans <code>.waterbake</code></td><td><strong>lus au bake</strong> : falloff d'épaisseur vers l'eau, exclusion sous −0,5 m</td></tr>
+<tr><td>Phase du jet de rive</td><td>système eau (à publier : un scalaire par image)</td><td><strong>lue au runtime</strong> : relaxation accélérée où la lame passe</td></tr>
+<tr><td>Sable mouillé (albédo × 0,6, rugosité 0,15)</td><td><code>water-shore</code> via <code>shade()</code></td><td>on ne redéfinit rien ; notre trace module en plus, pas à la place</td></tr>
+<tr><td>Géométrie du sable, épaisseur, traces</td><td><strong>nous</strong></td><td>l'eau ne déplace jamais un sommet de coque</td></tr>
+<tr><td>Ordre de composition</td><td>—</td><td>coque déplacée vers le bas seulement ; l'eau se dessine après les opaques (W2a) au-dessus : pas de sable qui dépasse de l'eau au repos si la coque est exclue sous −0,5 m et effilée à 0 à la ligne</td></tr>
+</table></div>
+<p>La SPEC eau n'a pas de masque de submersion : la submersion est le jet de rive évalué dans le shader d'eau. Notre contrat demande donc un ajout minimal à <code>water-shore</code> : publier la phase du jet (un uniforme). Tant que <code>water-shore</code> n'est pas livré : falloff statique par la mer à y = 0, pas d'effacement, pas d'humidité — et le sable au-dessus de 2 m (training, village1 haut) se déploie sans attendre. Aucune écriture concurrente : deux compagnons distincts, deux jeux de tuiles, une lecture croisée au bake.</p>
+
+<h2 id="s24"><span class="num">24</span>Intégration avec les autres systèmes</h2>
+<ul>
+<li><strong>Herbe</strong> : exclusivité par classification — un triangle <code>sand</code>/<code>snow</code>/<code>deepsnow</code> n'est jamais éligible à l'herbe, et réciproquement ; le désaccord texture/matériau se compte dans les deux campagnes avec le même lecteur. Aucune racine d'herbe sur une coque. Les meshes superposés (sable rendu sur collision <code>grass</code>, cas de <code>grass-overlay-meshes</code>) sont exclus de la coque tant que le propriétaire n'est pas tranché (décision 12). Le canal d'acteurs est étendu, pas dupliqué.</li>
+<li><strong>Terrain</strong> : les triangles cédés sortent de l'index du terrain au chargement ; <code>MeshConsolidate</code> peut disparaître (item ouvert), on ne s'appuie pas sur son invariant.</li>
+<li><strong>Lumière</strong> : coque dans P1, P2, P6 ; <code>Surface</code> remplie, drapeaux standard ; LIGHT_TIER par <code>#define</code> comme les autres hôtes ; l'atlas d'ombre lit une carte d'une image de retard, la coque aussi.</li>
+<li><strong>Collision et navigation</strong> : intouchées ; test de non-régression = rejeu d'une trajectoire enregistrée feature ON/OFF avec positions de Jak bit-identiques.</li>
+<li><strong>Particules, sons, effets de pas</strong> : responsabilités — le système de déformation possède la géométrie ; <code>effect-control</code> garde poussière et sons ; le sprite <code>footprntr</code> de sable/neige compacte est désactivé quand la coque est active (double empreinte sinon), sous condition de matériau et de feature ; le trou <code>dpsnow</code> est un item séparé, adjacent, à ta décision.</li>
+<li><strong>PBR</strong> : modulation d'albédo/rugosité dans <code>Surface</code> uniquement ; <code>surfaces.json</code> peut porter les paramètres de matière de la coque si <code>lighting-materials</code> le permet.</li>
+<li><strong>Sauvegardes</strong> : rien. <strong>Debug</strong> : section 28. <strong>Build</strong> : <code>tools/soft_bake</code> dans la chaîne, deux CMakeLists, <code>kChunks</code> pour les shaders Android, <code>game.gd</code>/<code>engine.gd</code> pour le GOAL neuf.</li>
+</ul>
+
+<h2 id="s25"><span class="num">25</span>Réglages et presets</h2>
+<p>Existant : aucun preset global ; des axes indépendants (herbe : five paliers <code>very-low</code>…<code>very-high</code> ; AO : mode et qualité ; eau : 4 paliers prévus ; lumière : Très bas/Bas/Moyen/Haut/Ultra prévus). Menu : <code>recharged_master</code> → <code>recharged_&lt;feature&gt;</code>, masquer et non griser, vrais sous-menus (owner 10/09). Proposé : un réglage <code>recharged_soft</code> (Auto suit le palier lumière ; Très bas / Bas / Moyen / Haut / Ultra), un interrupteur par matière pour le debug, tout le reste interne ou par profil.</p>
+<div class="scroll"><table>
+<caption>Matrice des paliers — valeurs de départ, à confirmer par mesure</caption>
+<tr><th>Axe</th><th>Très bas</th><th>Bas</th><th>Moyen</th><th>Haut</th><th>Ultra</th></tr>
+<tr><td>Feature</td><td>éteinte, assumée : coque non chargée, terrain intact</td><td>allumée</td><td>allumée</td><td>allumée</td><td>allumée</td></tr>
+<tr><td>Texel de tuile</td><td class="n">—</td><td class="n">25 cm</td><td class="n">12,5 cm</td><td class="n">6,25 cm</td><td class="n">3,1 cm</td></tr>
+<tr><td>Producteur de tuiles</td><td class="n">—</td><td>CPU</td><td>rasterisation</td><td>rasterisation</td><td>rasterisation</td></tr>
+<tr><td>Distance de rendu / simulation</td><td class="n">—</td><td class="n">20 / 25 m</td><td class="n">35 / 45 m</td><td class="n">60 / 80 m</td><td class="n">100 / 130 m</td></tr>
+<tr><td>Chunks actifs (pool)</td><td class="n">—</td><td class="n">16</td><td class="n">48</td><td class="n">128</td><td class="n">320</td></tr>
+<tr><td>Mémoire tuiles</td><td class="n">0</td><td class="n">≈ 0,1 Mo</td><td class="n">≈ 1,2 Mo</td><td class="n">≈ 10 Mo</td><td class="n">≈ 80 Mo</td></tr>
+<tr><td>Durée de conservation</td><td class="n">—</td><td class="n">60 s</td><td class="n">180 s</td><td class="n">niveau</td><td class="n">niveau</td></tr>
+<tr><td>Interacteurs</td><td class="n">—</td><td class="n">Jak + 2</td><td class="n">Jak + 6</td><td class="n">Jak + 12</td><td class="n">Jak + 24</td></tr>
+<tr><td>Pieds</td><td class="n">—</td><td>disque racine + tag</td><td>2 capsules</td><td>2 capsules</td><td>2 capsules + orientation</td></tr>
+<tr><td>Jambes (profond)</td><td class="n">—</td><td>non</td><td>2 capsules</td><td>4 capsules</td><td>6 capsules</td></tr>
+<tr><td>Ennemis</td><td class="n">—</td><td>racine</td><td>racine + os</td><td>racine + os</td><td>racine + os balayés</td></tr>
+<tr><td>Normales</td><td class="n">—</td><td>cuites seules</td><td>gradient 2 taps</td><td>gradient 4 taps</td><td>gradient 4 taps + détail</td></tr>
+<tr><td>Bourrelets</td><td class="n">—</td><td>non</td><td>simples</td><td>fusionnés</td><td>fusionnés, directionnels</td></tr>
+<tr><td>Cadence de relaxation</td><td class="n">—</td><td class="n">2 Hz</td><td class="n">10 Hz</td><td class="n">30 Hz</td><td class="n">60 Hz</td></tr>
+<tr><td>LOD de coque</td><td class="n">—</td><td class="n">L2-L3</td><td class="n">L1-L3</td><td class="n">L0-L3</td><td class="n">L0-L3, seuils × 1,6</td></tr>
+<tr><td>Eau</td><td class="n">—</td><td>falloff statique</td><td>+ effacement par la phase</td><td>idem</td><td>idem</td></tr>
+</table></div>
+<p>Très bas éteint la feature parce que l'Adreno 618 tourne déjà à 19-20 img/s sans elle ; c'est une décision à assumer (décision 13). Un palier inférieur réduit la résolution, la portée et le nombre d'interacteurs, jamais le profil : la neige profonde reste profonde en Bas.</p>
+
+<h2 id="s26"><span class="num">26</span>Baseline et budgets</h2>
+<div class="scroll"><table>
+<caption>Ce qui est mesuré aujourd'hui (preuves archivées du harnais)</caption>
+<tr><th>Mesure</th><th>Valeur</th><th>Source</th></tr>
+<tr><td>GPU tfrag par image, x86, vantage du recensement</td><td class="n">3,7 - 5,1 ms</td><td><code>gpu_ms_13_l1_tfrag_tfrag</code>, 7 preuves du 10-12/09</td></tr>
+<tr><td>GPU tie par image, x86</td><td class="n">5,6 - 6,5 ms</td><td><code>gpu_ms_16_l1_tfrag_tie</code></td></tr>
+<tr><td>GPU total buckets, Redmi Note 9 Pro</td><td class="n">16,9 - 26,0 ms</td><td>2 preuves appareil ; <strong>répartition par bucket inexploitable</strong> : l'océan absorbe 92-95 % (15,6 / 16,9 ; 24,6 / 26,0), tfrag lit 0,007 ms — signature d'un GPU à tuiles</td></tr>
+<tr><td>Cadence Redmi, herbe OFF / ON</td><td class="n">20,0-21,1 / 4,6-6,0 img/s</td><td><code>reports/Ggrass-crash/report.txt:101-103</code>, 2 et 12 courses</td></tr>
+<tr><td>Fil GOAL Redmi</td><td class="n">≈ 19 img/s</td><td>SPEC lumière §9 : rien de nouveau par image</td></tr>
+<tr><td>Sommets / triangles par niveau</td><td class="n">beach tfrag 233 676 / 184 340 · tie 1 082 684 / 772 794 · snow tfrag 130 018 / 93 891 · tie 2 248 598 / 1 768 461</td><td><code>mesh_audit_jak1.txt</code></td></tr>
+<tr><td>Budgets GPU voisins (eau)</td><td class="n">2,0 / 3,5 / 7,5 / 12 ms</td><td>SPEC eau §7, quatre paliers</td></tr>
+</table></div>
+<p><strong>Budgets proposés</strong>, par famille et par palier : Bas 0,6 ms GPU + 0,2 ms CPU ; Moyen 1,5 + 0,3 ; Haut 3,0 + 0,4 ; Ultra 6,0 + 0,5 — la coque au repos coûte des sommets (L2 du sable de beach ≈ 165 k triangles, comparable à un tfrag entier), les tuiles coûtent des passes de rasterisation, la relaxation des ping-pong. Sur le Redmi, Très bas éteint. <strong>Manque</strong> : compteur de sommets et triangles dessinés par système et par image (seul <code>prof.add_tri</code>) ; longueur d'arête de snow et beach (seul village1 audité) ; chronomètre GPU fiable par passe sur Adreno (le total par image est le seul chiffre) ; coût des trois uploads TOD ; test de <code>glTexSubImage2D</code> à cadence par tuile sur Adreno. Tout cela est l'item 1.</p>
+
+<h2 id="s27"><span class="num">27</span>Stratégie de validation</h2>
+<p>Aucune preuve visuelle ; chaque item publie des grandeurs. Les principales :</p>
+<div class="two">
+<ul>
+<li>Bake : round-trip bit-identique ; 0 sommet sans support ; 0 épaisseur négative ; 0 sommet de frontière déplacé ; écart coque/terrain à la couture = 0.</li>
+<li>Passes : position de la coque identique dans prépasse, ombre, couleur — mesurée par relecture de profondeur sur vantages nommés (l'instrument de <code>refset_read_scene_depth</code>) ; programmes liés incluant <code>soft_displace.glsl</code> = 3.</li>
+<li>OFF = absence : binaire-témoin sans la couche compilée, image bit-identique.</li>
+<li>Gameplay : rejeu d'une trajectoire (positions de Jak par image) ON/OFF, écart max = 0 u.</li>
+<li>Framerate : même trajectoire rejouée à 30, 60, 120 Hz (<code>fixed_tick</code>, <code>render_pace</code>) ; écart de compression par texel ≤ 1 quantum ; 0 trou dans un sillon (continuité mesurée le long du segment).</li>
+</ul>
+<ul>
+<li>Pieds : 0 tampon en phase aérienne ; gauche/droit alternés sur une marche scriptée ; 0 double empreinte (sprite désactivé).</li>
+<li>Ennemis : 0 tampon après l'image 0 de la mort, compté par id ; N ennemis simultanés dans le budget.</li>
+<li>Objets : snow-ball = trace continue (longueur mesurée / distance parcourue ≥ 0,98).</li>
+<li>Saturation : compression max = 1 exactement ; profondeur ≤ épaisseur partout.</li>
+<li>Pentes : sur la congère à 28°, 0 sommet sous le support ; sur le sable à 45°, coque rejetée et comptée.</li>
+<li>LOD : sur un travelling, 0 changement de hauteur &gt; 1 quantum au seuil ; transitions/s au seuil ≤ plafond.</li>
+<li>Éviction : différence de hauteur entre tuile évincée-restaurée et originale ≤ tolérance déclarée.</li>
+<li>Eau : 0 texel de coque au-dessus de l'eau au repos sous la ligne ; relaxation accélérée mesurée où la phase passe.</li>
+<li>Perf : <code>gpu_ms_soft</code> (x86) et total par image (appareil) sous budget par palier ; <code>goal_busy_ms</code> ≤ baseline.</li>
+</ul>
+</div>
+<p><strong>Scènes de test</strong> nommées dans le compagnon du niveau : snow plat (compact), congère à 28° (profond), sable plat de training, frontière sable/roche de training (42 îlots), rocher enterré, mur, ligne d'eau de beach, deux étages superposés (à identifier dans le bake), quatre chunks en croix, six interacteurs. Les trajectoires sont des fichiers rejouables par le harnais.</p>
+
+<h2 id="s28"><span class="num">28</span>Vues de debug</h2>
+<p>Un mode <code>soft-debug</code> à plusieurs canaux, dessiné par la coque elle-même : éligibilité et matière (couleur par profil), support (fil de fer de la collision), épaisseur initiale et profondeur max (rampe), direction de couche (aiguilles), repère local du chunk, frontières et falloffs, chunk et LOD (damier), bounds, tuile (résolution, allocation, région dirty), compression courante, bourrelet, âge, relaxation, phase d'eau, interacteurs et volumes balayés (capsules), priorité et raison de rejet (texte à l'écran par interacteur), cause d'éviction, mémoire, temps de mise à jour et de rendu. Chaque défaut publié porte : niveau, chunk, nappe, matériau, profil, interacteur, palier, position caméra — les clés du harnais.</p>
+
+<h2 id="s29"><span class="num">29</span>Migration et déploiement</h2>
+<div class="scroll"><table>
+<caption>Zones pilotes, choisies dans l'inventaire</caption>
+<tr><th>Ordre</th><th>Zone</th><th>Ce qu'elle éprouve</th></tr>
+<tr><td>1</td><td><strong>snow, neige compacte</strong> (72 181 m², plate)</td><td>la coque de 3-4 cm sur un terrain simple ; snow-bunny, yeti, ice-cube ; vantages <code>snow-start</code>/<code>snow-fort</code> ; <code>lighting-bake</code> y livre aussi</td></tr>
+<tr><td>2</td><td><strong>snow, les 19 congères</strong></td><td>épaisseur cuite, pentes à 28°, faces retournées, frontière congère/terrain, sillons profonds, boule de neige</td></tr>
+<tr><td>3</td><td><strong>training, sable hors eau</strong></td><td>42 îlots, 2 952 triangles de sable en mode mur (rejet), frontières avec l'herbe acquise, le niveau par défaut du harnais</td></tr>
+<tr><td>4</td><td><strong>village1, sable haut</strong> (23 714 m² entre 0 et 2 m)</td><td>yakow, starfish, sable proche de l'eau sans contrat livré</td></tr>
+<tr><td>5</td><td><strong>beach, rivage</strong> (38 % à ± 2 m)</td><td>le contrat eau : falloff, effacement, sable mouillé ; lurkercrab, pelican, seagull</td></tr>
+<tr><td>6</td><td><strong>ogre, 18 congères</strong></td><td>généralisation : autre prototype, TNT à proximité</td></tr>
+</table></div>
+<p>Puis village2, intro. Rien sur misty (terre), rien sur le fond marin. Chaque niveau est une donnée cuite, pas du code ; le rebake est ciblé.</p>
+
+<h2 id="s30"><span class="num">30</span>Analyse du backlog</h2>
+<p>Le sujet est <strong>vierge</strong> : aucun item, aucune SPEC, aucun commit sur la neige ou le sable déformables, les decals, les heightfields (269 items lus, <code>git log -S</code> sur neuf mots). Pas de doublon. Les liens :</p>
+<div class="scroll"><table>
+<tr><th>Item ou SPEC</th><th>Statut</th><th>Relation</th></tr>
+<tr><td><code>grass-surface-truth</code> (65)</td><td>open</td><td><strong>prérequis</strong> : le lecteur des bits de matériau et la règle des deux sources ; on le partage, on ne le réécrit pas</td></tr>
+<tr><td><code>grass-chunk-cull</code> (64), <code>grass-overlay-meshes</code> (66)</td><td>open</td><td>conventions de chunking ; propriétaire de la déformation sur mesh superposé à trancher</td></tr>
+<tr><td><code>water-shore</code> (53)</td><td>open</td><td><strong>dépendance</strong> du pilote rivage seulement : <code>shore_sdf</code>, sable mouillé, phase du jet à publier</td></tr>
+<tr><td><code>water-interaction</code> (54)</td><td>open</td><td>patron : RT monde, file d'impulsions, un appel au site ND</td></tr>
+<tr><td><code>lighting-ao-indirect</code> (26), <code>lighting-shadows</code> (29)</td><td>open</td><td>les passes que la coque doit rejoindre ; la prépasse existe déjà, l'atlas non</td></tr>
+<tr><td><code>lighting-bake</code> (27)</td><td>open</td><td>bump de <code>TFRAG3_VERSION</code> ; même en-tête de compagnon ; livre snow</td></tr>
+<tr><td><code>lighting-presets</code> (34), <code>water-presets</code> (60)</td><td>open</td><td>échelle de paliers à suivre ; règle OFF = absence</td></tr>
+<tr><td><code>lighting-legacy-purge</code></td><td>validé</td><td>la tessellation n'existe plus ; SPEC eau §1.3 et lumière §4.14 périmées</td></tr>
+<tr><td><code>perf-goal-gl-overlap</code> (24), <code>perf-instrument-cost</code> (44), <code>water-ocean-mesh-hit-counter-cost</code> (30)</td><td>open</td><td>règles : scalaires en slot par image, jamais un <code>note_hit</code> par sommet, coût d'instrument ≤ 200 µs</td></tr>
+<tr><td><code>mesh-consolidate-without-consumer</code> (29)</td><td>open</td><td>ne pas dépendre de l'invariant de soudure</td></tr>
+<tr><td><code>recharged-secondary-motion</code> (900)</td><td>open</td><td>la physique est en bas de la pile : nos volumes sont des sphères et capsules, pas un moteur physique</td></tr>
+<tr><td><code>foliage-wind</code> (34)</td><td>open, deux refus</td><td>rien à partager sauf le canal d'acteurs</td></tr>
+</table></div>
+<p>Fichiers communs à coordonner : <code>Loader.cpp</code>/<code>LoaderStages.cpp</code> (compagnons), <code>OpenGLRenderer.cpp</code> et <code>android_opengl_renderer.cpp</code> (deux boucles), <code>PrePass.cpp</code>, <code>background_common.cpp</code> (carte d'ombre), <code>shade.glsl</code>, <code>hud-classes-pc.gc</code> (canal d'acteurs), les deux CMakeLists, <code>kChunks</code>. Décisions de l'owner qui nous lient : tout précalculer (26/08), propriétés de matière dans les assets (29/08), stylisation pas photoréalisme (03/09), lumière d'abord (07/09), « le pire sert de test, concevoir depuis Ultra » (09/09), masquer pas griser (10/09), supprimer pas débrancher (11/09).</p>
+
+<h2 id="s31"><span class="num">31</span>Proposition d'items de backlog</h2>
+<p>Vingt-deux items, dans l'ordre d'exécution. <strong>Aucun n'est créé</strong> : cette section est une proposition. Les priorités absolues attendent ta décision 15 (place dans la file) ; l'ordre interne est celui des dépendances. Tous : <code>game: jak1</code>, <code>code_scope: jeu</code>, <code>spec: prompts/SPEC-surfaces-meubles.md</code> (à écrire en phase 2), gate <code>= 0</code>, livrable en quatre verdicts, ligne <code>FEATURE</code>, <code>--off</code> à zéro.</p>
+
+<div class="item"><h3>1. Les instruments et la baseline des surfaces meubles</h3>
+<div class="meta">instrument · x86 + appareil · sans dépendance · gate soft_baseline_gaps</div>
+<p>Compteur versionné de triangles de collision par matériau et par niveau (<code>tools/soft_bake --census</code>) ; décodeur TIE du <code>.fr3</code> pour attribuer chaque îlot deepsnow à son prototype et mesurer l'écart visible/collision ; longueur d'arête tfrag pour snow, beach, training ; compteur de sommets et triangles dessinés par système et par image ; coût mesuré de <code>glTexSubImage2D</code> par tuile et de la rasterisation dans une R16 sur le Redmi.</p>
+<span class="k">Pourquoi en premier</span><p>L'épaisseur de la neige profonde est inconnue et commande la coque ; le Redmi n'a pas de chronomètre par passe fiable ; la densité du sol n'est auditée que sur village1.</p>
+<span class="k">Critère</span><p>Écart visible/collision publié par îlot (19 + 18) ; table matériau × niveau ; arête moyenne par niveau ; coût par tuile en ms sur les deux cibles.</p></div>
+
+<div class="item"><h3>2. Une surface est de neige ou de sable selon deux sources</h3>
+<div class="meta">fondation · x86 · dépend de 1 et de grass-surface-truth · gate soft_surface_unclassified</div>
+<p>Classification texture × <code>pat-material</code> pour <code>sand</code>, <code>snow</code>, <code>deepsnow</code> avec le lecteur partagé ; désaccords comptés et nommés (jng-beach sur dirt, sable en mode mur) ; exclusivité avec l'herbe prouvée par un compte croisé à zéro.</p>
+<span class="k">Critère</span><p>0 triangle qu'aucune source ne classe ; désaccords publiés par niveau ; 0 triangle éligible aux deux campagnes.</p></div>
+
+<div class="item"><h3>3. Le support et l'épaisseur, cuits par point</h3>
+<div class="meta">fondation · hors ligne · dépend de 2 · gate soft_thickness_defects</div>
+<p>Association couche → support ; épaisseur par sommet (profil pour compact et sable, lancer de rayon pour les congères) ; direction de couche ; distances aux frontières et aux objets statiques ; dépressions cuites ; rejet des murs et faces retournées.</p>
+<span class="k">Critère</span><p>0 sommet sans support ; 0 épaisseur négative ; épaisseurs des congères publiées (min, médiane, max par îlot) ; objets statiques inventoriés avec leur dépression.</p></div>
+
+<div class="item"><h3>4. Le compagnon <code>.softbake</code> et son outil</h3>
+<div class="meta">fondation · hors ligne · dépend de 3 · gate soft_bake_roundtrip_defects</div>
+<p>Format : en-tête de la famille avec empreinte de contenu, coque imbriquée L0-L3, chunks et bounds, textures statiques, liste des triangles à céder ; <code>tools/soft_bake</code> déterministe avec round-trip ; déclenchement par la chaîne de build ; rebake ciblé par section.</p>
+<span class="k">Critère</span><p>Deux cuissons bit-identiques ; round-trip 0 écart ; invalidation par empreinte prouvée (même taille, contenu différent → recuit) ; temps de cuisson par niveau publié.</p></div>
+
+<div class="item"><h3>5. La coque remplace le sol dans les trois passes, sans encore se déformer</h3>
+<div class="meta">rendu · appareil · dépend de 4 · owner_test · gate soft_shell_defects</div>
+<p>Renderer de coque ; triangles cédés retirés de l'index du terrain au chargement ; <code>soft_displace.glsl</code> inclus par les programmes couleur, prépasse et ombre soleil ; UV, couleur du jour et matière hérités ; les deux boucles de dispatch. C'est ici que l'owner juge les 3-4 cm.</p>
+<span class="k">Critère</span><p>3 programmes liés incluant le chunk ; profondeur identique entre passes sur vantages nommés (écart 0) ; 0 pixel de couture ; OFF bit-identique par binaire-témoin ; <code>where</code> : snow plat et training, à angle rasant.</p></div>
+
+<div class="item"><h3>6. Les vues de debug de la coque</h3>
+<div class="meta">instrument · x86 · dépend de 5 · gate soft_debug_channels_missing</div>
+<p>Les canaux de la section 28, dès maintenant : éligibilité, support, épaisseur, direction, chunk, LOD, bounds, frontières. Les canaux dynamiques s'ajoutent aux items suivants.</p>
+<span class="k">Critère</span><p>Compte de canaux déclarés = canaux dessinés ; chaque défaut publié porte niveau, chunk, nappe, matériau.</p></div>
+
+<div class="item"><h3>7. Le moteur de déformation : tuiles, tampons, balayages</h3>
+<div class="meta">moteur · appareil · dépend de 5 · gate soft_deform_defects</div>
+<p>Pool de tuiles par chunk ; tampons de contact par rasterisation et par CPU ; volumes balayés échantillonnés à la distance ; saturation par max ; normales par gradient ; travail borné par image. Testé avec un interacteur synthétique avant tout acteur réel.</p>
+<span class="k">Critère</span><p>Même trajectoire synthétique à 30/60/120 Hz : écart ≤ 1 quantum par texel ; 0 trou ; compression ≤ 1 ; profondeur ≤ épaisseur ; les deux producteurs donnent la même tuile à la tolérance déclarée.</p></div>
+
+<div class="item"><h3>8. Le canal d'acteurs : pieds, vitesses, pas</h3>
+<div class="meta">pont · appareil · dépend de 7 · gate soft_channel_defects</div>
+<p>Tableau GOAL inline enregistré une fois (Jak : trans, transv, quat, drapeaux, ground-pat, classe d'état, 4 nœuds de pieds) ; balayage d'acteurs étendu avec vitesse et type, chaque image pour les N plus proches ; un appel au site <code>effect-control-method-11</code> pour les tags de pas ; règle du slot par image.</p>
+<span class="k">Critère</span><p>0 appel par image supplémentaire hors le slot ; latence ≤ 1 image mesurée ; ennemis absents du canal dès l'image 0 de leur mort (compte par id) ; <code>goal_busy_ms</code> ≤ baseline.</p></div>
+
+<div class="item"><h3>9. Les pieds de Jak laissent des empreintes gauche et droite</h3>
+<div class="meta">interaction · appareil · dépend de 8 · owner_test · gate soft_foot_defects</div>
+<p>Capsules cheville→plante, contact validé par état et drapeaux, tag de pas comme confirmation datée ; sprite <code>footprntr</code> désactivé sous coque active.</p>
+<span class="k">Critère</span><p>0 tampon aérien ; alternance G/D sur marche scriptée ; 0 double empreinte ; forme = capsule projetée (rectitude mesurée).</p></div>
+
+<div class="item"><h3>10. Jambes, réceptions, glissades, roulades dans la neige profonde</h3>
+<div class="meta">interaction · appareil · dépend de 9 · owner_test · gate soft_body_defects</div>
+<p>Capsules de jambes actives selon l'épaisseur disponible ; disque de réception par <code>ground-impact-vel</code> ; capsule allongée de glissade ; sphère balayée de roulade ; sillon continu derrière Jak.</p>
+<span class="k">Critère</span><p>Continuité du sillon ≥ 0,98 ; largeur de trace fonction de l'état publiée ; 0 déformation en accroche de rebord.</p></div>
+
+<div class="item"><h3>11. Les ennemis vivants déforment, les morts non</h3>
+<div class="meta">interaction · appareil · dépend de 8 · gate soft_enemy_defects</div>
+<p>Sphères racine et d'os des nav-enemies balayées ; snow-bunny, yeti-slave, ice-cube, ram-boss, lurkercrab, lurkerpuppy, starfish ; retrait à l'image 0 de la mort par construction.</p>
+<span class="k">Critère</span><p>0 tampon d'un id après son image de mort ; N ennemis simultanés sous budget avec priorité publiée.</p></div>
+
+<div class="item"><h3>12. La boule de neige, le yakow et les montures</h3>
+<div class="meta">interaction · appareil · dépend de 8 · gate soft_object_defects</div>
+<p>snow-ball : sphère r 2,5 m balayée, trace continue ; yakow, seagull, pelican ; collider de Jak en mode racer et flut.</p>
+<span class="k">Critère</span><p>Trace de la boule continue et de largeur constante ; 0 tampon d'un objet immobile après saturation.</p></div>
+
+<div class="item"><h3>13. Trois profils de matière, en données</h3>
+<div class="meta">données · appareil · dépend de 7 · owner_test · gate soft_profile_defects</div>
+<p>Neige profonde, neige compacte, sable : épaisseur, dureté, rayon, relaxation, bourrelet, shading ; dans les assets Recharged, rechargeables sans recompilation ; multiplicateur par niveau.</p>
+<span class="k">Critère</span><p>0 valeur de profil en dur dans une source ; les trois profils mesurablement distincts sur les axes déclarés ; l'owner juge la neige compacte plus nette que la profonde.</p></div>
+
+<div class="item"><h3>14. Les bourrelets : la matière repoussée, bornée</h3>
+<div class="meta">rendu · appareil · dépend de 13 · owner_test · gate soft_ridge_defects</div>
+<p>Redistribution partielle vers le côté opposé au mouvement, fusion, bornes par profil et par frontière, adoucissement.</p>
+<span class="k">Critère</span><p>Hauteur positive ≤ borne partout ; 0 bourrelet en frontière ; 0 oscillation (variation entre images ≤ seuil) ; côté du bourrelet cohérent avec la direction (compte d'inversions = 0).</p></div>
+
+<div class="item"><h3>15. La trace se voit dans la lumière : normales, albédo, rugosité</h3>
+<div class="meta">rendu · appareil · dépend de 13 et de lighting-unify · owner_test · gate soft_shading_defects</div>
+<p>Normale par gradient fournie à la prépasse et à <code>shade()</code> ; compression et âge modulent albédo et rugosité dans <code>Surface</code> ; fond de sillon.</p>
+<span class="k">Critère</span><p>Normale de trace ≠ normale de repos mesurée dans la prépasse ; AO répond à la trace (écart R8 publié) ; 0 <code>dFdx</code> pour N.</p></div>
+
+<div class="item"><h3>16. Le cycle de vie : vieillissement, éviction, persistance</h3>
+<div class="meta">moteur · appareil · dépend de 7 · gate soft_lifecycle_defects</div>
+<p>Relaxation à cadence fixe par profil ; pool borné avec LRU distance/âge ; copie grossière conservée et restaurée ; persistance par niveau ; conversion au changement de preset ; perte de contexte.</p>
+<span class="k">Critère</span><p>Mémoire ≤ pool en toute circonstance ; écart restauration ≤ tolérance ; 0 tuile évincée sous un objet actif ; changement de preset sans remise à zéro (compte de tuiles conservées).</p></div>
+
+<div class="item"><h3>17. Chunks, culling, LOD : la coque à distance</h3>
+<div class="meta">fondation · appareil · dépend de 5 et 16 · gate soft_lod_popin_defects</div>
+<p>Cinq portées de culling publiées ; sélection de LOD avec hystérésis et morphing ; mips de tuile pour la lecture lointaine ; bords de chunks synchronisés par la marge.</p>
+<span class="k">Critère</span><p>Au seuil : 0 saut &gt; 1 quantum, transitions/s ≤ plafond ; sillon traversant deux chunks : continuité mesurée ; instances soumises hors champ = 0.</p></div>
+
+<div class="item"><h3>18. Le contrat avec l'eau</h3>
+<div class="meta">intégration · appareil · dépend de 5 et de water-shore · gate soft_shore_defects</div>
+<p>Lecture de <code>shore_sdf</code> au bake ; exclusion sous −0,5 m ; falloff à la ligne ; phase du jet publiée par l'eau et lue par la coque ; relaxation accélérée ; humidité laissée à <code>shade()</code>.</p>
+<span class="k">Critère</span><p>0 texel de coque au-dessus de l'eau au repos ; relaxation mesurée où la phase passe ; 0 écriture croisée (deux compagnons, deux pools).</p></div>
+
+<div class="item"><h3>19. Les paliers et le menu</h3>
+<div class="meta">réglages · appareil · dépend de 13, 16, 17 et de lighting-presets · gate soft_preset_apply_mismatch</div>
+<p><code>recharged_soft</code> Auto / Très bas / Bas / Moyen / Haut / Ultra ; matrice de la section 25 ; masquer pas griser ; chaque OFF bit-identique par binaire-témoin.</p>
+<span class="k">Critère</span><p>Réglage demandé = réglage appliqué sur chaque axe ; Très bas = coque non chargée, image = OFF.</p></div>
+
+<div class="item"><h3>20. Le Redmi tient son budget</h3>
+<div class="meta">perf · appareil · dépend de 19 · gate soft_device_budget_defects</div>
+<p>Mesure sur l'appareil par palier : total GPU par image, <code>goal_busy_ms</code>, mémoire ; ajustement des valeurs de la matrice ; barrière kgsl si nécessaire.</p>
+<span class="k">Critère</span><p>Bas et Moyen sous budget sur le Redmi (chiffres publiés) ; 0 blocage kgsl sur 300 images.</p></div>
+
+<div class="item"><h3>21. La coque monte en gamme sur PC</h3>
+<div class="meta">perf · x86 · dépend de 19 · owner_test · gate soft_ultra_defects</div>
+<p>Ultra : texel 3,1 cm, 320 chunks, 6 capsules, normales détaillées, seuils de LOD × 1,6 ; mesuré sur le PC de l'owner.</p>
+<span class="k">Critère</span><p>Différence mesurable Ultra vs Moyen sur les axes déclarés ; budget Ultra tenu.</p></div>
+
+<div class="item"><h3>22. Niveau par niveau : snow, training, village1, beach, ogre</h3>
+<div class="meta">contenu · appareil · dépend de 10, 11, 14, 17, 18 · owner_test · gate soft_level_defects</div>
+<p>Cuisson et validation dans l'ordre de la section 29 ; chaque niveau une donnée ; rebake ciblé ; puis village2, intro.</p>
+<span class="k">Critère</span><p>Par niveau : éligibles, désaccords, épaisseurs, temps de chargement (0 ms bloqué), coût par image.</p></div>
+
+<div class="item"><h3>Adjacent, à ta décision — Le trou des effets de pas de la neige profonde</h3>
+<div class="meta">correctif · appareil · sans dépendance · hors campagne</div>
+<p>Définir les cinq <code>group-*-dpsnow</code> et les parts 2251/2263 dans notre GOAL (<code>goal_src/jak1/pc/</code>, jamais dans les sources ND), et aligner les noms de sons sur les banques (<code>dpsnow</code>). Un item de dix lignes qui rend poussière et bruit à la neige profonde, indépendamment de la coque.</p></div>
+
+<h4>Table de couverture : ton prompt → les items</h4>
+<div class="scroll"><table>
+<tr><th>Section de ton prompt</th><th>Items</th></tr>
+<tr><td>Instrumentation et baseline</td><td>1, 6</td></tr>
+<tr><td>Classification des surfaces · association support/couche · pipeline de bake · format</td><td>2, 3, 4</td></tr>
+<tr><td>Couche visuelle neige compacte · sable · représentation neige profonde</td><td>5 (les trois par le même mécanisme), 13, 22</td></tr>
+<tr><td>Moteur de déformation · trajectoires balayées</td><td>7</td></tr>
+<tr><td>Interactions de Jak · ennemis · retrait à l'évaporation · PNJ · caisses (statiques) · objets</td><td>8, 9, 10, 11, 12, 3</td></tr>
+<tr><td>Profils de matière · bourrelets · shading · normales</td><td>13, 14, 15</td></tr>
+<tr><td>Depth pass · shadow pass</td><td>5, 15</td></tr>
+<tr><td>Chunking · culling · streaming · LOD</td><td>4, 16, 17</td></tr>
+<tr><td>Cycle de vie · persistance</td><td>16</td></tr>
+<tr><td>Presets · debug</td><td>19, 6</td></tr>
+<tr><td>Intégration eau/rivage</td><td>18</td></tr>
+<tr><td>Déploiement · validation · optimisation Android · montée en gamme PC</td><td>22, tous (gates), 20, 21</td></tr>
+</table></div>
+<p>Ce que le plan ne repousse pas à la fin : la séparation support/couche (3), le bake (4), les pentes et frontières (3, 5), le chunking (4), la depth pass et la shadow pass (5), le cycle de vie (16, avant les LOD), l'eau (18, dès que <code>water-shore</code> existe), Android (20, avant la généralisation), et la validation des 3-4 cm (5, le premier item que tu vois).</p>
+
+<h2 id="s32"><span class="num">32</span>Registre des risques</h2>
+<div class="scroll"><table>
+<tr><th>Risque</th><th>Prob.</th><th>Impact</th><th>Symptôme et détection</th><th>Mitigation · repli · item</th></tr>
+<tr><td>Écart visible/collision des congères de plusieurs mètres</td><td>moyenne</td><td>fort</td><td>épaisseur cuite &gt; 1 m ; jambes de Jak invisibles au repos</td><td>profil profond borné, jambes actives ; repli : coque limitée aux 0,5 m supérieurs · 1, 3</td></tr>
+<tr><td>Coque absente d'une passe</td><td>moyenne</td><td>fort</td><td>ombre ou AO à l'ancienne hauteur ; écart de profondeur entre passes</td><td>chunk GLSL unique, compteur de programmes liés, sonde de profondeur · 5</td></tr>
+<tr><td>Coût des tuiles sur Adreno (TBDR)</td><td>forte</td><td>fort</td><td>total GPU par image dépasse le budget ; blocage kgsl</td><td>producteur CPU en Bas, pool petit, <code>glFenceSync</code> ; repli : Très bas éteint · 7, 20</td></tr>
+<tr><td>Z-fight à la couture ou à compression totale</td><td>moyenne</td><td>moyen</td><td>scintillement à la frontière ou au fond d'une trace</td><td>sommets de frontière figés, triangles cédés, compression max = 1 − ε · 5</td></tr>
+<tr><td>Traces dépendantes du framerate</td><td>moyenne</td><td>fort</td><td>trous à 30 Hz, profondeur double à 120 Hz</td><td>échantillonnage à la distance, application en temps réel, test de rejeu · 7</td></tr>
+<tr><td>Pieds : os d'une image de retard, interpolation d'animation</td><td>forte</td><td>moyen</td><td>empreinte décalée de la semelle ; empreinte en l'air</td><td>capsules + drapeaux + état ; tag = confirmation ; lire les os après <code>ja-post</code> · 8, 9</td></tr>
+<tr><td>Fantôme d'ennemi mort</td><td>faible</td><td>moyen</td><td>tampon après l'image de mort</td><td>filtre <code>collide-with ≠ 0</code> déjà en place, compte par id · 11</td></tr>
+<tr><td>Trop d'interacteurs</td><td>moyenne</td><td>moyen</td><td>budget dépassé, priorité visible</td><td>tri distance × taille × nouveauté, Jak toujours · 8</td></tr>
+<tr><td>Coutures entre chunks</td><td>moyenne</td><td>moyen</td><td>ligne dans un sillon à la frontière</td><td>marge d'un texel écrite des deux côtés, LOD imbriqués · 17</td></tr>
+<tr><td>Bourrelets instables</td><td>moyenne</td><td>moyen</td><td>pics, oscillation</td><td>bornes strictes, filtre, mesure de variation · 14</td></tr>
+<tr><td>Mémoire des tuiles</td><td>faible</td><td>moyen</td><td>pool dépassé</td><td>éviction LRU, copie grossière · 16</td></tr>
+<tr><td>Éviction visible</td><td>moyenne</td><td>faible</td><td>retour de la surface sous les yeux</td><td>portée de simulation &gt; rendu, copie grossière restaurée · 16</td></tr>
+<tr><td>Conflit avec l'eau au rivage</td><td>moyenne</td><td>moyen</td><td>sable qui dépasse de l'eau, double humidité</td><td>exclusion sous −0,5 m, phase publiée par l'eau, humidité laissée à <code>shade()</code> · 18</td></tr>
+<tr><td>Conflit avec l'herbe</td><td>faible</td><td>moyen</td><td>racine flottante sur une coque</td><td>exclusivité par matériau, compte croisé = 0 · 2</td></tr>
+<tr><td>Bump de <code>TFRAG3_VERSION</code> par la lumière</td><td>forte</td><td>faible</td><td>compagnon périmé</td><td>version du compagnon indépendante, empreinte de contenu · 4</td></tr>
+<tr><td>Taille et temps de bake</td><td>moyenne</td><td>faible</td><td>compagnon de dizaines de Mo, cuisson longue</td><td>L0 réservé à Haut/Ultra, sections par chunk, rebake ciblé · 4</td></tr>
+<tr><td>Deux CMakeLists, <code>kChunks</code>, deux boucles</td><td>forte</td><td>moyen</td><td>x86 vert, arm64 mort au lien ou shader absent</td><td>preuve appareil obligatoire dès l'item 5 · 5</td></tr>
+<tr><td>Divergence entre paliers</td><td>faible</td><td>moyen</td><td>neige profonde plate en Bas</td><td>profil constant, seuls résolution/portée/interacteurs varient · 19</td></tr>
+<tr><td>Place dans la file</td><td>certaine</td><td>—</td><td>la campagne attend lumière, eau, herbe</td><td>décision 15</td></tr>
+</table></div>
+
+<h2 id="s33"><span class="num">33</span>Décisions nécessitant ton approbation</h2>
+<div class="dec"><h3>1 — Représentation principale</h3><p>Recommandé : coque cuite remplaçant les triangles éligibles, déformée par tuiles (options 3+4+5+8). Alternative sérieuse : coque <em>superposée</em> sans céder les triangles (plus simple au chargement, z-fight à gérer par offset).</p></div>
+<div class="dec"><h3>2 — Producteur de tuiles</h3><p>Recommandé : rasterisation dès Moyen, CPU en Bas. Alternative : CPU partout (déterminisme absolu, coût d'upload), ou rasterisation partout (Bas plus cher sur Adreno).</p></div>
+<div class="dec"><h3>3 — Direction d'épaisseur</h3><p>Recommandé : normale lissée bornée, verticale à plat. Alternative : verticale partout (simple, mince sur les congères à 28°).</p></div>
+<div class="dec"><h3>4 — Épaisseur de la neige profonde</h3><p>À trancher après l'item 1 : coque sur toute l'épaisseur mesurée, ou limitée aux 0,5 m supérieurs si l'écart est grand.</p></div>
+<div class="dec"><h3>5 — Calibration neige compacte et sable</h3><p>Recommandé : 3,5 cm (143 u) pour les deux au départ, multiplicateur par niveau, jugement à l'œil sur snow plat et training.</p></div>
+<div class="dec"><h3>6 — Bourrelets</h3><p>Recommandé : redistribution bornée dans la même tuile (25 % / 5 % / 12 % de h). Alternative : aucun bourrelet (compression pure), plus simple, moins crédible en neige profonde.</p></div>
+<div class="dec"><h3>7 — Pieds</h3><p>Recommandé : deux capsules cheville→plante, tags de pas en confirmation. Alternative : tags seuls (une image de retard, pas de forme).</p></div>
+<div class="dec"><h3>8 — Jambes en neige profonde</h3><p>Recommandé : capsules de jambes dès Moyen, actives selon l'épaisseur. Alternative : pieds seuls partout.</p></div>
+<div class="dec"><h3>9 — Fond marin</h3><p>Recommandé : aucune coque sous −0,5 m (26 007 m² de sable sous-marin à beach exclus).</p></div>
+<div class="dec"><h3>10 — Persistance</h3><p>Recommandé : tant que le niveau est chargé, y compris checkpoint et mort ; rien en sauvegarde ; réinitialisation au changement de niveau.</p></div>
+<div class="dec"><h3>11 — Éviction</h3><p>Recommandé : LRU distance × âge avec copie grossière au quart. Alternative : relaxation accélérée hors vue (plus simple, retour visible possible).</p></div>
+<div class="dec"><h3>12 — Meshes superposés</h3><p>Sable rendu sur collision <code>grass</code> : exclu de la coque tant que <code>grass-overlay-meshes</code> n'a pas mesuré le cas. À confirmer.</p></div>
+<div class="dec"><h3>13 — Appareils modestes</h3><p>Recommandé : Très bas éteint la coque (Redmi à 19-20 img/s sans elle) ; Bas garde une version géométrique à 25 cm de texel. Alternative : Très bas = Bas (tenir le budget sera dur).</p></div>
+<div class="dec"><h3>14 — Contrat avec l'eau</h3><p>Recommandé : lecture de <code>shore_sdf</code> au bake + un uniforme de phase publié par <code>water-shore</code> ; humidité à l'eau. Demande un ajout à <code>water-shore</code> (une ligne dans son livrable).</p></div>
+<div class="dec"><h3>15 — Place dans la file et zones pilotes</h3><p>Recommandé : après l'herbe (priorités 80-101), pilotes dans l'ordre snow compact → congères → training → village1 → beach → ogre. Alternative : intercaler l'item 1 (instruments) plus tôt, puisqu'il ne dépend de rien et lève l'inconnue de l'épaisseur.</p></div>
+<div class="dec"><h3>16 — L'item adjacent des effets de pas dpsnow</h3><p>Le créer ou non. Il ne dépend de rien et corrige un trou de 2001.</p></div>
+
+<h2 id="s34"><span class="num">34</span>Point d'approbation</h2>
+<p><strong>L'existant</strong> : trois sols classés par triangle et jamais lus ; la neige profonde en 19 congères TIE à collision propre, épaisseur inconnue ; neige compacte et sable = terrain à mailles de 1 à 5 m ; VBO statiques ; trois projections divergentes du terrain ; aucune déformation de sol, aucun decal, aucun heightfield ; les effets de pas de la neige profonde inexistants.</p>
+<p><strong>Le fonctionnement de la neige profonde</strong> : Jak marche sur le solide de collision de la congère, à l'intérieur de son volume rendu. Intentionnel, conservé ; l'écart est le premier chiffre à mesurer.</p>
+<p><strong>L'architecture recommandée</strong> : une coque de matière cuite, imbriquée, qui remplace les triangles éligibles ; support de collision intact ; 3-4 cm sur neige compacte et sable, épaisseur cuite sur les congères ; déformation par tuiles de hauteur par chunk, écrites par rasterisation ou CPU, lues par un seul code de sommet dans les trois passes ; volumes balayés à la distance ; profils en données ; cycle de vie borné ; chunks de 8 m, cinq portées de culling, LOD imbriqués ; contrat de lecture avec l'eau ; paliers alignés sur la lumière, Très bas éteint.</p>
+<p><strong>Les interactions</strong> : pieds par capsules et tags de pas ; jambes en neige profonde ; ennemis par leurs sphères, retirés à l'image 0 de leur mort — l'évaporation ne laisse rien par construction ; boule de neige, yakow, montures ; caisses cuites en dépressions statiques.</p>
+<p><strong>Les décisions</strong> : seize, section 33 ; les alternatives sérieuses y sont. <strong>L'ordre</strong> : vingt-deux items, section 31, plus un adjacent.</p>
+<p style="margin-top:2rem"><strong>État de cette phase.</strong> Aucun code n'a été modifié. Aucun shader n'a été modifié. Aucun asset, aucun niveau, aucune collision n'a été modifié. Aucun item du backlog n'a été créé, modifié, déplacé ou fermé. Aucune implémentation n'a commencé. La suite attend ton approbation explicite.</p>
+
+<p class="foot">Investigation menée en lecture seule sur la branche physics-keira-clean · quatre axes parallèles (surfaces et données de niveau ; interacteurs ; renderer et passes ; backlog, SPECs et historique) · preuves par chemin de fichier, ligne, symbole, décompte dans les .fr3 et mesure archivée · aucun build lancé, aucune course d'appareil, le harnais travaillant sur un autre chantier</p>
+</main>
+</div>
