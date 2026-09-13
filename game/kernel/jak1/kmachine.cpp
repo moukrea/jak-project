@@ -118,6 +118,11 @@ AUTOPORT_FEATURE_SITE("mesh-browser-removal");
 AUTOPORT_FEATURE_SITE("menu-back-label");
 AUTOPORT_FEATURE_SITE("lighting-legacy-purge");
 AUTOPORT_FEATURE_SITE("dead-follow-probe");
+// firstperson-hd-hide : l'instrument est mi-GOAL (le miroir de visibilite de jak-hd.gc, qui tire
+// par `__pc-autoport-hit-for` ci-dessous) mi-Merc2 (le compte de pixels). Le site se declare ICI
+// parce qu'il doit s'enregistrer au CHARGEMENT : c'est ce qui separe « aucun site compile » de
+// « site jamais atteint » dans `proof_feature_state`.
+AUTOPORT_FEATURE_SITE("firstperson-hd-hide");
 
 using namespace ee;
 
@@ -133,6 +138,12 @@ void merc2_hd_uncover(u32 companion_pid);
 // regle de portee que les deux prototypes ci-dessus : DEHORS de `namespace jak1`.
 u64 merc2_hd_stretch_verdict();
 u64 merc2_hd_stretch_diag(int which);
+// firstperson-hd-hide : le compte de pixels des compagnons HD du joueur, et l'etat de la vue
+// premiere personne pousse vers le fil graphique. Meme regle de portee que ci-dessus : DEHORS de
+// `namespace jak1`.
+void merc2_fp_hd_set_active(int active);
+u64 merc2_fp_hd_diag(int which);
+const char* merc2_fp_hd_instrument();
 // Ghd-skin-origin-stretch : registre du rig HD (parent, joint pilote, mode de reciblage et
 // position de bind par joint) pour les sondes HDSKINLEN / HDCMD de Merc2 — meme regle de portee
 // que les deux prototypes ci-dessus.
@@ -1760,6 +1771,114 @@ s32 pc_scl10n_wanted() {
 // libelles vit dans les constructeurs de rangees et s'applique a tout le monde, mesure ou pas.
 s32 pc_menu_label_wanted() {
   return autoport_proof::feature_is("menu-back-label") ? 1 : 0;
+}
+
+// firstperson-hd-hide : compteur du temoin de masquage (voir pont (3) plus bas).
+static u64 g_fp_mask_frames = 0;
+
+// ═══ firstperson-hd-hide — LES TROIS PONTS DE L'ITEM ══════════════════════════════════════════
+//
+// (1) L'ARMEMENT DE LA SEQUENCE SCRIPTEE. `lib/proof_run.sh` en mode appareil lance le jeu et
+//     ATTEND : il n'envoie aucune entree. La vue premiere personne, elle, ne s'ouvre qu'au
+//     triangle (`engine/target/logic-target.gc:616-626`). Sans un geste, la grandeur de cet item
+//     aurait un denominateur NUL — une porte verte par inaction. Ce pont rend 1 quand le harnais
+//     mesure CET item : `engine/game/main.gc` renvoie alors periodiquement le meme evenement que
+//     le jeu, `'change-mode 'look-around`. Hors mesure il rend 0 et rien ne bouge : c'est
+//     l'INSTRUMENT qui est sous drapeau, jamais le correctif.
+s32 pc_fp_hide_wanted() {
+  return autoport_proof::feature_is("firstperson-hd-hide") ? 1 : 0;
+}
+
+// (2) UNE IMAGE DE PREMIERE PERSONNE, ET TOUT CE QUE LA PORTE LIT. Appele une fois par image de
+//     logique depuis `npc-census-tick`. `fp_active` vient de `(state-flags first-person-mode)` —
+//     l'etat que Naughty Dog NOMME, pas une duree devinee : c'est le meme bit que le miroir de
+//     `jak-hd.gc` consulte, mais le NUMERATEUR, lui, sort de Merc2, c'est-a-dire de ce qui a
+//     vraiment ete dessine. Un masquage qui echouerait laisserait donc la porte rouge, meme si
+//     GOAL croyait avoir masque.
+s64 pc_fp_note(s64 fp_active, s64 kick_sends) {
+  merc2_fp_hd_set_active(fp_active ? 1 : 0);
+
+  static u64 s_fp_frames = 0;
+  static u64 s_fp_entries = 0;
+  static bool s_was_fp = false;
+  const bool fp = fp_active != 0;
+  if (fp) {
+    s_fp_frames++;
+    if (!s_was_fp) {
+      s_fp_entries++;
+    }
+    // `hits_means` de l'item : « images en vue premiere personne mesurees ». `note_hit_for` ne
+    // compte que feature ARMEE — c'est ce qui rend le bras `--off` lisible (`hits=0`).
+    autoport_proof::note_hit_for("firstperson-hd-hide", 1);
+  }
+  s_was_fp = fp;
+
+  const u64 jak_px = merc2_fp_hd_diag(0);
+  const u64 dax_px = merc2_fp_hd_diag(1);
+  const u64 outside_px = merc2_fp_hd_diag(3);
+  const u64 outside_models = merc2_fp_hd_diag(6);
+  const u64 queries_ok = merc2_fp_hd_diag(11);
+  // ── LE ZERO N'EST UN VERDICT QUE SI L'INSTRUMENT A PARLE AILLEURS ───────────────────────────
+  // Un `firstperson_hd_inside_px = 0` obtenu parce qu'aucune requete d'occlusion n'a pu s'ouvrir,
+  // parce qu'aucun modele HD n'etait allume, ou parce que la vue premiere personne n'a jamais ete
+  // atteinte, serait une PORTE VERTE PAR INACTION — le defaut que l'owner voit encore, sous un
+  // chiffre vert. Les trois conditions sont testees ici, la polarite va vers le ROUGE, et la
+  // raison est PUBLIEE : on ne fabrique pas le zero manquant, on refuse de le prononcer.
+  //   - `fp_frames == 0`      : pas de denominateur, donc pas de verdict ;
+  //   - `outside_models == 0` : les modeles HD du joueur n'ont jamais ete soumis (reglage
+  //                             `hd-look-*` sur ORIGINAL) — il n'y avait rien a masquer ;
+  //   - `queries_ok == 0`     : le pilote n'a donne aucun nom de requete, aucun pixel n'a ete
+  //                             compte nulle part ;
+  //   - `outside_px == 0`     : l'instrument n'a jamais rendu un seul pixel, meme la ou le modele
+  //                             DOIT etre dessine. Un compteur qui ne monte jamais ne descend pas.
+  const bool mute = (s_fp_frames == 0) || (outside_models == 0) || (queries_ok == 0) ||
+                    (outside_px == 0);
+  const u64 inside_px = jak_px + dax_px;
+  // LES TERMES D'ABORD, LA SOMME ENSUITE : un verdict a 0 dont on ne peut pas lire les termes ne
+  // se refute pas.
+  autoport_proof::publish("firstperson_hd_jak_px", jak_px);
+  autoport_proof::publish("firstperson_hd_dax_px", dax_px);
+  autoport_proof::publish("firstperson_hd_measured_px", inside_px);
+  autoport_proof::publish("firstperson_hd_inside_px", mute ? 999999 : inside_px);
+  autoport_proof::publish_text("firstperson_hd_px_verdict_source", mute ? "instrument_muet" : "mesure");
+  autoport_proof::publish("firstperson_hd_kick_sends", (u64)(kick_sends < 0 ? 0 : kick_sends));
+  autoport_proof::publish("firstperson_hd_fp_frames", s_fp_frames);
+  autoport_proof::publish("firstperson_hd_fp_entries", s_fp_entries);
+  autoport_proof::publish("firstperson_hd_mask_frames", g_fp_mask_frames);
+  // Le terme SANS angle mort : les paquets merc de Jak HD / Daxter HD ARRIVES pendant la premiere
+  // personne. Zero ici implique zero pixel, envmap anonyme comprise.
+  autoport_proof::publish("firstperson_hd_inside_models", merc2_fp_hd_diag(5));
+  autoport_proof::publish("firstperson_hd_inside_models_jak", merc2_fp_hd_diag(12));
+  autoport_proof::publish("firstperson_hd_inside_models_dax", merc2_fp_hd_diag(13));
+  autoport_proof::publish("firstperson_hd_inside_draws", merc2_fp_hd_diag(2));
+  autoport_proof::publish("firstperson_hd_anon_draws_inside", merc2_fp_hd_diag(7));
+  // LE CONTROLE DE NON-VACUITE, GRATUIT ET DANS LA MEME COURSE : hors premiere personne, le MEME
+  // instrument doit rendre des modeles, des draws et des pixels NON NULS. Trois zeros ici avec un
+  // zero a la porte, c'est un instrument mort, pas une reussite.
+  autoport_proof::publish("firstperson_hd_outside_models", merc2_fp_hd_diag(6));
+  autoport_proof::publish("firstperson_hd_outside_draws", merc2_fp_hd_diag(4));
+  autoport_proof::publish("firstperson_hd_outside_px", outside_px);
+  // Le denominateur de `outside_px` : les draws HORS premiere personne reellement passes sous
+  // requete (plafonnes, voir kFpOutsideMeasureCap). Sans lui, un `outside_px` faible ne se
+  // distinguerait pas d'un instrument qui n'a mesure que trois draws.
+  autoport_proof::publish("firstperson_hd_outside_px_draws", merc2_fp_hd_diag(14));
+  autoport_proof::publish("firstperson_hd_queries_opened", merc2_fp_hd_diag(8));
+  autoport_proof::publish("firstperson_hd_queries_read", merc2_fp_hd_diag(9));
+  autoport_proof::publish("firstperson_hd_queries_unread", merc2_fp_hd_diag(10));
+  autoport_proof::publish("firstperson_hd_queries_ok", merc2_fp_hd_diag(11));
+  autoport_proof::publish_text("firstperson_hd_px_instrument", merc2_fp_hd_instrument());
+  // Rendu a GOAL : le nombre de paquets HD du joueur deja vus HORS premiere personne. C'est lui,
+  // et pas une duree, qui autorise la sequence scriptee a ouvrir la vue — voir main.gc.
+  return (s64)outside_models;
+}
+
+// (3) LE TEMOIN DU MASQUAGE, POUR QUE LA PROCHAINE REGRESSION ROUGISSE UNE PORTE. Appele par le
+//     miroir de `jak-hd.gc` a chaque image ou la branche premiere-personne a bloque un compagnon.
+//     `firstperson_hd_mask_frames = 0` avec `firstperson_hd_fp_frames > 0` dit que le masquage ne
+//     tire plus — exactement l'etat dans lequel `ac2d0e4414` a laisse le jeu, et que seul l'oeil
+//     de l'owner avait vu.
+void pc_fp_mask_note() {
+  g_fp_mask_frames++;
 }
 
 // ─── Ghd-skin-origin-stretch — LE COMPTE DE LA PORTE, ASSEMBLE EN UN SEUL ENDROIT ─────────────
@@ -4675,6 +4794,11 @@ void InitMachine_PCPort() {
   // menu-back-label : l'instrument du recensement des libelles de menu, sous drapeau d'item.
   make_function_symbol_from_c("__pc-menu-label-wanted?", (void*)pc_menu_label_wanted);
   make_function_symbol_from_c("__pc-hd-proof", (void*)pc_hd_proof);
+  // firstperson-hd-hide : armement de la sequence scriptee, image de premiere personne, temoin de
+  // masquage. Voir le pave des trois ponts.
+  make_function_symbol_from_c("__pc-fp-hide-wanted?", (void*)pc_fp_hide_wanted);
+  make_function_symbol_from_c("__pc-fp-note", (void*)pc_fp_note);
+  make_function_symbol_from_c("__pc-fp-mask-note", (void*)pc_fp_mask_note);
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);
   // Ghd-skin-origin-stretch: rig du compagnon HD (parent, pilote, mode, bind par joint) ->

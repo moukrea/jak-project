@@ -3568,7 +3568,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
-  status: open
+  status: in-progress
   priority: 22
   owner_feedback:
   - date: '2026-08-28'
@@ -3618,6 +3618,18 @@ items:
     tete de Jak ni Daxter.'
   out_of_scope: Ne touche ni au pas de temps fixe, ni a l'interpolation d'animation, ni au correctif d'etirement
     HD autrement que pour prouver qu'ils tiennent. Tout ce qui n'est pas cet item.
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
 - id: text-tone
   feature: Le ton des textes du jeu, trop formel
   status: validated
@@ -9132,7 +9144,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-shadow-range
-  status: in-progress
+  status: to-test
   priority: 21
   game: jak1
   device: true
@@ -9178,12 +9190,12 @@ items:
     Honor.'
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-12'
-    proof_sha: dd79a8eb64c808ac
-    proof_bytes: 34308
-    attempt: 1
-    journal: validator-001.txt
-  delivered: '2026-09-12'
+    date: '2026-09-13'
+    proof_sha: a191418bafa29415
+    proof_bytes: 39165
+    attempt: 3
+    journal: validator-003.txt
+  delivered: '2026-09-13'
   owner_feedback:
   - date: '2026-09-13'
     text: Pour le HDR c'est pas mal mais je vois pas plus de détails dans les ombres à on versus off

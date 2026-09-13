@@ -2120,6 +2120,272 @@ void hdlen_joint_pos(const float* f, const float* b, float out[3]) {
 // 4 804 dans le bras VERT : Daxter allonge ses bras x6 pendant `sidekick-attack-punch`, c'est le
 // squash & stretch de l'animation ND et le modele stock le porte aussi. `hd_bad_bones` vaut
 // 2 279 dans ce meme bras vert. Les deux restent publies a cote, jamais fondus dans le verdict.
+// ═══ firstperson-hd-hide — LES PIXELS DES COMPAGNONS HD DU JOUEUR, EN VUE PREMIERE PERSONNE ═══
+//
+// CE QUE LA PORTE LIT : `firstperson_hd_inside_px`, somme de `firstperson_hd_jak_px` et
+// `firstperson_hd_dax_px`, publies separement. Zero exige qu'AUCUN pixel des modeles HD de Jak
+// ni de Daxter ne soit ecrit pendant que la vue premiere personne est active.
+//
+// L'INSTRUMENT EST SOUS LE NOM DE L'ITEM, LE CORRECTIF NE L'EST PAS. `s_fp.armed` ne vaut 1 que
+// si le harnais a nomme cet item : le jeu de l'owner n'ouvre aucune requete d'occlusion. Le
+// correctif, lui, vit dans `goal_src/jak1/pc/jak-hd.gc` et s'applique a tout le monde.
+//
+// DEUX GRANDEURS, PAS UNE, PARCE QU'ELLES ONT DES ANGLES MORTS DIFFERENTS.
+//   `*_models`  — un paquet merc nomme `jak-hd-lod0` / `dax-hd-lod0`… ARRIVE dans
+//                 `handle_pc_model`. Compte CPU, exact, SANS angle mort : aucun pixel ne peut
+//                 etre ecrit pour un modele qui n'a pas ete soumis, envmap comprise.
+//   `*_px`      — les pixels que ces draws posent VRAIMENT, par requete d'occlusion. Elle voit
+//                 ce que le compte de modeles ne voit pas : un modele soumis mais entierement
+//                 rejete au test de profondeur. Son angle mort a elle est nomme et publie :
+//                 `firstperson_hd_anon_draws` compte les draws d'envmap, que
+//                 `try_alloc_envmap_draw` livre avec `hash = 0` (Merc2.cpp:4307) et qu'aucune
+//                 empreinte ne peut donc attribuer.
+// `inside_models == 0` implique `inside_px == 0` y compris pour les draws anonymes : c'est ce qui
+// ferme l'angle mort, et c'est pourquoi les deux sont publies.
+//
+// L'INSTRUMENT N'EST PAS LE MEME DES DEUX COTES, ET LA PREUVE LE DIT.
+// GLES 3 n'a pas `GL_SAMPLES_PASSED` : sur l'appareil, une requete rend un BOOLEEN
+// (`GL_ANY_SAMPLES_PASSED`). Un draw y pese donc 1 quand au moins un fragment a passe, 0 sinon —
+// une BORNE INFERIEURE stricte de la vraie population, nulle si et seulement si la vraie
+// population est nulle. Le critere `== 0` est donc exactement equivalent des deux cotes ; seule
+// la MAGNITUDE d'un rouge est sous-estimee sur l'appareil, et `firstperson_hd_px_instrument`
+// publie lequel des deux a tourne. Ce n'est pas une approximation cachee : c'est la seule
+// grandeur de pixels que GLES sait produire, et elle repond a la question posee.
+//
+// PAS DE STALL. Le resultat d'une requete n'est jamais lu dans l'image qui l'ouvre : les
+// requetes partent dans une file, moissonnee en tete de `do_draws` avec
+// `GL_QUERY_RESULT_AVAILABLE`. Ce qui reste en vol a la fin de la course se lit dans
+// `firstperson_hd_queries_unread` — un residu, pas un silence.
+//
+// LE BIAIS DU DECALAGE D'UNE IMAGE VA VERS LE ROUGE. `fp_active` est pose par le fil GOAL,
+// les draws partent du fil graphique : a l'entree et a la sortie de la premiere personne les
+// deux peuvent differer d'une image. On charge donc « dedans » des que la premiere personne est
+// active MAINTENANT **ou** l'etait a l'image precedente. Un doute compte contre nous.
+namespace {
+struct FpHdCensus {
+  std::atomic<int> fp_now{0};
+  std::atomic<int> fp_prev{0};
+  int armed = -1;              // -1 pas encore lu, 0 non, 1 oui
+  int query_state = -1;        // -1 inconnu, 0 indisponible, 1 disponible
+  u64 px[2] = {0, 0};          // 0 = Jak, 1 = Daxter — DEDANS
+  u64 inside_draws[2] = {0, 0};
+  u64 inside_models[2] = {0, 0};
+  u64 outside_px = 0, outside_draws = 0, outside_models = 0;
+  u64 anon_draws_inside = 0;   // draws d'envmap (hash=0) pendant la premiere personne
+  u64 queries_opened = 0, queries_read = 0;
+  u64 outside_measured = 0;    // draws HORS premiere personne REELLEMENT passes sous requete
+  struct Pend {
+    GLuint q;
+    int who;
+    int inside;
+  };
+  std::vector<Pend> pend;
+};
+FpHdCensus s_fp;
+
+constexpr size_t kFpPendCap = 128;
+// LA POPULATION DE CONTROLE EST BORNEE, LE VERDICT NE L'EST PAS. Hors premiere personne, Jak et
+// Daxter HD posent jusqu'a 80 draws par image : ouvrir une requete sur chacun pendant toute la
+// course ferait payer a l'instrument un cout que la mesure ne demande pas. Cinq mille draws
+// mesures suffisent largement a rendre `firstperson_hd_outside_px` franchement non nul ; au-dela,
+// on continue de COMPTER les draws (le denominateur ne ment pas) sans plus ouvrir de requete.
+// DEDANS, aucun plafond : c'est le verdict.
+constexpr u64 kFpOutsideMeasureCap = 5000;
+
+bool fp_armed() {
+  if (s_fp.armed < 0) {
+    s_fp.armed = autoport_proof::feature_is("firstperson-hd-hide") ? 1 : 0;
+  }
+  return s_fp.armed == 1;
+}
+
+// « dedans » = premiere personne active a cette image OU a la precedente (voir l'en-tete).
+bool fp_inside() {
+  return s_fp.fp_now.load(std::memory_order_relaxed) != 0 ||
+         s_fp.fp_prev.load(std::memory_order_relaxed) != 0;
+}
+
+// Les onze noms d'atelier HD vivent dans `goal_src/jak1/pc/jak-hd.gc:320-323`. Ceux du JOUEUR —
+// les seuls que la premiere personne doit masquer — sont les cinq formes de Jak et les deux de
+// Daxter. Keira, Samos et leurs variantes sont des PNJ : ils ne sont pas de cet item, et les
+// compter ici fabriquerait un rouge sur un modele que l'owner doit voir.
+int fp_who(u64 hash) {
+  static u64 s_jak[5] = {0, 0, 0, 0, 0};
+  static u64 s_dax[2] = {0, 0};
+  static bool s_init = false;
+  if (!s_init) {
+    s_init = true;
+    const char* jak[5] = {"jak-hd-lod0", "jak2-hd-lod0", "jak3-hd-lod0", "jakm-hd-lod0",
+                          "jakp-hd-lod0"};
+    const char* dax[2] = {"dax-hd-lod0", "daxp-hd-lod0"};
+    for (int i = 0; i < 5; i++) {
+      s_jak[i] = fnv64(std::string(jak[i]));
+    }
+    for (int i = 0; i < 2; i++) {
+      s_dax[i] = fnv64(std::string(dax[i]));
+    }
+  }
+  if (hash == 0) {
+    return -2;  // draw anonyme (envmap) : nomme, jamais silencieux
+  }
+  for (int i = 0; i < 5; i++) {
+    if (hash == s_jak[i]) {
+      return 0;
+    }
+  }
+  for (int i = 0; i < 2; i++) {
+    if (hash == s_dax[i]) {
+      return 1;
+    }
+  }
+  return -1;
+}
+
+GLenum fp_query_target() {
+#ifdef __ANDROID__
+  return GL_ANY_SAMPLES_PASSED;
+#else
+  return GL_SAMPLES_PASSED;
+#endif
+}
+
+// Moisson non bloquante : on ne lit que ce que le pilote declare PRET. Ce qui reste en vol reste
+// en file et sera lu a l'image suivante.
+void fp_harvest() {
+  if (s_fp.pend.empty()) {
+    return;
+  }
+  size_t keep = 0;
+  for (size_t i = 0; i < s_fp.pend.size(); i++) {
+    const auto e = s_fp.pend[i];  // COPIE : la boucle recompacte le vecteur sous nos pieds.
+    GLuint ready = 0;
+    glGetQueryObjectuiv(e.q, GL_QUERY_RESULT_AVAILABLE, &ready);
+    if (!ready) {
+      s_fp.pend[keep++] = e;
+      continue;
+    }
+    GLuint res = 0;
+    glGetQueryObjectuiv(e.q, GL_QUERY_RESULT, &res);
+    glDeleteQueries(1, &e.q);
+    s_fp.queries_read++;
+    if (e.inside) {
+      s_fp.px[e.who] += (u64)res;
+    } else {
+      s_fp.outside_px += (u64)res;
+    }
+  }
+  s_fp.pend.resize(keep);
+}
+
+// Ouvre la requete autour d'UN draw. Rend le nom de la requete, ou 0 si rien n'est a mesurer.
+GLuint fp_draw_before(u64 hash) {
+  if (!fp_armed()) {
+    return 0;
+  }
+  const int who = fp_who(hash);
+  const bool inside = fp_inside();
+  if (who == -2) {
+    if (inside) {
+      s_fp.anon_draws_inside++;
+    }
+    return 0;
+  }
+  if (who < 0) {
+    return 0;
+  }
+  if (inside) {
+    s_fp.inside_draws[who]++;
+  } else {
+    s_fp.outside_draws++;
+    if (s_fp.outside_measured >= kFpOutsideMeasureCap) {
+      return 0;
+    }
+  }
+  if (s_fp.query_state == 0 || s_fp.pend.size() >= kFpPendCap) {
+    return 0;
+  }
+  GLuint q = 0;
+  glGenQueries(1, &q);
+  if (!q) {
+    // Un pilote qui ne donne pas de nom de requete se lit `firstperson_hd_px_instrument=aucune`
+    // et `firstperson_hd_queries_ok=0`, jamais comme un zero merite.
+    s_fp.query_state = 0;
+    return 0;
+  }
+  s_fp.query_state = 1;
+  glBeginQuery(fp_query_target(), q);
+  s_fp.queries_opened++;
+  if (!inside) {
+    s_fp.outside_measured++;
+  }
+  s_fp.pend.push_back({q, who, inside ? 1 : 0});
+  return q;
+}
+
+void fp_draw_after(GLuint q) {
+  if (q) {
+    glEndQuery(fp_query_target());
+  }
+}
+}  // namespace
+
+// Pose par le fil GOAL (kmachine `pc_fp_note`) une fois par image de logique.
+void merc2_fp_hd_set_active(int active) {
+  s_fp.fp_prev.store(s_fp.fp_now.load(std::memory_order_relaxed), std::memory_order_relaxed);
+  s_fp.fp_now.store(active ? 1 : 0, std::memory_order_relaxed);
+}
+
+// Un paquet merc vient d'arriver : on le compte AVANT tout dessin, par son nom. C'est le terme
+// sans angle mort.
+void merc2_fp_hd_note_model(const char* name) {
+  if (!fp_armed() || !name) {
+    return;
+  }
+  const int who = fp_who(fnv64(std::string(name)));
+  if (who < 0) {
+    return;
+  }
+  if (fp_inside()) {
+    s_fp.inside_models[who]++;
+  } else {
+    s_fp.outside_models++;
+  }
+}
+
+u64 merc2_fp_hd_diag(int which) {
+  switch (which) {
+    case 0: return s_fp.px[0];
+    case 1: return s_fp.px[1];
+    case 2: return s_fp.inside_draws[0] + s_fp.inside_draws[1];
+    case 3: return s_fp.outside_px;
+    case 4: return s_fp.outside_draws;
+    case 5: return s_fp.inside_models[0] + s_fp.inside_models[1];
+    case 6: return s_fp.outside_models;
+    case 7: return s_fp.anon_draws_inside;
+    case 8: return s_fp.queries_opened;
+    case 9: return s_fp.queries_read;
+    case 10: return (u64)s_fp.pend.size();
+    case 11: return (u64)(s_fp.query_state == 1 ? 1 : 0);
+    case 12: return s_fp.inside_models[0];
+    case 13: return s_fp.inside_models[1];
+    case 14: return s_fp.outside_measured;
+    default: return 0;
+  }
+}
+
+// `exact` sur bureau (GL_SAMPLES_PASSED), `borne_inferieure` sur l'appareil
+// (GL_ANY_SAMPLES_PASSED, un booleen par draw). Voir l'en-tete du bloc.
+const char* merc2_fp_hd_instrument() {
+  if (s_fp.query_state == 0) {
+    return "aucune";
+  }
+#ifdef __ANDROID__
+  return "borne_inferieure_any_samples_passed";
+#else
+  return "exact_samples_passed";
+#endif
+}
+
 u64 merc2_hd_stretch_verdict() {
   return s_hdlen.cmd_bones + s_hdlen.scl_bones + s_hdlen.ring_bad;
 }
@@ -2255,6 +2521,9 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   u32 pkt_stamp = 0;
   memcpy(&pkt_stamp, setup.data + 124, sizeof(pkt_stamp));
   const bool is_hd_packet = strstr(name, "-hd-lod0") != nullptr;
+  // firstperson-hd-hide : le terme SANS angle mort — un modele HD du joueur qui ARRIVE. Compte
+  // avant toute allocation de draw, donc avant la suppression par pid comme avant l'envmap.
+  merc2_fp_hd_note_model(name);
   // Le personnage que l'owner voit est le DRIVER. Un paquet de compagnon HD est donc compte SOUS
   // LE PID DE SON DRIVER, sinon « le PNJ est-il visible ? » n'a pas de reponse quand la
   // couverture est active.
@@ -5005,6 +5274,9 @@ void Merc2::do_draws(const Draw* draw_array,
                      bool set_fade,
                      SharedRenderState* render_state,
                      u32 bones_base) {
+  // firstperson-hd-hide : on moissonne les requetes de l'image PRECEDENTE ici, jamais dans
+  // l'image qui les ouvre — lire un resultat a peine emis viderait le tuyau de commandes.
+  fp_harvest();
   glBindVertexArray(m_vao);
 #ifdef __ANDROID__
   // F1f — fix the Adreno first-merc-draw-after-load SIGSEGV (fault=0x28,
@@ -5391,8 +5663,10 @@ void Merc2::do_draws(const Draw* draw_array,
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
+        const GLuint fpq = fp_draw_before(draw.hash);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);
       }
@@ -5403,8 +5677,10 @@ void Merc2::do_draws(const Draw* draw_array,
       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
+        const GLuint fpq = fp_draw_before(draw.hash);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);
       }
@@ -5433,8 +5709,10 @@ void Merc2::do_draws(const Draw* draw_array,
       }
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
+        const GLuint fpq = fp_draw_before(draw.hash);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);
       }

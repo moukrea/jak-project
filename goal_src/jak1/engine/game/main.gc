@@ -697,6 +697,82 @@
 ;; `scl10n-census!`, qui se servent des memes emplacements partages.
 (define-extern menu-label-census! (function none))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; firstperson-hd-hide -- L'IMAGE DE PREMIERE PERSONNE, ET LE GESTE QUI L'OUVRE
+;;
+;; L'ETAT SE LIT, IL NE SE DEVINE PAS. `(state-flags first-person-mode)` (engine/game/game-h.gc:57)
+;; est pose par `target-look-around :enter` (engine/target/target2.gc:324) et par
+;; `target-billy-game :enter` (:409), efface par `target-exit` (target-handler.gc:545). C'est
+;; l'etat que Naughty Dog NOMME ; le miroir HD de `pc/jak-hd.gc` lit le meme bit, mais le
+;; NUMERATEUR de la porte sort de Merc2 — de ce qui a ete DESSINE — donc un masquage qui echoue
+;; laisse la porte rouge meme si GOAL croit avoir masque.
+;;
+;; POURQUOI UN GESTE SCRIPTE. `lib/proof_run.sh` en mode appareil lance le jeu et ATTEND : il
+;; n'envoie aucune entree (proof_run.sh:1145-1181, la seule est `KEYCODE_WAKEUP`). Or la vue
+;; premiere personne ne s'ouvre qu'au triangle (engine/target/logic-target.gc:616-626). Sans
+;; geste, `firstperson_hd_fp_frames` vaudrait 0 et la porte serait verte PAR INACTION. On renvoie
+;; donc l'evenement que le jeu envoie lui-meme au meme endroit — `'change-mode 'look-around`,
+;; traite par `target-standard-event-handler` (target-handler.gc:420-422) — et on le REPETE tant
+;; que l'etat n'est pas pris : le premier essai peut tomber sur un etat qui ne l'accepte pas
+;; (chargement, cinematique, Jak en l'air).
+;;
+;; SOUS DRAPEAU D'ITEM, ET SEULEMENT LUI. `__pc-fp-hide-wanted?` rend 0 dans le jeu de l'owner :
+;; aucun evenement n'est envoye. C'est l'INSTRUMENT qui est sous drapeau, jamais le correctif.
+;;
+;; LE DELAI DU PREMIER ESSAI SERT LE CONTROLE DE NON-VACUITE. 240 images de logique avant le
+;; premier envoi, c'est autant d'images HORS premiere personne pendant lesquelles les compagnons
+;; HD sont dessines : `firstperson_hd_outside_models/draws/px` non nuls sont ce qui distingue
+;; « aucun pixel dedans » de « l'instrument n'a rien vu ».
+;; Paquets merc des modeles HD du JOUEUR deja soumis HORS premiere personne avant qu'on ait le
+;; droit d'ouvrir la vue. Jak et Daxter en soumettent quelques-uns par image : 1200 vaut plusieurs
+;; centaines d'images de jeu reel, assez pour que `firstperson_hd_outside_px` soit franchement non
+;; nul (600 paquets = environ 300 images sur l'appareil, ou Jak et Daxter en posent deux par
+;; image). Si les modeles HD sont eteints (`hd-look-*` sur ORIGINAL), ce compte reste a zero, la vue
+;; ne s'ouvre jamais, et la preuve est ROUGE au lieu d'etre verte sans rien avoir mesure.
+(defglobalconstant HD_FP_CONTROL_MIN 600)
+
+(define *fp-kick-wait* 0)
+(define *fp-kick-sends* 0)
+(define *fp-kick-logs* 0)
+
+(defun firstperson-hd-tick! ()
+  "Une image : publie l'etat premiere personne, et ouvre la vue si le harnais mesure cet item."
+  (let* ((fp (if (and *target*
+                      (logtest? (-> *target* state-flags) (state-flags first-person-mode)))
+               1
+               0))
+         ;; ce que Merc2 a deja vu HORS premiere personne : la population de controle.
+         (vus (__pc-fp-note fp *fp-kick-sends*)))
+    (when (nonzero? (__pc-fp-hide-wanted?))
+      (cond
+        ((or (nonzero? fp) (not *target*))
+         ;; deja dedans, ou pas de joueur : rien a demander, et le compteur repart de zero pour
+         ;; que la RE-entree apres une sortie subie reparte du delai court.
+         (set! *fp-kick-wait* 0))
+        ((< vus HD_FP_CONTROL_MIN)
+         ;; ON N'OUVRE PAS LA VUE AVANT D'AVOIR UNE POPULATION DE CONTROLE.
+         ;; Mesure x86 du 2026-09-14 : le compteur d'attente tournait des le SOMMAIRE (`*target*`
+         ;; existe en `target-title`), l'evenement partait donc dans la seconde qui suit
+         ;; l'apparition de Jak, et `firstperson_hd_outside_*` restait a zero — le verdict
+         ;; « aucun pixel dedans » n'aurait rien voulu dire, faute de « des pixels dehors ».
+         ;; Le seuil se compte en PAQUETS HD DU JOUEUR DEJA SOUMIS, pas en images : c'est
+         ;; exactement la population que le controle de non-vacuite doit montrer non nulle, et
+         ;; elle ne peut pas monter au sommaire ni pendant un chargement.
+         (set! *fp-kick-wait* 0))
+        (else
+          (+! *fp-kick-wait* 1)
+          (when (>= *fp-kick-wait* (if (zero? *fp-kick-sends*) 60 60))
+            (set! *fp-kick-wait* 0)
+            (+! *fp-kick-sends* 1)
+            ;; ENVOYE N'EST PAS ENTRE : on publie l'etat REEL de Jak au moment de l'envoi, sinon
+            ;; « l'evenement est parti » et « la vue s'est ouverte » rendraient le meme silence.
+            (when (< *fp-kick-logs* 40)
+              (+! *fp-kick-logs* 1)
+              (format 0 "FPKICK envoi=~D etat=~A vus=~D~%"
+                      *fp-kick-sends* (-> *target* state name) vus))
+            (send-event *target* 'change-mode 'look-around))))))
+  (none))
+
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
   ;; Le compteur d'images du publicateur de preuve, ici parce que c'est le seul point de
@@ -704,6 +780,9 @@
   ;; game/system/autoport_proof.h : sans cette ligne, `lib/proof_run.sh` remplit `frames=0` sur
   ;; l'appareil et le validateur refuse toute preuve pour « rien n'a ete dessine assez longtemps ».
   (__pc-autoport-frame)
+  ;; firstperson-hd-hide : l'image de premiere personne et le geste scripte qui l'ouvre. Ici pour
+  ;; la meme raison que la ligne au-dessus — c'est le seul point qui tourne a CHAQUE image rendue.
+  (firstperson-hd-tick!)
   ;; Grecharged-settings-case-l10n : le recensement du menu Recharged. Il ne fait rien tant que
   ;; le harnais n'a pas nomme cet item (`__pc-scl10n-wanted?`), et rien de plus d'une fois.
   ;; Ici parce que c'est le seul point qui tourne a CHAQUE image sans qu'un menu soit ouvert —
