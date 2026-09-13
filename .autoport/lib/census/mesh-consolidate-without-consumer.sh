@@ -37,18 +37,81 @@ MARQUEUR="MCWC-unconsumed-2026-09-13"
 # ---------------------------------------------------------------------------------------------
 # 1. LES OUTILS HORS LIGNE : presents, et batis AVEC le changement.
 # ---------------------------------------------------------------------------------------------
+# LE MARQUEUR N'EST PAS DANS L'EXECUTABLE. `format_mesh_audit()` vit dans `libcommon.so`, que les
+# trois outils lient DYNAMIQUEMENT : `strings` sur l'executable seul rend 0 sur un arbre ou les
+# outils portent pourtant le changement (mesure du 13/09 : mesh_audit=0, libcommon.so=1). Un zero
+# d'instrument se serait lu « les outils sont vieux ». On interroge donc l'executable ET chacun des
+# objets partages QUE LE CHARGEUR LUI RESOUT, par `ldd` — pas une liste de noms ecrite a la main.
+# `mesh_tools_objects_scanned` publie le denominateur : a zero, aucune des deux lignes au-dessus ne
+# veut dire quoi que ce soit.
 outils_presents=0
 outils_marques=0
+objets_lus=0
 for t in build/tools/mesh_audit/mesh_audit build/tools/tess_audit/tess_audit \
          build/tools/tess_sign/tess_sign; do
   [ -x "$t" ] || continue
   outils_presents=$((outils_presents + 1))
-  if strings -a "$t" 2>/dev/null | grep -qF "$MARQUEUR"; then
-    outils_marques=$((outils_marques + 1))
-  fi
+  porte=0
+  for o in "$t" $(ldd "$t" 2>/dev/null | sed -n 's/.*=> \(\/[^ ]*\) (0x.*/\1/p'); do
+    [ -r "$o" ] || continue
+    objets_lus=$((objets_lus + 1))
+    # `grep -q` SORT DES LA PREMIERE OCCURRENCE et tue `strings` par SIGPIPE : sous `pipefail`,
+    # le pipeline rend 141 et la condition est FAUSSE sur un objet qui PORTE le marqueur (mesure du
+    # 13/09 : libcommon.so, 91 Mio, rc=141 avec -q, compte=1 avec -c). C'etait la moitie du zero.
+    # On lit donc jusqu'au bout et on compte.
+    n_occ=$(strings -a "$o" 2>/dev/null | grep -cF "$MARQUEUR" || true)
+    if [ "${n_occ:-0}" -gt 0 ] 2>/dev/null; then
+      porte=1
+    fi
+  done
+  outils_marques=$((outils_marques + porte))
 done
 echo "mesh_tools_built=$outils_presents"
 echo "mesh_tools_carrying_change=$outils_marques"
+echo "mesh_tools_objects_scanned=$objets_lus"
+
+# ---------------------------------------------------------------------------------------------
+# 1 bis. LES DEUX GARDIENS HORS LIGNE DE L'INVARIANT TOURNENT ENCORE (livrable 3, deuxieme moitie).
+#    `tess_audit` et `tess_sign` ne produisent AUCUN artefact livre : leur seule sortie est un
+#    rapport. On les lance sur `intro` et on publie leur code de retour et l'empreinte de leur
+#    rapport, HORODATAGES RETIRES. Ce que ca prouve : ils compilent, ils traversent la meme
+#    consolidation et ils vont au bout. Ce que ca ne prouve PAS : l'egalite avec un rapport
+#    d'AVANT — aucun binaire d'avant n'existe sur ce disque. C'est dit dans le rapport.
+# ---------------------------------------------------------------------------------------------
+FR3_INTRO="out/jak1/fr3/intro.fr3"
+for paire in "tess_audit:build/tools/tess_audit/tess_audit:" \
+             "tess_sign:build/tools/tess_sign/tess_sign:--summary-only"; do
+  nom=${paire%%:*}; reste=${paire#*:}; exe=${reste%%:*}; opt=${reste#*:}
+  if [ -x "$exe" ] && [ -s "$FR3_INTRO" ]; then
+    RAP=$(mktemp "${TMPDIR:-/tmp}/mcwc-$nom.XXXXXX")
+    # shellcheck disable=SC2086
+    if timeout 900 "$exe" --fr3 "$FR3_INTRO" $opt --out "$RAP" > "$RAP.log" 2>&1; then rc=0; else rc=$?; fi
+    echo "mesh_tool_${nom}_rc=$rc"
+    echo "mesh_tool_${nom}_report_bytes=$(stat -c %s "$RAP" 2>/dev/null || echo 0)"
+    echo "mesh_tool_${nom}_report_lines=$(wc -l < "$RAP" 2>/dev/null | tr -d ' ' || echo 0)"
+    # Les horodatages et les durees varient d'une course a l'autre : les retirer, sinon l'empreinte
+    # ne dit rien d'autre que « ce n'est pas la meme seconde ».
+    emp=$(sed -E 's/[0-9]+\.[0-9]+ ?(ms|s)//g; s/[0-9]{2}:[0-9]{2}:[0-9]{2}//g' "$RAP" 2>/dev/null \
+          | md5sum | cut -c1-16)
+    echo "mesh_tool_${nom}_report_sha=${emp:--}"
+    # ANTI-VACUITE : un rapport peut sortir en rc=0 sans avoir touche un seul sommet. On publie la
+    # POPULATION que chaque outil a effectivement traversee, tiree de son propre rapport.
+    case "$nom" in
+      tess_audit)
+        echo "mesh_tool_tess_audit_patches=$(sed -n 's/^patches (tris) *: *\([0-9]*\).*/\1/p' "$RAP" | head -1 | tr -d ' ')"
+        echo "mesh_tool_tess_audit_verts=$(sed -n 's/^vertices *: *\([0-9]*\).*/\1/p' "$RAP" | head -1 | tr -d ' ')" ;;
+      tess_sign)
+        echo "mesh_tool_tess_sign_global_verts=$(sed -n 's/.*of \([0-9]*\) global vertices.*/\1/p' "$RAP" | head -1)"
+        echo "mesh_tool_tess_sign_rayf_voted=$(sed -n 's/.*rayf_vs_vol.*voted=\([0-9]*\).*/\1/p' "$RAP" | head -1)" ;;
+    esac
+    rm -f "$RAP" "$RAP.log"
+  else
+    echo "mesh_tool_${nom}_rc=-1"
+    echo "mesh_tool_${nom}_report_bytes=0"
+    echo "mesh_tool_${nom}_report_lines=0"
+    echo "mesh_tool_${nom}_report_sha=-"
+  fi
+done
 
 # ---------------------------------------------------------------------------------------------
 # 2. LE BAKE REPRODUIT, OCTET POUR OCTET (livrables 3 et 4, une seule mesure).
@@ -110,9 +173,34 @@ if [ -d out/jak1/fr3 ]; then
            | sort -z | xargs -0 md5sum 2>/dev/null | md5sum | cut -c1-16)
   echo "mesh_delivered_sidecars=$n_sc"
   echo "mesh_delivered_sidecars_sha=${sha_sc:--}"
+  # LIVRABLE 4, SUR LES 26 ET PAS SUR UN SEUL. `notes/sidecars-avant.md5` est la liste des
+  # empreintes des sidecars LIVRES relevee AVANT la re-cuisson (essai 2, 13/09 18:57). On compare
+  # fichier par fichier et on publie le nombre de LIGNES COMPAREES : a zero, `mesh_sidecars_changed`
+  # ne veut rien dire, et le rapport doit le dire au lieu de lire un zero comme « rien n'a bouge ».
+  REF="$D/notes/sidecars-avant.md5"
+  if [ -s "$REF" ]; then
+    # L'ORDRE DE `sort` DEPEND DE LA LOCALE : `GAME.meshweld` se range avant `beach` en C et apres
+    # en fr_FR.UTF-8. Une liste de reference triee sous une autre locale faisait rendre 3 a `diff`
+    # sur 26 fichiers tous identiques. On trie les DEUX cotes ici, sous LC_ALL=C, pose en tete.
+    MAINT=$(mktemp "${TMPDIR:-/tmp}/mcwc-now.XXXXXX")
+    REFT=$(mktemp "${TMPDIR:-/tmp}/mcwc-ref.XXXXXX")
+    ( cd out/jak1/fr3 && md5sum *.meshweld 2>/dev/null ) | sort -k2 > "$MAINT"
+    sort -k2 "$REF" > "$REFT"
+    echo "mesh_sidecars_compared=$(wc -l < "$REF" | tr -d ' ')"
+    echo "mesh_sidecars_now_listed=$(wc -l < "$MAINT" | tr -d ' ')"
+    echo "mesh_sidecars_changed=$(diff "$REFT" "$MAINT" 2>/dev/null | grep -c '^<' || true)"
+    rm -f "$MAINT" "$REFT"
+  else
+    echo "mesh_sidecars_compared=0"
+    echo "mesh_sidecars_now_listed=0"
+    echo "mesh_sidecars_changed=-1"
+  fi
 else
   echo "mesh_delivered_sidecars=0"
   echo "mesh_delivered_sidecars_sha=-"
+  echo "mesh_sidecars_compared=0"
+  echo "mesh_sidecars_now_listed=0"
+  echo "mesh_sidecars_changed=-1"
 fi
 
 # ---------------------------------------------------------------------------------------------
