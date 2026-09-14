@@ -11637,7 +11637,7 @@ items:
     action: Consigne et contrat regeneres. Refus herite ajoute au rapport et aux FINDINGS, rattache a
       harness-suite-temporary-files-outside-quota. Reouverture sans validation, sans reset des essais,
       sans relance manuelle. Reprendre depuis le handoff et laisser les portes juger les artefacts reels.
-- status: open
+- status: blocked
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11671,29 +11671,16 @@ items:
     key: ao_tie_prepass_defects
     op: ==
     value: 0
-  known_cause: 'Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l''essai 13, mesure : `ao_geom_tie_absent_px=1646`
-    et `ao_geom_tie_absent_nocut_match_px=1646`, `_nocut_off_px=0` : a 100 % la prepasse DESSINE la geometrie
-    TIE statique A LA PROFONDEUR DE LA SCENE et c''est SON ALPHA-TEST qui la jette pendant que la couleur
-    garde le fragment — un SUR-DECOUPAGE, pas un dessin manquant ; 1096 px sur 1646 sont des trous INTERIEURS
-    (>= 3x3). Shrub et tfrag rendent 0 ; ce n''est PAS le vent (`ao_sway_gap_px` le comptait a tort).
-    ECARTE PAR LA MESURE, ne le refais pas : la categorie NORMAL_ENVMAP_SECOND_DRAW (`ao_geom_tie_env2_absent_px=0`)
-    ; les quatre `glTexParameteri` non poses par la prepasse (defaut REEL corrige a l''essai 13, `ao_pre_texstate_bad`
-    12570/25449, mais le compte n''a pas bouge) ; le seuil `alpha_min*255/512` (LUT saturee a 128, idem
-    arm64) ; la texture (`m_textures->at(draw.tree_tex_id)` des deux cotes, Tie3.cpp:1377/:1718) ; `alpha_min`
-    de la couleur ; `shade()` ne touche jamais `color.a` (shade.glsl:197, :226) ; le FBO de prepasse a
-    `render_fb_w/h` ; l''UV ; la plage d''EBO. Reste a chercher : ce qui, dans le fragment de PREPASSE,
-    differe du fragment de COULEUR pour le meme TIE statique (etat de blend/alpha-to-coverage, mipmap/LOD
-    de la texture au moment du test, precision, ordre des draws). ACQUIS DE lighting-ao-indirect A NE
-    PAS ROUVRIR NI CASSER (essai 13, appareil eae4df44) : Eleve en pleine resolution (`ao_high_not_fullres=0`),
-    damier sous plafond (`ao_pattern_over_ceiling=0`), alpha respecte sur l''appareil vent allume (`ao_on_alpha_device_px=0`),
-    fuite du direct nulle (`ao_direct_leak_px=0`), bande de contact nulle (`ao_contact_band_px=0`), prepasse
-    qui suit le vent des SHRUBS (26,7 % -> 0,31 %). Ces cinq cles entrent dans la porte de cet item et
-    doivent rester a zero.'
+  known_cause: |-
+    MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur restent non prouves. Ne pas forcer une modification de prepasse sur cette seule hypothese.
+
+    HISTORIQUE A CONSERVER, CAUSALITE DE SUR-DECOUPAGE REFUTEE PAR LES ESSAIS 2-3 :
+    Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l'essai 13, mesure : `ao_geom_tie_absent_px=1646` et `ao_geom_tie_absent_nocut_match_px=1646`, `_nocut_off_px=0` : a 100 % la prepasse DESSINE la geometrie TIE statique A LA PROFONDEUR DE LA SCENE et c'est SON ALPHA-TEST qui la jette pendant que la couleur garde le fragment — un SUR-DECOUPAGE, pas un dessin manquant ; 1096 px sur 1646 sont des trous INTERIEURS (>= 3x3). Shrub et tfrag rendent 0 ; ce n'est PAS le vent (`ao_sway_gap_px` le comptait a tort). ECARTE PAR LA MESURE, ne le refais pas : la categorie NORMAL_ENVMAP_SECOND_DRAW (`ao_geom_tie_env2_absent_px=0`) ; les quatre `glTexParameteri` non poses par la prepasse (defaut REEL corrige a l'essai 13, `ao_pre_texstate_bad` 12570/25449, mais le compte n'a pas bouge) ; le seuil `alpha_min*255/512` (LUT saturee a 128, idem arm64) ; la texture (`m_textures->at(draw.tree_tex_id)` des deux cotes, Tie3.cpp:1377/:1718) ; `alpha_min` de la couleur ; `shade()` ne touche jamais `color.a` (shade.glsl:197, :226) ; le FBO de prepasse a `render_fb_w/h` ; l'UV ; la plage d'EBO. Reste a chercher : ce qui, dans le fragment de PREPASSE, differe du fragment de COULEUR pour le meme TIE statique (etat de blend/alpha-to-coverage, mipmap/LOD de la texture au moment du test, precision, ordre des draws). ACQUIS DE lighting-ao-indirect A NE PAS ROUVRIR NI CASSER (essai 13, appareil eae4df44) : Eleve en pleine resolution (`ao_high_not_fullres=0`), damier sous plafond (`ao_pattern_over_ceiling=0`), alpha respecte sur l'appareil vent allume (`ao_on_alpha_device_px=0`), fuite du direct nulle (`ao_direct_leak_px=0`), bande de contact nulle (`ao_contact_band_px=0`), prepasse qui suit le vent des SHRUBS (26,7 % -> 0,31 %). Ces cinq cles entrent dans la porte de cet item et doivent rester a zero.
   deliverable: |-
     `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.
     1. LA CAUSE EST NOMMEE AVANT LE CORRECTIF : publier, pour un echantillon de fragments TIE jetes par la prepasse et gardes par la couleur, la valeur d'alpha vue par chaque passe et l'etat qui differe (compte par cause). Un correctif sans cette table est un essai a l'aveugle.
     2. PLUS DE TROU : `ao_geom_tie_absent_px` = 0 sur le vantage de l'essai 13 et sur deux autres nommes, avec `ao_geom_cover_px` a cote ; les trous interieurs (>= 3x3) comptes separement, zero.
-    3. LA COULEUR NE CHANGE PAS : le correctif vit dans la PREPASSE ; image couleur bit-identique AO eteinte, et compte de fragments TIE changes dans la passe couleur = zero.
+    3. LA COULEUR NE CHANGE PAS : le correctif porte sur la cause etablie, y compris l instrument de mesure si le diagnostic accuse celui-ci ; aucune modification du rendu ne doit etre faite pour satisfaire une hypothese refutee ; image couleur bit-identique AO eteinte, et compte de fragments TIE changes dans la passe couleur = zero.
     4. LES ACQUIS TIENNENT ET L'OWNER PEUT JUGER : les cinq cles acquises et `ao_static_defects` restent a zero dans la MEME preuve ; `where` decrit exactement ce que l'owner regarde.
     PREUVE : `FEATURE ao-prepass-tie-alpha armed=1 hits=<fragments de TIE statique juges dans la prepasse>` + la ligne `ao_tie_prepass_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
   where: 'Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : chaque palier et
@@ -11712,13 +11699,46 @@ items:
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback: []
   owner_ok: null
-  supervisor_recovery: true
+  supervisor_recovery: false
   supervisor_clarification:
     date: '2026-09-14'
     cause: 'FINDINGS : ao_static_probe::requested ne reconnait que son propre item ; la clause ao_static_defects
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
+  block_reason: 'Arbitrage owner requis : plan borne sur trois vues et comparaisons ON/OFF pour couvrir
+    le contrat ; pas de campagne autorisee inscrite. Sur village1-hut, zero trou apres correction du seul
+    alpha de mesure ; deux autres vues et identite couleur non mesurees. Essai 4 annule sans etre compte
+    ; ne pas relancer le meme ON.'
+  proof_plan_pending:
+    status: awaiting-owner
+    owner_authorized: false
+    mode: bounded-three-view-on-off
+    vantages:
+    - village1-hut
+    - village1-out
+    - beach
+    max_runs: 9
+    max_timeout_s_per_run: 150
+    per_vantage:
+    - ON reference native de stabilite
+    - ON comparaison meme binaire et entrees, geometrie et acquis
+    - OFF controle du desarmement et equivalence couleur au moyen de compteurs ou empreintes
+    requirements:
+    - Passer exclusivement par proof_run.sh et le validateur.
+    - Nommer les positions et les populations TIE non vides avant lancement.
+    - Les mesures de couleur manquantes peuvent etre instrumentees seulement dans le perimetre autorise
+      du plan.
+    - 'Publier tous les termes : aucune clause ni zero sur population vide ne disparait.'
+    - Aucune course supplementaire sans nouvel arbitrage ; ne pas reutiliser une reference consommee.
+    question: Autorises-tu cette verification bornee sur trois vues, avec comparaisons ON/OFF, pour terminer
+      le controle AO ?
+  supervisor_observation:
+    date: '2026-09-14'
+    finding: Les essais 1, 2 et 3 refusent tous l absence de ao_tie_prepass_defects ; les clauses manquantes
+      demandent un arbitrage de preuve, pas un ON identique supplementaire.
+    action: Essai 4 annule par scope_stamp (non compte), item bloque avant reprise externe. Causalite
+      rectifiee sans supprimer les exigences de resultat. Les autres items restent eligibles.
 - status: open
   game: jak1
   device: false

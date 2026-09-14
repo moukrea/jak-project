@@ -8,7 +8,7 @@
 - (aucun retour de l'owner enregistre sur cet item)
 
 ## Cause connue
-Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l'essai 13, mesure : `ao_geom_tie_absent_px=1646` et `ao_geom_tie_absent_nocut_match_px=1646`, `_nocut_off_px=0` : a 100 % la prepasse DESSINE la geometrie TIE statique A LA PROFONDEUR DE LA SCENE et c'est SON ALPHA-TEST qui la jette pendant que la couleur garde le fragment — un SUR-DECO […suite dans le contrat]
+MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur r […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.
