@@ -1,0 +1,26 @@
+La reprise tient sur le banc isolé (défauts=0) ; la livraison réelle reste non prouvée.
+DIRECTIVES va1dbd6abb3
+
+Cuisson ciblée par mesh_audit via build_x86, sortie temporaire puis remplacement atomique.
+Compilateurs reconstruits incrémentalement ; gardes STALE BAKE conservées.
+Échec : demande conservée, repères inchangés, verrou rendu, nouvelle tentative au tour suivant.
+Succès complet seul : repères avancés, reçu APK/HD/BUILD-INFO, sources de départ vérifiées.
+Publication : reçu et empreintes exigés, exclusion avec le constructeur ; aucun appareil contacté.
+
+Preuve produite par lib/proof_run.sh, course x86 unique de 60 s :
+source=x86
+crash=0
+frames=3356
+delivery_stale_bake_defects=0
+delivery_stale_bake_cases=22
+delivery_stale_bake_stale_cases=7
+delivery_stale_bake_retry_cases=10
+delivery_stale_bake_publication_cases=6
+
+Suite : 626 passed in 111.57s ; hooks : 16 OK, sortie 0 (journaux dans notes/).
+Recensement : 22 passed in 20.73s ; preuve complète en 81 s, empreinte des 32 sources inchangée.
+À regarder : la reprise des nouveaux builds par les démons, aucune validation visuelle requise.
+non prouvé : cuisson et fabrication APK réelles, publication distante, chargement du correctif par les démons.
+Constructeur PID 60363 absent ; publieur PID 59525 vivant (notes/daemon-status.txt), aucun redémarrage.
+FINDINGS.txt consigne aussi restauration ISO sur échec, garde gk et nettoyage /dev/null.
+Validateur générique laissé à l’orchestrateur ; aucun statut du backlog ni accord owner fabriqué.

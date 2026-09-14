@@ -53,7 +53,7 @@ cd "$(dirname "$0")/.." || exit 1
 # POSIX (le bake, package_hd_assets.sh:76), mais la JVM lit `java.io.tmpdir`, dont le defaut est
 # `/tmp` INDEPENDAMMENT de `TMPDIR` : poser `TMPDIR` seul aurait laisse gradle mourir exactement
 # au meme endroit, en donnant l'impression que le correctif ne marche pas.
-export TMPDIR=/home/emeric/.autoport-tmp
+export TMPDIR=${TMPDIR:-/home/emeric/.autoport-tmp}
 mkdir -p "$TMPDIR"
 export GRADLE_OPTS="${GRADLE_OPTS:+$GRADLE_OPTS }-Djava.io.tmpdir=$TMPDIR"
 # ------------------------------------------------------------------------------------------------
@@ -100,7 +100,11 @@ range_touches_game(){
   [ "$base" = "$cur" ] && return 1                               # rien de neuf
   git diff --name-only "$base" "$cur" -- . ':(exclude).autoport/**' 2>/dev/null | grep -q . 
 }
-mark_built(){ printf '%s\n' "$1" > "$STAMP"; git rev-parse HEAD > "$COMMIT_STAMP" 2>/dev/null || true; }
+mark_built(){
+  printf '%s\n' "$1" > "$STAMP.tmp.$$" && mv -f "$STAMP.tmp.$$" "$STAMP" &&
+    printf '%s\n' "$build_commit" > "$COMMIT_STAMP.tmp.$$" &&
+    mv -f "$COMMIT_STAMP.tmp.$$" "$COMMIT_STAMP"
+}
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 
@@ -193,6 +197,7 @@ appop_surface_verrouillee(){          # $1 = raison, journalisee
 
 fg_bloque_depuis=""
 reconcilier_telephone(){
+  python3 .autoport/delivery_artifact.py check >/dev/null 2>&1 || return 0
   local ADBX SERX PKGX APKX man_c man_g want_c want_g here fg dev_c dev_g compx got_c got_g i age apk_c
   ADBX="${ADB:-/home/emeric/Android/platform-tools/adb}"
   SERX=eae4df44
@@ -378,13 +383,16 @@ while true; do
     h=$(git rev-parse HEAD 2>/dev/null | md5sum | cut -d' ' -f1)
     reason="commit livrable $(git log -1 --format=%h 2>/dev/null)"
   fi
-  [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
+  # Les anciens reperes memorisaient aussi les echecs. Sans recu verifie,
+  # ils ne peuvent plus supprimer la tentative de reprise.
+  ready=0
+  python3 .autoport/delivery_artifact.py check >/dev/null 2>&1 && ready=1
+  [ "$ready" = 1 ] && [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
 
   # PORTE DE CONTENU : rien hors `.autoport/` depuis le dernier build ⇒ ni build ni publication.
   # Une demande explicite du worker passe outre : lui sait que son code est final.
-  if [ ! -f "$REQ" ] && ! range_touches_game; then
+  if [ "$ready" = 1 ] && [ ! -f "$REQ" ] && ! range_touches_game; then
     say "build IGNORE — aucun fichier de jeu depuis le dernier build ($(git log -1 --format=%h))"
-    mark_built "$h"
     continue
   fi
 
@@ -460,6 +468,25 @@ while true; do
     fi
   fi
 
+  # Exclusion avec le publieur ; verrou PID tenu aussi pendant les preparatifs.
+  exec 8>.autoport/.delivery-artifacts.lock
+  if ! flock -n -x 8; then exec 8>&-; continue; fi
+  printf '%s pid=%s\n' "$0" "$$" > .autoport/.deploy-in-progress
+  trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
+  fin_de_passe(){ rm -f .autoport/.deploy-in-progress; flock -u 8; exec 8>&-; }
+  build_commit=$(git rev-parse HEAD) || { fin_de_passe; continue; }
+  build_sources=$(python3 .autoport/delivery_artifact.py sources) || { fin_de_passe; continue; }
+  request_hash=$(sha256sum "$REQ" 2>/dev/null | cut -d' ' -f1)
+  rm -f .autoport/.delivery-ready.json
+  # Les deux compilateurs consomment les headers serialises, eux aussi.
+  if ! bash .autoport/lib/build_x86.sh --target goalc >> "$LOG" 2>&1 ||
+     ! cmake --build build-arm64 --target goalc -j "$(nproc)" >> "$LOG" 2>&1 ||
+     ! bash .autoport/prepare_delivery_bakes.sh >> "$LOG" 2>&1; then
+    say "preparation/cuisson ECHOUEE — demande conservee, prochain tour retente"
+    fin_de_passe
+    continue
+  fi
+
   # NE JAMAIS CONSTRUIRE DEPUIS UN ARBRE SALE (2026-08-11 18:50). Le build de 18:28 a ete
   # fabrique pendant que le worker ecrivait le moteur : 366 lignes ajoutees et 52 retirees non
   # commitees. L'owner a donc teste un moteur a MOITIE reecrit et l'a trouve pire — "des petits
@@ -492,6 +519,7 @@ while true; do
       fi
     else
       say "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
+      fin_de_passe
       continue
     fi
   fi
@@ -510,12 +538,9 @@ while true; do
   # fini a 12:18, encore la a 14:00. Aucune preuve appareil n'etait possible entre les deux.
   # On le rend donc a chaque sortie de passe. Le trap EXIT reste, comme filet.
   # shellcheck disable=SC2317
-  fin_de_passe(){ rm -f .autoport/.deploy-in-progress; }
-  rm -f "$REQ"
   say "build declenche — $reason"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
-    say "build arm64 ÉCHOUÉ — rien à publier, on retentera au prochain changement"
-    mark_built "$h"   # ne pas boucler sur un état cassé
+    say "build arm64 ÉCHOUÉ — rien à publier, prochain tour retente"
     fin_de_passe
     continue
   fi
@@ -535,10 +560,12 @@ while true; do
     say "gradle clean (taille=${SZ}o build#${NB})"
     ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
   fi
+  # Une sortie de la passe precedente ne prouve pas que cette passe a produit
+  # un APK. Gradle re-empaquette seulement la sortie manquante, sans clean.
+  rm -f android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
     say "gradle ÉCHOUÉ"
-    mark_built "$h"
     fin_de_passe
     continue
   fi
@@ -563,15 +590,16 @@ while true; do
   # script existe pour empecher. On le refabrique donc a CHAQUE build publiable, sans condition :
   # sa version est derivee du contenu, donc si rien n'a change le zip est identique et le publieur
   # (qui compare des md5) ne le renvoie pas. Ca ne coute rien et ca ne peut plus etre oublie.
+  rm -f out/artifacts/jak1_hd_assets.zip
   if ! timeout 900 bash scripts/package_hd_assets.sh jak1 >> "$LOG" 2>&1; then
     say "pack HD ÉCHOUÉ — l'APK partirait avec un mesh perime, on ne publie pas"
-    mark_built "$h"
+    fin_de_passe
     continue
   fi
   # ----------------------------------------------------------------------------------------------
 
   # la paire doit être traçable : même commit pour l'APK et pour le pack
-  sha=$(git rev-parse --short HEAD)
+  sha=${build_commit:0:12}
   mkdir -p out/artifacts
   {
     echo "commit: $sha"
@@ -598,6 +626,9 @@ while true; do
       say "apres nettoyage : $_sz octets"
     else
       say "reassemblage apres nettoyage ECHOUE"
+      ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
+      fin_de_passe
+      continue
     fi
     # ET ON REND LE DEMON ICI AUSSI. Le `--stop` de la passe normale est plus haut ; ce
     # reassemblage tourne APRES lui, donc il rallumait un demon qui survivait a la passe.
@@ -612,7 +643,6 @@ while true; do
   fi
   if [ "$_sz" -gt 700000000 ]; then
     say "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"
-    mark_built "$h"
     fin_de_passe
     continue
   fi
@@ -653,7 +683,21 @@ while true; do
     echo "Ce fichier est ecrit AUTOMATIQUEMENT a chaque build, il decrit donc toujours l'APK"
     echo "qui est a cote de lui. Si les deux dates divergent, dis-le moi."
   } > out/artifacts/BUILD-INFO.txt
-  mark_built "$h"
+  if ! python3 .autoport/delivery_artifact.py seal "$build_commit" "$build_sources" >> "$LOG" 2>&1; then
+    say "artefacts incomplets ou sources modifiees — prochain tour retente"
+    fin_de_passe
+    continue
+  fi
+  if ! mark_built "$h"; then
+    rm -f .autoport/.delivery-ready.json
+    say "reperes non ecrits — prochain tour retente"
+    fin_de_passe
+    continue
+  fi
+  # Une nouvelle demande arrivee pendant le build appartient au tour suivant.
+  if [ -n "$request_hash" ] && [ "$request_hash" = "$(sha256sum "$REQ" 2>/dev/null | cut -d' ' -f1)" ]; then
+    rm -f "$REQ"
+  fi
   say "APK + BUILD-INFO prets pour le commit $sha — le publieur prendra le relais"
 
   # On installe TOUT DE SUITE ce qu'on vient de produire, sans attendre le tour suivant.

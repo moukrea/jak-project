@@ -1,0 +1,20 @@
+--- doivent PASSER ---
+OK    (0) grep dont le motif contient adb et pkill
+OK    (0) echo qui parle d adb
+OK    (0) adb correct avec -s
+OK    (0) pgrep avec classe de caracteres
+OK    (0) la porte du build de bureau
+OK    (0) build arm64 : la regle ne vise que le bureau
+OK    (0) essai a vide sur l arbre de bureau
+OK    (0) pipe simple
+--- doivent ETRE REFUSES ---
+OK    (2) adb sans -s
+OK    (2) pkill -f sans crochet
+OK    (2) cmake -B
+OK    (2) appareil vise par une adresse reseau
+OK    (2) capture d ecran
+OK    (2) boucle qui attend sur pgrep
+OK    (2) cmake --build sur l arbre de bureau
+OK    (2) ninja -C build sans -n
+--- cout ---
+moyenne par appel : 11 ms

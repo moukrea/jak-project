@@ -113,6 +113,9 @@ _new-all-types.gc
 .autoport/.no-device
 .autoport/.build-count
 .autoport/.deploy-in-progress
+.autoport/.delivery-artifacts.lock
+.autoport/.delivery-ready.json
+.autoport/.delivery-ready.json.*
 .autoport/**/*.bak
 .autoport/**/*.bak[0-9]
 .autoport/**/*.bak.*

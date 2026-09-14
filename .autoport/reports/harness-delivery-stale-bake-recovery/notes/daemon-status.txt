@@ -1,0 +1,5 @@
+ps -p 60363,59525 -o pid=,etime=,comm=
+  59525    01:10:56 bash
+rc=0
+.autoport/.auto_build_apk.pid: absent
+.autoport/.auto_push_builds.pid: 59525

@@ -35,10 +35,13 @@ APK=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
 ZIP=out/artifacts/jak1_hd_assets.zip
 DIST=.autoport/dist/app-jak1-HD-recharged.apk
 LOG=.autoport/logs/auto_push_builds.txt
-LAST=""
-[ -f "$APK" ] && LAST=$(md5sum "$APK" | cut -d' ' -f1)
+LAST=$(cat .autoport/.last_published_apk_md5 2>/dev/null)
+LASTZIP=$(cat .autoport/.last_published_hd_md5 2>/dev/null)
+exec 8>.autoport/.delivery-artifacts.lock
 echo "$(date +%H:%M:%S) watcher started (baseline ${LAST:0:8})" >> "$LOG"
 while true; do
+  # Tout continue rend le verrou au debut du tour suivant, avant le sommeil.
+  flock -u 8
   shield_keep_out   # owner 2026-08-30 : la Shield ne doit jamais etre visible d'un tour a l'autre
   sleep 300
   # DESCRIPTION A JOUR MEME SANS PUBLICATION (owner 2026-09-13 : « ça devrait toujours être à jour
@@ -48,6 +51,13 @@ while true; do
   # release_notes.sh fait que GitHub n'est appele que si la liste a change.
   if [ -f .autoport/.published_build_info.txt ]; then
     AUTOPORT_RELEASE_INFO=.autoport/.published_build_info.txt bash .autoport/release_notes.sh >> "$LOG" 2>&1 || true
+  fi
+  # Le constructeur tient le verrou exclusif jusqu'au recu d'une paire complete.
+  # Le verrou partage garde les octets stables jusqu'a la fin du televersement.
+  flock -n -s 8 || continue
+  if ! python3 .autoport/delivery_artifact.py check >> "$LOG" 2>&1; then
+    echo "$(date +%H:%M:%S) SKIP publication : aucun recu d'artefacts coherents" >> "$LOG"
+    continue
   fi
   [ -f "$APK" ] || continue
   # settle: size must be stable across two reads, otherwise gradle is still writing
@@ -92,7 +102,6 @@ while true; do
       echo "$(date +%H:%M:%S) SKIP publication : l'APK ($INFOSHA) est ANTERIEUR au build deja publie ($LASTINFO)" >> "$LOG"
       continue
     fi
-    LASTINFO="$INFOSHA"
   fi
   # 2026-09-03 — CETTE GARDE JUGEAIT HEAD, PAS L'ARTEFACT. HEAD etait un checkpoint WIP la
   # plupart du temps, donc l'owner ne recevait en pratique de build qu'apres un passage de
@@ -144,6 +153,9 @@ while true; do
   if timeout 1800 gh release upload jak1-rtlight-wip "${UP[@]}" \
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
     LAST="$h"; LASTZIP="$zh"
+    LASTINFO="$INFOSHA"
+    printf '%s\n' "$h" > .autoport/.last_published_apk_md5
+    printf '%s\n' "$zh" > .autoport/.last_published_hd_md5
     # DESCRIPTION A JOUR A CHAQUE PUBLICATION (owner 2026-09-01) : il ne doit jamais avoir
     # a deviner ce qu'il y a a tester dans le build en ligne.
     # 2026-09-13 : on photographie le BUILD-INFO du build PUBLIE, pour que les rafraichissements

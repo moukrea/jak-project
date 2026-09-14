@@ -1,0 +1,4 @@
+démons de livraison / notes/daemon-status.txt | PID constructeur 60363 absent et fichier .auto_build_apk.pid absent ; publieur 59525 vivant, instances non relancées conformément au périmètre | reprise effective du constructeur et chargement du code corrigé restent à effectuer par le pilotage autorisé
+.autoport/build_arm64_full_consistent.sh:30 | un refus avant la restauration x86 sort sans restaurer systématiquement les ISO déjà écrites par le compilateur ARM64 | une preuve x86 ultérieure peut trouver un arbre ISO partiel ou de la mauvaise architecture
+.autoport/auto_build_apk.sh:433 | après vingt minutes, hard=0 laisse construire même si un gk reste dans busy | la construction peut réécrire les ISO pendant une mesure x86
+.autoport/lib/proof_run.sh:1494 | nettoyage rm -f ${ZFBRUT:-/dev/null} observé en erreur Permission denied pendant la course x86 | erreur parasite à chaque course sans ZFBRUT et tentative de suppression d’un périphérique système
