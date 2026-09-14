@@ -1,24 +1,27 @@
 DIRECTIVES v16b7fb9530
-Verdict : protection ajoutée, banc et course x86 conformes ; jugement final laissé à l'orchestrateur.
-Ajout de acquis/perf-fbo-passes.sh, automatiquement découvert parmi les acquis.
-La garde exige les populations mesurée et directe, refuse les maxima non nuls,
-les compteurs absents ou malformés, les crashes et les journaux absents ou périmés.
-Les replis déclarés sont nommés ; une population directe vide ne vaut jamais validation.
-Le régime SDR est épinglé dans proof_env de cet item et dans la course de l'acquis.
-Le recensement réutilise le même lecteur sur le journal réel et exécute le banc isolé.
-Aucun code jeu, compteur moteur ou validateur modifié ; aucun build effectué.
-Preuve : lib/proof_run.sh acquis-perf-fbo-passes x86 --timeout 60, sortie 0.
-Source x86, sha=1141ad698013d657, frames=3406 ; 47 tests réussis en 2,09 s.
+Verdict : protection et acquisition corrigées, preuve et acquis conformes ; fermeture attendue de l'orchestrateur.
+L'acquis réutilise la course proof_run fraîche ; une preuve absente ou périmée
+déclenche une seule acquisition par ce producteur, dont la garde distingue Gradle inactif.
+Contrôles : sceau complet, SHA binaire, dates, sources moteur/verdict, régime SDR
+observé dans le processus et concordance des compteurs entre preuve et journal brut.
+Le lecteur conserve le refus des passes superflues, fins sans invalidate,
+populations vides, replis inconnus/désarmés et crashes ; un défaut frais ne relance rien.
+Deux fichiers de code harnais modifiés : acquis/perf-fbo-passes.sh et son banc.
+Preuve : lib/proof_run.sh acquis-perf-fbo-passes x86 --timeout 60, sortie 0 ; aucun build.
+Course 20260914T194657Z-682451-8c96db47 : sha=1141ad698013d657, frames=3436.
+Banc isolé : 71 passed in 5.88s (notes/fbo-acquis.log).
+Acquis autonome : sortie 0, même run_id, TENU (notes/essai-2-acquis.log).
+La preuve porte busy_guard_decision=passe et busy_guard_daemon_present=1.
 Huit lignes recopiées de proof.txt :
 fbo_acquis_defects=0
-fbo_acquis_cases=47
+fbo_acquis_cases=71
 fbo_acquis_live_rc=0
 fb_extra_passes_per_frame=0
-fb_frames_measured=3359
-fb_ui_direct_frames=3281
+fb_frames_measured=3419
+fb_ui_direct_frames=3341
 fb_pass_ends_no_invalidate_max=0
 crash=0
 Owner : rien à retester ; protection automatique uniquement.
-Non prouvé : exécution ARM64 et régimes HDR/MSAA/refset ; aucune campagne demandée.
+non prouvé : exécution ARM64 et régimes HDR/MSAA/refset réels ; banc des replis seulement.
 generic.sh n'a pas été lancé par le worker : l'orchestrateur prononce la fermeture.
 Trois anomalies hors périmètre sont consignées dans FINDINGS.txt.
