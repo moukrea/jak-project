@@ -50,6 +50,12 @@ out vec3 v_world;
 out vec3 v_todc;
 #endif
 
+#ifdef OG_SHRUB_CONTACT_PROBE
+out vec3 probe_pre_contact;
+out vec3 probe_post_contact;
+flat out uint probe_vertex_index;
+#endif
+
 void main() {
   // old system:
   // - load vf12
@@ -73,6 +79,10 @@ void main() {
     wpos.x += nw.x * (nw.z * tie_sway_in.x);
     wpos.z += nw.y * (nw.z * tie_sway_in.x);
   }
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_pre_contact = wpos;
+  probe_vertex_index = uint(gl_VertexID);
+#endif
   if (u_shrub_contact_on == 1) {
     vec4 anchor = texelFetch(tex_T18, ivec2(shrub_inst_in, 1), 0);
     if (anchor.w > 0.0) {
@@ -90,6 +100,9 @@ void main() {
       }
     }
   }
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_post_contact = wpos;
+#endif
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR
   v_fringe_rel = vert * (1.0 / 4096.0);

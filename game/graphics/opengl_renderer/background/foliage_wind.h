@@ -77,7 +77,10 @@
 // preuve l'allume par `FOLIAGE_WIND_FORCE=1`, ce qui ne change rien pour l'owner.
 // =================================================================================================
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -112,6 +115,34 @@ void classify_load_bearing(tfrag3::Level& lev);
 // After all mesh consolidation, before uploads: finalize only the contact attachment plan from
 // final CPU positions and census exact vertex coincidences per LOD (no GPU displacement proof).
 void finalize_contact_geometry(tfrag3::Level& lev);
+
+// Proof-only immutable identities of the final CPU geometry. Pair indices address vertices,
+// not support relations. No SwayInstance pointer survives the loader pass.
+struct ContactGeometryVertex {
+  std::array<float, 3> xyz;
+  bool load_bearing;
+  int geo;  // -1: SHRUB; >= 0: actual TIE LOD
+  size_t tree_index;
+  size_t vertex_index;  // Final unpacked VBO index in this tree.
+};
+struct ContactGeometryTree {
+  int geo;  // -1: SHRUB; >= 0: actual TIE LOD
+  size_t tree_index;
+  size_t vertex_count;  // Full final VBO, including nonvegetation vertices.
+};
+struct ContactGeometrySnapshot {
+  std::string level_name;
+  std::vector<ContactGeometryTree> trees;
+  std::vector<ContactGeometryVertex> vertices;
+  std::vector<std::array<size_t, 2>> exact_pairs;  // trunk, foliage
+  u64 mapping_errors = 0;
+  u64 nonfinite_positions = 0;
+  u64 unclassified_contact_vertices = 0;
+  u64 storage_bytes = 0;  // Object and owned capacities; excludes allocator overhead.
+};
+std::shared_ptr<const ContactGeometrySnapshot> contact_geometry_snapshot(const tfrag3::Level* lev);
+// Latest finalized version for this name; renderer must request after its level upload completes.
+std::shared_ptr<const ContactGeometrySnapshot> contact_geometry_snapshot(const std::string& level_name);
 
 // Un chargeur vient de decider si CETTE instance recoit une ancre de contact. `anchored` faux n'est
 // pas compte : seul un tronc qui en a RECU une est un defaut, et le compteur doit pouvoir rougir.

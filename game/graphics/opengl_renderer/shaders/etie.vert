@@ -28,6 +28,12 @@ uniform vec4 persp0;
 uniform vec4 persp1;
 uniform mat4 cam_no_persp;
 
+#ifdef OG_SHRUB_CONTACT_PROBE
+out vec3 probe_pre_contact;
+out vec3 probe_post_contact;
+flat out uint probe_vertex_index;
+#endif
+
 void main() {
   fogginess = 0.0;
 
@@ -38,7 +44,14 @@ void main() {
 
   // transform the point
   // Grecharged-foliage-wind3 : inerte (retourne son entree) quand u_tie_sway_amp vaut 0.
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_pre_contact = tie_sway_apply(position_in, tie_sway_in);
+  probe_vertex_index = uint(gl_VertexID);
+#endif
   vec3 position_sway = tie_contact_apply(position_in, tie_sway_apply(position_in, tie_sway_in));
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_post_contact = position_sway;
+#endif
   vec4 vf17 = cam_no_persp[3];
   vf17 += cam_no_persp[0] * position_sway.x;
   vf17 += cam_no_persp[1] * position_sway.y;

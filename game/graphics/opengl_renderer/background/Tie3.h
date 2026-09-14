@@ -247,7 +247,7 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
   // `draw_depth_prepass` apres ses plages statiques ; inerte hors de la passe LIVREE.
   uint64_t draw_wind_depth_prepass(SharedRenderState* rs);
 
-  void envmap_second_pass_draw(const Tree& tree,
+  void envmap_second_pass_draw(const Tree& tree, int geom, int idx,
                                const TfragRenderSettings& settings,
                                SharedRenderState* render_state,
                                ScopedProfilerNode& prof,

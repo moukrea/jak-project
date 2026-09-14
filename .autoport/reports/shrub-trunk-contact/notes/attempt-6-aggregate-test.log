@@ -1,0 +1,12 @@
+DIRECTIVES vab39193976
+CPU standalone, header moteur réel ; aucune capture GPU ni exécution du jeu.
+Compile rc=0 ; execution rc=0.
+case=valid expected=0 observed=0
+case=trunk_motion expected=1 observed=1
+case=junction_motion expected=1 observed=1
+case=immobile expected=1 observed=1
+case=empty expected=3 observed=3
+case=outside_vbo expected=1 observed=1
+case=dedup expected=1 observed=1
+case=alternative_lod expected=0 observed=0
+case=prior_generation expected_at_least=3 observed=4

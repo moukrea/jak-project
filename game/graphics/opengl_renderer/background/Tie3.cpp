@@ -1,3 +1,4 @@
+#include "shrub_contact_measurement.h"
 #include "Tie3.h"
 #include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
 #include "game/system/recharged_gating.h"
@@ -1704,6 +1705,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
   } else {
@@ -1751,11 +1753,16 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
+                     (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glMultiDrawElements(
+          tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
+          &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
+      shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
     }
@@ -1782,11 +1789,17 @@ void Tie3::draw_matching_draws_for_tree(int idx,
               render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
+          shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
+                         (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Tie);
           if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
               render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
+                              GL_UNSIGNED_INT,
+                              &tree.multidraw_index_offset_buffer[multidraw_indices.first],
+                              multidraw_indices.second);
+          shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
                               multidraw_indices.second);
@@ -1810,14 +1823,14 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   glBindVertexArray(0);
 
   if (use_envmap && m_draw_envmap_second_draw) {
-    envmap_second_pass_draw(tree, settings, render_state, prof,
+    envmap_second_pass_draw(tree, geom, idx, settings, render_state, prof,
                             tfrag3::get_second_draw_category(category));
   }
 }
 
 // Les categories *_ENVMAP_SECOND_DRAW dessinees ici sont la couche additive de brillance des TIE
 // envmappes ; leurs draws portent l'identifiant de texture ENVMAP, pas celui de la texture de base.
-void Tie3::envmap_second_pass_draw(const Tree& tree,
+void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
                                    const TfragRenderSettings& settings,
                                    SharedRenderState* render_state,
                                    ScopedProfilerNode& prof,
@@ -1916,6 +1929,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
       prof.add_draw_call();
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
     return;
@@ -1959,9 +1973,14 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
+                     (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glMultiDrawElements(
+          tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
+          &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
+      shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
     }

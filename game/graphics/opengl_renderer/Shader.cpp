@@ -14,6 +14,7 @@
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/asset_manifest.h"
+#include "game/system/autoport_proof.h"
 
 #ifdef __ANDROID__
 // Phase A35 (autoport): on Android the shader sources are the GLES 3.20
@@ -264,6 +265,15 @@ void Shader::build(const std::string& shader_name,
   inject_pbr_define(frag_src);
 #endif
 
+  const bool contact_probe = autoport_proof::feature_is("shrub-trunk-contact") &&
+      (shader_name == "shrub" || shader_name == "tfrag3" ||
+       shader_name == "etie_base" || shader_name == "etie");
+  if (contact_probe) {
+    const auto version_end = vert_src.find('\n', vert_src.find("#version"));
+    ASSERT(version_end != std::string::npos);
+    vert_src.insert(version_end + 1, "#define OG_SHRUB_CONTACT_PROBE 1\n");
+  }
+
   constexpr int len = 1024;
   int compile_ok;
   char err[len];
@@ -306,6 +316,10 @@ void Shader::build(const std::string& shader_name,
   m_program = glCreateProgram();
   glAttachShader(m_program, m_vert_shader);
   glAttachShader(m_program, m_frag_shader);
+  if (contact_probe) {
+    const char* varyings[] = {"probe_pre_contact", "probe_post_contact", "probe_vertex_index"};
+    glTransformFeedbackVaryings(m_program, 3, varyings, GL_INTERLEAVED_ATTRIBS);
+  }
   glLinkProgram(m_program);
 
   glGetProgramiv(m_program, GL_LINK_STATUS, &compile_ok);

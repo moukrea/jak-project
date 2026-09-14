@@ -1,0 +1,57 @@
+DIRECTIVES vab39193976
+Essai 6 : préparation instrument GPU et parcours ; aucune course proof_run.
+Budget campagne depuis fc71d41e3c : 0/3 consommée, 3 restantes, 130 s maximum chacune.
+USB : bash .autoport/lib/pick_device.sh -> eae4df44 (rc=0), appareil disponible.
+Temoin owner 602cd72eb7 : .so conservé notes/reference-602cd72eb7/libgk.so.
+Temoin SHA256 établi essai5 : 00394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce.
+Recherche researcher dans revision 602cd : aucun glTransformFeedbackVaryings/glBeginTransformFeedback,
+ni sérialisation/rejeu des uniformes GPU pour les SHRUB/TIE. Ancien .so non instrumenté.
+Stop proof_plan : comparaison OFF/témoin non préparée ; aucune course exploratoire lancée.
+
+CHANGEMENTS SOURCE (pas des résultats appareil)
+Snapshot immutable final CPU : identité geo/arbre/indexVBO, taille de chaque arbre, classe, paires exactes.
+Conservation uniquement feature_is(shrub-trunk-contact), ON et OFF ; compte mémoire publié.
+Capture couleur SHRUB/TIE statique/ETIE : indices EBO réels, shader actif et mêmes uniformes/VBO.
+GLES interdit glDrawElements sous TF actif : indices référencés rejoués en glDrawArrays POINTS,
+gl_VertexID conservé, capture pre/post-contact après vent, frame modulo60 ; plafond 32MiB par draw.
+Sources primaires consultées : https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glDrawElements.xhtml
+et https://registry.khronos.org/OpenGL-Refpages/es3/html/glEnable.xhtml.
+Consommateur compare deltas post-pre et paires exactes sur même frame ; alternatives LOD séparées.
+Clés de déplacements et erreurs séparées ; aucun producteur du total shrub_trunk_squash_defects.
+Le total manque tant que OFF/témoin et acquis vent/herbe ne sont pas mesurés.
+TIE_WIND prototype-local et dernière frame sans successeur non couverts ; FINDINGS les nomme.
+Foliage maximum agrège toute la population du niveau, pas seulement les couronnes mini-palmiers.
+Source diff contre HEAD initial : tie_sway.glsl, vegetation_contact.glsl, breeze.glsl identiques.
+
+VERIFICATIONS EXECUTEES
+Test header réel : notes/attempt-6-aggregate-test.cpp ; compile rc=0, run rc=0, 9 cas.
+Log notes/attempt-6-aggregate-test.log ; valeurs synthétiques, aucune preuve GPU/jeu.
+Build : cmake --build build-android --target gk -j 8.
+Premier passage rc=1 : paramètres geom/idx absents dans envmap_second_pass_draw.
+Correction : transmettre geom/idx à la passe additive ; second passage rc=0.
+Log notes/attempt-6-build.log : Linking CXX shared library lib/arm64-v8a/libgk.so, garde 47 propriétés OK.
+SHA256 libgk.so compilé : 013812667e6c1400c2d955224d5c0c2b84e794bd04beadaeb0f8aaf434f79854.
+Aucun repack ni déploiement de cette instrumentation ; aucune exécution USB.
+
+PARCOURS PREPARE HORS COURSE (prévision, contact NON mesuré)
+Spawn source goal_src/jak1/engine/level/level-info.gc:59-69.
+Spawn mètres (-1314.336914,6.840600,1064.526855).
+Recherche données GLB training-background : mesh3 texture vil1-palmtree-trunk-01, 1792=32*56 sommets.
+Tronc groupe21 centre(-1299.9738,7.7603,1071.7427), distance horizontale min15.3209m.
+Segment environ16.07m ; 11 intersections terrain rendu y6.844..7.138m ; collision non prouvée.
+Caméra initiale axe(.9057,0,.4238) ; stick gauche(0,123), caméra libre ensuite donc dérive inconnue.
+Clip notes/attempt-6-contact.inputs : v2 OGPADRP1, seed0x0AD12345, 7800 ticks.
+120 ticks neutres +130 ticks marche +7550 neutres ; pad neutral(0,127,127,127,127), marche(0,0,123,127,127).
+Taille46864 ; SHA256 aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a.
+Avant courses, copier clip sous files/shrub-contact.inputs et épingler DANS l'item, sans setprop manuel :
+  debug.opengoal.f1.warp=1
+  debug.opengoal.f1.warp.cont=training-warp
+  debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/shrub-contact.inputs
+  debug.opengoal.pad_replay_realtime=0
+  debug.opengoal.fixed_tick=1
+  debug.opengoal.foliage.force=1
+  debug.opengoal.pad_trace=shrub-contact.statedump.txt
+Remplacer level.warp, ne pas cumuler les deux téléportations. Props non modifiées dans backlog cet essai.
+Le témoin doit recevoir la même instrumentation neutre, mais conserver ses LUT Wx2, positions,
+ordre Loader et lois originales ; ne pas lui injecter les corrections de classement/attaches.
+Les acquis vent/herbe et l'identité bit OFF exigent une comparaison des entrées/états effectivement identiques.

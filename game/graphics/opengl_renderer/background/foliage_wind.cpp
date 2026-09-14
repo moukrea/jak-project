@@ -38,6 +38,15 @@ namespace {
 constexpr const char* kTrunkItemId = "shrub-trunk-contact";
 AUTOPORT_FEATURE_SITE(kTrunkItemId);
 
+struct ContactGeometryEntry {
+  const tfrag3::Level* level;
+  std::shared_ptr<const ContactGeometrySnapshot> snapshot;
+};
+std::mutex g_contact_geometry_mutex;
+// Replacing by name bounds reload retention. No unload notification reaches this module;
+// entries for distinct visited levels remain until their address is reused or process exit.
+std::map<std::string, ContactGeometryEntry> g_contact_geometry;
+
 // ----------------------------------------------------------------------------- lecture de bouton
 // Meme discipline que les boutons existants de Tie3.cpp : propriete Android / variable
 // d'environnement bureau, valeur illisible, negative, NaN ou hors borne -> le DEFAUT, jamais un
@@ -1736,22 +1745,42 @@ void classify_load_bearing(tfrag3::Level& lev) {
                     proto_total, proto_carrying);
 }
 
+std::shared_ptr<const ContactGeometrySnapshot> contact_geometry_snapshot(const tfrag3::Level* lev) {
+  if (!lev || !autoport_proof::feature_is(kTrunkItemId)) return {};
+  std::lock_guard<std::mutex> lock(g_contact_geometry_mutex);
+  const auto it = g_contact_geometry.find(lev->level_name);
+  if (it == g_contact_geometry.end() || it->second.level != lev) return {};
+  return it->second.snapshot;
+}
+
+std::shared_ptr<const ContactGeometrySnapshot> contact_geometry_snapshot(const std::string& level_name) {
+  if (!autoport_proof::feature_is(kTrunkItemId)) return {};
+  std::lock_guard<std::mutex> lock(g_contact_geometry_mutex);
+  const auto it = g_contact_geometry.find(level_name);
+  return it == g_contact_geometry.end() ? nullptr : it->second.snapshot;
+}
+
 void finalize_contact_geometry(tfrag3::Level& lev) {
   const auto start = std::chrono::steady_clock::now();
+  std::shared_ptr<ContactGeometrySnapshot> snapshot;
+  if (autoport_proof::feature_is(kTrunkItemId)) {
+    snapshot = std::make_shared<ContactGeometrySnapshot>();
+    snapshot->level_name = lev.level_name;
+  }
   using SI = tfrag3::TieTree::SwayInstance;
   struct Vertex {
     std::array<float, 3> xyz;
     SI* si;
     int geo;  // -1: SHRUB; >= 0: actual TIE geometry
   };
-  // Positions and instance identities live only during this loader pass.
+  // Mutable instance identities live only during this loader pass.
   std::vector<Vertex> vertices;
   std::map<SI*, float> final_ymax;
   std::vector<VegInst> veg;
   gather_contact_instances(lev, veg);
   u64 mapping_errors = 0, nonfinite = 0, trunks = 0, foliage = 0;
   u64 unclassified_contact_vertices = 0;
-  const auto note = [&](const auto& v, SI* si, int geo) {
+  const auto note = [&](const auto& v, SI* si, int geo, size_t tree_index, size_t vertex_index) {
     if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z)) {
       ++nonfinite;
       return;
@@ -1760,14 +1789,20 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
     // Numerical equality of finite floats is exact; canonicalize signed zero explicitly.
     vertices.push_back({{v.x == 0.f ? 0.f : v.x, v.y == 0.f ? 0.f : v.y,
                          v.z == 0.f ? 0.f : v.z}, si, geo});
+    if (snapshot) {
+      snapshot->vertices.push_back(
+          {vertices.back().xyz, si->load_bearing, geo, tree_index, vertex_index});
+    }
     auto inserted = final_ymax.emplace(si, v.y);
     if (!inserted.second) inserted.first->second = std::max(inserted.first->second, v.y);
     if (si->load_bearing) ++trunks;
     else ++foliage;
   };
   for (size_t geo = 0; geo < lev.tie_trees.size(); ++geo) {
-    for (auto& tree : lev.tie_trees[geo]) {
+    for (size_t tree_index = 0; tree_index < lev.tie_trees[geo].size(); ++tree_index) {
+      auto& tree = lev.tie_trees[geo][tree_index];
       const size_t nv = tree.unpacked.vertices.size();
+      if (snapshot) snapshot->trees.push_back({(int)geo, tree_index, nv});
       std::vector<u8> flags(nv, 0);
       bool mapping_ok = true;
       // Same vegetation-only tiling as the contact upload (mixed vertices are excluded).
@@ -1829,15 +1864,18 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
           // matrix_idx=-1 is prototype space, not a world-space contact vertex.
           if (group.matrix_idx >= 0) {
             if (flags[v] == 1 && !si) ++unclassified_contact_vertices;
-            note(tree.unpacked.vertices[v], flags[v] == 1 ? si : nullptr, (int)geo);
+            note(tree.unpacked.vertices[v], flags[v] == 1 ? si : nullptr, (int)geo,
+                 tree_index, v);
           }
         }
         offset += count;
       }
     }
   }
-  for (auto& tree : lev.shrub_trees) {
+  for (size_t tree_index = 0; tree_index < lev.shrub_trees.size(); ++tree_index) {
+    auto& tree = lev.shrub_trees[tree_index];
     const size_t nv = tree.unpacked.vertices.size();
+    if (snapshot) snapshot->trees.push_back({-1, tree_index, nv});
     size_t total = 0;
     bool mapping_ok = true;
     for (const auto& group : tree.packed_vertices.instance_groups) {
@@ -1864,7 +1902,9 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
           if (!si->valid) { ++mapping_errors; si = nullptr; }
         }
       }
-      for (size_t v = offset; v < offset + count; ++v) note(tree.unpacked.vertices[v], si, -1);
+      for (size_t v = offset; v < offset + count; ++v) {
+        note(tree.unpacked.vertices[v], si, -1, tree_index, v);
+      }
       offset += count;
     }
   }
@@ -1896,6 +1936,10 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
     for (const auto* trunk : found->second) {
       if (trunk->geo >= 0 && leaf.geo >= 0 && trunk->geo != leaf.geo) continue;
       ++pairs;
+      if (snapshot) {
+        snapshot->exact_pairs.push_back({static_cast<size_t>(trunk - vertices.data()),
+                                         static_cast<size_t>(&leaf - vertices.data())});
+      }
       ++pairs_by_geo[{trunk->geo, leaf.geo}];
       if (trunk->geo <= 0 && leaf.geo <= 0) ++canonical_pairs;
       leaf.si->carried = true;
@@ -1923,6 +1967,33 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
     }
   }
   const std::string prefix = "shrub_contact_cpu_" + level_key + "_";
+  if (snapshot) {
+    snapshot->mapping_errors = mapping_errors;
+    snapshot->nonfinite_positions = nonfinite;
+    snapshot->unclassified_contact_vertices = unclassified_contact_vertices;
+    snapshot->storage_bytes = sizeof(ContactGeometrySnapshot) + snapshot->level_name.capacity() + 1 +
+        snapshot->trees.capacity() * sizeof(ContactGeometryTree) +
+        snapshot->vertices.capacity() * sizeof(ContactGeometryVertex) +
+        snapshot->exact_pairs.capacity() * sizeof(std::array<size_t, 2>);
+    u64 retained_bytes = 0;
+    size_t retained_levels = 0;
+    {
+      std::lock_guard<std::mutex> lock(g_contact_geometry_mutex);
+      for (auto it = g_contact_geometry.begin(); it != g_contact_geometry.end();) {
+        if (it->second.level == &lev) it = g_contact_geometry.erase(it);
+        else ++it;
+      }
+      g_contact_geometry[lev.level_name] = {&lev, snapshot};
+      for (const auto& entry : g_contact_geometry) retained_bytes += entry.second.snapshot->storage_bytes;
+      retained_levels = g_contact_geometry.size();
+    }
+    autoport_proof::publish((prefix + "snapshot_storage_bytes").c_str(), snapshot->storage_bytes);
+    autoport_proof::publish("shrub_contact_cpu_snapshot_retained_bytes", retained_bytes);
+    autoport_proof::publish("shrub_contact_cpu_snapshot_retained_levels", retained_levels);
+    lg::info("[shrub-contact-cpu-snapshot] lev={} vertices={} exact_pairs={} storage_bytes={} "
+             "retained_bytes={} retained_levels={}", lev.level_name, snapshot->vertices.size(),
+             snapshot->exact_pairs.size(), snapshot->storage_bytes, retained_bytes, retained_levels);
+  }
   autoport_proof::publish((prefix + "exact_vertex_pairs_all_lods").c_str(), pairs);
   autoport_proof::publish((prefix + "exact_vertex_pairs_geo0").c_str(), canonical_pairs);
   autoport_proof::publish((prefix + "final_trunk_vertices_all_lods").c_str(), trunks);

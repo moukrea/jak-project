@@ -44,6 +44,12 @@ out vec3 v_fringe_rel;
 // LOCAL probe grid by world position. tfrag verts are already world-space. Costless when probes off.
 out vec3 v_world;
 
+#ifdef OG_SHRUB_CONTACT_PROBE
+out vec3 probe_pre_contact;
+out vec3 probe_post_contact;
+flat out uint probe_vertex_index;
+#endif
+
 void main() {
   // old system:
   // - load vf12
@@ -63,7 +69,14 @@ void main() {
   // Step 3, the camera transform
   // Grecharged-foliage-wind3 : balancement du TIE statique. Inerte (retourne son entree) des que
   // u_tie_sway_amp vaut 0 — ce qui est le cas de CHAQUE appelant sauf Tie3 avec l'option allumee.
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_pre_contact = tie_sway_apply(position_in, tie_sway_in);
+  probe_vertex_index = uint(gl_VertexID);
+#endif
   vec3 sway_pos = tie_contact_apply(position_in, tie_sway_apply(position_in, tie_sway_in));
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_post_contact = sway_pos;
+#endif
   vec3 vert = sway_pos - cam_trans.xyz;
   v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
   v_world = sway_pos;                    // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup

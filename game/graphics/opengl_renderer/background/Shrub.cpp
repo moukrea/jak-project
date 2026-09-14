@@ -1,3 +1,4 @@
+#include "shrub_contact_measurement.h"
 #include "Shrub.h"
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -1064,6 +1065,7 @@ void Shrub::render_tree(int idx,
       draws_prof.add_tri(run_tris);
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
         tree.perf.draws++;
@@ -1075,6 +1077,7 @@ void Shrub::render_tree(int idx,
         draw_state_cache.valid = false;
         lighting_census::note_world_draw(lighting_census::Kind::Shrub);
         glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+        shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
     }
@@ -1122,9 +1125,15 @@ void Shrub::render_tree(int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
+                     (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glMultiDrawElements(GL_TRIANGLE_STRIP,
+                          &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
+                          &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
+                          multidraw_indices.second);
+      shrub_contact_measurement::multi_draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP,
                           &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
                           multidraw_indices.second);
@@ -1150,9 +1159,15 @@ void Shrub::render_tree(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::Shrub);
           glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
+          shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
+                         (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Shrub);
           glMultiDrawElements(
+              GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
+              GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
+              multidraw_indices.second);
+          shrub_contact_measurement::multi_draw_elements(m_level_name, -1, idx, render_state->frame_idx,
               GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
               multidraw_indices.second);

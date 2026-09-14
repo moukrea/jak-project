@@ -47,9 +47,22 @@ uniform mat4 cam_no_persp;
 // showed the ~4 m probe-cell pattern and shimmered under tfrag/tie LOD vertex morphing.
 #endif
 
+#ifdef OG_SHRUB_CONTACT_PROBE
+out vec3 probe_pre_contact;
+out vec3 probe_post_contact;
+flat out uint probe_vertex_index;
+#endif
+
 void main() {
   // Grecharged-foliage-wind3 : inerte (retourne son entree) quand u_tie_sway_amp vaut 0.
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_pre_contact = tie_sway_apply(position_in, tie_sway_in);
+  probe_vertex_index = uint(gl_VertexID);
+#endif
   vec3 position_sway = tie_contact_apply(position_in, tie_sway_apply(position_in, tie_sway_in));
+#ifdef OG_SHRUB_CONTACT_PROBE
+  probe_post_contact = position_sway;
+#endif
   float fog1 = camera[3].w + camera[0].w * position_sway.x + camera[1].w * position_sway.y + camera[2].w * position_sway.z;
   fogginess = 255.0 - clamp(fog1 + hvdf_offset.w, fog_min, fog_max);
   vec4 vf17 = cam_no_persp[3];
