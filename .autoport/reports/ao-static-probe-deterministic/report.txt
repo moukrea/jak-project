@@ -1,12 +1,12 @@
 DIRECTIVES v19558ce1a8
-Critère machine atteint sur USB : ao_static_defects=0 ; clôture laissée au validateur de l’orchestrateur, avec réserve sur le format FEATURE.
-Commit : e41a530a64 — sonde aux ticks DMA, deux ancrages de scène fixes et registre de comparaison lié au binaire, consommé une seule fois.
-Dix-huit prises statiques vent coupé ; six paires SSAO/GTAO aux trois paliers, comparaison exacte AO brut/final, profondeur et caméra.
-Six contrôles alpha/direct séparés, vent allumé ; toute acquisition manquante pénalise le résultat. Alpha-test et TIE inchangés.
-Régime épinglé dans proof_props du backlog ; aucun réglage posé manuellement avant course.
-APK livré sur eae4df44 ; MD5 local/appareil : 051f95c972dd4b68ed6710978ef40ab8.
-Deux courses finales du même binaire : référence 1740 images sans crash, comparaison 1680 images sans crash.
-Preuve courante : 20260914T160915Z-136090-2851ed23 ; référence conservée dans proof-prev.txt.
+Critère machine mesuré à zéro sur USB dans l’essai 3 ; clôture réservée à l’orchestrateur, clause littérale FEATURE hits encore non livrée.
+Reprise sans édition moteur ni build : sonde du commit e41a530a64 conservée, rapport et FINDINGS actualisés.
+La porte exige l’identité de l’essai courant (generic.sh:101-108) : deux courses neuves via proof_run.sh, aucune ancienne preuve présentée comme résultat de cet essai.
+Essai : ao-static-probe-deterministic@3#1789403671 ; course comparée : 20260914T163828Z-254726-683b88e9.
+Référence : 20260914T163556Z-249930-c9ae8c97, conservée par le producteur dans proof-prev.txt.
+Chaque course : 1800 images, crash=0, duration_s=140 ; référence compared=0/defects=1, comparaison compared=1/defects=0.
+USB eae4df44 ; MD5 local/appareil identiques : 051f95c972dd4b68ed6710978ef40ab8 ; sha=49006a403ac13cbb.
+Régime épinglé relu : proof_props_observed_match=13, dont fixed_tick=1 ; 18 ticks et 18 empreintes identiques entre les courses.
 Huit lignes recopiées de proof.txt :
 ao_static_defects=0
 ao_probe_nondeterminism=0
@@ -16,14 +16,13 @@ ao_static_cam_delta_px=0
 ao_estimator_delta_px=0
 ao_spatial_filter_delta_px=0
 crash=0
-Les cinq acquis de cette même preuve sont nuls : ao_high_not_fullres, ao_pattern_over_ceiling, ao_on_alpha_device_px, ao_direct_leak_px, ao_contact_band_px.
-Couverture : ao_probe_wind_on_acquisition_mask=63 ; tous les ao_static_term_* sont nuls ; ao_temporal_passes=0.
-Vérification : build incrémental réussi en 24 s ; six cas ordonnanceur passent (notes/schedule-tests.txt) ; trois revues déléguées terminées.
-Owner : rien à juger visuellement pour cet instrument ; regarder l’AO après ao-prepass-tie-alpha.
-non prouvé : ablation --off (non exigée par le validateur), esthétique, coût des relectures, autres vantages/appareils.
-Réserve non corrigée : FEATURE hits reste le total global du harnais, pas les 18 images ; proof_feature_own_hits isole bien ces 18 prises. La forme littérale du contrat n’est donc pas livrée.
-FINDINGS.txt consigne cette réserve, le crash initial au titre et les autres défauts laissés hors périmètre.
-Démon auto_build_apk PID 60363 arrêté pendant la concurrence de build, non relancé ; reprise à décider par le superviseur.
-generic.sh non exécuté par le worker, conformément au prompt ; aucun jeton owner-ok écrit.
-
-Reprise superviseur 14/09 : rouge HERITE .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface (base b87ff10b773c), hors changement AO. Rejeu isole avec TMPDIR hors /tmp : 1 passed en 0,25 s ; cause exacte non demontree, suivi harness-suite-temporary-files-outside-quota.
+Les cinq acquis de cette preuve valent zéro : ao_high_not_fullres, ao_pattern_over_ceiling, ao_on_alpha_device_px, ao_direct_leak_px, ao_contact_band_px.
+Tous les ao_static_term_* valent zéro ; ao_probe_wind_on_acquisition_mask=63 ; ao_temporal_passes=0.
+Contrôles : notes/attempt-003-comparison-audit.txt ; précontrôle final de fraîcheur : 4276 fichiers, stale_precheck_stale_total=0.
+Rouge HERITE antérieur : .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface, base b87ff10b773c ; suivi harness-suite-temporary-files-outside-quota.
+Rejeu isolé hors /tmp dans cet essai : 1 passed in 0.22s, exit_code=0 (notes/attempt-003-pin-props.txt) ; cause du rouge initial non démontrée.
+Réserve : FEATURE hits reste global ; proof_feature_own_hits=18 compte bien les prises. L’émetteur partagé est laissé inchangé, sans prétendre qu’une règle en interdit la modification.
+Owner : rien à juger visuellement sur cet instrument ; regarder l’AO après ao-prepass-tie-alpha.
+non prouvé : --off (non exigé par le validateur), esthétique, coût des relectures, autres scènes/appareils.
+FINDINGS conserve les défauts antérieurs non corrigés ; aucun démon relancé dans cette reprise.
+generic.sh non exécuté par le worker, conformément au prompt ; aucune clôture ni aucun jeton owner-ok fabriqués.

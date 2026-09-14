@@ -1,28 +1,19 @@
 ÉTABLI
 DIRECTIVES v19558ce1a8
-Commit e41a530a64, APK installé USB eae4df44, MD5 051f95c972dd4b68ed6710978ef40ab8.
-Deux courses finales via proof_run.sh : référence proof-prev.txt, comparaison proof.txt.
-ao_static_defects=0, ao_probe_nondeterminism=0, samples=18, own_hits=18 ; cinq acquis=0.
-Six paires statiques sans variation brute/finale ; six acquisitions vent allumé réussies (masque63).
-Aucun crash dans ces deux courses ; détails et huit lignes de preuve dans report.txt.
+Essai 3 : deux courses neuves proof_run.sh device --timeout 130, TMPDIR hors /tmp, code 0 chacune.
+Référence 20260914T163556Z-249930-c9ae8c97 dans proof-prev.txt ; comparaison 20260914T163828Z-254726-683b88e9 dans proof.txt.
+Identité des deux preuves : ao-static-probe-deterministic@3#1789403671.
+USB eae4df44, MD5 local/appareil 051f95c972dd4b68ed6710978ef40ab8, moteur e41a530a64 inchangé.
+Chaque course : 1800 images, crash=0 ; comparaison : ao_static_defects=0, nondeterminism=0, samples=18, own_hits=18.
+18 ticks et empreintes identiques ; cinq acquis=0, termes séparés=0, masque acquisitions vent allumé=63.
+Précontrôle final : 4276 fichiers, stale_total=0 ; 13 propriétés épinglées relues identiques.
 TENTÉ
-Sans fixed_tick=1, course initiale morte au titre avant téléportation ; trace conservée dans notes/bootstrap-crash-engine.log.
-Régime maintenant épinglé ; warps mesurés aux ticks300/900, monde résident au second.
-Première paire instrumentée : six écarts limités aux phases vent allumé ; toutes les prises statiques sont désormais vent coupé.
-Les acquisitions vent allumé restent séparées, obligatoires et hors population de comparaison.
+Ancienne preuve non réutilisable : generic.sh:101-108 exige l’identité de l’essai courant malgré la fraîcheur des sources.
+Aucun build ni changement moteur ; seules les deux courses nécessaires ont été rejouées.
+Test hérité test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface : 1 passed in 0.22s hors /tmp, code 0.
+Rouge hérité nommé dans report/FINDINGS, suivi harness-suite-temporary-files-outside-quota ; cause initiale non démontrée.
 RESTE
-L’orchestrateur doit lancer son validateur ; le worker ne l’a pas exécuté.
-Arbitrer le format partagé FEATURE hits (total global) : own_hits=18 est correct, clause littérale non livrée ; FINDINGS.txt.
-Reprendre auto_build_apk si souhaité : ancien PID60363 arrêté après collision avec build worker ; risque de reconstruction GOAL inutile consigné.
-Non prouvé : --off, esthétique, coût, autres scènes/appareils. Aucun owner-ok écrit.
-
-REPRISE SUPERVISEUR 14/09
-Le validateur generique A tourne : validator-001.txt confirme ao_static_defects=0.
-La fermeture a refuse le rouge herite de test_pin_props, pas le critere AO.
-Le rouge est maintenant nomme dans report.txt et trie dans FINDINGS.txt ; suivre
-harness-suite-temporary-files-outside-quota. Rejeu isole hors /tmp passe (0,25 s).
-La consigne perimee venait de l ajout superviseur de « any news? », sans changement
-au livrable ; consigne et contrat regeneres. Reprendre le travail etabli, aucune
-relaxation de porte ni validation. Reutilisation des preuves seulement si les
-portes de fraicheur et le binaire courant le permettent ; ne pas reconstruire
-une sonde deja livree pour un refus documentaire. TMPDIR doit etre hors /tmp.
+L’orchestrateur doit exécuter son validateur et ses portes de fermeture ; worker ne les a pas lancés.
+Clause littérale FEATURE hits=<images> non livrée : compteur global ; own_hits=18 exact. Réserve conservée, aucune interdiction de toucher l’émetteur démontrée.
+non prouvé : --off, esthétique, coût, autres scènes/appareils. Aucun owner-ok écrit.
+Défauts antérieurs conservés dans FINDINGS ; aucun démon relancé pendant cette reprise.
