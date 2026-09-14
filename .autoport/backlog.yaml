@@ -9019,7 +9019,7 @@ items:
     de harnais.
   code_scope: harnais
 - id: dead-literals-round-3
-  status: open
+  status: blocked
   priority: 36
   game: jak1
   device: false
@@ -9053,6 +9053,21 @@ items:
   prompt: prompts/item-dead-literals-round-3.md
   notes: issu des deux signalements de dead-published-keys-round-2, 12/09 ; les deux ids que le worker
     avait nommes sont fondus en un.
+  block_reason: 'Porte numerique tenue mais contrat incomplet : empreintes des programmes lies indisponibles,
+    anciennes cles POM et identite du rendu non prouvees. Le shader et ses producteurs ont disparu avec
+    lighting-legacy-purge. Reconcilier le perimetre avec cette suppression et couvrir les exigences restantes
+    avant fermeture ; ne pas repeter la meme course ni recreer le vieux rendu.'
+  supervisor_recovery: true
+  supervisor_review:
+    date: '2026-09-14'
+    source: handoff essai 2, report.txt, FINDINGS.txt et validator-002 relus
+    machine_verdict_preserved: true
+    contract_complete: false
+    established: Deux termes a zero, compteur invalide 4242 accepte avant et refuse apres ; 376 tests
+      verts. Nettoyage des sorties generees au point de production, aucun gain rendu revendique.
+    missing: t2_linked_program_fp_before/after=indisponible acceptes sans penalite par le census. POM
+      et identite du rendu absents de la porte. Reprise superviseur pour perimetre et couverture, aucune
+      demande de nouvelle campagne ni retour owner invente.
 - id: build-tree-reinvalidates-itself
   status: validated
   priority: 18
