@@ -6307,8 +6307,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
-  status: to-test
-  priority: 23
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: fb_extra_passes_per_frame
@@ -6358,6 +6358,13 @@ items:
     attempt: 1
     journal: validator-001.txt
   delivered: '2026-09-14'
+  owner_ok:
+    date: '2026-09-14'
+    text: validé du coup
+    build_sha: 127cf74a44ed01af
+  owner_feedback:
+  - date: '2026-09-14'
+    text: validé du coup
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
   status: validated
