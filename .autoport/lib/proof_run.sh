@@ -41,6 +41,12 @@
 #           3 = infrastructure (build en cours au-dela du plafond, binaire absent, appareil
 #               absent). AUCUN proof.txt n'est ecrit et l'ancien est retire : une preuve doit
 #               venir de la course qu'on vient de faire, jamais d'une course d'hier.
+#           6 = REFUS DE MESURER SUR UN BINAIRE PERIME (garde binaire, voir GARDE-BINAIRE). Le
+#               telephone porte un AUTRE `libgk.so` que le build local et rien ne permet de le
+#               corriger ici. Distinct du 3, qui dit « aucune mesure n'etait possible » et EFFACE
+#               la preuve ; distinct du 5 de `lib/stale_precheck.sh`, qui dit « la preuve qui
+#               etait la datait d'avant une edition ». Ici la mesure etait POSSIBLE, elle aurait
+#               juste porte sur le MAUVAIS binaire. Rien n'est mesure, aucune preuve touchee.
 #
 # CE QUE LE MOTEUR DOIT EMETTRE (pas encore branche — voir le rapport du chantier C) : lire
 # `AUTOPORT_FEATURE`/`AUTOPORT_FEATURE_ARMED` (x86, environnement) ou `debug.opengoal.feature`
@@ -797,6 +803,58 @@ if PURGED=$(python3 "$AP/lib/impossible.py" purge --reports "$AP/reports" --item
 else
   log "hygiene des etats impossibles : echec (non bloquant) — $(printf '%s' "$PURGED" | tail -1)"
 fi
+
+# ====================================================== GARDE-BINAIRE/debut ==================
+# LA VERIFICATION PRECEDE LA MESURE
+# (harness-proof-run-device-deploys-or-refuses-first, 2026-09-14).
+#
+# CE QUI ETAIT LA. Ce script NE DEPLOYAIT RIEN en mode appareil : il lancait l'application deja
+# installee, mesurait pendant tout le plafond de l'item, et le seul temoin d'un binaire perime —
+# `device_lib_md5 != local_lib_md5` — arrivait au FOND de `proof.txt`, 400 s trop tard. Le
+# symptome que ca produit est `proof_feature_state=absent` : l'instrument de l'item n'est pas
+# dans le .so du telephone, et la cause ne ressemble pas au symptome. Chaque item appareil a
+# donc reinvente la meme garde dans son coin (`reports/hdr-shadow-range/notes/deploy.sh`, essai
+# 2 du 13/09, sortie 4 sur ecart de md5).
+#
+# CE QUI EST LA MAINTENANT. `lib/device_binary_gate.sh` compare les deux md5 AVANT tout, et
+# rend l'une de quatre decisions : `identique` (on mesure), `deploye` (un APK deja bati par le
+# CONSTRUCTEUR portait le binaire local, il est installe sous le verrou de celui-ci, on mesure),
+# `refus` (rc 5, immediat : rien n'est mesure), `inconnu` (rien n'etait lisible — la garde ne
+# decide pas a la place des chemins d'echec qui suivent).
+#
+# POURQUOI ICI, ET PAS PLUS BAS. Le bloc PAIRE-PRECEDENTE qui suit DETRUIT `proof.txt`. Un refus
+# prononce apres lui laisserait l'item sans preuve pour une cause qui n'a rien a voir avec la
+# mesure. Ici, un refus ne touche a rien : la preuve de la course precedente reste INTACTE.
+# La garde choisit l'appareil par le meme nommeur (`lib/pick_device.sh`) que la course elle-meme.
+if [ "$MODE" = device ]; then
+  BG_OUT="$D/.binary-gate$SUF.$$.out"
+  # LA MEME EPINGLE QUE LA COURSE. Une epingle venue de l'ITEM (`device_serial`) est STRICTE :
+  # sans elle, la garde lirait le md5 d'un AUTRE telephone que celui sur lequel la course va
+  # mesurer, et sa decision porterait sur un binaire qui n'est pas celui qu'on juge.
+  BG_STRICT=""; [ -z "${ANDROID_SERIAL:-}" ] && [ -n "$ITEM_SERIAL" ] && BG_STRICT=1
+  ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" ANDROID_SERIAL_STRICT="$BG_STRICT" \
+    bash "$AP/lib/device_binary_gate.sh" --item "$ID" --arm "${SUF:-livre}" --binary "$BIN" \
+    > "$BG_OUT"
+  BG_RC=$?
+  while IFS= read -r _bgl; do [ -n "$_bgl" ] && extra "$_bgl"; done < "$BG_OUT"
+  BG_DEC=$(sed -n 's/^proof_binary_decision=//p' "$BG_OUT" | tail -1)
+  BG_LOC=$(sed -n 's/^proof_binary_local_md5=//p' "$BG_OUT" | tail -1)
+  BG_DEV=$(sed -n 's/^proof_binary_device_md5=//p' "$BG_OUT" | tail -1)
+  rm -f "$BG_OUT"
+  log "garde binaire : decision=${BG_DEC:--} local=${BG_LOC:--} appareil=${BG_DEV:--} (code $BG_RC)"
+  # ON REFUSE SUR LA DECISION, PAS SUR UN NUMERO RETAPE ICI. Le code du refus est ecrit une
+  # seule fois, dans `lib/device_binary_gate.sh` (`RC_REFUS`) ; on le PROPAGE.
+  if [ "$BG_DEC" = refus ]; then
+    # LE REFUS A SON PROPRE CODE, DISTINCT DU 3 ET DU 5. Un 3 veut dire « aucune preuve n'etait
+    # possible » et EFFACE la preuve ; celui-ci veut dire « la preuve etait possible, sur le
+    # MAUVAIS binaire ». On ne detruit rien, et le registre de la garde garde la trace.
+    log "REFUS ($BG_RC) : le telephone porte $BG_DEV, le build local $BG_LOC. Aucune mesure n'a eu"
+    log "lieu et aucune preuve n'a ete touchee. Fais livrer le binaire par le CONSTRUCTEUR"
+    log "(cmake --build build-android --target gk -j, puis l'APK), puis relance cette course."
+    exit "$BG_RC"
+  fi
+fi
+# GARDE-BINAIRE/fin
 
 # LA PAIRE DE LA COURSE PRECEDENTE EST ARCHIVEE AVANT D'ETRE DETRUITE (signalement 13 du
 # 12/09). `proof<suf>.txt` s'efface ici, au DEBUT de la course ; son sceau, lui, survivait seul.
