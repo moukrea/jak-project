@@ -1,0 +1,135 @@
+x86 build/game/CMakeFiles/runtime.dir/mips2c/jak1_functions/bones.cpp.o: VuSimd/settings/record_matches=0
+x86 size_bytes=3511 0000000000001aa0 0000000000000db7 T Mips2C::jak1::bones_mtx_calc::execute(void*)
+x86 size_bytes=1111 0000000000001640 0000000000000457 T Mips2C::jak1::bones_mtx_calc::exec_mpg(Mips2C::ExecutionContext*)
+x86 object_newer_than_source=True
+x86 build/game/CMakeFiles/runtime.dir/mips2c/jak1_functions/joint.cpp.o: VuSimd/settings/record_matches=0
+x86 size_bytes=2427 0000000000000480 000000000000097b T Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)
+x86 size_bytes=8 0000000000000008 0000000000000008 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_f1b_n
+x86 object_newer_than_source=True
+x86 build/game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle_launcher.cpp.o: VuSimd/settings/record_matches=0
+x86 size_bytes=9343 0000000000000610 000000000000247f T Mips2C::jak1::sp_launch_particles_var::execute(void*)
+x86 size_bytes=4 00000000000000b4 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_c
+x86 size_bytes=4 00000000000000b0 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_c
+x86 size_bytes=4 00000000000000a4 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_bf
+x86 size_bytes=4 00000000000000ac 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_adj
+x86 size_bytes=4 00000000000000a0 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_born
+x86 size_bytes=4 00000000000000a8 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_vadd
+x86 size_bytes=4 00000000000000b8 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_count
+x86 size_bytes=8 0000000000000008 0000000000000008 d Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_delay
+x86 size_bytes=8 0000000000000000 0000000000000008 d Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_delay2
+x86 object_newer_than_source=True
+android build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/bones.cpp.o: VuSimd/settings/record_matches=0
+android size_bytes=2064 0000000000000000 0000000000000810 T Mips2C::jak1::bones_mtx_calc::execute(void*)
+android size_bytes=716 0000000000000000 00000000000002cc T Mips2C::jak1::bones_mtx_calc::exec_mpg(Mips2C::ExecutionContext*)
+android object_newer_than_source=True
+android build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/joint.cpp.o: VuSimd/settings/record_matches=0
+android size_bytes=8 0000000000000048 0000000000000008 b guard variable for Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_lastgood
+android size_bytes=8 0000000000000058 0000000000000008 b guard variable for Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_out_good
+android size_bytes=7756 0000000000000000 0000000000001e4c T Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)
+android size_bytes=40 0000000000000060 0000000000000028 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_lastgood
+android size_bytes=40 0000000000000088 0000000000000028 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_out_good
+android size_bytes=4 000000000000000c 0000000000000004 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_f1b_skips
+android size_bytes=1 0000000000000001 0000000000000001 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_stomp_reported
+android size_bytes=1 0000000000000002 0000000000000001 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_inside_reported
+android size_bytes=64 0000000000000000 0000000000000040 r Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::kIdent
+android size_bytes=4 0000000000000008 0000000000000004 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_calls
+android size_bytes=8 0000000000000050 0000000000000008 b Mips2C::jak1::cspace_parented_transformq_joint::execute(void*)::s_f1b_n
+android object_newer_than_source=True
+android build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sparticle_launcher.cpp.o: VuSimd/settings/record_matches=0
+android size_bytes=7832 0000000000000000 0000000000001e98 T Mips2C::jak1::sp_launch_particles_var::execute(void*)
+android size_bytes=4 0000000000000004 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_c
+android size_bytes=4 0000000000000008 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_c
+android size_bytes=4 0000000000000014 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_bf
+android size_bytes=4 000000000000000c 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_adj
+android size_bytes=4 0000000000000018 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_born
+android size_bytes=4 0000000000000010 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_vadd
+android size_bytes=4 0000000000000000 0000000000000004 b Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_count
+android size_bytes=8 0000000000000000 0000000000000008 d Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_delay
+android size_bytes=8 0000000000000008 0000000000000008 d Mips2C::jak1::sp_launch_particles_var::execute(void*)::s_delay2
+android object_newer_than_source=True
+android libgk.so gnd_oob_matches=0
+sha256 9543643a59517443b6f44a99a324ba3bf86ff7c380b50ff30a916aa5c2c6e6e2 build/game/gk
+sha256 9c1bbebd19123ecf290ede60ee6f80e95ec82197b9728dc9d95f67fa3d6db754 build-android/lib/arm64-v8a/libgk.so
+x86 warning_count=46
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:422:30: warning: declaration of 'i' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:329:12: warning: declaration of 'ul' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/ao_tie_contract.h:22:37: warning: unused parameter 'property' [-Wunused-parameter]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:727:36: warning: unused parameter 'w' [-Wunused-parameter]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:728:36: warning: unused parameter 'h' [-Wunused-parameter]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2127:23: warning: passing 'bool' chooses 'int' over 'unsigned int' [-Wsign-promo]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2127:23: warning:   in call to 'std::string std::__cxx11::to_string(int)' [-Wsign-promo]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2765:18: warning: declaration of 'v' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2774:18: warning: declaration of 'v' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2921:34: warning: declaration of 'd' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2934:27: warning: declaration of 'd' shadows a previous local [-Wshadow]
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/ao_tie_alpha_probe.cpp:297:40: warning: unused parameter 'suffix' [-Wunused-parameter]
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:169:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:212:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:217:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:342:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:400:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:458:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:654:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:720:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:801:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:948:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:983:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:988:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1088:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1133:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1176:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1308:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1361:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1417:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1564:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1599:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1604:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1684:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1740:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1792:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1924:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1967:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:2001:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+android warning_count=0
+X86 FRESHNESS REPORT:
+bx_deps_corrupt_before=0
+bx_deps_recompacted=0
+bx_deps_quarantined=0
+bx_sdl_pin=SDL-3.4.4-jak-project
+bx_sdl_pinned=0
+bx_rc=0
+bx_edges=23
+bx_work_edges=20
+bx_other_edges=3
+bx_other_list=Re-checking_globbed_directories...,Re-running_CMake...,Re-checking_globbed_directories...
+bx_seconds=88
+bx_residual_edges=0
+bx_residual_work=0
+bx_residual_other=0
+bx_residual_other_list=aucune
+bx_cmake_git_inputs=0
+bx_sdl_revision=SDL-3.4.4-jak-project
+bx_describe=harness-avant-plan-2026-09-11-348-g6efcc6fe32
+bx_bin=game/gk
+bx_bin_mtime=1789426341
+bx_bin_mtime_ns=1789426341762099270
+bx_deps_seen=46
+bx_newest_dep=1789426338
+bx_newest_dep_ns=1789426338863049229
+bx_newest_name=game/libruntime.a
+bx_bin_fresh=1
+bx_bin_verdict=frais
+bx_bin_lag_s=-3
+bx_bin_lag_ns=-2899050041
+bx_orphans_before=0
+bx_orphans_after=0
+bx_orphans_moved=0
+bx_orphans_quarantine=-
+

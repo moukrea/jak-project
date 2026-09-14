@@ -1,0 +1,27 @@
+files/.autoport/refset-device/origine-lumiere:
+total 992
+-rw------- 1 u0_a951 u0_a951     32 2026-09-07 03:33 captured-by.txt
+-rw------- 1 u0_a951 u0_a951 119167 2026-09-07 03:31 h00.png
+-rw------- 1 u0_a951 u0_a951 118891 2026-09-07 03:31 h03.png
+-rw------- 1 u0_a951 u0_a951 122300 2026-09-07 03:31 h06.png
+-rw------- 1 u0_a951 u0_a951 127310 2026-09-07 03:32 h09.png
+-rw------- 1 u0_a951 u0_a951 127884 2026-09-07 03:32 h12.png
+-rw------- 1 u0_a951 u0_a951 127133 2026-09-07 03:33 h15.png
+-rw------- 1 u0_a951 u0_a951 123968 2026-09-07 03:33 h18.png
+-rw------- 1 u0_a951 u0_a951 120277 2026-09-07 03:33 h21.png
+
+files/.autoport/refset-device/origine:
+total 988
+-rw------- 1 u0_a951 u0_a951     32 2026-09-07 03:33 captured-by.txt
+-rw------- 1 u0_a951 u0_a951 120599 2026-09-07 03:30 h00.png
+-rw------- 1 u0_a951 u0_a951 118565 2026-09-07 03:31 h03.png
+-rw------- 1 u0_a951 u0_a951 122216 2026-09-07 03:31 h06.png
+-rw------- 1 u0_a951 u0_a951 128093 2026-09-07 03:32 h09.png
+-rw------- 1 u0_a951 u0_a951 127830 2026-09-07 03:32 h12.png
+-rw------- 1 u0_a951 u0_a951 127775 2026-09-07 03:32 h15.png
+-rw------- 1 u0_a951 u0_a951 126443 2026-09-07 03:33 h18.png
+-rw------- 1 u0_a951 u0_a951 120001 2026-09-07 03:33 h21.png
+7cea45a11be8c9ae
+flavour=normal
+d128995109adedbcd2a99c7746398fb4ae459cacd9912b48ff0e4ce0fa70fcd9  files/.autoport/refset-device/origine/h09.png
+-rw------- 1 u0_a951 u0_a951 124470 2026-09-14 23:13 files/.autoport/refset-device/actual/origine-h09.png

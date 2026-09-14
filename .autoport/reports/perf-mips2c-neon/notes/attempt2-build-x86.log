@@ -1,0 +1,601 @@
+command=bash .autoport/lib/build_x86.sh --target gk -j 2
+bx_deps_corrupt_before=0
+bx_deps_recompacted=0
+bx_deps_quarantined=0
+bx_sdl_pin=SDL-3.4.4-jak-project
+bx_sdl_pinned=0
+bx_rc=0
+bx_edges=23
+bx_work_edges=20
+bx_other_edges=3
+bx_other_list=Re-checking_globbed_directories...,Re-running_CMake...,Re-checking_globbed_directories...
+bx_seconds=88
+bx_residual_edges=0
+bx_residual_work=0
+bx_residual_other=0
+bx_residual_other_list=aucune
+bx_cmake_git_inputs=0
+bx_sdl_revision=SDL-3.4.4-jak-project
+bx_describe=harness-avant-plan-2026-09-11-348-g6efcc6fe32
+bx_bin=game/gk
+bx_bin_mtime=1789426341
+bx_bin_mtime_ns=1789426341762099270
+bx_deps_seen=46
+bx_newest_dep=1789426338
+bx_newest_dep_ns=1789426338863049229
+bx_newest_name=game/libruntime.a
+bx_bin_fresh=1
+bx_bin_verdict=frais
+bx_bin_lag_s=-3
+bx_bin_lag_ns=-2899050041
+bx_orphans_before=0
+bx_orphans_after=0
+bx_orphans_moved=0
+bx_orphans_quarantine=-
+build_x86: arbre propre : 23 arete(s) jouee(s) en 88s, 0 a refaire, binaire game/gk plus recent que ses 46 entrees.
+
+command_rc=0
+ninja: Entering directory `build'
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Statically Link? OFF
+-- GOALC backend: x86
+-- GCC detected - Setting Defaults
+-- curl version=[8.3.0-DEV]
+-- Picky compiler options: -W -Wall -pedantic -Wbad-function-cast -Wconversion -Winline -Wmissing-declarations -Wmissing-prototypes -Wnested-externs -Wno-long-long -Wno-multichar -Wpointer-arith -Wshadow -Wsign-compare -Wundef -Wunused -Wwrite-strings -Wcast-align -Wdeclaration-after-statement -Wempty-body -Wendif-labels -Wfloat-equal -Wignored-qualifiers -Wno-format-nonliteral -Wno-sign-conversion -Wno-system-headers -Wstrict-prototypes -Wtype-limits -Wvla -Wmissing-parameter-type -Wold-style-declaration -Wstrict-aliasing=3 -Wformat=2 -Warray-bounds=2 -ftree-vrp -Wduplicated-cond -Wnull-dereference -fdelete-null-pointer-checks -Wshift-negative-value -Wshift-overflow=2 -Walloc-zero -Wduplicated-branches -Wformat-overflow=2 -Wformat-truncation=1 -Wrestrict -Warith-conversion -Wdouble-promotion -Wenum-conversion -Wunused-const-variable
+-- Enabled features: SSL IPv6 unixsockets AsynchDNS Largefile alt-svc HSTS NTLM HTTPS-proxy threadsafe PSL
+-- Enabled protocols: DICT FILE FTP FTPS GOPHER GOPHERS HTTP HTTPS IMAP IMAPS MQTT POP3 POP3S RTSP SMB SMBS SMTP SMTPS TELNET TFTP
+-- Enabled SSL backends: OpenSSL
+CMake Deprecation Warning at third-party/replxx/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+-- {fmt} version: 11.1.4
+-- Build type: Release
+-- write_revision_h(): /home/emeric/code/jak-project
+-- Git found, using it to get revision info
+-- Dynamically Linking SDL
+-- dynamic libX11 -> libX11.so.6
+-- dynamic libXext -> libXext.so.6
+-- dynamic libXcursor -> libXcursor.so.1
+-- dynamic libXi -> libXi.so.6
+-- dynamic libXfixes -> libXfixes.so.3
+-- dynamic libXrandr -> libXrandr.so.2
+-- dynamic libXrender -> libXrender.so.1
+-- dynamic libXtst -> libXtst.so.6
+-- Checking for module 'fribidi'
+--   Found fribidi, version 1.0.16
+-- dynamic libfribidi -> libfribidi.so.0
+-- Checking for module 'libthai'
+--   Found libthai, version 0.1.29
+-- dynamic libthai -> libthai.so.0
+-- Checking for module 'libdrm'
+--   Found libdrm, version 2.4.133
+-- Checking for module 'gbm'
+--   Package 'gbm' not found
+-- Checking for modules 'wayland-client>=1.18;wayland-egl;wayland-cursor;egl;xkbcommon>=0.5.0'
+--   Found wayland-client, version 1.24.0
+--   Found wayland-egl, version 18.1.0
+--   Found wayland-cursor, version 1.24.0
+--   Found egl, version 1.5
+--   Found xkbcommon, version 1.11.0
+-- dynamic libwayland-client -> libwayland-client.so.0
+-- dynamic libwayland-egl -> libwayland-egl.so.1
+-- dynamic libwayland-cursor -> libwayland-cursor.so.0
+-- dynamic libxkbcommon -> libxkbcommon.so.0
+-- Checking for module 'libdecor-0'
+--   Package 'libdecor-0' not found
+-- dynamic libudev -> libudev.so.1
+-- Checking for one of the modules 'ibus-1.0;ibus'
+-- Checking for one of the modules 'liburing-ffi'
+-- Checking for modules 'libunwind;libunwind-generic'
+--   Package 'libunwind' not found
+--   Package 'libunwind-generic' not found
+-- Checking for module 'libusb-1.0>=1.0.16'
+--   Package 'libusb-1.0' not found
+-- Could NOT find LibUSB (missing: LibUSB_LIBRARY LibUSB_INCLUDE_PATH) (found version "LibUSB_VERSION-NOTFOUND")
+-- 
+-- SDL3 was configured with the following options:
+-- 
+-- Platform: Linux-6.19.8-200.fc43.x86_64
+-- 64-bit:   TRUE
+-- Compiler: /usr/bin/cc
+-- Revision: SDL-3.4.4-jak-project
+-- Vendor:   
+-- 
+-- Subsystems:
+--   Audio:    OFF
+--   Video:    ON
+--   GPU:      ON
+--   Render:   OFF
+--   Camera:   OFF
+--   Joystick: ON
+--   Haptic:   ON
+--   Hidapi:   ON
+--   Power:    OFF
+--   Sensor:   OFF
+--   Dialog:   ON
+--   Tray:     ON
+-- 
+-- Options:
+--   SDL_ALSA                    (Wanted: OFF): OFF
+--   SDL_ALSA_SHARED             (Wanted: OFF): OFF
+--   SDL_ALTIVEC                 (Wanted: OFF): OFF
+--   SDL_ARMNEON                 (Wanted: OFF): OFF
+--   SDL_ASAN                    (Wanted: OFF): OFF
+--   SDL_ASSEMBLY                (Wanted: ON): ON
+--   SDL_ASSERTIONS              (Wanted: auto): auto
+--   SDL_AVX                     (Wanted: ON): ON
+--   SDL_AVX2                    (Wanted: ON): ON
+--   SDL_AVX512F                 (Wanted: ON): ON
+--   SDL_BACKGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_CCACHE                  (Wanted: OFF): OFF
+--   SDL_CLANG_TIDY              (Wanted: OFF): OFF
+--   SDL_CLOCK_GETTIME           (Wanted: ON): ON
+--   SDL_COCOA                   (Wanted: OFF): OFF
+--   SDL_DBUS                    (Wanted: ON): ON
+--   SDL_DEPS_SHARED             (Wanted: ON): OFF
+--   SDL_DIRECTX                 (Wanted: OFF): OFF
+--   SDL_DISKAUDIO               (Wanted: OFF): OFF
+--   SDL_DLOPEN_NOTES            (Wanted: ON): ON
+--   SDL_DUMMYAUDIO              (Wanted: OFF): OFF
+--   SDL_DUMMYCAMERA             (Wanted: OFF): OFF
+--   SDL_DUMMYVIDEO              (Wanted: ON): ON
+--   SDL_EXAMPLES                (Wanted: OFF): OFF
+--   SDL_EXAMPLES_LINK_SHARED    (Wanted: ON): OFF
+--   SDL_FOREGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_FRIBIDI                 (Wanted: ON): ON
+--   SDL_FRIBIDI_SHARED          (Wanted: ON): ON
+--   SDL_GCC_ATOMICS             (Wanted: ON): ON
+--   SDL_HIDAPI                  (Wanted: ON): ON
+--   SDL_HIDAPI_JOYSTICK         (Wanted: ON): ON
+--   SDL_HIDAPI_LIBUSB           (Wanted: ON): OFF
+--   SDL_HIDAPI_LIBUSB_SHARED    (Wanted: ON): OFF
+--   SDL_IBUS                    (Wanted: ON): OFF
+--   SDL_INSTALL                 (Wanted: OFF): OFF
+--   SDL_INSTALL_TESTS           (Wanted: OFF): OFF
+--   SDL_JACK                    (Wanted: OFF): OFF
+--   SDL_JACK_SHARED             (Wanted: OFF): OFF
+--   SDL_KMSDRM                  (Wanted: ON): OFF
+--   SDL_KMSDRM_SHARED           (Wanted: ON): OFF
+--   SDL_LASX                    (Wanted: OFF): OFF
+--   SDL_LIBC                    (Wanted: ON): ON
+--   SDL_LIBICONV                (Wanted: OFF): OFF
+--   SDL_LIBTHAI                 (Wanted: ON): ON
+--   SDL_LIBTHAI_SHARED          (Wanted: ON): ON
+--   SDL_LIBUDEV                 (Wanted: ON): ON
+--   SDL_LIBURING                (Wanted: ON): OFF
+--   SDL_LSX                     (Wanted: OFF): OFF
+--   SDL_METAL                   (Wanted: OFF): OFF
+--   SDL_MMX                     (Wanted: ON): ON
+--   SDL_OFFSCREEN               (Wanted: ON): ON
+--   SDL_OPENGL                  (Wanted: ON): ON
+--   SDL_OPENGLES                (Wanted: ON): ON
+--   SDL_OPENVR                  (Wanted: OFF): OFF
+--   SDL_OSS                     (Wanted: OFF): OFF
+--   SDL_PIPEWIRE                (Wanted: ON): OFF
+--   SDL_PIPEWIRE_SHARED         (Wanted: ON): OFF
+--   SDL_PTHREADS                (Wanted: ON): ON
+--   SDL_PTHREADS_SEM            (Wanted: ON): ON
+--   SDL_PULSEAUDIO              (Wanted: OFF): OFF
+--   SDL_PULSEAUDIO_SHARED       (Wanted: OFF): OFF
+--   SDL_RENDER_D3D              (Wanted: OFF): OFF
+--   SDL_RENDER_D3D11            (Wanted: OFF): OFF
+--   SDL_RENDER_D3D12            (Wanted: OFF): OFF
+--   SDL_RENDER_GPU              (Wanted: OFF): OFF
+--   SDL_RENDER_METAL            (Wanted: OFF): OFF
+--   SDL_RENDER_VULKAN           (Wanted: OFF): OFF
+--   SDL_ROCKCHIP                (Wanted: OFF): OFF
+--   SDL_RPATH                   (Wanted: ON): ON
+--   SDL_RPI                     (Wanted: OFF): OFF
+--   SDL_SNDIO                   (Wanted: OFF): OFF
+--   SDL_SNDIO_SHARED            (Wanted: OFF): OFF
+--   SDL_SSE                     (Wanted: ON): ON
+--   SDL_SSE2                    (Wanted: ON): ON
+--   SDL_SSE3                    (Wanted: ON): ON
+--   SDL_SSE4_1                  (Wanted: ON): ON
+--   SDL_SSE4_2                  (Wanted: ON): ON
+--   SDL_SYSTEM_ICONV            (Wanted: ON): ON
+--   SDL_TESTS                   (Wanted: OFF): OFF
+--   SDL_TESTS_LINK_SHARED       (Wanted: ON): OFF
+--   SDL_UNINSTALL               (Wanted: OFF): OFF
+--   SDL_VIRTUAL_JOYSTICK        (Wanted: ON): ON
+--   SDL_VIVANTE                 (Wanted: OFF): OFF
+--   SDL_VULKAN                  (Wanted: ON): ON
+--   SDL_WASAPI                  (Wanted: OFF): OFF
+--   SDL_WAYLAND                 (Wanted: ON): ON
+--   SDL_WAYLAND_LIBDECOR        (Wanted: ON): OFF
+--   SDL_WAYLAND_LIBDECOR_SHARED (Wanted: ON): OFF
+--   SDL_WAYLAND_SHARED          (Wanted: ON): ON
+--   SDL_X11                     (Wanted: ON): ON
+--   SDL_X11_SHARED              (Wanted: ON): ON
+--   SDL_X11_XCURSOR             (Wanted: ON): ON
+--   SDL_X11_XDBE                (Wanted: ON): ON
+--   SDL_X11_XFIXES              (Wanted: ON): ON
+--   SDL_X11_XINPUT              (Wanted: ON): ON
+--   SDL_X11_XRANDR              (Wanted: ON): ON
+--   SDL_X11_XSCRNSAVER          (Wanted: OFF): OFF
+--   SDL_X11_XSHAPE              (Wanted: ON): ON
+--   SDL_X11_XSYNC               (Wanted: ON): ON
+--   SDL_X11_XTEST               (Wanted: OFF): OFF
+--   SDL_XINPUT                  (Wanted: OFF): OFF
+-- 
+--  Build Shared Library: ON
+--  Build Static Library: OFF
+-- 
+-- Enabled backends:
+--   Video drivers: dummy offscreen wayland(dynamic) x11(dynamic)
+--   X11 libraries: xcursor xdbe xfixes xinput2 xrandr xshape xsync
+--   Render drivers: ogl ogl_es2
+--   GPU drivers: vulkan
+--   Audio drivers: dummy
+--   Joystick drivers: hidapi linux virtual
+--   Camera drivers: dummy
+-- 
+-- If something was not detected, although the libraries
+-- were installed, then make sure you have set the
+-- CMAKE_C_FLAGS and CMAKE_PREFIX_PATH CMake variables correctly.
+-- 
+-- Non-ARM64 architecture detected
+CMake Deprecation Warning at third-party/googletest/CMakeLists.txt:4 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at third-party/googletest/googlemock/CMakeLists.txt:39 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at third-party/googletest/googletest/CMakeLists.txt:49 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Warning (dev) at third-party/draco/CMakeLists.txt:40 (include):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+--- Running combined CXX flags test, flags: -Wno-deprecated-declarations
+--- Passed combined CXX flags test
+CMake Deprecation Warning at third-party/discord-rpc/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+-- dynamically linking zydis
+Enabling CAPSTONE_ARM64_SUPPORT
+-- Configuring done (2.1s)
+-- Generating done (0.5s)
+-- Build files have been written to: /home/emeric/code/jak-project/build
+[0/4] Re-checking globbed directories...
+[1/23] Building CXX object common/CMakeFiles/common.dir/versions/versions.cpp.o
+[2/23] Linking CXX shared library common/libcommon.so
+[3/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Shrub.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:1:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h: In function 'void shrub_contact_measurement::consume(const std::string&, int, size_t, u64, const shrub_contact_probe::Sample*, size_t)':
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+  140 |     for (const auto& tree : state.geometry->trees)
+      |                      ^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:118:62: note: shadowed declaration is here
+  118 | inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
+      |                                                       ~~~~~~~^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp: In lambda function:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:422:30: warning: declaration of 'i' shadows a previous local [-Wshadow]
+  422 |       auto edge_sq = [&](u32 i, u32 j) {
+      |                          ~~~~^
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:243:12: note: shadowed declaration is here
+  243 |     size_t i = 0;
+      |            ^
+[4/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/foliage_wind.cpp.o
+[5/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/TFragment.cpp.o
+[6/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Tie3.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h: In function 'void shrub_contact_measurement::consume(const std::string&, int, size_t, u64, const shrub_contact_probe::Sample*, size_t)':
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+  140 |     for (const auto& tree : state.geometry->trees)
+      |                      ^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:118:62: note: shadowed declaration is here
+  118 | inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
+      |                                                       ~~~~~~~^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp: In member function 'void Tie3::load_from_fr3_data(const LevelData*)':
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:329:12: warning: declaration of 'ul' shadows a previous local [-Wshadow]
+  329 |       auto ul = scoped_prof("load-tree");
+      |            ^~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:298:8: note: shadowed declaration is here
+  298 |   auto ul = scoped_prof("update-load");
+      |        ^~
+[7/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/shrub_contact_probe.cpp.o
+[8/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/Loader.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/Loader.cpp:26:
+/home/emeric/code/jak-project/./common/util/rss_census.h: In function 'void rss_census::mark(const char*)':
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-project/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+[9/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/loader/LoaderStages.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/LoaderStages.cpp:13:
+/home/emeric/code/jak-project/./common/util/rss_census.h: In function 'void rss_census::mark(const char*)':
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-project/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+[10/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/PrePass.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:17:
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/ao_tie_contract.h: In function 'std::string ao_tie_contract::knob(const char*, const char*)':
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/ao_tie_contract.h:22:37: warning: unused parameter 'property' [-Wunused-parameter]
+   22 | inline std::string knob(const char* property, const char* env) {
+      |                         ~~~~~~~~~~~~^~~~~~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp: In function 'void prepass::{anonymous}::measure_phantom_occluders(SharedRenderState*, const GoalBackgroundCameraData&, int, int)':
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:727:36: warning: unused parameter 'w' [-Wunused-parameter]
+  727 |                                int w,
+      |                                ~~~~^
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:728:36: warning: unused parameter 'h' [-Wunused-parameter]
+  728 |                                int h) {
+      |                                ~~~~^
+[11/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-project/game/graphics/refset.cpp: In lambda function:
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2127:23: warning: passing 'bool' chooses 'int' over 'unsigned int' [-Wsign-promo]
+ 2127 |     add(std::to_string(tune.set));
+      |         ~~~~~~~~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2127:23: warning:   in call to 'std::string std::__cxx11::to_string(int)' [-Wsign-promo]
+/home/emeric/code/jak-project/game/graphics/refset.cpp: In function 'bool refset::enabled()':
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2765:18: warning: declaration of 'v' shadows a previous local [-Wshadow]
+ 2765 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2656:8: note: shadowed declaration is here
+ 2656 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2774:18: warning: declaration of 'v' shadows a previous local [-Wshadow]
+ 2774 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2656:8: note: shadowed declaration is here
+ 2656 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2921:34: warning: declaration of 'd' shadows a previous local [-Wshadow]
+ 2921 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2744:8: note: shadowed declaration is here
+ 2744 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2934:27: warning: declaration of 'd' shadows a previous local [-Wshadow]
+ 2934 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2744:8: note: shadowed declaration is here
+ 2744 |   char d[512] = {0};
+      |        ^
+[12/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/ao_tie_alpha_probe.cpp.o
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/ao_tie_alpha_probe.cpp: In function 'std::string ao_tie_alpha_probe::{anonymous}::color_property(const char*, const char*)':
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/ao_tie_alpha_probe.cpp:297:40: warning: unused parameter 'suffix' [-Wunused-parameter]
+  297 | std::string color_property(const char* suffix, const char* env) {
+      |                            ~~~~~~~~~~~~^~~~~~
+[13/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/Shader.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Shader.cpp:9:
+/home/emeric/code/jak-project/./common/util/rss_census.h: In function 'void rss_census::mark(const char*)':
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-project/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+[14/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/OpenGLRenderer.cpp:18:
+/home/emeric/code/jak-project/./common/util/rss_census.h: In function 'void rss_census::mark(const char*)':
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: 'mallinfo mallinfo()' is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-project/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/OpenGLRenderer.cpp:45:
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/background/shrub_contact_measurement.h: In function 'void shrub_contact_measurement::consume(const std::string&, int, size_t, u64, const shrub_contact_probe::Sample*, size_t)':
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of 'const auto& tree' shadows a parameter [-Wshadow]
+  140 |     for (const auto& tree : state.geometry->trees)
+      |                      ^~~~
+/home/emeric/code/jak-project/./game/graphics/opengl_renderer/background/shrub_contact_measurement.h:118:62: note: shadowed declaration is here
+  118 | inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
+      |                                                       ~~~~~~~^~~~
+[15/23] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/SkyRenderer.cpp.o
+[16/23] Building CXX object game/CMakeFiles/runtime.dir/mips2c/jak1_functions/bones.cpp.o
+[17/23] Building CXX object game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle_launcher.cpp.o
+[18/23] Building CXX object game/CMakeFiles/runtime.dir/mips2c/jak1_functions/joint.cpp.o
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp: In function 'u64 Mips2C::jak1::decompress_frame_data_pair_to_accumulator::execute(void*)':
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:169:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  169 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:171:7: note: here
+  171 |       case 2:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:212:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  212 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:214:7: note: here
+  214 |       case 4:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:217:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  217 |         c->daddiu(a0, a0, 64);                            // daddiu a0, a0, 64
+      |         ~~~~~~~~~^~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:219:7: note: here
+  219 |       case 5:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:342:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  342 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L14
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:348:7: note: here
+  348 |       case 13:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:400:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  400 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L15
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:406:7: note: here
+  406 |       case 16:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:458:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  458 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L16
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:464:7: note: here
+  464 |       case 19:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:654:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  654 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L17
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:660:7: note: here
+  660 |       case 25:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:720:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  720 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L18
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:726:7: note: here
+  726 |       case 28:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:801:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  801 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L19
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:807:7: note: here
+  807 |       case 31:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp: In function 'u64 Mips2C::jak1::decompress_frame_data_to_accumulator::execute(void*)':
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:948:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  948 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:950:7: note: here
+  950 |       case 2:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:983:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  983 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:985:7: note: here
+  985 |       case 4:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:988:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  988 |         c->daddiu(a0, a0, 64);                            // daddiu a0, a0, 64
+      |         ~~~~~~~~~^~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:990:7: note: here
+  990 |       case 5:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1088:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1088 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L26
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1094:7: note: here
+ 1094 |       case 13:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1133:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1133 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L27
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1139:7: note: here
+ 1139 |       case 16:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1176:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1176 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L28
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1182:7: note: here
+ 1182 |       case 19:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1308:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1308 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L29
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1314:7: note: here
+ 1314 |       case 25:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1361:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1361 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L30
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1367:7: note: here
+ 1367 |       case 28:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1417:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1417 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L31
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1423:7: note: here
+ 1423 |       case 31:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp: In function 'u64 Mips2C::jak1::decompress_fixed_data_to_accumulator::execute(void*)':
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1564:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1564 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1566:7: note: here
+ 1566 |       case 2:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1599:16: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1599 |         c->sqc2(vf12, 48, a0);                            // sqc2 vf12, 48(a0)
+      |         ~~~~~~~^~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1601:7: note: here
+ 1601 |       case 4:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1604:18: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1604 |         c->daddiu(a0, a0, 64);                            // daddiu a0, a0, 64
+      |         ~~~~~~~~~^~~~~~~~~~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1606:7: note: here
+ 1606 |       case 5:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1684:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1684 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L38
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1690:7: note: here
+ 1690 |       case 11:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1740:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1740 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L39
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1746:7: note: here
+ 1746 |       case 14:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1792:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1792 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L40
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1798:7: note: here
+ 1798 |       case 17:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1924:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1924 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L41
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1930:7: note: here
+ 1930 |       case 23:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1967:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 1967 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L42
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:1973:7: note: here
+ 1973 |       case 26:
+      |       ^~~~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:2001:9: warning: this statement may fall through [-Wimplicit-fallthrough=]
+ 2001 |         if (((s64)c->sgpr64(t9)) < 0) {                   // bltzl t9, L43
+      |         ^~
+/home/emeric/code/jak-project/game/mips2c/jak1_functions/joint.cpp:2007:7: note: here
+ 2007 |       case 29:
+      |       ^~~~
+[19/23] Linking CXX static library game/libruntime.a
+[20/23] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

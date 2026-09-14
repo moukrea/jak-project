@@ -2,7 +2,6 @@
 //--------------------------MIPS2C---------------------
 // clang-format off
 #include "game/mips2c/mips2c_private.h"
-#include "game/mips2c/vu_simd.h"
 #include "game/kernel/jak1/kscheme.h"
 using namespace jak1;
 namespace Mips2C::jak1 {
@@ -13,7 +12,6 @@ struct Cache {
 } cache;
 
 void exec_mpg(ExecutionContext* c) {
-  vu_simd::VuSimd vu(c, vu_simd::Kernel::Bones);
 /*
   nop                        |  mulax.xyzw ACC, vf05, vf01
   nop                        |  madday.xyzw ACC, vf06, vf01
@@ -72,19 +70,19 @@ void exec_mpg(ExecutionContext* c) {
  */
 
 //  printf("vf1 is %f %f %f %f\n", c->vfs[vf1].f[0], c->vfs[vf1].f[1], c->vfs[vf1].f[2], c->vfs[vf1].f[3]);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf05, vf1);
+  c->vmula_bc(DEST::xyzw, BC::x, vf05, vf1);
   c->vmadda_bc(DEST::xyzw, BC::y, vf06, vf01);
   c->vmadda_bc(DEST::xyzw, BC::z, vf07, vf01);
   c->vmadd_bc(DEST::xyzw, BC::w, vf13, vf08, vf01);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf05, vf02);
+  c->vmula_bc(DEST::xyzw, BC::x, vf05, vf02);
   c->vmadda_bc(DEST::xyzw, BC::y, vf06, vf02);
   c->vmadda_bc(DEST::xyzw, BC::z, vf07, vf02);
   c->vmadd_bc(DEST::xyzw, BC::w, vf14, vf08, vf02);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf05, vf03);
+  c->vmula_bc(DEST::xyzw, BC::x, vf05, vf03);
   c->vmadda_bc(DEST::xyzw, BC::y, vf06, vf03);
   c->vmadda_bc(DEST::xyzw, BC::z, vf07, vf03);
   c->vmadd_bc(DEST::xyzw, BC::w, vf15, vf08, vf03);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf05, vf04);
+  c->vmula_bc(DEST::xyzw, BC::x, vf05, vf04);
   c->vmadda_bc(DEST::xyzw, BC::y, vf06, vf04);
   c->vmadda_bc(DEST::xyzw, BC::z, vf07, vf04);
   c->vmadd_bc(DEST::xyzw, BC::w, vf16, vf08, vf04);
@@ -97,59 +95,58 @@ void exec_mpg(ExecutionContext* c) {
   c->vopmsub(vf10, vf13, vf15);
   c->vopmula(vf13, vf14);
   //nop                        |  mul.xyz vf12, vf13, vf09
-  vu.vmul(DEST::xyz, vf12, vf13, vf09);
+  c->vmul(DEST::xyz, vf12, vf13, vf09);
 //  printf("vf12 is %f %f %f %f\n", c->vfs[vf12].f[0], c->vfs[vf12].f[1], c->vfs[vf12].f[2], c->vfs[vf12].f[3]);
 //  printf("vf13 is %f %f %f %f\n", c->vfs[vf13].f[0], c->vfs[vf13].f[1], c->vfs[vf13].f[2], c->vfs[vf13].f[3]);
 
 //  printf("vf09 is %f %f %f %f\n", c->vfs[vf09].f[0], c->vfs[vf09].f[1], c->vfs[vf09].f[2], c->vfs[vf09].f[3]);
 
   c->vopmsub(vf11, vf14, vf13);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf28, vf13);
+  c->vmula_bc(DEST::xyzw, BC::x, vf28, vf13);
   c->vmadda_bc(DEST::xyzw, BC::y, vf29, vf13);
   c->vmadda_bc(DEST::xyzw, BC::z, vf30, vf13);
   c->vmadd_bc(DEST::xyzw, BC::w, vf13, vf31, vf13);
   //nop                        |  mulax.w ACC, vf00, vf12
-  vu.vmula_bc(DEST::w, BC::x, vf0, vf12);
+  c->vmula_bc(DEST::w, BC::x, vf0, vf12);
   //nop                        |  madday.w ACC, vf00, vf12
   c->vmadda_bc(DEST::w, BC::y, vf0, vf12);
   //nop                        |  maddz.w vf12, vf00, vf12
   c->vmadd_bc(DEST::w, BC::z, vf12, vf0, vf12);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf28, vf14);
+  c->vmula_bc(DEST::xyzw, BC::x, vf28, vf14);
   c->vmadda_bc(DEST::xyzw, BC::y, vf29, vf14);
   c->vmadda_bc(DEST::xyzw, BC::z, vf30, vf14);
   //div Q, vf00.w, vf12.w      |  maddw.xyzw vf14, vf31, vf14
   c->vdiv(vf0, BC::w, vf12, BC::w);
 //printf("vf12.w is %f\n", c->vfs[vf12].f[3]);
   c->vmadd_bc(DEST::xyzw, BC::w, vf14, vf31, vf14);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf28, vf15);
+  c->vmula_bc(DEST::xyzw, BC::x, vf28, vf15);
   c->vmadda_bc(DEST::xyzw, BC::y, vf29, vf15);
   c->vmadda_bc(DEST::xyzw, BC::z, vf30, vf15);
   c->vmadd_bc(DEST::xyzw, BC::w, vf15, vf31, vf15);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf28, vf16);
+  c->vmula_bc(DEST::xyzw, BC::x, vf28, vf16);
   c->vmadda_bc(DEST::xyzw, BC::y, vf29, vf16);
   c->vmadda_bc(DEST::xyzw, BC::z, vf30, vf16);
   c->vmadd_bc(DEST::xyzw, BC::w, vf16, vf31, vf16);
   //nop                        |  mul.xyzw vf09, vf09, Q
-  vu.vmulq(DEST::xyzw, vf09, vf09);
+  c->vmulq(DEST::xyzw, vf09, vf09);
   // nop                        |  mul.xyzw vf10, vf10, Q
-  vu.vmulq(DEST::xyzw, vf10, vf10);
+  c->vmulq(DEST::xyzw, vf10, vf10);
   // nop                        |  mul.xyzw vf11, vf11, Q
-  vu.vmulq(DEST::xyzw, vf11, vf11);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf25, vf09);
+  c->vmulq(DEST::xyzw, vf11, vf11);
+  c->vmula_bc(DEST::xyzw, BC::x, vf25, vf09);
   c->vmadda_bc(DEST::xyzw, BC::y, vf26, vf09);
   //nop                        |  maddz.xyzw vf09, vf27, vf09
   c->vmadd_bc(DEST::xyzw, BC::z, vf09, vf27, vf09);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf25, vf10);
+  c->vmula_bc(DEST::xyzw, BC::x, vf25, vf10);
   c->vmadda_bc(DEST::xyzw, BC::y, vf26, vf10);
   c->vmadd_bc(DEST::xyzw, BC::z, vf10, vf27, vf10);
-  vu.vmula_bc(DEST::xyzw, BC::x, vf25, vf11);
+  c->vmula_bc(DEST::xyzw, BC::x, vf25, vf11);
   c->vmadda_bc(DEST::xyzw, BC::y, vf26, vf11); // :e
   c->vmadd_bc(DEST::xyzw, BC::z, vf11, vf27, vf11);
 }
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
-  vu_simd::VuSimd vu(c, vu_simd::Kernel::Bones);
 //printf("start\n");
   bool bc = false;
   u32 madr, sadr, qwc;
