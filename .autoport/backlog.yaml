@@ -6720,8 +6720,8 @@ items:
   device_serial: eae4df44
   block_reason: null
 - id: perf-mips2c-neon
-  feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
-  status: blocked
+  feature: Les calculs d animation et de particules coutent moins sans changer leurs resultats
+  status: open
   priority: 40
   game: jak1
   gate:
@@ -6733,17 +6733,27 @@ items:
   - perf-instruments
   - perf-stock-baseline
   where: 'rien a voir : identique au pixel et a la pose ; goal_busy_ms baisse'
-  known_cause: 'mips2c_private.h:887-896 : chaque op VU est une boucle scalaire 4 lanes avec branche de
-    masque par lane, sans SIMD ; sur arm64 chaque store fait gnd_oob_check avec un load atomique (:50-58,
-    393-440). Noyaux chauds par image (allowlist mips2c_table_jak1_arm64.cpp:696-1010) : cspace<-parented-transformq-joint!
-    (par joint, tous les acteurs vivants), bones-mtx-calc (par acteur dessine), sp-launch-particles-var,
-    familles shadow et ocean.'
-  deliverable: 'Lot 1 : gnd_oob_check compile hors du build quand la prop n''est pas armee. Lot 2 : NEON
-    (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques (hd-mtx-check-all,
-    A/B x86, ripple.cpp intact ou bit-identique car l''eau lit ripple-find-height). mips2c_parity_defects
-    = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff != 0).
-    Gain publie par seau.'
-  out_of_scope: Aucun changement de resultat, meme au dernier bit. Ne touche a aucune feature validee.
+  known_cause: 'DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans SIMD est refutee
+    par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc active *use-new-bones*
+    et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier et 0 image qualifiee,
+    malgre joints/particules compares sans ecart. Le candidat os grossit de 716 a 4812 octets ; aucun
+    gain demontre. Refset USB : hutte maxdiff233 et deux references plage absentes ; A/B x86 egalement
+    incomplets. Le refset local origine contient beach-start-h09, mais presence ne prouve ni deploiement
+    ni provenance/equivalence ; README impose origines immuables. Ne pas confondre cette piste de distribution
+    avec une nouvelle reference qualifiee. Le lot de suppression gnd_oob du build normal est etabli et
+    se conserve.'
+  deliverable: |-
+    Lot 1 : gnd_oob_check compile hors du build quand la prop n'est pas armee. Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l'eau lit ripple-find-height). mips2c_parity_defects = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff != 0). Gain publie par seau.
+    REPRISE DIAGNOSTIQUE OBLIGATOIRE AVANT NOUVELLE COURSE :
+    1. Auditer le code MACHINE existant et les chemins actifs ; choisir les trois noyaux effectivement executes dans le regime livre, pas l ancien os inactif. Les seaux classent des familles : ne pas pretendre en deduire un classement individuel. Raccorder les compteurs/comparateurs existants aux fonctions choisies, publier la table fonction/chemin/preuve d activite ; ne jamais modifier *use-new-bones* ni le scenario pour fabriquer une population. Si aucune troisieme cible pertinente n est etablie, rendre ce constat avant ajout de SIMD ou course.
+    2. Retirer des seuls noyaux de cet item les ajouts speculatifs qui n ont aucun benefice etabli, en preservant les travaux voisins. Un compilateur deja vectoriel n est pas une victoire de ce patch. Separer la fenetre de parite de 600 images de la fenetre de cout : oracle eteint pendant mesure de gain, compteurs d ecarts conserves ; aucune parite vide acceptee.
+    3. Reparer la selection/distribution du refset EXISTANT par le chemin autorise si le diagnostic le justifie : verifier noms reels des cas demandes, phases, heure, origine, manifeste, empreinte et provenance des fichiers locaux puis leur correspondance dans la preuve. Les deux origines sont immuables. Ne pas fabriquer beach-sun depuis beach-start, ne pas recapturer par-dessus, ne pas retirer hutte/plage ni convertir 255 en zero. Diagnostiquer hutte233 avant replay ; un lot encore absent/non equivalent interdit de refaire le meme run. Les corrections de preparation du harnais necessaires a ce perimetre sont autorisees.
+    4. Conserver les exigences hd-mtx-check-all, trois populations actives, 600 images, refset_replay_maxdiff=0, ripple et gain par seau. Le banc SSE/NEON deja vert ne remplace pas le resultat en jeu. Avant proof_run, consigner les changements effectifs de cible et de references par rapport a l essai 1. Aucune campagne supplementaire autorisee par cette reprise ; utiliser uniquement le cycle de preuve deja prevu une fois ses prealables resolus.
+  out_of_scope: 'Aucun changement de resultat, meme au dernier bit. Ne touche a aucune feature validee.
+    Reprise : ne pas porter new-bones-mtx-calc-asm vers un ancien chemin pour satisfaire le compteur,
+    ne pas transformer l item en reecriture de tous les noyaux. Pas de nouvelle campagne de captures/refset
+    ni de nouvelle origine implicite. Instrumentation de parite existante raccordable aux cibles actives,
+    sans relacher les seuils. Conserver preuves historiques et modifications des autres items.'
   notes: 'budget : trois noyaux, deux plateformes, parite prouvee. Point de vue : village1-hut + beach.'
   max_turns: 1200
   hits_means: images en chemin vectoriel
@@ -6770,10 +6780,7 @@ items:
   - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: 'Diagnostic de depart contredit par le binaire : os/joints deja vectorises ; bones-mtx-calc
-    inactif dans le regime livre, 0 operation et 0 image qualifiee. References plage absentes, hutte non
-    equivalente. Reprise superviseur : selectionner les chemins reellement executes et resoudre les references
-    avant nouvelle course ; ne pas forcer l ancien noyau pour fabriquer des hits. Aucun gain demontre.'
+  block_reason: null
   supervisor_recovery: true
   supervisor_review:
     date: '2026-09-14'
@@ -6786,6 +6793,29 @@ items:
       array-bounds dans hdr_output.cpp a qualifier hors perimetre.
     next: Reprise de diagnostic/perimetre, conserver acquis partiels et code sans validation ; aucune
       course identique ni reference nouvelle implicitement autorisee.
+  owner_feedback:
+  - date: '2026-09-15'
+    text: 'Reprise superviseur requise pour : perf-mips2c-neon. Ces priorités sont bloquées. Lis leurs
+      derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le périmètre
+      nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt ; ne
+      valide rien et ne relance pas le même essai sans diagnostic.'
+  recovery_plan:
+    stage: diagnostic-actif-avant-course
+    previous_deliverable: 'Lot 1 : gnd_oob_check compile hors du build quand la prop n''est pas armee.
+      Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques
+      (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l''eau lit ripple-find-height).
+      mips2c_parity_defects = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff
+      != 0). Gain publie par seau.'
+    read_first:
+    - reports/perf-mips2c-neon/handoff.md
+    - reports/perf-mips2c-neon/notes/old-codegen-review.txt
+    - reports/perf-mips2c-neon/notes/buckets-x86.md
+    - refset/README.md
+    required_before_run:
+    - trois cibles actives justifiees
+    - reference hutte/plage existante coherente, cas et empreintes verifies
+    - oracle hors fenetre de cout
+    owner_validation: false
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
   status: open
@@ -11744,7 +11774,7 @@ items:
     action: Consigne et contrat regeneres. Refus herite ajoute au rapport et aux FINDINGS, rattache a
       harness-suite-temporary-files-outside-quota. Reouverture sans validation, sans reset des essais,
       sans relance manuelle. Reprendre depuis le handoff et laisser les portes juger les artefacts reels.
-- status: open
+- status: blocked
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11808,14 +11838,17 @@ items:
   - date: '2026-09-14'
     text: bah oui faut que ça avance
   owner_ok: null
-  supervisor_recovery: true
+  supervisor_recovery: false
   supervisor_clarification:
     date: '2026-09-14'
     cause: 'FINDINGS : ao_static_probe::requested ne reconnait que son propre item ; la clause ao_static_defects
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: null
+  block_reason: 'Campagne autorisee terminee : 9/9 courses, budget restant zero. Trous TIE nuls sur trois
+    vues, mais couleur differente, stabilite/acquis exterieurs rouges et reference couleur plage manquante
+    (1380 images pour sonde au tick1400). Diagnostiquer entrees vent et regimes/couvertures avant proposition
+    de nouvelle campagne ; ne pas relancer proof_run. Essai 6 interrompu sans retry.'
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -11824,7 +11857,7 @@ items:
     action: Essai 4 annule par scope_stamp (non compte), item bloque avant reprise externe. Causalite
       rectifiee sans supprimer les exigences de resultat. Les autres items restent eligibles.
   proof_plan:
-    status: authorized
+    status: exhausted
     owner_authorized: true
     mode: bounded-three-view-on-off
     vantages:
@@ -11850,6 +11883,9 @@ items:
     budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
       consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
       ne pas reinitialiser le budget a chaque retry.
+    runs_consumed: 9
+    runs_remaining: 0
+    ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
 - status: open
   game: jak1
   device: false
