@@ -26,6 +26,7 @@
 #include "game/graphics/opengl_renderer/background/Shrub.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/refset.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 AUTOPORT_FEATURE_SITE("foliage-wind");
@@ -348,6 +349,7 @@ bool shrub_contact_prototype(const std::string& name) {
 }
 
 bool enabled() {
+  if (prepass::static_probe_wind_disabled()) return false;
   // Le forcage est lu UNE fois : c'est un levier de mesure, il ne doit pas pouvoir basculer en
   // cours de course et rendre deux moities de preuve incomparables.
   static const bool s_forced = [] {
@@ -416,6 +418,8 @@ bool shrub_native_enabled() {
 // `refset_wind_clock_pinned` compte les frames de logique DISTINCTES ou l'epinglage a servi :
 // a zero, dire « l'horloge est neutralisee » serait une clause vide.
 float clock_seconds(u64 frame_idx, bool paused_now) {
+  const int64_t probe_lf = prepass::static_probe_logic_frame();
+  if (probe_lf >= 0) return (float)probe_lf / 60.f;
   if (refset::enabled()) {
     const int64_t lf = refset::render_logic_frame();
     if (lf >= 0) {

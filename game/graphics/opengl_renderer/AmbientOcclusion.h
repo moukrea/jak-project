@@ -72,6 +72,10 @@ class AmbientOcclusionPass {
   // EXACTEMENT une image. -1 = cette image n'est pas sondee.
   static void set_census_pair_phase(int phase);
   static void request_pattern_census(bool on);
+  // Cross-run input comparison supplied by PrePass before census publication.
+  static void set_static_probe_verdict(uint64_t nondeterminism, uint64_t samples, bool compared);
+  // Exact depth + explicit camera inputs captured by the latest estimate; 0 on failure.
+  static uint64_t static_probe_input_hash();
   // Publie ao_pattern_* . Appele par le module de prepasse quand il publie le reste.
   static void publish_pattern_census();
 

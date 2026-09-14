@@ -19,6 +19,7 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/ao_static_probe.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
 
@@ -560,6 +561,107 @@ bool s_pattern_census_request = false;
 // consecutives » : jusqu'a l'essai 10 l'ecart valait un tour complet des douze etats, 360 images.
 int s_census_pair_phase = -1;
 uint64_t s_static_pairs = 0;
+
+// Exact, unmasked census for ao-static-probe-deterministic only.
+struct StaticProbeState {
+  std::vector<uint8_t> final, estimator;
+  std::vector<float> depth;
+  std::array<float, 25> camera{};  // matrix, hvdf, fog.x, camera position
+  int w = 0, h = 0, ew = 0, eh = 0;
+  uint64_t reference_frame = 0, pairs = 0, population = 0, delta = 0;
+  uint64_t estimator_population = 0, estimator_delta = 0, spatial_delta = 0;
+  uint64_t depth_delta = 0, camera_delta = 0;
+};
+StaticProbeState s_exact[6];
+std::array<float, 25> s_exact_camera{};
+std::vector<uint8_t> s_exact_estimator;
+int s_exact_ew = 0, s_exact_eh = 0;
+bool s_exact_estimator_valid = false;
+uint64_t s_exact_frame = 0, s_exact_input_hash = 0;
+uint64_t s_probe_nondeterminism = 0, s_probe_samples = 0;
+bool s_probe_compared = false;
+
+bool exact_static_probe() {
+  return autoport_proof::feature_is("ao-static-probe-deterministic");
+}
+
+void capture_estimator(GLuint fbo, int w, int h) {
+  GLint previous_fbo = 0, previous_pack = 4;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_fbo);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &previous_pack);
+  s_exact_estimator.resize((size_t)w * h);
+  while (glGetError() != GL_NO_ERROR) {}
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  // Same R8 readback as pattern_census on desktop and the proof device.
+  glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, s_exact_estimator.data());
+  s_exact_estimator_valid = glGetError() == GL_NO_ERROR;
+  glPixelStorei(GL_PACK_ALIGNMENT, previous_pack);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)previous_fbo);
+  s_exact_ew = w;
+  s_exact_eh = h;
+}
+
+void exact_pair(int state, int w, int h, const uint8_t* final, const float* depth) {
+  if (state < 0 || state >= 6) return;
+  const size_t n = (size_t)w * h;
+  // Hash only explicit input elements, never struct padding. Float bits are preserved.
+  uint64_t hash = 14695981039346656037ull;
+  auto bytes = [&](const void* data, size_t size) {
+    const auto* p = static_cast<const uint8_t*>(data);
+    for (size_t i = 0; i < size; ++i) hash = (hash ^ p[i]) * 1099511628211ull;
+  };
+  bytes(&w, sizeof(w));
+  bytes(&h, sizeof(h));
+  for (size_t i = 0; i < n; ++i) bytes(&depth[i], sizeof(float));
+  for (const float& value : s_exact_camera) bytes(&value, sizeof(value));
+  s_exact_input_hash = hash;  // zero remains the caller's failure sentinel
+  auto& prev = s_exact[state];
+  if (s_census_pair_phase == 0) prev.reference_frame = 0;
+  if (s_census_pair_phase == 2 && prev.reference_frame + 1 == s_exact_frame &&
+      prev.reference_frame != 0 && prev.w == w && prev.h == h &&
+      prev.ew == s_exact_ew && prev.eh == s_exact_eh && s_exact_estimator_valid &&
+      prev.final.size() == n && prev.depth.size() == n &&
+      prev.estimator.size() == s_exact_estimator.size()) {
+    ++prev.pairs;
+    prev.population += n;
+    prev.estimator_population += s_exact_estimator.size();
+    for (size_t i = 0; i < s_exact_estimator.size(); ++i)
+      prev.estimator_delta += s_exact_estimator[i] != prev.estimator[i];
+    for (int y = 0; y < h; ++y) {
+      for (int x = 0; x < w; ++x) {
+        const size_t i = (size_t)y * w + x;
+        const bool changed = final[i] != prev.final[i];
+        prev.delta += changed;
+        prev.depth_delta += std::memcmp(&depth[i], &prev.depth[i], sizeof(float)) != 0;
+        // At lower tiers the estimator grid differs: use the texel at this output
+        // pixel's UV center. This labels POSSIBLE spatial propagation, not a cause proof.
+        const int ex = std::min(s_exact_ew - 1, (int)(((int64_t)x * 2 + 1) * s_exact_ew / (2ll * w)));
+        const int ey = std::min(s_exact_eh - 1, (int)(((int64_t)y * 2 + 1) * s_exact_eh / (2ll * h)));
+        const size_t ei = (size_t)ey * s_exact_ew + ex;
+        prev.spatial_delta += changed && s_exact_estimator[ei] == prev.estimator[ei];
+      }
+    }
+    bool camera_changed = false;
+    for (size_t i = 0; i < s_exact_camera.size(); ++i)
+      camera_changed |= std::memcmp(&s_exact_camera[i], &prev.camera[i], sizeof(float)) != 0;
+    prev.camera_delta += camera_changed;
+    prev.reference_frame = 0;
+  }
+  if (s_census_pair_phase == 1) {
+    prev.reference_frame = s_exact_estimator_valid ? s_exact_frame : 0;
+    prev.final.assign(final, final + n);
+    prev.depth.assign(depth, depth + n);
+    prev.estimator = s_exact_estimator;
+    prev.camera = s_exact_camera;
+    prev.w = w;
+    prev.h = h;
+    prev.ew = s_exact_ew;
+    prev.eh = s_exact_eh;
+  }
+}
+
 
 // LE PLAFOND DECLARE. Un champ sans structure de periode p rend 1000 ; un champ en blocs durs
 // tend vers 1000*p (4000 au palier bas). 1600 laisse la courbure d'un champ lisse reconstruit
@@ -1214,6 +1316,9 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
       if (!prepass::export_depth(s_census_depth_tex, w, h, &s_depth_buf)) {
         s_flat_unsupported = 1;
       } else {
+        if (exact_static_probe()) {
+          exact_pair(state, w, h, s_pat_buf.data(), s_depth_buf.data());
+        }
         if (accumulate_full) {
           uint64_t fpop = 0, fstep = 0;
           flat_step(s_pat_buf.data(), s_depth_buf.data(), w, h, &fpop, &fstep);
@@ -1236,7 +1341,7 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
         // au tour precedent des douze etats. Sans cette garde la premisse « camera immobile,
         // scene immobile » est fausse par construction — six secondes de village separaient
         // les deux releves, et le terme 5 comptait la marche des acteurs.
-        if (s_census_pair_phase == 2 && s_prev_depth[state].size() >= n &&
+        if (!exact_static_probe() && s_census_pair_phase == 2 && s_prev_depth[state].size() >= n &&
             s_prev_buf[state].size() >= n && s_prev_w[state] == w && s_prev_h[state] == h) {
           const double kSameGeom = 4.0 / 16777215.0;  // 4 quanta de profondeur 24 bits
           const int kAoMove = 2;                      // 2/255 : au-dessus de l'arrondi R8
@@ -1447,6 +1552,18 @@ void AmbientOcclusionPass::set_census_pair_phase(int phase) {
   s_census_pair_phase = (phase >= 0 && phase <= 2) ? phase : -1;
 }
 
+void AmbientOcclusionPass::set_static_probe_verdict(uint64_t nondeterminism,
+                                                     uint64_t samples,
+                                                     bool compared) {
+  s_probe_nondeterminism = nondeterminism;
+  s_probe_samples = samples;
+  s_probe_compared = compared;
+}
+
+uint64_t AmbientOcclusionPass::static_probe_input_hash() {
+  return s_exact_input_hash;
+}
+
 void AmbientOcclusionPass::request_pattern_census(bool on) {
   s_pattern_census_request = on;
 }
@@ -1623,6 +1740,18 @@ void AmbientOcclusionPass::publish_pattern_census() {
   // cote, entiers, pour que le confinement soit lisible et non un rabotage cache.
   // `static_measured` reste `(pop > 0)` : si le confinement VIDE la population, le terme
   // redevient « non-mesure » et compte pour 1, jamais 0.
+  if (exact_static_probe()) {
+    static_moved = static_pop = static_moved_ug = static_pop_ug = 0;
+    static_frames = s_static_pairs = 0;
+    for (const auto& state : s_exact) {
+      static_moved += state.delta;
+      static_pop += state.population;
+      s_static_pairs += state.pairs;
+      static_frames += state.pairs != 0;
+    }
+    static_moved_ug = static_moved;
+    static_pop_ug = static_pop;
+  }
   const bool static_measured = (static_pop > 0);
   autoport_proof::publish("ao_static_cam_pop_px", static_pop);
   autoport_proof::publish("ao_static_cam_frames", static_frames);
@@ -1630,7 +1759,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_cam_unguarded_pop_px", static_pop_ug);
   autoport_proof::publish("ao_static_excluded_px",
                           (static_pop_ug >= static_pop) ? (static_pop_ug - static_pop) : 0ull);
-  autoport_proof::publish("ao_static_guard_uv_x1000", 100ull);
+  autoport_proof::publish("ao_static_guard_uv_x1000", exact_static_probe() ? 0ull : 100ull);
   // LA PREMISSE, PUBLIEE : combien de paires ont alimente le terme, et de combien d'images la
   // reference est separee de l'image comparee. `_pair_gap_frames` vaut 1 par CONSTRUCTION
   // (`s_census_pair_phase == 2` ne passe que sur l'image qui suit la reference) ; il est publie
@@ -1707,6 +1836,79 @@ void AmbientOcclusionPass::publish_pattern_census() {
                                      (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
                                      ((q2_full || cross_measured) ? 1 : 0)));
   autoport_proof::publish("ao_owner_defects", t1 + t2 + t3 + t4 + t5 + t6 + t7);
+  if (exact_static_probe()) {
+    uint64_t missing = 0, depth_delta = 0, camera_delta = 0;
+    uint64_t estimator_delta = 0, spatial_delta = 0, estimator_pop = 0;
+    for (int i = 0; i < 6; ++i) {
+      const auto& state = s_exact[i];
+      const std::string suffix = std::string("_") + kCensusName[i];
+      auto publish = [&](const char* key, uint64_t value) {
+        autoport_proof::publish((key + suffix).c_str(), value);
+      };
+      publish("ao_static_cam_delta_px", state.delta);
+      publish("ao_static_cam_pop_px", state.population);
+      publish("ao_static_cam_pairs", state.pairs);
+      publish("ao_estimator_delta_px", state.estimator_delta);
+      publish("ao_estimator_pop_px", state.estimator_population);
+      publish("ao_spatial_filter_delta_px", state.spatial_delta);
+      publish("ao_final_with_estimator_delta_px", state.delta - state.spatial_delta);
+      publish("ao_static_depth_delta_px", state.depth_delta);
+      publish("ao_static_camera_changed_pairs", state.camera_delta);
+      publish("ao_static_missing_pairs", state.pairs ? 0 : 1);
+      missing += state.pairs == 0;
+      depth_delta += state.depth_delta;
+      camera_delta += state.camera_delta;
+      estimator_delta += state.estimator_delta;
+      estimator_pop += state.estimator_population;
+      spatial_delta += state.spatial_delta;
+    }
+    autoport_proof::publish_text("ao_estimator_source", "pass1:m_ao_tex[0]:R8:exact-byte-difference");
+    autoport_proof::publish_text("ao_spatial_filter_source",
+        "final:m_ao_full_tex:bilateral-HV-boxes-and-ridge-fill;possible-spatial-propagation;"
+        "final-changed-and-raw-UV-center-texel-identical;not-exclusive-causal-attribution");
+    autoport_proof::publish_text("ao_final_with_estimator_source",
+        "final-changed-and-raw-UV-center-texel-changed;spatial-filter-also-applied");
+    autoport_proof::publish_text("ao_static_depth_source", "prepass-export-depth24:all-texels:exact-float-bits");
+    autoport_proof::publish_text("ao_static_camera_source", "camera-matrix16:hvdf4:fog-x:camera-pos4:exact-float-bits");
+    // estimate() consumes no history texture: all following passes are spatial.
+    autoport_proof::publish("ao_temporal_passes", 0ull);
+    autoport_proof::publish("ao_estimator_delta_px", estimator_delta);
+    autoport_proof::publish("ao_estimator_pop_px", estimator_pop);
+    autoport_proof::publish("ao_spatial_filter_delta_px", spatial_delta);
+    autoport_proof::publish("ao_final_with_estimator_delta_px", static_moved - spatial_delta);
+    autoport_proof::publish("ao_static_depth_delta_px", depth_delta);
+    autoport_proof::publish("ao_static_camera_changed_pairs", camera_delta);
+    autoport_proof::publish("ao_static_missing_pairs", missing);
+    if (s_probe_compared) autoport_proof::publish("ao_probe_nondeterminism", s_probe_nondeterminism);
+    else autoport_proof::publish_text("ao_probe_nondeterminism", "non-mesure");
+    autoport_proof::publish("ao_probe_samples", s_probe_samples);
+    autoport_proof::publish("ao_probe_compared", s_probe_compared ? 1ull : 0ull);
+    const uint64_t nondeterminism = s_probe_compared && s_probe_samples ? s_probe_nondeterminism : 1ull;
+    const uint64_t premise = missing + depth_delta + camera_delta;
+    const uint64_t anchors = ao_static_probe::anchor_defects.load() +
+                            (ao_static_probe::anchor_executions.load() == 2 ? 0 : 1);
+    // PrePass sets bits 8..13 only after each live-wind acquisition is complete.
+    const uint64_t acquisition_mask = ((unsigned)s_prepass_mask >> 8) & 0x3fu;
+    uint64_t missing_acquisitions = 0;
+    for (int state = 0; state < 6; ++state) {
+      missing_acquisitions += (acquisition_mask & (1ull << state)) == 0;
+    }
+    autoport_proof::publish("ao_probe_wind_on_acquisition_mask", acquisition_mask);
+    autoport_proof::publish("ao_probe_wind_on_acquisition_missing", missing_acquisitions);
+    autoport_proof::publish("ao_static_term_missing_acquisitions", missing_acquisitions);
+    autoport_proof::publish("ao_static_term_scene_anchor", anchors);
+    autoport_proof::publish("ao_static_term_pair_gap", ao_static_probe::pair_gap_defects);
+    autoport_proof::publish("ao_static_term_nondeterminism", nondeterminism);
+    autoport_proof::publish("ao_static_term_premise", premise);
+    autoport_proof::publish("ao_static_term_final_variation", static_moved);
+    autoport_proof::publish("ao_static_term_estimator_variation", estimator_delta);
+    autoport_proof::publish("ao_static_term_high_not_fullres", t7);
+    autoport_proof::publish("ao_static_term_pattern_over_ceiling", t2);
+    autoport_proof::publish("ao_static_term_on_alpha_device", t4);
+    autoport_proof::publish("ao_static_term_direct_leak", t1);
+    autoport_proof::publish("ao_static_term_contact_band", t6);
+    autoport_proof::publish("ao_static_defects", nondeterminism + premise + static_moved + estimator_delta + anchors + ao_static_probe::pair_gap_defects + missing_acquisitions + t7 + t2 + t4 + t1 + t6);
+  }
 }
 
 bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
@@ -1714,6 +1916,16 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                     int depth_w,
                                     int depth_h) {
   gl_query_census::Armed _ap("ao-estimate");
+  ++s_exact_frame;
+  s_exact_input_hash = 0;
+  s_exact_estimator_valid = false;
+  if (exact_static_probe() && s_pattern_census_request) {
+    for (int c = 0; c < 4; ++c)
+      for (int r = 0; r < 4; ++r) s_exact_camera[c * 4 + r] = rs->camera_matrix[c][r];
+    for (int i = 0; i < 4; ++i) s_exact_camera[16 + i] = rs->camera_hvdf_off[i];
+    s_exact_camera[20] = rs->camera_fog.x();
+    for (int i = 0; i < 4; ++i) s_exact_camera[21 + i] = rs->camera_pos[i];
+  }
   // lighting-ao-indirect : le recensement `ao_flatstep_*` a besoin de CETTE profondeur-la,
   // celle que l'estimateur vient de lire. On la range ici et nulle part ailleurs.
   s_census_depth_tex = depth_tex;
@@ -2053,6 +2265,9 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     note_target(m_ao_fbo[0]);
   }
   ao_glerr("estimate");
+  if (exact_static_probe() && s_pattern_census_request && dbg != 2) {
+    capture_estimator(m_ao_fbo[0], ao_w, ao_h);
+  }
 
   // (8) Bilateral blur: pass H at AO res (tex0 raw -> tex1), pass V at FULL res
   // (tex1 -> m_ao_full_tex). The full-res V pass doubles as a depth-aware upsample

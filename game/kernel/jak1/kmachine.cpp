@@ -39,6 +39,7 @@
 #include "game/graphics/fire_red_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "game/graphics/opengl_renderer/ao_static_probe.h"
 #include "game/system/menu_dpad_census.h"
 #include "game/system/mesh_browser_census.h"
 #include "game/system/recharged_gating.h"
@@ -6141,12 +6142,21 @@ static u64 level_warp_run() {
   // consomme un nombre variable de tirages.
   pad_replay::reseed_now(0x0AD12345u);
   refset::note_anchor();
+  if (autoport_proof::feature_is("ao-static-probe-deterministic")) {
+    const uint64_t executions = ++ao_static_probe::anchor_executions;
+    const std::string key = "ao_probe_warp_executed_tick_" + std::to_string(executions - 1);
+    autoport_proof::publish(key.c_str(), refset::current_logic_frame());
+    autoport_proof::publish("ao_probe_warp_executions", executions);
+  }
   return tgt;
 }
 
 void level_warp_maybe() {
   static bool s_done = false;
-  if (s_done) {
+  const bool static_probe = autoport_proof::feature_is("ao-static-probe-deterministic");
+  static int probe_warps = 0;
+  if (static_probe && probe_warps >= 2) return;
+  if (s_done && !static_probe) {
     return;
   }
   if (!level_warp_requested()) {
@@ -6175,7 +6185,34 @@ void level_warp_maybe() {
   // l'eclairage n'avait bouge. Ancrer le teleport sur le COMPTEUR DE FRAMES DE LOGIQUE le rend
   // identique d'une course a l'autre : le compteur avance d'une unite par image SIMULEE, il ne
   // depend ni de la cadence ni du disque.
-  if (refset::enabled()) {
+  if (static_probe) {
+    // Reuse the game's teleport after loading: camera collision settling must start
+    // against a resident world. Both rendezvous use game ticks, including --off.
+    const int64_t lf = refset::current_logic_frame();
+    const int64_t due = 300 + 600 * probe_warps;
+    if (lf < due) return;
+    const int slot = probe_warps++;
+    bool resident = true;
+    if (slot == 1) {
+      const u32 group = intern_from_c("*level*")->value;
+      const u32 close_fn = intern_from_c("close-specific-task!")->value;
+      resident = group != 0 && group != (u32)s7.offset && close_fn != 0 &&
+                 close_fn != (u32)s7.offset;
+      if (resident) {
+        Ptr<Type> type(*Ptr<u32>(group - 4));
+        resident = call_method_of_type_arg2(group, type, 25,
+                                            intern_from_c("village1").offset, 0) ==
+                   (u64)intern_from_c("active").offset;
+      }
+    }
+    autoport_proof::publish(("ao_probe_warp_requested_tick_" + std::to_string(slot)).c_str(), lf);
+    autoport_proof::publish("ao_probe_rewarp_resident", resident);
+    if (lf != due || !resident) {
+      ++ao_static_probe::anchor_defects;
+      autoport_proof::publish("ao_probe_warp_missed", 1);
+      return;  // A missed scene anchor is never moved to a more convenient tick.
+    }
+  } else if (refset::enabled()) {
     const int64_t lf = refset::current_logic_frame();
     if (lf < 0 || lf < refset::warp_at_frame()) {
       return;

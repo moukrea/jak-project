@@ -841,7 +841,7 @@ void Shrub::render_tree(int idx,
       const GLuint prog = render_state->shaders[ShaderId::SHRUB].id();
       const GLint on_loc = glu::loc(prog, "u_shrub_native_on");
       const GLint tex_loc = glu::loc(prog, "tex_T18");
-      const bool on = tree.wind_active && tree.wind_seeded;
+      const bool on = tree.wind_active && tree.wind_seeded && !prepass::static_probe_wind_disabled();
       const bool contact_on = foliage_wind::enabled() && tree.contact_active;
       const GLint contact_loc = glu::loc(prog, "u_shrub_contact_on");
       glUniform1i(contact_loc, contact_on ? 1 : 0);

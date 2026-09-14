@@ -41,6 +41,9 @@ class AmbientOcclusionPass;
 class ShaderLibrary;
 
 namespace prepass {
+// Measurement phases only: both native and added foliage motion share this switch.
+bool static_probe_wind_disabled();
+int64_t static_probe_logic_frame();
 
 // Un renderer du decor qui sait redessiner sa geometrie OPAQUE STATIQUE en profondeur seule.
 // S'enregistre a la construction, se retire a la destruction : les hotes (TFragment, Tie3,

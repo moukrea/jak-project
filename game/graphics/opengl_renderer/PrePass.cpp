@@ -12,6 +12,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
+#include "game/graphics/opengl_renderer/ao_static_probe.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -33,6 +34,11 @@ namespace {
 
 constexpr const char* kItemId = "lighting-ao-indirect";
 AUTOPORT_FEATURE_SITE(kItemId);
+AUTOPORT_FEATURE_SITE(ao_static_probe::kItem);
+ao_static_probe::Run g_static_probe;
+uint32_t g_static_acquisition_mask = 0;
+bool g_static_acquisition_alpha_ok = false;
+bool g_static_acquisition_witness_ok = false;
 // Une image sondee sur N sous mesure : la relecture couleur + stencil pleine resolution coute
 // une synchronisation GPU, on ne la paie pas a chaque image.
 constexpr uint64_t kProbeEvery = 30;  // 12 etats de recensement a couvrir (etait 60 pour 3)
@@ -1046,7 +1052,9 @@ void publish_all() {
   // nulle) ; bit 1 : l'ecart de prepasse sous vent est mesure ; bit 2 : l'alpha a ete mesure
   // SUR L'APPAREIL. Sur bureau le bit 2 reste a 0 : le contrat exige cette mesure sur
   // l'appareil, et un terme non mesure compte pour un defaut, jamais pour un zero.
-  int mask = 0;
+  // Bits 8..13 carry completed live-wind acquisitions to the AO verdict;
+  // bits 0..2 retain the existing prepass-term coverage contract.
+  int mask = (int)(g_static_acquisition_mask << 8);
   if (g_probe_px > 0) {
     mask |= 1;
   }
@@ -1094,6 +1102,15 @@ void set_output_hint(int w, int h) {
 
 void frame_begin(SharedRenderState* /*rs*/) {
   g_frame++;
+  g_static_acquisition_alpha_ok = false;
+  g_static_acquisition_witness_ok = false;
+  g_static_probe.begin(g_frame);
+  if (ao_static_probe::active()) {
+    AmbientOcclusionPass::set_static_probe_verdict(g_static_probe.differences,
+                                                  g_static_probe.samples,
+                                                  g_static_probe.compared);
+    AmbientOcclusionPass::publish_pattern_census();
+  }
   // lighting-ao-indirect, verdict (f) : la campagne de cout avance ICI, au debut de l'image,
   // avant que quoi que ce soit d'autre ne lise le mode ou le palier d'AO. Elle mesure un ECART
   // debut-d'image a debut-d'image ; une image SONDEE porte deux relectures et une passe de
@@ -1110,9 +1127,21 @@ void frame_begin(SharedRenderState* /*rs*/) {
   // La phase 0 redimensionne la chaine d'AO vers le palier de l'etat : la phase 1 la trouve
   // donc DEJA chaude, et la paire jugee (1, 2) ne porte aucun effet de premiere image.
   g_probe_pair_phase = (probe_base && probe_slot <= 2) ? (int)probe_slot : -1;
+  if (ao_static_probe::requested()) {
+    g_probe_pair_phase = g_static_probe.phase <= 2 ? g_static_probe.phase : -1;
+    g_probe_frame = g_static_probe.phase == 3;
+  }
   if (g_probe_frame) {
     g_probe_seq++;
   }
+}
+
+bool static_probe_wind_disabled() {
+  return ao_static_probe::active() && g_static_probe.phase >= 0 && g_static_probe.phase <= 2;
+}
+
+int64_t static_probe_logic_frame() {
+  return ao_static_probe::requested() ? ao_static_probe::logic_frame() : -1;
 }
 
 // ── LES PLAGES DE LA PREPASSE ─────────────────────────────────────────────────────────────────
@@ -1290,7 +1319,12 @@ void sway_shrub(uint64_t frame_idx, unsigned wind_tex, bool native_on, bool cont
   foliage_wind::push_uniforms(id, frame_idx, "prepass-shrub");
   // Shrub.cpp:793-831, mot pour mot : le ressort natif de ND (ligne 0 de tex_T18) et l'ancre de
   // contact (ligne 1) vivent dans la MEME texture, par arbre — d'ou l'appel PAR ARBRE.
-  glUniform1i(glu::loc(id, "u_shrub_native_on"), native_on ? 1 : 0);
+  const bool static_wind_off = static_probe_wind_disabled();
+  glUniform1i(glu::loc(id, "u_shrub_native_on"), native_on && !static_wind_off ? 1 : 0);
+  if (static_wind_off) {
+    static uint64_t disabled_draws = 0;
+    autoport_proof::publish("ao_probe_native_wind_off_draws", ++disabled_draws);
+  }
   glUniform1i(glu::loc(id, "u_shrub_contact_on"), contact_on ? 1 : 0);
   if (contact_on) {
     grass_occ::push_contact_uniforms(id, true);
@@ -1509,8 +1543,17 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
                                      &fringe, &levels);
   g_last_indices = total;
   g_last_levels = levels;
+  if (ao_static_probe::active() && g_static_probe.phase == 3) {
+    g_static_acquisition_alpha_ok = g_class_state == 1 && cover > 0;
+  }
   if (g_probe_frame) {
     g_alpha_frames++;
+    if (ao_static_probe::active()) {
+      autoport_proof::publish("ao_probe_wind_on_acquisition_frames", g_alpha_frames);
+      const std::string key = "ao_probe_wind_on_acquisition_tick_" +
+                              std::to_string(g_static_probe.state);
+      autoport_proof::publish(key.c_str(), ao_static_probe::logic_frame());
+    }
     g_on_alpha_px += on;
     g_alpha_cover_px += cover;
     g_alpha_fringe_px += fringe;
@@ -1541,7 +1584,7 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME scene.
   //   etat = legacy*6 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO
   if (g_probe_pair_phase >= 0) {
-    const int st = (int)(g_probe_seq % 12);
+    const int st = ao_static_probe::active() ? g_static_probe.state : (int)(g_probe_seq % 12);
     AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, st / 6);
     AmbientOcclusionPass::set_census_pair_phase(g_probe_pair_phase);
     AmbientOcclusionPass::request_pattern_census(true);
@@ -1554,6 +1597,15 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // restaure elle-meme tout ce qu'elle touche ; le FBO de rendu est deja re-lie — et il DOIT
   // l'etre, parce que `ao_draws_on_scene` compare ses cibles au FBO qu'elle trouve en entrant.
   g_ao_valid = (total > 0) && g_ao.estimate(rs, g_depth_tex, w, h);
+  if (ao_static_probe::active() && g_probe_pair_phase >= 0 && g_ao_valid) {
+    g_static_probe.record(AmbientOcclusionPass::static_probe_input_hash());
+    AmbientOcclusionPass::set_static_probe_verdict(g_static_probe.differences,
+                                                  g_static_probe.samples,
+                                                  g_static_probe.compared);
+    autoport_proof::publish("ao_probe_wind_disabled",
+                            static_probe_wind_disabled() && !foliage_wind::enabled());
+    AmbientOcclusionPass::publish_pattern_census();
+  }
 
   // ELLES TOURNENT MAINTENANT SUR L'APPAREIL AUSSI (essai 9) : `read_prepass_depth` passe par
   // `export_depth`, et le terme 3 cesse d'y valoir « non-mesure », c'est-a-dire un defaut nomme.
@@ -1586,6 +1638,9 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   if (g_probe_frame) {
     uint64_t won = 0, wcover = 0, wfringe = 0;
     run_prepass(rs, cam, w, h, /*armed=*/false, true, &won, &wcover, &wfringe, nullptr);
+    if (ao_static_probe::active() && g_static_probe.phase == 3) {
+      g_static_acquisition_witness_ok = g_class_state == 1 && wcover > 0 && won > 0;
+    }
     // (terme 3) On fige la profondeur de CE bras : meme dessin, meme deplacement de sommet,
     // SEULE la decoupe d'alpha change. Une seule variable separe les deux instantanes.
     if (g_geom_frame) {
@@ -2028,6 +2083,14 @@ void proof_post_opaque(SharedRenderState* rs) {
   // Le format couleur effectivement blitte, et le fait que la sonde a tourne ICI. Un lecteur qui
   // voit `ao_probe_unsupported=1` doit pouvoir dire si c'est le FBO ou le format qui a refuse.
   autoport_proof::publish("ao_probe_color_fmt", (uint64_t)g_probe_fmt);
+  // Commit coverage only after the color/direct readback above succeeded and
+  // both alpha-classification readbacks in this same phase had nonempty populations.
+  if (ao_static_probe::active() && g_static_probe.phase == 3 &&
+      g_static_probe.state >= 0 && g_static_probe.state < 6 && marked > 0 &&
+      g_static_acquisition_alpha_ok && g_static_acquisition_witness_ok &&
+      foliage_wind::enabled()) {
+    g_static_acquisition_mask |= 1u << g_static_probe.state;
+  }
   publish_all();
   clear_stencil();
 }
