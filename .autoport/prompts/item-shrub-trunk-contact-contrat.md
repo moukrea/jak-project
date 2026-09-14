@@ -20,6 +20,8 @@ PREUVE : `FEATURE shrub-trunk-contact armed=1 hits=<sommets de shrub classes>` +
 
 Ne change pas la loi de contact de l'herbe ni le vent. Tout ce qui n'est pas cet item.
 
+Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : instrumenter les deplacements reels tronc/feuillage et les paires de jonction ; Geyser Rock / training-warp, trois courses maximum au TOTAL de 130 s chacune, reference anterieure justifiee, ON corrige et OFF corrige. Preparer le parcours comparable et les instruments avant les courses ; conserver feuillage mobile, populations non vides, vent/herbe et OFF bit-identique. Les compteurs de pivots ne remplacent pas ces mesures. Aucune validation owner.
+
 ## Ou l'owner regardera
 
 Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tronc reste droit, rien ne se detache.
@@ -29,9 +31,11 @@ Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tron
 ### 2026-09-13
 > je sais pas pour qu'elle raison les mini palmiers... Les feuilles bougent quand on collisionne avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
 
+### 2026-09-14
+> bah oui faut que ça avance
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
 iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est
 plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.
-

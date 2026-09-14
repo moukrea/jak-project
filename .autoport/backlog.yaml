@@ -11125,7 +11125,7 @@ items:
   prompt: prompts/item-soft-levels.md
   owner_feedback: []
   owner_ok: null
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11160,7 +11160,10 @@ items:
     PREUVE : `FEATURE shrub-trunk-contact armed=1 hits=<sommets de shrub classes>` + la ligne `shrub_trunk_squash_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
   where: 'Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s''ecartent, le tronc reste droit,
     rien ne se detache.'
-  out_of_scope: Ne change pas la loi de contact de l'herbe ni le vent. Tout ce qui n'est pas cet item.
+  out_of_scope: |-
+    Ne change pas la loi de contact de l'herbe ni le vent. Tout ce qui n'est pas cet item.
+
+    Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : instrumenter les deplacements reels tronc/feuillage et les paires de jonction ; Geyser Rock / training-warp, trois courses maximum au TOTAL de 130 s chacune, reference anterieure justifiee, ON corrige et OFF corrige. Preparer le parcours comparable et les instruments avant les courses ; conserver feuillage mobile, populations non vides, vent/herbe et OFF bit-identique. Les compteurs de pivots ne remplacent pas ces mesures. Aucune validation owner.
   notes: 'Ne du retour owner du 13/09 sur le build 602cd72eb7. Meme chunk GLSL que l''herbe : vegetation_contact.glsl.'
   hits_means: sommets de shrub classes
   prompt: prompts/item-shrub-trunk-contact.md
@@ -11169,14 +11172,20 @@ items:
     text: je sais pas pour qu'elle raison les mini palmiers... Les feuilles bougent quand on collisionne
       avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile
       (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
+  - date: '2026-09-14'
+    text: bah oui faut que ça avance
   owner_ok: null
-  block_reason: 'Arbitrage owner requis : mesures reelles de deplacement et jonctions absentes ; DIRECTIVES
-    interdit instrument neuf hors campagne autorisee. Essai 3 refuse sur shrub_trunk_squash_defects absent.
-    Correction supplementaire 3ab119cff3 sauvegardee ; essai 4 interrompu sans retry. Ne pas repeter ON/OFF
-    sans mesurer le contrat.'
-  supervisor_recovery: false
-  proof_plan_pending:
-    owner_authorized: false
+  block_reason: null
+  supervisor_recovery: true
+  proof_plan_pending: null
+  supervisor_observation:
+    date: 2026-09-14 21:28 CEST
+    diagnostic: 'Essai 3 : deux courses 130 s, 7500/7740 images sans crash et classes identiques ; seulement
+      classes et ancres mesurees. Nouveau correctif 3ab119cff3 ne fournit toujours pas deplacement/jonction
+      ; repetition de preuve arretee avant depense inutile. Essai 4 sauvegarde c8267776f7, non compte.
+      Contrat et gate inchanges.'
+  proof_plan:
+    owner_authorized: true
     date: '2026-09-14'
     max_runs: 3
     max_timeout_s_per_run: 130
@@ -11186,19 +11195,18 @@ items:
     - reference du comportement anterieur (revision justifiee par audit, pas un temoin choisi pour reussir)
     - etat corrige ON
     - etat corrige OFF
-    scope: Autorisation proposee d instrumenter les deplacements reels des sommets tronc/feuilles et des
-      paires de jonction, populations non vides, feuillage mobile, classes depuis donnees ; conserver
-      les criteres vent/herbe et OFF bit-identique. Instrumenter dans le chemin moteur execute, sans substituer
-      compteurs de pivots ou simple examen des sources. Code et preuve confies au worker, proof_run et
-      generic inchanges.
+    scope: Autorisation d instrumenter les deplacements reels des sommets tronc/feuilles et des paires
+      de jonction, populations non vides, feuillage mobile, classes depuis donnees ; conserver les criteres
+      vent/herbe et OFF bit-identique. Instrumenter dans le chemin moteur execute, sans substituer compteurs
+      de pivots ou simple examen des sources. Code et preuve confies au worker, proof_run et generic inchanges.
     stop: Si le temoin ou le parcours comparable manque, ne pas lancer de bras inutile ; rapport non prouve
-      sans cycle supplementaire. Aucun verdict ni autorisation acquis par ce champ.
-  supervisor_observation:
-    date: 2026-09-14 21:28 CEST
-    diagnostic: 'Essai 3 : deux courses 130 s, 7500/7740 images sans crash et classes identiques ; seulement
-      classes et ancres mesurees. Nouveau correctif 3ab119cff3 ne fournit toujours pas deplacement/jonction
-      ; repetition de preuve arretee avant depense inutile. Essai 4 sauvegarde c8267776f7, non compte.
-      Contrat et gate inchanges.'
+      sans cycle supplementaire. Aucun verdict owner acquis par ce champ.
+    status: authorized
+    owner_quote: bah oui faut que ça avance
+    authorization_kind: mesures supplementaires, pas validation de correction
+    budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
+      consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
+      ne pas reinitialiser le budget a chaque retry.
 - status: validated
   game: jak1
   owner_test: false
@@ -11684,7 +11692,7 @@ items:
     action: Consigne et contrat regeneres. Refus herite ajoute au rapport et aux FINDINGS, rattache a
       harness-suite-temporary-files-outside-quota. Reouverture sans validation, sans reset des essais,
       sans relance manuelle. Reprendre depuis le handoff et laisser les portes juger les artefacts reels.
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11734,32 +11742,36 @@ items:
     chaque mode (SSAO, HBAO, GTAO), force au maximum. Aucun damier ni pixelisation, meme en Eleve ; aucune
     bande claire aux contacts ; sur les shrubs qui balancent, l''ombre suit le feuillage et rien ne flotte
     hors des textures ; camera immobile, rien ne bouge.'
-  out_of_scope: 'Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni
-    les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est
-    autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde
-    et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante.
-    Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde
-    reste hors perimetre.'
+  out_of_scope: |-
+    Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante. Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde reste hors perimetre.
+
+    Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
   notes: SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est
     ici que l'owner juge l'AO.
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
-  owner_feedback: []
+  owner_feedback:
+  - date: '2026-09-14'
+    text: bah oui faut que ça avance
   owner_ok: null
-  supervisor_recovery: false
+  supervisor_recovery: true
   supervisor_clarification:
     date: '2026-09-14'
     cause: 'FINDINGS : ao_static_probe::requested ne reconnait que son propre item ; la clause ao_static_defects
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: 'Arbitrage owner requis : plan borne sur trois vues et comparaisons ON/OFF pour couvrir
-    le contrat ; pas de campagne autorisee inscrite. Sur village1-hut, zero trou apres correction du seul
-    alpha de mesure ; deux autres vues et identite couleur non mesurees. Essai 4 annule sans etre compte
-    ; ne pas relancer le meme ON.'
-  proof_plan_pending:
-    status: awaiting-owner
-    owner_authorized: false
+  block_reason: null
+  proof_plan_pending: null
+  supervisor_observation:
+    date: '2026-09-14'
+    finding: Les essais 1, 2 et 3 refusent tous l absence de ao_tie_prepass_defects ; les clauses manquantes
+      demandent un arbitrage de preuve, pas un ON identique supplementaire.
+    action: Essai 4 annule par scope_stamp (non compte), item bloque avant reprise externe. Causalite
+      rectifiee sans supprimer les exigences de resultat. Les autres items restent eligibles.
+  proof_plan:
+    status: authorized
+    owner_authorized: true
     mode: bounded-three-view-on-off
     vantages:
     - village1-hut
@@ -11778,14 +11790,12 @@ items:
       du plan.
     - 'Publier tous les termes : aucune clause ni zero sur population vide ne disparait.'
     - Aucune course supplementaire sans nouvel arbitrage ; ne pas reutiliser une reference consommee.
-    question: Autorises-tu cette verification bornee sur trois vues, avec comparaisons ON/OFF, pour terminer
-      le controle AO ?
-  supervisor_observation:
     date: '2026-09-14'
-    finding: Les essais 1, 2 et 3 refusent tous l absence de ao_tie_prepass_defects ; les clauses manquantes
-      demandent un arbitrage de preuve, pas un ON identique supplementaire.
-    action: Essai 4 annule par scope_stamp (non compte), item bloque avant reprise externe. Causalite
-      rectifiee sans supprimer les exigences de resultat. Les autres items restent eligibles.
+    owner_quote: bah oui faut que ça avance
+    authorization_kind: mesures supplementaires, pas validation de correction
+    budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
+      consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
+      ne pas reinitialiser le budget a chaque retry.
 - status: open
   game: jak1
   device: false
