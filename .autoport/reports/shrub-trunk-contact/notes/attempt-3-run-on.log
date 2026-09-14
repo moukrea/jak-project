@@ -1,0 +1,29 @@
+[proof_run shrub-trunk-contact] verrou d'ecriture pris (.autoport/reports/shrub-trunk-contact/proof-writer.lock) : pid=626542 lanceur=626541 essai=shrub-trunk-contact@3#1789412822 course=20260914T191353Z-626542-f8d903d6
+[proof_run shrub-trunk-contact] PEREMPTION VUE AVANT LA COURSE (code 5) : la preuve qui etait la datait d'avant une edition.
+[proof_run shrub-trunk-contact]   [stale_precheck shrub-trunk-contact] PEREMPTION VUE AVANT LA COURSE : 4 fichier(s) plus recent(s) que .autoport/reports/shrub-trunk-contact/proof.txt.
+[proof_run shrub-trunk-contact]     source(s) MOTEUR     : game/graphics/opengl_renderer/background/Shrub.cpp,game/graphics/opengl_renderer/background/foliage_wind.cpp,game/graphics/opengl_renderer/loader/LoaderStages.cpp,game/system/autoport_proof.cpp
+[proof_run shrub-trunk-contact]     C'est le constat que validators/generic.sh rendrait a la fin de l'essai. La course
+[proof_run shrub-trunk-contact]     qui demarre le repare ; si elle n'aboutit pas, l'essai mourra la-dessus.
+[proof_run shrub-trunk-contact] garde de build : decision=passe demon_gradle=1 apk_age=163s attendu=0s
+[proof_run shrub-trunk-contact] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run shrub-trunk-contact] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire shrub-trunk-contact] ECART : le telephone porte 78c1958c7701426c2927afc9b25bef31, le build local 650b35f52d80af3411d71d91caad4254
+[garde-binaire shrub-trunk-contact] verrou pose (pid=627227) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire shrub-trunk-contact] LIVRE : 650b35f52d80af3411d71d91caad4254 sur eae4df44 ; la course peut mesurer
+[proof_run shrub-trunk-contact] garde binaire : decision=deploye local=650b35f52d80af3411d71d91caad4254 appareil=650b35f52d80af3411d71d91caad4254 (code 0)
+[proof_run shrub-trunk-contact] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run shrub-trunk-contact] ecran : mWakefulness=Awake
+[proof_run shrub-trunk-contact] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run shrub-trunk-contact] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run shrub-trunk-contact] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 43897 o, sha=43422247fde86b9c ; filet proof-prev ecrit : 1)
+[proof_run shrub-trunk-contact] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 120s (armed=1)
+[proof_run shrub-trunk-contact] contexte de course : verdict=sans-objet images=7500 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'shrub-trunk-contact' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.foliage.force etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'training-warp' -> vide
+[teardown] eae4df44: 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], 4 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run shrub-trunk-contact] teardown de fin : 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], publie sous 'proof-teardown-fin.txt'
+[proof_run shrub-trunk-contact] ecrit .autoport/reports/shrub-trunk-contact/proof.txt (frames=7500 crash=0 duree=130s) ; sortie moteur : .autoport/reports/shrub-trunk-contact/proof-engine.log

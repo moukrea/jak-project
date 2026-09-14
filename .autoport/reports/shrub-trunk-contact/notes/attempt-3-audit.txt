@@ -1,0 +1,17 @@
+DIRECTIVES vab39193976
+Audit statique essai 3 ; aucune mesure de deplacement GPU.
+Le recensement canonique reutilise trunk_census_note et sa deduplication par niveau.
+Le collecteur utilise SHRUB et TIE geometrie 0 ; les prises groupes/LOD sont retirees.
+Le pivot ymin annule uniquement le deplacement sur y=ymin (shrub.vert:87-89, tie_sway.glsl:76-78).
+Le predicat supports compare bornes/centroides/rayons, sans paires de sommets coincidents.
+Il peut accepter B.ymin au-dessus de A.ymax, jusqu a 0,25 de la hauteur du porteur.
+Les SwayInstance conservees ne decrivent pas les paires de sommets de jonction.
+Les positions et associations existent avant liberation ; leur exploitation demanderait un chemin de donnees de contact supplementaire.
+La hauteur anchor.y sert aussi a selectionner les contacts dans vegetation_contact.glsl:40-41.
+Aucun instrument existant de deplacement de ces sommets trouve par audit researcher.
+Le probe ao_tie_alpha_probe lit profondeur/alpha/identite draw, pas les positions de sommets.
+Aucune nouvelle instrumentation creee ; aucune campagne de binaire temoin autorisee.
+Comparaison des sources suivantes au HEAD initial 675d861e26 (ceci ne prouve PAS une invariance dynamique) :
+game/graphics/opengl_renderer/shaders/vegetation_contact.glsl sha256=9c4d0ffa44256b0a4be2d9840e2a9c435185d2e62a38500079c4244210476e3f identical_initial_HEAD=1
+game/graphics/opengl_renderer/shaders/tie_sway.glsl sha256=1122a7c8b94c12a90d3289363c0f2af47b56a2934ad98b58d03334fcf4948f00 identical_initial_HEAD=1
+game/graphics/opengl_renderer/shaders/shrub.vert sha256=98459e488235a5c71949120e3171313e81063d9cda9ec7fdacb4cd2b9ac73d39 identical_initial_HEAD=1

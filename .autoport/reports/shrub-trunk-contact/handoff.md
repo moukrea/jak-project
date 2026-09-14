@@ -1,20 +1,26 @@
 ## ÉTABLI
 DIRECTIVES vab39193976
-Commit 862796af95 ; build Android incremental reussi en 29 s (notes/build-android.log).
-Deux courses proof_run device neuves : USB eae4df44, sha=8e0d8388660b1ccd.
-ON : 7320 images, crash=0 ; OFF : 7740 images, crash=0 ; proofs et seals conserves.
-Training : 32 troncs/1792 sommets et 32 frondaisons/2816 sommets ; 17 lignes classes identiques entre bras.
-Ancres tronc ON=0, OFF=276 ; feuillage=1316 dans les deux bras ; OFF armed=0 hits=0.
-Proprietes epinglees dans l'item et relues : training-warp, foliage.force=1.
+Essai 3, commit 84838709ae ; build Android incremental rc=0 en 11 s.
+FEATURE ON=own_hits=173329, somme canonique de 17 lignes : tronc 3864 + feuillage 169465.
+Deux courses USB eae4df44 neuves, chacune 130 s ; sha=5288bc8bc7e7f2fb, MD5=650b35f52d80af3411d71d91caad4254.
+ON : 7500 images, crash=0 ; OFF : 7740 images, crash=0, armed=0 hits=own_hits=0.
+Classes identiques entre bras ; training : 32 troncs/1792 sommets, 32 frondaisons/2816 sommets.
+Ancres tronc ON=0 OFF=276 ; feuillage=1316 des deux cotes ; aucune mesure de deplacement.
+Proprietes relues deux bras : training-warp, foliage.force=1. Preuves et seals produits par proof_run.
 ## TENTÉ
-Relations portees completees apres promotion ; carried LOD recalcule geometriquement, matrices non stables entre LOD.
-Pivot TIE porte=ymin en ON ; base_y intact pour vent et OFF ; ratios/classes publies par niveau/prototype.
-Ancien squash_defects retire : sa somme n'etait que diagnostic d'ancres/pivots, renommee anchor_defects.
-Aucun instrument existant de deplacement contact trouve ; ancres non nulles ne prouvent pas mouvement.
-Deux bras courts uniquement, aucun nouveau harnais ni binaire temoin ; generic.sh laisse a l'orchestrateur.
+Prises groupes/LOD retirees ; comptage deplace dans trunk_census_note apres deduplication du niveau.
+APK annonce BUILD SUCCESSFUL in 7s, mais client bloque monitorBuild / daemon ForwardClientInput.
+APK stable et lib byte-identique ; TERM seul client PID 621155 a 104 s, session rc=143 ; verrous nettoyes.
+Audit statique : ymin fixe seulement un plan ; supports accepte meme une separation verticale.
+Positions disponibles avant liberation, mais SwayInstance ne conserve aucune paire de sommets de jonction.
+Changer encore anchor.y seul deplace aussi la fenetre de contact ; il faudrait separer excitation et deformation.
+Aucun instrument existant de deplacement trouve ; squash_defects toujours absent, wind_contact_defects=999999.
+Aucun nouveau harnais, aucun temoin additionnel, generic.sh laisse a l orchestrateur.
 ## RESTE
-Le contrat demande des deplacements reels et jonctions partagees/coincidentes ; le pivot ymin ne les identifie pas.
-Determiner une preuve autorisee de ces grandeurs avant de republier shrub_trunk_squash_defects ; pas de retour au faux vert.
+Arbitrage necessaire : le contrat exige mesures de deplacements/jonctions et temoin OFF, les DIRECTIVES interdisent instrument neuf/campagne.
+Ne pas repeter une paire identique avant cet arbitrage ; les classes et le comptage sont maintenant verifies.
+Une correction exacte des jonctions demande exploitation des positions au chargement et metadonnees de contact cote game.
+Prouver deplacements tronc=0, jonction=0, feuillage>0 avant de publier shrub_trunk_squash_defects.
 OFF bit-identique au temoin anterieur, invariance dynamique vent/herbe et autres niveaux restent non prouves.
-FEATURE global et own_hits par groupes/LOD ne sont pas le compte canonique de sommets classes (FINDINGS.txt).
-Examiner tous les signalements ; ne pas reutiliser ces preuves comme un futur essai.
+Examiner les 13 FINDINGS, dont excitation/pivot, portage heuristique, build et ancien commentaire de jonction.
+Ne pas reutiliser les preuves de cet essai pour le suivant ; notes/attempt-3-* conservent les details.

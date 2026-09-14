@@ -1,0 +1,15 @@
+DIRECTIVES vab39193976
+Verification en lecture seule des deux preuves neuves, jamais modification de proof.txt.
+essai=shrub-trunk-contact@3#1789412822
+ON run=20260914T191353Z-626542-f8d903d6 started=2026-09-14T19:14:16Z frames=7500 crash=0
+OFF run=20260914T191639Z-631138-2031a5b1 started=2026-09-14T19:16:40Z frames=7740 crash=0
+serial=eae4df44 sha=5288bc8bc7e7f2fb md5_local_et_USB=650b35f52d80af3411d71d91caad4254
+FEATURE shrub-trunk-contact armed=1 hits=173329
+FEATURE shrub-trunk-contact armed=0 hits=0
+classes_identiques=17 somme_verts_ON_OFF=173329 own_hits_ON=173329 own_hits_OFF=0
+ancres_tronc_ON=0 OFF=276
+ancres_feuillage_ON=1316 OFF=1316
+proprietes_relues_deux_bras=training-warp,foliage.force=1
+wind_contact_defects_ON=999999 OFF=999999
+shrub_trunk_squash_defects absent dans les deux bras : aucun verdict de deplacement fabrique.
+Toutes les assertions de coherence ci-dessus passent ; elles ne mesurent pas les deplacements GPU.
