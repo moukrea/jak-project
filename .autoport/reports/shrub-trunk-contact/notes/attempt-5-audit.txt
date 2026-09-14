@@ -1,0 +1,24 @@
+DIRECTIVES vab39193976
+Essai 5 — audit preparatoire, aucune nouvelle preuve de deplacement.
+head_initial=4e3de4fe9c028b6f525543fb869fe81382309247
+reference_file=.autoport/reports/shrub-trunk-contact/notes/reference-602cd72eb7/libgk.so
+reference_sha256=00394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce
+reference_md5=527349ad519e29e08a73db2d92720e25
+.autoport/reports/water-ocean-mesh-hit-counter-cost/proof.txt: sha=00394d052f487f05
+.autoport/reports/water-ocean-mesh-hit-counter-cost/proof.txt: proof_head_at_start=602cd72eb7857fdf8059fd1f29265c31447bdb07
+.autoport/reports/water-ocean-mesh-hit-counter-cost/proof.txt: local_lib_md5=527349ad519e29e08a73db2d92720e25
+.autoport/reports/water-ocean-mesh-hit-counter-cost/proof.txt: device_lib_md5=527349ad519e29e08a73db2d92720e25
+course_historique=2026-09-14T19:02:23+00:00 1789412543	shrub-trunk-contact	livre	device	0	1	amorcage-appareil	0	43897	600034
+course_historique=2026-09-14T19:04:43+00:00 1789412683	shrub-trunk-contact	-off	device	0	1	amorcage-appareil	0	43460	605914
+course_historique=2026-09-14T19:16:27+00:00 1789413387	shrub-trunk-contact	livre	device	0	1	amorcage-appareil	43897	44036	626542
+course_historique=2026-09-14T19:18:52+00:00 1789413532	shrub-trunk-contact	-off	device	0	1	amorcage-appareil	43460	43477	631138
+autorisation=fc71d41e3c 2026-09-14T22:45:27+02:00 [autoport/supervisor] autorise les plans AO et mini-palmiers selon accord owner
+proof-engine.log: 09-14 21:14:21.504 I/opengoal-gk( 7891): pad_replay: init_from_env -> mode=0
+proof-engine.log: dernier target-pos f=7530 *target* 0x1c7714 =(-5384290.5 28157.5 4362787.5) master-mode=game
+proof-off-engine.log: 09-14 21:16:45.726 I/opengoal-gk( 9008): pad_replay: init_from_env -> mode=0
+proof-off-engine.log: dernier target-pos f=7785 *target* 0x1c7714 =(-5384531.5 28201.1 4363570.5) master-mode=game
+budget_campagne_consomme=0/3; trois courses restantes, aucune course essai5.
+USB selectionne par bash .autoport/lib/pick_device.sh : eae4df44.
+Stop proof_plan : aucun parcours de contact comparable prepare ; ancien binaire sans instrument de deplacement.
+Ne pas confondre releves CPU geometrie finale et deplacements GPU.
+Incident preparation implementer : cat: write error: Disk quota exceeded (/tmp/final_contact_geometry.txt) ; usage subsequent du workspace, aucune perte code.

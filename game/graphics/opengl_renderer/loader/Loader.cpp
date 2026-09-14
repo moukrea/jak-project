@@ -830,6 +830,13 @@ void Loader::loader_thread() {
         }
       }
 
+#if !AUTOPORT_ORIGIN_ABLATE
+      {
+        auto p = scoped_prof("foliage-contact-final-geometry");
+        foliage_wind::finalize_contact_geometry(*result);
+      }
+#endif
+
       // lighting-legacy-purge (2026-09-11) : la PRE-SUBDIVISION de maillage est SUPPRIMEE. Elle
       // n'etait atteignable que sous DISPLACEMENT = 2 (TESSELLATION) — `want` exigeait ce mode — et
       // ce mode n'a jamais ete livre : il disparait avec cet item, comme les shaders du programme tesselle.

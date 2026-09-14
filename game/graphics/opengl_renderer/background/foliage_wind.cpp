@@ -3,6 +3,7 @@
 #include "game/graphics/origin_ablate.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <complex>
@@ -1440,6 +1441,21 @@ struct VegInst {
   const std::string* proto = nullptr;
 };
 
+bool supports(const VegInst& carrier, const VegInst& carried) {
+  if (carrier.si == carried.si || *carrier.proto == *carried.proto) return false;
+  const auto& A = *carrier.si;
+  const auto& B = *carried.si;
+  const float H = A.ymax - A.ymin;
+  if (!(H > 0.f)) return false;
+  const float reach = A.r_xz + kSupportSlackMeters * 4096.f;
+  const float dx = A.cx - B.cx, dz = A.cz - B.cz;
+  if (dx * dx + dz * dz > reach * reach) return false;
+  if (B.ymin < A.ymin + kSupportFootFrac * H) return false;
+  if (B.ymin > A.ymax + kSupportOverFrac * H) return false;
+  if (B.ymax < A.ymax + kSupportRiseFrac * H) return false;
+  return true;
+}
+
 // Toutes les instances de vegetation ELIGIBLES AU CONTACT du niveau, TIE et SHRUB confondus : la
 // relation de portage traverse les deux systemes, et c'est precisement ce qu'aucun des deux
 // chargeurs ne pouvait voir depuis sa propre table.
@@ -1633,20 +1649,6 @@ void classify_load_bearing(tfrag3::Level& lev) {
   std::map<std::string, u32> proto_total, proto_carrying;
   std::vector<u8> carries(veg.size(), 0);
   // Predicat commun aux deux passes : aucun stockage quadratique des relations.
-  const auto supports = [](const VegInst& carrier, const VegInst& carried) {
-    if (carrier.si == carried.si || *carrier.proto == *carried.proto) return false;
-    const auto& A = *carrier.si;
-    const auto& B = *carried.si;
-    const float H = A.ymax - A.ymin;
-    if (!(H > 0.f)) return false;
-    const float reach = A.r_xz + kSupportSlackMeters * 4096.f;
-    const float dx = A.cx - B.cx, dz = A.cz - B.cz;
-    if (dx * dx + dz * dz > reach * reach) return false;
-    if (B.ymin < A.ymin + kSupportFootFrac * H) return false;
-    if (B.ymin > A.ymax + kSupportOverFrac * H) return false;
-    if (B.ymax < A.ymax + kSupportRiseFrac * H) return false;
-    return true;
-  };
   for (size_t i = 0; i < veg.size(); i++) {
     proto_total[*veg[i].proto]++;
     for (size_t j = 0; j < veg.size(); j++) {
@@ -1732,6 +1734,225 @@ void classify_load_bearing(tfrag3::Level& lev) {
       kTrunkMinInstances, names.empty() ? "-" : names);
   trunk_census_note(lev.level_name, veg, trunk_instances, trunk_verts, joint_pairs,
                     proto_total, proto_carrying);
+}
+
+void finalize_contact_geometry(tfrag3::Level& lev) {
+  const auto start = std::chrono::steady_clock::now();
+  using SI = tfrag3::TieTree::SwayInstance;
+  struct Vertex {
+    std::array<float, 3> xyz;
+    SI* si;
+    int geo;  // -1: SHRUB; >= 0: actual TIE geometry
+  };
+  // Positions and instance identities live only during this loader pass.
+  std::vector<Vertex> vertices;
+  std::map<SI*, float> final_ymax;
+  std::vector<VegInst> veg;
+  gather_contact_instances(lev, veg);
+  u64 mapping_errors = 0, nonfinite = 0, trunks = 0, foliage = 0;
+  u64 unclassified_contact_vertices = 0;
+  const auto note = [&](const auto& v, SI* si, int geo) {
+    if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z)) {
+      ++nonfinite;
+      return;
+    }
+    if (!si) return;
+    // Numerical equality of finite floats is exact; canonicalize signed zero explicitly.
+    vertices.push_back({{v.x == 0.f ? 0.f : v.x, v.y == 0.f ? 0.f : v.y,
+                         v.z == 0.f ? 0.f : v.z}, si, geo});
+    auto inserted = final_ymax.emplace(si, v.y);
+    if (!inserted.second) inserted.first->second = std::max(inserted.first->second, v.y);
+    if (si->load_bearing) ++trunks;
+    else ++foliage;
+  };
+  for (size_t geo = 0; geo < lev.tie_trees.size(); ++geo) {
+    for (auto& tree : lev.tie_trees[geo]) {
+      const size_t nv = tree.unpacked.vertices.size();
+      std::vector<u8> flags(nv, 0);
+      bool mapping_ok = true;
+      // Same vegetation-only tiling as the contact upload (mixed vertices are excluded).
+      for (const auto& draw : tree.static_draws) {
+        if (!draw.plain_indices.empty()) mapping_ok = false;
+        size_t run_i = 0;
+        for (const auto& vg : draw.vis_groups) {
+          const bool plant = vg.tie_proto_idx < tree.proto_names.size() &&
+              shrub_contact_prototype(tree.proto_names[vg.tie_proto_idx]);
+          u32 remaining = vg.num_inds;
+          while (remaining && run_i < draw.runs.size()) {
+            const auto& run = draw.runs[run_i];
+            const u32 count = (u32)run.length + 1;
+            if (count > remaining) { mapping_ok = false; break; }
+            for (size_t v = run.vertex0; v < (size_t)run.vertex0 + run.length; ++v) {
+              if (v < nv) flags[v] |= plant ? 1 : 2;
+              else mapping_ok = false;
+            }
+            ++run_i;
+            remaining -= count;
+          }
+          if (remaining) mapping_ok = false;
+        }
+        if (run_i != draw.runs.size()) mapping_ok = false;
+      }
+      std::unordered_map<u32, SI*> instances;
+      for (auto& si : tree.sway_instances) {
+        if (!instances.emplace(si.matrix_idx, &si).second) mapping_ok = false;
+        if (geo && si.valid && si.proto_idx < tree.proto_names.size() &&
+            shrub_contact_prototype(tree.proto_names[si.proto_idx])) {
+          veg.push_back({&si, &tree.proto_names[si.proto_idx]});
+        }
+      }
+      size_t total = 0;
+      for (const auto& group : tree.packed_vertices.matrix_groups) {
+        if (group.end_vert < group.start_vert ||
+            group.end_vert > tree.packed_vertices.vertices.size()) { mapping_ok = false; break; }
+        const size_t count = group.end_vert - group.start_vert;
+        if (total > nv || count > nv - total) { mapping_ok = false; break; }
+        total += count;
+      }
+      if (total != nv) mapping_ok = false;
+      if (!mapping_ok) { ++mapping_errors; continue; }
+      size_t offset = 0;
+      for (const auto& group : tree.packed_vertices.matrix_groups) {
+        const size_t count = group.end_vert - group.start_vert;
+        SI* si = nullptr;
+        if (group.matrix_idx >= 0) {
+          const auto it = instances.find((u32)group.matrix_idx);
+          // Nonvegetation groups need not have a sway instance.
+          const bool plant = std::find(flags.begin() + offset, flags.begin() + offset + count,
+                                       (u8)1) != flags.begin() + offset + count;
+          if (plant && (it == instances.end() || !it->second->valid)) ++mapping_errors;
+          if (it != instances.end() && it->second->valid &&
+              it->second->proto_idx < tree.proto_names.size() &&
+              shrub_contact_prototype(tree.proto_names[it->second->proto_idx])) si = it->second;
+        }
+        for (size_t v = offset; v < offset + count; ++v) {
+          // matrix_idx=-1 is prototype space, not a world-space contact vertex.
+          if (group.matrix_idx >= 0) {
+            if (flags[v] == 1 && !si) ++unclassified_contact_vertices;
+            note(tree.unpacked.vertices[v], flags[v] == 1 ? si : nullptr, (int)geo);
+          }
+        }
+        offset += count;
+      }
+    }
+  }
+  for (auto& tree : lev.shrub_trees) {
+    const size_t nv = tree.unpacked.vertices.size();
+    size_t total = 0;
+    bool mapping_ok = true;
+    for (const auto& group : tree.packed_vertices.instance_groups) {
+      if (group.end_vert < group.start_vert ||
+          group.end_vert > tree.packed_vertices.vertices.size()) { mapping_ok = false; break; }
+      const size_t count = group.end_vert - group.start_vert;
+      if (total > nv || count > nv - total) { mapping_ok = false; break; }
+      total += count;
+    }
+    if (total != nv) mapping_ok = false;
+    if (!mapping_ok) { ++mapping_errors; continue; }
+    size_t offset = 0;
+    for (const auto& group : tree.packed_vertices.instance_groups) {
+      const size_t count = group.end_vert - group.start_vert;
+      SI* si = nullptr;
+      if (group.matrix_idx < 0 || (size_t)group.matrix_idx >= tree.sway_instances.size() ||
+          (size_t)group.matrix_idx >= tree.wind_proto_of_inst.size()) {
+        ++mapping_errors;
+      } else {
+        const auto pi = tree.wind_proto_of_inst[group.matrix_idx];
+        if (pi >= tree.proto_names.size()) ++mapping_errors;
+        else if (shrub_contact_prototype(tree.proto_names[pi])) {
+          si = &tree.sway_instances[group.matrix_idx];
+          if (!si->valid) { ++mapping_errors; si = nullptr; }
+        }
+      }
+      for (size_t v = offset; v < offset + count; ++v) note(tree.unpacked.vertices[v], si, -1);
+      offset += count;
+    }
+  }
+
+  // The SAME predicate on unchanged pre-weld bounds preserves existing carrier identities.
+  // Only contact_pin_y changes; base_y, ymin/ymax, classification and wind weights are untouched.
+  for (const auto& carrier : veg) {
+    if (!carrier.si->load_bearing) continue;
+    const auto ymax = final_ymax.find(carrier.si);
+    if (ymax == final_ymax.end()) continue;
+    for (const auto& target : veg) {
+      if (supports(carrier, target)) {
+        target.si->contact_pin_y = std::max(target.si->contact_pin_y, ymax->second);
+      }
+    }
+  }
+  std::map<std::array<float, 3>, std::vector<const Vertex*>> trunk_at;
+  for (const auto& v : vertices) {
+    if (v.si->load_bearing) trunk_at[v.xyz].push_back(&v);
+  }
+  // Each pair contains two real CPU vertex entries. Duplicated topology is counted, not
+  // deduplicated into physical joints. Different TIE LOD alternatives cannot form a pair.
+  std::map<std::pair<int, int>, u64> pairs_by_geo;
+  u64 pairs = 0, canonical_pairs = 0;
+  for (const auto& leaf : vertices) {
+    if (leaf.si->load_bearing) continue;
+    const auto found = trunk_at.find(leaf.xyz);
+    if (found == trunk_at.end()) continue;
+    for (const auto* trunk : found->second) {
+      if (trunk->geo >= 0 && leaf.geo >= 0 && trunk->geo != leaf.geo) continue;
+      ++pairs;
+      ++pairs_by_geo[{trunk->geo, leaf.geo}];
+      if (trunk->geo <= 0 && leaf.geo <= 0) ++canonical_pairs;
+      leaf.si->carried = true;
+      leaf.si->contact_pin_y = std::max(leaf.si->contact_pin_y, final_ymax.at(trunk->si));
+    }
+  }
+  u64 no_mobile_zone = 0, nonpositive_contact_span = 0;
+  for (const auto& entry : final_ymax) {
+    if (!entry.first->load_bearing && entry.first->carried) {
+      if (entry.second <= entry.first->contact_pin_y) ++no_mobile_zone;
+      // Uploads intentionally retain the wind-era ymax: distinguish their contact span from
+      // the final CPU geometry's mobile zone instead of conflating the two diagnostics.
+      if (entry.first->ymax <= entry.first->contact_pin_y) ++nonpositive_contact_span;
+    }
+  }
+  const double ms = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - start).count();
+  // Per-level replacement avoids accumulating reloads. These are CPU geometry facts only.
+  std::string level_key;
+  for (unsigned char c : lev.level_name) {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+      level_key += (char)c;
+    } else {
+      level_key += fmt::format("_{:02x}", c);
+    }
+  }
+  const std::string prefix = "shrub_contact_cpu_" + level_key + "_";
+  autoport_proof::publish((prefix + "exact_vertex_pairs_all_lods").c_str(), pairs);
+  autoport_proof::publish((prefix + "exact_vertex_pairs_geo0").c_str(), canonical_pairs);
+  autoport_proof::publish((prefix + "final_trunk_vertices_all_lods").c_str(), trunks);
+  autoport_proof::publish((prefix + "final_foliage_vertices_all_lods").c_str(), foliage);
+  autoport_proof::publish((prefix + "unclassified_contact_vertices").c_str(), unclassified_contact_vertices);
+  autoport_proof::publish((prefix + "mapping_errors").c_str(), mapping_errors);
+  autoport_proof::publish((prefix + "nonfinite_positions").c_str(), nonfinite);
+  autoport_proof::publish((prefix + "foliage_without_mobile_zone").c_str(), no_mobile_zone);
+  autoport_proof::publish((prefix + "foliage_nonpositive_contact_span").c_str(), nonpositive_contact_span);
+  for (int trunk_geo = -1; trunk_geo < (int)lev.tie_trees.size(); ++trunk_geo) {
+    for (int leaf_geo = -1; leaf_geo < (int)lev.tie_trees.size(); ++leaf_geo) {
+      if (trunk_geo >= 0 && leaf_geo >= 0 && trunk_geo != leaf_geo) continue;
+      const u64 n = pairs_by_geo[{trunk_geo, leaf_geo}];
+      const auto key = fmt::format("{}exact_pairs_trunk_{}_leaf_{}", prefix,
+                                  trunk_geo < 0 ? "shrub" : "geo" + std::to_string(trunk_geo),
+                                  leaf_geo < 0 ? "shrub" : "geo" + std::to_string(leaf_geo));
+      autoport_proof::publish(key.c_str(), n);
+      if (n) lg::info("[shrub-contact-cpu-geometry] lev={} trunk_geo={} leaf_geo={} exact_vertex_pairs={} "
+                      "(-1=shrub; LOD alternatives, not unique physical joints)",
+                      lev.level_name, trunk_geo, leaf_geo, n);
+    }
+  }
+  lg::info("[shrub-contact-cpu-geometry] lev={} final_trunk_vertices_all_lods={} final_foliage_vertices_all_lods={} "
+           "exact_vertex_pairs_all_lods={} exact_vertex_pairs_geo0={} mapping_errors={} "
+           "unclassified_contact_vertices={} "
+           "nonfinite_positions={} foliage_without_mobile_zone={} "
+           "foliage_nonpositive_contact_span={} ms={:.3f}",
+           lev.level_name, trunks, foliage, pairs, canonical_pairs, mapping_errors,
+           unclassified_contact_vertices, nonfinite,
+           no_mobile_zone, nonpositive_contact_span, ms);
 }
 
 }  // namespace foliage_wind

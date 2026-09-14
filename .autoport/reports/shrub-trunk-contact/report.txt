@@ -1,32 +1,28 @@
 DIRECTIVES vab39193976
-Verdict : comptage canonique corrige et livre sur USB ; contrat non valide, deplacements et jonctions non mesures.
-Essai 3 ; commit moteur 84838709ae.
-Changements : les prises groupes/LOD sont remplacees par la prise unique du recensement par niveau.
-FEATURE publie le compte propre de cet item ; aucun changement de loi contact, vent ou classement.
-Build Android incremental : rc=0 en 11 s ; notes/attempt-3-build.log.
-Repack : BUILD SUCCESSFUL in 7s, mais client Gradle bloque ; TERM du seul PID 621155 a 104 s, rc=143.
-APK stable et lib extraite identique au build ; anomalie de fermeture et autres warnings dans FINDINGS.txt.
-Huit lignes recopiees de proof.txt produit par lib/proof_run.sh pour cet essai :
+Verdict : correction des attaches sur geometrie finale preparee, contrat non valide faute de mesure de deplacement.
+Essai 5 : classement conserve ; finalisation apres soudure/consolidation, avant upload.
+Le code releve les plans depuis les troncs finaux et ajoute les coïncidences exactes hors supports.
+Comptes CPU par niveau/LOD, erreurs et sommets contact non classes explicites ; aucun squash_defects produit.
+Le vent, les shaders et la loi herbe sont inchanges par comparaison source ; aucun verdict dynamique deduit.
+Build Android rc=0 en 20 s ; repack APK rc=0 en 9 s ; lib APK identique au build SHA256 58b9aca54bacc8bef8cf4f9e71c504cc0e196c8a486e59ecdb6821bccc55aa88.
+Temoin owner 602cd72eb7 retrouve : SHA256 00394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce.
+Copie persistante locale : notes/reference-602cd72eb7/libgk.so ; provenance dans notes/attempt-5-audit.txt.
+USB disponible : pick_device a choisi eae4df44. Aucune course neuve, aucune preuve ancienne presentee comme resultat essai 5.
+Stop proof_plan : anciens bras mode=0, positions finales differentes ; parcours contact comparable non prepare.
+Campagne autorisee : 0/3 courses consommees, 3 restantes de 130 s maximum ; courses historiques hors budget.
+Huit lignes HISTORIQUES de proof.txt (essai 3, contexte seulement, NE PROUVENT PAS cet essai) :
 serial=eae4df44
 sha=5288bc8bc7e7f2fb
 crash=0
 frames=7500
 FEATURE shrub-trunk-contact armed=1 hits=173329
-shrub_trunk_anchored=0
-shrub_trunk_classes_11=level=training,proto=palmplant-top.mb,trunk_instances=0,trunk_verts=0,foliage_instances=32,foliage_verts=2816
-shrub_trunk_classes_16=level=training,proto=palmplant-base.mb,trunk_instances=32,trunk_verts=1792,foliage_instances=0,foliage_verts=0
-Ablation neuve proof-off.txt : FEATURE shrub-trunk-contact armed=0 hits=0 ; frames=7740 ; crash=0.
-Chaque bras dure 130 s ; meme USB, meme SHA, et 17 lignes de classes strictement identiques.
-ON : FEATURE = proof_feature_own_hits = 3864 sommets tronc + 169465 feuillage = 173329 ; OFF : 0.
-Ancres tronc ON=0, OFF=276 ; feuillage=1316 dans les deux bras : diagnostic CPU, pas de deplacement.
-Fraicheur : MD5 local et appareil = 650b35f52d80af3411d71d91caad4254 ; APK installe par la garde ON.
-Regime relu dans chaque bras : training-warp et foliage.force=1 ; notes/attempt-3-verification.txt.
-Audit : ymin fixe un plan ; supports compare des bornes, sans chercher de sommets coincidents.
-La hauteur de cette ancre change aussi la selection verticale des contacts ; occurrence non mesuree.
-L owner doit regarder a Geyser Rock : marcher dans un mini-palmier, tronc droit et feuilles mobiles solidaires.
-non prouve : deplacements reels des troncs et feuilles et ecart aux jonctions ; shrub_trunk_squash_defects absent.
-non prouve : OFF bit-identique par binaire temoin, invariance dynamique vent/herbe, couverture des autres niveaux.
-wind_contact_defects=999999 dans les deux bras signifie non mesure ; aucun verdict vert deduit.
-Les trois shaders sont identiques au HEAD initial ; comparaison statique dans notes/attempt-3-audit.txt.
-Aucun instrument neuf ni campagne supplementaire ; mesures manquantes a arbitrer avant une nouvelle course.
-generic.sh laisse a l orchestrateur ; aucune validation owner ni fermeture revendiquee.
+shrub_trunk_verts=3864
+shrub_foliage_verts=169465
+wind_contact_defects=999999
+APK local construit, non installe par cet essai ; trace notes/attempt-5-build.log.
+Owner : a Geyser Rock, marcher dans un mini-palmier ; tronc droit, feuilles mobiles et attachees.
+non prouve : deplacement tronc=0, ecart de jonction=0, feuillage mobile ; captures GPU et paires persistantes a implementer.
+non prouve : OFF bit-identique au temoin instrumente, invariance dynamique vent/herbe, couverture des autres niveaux.
+non prouve : cout/memoire de la nouvelle passe, execution et absence de crash de cette revision sur USB.
+15 signalements dans FINDINGS.txt ; suite concrete et budget conserves dans handoff.md.
+Validateur generic.sh laisse a l orchestrateur ; aucune validation owner ni fermeture revendiquee.

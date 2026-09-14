@@ -109,6 +109,10 @@ bool shrub_contact_prototype(const std::string& name);
 // chargeurs ne peut voir depuis sa propre table.
 void classify_load_bearing(tfrag3::Level& lev);
 
+// After all mesh consolidation, before uploads: finalize only the contact attachment plan from
+// final CPU positions and census exact vertex coincidences per LOD (no GPU displacement proof).
+void finalize_contact_geometry(tfrag3::Level& lev);
+
 // Un chargeur vient de decider si CETTE instance recoit une ancre de contact. `anchored` faux n'est
 // pas compte : seul un tronc qui en a RECU une est un defaut, et le compteur doit pouvoir rougir.
 // `pivot_y` est le pivot de deformation effectif : plan d’attache si portee, sinon base_y.
