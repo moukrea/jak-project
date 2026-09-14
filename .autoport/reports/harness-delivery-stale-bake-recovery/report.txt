@@ -1,32 +1,25 @@
-Le correctif livraison reste prouvé à l’essai 3 ; l’essai 5 ne peut pas fermer sans correction de la collecte des acquis.
+La fermeture de l’essai 6 reste bloquée : le préalable sur les temporaires de collecte des acquis n’est pas corrigé.
 DIRECTIVES va1dbd6abb3
 
-Correctif a9317464c4 conservé, aucun code changé aux essais 3, 4 et 5.
-Cuisson ciblée, reprise après échec et publication cohérente : banc historique de 22 cas.
-Trace : notes/delivery-stale-bake.log ; aucun nouveau banc nécessaire.
+Correctif livraison a9317464c4 conservé ; aucun code de production changé dans cet essai.
+Audit : notes/recovery-audit-attempt-6.log, production_diff_since_attempt_5_rc=0.
+Orchestrateur parent PID 383084 : TMPDIR, TMP et TEMP absents dans /proc.
+Collecte : orchestrator.py:1816 hérite cet environnement ; acquis/font-urbanist.sh:137 appelle mktemp sans chemin.
+Le chantier harness-suite-temporary-files-outside-quota reste open, sans rapport ; livraison depends_on=[] dans le backlog.
+Aucune course rejouée : le handoff exige la correction préalable avant de renouveler la preuve.
 
-Huit lignes de proof.txt CONSERVÉ de l’essai 3, aucune preuve produite pour l’essai 5 :
-source=x86
-crash=0
-frames=3407
-delivery_stale_bake_defects=0
-delivery_stale_bake_cases=22
-delivery_stale_bake_stale_cases=7
-delivery_stale_bake_retry_cases=10
-delivery_stale_bake_publication_cases=6
-
+Preuve historique conservée uniquement : proof.txt et proof.seal, produits à l’essai 3.
 Course 20260914T180449Z-399350-6086d017 ; identité harness-delivery-stale-bake-recovery@3#1789409029.
-validator-003.txt : generic accepte puis CLOSE-GATE/acquis refuse Urbanist ; journal vide.
-validator-004.txt : refus distinct, preuve de l’essai 3 ne portant pas l’identité de l’essai 4.
-Essai 5 : notes/recovery-audit-attempt-5.log, production_diff_since_attempt_4_rc=0.
-Même trace : orchestrateur PID 383084 sans TMPDIR/TMP/TEMP ; audit researcher concordant.
-Quota historiquement mesuré, sans nouvelle sonde : notes/tmp-quota-attempt-4.log, EDQUOT=122.
+Le banc historique compte 22 cas et zéro défaut livraison ; il ne prouve PAS l’essai 6.
+validator-003.txt : generic accepte puis CLOSE-GATE/acquis refuse Urbanist.
+validator-004.txt et validator-005.txt : refus d’identité de la preuve conservée de l’essai 3.
+Quota historiquement mesuré : notes/tmp-quota-attempt-4.log, écriture dans /tmp refusée avec errno=122.
 Rejeu Urbanist hors /tmp historiquement vert : notes/acquis-font-attempt-3.log, EXIT_CODE=0.
-Le statut du moteur des fermetures échouées reste inconnu ; aucune régression police démontrée.
-Aucune nouvelle course : la correction préalable exigée par le handoff n’a pas été livrée.
-Le chantier harness-suite-temporary-files-outside-quota reste open et sans rapport.
-Le pilotage doit y couvrir aussi les acquis et ordonner cette dépendance avant le prochain essai livraison.
-Rouge HERITE test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface maintenu dans FINDINGS.
-À regarder après reprise : nouveaux builds livrés ; aucune validation visuelle ni owner attendue.
-non prouvé : fermeture essai 5, cuisson/APK réels, publication distante, chargement du correctif par les démons.
+Le statut historique du moteur reste inconnu ; aucune régression police démontrée.
+Rouge HERITE test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface conservé dans FINDINGS.
+
+Le pilotage doit couvrir la collecte des acquis dans le chantier temporaires et poser la dépendance.
+Après correction seulement : une preuve neuve pour l’essai autorisé, puis jugement des portes par l’orchestrateur.
+À regarder après reprise : livraison de nouveaux builds ; aucune validation visuelle ni owner attendue.
+non prouvé : fermeture essai 6, cuisson/APK réels, publication distante et chargement du correctif par les démons.
 Handoff/FINDINGS actualisés ; aucun appareil, build, démon, orchestrateur, moteur ou validateur modifié.
