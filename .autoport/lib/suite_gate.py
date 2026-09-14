@@ -69,6 +69,7 @@ import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 
 SUITE_REL = "tests/harness"
 REGISTRY_REL = "tests/harness/ECHECS-ATTENDUS.yaml"
@@ -83,15 +84,52 @@ TIMEOUT_S = int(os.environ.get("AUTOPORT_SUITE_TIMEOUT_S") or 900)
 
 
 # ============================================================ la course, et ce qu'elle rend ==
-def _run_pytest(root: str, suite_rel: str, xml: str, timeout_s: int) -> tuple[int, float, int]:
+class SuiteTemporaryUnavailable(OSError):
+    """Infrastructure du banc indisponible, aucun verdict sur le jeu."""
+
+
+@contextmanager
+def suite_temporary(prefix: str):
+    """Tous les temporaires de suite partent hors du quota /tmp, meme si TMPDIR y pointe."""
+    base = os.path.realpath(os.path.expanduser("~/.cache/autoport/suite-tmp"))
+    path = None
+    try:
+        if os.path.commonpath((base, "/tmp")) == "/tmp":
+            raise OSError("le chemin resolu est sous /tmp")
+        os.makedirs(base, mode=0o700, exist_ok=True)
+        path = tempfile.mkdtemp(prefix=prefix, dir=base)
+        # Une creation de dossier peut reussir alors que le quota refuse les donnees.
+        with open(os.path.join(path, ".writable"), "wb") as probe:
+            probe.write(b"suite temporary storage\n")
+            probe.flush()
+            os.fsync(probe.fileno())
+    except OSError as exc:
+        if path:
+            shutil.rmtree(path, ignore_errors=True)
+        raise SuiteTemporaryUnavailable(
+            "suite-temporaire-indisponible: %s: %s; infrastructure du banc, "
+            "aucun verdict sur le code du jeu" % (base, exc)) from exc
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _run_pytest(root: str, suite_rel: str | list[str], xml: str,
+                timeout_s: int) -> tuple[int, float, int]:
     """Rend (code de retour, duree en secondes, tue-par-le-plafond)."""
     t0 = time.time()
     try:
-        r = subprocess.run(
-            [sys.executable, "-m", "pytest", suite_rel, "-q", "-p", "no:cacheprovider",
-             "--junitxml=" + xml],
-            cwd=root, capture_output=True, text=True, timeout=timeout_s)
+        with suite_temporary("suite-pytest-") as tmpd:
+            env = dict(os.environ, TMPDIR=tmpd, TMP=tmpd, TEMP=tmpd)
+            nodes = [suite_rel] if isinstance(suite_rel, str) else suite_rel
+            r = subprocess.run(
+                [sys.executable, "-m", "pytest", *nodes, "-q", "-p", "no:cacheprovider",
+                 "--basetemp=" + os.path.join(tmpd, "pytest"), "--junitxml=" + xml],
+                env=env, cwd=root, capture_output=True, text=True, timeout=timeout_s)
         return r.returncode, time.time() - t0, 0
+    except SuiteTemporaryUnavailable:
+        raise
     except subprocess.TimeoutExpired:
         return -1, time.time() - t0, 1
     except (OSError, ValueError):
@@ -271,7 +309,8 @@ def replay(root: str, refs: list[str], nodes: list[str],
 
     UN SEUL ARBRE, recycle par `checkout` : la copie complete coute 3 s et 765 Mo sur cet
     arbre, un `checkout` entre deux revisions voisines coute 0,9 s. Deux arbres simultanes
-    tiendraient mal dans un `/tmp` en memoire.
+    tiendraient mal dans un temporaire en memoire. L'arbre et pytest utilisent donc
+    `suite_temporary`, hors /tmp, independamment du TMPDIR du parent.
 
     LES DEUX BRAS SE MESURENT AU MEME ENDROIT. Comparer « la suite complete dans l'arbre
     livre » a « un nodeid seul dans un arbre jetable » comparerait deux instruments : un test
@@ -287,7 +326,12 @@ def replay(root: str, refs: list[str], nodes: list[str],
         info["capped"] = len(nodes) - MAX_PROBE_NODES
         nodes = nodes[:MAX_PROBE_NODES]
     t0 = time.time()
-    tmpd = tempfile.mkdtemp(prefix="suite-replay-")
+    try:
+        temporary = suite_temporary("suite-replay-")
+        tmpd = temporary.__enter__()
+    except SuiteTemporaryUnavailable as exc:
+        info["error"] = str(exc)
+        return res, info
     wt = os.path.join(tmpd, "wt")
     try:
         r = subprocess.run(["git", "-C", root, "worktree", "add", "--detach", wt, refs[0]],
@@ -315,9 +359,10 @@ def replay(root: str, refs: list[str], nodes: list[str],
                 continue
             xml = os.path.join(tmpd, "replay.xml")
             try:
-                subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
-                                "--junitxml=" + xml, *a_jouer],
-                               cwd=wt, capture_output=True, text=True, timeout=timeout_s)
+                _run_pytest(wt, a_jouer, xml, timeout_s)
+            except SuiteTemporaryUnavailable as exc:
+                info["error"] = str(exc)
+                return res, info
             except (OSError, subprocess.SubprocessError) as exc:       # noqa: BLE001
                 info["error"] = ("%s" % exc)[:160]
             lu = read_junit(xml) or {}
@@ -332,12 +377,21 @@ def replay(root: str, refs: list[str], nodes: list[str],
     except (OSError, subprocess.SubprocessError) as exc:               # noqa: BLE001
         info["error"] = ("%s" % exc)[:160]
     finally:
-        subprocess.run(["git", "-C", root, "worktree", "remove", "--force", wt],
-                       capture_output=True, text=True, timeout=120)
-        subprocess.run(["git", "-C", root, "worktree", "prune"],
-                       capture_output=True, text=True, timeout=120)
-        shutil.rmtree(tmpd, ignore_errors=True)
-        info["seconds"] = round(time.time() - t0, 1)
+        try:
+            subprocess.run(["git", "-C", root, "worktree", "remove", "--force", wt],
+                           capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.SubprocessError) as exc:
+            info["error"] = "%s; nettoyage worktree: %s" % (info["error"], exc)
+        finally:
+            temporary.__exit__(None, None, None)
+            # Meme si remove a echoue, le repertoire vient d'etre retire : purger aussi
+            # son inscription Git, sans attendre le prochain rejeu.
+            try:
+                subprocess.run(["git", "-C", root, "worktree", "prune"],
+                               capture_output=True, text=True, timeout=120)
+            except (OSError, subprocess.SubprocessError) as exc:
+                info["error"] = "%s; prune worktree: %s" % (info["error"], exc)
+            info["seconds"] = round(time.time() - t0, 1)
     return res, info
 
 
@@ -426,15 +480,15 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
         return d
 
     # ------------------------------------------------------------------ 1. LA COURSE --------
-    tmpd = tempfile.mkdtemp(prefix="suite-gate-")
-    xml = os.path.join(tmpd, "junit.xml")
-    rc, duree, tue = _run_pytest(root, suite_rel, xml, plafond)
-    resultats = read_junit(xml)
     try:
-        os.remove(xml)
-        os.rmdir(tmpd)
-    except OSError:
-        pass
+        with suite_temporary("suite-gate-") as tmpd:
+            xml = os.path.join(tmpd, "junit.xml")
+            rc, duree, tue = _run_pytest(root, suite_rel, xml, plafond)
+            resultats = read_junit(xml)
+    except SuiteTemporaryUnavailable as exc:
+        d["refused_for"] = ["suite-temporaire-indisponible"]
+        d["reason"] = str(exc)
+        return d
     d["ran"] = 1
     d["rc"] = rc
     d["duration_s"] = round(duree, 1)
@@ -583,6 +637,10 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
                 d["replay_seconds"] = info["seconds"]
                 d["replay_error"] = info["error"]
                 d["replay_capped"] = info["capped"]
+                if "suite-temporaire-indisponible:" in info["error"]:
+                    d["refused_for"] = genres + ["suite-temporaire-indisponible"]
+                    d["reason"] = " | ".join(defauts + [info["error"]])
+                    return d
                 vbase = vus.get(rbase, {})
                 vtete = vus.get(tete, vbase)
                 d["replay_base"] = ["%s:%s" % (n, vbase.get(n, "unknown"))
