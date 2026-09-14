@@ -1226,6 +1226,31 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   const int ao_w = std::max(1, (int)(out_w * scale));
   const int ao_h = std::max(1, (int)(out_h * scale));
 
+  // ── (l) L'ECHELLE DU PALIER, PUBLIEE ──────────────────────────────────────────────────────
+  // « Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de
+  // remontee. » Trois faits, pas une opinion : la profondeur que l'estimateur lit, le tampon
+  // d'AO qu'il ecrit, et la cible PLEINE RESOLUTION ou la passe verticale du flou remonte. Sur
+  // Android `out_w` est la taille de la FENETRE, pas celle de la scene : c'est la seule facon de
+  // voir le surdimensionnement sans relire le code. Publie sous mesure seulement — hors mesure
+  // le palier ne change pas d'une image a l'autre et une ecriture par image ne dirait rien de
+  // plus.
+  if (s_measure_quality >= 0 && s_measure_quality <= 2) {
+    const std::string q = "_q" + std::to_string(quality);
+    autoport_proof::publish(("ao_scale" + q + "_x1000").c_str(),
+                            (uint64_t)std::lround(scale * 1000.0));
+    autoport_proof::publish(("ao_buf_w" + q).c_str(), (uint64_t)ao_w);
+    autoport_proof::publish(("ao_buf_h" + q).c_str(), (uint64_t)ao_h);
+    autoport_proof::publish("ao_depth_w", (uint64_t)src_w);
+    autoport_proof::publish("ao_depth_h", (uint64_t)src_h);
+    autoport_proof::publish("ao_full_w", (uint64_t)out_w);
+    autoport_proof::publish("ao_full_h", (uint64_t)out_h);
+    // Le filtre de remontee : H a la resolution du tampon, V a la PLEINE resolution, quatre taps
+    // a poids egaux ponderes par l'ecart au PLAN TANGENT local (ao_blur.frag). Pas d'espace dans
+    // la valeur : proof.txt coupe a l'espace.
+    autoport_proof::publish_text("ao_upsample_filter",
+                                 "boite-4-taps-bilaterale-prediction-de-plan;V-en-pleine-res");
+  }
+
   // (2a) pure-CPU early-outs FIRST — after this point the function must not return
   // without running the state-restore block at the end.
   double cam[16];

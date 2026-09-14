@@ -115,6 +115,12 @@ uint64_t g_geom_near = 0, g_geom_far = 0;                // livre : prepasse DEV
 uint64_t g_geom_near_legacy = 0, g_geom_far_legacy = 0;
 uint64_t g_sway_gap_px = 0;        // pixels que le deplacement a BOUGES (livre contre legacy)
 uint64_t g_sway_gap_world_px = 0;  // les memes, restreints aux pixels monde dessines
+// ... et les MEMES populations par famille (1 = TFRAG, 2 = TIE, 3 = SHRUB) : c'est la reponse au
+// verdict (c), « shrub contre tfrag contre TIE ».
+uint64_t g_fam_cover[4] = {0, 0, 0, 0};
+uint64_t g_fam_absent[4] = {0, 0, 0, 0};
+uint64_t g_fam_gap64[4] = {0, 0, 0, 0};
+uint64_t g_fam_gap64_legacy[4] = {0, 0, 0, 0};
 #endif
 
 // lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
@@ -186,26 +192,37 @@ void ensure_white() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-bool is_world_bucket(int id) {
+// Verdict (c) de l'owner : « le fragment juge par l'estimateur n'est peut-etre pas celui qui est
+// DESSINE — autre passe, autre niveau de detail, autre chemin (shrub contre tfrag contre TIE) ».
+// Le stencil ne portait qu'un booleen « monde / pas monde » : il ne pouvait pas repondre. Il porte
+// desormais LA FAMILLE, et les populations de `ao_geom_*` se lisent par famille.
+//   0 = pas un bucket monde   1 = TFRAG   2 = TIE   3 = SHRUB
+constexpr int kFamTfrag = 1, kFamTie = 2, kFamShrub = 3;
+[[maybe_unused]] constexpr int kFamCount = 4;
+[[maybe_unused]] const char* kFamNames[kFamCount] = {"-", "tfrag", "tie", "shrub"};
+
+int world_bucket_family(int id) {
   using B = jak1::BucketId;
   switch ((B)id) {
     case B::TFRAG_LEVEL0:
     case B::TFRAG_NEAR_LEVEL0:
-    case B::TIE_NEAR_LEVEL0:
-    case B::TIE_LEVEL0:
     case B::TFRAG_LEVEL1:
     case B::TFRAG_NEAR_LEVEL1:
+      return kFamTfrag;
+    case B::TIE_NEAR_LEVEL0:
+    case B::TIE_LEVEL0:
     case B::TIE_NEAR_LEVEL1:
     case B::TIE_LEVEL1:
+      return kFamTie;
     case B::SHRUB_NORMAL_LEVEL0:
     case B::SHRUB_BILLBOARD_LEVEL0:
     case B::SHRUB_TRANS_LEVEL0:
     case B::SHRUB_NORMAL_LEVEL1:
     case B::SHRUB_BILLBOARD_LEVEL1:
     case B::SHRUB_TRANS_LEVEL1:
-      return true;
+      return kFamShrub;
     default:
-      return false;
+      return 0;
   }
 }
 
@@ -704,6 +721,16 @@ void publish_all() {
   // (i) LE DEPLACEMENT LUI-MEME : les pixels que le correctif a BOUGES, sur tout l'ecran puis
   // sur les seuls pixels monde dessines. S'il vaut 0, la scene ne bougeait pas et TOUT ce qui
   // precede est vide de sens — d'ou `ao_sway_wind_on`, le regime de brise de la course.
+  // Le decoupage PAR FAMILLE des memes populations — la reponse directe au verdict (c) :
+  // `ao_geom_<famille>_absent_px` nomme le chemin dont la geometrie est DESSINEE sans que la
+  // prepasse la porte, `_gap64_px` celui dont elle la porte AILLEURS.
+  for (int f = 1; f < kFamCount; f++) {
+    const std::string base = std::string("ao_geom_") + kFamNames[f];
+    autoport_proof::publish((base + "_cover_px").c_str(), g_fam_cover[f]);
+    autoport_proof::publish((base + "_absent_px").c_str(), g_fam_absent[f]);
+    autoport_proof::publish((base + "_gap64_px").c_str(), g_fam_gap64[f]);
+    autoport_proof::publish((base + "_legacy_gap64_px").c_str(), g_fam_gap64_legacy[f]);
+  }
   autoport_proof::publish("ao_sway_gap_px", g_sway_gap_px);
   autoport_proof::publish("ao_sway_gap_world_px", g_sway_gap_world_px);
   autoport_proof::publish("ao_sway_wind_on", foliage_wind::enabled() ? 1 : 0);
@@ -1037,12 +1064,13 @@ void proof_before_bucket(int bucket_id) {
   if (!g_probe_frame || bucket_id > 30) {
     return;
   }
-  // Les buckets monde ecrivent 1, tout le reste (ciel, ocean, merc, generic) ecrit 0 : au
-  // bucket 30, stencil == 1 designe exactement les pixels dont la couleur finale vient d'un
-  // programme qui passe par shade(). Aucun renderer d'avant le bucket 30 ne touche au stencil.
+  // Les buckets monde ecrivent LEUR FAMILLE (1 = TFRAG, 2 = TIE, 3 = SHRUB), tout le reste
+  // (ciel, ocean, merc, generic) ecrit 0 : au bucket 30, un stencil non nul designe exactement
+  // les pixels dont la couleur finale vient d'un programme qui passe par shade(), et sa VALEUR
+  // dit de quel chemin. Aucun renderer d'avant le bucket 30 ne touche au stencil.
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0xFF);
-  glStencilFunc(GL_ALWAYS, is_world_bucket(bucket_id) ? 1 : 0, 0xFF);
+  glStencilFunc(GL_ALWAYS, world_bucket_family(bucket_id), 0xFF);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 }
 
@@ -1158,7 +1186,10 @@ void proof_post_opaque(SharedRenderState* rs) {
   }
   uint64_t hits = 0, leak = 0, excl = 0, marked = 0, unmarked = 0;
   for (size_t i = 0; i < st.size(); i++) {
-    if (st[i] != 1) {
+    // Le stencil porte la FAMILLE depuis le 2026-09-14 : tout ce qui n'est pas 0 est un pixel
+    // monde. Le denominateur de la porte (`ao_probe_px`) est donc EXACTEMENT le meme qu'avant,
+    // seul son decoupage est neuf.
+    if (st[i] == 0 || st[i] >= (uint8_t)kFamCount) {
       unmarked++;
       continue;
     }
@@ -1195,7 +1226,8 @@ void proof_post_opaque(SharedRenderState* rs) {
       if (moved > tol[0]) {
         g_sway_gap_px++;
       }
-      if (st[i] != 1) {
+      const int fam = (st[i] > 0 && st[i] < (uint8_t)kFamCount) ? (int)st[i] : 0;
+      if (fam == 0) {
         continue;
       }
       const float sz = sd[i];
@@ -1203,11 +1235,13 @@ void proof_post_opaque(SharedRenderState* rs) {
         continue;  // pixel monde sans profondeur de scene (draw sans z-write) : rien a comparer
       }
       g_geom_cover++;
+      g_fam_cover[fam]++;
       if (moved > tol[0]) {
         g_sway_gap_world_px++;
       }
       if (pl <= 1e-6f) {
         g_geom_absent++;
+        g_fam_absent[fam]++;
       } else {
         const float d = pl - sz;
         const float ad = d < 0.f ? -d : d;
@@ -1215,6 +1249,9 @@ void proof_post_opaque(SharedRenderState* rs) {
           if (ad > tol[k]) {
             g_geom_gap[k]++;
           }
+        }
+        if (ad > tol[1]) {
+          g_fam_gap64[fam]++;
         }
         if (d > tol[0]) {
           g_geom_near++;
@@ -1231,6 +1268,9 @@ void proof_post_opaque(SharedRenderState* rs) {
           if (ad > tol[k]) {
             g_geom_gap_legacy[k]++;
           }
+        }
+        if (ad > tol[1]) {
+          g_fam_gap64_legacy[fam]++;
         }
         if (d > tol[0]) {
           g_geom_near_legacy++;
