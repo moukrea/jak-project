@@ -11326,8 +11326,17 @@ items:
     budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
       consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
       ne pas reinitialiser le budget a chaque retry.
-    runs_consumed: 0
-    runs_remaining: 3
+    runs_consumed: 1
+    runs_remaining: 2
+    runs:
+    - arm: reference
+      attempt: 10
+      timeout_s: 130
+      status: reference-inexploitable
+      proof: reports/shrub-trunk-contact/notes/attempt-10-reference-result/proof.txt
+      result: 5160_images_sans_crash_0_capture_GPU_470_erreurs
+      archive: shrub10-reference
+      inputs: shrub10-inputs.bin
     preparation:
       reference_revision: 602cd72eb7
       reference_policy: Construire dans un checkout isole un temoin neutrement instrumente depuis cette
@@ -11911,8 +11920,11 @@ items:
 
     Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
     EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
-  notes: SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est
-    ici que l'owner juge l'AO.
+  notes: 'SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l''owner le 14/09. C''est
+    ici que l''owner juge l''AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux
+    essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret.
+    Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact
+    est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis.'
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -11934,7 +11946,10 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: null
+  block_reason: 'Diagnostic termine : le compteur de bande ne cible pas le raccord mur/toit, sa largeur
+    est limitee a1 et HBAO non couvert. Archives sans profondeur/normales/identite de surfaces : cause
+    du rendu non etablie. Plan precedent epuise9/9. Proposition de six mesures automatiques sur la hutte
+    (trois modes avant/apres), en attente de reponse owner ; ne pas relancer l audit identique essai8.'
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -11982,6 +11997,47 @@ items:
     - mini-palmiers bons
     - AO shrubs bonne
     - plus de damier ni pixelisation
+  proposed_proof_plan:
+    status: proposed-awaiting-owner
+    owner_authorized: false
+    date: '2026-09-15'
+    purpose: Attribuer puis corriger la bande claire au raccord mur/toit signalee le15/09, conserver absence
+      damier/pixellisation et AO shrubs.
+    max_runs: 6
+    max_timeout_s_per_run: 150
+    runs_consumed: 0
+    scene: Une seule vue village1-hut, position historique -116_14_40 ; identifier le raccord signale
+      et ses surfaces, ne pas supposer que le draw10 est le mur/toit.
+    arms:
+    - SSAO avant correction
+    - HBAO avant correction
+    - GTAO avant correction
+    - SSAO apres correction
+    - HBAO apres correction
+    - GTAO apres correction
+    preparation:
+    - Reutiliser notes/attempt7-contact-diagnostic.md sans refaire l audit documentaire.
+    - Preparer une attribution stable niveau/prototype/instance/triangle vers les pixels du raccord, populations
+      mur et toit non vides.
+    - Instrumenter seulement en preuve profondeur, normales, AO brut/reconstruit/filtre et contribution
+      a la couleur, exclusions estimateur et distances au contact ; archives numeriques avec identites
+      sources/binaire/vue/mode.
+    - Corriger et tester hors appareil le diagnostic de largeur incapable de depasser1, bandes plates/unilaterales
+      et discontinuites ; inclure HBAO. Aucun seuil assoupli ni zero sur population vide.
+    - Fixer les entrees exogenes entre avant/apres, garder les sorties propres du moteur ; verifier localement
+      neutralite de l instrumentation et traitement des donnees absentes avant course.
+    execution:
+    - Exclusivement proof_run.sh, budget total consigne avant chaque course, preuves historiques conservees
+      mais jamais revendiquees courantes.
+    - Premier trio pour localiser causalement le gap (estimateur, reconstruction, filtre ou lecture couleur).
+      Corriger seulement apres cette attribution ; second trio pour comparer apres correction.
+    - Si raccord non identifie ou archives manquantes, conserver l echec et diagnostiquer ; aucun lancement
+      identique ni depassement des six courses.
+    limits:
+    - Ce plan est une PROPOSITION, ne pas le lancer avant reponse explicite de l owner.
+    - Ne pas reinitialiser le registre historique9/9 ni reutiliser une reference native consommee.
+    - 'Le plan ne valide pas a lui seul le contrat complet trois vues : identite couleur, stabilite et
+      acquis exterieurs restent requis. Aucune validation owner implicite.'
 - status: open
   game: jak1
   device: false
