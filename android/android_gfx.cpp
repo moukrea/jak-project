@@ -353,6 +353,11 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
       const char* name;
     };
     const GatedEntry gated[] = {
+        // Contact probes use private feedback objects. ES 3.0 provides these,
+        // but desktop GLAD puts them in its skipped GL 4.0 load list.
+        {(void**)&glad_glGenTransformFeedbacks, "glGenTransformFeedbacks"},
+        {(void**)&glad_glBindTransformFeedback, "glBindTransformFeedback"},
+        {(void**)&glad_glDeleteTransformFeedbacks, "glDeleteTransformFeedbacks"},
         // liste glad 3.3 — ES 3.0 core (instanciation du renderer de sprites)
         {(void**)&glad_glVertexAttribDivisor, "glVertexAttribDivisor"},
         // Refset scene-depth probe: sampler objects are ES 3.0 core, but glad

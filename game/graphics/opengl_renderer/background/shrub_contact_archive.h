@@ -9,6 +9,10 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#if defined(__linux__)
+#include <linux/fs.h>
+#include <sys/syscall.h>
+#endif
 
 namespace shrub_contact_archive {
 using Bytes = std::vector<uint8_t>;
@@ -227,10 +231,21 @@ inline bool write(const std::string& path, const Bytes& b) {
   }
   ok = (::fsync(fd) == 0) && ok;
   ok = (::close(fd) == 0) && ok;
-  // link is atomic and refuses to overwrite a prior run, unlike rename.
-  if (ok)
+  // Publish atomically without overwriting a prior run.
+  if (ok) {
+#if defined(__linux__)
+    ok = ::syscall(SYS_renameat2, AT_FDCWD, tmp.c_str(), AT_FDCWD, path.c_str(),
+                   RENAME_NOREPLACE) == 0;
+#else
     ok = ::link(tmp.c_str(), path.c_str()) == 0;
+#endif
+  }
+#if defined(__linux__)
+  if (!ok)
+    ::unlink(tmp.c_str());
+#else
   ::unlink(tmp.c_str());
+#endif
   if (ok) {
     int dir = ::open(std::filesystem::path(path).parent_path().c_str(), O_RDONLY | O_DIRECTORY);
     if (dir < 0)

@@ -566,8 +566,19 @@ void draw_elements(const std::string& level,
     return;
   }
   frame = u64(pad_replay::current_frame());
-  if (!glGenTransformFeedbacks || !glBindTransformFeedback || !glBeginTransformFeedback ||
-      !glEndTransformFeedback || !glMapBufferRange || !glGetQueryiv || !glGetQueryObjectuiv ||
+  if (!glGenTransformFeedbacks) {
+    fail("missing-glGenTransformFeedbacks");
+    return;
+  }
+  if (!glBindTransformFeedback) {
+    fail("missing-glBindTransformFeedback");
+    return;
+  }
+  if (!glDeleteTransformFeedbacks) {
+    fail("missing-glDeleteTransformFeedbacks");
+    return;
+  }
+  if (!glBeginTransformFeedback || !glEndTransformFeedback || !glMapBufferRange || !glGetQueryiv || !glGetQueryObjectuiv ||
       !glGetBufferParameteri64v || !glGetTransformFeedbackVarying) {
     fail("missing-gl-api");
     return;

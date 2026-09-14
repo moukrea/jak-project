@@ -1885,6 +1885,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       autoport_proof::publish("shrub_grass_capture_errors", capture_errors);
       lg::error("[shrub-grass-capture] {}", reason);
     };
+    if (!glGenTransformFeedbacks || !glBindTransformFeedback || !glDeleteTransformFeedbacks) {
+      fail_capture("missing private transform feedback API");
+      return;
+    }
     auto gl_clean = []() {
       bool clean = true;
       for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) clean = false;
