@@ -37,6 +37,14 @@ uniform float u_edge_reject;   // 1 = rejet franc a 1 % arme ; 0 = temoin (gauss
 // le meme `glReadPixels(GL_RED)` que le tampon d'AO : aucun instrument neuf.
 uniform int u_blur_report;
 
+// ── (h) LE REMPLISSAGE DE CRETE AU CONTACT ───────────────────────────────────────────────────
+// Owner, 2026-09-13 : « aux contact on a comme une petite bande ou l'ao n'a pas d'effet, laissant
+// une bande de quelques pixels eclairee sans AO, c'est distrayant ». Contrat (h) : « elle vaut 0
+// ou est declaree et justifiee, jamais "quelques pixels" ». Livre au 14/09 : 850 texels de crete
+// (temoin 4204). 0 = flou normal, comportement INCHANGE ; 1 = passe de crete, en pleine
+// resolution, APRES le flou.
+uniform int u_ridge_fill;
+
 vec3 world_from_depth(vec2 uv, float dpt) {
   vec3 ndc = vec3(uv * 2.0 - 1.0, dpt * 2.0 - 1.0);
   float sx = ndc.x * 256.0 + 2048.0 - u_hvdf_offset.x;
@@ -47,6 +55,55 @@ vec3 world_from_depth(vec2 uv, float dpt) {
 }
 
 void main() {
+  // ── (h) LA PASSE DE CRETE : ELLE NE FLOUTE PAS, ELLE CREUSE LES MAXIMA LOCAUX D'UN PLI ─────
+  // L'AO doit CREUSER au contact : la ou deux surfaces se replient l'une vers l'autre, l'horizon
+  // se ferme et l'occlusion MONTE. Une CRETE — l'AO plus claire au pli qu'a ses deux voisins —
+  // y est donc l'artefact que l'owner nomme, pas une nuance. Le test de pli est EXACTEMENT
+  // celui de `contact_band()` (AmbientOcclusion.cpp) : la courbure de la profondeur de fenetre
+  // pese plus du quart des differences premieres (le pli), et aucune des deux differences n'est
+  // un SAUT au-dela de 2 % (sinon c'est une silhouette, ou l'AO a le DROIT de remonter parce
+  // qu'il y a du vide derriere). Un voisin de ciel annule l'axe.
+  // La passe ne touche QUE les maxima locaux STRICTS poses sur un pli, et ne peut qu'ABAISSER
+  // (le resultat est un min) : elle ne sait donc ni eclaircir quoi que ce soit, ni assombrir une
+  // surface continue (aucun pli), ni une silhouette (le saut l'exclut). Maximum strict SANS
+  // marge : une crete de 3/255 passe sous les 4/255 de la mesure, la corriger quand meme est la
+  // seule facon que la mesure ne soit pas ce qu'on optimise.
+  if (u_ridge_fill == 1) {
+    vec2 px = 1.0 / vec2(textureSize(u_ao, 0));
+    float rd0 = texture(u_depth, tex_coord).r;
+    float a0 = texture(u_ao, tex_coord).r;
+    if (rd0 <= 0.000001) {
+      color = vec4(vec3(a0), 1.0);  // ciel : recopie telle quelle
+      return;
+    }
+    float filled = a0;
+    for (int axis = 0; axis < 2; axis++) {
+      vec2 st = (axis == 0) ? vec2(px.x, 0.0) : vec2(0.0, px.y);
+      float zm = texture(u_depth, tex_coord - st).r;
+      float zp = texture(u_depth, tex_coord + st).r;
+      if (zm <= 0.000001 || zp <= 0.000001) {
+        continue;  // voisin de ciel : cet axe ne dit rien
+      }
+      float rd1 = rd0 - zm;
+      float rd2 = zp - rd0;
+      float curv = abs(rd2 - rd1);
+      float jump = max(abs(rd1), abs(rd2));
+      if (jump > 0.02 * rd0) {
+        continue;  // silhouette
+      }
+      if (curv <= 0.25 * (abs(rd1) + abs(rd2)) + 1e-5) {
+        continue;  // pas un pli
+      }
+      float am = texture(u_ao, tex_coord - st).r;
+      float ap = texture(u_ao, tex_coord + st).r;
+      if (a0 > am && a0 > ap) {
+        filled = min(filled, min(am, ap));  // le candidat de CET axe
+      }
+    }
+    color = vec4(vec3(filled), 1.0);
+    return;
+  }
+
   float d0 = texture(u_depth, tex_coord).r;
   if (d0 <= 0.000001) {
     // Ciel : eclaire, pas de flou. En mode RAPPORT il n'a traverse aucune arete : 0, pas 1 —

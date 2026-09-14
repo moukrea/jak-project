@@ -51,6 +51,35 @@ uniform int u_pre_kind;
 // jamais suppose (PrePass.cpp, `ao_geom_*` / `ao_sway_gap_px`). Vaut 1 sur le chemin livre.
 uniform int u_pre_sway_on;
 
+// (A1) L'ECHELLE DE LA COORDONNEE DE TEXTURE, ET ELLE DEPEND DE LA FAMILLE. Les deux passes
+// couleur ne sortent PAS la meme unite : shrub.vert:125-126 fait `tex_coord = tex_coord_in;` PUIS
+// `tex_coord.xy /= 4096.0;`, tandis que tfrag3.vert:95 — partage par le TFRAG **et** le TIE —
+// fait `tex_coord = tex_coord_in;` sans division. Ce fichier sortait la coordonnee BRUTE pour les
+// trois familles : sur un draw de SHRUB, l'alpha-test de prepass_world.frag:35 echantillonnait
+// donc `fract(uv * 4096)`, c'est-a-dire un texel ARBITRAIRE de la texture — pas celui du
+// fragment. L'argument « ce test est CONSERVATEUR par construction » ecrit en tete de
+// prepass_world.frag etait VIDE sur le shrub : il ne retirait pas ce que la passe couleur retire,
+// il retirait au hasard. `PrePass.cpp` (`sway_reset`) pousse 1/4096 pour le shrub et 1 pour
+// tfrag/TIE, au MEME endroit que `u_pre_kind` : il est impossible d'en poser un sans l'autre.
+// Le bras TEMOIN (u_pre_sway_on == 0) recoit 1 meme sur le shrub : il doit rester EXACTEMENT la
+// prepasse d'avant cet essai, pour que l'ecart soit mesure dans la MEME image et la MEME scene.
+uniform float u_pre_uv_scale;
+
+// (A4) LE MODE DE PROJECTION. 0 = la projection de tfrag3.vert, inchangee. 1 = celle de
+// `etie_base.vert:64-83`, recopiee ligne pour ligne. La passe COULEUR des draws NORMAL_ENVMAP du
+// TIE n'utilise pas tfrag3.vert mais etie_base.vert et SON pipeline (uniformes `persp0`,
+// `persp1`, `cam_no_persp`, poses par `init_etie_cam_uniforms`, Tie3.cpp:1027-1050) — le
+// commentaire Tie3.cpp:1187-1190 dit pourquoi : « if we use envmap, use the envmap-style math for
+// the base draw to avoid rounding issue ». La prepasse dessinait ces MEMES plages
+// (`prepass_ranges_env`, Tie3.cpp:1284) avec l'autre arithmetique : deux projections censees
+// rendre le meme z ne donnent pas le meme bit, et ca se mesure — `ao_geom_tie_gap64_px=192`,
+// IDENTIQUE dans les deux bras (donc rien a voir avec le deplacement de sommet).
+uniform int u_pre_etie;
+// Declares comme dans etie_base.vert:41-43. Inertes quand u_pre_etie == 0.
+uniform vec4 persp0;
+uniform vec4 persp1;
+uniform mat4 cam_no_persp;
+
 // shrub : ligne 0 de tex_T18 = l'etat du ressort natif par instance, ligne 1 = l'ancre de contact.
 // Jumeau ligne pour ligne de shrub.vert:73-91.
 layout (location = 9) in int shrub_inst_in;
@@ -94,13 +123,45 @@ vec3 prepass_world_position() {
 }
 
 void main() {
-  vec3 vert = prepass_world_position() - cam_trans.xyz;
-  vec4 transformed = -pc_camera[3];
-  transformed.w = 0.0;
-  transformed -= pc_camera[0] * vert.x;
-  transformed -= pc_camera[1] * vert.y;
-  transformed -= pc_camera[2] * vert.z;
-  transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;
-  gl_Position = transformed;
+  vec3 wpos = prepass_world_position();
+  if (u_pre_etie == 1) {
+    // etie_base.vert:55-83, ligne pour ligne, sur la MEME position deplacee (la-bas
+    // `position_sway`, ici `wpos`). Aucune constante n'est reecrite : c'est la seule facon
+    // d'obtenir le meme bit de profondeur que la passe de base de l'envmap.
+    vec4 vf17 = cam_no_persp[3];
+    vf17 += cam_no_persp[0] * wpos.x;
+    vf17 += cam_no_persp[1] * wpos.y;
+    vf17 += cam_no_persp[2] * wpos.z;
+    vec4 p_proj = vec4(persp1.x * vf17.x, persp1.y * vf17.y, persp1.z, persp1.w);
+    p_proj += persp0 * vf17.z;
+
+    float pQ = 1.f / p_proj.w;
+    vec4 transformed = p_proj * pQ;
+    transformed.w = p_proj.w;
+
+    // correct xy offset
+    transformed.xy -= (2048.);
+    // correct z scale
+    transformed.z /= (8388608.0);
+    transformed.z -= 1.0;
+    // correct xy scale
+    transformed.x /= (256.0);
+    transformed.y /= -(128.0);
+    // hack
+    transformed.xyz *= transformed.w;
+    // scissoring area adjust
+    transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;
+    gl_Position = transformed;
+  } else {
+    vec3 vert = wpos - cam_trans.xyz;
+    vec4 transformed = -pc_camera[3];
+    transformed.w = 0.0;
+    transformed -= pc_camera[0] * vert.x;
+    transformed -= pc_camera[1] * vert.y;
+    transformed -= pc_camera[2] * vert.z;
+    transformed.y *= SCISSOR_ADJUST * HEIGHT_SCALE;
+    gl_Position = transformed;
+  }
   tex_coord = tex_coord_in;
+  tex_coord.xy *= u_pre_uv_scale;
 }

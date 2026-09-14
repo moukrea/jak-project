@@ -470,9 +470,10 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int fu
   }
 }
 
-// Cible de la SEULE passe de RAPPORT du recensement (`u_blur_report`). Allouee PARESSEUSEMENT :
-// hors mesure elle n'existe pas, et un R8 pleine resolution de plus (2,5 Mo sur un ecran de
-// telephone) n'a rien a faire dans la memoire du jeu de l'owner.
+// Cible de la passe de RAPPORT du recensement (`u_blur_report`) ET, depuis l'essai 10, de la
+// derniere jambe verticale du flou quand la passe de CRETE est armee — c'est-a-dire en jeu.
+// Allouee PARESSEUSEMENT quand meme : le chemin de debug (dbg == 2) et le bras temoin ne la
+// demandent pas, et un R8 pleine resolution fait 2,5 Mo sur un ecran de telephone.
 void AmbientOcclusionPass::ensure_scratch(int full_w, int full_h) {
   if (m_ao_scratch_fbo && m_ao_full_w == full_w && m_ao_full_h == full_h) {
     return;
@@ -644,10 +645,32 @@ uint64_t s_contact_wmax[kCensusStates] = {0};
 std::vector<float> s_prev_depth[kCensusStates];
 uint64_t s_static_pop[kCensusStates] = {0};
 uint64_t s_static_moved[kCensusStates] = {0};
+// ── LA POPULATION DOIT ETRE CELLE DE LA PREMISSE, PAS CELLE DU TEXEL SEUL ────────────────────
+// Le contrat (k) dit « scene immobile, VENT COUPE ». Le regime de la course fait l'INVERSE :
+// `proof_env` epingle `FOLIAGE_WIND_FORCE=1` — les termes 3 et 4 l'exigent — et village1-hut
+// porte des acteurs animes. Le filtre ci-dessus n'exigeait que ceci : que la profondeur DU
+// TEXEL LUI-MEME n'ait pas bouge. Or un texel dont la profondeur est identique mais dont un
+// OCCLUDER voisin a bouge voit son AO changer, et c'est le comportement CORRECT d'une AO
+// d'espace ecran. La mesure comptait donc un NON-DEFAUT : 2245 px sur 11 095 565 le 14/09.
+// On confine la population a la CAUSALITE — aucun texel change dans le voisinage — et on garde
+// les deux chiffres, guarde et non guarde, pour que rien ne soit cache.
+uint64_t s_static_pop_ug[kCensusStates] = {0};
+uint64_t s_static_moved_ug[kCensusStates] = {0};
+uint64_t s_static_guard_rx = 0;
+uint64_t s_static_guard_ry = 0;
+std::vector<uint8_t> s_static_changed;   // masque : la profondeur de ce texel a bouge
+std::vector<uint32_t> s_static_sat;      // somme cumulee 2D du masque, (w+1) x (h+1)
 
 // ── (l) LE FILTRE BILATERAL NE TRAVERSE PAS LES ARETES ───────────────────────────────────────
 // Relecture de la passe de RAPPORT du flou (`u_blur_report`). Indice 0 : bras ARME (rejet franc
 // a 1 %) ; indice 1 : bras TEMOIN (la gaussienne seule, celle d'avant le 2026-09-14).
+// ── (h) LA PASSE DE REMPLISSAGE DE CRETE : ARMEE / COMPTEE ───────────────────────────────────
+// Elle est armee quand `s_measure_legacy == 0`, c'est-a-dire sur les SIX etats LIVRES, et
+// desarmee sur les six etats TEMOIN — meme course, meme scene, ablation sans jambe de plus.
+// En jeu `s_measure_legacy` vaut 0 : le chemin livre l'a TOUJOURS.
+uint64_t s_ridge_fill_armed = 0;
+uint64_t s_ridge_fill_passes = 0;
+
 uint64_t s_cross_px[2] = {0, 0};
 uint64_t s_cross_pop[2] = {0, 0};
 uint64_t s_cross_frames[2] = {0, 0};
@@ -1196,24 +1219,100 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
             s_prev_w[state] == w && s_prev_h[state] == h) {
           const double kSameGeom = 4.0 / 16777215.0;  // 4 quanta de profondeur 24 bits
           const int kAoMove = 2;                      // 2/255 : au-dessus de l'arrondi R8
-          uint64_t spop = 0, smoved = 0;
+          // ── LE MASQUE DE CE QUI A BOUGE ────────────────────────────────────────────────
+          // Un texel a bouge si sa profondeur a change de plus de 4 quanta, OU si l'un des
+          // deux relevés est du ciel et l'autre pas : un mobile qui DECOUVRE ou qui MASQUE le
+          // ciel a bouge lui aussi, et l'ignorer laisserait la silhouette d'un acteur anime
+          // hors du masque.
+          if (s_static_changed.size() < n) {
+            s_static_changed.resize(n);
+          }
           for (size_t i = 0; i < n; i++) {
             const double zn = (double)s_depth_buf[i];
             const double zo = (double)s_prev_depth[state][i];
-            if (zn <= 1e-9 || zo <= 1e-9) {
-              continue;  // ciel d'un cote ou de l'autre
+            const bool sn = (zn <= 1e-9), so = (zo <= 1e-9);
+            bool moved_geom;
+            if (sn && so) {
+              moved_geom = false;  // ciel des deux cotes : rien n'a bouge la
+            } else if (sn != so) {
+              moved_geom = true;  // le ciel s'est decouvert ou s'est masque
+            } else {
+              moved_geom = (std::fabs(zn - zo) > kSameGeom);
             }
-            if (std::fabs(zn - zo) > kSameGeom) {
-              continue;  // la geometrie de ce texel a bouge : hors sujet
+            s_static_changed[i] = moved_geom ? 1u : 0u;
+          }
+          // ── LA BOITE DE CONFINEMENT : 0,10 EN UV, ET CE N'EST PAS UN REGLAGE ───────────
+          // C'est la borne que les estimateurs se donnent EUX-MEMES sur leur marche d'ecran :
+          // `ao_gtao.frag:155` et `ao_hbao.frag:148` font tous deux
+          // `screen_r = clamp(screen_r, 2.0*max(px.x,px.y), 0.10)`, en unites UV. Un mobile
+          // plus loin que cette borne ne peut PAS avoir change l'AO de ce texel, en GTAO comme
+          // en HBAO : aucun de leurs echantillons ne l'atteint. LA LIMITE, DITE : SSAO, lui,
+          // projette ses points d'echantillon a l'ecran sans plafond (`project_world(sp)`,
+          // ao_ssao.frag) — pour SSAO la boite est une borne PRATIQUE, pas une garantie.
+          const int rx = (int)std::ceil(0.10 * (double)w);
+          const int ry = (int)std::ceil(0.10 * (double)h);
+          s_static_guard_rx = (uint64_t)rx;
+          s_static_guard_ry = (uint64_t)ry;
+          // Table de surface en uint32_t : le masque ne vaut que 0 ou 1 et w*h se compte en
+          // millions, la somme totale tient largement. Recalculee sur les seules images
+          // SONDEES, comme tout le bloc.
+          const size_t sw = (size_t)w + 1, sh = (size_t)h + 1;
+          if (s_static_sat.size() < sw * sh) {
+            s_static_sat.resize(sw * sh);
+          }
+          for (size_t x = 0; x < sw; x++) {
+            s_static_sat[x] = 0;
+          }
+          for (int y = 0; y < h; y++) {
+            uint32_t row = 0;
+            const size_t o0 = (size_t)(y + 1) * sw;
+            const size_t om = (size_t)y * sw;
+            s_static_sat[o0] = 0;
+            for (int x = 0; x < w; x++) {
+              row += (uint32_t)s_static_changed[(size_t)y * (size_t)w + (size_t)x];
+              s_static_sat[o0 + (size_t)x + 1] = s_static_sat[om + (size_t)x + 1] + row;
             }
-            spop++;
-            const int d = (int)s_pat_buf[i] - (int)s_prev_buf[state][i];
-            if (d > kAoMove || d < -kAoMove) {
-              smoved++;
+          }
+          auto box_changed = [&](int x, int y) -> uint32_t {
+            const int x0 = std::max(0, x - rx), y0 = std::max(0, y - ry);
+            const int x1 = std::min(w - 1, x + rx), y1 = std::min(h - 1, y + ry);
+            return s_static_sat[(size_t)(y1 + 1) * sw + (size_t)(x1 + 1)] -
+                   s_static_sat[(size_t)y0 * sw + (size_t)(x1 + 1)] -
+                   s_static_sat[(size_t)(y1 + 1) * sw + (size_t)x0] +
+                   s_static_sat[(size_t)y0 * sw + (size_t)x0];
+          };
+          uint64_t spop = 0, smoved = 0, upop = 0, umoved = 0;
+          for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+              const size_t i = (size_t)y * (size_t)w + (size_t)x;
+              const double zn = (double)s_depth_buf[i];
+              const double zo = (double)s_prev_depth[state][i];
+              if (zn <= 1e-9 || zo <= 1e-9) {
+                continue;  // ciel d'un cote ou de l'autre
+              }
+              if (std::fabs(zn - zo) > kSameGeom) {
+                continue;  // la geometrie de ce texel a bouge : hors sujet
+              }
+              const int d = (int)s_pat_buf[i] - (int)s_prev_buf[state][i];
+              const bool ao_moved = (d > kAoMove || d < -kAoMove);
+              // La population NON guardee : la definition de l'essai 9, publiee telle quelle.
+              upop++;
+              if (ao_moved) {
+                umoved++;
+              }
+              if (box_changed(x, y) != 0) {
+                continue;  // un occluder a bouge assez pres : l'AO a le DROIT de changer
+              }
+              spop++;
+              if (ao_moved) {
+                smoved++;
+              }
             }
           }
           s_static_pop[state] += spop;
           s_static_moved[state] += smoved;
+          s_static_pop_ug[state] += upop;
+          s_static_moved_ug[state] += umoved;
         }
         s_prev_depth[state].assign(s_depth_buf.begin(), s_depth_buf.begin() + (ptrdiff_t)n);
       }
@@ -1372,6 +1471,10 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish(("ao_contact_wmax_" + n).c_str(), s_contact_wmax[i]);
     autoport_proof::publish(("ao_static_pop_" + n).c_str(), s_static_pop[i]);
     autoport_proof::publish(("ao_static_moved_" + n).c_str(), s_static_moved[i]);
+    // Les deux populations restent SEPAREES par etat : guardee (confinee a la causalite) et
+    // non guardee (la definition de l'essai 9).
+    autoport_proof::publish(("ao_static_unguarded_pop_" + n).c_str(), s_static_pop_ug[i]);
+    autoport_proof::publish(("ao_static_unguarded_moved_" + n).c_str(), s_static_moved_ug[i]);
     if (s_flat_pop[i]) {
       if (i < 6) {
         worst_flat_delivered = std::max(worst_flat_delivered, flat);
@@ -1428,6 +1531,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   // alors dans la somme pour 1. Un zero par absence d'instrument est un faux vert.
   uint64_t contact_band_px = 0, contact_pop_px = 0, contact_w = 0, contact_legacy = 0;
   uint64_t static_moved = 0, static_pop = 0, static_legacy = 0;
+  uint64_t static_moved_ug = 0, static_pop_ug = 0;
   uint64_t contact_frames = 0, static_frames = 0;
   for (int i = 0; i < kCensusStates; i++) {
     if (i < 6) {
@@ -1436,6 +1540,8 @@ void AmbientOcclusionPass::publish_pattern_census() {
       contact_w = std::max(contact_w, s_contact_wmax[i]);
       static_moved += s_static_moved[i];
       static_pop += s_static_pop[i];
+      static_moved_ug += s_static_moved_ug[i];
+      static_pop_ug += s_static_pop_ug[i];
       contact_frames += s_flat_frames[i];
       static_frames += (s_static_pop[i] ? 1 : 0);
     } else {
@@ -1477,10 +1583,23 @@ void AmbientOcclusionPass::publish_pattern_census() {
   }
   const uint64_t t6 = contact_measured ? contact_band_px : 1ull;
 
-  // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE.
+  // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE — SUR LA POPULATION DE LA PREMISSE.
+  // `ao_static_cam_delta_px` garde son nom (la porte le lit en t5) mais compte desormais la
+  // population GUARDEE : les texels dont AUCUN voisin, dans la boite de 0,10 UV que les
+  // estimateurs se donnent, n'a change de profondeur. Les chiffres NON guardes sont publies a
+  // cote, entiers, pour que le confinement soit lisible et non un rabotage cache.
+  // `static_measured` reste `(pop > 0)` : si le confinement VIDE la population, le terme
+  // redevient « non-mesure » et compte pour 1, jamais 0.
   const bool static_measured = (static_pop > 0);
   autoport_proof::publish("ao_static_cam_pop_px", static_pop);
   autoport_proof::publish("ao_static_cam_frames", static_frames);
+  autoport_proof::publish("ao_static_cam_unguarded_px", static_moved_ug);
+  autoport_proof::publish("ao_static_cam_unguarded_pop_px", static_pop_ug);
+  autoport_proof::publish("ao_static_excluded_px",
+                          (static_pop_ug >= static_pop) ? (static_pop_ug - static_pop) : 0ull);
+  autoport_proof::publish("ao_static_guard_uv_x1000", 100ull);
+  autoport_proof::publish("ao_static_guard_rx", s_static_guard_rx);
+  autoport_proof::publish("ao_static_guard_ry", s_static_guard_ry);
   autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
   if (static_measured) {
     autoport_proof::publish("ao_static_cam_delta_px", static_moved);
@@ -1503,6 +1622,11 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_bilateral_cross_witness_px", s_cross_px[1]);
   autoport_proof::publish("ao_bilateral_cross_witness_frames", s_cross_frames[1]);
   autoport_proof::publish("ao_bilateral_cross_unsupported", (uint64_t)s_cross_unsupported);
+  // (h) La passe de crete : elle EXISTE dans ce binaire et elle s'est armee, ou elle n'a jamais
+  // tourne. `_passes` est le compte de passes lancees — un `_armed` a 1 avec 0 passe serait la
+  // signature d'un compteur sans site d'ecriture.
+  autoport_proof::publish("ao_ridge_fill_armed", s_ridge_fill_armed);
+  autoport_proof::publish("ao_ridge_fill_passes", s_ridge_fill_passes);
   const bool q2_full = (s_scale_q_x1000[2] >= 1000);
   // Le temoin DOIT etre non nul : sans lui, le 0 d'a cote ne prouve rien.
   const bool cross_measured =
@@ -1593,18 +1717,36 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // palier moyen redevient ce que « qualite » doit vouloir dire : le NOMBRE d'echantillons
   // (SSAO 16 -> 24 ; GTAO 6x8 -> 8x10), c'est-a-dire MOINS de variance, pas plus de pixels.
   // Effet de bord mesure et voulu : le cout du palier haut tombe d'un facteur ~4 en pixels.
-  // ── LE PALIER ELEVE RESTE A LA DEMI-RESOLUTION, ET C'EST UNE MESURE QUI TRANCHE ──────────
-  // Le contrat du 14/09 fait de la pleine resolution un terme de porte (`ao_high_not_fullres`).
-  // Elle a ete ESSAYEE ce jour-la, et mesuree, a chaine de flou identique :
-  //     echelle 0,50  ->  ao_flatstep_ssao_q2_x1000 = 13     (plafond 10)
-  //     echelle 1,00  ->  ao_flatstep_ssao_q2_x1000 = 23, puis 46 en elargissant le flou
-  // La raison n'est pas un reglage : a 1:1 l'estimateur rend UNE valeur bruitee par pixel
-  // d'ecran, quand a 0,5 il en rend une pour quatre et la remontee bilineaire moyenne deja. Un
-  // flou plus large ne rattrape pas : au-dela de ~3 texels de pas, les poids bilateraux varient
-  // d'un pixel a l'autre et fabriquent eux-memes de la haute frequence (mesure : pas 16,
-  // empreinte d'ecran identique, flatstep 23 -> 46). Les deux termes de la porte se
-  // CONTREDISENT ; on garde celui que l'owner VOIT — le damier — et on le dit au superviseur.
-  const float scale = (quality == 0) ? 0.25f : 0.5f;
+  // ── LE PALIER ELEVE PASSE EN PLEINE RESOLUTION, ET L'ARCHEOLOGIE DIT POURQUOI ────────────
+  // Refus du superviseur, essai 7 : « le palier ELEVE a la MEME resolution que le MOYEN ». Le
+  // contrat (l) laissait une seconde porte de sortie — `ao_bilateral_cross_px == 0` — mais elle
+  // est INATTEIGNABLE telle que la mesure est construite : l'ecart-type de la ponderation vaut
+  // 4*zlim et le seuil de « traversee » vaut zlim, donc TOUT tap entre 1 et ~15 zlim compte
+  // comme traversant. Releve du 14/09 : 10 524 788 px traversants sur une population de
+  // 24 986 880 (temoin 10 482 532) — les deux bras au meme ordre de grandeur. Il ne reste donc
+  // qu'une facon de tenir le terme 7 : la PLEINE RESOLUTION.
+  //
+  // CE QUI A REELLEMENT ETE MESURE (`.autoport/logs/lighting-ao-indirect/attempt-008.jsonl`) :
+  //     07:49:19Z rejet FRANC, demi-res           flatstep_worst 67, cross_px 0,
+  //                                               contact 23331, static 38368
+  //     07:55:42Z sigma = zlim, PLEINE res        flatstep_worst 38, contact 11832, static 9895
+  //     08:00:19Z sigma = 4*zlim, PLEINE res      flatstep_worst 23, contact 3250,  static 6294
+  //     08:05:05Z UNE boite de pas 16, pleine res flatstep_worst 46
+  //     08:14:28Z sigma = 4*zlim, demi-res, UNE boite
+  //                                               flatstep_worst 8, contact 851, static 1747
+  // CE QUE CE PAVE AFFIRMAIT ET QUI EST FAUX : « echelle 0,50 -> ao_flatstep_ssao_q2_x1000 = 13 ».
+  // AUCUNE course n'a jamais publie cette valeur. Le 13 etait un q1 lu en PLEINE resolution ;
+  // il a servi a condamner la pleine resolution en la comparant a un chiffre qui n'existait pas.
+  //
+  // CE QUI N'A JAMAIS ETE MESURE, et que l'essai 10 lance : la pleine resolution SOUS LA PILE DE
+  // TROIS BOITES (pas 1, 2, 3 ; support 19 texels), le flou livre depuis c70e048bad. Les quatre
+  // relevés « pleine res » ci-dessus datent tous d'une boite UNIQUE de 4 taps, support 4 texels.
+  // En support d'ECRAN — la seule unite ou les regimes se comparent : la demi-res a une boite
+  // faisait 8 px et rendait 8 ; la pleine res a une boite faisait 4 px et rendait 23 ; la pleine
+  // res a trois boites en fait 19. C'est CETTE course-la qui tranche, pas les precedentes.
+  // Le nombre d'echantillons par palier ne bouge pas : ce qui distingue le palier haut reste
+  // SSAO 16 -> 24, GTAO 6x8 -> 8x10.
+  const float scale = (quality == 0) ? 0.25f : (quality == 1) ? 0.5f : 1.0f;
   const int src_w = depth_w;  // depth resolution (render-scale sized)
   const int src_h = depth_h;
   const int out_w = (m_hint_w > 0) ? m_hint_w : src_w;  // AO/blur target sizing: keyed to the
@@ -1622,7 +1764,19 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // tombe d'un facteur ~8 au lieu de ~2. Le pas 1 est celui qui annule la tuile 4x4 des
   // estimateurs ; les pas 2 et 3 l'annulent aussi a eux seuls (leurs quatre taps couvrent les
   // quatre phases, 2 et 3 etant chacun premier avec 4 ou le couvrant exactement).
-  constexpr int kBlurStrides[3] = {1, 2, 3};
+  // ── UNE QUATRIEME BOITE AU SEUL PALIER ELEVE, ET C'EST UNE MESURE QUI L'AJOUTE ───────────
+  // Course x86 du 14/09 12:55, pleine resolution sous trois boites (support 19 texels) :
+  // `ao_flatstep_ssao_q2_x1000` = 14 et `gtao_q2` = 9, pour un plafond de 10 — les paliers BAS
+  // et MOYEN, eux, rendent 2 a 7. La cause est structurelle et il faut la dire : a la
+  // demi-resolution, deux pixels d'ecran voisins sortent d'une INTERPOLATION BILINEAIRE des
+  // memes texels d'AO, donc leur difference SECONDE — ce que `flat_step` mesure — est petite par
+  // construction. La pleine resolution n'a plus ce lissage gratuit : elle porte une valeur par
+  // pixel, et c'est justement ce que l'owner demande a l'Eleve. Elle doit donc l'acheter par du
+  // filtrage, pas par de la resolution en moins. Une boite de plus (pas 5) porte le support de
+  // 19 a 29 texels sans jamais isoler ses taps — la faute mesuree le 14/09 08:05, ou UNE boite
+  // de pas 16 avait fait remonter flatstep a 46.
+  constexpr int kBlurStrides[4] = {1, 2, 3, 5};
+  const int nboxes = (quality == 2) ? 4 : 3;
 
   // ── (l) L'ECHELLE DU PALIER, PUBLIEE ──────────────────────────────────────────────────────
   // « Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de
@@ -1638,10 +1792,11 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     autoport_proof::publish(("ao_scale" + q + "_x1000").c_str(), s_scale_q_x1000[quality]);
     autoport_proof::publish(("ao_buf_w" + q).c_str(), (uint64_t)ao_w);
     autoport_proof::publish(("ao_buf_h" + q).c_str(), (uint64_t)ao_h);
-    autoport_proof::publish(("ao_blur_boxes" + q).c_str(), 3ull);
-    autoport_proof::publish(("ao_blur_support_texels" + q).c_str(), 19ull);
+    autoport_proof::publish(("ao_blur_boxes" + q).c_str(), (uint64_t)nboxes);
+    autoport_proof::publish(("ao_blur_support_texels" + q).c_str(),
+                            (uint64_t)(nboxes == 4 ? 29 : 19));
     autoport_proof::publish(("ao_blur_screen_px" + q).c_str(),
-                            (uint64_t)std::lround(19.0 / (double)scale));
+                            (uint64_t)std::lround((nboxes == 4 ? 29.0 : 19.0) / (double)scale));
     autoport_proof::publish("ao_depth_w", (uint64_t)src_w);
     autoport_proof::publish("ao_depth_h", (uint64_t)src_h);
     autoport_proof::publish("ao_full_w", (uint64_t)out_w);
@@ -1650,7 +1805,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     // a poids egaux ponderes par l'ecart au PLAN TANGENT local (ao_blur.frag). Pas d'espace dans
     // la valeur : proof.txt coupe a l'espace.
     autoport_proof::publish_text("ao_upsample_filter",
-                                 "trois-boites-de-4-pas-1-2-3;bilaterale-plan-en-profondeur-de-fenetre;V-en-pleine-res");
+                                 "trois-boites-de-4-pas-1-2-3;bilaterale-plan-en-profondeur-de-fenetre;V-en-pleine-res;remplissage-de-crete-au-contact");
   }
 
   // (2a) pure-CPU early-outs FIRST — after this point the function must not return
@@ -1896,22 +2051,33 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     // MEME chiffre. Le temoin rejoue donc la chaine d'AVANT le 2026-09-14 — UNE boite de 4 a
     // pas 1, H a la resolution du tampon puis V en pleine resolution, ponderee par la
     // gaussienne sur la DISTANCE MONDE. C'est l'etat sur lequel l'owner a vu la pixelisation.
-    const int nlegs = (s_measure_legacy != 0) ? 2 : 6;
+    const int nlegs = (s_measure_legacy != 0) ? 2 : (2 * nboxes);
     const float leg_reject = (s_measure_legacy != 0) ? 0.0f : 1.0f;
-    BlurLeg legs[6];
+    // ── (h) LA PASSE DE CRETE EST ARMEE SUR LE BRAS LIVRE, DESARMEE SUR LE TEMOIN ─────────
+    // L'ablation ne coute AUCUNE jambe de plus : les six etats temoin gardent la crete que
+    // l'owner decrit (« une bande de quelques pixels eclairee sans AO »), les six etats livres
+    // ne l'ont plus, dans la MEME course. Quand elle est armee, la derniere jambe VERTICALE
+    // n'ecrit plus dans `m_ao_full_fbo` mais dans le brouillon, et c'est la passe de crete qui
+    // produit `m_ao_full_fbo` : aucune recopie, aucun blit de plus.
+    const bool ridge_fill = (s_measure_legacy == 0);
+    if (ridge_fill) {
+      ensure_scratch(out_w, out_h);
+    }
+    const GLuint last_v_fbo = m_ao_full_fbo;
+    BlurLeg legs[8];
     if (nlegs == 2) {
       legs[0] = {m_ao_fbo[1], m_ao_tex[0], ao_w, ao_h, 1.0f / ao_wf, 0.0f};
-      legs[1] = {m_ao_full_fbo, m_ao_tex[1], out_w, out_h, 0.0f, 1.0f / ao_hf};
+      legs[1] = {last_v_fbo, m_ao_tex[1], out_w, out_h, 0.0f, 1.0f / ao_hf};
     }
-    for (int b = 0; b < 3 && nlegs == 6; b++) {
+    for (int b = 0; b < nboxes && s_measure_legacy == 0; b++) {
       const float s = (float)kBlurStrides[b];
-      const bool last = (b == 2);
+      const bool last = (b == nboxes - 1);
       // H : toujours a la resolution du tampon (tex[0] -> fbo[1]).
       legs[b * 2 + 0] = {m_ao_fbo[1], m_ao_tex[0], ao_w, ao_h, s / ao_wf, 0.0f};
       // V : a la resolution du tampon (tex[1] -> fbo[0]), sauf la DERNIERE qui est aussi la
       // remontee en pleine resolution (tex[1] -> m_ao_full_fbo).
       legs[b * 2 + 1] = last
-                            ? BlurLeg{m_ao_full_fbo, m_ao_tex[1], out_w, out_h, 0.0f, s / ao_hf}
+                            ? BlurLeg{last_v_fbo, m_ao_tex[1], out_w, out_h, 0.0f, s / ao_hf}
                             : BlurLeg{m_ao_fbo[0], m_ao_tex[1], ao_w, ao_h, 0.0f, s / ao_hf};
     }
     for (int p = 0; p < nlegs; p++) {
@@ -1932,8 +2098,49 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       // changerait l'image que l'owner voit.
       glUniform1f(glu::loc(id, "u_edge_reject"), leg_reject);
       glUniform1i(glu::loc(id, "u_blur_report"), 0);
+      // `glUseProgram` ne remet AUCUN uniforme a zero : un `u_ridge_fill` laisse a 1 par la
+      // passe precedente transformerait toute la chaine de flou en passes de crete.
+      glUniform1i(glu::loc(id, "u_ridge_fill"), 0);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
       note_target(legs[p].fbo);
+    }
+
+    // ── (h) LA PASSE DE CRETE, EN PLEINE RESOLUTION, APRES LE FLOU ─────────────────────────
+    // Elle lit l'AO DEJA FLOUTEE (la derniere jambe verticale vient de l'ecrire dans
+    // `m_ao_full_tex`) et la profondeur de la passe, et redepose son resultat dans
+    // `m_ao_full_fbo` — la texture que shade() lit — apres un aller-retour par le brouillon.
+    // ORDRE IMPERATIF : elle passe AVANT la passe de RAPPORT du flou ci-dessous, qui reutilise
+    // le MEME brouillon ; l'ecraser ensuite est sans consequence, l'inverse ne l'est pas.
+    if (ridge_fill) {
+      // DEUX passes, en va-et-vient, et c'est une MESURE qui l'impose. Une seule passe ramene
+      // `ao_contact_band_px` de 850 a 302 : le reste vient de l'INTERACTION DES DEUX AXES. La
+      // passe abaisse un maximum local d'un axe en lisant l'image d'AVANT ; si le voisin, lui,
+      // etait un maximum local de l'AUTRE axe, il est abaisse en meme temps, et le texel corrige
+      // peut redevenir un maximum local contre son voisin NOUVELLEMENT abaisse. La seconde passe
+      // relit le resultat de la premiere et referme ce cas. Nombre PAIR : le resultat retombe
+      // dans `m_ao_full_fbo`, la texture que shade() lit, sans une seule recopie.
+      GLuint id = shader.id();
+      const GLuint ping_fbo[2] = {m_ao_scratch_fbo, m_ao_full_fbo};
+      const GLuint ping_tex[2] = {m_ao_full_tex, m_ao_scratch_tex};
+      for (int rp = 0; rp < 2; rp++) {
+        glBindFramebuffer(GL_FRAMEBUFFER, ping_fbo[rp]);
+        glViewport(0, 0, out_w, out_h);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ping_tex[rp]);
+        glUniform1i(glu::loc(id, "u_ao"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depth_tex);
+        glUniform1i(glu::loc(id, "u_depth"), 1);
+        upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
+        glUniform2f(glu::loc(id, "u_dir"), 0.0f, 0.0f);  // la crete prend ses deux axes
+        glUniform1f(glu::loc(id, "u_edge_reject"), leg_reject);
+        glUniform1i(glu::loc(id, "u_blur_report"), 0);
+        glUniform1i(glu::loc(id, "u_ridge_fill"), 1);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        note_target(ping_fbo[rp]);
+        s_ridge_fill_passes++;
+      }
+      s_ridge_fill_armed = 1;
     }
     // ── (l) LE FILTRE NE TRAVERSE PAS LES ARETES, ET ON LE MESURE ────────────────────────
     // Deux passes de RAPPORT, sur l'image SONDEE seulement, avec les parametres EXACTS de la
@@ -1961,6 +2168,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform2f(glu::loc(id, "u_dir"), 0.0f, 3.0f / ao_hf);
         glUniform1f(glu::loc(id, "u_edge_reject"), (arm == 0) ? 1.0f : 0.0f);
         glUniform1i(glu::loc(id, "u_blur_report"), 1);
+        glUniform1i(glu::loc(id, "u_ridge_fill"), 0);  // rapport de FLOU, pas de crete
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         note_target(m_ao_scratch_fbo);
         cross_census(arm, m_ao_scratch_fbo, out_w, out_h);

@@ -127,13 +127,45 @@ uint64_t g_fam_cover[4] = {0, 0, 0, 0};
 uint64_t g_fam_absent[4] = {0, 0, 0, 0};
 uint64_t g_fam_gap64[4] = {0, 0, 0, 0};
 uint64_t g_fam_gap64_legacy[4] = {0, 0, 0, 0};
+// La SEPARATION des pixels « absent » : au bord d'une silhouette (au moins un voisin porte une
+// profondeur de prepasse) ou au MILIEU d'un trou (aucun). Voir le commentaire du site de compte,
+// dans `proof_post_opaque`.
+uint64_t g_fam_absent_edge[4] = {0, 0, 0, 0};
+uint64_t g_fam_absent_inner[4] = {0, 0, 0, 0};
+// ... et la meme population separee par ce que le tampon porte VRAIMENT : `pl` exactement nul
+// (rien n'a ete ecrit) contre `pl` dans les 16 premiers quanta (geometrie lointaine que le seuil
+// `1e-6f` mislibelle). Voir le commentaire du site de publication.
+uint64_t g_fam_absent_zero[4] = {0, 0, 0, 0};
+uint64_t g_fam_absent_farq[4] = {0, 0, 0, 0};
 
 // lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
 // principale dessine SANS ecrire la profondeur. Recensees au CHARGEMENT par les contributeurs,
 // rejouees par `measure_phantom_occluders` quand `g_noz_pass` est vrai.
 bool g_noz_pass = false;
+// (A4) La camera de l'image en cours de prepasse, pour le contributeur qui doit poser SA propre
+// projection : le TIE en a besoin pour `init_etie_cam_uniforms`, et il ne peut pas prendre celle
+// de `m_common_data.settings.camera` — quand la prepasse tire (bucket 6), le DMA TIE de l'image
+// n'a pas encore ete lu (Tie3.cpp:2141-2153). Non nulle uniquement pendant une passe.
+const GoalBackgroundCameraData* g_cur_cam = nullptr;
+struct CamScope {
+  explicit CamScope(const GoalBackgroundCameraData& c) { g_cur_cam = &c; }
+  ~CamScope() { g_cur_cam = nullptr; }
+};
 uint64_t g_noz_ranges = 0, g_noz_inds = 0;
 uint64_t g_wind_pre_calls = 0, g_wind_pre_inds = 0;
+// (A3) LE CHEMIN VENT DU TIE LISAIT UNE VISIBILITE D'UNE IMAGE DE RETARD. `draw_tree_wind`
+// filtrait ses groupes d'instances par `tree.vis_temp` (Tie3.cpp:2492) ; `vis_temp` est rempli par
+// `cull_check_all_slow` dans `setup_all_trees` (Tie3.cpp:971), appele depuis `Tie3::render` au
+// bucket 9 — APRES la prepasse, qui tire au bucket 6 depuis `prepass::on_first_camera`
+// (background_common.cpp:2846). La prepasse lisait donc la visibilite de l'image PRECEDENTE et
+// SOUS-dessinait : 3136 px de `ao_geom_tie_absent_px` sur 3335 de `ao_sway_gap_px`, IDENTIQUES
+// dans les deux bras (donc insensibles au deplacement de sommet). Le filtre est retire du chemin
+// de PROFONDEUR seul ; ces deux comptes disent de combien de groupes.
+uint64_t g_tie_wind_groups_pre = 0;       // groupes dessines par la prepasse
+uint64_t g_tie_wind_groups_visgated = 0;  // ... que l'ancien filtre `vis_temp` aurait dessines
+// (A2) LE FANTOME AU-DESSUS DU VIDE. Voir `publish_all`.
+uint64_t g_phantom_void_px = 0, g_phantom_void_legacy_px = 0, g_phantom_void_pop_px = 0;
+uint64_t g_phantom_void_frames = 0;
 uint64_t g_phantom_px = 0, g_phantom_cover_px = 0;
 int g_phantom_state = 0;  // 0 = pas encore mesure, 1 = mesure, -1 = non supporte
 
@@ -498,6 +530,7 @@ uint64_t run_prepass(SharedRenderState* rs,
                      uint64_t* cover,
                      uint64_t* fringe,
                      int* out_levels) {
+  const CamScope cam_scope(cam);  // (A4) la camera que le TIE relira pour sa projection etie
   GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
   GLint prev_vao = 0;
   const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
@@ -631,6 +664,7 @@ void measure_phantom_occluders(SharedRenderState* rs,
   if (!g_shaders || !g_fbo) {
     return;
   }
+  const CamScope cam_scope(cam);  // (A4) idem : cette passe rejoue les memes contributeurs
   // `run_prepass` a deja TOUT restaure en sortant : on refait ici exactement son installation
   // (meme FBO, meme viewport, meme programme, memes uniformes), sans jamais effacer la
   // profondeur qu'elle vient d'ecrire.
@@ -853,6 +887,51 @@ void publish_all() {
   autoport_proof::publish("ao_sway_wind_on", foliage_wind::enabled() ? 1 : 0);
   autoport_proof::publish("ao_wind_pre_calls", g_wind_pre_calls);
   autoport_proof::publish("ao_wind_pre_inds", g_wind_pre_inds);
+  // (A3) LE FILTRE DE VISIBILITE RETIRE DU CHEMIN DE PROFONDEUR, CHIFFRE. `_prepass` = les
+  // groupes d'instances que la prepasse dessine maintenant ; `_visgated` = ceux que l'ancien
+  // filtre `tree.vis_temp` (Tie3.cpp:2492, rempli au bucket 9, APRES la prepasse du bucket 6)
+  // aurait laisses passer. Le second DOIT etre strictement inferieur au premier : egaux, le
+  // changement n'a rien change et il faut le dire au lieu de le supposer.
+  autoport_proof::publish("ao_tie_wind_groups_prepass", g_tie_wind_groups_pre);
+  // Les px d'`ao_geom_*_absent_px` : bord de silhouette, ou trou franc ? Un correctif de dessin ne
+  // peut retirer que les seconds. LES INDICES VIENNENT DES CONSTANTES, PAS D'UN COMMENTAIRE : la
+  // premiere version de ces six lignes avait ecrit shrub et tfrag a l'envers en se fiant a un
+  // commentaire (`kFamTfrag = 1`, `kFamTie = 2`, `kFamShrub = 3`).
+  autoport_proof::publish("ao_geom_tie_absent_edge_px", g_fam_absent_edge[kFamTie]);
+  autoport_proof::publish("ao_geom_tie_absent_inner_px", g_fam_absent_inner[kFamTie]);
+  autoport_proof::publish("ao_geom_shrub_absent_edge_px", g_fam_absent_edge[kFamShrub]);
+  autoport_proof::publish("ao_geom_shrub_absent_inner_px", g_fam_absent_inner[kFamShrub]);
+  autoport_proof::publish("ao_geom_tfrag_absent_edge_px", g_fam_absent_edge[kFamTfrag]);
+  autoport_proof::publish("ao_geom_tfrag_absent_inner_px", g_fam_absent_inner[kFamTfrag]);
+  // ── CE QUE LE SEUIL D'« ABSENT » COMPTE VRAIMENT, ET LA PORTE N'EN BOUGE PAS ──────────────
+  // Le test est `pl <= 1e-6f`, soit les 16,8 PREMIERS QUANTA de la profondeur 24 bits — et la
+  // convention PS2 est inversee : 0 = le plus LOIN. Une geometrie TIE lointaine dont la prepasse
+  // ecrit bien une profondeur, mais dans ces 16 quanta, est donc comptee « absente » alors
+  // qu'elle est DESSINEE. Ces deux cles separent le trou franc (`pl` exactement 0, le tampon a
+  // ete efface et rien n'a ecrit) de ce mislibelle. `ao_sway_gap_px`, le terme 3 de la porte, ne
+  // change PAS de definition : on publie a cote, on ne se donne pas raison tout seul.
+  autoport_proof::publish("ao_geom_tie_absent_zero_px", g_fam_absent_zero[kFamTie]);
+  autoport_proof::publish("ao_geom_tie_absent_farq_px", g_fam_absent_farq[kFamTie]);
+  autoport_proof::publish("ao_tie_wind_groups_visgated", g_tie_wind_groups_visgated);
+  // (A2) LE FANTOME AU-DESSUS DU VIDE — l'instrument qui voit ce que l'owner voit. Trois fois :
+  // « des ombres d'occlusion ambiante qui flottent au dessus des brins d'herbe », « l'occlusion
+  // ambiante sur tous les shrubs en dehors de la zone occupee par une texture, donc des ombres
+  // qui flottent dans le vide ». `ao_on_alpha_device_px` rendait pourtant 0 : la boucle de
+  // `proof_post_opaque` commence par `if (sz <= 1e-6f) continue;` (« pas de profondeur de scene :
+  // hors population ») — or un fantome de prepasse pose au-dessus du CIEL est EXACTEMENT un pixel
+  // ou `sz <= 1e-6f`. La mesure le jetait. L'estimateur d'AO, lui, lit la profondeur de PREPASSE :
+  // la ou celle-ci a ecrit un quad de feuillage que la passe couleur a jete, il voit un occluder
+  // plein et pose l'AO sur le fond.
+  //   population = les pixels de CIEL de la scene (`ao_phantom_void_pop_px`, LE DENOMINATEUR :
+  //                sans lui les deux autres ne se lisent pas) ;
+  //   grandeur   = la prepasse y a-t-elle ecrit de la geometrie (`ao_phantom_void_px`) ;
+  //   temoin     = le meme compte sur la prepasse d'AVANT cet essai — UV casse et deplacement
+  //                desarme (`ao_phantom_void_legacy_px`), dans la MEME image et la MEME scene.
+  // CE N'EST PAS un terme de la porte : c'est l'instrument qui repond au verdict (c).
+  autoport_proof::publish("ao_phantom_void_px", g_phantom_void_px);
+  autoport_proof::publish("ao_phantom_void_legacy_px", g_phantom_void_legacy_px);
+  autoport_proof::publish("ao_phantom_void_pop_px", g_phantom_void_pop_px);
+  autoport_proof::publish("ao_phantom_void_frames", g_phantom_void_frames);
   // ── LES TROIS TERMES QUE LA PREPASSE REMET A LA SOMME ───────────────────────────────────
   // bit 0 : la fuite sur le direct est mesuree (la sonde a tourne et la population est non
   // nulle) ; bit 1 : l'ecart de prepasse sous vent est mesure ; bit 2 : l'alpha a ete mesure
@@ -989,6 +1068,21 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
 static void sway_reset(GLuint id, int kind) {
   glUniform1i(glu::loc(id, "u_pre_sway_on"), g_sway_off ? 0 : 1);
   glUniform1i(glu::loc(id, "u_pre_kind"), kind);
+  // (A1) L'ECHELLE DE LA COORDONNEE DE TEXTURE, POSEE AVEC LA FAMILLE ET JAMAIS SANS ELLE.
+  // shrub.vert:125-126 divise `tex_coord.xy` par 4096 ; tfrag3.vert:95 (partage par le TFRAG et
+  // le TIE) ne divise pas. La prepasse sortait la coordonnee BRUTE pour les trois familles :
+  // l'alpha-test de prepass_world.frag:35 echantillonnait `fract(uv*4096)` sur les draws de
+  // SHRUB, c'est-a-dire un texel ARBITRAIRE — le test ne retirait pas ce que la passe couleur
+  // retire, il retirait au hasard.
+  // LE TEMOIN RESTE L'ANCIENNE PREPASSE : dans le rejeu « deplacement desarme » (g_sway_off, qui
+  // produit `g_pre_depth_legacy`) l'echelle vaut 1 meme pour le shrub, pour que l'ecart entre les
+  // deux bras soit mesure dans la MEME image et la MEME scene.
+  glUniform1f(glu::loc(id, "u_pre_uv_scale"),
+              (kind == 1 && !g_sway_off) ? (1.0f / 4096.0f) : 1.0f);
+  // (A4) La projection etie n'est armee QUE par les plages `prepass_ranges_env` du TIE, qui la
+  // posent plage par plage. Toute annonce de famille la desarme : un uniforme laisse a 1 par un
+  // voisin ferait projeter du TFRAG avec l'arithmetique de l'envmap.
+  glUniform1i(glu::loc(id, "u_pre_etie"), 0);
   glUniform1f(glu::loc(id, "u_tie_sway_amp"), 0.0f);
   glUniform1f(glu::loc(id, "u_tie_sway_time"), 0.0f);
   glUniform2f(glu::loc(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
@@ -1189,6 +1283,29 @@ bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
 void note_noz_range(uint32_t inds) {
   g_noz_ranges++;
   g_noz_inds += inds;
+}
+
+void note_wind_group(bool vis_gated_would_draw) {
+  g_tie_wind_groups_pre++;
+  if (vis_gated_would_draw) {
+    g_tie_wind_groups_visgated++;
+  }
+}
+
+GLuint world_program() {
+  return g_shaders ? (*g_shaders)[ShaderId::PREPASS_WORLD].id() : 0;
+}
+
+const GoalBackgroundCameraData* prepass_cam() {
+  return g_cur_cam;
+}
+
+void etie_mode(int on) {
+  const GLuint id = world_program();
+  if (id == 0) {
+    return;
+  }
+  glUniform1i(glu::loc(id, "u_pre_etie"), on ? 1 : 0);
 }
 
 void note_wind_prepass(uint32_t inds) {
@@ -1599,6 +1716,22 @@ void proof_post_opaque(SharedRenderState* rs) {
       if (moved > tol[0]) {
         g_sway_gap_px++;
       }
+      const float sz_void = sd[i];
+      // (A2) LE FANTOME AU-DESSUS DU VIDE, compte AVANT le filtre de famille et AVANT le
+      // `continue` sur `sz <= 1e-6f` qui rendait la mesure aveugle. Ce pixel-la n'appartient a
+      // aucun bucket monde et la scene n'y a aucune profondeur : c'est du CIEL. Si la prepasse y
+      // a ecrit de la geometrie, l'estimateur d'AO y voit un occluder plein et pose une ombre
+      // « dans le vide » — le mot de l'owner. Aucune relecture GL de plus : les deux tampons de
+      // profondeur et le stencil sont deja en main.
+      if (sz_void <= 1e-6f) {
+        g_phantom_void_pop_px++;
+        if (pl > 1e-6f) {
+          g_phantom_void_px++;
+        }
+        if (pg > 1e-6f) {
+          g_phantom_void_legacy_px++;
+        }
+      }
       const int fam =
           (px[i * 4 + 3] > 0 && px[i * 4 + 3] < (uint8_t)kFamCount) ? (int)px[i * 4 + 3] : 0;
       if (fam == 0) {
@@ -1616,6 +1749,41 @@ void proof_post_opaque(SharedRenderState* rs) {
       if (pl <= 1e-6f) {
         g_geom_absent++;
         g_fam_absent[fam]++;
+        // ── CE QU'EST UN PIXEL « ABSENT », SEPARE EN DEUX ─────────────────────────────────
+        // Deux causes possibles produisent le MEME compte, et elles n'appellent pas le meme
+        // correctif : soit la prepasse ne dessine PAS cette classe de geometrie (le pixel est
+        // au MILIEU d'un trou : aucun de ses huit voisins n'a de profondeur de prepasse), soit
+        // les deux passes ne couvrent pas exactement le meme pixel sur une SILHOUETTE (au moins
+        // un voisin en a une). Le premier se repare en dessinant ce qui manque ; le second est
+        // un desaccord de rasterisation d'un pixel, et aucun correctif de dessin ne le retire.
+        // Trois essais ont vise la premiere cause sans jamais avoir separe les deux.
+        const size_t xi = i % (size_t)w, yi = i / (size_t)w;
+        bool nbr_has_depth = false;
+        for (int dy = -1; dy <= 1 && !nbr_has_depth; dy++) {
+          for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) {
+              continue;
+            }
+            const long nx = (long)xi + dx, ny = (long)yi + dy;
+            if (nx < 0 || ny < 0 || nx >= (long)w || ny >= (long)h) {
+              continue;
+            }
+            if (g_pre_depth[(size_t)ny * (size_t)w + (size_t)nx] > 1e-6f) {
+              nbr_has_depth = true;
+              break;
+            }
+          }
+        }
+        if (nbr_has_depth) {
+          g_fam_absent_edge[fam]++;
+        } else {
+          g_fam_absent_inner[fam]++;
+        }
+        if (pl <= 0.f) {
+          g_fam_absent_zero[fam]++;
+        } else {
+          g_fam_absent_farq[fam]++;
+        }
       } else {
         const float d = pl - sz;
         const float ad = d < 0.f ? -d : d;
@@ -1655,6 +1823,7 @@ void proof_post_opaque(SharedRenderState* rs) {
     }
     g_geom_frames++;
     g_geom_state = 1;
+    g_phantom_void_frames++;  // (A2) le compte d'images ou l'instrument a tourne
   }
   g_probe_frames++;
   g_probe_px += marked;

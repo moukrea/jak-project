@@ -1295,7 +1295,32 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
                   &tree.prepass_noz_ranges, &tree.prepass_noz_ranges_env}
             : std::array<const std::vector<prepass::DepthRange>*, 2>{&tree.prepass_ranges,
                                                                      &tree.prepass_ranges_env};
-    for (const auto* ranges : pre_lists) {
+    // lighting-ao-indirect (A4) : LA PROJECTION `etie` POUR LES PLAGES NORMAL_ENVMAP (indice 1).
+    // La passe COULEUR de ces draws passe par `etie_base.vert` et son pipeline (:1187-1190, « use
+    // the envmap-style math for the base draw to avoid rounding issue ») ; la prepasse dessinait
+    // les MEMES plages avec `pc_camera` + `cam_trans`. Deux arithmetiques censees rendre le meme z
+    // ne donnent pas le meme bit : `ao_geom_tie_gap64_px=192`, IDENTIQUE dans les deux bras (donc
+    // etranger au deplacement de sommet). On pose le mode ET les trois uniformes par LISTE, avec
+    // la MEME fonction que la passe couleur (`init_etie_cam_uniforms`, :1027) — aucune
+    // arithmetique dupliquee — et sur la camera de la PREPASSE : la notre (`m_common_data`) n'est
+    // pas encore lue quand la prepasse tire.
+    const GLuint pre_id = prepass::world_program();
+    const GoalBackgroundCameraData* pre_cam = prepass::prepass_cam();
+    EtieUniforms pre_etie{};
+    pre_etie.persp0 = glu::loc(pre_id, "persp0");
+    pre_etie.persp1 = glu::loc(pre_id, "persp1");
+    pre_etie.cam_no_persp = glu::loc(pre_id, "cam_no_persp");
+    pre_etie.envmap_tod_tint = 0;
+    pre_etie.decal = 0;
+    for (size_t li = 0; li < pre_lists.size(); li++) {
+      const auto* ranges = pre_lists[li];
+      const bool env_list = (li == 1);
+      if (env_list && pre_cam && pre_id != 0) {
+        init_etie_cam_uniforms(pre_etie, *pre_cam);
+        prepass::etie_mode(1);
+      } else {
+        prepass::etie_mode(0);
+      }
       for (const auto& r : *ranges) {
         const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                  ? m_textures->at(r.tex)
@@ -1304,6 +1329,9 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
             tree.draw_mode, prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count));
       }
     }
+    // Un uniforme laisse a 1 par un voisin est un defaut : l'arbre suivant, le chemin VENT et le
+    // contributeur suivant repartent tous de la projection ordinaire.
+    prepass::etie_mode(0);
   }
   // Le chemin VENT, APRES le statique : il change de programme, donc il ne doit pas s'intercaler
   // entre deux plages du chemin statique.
@@ -2489,7 +2517,22 @@ uint64_t Tie3::draw_tree_wind(int idx,
 
     int off = 0;
     for (auto& grp : draw.instance_groups) {
-      if (!m_debug_all_visible && !tree.vis_temp.at(grp.vis_idx)) {
+      const bool vis_gated = m_debug_all_visible || tree.vis_temp.at(grp.vis_idx);
+      // lighting-ao-indirect (A3) : LA PREPASSE NE FILTRE PAS PAR `vis_temp`, ET C'EST VOULU.
+      // `tree.vis_temp` est rempli par `cull_check_all_slow` dans `setup_all_trees` (:971),
+      // appele depuis `Tie3::render` au bucket 9 — APRES la prepasse, qui tire au bucket 6
+      // (`prepass::on_first_camera`, background_common.cpp:2846) : en profondeur seule, ce
+      // tableau porte la visibilite de l'image PRECEDENTE (:2141-2153 le disait deja).
+      // Une prepasse de PROFONDEUR qui SUR-dessine est conservatrice — c'est exactement le choix
+      // que le chemin TIE STATIQUE fait deja, lui qui dessine toutes ses `vis_groups` sans aucun
+      // filtre de visibilite (`ensure_tie_full_ranges`, :1105-1160), et c'est pour ca qu'il ne
+      // peut pas etre `absent`. Une prepasse qui SOUS-dessine, elle, laisse l'AO sans occluder la
+      // ou l'image en a un : 3136 px mesures (`ao_geom_tie_absent_px`, sur les 3335 de
+      // `ao_sway_gap_px`), identiques dans les deux bras donc etrangers au deplacement de sommet.
+      // La passe COULEUR garde son filtre, INTACT.
+      if (depth_only) {
+        prepass::note_wind_group(vis_gated);
+      } else if (!vis_gated) {
         off += grp.num;
         continue;  // invisible, skip.
       }

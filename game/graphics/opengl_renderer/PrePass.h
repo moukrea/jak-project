@@ -132,6 +132,31 @@ void note_noz_range(uint32_t inds);
 // separent. Publie sous `ao_wind_pre_calls` / `ao_wind_pre_inds`.
 void note_wind_prepass(uint32_t inds);
 
+// (A3) LE FILTRE DE VISIBILITE, RETIRE DU CHEMIN DE PROFONDEUR ET CHIFFRE. `draw_tree_wind`
+// filtrait ses groupes d'instances par `tree.vis_temp` (Tie3.cpp:2492), rempli par
+// `cull_check_all_slow` dans `setup_all_trees` (Tie3.cpp:971) depuis `Tie3::render` au bucket 9 —
+// APRES la prepasse, qui tire au bucket 6 (`prepass::on_first_camera`,
+// background_common.cpp:2846). La prepasse lisait donc la visibilite de l'image PRECEDENTE :
+// 3136 px de `ao_geom_tie_absent_px` sur les 3335 de `ao_sway_gap_px`, IDENTIQUES dans les deux
+// bras. A appeler UNE FOIS PAR GROUPE dessine par la prepasse, avec ce que le filtre AURAIT dit.
+// Publie sous `ao_tie_wind_groups_prepass` / `ao_tie_wind_groups_visgated`.
+void note_wind_group(bool vis_gated_would_draw);
+
+// (A4) LA PROJECTION `etie` DES PLAGES NORMAL_ENVMAP. La passe couleur de ces draws n'utilise pas
+// tfrag3.vert mais `etie_base.vert` et son propre pipeline (`persp0`, `persp1`, `cam_no_persp`,
+// poses par `init_etie_cam_uniforms`) — Tie3.cpp:1187-1190 : « use the envmap-style math for the
+// base draw to avoid rounding issue ». La prepasse dessinait les MEMES plages avec l'autre
+// arithmetique : `ao_geom_tie_gap64_px=192`, identique dans les deux bras. Le contributeur pose
+// donc le mode et les trois uniformes lui-meme, PAR PLAGE, avec la camera de la prepasse — la
+// sienne n'est pas encore lue quand la prepasse tire.
+//   `world_program` : le programme PREPASS_WORLD (0 tant que les shaders ne sont pas initialises)
+//   `prepass_cam`   : la camera de la passe en cours (nullptr en dehors d'une passe)
+//   `etie_mode`     : pose `u_pre_etie`. Toute annonce de famille (`sway_*`) le REMET a 0 : un
+//                     uniforme laisse a 1 par un voisin est un defaut.
+GLuint world_program();
+const GoalBackgroundCameraData* prepass_cam();
+void etie_mode(int on);
+
 // Appele par les DEUX renderers (bureau, Android) la ou ils initialisaient `m_ao_pass`.
 void init_shaders(ShaderLibrary& shaders);
 // L'estimateur d'AO, possede par ce module (il tournait dans les deux renderers).
