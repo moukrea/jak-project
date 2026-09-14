@@ -1,4 +1,5 @@
 DIRECTIVES vab39193976
+Commit moteur : 917c9e0a3b ; correction compilee, non validee sur appareil.
 Verdict : correction des attaches sur geometrie finale preparee, contrat non valide faute de mesure de deplacement.
 Essai 5 : classement conserve ; finalisation apres soudure/consolidation, avant upload.
 Le code releve les plans depuis les troncs finaux et ajoute les coïncidences exactes hors supports.

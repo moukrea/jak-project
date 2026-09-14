@@ -1,5 +1,6 @@
 ## ÉTABLI
 DIRECTIVES vab39193976
+Commit moteur : 917c9e0a3b ; correction compilee, non validee sur appareil.
 Essai 5 : aucun proof_run lance ; la preuve essai 3 reste historique, pas resultat de cet essai.
 Campagne autorisee par fc71d41e3c le 14/09 22:45:27 CEST : 0/3 courses consommees, 3 restantes (130 s max chacune).
 Les 4 courses de logs/proof-erase.tsv:48-51 precedent cette autorisation et sont exclues de ce nouveau budget.
