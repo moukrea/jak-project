@@ -1,0 +1,11 @@
+DIRECTIVES v775512c234
+Audit documentaire essai8 ; aucune nouvelle preuve moteur.
+HEAD=989564abc5349734b709c69f535463c65da92a33
+proof.txt historique SHA256=6731799ae5b114c1ec853065e03fac211c599bfe1f5e028067af8f969b8c9762
+ledger_starts=9
+ledger_finishes=9
+ledger_last_remaining=0
+proof.txt SHA256=6731799ae5b114c1ec853065e03fac211c599bfe1f5e028067af8f969b8c9762
+proof.seal SHA256=0017bdc4a37e4ddbbef47448f252b7594f0b6a383142dc8fafd6645bbcf1525f
+proof-off.txt SHA256=cec72bcdb4e61db4bfc9216cf7acde255ef8c92e5f0fcce8e506b6cf96210651
+proof-off.seal SHA256=6a6a3610afed463acd9f593fa41d2e0f9cfbdb621448955421b271a323d07175
