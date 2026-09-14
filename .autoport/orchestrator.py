@@ -1808,22 +1808,30 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
         log(f"· acquis : {'balayage complet' if _complet else 'rotation'} "
             f"({len(_choisis)}/{len(_scripts)} garde(s))", "dim")
         try:
-            _rot.write_text(f"{_idx_neuf} {_depuis_neuf}\n")
-        except Exception:  # noqa: BLE001
-            pass
-        for script in _choisis:
-            try:
-                r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
-                                   capture_output=True, text=True, timeout=600)
-            except subprocess.TimeoutExpired:
-                return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas répondu en 600 s")
-            if r.returncode != 0:
-                tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
-                return ("fail",
-                        f"CLOSE-GATE/acquis: {script.name} — un ACQUIS VALIDÉ PAR L'OWNER "
-                        "n'est plus tenu (ou plus prouvable) sur ce build. L'item ne se ferme "
-                        "pas tant qu'il n'est pas rétabli.\n" + tail)
-            console.print(f"[green]close-gate acquis: {script.name} ok[/green]")
+            # Comme pytest et ses rejeux, les acquis creent leurs temporaires hors /tmp.
+            # Verifier le stockage AVANT d'avancer la rotation : une garde qui n'a pas
+            # pu demarrer ne doit pas etre sautee a la fermeture suivante.
+            with suite_gate.suite_temporary("suite-acquis-") as acq_tmp:
+                acq_env = dict(os.environ, TMPDIR=acq_tmp, TMP=acq_tmp, TEMP=acq_tmp)
+                try:
+                    _rot.write_text(f"{_idx_neuf} {_depuis_neuf}\n")
+                except Exception:  # noqa: BLE001
+                    pass
+                for script in _choisis:
+                    try:
+                        r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
+                                           env=acq_env, capture_output=True, text=True, timeout=600)
+                    except subprocess.TimeoutExpired:
+                        return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas répondu en 600 s")
+                    if r.returncode != 0:
+                        tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
+                        return ("fail",
+                                f"CLOSE-GATE/acquis: {script.name} — un ACQUIS VALIDÉ PAR L'OWNER "
+                                "n'est plus tenu (ou plus prouvable) sur ce build. L'item ne se ferme "
+                                "pas tant qu'il n'est pas rétabli.\n" + tail)
+                    console.print(f"[green]close-gate acquis: {script.name} ok[/green]")
+        except suite_gate.SuiteTemporaryUnavailable as exc:
+            return ("fail", f"CLOSE-GATE/acquis-temporaire-indisponible: {exc}")
 
     # 2026-09-11 — SIGNALEMENTS DU WORKER. Ce qu'il a vu de casse sans le corriger doit devenir
     # un chantier ou etre ecarte devant l'owner, jamais dormir dans un rapport ferme. Voir
