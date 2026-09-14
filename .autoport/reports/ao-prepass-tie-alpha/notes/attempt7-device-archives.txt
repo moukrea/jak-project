@@ -1,0 +1,9 @@
+DIRECTIVES v775512c234
+Lecture seule USB eae4df44 ; aucune course, aucun rejeu de référence.
+ls files (noms commençant par ao-) :
+ao-tie-color-1696851637364235450.bin
+ao-tie-color-16989176495574401139.bin
+ao-tie-contract-campaign.bin
+En-tête référence couleur hut :
+AO_TIE_COLOR_V1 tie-alpha-20260914-attempt5 village1-hut 2510330782703692892 1400 800 600 34842
+Format producteur ao_tie_alpha_probe.cpp:439-440 : RGBA + masque TIE ; ni profondeur ni normales ni identités mur/toit.
