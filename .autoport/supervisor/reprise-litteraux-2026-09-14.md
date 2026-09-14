@@ -1,0 +1,11 @@
+# Reprise dead-literals-round-3 — 14 septembre 2026
+
+Handoff, rapport, FINDINGS et validator-002 relus ; commits 17fe0f99fa et c65c9a71bd inspectes. Cause : contrat ecrit avant suppression du programme PBR/POM, exigeant encore ses empreintes liees et ses anciennes cles. L owner a ordonne la suppression du code le 11/09 puis valide lighting-legacy-purge le 12/09. Restaurer ce rendu pour satisfaire la consigne serait contraire a cet arbitrage.
+
+Perimetre reconcilie explicitement et historique conserve dans scope_resolution.previous_deliverable. Aucun verdict de validation ajoute. Les deux termes utiles sont conserves et un troisieme devient obligatoire : comparaison exhaustive octet pour octet des sorties vivantes des deux preprocesseurs sur memes sources courantes epinglees, avec temoins altere/absent faisant rougir. Cela borne la non-alteration aux artefacts generes, sans pretendre mesurer les pixels ni la cadence reelle d une capture. Les exigences d empreintes/POM du programme retire sont sans objet avec provenance, jamais converties en zeros mesures. Gate principale inchangee ; le worker doit etendre son census et sommer les trois termes avant toute nouvelle preuve.
+
+Reprise open limitee au harnais, prompts regeneres, pas de campagne ni code moteur a reprendre. AO puis mini-palmiers restent prioritaires selon l accord owner ; essai vectoriel en cours non interrompu. Lint : trois avertissements historiques uniquement. Aucun test moteur ni appareil utilise par le superviseur.
+
+DMA : handoff et FINDINGS relus, deux parcours et 15060 images sans crash dans la preuve USB ; refset_replay_maxdiff reste non prouve, donc aucune promesse d identite pixel a pixel. Limites heritees : certaines corruptions DMA restent des assertions, tags supposes alignes 16 octets ; warnings de compilation et quota /tmp deja connus. Ces limites sont remontees sans inventer une nouvelle autorisation de campagne.
+
+Sante : demons 311261/59525 vivants. Derniere publication journalisee 22:36:13, prefixe APK 9cf690ad ; fiche BUILD-INFO publiee toujours dd49ad8f5b (obsolete) et repere .last_published_apk_md5 absent. Les metadonnees ne suffisent donc pas a identifier le moteur ; verification du contenu de la copie dist necessaire, sans contact appareil. Ce defaut de tracabilite reste signale, pas declare resolu par le passage du banc livraison.
