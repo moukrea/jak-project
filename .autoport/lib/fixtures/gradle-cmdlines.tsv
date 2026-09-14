@@ -1,0 +1,9 @@
+# lib/fixtures/gradle-cmdlines.tsv — LIGNES DE COMMANDE GRADLE REELLES, RELEVEES DANS /proc.
+# Capture du 2026-09-14 sur cette machine : projet VIDE + le wrapper de android/, puis
+#   ./gradlew -q --console=plain help   (rc=0), boucle de relevé de /proc/<pid>/{comm,cmdline}
+# pour tout processus dont comm = java. C'est la DONNEE sur laquelle le motif de la garde
+# est jugé : le client porte gradle-wrapper.jar et GradleWrapperMain, le démon ne porte ni
+# l'un ni l'autre — il porte gradle-launcher-8.7.jar et GradleDaemon.
+# role<TAB>comm<TAB>cmdline
+client	java	java -Xmx64m -Xms64m -Dorg.gradle.appname=gradlew -classpath /home/emeric/tmp/bg-capture/proj/gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -q --console=plain help 
+demon	java	/usr/lib/jvm/java-21-openjdk/bin/java --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -XX:MaxMetaspaceSize=384m -XX:+HeapDumpOnOutOfMemoryError -Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=FR -Duser.language=fr -Duser.variant -cp /home/emeric/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/gradle-launcher-8.7.jar -javaagent:/home/emeric/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/lib/agents/gradle-instrumentation-agent-8.7.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7 

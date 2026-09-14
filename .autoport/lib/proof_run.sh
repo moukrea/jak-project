@@ -624,7 +624,7 @@ busy_procs(){
   esac
 }
 busy_reason(){
-  local f="$AP/.deploy-in-progress" p pat cgo age
+  local f="$AP/.deploy-in-progress" p pat cgo age apk a
   if [ -f "$f" ]; then
     p=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$f" | head -1)
     # Un verrou dont le PID est MORT ne vaut rien : le shell d'un appel d'outil sort dans la
@@ -634,17 +634,77 @@ busy_reason(){
   fi
   # Les compilateurs se reconnaissent au nom du processus : le prompt d'un superviseur
   # peut contenir « goalc/ » dans ses arguments sans qu'aucun compilateur tourne.
-  for pat in '[n]inja(-build)?' '[g]oalc' '[c]c1plus'; do
+  # `aapt2` est le fils de compilation natif d'un build Android : il ne vit QUE pendant un build.
+  for pat in '[n]inja(-build)?' '[g]oalc' '[c]c1plus' '[a]apt2'; do
     if busy_procs comm "$pat"; then echo "processus $pat en cours"; return 0; fi
   done
-  # Le lanceur Java porte le nom de l'outil dans ses arguments.
-  if busy_procs cmdline '[g]radle'; then echo "processus [g]radle en cours"; return 0; fi
+  # GRADLE : UNE TACHE DE BUILD, JAMAIS LE DEMON
+  # (harness-busy-guard-matches-gradle-daemon, 2026-09-14).
+  #
+  # CE QUI ETAIT LA. `busy_procs cmdline '[g]radle'` : n'importe quelle ligne de commande
+  # contenant les six lettres. Trois populations differentes tombaient dedans, et une seule
+  # etait un build :
+  #   * LE DEMON GRADLE, `org.gradle.launcher.daemon.bootstrap.GradleDaemon` : son
+  #     `idleTimeout=10800000` est ecrit dans son propre journal — il survit TROIS HEURES a
+  #     l'inactivite. Batir un APK puis lancer une preuve rendait un rc=3 DETERMINISTE pendant
+  #     tout ce temps, sur un build fini depuis longtemps.
+  #   * UN SHELL QUI NOMME GRADLE. Le 2026-09-03, un worker a lance `./gradlew --stop`, a lu
+  #     « 1 Daemon stopped », et la garde a CONTINUE de dire « [g]radle en cours » : elle
+  #     matchait le `/bin/bash -c ... gradlew --stop ...` qui venait de tuer le demon.
+  #   * LA COURSE DE CET ITEM ELLE-MEME : `proof_run.sh harness-busy-guard-matches-gradle-daemon`
+  #     porte « gradle » dans son propre argument. L'ancienne regle refusait sa propre preuve.
+  #
+  # CE QUI EST LA MAINTENANT. On ne cherche plus le mot, on cherche le TRAVAIL. Releve dans
+  # /proc le 14/09 (lib/fixtures/gradle-cmdlines.tsv), sur un projet vide + le wrapper de
+  # `android/` :
+  #   client  java -Xmx64m ... -classpath .../gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain ...
+  #   demon   .../java ... -cp .../gradle-launcher-8.7.jar ... org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7
+  # Le CLIENT ne vit QUE pendant le build : il est le processus que `./gradlew` remplace et qui
+  # bloque jusqu'a la derniere tache. Le DEMON ne porte ni `gradle-wrapper.jar` ni
+  # `GradleWrapperMain` : le motif les separe sur la DONNEE, pas sur une croyance.
+  # `GradleWorkerMain` est le fils de compilation cote JVM ; il n'existe que pendant un build.
+  # Le motif reste entre crochets comme les autres : une recherche par ligne de commande dont le
+  # motif se retrouve dans une ligne de commande se matche elle-meme.
+  if busy_procs cmdline "${AUTOPORT_BUSY_GRADLE_MOTIF:-[G]radleWrapperMain|org\.[g]radle\.launcher\.GradleMain|[G]radleWorkerMain|[g]radle-wrapper\.jar}"; then
+    echo "processus [g]radle en cours"; return 0
+  fi
+  # L'APK EN COURS D'ECRITURE — meme regle que GAME.CGO ci-dessous : un build Gradle qui livre
+  # ecrit ici, et c'est la trace qu'aucun demon inactif ne laisse.
+  for apk in ${AUTOPORT_BUSY_APK_GLOB:-android/app/build/outputs/apk/*/*/*.apk}; do
+    [ -f "$apk" ] || continue
+    a=$(( $(date +%s) - $(stat -c %Y "$apk" 2>/dev/null || echo 0) ))
+    if [ "$a" -lt "${AUTOPORT_BUSY_FRESH_S:-60}" ]; then echo "APK reecrit il y a ${a}s"; return 0; fi
+  done
   cgo=out/jak1/iso/GAME.CGO
   if [ -f "$cgo" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$cgo" 2>/dev/null || echo 0) ))
     if [ "$age" -lt 60 ]; then echo "GAME.CGO reecrit il y a ${age}s"; return 0; fi
   fi
   echo ""; return 0
+}
+# LE REGISTRE DE CETTE GARDE (harness-busy-guard-matches-gradle-daemon, 2026-09-14).
+# « Aucun faux refus » sans denominateur est un zero sur zero, c'est-a-dire rien. Chaque passage
+# de la garde ecrit UNE ligne append-only : sa decision, ce qu'elle a lu, et l'etat du demon
+# Gradle au moment ou elle a decide. C'est la seule population sur laquelle un recensement peut
+# dire « refus sans build reel = 0 sur N courses ». Il vit dans `logs/`, a cote du registre de
+# fraicheur, et rien ne l'efface.
+BG_DAEMON=0; BG_APK_AGE=-1; BG_DECISION="-"; BG_WHY="-"
+bg_registre(){
+  local d=$1 w=$2 apk a
+  BG_APK_AGE=-1
+  for apk in ${AUTOPORT_BUSY_APK_GLOB:-android/app/build/outputs/apk/*/*/*.apk}; do
+    [ -f "$apk" ] || continue
+    a=$(( $(date +%s) - $(stat -c %Y "$apk" 2>/dev/null || echo 0) ))
+    { [ "$BG_APK_AGE" -lt 0 ] || [ "$a" -lt "$BG_APK_AGE" ]; } && BG_APK_AGE=$a
+  done
+  BG_DAEMON=0
+  pgrep -f '[o]rg\.gradle\.launcher\.daemon\.bootstrap\.GradleDaemon' >/dev/null 2>&1 && BG_DAEMON=1
+  BG_DECISION=$d; BG_WHY=${w:--}
+  mkdir -p "$AP/logs" 2>/dev/null
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date +%s)" "$ID" "${SUF:-livre}" "$d" "$WAITED_S" "$WAITMAX" \
+    "$(printf '%s' "${w:--}" | tr '\t\n' '  ')" "$BG_DAEMON" "$BG_APK_AGE" "$$" \
+    >> "$AP/logs/busy-guard.tsv" 2>/dev/null || true
 }
 waited=0
 first_why=""
@@ -654,6 +714,7 @@ while :; do
   [ -z "$first_why" ] && first_why=$why
   if [ "$waited" -ge "$WAITMAX" ]; then
     WAITED_S=$waited; BUSY_WHY=$why
+    bg_registre refus "$why"
     die3 build-en-cours "un build ecrit encore apres ${waited}s (borne ${WAITMAX}s) : $why"
   fi
   [ "$waited" = 0 ] && log "attente : $why"
@@ -662,6 +723,8 @@ done
 [ "$waited" -gt 0 ] && log "build fini apres ${waited}s d'attente, on mesure."
 WAITED_S=$waited
 BUSY_WHY=$first_why
+bg_registre passe "$first_why"
+log "garde de build : decision=$BG_DECISION demon_gradle=$BG_DAEMON apk_age=${BG_APK_AGE}s attendu=${WAITED_S}s"
 
 # LE VERROU, MESURE MEME QUAND ON N'A PAS ATTENDU. Un `proof_wait_s=0` ne dit rien tout seul :
 # il faut savoir s'il y avait un verrou, s'il repondait encore, et depuis quand il etait la.
@@ -678,6 +741,15 @@ extra "proof_wait_why=${BUSY_WHY:--}"
 extra "deploy_lock_pid=$LOCK_PID"
 extra "deploy_lock_alive=$LOCK_ALIVE"
 extra "deploy_lock_age_s=$LOCK_AGE"
+# CE QUE LA GARDE DE BUILD A LU, ET CE QU'ELLE A DECIDE. Sans ces quatre cles, « la course est
+# passee » et « il n'y avait rien a voir » se lisent pareil : le compte de lignes du registre
+# donne le denominateur, `busy_guard_daemon_present` dit si un demon Gradle etait la PENDANT
+# cette course — c'est-a-dire si le defaut d'avant avait de quoi mordre.
+extra "busy_guard_decision=$BG_DECISION"
+extra "busy_guard_why=${BG_WHY:--}"
+extra "busy_guard_daemon_present=$BG_DAEMON"
+extra "busy_guard_apk_age_s=$BG_APK_AGE"
+extra "busy_guard_registry_lines=$(wc -l < "$AP/logs/busy-guard.tsv" 2>/dev/null || echo 0)"
 # LE MEME ETAT, LU PAR LE RECENSEMENT DE CETTE COURSE. proof.txt n'existe pas encore quand le
 # recensement tourne : sans ce fichier, un item de harnais ne pourrait juger l'attente que sur
 # du texte de script. Ecrit ici, il vient de LA course en train de se faire.
@@ -688,6 +760,11 @@ extra "deploy_lock_age_s=$LOCK_AGE"
   echo "deploy_lock_pid=$LOCK_PID"
   echo "deploy_lock_alive=$LOCK_ALIVE"
   echo "deploy_lock_age_s=$LOCK_AGE"
+  echo "busy_guard_decision=$BG_DECISION"
+  echo "busy_guard_why=${BG_WHY:--}"
+  echo "busy_guard_daemon_present=$BG_DAEMON"
+  echo "busy_guard_apk_age_s=$BG_APK_AGE"
+  echo "busy_guard_run_pid=$$"
   echo "proof_wait_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$D/$AP_NAME_wait"
 
