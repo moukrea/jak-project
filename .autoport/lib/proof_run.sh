@@ -964,7 +964,11 @@ fi
   extra "proof_erase_before_bytes=$PROOF_BEFORE_BYTES"
   extra "proof_erase_before_sha=$PROOF_BEFORE_SHA"
   extra "proof_prev_written=$PROOF_PREV_WRITTEN"
-  extra "proof_erase_registry_lines=$(wc -l < "$AP/logs/proof-erase.tsv" 2>/dev/null || echo 0)"
+  # `wc -l < fichier-absent` fait ECRIRE AU SHELL « No such file or directory » : la
+  # redirection echoue AVANT que `2>/dev/null` ne s'applique a `wc`. La valeur etait juste, le
+  # bruit ne l'etait pas — et une erreur parasite dans la sortie du producteur coute une heure
+  # a qui la lit. `grep -c` prend le nom en ARGUMENT : son erreur, elle, se tait.
+  extra "proof_erase_registry_lines=$(grep -c . "$AP/logs/proof-erase.tsv" 2>/dev/null || echo 0)"
 }
 # AMORCAGE-TARDIF/point-d-avant — L'ANCIEN POINT D'EFFACEMENT ETAIT ICI, au demarrage : avant
 # tout amorcage, et APRES des gardes qui pouvaient encore tuer la course sans rien mesurer. Le
