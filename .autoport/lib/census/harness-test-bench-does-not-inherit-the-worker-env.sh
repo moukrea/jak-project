@@ -199,16 +199,46 @@ BLOB_AVANT=""
 [ -n "$AVANT_C" ] && BLOB_AVANT=$(git show "$AVANT_C:$CONFTEST" 2>/dev/null)
 cpte(){ printf '%s' "$2" | grep -cF -- "$1" 2>/dev/null || true; }
 AV_MARQ=$(cpte "$MARQ" "$BLOB_AVANT")
-AV_INST=$(cpte "bench_env.install(" "$BLOB_AVANT")
 AP_MARQ=$(cpte "$MARQ" "$(cat "$CONFTEST" 2>/dev/null)")
-AP_INST=$(cpte "bench_env.install(" "$(cat "$CONFTEST" 2>/dev/null)")
+
+# LE GESTE, PAS LE LITTERAL — ET UN SEUL COMPARATEUR POUR LES DEUX COTES DE L'ABLATION.
+# `grep -cF 'bench_env.install('` comptait la PROSE autant que le code : le 14/09 la docstring
+# de la garde `_environ_propre` nommait la fonction en l'expliquant, le compte est passe a 2 et
+# la porte a rendu `points-d-assainissement=2-il-en-faut-exactement-un` sur un arbre qui n'avait
+# pourtant qu'UN site d'appel. Un temoin epingle sur une chaine accuse quiconque l'ecrit.
+# On compte donc des noeuds d'APPEL dans l'arbre syntaxique : un commentaire n'en est pas un.
+# -1 (et non 0) si le fichier ne se lit pas : un zero passerait le `= 0` du bras d'AVANT sans
+# avoir rien analyse.
+appels(){   # $1 = chemin d'un fichier python
+  python3 - "$1" <<'AST' 2>/dev/null || echo -1
+import ast, sys
+try:
+    arbre = ast.parse(open(sys.argv[1], encoding="utf-8").read())
+except Exception:                                                      # noqa: BLE001
+    print(-1)
+    raise SystemExit(0)
+n = 0
+for noeud in ast.walk(arbre):
+    f = getattr(noeud, "func", None)
+    if isinstance(noeud, ast.Call) and isinstance(f, ast.Attribute) \
+       and f.attr == "install" and isinstance(f.value, ast.Name) \
+       and f.value.id == "bench_env":
+        n += 1
+print(n)
+AST
+}
+# Le blob d'AVANT passe par un fichier : le MEME comparateur juge les deux revisions.
+AV_PY="$TMPD/conftest-avant.py"
+printf '%s' "$BLOB_AVANT" > "$AV_PY"
+if [ -n "$AVANT_C" ]; then AV_INST=$(appels "$AV_PY"); else AV_INST=-1; fi
+AP_INST=$(appels "$CONFTEST")
 
 # LE GESTE, RECENSE : combien de sites du banc fabriquent un environnement a partir de
 # `os.environ`. C'est la population que l'UNIQUE point d'assainissement gouverne ; la publier
 # est ce qui rend verifiable « OFF egale l'absence », puisqu'il n'y a pas d'autre site a
 # desarmer.
-SITES=$(grep -rhoF 'os.environ' "$SUITE"/*.py 2>/dev/null | grep -c . || true)
-POINTS=$(grep -cF 'bench_env.install(' "$CONFTEST" 2>/dev/null || true)
+SITES=$(grep -rhoF 'dict(os.environ' "$SUITE"/*.py 2>/dev/null | grep -c . || true)
+POINTS=$AP_INST
 
 # ================================================================= LES TERMES ================
 # 1. LE COUT D'AVANT
