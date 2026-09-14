@@ -5041,7 +5041,7 @@ items:
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 10
+  max_retries: 11
   depends_on:
   - lighting-hdr
   - perf-instruments
@@ -5083,7 +5083,10 @@ items:
     — dont le second exige une grandeur qui n''existe pas encore. Quatre essais avaient deja servi a la
     version d''avant ces verdicts. | 14/09 08:25 : rouvert par le superviseur — porte passee sur un seul
     terme, flatstep > plafond a 12/12 paliers. | 14/09 : renvoye par le superviseur avant test owner —
-    porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes.'
+    porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes. | 14/09 11:55
+    : l''essai 9 est RENDU par le superviseur — refuse pour « proof.txt absent » alors que la preuve appareil
+    etait EN COURS (PID 3769835) quand le worker est sorti en 143 (tue) ; cause de harnais, pas de l''item.
+    max_retries 10 -> 11.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont l indirect a recu l AO
   supervisor_recovery: true
