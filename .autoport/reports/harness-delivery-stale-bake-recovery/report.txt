@@ -7,21 +7,25 @@ Compilateurs reconstruits incrémentalement ; gardes STALE BAKE conservées.
 Succès complet seul : repères avancés, reçu APK/HD/BUILD-INFO, sources de départ vérifiées.
 Publication : reçu et empreintes exigés, exclusion avec le constructeur ; aucun appareil contacté.
 
-Preuve produite par lib/proof_run.sh, course x86 unique de 60 s :
+Preuve de l’essai 2 produite par lib/proof_run.sh, course x86 unique de 60 s :
 source=x86
 crash=0
-frames=3356
+frames=3345
 delivery_stale_bake_defects=0
 delivery_stale_bake_cases=22
 delivery_stale_bake_stale_cases=7
 delivery_stale_bake_retry_cases=10
 delivery_stale_bake_publication_cases=6
 
-Suite : 626 passed in 111.57s ; hooks : 16 OK, sortie 0 (journaux dans notes/).
-Recensement : 22 passed in 20.73s ; preuve complète en 81 s, empreinte des 32 sources inchangée.
+Essai 1, contrôle worker : 626 passed in 111.57s ; hooks : 16 OK (notes/harness-suite.log, pretool-guard.log).
+Essai 1, contrôle orchestrateur : 626 collectés, 1 rouge hérité (logs/harness-delivery-stale-bake-recovery/validator-001.txt).
+Essai 2 : 22 passed in 19.76s ; preuve complète en 80 s (notes/delivery-stale-bake.log, proof.txt).
+Course 20260914T175836Z-385891-ada445bd ; identité harness-delivery-stale-bake-recovery@2#1789408662.
+Empreinte des 32 sources inchangée : a92a34608c584b87 ; aucun correctif recodé.
 À regarder : la reprise des nouveaux builds par les démons, aucune validation visuelle requise.
 non prouvé : cuisson et fabrication APK réelles, publication distante, chargement du correctif par les démons.
-Constructeur PID 60363 absent ; publieur PID 59525 vivant (notes/daemon-status.txt), aucun redémarrage.
+État des démons relevé à l’essai 1 uniquement : notes/daemon-status.txt ; aucun redémarrage dans cet essai.
 FINDINGS.txt consigne aussi restauration ISO sur échec, garde gk et nettoyage /dev/null.
 Validateur générique laissé à l’orchestrateur ; aucun statut du backlog ni accord owner fabriqué.
-Reprise superviseur : .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface rouge HERITE selon validator-001.txt ; suivi harness-suite-temporary-files-outside-quota. Signalement ajoute, aucune preuve modifiee.
+Rouge HERITE : .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface -> item:harness-suite-temporary-files-outside-quota.
+Signalement présent dans FINDINGS.txt ; preuve renouvelée car generic.sh exige l’identité de l’essai courant.

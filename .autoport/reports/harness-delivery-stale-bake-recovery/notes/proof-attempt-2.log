@@ -1,0 +1,18 @@
+[proof_run harness-delivery-stale-bake-recovery] verrou d'ecriture pris (.autoport/reports/harness-delivery-stale-bake-recovery/proof-writer.lock) : pid=385891 lanceur=385889 essai=harness-delivery-stale-bake-recovery@2#1789408662 course=20260914T175836Z-385891-ada445bd
+[proof_run harness-delivery-stale-bake-recovery] PEREMPTION VUE AVANT LA COURSE (code 5) : la preuve qui etait la datait d'avant une edition.
+[proof_run harness-delivery-stale-bake-recovery]   [stale_precheck harness-delivery-stale-bake-recovery] PEREMPTION VUE AVANT LA COURSE : 11 fichier(s) plus recent(s) que .autoport/reports/harness-delivery-stale-bake-recovery/proof.txt.
+[proof_run harness-delivery-stale-bake-recovery]     source(s) MOTEUR     : game/graphics/opengl_renderer/AmbientOcclusion.cpp,game/graphics/opengl_renderer/PrePass.cpp,game/graphics/opengl_renderer/PrePass.h,game/graphics/opengl_renderer/ao_static_probe.h,game/graphics/opengl_renderer/ao_tie_alpha_probe.cpp,game/graphics/opengl_renderer/ao_tie_alpha_probe.h,game/graphics/opengl_renderer/background/Tie3.cpp,game/graphics/opengl_renderer/shaders/prepass_world.frag,game/graphics/opengl_renderer/shaders/tfrag3.frag,game/kernel/jak1/kmachine.cpp
+[proof_run harness-delivery-stale-bake-recovery]     C'est le constat que validators/generic.sh rendrait a la fin de l'essai. La course
+[proof_run harness-delivery-stale-bake-recovery]     qui demarre le repare ; si elle n'aboutit pas, l'essai mourra la-dessus.
+[proof_run harness-delivery-stale-bake-recovery] garde de build : decision=passe demon_gradle=1 apk_age=2885s attendu=0s
+[proof_run harness-delivery-stale-bake-recovery] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run harness-delivery-stale-bake-recovery] hygiene des etats impossibles : purged=0 standing=0
+[proof_run harness-delivery-stale-bake-recovery] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run harness-delivery-stale-bake-recovery] preuve precedente retiree au point d'amorcage 'amorcage-moteur-x86' (trouvee : 42074 o, sha=128ce41955399bee ; filet proof-prev ecrit : 1)
+[proof_run harness-delivery-stale-bake-recovery] x86 : build/game/gk pendant 60s (armed=1)
+[proof_run harness-delivery-stale-bake-recovery] environnement du processus mesure publie sous 'proof-env.txt' (pid=386809 lues=87 shell=84)
+rm: cannot remove '/dev/null': Permission denied
+[proof_run harness-delivery-stale-bake-recovery] contexte de course : verdict=sans-objet images=3345 temoins=3/3
+[proof_run harness-delivery-stale-bake-recovery] recensement de harnais : .autoport/lib/census/harness-delivery-stale-bake-recovery.sh (armed=1)
+[proof_run harness-delivery-stale-bake-recovery] recensement fini en 20s
+[proof_run harness-delivery-stale-bake-recovery] ecrit .autoport/reports/harness-delivery-stale-bake-recovery/proof.txt (frames=3345 crash=0 duree=80s) ; sortie moteur : .autoport/reports/harness-delivery-stale-bake-recovery/proof-engine.log

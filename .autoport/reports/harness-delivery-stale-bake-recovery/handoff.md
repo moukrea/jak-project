@@ -1,21 +1,18 @@
 ## ÉTABLI
 DIRECTIVES va1dbd6abb3
-Correction du harnais terminée ; proof_run x86 unique : delivery_stale_bake_defects=0, 22 cas, crash=0, frames=3356.
-Suite complète : 626 passed in 111.57s ; hooks : 16 OK, sortie 0.
-Empreinte verdict_sources après course : a92a34608c584b87, identique à proof.txt.
-PID 60363 absent et .auto_build_apk.pid absent ; publieur 59525 vivant ; notes/daemon-status.txt.
+Essai 2 : proof_run x86 unique, sortie 0 ; delivery_stale_bake_defects=0, 22 cas, crash=0, frames=3345.
+Course 20260914T175836Z-385891-ada445bd ; proof_attempt_id=harness-delivery-stale-bake-recovery@2#1789408662.
+Recensement : 22 passed in 19.76s ; preuve complète en 80 s ; notes/proof-attempt-2.log.
+Empreinte verdict_sources : a92a34608c584b87 ; aucun code modifié à l’essai 2.
+Essai 1 : contrôle worker 626 passed/16 hooks OK ; contrôle orchestrateur 626 collectés/1 rouge hérité.
+Le rouge test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface est nommé dans rapport ET FINDINGS.
+Son suivi existe : item:harness-suite-temporary-files-outside-quota ; audit researcher en lecture seule terminé.
 ## TENTÉ
-Banc exécute les vrais scripts dans des dépôts isolés avec faux compilateurs/Gradle/ADB/GitHub.
-Pannes cuisson, sidecar partiel, ARM64, Gradle, pack HD, sources changées, anciennes sorties : refus puis reprise vérifiés.
+Correction et 22 cas conservés ; seul renouvellement de preuve requis par generic.sh:100-108 (identité d’essai).
+Le précontrôle nomme aussi 11 sources moteur plus récentes que l’ancienne preuve ; aucune retouchée ici.
 Aucun appareil, build APK réel ou redémarrage de démon exécuté ; aucun validateur modifié.
+Erreur de nettoyage /dev/null encore observée dans notes/proof-attempt-2.log, déjà signalée dans FINDINGS.
 ## RESTE
-L’orchestrateur doit lancer generic.sh et décider la fermeture machine.
+L’orchestrateur doit lancer generic.sh sur l’essai 2 et décider la fermeture machine.
 Chargement des nouveaux scripts et reprise effective des démons par le pilotage autorisé, sans prétendre les avoir livrés.
 Traiter les défauts hors correction consignés dans FINDINGS.txt ; pas de validation owner attendue (owner_test=false).
-
-## Reprise superviseur 14/09
-Le validateur generique a confirme delivery_stale_bake_defects=0. La fermeture
-refuse uniquement le test herite test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface
-non signale ; rapport et FINDINGS le nomment maintenant avec son item de suivi.
-Reprendre sans recoder les 22 cas deja livres. Les portes decident de la fraicheur
-et de l identite requise pour toute nouvelle preuve. Aucun owner-ok.
