@@ -1,7 +1,7 @@
 # La seule verite du travail. Une feature = un item.
 # Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
 # owner_feedback : les mots de l'owner, dates, jamais reformules.
-version: 8
+version: 9
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
@@ -5132,7 +5132,12 @@ items:
   - debug.opengoal.ao.force_mode=3
   - debug.opengoal.uncap.fps=240
   - debug.opengoal.foliage.force=1
-  block_reason: max_retries (11) épuisé
+  block_reason: 'DECOUPE le 14/09 sur arbitrage de l''owner (« si ça bloque découpe en trois comme tu
+    proposes ») apres 13 essais : cinq termes sur sept acquis (Eleve pleine resolution, damier sous plafond,
+    alpha appareil, fuite du direct, bande de contact) ; les deux restants sont ao-static-probe-deterministic
+    (la sonde de stabilite bougeait, pas l''AO) et ao-prepass-tie-alpha (alpha-test de la prepasse qui
+    jette des fragments TIE que la couleur garde). Deux items, pas trois : la bande de contact est a zero.
+    Les dependants ont ete re-pointes sur ao-prepass-tie-alpha. Cet item ne se rouvre pas.'
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -5156,7 +5161,7 @@ items:
   max_turns: 2000
   max_retries: 8
   depends_on:
-  - lighting-ao-indirect
+  - ao-prepass-tie-alpha
   history: []
   prompt: prompts/item-lighting-bake.md
   owner_ok: null
@@ -5249,8 +5254,8 @@ items:
   max_turns: 1600
   max_retries: 8
   depends_on:
-  - lighting-ao-indirect
   - perf-merc-defuse
+  - ao-prepass-tie-alpha
   history: []
   prompt: prompts/item-lighting-shadows.md
   owner_ok: null
@@ -5679,7 +5684,7 @@ items:
   depends_on:
   - water-ocean-mesh
   - lighting-hdr
-  - lighting-ao-indirect
+  - ao-prepass-tie-alpha
   history: []
   prompt: prompts/item-water-surface-material.md
   owner_ok: null
@@ -11498,5 +11503,111 @@ items:
     : item de verrouillage.'
   hits_means: pixels d aretes de contact examines
   prompt: prompts/item-lighting-ao-contact-band.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-lumiere.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  history: []
+  id: ao-static-probe-deterministic
+  priority: 26
+  device: true
+  feature: La mesure de stabilite de l'AO echantillonne le MEME instant de scene a chaque course — puis
+    dit si l'AO bouge
+  gate:
+    key: ao_static_defects
+    op: ==
+    value: 0
+  known_cause: 'Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l''essai 13, mesure : quatre
+    courses du MEME binaire au meme vantage ont rendu `ao_static_cam_delta_px` = 0 / 387 / 1079 / 62 alors
+    qu''entre la 2e et la 3e le binaire ne differait que par du code de MESURE (aucun appel GL). La sonde
+    est ancree sur `g_frame % kProbeEvery` pendant une course de 150 s de MONTRE a cadence NON plafonnee
+    (2460 / 2220 / 2280 images) : les 8 images de recensement tombent a des moments DIFFERENTS de la scene.
+    Le zero des essais 10-12 n''etait pas une propriete du code. Le « ca bouge dans tous les sens » de
+    l''owner ne peut pas etre juge tant que la sonde bouge elle-meme. ACQUIS DE lighting-ao-indirect A
+    NE PAS ROUVRIR NI CASSER (essai 13, appareil eae4df44) : Eleve en pleine resolution (`ao_high_not_fullres=0`),
+    damier sous plafond (`ao_pattern_over_ceiling=0`), alpha respecte sur l''appareil vent allume (`ao_on_alpha_device_px=0`),
+    fuite du direct nulle (`ao_direct_leak_px=0`), bande de contact nulle (`ao_contact_band_px=0`), prepasse
+    qui suit le vent des SHRUBS (26,7 % -> 0,31 %). Ces cinq cles entrent dans la porte de cet item et
+    doivent rester a zero.'
+  deliverable: |-
+    `ao_static_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA SONDE EST DETERMINISTE : deux courses du MEME binaire, meme vantage, echantillonnent le MEME jeu d'instants de scene (ancrage sur le temps de jeu ou un etat de scene, jamais sur un numero d'image a cadence libre) ; publier `ao_probe_nondeterminism` = compte d'instants qui different entre les deux courses : zero, avec le compte d'instants echantillonnes (non nul) a cote.
+    2. L'AO NE BOUGE PAS CAMERA FIXE, MESURE PAR LA SONDE STABLE : `ao_static_cam_delta_px` = texels d'AO changeant entre deux images consecutives, camera et scene immobiles, vent coupe pour la mesure : zero a tous les paliers.
+    3. LE FLOU QUI BOUGE EST DISTINGUE DU BRUIT : publier separement la variation due a l'estimateur (bruit spatial fixe attendu = 0 entre deux images identiques) et celle due a un temporel s'il existe ; nommer la source de tout texel qui bouge.
+    4. LES ACQUIS TIENNENT : les cinq cles acquises restent a zero dans la MEME preuve, publiees a cote.
+    PREUVE : `FEATURE ao-static-probe-deterministic armed=1 hits=<images de recensement echantillonnees>` + la ligne `ao_static_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Rien a voir seul : c''est l''instrument qui rend le juge fiable. L''owner regardera l''AO a
+    la fin d''ao-prepass-tie-alpha.'
+  out_of_scope: 'Ne touche pas a l''alpha-test de la prepasse ni au TIE : c''est ao-prepass-tie-alpha.
+    Tout ce qui n''est pas cet item.'
+  notes: 'SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l''owner le 14/09 (« si
+    ça bloque découpe »). Instrument AVANT jugement : PITFALLS « verdict mesure sur une scene mouvante
+    ».'
+  hits_means: images de recensement echantillonnees
+  prompt: prompts/item-ao-static-probe-deterministic.md
+  owner_feedback: []
+  owner_ok: null
+- status: open
+  game: jak1
+  owner_test: true
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-lumiere.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on:
+  - ao-static-probe-deterministic
+  history: []
+  id: ao-prepass-tie-alpha
+  priority: 26
+  device: true
+  feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
+    calculee a cote de la geometrie'
+  gate:
+    key: ao_tie_prepass_defects
+    op: ==
+    value: 0
+  known_cause: 'Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l''essai 13, mesure : `ao_geom_tie_absent_px=1646`
+    et `ao_geom_tie_absent_nocut_match_px=1646`, `_nocut_off_px=0` : a 100 % la prepasse DESSINE la geometrie
+    TIE statique A LA PROFONDEUR DE LA SCENE et c''est SON ALPHA-TEST qui la jette pendant que la couleur
+    garde le fragment — un SUR-DECOUPAGE, pas un dessin manquant ; 1096 px sur 1646 sont des trous INTERIEURS
+    (>= 3x3). Shrub et tfrag rendent 0 ; ce n''est PAS le vent (`ao_sway_gap_px` le comptait a tort).
+    ECARTE PAR LA MESURE, ne le refais pas : la categorie NORMAL_ENVMAP_SECOND_DRAW (`ao_geom_tie_env2_absent_px=0`)
+    ; les quatre `glTexParameteri` non poses par la prepasse (defaut REEL corrige a l''essai 13, `ao_pre_texstate_bad`
+    12570/25449, mais le compte n''a pas bouge) ; le seuil `alpha_min*255/512` (LUT saturee a 128, idem
+    arm64) ; la texture (`m_textures->at(draw.tree_tex_id)` des deux cotes, Tie3.cpp:1377/:1718) ; `alpha_min`
+    de la couleur ; `shade()` ne touche jamais `color.a` (shade.glsl:197, :226) ; le FBO de prepasse a
+    `render_fb_w/h` ; l''UV ; la plage d''EBO. Reste a chercher : ce qui, dans le fragment de PREPASSE,
+    differe du fragment de COULEUR pour le meme TIE statique (etat de blend/alpha-to-coverage, mipmap/LOD
+    de la texture au moment du test, precision, ordre des draws). ACQUIS DE lighting-ao-indirect A NE
+    PAS ROUVRIR NI CASSER (essai 13, appareil eae4df44) : Eleve en pleine resolution (`ao_high_not_fullres=0`),
+    damier sous plafond (`ao_pattern_over_ceiling=0`), alpha respecte sur l''appareil vent allume (`ao_on_alpha_device_px=0`),
+    fuite du direct nulle (`ao_direct_leak_px=0`), bande de contact nulle (`ao_contact_band_px=0`), prepasse
+    qui suit le vent des SHRUBS (26,7 % -> 0,31 %). Ces cinq cles entrent dans la porte de cet item et
+    doivent rester a zero.'
+  deliverable: |-
+    `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA CAUSE EST NOMMEE AVANT LE CORRECTIF : publier, pour un echantillon de fragments TIE jetes par la prepasse et gardes par la couleur, la valeur d'alpha vue par chaque passe et l'etat qui differe (compte par cause). Un correctif sans cette table est un essai a l'aveugle.
+    2. PLUS DE TROU : `ao_geom_tie_absent_px` = 0 sur le vantage de l'essai 13 et sur deux autres nommes, avec `ao_geom_cover_px` a cote ; les trous interieurs (>= 3x3) comptes separement, zero.
+    3. LA COULEUR NE CHANGE PAS : le correctif vit dans la PREPASSE ; image couleur bit-identique AO eteinte, et compte de fragments TIE changes dans la passe couleur = zero.
+    4. LES ACQUIS TIENNENT ET L'OWNER PEUT JUGER : les cinq cles acquises et `ao_static_defects` restent a zero dans la MEME preuve ; `where` decrit exactement ce que l'owner regarde.
+    PREUVE : `FEATURE ao-prepass-tie-alpha armed=1 hits=<fragments de TIE statique juges dans la prepasse>` + la ligne `ao_tie_prepass_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+  where: 'Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : chaque palier et
+    chaque mode (SSAO, HBAO, GTAO), force au maximum. Aucun damier ni pixelisation, meme en Eleve ; aucune
+    bande claire aux contacts ; sur les shrubs qui balancent, l''ombre suit le feuillage et rien ne flotte
+    hors des textures ; camera immobile, rien ne bouge.'
+  out_of_scope: Ne rouvre aucun des cinq acquis. Ne touche pas a la sonde de stabilite (ao-static-probe-deterministic).
+    Tout ce qui n'est pas cet item.
+  notes: SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est
+    ici que l'owner juge l'AO.
+  hits_means: fragments de TIE statique juges dans la prepasse
+  prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback: []
   owner_ok: null
