@@ -11590,9 +11590,26 @@ items:
     ».'
   hits_means: images de recensement echantillonnees
   prompt: prompts/item-ao-static-probe-deterministic.md
-  owner_feedback: []
+  owner_feedback:
+  - date: '2026-09-14'
+    text: any news?
   owner_ok: null
   supervisor_recovery: true
+  supervisor_observation:
+    date: '2026-09-14'
+    at: '17:57'
+    progress: 'Deux courses comparees : ao_static_cam_delta_px=0, crash=0, ao_probe_nondeterminism=6,
+      ao_static_defects=6. Les ticks coincident mais six empreintes d entree different. Porte non tenue
+      ; preuve complete non encore jugee (proof_census_rc=-1).'
+    delivery: 'Publieur vivant PID 59525, APK intermediaires publies a 17:47:59 et 17:53:49 selon son
+      journal. .published_build_info.txt reste dd49ad8f5b : attribution du binaire au commit non fiable
+      pendant cet essai non commite.'
+    builder: PID 60363 absent, aucun auto_build_apk.sh vivant. Arret intentionnel declare par le worker
+      apres echec STALE BAKE, pour finir sa construction incrementale. Pas de relance concurrente pendant
+      son essai. Reprise a verifier a sa sortie.
+    findings: FINDINGS actif signale notamment crash SIGILL au titre avant teleportation, datation refset
+      Android, appel apply_owner_tuning.py absent, banc NPC dependant de /tmp ; aucun chantier nouveau
+      ouvert sur ces seuls signalements.
 - status: open
   game: jak1
   owner_test: true
