@@ -6749,6 +6749,9 @@ items:
   hits_means: images en chemin vectoriel
   proof_timeout: 600
   proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_PERF_BUCKETS=1
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
@@ -6757,6 +6760,8 @@ items:
   - OG_REFSET_VANTAGES=legacy,beach-start
   - OG_REFSET_HOURS=9
   proof_props:
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.refset=replay

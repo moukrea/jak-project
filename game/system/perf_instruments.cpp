@@ -36,7 +36,7 @@ constexpr const char* kItem = "perf-mips2c-neon";
 AUTOPORT_FEATURE_SITE(kItem);
 // All counters are owned by the GOAL thread, like the VU contexts themselves.
 uint64_t compared[3] = {}, defects[3] = {}, active_frames[3] = {};
-uint64_t previous[3] = {}, frames = 0, ticks = 0;
+uint64_t previous[3] = {}, frames = 0, warmup_frames = 0, ticks = 0;
 constexpr const char* names[] = {"bones", "joints", "particles"};
 bool measuring() {
   static const bool value = autoport_proof::feature_is(kItem);
@@ -72,8 +72,14 @@ void frame_boundary() {
     previous[i] = compared[i];
   }
   if (active) {
-    ++frames;
     autoport_proof::note_hit_for(kItem);
+    // Boot can animate joints for hundreds of frames before drawing any bones.
+    // Do not exhaust the comparison window before all three kernels have run.
+    if (compared[0] && compared[1] && compared[2]) {
+      ++frames;
+    } else {
+      ++warmup_frames;
+    }
   }
   if (++ticks % 60 != 0) {
     return;
@@ -90,6 +96,7 @@ void frame_boundary() {
   uint64_t refset_diff = 0;
   const bool refset_present = autoport_proof::read_uint("refset_replay_maxdiff", refset_diff);
   autoport_proof::publish("mips2c_parity_frames", frames);
+  autoport_proof::publish("mips2c_warmup_frames", warmup_frames);
   autoport_proof::publish("mips2c_bit_defects", bit_defects);
   autoport_proof::publish("mips2c_missing_kernels", missing_kernels);
   autoport_proof::publish("mips2c_refset_present", refset_present);
