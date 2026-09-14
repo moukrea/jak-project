@@ -1,10 +1,14 @@
+> LIS D'ABORD `prompts/item-harness-delivery-stale-bake-recovery-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # La fabrication des APK reprend apres un refus de donnees precalculees perimees
 
 ## Defaut cite
-- 2026-09-14 : « Reprends le rôle superviseur et le travail autorisé. Lis .autoport/SWITCH_HANDOFF.md et .autoport/SUPERVISOR_CATCHUP.md, puis les handoffs et FINDINGS récents. Rends compte du rattrapage, vérifie la santé du harnais et entretiens la file. Relance les démons de build/livraison listés dans .autoport/.backend.json si arrêtés. Pas de code jeu ni de contact appareil. La veille externe de run-codex.sh entretient l’orchestrateur. »
+- 2026-09-14 : « Reprise superviseur requise pour : harness-delivery-stale-bake-recovery. Ces priorités sont bloquées. Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le périmètre nécessai… »
 
 ## Cause connue
-Reprise superviseur du 14/09 : auto_build_apk.txt a 16:34:56, gradle ECHEC : STALE BAKE common/custom_data/TFrag3Data.cpp plus recent que out/jak1/fr3/beach.meshweld. Le repere .last_apk_build_commit porte e903a79e12 mais le dernier build publie porte dd49ad8f5b. Les deux arbres different dans le moteur ; le repere ne prouve donc pas la livraison. Les demons ont ete repris avec ADB=/usr/bin/false (aucun contact appareil).
+Diagnostic superviseur du 14/09 apres six refus : correctif a9317464c4 deja produit ; delivery_stale_bake_defects=0 sur 22 cas a l essai 3. Essai 1 refuse sur rouge herite de suite ; essais 2-3 sur collecte acquis Urbanist exposee a /tmp sature ; essais 4-6 sur identite de preuve ancienne conservee volontairement faute de prealable corrige. Cause exacte du timeout Urbanist non demontree, risque quota etabli. Dependance temporaire obligatoire avant reprise. Les demons fonctionnent normalement, sans surcharge ADB ; ne pas les relancer.
 
 ## Livrable
 Reparer la reprise de construction au point de production : les donnees de cuisson requises doivent etre remises a jour par le chemin de build autorise avant empaquetage, sans reconfiguration CMake ni modification du format moteur. Un echec ne doit pas etre memorise comme une construction reussie ni abandonne jusqu au prochain changement moteur. Banc isole couvrant donnees perimees, echec de cuisson, succes puis absence de changement : tentative retentee apres echec, repere avance seulement sur APK complet, publication reservee a un artefact coherent. Publier delivery_stale_bake_defects et les populations testees via le producteur de preuve. Ne pas lancer de campagne ni contacter un appareil.

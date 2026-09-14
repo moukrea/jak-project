@@ -11779,18 +11779,20 @@ items:
   no_code: true
   code_scope: harnais
   max_turns: 700
-  max_retries: 6
+  max_retries: 7
   proof_timeout: 420
   owner_ok: null
   id: harness-delivery-stale-bake-recovery
   priority: 27
   feature: La fabrication des APK reprend apres un refus de donnees precalculees perimees
-  depends_on: []
-  known_cause: 'Reprise superviseur du 14/09 : auto_build_apk.txt a 16:34:56, gradle ECHEC : STALE BAKE
-    common/custom_data/TFrag3Data.cpp plus recent que out/jak1/fr3/beach.meshweld. Le repere .last_apk_build_commit
-    porte e903a79e12 mais le dernier build publie porte dd49ad8f5b. Les deux arbres different dans le
-    moteur ; le repere ne prouve donc pas la livraison. Les demons ont ete repris avec ADB=/usr/bin/false
-    (aucun contact appareil).'
+  depends_on:
+  - harness-suite-temporary-files-outside-quota
+  known_cause: 'Diagnostic superviseur du 14/09 apres six refus : correctif a9317464c4 deja produit ;
+    delivery_stale_bake_defects=0 sur 22 cas a l essai 3. Essai 1 refuse sur rouge herite de suite ; essais
+    2-3 sur collecte acquis Urbanist exposee a /tmp sature ; essais 4-6 sur identite de preuve ancienne
+    conservee volontairement faute de prealable corrige. Cause exacte du timeout Urbanist non demontree,
+    risque quota etabli. Dependance temporaire obligatoire avant reprise. Les demons fonctionnent normalement,
+    sans surcharge ADB ; ne pas les relancer.'
   deliverable: 'Reparer la reprise de construction au point de production : les donnees de cuisson requises
     doivent etre remises a jour par le chemin de build autorise avant empaquetage, sans reconfiguration
     CMake ni modification du format moteur. Un echec ne doit pas etre memorise comme une construction
@@ -11831,6 +11833,11 @@ items:
       relance des deux scripts avec ADB non surchargé, configuration normale. Ne les redémarre pas à nouveau
       ; vérifie simplement les PID et poursuis ton rattrapage. Précision de périmètre également commitée
       dans SUPERVISOR_CATCHUP.md (8fe8e4d5f6).'
+  - date: '2026-09-14'
+    text: 'Reprise superviseur requise pour : harness-delivery-stale-bake-recovery. Ces priorités sont
+      bloquées. Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le
+      harnais ou le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas
+      à annoncer l''arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.'
   prompt: prompts/item-harness-delivery-stale-bake-recovery.md
   supervisor_observation:
     date: '2026-09-14'
@@ -11841,6 +11848,18 @@ items:
       le refus de 16:34:56 ; aucun nouvel APK prouve.'
     active_work: ao-static-probe-deterministic in-progress ; aucun etat preuve-impossible actif.
   supervisor_recovery: true
+  block_reason: null
+  supervisor_clarification:
+    date: '2026-09-14'
+    recovery: Un seul essai supplementaire, apres validation machine du prealable suite/acquis hors quota.
+      Conserver les six essais historiques. Verifier dans le code le passage de TMPDIR/TMP/TEMP aux acquis
+      par close_gate ; ne pas se contenter du lanceur pytest. Renouveler une seule preuve avec identite
+      de cet essai via proof_run puis laisser les portes juger. Si meme refus acquis, conserver sortie
+      complete et ne pas affirmer que le quota explique le timeout historique. Aucun acquis ni validation
+      owner declares par le superviseur.
+  notes: 'budget : 7 au lieu de 6, un seul essai de reprise apres le prealable suite/acquis hors quota.
+    Six refus historiques conserves : rouge herite, deux echecs acquis puis trois identites de preuve
+    anciennes faute de dependance. Aucun nouvel essai avant validation machine du prealable.'
 - id: harness-suite-temporary-files-outside-quota
   status: open
   priority: 27
@@ -11860,14 +11879,23 @@ items:
     et non consigne. Le 14/09 le superviseur rejoue ce seul test avec TMPDIR sous ~/.cache : 1 passed
     en 0,25 s. Le faux adb du test appelle mktemp sans chemin ; suite_gate._run_pytest herite TMPDIR et
     la veille/orchestrateur n en portaient pas. Quota /tmp sature deja confirme dans le handoff. Cause
-    exacte de ce rouge pas encore demontree ; ne pas annoncer une correction sur le seul test isole vert.'
+    exacte de ce rouge pas encore demontree ; ne pas annoncer une correction sur le seul test isole vert.
+    Complement diagnostique livraison essais 2-6 : font-urbanist.sh:137 utilise mktemp sans dossier et
+    orchestrator.py:1816 ne passe aucun env. Parent PID 383084 sans TMPDIR/TMP/TEMP ; /tmp EDQUOT=122
+    mesure a l essai 4 ; rejeu historique Urbanist hors quota vert a l essai 3, mais cause exacte du timeout/gk
+    historique non demontree. Corriger uniquement _run_pytest laisserait cette collecte exposee.'
   deliverable: 'Publier suite_tmp_defects=0 avec populations de banc non vides : le lanceur de suite et
     ses rejeux transmettent un repertoire temporaire hors /tmp a pytest ET aux outils shell enfants, meme
     si TMPDIR=/tmp est herite. Verifier les vrais chemins crees dans un banc isole ; temoin de repertoire
     temporaire indisponible nomme et refuse sans accuser le code du jeu. Reproduire le rouge test_pin_props
     archive ou conclure explicitement non reproduit, puis executer le fichier test_pin_props et la suite
     appropriee hors quota. Aucun test desactive, aucune dispense ajoutee. Preuve produite par lib/proof_run.sh,
-    jugee par generic.sh.'
+    jugee par generic.sh. Couvrir aussi les scripts acquis appeles par orchestrator.close_gate : TMPDIR,
+    TMP et TEMP transmis hors /tmp a chaque processus enfant, y compris parent sans ces variables ou avec
+    TMPDIR=/tmp. Banc isole de fermeture avec faux acquis creant et ecrivant reellement via mktemp ; verifier
+    refus nomme si stockage indisponible, propagation intacte d un acquis rouge et absence de contournement
+    de la rotation. Aucun acquis reel ni appareil lance par ce banc. Le verdict suite_tmp_defects couvre
+    aussi ces cas non vides.'
   out_of_scope: Aucun code jeu, aucun appareil, aucun nettoyage destructif de /tmp ; aucune relaxation
     des criteres ni modification de la preuve AO. Ne pas ouvrir de campagne moteur.
   where: 'Invisible dans le jeu : eviter un refus de fermeture cause par les temporaires du banc.'
@@ -11882,3 +11910,8 @@ items:
       le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer
       l''arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.'
   owner_ok: null
+  supervisor_clarification:
+    date: '2026-09-14'
+    reason: Le handoff livraison essai 6 demande ce prealable. Essai temporaire 1 interrompu par scope_stamp,
+      non compte ; travail sauvegarde f76b6f7b5f. Reprendre les modifications existantes et ajouter le
+      banc close_gate/acquis, sans repayer le diagnostic deja archive.
