@@ -11738,4 +11738,17 @@ items:
       build/livraison ; le superviseur ne doit toujours pas exécuter adb lui-même. Arrête par PID exact
       les deux démons que tu viens de lancer et relance-les sans remplacer ADB par false, avec leurs gardes
       USB existantes. Cette remise à l’identique est autorisée, aucune nouvelle confirmation nécessaire.'
+  - date: '2026-09-14'
+    text: 'Remise des démons effectuée depuis la session de bascule : arrêt des instances ADB=false et
+      relance des deux scripts avec ADB non surchargé, configuration normale. Ne les redémarre pas à nouveau
+      ; vérifie simplement les PID et poursuis ton rattrapage. Précision de périmètre également commitée
+      dans SUPERVISOR_CATCHUP.md (8fe8e4d5f6).'
   prompt: prompts/item-harness-delivery-stale-bake-recovery.md
+  supervisor_observation:
+    date: '2026-09-14'
+    daemons: PID 60363 build et 59525 livraison vivants, aucune surcharge ADB. Remis en configuration
+      normale par la session de bascule ; ne pas redemarrer.
+    build_failure: '17:24:07, auto_build_apk.txt : nouvel echec bundleJak1CustomPack STALE BAKE, cette
+      fois out/jak1/fr3/GAME.meshweld plus ancien que common/custom_data/TFrag3Data.cpp. Meme cause que
+      le refus de 16:34:56 ; aucun nouvel APK prouve.'
+    active_work: ao-static-probe-deterministic in-progress ; aucun etat preuve-impossible actif.
