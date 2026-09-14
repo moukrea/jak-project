@@ -4797,8 +4797,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:15
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: blocked
-  priority: 35
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: hdr_out_defects
@@ -4814,7 +4814,11 @@ items:
   - lighting-presets
   history: []
   prompt: prompts/item-hdr-display-output.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-14'
+    text: hdr-display-output est validé non ? enfin il me semble vu que je valide le HDR output avec réserves
+      (mais c'est pour moi les réserves et que j'ai déjà validé pour les highlights
+    build_sha: e70b40fe4988af38
   where: 'Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur le Redmi, les
     zones brillantes doivent vraiment ressortir, sans que le reste change.'
   deliverable: '`hdr_out_defects` = 0. Verdicts 1-8 : dans le fichier de contrat, a lire. (9) PAS D''ASSOMBRISSEMENT,
@@ -4851,7 +4855,9 @@ items:
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
   notes: 'budget : porte a 24 le 11/09. Deux verdicts centraux avaient ete PERDUS par le superviseur en
-    raccourcissant ; les essais passes sous une liste incomplete ne se comptent pas contre le worker.'
+    raccourcissant ; les essais passes sous une liste incomplete ne se comptent pas contre le worker.
+    | 14/09 : valide par l''owner « avec reserves » (les hautes lumieres validees le 11/09, les ombres
+    « on va » le 14/09) ; le verrou du 11/09 tombe.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4963,6 +4969,9 @@ items:
       et je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer...
       je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur (d'ailleurs
       je vois aucune mention de HDR10/HLG in game juste HDR output On/Off)
+  - date: '2026-09-14'
+    text: hdr-display-output est validé non ? enfin il me semble vu que je valide le HDR output avec réserves
+      (mais c'est pour moi les réserves et que j'ai déjà validé pour les highlights
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4972,10 +4981,7 @@ items:
   - debug.opengoal.tod.fast=1
   - debug.opengoal.hdr.out=1
   proof_timeout: 300
-  block_reason: REPOUSSE APRES LA REFONTE DE L'ECLAIRAGE, sur arbitrage de l'owner du 11/09 (« ok » au
-    point 2 du plan). Le jugement « allumee, la sortie HDR doit se voir » ne veut rien dire tant que les
-    chantiers d'eclairage n'ont pas cree le contenu lumineux qu'elle doit montrer. Les trois chantiers
-    du plan — hdr-source-range, hdr-curve-input, hdr-output-regime — passent avant et ne seront pas refaits.
+  block_reason: null
   proof_env: []
   device_serial: eae4df44
   delivered: null
