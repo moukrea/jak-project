@@ -1,0 +1,21 @@
+DIRECTIVES v0f5d6e0de0
+Audit du 14 septembre 2026, reprise du commit 17fe0f99fa.
+Aucune modification de source moteur/harnais pendant cet essai.
+Le changement C++ publie g_part_steps dans effective_options.temporal ; le lecteur compare son delta a spacing_lf.
+Le preprocesseur supprime les fichiers generes orphelins a la production.
+Le shader pbr_fused.glsl avait quitte l'arbre au commit c65c9a71bd : 816 lignes supprimees par cet autre chantier.
+Aucun appel glGetProgramBinary trouve dans game/common/goalc ; shade_variants est un cardinal, pas une empreinte liee.
+
+Reference R2 : .autoport/reports/dead-published-keys-round-2/proof.txt:1149-1165.
+dead_keys_r2_t3_shader_terms=3
+dead_keys_r2_t3_cpu_terms=3
+dead_keys_r2_t3_mirror_mismatch=0
+dead_keys_r2_t4_cover_arity=2
+dead_keys_r2_t4_cover_args=height_scale,pbr_debug
+Les expressions etaient (u_pbr_mode & 16) != 0 ; u_pbr_debug != 8 ; u_pbr_height_scale > 0.0.
+Aujourd'hui shader, appel pbr_coverage_note_draw et garde correspondante sont absents.
+Le recensement R3 ne republie pas ces cles ; absence ne vaut ni egalite ni zero.
+non prouve : conservation des anciennes valeurs de couverture et du miroir CPU POM.
+non prouve : empreintes avant/apres du programme lie et identite du rendu.
+La garde numerique reste intacte ; sa couverture incomplete est nommee dans FINDINGS.txt.
+Les constats de l'essai 1 et ses resultats 590 tests passes restent historiques.

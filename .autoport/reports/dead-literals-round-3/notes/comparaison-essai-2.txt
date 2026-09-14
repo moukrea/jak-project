@@ -1,0 +1,31 @@
+DIRECTIVES v0f5d6e0de0
+Essai dead-literals-round-3@2#1789415549
+Commande : bash .autoport/lib/proof_run.sh dead-literals-round-3 x86
+Code de sortie producteur : 0 ; aucun build nécessaire.
+Commande tests : python3 -m pytest -q .autoport/tests/harness/test_hdr_batches.py
+Code de sortie tests : 0 ; 376 passed in 73.88s (0:01:13).
+Référence R2 : .autoport/reports/dead-published-keys-round-2/proof.txt
+Référence R3 : .autoport/reports/dead-literals-round-3/proof.txt
+Clé | R2 | R3
+crash | 0 | 0
+frames | 16689 | 17783
+shade_hosts | 4 | 4
+shade_hosts_missing | 0 | 0
+shade_prog_track_mismatch | 0 | 0
+shade_variants | 1 | 1
+shade_hits | 3514238 | 3797887
+shade_frames | 16560 | 17699
+light_census_rb_bad_u_pbr_shadow_on | 0 | 0
+light_census_rb_bad_u_rt_light_on | 0 | 0
+Ces compteurs communs ne prouvent pas une équivalence POM ; shader et miroir ont disparu.
+Non prouvé : empreinte du programme lié avant/après (indisponible dans la preuve).
+Readback R2 light_census_rb_bad_u_pbr_mode absent en R3 ; aucune équivalence affirmée.
+Anomalie stderr producteur : rm: cannot remove '/dev/null': Permission denied
+/dev/null vérifié après course : périphérique caractère root:root, major/minor 1,3, mode crw-rw-rw-.
+PID producteur 721025 et moteur 721514 absents après fin.
+Aucun validateur lancé, aucune source ou backlog modifié par ce testeur.
+proof_run_id=20260914T195401Z-721025-92f08554
+proof_commits_during_run=0
+dead_literals_r3_t1_defects=0
+dead_literals_r3_t2_defects=0
+dead_literals_r3_defects=0
