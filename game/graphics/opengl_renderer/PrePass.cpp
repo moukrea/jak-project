@@ -139,6 +139,21 @@ uint64_t g_geom_nocut_frames = 0;
 // l'instantane est mort.
 uint64_t g_geom_nocut_extra_px = 0;
 uint64_t g_fam_absent_nocut[kFamCount] = {};
+// (terme 3) `_absent_nocut_px` ne dit PAS que c'est la decoupe qui a fait le trou : il dit
+// seulement que le bras sans decoupe porte UNE profondeur a ce pixel. Deux causes tres
+// differentes le rendent non nul, et elles n'appellent pas le meme correctif :
+//   MATCH — cette profondeur est celle de la SCENE (a 64 quanta pres) : la prepasse dessine
+//           bien la geometrie que l'image dessine, et c'est SON alpha-test qui l'a jetee
+//           alors que la passe couleur l'a gardee. Le correctif porte sur le seuil, la
+//           texture ou l'UV de la decoupe.
+//   OFF   — cette profondeur est celle d'AUTRE CHOSE (un quad de feuillage que la decoupe
+//           retire a juste titre, et derriere lequel la vraie geometrie manque). La
+//           decoupe est innocente : il manque un dessin.
+// Sans cette separation, un essai peut viser la mauvaise moitie du compte — c'est ce qui
+// est arrive a l'essai 12, qui a ajoute une categorie de dessin sur un `absent` qui n'en
+// venait pas (`ao_geom_tie_env2_absent_px` est reste a 0, le compte n'a pas bouge).
+uint64_t g_fam_absent_nocut_match[kFamCount] = {};
+uint64_t g_fam_absent_nocut_off[kFamCount] = {};
 bool g_geom_frame = false;              // cette image porte les deux instantanes
 // Depuis l'essai 9 la profondeur de prepasse se relit sur les DEUX plateformes, par
 // `export_depth` : GLES ne rend pas `GL_DEPTH_COMPONENT`, il rend un RGBA8, et c'est le meme
@@ -896,6 +911,12 @@ void publish_all() {
     // (terme 3) Parmi les « absent » de cette famille, ceux que le bras SANS DECOUPE D'ALPHA
     // porte : la prepasse dessine bien cette geometrie, c'est son alpha-test qui l'a jetee.
     autoport_proof::publish((base + "_absent_nocut_px").c_str(), g_fam_absent_nocut[f]);
+    // ... et la separation des deux causes du MEME compte : `_match` = le bras sans decoupe porte
+    // la profondeur de la SCENE (la decoupe a jete ce que l'image garde) ; `_off` = il porte autre
+    // chose (la decoupe est innocente, il manque un dessin). Leur somme vaut `_absent_nocut_px`.
+    autoport_proof::publish((base + "_absent_nocut_match_px").c_str(),
+                            g_fam_absent_nocut_match[f]);
+    autoport_proof::publish((base + "_absent_nocut_off_px").c_str(), g_fam_absent_nocut_off[f]);
     // Les px d'« absent » separes : bord de silhouette contre trou franc (un correctif de
     // dessin ne peut retirer que les seconds), et `pl` exactement nul contre `pl` dans les 16
     // premiers quanta (geometrie lointaine que le seuil `1e-6f` mislibelle).
@@ -1840,6 +1861,15 @@ void proof_post_opaque(SharedRenderState* rs) {
         g_fam_absent[fam]++;
         if (g_pre_depth_nocut.size() >= (size_t)w * h && g_pre_depth_nocut[i] > 1e-6f) {
           g_fam_absent_nocut[fam]++;
+          // ... et de QUELLE geometrie il s'agit : la MEME que celle que l'image dessine, ou une
+          // autre. Meme tolerance que `_gap64` (64 quanta de 24 bits) : un seuil deja en usage
+          // dans cette boucle, pas un seuil choisi apres coup pour son resultat.
+          const float dn = g_pre_depth_nocut[i] - sz;
+          if ((dn < 0.f ? -dn : dn) <= tol[1]) {
+            g_fam_absent_nocut_match[fam]++;
+          } else {
+            g_fam_absent_nocut_off[fam]++;
+          }
         }
         // ── CE QU'EST UN PIXEL « ABSENT », SEPARE EN DEUX ─────────────────────────────────
         // Deux causes possibles produisent le MEME compte, et elles n'appellent pas le meme
