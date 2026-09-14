@@ -65,6 +65,15 @@ class AmbientOcclusionPass {
   // Publie ao_pattern_* . Appele par le module de prepasse quand il publie le reste.
   static void publish_pattern_census();
 
+  // ── LA SOMME QUE LA PORTE LIT (`ao_owner_defects`) ───────────────────────────────────────
+  // Les termes que la prepasse mesure (fuite sur le direct, ecart de prepasse sous vent, alpha
+  // sur l'appareil) lui sont remis ici ; les quatre autres viennent de ce module. La somme est
+  // publiee par `publish_pattern_census()`, apres que la prepasse a depose les siens.
+  static void set_prepass_defect_terms(uint64_t direct_leak_px,
+                                       uint64_t sway_gap_px,
+                                       uint64_t on_alpha_device_px,
+                                       int measured_mask);
+
   // ── LA CAMPAGNE DE COUT (refus owner (f) du 2026-09-12) ──────────────────────────────────
   // Un debut d'image. Fait avancer la campagne de cout ; sans effet hors mesure. `frame` est le
   // compteur d'images de la prepasse. Elle demarre TARD (image 3000) pour laisser la phase de
@@ -84,6 +93,8 @@ class AmbientOcclusionPass {
  private:
   void ensure_quad();
   void ensure_targets(int ao_w, int ao_h, int full_w, int full_h);
+  // Cible de la passe de RAPPORT du recensement, allouee paresseusement (hors mesure : absente).
+  void ensure_scratch(int full_w, int full_h);
   void free_targets();
 
   ShaderLibrary* m_shaders = nullptr;
@@ -106,6 +117,16 @@ class AmbientOcclusionPass {
   GLuint m_ao_full_tex = 0;
   int m_ao_full_w = 0;
   int m_ao_full_h = 0;
+
+  // lighting-ao-indirect, refus owner du 2026-09-13 (« sur les facades meme en eleve on a un
+  // aspect pixelise »). La chaine de flou compte desormais QUATRE passes : H puis V a la
+  // resolution du tampon (boite de 4, pas de 1 — elle ANNULE la tuile 4x4 des estimateurs),
+  // puis H puis V en PLEINE resolution au pas DOUBLE. La composition des deux boites donne une
+  // boite de 8 texels par axe : l'ecart-type du bruit residuel tombe d'un facteur 3 au lieu de
+  // 2, ce que `ao_flatstep_*` mesure. Cette cible-ci est l'intermediaire de la passe H pleine
+  // resolution ; la passe V finale ecrit toujours dans `m_ao_full_tex`, que shade() lit.
+  GLuint m_ao_scratch_fbo = 0;
+  GLuint m_ao_scratch_tex = 0;
 
   // Output-size hint (window-keyed AO chain sizing; 0 == fall back to depth size).
   int m_hint_w = 0, m_hint_h = 0;

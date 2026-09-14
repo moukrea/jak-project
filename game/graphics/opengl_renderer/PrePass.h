@@ -120,6 +120,11 @@ bool noz_pass_active();
 // ao_noz_inds).
 void note_noz_range(uint32_t inds);
 
+// lighting-ao-indirect (terme 3) : le chemin TIE A VENT rejoue dans la prepasse. Un `absent`
+// residuel ne dit pas SI le rejeu n'a pas tire ou S'IL a tire sans couvrir : ces deux comptes le
+// separent. Publie sous `ao_wind_pre_calls` / `ao_wind_pre_inds`.
+void note_wind_prepass(uint32_t inds);
+
 // Appele par les DEUX renderers (bureau, Android) la ou ils initialisaient `m_ao_pass`.
 void init_shaders(ShaderLibrary& shaders);
 // L'estimateur d'AO, possede par ce module (il tournait dans les deux renderers).

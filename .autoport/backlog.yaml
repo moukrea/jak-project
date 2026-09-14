@@ -4989,7 +4989,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: in-progress
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5110,6 +5110,18 @@ items:
     proof_bytes: 47554
     attempt: 7
     journal: validator-007.txt
+  proof_props:
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.rt.light=1
+  - debug.opengoal.ao.force_mode=3
+  - debug.opengoal.uncap.fps=240
+  - debug.opengoal.foliage.force=1
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -6295,7 +6307,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
-  status: in-progress
+  status: to-test
   priority: 23
   game: jak1
   gate:
@@ -6338,6 +6350,14 @@ items:
   prompt: prompts/item-perf-fbo-passes.md
   device_serial: eae4df44
   block_reason: null
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: 42b9925bce238998
+    proof_bytes: 41573
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-14'
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
   status: validated

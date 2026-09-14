@@ -1161,11 +1161,110 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
 }
 #endif
 
+// lighting-ao-indirect : LE CHEMIN VENT DANS LA PREPASSE DE PROFONDEUR.
+//
+// LE DEFAUT MESURE : `ao_geom_tie_cover_px=785265` pour `ao_geom_tie_absent_px=2918` — des pixels
+// dont la COULEUR vient d'un bucket TIE et sous lesquels la prepasse n'avait AUCUNE geometrie.
+// Ils sont le chemin VENT : sommets PROTOTYPE-LOCAUX transformes par une matrice d'instance
+// (`wind_matrix_cache`), dessines depuis `wind_vertex_index_buffer` / `wind_draws` — ni l'un ni
+// l'autre n'appartient aux `prepass_ranges`, qui vivent dans `index_buffer`.
+//
+// LA METHODE : on REJOUE LE MEME DESSIN AVEC LE MEME PROGRAMME, couleur masquee. Aucun shader de
+// prepasse n'est ecrit pour lui et aucune arithmetique n'est dupliquee : deux arithmetiques
+// censees rendre le meme z finissent toujours par diverger. Le `discard` d'alpha de
+// tie_wind.frag continue de tourner — c'est lui qui empeche l'AO de se poser sur le vide entre
+// les palmes.
+uint64_t Tie3::draw_wind_depth_prepass(SharedRenderState* rs) {
+#ifdef OG_FEAT_PBR
+  if (!rs || m_hide_wind) {
+    return 0;
+  }
+  // NE REJOUER LE VENT QUE DANS LA PASSE QUI ECRIT LA PROFONDEUR LIVREE. `draw_all_contributors`
+  // est appele trois fois par image sondee : la passe livree (FBO de profondeur, z-write ON), la
+  // CLASSIFICATION (autre FBO, GL_EQUAL, z-write OFF, couleur ouverte) et la mesure « occluder
+  // fantome » (meme FBO, z-write OFF, requetes d'occlusion). Les deux dernieres comptent des
+  // fragments du programme PREPASS_WORLD : y glisser un AUTRE programme fausserait leurs
+  // grandeurs. La condition est lue sur l'etat GL reel, pas sur une supposition d'ordre.
+  GLint cur_fbo = 0;
+  GLboolean depth_mask = GL_FALSE;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fbo);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_mask);
+  if (prepass::depth_fbo() == 0 || (GLuint)cur_fbo != prepass::depth_fbo() ||
+      depth_mask != GL_TRUE || prepass::noz_pass_active()) {
+    return 0;  // 0 == le FBO par defaut : jamais dessiner l'ecran depuis ici
+  }
+  const int geom = lod();
+  bool any = false;
+  for (auto& tree : m_trees[geom]) {
+    if (tree.wind_draws && !tree.wind_draws->empty()) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) {
+    return 0;
+  }
+
+  // Etat d'entree, relu (jamais suppose) : le chemin couleur pose blend / face / profondeur par
+  // mode de draw et lie une texture sur l'unite 0 — or `prepass::draw_depth_range` MEMOISE la
+  // texture qu'elle a liee. Tout ce qu'on touche est rendu tel qu'on l'a trouve.
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  GLint prev_program = 0, prev_depth_func = GL_GEQUAL, prev_tex0 = 0, prev_active_tex = GL_TEXTURE0;
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active_tex);
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0);
+  const GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+  uint64_t total = 0;
+  for (u32 i = 0; i < m_trees[geom].size(); i++) {
+    auto& tree = m_trees[geom][i];
+    if (!tree.wind_draws || tree.wind_draws->empty()) {
+      continue;
+    }
+    // La camera de CETTE image : `rs->camera_matrix` est la copie octet pour octet de
+    // `data.camera.camera`, posee par update_render_state_from_pc_settings juste avant la
+    // prepasse. C'est la meme que celle que la passe couleur passera a `update_wind_instances`,
+    // qui ne recalculera donc rien.
+    update_wind_instances(tree, rs->camera_matrix, rs);
+    total += draw_tree_wind((int)i, geom, nullptr, rs, nullptr, /*depth_only=*/true);
+  }
+
+  // ---- restauration : l'etat que `run_prepass` a pose pour les contributeurs ----
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+  glUseProgram((GLuint)prev_program);
+  glDepthFunc(prev_depth_func);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+  if (prev_cull) {
+    glEnable(GL_CULL_FACE);
+  } else {
+    glDisable(GL_CULL_FACE);
+  }
+  if (prev_blend) {
+    glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0);
+  glActiveTexture((GLenum)prev_active_tex);
+  return total;
+#else
+  (void)rs;
+  return 0;
+#endif
+}
+
 // lighting-ao-indirect : prepasse de profondeur vue camera. Programme PREPASS_WORLD actif,
 // FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait que lier
-// et dessiner les plages statiques completes NORMAL + NORMAL_ENVMAP. Le chemin VENT
-// (render_tree_wind, wind_vertex_index_buffer, instances a matrice) est EXCLU — meme trou que
-// la passe soleil.
+// et dessiner les plages statiques completes NORMAL + NORMAL_ENVMAP. Le chemin VENT n'est plus
+// exclu : il est rejoue juste apres par `draw_wind_depth_prepass`, avec SON programme.
 uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
 #ifdef OG_FEAT_PBR
   // La prepasse tourne AVANT le premier draw_matching_draws_for_tree de l'image : le restart
@@ -1206,6 +1305,11 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
       }
     }
   }
+  // Le chemin VENT, APRES le statique : il change de programme, donc il ne doit pas s'intercaler
+  // entre deux plages du chemin statique.
+  const uint64_t wind_inds = draw_wind_depth_prepass(rs);
+  prepass::note_wind_prepass((uint32_t)wind_inds);
+  total += wind_inds;
   return total;
 #else
   (void)rs;
@@ -2032,15 +2136,31 @@ static void fw_apply_persisted_shear(u16 wind_idx,
   }
 }
 
-void Tie3::render_tree_wind(int idx,
-                            int geom,
-                            const TfragRenderSettings& settings,
-                            SharedRenderState* render_state,
-                            ScopedProfilerNode& prof) {
-  auto& tree = m_trees.at(geom).at(idx);
-  if (tree.wind_draws->empty()) {
+// lighting-ao-indirect : LE CALCUL D'INSTANCE DU CHEMIN VENT, FACTORISE.
+//
+// Il etait le debut de `render_tree_wind`, donc il ne tournait QUE dans la passe couleur — et la
+// prepasse de profondeur, qui tire AVANT elle dans l'image, n'avait aucune matrice a consommer.
+// Le rejouer une seconde fois ne repare rien : `do_wind_math` INTEGRE le ressort de ND dans
+// `m_wind_vectors` a chaque appel, deux appels donneraient deux matrices donc deux z, et
+// l'ecart que l'item corrige reviendrait par la bande.
+//
+// Il est donc MEMOISE par (arbre, image) : le PREMIER appelant de l'image calcule (la prepasse
+// quand l'AO est armee, la passe couleur sinon), le second consomme EXACTEMENT la meme matrice.
+// Consequence assumee, et c'est le seul choix qui tienne : quand la prepasse tire, le DMA TIE de
+// l'image n'a pas encore ete lu, donc l'etat de vent (`m_wind_data`) est celui de l'image
+// precedente, tandis que la camera est bien celle de CETTE image (SharedRenderState::camera_matrix
+// vient d'etre recopiee depuis `data.camera.camera` juste avant `prepass::on_first_camera`). Le
+// feuillage retarde d'une image sur le vent ; les deux passes, elles, voient le meme z.
+void Tie3::update_wind_instances(Tree& tree,
+                                 const math::Vector4f* cam_mat,
+                                 SharedRenderState* render_state) {
+  if (!tree.wind_draws || tree.wind_draws->empty() || !tree.instance_info) {
     return;
   }
+  if (tree.wind_frame == render_state->frame_idx) {
+    return;  // deja calcule pour cette image : la seconde passe consomme la MEME matrice
+  }
+  tree.wind_frame = render_state->frame_idx;
 
   // note: this isn't the most efficient because we might compute wind matrices for invisible
   // instances. TODO: add vis ids to the instance info to avoid this
@@ -2052,10 +2172,9 @@ void Tie3::render_tree_wind(int idx,
     tree.fw_prev_shear.assign(tree.instance_info->size() * 4, 0.f);
     tree.fw_prev_valid = false;
   }
-  auto& cam_bad = settings.camera.camera;
   std::array<math::Vector4f, 4> cam;
   for (int i = 0; i < 4; i++) {
-    cam[i] = cam_bad[i];
+    cam[i] = cam_mat[i];
   }
 
   // foliage-wind (owner 2026-09-03) : la brise AJOUTEE au chemin VENT est la loi partagee
@@ -2229,9 +2348,49 @@ void Tie3::render_tree_wind(int idx,
     // vmaddw.xyzw vf13, vf23, vf0
     out[3] = cam[0] * mat[3].x() + cam[1] * mat[3].y() + cam[2] * mat[3].z() + cam[3];
   }
+  tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
+  // Le regime de brise de CETTE image, retenu pour la passe qui dessine (les deux le lisent).
+  tree.fw_frame_on = rc_on;
+  tree.fw_frame_t = rc_t;
+  // Grecharged-foliage-wind3 : `on=` porte l'etat REEL du basculement, pas `frond>0 || amp>0`.
+  // Le tour precedent avait NOMME ce defaut d'etiquette dans ses « honest gaps » sans le corriger :
+  // une course avec le basculement ALLUME et les amplitudes mises a 0 par les proprietes vivantes
+  // s'etiquetait `on=0`, donc une ligne qui n'etait PAS le chemin stock se presentait comme telle.
+  // Il suit le CALCUL (une fois par arbre et par image), pas le dessin : la prepasse ne le double
+  // pas.
+  fw_audit_tick(m_level_name, render_state->frame_idx, rc_on, rc_bend_u / 4096.f,
+                tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time, rc_ticks);
+}
+
+// lighting-ao-indirect : LE DESSIN DU CHEMIN VENT, FACTORISE — un seul corps pour les deux passes.
+// `depth_only` = la prepasse de profondeur : MEME programme, MEMES buffers, MEMES uniformes de
+// sommet, couleur masquee par l'appelant. Tout ce qui n'a de sens que pour la couleur (setup
+// complet du programme, recepteur d'ombre, recensements, second draw d'echec d'alpha qui n'ecrit
+// QUE de la couleur) est sous ce drapeau. Rend le nombre d'indices emis.
+uint64_t Tie3::draw_tree_wind(int idx,
+                              int geom,
+                              const TfragRenderSettings* settings,
+                              SharedRenderState* render_state,
+                              ScopedProfilerNode* prof,
+                              bool depth_only) {
+  auto& tree = m_trees.at(geom).at(idx);
+  if (!tree.wind_draws || tree.wind_draws->empty()) {
+    return 0;
+  }
+  const bool rc_on = tree.fw_frame_on;
+  const float rc_t = tree.fw_frame_t;
+  uint64_t drawn = 0;
 
   auto shader_id = ShaderId::TIE_WIND;
-  first_tfrag_draw_setup(settings.camera, render_state, shader_id);
+  if (depth_only) {
+    // Le MEME programme, sans re-televerser le bloc d'image : `ub_frame` porte DEJA la camera de
+    // cette image (update_render_state_from_pc_settings l'a mis a jour juste avant la prepasse),
+    // et `settings` n'existe pas ici. gl_Position de tie_wind.vert ne lit que `u_inst_camera`,
+    // les `u_fw_*` et `hvdf_offset` du bloc : tous les trois sont poses ci-dessous ou deja a jour.
+    render_state->shaders[shader_id].activate();
+  } else {
+    first_tfrag_draw_setup(settings->camera, render_state, shader_id);
+  }
   // Grecharged-foliage-wind2: per-vertex FROND FLUTTER uniforms (tie_wind.vert). The matrix shear
   // above swings a palm rigidly; this is what actually makes the leaves move. u_fw_amp == 0 (toggle
   // OFF) makes the shader skip the whole block, so OFF renders the stock vertex path.
@@ -2257,7 +2416,9 @@ void Tie3::render_tree_wind(int idx,
   if (fw_time_loc >= 0) {
     glUniform1f(fw_time_loc, rc_t);
   }
-  foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemTieWind, idx, geom);
+  if (!depth_only) {
+    foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemTieWind, idx, geom);
+  }
   // Grecharged-foliage-wind2: the flutter's one silent-failure mode. If the linked TIE_WIND program
   // does not expose these uniforms (shader blob stale, or the block optimised away), every
   // glUniform1f above is skipped and the leaves simply never deform — with no error anywhere.
@@ -2273,21 +2434,14 @@ void Tie3::render_tree_wind(int idx,
                fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc, fw_bend_loc, fw_reach_loc);
     }
   }
-  tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
-  // Grecharged-foliage-wind3 : `on=` porte l'etat REEL du basculement, pas `frond>0 || amp>0`.
-  // Le tour precedent avait NOMME ce defaut d'etiquette dans ses « honest gaps » sans le corriger :
-  // une course avec le basculement ALLUME et les amplitudes mises a 0 par les proprietes vivantes
-  // s'etiquetait `on=0`, donc une ligne qui n'etait PAS le chemin stock se presentait comme telle.
-  fw_audit_tick(m_level_name, render_state->frame_idx, rc_on, rc_bend_u / 4096.f,
-                tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time, rc_ticks);
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
   // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.
-  if ((recharged_gating::on(recharged_gating::kLighting) ||
-       recharged_gating::on(recharged_gating::kRtLight)) &&
+  if (!depth_only && (recharged_gating::on(recharged_gating::kLighting) ||
+                      recharged_gating::on(recharged_gating::kRtLight)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[ShaderId::TIE_WIND].id(),
-                             settings.camera.trans.data());
+                             settings->camera.trans.data());
   }
 #endif
   glBindVertexArray(tree.vao);
@@ -2375,20 +2529,32 @@ void Tie3::render_tree_wind(int idx,
         }
       }
 
-      prof.add_draw_call();
-      prof.add_tri(grp.num);
+      if (prof) {
+        prof->add_draw_call();
+        prof->add_tri(grp.num);
+      }
 
-      lighting_census::note_world_draw(lighting_census::Kind::TieWind);
+      if (!depth_only) {
+        // Le recensement compte les draws MONDE de la passe couleur : la prepasse n'en est pas
+        // une, l'y ajouter changerait le denominateur d'un autre item.
+        lighting_census::note_world_draw(lighting_census::Kind::TieWind);
+      }
       glDrawElements(tree.draw_mode, grp.num, GL_UNSIGNED_INT,
                      (void*)((off + tree.wind_vertex_index_offsets.at(draw_idx)) * sizeof(u32)));
+      drawn += (uint64_t)grp.num;
       off += grp.num;
 
-      switch (double_draw.kind) {
+      // Le second draw d'echec d'alpha n'ecrit QUE de la couleur (glDepthMask(GL_FALSE)) : en
+      // profondeur seule il ne peut rien ecrire du tout, et il laisserait le masque de profondeur
+      // ferme derriere lui.
+      switch (depth_only ? DoubleDrawKind::NONE : double_draw.kind) {
         case DoubleDrawKind::NONE:
           break;
         case DoubleDrawKind::AFAIL_NO_DEPTH_WRITE: {
-          prof.add_draw_call();
-          prof.add_tri(grp.num);
+          if (prof) {
+            prof->add_draw_call();
+            prof->add_tri(grp.num);
+          }
           const auto& afail_u = tfrag_alpha_uniforms(render_state->shaders[shader_id].id());
           if (afail_u.alpha_min != -1) {
             glUniform1f(afail_u.alpha_min, -10.f);
@@ -2409,6 +2575,22 @@ void Tie3::render_tree_wind(int idx,
       }
     }
   }
+  return drawn;
+}
+
+void Tie3::render_tree_wind(int idx,
+                            int geom,
+                            const TfragRenderSettings& settings,
+                            SharedRenderState* render_state,
+                            ScopedProfilerNode& prof) {
+  auto& tree = m_trees.at(geom).at(idx);
+  if (!tree.wind_draws || tree.wind_draws->empty()) {
+    return;
+  }
+  // Si la prepasse a deja calcule les matrices de cette image, cet appel ne fait rien : les deux
+  // passes dessinent avec le MEME `u_inst_camera`.
+  update_wind_instances(tree, settings.camera.camera, render_state);
+  draw_tree_wind(idx, geom, &settings, render_state, &prof, /*depth_only=*/false);
 }
 
 Tie3AnotherCategory::Tie3AnotherCategory(const std::string& name,

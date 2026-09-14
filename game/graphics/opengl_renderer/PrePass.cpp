@@ -70,16 +70,16 @@ bool g_cut_uniforms_ok = false;  // les quatre uniformes de la decoupe existent 
 uint64_t g_cut_ranges = 0;    // plages qui portent un test d'alpha
 uint64_t g_total_ranges = 0;  // toutes les plages — son denominateur
 
-// La classification : un FBO couleur RGBA8 qui PARTAGE la profondeur de la prepasse. Bureau
-// seulement — l'item se prouve sur x86 et une relecture par image n'a rien a faire sur
-// l'appareil. Ce qui suit n'existe donc pas dans le .so arm64 : ce n'est pas un drapeau a zero,
-// c'est du code qui n'est pas COMPILE.
-#ifndef __ANDROID__
+// La classification : un FBO couleur RGBA8 qui PARTAGE la profondeur de la prepasse.
+// ELLE TOURNE AUSSI SUR L'APPAREIL depuis le 2026-09-14. Le contrat (verdict (j)) exige la
+// mesure d'alpha SUR L'APPAREIL, brise allumee, et rien dans ce chemin n'est propre au bureau :
+// un attachement couleur RGBA8, un `GL_EQUAL` contre la profondeur deja ecrite, et un
+// `glReadPixels(GL_RGBA, GL_UNSIGNED_BYTE)` — les trois existent en GLES 3.2. C'est la relecture
+// du STENCIL, ailleurs, qui ne s'y porte pas.
 GLuint g_class_fbo = 0, g_class_tex = 0;
 int g_class_w = 0, g_class_h = 0;
 GLuint g_class_depth_src = 0;
 int g_class_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse (publie)
-#endif
 
 uint64_t g_alpha_frames = 0;
 uint64_t g_on_alpha_px = 0;       // bras LIVRE : le gagnant est sous le seuil -> doit valoir 0
@@ -100,11 +100,18 @@ bool g_sway_off = false;
 // seuls pixels marques au stencil (buckets monde), la profondeur de la prepasse a celle de la
 // scene. Les deux bras sont pris dans la MEME image : `livre` (deplacement arme) et `legacy`
 // (deplacement desarme = l'etat de l'essai 6).
-#ifndef __ANDROID__
+// LES COMPTEURS EXISTENT SUR LES DEUX PLATEFORMES, LEUR PRODUCTEUR NON. `read_prepass_depth`
+// passe par `glReadPixels(GL_DEPTH_COMPONENT, GL_FLOAT)`, que GLES n'accepte pas : sur arm64
+// `g_geom_state` vaut -1 des le depart et se publie 2 (« non supporte »), pas 0 (« pas encore »)
+// ni un zero de population qui se lirait comme un succes.
 std::vector<float> g_pre_depth;         // prepasse LIVREE
 std::vector<float> g_pre_depth_legacy;  // prepasse SANS deplacement
 bool g_geom_frame = false;              // cette image porte les deux instantanes
-int g_geom_state = 0;                   // 0 = pas encore, 1 = mesure, -1 = refuse
+#ifdef __ANDROID__
+int g_geom_state = -1;  // GLES : la profondeur de prepasse n'est pas relisible ici
+#else
+int g_geom_state = 0;  // 0 = pas encore, 1 = mesure, -1 = refuse
+#endif
 uint64_t g_geom_frames = 0;
 uint64_t g_geom_cover = 0;    // denominateur : pixels monde dessines dont la scene a une profondeur
 uint64_t g_geom_absent = 0;   // ... dont la prepasse ne porte AUCUNE profondeur
@@ -121,13 +128,13 @@ uint64_t g_fam_cover[4] = {0, 0, 0, 0};
 uint64_t g_fam_absent[4] = {0, 0, 0, 0};
 uint64_t g_fam_gap64[4] = {0, 0, 0, 0};
 uint64_t g_fam_gap64_legacy[4] = {0, 0, 0, 0};
-#endif
 
 // lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
 // principale dessine SANS ecrire la profondeur. Recensees au CHARGEMENT par les contributeurs,
 // rejouees par `measure_phantom_occluders` quand `g_noz_pass` est vrai.
 bool g_noz_pass = false;
 uint64_t g_noz_ranges = 0, g_noz_inds = 0;
+uint64_t g_wind_pre_calls = 0, g_wind_pre_inds = 0;
 uint64_t g_phantom_px = 0, g_phantom_cover_px = 0;
 int g_phantom_state = 0;  // 0 = pas encore mesure, 1 = mesure, -1 = non supporte
 
@@ -236,7 +243,6 @@ int world_bucket_family(int id) {
 // Le FBO de classification : une couleur RGBA8 a nous, et LA PROFONDEUR DE LA PREPASSE, partagee.
 // C'est ce partage qui rend le test possible : en GL_EQUAL, seul le fragment qui a GAGNE la
 // profondeur repasse, donc la couleur relue decrit le fragment que l'estimateur d'AO a vu.
-#ifndef __ANDROID__
 void ensure_class(int w, int h) {
   if (g_class_fbo && g_class_w == w && g_class_h == h && g_class_depth_src == g_depth_tex) {
     return;
@@ -269,7 +275,6 @@ void ensure_class(int w, int h) {
     g_class_state = 1;
   }
 }
-#endif
 
 // Dessine toutes les plages de tous les contributeurs. Un contributeur par (renderer, niveau) :
 // plusieurs instances d'un renderer (un bucket par categorie) cachent le meme niveau ; la
@@ -303,7 +308,6 @@ void forget_range_state() {
   g_last_tex = 0xffffffffu;
 }
 
-#ifndef __ANDROID__
 // Rejoue les MEMES plages en GL_EQUAL contre la profondeur qui vient d'etre ecrite, sans aucun
 // discard, et relit la classification du fragment GAGNANT de chaque pixel :
 //   R = il est sous le seuil d'alpha      G = il a gagne (denominateur)      B = bande ambigue
@@ -361,7 +365,6 @@ void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint6
     }
   }
 }
-#endif
 
 #ifndef __ANDROID__
 // (c)/(g)/(i) L'INSTANTANE DE LA PROFONDEUR DE PREPASSE. Par le FBO, jamais par `glGetTexImage` :
@@ -473,17 +476,9 @@ uint64_t run_prepass(SharedRenderState* rs,
   const uint64_t total = draw_all_contributors(rs, out_levels);
   g_cut_armed = true;
 
-#ifndef __ANDROID__
   if (classify && on && cover && fringe) {
     run_classification(rs, w, h, on, cover, fringe);
   }
-#else
-  (void)classify;
-  (void)on;
-  (void)cover;
-  (void)fringe;
-#endif
-
   // ---- restauration ----
   glBindVertexArray((GLuint)prev_vao);
   glUseProgram((GLuint)prev_program);
@@ -646,7 +641,6 @@ void measure_phantom_occluders(SharedRenderState* rs,
 #endif
 }
 
-#ifndef __ANDROID__
 void publish_all() {
   autoport_proof::publish("ao_direct_leak_px", g_leak_px);
   autoport_proof::publish("ao_hit_px", g_hit_px);
@@ -731,13 +725,54 @@ void publish_all() {
     autoport_proof::publish((base + "_gap64_px").c_str(), g_fam_gap64[f]);
     autoport_proof::publish((base + "_legacy_gap64_px").c_str(), g_fam_gap64_legacy[f]);
   }
-  autoport_proof::publish("ao_sway_gap_px", g_sway_gap_px);
-  autoport_proof::publish("ao_sway_gap_world_px", g_sway_gap_world_px);
+  // ── LES DEUX CLES DE VENT, ET POURQUOI L'UNE CHANGE DE NOM ──────────────────────────────
+  // Jusqu'au 2026-09-14 ces deux compteurs se publiaient sous `ao_sway_gap_px` /
+  // `ao_sway_gap_world_px`. Ils ne mesurent PAS un ecart de prepasse a la scene : ils comptent
+  // les pixels que le deplacement de sommet a BOUGES entre le bras livre et le bras desarme.
+  // C'est le TEMOIN D'ARMEMENT du correctif — a zero, tout le reste de la mesure serait vide de
+  // sens — et il MONTE quand le correctif marche mieux. Le contrat de la porte, lui, nomme
+  // `ao_sway_gap_px` « prepasse contre scene sous vent, shrub ET TIE, `ao_geom_tie_absent_px`
+  // compte dedans » : une grandeur qui doit TOMBER a zero. Deux grandeurs opposees sous un seul
+  // nom : le temoin prend donc son vrai nom, et `ao_sway_gap_px` publie ce que la porte lit.
+  autoport_proof::publish("ao_sway_moved_px", g_sway_gap_px);
+  autoport_proof::publish("ao_sway_moved_world_px", g_sway_gap_world_px);
+  // LA GRANDEUR DE LA PORTE (terme 3) : sur les deux familles qui plient — shrub et TIE — les
+  // pixels dont la prepasse porte une AUTRE geometrie que la scene (`_gap64`) ou n'en porte
+  // AUCUNE (`_absent`). Mesuree brise ALLUMEE (`ao_sway_wind_on`).
+  const uint64_t sway_gap = g_fam_gap64[kFamShrub] + g_fam_absent[kFamShrub] +
+                            g_fam_gap64[kFamTie] + g_fam_absent[kFamTie];
+  const uint64_t sway_gap_legacy = g_fam_gap64_legacy[kFamShrub] + g_fam_gap64_legacy[kFamTie];
+  const uint64_t sway_pop = g_fam_cover[kFamShrub] + g_fam_cover[kFamTie];
+  autoport_proof::publish("ao_sway_gap_px", sway_gap);
+  autoport_proof::publish("ao_sway_gap_pop_px", sway_pop);
+  autoport_proof::publish("ao_sway_gap_legacy_px", sway_gap_legacy);
   autoport_proof::publish("ao_sway_wind_on", foliage_wind::enabled() ? 1 : 0);
+  autoport_proof::publish("ao_wind_pre_calls", g_wind_pre_calls);
+  autoport_proof::publish("ao_wind_pre_inds", g_wind_pre_inds);
+  // ── LES TROIS TERMES QUE LA PREPASSE REMET A LA SOMME ───────────────────────────────────
+  // bit 0 : la fuite sur le direct est mesuree (la sonde a tourne et la population est non
+  // nulle) ; bit 1 : l'ecart de prepasse sous vent est mesure ; bit 2 : l'alpha a ete mesure
+  // SUR L'APPAREIL. Sur bureau le bit 2 reste a 0 : le contrat exige cette mesure sur
+  // l'appareil, et un terme non mesure compte pour un defaut, jamais pour un zero.
+  int mask = 0;
+  if (g_probe_px > 0) {
+    mask |= 1;
+  }
+  if (sway_pop > 0 && g_geom_frames > 0) {
+    mask |= 2;
+  }
+#ifdef __ANDROID__
+  if (g_alpha_cover_px > 0 && g_witness_px > 0) {
+    mask |= 4;
+  }
+  autoport_proof::publish("ao_on_alpha_device_px", g_on_alpha_px);
+  autoport_proof::publish("ao_on_alpha_device_cover_px", g_alpha_cover_px);
+  autoport_proof::publish("ao_on_alpha_device_witness_px", g_witness_px);
+#endif
+  AmbientOcclusionPass::set_prepass_defect_terms(g_leak_px, sway_gap, g_on_alpha_px, mask);
   // ── (a) AUCUN MOTIF VISIBLE ─────────────────────────────────────────────────────────────
   AmbientOcclusionPass::publish_pattern_census();
 }
-#endif
 
 }  // namespace
 
@@ -930,6 +965,11 @@ unsigned depth_fbo() {
 void note_noz_range(uint32_t inds) {
   g_noz_ranges++;
   g_noz_inds += inds;
+}
+
+void note_wind_prepass(uint32_t inds) {
+  g_wind_pre_calls++;
+  g_wind_pre_inds += inds;
 }
 
 bool screen_ao_active() {
@@ -1137,9 +1177,12 @@ void proof_post_opaque(SharedRenderState* rs) {
     return;
   }
 #ifdef __ANDROID__
-  // GLES 3.2 ne sait pas relire le stencil par glReadPixels : l'instrument est bureau-seul,
-  // et il le dit au lieu de publier un zero.
+  // GLES 3.2 ne sait pas relire le stencil par glReadPixels : la SONDE est bureau-seule, et elle
+  // le dit au lieu de publier un zero. Tout ce qui ne depend pas du stencil — la classification
+  // d'alpha (verdict (j), exigee SUR L'APPAREIL), le recensement du motif, la campagne de cout,
+  // le rapport du flou bilateral — a tourne, et sa publication ne doit pas mourir avec elle.
   autoport_proof::publish("ao_probe_unsupported", 1);
+  publish_all();
   clear_stencil();
   return;
 #else

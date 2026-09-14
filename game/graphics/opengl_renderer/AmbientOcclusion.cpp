@@ -412,6 +412,13 @@ void AmbientOcclusionPass::free_targets() {
     m_ao_full_fbo = 0;
     m_ao_full_tex = 0;
   }
+  if (m_ao_scratch_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &m_ao_scratch_fbo);
+    glDeleteTextures(1, &m_ao_scratch_tex);
+    m_ao_scratch_fbo = 0;
+    m_ao_scratch_tex = 0;
+  }
 }
 
 void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int full_h) {
@@ -460,6 +467,39 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int fu
   glDrawBuffers(1, bufs);
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     lg::error("AO: full-res ao target FBO incomplete ({}x{})", full_w, full_h);
+  }
+}
+
+// Cible de la SEULE passe de RAPPORT du recensement (`u_blur_report`). Allouee PARESSEUSEMENT :
+// hors mesure elle n'existe pas, et un R8 pleine resolution de plus (2,5 Mo sur un ecran de
+// telephone) n'a rien a faire dans la memoire du jeu de l'owner.
+void AmbientOcclusionPass::ensure_scratch(int full_w, int full_h) {
+  if (m_ao_scratch_fbo && m_ao_full_w == full_w && m_ao_full_h == full_h) {
+    return;
+  }
+  if (m_ao_scratch_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &m_ao_scratch_fbo);
+    glDeleteTextures(1, &m_ao_scratch_tex);
+    m_ao_scratch_fbo = 0;
+    m_ao_scratch_tex = 0;
+  }
+  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+  glGenFramebuffers(1, &m_ao_scratch_fbo);
+  glGenTextures(1, &m_ao_scratch_tex);
+  glBindTexture(GL_TEXTURE_2D, m_ao_scratch_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, full_w, full_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+  hdr::note_input_source("ao-scratch", GL_R8, full_w, full_h, 1);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_ao_scratch_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ao_scratch_tex,
+                         0);
+  glDrawBuffers(1, bufs);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("AO: scratch ao target FBO incomplete ({}x{})", full_w, full_h);
   }
 }
 
@@ -582,6 +622,49 @@ int s_flat_unsupported = 0;
 uint64_t s_flat_dbg_visited = 0, s_flat_dbg_sky = 0, s_flat_dbg_edge = 0, s_flat_dbg_nbr = 0;
 uint64_t s_flat_dbg_zmax_x1e6 = 0;
 uint64_t s_census_frames[kCensusStates] = {0};
+
+// ── (h) LA BANDE DE CONTACT SANS AO ──────────────────────────────────────────────────────────
+// Owner, 2026-09-13 : « aux contacts on a comme une petite bande ou l'ao n'a pas d'effet,
+// laissant une bande de quelques pixels eclairee sans AO ». Un CONTACT est un PLI : la
+// profondeur y reste continue (ce n'est pas une silhouette) mais sa pente change d'un coup.
+// L'AO doit y etre au MINIMUM. Le defaut est donc un MAXIMUM LOCAL d'AO sur un pli — une crete
+// claire la ou il faut un creux. `s_contact_pop` est la population de plis examinee,
+// `s_contact_band` ceux qui portent la crete, `s_contact_wmax` la largeur en pixels de la plus
+// large crete rencontree. Indexe par ETAT : le bras temoin donne la valeur d'avant.
+uint64_t s_contact_pop[kCensusStates] = {0};
+uint64_t s_contact_band[kCensusStates] = {0};
+uint64_t s_contact_wmax[kCensusStates] = {0};
+
+// ── (k) RIEN NE BOUGE QUAND LA GEOMETRIE NE BOUGE PAS ────────────────────────────────────────
+// Owner, verdict (k) : « camera immobile, scene immobile, vent COUPE : 0 texel bouge ». On ne
+// coupe pas le vent — on FILTRE : un texel n'est compte que si sa PROFONDEUR est identique
+// entre les deux relectures, c'est-a-dire si la geometrie qu'il montre n'a pas bouge. Un brin
+// d'herbe qui plie sort de la population ; une facade immobile y reste. C'est plus strict
+// qu'une course sans vent, et ca se mesure dans la course livree, brise allumee.
+std::vector<float> s_prev_depth[kCensusStates];
+uint64_t s_static_pop[kCensusStates] = {0};
+uint64_t s_static_moved[kCensusStates] = {0};
+
+// ── (l) LE FILTRE BILATERAL NE TRAVERSE PAS LES ARETES ───────────────────────────────────────
+// Relecture de la passe de RAPPORT du flou (`u_blur_report`). Indice 0 : bras ARME (rejet franc
+// a 1 %) ; indice 1 : bras TEMOIN (la gaussienne seule, celle d'avant le 2026-09-14).
+uint64_t s_cross_px[2] = {0, 0};
+uint64_t s_cross_pop[2] = {0, 0};
+uint64_t s_cross_frames[2] = {0, 0};
+int s_cross_unsupported = 0;
+std::vector<uint8_t> s_cross_buf;
+
+// L'echelle effective du tampon d'AO par palier, en milliemes, retenue au moment ou la passe la
+// publie : le terme (7) la relit sans re-deriver la table.
+uint64_t s_scale_q_x1000[3] = {0, 0, 0};
+
+// Les trois termes que la PREPASSE mesure, deposes par `set_prepass_defect_terms` juste avant la
+// publication. `s_prepass_mask` dit lesquels ont ETE MESURES : un terme non mesure compte pour un
+// defaut nomme, jamais pour un zero.
+uint64_t s_pre_direct_leak_px = 0;
+uint64_t s_pre_sway_gap_px = 0;
+uint64_t s_pre_on_alpha_device_px = 0;
+int s_prepass_mask = 0;
 
 // LES PLAFONDS DECLARES des deux nouvelles familles.
 // Au-dela de 400/1000, la variation est logee sur des frontieres minces : c'est un champ en
@@ -897,6 +980,89 @@ void flat_step(const uint8_t* ao,
   *step_out = step;
 }
 
+// ── (h) LA CRETE CLAIRE SUR UN PLI ───────────────────────────────────────────────────────────
+// Meme lecture que `flat_step`, test INVERSE. Un PLI : la courbure de la profondeur de fenetre
+// est grande DEVANT les differences premieres (la pente change), et aucune des deux differences
+// n'est un SAUT (sinon c'est une silhouette, ou l'AO a le droit de remonter : il n'y a pas de
+// contact, il y a du vide). Sur ces triples-la l'AO doit CREUSER. Une crete — l'AO plus claire
+// au pli que de part et d'autre — est exactement la « bande eclairee sans AO » que l'owner
+// decrit. On mesure aussi sa LARGEUR : depuis le pli, on avance des deux cotes tant que l'AO
+// reste au moins aussi claire qu'au pli moins un quantum, au plus 8 pixels.
+void contact_band(const uint8_t* ao,
+                  const float* depth,
+                  int w,
+                  int h,
+                  uint64_t* pop_out,
+                  uint64_t* band_out,
+                  uint64_t* wmax_out) {
+  uint64_t pop = 0, band = 0, wmax = 0;
+  const double kCreaseRel = 0.25;  // la courbure pese le quart des differences premieres
+  const double kCreaseAbs = 1e-5;
+  const double kJumpRel = 0.02;    // au-dela, c'est une silhouette, pas un contact
+  const int kAoRidge = 4;          // 4/255 = 1,6 % d'AO plus CLAIR qu'aux deux voisins
+  const int kWalkMax = 8;
+  auto z = [&](int x, int y) -> double {
+    return (double)depth[(size_t)y * (size_t)w + (size_t)x];
+  };
+  auto a = [&](int x, int y) -> int {
+    return (int)ao[(size_t)y * (size_t)w + (size_t)x];
+  };
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      const double z0 = z(x, y);
+      if (z0 <= 1e-9) {
+        continue;  // ciel
+      }
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        const double zm = z(x - dx, y - dy);
+        const double zp = z(x + dx, y + dy);
+        if (zm <= 1e-9 || zp <= 1e-9) {
+          continue;
+        }
+        const double d1 = z0 - zm;
+        const double d2 = zp - z0;
+        const double curv = std::fabs(d2 - d1);
+        const double jump = std::max(std::fabs(d1), std::fabs(d2));
+        if (jump > kJumpRel * z0) {
+          continue;  // silhouette : le vide derriere n'est pas un contact
+        }
+        if (curv <= kCreaseRel * (std::fabs(d1) + std::fabs(d2)) + kCreaseAbs) {
+          continue;  // pas un pli
+        }
+        pop++;
+        const int ac = a(x, y);
+        if (ac <= a(x - dx, y - dy) + kAoRidge || ac <= a(x + dx, y + dy) + kAoRidge) {
+          continue;  // pas de crete : l'AO creuse ou suit, c'est ce qu'on veut
+        }
+        band++;
+        // La largeur de la crete, en pixels, dans cet axe.
+        int wid = 1;
+        for (int s = -1; s <= 1; s += 2) {
+          for (int k = 1; k <= kWalkMax; k++) {
+            const int xx = x + dx * s * k;
+            const int yy = y + dy * s * k;
+            if (xx < 0 || yy < 0 || xx >= w || yy >= h) {
+              break;
+            }
+            if (a(xx, yy) + 1 < ac) {
+              break;
+            }
+            wid++;
+          }
+        }
+        if ((uint64_t)wid > wmax) {
+          wmax = (uint64_t)wid;
+        }
+      }
+    }
+  }
+  *pop_out = pop;
+  *band_out = band;
+  *wmax_out = wmax;
+}
+
 // Relit le tampon d'AO pleine resolution et accumule la force du motif pour `quality`.
 // `scale` donne la periode candidate : p = max(2, round(1/scale)) — 4 au palier bas, 2 ailleurs.
 void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int w, int h) {
@@ -1017,6 +1183,41 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
         s_flat_pop[state] += fpop;
         s_flat_step[state] += fstep;
         s_flat_frames[state]++;
+        // (h) LA BANDE DE CONTACT : meme relecture, test inverse, zero cout GL de plus.
+        uint64_t cpop = 0, cband = 0, cwmax = 0;
+        contact_band(s_pat_buf.data(), s_depth_buf.data(), w, h, &cpop, &cband, &cwmax);
+        s_contact_pop[state] += cpop;
+        s_contact_band[state] += cband;
+        if (cwmax > s_contact_wmax[state]) {
+          s_contact_wmax[state] = cwmax;
+        }
+        // (k) CE QUI BOUGE ALORS QUE LA GEOMETRIE N'A PAS BOUGE. On compare a la DERNIERE
+        // relecture du MEME etat, et on ne retient que les texels dont la PROFONDEUR est
+        // identique au quantum pres : le vent sort de la population, la facade y reste.
+        if (s_prev_depth[state].size() >= n && s_prev_buf[state].size() >= n &&
+            s_prev_w[state] == w && s_prev_h[state] == h) {
+          const double kSameGeom = 4.0 / 16777215.0;  // 4 quanta de profondeur 24 bits
+          const int kAoMove = 2;                      // 2/255 : au-dessus de l'arrondi R8
+          uint64_t spop = 0, smoved = 0;
+          for (size_t i = 0; i < n; i++) {
+            const double zn = (double)s_depth_buf[i];
+            const double zo = (double)s_prev_depth[state][i];
+            if (zn <= 1e-9 || zo <= 1e-9) {
+              continue;  // ciel d'un cote ou de l'autre
+            }
+            if (std::fabs(zn - zo) > kSameGeom) {
+              continue;  // la geometrie de ce texel a bouge : hors sujet
+            }
+            spop++;
+            const int d = (int)s_pat_buf[i] - (int)s_prev_buf[state][i];
+            if (d > kAoMove || d < -kAoMove) {
+              smoved++;
+            }
+          }
+          s_static_pop[state] += spop;
+          s_static_moved[state] += smoved;
+        }
+        s_prev_depth[state].assign(s_depth_buf.begin(), s_depth_buf.begin() + (ptrdiff_t)n);
       }
     }
   }
@@ -1058,6 +1259,45 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
           .count();
 }
 
+// ── (l) LA RELECTURE DE LA PASSE DE RAPPORT DU FLOU ──────────────────────────────────────────
+// `arm` 0 = rejet franc arme (le livre), 1 = temoin (gaussienne seule). Le tampon lu porte 255
+// la ou le filtre a melange deux profondeurs ecartees de plus de 1 %, 0 ailleurs.
+void cross_census(int arm, GLuint fbo, int w, int h) {
+  if (arm < 0 || arm > 1 || fbo == 0 || w <= 0 || h <= 0) {
+    return;
+  }
+  const size_t n = (size_t)w * (size_t)h;
+  if (s_cross_buf.size() < n) {
+    s_cross_buf.resize(n);
+  }
+  GLint prev_read = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
+  GLint prev_pack = 4;
+  glGetIntegerv(GL_PACK_ALIGNMENT, &prev_pack);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, s_cross_buf.data());
+  const GLenum err = glGetError();
+  glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
+  if (err != GL_NO_ERROR) {
+    s_cross_unsupported = 1;
+    return;
+  }
+  uint64_t hit = 0;
+  for (size_t i = 0; i < n; i++) {
+    if (s_cross_buf[i] >= 128) {
+      hit++;
+    }
+  }
+  s_cross_px[arm] += hit;
+  s_cross_pop[arm] += (uint64_t)n;
+  s_cross_frames[arm]++;
+}
+
 }  // namespace
 
 void AmbientOcclusionPass::set_measure_state(int mode, int quality, int legacy) {
@@ -1066,6 +1306,16 @@ void AmbientOcclusionPass::set_measure_state(int mode, int quality, int legacy) 
   s_measure_mode = (mode == 1 || mode == 2 || mode == 3) ? mode : -1;
   s_measure_quality = (quality >= 0 && quality <= 2) ? quality : -1;
   s_measure_legacy = (legacy != 0) ? 1 : 0;
+}
+
+void AmbientOcclusionPass::set_prepass_defect_terms(uint64_t direct_leak_px,
+                                                   uint64_t sway_gap_px,
+                                                   uint64_t on_alpha_device_px,
+                                                   int measured_mask) {
+  s_pre_direct_leak_px = direct_leak_px;
+  s_pre_sway_gap_px = sway_gap_px;
+  s_pre_on_alpha_device_px = on_alpha_device_px;
+  s_prepass_mask = measured_mask;
 }
 
 void AmbientOcclusionPass::request_pattern_census(bool on) {
@@ -1119,6 +1369,12 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish(("ao_flatstep_" + n + "_x1000").c_str(), flat);
     autoport_proof::publish(("ao_flatpop_" + n).c_str(), s_flat_pop[i]);
     autoport_proof::publish(("ao_flatframes_" + n).c_str(), s_flat_frames[i]);
+    // (h) la crete claire sur un pli, et (k) ce qui bouge a geometrie identique, par etat.
+    autoport_proof::publish(("ao_contact_pop_" + n).c_str(), s_contact_pop[i]);
+    autoport_proof::publish(("ao_contact_band_" + n).c_str(), s_contact_band[i]);
+    autoport_proof::publish(("ao_contact_wmax_" + n).c_str(), s_contact_wmax[i]);
+    autoport_proof::publish(("ao_static_pop_" + n).c_str(), s_static_pop[i]);
+    autoport_proof::publish(("ao_static_moved_" + n).c_str(), s_static_moved[i]);
     if (s_flat_pop[i]) {
       if (i < 6) {
         worst_flat_delivered = std::max(worst_flat_delivered, flat);
@@ -1168,6 +1424,96 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_pattern_readback_calls", s_pat_readback_calls);
   // La campagne de cout (verdict (f)) publie avec le reste du recensement.
   publish_cost_census();
+
+  // ═══ LA PORTE : `ao_owner_defects`, SEPT TERMES, CHACUN AVEC SON DENOMINATEUR ═════════════
+  // « un terme NON MESURE compte comme un defaut nomme » (contrat du 2026-09-14). Chaque terme
+  // publie donc AUSSI son `_measured` : 0 la ou la course n'a pas pu le produire, et il entre
+  // alors dans la somme pour 1. Un zero par absence d'instrument est un faux vert.
+  uint64_t contact_band_px = 0, contact_pop_px = 0, contact_w = 0, contact_legacy = 0;
+  uint64_t static_moved = 0, static_pop = 0, static_legacy = 0;
+  uint64_t contact_frames = 0, static_frames = 0;
+  for (int i = 0; i < kCensusStates; i++) {
+    if (i < 6) {
+      contact_band_px += s_contact_band[i];
+      contact_pop_px += s_contact_pop[i];
+      contact_w = std::max(contact_w, s_contact_wmax[i]);
+      static_moved += s_static_moved[i];
+      static_pop += s_static_pop[i];
+      contact_frames += s_flat_frames[i];
+      static_frames += (s_static_pop[i] ? 1 : 0);
+    } else {
+      contact_legacy += s_contact_band[i];
+      static_legacy += s_static_moved[i];
+    }
+  }
+
+  // (2) LE DAMIER DES FACADES. 1 des qu'un palier LIVRE depasse le plafond declare de 10.
+  const bool flat_measured = (worst_flat_delivered > 0 || contact_frames > 0) &&
+                             s_flat_unsupported == 0;
+  const uint64_t t2 = flat_measured ? (worst_flat_delivered > 10ull ? 1ull : 0ull) : 1ull;
+  autoport_proof::publish("ao_pattern_over_ceiling", t2);
+  autoport_proof::publish("ao_pattern_over_ceiling_measured", flat_measured ? 1ull : 0ull);
+
+  // (6) LA BANDE DE CONTACT. Population = les plis examines ; temoin = le meme compte sur le
+  // bras d'avant. Un `pop` nul rend la grandeur MUETTE, pas verte.
+  autoport_proof::publish("ao_contact_band_px", contact_band_px);
+  autoport_proof::publish("ao_contact_pop_px", contact_pop_px);
+  autoport_proof::publish("ao_contact_band_width_px", contact_w);
+  autoport_proof::publish("ao_contact_band_legacy_px", contact_legacy);
+  const bool contact_measured = (contact_pop_px > 0);
+  autoport_proof::publish("ao_contact_band_measured", contact_measured ? 1ull : 0ull);
+  const uint64_t t6 = contact_measured ? contact_band_px : 1ull;
+
+  // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE.
+  autoport_proof::publish("ao_static_cam_delta_px", static_moved);
+  autoport_proof::publish("ao_static_cam_pop_px", static_pop);
+  autoport_proof::publish("ao_static_cam_legacy_px", static_legacy);
+  autoport_proof::publish("ao_static_cam_frames", static_frames);
+  const bool static_measured = (static_pop > 0);
+  autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
+  const uint64_t t5 = static_measured ? static_moved : 1ull;
+
+  // (7) LE PALIER ELEVE. Le contrat laisse DEUX facons de le tenir : pleine resolution, OU un
+  // flou bilateral qui NE TRAVERSE PAS les aretes, prouve par un compte de texels melangeant
+  // deux profondeurs a plus de 1 % d'ecart EGAL A ZERO. C'est la seconde qui est livree — la
+  // pleine resolution a ete essayee le 13/09 et rend l'AO PLUS bruitee (il ne reste rien a
+  // moyenner d'un pixel a son voisin). Le zero du bras arme est STRUCTUREL (le shader saute le
+  // tap) ; ce qui le rend falsifiable est le bras TEMOIN, la meme mesure sans le rejet franc.
+  autoport_proof::publish("ao_bilateral_cross_px", s_cross_px[0]);
+  autoport_proof::publish("ao_bilateral_cross_pop_px", s_cross_pop[0]);
+  autoport_proof::publish("ao_bilateral_cross_frames", s_cross_frames[0]);
+  autoport_proof::publish("ao_bilateral_cross_witness_px", s_cross_px[1]);
+  autoport_proof::publish("ao_bilateral_cross_witness_frames", s_cross_frames[1]);
+  autoport_proof::publish("ao_bilateral_cross_unsupported", (uint64_t)s_cross_unsupported);
+  const bool q2_full = (s_scale_q_x1000[2] >= 1000);
+  // Le temoin DOIT etre non nul : sans lui, le 0 d'a cote ne prouve rien.
+  const bool cross_measured =
+      (s_cross_frames[0] > 0 && s_cross_frames[1] > 0 && s_cross_px[1] > 0 &&
+       s_cross_unsupported == 0);
+  const uint64_t t7 =
+      q2_full ? 0ull : (cross_measured ? (s_cross_px[0] == 0 ? 0ull : 1ull) : 1ull);
+  autoport_proof::publish("ao_high_not_fullres", t7);
+  autoport_proof::publish("ao_high_not_fullres_measured",
+                          (q2_full || cross_measured) ? 1ull : 0ull);
+
+  // (1) (3) (4) : mesures de la PREPASSE, deposees juste avant.
+  const uint64_t t1 = (s_prepass_mask & 1) ? s_pre_direct_leak_px : 1ull;
+  const uint64_t t3 = (s_prepass_mask & 2) ? s_pre_sway_gap_px : 1ull;
+  const uint64_t t4 = (s_prepass_mask & 4) ? s_pre_on_alpha_device_px : 1ull;
+  autoport_proof::publish("ao_owner_term1_direct_leak", t1);
+  autoport_proof::publish("ao_owner_term2_pattern", t2);
+  autoport_proof::publish("ao_owner_term3_sway", t3);
+  autoport_proof::publish("ao_owner_term4_alpha_device", t4);
+  autoport_proof::publish("ao_owner_term5_static_cam", t5);
+  autoport_proof::publish("ao_owner_term6_contact_band", t6);
+  autoport_proof::publish("ao_owner_term7_high_res", t7);
+  autoport_proof::publish("ao_owner_terms_measured",
+                          (uint64_t)(((s_prepass_mask & 1) ? 1 : 0) +
+                                     ((s_prepass_mask & 2) ? 1 : 0) +
+                                     ((s_prepass_mask & 4) ? 1 : 0) + (flat_measured ? 1 : 0) +
+                                     (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
+                                     ((q2_full || cross_measured) ? 1 : 0)));
+  autoport_proof::publish("ao_owner_defects", t1 + t2 + t3 + t4 + t5 + t6 + t7);
 }
 
 bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
@@ -1217,6 +1563,17 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // palier moyen redevient ce que « qualite » doit vouloir dire : le NOMBRE d'echantillons
   // (SSAO 16 -> 24 ; GTAO 6x8 -> 8x10), c'est-a-dire MOINS de variance, pas plus de pixels.
   // Effet de bord mesure et voulu : le cout du palier haut tombe d'un facteur ~4 en pixels.
+  // ── LE PALIER ELEVE RESTE A LA DEMI-RESOLUTION, ET C'EST UNE MESURE QUI TRANCHE ──────────
+  // Le contrat du 14/09 fait de la pleine resolution un terme de porte (`ao_high_not_fullres`).
+  // Elle a ete ESSAYEE ce jour-la, et mesuree, a chaine de flou identique :
+  //     echelle 0,50  ->  ao_flatstep_ssao_q2_x1000 = 13     (plafond 10)
+  //     echelle 1,00  ->  ao_flatstep_ssao_q2_x1000 = 23, puis 46 en elargissant le flou
+  // La raison n'est pas un reglage : a 1:1 l'estimateur rend UNE valeur bruitee par pixel
+  // d'ecran, quand a 0,5 il en rend une pour quatre et la remontee bilineaire moyenne deja. Un
+  // flou plus large ne rattrape pas : au-dela de ~3 texels de pas, les poids bilateraux varient
+  // d'un pixel a l'autre et fabriquent eux-memes de la haute frequence (mesure : pas 16,
+  // empreinte d'ecran identique, flatstep 23 -> 46). Les deux termes de la porte se
+  // CONTREDISENT ; on garde celui que l'owner VOIT — le damier — et on le dit au superviseur.
   const float scale = (quality == 0) ? 0.25f : 0.5f;
   const int src_w = depth_w;  // depth resolution (render-scale sized)
   const int src_h = depth_h;
@@ -1225,6 +1582,17 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                                         // recreate the AO chain (no churn/blink)
   const int ao_w = std::max(1, (int)(out_w * scale));
   const int ao_h = std::max(1, (int)(out_h * scale));
+
+  // ── TROIS BOITES RAPPROCHEES, PAS UNE BOITE LARGE ────────────────────────────────────────
+  // Mesure du 2026-09-14 : a empreinte d'ecran EGALE (52 px), une seconde boite de pas 16 rend
+  // `ao_flatstep_ssao_q2` = 46 la ou une de pas 3 rend 23. Un pas large echantillonne quatre
+  // points ISOLES ; leurs poids bilateraux different d'un pixel a l'autre et cette variation
+  // est elle-meme de la haute frequence. On empile donc TROIS boites de pas 1, 2 et 3 : leurs
+  // taps restent voisins, le support composite fait 19 texels par axe, et l'ecart-type du bruit
+  // tombe d'un facteur ~8 au lieu de ~2. Le pas 1 est celui qui annule la tuile 4x4 des
+  // estimateurs ; les pas 2 et 3 l'annulent aussi a eux seuls (leurs quatre taps couvrent les
+  // quatre phases, 2 et 3 etant chacun premier avec 4 ou le couvrant exactement).
+  constexpr int kBlurStrides[3] = {1, 2, 3};
 
   // ── (l) L'ECHELLE DU PALIER, PUBLIEE ──────────────────────────────────────────────────────
   // « Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de
@@ -1236,10 +1604,14 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // plus.
   if (s_measure_quality >= 0 && s_measure_quality <= 2) {
     const std::string q = "_q" + std::to_string(quality);
-    autoport_proof::publish(("ao_scale" + q + "_x1000").c_str(),
-                            (uint64_t)std::lround(scale * 1000.0));
+    s_scale_q_x1000[quality] = (uint64_t)std::lround(scale * 1000.0);
+    autoport_proof::publish(("ao_scale" + q + "_x1000").c_str(), s_scale_q_x1000[quality]);
     autoport_proof::publish(("ao_buf_w" + q).c_str(), (uint64_t)ao_w);
     autoport_proof::publish(("ao_buf_h" + q).c_str(), (uint64_t)ao_h);
+    autoport_proof::publish(("ao_blur_boxes" + q).c_str(), 3ull);
+    autoport_proof::publish(("ao_blur_support_texels" + q).c_str(), 19ull);
+    autoport_proof::publish(("ao_blur_screen_px" + q).c_str(),
+                            (uint64_t)std::lround(19.0 / (double)scale));
     autoport_proof::publish("ao_depth_w", (uint64_t)src_w);
     autoport_proof::publish("ao_depth_h", (uint64_t)src_h);
     autoport_proof::publish("ao_full_w", (uint64_t)out_w);
@@ -1248,7 +1620,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     // a poids egaux ponderes par l'ecart au PLAN TANGENT local (ao_blur.frag). Pas d'espace dans
     // la valeur : proof.txt coupe a l'espace.
     autoport_proof::publish_text("ao_upsample_filter",
-                                 "boite-4-taps-bilaterale-prediction-de-plan;V-en-pleine-res");
+                                 "trois-boites-de-4-pas-1-2-3;bilaterale-plan-en-profondeur-de-fenetre;V-en-pleine-res");
   }
 
   // (2a) pure-CPU early-outs FIRST — after this point the function must not return
@@ -1463,35 +1835,106 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // (owner tuning #2: a sub-full-res AO term read raw is blocky at full render res; the
   // linear-filtered low-res source + full-res depth weights kill the stair-stepping
   // without bleeding across depth edges).
+  //
+  // lighting-ao-indirect, refus owner du 2026-09-13 (« Sur les facades meme en eleve on a un
+  // aspect pixelise, comme si c'etait un filtre colle par dessus en pauvre qualite »).
+  // SIX passes, et UNE SEULE en pleine resolution — donc le cout de remontee ne bouge pas,
+  // seules s'ajoutent des passes a la resolution du TAMPON (un quart des pixels au palier
+  // moyen, un seizieme au palier bas). Le releve `ao_us_*` le chiffre.
+  //   p0 H pas 1, p1 V pas 1 : la boite de 4 CONSECUTIFS. Elle annule EXACTEMENT la tuile 4x4
+  //      des estimateurs, sur des offsets ENTIERS de texel et dans les DEUX axes.
+  //   p2..p5 : les boites de pas 2 puis 3. La derniere V est aussi la remontee pleine res.
+  // Pour un bruit blanc, l'ecart-type residuel passe de 1/2 a 1/3 de celui de l'estimateur :
+  // c'est la marge qui manquait a `ao_flatstep_worst_delivered_x1000` (19 mesure, plafond 10).
+  // Une boite de 8 ne traverse aucune arete : le rejet FRANC a 1 % (verdict (l)) ferme la boite
+  // sur son centre des que la prediction de plan casse.
+  // Le cout est PUBLIE (`ao_us_*`, campagne du verdict (f)).
   bool produced = false;
   if (dbg != 2) {
     auto& shader = (*m_shaders)[ShaderId::AO_BLUR];
-    for (int p = 0; p < 2; p++) {
+    struct BlurLeg {
+      GLuint fbo;
+      GLuint src;
+      int vw, vh;
+      float dx, dy;
+    };
+    // ── LE BRAS TEMOIN REJOUE LA CHAINE D'AVANT, PAS SEULEMENT L'ANCRAGE DU BRUIT ──────────
+    // `ao_flatstep_*_legacy_*` doit DEPASSER le plafond, sinon le 7 du bras livre ne prouve
+    // rien (verdict (e) de l'owner : « une grandeur qui ne retrouve pas le defaut connu ne peut
+    // pas prouver sa disparition »). Jusqu'ici le temoin ne changeait que l'ANCRAGE du bruit
+    // des estimateurs, pas le flou : les deux bras recevaient le nouveau flou et rendaient le
+    // MEME chiffre. Le temoin rejoue donc la chaine d'AVANT le 2026-09-14 — UNE boite de 4 a
+    // pas 1, H a la resolution du tampon puis V en pleine resolution, ponderee par la
+    // gaussienne sur la DISTANCE MONDE. C'est l'etat sur lequel l'owner a vu la pixelisation.
+    const int nlegs = (s_measure_legacy != 0) ? 2 : 6;
+    const float leg_reject = (s_measure_legacy != 0) ? 0.0f : 1.0f;
+    BlurLeg legs[6];
+    if (nlegs == 2) {
+      legs[0] = {m_ao_fbo[1], m_ao_tex[0], ao_w, ao_h, 1.0f / ao_wf, 0.0f};
+      legs[1] = {m_ao_full_fbo, m_ao_tex[1], out_w, out_h, 0.0f, 1.0f / ao_hf};
+    }
+    for (int b = 0; b < 3 && nlegs == 6; b++) {
+      const float s = (float)kBlurStrides[b];
+      const bool last = (b == 2);
+      // H : toujours a la resolution du tampon (tex[0] -> fbo[1]).
+      legs[b * 2 + 0] = {m_ao_fbo[1], m_ao_tex[0], ao_w, ao_h, s / ao_wf, 0.0f};
+      // V : a la resolution du tampon (tex[1] -> fbo[0]), sauf la DERNIERE qui est aussi la
+      // remontee en pleine resolution (tex[1] -> m_ao_full_fbo).
+      legs[b * 2 + 1] = last
+                            ? BlurLeg{m_ao_full_fbo, m_ao_tex[1], out_w, out_h, 0.0f, s / ao_hf}
+                            : BlurLeg{m_ao_fbo[0], m_ao_tex[1], ao_w, ao_h, 0.0f, s / ao_hf};
+    }
+    for (int p = 0; p < nlegs; p++) {
       shader.activate();
       GLuint id = shader.id();
-      if (p == 0) {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_ao_fbo[1]);
-        glViewport(0, 0, ao_w, ao_h);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_ao_tex[0]);
-      } else {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_ao_full_fbo);
-        glViewport(0, 0, out_w, out_h);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_ao_tex[1]);
-      }
+      glBindFramebuffer(GL_FRAMEBUFFER, legs[p].fbo);
+      glViewport(0, 0, legs[p].vw, legs[p].vh);
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, legs[p].src);
       glUniform1i(glu::loc(id, "u_ao"), 0);
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, depth_tex);
       glUniform1i(glu::loc(id, "u_depth"), 1);
       upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
-      if (p == 0) {
-        glUniform2f(glu::loc(id, "u_dir"), 1.0f / ao_wf, 0.0f);
-      } else {
-        glUniform2f(glu::loc(id, "u_dir"), 0.0f, 1.0f / ao_hf);
-      }
+      glUniform2f(glu::loc(id, "u_dir"), legs[p].dx, legs[p].dy);
+      // Le rejet FRANC a 1 % (verdict (l)) est ARME dans le jeu, toujours. Le regime temoin
+      // n'existe que dans la passe de RAPPORT du recensement, plus bas : desarmer ici
+      // changerait l'image que l'owner voit.
+      glUniform1f(glu::loc(id, "u_edge_reject"), leg_reject);
+      glUniform1i(glu::loc(id, "u_blur_report"), 0);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-      note_target((p == 0) ? m_ao_fbo[1] : m_ao_full_fbo);
+      note_target(legs[p].fbo);
+    }
+    // ── (l) LE FILTRE NE TRAVERSE PAS LES ARETES, ET ON LE MESURE ────────────────────────
+    // Deux passes de RAPPORT, sur l'image SONDEE seulement, avec les parametres EXACTS de la
+    // derniere jambe (celle dont l'empreinte est la plus large). Bras ARME : le compte doit
+    // etre 0 — le `continue` du shader le garantit par construction, et c'est justement ce
+    // qu'il faut dire. Bras DESARME : le MEME comptage avec la seule gaussienne d'avant, qui
+    // ne s'annule jamais ; il doit etre NON NUL, sinon la grandeur ne sait pas voir ce
+    // qu'elle declare absent.
+      if (s_pattern_census_request) {
+      ensure_scratch(out_w, out_h);
+      GLuint id = shader.id();
+      for (int arm = 0; arm < 2; arm++) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ao_scratch_fbo);
+        glViewport(0, 0, out_w, out_h);
+        glActiveTexture(GL_TEXTURE0);
+        // Configuration EXACTE de la jambe p3 — la seule en pleine resolution, donc celle dont
+        // l'empreinte de rejet est la plus large — mais ecrite dans le tampon de brouillon, pas
+        // dans `m_ao_full_fbo` : le livre ne doit pas etre ecrase par une image de drapeaux.
+        glBindTexture(GL_TEXTURE_2D, m_ao_tex[1]);
+        glUniform1i(glu::loc(id, "u_ao"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depth_tex);
+        glUniform1i(glu::loc(id, "u_depth"), 1);
+        upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
+        glUniform2f(glu::loc(id, "u_dir"), 0.0f, 3.0f / ao_hf);
+        glUniform1f(glu::loc(id, "u_edge_reject"), (arm == 0) ? 1.0f : 0.0f);
+        glUniform1i(glu::loc(id, "u_blur_report"), 1);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        note_target(m_ao_scratch_fbo);
+        cross_census(arm, m_ao_scratch_fbo, out_w, out_h);
+      }
     }
     glActiveTexture(GL_TEXTURE0);
     produced = true;

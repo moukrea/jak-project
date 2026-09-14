@@ -160,6 +160,13 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     // peak/RMS statistic. Differencing against the previous frame is what separates the two.
     std::vector<float> fw_prev_shear;
     bool fw_prev_valid = false;
+    // lighting-ao-indirect : l'image dont `wind_matrix_cache` porte les matrices, et le regime de
+    // brise qui les a produites. La prepasse de profondeur et la passe couleur tirent toutes les
+    // deux sur cet arbre : la PREMIERE calcule, la seconde consomme — deux calculs integreraient
+    // deux fois le ressort de ND et donneraient deux z differents.
+    u64 wind_frame = (u64)-1;
+    bool fw_frame_on = false;
+    float fw_frame_t = 0.f;
     // foliage-wind (owner 2026-09-03) : la hauteur LOCALE de chaque instance du chemin vent
     // (TieTree::wind_inst_local_ymax, calculee au depaquetage) et, par image, l'amplitude locale
     // du fremissement de feuille de chaque instance (poussee en uniforme au dessin).
@@ -213,6 +220,23 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     std::vector<prepass::DepthRange> prepass_noz_ranges_env;
 #endif
   };
+
+  // lighting-ao-indirect : les deux moities factorisees du chemin VENT (voir Tie3.cpp).
+  // `update_wind_instances` calcule les matrices d'instance, une seule fois par arbre et par
+  // image ; `draw_tree_wind` emet les draws, en couleur (`depth_only` faux, `settings` et `prof`
+  // non nuls) ou en profondeur seule (`depth_only` vrai, les deux nuls). Rend les indices emis.
+  void update_wind_instances(Tree& tree,
+                             const math::Vector4f* cam_mat,
+                             SharedRenderState* render_state);
+  uint64_t draw_tree_wind(int idx,
+                          int geom,
+                          const TfragRenderSettings* settings,
+                          SharedRenderState* render_state,
+                          ScopedProfilerNode* prof,
+                          bool depth_only);
+  // Le chemin VENT rejoue dans la prepasse de profondeur, couleur masquee. Appelee par
+  // `draw_depth_prepass` apres ses plages statiques ; inerte hors de la passe LIVREE.
+  uint64_t draw_wind_depth_prepass(SharedRenderState* rs);
 
   void envmap_second_pass_draw(const Tree& tree,
                                const TfragRenderSettings& settings,
