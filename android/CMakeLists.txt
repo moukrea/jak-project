@@ -757,6 +757,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/AmbientOcclusion.cpp"
     # lighting-ao-indirect : prepasse de profondeur ; un .cpp neuf absent d'ici meurt au lien arm64
     "${JAK_ROOT}/game/graphics/opengl_renderer/PrePass.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ao_tie_alpha_probe.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/gl_uniform_cache.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/prop_cache.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/frame_ubo.cpp"

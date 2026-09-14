@@ -92,6 +92,7 @@ struct DepthRange {
   // d'alpha se compte dans `ao_pre_texstate_unknown` : un zero de mismatch sur une population
   // vide dirait « rien a corriger » alors qu'il dit « rien n'a ete regarde ».
   uint8_t tex_mode = 0xff;
+  uint32_t tie_probe_id = 0;
 };
 
 // Calcule le `alpha_min` que `compute_double_draw` donnerait a ce mode de draw, et remplit

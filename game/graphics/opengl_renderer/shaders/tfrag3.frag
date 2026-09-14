@@ -1,6 +1,8 @@
 #version 410 core
 
-out vec4 color;
+layout(location = 0) out vec4 color;
+layout(location = 1) out vec4 tie_alpha_probe;
+uniform int u_tie_alpha_probe_id;
 
 in vec4 fragment_color;
 in vec3 tex_coord;
@@ -29,9 +31,11 @@ uniform vec4 u_fringe_fade;
 #endif
 
 void main() {
+  float tie_raw_alpha = 1.0;
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
     vec4 T0 = texture(tex_T0, tex_coord.xy);
+    tie_raw_alpha = T0.a;
     color = fragment_color * T0;
 #ifdef OG_PBR
     // ===== REMPLIR Surface, APPELER shade(). L'hote ne decide plus d'aucun composite. =====
@@ -115,6 +119,7 @@ void main() {
     discard;
   }
 
+  tie_alpha_probe = vec4(tie_raw_alpha, color.a, gl_FragCoord.z, float(u_tie_alpha_probe_id));
   color.rgb = mix(color.rgb, fog_color.rgb, clamp(fogginess * fog_color.a, 0.0, 1.0));
 #ifdef OG_PBR
   // ETIQUETTE DE PROGRAMME (u_pbr_debug == 30) : quel programme a dessine ce pixel. Les teintes

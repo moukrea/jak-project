@@ -1,4 +1,5 @@
 #include "Tie3.h"
+#include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 
@@ -1190,7 +1191,8 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
       // (terme 3) Le MODE d'echantillonnage du draw voyage avec la plage : la prepasse POSE
       // l'etat de la texture au lieu de l'heriter (background_common.h, `prepass_tex_mode`).
       pre_ranges.push_back(prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first,
-                                               count, prepass_tex_mode(draw.mode)});
+                                               count, prepass_tex_mode(draw.mode),
+                                               ao_tie_alpha_probe::draw_id(tree.draws, di)});
     }
   }
   ranges_built = true;
@@ -1379,9 +1381,9 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
         const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                  ? m_textures->at(r.tex)
                                  : 0;
-        total += prepass::draw_depth_range(
-            tree.draw_mode,
-            prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode));
+        auto range = prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode);
+        range.tie_probe_id = r.tie_probe_id;
+        total += prepass::draw_depth_range(tree.draw_mode, range);
       }
     }
     // Un uniforme laisse a 1 par un voisin est un defaut : l'arbre suivant, le chemin VENT et le
@@ -1638,8 +1640,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   }
 #endif
 
+  const bool alpha_probe = category == tfrag3::TieCategory::NORMAL && ao_tie_alpha_probe::active();
+  if (alpha_probe) ao_tie_alpha_probe::color_begin();
   int last_texture = -1;
-  if (render_state->no_multidraw && render_state->batch_singledraw) {
+  if (render_state->no_multidraw && render_state->batch_singledraw && !alpha_probe) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
     // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
     // guarantees; TieTree::unpack ends every run with UINT32_MAX). Tie base
@@ -1697,6 +1701,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
       prof.add_draw_call();
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
+      if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
@@ -1741,10 +1747,14 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
     if (render_state->no_multidraw) {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
+      if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
+      if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
@@ -1768,10 +1778,14 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           lighting_census::note_world_draw(lighting_census::Kind::Tie);
+          if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
+              render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Tie);
+          if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
+              render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1784,6 +1798,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     }
   }
   }
+  if (alpha_probe) ao_tie_alpha_probe::color_end();
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
 

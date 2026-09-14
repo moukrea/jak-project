@@ -27,7 +27,9 @@ uniform float u_cut_aref;  // seuil sur l'alpha de TEXTURE ; <= 0 => aucun test 
 uniform float u_cut_amb;   // haut de la bande ambigue (= alpha_min) ; <= 0 => aucune bande
 uniform int u_cut_mode;    // 0 = livre (discard) ; 1 = classification (aucun discard)
 
-out vec4 color;
+layout(location = 0) out vec4 color;
+layout(location = 1) out vec4 tie_alpha_probe;
+uniform int u_tie_alpha_probe_id;
 
 void main() {
   float ta = 1.0;
@@ -41,6 +43,7 @@ void main() {
     }
     return;
   }
+  tie_alpha_probe = vec4(ta, u_cut_aref, gl_FragCoord.z, float(u_tie_alpha_probe_id));
   bool amb = (u_cut_aref > 0.0) && !cut && (ta < u_cut_amb);
   color = vec4(cut ? 1.0 : 0.0, 1.0, amb ? 1.0 : 0.0, 1.0);
 }

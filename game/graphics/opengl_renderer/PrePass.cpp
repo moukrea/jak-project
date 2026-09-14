@@ -13,6 +13,7 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/ao_static_probe.h"
+#include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -485,7 +486,7 @@ void forget_range_state() {
 // La decoupe du detecteur est TOUJOURS armee : c'est la profondeur d'entree qui distingue les
 // deux bras, pas le predicat.
 void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint64_t* cover,
-                        uint64_t* fringe) {
+                        uint64_t* fringe, bool nocut) {
   ensure_class(w, h);
   if (g_class_state != 1 || !g_shaders) {
     return;
@@ -508,7 +509,9 @@ void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint6
   const bool saved_armed = g_cut_armed;
   g_cut_armed = true;
   forget_range_state();
+  ao_tie_alpha_probe::pre_capture_begin(nocut);
   draw_all_contributors(rs, nullptr);
+  ao_tie_alpha_probe::pre_capture_end();
   g_cut_armed = saved_armed;
   glUniform1i(glu::loc(id, "u_cut_mode"), 0);
 
@@ -675,7 +678,7 @@ uint64_t run_prepass(SharedRenderState* rs,
   g_cut_armed = true;
 
   if (classify && on && cover && fringe) {
-    run_classification(rs, w, h, on, cover, fringe);
+    run_classification(rs, w, h, on, cover, fringe, !armed);
   }
   // ---- restauration ----
   glBindVertexArray((GLuint)prev_vao);
@@ -1100,7 +1103,7 @@ void set_output_hint(int w, int h) {
   g_ao.set_output_hint(w, h);
 }
 
-void frame_begin(SharedRenderState* /*rs*/) {
+void frame_begin(SharedRenderState* rs) {
   g_frame++;
   g_static_acquisition_alpha_ok = false;
   g_static_acquisition_witness_ok = false;
@@ -1121,7 +1124,9 @@ void frame_begin(SharedRenderState* /*rs*/) {
   g_ao_valid = false;
   g_geom_frame = false;
   const bool probe_base =
-      autoport_proof::feature_is(kItemId) && !AmbientOcclusionPass::measure_timing_active();
+      (autoport_proof::feature_is(kItemId) ||
+       autoport_proof::feature_is("ao-prepass-tie-alpha")) &&
+      !AmbientOcclusionPass::measure_timing_active();
   const uint64_t probe_slot = g_frame % kProbeEvery;
   g_probe_frame = probe_base && probe_slot == 0;
   // La phase 0 redimensionne la chaine d'AO vers le palier de l'etat : la phase 1 la trouve
@@ -1134,6 +1139,9 @@ void frame_begin(SharedRenderState* /*rs*/) {
   if (g_probe_frame) {
     g_probe_seq++;
   }
+  // The alpha comparison accompanies the existing geometry snapshot, before any fix.
+  ao_tie_alpha_probe::begin_frame(g_probe_frame && (g_probe_seq % 6) == 0,
+                                  rs ? rs->render_fb_w : 0, rs ? rs->render_fb_h : 0);
 }
 
 bool static_probe_wind_disabled() {
@@ -1237,6 +1245,7 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
     }
   }
   lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+  ao_tie_alpha_probe::before_pre_draw(id, r.tie_probe_id);
   glDrawElements((GLenum)gl_mode, (GLsizei)r.count, GL_UNSIGNED_INT,
                  (void*)((size_t)r.first * sizeof(uint32_t)));
   return r.count;
@@ -1904,6 +1913,9 @@ void proof_post_opaque(SharedRenderState* rs) {
     autoport_proof::publish("ao_probe_unsupported", 1);
     clear_stencil();
     return;
+  }
+  if (g_geom_frame) {
+    ao_tie_alpha_probe::finish_frame(g_pre_depth, sd, px);
   }
   uint64_t hits = 0, leak = 0, excl = 0, marked = 0, unmarked = 0;
   for (size_t i = 0; i < (size_t)w * h; i++) {
