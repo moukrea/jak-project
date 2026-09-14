@@ -119,6 +119,9 @@ void publish_text(const char* key, const char* value);
 // variables (perf-instruments).
 bool has_key(const char* key);
 
+// Read an integer already published by another instrument. Missing is distinct from zero.
+bool read_uint(const char* key, uint64_t& value);
+
 // LE RECENSEMENT DES CONSULTATIONS DE L'ARMEMENT PAR DU CODE DE JEU (hd-stretch-flag-in-game-logic).
 // -----------------------------------------------------------------------------------------------
 // Un drapeau du HARNAIS ne doit pas decider de ce que le jeu FAIT. Le seul geste legitime est

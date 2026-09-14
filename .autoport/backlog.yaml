@@ -6752,9 +6752,17 @@ items:
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_REFSET=replay
+  - OG_REFSET_PHASES=1
+  - OG_REFSET_VANTAGES=legacy,beach-start
+  - OG_REFSET_HOURS=9
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  - debug.opengoal.refset=replay
+  - debug.opengoal.refset.phases=1
+  - debug.opengoal.refset.vantages=legacy,beach-start
+  - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
   block_reason: null

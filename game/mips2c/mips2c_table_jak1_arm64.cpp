@@ -42,19 +42,26 @@ extern "C" {
 void _mips2c_call_arm64();
 }
 
+#ifndef OG_MIPS2C_GND_OOB_WATCH
+#define OG_MIPS2C_GND_OOB_WATCH 0
+#endif
+
 #ifdef __aarch64__
-#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <string>
-#include <unwind.h>
 #include <vector>
+#if OG_MIPS2C_GND_OOB_WATCH
+#include <atomic>
+#include <dlfcn.h>
+#include <unwind.h>
+#endif
 #ifdef __ANDROID__
 #include <android/log.h>
 #include <sys/system_properties.h>
 #endif
+#if OG_MIPS2C_GND_OOB_WATCH
 // Gnd OOB write-watch globals + reporter. Defined in this arm64-only TU
 // because it is linked into android libgk.so via --whole-archive (the desktop
 // mips2c_table.cpp is not part of the android android_kernel archive). The
@@ -123,6 +130,7 @@ __attribute__((noinline)) void gnd_oob_report(char kind, unsigned int target,
   }
   fprintf(stderr, "%s\n", line);
 }
+#endif  // OG_MIPS2C_GND_OOB_WATCH
 #endif
 
 // clang-format off
@@ -582,8 +590,14 @@ extern "C" void a37_mips2c_prealloc_arena() {
       }
 #endif
       if (arm) {
+#if OG_MIPS2C_GND_OOB_WATCH
         g_gnd_oob_armed.store(true, std::memory_order_relaxed);
         fprintf(stderr, "GECHO-OOB armed (code-band write watch)\n");
+#else
+        fprintf(stderr,
+                "GECHO-OOB requested but diagnostic not compiled "
+                "(OG_MIPS2C_GND_OOB_WATCH=0)\n");
+#endif
       }
     }
   }

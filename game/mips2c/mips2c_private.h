@@ -29,15 +29,12 @@
 
 extern u8* g_ee_main_mem;
 
-#ifdef __aarch64__
+#ifndef OG_MIPS2C_GND_OOB_WATCH
+#define OG_MIPS2C_GND_OOB_WATCH 0
+#endif
+
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
 #include <atomic>
-#include <cstring>
-#ifdef __APPLE__
-// macOS-arm64 compiles the aarch64 mips2c path but not the android-only TU
-// (mips2c_table_jak1_arm64.cpp) that defines g_gnd_oob_armed/gnd_oob_report —
-// the watch is an Android diagnostic; no-op it on Apple so gk links.
-inline void gnd_oob_check(char, unsigned int, const void*, int) {}
-#else
 // Gnd OOB write-watch: name the arm64 mips2c store that scribbles a low
 // garbage address into the per-frame DMA bucket-NEXT (calc-buffer band) during
 // the ndi logo. Quiet until a store targets the forbidden window, so it is
@@ -59,7 +56,9 @@ inline void gnd_oob_check(char kind, unsigned int target, const void* valptr, in
     }
   }
 }
-#endif  // __APPLE__
+#else
+// Normal builds omit the watch entirely. macOS-arm64 does not link its reporter.
+inline void gnd_oob_check(char, unsigned int, const void*, int) {}
 #endif
 
 extern "C" {
@@ -1778,8 +1777,9 @@ inline void spad_to_dma_no_sadr_off_bones_interleave(void* spad_sym_addr,
   ASSERT((qwc & 3) == 0);
   while (qwc > 0) {
     // transfer 4.
-#ifdef __aarch64__
-    { unsigned long long _g=(unsigned long long)(spad_addr_c - g_ee_main_mem),_n=64;
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
+    if (OG_M2C_UNLIKELY(g_gnd_oob_armed.load(std::memory_order_relaxed))) {
+      unsigned long long _g=(unsigned long long)(spad_addr_c - g_ee_main_mem),_n=64;
       if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('I',(unsigned int)_g,_n,(unsigned long long)madr,(int)qwc); }
 #endif
     memcpy(spad_addr_c, mem_addr, 4 * 16);
@@ -1803,8 +1803,9 @@ inline void spad_from_dma(void* spad_sym_addr, u32 madr, u32 sadr, u32 qwc) {
 
   void* spad_addr_c = g_ee_main_mem + spad_addr_goal + sadr;
 
-#ifdef __aarch64__
-  { unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
+  if (OG_M2C_UNLIKELY(g_gnd_oob_armed.load(std::memory_order_relaxed))) {
+    unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
     if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('m',(unsigned int)madr,_n,(unsigned long long)sadr,(int)qwc); }
 #endif
   memcpy(g_ee_main_mem + madr, spad_addr_c, qwc * 16);
@@ -1821,8 +1822,9 @@ inline void spad_from_dma_no_sadr_off(void* spad_sym_addr, u32 madr, u32 sadr, u
 
   void* spad_addr_c = g_ee_main_mem + spad_addr_goal + sadr;
 
-#ifdef __aarch64__
-  { unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
+  if (OG_M2C_UNLIKELY(g_gnd_oob_armed.load(std::memory_order_relaxed))) {
+    unsigned long long _g=madr,_n=(unsigned long long)qwc*16;
     if (_g<0x80000ull||(_g<0x518000ull&&_g+_n>0x514000ull)) gnd_oob_report('M',(unsigned int)madr,_n,(unsigned long long)sadr,(int)qwc); }
 #endif
   memcpy(g_ee_main_mem + madr, spad_addr_c, qwc * 16);

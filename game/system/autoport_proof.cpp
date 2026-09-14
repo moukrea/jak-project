@@ -330,6 +330,19 @@ bool has_key(const char* key) {
   return g_keys.count(key) != 0 || g_text_keys.count(key) != 0;
 }
 
+bool read_uint(const char* key, uint64_t& value) {
+  if (!valid_key(key)) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  const auto it = g_keys.find(key);
+  if (it == g_keys.end()) {
+    return false;
+  }
+  value = it->second;
+  return true;
+}
+
 void note_flag_consult(int polarity, const char* id) {
   const int p = (polarity == kFlagSafe) ? 1 : 0;
   const char* key = (id && id[0]) ? id : "__unnamed";

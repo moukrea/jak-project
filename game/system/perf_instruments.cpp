@@ -26,8 +26,79 @@
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
+#include "game/mips2c/vu_simd_state.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+
+namespace Mips2C::vu_simd {
+namespace {
+constexpr const char* kItem = "perf-mips2c-neon";
+AUTOPORT_FEATURE_SITE(kItem);
+// All counters are owned by the GOAL thread, like the VU contexts themselves.
+uint64_t compared[3] = {}, defects[3] = {}, active_frames[3] = {};
+uint64_t previous[3] = {}, frames = 0, ticks = 0;
+constexpr const char* names[] = {"bones", "joints", "particles"};
+bool measuring() {
+  static const bool value = autoport_proof::feature_is(kItem);
+  return value;
+}
+}  // namespace
+
+Settings settings(Kernel) {
+#if defined(__aarch64__) || defined(__SSE2__) || defined(_M_X64)
+  static const bool on = autoport_proof::armed_for(kItem);
+  return {on, on && measuring() && frames < 600};
+#else
+  return {false, false};
+#endif
+}
+
+void record(Kernel kernel, uint64_t count, uint64_t mismatches) {
+  const auto index = static_cast<unsigned>(kernel);
+  compared[index] += count;
+  defects[index] += mismatches;
+}
+
+void frame_boundary() {
+  if (!measuring()) {
+    return;
+  }
+  bool active = false;
+  for (unsigned i = 0; i < 3; ++i) {
+    if (compared[i] != previous[i]) {
+      ++active_frames[i];
+      active = true;
+    }
+    previous[i] = compared[i];
+  }
+  if (active) {
+    ++frames;
+    autoport_proof::note_hit_for(kItem);
+  }
+  if (++ticks % 60 != 0) {
+    return;
+  }
+  uint64_t bit_defects = 0, missing_kernels = 0;
+  for (unsigned i = 0; i < 3; ++i) {
+    const std::string prefix = std::string("mips2c_") + names[i];
+    autoport_proof::publish((prefix + "_compared_ops").c_str(), compared[i]);
+    autoport_proof::publish((prefix + "_bit_defects").c_str(), defects[i]);
+    autoport_proof::publish((prefix + "_frames").c_str(), active_frames[i]);
+    bit_defects += defects[i];
+    missing_kernels += compared[i] == 0;
+  }
+  uint64_t refset_diff = 0;
+  const bool refset_present = autoport_proof::read_uint("refset_replay_maxdiff", refset_diff);
+  autoport_proof::publish("mips2c_parity_frames", frames);
+  autoport_proof::publish("mips2c_bit_defects", bit_defects);
+  autoport_proof::publish("mips2c_missing_kernels", missing_kernels);
+  autoport_proof::publish("mips2c_refset_present", refset_present);
+  autoport_proof::publish("mips2c_parity_incomplete", frames < 600 || missing_kernels || !refset_present);
+  // An absent replay or an unexercised kernel must never produce a green zero.
+  autoport_proof::publish("mips2c_parity_defects", bit_defects + missing_kernels +
+                             (frames < 600) + (!refset_present || refset_diff != 0));
+}
+}  // namespace Mips2C::vu_simd
 
 #if defined(__ANDROID__)
 // Repertoire de fichiers externe de l'application (pousse par Java avant le boot,
@@ -657,6 +728,7 @@ void note_vsync_wait_ns(uint64_t ns) {
 }
 
 void frame_boundary() {
+  Mips2C::vu_simd::frame_boundary();
   g_frames_total++;
   // Le reglage peut etre pose avant le lancement (propriete) : on le relit toutes les 120
   // images, comme le vidage A35-PERF, pour ne pas figer un etat lu trop tot.

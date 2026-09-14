@@ -9,6 +9,7 @@
 
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_private.h"
+#include "game/mips2c/vu_simd.h"
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #include <unistd.h>
@@ -2564,6 +2565,7 @@ bool f1b_trs_enabled() {
 
 u64 execute(void* ctxt) {
   auto* c = (ExecutionContext*)ctxt;
+  vu_simd::VuSimd vu(c, vu_simd::Kernel::Joints);
   bool bc = false;
 #ifdef __aarch64__
   // === Gcine-pose fix (arm64) ====================================================
@@ -2740,63 +2742,63 @@ u64 execute(void* ctxt) {
   c->lw(t0, 16, a3);                                // lw t0, 16(a3)
   // nop                                            // sll r0, r0, 0
   c->lw(a2, 16, a0);                                // lw a2, 16(a0)
-  c->vadd(DEST::xyzw, vf6, vf5, vf5);               // vadd.xyzw vf6, vf5, vf5
+  vu.vadd(DEST::xyzw, vf6, vf5, vf5);               // vadd.xyzw vf6, vf5, vf5
   c->lwc1(f1, 64, t0);                              // lwc1 f1, 64(t0)
-  c->vadd_bc(DEST::x, BC::w, vf2, vf0, vf5);        // vaddw.x vf2, vf0, vf5
+  vu.vadd_bc(DEST::x, BC::w, vf2, vf0, vf5);        // vaddw.x vf2, vf0, vf5
   c->lqc2(vf15, 0, a1);                             // lqc2 vf15, 0(a1)
-  c->vadd_bc(DEST::y, BC::z, vf2, vf0, vf5);        // vaddz.y vf2, vf0, vf5
+  vu.vadd_bc(DEST::y, BC::z, vf2, vf0, vf5);        // vaddz.y vf2, vf0, vf5
   c->lqc2(vf1, 32, a1);                             // lqc2 vf1, 32(a1)
   c->divs_accurate(f4, f0, f1);                              // div.s f4, f0, f1
   c->lqc2(vf7, 0, t0);                              // lqc2 vf7, 0(t0)
-  c->vsub_bc(DEST::z, BC::y, vf2, vf0, vf5);        // vsuby.z vf2, vf0, vf5
+  vu.vsub_bc(DEST::z, BC::y, vf2, vf0, vf5);        // vsuby.z vf2, vf0, vf5
   c->lqc2(vf8, 16, t0);                             // lqc2 vf8, 16(t0)
-  c->vsub_bc(DEST::w, BC::w, vf2, vf0, vf0);        // vsubw.w vf2, vf0, vf0
+  vu.vsub_bc(DEST::w, BC::w, vf2, vf0, vf0);        // vsubw.w vf2, vf0, vf0
   c->lqc2(vf9, 32, t0);                             // lqc2 vf9, 32(t0)
-  c->vsub_bc(DEST::x, BC::z, vf3, vf0, vf5);        // vsubz.x vf3, vf0, vf5
+  vu.vsub_bc(DEST::x, BC::z, vf3, vf0, vf5);        // vsubz.x vf3, vf0, vf5
   c->lqc2(vf10, 48, t0);                            // lqc2 vf10, 48(t0)
-  c->vadd_bc(DEST::y, BC::w, vf3, vf0, vf5);        // vaddw.y vf3, vf0, vf5
+  vu.vadd_bc(DEST::y, BC::w, vf3, vf0, vf5);        // vaddw.y vf3, vf0, vf5
   c->lwc1(f2, 68, t0);                              // lwc1 f2, 68(t0)
-  c->vadd_bc(DEST::z, BC::x, vf3, vf0, vf5);        // vaddx.z vf3, vf0, vf5
+  vu.vadd_bc(DEST::z, BC::x, vf3, vf0, vf5);        // vaddx.z vf3, vf0, vf5
   c->sqc2(vf1, 64, a2);                             // sqc2 vf1, 64(a2)
-  c->vsub_bc(DEST::w, BC::w, vf3, vf0, vf0);        // vsubw.w vf3, vf0, vf0
+  vu.vsub_bc(DEST::w, BC::w, vf3, vf0, vf0);        // vsubw.w vf3, vf0, vf0
   c->lwc1(f3, 72, t0);                              // lwc1 f3, 72(t0)
-  c->vadd_bc(DEST::x, BC::y, vf4, vf0, vf5);        // vaddy.x vf4, vf0, vf5
+  vu.vadd_bc(DEST::x, BC::y, vf4, vf0, vf5);        // vaddy.x vf4, vf0, vf5
   c->lw(v1, 76, t0);                                // lw v1, 76(t0)
-  c->vsub_bc(DEST::y, BC::x, vf4, vf0, vf5);        // vsubx.y vf4, vf0, vf5
+  vu.vsub_bc(DEST::y, BC::x, vf4, vf0, vf5);        // vsubx.y vf4, vf0, vf5
   c->mfc1(t1, f4);                                  // mfc1 t1, f4
-  c->vadd_bc(DEST::z, BC::w, vf4, vf0, vf5);        // vaddw.z vf4, vf0, vf5
+  vu.vadd_bc(DEST::z, BC::w, vf4, vf0, vf5);        // vaddw.z vf4, vf0, vf5
   c->divs_accurate(f4, f0, f2);                              // div.s f4, f0, f2
-  c->vsub_bc(DEST::w, BC::w, vf4, vf0, vf0);        // vsubw.w vf4, vf0, vf0
+  vu.vsub_bc(DEST::w, BC::w, vf4, vf0, vf0);        // vsubw.w vf4, vf0, vf0
   c->vopmula(vf6, vf2);                             // vopmula.xyz acc, vf6, vf2
   c->vopmsub(vf2, vf2, vf6);                        // vopmsub.xyz vf2, vf2, vf6
   c->vopmula(vf6, vf3);                             // vopmula.xyz acc, vf6, vf3
   c->vopmsub(vf3, vf3, vf6);                        // vopmsub.xyz vf3, vf3, vf6
   c->vopmula(vf6, vf4);                             // vopmula.xyz acc, vf6, vf4
   c->vopmsub(vf4, vf4, vf6);                        // vopmsub.xyz vf4, vf4, vf6
-  c->vadd_bc(DEST::x, BC::w, vf2, vf2, vf0);        // vaddw.x vf2, vf2, vf0
-  c->vadd_bc(DEST::y, BC::w, vf3, vf3, vf0);        // vaddw.y vf3, vf3, vf0
-  c->vadd_bc(DEST::z, BC::w, vf4, vf4, vf0);        // vaddw.z vf4, vf4, vf0
+  vu.vadd_bc(DEST::x, BC::w, vf2, vf2, vf0);        // vaddw.x vf2, vf2, vf0
+  vu.vadd_bc(DEST::y, BC::w, vf3, vf3, vf0);        // vaddw.y vf3, vf3, vf0
+  vu.vadd_bc(DEST::z, BC::w, vf4, vf4, vf0);        // vaddw.z vf4, vf4, vf0
   c->mfc1(t2, f4);                                  // mfc1 t2, f4
   bc = c->sgpr64(v1) != 0;                          // bne v1, r0, L50
   c->divs_accurate(f4, f0, f3);                              // div.s f4, f0, f3
   if (bc) {goto block_2;}                           // branch non-likely
 
-  c->vmul_bc(DEST::xyzw, BC::x, vf2, vf2, vf1);     // vmulx.xyzw vf2, vf2, vf1
-  c->vmul_bc(DEST::xyzw, BC::y, vf3, vf3, vf1);     // vmuly.xyzw vf3, vf3, vf1
-  c->vmul_bc(DEST::xyzw, BC::z, vf4, vf4, vf1);     // vmulz.xyzw vf4, vf4, vf1
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf2);         // vmulax.xyzw acc, vf7, vf2
+  vu.vmul_bc(DEST::xyzw, BC::x, vf2, vf2, vf1);     // vmulx.xyzw vf2, vf2, vf1
+  vu.vmul_bc(DEST::xyzw, BC::y, vf3, vf3, vf1);     // vmuly.xyzw vf3, vf3, vf1
+  vu.vmul_bc(DEST::xyzw, BC::z, vf4, vf4, vf1);     // vmulz.xyzw vf4, vf4, vf1
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf2);         // vmulax.xyzw acc, vf7, vf2
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf2);        // vmadday.xyzw acc, vf8, vf2
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf2);        // vmaddaz.xyzw acc, vf9, vf2
   c->vmadd_bc(DEST::xyzw, BC::w, vf11, vf10, vf2);  // vmaddw.xyzw vf11, vf10, vf2
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf3);         // vmulax.xyzw acc, vf7, vf3
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf3);         // vmulax.xyzw acc, vf7, vf3
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf3);        // vmadday.xyzw acc, vf8, vf3
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf3);        // vmaddaz.xyzw acc, vf9, vf3
   c->vmadd_bc(DEST::xyzw, BC::w, vf12, vf10, vf3);  // vmaddw.xyzw vf12, vf10, vf3
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf4);         // vmulax.xyzw acc, vf7, vf4
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf4);         // vmulax.xyzw acc, vf7, vf4
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf4);        // vmadday.xyzw acc, vf8, vf4
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf4);        // vmaddaz.xyzw acc, vf9, vf4
   c->vmadd_bc(DEST::xyzw, BC::w, vf13, vf10, vf4);  // vmaddw.xyzw vf13, vf10, vf4
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf15);        // vmulax.xyzw acc, vf7, vf15
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf15);        // vmulax.xyzw acc, vf7, vf15
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf15);       // vmadday.xyzw acc, vf8, vf15
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf15);       // vmaddaz.xyzw acc, vf9, vf15
   c->vmadd_bc(DEST::xyzw, BC::w, vf14, vf10, vf0);  // vmaddw.xyzw vf14, vf10, vf0
@@ -2811,28 +2813,28 @@ u64 execute(void* ctxt) {
 
   block_2:
   c->pextlw(t1, t2, t1);                            // pextlw t1, t2, t1
-  c->vmul_bc(DEST::xyzw, BC::x, vf2, vf2, vf1);     // vmulx.xyzw vf2, vf2, vf1
-  c->vmul_bc(DEST::xyzw, BC::y, vf3, vf3, vf1);     // vmuly.xyzw vf3, vf3, vf1
-  c->vmul_bc(DEST::xyzw, BC::z, vf4, vf4, vf1);     // vmulz.xyzw vf4, vf4, vf1
+  vu.vmul_bc(DEST::xyzw, BC::x, vf2, vf2, vf1);     // vmulx.xyzw vf2, vf2, vf1
+  vu.vmul_bc(DEST::xyzw, BC::y, vf3, vf3, vf1);     // vmuly.xyzw vf3, vf3, vf1
+  vu.vmul_bc(DEST::xyzw, BC::z, vf4, vf4, vf1);     // vmulz.xyzw vf4, vf4, vf1
   c->mfc1(t3, f4);                                  // mfc1 t3, f4
   c->pcpyld(t1, t3, t1);                            // pcpyld t1, t3, t1
   c->mov128_vf_gpr(vf16, t1);                       // qmtc2.i vf16, t1
-  c->vmul(DEST::xyzw, vf2, vf2, vf16);              // vmul.xyzw vf2, vf2, vf16
-  c->vmul(DEST::xyzw, vf3, vf3, vf16);              // vmul.xyzw vf3, vf3, vf16
-  c->vmul(DEST::xyzw, vf4, vf4, vf16);              // vmul.xyzw vf4, vf4, vf16
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf2);         // vmulax.xyzw acc, vf7, vf2
+  vu.vmul(DEST::xyzw, vf2, vf2, vf16);              // vmul.xyzw vf2, vf2, vf16
+  vu.vmul(DEST::xyzw, vf3, vf3, vf16);              // vmul.xyzw vf3, vf3, vf16
+  vu.vmul(DEST::xyzw, vf4, vf4, vf16);              // vmul.xyzw vf4, vf4, vf16
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf2);         // vmulax.xyzw acc, vf7, vf2
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf2);        // vmadday.xyzw acc, vf8, vf2
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf2);        // vmaddaz.xyzw acc, vf9, vf2
   c->vmadd_bc(DEST::xyzw, BC::w, vf11, vf10, vf2);  // vmaddw.xyzw vf11, vf10, vf2
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf3);         // vmulax.xyzw acc, vf7, vf3
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf3);         // vmulax.xyzw acc, vf7, vf3
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf3);        // vmadday.xyzw acc, vf8, vf3
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf3);        // vmaddaz.xyzw acc, vf9, vf3
   c->vmadd_bc(DEST::xyzw, BC::w, vf12, vf10, vf3);  // vmaddw.xyzw vf12, vf10, vf3
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf4);         // vmulax.xyzw acc, vf7, vf4
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf4);         // vmulax.xyzw acc, vf7, vf4
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf4);        // vmadday.xyzw acc, vf8, vf4
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf4);        // vmaddaz.xyzw acc, vf9, vf4
   c->vmadd_bc(DEST::xyzw, BC::w, vf13, vf10, vf4);  // vmaddw.xyzw vf13, vf10, vf4
-  c->vmula_bc(DEST::xyzw, BC::x, vf7, vf15);        // vmulax.xyzw acc, vf7, vf15
+  vu.vmula_bc(DEST::xyzw, BC::x, vf7, vf15);        // vmulax.xyzw acc, vf7, vf15
   c->vmadda_bc(DEST::xyzw, BC::y, vf8, vf15);       // vmadday.xyzw acc, vf8, vf15
   c->vmadda_bc(DEST::xyzw, BC::z, vf9, vf15);       // vmaddaz.xyzw acc, vf9, vf15
   c->vmadd_bc(DEST::xyzw, BC::w, vf14, vf10, vf0);  // vmaddw.xyzw vf14, vf10, vf0
