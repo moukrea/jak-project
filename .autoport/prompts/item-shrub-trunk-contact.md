@@ -5,7 +5,7 @@
 # Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires
 
 ## Defaut cite
-- 2026-09-14 : « bah oui faut que ça avance »
+- 2026-09-15 : « Reprise superviseur requise pour : shrub-trunk-contact. Ces… »
 
 ## Cause connue
 Signale par l'owner le 13/09. FAIT MESURE (investigation du 13/09) : `shrub.vert:20-21` inclut `tie_sway.glsl` et `vegetation_contact.glsl` et applique la loi de contact de l'HERBE (rayon 2,2 m autour de Jak, bande d'altitude -1,5..+2 m, MAX des echantillons) a TOUS les sommets du shrub, tronc compris. Un tronc n'est pas un brin : il ne doit pas se coucher, et les feuilles doivent rester attachees a lui. Il faut une classe par sommet ou par draw (tronc rigide / feuillage souple) — a etablir depu […suite dans le contrat]

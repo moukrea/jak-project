@@ -22,6 +22,8 @@ Ne change pas la loi de contact de l'herbe ni le vent. Tout ce qui n'est pas cet
 
 Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : instrumenter les deplacements reels tronc/feuillage et les paires de jonction ; Geyser Rock / training-warp, trois courses maximum au TOTAL de 130 s chacune, reference anterieure justifiee, ON corrige et OFF corrige. Preparer le parcours comparable et les instruments avant les courses ; conserver feuillage mobile, populations non vides, vent/herbe et OFF bit-identique. Les compteurs de pivots ne remplacent pas ces mesures. Aucune validation owner.
 
+REPRISE SUPERVISEUR DU 15/09 : la preparation du TEMOIN et des entrees comparables est incluse dans l autorisation deja donnee, pas un nouveau chantier a attendre. Lire proof_plan.preparation du backlog. Preparer le binaire temoin 602cd72eb7 neutrement instrumente dans un checkout isole, ses archives par frame logique et leur comparaison au correctif ; traiter aussi horloges/etats du vent et de l herbe dans le seul chemin de preuve. Conserver les transformations/Loader/LUT propres a chaque binaire et comparer leurs sorties ; ne pas alimenter artificiellement le nouveau moteur avec les sorties de l ancien. La clause stop interdit les courses prematurees, PAS les modifications de preparation. Terminer ce travail avant de rendre la main ; ne pas repeter l audit essai8. La reference ne doit pas etre remplacee par le seul vieux shader dans le nouveau moteur. Bancs locaux autorises, aucune course supplementaire. Campagne toujours 0/3, trois bras reference/ON/OFF de130s maximum. Contrat de resultat, populations et acquis inchanges.
+
 ## Ou l'owner regardera
 
 Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tronc reste droit, rien ne se detache.
@@ -33,6 +35,9 @@ Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tron
 
 ### 2026-09-14
 > bah oui faut que ça avance
+
+### 2026-09-15
+> Reprise superviseur requise pour : shrub-trunk-contact. Ces priorités sont bloquées. Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l'arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.
 
 ## Pourquoi ce fichier existe
 
