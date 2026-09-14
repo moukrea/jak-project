@@ -11110,7 +11110,7 @@ items:
   prompt: prompts/item-soft-levels.md
   owner_feedback: []
   owner_ok: null
-- status: in-progress
+- status: blocked
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11155,6 +11155,35 @@ items:
       avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile
       (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
   owner_ok: null
+  block_reason: 'Arbitrage owner requis : mesures reelles de deplacement et jonctions absentes ; DIRECTIVES
+    interdit instrument neuf hors campagne autorisee. Essai 3 refuse sur shrub_trunk_squash_defects absent.
+    Correction supplementaire 3ab119cff3 sauvegardee ; essai 4 interrompu sans retry. Ne pas repeter ON/OFF
+    sans mesurer le contrat.'
+  supervisor_recovery: false
+  proof_plan_pending:
+    owner_authorized: false
+    date: '2026-09-14'
+    max_runs: 3
+    max_timeout_s_per_run: 130
+    scene: Geyser Rock / training-warp, meme parcours de contact et etat de scene entre bras ; pas de
+      nouvelle scene
+    arms:
+    - reference du comportement anterieur (revision justifiee par audit, pas un temoin choisi pour reussir)
+    - etat corrige ON
+    - etat corrige OFF
+    scope: Autorisation proposee d instrumenter les deplacements reels des sommets tronc/feuilles et des
+      paires de jonction, populations non vides, feuillage mobile, classes depuis donnees ; conserver
+      les criteres vent/herbe et OFF bit-identique. Instrumenter dans le chemin moteur execute, sans substituer
+      compteurs de pivots ou simple examen des sources. Code et preuve confies au worker, proof_run et
+      generic inchanges.
+    stop: Si le temoin ou le parcours comparable manque, ne pas lancer de bras inutile ; rapport non prouve
+      sans cycle supplementaire. Aucun verdict ni autorisation acquis par ce champ.
+  supervisor_observation:
+    date: 2026-09-14 21:28 CEST
+    diagnostic: 'Essai 3 : deux courses 130 s, 7500/7740 images sans crash et classes identiques ; seulement
+      classes et ancres mesurees. Nouveau correctif 3ab119cff3 ne fournit toujours pas deplacement/jonction
+      ; repetition de preuve arretee avant depense inutile. Essai 4 sauvegarde c8267776f7, non compte.
+      Contrat et gate inchanges.'
 - status: validated
   game: jak1
   owner_test: false

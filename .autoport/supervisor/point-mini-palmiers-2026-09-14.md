@@ -14,3 +14,13 @@ Signalements lus :
 4. Deja remontes : faux adb du test direct masque des erreurs de stockage ; nettoyage proof_run tente /dev/null ; restauration ISO ARM64 apres echec et attente build de vingt minutes peuvent perturber les preuves. Aucune autorisation nouvelle supposee pour ces chantiers.
 
 AO : plan trois vues ON/OFF toujours en attente de parole de l owner ; aucun changement de statut ni de campagne.
+
+## Point periodique 21 h 28
+
+Dernier handoff essai 3, rapport, 13 FINDINGS et validator-003 relus. Refus exact : shrub_trunk_squash_defects absent. Deux courses USB de 130 s montrent des classes et ancres CPU, pas les deplacements ni les jonctions du contrat. L essai 4 a corrige le moteur (3ab119cff3), puis annonce explicitement une nouvelle course ne mesurant toujours pas ces grandeurs. Suspension via scope_stamp, checkpoint c8267776f7 non compte ; item blocked avec plan PENDING non autorise. Aucun verdict affaibli ni preuve ecrite ; aucun appareil contacte par le superviseur.
+
+Plan propose : instrumentation du mouvement reel et des paires de jonction dans le moteur, reference anterieure justifiee + ON + OFF, Geyser Rock uniquement, trois courses maximum de 130 s, criteres vent/herbe et OFF conserves. Si parcours comparable ou reference indisponibles, rendre le manque avant nouvelle course. Autorisation owner requise par DIRECTIVES, section Preuve ; aucune parole owner inventee.
+
+Signalements regroupes : pivot de plan et bornes ne prouvent pas les jonctions ; excitation du contact et pivot etaient lies (nouveau correctif en cours, non prouve) ; aucun instrument de deplacement ; lexique manuel preexistant limite la population couverte ; recherche quadratique pouvant ralentir le chargement ; commentaire de jonction trompeur retouche dans le nouveau correctif ; OFF/vent/herbe non mesures. Ces manques fonctionnels restent attaches au contrat courant, sans clone. Hors perimetre : warnings override et tail Broken pipe brouillent le build ; apply_owner_tuning.py manque toujours (deja remonte) ; client Gradle reste bloque apres BUILD SUCCESSFUL, cout observe environ 97 s et verrou retenu, nouveau signalement a arbitrer.
+
+Sante : demons build 311261 et livraison 59525 vivants, pas de relance. Aucun proof-impossible trouve. Arbre moteur propre apres commit worker ; repere APK toujours a3149676f834, ne prouve pas la livraison des nouveaux correctifs. La reprise naturelle suivante chargera aussi le close_gate corrige. Pas d ETA de livraison deduite des seules durees de courses.
