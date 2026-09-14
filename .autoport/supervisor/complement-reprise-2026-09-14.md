@@ -18,3 +18,9 @@ Aucune suite complete supplementaire : seuls les tests du correctif ont ete exec
 
 AO statique toujours en cours ; alpha TIE attend sa dependance ; rien de nouveau a tester.
 Le build a repris a 17:21:36, compilation GOAL terminee ; livraison d un nouvel APK non prouvee.
+
+Correction explicite de reprise recue et conservee verbatim dans owner_feedback.
+Verification apres cette correction : anciens PID 57139 et 57140 absents ; build PID
+60363 et livraison PID 59525 vivants, commandes des scripts attendus, aucune variable
+ADB dans leur environnement initial. La remise en configuration normale a deja eu lieu.
+Aucun arret ni redemarrage supplementaire necessaire, aucun appel adb du superviseur.
