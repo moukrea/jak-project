@@ -5035,6 +5035,8 @@ items:
       le vent... Leur AO reste à la place initiale (en plus de d''avoir de l''AO sur les parties transparentes)
       alors que le "vent" les fait bouger (un feature qu''on a terminé il y a quelques jours) et ça aussi
       c''est un désastre.'
+  - date: '2026-09-14'
+    text: ok, si ça bloque découpe en trois comme tu proposes
   gate:
     key: ao_owner_defects
     op: ==
@@ -5086,7 +5088,10 @@ items:
     porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes. | 14/09 11:55
     : l''essai 9 est RENDU par le superviseur — refuse pour « proof.txt absent » alors que la preuve appareil
     etait EN COURS (PID 3769835) quand le worker est sorti en 143 (tue) ; cause de harnais, pas de l''item.
-    max_retries 10 -> 11.'
+    max_retries 10 -> 11. | 14/09 15:30 ARBITRAGE OWNER PAR AVANCE : si l''essai 11/11 echoue, decouper
+    en trois items a une propriete (stabilite camera fixe ; prepasse qui suit le TIE a vent ; bande de
+    contact) ; les quatre termes verts (Eleve pleine resolution, damier sous plafond, alpha appareil,
+    fuite du direct) deviennent des ACQUIS a ne pas rouvrir.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont l indirect a recu l AO
   supervisor_recovery: true
