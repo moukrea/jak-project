@@ -1,0 +1,13 @@
+from pathlib import Path
+D=Path(__file__).parent
+s=(D/'grassbench.cpp').read_text();s=s.replace('const char* v[]={"gl_Position","probe_grass_pre","probe_grass_post","probe_grass_ids"};glTransformFeedbackVaryings(p,probe?4:1,v,GL_SEPARATE_ATTRIBS);','const char* v[]={"gl_Position","v_color","v_alpha","v_uv","v_is_card","v_seed","probe_grass_pre","probe_grass_post","probe_grass_ids"};glTransformFeedbackVaryings(p,probe?9:6,v,GL_INTERLEAVED_ATTRIBS);')
+a=s.index(' GLuint buffers[4]');b=s.index('int main(',a)
+s=s[:a]+''' GLuint buffer;glGenBuffers(1,&buffer);int stride=probe?22:12;glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER,buffer);glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER,10*stride*4,nullptr,GL_STREAM_READ);glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,0,buffer);glEnable(GL_RASTERIZER_DISCARD);glBeginTransformFeedback(GL_POINTS);glDrawArrays(GL_POINTS,0,10);glEndTransformFeedback();glDisable(GL_RASTERIZER_DISCARD);check();auto data=glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER,0,10*stride*4,GL_MAP_READ_BIT);if(!data)throw std::runtime_error("map");std::vector<float> all(10*stride);memcpy(all.data(),data,all.size()*4);glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);std::ofstream out(file,std::ios::binary);out.write((char*)all.data(),all.size()*4);glDeleteBuffers(1,&buffer);return all;}
+''' +s[b:]
+a=s.index(' for(int c=0;c<2;c++)');b=s.index('\n return 0;',a)
+s=s[:a]+''' bool all_equal=true;for(int scenario=0;scenario<9;scenario++)for(int c=0;c<2;c++){
+ for(int k=0;k<2;k++){glUseProgram(p[k]);ui(p[k],"u_mode",(scenario==1||scenario>=7)?1:0);ui(p[k],"u_debug",scenario==3?3:0);uf(p[k],"u_overhang",scenario==2?1:0);uv(p[k],"camera_position",scenario==4?1000000:scenario>=7?60000:0,0,0,0);ui(p[k],"u_occ_count",scenario==5?1:0);uv(p[k],"u_occ[0]",100,0,150,5000);}
+ glVertexAttrib4f(1,.3,scenario==8?.6:.5,.2,.1);glVertexAttrib4f(4,0,1,0,scenario==1?3:scenario==2?-1:0);glVertexAttrib4f(2,.4,.5,.6,scenario==6?0:1e9);
+ std::string tag=std::string(argv[1])+"/grass-full-s"+std::to_string(scenario)+"-c"+std::to_string(c);auto a=run(p[0],false,c,1,tag+"-off.bin"),b=run(p[1],true,c,1,tag+"-on.bin");int emitted=0,changed=0,mismatches=0;for(int i=0;i<10;i++){if(memcmp(&a[i*12],&b[i*22],48))mismatches++;uint32_t ids[2];memcpy(ids,&b[i*22+20],8);if(ids[0]!=0||ids[1]!=(unsigned)i)throw std::runtime_error("IDs");if(b[i*22+19]==1)emitted++;if(memcmp(&b[i*22+12],&b[i*22+16],16))changed++;}
+ std::cout<<"grass_all_outputs scenario="<<scenario<<" contact="<<c<<" captured=10 normal_bytes=480 emitted="<<emitted<<" pre_post_changed="<<changed<<" mismatching_vertices="<<mismatches<<std::endl;if(mismatches)all_equal=false;}if(!all_equal)throw std::runtime_error("grass all-output byte neutrality failed");
+''' +s[b:];(D/'grassfull.cpp').write_text(s)

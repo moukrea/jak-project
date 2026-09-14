@@ -1,0 +1,5 @@
+shrub_input_tape_events=1
+shrub_input_tape_preanchor_events=1
+shrub_input_tape_errors=0
+shrub_input_tape_errors=1
+[shrub-input-tape] missing frame/channel/source key or payload size mismatch

@@ -1,0 +1,21 @@
+BANC_SYNTHETIQUE renderer=Mesa Intel(R) UHD Graphics (CML GT2) version=OpenGL ES 3.2 Mesa 25.3.6
+grass_all_outputs scenario=0 contact=0 captured=10 normal_bytes=480 emitted=10 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=0 contact=1 captured=10 normal_bytes=480 emitted=10 pre_post_changed=8 mismatching_vertices=0
+grass_all_outputs scenario=1 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=1 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=2 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=2 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=3 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=3 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=4 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=4 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=5 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=5 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=6 contact=0 captured=10 normal_bytes=480 emitted=10 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=6 contact=1 captured=10 normal_bytes=480 emitted=10 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=7 contact=0 captured=10 normal_bytes=480 emitted=10 pre_post_changed=0 mismatching_vertices=10
+grass_all_outputs scenario=7 contact=1 captured=10 normal_bytes=480 emitted=10 pre_post_changed=5 mismatching_vertices=10
+grass_all_outputs scenario=8 contact=0 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass_all_outputs scenario=8 contact=1 captured=10 normal_bytes=480 emitted=0 pre_post_changed=0 mismatching_vertices=0
+grass all-output byte neutrality failed
+rc=1

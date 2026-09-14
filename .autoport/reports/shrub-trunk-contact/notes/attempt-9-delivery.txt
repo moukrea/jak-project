@@ -1,0 +1,15 @@
+DIRECTIVES vab39193976
+Livraison essai9 ; aucune course ni lancement du jeu.
+observed_at=2026-09-14T23:27:16.721326+00:00
+serial=eae4df44
+local_lib_sha256=63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe
+apk_lib_sha256=63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe
+device_lib_sha256=63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe
+apk_sha256=cad36c99d8543c217784d5050013404a0d9817ef2faaf10ba821ea5ee3a9daa9
+build_rc=0
+repack_rc=0
+deploy_gate_rc=0
+campaign_runs_consumed=0
+campaign_runs_remaining=3
+reference_commit=f54ea18c485ca156816824522d2e67ece9bc3992
+reference_build=not-executed-hook-refusal

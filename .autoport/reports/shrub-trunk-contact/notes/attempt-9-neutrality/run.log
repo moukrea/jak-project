@@ -1,0 +1,50 @@
+BANC_SYNTHETIQUE renderer=Mesa Intel(R) UHD Graphics (CML GT2) version=OpenGL ES 3.2 Mesa 25.3.6
+ primitives=12
+ primitives=12
+shrub contact=0 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+shrub contact=0 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+shrub contact=1 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+shrub contact=1 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+tfrag3 contact=0 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+tfrag3 contact=0 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+tfrag3 contact=1 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+tfrag3 contact=1 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+etie contact=0 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+etie contact=0 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+etie contact=1 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+etie contact=1 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+etie_base contact=0 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+etie_base contact=0 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=0
+ primitives=12
+ primitives=12
+etie_base contact=1 wind=0 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+ primitives=12
+ primitives=12
+etie_base contact=1 wind=1 captured=12 position_bytes=192 equal=1 pre_post_changed=12
+rc=0

@@ -1,0 +1,16 @@
+DIRECTIVES vab39193976
+Observation outil de cet essai : le hook PreToolUse a rejeté la configuration avant exécution.
+Checkout neuf : /home/emeric/code/jak-shrub-reference-602cd, revision602cd72eb7 + instrumentation.
+Aucun build-android/CMakeCache.txt dans ce checkout au moment du refus.
+Commande autorisée par preparation.reference_policy, refusée par la garde globale :
+cmake -S /home/emeric/code/jak-shrub-reference-602cd -B /home/emeric/code/jak-shrub-reference-602cd/build-android -G Ninja -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja-build -DCMAKE_TOOLCHAIN_FILE=/home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 -DGOALC_BACKEND=arm64 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOG_FEAT_HD_MODELS=ON -DOG_FEAT_PBR=ON -DOG_FEAT_PHYSICS=ON -DOG_FLAG_SET_ID=435df2141670:android-arm64
+Réponse de l'outil :
+Command blocked by PreToolUse hook: [autoport pre-tool] REFUS : `cmake -B` reconfigure et jette le cache d'objets.
+A LA PLACE : construis sans reconfigurer : .autoport/lib/build_x86.sh --target gk.
+Cause source lue : .autoport/hooks/pre-tool.sh:149-152 refuse tout argument -B sans examiner dossier/cache.
+La porte x86 proposée ne configure pas le nouveau témoin Android et ne satisfait pas ce besoin.
+Aucune autre syntaxe de configuration tentée ; hook, lib/proof_run.sh et validateur inchangés.
+Action nécessaire superviseur : rendre la garde compatible avec création initiale d'un dossier neuf,
+en conservant son refus sur les arbres existants. Les sources du témoin et tests restent préparés.
+Cet obstacle est distinct du manque d'instrumentation constaté aux essais5-8.
+Campagne fc71d41e3c : 0/3 consommée ; aucun proof_run de cet essai.

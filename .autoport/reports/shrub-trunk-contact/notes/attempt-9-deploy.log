@@ -1,0 +1,20 @@
+[garde-binaire shrub-trunk-contact] ECART : le telephone porte 2239f5155c325646ee5378bd32a79c3e, le build local dabcdce07fcbcfe7aba270c3196ca84d
+[garde-binaire shrub-trunk-contact] verrou pose (pid=1207832) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire shrub-trunk-contact] LIVRE : dabcdce07fcbcfe7aba270c3196ca84d sur eae4df44 ; la course peut mesurer
+proof_binary_gate_ran=1
+proof_binary_decision=deploye
+proof_binary_rc=0
+proof_binary_reason=apk-du-constructeur-installe
+proof_binary_local_md5=dabcdce07fcbcfe7aba270c3196ca84d
+proof_binary_device_md5=dabcdce07fcbcfe7aba270c3196ca84d
+proof_binary_device_md5_before=2239f5155c325646ee5378bd32a79c3e
+proof_binary_serial=eae4df44
+proof_binary_checked_before_measure=1
+proof_binary_deploy_attempted=1
+proof_binary_deploy_rc=0
+proof_binary_deploy_source=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+proof_binary_lock_state=libre
+proof_binary_apk_candidates=1
+proof_binary_apk_conforming=1

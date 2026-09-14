@@ -1,0 +1,10 @@
+{
+  "revision": "602cd72eb7857fdf8059fd1f29265c31447bdb07",
+  "unchanged_gameplay_files": {
+    "common/custom_data/TFrag3Data.cpp": "2c9dfcc6e5b46840f5c15445ad025f2843e96736e9edde552dfd3032f0c952f4",
+    "common/custom_data/Tfrag3Data.h": "57cc2d400ac8868281d93c72c51065d4f20456511647c41bacc9caa0d2534a8d",
+    "game/graphics/opengl_renderer/loader/Loader.cpp": "86d111f2795245f3f086a9107fec23b9dd1f94a193027193db3a886fbf0743e5",
+    "game/graphics/opengl_renderer/shaders/tie_sway.glsl": "1122a7c8b94c12a90d3289363c0f2af47b56a2934ad98b58d03334fcf4948f00",
+    "game/graphics/opengl_renderer/shaders/vegetation_contact.glsl": "9c4d0ffa44256b0a4be2d9840e2a9c435185d2e62a38500079c4244210476e3f"
+  }
+}

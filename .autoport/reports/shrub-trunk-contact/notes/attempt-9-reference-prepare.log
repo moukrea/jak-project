@@ -1,0 +1,4 @@
+game/graphics/opengl_renderer/background/Shrub.cpp probe_draws=6
+game/graphics/opengl_renderer/background/Tie3.cpp probe_draws=8
+original_gameplay_manifest=verified
+reference_overlay_files=14
