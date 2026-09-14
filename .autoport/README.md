@@ -19,10 +19,13 @@ Depuis l'une ou l'autre CLI, il exécute :
 La commande lance un contrôleur détaché pour survivre à l'arrêt du superviseur
 qui l'appelle. Son résultat est dans `.autoport/logs/backend-switch.log` : la
 réponse initiale annonce un démarrage de bascule, pas encore sa réussite.
+Ouvre le superviseur avec `./run-supervisor.sh` dans un shell Jaunt : il garde
+le clavier et l’affichage directs, sans tmux.
 Le contrôleur bloque les nouveaux lancements, arrête les processus du harnais
 par PID/starttime et pidfd (superviseur, veille, orchestrateur, démons et descendants),
-attend leur sortie, sauvegarde l'état et ouvre le superviseur cible dans un
-serveur tmux dédié. S'il ne peut pas arrêter un processus en 40 secondes, il
+attend leur sortie, sauvegarde l'état et laisse `run-supervisor.sh` rouvrir
+la CLI cible dans le même terminal. Sans terminal enregistré, le journal demande
+d’ouvrir `./run-supervisor.sh` ; aucun terminal caché n’est créé. S'il ne peut pas arrêter un processus en 40 secondes, il
 laisse les lancements bloqués et écrit l'erreur. Relancer `switch` après diagnostic.
 Les autres sessions interactives ouvertes sans rôle autoport ne sont pas arrêtées.
 Les anciennes sessions antérieures à ce mécanisme doivent être arrêtées une fois
@@ -33,7 +36,8 @@ handoffs actuels ; aucune conversion de transcript ni validation n'est fabriqué
 Il reprend les démons qui tournaient au moment de la bascule. Sous Codex,
 `run-codex.sh` entretient l'orchestrateur avec la veille externe. Sous Claude,
 le superviseur reprend le lancement et son suivi périodique natif.
-Le journal donne la commande `tmux -L autoport attach -t autoport-…` pour le rejoindre.
+Le terminal reste le même pendant les bascules. Quitter normalement la CLI ferme
+le lanceur ; une bascule demandée le fait poursuivre avec le nouveau fournisseur.
 
 ## Démarrer et reprendre
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stop one harness, persist the provider and open its supervisor in tmux."""
+"""Stop one harness, persist the provider and reopen its supervisor on the registered interactive terminal."""
 import argparse
 import fcntl
 import json
@@ -114,14 +114,15 @@ def perform(target, root=ROOT, start=True):
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     if start:
         import shutil
-        if not shutil.which('tmux') or not shutil.which(target):
-            raise RuntimeError('tmux et la CLI cible doivent être installés avant la bascule')
+        if not shutil.which(target):
+            raise RuntimeError('La CLI cible doit être installée avant la bascule')
     previous = backend_control.read(root)
     live = processes(root)
     daemons = previous.get('daemons', [])
     daemons = sorted(set(daemons) | {p['script'] for p in live.values()
                                    if p['script'] in ('auto_build_apk.sh', 'auto_push_builds.sh')})
-    state = {'backend': target, 'switching': True, 'daemons': daemons}
+    state = {'backend': target, 'switching': True, 'daemons': daemons,
+             'generation': time.time_ns()}
     backend_control.write(state, root)  # Fence launches BEFORE sending any signal.
     for pid, entry in sorted(live.items(), key=lambda p: p[1]['script'] == 'orchestrator.py'):
         if not entry.get('child'):
@@ -141,23 +142,13 @@ def perform(target, root=ROOT, start=True):
     backend_control.write(state, root)
     if not start:
         return
-    prompt = ('Reprends le rôle superviseur et le travail autorisé. Lis .autoport/SWITCH_HANDOFF.md '
-              'et .autoport/SUPERVISOR_CATCHUP.md, puis les handoffs et FINDINGS récents. '
-              'Rends compte du rattrapage, vérifie la santé du harnais et entretiens la file. '
-              'Relance les démons de build/livraison listés dans .autoport/.backend.json si arrêtés, '
-              'dans leur configuration normale : leur automatisation existante est autorisée, '
-              'ne désactive pas ADB ou le déploiement. '
-              'Pas de code jeu ni de contact appareil. '
-              + ('La veille externe de run-codex.sh entretient l’orchestrateur.' if target == 'codex' else
-                 'Relance ./launch.sh --backend claude en arrière-plan et installe ton suivi périodique.'))
-    import hashlib
-    session = 'autoport-' + hashlib.sha256(str(root).encode()).hexdigest()[:10]
-    cmd = ['bash', str(root / 'run-codex.sh'), prompt] if target == 'codex' else [
-        'bash', str(root / '.autoport/supervisor.sh'), '--backend', 'claude', prompt]
-    # A dedicated tmux server prevents collision with the owner's unrelated sessions.
-    subprocess.run(['tmux', '-L', 'autoport', 'new-session', '-d', '-s', session,
-                    '-c', str(root), *cmd], check=True)
-    print(f'Superviseur {target} lancé. Accès : tmux -L autoport attach -t {session}', flush=True)
+    record = root / '.autoport/.supervisor-terminal.json'
+    if record.exists():
+        terminal = json.loads(record.read_text())
+        if alive(terminal['pid'], terminal):
+            print(f"Superviseur {target} repris dans le terminal {terminal['tty']}.", flush=True)
+            return
+    print(f'Backend {target} prêt. Ouvre ./run-supervisor.sh dans Jaunt pour le superviseur interactif.', flush=True)
 
 
 def main():

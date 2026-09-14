@@ -69,6 +69,7 @@ C'est un ordre de l'owner, pas une préférence.
 
 Sur demande « switch vers Codex/Claude », exécuter `./.autoport/autoport switch codex`
 ou `./.autoport/autoport switch claude`. Le contrôleur détaché arrête le pilotage
-précédent et ouvre le nouveau superviseur ; suivre `.autoport/logs/backend-switch.log`.
+précédent et reprend le superviseur dans le terminal de `./run-supervisor.sh`,
+sans tmux ; suivre `.autoport/logs/backend-switch.log`.
 Ne pas relancer manuellement l'ancien backend après la bascule. Le nouveau superviseur
 lit `.autoport/SWITCH_HANDOFF.md` et l'état courant avant de poursuivre.

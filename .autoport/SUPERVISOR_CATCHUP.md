@@ -54,3 +54,10 @@ Le quota utilisateur de /tmp est atteint malgré l'espace libre global (Errno 12
 Pour la suite, définir TMPDIR sur un dossier neuf sous ~/.cache, pas seulement --basetemp :
 les faux outils shell du banc appellent aussi mktemp. Ne pas diagnostiquer une régression
 à partir d'un test dont les écritures temporaires ont échoué.
+
+## Accès interactif corrigé le 14 septembre
+
+L'owner a refusé tmux : affichage illisible et clavier inutilisable dans Jaunt.
+Le superviseur a été repris avec son UUID exact directement dans « Shell 2 ».
+`./run-supervisor.sh` garde ce terminal entre les bascules Claude/Codex.
+Ne pas recréer de tmux ni lui demander une commande d'attachement.

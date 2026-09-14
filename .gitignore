@@ -238,3 +238,5 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 .autoport/.backend.json
 .autoport/.backend-switch.lock
 .autoport/SWITCH_HANDOFF.md
+
+.autoport/.supervisor-terminal.json
