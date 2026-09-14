@@ -4,7 +4,7 @@
 # What it does:
 #   1. Ensure build-arm64-linux is configured (delegates to C1's
 #      c1_configure.sh).
-#   2. cmake --build build-arm64-linux --target gk -j (incremental
+#   2. .autoport/lib/build_arm64.sh --dir build-arm64-linux --target gk -j (incremental
 #      when CMakeCache already exists).
 #   3. Sanity-check out/jak1-arm64/iso/KERNEL.CGO exists — without it
 #      C3 cannot do its job, and a clear early error beats a deep
@@ -74,7 +74,7 @@ fi
 
 # Build gk (incremental).
 echo "c3_run.sh: building gk target..."
-cmake --build "$BUILD_DIR" --target gk -j > /tmp/c3_run-build.log 2>&1
+.autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j > /tmp/c3_run-build.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "FATAL: build failed (exit $rc); see /tmp/c3_run-build.log" >&2

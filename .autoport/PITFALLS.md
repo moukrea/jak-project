@@ -1,12 +1,15 @@
-# REGISTRE DES PIÈGES — un piège rencontré, un verrou mécanique, vérifié automatiquement
+# REGISTRE DES PIÈGES — pièges rencontrés et verrous documentés
 
 Owner, 2026-08-12 : « fais en sorte que tes soucis récurrents, défauts de comportement et pitfalls
 ne se reproduisent plus, ça fait partie de l'amélioration continue que tu te fous de gérer de façon
 autonome ».
 
 Règle de ce fichier : **un piège qui a coûté quelque chose une fois y entre avec son verrou**, et
-`preflight.py` vérifie à chaque tentative que le verrou est toujours en place. Un verrou qui
-disparaît est signalé — c'est ainsi qu'on empêche la rouille, pas en s'en souvenant.
+les lignes `GUARD` documentent ces verrous. `lib/preflight.py` ne lit pas ce registre et ne
+vérifie pas automatiquement la présence des marqueurs `GUARD`. Avant chaque tentative,
+il exécute seulement les contrôles inscrits dans `CHECKS` : GD-LINK, SELF-KILL,
+DEVICE-PROP-LEAK et REPORT-STALE. Une ligne `GUARD` seule ne garantit donc aucune alerte
+si son verrou disparaît.
 
 Format : `GUARD <id> <fichier> <marqueur à retrouver>` suivi du récit court.
 

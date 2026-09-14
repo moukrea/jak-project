@@ -9,7 +9,7 @@
 #
 # What it does:
 #   1. Ensure build-arm64-linux is configured (delegates to C1).
-#   2. cmake --build build-arm64-linux --target gk -j (incremental
+#   2. .autoport/lib/build_arm64.sh --dir build-arm64-linux --target gk -j (incremental
 #      when CMakeCache already exists).
 #   3. Sanity-check out/jak1-arm64/iso/KERNEL.CGO exists (B1 output).
 #   4. Invoke gk under qemu-aarch64-static with a 180 s timeout.
@@ -70,7 +70,7 @@ fi
 
 # Build gk (incremental).
 echo "c4_run.sh: building gk target..."
-cmake --build "$BUILD_DIR" --target gk -j > /tmp/c4_run-build.log 2>&1
+.autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j > /tmp/c4_run-build.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "FATAL: build failed (exit $rc); see /tmp/c4_run-build.log" >&2

@@ -3701,9 +3701,10 @@ else()
   set(SDL_REVISION "" CACHE STRING "Custom SDL revision (only used when REVISION.txt does not exist)")
 endif()
 if(NOT SDL_REVISION)
-  # If SDL_REVISION is not overrided, use git to describe
-  git_describe(SDL_REVISION_GIT)
-  set(SDL_REVISION "SDL-${SDL3_VERSION}-${SDL_REVISION_GIT}")
+  # Vendored SDL belongs to the enclosing OpenGOAL repository. Its commits are
+  # not SDL revisions and must not invalidate this header on every commit.
+  # Derive the fallback from SDL itself, also for a fresh build without a cache.
+  set(SDL_REVISION "SDL-${SDL3_VERSION}-jak-project")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E make_directory "${SDL3_BINARY_DIR}/include-revision/SDL3")

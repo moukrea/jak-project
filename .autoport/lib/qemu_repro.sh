@@ -57,7 +57,7 @@ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
 fi
 
 echo "qemu_repro.sh: building gk target..."
-cmake --build "$BUILD_DIR" --target gk -j > /tmp/qemu_repro-build.log 2>&1
+.autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j > /tmp/qemu_repro-build.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "FATAL: build failed (exit $rc); see /tmp/qemu_repro-build.log" >&2

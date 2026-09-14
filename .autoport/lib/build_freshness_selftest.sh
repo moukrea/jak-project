@@ -94,8 +94,22 @@ pub bf_b_apres_reconstruction "$(aretes)"
 rm -f "$T/.ninja_deps"
 pub bf_c_sans_journal_aretes "$(aretes)"
 pub bf_c_motif_ninja         "$(motif 'deps for')"
+BF_REBUILD_START=$(date +%s%N)
 ninja -C "$T" app >/dev/null 2>&1
+BF_REBUILD_RC=$?
+BF_REBUILD_NS=$(( $(date +%s%N) - BF_REBUILD_START ))
 pub bf_c_apres_reconstruction "$(aretes)"
+# Le gain courant porte sur ce meme petit arbre et cette meme invocation du banc.
+# La capture du 12/09 reste une mesure historique du jeu, pas une reference de performance.
+BF_NOOP_START=$(date +%s%N)
+ninja -C "$T" app >/dev/null 2>&1
+BF_NOOP_RC=$?
+BF_NOOP_NS=$(( $(date +%s%N) - BF_NOOP_START ))
+pub bf_c_rebuild_ns "$BF_REBUILD_NS"
+pub bf_c_noop_ns "$BF_NOOP_NS"
+pub bf_c_rebuild_rc "$BF_REBUILD_RC"
+pub bf_c_noop_rc "$BF_NOOP_RC"
+pub bf_c_gain_population_objets "$(ninja -C "$T" -t targets all | grep -c ': cc$')"
 
 # ============================== D. CONTROLE NEGATIF SUR NINJA : la corruption ORDINAIRE ======
 # Elle se repare toute seule. C'est le controle qui dit pourquoi celle de `build/` etait

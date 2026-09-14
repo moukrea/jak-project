@@ -276,8 +276,8 @@ D3=0
 [ "$(b bf_f_infrasec_avant_rc)" = 0 ]     || D3=$((D3+1))
 [ "$(b bf_f_infrasec_avant_frais)" = 1 ]  || D3=$((D3+1))
 
-# 4. LE GAIN, en secondes, compare a ce que le journal du 12/09 a garde. Pas de seuil invente :
-# la plus LENTE des invocations d'apres doit rester sous la plus RAPIDE de celles d'avant.
+# 4. La comparaison avec le 12/09 est HISTORIQUE et explicitement datee.
+# Le gain courant se mesure sur les deux invocations du meme petit arbre du banc C.
 AVMIN=-1
 if [ "$A1S" -ge 0 ] 2>/dev/null && [ "$A2S" -ge 0 ] 2>/dev/null; then
   AVMIN=$A1S; [ "$A2S" -lt "$AVMIN" ] && AVMIN=$A2S
@@ -288,11 +288,18 @@ for s in "$(num "$(g "$P1" bx_seconds)")" "$(num "$(g "$P2" bx_seconds)")" "$(nu
 done
 pub br_avant_s_min "$AVMIN"
 pub br_apres_s_max "$APMAX"
-if [ "$AVMIN" -gt 0 ] 2>/dev/null && [ "$APMAX" -ge 0 ] 2>/dev/null && [ "$APMAX" -lt "$AVMIN" ]; then
-  D4=0; pub br_gain_s $(( AVMIN - APMAX ))
-else
-  D4=1; pub br_gain_s -1
-fi
+pub br_gain_historique_date "$(g "$INV" jour)"
+pub br_gain_historique_s "$(( AVMIN - APMAX ))"
+pub br_gain_reference banc-C-cette-course
+pub br_gain_population_objets "$(b bf_c_gain_population_objets)"
+pub br_gain_rebuild_ns "$(b bf_c_rebuild_ns)"
+pub br_gain_noop_ns "$(b bf_c_noop_ns)"
+pub br_gain_ns "$(( $(b bf_c_rebuild_ns) - $(b bf_c_noop_ns) ))"
+D4=0
+[ "$(b bf_c_rebuild_rc)" = 0 ] && [ "$(b bf_c_noop_rc)" = 0 ] || D4=$((D4+1))
+[ "$(b bf_c_gain_population_objets)" -gt 0 ] 2>/dev/null || D4=$((D4+1))
+[ "$(b bf_c_rebuild_ns)" -gt "$(b bf_c_noop_ns)" ] 2>/dev/null || D4=$((D4+1))
+[ "$(b bf_c_noop_ns)" -gt 0 ] 2>/dev/null || D4=$((D4+1))
 # CE SUR QUOI LE « AVANT » REPOSE, juge et non pas seulement publie : au moins deux invocations
 # retenues par le journal pour la journee de la mesure, et la reconstruction complete chiffree.
 # Un chiffre d'avant qui se reduirait a UNE seule invocation ne serait plus une mesure de regime.

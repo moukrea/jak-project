@@ -10,8 +10,8 @@
 #        11  « deps for 'X' are missing »
 #         4  bibliotheques salies par les objets ci-dessus
 #
-# LA CAUSE, NOMMEE ET REPRODUITE (lib/build_freshness_selftest.sh) : `build/.ninja_deps` etait
-# CORROMPU EN SON MILIEU. A chaque chargement ninja s'arretait sur l'enregistrement casse —
+# LE MECANISME, REPRODUIT (lib/build_freshness_selftest.sh) : `build/.ninja_deps` contenait
+# un enregistrement invalide. A chaque chargement ninja s'arretait sur cet enregistrement —
 # « ninja: warning: premature end of file; recovering » — et JETAIT tout ce qui suivait. Or
 # chaque construction AJOUTE ses enregistrements a la fin : ils tombaient donc tous du mauvais
 # cote de la coupure. Experience du 12/09, sur le vrai arbre : `SystemThread.cpp.o` recompile a
@@ -19,6 +19,11 @@
 # du 30 aout. L'objet est donc plus RECENT que son enregistrement de dependances, ninja le
 # declare sale, le recompile, note un enregistrement neuf... que le chargement suivant jette
 # encore. Boucle fermee : 338 cibles recompilees a CHAQUE invocation, pour toujours.
+# Lecture du fichier conserve le 14/09 : dernier enregistrement COMPLET, ID 5487
+# duplique quand 5490 etait attendu, offset 2831912. La reprise Ninja garde cet
+# enregistrement, donc les ajouts suivants tombent apres lui. L'identite de
+# l'ecrivain initial reste inconnue ; deux Ninja concurrents sont une hypothese,
+# pas un fait etabli. Voir capture-build-and-harness-leftovers/ninja_deps.before.gz.
 #
 # CE QUE CETTE PORTE FAIT, ET QUE `cmake --build` NE FERA JAMAIS :
 #   1. AVANT — elle CHARGE le journal de dependances et refuse de construire sur un journal
@@ -121,26 +126,12 @@ pub bx_deps_corrupt_before "$CORRUPT_BEFORE"
 pub bx_deps_recompacted    "$REPAIRED"
 pub bx_deps_quarantined    "$QUARANTINED"
 
-# ------------------------------------------ 1 bis. CE QUE LE MANIFESTE PREND DANS `.git` ----
-# POURQUOI (mesure du 12/09, DEUX courses de cet item, capture brute sous
-# `lib/census/capture-build-tree-reinvalidates-itself/avant-reconfiguration-sur-commit.txt`).
-# `third-party/SDL/CMakeLists.txt:3705` derive `SDL_REVISION` du `git describe` de NOTRE depot.
-# `cmake/GetGitRevisionDescription.cmake` pose alors `.git/HEAD` et `.git/refs/heads/<branche>`
-# en ENTREES de la regle `RERUN_CMAKE` : TOUT commit — y compris un commit du superviseur que
-# l'essai en cours n'a pas fait — regenere `SDL3/SDL_revision.h`, puis `SDL.c.o`, `libSDL3.so`,
-# `libcommon.so`, et RELIE `game/gk`. 7 aretes et des bibliotheques dont l'empreinte bouge sans
-# qu'une ligne du moteur ait change : c'est la confusion que cette porte existe pour empecher,
-# entree par l'autre bout. Les courses des essais 3 et 4 sont mortes exactement la-dessus.
-#
-# ON NE RECONFIGURE PAS POUR AUTANT. `SDL_REVISION` est une entree de CACHE (branche `else()`
-# de SDL, `CMakeCache.txt:1193`, vide). On lui donne une constante DANS LE CACHE DE CET ARBRE
-# DE BUREAU, et la regeneration que ninja joue DEJA d'elle-meme la lit : aucun `cmake -B` — que
-# `hooks/pre-tool.sh` refuse et qui jetterait le cache d'objets —, et aucun fichier du SOURCE
-# touche, donc le build Android, qui partage `third-party/SDL`, reste hors de portee.
-# LA POSE EST IDEMPOTENTE, et elle doit l'etre : `CMakeCache.txt` est lui-meme une ENTREE de
-# `RERUN_CMAKE`: le reecrire a chaque invocation rendrait la porte sale a chaque invocation,
-# c'est-a-dire le defaut qu'elle mesure, fabrique par elle.
-SDL_PIN='SDL-3.4.4-jak-project-desktop'
+# ------------------------------------------- 1 bis. REVISION DE SDL VENDOREE ---------------
+# Le fallback source de SDL utilise sa propre version, jamais le git describe du depot.
+# Migrer aussi les anciens caches sans reconfiguration explicite. La pose reste idempotente.
+SDL_VERSION=$(sed -n 's/^project(SDL3 LANGUAGES C VERSION "\([^"]*\)").*/\1/p' "$ROOT/third-party/SDL/CMakeLists.txt")
+[ -n "$SDL_VERSION" ] || { say "version SDL introuvable dans les sources"; exit 2; }
+SDL_PIN="SDL-${SDL_VERSION}-jak-project"
 CACHE="$DIR/CMakeCache.txt"
 SDL_PINNED=0
 if [ "$CHECK_ONLY" = 0 ] && [ -f "$CACHE" ]; then
@@ -167,8 +158,7 @@ if [ "$CHECK_ONLY" = 0 ]; then
   SECS=$(( $(date +%s) - T0 ))
   EDGES=$(grep -cE '^\[[0-9]+/[0-9]+\]' "$LOG" 2>/dev/null || true)
   # CE QUI A ETE RECOMPILE, ET CE QUI S'EST SEULEMENT REJOUE. Une construction a vide fait
-  # toujours tourner deux aretes de menage — « Re-checking globbed directories » de cmake et le
-  # `clang-format` de discord-rpc, dont la sortie n'existe jamais — pour 0,45 s au total. Les
+  # parfois tourner des aretes de menage (« Re-checking globbed directories » de cmake). Les
   # confondre avec une recompilation rendrait « zero cible » intenable pour une raison qui ne
   # compile rien ; les taire fabriquerait un zero. On publie les deux, separes et nommes.
   WEDGES=$(grep -E '^\[[0-9]+/[0-9]+\]' "$LOG" 2>/dev/null | grep -cE '(Building|Linking|Archiving|Creating library)' || true)
@@ -285,5 +275,14 @@ if [ "${RESWORK:-0}" != 0 ]; then
   grep -E '^\[[0-9]+/[0-9]+\]' "$DRY" | grep -E '(Building|Linking|Archiving|Creating library)' | head -5 >&2
   exit 5
 fi
+# Les sources retirees n'ont plus d'arete : Ninja ne les nettoie pas. Les objets
+# runtime correspondants sont deplaces, jamais supprimes, apres un build reussi.
+# --check-only reste une lecture et publie les objets restants.
+ORPHAN_ARGS=()
+[ "$CHECK_ONLY" = 1 ] || ORPHAN_ARGS+=(--quarantine)
+ORPHAN_RESULT=$(python3 "$ROOT/.autoport/lib/build_orphans.py" --dir "$DIR" "${ORPHAN_ARGS[@]}" --kv) || {
+  say "inventaire des objets runtime impossible : aucun nettoyage aveugle."; exit 5;
+}
+while IFS='=' read -r key value; do pub "$key" "$value"; done <<< "$ORPHAN_RESULT"
 say "arbre propre : $EDGES arete(s) jouee(s) en ${SECS}s, $RESWORK a refaire, binaire $BINOUT plus recent que ses $NDEPS entrees."
 exit 0

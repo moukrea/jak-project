@@ -4,7 +4,7 @@
 # What it does:
 #   1. Ensure build-arm64-linux is configured (delegates to C1's
 #      c1_configure.sh — no duplicate logic).
-#   2. cmake --build build-arm64-linux --target gk -j (incremental
+#   2. .autoport/lib/build_arm64.sh --dir build-arm64-linux --target gk -j (incremental
 #      when CMakeCache already exists).
 #   3. Invoke gk under qemu-aarch64-static with a 60 s timeout, no
 #      arguments (so the boot driver takes the default path:
@@ -68,7 +68,7 @@ fi
 
 # Build gk (incremental when objects up-to-date).
 echo "c2_run.sh: building gk target..."
-cmake --build "$BUILD_DIR" --target gk -j > /tmp/c2_run-build.log 2>&1
+.autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j > /tmp/c2_run-build.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "FATAL: build failed (exit $rc); see /tmp/c2_run-build.log" >&2

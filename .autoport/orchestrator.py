@@ -1746,8 +1746,8 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
                     "CLOSE-GATE/code: le validateur sort 0 mais AUCUN code de portage n'a "
                     "changé depuis l'ancre superviseur — faux vert refusé. Un vrai correctif "
                     "touche game/ android/ goalc/ goal_src/ (jamais l'émetteur x86 verrouillé). "
-                    "Si cet item ne livre légitimement aucun code, mets `no_code: true` "
-                    "sur lui dans backlog.yaml.")
+                    "Si cet item ne livre légitimement aucun code, renseigne `code_scope: none` "
+                    "(ou `code_scope: harness`) sur lui dans backlog.yaml.")
 
     # GATE 2 — device runs the fresh, CONSISTENT build (anti stale/mixed-build).
     # The validator can pass while the phone still runs an old libgk, or a MIXED

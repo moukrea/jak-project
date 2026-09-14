@@ -172,7 +172,7 @@ def scope_census(items) -> dict:
     a chaque item comment il dit SON perimetre, de ses propres mots, et le nombre d'items portant
     le drapeau est publie A COTE, jamais a la place.
     """
-    par_source, drapeaux = {}, []
+    par_source, drapeaux, contradictions = {}, [], []
     for it in (items or []):
         if not isinstance(it, dict):
             continue
@@ -181,12 +181,24 @@ def scope_census(items) -> dict:
             drapeaux.append(iid)
         sans = dict(it)
         sans.pop("no_code", None)
-        par_source.setdefault(scope_decision(sans)["source"], []).append(iid)
+        decision = scope_decision(sans)
+        par_source.setdefault(decision["source"], []).append(iid)
+        # Diagnostic only: the explicit field remains authoritative. Silence in
+        # prose does not imply engine scope; only a recognized prohibition counts.
+        prose = dict(sans)
+        prose.pop(SCOPE_FIELD, None)
+        prose_decision = scope_decision(prose)
+        if (decision["source"] == SRC_FIELD and not decision["code_free"]
+                and prose_decision["source"] == SRC_PROSE):
+            contradictions.append({"id": iid, "code_scope": it[SCOPE_FIELD],
+                                   "reason": prose_decision["reason"]})
     return {"par_source": par_source, "drapeaux": drapeaux,
             "explicite": par_source.get(SRC_FIELD, []),
             "devine": par_source.get(SRC_PROSE, []),
             "muet": par_source.get(SRC_SILENT, []),
-            "illisible": par_source.get(SRC_BAD, [])}
+            "illisible": par_source.get(SRC_BAD, []),
+            "contradictions": contradictions,
+            "contradictions_count": len(contradictions)}
 
 
 def code_free_item(item) -> tuple[bool, str]:

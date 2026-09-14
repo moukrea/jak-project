@@ -30,7 +30,7 @@ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
 fi
 
 echo "  building gk target (incremental; first build can take 3-5 min)..."
-cmake --build "$BUILD_DIR" --target gk -j
+.autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j
 
 OUT_LIB="$BUILD_DIR/lib/arm64-v8a/libgk.so"
 if [ ! -f "$OUT_LIB" ]; then

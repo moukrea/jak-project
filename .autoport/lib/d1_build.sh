@@ -13,4 +13,4 @@ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
     exit 1
 fi
 
-exec cmake --build "$BUILD_DIR" --target gk -j
+exec .autoport/lib/build_arm64.sh --dir "$BUILD_DIR" --target gk -j

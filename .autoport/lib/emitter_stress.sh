@@ -33,7 +33,7 @@
 #   A. Cross-toolchain availability: qemu-aarch64-static,
 #      aarch64-linux-gnu-objdump, /usr/aarch64-linux-gnu sysroot.
 #
-#   B. gk binary is current under build-arm64/ and runs cleanly under
+#   B. gk binary is current under build-arm64-linux/ and runs cleanly under
 #      qemu (no SIGILL / SIGSEGV / "qemu: uncaught" / "qemu: fatal").
 #      Whether gk is the phase-09 stub or a future real runtime, this
 #      regression-protects the qemu-user-mode path that any future
@@ -107,16 +107,16 @@ log "  toolchain: qemu-aarch64-static + binutils-aarch64-linux-gnu + sysroot pre
 log
 log "== emitter_stress: B. gk smoke under qemu-aarch64-static =="
 
-if [ ! -f build-arm64/CMakeCache.txt ]; then
-    fail "build-arm64/ missing (phase 09 regression). Reconfigure first."
+if [ ! -f build-arm64-linux/CMakeCache.txt ]; then
+    fail "build-arm64-linux/ missing. Run .autoport/lib/c1_configure.sh first."
 fi
-if ! cmake --build build-arm64 --target gk -j > "$LOG_DIR/p19-build.log" 2>&1; then
-    log "  cmake --build build-arm64 --target gk failed; tail:"
+if ! .autoport/lib/build_arm64.sh --dir build-arm64-linux --target gk -j > "$LOG_DIR/p19-build.log" 2>&1; then
+    log "  .autoport/lib/build_arm64.sh --dir build-arm64-linux --target gk failed; tail:"
     tail -60 "$LOG_DIR/p19-build.log" | tee -a "$STRESS_LOG"
     exit 1
 fi
-GK="$(find build-arm64 -name gk -type f -executable -not -path '*/CMakeFiles/*' | head -1)"
-[ -n "$GK" ] || fail "gk binary not found under build-arm64/"
+GK="$(find build-arm64-linux -name gk -type f -executable -not -path '*/CMakeFiles/*' | head -1)"
+[ -n "$GK" ] || fail "gk binary not found under build-arm64-linux/"
 log "  gk: $GK"
 
 # Confirm it's aarch64.
