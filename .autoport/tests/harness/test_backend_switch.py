@@ -39,7 +39,8 @@ def test_switch_stops_managed_process_and_preserves_other_session(tmp_path, monk
     ap.mkdir()
     managed = ap / 'watch.py'
     managed.write_text('import time\ntime.sleep(90)\n')
-    other = tmp_path / 'unrelated.py'
+    (tmp_path / 'other').mkdir()
+    other = tmp_path / 'other/watch.py'
     other.write_text(managed.read_text())
     procs = [subprocess.Popen([sys.executable, str(p)], cwd=tmp_path)
              for p in (managed, other)]
@@ -66,7 +67,8 @@ def test_switch_stops_managed_process_and_preserves_other_session(tmp_path, monk
 
 def test_controller_is_not_killed_as_a_descendant_of_its_caller(tmp_path):
     # An old supervisor can directly parent the detached handover controller.
-    script = tmp_path / 'watch.py'
+    (tmp_path / '.autoport').mkdir()
+    script = tmp_path / '.autoport/watch.py'
     script.write_text('''import subprocess,sys
 subprocess.run([sys.executable, '-c', "import sys,os; sys.path.insert(0, sys.argv[1]); import backend_switch; p=backend_switch.processes(__import__('pathlib').Path.cwd()); assert os.getppid() in p; assert os.getpid() not in p", sys.argv[1]], check=True)
 ''')

@@ -14,8 +14,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / '.autoport'))
 from lib import backend_control
 
-SCRIPTS = {'orchestrator.py', 'watch.py', 'supervisor.sh', 'supervisor.py',
-           'run-codex.sh', 'launch.sh', 'auto_build_apk.sh', 'auto_push_builds.sh'}
+SCRIPTS = {'.autoport/orchestrator.py', '.autoport/watch.py', '.autoport/supervisor.sh',
+           '.autoport/codex/supervisor.py', 'run-codex.sh', 'launch.sh',
+           '.autoport/auto_build_apk.sh', '.autoport/auto_push_builds.sh'}
 
 
 def processes(root=ROOT):
@@ -30,10 +31,12 @@ def processes(root=ROOT):
                        if '=' in x)
             stat = (path / 'stat').read_text().rsplit(')', 1)[1].split()
             # Interpreter + its script, not arbitrary arguments containing script names.
-            script = Path(args[0]).name if args else ''
-            if script in ('bash', 'python', 'python3'):
-                script = next((Path(a).name for a in args[1:3] if not a.startswith('-')), '')
-            managed = script in SCRIPTS or (script in ('claude', 'codex') and
+            command = args[0] if args else ''
+            if Path(command).name in ('bash', 'python', 'python3'):
+                command = next((a for a in args[1:3] if not a.startswith('-')), '')
+            script = Path(command).name
+            path_on_disk = (root / command).resolve()
+            managed = path_on_disk in {root / p for p in SCRIPTS} or (script in ('claude', 'codex') and
                       (env.get('AUTOPORT_ROLE') == 'supervisor' or env.get('AUTOPORT_PHASE_ID')))
             if managed:
                 found[int(path.name)] = {'start': stat[19], 'script': script}
