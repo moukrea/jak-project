@@ -11724,4 +11724,11 @@ items:
       puis les handoffs et FINDINGS récents. Rends compte du rattrapage, vérifie la santé du harnais et
       entretiens la file. Relance les démons de build/livraison listés dans .autoport/.backend.json si
       arrêtés. Pas de code jeu ni de contact appareil. La veille externe de run-codex.sh entretient l’orchestrateur.
+  - date: '2026-09-14'
+    text: 'Complément de reprise : la bascule est commitée (a9c0c2bb37 puis ad502cc6c1). Suite complète
+      : 602 tests passent, journal .autoport/logs/backend-switch-tests-final.log ; test supplémentaire
+      de contrôleur appelant et isolation des chemins : 3 passent. TMPDIR doit être hors /tmp, dont le
+      quota utilisateur est atteint. Ancien orchestrateur et les deux anciens superviseurs Claude sont
+      vérifiés absents. La veille et ton worker Codex sont vivants. Les démons de build/livraison restent
+      à reprendre selon le prompt initial, puis confirme ton rattrapage et rends le statut à l’owner.'
   prompt: prompts/item-harness-delivery-stale-bake-recovery.md

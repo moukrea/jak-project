@@ -8,8 +8,12 @@
 # c'est exactement le « super flou ce que t'as livre et ce que j'ai a tester » du 2026-08-31.
 # `./.autoport/autoport status` rend les memes trois rubriques que le digest, dans SES mots,
 # et n'affiche jamais ce qu'il a deja valide.
-set -uo pipefail
+set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# Le quota utilisateur de /tmp peut refuser les ecritures alors que mktemp reussit.
+# Le publieur deja vivant relit ce script a chaque tour : corriger ici couvre sa reprise.
+export TMPDIR="$HOME/.cache/autoport/release-notes"
+mkdir -p "$TMPDIR"
 OUT=$(mktemp); trap 'rm -f "$OUT"' EXIT
 # 2026-09-13 — LE BUILD NOMME EST CELUI PUBLIE, pas le dernier construit : le publieur photographie
 # BUILD-INFO au moment du televersement dans .autoport/.published_build_info.txt et nous le passe.
