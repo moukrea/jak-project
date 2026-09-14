@@ -5096,7 +5096,7 @@ items:
     (acquis a verrouiller). Les quatre autres termes sont des acquis. Cet item reste bloque comme trace.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont l indirect a recu l AO
-  supervisor_recovery: true
+  supervisor_recovery: false
   proof_timeout: 150
   proof_env:
   - OG_LEVEL_WARP=village1-hut
@@ -5138,6 +5138,21 @@ items:
     (la sonde de stabilite bougeait, pas l''AO) et ao-prepass-tie-alpha (alpha-test de la prepasse qui
     jette des fragments TIE que la couleur garde). Deux items, pas trois : la bande de contact est a zero.
     Les dependants ont ete re-pointes sur ao-prepass-tie-alpha. Cet item ne se rouvre pas.'
+  superseded_by:
+  - ao-static-probe-deterministic
+  - ao-prepass-tie-alpha
+  supervisor_recovery_resolution:
+    date: '2026-09-14'
+    source: notification de la veille
+    request: 'Reprise superviseur requise pour : lighting-ao-indirect. Ces priorités sont bloquées. Lis
+      leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le
+      périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt
+      ; ne valide rien et ne relance pas le même essai sans diagnostic.'
+    cause: 'watch.py selectionne blocked + supervisor_recovery. Le parent garde ce drapeau apres son remplacement
+      ; ses successeurs ne le portaient pas. Dernier refus reel : validator-013.txt, ao_owner_defects=1888.
+      Le handoff localise deux causes deja reparties dans les successeurs.'
+    action: Suivi transfere aux deux successeurs ; parent conserve blocked comme trace du refus, sans
+      nouvelle tentative ni validation. Aucun dependant ne reference encore le parent.
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -11577,6 +11592,7 @@ items:
   prompt: prompts/item-ao-static-probe-deterministic.md
   owner_feedback: []
   owner_ok: null
+  supervisor_recovery: true
 - status: open
   game: jak1
   owner_test: true
@@ -11634,6 +11650,7 @@ items:
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback: []
   owner_ok: null
+  supervisor_recovery: true
 - status: open
   game: jak1
   device: false
