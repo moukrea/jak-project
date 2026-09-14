@@ -1,0 +1,28 @@
+DIRECTIVES v775512c234
+Verdict : non validé ; la cause observée est l’alpha forcé à 1 par la mesure couleur, pas un écart d’échantillonnage de la prépasse.
+Livré : diagnostic MRT borné à quatre images, identité du draw et table alpha ; aucun correctif de rendu appliqué (commit 0106ca837a).
+Build Android et repack réussis ; garde NPC : 47 propriétés tenues après déplacement de TMPDIR hors /tmp saturé.
+Course USB eae4df44, run 20260914T165752Z-307512-2d62b1fd, 163 s ; SHA d476a8f72ce8ebf1, MD5 local/appareil identiques.
+Huit lignes recopiées de proof.txt :
+crash=0
+frames=2100
+ao_tie_alpha_frames=4
+ao_tie_alpha_observed_px=347209
+ao_tie_alpha_missing_px=725
+ao_tie_alpha_alpha_rejection_other_px=725
+ao_tie_alpha_alpha_sampling_difference_px=0
+ao_tie_alpha_texture_state_difference_px=0
+Table complète : proof.txt:1805-1836 ; copie lisible notes/alpha-table.tsv, audit 32/32 alphas identiques et sous seuil, color_test=1.
+L’alpha prépasse est relu dans son rejeu de classification sans découpe ; son depthwrite=0 décrit ce rejeu, pas la passe livrée.
+Échantillon 1 : draw=10, z=0.010251225 des deux côtés, raw couleur=raw prépasse=0, seuil pré=0.149021909, seuil couleur=0.299212605.
+Cause : PrePass.cpp:1678 active u_ao_proof ; shade.glsl:451 renvoie alpha=1 ; tfrag3.frag:84 puis :118 l’affecte et le teste.
+Sur les 725 absents examinés, les autres catégories valent zéro, notamment identité/profondeur, état texture et profondeur couleur désactivée.
+Le compteur historique, sur une population plus longue, reste ao_geom_tie_absent_px=1521, dont 1009 intérieurs, couverture monde=3712955.
+Les cinq clés acquises sont à zéro dans cette preuve ; leur mode couleur contaminé interdit d’en déduire une validation hors mesure.
+Le correctif instrumental identifié serait c.a au lieu de 1.0 dans shade.glsl:451 ; non appliqué : il change la couleur des images sondées et contredit « correctif dans la PRÉPASSE ».
+Autre obstacle : ao_static_defects n’est activable que sous l’ancien identifiant ; la sonde de stabilité n’a pas été modifiée.
+FEATURE hits=40359433 est global ; proof_feature_own_hits=347209 est le nombre de pixels TIE observés. Clause littérale FEATURE non satisfaite.
+non prouvé : ao_tie_prepass_defects (clé absente), suppression des trous, deux autres vues, couleur AO éteinte bit-identique, --off, stabilité dans cette preuve, coût, esthétique.
+Owner : Options > Recharged > Recharged Lighting > Ambient Occlusion sur HONOR, chaque palier et SSAO/HBAO/GTAO force maximale ; damier, contacts, feuillage en mouvement et caméra immobile.
+Le diagnostic ne démontre ni l’absence ni la présence de ces défauts dans le rendu normal ; aucune qualité visuelle déclarée validée.
+FINDINGS.txt et handoff.md précisent les obstacles et anomalies laissées. Aucun validateur exécuté par ce worker, aucune clôture ni validation owner fabriquée.
