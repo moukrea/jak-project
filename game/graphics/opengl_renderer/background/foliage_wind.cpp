@@ -1946,6 +1946,13 @@ void finalize_contact_geometry(tfrag3::Level& lev) {
       leaf.si->contact_pin_y = std::max(leaf.si->contact_pin_y, final_ymax.at(trunk->si));
     }
   }
+  // Exact coincidences above can attach an entire crown. Copy only after all pairs have
+  // finalized the instance, so even its earlier/nonjunction vertices carry that membership.
+  if (snapshot) {
+    for (size_t i = 0; i < vertices.size(); ++i) {
+      snapshot->vertices[i].carried = vertices[i].si->carried;
+    }
+  }
   u64 no_mobile_zone = 0, nonpositive_contact_span = 0;
   for (const auto& entry : final_ymax) {
     if (!entry.first->load_bearing && entry.first->carried) {

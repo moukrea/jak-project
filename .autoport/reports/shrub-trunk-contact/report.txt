@@ -1,16 +1,19 @@
 DIRECTIVES vab39193976
-Verdict : instrumentation compilée et parcours préparé, contrat non validé ; aucune course USB de l essai 6.
-Snapshots finaux : indices VBO, arbres/LOD, classes et paires exactes conservés pour capture.
-Capture TF des sommets référencés aux draws couleur SHRUB/TIE statique/ETIE, positions pré/post-contact.
-Agrégateur : déplacements et jonctions même frame, populations vides et erreurs explicites ; aucun total fabriqué.
-Tests CPU du header réel : 9 cas passent, compile/run rc=0 (notes/attempt-6-aggregate-test.log).
-Build Android incrémental rc=0 après correction signature envmap ; notes/attempt-6-build.log.
-Lib SHA256 : 013812667e6c1400c2d955224d5c0c2b84e794bd04beadaeb0f8aaf434f79854.
-Clip préparé : 7800 ticks, 46864 octets ; attente120 + marche130 + neutre7550 ; contact seulement prévu.
-Témoin602cd72eb7 conservé mais sans instrument/rejeu GPU comparable : stop proof_plan avant toute course.
-USB disponible : pick_device -> eae4df44 ; aucune indisponibilité invoquée.
-Campagne depuis autorisation : 0/3 courses consommées, 3 restantes de130s maximum.
-Huit lignes HISTORIQUES de proof.txt, essai3 ; contexte seulement, aucun résultat de cet essai :
+Verdict : binaire corrigé livré sur USB ; contrat non validé, comparaison au témoin encore non préparée.
+Essai 7 : les couronnes attachées ont leurs comptes/maxima/défauts séparés ; le maximum global est conservé.
+L'appartenance couronne est copiée après finalisation des paires ; les défauts survivent au rechargement.
+La dernière frame de capture est publiée après les buckets, sans attendre le dessin suivant.
+18 cas CPU du vrai header passent (notes/attempt-7-aggregate-test.log) ; aucune mesure GPU dans ces tests.
+Cas discriminant : feuille quelconque max=3, couronne max=0, défaut couronne=1.
+Build Android incrémental rc=0, 9 étapes ; repack rc=0 en 9s, sans seconde compilation NDK.
+Installation USB eae4df44 : gate rc=0, decision=deploye ; notes/attempt-7-deploy.log.
+Chaîne build/APK/appareil identique : cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55.
+Clip livré et relu : 46864 octets, SHA aafa00f05f2e7301 ; deploy_verify rc=0 (notes/attempt-7-delivery.txt).
+Les réglages F1 training-warp et pad/fixed_tick sont épinglés dans proof_props, sans setprop manuel.
+Stop proof_plan : ni pad trace ni refset ne restituent les mêmes uniformes/LUT du témoin 602cd.
+Le vent conserve une horloge murale et un ressort dépendant des états caméra ; audit dans notes/attempt-7-reference-audit.txt.
+Campagne autorisée : 0/3 consommée, 3 courses restantes de 130s maximum ; aucun proof_run de cet essai.
+Huit lignes HISTORIQUES de proof.txt essai3, recopiées uniquement pour le contexte, PAS résultat essai7 :
 serial=eae4df44
 sha=5288bc8bc7e7f2fb
 crash=0
@@ -19,10 +22,9 @@ FEATURE shrub-trunk-contact armed=1 hits=173329
 shrub_trunk_verts=3864
 shrub_foliage_verts=169465
 wind_contact_defects=999999
-Owner : à Geyser Rock, marcher dans un mini-palmier ; tronc droit, feuilles mobiles et solidaires.
-non prouvé : tronc=0, jonction=0, mobilité des couronnes mini-palmiers ; aucune capture réelle exécutée.
-non prouvé : OFF bit-identique au témoin, acquis dynamiques vent/herbe, autres niveaux et TIE_WIND.
-non prouvé : neutralité/coût/mémoire appareil, fraîcheur déploiement et absence de crash de cette révision.
-Pas de repack/déploiement cet essai ; dernière frame et maximum feuillage global signalés dans FINDINGS.txt.
-Rapport détaillé, parcours et limites : notes/attempt-6-audit.txt ; suite dans handoff.md.
-Validateur generic.sh laissé à l orchestrateur ; aucune validation owner ni fermeture revendiquée.
+Owner : ouvrir le jeu à Geyser Rock, marcher dans un mini-palmier ; vérifier tronc droit, feuilles mobiles et attachées.
+non prouvé : déplacements GPU tronc/jonctions, mobilité des couronnes réelles et contact effectif du clip.
+non prouvé : OFF bit-identique au témoin, acquis dynamiques vent/herbe, TIE_WIND et autres niveaux.
+non prouvé : absence de crash et coût de cette révision ; aucun lancement du jeu après installation.
+Le total shrub_trunk_squash_defects reste absent ; aucune validation owner ni fermeture revendiquée.
+Validateur generic.sh laissé à l'orchestrateur ; blocages et suite consignés dans handoff.md et FINDINGS.txt.

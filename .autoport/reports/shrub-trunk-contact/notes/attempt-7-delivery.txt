@@ -1,0 +1,24 @@
+DIRECTIVES vab39193976
+Livraison essai 7 ; aucune course, aucun lancement, aucun setprop.
+Budget campagne : 0/3 consommee ; 3 restantes.
+observed_at=2026-09-14T22:32:09.791018+00:00
+serial=eae4df44
+model=Redmi Note 9 Pro
+local_lib_sha256=cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55
+apk_lib_sha256=cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55
+device_lib_sha256=cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55
+apk_sha256=f457f42644bd3cdbb39db7abecc33cd4e488cd266288a9fb2f05d231c92e4070
+device_lib_path=/data/app/~~eQGckk-BHmDuMIaRzv_uUw==/org.opengoal.gk.jak1-4nmBGCe2uU76DtDG_8IrFg==/lib/arm64/libgk.so
+clip_local_sha256=aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a
+clip_device_sha256=aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a
+clip_device_bytes=46864
+build_rc=0
+repack_rc=0
+deploy_gate_rc=0
+deploy_verify_rc=0
+clip_copy_rc=0
+source_freshness=deploy_verify_PASS
+build_command=cmake --build build-android --target gk -j 8
+repack_command=./gradlew assembleJak1Debug -PslimIso=true -x :app:buildNativeLibs -x :app:configureNativeLibs
+deploy_gate_decision=deploye
+Anomalie resolue : adb exec-in tee a rendu 0 mais tronque le clip a 12285 octets (SHA c5d3e8d1a305c8834b9fe65faaa29b5dfe7ef20bef2b0644328adbbf6674897e). Recopie shell -T run-as tee : 46864 octets et SHA identique.

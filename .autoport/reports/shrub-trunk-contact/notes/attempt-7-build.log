@@ -1,0 +1,135 @@
+[0/2] Re-checking globbed directories...
+[1/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/PrePass.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[2/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Shrub.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:12:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:12:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[3/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/loader/LoaderStages.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/LoaderStages.cpp:2:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/LoaderStages.cpp:2:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[4/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:12:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:12:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[5/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/loader/Loader.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/Loader.cpp:27:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/Loader.cpp:27:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[6/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/foliage_wind.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[7/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/refset.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:90:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[8/9] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues

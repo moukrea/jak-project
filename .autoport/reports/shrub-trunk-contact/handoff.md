@@ -1,30 +1,30 @@
 ## ÉTABLI
 DIRECTIVES vab39193976
-Essai6 : aucune course proof_run ; preuve essai3 historique, pas résultat actuel.
-Budget campagne autorisée fc71d41e3c : 0/3 consommée, 3 restantes de130s max ; anciens logs48-51 hors budget.
-USB disponible : pick_device -> eae4df44.
-Snapshot CPU conservé : identité geo/arbre/indexVBO, tailles VBO, classes, paires exactes ; getter par niveau.
-Probe GPU branchée couleur SHRUB/TIE statique/ETIE ; GLES points des indices réellement référencés.
-Pré/post-contact après vent ; consommateur compare deltas et paires à même frame, alternatives LOD séparées.
-Test CPU header réel : 9 cas compile/run rc=0 ; notes/attempt-6-aggregate-test.log et source homonyme.
-Build Android incrémental rc=0 ; SHA256013812667e6c1400c2d955224d5c0c2b84e794bd04beadaeb0f8aaf434f79854.
-Clip préparé notes/attempt-6-contact.inputs : 46864 octets, SHA256aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a.
-120 ticks neutres,130 marche(0,123),7550 neutres ; géométrie hors ligne seulement, contact prévu non mesuré.
-Référence602cd72eb7 toujours conservée ; SHA25600394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce.
+Essai7 : aucun proof_run ; proof.txt essai3 historique, pas résultat actuel.
+Campagne fc71d41e3c : 0/3 consommée au TOTAL, 3 restantes de130s max ; aucun reset de budget.
+18 cas CPU vrai header rc=0 : notes/attempt-7-aggregate-test.cpp et .log.
+Feuille quelconque mobile max3/couronne immobile max0 donne défaut1 ; dernière frame publiée sans successeur.
+Snapshot carried copié après paires finales ; comptes/maxima couronnes distincts, défauts conservés au reload.
+Build Android incrémental rc=0 (9 étapes), repack rc=0 (9s), pas de second build NDK.
+Livraison USB eae4df44 par device_binary_gate : decision=deploye rc=0 ; notes/attempt-7-deploy.log.
+Chaîne build/APK/appareil lue égale SHA256cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55.
+Jeu non relancé après installation ; crash et rendu de cette révision non mesurés.
+proof_props épinglés : f1.warp=1, f1.warp.cont=training-warp, padreplay=.../files/shrub-contact.inputs,
+pad_replay_realtime=0, fixed_tick=1, foliage.force=1, pad_trace=shrub-contact.statedump.txt.
+Clip livré et relu identique, 46864 octets : SHA256aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a.
+Témoin602cd conservé notes/reference-602cd72eb7/libgk.so, SHA25600394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce.
 ## TENTÉ
-Première compile échoue geom/idx absents passe envmap ; signature/call corrigés, seconde compile réussie.
-Revue GLES : DrawElements interdit sous TF ; capture changée en DrawArrays POINTS sur EBO lu/contrôlé.
-Revue/test : corrigé faux endpoints manquants LOD alternatifs et populations héritées après reload.
-Recherche602cd : aucun TF ni rejeu uniformes ; ancien .so seul ne peut fournir comparaison demandée.
-Stop proof_plan avant courses faute témoin instrumenté comparable ; pas de repack/déploiement.
-Aucun total shrub_trunk_squash_defects produit ; clés motion seulement ne certifient pas tous les acquis.
+Audit source indépendant : pad trace/asset_manifest/refset ne fournissent pas le rejeu GPU requis.
+foliage_wind.cpp:433-527 utilise steady_clock hors refset ; Shrub.cpp:626-678 ressort lié caméra/état accumulé.
+Probe frame rendu%60 ; callback garde deltas seulement, sans positions brutes/uniformes/LUT comparables.
+OFF garde formats LUT élargis ; témoin neutre non reconstruit. Stop proof_plan avant courses inutiles.
+Pas de harnais complet de rejeu construit ; justification et plan borné notes/attempt-7-reference-audit.txt.
+Lien test CPU sous /tmp échoue quota ; compilation/exécution sous /dev/shm réussissent.
 ## RESTE
-Préparer témoin602cd instrumenté neutre, conserver ses positions/LUT Wx2/Loader et contact originaux.
-Préparer comparaison états/uniformes identiques pour OFF bit-identique ; mécanisme non existant trouvé.
-Isoler mobilité des couronnes mini-palmiers (maximum actuel = tout feuillage), couvrir TIE_WIND si présent.
-Vérifier capture GPU réelle ; dernière frame sans successeur, mémoire retenue et coûts dans FINDINGS.
-Avant courses copier clip sous files/shrub-contact.inputs et épingler proof_props indiqués notes/attempt-6-audit.txt.
-Remplacer level.warp par F1 training-warp, pad replay déterministe/fixed_tick, aucune pose manuelle setprop.
-Puis seulement campagne trois bras référence/ON/OFF 130s max, preuve via proof_run, budget à consigner.
-Déplacements/jonctions réels, feuillage mobile, acquis vent/herbe, crash/fraîcheur restent non prouvés.
-Generic est exécuté par orchestrateur ; aucune validation owner ni nouvelle autorisation à demander.
+Témoin602cd instrumenté neutre conservant positions, Loader, LUT historiques et lois originales.
+Préparer comparaison des mêmes entrées GPU : samples/identités frame logique, uniformes/LUT, positions/indices/poids.
+Neutralisation ou rejeu des états vent manquant ; fixed_tick seul ne suffit pas, ne pas dépenser les bras pour le découvrir.
+Puis seulement référence/ON/OFF via proof_run, trois bras130s max ; total depuis termes mesurés, jamais écrit à la main.
+Contact réel du clip, mobilité des couronnes, jonctions, acquis vent/herbe et OFF restent non prouvés.
+Livraison/verify rc=0 : notes/attempt-7-delivery.txt ; transfert clip par shell -T (exec-in tronquait), limites FINDINGS.txt.
+Generic appartient à l'orchestrateur ; aucune validation owner ni nouvelle autorisation à demander.

@@ -124,6 +124,7 @@ struct ContactGeometryVertex {
   int geo;  // -1: SHRUB; >= 0: actual TIE LOD
   size_t tree_index;
   size_t vertex_index;  // Final unpacked VBO index in this tree.
+  bool carried = false;  // Final crown membership, including exact-pair attachments.
 };
 struct ContactGeometryTree {
   int geo;  // -1: SHRUB; >= 0: actual TIE LOD

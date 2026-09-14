@@ -1,0 +1,39 @@
+DIRECTIVES vab39193976
+Audit statique researcher (high), relu manager ; aucune course ni comparaison GPU exécutée.
+Témoin conservé : revision 602cd72eb7857fdf8059fd1f29265c31447bdb07.
+Chemin : notes/reference-602cd72eb7/libgk.so, provenance dans attempt-5-audit.txt.
+SHA256 historique : 00394d052f487f0509e0685bf11e85601722b3e2f0c41f78c7832198e5f011ce.
+
+DIFFERENCES DU PERIMETRE
+common/custom_data/TFrag3Data.cpp:566-1179 et Tfrag3Data.h:577 : métadonnées runtime de classe/attache.
+Loader.cpp:765,836 : classement après sidecar et finalisation après consolidation.
+foliage_wind.cpp:1653,1763,1913 : classement et contact_pin_y/carried, sans changement des poids du vent.
+Shrub.cpp:343-390 : LUT Wx2 vers Wx3 ; LoaderStages.cpp:608-680 : LUT TIE Wx1 vers Wx2.
+OFF restaure les ancres historiques mais conserve les formats élargis.
+shrub.vert:86-104 et tie_sway.glsl:68-88 : branche d'attache du correctif.
+Shader.cpp:268,319 et quatre vertex shaders : sorties transform feedback ajoutées.
+Les fichiers vegetation_contact.glsl, breeze.glsl, GrassRenderer.cpp et shaders grass ne diffèrent
+pas du témoin dans l'audit git ; identité source seulement, pas une preuve de comportement.
+
+OBSTACLE PRECIS A LA COMPARAISON
+shrub_contact_probe.cpp:76 échantillonne frame_idx rendu %60 ; pad trace s'ancre en frame logique.
+shrub_contact_probe.h:10-17 transmet pré/post/index, puis le consommateur ne garde que les deltas.
+Les positions brutes, zéros signés, uniformes et état des LUT ne sont pas archivés/rejoués.
+foliage_wind.cpp:433-467 : horloge steady_clock hors refset/static_probe ; fixed_tick ne la fige pas.
+foliage_wind.cpp:481-527 : direction lissée ; Shrub.cpp:626-678 : ressort dépendant caméra/état accumulé.
+asset_manifest.h:7-11 exclut états et draws ; les empreintes d'assets ne peuvent remplacer ces entrées.
+refset.cpp:106-111,491-549 pilote son propre parcours ; point training-start à :176, pas training-warp.
+Activer refset ne prépare donc pas automatiquement le protocole déjà autorisé.
+
+DECISION
+Appliquer stop du proof_plan : aucune des trois courses tant que le témoin comparable manque.
+Budget campagne autorisée depuis fc71d41e3c : 0/3 consommée ; 3 restantes, chacune <=130s.
+Ne pas construire ici un harnais complet de capture/rejeu contraire à l'économie de preuve.
+La livraison du correctif et les vérifications locales restent possibles et sont effectuées séparément.
+
+RESTE, BORNE ET EXPLICITE
+Témoin 602cd instrumenté neutre, conservant ses positions, son ordre Loader, ses LUT et ses lois.
+Exporter les samples et identités par frame logique, uniformes liés et lignes utiles des LUT.
+Comparer les entrées GPU (y compris positions/indices/poids) avant les sorties OFF bit à bit.
+Neutralisation ou rejeu des entrées du vent non disponible ; préparation nécessaire avant courses.
+Ce plan ne démontre ni le contact réel du clip ni la neutralité d'un futur instrument.

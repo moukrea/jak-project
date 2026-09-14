@@ -11218,8 +11218,13 @@ items:
   history: []
   id: shrub-trunk-contact
   proof_props:
-  - debug.opengoal.level.warp=training-warp
+  - debug.opengoal.f1.warp=1
+  - debug.opengoal.f1.warp.cont=training-warp
+  - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/shrub-contact.inputs
+  - debug.opengoal.pad_replay_realtime=0
+  - debug.opengoal.fixed_tick=1
   - debug.opengoal.foliage.force=1
+  - debug.opengoal.pad_trace=shrub-contact.statedump.txt
   priority: 33
   device: true
   feature: Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires

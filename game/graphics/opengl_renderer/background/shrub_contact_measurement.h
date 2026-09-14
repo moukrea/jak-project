@@ -30,10 +30,12 @@ struct LevelSamples {
   u64 frame = 0;
   bool started = false;
   u64 trunk_samples = 0, foliage_samples = 0, joint_samples = 0;
+  u64 carried_foliage_samples = 0;
   u64 missing_endpoints = 0, invalid_samples = 0, inconsistent_samples = 0;
   u64 completed_frames = 0;
   u64 prior_generation_defects = 0;
   double trunk_max = 0, foliage_max = 0, joint_max = 0;
+  double carried_foliage_max = 0;
 };
 inline std::map<std::string, LevelSamples> levels;
 inline u64 missing_snapshots = 0;
@@ -60,6 +62,7 @@ inline void publish(const std::string& name, const LevelSamples& state) {
   number("prior_generation_defects", state.prior_generation_defects);
   number("trunk_vertex_samples", state.trunk_samples);
   number("foliage_vertex_samples", state.foliage_samples);
+  number("carried_foliage_vertex_samples", state.carried_foliage_samples);
   number("exact_pair_samples", state.joint_samples);
   number("missing_pair_endpoints", state.missing_endpoints);
   number("invalid_samples", state.invalid_samples);
@@ -68,6 +71,7 @@ inline void publish(const std::string& name, const LevelSamples& state) {
   // the maxima are published independently, without a tolerance hiding a small displacement.
   real("trunk_max_units", state.trunk_max);
   real("foliage_max_units", state.foliage_max);
+  real("carried_foliage_max_units", state.carried_foliage_max);
   real("joint_delta_max_units", state.joint_max);
   number("trunk_motion_defect", state.trunk_max != 0);
   number("junction_motion_defect", state.joint_max != 0);
@@ -75,6 +79,8 @@ inline void publish(const std::string& name, const LevelSamples& state) {
   number("empty_foliage_defect", state.foliage_samples == 0);
   number("empty_junction_defect", state.joint_samples == 0);
   number("immobile_foliage_defect", state.foliage_max == 0);
+  number("empty_carried_foliage_defect", state.carried_foliage_samples == 0);
+  number("immobile_carried_foliage_defect", state.carried_foliage_max == 0);
   number("geometry_errors", state.geometry->mapping_errors + state.geometry->nonfinite_positions +
       state.geometry->unclassified_contact_vertices);
   autoport_proof::publish("shrub_contact_gpu_missing_snapshots", missing_snapshots);
@@ -82,6 +88,7 @@ inline void publish(const std::string& name, const LevelSamples& state) {
   // reference/OFF comparison and the existing wind/grass acquis, not these motion terms alone.
 }
 inline void complete_frame(const std::string& name, LevelSamples& state) {
+  if (!state.started) return;
   for (const auto& pair : state.geometry->exact_pairs) {
     if (pair[0] >= state.deltas.size() || pair[1] >= state.deltas.size()) {
       ++state.invalid_samples;
@@ -123,6 +130,7 @@ inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
           state.geometry->unclassified_contact_vertices + state.invalid_samples +
           state.inconsistent_samples + state.missing_endpoints + (state.trunk_max != 0) +
           (state.joint_max != 0) + (state.trunk_samples == 0) + (state.foliage_max == 0) +
+          (state.carried_foliage_samples == 0) + (state.carried_foliage_max == 0) +
           (state.joint_samples == 0)) : 0);
     state = LevelSamples{};
     state.prior_generation_defects = previous_defects;
@@ -175,7 +183,18 @@ inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
     } else {
       ++state.foliage_samples;
       state.foliage_max = std::max(state.foliage_max, movement);
+      if (state.geometry->vertices[index].carried) {
+        ++state.carried_foliage_samples;
+        state.carried_foliage_max = std::max(state.carried_foliage_max, movement);
+      }
     }
+  }
+}
+// Called after all buckets, including on the last rendered frame. Publishing updates the
+// proof registry only; its existing periodic/shutdown writer owns disk flushing.
+inline void end_frame(u64 frame) {
+  for (auto& entry : levels) {
+    if (entry.second.started && entry.second.frame <= frame) complete_frame(entry.first, entry.second);
   }
 }
 inline bool active(u64 frame) {

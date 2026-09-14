@@ -1,0 +1,7 @@
+  ok: libgk.so newer than newest source
+  ok: chain build==APK==device (cd47e493eb357594)
+  ok: flag-set pairing ogflags:435df2141670:android-arm64 (device libgk == device CGO)
+  ok: hd-models feature parity (device CGO hd call has its device libgk binding)
+  ok: physics feature parity (device CGO physics call has its device libgk binding)
+  ok: custom pack on device == built pack (version c30b27d51189d, 118 member(s))
+DEPLOY-VERIFY PASS: device eae4df44 provably runs the fresh HEAD (5aca30478f) libgk.so.
