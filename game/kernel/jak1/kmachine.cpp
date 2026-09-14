@@ -5971,10 +5971,12 @@ static u64 level_warp_run() {
       }
     } else {
       if (const char* e = std::getenv("OG_LEVEL_WARP_POS")) {
+        // Refset clears this override for vantages using their native continue point.
+        // An explicitly empty environment value must also override the Android property.
         std::strncpy(posbuf, e, sizeof(posbuf) - 1);
       }
 #if defined(__ANDROID__)
-      if (!posbuf[0]) {
+      else {
         char pbuf[PROP_VALUE_MAX] = {0};
         if (__system_property_get("debug.opengoal.level.warp.pos", pbuf) > 0 && pbuf[0]) {
           std::strncpy(posbuf, pbuf, sizeof(posbuf) - 1);

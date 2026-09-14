@@ -1,14 +1,14 @@
 DIRECTIVES vaff5c1afea
-Verdict : non validé ; wrappers spéculatifs retirés, builds réussis, prérequis de course non résolus.
+Verdict : non validé ; priorité du warp corrigée, builds réussis, préalables SIMD/refset non satisfaits.
 
-Essai 2 : retrait exact de 8363e895b1 dans bones.cpp, joint.cpp et sparticle_launcher.cpp.
-Les trois sources sont identiques au parent ; lot OOB, ripple et travaux voisins conservés.
-Builds incrémentaux x86/Android : codes 0 ; x86 frais=1, aucune arête restante.
-Inspection nm : zéro référence VuSimd/settings/record dans les six objets ; gnd_oob absent de libgk.
-Le corps ARM exec_mpg retrouve 716 octets ; ce retrait ne démontre aucun gain de temps.
-Traces nouvelles : notes/attempt2-build-inspection.txt et attempt2-preservation.txt.
+Essai 3 : kmachine.cpp distingue OG_LEVEL_WARP_POS absent et explicitement vide.
+La position vide d’un cas refset inhibe la propriété Android du premier warp.
+Test isolé du bloc de production : dix PASS (notes/attempt3-warp-precedence.txt), pas une preuve en jeu.
+Builds incrémentaux x86 et ARM64 : codes 0 ; source < objet < archive < binaire.
+x86 : bx_bin_fresh=1, bx_residual_work=0 ; garde npc-flicker : 47 propriétés.
+Logs : notes/attempt3-build-x86.log et attempt3-build-arm64.log.
 
-Huit lignes de proof.txt HISTORIQUES (essai 1), sans valeur de preuve pour l’essai 2 :
+Huit lignes de proof.txt HISTORIQUES (essai 1), sans valeur de preuve pour l’essai 3 :
 proof_run_id=20260914T211200Z-949576-04ffe282
 crash=0
 mips2c_bones_compared_ops=0
@@ -18,17 +18,18 @@ mips2c_parity_frames=0
 refset_replay_maxdiff=255
 mips2c_parity_defects=3
 
-Audit : new-bones-mtx-calc-asm est déjà vectoriel dans les objets x86/ARM examinés.
-2D particules est active et chronométrée (A35-SPART), mais son fast-path voisin reste à préserver.
-Aucune troisième cible pertinente pour nouvel ajout SIMD ni classement global individuel établi.
-USB eae4df44 disponible ; inventaire neuf : aucune référence plage Android.
-Le filtre beach-start sélectionne aussi beach-sun ; le warp plage hérite de la position hutte.
-Hutte233 reste sans cause précise ni équivalence référence/état établie ; aucun transfert justifié.
-Diagnostic, table fonctions/activité et empreintes : notes/attempt2-diagnostic.md.
-Aucun proof_run, APK, déploiement ou validateur lancé ; preuves antérieures intactes.
+Trois optimisations pertinentes non établies ; 2D possède déjà le fast-path Gperf-particles.
+Ses 10,13 ms historiques sont un total par 60 images, pas un coût par image.
+Archives plage Android retrouvées en phases 2/3 seulement ; pas de référence origine phase1 qualifiée.
+Capture historique hutte : pad mode2, FBO960x432 ; replay essai1 : mode0, FBO800x600.
+Étape h09 historique9 contre0 ; provenance exacte du PNG USB et contribution à l’écart233 non établies.
+Diagnostic, table d’activité et références des traces : notes/attempt3-diagnostic.md.
+USB eae4df44 disponible (pick_device, code0) ; aucun proof_run, déploiement ni validateur lancé.
+Le contrat interdit une nouvelle course tant que cibles et références restent insuffisantes.
+Anciennes preuves, ripple, acquis OOB/particules et changements voisins préservés ; empreintes en notes.
 
-Owner : rien à valider visuellement ; reprise technique nécessaire avant tout test de cet item.
+Owner : aucun nouveau test visuel à effectuer ; l’objectif reste identique au pixel et à la pose.
 non prouvé : gain par seau, trois populations en parité sur 600 images, hd-mtx-check-all, replay=0.
-non prouvé : absence de crash et non-régression en jeu après retrait, fraîcheur de déploiement.
-Infrastructure de comparaison conservée mais sans consommateur ; séparation des fenêtres reste à finir au raccordement.
-Blocages et dettes : FINDINGS.txt ; contexte de reprise : handoff.md.
+non prouvé : correction en jeu, absence de crash/non-régression, fraîcheur de déploiement.
+Reste : références Android phase1/provenance équivalentes et trois cibles justifiées avant raccordement.
+Blocages et dettes : FINDINGS.txt ; reprise : handoff.md. Aucune validation owner créée.

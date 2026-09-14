@@ -1,0 +1,29 @@
+[0/2] Re-checking globbed directories...
+[1/4] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kmachine.cpp.o
+In file included from /home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:56:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:56:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[2/4] Linking CXX static library android/libandroid_kernel.a
+[3/4] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues
+
+build_exit_code=0
+arm64_mtime_ns game/kernel/jak1/kmachine.cpp=1789426662305727934
+arm64_mtime_ns build-android/android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kmachine.cpp.o=1789426753203334401
+arm64_mtime_ns build-android/android/libandroid_kernel.a=1789426753266335515
+arm64_mtime_ns build-android/lib/arm64-v8a/libgk.so=1789426753352337035
+arm64_changed_source_object_archive_binary_strictly_fresh=True

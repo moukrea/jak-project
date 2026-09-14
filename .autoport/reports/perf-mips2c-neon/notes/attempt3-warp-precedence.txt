@@ -1,0 +1,12 @@
+desktop
+PASS initial-no-property result='' property_reads=0
+PASS refset-native-position result='' property_reads=0
+PASS refset-explicit-position result='1 2 3' property_reads=0
+PASS campaign-native-position result='' property_reads=0
+PASS campaign-explicit-position result='7 8 9' property_reads=0
+android-selection-stub
+PASS initial-property result='-116 14 40' property_reads=1
+PASS refset-native-position result='' property_reads=0
+PASS refset-explicit-position result='1 2 3' property_reads=0
+PASS campaign-native-position result='' property_reads=0
+PASS campaign-explicit-position result='7 8 9' property_reads=0

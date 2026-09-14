@@ -1,0 +1,34 @@
+DIRECTIVES vaff5c1afea
+Verdict : non validé ; wrappers spéculatifs retirés, builds réussis, prérequis de course non résolus.
+
+Essai 2 : retrait exact de 8363e895b1 dans bones.cpp, joint.cpp et sparticle_launcher.cpp.
+Les trois sources sont identiques au parent ; lot OOB, ripple et travaux voisins conservés.
+Builds incrémentaux x86/Android : codes 0 ; x86 frais=1, aucune arête restante.
+Inspection nm : zéro référence VuSimd/settings/record dans les six objets ; gnd_oob absent de libgk.
+Le corps ARM exec_mpg retrouve 716 octets ; ce retrait ne démontre aucun gain de temps.
+Traces nouvelles : notes/attempt2-build-inspection.txt et attempt2-preservation.txt.
+
+Huit lignes de proof.txt HISTORIQUES (essai 1), sans valeur de preuve pour l’essai 2 :
+proof_run_id=20260914T211200Z-949576-04ffe282
+crash=0
+mips2c_bones_compared_ops=0
+mips2c_joints_compared_ops=20183198
+mips2c_particles_compared_ops=159438
+mips2c_parity_frames=0
+refset_replay_maxdiff=255
+mips2c_parity_defects=3
+
+Audit : new-bones-mtx-calc-asm est déjà vectoriel dans les objets x86/ARM examinés.
+2D particules est active et chronométrée (A35-SPART), mais son fast-path voisin reste à préserver.
+Aucune troisième cible pertinente pour nouvel ajout SIMD ni classement global individuel établi.
+USB eae4df44 disponible ; inventaire neuf : aucune référence plage Android.
+Le filtre beach-start sélectionne aussi beach-sun ; le warp plage hérite de la position hutte.
+Hutte233 reste sans cause précise ni équivalence référence/état établie ; aucun transfert justifié.
+Diagnostic, table fonctions/activité et empreintes : notes/attempt2-diagnostic.md.
+Aucun proof_run, APK, déploiement ou validateur lancé ; preuves antérieures intactes.
+
+Owner : rien à valider visuellement ; reprise technique nécessaire avant tout test de cet item.
+non prouvé : gain par seau, trois populations en parité sur 600 images, hd-mtx-check-all, replay=0.
+non prouvé : absence de crash et non-régression en jeu après retrait, fraîcheur de déploiement.
+Infrastructure de comparaison conservée mais sans consommateur ; séparation des fenêtres reste à finir au raccordement.
+Blocages et dettes : FINDINGS.txt ; contexte de reprise : handoff.md.

@@ -1,0 +1,72 @@
+initial_direct_invocation_exit_code=126 (Permission denied; script mode -rw-r--r--)
+retry_command=bash .autoport/lib/build_x86.sh --target gk
+bx_deps_corrupt_before=0
+bx_deps_recompacted=0
+bx_deps_quarantined=0
+bx_sdl_pin=SDL-3.4.4-jak-project
+bx_sdl_pinned=0
+bx_rc=0
+bx_edges=4
+bx_work_edges=3
+bx_other_edges=1
+bx_other_list=Re-checking_globbed_directories...
+bx_seconds=25
+bx_residual_edges=0
+bx_residual_work=0
+bx_residual_other=0
+bx_residual_other_list=aucune
+bx_cmake_git_inputs=0
+bx_sdl_revision=SDL-3.4.4-jak-project
+bx_describe=harness-avant-plan-2026-09-11-350-gfdf646bca0
+bx_bin=game/gk
+bx_bin_mtime=1789426732
+bx_bin_mtime_ns=1789426732488968307
+bx_deps_seen=46
+bx_newest_dep=1789426729
+bx_newest_dep_ns=1789426729600917265
+bx_newest_name=game/libruntime.a
+bx_bin_fresh=1
+bx_bin_verdict=frais
+bx_bin_lag_s=-3
+bx_bin_lag_ns=-2888051042
+bx_orphans_before=0
+bx_orphans_after=0
+bx_orphans_moved=0
+bx_orphans_quarantine=-
+build_x86: arbre propre : 4 arete(s) jouee(s) en 25s, 0 a refaire, binaire game/gk plus recent que ses 46 entrees.
+ninja: Entering directory `build'
+[0/2] Re-checking globbed directories...
+[1/4] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o
+In file included from /home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:73:
+/home/emeric/code/jak-project/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of 'u32 ReceiveToBuffer(char*)' in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-project/./game/kernel/common/ksocket.h:14:5: note: previous declaration of 'u32 ReceiveToBuffer(char*)'
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp: In function 'u64 jak1::f1_warp_run()':
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:5770:8: warning: unused variable 'cont_buf' [-Wunused-variable]
+ 5770 |   char cont_buf[128] = {0};
+      |        ^~~~~~~~
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp: In function 'bool jak1::want_prop_requested(const char*, const char*, char*, size_t)':
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:6638:62: warning: unused parameter 'prop' [-Wunused-parameter]
+ 6638 | static bool want_prop_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp: In function 'bool jak1::phys_room_requested(const char*, const char*, char*, size_t)':
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:6915:62: warning: unused parameter 'prop' [-Wunused-parameter]
+ 6915 | static bool phys_room_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp: At global scope:
+/home/emeric/code/jak-project/game/kernel/jak1/kmachine.cpp:447:10: warning: 'ghc::filesystem::path jak1::{anonymous}::recharged_settings_ini_path()' defined but not used [-Wunused-function]
+  447 | fs::path recharged_settings_ini_path() {
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2/4] Linking CXX static library game/libruntime.a
+[3/4] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues
+
+build_exit_code=0
+x86_mtime_ns game/kernel/jak1/kmachine.cpp=1789426662305727934
+x86_mtime_ns build/game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o=1789426726871869034
+x86_mtime_ns build/game/libruntime.a=1789426729600917265
+x86_mtime_ns build/game/gk=1789426732488968307
+x86_changed_source_object_archive_binary_strictly_fresh=True
