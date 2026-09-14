@@ -9447,6 +9447,11 @@ items:
   prompt: prompts/item-build-and-harness-leftovers.md
   notes: issu des neuf signalements restants de build-tree-reinvalidates-itself, 12/09 ; terminus, pas
     de successeur.
+  supervisor_review:
+    date: '2026-09-14'
+    report: supervisor/reprise-2026-09-14.md
+    findings_status: rapprochement propose, signalements hors perimetre en attente arbitrage owner ; aucune
+      extension des dix termes autorises
 - status: open
   game: jak1
   owner_test: false
@@ -11611,3 +11616,77 @@ items:
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback: []
   owner_ok: null
+- status: open
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  max_turns: 700
+  max_retries: 6
+  proof_timeout: 420
+  owner_ok: null
+  id: acquis-perf-fbo-passes
+  priority: 36
+  feature: Proteger automatiquement la suppression des passes plein ecran superflues
+  depends_on:
+  - perf-fbo-passes
+  known_cause: 'Validation owner du 14/09 : « validé du coup ». Aucun acquis/*.sh ne protege perf-fbo-passes
+    (recherche du 14/09). La feature reste validee ; il manque son filet de regression.'
+  deliverable: 'Ajouter acquis/perf-fbo-passes.sh en reutilisant les compteurs livres fb_extra_passes_per_frame,
+    fb_frames_measured, fb_ui_direct_frames et fb_pass_ends_no_invalidate_max. Le controle exige une population
+    non vide du chemin direct, distingue les regimes de repli declares et refuse une preuve absente ou
+    perimee. Banc isole : chemin livre accepte ; passe superflue, absence d invalidate et population vide
+    refuses. Aucun compteur moteur neuf, aucune campagne. Preuve par lib/proof_run.sh puis validators/generic.sh.'
+  gate:
+    key: fbo_acquis_defects
+    op: ==
+    value: 0
+  out_of_scope: Aucun code jeu, aucune modification de la validation owner ni de la porte de perf-fbo-passes.
+    Pas de nouveau test visuel a demander.
+  where: Protection automatique seulement ; rien a retester par l owner.
+  owner_feedback:
+  - date: '2026-09-14'
+    text: validé du coup
+  prompt: prompts/item-acquis-perf-fbo-passes.md
+- status: open
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  max_turns: 700
+  max_retries: 6
+  proof_timeout: 420
+  owner_ok: null
+  id: harness-delivery-stale-bake-recovery
+  priority: 27
+  feature: La fabrication des APK reprend apres un refus de donnees precalculees perimees
+  depends_on: []
+  known_cause: 'Reprise superviseur du 14/09 : auto_build_apk.txt a 16:34:56, gradle ECHEC : STALE BAKE
+    common/custom_data/TFrag3Data.cpp plus recent que out/jak1/fr3/beach.meshweld. Le repere .last_apk_build_commit
+    porte e903a79e12 mais le dernier build publie porte dd49ad8f5b. Les deux arbres different dans le
+    moteur ; le repere ne prouve donc pas la livraison. Les demons ont ete repris avec ADB=/usr/bin/false
+    (aucun contact appareil).'
+  deliverable: 'Reparer la reprise de construction au point de production : les donnees de cuisson requises
+    doivent etre remises a jour par le chemin de build autorise avant empaquetage, sans reconfiguration
+    CMake ni modification du format moteur. Un echec ne doit pas etre memorise comme une construction
+    reussie ni abandonne jusqu au prochain changement moteur. Banc isole couvrant donnees perimees, echec
+    de cuisson, succes puis absence de changement : tentative retentee apres echec, repere avance seulement
+    sur APK complet, publication reservee a un artefact coherent. Publier delivery_stale_bake_defects
+    et les populations testees via le producteur de preuve. Ne pas lancer de campagne ni contacter un
+    appareil.'
+  gate:
+    key: delivery_stale_bake_defects
+    op: ==
+    value: 0
+  out_of_scope: Aucun fichier moteur, aucun appareil, aucune relance de l orchestrateur. Pas de suppression
+    des gardes STALE BAKE. Ne pas retoucher les mesures AO.
+  where: La livraison de nouveaux builds reprend ; pas de validation visuelle.
+  owner_feedback:
+  - date: '2026-09-14'
+    text: Reprends le rôle superviseur et le travail autorisé. Lis .autoport/SWITCH_HANDOFF.md et .autoport/SUPERVISOR_CATCHUP.md,
+      puis les handoffs et FINDINGS récents. Rends compte du rattrapage, vérifie la santé du harnais et
+      entretiens la file. Relance les démons de build/livraison listés dans .autoport/.backend.json si
+      arrêtés. Pas de code jeu ni de contact appareil. La veille externe de run-codex.sh entretient l’orchestrateur.
+  prompt: prompts/item-harness-delivery-stale-bake-recovery.md
