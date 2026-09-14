@@ -1018,6 +1018,17 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
     g_on_alpha_px += on;
     g_alpha_cover_px += cover;
     g_alpha_fringe_px += fringe;
+#ifdef __ANDROID__
+    // ── LA PRISE DE L'ITEM, SUR L'APPAREIL ────────────────────────────────────────────────
+    // `validators/generic.sh` lit `proof_feature_own_hits` : un site compile qui ne tire
+    // jamais est un defaut, pas un detail. Sur bureau la prise est notee par la SONDE, avec le
+    // sens exact du livrable (« pixels dont l'indirect a recu l'AO ») ; la sonde lit le
+    // stencil, que GLES ne relit pas. Ici la prise est donc le compte de pixels que la
+    // prepasse a GAGNES avec sa decoupe d'alpha armee — le denominateur de `ao_on_alpha_px`,
+    // c'est-a-dire le chemin de code de CET item, mesure sur cette image. Le sens n'est pas le
+    // meme que sur bureau et le rapport le dit : ce n'est pas le meme instrument.
+    autoport_proof::note_hit_for(kItemId, cover);
+#endif
     // (c)/(g) LA MESURE AU POINT DE DESSIN. La profondeur LIVREE vient d'etre ecrite et
     // l'estimateur ne l'a pas encore lue : c'est ICI que les quads ECARTES se comparent a elle.
     measure_phantom_occluders(rs, cam, w, h);
