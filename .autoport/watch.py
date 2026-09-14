@@ -16,7 +16,7 @@ import time
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / '.autoport'))
-from lib import backlog, cli_backend
+from lib import backlog, cli_backend, backend_control
 
 
 def orchestrator_running(root):
@@ -102,6 +102,7 @@ def main(argv=None):
     launched = None
     refused = False
     while True:
+        backend_control.require(args.backend, ROOT)
         session = args.session
         if args.session_file:
             try:

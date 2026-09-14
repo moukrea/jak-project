@@ -65,7 +65,7 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 
-from lib import cli_backend
+from lib import cli_backend, backend_control
 from lib import freshness
 from lib import impossible as impossible_state
 from lib import gate_verdict
@@ -3015,7 +3015,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="Supprime le rendu des événements (le stderr de claude "
                              "reste imprimé : c'est la seule trace d'un non-démarrage)")
     parser.add_argument("--backend", choices=cli_backend.BACKENDS,
-                        default=os.environ.get("AUTOPORT_BACKEND", "claude"))
+                        default=cli_backend.selected(root=REPO_ROOT))
     parser.add_argument("--check", action="store_true",
                         help="Vérifie la CLI et affiche la commande sans lancer de worker")
     args = parser.parse_args(argv)
@@ -3039,6 +3039,7 @@ def main(argv: list[str] | None = None) -> int:
                           "command": cli_backend.worker_command(REPO_ROOT, BACKEND, _PROFILE, EFFORT, 300)},
                          ensure_ascii=False, indent=2))
         return int(bool(error))
+    backend_control.require(BACKEND, REPO_ROOT)
     QUIET = bool(args.quiet)
 
     lock = acquire_single_instance_lock()
@@ -3073,6 +3074,7 @@ def main(argv: list[str] | None = None) -> int:
     pause_file = Path(__file__).resolve().parent / "PAUSE"
 
     while not HALT:
+        backend_control.require(BACKEND, REPO_ROOT)
         # Frein de l'owner : `touch .autoport/PAUSE` arrete le harnais APRES l'item en cours,
         # jamais au milieu. Demande le 2026-09-10 (« faut faire en sorte que ca s'arrete une
         # fois l'item en cours termine ») pour changer de telephone sans qu'un item enchaine

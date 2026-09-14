@@ -155,11 +155,33 @@ def cmd_lint(args):
     return 1
 
 
+def cmd_switch(args):
+    import subprocess
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    log = root / '.autoport/logs/backend-switch.log'
+    log.parent.mkdir(exist_ok=True)
+    env = dict(os.environ)
+    for key in ('AUTOPORT_ROLE', 'AUTOPORT_PHASE_ID', 'AUTOPORT_BACKEND', 'CLAUDECODE'):
+        env.pop(key, None)
+    # Detached: switching from inside a supervisor must survive stopping that caller.
+    with log.open('a') as out:
+        proc = subprocess.Popen([sys.executable, str(root / '.autoport/backend_switch.py'), args.backend],
+                                cwd=root, stdin=subprocess.DEVNULL, stdout=out,
+                                stderr=subprocess.STDOUT, start_new_session=True, env=env)
+    print(f'Bascule vers {args.backend} démarrée (PID {proc.pid}). Suivi : {log}')
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="autoport", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", default=None, help="backlog.yaml a lire (defaut : celui du harnais)")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    switch = sub.add_parser("switch", help="arrêter le pilotage précédent et ouvrir le nouveau superviseur")
+    switch.add_argument("backend", choices=("claude", "codex"))
+    switch.set_defaults(func=cmd_switch)
 
     s = sub.add_parser("status", help="les trois blocs pour l'owner")
     s.add_argument("--changed", action="store_true",

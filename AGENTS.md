@@ -17,3 +17,11 @@ En mode Codex, toute relance du harnais porte `--backend codex` (ou hérite
 `AUTOPORT_BACKEND=codex`). Les sous-tâches du worker utilisent les sous-agents natifs
 Codex, avec leur rôle et périmètre explicites. Ne lance pas de sous-session Claude.
 La CLI Claude reste disponible avec `--backend claude`, sur le même backlog.
+
+## Bascule de CLI du harnais
+
+Sur demande « switch vers Codex/Claude », exécuter `./.autoport/autoport switch codex`
+ou `./.autoport/autoport switch claude`. Le contrôleur détaché arrête le pilotage
+précédent et ouvre le nouveau superviseur ; suivre `.autoport/logs/backend-switch.log`.
+Ne pas relancer manuellement l'ancien backend après la bascule. Le nouveau superviseur
+lit `.autoport/SWITCH_HANDOFF.md` et l'état courant avant de poursuivre.

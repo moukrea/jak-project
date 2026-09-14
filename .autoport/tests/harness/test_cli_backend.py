@@ -135,6 +135,8 @@ def test_cli_options_are_isolated_and_toml_valid(tmp_path):
 
 
 def test_backend_default_environment_and_explicit(monkeypatch):
+    from lib import backend_control
+    monkeypatch.setattr(backend_control, 'default', lambda: 'claude')
     monkeypatch.delenv('AUTOPORT_BACKEND', raising=False)
     assert cb.selected() == 'claude'
     monkeypatch.setenv('AUTOPORT_BACKEND','codex')

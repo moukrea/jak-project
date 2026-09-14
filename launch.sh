@@ -17,7 +17,7 @@ ORCH_ARGS=()
 for arg in "$@"; do
     if [ "$arg" = -q ]; then ORCH_ARGS+=(--quiet); else ORCH_ARGS+=("$arg"); fi
 done
-BACKEND="${AUTOPORT_BACKEND:-claude}"
+BACKEND="${AUTOPORT_BACKEND:-$(python3 "$REPO_ROOT/.autoport/lib/backend_control.py")}"
 VERBOSE_LABEL="live"
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -34,6 +34,9 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 case "$BACKEND" in claude|codex) ;; *) echo "Backend inconnu: $BACKEND" >&2; exit 2 ;; esac
+if [[ " ${ORCH_ARGS[*]} " != *" --check "* ]]; then
+    python3 "$REPO_ROOT/.autoport/lib/backend_control.py" "$BACKEND"
+fi
 export AUTOPORT_BACKEND="$BACKEND"
 
 # LE PLAFOND D'ATTENTE DES TACHES DE FOND. Par defaut le CLI attend 600 s les taches de fond

@@ -1,9 +1,39 @@
 # Autoport — Claude Code ou Codex, de bout en bout
 
 Le même backlog, les mêmes preuves et les mêmes reprises servent aux deux CLI.
-La sélection est **par processus** : argument `--backend`, puis variable
-`AUTOPORT_BACKEND`, puis `claude` par défaut. Aucun changement de profil Claude,
-de transcript, de mémoire, de jeton owner-ok ou de backlog n'est nécessaire.
+La sélection persiste localement dans `.autoport/.backend.json` après une bascule.
+Sans ce fichier, le défaut historique reste Claude. `--backend`, puis
+`AUTOPORT_BACKEND`, choisissent la CLI, mais une CLI révoquée ne peut plus démarrer.
+Les profils de modèles de chaque fournisseur restent indépendants.
+
+## Basculer d'une CLI à l'autre
+
+Dis simplement au superviseur « switch vers Codex » ou « switch vers Claude ».
+Depuis l'une ou l'autre CLI, il exécute :
+
+```bash
+./.autoport/autoport switch codex
+./.autoport/autoport switch claude
+```
+
+La commande lance un contrôleur détaché pour survivre à l'arrêt du superviseur
+qui l'appelle. Son résultat est dans `.autoport/logs/backend-switch.log` : la
+réponse initiale annonce un démarrage de bascule, pas encore sa réussite.
+Le contrôleur bloque les nouveaux lancements, arrête les processus du harnais
+par PID/starttime et pidfd (superviseur, veille, orchestrateur, démons et descendants),
+attend leur sortie, sauvegarde l'état et ouvre le superviseur cible dans un
+serveur tmux dédié. S'il ne peut pas arrêter un processus en 40 secondes, il
+laisse les lancements bloqués et écrit l'erreur. Relancer `switch` après diagnostic.
+Les autres sessions interactives ouvertes sans rôle autoport ne sont pas arrêtées.
+Les anciennes sessions antérieures à ce mécanisme doivent être arrêtées une fois
+par leur PID exact ; les superviseurs Claude actifs ont été arrêtés le 14 septembre.
+
+Le nouveau superviseur lit `.autoport/SWITCH_HANDOFF.md`, puis le backlog et les
+handoffs actuels ; aucune conversion de transcript ni validation n'est fabriquée.
+Il reprend les démons qui tournaient au moment de la bascule. Sous Codex,
+`run-codex.sh` entretient l'orchestrateur avec la veille externe. Sous Claude,
+le superviseur reprend le lancement et son suivi périodique natif.
+Le journal donne la commande `tmux -L autoport attach -t autoport-…` pour le rejoindre.
 
 ## Démarrer et reprendre
 
@@ -13,9 +43,8 @@ de transcript, de mémoire, de jeton owner-ok ou de backlog n'est nécessaire.
 # Reprendre une session précise
 ./run-codex.sh --resume <UUID-CODEX>
 
-# Retour intégral à Claude Code, après arrêt du précédent orchestrateur
-./.autoport/supervisor.sh --backend claude
-./launch.sh --backend claude
+# Retour intégral à Claude Code
+./.autoport/autoport switch claude
 
 # Vérification sans worker, sans preuve, sans sélection d'item
 ./launch.sh --backend codex --check

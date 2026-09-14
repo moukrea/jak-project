@@ -14,8 +14,10 @@ from pathlib import Path
 BACKENDS = ("claude", "codex")
 
 
-def selected(value=None):
-    name = value or os.environ.get("AUTOPORT_BACKEND", "claude")
+def selected(value=None, root=None):
+    from lib import backend_control
+    name = value or os.environ.get("AUTOPORT_BACKEND") or (
+        backend_control.default(root) if root is not None else backend_control.default())
     if name not in BACKENDS:
         raise ValueError(f"backend inconnu : {name!r} (claude ou codex)")
     return name
@@ -64,7 +66,7 @@ def codex_options(root, profile, effort=None, supervisor=False):
         contract = (root / ".autoport/SUPERVISOR_PROMPT.md").read_text()
         contract += ("\nCLI active : Codex. Toute relance utilise ./launch.sh --backend codex.\n"
                      "La veille est .autoport/supervisor.sh --backend codex --watch --maintain --notify-supervisor.\n"
-                     "Lis .autoport/codex/HANDOFF.md puis autoport status au démarrage.\n")
+                     "Lis .autoport/SWITCH_HANDOFF.md si présent, puis .autoport/SUPERVISOR_CATCHUP.md et autoport status au démarrage.\n")
         opts += ["-c", "developer_instructions=" + toml(contract)]
     return opts
 

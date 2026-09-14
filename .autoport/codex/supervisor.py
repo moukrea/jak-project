@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / '.autoport'))
-from lib import cli_backend
+from lib import cli_backend, backend_control
 
 
 def main():
@@ -27,6 +27,7 @@ def main():
     if check:
         print(json.dumps({'backend': 'codex', 'command': cmd}, ensure_ascii=False, indent=2))
         return
+    backend_control.require('codex', ROOT)
     os.environ['AUTOPORT_BACKEND'] = 'codex'
     os.environ['AUTOPORT_ROLE'] = 'supervisor'
     for key in ('AUTOPORT_PHASE_ID', 'AUTOPORT_PHASE_VALIDATOR', 'CLAUDECODE',

@@ -233,3 +233,8 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 .autoport/.findings_gate_strict
 .autoport/.prompt_fingerprints.json
 .autoport/.verdict_counts.json
+
+# Provider switch state and serialization (local runtime only)
+.autoport/.backend.json
+.autoport/.backend-switch.lock
+.autoport/SWITCH_HANDOFF.md

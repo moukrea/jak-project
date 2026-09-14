@@ -15,7 +15,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # CLI selection is per process; it never rewrites the other provider's profile.
-BACKEND="${AUTOPORT_BACKEND:-claude}"
+BACKEND="${AUTOPORT_BACKEND:-$(python3 "$REPO_ROOT/.autoport/lib/backend_control.py")}"
 ARGS=()
 WATCH=0
 while [ "$#" -gt 0 ]; do
@@ -28,6 +28,9 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 case "$BACKEND" in claude|codex) ;; *) echo "Backend inconnu: $BACKEND" >&2; exit 2 ;; esac
+if [[ " ${ARGS[*]} " != *" --check "* ]]; then
+    python3 "$REPO_ROOT/.autoport/lib/backend_control.py" "$BACKEND"
+fi
 export AUTOPORT_BACKEND="$BACKEND"
 if [ "$WATCH" = 1 ]; then
     exec python3 .autoport/watch.py --backend "$BACKEND" "${ARGS[@]}"
@@ -35,6 +38,7 @@ fi
 if [ "$BACKEND" = codex ]; then
     exec python3 .autoport/codex/supervisor.py "${ARGS[@]}"
 fi
+export AUTOPORT_ROLE=supervisor
 set -- "${ARGS[@]}"
 
 PROMPT_FILE=".autoport/SUPERVISOR_PROMPT.md"
