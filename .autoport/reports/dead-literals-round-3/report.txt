@@ -1,28 +1,31 @@
 DIRECTIVES v0f5d6e0de0
-Verdict : les deux termes mesures valent zero ; empreintes liees et conservation du miroir POM restent non prouvees.
-Essai 2 : reprise du correctif 17fe0f99fa, aucune nouvelle edition moteur/harnais ni compilation.
-Le lecteur controle le delta du compteur particle_steps ; les sorties GLSL orphelines sont retirees a la production.
-Le compteur fabrique 4242 est accepte AVANT (cc00f44ca8), refuse APRES pour temporal_particle_step_cadence.
-Le shader entier avait deja ete retire par c65c9a71bd : 816 lignes ; cet item en retire 0 et revendique 0 gain.
+Verdict : les trois termes du contrat sont mesures a zero ; fermeture machine laissee a l'orchestrateur.
+Essai 3 : census et bancs associes uniquement ; correctif 17fe0f99fa conserve.
+T1 publie les populations (8 echantillons par lot) et refuse explicitement le melange present/absent.
+Temoin 4242 : before_violation=silent, after_violation=raised, cause temporal_particle_step_cadence.
+T2 conserve les controles : before_orphan_survives=1, after_orphan_survives=0 ; blob/etrangers conserves.
+Programme lie et cles POM : sans objet, suppression owner c65c9a71bd ; gain revendique=0.
+T3 derive l'inventaire de toutes les sources courantes, independamment du decouvreur du preprocesseur.
+Les deux preprocesseurs travaillent sur la meme copie epinglee, hors /tmp ; sorties comparees octet par octet.
+Shader, chunk et blob : alteration et absence font chacun rougir ; seul retrait du residu laisse zero.
+Un terme en erreur est publie non nul ; total = T1 + T2 + T3 + penalites.
+Les deux bancs Python sont inclus dans l'empreinte des sources de verdict.
 
 Preuve : huit lignes exactes de proof.txt produit par lib/proof_run.sh :
-dead_literals_r3_t1_before_violation=silent
-dead_literals_r3_t1_after_violation=raised
 dead_literals_r3_t1_defects=0
-dead_literals_r3_t2_bench_before_orphan_survives=1
-dead_literals_r3_t2_bench_after_orphan_survives=0
 dead_literals_r3_t2_defects=0
+dead_literals_r3_t3_defects=0
+dead_literals_r3_t3_compared_files=123
+dead_literals_r3_t3_compared_bytes=718843
+dead_literals_r3_t3_compared_divergences=0
+dead_literals_r3_t3_negative_detected=6
 dead_literals_r3_defects=0
-crash=0
 
-Course x86 : sha=1141ad698013d657, frames=17783, duration_s=304, proof_census_rc=0.
-Tests : python3 -m pytest -q .autoport/tests/harness/test_hdr_batches.py : 376 passed in 73.88s.
-Couverture commune R2 -> R3 : shade_hosts=4, shade_hosts_missing=0, shade_prog_track_mismatch=0, shade_variants=1, valeurs conservees.
-Chemin actif : shade_hits=3797887 ; il ne constitue pas une preuve du POM retire.
-Blob Android : t2_blob_dead_hits=0 ; bibliotheque locale : t2_so_dead_hits=0 ; sorties generees : t2_disk_orphans=0.
-Owner : aucun test requis (owner_test=false) ; changement attendu invisible, aucun pixel a valider par cet item.
-non prouve : empreintes avant/apres du programme lie, publiees indisponibles par le recensement.
-non prouve : anciennes cles de couverture POM (R2 : shader_terms=3, cpu_terms=3, mirror_mismatch=0), leurs producteurs ont disparu.
-non prouve : identite du rendu, cadence sur captures temporelles reelles, execution/deploiement Android pendant cet essai.
-La couverture incomplete du recensement et le nettoyage tentant /dev/null sont signales dans FINDINGS.txt.
-Validateur laisse a l’orchestrateur, conformement au prompt ; aucune fermeture ni validation owner fabriquee.
+Course x86 unique : sha=97b19f95160729e6, frames=1536, crash=0, duration_s=33, proof_census_rc=0.
+Sources : 122 fichiers ; SHA256=9eeb143b455cf66943e499757107d1f530abbe4241ff2e66a1dbf30086521c1b.
+Inventaire des sorties : SHA256=2326fc6567c2629dd77bc822994a9b685643e5f112987e10a15a2594e6e0d5aa ; notes/t3-outputs.txt.
+Tests : 41 tests artefacts et 60 tests temporels passent ; census d'integration zero (notes/census-essai-3-test.txt).
+Owner : aucun test visuel ni action requis (owner_test=false) ; controle automatique particules et generation shaders.
+non prouve : identite visuelle, gain de performance, cadence sur captures reelles, execution/deploiement Android.
+Le nettoyage /dev/null echoue encore sans empecher la preuve ; signalement hors perimetre conserve dans FINDINGS.txt.
+Aucun build/deploiement lance ; generic.sh inchange et reserve a l'orchestrateur.

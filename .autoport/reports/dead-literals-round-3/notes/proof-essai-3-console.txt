@@ -1,0 +1,19 @@
+[proof_run dead-literals-round-3] verrou d'ecriture pris (.autoport/reports/dead-literals-round-3/proof-writer.lock) : pid=1109005 lanceur=1109004 essai=dead-literals-round-3@3#1789425415 course=20260914T224211Z-1109005-c1b362ef
+[proof_run dead-literals-round-3] PEREMPTION VUE AVANT LA COURSE (code 5) : la preuve qui etait la datait d'avant une edition.
+[proof_run dead-literals-round-3]   [stale_precheck dead-literals-round-3] PEREMPTION VUE AVANT LA COURSE : 39 fichier(s) plus recent(s) que .autoport/reports/dead-literals-round-3/proof.txt.
+[proof_run dead-literals-round-3]     source(s) du VERDICT : .autoport/lib/census/dead-literals-round-3.sh,.autoport/lib/gate_verdict.py,.autoport/tests/harness/dead_literals_r3_artifacts.py
+[proof_run dead-literals-round-3]     source(s) MOTEUR     : android/android_gfx.cpp,android/android_opengl_renderer.cpp,android/android_opengl_renderer.h,common/dma/dma.h,common/dma/dma_copy.cpp,common/dma/dma_copy.h,common/versions/revision.h,game/graphics/opengl_renderer/OpenGLRenderer.cpp,game/graphics/opengl_renderer/PrePass.cpp,game/graphics/opengl_renderer/Shader.cpp
+[proof_run dead-literals-round-3]     C'est le constat que validators/generic.sh rendrait a la fin de l'essai. La course
+[proof_run dead-literals-round-3]     qui demarre le repare ; si elle n'aboutit pas, l'essai mourra la-dessus.
+[proof_run dead-literals-round-3] garde de build : decision=passe demon_gradle=1 apk_age=731s attendu=0s
+[proof_run dead-literals-round-3] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run dead-literals-round-3] hygiene des etats impossibles : purged=0 standing=0
+[proof_run dead-literals-round-3] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run dead-literals-round-3] preuve precedente retiree au point d'amorcage 'amorcage-moteur-x86' (trouvee : 43405 o, sha=99bcfe48284e3170 ; filet proof-prev ecrit : 1)
+[proof_run dead-literals-round-3] x86 : build/game/gk pendant 30s (armed=1)
+[proof_run dead-literals-round-3] environnement du processus mesure publie sous 'proof-env.txt' (pid=1109803 lues=88 shell=85)
+rm: cannot remove '/dev/null': Permission denied
+[proof_run dead-literals-round-3] contexte de course : verdict=sans-objet images=1536 temoins=3/3
+[proof_run dead-literals-round-3] recensement de harnais : .autoport/lib/census/dead-literals-round-3.sh (armed=1)
+[proof_run dead-literals-round-3] recensement fini en 2s
+[proof_run dead-literals-round-3] ecrit .autoport/reports/dead-literals-round-3/proof.txt (frames=1536 crash=0 duree=33s) ; sortie moteur : .autoport/reports/dead-literals-round-3/proof-engine.log

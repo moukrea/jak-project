@@ -1,0 +1,5 @@
+DIRECTIVES v0f5d6e0de0
+Sous-agent implementer artifact_bench : python -m pytest .autoport/tests/harness/test_dead_literals_r3_artifacts.py -q : 41 passed, rc=0.
+Sous-agent tester test_integration : env -u AUTOPORT_ATTEMPT_ID -u AUTOPORT_PHASE_ID python3 -m pytest -q .autoport/tests/harness/test_hdr_batches.py -k temporal : 60 passed, 316 deselected in 4.85s, rc=0.
+Census integration : notes/census-essai-3-test.txt ; rc=0.
+Sources du verdict verifiees via verdict_sources.sh list : comparateur et test_hdr_batches.py inclus.

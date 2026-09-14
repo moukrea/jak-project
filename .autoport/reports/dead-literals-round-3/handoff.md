@@ -1,15 +1,16 @@
 ## ÉTABLI
 DIRECTIVES v0f5d6e0de0
-Correctif existant 17fe0f99fa conserve ; aucune nouvelle edition moteur/harnais pendant essai 2.
-proof_run.sh dead-literals-round-3 x86 termine rc=0, preuve ecrite : 17783 frames, crash=0.
-dead_literals_r3_t1_defects=0, t2_defects=0, defects=0 ; compteur 4242 accepte avant, refuse apres.
-376 tests test_hdr_batches.py passent ; pas de rebuild necessaire.
-Rapport et FINDINGS actualises ; anciennes ancres POM retirees par c65c9a71bd.
+Essai 3 : census adapte au contrat T1+T2+T3+penalites, tous publies a zero.
+T1 : 8 echantillons/lot ; 4242 accepte avant, refuse apres ; melange explicitement refuse.
+T2 : residus avant=1/apres=0 ; programme/POM sans objet, provenance c65c9a71bd et gain=0.
+T3 : 123 sorties, 718843 octets, divergences=0 ; 6 mutations sur 6 detectees.
+Sources courantes epinglees SHA256=9eeb143b455cf66943e499757107d1f530abbe4241ff2e66a1dbf30086521c1b.
+Tests : 41 artefacts + 60 temporels passent ; integration census rc=0.
+proof_run.sh dead-literals-round-3 x86 --timeout 30 : rc=0, frames=1536, crash=0, duree=33s.
+Preuve et inventaires produits ; rapport <=40 lignes et FINDINGS actualises.
 ## TENTÉ
-Une course x86 de 304 secondes et le recensement existant ; aucune campagne supplementaire.
-Nettoyage stderr : tentative de suppression de /dev/null refusee ; cause signalee, hors perimetre.
-Empreintes du programme lie publiees indisponibles, aucun gain revendique.
+Une preuve x86 courte apres adaptation ; aucun appareil/build/deploiement/campagne supplementaire.
+Nettoyage du producteur : rm /dev/null refuse encore, hors perimetre, preuve ecrite malgre ce bruit.
 ## RESTE
-L'orchestrateur doit lancer validators/generic.sh et ses gardes de fermeture.
-Non prouve : empreintes liees, conservation des anciennes cles POM, identite du rendu.
-La porte numerique ne couvre pas ces exigences ; constat dans FINDINGS pour arbitrage superviseur.
+L'orchestrateur doit executer validators/generic.sh et les gardes de fermeture ; aucun verdict owner fabrique.
+Non prouve : identite visuelle, performances, cadence sur captures reelles et execution Android.

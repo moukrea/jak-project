@@ -1,6 +1,6 @@
 # dead-literals-round-3 — signalements. Une ligne par trouvaille :
 # <fichier:ligne ou zone> | <ce qui cloche, une phrase> | <ce que ca coute de le laisser>
-# Constats historiques de l'essai 1 (2026-09-13), ancres et limites actualisees a l'essai 2 (2026-09-14).
+# Constats historiques conserves hors perimetre ; lacune T3 corrigee a l'essai 3.
 
 .autoport/lib/census/dead-published-keys-round-2.sh:82,347-349,436,580-581,606 | Les TROIS ancres de ce recensement — le fichier `pbr_fused.glsl`, l'appel `pbr_coverage_note_draw(` et la garde `if (lgtmath::block(lgtmath::kPbrParams)) {` — ont ete supprimees par `c65c9a71bd` (lighting-legacy-purge, 12/09 17:52), quelques heures apres que l'item ait ete valide ; `lines_of` et les deux scanners rendent donc `None` et les branches `note('t3-porte-introuvable')` / `note('t4-garde-introuvable')` posent 9000 chacune | rejoue aujourd'hui, un item VALIDE rend `dead_keys_r2_defects >= 20000` et perd dix-huit cles au lieu de les mettre a zero. Ce n'est pas une regression de la feature : c'est un recensement dont le sujet a disparu. Tant que personne ne le rejoue le vert tient, mais le jour ou une relecture le rejouera, le rouge ne nommera pas sa vraie cause -> item: recensement dont l'ancre a quitte l'arbre
 
@@ -16,6 +16,5 @@ game/graphics/opengl_renderer/shaders/preprocess.py (corrige par cet item) / bui
 
 .autoport/prompts/item-dead-literals-round-3.md et backlog.yaml (`known_cause`) | Le perimetre cite `lib/hdr_batches.py:709` ; l'assertion visee etait a `:714`, et `:709` porte une autre clause (`rendering settings changed within temporal arm`). Cinq lignes de derive entre la redaction de l'item et son execution | un perimetre ancre sur un NUMERO DE LIGNE d'un fichier vivant designe autre chose des le premier commit voisin. Un worker moins prudent aurait retire la mauvaise clause et sa porte aurait pu rester verte. Ancrer sur un MARQUEUR ou sur le texte de la condition, comme le font deja les recensements -> item: les perimetres ne s'ancrent pas sur un numero de ligne
 
-.autoport/lib/census/dead-literals-round-3.sh:328-332 | Les empreintes de programme lie sont publiees indisponibles sans penalite, et le recensement ne compare pas la couverture/POM du contrat | un zero machine ne prouve donc ni ces empreintes ni la non-regression POM ; limites explicites dans report.txt, juge laisse intact pour arbitrage du superviseur
 
-.autoport/lib/proof_run.sh:1494,1643 | Le nettoyage utilise /dev/null comme repli de variables absentes ; stderr de la course essai 2 : rm: cannot remove /dev/null: Permission denied | bruit de nettoyage et tentative de supprimer un noeud systeme ; le producteur a toutefois termine rc=0 et ecrit la preuve
+.autoport/lib/proof_run.sh:1494,1643 | Le nettoyage utilise /dev/null comme repli de variables absentes ; stderr des courses essais 2 et 3 (notes/proof-essai-3-console.txt) : rm: cannot remove /dev/null: Permission denied | bruit de nettoyage et tentative de supprimer un noeud systeme ; le producteur a toutefois termine rc=0 et ecrit la preuve
