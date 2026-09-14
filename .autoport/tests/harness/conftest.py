@@ -4,6 +4,7 @@ RULE: no test touches the real `state.json`, the real `backlog.yaml`, the real
 logs or the real repository. Every test that writes runs inside `tmp_path`, and
 the `sandbox` fixture repoints the orchestrator's module-level paths at it.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -35,6 +36,47 @@ if str(BANC) not in sys.path:
 import bench_env  # noqa: E402
 
 BENCH_ENV = bench_env.install()
+
+
+@pytest.fixture(autouse=True)
+def _environ_propre():
+    """L'ENVIRONNEMENT MAITRISE LE RESTE D'UN TEST AU SUIVANT.
+
+    `bench_env.install()` assainit l'environnement UNE fois, a la collecte. Il ne dit rien de
+    ce que le banc se fait a LUI-MEME ensuite, et le banc s'en faisait deux (recensement du
+    14/09, `grep 'os.environ[...] ='` sur la suite, 2 sites) :
+
+      * `test_attempt.py:143` posait `os.environ["VALIDATOR_RC"]="1"` a nu. La variable
+        survivait a son test et etait encore lisible dans TOUS les suivants — mesure : la
+        sonde `test_un_sous_processus_du_banc_ne_voit_que_la_liste_blanche` la voyait dans un
+        sous-processus, `['VALIDATOR_RC']`, alors qu'aucun parent ne l'avait posee
+        (`sonde_du_parent=0`). Elle y est morte : le validateur que ce test ecrit code
+        `exit 1` EN DUR et ne lit jamais cette variable.
+      * `_fake_claude()` prepend son `fakebin` a `PATH` A CHAQUE APPEL, sans jamais le
+        retirer : une dizaine d'entrees empilees pointant sur des `tmp_path` deja effaces.
+
+    LE POINT DE PRODUCTION, ENCORE (DIRECTIVES/non-destruction). Reparer les deux sites les
+    laisse renaitre au troisieme, et il faudrait relire toute la suite pour savoir ce que
+    l'environnement porte a un instant donne. On PHOTOGRAPHIE avant chaque test et on RESTITUE
+    apres : les deux sites sont corriges sans etre touches, le troisieme naitra corrige, et il
+    n'y a qu'UN endroit a lire. `monkeypatch.setenv` fait deja cela pour qui y pense ; ceci le
+    fait pour qui n'y pense pas.
+
+    ON RESTITUE, ON NE SOUSTRAIT PAS : `os.environ.clear()` puis `update()` remet aussi les
+    variables qu'un test aurait SUPPRIMEES. Comparer des noms laisserait passer une valeur
+    changee sous un nom conserve.
+
+    SOUS LE BRAS D'ABLATION, CETTE GARDE NE TOURNE PAS. « OFF doit EGALER l'absence » : le bras
+    d'avant doit rendre le banc tel qu'il etait, pollution comprise, sinon le cout d'AVANT
+    qu'on publie n'est pas celui qu'on a paye.
+    """
+    if BENCH_ENV["mode"] != "maitrise":
+        yield
+        return
+    photo = dict(os.environ)
+    yield
+    os.environ.clear()
+    os.environ.update(photo)
 
 
 @pytest.fixture(autouse=True)

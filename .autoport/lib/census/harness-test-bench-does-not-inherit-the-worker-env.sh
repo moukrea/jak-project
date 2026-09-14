@@ -160,6 +160,14 @@ for nom, j in J.items():
     out.append("CTL_%s=%s" % (nom, q(v)))
     out.append("SONDE_%s=%d" % (nom, 0 if j is None else
                                 len([k for k in j if k.startswith(sonde + "::")])))
+    # LE VERDICT DE LA SONDE, PAS SEULEMENT SON EXISTENCE. Compter les jambes collectees
+    # laissait passer une sonde ROUGE : le 14/09 elle voyait `VALIDATOR_RC` dans un
+    # sous-processus, elle rougissait des DEUX cotes du bras livre, l'ecart nu/worker valait
+    # donc zero et la porte rendait 0 sur un banc qui ne passait pas. Sous le bras d'AVANT
+    # ces jambes sont `skipped` par construction : on ne lit ce terme que dans le bras livre.
+    out.append("SONDEKO_%s=%d" % (nom, -1 if j is None else
+                                  len([k for k, v in j.items()
+                                       if k.startswith(sonde + "::") and v != "pass"])))
 
 for etiq, a, b, sans in (("AVANT", "avant_nu", "avant_worker", True),
                          ("AVANT_TOUT", "avant_nu", "avant_worker", False),
@@ -248,6 +256,12 @@ else t_fuite=$((t_fuite+1)); faute sonde-de-sous-processus-muette; fi
 [ "$M_RET" -ge 1 ] 2>/dev/null || { t_fuite=$((t_fuite+1)); faute rien-retire-instrument-aveugle; }
 [ "$M_APPAR" -ge 4 ] 2>/dev/null || { t_fuite=$((t_fuite+1)); faute moins-de-quatre-autoport-au-parent-simulation-degeneree; }
 [ "$M_APSURV" = 1 ] || { t_fuite=$((t_fuite+1)); faute autoport-survivants-hors-mention-explicite; }
+# LA SONDE DOIT PASSER, PAS SEULEMENT TOURNER. Sans ce terme la porte etait verte par
+# SYMETRIE : une sonde qui rougit des deux cotes ne creuse aucun ecart nu/worker.
+for nom in apres_nu apres_worker; do
+  eval "ko=\${SONDEKO_$nom:--1}"
+  [ "$(n "$ko")" = 0 ] || { t_fuite=$((t_fuite+1)); faute "sonde-non-verte-bras-livre:$nom=$ko"; }
+done
 
 # L'ANCRE : sans elle, « OFF egale l'etat d'avant » serait une affirmation.
 t_ancre=0
@@ -296,6 +310,8 @@ pub bev_autoport_survivors_list "$(m autoport_survivants_liste)"
 pub bev_probe_subproc_seen "$M_SONDE_VUES"
 pub bev_probe_subproc_from_parent "$M_SONDE_PAR"
 pub bev_probe_nodes "$(n "${SONDE_apres_worker:-}")"
+pub bev_probe_fail_after_bare "$(n "${SONDEKO_apres_nu:-}")"
+pub bev_probe_fail_after_worker "$(n "${SONDEKO_apres_worker:-}")"
 pub bev_before_commit "${AVANT_C:--}"
 pub bev_before_marker "$AV_MARQ"
 pub bev_before_install "$AV_INST"
