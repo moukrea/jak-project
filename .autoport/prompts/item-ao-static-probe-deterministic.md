@@ -5,7 +5,7 @@
 # La mesure de stabilite de l'AO echantillonne le MEME instant de scene a chaque course — puis dit si l'AO bouge
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-14 : « any news? »
 
 ## Cause connue
 Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l'essai 13, mesure : quatre courses du MEME binaire au meme vantage ont rendu `ao_static_cam_delta_px` = 0 / 387 / 1079 / 62 alors qu'entre la 2e et la 3e le binaire ne differait que par du code de MESURE (aucun appel GL). La sonde est ancree sur `g_frame % kProbeEvery` pendant une course de 150 s de MONTRE a cadence NON plafonnee (2460 / 2220 / 2280 images) : les 8 images de recensement tombent a des moments DIFFERENTS de la scene. Le zero des essais 10-12 n'etait pas une propriete du code. Le « ca bouge dans tous les sens » de l'owner ne peut pas etre juge tant que la sonde bouge elle-meme. ACQUIS DE lighting-ao-indirect A NE PA […suite dans le contrat]

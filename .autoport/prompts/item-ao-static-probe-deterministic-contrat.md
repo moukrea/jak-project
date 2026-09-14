@@ -26,7 +26,8 @@ Rien a voir seul : c'est l'instrument qui rend le juge fiable. L'owner regardera
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-14
+> any news?
 
 ## Pourquoi ce fichier existe
 

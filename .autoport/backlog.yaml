@@ -11624,6 +11624,19 @@ items:
     findings: FINDINGS actif signale notamment crash SIGILL au titre avant teleportation, datation refset
       Android, appel apply_owner_tuning.py absent, banc NPC dependant de /tmp ; aucun chantier nouveau
       ouvert sur ces seuls signalements.
+  block_reason: null
+  supervisor_recovery_resolution:
+    date: '2026-09-14'
+    request: 'Reprise superviseur requise pour : ao-static-probe-deterministic. Ces priorités sont bloquées.
+      Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou
+      le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer
+      l''arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.'
+    cause: 'Consigne perimee : unique difference entre fichier et rendu attendu = ajout par le superviseur
+      de la demande de statut « any news? » dans owner_feedback. Aucun changement de livrable. Refus precedent
+      distinct : test de suite herite non consigne.'
+    action: Consigne et contrat regeneres. Refus herite ajoute au rapport et aux FINDINGS, rattache a
+      harness-suite-temporary-files-outside-quota. Reouverture sans validation, sans reset des essais,
+      sans relance manuelle. Reprendre depuis le handoff et laisser les portes juger les artefacts reels.
 - status: open
   game: jak1
   owner_test: true
@@ -11783,3 +11796,44 @@ items:
       fois out/jak1/fr3/GAME.meshweld plus ancien que common/custom_data/TFrag3Data.cpp. Meme cause que
       le refus de 16:34:56 ; aucun nouvel APK prouve.'
     active_work: ao-static-probe-deterministic in-progress ; aucun etat preuve-impossible actif.
+- id: harness-suite-temporary-files-outside-quota
+  status: open
+  priority: 27
+  game: jak1
+  device: false
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  depends_on: []
+  feature: La suite du harnais ne depend plus du quota temporaire sature
+  gate:
+    key: suite_tmp_defects
+    op: ==
+    value: 0
+  known_cause: 'Le validateur de ao-static-probe-deterministic essai 1 confirme ao_static_defects=0 puis
+    refuse sur test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface, rouge HERITE a la base b87ff10b773c
+    et non consigne. Le 14/09 le superviseur rejoue ce seul test avec TMPDIR sous ~/.cache : 1 passed
+    en 0,25 s. Le faux adb du test appelle mktemp sans chemin ; suite_gate._run_pytest herite TMPDIR et
+    la veille/orchestrateur n en portaient pas. Quota /tmp sature deja confirme dans le handoff. Cause
+    exacte de ce rouge pas encore demontree ; ne pas annoncer une correction sur le seul test isole vert.'
+  deliverable: 'Publier suite_tmp_defects=0 avec populations de banc non vides : le lanceur de suite et
+    ses rejeux transmettent un repertoire temporaire hors /tmp a pytest ET aux outils shell enfants, meme
+    si TMPDIR=/tmp est herite. Verifier les vrais chemins crees dans un banc isole ; temoin de repertoire
+    temporaire indisponible nomme et refuse sans accuser le code du jeu. Reproduire le rouge test_pin_props
+    archive ou conclure explicitement non reproduit, puis executer le fichier test_pin_props et la suite
+    appropriee hors quota. Aucun test desactive, aucune dispense ajoutee. Preuve produite par lib/proof_run.sh,
+    jugee par generic.sh.'
+  out_of_scope: Aucun code jeu, aucun appareil, aucun nettoyage destructif de /tmp ; aucune relaxation
+    des criteres ni modification de la preuve AO. Ne pas ouvrir de campagne moteur.
+  where: 'Invisible dans le jeu : eviter un refus de fermeture cause par les temporaires du banc.'
+  max_turns: 700
+  max_retries: 6
+  proof_timeout: 420
+  prompt: prompts/item-harness-suite-temporary-files-outside-quota.md
+  owner_feedback:
+  - date: '2026-09-14'
+    text: 'Reprise superviseur requise pour : ao-static-probe-deterministic. Ces priorités sont bloquées.
+      Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou
+      le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer
+      l''arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.'
+  owner_ok: null
