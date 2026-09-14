@@ -16,6 +16,26 @@ for p in (str(AUTOPORT), str(LIB)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+# ================= L'ENVIRONNEMENT DU BANC EST ASSAINI ICI, AVANT TOUTE COLLECTE =============
+# harness-test-bench-does-not-inherit-the-worker-env, 2026-09-14. Le banc heritait TOUT
+# l'environnement de qui le lance : lance depuis une session de worker, `AUTOPORT_ATTEMPT_ID`
+# etait pose, `validators/generic.sh` exigeait alors `proof_attempt_id=` dans la preuve
+# synthetique que `test_proof.py` n'ecrit pas, et LE CONTROLE POSITIF du banc rougissait. Un
+# test qui change de verdict selon qui le lance mesure son lanceur.
+#
+# CE POINT-CI EST LE POINT DE PRODUCTION. `conftest.py` est importe avant tout module de test :
+# les vingt sites qui font `dict(os.environ, ...)` heritent donc d'un environnement deja propre,
+# sans avoir a etre touches, et le vingt-et-unieme naitra propre. La liste blanche, le bras
+# d'ablation et ce qui a ete retire vivent dans `bench_env.py`, qui est le SEUL a le savoir.
+# MARQUEUR: banc-env-maitrise-2026-09-14  (ancre du bras d'AVANT, lib/ablation_anchor.sh)
+BANC = Path(__file__).resolve().parent
+if str(BANC) not in sys.path:
+    sys.path.insert(0, str(BANC))
+
+import bench_env  # noqa: E402
+
+BENCH_ENV = bench_env.install()
+
 
 @pytest.fixture(autouse=True)
 def _module_cache_propre():
