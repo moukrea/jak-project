@@ -925,7 +925,7 @@ bool blockiness(const uint8_t* p,
 // soit l'angle de vue, et explose sur une arete. C'est exact, pas empirique.
 // Sur ces triples-la seulement, on regarde la derivee seconde de l'AO : un gradient de contact
 // lisse la laisse petite, une frontiere de cellule la fait sauter. Le seuil est 8/255 (3 %).
-void flat_step(const uint8_t* ao,
+[[maybe_unused]] void flat_step(const uint8_t* ao,
                const float* depth,
                int w,
                int h,
@@ -988,7 +988,7 @@ void flat_step(const uint8_t* ao,
 // au pli que de part et d'autre — est exactement la « bande eclairee sans AO » que l'owner
 // decrit. On mesure aussi sa LARGEUR : depuis le pli, on avance des deux cotes tant que l'AO
 // reste au moins aussi claire qu'au pli moins un quantum, au plus 8 pixels.
-void contact_band(const uint8_t* ao,
+[[maybe_unused]] void contact_band(const uint8_t* ao,
                   const float* depth,
                   int w,
                   int h,
@@ -1451,26 +1451,47 @@ void AmbientOcclusionPass::publish_pattern_census() {
   const bool flat_measured = (worst_flat_delivered > 0 || contact_frames > 0) &&
                              s_flat_unsupported == 0;
   const uint64_t t2 = flat_measured ? (worst_flat_delivered > 10ull ? 1ull : 0ull) : 1ull;
-  autoport_proof::publish("ao_pattern_over_ceiling", t2);
+  if (flat_measured) {
+    autoport_proof::publish("ao_pattern_over_ceiling", t2);
+  } else {
+    autoport_proof::publish_text("ao_pattern_over_ceiling", "non-mesure");
+  }
   autoport_proof::publish("ao_pattern_over_ceiling_measured", flat_measured ? 1ull : 0ull);
 
   // (6) LA BANDE DE CONTACT. Population = les plis examines ; temoin = le meme compte sur le
   // bras d'avant. Un `pop` nul rend la grandeur MUETTE, pas verte.
-  autoport_proof::publish("ao_contact_band_px", contact_band_px);
-  autoport_proof::publish("ao_contact_pop_px", contact_pop_px);
-  autoport_proof::publish("ao_contact_band_width_px", contact_w);
-  autoport_proof::publish("ao_contact_band_legacy_px", contact_legacy);
   const bool contact_measured = (contact_pop_px > 0);
+  autoport_proof::publish("ao_contact_pop_px", contact_pop_px);
   autoport_proof::publish("ao_contact_band_measured", contact_measured ? 1ull : 0ull);
+  if (contact_measured) {
+    autoport_proof::publish("ao_contact_band_px", contact_band_px);
+    autoport_proof::publish("ao_contact_band_width_px", contact_w);
+    autoport_proof::publish("ao_contact_band_legacy_px", contact_legacy);
+  } else {
+    // ── UN TERME NON MESURE NE SE PUBLIE PAS A ZERO ──────────────────────────────────────
+    // `contact_band()` n'a de site d'appel que sur bureau : la profondeur pleine resolution
+    // passe par `glReadPixels(GL_DEPTH_COMPONENT)`, que GLES refuse. Publier `0` a cote de son
+    // denominateur nul, sur l'appareil, serait un vert par INACTION — un lecteur presse lit la
+    // premiere cle et pas la seconde. On publie donc un TEXTE, que nul seuil numerique ne peut
+    // franchir, et le terme entre dans `ao_owner_defects` pour 1.
+    autoport_proof::publish_text("ao_contact_band_px", "non-mesure");
+    autoport_proof::publish_text("ao_contact_band_width_px", "non-mesure");
+    autoport_proof::publish_text("ao_contact_band_legacy_px", "non-mesure");
+  }
   const uint64_t t6 = contact_measured ? contact_band_px : 1ull;
 
   // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE.
-  autoport_proof::publish("ao_static_cam_delta_px", static_moved);
-  autoport_proof::publish("ao_static_cam_pop_px", static_pop);
-  autoport_proof::publish("ao_static_cam_legacy_px", static_legacy);
-  autoport_proof::publish("ao_static_cam_frames", static_frames);
   const bool static_measured = (static_pop > 0);
+  autoport_proof::publish("ao_static_cam_pop_px", static_pop);
+  autoport_proof::publish("ao_static_cam_frames", static_frames);
   autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
+  if (static_measured) {
+    autoport_proof::publish("ao_static_cam_delta_px", static_moved);
+    autoport_proof::publish("ao_static_cam_legacy_px", static_legacy);
+  } else {
+    autoport_proof::publish_text("ao_static_cam_delta_px", "non-mesure");
+    autoport_proof::publish_text("ao_static_cam_legacy_px", "non-mesure");
+  }
   const uint64_t t5 = static_measured ? static_moved : 1ull;
 
   // (7) LE PALIER ELEVE. Le contrat laisse DEUX facons de le tenir : pleine resolution, OU un
@@ -1500,6 +1521,18 @@ void AmbientOcclusionPass::publish_pattern_census() {
   const uint64_t t1 = (s_prepass_mask & 1) ? s_pre_direct_leak_px : 1ull;
   const uint64_t t3 = (s_prepass_mask & 2) ? s_pre_sway_gap_px : 1ull;
   const uint64_t t4 = (s_prepass_mask & 4) ? s_pre_on_alpha_device_px : 1ull;
+  // Meme regle pour les trois termes de la prepasse : sur l'appareil, la sonde de stencil et
+  // la profondeur de prepasse sont hors d'atteinte de GLES ; `ao_direct_leak_px` et
+  // `ao_sway_gap_px` y vaudraient 0 sans que rien ne les ait comptes.
+  if (!(s_prepass_mask & 1)) {
+    autoport_proof::publish_text("ao_direct_leak_px", "non-mesure");
+  }
+  if (!(s_prepass_mask & 2)) {
+    autoport_proof::publish_text("ao_sway_gap_px", "non-mesure");
+  }
+  if (!(s_prepass_mask & 4)) {
+    autoport_proof::publish_text("ao_on_alpha_device_px", "non-mesure");
+  }
   autoport_proof::publish("ao_owner_term1_direct_leak", t1);
   autoport_proof::publish("ao_owner_term2_pattern", t2);
   autoport_proof::publish("ao_owner_term3_sway", t3);
