@@ -5,10 +5,10 @@
 # La prepasse d'AO garde les memes fragments que la couleur sur le TIE statique : plus d'ombre calculee a cote de la geometrie
 
 ## Defaut cite
-- 2026-09-14 : « bah oui faut que ça avance »
+- 2026-09-15 : « j'ai testé un build il y a une heure environ ou les mini pal… »
 
 ## Cause connue
-MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur r […suite dans le contrat]
+RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee n […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

@@ -39,6 +39,9 @@ Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tron
 ### 2026-09-15
 > Reprise superviseur requise pour : shrub-trunk-contact. Ces priorités sont bloquées. Lis leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l'arrêt ; ne valide rien et ne relance pas le même essai sans diagnostic.
 
+### 2026-09-15
+> j'ai testé un build il y a une heure environ ou les mini palmiers etaient bons, l'AOnsur les shrubs etait bon, mais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap eclairemais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé éclairé est toujours lamais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ou pixelisation  pixelisation
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

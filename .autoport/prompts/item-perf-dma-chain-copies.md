@@ -1,7 +1,7 @@
 # La chaine DMA n'est plus parcourue cinq fois par image
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-15 : « pour les perfs DMA truc muche, c'est validepour les perfs DMA truc muche, c'est validé »
 
 ## Cause connue
 Android : sonde d'envoi (android_gfx.cpp:1253-1304), copieur par tranches de 128 Ko (:1360, dma_copy.cpp:89-170), sonde A37 cote GL (:500-508), count_chain_bytes (android_opengl_renderer.cpp:1193-1200), puis le rendu = 5 parcours. PC : zero copie (opengl.cpp:58). Le volume copie n'est jamais journalise (370-450 Ko de chaine).

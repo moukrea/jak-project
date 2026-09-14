@@ -6599,8 +6599,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:5
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
-  status: open
-  priority: 37
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: dma_chain_walks_per_frame
@@ -6635,6 +6635,14 @@ items:
   block_reason: null
   prompt: prompts/item-perf-dma-chain-copies.md
   device_serial: eae4df44
+  owner_ok:
+    date: '2026-09-15'
+    text: pour les perfs DMA truc muche, c'est validepour les perfs DMA truc muche, c'est validé
+    build_sha: null
+  owner_feedback:
+  - date: '2026-09-15'
+    text: pour les perfs DMA truc muche, c'est validepour les perfs DMA truc muche, c'est validé
+  owner_test_build: revision non precisee par owner ; aucune attribution au HEAD de la session
 - id: perf-gl-state
   feature: Moins d'appels pilote par draw, memes pixels
   status: open
@@ -11271,6 +11279,14 @@ items:
       derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le périmètre
       nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt ; ne
       valide rien et ne relance pas le même essai sans diagnostic.'
+  - date: '2026-09-15'
+    text: 'j''ai testé un build il y a une heure environ ou les mini palmiers etaient bons, l''AOnsur
+      les shrubs etait bon, mais le fait que l''AO est pas exactement aux zones de congact mais laisse
+      un gap eclairemais le fait que l''AO est pas exactement aux zones de congact mais laisse un gap
+      éclairé éclairé est toujours lamais le fait que l''AO est pas exactement aux zones de congact mais
+      laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit...
+      ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas.
+      mar xontre plus de damier ou pixelisation  pixelisation'
   owner_ok: null
   block_reason: null
   supervisor_recovery: true
@@ -11341,6 +11357,12 @@ items:
     scope_change: stop limite au lancement des bras ; preparation temoin neutre, entrees par frame logique,
       capture herbe/vent et consommateur entre binaires explicitement dans le perimetre autorise. Aucun
       critere ni validation modifies.
+  owner_observation:
+    date: '2026-09-15'
+    result: mini-palmiers juges bons sur un build teste environ une heure auparavant
+    tested_build: non identifie
+    scope: retour positif conserve ; ne pas attribuer ce test aux modifications ulterieures de la preparation
+      comparative
 - status: validated
   game: jak1
   owner_test: false
@@ -11826,7 +11848,7 @@ items:
     action: Consigne et contrat regeneres. Refus herite ajoute au rapport et aux FINDINGS, rattache a
       harness-suite-temporary-files-outside-quota. Reouverture sans validation, sans reset des essais,
       sans relance manuelle. Reprendre depuis le handoff et laisser les portes juger les artefacts reels.
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11863,6 +11885,8 @@ items:
     op: ==
     value: 0
   known_cause: |-
+    RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee non identifiee. Diagnostic causal a etablir, la capture nest pas une mesure moteur.
+
     MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur restent non prouves. Ne pas forcer une modification de prepasse sur cette seule hypothese.
 
     HISTORIQUE A CONSERVER, CAUSALITE DE SUR-DECOUPAGE REFUTEE PAR LES ESSAIS 2-3 :
@@ -11874,6 +11898,7 @@ items:
     3. LA COULEUR NE CHANGE PAS : le correctif porte sur la cause etablie, y compris l instrument de mesure si le diagnostic accuse celui-ci ; aucune modification du rendu ne doit etre faite pour satisfaire une hypothese refutee ; image couleur bit-identique AO eteinte, et compte de fragments TIE changes dans la passe couleur = zero.
     4. LES ACQUIS TIENNENT ET L'OWNER PEUT JUGER : les cinq cles acquises et `ao_static_defects` restent a zero dans la MEME preuve ; `where` decrit exactement ce que l'owner regarde.
     PREUVE : `FEATURE ao-prepass-tie-alpha armed=1 hits=<fragments de TIE statique juges dans la prepasse>` + la ligne `ao_tie_prepass_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
+    RETOUR OWNER 15/09 : la bande claire mur/toit de la hutte reste NON CORRIGEE. La clause contact inclut explicitement cette jonction, avec population geometrique identifiee et diagnostic du decalage avant correction. Ne pas conclure depuis une autre vue ou ao_contact_band_px=0 hors de cette population. Preserver les ameliorations confirmees par l owner : AO suivant les shrubs, absence de damier et de pixelisation. Aucun seuil assoupli pour faire disparaitre le signalement.
   where: 'Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : chaque palier et
     chaque mode (SSAO, HBAO, GTAO), force au maximum. Aucun damier ni pixelisation, meme en Eleve ; aucune
     bande claire aux contacts ; sur les shrubs qui balancent, l''ombre suit le feuillage et rien ne flotte
@@ -11882,6 +11907,7 @@ items:
     Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante. Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde reste hors perimetre.
 
     Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
+    EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
   notes: SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est
     ici que l'owner juge l'AO.
   hits_means: fragments de TIE statique juges dans la prepasse
@@ -11889,6 +11915,14 @@ items:
   owner_feedback:
   - date: '2026-09-14'
     text: bah oui faut que ça avance
+  - date: '2026-09-15'
+    text: 'j''ai testé un build il y a une heure environ ou les mini palmiers etaient bons, l''AOnsur
+      les shrubs etait bon, mais le fait que l''AO est pas exactement aux zones de congact mais laisse
+      un gap eclairemais le fait que l''AO est pas exactement aux zones de congact mais laisse un gap
+      éclairé éclairé est toujours lamais le fait que l''AO est pas exactement aux zones de congact mais
+      laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit...
+      ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas.
+      mar xontre plus de damier ou pixelisation  pixelisation'
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -11897,10 +11931,7 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: 'Campagne autorisee terminee : 9/9 courses, budget restant zero. Trous TIE nuls sur trois
-    vues, mais couleur differente, stabilite/acquis exterieurs rouges et reference couleur plage manquante
-    (1380 images pour sonde au tick1400). Diagnostiquer entrees vent et regimes/couvertures avant proposition
-    de nouvelle campagne ; ne pas relancer proof_run. Essai 6 interrompu sans retry.'
+  block_reason: null
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -11938,6 +11969,16 @@ items:
     runs_consumed: 9
     runs_remaining: 0
     ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
+  owner_evidence:
+    path: owner-feedback/2026-09-15-ao-hut-contact.png
+    sha256: df95a72a18a07bfcdbbf9a46fed42e047f13464ae16456fcdd9632c953a2db0c
+    kind: signalement visuel owner, pas preuve machine
+    build: build teste environ une heure avant message, revision non identifiee
+    reported_defect: bande claire entre mur de hutte et toit
+    reported_improvements:
+    - mini-palmiers bons
+    - AO shrubs bonne
+    - plus de damier ni pixelisation
 - status: open
   game: jak1
   device: false
@@ -12118,3 +12159,37 @@ items:
     reason: Le handoff livraison essai 6 demande ce prealable. Essai temporaire 1 interrompu par scope_stamp,
       non compte ; travail sauvegarde f76b6f7b5f. Reprendre les modifications existantes et ajouter le
       banc close_gate/acquis, sans repayer le diagnostic deja archive.
+- id: acquis-perf-dma-chain-copies
+  status: open
+  priority: 36
+  game: jak1
+  device: true
+  owner_test: false
+  no_code: true
+  code_scope: harnais
+  depends_on:
+  - perf-dma-chain-copies
+  feature: Proteger la reduction des parcours DMA validee par l owner
+  known_cause: 'Validation owner15/09 : controle acquis absent pour perf-dma-chain-copies. Le chemin DMA
+    Android est distinct du zero-copie PC ; une preuve x86 seule ne couvre pas cet acquis.'
+  deliverable: Ajouter acquis/perf-dma-chain-copies.sh reutilisant les compteurs Android existants et
+    une preuve fraiche/scellee du producteur autorise. Refuser plus de deux parcours par image, population
+    vide, incoherence de comptage, donnees perimees, erreur de copie ou crash. Banc isole avec temoins
+    faux/vides/perimes et cas valide ; publier dma_acquis_defects=0 et populations non vides via proof_run
+    puis generic. Ne pas presenter ces compteurs comme une identite pixel ou un gain FPS. Acquisition
+    via proof_run et gardes USB existantes uniquement.
+  gate:
+    key: dma_acquis_defects
+    op: ==
+    value: 0
+  out_of_scope: Aucun compteur ou code moteur neuf, aucune modification du verdict owner ni des autres
+    acquis. Pas de campagne supplementaire ni de test visuel a demander.
+  where: Protection automatique, rien a retester par l owner.
+  owner_feedback:
+  - date: '2026-09-15'
+    text: pour les perfs DMA truc muche, c'est validepour les perfs DMA truc muche, c'est validé
+  owner_ok: null
+  max_retries: 6
+  max_turns: 700
+  proof_timeout: 420
+  prompt: prompts/item-acquis-perf-dma-chain-copies.md
