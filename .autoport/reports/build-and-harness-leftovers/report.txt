@@ -1,0 +1,28 @@
+DIRECTIVES vbbd78e3a00
+Livré : neuf points corrigés et dix termes à zéro ; auteur de la corruption Ninja non établi, exception explicite du contrat.
+La validation de fermeture reste à l’orchestrateur ; aucun validateur modifié ou lancé manuellement.
+
+Changements : contradictions code_scope publiées, refus corrigé, promesse GUARD rectifiée.
+Formatage automatique retiré du build normal ; motif /build-*/ ancré à la racine.
+Six objets runtime archivés hors du graphe ; ménage réversible intégré à la porte.
+Révision SDL dérivée de sa version dans les sources ; sept scripts ARM64 passent une porte commune.
+Gain courant mesuré sur le banc existant de quatre objets, historique du jeu explicitement daté.
+Points 1–9 : même détecteur sur commit 30f3a9b540 puis livraison, défaut 1→0 chacun.
+Point 10 : capture brute du 12/09 contre journal actuel ; ID 5487 dupliqué,5490 attendu, offset 2831912.
+Concurrence/restauration compatibles ; simple troncature insuffisante ; aucun PID initial identifiable.
+
+Huit lignes de proof.txt, produit par lib/proof_run.sh build-and-harness-leftovers x86 --timeout 90 :
+source=x86
+sha=88d75496c16a7fec
+crash=0
+frames=5195
+proof_census_rc=0
+build_leftovers_defects=0
+bl_runtime_orphans_after=0
+bl_status_10=cause_non_etablie
+
+Tests : suite harnais : 723 tests réussis ; quatre tests ménage ajoutés ensuite : 4 réussis ; garde pré-outil rc=0.
+Construction de bureau : porte rc=0, zéro compilation restante, binaire frais contre 46 entrées.
+L’owner n’a aucun contrôle visuel à effectuer pour cet item owner_test:false.
+non prouvé : identité du corrupteur, absence de récidive, build/fraîcheur ARM64 réels, gain de cadence du jeu.
+Signalements non corrigés consignés dans FINDINGS.txt ; aucun successeur ouvert.
