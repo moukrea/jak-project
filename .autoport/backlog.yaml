@@ -11783,6 +11783,10 @@ items:
   owner_ok: null
   id: acquis-perf-fbo-passes
   priority: 36
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_HDR=0
+  - OG_HDR_OUT=0
   feature: Proteger automatiquement la suppression des passes plein ecran superflues
   depends_on:
   - perf-fbo-passes
