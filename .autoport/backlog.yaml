@@ -4989,7 +4989,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: in-progress
+  status: to-test
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5094,16 +5094,16 @@ items:
   - AO_FORCE_MODE=3
   - OG_UNCAP_FPS=240
   - FOLIAGE_WIND_FORCE=1
-  delivered: '2026-09-13'
+  delivered: '2026-09-14'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:48
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-13'
-    proof_sha: 39b5358f9bf992a4
-    proof_bytes: 43561
-    attempt: 6
-    journal: validator-006.txt
+    date: '2026-09-14'
+    proof_sha: 9b67311985a6f181
+    proof_bytes: 47554
+    attempt: 7
+    journal: validator-007.txt
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -6289,7 +6289,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
-  status: open
+  status: in-progress
   priority: 23
   game: jak1
   gate:
