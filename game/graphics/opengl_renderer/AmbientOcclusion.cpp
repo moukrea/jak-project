@@ -562,7 +562,7 @@ bool s_pattern_census_request = false;
 int s_census_pair_phase = -1;
 uint64_t s_static_pairs = 0;
 
-// Exact, unmasked census for ao-static-probe-deterministic only.
+// Exact, unmasked census for features requesting the deterministic static probe.
 struct StaticProbeState {
   std::vector<uint8_t> final, estimator;
   std::vector<float> depth;
@@ -582,7 +582,7 @@ uint64_t s_probe_nondeterminism = 0, s_probe_samples = 0;
 bool s_probe_compared = false;
 
 bool exact_static_probe() {
-  return autoport_proof::feature_is("ao-static-probe-deterministic");
+  return ao_static_probe::requested();
 }
 
 void capture_estimator(GLuint fbo, int w, int h) {

@@ -1,28 +1,29 @@
 DIRECTIVES v775512c234
-Verdict : non validé ; la cause observée est l’alpha forcé à 1 par la mesure couleur, pas un écart d’échantillonnage de la prépasse.
-Livré : diagnostic MRT borné à quatre images, identité du draw et table alpha ; aucun correctif de rendu appliqué (commit 0106ca837a).
-Build Android et repack réussis ; garde NPC : 47 propriétés tenues après déplacement de TMPDIR hors /tmp saturé.
-Course USB eae4df44, run 20260914T165752Z-307512-2d62b1fd, 163 s ; SHA d476a8f72ce8ebf1, MD5 local/appareil identiques.
+Verdict : non validé ; la mesure corrigée ne trouve plus de trou TIE à village1-hut, mais le contrat complet reste non prouvé.
+Changé : shade.glsl conserve c.a sous u_ao_proof ; la table préalable de l’essai 1 établissait l’alpha couleur artificiellement forcé à 1.
+La correction porte sur l’instrument couleur ; aucun élargissement de découpe ni correctif de géométrie de prépasse appliqué.
+Raccordé : sonde statique et lecteur exact existants, ancres comprises ; ticks, populations, témoins et critères conservés.
+FEATURE publie les prises propres : 1444 jugements alpha avec draw de prépasse et couleur TIE identiques, séparés des 87027 pixels couleur observés.
+Build arm64 incrémental code 0, garde NPC 47 propriétés ; repack code 0 en 7 s, shader c.a vérifié dans la bibliothèque.
+Preuve USB neuve : run 20260914T171045Z-330330-a3338647, eae4df44 (Redmi Note 9 Pro), SHA 14f694dbd6dfdfc9, durée 162 s.
+Déploiement vérifié : MD5 local/appareil 2f0b1f4c5906f297793ccc22d30b8485 ; 13 propriétés épinglées effectives, aucune perdue.
 Huit lignes recopiées de proof.txt :
 crash=0
-frames=2100
-ao_tie_alpha_frames=4
-ao_tie_alpha_observed_px=347209
-ao_tie_alpha_missing_px=725
-ao_tie_alpha_alpha_rejection_other_px=725
-ao_tie_alpha_alpha_sampling_difference_px=0
-ao_tie_alpha_texture_state_difference_px=0
-Table complète : proof.txt:1805-1836 ; copie lisible notes/alpha-table.tsv, audit 32/32 alphas identiques et sous seuil, color_test=1.
-L’alpha prépasse est relu dans son rejeu de classification sans découpe ; son depthwrite=0 décrit ce rejeu, pas la passe livrée.
-Échantillon 1 : draw=10, z=0.010251225 des deux côtés, raw couleur=raw prépasse=0, seuil pré=0.149021909, seuil couleur=0.299212605.
-Cause : PrePass.cpp:1678 active u_ao_proof ; shade.glsl:451 renvoie alpha=1 ; tfrag3.frag:84 puis :118 l’affecte et le teste.
-Sur les 725 absents examinés, les autres catégories valent zéro, notamment identité/profondeur, état texture et profondeur couleur désactivée.
-Le compteur historique, sur une population plus longue, reste ao_geom_tie_absent_px=1521, dont 1009 intérieurs, couverture monde=3712955.
-Les cinq clés acquises sont à zéro dans cette preuve ; leur mode couleur contaminé interdit d’en déduire une validation hors mesure.
-Le correctif instrumental identifié serait c.a au lieu de 1.0 dans shade.glsl:451 ; non appliqué : il change la couleur des images sondées et contredit « correctif dans la PRÉPASSE ».
-Autre obstacle : ao_static_defects n’est activable que sous l’ancien identifiant ; la sonde de stabilité n’a pas été modifiée.
-FEATURE hits=40359433 est global ; proof_feature_own_hits=347209 est le nombre de pixels TIE observés. Clause littérale FEATURE non satisfaite.
-non prouvé : ao_tie_prepass_defects (clé absente), suppression des trous, deux autres vues, couleur AO éteinte bit-identique, --off, stabilité dans cette preuve, coût, esthétique.
-Owner : Options > Recharged > Recharged Lighting > Ambient Occlusion sur HONOR, chaque palier et SSAO/HBAO/GTAO force maximale ; damier, contacts, feuillage en mouvement et caméra immobile.
-Le diagnostic ne démontre ni l’absence ni la présence de ces défauts dans le rendu normal ; aucune qualité visuelle déclarée validée.
-FINDINGS.txt et handoff.md précisent les obstacles et anomalies laissées. Aucun validateur exécuté par ce worker, aucune clôture ni validation owner fabriquée.
+frames=1980
+ao_geom_cover_px=463967
+ao_geom_tie_cover_px=87027
+ao_geom_tie_absent_px=0
+ao_geom_tie_absent_inner_px=0
+ao_tie_alpha_pre_judged_px=1444
+ao_static_defects=1
+Une acquisition géométrique à village1-hut : ao_tie_alpha_missing_px=0, aucune ligne d’échantillon absent à publier dans cette course.
+La table antérieure reste dans notes/alpha-table.tsv : 32 lignes auditées, 725 absents historiques classés alpha_rejection_other ; ce n’est pas une preuve neuve.
+Les cinq acquis sont à zéro dans cette preuve : ao_high_not_fullres, ao_pattern_over_ceiling, ao_on_alpha_device_px, ao_direct_leak_px, ao_contact_band_px.
+Stabilité : 18 échantillons, deux ancres ; seuls ao_static_term_nondeterminism=1 et ao_probe_nondeterminism=non-mesure empêchent le zéro.
+Tous les autres termes statiques valent zéro, y compris variations finale/estimateur, prémisse, acquisitions et ancres.
+La première course du binaire a enregistré sa référence (ao_probe_baseline_saved=1) ; aucune seconde course ON ajoutée sans plan autorisé.
+non prouvé : ao_tie_prepass_defects (absent), deux autres vues, identité bit à bit couleur AO éteinte, compte de fragments couleur changés, comparaison inter-courses, ablation --off, coût et esthétique.
+Le livrable « correctif dans la PRÉPASSE » doit être réconcilié avec la cause instrumentale mesurée ; un correctif de rendu ne se justifie pas par les anciens faux trous.
+Owner : Options > Recharged > Recharged Lighting > Ambient Occlusion, sur HONOR, chaque palier et SSAO/HBAO/GTAO à force maximale.
+À regarder : aucun damier/pixelisation, y compris Élevé ; aucun contact clair ; ombre suivant le feuillage mobile sans flotter ; rien ne bougeant caméra immobile.
+Aucun validateur exécuté par le worker ; aucune clôture ni validation owner fabriquée. Handoff et FINDINGS consignés.

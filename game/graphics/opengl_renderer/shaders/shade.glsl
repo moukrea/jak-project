@@ -448,7 +448,9 @@ vec4 shade(in Surface s) {
     // des composites qui viennent d'etre supprimes. Aucun de ces chemins n'existe plus, donc
     // plus aucun fragment n'est exclu de la porte : la valeur est une constante, pas un test.
     float excl = 0.0;
-    return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, 1.0);
+    // The caller still alpha-tests this result. Preserve coverage while replacing RGB
+    // with proof flags; alpha=1 would make the probe draw transparent TIE texels.
+    return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, c.a);
   }
   if (u_screen_ao_on == 2) {
     c.rgb = vec3(sao);  // vue de debug : le terme d'AO tel qu'il est lu

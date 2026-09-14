@@ -27,8 +27,10 @@ constexpr int64_t kStride = 30;
 inline std::atomic<uint64_t> anchor_executions{0}, anchor_defects{0};
 inline uint64_t pair_gap_defects = 0;
 
-inline bool requested() { return autoport_proof::feature_is(kItem); }
-inline bool active() { return requested() && autoport_proof::armed_for(kItem); }
+inline bool requested() {
+  return autoport_proof::feature_is(kItem) || autoport_proof::feature_is("ao-prepass-tie-alpha");
+}
+inline bool active() { return requested() && autoport_proof::armed(); }
 inline int64_t logic_frame() {
 #ifdef __ANDROID__
   return android_gfx::logic_frame_of_input_data();

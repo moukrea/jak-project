@@ -16,7 +16,7 @@ AUTOPORT_FEATURE_SITE(kItem);
 bool enabled = false, attached = false, pre = false, color_cleared = false;
 int width = 0, height = 0;
 unsigned populated_frames = 0;
-uint64_t total_observed = 0, total_missing = 0;
+uint64_t total_observed = 0, total_missing = 0, total_pre_judged = 0;
 std::unordered_map<std::string, uint64_t> total_causes;
 GLuint targets[2] = {}, reader = 0;
 GLint attached_fbo = 0;
@@ -213,7 +213,7 @@ void finish_frame(const std::vector<float>& delivered_depth,
   }
   const auto c = read(targets[1]), p = read(targets[0]);
   if (!enabled || c.empty() || p.empty()) return;
-  uint64_t observed = 0, missing = 0, samples = 0;
+  uint64_t observed = 0, missing = 0, samples = 0, pre_judged = 0;
   std::unordered_map<std::string, uint64_t> causes;
   for (const char* name : {"identity_or_depth_mismatch", "metadata_missing", "texture_state_difference",
                          "alpha_sampling_difference", "pre_alpha_passes_unknown", "alpha_rejection_other",
@@ -227,6 +227,9 @@ void finish_frame(const std::vector<float>& delivered_depth,
       unsupported("invalid_float_draw_identity"); return;
     }
     const uint32_t ci = uint32_t(c[j + 3]), pi = uint32_t(p[j + 3]);
+    // Count the prepass alpha judgments with a matching static TIE color draw.
+    // Envmap and wind families, and color draws missing from the prepass, are excluded.
+    if (pi && pi == ci && pre_meta.count(pi)) ++pre_judged;
     if (!ci) continue;
     ++observed;
     if (delivered_depth[i] > 1e-6f) continue;
@@ -259,10 +262,12 @@ void finish_frame(const std::vector<float>& delivered_depth,
     }
   }
   if (observed) ++populated_frames;
-  autoport_proof::note_hit_for(kItem, observed);
+  autoport_proof::note_hit_for(kItem, pre_judged);
+  total_pre_judged += pre_judged;
   total_observed += observed; total_missing += missing;
   autoport_proof::publish("ao_tie_alpha_frames", populated_frames);
   autoport_proof::publish("ao_tie_alpha_observed_px", total_observed);
+  autoport_proof::publish("ao_tie_alpha_pre_judged_px", total_pre_judged);
   autoport_proof::publish("ao_tie_alpha_missing_px", total_missing);
   autoport_proof::publish("ao_tie_alpha_sample_rows", samples);
   for (const auto& kv : causes) {

@@ -219,7 +219,9 @@ void emit_locked() {
   const std::string& id = feature_str();
   feature_census_locked();
   if (!id.empty()) {
-    fmt::print("FEATURE {} armed={} hits={}\n", id, armed() ? 1 : 0, g_hits);
+    // This item's contract counts only static TIE fragments, not the shared census.
+    const uint64_t hits = id == "ao-prepass-tie-alpha" ? site_hits_ref()[id] : g_hits;
+    fmt::print("FEATURE {} armed={} hits={}\n", id, armed() ? 1 : 0, hits);
   }
   for (const auto& kv : g_keys) {
     fmt::print("{}={}\n", kv.first, kv.second);

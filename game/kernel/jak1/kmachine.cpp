@@ -6142,7 +6142,7 @@ static u64 level_warp_run() {
   // consomme un nombre variable de tirages.
   pad_replay::reseed_now(0x0AD12345u);
   refset::note_anchor();
-  if (autoport_proof::feature_is("ao-static-probe-deterministic")) {
+  if (ao_static_probe::requested()) {
     const uint64_t executions = ++ao_static_probe::anchor_executions;
     const std::string key = "ao_probe_warp_executed_tick_" + std::to_string(executions - 1);
     autoport_proof::publish(key.c_str(), refset::current_logic_frame());
@@ -6153,7 +6153,7 @@ static u64 level_warp_run() {
 
 void level_warp_maybe() {
   static bool s_done = false;
-  const bool static_probe = autoport_proof::feature_is("ao-static-probe-deterministic");
+  const bool static_probe = ao_static_probe::requested();
   static int probe_warps = 0;
   if (static_probe && probe_warps >= 2) return;
   if (s_done && !static_probe) {

@@ -1,0 +1,1 @@
+    return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, c.a);
