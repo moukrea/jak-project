@@ -8,7 +8,7 @@
 - 2026-09-15 : « j'ai testé un build il y a une heure environ ou les mini pal… »
 
 ## Cause connue
-Signale par l'owner le 13/09. FAIT MESURE (investigation du 13/09) : `shrub.vert:20-21` inclut `tie_sway.glsl` et `vegetation_contact.glsl` et applique la loi de contact de l'HERBE (rayon 2,2 m autour de Jak, bande d'altitude -1,5..+2 m, MAX des echantillons) a TOUS les sommets du shrub, tronc compris. Un tronc n'est pas un brin : il ne doit pas se coucher, et les feuilles doivent rester attachees a lui. Il faut une classe par sommet ou par draw (tronc rigide / feuillage souple) — a etablir depu […suite dans le contrat]
+REPRISE APRES ESSAI9 : le temoin instrumente f54ea18c485ca156816824522d2e67ece9bc3992 est prepare dans /home/emeric/code/jak-shrub-reference-602cd. Sa premiere configuration a ete refusee a tort par la garde CMake ; correction harnais 5471f0f7c6 testee (46 tests), commande exacte maintenant acceptee sans contourner la garde. Reprendre la compilation puis notes/attempt-9-protocol.md, avec sources et build propres a chaque bras. Ne pas refaire l audit/preparation termines. Budget appareil inchange […suite dans le contrat]
 
 ## Livrable
 `shrub_trunk_squash_defects` = 0, somme de termes publies SEPAREMENT.
