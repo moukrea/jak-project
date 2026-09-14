@@ -55,18 +55,19 @@ struct DmaTag {
   std::string print() const;
 };
 
-#ifdef __aarch64__
-#ifdef __APPLE__
-// the reporter lives in an android-only TU (mips2c_table_jak1_arm64.cpp);
-// macOS-arm64 compiles the aarch64 path but must not require that symbol.
-static inline void gnd_oob_report(char, unsigned int, unsigned long long, unsigned long long, int) {
-}
-#else
+#ifndef OG_MIPS2C_GND_OOB_WATCH
+#define OG_MIPS2C_GND_OOB_WATCH 0
+#endif
+
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
+#include <atomic>
+
+extern std::atomic<bool> g_gnd_oob_armed;
 extern void gnd_oob_report(char kind, unsigned int target, unsigned long long lo,
                            unsigned long long hi, int nbytes);
-#endif
 static inline bool gnd_in_band(unsigned long long goff, unsigned long long nbytes) {
-  return goff < 0x80000ull || (goff < 0x51c000ull && goff + nbytes > 0x514000ull);
+  return g_gnd_oob_armed.load(std::memory_order_relaxed) &&
+         (goff < 0x80000ull || (goff < 0x51c000ull && goff + nbytes > 0x514000ull));
 }
 #endif
 inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 dadr) {
@@ -81,7 +82,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
 
     switch (tag.kind) {
       case DmaTag::Kind::CNT:
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)((1u + tag.qwc) * 16);
           if (gnd_in_band(_g, _n)) gnd_oob_report('C', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -91,7 +92,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
         tadr += 16 + tag.qwc * 16;
         break;
       case DmaTag::Kind::NEXT:
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)((1u + tag.qwc) * 16);
           if (gnd_in_band(_g, _n)) gnd_oob_report('N', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -102,7 +103,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
         break;
       case DmaTag::Kind::REF: {
         // tte
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)(16);
           if (gnd_in_band(_g, _n)) gnd_oob_report('r', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -110,7 +111,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
         memcpy(dst + dest_offset, src + tadr, 16);
         dest_offset += 16;
 
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)(tag.qwc * 16u);
           if (gnd_in_band(_g, _n)) gnd_oob_report('R', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -121,7 +122,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
       } break;
       case DmaTag::Kind::REFE: {
         // tte
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)(16);
           if (gnd_in_band(_g, _n)) gnd_oob_report('e', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -129,7 +130,7 @@ inline void emulate_dma(const void* source_base, void* dest_base, u32 tadr, u32 
         memcpy(dst + dest_offset, src + tadr, 16);
         dest_offset += 16;
 
-#ifdef __aarch64__
+#if OG_MIPS2C_GND_OOB_WATCH && defined(__aarch64__) && !defined(__APPLE__)
         { unsigned long long _g = (unsigned long long)((const unsigned char*)((u8*)dst + dest_offset) - (const unsigned char*)source_base);
           unsigned long long _n = (unsigned long long)(tag.qwc * 16u);
           if (gnd_in_band(_g, _n)) gnd_oob_report('F', (unsigned int)_g, _n, (unsigned long long)tadr, (int)tag.qwc); }
@@ -184,7 +185,14 @@ inline bool emulate_dma_bounded(const void* source_base,
   u32 dest_offset = dadr;
   int guard = 0;
   auto bail = [&](char why, u64 nb) -> bool {
-    gnd_oob_report(why, dest_offset, nb, (u64)tadr, guard);
+#if OG_MIPS2C_GND_OOB_WATCH && !defined(__APPLE__)
+    if (g_gnd_oob_armed.load(std::memory_order_relaxed)) {
+      gnd_oob_report(why, dest_offset, nb, (u64)tadr, guard);
+    }
+#else
+    (void)why;
+    (void)nb;
+#endif
     return true;
   };
   while (true) {
