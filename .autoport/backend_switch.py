@@ -144,7 +144,9 @@ def perform(target, root=ROOT, start=True):
     prompt = ('Reprends le rôle superviseur et le travail autorisé. Lis .autoport/SWITCH_HANDOFF.md '
               'et .autoport/SUPERVISOR_CATCHUP.md, puis les handoffs et FINDINGS récents. '
               'Rends compte du rattrapage, vérifie la santé du harnais et entretiens la file. '
-              'Relance les démons de build/livraison listés dans .autoport/.backend.json si arrêtés. '
+              'Relance les démons de build/livraison listés dans .autoport/.backend.json si arrêtés, '
+              'dans leur configuration normale : leur automatisation existante est autorisée, '
+              'ne désactive pas ADB ou le déploiement. '
               'Pas de code jeu ni de contact appareil. '
               + ('La veille externe de run-codex.sh entretient l’orchestrateur.' if target == 'codex' else
                  'Relance ./launch.sh --backend claude en arrière-plan et installe ton suivi périodique.'))

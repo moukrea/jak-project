@@ -9,7 +9,9 @@ un superviseur Codex et rattraper le travail. Aucun verdict de validation dans c
 - Deux superviseurs Claude concurrents ont été trouvés : PID 1348789 et 2142423,
   tous deux avec une tâche planifiée en attente du quota de 19 h 50. Arrêt SIGTERM.
 - Orchestrateur 1374469 arrêté proprement pendant l'attente API ; les deux démons
-  2808508 (build) et 1779081 (livraison) ont également été arrêtés. Les reprendre.
+  2808508 (build) et 1779081 (livraison) ont également été arrêtés. Les reprendre
+  dans leur configuration normale : les démons automatiques sont autorisés par la reprise
+  demandée, sans neutraliser ADB ou leur déploiement. Le superviseur ne lance pas adb lui-même.
 - Les autres sessions Claude interactives de sujets distincts n'ont pas été arrêtées.
   Elles ne sont pas des superviseurs autoport enregistrés.
 - Au début de l'intervention seuls backlog.yaml (shrub-trunk-contact in-progress → open)
