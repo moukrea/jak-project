@@ -146,10 +146,13 @@ while IFS= read -r seg; do
                 "mets une lettre entre crochets : pgrep -f '[o]rchestrator'" ;;
     esac
   fi
-  # 3b. cmake -B : une reconfiguration invalide tout le cache d'objets (~1300).
-  if [ "$CW" = cmake ] && [[ $seg =~ (^|[[:space:]])-B([[:space:]]|=) ]]; then
-    refuse "\`cmake -B\` reconfigure et jette le cache d'objets." \
-           "construis sans reconfigurer : .autoport/lib/build_x86.sh --target gk" ;
+  # 3b. Proteger les builds existants, sans bloquer le premier configure d'un temoin neuf.
+  # Le parseur ne s'execute que pour CMake ; il lit la commande originale, non neutralisee.
+  if [ "$CW" = cmake ] && [[ $seg =~ (^|[[:space:]])-B ]]; then
+    if ! printf '%s' "$CLEAN" | python3 "${BASH_SOURCE[0]%/*}/cmake_initial_configure.py"; then
+      refuse "\`cmake -B\` : configuration initiale d'un dossier neuf non etablie ; build existant protege." \
+             "construis sans reconfigurer : .autoport/lib/build_x86.sh --target gk. Pour un temoin neuf : cmake -S <source absolue> -B <dossier absolu vide ou inexistant>." ;
+    fi
   fi
   # 3b-bis. LA CONSTRUCTION DE BUREAU PASSE PAR SA PORTE (build-tree-reinvalidates-itself, 12/09).
   # `cmake --build build` a rendu 0 sur trois passes d'affilee en laissant `build/game/gk` NON
