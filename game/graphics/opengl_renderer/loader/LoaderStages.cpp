@@ -610,11 +610,12 @@ class TieLoadStage : public LoaderStage {
           std::unordered_map<u32, const tfrag3::TieTree::SwayInstance*> contact_instances;
           const bool trunk_armed = autoport_proof::armed_for(kTrunkItemId);
           for (const auto& si : in_tree.sway_instances) {
-            const float pivot_y = si.carried && trunk_armed ? si.ymin : si.base_y;
+            const float pivot_y = si.carried && trunk_armed ? si.contact_pin_y : si.base_y;
             if (si.valid && si.ymax > pivot_y) contact_instances[si.matrix_idx] = &si;
           }
           std::vector<u32> contact_indices(contact_nv, 0);
           std::vector<std::array<float, 4>> contact_anchors(1, {0.f, 0.f, 0.f, 0.f});
+          std::vector<std::array<float, 4>> contact_pins(1, {0.f, 0.f, 0.f, 0.f});
           std::unordered_map<u32, u32> contact_lut_index;
           size_t contact_vi = 0, contact_verts = 0;
           for (const auto& group : in_tree.packed_vertices.matrix_groups) {
@@ -638,8 +639,11 @@ class TieLoadStage : public LoaderStage {
                                                           (u32)contact_anchors.size());
                 if (inserted.second) {
                   const auto& si = *si_it->second;
-                  const float pivot_y = si.carried && trunk_armed ? si.ymin : si.base_y;
-                  contact_anchors.push_back({si.x, pivot_y, si.z, si.ymax - pivot_y});
+                  const float pivot_y = si.carried && trunk_armed ? si.contact_pin_y : si.base_y;
+                  contact_anchors.push_back({si.x, si.base_y, si.z, si.ymax - pivot_y});
+                  contact_pins.push_back(si.carried && trunk_armed
+                                             ? std::array<float, 4>{pivot_y, 1.f, 0.f, 0.f}
+                                             : std::array<float, 4>{0.f, 0.f, 0.f, 0.f});
                 }
                 contact_indices[contact_vi + k] = inserted.first->second;
                 ++contact_verts;
@@ -652,8 +656,10 @@ class TieLoadStage : public LoaderStage {
           const GLint contact_max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
           if (contact_mapping_ok && contact_verts && contact_anchors.size() <= (size_t)contact_max_tex) {
             for (const auto& entry : contact_lut_index) {
-              foliage_wind::trunk_note_anchor(*contact_instances.at(entry.first), true,
-                                              contact_anchors[entry.second][1]);
+              const float pivot_y = contact_pins[entry.second][1] > 0.f
+                                        ? contact_pins[entry.second][0]
+                                        : contact_anchors[entry.second][1];
+              foliage_wind::trunk_note_anchor(*contact_instances.at(entry.first), true, pivot_y);
             }
             glGenBuffers(1, &tree_out.contact_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, tree_out.contact_buffer);
@@ -661,8 +667,11 @@ class TieLoadStage : public LoaderStage {
                          contact_indices.data(), GL_STATIC_DRAW);
             glGenTextures(1, &tree_out.contact_texture);
             glBindTexture(GL_TEXTURE_2D, tree_out.contact_texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)contact_anchors.size(), 1, 0,
-                         GL_RGBA, GL_FLOAT, contact_anchors.data());
+            // Two contiguous rows with the same compact instance indices.
+            auto contact_lut = contact_anchors;
+            contact_lut.insert(contact_lut.end(), contact_pins.begin(), contact_pins.end());
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)contact_anchors.size(), 2, 0,
+                         GL_RGBA, GL_FLOAT, contact_lut.data());
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

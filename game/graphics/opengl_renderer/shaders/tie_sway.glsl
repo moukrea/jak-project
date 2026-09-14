@@ -69,13 +69,18 @@ vec3 tie_contact_apply(vec3 original, vec3 bent) {
   if (u_tie_contact_on == 1 && tie_contact_index != 0u) {
     vec4 anchor = texelFetch(u_tie_contact_tex, ivec2(int(tie_contact_index), 0), 0);
     if (anchor.w > 0.0) {
-      float heightMul;
-      vec3 trample;
-      float debug_contact = 0.0;
-      vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
-      float dy = original.y - anchor.y;
-      bent.y += dy * (heightMul - 1.0);
-      bent += trample * (dy / anchor.w);
+      vec4 attachment = texelFetch(u_tie_contact_tex, ivec2(int(tie_contact_index), 1), 0);
+      bool carried = attachment.y > 0.0;
+      float dy = carried ? max(0.0, original.y - attachment.x) : original.y - anchor.y;
+      // Skip additions for pinned vertices, including signed zero. Wind is already applied.
+      if (!carried || dy > 0.0) {
+        float heightMul;
+        vec3 trample;
+        float debug_contact = 0.0;
+        vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
+        bent.y += dy * (heightMul - 1.0);
+        bent += trample * (dy / anchor.w);
+      }
     }
   }
   return bent;

@@ -338,8 +338,8 @@ void Shrub::update_load(const LevelData* loader_data) {
       t.wind_active = tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
                       foliage_wind::shrub_native_enabled() &&
                       tree.sway_instances.size() == tree.packed_vertices.matrices.size();
-      // Row 0 is the native spring; row 1 is the immutable per-instance contact anchor.
-      std::vector<float> contact_lut(n_mat * 8, 0.f);
+      // Rows: native spring, contact excitation, contact attachment plane.
+      std::vector<float> contact_lut(n_mat * 12, 0.f);
       size_t contact_instances = 0;
       for (size_t mi = 0; mi < tree.sway_instances.size() && mi < n_mat; ++mi) {
         const auto& si = tree.sway_instances[mi];
@@ -351,19 +351,10 @@ void Shrub::update_load(const LevelData* loader_data) {
             !foliage_wind::shrub_contact_prototype(tree.proto_names[pi])) {
           continue;
         }
-        // shrub-trunk-contact, DEUXIEME MOITIE DU DEFAUT : « les feuilles sont desolidarisees du
-        // tronc ». Le pivot du contact est `base_y`, c'est-a-dire le SOL trouve sous la plante. Pour
-        // une frondaison POSEE SUR UN TRONC ce sol n'a aucun sens : le lancer de rayon accroche le
-        // tronc lui-meme ou un rocher, et rend un pivot jusqu'a 2,68 m AU-DESSUS de son propre pied
-        // (mesure : jungle 2679 mm, beach 1668 mm, sur les 91 jonctions du jeu). Le pied de la
-        // frondaison prend alors `dy < 0` et part dans l'autre sens pendant que le tronc est fige :
-        // la jointure peut s'ouvrir. Une plante portee pivote donc sur SON PIED. Ce plan n'est
-        // pas une mesure des sommets coincidents de la jonction, qui reste a verifier.
-        //
-        // SEULE L'ANCRE DE CONTACT CHANGE. `base_y` n'est pas touche : c'est aussi le pivot du VENT
-        // des buissons, que l'owner a valide le 13/09, et le contrat exige qu'il garde ses cles.
+        // L'excitation garde l'altitude historique base_y. Seuls les sommets au-dessus
+        // du plan d'attache recoivent le contact ; le pivot du vent reste inchange.
         const bool carried = si.carried && autoport_proof::armed_for(kTrunkItemId);
-        const float pivot_y = carried ? si.ymin : si.base_y;
+        const float pivot_y = carried ? si.contact_pin_y : si.base_y;
         if (!(si.ymax > pivot_y)) {
           continue;
         }
@@ -379,9 +370,14 @@ void Shrub::update_load(const LevelData* loader_data) {
         }
         float* anchor = &contact_lut[(n_mat + mi) * 4];
         anchor[0] = si.x;
-        anchor[1] = pivot_y;
+        anchor[1] = si.base_y;
         anchor[2] = si.z;
         anchor[3] = si.ymax - pivot_y;
+        if (carried) {
+          float* attachment = &contact_lut[(2 * n_mat + mi) * 4];
+          attachment[0] = pivot_y;
+          attachment[1] = 1.f;
+        }
         ++contact_instances;
       }
       t.contact_active = contact_instances > 0;
@@ -390,7 +386,7 @@ void Shrub::update_load(const LevelData* loader_data) {
                lev_data->level_name, l_tree, contact_instances, n_mat);
       glGenTextures(1, &t.wind_tex);
       glBindTexture(GL_TEXTURE_2D, t.wind_tex);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 2, 0, GL_RGBA, GL_FLOAT,
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 3, 0, GL_RGBA, GL_FLOAT,
                    contact_lut.data());
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

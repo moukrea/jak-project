@@ -1494,7 +1494,7 @@ std::map<TrunkProtoKey, TrunkClassCounts> g_trunk_class_rows;
 u32 g_trunk_instances = 0, g_trunk_verts = 0;
 u32 g_foliage_instances = 0, g_foliage_verts = 0;
 u32 g_joint_pairs = 0;
-// Ecarts absolus des pivots CPU au pied de la plante portee. Un zero ne prouve ni immobilite
+// Ecarts absolus des pivots CPU au plan d'attache de la plante portee. Un zero ne prouve ni immobilite
 // du tronc ni solidarite de la jonction dans le rendu.
 u32 g_joint_pivot_offset_mm = 0;
 // Reference structurelle du pivot de sol, independante de l'armement.
@@ -1535,8 +1535,8 @@ void trunk_census_note(const std::string& level,
       g_foliage_verts += v.si->n_verts;
     }
     if (v.si->carried) {
-      // LE TEMOIN D'AVANT (voir la declaration) : ce que le pivot de SOL aurait donne.
-      const float off = std::abs(v.si->base_y - v.si->ymin);
+      // Ecart structurel entre le pivot de sol et le plan d'attache, sans simulation du contact.
+      const float off = std::abs(v.si->base_y - v.si->contact_pin_y);
       if (off > 0.f) {
         g_joint_ground_pivot_offset_mm =
             std::max(g_joint_ground_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
@@ -1567,8 +1567,8 @@ void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, f
     g_foliage_anchored++;
   }
   if (si.carried) {
-    // Mesure du pivot CPU ecrit dans la table, sans lecture GPU.
-    const float off = std::abs(pivot_y - si.ymin);
+    // Diagnostic structurel du pivot de deformation CPU, sans mesure de jonction GPU.
+    const float off = std::abs(pivot_y - si.contact_pin_y);
     if (off > 0.f) {
       g_joint_pivot_offset_mm =
           std::max(g_joint_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
@@ -1675,41 +1675,44 @@ void classify_load_bearing(tfrag3::Level& lev) {
   for (auto& v : veg) {
     v.si->load_bearing = trunk_protos.count(*v.proto) != 0;
     v.si->carried = false;
+    v.si->contact_pin_y = v.si->ymin;
     if (v.si->load_bearing) {
       trunk_instances++;
       trunk_verts += v.si->n_verts;
     }
   }
-  // Toutes les relations d'un porteur retenu comptent, meme si un autre porteur est rejete.
-  for (size_t i = 0; i < veg.size(); i++) {
-    if (!veg[i].si->load_bearing) continue;
-    for (size_t j = 0; j < veg.size(); j++) {
-      if (supports(veg[i], veg[j])) {
-        veg[j].si->carried = true;
-        joint_pairs++;
-      }
-    }
-  }
   // matrix_idx est compacte par geometrie dans extract_tie.cpp : son identite inter-LOD
   // n'est pas garantie. Conserver la classe par prototype, puis tester le placement de chaque
-  // instance LOD contre les troncs canoniques avec le meme predicat geometrique.
+  // instance contre tous les troncs, LOD compris, sans les ajouter au census canonique.
+  std::vector<VegInst> all_veg = veg;
   u32 trunk_instances_lod = 0;
   for (size_t geo = 1; geo < lev.tie_trees.size(); geo++) {
     for (auto& tree : lev.tie_trees[geo]) {
       for (auto& si : tree.sway_instances) {
         si.load_bearing = false;
         si.carried = false;
+        si.contact_pin_y = si.ymin;
         if (!si.valid || si.proto_idx >= tree.proto_names.size()) continue;
         const auto& proto = tree.proto_names[si.proto_idx];
         if (!shrub_contact_prototype(proto)) continue;
         si.load_bearing = trunk_protos.count(proto) != 0;
         if (si.load_bearing) trunk_instances_lod++;
-        const VegInst lod_instance{&si, &proto};
-        for (const auto& carrier : veg) {
-          if (carrier.si->load_bearing && supports(carrier, lod_instance)) {
-            si.carried = true;
-          }
-        }
+        all_veg.push_back({&si, &proto});
+      }
+    }
+  }
+
+  // Toutes les classes LOD sont posees avant de calculer les plans d'attache.
+  // Seules les relations entre instances canoniques entrent dans joint_pairs.
+  for (size_t i = 0; i < all_veg.size(); i++) {
+    const auto& carrier = all_veg[i];
+    if (!carrier.si->load_bearing) continue;
+    for (size_t j = 0; j < all_veg.size(); j++) {
+      const auto& target = all_veg[j];
+      if (supports(carrier, target)) {
+        target.si->carried = true;
+        target.si->contact_pin_y = std::max(target.si->contact_pin_y, carrier.si->ymax);
+        if (i < veg.size() && j < veg.size()) joint_pairs++;
       }
     }
   }

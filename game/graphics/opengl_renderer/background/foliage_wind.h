@@ -101,7 +101,7 @@ bool shrub_contact_prototype(const std::string& name);
 // LA CLASSE TRONC/FEUILLAGE, POSEE SUR LE NIVEAU ENTIER. A appeler une fois par niveau charge,
 // APRES `tfrag3::foliage_wind_finalize_level` (qui remplit `wind_proto_of_inst` depuis le sidecar,
 // sans quoi aucune instance SHRUB n'a de prototype) et AVANT que les chargeurs ne construisent
-// leurs tables d'ancres. Elle pose `load_bearing` / `carried` sur les `SwayInstance` du niveau.
+// leurs tables d'ancres. Elle pose `load_bearing` / `carried` / `contact_pin_y` sur les `SwayInstance` du niveau.
 //
 // POURQUOI ICI ET PAS DANS `common/` : la regle ne parle que des instances ELIGIBLES AU CONTACT, et
 // ce lexique-la (`shrub_contact_prototype`) vit cote jeu. POURQUOI SUR LE NIVEAU ENTIER : un
@@ -111,7 +111,8 @@ void classify_load_bearing(tfrag3::Level& lev);
 
 // Un chargeur vient de decider si CETTE instance recoit une ancre de contact. `anchored` faux n'est
 // pas compte : seul un tronc qui en a RECU une est un defaut, et le compteur doit pouvoir rougir.
-// `pivot_y` est la hauteur REELLEMENT ecrite dans l'ancre : c'est elle qu'on mesure, pas `base_y`.
+// `pivot_y` est le pivot de deformation effectif : plan d’attache si portee, sinon base_y.
+// Diagnostic structurel CPU uniquement ; l’altitude d’excitation reste base_y.
 void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, float pivot_y);
 
 // Publie `shrub_trunk_anchor_defects`, diagnostic structurel CPU. Appelee par `frame()`.

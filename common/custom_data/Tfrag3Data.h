@@ -552,8 +552,8 @@ struct TieTree {
   // foliage-wind (owner 2026-09-03) — LES INSTANCES DE VEGETATION, POUR LE RECENSEMENT DE LA PORTE.
   // Une entree par instance STATIQUE (matrix_idx >= 0) dont au moins un sommet est reclame par un
   // prototype du lexique : son ancrage monde et sa hauteur. C'est ce que `foliage_wind::set_tree`
-  // recoit ; `wind_divergent_pairs` se calcule dessus. Survit a la liberation des sommets : il ne
-  // pese que 16 octets par plante.
+  // recoit ; `wind_divergent_pairs` se calcule dessus. Survit a la liberation des sommets ;
+  // conserve uniquement a l’execution, sans serialisation.
   struct SwayInstance {
     float x = 0.f;     // ancrage monde (translation de la matrice d'instance)
     float z = 0.f;
@@ -588,11 +588,11 @@ struct TieTree {
     // SA CIME EN PORTE UNE AUTRE. Pose par `foliage_wind::classify_load_bearing` (game/), jamais
     // ici : la regle a besoin du lexique de contact, qui vit cote jeu. Une instance ainsi classee
     // ne recoit PAS d'ancre de contact — ni dans `Shrub.cpp`, ni dans `LoaderStages.cpp` — donc sa
-    // cime ne bouge pas, donc la jonction avec la plante qu'elle porte ne se dechire pas.
+    // cime ne bouge pas sous contact.
     bool load_bearing = false;
-    // Elle est PORTEE par une instance classee tronc : son pied est la JONCTION. C'est la que le
-    // contrat demande un ecart de deplacement nul, donc c'est sur SON pivot que la porte compte.
+    // Portee par un tronc : les sommets sous le plan contact_pin_y ne recoivent pas de contact.
     bool carried = false;
+    float contact_pin_y = 0.f;  // plan d'attache runtime, distinct de l'altitude d'excitation base_y
     u32 n_verts = 0;  // sommets de l'instance : le denominateur du recensement par classe
     // foliage-wind (essai 16) — LE GRADIENT D'EXTREMITE, mesure par SEGMENT le long de l'element.
     // Moyenne de |poids| RELU APRES QUANTIFICATION dans la premiere et la derniere des
