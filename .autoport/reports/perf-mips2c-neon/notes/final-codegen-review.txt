@@ -1,0 +1,14 @@
+DIRECTIVES vaff5c1afea
+Revue statique finale après c6b978478e : aucun appel VuSimd::apply dans les trois noyaux.
+Objets : final-object-{bones,joint,launcher}.asm ; empreintes/comptages : final-object-codegen.json.
+Appels apply ancien/état intermédiaire/final : os 0/16/0 ; joints 0/32/0 ; lancement 0/4/0.
+verify_result final : os 16, joints 32, lancement 4 sites ; tous sous condition verify.
+Origine bit verify : settings retour w0 bit8. Os : 0x40 ubfx w9,w0,#8,#1, stocké stack x29-35, premier test direct w9 à 0x114 puis tests après ldurb. Joints : 0x44 ubfx, stack sp+125. Lanceur : 0x78 ubfx, stack sp+253.
+Os/joints : cbnz vers blocs des appels cold. Lanceur : cbz saute les appels. Détail de chaque site : final-verify-guards.json.
+Tailles des corps ancien/intermédiaire/final : os 716/2012/4812 octets ; joints 7680/10556/15876 ; lancement 10896/8276/8896.
+Branches conditionnelles ancien/intermédiaire/final : os 0/1/49 ; joints 282/294/407 ; lancement 227/127/142.
+La croissance finale inclut les chemins vectoriels, repli scalaire et blocs de vérification auparavant hors ligne ; elle ne mesure pas le coût exécuté.
+Ancien code déjà SIMD : os 29 instructions arithmétiques .4s ; joints 37 .4s +11 .2s ; lancement 4 .2s.
+Nouveau lib lié SHA256 986f83d15cedaac6f8b8cd34e7c9ad366de63fda029700ee68146cd77e308a47 : aucune occurrence de gnd_oob_report/g_gnd_oob_armed dans aarch64-linux-gnu-nm -C ni -D -C.
+APK au contrôle final contient déjà ce nouveau lib ; ancien APK non extractible. Désassemblage ancien stable conservé dans old-*.asm et old-codegen.json.
+Non mesuré : temps exécuté, gain ou régression de performance. Aucun build/appareil/run effectué par cette revue.

@@ -1,0 +1,49 @@
+{
+  "source": "objets Android finaux apr\u00e8s c6b978478e",
+  "kernels": {
+    "bones": {
+      "object": "build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/bones.cpp.o",
+      "sha256": "b0bbe127f9cce4a734a1a93674e5dcfa5bf8cc7563aefcf4fe7540aa22cd83ff",
+      "section": ".text._ZN6Mips2C4jak114bones_mtx_calc8exec_mpgEPNS_16ExecutionContextE",
+      "size": 4812,
+      "instructions": 1203,
+      "FMA": 38,
+      "4s_arith": 67,
+      "2s_arith": 5,
+      "conditional_branches": 49,
+      "apply_calls": 0,
+      "verify_result_calls": 16,
+      "settings_calls": 1
+    },
+    "joint": {
+      "object": "build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/joint.cpp.o",
+      "sha256": "f52b6334f267e7529ff63e64cd6d24da394200a9728327b1cc136bb76fea14f4",
+      "section": ".text._ZN6Mips2C4jak132cspace_parented_transformq_joint7executeEPv",
+      "size": 15876,
+      "instructions": 3969,
+      "FMA": 29,
+      "4s_arith": 84,
+      "2s_arith": 2,
+      "conditional_branches": 407,
+      "apply_calls": 0,
+      "verify_result_calls": 32,
+      "settings_calls": 1
+    },
+    "launcher": {
+      "object": "build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sparticle_launcher.cpp.o",
+      "sha256": "e5aab7d24409842eb86d598a0e9e4a7b501dba63cb576aa8aa97d29ff1cbf3ba",
+      "section": ".text._ZN6Mips2C4jak123sp_launch_particles_var7executeEPv",
+      "size": 8896,
+      "instructions": 2224,
+      "FMA": 0,
+      "4s_arith": 3,
+      "2s_arith": 6,
+      "conditional_branches": 142,
+      "apply_calls": 0,
+      "verify_result_calls": 4,
+      "settings_calls": 1
+    }
+  },
+  "lib_sha256": "986f83d15cedaac6f8b8cd34e7c9ad366de63fda029700ee68146cd77e308a47",
+  "forbidden_symbols": []
+}

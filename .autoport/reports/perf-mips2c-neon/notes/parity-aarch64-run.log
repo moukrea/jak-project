@@ -1,0 +1,52 @@
+mode=delivered op=vmul recorded_comparisons=0
+mode=delivered op=vadd recorded_comparisons=0
+mode=delivered op=vsub recorded_comparisons=0
+mode=delivered op=vmul_bc recorded_comparisons=0
+mode=delivered op=vadd_bc recorded_comparisons=0
+mode=delivered op=vsub_bc recorded_comparisons=0
+mode=delivered op=vmula recorded_comparisons=0
+mode=delivered op=vmula_bc recorded_comparisons=0
+mode=delivered op=vmula_q recorded_comparisons=0
+mode=delivered op=vmulq recorded_comparisons=0
+mode=delivered op=vaddq recorded_comparisons=0
+mode=delivered op=vmove recorded_comparisons=0
+mode=delivered op=vabs recorded_comparisons=0
+mode=delivered kernel=0 recorded_comparisons=0 recorded_defects=0
+mode=delivered kernel=1 recorded_comparisons=0 recorded_defects=0
+mode=delivered kernel=2 recorded_comparisons=0 recorded_defects=0
+mode=delivered external_bitwise_cases=951808 cumulative_failures=0
+mode=verify op=vmul recorded_comparisons=62248
+mode=verify op=vadd recorded_comparisons=62248
+mode=verify op=vsub recorded_comparisons=62248
+mode=verify op=vmul_bc recorded_comparisons=63550
+mode=verify op=vadd_bc recorded_comparisons=63550
+mode=verify op=vsub_bc recorded_comparisons=63550
+mode=verify op=vmula recorded_comparisons=62248
+mode=verify op=vmula_bc recorded_comparisons=63550
+mode=verify op=vmula_q recorded_comparisons=61936
+mode=verify op=vmulq recorded_comparisons=61936
+mode=verify op=vaddq recorded_comparisons=61936
+mode=verify op=vmove recorded_comparisons=73216
+mode=verify op=vabs recorded_comparisons=73216
+mode=verify kernel=0 recorded_comparisons=278478 recorded_defects=0
+mode=verify kernel=1 recorded_comparisons=278476 recorded_defects=0
+mode=verify kernel=2 recorded_comparisons=278478 recorded_defects=0
+mode=verify external_bitwise_cases=951808 cumulative_failures=0
+mode=off op=vmul recorded_comparisons=0
+mode=off op=vadd recorded_comparisons=0
+mode=off op=vsub recorded_comparisons=0
+mode=off op=vmul_bc recorded_comparisons=0
+mode=off op=vadd_bc recorded_comparisons=0
+mode=off op=vsub_bc recorded_comparisons=0
+mode=off op=vmula recorded_comparisons=0
+mode=off op=vmula_bc recorded_comparisons=0
+mode=off op=vmula_q recorded_comparisons=0
+mode=off op=vmulq recorded_comparisons=0
+mode=off op=vaddq recorded_comparisons=0
+mode=off op=vmove recorded_comparisons=0
+mode=off op=vabs recorded_comparisons=0
+mode=off kernel=0 recorded_comparisons=0 recorded_defects=0
+mode=off kernel=1 recorded_comparisons=0 recorded_defects=0
+mode=off kernel=2 recorded_comparisons=0 recorded_defects=0
+mode=off external_bitwise_cases=951808 cumulative_failures=0
+RESULT PASS

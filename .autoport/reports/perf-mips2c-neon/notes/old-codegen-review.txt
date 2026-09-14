@@ -1,0 +1,20 @@
+DIRECTIVES vaff5c1afea
+Ancien code ARM déjà vectorisé dans les noyaux os/joints : prémisse « boucles scalaires source = absence SIMD machine » réfutée.
+Source : build-android/lib/arm64-v8a/libgk.so, SHA256 d6558d520f391312b2ecb0d3239244fc2393b8a84d001d97050c993b30417471, identique au membre lib/arm64-v8a/libgk.so de l’APK actuel lors de lecture. Empreinte stable avant/après désassemblage.
+Extraction old-apk-libgk.so non faite à ce stade car APK et build identiques.
+Assemblages : old-bones.asm, old-joint.asm, old-launcher.asm.
+Comptages statiques (instructions dans le corps de chaque symbole, sans callees) :
+- bones_mtx_calc::exec_mpg @0x7d450c, 716 octets, 179 instructions, 29 arithmétiques .4s, 0 arithmétique .2s, 66 FMA scalar/vector, 0 branche conditionnelle.
+- cspace_parented_transformq_joint::execute @0x820580, 7680 octets, 1920 instructions, 37 arithmétiques .4s, 11 .2s, 33 FMA scalar/vector, 282 branches conditionnelles.
+- sp_launch_particles_var::execute @0x839b04, 10896 octets, 2724 instructions, 0 arithmétique .4s, 4 .2s, 0 FMA, 227 branches conditionnelles.
+Exemples os : 0x7d45b8 fmul v14.4s,v18.4s,v14.s[0] ; 0x7d463c fmla v14.4s,v4.4s,v19.s[0].
+Exemple joints : 0x820d18 fadd v1.4s,v0.4s,v0.4s.
+Inconnu : coût réellement exécuté, gain temporel, comparaison au nouveau build non encore lié. Ces comptes ne sont pas des benchmarks. La suppression des FMA peut modifier les bits des résultats.
+
+Comparaison autorisée aux nouveaux objets Android relocalisables (lien lib complet non disponible au relevé), détails/empreintes : new-object-codegen.json.
+Corps seuls ancien lib → nouveaux objets :
+- os : 716→2012 octets ; 179→503 instructions ; branches conditionnelles 0→1 ; 16 appels VuSimd::apply + settings ajoutés (ancien corps sans aucun appel).
+- joints : 7680→10556 octets ; 1920→2639 instructions ; branches conditionnelles 282→294 ; 32 sites d’appels VuSimd::apply + settings.
+- lancement : 10896→8276 octets ; 2724→2069 instructions ; branches conditionnelles 227→127 ; 4 sites d’appels VuSimd::apply + settings.
+Ces totaux excluent les nouveaux helpers hors ligne et ne permettent donc pas d’affirmer un gain. Compter les branches du seul corps masque celles déplacées dans apply. Le noyau os jusque-là sans appel devient plus gros et appelle 16 fois apply : risque de coût supplémentaire établi structurellement, ampleur temporelle non mesurée.
+Aucun build, appareil, benchmark ou changement de source effectué.

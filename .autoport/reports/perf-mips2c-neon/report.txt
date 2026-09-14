@@ -1,0 +1,32 @@
+DIRECTIVES vaff5c1afea
+Verdict : non validé, critère machine à 3 au lieu de 0 ; APK livré sur USB.
+
+Le diagnostic gnd_oob est exclu par défaut à la compilation, y compris ses appels DMA.
+Opt-in de diagnostic : OG_MIPS2C_GND_OOB_WATCH=1 au build, puis propriété existante.
+Les opérations VU simples de trois noyaux nommés utilisent un wrapper SSE2/NEON ;
+les opérations fusionnées/min/max restent sur les méthodes existantes. Comparaison bit à bit intégrée.
+Sources moteur livrées : e8620fd5df et commits précédents du préfixe de cet item.
+
+Preuve officielle : proof.txt, produit par lib/proof_run.sh ; aucune preuve écrite à la main.
+Course : 20260914T211200Z-949576-04ffe282 ; appareil USB eae4df44.
+Le run compte 13920 images et aucun crash (crash=0).
+Le MD5 local est 0dd3d1afd188bd6e20f5c5328fc59b08.
+Le MD5 relu sur l'appareil est 0dd3d1afd188bd6e20f5c5328fc59b08.
+Les 20183198 opérations de joints comparées n'ont aucun écart.
+Les 159438 opérations de particules comparées n'ont aucun écart.
+Le noyau des os compte 0 opération ; la fenêtre qualifiée compte 0 image.
+Le rejeu vaut 255 avec 2 références absentes ; la porte reste à 3.
+
+Cause du noyau absent : bones.gc:477/526 active *use-new-bones* et appelle new-bones-mtx-calc-asm.
+Changer ce choix pour faire monter le compteur ne prouverait pas le chemin actuellement livré.
+L'ancien binaire avait déjà du SIMD dans os/joints : notes/old-codegen-review.txt.
+
+Builds x86/Android et APK réussis ; fraîcheur x86 tenue : notes/build-summary.md.
+Tests isolés : 951808 cas par mode et architecture SSE/NEON-QEMU, zéro divergence (notes/parity-results.md).
+A/B jeu x86 : 6980/6990 images sans crash ; les deux bras échouent aux références existantes.
+Observations par seau : notes/buckets-x86.md ; gain non prouvé, la comparaison reste active.
+Ripple est identique à l'octet : notes/ripple-identity.txt.
+
+Owner : aucun verdict visuel demandé ; cet item reste une non-validation machine.
+Non prouvé : parité des trois noyaux sur 600 images, hd-mtx-check-all, identité image, gain CPU.
+Blocages et dettes : FINDINGS.txt ; reprise : handoff.md. Validateur laissé à l'orchestrateur.

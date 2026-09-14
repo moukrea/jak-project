@@ -1,0 +1,478 @@
+{
+  "bones": [
+    {
+      "call": "0xf54",
+      "guard": "0x210",
+      "branch": "cbnz",
+      "target": "0xf24",
+      "load": "0x200",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0xf8c",
+      "guard": "0x2e8",
+      "branch": "cbnz",
+      "target": "0xf5c",
+      "load": "0x2dc",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0xfc8",
+      "guard": "0x3d4",
+      "branch": "cbnz",
+      "target": "0xf98",
+      "load": "0x3c4",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1000",
+      "guard": "0x574",
+      "branch": "cbnz",
+      "target": "0xfd0",
+      "load": "0x568",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1040",
+      "guard": "0x664",
+      "branch": "cbnz",
+      "target": "0x1010",
+      "load": "0x654",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1080",
+      "guard": "0x710",
+      "branch": "cbnz",
+      "target": "0x1050",
+      "load": "0x700",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x10b8",
+      "guard": "0x7f0",
+      "branch": "cbnz",
+      "target": "0x1088",
+      "load": "0x7e4",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x10f0",
+      "guard": "0x8ec",
+      "branch": "cbnz",
+      "target": "0x10c0",
+      "load": "0x8e0",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1130",
+      "guard": "0x9dc",
+      "branch": "cbnz",
+      "target": "0x1100",
+      "load": "0x9cc",
+      "load_args": "w8, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1160",
+      "guard": "0xaec",
+      "branch": "cbnz",
+      "target": "0x1138",
+      "load": "0xadc",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1198",
+      "guard": "0xbbc",
+      "branch": "cbnz",
+      "target": "0x1170",
+      "load": "0xbac",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x11d0",
+      "guard": "0xc78",
+      "branch": "cbnz",
+      "target": "0x11a8",
+      "load": "0xc68",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x120c",
+      "guard": "0xd28",
+      "branch": "cbnz",
+      "target": "0x11dc",
+      "load": "0xd1c",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1248",
+      "guard": "0xdfc",
+      "branch": "cbnz",
+      "target": "0x1218",
+      "load": "0xdf0",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1284",
+      "guard": "0xed0",
+      "branch": "cbnz",
+      "target": "0x1254",
+      "load": "0xec4",
+      "load_args": "w9, [x29, #-35]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x12bc",
+      "guard": "0x114",
+      "branch": "cbnz",
+      "target": "0x128c",
+      "load": null,
+      "load_args": "no load found",
+      "verify_load_matches": false,
+      "register_origin": "0x40: ubfx w9, w0, #8, #1 (settings verify); 0x114: cbnz w9, 0x128c",
+      "verify_register_matches": true
+    }
+  ],
+  "joint": [
+    {
+      "call": "0x2754",
+      "guard": "0x1d94",
+      "branch": "cbnz",
+      "target": "0x2724",
+      "load": "0x1d88",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x31f4",
+      "guard": "0x844",
+      "branch": "cbnz",
+      "target": "0x31c4",
+      "load": "0x838",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x323c",
+      "guard": "0x8fc",
+      "branch": "cbnz",
+      "target": "0x3208",
+      "load": "0x8f0",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x328c",
+      "guard": "0x9b0",
+      "branch": "cbnz",
+      "target": "0x3258",
+      "load": "0x9a4",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x32dc",
+      "guard": "0xacc",
+      "branch": "cbnz",
+      "target": "0x32a8",
+      "load": "0xac0",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x332c",
+      "guard": "0xb50",
+      "branch": "cbnz",
+      "target": "0x32f8",
+      "load": "0xb44",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x337c",
+      "guard": "0xc10",
+      "branch": "cbnz",
+      "target": "0x3348",
+      "load": "0xc04",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3400",
+      "guard": "0xce0",
+      "branch": "cbnz",
+      "target": "0x33cc",
+      "load": "0xcd4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3448",
+      "guard": "0xd90",
+      "branch": "cbnz",
+      "target": "0x3414",
+      "load": "0xd84",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x34cc",
+      "guard": "0xe18",
+      "branch": "cbnz",
+      "target": "0x3498",
+      "load": "0xe0c",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3510",
+      "guard": "0xed8",
+      "branch": "cbnz",
+      "target": "0x34dc",
+      "load": "0xecc",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3558",
+      "guard": "0xf90",
+      "branch": "cbnz",
+      "target": "0x3524",
+      "load": "0xf84",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x359c",
+      "guard": "0x1058",
+      "branch": "cbnz",
+      "target": "0x3568",
+      "load": "0x104c",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x35f0",
+      "guard": "0x10cc",
+      "branch": "cbnz",
+      "target": "0x35bc",
+      "load": "0x10bc",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3630",
+      "guard": "0x1220",
+      "branch": "cbnz",
+      "target": "0x35fc",
+      "load": "0x120c",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3670",
+      "guard": "0x12c4",
+      "branch": "cbnz",
+      "target": "0x363c",
+      "load": "0x12b4",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x36b4",
+      "guard": "0x1364",
+      "branch": "cbnz",
+      "target": "0x3680",
+      "load": "0x1354",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3830",
+      "guard": "0x1540",
+      "branch": "cbnz",
+      "target": "0x37fc",
+      "load": "0x1534",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3870",
+      "guard": "0x1608",
+      "branch": "cbnz",
+      "target": "0x383c",
+      "load": "0x15fc",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x38b0",
+      "guard": "0x16f0",
+      "branch": "cbnz",
+      "target": "0x387c",
+      "load": "0x16e4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x38f0",
+      "guard": "0x1808",
+      "branch": "cbnz",
+      "target": "0x38c0",
+      "load": "0x17f8",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3930",
+      "guard": "0x1918",
+      "branch": "cbnz",
+      "target": "0x3900",
+      "load": "0x1908",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3970",
+      "guard": "0x1a3c",
+      "branch": "cbnz",
+      "target": "0x3940",
+      "load": "0x1a28",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x39a8",
+      "guard": "0x1b00",
+      "branch": "cbnz",
+      "target": "0x3978",
+      "load": "0x1af4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x39e0",
+      "guard": "0x1be0",
+      "branch": "cbnz",
+      "target": "0x39b0",
+      "load": "0x1bd4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3a18",
+      "guard": "0x1cc0",
+      "branch": "cbnz",
+      "target": "0x39e8",
+      "load": "0x1cb4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3a58",
+      "guard": "0x1de4",
+      "branch": "cbnz",
+      "target": "0x3a24",
+      "load": "0x1dd4",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3a9c",
+      "guard": "0x1ee8",
+      "branch": "cbnz",
+      "target": "0x3a68",
+      "load": "0x1ed8",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3ae0",
+      "guard": "0x1ff0",
+      "branch": "cbnz",
+      "target": "0x3aac",
+      "load": "0x1fe0",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3b20",
+      "guard": "0x2098",
+      "branch": "cbnz",
+      "target": "0x3af0",
+      "load": "0x2088",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3b5c",
+      "guard": "0x2184",
+      "branch": "cbnz",
+      "target": "0x3b2c",
+      "load": "0x2174",
+      "load_args": "w8, [sp, #125]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x3b94",
+      "guard": "0x225c",
+      "branch": "cbnz",
+      "target": "0x3b64",
+      "load": "0x2250",
+      "load_args": "w9, [sp, #125]",
+      "verify_load_matches": true
+    }
+  ],
+  "launcher": [
+    {
+      "call": "0x12c8",
+      "guard": "0x128c",
+      "branch": "cbz",
+      "target": "0x12d0",
+      "load": "0x127c",
+      "load_args": "w9, [sp, #253]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1af8",
+      "guard": "0x1abc",
+      "branch": "cbz",
+      "target": "0x1b08",
+      "load": "0x1aac",
+      "load_args": "w8, [sp, #253]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1c34",
+      "guard": "0x1bf8",
+      "branch": "cbz",
+      "target": "0x1c38",
+      "load": "0x1be8",
+      "load_args": "w8, [sp, #253]",
+      "verify_load_matches": true
+    },
+    {
+      "call": "0x1dd8",
+      "guard": "0x1d94",
+      "branch": "cbz",
+      "target": "0x1ddc",
+      "load": "0x1d84",
+      "load_args": "w8, [sp, #253]",
+      "verify_load_matches": true
+    }
+  ]
+}
