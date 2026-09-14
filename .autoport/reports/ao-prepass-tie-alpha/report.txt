@@ -1,29 +1,28 @@
 DIRECTIVES v775512c234
-Verdict : non validé ; la mesure corrigée ne trouve plus de trou TIE à village1-hut, mais le contrat complet reste non prouvé.
-Changé : shade.glsl conserve c.a sous u_ao_proof ; la table préalable de l’essai 1 établissait l’alpha couleur artificiellement forcé à 1.
-La correction porte sur l’instrument couleur ; aucun élargissement de découpe ni correctif de géométrie de prépasse appliqué.
-Raccordé : sonde statique et lecteur exact existants, ancres comprises ; ticks, populations, témoins et critères conservés.
-FEATURE publie les prises propres : 1444 jugements alpha avec draw de prépasse et couleur TIE identiques, séparés des 87027 pixels couleur observés.
-Build arm64 incrémental code 0, garde NPC 47 propriétés ; repack code 0 en 7 s, shader c.a vérifié dans la bibliothèque.
-Preuve USB neuve : run 20260914T171045Z-330330-a3338647, eae4df44 (Redmi Note 9 Pro), SHA 14f694dbd6dfdfc9, durée 162 s.
-Déploiement vérifié : MD5 local/appareil 2f0b1f4c5906f297793ccc22d30b8485 ; 13 propriétés épinglées effectives, aucune perdue.
+Verdict : non validé ; la comparaison statique neuve tient zéro, mais le contrat TIE complet reste non prouvé.
+Essai 3 : binaire livré conservé, aucune modification des sources ni rebuild ; une seule course ON USB.
+La cause préalable et le correctif instrumental c.a de l’essai 2 restent établis ; aucun correctif de prépasse ajouté.
+Preuve neuve : 20260914T171948Z-345561-e6efad49, eae4df44 (Redmi Note 9 Pro), SHA 14f694dbd6dfdfc9, durée 161 s.
+Fraîcheur : MD5 local/appareil 2f0b1f4c5906f297793ccc22d30b8485 ; proof_props_effective=13, proof_props_lost=0.
 Huit lignes recopiées de proof.txt :
 crash=0
-frames=1980
-ao_geom_cover_px=463967
-ao_geom_tie_cover_px=87027
+frames=2040
+ao_geom_cover_px=463871
+ao_geom_tie_cover_px=86866
 ao_geom_tie_absent_px=0
 ao_geom_tie_absent_inner_px=0
-ao_tie_alpha_pre_judged_px=1444
-ao_static_defects=1
-Une acquisition géométrique à village1-hut : ao_tie_alpha_missing_px=0, aucune ligne d’échantillon absent à publier dans cette course.
-La table antérieure reste dans notes/alpha-table.tsv : 32 lignes auditées, 725 absents historiques classés alpha_rejection_other ; ce n’est pas une preuve neuve.
-Les cinq acquis sont à zéro dans cette preuve : ao_high_not_fullres, ao_pattern_over_ceiling, ao_on_alpha_device_px, ao_direct_leak_px, ao_contact_band_px.
-Stabilité : 18 échantillons, deux ancres ; seuls ao_static_term_nondeterminism=1 et ao_probe_nondeterminism=non-mesure empêchent le zéro.
-Tous les autres termes statiques valent zéro, y compris variations finale/estimateur, prémisse, acquisitions et ancres.
-La première course du binaire a enregistré sa référence (ao_probe_baseline_saved=1) ; aucune seconde course ON ajoutée sans plan autorisé.
-non prouvé : ao_tie_prepass_defects (absent), deux autres vues, identité bit à bit couleur AO éteinte, compte de fragments couleur changés, comparaison inter-courses, ablation --off, coût et esthétique.
-Le livrable « correctif dans la PRÉPASSE » doit être réconcilié avec la cause instrumentale mesurée ; un correctif de rendu ne se justifie pas par les anciens faux trous.
+ao_probe_nondeterminism=0
+ao_static_defects=0
+FEATURE ao-prepass-tie-alpha armed=1 hits=1347 ; preuve propre égale ao_tie_alpha_pre_judged_px=1347.
+Une acquisition géométrique à village1-hut ; ao_tie_alpha_observed_px=86866, ao_tie_alpha_missing_px=0.
+Comparaison native neuve : ao_probe_compared=1, samples=18, baseline_time=1789406035, baseline_saved=0 ; deux ancres exécutées.
+La référence de l’essai 2 a servi d’entrée au code, aucun verdict archivé n’a été recopié comme résultat actuel.
+Les cinq acquis sont à zéro : ao_high_not_fullres, ao_pattern_over_ceiling, ao_on_alpha_device_px, ao_direct_leak_px, ao_contact_band_px.
+Tous les termes ao_static_term_* sont à zéro dans la même preuve ; le blocage statique de l’essai 2 est levé.
+non prouvé : ao_tie_prepass_defects (absent), deux autres vues, identité bit à bit couleur AO éteinte, fragments couleur changés, ablation, coût et esthétique.
+Le contrat exige --off mais DIRECTIVES le réserve à une demande du validateur ; generic.sh:181-182 n’en exige pas l’existence.
+Aucun plan de campagne n’est inscrit pour les autres vues ; aucun instrument existant trouvé pour les deux comparaisons couleur.
+La clause « correctif dans la PRÉPASSE » reste incompatible avec la cause instrumentale mesurée ; aucun seuil élargi pour satisfaire la prose.
 Owner : Options > Recharged > Recharged Lighting > Ambient Occlusion, sur HONOR, chaque palier et SSAO/HBAO/GTAO à force maximale.
-À regarder : aucun damier/pixelisation, y compris Élevé ; aucun contact clair ; ombre suivant le feuillage mobile sans flotter ; rien ne bougeant caméra immobile.
-Aucun validateur exécuté par le worker ; aucune clôture ni validation owner fabriquée. Handoff et FINDINGS consignés.
+À regarder : aucun damier/pixelisation même en Élevé, aucun contact clair, ombre suivant le feuillage sans flotter, rien ne bougeant caméra immobile.
+Rapport, FINDINGS et handoff actualisés ; aucune validation owner ni exécution du validateur par le worker.
