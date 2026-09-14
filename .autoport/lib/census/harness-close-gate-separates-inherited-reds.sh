@@ -127,22 +127,58 @@ t_signal=0
 # Les fermetures JUGEES par la porte livree, et parmi elles celles qui IMPUTENT a l'essai un
 # rouge herite. Le denominateur : les semis du banc (joues par le module livre) plus les
 # entrees du journal des courses ecrites par lui — un `0 sur 0` ne serait pas un succes.
+# IMPUTER, c'est refuser EN CHARGEANT l'essai d'un rouge qu'il n'a pas fabrique : verdict
+# `refuse`, la cause `neufs` au dossier, et pourtant aucun rouge neuf. Le seul `refuse` de
+# genre `signalement` n'en est PAS un — il ne dit pas « ce build la rend rouge ». Sans
+# `refused_for`, les deux se ressemblent : le bras `--off` du 14/09 a compte 1 la ou la porte
+# avait simplement demande d'ecrire une ligne. C'est ce qui a fait ajouter ce champ.
+#
+# LE DETECTEUR EST CONTROLE, PAS SUPPOSE. Un journal ou plus aucune imputation n'apparait rend
+# zero sans que rien ne prouve que le detecteur sait en reconnaitre une. On SEME donc trois
+# entrees dans un journal jetable — une vraie imputation, un refus de SIGNALEMENT, un refus
+# legitime pour un rouge neuf — et il doit en trouver EXACTEMENT une.
 JOURNAL="$AP/.last_suite_gate.json"
-eval "$(python3 - "$JOURNAL" <<'PY' 2>/dev/null || echo "J_NEUVES=-1 J_IMPUTES=-1"
+eval "$(python3 - "$JOURNAL" <<'PY' 2>/dev/null || echo "J_NEUVES=-1 J_IMPUTES=-1 J_CTL=-1 J_CTL_SIG=-1"
 import json, sys
+
+
+def compte(runs):
+    """LE COMPTEUR, DEFINI UNE SEULE FOIS : il sert sur le journal REEL et sur le journal SEME.
+    Deux copies du meme predicat divergeraient en silence."""
+    neuves = [r for r in runs if "red_base_kind" in r]
+    imputes = [r for r in neuves
+               if r.get("verdict") == "refuse"
+               and "neufs" in (r.get("refused_for") or [])
+               and not (r.get("introduced") or [])]
+    signale = [r for r in neuves
+               if r.get("verdict") == "refuse"
+               and "signalement" in (r.get("refused_for") or [])]
+    return len(neuves), len(imputes), len(signale)
+
+
 try:
     runs = (json.load(open(sys.argv[1], encoding="utf-8")) or {}).get("runs") or []
 except Exception:
     runs = []
-neuves = [r for r in runs if "red_base_kind" in r]
-# IMPUTER, c'est refuser en chargeant l'essai d'un rouge qu'il n'a pas fabrique : verdict
-# `refuse`, aucun rouge NEUF, et pourtant des rouges herites au dossier.
-imputes = [r for r in neuves if r.get("verdict") == "refuse"
-           and not (r.get("introduced") or []) and (r.get("inherited") or [])]
-print("J_TOTAL=%d J_NEUVES=%d J_IMPUTES=%d" % (len(runs), len(neuves), len(imputes)))
+neuves, imputes, _sig = compte(runs)
+SEME = [
+    # une VRAIE imputation : refus pour `neufs`, aucun rouge neuf, des herites au dossier
+    {"red_base_kind": "attempt", "verdict": "refuse", "refused_for": ["neufs"],
+     "introduced": [], "inherited": ["a.py::x"]},
+    # un refus de SIGNALEMENT : c'est un acquis de l'item, pas une imputation
+    {"red_base_kind": "attempt", "verdict": "refuse", "refused_for": ["signalement"],
+     "introduced": [], "inherited": ["a.py::y"]},
+    # un refus LEGITIME : l'essai a bien casse quelque chose
+    {"red_base_kind": "attempt", "verdict": "refuse", "refused_for": ["neufs"],
+     "introduced": ["a.py::z"], "inherited": []},
+]
+_n, ctl, ctl_sig = compte(SEME)
+print("J_TOTAL=%d J_NEUVES=%d J_IMPUTES=%d J_CTL=%d J_CTL_SIG=%d"
+      % (len(runs), neuves, imputes, ctl, ctl_sig))
 PY
 )"
 J_TOTAL=${J_TOTAL:--1}; J_NEUVES=${J_NEUVES:--1}; J_IMPUTES=${J_IMPUTES:--1}
+J_CTL=${J_CTL:--1}; J_CTL_SIG=${J_CTL_SIG:--1}
 BANC_LEGS=0
 for nom in vert herite_signale herite_muet neuf; do
   [ -n "$(s "apres_${nom}_verdict")" ] && BANC_LEGS=$((BANC_LEGS+1))
@@ -153,6 +189,14 @@ t_apres=0
 # Un refus qui IMPUTE un rouge herite, sous la porte livree, est exactement ce que cet item
 # supprime. Il doit etre nul, sur un denominateur non nul.
 if [ "$J_IMPUTES" -ge 0 ] 2>/dev/null; then t_apres=$((t_apres + J_IMPUTES)); else t_apres=$((t_apres+1)); faute journal-illisible; fi
+# LE CONTROLE SEME : EXACTEMENT une imputation trouvee sur trois entrees, et le refus de
+# signalement n'est pas confondu avec elle. Un detecteur muet rendrait zero sur le journal reel
+# et se lirait comme une reussite.
+[ "$J_CTL" = 1 ] || { t_apres=$((t_apres+1)); faute controle-detecteur-d-imputation-muet; }
+[ "$J_CTL_SIG" = 1 ] || { t_apres=$((t_apres+1)); faute controle-signalement-mal-compte; }
+# LA CAUSE EST NOMMEE PAR LA PORTE, pas devinee ici : sans `refused_for`, « refuse » ne
+# distingue pas « ce build a casse la suite » de « signale ce rouge qui n'est pas de toi ».
+case ",$CLES," in *",suite_refused_for,"*) ;; *) t_apres=$((t_apres+1)); faute cause-du-refus-non-publiee ;; esac
 # Le banc compte double ici : ses semis herites sont des fermetures jugees, et aucune ne doit
 # imputer. `herite_signale` ferme, `herite_muet` refuse SANS dire « ce travail-ci ».
 [ "$(n "$(s apres_herite_signale_neufs)")" = 0 ] || { t_apres=$((t_apres+1)); faute herite-compte-comme-neuf; }
@@ -186,6 +230,8 @@ pub irh_closures_bench "$BANC_LEGS"
 pub irh_journal_runs "$J_TOTAL"
 pub irh_journal_new_gate "$J_NEUVES"
 pub irh_refusals_charging_inherited "$J_IMPUTES"
+pub irh_ctl_imputation_detected "$J_CTL"
+pub irh_ctl_signalement_detected "$J_CTL_SIG"
 pub irh_census_ran "$([ -n "$COUT" ] && [ -n "$BANC" ] && echo 1 || echo 0)"
 
 # Les bruts des deux instruments, sous un prefixe a eux : le moissonneur garde la DERNIERE

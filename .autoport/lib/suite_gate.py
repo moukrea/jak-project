@@ -416,9 +416,10 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
         "inherited_filed": -1, "inherited_unfiled": [], "findings_read": 0,
         "journal_unseen": -1, "journal_unseen_list": [],
         "previous_at": "-", "previous_runs": len(read_journal(autoport)),
-        "verdict": "refuse", "reason": "",
+        "verdict": "refuse", "reason": "", "refused_for": [],
     }
     if not os.path.isdir(suite_abs):
+        d["refused_for"] = ["suite-absente"]
         d["reason"] = ("la suite du harnais est INTROUVABLE (%s) : rien n'a ete mesure, et "
                        "une porte qui ne trouve pas son filet ne le remplace pas par un vert."
                        % suite_rel)
@@ -495,19 +496,29 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
     d["self_added_named"] = len(propres) - len(d["self_added_unnamed"])
 
     # ------------------------------------------------------------------ 3. LE JUGEMENT ------
-    defauts = []
+    # CHAQUE DEFAUT PORTE SON NOM. La phrase est pour l'humain ; le slug est pour qui compte.
+    # Sans lui, « la porte a refuse » ne distingue pas « ce build a casse la suite » de « tu
+    # n'as pas signale un rouge qui n'est pas de toi » — et un recensement qui veut compter les
+    # refus IMPUTES devrait deviner. Le journal le garde, la publication aussi.
+    defauts: list[str] = []
+    genres: list[str] = []
+
+    def faute(genre: str, texte: str) -> None:
+        genres.append(genre)
+        defauts.append(texte)
+
     if tue:
-        defauts.append("la suite n'a pas rendu la main en %d s (plafond dur) : elle a ete tuee, "
+        faute("plafond", "la suite n'a pas rendu la main en %d s (plafond dur) : elle a ete tuee, "
                        "et une suite tuee n'a rien prouve" % plafond)
     if resultats is None:
-        defauts.append("le junit de la suite est illisible ou absent (pytest rc=%d) : le code "
+        faute("junit", "le junit de la suite est illisible ou absent (pytest rc=%d) : le code "
                        "de retour seul ne distingue pas « un test a rate » de « la collecte a "
                        "echoue »" % rc)
     if rc not in (0, 1) and not tue:
-        defauts.append("pytest est sorti en %d — usage, collecte impossible ou aucun test "
+        faute("rc", "pytest est sorti en %d — usage, collecte impossible ou aucun test "
                        "collecte ; ce n'est pas « aucun test n'a rate »" % rc)
     if registre is None:
-        defauts.append("le registre des echecs assumes (%s) est illisible : sans lui aucun "
+        faute("registre", "le registre des echecs assumes (%s) est illisible : sans lui aucun "
                        "rouge ne peut etre dispense, et un registre casse ne dispense pas tout"
                        % registre_rel)
 
@@ -517,7 +528,7 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
         d["failed"] = len(rouges)
         d["failed_list"] = rouges
         if not resultats:
-            defauts.append("la suite n'a COLLECTE aucun test : une suite qui ne collecte rien "
+            faute("collecte-vide", "la suite n'a COLLECTE aucun test : une suite qui ne collecte rien "
                            "ne rate rien, et son vert ne protege personne")
         if registre is not None:
             # UNE DISPENSE NE COUVRE QUE SA PROPRE SIGNATURE : un autre defaut ne passe pas
@@ -588,7 +599,8 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             d["unwaived_new_list"] = neufs
 
             if neufs:
-                defauts.append(
+                faute(
+                    "neufs",
                     "%d test(s) de la suite du harnais sont ROUGES, aucune dispense ecrite ne "
                     "les couvre, et ils etaient VERTS a la base de CET essai (%s, %s) : c'est "
                     "ce travail-ci qui les rend rouges — %s. Repare le test ou inscris-le dans "
@@ -604,7 +616,8 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
                 d["inherited_filed"] = len(herites) - len(d["inherited_unfiled"])
                 manquants = sorted(set(d["inherited_unnamed"]) | set(d["inherited_unfiled"]))
                 if manquants:
-                    defauts.append(
+                    faute(
+                        "signalement",
                         "%d rouge(s) HERITE(S) ne sont pas passes en signalement : %s. Ils ne "
                         "sont PAS de cet essai — ils sont deja rouges a sa base (%s) et la "
                         "porte ne les lui impute pas — mais un rouge herite que personne "
@@ -614,18 +627,21 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
                         % (len(manquants), ",".join(manquants[:8]), d["red_base_ref"],
                            item_id or "<id>"))
     if d["self_added"] > 0 and d["unwaived_new"] and d["unwaived_new"] > 0:
-        defauts.append(
+        faute(
+            "dispense-propre",
             "%d entree(s) du registre ont ete ajoutees par CET item (%s, base %s) : elles ne "
             "dispensent pas SES propres rouges. Un item ne se donne pas du vert en inscrivant "
             "son echec au registre." % (d["self_added"], ",".join(propres[:6]), d["base_ref"]))
     if d["self_added"] > 0 and d["self_added_unnamed"]:
-        defauts.append(
+        faute(
+            "dispense-non-nommee",
             "%d entree(s) ajoutees au registre ne sont NOMMEES nulle part dans le rapport de "
             "l'item (%s) : une dispense que personne ne lit est une regression silencieuse."
             % (len(d["self_added_unnamed"]), ",".join(d["self_added_unnamed"][:6])))
 
     d["verdict"] = "pass" if not defauts else "refuse"
     d["reason"] = " | ".join(defauts)
+    d["refused_for"] = genres
 
     if record:
         _append_journal(autoport, {
@@ -636,6 +652,7 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             "verdict": d["verdict"], "red_base": d["red_base_ref"],
             "red_base_kind": d["red_base_kind"],
             "inherited": d["unwaived_known_list"], "introduced": d["unwaived_new_list"],
+            "refused_for": d["refused_for"],
         })
     return d
 
@@ -662,7 +679,7 @@ def publish(d: dict, prefix: str = "suite_") -> list[str]:
              "replay_base", "replay_head",
              "inherited_named", "inherited_unnamed", "inherited_filed", "inherited_unfiled",
              "findings_read", "journal_unseen", "journal_unseen_list",
-             "previous_at", "previous_runs", "verdict", "suite_dir")
+             "previous_at", "previous_runs", "verdict", "refused_for", "suite_dir")
     out = ["%s%s=%s" % (prefix, k, _plat(d.get(k, "-"))) for k in ordre]
     out.append("%sreason=%s" % (prefix, _plat(d.get("reason") or "-")[:400]))
     return out
