@@ -1,12 +1,11 @@
-Le correctif livraison reste prouvé à l’essai 3 ; la fermeture bloque sur la collecte Urbanist sous /tmp saturé.
+Le correctif livraison reste prouvé à l’essai 3 ; l’essai 5 ne peut pas fermer sans correction de la collecte des acquis.
 DIRECTIVES va1dbd6abb3
 
-Correctif a9317464c4 conservé, aucun code changé à l’essai 4.
-Cuisson ciblée via build_x86, reprise après échec, repères avancés seulement sur APK complet.
-Publication conditionnée au reçu et aux empreintes ; banc existant : 22 cas réussis.
-Trace : proof-census.log et notes/delivery-stale-bake.log ; aucun nouveau banc nécessaire.
+Correctif a9317464c4 conservé, aucun code changé aux essais 3, 4 et 5.
+Cuisson ciblée, reprise après échec et publication cohérente : banc historique de 22 cas.
+Trace : notes/delivery-stale-bake.log ; aucun nouveau banc nécessaire.
 
-Huit lignes de proof.txt CONSERVÉ de l’essai 3, aucune preuve produite pour l’essai 4 :
+Huit lignes de proof.txt CONSERVÉ de l’essai 3, aucune preuve produite pour l’essai 5 :
 source=x86
 crash=0
 frames=3407
@@ -17,15 +16,17 @@ delivery_stale_bake_retry_cases=10
 delivery_stale_bake_publication_cases=6
 
 Course 20260914T180449Z-399350-6086d017 ; identité harness-delivery-stale-bake-recovery@3#1789409029.
-Empreinte recalculée à l’essai 4 : a92a34608c584b87, identique à la preuve conservée.
-validator-003.txt : generic accepte le critère puis CLOSE-GATE/acquis refuse font-urbanist.sh.
-notes/tmp-quota-attempt-4.log : écriture sous /tmp refusée errno=122, hors /tmp 18 octets écrits.
-Les journaux Urbanist des essais 2 et 3 font 0 octet ; orchestrateur PID 383084 sans TMPDIR/TMP/TEMP.
-Rejeu hors /tmp déjà établi : source=bundled-police binds=1 EXIT_CODE=0 (notes/acquis-font-attempt-3.log).
+validator-003.txt : generic accepte puis CLOSE-GATE/acquis refuse Urbanist ; journal vide.
+validator-004.txt : refus distinct, preuve de l’essai 3 ne portant pas l’identité de l’essai 4.
+Essai 5 : notes/recovery-audit-attempt-5.log, production_diff_since_attempt_4_rc=0.
+Même trace : orchestrateur PID 383084 sans TMPDIR/TMP/TEMP ; audit researcher concordant.
+Quota historiquement mesuré, sans nouvelle sonde : notes/tmp-quota-attempt-4.log, EDQUOT=122.
+Rejeu Urbanist hors /tmp historiquement vert : notes/acquis-font-attempt-3.log, EXIT_CODE=0.
 Le statut du moteur des fermetures échouées reste inconnu ; aucune régression police démontrée.
-Pas de rejeu aveugle ni nouvelle course : le blocage de collecte persisterait côté pilotage inchangé.
-Correction requise hors périmètre : temporaires hors quota pour la fermeture, par le pilotage autorisé.
-Rouge HERITE test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface : item:harness-suite-temporary-files-outside-quota.
+Aucune nouvelle course : la correction préalable exigée par le handoff n’a pas été livrée.
+Le chantier harness-suite-temporary-files-outside-quota reste open et sans rapport.
+Le pilotage doit y couvrir aussi les acquis et ordonner cette dépendance avant le prochain essai livraison.
+Rouge HERITE test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface maintenu dans FINDINGS.
 À regarder après reprise : nouveaux builds livrés ; aucune validation visuelle ni owner attendue.
-non prouvé : fermeture essai 4, cuisson/APK réels, publication distante, chargement du correctif par les démons.
-Handoff et FINDINGS actualisés ; aucun appareil, démon, orchestrateur, moteur ou validateur modifié.
+non prouvé : fermeture essai 5, cuisson/APK réels, publication distante, chargement du correctif par les démons.
+Handoff/FINDINGS actualisés ; aucun appareil, build, démon, orchestrateur, moteur ou validateur modifié.
