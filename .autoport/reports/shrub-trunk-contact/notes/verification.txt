@@ -1,0 +1,7 @@
+Verification des artefacts produits par proof_run, sans modification des preuves.
+meme appareil=eae4df44 meme sha=8e0d8388660b1ccd
+classes ON/OFF identiques: 17 lignes niveau/prototype
+frames ON=7320 OFF=7740; crash ON=0 OFF=0
+ancres tronc ON=0 OFF=276
+shrub_trunk_squash_defects absent dans les deux bras : aucun faux verdict de deplacement.
+Ces comparaisons ne comparent pas un binaire temoin anterieur ni des deplacements GPU.

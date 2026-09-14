@@ -1,0 +1,227 @@
+> Task :app:configureNativeLibs SKIPPED
+
+> Task :app:buildNativeLibs
+[0/2] Re-checking globbed directories...
+[1/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/PrePass.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[2/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/loader/LoaderStages.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/LoaderStages.cpp:2:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/LoaderStages.cpp:2:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[3/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Shrub.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.h:11:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.h:11:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[4/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.h:11:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.h:11:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[5/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/foliage_wind.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[6/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/loader/Loader.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/Loader.cpp:27:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/loader/Loader.cpp:27:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[7/9] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/refset.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/foliage_wind.h:87:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[8/9] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues
+
+> Task :app:copyNativeLibs
+> Task :app:preBuild
+> Task :app:preJak1DebugBuild
+> Task :app:mergeJak1DebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileJak1Debug UP-TO-DATE
+> Task :app:checkJak1DebugAarMetadata UP-TO-DATE
+> Task :app:generateJak1DebugResValues UP-TO-DATE
+> Task :app:mapJak1DebugSourceSetPaths UP-TO-DATE
+> Task :app:generateJak1DebugResources UP-TO-DATE
+> Task :app:mergeJak1DebugResources UP-TO-DATE
+> Task :app:packageJak1DebugResources UP-TO-DATE
+> Task :app:parseJak1DebugLocalResources UP-TO-DATE
+> Task :app:createJak1DebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksJak1Debug UP-TO-DATE
+> Task :app:processJak1DebugMainManifest UP-TO-DATE
+> Task :app:processJak1DebugManifest UP-TO-DATE
+> Task :app:processJak1DebugManifestForPackage UP-TO-DATE
+> Task :app:processJak1DebugResources UP-TO-DATE
+> Task :app:compileJak1DebugJavaWithJavac UP-TO-DATE
+
+> Task :app:bundleJak1CgoPack
+[cgo-pack] touch-variant [android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip]: 8 banc(s) sur 23 lus portent #x17e7 distinct de #x16e (langues 0,1,2,3,4,5,6,24) ; 8 source(s) le promettent (bs-BA de-DE en-GB en-US es-ES fr-FR it-IT ja-JP)
+[cgo-pack] up to date: android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip (version=cbd202fe0328a file_count=74)
+
+> Task :app:bundleJak1CustomPack
+python3: can't open file '/home/emeric/code/jak-project/android/../.autoport/apply_owner_tuning.py': [Errno 2] No such file or directory
+[custom-pack] marker=ogflags:435df2141670:android-arm64  flags='hd-models,pbr,physics' (hud=0 overhang=0 hd-models=1 pbr=1 physics=1 vulkan=0)
+[custom-pack] recharged HUD PNGs: 13 (delivery ungated; runtime feature flag hud=0)
+[custom-pack] physics chain definition: 1 (delivery ungated; runtime feature flag physics=1)
+[custom-pack] physics mesh samples: 1 (delivery ungated; runtime feature flag physics=1)
+[custom-pack] lexique de vegetation TIE: 1 (livraison inconditionnelle; sans lui, zero balancement statique)
+[custom-pack] sidecar vent natif shrub: 1 (livraison inconditionnelle; sans lui, zero vent natif sur les buissons)
+[custom-pack] grassbake tables: 5
+[custom-pack] mesh-consolidation sidecars: 26
+[custom-pack] stock fr3 levels: 26
+[custom-pack] grassbake OK: training.high.grassbake (niveau=training fr3_size=9417494 == training.fr3 livre)
+[custom-pack] grassbake OK: training.low.grassbake (niveau=training fr3_size=9417494 == training.fr3 livre)
+[custom-pack] grassbake OK: training.medium.grassbake (niveau=training fr3_size=9417494 == training.fr3 livre)
+[custom-pack] grassbake OK: training.very-high.grassbake (niveau=training fr3_size=9417494 == training.fr3 livre)
+[custom-pack] grassbake OK: training.very-low.grassbake (niveau=training fr3_size=9417494 == training.fr3 livre)
+[custom-pack] police Urbanist : 2 atlas presents (32792+127357 octets)
+[custom-pack] recharged textures: 7 png embarques, 24 remplaces par leur cuisson ASTC
+[custom-pack] baked recharged textures (ASTC/KTX2): 37 members (30 .ktx2)
+[custom-pack] up to date: android/app/src/jak1/assets-slim/bundle/jak1_custom.zip (version=c30b27d51189d file_count=118)
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+tail: error writing 'standard output': Broken pipe
+[custom-pack] data-freshness guard OK: 26 sidecars, 57 fr3 members byte-identical to out/jak1/fr3, bake_version=9 (26 sidecar members version-checked), coverage 74/74 derived files on disk present as members
+[custom-pack] ND-HD exclusion guard OK: no Naughty-Dog-derived HD asset in android/app/src/jak1/assets-slim/bundle/jak1_custom.zip (HD ships EXTERNAL per the owner IP rule)
+
+> Task :app:mergeJak1DebugShaders UP-TO-DATE
+> Task :app:compileJak1DebugShaders NO-SOURCE
+> Task :app:generateJak1DebugAssets UP-TO-DATE
+> Task :app:mergeJak1DebugAssets UP-TO-DATE
+> Task :app:compressJak1DebugAssets UP-TO-DATE
+> Task :app:checkJak1DebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarJak1DebugFileDependencies UP-TO-DATE
+> Task :app:mergeJak1DebugStartupProfile UP-TO-DATE
+> Task :app:mergeExtDexJak1Debug UP-TO-DATE
+> Task :app:dexBuilderJak1Debug UP-TO-DATE
+> Task :app:mergeJak1DebugGlobalSynthetics UP-TO-DATE
+> Task :app:processJak1DebugJavaRes NO-SOURCE
+> Task :app:mergeJak1DebugJavaResource UP-TO-DATE
+> Task :app:mergeLibDexJak1Debug UP-TO-DATE
+> Task :app:mergeProjectDexJak1Debug UP-TO-DATE
+> Task :app:mergeJak1DebugJniLibFolders
+> Task :app:validateSigningJak1Debug UP-TO-DATE
+> Task :app:writeJak1DebugAppMetadata UP-TO-DATE
+> Task :app:writeJak1DebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeJak1DebugNativeLibs
+> Task :app:stripJak1DebugDebugSymbols
+> Task :app:packageJak1Debug
+> Task :app:createJak1DebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleJak1Debug
+
+BUILD SUCCESSFUL in 29s
+39 actionable tasks: 8 executed, 31 up-to-date

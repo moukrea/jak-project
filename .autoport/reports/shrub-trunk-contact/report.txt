@@ -1,0 +1,28 @@
+DIRECTIVES vab39193976
+Verdict : correctifs livres sur USB, contrat non valide faute de mesures de deplacement ; faux vert retire.
+Commit moteur : 862796af95.
+Changements : relations porteur/feuillage completes apres promotion, rattachement geometrique aux LOD,
+pivot de contact TIE corrige sans modifier base_y du vent, recensement par niveau/prototype en lignes bornees.
+La somme CPU publie desormais shrub_trunk_anchor_defects ; elle ne pretend plus mesurer squash_defects.
+Build : assembleJak1Debug reussi en 29 s, 8 taches executees ; notes/build-android.log.
+Huit lignes recopiees de proof.txt, produit par lib/proof_run.sh :
+serial=eae4df44
+sha=8e0d8388660b1ccd
+crash=0
+frames=7320
+FEATURE shrub-trunk-contact armed=1 hits=877921
+shrub_trunk_anchored=0
+shrub_trunk_classes_11=level=training,proto=palmplant-top.mb,trunk_instances=0,trunk_verts=0,foliage_instances=32,foliage_verts=2816
+shrub_trunk_classes_16=level=training,proto=palmplant-base.mb,trunk_instances=32,trunk_verts=1792,foliage_instances=0,foliage_verts=0
+Ablation (proof-off.txt) : FEATURE shrub-trunk-contact armed=0 hits=0 ; frames=7740 ; crash=0.
+Meme appareil et SHA dans les deux bras ; ancres tronc ON=0, OFF=276 ; classes identiques (17 lignes).
+Fraicheur : proof_binary_local_md5 et proof_binary_device_md5 valent 78c1958c7701426c2927afc9b25bef31.
+Regime relu : proof_prop_obs_level_warp=training-warp et proof_prop_obs_foliage_force=1 dans les deux bras.
+Attention : FEATURE hits est global ; proof_feature_own_hits=382574 compte des appels groupes/LOD,
+pas les 173329 sommets canoniques recenses ; voir FINDINGS.txt.
+L'owner doit regarder a Geyser Rock : marcher dans un mini-palmier, tronc droit, feuilles mobiles et solidaires.
+non prouve : deplacements reels des troncs et feuilles, ecart aux sommets de jonction ; squash_defects absent.
+non prouve : identite OFF par binaire temoin, invariance dynamique vent/contact herbe, couverture des autres niveaux.
+Les shaders contact/herbe et vent sont identiques au HEAD initial (notes/source-check.txt), sans preuve dynamique.
+Aucun nouvel instrument GPU ni campagne supplementaire : economie de preuve imposee par les DIRECTIVES.
+Validateur generic.sh non execute par le worker : il appartient a l'orchestrateur ; aucun owner-ok ecrit.

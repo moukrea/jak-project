@@ -1,0 +1,18 @@
+[proof_run shrub-trunk-contact] verrou d'ecriture pris (.autoport/reports/shrub-trunk-contact/proof-off-writer.lock) : pid=605914 lanceur=605913 essai=shrub-trunk-contact@2#1789411928 course=20260914T190230Z-605914-c34d0743
+[proof_run shrub-trunk-contact] garde de build : decision=passe demon_gradle=1 apk_age=226s attendu=0s
+[proof_run shrub-trunk-contact] attente de ce bras publiee sous 'proof-off-wait.txt', nom derive par lib/impossible.py
+[proof_run shrub-trunk-contact] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire shrub-trunk-contact] md5 identiques (78c1958c7701426c2927afc9b25bef31) : la course peut mesurer
+[proof_run shrub-trunk-contact] garde binaire : decision=identique local=78c1958c7701426c2927afc9b25bef31 appareil=78c1958c7701426c2927afc9b25bef31 (code 0)
+[proof_run shrub-trunk-contact] ecran : mWakefulness=Awake
+[proof_run shrub-trunk-contact] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run shrub-trunk-contact] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 0 o, sha=- ; filet proof-prev ecrit : 0)
+[proof_run shrub-trunk-contact] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 120s (armed=0)
+[proof_run shrub-trunk-contact] contexte de course : verdict=sans-objet images=7740 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'shrub-trunk-contact' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.foliage.force etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'training-warp' -> vide
+[teardown] eae4df44: 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], 4 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run shrub-trunk-contact] teardown de fin : 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], publie sous 'proof-off-teardown-fin.txt'
+[proof_run shrub-trunk-contact] ecrit .autoport/reports/shrub-trunk-contact/proof-off.txt (frames=7740 crash=0 duree=130s) ; sortie moteur : .autoport/reports/shrub-trunk-contact/proof-off-engine.log

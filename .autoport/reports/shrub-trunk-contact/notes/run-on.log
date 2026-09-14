@@ -1,0 +1,25 @@
+[proof_run shrub-trunk-contact] verrou d'ecriture pris (.autoport/reports/shrub-trunk-contact/proof-writer.lock) : pid=600034 lanceur=600031 essai=shrub-trunk-contact@2#1789411928 course=20260914T185902Z-600034-067ad6ca
+[proof_run shrub-trunk-contact] attente : APK reecrit il y a 17s
+[proof_run shrub-trunk-contact] build fini apres 45s d'attente, on mesure.
+[proof_run shrub-trunk-contact] garde de build : decision=passe demon_gradle=1 apk_age=63s attendu=45s
+[proof_run shrub-trunk-contact] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run shrub-trunk-contact] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire shrub-trunk-contact] ECART : le telephone porte 2f0b1f4c5906f297793ccc22d30b8485, le build local 78c1958c7701426c2927afc9b25bef31
+[garde-binaire shrub-trunk-contact] verrou pose (pid=601547) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire shrub-trunk-contact] LIVRE : 78c1958c7701426c2927afc9b25bef31 sur eae4df44 ; la course peut mesurer
+[proof_run shrub-trunk-contact] garde binaire : decision=deploye local=78c1958c7701426c2927afc9b25bef31 appareil=78c1958c7701426c2927afc9b25bef31 (code 0)
+[proof_run shrub-trunk-contact] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run shrub-trunk-contact] ecran : mWakefulness=Awake
+[proof_run shrub-trunk-contact] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run shrub-trunk-contact] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 0 o, sha=- ; filet proof-prev ecrit : 0)
+[proof_run shrub-trunk-contact] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 120s (armed=1)
+[proof_run shrub-trunk-contact] contexte de course : verdict=sans-objet images=7320 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'shrub-trunk-contact' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.foliage.force etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'training-warp' -> vide
+[teardown] eae4df44: 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], 4 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run shrub-trunk-contact] teardown de fin : 4 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.foliage.force,debug.opengoal.level.warp], publie sous 'proof-teardown-fin.txt'
+[proof_run shrub-trunk-contact] ecrit .autoport/reports/shrub-trunk-contact/proof.txt (frames=7320 crash=0 duree=132s) ; sortie moteur : .autoport/reports/shrub-trunk-contact/proof-engine.log
