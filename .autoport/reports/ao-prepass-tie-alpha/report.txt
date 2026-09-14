@@ -1,26 +1,34 @@
 DIRECTIVES v775512c234
-Verdict : non validé ; essai 4 sans nouvelle course, le contrat complet reste bloqué et ao_tie_prepass_defects absent.
-Changement : rapport, FINDINGS, notes et handoff précisent la reprise ; aucune modification du moteur ni rebuild.
-Audit indépendant researcher Codex gpt-6-astra high : aucun plan de campagne ni mesure couleur existante trouvé.
-USB disponible au contrôle de cet essai : bash .autoport/lib/pick_device.sh → eae4df44, code 0.
-Aucune nouvelle preuve produite ; proof.txt reste celui de l’essai 3, sans réattribution à l’essai 4.
-Huit lignes historiques recopiées de proof.txt, course 20260914T171948Z-345561-e6efad49 (essai 3 uniquement) :
+Non validé : le critère ao_tie_prepass_defects == 0 n’est pas tenu (359306).
+Correctif alpha de mesure conservé ; ajout de la comparaison RGBA native au tick1400,
+d’une variante GLSL antérieure identifiée et de l’agrégation explicite des trois vues.
+Les résultats manquants restent pénalisés ; les critères et populations statiques sont conservés.
+Un build arm64 incrémental et un repack réussis ; APK livré par proof_run sur USB eae4df44.
+Binaire SHA256 8298ffe26c8bb3dfe98190ce5ff9d4d7a1b63506d5c0f90f7c5159b038d43e43.
+MD5 local/appareil 612c208a040cd9001ae2dda4f766073e ; neuf courses, aucun crash, 136–146s chacune.
+Dernière preuve : 20260914T215213Z-1018583-753ad700, essai ao-prepass-tie-alpha@5#1789420807.
+Huit lignes recopiées de proof.txt :
 crash=0
-frames=2040
-ao_geom_cover_px=463871
-ao_geom_tie_cover_px=86866
-ao_geom_tie_absent_px=0
-ao_geom_tie_absent_inner_px=0
-ao_probe_nondeterminism=0
-ao_static_defects=0
-Ces lignes ne prouvent ni une exécution ni une livraison de l’essai 4.
-La table préalable de l’essai 1 et le correctif instrumental de l’essai 2 sont conservés.
-Le dernier verdict disponible, validator-003.txt, refuse la grandeur ao_tie_prepass_defects manquante.
-Aucune somme partielle ajoutée : les clauses non mesurées ne sont pas des zéros.
-Le contrat exige --off ; DIRECTIVES le conditionne au validateur, qui contrôle seulement un OFF déjà présent.
-Aucun proof_plan inscrit pour trois vues, identité couleur et référence/comparaison statique neuves.
-La cause instrumentale établie doit être réconciliée avec la clause « correctif dans la PRÉPASSE ».
-non prouvé : contrat complet, deux autres vues, identité couleur AO éteinte, fragments couleur changés, ablation, coût et esthétique.
-Owner : Options > Recharged > Recharged Lighting > Ambient Occlusion, sur HONOR, tous les paliers et SSAO/HBAO/GTAO, force maximale.
-À regarder : damier/pixelisation, bandes claires aux contacts, ombre suivant le feuillage sans flotter, stabilité caméra immobile.
-Aucun validateur exécuté par le worker ; aucune validation owner. Le handoff décrit les prérequis de reprise.
+frames=1500
+ao_tie_view_village1_hut_absent_px=0
+ao_tie_view_village1_out_absent_px=0
+ao_tie_view_beach_absent_px=0
+ao_tie_view_village1_out_static_defects=260450
+ao_tie_view_beach_static_defects=832
+ao_tie_prepass_defects=359306
+Les trous intérieurs sont aussi à zéro sur les trois vues ; couvertures TIE 87027 / 73121 / 145801.
+Hut : cinq acquis et stabilité à zéro ; couleur ON changée906px dont2TIE, OFF903px dont2TIE.
+Extérieur : couleur ON changée91030px dont139TIE, OFF90534px dont105TIE.
+Acquis extérieurs : pleine résolution0, motif1, alpha3, direct6459, contact6.
+Beach : alpha10, autres acquis0 ; variations de profondeur804 et nondéterminisme18.
+Termes agrégés publiés par vue : hut905 + extérieur357558 + beach843 =359306.
+La table causale préalable est conservée dans notes/alpha-table.tsv ; variante ancienne hut199 trous, corrigée0.
+Non prouvé : identité couleur ; référence couleur beach absente (course07 terminée à1380 avant tick1400).
+Non prouvé : stabilité et cinq acquis sur toutes les vues ; attribution causale des écarts couleur.
+La direction lissée du vent diffère dans les traces01/02 ; son rôle dans les pixels modifiés reste une hypothèse.
+La couleur mesurée couvre l’image monde au bucket30 et les pixels TIE finaux visibles, pas tout l’overdraw ni l’interface.
+L’owner doit regarder Options > Recharged > Recharged Lighting > Ambient Occlusion sur HONOR :
+chaque palier et SSAO/HBAO/GTAO, force maximale ; damier, pixellisation, bandes claires aux contacts,
+ombres suivant les shrubs et leur feuillage, rien hors texture, caméra immobile sans mouvement parasite.
+Budget consommé :9/9, restant0 ; détail scellé par course dans notes/campaign/, synthèse campaign-summary.tsv.
+Validateur réservé à l’orchestrateur ; aucune validation owner fabriquée. Reprise : handoff.md et FINDINGS.txt.

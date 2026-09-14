@@ -11757,8 +11757,6 @@ items:
   history: []
   id: ao-prepass-tie-alpha
   proof_props:
-  - debug.opengoal.level.warp=village1-hut
-  - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.want.levels=village1,beach
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
@@ -11770,6 +11768,10 @@ items:
   - debug.opengoal.ao.force_mode=3
   - debug.opengoal.uncap.fps=240
   - debug.opengoal.foliage.force=1
+  - debug.opengoal.level.warp=beach-start
+  - debug.opengoal.ao.tie.campaign=tie-alpha-20260914-attempt5
+  - debug.opengoal.ao.tie.view=beach
+  - debug.opengoal.ao.tie.reference=0
   priority: 26
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre

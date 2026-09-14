@@ -1,28 +1,27 @@
 DIRECTIVES v775512c234
 ## ÉTABLI
-Essai 4 : audit seulement ; aucun changement moteur, build, déploiement ni course neuve.
-Sélection USB actuelle : bash .autoport/lib/pick_device.sh → eae4df44, code 0 ; appareil disponible.
-Preuve conservée de l’essai 3 exclusivement : 20260914T171948Z-345561-e6efad49, proof_attempt_id=ao-prepass-tie-alpha@3#1789406274.
-Historique : crash=0, frames=2040, cover=463871, tie_cover=86866, tie_absent=0, tie_absent_inner=0.
-Historique : cinq acquis=0, ao_static_defects=0, compared=1, samples=18, baseline_saved=0.
-Historique : SHA binaire 14f694dbd6dfdfc9 ; MD5 local/USB 2f0b1f4c5906f297793ccc22d30b8485 ; 13 props, 0 perdue.
-Historique : FEATURE armed=1 hits=1347=pre_judged=own_hits ; observed=86866, missing=0 ; une acquisition village1-hut.
-Historique : nondeterminism=0, baseline_time=1789406035, deux ancres ; tous les ao_static_term_* à zéro.
-Preuve historique SHA256 629dbf6b053af4ce8738f735ae5d6b1de0b69e8f5f6a93a89bf86c32feca7fe4, 61030 octets.
-La référence native a été consommée ; ne pas utiliser un verdict archivé comme mesure nouvelle.
-validator-003.txt refuse ao_tie_prepass_defects absent ; aucun validateur lancé à l’essai 4.
-La table préalable (essai 1) et la correction d’alpha de mesure (essai 2) restent conservées.
+Essai5 : 9 courses sur9 consommées, budget RESTANT ZÉRO, aucune course supplémentaire autorisée.
+Autorité de consommation : notes/campaign-runs.jsonl (9 starts/9 finishes) ; archives notes/campaign/01..09.
+Campagne tie-alpha-20260914-attempt5 ; 136–146s/course, crash0 partout ; USB eae4df44.
+Build arm64+repack réussis, notes/build-attempt5.log ; aucun build desktop.
+SHA libgk 8298ffe26c8bb3dfe98190ce5ff9d4d7a1b63506d5c0f90f7c5159b038d43e43 ; MD5 USB/local612c208a040cd9001ae2dda4f766073e.
+Preuve finale 20260914T215213Z-1018583-753ad700 ; sha256 6731799ae5b114c1ec853065e03fac211c599bfe1f5e028067af8f969b8c9762.
+TIE corrigé : trous0/intérieurs0 sur hut/out/beach ; couvertures87027/73121/145801.
+Hut : static0,5acquis0 ; couleur ON906px/2TIE, OFF903px/2TIE changés.
+Out : static260450, profondeur191729, caméra changed_pairs0 ; acquis motif1/alpha3/direct6459/contact6.
+Out couleur ON91030px/139TIE, OFF90534px/105TIE changés.
+Beach : static832 (profondeur804+nondéterminisme18+alpha10), autres acquis0.
+Agrégat machine359306=hut905+out357558+beach843 ; critère0 non tenu, validateur non lancé par worker.
 ## TENTÉ
-Audit researcher gpt-6-astra high et revue locale : périmètre sans changement depuis l’essai 3.
-Aucun producteur de somme complète, de comparaison couleur ou de mesure des trois vues trouvé.
-Pas de OFF : generic.sh:181-182 ne réclame pas son existence, DIRECTIVES conditionne son autorisation.
-Pas de nouveau ON : il ne couvrirait ni les clauses couleur ni trois vues ; pas de campagne autorisée.
-Aucun instrument ajouté, aucun seuil élargi, aucune sonde statique modifiée, aucun backlog réécrit.
+Instrument couleur natif tick1400 + GLSL antérieur/corrigé, agrégateur campagne/binaire/vue/régime ; sources moteur livrées.
+ON référence -> OFF -> ON comparaison par vue ; sonde statique inchangée, références natives consommées.
+Référence couleur beach absente : course07 termine1380frames ; OFF08 aussi ; ON09 atteint1500, référence manquante explicite.
+Timeout helper beach corrigé à135 après08 déjà lancé ; zéro répétition. Les autres courses timeout125.
+Ancien shader hut199trous, corrigé0 ; table préalable notes/alpha-table.tsv conservée.
+Direction vent diffère logs01:49549/02:55395 ; filtre steady_clock hors refset, causalité pixels non attribuée.
 ## RESTE
-Avant une nouvelle course, réconcilier le contrat de prépasse avec la cause instrumentale mesurée.
-Inscrire explicitement l’autorisation de campagne dans proof_plan et résoudre la contradiction OFF.
-Le plan doit nommer les trois vues et borner les bras nécessaires aux clauses couleur et statique.
-Autoriser précisément la mesure couleur manquante et l’agrégation sans modifier les critères statiques.
-Conserver référence native du même binaire, témoins, populations et cinq acquis dans la preuve finale.
-Publier les termes et leur somme seulement après mesure de toutes les clauses ; laisser juger l’orchestrateur.
-Les résultats de l’essai 3 sont historiques ; aucun résultat USB de l’essai 4 n’existe.
+Ne pas relancer proof_run : budget global épuisé ; ne pas réutiliser la référence native consommée.
+Traiter les entrées couleur non déterministes et les défauts statiques/acquis extérieurs selon FINDINGS ; hors correction autorisée ici.
+Réconcilier populations/positions de preuve avant toute nouvelle autorisation de campagne ; zéro seuil assoupli.
+Obtenir une référence couleur beach dans une campagne explicitement réautorisée ; aucune donnée synthétique.
+Revue owner : menu AO, tous paliers/modes, contacts/feuillage/caméra immobile ; aucun owner-ok écrit.

@@ -1,4 +1,5 @@
 #include "Shader.h"
+#include "ao_tie_alpha_probe.h"
 
 #include <regex>
 
@@ -293,6 +294,7 @@ void Shader::build(const std::string& shader_name,
   // lighting-unify : releve du texte fragment TEL QUE LE PILOTE LE RECOIT — apres
   // `expand_includes`, apres `subst_tokens`, apres l'injection de `OG_PBR`. Mesurer plus tot
   // decrirait un texte qui n'est pas celui qui est compile.
+  ao_tie_alpha_probe::shader_variant(shader_name, frag_src);
   shade_proof::note_fragment_source(shader_name, frag_src);
   hdr::note_fragment_source(shader_name, frag_src);
   m_frag_shader = compile_stage(GL_FRAGMENT_SHADER, frag_src, "fragment");

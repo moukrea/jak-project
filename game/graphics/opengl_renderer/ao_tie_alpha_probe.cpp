@@ -1,4 +1,10 @@
 #include "ao_tie_alpha_probe.h"
+#include "ao_static_probe.h"
+#include <cstring>
+#include <cstdlib>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 #include "game/system/autoport_proof.h"
 #include "third-party/glad/include/glad/glad.h"
 #include <array>
@@ -13,6 +19,10 @@ namespace ao_tie_alpha_probe {
 namespace {
 constexpr const char* kItem = "ao-prepass-tie-alpha";
 AUTOPORT_FEATURE_SITE(kItem);
+bool color_done = false;
+uint64_t color_bindings = 0, color_binding_bad = 0;
+uint64_t shader_hosts = 0, shader_replacements = 0, shader_match_bad = 0;
+unsigned shader_host_mask = 0;
 bool enabled = false, attached = false, pre = false, color_cleared = false;
 int width = 0, height = 0;
 unsigned populated_frames = 0;
@@ -163,11 +173,13 @@ uint32_t draw_id(const void* source_draws, uint32_t source_index) {
 }
 void begin_frame(bool on, int w, int h) {
   restore();
-  enabled = on && populated_frames < 4 && autoport_proof::feature_is(kItem) && autoport_proof::armed_for(kItem);
+  enabled = color_frame() || (on && populated_frames < 4 && autoport_proof::feature_is(kItem) && autoport_proof::armed_for(kItem));
   color_cleared = false; color_meta.clear(); pre_meta.clear();
   if (!enabled) return;
-  autoport_proof::publish_text("ao_tie_alpha_state", "collecting");
-  autoport_proof::publish_text("ao_tie_alpha_missing", "cause_not_yet_observed");
+  if (!color_frame()) {
+    autoport_proof::publish_text("ao_tie_alpha_state", "collecting");
+    autoport_proof::publish_text("ao_tie_alpha_missing", "cause_not_yet_observed");
+  }
   if (w <= 0 || h <= 0) { unsupported("invalid_dimensions"); return; }
   if (!reader) glGenFramebuffers(1, &reader);
   if (!targets[0] || w != width || h != height) {
@@ -276,6 +288,191 @@ void finish_frame(const std::vector<float>& delivered_depth,
   }
   autoport_proof::publish_text("ao_tie_alpha_state", "diagnostic_only");
   autoport_proof::publish_text("ao_tie_alpha_missing", samples >= 16 ? "correction_and_contract_checks_pending" : "fewer_than_16_missing_pixels");
+  enabled = false;
+}
+}  // namespace ao_tie_alpha_probe
+
+namespace ao_tie_alpha_probe {
+namespace {
+std::string color_property(const char* suffix, const char* env) {
+#ifdef __ANDROID__
+  char value[PROP_VALUE_MAX] = {};
+  __system_property_get((std::string("debug.opengoal.ao.tie.") + suffix).c_str(), value);
+  return value;
+#else
+  const char* value = std::getenv(env);
+  return value ? value : "";
+#endif
+}
+std::string campaign() { return color_property("campaign", "OG_AO_TIE_CAMPAIGN"); }
+std::string view() { return color_property("view", "OG_AO_TIE_VIEW"); }
+bool reference() { return color_property("reference", "OG_AO_TIE_REFERENCE") == "1"; }
+uint64_t bytes_hash(const void* ptr, size_t n) {
+  uint64_t hash = 1469598103934665603ull;
+  const auto* bytes = static_cast<const uint8_t*>(ptr);
+  for (size_t i = 0; i < n; ++i) { hash ^= bytes[i]; hash *= 1099511628211ull; }
+  return hash;
+}
+void color_missing(const char* reason) {
+  autoport_proof::publish("ao_tie_color_measured", 0);
+  autoport_proof::publish("ao_tie_color_missing_fields", 1);
+  autoport_proof::publish_text("ao_tie_color_missing", reason);
+}
+}
+bool color_frame() {
+  return !color_done && autoport_proof::feature_is(kItem) && !campaign().empty() &&
+         !view().empty() && ao_static_probe::logic_frame() == 1400;
+}
+void note_color_binding(bool ao_off, bool proof_off) {
+  if (!color_frame()) return;
+  ++color_bindings;
+  color_binding_bad += !ao_off || !proof_off;
+}
+void shader_variant(const std::string& name, std::string& source) {
+  if (!autoport_proof::feature_is(kItem) || campaign().empty()) return;
+  const std::string corrected = "return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, c.a);";
+  const size_t pos = source.find(corrected);
+  if (pos == std::string::npos) return;
+  const bool unique = source.find(corrected, pos + corrected.size()) == std::string::npos;
+  const bool legacy = reference();
+  const uint64_t before = bytes_hash(source.data(), source.size());
+  if (legacy && unique)
+    source.replace(pos, corrected.size(), "return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, 1.0);");
+  if (name == "tfrag3") shader_host_mask |= 1;
+  if (name == "shrub") shader_host_mask |= 2;
+  if (name == "tie_wind") shader_host_mask |= 4;
+  if (name == "etie_base") shader_host_mask |= 8;
+  ++shader_hosts;
+  shader_replacements += legacy && unique;
+  shader_match_bad += !unique;
+  const std::string key = "ao_tie_shader_" + name;
+  autoport_proof::publish((key + "_corrected_hash").c_str(), before);
+  autoport_proof::publish((key + "_effective_hash").c_str(), bytes_hash(source.data(), source.size()));
+  autoport_proof::publish((key + "_replacements").c_str(), legacy && unique ? 1 : 0);
+  autoport_proof::publish((key + "_match_defects").c_str(), unique ? 0 : 1);
+  autoport_proof::publish_text((key + "_variant").c_str(), legacy ? "legacy-alpha-one" : "corrected-alpha");
+}
+void finish_color(unsigned framebuffer, unsigned format, const std::vector<float>& scene_depth) {
+  if (!color_frame()) return;
+  color_done = true;
+  restore();
+  color_missing("readback_pending");
+  autoport_proof::publish("ao_tie_color_bindings", color_bindings);
+  autoport_proof::publish("ao_tie_color_binding_bad", color_binding_bad);
+  autoport_proof::publish("ao_tie_color_shader_hosts", shader_hosts);
+  autoport_proof::publish("ao_tie_color_shader_replacements", shader_replacements);
+  if (!color_bindings || color_binding_bad || shader_host_mask != 15 || shader_match_bad ||
+      (reference() ? shader_replacements != shader_hosts : shader_replacements != 0)) {
+    color_missing("color_bindings_or_shader_variant_missing"); return;
+  }
+  const size_t pixels = size_t(width) * height;
+  autoport_proof::publish("ao_tie_color_tick", ao_static_probe::logic_frame());
+  autoport_proof::publish("ao_tie_color_width", width);
+  autoport_proof::publish("ao_tie_color_height", height);
+  autoport_proof::publish("ao_tie_color_format", format);
+  autoport_proof::publish_text("ao_tie_color_population", "final-visible-static-TIE-pixels-depth24-exact-not-overdraw");
+  if (!pixels || !framebuffer || (format != GL_RGBA8 && format != GL_RGBA16F)) {
+    color_missing("unsupported_color_framebuffer_or_format"); return;
+  }
+  // GL exposes no operation to restore its error queue. Record prior errors as a failed
+  // measurement, and never treat their removal by glGetError as a successful readback.
+  if (glGetError() != GL_NO_ERROR) { color_missing("prior_gl_error"); return; }
+  GLint old, old_buffer, pack, align, row, skipx, skipy;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pack);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &align); glGetIntegerv(GL_PACK_ROW_LENGTH, &row);
+  glGetIntegerv(GL_PACK_SKIP_PIXELS, &skipx); glGetIntegerv(GL_PACK_SKIP_ROWS, &skipy);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+  glGetIntegerv(GL_READ_BUFFER, &old_buffer);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1); glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+  glPixelStorei(GL_PACK_SKIP_PIXELS, 0); glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+  const size_t stride = format == GL_RGBA8 ? 4 : 4 * sizeof(float);
+  std::vector<uint8_t> rgba(pixels * stride);
+  glReadPixels(0, 0, width, height, GL_RGBA,
+               format == GL_RGBA8 ? GL_UNSIGNED_BYTE : GL_FLOAT, rgba.data());
+  const GLenum error = glGetError();
+  glReadBuffer(old_buffer); glBindFramebuffer(GL_READ_FRAMEBUFFER, old);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, pack);
+  glPixelStorei(GL_PACK_ALIGNMENT, align); glPixelStorei(GL_PACK_ROW_LENGTH, row);
+  glPixelStorei(GL_PACK_SKIP_PIXELS, skipx); glPixelStorei(GL_PACK_SKIP_ROWS, skipy);
+  if (error != GL_NO_ERROR) { color_missing("native_color_readback_failed"); return; }
+  autoport_proof::publish("ao_tie_color_pixels", pixels);
+  autoport_proof::publish("ao_tie_color_image_hash", bytes_hash(rgba.data(), rgba.size()));
+  bool tie_valid = enabled && color_cleared && scene_depth.size() == pixels;
+  auto metadata_pixels = tie_valid ? read(targets[1]) : std::vector<float>{};
+  tie_valid = tie_valid && metadata_pixels.size() == pixels * 4;
+  std::vector<uint8_t> mask(pixels);
+  uint64_t tie_pixels = 0;
+  if (tie_valid) for (size_t i = 0; i < pixels; ++i) {
+    const float id = metadata_pixels[4*i+3], z = metadata_pixels[4*i+2];
+    if (!std::isfinite(id) || id < 0 || id > ids.size() || id != std::floor(id) ||
+        !std::isfinite(z) || !std::isfinite(scene_depth[i])) { tie_valid = false; break; }
+    // Both values use the same export_depth quantization, with no epsilon window.
+    const float encoded = std::floor(z * 16777215.f + 0.5f) * (1.f / 16777215.f);
+    if (id != 0 && encoded == scene_depth[i]) {
+      auto meta = color_meta.find(uint32_t(id));
+      if (meta == color_meta.end() || !meta->second.depth) { tie_valid = false; break; }
+      mask[i] = 1; ++tie_pixels;
+    }
+  }
+  autoport_proof::publish("ao_tie_color_tie_pixels", tie_pixels);
+  uint64_t binary = 0;
+#ifdef __ANDROID__
+  Dl_info info{};
+  if (dladdr(reinterpret_cast<const void*>(&finish_color), &info) && info.dli_fname)
+    binary = refset_file::hash_file(info.dli_fname);
+#elif defined(__linux__)
+  binary = refset_file::hash_file("/proc/self/exe");
+#endif
+  autoport_proof::publish("ao_tie_color_binary", binary);
+  const std::string identity = "AO_TIE_COLOR_V1 " + campaign() + " " + view() + " " +
+      std::to_string(binary) + " 1400 " + std::to_string(width) + " " +
+      std::to_string(height) + " " + std::to_string(format) + "\n";
+  const auto path = (file_util::get_user_home_dir() /
+      ("ao-tie-color-" + std::to_string(bytes_hash(identity.data(), identity.size())) + ".bin")).string();
+  autoport_proof::publish_text("ao_tie_color_baseline_path", path.c_str());
+  if (!binary) { color_missing("binary_identity_unavailable"); return; }
+  if (reference()) {
+    if (!tie_valid || !tie_pixels) { color_missing("reference_tie_population_missing"); return; }
+    const std::string temporary = path + ".tmp-" + std::to_string(getpid());
+    FILE* f = std::fopen(temporary.c_str(), "wbx");
+    bool ok = f && std::fwrite(identity.data(), 1, identity.size(), f) == identity.size() &&
+        std::fwrite(rgba.data(), 1, rgba.size(), f) == rgba.size() &&
+        std::fwrite(mask.data(), 1, mask.size(), f) == mask.size();
+    if (f && (std::fflush(f) || fsync(fileno(f)))) ok = false;
+    if (f && std::fclose(f)) ok = false;
+    if (ok && std::rename(temporary.c_str(), path.c_str())) ok = false;
+    if (!ok) std::remove(temporary.c_str());
+    autoport_proof::publish("ao_tie_color_reference_saved", ok ? 1 : 0);
+    color_missing(ok ? "reference_only_comparison_pending" : "reference_write_failed");
+    return;
+  }
+  FILE* f = std::fopen(path.c_str(), "rb");
+  std::string header(identity.size(), '\0');
+  std::vector<uint8_t> previous(rgba.size()), previous_mask(mask.size());
+  bool ok = f && std::fread(header.data(), 1, header.size(), f) == header.size() &&
+      header == identity && std::fread(previous.data(), 1, previous.size(), f) == previous.size() &&
+      std::fread(previous_mask.data(), 1, previous_mask.size(), f) == previous_mask.size() &&
+      std::fgetc(f) == EOF && !std::ferror(f);
+  if (f && std::fclose(f)) ok = false;
+  if (!ok) { color_missing("reference_absent_truncated_or_identity_mismatch"); return; }
+  uint64_t changed = 0, tie_changed = 0, previous_tie = 0;
+  for (size_t i = 0; i < pixels; ++i) {
+    const bool diff = std::memcmp(rgba.data()+i*stride, previous.data()+i*stride, stride) != 0;
+    changed += diff;
+    previous_tie += previous_mask[i] == 1;
+    if (previous_mask[i] > 1) tie_valid = false;
+    if ((mask[i] || previous_mask[i]) && (diff || mask[i] != previous_mask[i])) ++tie_changed;
+  }
+  autoport_proof::publish("ao_tie_color_changed_px", changed);
+  autoport_proof::publish("ao_tie_color_image_measured", 1);
+  if (!tie_valid || !tie_pixels || !previous_tie) { color_missing("tie_population_or_scene_depth_missing"); return; }
+  autoport_proof::publish("ao_tie_color_tie_changed_px", tie_changed);
+  autoport_proof::publish("ao_tie_color_measured", 1);
+  autoport_proof::publish("ao_tie_color_missing_fields", 0);
+  autoport_proof::publish_text("ao_tie_color_missing", "none");
   enabled = false;
 }
 }  // namespace ao_tie_alpha_probe

@@ -14,6 +14,7 @@
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/ao_static_probe.h"
 #include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
+#include "game/graphics/opengl_renderer/ao_tie_contract.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -1104,6 +1105,7 @@ void set_output_hint(int w, int h) {
 }
 
 void frame_begin(SharedRenderState* rs) {
+  ao_tie_contract::frame_begin();
   g_frame++;
   g_static_acquisition_alpha_ok = false;
   g_static_acquisition_witness_ok = false;
@@ -1530,6 +1532,7 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   if (!rs || rs->version != GameVersion::Jak1 || !g_shaders) {
     return;
   }
+  if (ao_tie_alpha_probe::color_frame()) return;
   if (AmbientOcclusionPass::effective_mode() == 0) {
     return;  // AO eteinte : ni prepasse ni estimation — OFF == absence
   }
@@ -1665,7 +1668,7 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
 }
 
 void bind_screen_ao(GLuint program, SharedRenderState* rs) {
-  const bool on = screen_ao_active();
+  const bool on = screen_ao_active() && !ao_tie_alpha_probe::color_frame();
   const int w = rs ? rs->render_fb_w : 0;
   const int h = rs ? rs->render_fb_h : 0;
   ensure_white();
@@ -1675,7 +1678,10 @@ void bind_screen_ao(GLuint program, SharedRenderState* rs) {
   glUniform1i(glu::loc(program, "u_screen_ao_on"), mode);
   glUniform2f(glu::loc(program, "u_screen_ao_inv_size"), w > 0 ? 1.0f / (float)w : 0.f,
               h > 0 ? 1.0f / (float)h : 0.f);
-  glUniform1i(glu::loc(program, "u_ao_proof"), g_probe_frame ? 1 : 0);
+  glUniform1i(glu::loc(program, "u_ao_proof"),
+              g_probe_frame && !ao_tie_alpha_probe::color_frame() ? 1 : 0);
+  ao_tie_alpha_probe::note_color_binding(!on,
+      !(g_probe_frame && !ao_tie_alpha_probe::color_frame()));
   glActiveTexture(GL_TEXTURE8);
   glBindTexture(GL_TEXTURE_2D, on ? g_ao.texture() : g_white_tex);
   glActiveTexture(GL_TEXTURE0);
@@ -1766,6 +1772,45 @@ void ensure_probe(int w, int h, GLenum color_fmt) {
 
 void proof_post_opaque(SharedRenderState* rs) {
   gl_query_census::Armed _ap("prepass-proof");
+  // Dedicated real-color frame, after the static probe's unchanged population.
+  if (ao_tie_alpha_probe::color_frame() && rs) {
+    GLint old_read, old_draw, old_tex, pack, alignment, row, skipx, skipy;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old_draw);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_tex);
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pack);
+    glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
+    glGetIntegerv(GL_PACK_ROW_LENGTH, &row);
+    glGetIntegerv(GL_PACK_SKIP_PIXELS, &skipx);
+    glGetIntegerv(GL_PACK_SKIP_ROWS, &skipy);
+    std::vector<float> scene_depth;
+    const int w = rs->render_fb_w, h = rs->render_fb_h;
+    // A preexisting error is reported as missing evidence, never cleared into a pass.
+    const GLenum prior_error = glGetError();
+    if (prior_error == GL_NO_ERROR && w > 0 && h > 0) {
+      ensure_probe(w, h, rs->render_fb_color_format);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, rs->render_fb);
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_probe_fbo);
+      const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+      glDisable(GL_SCISSOR_TEST);
+      glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+      if (scissor) glEnable(GL_SCISSOR_TEST);
+      const GLenum copy_error = glGetError();
+      glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+      glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+      glPixelStorei(GL_PACK_SKIP_PIXELS, 0); glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+      if (g_probe_state != 1 || copy_error != GL_NO_ERROR ||
+          !export_depth(g_probe_ds, w, h, &scene_depth)) scene_depth.clear();
+    }
+    glBindTexture(GL_TEXTURE_2D, old_tex);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, old_draw);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pack);
+    glPixelStorei(GL_PACK_ALIGNMENT, alignment); glPixelStorei(GL_PACK_ROW_LENGTH, row);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, skipx); glPixelStorei(GL_PACK_SKIP_ROWS, skipy);
+    autoport_proof::publish("ao_tie_color_prior_gl_error", prior_error);
+    ao_tie_alpha_probe::finish_color(rs->render_fb, rs->render_fb_color_format, scene_depth);
+  }
   if (!g_probe_frame) {
     return;
   }
