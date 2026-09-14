@@ -1,0 +1,22 @@
+audit_utc=2026-09-14T18:46:50.564634+00:00
+DIRECTIVES va1dbd6abb3
+attempt_env=harness-delivery-stale-bake-recovery@7#1789411452
+head=5c260abee5e3e094cd847bd9ec87416d5fea4cf2
+{"id": "harness-delivery-stale-bake-recovery", "status": "in-progress", "depends_on": ["harness-suite-temporary-files-outside-quota"], "gate_verdict": null}
+{"id": "harness-suite-temporary-files-outside-quota", "status": "validated", "depends_on": [], "gate_verdict": {"result": "porte-tenue", "date": "2026-09-14", "proof_sha": "939af06b6b1de981", "proof_bytes": 42009, "attempt": 2, "journal": "validator-002.txt"}}
+.auto_build_apk.pid: pid=311261 alive=1 cmd=bash .autoport/auto_build_apk.sh 
+.auto_build_apk.pid: ADB=non surcharge
+.auto_push_builds.pid: pid=59525 alive=1 cmd=bash /home/emeric/code/jak-project/.autoport/auto_push_builds.sh 
+.auto_push_builds.pid: ADB=non surcharge
+delivery_production_diff_since_a9317464c4_rc=0
+prerequisite_validator=[harness-suite-temporary-files-outside-quota ok] source=x86 sha=1141ad698013d657 frames=1601 crash=0 ; suite_tmp_defects == 0 tenu
+close_gate_source=orchestrator.py:1814-1835 suite_temporary + env=acq_env
+validator_not_run_by_worker=1
+daemon_restarts_by_worker=0
+    PID                  STARTED COMMAND
+ 492878 Mon Sep 14 20:34:01 2026 python -u .autoport/orchestrator.py --backend codex --quiet
+orchestrator_TMPDIR=/home/emeric/.cache/autoport-supervisor-tests
+orchestrator_TMP=absent
+orchestrator_TEMP=absent
+orchestrator_source_mtime=2026-09-14T18:36:09.620229+00:00
+orchestrator_loaded_close_gate_version=non prouve; processus anterieur a edition; safe_reload.SITES ne couvre pas orchestrator

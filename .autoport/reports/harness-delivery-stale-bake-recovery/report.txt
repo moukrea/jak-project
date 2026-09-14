@@ -1,25 +1,30 @@
-La fermeture de l’essai 6 reste bloquée : le préalable sur les temporaires de collecte des acquis n’est pas corrigé.
+Le critère livraison est tenu par la preuve de l’essai 7 ; la fermeture reste aux portes de l’orchestrateur.
 DIRECTIVES va1dbd6abb3
 
-Correctif livraison a9317464c4 conservé ; aucun code de production changé dans cet essai.
-Audit : notes/recovery-audit-attempt-6.log, production_diff_since_attempt_5_rc=0.
-Orchestrateur parent PID 383084 : TMPDIR, TMP et TEMP absents dans /proc.
-Collecte : orchestrator.py:1816 hérite cet environnement ; acquis/font-urbanist.sh:137 appelle mktemp sans chemin.
-Le chantier harness-suite-temporary-files-outside-quota reste open, sans rapport ; livraison depends_on=[] dans le backlog.
-Aucune course rejouée : le handoff exige la correction préalable avant de renouveler la preuve.
+Correctif a9317464c4 conservé : cuisson préalable, reprise après échec, repères avancés après APK complet,
+et publication conditionnée au reçu cohérent ; aucun code de production changé dans cet essai.
+Le préalable 5c260abee5 est validated : validator-002.txt confirme suite_tmp_defects == 0.
+Audit croisé : close_gate transmet TMPDIR/TMP/TEMP via suite_temporary ; banc préalable : 66 chemins hors quota.
+notes/recovery-audit-attempt-7.log : différence production depuis a9317464c4 nulle, démons 311261/59525 vivants, ADB non surchargé.
 
-Preuve historique conservée uniquement : proof.txt et proof.seal, produits à l’essai 3.
-Course 20260914T180449Z-399350-6086d017 ; identité harness-delivery-stale-bake-recovery@3#1789409029.
-Le banc historique compte 22 cas et zéro défaut livraison ; il ne prouve PAS l’essai 6.
-validator-003.txt : generic accepte puis CLOSE-GATE/acquis refuse Urbanist.
-validator-004.txt et validator-005.txt : refus d’identité de la preuve conservée de l’essai 3.
-Quota historiquement mesuré : notes/tmp-quota-attempt-4.log, écriture dans /tmp refusée avec errno=122.
-Rejeu Urbanist hors /tmp historiquement vert : notes/acquis-font-attempt-3.log, EXIT_CODE=0.
-Le statut historique du moteur reste inconnu ; aucune régression police démontrée.
-Rouge HERITE test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface conservé dans FINDINGS.
+Huit lignes recopiées de proof.txt, produit uniquement par lib/proof_run.sh :
+proof_attempt_id=harness-delivery-stale-bake-recovery@7#1789411452
+delivery_stale_bake_defects=0
+delivery_stale_bake_cases=22
+delivery_stale_bake_stale_cases=7
+delivery_stale_bake_retry_cases=10
+delivery_stale_bake_success_cases=14
+delivery_stale_bake_unchanged_cases=3
+delivery_stale_bake_publication_cases=6
 
-Le pilotage doit couvrir la collecte des acquis dans le chantier temporaires et poser la dépendance.
-Après correction seulement : une preuve neuve pour l’essai autorisé, puis jugement des portes par l’orchestrateur.
-À regarder après reprise : livraison de nouveaux builds ; aucune validation visuelle ni owner attendue.
-non prouvé : fermeture essai 6, cuisson/APK réels, publication distante et chargement du correctif par les démons.
-Handoff/FINDINGS actualisés ; aucun appareil, build, démon, orchestrateur, moteur ou validateur modifié.
+notes/proof-attempt-7.log : une course x86 de 60 s, sortie 0, recensement 20 s ; aucun build nécessaire.
+proof.txt : durée totale 81 s, frames=3398, crash=0, proof_census_rc=0, sha=1141ad698013d657.
+notes/delivery-stale-bake.log : 22 passed in 19.81s ; populations recouvrantes, pas 40 cas distincts.
+Rouge HERITE historique : test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface, suivi dans FINDINGS.
+Le préalable mesure maintenant 12 tests pin_props réussis ; causalité exacte du rouge historique non démontrée.
+
+Owner : la livraison de nouveaux builds doit reprendre ; owner_test=false, aucune validation visuelle attendue.
+non prouvé : cuisson/APK réels, publication distante, chargement du correctif par les démons et fermeture de cet essai.
+non prouvé : nouveau close_gate chargé par le parent 492878, lancé avant son édition ; TMPDIR parent hors /tmp.
+Ce risque et les défauts hors périmètre restent dans FINDINGS ; aucune relance d’orchestrateur ou de démon effectuée.
+Le validateur et les acquis de fermeture seront exécutés par l’orchestrateur après cette session.

@@ -1,0 +1,13 @@
+[proof_run harness-delivery-stale-bake-recovery] verrou d'ecriture pris (.autoport/reports/harness-delivery-stale-bake-recovery/proof-writer.lock) : pid=554593 lanceur=554592 essai=harness-delivery-stale-bake-recovery@7#1789411452 course=20260914T184641Z-554593-33438d2b
+[proof_run harness-delivery-stale-bake-recovery] garde de build : decision=passe demon_gradle=1 apk_age=5769s attendu=0s
+[proof_run harness-delivery-stale-bake-recovery] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run harness-delivery-stale-bake-recovery] hygiene des etats impossibles : purged=0 standing=0
+[proof_run harness-delivery-stale-bake-recovery] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run harness-delivery-stale-bake-recovery] preuve precedente retiree au point d'amorcage 'amorcage-moteur-x86' (trouvee : 42089 o, sha=963f8813b0606e9f ; filet proof-prev ecrit : 1)
+[proof_run harness-delivery-stale-bake-recovery] x86 : build/game/gk pendant 60s (armed=1)
+[proof_run harness-delivery-stale-bake-recovery] environnement du processus mesure publie sous 'proof-env.txt' (pid=555515 lues=88 shell=85)
+rm: cannot remove '/dev/null': Permission denied
+[proof_run harness-delivery-stale-bake-recovery] contexte de course : verdict=sans-objet images=3398 temoins=3/3
+[proof_run harness-delivery-stale-bake-recovery] recensement de harnais : .autoport/lib/census/harness-delivery-stale-bake-recovery.sh (armed=1)
+[proof_run harness-delivery-stale-bake-recovery] recensement fini en 20s
+[proof_run harness-delivery-stale-bake-recovery] ecrit .autoport/reports/harness-delivery-stale-bake-recovery/proof.txt (frames=3398 crash=0 duree=81s) ; sortie moteur : .autoport/reports/harness-delivery-stale-bake-recovery/proof-engine.log
