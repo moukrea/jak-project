@@ -11379,7 +11379,7 @@ items:
     proof_bytes: 42138
     attempt: 1
     journal: validator-001.txt
-- status: open
+- status: archived
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11427,7 +11427,13 @@ items:
   prompt: prompts/item-lighting-ao-prepass-follows-wind.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  superseded_by:
+  - ao-static-probe-deterministic
+  - ao-prepass-tie-alpha
+  archive_reason: 'Rattrapage du 14/09 : reliquat du premier decoupage en trois, remplace par le decoupage
+    en DEUX deja arbitre et consigne dans SWITCH_HANDOFF/SUPERVISOR_CATCHUP. La piste vent est refutee,
+    la bande de contact est conservee par les portes des successeurs. Aucune validation owner ajoutee.'
+- status: archived
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -11469,7 +11475,13 @@ items:
   prompt: prompts/item-lighting-ao-static-camera.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  superseded_by:
+  - ao-static-probe-deterministic
+  - ao-prepass-tie-alpha
+  archive_reason: 'Rattrapage du 14/09 : reliquat du premier decoupage en trois, remplace par le decoupage
+    en DEUX deja arbitre et consigne dans SWITCH_HANDOFF/SUPERVISOR_CATCHUP. La piste vent est refutee,
+    la bande de contact est conservee par les portes des successeurs. Aucune validation owner ajoutee.'
+- status: archived
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -11510,6 +11522,12 @@ items:
   prompt: prompts/item-lighting-ao-contact-band.md
   owner_feedback: []
   owner_ok: null
+  superseded_by:
+  - ao-static-probe-deterministic
+  - ao-prepass-tie-alpha
+  archive_reason: 'Rattrapage du 14/09 : reliquat du premier decoupage en trois, remplace par le decoupage
+    en DEUX deja arbitre et consigne dans SWITCH_HANDOFF/SUPERVISOR_CATCHUP. La piste vent est refutee,
+    la bande de contact est conservee par les portes des successeurs. Aucune validation owner ajoutee.'
 - status: open
   game: jak1
   owner_test: false
