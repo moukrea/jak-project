@@ -58,7 +58,7 @@ void Shrub::init_shaders(ShaderLibrary& shaders) {
 // (caster_index_buffer, slivers inter-instances retires), jamais le flux de strips brut.
 // caster_index_buffer n'est rempli que sous OG_FEAT_PBR (update_load) : hors de la, le compte
 // reste 0 et rien n'est dessine.
-uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
+uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
   uint64_t total = 0;
   for (auto& tree : m_trees) {
     if (tree.caster_index_count == 0) {
@@ -66,6 +66,16 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
     }
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
+    // lighting-ao-indirect (i), refus owner du 2026-09-13 : « les shrubs qui bougent avec le
+    // vent... Leur AO reste a la place initiale ». Le MEME deplacement que la passe couleur
+    // (:786-831) : brise partagee, ressort natif de ND, contact vegetation. Les trois reglages
+    // sont PAR ARBRE — `wind_tex` porte l'etat du ressort par instance — d'ou l'appel ici et non
+    // en tete de fonction. UN RETARD D'UNE IMAGE SUR LE RESSORT ET LE CONTACT, et c'est dit :
+    // `update_native_wind` televerse `wind_tex` pendant la passe COULEUR, qui vient apres cette
+    // prepasse ; la brise, elle, est exacte (meme `frame_idx`, meme horloge).
+    prepass::sway_shrub(rs ? rs->frame_idx : 0, tree.wind_tex,
+                        tree.wind_active && tree.wind_seeded,
+                        foliage_wind::enabled() && tree.contact_active);
     if (tree.caster_groups.empty()) {
       // partition inconnue (buffer bati hors OG_FEAT_PBR) : un seul draw, sans texture.
       // lighting-ao-indirect (c)/(g) : sans partition, on ne sait pas QUELS draws coupent le

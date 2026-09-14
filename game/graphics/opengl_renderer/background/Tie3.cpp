@@ -1166,7 +1166,7 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
 // et dessiner les plages statiques completes NORMAL + NORMAL_ENVMAP. Le chemin VENT
 // (render_tree_wind, wind_vertex_index_buffer, instances a matrice) est EXCLU — meme trou que
 // la passe soleil.
-uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
+uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
 #ifdef OG_FEAT_PBR
   // La prepasse tourne AVANT le premier draw_matching_draws_for_tree de l'image : le restart
   // de strip (UINT32_MAX) doit etre arme ici, comme la-bas.
@@ -1185,6 +1185,11 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
     ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP);
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+    // lighting-ao-indirect (i) : le MEME deplacement de sommet que la passe couleur
+    // (:1244-1246). Sans lui, la profondeur d'un arbre qui balance reste a sa place de repos et
+    // l'AO avec elle. Le VAO qu'on vient de lier est celui de la passe couleur : les attributs 7,
+    // 8 (et 10 si l'arbre porte une carte de contact) y sont deja actifs.
+    prepass::sway_tie(rs ? rs->frame_idx : 0, tree.contact_texture);
     const std::array<const std::vector<prepass::DepthRange>*, 2> pre_lists =
         prepass::noz_pass_active()
             ? std::array<const std::vector<prepass::DepthRange>*, 2>{
@@ -1203,6 +1208,7 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
   }
   return total;
 #else
+  (void)rs;
   return 0;
 #endif
 }

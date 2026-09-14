@@ -93,6 +93,19 @@ DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, ui
 // `gl_mode` = GL_TRIANGLES ou GL_TRIANGLE_STRIP, selon le buffer du contributeur.
 uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r);
 
+// ── LE DEPLACEMENT DE SOMMET, REJOUE (refus owner du 2026-09-13, verdict (i)) ─────────────────
+// « les shrubs qui bougent avec le vent... Leur AO reste a la place initiale ». La prepasse lisait
+// la position BRUTE ; la passe couleur deplace le sommet (tie_sway.glsl + ressort natif + contact
+// vegetation). Un contributeur DOIT donc annoncer sa famille AU DEBUT de son `draw_depth_prepass`,
+// et par TREE quand ses reglages changent d'un arbre a l'autre (le shrub : sa texture de vent est
+// par arbre). Aucun appel = aucun deplacement, ce qui est le defaut correct pour le TFRAG.
+//
+// Ces fonctions n'ont d'effet que pendant la prepasse : elles ecrivent dans le programme
+// PREPASS_WORLD, qui n'est actif nulle part ailleurs.
+void sway_none();
+void sway_tie(uint64_t frame_idx, unsigned contact_tex);
+void sway_shrub(uint64_t frame_idx, unsigned wind_tex, bool native_on, bool contact_on);
+
 // lighting-ao-indirect : le FBO de la prepasse, pour qui doit RELIRE sa profondeur. Rend 0
 // tant qu'aucune image n'a ete prepassee. `glGetTexImage` sur la texture rendait un tampon
 // entierement nul sans poser d'erreur GL (mesure du 2026-09-13 : 0 couple plan sur 12 etats,

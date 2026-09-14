@@ -13,6 +13,8 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 #include "game/graphics/opengl_renderer/buckets.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
@@ -85,6 +87,35 @@ uint64_t g_alpha_cover_px = 0;    // bras LIVRE : pixels gagnes par la prepasse 
 uint64_t g_alpha_fringe_px = 0;   // bras LIVRE : gagnants dans la bande ambigue (voir le .frag)
 uint64_t g_witness_px = 0;        // bras CONTROLE : le meme detecteur, decoupe desarmee -> > 0
 uint64_t g_witness_cover_px = 0;  // bras CONTROLE : son propre denominateur
+
+// ── (i) LE DEPLACEMENT DE SOMMET, ET SON TEMOIN ───────────────────────────────────────────────
+// `g_sway_off` desarme le deplacement SANS toucher a rien d'autre : meme geometrie, meme
+// programme, memes plages, meme ordre. C'est la prepasse d'AVANT ce correctif, rejouee dans la
+// MEME image — la seule facon de CHIFFRER, et non de supposer, ce que l'ancien etat coutait.
+bool g_sway_off = false;
+
+// ── (c)/(g)/(i) LA PROFONDEUR DE PREPASSE CONTRE CELLE DE LA SCENE ────────────────────────────
+// LA grandeur que six essais n'avaient pas : au POINT DE DESSIN, le pixel que l'owner regarde
+// porte-t-il une AO calculee sur la geometrie qui y est REELLEMENT dessinee ? On compare, sur les
+// seuls pixels marques au stencil (buckets monde), la profondeur de la prepasse a celle de la
+// scene. Les deux bras sont pris dans la MEME image : `livre` (deplacement arme) et `legacy`
+// (deplacement desarme = l'etat de l'essai 6).
+#ifndef __ANDROID__
+std::vector<float> g_pre_depth;         // prepasse LIVREE
+std::vector<float> g_pre_depth_legacy;  // prepasse SANS deplacement
+bool g_geom_frame = false;              // cette image porte les deux instantanes
+int g_geom_state = 0;                   // 0 = pas encore, 1 = mesure, -1 = refuse
+uint64_t g_geom_frames = 0;
+uint64_t g_geom_cover = 0;    // denominateur : pixels monde dessines dont la scene a une profondeur
+uint64_t g_geom_absent = 0;   // ... dont la prepasse ne porte AUCUNE profondeur
+uint64_t g_geom_absent_legacy = 0;
+uint64_t g_geom_gap[4] = {0, 0, 0, 0};         // ecart > 4 / 64 / 1024 / 16384 quanta de 24 bits
+uint64_t g_geom_gap_legacy[4] = {0, 0, 0, 0};
+uint64_t g_geom_near = 0, g_geom_far = 0;                // livre : prepasse DEVANT / DERRIERE
+uint64_t g_geom_near_legacy = 0, g_geom_far_legacy = 0;
+uint64_t g_sway_gap_px = 0;        // pixels que le deplacement a BOUGES (livre contre legacy)
+uint64_t g_sway_gap_world_px = 0;  // les memes, restreints aux pixels monde dessines
+#endif
 
 // lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
 // principale dessine SANS ecrire la profondeur. Recensees au CHARGEMENT par les contributeurs,
@@ -315,6 +346,31 @@ void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint6
 }
 #endif
 
+#ifndef __ANDROID__
+// (c)/(g)/(i) L'INSTANTANE DE LA PROFONDEUR DE PREPASSE. Par le FBO, jamais par `glGetTexImage` :
+// sur cette texture il rend un tampon ENTIEREMENT NUL sans poser la moindre erreur GL (mesure du
+// 2026-09-13, PrePass.h:113). C'est le chemin que le recensement d'AO emprunte deja
+// (AmbientOcclusion.cpp:1001-1008).
+bool read_prepass_depth(int w, int h, std::vector<float>* out) {
+  if (!g_fbo || w <= 0 || h <= 0) {
+    return false;
+  }
+  if (out->size() < (size_t)w * h) {
+    out->resize((size_t)w * h);
+  }
+  GLint prev_read = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, g_fbo);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, out->data());
+  const GLenum err = glGetError();
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
+  return err == GL_NO_ERROR;
+}
+#endif
+
 // LE passage. `armed` = la decoupe d'alpha est active (le chemin LIVRE). `classify` = enchaine
 // la passe de classification et range ses comptes dans les trois sorties.
 uint64_t run_prepass(SharedRenderState* rs,
@@ -349,6 +405,12 @@ uint64_t run_prepass(SharedRenderState* rs,
   glActiveTexture(GL_TEXTURE0);
   GLint prev_tex0 = 0;
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0);
+  // (i) L'unite 18 porte le vent natif du shrub ET la carte de contact du TIE : la prepasse y lie
+  // ses propres textures, elle doit rendre celle qu'elle a trouvee.
+  glActiveTexture(GL_TEXTURE18);
+  GLint prev_tex18 = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex18);
+  glActiveTexture(GL_TEXTURE0);
 
   ensure_fbo(w, h);
   ensure_white();
@@ -384,6 +446,10 @@ uint64_t run_prepass(SharedRenderState* rs,
   // et on le publie — c'est la seule facon de savoir qui lit.
   g_cut_uniforms_ok = (glu::loc(id, "u_cut_aref") != -1) && (glu::loc(id, "u_cut_amb") != -1) &&
                       (glu::loc(id, "u_cut_mode") != -1) && (glu::loc(id, "tex_T0") != -1);
+  // (i) L'ETAT INERTE, POSE AU DEBUT DE CHAQUE PASSAGE. Un contributeur qui n'annonce pas sa
+  // famille (TFRAG) hérite donc d'un deplacement NUL, jamais de celui de l'arbre precedent :
+  // c'est le meme piege que `u_tie_sway_amp` laisse a sa derniere valeur ferait ONDULER LE SOL.
+  sway_none();
 
   g_cut_armed = armed;
   forget_range_state();
@@ -427,6 +493,8 @@ uint64_t run_prepass(SharedRenderState* rs,
   }
   glDepthMask(prev_depth_mask);
   glDepthFunc((GLenum)prev_depth_func);
+  glActiveTexture(GL_TEXTURE18);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex18);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0);
   glActiveTexture((GLenum)prev_active_tex);
@@ -499,6 +567,7 @@ void measure_phantom_occluders(SharedRenderState* rs,
   glUniform4f(glu::loc(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2], cam.trans[3]);
   glUniform1i(glu::loc(id, "tex_T0"), 0);
   glUniform1i(glu::loc(id, "u_cut_mode"), 0);
+  sway_none();
 
   glDepthMask(GL_FALSE);
   glDepthFunc(GL_GREATER);
@@ -602,6 +671,42 @@ void publish_all() {
   autoport_proof::publish("ao_cut_ranges", g_cut_ranges);
   autoport_proof::publish("ao_total_ranges", g_total_ranges);
   autoport_proof::publish("ao_cut_uniforms_ok", g_cut_uniforms_ok ? 1 : 0);
+  // ── (c)/(g)/(i) LA PREPASSE CONTRE CE QUI EST DESSINE ───────────────────────────────────
+  // `ao_geom_cover_px` : pixels dont la couleur vient d'un bucket monde ET qui portent une
+  // profondeur de scene — le denominateur, mesure AU POINT DE DESSIN.
+  // `ao_geom_gap_px` : ceux dont la profondeur de PREPASSE s'en ecarte de plus de 4 quanta de
+  // 24 bits. C'est la population dont l'AO a ete calculee sur une AUTRE geometrie que celle que
+  // l'owner voit. L'echelle monte par facteur 16 (`_64q`, `_1024q`, `_16384q`) : un seuil unique
+  // choisi apres la mesure est un seuil choisi pour son resultat.
+  // `ao_geom_near_px` / `_far_px` : de quel COTE — prepasse DEVANT la scene (un occluder que
+  // l'image ne dessine pas : l'ombre qui flotte) ou DERRIERE (un occluder manquant).
+  // `ao_geom_absent_px` : la prepasse n'a RIEN a ce pixel.
+  // Les memes cinq grandeurs en `_legacy_` viennent du MEME dessin avec le deplacement de sommet
+  // DESARME — l'etat de l'essai 6, rejoue dans la MEME image : c'est l'AVANT, mesure, pas relu
+  // d'un commit. `ao_geom_state` : 0 pas mesure, 1 mesure, 2 non supporte.
+  autoport_proof::publish("ao_geom_state", (uint64_t)(g_geom_state < 0 ? 2 : g_geom_state));
+  autoport_proof::publish("ao_geom_frames", g_geom_frames);
+  autoport_proof::publish("ao_geom_cover_px", g_geom_cover);
+  autoport_proof::publish("ao_geom_gap_px", g_geom_gap[0]);
+  autoport_proof::publish("ao_geom_gap_64q_px", g_geom_gap[1]);
+  autoport_proof::publish("ao_geom_gap_1024q_px", g_geom_gap[2]);
+  autoport_proof::publish("ao_geom_gap_16384q_px", g_geom_gap[3]);
+  autoport_proof::publish("ao_geom_near_px", g_geom_near);
+  autoport_proof::publish("ao_geom_far_px", g_geom_far);
+  autoport_proof::publish("ao_geom_absent_px", g_geom_absent);
+  autoport_proof::publish("ao_geom_legacy_gap_px", g_geom_gap_legacy[0]);
+  autoport_proof::publish("ao_geom_legacy_gap_64q_px", g_geom_gap_legacy[1]);
+  autoport_proof::publish("ao_geom_legacy_gap_1024q_px", g_geom_gap_legacy[2]);
+  autoport_proof::publish("ao_geom_legacy_gap_16384q_px", g_geom_gap_legacy[3]);
+  autoport_proof::publish("ao_geom_legacy_near_px", g_geom_near_legacy);
+  autoport_proof::publish("ao_geom_legacy_far_px", g_geom_far_legacy);
+  autoport_proof::publish("ao_geom_legacy_absent_px", g_geom_absent_legacy);
+  // (i) LE DEPLACEMENT LUI-MEME : les pixels que le correctif a BOUGES, sur tout l'ecran puis
+  // sur les seuls pixels monde dessines. S'il vaut 0, la scene ne bougeait pas et TOUT ce qui
+  // precede est vide de sens — d'ou `ao_sway_wind_on`, le regime de brise de la course.
+  autoport_proof::publish("ao_sway_gap_px", g_sway_gap_px);
+  autoport_proof::publish("ao_sway_gap_world_px", g_sway_gap_world_px);
+  autoport_proof::publish("ao_sway_wind_on", foliage_wind::enabled() ? 1 : 0);
   // ── (a) AUCUN MOTIF VISIBLE ─────────────────────────────────────────────────────────────
   AmbientOcclusionPass::publish_pattern_census();
 }
@@ -643,6 +748,9 @@ void frame_begin(SharedRenderState* /*rs*/) {
   AmbientOcclusionPass::measure_frame_begin(g_frame);
   g_frame_ran = false;
   g_ao_valid = false;
+#ifndef __ANDROID__
+  g_geom_frame = false;
+#endif
   g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0 &&
                   !AmbientOcclusionPass::measure_timing_active();
   if (g_probe_frame) {
@@ -705,6 +813,81 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
   glDrawElements((GLenum)gl_mode, (GLsizei)r.count, GL_UNSIGNED_INT,
                  (void*)((size_t)r.first * sizeof(uint32_t)));
   return r.count;
+}
+
+// ── (i) LE DEPLACEMENT DE SOMMET, REJOUE ──────────────────────────────────────────────────────
+// Refus owner du 2026-09-13 : « les shrubs qui bougent avec le vent... Leur AO reste a la place
+// initiale ». `sway_reset` remet TOUT le bloc a l'etat inerte et repose les valeurs GENERIQUES des
+// attributs 7/8/9/10 — le MEME double verrou que `first_tfrag_draw_setup`
+// (background_common.cpp:1612-1628), que la prepasse n'appelle jamais : un uniforme a 0 ET un poids
+// de sommet a 0. Un seul des deux suffirait ; deux tiennent meme si le compilateur GLSL retire
+// l'uniforme (loc -1) ou si un VAO n'active pas l'attribut.
+static void sway_reset(GLuint id, int kind) {
+  glUniform1i(glu::loc(id, "u_pre_sway_on"), g_sway_off ? 0 : 1);
+  glUniform1i(glu::loc(id, "u_pre_kind"), kind);
+  glUniform1f(glu::loc(id, "u_tie_sway_amp"), 0.0f);
+  glUniform1f(glu::loc(id, "u_tie_sway_time"), 0.0f);
+  glUniform2f(glu::loc(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
+  glUniform1f(glu::loc(id, "u_tie_sway_flutter"), 0.0f);
+  glUniform1i(glu::loc(id, "u_tie_contact_on"), 0);
+  glUniform1i(glu::loc(id, "u_shrub_native_on"), 0);
+  glUniform1i(glu::loc(id, "u_shrub_contact_on"), 0);
+  glVertexAttrib4f(7, 0.f, 0.f, 0.f, 1.f);
+  glVertexAttrib4f(8, 0.f, 0.f, 0.f, 1.f);
+  glVertexAttribI4ui(9, 0u, 0u, 0u, 0u);
+  glVertexAttribI4ui(10, 0u, 0u, 0u, 0u);
+}
+
+void sway_none() {
+  if (!g_shaders) {
+    return;
+  }
+  sway_reset((*g_shaders)[ShaderId::PREPASS_WORLD].id(), 0);
+}
+
+void sway_tie(uint64_t frame_idx, unsigned contact_tex) {
+  if (!g_shaders) {
+    return;
+  }
+  const GLuint id = (*g_shaders)[ShaderId::PREPASS_WORLD].id();
+  sway_reset(id, 2);
+  // La MEME fonction que la passe couleur (Tie3.cpp:1091-1093) : une seule loi, une seule
+  // amplitude, une seule horloge. Le poids par sommet vaut 0 sur tout ce qui n'est pas vegetal,
+  // donc pousser l'amplitude pour tout l'arbre ne fait bouger que ce qui bouge a l'ecran.
+  foliage_wind::push_uniforms(id, frame_idx, "prepass-tie");
+  // Tie3.cpp:1066-1088 (`push_tie_contact`), mot pour mot : sans texture, ou option eteinte,
+  // l'uniforme reste a 0 et le bloc du chunk est saute.
+  const bool on = contact_tex != 0 && foliage_wind::enabled();
+  glUniform1i(glu::loc(id, "u_tie_contact_on"), on ? 1 : 0);
+  if (on) {
+    grass_occ::push_contact_uniforms(id, true);
+    glUniform1i(glu::loc(id, "u_tie_contact_tex"), 18);
+    glActiveTexture(GL_TEXTURE18);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)contact_tex);
+    glActiveTexture(GL_TEXTURE0);
+  }
+}
+
+void sway_shrub(uint64_t frame_idx, unsigned wind_tex, bool native_on, bool contact_on) {
+  if (!g_shaders) {
+    return;
+  }
+  const GLuint id = (*g_shaders)[ShaderId::PREPASS_WORLD].id();
+  sway_reset(id, 1);
+  foliage_wind::push_uniforms(id, frame_idx, "prepass-shrub");
+  // Shrub.cpp:793-831, mot pour mot : le ressort natif de ND (ligne 0 de tex_T18) et l'ancre de
+  // contact (ligne 1) vivent dans la MEME texture, par arbre — d'ou l'appel PAR ARBRE.
+  glUniform1i(glu::loc(id, "u_shrub_native_on"), native_on ? 1 : 0);
+  glUniform1i(glu::loc(id, "u_shrub_contact_on"), contact_on ? 1 : 0);
+  if (contact_on) {
+    grass_occ::push_contact_uniforms(id, true);
+  }
+  if (native_on || contact_on) {
+    glActiveTexture(GL_TEXTURE18);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)wind_tex);
+    glActiveTexture(GL_TEXTURE0);
+  }
+  glUniform1i(glu::loc(id, "tex_T18"), 18);
 }
 
 // lighting-ao-indirect (c)/(g) : la passe « occluder fantome ». Hors d'elle, les contributeurs
@@ -795,6 +978,29 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // restaure elle-meme tout ce qu'elle touche ; le FBO de rendu est deja re-lie — et il DOIT
   // l'etre, parce que `ao_draws_on_scene` compare ses cibles au FBO qu'elle trouve en entrant.
   g_ao_valid = (total > 0) && g_ao.estimate(rs, g_depth_tex, w, h);
+
+#ifndef __ANDROID__
+  // ── (c)/(g)/(i) LES DEUX INSTANTANES DE PROFONDEUR ────────────────────────────────────────
+  // L'estimateur vient de consommer la profondeur LIVREE : on la fige, puis on rejoue EXACTEMENT
+  // le meme dessin avec le deplacement DESARME — c'est la prepasse de l'essai 6, dans la MEME
+  // image et la MEME scene. Les deux se compareront a la profondeur de la SCENE au bucket 30,
+  // quand le monde aura ete dessine : c'est la mesure AU POINT DE DESSIN que le verdict (c)
+  // reclame. Une image sondee sur six — deux relectures pleine resolution ne se paient pas a
+  // chaque sonde — et le compte d'images est publie a cote des populations.
+  g_geom_frame = false;
+  if (g_probe_frame && g_geom_state >= 0 && (g_probe_seq % 6) == 0) {
+    if (read_prepass_depth(w, h, &g_pre_depth)) {
+      g_sway_off = true;
+      run_prepass(rs, cam, w, h, /*armed=*/true, /*classify=*/false, nullptr, nullptr, nullptr,
+                  nullptr);
+      g_sway_off = false;
+      g_geom_frame = read_prepass_depth(w, h, &g_pre_depth_legacy);
+    }
+    if (!g_geom_frame) {
+      g_geom_state = -1;  // publie tel quel : une relecture refusee se DIT, elle ne rend pas 0
+    }
+  }
+#endif
 
   // ── LE BRAS DE CONTROLE ─────────────────────────────────────────────────────────────────────
   // Le MEME dessin, la decoupe DESARMEE : les texels transparents ecrivent a nouveau de la
@@ -924,14 +1130,22 @@ void proof_post_opaque(SharedRenderState* rs) {
   // (memes formats DEPTH24_STENCIL8 des deux cotes).
   glBindFramebuffer(GL_READ_FRAMEBUFFER, rs->render_fb);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_probe_fbo);
-  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
-                    GL_NEAREST);
+  GLbitfield blit_mask = GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+  if (g_geom_frame) {
+    blit_mask |= GL_DEPTH_BUFFER_BIT;  // (c)/(g)/(i) : la profondeur de ce que la scene a DESSINE
+  }
+  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, blit_mask, GL_NEAREST);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, g_probe_fbo);
   std::vector<float> px((size_t)w * h * 4);
   std::vector<uint8_t> st((size_t)w * h);
+  std::vector<float> sd;
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, px.data());
   glReadPixels(0, 0, w, h, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, st.data());
+  if (g_geom_frame) {
+    sd.resize((size_t)w * h);
+    glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, sd.data());
+  }
   const GLenum err = glGetError();
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prev_draw);
@@ -960,6 +1174,73 @@ void proof_post_opaque(SharedRenderState* rs) {
     if (p[1] > 0.5f) {
       hits++;
     }
+  }
+  // ── (c)/(g)/(i) LA PREPASSE CONTRE CE QUI EST DESSINE ──────────────────────────────────────
+  // Verdict (c) de l'owner : « publier ce qui est mesure AU POINT DE DESSIN du brin d'herbe, pas
+  // a l'entree de l'estimateur ». `st[i] == 1` designe exactement un pixel dont la couleur vient
+  // d'un bucket monde ; `sd[i]` est la profondeur que ce pixel PORTE. Si la prepasse n'y a pas la
+  // meme, l'AO de ce pixel a ete calculee sur une AUTRE geometrie — un quad reste en place
+  // pendant que la plante bouge (verdict i), un occluder que l'image ne dessine pas (c/g), ou
+  // rien du tout. Convention PS2 inversee : profondeur PLUS GRANDE = PLUS PRES de la camera.
+  // Les seuils montent en puissances de quatre a partir de 4 quanta de 24 bits, parce qu'un
+  // seuil unique choisi apres coup est un seuil choisi pour son resultat.
+  if (g_geom_frame && sd.size() >= st.size() && g_pre_depth.size() >= st.size() &&
+      g_pre_depth_legacy.size() >= st.size()) {
+    const float q = 1.0f / 16777215.0f;
+    const float tol[4] = {4.f * q, 64.f * q, 1024.f * q, 16384.f * q};
+    for (size_t i = 0; i < st.size(); i++) {
+      const float pl = g_pre_depth[i];
+      const float pg = g_pre_depth_legacy[i];
+      const float moved = std::fabs(pl - pg);
+      if (moved > tol[0]) {
+        g_sway_gap_px++;
+      }
+      if (st[i] != 1) {
+        continue;
+      }
+      const float sz = sd[i];
+      if (sz <= 1e-6f) {
+        continue;  // pixel monde sans profondeur de scene (draw sans z-write) : rien a comparer
+      }
+      g_geom_cover++;
+      if (moved > tol[0]) {
+        g_sway_gap_world_px++;
+      }
+      if (pl <= 1e-6f) {
+        g_geom_absent++;
+      } else {
+        const float d = pl - sz;
+        const float ad = d < 0.f ? -d : d;
+        for (int k = 0; k < 4; k++) {
+          if (ad > tol[k]) {
+            g_geom_gap[k]++;
+          }
+        }
+        if (d > tol[0]) {
+          g_geom_near++;
+        } else if (d < -tol[0]) {
+          g_geom_far++;
+        }
+      }
+      if (pg <= 1e-6f) {
+        g_geom_absent_legacy++;
+      } else {
+        const float d = pg - sz;
+        const float ad = d < 0.f ? -d : d;
+        for (int k = 0; k < 4; k++) {
+          if (ad > tol[k]) {
+            g_geom_gap_legacy[k]++;
+          }
+        }
+        if (d > tol[0]) {
+          g_geom_near_legacy++;
+        } else if (d < -tol[0]) {
+          g_geom_far_legacy++;
+        }
+      }
+    }
+    g_geom_frames++;
+    g_geom_state = 1;
   }
   g_probe_frames++;
   g_probe_px += marked;

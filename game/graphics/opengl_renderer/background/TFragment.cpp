@@ -534,6 +534,11 @@ bool TFragment::setup_for_level(const std::vector<tfrag3::TFragmentTreeKind>& tr
 // que lier et dessiner. Meme jeu de casters que la passe soleil : NORMAL / DIRT / ICE, jamais
 // LOWRES (coque LOD lointaine jusqu'a +57 m au-dessus du sol, OWNER #4) ni TRANS / WATER.
 uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
+  // lighting-ao-indirect (i) : le TERRAIN ne bouge pas. Il le DIT, au lieu d'heriter du
+  // deplacement pose par le contributeur precedent — c'est exactement le piege que
+  // `first_tfrag_draw_setup` ferme pour la passe couleur : un `u_tie_sway_amp` laisse a sa
+  // derniere valeur ferait ONDULER LE SOL.
+  prepass::sway_none();
 #ifdef OG_FEAT_PBR
   // La prepasse tourne AVANT le premier render_tree de l'image : le restart de strip
   // (UINT32_MAX) doit etre arme ici, comme dans render_tree.

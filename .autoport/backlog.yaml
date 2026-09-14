@@ -5087,6 +5087,7 @@ items:
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
   - OG_UNCAP_FPS=240
+  - FOLIAGE_WIND_FORCE=1
   delivered: '2026-09-13'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:48
