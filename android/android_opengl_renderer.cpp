@@ -1202,17 +1202,6 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak2() {
       direct_count, skip_count);
 }
 
-u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
-  // read_and_advance only computes offsets (no copies) — a counting walk
-  // over the whole chain is cheap and gives an honest chain_bytes figure.
-  u32 total = 0;
-  u32 guard = 0;
-  while (!dma.ended() && guard++ < 1000000) {
-    total += dma.read_and_advance().size_bytes;
-  }
-  return total;
-}
-
 void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& settings) {
   Gfx::RechargedFrameScope recharged_frame_scope;
   hdr::FrameScope hdr_frame_scope;
@@ -1282,7 +1271,10 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     g_perf_2dvec_off.store(!perf_on_kill("debug.opengoal.perf.no2dvec"), std::memory_order_relaxed);
   }
 
-  m_stats.chain_bytes = count_chain_bytes(dma);
+  m_stats.chain_bytes = settings.chain_bytes;
+  m_validated_buckets = settings.validated_buckets;
+  m_dma_diagnostics = settings.dma_diagnostics;
+  m_stats.bucket_validation_walks = 0;
   m_stats.buckets_with_data = 0;
   m_stats.buckets_drawn = 0;
   m_stats.buckets_skipped = 0;
@@ -1929,7 +1921,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // sky path go deep). Malformed buckets are named, counted, skipped,
     // and the follower is re-seated on the bucket boundary.
     bool bucket_stream_ok = true;
-    {
+    if (m_dma_diagnostics || !m_validated_buckets ||
+        bucket_id >= m_validated_buckets->size() || !(*m_validated_buckets)[bucket_id]) {
+      m_stats.bucket_validation_walks++;
       DmaFollower probe = dma;
       constexpr int kCap = 200000;
       int steps = 0;
@@ -1956,6 +1950,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     if (!bucket_stream_ok) {
       m_stats.buckets_skipped++;
       dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_validated_buckets = nullptr;
       m_render_state.next_bucket += 16;
       vif_interrupt_callback(bucket_id);
       continue;
@@ -2145,6 +2140,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
     if (gj2vis_skip[0] && gj2vis_bucket_muted(gj2vis_skip, renderer->name())) {
       m_stats.buckets_skipped++;
       dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_validated_buckets = nullptr;
       m_render_state.next_bucket += 16;
       vif_interrupt_callback(bucket_id + 1);
       continue;
@@ -2155,7 +2151,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
     // thread in a renderer's tag loop. Named, counted, skipped, and the
     // follower re-seated on the bucket boundary.
     bool bucket_stream_ok = true;
-    {
+    if (m_dma_diagnostics || !m_validated_buckets ||
+        bucket_id >= m_validated_buckets->size() || !(*m_validated_buckets)[bucket_id]) {
+      m_stats.bucket_validation_walks++;
       DmaFollower probe = dma;
       constexpr int kCap = 200000;
       int steps = 0;
@@ -2182,6 +2180,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
     if (!bucket_stream_ok) {
       m_stats.buckets_skipped++;
       dma = DmaFollower(dma.base(), m_render_state.next_bucket);
+      m_validated_buckets = nullptr;
       m_render_state.next_bucket += 16;
       vif_interrupt_callback(bucket_id + 1);
       continue;

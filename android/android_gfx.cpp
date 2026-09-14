@@ -30,6 +30,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/fb_passes.h"
+#include "game/graphics/opengl_renderer/buckets.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
@@ -123,6 +124,14 @@ static bool gintro_chainwalk_dbg() {
   return s_on;
 }
 
+static bool dma_chain_diagnostics() {
+  static const bool enabled = [] {
+    char value[PROP_VALUE_MAX] = {};
+    return __system_property_get("debug.opengoal.dma.diagnostics", value) > 0 && value[0] == '1';
+  }();
+  return enabled;
+}
+
 #if defined(__aarch64__) && defined(__ANDROID__)
 // GND-HWWP: one-shot arm of the arm64 HARDWARE data watchpoint on the two
 // global-buf base fields (gk_android_main.cpp). Called from the GOAL thread.
@@ -132,6 +141,7 @@ extern "C" void gnd_hwwp_arm_once();
 namespace android_gfx {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
+AUTOPORT_FEATURE_SITE("perf-dma-chain-copies");
 
 // Gperf-particles (round 2): GOAL/GL overlap mode. When ON (default), the GOAL
 // kernel thread is released to build frame N+1 as soon as the GL thread PICKS UP
@@ -185,6 +195,8 @@ struct AndroidGfxData {
   bool has_data_to_render = false;
   const void* chain_data = nullptr;
   u32 chain_offset = 0;
+  u32 pending_chain_walks = 0;
+  std::vector<bool> validated_buckets;
   // Gintro: set once the first chain has been copied, so a corrupt frame can
   // re-present the last good copy (chain_data/chain_offset persist between
   // frames — they point into dma_copier's buffer, overwritten only by run()).
@@ -196,7 +208,7 @@ struct AndroidGfxData {
   // OOM kill) mutate the chain under the GL thread. The copy is taken on
   // the game thread inside send_chain — the builder is idle there, so the
   // tag stream is complete and stable — and is immutable afterwards, which
-  // makes the GL-side A37 probe decisive instead of racy.
+  // lets the copier validate the chain while planning its chunks.
   FixedChunkDmaCopier dma_copier{EE_MAIN_MEM_SIZE};
 
   std::shared_ptr<TexturePool> texture_pool;
@@ -223,6 +235,28 @@ std::atomic<u32> g_chains_dropped_pre_init{0};
 // (gk_npc_chain_health_counters, en bas de ce fichier) ; les `static` locaux plafonnes a 8/40
 // lignes de journal restent ce qu'ils etaient.
 std::atomic<u32> g_a42_precopy_total{0};
+// GL-thread accounting, including diagnostic rejections that do not reach render().
+void note_chain_walks(u32 walks, bool rendered) {
+  if (!perf_instruments::enabled()) {
+    return;
+  }
+  static u64 measured_frames = 0, attempts = 0, total_walks = 0;
+  static u32 max_walks = 0;
+  attempts++;
+  measured_frames += rendered;
+  total_walks += walks;
+  const bool new_max = walks > max_walks;
+  max_walks = std::max(max_walks, walks);
+  if (new_max || attempts % 60 == 0) {
+    // A peak is published immediately; an average could hide an extra walk.
+    autoport_proof::publish("dma_chain_walks_per_frame", max_walks);
+    autoport_proof::publish("dma_chain_walks_total", total_walks);
+    autoport_proof::publish("dma_chain_frames_measured", measured_frames);
+    autoport_proof::publish("dma_chain_attempts_measured", attempts);
+    autoport_proof::publish("dma_chain_diagnostics", dma_chain_diagnostics());
+    autoport_proof::publish("dma_chain_rejected", g_a42_precopy_total.load());
+  }
+}
 std::atomic<u32> g_a37_chain_loops_total{0};
 std::atomic<int> g_window_w{0};
 std::atomic<int> g_window_h{0};
@@ -516,11 +550,14 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
   g_window_h.store(win_h);
 
   bool got_chain = false;
+  u32 chain_walks = 0;
   {
     std::unique_lock<std::mutex> lock(d->dma_mutex);
     got_chain = d->dma_cv.wait_for(lock, std::chrono::milliseconds(40),
                                    [=] { return d->has_data_to_render; });
     if (got_chain) {
+      chain_walks = d->pending_chain_walks;
+      d->pending_chain_walks = 0;
       // Gperf-particles overlap: signal pickup — the GOAL thread may build the
       // next frame from here on (chain_data itself stays protected until the
       // post-render has_data_to_render clear releases send_chain's gate).
@@ -529,12 +566,10 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     }
   }
 
-  // A37 chain validator: a malformed (cyclic / never-ending) chain makes
-  // bucket renderers spin forever in read_and_advance (run-23/24/25: GL
-  // thread stuck in SkyRenderer, GOAL parked in sync_path, app frozen).
-  // Walk the whole chain with a step cap first; on cap, log a tag window
-  // and SKIP the frame — the run keeps producing evidence and pacing.
-  if (got_chain) {
+  // The producer validates during the copy walk. Rewalking the immutable copy
+  // is an optional diagnostic, included in the measured walk count.
+  if (got_chain && dma_chain_diagnostics()) {
+    chain_walks++;
     DmaFollower probe(d->chain_data, d->chain_offset);
     constexpr int kMaxSteps = 400000;
     int steps = 0;
@@ -569,6 +604,7 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       std::unique_lock<std::mutex> lock(d->dma_mutex);
       d->has_data_to_render = false;
       d->sync_cv.notify_all();
+      note_chain_walks(chain_walks, false);
       return false;
     }
   }
@@ -603,6 +639,9 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       Gfx::adopt_settings_for_frame(d->logic_frame_of_pending_chain);
     }
     AndroidRenderOptions options;
+    options.chain_bytes = d->dma_copier.get_last_result().stats.num_data_bytes;
+    options.validated_buckets = &d->validated_buckets;
+    options.dma_diagnostics = dma_chain_diagnostics();
     options.game_res_w = Gfx::g_global_settings.game_res_w;
     options.game_res_h = Gfx::g_global_settings.game_res_h;
     if (options.game_res_w <= 0 || options.game_res_h <= 0) {
@@ -693,7 +732,13 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       options.render_scale_pct = s_render_scale;
     }
 
+    chain_walks++;
     d->renderer->render(DmaFollower(d->chain_data, d->chain_offset), options);
+    chain_walks += d->renderer->stats().bucket_validation_walks;
+    note_chain_walks(chain_walks, true);
+    if (perf_instruments::enabled()) {
+      autoport_proof::note_hit_for("perf-dma-chain-copies", dma_chain_diagnostics() ? 1 : 2);
+    }
 
     // perf-goal-gl-overlap : fermer la fenetre. Les plages hors chaine inscrites pendant le
     // rendu sont RELUES ici, dans la memoire EE vivante, et comparees a ce que le rendu a
@@ -1324,108 +1369,123 @@ void send_chain(const void* data, u32 offset) {
     __android_log_print(ANDROID_LOG_INFO, kLogTag, "A35-RENDER send_chain #%u offset=0x%x", n,
                         offset);
   }
-  // A42: bounded pre-probe of the live chain, then copy (see dma_copier
-  // field note). FixedChunkDmaCopier::run has an unbounded walk + a
-  // LOW_PROTECT assert, so a malformed live chain must be caught here —
-  // skip the frame instead of hanging/aborting the game thread.
-  {
-    DmaFollower probe(data, offset);
-    constexpr int kMaxSteps = 400000;
-    int steps = 0;
-    bool low_tag = false;
-    int low_kind = -1;
-    u32 low_addr = 0, low_qwc = 0;
-    bool low_spr = false;
-    // Gintro: dump the leading tags of the first few flagged chains to
-    // characterize the ndi-intro chain that trips the low-addr guard.
-    static std::atomic<u32> s_dump_frames{0};
-    const bool do_dump = gintro_chainwalk_dbg() && s_dump_frames.load() < 6;
-    int dumped = 0;
-    while (!probe.ended() && steps < kMaxSteps) {
-      auto tag = probe.current_tag();
-      if (do_dump && dumped < 14) {
-        dumped++;
-        __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                            "GINTRO-CHAINWALK step=%d off=0x%x kind=%d spr=%d addr=0x%x qwc=%u",
-                            steps, probe.current_tag_offset(), (int)tag.kind, (int)tag.spr,
-                            tag.addr, tag.qwc);
+  // Validate while planning the chunk copy. Rejection leaves the last good
+  // result and its backing buffer untouched, for the existing re-present path.
+  static std::atomic<u32> s_dump_frames{0};
+  const bool do_dump = gintro_chainwalk_dbg() && s_dump_frames.load() < 6;
+  int dumped = 0;
+  const u32 bucket_count = g_game_version == GameVersion::Jak1 ? (u32)jak1::BucketId::MAX_BUCKETS
+                                                               : (u32)jak2::BucketId::MAX_BUCKETS;
+  const u32 bucket_base = offset + (g_game_version == GameVersion::Jak1 ? 16 : 0);
+  std::vector<u32> bucket_steps(bucket_count + 1, UINT32_MAX);
+  int call_depth = 0;
+  DmaTagObserver observer = [&](const DmaFollower& probe, const DmaTag& tag, u32 steps) {
+    const u32 off = probe.current_tag_offset();
+    if (off >= bucket_base && (off - bucket_base) % 16 == 0) {
+      const u32 bucket = (off - bucket_base) / 16;
+      if (bucket <= bucket_count) {
+        // Revisited boundaries or a live CALL stack need the original guard.
+        bucket_steps[bucket] = bucket_steps[bucket] == UINT32_MAX && call_depth == 0 ? steps : 0;
       }
-      if (tag.addr != 0 && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
-        low_tag = true;
-        low_kind = (int)tag.kind;  // 0=REFE 1=CNT 2=NEXT 3=REF 4=REFS 5=CALL 6=RET 7=END
-        low_addr = tag.addr;
-        low_qwc = tag.qwc;
-        low_spr = tag.spr;
-        // GND diag: prove whether the LIVE memory really holds this low addr
-        // (follower correct -> real corruption) or the follower mis-read
-        // (memory fine -> follower/base bug). Read the tag bytes BOTH via the
-        // follower's base and directly via g_ee_main_mem, plus a re-read.
-        if (do_dump) {
-          u32 mt = probe.current_tag_offset();
-          u64 raw_data = 0, raw_ee = 0, raw_ee2 = 0;
-          if ((u64)mt + 8 <= EE_MAIN_MEM_SIZE) {
-            memcpy(&raw_data, (const u8*)data + mt, 8);
-            memcpy(&raw_ee, g_ee_main_mem + mt, 8);
-            memcpy(&raw_ee2, g_ee_main_mem + mt, 8);
-          }
-          __android_log_print(ANDROID_LOG_FATAL, kLogTag,
-                              "GND-PRECOPY-RAW off=0x%x data_is_ee=%d base_delta=0x%lx "
-                              "raw@data=0x%016llx raw@ee=0x%016llx reread=0x%016llx",
-                              mt, (int)((const u8*)data == g_ee_main_mem),
-                              (unsigned long)((const u8*)data - g_ee_main_mem),
-                              (unsigned long long)raw_data, (unsigned long long)raw_ee,
-                              (unsigned long long)raw_ee2);
-        }
-        break;
-      }
-      probe.read_and_advance();
-      steps++;
     }
-    if (!probe.ended() || low_tag) {
-      // Gintro diagnostic: dump the FLAGGED tag (kind/spr/addr/qwc), the true
-      // (uncapped) skip count, and the 16 bytes AT the flagged NEXT/REF
-      // destination (data + addr) so we can tell a legit jump from garbage.
-      // addr is only dereferenced for REF/REFE/REFS (kind 0/3/4) and
-      // NEXT/CALL (kind 2/5); CNT/RET/END (1/6/7) ignore it.
-      const u32 ntot = g_a42_precopy_total.fetch_add(1) + 1;
+    if (tag.kind == DmaTag::Kind::CALL) {
+      call_depth++;
+    } else if (tag.kind == DmaTag::Kind::RET) {
+      call_depth--;
+    }
+    if (do_dump && dumped < 14) {
+      dumped++;
+      __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                          "GINTRO-CHAINWALK step=%d off=0x%x kind=%d spr=%d addr=0x%x qwc=%u",
+                          steps, probe.current_tag_offset(), (int)tag.kind, (int)tag.spr, tag.addr,
+                          tag.qwc);
+    }
+    if (tag.addr != 0 && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
+      // GND diag: prove whether the LIVE memory really holds this low addr
+      // (follower correct -> real corruption) or the follower mis-read
+      // (memory fine -> follower/base bug). Read the tag bytes BOTH via the
+      // follower's base and directly via g_ee_main_mem, plus a re-read.
       if (do_dump) {
-        s_dump_frames.fetch_add(1);
-      }
-      if (ntot <= 40 || (ntot % 240) == 0) {
-        u64 dst0 = 0, dst1 = 0;
-        if (low_addr != 0 && (u64)low_addr + 16 <= EE_MAIN_MEM_SIZE) {
-          memcpy(&dst0, (const u8*)data + low_addr, 8);
-          memcpy(&dst1, (const u8*)data + low_addr + 8, 8);
+        u32 mt = probe.current_tag_offset();
+        u64 raw_data = 0, raw_ee = 0, raw_ee2 = 0;
+        if ((u64)mt + 8 <= EE_MAIN_MEM_SIZE) {
+          memcpy(&raw_data, (const u8*)data + mt, 8);
+          memcpy(&raw_ee, g_ee_main_mem + mt, 8);
+          memcpy(&raw_ee2, g_ee_main_mem + mt, 8);
         }
         __android_log_print(ANDROID_LOG_FATAL, kLogTag,
-                            "A42-CHAIN-PRECOPY skip #%u (steps=%d low_tag=%d kind=%d spr=%d "
-                            "addr=0x%x qwc=%u off=0x%x dst=0x%016llx %016llx) — skipped",
-                            ntot, steps, (int)low_tag, low_kind, (int)low_spr, low_addr, low_qwc,
-                            probe.current_tag_offset(), (unsigned long long)dst0,
-                            (unsigned long long)dst1);
+                            "GND-PRECOPY-RAW off=0x%x data_is_ee=%d base_delta=0x%lx "
+                            "raw@data=0x%016llx raw@ee=0x%016llx reread=0x%016llx",
+                            mt, (int)((const u8*)data == g_ee_main_mem),
+                            (unsigned long)((const u8*)data - g_ee_main_mem),
+                            (unsigned long long)raw_data, (unsigned long long)raw_ee,
+                            (unsigned long long)raw_ee2);
       }
-      // Gintro: this corrupt chain is the arm64 blend-shape/joint OOB stomp
-      // (the ndi state spawns Jak+Daxter blend-shape skeletons; their joint-
-      // decompress intermittently scribbles a low garbage addr into a per-
-      // frame DMA bucket-NEXT — confirmed vs the x86 oracle which never
-      // produces a low tag; see Gintro-fix-summary). The chain CANNOT go to
-      // the copier (its LOW_PROTECT assert would abort) nor to the renderer
-      // (it would follow the garbage NEXT). The old behavior dropped it, but
-      // dropping breaks the frame pacing: frame_idx_of_input_data freezes
-      // while swaps advance, so vsync() free-runs and fast-forwards the ndi
-      // spool, AND the ndi logo black-flashes. Instead, RE-PRESENT the last
-      // good copied chain: the renderer redraws the previous ndi frame, the
-      // consume cadence stays 1:1 (real-time pacing holds), and the logo is
-      // held (a brief stutter) rather than dropped. This makes the ND/Daxter
-      // logo render in order despite the OOB; the OOB itself is a separate
-      // (deeper, goalc-arm64) defect tracked for its own phase.
-      if (d->ever_copied && !d->has_data_to_render) {
-        d->has_data_to_render = true;
-        d->chains_sent++;  // Gperf-particles overlap: re-present counts as sent
-        d->dma_cv.notify_all();
-      }
-      return;
     }
+  };
+  DmaCopyError copy_error;
+  d->pending_chain_walks++;
+  if (!d->dma_copier.try_run(data, offset, copy_error, observer)) {
+    const u32 steps = copy_error.steps;
+    const bool low_tag = copy_error.low_tag;
+    const int low_kind = (int)copy_error.tag.kind;
+    const u32 low_addr = copy_error.tag.addr, low_qwc = copy_error.tag.qwc;
+    const bool low_spr = copy_error.tag.spr;
+    // Gintro diagnostic: dump the FLAGGED tag (kind/spr/addr/qwc), the true
+    // (uncapped) skip count, and the 16 bytes AT the flagged NEXT/REF
+    // destination (data + addr) so we can tell a legit jump from garbage.
+    // addr is only dereferenced for REF/REFE/REFS (kind 0/3/4) and
+    // NEXT/CALL (kind 2/5); CNT/RET/END (1/6/7) ignore it.
+    const u32 ntot = g_a42_precopy_total.fetch_add(1) + 1;
+    if (do_dump) {
+      s_dump_frames.fetch_add(1);
+    }
+    if (ntot <= 40 || (ntot % 240) == 0) {
+      u64 dst0 = 0, dst1 = 0;
+      if (low_addr != 0 && (u64)low_addr + 16 <= EE_MAIN_MEM_SIZE) {
+        memcpy(&dst0, (const u8*)data + low_addr, 8);
+        memcpy(&dst1, (const u8*)data + low_addr + 8, 8);
+      }
+      __android_log_print(ANDROID_LOG_FATAL, kLogTag,
+                          "A42-CHAIN-PRECOPY skip #%u (steps=%d low_tag=%d kind=%d spr=%d "
+                          "addr=0x%x qwc=%u off=0x%x bounds=%d dst=0x%016llx %016llx) — skipped",
+                          ntot, steps, (int)low_tag, low_kind, (int)low_spr, low_addr, low_qwc,
+                          copy_error.tag_offset, (int)copy_error.out_of_bounds,
+                          (unsigned long long)dst0, (unsigned long long)dst1);
+    }
+    // Gintro: this corrupt chain is the arm64 blend-shape/joint OOB stomp
+    // (the ndi state spawns Jak+Daxter blend-shape skeletons; their joint-
+    // decompress intermittently scribbles a low garbage addr into a per-
+    // frame DMA bucket-NEXT — confirmed vs the x86 oracle which never
+    // produces a low tag; see Gintro-fix-summary). The chain CANNOT go to
+    // publication nor to the renderer
+    // (it would follow the garbage NEXT). The old behavior dropped it, but
+    // dropping breaks the frame pacing: frame_idx_of_input_data freezes
+    // while swaps advance, so vsync() free-runs and fast-forwards the ndi
+    // spool, AND the ndi logo black-flashes. Instead, RE-PRESENT the last
+    // good copied chain: the renderer redraws the previous ndi frame, the
+    // consume cadence stays 1:1 (real-time pacing holds), and the logo is
+    // held (a brief stutter) rather than dropped. This makes the ND/Daxter
+    // logo render in order despite the OOB; the OOB itself is a separate
+    // (deeper, goalc-arm64) defect tracked for its own phase.
+    if (d->ever_copied && !d->has_data_to_render) {
+      perf_instruments::note_dma_chain_copied(0, true);
+      d->has_data_to_render = true;
+      d->chains_sent++;  // Gperf-particles overlap: re-present counts as sent
+      d->dma_cv.notify_all();
+    }
+    return;
+  }
+  // Uncertified buckets keep the renderer's existing fallback guard.
+  if (perf_instruments::enabled()) {
+    autoport_proof::note_hit_for("perf-dma-chain-copies");
+  }
+  d->validated_buckets.assign(bucket_count, false);
+  for (u32 bucket = 0; bucket < bucket_count; bucket++) {
+    const u32 begin = bucket_steps[bucket], end = bucket_steps[bucket + 1];
+    d->validated_buckets[bucket] =
+        begin != 0 && begin != UINT32_MAX && end != UINT32_MAX && end > begin &&
+        end - begin <= 200000;
   }
   // lighting-hdr / refset : APPARIEMENT chaine <-> frame de logique, fait par le producteur,
   // sous le verrou qui publie la chaine, depuis le fil GOAL — miroir exact de
@@ -1436,7 +1496,7 @@ void send_chain(const void* data, u32 offset) {
   // Volontairement PAS ecrit sur le chemin de re-presentation ci-dessus : celui-ci redessine la
   // chaine PRECEDENTE, qui porte donc toujours sa propre frame de logique.
   const int64_t lf_of_this_chain = refset::current_logic_frame();
-  const auto& chain_copy = d->dma_copier.run(data, offset);
+  const auto& chain_copy = d->dma_copier.get_last_result();
   // perf-instruments : les octets REELLEMENT copies par cette image (fil GOAL).
   perf_instruments::note_dma_chain_copied((uint64_t)chain_copy.stats.num_copied_bytes, true);
   d->logic_frame_of_pending_chain = lf_of_this_chain;
@@ -1445,8 +1505,8 @@ void send_chain(const void* data, u32 offset) {
   // perf-goal-gl-overlap : l'empreinte de la COPIE, prise sur le fil GOAL pendant que le
   // constructeur est a l'arret. Le fil GL la recomparera a la fin de son rendu : une difference
   // veut dire que la garde inconditionnelle de send_chain a laisse passer un ecrasement.
-  overlap_census::chain_published(chain_copy.data.data(),
-                                  (uint32_t)chain_copy.data.size(), lf_of_this_chain);
+  overlap_census::chain_published(chain_copy.data.data(), (uint32_t)chain_copy.data.size(),
+                                  lf_of_this_chain);
   // perf-goal-gl-overlap / SPEC lumiere 6.1 regle 5 : figer les reglages de CETTE image dans son
   // emplacement, sur le fil GOAL, pendant que le constructeur est a l'arret. C'est la seule
   // fenetre ou la structure n'est pas en train d'etre reecrite.

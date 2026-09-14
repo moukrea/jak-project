@@ -86,21 +86,51 @@ void FixedChunkDmaCopier::set_input_data(const void* memory, u32 offset, bool ru
   }
 }
 
-const DmaData& FixedChunkDmaCopier::run(const void* memory, u32 offset, bool verify) {
-  Timer timer;
-  m_input_offset = offset;
-  m_input_data = memory;
+bool FixedChunkDmaCopier::plan_copy(const void* memory,
+                                    u32 offset,
+                                    DmaStats& stats,
+                                    DmaCopyError* error,
+                                    const DmaTagObserver& observer) {
   std::fill(m_chunk_mask.begin(), m_chunk_mask.end(), false);
   m_fixups.clear();
-  m_result.data.clear();
-  m_result.stats = DmaStats();
-  m_result.start_offset = 0;
-
   DmaFollower dma(memory, offset);
   while (!dma.ended()) {
     auto tag_offset = dma.current_tag_offset();
+    if (error) {
+      error->tag_offset = tag_offset;
+      error->tag = DmaTag(0);
+      if (!memory || u64(tag_offset) + 16 > m_main_memory_size) {
+        error->out_of_bounds = true;
+        return false;
+      }
+      if (error->steps == 400000) {
+        error->tag = dma.current_tag();
+        return false;
+      }
+      ++error->steps;
+    }
     auto tag = dma.current_tag();
-    m_result.stats.num_tags++;
+    if (observer) {
+      observer(dma, tag, error ? error->steps : u32(stats.num_tags + 1));
+    }
+    if (error) {
+      error->tag = tag;
+      if (tag.addr && tag.addr <= EE_MAIN_MEM_LOW_PROTECT) {
+        error->low_tag = true;
+        return false;
+      }
+      // Validate before the follower forms the transfer pointer. Other tag semantics
+      // (scratchpad, CALL/RET stack, CNT address) retain the follower's assertions.
+      const bool reference = tag.kind == DmaTag::Kind::REF || tag.kind == DmaTag::Kind::REFS ||
+                             tag.kind == DmaTag::Kind::REFE;
+      const u64 data_offset = reference ? u64(tag.addr) : u64(tag_offset) + 16;
+      if ((tag.addr && tag.addr >= m_main_memory_size) ||
+          data_offset + u64(tag.qwc) * 16 > m_main_memory_size) {
+        error->out_of_bounds = true;
+        return false;
+      }
+    }
+    stats.num_tags++;
 
     // first, make sure we get this tag:
     u32 tag_chunk_idx = tag_offset / chunk_size;
@@ -124,7 +154,7 @@ const DmaData& FixedChunkDmaCopier::run(const void* memory, u32 offset, bool ver
 
     auto transfer = dma.read_and_advance();
     if (transfer.size_bytes) {
-      m_result.stats.num_data_bytes += transfer.size_bytes;
+      stats.num_data_bytes += transfer.size_bytes;
       u32 initial_chunk = transfer.data_offset / chunk_size;
       u32 end_addr = transfer.data_offset + transfer.size_bytes;
       m_chunk_mask.at(initial_chunk) = true;
@@ -137,6 +167,13 @@ const DmaData& FixedChunkDmaCopier::run(const void* memory, u32 offset, bool ver
     }
   }
 
+  return true;
+}
+
+void FixedChunkDmaCopier::apply_copy(const void* memory, u32 offset, const DmaStats& stats) {
+  m_result.data.clear();
+  m_result.stats = stats;
+  m_result.start_offset = 0;
   // assign output chunks.
   u32 current_out_chunk = 0;
   for (auto& val : m_chunk_mask) {
@@ -170,6 +207,33 @@ const DmaData& FixedChunkDmaCopier::run(const void* memory, u32 offset, bool ver
 
   // setup final offset
   m_result.start_offset = m_chunk_mask.at(offset / chunk_size) * chunk_size + (offset % chunk_size);
+}
+
+bool FixedChunkDmaCopier::try_run(const void* memory,
+                                  u32 offset,
+                                  DmaCopyError& error,
+                                  const DmaTagObserver& observer) {
+  Timer timer;
+  m_input_offset = offset;
+  m_input_data = memory;
+  error = DmaCopyError{};
+  DmaStats stats;
+  if (!plan_copy(memory, offset, stats, &error, observer)) {
+    return false;
+  }
+  apply_copy(memory, offset, stats);
+  m_result.stats.sync_time_ms = timer.getMs();
+  error = DmaCopyError{};
+  return true;
+}
+
+const DmaData& FixedChunkDmaCopier::run(const void* memory, u32 offset, bool verify) {
+  Timer timer;
+  m_input_offset = offset;
+  m_input_data = memory;
+  DmaStats stats;
+  plan_copy(memory, offset, stats, nullptr, {});
+  apply_copy(memory, offset, stats);
 
   if (verify) {
     auto ref = flatten_dma(DmaFollower(memory, offset));

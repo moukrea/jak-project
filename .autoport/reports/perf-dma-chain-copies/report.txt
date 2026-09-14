@@ -1,0 +1,25 @@
+DIRECTIVES v71a246738e
+Livré sur USB : critère DMA tenu (maximum 2 parcours), sans crash pendant la course ; identité refset non prouvée.
+La fermeture appartient à l’orchestrateur ; aucun validateur modifié ou lancé manuellement.
+
+Changements : garde bornée et planification de copie fusionnées, dernière copie conservée sur rejet.
+Frontières des buckets certifiées pendant ce parcours ; garde initiale conservée pour les cas non certifiés.
+Sonde GL et relectures diagnostiques derrière debug.opengoal.dma.diagnostics ; volume utile fourni par le copieur.
+Marches mesurées aux sites exécutés, diagnostics inclus ; maximum publié dès chaque nouveau pic.
+
+Huit lignes de proof.txt, produit par lib/proof_run.sh perf-dma-chain-copies device :
+source=device
+device_serial=eae4df44
+frames=15060
+crash=0
+dma_chain_walks_per_frame=2
+dma_chain_bytes_copied=1507328
+local_lib_md5=59b230bab3d72bfca2b0ac1cd8c060f9
+device_lib_md5=59b230bab3d72bfca2b0ac1cd8c060f9
+
+Trace complémentaire : dma_chain_walks_total=30120, dma_chain_rejected=0, proof_feature_own_hits=45180.
+Construction arm64 et APK : codes 0 ; garde NPC : 47 propriétés tenues (notes/build-arm64.log).
+Test CPU : 6 cas passés, dont références inter-tranches et préservation après rejet (notes/test_dma_copy.log).
+À regarder par l’owner : aucune nouveauté visuelle attendue ; le rendu doit rester identique.
+non prouvé : refset_replay_maxdiff == 0 (rejeu non configuré), gain de cadence, parcours diagnostic activé sur appareil.
+Limites et avertissements hérités consignés dans FINDINGS.txt ; aucune campagne additionnelle lancée.

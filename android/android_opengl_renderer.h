@@ -44,6 +44,10 @@ struct Level;  // Gjak2-vis: m_common_level points into the loader's GAME.fr3.
 
 // Mirrors the desktop RenderOptions subset the Android skeleton honors.
 struct AndroidRenderOptions {
+  // Payload bytes counted by the producer during its validated copy walk.
+  u32 chain_bytes = 0;
+  const std::vector<bool>* validated_buckets = nullptr;
+  bool dma_diagnostics = false;
   int game_res_w = 640;
   int game_res_h = 480;
   int window_fb_w = 0;
@@ -65,6 +69,7 @@ struct AndroidRenderOptions {
 };
 
 struct AndroidFrameStats {
+  u32 bucket_validation_walks = 0;
   u64 frame_idx = 0;
   u32 chain_bytes = 0;
   u32 buckets_with_data = 0;
@@ -101,10 +106,11 @@ class AndroidOpenGLRenderer {
   void init_bucket_renderers_jak1();
   void init_bucket_renderers_jak2();
   void setup_frame(const AndroidRenderOptions& settings);
+  const std::vector<bool>* m_validated_buckets = nullptr;
+  bool m_dma_diagnostics = false;
   void dispatch_buckets_jak1(DmaFollower dma, ScopedProfilerNode& prof);
   void dispatch_buckets_jak2(DmaFollower dma, ScopedProfilerNode& prof);
   void do_pcrtc_effects(float alp, SharedRenderState* render_state, ScopedProfilerNode& prof);
-  u32 count_chain_bytes(DmaFollower dma);
   // Grender-split: composite the scaled 3D scene FBO into the native-resolution UI
   // FBO and re-target rendering there. Installed into m_render_state.begin_2d_ui_pass
   // when the split is active; idempotent within a frame.

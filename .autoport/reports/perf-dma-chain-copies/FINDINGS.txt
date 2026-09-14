@@ -1,0 +1,11 @@
+common/dma/dma_chain_read.h:61-100 | Les corruptions SPR, CNT non nul ou pile CALL/RET invalide restent des assertions héritées, hors refus transactionnels de cette tâche. | Une corruption de ces formes peut encore arrêter le moteur.
+common/dma/dma_copy.cpp:138 | Le copieur conserve l’hypothèse héritée de tags DMA alignés sur 16 octets. | Une entrée mal alignée traversant deux tranches reste hors garantie.
+.autoport/backlog.yaml:6622-6634 | Le périmètre demande refset_replay_maxdiff mais le plan de preuve ne configure aucun rejeu refset. | La course DMA ne certifie pas l’identité pixel à pixel.
+/tmp | Une création de fichier temporaire a échoué avec Disk quota exceeded malgré 1,6 Go libres annoncés. | Les outils utilisant /tmp peuvent échouer ; cet essai utilise un TMPDIR sur /home.
+common/custom_data/MeshConsolidate.cpp:645 | Avertissement de compilation hérité : unused variable 'tangent_ptr' [-Wunused-variable] | Bruit de build et dette de code hors périmètre DMA.
+common/custom_data/TFrag3Data.cpp:1147 | Avertissement de compilation hérité : variable 'vi' set but not used [-Wunused-but-set-variable] | Bruit de build et dette de code hors périmètre DMA.
+game/graphics/opengl_renderer/GrassBakeCore.cpp:1740 | Avertissement de compilation hérité : unused variable 'cap_droop' [-Wunused-variable] | Bruit de build et dette de code hors périmètre DMA.
+game/graphics/opengl_renderer/background/background_common.cpp:1975 | Avertissement de compilation hérité : variable 'ambW_g' set but not used [-Wunused-but-set-variable] | Bruit de build et dette de code hors périmètre DMA.
+game/graphics/opengl_renderer/background/background_common.cpp:1975 | Avertissement de compilation hérité : variable 'ambW_y' set but not used [-Wunused-but-set-variable] | Bruit de build et dette de code hors périmètre DMA.
+game/graphics/pipelines/opengl.h:64 | Avertissement de compilation hérité : 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override] | Bruit de build et dette de code hors périmètre DMA.
+game/graphics/pipelines/opengl.h:65 | Avertissement de compilation hérité : 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override] | Bruit de build et dette de code hors périmètre DMA.

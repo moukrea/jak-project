@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <vector>
 
 #include "common/common_types.h"
@@ -10,6 +11,16 @@ struct DmaData {
   u32 start_offset = 0;
   std::vector<u8> data;
   DmaStats stats;
+};
+
+using DmaTagObserver = std::function<void(const DmaFollower&, const DmaTag&, u32 steps)>;
+
+struct DmaCopyError {
+  u32 steps = 0;
+  u32 tag_offset = 0;
+  DmaTag tag{0};
+  bool low_tag = false;
+  bool out_of_bounds = false;
 };
 
 /*!
@@ -26,6 +37,11 @@ class FixedChunkDmaCopier {
 
   const DmaData& run(const void* memory, u32 offset, bool verify = false);
 
+  bool try_run(const void* memory,
+               u32 offset,
+               DmaCopyError& error,
+               const DmaTagObserver& observer = {});
+
   void serialize_last_result(Serializer& serializer);
 
   const DmaData& get_last_result() const { return m_result; }
@@ -34,6 +50,13 @@ class FixedChunkDmaCopier {
   u32 get_last_input_offset() const { return m_input_offset; }
 
  private:
+  bool plan_copy(const void* memory,
+                 u32 offset,
+                 DmaStats& stats,
+                 DmaCopyError* error,
+                 const DmaTagObserver& observer);
+  void apply_copy(const void* memory, u32 offset, const DmaStats& stats);
+
   struct Fixup {
     u32 source_chunk;
     u32 offset_in_source_chunk;
