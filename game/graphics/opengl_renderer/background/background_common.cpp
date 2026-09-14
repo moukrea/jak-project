@@ -207,6 +207,24 @@ bool prepass_writes_depth(const DrawMode& mode) {
   return true;
 }
 
+// lighting-ao-indirect (terme 3) : la regle d'echantillonnage, en un seul endroit. Voir le
+// commentaire de background_common.h.
+uint8_t prepass_tex_mode(const DrawMode& mode) {
+  return (uint8_t)((mode.get_clamp_s_enable() ? 1 : 0) | (mode.get_clamp_t_enable() ? 2 : 0) |
+                   (mode.get_filt_enable() ? 4 : 0));
+}
+
+void prepass_tex_params(uint8_t tex_mode, bool mipmap, int out4[4]) {
+  if (tex_mode == 0xff) {
+    out4[0] = out4[1] = out4[2] = out4[3] = 0;
+    return;
+  }
+  out4[0] = (tex_mode & 1) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+  out4[1] = (tex_mode & 2) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+  out4[2] = (tex_mode & 4) ? (mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR) : GL_NEAREST;
+  out4[3] = (tex_mode & 4) ? GL_LINEAR : GL_NEAREST;
+}
+
 DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap) {
   glActiveTexture(tex_unit);
 
@@ -291,25 +309,16 @@ DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap)
     glDisable(GL_BLEND);
   }
 
-  if (mode.get_clamp_s_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  }
-
-  if (mode.get_clamp_t_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  }
-
-  if (mode.get_filt_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  // lighting-ao-indirect (terme 3) : les quatre memes valeurs qu'avant, mais calculees par
+  // `prepass_tex_params` — l'unique definition de la regle, que la prepasse de profondeur appelle
+  // aussi (elle les heritait, voir background_common.h).
+  {
+    int p4[4];
+    prepass_tex_params(prepass_tex_mode(mode), mipmap, p4);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, p4[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, p4[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, p4[2]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, p4[3]);
   }
 
   // for some reason, they set atest NEVER + FB_ONLY to disable depth writes
@@ -394,25 +403,15 @@ DoubleDraw setup_tfrag_shader(SharedRenderState* render_state, DrawMode mode, Sh
 // needs them even when the global blend/depth state is unchanged. Kept
 // byte-identical to the corresponding block in setup_opengl_from_draw_mode.
 static void apply_tex_params_from_draw_mode(DrawMode mode) {
-  if (mode.get_clamp_s_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  }
-
-  if (mode.get_clamp_t_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  }
-
-  if (mode.get_filt_enable()) {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  } else {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  }
+  // lighting-ao-indirect (terme 3) : meme regle, meme definition (background_common.h). Le
+  // `mipmap = true` est celui que `setup_tfrag_shader_cached` passe a
+  // `setup_opengl_from_draw_mode` : les deux sites restent d'accord par construction.
+  int p4[4];
+  prepass_tex_params(prepass_tex_mode(mode), /*mipmap=*/true, p4);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, p4[0]);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, p4[1]);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, p4[2]);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, p4[3]);
 }
 
 DoubleDraw setup_tfrag_shader_cached(SharedRenderState* render_state,

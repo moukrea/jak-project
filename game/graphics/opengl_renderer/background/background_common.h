@@ -136,6 +136,27 @@ float prepass_alpha_min(const DrawMode& mode);
 // l'image ne dessine pas.
 bool prepass_writes_depth(const DrawMode& mode);
 
+// lighting-ao-indirect (terme 3) : L'ETAT D'ECHANTILLONNAGE, DEFINI UNE SEULE FOIS.
+// `setup_opengl_from_draw_mode` pose QUATRE `glTexParameteri` — et un `glTexParameteri` ecrit sur
+// l'OBJET TEXTURE LIE, pas sur l'unite : l'etat survit donc au draw qui l'a pose. La prepasse de
+// profondeur lie les MEMES objets (PrePass.cpp, `draw_depth_range`) et n'en posait AUCUN. Tirant au
+// bucket 6, AVANT tout draw couleur de l'image, elle heritait de ce que le DERNIER consommateur de
+// l'image PRECEDENTE y avait laisse — TIE, Shrub, Hfrag, DirectRenderer, Generic2 et
+// TextureAnimator posent tous CLAMP ou REPEAT selon LEUR propre mode sur des objets du meme pool.
+// Un `GL_REPEAT` la ou le draw veut `GL_CLAMP_TO_EDGE`, ou un `GL_LINEAR` la ou il veut
+// `GL_LINEAR_MIPMAP_LINEAR`, fait lire un AUTRE texel : l'alpha-test de la prepasse jette alors un
+// fragment que la passe couleur garde, et l'AO se calcule sur un trou.
+// Ces deux fonctions sont la SEULE definition de la regle. Les trois sites l'appellent
+// (`setup_opengl_from_draw_mode`, `apply_tex_params_from_draw_mode`, la prepasse) ; aucun ne la
+// recopie, sinon le prochain changement de regle ne toucherait que deux sites sur trois.
+// `prepass_tex_mode` : bit 0 = clamp_s, bit 1 = clamp_t, bit 2 = filt. 0xff = INCONNU, et la
+// prepasse ne pose alors RIEN — un contributeur qui ne renseigne pas son mode n'a pas le droit de
+// fabriquer un etat par defaut.
+uint8_t prepass_tex_mode(const DrawMode& mode);
+// Rend, dans l'ordre, les valeurs de GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_MIN_FILTER
+// et GL_TEXTURE_MAG_FILTER. `tex_mode == 0xff` rend quatre zeros (aucune valeur GL valide).
+void prepass_tex_params(uint8_t tex_mode, bool mipmap, int out4[4]);
+
 // Gperf-particles: per-draw GL state cache for the tfrag-family loops. A local
 // cache lives at the top of each tree-render function (per-render reset). When
 // render_state->perf_state_cache is off, setup_tfrag_shader_cached is exactly

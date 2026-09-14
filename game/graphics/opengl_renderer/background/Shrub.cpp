@@ -96,8 +96,9 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
         continue;
       }
       const GLuint tex = (m_textures && g.tex_id < m_textures->size()) ? m_textures->at(g.tex_id) : 0;
-      total += prepass::draw_depth_range(GL_TRIANGLES,
-                                         prepass::make_depth_range(tex, g.alpha_min, g.first, g.count));
+      total += prepass::draw_depth_range(
+          GL_TRIANGLES,
+          prepass::make_depth_range(tex, g.alpha_min, g.first, g.count, g.tex_mode));
     }
   }
   return total;
@@ -434,7 +435,7 @@ void Shrub::update_load(const LevelData* loader_data) {
         if (count_out > 0) {
           const bool noz = !prepass_writes_depth(draw.mode);
           groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode), first_out, count_out,
-                            noz});
+                            noz, prepass_tex_mode(draw.mode)});
           if (noz) {
             prepass::note_noz_range(count_out);
           }

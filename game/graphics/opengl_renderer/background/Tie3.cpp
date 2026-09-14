@@ -1187,7 +1187,10 @@ void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
         pre_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
       }
     } else {
-      pre_ranges.push_back(prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first, count});
+      // (terme 3) Le MODE d'echantillonnage du draw voyage avec la plage : la prepasse POSE
+      // l'etat de la texture au lieu de l'heriter (background_common.h, `prepass_tex_mode`).
+      pre_ranges.push_back(prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first,
+                                               count, prepass_tex_mode(draw.mode)});
     }
   }
   ranges_built = true;
@@ -1377,7 +1380,8 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
                                  ? m_textures->at(r.tex)
                                  : 0;
         total += prepass::draw_depth_range(
-            tree.draw_mode, prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count));
+            tree.draw_mode,
+            prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode));
       }
     }
     // Un uniforme laisse a 1 par un voisin est un defaut : l'arbre suivant, le chemin VENT et le

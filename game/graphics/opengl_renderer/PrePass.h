@@ -83,11 +83,21 @@ struct DepthRange {
   float cut_amb = 0.f;    // alpha_min du draw, pour la bande ambigue
   uint32_t first = 0;     // premier index dans l'EBO lie
   uint32_t count = 0;     // nombre d'indices
+  // (terme 3) LE MODE D'ECHANTILLONNAGE DU DRAW, pour que la prepasse POSE l'etat de la texture
+  // au lieu de l'HERITER. `prepass_tex_mode(draw.mode)` (background_common.h) ; 0xff = inconnu,
+  // et la prepasse ne pose alors rien. Le contributeur qui laisse 0xff sur une plage a test
+  // d'alpha se compte dans `ao_pre_texstate_unknown` : un zero de mismatch sur une population
+  // vide dirait « rien a corriger » alors qu'il dit « rien n'a ete regarde ».
+  uint8_t tex_mode = 0xff;
 };
 
 // Calcule le `alpha_min` que `compute_double_draw` donnerait a ce mode de draw, et remplit
 // `cut_aref` / `cut_amb`. Declare ici pour que les trois contributeurs partagent la meme regle.
-DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, uint32_t count);
+DepthRange make_depth_range(uint32_t gl_tex,
+                            float alpha_min,
+                            uint32_t first,
+                            uint32_t count,
+                            uint8_t tex_mode = 0xff);
 
 // Dessine UNE plage. Pose `tex_T0` / `u_cut_aref` / `u_cut_amb` (memoises), compte le draw au
 // recensement, et rend `count`. A n'appeler QUE depuis `draw_depth_prepass`.

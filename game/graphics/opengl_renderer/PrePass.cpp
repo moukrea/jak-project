@@ -69,6 +69,22 @@ GLuint g_last_tex = 0xffffffffu;
 bool g_cut_uniforms_ok = false;  // les quatre uniformes de la decoupe existent dans le programme
 uint64_t g_cut_ranges = 0;    // plages qui portent un test d'alpha
 uint64_t g_total_ranges = 0;  // toutes les plages — son denominateur
+// (terme 3) L'ETAT D'ECHANTILLONNAGE HERITE, CHIFFRE PUIS CORRIGE. Voir background_common.h : un
+// `glTexParameteri` ecrit sur l'OBJET texture, et la prepasse n'en posait aucun. Ces compteurs
+// lisent l'etat REEL de l'objet JUSTE AVANT que la prepasse ne pose le sien, sur les seules images
+// sondees. Ce qu'ils mesurent exactement : « depuis la derniere fois que la prepasse a pose cet
+// etat, quelqu'un d'autre l'a change ». Non nul = le conflit existe et il est NOMME par parametre ;
+// nul = personne ne le change, et l'hypothese tombe au lieu de survivre en prose.
+// `_unknown` est le garde-fou : les plages a test d'alpha dont le contributeur n'a pas renseigne
+// son `tex_mode`. Un `_bad` nul avec un `_unknown` non nul ne dit RIEN.
+uint64_t g_texstate_checked = 0;
+uint64_t g_texstate_bad = 0;
+uint64_t g_texstate_bad_p[4] = {0, 0, 0, 0};
+uint64_t g_texstate_unknown = 0;
+// Memo de ce que la prepasse a pose : (objet texture, mode). Remis a l'impossible par
+// `forget_range_state` au debut de chaque passe, comme les autres memos de ce bloc.
+GLuint g_last_state_tex = 0xffffffffu;
+uint16_t g_last_state_mode = 0xffff;
 
 // La classification : un FBO couleur RGBA8 qui PARTAGE la profondeur de la prepasse.
 // ELLE TOURNE AUSSI SUR L'APPAREIL depuis le 2026-09-14. Le contrat (verdict (j)) exige la
@@ -450,6 +466,8 @@ uint64_t draw_all_contributors(SharedRenderState* rs, int* out_levels) {
 
 // Remet a une valeur IMPOSSIBLE l'etat memoise par `draw_depth_range`.
 void forget_range_state() {
+  g_last_state_tex = 0xffffffffu;
+  g_last_state_mode = 0xffff;
   g_last_aref = -2.f;
   g_last_amb = -2.f;
   g_last_tex = 0xffffffffu;
@@ -855,6 +873,18 @@ void publish_all() {
   // Combien de plages de la prepasse portent un test d'alpha, et sur combien : si ce rapport
   // etait nul, tout le reste serait vide de sens.
   autoport_proof::publish("ao_cut_ranges", g_cut_ranges);
+  // (terme 3) L'ETAT D'ECHANTILLONNAGE HERITE. `_checked` est le denominateur : les plages a test
+  // d'alpha dont la prepasse a relu l'objet texture sur une image sondee, JUSTE AVANT d'y poser le
+  // sien. `_bad` = celles dont au moins un des quatre parametres n'etait pas celui que le mode du
+  // draw demande, et les quatre cles suivantes disent LEQUEL. `_unknown` doit rester a 0 : au-dessus
+  // de 0, un contributeur ne renseigne pas son mode et la mesure est aveugle sur ces plages-la.
+  autoport_proof::publish("ao_pre_texstate_checked", g_texstate_checked);
+  autoport_proof::publish("ao_pre_texstate_bad", g_texstate_bad);
+  autoport_proof::publish("ao_pre_texstate_bad_wrap_s", g_texstate_bad_p[0]);
+  autoport_proof::publish("ao_pre_texstate_bad_wrap_t", g_texstate_bad_p[1]);
+  autoport_proof::publish("ao_pre_texstate_bad_min_filter", g_texstate_bad_p[2]);
+  autoport_proof::publish("ao_pre_texstate_bad_mag_filter", g_texstate_bad_p[3]);
+  autoport_proof::publish("ao_pre_texstate_unknown", g_texstate_unknown);
   autoport_proof::publish("ao_total_ranges", g_total_ranges);
   autoport_proof::publish("ao_cut_uniforms_ok", g_cut_uniforms_ok ? 1 : 0);
   // ── (c)/(g)/(i) LA PREPASSE CONTRE CE QUI EST DESSINE ───────────────────────────────────
@@ -1086,10 +1116,15 @@ void frame_begin(SharedRenderState* /*rs*/) {
 }
 
 // ── LES PLAGES DE LA PREPASSE ─────────────────────────────────────────────────────────────────
-DepthRange make_depth_range(uint32_t gl_tex, float alpha_min, uint32_t first, uint32_t count) {
+DepthRange make_depth_range(uint32_t gl_tex,
+                            float alpha_min,
+                            uint32_t first,
+                            uint32_t count,
+                            uint8_t tex_mode) {
   DepthRange r;
   r.first = first;
   r.count = count;
+  r.tex_mode = tex_mode;
   if (gl_tex != 0 && alpha_min > 0.f) {
     r.tex = gl_tex;
     // LA BORNE, ET ELLE EST PROUVEE, PAS SUPPOSEE. La passe principale jette quand
@@ -1135,6 +1170,42 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, want_tex);
     g_last_tex = want_tex;
+  }
+  // (terme 3) L'ETAT D'ECHANTILLONNAGE EST POSE, PLUS HERITE — et ce qu'il valait AVANT est
+  // compte. L'ordre n'est pas negociable : on RELIT l'objet, puis on ecrit. Relire apres, ce
+  // serait relire sa propre ecriture et publier un zero qui ne mesure rien.
+  // Rien de tout cela ne touche le 1x1 blanc (il n'a pas de mip et aucun draw ne le partage) ni
+  // les plages sans test d'alpha (aucun texel n'est lu, `ta` vaut 1.0 par le shader).
+  if (want_tex != g_white_tex && want_tex != 0) {
+    if (r.tex_mode == 0xff) {
+      g_texstate_unknown++;
+    } else if (want_tex != g_last_state_tex || (uint16_t)r.tex_mode != g_last_state_mode) {
+      int p4[4];
+      prepass_tex_params(r.tex_mode, /*mipmap=*/true, p4);
+      if (g_probe_frame) {
+        static const GLenum kPname[4] = {GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+                                         GL_TEXTURE_MIN_FILTER, GL_TEXTURE_MAG_FILTER};
+        bool bad = false;
+        for (int k = 0; k < 4; k++) {
+          GLint got = 0;
+          glGetTexParameteriv(GL_TEXTURE_2D, kPname[k], &got);
+          if ((int)got != p4[k]) {
+            g_texstate_bad_p[k]++;
+            bad = true;
+          }
+        }
+        g_texstate_checked++;
+        if (bad) {
+          g_texstate_bad++;
+        }
+      }
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, p4[0]);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, p4[1]);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, p4[2]);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, p4[3]);
+      g_last_state_tex = want_tex;
+      g_last_state_mode = (uint16_t)r.tex_mode;
+    }
   }
   lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
   glDrawElements((GLenum)gl_mode, (GLsizei)r.count, GL_UNSIGNED_INT,

@@ -593,8 +593,10 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
               tree.prepass_ranges.push_back(prepass::DepthRange{0, 0.f, 0.f, first, count});
             }
           } else {
-            tree.prepass_ranges.push_back(
-                prepass::DepthRange{(uint32_t)draw.tree_tex_id, am, am, first, count});
+            // (terme 3) Le MODE d'echantillonnage du draw voyage avec la plage : la prepasse
+            // POSE l'etat de la texture au lieu de l'heriter (background_common.h).
+            tree.prepass_ranges.push_back(prepass::DepthRange{
+                (uint32_t)draw.tree_tex_id, am, am, first, count, prepass_tex_mode(draw.mode)});
           }
         }
       } else {
@@ -609,8 +611,9 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
       const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                ? m_textures->at(r.tex)
                                : 0;
-      total += prepass::draw_depth_range(tree.draw_mode,
-                                         prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count));
+      total += prepass::draw_depth_range(
+          tree.draw_mode,
+          prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode));
     }
   }
   return total;

@@ -66,6 +66,10 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
       // draw (`prepass_writes_depth` faux). La prepasse LIVREE ne dessine pas ces groupes ;
       // seule la passe de mesure « occluder fantome » les rejoue.
       bool noz = false;
+      // lighting-ao-indirect (terme 3) : le MODE d'echantillonnage du draw
+      // (`prepass_tex_mode`), pour que la prepasse POSE l'etat de la texture au lieu de
+      // l'heriter du dernier consommateur de l'image precedente (background_common.h).
+      u8 tex_mode = 0xff;
     };
     std::vector<CasterGroup> caster_groups;
     GLuint single_draw_index_buffer;
