@@ -1,0 +1,40 @@
+DIRECTIVES vab39193976
+Date UTC : 2026-09-14T22:35:42.908688+00:00
+HEAD audité : 31aab7fe3ac64c11cbfba531da2989f6e182c072
+Commande : bash .autoport/lib/pick_device.sh
+rc=0
+stdout=eae4df44
+stderr=
+Essai 8 : aucune course, aucun build, aucune nouvelle livraison ; preuve essai3 non réutilisée.
+Budget campagne fc71d41e3c : 0/3 consommée au TOTAL ; 3 restantes, <=130s par bras.
+Audit statique manager et researcher high, pas une trace de déformation exécutée.
+Le correctif et la livraison de l'essai7 ne sont ni reconstruits ni retestés ici.
+
+DECISION DU CONTRAT
+backlog.yaml proof_plan.stop : « Si le temoin ou le parcours comparable manque, ne pas lancer de bras inutile ; rapport non prouve sans cycle supplementaire. »
+Le témoin historique conservé ne porte toujours pas l'instrument de comparaison.
+Un second programme GLSL historique sur le draw courant ne remplace pas le binaire-témoin :
+il omettrait les entrées du Loader, les positions/poids et les tables produites avant le shader.
+La capture présente mesure des deltas de contact ; elle ne conserve pas les entrées nécessaires
+à une comparaison inter-binaires. La neutralité d'une future instrumentation reste à établir.
+
+POINTEURS STATIQUES VERIFIES
+shrub_contact_probe.cpp:76 : sélection frame rendu modulo60.
+shrub_contact_probe.h:10-17 : seul triplet pré/post/index remis au consommateur.
+shrub_contact_measurement.h:20-23 : stockage des deltas, sans positions brutes.
+foliage_wind.cpp:433-467 et :481-527 : horloge/lissage non épinglés par fixed_tick seul.
+Shrub.cpp:626-678 : intégration du ressort et atténuation dépendant de la caméra.
+Shader.cpp:320-321 : seulement trois sorties transform feedback.
+
+ALTERNATIVE ECARTEE
+Restaurer les tailles OFF des LUT ne lève pas le prérequis de comparaison. Les accès historiques
+utilisent texelFetch entier ; aucun défaut de coordonnées dû à la seule taille n'est mesuré.
+La réduction imposerait aussi de garder les nouvelles lectures d'attache contre le hors-limites,
+puis un nouveau build et une nouvelle livraison sans possibilité de comparaison au témoin.
+Pas de changement spéculatif de ces chemins ; pas de harnais complet ajouté.
+
+SUITE UNIQUE, PAS UN NOUVEL AUDIT IDENTIQUE
+Il manque un témoin neutrement instrumenté et des entrées GPU comparables archivées/rejouées
+(identités de frame logique, positions/indices/poids, uniformes de vent/contact et LUT).
+Tant que ce prérequis manque, conserver le stop du proof_plan, pas une nouvelle course exploratoire.
+Ne pas substituer identité des sources, compteurs de pivots ou maximum global au contrat.

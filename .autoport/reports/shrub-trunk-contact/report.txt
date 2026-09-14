@@ -1,30 +1,27 @@
 DIRECTIVES vab39193976
-Verdict : binaire corrigé livré sur USB ; contrat non validé, comparaison au témoin encore non préparée.
-Essai 7 : les couronnes attachées ont leurs comptes/maxima/défauts séparés ; le maximum global est conservé.
-L'appartenance couronne est copiée après finalisation des paires ; les défauts survivent au rechargement.
-La dernière frame de capture est publiée après les buckets, sans attendre le dessin suivant.
-18 cas CPU du vrai header passent (notes/attempt-7-aggregate-test.log) ; aucune mesure GPU dans ces tests.
-Cas discriminant : feuille quelconque max=3, couronne max=0, défaut couronne=1.
-Build Android incrémental rc=0, 9 étapes ; repack rc=0 en 9s, sans seconde compilation NDK.
-Installation USB eae4df44 : gate rc=0, decision=deploye ; notes/attempt-7-deploy.log.
-Chaîne build/APK/appareil identique : cd47e493eb3575945e8007437aeb40b22bbf06200eab80727e80d8190a9d5a55.
-Clip livré et relu : 46864 octets, SHA aafa00f05f2e7301 ; deploy_verify rc=0 (notes/attempt-7-delivery.txt).
-Les réglages F1 training-warp et pad/fixed_tick sont épinglés dans proof_props, sans setprop manuel.
-Stop proof_plan : ni pad trace ni refset ne restituent les mêmes uniformes/LUT du témoin 602cd.
-Le vent conserve une horloge murale et un ressort dépendant des états caméra ; audit dans notes/attempt-7-reference-audit.txt.
-Campagne autorisée : 0/3 consommée, 3 courses restantes de 130s maximum ; aucun proof_run de cet essai.
-Huit lignes HISTORIQUES de proof.txt essai3, recopiées uniquement pour le contexte, PAS résultat essai7 :
+Verdict : essai 8 non validé ; arrêt prévu par proof_plan, témoin comparable manquant.
+Changement de cet essai : rapport, handoff et signalement du prérequis herbe ; aucun code moteur modifié.
+USB disponible : pick_device rc=0, stdout=eae4df44 (notes/attempt-8-stop.txt).
+Aucun proof_run, build ou déploiement nouveau ; la livraison de l'essai7 reste le dernier résultat établi.
+Campagne fc71d41e3c : 0/3 consommée au TOTAL, 3 courses restantes de 130s maximum.
+La clause proof_plan.stop impose de ne pas lancer de bras lorsque le témoin/parcours comparable manque.
+Audit statique indépendant researcher high vérifié ; aucune comparaison GPU exécutée.
+Le shader historique seul ne couvrirait ni le binaire témoin ni les entrées CPU/Loader.
+Réduire les LUT OFF ne lèverait pas ce prérequis ; pas de nouvelle modification spéculative.
+Herbe : horloge murale hors refset et absence de capture dans cette sonde ; FINDINGS.txt complété.
+Huit lignes HISTORIQUES de proof.txt essai3 : contexte seulement, AUCUNE n'est un résultat essai8.
 serial=eae4df44
 sha=5288bc8bc7e7f2fb
+started_at=2026-09-14T19:14:16Z
 crash=0
 frames=7500
 FEATURE shrub-trunk-contact armed=1 hits=173329
 shrub_trunk_verts=3864
-shrub_foliage_verts=169465
 wind_contact_defects=999999
-Owner : ouvrir le jeu à Geyser Rock, marcher dans un mini-palmier ; vérifier tronc droit, feuilles mobiles et attachées.
-non prouvé : déplacements GPU tronc/jonctions, mobilité des couronnes réelles et contact effectif du clip.
-non prouvé : OFF bit-identique au témoin, acquis dynamiques vent/herbe, TIE_WIND et autres niveaux.
-non prouvé : absence de crash et coût de cette révision ; aucun lancement du jeu après installation.
-Le total shrub_trunk_squash_defects reste absent ; aucune validation owner ni fermeture revendiquée.
-Validateur generic.sh laissé à l'orchestrateur ; blocages et suite consignés dans handoff.md et FINDINGS.txt.
+Owner : à Geyser Rock, marcher dans un mini-palmier ; regarder tronc droit, feuilles mobiles et attachées.
+non prouvé : déplacement GPU tronc/jonctions, mobilité des couronnes, contact réel du clip.
+non prouvé : OFF bit-identique au témoin et maintien dynamique du vent/contact herbe.
+non prouvé : absence de crash, activité de la sonde et coût du dernier binaire livré, autres niveaux.
+Le total shrub_trunk_squash_defects demeure absent ; aucun zéro ni verdict owner fabriqué.
+Suite requise : témoin neutrement instrumenté et mêmes entrées GPU archivées/rejouées entre binaires.
+Le validateur generic.sh reste à l'orchestrateur ; aucune fermeture revendiquée.
