@@ -1,0 +1,20 @@
+DIRECTIVES va1dbd6abb3
+role=tester scope=diagnostic temporaires fermeture
+utc=2026-09-14T18:13:32.798944+00:00
+{"stage": "stat", "path": "/tmp/tmp.pQ35vQ0oxO", "size_bytes": 0, "mtime_ns": 1789408996218804627, "mtime_utc": "2026-09-14T18:03:16.218805+00:00"}
+{"stage": "stat", "path": "/tmp/tmp.Ux3GaWqKpm", "size_bytes": 0, "mtime_ns": 1789409437746153544, "mtime_utc": "2026-09-14T18:10:37.746154+00:00"}
+{"directory": "/tmp", "stage": "mkstemp", "status": "ok", "errno": 0, "own_probe": "/tmp/tmp-quota-attempt-4-probe-59sl39at"}
+{"stage": "os.write", "status": "error", "errno": 122, "error": "[Errno 122] Disk quota exceeded", "directory": "/tmp"}
+{"directory": "/tmp", "stage": "close", "status": "ok", "errno": 0}
+{"directory": "/tmp", "stage": "unlink_own_probe", "status": "ok", "errno": 0, "own_probe": "/tmp/tmp-quota-attempt-4-probe-59sl39at"}
+{"directory": "/home/emeric/.autoport-tmp", "stage": "mkstemp", "status": "ok", "errno": 0, "own_probe": "/home/emeric/.autoport-tmp/tmp-quota-attempt-4-probe-udkljbt7"}
+{"directory": "/home/emeric/.autoport-tmp", "stage": "os.write", "status": "ok", "errno": 0, "requested_bytes": 18, "written_bytes": 18}
+{"directory": "/home/emeric/.autoport-tmp", "stage": "fsync", "status": "ok", "errno": 0}
+{"directory": "/home/emeric/.autoport-tmp", "stage": "close", "status": "ok", "errno": 0}
+{"directory": "/home/emeric/.autoport-tmp", "stage": "unlink_own_probe", "status": "ok", "errno": 0, "own_probe": "/home/emeric/.autoport-tmp/tmp-quota-attempt-4-probe-udkljbt7"}
+{"stage": "proc_comm", "pid": 383084, "comm": "python"}
+{"stage": "proc_environ_allowlist", "pid": 383084, "values": {}, "absent": ["TEMP", "TMP", "TMPDIR"]}
+Mesure actuelle : écriture de 18 octets dans /tmp impossible pour cette sonde : os.write errno=122 (Disk quota exceeded) ; fsync non atteint.
+Mesure actuelle : écriture de 18 octets et fsync dans /home/emeric/.autoport-tmp possibles.
+Le code de sortie antérieur de gk reste non capturé : aucune attribution rétrospective à ces mesures.
+Aucun proof_run, acquis, build, jeu ou appareil exécuté ; aucune source modifiée.
