@@ -11220,7 +11220,7 @@ items:
   owner_test: true
   code_scope: jeu
   max_turns: 800
-  max_retries: 7
+  max_retries: 8
   proof_timeout: 420
   depends_on: []
   history: []
@@ -11264,7 +11264,12 @@ items:
   notes: 'Ne du retour owner du 13/09 sur le build 602cd72eb7. Meme chunk GLSL que l''herbe : vegetation_contact.glsl.
     | budget : 7 au lieu de6, un seul essai de reprise apres correction de la clause stop qui faisait
     rendre la main sans preparer le temoin. Six echecs historiques conserves ; budget de courses inchangé,
-    0/3 consommees selon handoff8.'
+    0/3 consommees selon handoff8. | 15/09 budget : 8, un seul essai supplementaire apres correction effective
+    de la garde CMake (5471f0f7c6, 46 tests). Essai9 bloque AVANT premiere configuration du temoin f54ea18c485ca156816824522d2e67ece9bc3992
+    ; le dossier neuf etait assimile a tort a un cache existant. Reprendre compilation du temoin prepare
+    et protocole notes/attempt-9-protocol.md avec harnais corrige. Aucun audit a refaire, aucun ancien
+    proof a reutiliser. Sept echecs conserves ; budget appareil inchange 0/3 courses consommees, trois
+    bras130s. Diagnostic : notes/supervisor-cmake-first-configure-20260915.md.'
   hits_means: sommets de shrub classes
   prompt: prompts/item-shrub-trunk-contact.md
   owner_feedback:
