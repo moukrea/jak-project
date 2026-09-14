@@ -3568,8 +3568,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:2
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
-  status: in-progress
-  priority: 22
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-28'
     text: en caméra première personne on se retrouve, quand on utilise les modèles HD, à l'intérieur de
@@ -3580,6 +3580,8 @@ items:
       voit de l'intérieur, on avait corrigé ça et c'est revenu, faut corriger à nouveau mais attention
       à rien casser d'autre (Le pas de temps fixe et le jitter des animations+stretch glitch des modèles
       HD)
+  - date: '2026-09-14'
+    text: vue première personne validé aussi
   gate:
     key: firstperson_hd_inside_px
     op: ==
@@ -3591,7 +3593,10 @@ items:
   history:
   - Gfirstperson-hd-hide
   prompt: prompts/item-firstperson-hd-hide.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-14'
+    text: vue première personne validé aussi
+    build_sha: 6d5ac59d1f239e42
   notes: 'statut force : l''owner ferme la premiere personne ET la visiere dans la meme phrase, recopiee
     du jeton owner-ok/Gkeira-visor-deliver | 13/09 : REGRESSION signalee par l''owner, rouvert avec porte
     et livrable (l''item d''aout n''en avait pas).'
@@ -3630,6 +3635,14 @@ items:
   - OG_LEVEL_WARP_POS=-116 14 40
   - OG_WANT_LEVELS=village1,beach
   - OG_WANT_DISPLAY=beach,display
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: 83af1ceb2cf7a5e5
+    proof_bytes: 40113
+    attempt: 5
+    journal: validator-005.txt
+  delivered: '2026-09-14'
 - id: text-tone
   feature: Le ton des textes du jeu, trop formel
   status: validated
@@ -4970,7 +4983,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: in-progress
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -9144,8 +9157,8 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: hdr-shadow-range
-  status: to-test
-  priority: 21
+  status: validated
+  priority: null
   game: jak1
   device: true
   proof_props:
@@ -9199,6 +9212,14 @@ items:
   owner_feedback:
   - date: '2026-09-13'
     text: Pour le HDR c'est pas mal mais je vois pas plus de détails dans les ombres à on versus off
+  - date: '2026-09-14'
+    text: le HDR dans les ombres on va histoire d'avancer, comme ça on verra bien si ça s'ameliore au
+      plus on avance dans la refonte, c'est deja vraiment pas mal.
+  owner_ok:
+    date: '2026-09-14'
+    text: le HDR dans les ombres on va histoire d'avancer, comme ça on verra bien si ça s'ameliore au
+      plus on avance dans la refonte, c'est deja vraiment pas mal.
+    build_sha: 6d5ac59d1f239e42
 - id: build-android-reinvalidates-itself
   status: validated
   priority: 18
@@ -11055,7 +11076,7 @@ items:
       avec (ça OK) mais le tronc s'écrase aussi comme si c'était un vulgaire brin d'herbe c'est débile
       (et en plus les feuilles sont donc desolidarisees du tronc quand ça se produit).
   owner_ok: null
-- status: open
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -11095,7 +11116,15 @@ items:
   prompt: prompts/item-harness-busy-guard-matches-gradle-daemon.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: 53c63dce8c82f43b
+    proof_bytes: 41900
+    attempt: 1
+    journal: validator-001.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -11137,7 +11166,15 @@ items:
   prompt: prompts/item-harness-close-gate-separates-inherited-reds.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: 4a42c14dc3eb8b25
+    proof_bytes: 47843
+    attempt: 2
+    journal: validator-002.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -11178,7 +11215,15 @@ items:
   prompt: prompts/item-harness-test-bench-does-not-inherit-the-worker-env.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: a8c01a6ed7a4055a
+    proof_bytes: 41846
+    attempt: 2
+    journal: validator-002.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -11216,7 +11261,15 @@ items:
   prompt: prompts/item-harness-proof-run-erases-proof-only-once-it-runs.md
   owner_feedback: []
   owner_ok: null
-- status: open
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: 425741e6b76a5161
+    proof_bytes: 43052
+    attempt: 1
+    journal: validator-001.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -11257,3 +11310,11 @@ items:
   prompt: prompts/item-harness-proof-run-device-deploys-or-refuses-first.md
   owner_feedback: []
   owner_ok: null
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-14'
+    proof_sha: ca70e6446ec67a9f
+    proof_bytes: 42138
+    attempt: 1
+    journal: validator-001.txt
