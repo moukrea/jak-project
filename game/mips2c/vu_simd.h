@@ -11,6 +11,17 @@
 #include <emmintrin.h>
 #endif
 
+#if defined(_MSC_VER)
+#define OG_VU_SIMD_INLINE __forceinline
+#define OG_VU_SIMD_COLD __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define OG_VU_SIMD_INLINE inline __attribute__((always_inline))
+#define OG_VU_SIMD_COLD __attribute__((noinline, cold))
+#else
+#define OG_VU_SIMD_INLINE inline
+#define OG_VU_SIMD_COLD
+#endif
+
 namespace Mips2C::vu_simd {
 
 // Register storage remains entirely in ExecutionContext.
@@ -19,67 +30,67 @@ class VuSimd {
   VuSimd(ExecutionContext* context, Kernel kernel)
       : VuSimd(context, kernel, settings(kernel)) {}
 
-  void vmul(DEST mask, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vmul(DEST mask, int dest, int src0, int src1) {
     apply<Op::Mul>(mask, c_->vfs[dest].f, c_->vf_src(src0), c_->vf_src(src1),
                    [&] { c_->vmul(mask, dest, src0, src1); });
   }
 
-  void vadd(DEST mask, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vadd(DEST mask, int dest, int src0, int src1) {
     apply<Op::Add>(mask, c_->vfs[dest].f, c_->vf_src(src0), c_->vf_src(src1),
                    [&] { c_->vadd(mask, dest, src0, src1); });
   }
 
-  void vsub(DEST mask, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vsub(DEST mask, int dest, int src0, int src1) {
     apply<Op::Sub>(mask, c_->vfs[dest].f, c_->vf_src(src0), c_->vf_src(src1),
                    [&] { c_->vsub(mask, dest, src0, src1); });
   }
 
-  void vmul_bc(DEST mask, BC bc, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vmul_bc(DEST mask, BC bc, int dest, int src0, int src1) {
     apply<Op::Mul>(mask, c_->vfs[dest].f, c_->vf_src(src0), broadcast(c_->vf_src(src1).f[static_cast<int>(bc)]),
                    [&] { c_->vmul_bc(mask, bc, dest, src0, src1); });
   }
 
-  void vadd_bc(DEST mask, BC bc, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vadd_bc(DEST mask, BC bc, int dest, int src0, int src1) {
     apply<Op::Add>(mask, c_->vfs[dest].f, c_->vf_src(src0), broadcast(c_->vf_src(src1).f[static_cast<int>(bc)]),
                    [&] { c_->vadd_bc(mask, bc, dest, src0, src1); });
   }
 
-  void vsub_bc(DEST mask, BC bc, int dest, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vsub_bc(DEST mask, BC bc, int dest, int src0, int src1) {
     apply<Op::Sub>(mask, c_->vfs[dest].f, c_->vf_src(src0), broadcast(c_->vf_src(src1).f[static_cast<int>(bc)]),
                    [&] { c_->vsub_bc(mask, bc, dest, src0, src1); });
   }
 
-  void vmula(DEST mask, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vmula(DEST mask, int src0, int src1) {
     apply<Op::Mul>(mask, c_->acc.f, c_->vf_src(src0), c_->vf_src(src1),
                    [&] { c_->vmula(mask, src0, src1); });
   }
 
-  void vmula_bc(DEST mask, BC bc, int src0, int src1) {
+  OG_VU_SIMD_INLINE void vmula_bc(DEST mask, BC bc, int src0, int src1) {
     apply<Op::Mul>(mask, c_->acc.f, c_->vf_src(src0), broadcast(c_->vf_src(src1).f[static_cast<int>(bc)]),
                    [&] { c_->vmula_bc(mask, bc, src0, src1); });
   }
 
-  void vmula_q(DEST mask, int src) {
+  OG_VU_SIMD_INLINE void vmula_q(DEST mask, int src) {
     apply<Op::Mul>(mask, c_->acc.f, c_->vf_src(src), broadcast(c_->Q),
                    [&] { c_->vmula_q(mask, src); });
   }
 
-  void vmulq(DEST mask, int dest, int src) {
+  OG_VU_SIMD_INLINE void vmulq(DEST mask, int dest, int src) {
     apply<Op::Mul>(mask, c_->vfs[dest].f, c_->vf_src(src), broadcast(c_->Q),
                    [&] { c_->vmulq(mask, dest, src); });
   }
 
-  void vaddq(DEST mask, int dest, int src) {
+  OG_VU_SIMD_INLINE void vaddq(DEST mask, int dest, int src) {
     apply<Op::Add>(mask, c_->vfs[dest].f, c_->vf_src(src), broadcast(c_->Q),
                    [&] { c_->vaddq(mask, dest, src); });
   }
 
-  void vmove(DEST mask, int dest, int src) {
+  OG_VU_SIMD_INLINE void vmove(DEST mask, int dest, int src) {
     apply<Op::Move>(mask, c_->vfs[dest].f, c_->vf_src(src), Mips2c_vf{},
                    [&] { c_->vmove(mask, dest, src); });
   }
 
-  void vabs(DEST mask, int dest, int src) {
+  OG_VU_SIMD_INLINE void vabs(DEST mask, int dest, int src) {
     apply<Op::Abs>(mask, c_->vfs[dest].f, c_->vf_src(src), Mips2c_vf{},
                    [&] { c_->vabs(mask, dest, src); });
   }
@@ -99,7 +110,7 @@ class VuSimd {
   }
 
   template <Op op, typename Scalar>
-  void apply(DEST mask, float* destination, Mips2c_vf a, Mips2c_vf b, Scalar scalar) {
+  OG_VU_SIMD_INLINE void apply(DEST mask, float* destination, Mips2c_vf a, Mips2c_vf b, Scalar scalar) {
 #if defined(__aarch64__) || defined(_M_ARM64) || defined(__SSE2__) || defined(_M_X64) || \
     (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
     if (!vector_enabled_) {
@@ -180,19 +191,25 @@ class VuSimd {
 #endif
     // No state has changed: aliases and vf0 still see the original sources.
     if (verify_) {
-      scalar();
-      Mips2c_vf reference;
-      std::memcpy(&reference, destination, sizeof(reference));
-      uint64_t defects = 0;
-      for (int lane = 0; lane < 4; ++lane) {
-        defects += reference.du32[lane] != result.du32[lane];
-      }
-      record(kernel_, 1, defects);
+      verify_result(destination, result, scalar);
     }
     std::memcpy(destination, &result, sizeof(result));
 #else
     scalar();
 #endif
+  }
+
+  // Keep the scalar oracle and accounting out of the delivered vector path.
+  template <typename Scalar>
+  OG_VU_SIMD_COLD void verify_result(float* destination, const Mips2c_vf& result, Scalar scalar) {
+    scalar();
+    Mips2c_vf reference;
+    std::memcpy(&reference, destination, sizeof(reference));
+    uint64_t defects = 0;
+    for (int lane = 0; lane < 4; ++lane) {
+      defects += reference.du32[lane] != result.du32[lane];
+    }
+    record(kernel_, 1, defects);
   }
 
   ExecutionContext* const c_;
@@ -202,3 +219,6 @@ class VuSimd {
 };
 
 }  // namespace Mips2C::vu_simd
+
+#undef OG_VU_SIMD_INLINE
+#undef OG_VU_SIMD_COLD
