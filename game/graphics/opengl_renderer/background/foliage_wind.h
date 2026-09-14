@@ -114,7 +114,9 @@ void classify_load_bearing(tfrag3::Level& lev);
 // `pivot_y` est la hauteur REELLEMENT ecrite dans l'ancre : c'est elle qu'on mesure, pas `base_y`.
 void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, float pivot_y);
 
-// Publie les termes de la porte `shrub_trunk_squash_defects`. Appelee par `frame()`.
+// Publie `shrub_trunk_anchor_defects`, diagnostic structurel CPU. Appelee par `frame()`.
+// Aucune mesure GPU, deplacement reel ou ecart de deplacement a la jonction :
+// ne constitue pas la preuve `shrub_trunk_squash_defects` du contrat.
 void trunk_census_publish();
 
 // Flexion de couronne, en METRES, d'une plante de reference (8 m et plus). Bouton

@@ -359,8 +359,8 @@ void Shrub::update_load(const LevelData* loader_data) {
         // tronc lui-meme ou un rocher, et rend un pivot jusqu'a 2,68 m AU-DESSUS de son propre pied
         // (mesure : jungle 2679 mm, beach 1668 mm, sur les 91 jonctions du jeu). Le pied de la
         // frondaison prend alors `dy < 0` et part dans l'autre sens pendant que le tronc est fige :
-        // la jointure s'ouvre. Une plante portee pivote donc sur SON PIED, et son deplacement vaut
-        // zero exactement a la jonction.
+        // la jointure peut s'ouvrir. Une plante portee pivote donc sur SON PIED. Ce plan n'est
+        // pas une mesure des sommets coincidents de la jonction, qui reste a verifier.
         //
         // SEULE L'ANCRE DE CONTACT CHANGE. `base_y` n'est pas touche : c'est aussi le pivot du VENT
         // des buissons, que l'owner a valide le 13/09, et le contrat exige qu'il garde ses cles.
@@ -373,7 +373,7 @@ void Shrub::update_load(const LevelData* loader_data) {
         // recoit PAS d'ancre. Le shader teste `anchor.w > 0.0` : sans ancre, son deplacement de
         // contact vaut zero EXACTEMENT, pour tous ses sommets — ce n'est pas un coefficient a zero,
         // c'est une branche non prise. La plante posee dessus garde la sienne et continue de
-        // bouger ; comme elle pivote sur son propre pied, la jonction reste immobile des deux cotes.
+        // recevoir le contact ; l'ancre seule ne prouve ni son mouvement ni la tenue des jonctions.
         // `hits` = les sommets de shrub CLASSES, troncs et feuillages confondus : c'est ce que le
         // contrat nomme, et c'est ce qui tombe a zero quand le bras `--off` desarme l'item.
         autoport_proof::note_hit_for(kTrunkItemId, si.n_verts);

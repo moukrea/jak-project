@@ -1389,12 +1389,11 @@ void frame(u64 frame_idx) {
 //   * la frondaison pivote sur son propre pied (`base_y == ymin`), donc son pied ne bouge pas ;
 //   * le tronc pivote sur le sien, donc sa CIME prend le deplacement maximal.
 // Le tronc s'ecrase (`heightMul` descend a 0,2) et sa cime part sous la frondaison immobile : les
-// deux plaintes de l'owner sont le MEME defaut, et une seule correction les ferme.
+// deux plaintes motivent la correction ; leur resolution exige une mesure du deplacement rendu.
 //
-// LA REGLE, ET POURQUOI ELLE N'EST PAS UNE LISTE. Le contrat interdit une liste tenue a la main.
-// La grandeur qui distingue un tronc n'est ni sa texture ni son nom : c'est qu'IL EN PORTE UNE
-// AUTRE. On mesure donc la relation de PORTAGE entre instances de vegetation, puis on la promeut
-// au PROTOTYPE — un modele de tronc est un tronc partout ou il est pose.
+// LA REGLE : promotion geometrique parmi les plantes deja eligibles au contact. Le lexique
+// `shrub_contact_prototype` filtre cette population ; la promotion tronc utilise ensuite la
+// relation de portage entre prototypes, dans chaque niveau.
 //
 // DEUX REGLES ECARTEES, PAR LA MESURE. (1) L'ELANCEMENT r/h : `palmplant-base.mb` rend 0,332 de
 // mediane, mais `fin-tree.mb` rend 0,167, les mousses, les kelps et les massettes descendent plus
@@ -1477,24 +1476,25 @@ void gather_contact_instances(tfrag3::Level& lev, std::vector<VegInst>& out) {
 
 
 // ---------------------------------------------------------------------------- le RECENSEMENT ---
-// Ce que la porte lit. Chaque terme est publie SEPAREMENT, comme le contrat l'exige, et la somme
-// n'est qu'une somme : elle ne cache aucun terme non mesure. Les deux gardes de VACUITE (aucun
-// tronc reconnu, aucune jonction observee) valent chacune un defaut — une course qui n'a jamais
-// charge un niveau a mini-palmiers ne doit pas rendre vert par inaction.
+// Diagnostic structurel CPU des classes et ancres. Aucune mesure GPU, aucun deplacement reel
+// de tronc/feuillage ni ecart de deplacement a la jonction ne sont mesures ici.
 std::mutex g_trunk_mutex;
 std::set<std::string> g_trunk_levels;        // un niveau recharge ne se recompte pas
-std::map<std::string, std::string> g_trunk_proto_rows;  // nom -> "porteuses/total"
+using TrunkProtoKey = std::pair<std::string, std::string>;  // niveau, prototype
+std::map<TrunkProtoKey, std::string> g_trunk_proto_rows;  // porteuses/total, separe des classes
+struct TrunkClassCounts {
+  u32 row_id = 0;  // stable pour toute la course, meme si un niveau arrive plus tard
+  u32 trunk_instances = 0, trunk_verts = 0;
+  u32 foliage_instances = 0, foliage_verts = 0;
+};
+std::map<TrunkProtoKey, TrunkClassCounts> g_trunk_class_rows;
 u32 g_trunk_instances = 0, g_trunk_verts = 0;
 u32 g_foliage_instances = 0, g_foliage_verts = 0;
 u32 g_joint_pairs = 0;
-// LE TERME DE LA PORTE : l'ecart entre le pivot REELLEMENT ECRIT dans l'ancre et le pied de la
-// plante portee. Zero = son pied ne bouge pas, donc la jointure tient. Le bras `--off` ecrit
-// `base_y` et le fait remonter : le terme est falsifiable, il n'est pas vrai par construction.
+// Ecarts absolus des pivots CPU au pied de la plante portee. Un zero ne prouve ni immobilite
+// du tronc ni solidarite de la jonction dans le rendu.
 u32 g_joint_pivot_offset_mm = 0;
-// LE TEMOIN D'AVANT, pose quel que soit l'armement : le pivot que le lancer de rayon au SOL rend
-// pour ces memes plantes. Non nul (1668 mm a beach, 2679 mm a jungle) = la population existe et le
-// defaut etait reel. Sans lui, un zero au terme ci-dessus ne dirait pas s'il a corrige quoi que ce
-// soit ou si personne n'etait concerne.
+// Reference structurelle du pivot de sol, independante de l'armement.
 u32 g_joint_ground_pivot_offset_mm = 0;
 u32 g_joint_span_min_mm = UINT32_MAX;
 u64 g_trunk_anchored = 0;          // troncs ayant RECU une ancre de contact : doit rester 0
@@ -1505,7 +1505,6 @@ void trunk_census_note(const std::string& level,
                        u32 trunk_instances,
                        u32 trunk_verts,
                        u32 joint_pairs,
-                       const std::set<std::string>& trunk_protos,
                        const std::map<std::string, u32>& proto_total,
                        const std::map<std::string, u32>& proto_carrying) {
   std::lock_guard<std::mutex> lock(g_trunk_mutex);
@@ -1516,23 +1515,34 @@ void trunk_census_note(const std::string& level,
   g_trunk_verts += trunk_verts;
   g_joint_pairs += joint_pairs;
   for (const auto& v : veg) {
+    auto inserted = g_trunk_class_rows.emplace(TrunkProtoKey{level, *v.proto}, TrunkClassCounts{});
+    auto& counts = inserted.first->second;
+    if (inserted.second) counts.row_id = (u32)g_trunk_class_rows.size() - 1;
+    if (v.si->load_bearing) {
+      counts.trunk_instances++;
+      counts.trunk_verts += v.si->n_verts;
+    } else {
+      counts.foliage_instances++;
+      counts.foliage_verts += v.si->n_verts;
+    }
     if (!v.si->load_bearing) {
       g_foliage_instances++;
       g_foliage_verts += v.si->n_verts;
     }
     if (v.si->carried) {
       // LE TEMOIN D'AVANT (voir la declaration) : ce que le pivot de SOL aurait donne.
-      const float off = v.si->base_y - v.si->ymin;
+      const float off = std::abs(v.si->base_y - v.si->ymin);
       if (off > 0.f) {
         g_joint_ground_pivot_offset_mm =
             std::max(g_joint_ground_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
       }
     }
   }
-  for (const auto& name : trunk_protos) {
+  for (const auto& total : proto_total) {
+    const auto& name = total.first;
     const auto it_t = proto_total.find(name);
     const auto it_c = proto_carrying.find(name);
-    g_trunk_proto_rows[name] =
+    g_trunk_proto_rows[{level, name}] =
         fmt::format("{}/{}", it_c == proto_carrying.end() ? 0 : it_c->second,
                     it_t == proto_total.end() ? 0 : it_t->second);
   }
@@ -1543,7 +1553,7 @@ void trunk_census_note(const std::string& level,
 void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, float pivot_y) {
   if (!anchored) {
     return;  // pas d'ancre = pas de contact : rien a mesurer, et surtout rien a compter comme
-             // « feuillage qui bouge » (ce compteur-la doit pouvoir tomber a zero).
+             // « feuillage ancre » ; son deplacement reel reste inconnu.
   }
   std::lock_guard<std::mutex> lock(g_trunk_mutex);
   if (si.load_bearing) {
@@ -1552,8 +1562,8 @@ void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, f
     g_foliage_anchored++;
   }
   if (si.carried) {
-    // Mesure sur le pivot qui part REELLEMENT au GPU, pas sur `base_y`.
-    const float off = pivot_y - si.ymin;
+    // Mesure du pivot CPU ecrit dans la table, sans lecture GPU.
+    const float off = std::abs(pivot_y - si.ymin);
     if (off > 0.f) {
       g_joint_pivot_offset_mm =
           std::max(g_joint_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
@@ -1568,6 +1578,7 @@ void trunk_census_publish() {
   std::lock_guard<std::mutex> lock(g_trunk_mutex);
   const u32 no_trunk = g_trunk_instances == 0 ? 1 : 0;
   const u32 no_joint = g_joint_pairs == 0 ? 1 : 0;
+  // Nom historique : cette garde constate seulement une absence d'ancres de feuillage.
   const u32 frozen_all = g_foliage_anchored == 0 ? 1 : 0;
   const u64 defects =
       no_trunk + g_trunk_anchored + no_joint + g_joint_pivot_offset_mm + frozen_all;
@@ -1575,15 +1586,23 @@ void trunk_census_publish() {
   autoport_proof::publish_text(
       "shrub_trunk_rule",
       "instance_portant_une_plante_d_un_AUTRE_prototype;promue_au_prototype_a>=60%_des_instances;"
-      "min_8_instances;aucune_liste_de_noms");
-  std::string rows;
-  for (const auto& kv : g_trunk_proto_rows) {
-    if (!rows.empty()) {
-      rows += ",";
-    }
-    rows += kv.first + ":" + kv.second;
+      "min_8_instances;promotion_geometrique_par_niveau;population_lexique_contact_existant");
+  // Une ligne par niveau/prototype : ne pas depasser la limite logcat en concatenant le niveau.
+  for (const auto& kv : g_trunk_class_rows) {
+    const auto& c = kv.second;
+    const auto class_key = fmt::format("shrub_trunk_classes_{}", c.row_id);
+    const auto class_row = fmt::format(
+        "level={},proto={},trunk_instances={},trunk_verts={},foliage_instances={},foliage_verts={}",
+        kv.first.first, kv.first.second, c.trunk_instances, c.trunk_verts,
+        c.foliage_instances, c.foliage_verts);
+    autoport_proof::publish_text(class_key.c_str(), class_row.c_str());
+    const auto ratio_key = fmt::format("shrub_trunk_protos_{}", c.row_id);
+    const auto ratio_row = fmt::format("level={},proto={},carrying/total={}",
+                                      kv.first.first, kv.first.second, g_trunk_proto_rows.at(kv.first));
+    autoport_proof::publish_text(ratio_key.c_str(), ratio_row.c_str());
   }
-  autoport_proof::publish_text("shrub_trunk_protos", rows.empty() ? "-" : rows.c_str());
+  autoport_proof::publish("shrub_trunk_classes_count", g_trunk_class_rows.size());
+  autoport_proof::publish("shrub_trunk_protos_count", g_trunk_proto_rows.size());
   autoport_proof::publish("shrub_trunk_instances", g_trunk_instances);
   autoport_proof::publish("shrub_trunk_verts", g_trunk_verts);
   autoport_proof::publish("shrub_foliage_instances", g_foliage_instances);
@@ -1598,7 +1617,7 @@ void trunk_census_publish() {
   autoport_proof::publish("shrub_trunk_vacuous_no_trunk", no_trunk);
   autoport_proof::publish("shrub_trunk_vacuous_no_joint", no_joint);
   autoport_proof::publish("shrub_trunk_vacuous_all_frozen", frozen_all);
-  autoport_proof::publish("shrub_trunk_squash_defects", defects);
+  autoport_proof::publish("shrub_trunk_anchor_defects", defects);
 }
 
 void classify_load_bearing(tfrag3::Level& lev) {
@@ -1608,46 +1627,30 @@ void classify_load_bearing(tfrag3::Level& lev) {
   // --- la relation de portage, instance par instance ---------------------------------------
   std::map<std::string, u32> proto_total, proto_carrying;
   std::vector<u8> carries(veg.size(), 0);
-  // Qui porte qui : `carried` ne se pose qu'APRES la promotion, sinon une instance portee par une
-  // plante qui ne sera PAS classee tronc compterait une jonction qui n'existe pas.
-  std::vector<size_t> carrier_of(veg.size(), SIZE_MAX);
+  // Predicat commun aux deux passes : aucun stockage quadratique des relations.
+  const auto supports = [](const VegInst& carrier, const VegInst& carried) {
+    if (carrier.si == carried.si || *carrier.proto == *carried.proto) return false;
+    const auto& A = *carrier.si;
+    const auto& B = *carried.si;
+    const float H = A.ymax - A.ymin;
+    if (!(H > 0.f)) return false;
+    const float reach = A.r_xz + kSupportSlackMeters * 4096.f;
+    const float dx = A.cx - B.cx, dz = A.cz - B.cz;
+    if (dx * dx + dz * dz > reach * reach) return false;
+    if (B.ymin < A.ymin + kSupportFootFrac * H) return false;
+    if (B.ymin > A.ymax + kSupportOverFrac * H) return false;
+    if (B.ymax < A.ymax + kSupportRiseFrac * H) return false;
+    return true;
+  };
   for (size_t i = 0; i < veg.size(); i++) {
     proto_total[*veg[i].proto]++;
-  }
-  for (size_t i = 0; i < veg.size(); i++) {
-    const auto& A = *veg[i].si;
-    const float H = A.ymax - A.ymin;
-    if (!(H > 0.f)) {
-      continue;
-    }
-    const float reach = A.r_xz + kSupportSlackMeters * 4096.f;
     for (size_t j = 0; j < veg.size(); j++) {
-      if (i == j || *veg[i].proto == *veg[j].proto) {
-        continue;  // deux instances du MEME modele empilees = un decor en pente, pas un assemblage
+      if (supports(veg[i], veg[j])) {
+        carries[i] = 1;
+        break;  // seule l'existence d'une portee sert au ratio de promotion
       }
-      const auto& B = *veg[j].si;
-      const float dx = A.cx - B.cx, dz = A.cz - B.cz;
-      if (dx * dx + dz * dz > reach * reach) {
-        continue;
-      }
-      if (B.ymin < A.ymin + kSupportFootFrac * H) {
-        continue;  // son pied est a cote du mien, pas sur ma cime
-      }
-      if (B.ymin > A.ymax + kSupportOverFrac * H) {
-        continue;  // il flotte au-dessus de moi : je ne le porte pas
-      }
-      if (B.ymax < A.ymax + kSupportRiseFrac * H) {
-        continue;  // il ne me depasse pas franchement
-      }
-      carries[i] = 1;
-      if (carrier_of[j] == SIZE_MAX) {
-        carrier_of[j] = i;
-      }
-      break;
     }
-    if (carries[i]) {
-      proto_carrying[*veg[i].proto]++;
-    }
+    if (carries[i]) proto_carrying[*veg[i].proto]++;
   }
 
   // --- la promotion au PROTOTYPE ------------------------------------------------------------
@@ -1672,25 +1675,35 @@ void classify_load_bearing(tfrag3::Level& lev) {
       trunk_verts += v.si->n_verts;
     }
   }
-  for (size_t j = 0; j < veg.size(); j++) {
-    const size_t i = carrier_of[j];
-    if (i != SIZE_MAX && trunk_protos.count(*veg[i].proto)) {
-      veg[j].si->carried = true;
-      joint_pairs++;
+  // Toutes les relations d'un porteur retenu comptent, meme si un autre porteur est rejete.
+  for (size_t i = 0; i < veg.size(); i++) {
+    if (!veg[i].si->load_bearing) continue;
+    for (size_t j = 0; j < veg.size(); j++) {
+      if (supports(veg[i], veg[j])) {
+        veg[j].si->carried = true;
+        joint_pairs++;
+      }
     }
   }
-  // Les trois autres geometries du TIE portent les memes instances : on leur applique la MEME
-  // decision, par prototype. Sans cela le tronc serait fige de pres et souple de loin.
+  // matrix_idx est compacte par geometrie dans extract_tie.cpp : son identite inter-LOD
+  // n'est pas garantie. Conserver la classe par prototype, puis tester le placement de chaque
+  // instance LOD contre les troncs canoniques avec le meme predicat geometrique.
   u32 trunk_instances_lod = 0;
   for (size_t geo = 1; geo < lev.tie_trees.size(); geo++) {
     for (auto& tree : lev.tie_trees[geo]) {
       for (auto& si : tree.sway_instances) {
-        if (!si.valid || si.proto_idx >= tree.proto_names.size()) {
-          continue;
-        }
-        si.load_bearing = trunk_protos.count(tree.proto_names[si.proto_idx]) != 0;
-        if (si.load_bearing) {
-          trunk_instances_lod++;
+        si.load_bearing = false;
+        si.carried = false;
+        if (!si.valid || si.proto_idx >= tree.proto_names.size()) continue;
+        const auto& proto = tree.proto_names[si.proto_idx];
+        if (!shrub_contact_prototype(proto)) continue;
+        si.load_bearing = trunk_protos.count(proto) != 0;
+        if (si.load_bearing) trunk_instances_lod++;
+        const VegInst lod_instance{&si, &proto};
+        for (const auto& carrier : veg) {
+          if (carrier.si->load_bearing && supports(carrier, lod_instance)) {
+            si.carried = true;
+          }
         }
       }
     }
@@ -1709,7 +1722,7 @@ void classify_load_bearing(tfrag3::Level& lev) {
       lev.level_name, veg.size(), (u32)std::count(carries.begin(), carries.end(), (u8)1),
       trunk_protos.size(), trunk_instances, trunk_instances_lod, (int)(kTrunkMinFrac * 100),
       kTrunkMinInstances, names.empty() ? "-" : names);
-  trunk_census_note(lev.level_name, veg, trunk_instances, trunk_verts, joint_pairs, trunk_protos,
+  trunk_census_note(lev.level_name, veg, trunk_instances, trunk_verts, joint_pairs,
                     proto_total, proto_carrying);
 }
 

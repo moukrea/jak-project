@@ -610,8 +610,10 @@ class TieLoadStage : public LoaderStage {
             if (run_i != draw.runs.size()) contact_mapping_ok = false;
           }
           std::unordered_map<u32, const tfrag3::TieTree::SwayInstance*> contact_instances;
+          const bool trunk_armed = autoport_proof::armed_for(kTrunkItemId);
           for (const auto& si : in_tree.sway_instances) {
-            if (si.valid && si.ymax > si.base_y) contact_instances[si.matrix_idx] = &si;
+            const float pivot_y = si.carried && trunk_armed ? si.ymin : si.base_y;
+            if (si.valid && si.ymax > pivot_y) contact_instances[si.matrix_idx] = &si;
           }
           std::vector<u32> contact_indices(contact_nv, 0);
           std::vector<std::array<float, 4>> contact_anchors(1, {0.f, 0.f, 0.f, 0.f});
@@ -627,9 +629,8 @@ class TieLoadStage : public LoaderStage {
               // sommets gardent l'index 0, que le shader lit comme « pas de contact ». Zero exact,
               // par absence d'entree, pas par un coefficient nul.
               const bool trunk =
-                  si_it->second->load_bearing && autoport_proof::armed_for(kTrunkItemId);
+                  si_it->second->load_bearing && trunk_armed;
               autoport_proof::note_hit_for(kTrunkItemId, si_it->second->n_verts);
-              foliage_wind::trunk_note_anchor(*si_it->second, !trunk, si_it->second->base_y);
               if (trunk) {
                 contact_vi += count;
                 continue;
@@ -640,7 +641,8 @@ class TieLoadStage : public LoaderStage {
                                                           (u32)contact_anchors.size());
                 if (inserted.second) {
                   const auto& si = *si_it->second;
-                  contact_anchors.push_back({si.x, si.base_y, si.z, si.ymax - si.base_y});
+                  const float pivot_y = si.carried && trunk_armed ? si.ymin : si.base_y;
+                  contact_anchors.push_back({si.x, pivot_y, si.z, si.ymax - pivot_y});
                 }
                 contact_indices[contact_vi + k] = inserted.first->second;
                 ++contact_verts;
@@ -652,6 +654,10 @@ class TieLoadStage : public LoaderStage {
           // perf-gl-waits : une limite du contexte, lue UNE fois pour toute la course.
           const GLint contact_max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
           if (contact_mapping_ok && contact_verts && contact_anchors.size() <= (size_t)contact_max_tex) {
+            for (const auto& entry : contact_lut_index) {
+              foliage_wind::trunk_note_anchor(*contact_instances.at(entry.first), true,
+                                              contact_anchors[entry.second][1]);
+            }
             glGenBuffers(1, &tree_out.contact_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, tree_out.contact_buffer);
             glBufferData(GL_ARRAY_BUFFER, contact_indices.size() * sizeof(u32),

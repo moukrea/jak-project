@@ -11120,6 +11120,9 @@ items:
   depends_on: []
   history: []
   id: shrub-trunk-contact
+  proof_props:
+  - debug.opengoal.level.warp=training-warp
+  - debug.opengoal.foliage.force=1
   priority: 33
   device: true
   feature: Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires
