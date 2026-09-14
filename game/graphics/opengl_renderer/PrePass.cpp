@@ -107,11 +107,10 @@ bool g_sway_off = false;
 std::vector<float> g_pre_depth;         // prepasse LIVREE
 std::vector<float> g_pre_depth_legacy;  // prepasse SANS deplacement
 bool g_geom_frame = false;              // cette image porte les deux instantanes
-#ifdef __ANDROID__
-int g_geom_state = -1;  // GLES : la profondeur de prepasse n'est pas relisible ici
-#else
-int g_geom_state = 0;  // 0 = pas encore, 1 = mesure, -1 = refuse
-#endif
+// Depuis l'essai 9 la profondeur de prepasse se relit sur les DEUX plateformes, par
+// `export_depth` : GLES ne rend pas `GL_DEPTH_COMPONENT`, il rend un RGBA8, et c'est le meme
+// entier 24 bits. 0 = pas encore, 1 = mesure, -1 = refuse.
+int g_geom_state = 0;
 uint64_t g_geom_frames = 0;
 uint64_t g_geom_cover = 0;    // denominateur : pixels monde dessines dont la scene a une profondeur
 uint64_t g_geom_absent = 0;   // ... dont la prepasse ne porte AUCUNE profondeur
@@ -148,6 +147,28 @@ uint64_t g_excluded_px = 0;
 uint64_t g_hit_px = 0;
 uint64_t g_unmarked_px = 0;
 GLuint g_probe_fbo = 0, g_probe_color = 0, g_probe_ds = 0;
+// ── LA SONDE EN TEXTURES (essai 9) ─────────────────────────────────────────────
+// Un renderbuffer ne s'echantillonne pas : la sonde ne pouvait relire couleur, profondeur et
+// stencil que par `glReadPixels`, dont DEUX formats sur trois n'existent pas en GLES 3.2. Les
+// trois cibles sont donc des textures. `g_probe_res` est la RESOLUTION : les drapeaux de shade()
+// seuilles a 0/255 et la FAMILLE dans l'alpha, ecrits par TEST de stencil — le seul acces au
+// stencil que GLES accorde.
+GLuint g_probe_res_fbo = 0, g_probe_res = 0;
+GLenum g_probe_fmt = 0;  // le format couleur de `render_fb` au moment de l'allocation
+
+// ── LA SONDE PORTABLE (essai 9) : un quad plein ecran, un RGBA8, et le deballage ─────────────
+// Le quad est celui de `AmbientOcclusionPass::ensure_quad` (4 vec2, TRIANGLE_STRIP, attribut 0) :
+// `ao_probe.vert` consomme exactement `post_processing.vert`.
+GLuint g_quad_vao = 0, g_quad_vbo = 0;
+bool g_quad_ready = false;
+GLuint g_exp_fbo = 0, g_exp_tex = 0;
+int g_exp_w = 0, g_exp_h = 0;
+std::vector<uint8_t> g_exp_buf;
+// Temoin de l'export, bureau seul : ecart maximal en quanta 24 bits entre le chemin portable et
+// la relecture NATIVE de la meme profondeur, et l'etendue de la population lue. Un `maxq` de 0
+// sur une population PLATE ne prouverait rien : `span` est son controle de non-vacuite.
+uint64_t g_exp_maxq = 0, g_exp_pop = 0, g_exp_span_q = 0, g_exp_cmp_frames = 0;
+int g_exp_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse
 int g_probe_w = 0, g_probe_h = 0;
 int g_probe_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse (publie)
 
@@ -184,6 +205,54 @@ void ensure_fbo(int w, int h) {
   glReadBuffer(GL_NONE);
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     lg::error("[lighting-ao-indirect] FBO de prepasse incomplet ({}x{})", w, h);
+  }
+}
+
+void ensure_quad() {
+  if (g_quad_ready) {
+    return;
+  }
+  const float verts[8] = {-1.f, -1.f, -1.f, 1.f, 1.f, -1.f, 1.f, 1.f};
+  glGenVertexArrays(1, &g_quad_vao);
+  glGenBuffers(1, &g_quad_vbo);
+  glBindVertexArray(g_quad_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, g_quad_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, 2 * sizeof(float), nullptr);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  g_quad_ready = true;
+}
+
+void ensure_export(int w, int h) {
+  if (g_exp_fbo && g_exp_w == w && g_exp_h == h) {
+    return;
+  }
+  if (g_exp_fbo) {
+    glFinish();  // meme classe de danger que ensure_fbo : Adreno execute en differe
+    glDeleteFramebuffers(1, &g_exp_fbo);
+    glDeleteTextures(1, &g_exp_tex);
+    g_exp_fbo = 0;
+    g_exp_tex = 0;
+  }
+  g_exp_w = w;
+  g_exp_h = h;
+  glGenTextures(1, &g_exp_tex);
+  glBindTexture(GL_TEXTURE_2D, g_exp_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glGenFramebuffers(1, &g_exp_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, g_exp_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_exp_tex, 0);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[lighting-ao-indirect] FBO d'export incomplet ({}x{})", w, h);
+    g_exp_state = -1;
+  } else if (g_exp_state == 0) {
+    g_exp_state = 1;
   }
 }
 
@@ -366,17 +435,21 @@ void run_classification(SharedRenderState* rs, int w, int h, uint64_t* on, uint6
   }
 }
 
-#ifndef __ANDROID__
-// (c)/(g)/(i) L'INSTANTANE DE LA PROFONDEUR DE PREPASSE. Par le FBO, jamais par `glGetTexImage` :
-// sur cette texture il rend un tampon ENTIEREMENT NUL sans poser la moindre erreur GL (mesure du
-// 2026-09-13, PrePass.h:113). C'est le chemin que le recensement d'AO emprunte deja
-// (AmbientOcclusion.cpp:1001-1008).
+// L'INSTANTANE DE LA PREPASSE. Sur BUREAU seulement, la relecture NATIVE tourne AUSSI et les deux
+// se comparent : `ao_depth_export_maxq` est l'ecart maximal en quanta 24 bits — il vaut 0 si le
+// re-encodage est fidele. Il ne prouverait rien sur un tampon plat : `ao_depth_export_span_q`
+// publie l'etendue de la population lue, c'est son controle de non-vacuite.
 bool read_prepass_depth(int w, int h, std::vector<float>* out) {
   if (!g_fbo || w <= 0 || h <= 0) {
     return false;
   }
-  if (out->size() < (size_t)w * h) {
-    out->resize((size_t)w * h);
+  if (!export_depth(g_depth_tex, w, h, out)) {
+    return false;
+  }
+#ifndef __ANDROID__
+  static std::vector<float> s_native;
+  if (s_native.size() < (size_t)w * h) {
+    s_native.resize((size_t)w * h);
   }
   GLint prev_read = 0;
   glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
@@ -384,12 +457,34 @@ bool read_prepass_depth(int w, int h, std::vector<float>* out) {
   }
   glBindFramebuffer(GL_READ_FRAMEBUFFER, g_fbo);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
-  glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, out->data());
-  const GLenum err = glGetError();
+  glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, s_native.data());
+  const GLenum nerr = glGetError();
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
-  return err == GL_NO_ERROR;
-}
+  if (nerr == GL_NO_ERROR) {
+    float lo = 2.f, hi = -1.f;
+    for (size_t i = 0; i < (size_t)w * h; i++) {
+      const double dq = std::fabs((double)(*out)[i] - (double)s_native[i]) * 16777215.0;
+      const uint64_t q = (uint64_t)(dq + 0.5);
+      if (q > g_exp_maxq) {
+        g_exp_maxq = q;
+      }
+      if (s_native[i] < lo) {
+        lo = s_native[i];
+      }
+      if (s_native[i] > hi) {
+        hi = s_native[i];
+      }
+    }
+    const uint64_t span = (uint64_t)((double)(hi - lo) * 16777215.0 + 0.5);
+    if (span > g_exp_span_q) {
+      g_exp_span_q = span;
+    }
+    g_exp_pop += (uint64_t)w * h;
+    g_exp_cmp_frames++;
+  }
 #endif
+  return true;
+}
 
 // LE passage. `armed` = la decoupe d'alpha est active (le chemin LIVRE). `classify` = enchaine
 // la passe de classification et range ses comptes dans les trois sorties.
@@ -695,6 +790,15 @@ void publish_all() {
   // Les memes cinq grandeurs en `_legacy_` viennent du MEME dessin avec le deplacement de sommet
   // DESARME — l'etat de l'essai 6, rejoue dans la MEME image : c'est l'AVANT, mesure, pas relu
   // d'un commit. `ao_geom_state` : 0 pas mesure, 1 mesure, 2 non supporte.
+  // ── LE TEMOIN DE L'EXPORT PORTABLE (essai 9) ──────────────────────────────────
+  // `ao_depth_export_state` : 0 pas encore, 1 ok, 2 refuse. `_maxq` n'a de sens que sur bureau,
+  // ou la relecture NATIVE tourne a cote ; il vaut 0 si le re-encodage 24 bits est fidele. Sur
+  // l'appareil il n'y a PAS de reference native — `_cmp_frames` vaut 0 et le dit.
+  autoport_proof::publish("ao_depth_export_state", (uint64_t)(g_exp_state < 0 ? 2 : g_exp_state));
+  autoport_proof::publish("ao_depth_export_maxq", g_exp_maxq);
+  autoport_proof::publish("ao_depth_export_pop_px", g_exp_pop);
+  autoport_proof::publish("ao_depth_export_span_q", g_exp_span_q);
+  autoport_proof::publish("ao_depth_export_cmp_frames", g_exp_cmp_frames);
   autoport_proof::publish("ao_geom_state", (uint64_t)(g_geom_state < 0 ? 2 : g_geom_state));
   autoport_proof::publish("ao_geom_frames", g_geom_frames);
   autoport_proof::publish("ao_geom_cover_px", g_geom_cover);
@@ -810,9 +914,7 @@ void frame_begin(SharedRenderState* /*rs*/) {
   AmbientOcclusionPass::measure_frame_begin(g_frame);
   g_frame_ran = false;
   g_ao_valid = false;
-#ifndef __ANDROID__
   g_geom_frame = false;
-#endif
   g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0 &&
                   !AmbientOcclusionPass::measure_timing_active();
   if (g_probe_frame) {
@@ -962,6 +1064,128 @@ unsigned depth_fbo() {
   return (unsigned)g_fbo;
 }
 
+// (c)/(g)/(i) L'INSTANTANE D'UNE PROFONDEUR, PARTOUT. `glReadPixels(GL_DEPTH_COMPONENT, GL_FLOAT)`
+// n'existe pas en GLES 3.2 et `glGetTexImage` non plus : sur cette texture il rendait un tampon
+// ENTIEREMENT NUL sans poser la moindre erreur GL (mesure du 2026-09-13, PrePass.h:113). On
+// dessine donc un quad qui RE-ENCODE la profondeur 24 bits en RGBA8, format que `glReadPixels`
+// rend sur les deux plateformes. La grandeur ne change pas : c'est le meme entier 24 bits.
+//
+// ELLE REND L'ETAT GL EXACTEMENT COMME ELLE L'A TROUVE : `pattern_census` l'appelle au milieu
+// d'une passe qui a deja pose le sien, et une corruption la n'eleverait aucune erreur GL.
+bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
+  if (!g_shaders || depth_tex == 0 || w <= 0 || h <= 0) {
+    return false;
+  }
+  ensure_quad();
+  ensure_export(w, h);
+  if (g_exp_state != 1) {
+    return false;
+  }
+  if (out->size() < (size_t)w * h) {
+    out->resize((size_t)w * h);
+  }
+  if (g_exp_buf.size() < (size_t)w * h * 4) {
+    g_exp_buf.resize((size_t)w * h * 4);
+  }
+  GLint prev_program = 0, prev_draw = 0, prev_read = 0, prev_vp[4] = {0, 0, 0, 0}, prev_vao = 0;
+  GLint prev_pack = 4, prev_active = GL_TEXTURE0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_draw);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
+  glGetIntegerv(GL_VIEWPORT, prev_vp);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &prev_pack);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &prev_active);
+  GLboolean prev_depth_mask = GL_TRUE;
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  GLint prev_tex0 = 0, prev_tex1 = 0;
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0);
+  glActiveTexture(GL_TEXTURE1);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex1);
+  glActiveTexture((GLenum)prev_active);
+  const GLboolean prev_depth = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean prev_stencil = glIsEnabled(GL_STENCIL_TEST);
+  const GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  const GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  ensure_white();
+  (*g_shaders)[ShaderId::AO_PROBE].activate();
+  const GLuint id = (*g_shaders)[ShaderId::AO_PROBE].id();
+  glBindFramebuffer(GL_FRAMEBUFFER, g_exp_fbo);
+  glViewport(0, 0, w, h);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_BLEND);
+  glDisable(GL_SCISSOR_TEST);
+  glDisable(GL_CULL_FACE);
+  glDepthMask(GL_FALSE);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  // LES DEUX SAMPLERS SONT LIES A CHAQUE FOIS. Le mode est un uniforme, donc le compilateur
+  // GLSL garde les deux : un sampler declare, lu dans une branche, et non lie rend un resultat
+  // indefini sur Adreno — pas une erreur.
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, depth_tex);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, g_white_tex);
+  glUniform1i(glu::loc(id, "u_depth"), 0);
+  glUniform1i(glu::loc(id, "u_src"), 1);
+  glUniform1i(glu::loc(id, "u_mode"), 1);
+  glUniform1f(glu::loc(id, "u_fam"), 0.f);
+  glBindVertexArray(g_quad_vao);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  glBindVertexArray(0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, g_exp_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, g_exp_buf.data());
+  const GLenum err = glGetError();
+  glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex1);
+  glActiveTexture((GLenum)prev_active);
+  glDepthMask(prev_depth_mask);
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+  glBindVertexArray((GLuint)prev_vao);
+  glUseProgram((GLuint)prev_program);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prev_draw);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  if (prev_depth) {
+    glEnable(GL_DEPTH_TEST);
+  }
+  if (prev_stencil) {
+    glEnable(GL_STENCIL_TEST);
+  }
+  if (prev_blend) {
+    glEnable(GL_BLEND);
+  }
+  if (prev_scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+  if (prev_cull) {
+    glEnable(GL_CULL_FACE);
+  }
+  if (err != GL_NO_ERROR) {
+    lg::error("[lighting-ao-indirect] export de profondeur refuse (gl=0x{:x})", (unsigned)err);
+    g_exp_state = -1;
+    return false;
+  }
+  const float inv = 1.0f / 16777215.0f;
+  for (size_t i = 0; i < (size_t)w * h; i++) {
+    const uint32_t v = ((uint32_t)g_exp_buf[i * 4] << 16) |
+                       ((uint32_t)g_exp_buf[i * 4 + 1] << 8) | (uint32_t)g_exp_buf[i * 4 + 2];
+    (*out)[i] = (float)v * inv;
+  }
+  return true;
+}
+
 void note_noz_range(uint32_t inds) {
   g_noz_ranges++;
   g_noz_inds += inds;
@@ -1057,7 +1281,8 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // l'etre, parce que `ao_draws_on_scene` compare ses cibles au FBO qu'elle trouve en entrant.
   g_ao_valid = (total > 0) && g_ao.estimate(rs, g_depth_tex, w, h);
 
-#ifndef __ANDROID__
+  // ELLES TOURNENT MAINTENANT SUR L'APPAREIL AUSSI (essai 9) : `read_prepass_depth` passe par
+  // `export_depth`, et le terme 3 cesse d'y valoir « non-mesure », c'est-a-dire un defaut nomme.
   // ── (c)/(g)/(i) LES DEUX INSTANTANES DE PROFONDEUR ────────────────────────────────────────
   // L'estimateur vient de consommer la profondeur LIVREE : on la fige, puis on rejoue EXACTEMENT
   // le meme dessin avec le deplacement DESARME — c'est la prepasse de l'essai 6, dans la MEME
@@ -1078,7 +1303,6 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
       g_geom_state = -1;  // publie tel quel : une relecture refusee se DIT, elle ne rend pas 0
     }
   }
-#endif
 
   // ── LE BRAS DE CONTROLE ─────────────────────────────────────────────────────────────────────
   // Le MEME dessin, la decoupe DESARMEE : les texels transparents ecrivent a nouveau de la
@@ -1125,34 +1349,57 @@ void proof_before_bucket(int bucket_id) {
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 }
 
-#ifndef __ANDROID__
 namespace {
 
-void ensure_probe(int w, int h) {
-  if (g_probe_fbo && g_probe_w == w && g_probe_h == h) {
+void ensure_probe(int w, int h, GLenum color_fmt) {
+  if (g_probe_fbo && g_probe_w == w && g_probe_h == h && g_probe_fmt == color_fmt) {
     return;
   }
   if (g_probe_fbo) {
+    glFinish();  // meme classe de danger que ensure_fbo : Adreno execute en differe
     glDeleteFramebuffers(1, &g_probe_fbo);
-    glDeleteRenderbuffers(1, &g_probe_color);
-    glDeleteRenderbuffers(1, &g_probe_ds);
+    glDeleteFramebuffers(1, &g_probe_res_fbo);
+    glDeleteTextures(1, &g_probe_color);
+    glDeleteTextures(1, &g_probe_ds);
+    glDeleteTextures(1, &g_probe_res);
     g_probe_fbo = 0;
+    g_probe_res_fbo = 0;
   }
   g_probe_w = w;
   g_probe_h = h;
-  glGenRenderbuffers(1, &g_probe_color);
-  glBindRenderbuffer(GL_RENDERBUFFER, g_probe_color);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16F, w, h);
-  glGenRenderbuffers(1, &g_probe_ds);
-  glBindRenderbuffer(GL_RENDERBUFFER, g_probe_ds);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+  g_probe_fmt = color_fmt;
+  // LE FORMAT COULEUR EST CELUI DE `render_fb`, PAS UN CHOIX. Un blit entre un attachement
+  // flottant et un point fixe est une erreur GL en GLES ; l'essai 8 ne pouvait pas la
+  // rencontrer, sa sonde ne tournait pas sur l'appareil.
+  const bool is_float = (color_fmt != GL_RGBA8);
+  auto mk = [](GLuint* tex, GLenum internal, GLenum fmt, GLenum type, int tw, int th) {
+    glGenTextures(1, tex);
+    glBindTexture(GL_TEXTURE_2D, *tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, (GLint)internal, tw, th, 0, fmt, type, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  };
+  mk(&g_probe_color, color_fmt, GL_RGBA, is_float ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE, w, h);
+  mk(&g_probe_ds, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, w, h);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+  mk(&g_probe_res, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, w, h);
   glGenFramebuffers(1, &g_probe_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, g_probe_fbo);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, g_probe_color);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
-                            g_probe_ds);
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    lg::error("[lighting-ao-indirect] FBO de sonde incomplet ({}x{})", w, h);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_probe_color, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, g_probe_ds,
+                         0);
+  const bool ok_a = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  glGenFramebuffers(1, &g_probe_res_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, g_probe_res_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_probe_res, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, g_probe_ds,
+                         0);
+  const bool ok_b = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  if (!ok_a || !ok_b) {
+    lg::error("[lighting-ao-indirect] FBO de sonde incomplet ({}x{}, fmt=0x{:x}, a={} b={})", w, h,
+              (unsigned)color_fmt, ok_a, ok_b);
     g_probe_state = -1;
   } else {
     g_probe_state = 1;
@@ -1160,7 +1407,6 @@ void ensure_probe(int w, int h) {
 }
 
 }  // namespace
-#endif
 
 void proof_post_opaque(SharedRenderState* rs) {
   gl_query_census::Armed _ap("prepass-proof");
@@ -1187,17 +1433,7 @@ void proof_post_opaque(SharedRenderState* rs) {
     clear_stencil();
     return;
   }
-#ifdef __ANDROID__
-  // GLES 3.2 ne sait pas relire le stencil par glReadPixels : la SONDE est bureau-seule, et elle
-  // le dit au lieu de publier un zero. Tout ce qui ne depend pas du stencil — la classification
-  // d'alpha (verdict (j), exigee SUR L'APPAREIL), le recensement du motif, la campagne de cout,
-  // le rapport du flou bilateral — a tourne, et sa publication ne doit pas mourir avec elle.
-  autoport_proof::publish("ao_probe_unsupported", 1);
-  publish_all();
-  clear_stencil();
-  return;
-#else
-  ensure_probe(w, h);
+  ensure_probe(w, h, rs->render_fb_color_format);
   if (g_probe_state != 1) {
     autoport_proof::publish("ao_probe_unsupported", 1);
     clear_stencil();
@@ -1217,20 +1453,104 @@ void proof_post_opaque(SharedRenderState* rs) {
     blit_mask |= GL_DEPTH_BUFFER_BIT;  // (c)/(g)/(i) : la profondeur de ce que la scene a DESSINE
   }
   glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, blit_mask, GL_NEAREST);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, g_probe_fbo);
-  std::vector<float> px((size_t)w * h * 4);
-  std::vector<uint8_t> st((size_t)w * h);
-  std::vector<float> sd;
-  glPixelStorei(GL_PACK_ALIGNMENT, 1);
-  glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, px.data());
-  glReadPixels(0, 0, w, h, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, st.data());
-  if (g_geom_frame) {
-    sd.resize((size_t)w * h);
-    glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, sd.data());
+  // ── LA RESOLUTION PORTABLE : LE STENCIL SE TESTE, IL NE SE RELIT PAS ────────────────────
+  // GLES 3.2 n'a pas `glReadPixels(GL_STENCIL_INDEX)` — c'est ce qui a tenu les termes 1 et 3
+  // hors de l'appareil pendant huit essais. Mais il sait TESTER le stencil. Trois quads plein
+  // ecran, `GL_EQUAL` contre 1, 2 puis 3, ecrivent la FAMILLE dans l'alpha d'un RGBA8 et y
+  // recopient au passage les drapeaux de shade(), seuilles a 0/255. Le denominateur ne change
+  // pas d'un pixel : un alpha nul est exactement un stencil nul.
+  // ELLE REND L'ETAT EXACTEMENT COMME ELLE L'A TROUVE. Avant l'essai 9 cette fonction ne
+  // dessinait rien : elle blittait et relisait. Maintenant qu'elle DESSINE, tout ce qu'elle pose
+  // — viewport, masque de profondeur, test de profondeur, melange, facettes — repartirait avec
+  // elle vers les buckets > 30, et le defaut ne se verrait que sur l'appareil.
+  GLint prev_program_r = 0, prev_vao_r = 0, prev_vp_r[4] = {0, 0, 0, 0}, prev_tex0_r = 0;
+  GLboolean prev_depth_mask_r = GL_TRUE;
+  GLboolean prev_color_mask_r[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program_r);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao_r);
+  glGetIntegerv(GL_VIEWPORT, prev_vp_r);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask_r);
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask_r);
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex0_r);
+  const GLboolean prev_depth_test_r = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean prev_blend_r = glIsEnabled(GL_BLEND);
+  const GLboolean prev_cull_r = glIsEnabled(GL_CULL_FACE);
+  ensure_quad();
+  (*g_shaders)[ShaderId::AO_PROBE].activate();
+  const GLuint pid = (GLuint)(*g_shaders)[ShaderId::AO_PROBE].id();
+  glBindFramebuffer(GL_FRAMEBUFFER, g_probe_res_fbo);
+  glViewport(0, 0, w, h);
+  const GLboolean had_scissor_r = glIsEnabled(GL_SCISSOR_TEST);
+  glDisable(GL_SCISSOR_TEST);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  GLfloat prev_clear_r[4] = {0.f, 0.f, 0.f, 0.f};
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, prev_clear_r);
+  glClearColor(0.f, 0.f, 0.f, 0.f);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(prev_clear_r[0], prev_clear_r[1], prev_clear_r[2], prev_clear_r[3]);
+  glEnable(GL_STENCIL_TEST);
+  glStencilMask(0x00);  // la sonde LIT le stencil, elle ne l'ecrit jamais
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, g_white_tex);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, g_probe_color);
+  glUniform1i(glu::loc(pid, "u_depth"), 0);
+  glUniform1i(glu::loc(pid, "u_src"), 1);
+  glUniform1i(glu::loc(pid, "u_mode"), 0);
+  glBindVertexArray(g_quad_vao);
+  for (int f = 1; f < kFamCount; f++) {
+    glStencilFunc(GL_EQUAL, f, 0xFF);
+    glUniform1f(glu::loc(pid, "u_fam"), (float)f);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   }
+  glBindVertexArray(0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)prev_tex0_r);
+  glStencilMask(0xFF);
+  if (had_scissor_r) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+  // ── ET ON REND TOUT ────────────────────────────────────────────────────────────────────
+  glUseProgram((GLuint)prev_program_r);
+  glBindVertexArray((GLuint)prev_vao_r);
+  glViewport(prev_vp_r[0], prev_vp_r[1], prev_vp_r[2], prev_vp_r[3]);
+  glDepthMask(prev_depth_mask_r);
+  glColorMask(prev_color_mask_r[0], prev_color_mask_r[1], prev_color_mask_r[2],
+              prev_color_mask_r[3]);
+  if (prev_depth_test_r) {
+    glEnable(GL_DEPTH_TEST);
+  }
+  if (prev_blend_r) {
+    glEnable(GL_BLEND);
+  }
+  if (prev_cull_r) {
+    glEnable(GL_CULL_FACE);
+  }
+
+  std::vector<uint8_t> px((size_t)w * h * 4);
+  std::vector<float> sd;
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, g_probe_res_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
   const GLenum err = glGetError();
   glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prev_draw);
+  // La profondeur de la SCENE par le meme re-encodage 24 bits : `g_probe_ds` est une texture
+  // depuis l'essai 9, et `export_depth` sauve et rend l'etat GL qu'elle touche.
+  if (err == GL_NO_ERROR && g_geom_frame) {
+    if (!export_depth(g_probe_ds, w, h, &sd)) {
+      sd.clear();
+    }
+  }
   if (err != GL_NO_ERROR) {
     lg::error("[lighting-ao-indirect] relecture de la sonde refusee (gl=0x{:x})", (unsigned)err);
     g_probe_state = -1;
@@ -1239,24 +1559,23 @@ void proof_post_opaque(SharedRenderState* rs) {
     return;
   }
   uint64_t hits = 0, leak = 0, excl = 0, marked = 0, unmarked = 0;
-  for (size_t i = 0; i < st.size(); i++) {
+  for (size_t i = 0; i < (size_t)w * h; i++) {
     // Le stencil porte la FAMILLE depuis le 2026-09-14 : tout ce qui n'est pas 0 est un pixel
     // monde. Le denominateur de la porte (`ao_probe_px`) est donc EXACTEMENT le meme qu'avant,
     // seul son decoupage est neuf.
-    if (st[i] == 0 || st[i] >= (uint8_t)kFamCount) {
+    if (px[i * 4 + 3] == 0 || px[i * 4 + 3] >= (uint8_t)kFamCount) {
       unmarked++;
       continue;
     }
     marked++;
-    const float* p = &px[i * 4];
     // Drapeaux ecrits par shade() en mode preuve : R = fuite sur le direct, G = l'indirect a
     // recu l'AO, B = chemin exclu de la porte (B/C/E : son indirect n'est pas `base`).
-    if (p[2] > 0.5f) {
+    if (px[i * 4 + 2] >= 128) {
       excl++;
-    } else if (p[0] > 0.5f) {
+    } else if (px[i * 4] >= 128) {
       leak++;
     }
-    if (p[1] > 0.5f) {
+    if (px[i * 4 + 1] >= 128) {
       hits++;
     }
   }
@@ -1269,18 +1588,19 @@ void proof_post_opaque(SharedRenderState* rs) {
   // rien du tout. Convention PS2 inversee : profondeur PLUS GRANDE = PLUS PRES de la camera.
   // Les seuils montent en puissances de quatre a partir de 4 quanta de 24 bits, parce qu'un
   // seuil unique choisi apres coup est un seuil choisi pour son resultat.
-  if (g_geom_frame && sd.size() >= st.size() && g_pre_depth.size() >= st.size() &&
-      g_pre_depth_legacy.size() >= st.size()) {
+  if (g_geom_frame && sd.size() >= (size_t)w * h && g_pre_depth.size() >= (size_t)w * h &&
+      g_pre_depth_legacy.size() >= (size_t)w * h) {
     const float q = 1.0f / 16777215.0f;
     const float tol[4] = {4.f * q, 64.f * q, 1024.f * q, 16384.f * q};
-    for (size_t i = 0; i < st.size(); i++) {
+    for (size_t i = 0; i < (size_t)w * h; i++) {
       const float pl = g_pre_depth[i];
       const float pg = g_pre_depth_legacy[i];
       const float moved = std::fabs(pl - pg);
       if (moved > tol[0]) {
         g_sway_gap_px++;
       }
-      const int fam = (st[i] > 0 && st[i] < (uint8_t)kFamCount) ? (int)st[i] : 0;
+      const int fam =
+          (px[i * 4 + 3] > 0 && px[i * 4 + 3] < (uint8_t)kFamCount) ? (int)px[i * 4 + 3] : 0;
       if (fam == 0) {
         continue;
       }
@@ -1343,9 +1663,11 @@ void proof_post_opaque(SharedRenderState* rs) {
   g_excluded_px += excl;
   g_hit_px += hits;
   autoport_proof::note_hit_for(kItemId, hits);
+  // Le format couleur effectivement blitte, et le fait que la sonde a tourne ICI. Un lecteur qui
+  // voit `ao_probe_unsupported=1` doit pouvoir dire si c'est le FBO ou le format qui a refuse.
+  autoport_proof::publish("ao_probe_color_fmt", (uint64_t)g_probe_fmt);
   publish_all();
   clear_stencil();
-#endif
 }
 
 }  // namespace prepass

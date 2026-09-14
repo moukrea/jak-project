@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 
@@ -111,6 +112,12 @@ void sway_shrub(uint64_t frame_idx, unsigned wind_tex, bool native_on, bool cont
 // entierement nul sans poser d'erreur GL (mesure du 2026-09-13 : 0 couple plan sur 12 etats,
 // 4 images chacun) : on relit par le chemin que le reste du recensement emprunte deja.
 unsigned depth_fbo();
+
+// lighting-ao-indirect (essai 9) : relit une texture de profondeur PARTOUT, y compris en GLES,
+// en la re-encodant en RGBA8 par un quad plein ecran. `out` est redimensionne au besoin et recoit
+// w*h profondeurs normalisees (convention PS2 inversee, comme le tampon). Rend faux si le
+// programme, la texture ou le FBO manquent — jamais un tampon a zero silencieux.
+bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out);
 
 // lighting-ao-indirect : VRAI pendant la passe de mesure « occluder fantome » (image sondee
 // seulement). Les contributeurs dessinent alors leurs plages ECARTEES — celles des draws sans

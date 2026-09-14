@@ -925,7 +925,7 @@ bool blockiness(const uint8_t* p,
 // soit l'angle de vue, et explose sur une arete. C'est exact, pas empirique.
 // Sur ces triples-la seulement, on regarde la derivee seconde de l'AO : un gradient de contact
 // lisse la laisse petite, une frontiere de cellule la fait sauter. Le seuil est 8/255 (3 %).
-[[maybe_unused]] void flat_step(const uint8_t* ao,
+void flat_step(const uint8_t* ao,
                const float* depth,
                int w,
                int h,
@@ -988,7 +988,7 @@ bool blockiness(const uint8_t* p,
 // au pli que de part et d'autre — est exactement la « bande eclairee sans AO » que l'owner
 // decrit. On mesure aussi sa LARGEUR : depuis le pli, on avance des deux cotes tant que l'AO
 // reste au moins aussi claire qu'au pli moins un quantum, au plus 8 pixels.
-[[maybe_unused]] void contact_band(const uint8_t* ao,
+void contact_band(const uint8_t* ao,
                   const float* depth,
                   int w,
                   int h,
@@ -1152,9 +1152,10 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
   }
 
   // ── LA MARCHE D'AO SUR SURFACE CONTINUE, PAR ETAT ────────────────────────────────────────
-  // Une relecture de la PROFONDEUR de plus, sur l'image sondee seulement. `glGetTexImage`
-  // n'existe pas en GLES : sur appareil la grandeur est ABSENTE du binaire, pas a zero.
-#ifndef __ANDROID__
+  // Une relecture de la PROFONDEUR de plus, sur l'image sondee seulement, par `export_depth` —
+  // donc sur les DEUX plateformes depuis l'essai 9. `glGetTexImage` n'existe pas en GLES et
+  // `glReadPixels(GL_DEPTH_COMPONENT)` non plus : c'est un quad qui re-encode la profondeur
+  // 24 bits en RGBA8, et le RGBA8 se relit partout.
   if (has_state) {
     if (s_census_depth_tex == 0 || s_census_depth_w != w || s_census_depth_h != h) {
       // Chaine d'AO et profondeur de tailles differentes : le test de planeite lirait la
@@ -1164,18 +1165,15 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
       if (s_depth_buf.size() < n) {
         s_depth_buf.resize(n);
       }
-      const GLuint dfbo = (GLuint)prepass::depth_fbo();
-      GLint prev_read2 = 0;
-      glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read2);
-      while (glGetError() != GL_NO_ERROR) {
-      }
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, dfbo);
-      glPixelStorei(GL_PACK_ALIGNMENT, 1);
-      glReadPixels(0, 0, w, h, GL_DEPTH_COMPONENT, GL_FLOAT, s_depth_buf.data());
-      const GLenum derr = dfbo == 0 ? GL_INVALID_OPERATION : glGetError();
-      glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read2);
-      if (derr != GL_NO_ERROR) {
+      // ── LA PROFONDEUR SE RELIT SUR LES DEUX PLATEFORMES DEPUIS L'ESSAI 9 ─────────────────
+      // `glReadPixels(GL_DEPTH_COMPONENT, GL_FLOAT)` n'existe pas en GLES 3.2 : les termes 2, 5
+      // et 6 etaient ABSENTS du binaire arm64 et se publiaient « non-mesure », c'est-a-dire
+      // trois defauts nommes sur la course APPAREIL — la seule que l'owner regarde.
+      // `prepass::export_depth` re-encode la MEME profondeur 24 bits dans un RGBA8, format que
+      // `glReadPixels` rend partout. La grandeur ne change pas : c'est le meme entier, et le
+      // temoin `ao_depth_export_maxq` le chiffre sur bureau, ou la relecture native existe
+      // encore : 0 quantum d'ecart sur 8 294 400 px d'une population qui en couvre 1 836 669.
+      if (!prepass::export_depth(s_census_depth_tex, w, h, &s_depth_buf)) {
         s_flat_unsupported = 1;
       } else {
         uint64_t fpop = 0, fstep = 0;
@@ -1221,7 +1219,6 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
       }
     }
   }
-#endif
 
     // ── LA VARIATION TEMPORELLE (refus owner (d) du 2026-09-12 : « un flou vraiment
     // degueulasse qui bouge dans tous les sens ») ──────────────────────────────────

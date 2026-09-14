@@ -402,6 +402,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::AO_HBAO) = {"ao_hbao", version};
   at(ShaderId::AO_GTAO) = {"ao_gtao", version};
   at(ShaderId::AO_BLUR) = {"ao_blur", version};
+  at(ShaderId::AO_PROBE) = {"ao_probe", version};
   at(ShaderId::PREPASS_WORLD) = {"prepass_world", version};
   // water-ocean-mesh : clipmap d'ocean + sonde de controle de la couche A.
   at(ShaderId::OCEAN_RECHARGED) = {"ocean_recharged", version};

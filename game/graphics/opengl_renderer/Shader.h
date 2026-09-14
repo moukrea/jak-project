@@ -101,6 +101,10 @@ enum class ShaderId {
   // SUPPRIME : le mode DISPLACEMENT = TESSELLATION n'a jamais ete livre. Etant le dernier, son
   // retrait ne renumerote AUCUN autre identifiant.
 #endif
+  // lighting-ao-indirect (essai 9) : la sonde portable — empaquetage d'une profondeur 24 bits
+  // dans un RGBA8, et resolution des drapeaux de shade() par test de STENCIL. GLES 3.2 ne relit
+  // ni GL_DEPTH_COMPONENT ni GL_STENCIL_INDEX ; il relit un RGBA8.
+  AO_PROBE = 54,
   MAX_SHADERS
 };
 
