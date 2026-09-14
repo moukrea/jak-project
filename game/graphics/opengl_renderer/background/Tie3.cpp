@@ -513,6 +513,18 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // New level data invalidates the cached full-caster ranges (round-5 shadow fix).
       lod_tree[l_tree].pbr_full_ranges.clear();
       lod_tree[l_tree].pbr_full_ranges_built = false;
+      // lighting-ao-indirect (terme 3, defaut D) : LES DEUX AUTRES JEUX AUSSI. L'objet `Tree`
+      // est REUTILISE d'un niveau a l'autre (la ligne ci-dessus lui reassigne un NOUVEAU
+      // `index_buffer`) : un drapeau `built` laisse a vrai fige des offsets d'indices qui
+      // appartiennent a un AUTRE tampon, et `ensure_tie_full_ranges` retourne immediatement
+      // (:1115-1117) sans jamais reconstruire. La prepasse dessinait alors les mauvais triangles
+      // pour les TIE envmappes apres un echange de niveau. `prepass_ranges*` et
+      // `prepass_noz_ranges*` n'ont PAS besoin d'etre effaces ici : `ensure_tie_full_ranges` les
+      // vide lui-meme des qu'il reconstruit.
+      lod_tree[l_tree].pbr_full_ranges_env.clear();
+      lod_tree[l_tree].pbr_full_ranges_env_built = false;
+      lod_tree[l_tree].pbr_full_ranges_env2.clear();
+      lod_tree[l_tree].pbr_full_ranges_env2_built = false;
 #endif
 
       // set up vertex attributes
@@ -1103,15 +1115,36 @@ void Tie3::push_tie_sway_uniforms(GLuint program, u64 frame_idx, const char* pas
 // buffer et ont chacun leur cache (pas d'ecrasement, pas de double dessin).
 void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
   const int cast_cat = (int)category;
-  const bool env_cat = (category == tfrag3::TieCategory::NORMAL_ENVMAP);
-  auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
-  bool& ranges_built = env_cat ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built;
+  // lighting-ao-indirect (terme 3, correctif C) : TROIS jeux, un par categorie dessinee — et
+  // pas un booleen. `NORMAL_ENVMAP_SECOND_DRAW` passe par le troisieme ; toute autre categorie
+  // sort sans rien effacer, au lieu d'ecraser le jeu `NORMAL` (les casteurs de l'ombre solaire).
+  int jeu;
+  switch (category) {
+    case tfrag3::TieCategory::NORMAL:
+      jeu = 0;
+      break;
+    case tfrag3::TieCategory::NORMAL_ENVMAP:
+      jeu = 1;
+      break;
+    case tfrag3::TieCategory::NORMAL_ENVMAP_SECOND_DRAW:
+      jeu = 2;
+      break;
+    default:
+      return;
+  }
+  auto& ranges = jeu == 2 ? tree.pbr_full_ranges_env2
+                          : (jeu == 1 ? tree.pbr_full_ranges_env : tree.pbr_full_ranges);
+  bool& ranges_built =
+      jeu == 2 ? tree.pbr_full_ranges_env2_built
+               : (jeu == 1 ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built);
   // lighting-ao-indirect : la prepasse de profondeur a besoin des MEMES draws, mais avec leur
   // texture — une coalescence qui traverse une frontiere de texture efface l'identite dont
   // l'alpha-test du feuillage depend. On construit donc les deux jeux dans la MEME boucle : la
   // passe soleil garde ses plages fusionnees a fond, la prepasse les siennes.
-  auto& pre_ranges = env_cat ? tree.prepass_ranges_env : tree.prepass_ranges;
-  auto& pre_noz = env_cat ? tree.prepass_noz_ranges_env : tree.prepass_noz_ranges;
+  auto& pre_ranges = jeu == 2 ? tree.prepass_ranges_env2
+                              : (jeu == 1 ? tree.prepass_ranges_env : tree.prepass_ranges);
+  auto& pre_noz = jeu == 2 ? tree.prepass_noz_ranges_env2
+                           : (jeu == 1 ? tree.prepass_noz_ranges_env : tree.prepass_noz_ranges);
   if (ranges_built) {
     return;
   }
@@ -1282,6 +1315,20 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
     }
     ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL);
     ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP);
+    // lighting-ao-indirect (terme 3, LE CORRECTIF) : LA TROISIEME CATEGORIE. La couche additive
+    // de brillance des TIE envmappes ECRIT LA PROFONDEUR et n'a AUCUN test d'alpha
+    // (`process_envmap_draw_mode` appelle `process_draw_mode(info, use_tra=false, ...)`,
+    // extract_tie.cpp:2317 ; `mode.disable_at()` :2268 et `enable_depth_write()/enable_zt()`
+    // :2271-2273 — d'ou `prepass_alpha_min` = 0, background_common.cpp:177, et
+    // `prepass_writes_depth` VRAI, :197). La prepasse ne dessinait que deux categories sur
+    // trois : sur un TIE envmappe a texture DECOUPEE, la passe de base et la prepasse jettent
+    // les memes texels transparents, puis le second draw REMPLIT le trou et y ecrit la
+    // profondeur de scene — la prepasse n'y a rien, `pl == 0` exactement, et les huit voisins
+    // sont vides aussi parce qu'un trou de decoupe est une surface. C'est la signature mesuree
+    // (`_absent_zero_px == _absent_px`, `_absent_inner_px` majoritaire).
+    // CE QUE LA PREUVE DOIT MONTRER : `ao_geom_tie_env2_absent_inner_px` TOMBE, et
+    // `ao_geom_tie_absent_edge_px` ne bouge PAS — c'est le controle gratuit du correctif.
+    ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP_SECOND_DRAW);
     glBindVertexArray(tree.vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
     // lighting-ao-indirect (i) : le MEME deplacement de sommet que la passe couleur
@@ -1289,12 +1336,13 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
     // l'AO avec elle. Le VAO qu'on vient de lier est celui de la passe couleur : les attributs 7,
     // 8 (et 10 si l'arbre porte une carte de contact) y sont deja actifs.
     prepass::sway_tie(rs ? rs->frame_idx : 0, tree.contact_texture);
-    const std::array<const std::vector<prepass::DepthRange>*, 2> pre_lists =
+    const std::array<const std::vector<prepass::DepthRange>*, 3> pre_lists =
         prepass::noz_pass_active()
-            ? std::array<const std::vector<prepass::DepthRange>*, 2>{
-                  &tree.prepass_noz_ranges, &tree.prepass_noz_ranges_env}
-            : std::array<const std::vector<prepass::DepthRange>*, 2>{&tree.prepass_ranges,
-                                                                     &tree.prepass_ranges_env};
+            ? std::array<const std::vector<prepass::DepthRange>*, 3>{&tree.prepass_noz_ranges,
+                                                                     &tree.prepass_noz_ranges_env,
+                                                                     &tree.prepass_noz_ranges_env2}
+            : std::array<const std::vector<prepass::DepthRange>*, 3>{
+                  &tree.prepass_ranges, &tree.prepass_ranges_env, &tree.prepass_ranges_env2};
     // lighting-ao-indirect (A4) : LA PROJECTION `etie` POUR LES PLAGES NORMAL_ENVMAP (indice 1).
     // La passe COULEUR de ces draws passe par `etie_base.vert` et son pipeline (:1187-1190, « use
     // the envmap-style math for the base draw to avoid rounding issue ») ; la prepasse dessinait
@@ -1314,7 +1362,10 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
     pre_etie.decal = 0;
     for (size_t li = 0; li < pre_lists.size(); li++) {
       const auto* ranges = pre_lists[li];
-      const bool env_list = (li == 1);
+      // Les indices 1 ET 2 sont de l'arithmetique `etie` : `etie.vert:42-45` et `:105-108`
+      // construisent `vf17` et `p_proj` avec EXACTEMENT les memes `cam_no_persp` / `persp0` /
+      // `persp1` que `etie_base.vert:55-66`, que `prepass_world.vert` recopie deja.
+      const bool env_list = (li >= 1);
       if (env_list && pre_cam && pre_id != 0) {
         init_etie_cam_uniforms(pre_etie, *pre_cam);
         prepass::etie_mode(1);
@@ -1372,6 +1423,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   }
 
   glBindVertexArray(tree.vao);
+  // lighting-ao-indirect (terme 3) : NOMME le sous-chemin TIE de ces draws pour le recensement
+  // (stencil de preuve seul, aucune couleur ecrite, inerte hors image sondee).
+  prepass::proof_stencil_family(use_envmap ? prepass::kProofFamTieEnv : prepass::kProofFamTie);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
@@ -1751,6 +1805,10 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
                                    tfrag3::TieCategory category) {
   first_tfrag_draw_setup(settings.camera, render_state, ShaderId::ETIE);
   glBindVertexArray(tree.vao);
+  // lighting-ao-indirect (terme 3) : NOMME la couche additive d'envmap (sa PROPRE famille, pour
+  // que l'effet du correctif C soit attribuable) pour le recensement — stencil de preuve seul,
+  // aucune couleur ecrite, inerte hors image sondee.
+  prepass::proof_stencil_family(prepass::kProofFamTieEnv2);
   glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
@@ -2633,6 +2691,9 @@ void Tie3::render_tree_wind(int idx,
   // Si la prepasse a deja calcule les matrices de cette image, cet appel ne fait rien : les deux
   // passes dessinent avec le MEME `u_inst_camera`.
   update_wind_instances(tree, settings.camera.camera, render_state);
+  // lighting-ao-indirect (terme 3) : NOMME le sous-chemin VENT pour le recensement (stencil de
+  // preuve seul, aucune couleur ecrite, inerte hors image sondee).
+  prepass::proof_stencil_family(prepass::kProofFamTieWind);
   draw_tree_wind(idx, geom, &settings, render_state, &prof, /*depth_only=*/false);
 }
 

@@ -181,6 +181,12 @@ GLuint screen_ao_texture();
 // Avant `renderer->render(...)` de chaque bucket : sur l'image sondee, les buckets monde
 // ecrivent stencil = 1, les autres 0. Ne touche a rien hors mesure.
 void proof_before_bucket(int bucket_id);
+// (terme 3) La SOUS-FAMILLE du dessin en cours, pour le stencil de preuve. `proof_before_bucket`
+// pose la famille du BUCKET ; les quatre sous-chemins TIE la precisent. Inerte hors image
+// sondee. 2 = TIE statique, 4 = base d'envmap, 5 = second draw d'envmap (la couche
+// additive de brillance), 6 = vent.
+constexpr int kProofFamTie = 2, kProofFamTieEnv = 4, kProofFamTieEnv2 = 5, kProofFamTieWind = 6;
+void proof_stencil_family(int fam);
 // Fin du bucket 30 (post-opaque) : relecture couleur + stencil, comptage, publication,
 // stencil remis a zero et desactive. Ne touche a rien hors mesure.
 void proof_post_opaque(SharedRenderState* rs);

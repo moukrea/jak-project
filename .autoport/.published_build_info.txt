@@ -1,5 +1,5 @@
-TAG: 62023c-c0e59c      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
-date: 2026-09-14T12:29:40+02:00     commit: 62023c6321     build AUTOMATIQUE (etat compile)
+TAG: 60afdc-c0e59c      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
+date: 2026-09-14T12:57:09+02:00     commit: 60afdcbb27     build AUTOMATIQUE (etat compile)
 
 MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :
   chestL        0.1796

@@ -106,6 +106,39 @@ bool g_sway_off = false;
 // ni un zero de population qui se lirait comme un succes.
 std::vector<float> g_pre_depth;         // prepasse LIVREE
 std::vector<float> g_pre_depth_legacy;  // prepasse SANS deplacement
+// Verdict (c) de l'owner : « le fragment juge par l'estimateur n'est peut-etre pas celui qui est
+// DESSINE — autre passe, autre niveau de detail, autre chemin (shrub contre tfrag contre TIE) ».
+// Le stencil ne portait qu'un booleen « monde / pas monde » : il ne pouvait pas repondre. Il porte
+// desormais LA FAMILLE, et les populations de `ao_geom_*` se lisent par famille.
+//   0 = pas un bucket monde   1 = TFRAG   2 = TIE   3 = SHRUB
+//   4 = TIE base d'envmap   5 = TIE second draw d'envmap (la couche additive)   6 = TIE vent
+// (terme 3) Les QUATRE sous-chemins TIE partageaient la valeur 2 : un `absent` de 1481 px ne
+// pouvait pas dire LEQUEL manque. Ils ont chacun leur valeur, posee par `proof_stencil_family`.
+// Le second draw a la SIENNE parce que c'est lui que le correctif (C) fait dessiner a la
+// prepasse : sans famille propre, l'effet du correctif ne serait pas attribuable.
+constexpr int kFamTfrag = 1, kFamTie = 2, kFamShrub = 3, kFamTieEnv = 4, kFamTieEnv2 = 5,
+              kFamTieWind = 6;
+[[maybe_unused]] constexpr int kFamCount = 7;
+[[maybe_unused]] const char* kFamNames[kFamCount] = {"-",       "tfrag",    "tie",     "shrub",
+                                                     "tie_env", "tie_env2", "tie_wind"};
+// LE TERME 3 DE LA PORTE AGREGE CETTE LISTE, ET ELLE EST DECLAREE UNE SEULE FOIS. Une
+// sous-famille ajoutee sans etre inscrite ici ferait BAISSER la porte sans qu'aucun defaut ait
+// disparu : c'est un faux vert par decoupage.
+constexpr int kSwayFams[] = {kFamShrub, kFamTie, kFamTieEnv, kFamTieEnv2, kFamTieWind};
+
+// (terme 3) LA TROISIEME PROFONDEUR : le bras dont la DECOUPE D'ALPHA est desarmee. Il est deja
+// dessine a chaque image sondee (`run_prepass(armed=false)`) et sa profondeur etait jetee ; on la
+// FIGE. Elle separe deux causes du MEME compte d'« absent » : la prepasse ne dessine PAS cette
+// geometrie (elle reste absente ici aussi), ou son alpha-test l'a JETEE (elle apparait ici).
+// Aucune passe de plus, une relecture de plus sur les seules images de recensement.
+std::vector<float> g_pre_depth_nocut;
+uint64_t g_geom_nocut_frames = 0;
+// Le TEMOIN de cet instrument : les pixels, sur TOUT l'ecran, ou le bras sans decoupe porte une
+// profondeur que le bras livre n'a pas. Il doit etre GRAND (la decoupe retire le feuillage) :
+// a zero, un `_absent_nocut_px` nul ne dirait pas que la decoupe est innocente, il dirait que
+// l'instantane est mort.
+uint64_t g_geom_nocut_extra_px = 0;
+uint64_t g_fam_absent_nocut[kFamCount] = {};
 bool g_geom_frame = false;              // cette image porte les deux instantanes
 // Depuis l'essai 9 la profondeur de prepasse se relit sur les DEUX plateformes, par
 // `export_depth` : GLES ne rend pas `GL_DEPTH_COMPONENT`, il rend un RGBA8, et c'est le meme
@@ -123,20 +156,20 @@ uint64_t g_sway_gap_px = 0;        // pixels que le deplacement a BOUGES (livre 
 uint64_t g_sway_gap_world_px = 0;  // les memes, restreints aux pixels monde dessines
 // ... et les MEMES populations par famille (1 = TFRAG, 2 = TIE, 3 = SHRUB) : c'est la reponse au
 // verdict (c), « shrub contre tfrag contre TIE ».
-uint64_t g_fam_cover[4] = {0, 0, 0, 0};
-uint64_t g_fam_absent[4] = {0, 0, 0, 0};
-uint64_t g_fam_gap64[4] = {0, 0, 0, 0};
-uint64_t g_fam_gap64_legacy[4] = {0, 0, 0, 0};
+uint64_t g_fam_cover[kFamCount] = {};
+uint64_t g_fam_absent[kFamCount] = {};
+uint64_t g_fam_gap64[kFamCount] = {};
+uint64_t g_fam_gap64_legacy[kFamCount] = {};
 // La SEPARATION des pixels « absent » : au bord d'une silhouette (au moins un voisin porte une
 // profondeur de prepasse) ou au MILIEU d'un trou (aucun). Voir le commentaire du site de compte,
 // dans `proof_post_opaque`.
-uint64_t g_fam_absent_edge[4] = {0, 0, 0, 0};
-uint64_t g_fam_absent_inner[4] = {0, 0, 0, 0};
+uint64_t g_fam_absent_edge[kFamCount] = {};
+uint64_t g_fam_absent_inner[kFamCount] = {};
 // ... et la meme population separee par ce que le tampon porte VRAIMENT : `pl` exactement nul
 // (rien n'a ete ecrit) contre `pl` dans les 16 premiers quanta (geometrie lointaine que le seuil
 // `1e-6f` mislibelle). Voir le commentaire du site de publication.
-uint64_t g_fam_absent_zero[4] = {0, 0, 0, 0};
-uint64_t g_fam_absent_farq[4] = {0, 0, 0, 0};
+uint64_t g_fam_absent_zero[kFamCount] = {};
+uint64_t g_fam_absent_farq[kFamCount] = {};
 
 // lighting-ao-indirect (c)/(g) : les plages ECARTEES de la prepasse — les draws que la passe
 // principale dessine SANS ecrire la profondeur. Recensees au CHARGEMENT par les contributeurs,
@@ -306,15 +339,6 @@ void ensure_white() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
-
-// Verdict (c) de l'owner : « le fragment juge par l'estimateur n'est peut-etre pas celui qui est
-// DESSINE — autre passe, autre niveau de detail, autre chemin (shrub contre tfrag contre TIE) ».
-// Le stencil ne portait qu'un booleen « monde / pas monde » : il ne pouvait pas repondre. Il porte
-// desormais LA FAMILLE, et les populations de `ao_geom_*` se lisent par famille.
-//   0 = pas un bucket monde   1 = TFRAG   2 = TIE   3 = SHRUB
-constexpr int kFamTfrag = 1, kFamTie = 2, kFamShrub = 3;
-[[maybe_unused]] constexpr int kFamCount = 4;
-[[maybe_unused]] const char* kFamNames[kFamCount] = {"-", "tfrag", "tie", "shrub"};
 
 int world_bucket_family(int id) {
   using B = jak1::BucketId;
@@ -869,7 +893,22 @@ void publish_all() {
     autoport_proof::publish((base + "_absent_px").c_str(), g_fam_absent[f]);
     autoport_proof::publish((base + "_gap64_px").c_str(), g_fam_gap64[f]);
     autoport_proof::publish((base + "_legacy_gap64_px").c_str(), g_fam_gap64_legacy[f]);
+    // (terme 3) Parmi les « absent » de cette famille, ceux que le bras SANS DECOUPE D'ALPHA
+    // porte : la prepasse dessine bien cette geometrie, c'est son alpha-test qui l'a jetee.
+    autoport_proof::publish((base + "_absent_nocut_px").c_str(), g_fam_absent_nocut[f]);
+    // Les px d'« absent » separes : bord de silhouette contre trou franc (un correctif de
+    // dessin ne peut retirer que les seconds), et `pl` exactement nul contre `pl` dans les 16
+    // premiers quanta (geometrie lointaine que le seuil `1e-6f` mislibelle).
+    autoport_proof::publish((base + "_absent_edge_px").c_str(), g_fam_absent_edge[f]);
+    autoport_proof::publish((base + "_absent_inner_px").c_str(), g_fam_absent_inner[f]);
+    autoport_proof::publish((base + "_absent_zero_px").c_str(), g_fam_absent_zero[f]);
+    autoport_proof::publish((base + "_absent_farq_px").c_str(), g_fam_absent_farq[f]);
   }
+  // (terme 3) Le compte d'images ou le troisieme instantane a ete relu, et son TEMOIN : les
+  // pixels ou le bras sans decoupe porte une profondeur que le bras livre n'a pas. A zero,
+  // tous les `_absent_nocut_px` ci-dessus sont muets, pas innocents.
+  autoport_proof::publish("ao_geom_nocut_frames", g_geom_nocut_frames);
+  autoport_proof::publish("ao_geom_nocut_extra_px", g_geom_nocut_extra_px);
   // ── LES DEUX CLES DE VENT, ET POURQUOI L'UNE CHANGE DE NOM ──────────────────────────────
   // Jusqu'au 2026-09-14 ces deux compteurs se publiaient sous `ao_sway_gap_px` /
   // `ao_sway_gap_world_px`. Ils ne mesurent PAS un ecart de prepasse a la scene : ils comptent
@@ -884,10 +923,17 @@ void publish_all() {
   // LA GRANDEUR DE LA PORTE (terme 3) : sur les deux familles qui plient — shrub et TIE — les
   // pixels dont la prepasse porte une AUTRE geometrie que la scene (`_gap64`) ou n'en porte
   // AUCUNE (`_absent`). Mesuree brise ALLUMEE (`ao_sway_wind_on`).
-  const uint64_t sway_gap = g_fam_gap64[kFamShrub] + g_fam_absent[kFamShrub] +
-                            g_fam_gap64[kFamTie] + g_fam_absent[kFamTie];
-  const uint64_t sway_gap_legacy = g_fam_gap64_legacy[kFamShrub] + g_fam_gap64_legacy[kFamTie];
-  const uint64_t sway_pop = g_fam_cover[kFamShrub] + g_fam_cover[kFamTie];
+  // LA VALEUR DE LA PORTE EST INCHANGEE PAR LE DECOUPAGE : `kSwayFams` reunit shrub et les QUATRE
+  // sous-chemins TIE (statique, base d'envmap, second draw d'envmap, vent), qui portaient tous
+  // la valeur `kFamTie` avant que `proof_stencil_family` ne les separe. Seules les
+  // SOUS-POPULATIONS sont nommees ;
+  // la somme, elle, couvre exactement la meme geometrie qu'a l'essai 11.
+  uint64_t sway_gap = 0, sway_gap_legacy = 0, sway_pop = 0;
+  for (const int f : kSwayFams) {
+    sway_gap += g_fam_gap64[f] + g_fam_absent[f];
+    sway_gap_legacy += g_fam_gap64_legacy[f];
+    sway_pop += g_fam_cover[f];
+  }
   autoport_proof::publish("ao_sway_gap_px", sway_gap);
   autoport_proof::publish("ao_sway_gap_pop_px", sway_pop);
   autoport_proof::publish("ao_sway_gap_legacy_px", sway_gap_legacy);
@@ -900,25 +946,30 @@ void publish_all() {
   // aurait laisses passer. Le second DOIT etre strictement inferieur au premier : egaux, le
   // changement n'a rien change et il faut le dire au lieu de le supposer.
   autoport_proof::publish("ao_tie_wind_groups_prepass", g_tie_wind_groups_pre);
-  // Les px d'`ao_geom_*_absent_px` : bord de silhouette, ou trou franc ? Un correctif de dessin ne
-  // peut retirer que les seconds. LES INDICES VIENNENT DES CONSTANTES, PAS D'UN COMMENTAIRE : la
-  // premiere version de ces six lignes avait ecrit shrub et tfrag a l'envers en se fiant a un
-  // commentaire (`kFamTfrag = 1`, `kFamTie = 2`, `kFamShrub = 3`).
-  autoport_proof::publish("ao_geom_tie_absent_edge_px", g_fam_absent_edge[kFamTie]);
-  autoport_proof::publish("ao_geom_tie_absent_inner_px", g_fam_absent_inner[kFamTie]);
-  autoport_proof::publish("ao_geom_shrub_absent_edge_px", g_fam_absent_edge[kFamShrub]);
-  autoport_proof::publish("ao_geom_shrub_absent_inner_px", g_fam_absent_inner[kFamShrub]);
-  autoport_proof::publish("ao_geom_tfrag_absent_edge_px", g_fam_absent_edge[kFamTfrag]);
-  autoport_proof::publish("ao_geom_tfrag_absent_inner_px", g_fam_absent_inner[kFamTfrag]);
-  // ── CE QUE LE SEUIL D'« ABSENT » COMPTE VRAIMENT, ET LA PORTE N'EN BOUGE PAS ──────────────
-  // Le test est `pl <= 1e-6f`, soit les 16,8 PREMIERS QUANTA de la profondeur 24 bits — et la
-  // convention PS2 est inversee : 0 = le plus LOIN. Une geometrie TIE lointaine dont la prepasse
-  // ecrit bien une profondeur, mais dans ces 16 quanta, est donc comptee « absente » alors
-  // qu'elle est DESSINEE. Ces deux cles separent le trou franc (`pl` exactement 0, le tampon a
-  // ete efface et rien n'a ecrit) de ce mislibelle. `ao_sway_gap_px`, le terme 3 de la porte, ne
-  // change PAS de definition : on publie a cote, on ne se donne pas raison tout seul.
-  autoport_proof::publish("ao_geom_tie_absent_zero_px", g_fam_absent_zero[kFamTie]);
-  autoport_proof::publish("ao_geom_tie_absent_farq_px", g_fam_absent_farq[kFamTie]);
+  // ── LES QUATRE POPULATIONS D'« ABSENT », ET POURQUOI ELLES SONT DANS LA BOUCLE ──────────
+  // Bord de silhouette contre trou franc (un correctif de dessin ne peut retirer que les
+  // seconds), et `pl` exactement nul contre `pl` dans les 16 premiers quanta. Elles etaient
+  // ecrites a la main famille par famille : une sous-famille ajoutee restait muette, et une
+  // premiere version avait ecrit shrub et tfrag a l'envers en se fiant a un commentaire. Elles
+  // se publient maintenant dans la boucle `for (int f = 1; f < kFamCount; f++)` ci-dessus, sous
+  // `ao_geom_<famille>_absent_edge_px` / `_inner_px` / `_zero_px` / `_farq_px`.
+  // Le test d'« absent » est `pl <= 1e-6f`, soit les 16,8 PREMIERS QUANTA de la profondeur
+  // 24 bits — et la convention PS2 est inversee : 0 = le plus LOIN. Une geometrie TIE lointaine
+  // dont la prepasse ecrit bien une profondeur, mais dans ces 16 quanta, serait comptee
+  // « absente » alors qu'elle est DESSINEE ; `_zero_px` contre `_farq_px` separe les deux.
+  // `ao_sway_gap_px`, le terme 3 de la porte, ne change PAS de definition.
+  // LES TROIS AGREGATS DE TIE, PUBLIES EXPLICITEMENT : l'ancienne cle `ao_geom_tie_absent_px` a
+  // CHANGE DE SENS (elle ne compte plus que le TIE statique). Ces trois-la portent ce qu'elle
+  // portait avant le decoupage, pour que le changement se lise au lieu de se deviner.
+  autoport_proof::publish("ao_geom_tie_all_absent_px",
+                          g_fam_absent[kFamTie] + g_fam_absent[kFamTieEnv] +
+                              g_fam_absent[kFamTieEnv2] + g_fam_absent[kFamTieWind]);
+  autoport_proof::publish("ao_geom_tie_all_gap64_px",
+                          g_fam_gap64[kFamTie] + g_fam_gap64[kFamTieEnv] +
+                              g_fam_gap64[kFamTieEnv2] + g_fam_gap64[kFamTieWind]);
+  autoport_proof::publish("ao_geom_tie_all_cover_px",
+                          g_fam_cover[kFamTie] + g_fam_cover[kFamTieEnv] +
+                              g_fam_cover[kFamTieEnv2] + g_fam_cover[kFamTieWind]);
   autoport_proof::publish("ao_tie_wind_groups_visgated", g_tie_wind_groups_visgated);
   // (A2) LE FANTOME AU-DESSUS DU VIDE — l'instrument qui voit ce que l'owner voit. Trois fois :
   // « des ombres d'occlusion ambiante qui flottent au dessus des brins d'herbe », « l'occlusion
@@ -1443,6 +1494,15 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   if (g_probe_frame) {
     uint64_t won = 0, wcover = 0, wfringe = 0;
     run_prepass(rs, cam, w, h, /*armed=*/false, true, &won, &wcover, &wfringe, nullptr);
+    // (terme 3) On fige la profondeur de CE bras : meme dessin, meme deplacement de sommet,
+    // SEULE la decoupe d'alpha change. Une seule variable separe les deux instantanes.
+    if (g_geom_frame) {
+      if (read_prepass_depth(w, h, &g_pre_depth_nocut)) {
+        g_geom_nocut_frames++;
+      } else {
+        g_pre_depth_nocut.clear();
+      }
+    }
     g_witness_px += won;
     g_witness_cover_px += wcover;
   }
@@ -1478,6 +1538,15 @@ void proof_before_bucket(int bucket_id) {
   glStencilMask(0xFF);
   glStencilFunc(GL_ALWAYS, world_bucket_family(bucket_id), 0xFF);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+}
+
+// Le bucket a deja pose le test, le masque et `GL_REPLACE` ; on ne change QUE la reference. Hors
+// image sondee le stencil de preuve n'est pas arme : ne touche a rien.
+void proof_stencil_family(int fam) {
+  if (!g_probe_frame || fam <= 0 || fam >= kFamCount) {
+    return;
+  }
+  glStencilFunc(GL_ALWAYS, fam, 0xFF);
 }
 
 namespace {
@@ -1746,6 +1815,12 @@ void proof_post_opaque(SharedRenderState* rs) {
           g_phantom_void_legacy_px++;
         }
       }
+      // (terme 3) LE TEMOIN de l'instantane sans decoupe, sur TOUT l'ecran et AVANT le filtre
+      // de famille : les pixels que le bras livre n'a pas et que le bras sans decoupe porte.
+      if (g_pre_depth_nocut.size() >= (size_t)w * h && pl <= 1e-6f &&
+          g_pre_depth_nocut[i] > 1e-6f) {
+        g_geom_nocut_extra_px++;
+      }
       const int fam =
           (px[i * 4 + 3] > 0 && px[i * 4 + 3] < (uint8_t)kFamCount) ? (int)px[i * 4 + 3] : 0;
       if (fam == 0) {
@@ -1763,6 +1838,9 @@ void proof_post_opaque(SharedRenderState* rs) {
       if (pl <= 1e-6f) {
         g_geom_absent++;
         g_fam_absent[fam]++;
+        if (g_pre_depth_nocut.size() >= (size_t)w * h && g_pre_depth_nocut[i] > 1e-6f) {
+          g_fam_absent_nocut[fam]++;
+        }
         // ── CE QU'EST UN PIXEL « ABSENT », SEPARE EN DEUX ─────────────────────────────────
         // Deux causes possibles produisent le MEME compte, et elles n'appellent pas le meme
         // correctif : soit la prepasse ne dessine PAS cette classe de geometrie (le pixel est

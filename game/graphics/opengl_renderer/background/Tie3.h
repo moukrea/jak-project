@@ -207,17 +207,26 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     // ranges for the NORMAL_ENVMAP category so they don't clobber the NORMAL ranges above.
     std::vector<std::pair<u32, u32>> pbr_full_ranges_env;
     bool pbr_full_ranges_env_built = false;
+    // lighting-ao-indirect (terme 3, correctif C) : le TROISIEME jeu, pour
+    // NORMAL_ENVMAP_SECOND_DRAW (la couche additive de brillance). Il lui faut le sien :
+    // `ensure_tie_full_ranges` ne clait que sur un booleen `env_cat`, et l'appeler avec cette
+    // categorie ECRASERAIT `pbr_full_ranges`, c'est-a-dire les casteurs de l'ombre solaire
+    // (Tie3.cpp:1476).
+    std::vector<std::pair<u32, u32>> pbr_full_ranges_env2;
+    bool pbr_full_ranges_env2_built = false;
     // lighting-ao-indirect : les MEMES plages, mais SANS coalescence par-dessus une frontiere
     // de texture — bâties dans la meme boucle que ci-dessus. La prepasse de profondeur doit
     // rejouer l'alpha-test du feuillage a decoupe ; deux draws ne fusionnent que s'ils sont
     // adjacents ET tous deux sans test. `tex` porte l'ID de texture du fr3, pas le nom GL.
     std::vector<prepass::DepthRange> prepass_ranges;
     std::vector<prepass::DepthRange> prepass_ranges_env;
+    std::vector<prepass::DepthRange> prepass_ranges_env2;
     // lighting-ao-indirect (c)/(g) : les plages ECARTEES — les draws dont la passe principale
     // coupe le z-write (`prepass_writes_depth` faux). Jamais dessinees par la prepasse livree ;
     // seule la passe de mesure « occluder fantome » les rejoue.
     std::vector<prepass::DepthRange> prepass_noz_ranges;
     std::vector<prepass::DepthRange> prepass_noz_ranges_env;
+    std::vector<prepass::DepthRange> prepass_noz_ranges_env2;
 #endif
   };
 
