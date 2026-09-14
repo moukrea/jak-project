@@ -34,6 +34,9 @@ AUTOPORT_FEATURE_SITE("foliage-wind");
 namespace foliage_wind {
 namespace {
 
+constexpr const char* kTrunkItemId = "shrub-trunk-contact";
+AUTOPORT_FEATURE_SITE(kTrunkItemId);
+
 // ----------------------------------------------------------------------------- lecture de bouton
 // Meme discipline que les boutons existants de Tie3.cpp : propriete Android / variable
 // d'environnement bureau, valeur illisible, negative, NaN ou hors borne -> le DEFAUT, jamais un
@@ -1515,6 +1518,8 @@ void trunk_census_note(const std::string& level,
   g_trunk_verts += trunk_verts;
   g_joint_pairs += joint_pairs;
   for (const auto& v : veg) {
+    // Sommets canoniques classes, une fois par niveau ; note_hit_for respecte le bras OFF.
+    autoport_proof::note_hit_for(kTrunkItemId, v.si->n_verts);
     auto inserted = g_trunk_class_rows.emplace(TrunkProtoKey{level, *v.proto}, TrunkClassCounts{});
     auto& counts = inserted.first->second;
     if (inserted.second) counts.row_id = (u32)g_trunk_class_rows.size() - 1;

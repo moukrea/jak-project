@@ -219,8 +219,10 @@ void emit_locked() {
   const std::string& id = feature_str();
   feature_census_locked();
   if (!id.empty()) {
-    // This item's contract counts only static TIE fragments, not the shared census.
-    const uint64_t hits = id == "ao-prepass-tie-alpha" ? site_hits_ref()[id] : g_hits;
+    // These contracts count their own fragments or canonical vertices.
+    const uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact")
+                              ? site_hits_ref()[id]
+                              : g_hits;
     fmt::print("FEATURE {} armed={} hits={}\n", id, armed() ? 1 : 0, hits);
   }
   for (const auto& kv : g_keys) {

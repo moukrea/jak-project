@@ -19,10 +19,8 @@
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
 
-// shrub-trunk-contact (owner 2026-09-13) : le site de l'item cote SHRUB. Declare au chargement,
-// avant toute image, pour que la porte separe « aucun site compile ici » de « site jamais atteint ».
+// Armement des ancres SHRUB ; le comptage canonique est dans foliage_wind.cpp.
 static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
-AUTOPORT_FEATURE_SITE(kTrunkItemId);
 
 static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
 static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
@@ -374,9 +372,6 @@ void Shrub::update_load(const LevelData* loader_data) {
         // contact vaut zero EXACTEMENT, pour tous ses sommets — ce n'est pas un coefficient a zero,
         // c'est une branche non prise. La plante posee dessus garde la sienne et continue de
         // recevoir le contact ; l'ancre seule ne prouve ni son mouvement ni la tenue des jonctions.
-        // `hits` = les sommets de shrub CLASSES, troncs et feuillages confondus : c'est ce que le
-        // contrat nomme, et c'est ce qui tombe a zero quand le bras `--off` desarme l'item.
-        autoport_proof::note_hit_for(kTrunkItemId, si.n_verts);
         const bool trunk = si.load_bearing && autoport_proof::armed_for(kTrunkItemId);
         foliage_wind::trunk_note_anchor(si, !trunk, pivot_y);
         if (trunk) {

@@ -15,10 +15,8 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/system/autoport_proof.h"
 
-// shrub-trunk-contact (owner 2026-09-13) : le site de l'item cote TIE — c'est la que vit le TRONC
-// du mini-palmier (`palmplant-base.mb`), la frondaison etant un SHRUB.
+// Armement des ancres TIE ; le comptage canonique est dans foliage_wind.cpp.
 static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
-AUTOPORT_FEATURE_SITE(kTrunkItemId);
 
 constexpr float LOAD_BUDGET = 4.5f;
 
@@ -630,7 +628,6 @@ class TieLoadStage : public LoaderStage {
               // par absence d'entree, pas par un coefficient nul.
               const bool trunk =
                   si_it->second->load_bearing && trunk_armed;
-              autoport_proof::note_hit_for(kTrunkItemId, si_it->second->n_verts);
               if (trunk) {
                 contact_vi += count;
                 continue;
