@@ -28,6 +28,7 @@
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/graphics/refset.h"
 #include "game/system/overlap_census.h"
 #include "game/graphics/render_pace.h"
@@ -1190,6 +1191,10 @@ void GLDisplay::render() {
   // perf-gl-waits : la frontiere d'image du fil GRAPHIQUE. Le seau de requetes pilote de
   // l'image qui vient de finir est bascule ici, et son maximum est ce que la porte lit.
   gl_query_census::frame_boundary();
+  // perf-fbo-passes : la MEME frontiere d'image. Le seau de passes plein ecran de l'image qui
+  // vient de finir bascule ici, et son maximum est ce que la porte lit. Pose des DEUX cotes
+  // (voir android_gfx.cpp) : un site pose d'un seul cote rend la preuve de l'autre muette.
+  fb_passes::frame_boundary();
 }
 
 /*!

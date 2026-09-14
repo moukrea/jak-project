@@ -154,6 +154,25 @@ class OpenGLRenderer {
   // Grender-split: true once begin_ui_pass() has composited+switched this frame.
   bool m_ui_pass_active = false;
 
+  // perf-fbo-passes — LA PASSE UI DESSINEE DIRECTEMENT DANS LA FENETRE (voir fb_passes.h).
+  // Meme mecanique que le renderer Android, qui est une COPIE separee de celui-ci : un
+  // correctif pose d'un seul cote laisse l'autre plateforme avec le defaut entier.
+  bool m_ui_direct_allowed = false;
+  bool m_ui_direct = false;
+  const char* m_ui_direct_block = "-";
+  int m_window_depth_bits = -1;
+  // Les reglages de luminosite/contraste du quad de present. Ils arrivent par `RenderOptions`
+  // et etaient lus au seul point d'appel du quad ; la passe UI directe le tire plus tot dans
+  // l'image, donc ils sont retenus des `setup_frame` — MEME image, pas de retard d'une frame.
+  int m_present_bc_color = 0;
+  int m_present_bc_alpha = 128;
+
+  // Le quad de present : la SEULE copie de l'image vers la fenetre, site unique.
+  void present_quad_to_window(const Fbo& src,
+                              SharedRenderState* render_state,
+                              int brightness_contrast_color,
+                              int brightness_contrast_alpha);
+
   GLuint screen_vao = 0;  // vertex array object for a screen-space draw
   GLuint screen_vbo = 0;  // vertex buffer object for a screen-space draw
 

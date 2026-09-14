@@ -130,6 +130,24 @@ class AndroidOpenGLRenderer {
   // Grender-split: true once begin_ui_pass() has composited+switched this frame.
   bool m_ui_pass_active = false;
 
+  // perf-fbo-passes — LA PASSE UI DESSINEE DIRECTEMENT DANS LA FENETRE.
+  // `m_ui_direct_allowed` est decide une fois par image dans setup_frame (la geometrie et les
+  // regimes HDR/refset y sont connus) ; `m_ui_direct` dit que begin_ui_pass l'a effectivement
+  // prise, donc que le quad de present a DEJA eu lieu et que do_pcrtc_effects ne doit pas le
+  // refaire. `m_ui_direct_block` NOMME le refus : un refus muet serait indiscernable d'un
+  // correctif absent, et la preuve le publie sous `fb_ui_direct_blocked`.
+  bool m_ui_direct_allowed = false;
+  bool m_ui_direct = false;
+  const char* m_ui_direct_block = "-";
+  // Bits de profondeur/gabarit du framebuffer par DEFAUT, lus une seule fois (la passe UI
+  // directe y ecrit le depth du HUD). -1 = pas encore lu.
+
+  // Le quad de present : la SEULE copie de l'image vers la fenetre. Factorise parce qu'il a
+  // desormais deux points d'appel (la passe UI directe le tire en cours d'image, la chaine
+  // d'origine en fin d'image) et que les uniformes de sortie HDR ne doivent exister qu'a UN
+  // seul endroit.
+  void present_quad_to_window(const Fbo& src, SharedRenderState* render_state);
+
   std::shared_ptr<Generic2> m_generic2;
   // Grecharged-title-logo-fullres: the shared foreground merc core, kept here (like m_generic2,
   // and like upstream OpenGLRenderer) so begin_ui_pass can replay the deferred title/ND-logo

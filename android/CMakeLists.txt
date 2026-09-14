@@ -783,6 +783,7 @@ add_library(gk SHARED
     # references. Un .cpp neuf absent d'ICI compile sur x86 et meurt au lien en arm64.
     "${JAK_ROOT}/game/graphics/opengl_renderer/lighting_census.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/shade_proof.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/fb_passes.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/hdr.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/hdr_output.cpp"
     "${JAK_ROOT}/game/graphics/fire_red_census.cpp"

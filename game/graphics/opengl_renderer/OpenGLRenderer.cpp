@@ -20,6 +20,7 @@
 #include "game/graphics/gfx.h"
 #include "game/settings/settings.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DepthCue.h"
@@ -1319,9 +1320,11 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   hdr::frame_end(m_fbo_state.render_fbo->color_format);
   // hdr-display-output : APRES hdr::frame_end ; `m_ui_pass_active` tient jusqu'au prochain
   // setup_frame, donc le format publie est celui du tampon UI reellement dessine cette image.
-  hdr_output::frame_end(
-      hdr::last_frame_sites(),
-      m_ui_pass_active ? m_fbo_state.resources.ui_buffer.color_format : GL_RGBA8);
+  // perf-fbo-passes : voir android_opengl_renderer.cpp, meme raison.
+  hdr_output::frame_end(hdr::last_frame_sites(),
+                        (m_ui_pass_active && !m_ui_direct)
+                            ? m_fbo_state.resources.ui_buffer.color_format
+                            : GL_RGBA8);
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier
@@ -1376,6 +1379,16 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     g_current_renderer = "gpu-sync";
     { gl_query_census::Armed _ap("gpu-sync"); glFinish(); }
   }
+
+  // perf-fbo-passes — DERNIERE LECTURE DU DEPTH/STENCIL DE LA FENETRE : il n'y en a jamais eu.
+  // Rien ne lit la profondeur de FB0 — le quad de present dessine depth-test eteint, imgui
+  // aussi, et la 2D de la passe UI directe ecrit sa propre profondeur apres l'avoir remise a
+  // zero. Sur un tiler c'est le gros du gain ; sur un GPU de bureau c'est au minimum une
+  // ecriture de moins que le pilote peut elider. (Le meme geste vit dans
+  // android_opengl_renderer.cpp : ce fichier-ci en est une COPIE separee.)
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  fb_passes::end_pass_discarding_depth("window", GL_FRAMEBUFFER, true,
+                                       fb_passes::window_has_depth_stencil());
 
   g_current_renderer = "end";
 }
@@ -1512,6 +1525,9 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
 
   ASSERT_MSG(!m_fbo_state.render_fbo->is_window, "window fbo");
 
+  // perf-fbo-passes : retenus pour le quad de present, que la passe UI directe tire plus tot.
+  m_present_bc_color = settings.brightness_contrast_color;
+  m_present_bc_alpha = settings.brightness_contrast_alpha;
   if (m_version == GameVersion::Jak1) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, m_fbo_state.resources.window.width, m_fbo_state.resources.window.height);
@@ -1520,7 +1536,23 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
     // GLES 2.0+; glClearDepth(double) is not in GLES.
     glClearDepthf(0.0f);
     glDepthMask(GL_TRUE);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    // perf-fbo-passes : voir android_opengl_renderer.cpp, meme raison au mot pres. Le quad de
+    // present reecrit la region de dessin a la fin de CHAQUE image ; quand cette region couvre
+    // la fenetre entiere, ce clear n'ecrit que des pixels deja condamnes. Quand elle ne la
+    // couvre pas (letterbox), les barres restent a peindre et le clear est conserve tel quel :
+    // « recouvert » est un fait geometrique de l'image, pas un etat de notre correctif.
+    {
+      gl_query_census::Armed _ap("window-depth-bits");
+      m_window_depth_bits = fb_passes::window_has_depth_stencil() ? 1 : 0;
+    }
+    const bool quad_covers_window =
+        settings.draw_region_width >= m_fbo_state.resources.window.width &&
+        settings.draw_region_height >= m_fbo_state.resources.window.height;
+    const bool drop_window_clear = quad_covers_window && fb_passes::fix_armed();
+    fb_passes::note_window_clear(!drop_window_clear, quad_covers_window);
+    if (!drop_window_clear) {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    }
     glDisable(GL_BLEND);
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
@@ -1567,6 +1599,7 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   // into a separate native-resolution FBO so it stays crisp while only the 3D is
   // upscaled. Inactive (and zero-cost) when the scene already fills the display.
   m_ui_pass_active = false;
+  m_ui_direct = false;
   // Grender-split: drop any deferred HUD draws left from a frame where the UI
   // pass never ran (defensive; the DEBUG-bucket fallback normally drains them).
   m_generic2->clear_deferred_hud_draws();
@@ -1584,7 +1617,38 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   const bool split_active = ((settings.game_res_w < native_ui_w ||
                               settings.game_res_h < native_ui_h) || hdr_chain) &&
                             native_ui_w > 0 && native_ui_h > 0;
-  if (split_active) {
+  // perf-fbo-passes — PEUT-ON DESSINER L'UI DIRECTEMENT DANS LA FENETRE ? (voir fb_passes.h)
+  // Chaque refus est NOMME : un refus muet se lirait comme un correctif absent.
+  //   msaa : le rendu multi-echantillonne doit etre resolu dans un tampon simple avant d'etre
+  //          echantillonne par le quad — la copie intermediaire est irreductible.
+  m_ui_direct_block = "-";
+  m_ui_direct_allowed = false;
+  if (!split_active) {
+    m_ui_direct_block = "no-split";
+  } else if (!fb_passes::fix_armed()) {
+    m_ui_direct_block = "disarmed";
+  } else if (hdr_chain) {
+    m_ui_direct_block = "hdr-chain";
+  } else if (hdr_output::ui_buffer_format() != GL_RGBA8 ||
+             hdr_output::window_target_format() != GL_RGBA8) {
+    m_ui_direct_block = "hdr-output";
+  } else if (refset::enabled()) {
+    m_ui_direct_block = "refset";
+  } else if (m_fbo_state.resources.resolve_buffer.valid) {
+    m_ui_direct_block = "msaa";
+  } else if (m_window_depth_bits <= 0) {
+    m_ui_direct_block = "no-window-depth";
+  } else {
+    m_ui_direct_allowed = true;
+  }
+  fb_passes::note_frame_geometry(m_fbo_state.resources.window.width,
+                                 m_fbo_state.resources.window.height,
+                                 m_render_state.draw_region_w, m_render_state.draw_region_h,
+                                 m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+                                 settings.game_res_w, settings.game_res_h);
+  fb_passes::note_ui_regime(split_active, false, m_ui_direct_block);
+
+  if (split_active && !m_ui_direct_allowed) {
     // hdr-display-output : le tampon UI suit le format demande par la sortie ecran (RGBA16F
     // quand la surface est HDR, RGBA8 sinon) ; un changement de format recree le FBO.
     if (!m_fbo_state.resources.ui_buffer.matches(native_ui_w, native_ui_h, 1,
@@ -1597,6 +1661,10 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
     // make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
     glViewport(0, 0, settings.game_res_w, settings.game_res_h);
+  } else if (split_active) {
+    // perf-fbo-passes : passe UI DIRECTE — aucun tampon intermediaire n'est cree ni garde.
+    m_fbo_state.resources.ui_buffer.clear();
+    m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
   } else {
     m_render_state.begin_2d_ui_pass = nullptr;
   }
@@ -1622,6 +1690,7 @@ void OpenGLRenderer::begin_ui_pass() {
     hdr::note_display_copy("OpenGLRenderer.cpp:msaa-resolve-ui",
                            m_fbo_state.render_fbo->color_format,
                            m_fbo_state.resources.resolve_buffer.color_format);
+    fb_passes::note_msaa_resolve();
     scene = &m_fbo_state.resources.resolve_buffer;
   }
 
@@ -1629,41 +1698,94 @@ void OpenGLRenderer::begin_ui_pass() {
   // chaine d'affichage. Chaine active => elle le fait par le programme `tonemap` (compression
   // de plage appliquee une fois) ; chaine inactive => le blit d'origine, inchange.
   hdr::probe_scene(scene->fbo_id, scene->width, scene->height, scene->color_format);
-  bool tonemapped = false;
-  if (hdr::chain_active()) {
-    tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
-                                   "OpenGLRenderer.cpp:begin_ui_pass", *scene->tex_id,
-                                   scene->width, scene->height, ui.fbo_id, ui.width, ui.height,
-                                   screen_vao, screen_vbo);
-  }
-  if (!tonemapped) {
-    // Upscale-blit the scaled 3D scene into the native UI FBO: this is the
-    // "upscale 3D" composite. The UI is then drawn on top at native resolution.
+
+  if (m_ui_direct_allowed) {
+    // perf-fbo-passes — LA SCENE ATTEINT LA FENETRE ICI, UNE FOIS, ET LA 2D SUIT DANS FB0.
+    // Meme geste que dans le renderer Android : le tampon UI natif et sa recopie 1:1 vers la
+    // fenetre disparaissent tous les deux, l'ordre de dessin ne change pas.
+    m_ui_direct = true;
+    {
+      // perf-fbo-passes : le quad est tire AU MILIEU de l'image ; la 2D qui suit herite de son
+      // etat GL. La garde le rend et le reprend (voir fb_passes.h : 3 177 erreurs GL et un
+      // test de profondeur eteint sans elle).
+      gl_query_census::Armed _ap("present-state-guard");
+      fb_passes::PresentStateGuard _guard;
+    present_quad_to_window(*scene, &m_render_state, m_present_bc_color, m_present_bc_alpha);
+    }
+
+    // perf-fbo-passes — DERNIERE LECTURE DU DEPTH/STENCIL DE LA SCENE. Le quad n'a
+    // echantillonne que la COULEUR ; l'AO, le depth-cue et la sonde de scene tournent dans les
+    // buckets 3D, donc avant ce point.
+    // QUAND L'EAU AURA SA COPIE DE SCENE W0/W2 : elle lit la profondeur de la scene et devra
+    // s'executer AVANT cette ligne. Si elle atterrit apres, remonter cet abandon juste apres
+    // elle — pas avant.
     glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
-    glBlitFramebuffer(0, 0, scene->width, scene->height, 0, 0, ui.width, ui.height,
-                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    hdr::note_display_copy("OpenGLRenderer.cpp:ui-composite-blit", scene->color_format,
-                           ui.color_format);
+    fb_passes::end_pass_discarding_depth("scene", GL_READ_FRAMEBUFFER, false,
+                                         scene->zbuf_stencil_id.has_value());
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDepthMask(GL_TRUE);
+    glClearDepthf(0.0f);
+    glClearStencil(0);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glDisable(GL_BLEND);
+    glViewport(m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+               m_render_state.draw_region_w, m_render_state.draw_region_h);
+
+    m_render_state.render_fb = 0;
+    m_render_state.render_fb_color_format = GL_RGBA8;
+    m_render_state.render_fb_x = m_render_state.draw_offset_x;
+    m_render_state.render_fb_y = m_render_state.draw_offset_y;
+    m_render_state.render_fb_w = m_render_state.draw_region_w;
+    m_render_state.render_fb_h = m_render_state.draw_region_h;
+    m_render_state.stencil_dirty = false;
+    fb_passes::note_ui_direct();
+  } else {
+    bool tonemapped = false;
+    if (hdr::chain_active()) {
+      tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
+                                     "OpenGLRenderer.cpp:begin_ui_pass", *scene->tex_id,
+                                     scene->width, scene->height, ui.fbo_id, ui.width, ui.height,
+                                     screen_vao, screen_vbo);
+    }
+    if (tonemapped) {
+      fb_passes::note_fullscreen_copy("scene-to-ui-tonemap");
+    }
+    if (!tonemapped) {
+      // Upscale-blit the scaled 3D scene into the native UI FBO: this is the
+      // "upscale 3D" composite. The UI is then drawn on top at native resolution.
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+      glBlitFramebuffer(0, 0, scene->width, scene->height, 0, 0, ui.width, ui.height,
+                        GL_COLOR_BUFFER_BIT, GL_LINEAR);
+      fb_passes::note_fullscreen_copy("scene-to-ui-blit");
+      hdr::note_display_copy("OpenGLRenderer.cpp:ui-composite-blit", scene->color_format,
+                             ui.color_format);
+    }
+
+    // perf-fbo-passes : meme geste que dans la branche directe (voir la note W0/W2 ci-dessus).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
+    fb_passes::end_pass_discarding_depth("scene", GL_READ_FRAMEBUFFER, false,
+                                         scene->zbuf_stencil_id.has_value());
+
+    // Re-target the UI FBO for the 2D pass. Keep the composited color; clear depth so
+    // the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded by stale depth.
+    glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
+    glDepthMask(GL_TRUE);
+    glClearDepthf(0.0f);
+    glClearStencil(0);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glDisable(GL_BLEND);
+    glViewport(0, 0, ui.width, ui.height);
+
+    m_render_state.render_fb = ui.fbo_id;
+    m_render_state.render_fb_color_format = ui.color_format;
+    m_render_state.render_fb_x = 0;
+    m_render_state.render_fb_y = 0;
+    m_render_state.render_fb_w = ui.width;
+    m_render_state.render_fb_h = ui.height;
+    m_render_state.stencil_dirty = false;
   }
-
-  // Re-target the UI FBO for the 2D pass. Keep the composited color; clear depth so
-  // the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded by stale depth.
-  glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
-  glDepthMask(GL_TRUE);
-  glClearDepthf(0.0f);
-  glClearStencil(0);
-  glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glDisable(GL_BLEND);
-  glViewport(0, 0, ui.width, ui.height);
-
-  m_render_state.render_fb = ui.fbo_id;
-  m_render_state.render_fb_color_format = ui.color_format;
-  m_render_state.render_fb_x = 0;
-  m_render_state.render_fb_y = 0;
-  m_render_state.render_fb_w = ui.width;
-  m_render_state.render_fb_h = ui.height;
-  m_render_state.stencil_dirty = false;
 
   // Grecharged-title-logo-fullres: replay the title/ND-logo merc models here, at native res, on
   // top of the just-upscaled flythrough and BEFORE the HUD/2D pass — so the menu and PRESS START
@@ -2139,80 +2261,25 @@ void OpenGLRenderer::finish_screenshot(const std::string& output_name,
   }
 }
 
-void OpenGLRenderer::do_pcrtc_effects(float alp,
-                                      int brightness_contrast_color,
-                                      int brightness_contrast_alpha,
-                                      SharedRenderState* render_state,
-                                      ScopedProfilerNode& prof) {
-  // lighting-hdr : la scene ne doit JAMAIS atteindre la fenetre en flottant — ce serait une
-  // seconde compression de plage, faite par la conversion de format et non par un shader.
-  // `begin_ui_pass()` est idempotent et porte le site unique ; si aucun bucket ne l'a ouvert
-  // (image sans 2D), on l'ouvre ici. La chaine active garantit que le rappel existe.
-  if (hdr::chain_active() && !m_ui_pass_active && m_render_state.begin_2d_ui_pass) {
-    begin_ui_pass();
-  }
-
-  Fbo* window_blit_src = nullptr;
-  if (m_ui_pass_active) {
-    // Grender-split: the UI FBO already holds the composited image (upscaled 3D
-    // scene + native-resolution 2D UI) at the native draw-region size; blit it
-    // straight to the window. The scene was resolved during begin_ui_pass().
-    window_blit_src = &m_fbo_state.resources.ui_buffer;
-  } else if (m_fbo_state.resources.resolve_buffer.valid) {
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo_state.resources.resolve_buffer.fbo_id);
-    glBlitFramebuffer(0,                                            // srcX0
-                      0,                                            // srcY0
-                      m_fbo_state.render_fbo->width,                // srcX1
-                      m_fbo_state.render_fbo->height,               // srcY1
-                      0,                                            // dstX0
-                      0,                                            // dstY0
-                      m_fbo_state.resources.resolve_buffer.width,   // dstX1
-                      m_fbo_state.resources.resolve_buffer.height,  // dstY1
-                      GL_COLOR_BUFFER_BIT,                          // mask
-                      GL_LINEAR                                     // filter
-    );
-    hdr::note_display_copy("OpenGLRenderer.cpp:msaa-resolve-pcrtc",
-                           m_fbo_state.render_fbo->color_format,
-                           m_fbo_state.resources.resolve_buffer.color_format);
-    window_blit_src = &m_fbo_state.resources.resolve_buffer;
-  } else {
-    window_blit_src = &m_fbo_state.resources.render_buffer;
-  }
+// perf-fbo-passes — LE QUAD DE PRESENT, SITE UNIQUE (voir android_opengl_renderer.cpp, meme
+// raison). Le factoriser garde les uniformes de sortie HDR et les deux sondes de present a UN
+// SEUL endroit : les dupliquer aurait fait deux chemins d'encodage a tenir en accord, et c'est
+// exactement l'ecart que `hdr-display-output` et `hdr-desktop-output` mesurent.
+void OpenGLRenderer::present_quad_to_window(const Fbo& src,
+                                            SharedRenderState* render_state,
+                                            int brightness_contrast_color,
+                                            int brightness_contrast_alpha) {
   // Le quad final ecrit dans le framebuffer par defaut, qui est 8 bits. Si la source est encore
   // flottante ici, la conversion ECRETE : c'est un site de plus, et le recensement le dit.
-  hdr::note_display_copy("OpenGLRenderer.cpp:pcrtc-window-quad", window_blit_src->color_format,
+  hdr::note_display_copy("OpenGLRenderer.cpp:pcrtc-window-quad", src.color_format,
                          hdr_output::window_target_format());
+  fb_passes::note_fullscreen_copy("present-window-quad");
 
-  // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
-  // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
-  //          on la blitte. Pas une moyenne, pas un reglage : la geometrie de presentation.
-  // REPERE : framebuffer 0 (la fenetre), origine en bas a gauche.
-  // POURQUOI ICI : ce blit etire la TOTALITE de la source sur la TOTALITE de la draw-region avec
-  //   un quad plein ecran. Si les deux formats different, l'image est etiree de facon ANISOTROPE.
-  //   C'est le SEUL endroit de la chaine ou « on etire en largeur » peut se produire APRES le
-  //   frustum -- donc le seul moyen de distinguer un defaut de cadrage d'un defaut d'etirement.
-  // CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : srcasp == drawasp, et draw == la fenetre entiere.
-  // Publie SUR CHANGEMENT, jamais par image.
-  {
-    static int cine_vp_last[6] = {-1, -1, -1, -1, -1, -1};
-    const int cine_vp_cur[6] = {render_state->draw_region_w, render_state->draw_region_h,
-                                render_state->draw_offset_x, render_state->draw_offset_y,
-                                window_blit_src->width,      window_blit_src->height};
-    if (memcmp(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur)) != 0) {
-      memcpy(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur));
-      printf("CINEVP draw=%dx%d+%d+%d src=%dx%d srcasp=%.4f drawasp=%.4f\n", cine_vp_cur[0],
-             cine_vp_cur[1], cine_vp_cur[2], cine_vp_cur[3], cine_vp_cur[4], cine_vp_cur[5],
-             cine_vp_cur[5] ? (float)cine_vp_cur[4] / (float)cine_vp_cur[5] : 0.f,
-             cine_vp_cur[1] ? (float)cine_vp_cur[0] / (float)cine_vp_cur[1] : 0.f);
-      fflush(stdout);
-    }
-  }
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   glViewport(render_state->draw_offset_x, render_state->draw_offset_y, render_state->draw_region_w,
              render_state->draw_region_h);
-  glBindTexture(GL_TEXTURE_2D, *window_blit_src->tex_id);
+  glBindTexture(GL_TEXTURE_2D, *src.tex_id);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   glBindVertexArray(screen_vao);
@@ -2248,6 +2315,92 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
 
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
+}
+
+void OpenGLRenderer::do_pcrtc_effects(float alp,
+                                      int brightness_contrast_color,
+                                      int brightness_contrast_alpha,
+                                      SharedRenderState* render_state,
+                                      ScopedProfilerNode& prof) {
+  // lighting-hdr : la scene ne doit JAMAIS atteindre la fenetre en flottant — ce serait une
+  // seconde compression de plage, faite par la conversion de format et non par un shader.
+  // `begin_ui_pass()` est idempotent et porte le site unique ; si aucun bucket ne l'a ouvert
+  // (image sans 2D), on l'ouvre ici. La chaine active garantit que le rappel existe.
+  if (hdr::chain_active() && !m_ui_pass_active && m_render_state.begin_2d_ui_pass) {
+    begin_ui_pass();
+  }
+
+  Fbo* window_blit_src = nullptr;
+  if (m_ui_direct) {
+    // perf-fbo-passes : la scene a deja ete presentee dans la fenetre par `begin_ui_pass`, et
+    // la 2D a ete dessinee par-dessus. On nomme quand meme la source pour le bloc CINEVP, qui
+    // decrit la geometrie reellement soumise au GPU.
+    window_blit_src = m_fbo_state.resources.resolve_buffer.valid
+                          ? &m_fbo_state.resources.resolve_buffer
+                          : m_fbo_state.render_fbo;
+  } else if (m_ui_pass_active) {
+    // Grender-split: the UI FBO already holds the composited image (upscaled 3D
+    // scene + native-resolution 2D UI) at the native draw-region size; blit it
+    // straight to the window. The scene was resolved during begin_ui_pass().
+    window_blit_src = &m_fbo_state.resources.ui_buffer;
+  } else if (m_fbo_state.resources.resolve_buffer.valid) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo_state.resources.resolve_buffer.fbo_id);
+    glBlitFramebuffer(0,                                            // srcX0
+                      0,                                            // srcY0
+                      m_fbo_state.render_fbo->width,                // srcX1
+                      m_fbo_state.render_fbo->height,               // srcY1
+                      0,                                            // dstX0
+                      0,                                            // dstY0
+                      m_fbo_state.resources.resolve_buffer.width,   // dstX1
+                      m_fbo_state.resources.resolve_buffer.height,  // dstY1
+                      GL_COLOR_BUFFER_BIT,                          // mask
+                      GL_LINEAR                                     // filter
+    );
+    hdr::note_display_copy("OpenGLRenderer.cpp:msaa-resolve-pcrtc",
+                           m_fbo_state.render_fbo->color_format,
+                           m_fbo_state.resources.resolve_buffer.color_format);
+    fb_passes::note_msaa_resolve();
+    window_blit_src = &m_fbo_state.resources.resolve_buffer;
+  } else {
+    window_blit_src = &m_fbo_state.resources.render_buffer;
+  }
+  // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
+  // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
+  //          on la blitte. Pas une moyenne, pas un reglage : la geometrie de presentation.
+  // REPERE : framebuffer 0 (la fenetre), origine en bas a gauche.
+  // POURQUOI ICI : ce blit etire la TOTALITE de la source sur la TOTALITE de la draw-region avec
+  //   un quad plein ecran. Si les deux formats different, l'image est etiree de facon ANISOTROPE.
+  //   C'est le SEUL endroit de la chaine ou « on etire en largeur » peut se produire APRES le
+  //   frustum -- donc le seul moyen de distinguer un defaut de cadrage d'un defaut d'etirement.
+  // CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : srcasp == drawasp, et draw == la fenetre entiere.
+  // Publie SUR CHANGEMENT, jamais par image.
+  {
+    static int cine_vp_last[6] = {-1, -1, -1, -1, -1, -1};
+    const int cine_vp_cur[6] = {render_state->draw_region_w, render_state->draw_region_h,
+                                render_state->draw_offset_x, render_state->draw_offset_y,
+                                window_blit_src->width,      window_blit_src->height};
+    if (memcmp(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur)) != 0) {
+      memcpy(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur));
+      printf("CINEVP draw=%dx%d+%d+%d src=%dx%d srcasp=%.4f drawasp=%.4f\n", cine_vp_cur[0],
+             cine_vp_cur[1], cine_vp_cur[2], cine_vp_cur[3], cine_vp_cur[4], cine_vp_cur[5],
+             cine_vp_cur[5] ? (float)cine_vp_cur[4] / (float)cine_vp_cur[5] : 0.f,
+             cine_vp_cur[1] ? (float)cine_vp_cur[0] / (float)cine_vp_cur[1] : 0.f);
+      fflush(stdout);
+    }
+  }
+  if (!m_ui_direct) {
+    present_quad_to_window(*window_blit_src, render_state, brightness_contrast_color,
+                           brightness_contrast_alpha);
+
+    // perf-fbo-passes — DERNIERE LECTURE DU COMPOSITE. Le quad vient d'echantillonner sa
+    // couleur ; sa profondeur ne sera plus lue de cette image. Selon le regime c'est le tampon
+    // UI, le tampon de resolve, ou le tampon de scene lui-meme.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, window_blit_src->fbo_id);
+    fb_passes::end_pass_discarding_depth(m_ui_pass_active ? "ui" : "scene", GL_READ_FRAMEBUFFER,
+                                         false, window_blit_src->zbuf_stencil_id.has_value());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
 
   glEnable(GL_BLEND);
   if (alp < 1) {

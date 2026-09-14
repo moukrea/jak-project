@@ -54,6 +54,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/CollideMeshRenderer.cpp
         graphics/opengl_renderer/lighting_census.cpp
         graphics/opengl_renderer/shade_proof.cpp
+        graphics/opengl_renderer/fb_passes.cpp
         graphics/opengl_renderer/hdr.cpp
         graphics/opengl_renderer/hdr_desktop.cpp
         graphics/opengl_renderer/hdr_output.cpp

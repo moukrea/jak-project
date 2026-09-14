@@ -29,6 +29,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
@@ -339,6 +340,13 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
         // liste glad 4.3 — ES 3.2 core (KHR_debug)
         {(void**)&glad_glDebugMessageCallback, "glDebugMessageCallback"},
         {(void**)&glad_glDebugMessageControl, "glDebugMessageControl"},
+        // liste glad 4.3 — ES 3.0 core (perf-fbo-passes : abandon du depth/stencil en fin de
+        // passe). QUATRIEME fois que ce defaut se paie, et cette fois l'instrument l'avait dit
+        // AVANT : `scripts/gl_entrypoint_audit.py` le listait « NON COUVERTE ». Il n'a pas ete
+        // relance parce qu'il ne vit plus qu'en archive, avec une racine qui ne resout plus —
+        // voir le signalement de l'item. Course du 14/09 sur eae4df44 : SIGSEGV pc=0,
+        // lr+0x44a608 = fb_passes::end_pass_discarding_depth, frames=0.
+        {(void**)&glad_glInvalidateFramebuffer, "glInvalidateFramebuffer"},
     };
     char still_null[256] = {0};
     int n_resolved = 0;
@@ -842,6 +850,8 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     // perf-gl-waits : la frontiere d'image du fil GRAPHIQUE, au seul endroit qui ne peut pas
     // mentir — une image n'est comptee que si la precedente est revenue vivante des seaux.
     gl_query_census::frame_boundary();
+    // perf-fbo-passes : la MEME frontiere d'image que sur x86 (pipelines/opengl.cpp).
+    fb_passes::frame_boundary();
 
     // Ghonor-boot-crash : la grandeur de la porte. « Combien d'images le jeu a-t-il SURVECU depuis
     // que le rendu a demarre. » Elle est publiee ICI, au seul endroit qui ne peut pas mentir : une

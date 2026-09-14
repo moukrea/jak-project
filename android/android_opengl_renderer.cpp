@@ -20,6 +20,7 @@
 #include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
@@ -1393,8 +1394,12 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   hdr::frame_end(m_fbo_state.render_fbo->color_format);
   // hdr-display-output : APRES hdr::frame_end ; `m_ui_pass_active` tient jusqu'au prochain
   // setup_frame, donc le format publie est celui du tampon UI reellement dessine cette image.
-  hdr_output::frame_end(hdr::last_frame_sites(),
-                        m_ui_pass_active ? m_fbo_state.ui_buffer.color_format : GL_RGBA8);
+  // perf-fbo-passes : en passe UI DIRECTE il n'existe pas de tampon UI — la 2D a ete dessinee
+  // dans la fenetre, qui est RGBA8 (c'est une CONDITION de cette passe). On le dit ici plutot
+  // que de laisser lire le `color_format` d'un Fbo libere.
+  hdr_output::frame_end(
+      hdr::last_frame_sites(),
+      (m_ui_pass_active && !m_ui_direct) ? m_fbo_state.ui_buffer.color_format : GL_RGBA8);
   // perf-instruments : moisson des timers GPU et publication des `gpu_ms_*` (jamais appele
   // depuis android/ auparavant : les timers ne tournaient que sur x86).
   lighting_census::frame_end();
@@ -1447,6 +1452,16 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
               (unsigned long long)pi.frames);
     }
   }
+
+  // perf-fbo-passes — DERNIERE LECTURE DU DEPTH/STENCIL DE LA FENETRE : il n'y en a jamais eu.
+  // Rien ne lit la profondeur de FB0 — le quad de present dessine depth-test eteint, et la 2D
+  // de la passe UI directe ecrit sa propre profondeur apres l'avoir remise a zero. Le tiler,
+  // lui, rangeait consciencieusement 24+8 bits sur 2400x1080 a chaque fin d'image, puis les
+  // rechargeait a la suivante : ~10 Mo de trafic memoire par image, pour personne. On les
+  // abandonne avant que la surface parte a l'echange.
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  fb_passes::end_pass_discarding_depth("window", GL_FRAMEBUFFER, true,
+                                       fb_passes::window_has_depth_stencil());
 
   // Surface the already-measured GL-thread CPU time so a profiling run can
   // attribute the frame budget. render_cpu_s is the whole render() call;
@@ -1561,8 +1576,32 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   glClearColor(0.0, 0.0, 0.0, 0.0);
   glClearDepthf(0.0f);
   glDepthMask(GL_TRUE);
+  // perf-fbo-passes — LE CLEAR DE FB0 QUAND LE QUAD DE PRESENT RECOUVRE TOUT.
+  // `do_pcrtc_effects` termine CHAQUE image par un quad plein ecran dans la region de dessin.
+  // Quand cette region couvre la fenetre entiere, ce clear n'ecrit que des pixels deja
+  // condamnes : une passe plein ecran par image pour rien, et sur un tiler le chargement de
+  // tuile qui va avec. Le depth/stencil de FB0 n'est lu par personne — le quad dessine
+  // depth-test eteint (`glDisable(GL_DEPTH_TEST)` en tete de do_pcrtc_effects) et la passe UI
+  // directe repose son propre clear en se posant.
+  // Quand la region NE couvre PAS la fenetre (letterbox 4:3 sur un ecran 20:9), les barres
+  // restent a peindre et le clear est conserve TEL QUEL. « Recouvert » est un fait geometrique
+  // de l'image, pas un etat de notre correctif : c'est ce qui empeche le compteur d'etre le
+  // miroir de la correction.
+  // perf-fbo-passes : la passe UI directe ecrit le depth du HUD dans FB0. On ne SUPPOSE pas
+  // que la config EGL a bien rendu 24/8 — on l'interroge une fois, FB0 lie (voir fb_passes.h).
+  bool window_depth_ok;
+  {
+    gl_query_census::Armed _ap("window-depth-bits");
+    window_depth_ok = fb_passes::window_has_depth_stencil();
+  }
+  const bool quad_covers_window = settings.draw_region_w >= settings.window_fb_w &&
+                                  settings.draw_region_h >= settings.window_fb_h;
   if (!m_blit_displays) {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    const bool drop = quad_covers_window && fb_passes::fix_armed();
+    fb_passes::note_window_clear(!drop, quad_covers_window);
+    if (!drop) {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    }
   }
   glDisable(GL_BLEND);
 
@@ -1613,6 +1652,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // a separate native-resolution FBO so it stays crisp while only the 3D is
   // upscaled. Inactive (zero-cost) when the scene already fills the display.
   m_ui_pass_active = false;
+  m_ui_direct = false;
   // Grender-split: drop any deferred HUD draws left from a frame where the UI
   // pass never ran (defensive; the DEBUG-bucket fallback normally drains them).
   if (m_generic2) {
@@ -1637,7 +1677,44 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // laisser passer pour du remplissage. Hors campagne, ce report ne fait qu'ecrire trois
   // atomiques. Rien ici ne LIT perf_baseline : aucun comportement de rendu n'en depend.
   perf_baseline::note_ui_split(split_active, native_ui_w, native_ui_h);
-  if (split_active) {
+  // perf-fbo-passes — PEUT-ON DESSINER L'UI DIRECTEMENT DANS LA FENETRE ?
+  // La chaine d'origine fait DEUX copies plein ecran : scene -> tampon UI (blit d'upscale ou
+  // tone map), puis tampon UI -> fenetre (quad de present). La seconde est une recopie 1:1
+  // — `ui_buffer` est cree exactement a la taille de la region de dessin. En dessinant la 2D
+  // directement dans FB0 apres y avoir presente la scene, il n'en reste qu'UNE.
+  // Chaque refus est NOMME, parce qu'un refus muet se lirait comme un correctif absent :
+  //   hdr-chain   : le tone map doit atterrir dans un tampon que le quad encode ENSUITE ;
+  //                 deplacer ca toucherait la sortie HDR, hors perimetre de cet item.
+  //   hdr-output  : `push_present_uniforms` encoderait la scene mais pas l'UI dessinee APRES.
+  //                 Tant que fenetre et tampon UI sont RGBA8, ces uniformes sont neutres.
+  //   refset      : la capture de reference relit le COMPOSITE (`refset_capture_if_step` lit
+  //                 `window_blit_src`), pas la fenetre ; on lui laisse sa chaine intacte.
+  //   no-window-depth : le HUD ecrit du depth (GEQUAL) — sans depth/stencil sur FB0, non.
+  m_ui_direct_block = "-";
+  m_ui_direct_allowed = false;
+  if (!split_active) {
+    m_ui_direct_block = "no-split";
+  } else if (!fb_passes::fix_armed()) {
+    m_ui_direct_block = "disarmed";
+  } else if (hdr_chain) {
+    m_ui_direct_block = "hdr-chain";
+  } else if (hdr_output::ui_buffer_format() != GL_RGBA8 ||
+             hdr_output::window_target_format() != GL_RGBA8) {
+    m_ui_direct_block = "hdr-output";
+  } else if (refset::enabled()) {
+    m_ui_direct_block = "refset";
+  } else if (!window_depth_ok) {
+    m_ui_direct_block = "no-window-depth";
+  } else {
+    m_ui_direct_allowed = true;
+  }
+  fb_passes::note_frame_geometry(settings.window_fb_w, settings.window_fb_h,
+                                 m_render_state.draw_region_w, m_render_state.draw_region_h,
+                                 m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+                                 fbo_w, fbo_h);
+  fb_passes::note_ui_regime(split_active, false, m_ui_direct_block);
+
+  if (split_active && !m_ui_direct_allowed) {
     // hdr-display-output : le tampon UI suit le format demande par la sortie ecran (RGBA16F
     // quand la surface est HDR, RGBA8 sinon) ; un changement de format recree le FBO.
     if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1,
@@ -1654,6 +1731,14 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     // a35_make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo_state.render_fbo->fbo_id);
     glViewport(0, 0, fbo_w, fbo_h);
+  } else if (split_active) {
+    // perf-fbo-passes : passe UI DIRECTE — aucun tampon intermediaire n'est cree ni garde.
+    if (m_fbo_state.ui_buffer.valid) {
+      gl_query_census::Armed _ap("fbo-recreate-drain");
+      glFinish();
+      m_fbo_state.ui_buffer.clear();
+    }
+    m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
   } else {
     m_render_state.begin_2d_ui_pass = nullptr;
   }
@@ -1671,40 +1756,101 @@ void AndroidOpenGLRenderer::begin_ui_pass() {
   // lighting-hdr : SEUL endroit ou la couleur de la scene quitte le tampon de scene pour la
   // chaine d'affichage. Chaine active => programme `tonemap` ; sinon le blit d'origine.
   hdr::probe_scene(scene.fbo_id, scene.width, scene.height, scene.color_format);
-  bool tonemapped = false;
-  if (hdr::chain_active()) {
-    tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
-                                   "android_opengl_renderer.cpp:begin_ui_pass", *scene.tex_id,
-                                   scene.width, scene.height, ui.fbo_id, ui.width, ui.height,
-                                   m_screen_vao, m_screen_vbo);
-  }
-  if (!tonemapped) {
-    // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").
+
+  if (m_ui_direct_allowed) {
+    // perf-fbo-passes — LA SCENE ATTEINT LA FENETRE ICI, UNE FOIS, ET LA 2D SUIT DANS FB0.
+    // C'est le meme quad que celui qui terminait l'image ; il est simplement tire au moment ou
+    // la 2D commence, de sorte que le tampon UI natif et sa recopie 1:1 vers la fenetre
+    // disparaissent tous les deux. L'ordre de dessin ne change pas : scene, puis 2D par-dessus,
+    // puis le noir de `pmode_alp` en queue de do_pcrtc_effects.
+    m_ui_direct = true;
+    {
+      // perf-fbo-passes : le quad est tire AU MILIEU de l'image ; la 2D qui suit herite de son
+      // etat GL. La garde le rend et le reprend (voir fb_passes.h : 3 177 erreurs GL et un
+      // test de profondeur eteint sans elle).
+      gl_query_census::Armed _ap("present-state-guard");
+      fb_passes::PresentStateGuard _guard;
+    present_quad_to_window(scene, &m_render_state);
+    }
+
+    // perf-fbo-passes — DERNIERE LECTURE DU DEPTH/STENCIL DE LA SCENE.
+    // Le quad ci-dessus n'a echantillonne que la COULEUR ; plus personne ne lira la profondeur
+    // de cette image (l'AO, le depth-cue et la sonde de scene tournent tous dans les buckets
+    // 3D, donc avant ce point). On l'abandonne au lieu de laisser le tiler la ranger en
+    // memoire — 24+8 bits sur toute la scene, a chaque image.
+    // QUAND L'EAU AURA SA COPIE DE SCENE W0/W2 : elle lit la profondeur de la scene et devra
+    // s'executer AVANT cette ligne. Si elle atterrit apres, remonter cet abandon juste apres
+    // elle — pas avant.
     glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
-    glBlitFramebuffer(0, 0, scene.width, scene.height, 0, 0, ui.width, ui.height,
-                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    hdr::note_display_copy("android_opengl_renderer.cpp:ui-composite-blit", scene.color_format,
-                           ui.color_format);
+    fb_passes::end_pass_discarding_depth("scene", GL_READ_FRAMEBUFFER, false,
+                                         scene.zbuf_stencil_id.has_value());
+
+    // Re-cibler la FENETRE pour la 2D native. La couleur presentee est conservee ; le depth est
+    // remis a zero pour que le HUD toujours-au-dessus (GEQUAL) ne soit pas occlus.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDepthMask(GL_TRUE);
+    glClearDepthf(0.0f);
+    glClearStencil(0);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glDisable(GL_BLEND);
+    glViewport(m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+               m_render_state.draw_region_w, m_render_state.draw_region_h);
+
+    m_render_state.render_fb = 0;
+    m_render_state.render_fb_color_format = GL_RGBA8;
+    m_render_state.render_fb_x = m_render_state.draw_offset_x;
+    m_render_state.render_fb_y = m_render_state.draw_offset_y;
+    m_render_state.render_fb_w = m_render_state.draw_region_w;
+    m_render_state.render_fb_h = m_render_state.draw_region_h;
+    m_render_state.stencil_dirty = false;
+    fb_passes::note_ui_direct();
+  } else {
+    bool tonemapped = false;
+    if (hdr::chain_active()) {
+      tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
+                                     "android_opengl_renderer.cpp:begin_ui_pass", *scene.tex_id,
+                                     scene.width, scene.height, ui.fbo_id, ui.width, ui.height,
+                                     m_screen_vao, m_screen_vbo);
+    }
+    if (tonemapped) {
+      fb_passes::note_fullscreen_copy("scene-to-ui-tonemap");
+    }
+    if (!tonemapped) {
+      // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+      glBlitFramebuffer(0, 0, scene.width, scene.height, 0, 0, ui.width, ui.height,
+                        GL_COLOR_BUFFER_BIT, GL_LINEAR);
+      fb_passes::note_fullscreen_copy("scene-to-ui-blit");
+      hdr::note_display_copy("android_opengl_renderer.cpp:ui-composite-blit", scene.color_format,
+                             ui.color_format);
+    }
+
+    // perf-fbo-passes : meme geste que dans la branche directe — la couleur de la scene vient
+    // d'etre copiee, sa profondeur ne sera plus lue de cette image. (Voir la note W0/W2 de l'eau
+    // ci-dessus : elle vaut aussi pour ce point-ci.)
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
+    fb_passes::end_pass_discarding_depth("scene", GL_READ_FRAMEBUFFER, false,
+                                         scene.zbuf_stencil_id.has_value());
+
+    // Re-target the UI FBO for the native 2D pass. Keep the composited color; clear
+    // depth so the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded.
+    glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
+    glDepthMask(GL_TRUE);
+    glClearDepthf(0.0f);
+    glClearStencil(0);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glDisable(GL_BLEND);
+    glViewport(0, 0, ui.width, ui.height);
+
+    m_render_state.render_fb = ui.fbo_id;
+    m_render_state.render_fb_color_format = ui.color_format;
+    m_render_state.render_fb_x = 0;
+    m_render_state.render_fb_y = 0;
+    m_render_state.render_fb_w = ui.width;
+    m_render_state.render_fb_h = ui.height;
+    m_render_state.stencil_dirty = false;
   }
-
-  // Re-target the UI FBO for the native 2D pass. Keep the composited color; clear
-  // depth so the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded.
-  glBindFramebuffer(GL_FRAMEBUFFER, ui.fbo_id);
-  glDepthMask(GL_TRUE);
-  glClearDepthf(0.0f);
-  glClearStencil(0);
-  glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  glDisable(GL_BLEND);
-  glViewport(0, 0, ui.width, ui.height);
-
-  m_render_state.render_fb = ui.fbo_id;
-  m_render_state.render_fb_color_format = ui.color_format;
-  m_render_state.render_fb_x = 0;
-  m_render_state.render_fb_y = 0;
-  m_render_state.render_fb_w = ui.width;
-  m_render_state.render_fb_h = ui.height;
-  m_render_state.stencil_dirty = false;
 
   // Grecharged-title-logo-fullres: replay the title/ND-logo merc models here, at native res, on
   // top of the just-upscaled flythrough and BEFORE the HUD/2D pass — so the menu and PRESS START
@@ -2188,6 +2334,49 @@ static void refset_capture_if_step(const Fbo& src, SharedRenderState* render_sta
   refset::consume_capture(rw, rh, small.data());
 }
 
+// perf-fbo-passes — LE QUAD DE PRESENT, SITE UNIQUE.
+// Il avait un seul point d'appel (la fin de `do_pcrtc_effects`) ; la passe UI directe lui en
+// donne un second, en cours d'image. Le factoriser garde les uniformes de sortie HDR et la
+// sonde de present a UN SEUL endroit : les dupliquer aurait fait deux chemins d'encodage a
+// tenir en accord, et c'est exactement le genre d'ecart que `hdr-display-output` mesure.
+void AndroidOpenGLRenderer::present_quad_to_window(const Fbo& src,
+                                                   SharedRenderState* render_state) {
+  // Le quad final ecrit dans le framebuffer par defaut, 8 bits : une source encore flottante y
+  // serait ECRETEE, donc un site de plus. Le recensement le dit au lieu de le supposer.
+  hdr::note_display_copy("android_opengl_renderer.cpp:pcrtc-window-quad", src.color_format,
+                         hdr_output::window_target_format());
+  fb_passes::note_fullscreen_copy("present-window-quad");
+
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glViewport(render_state->draw_offset_x, render_state->draw_offset_y,
+             render_state->draw_region_w, render_state->draw_region_h);
+  glBindTexture(GL_TEXTURE_2D, *src.tex_id);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glBindVertexArray(m_screen_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, m_screen_vbo);
+
+  auto& shader = render_state->shaders[ShaderId::POST_PROCESSING];
+  shader.activate();
+  glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
+  glUniform4f(glGetUniformLocation(shader.id(), "color_mult"), 1.0f, 1.0f, 1.0f, 1.0f);
+  glUniform4f(glGetUniformLocation(shader.id(), "color_add"), 0.0f, 0.0f, 0.0f, 0.0f);
+  hdr_output::push_present_uniforms(shader);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glActiveTexture(GL_TEXTURE0);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
+  // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport. Le renderer
+  // x86 l'appelait, celui-ci non : Honor 10/09 essai 6, `hdr_out_ui_white_samples=0` sur les
+  // 300 images ON, verdicts 8 et 10 rouges sans qu'aucune ligne de log ne le dise.
+  hdr_output::probe_present(shader);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
 void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
                                              SharedRenderState* render_state,
                                              ScopedProfilerNode& prof) {
@@ -2201,12 +2390,12 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
     begin_ui_pass();
   }
 
-  Fbo* window_blit_src =
-      m_ui_pass_active ? &m_fbo_state.ui_buffer : &m_fbo_state.render_buffer;
-  // Le quad final ecrit dans le framebuffer par defaut, 8 bits : une source encore flottante y
-  // serait ECRETEE, donc un site de plus. Le recensement le dit au lieu de le supposer.
-  hdr::note_display_copy("android_opengl_renderer.cpp:pcrtc-window-quad",
-                         window_blit_src->color_format, hdr_output::window_target_format());
+  // perf-fbo-passes : en passe UI DIRECTE, la scene a deja ete presentee dans la fenetre par
+  // `begin_ui_pass` et la 2D a ete dessinee par-dessus ; la source du quad etait le tampon de
+  // scene. On la nomme quand meme ici pour le bloc CINEVP, qui decrit la geometrie reellement
+  // soumise au GPU.
+  Fbo* window_blit_src = (m_ui_pass_active && !m_ui_direct) ? &m_fbo_state.ui_buffer
+                                                            : &m_fbo_state.render_buffer;
 
   // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
   // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
@@ -2237,34 +2426,18 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   // GL touche (binding de lecture, read-buffer, pack-alignment) est restaure par l'appel.
   refset_capture_if_step(*window_blit_src, render_state);
 
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_BLEND);
-  glViewport(render_state->draw_offset_x, render_state->draw_offset_y,
-             render_state->draw_region_w, render_state->draw_region_h);
-  glBindTexture(GL_TEXTURE_2D, *window_blit_src->tex_id);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (!m_ui_direct) {
+    present_quad_to_window(*window_blit_src, render_state);
 
-  glBindVertexArray(m_screen_vao);
-  glBindBuffer(GL_ARRAY_BUFFER, m_screen_vbo);
-
-  auto& shader = render_state->shaders[ShaderId::POST_PROCESSING];
-  shader.activate();
-  glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
-  glUniform4f(glGetUniformLocation(shader.id(), "color_mult"), 1.0f, 1.0f, 1.0f, 1.0f);
-  glUniform4f(glGetUniformLocation(shader.id(), "color_add"), 0.0f, 0.0f, 0.0f, 0.0f);
-  hdr_output::push_present_uniforms(shader);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glActiveTexture(GL_TEXTURE0);
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
-  // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport. Le renderer
-  // x86 l'appelait, celui-ci non : Honor 10/09 essai 6, `hdr_out_ui_white_samples=0` sur les
-  // 300 images ON, verdicts 8 et 10 rouges sans qu'aucune ligne de log ne le dise.
-  hdr_output::probe_present(shader);
-
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
+    // perf-fbo-passes — DERNIERE LECTURE DU COMPOSITE. Le quad vient d'echantillonner sa
+    // couleur ; sa profondeur ne sera plus lue de cette image. Selon le regime, c'est le
+    // tampon UI (passe UI ouverte) ou le tampon de scene lui-meme (pas de passe UI : rien
+    // n'a encore abandonne sa profondeur).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, window_blit_src->fbo_id);
+    fb_passes::end_pass_discarding_depth(m_ui_pass_active ? "ui" : "scene", GL_READ_FRAMEBUFFER,
+                                         false, window_blit_src->zbuf_stencil_id.has_value());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
 
   glEnable(GL_BLEND);
   if (alp < 1) {
