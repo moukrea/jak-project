@@ -4989,7 +4989,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: to-test
+  status: open
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5069,6 +5069,7 @@ items:
     (j) L'ALPHA EST RESPECTE DANS LA PREPASSE, SUR L'APPAREIL, VENT ALLUME. La porte precedente a rendu zero et l'owner voit encore de l'AO hors des textures : mesurer sur le Redmi, shrubs en mouvement, le compte de pixels d'AO < 1 dont le fragment de couleur est transparent (alpha sous le seuil de decoupe) : zero. Publier aussi le compte de fragments transparents testes, non nul.
     (k) RIEN NE BOUGE CAMERA FIXE. Camera immobile, scene immobile, vent COUPE pour la mesure : variation du tampon d'AO entre deux images consecutives = 0 texel a tous les paliers. Le « ca bouge dans tous les sens » est ce compte.
     (l) LA RESOLUTION EST CELLE DU PALIER, ET LE FILTRE EST CONSCIENT DE LA PROFONDEUR. Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de remontee ; en Eleve l'AO est pleine resolution ou filtree par un flou bilateral qui ne traverse pas les aretes (compte de texels ou le filtre a melange deux profondeurs a plus de 1 % d'ecart = zero). Un palier plus laid qu'AO ETEINTE reste un DEFAUT ; Faible doit etre exploitable ou retire du menu.
+    REFUS DU SUPERVISEUR AVANT L'OWNER (2026-09-14 08:25) : la porte `ao_direct_leak_px` a passe SEULE alors que le verdict (a) est VIOLE dans la meme preuve — force du motif `ao_flatstep_*_x1000` au-dessus du plafond 10 a 12 paliers sur 12 (GTAO 11-12, SSAO 18-19 ; plafond 10), et le rapport du worker l'ecrit lui-meme (« inchange »). La verification (j) sur l'appareil n'a pas eu lieu (`ao_geom_*` absent du binaire arm64 : population de bureau seule, 4 464 px de shrub sur 38 images). LA PORTE DOIT AGREGER : `ao_direct_leak_px` devient la somme de TOUS les termes (a) a (l), chacun publie separement, et un terme NON MESURE compte comme un defaut nomme. On ne renvoie pas a l'owner un quatrieme passage avec la meme pixelisation des facades.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting
     OFF ; tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC
     1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
@@ -5077,7 +5078,8 @@ items:
     : porte a 10 essais le 2026-09-12 apres le REFUS de l''owner sur le Honor. L''item repart avec DEUX
     verdicts neufs — les plantes que sa porte verte ne voit pas, et l''instabilite temporelle du flou
     — dont le second exige une grandeur qui n''existe pas encore. Quatre essais avaient deja servi a la
-    version d''avant ces verdicts.'
+    version d''avant ces verdicts. | 14/09 08:25 : rouvert par le superviseur — porte passee sur un seul
+    terme, flatstep > plafond a 12/12 paliers.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
   supervisor_recovery: true
