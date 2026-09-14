@@ -1,11 +1,10 @@
 DIRECTIVES v775512c234
-Non validé : le contact mur/toit reste non corrigé ; aucune preuve nouvelle de l'essai7.
-Livré : diagnostic sources/archives, limites du compteur, FINDINGS et handoff actualisés.
-La cause propre à la jonction n'est pas établie ; aucun correctif moteur spéculatif.
-Deux recherches déléguées en lecture seule, résultats vérifiés dans les sources et journaux.
-USB disponible : pick_device.sh retourne eae4df44 (code0) ; inventaire lu sans lancer le jeu.
-Le contrat et proof_plan interdisent de relancer la campagne épuisée :9/9, restant0.
-Huit lignes de proof.txt HISTORIQUE (essai5), citées comme contexte, PAS preuve de cet essai :
+Non validé : la bande claire mur/toit reste non corrigée ; essai8 bloqué par le plan épuisé.
+Livré : audit d'autorisation, rapport et handoff actualisés ; diagnostic essai7 conservé.
+Chercheur lecture seule et manager : aucun nouveau budget dans contrat/backlog.
+Registre recompté :9 départs,9 fins, restant0 ; notes/attempt8-audit.txt.
+Aucun correctif moteur, build, déploiement ou nouvelle course pendant cet essai.
+Aucune preuve de l'essai8 ; huit lignes HISTORIQUES de proof.txt (essai5), contexte seulement :
 proof_run_id=20260914T215213Z-1018583-753ad700
 proof_attempt_id=ao-prepass-tie-alpha@5#1789420807
 ao_contact_pop_px=58416
@@ -14,19 +13,18 @@ ao_tie_prepass_defects=359306
 ao_tie_view_village1_hut_contact_band_px=0
 ao_tie_view_village1_out_contact_band_px=6
 ao_contact_band_px=0
-Le zéro contact historique ne valide pas la jonction mur/toit signalée le15/09.
-Lecture source : contact_band examine des plis pixel/axe sans identité d'objet ;
-les sauts >2% et les bandes sans maximum strict aux deux voisins lui échappent.
-La formule de largeur s'arrête au premier voisin ; HBAO n'entre pas dans ce recensement.
-Archives hut : population106578, bande0, passes de remplissage5744 (campagne03).
-Les traces nomment roofcap et poutres de village1/tree1, sans rattachement aux pixels mur/toit.
-Référence couleur USB hut identifiée, mais format RGBA+masque TIE sans profondeur ni normales.
-Les exclusions de proximité des estimateurs sont des hypothèses, pas une cause mesurée.
-Détails et références : notes/attempt7-contact-diagnostic.md ; empreintes : attempt7-audit.txt.
-Non prouvé : cause et disparition du contact mur/toit ; identité couleur ; stabilité/acquis sur trois vues.
-Non prouvé : fraîcheur et absence de crash d'une nouvelle livraison ; aucun build ni déploiement ici.
+Ces lignes ne sont pas un résultat de cet essai ; preuves et sceaux conservés intacts.
+Le zéro contact historique ne valide pas la jonction signalée par l'owner.
+Le diagnostic essai7 n'attribue pas le défaut à une étape du rendu ; il n'est pas refait.
+Manquent : identité des surfaces et pixels du raccord, profondeur/normale/AO par étape.
+Le contrat impose ce diagnostic avant correction ; aucun réglage spéculatif appliqué.
+Reprise : plan borné réautorisé dans l'item pour ces données, sans rejouer les neuf bras.
+Disponibilité USB connue à l'essai7 seulement ; aucun appareil consulté dans cet essai.
+non prouvé : cause et disparition de la bande claire mur/toit.
+non prouvé : identité couleur, stabilité et acquis sur les trois vues.
+non prouvé : fraîcheur et absence de crash d'une nouvelle livraison ; aucune livraison ici.
 L'owner doit regarder sur HONOR : Options > Recharged > Recharged Lighting > Ambient Occlusion,
-chaque palier et SSAO/HBAO/GTAO, force maximale : jonction mur/toit, damier/pixellisation,
-ombres suivant le feuillage des shrubs, sans débordement ni mouvement caméra immobile.
-La révision du build du retour owner reste inconnue ; aucune validation owner fabriquée.
-Le validateur est réservé à l'orchestrateur ; porte non passée par cet essai.
+chaque palier et SSAO/HBAO/GTAO, force maximale : contact mur/toit, damier/pixellisation,
+ombres suivant les shrubs sans débordement ; caméra immobile, aucune oscillation.
+FINDINGS conservé et complété ; contexte détaillé : notes/attempt8-authorization.md.
+Validateur réservé à l'orchestrateur ; aucune fermeture ni validation owner revendiquée.
