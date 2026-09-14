@@ -72,7 +72,14 @@ void main() {
     vec2 px = 1.0 / vec2(textureSize(u_ao, 0));
     float rd0 = texture(u_depth, tex_coord).r;
     float a0 = texture(u_ao, tex_coord).r;
-    if (rd0 <= 0.000001) {
+    // ── LE SEUIL DE CIEL EST CELUI DU JUGE, PAS UN ARRONDI COMMODE ─────────────────────────
+    // `contact_band()` ecarte le ciel a `z <= 1e-9`, soit MOINS d'un quantum de profondeur
+    // 24 bits (5,96e-8). Ce shader ecartait a 1e-6, soit les 16 PREMIERS quanta : la bande
+    // k appartenant a [1, 16] — l'horizon, la geometrie la plus LOINTAINE, convention PS2
+    // inversee — etait du ciel pour le correcteur et de la surface pour la mesure. Le
+    // correcteur ne couvrait donc pas tout ce que la porte compte. Meme constante des deux
+    // cotes, et c'est le juge qui la donne.
+    if (rd0 <= 1e-9) {
       color = vec4(vec3(a0), 1.0);  // ciel : recopie telle quelle
       return;
     }
@@ -81,8 +88,8 @@ void main() {
       vec2 st = (axis == 0) ? vec2(px.x, 0.0) : vec2(0.0, px.y);
       float zm = texture(u_depth, tex_coord - st).r;
       float zp = texture(u_depth, tex_coord + st).r;
-      if (zm <= 0.000001 || zp <= 0.000001) {
-        continue;  // voisin de ciel : cet axe ne dit rien
+      if (zm <= 1e-9 || zp <= 1e-9) {
+        continue;  // voisin de ciel : cet axe ne dit rien — meme seuil que `contact_band()`
       }
       float rd1 = rd0 - zm;
       float rd2 = zp - rd0;

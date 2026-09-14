@@ -553,6 +553,14 @@ namespace {
 // plus haut, avec les autres etats lus par effective_mode()/effective_quality().
 bool s_pattern_census_request = false;
 
+// ── LA PHASE DE LA TRIADE D'IMAGES (terme 5) ─────────────────────────────────────────────────
+// -1 hors sonde ; 0 = image lourde (redimensionnement de la chaine + relectures de stencil) ;
+// 1 = image de REFERENCE ; 2 = image COMPAREE. Le terme 5 ne s'accumule qu'en phase 2, ou
+// `s_prev_*[state]` vient de l'image IMMEDIATEMENT precedente. Le contrat (k) dit « deux images
+// consecutives » : jusqu'a l'essai 10 l'ecart valait un tour complet des douze etats, 360 images.
+int s_census_pair_phase = -1;
+uint64_t s_static_pairs = 0;
+
 // LE PLAFOND DECLARE. Un champ sans structure de periode p rend 1000 ; un champ en blocs durs
 // tend vers 1000*p (4000 au palier bas). 1600 laisse la courbure d'un champ lisse reconstruit
 // au bilineaire et refuse tout ce qui se voit.
@@ -1144,7 +1152,14 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
   }
   // Le regime TEMOIN ne doit pas polluer les cles de l'essai 5 : elles jugent le LIVRE.
   const bool delivered = (s_measure_legacy == 0);
-  if (ratio > 0.0 && delivered) {
+  // ── CE QUE LES DEUX IMAGES DE PLUS N'ONT PAS LE DROIT DE CHANGER ──────────────────────────
+  // Les phases 1 et 2 existent pour le SEUL terme 5. Les autres grandeurs de ce recensement
+  // sont des SOMMES par image (`ao_contact_band_*`) ou des moyennes sur un nombre d'images
+  // (`ao_flatstep_*`, `ao_blocky_*`) : les alimenter trois fois au lieu d'une changerait leur
+  // valeur sans qu'aucune ligne de shader ait bouge, et le terme 6 serait multiplie par trois.
+  // Elles restent donc sur l'image LOURDE, exactement comme a l'essai 10.
+  const bool accumulate_full = (s_census_pair_phase <= 0);
+  if (ratio > 0.0 && delivered && accumulate_full) {
     const uint64_t milli = (uint64_t)std::max<int64_t>(0, std::llround(ratio * 1000.0));
     s_pat_sum_milli[quality] += milli;
     s_pat_frames[quality]++;
@@ -1162,7 +1177,7 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
   // ── LA GRANDEUR DE BLOCS, PAR ETAT ───────────────────────────────────────────────────────
   // Hors du `if (ratio > 0.0)` : `phase_ratio` est precisement la grandeur qui ne voit PAS un
   // champ en blocs non periodique, son echec ne doit pas rendre `blockiness` muette.
-  if (has_state) {
+  if (has_state && accumulate_full) {
     double blocky = 0.0, hardstep = 0.0;
     uint64_t pop = 0;
     const bool ok = blockiness(s_pat_buf.data(), w, h, &blocky, &hardstep, &pop);
@@ -1199,24 +1214,30 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
       if (!prepass::export_depth(s_census_depth_tex, w, h, &s_depth_buf)) {
         s_flat_unsupported = 1;
       } else {
-        uint64_t fpop = 0, fstep = 0;
-        flat_step(s_pat_buf.data(), s_depth_buf.data(), w, h, &fpop, &fstep);
-        s_flat_pop[state] += fpop;
-        s_flat_step[state] += fstep;
-        s_flat_frames[state]++;
-        // (h) LA BANDE DE CONTACT : meme relecture, test inverse, zero cout GL de plus.
-        uint64_t cpop = 0, cband = 0, cwmax = 0;
-        contact_band(s_pat_buf.data(), s_depth_buf.data(), w, h, &cpop, &cband, &cwmax);
-        s_contact_pop[state] += cpop;
-        s_contact_band[state] += cband;
-        if (cwmax > s_contact_wmax[state]) {
-          s_contact_wmax[state] = cwmax;
+        if (accumulate_full) {
+          uint64_t fpop = 0, fstep = 0;
+          flat_step(s_pat_buf.data(), s_depth_buf.data(), w, h, &fpop, &fstep);
+          s_flat_pop[state] += fpop;
+          s_flat_step[state] += fstep;
+          s_flat_frames[state]++;
+          // (h) LA BANDE DE CONTACT : meme relecture, test inverse, zero cout GL de plus.
+          uint64_t cpop = 0, cband = 0, cwmax = 0;
+          contact_band(s_pat_buf.data(), s_depth_buf.data(), w, h, &cpop, &cband, &cwmax);
+          s_contact_pop[state] += cpop;
+          s_contact_band[state] += cband;
+          if (cwmax > s_contact_wmax[state]) {
+            s_contact_wmax[state] = cwmax;
+          }
         }
         // (k) CE QUI BOUGE ALORS QUE LA GEOMETRIE N'A PAS BOUGE. On compare a la DERNIERE
         // relecture du MEME etat, et on ne retient que les texels dont la PROFONDEUR est
         // identique au quantum pres : le vent sort de la population, la facade y reste.
-        if (s_prev_depth[state].size() >= n && s_prev_buf[state].size() >= n &&
-            s_prev_w[state] == w && s_prev_h[state] == h) {
+        // `s_census_pair_phase == 2` : la reference a ete relevee a l'image PRECEDENTE, pas
+        // au tour precedent des douze etats. Sans cette garde la premisse « camera immobile,
+        // scene immobile » est fausse par construction — six secondes de village separaient
+        // les deux releves, et le terme 5 comptait la marche des acteurs.
+        if (s_census_pair_phase == 2 && s_prev_depth[state].size() >= n &&
+            s_prev_buf[state].size() >= n && s_prev_w[state] == w && s_prev_h[state] == h) {
           const double kSameGeom = 4.0 / 16777215.0;  // 4 quanta de profondeur 24 bits
           const int kAoMove = 2;                      // 2/255 : au-dessus de l'arrondi R8
           // ── LE MASQUE DE CE QUI A BOUGE ────────────────────────────────────────────────
@@ -1309,6 +1330,7 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
               }
             }
           }
+          s_static_pairs++;
           s_static_pop[state] += spop;
           s_static_moved[state] += smoved;
           s_static_pop_ug[state] += upop;
@@ -1328,7 +1350,10 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
     // echelle. Scene et camera immobiles, un estimateur dont le bruit ne depend ni du temps
     // ni de la camera rend ZERO par construction, pas « peu » : la valeur est donc
     // falsifiable dans les deux sens.
-  if (has_state) {
+  // `accumulate_full` : les deux images ajoutees pour le terme 5 n'entrent PAS ici. Ce que
+  // cette grandeur compare reste ce qu'elle comparait a l'essai 10 — la derniere relecture du
+  // meme etat, un tour de douze etats plus tot — et son temoin `legacy` garde sa valeur.
+  if (has_state && accumulate_full) {
     if (s_prev_w[state] == w && s_prev_h[state] == h && s_prev_buf[state].size() >= n) {
       uint64_t acc = 0;
       for (size_t i = 0; i < n; i++) {
@@ -1343,6 +1368,10 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
         s_temporal_worst_milli[state] = milli;
       }
     }
+  }
+  // L'enregistrement de la REFERENCE, lui, est inconditionnel : c'est la copie posee par la
+  // phase 1 que la phase 2 relit une image plus tard.
+  if (has_state) {
     s_prev_buf[state].assign(s_pat_buf.begin(), s_pat_buf.begin() + (ptrdiff_t)n);
     s_prev_w[state] = w;
     s_prev_h[state] = h;
@@ -1412,6 +1441,10 @@ void AmbientOcclusionPass::set_prepass_defect_terms(uint64_t direct_leak_px,
   s_pre_sway_gap_px = sway_gap_px;
   s_pre_on_alpha_device_px = on_alpha_device_px;
   s_prepass_mask = measured_mask;
+}
+
+void AmbientOcclusionPass::set_census_pair_phase(int phase) {
+  s_census_pair_phase = (phase >= 0 && phase <= 2) ? phase : -1;
 }
 
 void AmbientOcclusionPass::request_pattern_census(bool on) {
@@ -1598,6 +1631,12 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_excluded_px",
                           (static_pop_ug >= static_pop) ? (static_pop_ug - static_pop) : 0ull);
   autoport_proof::publish("ao_static_guard_uv_x1000", 100ull);
+  // LA PREMISSE, PUBLIEE : combien de paires ont alimente le terme, et de combien d'images la
+  // reference est separee de l'image comparee. `_pair_gap_frames` vaut 1 par CONSTRUCTION
+  // (`s_census_pair_phase == 2` ne passe que sur l'image qui suit la reference) ; il est publie
+  // pour qu'un lecteur puisse le contredire, parce qu'a l'essai 10 il valait 360 sans le dire.
+  autoport_proof::publish("ao_static_cam_pairs", s_static_pairs);
+  autoport_proof::publish("ao_static_cam_pair_gap_frames", s_static_pairs ? 1ull : 0ull);
   autoport_proof::publish("ao_static_guard_rx", s_static_guard_rx);
   autoport_proof::publish("ao_static_guard_ry", s_static_guard_ry);
   autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
@@ -2112,17 +2151,25 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     // ORDRE IMPERATIF : elle passe AVANT la passe de RAPPORT du flou ci-dessous, qui reutilise
     // le MEME brouillon ; l'ecraser ensuite est sans consequence, l'inverse ne l'est pas.
     if (ridge_fill) {
-      // DEUX passes, en va-et-vient, et c'est une MESURE qui l'impose. Une seule passe ramene
-      // `ao_contact_band_px` de 850 a 302 : le reste vient de l'INTERACTION DES DEUX AXES. La
-      // passe abaisse un maximum local d'un axe en lisant l'image d'AVANT ; si le voisin, lui,
-      // etait un maximum local de l'AUTRE axe, il est abaisse en meme temps, et le texel corrige
-      // peut redevenir un maximum local contre son voisin NOUVELLEMENT abaisse. La seconde passe
-      // relit le resultat de la premiere et referme ce cas. Nombre PAIR : le resultat retombe
-      // dans `m_ao_full_fbo`, la texture que shade() lit, sans une seule recopie.
+      // ── POURQUOI PLUS DE DEUX PASSES : L'OPERATEUR N'EST PAS IDEMPOTENT ──────────────────
+      // La passe teste l'image d'ENTREE et `contact_band()` juge l'image de SORTIE. Un texel
+      // peut donc dominer ses voisins de plus de 4/255 EN SORTIE sans avoir jamais ete un
+      // maximum local EN ENTREE : ses voisins ont ete abaisses, chacun au minimum de SES
+      // propres voisins, dans la MEME passe. Ce n'est pas l'interaction des deux axes seule,
+      // comme le disait le commentaire d'avant le 2026-09-14 : c'est le decalage d'une passe
+      // entre ce qui est teste et ce qui est juge, et il survit a n'importe quel nombre pair.
+      // L'operateur est un MINIMUM restreint aux plis : il ne fait que baisser, il est borne,
+      // il CONVERGE — et a son point fixe `out(P) = min(out(P), out(P-1), out(P+1))` sur tout
+      // pli, donc `contact_band` vaut zero par construction et non par marge. La queue mesuree
+      // se divise par ~30 a chaque passe : 850 (0 passe), 302 (1), 5 a 9 (2). D'ou QUATRE.
+      // Nombre PAIR : le resultat retombe dans `m_ao_full_fbo`, la texture que shade() lit,
+      // sans une seule recopie.
+      constexpr int kRidgeFillPasses = 4;
       GLuint id = shader.id();
       const GLuint ping_fbo[2] = {m_ao_scratch_fbo, m_ao_full_fbo};
       const GLuint ping_tex[2] = {m_ao_full_tex, m_ao_scratch_tex};
-      for (int rp = 0; rp < 2; rp++) {
+      for (int rpi = 0; rpi < kRidgeFillPasses; rpi++) {
+        const int rp = rpi & 1;
         glBindFramebuffer(GL_FRAMEBUFFER, ping_fbo[rp]);
         glViewport(0, 0, out_w, out_h);
         glActiveTexture(GL_TEXTURE0);
@@ -2149,7 +2196,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     // qu'il faut dire. Bras DESARME : le MEME comptage avec la seule gaussienne d'avant, qui
     // ne s'annule jamais ; il doit etre NON NUL, sinon la grandeur ne sait pas voir ce
     // qu'elle declare absent.
-      if (s_pattern_census_request) {
+      if (s_pattern_census_request && s_census_pair_phase <= 0) {
       ensure_scratch(out_w, out_h);
       GLuint id = shader.id();
       for (int arm = 0; arm < 2; arm++) {

@@ -171,6 +171,13 @@ int g_phantom_state = 0;  // 0 = pas encore mesure, 1 = mesure, -1 = non support
 
 // Preuve.
 bool g_probe_frame = false;
+// ── LA TRIADE D'IMAGES DU RECENSEMENT (terme 5) ───────────────────────────────────────────────
+// `g_probe_frame` reste l'image LOURDE : elle seule porte le stencil de preuve, les relectures
+// de profondeur, le recensement de geometrie et la sonde d'alpha — les termes 1, 3 et 4 gardent
+// donc EXACTEMENT la meme population qu'a l'essai 10. Les deux images qui la suivent sont
+// LEGERES : elles ne font que garder le meme etat de mesure pour que le recensement du tampon
+// d'AO dispose de deux releves SEPARES D'UNE SEULE IMAGE, ce que le contrat (k) demande.
+int g_probe_pair_phase = -1;  // -1 hors sonde, 0 lourde, 1 reference, 2 comparee
 uint64_t g_probe_seq = 0;  // combien d'images sondees ont commence — choisit le palier d'AO
 uint64_t g_probe_frames = 0;
 uint64_t g_probe_px = 0;
@@ -994,8 +1001,13 @@ void frame_begin(SharedRenderState* /*rs*/) {
   g_frame_ran = false;
   g_ao_valid = false;
   g_geom_frame = false;
-  g_probe_frame = autoport_proof::feature_is(kItemId) && (g_frame % kProbeEvery) == 0 &&
-                  !AmbientOcclusionPass::measure_timing_active();
+  const bool probe_base =
+      autoport_proof::feature_is(kItemId) && !AmbientOcclusionPass::measure_timing_active();
+  const uint64_t probe_slot = g_frame % kProbeEvery;
+  g_probe_frame = probe_base && probe_slot == 0;
+  // La phase 0 redimensionne la chaine d'AO vers le palier de l'etat : la phase 1 la trouve
+  // donc DEJA chaude, et la paire jugee (1, 2) ne porte aucun effet de premiere image.
+  g_probe_pair_phase = (probe_base && probe_slot <= 2) ? (int)probe_slot : -1;
   if (g_probe_frame) {
     g_probe_seq++;
   }
@@ -1385,12 +1397,14 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // d'AVANT ne peut pas prouver sa disparition : la moitie haute des etats rallume l'ancrage
   // MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME scene.
   //   etat = legacy*6 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO
-  if (g_probe_frame) {
+  if (g_probe_pair_phase >= 0) {
     const int st = (int)(g_probe_seq % 12);
     AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, st / 6);
+    AmbientOcclusionPass::set_census_pair_phase(g_probe_pair_phase);
     AmbientOcclusionPass::request_pattern_census(true);
   } else {
     AmbientOcclusionPass::set_measure_state(-1, -1, 0);
+    AmbientOcclusionPass::set_census_pair_phase(-1);
   }
 
   // L'estimation lit la profondeur de la prepasse et ecrit sa texture R8. Elle sauvegarde et

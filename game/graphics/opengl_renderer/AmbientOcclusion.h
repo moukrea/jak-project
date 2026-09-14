@@ -61,6 +61,16 @@ class AmbientOcclusionPass {
   // L'owner a vu le damier « en qualite faible (SSAO) » ET « en qualite elevee (GTAO) » : une
   // grandeur qui ne couvre qu'un estimateur ne repond pas a son verdict.
   static void set_measure_state(int mode, int quality, int legacy);
+  // ── LA PHASE DE LA TRIADE (terme 5, 2026-09-14) ──────────────────────────────────────────
+  // Le contrat (k) dit « variation du tampon d'AO entre deux images CONSECUTIVES ». Jusqu'a
+  // l'essai 10 le recensement comparait deux images du MEME etat, donc separees d'un tour
+  // complet des douze etats — 360 images de jeu, six secondes pendant lesquelles les acteurs
+  // du village marchent. La sonde tire desormais TROIS images de suite sur le meme etat :
+  // phase 0 = l'image lourde d'avant (elle porte aussi le redimensionnement de la chaine et
+  // les relectures de stencil), phase 1 = l'image de REFERENCE, phase 2 = celle qu'on compare.
+  // Seule la phase 2 alimente `ao_static_cam_delta_px`, et son ecart a la reference vaut
+  // EXACTEMENT une image. -1 = cette image n'est pas sondee.
+  static void set_census_pair_phase(int phase);
   static void request_pattern_census(bool on);
   // Publie ao_pattern_* . Appele par le module de prepasse quand il publie le reste.
   static void publish_pattern_census();
