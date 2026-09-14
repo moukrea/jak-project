@@ -82,23 +82,41 @@ GK=build/game/gk; ISO=out/jak1/iso
 # Un acquis qui rend rouge parce qu'un builder tournait ne garde rien : il coute un essai.
 # `lib/proof_run.sh::busy_reason` attend deja exactement ca ; cette garde ne le faisait pas.
 # Fail-closed reste fail-closed : si ca ecrit encore au bout du plafond, on ECHOUE.
-# Motifs entre crochets : un `pgrep -f gradle` se matche LUI-MEME et la boucle ne finit jamais.
+#
+# 2026-09-14 — CETTE GARDE N'A PLUS DE COPIE A ELLE.
+# Elle en portait une, figee au 05/09 : `pgrep -f` sur '[g]radle' '[n]inja' '[g]oalc' '[c]c1plus'.
+# Quatre mots cherches dans des LIGNES DE COMMANDE, donc trois populations confondues dont une
+# seule est un build — le demon Gradle (idleTimeout=3 h, vivant longtemps apres l'APK), un shell
+# qui NOMME l'outil, et le build lui-meme. `harness-busy-guard-matches-gradle-daemon` a corrige
+# exactement ca dans `lib/proof_run.sh` le 14/09 ; la copie d'ici n'a pas suivi, et elle a tue
+# l'essai 1 de harness-close-gate-separates-inherited-reds en 420 s d'attente alors qu'AUCUN
+# build ne tournait (releve : `notes/busy-guard-acquis-avant.txt`, verdict « processus [g]radle
+# en cours » sur un arbre calme). Une regle dupliquee derive : c'est la deuxieme fois.
+# On ne duplique donc plus — on EMBARQUE LA VRAIE DEFINITION, decoupee dans proof_run.sh, la
+# meme tranche que `lib/busy_guard_selftest.sh` rejoue. La fonction reste chez elle : le temoin
+# de l'item busy-guard l'epingle DANS proof_run.sh, la deplacer le rendrait muet.
+# Fail-closed jusqu'au bout : une tranche qui ne vient pas ECHOUE l'acquis, elle ne le laisse
+# pas courir sans garde.
 LOCK=.autoport/.deploy-in-progress
-busy_reason(){
-  local p pat age
-  if [ -f "$LOCK" ]; then
-    p=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK" | head -1)
-    if [ -n "${p:-}" ] && kill -0 "$p" 2>/dev/null; then echo "deploy-in-progress pid=$p vivant"; return 0; fi
-  fi
-  for pat in '[g]radle' '[n]inja' '[g]oalc' '[c]c1plus'; do
-    if pgrep -f "$pat" >/dev/null 2>&1; then echo "processus $pat en cours"; return 0; fi
-  done
-  if [ -f "$ISO/GAME.CGO" ]; then
-    age=$(( $(date +%s) - $(stat -c %Y "$ISO/GAME.CGO" 2>/dev/null || echo 0) ))
-    if [ "$age" -lt 60 ]; then echo "GAME.CGO reecrit il y a ${age}s"; return 0; fi
-  fi
-  echo ""; return 0
-}
+AP=.autoport
+log(){ echo "[acquis/font] $*" >&2; }
+BR=$(python3 - "$AP/lib/proof_run.sh" <<'PY' 2>/dev/null
+import sys
+src = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+out = ""
+for nom in ("busy_procs", "busy_reason"):
+    ouv = "\n%s(){" % nom
+    if ouv not in src:
+        sys.exit(1)
+    out += "%s(){%s\n}\n" % (nom, src.split(ouv, 1)[1].split("\n}\n", 1)[0])
+# La tranche DOIT passer par l'indirection, sinon on aurait decoupe un decor et pas la garde.
+if "busy_procs cmdline" not in out or "busy_procs comm" not in out:
+    sys.exit(1)
+sys.stdout.write(out)
+PY
+) || BR=""
+[ -n "$BR" ] || fail "impossible de decouper busy_procs/busy_reason dans $AP/lib/proof_run.sh : la garde « aucun build en cours » n'existe pas, l'acquis ne se mesure pas a l'aveugle"
+eval "$BR"
 waited=0
 while :; do
   why=$(busy_reason)
