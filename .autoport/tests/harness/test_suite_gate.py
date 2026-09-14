@@ -90,14 +90,20 @@ def test_un_depassement_de_budget_est_dit_mais_ne_refuse_pas(tmp_path):
 
 
 def test_le_journal_ne_dispense_jamais_un_rouge(tmp_path):
-    """Un item refuse ne doit pas fermer au deuxieme essai sur la trace du premier."""
+    """Un item refuse ne doit pas fermer au deuxieme essai sur la trace du premier.
+
+    Jusqu'au 14/09 `unwaived_new` se lisait DANS ce journal : au deuxieme passage le rouge y
+    figurait deja et se publiait « connu ». Il se MESURE maintenant a la base de l'essai, ou la
+    trace du premier passage n'est pas — les deux courses rendent donc le meme classement.
+    """
     d = tmp_path / "journal"
     d.mkdir(parents=True, exist_ok=True)
     BANC.semer(d, ITEM, **dict(BASE, casse=True))
     un = SG.judge(d, d / ".autoport", ITEM, record=True)
     deux = SG.judge(d, d / ".autoport", ITEM, record=True)
     assert un["verdict"] == "refuse" and deux["verdict"] == "refuse"
-    assert un["unwaived_new"] == 1 and deux["unwaived_new"] == 0   # publie, jamais dispensateur
+    assert un["unwaived_new"] == 1 and deux["unwaived_new"] == 1
+    assert un["unwaived_known"] == 0 and deux["unwaived_known"] == 0
 
 
 def test_une_suite_introuvable_ne_vaut_pas_un_vert(tmp_path):
@@ -106,6 +112,88 @@ def test_une_suite_introuvable_ne_vaut_pas_un_vert(tmp_path):
     v = SG.judge(d, d / ".autoport", ITEM, record=False)
     assert v["verdict"] == "refuse"
     assert v["ran"] == 0
+
+
+# ============ UN ROUGE NE DE L'ESSAI REFUSE ; UN ROUGE HERITE EST SIGNALE, PAS IMPUTE ========
+# `harness-close-gate-separates-inherited-reds`, 2026-09-14. L'essai 2 de `hdr-shadow-range`
+# est mort le 13/09 sur deux rouges nes d'un commit du superviseur pose UNE HEURE avant son
+# premier commit. Ces semis-ci ont une HISTOIRE — un commit de base, puis un commit de l'item —
+# parce que c'est la seule chose qui separe un rouge herite d'un rouge neuf.
+IRS = __import__("inherited_red_selftest")
+
+
+def juge_avec_histoire(tmp_path, nom, **semis):
+    d = tmp_path / nom
+    d.mkdir(parents=True, exist_ok=True)
+    depart = IRS.semer(d, ITEM, **semis)
+    return SG.judge(d, d / ".autoport", ITEM, record=False, since=depart)
+
+
+HERITE = dict(casse_a_la_base=True, casse_par_l_item=False)
+NEUF = dict(casse_a_la_base=False, casse_par_l_item=True)
+SIGNALE = IRS.NODE_CASSE + " | deja rouge a la base | dette -> item:build-and-harness-leftovers\n"
+
+
+def test_un_rouge_deja_rouge_a_la_base_de_l_essai_ne_refuse_pas(tmp_path):
+    v = juge_avec_histoire(tmp_path, "herite", **dict(
+        HERITE, rapport="rouge herite : " + IRS.NODE_CASSE, findings=SIGNALE))
+    assert v["verdict"] == "pass", v["reason"]
+    assert (v["unwaived"], v["unwaived_known"], v["unwaived_new"]) == (1, 1, 0)
+    assert v["unwaived_known_list"] == [IRS.NODE_CASSE]
+    assert v["replay_ran"] == 1 and v["red_base_kind"] == "attempt"
+
+
+def test_un_rouge_ne_du_commit_de_l_essai_refuse_toujours(tmp_path):
+    """HORS PERIMETRE TENU : la porte reste aussi dure sur ce que l'essai a casse."""
+    v = juge_avec_histoire(tmp_path, "neuf", **dict(
+        NEUF, rapport="rien a signaler", findings="AUCUN\n"))
+    assert v["verdict"] == "refuse"
+    assert (v["unwaived_known"], v["unwaived_new"]) == (0, 1)
+    assert IRS.NODE_CASSE in v["reason"] and "ce travail-ci" in v["reason"]
+
+
+def test_un_rouge_herite_que_personne_n_ecrit_ne_ferme_pas_en_silence(tmp_path):
+    """Il n'est pas impute a l'essai — mais l'essai suivant ne doit pas le retrouver intact."""
+    v = juge_avec_histoire(tmp_path, "muet", **dict(
+        HERITE, rapport="rien a signaler", findings="AUCUN\n"))
+    assert v["verdict"] == "refuse"
+    assert (v["unwaived_known"], v["unwaived_new"]) == (1, 0)
+    assert "signalement" in v["reason"] and "ce travail-ci" not in v["reason"]
+    assert v["inherited_unfiled"] == [IRS.NODE_CASSE] and v["inherited_filed"] == 0
+
+
+def test_un_signalement_sans_tri_ne_compte_pas(tmp_path):
+    """La convention est celle de `lib/findings_gate.sh` : `-> item:` ou `-> ecarte:`."""
+    v = juge_avec_histoire(tmp_path, "sans-tri", **dict(
+        HERITE, rapport="rouge herite : " + IRS.NODE_CASSE,
+        findings=IRS.NODE_CASSE + " | deja rouge a la base | dette\n"))
+    assert v["verdict"] == "refuse"
+    assert v["inherited_unfiled"] == [IRS.NODE_CASSE]
+
+
+def test_la_base_des_rouges_est_celle_de_l_essai_pas_celle_de_l_item(tmp_path):
+    """Le defaut mesure du 13/09, en miniature.
+
+    L'item a commite HIER (essai 1), un AUTRE a commite depuis, et l'essai d'aujourd'hui
+    commence. La base des rouges est le commit de l'AUTRE — pas celui d'avant l'essai 1, ou
+    tout ce que le monde a commite entre-temps serait impute a l'item.
+    """
+    d = tmp_path / "bases"
+    d.mkdir(parents=True, exist_ok=True)
+    IRS.semer(d, ITEM, casse_a_la_base=False, casse_par_l_item=False,
+              rapport="-", findings="AUCUN\n")
+    t = int(__import__("time").time())
+    IRS._git(d, "commit", "-q", "--allow-empty", "-m", "[autoport/%s] essai 1" % ITEM,
+             quand=t - 400)
+    IRS._git(d, "commit", "-q", "--allow-empty", "-m", "[autoport/un-autre] son travail",
+             quand=t - 300)
+    IRS._git(d, "commit", "-q", "--allow-empty", "-m", "[autoport/%s] essai 2" % ITEM,
+             quand=t - 100)
+    sujet = lambda ref: IRS._git(d, "log", "-1", "--format=%s", ref).stdout.strip()  # noqa: E731
+    ref, genre, _, _ = SG.red_base(str(d), ITEM, t - 200)
+    assert genre == "attempt" and sujet(ref) == "[autoport/un-autre] son travail"
+    # La base de l'ITEM, elle, remonte au tout debut : c'est ce qui a coute l'essai 2 du 13/09.
+    assert sujet(SG.base_ref(str(d), ITEM)) == "base du banc"
 
 
 @pytest.mark.parametrize("cle", ["collected", "failed", "duration_s", "budget_s",

@@ -1862,12 +1862,22 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
     # LE CALCUL N'EST PAS ICI. `lib/suite_gate.py` est le seul producteur du verdict ; cette
     # porte, le recensement de l'item et le banc l'appellent tous les trois. Deux regles
     # ecrites a deux endroits divergent en silence.
-    _sg = suite_gate.judge(REPO_ROOT, AUTOPORT_DIR, iid)
+    # `since` EST LA BASE DES ROUGES (harness-close-gate-separates-inherited-reds, 14/09). Sans
+    # lui, le juge remonte au premier commit de l'ITEM — pour `hdr-shadow-range` le 13/09,
+    # vingt-quatre heures en arriere : tout ce que le monde avait commite depuis lui etait
+    # impute a l'essai, et l'essai 2 est mort sur deux rouges du superviseur.
+    _sg = suite_gate.judge(REPO_ROOT, AUTOPORT_DIR, iid, since=since)
     log(f"· suite : {_sg['collected']} test(s) collecte(s), {_sg['failed']} rouge(s), "
         f"{_sg['unwaived']} sans dispense, {_sg['duration_s']}s "
         f"(budget {_sg['budget_s']}s) — registre {_sg['registry_sha']} "
         f"({_sg['registry_entries']} entree(s), dont {_sg['self_added']} de cet item)",
         "dim" if _sg["verdict"] == "pass" else "yellow")
+    if _sg["unwaived"] and _sg["unwaived"] > 0:
+        log(f"· suite : {_sg['unwaived_known']} rouge(s) HERITE(S) — deja rouges a la base de "
+            f"cet essai ({_sg['red_base_ref']}, {_sg['red_base_kind']}), ils ne lui sont PAS "
+            f"imputes — et {_sg['unwaived_new']} NEUF(S) [{','.join(_sg['unwaived_new_list'][:4]) or '-'}]. "
+            f"Rejeu {_sg['replay_seconds']}s (ran={_sg['replay_ran']}, err={_sg['replay_error']})",
+            "yellow")
     if _sg["over_budget"]:
         log(f"· suite : {_sg['duration_s']}s DEPASSENT le budget de {_sg['budget_s']}s. "
             f"Ce n'est pas un refus, c'est un cout qui derive et qu'on refuse d'avaler.",
@@ -1876,10 +1886,12 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
         return ("fail",
                 "CLOSE-GATE/suite: la suite du harnais refuse cette fermeture.\n"
                 + _sg["reason"]
-                + f"\n(suite : {_sg['collected']} collecte(s), {_sg['failed']} rouge(s), "
-                  f"{_sg['duration_s']}s ; registre {_sg['registry_sha']} ; base "
-                  f"{_sg['base_ref']} ; reproduis avec : python3 "
-                  f"{AUTOPORT_DIR.name}/lib/suite_gate.py judge --item {iid})")
+                + f"\n(suite : {_sg['collected']} collecte(s), {_sg['failed']} rouge(s), dont "
+                  f"{_sg['unwaived_known']} HERITE(S) non imputes ; registre "
+                  f"{_sg['registry_sha']} ; base du registre {_sg['base_ref']} ; base des "
+                  f"rouges {_sg['red_base_ref']} ({_sg['red_base_kind']}) ; {_sg['duration_s']}s "
+                  f"+ {_sg['replay_seconds']}s de rejeu ; reproduis avec : python3 "
+                  f"{AUTOPORT_DIR.name}/lib/suite_gate.py judge --item {iid} --since {int(since)})")
 
     # GATE 4 — l'oeil de l'owner est la porte FINALE. Un item passe donc en
     # `to-test`, jamais directement en `validated` : seul `owner_ok` le ferme.

@@ -30,18 +30,40 @@ CE QU'IL JUGE, ET AVEC QUELLE POLARITE :
      MESUREE sont publies a chaque fermeture. Un depassement est DIT, jamais avale. Au-dela du
      plafond dur la course est tuee et la fermeture refusee : une suite qui pend n'est pas une
      suite qui passe.
+  5. UN ROUGE NE DE L'ESSAI REFUSE ; UN ROUGE HERITE EST SIGNALE, PAS IMPUTE
+     (harness-close-gate-separates-inherited-reds, 2026-09-14). Mesure : l'essai 2 de
+     `hdr-shadow-range` est mort le 13/09 a 21:57 sur deux rouges de `test_backlog.py` nes de
+     `1c197e3620` ([autoport/supervisor], 20:51), UNE HEURE avant son premier commit. Deux
+     fautes cumulees, toutes deux corrigees ici :
+       - LA BASE ETAIT CELLE DE L'ITEM, PAS CELLE DE L'ESSAI. `base_ref()` remonte au parent du
+         PREMIER commit de l'item, tous essais confondus : pour hdr-shadow-range c'etait
+         `80c792057003` du 12/09 a 20:34, VINGT-QUATRE HEURES avant. Tout ce que le monde avait
+         commite entre-temps etait impute a l'item. La base des ROUGES est desormais celle de
+         L'ESSAI (`red_base_ref`), derivee de l'instant de depart que porte deja
+         `AUTOPORT_ATTEMPT_ID`. Celle du REGISTRE reste celle de l'item : une dispense qu'un
+         item s'est ecrite au premier essai ne doit pas le couvrir au troisieme.
+       - RIEN N'ETAIT MESURE. `unwaived_new` se lisait dans le journal des courses
+         precedentes — la trace de l'item lui-meme. On MESURE : un arbre de travail jetable a
+         la base, un a `HEAD`, et le meme nodeid rejoue dans les deux. ROUGE A LA BASE ET A
+         `HEAD` = HERITE, et l'herite ne refuse pas. Tout le reste — vert a la base, absent,
+         indecidable, arbre jetable impossible — est NEUF et refuse : le sens de l'erreur est
+         choisi, un doute ne relache jamais la porte.
+     Verifie sur l'archive : rejoues a la base de l'ESSAI, les deux rouges du 13/09 sont ROUGES
+     (donc herites) ; a la base de l'ITEM ils sont VERTS. C'est tout l'ecart.
 
 CE QU'IL NE FAIT PAS. Il ne desactive aucun test, il n'ecrit jamais dans le registre, et il
 n'ecrit aucun champ de `proof.txt`. Son journal (`.autoport/.last_suite_gate.json`, deja
-gitignore par `.autoport/.last_*`) ne sert QU'A publier « ce rouge est-il neuf » : il n'accorde
-aucune dispense, sinon un item refuse fermerait a son deuxieme essai en s'appuyant sur la trace
-du premier.
+gitignore par `.autoport/.last_*`) ne dispense RIEN et ne classe plus rien : depuis le 14/09
+il ne sert qu'a dire ce que la course precedente avait vu (`journal_*`). Un item refuse ne
+ferme pas a son deuxieme essai en s'appuyant sur la trace du premier — c'est une mesure a la
+base de l'essai qui le decide, et son propre premier essai n'est pas dans cette base.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -126,6 +148,21 @@ def parse_registry(texte: str | None) -> dict | None:
     return out
 
 
+_TRIE = re.compile(r"->\s*(item:[A-Za-z0-9_-]+|ecarte:\S)")
+
+
+def _trie(findings: str, nodeid: str) -> bool:
+    """Ce nodeid est-il SIGNALE — cite sur une ligne de FINDINGS.txt qui porte son tri ?
+
+    La ligne doit citer le nodeid ENTIER. Un nom de test seul se retrouve dans dix fichiers ;
+    `lib/findings_gate.sh` lit la meme convention de tri, et il n'y en a qu'une.
+    """
+    if not findings or not nodeid:
+        return False
+    return any(nodeid in ligne and _TRIE.search(ligne)
+               for ligne in findings.splitlines())
+
+
 def _git(root: str, *args: str, timeout: int = 60) -> str:
     try:
         r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True,
@@ -153,6 +190,155 @@ def base_ref(root: str, item_id: str) -> str:
             return parents[0]
         return commits[-1]          # commit racine : son propre etat est la base
     return "HEAD"
+
+
+def _own_commits(root: str, item_id: str) -> list[tuple[str, int]]:
+    """Les commits de l'item, du plus RECENT au plus ancien, avec leur date de commit."""
+    if not item_id:
+        return []
+    motif = r"\[autoport/%s\]" % re.escape(item_id)
+    out = []
+    for ligne in _git(root, "log", "--format=%H %ct", "--grep", motif).splitlines():
+        p = ligne.split()
+        if len(p) == 2 and p[1].isdigit():
+            out.append((p[0], int(p[1])))
+    return out
+
+
+def attempt_start(since: float = 0.0) -> tuple[float, str]:
+    """L'instant ou CET essai a commence, et d'ou on le tient.
+
+    L'orchestrateur le passe (`close_gate(..., since=started_at)`) ; hors de lui il est dans
+    `AUTOPORT_ATTEMPT_ID`, que l'orchestrateur fabrique en `<id>@<seq>#<epoch>` et pose dans
+    l'environnement du worker. Un seul producteur, deja epingle par le validateur — pas une
+    deuxieme horloge a tenir.
+    """
+    if since and since > 0:
+        return float(since), "arg"
+    jeton = os.environ.get("AUTOPORT_ATTEMPT_ID") or ""
+    if "#" in jeton:
+        queue = jeton.rsplit("#", 1)[1]
+        if queue.isdigit():
+            return float(queue), "env"
+    return 0.0, "-"
+
+
+def red_base(root: str, item_id: str, since: float = 0.0) -> tuple[str, str, float, str]:
+    """La revision d'avant CET ESSAI : (ref, genre, instant retenu, d'ou vient l'instant).
+
+    JAMAIS la base de l'ITEM. Un item qui a deja commite hier porterait une base d'hier, et
+    tout ce que le monde a commite depuis lui serait impute : c'est exactement ce qui a tue
+    l'essai 2 de `hdr-shadow-range` le 13/09.
+
+    Trois derivations, de la plus sure a la plus conservatrice :
+      `attempt`   on connait l'instant de depart : parent du PREMIER commit de l'item pose
+                  APRES lui.
+      `head`      on le connait, et l'item n'a rien commite depuis : `HEAD`. Son travail est
+                  alors dans l'arbre de travail, que l'arbre jetable ne porte pas — un rouge
+                  qu'il vient de fabriquer se lira donc NEUF, ce qui est le sens voulu.
+      `walkback`  on ne le connait pas : on remonte `HEAD` tant que les commits sont de CET
+                  item, et on s'arrete au premier qui ne l'est pas. Une serie d'essais que
+                  rien n'a separes se lit alors comme un seul : la base est plus VIEILLE que
+                  la verite, donc plus de rouges se lisent NEUFS. Le doute ne relache pas.
+    """
+    t0, d_ou = attempt_start(since)
+    if t0 > 0:
+        posterieurs = [sha for sha, ct in _own_commits(root, item_id) if ct >= int(t0) - 1]
+        if posterieurs:
+            parents = _git(root, "rev-parse", "%s^" % posterieurs[-1]).split()
+            return (parents[0] if parents else posterieurs[-1]), "attempt", t0, d_ou
+        return "HEAD", "head", t0, d_ou
+    marque = "[autoport/%s]" % item_id
+    for ligne in _git(root, "log", "--format=%H%x09%s", "-n", "80").splitlines():
+        sha, _, sujet = ligne.partition("\t")
+        if item_id and sujet.startswith(marque):
+            continue
+        return sha, "walkback", 0.0, d_ou
+    return "HEAD", "head", 0.0, d_ou
+
+
+# ======================================== le rouge est-il DEJA LA ? on le REJOUE, on ne le devine pas =
+MAX_PROBE_NODES = int(os.environ.get("AUTOPORT_SUITE_PROBE_MAX") or 40)
+
+
+def replay(root: str, refs: list[str], nodes: list[str],
+           timeout_s: int = 600) -> tuple[dict, dict]:
+    """Rejoue `nodes` a chaque revision de `refs`, dans UN arbre de travail jetable.
+
+    Rend `({ref: {nodeid: verdict}}, info)`. Verdicts : `failed`, `passed`, `skipped`,
+    `absent` (le fichier du test n'existe pas a cette revision), `unknown` (pytest n'a rien
+    rendu de lisible pour ce nodeid).
+
+    UN SEUL ARBRE, recycle par `checkout` : la copie complete coute 3 s et 765 Mo sur cet
+    arbre, un `checkout` entre deux revisions voisines coute 0,9 s. Deux arbres simultanes
+    tiendraient mal dans un `/tmp` en memoire.
+
+    LES DEUX BRAS SE MESURENT AU MEME ENDROIT. Comparer « la suite complete dans l'arbre
+    livre » a « un nodeid seul dans un arbre jetable » comparerait deux instruments : un test
+    qui lit un fichier GITIGNORE rend un verdict different hors de l'arbre livre — mesure du
+    13/09, 7 rouges en detache contre 5 dans l'arbre livre au MEME commit. On rejoue donc AUSSI
+    a `HEAD`, dans le meme arbre jetable, et c'est `base` CONTRE `head` qui decide.
+    """
+    info = {"ran": 0, "seconds": 0.0, "error": "-", "worktree": "-", "capped": 0}
+    res = {ref: {} for ref in refs}
+    if not refs or not nodes:
+        return res, info
+    if len(nodes) > MAX_PROBE_NODES:
+        info["capped"] = len(nodes) - MAX_PROBE_NODES
+        nodes = nodes[:MAX_PROBE_NODES]
+    t0 = time.time()
+    tmpd = tempfile.mkdtemp(prefix="suite-replay-")
+    wt = os.path.join(tmpd, "wt")
+    try:
+        r = subprocess.run(["git", "-C", root, "worktree", "add", "--detach", wt, refs[0]],
+                           capture_output=True, text=True, timeout=timeout_s)
+        if r.returncode != 0:
+            info["error"] = (r.stderr or "worktree-add-echec").strip().splitlines()[-1][:160]
+            return res, info
+        info["worktree"] = wt
+        for ref in refs:
+            c = subprocess.run(["git", "-C", wt, "checkout", "--detach", "--force", ref],
+                               capture_output=True, text=True, timeout=timeout_s)
+            if c.returncode != 0:
+                for n in nodes:
+                    res[ref][n] = "unknown"
+                info["error"] = (c.stderr or "checkout-echec").strip().splitlines()[-1][:160]
+                continue
+            a_jouer = []
+            for n in nodes:
+                fichier = n.split("::", 1)[0]
+                if os.path.exists(os.path.join(wt, fichier)):
+                    a_jouer.append(n)
+                else:
+                    res[ref][n] = "absent"
+            if not a_jouer:
+                continue
+            xml = os.path.join(tmpd, "replay.xml")
+            try:
+                subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                                "--junitxml=" + xml, *a_jouer],
+                               cwd=wt, capture_output=True, text=True, timeout=timeout_s)
+            except (OSError, subprocess.SubprocessError) as exc:       # noqa: BLE001
+                info["error"] = ("%s" % exc)[:160]
+            lu = read_junit(xml) or {}
+            try:
+                os.remove(xml)
+            except OSError:
+                pass
+            for n in a_jouer:
+                v = (lu.get(n) or ("unknown", ""))[0]
+                res[ref][n] = {"failure": "failed", "error": "failed"}.get(v, v)
+        info["ran"] = 1
+    except (OSError, subprocess.SubprocessError) as exc:               # noqa: BLE001
+        info["error"] = ("%s" % exc)[:160]
+    finally:
+        subprocess.run(["git", "-C", root, "worktree", "remove", "--force", wt],
+                       capture_output=True, text=True, timeout=120)
+        subprocess.run(["git", "-C", root, "worktree", "prune"],
+                       capture_output=True, text=True, timeout=120)
+        shutil.rmtree(tmpd, ignore_errors=True)
+        info["seconds"] = round(time.time() - t0, 1)
+    return res, info
 
 
 def registry_at(root: str, ref: str, rel: str) -> str | None:
@@ -197,7 +383,7 @@ def _append_journal(autoport: str, entree: dict) -> None:
 
 # ================================================================================ le verdict =
 def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = None,
-          timeout_s: int | None = None, record: bool = True) -> dict:
+          timeout_s: int | None = None, record: bool = True, since: float = 0.0) -> dict:
     """Lance la suite, la juge, et rend un dictionnaire de grandeurs PUBLIABLES.
 
     `verdict` vaut `pass` ou `refuse` ; `reason` porte, en francais, ce que la porte dira.
@@ -220,7 +406,15 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
         "self_added_named": -1, "self_added_unnamed": [], "report_read": 0,
         "waived_effective": -1, "stale_waivers": -1,
         "unwaived": -1, "unwaived_list": [],
-        "unwaived_new": -1, "unwaived_new_list": [], "unwaived_known": -1,
+        "unwaived_new": -1, "unwaived_new_list": [],
+        "unwaived_known": -1, "unwaived_known_list": [],
+        "red_base_ref": "-", "red_base_kind": "-", "red_base_since": 0,
+        "red_base_since_from": "-",
+        "replay_ran": 0, "replay_seconds": 0.0, "replay_error": "-", "replay_capped": 0,
+        "replay_base": [], "replay_head": [],
+        "inherited_named": -1, "inherited_unnamed": [],
+        "inherited_filed": -1, "inherited_unfiled": [], "findings_read": 0,
+        "journal_unseen": -1, "journal_unseen_list": [],
         "previous_at": "-", "previous_runs": len(read_journal(autoport)),
         "verdict": "refuse", "reason": "",
     }
@@ -286,6 +480,17 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             d["report_read"] = 1
         except OSError:
             rapport = ""
+    # LES SIGNALEMENTS DE L'ESSAI. Meme convention que `lib/findings_gate.sh` : une ligne triee
+    # porte `-> item:<id>` ou `-> ecarte:<raison>`. On la lit, on ne l'ecrit jamais.
+    findings = ""
+    chemin_find = os.path.join(autoport, "reports", item_id, "FINDINGS.txt") if item_id else ""
+    if chemin_find and os.path.exists(chemin_find):
+        try:
+            with open(chemin_find, encoding="utf-8", errors="replace") as f:
+                findings = f.read()
+            d["findings_read"] = 1
+        except OSError:
+            findings = ""
     d["self_added_unnamed"] = [n for n in propres if n not in rapport]
     d["self_added_named"] = len(propres) - len(d["self_added_unnamed"])
 
@@ -335,9 +540,8 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             non_couverts = [n for n in rouges if n not in couvre]
             d["unwaived"] = len(non_couverts)
             d["unwaived_list"] = non_couverts
-            # NEUF OU DEJA LA : publie, jamais dispensateur. Le journal dit qui a casse quoi ;
-            # il ne ferme aucune porte, sinon un item refuse fermerait au deuxieme essai en
-            # s'appuyant sur la trace que son premier essai vient d'ecrire.
+            # CE QUE LA COURSE PRECEDENTE AVAIT VU : publie, et RIEN DE PLUS. Ce journal est la
+            # trace de l'item lui-meme ; il ne classe rien et ne dispense rien.
             precedent = read_journal(autoport)
             connus, quand = set(), "-"
             for r in reversed(precedent):
@@ -346,17 +550,70 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
                     quand = str(r.get("at") or "-")
                     break
             d["previous_at"] = quand
-            d["unwaived_new_list"] = [n for n in non_couverts if n not in connus]
-            d["unwaived_new"] = len(d["unwaived_new_list"])
-            d["unwaived_known"] = len(non_couverts) - d["unwaived_new"]
+            d["journal_unseen_list"] = [n for n in non_couverts if n not in connus]
+            d["journal_unseen"] = len(d["journal_unseen_list"])
+
+            # ================== HERITE OU NEUF : ON LE MESURE A LA BASE DE L'ESSAI ==========
+            # Le meme nodeid rejoue dans UN arbre jetable, a la base de l'essai puis a `HEAD`.
+            # ROUGE AUX DEUX = HERITE : l'essai ne l'a pas fabrique, il ne le paie pas. Tout le
+            # reste est NEUF et refuse — vert a la base, absent, indecidable, arbre impossible.
+            # Le sens de l'erreur est choisi : un doute ne relache jamais la porte.
+            rbase, rkind, rsince, rfrom = red_base(root, item_id, since)
+            d["red_base_kind"] = rkind
+            d["red_base_since"] = int(rsince)
+            d["red_base_since_from"] = rfrom
+            tete = (_git(root, "rev-parse", "HEAD").split() or ["HEAD"])[0]
+            d["red_base_ref"] = (rbase[:12] if re.fullmatch(r"[0-9a-f]{40}", rbase) else rbase)
+            herites, neufs = [], list(non_couverts)
             if non_couverts:
+                refs = [rbase] if rbase == tete else [rbase, tete]
+                vus, info = replay(root, refs, non_couverts)
+                d["replay_ran"] = info["ran"]
+                d["replay_seconds"] = info["seconds"]
+                d["replay_error"] = info["error"]
+                d["replay_capped"] = info["capped"]
+                vbase = vus.get(rbase, {})
+                vtete = vus.get(tete, vbase)
+                d["replay_base"] = ["%s:%s" % (n, vbase.get(n, "unknown"))
+                                    for n in non_couverts]
+                d["replay_head"] = ["%s:%s" % (n, vtete.get(n, "unknown"))
+                                    for n in non_couverts]
+                if info["ran"]:
+                    herites = [n for n in non_couverts
+                               if vbase.get(n) == "failed" and vtete.get(n) == "failed"]
+                    neufs = [n for n in non_couverts if n not in herites]
+            d["unwaived_known"] = len(herites)
+            d["unwaived_known_list"] = herites
+            d["unwaived_new"] = len(neufs)
+            d["unwaived_new_list"] = neufs
+
+            if neufs:
                 defauts.append(
-                    "%d test(s) de la suite du harnais sont ROUGES et aucune dispense ecrite "
-                    "ne les couvre : %s. La suite etait VERTE et ce build la rend rouge — "
-                    "repare le test ou inscris-le dans %s avec sa raison, sa signature et le "
-                    "nom de qui doit trancher."
-                    % (len(non_couverts), ",".join(non_couverts[:8]), registre_rel))
-    if d["self_added"] > 0 and d["unwaived"] and d["unwaived"] > 0:
+                    "%d test(s) de la suite du harnais sont ROUGES, aucune dispense ecrite ne "
+                    "les couvre, et ils etaient VERTS a la base de CET essai (%s, %s) : c'est "
+                    "ce travail-ci qui les rend rouges — %s. Repare le test ou inscris-le dans "
+                    "%s avec sa raison, sa signature et le nom de qui doit trancher."
+                    % (len(neufs), d["red_base_ref"], rkind, ",".join(neufs[:8]), registre_rel))
+            # L'HERITE NE MEURT PAS EN SILENCE. Il ne refuse pas la fermeture — mais il ne
+            # disparait pas non plus : il est NOMME dans le rapport et TRIE dans FINDINGS.txt,
+            # faute de quoi l'essai suivant le retrouvera intact et paiera l'enquete a son tour.
+            if herites:
+                d["inherited_unnamed"] = [n for n in herites if n not in rapport]
+                d["inherited_named"] = len(herites) - len(d["inherited_unnamed"])
+                d["inherited_unfiled"] = [n for n in herites if not _trie(findings, n)]
+                d["inherited_filed"] = len(herites) - len(d["inherited_unfiled"])
+                manquants = sorted(set(d["inherited_unnamed"]) | set(d["inherited_unfiled"]))
+                if manquants:
+                    defauts.append(
+                        "%d rouge(s) HERITE(S) ne sont pas passes en signalement : %s. Ils ne "
+                        "sont PAS de cet essai — ils sont deja rouges a sa base (%s) et la "
+                        "porte ne les lui impute pas — mais un rouge herite que personne "
+                        "n'ecrit est retrouve intact par l'essai suivant, qui repaie "
+                        "l'enquete. Nomme chacun dans ton rapport ET dans "
+                        "reports/%s/FINDINGS.txt avec '-> item:<id>' ou '-> ecarte:<raison>'."
+                        % (len(manquants), ",".join(manquants[:8]), d["red_base_ref"],
+                           item_id or "<id>"))
+    if d["self_added"] > 0 and d["unwaived_new"] and d["unwaived_new"] > 0:
         defauts.append(
             "%d entree(s) du registre ont ete ajoutees par CET item (%s, base %s) : elles ne "
             "dispensent pas SES propres rouges. Un item ne se donne pas du vert en inscrivant "
@@ -376,7 +633,9 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             "head": (_git(root, "rev-parse", "--short", "HEAD").strip() or "-"),
             "collected": d["collected"], "failed": d["failed"],
             "unwaived": d["unwaived_list"], "duration_s": d["duration_s"],
-            "verdict": d["verdict"],
+            "verdict": d["verdict"], "red_base": d["red_base_ref"],
+            "red_base_kind": d["red_base_kind"],
+            "inherited": d["unwaived_known_list"], "introduced": d["unwaived_new_list"],
         })
     return d
 
@@ -397,8 +656,13 @@ def publish(d: dict, prefix: str = "suite_") -> list[str]:
              "registry_entries", "base_ref", "self_added", "self_added_list",
              "self_added_named", "self_added_unnamed", "report_read", "waived_effective",
              "stale_waivers", "unwaived", "unwaived_list", "unwaived_new",
-             "unwaived_new_list", "unwaived_known", "previous_at", "previous_runs",
-             "verdict", "suite_dir")
+             "unwaived_new_list", "unwaived_known", "unwaived_known_list",
+             "red_base_ref", "red_base_kind", "red_base_since", "red_base_since_from",
+             "replay_ran", "replay_seconds", "replay_error", "replay_capped",
+             "replay_base", "replay_head",
+             "inherited_named", "inherited_unnamed", "inherited_filed", "inherited_unfiled",
+             "findings_read", "journal_unseen", "journal_unseen_list",
+             "previous_at", "previous_runs", "verdict", "suite_dir")
     out = ["%s%s=%s" % (prefix, k, _plat(d.get(k, "-"))) for k in ordre]
     out.append("%sreason=%s" % (prefix, _plat(d.get("reason") or "-")[:400]))
     return out
@@ -415,12 +679,14 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--timeout", type=int, default=None)
     ap.add_argument("--no-record", action="store_true")
+    ap.add_argument("--since", type=float, default=0.0,
+                    help="instant de depart de l'essai (epoch) ; sinon AUTOPORT_ATTEMPT_ID")
     a = ap.parse_args(argv)
     ici = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     autoport = a.autoport or ici
     root = a.root or os.path.dirname(autoport)
     d = judge(root, autoport, a.item, budget_s=a.budget, timeout_s=a.timeout,
-              record=not a.no_record)
+              record=not a.no_record, since=a.since)
     for ligne in publish(d, a.prefix):
         print(ligne)
     return 0

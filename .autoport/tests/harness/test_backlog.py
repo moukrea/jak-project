@@ -305,8 +305,27 @@ def test_status_report_of_the_real_backlog_is_french_and_has_no_commit_noise():
     assert ("## A tester" in text) == bool(testable), (
         "la section et la population divergent : testables = %s"
         % [it["id"] for it in testable])
+    # LES PHRASES DU BACKLOG NE SONT PAS DU BRUIT DE HARNAIS
+    # (harness-close-gate-separates-inherited-reds, 2026-09-14). Ce test cherchait les mots
+    # interdits dans TOUT le rapport, citations d'items comprises. Il est devenu rouge le 14/09
+    # parce qu'un item s'appelle « Un rouge de la suite ne DU COMMIT d'un autre... » : une
+    # phrase ecrite par le superviseur, pas une fuite du producteur. Un test qui rougit sur une
+    # DONNEE livree accuse le code de personne. Ce qu'il protege, c'est la prose que le
+    # PRODUCTEUR ajoute autour ; on retire donc les citations avant de chercher.
+    propre, cites = text, 0
+    for phrase in sorted((str(it.get("feature") or "") for it in b.items),
+                         key=len, reverse=True):
+        if len(phrase) >= 8 and phrase in propre:
+            propre = propre.replace(phrase, "<feature>")
+            cites += 1
+    # LE RETRAIT NE DOIT PAS AVALER LE RAPPORT : s'il reste une section, elle cite au moins un
+    # item, et les titres de sections survivent. Sans ce controle, une substitution qui effacerait
+    # tout rendrait ce test vert pour toujours.
+    if "## " in text:
+        assert cites >= 1, "une section sans aucune phrase d'item citee"
+        assert "## " in propre, "le retrait des citations a emporte les titres de sections"
     for noise in ("commit", "validator", "attempt", "WIP", "sha=", "[autoport/"):
-        assert noise not in text, noise
+        assert noise not in propre, noise
     validated = [it["feature"] for it in bl.load().items if it["status"] == "validated"]
     for feature in validated:
         assert feature not in text, "une feature validee est re-listee : %s" % feature
