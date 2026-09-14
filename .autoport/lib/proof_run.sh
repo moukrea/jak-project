@@ -156,11 +156,72 @@ log(){ printf '[proof_run %s] %s\n' "$ID" "$*" >&2; }
 # en 3 comme avant.
 WAITED_S=0          # secondes reellement attendues qu'un build finisse
 BUSY_WHY=""         # ce qui occupait la machine, tel que busy_reason l'a nomme
+
+# ====================================================== AMORCAGE/efface-la-preuve/debut ======
+# LA PREUVE D'HIER NE MEURT PLUS D'UNE GARDE QUI TOMBE
+# (harness-proof-run-erases-proof-only-once-it-runs, 2026-09-14).
+#
+# CE QUI ETAIT LA. Ce script effacait `proof.txt` AU DEMARRAGE, avant ses gardes, et `die3`
+# refaisait le geste a CHAQUE sortie 3. Une course qui mourait sur « build en cours », sur un
+# binaire absent ou sur un appareil debranche avait donc DEJA detruit la preuve de la course
+# precedente — sans avoir lance le moteur, sans rien mesurer, sans rien mettre a la place.
+# Mesure : le `proof.txt` du 12/09 de `hdr-shadow-range`, 34 308 octets, porte tenue, detruit
+# par une course qui n'a jamais amorce l'appareil ; seul `proof-prev.txt` a sauve les chiffres.
+#
+# CE QUI EST LA MAINTENANT. L'effacement est un GESTE NOMME — `amorcage_efface_la_preuve` — et
+# il n'a qu'un seul moment : celui ou le moteur (x86) ou l'appareil (logcat + `am start`) est
+# EFFECTIVEMENT lance. Toute sortie ANTERIEURE — garde de build, binaire absent, appareil
+# absent, nommage divergent, verrou d'ecriture, refus de la garde binaire — laisse la preuve
+# INTACTE, a l'octet. `die3` ne retire donc plus que ce que la course avait deja remplace.
+#
+# ET ON LE CONSTATE, on ne le decrete pas : CHAQUE course ecrit UNE ligne append-only dans
+# `logs/proof-erase.tsv` — ce qu'elle a trouve en arrivant, si elle a efface, a quel POINT, et
+# avec quel CODE elle est sortie. C'est la seule population sur laquelle un recensement peut
+# dire « preuves detruites sans course = 0 sur N courses », avec un denominateur.
+PROOF_ERASED=0                 # la preuve d'avant a-t-elle ete retiree par CETTE course
+PROOF_ERASE_POINT="-"          # et a quel point d'amorcage, nomme
+PROOF_PREV_WRITTEN=0           # le filet `proof-prev.txt` a-t-il ete ecrit par cette course
+PROOF_BEFORE_BYTES=0           # ce que cette course a TROUVE en arrivant
+[ -s "$OUTFILE" ] && PROOF_BEFORE_BYTES=$(stat -c %s "$OUTFILE" 2>/dev/null || echo 0)
+PROOF_BEFORE_SHA=$(sha256sum "$OUTFILE" 2>/dev/null | cut -c1-16); PROOF_BEFORE_SHA=${PROOF_BEFORE_SHA:--}
+
+# LE REGISTRE, ECRIT A LA SORTIE, QUEL QUE SOIT LE CHEMIN DE SORTIE. Un registre qu'on n'ecrit
+# que dans le cas heureux ne peut pas servir de denominateur : c'est precisement la course qui
+# MEURT qu'il faut compter.
+PE_REGISTRE_ECRIT=0
+pe_registre(){   # pe_registre <code-de-sortie>
+  [ "$PE_REGISTRE_ECRIT" = 1 ] && return 0
+  PE_REGISTRE_ECRIT=1
+  local apres=0
+  [ -s "$OUTFILE" ] && apres=$(stat -c %s "$OUTFILE" 2>/dev/null || echo 0)
+  mkdir -p "$AP/logs" 2>/dev/null
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date +%s)" "$ID" "${SUF:-livre}" "$MODE" "${1:--}" \
+    "$PROOF_ERASED" "$PROOF_ERASE_POINT" "$PROOF_BEFORE_BYTES" "$apres" "$$" \
+    >> "$AP/logs/proof-erase.tsv" 2>/dev/null || true
+}
+# LE SEUL NETTOYAGE DE SORTIE. Les quatre `trap ... EXIT` de ce script passent par ici : un
+# `trap` pose plus tard effacerait celui d'avant, et le registre serait muet sur les courses qui
+# meurent le plus loin. `$?` est lu par la PREMIERE commande de la fonction — sinon il est deja
+# celui de la commande precedente du trap, pas celui du script.
+PROOF_SEAL_ARME=0
+proof_sortie(){
+  local rc=$?
+  [ $# -gt 0 ] && rc=$1
+  [ "$PROOF_SEAL_ARME" = 1 ] && seal_check
+  pe_registre "$rc"
+  pw_liberer
+}
+# AMORCAGE/efface-la-preuve/fin (la fonction d'effacement elle-meme vit plus bas, a l'endroit
+# ou le bloc PAIRE-PRECEDENTE a toujours ete.)
+
 die3(){
   local raison="$1"; shift
   local detail="$*"
   log "PREUVE IMPOSSIBLE ($raison) : $detail"
-  rm -f "$OUTFILE"
+  # ON NE RETIRE QUE CE QUE CETTE COURSE A DEJA REMPLACE (AMORCAGE/efface-la-preuve). Ce `rm`
+  # etait NU : une garde qui tombait avant tout amorcage emportait la preuve de la veille.
+  [ "$PROOF_ERASED" = 1 ] && rm -f "$OUTFILE"
   bash "$AP/lib/proof_impossible.sh" "$D" "$ID" "$SUF" "$raison" "$detail" \
        "$WAITED_S" "${WAITMAX:-0}" "$BUSY_WHY" \
     || log "ETAT NOMME NON ECRIT : proof_impossible.sh a refuse (code $?) — cette course sortira sans rien qui nomme son impossibilite"
@@ -307,7 +368,7 @@ pw_marquer "$PW_LOCKF"
 # effacerait la liberation du premier. `flock` tombe de toute facon a la mort du processus : ce
 # qu'on retire ici, c'est le FICHIER, pour qu'aucun lecteur ne trouve le nom d'un cadavre.
 pw_liberer(){ rm -f "$PW_LOCKF" 2>/dev/null || true; }
-trap 'pw_liberer' EXIT
+trap 'proof_sortie' EXIT
 log "verrou d'ecriture pris ($PW_LOCKF) : pid=$$ lanceur=$PPID essai=$PW_ATTEMPT course=$PW_RUNID"
 extra "proof_run_id=$PW_RUNID"
 extra "proof_run_pid=$$"
@@ -375,7 +436,7 @@ seal_check(){
     printf 'exit_sha=-\nexit_bytes=0\n' >> "$SEALFILE"
   fi
 }
-seal_et_arme(){ seal_write; trap 'seal_check; pw_liberer' EXIT; }
+seal_et_arme(){ seal_write; PROOF_SEAL_ARME=1; }
 # `debug.opengoal.hdr.out` -> `hdr_out` : la cle de proof.txt doit tenir dans [A-Za-z0-9_].
 prop_key(){ printf '%s' "${1#debug.opengoal.}" | tr -c 'A-Za-z0-9_' '_'; }
 
@@ -483,7 +544,10 @@ fi
 # Recompute from an immutable existing run, preserving its original execution
 # timestamp and counters. This path performs no device action and never freshens a run.
 if [ -n "$HDR_AGGREGATE" ]; then
-  rm -f "$OUTFILE"
+  # RIEN N'EST EFFACE AVANT DE SAVOIR QU'ON PRODUIRA QUELQUE CHOSE (AMORCAGE/efface-la-preuve).
+  # Ce chemin recalcule une preuve depuis un lot deja mesure : il ecrit un temporaire, et c'est
+  # le `mv` qui remplace. Le `rm -f "$OUTFILE"` qui etait ici detruisait la preuve d'avant meme
+  # quand le recalcul echouait juste apres, sur `die3 hdr-replay`.
   HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$HDR_AGGREGATE"
   TMP="$D/.$AP_NAME_proof.tmp.$$"
   if ! python3 - "$HDR_BATCH" "$BIN" "$MODE" > "$TMP" <<'HDR_REPLAY'
@@ -538,6 +602,7 @@ HDR_REPLAY
     rm -f "$TMP"; die3 hdr-replay "l'agregation HDR du lot $HDR_BATCH a echoue"
   fi
 mv -f "$TMP" "$OUTFILE"
+  PROOF_ERASED=1; PROOF_ERASE_POINT=recompute-hdr-agregat
   seal_et_arme
   log "recomputed $OUTFILE from $HDR_BATCH with original timestamp"
   exit 0
@@ -862,6 +927,16 @@ fi
 # preuve, et le dossier d'un item ne pouvait JAMAIS fournir une paire (preuve, sceau) a son
 # PROPRE recensement — le terme se mesurait toujours sur les autres items, jamais sur soi.
 # La paire d'avant est deplacee sous les noms que l'autorite derive pour elle.
+#
+# ET LES DEUX GESTES N'ONT PLUS LIEU ICI (AMORCAGE/efface-la-preuve, 2026-09-14). Ils sont
+# devenus le CORPS d'une fonction que SEUL le point d'amorcage appelle — c'est tout le sujet de
+# l'item `harness-proof-run-erases-proof-only-once-it-runs`. Le bloc borne ci-dessous n'a pas
+# bouge d'une ligne : `lib/naming_authority_selftest.py` le LEVE TEL QUEL entre ses marqueurs et
+# le rejoue dans un bac a sable ; l'indenter le rendrait different de ce que ce lecteur attend.
+# Ce qui change n'est pas ce que le bloc FAIT, seulement QUAND il le fait.
+amorcage_efface_la_preuve(){   # $1 = le nom du point d'amorcage, publie dans la preuve
+  [ "$PROOF_ERASED" = 1 ] && return 0
+  PROOF_ERASE_POINT="${1:-inconnu}"
 # PAIRE-PRECEDENTE/debut  (le banc leve ce bloc TEL QUEL et le rejoue dans un bac a sable :
 # une recopie dans le banc mesurerait la recopie, pas le geste.)
 if [ -s "$OUTFILE" ] && [ -s "$SEALFILE" ]; then
@@ -874,13 +949,27 @@ else
   rm -f "$D/$AP_NAME_prev_proof" "$D/$AP_NAME_prev_seal"
 fi
 # PAIRE-PRECEDENTE/fin
-
-# La preuve doit venir de la course qu'on lance MAINTENANT. On retire l'ancienne d'abord :
-# si la course echoue, il ne reste rien qui puisse passer une porte. L'etat nomme de la course
-# PRECEDENTE part avec elle : une cle de texte qu'on ne vide jamais finit par accuser une
-# course qui n'existe plus. AUCUN de ces noms n'est fabrique ici : ils viennent du prologue,
-# donc de `lib/impossible.py`.
-rm -f "$OUTFILE" "$D/$AP_NAME_impossible"
+  [ -s "$D/$AP_NAME_prev_proof" ] && PROOF_PREV_WRITTEN=1
+  # La preuve doit venir de la course qu'on lance MAINTENANT. On retire l'ancienne ICI, au
+  # moment ou le moteur ou l'appareil DEMARRE : si la course echoue apres ce point, il ne reste
+  # rien qui puisse passer une porte, et c'est voulu. L'etat nomme de la course PRECEDENTE part
+  # avec elle : une cle de texte qu'on ne vide jamais finit par accuser une course qui n'existe
+  # plus. AUCUN de ces noms n'est fabrique ici : ils viennent du prologue, donc de
+  # `lib/impossible.py`.
+  rm -f "$OUTFILE" "$D/$AP_NAME_impossible"
+  PROOF_ERASED=1
+  log "preuve precedente retiree au point d'amorcage '$PROOF_ERASE_POINT' (trouvee : ${PROOF_BEFORE_BYTES} o, sha=$PROOF_BEFORE_SHA ; filet proof-prev ecrit : $PROOF_PREV_WRITTEN)"
+  extra "proof_erase_point=$PROOF_ERASE_POINT"
+  extra "proof_erased=1"
+  extra "proof_erase_before_bytes=$PROOF_BEFORE_BYTES"
+  extra "proof_erase_before_sha=$PROOF_BEFORE_SHA"
+  extra "proof_prev_written=$PROOF_PREV_WRITTEN"
+  extra "proof_erase_registry_lines=$(wc -l < "$AP/logs/proof-erase.tsv" 2>/dev/null || echo 0)"
+}
+# AMORCAGE-TARDIF/point-d-avant — L'ANCIEN POINT D'EFFACEMENT ETAIT ICI, au demarrage : avant
+# tout amorcage, et APRES des gardes qui pouvaient encore tuer la course sans rien mesurer. Le
+# bras d'ABSENCE du banc remet un appel a cette ligne exacte pour FABRIQUER le defaut d'avant :
+# sans lui, « zero preuve detruite sans course » se lirait comme « personne n'a regarde ».
 
 SHA=$(sha256sum "$BIN" | cut -c1-16)
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -992,7 +1081,7 @@ hdr_captures_complete(){
 hdr_x86_run(){
   local launch_time rc
   HDR_XPID=""; HDR_STOPPED=0
-  trap 'hdr_x86_stop; pw_liberer' EXIT
+  trap 'proof_rc_hdr=$?; hdr_x86_stop; proof_sortie "$proof_rc_hdr"' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   stdbuf -oL -eL "$@" > "$RAWLOG" 2>&1 &
@@ -1013,7 +1102,7 @@ hdr_x86_run(){
   [ "$HDR_STOPPED" = 0 ] || hdr_x86_stop
   wait "$HDR_XPID"; rc=$?
   HDR_XPID=""
-  trap 'pw_liberer' EXIT; trap - INT TERM
+  trap 'proof_sortie' EXIT; trap - INT TERM
   if [ "$HDR_STOPPED" = 1 ] && { [ "$rc" = 143 ] || [ "$rc" = 137 ]; }; then return 0; fi
   return "$rc"
 }
@@ -1063,6 +1152,10 @@ if [ "$MODE" = x86 ]; then
       --binary "$BIN" --vantages "$HDR_VANTAGES" --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" \
       || die3 hdr-prepare-x86 "hdr_batches.py prepare a echoue sur $HDR_BATCH"
   fi
+  # LE POINT D'AMORCAGE x86 (AMORCAGE/efface-la-preuve). Rien au-dessus de cette ligne ne
+  # touche a la preuve de la course precedente : ni la garde de build, ni le binaire absent, ni
+  # la preparation HDR. Le moteur demarre a la ligne suivante.
+  amorcage_efface_la_preuve amorcage-moteur-x86
   log "x86 : $BIN pendant ${TIMEOUT}s (armed=$ARMED)"
   # stdbuf : une sortie redirigee est bufferisee par BLOCS. 70 lignes produites, 0 comptees,
   # c'est arrive. -oL force la ligne a ligne AVANT qu'on en compte une seule.
@@ -1149,7 +1242,7 @@ else
     fi
     log "teardown de fin : $(sed -n 's/^teardown_fin_props_found=//p' "$D/$nom") propriete(s) trouvee(s) posee(s) [$(sed -n 's/^teardown_fin_props_list=//p' "$D/$nom")], publie sous '$nom'"
   }
-  trap 'teardown_fin; pw_liberer' EXIT
+  trap 'proof_rc_td=$?; teardown_fin; proof_sortie "$proof_rc_td"' EXIT
 
   if [ "$(timeout 15 "$ADB" -s "$SERIAL" get-state 2>/dev/null | tr -d '\r')" != device ]; then
     die3 appareil-absent "adb ne voit pas $SERIAL : aucune preuve APPAREIL possible"
@@ -1269,6 +1362,10 @@ else
     log "HDR batch: $HDR_BATCH ; refset=$HDR_REMOTE"
   fi
 
+  # LE POINT D'AMORCAGE APPAREIL (AMORCAGE/efface-la-preuve). L'appareil est choisi, present,
+  # portant le bon binaire, et son journal va s'ouvrir : c'est ici, et pas une ligne plus haut,
+  # que la preuve de la course precedente cesse d'etre la meilleure chose qu'on ait.
+  amorcage_efface_la_preuve amorcage-appareil
   timeout 15 "$ADB" -s "$SERIAL" logcat -c >/dev/null 2>&1
   stdbuf -oL "$ADB" -s "$SERIAL" logcat -v time > "$RAWLOG" 2>&1 &
   LPID=$!; echo "$LPID" > "$PIDDIR/$ID$SUF.pid"
