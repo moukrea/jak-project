@@ -6721,7 +6721,7 @@ items:
   block_reason: null
 - id: perf-mips2c-neon
   feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
-  status: open
+  status: blocked
   priority: 40
   game: jak1
   gate:
@@ -6770,7 +6770,22 @@ items:
   - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: null
+  block_reason: 'Diagnostic de depart contredit par le binaire : os/joints deja vectorises ; bones-mtx-calc
+    inactif dans le regime livre, 0 operation et 0 image qualifiee. References plage absentes, hutte non
+    equivalente. Reprise superviseur : selectionner les chemins reellement executes et resoudre les references
+    avant nouvelle course ; ne pas forcer l ancien noyau pour fabriquer des hits. Aucun gain demontre.'
+  supervisor_recovery: true
+  supervisor_review:
+    date: '2026-09-14'
+    source: handoff, report et FINDINGS du dernier essai
+    observed: 20183198 operations joints et 159438 particules sans ecart, mais os=0 et parity_frames=0
+      ; gate 3, refset 255. Tests isoles 951808 cas par mode/architecture sans divergence, ne remplacent
+      pas la population executee.
+    unresolved: Selection des trois noyaux chauds non etablie par les seaux de familles. Code ARM de l
+      ancien os 716 -> 4812 octets ; gain inconnu, risque de cout instructions/cache. Avertissement GCC
+      array-bounds dans hdr_output.cpp a qualifier hors perimetre.
+    next: Reprise de diagnostic/perimetre, conserver acquis partiels et code sans validation ; aucune
+      course identique ni reference nouvelle implicitement autorisee.
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
   status: open
