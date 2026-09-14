@@ -1,31 +1,30 @@
-La reprise tient sur le banc isolé (défauts=0) ; la livraison réelle reste non prouvée.
+La reprise passe le banc isolé et l’acquis Urbanist x86 ; fermeture laissée à l’orchestrateur.
 DIRECTIVES va1dbd6abb3
 
-Cuisson ciblée par mesh_audit via build_x86, sortie temporaire puis remplacement atomique.
-Compilateurs reconstruits incrémentalement ; gardes STALE BAKE conservées.
-Échec : demande conservée, repères inchangés, verrou rendu, nouvelle tentative au tour suivant.
-Succès complet seul : repères avancés, reçu APK/HD/BUILD-INFO, sources de départ vérifiées.
-Publication : reçu et empreintes exigés, exclusion avec le constructeur ; aucun appareil contacté.
+Correctif a9317464c4 conservé : cuisson ciblée via build_x86, remplacement atomique.
+Échec : demande conservée et repères inchangés ; nouvelle tentative au tour suivant.
+Succès complet seul : repères avancés ; publication conditionnée au reçu APK/HD et aux empreintes.
+Les 22 tests de notes/delivery-stale-bake.log couvrent ces comportements ; aucun code changé ici.
 
-Preuve de l’essai 2 produite par lib/proof_run.sh, course x86 unique de 60 s :
+Preuve essai 3, produite exclusivement par lib/proof_run.sh (course x86 60 s) :
 source=x86
 crash=0
-frames=3345
+frames=3407
 delivery_stale_bake_defects=0
 delivery_stale_bake_cases=22
 delivery_stale_bake_stale_cases=7
 delivery_stale_bake_retry_cases=10
 delivery_stale_bake_publication_cases=6
 
-Essai 1, contrôle worker : 626 passed in 111.57s ; hooks : 16 OK (notes/harness-suite.log, pretool-guard.log).
-Essai 1, contrôle orchestrateur : 626 collectés, 1 rouge hérité (logs/harness-delivery-stale-bake-recovery/validator-001.txt).
-Essai 2 : 22 passed in 19.76s ; preuve complète en 80 s (notes/delivery-stale-bake.log, proof.txt).
-Course 20260914T175836Z-385891-ada445bd ; identité harness-delivery-stale-bake-recovery@2#1789408662.
-Empreinte des 32 sources inchangée : a92a34608c584b87 ; aucun correctif recodé.
-À regarder : la reprise des nouveaux builds par les démons, aucune validation visuelle requise.
-non prouvé : cuisson et fabrication APK réelles, publication distante, chargement du correctif par les démons.
-État des démons relevé à l’essai 1 uniquement : notes/daemon-status.txt ; aucun redémarrage dans cet essai.
-FINDINGS.txt consigne aussi restauration ISO sur échec, garde gk et nettoyage /dev/null.
-Validateur générique laissé à l’orchestrateur ; aucun statut du backlog ni accord owner fabriqué.
+22 passed in 20.11s ; producteur sortie 0, durée totale 80 s (notes/proof-attempt-3.log).
+Course 20260914T180449Z-399350-6086d017 ; identité harness-delivery-stale-bake-recovery@3#1789409029.
+Empreinte des sources du verdict : a92a34608c584b87, identique au recalcul disque.
+Essai 2 : critère générique tenu, puis refus Urbanist ; journal de 0 octet, cause non prouvée.
+Rejeu unique demandé par ce refus : acquis x86 sortie 0, source=bundled-police, binds=1.
+Trace : notes/acquis-font-attempt-3.log ; TMPDIR=/home/emeric/.autoport-tmp.
+L’environnement de l’orchestrateur n’a pas changé ; ce rejeu ne garantit pas sa prochaine fermeture.
 Rouge HERITE : .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface -> item:harness-suite-temporary-files-outside-quota.
-Signalement présent dans FINDINGS.txt ; preuve renouvelée car generic.sh exige l’identité de l’essai courant.
+Essai 1 : 626 passed/16 hooks OK côté worker ; 1 rouge hérité côté orchestrateur (journaux conservés).
+À regarder : reprise des nouveaux builds par les démons ; aucune validation visuelle requise.
+non prouvé : cuisson et APK réels, publication distante, chargement du correctif par les démons.
+FINDINGS conserve les autres dettes ; aucune relance de démon, aucun appareil ni validateur modifié.

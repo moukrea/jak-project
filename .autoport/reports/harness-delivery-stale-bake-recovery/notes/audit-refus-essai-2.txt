@@ -1,0 +1,14 @@
+DIRECTIVES va1dbd6abb3
+Audit researcher, lecture seule ; vérification manager.
+[harness-delivery-stale-bake-recovery ok] source=x86 sha=1141ad698013d657 frames=3345 crash=0 ; delivery_stale_bake_defects == 0 tenu
+
+
+CLOSE-GATE/acquis: font-urbanist.sh — un ACQUIS VALIDÉ PAR L'OWNER n'est plus tenu (ou plus prouvable) sur ce build. L'item ne se ferme pas tant qu'il n'est pas rétabli.
+[acquis/font] S ok : 2 atlas dans l'arbre, 2 dans le pack custom
+[acquis/font] ECHEC : x86 : la grande police n'a jamais ete liee en 75 s (0 ligne 'FONTTEX bind tbp=0x3980') — voir /tmp/tmp.pQ35vQ0oxO
+
+Journal brut de cet acquis : /tmp/tmp.pQ35vQ0oxO, taille mesurée=0 octets.
+La cause technique du journal vide n'est pas prouvée.
+acquis/font-urbanist.sh:138-140 ne conserve pas le code de sortie de timeout/gk.
+Le refus supplémentaire vient de orchestrator.py:1820-1825.
+La dette test_pin_props est nommée dans report.txt et triée dans FINDINGS.txt.

@@ -1,0 +1,5 @@
+DIRECTIVES va1dbd6abb3
+COMMAND: TMPDIR=/home/emeric/.autoport-tmp bash .autoport/acquis/font-urbanist.sh
+[acquis/font] S ok : 2 atlas dans l'arbre, 2 dans le pack custom
+[acquis/font] X x86 ok : FONTTEX bind tbp=0x3980 mt4hh=0 gl=200 name=gamefontnew/ascii.24lo source=bundled-police w=512 h=1024 binds=1
+EXIT_CODE=0
