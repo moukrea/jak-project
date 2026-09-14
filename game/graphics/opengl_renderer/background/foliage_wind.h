@@ -83,6 +83,7 @@
 
 #include "common/common_types.h"
 #include "common/custom_data/FoliageWindLaw.h"
+#include "common/custom_data/Tfrag3Data.h"
 #include "game/graphics/pipelines/opengl.h"
 
 namespace foliage_wind {
@@ -95,6 +96,26 @@ namespace foliage_wind {
 bool enabled();
 // Exact SHRUB prototype inventory for shared grass contact; excludes rocks/props.
 bool shrub_contact_prototype(const std::string& name);
+
+// ------------------------------------------------------- shrub-trunk-contact (owner 2026-09-13) --
+// LA CLASSE TRONC/FEUILLAGE, POSEE SUR LE NIVEAU ENTIER. A appeler une fois par niveau charge,
+// APRES `tfrag3::foliage_wind_finalize_level` (qui remplit `wind_proto_of_inst` depuis le sidecar,
+// sans quoi aucune instance SHRUB n'a de prototype) et AVANT que les chargeurs ne construisent
+// leurs tables d'ancres. Elle pose `load_bearing` / `carried` sur les `SwayInstance` du niveau.
+//
+// POURQUOI ICI ET PAS DANS `common/` : la regle ne parle que des instances ELIGIBLES AU CONTACT, et
+// ce lexique-la (`shrub_contact_prototype`) vit cote jeu. POURQUOI SUR LE NIVEAU ENTIER : un
+// mini-palmier est un ASSEMBLAGE de deux systemes — tronc TIE, frondaison SHRUB — qu'aucun des deux
+// chargeurs ne peut voir depuis sa propre table.
+void classify_load_bearing(tfrag3::Level& lev);
+
+// Un chargeur vient de decider si CETTE instance recoit une ancre de contact. `anchored` faux n'est
+// pas compte : seul un tronc qui en a RECU une est un defaut, et le compteur doit pouvoir rougir.
+// `pivot_y` est la hauteur REELLEMENT ecrite dans l'ancre : c'est elle qu'on mesure, pas `base_y`.
+void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, float pivot_y);
+
+// Publie les termes de la porte `shrub_trunk_squash_defects`. Appelee par `frame()`.
+void trunk_census_publish();
 
 // Flexion de couronne, en METRES, d'une plante de reference (8 m et plus). Bouton
 // `debug.opengoal.foliage.bend` / `FOLIAGE_WIND_BEND`, defaut 0,30 m, plafond 0,80 m.

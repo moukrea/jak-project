@@ -24,6 +24,7 @@
 #include "common/util/Timer.h"
 #include "common/util/compress.h"
 #include "common/util/rss_census.h"
+#include "game/graphics/opengl_renderer/background/foliage_wind.h"
 
 #ifdef __ANDROID__
 #include <malloc.h>
@@ -758,6 +759,10 @@ void Loader::loader_thread() {
       {
         auto p = scoped_prof("foliage-wind-finalize");
         tfrag3::foliage_wind_finalize_level(*result);
+        // shrub-trunk-contact : la classe tronc/feuillage se pose ICI, sur le niveau ENTIER et
+        // juste apres le sidecar (sans lui aucune instance SHRUB n'a de prototype), donc avant
+        // que Shrub.cpp et LoaderStages.cpp ne construisent leurs tables d'ancres de contact.
+        foliage_wind::classify_load_bearing(*result);
       }
 #endif
 

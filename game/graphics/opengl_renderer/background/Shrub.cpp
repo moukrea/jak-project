@@ -17,6 +17,12 @@
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/system/autoport_proof.h"
+
+// shrub-trunk-contact (owner 2026-09-13) : le site de l'item cote SHRUB. Declare au chargement,
+// avant toute image, pour que la porte separe « aucun site compile ici » de « site jamais atteint ».
+static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
+AUTOPORT_FEATURE_SITE(kTrunkItemId);
 
 static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
 static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
@@ -344,15 +350,43 @@ void Shrub::update_load(const LevelData* loader_data) {
         }
         const size_t pi = tree.wind_proto_of_inst[mi];
         if (pi >= tree.proto_names.size() ||
-            !foliage_wind::shrub_contact_prototype(tree.proto_names[pi]) ||
-            !(si.ymax > si.base_y)) {
+            !foliage_wind::shrub_contact_prototype(tree.proto_names[pi])) {
+          continue;
+        }
+        // shrub-trunk-contact, DEUXIEME MOITIE DU DEFAUT : « les feuilles sont desolidarisees du
+        // tronc ». Le pivot du contact est `base_y`, c'est-a-dire le SOL trouve sous la plante. Pour
+        // une frondaison POSEE SUR UN TRONC ce sol n'a aucun sens : le lancer de rayon accroche le
+        // tronc lui-meme ou un rocher, et rend un pivot jusqu'a 2,68 m AU-DESSUS de son propre pied
+        // (mesure : jungle 2679 mm, beach 1668 mm, sur les 91 jonctions du jeu). Le pied de la
+        // frondaison prend alors `dy < 0` et part dans l'autre sens pendant que le tronc est fige :
+        // la jointure s'ouvre. Une plante portee pivote donc sur SON PIED, et son deplacement vaut
+        // zero exactement a la jonction.
+        //
+        // SEULE L'ANCRE DE CONTACT CHANGE. `base_y` n'est pas touche : c'est aussi le pivot du VENT
+        // des buissons, que l'owner a valide le 13/09, et le contrat exige qu'il garde ses cles.
+        const bool carried = si.carried && autoport_proof::armed_for(kTrunkItemId);
+        const float pivot_y = carried ? si.ymin : si.base_y;
+        if (!(si.ymax > pivot_y)) {
+          continue;
+        }
+        // shrub-trunk-contact (owner 2026-09-13) : une instance dont la CIME en porte une autre ne
+        // recoit PAS d'ancre. Le shader teste `anchor.w > 0.0` : sans ancre, son deplacement de
+        // contact vaut zero EXACTEMENT, pour tous ses sommets — ce n'est pas un coefficient a zero,
+        // c'est une branche non prise. La plante posee dessus garde la sienne et continue de
+        // bouger ; comme elle pivote sur son propre pied, la jonction reste immobile des deux cotes.
+        // `hits` = les sommets de shrub CLASSES, troncs et feuillages confondus : c'est ce que le
+        // contrat nomme, et c'est ce qui tombe a zero quand le bras `--off` desarme l'item.
+        autoport_proof::note_hit_for(kTrunkItemId, si.n_verts);
+        const bool trunk = si.load_bearing && autoport_proof::armed_for(kTrunkItemId);
+        foliage_wind::trunk_note_anchor(si, !trunk, pivot_y);
+        if (trunk) {
           continue;
         }
         float* anchor = &contact_lut[(n_mat + mi) * 4];
         anchor[0] = si.x;
-        anchor[1] = si.base_y;
+        anchor[1] = pivot_y;
         anchor[2] = si.z;
-        anchor[3] = si.ymax - si.base_y;
+        anchor[3] = si.ymax - pivot_y;
         ++contact_instances;
       }
       t.contact_active = contact_instances > 0;

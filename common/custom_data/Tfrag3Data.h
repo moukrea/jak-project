@@ -574,6 +574,26 @@ struct TieTree {
                              // de sol (0 quand aucune arete ne la traverse)
     u8 ph8 = 0;              // phase d'instance ecrite dans les enregistrements
     u32 matrix_idx = 0;
+    // shrub-trunk-contact (owner 2026-09-13 : « le tronc s'ecrase aussi comme si c'etait un vulgaire
+    // brin d'herbe... et les feuilles sont donc desolidarisees du tronc »). LES TROIS GRANDEURS DE LA
+    // REGLE DE PORTAGE, mesurees sur le nuage de sommets de l'instance au depaquetage.
+    //
+    // POURQUOI UN CENTROIDE ET PAS `x`/`z`. Ceux-la sont la translation de la matrice d'instance,
+    // l'origine AUTHOREE du prototype ; elle peut tomber a plus d'un metre du nuage reel (mesure :
+    // bushpalm.mb, rayon 1,857 m depuis l'ancrage contre 1,296 m depuis le centroide). La distance
+    // de portage se mesure donc au centroide, sinon l'emprise testee est celle d'une autre plante.
+    float cx = 0.f, cz = 0.f;  // centroide horizontal des sommets de l'instance
+    float r_xz = 0.f;          // portee horizontale maximale depuis ce centroide
+    u16 proto_idx = 0xffff;    // prototype dominant de l'instance, 0xffff = inconnu
+    // SA CIME EN PORTE UNE AUTRE. Pose par `foliage_wind::classify_load_bearing` (game/), jamais
+    // ici : la regle a besoin du lexique de contact, qui vit cote jeu. Une instance ainsi classee
+    // ne recoit PAS d'ancre de contact — ni dans `Shrub.cpp`, ni dans `LoaderStages.cpp` — donc sa
+    // cime ne bouge pas, donc la jonction avec la plante qu'elle porte ne se dechire pas.
+    bool load_bearing = false;
+    // Elle est PORTEE par une instance classee tronc : son pied est la JONCTION. C'est la que le
+    // contrat demande un ecart de deplacement nul, donc c'est sur SON pivot que la porte compte.
+    bool carried = false;
+    u32 n_verts = 0;  // sommets de l'instance : le denominateur du recensement par classe
     // foliage-wind (essai 16) — LE GRADIENT D'EXTREMITE, mesure par SEGMENT le long de l'element.
     // Moyenne de |poids| RELU APRES QUANTIFICATION dans la premiere et la derniere des
     // `foliage_law::kTipBands` bandes de la coordonnee d'element `q` (TIE : portee depuis l'axe du

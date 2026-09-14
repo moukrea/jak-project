@@ -13,6 +13,12 @@
 #include "common/util/rss_census.h"
 #include "game/system/asset_manifest.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/system/autoport_proof.h"
+
+// shrub-trunk-contact (owner 2026-09-13) : le site de l'item cote TIE — c'est la que vit le TRONC
+// du mini-palmier (`palmplant-base.mb`), la frondaison etant un SHRUB.
+static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
+AUTOPORT_FEATURE_SITE(kTrunkItemId);
 
 constexpr float LOAD_BUDGET = 4.5f;
 
@@ -615,6 +621,19 @@ class TieLoadStage : public LoaderStage {
             const size_t count = (size_t)(group.end_vert - group.start_vert);
             const auto si_it = contact_instances.find((u32)group.matrix_idx);
             if (group.matrix_idx >= 0 && si_it != contact_instances.end()) {
+              // shrub-trunk-contact (owner 2026-09-13) : le tronc du mini-palmier est une instance
+              // TIE (`palmplant-base.mb`), sa frondaison une instance SHRUB. Une instance dont la
+              // cime en porte une autre ne recoit AUCUNE entree dans la table d'ancres : ses
+              // sommets gardent l'index 0, que le shader lit comme « pas de contact ». Zero exact,
+              // par absence d'entree, pas par un coefficient nul.
+              const bool trunk =
+                  si_it->second->load_bearing && autoport_proof::armed_for(kTrunkItemId);
+              autoport_proof::note_hit_for(kTrunkItemId, si_it->second->n_verts);
+              foliage_wind::trunk_note_anchor(*si_it->second, !trunk, si_it->second->base_y);
+              if (trunk) {
+                contact_vi += count;
+                continue;
+              }
               for (size_t k = 0; k < count && contact_vi + k < contact_nv; ++k) {
                 if (contact_flags[contact_vi + k] != 1) continue;
                 auto inserted = contact_lut_index.emplace((u32)group.matrix_idx,

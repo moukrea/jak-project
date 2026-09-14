@@ -563,6 +563,11 @@ void TieTree::unpack() {
     const size_t n_mat = packed_vertices.matrices.size();
     std::vector<float> mymin(n_mat, 1e30f), mymax(n_mat, -1e30f);
     std::vector<u8> mat_used(n_mat, 0);
+    // shrub-trunk-contact : le centroide horizontal de chaque instance, accumule dans CETTE passe
+    // (les sommets sont deja parcourus) ; la portee `r_xz` demande le centroide et se mesure donc
+    // dans une passe a part, plus bas.
+    std::vector<double> msumx(n_mat, 0.0), msumz(n_mat, 0.0);
+    std::vector<u32> mcount(n_mat, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.matrix_groups) {
@@ -574,13 +579,17 @@ void TieTree::unpack() {
             sway_census.inst_total++;
           }
           for (size_t k = 0; k < n && vi + k < nverts; k++) {
-            const float y = unpacked.vertices[vi + k].y;
+            const auto& vt = unpacked.vertices[vi + k];
+            const float y = vt.y;
             if (y < mymin[mi]) {
               mymin[mi] = y;
             }
             if (y > mymax[mi]) {
               mymax[mi] = y;
             }
+            msumx[mi] += vt.x;
+            msumz[mi] += vt.z;
+            mcount[mi]++;
           }
         }
         vi += n;
@@ -593,6 +602,11 @@ void TieTree::unpack() {
     // compte ; il reste NEUTRE, parce que le cout d'un mur qui ondule est plus grand que celui
     // d'un palmier fige.
     std::vector<u8> vflag(nverts, 0);
+    // shrub-trunk-contact : le PROTOTYPE de chaque sommet, releve par le MEME pavage
+    // run <-> vis-group que `vflag` (rien n'est devine : un pavage qui ne tombe pas juste laisse
+    // 0xffff et l'instance reste non classee). C'est le seul endroit ou prototypes et sommets
+    // coexistent cote TIE ; `matrix_groups` donne ensuite le sommet -> instance.
+    std::vector<u16> vproto(nverts, 0xffff);
     for (const auto& draw : static_draws) {
       sway_census.plain_inds += (u64)draw.plain_indices.size();
       size_t run_i = 0;
@@ -615,11 +629,56 @@ void TieTree::unpack() {
             const size_t v = (size_t)run.vertex0 + k;
             if (v < nverts) {
               vflag[v] |= bit;
+              vproto[v] = vg.tie_proto_idx;
             }
           }
           run_i++;
           inds_left -= run_inds;
         }
+      }
+    }
+
+    // --- passe 2c : CENTROIDE, PORTEE et PROTOTYPE par instance (shrub-trunk-contact) -----------
+    // Les trois grandeurs de la regle de portage. Le prototype d'une instance est celui de SES
+    // sommets : on prend celui du premier sommet classe et on REFUSE l'instance (0xffff) des qu'un
+    // autre sommet en annonce un different. Une instance melangee n'est l'instance d'aucun
+    // prototype, et une regle par prototype n'a rien a en dire — la compter pour l'un des deux
+    // serait un choix arbitraire deguise en mesure.
+    std::vector<float> inst_cx(n_mat, 0.f), inst_cz(n_mat, 0.f), inst_rxz(n_mat, 0.f);
+    std::vector<u16> inst_proto(n_mat, 0xffff);
+    {
+      std::vector<u8> inst_mixed(n_mat, 0);
+      for (size_t mi = 0; mi < n_mat; mi++) {
+        if (mcount[mi]) {
+          inst_cx[mi] = (float)(msumx[mi] / (double)mcount[mi]);
+          inst_cz[mi] = (float)(msumz[mi] / (double)mcount[mi]);
+        }
+      }
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.matrix_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        if (grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat) {
+          const size_t mi = (size_t)grp.matrix_idx;
+          for (size_t k = 0; k < n && vi + k < nverts; k++) {
+            const size_t v = vi + k;
+            const auto& vt = unpacked.vertices[v];
+            const float dx = vt.x - inst_cx[mi];
+            const float dz = vt.z - inst_cz[mi];
+            const float r = std::sqrt(dx * dx + dz * dz);
+            if (r > inst_rxz[mi]) {
+              inst_rxz[mi] = r;
+            }
+            if (vproto[v] != 0xffff && !inst_mixed[mi]) {
+              if (inst_proto[mi] == 0xffff) {
+                inst_proto[mi] = vproto[v];
+              } else if (inst_proto[mi] != vproto[v]) {
+                inst_mixed[mi] = 1;
+                inst_proto[mi] = 0xffff;
+              }
+            }
+          }
+        }
+        vi += n;
       }
     }
 
@@ -807,6 +866,11 @@ void TieTree::unpack() {
         si.low_w = foliage_law::dequantize_weight(inst_low_w[mi]);
         si.base_w = 0.f;  // aucune arete ne traverse le pied : rien n'est dessine sous lui
         si.ph8 = foliage_law::phase_u8((u64)mi);
+        si.cx = inst_cx[mi];  // shrub-trunk-contact : l'emprise reelle, pas l'origine authoree
+        si.cz = inst_cz[mi];
+        si.r_xz = inst_rxz[mi];
+        si.proto_idx = inst_proto[mi];
+        si.n_verts = mcount[mi];
         {  // verdict (8) : moyennes de bande, -1 quand la bande n'a pas assez de sommets
           const size_t b0 = mi * (size_t)foliage_law::kTipBands;
           const size_t b4 = b0 + (size_t)foliage_law::kTipBands - 1;
@@ -1025,6 +1089,9 @@ void ShrubTree::unpack() {
     const size_t nverts = unpacked.vertices.size();
     std::vector<float> mymin(n_mat, 1e30f), mymax(n_mat, -1e30f);
     std::vector<u8> mat_used(n_mat, 0);
+    // shrub-trunk-contact : centroide horizontal (accumule ici) puis portee (passe suivante).
+    std::vector<double> msumx(n_mat, 0.0), msumz(n_mat, 0.0);
+    std::vector<u32> mcount(n_mat, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.instance_groups) {
@@ -1033,9 +1100,36 @@ void ShrubTree::unpack() {
           const size_t mi = (size_t)grp.matrix_idx;
           mat_used[mi] = 1;
           for (size_t k = 0; k < n && vi + k < nverts; k++) {
-            const float y = unpacked.vertices[vi + k].y;
-            mymin[mi] = std::min(mymin[mi], y);
-            mymax[mi] = std::max(mymax[mi], y);
+            const auto& vt = unpacked.vertices[vi + k];
+            mymin[mi] = std::min(mymin[mi], vt.y);
+            mymax[mi] = std::max(mymax[mi], vt.y);
+            msumx[mi] += vt.x;
+            msumz[mi] += vt.z;
+            mcount[mi]++;
+          }
+        }
+        vi += n;
+      }
+    }
+    // shrub-trunk-contact : la portee horizontale depuis le centroide, une fois celui-ci connu.
+    std::vector<float> inst_cx(n_mat, 0.f), inst_cz(n_mat, 0.f), inst_rxz(n_mat, 0.f);
+    {
+      for (size_t mi = 0; mi < n_mat; mi++) {
+        if (mcount[mi]) {
+          inst_cx[mi] = (float)(msumx[mi] / (double)mcount[mi]);
+          inst_cz[mi] = (float)(msumz[mi] / (double)mcount[mi]);
+        }
+      }
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.instance_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        if (grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat) {
+          const size_t mi = (size_t)grp.matrix_idx;
+          for (size_t k = 0; k < n && vi + k < nverts; k++) {
+            const auto& vt = unpacked.vertices[vi + k];
+            const float dx = vt.x - inst_cx[mi];
+            const float dz = vt.z - inst_cz[mi];
+            inst_rxz[mi] = std::max(inst_rxz[mi], std::sqrt(dx * dx + dz * dz));
           }
         }
         vi += n;
@@ -1080,6 +1174,10 @@ void ShrubTree::unpack() {
       si.x = packed_vertices.matrices[mi][3].x();
       si.z = packed_vertices.matrices[mi][3].z();
       si.ph8 = foliage_law::phase_u8((u64)mi);
+      si.cx = inst_cx[mi];  // shrub-trunk-contact
+      si.cz = inst_cz[mi];
+      si.r_xz = inst_rxz[mi];
+      si.n_verts = mcount[mi];
       if (!mat_used[mi] || !(mymax[mi] >= mymin[mi])) {
         si.valid = false;
         continue;

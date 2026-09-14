@@ -20,6 +20,7 @@
 #endif
 
 #include "common/log/log.h"
+#include "fmt/format.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
@@ -1366,7 +1367,346 @@ void frame(u64 frame_idx) {
   }
   if ((g_frames % kRepublishFrames) == 0) {
     recompute_and_publish_locked();
+    trunk_census_publish();  // shrub-trunk-contact : meme cadence, verrou distinct
   }
+}
+
+// ================================================================================================
+// shrub-trunk-contact (owner 2026-09-13) — LA CLASSE TRONC/FEUILLAGE, TIREE DES DONNEES.
+//
+// CE QUE L'OWNER A VU. « le tronc s'ecrase aussi comme si c'etait un vulgaire brin d'herbe c'est
+// debile (et en plus les feuilles sont donc desolidarisees du tronc quand ca se produit) ».
+//
+// CE QUE LA MESURE A TROUVE. Un mini-palmier n'est pas un modele : c'est un ASSEMBLAGE de deux
+// instances de deux systemes de rendu differents. A Geyser Rock (`training`), le tronc est une
+// instance TIE de `palmplant-base.mb` (32) et la frondaison une instance SHRUB de
+// `palmplant-top.mb` (32), posees a 4 a 99 cm l'une de l'autre. Les deux recoivent la loi de
+// contact de l'herbe, chacune avec SON ancre :
+//   * la frondaison pivote sur son propre pied (`base_y == ymin`), donc son pied ne bouge pas ;
+//   * le tronc pivote sur le sien, donc sa CIME prend le deplacement maximal.
+// Le tronc s'ecrase (`heightMul` descend a 0,2) et sa cime part sous la frondaison immobile : les
+// deux plaintes de l'owner sont le MEME defaut, et une seule correction les ferme.
+//
+// LA REGLE, ET POURQUOI ELLE N'EST PAS UNE LISTE. Le contrat interdit une liste tenue a la main.
+// La grandeur qui distingue un tronc n'est ni sa texture ni son nom : c'est qu'IL EN PORTE UNE
+// AUTRE. On mesure donc la relation de PORTAGE entre instances de vegetation, puis on la promeut
+// au PROTOTYPE — un modele de tronc est un tronc partout ou il est pose.
+//
+// DEUX REGLES ECARTEES, PAR LA MESURE. (1) L'ELANCEMENT r/h : `palmplant-base.mb` rend 0,332 de
+// mediane, mais `fin-tree.mb` rend 0,167, les mousses, les kelps et les massettes descendent plus
+// bas encore — or ceux-la DOIVENT plier. (2) Le PORTAGE par instance seule : a 1,5 m de rayon il
+// classait 1790 porteurs, champignons et touffes d'herbe compris, simplement parce qu'une plante
+// en surplombe une autre sur une pente.
+//
+// LA MARGE, MESUREE SUR LES 26 NIVEAUX DE JAK 1. Part des instances d'un prototype qui en portent
+// une d'un prototype DIFFERENT :
+//     trunk02vine3.mb        19/19   100,0 %      <- retenu
+//     palmplant-base.mb      89/91    97,8 %      <- retenu (le mini-palmier de Geyser Rock)
+//     bch-palmplant-base.mb  70/80    87,5 %      <- retenu (celui de la plage)
+//     ----------------------------------- seuil a 60 % -----------------------------------
+//     swp-thornbush-05.mb    47/100   47,0 %      <- ecarte
+//     swp-thornbush-09a.mb   12/28    42,9 %      <- ecarte
+//     v2-coral-seaweed.mb   100/240   41,7 %      <- ecarte
+// Quarante points separent le dernier retenu du premier ecarte. Le seuil est pose AU MILIEU de ce
+// vide, pas sur un bord (`minimum-on-search-boundary`).
+// ================================================================================================
+
+namespace {
+
+// Le PIED de la portee se rencontre DANS la moitie haute du porteur, et pas au-dessus de sa cime
+// d'un quart de sa hauteur. Mesure sur les 320 instances de `bch-palmplant-base.mb` : le pied de
+// la frondaison tombe entre 0,56 et 0,86 de la hauteur du tronc, soit 0,2 a 0,35 m SOUS sa cime
+// (les deux geometries s'interpenetrent, c'est une jointure).
+constexpr float kSupportFootFrac = 0.50f;
+constexpr float kSupportOverFrac = 0.25f;
+// Ce qui est porte doit DEPASSER franchement : sinon deux troncs voisins se portent l'un l'autre.
+constexpr float kSupportRiseFrac = 0.50f;
+// L'emprise : la portee horizontale du porteur, plus un metre. Mesure : la frondaison se pose
+// jusqu'a 2,37 m du centroide du tronc, dont la portee propre vaut 1,1 a 1,4 m.
+constexpr float kSupportSlackMeters = 1.0f;
+// La promotion au prototype. En dessous de ce nombre d'instances, la part n'est pas une mesure :
+// `fan-coralgroup.mb` rendait 1/1 = 100 %.
+constexpr u32 kTrunkMinInstances = 8;
+constexpr double kTrunkMinFrac = 0.60;
+
+struct VegInst {
+  tfrag3::TieTree::SwayInstance* si = nullptr;
+  const std::string* proto = nullptr;
+};
+
+// Toutes les instances de vegetation ELIGIBLES AU CONTACT du niveau, TIE et SHRUB confondus : la
+// relation de portage traverse les deux systemes, et c'est precisement ce qu'aucun des deux
+// chargeurs ne pouvait voir depuis sa propre table.
+void gather_contact_instances(tfrag3::Level& lev, std::vector<VegInst>& out) {
+  for (auto& tree : lev.shrub_trees) {
+    for (size_t mi = 0; mi < tree.sway_instances.size(); mi++) {
+      auto& si = tree.sway_instances[mi];
+      if (!si.valid || mi >= tree.wind_proto_of_inst.size()) {
+        continue;
+      }
+      const size_t pi = tree.wind_proto_of_inst[mi];
+      if (pi >= tree.proto_names.size() || !shrub_contact_prototype(tree.proto_names[pi])) {
+        continue;
+      }
+      si.proto_idx = (u16)pi;
+      out.push_back({&si, &tree.proto_names[pi]});
+    }
+  }
+  // Le TIE est livre en QUATRE geometries qui reposent les MEMES instances. Les classer quatre
+  // fois ne changerait pas le verdict par instance, mais il fausserait la PART par prototype (les
+  // parts se comparent a un seuil) : on ne recense donc que la geometrie 0, et on reporte sa
+  // decision sur les autres a la fin.
+  if (!lev.tie_trees.empty()) {
+    for (auto& tree : lev.tie_trees[0]) {
+      for (auto& si : tree.sway_instances) {
+        if (!si.valid || si.proto_idx >= tree.proto_names.size()) {
+          continue;
+        }
+        if (!shrub_contact_prototype(tree.proto_names[si.proto_idx])) {
+          continue;
+        }
+        out.push_back({&si, &tree.proto_names[si.proto_idx]});
+      }
+    }
+  }
+}
+
+
+// ---------------------------------------------------------------------------- le RECENSEMENT ---
+// Ce que la porte lit. Chaque terme est publie SEPAREMENT, comme le contrat l'exige, et la somme
+// n'est qu'une somme : elle ne cache aucun terme non mesure. Les deux gardes de VACUITE (aucun
+// tronc reconnu, aucune jonction observee) valent chacune un defaut — une course qui n'a jamais
+// charge un niveau a mini-palmiers ne doit pas rendre vert par inaction.
+std::mutex g_trunk_mutex;
+std::set<std::string> g_trunk_levels;        // un niveau recharge ne se recompte pas
+std::map<std::string, std::string> g_trunk_proto_rows;  // nom -> "porteuses/total"
+u32 g_trunk_instances = 0, g_trunk_verts = 0;
+u32 g_foliage_instances = 0, g_foliage_verts = 0;
+u32 g_joint_pairs = 0;
+// LE TERME DE LA PORTE : l'ecart entre le pivot REELLEMENT ECRIT dans l'ancre et le pied de la
+// plante portee. Zero = son pied ne bouge pas, donc la jointure tient. Le bras `--off` ecrit
+// `base_y` et le fait remonter : le terme est falsifiable, il n'est pas vrai par construction.
+u32 g_joint_pivot_offset_mm = 0;
+// LE TEMOIN D'AVANT, pose quel que soit l'armement : le pivot que le lancer de rayon au SOL rend
+// pour ces memes plantes. Non nul (1668 mm a beach, 2679 mm a jungle) = la population existe et le
+// defaut etait reel. Sans lui, un zero au terme ci-dessus ne dirait pas s'il a corrige quoi que ce
+// soit ou si personne n'etait concerne.
+u32 g_joint_ground_pivot_offset_mm = 0;
+u32 g_joint_span_min_mm = UINT32_MAX;
+u64 g_trunk_anchored = 0;          // troncs ayant RECU une ancre de contact : doit rester 0
+u64 g_foliage_anchored = 0;        // feuillages ayant recu une ancre : doit rester > 0
+
+void trunk_census_note(const std::string& level,
+                       const std::vector<VegInst>& veg,
+                       u32 trunk_instances,
+                       u32 trunk_verts,
+                       u32 joint_pairs,
+                       const std::set<std::string>& trunk_protos,
+                       const std::map<std::string, u32>& proto_total,
+                       const std::map<std::string, u32>& proto_carrying) {
+  std::lock_guard<std::mutex> lock(g_trunk_mutex);
+  if (!g_trunk_levels.insert(level).second) {
+    return;  // ce niveau a deja ete recense : un rechargement ne doit pas doubler les comptes
+  }
+  g_trunk_instances += trunk_instances;
+  g_trunk_verts += trunk_verts;
+  g_joint_pairs += joint_pairs;
+  for (const auto& v : veg) {
+    if (!v.si->load_bearing) {
+      g_foliage_instances++;
+      g_foliage_verts += v.si->n_verts;
+    }
+    if (v.si->carried) {
+      // LE TEMOIN D'AVANT (voir la declaration) : ce que le pivot de SOL aurait donne.
+      const float off = v.si->base_y - v.si->ymin;
+      if (off > 0.f) {
+        g_joint_ground_pivot_offset_mm =
+            std::max(g_joint_ground_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
+      }
+    }
+  }
+  for (const auto& name : trunk_protos) {
+    const auto it_t = proto_total.find(name);
+    const auto it_c = proto_carrying.find(name);
+    g_trunk_proto_rows[name] =
+        fmt::format("{}/{}", it_c == proto_carrying.end() ? 0 : it_c->second,
+                    it_t == proto_total.end() ? 0 : it_t->second);
+  }
+}
+
+}  // namespace
+
+void trunk_note_anchor(const tfrag3::TieTree::SwayInstance& si, bool anchored, float pivot_y) {
+  if (!anchored) {
+    return;  // pas d'ancre = pas de contact : rien a mesurer, et surtout rien a compter comme
+             // « feuillage qui bouge » (ce compteur-la doit pouvoir tomber a zero).
+  }
+  std::lock_guard<std::mutex> lock(g_trunk_mutex);
+  if (si.load_bearing) {
+    g_trunk_anchored++;  // un tronc a recu une ancre : c'est le defaut que la porte cherche
+  } else {
+    g_foliage_anchored++;
+  }
+  if (si.carried) {
+    // Mesure sur le pivot qui part REELLEMENT au GPU, pas sur `base_y`.
+    const float off = pivot_y - si.ymin;
+    if (off > 0.f) {
+      g_joint_pivot_offset_mm =
+          std::max(g_joint_pivot_offset_mm, (u32)(off / 4096.f * 1000.f + 0.5f));
+    }
+    const float span = si.ymax - pivot_y;
+    g_joint_span_min_mm =
+        std::min(g_joint_span_min_mm, span > 0.f ? (u32)(span / 4096.f * 1000.f) : 0u);
+  }
+}
+
+void trunk_census_publish() {
+  std::lock_guard<std::mutex> lock(g_trunk_mutex);
+  const u32 no_trunk = g_trunk_instances == 0 ? 1 : 0;
+  const u32 no_joint = g_joint_pairs == 0 ? 1 : 0;
+  const u32 frozen_all = g_foliage_anchored == 0 ? 1 : 0;
+  const u64 defects =
+      no_trunk + g_trunk_anchored + no_joint + g_joint_pivot_offset_mm + frozen_all;
+
+  autoport_proof::publish_text(
+      "shrub_trunk_rule",
+      "instance_portant_une_plante_d_un_AUTRE_prototype;promue_au_prototype_a>=60%_des_instances;"
+      "min_8_instances;aucune_liste_de_noms");
+  std::string rows;
+  for (const auto& kv : g_trunk_proto_rows) {
+    if (!rows.empty()) {
+      rows += ",";
+    }
+    rows += kv.first + ":" + kv.second;
+  }
+  autoport_proof::publish_text("shrub_trunk_protos", rows.empty() ? "-" : rows.c_str());
+  autoport_proof::publish("shrub_trunk_instances", g_trunk_instances);
+  autoport_proof::publish("shrub_trunk_verts", g_trunk_verts);
+  autoport_proof::publish("shrub_foliage_instances", g_foliage_instances);
+  autoport_proof::publish("shrub_foliage_verts", g_foliage_verts);
+  autoport_proof::publish("shrub_trunk_anchored", g_trunk_anchored);
+  autoport_proof::publish("shrub_foliage_anchored", g_foliage_anchored);
+  autoport_proof::publish("shrub_joint_pairs", g_joint_pairs);
+  autoport_proof::publish("shrub_joint_pivot_offset_mm", g_joint_pivot_offset_mm);
+  autoport_proof::publish("shrub_joint_ground_pivot_offset_mm", g_joint_ground_pivot_offset_mm);
+  autoport_proof::publish("shrub_joint_span_min_mm",
+                          g_joint_span_min_mm == UINT32_MAX ? 0 : g_joint_span_min_mm);
+  autoport_proof::publish("shrub_trunk_vacuous_no_trunk", no_trunk);
+  autoport_proof::publish("shrub_trunk_vacuous_no_joint", no_joint);
+  autoport_proof::publish("shrub_trunk_vacuous_all_frozen", frozen_all);
+  autoport_proof::publish("shrub_trunk_squash_defects", defects);
+}
+
+void classify_load_bearing(tfrag3::Level& lev) {
+  std::vector<VegInst> veg;
+  gather_contact_instances(lev, veg);
+
+  // --- la relation de portage, instance par instance ---------------------------------------
+  std::map<std::string, u32> proto_total, proto_carrying;
+  std::vector<u8> carries(veg.size(), 0);
+  // Qui porte qui : `carried` ne se pose qu'APRES la promotion, sinon une instance portee par une
+  // plante qui ne sera PAS classee tronc compterait une jonction qui n'existe pas.
+  std::vector<size_t> carrier_of(veg.size(), SIZE_MAX);
+  for (size_t i = 0; i < veg.size(); i++) {
+    proto_total[*veg[i].proto]++;
+  }
+  for (size_t i = 0; i < veg.size(); i++) {
+    const auto& A = *veg[i].si;
+    const float H = A.ymax - A.ymin;
+    if (!(H > 0.f)) {
+      continue;
+    }
+    const float reach = A.r_xz + kSupportSlackMeters * 4096.f;
+    for (size_t j = 0; j < veg.size(); j++) {
+      if (i == j || *veg[i].proto == *veg[j].proto) {
+        continue;  // deux instances du MEME modele empilees = un decor en pente, pas un assemblage
+      }
+      const auto& B = *veg[j].si;
+      const float dx = A.cx - B.cx, dz = A.cz - B.cz;
+      if (dx * dx + dz * dz > reach * reach) {
+        continue;
+      }
+      if (B.ymin < A.ymin + kSupportFootFrac * H) {
+        continue;  // son pied est a cote du mien, pas sur ma cime
+      }
+      if (B.ymin > A.ymax + kSupportOverFrac * H) {
+        continue;  // il flotte au-dessus de moi : je ne le porte pas
+      }
+      if (B.ymax < A.ymax + kSupportRiseFrac * H) {
+        continue;  // il ne me depasse pas franchement
+      }
+      carries[i] = 1;
+      if (carrier_of[j] == SIZE_MAX) {
+        carrier_of[j] = i;
+      }
+      break;
+    }
+    if (carries[i]) {
+      proto_carrying[*veg[i].proto]++;
+    }
+  }
+
+  // --- la promotion au PROTOTYPE ------------------------------------------------------------
+  std::set<std::string> trunk_protos;
+  for (const auto& kv : proto_total) {
+    if (kv.second < kTrunkMinInstances) {
+      continue;
+    }
+    const auto it = proto_carrying.find(kv.first);
+    const u32 carrying = it == proto_carrying.end() ? 0 : it->second;
+    if ((double)carrying / (double)kv.second >= kTrunkMinFrac) {
+      trunk_protos.insert(kv.first);
+    }
+  }
+
+  u32 trunk_instances = 0, trunk_verts = 0, joint_pairs = 0;
+  for (auto& v : veg) {
+    v.si->load_bearing = trunk_protos.count(*v.proto) != 0;
+    v.si->carried = false;
+    if (v.si->load_bearing) {
+      trunk_instances++;
+      trunk_verts += v.si->n_verts;
+    }
+  }
+  for (size_t j = 0; j < veg.size(); j++) {
+    const size_t i = carrier_of[j];
+    if (i != SIZE_MAX && trunk_protos.count(*veg[i].proto)) {
+      veg[j].si->carried = true;
+      joint_pairs++;
+    }
+  }
+  // Les trois autres geometries du TIE portent les memes instances : on leur applique la MEME
+  // decision, par prototype. Sans cela le tronc serait fige de pres et souple de loin.
+  u32 trunk_instances_lod = 0;
+  for (size_t geo = 1; geo < lev.tie_trees.size(); geo++) {
+    for (auto& tree : lev.tie_trees[geo]) {
+      for (auto& si : tree.sway_instances) {
+        if (!si.valid || si.proto_idx >= tree.proto_names.size()) {
+          continue;
+        }
+        si.load_bearing = trunk_protos.count(tree.proto_names[si.proto_idx]) != 0;
+        if (si.load_bearing) {
+          trunk_instances_lod++;
+        }
+      }
+    }
+  }
+
+  std::string names;
+  for (const auto& n : trunk_protos) {
+    if (!names.empty()) {
+      names += ",";
+    }
+    names += n;
+  }
+  lg::info(
+      "[shrub-trunk-contact] lev={} eligibles={} porteuses={} protos_tronc={} instances_tronc={} "
+      "(+{} en lod) regle=porte_une_autre_plante>={}%_des_instances,min={} noms={}",
+      lev.level_name, veg.size(), (u32)std::count(carries.begin(), carries.end(), (u8)1),
+      trunk_protos.size(), trunk_instances, trunk_instances_lod, (int)(kTrunkMinFrac * 100),
+      kTrunkMinInstances, names.empty() ? "-" : names);
+  trunk_census_note(lev.level_name, veg, trunk_instances, trunk_verts, joint_pairs, trunk_protos,
+                    proto_total, proto_carrying);
 }
 
 }  // namespace foliage_wind
