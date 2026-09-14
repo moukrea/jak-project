@@ -12,3 +12,10 @@ Aucun appareil, build APK réel ou redémarrage de démon exécuté ; aucun vali
 L’orchestrateur doit lancer generic.sh et décider la fermeture machine.
 Chargement des nouveaux scripts et reprise effective des démons par le pilotage autorisé, sans prétendre les avoir livrés.
 Traiter les défauts hors correction consignés dans FINDINGS.txt ; pas de validation owner attendue (owner_test=false).
+
+## Reprise superviseur 14/09
+Le validateur generique a confirme delivery_stale_bake_defects=0. La fermeture
+refuse uniquement le test herite test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface
+non signale ; rapport et FINDINGS le nomment maintenant avec son item de suivi.
+Reprendre sans recoder les 22 cas deja livres. Les portes decident de la fraicheur
+et de l identite requise pour toute nouvelle preuve. Aucun owner-ok.

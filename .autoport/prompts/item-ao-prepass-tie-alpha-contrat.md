@@ -18,7 +18,7 @@ PREUVE : `FEATURE ao-prepass-tie-alpha armed=1 hits=<fragments de TIE statique j
 
 ## Hors perimetre
 
-Ne rouvre aucun des cinq acquis. Ne touche pas a la sonde de stabilite (ao-static-probe-deterministic). Tout ce qui n'est pas cet item.
+Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante. Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde reste hors perimetre.
 
 ## Ou l'owner regardera
 

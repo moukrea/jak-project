@@ -24,3 +24,4 @@ non prouvé : cuisson et fabrication APK réelles, publication distante, chargem
 Constructeur PID 60363 absent ; publieur PID 59525 vivant (notes/daemon-status.txt), aucun redémarrage.
 FINDINGS.txt consigne aussi restauration ISO sur échec, garde gk et nettoyage /dev/null.
 Validateur générique laissé à l’orchestrateur ; aucun statut du backlog ni accord owner fabriqué.
+Reprise superviseur : .autoport/tests/harness/test_pin_props.py::test_le_teardown_nomme_ce_qu_il_efface rouge HERITE selon validator-001.txt ; suivi harness-suite-temporary-files-outside-quota. Signalement ajoute, aucune preuve modifiee.

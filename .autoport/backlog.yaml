@@ -11700,8 +11700,12 @@ items:
     chaque mode (SSAO, HBAO, GTAO), force au maximum. Aucun damier ni pixelisation, meme en Eleve ; aucune
     bande claire aux contacts ; sur les shrubs qui balancent, l''ombre suit le feuillage et rien ne flotte
     hors des textures ; camera immobile, rien ne bouge.'
-  out_of_scope: Ne rouvre aucun des cinq acquis. Ne touche pas a la sonde de stabilite (ao-static-probe-deterministic).
-    Tout ce qui n'est pas cet item.
+  out_of_scope: 'Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni
+    les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est
+    autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde
+    et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante.
+    Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde
+    reste hors perimetre.'
   notes: SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est
     ici que l'owner juge l'AO.
   hits_means: fragments de TIE statique juges dans la prepasse
@@ -11709,6 +11713,12 @@ items:
   owner_feedback: []
   owner_ok: null
   supervisor_recovery: true
+  supervisor_clarification:
+    date: '2026-09-14'
+    cause: 'FINDINGS : ao_static_probe::requested ne reconnait que son propre item ; la clause ao_static_defects
+      dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
+    decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
+      aucune valeur archivee acceptee comme mesure nouvelle.
 - status: open
   game: jak1
   device: false
@@ -11810,6 +11820,7 @@ items:
       fois out/jak1/fr3/GAME.meshweld plus ancien que common/custom_data/TFrag3Data.cpp. Meme cause que
       le refus de 16:34:56 ; aucun nouvel APK prouve.'
     active_work: ao-static-probe-deterministic in-progress ; aucun etat preuve-impossible actif.
+  supervisor_recovery: true
 - id: harness-suite-temporary-files-outside-quota
   status: open
   priority: 27
