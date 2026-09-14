@@ -29,6 +29,7 @@
 #include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/shrub_proof_inputs.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 AUTOPORT_FEATURE_SITE("foliage-wind");
 
@@ -460,6 +461,8 @@ float clock_seconds(u64 frame_idx, bool paused_now) {
     if (dt > 0.1f) {
       dt = 0.1f;  // un a-coup de chargement ne fait pas defiler la brise
     }
+    dt = shrub_proof_inputs::value("breeze/dt", dt);
+    paused_now = shrub_proof_inputs::value("breeze/paused", paused_now);
     if (!paused_now) {
       s_t += dt;
     }
@@ -479,6 +482,9 @@ float clock_seconds(u64 frame_idx, bool paused_now) {
 constexpr float kDirTauSeconds = 3.0f;
 
 void set_wind_state(float x, float z, bool paused_now) {
+  x = shrub_proof_inputs::value("direction/x", x);
+  z = shrub_proof_inputs::value("direction/z", z);
+  paused_now = shrub_proof_inputs::value("direction/paused", paused_now);
   g_paused = paused_now;
   const float len = std::sqrt(x * x + z * z);
   if (!(len > 1e-4f)) {
@@ -511,6 +517,7 @@ void set_wind_state(float x, float z, bool paused_now) {
     }
     dt = 1.f / 60.f;
   }
+  dt = shrub_proof_inputs::value("direction/dt", dt);
   if (!s_seeded) {
     s_seeded = true;
     g_dir_x = tx;
@@ -729,6 +736,17 @@ void set_game_wind_copy(const void* bytes, size_t n) {
     g_game_wind_copy.resize(n);
   }
   std::memcpy(g_game_wind_copy.data(), bytes, n);
+  if (shrub_proof_inputs::enabled() && n == sizeof(Tie3::WindWork)) {
+    auto* work = reinterpret_cast<Tie3::WindWork*>(g_game_wind_copy.data());
+    const uint64_t key = uint64_t(work->wind_time) * 2 + (work->paused != 0);
+    // DMA padding is not an input. Retain only named force/time/direction fields.
+    shrub_proof_inputs::exchange_key("wind/paused", key, &work->paused, sizeof(work->paused));
+    shrub_proof_inputs::exchange_key("wind/array", key, work->wind_array, sizeof(work->wind_array));
+    shrub_proof_inputs::exchange_key("wind/normal", key, &work->wind_normal, sizeof(work->wind_normal));
+    shrub_proof_inputs::exchange_key("wind/temp", key, &work->wind_temp, sizeof(work->wind_temp));
+    shrub_proof_inputs::exchange_key("wind/force", key, work->wind_force, sizeof(work->wind_force));
+    shrub_proof_inputs::exchange_key("wind/time", key, &work->wind_time, sizeof(work->wind_time));
+  }
   g_game_wind_n = n;
 }
 

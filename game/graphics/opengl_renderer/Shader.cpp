@@ -1,3 +1,5 @@
+// Proof measurement program is separate; the colour program keeps its original source.
+void grass_proof_register_program(unsigned int colour, unsigned int measure);
 #include "Shader.h"
 #include "ao_tie_alpha_probe.h"
 
@@ -274,6 +276,9 @@ void Shader::build(const std::string& shader_name,
     vert_src.insert(version_end + 1, "#define OG_SHRUB_CONTACT_PROBE 1\n");
   }
 
+  const bool grass_probe = autoport_proof::feature_is("shrub-trunk-contact") &&
+                           shader_name == "grass";
+
   constexpr int len = 1024;
   int compile_ok;
   char err[len];
@@ -328,6 +333,24 @@ void Shader::build(const std::string& shader_name,
     lg::error("Failed to link shader {}:\n{}", shader_name.c_str(), err);
     m_is_okay = false;
     return;
+  }
+  if (grass_probe) {
+    auto measure_source = vert_src;
+    const auto version_end = measure_source.find('\n', measure_source.find("#version"));
+    ASSERT(version_end != std::string::npos);
+    measure_source.insert(version_end + 1, "#define OG_GRASS_CONTACT_PROBE 1\n");
+    const GLuint measure_vert = compile_stage(GL_VERTEX_SHADER, measure_source, "proof-vertex");
+    ASSERT(measure_vert);
+    const GLuint measure_program = glCreateProgram();
+    glAttachShader(measure_program, measure_vert);
+    glAttachShader(measure_program, m_frag_shader);
+    const char* varyings[] = {"probe_grass_pre", "probe_grass_post", "probe_grass_ids"};
+    glTransformFeedbackVaryings(measure_program, 3, varyings, GL_INTERLEAVED_ATTRIBS);
+    glLinkProgram(measure_program);
+    glGetProgramiv(measure_program, GL_LINK_STATUS, &compile_ok);
+    ASSERT(compile_ok);
+    glDeleteShader(measure_vert);
+    grass_proof_register_program(m_program, measure_program);
   }
   shade_proof::note_program_linked(shader_name, (unsigned)m_program);
 

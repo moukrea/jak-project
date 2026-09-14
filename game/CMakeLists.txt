@@ -379,6 +379,7 @@ set(RUNTIME_SOURCE
         system/iop_thread.cpp
         system/load_gate.cpp
         system/autoport_proof.cpp
+        system/shrub_proof_inputs.cpp
         # perf-goal-gl-overlap : l'instrument des lectures HORS chaine DMA faites par le fil
         # de rendu pendant que le fil GOAL construit l'image suivante.
         system/overlap_census.cpp

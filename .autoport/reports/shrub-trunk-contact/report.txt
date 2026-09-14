@@ -1,15 +1,19 @@
 DIRECTIVES vab39193976
-Verdict : essai 8 non validé ; arrêt prévu par proof_plan, témoin comparable manquant.
-Changement de cet essai : rapport, handoff et signalement du prérequis herbe ; aucun code moteur modifié.
-USB disponible : pick_device rc=0, stdout=eae4df44 (notes/attempt-8-stop.txt).
-Aucun proof_run, build ou déploiement nouveau ; la livraison de l'essai7 reste le dernier résultat établi.
-Campagne fc71d41e3c : 0/3 consommée au TOTAL, 3 courses restantes de 130s maximum.
-La clause proof_plan.stop impose de ne pas lancer de bras lorsque le témoin/parcours comparable manque.
-Audit statique indépendant researcher high vérifié ; aucune comparaison GPU exécutée.
-Le shader historique seul ne couvrirait ni le binaire témoin ni les entrées CPU/Loader.
-Réduire les LUT OFF ne lèverait pas ce prérequis ; pas de nouvelle modification spéculative.
-Herbe : horloge murale hors refset et absence de capture dans cette sonde ; FINDINGS.txt complété.
-Huit lignes HISTORIQUES de proof.txt essai3 : contexte seulement, AUCUNE n'est un résultat essai8.
+Verdict : non validé ; préparation implémentée et correctif livré, compilation du témoin refusée par le hook.
+Changements : archives GPU par frame logique, rejeu exogène, comparaison référence/OFF/ON et total depuis termes mesurés.
+Fenêtre120..600 : neuf captures ; positions, indices, attributs, uniformes et LUT propres à chaque binaire.
+Herbe : programme mesure séparé, buffers compacts issus du GPU, échantillonnage1/256 et erreurs persistantes.
+NaN/Inf, captures absentes, archives corrompues et fenêtre incomplète refusés ; aucun total synthétique publié en jeu.
+Bancs locaux : codec, vrai rejeu et agrégation passent ; logs notes/archive-codec-test.log, shrub-input-tape-test/, attempt-9-contract-test.log.
+Neutralité EGL :16 paires shrub/TIE et18 paires couleur herbe identiques ; notes/attempt-9-neutrality/.
+Build Android incrémental rc=0 ; repack rc=0 en8s ; garde USB decision=deploye ; deploy_verify PASS.
+SHA256 build=APK=USB :63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe.
+Identité appareil et livraison : notes/attempt-9-delivery.txt ; aucun lancement du jeu après installation.
+Témoin isolé602cd instrumenté sauvegardé en f54ea18c485ca156816824522d2e67ece9bc3992 ; patch/manifeste dans notes/attempt-9-reference-*.
+Blocage NOUVEAU : pre-tool.sh:149-152 rejette cmake -B même sans cache ; refus exact dans notes/attempt-9-reference-configure-rejection.txt.
+Le worker ne peut modifier cette garde ; aucune syntaxe de contournement essayée, aucun validateur lancé.
+Campagne fc71d41e3c :0/3 consommée au TOTAL ; trois bras130s restent disponibles, aucun proof_run cet essai.
+Huit lignes HISTORIQUES du proof.txt essai3 ; aucune n est une preuve de l essai9 :
 serial=eae4df44
 sha=5288bc8bc7e7f2fb
 started_at=2026-09-14T19:14:16Z
@@ -18,10 +22,9 @@ frames=7500
 FEATURE shrub-trunk-contact armed=1 hits=173329
 shrub_trunk_verts=3864
 wind_contact_defects=999999
-Owner : à Geyser Rock, marcher dans un mini-palmier ; regarder tronc droit, feuilles mobiles et attachées.
-non prouvé : déplacement GPU tronc/jonctions, mobilité des couronnes, contact réel du clip.
-non prouvé : OFF bit-identique au témoin et maintien dynamique du vent/contact herbe.
-non prouvé : absence de crash, activité de la sonde et coût du dernier binaire livré, autres niveaux.
-Le total shrub_trunk_squash_defects demeure absent ; aucun zéro ni verdict owner fabriqué.
-Suite requise : témoin neutrement instrumenté et mêmes entrées GPU archivées/rejouées entre binaires.
-Le validateur generic.sh reste à l'orchestrateur ; aucune fermeture revendiquée.
+Owner : à Geyser Rock, marcher dans un mini-palmier ; vérifier tronc droit, feuilles mobiles et attachées.
+non prouvé : exécution et neutralité des instruments USB, contact réel, jonctions et mobilité des couronnes.
+non prouvé : maintien dynamique vent/herbe et OFF bit-identique ; référence non compilée et aucune comparaison en jeu.
+non prouvé : absence de crash du build livré, coûts appareil, exhaustivité des niveaux et de l échantillonnage herbe.
+Suite : résoudre le refus initial CMake, construire/livrer le témoin avec identité correcte, puis courses du protocole préparé.
+Handoff et FINDINGS actualisés ; aucune validation owner ni fermeture revendiquée.

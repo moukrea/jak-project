@@ -42,7 +42,7 @@
 #include "game/graphics/opengl_renderer/Warp.h"
 #include "game/graphics/opengl_renderer/background/Hfrag.h"
 #include "game/graphics/opengl_renderer/background/Shrub.h"
-#include "game/graphics/opengl_renderer/background/shrub_contact_measurement.h"
+#include "game/graphics/opengl_renderer/background/shrub_contact_contract.h"
 #include "game/graphics/opengl_renderer/background/TFragment.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/opengl_renderer/foreground/Generic2.h"
@@ -2105,6 +2105,8 @@ void OpenGLRenderer::dispatch_buckets(DmaFollower dma,
   }
 
   shrub_contact_measurement::end_frame(m_render_state.frame_idx);
+  shrub_contact_probe::archive_tick();
+  shrub_contact_measurement::publish_contract();
   g_current_renderer = "dispatch-buckets post";
 }
 

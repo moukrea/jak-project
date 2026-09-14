@@ -456,6 +456,7 @@ add_library(android_kernel STATIC
     # Le publicateur de preuve moissonne par .autoport/lib/proof_run.sh (ligne FEATURE,
     # compteur d'images, cle=valeur). Sans lui, toute preuve APPAREIL sort avec frames=0.
     "${JAK_ROOT}/game/system/autoport_proof.cpp"
+    "${JAK_ROOT}/game/system/shrub_proof_inputs.cpp"
     # perf-goal-gl-overlap : l'instrument des lectures HORS chaine DMA faites par le fil de
     # rendu pendant que le fil GOAL construit l'image suivante.
     "${JAK_ROOT}/game/system/overlap_census.cpp"

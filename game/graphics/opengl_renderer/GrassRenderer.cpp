@@ -1,3 +1,6 @@
+#include "game/system/pad_replay.h"
+#include "game/graphics/opengl_renderer/background/shrub_contact_probe.h"
+#include "game/system/shrub_proof_inputs.h"
 #include "GrassRenderer.h"
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -29,6 +32,15 @@
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
+
+namespace {
+std::unordered_map<unsigned int, unsigned int> grass_proof_programs;
+}
+void grass_proof_register_program(unsigned int colour, unsigned int measure) {
+  const auto found = grass_proof_programs.find(colour);
+  if (found != grass_proof_programs.end()) glDeleteProgram(found->second);
+  grass_proof_programs[colour] = measure;
+}
 
 namespace {
 
@@ -391,19 +403,31 @@ void publish(float dt) {
     // fps) -> snapshot expired between publishes -> flatten/release loop. TTL is now ADAPTIVE:
     // stale only past max(2 s, 4x the observed publish interval) — still catches a genuinely frozen
     // scan (the original purpose) at any framerate, never oscillates.
-    const bool snapshot_fresh =
+    bool snapshot_fresh =
         (s_goal_snapshot_t > 0.0) &&
         (now_s - s_goal_snapshot_t) < std::max(2.0, 4.0 * s_goal_pub_interval);
+    // These are the actor snapshots consumed by the native contact integrator,
+    // not its ghost strengths, tombstones or output uniforms.
+    std::vector<std::array<float, 4>> proof_cull, proof_tramp;
+    std::vector<MovingContact> proof_moving;
+    const bool proof_inputs = shrub_proof_inputs::enabled();
+    if (proof_inputs) {
+      proof_cull = s_goal_cull; proof_tramp = s_goal_tramp; proof_moving = s_goal_moving;
+    }
+    snapshot_fresh = shrub_proof_inputs::value("contact/snapshot-fresh", snapshot_fresh);
+    shrub_proof_inputs::vector("contact/actors-cull", proof_cull);
+    shrub_proof_inputs::vector("contact/actors-tramp", proof_tramp);
+    shrub_proof_inputs::vector("contact/actors-moving", proof_moving);
     if (snapshot_fresh)
-    for (const auto& e : s_goal_cull) {
+    for (const auto& e : (proof_inputs ? proof_cull : s_goal_cull)) {
       add(e[0], e[1], e[2], e[3]);
     }
     if (snapshot_fresh)
-    for (const auto& e : s_goal_tramp) {
+    for (const auto& e : (proof_inputs ? proof_tramp : s_goal_tramp)) {
       add_trample(e[0], e[1], e[2], e[3]);
     }
     if (snapshot_fresh) {
-      moving = s_goal_moving;
+      moving = proof_inputs ? proof_moving : s_goal_moving;
     }
     // ROUND#21f BISECT (prop debug.opengoal.grass.trtest=1): synthetic trample entry 2 m north of
     // Jak, injected through the SAME goal fold-in path. Renders a flat disc -> path OK, content bug;
@@ -434,7 +458,9 @@ void publish(float dt) {
   // EVICTED the crates right next to Jak (R21OCC frame=150 showed ntr=16 with tr[0..3] = scarecrows
   // 100-170 m away). Sort every published list by XZ distance to Jak so the 16-slot upload keeps the
   // 16 NEAREST — flatten/cull is invisible past ~40 m, so the near set is the only one that matters.
-  const auto& jkp = Gfx::settings().recharged_jak_pos;
+  std::array<float, 4> jkp;
+  std::copy_n(Gfx::settings().recharged_jak_pos, 4, jkp.begin());
+  shrub_proof_inputs::exchange("contact/sort-jak", jkp.data(), sizeof(float) * 4);
   auto d2jak = [&](const std::array<float, 4>& e) {
     float dx = e[0] - jkp[0], dz = e[2] - jkp[2];
     return dx * dx + dz * dz;
@@ -459,9 +485,10 @@ void publish(float dt) {
     double t;
   };
   static std::vector<Tombstone> s_tombs;
-  const double tnow = std::chrono::duration<double>(
+  double tnow = std::chrono::duration<double>(
                           std::chrono::steady_clock::now().time_since_epoch())
                           .count();
+  tnow = shrub_proof_inputs::value("contact/tombstone-time", tnow);
   s_tombs.erase(std::remove_if(s_tombs.begin(), s_tombs.end(),
                                [&](const Tombstone& tb) { return tnow - tb.t > 8.0; }),
                 s_tombs.end());
@@ -595,12 +622,16 @@ void begin_contact_frame() {
   static float s_pub_prev = -1.f;
   float pub_now =
       std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
+  pub_now = shrub_proof_inputs::value("contact/time", pub_now);
   grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
   s_pub_prev = pub_now;
   const float u_time = refset::enabled() && refset::render_logic_frame() >= 0
       ? (float)refset::render_logic_frame() / 60.f : pub_now;
-  const auto& jp = Gfx::settings().recharged_jak_pos;
-  const auto& jl = Gfx::settings().recharged_jak_ledge;
+  std::array<float, 4> jp, jl;
+  std::copy_n(Gfx::settings().recharged_jak_pos, 4, jp.begin());
+  std::copy_n(Gfx::settings().recharged_jak_ledge, 4, jl.begin());
+  shrub_proof_inputs::exchange("contact/jak", jp.data(), sizeof(float) * 4);
+  shrub_proof_inputs::exchange("contact/ledge", jl.data(), sizeof(float) * 4);
   for (int i = 0; i < 4; ++i) {
     contact_jak[i] = jp[i];
     contact_ledge[i] = jl[i];
@@ -1635,16 +1666,21 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     }
   }
 
+  u_time = shrub_proof_inputs::value("grass/time", u_time);
   auto& shader = rs->shaders[ShaderId::GRASS];
   shader.activate();
   GLuint id = shader.id();
 
-  glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE,
-                     rs->camera_matrix[0].data());
-  glUniform4f(glGetUniformLocation(id, "hvdf_offset"), rs->camera_hvdf_off[0],
-              rs->camera_hvdf_off[1], rs->camera_hvdf_off[2], rs->camera_hvdf_off[3]);
-  glUniform4f(glGetUniformLocation(id, "camera_position"), rs->camera_pos[0], rs->camera_pos[1],
-              rs->camera_pos[2], rs->camera_pos[3]);
+  std::array<math::Vector4f, 4> proof_camera;
+  std::copy_n(rs->camera_matrix, 4, proof_camera.begin());
+  auto proof_hvdf = rs->camera_hvdf_off;
+  auto proof_position = rs->camera_pos;
+  shrub_proof_inputs::exchange("grass/camera", proof_camera[0].data(), sizeof(float) * 16);
+  shrub_proof_inputs::exchange("grass/hvdf", proof_hvdf.data(), sizeof(float) * 4);
+  shrub_proof_inputs::exchange("grass/camera-position", proof_position.data(), sizeof(float) * 4);
+  glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE, proof_camera[0].data());
+  glUniform4f(glGetUniformLocation(id, "hvdf_offset"), proof_hvdf[0], proof_hvdf[1], proof_hvdf[2], proof_hvdf[3]);
+  glUniform4f(glGetUniformLocation(id, "camera_position"), proof_position[0], proof_position[1], proof_position[2], proof_position[3]);
   glUniform1f(glGetUniformLocation(id, "fog_constant"), rs->camera_fog.x());
   glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
   const auto& jp = Gfx::settings().recharged_jak_pos;
@@ -1837,9 +1873,289 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   };
   sync_ms("pre-draw (uniforms/upload)");
 
+  // Proof-only systematic sample: every 256th instance, all procedural vertices.
+  // Capture the actual linked VS as points; this is not a rasterization claim.
+  auto capture_grass = [&](int pass, int vertex_count, int instance_count) {
+    const int64_t lf = pad_replay::current_frame();
+    if (!shrub_proof_inputs::enabled() || lf < 0 || lf % 60 || instance_count <= 0 ||
+        !shrub_contact_probe::capture_frame(rs->frame_idx)) return;
+    static u64 capture_errors = 0;
+    auto fail_capture = [&](const char* reason) {
+      ++capture_errors;
+      autoport_proof::publish("shrub_grass_capture_errors", capture_errors);
+      lg::error("[shrub-grass-capture] {}", reason);
+    };
+    auto gl_clean = []() {
+      bool clean = true;
+      for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) clean = false;
+      return clean;
+    };
+    // A pre-existing error invalidates this observation. Never consume it as success.
+    if (!gl_clean()) { fail_capture("pre-existing GL error"); return; }
+    GLboolean external_tf = GL_FALSE;
+    glGetBooleanv(GL_TRANSFORM_FEEDBACK_ACTIVE, &external_tf);
+    bool external_query = false;
+    for (GLenum target : {GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN,
+                           GL_ANY_SAMPLES_PASSED, GL_ANY_SAMPLES_PASSED_CONSERVATIVE}) {
+      GLint query = 0;
+      glGetQueryiv(target, GL_CURRENT_QUERY, &query);
+      external_query = external_query || query != 0;
+    }
+    if (!gl_clean()) { fail_capture("cannot inspect external GL capture state"); return; }
+    if (external_tf || external_query) { fail_capture("external TF/query active"); return; }
+    const auto measured = grass_proof_programs.find(id);
+    if (measured == grass_proof_programs.end()) { fail_capture("missing measurement program"); return; }
+    const GLuint measure_program = measured->second;
+    constexpr int stride_instances = 256;
+    const size_t samples = (size_t(instance_count) + stride_instances - 1) / stride_instances;
+    struct Result { float pre[4], post[4]; u32 instance, vertex; };
+    static_assert(sizeof(Result) == 40, "transform feedback layout");
+    const size_t result_count = samples * vertex_count;
+    GLint prior_program = 0, old_vao = 0, old_tf = 0, old_buffer = 0, old_array = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prior_program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &old_vao);
+    glGetIntegerv(GL_TRANSFORM_FEEDBACK_BINDING, &old_tf);
+    glGetIntegerv(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &old_buffer);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &old_array);
+    const bool discarded = glIsEnabled(GL_RASTERIZER_DISCARD);
+    if (!gl_clean()) { fail_capture("cannot save GL bindings"); return; }
+    GLuint tf = 0, buffer = 0, query = 0, vao = 0, compact_vbos[5] = {};
+    bool valid = true;
+    // Private VAO: no pointer/divisor/enable state of the production VAO is mutated.
+    // Disabled attributes use the existing context-wide constant values unchanged.
+    struct Attribute {
+      GLint buffer = 0, size = 0, type = 0, normalized = 0, stride = 0;
+      GLint enabled = 0, divisor = 0, integer = 0;
+      void* pointer = nullptr;
+      float constant[4] = {};
+      std::vector<u8> bytes;
+    } attrs[5];
+    for (GLuint a = 0; a < 5; ++a) {
+      auto& at = attrs[a];
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &at.buffer);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_SIZE, &at.size);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_TYPE, &at.type);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_NORMALIZED, &at.normalized);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_STRIDE, &at.stride);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &at.enabled);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_DIVISOR, &at.divisor);
+      glGetVertexAttribiv(a, GL_VERTEX_ATTRIB_ARRAY_INTEGER, &at.integer);
+      glGetVertexAttribPointerv(a, GL_VERTEX_ATTRIB_ARRAY_POINTER, &at.pointer);
+      if (!at.enabled) glGetVertexAttribfv(a, GL_CURRENT_VERTEX_ATTRIB, at.constant);
+      if (!gl_clean()) { valid = false; break; }
+      if (!at.enabled) continue;
+      if (!at.buffer || at.size < 1 || at.size > 4 || at.integer || at.divisor != 1 ||
+          (at.type != GL_FLOAT && at.type != GL_UNSIGNED_BYTE) || at.stride < 0) {
+        valid = false; break;
+      }
+      const size_t element_bytes = size_t(at.size) * (at.type == GL_FLOAT ? sizeof(float) : 1);
+      const size_t source_stride = at.stride ? size_t(at.stride) : element_bytes;
+      const uint64_t offset = reinterpret_cast<uintptr_t>(at.pointer);
+      const uint64_t last = uint64_t(samples - 1) * stride_instances;
+      glBindBuffer(GL_ARRAY_BUFFER, at.buffer);
+      GLint64 storage_bytes = 0;
+      GLint mapped = 0;
+      glGetBufferParameteri64v(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &storage_bytes);
+      glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_MAPPED, &mapped);
+      if (!gl_clean() || mapped || storage_bytes < 0 || offset > uint64_t(storage_bytes) ||
+          element_bytes > uint64_t(storage_bytes) - offset ||
+          last > (uint64_t(storage_bytes) - offset - element_bytes) / source_stride) {
+        valid = false; break;
+      }
+      const size_t span = size_t(last * source_stride + element_bytes);
+      const auto* source = static_cast<const u8*>(glMapBufferRange(
+          GL_ARRAY_BUFFER, offset, span, GL_MAP_READ_BIT));
+      const bool mapped_clean = gl_clean();
+      if (!source || !mapped_clean) {
+        if (source) glUnmapBuffer(GL_ARRAY_BUFFER);
+        valid = false; break;
+      }
+      at.bytes.resize(samples * element_bytes);
+      for (size_t i = 0; i < samples; ++i) {
+        std::memcpy(at.bytes.data() + i * element_bytes,
+                    source + i * stride_instances * source_stride, element_bytes);
+      }
+      const bool unmapped = glUnmapBuffer(GL_ARRAY_BUFFER);
+      if (!gl_clean() || !unmapped) { valid = false; break; }
+    }
+    auto restore = [&]() {
+      glUseProgram(prior_program);
+      glBindVertexArray(old_vao);
+      glBindBuffer(GL_ARRAY_BUFFER, old_array);
+      glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, old_tf);
+      glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, old_buffer);
+      if (!discarded) glDisable(GL_RASTERIZER_DISCARD);
+      glDeleteQueries(1, &query); glDeleteBuffers(1, &buffer);
+      glDeleteTransformFeedbacks(1, &tf); glDeleteVertexArrays(1, &vao);
+      glDeleteBuffers(5, compact_vbos);
+      if (!gl_clean()) valid = false;
+    };
+    if (!valid) { restore(); fail_capture("attribute read/format/bounds error"); return; }
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(5, compact_vbos);
+    for (GLuint a = 0; a < 5; ++a) if (attrs[a].enabled) {
+      const auto& at = attrs[a];
+      glBindBuffer(GL_ARRAY_BUFFER, compact_vbos[a]);
+      glBufferData(GL_ARRAY_BUFFER, at.bytes.size(), at.bytes.data(), GL_STREAM_DRAW);
+      glEnableVertexAttribArray(a);
+      glVertexAttribPointer(a, at.size, at.type, at.normalized, 0, nullptr);
+      glVertexAttribDivisor(a, 1);
+    }
+    glUseProgram(measure_program);
+    GLint source_uniforms = 0;
+    glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &source_uniforms);
+    for (GLint ui = 0; ui < source_uniforms; ++ui) {
+      char name[256]; GLsizei length; GLint count; GLenum type;
+      glGetActiveUniform(id, ui, sizeof(name), &length, &count, &type, name);
+      std::string base(name, length);
+      const auto bracket = base.find('[');
+      if (bracket != std::string::npos) base.resize(bracket);
+      for (int e = 0; e < count; ++e) {
+        const auto entry = count > 1 ? base + "[" + std::to_string(e) + "]" : base;
+        const GLint src = glGetUniformLocation(id, entry.c_str());
+        const GLint dst = glGetUniformLocation(measure_program, entry.c_str());
+        float f[16] = {}; GLint v[4] = {};
+        switch (type) {
+          case GL_FLOAT: glGetUniformfv(id, src, f); glUniform1fv(dst, 1, f); break;
+          case GL_FLOAT_VEC2: glGetUniformfv(id, src, f); glUniform2fv(dst, 1, f); break;
+          case GL_FLOAT_VEC3: glGetUniformfv(id, src, f); glUniform3fv(dst, 1, f); break;
+          case GL_FLOAT_VEC4: glGetUniformfv(id, src, f); glUniform4fv(dst, 1, f); break;
+          case GL_FLOAT_MAT4: glGetUniformfv(id, src, f); glUniformMatrix4fv(dst, 1, GL_FALSE, f); break;
+          default: glGetUniformiv(id, src, v); glUniform1iv(dst, 1, v); break;
+        }
+      }
+    }
+    glGenTransformFeedbacks(1, &tf);
+    glGenBuffers(1, &buffer);
+    glGenQueries(1, &query);
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, tf);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, buffer);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, result_count * sizeof(Result), nullptr, GL_STREAM_READ);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buffer);
+    glEnable(GL_RASTERIZER_DISCARD);
+    const GLint contact_switch = glGetUniformLocation(measure_program, "u_probe_grass_no_contact");
+    if (!gl_clean() || contact_switch < 0) {
+      restore(); fail_capture("measurement setup GL error"); return;
+    }
+    std::vector<u32> ids;
+    std::vector<float> before, after;
+    for (int contact = 1; contact >= 0 && valid; --contact) {
+      glUniform1i(contact_switch, contact);
+      glBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, query);
+      bool own_query = gl_clean();
+      if (!own_query) { valid = false; break; }
+      glBeginTransformFeedback(GL_POINTS);
+      const bool own_tf = gl_clean();
+      if (own_tf) {
+        glDrawArraysInstanced(GL_POINTS, 0, vertex_count, samples);
+        valid = gl_clean();
+        glEndTransformFeedback();
+      } else valid = false;
+      glEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
+      if (!gl_clean()) valid = false;
+      if (!valid) break;
+      GLuint written = 0;
+      glGetQueryObjectuiv(query, GL_QUERY_RESULT, &written);
+      if (!gl_clean() || written != result_count) { valid = false; break; }
+      const auto* result = static_cast<const Result*>(glMapBufferRange(
+          GL_TRANSFORM_FEEDBACK_BUFFER, 0, result_count * sizeof(Result), GL_MAP_READ_BIT));
+      const bool map_clean = gl_clean();
+      if (!result || !map_clean) {
+        if (result) glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+        valid = false; break;
+      }
+      auto& world = contact ? before : after;
+      world.reserve(result_count * 4);
+      for (size_t i = 0; i < result_count; ++i) {
+        const auto& r = result[i];
+        valid = valid && r.instance == i / vertex_count && r.vertex == i % vertex_count;
+        for (int c = 0; c < 4; ++c)
+          valid = valid && std::isfinite(r.pre[c]) && std::isfinite(r.post[c]);
+        if (contact) {
+          ids.push_back(r.instance * stride_instances); ids.push_back(r.vertex);
+        }
+        world.insert(world.end(), r.post, r.post + 4);
+      }
+      const bool unmapped = glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+      if (!gl_clean() || !unmapped) valid = false;
+    }
+    restore();
+    if (!valid) { fail_capture("TF count/identity/nonfinite/GL error"); return; }
+    // Count contact only after every captured component passed the finite check.
+    uint64_t contact_vertices = 0;
+    for (size_t i = 0; i < result_count; ++i) {
+      const size_t o = i * 4;
+      if (before[o + 3] > 0.f && after[o + 3] > 0.f &&
+          (before[o] != after[o] || before[o + 1] != after[o + 1] ||
+           before[o + 2] != after[o + 2])) ++contact_vertices;
+    }
+    autoport_proof::publish("shrub_grass_capture_errors", capture_errors);
+    autoport_proof::publish("shrub_grass_instance_sample_stride", stride_instances);
+    autoport_proof::publish("shrub_grass_sampled_vertices", result_count);
+    static u64 total_contact_vertices = 0;
+    total_contact_vertices += contact_vertices;
+    autoport_proof::publish("shrub_grass_sampled_contact_vertices", total_contact_vertices);
+    // Archive the bytes actually read from GPU attributes, including disabled constants.
+    // No buffer handle/pointer enters cross-binary identity; metadata describes interpretation.
+    std::vector<u8> gpu_attributes;
+    auto append = [&](const void* data, size_t bytes) {
+      const auto* p = static_cast<const u8*>(data);
+      gpu_attributes.insert(gpu_attributes.end(), p, p + bytes);
+    };
+    for (u32 a = 0; a < 5; ++a) {
+      const auto& at = attrs[a];
+      const u32 metadata[] = {a, u32(at.enabled), u32(at.size), u32(at.type),
+                              u32(at.normalized), u32(at.divisor), u32(at.bytes.size())};
+      append(metadata, sizeof(metadata));
+      if (at.enabled) append(at.bytes.data(), at.bytes.size());
+      else append(at.constant, sizeof(at.constant));
+    }
+    shrub_contact_probe::archive_blob("grass", grass_level, 0, pass, "attribute-0",
+                                     gpu_attributes.data(), gpu_attributes.size());
+    // Query active uniforms from the program; never archive a guessed CPU mirror.
+    GLint uniform_count = 0;
+    glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &uniform_count);
+    for (GLint ui = 0; ui < uniform_count; ++ui) {
+      char name[256]; GLsizei length = 0; GLint count = 0; GLenum type = 0;
+      glGetActiveUniform(id, ui, sizeof(name), &length, &count, &type, name);
+      int width = 1;
+      if (type == GL_FLOAT_VEC2 || type == GL_INT_VEC2) width = 2;
+      if (type == GL_FLOAT_VEC3 || type == GL_INT_VEC3) width = 3;
+      if (type == GL_FLOAT_VEC4 || type == GL_INT_VEC4) width = 4;
+      if (type == GL_FLOAT_MAT4) width = 16;
+      const bool floating = type == GL_FLOAT || type == GL_FLOAT_VEC2 ||
+          type == GL_FLOAT_VEC3 || type == GL_FLOAT_VEC4 || type == GL_FLOAT_MAT4;
+      std::string base(name, length);
+      const auto bracket = base.find('[');
+      if (bracket != std::string::npos) base.resize(bracket);
+      std::vector<u32> bits(size_t(count) * width);
+      for (int e = 0; e < count; ++e) {
+        const std::string entry = count > 1 ? base + "[" + std::to_string(e) + "]" : base;
+        const GLint location = glGetUniformLocation(id, entry.c_str());
+        if (floating) {
+          float values[16] = {};
+          glGetUniformfv(id, location, values);
+          std::memcpy(bits.data() + e * width, values, width * sizeof(float));
+        } else {
+          GLint values[16] = {};
+          glGetUniformiv(id, location, values);
+          std::memcpy(bits.data() + e * width, values, width * sizeof(GLint));
+        }
+      }
+      shrub_contact_probe::archive_blob("grass", grass_level, 0, pass, "uniform-" + base,
+          bits.data(), bits.size() * sizeof(u32));
+    }
+    if (!gl_clean()) { fail_capture("uniform archive GL error"); return; }
+    shrub_contact_probe::archive_capture("grass", grass_level, 0, pass,
+        ids.data(), ids.size() * sizeof(u32), before.data(), before.size() * sizeof(float),
+        after.data(), after.size() * sizeof(float));
+  };
+
   // NEAR: individual blades (10-vert triangle strip)
   glUniform1i(mode_loc, 0);
   glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, draw_n);
+  capture_grass(0, 10, draw_n);
   prof.add_draw_call();
   prof.add_tri(draw_n * 8);
   sync_ms("blade draw");
@@ -1848,6 +2164,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // has a card tier (far LOD = the game's own alpha overhang texture).
   glUniform1i(mode_loc, 1);
   glDrawArraysInstanced(GL_TRIANGLES, 0, 12, card_n);
+  capture_grass(1, 12, card_n);
   prof.add_draw_call();
   prof.add_tri(card_n * 4);
   sync_ms("card draw");

@@ -199,9 +199,9 @@ inline void end_frame(u64 frame) {
 }
 inline bool active(u64 frame) {
   if (!autoport_proof::feature_is("shrub-trunk-contact")) return false;
-  for (auto& entry : levels) {
-    if (entry.second.started && entry.second.frame != frame) complete_frame(entry.first, entry.second);
-  }
+  // consume receives anchored logical frames from the GPU probe. The caller's render
+  // counter may advance several times per logical frame; do not split pairs with it.
+  (void)frame;
   shrub_contact_probe::set_sample_callback(consume);
   return true;
 }

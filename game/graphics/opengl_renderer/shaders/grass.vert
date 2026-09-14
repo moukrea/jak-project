@@ -97,7 +97,21 @@ vec4 world_to_clip(vec3 pos) {
   return p;
 }
 
+#ifdef OG_GRASS_CONTACT_PROBE
+out vec4 probe_grass_pre;
+out vec4 probe_grass_post;
+flat out uvec2 probe_grass_ids;
+uniform int u_probe_grass_no_contact;
+vec4 probe_grass_world;
+#endif
+
 void main() {
+#ifdef OG_GRASS_CONTACT_PROBE
+  probe_grass_world = vec4(inst_pos.xyz, 0.0); // early-out: no emitted world vertex
+  probe_grass_pre = probe_grass_world;
+  probe_grass_post = probe_grass_world;
+  probe_grass_ids = uvec2(uint(gl_InstanceID), uint(gl_VertexID));
+#endif
   vec3 base = inst_pos.xyz;
   float H = inst_pos.w;
   float yaw = inst_par.x;
@@ -257,6 +271,12 @@ void main() {
 
   float heightMul;
   vec3 trample;
+#ifdef OG_GRASS_CONTACT_PROBE
+  if (u_probe_grass_no_contact != 0) {
+    heightMul = 1.0;
+    trample = vec3(0.0);
+  } else
+#endif
   vegetation_contact(base, H, u_debug, heightMul, trample, dbg_tr);
 
   vec3 pos;
@@ -550,5 +570,10 @@ void main() {
     if (dpl < 0.0) pos -= inst_normal.xyz * dpl;
   }
 
+#ifdef OG_GRASS_CONTACT_PROBE
+  probe_grass_world = vec4(pos, 1.0);
+  probe_grass_pre = probe_grass_world;
+  probe_grass_post = probe_grass_world;
+#endif
   gl_Position = world_to_clip(pos);
 }

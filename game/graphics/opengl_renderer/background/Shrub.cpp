@@ -1,3 +1,4 @@
+#include "game/system/shrub_proof_inputs.h"
 #include "shrub_contact_measurement.h"
 #include "Shrub.h"
 #include "game/system/recharged_gating.h"
@@ -389,6 +390,16 @@ void Shrub::update_load(const LevelData* loader_data) {
       glBindTexture(GL_TEXTURE_2D, t.wind_tex);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 3, 0, GL_RGBA, GL_FLOAT,
                    contact_lut.data());
+      if (autoport_proof::feature_is(kTrunkItemId)) {
+        shrub_contact_probe::archive_blob("shrub", lev_data->level_name, -1, l_tree, "native-row0",
+            contact_lut.data(), n_mat * 4 * sizeof(float));
+        shrub_contact_probe::archive_blob("shrub", lev_data->level_name, -1, l_tree, "contact-anchor",
+            contact_lut.data() + n_mat * 4, n_mat * 4 * sizeof(float),
+            shrub_contact_probe::InputMapping::Contact);
+        shrub_contact_probe::archive_blob("shrub", lev_data->level_name, -1, l_tree, "contact-attachment",
+            contact_lut.data() + n_mat * 8, n_mat * 4 * sizeof(float),
+            shrub_contact_probe::InputMapping::NewAttachment);
+      }
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -625,8 +636,15 @@ void Shrub::update_native_wind(Tree& tree,
   }
   const int ticks = foliage_wind::wind_ticks_for(ww->wind_time, tree.wind_last_time,
                                                  tree.wind_seeded, ww->paused != 0);
-  const float cx = settings.camera.trans.x(), cy = settings.camera.trans.y(),
-              cz = settings.camera.trans.z();
+  std::array<float, 3> proof_camera = {settings.camera.trans.x(), settings.camera.trans.y(),
+                                      settings.camera.trans.z()};
+  if (ticks > 0 && shrub_proof_inputs::enabled()) {
+    const auto channel = "shrub/native-camera/" + m_level_name + "/" +
+                         std::to_string(&tree - m_trees.data());
+    shrub_proof_inputs::exchange_key(channel.c_str(), ww->wind_time,
+                                    proof_camera.data(), sizeof(proof_camera));
+  }
+  const float cx = proof_camera[0], cy = proof_camera[1], cz = proof_camera[2];
   float peak_s = 0.f;
   u32 integrated = 0;
   for (size_t mi = 0; mi < n_mat; mi++) {
@@ -687,6 +705,10 @@ void Shrub::update_native_wind(Tree& tree,
   glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)n_mat, 1, GL_RGBA, GL_FLOAT,
                   tree.wind_texels.data());
+  if (autoport_proof::feature_is(kTrunkItemId)) {
+    shrub_contact_probe::archive_blob("shrub", m_level_name, -1, &tree - m_trees.data(),
+        "native-row0", tree.wind_texels.data(), n_mat * 4 * sizeof(float));
+  }
   glActiveTexture(GL_TEXTURE0);
   if (!tree.wind_logged) {
     tree.wind_logged = true;

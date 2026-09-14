@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/background/shrub_contact_probe.h"
 #include "LoaderStages.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include <unordered_map>
@@ -672,6 +673,16 @@ class TieLoadStage : public LoaderStage {
             contact_lut.insert(contact_lut.end(), contact_pins.begin(), contact_pins.end());
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)contact_anchors.size(), 2, 0,
                          GL_RGBA, GL_FLOAT, contact_lut.data());
+            if (autoport_proof::feature_is(kTrunkItemId)) {
+              const size_t ti = &in_tree - in_trees.data();
+              const auto& level = data.lev_data->level->level_name;
+              shrub_contact_probe::archive_blob("tie", level, geo, ti, "contact-anchor",
+                  contact_anchors.data(), contact_anchors.size() * sizeof(contact_anchors[0]),
+                  shrub_contact_probe::InputMapping::Contact);
+              shrub_contact_probe::archive_blob("tie", level, geo, ti, "contact-attachment",
+                  contact_pins.data(), contact_pins.size() * sizeof(contact_pins[0]),
+                  shrub_contact_probe::InputMapping::NewAttachment);
+            }
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
