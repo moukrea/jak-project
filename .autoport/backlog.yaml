@@ -9027,44 +9027,47 @@ items:
     de harnais.
   code_scope: harnais
 - id: dead-literals-round-3
-  status: blocked
+  status: open
   priority: 36
   game: jak1
   device: false
   owner_test: false
-  code_scope: jeu
-  feature: Deux litteraux de plus rendent leur consommateur creux
+  code_scope: harnais
+  feature: Le controle des particules et le nettoyage des shaders verifient des resultats reels
   gate:
     key: dead_literals_r3_defects
     op: ==
     value: 0
   depends_on:
   - dead-published-keys-round-2
-  known_cause: |-
-    DEUX SIGNALEMENTS DU 12/09 (reports/dead-published-keys-round-2/FINDINGS.txt). Le worker les a nommes chacun comme un item ; ils tiennent dans un seul, c'est la meme classe.
-    1. `lib/hdr_batches.py:709` : `options.get('particle_step_const') != 'once-per-logic-frame'` est une ASSERTION VIDE. La valeur qu'elle verifie est une chaine litterale posee par le code lui-meme : la condition ne peut donc jamais etre vraie, et le protocole qu'elle est censee garantir n'est verifie par personne.
-    2. `shaders/pbr_fused.glsl:165-171` : `float tess_w = 0.0;` est un LITTERAL depuis le retrait de l'etage de tessellation. Tout ce qui en decoule — `tess_displaced` et sa branche — est du code mort dans un shader fige dans les chunks cote Android. Le prochain qui lira ces lignes croira toucher un deplacement qui n'existe plus.
-    Meme classe que les cinq clés que le chantier precedent vient de retirer : une valeur decidee a l'ecriture rend creux tout ce qui la consomme.
-    3. HUIT LEGENDES citent un nom SCREAMING_SNAKE qui n'a plus AUCUNE occurrence de code dans l'arbre ni dans les en-tetes des API reliees : GMERC_TFRAG_TEX_LEVEL0 et LEVEL1, ENTER_10, TESS_DISP_K, POM_MAX_WORLD_M (trois fois), UNKNOWN_PROCESS. Mesure du 12/09 : 844 jetons juges, 8 perimes, 827 exclus comme vocabulaire etranger.
-    4. `lib/census/census-false-reds.sh:116-138` lit encore UNE ligne par site d'appel et ne connait pas les directives de preprocesseur : il ne verrait ni un appel etale sur deux lignes, ni deux appels sur une meme ligne, ni un site qu'un `#ifdef` exclut du build. Sur la population du jour les deux detecteurs coincident — 55 sites, 0 multi-lignes, 1 site ecarte par la construction — donc c'est une faiblesse LATENTE, a corriger avant qu'elle morde.
+  known_cause: 'Diagnostic superviseur 14/09 apres handoff et validator-002 : les deux termes existants
+    sont a zero, mais le contrat demandait empreintes liees avant/apres et miroir POM d un programme deja
+    supprime. Ordre owner 11/09 dans lighting-legacy-purge : « bah non faut supprimer le code ! On en
+    veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer ! » ; suppression c65c9a71bd,
+    validee par l owner le 12/09. Ces exigences historiques sont donc remplacees explicitement par la
+    conservation octet pour octet des artefacts des shaders courants, et non par un vert sur indisponible.
+    Correctif 17fe0f99fa conserve : hdr_batches controle particle_steps et preprocess.py purge les sorties
+    orphelines. Le census actuel rend t1+t2+penalty, sans mesurer la conservation des sorties vivantes.
+    La reprise porte sur cette lacune du harnais ; aucune restauration POM, aucune campagne de rendu.'
   deliverable: |-
-    `dead_literals_r3_defects` = 0, somme de DEUX termes publies SEPAREMENT.
-    1. L'assertion cesse d'etre vide : soit elle verifie une valeur qui peut varier, soit elle disparait avec ce qu'elle pretendait garantir. Publier, sur le commit d'AVANT, la preuve qu'elle ne pouvait pas echouer — une valeur fabriquee qui aurait du la declencher et ne la declenche pas — et sur celui d'APRES, qu'elle se declenche.
-    2. La branche morte du shader part avec son litteral. Publier le compte de lignes de GLSL retirees et l'empreinte du programme lie AVANT et APRES : elle doit changer, sinon le compilateur les avait deja jetees et l'item doit le DIRE au lieu de revendiquer un gain.
-    3. Aucun rendu ne change : reprendre les cles de couverture du chantier precedent et montrer qu'elles gardent leurs valeurs, le miroir CPU du POM compris.
-  where: Invisible. Aucun pixel ne bouge.
-  out_of_scope: 'Ne touche pas au reste du shader ni aux protocoles voisins. Priorite 36 : tout le reste
-    du jeu passe avant.'
+    `dead_literals_r3_defects` = 0, somme de TROIS termes publies SEPAREMENT et des penalites d infrastructure.
+    1. ASSERTION REELLE : conserver le banc avant/apres du vrai lecteur hdr_batches, reference cc00f44ca828075acb873078b41b8dd6b6436b13. Un compteur de particules fabrique incoherent est accepte AVANT et refuse APRES ; cadence correcte acceptee, melanges/valeurs manquantes traites explicitement, aucune relaxation des controles existants. Publier populations non vides et t1_defects.
+    2. NETTOYAGE EFFECTIF : le shader historique et ses producteurs POM sont supprimes par c65c9a71bd, sur ordre owner de purge. Conserver la provenance de la suppression et le zero gain revendique par cet item. Le vrai preprocesseur AVANT conserve un residu seme, APRES le retire ; les artefacts vivants et les fichiers etrangers survivent. Conserver les controles non vides sur sorties, blob et bibliotheque quand elle est presente. Publier t2_defects. Les empreintes liees et cles POM du programme supprime sont SANS OBJET, avec motif et commit de suppression publies, jamais des zeros de mesure ni une exigence de resurrection du vieux rendu.
+    3. LES SHADERS VIVANTS SONT CONSERVES : executer les preprocesseurs avant/apres sur les MEMES sources courantes epinglees et comparer octet par octet chaque sortie vivante (shaders, chunks et blob). Publier compte de fichiers/bytes compares non nul, liste/empreinte d inventaire et nombre de divergences nul ; fichiers courants omis ou illisibles = defaut. Verifier sur banc isole qu une sortie vivante alteree ou absente fait rougir ce terme, et que le seul retrait d un residu mort ne le fait pas. Publier t3_defects et le sommer dans dead_literals_r3_defects ; un terme manquant/indisponible ne peut pas rendre vert.
+    Cette equivalence porte sur les artefacts generes du rendu ACTUEL, pas sur des pixels observes ni un programme ancien supprime. Ne pas annoncer une identite visuelle ou un gain de performance. Renouveler la preuve par proof_run seulement APRES adaptation du census et tests pertinents ; aucune repetition de la preuve essai 2 inchangee.
+  where: Controle automatique des particules et de la generation des shaders ; aucun test visuel a demander.
+  out_of_scope: Reprise limitee au harnais (.autoport/lib/census/dead-literals-round-3.sh et bancs associes).
+    Ne pas modifier le moteur, le preprocesseur de production ni la loi des particules. Executer les versions
+    du preprocesseur dans des dossiers isoles hors /tmp. Aucun appareil, aucun build/deploiement reel,
+    aucune campagne supplementaire, aucun changement de generic.sh. Les autres signalements restent hors
+    perimetre.
   max_turns: 500
   max_retries: 5
   proof_timeout: 300
   prompt: prompts/item-dead-literals-round-3.md
   notes: issu des deux signalements de dead-published-keys-round-2, 12/09 ; les deux ids que le worker
     avait nommes sont fondus en un.
-  block_reason: 'Porte numerique tenue mais contrat incomplet : empreintes des programmes lies indisponibles,
-    anciennes cles POM et identite du rendu non prouvees. Le shader et ses producteurs ont disparu avec
-    lighting-legacy-purge. Reconcilier le perimetre avec cette suppression et couvrir les exigences restantes
-    avant fermeture ; ne pas repeter la meme course ni recreer le vieux rendu.'
+  block_reason: null
   supervisor_recovery: true
   supervisor_review:
     date: '2026-09-14'
@@ -9076,6 +9079,27 @@ items:
     missing: t2_linked_program_fp_before/after=indisponible acceptes sans penalite par le census. POM
       et identite du rendu absents de la porte. Reprise superviseur pour perimetre et couverture, aucune
       demande de nouvelle campagne ni retour owner invente.
+  no_code: true
+  owner_feedback:
+  - date: '2026-09-14'
+    text: 'Reprise superviseur requise pour : dead-literals-round-3. Ces priorités sont bloquées. Lis
+      leurs derniers handoffs et journaux de validation, identifie la cause, corrige le harnais ou le
+      périmètre nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt
+      ; ne valide rien et ne relance pas le même essai sans diagnostic.'
+  scope_resolution:
+    date: '2026-09-14'
+    previous_deliverable: |-
+      `dead_literals_r3_defects` = 0, somme de DEUX termes publies SEPAREMENT.
+      1. L'assertion cesse d'etre vide : soit elle verifie une valeur qui peut varier, soit elle disparait avec ce qu'elle pretendait garantir. Publier, sur le commit d'AVANT, la preuve qu'elle ne pouvait pas echouer — une valeur fabriquee qui aurait du la declencher et ne la declenche pas — et sur celui d'APRES, qu'elle se declenche.
+      2. La branche morte du shader part avec son litteral. Publier le compte de lignes de GLSL retirees et l'empreinte du programme lie AVANT et APRES : elle doit changer, sinon le compilateur les avait deja jetees et l'item doit le DIRE au lieu de revendiquer un gain.
+      3. Aucun rendu ne change : reprendre les cles de couverture du chantier precedent et montrer qu'elles gardent leurs valeurs, le miroir CPU du POM compris.
+    basis: 'lighting-legacy-purge : ordre owner 11/09 et validation 12/09, commit c65c9a71bd'
+    mapping:
+    - assertion particules avant/apres conservee
+    - 'empreintes programme lie/POM retire : sans objet suite purge autorisee, provenance explicite'
+    - 'non-alteration du rendu : garantie bornee aux sorties vivantes identiques et banc negatif, nouveau
+      troisieme terme obligatoire'
+    no_owner_validation: true
 - id: build-tree-reinvalidates-itself
   status: validated
   priority: 18

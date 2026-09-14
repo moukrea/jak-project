@@ -2,27 +2,23 @@
 > le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
 > sont dans ce fichier.
 
-# Deux litteraux de plus rendent leur consommateur creux
+# Le controle des particules et le nettoyage des shaders verifient des resultats reels
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-14 : « Reprise superviseur requise pour : dead-literals-round-3. Ce… »
 
 ## Cause connue
-DEUX SIGNALEMENTS DU 12/09 (reports/dead-published-keys-round-2/FINDINGS.txt). Le worker les a nommes chacun comme un item ; ils tiennent dans un seul, c'est la meme classe.
-1. `lib/hdr_batches.py:709` : `options.get('particle_step_const') != 'once-per-logic-frame'` est une ASSERTION VIDE. La valeur qu'elle verifie est une chaine litterale posee par le code lui-meme : la condition ne peut donc jamais etre vraie, et le protocole qu'elle est censee garantir n'est verifie par personne.
-2. `shaders/pbr_fused.glsl:165-171` : `float tess_w = 0.0;` est un LITTERAL depuis le retrait de l'etage de tessellation. Tout ce qui en decoule — `tess_displaced` et sa branche — est du code mort dans un shader fige dans les chunks cote Android. Le prochain qui lira ces lignes croira toucher un deplacement qui n'existe plus.
-Meme classe que les cinq clés que le chantier precedent vient de retirer : une valeu […suite dans le contrat]
+Diagnostic superviseur 14/09 apres handoff et validator-002 : les deux termes existants sont a zero, mais le contrat demandait empreintes liees avant/apres et miroir POM d un programme deja supprime. Ordre owner 11/09 dans lighting-legacy-purge : « bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer ! » ; suppression c65c9a71bd, validee par l owner le 12/09. Ces exigences historiques sont donc remplacees explicitement par la conservat […suite dans le contrat]
 
 ## Livrable
-`dead_literals_r3_defects` = 0, somme de DEUX termes publies SEPAREMENT.
-1. L'assertion cesse d'etre vide : soit elle verifie une valeur qui peut varier, soit elle disparait avec ce qu'elle pretendait garantir. Publier, sur le commit d'AVANT, la preuve qu'elle ne pouvait pas echouer — une valeur fabriquee qui aurait du la declencher et ne la declenche pas — et sur celui d'APRES, qu'elle se declenche.
-2. La branche morte du shader part avec son litteral. Publier le compte de lignes de GLSL retirees et l'empreinte du programme lie AVANT et APRES : elle doit changer, sinon le compilateur les avait deja jetees et l'item doit le DIRE au lieu de revendiquer un gain.
-3. Aucun rendu ne change : reprendre les cles de couverture du chantier precedent et montrer qu'elles gardent leurs valeurs, le miroir CPU du POM compris.
+`dead_literals_r3_defects` = 0, somme de TROIS termes publies SEPAREMENT et des penalites d infrastructure.
+1. ASSERTION REELLE : conserver le banc avant/apres du vrai lecteur hdr_batches, reference cc00f44ca828075acb873078b41b8dd6b6436b13. Un compteur de particules fabrique incoherent est accepte AVANT et refuse APRES ; cadence correcte acceptee, melanges/valeurs manquantes traites explicitement, aucune relaxation des controles existants. Publier populations non vides et t1_defects.
+2. NETTOYAG […suite dans le contrat]
 
 ## Preuve exigee
 `dead_literals_r3_defects == 0` dans `reports/dead-literals-round-3/proof.txt`.
 Le proof se produit par `lib/proof_run.sh dead-literals-round-3 x86` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : Invisible. Aucun pixel ne bouge..
+Ou l'owner regardera : Controle automatique des particules et de la generation des shaders ; aucun test visuel a demander..
 
 ## Hors perimetre
-Ne touche pas au reste du shader ni aux protocoles voisins. Priorite 36 : tout le reste du jeu passe avant.
+Reprise limitee au harnais (.autoport/lib/census/dead-literals-round-3.sh et bancs associes). Ne pas modifier le moteur, le preprocesseur de production ni la loi des particules. Executer les versions du preprocesseur dans des dossiers isoles hors /tmp. Aucun appareil, aucun build/deploiement reel, aucune campagne supplementaire, aucun changement de generic.sh. Les autres signalements restent hors perimetre.
