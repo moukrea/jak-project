@@ -17,3 +17,20 @@ Vérification avant course : build_x86.sh --target gk --check-only, sortie 0, bx
 Tests ciblés avant course : 7 passed in 2.51s.
 Cinq mutations de copies : exclusion du tronc, pivot au sol, ajout sur jonction fixée, clamp TIE supprimé, plan final remplacé par le sol.
 Aucun fichier jeu, asset, appareil ou validateur modifié.
+
+Reprise essai 3 — DIRECTIVES v14fcd1a084
+Le refus archivé validator-001.txt vient du test de comptage du bac à sable.
+Reproduit : 1 failed in 0.31s, manque=['.autoport/tests/harness/shrub_contact_local.py'].
+Le fichier était copié ; FAMILLES excluait son dossier du comptage.
+FAMILLES inclut désormais .autoport/tests/ ; assertions manque/en_trop conservées.
+Rejeu ciblé par l’implementer : 1 passed in 0.29s, code retour 0.
+Revue researcher : initialisation SHRUB, sentinelles TIE et attachement exact non épinglés.
+Ces trois blocs sont ajoutés à la garde ; cinq mutations supplémentaires dans le banc existant.
+Pas de nouvelle instrumentation : même garde, même recensement, même critère moteur.
+Fraîcheur actuelle : build_x86.sh --check-only retourne 0 ; 46 entrées, zéro travail résiduel.
+L’ancienne preuve avait sha=8736e1cfa84c8efa et l’identité essai @1 ; le binaire actuel diffère.
+Une unique course x86 via proof_run.sh renouvelle la preuve pour l’essai @3.
+
+Résultat essai 3 : notes/local-tests.log = 12 passed in 3.16s, dix mutations refusées.
+proof_run rc=0, frames=3397, crash=0, shrub_trunk_anchor_defects=0, proof_census_rc=0.
+verdict_sources_count=36 et verdict_sources_sha=0a60f6f25952185c : identiques au recalcul.

@@ -32,7 +32,8 @@ ITEM = "test-item-preuve"
 # Les familles de fichiers que le nommeur du verdict peut nommer : c'est sur elles, et sur elles
 # seules, que l'ecart entre « ce que le bac a sable contient » et « ce que la porte epingle » a
 # un sens. Le reste du bac a sable (backlog.yaml, reports/, build/) n'est pas une source.
-FAMILLES = (".autoport/lib/", ".autoport/validators/", ".autoport/acquis/")
+# Les gardes locales peuvent aussi dependre de fichiers sous .autoport/tests/.
+FAMILLES = (".autoport/lib/", ".autoport/validators/", ".autoport/acquis/", ".autoport/tests/")
 
 
 def sources_du_verdict():

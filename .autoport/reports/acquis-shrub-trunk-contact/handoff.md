@@ -1,13 +1,16 @@
 ## ÉTABLI
 DIRECTIVES v14fcd1a084
-Garde ajoutée ; cinq mutations refusées et banc synthétique existant réussi : 7 tests.
-proof_run x86 : 3423 images, crash=0, shrub_trunk_anchor_defects=0.
-37 troncs, 36 jonctions, 2800 ancres de feuillage ; proof_census_rc=0.
-Aucun code jeu ni appareil modifié ; owner_test=false, validation owner inchangée.
+Garde existante renforcée : ancres SHRUB nulles, sentinelles TIE, jonctions exactes.
+notes/local-tests.log : 12 passed in 3.16s, dont dix mutations refusées.
+proof.txt essai acquis-shrub-trunk-contact@3#1789484958 : 3397 images, crash=0.
+sha=085b38cc9bce5347 ; shrub_trunk_anchor_defects=0 ; proof_census_rc=0.
+37 troncs, 36 jonctions, 2800 ancres de feuillage ; empreinte verdict recalculée identique.
 ## TENTÉ
-Une course x86 de 60 s ; recensement de 3 s réussi, aucun échec.
-Binaire existant frais ; aucune reconstruction nécessaire.
+Refus historique reproduit : test_proof.py omettait .autoport/tests/ de son comptage.
+Ajout de cette famille, sans retirer d’assertion ; test ciblé : 1 passed in 0.29s.
+Une seule course x86 de 60 s, binaire frais vérifié sans reconstruction.
+Aucun jeu, validateur, backlog ni appareil modifié par ce worker.
 ## RESTE
-L’orchestrateur doit exécuter generic.sh et ses portes de fermeture.
-Aucun validateur lancé par le worker, conformément au prompt.
-Limites de la garde et défaut AO hors périmètre consignés dans report.txt et FINDINGS.txt.
+L’orchestrateur doit exécuter generic.sh et les portes de fermeture, réservées par le prompt.
+Aucun test owner : validation antérieure conservée, owner_test=false.
+Limites CPU/GLSL/GPU et AO hors périmètre consignées dans report.txt et FINDINGS.txt.

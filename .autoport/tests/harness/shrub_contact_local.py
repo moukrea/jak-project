@@ -33,6 +33,11 @@ def check_sources(root):
         if cache[path].count(normalize(snippet)) != 1:
             defects.append(f"{path}: {label} block missing, changed or duplicated")
 
+    # Skipped trunks must retain an inactive anchor, not just skip its assignment.
+    require("background/Shrub.cpp", "inactive contact table initialization", """
+        std::vector<float> contact_lut(n_mat * 12, 0.f);
+        size_t contact_instances = 0;
+    """)
     require("background/Shrub.cpp", "carried pivot and positive span", """
         const bool carried = si.carried && autoport_proof::armed_for(kTrunkItemId);
         const float pivot_y = carried ? si.contact_pin_y : si.base_y;
@@ -53,6 +58,13 @@ def check_sources(root):
         ++contact_instances;
     """)
     # TIE tables are produced in LoaderStages.cpp, not Tie3.cpp.
+    require("loader/LoaderStages.cpp", "TIE inactive index and aligned sentinels", """
+        std::vector<u32> contact_indices(contact_nv, 0);
+        std::vector<std::array<float, 4>> contact_anchors(1, {0.f, 0.f, 0.f, 0.f});
+        std::vector<std::array<float, 4>> contact_pins(1, {0.f, 0.f, 0.f, 0.f});
+        std::unordered_map<u32, u32> contact_lut_index;
+        size_t contact_vi = 0, contact_verts = 0;
+    """)
     require("loader/LoaderStages.cpp", "TIE trunk exclusion and attachment", """
         const bool trunk = si_it->second->load_bearing && trunk_armed;
         if (trunk) { contact_vi += count; continue; }
@@ -151,6 +163,10 @@ def check_sources(root):
             }
           }
         }
+    """)
+    require("background/foliage_wind.cpp", "exact junction attachment", """
+        leaf.si->carried = true;
+        leaf.si->contact_pin_y = std::max(leaf.si->contact_pin_y, final_ymax.at(trunk->si));
     """)
     require("loader/Loader.cpp", "classification after sidecar", """
         tfrag3::foliage_wind_finalize_level(*result);

@@ -1,29 +1,32 @@
 DIRECTIVES v14fcd1a084
-Garde locale livrée et preuve x86 produite ; décision de porte réservée à l’orchestrateur.
+Garde locale renforcée et critère x86 tenu ; fermeture réservée à l’orchestrateur.
 
-Changements : acquis/shrub-trunk-contact.sh protège les blocs CPU/GLSL du correctif livré.
-Séparation tronc/feuillage, pivot porté, maintien des sommets à la jonction et finalisation géométrique.
-Critère moteur existant épinglé dans backlog.yaml : shrub_trunk_anchor_defects == 0.
-owner_test: false ; aucun nouveau test owner, aucune modification du jeu ou du validateur.
-Recensement : exécution de la garde et du banc existant promu sous tests/harness.
-Cinq régressions dans des copies refusées ; test synthétique tronc/jonction/feuillage conservé.
-notes/local-tests.log : 7 passed in 2.88s ; proof_census_rc=0 dans proof.txt.
-Binaire x86 vérifié frais sans reconstruction (46 entrées, zéro travail résiduel).
+Changements : acquis/shrub-trunk-contact.sh conserve le contrôle des blocs CPU/GLSL livrés.
+Ajout des ancres SHRUB nulles, indices/sentinelles TIE et attachement des jonctions exactes.
+Dix mutations refusées dans des copies ; banc synthétique existant conservé.
+Test de comptage du bac à sable corrigé : le dossier de la garde Python est désormais compté.
+Ses assertions d’exhaustivité sont conservées ; rejeu ciblé : 1 passed in 0.29s.
+notes/local-tests.log : 12 passed in 3.16s ; proof_census_rc=0 dans proof.txt.
+Binaire frais sans reconstruction : build_x86 --check-only, 46 entrées, zéro travail résiduel.
+Course unique renouvelée car binaire changé et ancienne preuve rattachée à l’essai 1.
+preuve actuelle : proof_attempt_id=acquis-shrub-trunk-contact@3#1789484958.
 
 Huit lignes de proof.txt, produit exclusivement par lib/proof_run.sh :
 source=x86
-sha=8736e1cfa84c8efa
+sha=085b38cc9bce5347
 crash=0
-frames=3423
+frames=3397
 shrub_trunk_anchor_defects=0
 shrub_trunk_instances=37
 shrub_joint_pairs=36
 shrub_foliage_anchored=2800
 
 Owner : rien à retester ; la validation antérieure des mini-palmiers reste acquise.
-non prouvé : déplacement GPU, continuité rendue des jonctions, mobilité de chaque couronne,
-rendu Android, exhaustivité des niveaux et comparaison vent/herbe/ablation.
+Aucun changement du jeu, du validateur ou du backlog ; aucun contact appareil.
+non prouvé : déplacement GPU, continuité rendue, mobilité de chaque couronne, Android,
+exhaustivité des niveaux, comparaison vent/herbe/ablation et fermeture par l’orchestrateur.
+La garde compare certains blocs source, sans garantir tout le flux CPU/GLSL ni leur exécution GPU.
 Le critère CPU arrondit l’écart du pivot au millimètre ; il ne mesure pas le déplacement.
-La garde structurelle peut refuser un refactoring équivalent : revue des blocs nécessaire.
-Le banc synthétique teste les mesures avec des fixtures, pas le rendu du jeu.
-Aucun contact appareil ni campagne. L’AO mur/toit hors périmètre est consigné dans FINDINGS.txt.
+Le banc synthétique utilise des fixtures ; wind_contact_defects=999999 reste non mesuré.
+Un refactoring équivalent peut nécessiter une revue de la garde ; limite consignée dans FINDINGS.txt.
+L’AO mur/toit demeure hors périmètre, signalement owner conservé dans FINDINGS.txt.

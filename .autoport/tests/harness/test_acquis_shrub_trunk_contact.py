@@ -16,6 +16,16 @@ def test_delivered_sources():
 
 
 @pytest.mark.parametrize("relative,before,after", [
+    ("background/Shrub.cpp", "contact_lut(n_mat * 12, 0.f)",
+     "contact_lut(n_mat * 12, 1.f)"),
+    ("loader/LoaderStages.cpp", "contact_indices(contact_nv, 0)",
+     "contact_indices(contact_nv, 1)"),
+    ("loader/LoaderStages.cpp", "contact_anchors(1, {0.f, 0.f, 0.f, 0.f})",
+     "contact_anchors(0, {0.f, 0.f, 0.f, 0.f})"),
+    ("loader/LoaderStages.cpp", "contact_pins(1, {0.f, 0.f, 0.f, 0.f})",
+     "contact_pins(0, {0.f, 0.f, 0.f, 0.f})"),
+    ("background/foliage_wind.cpp", "leaf.si->carried = true;",
+     "leaf.si->carried = false;"),
     ("background/Shrub.cpp", "if (trunk) {", "if (false) {"),
     ("background/Shrub.cpp", "carried ? si.contact_pin_y : si.base_y",
      "carried ? si.base_y : si.base_y"),

@@ -1,1 +1,3 @@
 AO mur/toit de la hutte (retour owner du 2026-09-15) | Bande blanche non ombrée à la jonction signalée par l’owner, hors périmètre de cette garde | Défaut AO toujours à traiter dans son chantier dédié.
+.autoport/tests/harness/shrub_contact_local.py:33 | La comparaison de blocs source peut refuser un refactoring équivalent | Une revue explicite de la garde reste nécessaire lors de tels refactorings.
+.autoport/reports/acquis-shrub-trunk-contact/proof.txt (wind_contact) | wind_contact_defects=999999 avec zéro échantillon objet/Jak ne constitue pas une mesure de mouvement | Cette garde locale ne protège pas la continuité GPU ou la mobilité de chaque couronne ; validation owner conservée, aucune campagne autorisée ici.
