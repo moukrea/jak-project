@@ -8,9 +8,7 @@
 - 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
 
 ## Cause connue
-REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.
-
-REPRISE O […suite dans le contrat]
+REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombris […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

@@ -11977,7 +11977,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 9
+  max_retries: 10
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
@@ -12009,6 +12009,8 @@ items:
     op: ==
     value: 0
   known_cause: |-
+    REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombrissement61/50/51octets non qualifies. Reprendre attempt11-summary.md et bancs existants : cette information change le diagnostic, ne pas refaire le meme candidat.
+
     REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.
 
     REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire.
@@ -12038,6 +12040,7 @@ items:
     EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
     REPRISE15/09 APRES REPONSE OWNER : le plan historique9/9 reste clos. Le proof_plan courant borne la correction demandee au raccord hutte, six mesures maximum150s, instrumentation necessaire comprise. Ce nouveau perimetre remplace l attente d arbitrage precedente ; ne pas refaire la campagne trois vues ni toucher aux mini-palmiers valides. Preserver tous les criteres finaux ; aucune validation acquise par cette reprise.
     REPRISE LOCALE APRES6/6 : preparer une correction de la dilution residuelle sur les archives deja acquises, avec rejeu local du shader et profils fixes425pixels/15contacts. Pas de nouvel appel proof_run appareil ni de recapture : campagne6/6 close. Traiter aussi les phases du damier pour ne pas le reintroduire. Comparer reference/candidat sur le meme pilote local ; les ecarts connus Intel/Redmi1..2quantums interdisent de presenter le resultat local comme validation appareil. Livrer candidat compile, tests et limites ; ne pas rendre la main en repetant uniquement budget epuise. Aucune baisse de seuil, aucun cote manquant efface, aucune cloture de resultat.
+    SUITE LOCALE ESSAI11 : commencer par un controle complementaire du profil entier incluant pics secondaires et plateaux apres le premier pixel sombre, sans supprimer les anciens verdicts ni censurer les echecs. Reprendre explicitement le cas133,138,135 qui doit rester rouge. Qualifier la propagation hors raccord sur les archives completes (surfaces/concavite), conserver temoins plans/ciel/silhouettes/phases4 ; revoir ou retirer la reconstruction partielle si sa portee ne se justifie pas. Corriger la dilution a sa cause et qualifier tout effet hors contact ; aucun elargissement arbitraire de masque. Aucune nouvelle mesure appareil, aucun verdict machine courant tire de proof.txt historique. Le prochain resultat est candidat local compile et ses limites, pas fermeture globale.
   notes: 'SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l''owner le 14/09. C''est
     ici que l''owner juge l''AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux
     essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret.
@@ -12050,7 +12053,9 @@ items:
     passes sans modification. Epinger proof_props hutte/capture avant toute course ; plan0/6 conserve,
     aucune extension appareil. | budget : 9, un essai de correction LOCALE apres cause nouvellement etablie
     essai10 (bande recreee par flou). Six mesures consommees conservees, zero course supplementaire. Exploiter
-    archives/profile/readers existants ; aucun nouvel audit de preparation.'
+    archives/profile/readers existants ; aucun nouvel audit de preparation. | budget : 10, une continuation
+    locale apres diagnostic nouveau essai11 du pic secondaire et de la propagation sur4passes. Reutiliser
+    attempt11-replay.py et tests ; 9/9 et6/6 clos, zero course supplementaire.'
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -12182,11 +12187,11 @@ items:
     ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
   supervisor_review:
     date: '2026-09-15'
-    evidence: handoff essai10 et notes/attempt10-residual-ssao.md
-    result: Cause locale du filtre etablie et centrage partiel ; residus1..2px,6/6 consommees, aucune
-      validation.
-    next_step: Correction locale sur archives existantes, tests et compilation. Aucun appareil ni recapture
-      dans cette reprise.
+    evidence: handoff11, validator011, attempt11-summary.md, FINDINGS
+    diagnosis: 'Candidat local incomplet ; lecteur prefixe rate pic+1, portee globale non qualifiee. Refus
+      de preuve historique attendu : aucune validation a forcer.'
+    next_step: Controle complementaire du profil complet et confinement geometrique du correctif, sur
+      archives et bancs existants uniquement.
 - status: open
   game: jak1
   device: false
