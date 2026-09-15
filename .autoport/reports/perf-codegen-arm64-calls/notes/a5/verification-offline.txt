@@ -1,0 +1,10 @@
+DIRECTIVES vd321fc8caf
+Essai5 : vérifications hors ligne des artefacts a2 ; aucune nouvelle course.
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/capture-engine.log.gz:27995: 09-15 03:26:04.114 I/GK_STDOUT( 7122): HDSKINEV frame=608 model=medres-jungle1-lod0 hd=0 used=6 nan=0 far=2 miss=0 far_slot=7 far_m=51.0 ref_slot=4 ref_cam_m=688.6 ref_cam=(-362.66,-35.51,584.27) far_list=8:50.8@(-410.6,-27.1,598.9);7:51.0@(-410.8,-27.1,599.0);
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/capture-engine.log.gz:28005: 09-15 03:26:04.179 I/GK_STDOUT( 7122): HDSKINEV frame=609 model=medres-jungle1-lod0 hd=0 used=6 nan=0 far=2 miss=0 far_slot=7 far_m=51.1 ref_slot=4 ref_cam_m=688.6 ref_cam=(-362.66,-35.51,584.27) far_list=8:50.7@(-410.4,-27.2,598.9);7:51.1@(-410.9,-27.0,599.1);
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/replay-engine.log.gz:28236: 09-15 03:28:35.582 I/GK_STDOUT( 7850): HDSKINEV frame=607 model=medres-jungle1-lod0 hd=0 used=6 nan=0 far=2 miss=0 far_slot=7 far_m=51.0 ref_slot=4 ref_cam_m=688.6 ref_cam=(-362.66,-35.51,584.27) far_list=8:50.8@(-410.6,-27.1,598.9);7:51.0@(-410.8,-27.1,599.0);
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/replay-engine.log.gz:28246: 09-15 03:28:35.646 I/GK_STDOUT( 7850): HDSKINEV frame=608 model=medres-jungle1-lod0 hd=0 used=6 nan=0 far=2 miss=0 far_slot=7 far_m=51.1 ref_slot=4 ref_cam_m=688.6 ref_cam=(-362.66,-35.51,584.27) far_list=8:50.7@(-410.4,-27.2,598.9);7:51.1@(-410.9,-27.0,599.1);
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/replay-engine.log.gz:28250: 09-15 03:28:35.674 I/GK_STDOUT( 7850): HDSKINEV frame=609 model=medres-jungle1-lod0 hd=0 used=6 nan=0 far=2 miss=0 far_slot=7 far_m=51.3 ref_slot=4 ref_cam_m=688.6 ref_cam=(-362.66,-35.51,584.27) far_list=8:50.5@(-410.3,-27.2,598.8);7:51.3@(-411.0,-27.0,599.1);
+Occurrence(s) du motif float 0x3b888a89 dans les *-ag.go archivés : [[".autoport/reports/perf-codegen-arm64-calls/notes/a2-final/obj-arm64-generated/medres-jungle1-ag.go", "0x90a4"]]
+Valeur float32 : 0.004166905302554369
+Quantification ×65536 tronquée : 273

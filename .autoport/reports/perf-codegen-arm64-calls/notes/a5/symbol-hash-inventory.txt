@@ -1,0 +1,11 @@
+DIRECTIVES vd321fc8caf
+Inventaire hors ligne, pas des offsets runtime ni des fréquences exécutées.
+objects=525
+max_segment_bytes=278232
+symbol_slots=255225
+nonpositive_wrap_possible=51517
+positive_above16380=46291
+positive_8to16376=7046
+nonpositive_wrap_possible_unique_names=4192
+positive_above16380_unique_names=3184
+positive_8to16376_unique_names=1095

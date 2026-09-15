@@ -1,9 +1,9 @@
 DIRECTIVES vd321fc8caf
-Verdict : essai4 non validé ; diagnostic resserré, aucune preuve USB nouvelle ni correction justifiée.
-Changement : analyse des traces a2 et inventaire des relocations ; notes/a4, FINDINGS et handoff.
-Le build a2 et la référence unique restent conservés ; aucun build ni rejeu inchangé relancé.
+Verdict : essai5 non validé ; diagnostic précisé, aucune correction justifiée ni nouvelle preuve USB.
+Changement : notes/a5, FINDINGS et handoff ; aucune modification de source ni de référence.
+USB eae4df44 disponible via pick_device.sh ; aucun build ni rejeu inchangé relancé.
 
-Huit lignes du proof.txt CONSERVÉ DE L’ESSAI3, historiques, pas un résultat de cet essai4 :
+Huit lignes du proof.txt HISTORIQUE ESSAI3, pas une preuve de cet essai5 :
 source=device
 serial=eae4df44
 frames=5100
@@ -13,19 +13,17 @@ codegen_call_max_instructions=2
 refset_replay_maxdiff=57
 codegen_lot_defects=1
 
-Course historique : 20260915T014447Z-1553215-9541808a ; son verdict reste rouge.
-Constat nouveau vérifié dans les logs a2 : sonde nulle à render600, différente dès render659.
-C28162-28179 : n52/frame14473 ; R28404-28421 : n53/frame14747 ; même groupe53025332/taux273.
-À render1080 : C48874-48891 n472/frame129446 ; R49614-49631 n473/frame129719.
-Seize blocs communs alignés par render_frames/ksum gardent un écart n+1, avant et après ancre901.
-Le groupe publié ne nomme pas l’acteur ; cause initiale et attribution RGB non démontrées.
-Piste bornée : adoption/activation du canal entre600 et659 ; pas une correction codegen établie.
-Inventaire hors ligne :525 objets,255225 sites symbole,104854 accès Rn16,0 accès Rn14 relocalisé.
-Le NOP historique hors portée n’est pas atteint par ces sites ; le défaut latent reste signalé.
-Symboles dynamiques proches : toujours deux instructions ; une nouvelle relocation reste à concevoir.
-Une branche vers bloc lointain permettrait un site court mais porterait le lointain de2 à4 instructions.
-Les modifications des features validées et une nouvelle recapture ne sont pas entreprises dans ce périmètre.
-Owner : jeu habituel sur le build déjà livré ; baisse goal_busy_ms attendue, pas mesurée ici.
-non prouvé : résultat appareil essai4, cause RGB, parité avant/après, gain total et acquis complets.
-non prouvé : symboles dynamiques proches en une instruction et coût des accès à déplacement non nul.
-La porte reste à l’orchestrateur ; aucune fermeture ou validation owner revendiquée.
+Nouveau : C27995/render608 et R28236/render607, mêmes payloads HDSKINEV medres-jungle1-lod0.
+C28005/render609 et R28246/render608 confirment le décalage des événements imprimés.
+Ces événements arrondis/plafonnés ne prouvent pas le début d'activation ni une pose complète.
+Scan vérifié de368 assets : seul medres-jungle1-idle a le taux quantifié273 de la sonde.
+Attribution probable seulement : base runtime et lien squelette/process absents des traces.
+Correction du handoff : chan.parent est joint-control ; group-sub-index n'est pas l'index canal.
+Hash vérifié :46291sites départ>16380,58563autres ; exceptions des noms fixes à traiter.
+Un repli à4 instructions pour ces candidats ne justifie pas un gain ; non implémenté.
+Preuve/seal et référence a2 conservées : quatre empreintes inchangées, notes/a5.
+Owner : aucun nouveau build à examiner ; aucun owner-ok ni succès revendiqué.
+non prouvé : identité du canal, activation, causalité RGB/codegen et répétabilité du rejeu.
+non prouvé : dynamiques proches1 instruction, mutualisation des bases non nulles, gain goal_busy_ms.
+non prouvé : parité avant/après et acquis complets ; le livrable reste incomplet.
+La porte generic.sh appartient à l'orchestrateur ; elle n'a pas été lancée par ce worker.

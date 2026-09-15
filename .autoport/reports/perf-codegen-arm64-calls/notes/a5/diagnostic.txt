@@ -1,0 +1,60 @@
+DIRECTIVES vd321fc8caf
+Essai5 : deux chercheurs Codex natifs researcher/high, résultats vérifiés par le manager.
+Aucun changement de source, build, déploiement ou nouvelle course du jeu.
+
+ANIMATION — NOUVEAU, VÉRIFIÉ HORS LIGNE
+Sources archivées : notes/a2/{capture,replay}-engine.log.gz, lignes décompressées.
+C27995/render608 et R28236/render607 : HDSKINEV medres-jungle1-lod0, payloads identiques.
+C28005/render609 et R28246/render608 : second payload identique, décalé d'une image.
+Les payloads contiennent des coordonnées arrondies, pas une empreinte de pose complète.
+Merc2.cpp:1688-1713 : seulement les paquets jugés mauvais ; plafond stock20, HD80.
+La première ligne HDSKINEV ne prouve donc PAS le début d'activation ni de rendu.
+Merc2.cpp:3180 / OpenGLRenderer.cpp:2088 : frame_idx de dispatch_buckets, pas tick logique.
+Extraits recopiés automatiquement dans verification-offline.txt.
+
+Scan des368 *ag.go a2-final : une seule animation structurée de vitesse quantifiée273.
+medres-jungle1-ag.go : type à0x9090, vitesse à0x90a4, nom à0x93b8.
+Bits vitesse0x3b888a89, float32 0.004166905302554369 ; int(vitesse*65536)=273.
+Le scan cherche ffffffff aligné, vitesse type+20, pointeur nom type+8,
+puis caractères du nom à pointeur+20 (en-tête fichier16 et longueur string4).
+Nom trouvé : medres-jungle1-idle. Résultat dans animation-static-candidates.json.
+C28165/R28407 p0_q65536 et C28167/R28409 rate_q273 sont compatibles avec cette vitesse.
+INFERENCE : animation probablement medres-jungle1-idle ; identité runtime non démontrée.
+Pour relier la sonde0x3291a34 au pointeur relatif0x9084, base attendue0x32889b0.
+Aucune base runtime correspondante ni identité complète conservée trouvée par le chercheur.
+
+CORRECTION DU HANDOFF PRÉCÉDENT
+joint-h.gc:37-45 : chan.parent est joint-control, PAS process-drawable.
+joint.gc:579-590 : constructeur affecte chaque channel.parent au squelette.
+process-drawable.gc:438-450 : obj.skel reçoit le squelette.
+process-drawable-h.gc:303 : teste group-sub-index=0, PAS index absolu du canal.
+process-drawable-h.gc:331/341 : verrou squelette, publication frame-group.
+village-obs.gc:18-24 : medres-jungle1-idle appartient à *med-res-jungle1-sg*.
+generic-obs.gc:739-751,768-799 : med-res-level initialise et avance selon visibilité/statut.
+Ces chemins source ne sont PAS des traces d'activation du process observé.
+Manquent : base asset, verrou joint-control, process.skel→entity, index canal, estampille adoption.
+Points producteurs à examiner dans un périmètre diagnostic explicite : placement klink,
+adoption process-drawable-h.gc:328-343, consommation joint.gc:224 ; kmachine.cpp:585-593
+ne publie pas ces identités. Aucun instrument ajouté ici.
+
+SYMBOLES — NOUVEAU FILTRE, PAS DE CORRECTIF LIVRÉ
+common/goal_constants.h:24-43, kscheme.cpp Jak1:1360-1406 :
+h=CRC32C(nom)&0x3fff ; départ=(h<8192?h:h-16384)*8 ; domaine[-65536,65528].
+Un dynamique départ>16380 ne peut devenir positif proche : upper au-delà, puis lower négatif.
+Tout départ<=0 reste candidat au proche car son wrap repart à FIX_END0x1d0.
+Les noms fixes échappent à ce filtre : asize-of-basic-func, notamment, a départ62456.
+Inventaire v3 reproduit :525objets,255225liens symbole,104854accès Rn16.
+46291sites départ>16380 ;7046sites positifs proches ;51517sites départ<=0.
+Noms distincts respectifs3184/1095/4192 ; segment maximal278232octets.
+Résultats dans symbol-hash-inventory.txt ; CRC contrôlé par123456789→e3069283.
+Ce sont des départs hash, PAS des offsets alloués ou des fréquences exécutées.
+Classement brut :58563candidats au site1mot+stub3mots ; exceptions fixes à reclasser.
+Coût loin4 instructions au lieu2, supplément brut468504octets hors alignement/exceptions.
+Gain en instructions seulement si plus de2/3 des exécutions candidates sont proches.
+Décision : pas de nouvelle relocation spéculative sans justification de ce compromis.
+
+SORTIE
+USB eae4df44 disponible via pick_device.sh ; pas une indisponibilité matérielle.
+Pas de correction justifiée du rejeu ; pas de nouveau replay inchangé ni recapture.
+Preuve/seal et référence a2 inchangées : preserved-artifacts.sha256.json, quatre égalités true.
+Non prouvé : identité runtime, activation, causalité RGB/codegen, parité et gain goal_busy_ms.

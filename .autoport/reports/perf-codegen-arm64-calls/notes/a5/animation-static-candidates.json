@@ -1,0 +1,13 @@
+{
+  "archived_ag_files": 368,
+  "structured_candidates_with_quantized_speed_273": [
+    [
+      "medres-jungle1-ag.go",
+      "0x9090",
+      0.004166905302554369,
+      "0x93a4",
+      "medres-jungle1-idle"
+    ]
+  ],
+  "hypothetical_asset_base_if_identity_correct": "0x32889b0"
+}
