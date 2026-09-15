@@ -11291,7 +11291,10 @@ items:
       ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas.
       mar xontre plus de damier ou pixelisation  pixelisation'
   owner_ok: null
-  block_reason: null
+  block_reason: 'Premiere reference consommee sans capture (fonctions GPU absentes et ecriture archive
+    refusee). Instruments repares et deux builds prets, non mesures. Une reference de remplacement necessaire
+    avant les deux ON/OFF restants : proposition +1 course en attente owner, budget1/3 conserve. Ne pas
+    relancer le meme audit ni utiliser le temoin rouge.'
   supervisor_recovery: true
   proof_plan_pending: null
   supervisor_observation:
