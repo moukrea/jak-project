@@ -1,0 +1,32 @@
+DIRECTIVES vaff5c1afea
+Verdict : non validé ; faux comptage des600 images corrigé, préalables SIMD/refset non résolus.
+
+Essai5 : une image de parité exige désormais un compteur avancé pour chacune des trois populations.
+Avant, une image commune puis599 images joints suffisait à couper l’oracle et afficher défauts0.
+Test extrait du code de production : avant1 échec/6 succès ; après7 succès.
+Cas clairsemé corrigé : frames=1, warmup=599, verify=1, défauts=1 ; hits reste600.
+Traces : notes/attempt5-parity-tests-before.txt et attempt5-parity-tests-after.txt.
+Les tests conservent défauts bit/replay, absence de référence et arrêt après600 images communes.
+Builds x86/ARM64 code0 (46s/10s), source<objet<binaire ; traces notes/attempt5-build-*.log.
+
+Huit lignes de proof.txt HISTORIQUES (essai1), aucune preuve nouvelle pour l’essai5 :
+proof_run_id=20260914T211200Z-949576-04ffe282
+crash=0
+mips2c_bones_compared_ops=0
+mips2c_joints_compared_ops=20183198
+mips2c_particles_compared_ops=159438
+mips2c_parity_frames=0
+refset_replay_maxdiff=255
+mips2c_parity_defects=3
+
+Les trois noyaux spéculatifs sont déjà retirés : diff contre8363e895b1^ code0 (notes/attempt5-checks.txt).
+Troisième cible optimisable toujours non établie ; aucun ajout SIMD ni raccordement inventé.
+H09 USB sans provenance exacte et plage Android phase1 manquante : diagnostic essai4 conservé.
+Préparation refset sans contrôle préalable de présence : dette signalée, aucun nouveau sélecteur ajouté.
+Aucune cible ni référence remplacée ; scénario/seuils/ripple/producteur/validateur conservés.
+USB eae4df44 disponible, pick_device code0 ; aucune indisponibilité invoquée.
+Aucun proof_run, déploiement ou validateur lancé ; la porte reste à l’orchestrateur.
+Owner : rien de nouveau à tester sur appareil ; objectif inchangé, pixels/poses identiques et coût réduit.
+non prouvé : trois populations en jeu sur600 images, hd-mtx-check-all, replay=0, gain par seau.
+non prouvé : fraîcheur appareil, absence de crash/non-régression actuelle et correction warp en jeu.
+Reprise détaillée : handoff.md et notes/attempt5-diagnostic.md ; dettes conservées dans FINDINGS.txt.

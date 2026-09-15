@@ -1,15 +1,15 @@
 DIRECTIVES vaff5c1afea
-Verdict : non validé ; faux comptage des600 images corrigé, préalables SIMD/refset non résolus.
+Verdict : non validé ; essai6 sans course, les deux préalables contractuels restent absents.
 
-Essai5 : une image de parité exige désormais un compteur avancé pour chacune des trois populations.
-Avant, une image commune puis599 images joints suffisait à couper l’oracle et afficher défauts0.
-Test extrait du code de production : avant1 échec/6 succès ; après7 succès.
-Cas clairsemé corrigé : frames=1, warmup=599, verify=1, défauts=1 ; hits reste600.
-Traces : notes/attempt5-parity-tests-before.txt et attempt5-parity-tests-after.txt.
-Les tests conservent défauts bit/replay, absence de référence et arrêt après600 images communes.
-Builds x86/ARM64 code0 (46s/10s), source<objet<binaire ; traces notes/attempt5-build-*.log.
+Diagnostic de préparation terminé avec un researcher natif Codex, puis vérifié.
+Aucun précontrôle existant ne qualifie les origines phase1 et le régime de cet item.
+Le préparateur HDR exige une campagne HDR ; un contrôle des seuls PNG serait insuffisant.
+Le sélecteur effectif est interne au moteur ; aucune seconde version ajoutée au harnais.
+Traces et emplacements : notes/attempt6-diagnostic.md.
+Changements : rapport/handoff/FINDINGS et archives ; aucun nouveau correctif moteur ou harnais.
+Acquis essai5 conservés ; aucun build ni test identique répété en l'absence de changement.
 
-Huit lignes de proof.txt HISTORIQUES (essai1), aucune preuve nouvelle pour l’essai5 :
+Huit lignes HISTORIQUES de proof.txt (essai1), aucune preuve de l'essai6 :
 proof_run_id=20260914T211200Z-949576-04ffe282
 crash=0
 mips2c_bones_compared_ops=0
@@ -19,14 +19,13 @@ mips2c_parity_frames=0
 refset_replay_maxdiff=255
 mips2c_parity_defects=3
 
-Les trois noyaux spéculatifs sont déjà retirés : diff contre8363e895b1^ code0 (notes/attempt5-checks.txt).
-Troisième cible optimisable toujours non établie ; aucun ajout SIMD ni raccordement inventé.
-H09 USB sans provenance exacte et plage Android phase1 manquante : diagnostic essai4 conservé.
-Préparation refset sans contrôle préalable de présence : dette signalée, aucun nouveau sélecteur ajouté.
-Aucune cible ni référence remplacée ; scénario/seuils/ripple/producteur/validateur conservés.
-USB eae4df44 disponible, pick_device code0 ; aucune indisponibilité invoquée.
-Aucun proof_run, déploiement ou validateur lancé ; la porte reste à l’orchestrateur.
-Owner : rien de nouveau à tester sur appareil ; objectif inchangé, pixels/poses identiques et coût réduit.
-non prouvé : trois populations en jeu sur600 images, hd-mtx-check-all, replay=0, gain par seau.
-non prouvé : fraîcheur appareil, absence de crash/non-régression actuelle et correction warp en jeu.
-Reprise détaillée : handoff.md et notes/attempt5-diagnostic.md ; dettes conservées dans FINDINGS.txt.
+Dernier validateur relu : validator-005.txt, huit FAIL ; aucun de ses refus n'est masqué.
+Troisième cible pertinente non établie ; pas d'ajout SIMD ni de compteur d'activité artificiel.
+H09 USB sans manifeste exact, plages Android phase1 manquantes, régime non équivalent.
+Aucune cible ni référence changée depuis essai5 ; aucun arbitrage de périmètre implicite.
+USB eae4df44 disponible : pick_device exit_code=0, notes/attempt6-device-selection.txt.
+Aucun proof_run, déploiement, capture ou validateur lancé ; porte laissée à l'orchestrateur.
+Owner : aucun nouveau build à examiner ; objectif inchangé, mêmes pixels/poses avec coût réduit.
+non prouvé : trois populations sur600 images en jeu, hd-mtx-check-all, replay0, gain par seau.
+non prouvé : fraîcheur appareil et absence de crash/non-régression actuelles.
+Reprise : handoff.md ; préalables précis et préparation dans notes/attempt6-diagnostic.md.

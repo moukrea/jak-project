@@ -1,0 +1,4 @@
+command=bash .autoport/lib/pick_device.sh
+exit_code=0
+stdout=eae4df44
+stderr=

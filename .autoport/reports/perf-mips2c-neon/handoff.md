@@ -1,29 +1,27 @@
 ## ÉTABLI
 DIRECTIVES vaff5c1afea
-Essai5 : compteur des600 images corrigé dans perf_instruments.cpp ; trois deltas par image exigés.
-Test production extrait : avant sparse frames600/verify0/défauts0 ; après1/1/1, warmup599.
-Sept tests passent ; défauts bit/replay persistants et oracleOFF après600 images communes vérifiés en isolé.
-Builds x86/ARM64 code0 (46s/10s), source<objet<binaire ; traces notes/attempt5-build-*.log.
-Retrait noyaux confirmé : diff8363e895b1^ sur bones/joint/launcher code0 ; lot OOB conservé.
-Essais3/4 : priorité env vide/prop warp et nettoyage ZFBRUT/ZFCTX corrigés, déjà testés.
-Aucun consommateur settings/record moteur actuel ; pas d’oracle permanent exécuté établi.
-3D déjà SIMD/inlinée ; profil historique par60 frames compte aussi slots invalides (audit essai4).
-H09USB SHA256 d128995109adedbcd2a99c7746398fb4ae459cacd9912b48ff0e4ce0fa70fcd9 sans manifeste exact retrouvé.
-Plage Android phase1 absente ; archives phases2/3 et x86 ne sont pas interchangeables.
-USB eae4df44 disponible ; aucune nouvelle course/déploiement/validation, preuve essai1 préservée.
+Essai6 : contrat inchangé, troisième optimisation pertinente et références qualifiées toujours absentes.
+Aucun changement moteur/harnais depuis essai5 ; correctifs warp/nettoyage/parité conservés.
+Essai5 historique : tests7/7, builds x86/ARM64 code0 ; aucun résultat appareil actuel déduit.
+validator-005.txt relu : huit FAIL dont identité essai1 et parity_defects3 ; preuve historique conservée.
+Sélection actuelle : pick_device exit_code0, USB eae4df44 ; aucun appareil indisponible invoqué.
+Researcher Codex high + vérification manager : aucun précontrôle complet existant réutilisable.
 
 ## TENTÉ
-Researchers natifs Codex : reliquats et préparation ; manager a vérifié, implementer a corrigé le compteur.
-Précontrôle refset absent confirmé : références manquantes découvertes seulement après amorçage.
-Pas de sélecteur dupliqué en dur : présence seule ne qualifie pas la provenance ; dette dans FINDINGS.
-Aucun réaudit3D ni recherche h09 déjà négative répété ; aucun nouveau noyau/cas/référence créé.
-Notes : attempt5-diagnostic.md, attempt5-parity-tests-*.txt et attempt5-build-*.log.
+Préparation inspectée sans réaudit3D ni rechercheh09 déjà négative : notes/attempt6-diagnostic.md.
+proof_run:533 permettrait un refus die3 avant déploiement/amorcage ; proof-run déjà écrit:406.
+hdr_batches:73–75 exige campagneHDR ; prepare:450 crée un lot, ne qualifie pas les originesphase1.
+Sélecteur effectif interne refset.cpp:2843–2885 ; aucun export préalable appelable trouvé.
+Garde présencePNG/padreplay insuffisante pour provenance/régime ; aucun duplicata ni certificat ajouté.
+Aucun build, proof_run, déploiement, capture, validateur ou nouveau SIMD ; aucun seuil relâché.
+Rapports essai5 archivés ; empreintes avant/après dans notes/attempt6-preservation-*.json.
 
 ## RESTE
-Avant tout nouvel essai identique, résoudre les deux préalables toujours absents du contrat.
-Établir trois optimisations actives justifiées sans rediriger new-bones ni réécrire tous les noyaux.
-Retrouver manifeste/PNG h09 qualifié et plages Android phase1, sinon arbitrage explicite du périmètre.
-Reconstruire régime équivalent (RNG/replay/FBO/chronologie divergent dans les traces historiques).
-Raccorder comparateurs existants ;600 images communes non vides, oracleOFF pendant coût, hd-mtx/ripple/gains.
-Consigner sélection/références effectives avant l’unique cycleUSB autorisé ; aucune campagne supplémentaire.
+Ne pas relancer un essai identique pour corriger uniquement la fraîcheur de preuve.
+Résoudre trois optimisations actives justifiées sans rediriger new-bones ni réécrire tous les noyaux.
+Retrouver manifeste/PNG h09 qualifié et plagesAndroidphase1, sinon arbitrage explicite du contrat.
+Reconstruire régime équivalent RNG/replay/FBO/chronologie ; aucune origine nouvelle implicitement admise.
+Raccorder comparateurs existants ;600 images communes, oracleOFF pendant coût, hd-mtx/ripple/gains.
+Consigner cibles/références effectives avant unique cycleUSB autorisé ; aucune campagne supplémentaire.
+Une autorité commune de plan préalable aiderait la préparation mais ne résout pas les deux préalables.
 Non prouvés : gain, parité/replay en jeu, crash/non-régression et fraîcheur actuelle appareil.
