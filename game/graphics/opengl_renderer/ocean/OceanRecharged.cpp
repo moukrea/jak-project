@@ -5,12 +5,10 @@
 #include <cmath>
 #include <cstring>
 #include <ctime>
-#include <string>
 #include <vector>
 
 #include "common/goal_constants.h"
 #include "common/log/log.h"
-#include "fmt/core.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
@@ -50,7 +48,8 @@ u64 cpu_ns(u64* fails) {
 // quelle plutot que de refabriquer 3.0f * 4096.0f, pour que le pas des anneaux soit un diviseur
 // EXACT de la periode et que la grille snappee ne derive jamais du modulo 32.
 constexpr float kWaveCell = 12288.f;  // 3 m ; 1 m = 4096 unites GOAL
-constexpr int kMaskSide = 48;             // 6 tuiles x 8 sous-cellules
+constexpr int kMidMaskSide = 48;             // 6 tuiles x 8 cellules de 96 m
+constexpr int kMaskSide = kMidMaskSide * 32;  // cellules near de 3 m
 
 // La transcription CPU de `ocean-get-height` (ocean.gc:16-35), moins le `+ start-corner.y`.
 // Elle est le REFERENT de la porte : le GPU rend la meme grandeur par
@@ -96,12 +95,14 @@ u32 read_ocean_map_ptr() {
       s_type = jak1::intern_from_c("ocean-map").offset;
     }
   }
-  if (!s_symbol || !s_type || !g_ee_main_mem) {
+  if (!s_symbol || !s_type || !g_ee_main_mem ||
+      (u64)s_symbol + sizeof(u32) > EE_MAIN_MEM_SIZE ||
+      (u64)s_type + sizeof(u32) > EE_MAIN_MEM_SIZE) {
     return 0;
   }
   u32 v = 0;
   std::memcpy(&v, g_ee_main_mem + s_symbol, sizeof(v));
-  if (v < 0x10000 || (u64)v + 128 >= EE_MAIN_MEM_SIZE) {
+  if (v < 0x10000 || v == s7.offset || (u64)v + 128 > EE_MAIN_MEM_SIZE) {
     return 0;
   }
   // `#f` EST LE SYMBOLE s7, PAS ZERO. Une carte absente rend donc une valeur qui RESSEMBLE a un
@@ -133,17 +134,13 @@ u32 read_ocean_map_ptr() {
 constexpr u32 kOffStartCorner = 12;   // declare 16
 constexpr u32 kOffFarColor = 28;      // declare 32
 constexpr u32 kOffMidIndices = 52;    // declare 56
+constexpr u32 kOffTransIndices = 56;  // declare 60, inline-array de paires parent/child
+constexpr u32 kOffNearIndices = 60;   // declare 64, pointeur vers les blocs de 32 octets
 constexpr u32 kOffMidMasks = 64;      // declare 68
 constexpr u32 kOffBasicData = 0;      // le champ `data` d'un basic, declare a 4
 
 const u8* ee(u32 addr) {
   return g_ee_main_mem + addr;
-}
-
-u32 ee_u32(u32 addr) {
-  u32 v = 0;
-  std::memcpy(&v, ee(addr), sizeof(v));
-  return v;
 }
 
 }  // namespace
@@ -301,9 +298,8 @@ bool OceanRecharged::refresh_ocean_map() {
   }
   std::memcpy(m_start_corner, ee(m_map_ptr + kOffStartCorner), sizeof(m_start_corner));
   std::memcpy(m_far_color, ee(m_map_ptr + kOffFarColor), sizeof(m_far_color));
-  // UNE fois par carte : ce qu'on a VRAIMENT lu. `start-corner` doit valoir (-9437184, *, -9437184)
-  // pour les trois cartes de jak1 (ocean-tables.gc:11211) ; si ce n'est pas le cas, la lecture du
-  // symbole est fausse et tout ce qui suit l'est aussi. On l'ecrit plutot que de le supposer.
+  // Journaliser l'origine lue lors d'un changement de carte : village1 utilise
+  // (-9437184, y, -9437184), village2/sunken (-7892992, y, -15958016).
   static u32 s_logged = 0;
   if (s_logged != m_map_ptr) {
     s_logged = m_map_ptr;
@@ -315,124 +311,164 @@ bool OceanRecharged::refresh_ocean_map() {
 }
 
 void OceanRecharged::rebuild_mask_texture() {
-  // « using 0 will draw, using 1 will skip » (ocean-mid.gc:442-444). Les 36 tuiles de 768 m
-  // portent chacune 8 octets = 8 x 8 bits, soit une grille de 48 x 48 sous-cellules de 96 m.
-  // L'indexation est celle de `ocean-mid-mask-ptrs-bit?` (ocean-mid.gc:485-496), lue a la lettre :
-  //   tuile = 6 * (z / 8) + (x / 8) ; octet = z & 7 ; bit = x & 7.
-  // (Le sens des deux axes vient de `ocean-mid-add-upload` : gp.x suit arg2 = la seconde boucle,
-  //  gp.z suit arg1 = la premiere ; la tuile vaut 6 * arg1 + arg2, donc arg1 est bien z.)
-  u8 mask[kMaskSide * kMaskSide];
-  std::memset(mask, 0, sizeof(mask));
+  // Hierarchie ND : 36 masques mid de 8x8 cellules de 96 m, une paire trans
+  // parent/child par cellule, puis 16 indices near par child. Chaque indice near
+  // designe un masque de 8x8 cellules de 3 m (ocean-near.gc:393-412, 556-570).
+  // Les bits parent servent aux triangles de transition : seuls leur signe et
+  // celui de child filtrent ici, jamais leur masque de triangles.
+  std::vector<u8> mask(kMaskSide * kMaskSide, 255);
+  std::array<u8, kMidMaskSide * kMidMaskSide> mid_mask;
+  mid_mask.fill(255);
   m_mask_skip_cells = 0;
   m_mask_draw_cells = 0;
+  m_mask_near_skip_cells = 0;
+  m_mask_near_draw_cells = 0;
+  m_mask_valid_off0 = 0;
+  m_mask_valid_off4 = 0;
+  m_mask_index_offset = 0;
   m_mask_fallback = 0;
+  m_mask_invalid_reads = 0;
 
-  const u32 indices_obj = ee_u32(m_map_ptr + kOffMidIndices);
-  const u32 masks_obj = ee_u32(m_map_ptr + kOffMidMasks);
-  if (!indices_obj || !masks_obj) {
+  // Toute arithmetique d'adresse precede la validation en u64 : aucun wrap u32.
+  // #f est s7, pas zero ; objets ET pointeurs data doivent etre presents.
+  auto valid_range = [](u64 addr, u64 size) {
+    return g_ee_main_mem && addr != 0 && addr != s7.offset &&
+           addr < EE_MAIN_MEM_SIZE && size <= (u64)EE_MAIN_MEM_SIZE - addr;
+  };
+  auto read = [&](u64 addr, void* dest, u64 size) {
+    if (!valid_range(addr, size)) {
+      ++m_mask_invalid_reads;
+      m_mask_fallback = 1;
+      return false;
+    }
+    std::memcpy(dest, g_ee_main_mem + addr, size);
+    return true;
+  };
+  auto pointer = [&](u64 addr, u32& value, u64 size) {
+    if (!read(addr, &value, sizeof(value))) {
+      return false;
+    }
+    if (!valid_range(value, size)) {
+      ++m_mask_invalid_reads;
+      m_mask_fallback = 1;
+      return false;
+    }
+    return true;
+  };
+
+  u32 indices_obj = 0, trans_obj = 0, near_obj = 0, masks_obj = 0;
+  u32 near_data = 0, masks_data = 0;
+  if (!valid_range(m_map_ptr, kOffMidMasks + sizeof(u32))) {
+    ++m_mask_invalid_reads;
     m_mask_fallback = 1;
   }
+  const bool have_data =
+      !m_mask_fallback &&
+      pointer((u64)m_map_ptr + kOffMidIndices, indices_obj, 36 * sizeof(s16)) &&
+      pointer((u64)m_map_ptr + kOffTransIndices, trans_obj, kMidMaskSide * kMidMaskSide * 4) &&
+      pointer((u64)m_map_ptr + kOffNearIndices, near_obj, sizeof(u32)) &&
+      pointer((u64)m_map_ptr + kOffMidMasks, masks_obj, sizeof(u32)) &&
+      pointer((u64)near_obj + kOffBasicData, near_data, 32) &&
+      pointer((u64)masks_obj + kOffBasicData, masks_data, 8);
 
-  u32 masks_data = 0;
-  if (!m_mask_fallback) {
-    masks_data = ee_u32(masks_obj + kOffBasicData);  // champ `data`, un (inline-array ocean-mid-mask)
-    if (!masks_data || (u64)masks_data + 8 >= EE_MAIN_MEM_SIZE) {
-      m_mask_fallback = 1;
-    }
-  }
-
-  // L'ACCES AUX INDICES, MESURE ET NON SUPPOSE. `draw-ocean-mid` lit
-  // `(pointer int16)` a `objet + tuile * 2` — c'est-a-dire, si le champ `data` est bien a
-  // l'offset 4, deux crans avant le premier element. Plutot que de trancher sur une lecture de
-  // `deftype`, on compte pour les DEUX offsets combien des 36 tuiles rendent un index plausible,
-  // on publie les deux chiffres, et on prend le meilleur. Un desaccord se lit dans la preuve.
-  auto count_valid = [&](u32 off) {
-    u32 n = 0;
-    for (int t = 0; t < 36; t++) {
-      s16 v = 0;
-      std::memcpy(&v, ee(indices_obj + off + t * 2), sizeof(v));
-      if (v >= -1 && v < 4096) {
-        n++;
-      }
-    }
-    return n;
-  };
-  if (!m_mask_fallback) {
-    m_mask_valid_off0 = count_valid(0);
-    m_mask_valid_off4 = count_valid(4);
-    {
-      std::string dump0, dump4;
-      for (int t = 0; t < 36; t++) {
-        s16 a = 0, b = 0;
-        std::memcpy(&a, ee(indices_obj + t * 2), sizeof(a));
-        std::memcpy(&b, ee(indices_obj + 4 + t * 2), sizeof(b));
-        dump0 += fmt::format("{} ", a);
-        dump4 += fmt::format("{} ", b);
-      }
-      lg::info("[water-ocean-mesh] mid-indices off0: {}", dump0);
-      lg::info("[water-ocean-mesh] mid-indices off4: {}", dump4);
-    }
-    m_mask_index_offset = (m_mask_valid_off4 > m_mask_valid_off0) ? 4 : 0;
-    if (std::max(m_mask_valid_off0, m_mask_valid_off4) < 36) {
-      m_mask_fallback = 1;
-    }
-  }
-
-  if (!m_mask_fallback) {
-    for (int t = 0; t < 36; t++) {
-      s16 idx = 0;
-      std::memcpy(&idx, ee(indices_obj + m_mask_index_offset + t * 2), sizeof(idx));
-      const int z_tile = t / 6;
-      const int x_tile = t % 6;
-      if (idx < 0) {
-        // `(< s0-0 0)` : la tuile entiere est sautee par l'original.
-        for (int bz = 0; bz < 8; bz++) {
-          for (int bx = 0; bx < 8; bx++) {
-            mask[(z_tile * 8 + bz) * kMaskSide + (x_tile * 8 + bx)] = 255;
-          }
-        }
-        continue;
-      }
-      const u32 mask_addr = masks_data + (u32)idx * 8;
-      if ((u64)mask_addr + 8 >= EE_MAIN_MEM_SIZE) {
-        m_mask_fallback = 1;
+  if (have_data) {
+    // Off4 reste un diagnostic historique sur les 34 entrees encore dans le tableau ;
+    // il ne choisit JAMAIS l'adresse et ne lit pas les objets voisins.
+    // Un indice signe >= 0 ou la sentinelle -1 est comptabilise, sans seuil invente.
+    for (int t = 0; t < 36 && !m_mask_fallback; ++t) {
+      s16 idx = -1;
+      if (!read((u64)indices_obj + t * 2, &idx, sizeof(idx))) {
         break;
       }
+      m_mask_valid_off0 += idx >= -1;
+      const u64 off4_addr = (u64)indices_obj + 4 + t * 2;
+      if (t < 34 && valid_range(off4_addr, sizeof(s16))) {
+        s16 off4;
+        std::memcpy(&off4, g_ee_main_mem + off4_addr, sizeof(off4));
+        m_mask_valid_off4 += off4 >= -1;
+      }
+      if (idx < 0) {
+        continue;
+      }
       u8 bytes[8];
-      std::memcpy(bytes, ee(mask_addr), 8);
-      for (int bz = 0; bz < 8; bz++) {
-        for (int bx = 0; bx < 8; bx++) {
-          const bool skip = (bytes[bz] & (1u << bx)) != 0;
-          mask[(z_tile * 8 + bz) * kMaskSide + (x_tile * 8 + bx)] = skip ? 255 : 0;
+      if (!read((u64)masks_data + (u64)idx * 8, bytes, sizeof(bytes))) {
+        break;
+      }
+      for (int z = 0; z < 8; ++z) {
+        for (int x = 0; x < 8; ++x) {
+          mid_mask[((t / 6) * 8 + z) * kMidMaskSide + (t % 6) * 8 + x] =
+              (bytes[z] & (1u << x)) ? 255 : 0;
+        }
+      }
+    }
+
+    for (int cz = 0; cz < kMidMaskSide && !m_mask_fallback; ++cz) {
+      for (int cx = 0; cx < kMidMaskSide && !m_mask_fallback; ++cx) {
+        if (mid_mask[cz * kMidMaskSide + cx]) {
+          continue;
+        }
+        s16 trans[2];
+        if (!read((u64)trans_obj + 4 * (cz * kMidMaskSide + cx), trans, sizeof(trans))) {
+          break;
+        }
+        if (trans[0] < 0 || trans[1] < 0) {
+          continue;
+        }
+        s16 near_indices[16];
+        if (!read((u64)near_data + (u64)trans[1] * 32, near_indices,
+                  sizeof(near_indices))) {
+          break;
+        }
+        for (int nz = 0; nz < 4 && !m_mask_fallback; ++nz) {
+          for (int nx = 0; nx < 4; ++nx) {
+            const s16 idx = near_indices[nz * 4 + nx];
+            if (idx < 0) {
+              continue;
+            }
+            u8 bytes[8];
+            if (!read((u64)masks_data + (u64)idx * 8, bytes, sizeof(bytes))) {
+              break;
+            }
+            for (int z = 0; z < 8; ++z) {
+              for (int x = 0; x < 8; ++x) {
+                const int fine_z = cz * 32 + nz * 8 + z;
+                const int fine_x = cx * 32 + nx * 8 + x;
+                mask[fine_z * kMaskSide + fine_x] = (bytes[z] & (1u << x)) ? 255 : 0;
+              }
+            }
+          }
         }
       }
     }
   }
 
-  for (int i = 0; i < kMaskSide * kMaskSide; i++) {
-    if (mask[i]) {
-      m_mask_skip_cells++;
+  if (m_mask_fallback) {
+    // Une lecture invalide ferme toute la carte, sans repli tout-dessiner ni seuil 5%.
+    std::fill(mask.begin(), mask.end(), 255);
+    mid_mask.fill(255);
+    lg::error("[water-ocean-mesh] water_mask_fallback=1 map=0x{:x} invalid_reads={} : "
+              "masque entierement skip",
+              m_map_ptr, m_mask_invalid_reads);
+  }
+  for (u8 value : mid_mask) {
+    if (value) {
+      ++m_mask_skip_cells;
     } else {
-      m_mask_draw_cells++;
+      ++m_mask_draw_cells;
     }
   }
-
-  // SOUPAPE. Un masque qui saute presque tout n'est pas une carte, c'est une lecture ratee — et
-  // une mer entierement decoupee est un defaut que l'owner verrait avant nous. Dans ce cas on
-  // dessine partout : le test de profondeur (on est au bucket 63, apres le monde) suffit deja a
-  // laisser la terre recouvrir l'eau. Le repli est PUBLIE, jamais silencieux.
-  if (m_mask_draw_cells * 20 < (u32)(kMaskSide * kMaskSide)) {
-    m_mask_fallback = 1;
-  }
-  if (m_mask_fallback) {
-    std::memset(mask, 0, sizeof(mask));
-    m_mask_skip_cells = 0;
-    m_mask_draw_cells = kMaskSide * kMaskSide;
+  for (u8 value : mask) {
+    if (value) {
+      ++m_mask_near_skip_cells;
+    } else {
+      ++m_mask_near_draw_cells;
+    }
   }
 
   glBindTexture(GL_TEXTURE_2D, m_tex_mask);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kMaskSide, kMaskSide, GL_RED, GL_UNSIGNED_BYTE, mask);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kMaskSide, kMaskSide, GL_RED, GL_UNSIGNED_BYTE,
+                  mask.data());
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
   m_mask_map_ptr = m_map_ptr;
 }
@@ -557,6 +593,9 @@ void OceanRecharged::publish() {
   publish("water_mask_valid_off4", m_mask_valid_off4);
   publish("water_mask_index_offset", m_mask_index_offset);
   publish("water_mask_fallback", m_mask_fallback);
+  publish("water_mask_near_skip_cells", m_mask_near_skip_cells);
+  publish("water_mask_near_draw_cells", m_mask_near_draw_cells);
+  publish("water_mask_invalid_reads", m_mask_invalid_reads);
 
   // ===== water-ocean-mesh-hit-counter-cost ====================================================
   // CE QUE LE SITE FAIT, DIT EN TROIS GRANDEURS QUE `hits=` CONFONDAIT.

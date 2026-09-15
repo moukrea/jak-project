@@ -107,6 +107,10 @@ class OceanRecharged {
   s64 m_probe_span_q256 = 0;
   s64 m_layer_a_absmax_q256 = 0;
   u32 m_layer_a_nonzero = 0;
+  // Cellules mid (96 m) et near (3 m), pas des pixels rendus.
+  u32 m_mask_near_skip_cells = 0;
+  u32 m_mask_near_draw_cells = 0;
+  u32 m_mask_invalid_reads = 0;
   u32 m_mask_skip_cells = 0;
   u32 m_mask_draw_cells = 0;
   u32 m_mask_valid_off0 = 0;
