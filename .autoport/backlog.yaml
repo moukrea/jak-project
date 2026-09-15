@@ -12048,6 +12048,9 @@ items:
     text: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite
       c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit
       un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+  - date: '2026-09-15'
+    text: c'est peut-être Lié à un flou "inconditionnel" qui va flouter l'AOnde contact au point de contact
+      tout autant qu'à tout le reste ?
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -12093,6 +12096,12 @@ items:
       et discontinuites ; inclure HBAO. Aucun seuil assoupli ni zero sur population vide.
     - Fixer les entrees exogenes entre avant/apres, garder les sorties propres du moteur ; verifier localement
       neutralite de l instrumentation et traitement des donnees absentes avant course.
+    - 'Hypothese owner15/09 : flou qui dilue l AO au contact. Comparer les memes pixels du raccord avant
+      flou, apres passe horizontale, apres verticale et apres ridge-fill dans les archives du plan existant.
+      ao_blur.frag utilise des taps -1,0,+1,+2 et une gaussienne de profondeur zsig=4*zlim, sans normale
+      ni identite de surface. Verifier attenuation/deplacement du minimum et pente de profondeur estimee
+      a cheval sur le raccord. Hypothese, pas cause etablie ; aucune course ajoutee et preserver suppression
+      du damier.'
     execution:
     - Exclusivement proof_run.sh, budget total consigne avant chaque course, preuves historiques conservees
       mais jamais revendiquees courantes.

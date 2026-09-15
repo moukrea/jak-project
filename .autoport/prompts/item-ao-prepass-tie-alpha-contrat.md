@@ -47,6 +47,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 ### 2026-09-15
 > les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
 
+### 2026-09-15
+> c'est peut-être Lié à un flou "inconditionnel" qui va flouter l'AOnde contact au point de contact tout autant qu'à tout le reste ?
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

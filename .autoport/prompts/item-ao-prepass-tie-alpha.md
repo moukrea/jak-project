@@ -5,7 +5,7 @@
 # La prepasse d'AO garde les memes fragments que la couleur sur le TIE statique : plus d'ombre calculee a cote de la geometrie
 
 ## Defaut cite
-- 2026-09-15 : « les mini palmiers j'ai déjà validé t'es relou et tu te fous… »
+- 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
 
 ## Cause connue
 REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire […suite dans le contrat]
