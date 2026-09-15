@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "DirectRenderer2.h"
 
 #include "common/log/log.h"
@@ -169,6 +170,7 @@ void DirectRenderer2::draw_call_loop_simple(SharedRenderState* render_state,
       end_idx = m_draw_buffer[draw_idx + 1].start_index;
     }
     glDrawElements(GL_TRIANGLE_STRIP, end_idx - draw.start_index, GL_UNSIGNED_INT, (void*)offset);
+    soft_draw_census::record("direct", m_vertices.indices.data(), m_vertices.indices.size(), draw.start_index, end_idx - draw.start_index, GL_TRIANGLE_STRIP);
     prof.add_draw_call();
     prof.add_tri((end_idx - draw.start_index) - 2);
   }
@@ -216,6 +218,7 @@ void DirectRenderer2::draw_call_loop_grouped(SharedRenderState* render_state,
     // (int)draw.mode.get_ab_enable(), end_of_draw_group - draw_idx, draw.to_single_line_string() );
     // fmt::print("{}\n", draw.mode.to_string());
     glDrawElements(GL_TRIANGLE_STRIP, end_idx - draw.start_index, GL_UNSIGNED_INT, (void*)offset);
+    soft_draw_census::record("direct", m_vertices.indices.data(), m_vertices.indices.size(), draw.start_index, end_idx - draw.start_index, GL_TRIANGLE_STRIP);
     prof.add_draw_call();
     prof.add_tri((end_idx - draw.start_index) / 3);
     draw_idx = end_of_draw_group + 1;

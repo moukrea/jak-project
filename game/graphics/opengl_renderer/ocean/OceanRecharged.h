@@ -20,6 +20,7 @@
 // `proof_run.sh --off` doit pouvoir montrer.
 
 #include <array>
+#include <vector>
 
 #include "common/common_types.h"
 
@@ -75,6 +76,7 @@ class OceanRecharged {
   u32 m_vao = 0;
   u32 m_vbo = 0;
   u32 m_ibo = 0;
+  std::vector<u32> m_soft_indices;
   Ring m_rings[kNumRings] = {};
 
   // --- couche A ----------------------------------------------------------------------------

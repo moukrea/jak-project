@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "PrePass.h"
 #include "ao_contact_readback.h"
 #include "ao_contact_archive.h"
@@ -1436,6 +1437,7 @@ bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
   glUniform1f(glu::loc(id, "u_fam"), 0.f);
   glBindVertexArray(g_quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   glBindVertexArray(0);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, g_exp_fbo);
@@ -1963,6 +1965,7 @@ void proof_post_opaque(SharedRenderState* rs) {
     glStencilFunc(GL_EQUAL, f, 0xFF);
     glUniform1f(glu::loc(pid, "u_fam"), (float)f);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   }
   glBindVertexArray(0);
   glActiveTexture(GL_TEXTURE1);

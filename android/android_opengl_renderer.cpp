@@ -55,6 +55,8 @@
 #include "game/system/autoport_proof.h"
 #include "game/system/perf_instruments.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/opengl_renderer/soft_baseline_report.h"
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 
 #include "android_gfx.h"
 
@@ -340,6 +342,7 @@ void main() {
     glPixelStorei(GL_PACK_SKIP_ROWS, 0);
     glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    soft_draw_census::record_arrays("postprocess", 3, GL_TRIANGLES);
     if (!gl_ok("mask draw"))
       return false;
     glReadPixels(0, 0, src.width, src.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -1395,6 +1398,8 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   // perf-instruments : moisson des timers GPU et publication des `gpu_ms_*` (jamais appele
   // depuis android/ auparavant : les timers ne tournaient que sur x86).
   lighting_census::frame_end();
+  soft_draw_census::frame_end(0);
+  soft_baseline::baseline_frame_end();
 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
@@ -2366,6 +2371,7 @@ void AndroidOpenGLRenderer::present_quad_to_window(const Fbo& src,
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glActiveTexture(GL_TEXTURE0);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
   // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport. Le renderer
   // x86 l'appelait, celui-ci non : Honor 10/09 essai 6, `hdr_out_ui_white_samples=0` sur les

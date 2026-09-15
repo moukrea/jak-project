@@ -1,0 +1,26 @@
+{
+  "x86": {
+    "count": {
+      "publications": 40,
+      "median_ms": 2.5298175,
+      "max_ms": 3.417951
+    },
+    "publish": {
+      "publications": 40,
+      "median_ms": 0.037575,
+      "max_ms": 0.195189
+    }
+  },
+  "redmi": {
+    "count": {
+      "publications": 84,
+      "median_ms": 0.9484375,
+      "max_ms": 1.694744
+    },
+    "publish": {
+      "publications": 84,
+      "median_ms": 0.111198,
+      "max_ms": 0.905573
+    }
+  }
+}

@@ -1,0 +1,3 @@
+CPU on: FEATURE hits=174, global=1175; attribution correcte
+CPU off: FEATURE hits=0, global=0; attribution correcte
+La vérification initiale exigeait à tort global=own+1000 ; le publicateur compte aussi sa prise proof-feature-hits-is-vacuous=1. Oracle corrigé en global>=own+1000, égalité FEATURE=own inchangée.

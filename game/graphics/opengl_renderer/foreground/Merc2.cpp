@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "Merc2.h"
 #include "game/system/recharged_gating.h"
 
@@ -331,6 +332,7 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
     shaders[ShaderId::MERC2].activate();
     fprintf(stderr, "F1A-MERC-SELFTEST drawing...\n");
     glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+    soft_draw_census::record("instrument", idx, 3, 0, 3, GL_TRIANGLES);
     GLenum e = glGetError();
     glFinish();
     fprintf(stderr, "F1A-MERC-SELFTEST survived err=0x%x\n", (unsigned)e);
@@ -5736,6 +5738,7 @@ void Merc2::do_draws(const Draw* draw_array,
         const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        soft_draw_census::record("merc", lev->level->merc_data.indices.data(), lev->level->merc_data.indices.size(), draw.first_index, draw.index_count, draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP);
         fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);
@@ -5750,6 +5753,7 @@ void Merc2::do_draws(const Draw* draw_array,
         const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        soft_draw_census::record("merc", lev->level->merc_data.indices.data(), lev->level->merc_data.indices.size(), draw.first_index, draw.index_count, draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP);
         fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);
@@ -5782,6 +5786,7 @@ void Merc2::do_draws(const Draw* draw_array,
         const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        soft_draw_census::record("merc", lev->level->merc_data.indices.data(), lev->level->merc_data.indices.size(), draw.first_index, draw.index_count, draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP);
         fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
                                    draw.first_index, draw.texture);

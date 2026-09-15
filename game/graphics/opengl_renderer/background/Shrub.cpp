@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/system/shrub_proof_inputs.h"
 #include "shrub_contact_measurement.h"
 #include "Shrub.h"
@@ -89,8 +90,10 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
       if (prepass::noz_pass_active()) {
         continue;
       }
-      total += prepass::draw_depth_range(
+      const auto submitted = prepass::draw_depth_range(
           GL_TRIANGLES, prepass::make_depth_range(0, 0.f, 0, tree.caster_index_count));
+      total += submitted;
+      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), 0, submitted, GL_TRIANGLES);
       continue;
     }
     // Un draw par groupe : le feuillage a decoupe doit passer son alpha-test ici, sinon l'AO
@@ -102,9 +105,11 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
         continue;
       }
       const GLuint tex = (m_textures && g.tex_id < m_textures->size()) ? m_textures->at(g.tex_id) : 0;
-      total += prepass::draw_depth_range(
+      const auto submitted = prepass::draw_depth_range(
           GL_TRIANGLES,
           prepass::make_depth_range(tex, g.alpha_min, g.first, g.count, g.tex_mode));
+      total += submitted;
+      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), g.first, submitted, GL_TRIANGLES);
     }
   }
   return total;
@@ -483,6 +488,7 @@ void Shrub::update_load(const LevelData* loader_data) {
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, caster.size() * sizeof(u32), caster.data(),
                    GL_STATIC_DRAW);
       m_trees[l_tree].caster_index_count = (u32)caster.size();
+      if (soft_draw_census::active()) m_trees[l_tree].soft_caster_indices = caster;
       m_trees[l_tree].caster_groups = std::move(groups);
       // restore the VAO's element binding to the stock stream for the main draws.
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].index_buffer);
@@ -950,6 +956,7 @@ void Shrub::render_tree(int idx,
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
       lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
+      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), 0, tree.caster_index_count, GL_TRIANGLES);
       sh_st.cast_indices += (u64)tree.caster_index_count;
 
       // Restore the state the main shrub draw expects.
@@ -1001,6 +1008,7 @@ void Shrub::render_tree(int idx,
           u32 idx_buffer_size = make_all_visible_index_list(
               tree.cached_draw_idx.data(), m_cache.index_temp.data(), *tree.draws, tree.index_data);
           tree.cached_idx_count = idx_buffer_size;
+          if (soft_draw_census::active()) tree.soft_cached_indices.assign(m_cache.index_temp.begin(), m_cache.index_temp.begin() + idx_buffer_size);
           glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32),
                        m_cache.index_temp.data(), GL_STATIC_DRAW);
           tree.idx_cached = true;
@@ -1031,6 +1039,12 @@ void Shrub::render_tree(int idx,
           ? tree.cached_draw_idx.data()
           : m_cache.draw_idx_temp.data();
 
+  auto soft_record = [&](size_t first, size_t count) {
+    if (!soft_draw_census::active()) return;
+    const auto& packed = render_state->perf_shrub_static_idx ? tree.soft_cached_indices : m_cache.index_temp;
+    soft_draw_census::record("shrub", render_state->no_multidraw ? packed.data() : tree.index_data,
+        render_state->no_multidraw ? packed.size() : tree.index_count, first, count, GL_TRIANGLE_STRIP);
+  };
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
     // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
@@ -1087,6 +1101,7 @@ void Shrub::render_tree(int idx,
       draws_prof.add_tri(run_tris);
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      soft_record(first, count);
       shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
@@ -1099,6 +1114,7 @@ void Shrub::render_tree(int idx,
         draw_state_cache.valid = false;
         lighting_census::note_world_draw(lighting_census::Kind::Shrub);
         glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+        soft_record(first, count);
         shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -1147,6 +1163,7 @@ void Shrub::render_tree(int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      soft_record(singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
@@ -1155,6 +1172,10 @@ void Shrub::render_tree(int idx,
                           &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
                           multidraw_indices.second);
+          if (soft_draw_census::active()) for (int mdi = 0; mdi < multidraw_indices.second; ++mdi) {
+            const auto mi = multidraw_indices.first + mdi;
+            soft_record((uintptr_t)m_cache.multidraw_index_offset_buffer[mi] / sizeof(u32), m_cache.multidraw_count_buffer[mi]);
+          }
       shrub_contact_measurement::multi_draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP,
                           &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1181,6 +1202,7 @@ void Shrub::render_tree(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::Shrub);
           glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
+          soft_record(singledraw_indices.first, singledraw_indices.second);
           shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
@@ -1189,6 +1211,10 @@ void Shrub::render_tree(int idx,
               GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
               multidraw_indices.second);
+          if (soft_draw_census::active()) for (int mdi = 0; mdi < multidraw_indices.second; ++mdi) {
+            const auto mi = multidraw_indices.first + mdi;
+            soft_record((uintptr_t)m_cache.multidraw_index_offset_buffer[mi] / sizeof(u32), m_cache.multidraw_count_buffer[mi]);
+          }
           shrub_contact_measurement::multi_draw_elements(m_level_name, -1, idx, render_state->frame_idx,
               GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],

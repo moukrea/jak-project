@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "Sprite3.h"
 
 #include <algorithm>
@@ -1435,6 +1436,7 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
 
     glDrawElements(GL_TRIANGLE_STRIP, bucket->ids.size(), GL_UNSIGNED_INT,
                    (void*)(bucket->offset_in_idx_buffer * sizeof(u32)));
+          soft_draw_census::record("sprite", bucket->ids.data(), bucket->ids.size(), 0, bucket->ids.size(), GL_TRIANGLE_STRIP);
 
     if (double_draw) {
       switch (settings.kind) {
@@ -1448,6 +1450,7 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
           glDepthMask(GL_FALSE);
           glDrawElements(GL_TRIANGLE_STRIP, bucket->ids.size(), GL_UNSIGNED_INT,
                          (void*)(bucket->offset_in_idx_buffer * sizeof(u32)));
+          soft_draw_census::record("sprite", bucket->ids.data(), bucket->ids.size(), 0, bucket->ids.size(), GL_TRIANGLE_STRIP);
           break;
         default:
           ASSERT(false);
@@ -1587,6 +1590,7 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
       prof.add_draw_call();
       prof.add_tri(2 * count);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
+      soft_draw_census::record_arrays("sprite", 4, GL_TRIANGLE_STRIP, count);
     };
 
     if (!probe) {
@@ -1863,6 +1867,7 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
           glUniform1f(su.alpha_max, settings.aref_second);
           glDepthMask(GL_FALSE);
           glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, bucket->instance_count);
+          soft_draw_census::record_arrays("sprite", 4, GL_TRIANGLE_STRIP, bucket->instance_count);
           break;
         default:
           ASSERT(false);

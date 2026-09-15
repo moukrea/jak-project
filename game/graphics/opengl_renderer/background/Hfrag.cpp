@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "Hfrag.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 
@@ -434,6 +435,7 @@ void Hfrag::render_hfrag_level(Hfrag::HfragLevel* lev,
         lighting_census::note_world_draw(lighting_census::Kind::Hfrag);
         glDrawElements(GL_TRIANGLE_STRIP, corner.index_length, GL_UNSIGNED_INT,
                        (void*)(corner.index_start * sizeof(u32)));
+        soft_draw_census::missing("hfrag", corner.index_length);
         prof.add_draw_call(1);
         prof.add_tri(corner.num_tris);
       }
@@ -467,6 +469,7 @@ void Hfrag::render_hfrag_montage_textures(Hfrag::HfragLevel* lev,
     constexpr int index_stride = kIndsPerTile * kNumMontageTiles;
     const int offset = bi * index_stride;
     glDrawElements(GL_TRIANGLE_STRIP, index_stride, GL_UNSIGNED_INT, (void*)(offset * sizeof(u32)));
+    soft_draw_census::missing("hfrag", index_stride);
     prof.add_draw_call();
     prof.add_tri(32);
   }

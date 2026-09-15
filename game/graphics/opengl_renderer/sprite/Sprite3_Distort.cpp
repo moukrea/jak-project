@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/fire_red_census.h"
 
 #include <algorithm>
@@ -686,6 +687,7 @@ void Sprite3::distort_draw(SharedRenderState* render_state, ScopedProfilerNode& 
 
   fire_distort_note_sampler((unsigned)shader->id(), (unsigned)m_distort_ogl.fbo_texture);
   glDrawElements(GL_TRIANGLE_STRIP, m_sprite_distorter_indices.size(), GL_UNSIGNED_INT, (void*)0);
+  soft_draw_census::record("sprite", m_sprite_distorter_indices.data(), m_sprite_distorter_indices.size(), 0, m_sprite_distorter_indices.size(), GL_TRIANGLE_STRIP);
 
   fire_red_census::note_distort_frame(g_fire_dz.fbo_status, g_fire_dz.blit_err, g_fire_dz.samples,
                                       m_distort_stats.total_sprites, 1, g_fire_dz.probe_px,
@@ -756,6 +758,7 @@ void Sprite3::distort_draw_instanced(SharedRenderState* render_state, ScopedProf
 
       fire_distort_note_sampler((unsigned)shader->id(), (unsigned)m_distort_ogl.fbo_texture);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, vert_offset, num_verts, instances.size());
+      soft_draw_census::record_arrays("sprite", num_verts, GL_TRIANGLE_STRIP, instances.size());
       fire_draws++;
     }
 

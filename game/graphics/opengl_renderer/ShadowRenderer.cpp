@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "ShadowRenderer.h"
 
 #include <cfloat>
@@ -379,6 +380,7 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glStencilFunc(GL_ALWAYS, 0, 0);          // always pass stencil
     glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);  // increment on depth pass.
     glDrawElements(GL_TRIANGLES, (m_next_front_index - 6), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_front_indices, MAX_INDICES, 0, m_next_front_index - 6, GL_TRIANGLES);
 
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
@@ -390,6 +392,7 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
       glDrawElements(GL_TRIANGLES, (m_next_front_index - 6), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_front_indices, MAX_INDICES, 0, m_next_front_index - 6, GL_TRIANGLES);
 #ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
@@ -410,6 +413,7 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glStencilFunc(GL_ALWAYS, 0, 0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);  // decrement on depth pass.
     glDrawElements(GL_TRIANGLES, m_next_back_index, GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_back_indices, MAX_INDICES, 0, m_next_back_index, GL_TRIANGLES);
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
       glUniform4f(
@@ -419,6 +423,7 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
       glDrawElements(GL_TRIANGLES, (m_next_back_index - 0), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_back_indices, MAX_INDICES, 0, m_next_back_index, GL_TRIANGLES);
 #ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
@@ -443,6 +448,7 @@ void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   glBlendEquation(GL_FUNC_ADD);
   glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_ONE, GL_ZERO);
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(sizeof(u32) * (m_next_front_index - 6)));
+    soft_draw_census::record("shadow", m_front_indices, MAX_INDICES, m_next_front_index - 6, 6, GL_TRIANGLES);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
   prof.add_draw_call();
   prof.add_tri(2);

@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "shrub_contact_probe.h"
 
 #include <algorithm>
@@ -724,6 +725,7 @@ void draw_elements(const std::string& level,
       ++end;
     }
     glDrawArrays(GL_POINTS, GLint(referenced[begin]), GLsizei(end - begin));
+    soft_draw_census::record_arrays("instrument", GLsizei(end - begin), GL_POINTS);
     begin = end;
   }
   glEndTransformFeedback();

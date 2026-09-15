@@ -1,0 +1,25 @@
+{
+  "benchmark_source_sha256": "55226664b312a201f34aec071a297a370222218e3ed17e30f565e220a2769c26",
+  "binary_sha256": "080f8e1609a5b30f9aba62684c1fd9a36dceb347de4da237dfe55bc4532de36b",
+  "crash": 0,
+  "format": "R16_UNORM",
+  "renderer": "Mesa_Intel(R)_UHD_Graphics_(CML_GT2)",
+  "run_sha256": "80f3d479a0215d90efc2e6af76238a01b90c7da7ec4b2c2c62188751e1a598f2",
+  "source": "x86",
+  "started_at": "2026-09-15T07:48:51Z",
+  "tiles": [
+    {
+      "iterations": 16,
+      "raster_completion_ms": 0.104033625,
+      "side": 64,
+      "upload_completion_ms": 0.00118975
+    },
+    {
+      "iterations": 16,
+      "raster_completion_ms": 0.106832625,
+      "side": 128,
+      "upload_completion_ms": 0.001587813
+    }
+  ],
+  "timer": "cpu_submission_plus_glFinish_completion"
+}

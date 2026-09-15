@@ -1,0 +1,32 @@
+Critère machine atteint sur Redmi USB ; baseline livrée, plafond de coût du census non tenu.
+DIRECTIVES v1707e53cb2
+
+Changé : outil soft_bake déterministe, tables versionnées et snapshot embarqué ; 25 niveaux, 37 îlots, densité sur 4 niveaux.
+Attribution géométrique : snow 13 clumpcorner + 6 clumpmassive ; ogre 18 cliffedge. Les 13 centroïdes sans surface sont conservés.
+Census : snow 5 968 / 72 181 m² ; deepsnow 762 / 2 332 m² ; beach sand 10 294 / 90 299 m² (aires arrondies).
+Compteurs : 19 systèmes, références de sommets et triangles soumis ; une ligne indivisible par image pour éviter le mélange entre fils.
+Banc : R16 64²/128², 16 opérations par chemin, erreurs antérieures séparées, état GL restauré.
+Preuve produite exclusivement par lib/proof_run.sh — 8 lignes recopiées :
+source=device
+serial=eae4df44
+sha=fc08e6e1b73d8b9b
+frames=2520
+crash=0
+FEATURE soft-baseline armed=1 hits=146688
+proof_feature_own_hits=146688
+soft_baseline_gaps=0
+
+Temps par tuile (ms, soumission CPU + glFinish ; pas un chronomètre GPU isolé) :
+Opération | x86 | Redmi
+64² upload | 0.001190 | 0.006494
+64² raster | 0.104034 | 0.166995
+128² upload | 0.001588 | 0.008779
+128² raster | 0.106833 | 0.219255
+
+Complétude : census, densité, attribution, données, dessins, tuiles et paire de cibles ont chacun un terme publié à zéro.
+Validation locale : builds incrémentaux x86/arm64 et APK réussis ; tests CPU armé/désarmé réussis ; aucun validateur exécuté par le worker.
+Owner : examiner baseline.json et tile-costs.csv pour la décision 4 sur l’épaisseur ; aucune nouvelle image à regarder.
+Limite mesurée : comptage médian 2.530 ms x86 / 0.948 ms Redmi, publication en plus ; plafond 200 µs non tenu en mode census.
+non prouvé : extrema continus, provenance collision→instance sérialisée, domaine final de classification des coques.
+non prouvé : ablation complète en jeu, contenu relu des texels R16, coût des snapshots au chargement et coût hors mode census.
+Signalements détaillés dans FINDINGS.txt. L’orchestrateur seul lance la porte ; aucune validation owner fabriquée.

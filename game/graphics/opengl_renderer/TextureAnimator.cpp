@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/fire_red_census.h"
 #include "game/graphics/gl_query_census.h"
 #include "TextureAnimator.h"
@@ -381,6 +382,7 @@ void opengl_upload_resize_texture(FramebufferTexturePair& fbt,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, temp_texture);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -1974,6 +1976,7 @@ void TextureAnimator::handle_erase_dest(DmaFollower& dma) {
     {
       auto p = scoped_prof("erase-draw");
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
     }
   }
 
@@ -2070,13 +2073,16 @@ void TextureAnimator::handle_draw(DmaFollower& dma, TexturePool& texture_pool) {
       glColorMask(true, true, true, false);
       glUniform1f(m_uniforms.alpha_multiply, 2.f);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
       glColorMask(false, false, false, true);
       glUniform1f(m_uniforms.alpha_multiply, 1.f);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
     } else {
       // we don't write alpha out. So apply alpha multiplier for blending.
       glUniform1f(m_uniforms.alpha_multiply, 1.f);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
     }
 
     // debug_save_opengl_texture("opengl_draw_result.png", dest_te.tex->texture());
@@ -2766,6 +2772,7 @@ void TextureAnimator::run_fixed_animation(FixedAnim& anim, float time) {
       glColorMask(true, true, true, true);
       glUniform1f(m_uniforms.alpha_multiply, 1.f);
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
     }
 
     LayerVals interpolated_values;
@@ -2805,6 +2812,7 @@ void TextureAnimator::run_fixed_animation(FixedAnim& anim, float time) {
         glUniform1f(m_uniforms.alpha_multiply, 2.f);
         glUniform1i(m_uniforms.set_alpha, 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
         glColorMask(false, false, false, true);
         if (anim.def.set_alpha) {
           glUniform1i(m_uniforms.set_alpha, 1);
@@ -2813,10 +2821,12 @@ void TextureAnimator::run_fixed_animation(FixedAnim& anim, float time) {
         }
         glUniform1f(m_uniforms.alpha_multiply, 1.f);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
       } else {
         // we don't write alpha out. So apply alpha multiplier for blending.
         glUniform1f(m_uniforms.alpha_multiply, 2.f);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_STRIP);
       }
     }
   }
@@ -3022,11 +3032,13 @@ GLint TextureAnimator::run_clouds(const SkyInput& input, bool hires) {
       float s = new_interp * ntp.scale * 128.f;
       set_uniform(m_uniforms.rgba, math::Vector4f(s, s, s, 256));
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
 
       glBindTexture(GL_TEXTURE_2D, ntp.old_tex);
       s = (1.f - new_interp) * ntp.scale * 128.f;
       set_uniform(m_uniforms.rgba, math::Vector4f(s, s, s, 256));
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
       times_idx++;
     }
   }
@@ -3042,6 +3054,7 @@ GLint TextureAnimator::run_clouds(const SkyInput& input, bool hires) {
   glUniform1f(m_uniforms.maximum, input.cloud_max);
   glDisable(GL_BLEND);
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+  soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
   // Gjak2-visuals clouds probe — diffable our-x86-vs-device state dump (the
   // x86-first discipline): the GOAL SkyInput packet + a readback of the final
   // cloud texture while its FBO is still bound. Device: ~2.5 s cadence;
@@ -3134,11 +3147,13 @@ void TextureAnimator::run_slime(const SlimeInput& input) {
       float s = new_interp * ntp.scale * 128.f;
       set_uniform(m_uniforms.rgba, math::Vector4f(s, s, s, 256));
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
 
       glBindTexture(GL_TEXTURE_2D, ntp.old_tex);
       s = (1.f - new_interp) * ntp.scale * 128.f;
       set_uniform(m_uniforms.rgba, math::Vector4f(s, s, s, 256));
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+      soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
       times_idx++;
     }
   }
@@ -3156,6 +3171,7 @@ void TextureAnimator::run_slime(const SlimeInput& input) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glDisable(GL_BLEND);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
   }
   glBindTexture(GL_TEXTURE_2D, m_slime_final_texture.texture());
   glGenerateMipmap(GL_TEXTURE_2D);
@@ -3175,6 +3191,7 @@ void TextureAnimator::run_slime(const SlimeInput& input) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glDisable(GL_BLEND);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    soft_draw_census::record_arrays("texture_animator", 4, GL_TRIANGLE_FAN);
   }
   glBindTexture(GL_TEXTURE_2D, m_slime_final_scroll_texture.texture());
   glGenerateMipmap(GL_TEXTURE_2D);

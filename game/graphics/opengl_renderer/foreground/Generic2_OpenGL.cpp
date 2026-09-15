@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "common/log/log.h"
 
 #include "Generic2.h"
@@ -298,6 +299,7 @@ void Generic2::do_draws_for_alpha(SharedRenderState* render_state,
                        first.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, bucket.idx_count, GL_UNSIGNED_INT,
                      (void*)(sizeof(u32) * bucket.idx_idx));
+      soft_draw_census::record("generic", m_indices.data(), m_indices.size(), bucket.idx_idx, bucket.idx_count, GL_TRIANGLE_STRIP);
       prof.add_draw_call();
       prof.add_tri(bucket.tri_count);
     }
@@ -314,6 +316,7 @@ void Generic2::do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode&
                        first.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, bucket.idx_count, GL_UNSIGNED_INT,
                      (void*)(sizeof(u32) * bucket.idx_idx));
+      soft_draw_census::record("generic", m_indices.data(), m_indices.size(), bucket.idx_idx, bucket.idx_count, GL_TRIANGLE_STRIP);
       prof.add_draw_call();
       prof.add_tri(bucket.tri_count);
     }
@@ -458,6 +461,7 @@ void Generic2::draw_deferred_hud_draws(SharedRenderState* render_state) {
                        d.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, d.idx_count, GL_UNSIGNED_INT,
                      (void*)(sizeof(u32) * d.idx_idx));
+      soft_draw_census::record("generic", batch.indices.data(), batch.indices.size(), d.idx_idx, d.idx_count, GL_TRIANGLE_STRIP);
     }
   }
   m_deferred_hud.clear();

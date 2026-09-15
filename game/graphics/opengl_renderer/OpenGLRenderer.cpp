@@ -6,6 +6,8 @@
 #include "game/graphics/opengl_renderer/hdr_desktop.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/opengl_renderer/soft_baseline_report.h"
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/refset.h"
 
@@ -1317,6 +1319,8 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
 
   m_profiler.finish();
   lighting_census::frame_end();
+  soft_draw_census::frame_end(0);
+  soft_baseline::baseline_frame_end();
   shade_proof::frame_end();
   hdr::frame_end(m_fbo_state.render_fbo->color_format);
   // hdr-display-output : APRES hdr::frame_end ; `m_ui_pass_active` tient jusqu'au prochain
@@ -2310,6 +2314,7 @@ void OpenGLRenderer::present_quad_to_window(const Fbo& src,
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glActiveTexture(GL_TEXTURE0);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
   // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport.
   hdr_output::probe_present(shader);

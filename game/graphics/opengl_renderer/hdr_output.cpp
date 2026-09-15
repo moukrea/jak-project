@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/system/recharged_gating.h"
 
@@ -4590,6 +4591,7 @@ bool mr_reduce(GLuint src_tex, int src_w, int src_h) {
   glUniform2i(l_src, src_w, src_h);
   glUniform2i(l_blk, (src_w + s_mr_w1 - 1) / s_mr_w1, (src_h + s_mr_h1 - 1) / s_mr_h1);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
 
   glBindFramebuffer(GL_FRAMEBUFFER, s_mr_fbo2);
   glViewport(0, 0, kAnW, kAnTileH);
@@ -4597,6 +4599,7 @@ bool mr_reduce(GLuint src_tex, int src_w, int src_h) {
   glUniform2i(l_src, s_mr_w1, s_mr_h1);
   glUniform2i(l_blk, (s_mr_w1 + kAnW - 1) / kAnW, (s_mr_h1 + kAnTileH - 1) / kAnTileH);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   s_mr_draws += 2;
   return true;
 }
@@ -4721,6 +4724,7 @@ void analyze_scene(Shader& shader,
   // ETAGE 0 (lignes 0..15) : les tuiles MOYENNES, le dessin d'avant, inchange.
   glViewport(0, 0, kAnW, kAnTileH);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   // ETAGE 1 (lignes 16..31) : les tuiles MAXIMUM. La pyramide travaille dans l'espace de la
   // SCENE, puis `tonemap` traverse son resultat 16x16 a l'identique (NEAREST, un texel pour un
   // texel) — l'etage 1 finit donc dans le MEME espace que l'etage 0, comparables au bit.
@@ -4732,6 +4736,7 @@ void analyze_scene(Shader& shader,
     glBindFramebuffer(GL_FRAMEBUFFER, s_an_fbo);
     glViewport(0, kAnTileH, kAnW, kAnTileH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   }
   // LA TEXTURE DE SCENE EST RENDUE A L'UNITE 0 DANS TOUS LES CAS, y compris quand la pyramide a
   // echoue : `make_float_fbo` laisse SA texture liee, et `probe_tonemap` rejoue le programme
@@ -4925,6 +4930,7 @@ static void probe_ramps(Shader& /*shader*/) {
   for (int r = 0; r < 3 && ok; r++) {
     glBindTexture(GL_TEXTURE_2D, s_rp_src[r]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_levels(kRampN, fmt, &lv[r]);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -4984,6 +4990,7 @@ void probe_present(Shader& shader) {
   std::vector<float> px;
   // 1 : le mode courant (PQ ou scRGB), tel que pousse pour cette image.
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   const bool ok1 = read_float_fbo(4, 4, px);
   const float r1 = px.size() >= 3 ? px[0] : 0.f, g1 = px.size() >= 3 ? px[1] : 0.f,
               b1 = px.size() >= 3 ? px[2] : 0.f;
@@ -4991,6 +4998,7 @@ void probe_present(Shader& shader) {
   //     luminosite du joueur comprise.
   glUniform1i(loc_mode, 0);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   const bool ok2 = read_float_fbo(4, 4, px);
   const float rr = px.size() >= 3 ? px[0] : 0.f, rg = px.size() >= 3 ? px[1] : 0.f,
               rb = px.size() >= 3 ? px[2] : 0.f;
@@ -5072,6 +5080,7 @@ bool ramp_response(GLuint prog, const CurveParams& p, double* out) {
   glViewport(0, 0, kRampN, 1);
   set_curve(prog, p);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   std::vector<float> fx;
   const bool ok = read_float_fbo(kRampN, 1, fx);
   glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
@@ -5149,6 +5158,7 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     glBindFramebuffer(GL_FRAMEBUFFER, s_pl_fbo[i]);
     glViewport(0, 0, kTmW, kTmH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kTmW, kTmH, img[i]);
   }
   set_curve(prog, s_cur);
@@ -5474,6 +5484,7 @@ void probe_regime(Shader& shader,
   for (int i = 0; i < 4 && ok; i++) {
     set_curve(prog, arms[i]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kRampN, 1, ramp[i]);
   }
   // --- LA SCENE : les MEMES bras sur ce qui est REELLEMENT dessine. Echantillonnage au plus
@@ -5487,6 +5498,7 @@ void probe_regime(Shader& shader,
   for (int i = 0; i < 4 && ok; i++) {
     set_curve(prog, arms[i]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kRgTmW, kRgTmH, scene[i]);
   }
   // On rend EXACTEMENT l'etat d'avant : uniformes livres, cible, viewport, texture et filtrage.
@@ -5756,6 +5768,7 @@ void probe_shadow(Shader& shader, GLuint src_tex, GLuint dst_fbo, int dst_w, int
   for (int i = 0; i < kShArms && ok; i++) {
     set_curve(prog, arms[i]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kRampN, 1, ramp[i]);
   }
   glBindTexture(GL_TEXTURE_2D, src_tex);
@@ -5771,6 +5784,7 @@ void probe_shadow(Shader& shader, GLuint src_tex, GLuint dst_fbo, int dst_w, int
   for (int i = 0; i < kShArms && ok; i++) {
     set_curve(prog, arms[i]);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kShTmW, kShTmH, scene[i]);
   }
   set_curve(prog, s_cur);
@@ -6174,6 +6188,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[0]);
     glViewport(0, 0, kTmW, kTmH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kTmW, kTmH, off);
     set_curve(prog, s_cur);
     glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
@@ -6204,6 +6219,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[i]);
     glViewport(0, 0, kTmW, kTmH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     ok = read_float_fbo(kTmW, kTmH, i == 0 ? off : on);
   }
   set_curve(prog, s_cur);
@@ -6257,6 +6273,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       for (int i = 0; i < 2 && tf_ok; i++) {
         set_curve(prog, i == 0 ? sdr_params() : s_cur);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
         tf_ok = read_float_fbo(kRampN, 1, fx);
         if (!tf_ok) {
           break;

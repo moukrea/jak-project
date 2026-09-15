@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "EyeRenderer.h"
 
 #include <algorithm>
@@ -1021,6 +1022,7 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
       glDisable(GL_BLEND);
       glBindTexture(GL_TEXTURE_2D, draw.iris_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);
+      soft_draw_census::record_arrays("eyes", 4, GL_TRIANGLE_STRIP);
     }
     buffer_idx += 4 * 4;
 
@@ -1032,6 +1034,7 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
       glDisable(GL_BLEND);
       glBindTexture(GL_TEXTURE_2D, draw.iris_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);
+      soft_draw_census::record_arrays("eyes", 4, GL_TRIANGLE_STRIP);
     }
     buffer_idx += 4 * 4;
 
@@ -1041,6 +1044,7 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
       glBindTexture(GL_TEXTURE_2D, draw.pupil_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);
+      soft_draw_census::record_arrays("eyes", 4, GL_TRIANGLE_STRIP);
     }
     buffer_idx += 4 * 4;
 
@@ -1096,6 +1100,7 @@ void EyeRenderer::run_gpu(const std::vector<SingleEyeDraws>& draws,
       glDisable(GL_BLEND);
       glBindTexture(GL_TEXTURE_2D, lid_gl_tex);
       glDrawArrays(GL_TRIANGLE_STRIP, buffer_idx / 4, 4);
+      soft_draw_census::record_arrays("eyes", 4, GL_TRIANGLE_STRIP);
     }
     buffer_idx += 4 * 4;
 

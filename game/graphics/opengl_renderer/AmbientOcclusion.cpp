@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "AmbientOcclusion.h"
 #include "ao_contact_readback.h"
 #include "ao_contact_archive.h"
@@ -2370,6 +2371,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glScissor(0, y0, ao_w, y1 - y0);
       }
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
     }
     if (bands > 1) {
       glDisable(GL_SCISSOR_TEST);  // pass invariant: scissor off (restored at the end)
@@ -2417,6 +2419,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
             const int y1 = int(int64_t(ao_h) * (b + 1) / bands);
             if (bands > 1) glScissor(0, y0, ao_w, y1 - y0);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
           }
           if (bands > 1) glDisable(GL_SCISSOR_TEST);
           hut_archive.capture("estimator-report-" + std::to_string(channel),
@@ -2523,6 +2526,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       // passe precedente transformerait toute la chaine de flou en passes de crete.
       glUniform1i(glu::loc(id, "u_ridge_fill"), 0);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
       note_target(legs[p].fbo);
       if (hut_archive.active) {
         hut_archive.manifest << "blur_" << p << "_dx=" << legs[p].dx
@@ -2572,6 +2576,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform1i(glu::loc(id, "u_blur_report"), 0);
         glUniform1i(glu::loc(id, "u_ridge_fill"), 1);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
         note_target(ping_fbo[rp]);
         if (hut_archive.active)
           hut_archive.capture("ridge-" + std::to_string(rpi), ping_fbo[rp], out_w, out_h);
@@ -2607,6 +2612,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform1i(glu::loc(id, "u_blur_report"), 1);
         glUniform1i(glu::loc(id, "u_ridge_fill"), 0);  // rapport de FLOU, pas de crete
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
         note_target(m_ao_scratch_fbo);
         cross_census(arm, m_ao_scratch_fbo, out_w, out_h);
       }

@@ -1,0 +1,6 @@
+DIRECTIVES v1707e53cb2
+json_sha256=14e6a3e8d9239969ee902fedad51771093c0a485c6d3827a2b195cce5b678c2b
+repeat_byte_identical=1
+json_roundtrip=1
+header_sha256_matches_json=1
+{"census_level_gaps": 0, "census_levels": 25, "census_reference_gaps": 0, "density_gaps": 0, "density_levels": 4, "drift_gaps": 0, "drift_islands": 37, "published_quantities": 7358}

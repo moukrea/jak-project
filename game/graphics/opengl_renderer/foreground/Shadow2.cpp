@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "Shadow2.h"
 
 #include "third-party/imgui/imgui.h"
@@ -491,6 +492,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(UINT32_MAX);
     glDrawElements(GL_TRIANGLE_STRIP, (m_front_index_buffer_used - 6), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_front_index_buffer.data(), m_front_index_buffer.size(), 0, (m_front_index_buffer_used - 6), GL_TRIANGLE_STRIP);
 
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
@@ -500,6 +502,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
       glDrawElements(GL_TRIANGLE_STRIP, (m_front_index_buffer_used - 6), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_front_index_buffer.data(), m_front_index_buffer.size(), 0, (m_front_index_buffer_used - 6), GL_TRIANGLE_STRIP);
 #ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
@@ -522,6 +525,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     glStencilFunc(GL_ALWAYS, 0, 0);
     glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);  // decrement on depth pass.
     glDrawElements(GL_TRIANGLE_STRIP, m_back_index_buffer_used, GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_back_index_buffer.data(), m_back_index_buffer.size(), 0, m_back_index_buffer_used, GL_TRIANGLE_STRIP);
     if (m_debug_draw_volume) {
       glDisable(GL_BLEND);
       glUniform4f(m_ogl.uniforms.color, 0., 0.0, 0., 0.5);
@@ -529,6 +533,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
       glDrawElements(GL_TRIANGLE_STRIP, (m_back_index_buffer_used - 0), GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("shadow", m_back_index_buffer.data(), m_back_index_buffer.size(), 0, (m_back_index_buffer_used - 0), GL_TRIANGLE_STRIP);
 #ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
@@ -572,6 +577,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
     glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT,
                    (void*)(sizeof(u32) * (m_front_index_buffer_used - 6)));
+    soft_draw_census::record("shadow", m_front_index_buffer.data(), m_front_index_buffer.size(), m_front_index_buffer_used - 6, 6, GL_TRIANGLE_STRIP);
   }
 
   if (have_lighten) {
@@ -581,6 +587,7 @@ void Shadow2::draw_buffers(SharedRenderState* render_state,
     glBlendEquation(GL_FUNC_ADD);
     glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT,
                    (void*)(sizeof(u32) * (m_front_index_buffer_used - 6)));
+    soft_draw_census::record("shadow", m_front_index_buffer.data(), m_front_index_buffer.size(), m_front_index_buffer_used - 6, 6, GL_TRIANGLE_STRIP);
   }
 
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

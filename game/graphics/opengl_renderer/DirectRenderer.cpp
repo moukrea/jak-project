@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/fire_red_census.h"
 #include "DirectRenderer.h"
 #include "game/graphics/origin_ablate.h"
@@ -383,10 +384,12 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
       glUniform1f(m_uniforms.alpha_min, m_double_draw_aref);
       glUniform1f(m_uniforms.alpha_max, 10);
       glDrawArrays(GL_TRIANGLES, offset, n_batch);
+      soft_draw_census::record_arrays("direct", n_batch, GL_TRIANGLES);
       glDepthMask(GL_FALSE);
       glUniform1f(m_uniforms.alpha_min, -10);
       glUniform1f(m_uniforms.alpha_max, m_double_draw_aref);
       glDrawArrays(GL_TRIANGLES, offset, n_batch);
+      soft_draw_census::record_arrays("direct", n_batch, GL_TRIANGLES);
       offset += n_batch;
       draw_count += 2;
       num_tris += n_batch / 3;
@@ -396,6 +399,7 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
     m_prim_gl_state_needs_gl_update = true;
   } else {
     glDrawArrays(GL_TRIANGLES, 0, m_prim_buffer.vert_count);
+    soft_draw_census::record_arrays("direct", m_prim_buffer.vert_count, GL_TRIANGLES);
     num_tris += m_prim_buffer.vert_count / 3;
     draw_count++;
   }
@@ -423,6 +427,7 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
     glDrawArrays(GL_TRIANGLES, 0, m_prim_buffer.vert_count);
+    soft_draw_census::record_arrays("direct", m_prim_buffer.vert_count, GL_TRIANGLES);
 #ifndef __ANDROID__
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif

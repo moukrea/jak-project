@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
 #include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "TFragment.h"
@@ -618,6 +619,7 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* rs) {
           tree.draw_mode,
           prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode));
       total += submitted;
+      if (soft_draw_census::active()) soft_draw_census::record("tfrag", tree.index_data, tree.index_count, r.first, submitted, tree.draw_mode);
       if (submitted) ao_contact_draws::record(m_level_name, "tfrag", prepass::noz_pass_active() ? "prepass_noz" : "prepass",
           rs ? rs->frame_idx : 0, lod(), tree.source_tree_index, 0, tree.draws ? tree.draws->size() : 0,
           tree.vertex_buffer, tree.draw_mode, r.first, r.count, tree.index_data, tree.index_count);
@@ -841,6 +843,7 @@ void TFragment::render_tree(int geom,
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
       lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
+      soft_draw_census::record("tfrag", tree.index_data, tree.index_count, 0, tree.index_count, tree.draw_mode);
       sh_st.cast_indices += (u64)tree.index_count;
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
                                                 ? tree.single_draw_index_buffer
@@ -848,6 +851,7 @@ void TFragment::render_tree(int geom,
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
+      soft_draw_census::record("tfrag", render_state->no_multidraw ? m_cache.index_temp.data() : tree.index_data, render_state->no_multidraw ? m_cache.index_temp.size() : tree.index_count, 0, pbr_depth_index_count, tree.draw_mode);
       sh_st.cast_indices += (u64)pbr_depth_index_count;
     }
     if (sh_st.debug) {
@@ -1138,6 +1142,10 @@ void TFragment::render_tree(int geom,
   const bool contact_alpha_probe = ao_contact_draws::active(m_level_name) && ao_tie_alpha_probe::active();
   if (contact_alpha_probe) ao_tie_alpha_probe::color_begin();
   auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (soft_draw_census::active()) soft_draw_census::record("tfrag",
+        render_state->no_multidraw ? m_cache.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? m_cache.index_temp.size() : tree.index_count,
+        first, count, tree.draw_mode);
     if (!ao_contact_draws::active(m_level_name)) return;
     ao_contact_draws::record(m_level_name, "tfrag", "color", render_state->frame_idx, geom, tree.source_tree_index,
         begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
@@ -1563,6 +1571,7 @@ void TFragment::render_tree_cull_debug(const TfragRenderSettings& settings,
     glBufferSubData(GL_ARRAY_BUFFER, 0, to_do * sizeof(DebugVertex),
                     m_debug_vert_data.data() + start);
     glDrawArrays(GL_TRIANGLES, 0, to_do);
+    soft_draw_census::record_arrays("debug", to_do, GL_TRIANGLES);
     prof.add_draw_call();
     prof.add_tri(to_do / 3);
 

@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
@@ -636,6 +637,7 @@ bool tonemap_draw(Shader& shader,
   // ACTIVE, le plafond vient de la marge de l'ecran et les trois autres du CONTENU de la scene.
   hdr_output::push_tonemap_uniforms(shader);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   // hdr-display-output : l'analyse de scene (PRODUCTION, une image sur huit, lecture asynchrone)
   // — c'est elle qui fait suivre la courbe a la scene. Restaure dst_fbo + viewport.
   hdr_output::analyze_scene(shader, src_tex, src_w, src_h, dst_fbo, dst_w, dst_h);

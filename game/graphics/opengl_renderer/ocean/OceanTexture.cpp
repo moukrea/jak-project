@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "OceanTexture.h"
 #include "game/graphics/opengl_renderer/ocean/OceanRecharged.h"
 
@@ -440,6 +441,7 @@ void OceanTexture::make_texture_with_mipmaps(SharedRenderState* render_state,
         glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_TEXTURE_MIPMAP].id(), "scale"),
         1.f / (1 << i));
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    soft_draw_census::record_arrays("ocean_texture", 4, GL_TRIANGLE_STRIP);
     prof.add_draw_call();
     prof.add_tri(2);
   }

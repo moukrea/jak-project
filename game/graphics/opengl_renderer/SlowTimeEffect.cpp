@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "SlowTimeEffect.h"
 
 /*
@@ -65,4 +66,5 @@ void SlowTimeEffect::draw(float amount, SharedRenderState* render_state, ScopedP
   prof.add_tri(4);
   prof.add_draw_call();
   glDrawArrays(GL_TRIANGLE_FAN, 0, 6);
+  soft_draw_census::record_arrays("postprocess", 6, GL_TRIANGLE_FAN);
 }

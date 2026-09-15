@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "SkyBlendGPU.h"
 
 #include <cstdio>
@@ -311,6 +312,7 @@ void SkyBlendGPU::accumulate(GLuint dst_fbo,
   glBindTexture(GL_TEXTURE_2D, prev.tex);
   glActiveTexture(GL_TEXTURE0);
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  soft_draw_census::record_arrays("sky", 6, GL_TRIANGLES);
 }
 
 // LA MESURE EST PRISE SUR CE QUI EST DESSINE, jamais sur les couches d'entree recomposees a

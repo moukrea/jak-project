@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "OceanTexture.h"
 
 void OceanTexture::run_L1_PC() {
@@ -669,6 +670,7 @@ void OceanTexture::flush(SharedRenderState* render_state, ScopedProfilerNode& pr
   glPrimitiveRestartIndex(UINT32_MAX);
 #endif
   glDrawElements(GL_TRIANGLE_STRIP, m_pc.index_buffer.size(), GL_UNSIGNED_INT, (void*)0);
+  soft_draw_census::record("ocean_texture", m_pc.index_buffer.data(), m_pc.index_buffer.size(), 0, m_pc.index_buffer.size(), GL_TRIANGLE_STRIP);
   prof.add_draw_call();
   prof.add_tri(NUM_STRIPS * NUM_STRIPS * 2);
 

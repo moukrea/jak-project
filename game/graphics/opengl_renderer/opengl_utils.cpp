@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "opengl_utils.h"
 
 #include <array>
@@ -165,6 +166,7 @@ void FullScreenDraw::draw(const math::Vector4f& color,
   prof.add_tri(2);
   prof.add_draw_call();
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
 }
 
 FullScreenTexDraw::FullScreenTexDraw() {
@@ -205,6 +207,7 @@ void FullScreenTexDraw::draw(const math::Vector4f& color,
   prof.add_tri(2);
   prof.add_draw_call();
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
 }
 
 FramebufferCopier::FramebufferCopier() {

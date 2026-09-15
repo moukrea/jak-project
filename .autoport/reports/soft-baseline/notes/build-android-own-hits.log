@@ -1,0 +1,5 @@
+[0/2] Re-checking globbed directories...
+[1/4] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/autoport_proof.cpp.o
+[2/4] Linking CXX static library android/libandroid_kernel.a
+[3/4] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues

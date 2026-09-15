@@ -1,0 +1,17 @@
+AUTOPORT-FRAMES n=0
+proof_feature_id=soft-baseline
+proof_feature_state=absent
+proof_feature_declared=0
+proof_feature_own_hits=0
+proof_feature_global_hits=0
+proof_feature_hits_gap=0
+proof_feature_hits_attributed=0
+proof_feature_hits_unattributed=0
+proof_feature_sites_total=1
+proof_feature_hits_items=0
+proof_feature_sites_list=proof-feature-hits-is-vacuous
+proof_feature_sites_list_truncated=0
+proof_feature_hits_table=-
+proof_feature_hits_table_truncated=0
+FEATURE soft-baseline armed=0 hits=0
+draw_census_test off: no counters or frame publications

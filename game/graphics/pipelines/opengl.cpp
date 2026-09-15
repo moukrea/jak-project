@@ -28,6 +28,7 @@
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/graphics/refset.h"
 #include "game/system/overlap_census.h"
@@ -638,6 +639,7 @@ void GLDisplay::draw_splash(int fb_w, int fb_h) {
               Gfx::g_splash.height);
   glBindVertexArray(m_splash_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
   glBindVertexArray(0);
 }
 

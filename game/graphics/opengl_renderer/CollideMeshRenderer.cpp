@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "CollideMeshRenderer.h"
 
 #include <vector>
@@ -322,6 +323,7 @@ void CollideMeshRenderer::render(SharedRenderState* render_state, ScopedProfiler
                  Gfx::settings().collision_skip_nomask_allowed);
     glUniform1i(glGetUniformLocation(shader, "mode"), Gfx::settings().collision_mode);
     glDrawArrays(GL_TRIANGLES, 0, lev->level->collision.vertices.size());
+    soft_draw_census::record_arrays("debug", lev->level->collision.vertices.size(), GL_TRIANGLES);
 
     if (Gfx::settings().collision_wireframe) {
       glUniform1i(glGetUniformLocation(shader, "wireframe"), 1);
@@ -333,6 +335,7 @@ void CollideMeshRenderer::render(SharedRenderState* render_state, ScopedProfiler
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
       glDrawArrays(GL_TRIANGLES, 0, lev->level->collision.vertices.size());
+      soft_draw_census::record_arrays("debug", lev->level->collision.vertices.size(), GL_TRIANGLES);
 #ifndef __ANDROID__
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif

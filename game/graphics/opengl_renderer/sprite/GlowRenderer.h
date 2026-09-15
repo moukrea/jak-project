@@ -109,6 +109,7 @@ class GlowRenderer {
   Vertex* alloc_vtx(int num);
 
   std::vector<u32> m_index_buffer;
+  std::vector<u32> m_soft_downsample_indices;
   u32 m_next_index = 0;
   u32* alloc_index(int num);
 

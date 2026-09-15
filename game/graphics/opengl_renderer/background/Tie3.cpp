@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "shrub_contact_measurement.h"
 #include "Tie3.h"
@@ -375,6 +376,7 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       lod_tree[l_tree].vis = &tree.bvh;
       // indices from FR3 (needed on CPU for culling)
       lod_tree[l_tree].index_data = tree.unpacked.indices.data();
+      lod_tree[l_tree].soft_index_count = tree.unpacked.indices.size();
       // wind metadata
       lod_tree[l_tree].instance_info = &tree.wind_instance_info;
       lod_tree[l_tree].wind_draws = &tree.instanced_wind_draws;
@@ -617,6 +619,10 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
         u32 off = 0;
         for (auto& draw : tree.instanced_wind_draws) {
           lod_tree[l_tree].wind_vertex_index_offsets.push_back(off);
+          if (soft_draw_census::active()) {
+            auto& snapshot = lod_tree[l_tree].soft_wind_indices;
+            snapshot.insert(snapshot.end(), draw.vertex_index_stream.begin(), draw.vertex_index_stream.end());
+          }
           off += draw.vertex_index_stream.size();
         }
       }
@@ -1400,6 +1406,7 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
         range.tie_probe_id = r.tie_probe_id;
         const auto submitted = prepass::draw_depth_range(tree.draw_mode, range);
         total += submitted;
+      if (soft_draw_census::active()) soft_draw_census::record("tie", tree.index_data, tree.soft_index_count, r.first, submitted, tree.draw_mode);
         if (submitted && ao_contact_draws::active(m_level_name)) ao_contact_draws::record(m_level_name, "tie", prepass::noz_pass_active() ? "prepass_noz" : "prepass",
             rs ? rs->frame_idx : 0, lod(), &tree - m_trees[lod()].data(), 0, tree.draws->size(),
             tree.vertex_buffer, tree.draw_mode, r.first, r.count, tree.index_data,
@@ -1554,6 +1561,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
         glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
                        (void*)((size_t)r.first * sizeof(u32)));
+        if (soft_draw_census::active()) soft_draw_census::record("tie", tree.index_data, tree.soft_index_count, r.first, r.second, tree.draw_mode);
         sh_st.cast_indices += (u64)r.second;
       }
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
@@ -1571,6 +1579,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
           glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
                          (void*)(sd.first * sizeof(u32)));
+          soft_draw_census::record("tie", tree.index_temp.data(), tree.index_temp.size(), sd.first, sd.second, tree.draw_mode);
           sh_st.cast_indices += (u64)sd.second;
         } else {
           const auto& md = tree.multidraw_offset_per_stripdraw[di];
@@ -1582,6 +1591,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                               GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
                               md.second);
           for (int mdi = 0; mdi < md.second; mdi++) {
+            if (soft_draw_census::active()) soft_draw_census::record("tie", tree.index_data, tree.soft_index_count, (uintptr_t)tree.multidraw_index_offset_buffer[md.first + mdi] / sizeof(u32), tree.multidraw_count_buffer[md.first + mdi], tree.draw_mode);
             sh_st.cast_indices += (u64)tree.multidraw_count_buffer[md.first + mdi];
           }
         }
@@ -1663,6 +1673,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   const bool alpha_probe = category == tfrag3::TieCategory::NORMAL && ao_tie_alpha_probe::active();
   if (alpha_probe) ao_tie_alpha_probe::color_begin();
   auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (soft_draw_census::active()) soft_draw_census::record("tie",
+        render_state->no_multidraw ? tree.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? tree.index_temp.size() : tree.soft_index_count,
+        first, count, tree.draw_mode);
     if (!ao_contact_draws::active(m_level_name)) return;
     ao_contact_draws::record(m_level_name, "tie", "color", render_state->frame_idx, geom, idx,
         begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
@@ -1922,6 +1936,10 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
   GLuint bound_tex = 0;
 
   auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (soft_draw_census::active()) soft_draw_census::record("tie",
+        render_state->no_multidraw ? tree.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? tree.index_temp.size() : tree.soft_index_count,
+        first, count, tree.draw_mode);
     if (!ao_contact_draws::active(m_level_name)) return;
     ao_contact_draws::record(m_level_name, "tie", "color", render_state->frame_idx, geom, idx,
         begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
@@ -2740,6 +2758,7 @@ uint64_t Tie3::draw_tree_wind(int idx,
       }
       glDrawElements(tree.draw_mode, grp.num, GL_UNSIGNED_INT,
                      (void*)((off + tree.wind_vertex_index_offsets.at(draw_idx)) * sizeof(u32)));
+      soft_draw_census::record("tie", tree.soft_wind_indices.data(), tree.soft_wind_indices.size(), off + tree.wind_vertex_index_offsets.at(draw_idx), grp.num, tree.draw_mode);
       drawn += (uint64_t)grp.num;
       off += grp.num;
 
@@ -2767,6 +2786,7 @@ uint64_t Tie3::draw_tree_wind(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::TieWind);
           glDrawElements(tree.draw_mode, draw.vertex_index_stream.size(), GL_UNSIGNED_INT,
                          (void*)0);
+          soft_draw_census::record("tie", tree.soft_wind_indices.data(), tree.soft_wind_indices.size(), 0, draw.vertex_index_stream.size(), tree.draw_mode);
           break;
         }
         default:

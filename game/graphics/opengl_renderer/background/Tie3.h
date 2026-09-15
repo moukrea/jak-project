@@ -152,6 +152,7 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     const tfrag3::PackedTimeOfDay* colors = nullptr;
     const tfrag3::BVH* vis = nullptr;
     const u32* index_data = nullptr;
+    size_t soft_index_count = 0;
     std::vector<std::array<math::Vector4f, 4>> wind_matrix_cache;
     // Grecharged-foliage-wind2: last frame's shear per wind instance, 4 floats each
     // {applied.x, applied.z, stock.x, stock.z}. The shear audit needs this because MAGNITUDE is
@@ -184,6 +185,7 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
     std::vector<float> fw_inst_bend;
     GLuint wind_vertex_index_buffer;
     std::vector<u32> wind_vertex_index_offsets;
+    std::vector<u32> soft_wind_indices;
     bool has_proto_visibility = false;
     TieProtoVisibility proto_visibility;
 

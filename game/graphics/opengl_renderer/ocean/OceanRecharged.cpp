@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "OceanRecharged.h"
 #include "game/system/recharged_gating.h"
 
@@ -248,6 +249,7 @@ bool OceanRecharged::ensure_gl() {
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
+  if (soft_draw_census::active()) m_soft_indices = indices;
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(),
                GL_STATIC_DRAW);
   glBindVertexArray(0);
@@ -529,6 +531,7 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   glUniform4fv(glGetUniformLocation(id, "u_probe_xz"), kProbeCount, &m_probe_xz[0][0]);
   glBindVertexArray(m_vao);
   glDrawArrays(GL_TRIANGLES, 0, 3);
+  soft_draw_census::record_arrays("instrument", 3, GL_TRIANGLES);
 
   u8 pixels[kProbeCount * 4];
   glReadPixels(0, 0, kProbeSide, kProbeSide, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
@@ -816,6 +819,7 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glUniform1f(glGetUniformLocation(id, "u_ring_step"), m_rings[r].step);
     glDrawElements(GL_TRIANGLES, m_rings[r].index_count, GL_UNSIGNED_INT,
                    (void*)(intptr_t)(m_rings[r].index_offset * sizeof(u32)));
+    soft_draw_census::record("ocean", m_soft_indices.data(), m_soft_indices.size(), m_rings[r].index_offset, m_rings[r].index_count, GL_TRIANGLES);
     prof.add_draw_call();
     prof.add_tri(m_rings[r].index_count / 3);
     verts_this_frame += m_rings[r].index_count;

@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/fire_red_census.h"
 #include "GlowRenderer.h"
 
@@ -179,6 +180,7 @@ GlowRenderer::GlowRenderer() {
     );
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    if (soft_draw_census::active()) m_soft_downsample_indices = indices;
     glGenBuffers(1, &m_ogl_downsampler.index_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ogl_downsampler.index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(),
@@ -767,6 +769,7 @@ void GlowRenderer::downsample_chain(SharedRenderState* render_state,
     // the grid fill order is the same as the downsample order, so we don't need to do all cells
     // if we aren't using all sprites.
     glDrawElements(GL_TRIANGLE_STRIP, num_sprites * 5, GL_UNSIGNED_INT, nullptr);
+    soft_draw_census::record("glow", m_soft_downsample_indices.data(), m_soft_downsample_indices.size(), 0, num_sprites * 5, GL_TRIANGLE_STRIP);
   }
   // hdr-source-range : le DERNIER etage (40x40 par defaut) porte ce que le halo transporte
   // vraiment. On le relit une image sur trente, sans passe ajoutee ni blit.
@@ -816,6 +819,7 @@ void GlowRenderer::draw_probes(SharedRenderState* render_state,
   glDepthFunc(GL_GEQUAL);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
   glViewport(old_viewport[0], old_viewport[1], old_viewport[2], old_viewport[3]);
 }
 
@@ -832,6 +836,7 @@ void GlowRenderer::debug_draw_probes(SharedRenderState* render_state,
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
 }
 
 /*!
@@ -857,6 +862,7 @@ void GlowRenderer::draw_probe_copies(SharedRenderState* render_state,
   prof.add_tri(m_next_sprite * 2);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
   glViewport(old_viewport[0], old_viewport[1], old_viewport[2], old_viewport[3]);
 }
 
@@ -873,6 +879,7 @@ void GlowRenderer::debug_draw_probe_copies(SharedRenderState* render_state,
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
 }
 
 void GlowRenderer::probe_and_copy_old(SharedRenderState* render_state, ScopedProfilerNode& prof) {
@@ -946,6 +953,7 @@ void GlowRenderer::probe_and_copy_new(SharedRenderState* render_state, ScopedPro
   prof.add_tri(m_next_sprite * 2);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
 
   render_state->shaders[ShaderId::GLOW_PROBE_ON_GRID].activate();
   glDepthFunc(GL_GREATER);
@@ -953,6 +961,7 @@ void GlowRenderer::probe_and_copy_new(SharedRenderState* render_state, ScopedPro
   prof.add_tri(m_next_sprite * 2);
   glDrawElements(GL_TRIANGLE_STRIP, idx_end - idx_start, GL_UNSIGNED_INT,
                  (void*)(idx_start * sizeof(u32)));
+  soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), idx_start, idx_end - idx_start, GL_TRIANGLE_STRIP);
 
   glViewport(old_viewport[0], old_viewport[1], old_viewport[2], old_viewport[3]);
 }
@@ -1065,6 +1074,7 @@ void GlowRenderer::draw_sprites(SharedRenderState* render_state, ScopedProfilerN
     prof.add_draw_call();
     prof.add_tri(2);
     glDrawElements(GL_TRIANGLE_STRIP, 5, GL_UNSIGNED_INT, (void*)(record.idx * sizeof(u32)));
+    soft_draw_census::record("glow", m_index_buffer.data(), m_index_buffer.size(), record.idx, 5, GL_TRIANGLE_STRIP);
   }
   glEnable(GL_DEPTH_TEST);
 }

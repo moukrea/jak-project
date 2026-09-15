@@ -219,8 +219,9 @@ void emit_locked() {
   const std::string& id = feature_str();
   feature_census_locked();
   if (!id.empty()) {
-    // These contracts count their own fragments or canonical vertices.
-    uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact")
+    // These contracts count their own fragments, vertices, or baseline quantities.
+    uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
+                     id == "soft-baseline")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

@@ -52,6 +52,7 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
     // Same triangles minus any with an edge above the sanity threshold; main draws untouched.
     GLuint caster_index_buffer = 0;
     u32 caster_index_count = 0;
+    std::vector<u32> soft_caster_indices;
     // lighting-ao-indirect : la MEME liste de triangles, partitionnee par draw (donc par
     // texture), pour que la prepasse de profondeur puisse rejouer l'alpha-test du feuillage —
     // sans quoi l'AO occulte au travers des trous des brins d'herbe (owner 2026-09-10, defaut
@@ -116,6 +117,7 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
     std::vector<std::pair<int, int>> cached_draw_idx;
     bool idx_cached = false;
     u32 cached_idx_count = 0;
+    std::vector<u32> soft_cached_indices;
 
     struct {
       u32 draws = 0;

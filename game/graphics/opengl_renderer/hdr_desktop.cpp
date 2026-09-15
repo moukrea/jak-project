@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/hdr_desktop.h"
 
 #include <algorithm>
@@ -569,6 +570,7 @@ bool run_leg(Shader& shader, uint32_t mode, int sim_peak, Leg* leg) {
   hdr_output::push_present_uniforms_to(shader, pp);
   s_present_calls++;
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
 
   leg->peak = sim_peak;
   leg->ceiling_x1000 = (int)std::lround(pp.ceiling * 1000.f);

@@ -1,0 +1,5 @@
+side,operation,x86_ms,redmi_ms,timer
+64,upload,0.00118975,0.006494125,cpu_submission_plus_glFinish_completion
+64,raster,0.104033625,0.166995438,cpu_submission_plus_glFinish_completion
+128,upload,0.001587813,0.008779313,cpu_submission_plus_glFinish_completion
+128,raster,0.106832625,0.219254562,cpu_submission_plus_glFinish_completion

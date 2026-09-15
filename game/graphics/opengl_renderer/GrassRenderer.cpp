@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/system/pad_replay.h"
 #include "game/graphics/opengl_renderer/background/shrub_contact_probe.h"
 #include "game/system/shrub_proof_inputs.h"
@@ -2053,6 +2054,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       const bool own_tf = gl_clean();
       if (own_tf) {
         glDrawArraysInstanced(GL_POINTS, 0, vertex_count, samples);
+  soft_draw_census::record_arrays("instrument", vertex_count, GL_POINTS, samples);
         valid = gl_clean();
         glEndTransformFeedback();
       } else valid = false;
@@ -2159,6 +2161,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // NEAR: individual blades (10-vert triangle strip)
   glUniform1i(mode_loc, 0);
   glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, draw_n);
+  soft_draw_census::record_arrays("grass", 10, GL_TRIANGLE_STRIP, draw_n);
   capture_grass(0, 10, draw_n);
   prof.add_draw_call();
   prof.add_tri(draw_n * 8);
@@ -2168,6 +2171,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // has a card tier (far LOD = the game's own alpha overhang texture).
   glUniform1i(mode_loc, 1);
   glDrawArraysInstanced(GL_TRIANGLES, 0, 12, card_n);
+  soft_draw_census::record_arrays("grass", 12, GL_TRIANGLES, card_n);
   capture_grass(1, 12, card_n);
   prof.add_draw_call();
   prof.add_tri(card_n * 4);
