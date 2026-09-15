@@ -210,7 +210,8 @@ uint32_t draw_id(const void* source_draws, uint32_t source_index) {
 }
 void begin_frame(bool on, int w, int h) {
   restore();
-  hut_frame = !hut_attempted && ao_contact_archive::requested() && ao_static_probe::logic_frame() == 1400;
+  hut_frame = !hut_attempted && ao_contact_archive::requested() &&
+              ao_static_probe::logic_frame() == ao_contact_archive::kCaptureLogicFrame;
   if (hut_frame) hut_attempted = true;
   enabled = hut_frame || color_frame() || (on && populated_frames < 4 && autoport_proof::feature_is(kItem) && autoport_proof::armed_for(kItem));
   color_cleared = false; color_meta.clear(); pre_meta.clear();
@@ -352,7 +353,8 @@ void finish_hut(uint64_t render_frame) {
   restore();
   bool ok = enabled && color_cleared && !color_meta.empty();
   std::ostringstream meta;
-  meta << "format=ao-hut-color-f32-v2\nlogic_frame=1400\nrender_frame=" << render_frame
+  meta << "format=ao-hut-color-f32-v2\nlogic_frame=" << ao_static_probe::logic_frame()
+       << "\nrender_frame=" << render_frame
        << "\nwidth=" << width << "\nheight=" << height
        << "\norigin=lower-left\nalpha=post-discard\nidentity_r=primitive-id-plus-one\nidentity_g=tested-alpha\nidentity_b=window-depth\nidentity_a=draw-id\ncolor=before-fog-and-framebuffer-blend\n";
   const GLuint textures[] = {targets[1], hut_targets[0], hut_targets[1]};

@@ -516,7 +516,7 @@ void AmbientOcclusionPass::ensure_scratch(int full_w, int full_h) {
 // ---------------------------------------------------------------------------
 namespace {
 
-// One attempt per process at logical frame 1400; no scheduling or mode changes.
+// One attempt per process at the explicit hut capture tick; no probe scheduling changes.
 class HutArchive {
  public:
   bool active = false;
@@ -528,16 +528,17 @@ class HutArchive {
     static bool attempted = false;
     if (attempted || !ao_contact_archive::requested()) return;
     const auto frame = ao_static_probe::logic_frame();
-    if (frame < 1400) return;
+    if (frame < ao_contact_archive::kCaptureLogicFrame) return;
     attempted = true;
     active = true;
     manifest.imbue(std::locale::classic());
-    manifest << "format=ao-hut-r8-v1\nlogic_frame=" << frame
+    manifest << "format=ao-hut-r8-v1\nexpected_logic_frame=" << ao_contact_archive::kCaptureLogicFrame
+             << "\nlogic_frame=" << frame
              << "\norigin=lower-left\nlayout=R8-tight-rows\nhash=fnv1a64\n"
                 "depth=prepass-f32-d24-decoded\nscene_depth=scene-depth.meta\n";
     manifest << std::setprecision(std::numeric_limits<float>::max_digits10);
     autoport_proof::publish_text("ao_hut_archive_status", "missing");
-    if (frame != 1400) fail("logical-frame-1400-missing");
+    if (frame != ao_contact_archive::kCaptureLogicFrame) fail("logical-capture-frame-missing");
     if (ao_contact_archive::directory().empty()) fail("directory-unavailable");
   }
   void fail(const char* reason) {

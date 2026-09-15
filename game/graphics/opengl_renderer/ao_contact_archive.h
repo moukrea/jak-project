@@ -22,6 +22,8 @@
 #include "game/system/autoport_proof.h"
 
 namespace ao_contact_archive {
+// Only the explicit hut capture uses this tick; historical probes keep their schedule.
+inline constexpr int64_t kCaptureLogicFrame = 600;
 inline bool requested() {
   if (!autoport_proof::feature_is("ao-prepass-tie-alpha") || !autoport_proof::armed()) return false;
 #ifdef __ANDROID__
@@ -67,7 +69,7 @@ inline const std::string& directory() {
         std::strspn(id, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") == std::strlen(id))
       run = std::string(id) + "-";
     const auto candidate = (file_util::get_user_home_dir() /
-        ("ao-hut-archive-" + run + std::to_string(::getpid()) + "-1400")).string();
+        ("ao-hut-archive-" + run + std::to_string(::getpid()) + "-" + std::to_string(kCaptureLogicFrame))).string();
     if (::mkdir(candidate.c_str(), 0700) != 0) return std::string{};
     return candidate;
   }();

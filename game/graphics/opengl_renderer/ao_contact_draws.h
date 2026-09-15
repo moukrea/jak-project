@@ -14,7 +14,7 @@
 namespace ao_contact_draws {
 inline bool active(const std::string& level) {
   return level == "village1" && ao_contact_archive::requested() &&
-         ao_static_probe::logic_frame() == 1400;
+         ao_static_probe::logic_frame() == ao_contact_archive::kCaptureLogicFrame;
 }
 inline size_t full_count(const std::vector<tfrag3::StripDraw>& draws) {
   size_t count = 0;

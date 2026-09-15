@@ -1780,7 +1780,7 @@ void proof_post_opaque(SharedRenderState* rs) {
   // Independent archive tick; does not schedule or alter the static probe population.
   static bool hut_scene_attempted = false;
   if (!hut_scene_attempted && rs && ao_contact_archive::requested() &&
-      ao_static_probe::logic_frame() >= 1400) {
+      ao_static_probe::logic_frame() >= ao_contact_archive::kCaptureLogicFrame) {
     hut_scene_attempted = true;
     std::ostringstream metadata;
     const auto tick = ao_static_probe::logic_frame();
@@ -1790,7 +1790,7 @@ void proof_post_opaque(SharedRenderState* rs) {
              << "\norigin=lower-left\nencoding=ieee754-native-f32-from-d24\nreverse_z=1\n"
                 "source=render_fb-post-opaque\n";
     ao_contact_readback::ExportState state;
-    bool ok = state.errors.empty() && tick == 1400 && w > 0 && h > 0;
+    bool ok = state.errors.empty() && tick == ao_contact_archive::kCaptureLogicFrame && w > 0 && h > 0;
     GLuint texture = 0, fbo = 0;
     std::vector<float> values;
     if (ok) {

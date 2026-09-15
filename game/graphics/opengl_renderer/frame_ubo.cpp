@@ -94,7 +94,8 @@ void update_and_bind(const GoalBackgroundCameraData& cam, const SharedRenderStat
     g_uploads_frame++;
   }
   glBindBufferBase(GL_UNIFORM_BUFFER, kBindingPoint, g_ubo);
-  if (ao_contact_archive::requested() && ao_static_probe::logic_frame() == 1400) {
+  if (ao_contact_archive::requested() &&
+      ao_static_probe::logic_frame() == ao_contact_archive::kCaptureLogicFrame) {
     // Archive the exact bytes just bound, including cached misc, not a recomputed camera.
     static std::set<std::pair<uint64_t, uint64_t>> seen;
     static uint64_t errors = 0;
