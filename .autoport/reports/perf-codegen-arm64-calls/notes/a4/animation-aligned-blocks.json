@@ -1,0 +1,992 @@
+[
+  {
+    "render_frame": 599,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        600000,
+        25559
+      ],
+      "anim_probe_n": [
+        0,
+        25571
+      ],
+      "anim_probe_raw_frame_q": [
+        0,
+        25572
+      ],
+      "anim_probe_raw_id": [
+        0,
+        25573
+      ],
+      "anim_probe_raw_rate_q": [
+        0,
+        25576
+      ],
+      "anim_render_frames": [
+        599,
+        25588
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        600000,
+        25366
+      ],
+      "anim_probe_n": [
+        0,
+        25378
+      ],
+      "anim_probe_raw_frame_q": [
+        0,
+        25379
+      ],
+      "anim_probe_raw_id": [
+        0,
+        25380
+      ],
+      "anim_probe_raw_rate_q": [
+        0,
+        25383
+      ],
+      "anim_render_frames": [
+        599,
+        25395
+      ]
+    }
+  },
+  {
+    "render_frame": 600,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        601000,
+        26725
+      ],
+      "anim_probe_n": [
+        0,
+        26737
+      ],
+      "anim_probe_raw_frame_q": [
+        0,
+        26738
+      ],
+      "anim_probe_raw_id": [
+        0,
+        26739
+      ],
+      "anim_probe_raw_rate_q": [
+        0,
+        26742
+      ],
+      "anim_render_frames": [
+        600,
+        26754
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        601000,
+        26621
+      ],
+      "anim_probe_n": [
+        0,
+        26633
+      ],
+      "anim_probe_raw_frame_q": [
+        0,
+        26634
+      ],
+      "anim_probe_raw_id": [
+        0,
+        26635
+      ],
+      "anim_probe_raw_rate_q": [
+        0,
+        26638
+      ],
+      "anim_render_frames": [
+        600,
+        26650
+      ]
+    }
+  },
+  {
+    "render_frame": 659,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        660000,
+        28150
+      ],
+      "anim_probe_n": [
+        52,
+        28162
+      ],
+      "anim_probe_raw_frame_q": [
+        14473,
+        28163
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        28164
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        28167
+      ],
+      "anim_render_frames": [
+        659,
+        28179
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        660000,
+        28392
+      ],
+      "anim_probe_n": [
+        53,
+        28404
+      ],
+      "anim_probe_raw_frame_q": [
+        14747,
+        28405
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        28406
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        28409
+      ],
+      "anim_render_frames": [
+        659,
+        28421
+      ]
+    }
+  },
+  {
+    "render_frame": 660,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        661000,
+        29258
+      ],
+      "anim_probe_n": [
+        53,
+        29270
+      ],
+      "anim_probe_raw_frame_q": [
+        14747,
+        29271
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        29272
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        29275
+      ],
+      "anim_render_frames": [
+        660,
+        29287
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        661000,
+        29708
+      ],
+      "anim_probe_n": [
+        54,
+        29720
+      ],
+      "anim_probe_raw_frame_q": [
+        15020,
+        29721
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        29722
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        29725
+      ],
+      "anim_render_frames": [
+        660,
+        29738
+      ]
+    }
+  },
+  {
+    "render_frame": 719,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        720000,
+        30614
+      ],
+      "anim_probe_n": [
+        112,
+        30626
+      ],
+      "anim_probe_raw_frame_q": [
+        30859,
+        30627
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        30628
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        30631
+      ],
+      "anim_render_frames": [
+        719,
+        30643
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        720000,
+        31069
+      ],
+      "anim_probe_n": [
+        113,
+        31081
+      ],
+      "anim_probe_raw_frame_q": [
+        31132,
+        31082
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        31083
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        31086
+      ],
+      "anim_render_frames": [
+        719,
+        31098
+      ]
+    }
+  },
+  {
+    "render_frame": 720,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        721000,
+        31754
+      ],
+      "anim_probe_n": [
+        113,
+        31766
+      ],
+      "anim_probe_raw_frame_q": [
+        31132,
+        31767
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        31768
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        31771
+      ],
+      "anim_render_frames": [
+        720,
+        31783
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        721000,
+        32386
+      ],
+      "anim_probe_n": [
+        114,
+        32398
+      ],
+      "anim_probe_raw_frame_q": [
+        31405,
+        32399
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        32400
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        32403
+      ],
+      "anim_render_frames": [
+        720,
+        32415
+      ]
+    }
+  },
+  {
+    "render_frame": 779,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        780000,
+        33158
+      ],
+      "anim_probe_n": [
+        172,
+        33170
+      ],
+      "anim_probe_raw_frame_q": [
+        47245,
+        33171
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        33172
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        33175
+      ],
+      "anim_render_frames": [
+        779,
+        33187
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        780000,
+        33329
+      ],
+      "anim_probe_n": [
+        173,
+        33341
+      ],
+      "anim_probe_raw_frame_q": [
+        47518,
+        33342
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        33343
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        33346
+      ],
+      "anim_render_frames": [
+        779,
+        33358
+      ]
+    }
+  },
+  {
+    "render_frame": 780,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        781000,
+        34464
+      ],
+      "anim_probe_n": [
+        173,
+        34476
+      ],
+      "anim_probe_raw_frame_q": [
+        47518,
+        34477
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        34478
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        34481
+      ],
+      "anim_render_frames": [
+        780,
+        34493
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        781000,
+        34649
+      ],
+      "anim_probe_n": [
+        174,
+        34661
+      ],
+      "anim_probe_raw_frame_q": [
+        47791,
+        34662
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        34663
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        34666
+      ],
+      "anim_render_frames": [
+        780,
+        34678
+      ]
+    }
+  },
+  {
+    "render_frame": 839,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        840000,
+        35810
+      ],
+      "anim_probe_n": [
+        232,
+        35822
+      ],
+      "anim_probe_raw_frame_q": [
+        63630,
+        35823
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        35824
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        35827
+      ],
+      "anim_render_frames": [
+        839,
+        35839
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        840000,
+        35979
+      ],
+      "anim_probe_n": [
+        233,
+        35991
+      ],
+      "anim_probe_raw_frame_q": [
+        63903,
+        35992
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        35993
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        35996
+      ],
+      "anim_render_frames": [
+        839,
+        36008
+      ]
+    }
+  },
+  {
+    "render_frame": 840,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        841000,
+        37126
+      ],
+      "anim_probe_n": [
+        233,
+        37139
+      ],
+      "anim_probe_raw_frame_q": [
+        63903,
+        37140
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        37141
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        37144
+      ],
+      "anim_render_frames": [
+        840,
+        37156
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        841000,
+        37284
+      ],
+      "anim_probe_n": [
+        234,
+        37309
+      ],
+      "anim_probe_raw_frame_q": [
+        64177,
+        37310
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        37311
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        37314
+      ],
+      "anim_render_frames": [
+        840,
+        37326
+      ]
+    }
+  },
+  {
+    "render_frame": 899,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        900000,
+        38500
+      ],
+      "anim_probe_n": [
+        292,
+        38512
+      ],
+      "anim_probe_raw_frame_q": [
+        80016,
+        38513
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        38514
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        38517
+      ],
+      "anim_render_frames": [
+        899,
+        38529
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        900000,
+        38590
+      ],
+      "anim_probe_n": [
+        293,
+        38602
+      ],
+      "anim_probe_raw_frame_q": [
+        80289,
+        38603
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        38604
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        38607
+      ],
+      "anim_render_frames": [
+        899,
+        38619
+      ]
+    }
+  },
+  {
+    "render_frame": 900,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        901000,
+        39920
+      ],
+      "anim_probe_n": [
+        293,
+        39932
+      ],
+      "anim_probe_raw_frame_q": [
+        80289,
+        39933
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        39934
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        39937
+      ],
+      "anim_render_frames": [
+        900,
+        39949
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        901000,
+        40036
+      ],
+      "anim_probe_n": [
+        294,
+        40048
+      ],
+      "anim_probe_raw_frame_q": [
+        80562,
+        40049
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        40050
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        40053
+      ],
+      "anim_render_frames": [
+        900,
+        40065
+      ]
+    }
+  },
+  {
+    "render_frame": 959,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        960000,
+        41799
+      ],
+      "anim_probe_n": [
+        351,
+        41811
+      ],
+      "anim_probe_raw_frame_q": [
+        96402,
+        41812
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        41813
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        41816
+      ],
+      "anim_render_frames": [
+        959,
+        41828
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        960000,
+        41811
+      ],
+      "anim_probe_n": [
+        352,
+        41823
+      ],
+      "anim_probe_raw_frame_q": [
+        96675,
+        41824
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        41825
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        41828
+      ],
+      "anim_render_frames": [
+        959,
+        41840
+      ]
+    }
+  },
+  {
+    "render_frame": 960,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        961000,
+        43328
+      ],
+      "anim_probe_n": [
+        352,
+        43340
+      ],
+      "anim_probe_raw_frame_q": [
+        96675,
+        43341
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        43342
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        43345
+      ],
+      "anim_render_frames": [
+        960,
+        43358
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        961000,
+        43367
+      ],
+      "anim_probe_n": [
+        353,
+        43379
+      ],
+      "anim_probe_raw_frame_q": [
+        96948,
+        43380
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        43381
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        43384
+      ],
+      "anim_render_frames": [
+        960,
+        43396
+      ]
+    }
+  },
+  {
+    "render_frame": 1019,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        1020000,
+        44860
+      ],
+      "anim_probe_n": [
+        411,
+        44872
+      ],
+      "anim_probe_raw_frame_q": [
+        112787,
+        44873
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        44874
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        44877
+      ],
+      "anim_render_frames": [
+        1019,
+        44889
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        1020000,
+        44926
+      ],
+      "anim_probe_n": [
+        412,
+        44938
+      ],
+      "anim_probe_raw_frame_q": [
+        113060,
+        44939
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        44940
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        44943
+      ],
+      "anim_render_frames": [
+        1019,
+        44955
+      ]
+    }
+  },
+  {
+    "render_frame": 1020,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        1021000,
+        46385
+      ],
+      "anim_probe_n": [
+        412,
+        46397
+      ],
+      "anim_probe_raw_frame_q": [
+        113060,
+        46398
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        46399
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        46402
+      ],
+      "anim_render_frames": [
+        1020,
+        46414
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        1021000,
+        46479
+      ],
+      "anim_probe_n": [
+        413,
+        46491
+      ],
+      "anim_probe_raw_frame_q": [
+        113333,
+        46492
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        46493
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        46496
+      ],
+      "anim_render_frames": [
+        1020,
+        46508
+      ]
+    }
+  },
+  {
+    "render_frame": 1079,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        1080000,
+        47332
+      ],
+      "anim_probe_n": [
+        471,
+        47344
+      ],
+      "anim_probe_raw_frame_q": [
+        129173,
+        47345
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        47346
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        47349
+      ],
+      "anim_render_frames": [
+        1079,
+        47361
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        1080000,
+        48046
+      ],
+      "anim_probe_n": [
+        472,
+        48058
+      ],
+      "anim_probe_raw_frame_q": [
+        129446,
+        48059
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        48060
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        48063
+      ],
+      "anim_render_frames": [
+        1079,
+        48075
+      ]
+    }
+  },
+  {
+    "render_frame": 1080,
+    "capture": {
+      "anim_goal_ksum_x1000": [
+        1081000,
+        48862
+      ],
+      "anim_probe_n": [
+        472,
+        48874
+      ],
+      "anim_probe_raw_frame_q": [
+        129446,
+        48875
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        48876
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        48879
+      ],
+      "anim_render_frames": [
+        1080,
+        48891
+      ]
+    },
+    "replay": {
+      "anim_goal_ksum_x1000": [
+        1081000,
+        49602
+      ],
+      "anim_probe_n": [
+        473,
+        49614
+      ],
+      "anim_probe_raw_frame_q": [
+        129719,
+        49615
+      ],
+      "anim_probe_raw_id": [
+        53025332,
+        49616
+      ],
+      "anim_probe_raw_rate_q": [
+        273,
+        49619
+      ],
+      "anim_render_frames": [
+        1080,
+        49631
+      ]
+    }
+  }
+]

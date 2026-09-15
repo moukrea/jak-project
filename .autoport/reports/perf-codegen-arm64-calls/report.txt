@@ -1,10 +1,9 @@
 DIRECTIVES vd321fc8caf
-Verdict : essai 3 non validé ; appels à deux instructions, rejeu RGB toujours divergent.
-Changement de cet essai : diagnostic borné, preuve USB fraîche et transmission ; aucune source modifiée.
-Livraison a2 conservée : sauvegarde GPR en callee, X12 protégé côté mips2c, symboles fixes directs X14.
-Mémoire à déplacement nul raccourcie, pc-prof Android raccordé ; ABI C++, asm_funcs et kscheme inchangés.
+Verdict : essai4 non validé ; diagnostic resserré, aucune preuve USB nouvelle ni correction justifiée.
+Changement : analyse des traces a2 et inventaire des relocations ; notes/a4, FINDINGS et handoff.
+Le build a2 et la référence unique restent conservés ; aucun build ni rejeu inchangé relancé.
 
-Preuve — huit lignes recopiées du proof.txt frais produit exclusivement par proof_run.sh :
+Huit lignes du proof.txt CONSERVÉ DE L’ESSAI3, historiques, pas un résultat de cet essai4 :
 source=device
 serial=eae4df44
 frames=5100
@@ -14,18 +13,19 @@ codegen_call_max_instructions=2
 refset_replay_maxdiff=57
 codegen_lot_defects=1
 
-Course 20260915T014447Z-1553215-9541808a ; un rejeu demandé pour 120 s, aucune recapture ni ablation.
-proof.txt : cinq marqueurs complets, un cas comparé, provenance_bad=0 et slip=0..0.
-Même ancre901/sample1081 ; maxdiff57 sur550 pixels contre61 sur577 à l’essai2.
-proof-engine.log:51811 : REFSET ledger runs=2 flaky=1 ; la répétabilité n’est pas acquise.
-Empreintes inchangées : bin141bcc7b2d3081bb, refs3a1feecef859c3a1, data4eabb0fc1e6d0a6c.
-Entrée f97b073c2df76fb4, état/RNG non restauré : proof-engine.log:2518.
-Fraîcheur binaire : md5 local/appareil a65acc137c3f34e71c77c82f96ff62cc (notes/a3/proof-run.stderr.log).
-Diagnostic a2 : totaux acteurs et projections corner_w concordent ; rephase animation11/13 diffère.
-Ces compteurs ne localisent pas les pixels ; aucun correctif codegen justifié par les traces disponibles.
-Détail et lignes originales : notes/a3/researcher-diagnostic.txt et a2-diagnostic-excerpts.txt.
-Owner : jeu habituel sur le build livré ; aucune validation visuelle ne remplace le rejeu exact en échec.
-non prouvé : cause de divergence, parité avant/après, baisse goal_busy_ms et non-régression complète des acquis.
-non prouvé : symboles dynamiques proches en une instruction, gain total mips2c, coût des déplacements non nuls.
-Reste : état acteur/RNG au sample absent ; son diagnostic/restauration exige un chantier explicitement borné.
-FINDINGS.txt et handoff.md actualisés ; validateur réservé à l’orchestrateur, aucun owner-ok écrit.
+Course historique : 20260915T014447Z-1553215-9541808a ; son verdict reste rouge.
+Constat nouveau vérifié dans les logs a2 : sonde nulle à render600, différente dès render659.
+C28162-28179 : n52/frame14473 ; R28404-28421 : n53/frame14747 ; même groupe53025332/taux273.
+À render1080 : C48874-48891 n472/frame129446 ; R49614-49631 n473/frame129719.
+Seize blocs communs alignés par render_frames/ksum gardent un écart n+1, avant et après ancre901.
+Le groupe publié ne nomme pas l’acteur ; cause initiale et attribution RGB non démontrées.
+Piste bornée : adoption/activation du canal entre600 et659 ; pas une correction codegen établie.
+Inventaire hors ligne :525 objets,255225 sites symbole,104854 accès Rn16,0 accès Rn14 relocalisé.
+Le NOP historique hors portée n’est pas atteint par ces sites ; le défaut latent reste signalé.
+Symboles dynamiques proches : toujours deux instructions ; une nouvelle relocation reste à concevoir.
+Une branche vers bloc lointain permettrait un site court mais porterait le lointain de2 à4 instructions.
+Les modifications des features validées et une nouvelle recapture ne sont pas entreprises dans ce périmètre.
+Owner : jeu habituel sur le build déjà livré ; baisse goal_busy_ms attendue, pas mesurée ici.
+non prouvé : résultat appareil essai4, cause RGB, parité avant/après, gain total et acquis complets.
+non prouvé : symboles dynamiques proches en une instruction et coût des accès à déplacement non nul.
+La porte reste à l’orchestrateur ; aucune fermeture ou validation owner revendiquée.

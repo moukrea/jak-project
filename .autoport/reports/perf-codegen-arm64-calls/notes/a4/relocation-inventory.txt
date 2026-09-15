@@ -1,0 +1,4 @@
+DIRECTIVES vd321fc8caf
+Inventaire hors ligne des objets a2-final, vérifié par le manager ; aucune exécution du jeu.
+{'objects': 525, 'symbol_slots': 255225, 'symbol_adrp': 116409, 'symbol_access_rn16': 104854}
+rn14_examples []

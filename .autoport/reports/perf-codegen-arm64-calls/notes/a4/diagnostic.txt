@@ -1,0 +1,35 @@
+DIRECTIVES vd321fc8caf
+Essai 4 : analyse hors ligne des traces a2, pas une nouvelle preuve appareil.
+
+CONSTATS VÉRIFIÉS
+C = notes/a2/capture-engine.log.gz ; R = notes/a2/replay-engine.log.gz.
+Lignes des fichiers décompressés ; extraits dans animation-excerpts.txt.
+Dernières sondes nulles : render600/ksum601000 (C26725,26737-26754 ; R26621,26633-26650).
+Premières sondes non nulles publiées : render659/ksum660000.
+C28162-28179 : n52, frame14473, id53025332, rate273.
+R28404-28421 : n53, frame14747, id53025332, rate273.
+Au dernier bloc avant sample1081 : render1080/ksum1081000 dans les deux journaux.
+C48874-48891 : n472, frame129446 ; R49614-49631 : n473, frame129719.
+Seize blocs communs render659..1080 : n du rejeu supérieur de 1.
+Delta frame initial274, final273 ; ne pas confondre quantification et pas exact.
+L'écart publié précède ancre901 et repin902 ; fenêtre de recherche resserrée à render600..659.
+Cela ne prouve ni une cause codegen ni l'attribution aux pixels divergents.
+
+CHAÎNE SOURCE RELUE APRÈS DÉLÉGATION researcher/high
+goal_src/jak1/engine/common-obs/process-drawable-h.gc:303-343 : canal0 éligible,
+verrou chan.parent, phase brute/dessinée quantifiée, identité publiée = chan.frame-group.
+L'identité de l'acteur verrouillé n'est pas publiée ; un même raw_id ne la prouve pas.
+goal_src/jak1/engine/anim/joint.gc:224-226 : phase retournée consommée en base/frac-frame.
+game/kernel/common/kmachine.cpp:585-614 : lecture des symboles de la sonde.
+game/graphics/render_pace.cpp:872-879 : alpha/skip neutralisés sous refset.
+game/graphics/render_pace.cpp:1216,1299-1318 : lecture murale et rephasage restent présents.
+Ces sources expliquent les compteurs, pas la cause initiale de la divergence de phase.
+game/graphics/opengl_renderer/loader/Loader.cpp:999 : budget mural d'upload présent.
+Son rôle dans l'activation du canal est une hypothèse, aucune causalité démontrée.
+
+DÉCISION
+Aucun correctif d'animation, chargement ou RNG spéculatif dans ce lot codegen.
+Aucune nouvelle instrumentation, course inchangée ou recapture ; le handoff a3 les exclut.
+La prochaine recherche doit identifier l'acteur/canal adopté et son activation entre600 et659.
+Une sonde alignée au sample reste nécessaire pour attribuer la divergence RGB ; non autorisée ici.
+Le proof.txt conservé appartient à l'essai3 ; ses huit lignes du rapport sont historiques.

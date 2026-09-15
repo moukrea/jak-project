@@ -1,0 +1,20 @@
+DIRECTIVES vd321fc8caf
+Audit statique researcher/high, résultat vérifié par le manager ; aucune nouvelle exécution du jeu.
+FixedSymbolsARM64.h:76-85 : seuls les fixes Jak1, offsets0..16380 alignés, sont reconnus.
+IR.cpp:659-678 : fixes directs, autres via marqueur A5.
+ObjectGenerator.cpp:243-295 : dynamiques ADRP X16 puis LDR/LDRSW/STR [X16,#lo12].
+kscheme.cpp Jak1:1360-1395,1423-1444 : hash/probing à l'internement, offsets parfois négatifs.
+ObjectGenerator.cpp:69-138,908-922 : disposition préalable, relocations nom+offset sans réduction.
+klink.cpp Jak1:264-307 : symbole interné puis mots patchés à leurs adresses existantes.
+Deux mots remplacés par LDR+NOP restent deux instructions exécutées.
+Compacter requiert de recalculer branches, adresses et relocations.
+Alternative théorique : site unique LDR proche, sinon B vers ADRP/LDR/B-retour hors ligne.
+Elle exige un contrat de relocation neuf et la gestion des portées, du signé et du stockage.
+Coût lointain statique envisagé4 au lieu2 ; aucune mesure, aucune implémentation retenue.
+Ne pas présenter l'absence actuelle comme une impossibilité absolue ou un livrable complet.
+Inventaire relu des tables des objets v3 a2-final : relocation-inventory.txt.
+525 objets,255225 sites symbole,116409 ADRP,104854 accès Rn16,0 accès Rn14 relocalisé.
+Le filtre masque0xffc00000 reconnaît0xb9400000/0xb9800000/0xb9000000/0xf9400000/0xf9000000.
+Le NOP historique common/klink.cpp:354-375 n'est pas atteint par ces sites relocalisés.
+Cela ne prouve pas la correspondance des objets archivés avec les CGO déployés.
+non prouvé : gain goal_busy_ms, symboles dynamiques proches en une instruction.
