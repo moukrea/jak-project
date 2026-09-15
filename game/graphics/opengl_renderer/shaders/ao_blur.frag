@@ -1,11 +1,8 @@
 #version 410 core
 
-// Grecharged-ambient-occlusion: separable bilateral blur of the AO buffer. 4 taps at
-// offsets -1..2 * u_dir, poids EGAUX 1/4 (boite exacte sur la tuile d'entrelacement 4x4 des
-// estimateurs, voir plus bas), each tap additionally weighted
-// by a depth-aware term exp(-(dv)^2 / (2 sigma^2)) so the blur does not bleed AO across
-// depth discontinuities. Sky taps (depth ~= 0) are skipped. Reconstruction block matches
-// the AO estimators. Procedural, no array uniforms.
+// Grecharged-ambient-occlusion: separable bilateral blur with a centered five-tap kernel.
+// Offsets -2..2 use weights 1/8, 1/4, 1/4, 1/4, 1/8 before depth weighting.
+// Sky taps are skipped; reconstruction matches the AO estimators.
 precision highp float;
 
 in vec2 tex_coord;
@@ -162,22 +159,20 @@ void main() {
     }
   }
 
-  // lighting-ao-indirect, refus owner (a)/(e) du 2026-09-12 : BOITE EXACTE DE 4, pas une
-  // gaussienne de 5. Les estimateurs tirent leur rotation d'une tuile d'ecran de 4x4 texels
-  // portant 16 rotations distinctes (ao_ssao/hbao/gtao.frag). Quatre taps CONSECUTIFS a poids
-  // EGAUX — offsets -1,0,+1,+2 — couvrent les quatre phases de la tuile dans cet axe ; H puis V
-  // font donc la moyenne EXACTE des 16 rotations, et le motif s'ANNULE au lieu d'etre etale.
-  // Une gaussienne (1,4,6,4,1)/16 en laisse un residu ~= 37 %.
+  // Noyau centre : les poids des quatre classes modulo 4 valent chacun 1/4,
+  // et le premier moment est nul. Sur profondeur plane, il moyenne les quatre
+  // phases sans le decalage d'un demi-pas de l'ancienne boite -1..2.
+  // Un tap supplementaire par passe ; son cout GPU reste non mesure.
   float gw0 = 0.25;
-  float gw1 = 0.25;
 
   float sum = texture(u_ao, tex_coord).r * gw0;
   float wsum = gw0;
   float crossed = 0.0;
 
-  // -1, +1, +2 taps (le +0 est le centre, deja pris)
-  for (int i = 0; i < 3; i++) {
-    float off = (i == 0) ? -1.0 : (i == 1) ? 1.0 : 2.0;
+  // -2, -1, +1, +2 ; le centre est deja accumule.
+  for (int i = 0; i < 4; i++) {
+    float off = (i == 0) ? -2.0 : (i == 1) ? -1.0 : (i == 2) ? 1.0 : 2.0;
+    float tap_weight = abs(off) > 1.5 ? 0.125 : 0.25;
     vec2 tuv = tex_coord + u_dir * off;
     float td = texture(u_depth, tuv).r;
     if (td <= 0.000001) {
@@ -205,13 +200,13 @@ void main() {
       // au-dessus, tombe a moins de 1 %. Le SEUIL de `ao_bilateral_cross_*`, lui, reste a 1 % :
       // la mesure ne se deplace pas avec le reglage qu'elle juge.
       float zsig = 4.0 * zlim;
-      w = gw1 * exp(-(rz * rz) / (2.0 * zsig * zsig));
+      w = tap_weight * exp(-(rz * rz) / (2.0 * zsig * zsig));
     } else {
       // Regime TEMOIN : la ponderation d'AVANT le 2026-09-14, une gaussienne sur l'ecart au
       // plan tangent en DISTANCE MONDE — qui, elle, n'est pas affine sur un plan.
       float tvd = distance(world_from_depth(tuv, td), u_cam_pos.xyz);
       float dv = tvd - (cvd + slope * off);
-      w = gw1 * exp(-(dv * dv) / (2.0 * sigma * sigma));
+      w = tap_weight * exp(-(dv * dv) / (2.0 * sigma * sigma));
     }
     // Un tap dont le poids est numeriquement nul n'a rien melange : ne l'accuse pas.
     if (over && w > 0.0009765625) {  // 1/1024 : sous ce poids il ne pese pas un quantum R8
