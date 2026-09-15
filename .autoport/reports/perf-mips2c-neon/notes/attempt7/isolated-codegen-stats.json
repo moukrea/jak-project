@@ -1,0 +1,58 @@
+{
+  "before-x86-same-headers": {
+    "sha256": "47cea7b950feddbea1d4706cb181da3b045715a011bf5ca8ae361c83d76a1497",
+    "3d": {
+      "size_bytes": 4867,
+      "instructions_static": 961
+    },
+    "2d": {
+      "size_bytes": 6210,
+      "instructions_static": 1219
+    }
+  },
+  "candidate-x86-same-headers": {
+    "sha256": "163a90831ad42e1050f3af744a13e0d101e8b03b696e2cda28d111f5a93ce2ee",
+    "3d": {
+      "size_bytes": 5085,
+      "instructions_static": 980
+    },
+    "2d": {
+      "size_bytes": 6210,
+      "instructions_static": 1219
+    }
+  },
+  "before-android-same-headers": {
+    "sha256": "4cf7dc7626b84f5bc6e1efee231a38bb5396a3ba55b805f58ff903092e6ec3d4",
+    "3d": {
+      "size_bytes": 3740,
+      "instructions_static": 935
+    },
+    "2d": {
+      "size_bytes": 4884,
+      "instructions_static": 1221
+    },
+    "target_block": {
+      "start": "0x6c4",
+      "end_inclusive": "0x8f8",
+      "instructions_static": 142,
+      "loads_stores_static": 80
+    }
+  },
+  "candidate-android-same-headers": {
+    "sha256": "c907f0176cc4ef9add0590f5921507d5b8cbcb123741cbba14cb9253cd910a76",
+    "3d": {
+      "size_bytes": 3812,
+      "instructions_static": 953
+    },
+    "2d": {
+      "size_bytes": 4884,
+      "instructions_static": 1221
+    },
+    "target_block": {
+      "start": "0x6d4",
+      "end_inclusive": "0x8a8",
+      "instructions_static": 118,
+      "loads_stores_static": 61
+    }
+  }
+}

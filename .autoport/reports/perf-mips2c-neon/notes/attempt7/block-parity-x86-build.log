@@ -1,0 +1,11 @@
+$ g++ -mavx -O3 -DNDEBUG -std=gnu++20 -ffp-contract=off -I. -Ithird-party/fmt/include .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity.cpp -o .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-x86
+/usr/bin/ld: /home/emeric/.cache/autoport-supervisor-tests/ccfDtU3o.o: in function `before(Mips2C::ExecutionContext*)':
+block-parity.cpp:(.text+0x2c9): undefined reference to `private_assert_failed(char const*, char const*, int, char const*, char const*)'
+/usr/bin/ld: block-parity.cpp:(.text+0x2e8): undefined reference to `private_assert_failed(char const*, char const*, int, char const*, char const*)'
+/usr/bin/ld: /home/emeric/.cache/autoport-supervisor-tests/ccfDtU3o.o: in function `after(Mips2C::ExecutionContext*)':
+block-parity.cpp:(.text+0x61e): undefined reference to `private_assert_failed(char const*, char const*, int, char const*, char const*)'
+/usr/bin/ld: block-parity.cpp:(.text+0x63d): undefined reference to `private_assert_failed(char const*, char const*, int, char const*, char const*)'
+/usr/bin/ld: block-parity.cpp:(.text+0x65c): undefined reference to `private_assert_failed(char const*, char const*, int, char const*, char const*)'
+collect2: error: ld returned 1 exit status
+
+EXIT 1

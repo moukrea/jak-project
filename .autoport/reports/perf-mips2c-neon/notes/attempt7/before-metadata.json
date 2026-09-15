@@ -1,0 +1,25 @@
+{
+  "source": {
+    "path": "/home/emeric/code/jak-project/game/mips2c/jak1_functions/sparticle.cpp",
+    "copy": "/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt7/before-sparticle.cpp",
+    "mtime": 1783266190.185176,
+    "size": 54716,
+    "sha256": "93117b90c7b101bb47373369ef8fcb167b3180ccfcaeb816f83a449f1c36761b"
+  },
+  "x86": {
+    "path": "/home/emeric/code/jak-project/build/game/CMakeFiles/runtime.dir/mips2c/jak1_functions/sparticle.cpp.o",
+    "copy": "/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt7/before-x86-sparticle.cpp.o",
+    "mtime": 1789419703.1660101,
+    "size": 668448,
+    "sha256": "77f76bb24b07ae11087a3498e491a50ef8dc26f0eef073ebd3983af587011dc7",
+    "commands_exit": 0
+  },
+  "android": {
+    "path": "/home/emeric/code/jak-project/build-android/android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sparticle.cpp.o",
+    "copy": "/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt7/before-android-sparticle.cpp.o",
+    "mtime": 1789419370.1549578,
+    "size": 22656,
+    "sha256": "975e82f84c535268ad42475016d7dcedd1f88f747b1b8c47e39df2c771a678ff",
+    "commands_exit": 0
+  }
+}

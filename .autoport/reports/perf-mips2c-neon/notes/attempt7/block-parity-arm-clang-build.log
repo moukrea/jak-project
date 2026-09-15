@@ -1,0 +1,7 @@
+$ /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-linux-gnu --gcc-install-dir=/usr/aarch64-linux-gnu/lib/gcc-cross/12 -isystem /usr/aarch64-linux-gnu/include/c++/12 -isystem /usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu -isystem /usr/aarch64-linux-gnu/include -L/usr/aarch64-linux-gnu/lib -L/usr/aarch64-linux-gnu/lib/gcc-cross/12 -Wl,-rpath-link,/usr/aarch64-linux-gnu/lib -O3 -DNDEBUG -std=gnu++20 -ffp-contract=off -I. -Ithird-party/fmt/include .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity.cpp .autoport/reports/perf-mips2c-neon/notes/attempt7/assert-fail-fast.cpp -o .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-arm-clang
+ld.lld: error: /usr/aarch64-linux-gnu/lib/gcc-cross/12/../../../../lib64/Scrt1.o is incompatible with elf64-littleaarch64
+ld.lld: error: /usr/aarch64-linux-gnu/lib/gcc-cross/12/../../../../lib64/crti.o is incompatible with elf64-littleaarch64
+ld.lld: error: /usr/aarch64-linux-gnu/lib/gcc-cross/12/../../../../lib64/crtn.o is incompatible with elf64-littleaarch64
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+
+EXIT 1

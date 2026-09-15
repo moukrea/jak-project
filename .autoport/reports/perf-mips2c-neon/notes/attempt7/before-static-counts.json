@@ -1,0 +1,20 @@
+{
+  "x86-3d": {
+    "instructions_static": 961
+  },
+  "x86-2d": {
+    "instructions_static": 1219
+  },
+  "android-3d": {
+    "instructions_static": 935
+  },
+  "android-2d": {
+    "instructions_static": 1221
+  },
+  "android-3d-block18-through-stores": {
+    "range": "0x6c4..0x8f8 inclusive",
+    "instructions_static": 142,
+    "load_store_instruction_count": 80,
+    "optional_branch_instructions": 17
+  }
+}

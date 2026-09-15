@@ -1,0 +1,15 @@
+$ aarch64-linux-gnu-g++ -isystem /usr/aarch64-linux-gnu/include/c++/12 -isystem /usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu -L/usr/aarch64-linux-gnu/lib/gcc-cross/12 -Wl,-rpath-link,/usr/aarch64-linux-gnu/lib -O3 -DNDEBUG -std=gnu++20 -ffp-contract=off -I. -Ithird-party/fmt/include .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity.cpp -o .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-arm-gcc
+In file included from /usr/aarch64-linux-gnu/include/c++/12/semaphore:35,
+                 from /usr/aarch64-linux-gnu/include/c++/12/stop_token:37,
+                 from /usr/aarch64-linux-gnu/include/c++/12/thread:40,
+                 from ./game/runtime.h:8,
+                 from ./game/kernel/common/Ptr.h:11,
+                 from ./game/mips2c/mips2c_table.h:12,
+                 from ./game/mips2c/mips2c_private.h:14,
+                 from .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity.cpp:6:
+/usr/aarch64-linux-gnu/include/c++/12/bits/semaphore_base.h:59:41: error: ‘_POSIX_SEM_VALUE_MAX’ was not declared in this scope; did you mean ‘_SC_SEM_VALUE_MAX’?
+   59 |     static constexpr ptrdiff_t _S_max = _POSIX_SEM_VALUE_MAX;
+      |                                         ^~~~~~~~~~~~~~~~~~~~
+      |                                         _SC_SEM_VALUE_MAX
+
+EXIT 1
