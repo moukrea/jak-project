@@ -412,9 +412,11 @@
         (h (if (= (pc-get-display-mode) 'windowed)
                (-> obj framebuffer-scissor-height) (-> obj height))))
     (when (or (!= w *dyn-rs-last-base-w*) (!= h *dyn-rs-last-base-h*))
+      ;; Preserve the percentage so choosing a smaller base immediately lowers resolution.
+      (format 0 "[dyn-rs] BASE old=~Dx~D new=~Dx~D scale=~,,0f%~%"
+              *dyn-rs-last-base-w* *dyn-rs-last-base-h* w h *dyn-rs-scale*)
       (set! *dyn-rs-last-base-w* w)
       (set! *dyn-rs-last-base-h* h)
-      (set! *dyn-rs-scale* 100.0)
       (set! *dyn-rs-locked* #f)
       (set! *dyn-rs-lock-fps* -1.0)
       (set! *dyn-rs-last-dir* 0)
