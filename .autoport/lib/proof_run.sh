@@ -1491,7 +1491,9 @@ else
   { echo "zf_context_present=0"; echo "zf_context_lib=absente"; echo "zf_frames=$FRAMES"; } > "$ZFCTX"
 fi
 while IFS= read -r _zfl; do [ -n "$_zfl" ] && extra "$_zfl"; done < "$ZFCTX"
-rm -f "${ZFBRUT:-/dev/null}"
+# Les sondes brutes n'existent que sur appareil avec la bibliotheque de contexte.
+# Une course sans sondes n'a aucun fichier brut a supprimer.
+if [ -n "${ZFBRUT:-}" ]; then rm -f -- "$ZFBRUT"; fi
 log "contexte de course : verdict=$(sed -n 's/^zf_verdict=//p' "$ZFCTX" | tail -1) images=$FRAMES temoins=$(sed -n 's/^zf_witness_known=//p' "$ZFCTX" | tail -1)/$(sed -n 's/^zf_witness_required=//p' "$ZFCTX" | tail -1)"
 
 # ======================================== recensement de harnais (generique) ================
@@ -1640,7 +1642,7 @@ TMP="$D/.$AP_NAME_proof.tmp.$$"
 } > "$TMP"
 # LE BRUT DES SONDES ET LE BLOC DE CONTEXTE ONT FINI LEUR OFFICE : leurs cles sont dans le
 # temporaire qu'on renomme, et le recensement les a lues. Ils s'en vont avec la course.
-rm -f "${ZFCTX:-/dev/null}"
+if [ -n "${ZFCTX:-}" ]; then rm -f -- "$ZFCTX"; fi
 # tmp + rename : un validateur ne doit JAMAIS lire un proof.txt a moitie ecrit.
 mv -f "$TMP" "$OUTFILE"
 # ... ET RIEN APRES. Le sceau prend l'empreinte ici ; le `trap` la relit a la sortie du

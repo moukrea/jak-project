@@ -1,29 +1,28 @@
 ## ÉTABLI
 DIRECTIVES vaff5c1afea
-Essai3 : priorité corrigée dans kmachine.cpp:5974 ; env vide inhibe prop Android, absent garde repli.
-Dix cas du bloc source passent (notes/attempt3-warp-precedence.txt), branche Android simulée sur hôte.
-Builds x86/ARM codes0 ; source<objet<archive<binaire, x86 frais1/residual0 (notes/attempt3-build-*.log).
-Retraits essai2, OOB/ripple/particules et preuves historiques intacts (attempt3-preservation.txt).
-USB eae4df44 disponible ; aucun proof_run/déploiement/validateur de cet essai.
-2D déjà optimisé Gperf-particles ; 10,13ms = total/60 images, pas ms/image ; trois optimisations non établies.
-Lot Android essai43-coverage/20260908T162138-84202 retrouvé, mais phase3/2 seulement, pas origine phase1.
-Capture historique hutte log032947:929 mode2/seed0x0ad12345, :51397 FBO960x432, :58019 étape9.
-Replay essai1 proof-engine.log:1047 mode0, :5211 FBO800x600, :51747 premier cas, :51748 maxdiff233.
-Table fonctions/traces/références et limites : notes/attempt3-diagnostic.md.
+Essai4 : nettoyage ZFBRUT/ZFCTX corrigé dans proof_run.sh, plus de repli /dev/null.
+Bash -n code0 ;17 tests passent ; ancien défaut reproduit par rm simulé (notes/attempt4-cleanup-tests.txt).
+Essai3 conservé : priorité env vide/prop warp corrigée, dix cas isolés et buildsx86/ARM code0.
+ObjetARM3D : execute3740 octets, intégration0x6c4–0x8fc/568 octets déjà SIMD/inlinée.
+Trace HISTORIQUE proof-engine.log:686932 :3D0,88ms/180c/7680it PAR60 images, slots invalides inclus.
+Cette trace ne prouve ni population ni coût propre de l’intégration ; troisième optimisation non établie.
+SHA256 h09USB d128995109adedbcd2a99c7746398fb4ae459cacd9912b48ff0e4ce0fa70fcd9 sans copie/manifeste local retrouvé.
+Archive voisine avant032948 différente (c969e3a4…), pas interchangeable ; plageAndroid phase1 absente.
+USB eae4df44 disponible ; aucun nouveau proof_run/déploiement/build/validateur, preuve essai1 préservée.
 
 ## TENTÉ
-Audits chercheurs noyaux/références, correction ciblée priorité warp, test isolé et builds incrémentaux.
-Troisième cible pertinente non établie ; pas de nouvel ajout SIMD conformément au contrat.
-Archives plage retrouvées incompatibles : ni distribution, nouvelle origine, recapture ou retrait de cas.
-Les écarts entrée/FBO/chronologie n’isolent pas la contribution à233 ; lien log032947↔PNG USB non établi.
-Pas de correction arbitraire props/scénario ; backlog préexistant conservé.
-Script build_x86.sh non exécutable (126), invocation bash réussie ; FINDINGS le consigne.
+Recherches natives Codex bornées : intégration3D et lien cryptographique h09 ; manager a vérifié les sorties.
+3D : transferts contexte potentiellement réductibles, mais aucun bénéfice ni trois cibles justifiés ; pas d’ajout.
+Recherche PNG128093 octets/manifeste dans refset et archivesHDR ciblées sans résultat exact.
+Date/témoin binaire concordants ne lient pas les octets ; pas de réglage arbitraire pour expliquer233.
+Correction minimale du nettoyage effectuée et testée ; ni références, ni cas, ni seuils modifiés.
+Notes : attempt4-kernel-audit.md, attempt4-kernel-machine.txt, attempt4-refset-audit.md.
 
 ## RESTE
-Établir trois optimisations actives justifiées, sans réécrire tous les noyaux ni rediriger new-bones.
-Retrouver références plage Android phase1 qualifiées, ou réviser explicitement le périmètre au superviseur.
-Établir provenance exacte h09 USB, configuration/entrée/RNG/chronologie équivalentes avant replay.
-La priorité warp est corrigée mais son effet en jeu reste non prouvé.
-Raccorder comparateurs existants aux cibles retenues : 600 images non vides, oracle OFF pendant coût.
-Consigner toute nouvelle sélection/référence avant l’unique cycle USB autorisé, conserver hd-mtx/ripple/gains.
-Aucune nouvelle campagne autorisée ni validation owner créée ; détails et dettes dans FINDINGS.txt.
+Le superviseur doit résoudre les préalables du contrat avant un nouvel essai identique.
+Établir trois optimisations actives justifiées sans réécrire tous les noyaux ni rediriger new-bones.
+Retrouver PNG/manifeste h09 qualifié et références plage Android phase1 ; sinon arbitrage explicite de périmètre.
+Reconstruire configuration/data/input/état équivalents : RNG/replay/FBO/chronologie divergent historiquement.
+Puis raccorder comparateurs existants,600 images non vides, oracleOFF pendant coût, hd-mtx/ripple/gains conservés.
+Consigner sélection/références avant l’unique cycleUSB déjà autorisé ; aucune campagne supplémentaire autorisée.
+Non prouvés : gain, parité/replay, correctionwarp en jeu, absence de crash et fraîcheur actuelle appareil.
