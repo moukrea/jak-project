@@ -1,0 +1,29 @@
+{
+  "base": "602cd72eb7",
+  "commit": "13735a9bea1c1f04453120bcb97a6a74de10c066",
+  "library_sha256": "fdee879369c62b16d3c5b04c4aa49b1b712310d748573319963d36370e391f8f",
+  "files": {
+    "android/CMakeLists.txt": "c00d51ff2477f68595e4acb8d248c08d6bc5d36f42ee40c360c3bd0b21a7788d",
+    "android/android_gfx.cpp": "ef1421b0d13ff098eb66c70229edf63b32aebcd2f63620c4b4be11cd159e2f16",
+    "android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties": "2246b36192924b05d8809646fd52dbe5a363588ec5a968d9734d519e40c98f3d",
+    "game/CMakeLists.txt": "c069a75a62a31725c285ea9f9c2aba93eec7c8d3b0c531f501e4b71278fd7a45",
+    "game/graphics/opengl_renderer/GrassRenderer.cpp": "41dbb46fdc1c5f54fa973212aaa63934c79c517aba09fd8dac232f7d176ab986",
+    "game/graphics/opengl_renderer/OpenGLRenderer.cpp": "73ecfbf0581ecc017f7177e0637b855bf1f0c161652d006be4e6a54359cd39f5",
+    "game/graphics/opengl_renderer/Shader.cpp": "6706af794337395bca081c7cbcb503458e1a386326035735f84519c3149bbd2d",
+    "game/graphics/opengl_renderer/background/Shrub.cpp": "17a7460da86dbf3d78b99513f50ed5dd32c9a94b40fdacb76fd6ed20a38843fe",
+    "game/graphics/opengl_renderer/background/Tie3.cpp": "b6185d332afeae7ee44dcac7efc49aeb4c38ffb7a3d12ab2bf945d584bb3eec9",
+    "game/graphics/opengl_renderer/background/Tie3.h": "57fbf3eba19845add25461b14c98ebd542b5d568fd500592785f141e786fea8c",
+    "game/graphics/opengl_renderer/background/foliage_wind.cpp": "04d1325ced7c37838d0d6037bac0a77bfae0c89785002c09b43b24c8441edb50",
+    "game/graphics/opengl_renderer/background/shrub_contact_archive.h": "7800b5a35b9b83c87947a1c3ac4d99aa551dc166435f808af19202558c196513",
+    "game/graphics/opengl_renderer/background/shrub_contact_probe.cpp": "92025102890a2187b8ee35e7c8e011ce53c58af38c47280735303c735b8704b4",
+    "game/graphics/opengl_renderer/background/shrub_contact_probe.h": "89bac1e43ffac029e68c5a964898021dbc648c8c7860c951f018e2bc13c85d69",
+    "game/graphics/opengl_renderer/loader/LoaderStages.cpp": "ccbd48de1f4cf18d77433a9b87d0c0f4ecf635f17a2d8fb80d600a2c36b3aa31",
+    "game/graphics/opengl_renderer/shaders/etie.vert": "09633cb50bf7424417096b38aef52409c673316a6b55137443fba26a3b18f7bd",
+    "game/graphics/opengl_renderer/shaders/etie_base.vert": "5de9c6b281d11e7c8c62f8e301cb919b3cb85aff4137e2f8e6d8bd7b6ce92eb0",
+    "game/graphics/opengl_renderer/shaders/grass.vert": "0dca8d6e5a03b7b2e30fdc27a5e6ccc845504ba1688f5cdaa32754fc2909c9f7",
+    "game/graphics/opengl_renderer/shaders/shrub.vert": "98099fed189297d1aac555e30f9a67e96fe321024a8ecb9351b51319d2ea589a",
+    "game/graphics/opengl_renderer/shaders/tfrag3.vert": "6c7d1cde5ac932c49da4b16ba154971bcb3aecdbe740f1fc07822691fab856df",
+    "game/system/shrub_proof_inputs.cpp": "b59ee9110df3fb841eaf1355096b15065812dc65e6634751fda10f035e879668",
+    "game/system/shrub_proof_inputs.h": "e1fb1b91339781941c9bbf0b75152ca6aeee9fb9e87de669757988d0219e525b"
+  }
+}

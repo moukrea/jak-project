@@ -1,0 +1,9 @@
+{
+  "compiler": "/home/emeric/code/jak-project/build-arm64/goalc/goalc",
+  "sha256": "9b26c9023e9b5b5e85e0d10f1aaa29681766e1dee12b14d868d52420496df516",
+  "compiler_source_diff_since_602cd": "",
+  "project": "/home/emeric/code/jak-shrub-reference-602cd",
+  "decompiler_input": "/home/emeric/code/jak-project/decompiler_out",
+  "iso_input": "/home/emeric/code/jak-project/iso_data/jak1",
+  "output": "reference/out/jak1 only"
+}

@@ -1,0 +1,46 @@
+{
+  "proof-run.txt": {
+    "bytes": 645,
+    "sha256": "784adb21aef290d5d84ccfc36916634059cf1ce64997252bc7acdee29b7714a0"
+  },
+  "proof-stale-precheck.txt": {
+    "bytes": 708,
+    "sha256": "bcaeccdab38b51ccda5cbd56026ddb17885893a617706f973927a71d8c36f921"
+  },
+  "proof-wait.txt": {
+    "bytes": 270,
+    "sha256": "e2f2b40783b9198559448ec95afe24c35bdba634c3bbf08dfde073ec25274a84"
+  },
+  "proof-engine.log": {
+    "bytes": 13329000,
+    "sha256": "a376e550fede47ab193004e55d06420fffefb66ca214f4da30f496c552295714"
+  },
+  "proof-teardown-fin.txt": {
+    "bytes": 609,
+    "sha256": "391ad132bc730be971c15f02cefcf8eecac5c94bdcde8bfc72017af94c7e9697"
+  },
+  "proof.txt": {
+    "bytes": 39721,
+    "sha256": "ad03c9e4d0e1548095ebf382893e1d38a2a0286c0581fdb3970f66f2b705d9f1"
+  },
+  "proof.seal": {
+    "bytes": 211,
+    "sha256": "5dc241187ad97e9bfcc342dddf6ffceae54d58e1821ecf072e12fd34daa83317"
+  },
+  "libgk.so": {
+    "bytes": 17036032,
+    "sha256": "a04a4045f2688b0f67661de10b2b0df9d64bf7bf54515f725777531b691c31ac"
+  },
+  "shrub10-inputs.bin": {
+    "bytes": 17290795,
+    "sha256": "f47eae28602fba3e0a743e7f9ddaf1dfee108374d58e8caeedf8f421635f5af0"
+  },
+  "shrub-contact.statedump.txt": {
+    "bytes": 1952373,
+    "sha256": "8c471f140bb77d1d9280d38a2e6a701a02a89b9b0e14a4f4d85c161e8db9dc23"
+  },
+  "archive-directory.txt": {
+    "bytes": 122,
+    "sha256": "ad72962b2aca5805a29de8a7437a5f4b716df2ee80b0e3202e5ce9ab90bd691f"
+  }
+}

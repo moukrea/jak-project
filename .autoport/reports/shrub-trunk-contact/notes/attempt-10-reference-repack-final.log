@@ -1,0 +1,51 @@
+> Task :app:copyNativeLibs
+> Task :app:preBuild
+> Task :app:preJak1DebugBuild
+> Task :app:mergeJak1DebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileJak1Debug UP-TO-DATE
+> Task :app:checkJak1DebugAarMetadata UP-TO-DATE
+> Task :app:generateJak1DebugResValues UP-TO-DATE
+> Task :app:mapJak1DebugSourceSetPaths UP-TO-DATE
+> Task :app:generateJak1DebugResources UP-TO-DATE
+> Task :app:mergeJak1DebugResources UP-TO-DATE
+> Task :app:packageJak1DebugResources UP-TO-DATE
+> Task :app:parseJak1DebugLocalResources UP-TO-DATE
+> Task :app:createJak1DebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksJak1Debug UP-TO-DATE
+> Task :app:processJak1DebugMainManifest UP-TO-DATE
+> Task :app:processJak1DebugManifest UP-TO-DATE
+> Task :app:processJak1DebugManifestForPackage UP-TO-DATE
+> Task :app:processJak1DebugResources UP-TO-DATE
+> Task :app:compileJak1DebugJavaWithJavac UP-TO-DATE
+
+> Task :app:bundleJak1CgoPack
+[cgo-pack] touch-variant [android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip]: 8 banc(s) sur 23 lus portent #x17e7 distinct de #x16e (langues 0,1,2,3,4,5,6,24) ; 8 source(s) le promettent (bs-BA de-DE en-GB en-US es-ES fr-FR it-IT ja-JP)
+[cgo-pack] up to date: android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip (version=c43e4a2b66479 file_count=74)
+
+> Task :app:mergeJak1DebugShaders UP-TO-DATE
+> Task :app:compileJak1DebugShaders NO-SOURCE
+> Task :app:generateJak1DebugAssets UP-TO-DATE
+> Task :app:mergeJak1DebugAssets UP-TO-DATE
+> Task :app:compressJak1DebugAssets UP-TO-DATE
+> Task :app:checkJak1DebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarJak1DebugFileDependencies UP-TO-DATE
+> Task :app:mergeJak1DebugStartupProfile UP-TO-DATE
+> Task :app:mergeExtDexJak1Debug UP-TO-DATE
+> Task :app:dexBuilderJak1Debug UP-TO-DATE
+> Task :app:mergeJak1DebugGlobalSynthetics UP-TO-DATE
+> Task :app:processJak1DebugJavaRes NO-SOURCE
+> Task :app:mergeJak1DebugJavaResource UP-TO-DATE
+> Task :app:mergeLibDexJak1Debug UP-TO-DATE
+> Task :app:mergeProjectDexJak1Debug UP-TO-DATE
+> Task :app:mergeJak1DebugJniLibFolders
+> Task :app:validateSigningJak1Debug UP-TO-DATE
+> Task :app:writeJak1DebugAppMetadata UP-TO-DATE
+> Task :app:writeJak1DebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeJak1DebugNativeLibs
+> Task :app:stripJak1DebugDebugSymbols
+> Task :app:packageJak1Debug
+> Task :app:createJak1DebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleJak1Debug
+
+BUILD SUCCESSFUL in 3s
+37 actionable tasks: 6 executed, 31 up-to-date

@@ -1,0 +1,60 @@
+> Task :app:copyNativeLibs
+> Task :app:preBuild
+> Task :app:preJak1DebugBuild
+> Task :app:mergeJak1DebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileJak1Debug
+> Task :app:checkJak1DebugAarMetadata
+> Task :app:generateJak1DebugResValues
+> Task :app:mapJak1DebugSourceSetPaths
+> Task :app:generateJak1DebugResources
+> Task :app:packageJak1DebugResources
+> Task :app:mergeJak1DebugResources
+> Task :app:createJak1DebugCompatibleScreenManifests
+> Task :app:extractDeepLinksJak1Debug
+> Task :app:parseJak1DebugLocalResources
+> Task :app:processJak1DebugMainManifest
+> Task :app:processJak1DebugManifest
+
+> Task :app:bundleJak1CgoPack
+[cgo-pack] assembling arm64 CGO pack for jak1 (symlink farm)…
+[cgo-pack] text banks: 46
+[cgo-pack] touch-variant [out/jak1-cgo-pack-stage]: 8 banc(s) sur 23 lus portent #x17e7 distinct de #x16e (langues 0,1,2,3,4,5,6,24) ; 8 source(s) le promettent (bs-BA de-DE en-GB en-US es-ES fr-FR it-IT ja-JP)
+[cgo-pack] completeness OK: code=28 text=46; arm64 KERNEL.CGO verified.
+[cgo-pack] packing 74 files → android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip (DEFLATE)…
+[cgo-pack] done: android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip
+[cgo-pack]   files=74 (code=28 txt=46)  raw=243924752B  zip=113505398B  version=c43e4a2b66479
+
+> Task :app:mergeJak1DebugShaders
+> Task :app:compileJak1DebugShaders NO-SOURCE
+> Task :app:generateJak1DebugAssets UP-TO-DATE
+> Task :app:mergeJak1DebugAssets
+> Task :app:desugarJak1DebugFileDependencies
+> Task :app:mergeJak1DebugStartupProfile
+> Task :app:processJak1DebugJavaRes NO-SOURCE
+> Task :app:checkJak1DebugDuplicateClasses
+> Task :app:processJak1DebugManifestForPackage
+> Task :app:mergeLibDexJak1Debug
+> Task :app:mergeJak1DebugJniLibFolders
+> Task :app:mergeJak1DebugNativeLibs
+> Task :app:validateSigningJak1Debug
+> Task :app:writeJak1DebugAppMetadata
+> Task :app:writeJak1DebugSigningConfigVersions
+> Task :app:stripJak1DebugDebugSymbols
+> Task :app:mergeJak1DebugJavaResource
+> Task :app:compressJak1DebugAssets
+> Task :app:mergeExtDexJak1Debug
+> Task :app:processJak1DebugResources
+
+> Task :app:compileJak1DebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderJak1Debug
+> Task :app:mergeJak1DebugGlobalSynthetics
+> Task :app:mergeProjectDexJak1Debug
+> Task :app:packageJak1Debug
+> Task :app:createJak1DebugApkListingFileRedirect
+> Task :app:assembleJak1Debug
+
+BUILD SUCCESSFUL in 1m 14s
+37 actionable tasks: 37 executed

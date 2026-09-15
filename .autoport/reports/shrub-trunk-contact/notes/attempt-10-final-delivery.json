@@ -1,0 +1,10 @@
+{
+  "serial": "eae4df44",
+  "library_sha256": "2a0c531477f9391f44d0d3386fb970be646287a2846b08725ce1436931931890",
+  "apk_library_sha256": "2a0c531477f9391f44d0d3386fb970be646287a2846b08725ce1436931931890",
+  "device_library_sha256": "2a0c531477f9391f44d0d3386fb970be646287a2846b08725ce1436931931890",
+  "apk_sha256": "4c4b9378c795d0019ab4200cc44c487e900d49d9e609a516960c41fc56e756b2",
+  "campaign_runs_consumed": 1,
+  "campaign_runs_remaining": 2,
+  "launch_after_repairs": false
+}

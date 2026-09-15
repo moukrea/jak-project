@@ -1,30 +1,28 @@
 DIRECTIVES vab39193976
-Verdict : non validé ; préparation implémentée et correctif livré, compilation du témoin refusée par le hook.
-Changements : archives GPU par frame logique, rejeu exogène, comparaison référence/OFF/ON et total depuis termes mesurés.
-Fenêtre120..600 : neuf captures ; positions, indices, attributs, uniformes et LUT propres à chaque binaire.
-Herbe : programme mesure séparé, buffers compacts issus du GPU, échantillonnage1/256 et erreurs persistantes.
-NaN/Inf, captures absentes, archives corrompues et fenêtre incomplète refusés ; aucun total synthétique publié en jeu.
-Bancs locaux : codec, vrai rejeu et agrégation passent ; logs notes/archive-codec-test.log, shrub-input-tape-test/, attempt-9-contract-test.log.
-Neutralité EGL :16 paires shrub/TIE et18 paires couleur herbe identiques ; notes/attempt-9-neutrality/.
-Build Android incrémental rc=0 ; repack rc=0 en8s ; garde USB decision=deploye ; deploy_verify PASS.
-SHA256 build=APK=USB :63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe.
-Identité appareil et livraison : notes/attempt-9-delivery.txt ; aucun lancement du jeu après installation.
-Témoin isolé602cd instrumenté sauvegardé en f54ea18c485ca156816824522d2e67ece9bc3992 ; patch/manifeste dans notes/attempt-9-reference-*.
-Blocage NOUVEAU : pre-tool.sh:149-152 rejette cmake -B même sans cache ; refus exact dans notes/attempt-9-reference-configure-rejection.txt.
-Le worker ne peut modifier cette garde ; aucune syntaxe de contournement essayée, aucun validateur lancé.
-Campagne fc71d41e3c :0/3 consommée au TOTAL ; trois bras130s restent disponibles, aucun proof_run cet essai.
-Huit lignes HISTORIQUES du proof.txt essai3 ; aucune n est une preuve de l essai9 :
+Verdict : non validé ; référence USB exécutée sans crash mais sans capture GPU, instruments réparés puis correctif relivré.
+Configuration témoin débloquée ; passage geom/idx réparé dans les signatures TIE, build Android réussi.
+CGO reconstruits depuis602cd :28CGO/46TXT, version historique exacte c43e4a2b66479 ; custom commun épinglé.
+Témoin MESURÉ39a0683739, .so a04a4045f2688b0f ; dix propriétés demandées et dix relues effectives.
+Course --timeout130 : durée publiée141s,5160images, zéro crash ; neuf fenêtres fermées, aucune archive utilisable.
+470erreurs :452API GL absente,9populations vides,9publications refusées ; SELinux refuse link(partial,final).
+Réparations : trois fonctions TF chargées par Android, gardes shrub/herbe, renameat2 sans écrasement.
+Test codec local rc0 : refus écrasement et contenu intact ; builds finaux principal/témoin rc0 ; repacks rc0.
+Livraison USB eae4df44 : garde deploye rc0 ; SHA256 build/APK/appareil identiques :
+2a0c531477f9391f44d0d3386fb970be646287a2846b08725ce1436931931890
+Huit lignes du proof.txt produit pour la RÉFÉRENCE de cet essai, conservé sous notes/attempt-10-reference-result/ :
 serial=eae4df44
-sha=5288bc8bc7e7f2fb
-started_at=2026-09-14T19:14:16Z
+sha=a04a4045f2688b0f
 crash=0
-frames=7500
-FEATURE shrub-trunk-contact armed=1 hits=173329
-shrub_trunk_verts=3864
-wind_contact_defects=999999
-Owner : à Geyser Rock, marcher dans un mini-palmier ; vérifier tronc droit, feuilles mobiles et attachées.
-non prouvé : exécution et neutralité des instruments USB, contact réel, jonctions et mobilité des couronnes.
-non prouvé : maintien dynamique vent/herbe et OFF bit-identique ; référence non compilée et aucune comparaison en jeu.
-non prouvé : absence de crash du build livré, coûts appareil, exhaustivité des niveaux et de l échantillonnage herbe.
-Suite : résoudre le refus initial CMake, construire/livrer le témoin avec identité correcte, puis courses du protocole préparé.
-Handoff et FINDINGS actualisés ; aucune validation owner ni fermeture revendiquée.
+frames=5160
+FEATURE shrub-trunk-contact armed=1 hits=432859
+shrub_contact_gpu_captures=0
+shrub_contact_gpu_errors=470
+shrub_input_tape_errors=0
+Budget campagne :1/3consommée,2restantes ; ON/OFF non lancés faute de référence comparable (clause stop).
+Témoin réparé prêt13735a9bea ; archives de la course rouge et binaire réellement mesuré conservés.
+Owner : sur Geyser Rock, marcher dans un mini-palmier ; vérifier tronc droit, feuilles mobiles et solidaires.
+non prouvé : déplacements tronc/feuillage, jonctions, contact réel du clip, vent/herbe et OFF bit-identique.
+non prouvé : exécution USB des réparations, coût de mesure, couverture de tous les niveaux ; aucun total publié.
+Le proof.txt principal essai3 reste historique ; il n’est pas utilisé comme résultat de cet essai.
+Sources réparées présentes dans7ef73e5559, embarquées par commit concurrent ; incident signalé dans FINDINGS.
+Validateur laissé à l’orchestrateur ; aucune validation owner. Handoff et FINDINGS actualisés.

@@ -1,0 +1,127 @@
+[
+  {
+    "path": ".autoport/acquis/_lib.sh",
+    "sha256": "fb665f3bccb386265bd8e4a23bc14177147e68a348a8ba9fafc310322505e0c7",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/crate-collision.sh",
+    "sha256": "5ac22b1a7508a4cae4d4d053041c600aceb6facc1cb8198bf774d868294eedbe",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/cutscene-framing.sh",
+    "sha256": "acac05c5aa678f9db8fac9554f2dcb3d1e3610017df0c3c4b0bf22280e471aed",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/daxter-eyes.sh",
+    "sha256": "16f45f94885e515cde9f688cbf92e93ac763c774523dff4d5769d4df8173d120",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/font-urbanist.sh",
+    "sha256": "b3da52759f1effb930d9ed32ef5d7a02e5c8f278bc2e32f58a3c73965a04c26c",
+    "copied": true
+  },
+  {
+    "path": ".autoport/acquis/grass.sh",
+    "sha256": "3f0ade40ed6e218583b2d7e855549dd53e134169bb4b5c0bbc5967c94c43beca",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/loading-screen.sh",
+    "sha256": "47cfde81acbeb3adef9fd57d1c2a9ddf0214f1abc357ec374034d546cc2b3440",
+    "copied": false
+  },
+  {
+    "path": ".autoport/acquis/perf-fbo-passes.sh",
+    "sha256": "739e29b8a97e6285bec8ffb3b28e9d58d17b3afe5f6cdbf5ae3ed849623f7bf0",
+    "copied": true
+  },
+  {
+    "path": ".autoport/acquis/subtitles.sh",
+    "sha256": "37347433f916f602b505bc778235e04e4817cef7124ce8f9e58c1beb9be792e8",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/backlog.py",
+    "sha256": "3be23ae28d228d8aeeb5b431c03acf6fb956a3fa4dd6f6d9bf703d2e1d9b8c0c",
+    "copied": true
+  },
+  {
+    "path": ".autoport/lib/device_binary_gate.sh",
+    "sha256": "f566467f35160323334d2f1fe026c3542aa5f120292a44959feab760dd82f234",
+    "copied": true
+  },
+  {
+    "path": ".autoport/lib/device_teardown.sh",
+    "sha256": "c8da3f972bd4225d73aa7f2f3f13b6a40f32947e94b36f1e3ac68fb40173d926",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/gate_verdict.py",
+    "sha256": "d8ce42160d4c3751d9f4f0685abc5fd95d085bf2fb46c4bbea015af8d9e30379",
+    "copied": true
+  },
+  {
+    "path": ".autoport/lib/hdr_batches.py",
+    "sha256": "d1adafeeb91ac72379ffb3cdaaee59343c63ad1edd968335e41fa329ff75f328",
+    "copied": true
+  },
+  {
+    "path": ".autoport/lib/impossible.py",
+    "sha256": "c8d0371ffbbfc1c17fd4a967288b8add9e5882e65dad1c9b7cb1fbf559f3718f",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/pick_device.sh",
+    "sha256": "a4dc90a8a9e22dace2c0dc34fd5aba5794f603a50a14be2c9adee56d3ebe46e5",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/proof_impossible.sh",
+    "sha256": "3b6de6aecd182fc7dd4151e30538868b74f8560e09d3d180502b2a0fafa36e18",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/proof_run.sh",
+    "sha256": "1d4a96ec412c702dc42e199153b3b82e9740e2806b04b22fcbed051c8e45941a",
+    "copied": true
+  },
+  {
+    "path": ".autoport/lib/run_commits.sh",
+    "sha256": "4a79772fff21c38bc71cbc32783d6b69d14d5148978ad0caef7855cd0557195d",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/stale_precheck.sh",
+    "sha256": "7d79c3be76d1d51d14c1d51bf0071d489b5811149da635ae331035f325b70534",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/verdict_sources.sh",
+    "sha256": "ef4eb725ae41942f40f40f5247c8b12d0c9838c955df078f7c9b9b1128892e54",
+    "copied": false
+  },
+  {
+    "path": ".autoport/lib/zf_context.sh",
+    "sha256": "13a56c4330dfd39f340adc04b6f5e9a11b36ea9f2deff90ced141765f5cba5b7",
+    "copied": false
+  },
+  {
+    "path": ".autoport/validators/generic.sh",
+    "sha256": "4cca8d83669b4f679e727bf721c050caad132a9778ccac1d9a07e80c9273782f",
+    "copied": false
+  },
+  {
+    "path": ".autoport/backlog.yaml",
+    "sha256": "5b2e25070b0b3e67a27899af20d8b0501d1bd4a9b5b976e6f8181dfc551f2cac",
+    "copied": true
+  },
+  {
+    "path": ".autoport/DIRECTIVES.md",
+    "sha256": "6df5c174fc5136fcadd43a4a60b535441691403380b704bff7f8b3e986e4780c",
+    "copied": false
+  }
+]

@@ -1,0 +1,3 @@
+serial=eae4df44
+clip_sha256=aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a
+shrub10_archive_prefix_absent=1

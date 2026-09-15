@@ -1,0 +1,22 @@
+Successfully found all 1324 dependencies for target in 0.006s
+[1m[38;2;255;255;000mCode:
+[0m(make "GROUP:iso" :verbose #f :force #f :report #f)
+[1m[38;2;255;255;000mFrom macro: [0m[38;2;255;165;000mmake-group
+[0m[1m[38;2;255;255;000mUsed in:
+[0mProgram string:1
+(make-group "iso")
+^
+
+--------------------------------------------------------------------------------
+[1m[38;2;220;020;060m-- Compilation Error! --
+[0m[1mInput file iso_data/jak1/MUS/TWEAKVAL.MUS does not exist.
+[0m[1m[38;2;255;255;000mFunction:
+[0mtop-level
+[1m[38;2;255;255;000mLocation:
+[0mProgram string:1
+(make-group "iso")
+^
+[1m[38;2;255;255;000mCode:
+[0m(make-group "iso")
+--------------------------------------------------------------------------------
+[44:48:710] [error] Compiler Fatal Error: Compiler Exception

@@ -1,28 +1,28 @@
 ## ÉTABLI
 DIRECTIVES vab39193976
-Essai9 :0/3 courses consommées depuis fc71d41e3c ; trois130s restantes, aucun proof_run ni lancement.
-Correctif livré USB eae4df44 : build incrémental rc0, repack8s rc0, gate deploye rc0, deploy_verify PASS.
-SHA256 build/APK/USB63162466c603eaedb8dc3e4fed9d68675c7e59997d0b94498cebcb46fd98e7fe ; notes/attempt-9-delivery.txt.
-Témoin prêt en SOURCES : /home/emeric/code/jak-shrub-reference-602cd, commit f54ea18c485ca156816824522d2e67ece9bc3992 parent602cd.
-Patch complet19fichiers + manifests : notes/attempt-9-reference-instrumentation.patch et *manifest.json.
-Archives GPU120..600 (9frames), LUT natives/ancres/attaches mappées, comparaison ref/OFF/ON embarquée.
-Rejeu sources exogènes indexé ; intégrateurs/Loader/LUT natifs jamais remplacés par sorties témoin.
-Herbe : programme mesure séparé et VBOs compacts GPU1/256 ; GL/NaN/identités/erreurs persistantes contrôlés.
-Bancs réels locaux : codec et tape passent ; agrégation refuse termes absents ; EGL16paires shrub/TIE +18herbe égales.
-Logs : notes/archive-codec-test.log, shrub-input-tape-test/, attempt-9-contract-test.log, attempt-9-neutrality/.
+Essai10 : campagne1/3consommée,2restantes ; référence seule, aucun ON/OFF ni validation.
+CMake initial seul accepté ; portage TIE réparé3lignes ; CGO propres602cd reconstruits, versionexactec43e4a2b66479.
+Référence MESURÉE39a0683739, .so a04a4045f2688b0f67661de10b2b0df9d64bf7bf54515f725777531b691c31ac.
+Course USB eae4df44 --timeout130 : duration141,frames5160,crash0,10/10props ; proof_run rc0.
+Corpus intact : notes/attempt-10-reference-result/ (proof/logs/tape/statedump/.so/manifestSHA).
+Training résolu, ancre603,1316plants/1704matrices ; captures0,erreurs470,archivesabsentes ; aucun contact prouvé.
+Réparations depuis : chargement central Gen/Bind/DeleteTransformFeedbacks et gardes des consommateurs shrub/herbe.
+Publication Linux/Android syscall renameat2(RENAME_NOREPLACE), fsync/O_EXCL ; test codec non-écrasement rc0.
+Builds finaux principal/témoin rc0, repacks rc0 ; témoin réparé prêt13735a9bea dans /home/emeric/code/jak-shrub-reference-602cd.
+Correctif relivré sur USB, SHA build/APK/appareil : 2a0c531477f9391f44d0d3386fb970be646287a2846b08725ce1436931931890.
 ## TENTÉ
-Configuration initiale témoin via cmake -S checkout -B checkout/build-android : BLOQUÉE AVANT EXÉCUTION par hook.
-Pas de CMakeCache ni build-android dans checkout ; refus global .autoport/hooks/pre-tool.sh:149-152, aucun test existence cache.
-Commande et refus exacts : notes/attempt-9-reference-configure-rejection.txt ; aucune syntaxe alternative essayée.
-Neutralité herbe initialement fausse(alpha2ULP), corrigée par programme couleur intact et mesure séparée, retest rc0.
-Revue a trouvé strideGPU16384, NaN, erreur effacée ; corrigés par VBOs privés, finite checks et compteurs persistants ; rebuild rc0.
-Proof.txt essai3 reste HISTORIQUE ; generic appartient orchestrateur et n a pas été lancé.
+452missing-gl-api : GLAD desktop ignore listeGL4.0 sous GLES3.2, table Android omettait les3entrées TF ; corrigé.
+9archive-empty-population et9archive-write-failed-or-bound : SELinux refuse link du fichier.partial ; corrigé.
+Ces corrections n’ont PAS couru ; référence déjà consommée et inexploitable, ON/OFF interdits par clause stop.
+Packs historiques absents caches ; reconstruction GOAL propre retrouve hashCGOexact, pas de mélange avec CGOactuels.
+Custom courant commun explicitement épinglé, NON historique602cd : SHA a6e370738da78ba94ff5abb484a31448991f528f80b147718a2d0e728bfaeda3.
+Sources principales embarquées par commit superviseur concurrent7ef73e5559 ; pas de réécriture, incident FINDINGS.
 ## RESTE
-Superviseur : rendre garde CMake compatible avec PREMIÈRE configuration d un dossier neuf ; hors périmètre worker.
-Puis compiler témoin et préparer proof_run depuis ses propres sources/build, avec item/harnais compatibles ; rien mesurer sous fausse identité.
-Protocole exact/props/portage : notes/attempt-9-protocol.md ; ordre proposé référence,OFF,ON pour total final dans proof.txt.
-Épingler props DANS item, compter avant chaque course ; première référence doit rencontrer contact/populations sinon conserver échec.
-Aucune preuve USB du contact, mobilité, jonctions, invariance vent/herbe/OFF, stabilité ou coûts du dernier binaire.
-Pré-ancre comptes par canal peuvent diverger(rejet explicite) ; évolution AO/ventTIE hors item peut empêcher OFF identique.
-FINDINGS conserve autres dettes ; clip existant unchanged aafa00f05f2e73011710e0733839f3392b05ff0d9ebd08ba63ebc483f768b31a.
-Ne pas redemander autorisation owner, ne pas répéter audit essai8, ne pas réinitialiser budget ni réutiliser proof historique.
+Superviseur : arbitrer plan de reprise puisque référence autorisée consommée sans archive ; budget non réinitialisé.
+Ne pas réutiliser la bande shrub10-inputs.bin avec un faux témoin, ni la référence rouge comme preuve des réparations.
+Après arbitrage : nouvelles archives exclusives, mêmes sources/build propres par bras ; props toujours DANS l’item.
+Contrat entier reste non prouvé : déplacement tronc/feuillage, jonctions, contact réel, vent/herbe, OFF identique, coûts.
+Regarder aussi contact : traces périodiques actors0 ; populations non vides ne prouvent pas contact du clip.
+Préparation reproductible : notes/attempt-10-preparation.md, *reference-ready.patch/*manifest.json et protocole9.
+Proof principal essai3 HISTORIQUE ; seule nouvelle preuve est sous notes/attempt-10-reference-result/proof.txt.
+Aucun generic exécuté ; FINDINGS garde dettes ; ne pas redemander accord déjà donné ni refaire audit9.

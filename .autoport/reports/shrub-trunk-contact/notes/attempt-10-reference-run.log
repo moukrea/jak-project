@@ -1,0 +1,31 @@
+[proof_run shrub-trunk-contact] verrou d'ecriture pris (.autoport/reports/shrub-trunk-contact/proof-writer.lock) : pid=1254301 lanceur=1254299 essai=shrub-trunk-contact@10#1789429131 course=20260914T234936Z-1254301-a64d9ec4
+[proof_run shrub-trunk-contact] garde de build : decision=passe demon_gradle=1 apk_age=67s attendu=0s
+[proof_run shrub-trunk-contact] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run shrub-trunk-contact] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire shrub-trunk-contact] ECART : le telephone porte dabcdce07fcbcfe7aba270c3196ca84d, le build local a4656a7d9c9ea78bcdfb8c8bf76ccd64
+[garde-binaire shrub-trunk-contact] verrou pose (pid=1254746) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire shrub-trunk-contact] LIVRE : a4656a7d9c9ea78bcdfb8c8bf76ccd64 sur eae4df44 ; la course peut mesurer
+[proof_run shrub-trunk-contact] garde binaire : decision=deploye local=a4656a7d9c9ea78bcdfb8c8bf76ccd64 appareil=a4656a7d9c9ea78bcdfb8c8bf76ccd64 (code 0)
+[proof_run shrub-trunk-contact] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run shrub-trunk-contact] ecran : mWakefulness=Awake
+[proof_run shrub-trunk-contact] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run shrub-trunk-contact] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 0 o, sha=- ; filet proof-prev ecrit : 0)
+[proof_run shrub-trunk-contact] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 130s (armed=1)
+[proof_run shrub-trunk-contact] contexte de course : verdict=sans-objet images=5160 temoins=6/6
+[teardown] eae4df44: debug.opengoal.f1.warp etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.f1.warp.cont etait 'training-warp' -> vide
+[teardown] eae4df44: debug.opengoal.feature etait 'shrub-trunk-contact' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.fixed_tick etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.foliage.force etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.pad_replay_realtime etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.pad_trace etait 'shrub-contact.statedump.txt' -> vide
+[teardown] eae4df44: debug.opengoal.padreplay etait '/data/data/org.opengoal.gk.jak1/files/shrub-contact.inputs' -> vide
+[teardown] eae4df44: debug.opengoal.shrub.archive etait '/data/data/org.opengoal.gk.jak1/files/shrub10-reference' -> vide
+[teardown] eae4df44: debug.opengoal.shrub.inputs_mode etait 'record' -> vide
+[teardown] eae4df44: debug.opengoal.shrub.inputs_path etait '/data/data/org.opengoal.gk.jak1/files/shrub10-inputs.bin' -> vide
+[teardown] eae4df44: 12 propriete(s) trouvee(s) posee(s) [debug.opengoal.f1.warp,debug.opengoal.f1.warp.cont,debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.fixed_tick,debug.opengoal.foliage.force,debug.opengoal.pad_replay_realtime,debug.opengoal.pad_trace,debug.opengoal.padreplay,debug.opengoal.shrub.archive,debug.opengoal.shrub.inputs_mode,debug.opengoal.shrub.inputs_path], 12 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run shrub-trunk-contact] teardown de fin : 12 propriete(s) trouvee(s) posee(s) [debug.opengoal.f1.warp,debug.opengoal.f1.warp.cont,debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.fixed_tick,debug.opengoal.foliage.force,debug.opengoal.pad_replay_realtime,debug.opengoal.pad_trace,debug.opengoal.padreplay,debug.opengoal.shrub.archive,debug.opengoal.shrub.inputs_mode,debug.opengoal.shrub.inputs_path], publie sous 'proof-teardown-fin.txt'
+[proof_run shrub-trunk-contact] ecrit .autoport/reports/shrub-trunk-contact/proof.txt (frames=5160 crash=0 duree=141s) ; sortie moteur : .autoport/reports/shrub-trunk-contact/proof-engine.log

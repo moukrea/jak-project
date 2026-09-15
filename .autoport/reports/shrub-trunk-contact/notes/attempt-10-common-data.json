@@ -1,0 +1,15 @@
+{
+  "kind": "common exogenous dataset, not historical 602cd pack",
+  "files": [
+    {
+      "source": "/home/emeric/code/jak-project/android/app/src/jak1/assets-slim/bundle/jak1_custom.zip",
+      "target": "/home/emeric/code/jak-shrub-reference-602cd/android/app/src/jak1/assets-slim/bundle/jak1_custom.zip",
+      "sha256": "a6e370738da78ba94ff5abb484a31448991f528f80b147718a2d0e728bfaeda3"
+    },
+    {
+      "source": "/home/emeric/code/jak-project/android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties",
+      "target": "/home/emeric/code/jak-shrub-reference-602cd/android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties",
+      "sha256": "2246b36192924b05d8809646fd52dbe5a363588ec5a968d9734d519e40c98f3d"
+    }
+  ]
+}

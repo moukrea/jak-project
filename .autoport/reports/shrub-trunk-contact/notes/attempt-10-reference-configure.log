@@ -1,0 +1,1982 @@
+DIRECTIVES vab39193976
+Commande CMake seule exécutée ; sortie outil partielle (troncature premier bloc), rc=0
+Warning: truncated output (original token count: 10363)
+Total output lines: 719
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/CMakeDetermineSystem.cmake:146 (include)
+  CMakeLists.txt:6 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /usr/share/cmake/Modules/CMakeDetermineSystem.cmake:146 (include)
+  CMakeLists.txt:6 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  CMakeLists.txt:6 (project)
+
+
+-- The C compiler identification is Clang 18.0.3
+-- The CXX compiler identification is Clang 18.0.3
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  CMakeLists.txt:6 (project)
+
+
+-- Detecting C compiler ABI info
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-E45tFU/CMakeLists.txt:4 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-E45tFU/CMakeLists.txt:4 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-E45tFU/CMakeLists.txt:4 (project)
+
+
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-fGLVdQ/CMakeLists.txt:4 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-fGLVdQ/CMakeLists.txt:4 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-CXX.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCXXInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-fGLVdQ/CMakeLists.txt:4 (project)
+
+
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Android NDK build: ABI=arm64-v8a platform=android-29 NDK=/home/emeric/Android/android-ndk-r27c
+-- {fmt} version: 11.1.4
+-- Build type: RelWithDebInfo
+-- Performing Test HAS_NULLPTR_WARNING
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-8LwlIe/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-8LwlIe/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-CXX.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCXXInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-8LwlIe/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAS_NULLPTR_WARNING - Success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IW6DSE/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IW6DSE/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IW6DSE/CMakeLists.txt:3 (project)
+
+
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Check if compiler accepts -pthread
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-XQtVG6/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-XQtVG6/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-XQtVG6/CMakeLists.txt:5 (project)
+
+
+-- Check if compiler accepts -pthread - yes
+-- Found Threads: TRUE
+-- Found PkgConfig: /usr/bin/pkg-config (found version "2.3.0")
+-- Detecting Target CPU Architecture
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/android/sdl_build/CMakeFiles/CMakeTmp/SDL_detect_arch/CMakeFiles/CMakeTmp/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmak…2363 tokens truncated…xt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-XKmhFH/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-XKmhFH/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_NO_STRICT_ALIASING - Success
+-- Performing Test HAVE_GCC_WDOCUMENTATION
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-V3gUYn/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-V3gUYn/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-V3gUYn/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_WDOCUMENTATION - Success
+-- Performing Test HAVE_GCC_WDOCUMENTATION_UNKNOWN_COMMAND
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-k0AZY0/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-k0AZY0/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-k0AZY0/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_WDOCUMENTATION_UNKNOWN_COMMAND - Success
+-- Performing Test HAVE_GCC_COMMENT_BLOCK_COMMANDS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Qp13pz/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Qp13pz/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Qp13pz/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_COMMENT_BLOCK_COMMANDS - Success
+-- Performing Test HAVE_GCC_WSHADOW
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-I7vzNl/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-I7vzNl/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-I7vzNl/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_WSHADOW - Success
+-- Performing Test HAVE_GCC_WUNUSED_LOCAL_TYPEDEFS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aevor0/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aevor0/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aevor0/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_WUNUSED_LOCAL_TYPEDEFS - Success
+-- Performing Test HAVE_GCC_WIMPLICIT_FALLTHROUGH
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IqRmJQ/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IqRmJQ/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-IqRmJQ/CMakeLists.txt:3 (project)
+
+
+Warning: truncated output (original token count: 99920)
+Total output lines: 6997
+
+-- Performing Test HAVE_GCC_WIMPLICIT_FALLTHROUGH - Success
+-- Performing Test COMPILER_SUPPORTS_FCOLOR_DIAGNOSTICS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-9o56Kd/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-9o56Kd/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-9o56Kd/CMakeLists.txt:3 (project)
+
+
+-- Performing Test COMPILER_SUPPORTS_FCOLOR_DIAGNOSTICS - Success
+-- Looking for __GLIBC__
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zvfHS6/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zvfHS6/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zvfHS6/CMakeLists.txt:5 (project)
+
+
+-- Looking for __GLIBC__ - not found
+-- Performing Test HAVE_WL_VERSION_SCRIPT
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-nDTYea/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-nDTYea/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-nDTYea/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_WL_VERSION_SCRIPT - Success
+-- Performing Test COMPILER_SUPPORTS_GCC_ATOMICS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Ibr1yi/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Ibr1yi/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Ibr1yi/CMakeLists.txt:3 (project)
+
+
+-- Performing Test COMPILER_SUPPORTS_GCC_ATOMICS - Success
+-- Performing Test HAVE_GCC_FVISIBILITY
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-JUmvOP/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-JUmvOP/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-JUmvOP/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_GCC_FVISIBILITY - Success
+-- Performing Test LINKER_SUPPORTS_WL_NO_UNDEFINED
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Swg1EQ/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Swg1EQ/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-Swg1EQ/CMakeLists.txt:3 (project)
+
+
+-- Performing Test LINKER_SUPPORTS_WL_NO_UNDEFINED - Success
+-- Performing Test COMPILER_SUPPORTS_ARMNEON
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-50PK9i/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-50PK9i/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-50PK9i/CMakeLists.txt:3 (project)
+
+
+-- Performing Test COMPILER_SUPPORTS_ARMNEON - Success
+-- Looking for alloca.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iNtWxS/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iNtWxS/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iNtWxS/CMakeLists.txt:5 (project)
+
+
+-- Looking for alloca.h - found
+-- Looking for float.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-p11UmV/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-p11UmV/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-p11UmV/CMakeLists.txt:5 (project)
+
+
+-- Looking for float.h - found
+-- Looking for iconv.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iEqPIw/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iEqPIw/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-iEqPIw/CMakeLists.txt:5 (project)
+
+
+-- Looking for iconv.h - found
+-- Looking for inttypes.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-UAFAnT/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-UAFAnT/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-UAFAnT/CMakeLists.txt:5 (project)
+
+
+-- Looking for inttypes.h - found
+-- Looking for limits.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-7iKF1S/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-7iKF1S/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-7iKF1S/CMakeLists.txt:5 (project)
+
+
+-- Looking for limits.h - found
+-- Looking for malloc.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-122r8U/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-122r8U/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-122r8U/CMakeLists.txt:5 (project)
+
+
+-- Looking for malloc.h - found
+-- Looking for math.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-ta1Esd/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-ta1Esd/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-ta1Esd/CMakeLists.txt:5 (project)
+
+
+-- Looking for math.h - found
+-- Looking for memory.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-bxPLwZ/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-bxPLwZ/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-bxPLwZ/CMakeLists.txt:5 (project)
+
+
+-- Looking for memory.h - found
+-- Looking for signal.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-v5MCQa/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-v5MCQa/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-v5MCQa/CMakeLists.txt:5 (project)
+
+
+-- Looking for signal.h - found
+-- Looking for stdarg.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-pfGVfV/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-pfGVfV/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share…79920 tokens truncated…ing Test ICONV_IN_LIBC - Success
+-- Performing Test ICONV_IN_LIBICONV
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WQtPcw/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WQtPcw/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WQtPcw/CMakeLists.txt:3 (project)
+
+
+-- Performing Test ICONV_IN_LIBICONV - Failed
+-- Performing Test HAVE_SA_SIGACTION
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-LKzvSE/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-LKzvSE/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-LKzvSE/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_SA_SIGACTION - Success
+-- Performing Test HAVE_ST_MTIM
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WR0H6p/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WR0H6p/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-WR0H6p/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_ST_MTIM - Success
+-- Looking for dlopen
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-td2EpG/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-td2EpG/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-td2EpG/CMakeLists.txt:5 (project)
+
+
+-- Looking for dlopen - found
+-- Performing Test HAVE_O_CLOEXEC
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-rtos9m/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-rtos9m/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-rtos9m/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_O_CLOEXEC - Success
+-- Performing Test HAVE_ARM_MODE
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-eRFxjC/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-eRFxjC/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-eRFxjC/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_ARM_MODE - Failed
+-- Checking for module 'libusb-1.0>=1.0.16'
+--   Package 'libusb-1.0' not found
+-- Could NOT find LibUSB (missing: LibUSB_LIBRARY LibUSB_INCLUDE_PATH) (found version "LibUSB_VERSION-NOTFOUND")
+-- Performing Test VULKAN_PASSED_ANDROID_CHECKS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-FbG1el/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-FbG1el/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-FbG1el/CMakeLists.txt:3 (project)
+
+
+-- Performing Test VULKAN_PASSED_ANDROID_CHECKS - Success
+-- Performing Test HAVE_PTHREADS
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-5H44VB/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-5H44VB/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-5H44VB/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_PTHREADS - Success
+-- Performing Test HAVE_RECURSIVE_MUTEXES
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zobnas/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zobnas/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-zobnas/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_RECURSIVE_MUTEXES - Success
+-- Performing Test HAVE_PTHREADS_SEM
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-35RfTh/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-35RfTh/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-35RfTh/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_PTHREADS_SEM - Success
+-- Performing Test COMPILER_HAS_SEM_TIMEDWAIT
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-y1fRAp/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-y1fRAp/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-y1fRAp/CMakeLists.txt:3 (project)
+
+
+-- Performing Test COMPILER_HAS_SEM_TIMEDWAIT - Success
+-- Looking for pthread.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aydzFG/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aydzFG/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-aydzFG/CMakeLists.txt:5 (project)
+
+
+-- Looking for pthread.h - found
+-- Looking for pthread_np.h
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-t0gqrn/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-t0gqrn/CMakeLists.txt:5 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-t0gqrn/CMakeLists.txt:5 (project)
+
+
+-- Looking for pthread_np.h - not found
+-- Performing Test HAVE_PTHREAD_SETNAME_NP
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-yDfsjG/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/android-legacy.toolchain.cmake:35 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /home/emeric/Android/android-ndk-r27c/build/cmake/android.toolchain.cmake:55 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/3.31.11/CMakeSystem.cmake:6 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-yDfsjG/CMakeLists.txt:3 (project)
+
+
+CMake Deprecation Warning at /home/emeric/Android/android-ndk-r27c/build/cmake/flags.cmake:18 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/Platform/Android-Clang.cmake:23 (include)
+  /usr/share/cmake/Modules/Platform/Android-Clang-C.cmake:1 (include)
+  /usr/share/cmake/Modules/CMakeCInformation.cmake:48 (include)
+  /home/emeric/code/jak-shrub-reference-602cd/build-android/CMakeFiles/CMakeScratch/TryCompile-yDfsjG/CMakeLists.txt:3 (project)
+
+
+-- Performing Test HAVE_PTHREAD_SETNAME_NP - Success
+-- 
+-- SDL3 was configured with the following options:
+-- 
+-- Platform: Android-1
+-- 64-bit:   TRUE
+-- Compiler: /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+-- Revision: SDL-3.4.4-jak-project-android
+-- Vendor:   
+-- 
+-- Subsystems:
+--   Audio:    ON
+--   Video:    ON
+--   GPU:      ON
+--   Render:   OFF
+--   Camera:   ON
+--   Joystick: ON
+--   Haptic:   ON
+--   Hidapi:   ON
+--   Power:    ON
+--   Sensor:   ON
+--   Dialog:   ON
+--   Tray:     ON
+-- 
+-- Options:
+--   SDL_ALSA                    (Wanted: OFF): OFF
+--   SDL_ALSA_SHARED             (Wanted: OFF): OFF
+--   SDL_ALTIVEC                 (Wanted: OFF): OFF
+--   SDL_ARMNEON                 (Wanted: ON): ON
+--   SDL_ASAN                    (Wanted: OFF): OFF
+--   SDL_ASSEMBLY                (Wanted: ON): ON
+--   SDL_ASSERTIONS              (Wanted: auto): auto
+--   SDL_AVX                     (Wanted: OFF): OFF
+--   SDL_AVX2                    (Wanted: OFF): OFF
+--   SDL_AVX512F                 (Wanted: OFF): OFF
+--   SDL_BACKGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_CCACHE                  (Wanted: OFF): OFF
+--   SDL_CLANG_TIDY              (Wanted: OFF): OFF
+--   SDL_CLOCK_GETTIME           (Wanted: ON): ON
+--   SDL_COCOA                   (Wanted: OFF): OFF
+--   SDL_DBUS                    (Wanted: OFF): OFF
+--   SDL_DEPS_SHARED             (Wanted: ON): OFF
+--   SDL_DIRECTX                 (Wanted: OFF): OFF
+--   SDL_DISKAUDIO               (Wanted: ON): ON
+--   SDL_DLOPEN_NOTES            (Wanted: OFF): OFF
+--   SDL_DUMMYAUDIO              (Wanted: ON): ON
+--   SDL_DUMMYCAMERA             (Wanted: ON): ON
+--   SDL_DUMMYVIDEO              (Wanted: ON): ON
+--   SDL_EXAMPLES                (Wanted: OFF): OFF
+--   SDL_EXAMPLES_LINK_SHARED    (Wanted: OFF): OFF
+--   SDL_FOREGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_FRIBIDI                 (Wanted: OFF): OFF
+--   SDL_FRIBIDI_SHARED          (Wanted: OFF): OFF
+--   SDL_GCC_ATOMICS             (Wanted: ON): ON
+--   SDL_HIDAPI                  (Wanted: ON): ON
+--   SDL_HIDAPI_JOYSTICK         (Wanted: ON): ON
+--   SDL_HIDAPI_LIBUSB           (Wanted: ON): OFF
+--   SDL_HIDAPI_LIBUSB_SHARED    (Wanted: ON): OFF
+--   SDL_IBUS                    (Wanted: OFF): OFF
+--   SDL_INSTALL                 (Wanted: OFF): OFF
+--   SDL_INSTALL_TESTS           (Wanted: OFF): OFF
+--   SDL_JACK                    (Wanted: OFF): OFF
+--   SDL_JACK_SHARED             (Wanted: OFF): OFF
+--   SDL_KMSDRM                  (Wanted: OFF): OFF
+--   SDL_KMSDRM_SHARED           (Wanted: OFF): OFF
+--   SDL_LASX                    (Wanted: OFF): OFF
+--   SDL_LIBC                    (Wanted: ON): ON
+--   SDL_LIBICONV                (Wanted: OFF): OFF
+--   SDL_LIBTHAI                 (Wanted: OFF): OFF
+--   SDL_LIBTHAI_SHARED          (Wanted: OFF): OFF
+--   SDL_LIBUDEV                 (Wanted: ON): OFF
+--   SDL_LIBURING                (Wanted: OFF): OFF
+--   SDL_LSX                     (Wanted: OFF): OFF
+--   SDL_METAL                   (Wanted: OFF): OFF
+--   SDL_MMX                     (Wanted: OFF): OFF
+--   SDL_OFFSCREEN               (Wanted: ON): ON
+--   SDL_OPENGL                  (Wanted: ON): OFF
+--   SDL_OPENGLES                (Wanted: ON): ON
+--   SDL_OPENVR                  (Wanted: OFF): OFF
+--   SDL_OSS                     (Wanted: OFF): OFF
+--   SDL_PIPEWIRE                (Wanted: OFF): OFF
+--   SDL_PIPEWIRE_SHARED         (Wanted: OFF): OFF
+--   SDL_PTHREADS                (Wanted: ON): ON
+--   SDL_PTHREADS_SEM            (Wanted: ON): ON
+--   SDL_PULSEAUDIO              (Wanted: OFF): OFF
+--   SDL_PULSEAUDIO_SHARED       (Wanted: OFF): OFF
+--   SDL_RENDER_D3D              (Wanted: OFF): OFF
+--   SDL_RENDER_D3D11            (Wanted: OFF): OFF
+--   SDL_RENDER_D3D12            (Wanted: OFF): OFF
+--   SDL_RENDER_GPU              (Wanted: OFF): OFF
+--   SDL_RENDER_METAL            (Wanted: OFF): OFF
+--   SDL_RENDER_VULKAN           (Wanted: OFF): OFF
+--   SDL_ROCKCHIP                (Wanted: OFF): OFF
+--   SDL_RPATH                   (Wanted: OFF): OFF
+--   SDL_RPI                     (Wanted: OFF): OFF
+--   SDL_SNDIO                   (Wanted: OFF): OFF
+--   SDL_SNDIO_SHARED            (Wanted: OFF): OFF
+--   SDL_SSE                     (Wanted: OFF): OFF
+--   SDL_SSE2                    (Wanted: OFF): OFF
+--   SDL_SSE3                    (Wanted: OFF): OFF
+--   SDL_SSE4_1                  (Wanted: OFF): OFF
+--   SDL_SSE4_2                  (Wanted: OFF): OFF
+--   SDL_SYSTEM_ICONV            (Wanted: ON): ON
+--   SDL_TESTS                   (Wanted: OFF): OFF
+--   SDL_TESTS_LINK_SHARED       (Wanted: OFF): OFF
+--   SDL_UNINSTALL               (Wanted: OFF): OFF
+--   SDL_VIRTUAL_JOYSTICK        (Wanted: ON): ON
+--   SDL_VIVANTE                 (Wanted: OFF): OFF
+--   SDL_VULKAN                  (Wanted: ON): ON
+--   SDL_WASAPI                  (Wanted: OFF): OFF
+--   SDL_WAYLAND                 (Wanted: OFF): OFF
+--   SDL_WAYLAND_LIBDECOR        (Wanted: OFF): OFF
+--   SDL_WAYLAND_LIBDECOR_SHARED (Wanted: OFF): OFF
+--   SDL_WAYLAND_SHARED          (Wanted: OFF): OFF
+--   SDL_X11                     (Wanted: OFF): OFF
+--   SDL_X11_SHARED              (Wanted: OFF): OFF
+--   SDL_X11_XCURSOR             (Wanted: OFF): OFF
+--   SDL_X11_XDBE                (Wanted: OFF): OFF
+--   SDL_X11_XFIXES              (Wanted: OFF): OFF
+--   SDL_X11_XINPUT              (Wanted: OFF): OFF
+--   SDL_X11_XRANDR              (Wanted: OFF): OFF
+--   SDL_X11_XSCRNSAVER          (Wanted: OFF): OFF
+--   SDL_X11_XSHAPE              (Wanted: OFF): OFF
+--   SDL_X11_XSYNC               (Wanted: OFF): OFF
+--   SDL_X11_XTEST               (Wanted: OFF): OFF
+--   SDL_XINPUT                  (Wanted: OFF): OFF
+-- 
+--  Build Shared Library: OFF
+--  Build Static Library: ON
+-- 
+-- Enabled backends:
+--   Video drivers: android dummy offscreen
+--   Render drivers: ogl_es2
+--   GPU drivers: vulkan
+--   Audio drivers: aaudio disk dummy opensles
+--   Joystick drivers: android hidapi virtual
+--   Camera drivers: android dummy
+-- 
+-- If something was not detected, although the libraries
+-- were installed, then make sure you have set the
+-- CMAKE_C_FLAGS and CMAKE_PREFIX_PATH CMake variables correctly.
+-- 
+-- The ASM compiler identification is Clang with GNU-like command-line
+-- Found assembler: /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+-- Configuring done (9.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/emeric/code/jak-shrub-reference-602cd/build-android

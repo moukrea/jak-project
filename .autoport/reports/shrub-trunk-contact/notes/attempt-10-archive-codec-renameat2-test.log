@@ -1,0 +1,1 @@
+archive_codec equality=1 corruption_rejected=1 missing_rejected=1 differences_detected=1 mappings_checked=1 atomic_no_overwrite=1 planned_window=1 grass_schema=1 overwrite_content_intact=1 partial_cleaned=1

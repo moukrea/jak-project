@@ -1,0 +1,44 @@
+[0/2] Re-checking globbed directories...
+[1/5] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[2/5] Linking CXX static library android/libandroid_kernel.a
+[3/5] Building CXX object android/CMakeFiles/gk.dir/android_gfx.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_gfx.cpp:45:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_gfx.cpp:45:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[4/5] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues

@@ -1,0 +1,1194 @@
+[0/2] Re-checking globbed directories...
+[1/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/debug.c.o
+[2/594] Building C object android/libco_build/CMakeFiles/libco.dir/libco.c.o
+[3/594] Linking C static library android/libco_build/liblibco.a
+[4/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/error_private.c.o
+[5/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/entropy_common.c.o
+[6/594] Phase 21: preprocessing OpenGOAL shaders for GLES 3.20
+preprocess.py: emitted 57 shader pairs + 6 shared chunks + blob header to /home/emeric/code/jak-shrub-reference-602cd/build-android/shaders
+[7/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/threading.c.o
+[8/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/xxhash.c.o
+[9/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/pool.c.o
+[10/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/fse_decompress.c.o
+[11/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/cmake_pch.h.pch
+[12/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/hist.c.o
+[13/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/common/zstd_common.c.o
+[14/594] Building CXX object android/sdl_build/CMakeFiles/SDL3-static.dir/cmake_pch.hxx.pch
+[15/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/fse_compress.c.o
+[16/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_compress_literals.c.o
+[17/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/huf_compress.c.o
+[18/594] Building CXX object android/fmt_build/CMakeFiles/fmt.dir/src/os.cc.o
+[19/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_compress_sequences.c.o
+[20/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_compress_superblock.c.o
+[21/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_ldm.c.o
+[22/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_fast.c.o
+[23/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstdmt_compress.c.o
+[24/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/decompress/zstd_ddict.c.o
+[25/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_compress.c.o
+[26/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_double_fast.c.o
+[27/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL.c.o
+[28/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_assert.c.o
+[29/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_error.c.o
+[30/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/decompress/huf_decompress.c.o
+[31/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_guid.c.o
+[32/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_hints.c.o
+[33/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_list.c.o
+[34/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_hashtable.c.o
+[35/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/decompress/zstd_decompress.c.o
+[36/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_log.c.o
+[37/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_properties.c.o
+[38/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/atomic/SDL_atomic.c.o
+[39/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/atomic/SDL_spinlock.c.o
+[40/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/SDL_utils.c.o
+[41/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audiodev.c.o
+[42/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/decompress/zstd_decompress_block.c.o
+[43/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audioqueue.c.o
+[44/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audioresample.c.o
+[45/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_mixer.c.o
+[46/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audiotypecvt.c.o
+[47/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audio.c.o
+[48/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/core/SDL_core_unsupported.c.o
+[49/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/cpuinfo/SDL_cpuinfo.c.o
+[50/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_wave.c.o
+[51/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/dynapi/SDL_dynapi.c.o
+[52/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/camera/SDL_camera.c.o
+[53/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_categories.c.o
+[54/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_clipboardevents.c.o
+[55/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_displayevents.c.o
+[56/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_dropevents.c.o
+[57/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/SDL_audiocvt.c.o
+[58/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_eventwatch.c.o
+[59/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_keysym_to_keycode.c.o
+[60/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_keysym_to_scancode.c.o
+[61/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_keymap.c.o
+[62/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_keyboard.c.o
+[63/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_quit.c.o
+[64/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_scancode_tables.c.o
+[65/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_pen.c.o
+[66/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_events.c.o
+[67/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/imKStoUCS.c.o
+[68/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_windowevents.c.o
+[69/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_touch.c.o
+[70/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/filesystem/SDL_filesystem.c.o
+[71/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/events/SDL_mouse.c.o
+[72/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/io/SDL_asyncio.c.o
+[73/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/haptic/SDL_haptic.c.o
+[74/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/hidapi/SDL_hidapi.c.o
+[75/594] Building CXX object android/fmt_build/CMakeFiles/fmt.dir/src/format.cc.o
+[76/594] Linking CXX static library android/fmt_build/libfmt.a
+[77/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/io/generic/SDL_asyncio_generic.c.o
+[78/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/SDL_steam_virtual_gamepad.c.o
+[79/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/controller_type.c.o
+[80/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/locale/SDL_locale.c.o
+[81/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/main/SDL_main_callbacks.c.o
+[82/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/io/SDL_iostream.c.o
+[83/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/main/SDL_runapp.c.o
+[84/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/misc/SDL_libusb.c.o
+[85/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/misc/SDL_url.c.o
+[86/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/power/SDL_power.c.o
+[87/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/SDL_render_unsupported.c.o
+[88/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/SDL_yuv_sw.c.o
+[89/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d/SDL_render_d3d.c.o
+[90/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d/SDL_shaders_d3d.c.o
+[91/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d11/SDL_render_d3d11.c.o
+[92/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d11/SDL_shaders_d3d11.c.o
+[93/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/gpu/SDL_gpu.c.o
+[94/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d12/SDL_render_d3d12.c.o
+[95/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/direct3d12/SDL_shaders_d3d12.c.o
+[96/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/gpu/SDL_pipeline_gpu.c.o
+[97/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/gpu/SDL_render_gpu.c.o
+[98/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/gpu/SDL_shaders_gpu.c.o
+[99/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/ngage/SDL_render_ngage.c.o
+[100/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/opengl/SDL_render_gl.c.o
+[101/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/opengl/SDL_shaders_gl.c.o
+[102/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/opengles2/SDL_render_gles2.c.o
+[103/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/opengles2/SDL_shaders_gles2.c.o
+[104/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/ps2/SDL_render_ps2.c.o
+[105/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/psp/SDL_render_psp.c.o
+[106/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_blendfillrect.c.o
+[107/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_blendline.c.o
+[108/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_blendpoint.c.o
+[109/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_drawline.c.o
+[110/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_drawpoint.c.o
+[111/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_render_sw.c.o
+[112/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/software/SDL_triangle.c.o
+[113/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/vitagxm/SDL_render_vita_gxm.c.o
+[114/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/vitagxm/SDL_render_vita_gxm_memory.c.o
+[115/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/SDL_gamepad.c.o
+[116/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/vulkan/SDL_shaders_vulkan.c.o
+[117/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/vitagxm/SDL_render_vita_gxm_tools.c.o
+[118/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/vulkan/SDL_render_vulkan.c.o
+[119/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_crc16.c.o
+[120/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_crc32.c.o
+[121/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/SDL_joystick.c.o
+[122/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_iconv.c.o
+[123/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_getenv.c.o
+[124/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_memcpy.c.o
+[125/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_memmove.c.o
+[126/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_malloc.c.o
+[127/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_memset.c.o
+[128/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_mslibc.c.o
+[129/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/sensor/SDL_sensor.c.o
+[130/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_murmur3.c.o
+[131/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_random.c.o
+[132/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_strtokr.c.o
+[133/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_stdlib.c.o
+[134/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/storage/SDL_storage.c.o
+[135/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/SDL_thread.c.o
+[136/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/time/SDL_time.c.o
+[137/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_qsort.c.o
+[138/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/stdlib/SDL_string.c.o
+[139/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/timer/SDL_timer.c.o
+[140/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit.c.o
+[141/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/render/SDL_render.c.o
+[142/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_1.c.o
+[143/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_0.c.o
+[144/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_copy.c.o
+[145/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_RLEaccel.c.o
+[146/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_N.c.o
+[147/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_bmp.c.o
+[148/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_A.c.o
+[149/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_fillrect.c.o
+[150/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_clipboard.c.o
+[151/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_egl.c.o
+[152/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_slow.c.o
+[153/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_rect.c.o
+[154/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_pixels.c.o
+[155/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_rotate.c.o
+[156/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_stretch.c.o
+[157/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_video_unsupported.c.o
+[158/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_vulkan_utils.c.o
+[159/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_opt.c.o
+[160/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/yuv2rgb/yuv_rgb_lsx.c.o
+[161/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/yuv2rgb/yuv_rgb_sse.c.o
+[162/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_surface.c.o
+[163/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_atan2.c.o
+[164/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_exp.c.o
+[165/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_fmod.c.o
+[166/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_log.c.o
+[167/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_log10.c.o
+[168/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_pow.c.o
+[169/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_rem_pio2.c.o
+[170/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_yuv.c.o
+[171/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/k_cos.c.o
+[172/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/e_sqrt.c.o
+[173/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/k_sin.c.o
+[174/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/k_tan.c.o
+[175/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_atan.c.o
+[176/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_copysign.c.o
+[177/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_cos.c.o
+[178/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/k_rem_pio2.c.o
+[179/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_fabs.c.o
+[180/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_floor.c.o
+[181/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_isinf.c.o
+[182/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_isinff.c.o
+[183/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_isnan.c.o
+[184/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_isnanf.c.o
+[185/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_modf.c.o
+[186/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_scalbn.c.o
+[187/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_video.c.o
+[188/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_sin.c.o
+[189/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/libm/s_tan.c.o
+[190/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/dummy/SDL_dummyaudio.c.o
+[191/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/disk/SDL_diskaudio.c.o
+[192/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/camera/dummy/SDL_camera_dummy.c.o
+[193/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/loadso/dlopen/SDL_sysloadso.c.o
+[194/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/yuv2rgb/yuv_rgb_std.c.o
+[195/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/dummy/SDL_nullevents.c.o
+[196/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/dummy/SDL_nullframebuffer.c.o
+[197/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/dummy/SDL_nullvideo.c.o
+[198/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/misc/android/SDL_sysurl.c.o
+[199/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/virtual/SDL_virtualjoystick.c.o
+[200/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/openslES/SDL_openslES.c.o
+[201/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/filesystem/android/SDL_sysfilesystem.c.o
+[202/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/audio/aaudio/SDL_aaudio.c.o
+[203/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/filesystem/posix/SDL_sysfsops.c.o
+[204/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/haptic/android/SDL_syshaptic.c.o
+[205/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_combined.c.o
+[206/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_8bitdo.c.o
+[207/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/core/android/SDL_android.c.o
+[208/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_gamecube.c.o
+[209/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_flydigi.c.o
+[210/594] Building CXX object android/sdl_build/CMakeFiles/SDL3-static.dir/src/hidapi/android/hid.cpp.o
+[211/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_luna.c.o
+[212/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_lg4ff.c.o
+[213/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_ps3.c.o
+[214/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_rumble.c.o
+[215/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_ps4.c.o
+[216/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_ps5.c.o
+[217/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_stadia.c.o
+[218/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_shield.c.o
+[219/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_gip.c.o
+[220/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_steam_triton.c.o
+[221/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_steam_hori.c.o
+[222/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_sinput.c.o
+[223/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_switch2.c.o
+[224/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_steamdeck.c.o
+[225/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_blit_auto.c.o
+[226/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_steam.c.o
+[227/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_xbox360.c.o
+[228/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_xbox360w.c.o
+[229/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_zuiki.c.o
+[230/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_wii.c.o
+[231/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/haptic/hidapi/SDL_hidapihaptic.c.o
+[232/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_xboxone.c.o
+[233/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_report_descriptor.c.o
+[234/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapijoystick.c.o
+[235/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/power/android/SDL_syspower.c.o
+[236/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/hidapi/SDL_hidapi_switch.c.o
+[237/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/joystick/android/SDL_sysjoystick.c.o
+[238/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/locale/android/SDL_syslocale.c.o
+[239/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/timer/unix/SDL_systimer.c.o
+[240/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/time/unix/SDL_systime.c.o
+[241/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidclipboard.c.o
+[242/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/sensor/android/SDL_androidsensor.c.o
+/home/emeric/code/jak-shrub-reference-602cd/third-party/SDL/src/sensor/android/SDL_androidsensor.c:140:26: warning: 'ASensorManager_getInstance' is deprecated: first deprecated in Android 26 - Use ASensorManager_getInstanceForPackage instead [-Wdeprecated-declarations]
+  140 |     SDL_sensor_manager = ASensorManager_getInstance();
+      |                          ^
+/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/android/sensor.h:751:17: note: 'ASensorManager_getInstance' has been explicitly marked deprecated here
+  751 | ASensorManager* ASensorManager_getInstance()
+      |                 ^
+1 warning generated.
+[243/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidgl.c.o
+[244/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidevents.c.o
+[245/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidkeyboard.c.o
+[246/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidmessagebox.c.o
+[247/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidpen.c.o
+[248/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/haptic/hidapi/SDL_hidapihaptic_lg4ff.c.o
+[249/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidmouse.c.o
+[250/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidtouch.c.o
+[251/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/camera/android/SDL_camera_android.c.o
+[252/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/SDL_stb.c.o
+[253/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_sysmutex.c.o
+[254/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_systhread.c.o
+[255/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidwindow.c.o
+[256/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_syscond.c.o
+[257/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_sysrwlock.c.o
+[258/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_systls.c.o
+[259/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/thread/pthread/SDL_syssem.c.o
+[260/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidvulkan.c.o
+[261/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/dialog/SDL_dialog.c.o
+[262/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/android/SDL_androidvideo.c.o
+[263/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenevents.c.o
+[264/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/dialog/android/SDL_androiddialog.c.o
+[265/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenframebuffer.c.o
+[266/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/process/SDL_process.c.o
+[267/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/dialog/unix/SDL_zenitymessagebox.c.o
+[268/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/dialog/SDL_dialog_utils.c.o
+[269/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenopengles.c.o
+[270/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenwindow.c.o
+[271/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/tray/SDL_tray_utils.c.o
+[272/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenvideo.c.o
+[273/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/process/dummy/SDL_dummyprocess.c.o
+[274/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/tray/dummy/SDL_tray.c.o
+[275/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/storage/generic/SDL_genericstorage.c.o
+[276/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/main/generic/SDL_sysmain_callbacks.c.o
+[277/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/video/offscreen/SDL_offscreenvulkan.c.o
+[278/594] Building C object android/sdl_build/CMakeFiles/SDL3-static.dir/src/gpu/vulkan/SDL_gpu_vulkan.c.o
+[279/594] Linking CXX static library android/sdl_build/libSDL3.a
+[280/594] Building C object android/zstd_build/CMakeFiles/libzstd_static.dir/lib/compress/zstd_lazy.c.o
+[281/594] Linking C static library android/zstd_build/liblibzstd_static.a
+[282/594] Building C object android/sqlite3_build/CMakeFiles/sqlite3.dir/sqlite3.c.o
+[283/594] Linking C static library android/sqlite3_build/libsqlite3.a
+[284/594] Phase 27: rewriting macOS-style ;; comments in asm_funcs_arm64.s for GNU as
+[285/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/musicbank.cpp.o
+[286/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/midi_handler.cpp.o
+[287/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/ame_handler.cpp.o
+[288/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/blocksound_handler.cpp.o
+[289/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/player.cpp.o
+[290/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/sfxblock.cpp.o
+[291/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/vagvoice.cpp.o
+[292/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/util.cpp.o
+[293/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/sfxgrain.cpp.o
+[294/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/common/synth.cpp.o
+[295/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/lfo.cpp.o
+[296/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/common/voice.cpp.o
+[297/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/common/envelope.cpp.o
+[298/594] Building CXX object android/CMakeFiles/android_kernel.dir/android_runtime_compat.cpp.o
+[299/594] Building CXX object android/CMakeFiles/android_kernel.dir/android_runtime_full.cpp.o
+[300/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/crc32.cpp.o
+[301/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/sdshim.cpp.o
+[302/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/BitUtils.cpp.o
+[303/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/Assert.cpp.o
+[304/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/Timer.cpp.o
+[305/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/989snd/loader.cpp.o
+[306/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/md5.cpp.o
+[307/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sound/sndshim.cpp.o
+[308/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/os.cpp.o
+[309/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/print_float.cpp.o
+[310/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/dgo_util.cpp.o
+[311/594] Building CXX object android/CMakeFiles/android_kernel.dir/android_graphics_stubs.cpp.o
+[312/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/dma/dma.cpp.o
+[313/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/diff.cpp.o
+[314/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/dma/gs.cpp.o
+[315/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/unicode_util.cpp.o
+[316/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/dma/dma_copy.cpp.o
+[317/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/versions/versions.cpp.o
+[318/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/string_util.cpp.o
+[319/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/sqlite/sqlite.cpp.o
+[320/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/audio/audio_formats.cpp.o
+[321/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/fileio.cpp.o
+[322/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/font/font_utils_korean.cpp.o
+[323/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/FileUtil.cpp.o
+[324/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kboot.cpp.o
+[325/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kdsnetm.cpp.o
+[326/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kdgo.cpp.o
+[327/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/font/font_utils.cpp.o
+[328/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/json_util.cpp.o
+[329/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/klink.cpp.o
+[330/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kmalloc.cpp.o
+[331/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/klisten.cpp.o
+[332/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kprint.cpp.o
+[333/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/runtime_trace.cpp.o
+[334/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kscheme.cpp.o
+[335/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/ksocket.cpp.o
+[336/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/ksound.cpp.o
+[337/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/common/kmemcard.cpp.o
+/home/emeric/code/jak-shrub-reference-602cd/game/kernel/common/kmemcard.cpp:97:11: warning: enumeration value 'JakX' not handled in switch [-Wswitch]
+   97 |   switch (version) {
+      |           ^~~~~~~
+1 warning generated.
+[338/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/fileio.cpp.o
+[339/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/klisten.cpp.o
+[340/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kboot.cpp.o
+[341/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kdgo.cpp.o
+[342/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kprint.cpp.o
+[343/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/font/dbs/font_db_jak1.cpp.o
+[344/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/ksound.cpp.o
+[345/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kscheme.cpp.o
+[346/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/klink.cpp.o
+[347/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/fileio.cpp.o
+[348/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/font/dbs/font_db_jak3.cpp.o
+[349/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/klisten.cpp.o
+[350/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kboot.cpp.o
+[351/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kdgo.cpp.o
+[352/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kmalloc.cpp.o
+[353/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kprint.cpp.o
+[354/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/klink.cpp.o
+[355/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kscheme.cpp.o
+[356/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kdsnetm.cpp.o
+[357/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/ksound.cpp.o
+[358/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/fileio.cpp.o
+[359/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kmachine.cpp.o
+[360/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kmemcard.cpp.o
+[361/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kdgo.cpp.o
+[362/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/util/font/dbs/font_db_jak2.cpp.o
+[363/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/ksocket.cpp.o
+[364/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/klisten.cpp.o
+[365/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kmalloc.cpp.o
+[366/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/klink.cpp.o
+[367/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak1/kmachine.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/kernel/jak1/kmachine.cpp:55:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/kernel/jak1/kmachine.cpp:55:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[368/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kprint.cpp.o
+[369/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/ksound.cpp.o
+[370/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak3/kscheme.cpp.o
+[371/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/bones.cpp.o
+[372/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_func.cpp.o
+[373/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_edge_grab.cpp.o
+[374/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_mesh.cpp.o
+[375/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_cache.cpp.o
+[376/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/collide_probe.cpp.o
+[377/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/draw_string.cpp.o
+[378/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/generic_effect2.cpp.o
+[379/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/generic_effect.cpp.o
+[380/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/kernel/jak2/kmachine_extras.cpp.o
+[381/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/generic_merc.cpp.o
+[382/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/ocean_vu0.cpp.o
+[383/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/generic_tie.cpp.o
+[384/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/merc_blend_shape.cpp.o
+[385/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/ocean.cpp.o
+[386/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/joint.cpp.o
+[387/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/ripple.cpp.o
+[388/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sky_tng.cpp.o
+[389/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/shadow.cpp.o
+[390/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/test_func.cpp.o
+[391/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/texture.cpp.o
+[392/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sparticle_launcher.cpp.o
+[393/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/sparticle.cpp.o
+[394/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/tfrag.cpp.o
+[395/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/tie_methods.cpp.o
+[396/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak1_functions/time_of_day.cpp.o
+[397/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/bones.cpp.o
+[398/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/collide_func.cpp.o
+[399/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/collide_edge_grab.cpp.o
+[400/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/collide_cache.cpp.o
+[401/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/collide_hash.cpp.o
+[402/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/collide_mesh.cpp.o
+[403/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/debug.cpp.o
+[404/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/foreground.cpp.o
+[405/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/font.cpp.o
+[406/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/lights.cpp.o
+[407/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/merc_blend_shape.cpp.o
+[408/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/generic_effect.cpp.o
+[409/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/nav_control.cpp.o
+[410/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/joint.cpp.o
+[411/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/generic_merc.cpp.o
+[412/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/nav_mesh.cpp.o
+[413/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/ocean_vu0.cpp.o
+[414/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/ocean.cpp.o
+[415/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/ripple.cpp.o
+[416/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/sparticle_launcher.cpp.o
+[417/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/shadow.cpp.o
+[418/594] Building ASM object android/CMakeFiles/android_kernel.dir/__/asm_funcs_arm64_gnu.s.o
+clang: warning: argument unused during compilation: '-D GOALC_BACKEND_ARM64' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D OG_ANDROID_NDK_BUILD=1' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D OG_ANDROID_RELEASE_BUILD=1' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D OG_FEAT_HD_MODELS=1' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D OG_FEAT_PBR=1' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D OG_FEAT_PHYSICS=1' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D ANDROID' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-funwind-tables' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fstack-protector-strong' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D _FORTIFY_SOURCE=2' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-D NDEBUG' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fsigned-char' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fexceptions' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fcxx-exceptions' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-fdiagnostics-color=always' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-pthread' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-MD' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-MT android/CMakeFiles/android_kernel.dir/__/asm_funcs_arm64_gnu.s.o' [-Wunused-command-line-argument]
+clang: warning: argument unused during compilation: '-MF android/CMakeFiles/android_kernel.dir/__/asm_funcs_arm64_gnu.s.o.d' [-Wunused-command-line-argument]
+[419/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/sparticle.cpp.o
+[420/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/sky.cpp.o
+[421/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/stubs.cpp.o
+[422/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/squid.cpp.o
+[423/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/libdma.cpp.o
+[424/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/texture.cpp.o
+[425/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/libscf.cpp.o
+[426/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/spatial_hash.cpp.o
+[427/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/jak2_functions/vortex.cpp.o
+[428/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/libcdvd_ee.cpp.o
+[429/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/deci2.cpp.o
+[430/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/cross_sockets/XSocket.cpp.o
+[431/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/iop.cpp.o
+[432/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/mips2c/mips2c_table_jak1_arm64.cpp.o
+[433/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/cross_sockets/XSocketClient.cpp.o
+[434/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/cross_sockets/XSocketServer.cpp.o
+[435/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/sif_ee.cpp.o
+[436/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/iop_thread.cpp.o
+[437/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/sce/sif_ee_memcard.cpp.o
+[438/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/SystemThread.cpp.o
+[439/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/touch_screen.cpp.o
+[440/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/shrub_proof_inputs.cpp.o
+[441/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/autoport_proof.cpp.o
+[442/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/IOP_Kernel.cpp.o
+[443/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/menu_dpad_census.cpp.o
+[444/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/load_gate.cpp.o
+[445/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/sched_affinity.cpp.o
+[446/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/perf_instruments.cpp.o
+[447/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/overlap_census.cpp.o
+[448/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/checkpoint_census.cpp.o
+[449/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/mesh_browser_census.cpp.o
+[450/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/water_census.cpp.o
+[451/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/perf_baseline.cpp.o
+[452/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[453/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/naming_census.cpp.o
+[454/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/dma.cpp.o
+[455/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/settings_case_l10n.cpp.o
+[456/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/boot_replay.cpp.o
+[457/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/npc_flicker.cpp.o
+[458/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/isocommon.cpp.o
+[459/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/overlord.cpp.o
+[460/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/Deci2Server.cpp.o
+[461/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/asset_manifest.cpp.o
+[462/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/pad_replay.cpp.o
+[463/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/iso_api.cpp.o
+[464/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/soundcommon.cpp.o
+[465/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/iso.cpp.o
+[466/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/srpc.cpp.o
+[467/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/recharged_gating.cpp.o
+[468/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/sbank.cpp.o
+[469/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/dma.cpp.o
+[470/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/ssound.cpp.o
+[471/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/iso_api.cpp.o
+[472/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/overlord.cpp.o
+[473/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/isocommon.cpp.o
+[474/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/common/fake_iso.cpp.o
+[475/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/ramdisk.cpp.o
+[476/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/iso.cpp.o
+[477/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/iso_queue.cpp.o
+[478/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/ssound.cpp.o
+[479/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/fake_iso.cpp.o
+[480/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/dma.cpp.o
+[481/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/iso.cpp.o
+[482/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/stream.cpp.o
+[483/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/list.cpp.o
+[484/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/iso_api.cpp.o
+[485/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/overlord.cpp.o
+[486/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/pages.cpp.o
+[487/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/streamlfo.cpp.o
+[488/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/iso_queue.cpp.o
+[489/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/iso_cd.cpp.o
+[490/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/spustreams.cpp.o
+[491/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/ssound.cpp.o
+[492/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/srpc.cpp.o
+[493/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak1/srpc.cpp.o
+[494/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/streamlist.cpp.o
+[495/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/vag.cpp.o
+[496/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/overlord/jak2/stream.cpp.o
+[497/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/external/discord_jak2.cpp.o
+[498/594] Building CXX object android/CMakeFiles/gk.dir/android_goal_main.cpp.o
+[499/594] Building CXX object android/CMakeFiles/gk.dir/android_input_audio.cpp.o
+[500/594] Building C object android/CMakeFiles/gk.dir/__/third-party/glad/src/glad.c.o
+clang: warning: argument unused during compilation: '-fcxx-exceptions' [-Wunused-command-line-argument]
+[501/594] Building CXX object android/CMakeFiles/gk.dir/android_renderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_renderer.cpp:43:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_renderer.cpp:43:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[502/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/BucketRenderer.cpp.o
+[503/594] Building CXX object android/CMakeFiles/gk.dir/android_gfx.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_gfx.cpp:45:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_gfx.cpp:45:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[504/594] Building CXX object android/CMakeFiles/gk.dir/gk_android_main.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/gk_android_main.cpp:100:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/gk_android_main.cpp:100:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/android/gk_android_main.cpp:3232:18: warning: variable 'w' set but not used [-Wunused-but-set-variable]
+ 3232 |         uint32_t w = 1;
+      |                  ^
+/home/emeric/code/jak-shrub-reference-602cd/android/gk_android_main.cpp:3941:13: warning: variable 'ev_trans_dropped' set but not used [-Wunused-but-set-variable]
+ 3941 |         int ev_trans_dropped = 0;
+      |             ^
+/home/emeric/code/jak-shrub-reference-602cd/android/gk_android_main.cpp:7198:19: warning: increment of object of volatile-qualified type 'volatile sig_atomic_t' (aka 'volatile int') is deprecated [-Wdeprecated-volatile]
+ 7198 |   if (g_diag_depth++ > 3) {
+      |                   ^
+5 warnings generated.
+[505/594] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/graphics/jak2_texture_remap.cpp.o
+[506/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/ProgressRenderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/ProgressRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/ProgressRenderer.h:4:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/ProgressRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/ProgressRenderer.h:4:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[507/594] Building CXX object android/CMakeFiles/gk.dir/android_opengl_renderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.cpp:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.cpp:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/android/android_opengl_renderer.h:29:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[508/594] Linking CXX static library android/libandroid_kernel.a
+[509/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/DirectRenderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.cpp:2:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.cpp:2:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[510/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/gl_uniform_cache.cpp.o
+[511/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/prop_cache.cpp.o
+[512/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/AmbientOcclusion.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.cpp:845:6: warning: unused function 'flat_step' [-Wunused-function]
+  845 | void flat_step(const uint8_t* ao,
+      |      ^~~~~~~~~
+3 warnings generated.
+[513/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/frame_ubo.cpp.o
+[514/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/PrePass.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:14:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/AmbientOcclusion.h:17:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/Fbo.h:6:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:94:10: warning: unused variable 'g_phantom_px' [-Wunused-variable]
+   94 | uint64_t g_phantom_px = 0, g_phantom_cover_px = 0;
+      |          ^~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:94:28: warning: unused variable 'g_phantom_cover_px' [-Wunused-variable]
+   94 | uint64_t g_phantom_px = 0, g_phantom_cover_px = 0;
+      |                            ^~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:100:10: warning: unused variable 'g_probe_frames' [-Wunused-variable]
+  100 | uint64_t g_probe_frames = 0;
+      |          ^~~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:101:10: warning: unused variable 'g_probe_px' [-Wunused-variable]
+  101 | uint64_t g_probe_px = 0;
+      |          ^~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:102:10: warning: unused variable 'g_leak_px' [-Wunused-variable]
+  102 | uint64_t g_leak_px = 0;
+      |          ^~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:103:10: warning: unused variable 'g_excluded_px' [-Wunused-variable]
+  103 | uint64_t g_excluded_px = 0;
+      |          ^~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:104:10: warning: unused variable 'g_hit_px' [-Wunused-variable]
+  104 | uint64_t g_hit_px = 0;
+      |          ^~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:105:10: warning: unused variable 'g_unmarked_px' [-Wunused-variable]
+  105 | uint64_t g_unmarked_px = 0;
+      |          ^~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:106:8: warning: unused variable 'g_probe_fbo' [-Wunused-variable]
+  106 | GLuint g_probe_fbo = 0, g_probe_color = 0, g_probe_ds = 0;
+      |        ^~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:106:25: warning: unused variable 'g_probe_color' [-Wunused-variable]
+  106 | GLuint g_probe_fbo = 0, g_probe_color = 0, g_probe_ds = 0;
+      |                         ^~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:106:44: warning: unused variable 'g_probe_ds' [-Wunused-variable]
+  106 | GLuint g_probe_fbo = 0, g_probe_color = 0, g_probe_ds = 0;
+      |                                            ^~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:107:5: warning: unused variable 'g_probe_w' [-Wunused-variable]
+  107 | int g_probe_w = 0, g_probe_h = 0;
+      |     ^~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:107:20: warning: unused variable 'g_probe_h' [-Wunused-variable]
+  107 | int g_probe_w = 0, g_probe_h = 0;
+      |                    ^~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/PrePass.cpp:108:5: warning: unused variable 'g_probe_state' [-Wunused-variable]
+  108 | int g_probe_state = 0;  // 0 = pas encore, 1 = ok, -1 = refuse (publie)
+      |     ^~~~~~~~~~~~~
+16 warnings generated.
+[515/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/GrassRenderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/GrassRenderer.cpp:2:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/GrassRenderer.cpp:2:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[516/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/TextureUploadHandler.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/TextureUploadHandler.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/TextureUploadHandler.h:4:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/TextureUploadHandler.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/TextureUploadHandler.h:4:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[517/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/VisDataHandler.cpp.o
+[518/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/SlowTimeEffect.cpp.o
+[519/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/GrassBakeCore.cpp.o
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/GrassBakeCore.cpp:1740:8: warning: unused variable 'cap_droop' [-Wunused-variable]
+ 1740 |   auto cap_droop = [&](const float base[3], u32 host, const float n[3], float h_nat) -> float {
+      |        ^~~~~~~~~
+1 warning generated.
+[520/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/BlitDisplays.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/BlitDisplays.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/BlitDisplays.h:5:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/BlitDisplays.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/BlitDisplays.h:5:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[521/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/EyeRenderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.h:6:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.h:6:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[522/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/fire_red_census.cpp.o
+[523/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/SkyRenderer.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyRenderer.h:3:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics//opengl_renderer/SkyBlendCPU.h:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyRenderer.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyRenderer.h:3:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics//opengl_renderer/SkyBlendCPU.h:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[524/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/SkyBlendCPU.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendCPU.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendCPU.h:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendCPU.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendCPU.h:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[525/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/gl_query_census.cpp.o
+[526/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/SkyBlendGPU.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendGPU.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendGPU.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendGPU.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/SkyBlendGPU.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[527/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/fixed_tick.cpp.o
+[528/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/shade_proof.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/shade_proof.cpp:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/shade_proof.cpp:7:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[529/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/lighting_census.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/lighting_census.cpp:15:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/lighting_census.cpp:15:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[530/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/hdr.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[531/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/render_pace.cpp.o
+[532/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/uncap.cpp.o
+[533/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/hdr_output.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.h:72:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1037:17: warning: unused variable 'kAnchorKeyFrac' [-Wunused-const-variable]
+ 1037 | constexpr float kAnchorKeyFrac = 0.5f;
+      |                 ^~~~~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1038:36: warning: unused variable 'kAnchorHi' [-Wunused-const-variable]
+ 1038 | constexpr float kAnchorLo = 0.02f, kAnchorHi = 0.25f;
+      |                                    ^~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1045:17: warning: unused variable 'kAnchorCeil' [-Wunused-const-variable]
+ 1045 | constexpr float kAnchorCeil = 0.60f;
+      |                 ^~~~~~~~~~~
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr_output.cpp:1048:17: warning: unused variable 'kMinTopGain' [-Wunused-const-variable]
+ 1048 | constexpr float kMinTopGain = 0.02f;
+      |                 ^~~~~~~~~~~
+6 warnings generated.
+[534/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/background_common.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/background_common.cpp:38:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/background_common.cpp:38:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/background_common.cpp:1976:9: warning: variable 'ambW_y' set but not used [-Wunused-but-set-variable]
+ 1976 |   float ambW_y = 1.0f, ambW_g = 0.0f;
+      |         ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/background_common.cpp:1976:24: warning: variable 'ambW_g' set but not used [-Wunused-but-set-variable]
+ 1976 |   float ambW_y = 1.0f, ambW_g = 0.0f;
+      |                        ^
+4 warnings generated.
+[535/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/TFragment.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/TFragment.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/TFragment.h:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/TFragment.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/TFragment.h:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/DirectRenderer.h:10:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[536/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/foliage_wind.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.h:86:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.h:86:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[537/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Shrub.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Shrub.cpp:3:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Shrub.cpp:3:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[538/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o
+FAILED: [code=1] android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o 
+/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android29 --sysroot=/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/sysroot -DGOALC_BACKEND_ARM64 -DOG_ANDROID_NDK_BUILD=1 -DOG_ANDROID_RELEASE_BUILD=1 -DOG_FEAT_HD_MODELS=1 -DOG_FEAT_PBR=1 -DOG_FEAT_PHYSICS=1 -Dgk_EXPORTS -I/home/emeric/code/jak-shrub-reference-602cd -I/home/emeric/code/jak-shrub-reference-602cd/third-party -I/home/emeric/code/jak-shrub-reference-602cd/game -I/home/emeric/code/jak-shrub-reference-602cd/third-party/SDL/include -I/home/emeric/code/jak-shrub-reference-602cd/build-android/shaders -I/home/emeric/code/jak-shrub-reference-602cd/third-party/glad/include -I/home/emeric/code/jak-shrub-reference-602cd/third-party/imgui -I/home/emeric/code/jak-shrub-reference-602cd/third-party/fmt/include -I/home/emeric/code/jak-shrub-reference-602cd/build-android/android/sdl_build/include-revision -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -O2 -g -DNDEBUG -std=gnu++20 -fPIC -fvisibility=default -fsigned-char -O3 -g0 -fexceptions -fcxx-exceptions -fdiagnostics-color=always -Wall -Wno-unused-parameter -Werror=return-type -pthread -MD -MT android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o -MF android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o.d -o android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/background/Tie3.cpp.o -c /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/shrub_contact_probe.h:8:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1717:56: error: use of undeclared identifier 'geom'
+ 1717 |       shrub_contact_probe::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      |                                                        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1717:62: error: use of undeclared identifier 'idx'
+ 1717 |       shrub_contact_probe::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      |                                                              ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1761:56: error: use of undeclared identifier 'geom'
+ 1761 |       shrub_contact_probe::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
+      |                                                        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1761:62: error: use of undeclared identifier 'idx'
+ 1761 |       shrub_contact_probe::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
+      |                                                              ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1768:62: error: use of undeclared identifier 'geom'
+ 1768 |       shrub_contact_probe::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
+      |                                                              ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/Tie3.cpp:1768:68: error: use of undeclared identifier 'idx'
+ 1768 |       shrub_contact_probe::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
+      |                                                                    ^
+2 warnings and 6 errors generated.
+[539/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Generic2.cpp.o
+[540/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Merc2BucketRenderer.cpp.o
+[541/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Generic2_Build.cpp.o
+[542/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Generic2_DMA.cpp.o
+[543/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp:7:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/hdr.h:48:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[544/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/refset.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.h:86:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/refset.cpp:26:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/background/foliage_wind.h:86:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[545/594] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/foreground/Merc2.cpp.o
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/foreground/Merc2.cpp:44:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.h:6:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/foreground/Merc2.cpp:44:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/EyeRenderer.h:6:
+In file included from /home/emeric/code/jak-shrub-reference-602cd/game/graphics/opengl_renderer/opengl_utils.h:5:
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-shrub-reference-602cd/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+ninja: build stopped: subcommand failed.
