@@ -1,0 +1,31 @@
+DIRECTIVES vd321fc8caf
+Diagnostic historique a2, pas preuve de l’essai 3.
+Extraits des journaux existants ; aucun nouvel instrument de mesure.
+
+SOURCE .autoport/reports/perf-codegen-arm64-calls/notes/a2/capture-engine.log.gz
+1107: 09-15 03:25:51.967 I/GK_STDOUT( 7122): pad_replay: REPLAY <- /data/data/org.opengoal.gk.jak1/files/neutral.inputs (v2, 0 logic frames, seed=0x0ad12345, providers=no(legacy))
+2642: 09-15 03:25:58.212 I/GK_STDOUT( 7122): REFSET provenance-init version=2 data=4eabb0fc1e6d0a6c input=f97b073c2df76fb4 input_source=loaded-replay actor_rng_state=not-restored-by-sidecars
+2743: 09-15 03:25:58.283 I/GK_STDOUT( 7122): pad_replay: ANCHOR reached at logic frame 3 (replay); rng forced to 0x0ad12345
+25501: 09-15 03:26:02.706 I/GK_STDOUT( 7122): REFSET pose x=-155.97 y=34.01 z=187.99 cap=163.0
+25503: 09-15 03:26:02.706 I/GK_STDOUT( 7122): REFSET warp1 lf=600 (le plan demarre dans 300 images)
+38437: 09-15 03:26:12.841 I/GK_STDOUT( 7122): REFSET start lf=900 warp1=600 settle=180
+38445: 09-15 03:26:12.872 I/GK_STDOUT( 7122): REFSET pose x=-116.00 y=14.00 z=40.00 cap=163.0
+40312: 09-15 03:26:12.914 I/opengoal-gk( 7122): REFSET repin-particules fait
+41257: 09-15 03:26:12.935 I/GK_STDOUT( 7122): REFSET repin-particules lf=902 (ancre=901)
+50138: 09-15 03:26:18.061 I/GK_STDOUT( 7122): REFSET sample case=origine/h09 layer=historical chain_lf=1081 anchor_lf=901 sample=0 samples=1
+50143: 09-15 03:26:18.122 I/GK_STDOUT( 7122): REFSET done steps=1 captured=1 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=1 settle=180
+
+SOURCE .autoport/reports/perf-codegen-arm64-calls/notes/a2/replay-engine.log.gz
+981: 09-15 03:28:20.389 I/GK_STDOUT( 7850): pad_replay: REPLAY <- /data/data/org.opengoal.gk.jak1/files/neutral.inputs (v2, 0 logic frames, seed=0x0ad12345, providers=no(legacy))
+2573: 09-15 03:28:25.848 I/GK_STDOUT( 7850): REFSET provenance-init version=2 data=4eabb0fc1e6d0a6c input=f97b073c2df76fb4 input_source=loaded-replay actor_rng_state=not-restored-by-sidecars
+2674: 09-15 03:28:25.914 I/GK_STDOUT( 7850): pad_replay: ANCHOR reached at logic frame 3 (replay); rng forced to 0x0ad12345
+25309: 09-15 03:28:30.590 I/GK_STDOUT( 7850): REFSET pose x=-155.97 y=34.01 z=187.99 cap=163.0
+25312: 09-15 03:28:30.590 I/GK_STDOUT( 7850): REFSET warp1 lf=600 (le plan demarre dans 300 images)
+38527: 09-15 03:28:44.337 I/GK_STDOUT( 7850): REFSET start lf=900 warp1=600 settle=180
+38535: 09-15 03:28:44.365 I/GK_STDOUT( 7850): REFSET pose x=-116.00 y=14.00 z=40.00 cap=163.0
+40611: 09-15 03:28:44.409 I/opengoal-gk( 7850): REFSET repin-particules fait
+41403: 09-15 03:28:44.433 I/GK_STDOUT( 7850): REFSET repin-particules lf=902 (ancre=901)
+51065: 09-15 03:28:50.237 I/GK_STDOUT( 7850): REFSET sample case=origine/h09 layer=historical chain_lf=1081 anchor_lf=901 sample=0 samples=1
+51068: 09-15 03:28:50.243 I/GK_STDOUT( 7850): REFSET cmp origine/h09 maxdiff=61 diffpx=577
+51071: 09-15 03:28:50.318 I/GK_STDOUT( 7850): REFSET ledger runs=1 flaky=0 (bin=141bcc7b2d3081bb refs=3a1feecef859c3a1 data=4eabb0fc1e6d0a6c maxdiff=61)
+51072: 09-15 03:28:50.318 I/GK_STDOUT( 7850): REFSET done steps=1 captured=0 compared=1 maxdiff=61 diffpx=577 missing=0 slip=0..0 rewarps=1 settle=180

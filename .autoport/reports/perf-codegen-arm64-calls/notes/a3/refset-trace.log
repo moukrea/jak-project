@@ -1,0 +1,5 @@
+09-15 03:44:54.629 I/GK_STDOUT( 9248): pad_replay: REPLAY <- /data/data/org.opengoal.gk.jak1/files/neutral.inputs (v2, 0 logic frames, seed=0x0ad12345, providers=no(legacy))
+09-15 03:45:24.083 I/GK_STDOUT( 9248): REFSET sample case=origine/h09 layer=historical chain_lf=1081 anchor_lf=901 sample=0 samples=1
+09-15 03:45:24.089 I/GK_STDOUT( 9248): REFSET cmp origine/h09 maxdiff=57 diffpx=550
+09-15 03:45:24.160 I/GK_STDOUT( 9248): REFSET ledger runs=2 flaky=1 (bin=141bcc7b2d3081bb refs=3a1feecef859c3a1 data=4eabb0fc1e6d0a6c maxdiff=57)
+09-15 03:45:24.160 I/GK_STDOUT( 9248): REFSET done steps=1 captured=0 compared=1 maxdiff=57 diffpx=550 missing=0 slip=0..0 rewarps=1 settle=180

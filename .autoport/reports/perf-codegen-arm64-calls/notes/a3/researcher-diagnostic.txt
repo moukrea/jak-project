@@ -1,0 +1,17 @@
+DIRECTIVES vd321fc8caf
+Diagnostic researcher, lecture seule des traces a2 ; aucune preuve essai3 ici.
+C=notes/a2/capture-engine.log.gz ; R=notes/a2/replay-engine.log.gz ; lignes décompressées.
+Seed 0x0ad12345 forcée lf3 : C1107,2743 ; R981,2674.
+Warp600/ancre901/repin902/sample1081/slip0 : C25503,41257,50138-50143 ; R25312,41403,51065-51072.
+Pump logic1081/render0, particules179 pas/1 réancrage : C49503-49514 ; R50424-50435.
+Acteurs71 actifs/10 suspendus/82 processus/81 acteurs/83 nœuds : C48830-48834 ; R49570-49574.
+Huit corner_w caméra identiques au sample : C50139 ; R51064 ; pas empreinte caméra complète.
+Start->sample mural 5,220s/5,900s : C38437,50138 ; R38527,51065.
+Alpha brut minimal30053/36544 ; effectif1000000 et skip0 dans les deux : C49497-49499,49516 ; R50417-50419,50437.
+anim_step_rephase_f60 cumulatif11/13 : C48919 ; R49659 ; ne localise pas les pixels.
+Comparateur RGB : maxdiff61,577/57600 pixels ; alpha ignoré, refset.cpp1646-1669 ; R51068.
+Tick désarmé dans les deux ; chemin pad replay force le timestep, kmachine.cpp5017-5034.
+Aucune empreinte DMA/particules/acteur complet/RNG courant au sample trouvée.
+Les sidecars ne restaurent pas ces états ; leur égalité n’est pas établie.
+Aucune cause codegen démontrée ; modifier fixed_tick uniquement au rejeu invaliderait la comparaison.
+Une restauration/qualification état serait un chantier hors périmètre ; pas une cause prouvée.

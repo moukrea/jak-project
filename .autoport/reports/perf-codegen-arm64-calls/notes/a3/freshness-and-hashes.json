@@ -1,0 +1,16 @@
+{
+  "run_started": "2026-09-15T01:44:47Z",
+  "run_ended": "2026-09-15T01:47:02Z",
+  "proof_started": "2026-09-15T01:44:48Z",
+  "seal_at": "2026-09-15T01:47:02Z",
+  "timestamps_inside_run": true,
+  "proof_hash_matches_seal": true,
+  "binary_sha_matches_proof": true,
+  "reference_fp_matches_a2": true,
+  "hashes": {
+    "proof.txt": "90d1e8136841df0be303ee9be2f3f22d67505047a984f99b298919bca363a26d",
+    "proof.seal": "64bcffe6c1fc6eb00f324f6ffdd7daf763198d01337bedab14dccd4de19b358d",
+    "proof-engine.log": "665d5794a7e0378b39aff09ec38d265d1b2603704cb7c5dfcd60735dbeb6e0ea",
+    "libgk.so": "0650799f8e3323e8aa8eaa6c535860eba0d108b2a422becfaf33fdb50cd81031"
+  }
+}
