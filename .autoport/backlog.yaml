@@ -11967,7 +11967,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 7
+  max_retries: 8
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
@@ -12030,7 +12030,11 @@ items:
     Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact
     est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis. | budget :
     7, un essai de reprise concret apres retour owner explicite sur le raccord. Ancienne proposition remplacee
-    par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8.'
+    par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8.
+    | budget : 8, un essai de continuation apres preparation code2d4d5bb656. Terminer raccordement profondeur/normales/couleur
+    et identites mur/toit de notes/attempt9-preparation.md ; ne pas refaire audit ni les trois tests deja
+    passes sans modification. Epinger proof_props hutte/capture avant toute course ; plan0/6 conserve,
+    aucune extension appareil.'
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -12160,6 +12164,13 @@ items:
     runs_consumed: 9
     runs_remaining: 0
     ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
+  supervisor_review:
+    date: '2026-09-15'
+    evidence: reports/ao-prepass-tie-alpha/handoff.md essai9
+    result: Preparation code compilee ; attribution physique et archives completes encore a brancher.
+      Aucune course0/6. Reprise justifiee par nouveau code, pas relance de l audit8.
+    next_step: Terminer notes/attempt9-preparation.md, reprendre hypothese flou owner dans proof_plan,
+      regler les proprietes de preuve sur hutte avant lancement. Budget actuel inchange.
 - status: open
   game: jak1
   device: false
