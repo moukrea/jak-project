@@ -27,6 +27,12 @@ static bool is_end_tag(const DmaTag& tag, const VifCode& v0, const VifCode& v1) 
 void OceanNear::render(DmaFollower& dma,
                        SharedRenderState* render_state,
                        ScopedProfilerNode& prof) {
+  const bool water_on = m_enabled && render_state->version == GameVersion::Jak1 &&
+                        ocean_recharged_enabled();
+  if (render_state->version == GameVersion::Jak1) {
+    OceanRecharged::get().begin_near_frame(water_on);
+  }
+
   // skip if disabled
   if (!m_enabled) {
     while (dma.current_tag_offset() != render_state->next_bucket) {
@@ -38,7 +44,6 @@ void OceanNear::render(DmaFollower& dma,
   // water-ocean-mesh (SPEC-refonte-eau §5.1) : sous `recharged_water`, le bucket 63 consomme son
   // DMA sans dessiner, et la clipmap prend sa place — c'est la position W2a, apres tous les
   // opaques et tous les alphas, la seule ou la profondeur de scene est lisible.
-  const bool water_on = render_state->version == GameVersion::Jak1 && ocean_recharged_enabled();
   m_common_ocean_renderer.set_suppress_draw(water_on);
 
   switch (render_state->version) {

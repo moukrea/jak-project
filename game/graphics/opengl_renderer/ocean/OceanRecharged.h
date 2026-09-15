@@ -32,6 +32,9 @@ class OceanRecharged {
  public:
   static OceanRecharged& get();
 
+  // Appele au debut du bucket 63 Jak1, meme desactive ou vide.
+  void begin_near_frame(bool active);
+
   // Appele par OceanNear apres le decodage VIF du bucket 63 : `ocean-near-add-heights` y a pousse
   // les 4096 octets de `*ocean-heights*` (2 x 2048), les 1024 flottants MEMES que
   // `ocean-get-height` lit. C'est la capture de la couche A.
@@ -76,6 +79,7 @@ class OceanRecharged {
 
   // --- couche A ----------------------------------------------------------------------------
   std::array<float, 1024> m_layer_a = {};
+  bool m_accept_layer_a = false;
   bool m_have_layer_a = false;
   bool m_layer_a_fresh = false;
   u32 m_layer_a_map_ptr = 0;  // carte associee a la derniere capture au draw

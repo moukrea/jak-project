@@ -157,7 +157,19 @@ OceanRecharged& OceanRecharged::get() {
   return s_instance;
 }
 
+void OceanRecharged::begin_near_frame(bool active) {
+  m_layer_a_fresh = false;
+  m_accept_layer_a = active;
+  if (!active) {
+    m_have_layer_a = false;
+    m_layer_a_map_ptr = 0;
+  }
+}
+
 void OceanRecharged::note_layer_a(const void* heights_4096_bytes) {
+  if (!m_accept_layer_a) {
+    return;
+  }
   std::memcpy(m_layer_a.data(), heights_4096_bytes, sizeof(float) * m_layer_a.size());
   m_have_layer_a = true;
   m_layer_a_fresh = true;
