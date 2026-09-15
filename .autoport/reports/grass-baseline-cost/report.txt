@@ -1,8 +1,8 @@
 DIRECTIVES v07b292c21f
-Verdict : essai 4 NON ABOUTI ; les mesures restent bloquées par le contrat inchangé.
+Verdict : essai 5 NON ABOUTI ; les mesures restent bloquées par le contrat inchangé.
 Changements : rapport, FINDINGS, note de reprise et handoff uniquement.
-USB disponible : pick_device.sh exit=0, serial=eae4df44 (notes/attempt4-scope.md).
-Delta depuis fb95f8302d vide : game/common/scripts, proof_run.sh, prompt et SPEC.
+USB disponible : pick_device.sh exit=0, serial=eae4df44 (notes/attempt5-scope.md).
+Delta depuis 4f64520694 vide : game/common/scripts, proof_run.sh, prompt et SPEC.
 Lecture YAML : proof_plan absent ; la clause « Ne change RIEN » reste présente.
 Les dix fenêtres sont demandées ; créer les instruments manquants reste hors autorisation.
 Aucune course nouvelle : répéter le diagnostic ne produirait pas ces instruments.
@@ -15,7 +15,7 @@ frames=4920
 proof_feature_state=absent
 proof_feature_declared=0
 proof_feature_own_hits=0
-validator-003.txt : trois FAIL, preuve d’un autre essai, site absent, gaps absent.
+validator-004.txt : trois FAIL, preuve d’un autre essai, site absent, gaps absent.
 proof.txt et proof.seal conservés à l’identique ; empreintes dans la note de reprise.
 Aucun build ni changement moteur ; validateur laissé à l’orchestrateur.
 Owner : rien à regarder ; owner_test=false, aucun verdict visuel attendu.
