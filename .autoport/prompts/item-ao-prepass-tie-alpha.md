@@ -8,7 +8,9 @@
 - 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
 
 ## Cause connue
-REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire […suite dans le contrat]
+REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.
+
+REPRISE O […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

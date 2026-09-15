@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.
+
 REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire.
 
 RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee non identifiee. Diagnostic causal a etablir, la capture nest pas une mesure moteur.
@@ -31,6 +33,7 @@ Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations
 Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
 EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
 REPRISE15/09 APRES REPONSE OWNER : le plan historique9/9 reste clos. Le proof_plan courant borne la correction demandee au raccord hutte, six mesures maximum150s, instrumentation necessaire comprise. Ce nouveau perimetre remplace l attente d arbitrage precedente ; ne pas refaire la campagne trois vues ni toucher aux mini-palmiers valides. Preserver tous les criteres finaux ; aucune validation acquise par cette reprise.
+REPRISE LOCALE APRES6/6 : preparer une correction de la dilution residuelle sur les archives deja acquises, avec rejeu local du shader et profils fixes425pixels/15contacts. Pas de nouvel appel proof_run appareil ni de recapture : campagne6/6 close. Traiter aussi les phases du damier pour ne pas le reintroduire. Comparer reference/candidat sur le meme pilote local ; les ecarts connus Intel/Redmi1..2quantums interdisent de presenter le resultat local comme validation appareil. Livrer candidat compile, tests et limites ; ne pas rendre la main en repetant uniquement budget epuise. Aucune baisse de seuil, aucun cote manquant efface, aucune cloture de resultat.
 
 ## Ou l'owner regardera
 

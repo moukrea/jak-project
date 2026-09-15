@@ -10,7 +10,7 @@ Mini-palmiers valides par l owner ; aucun acquis/shrub-trunk-contact.sh present.
 Ajouter acquis/shrub-trunk-contact.sh pour proteger les invariants locaux observables du correctif livre (separation tronc/feuillage et jonctions), avec echec sur regression pertinente. Reutiliser les instruments et tests existants ; annoncer explicitement ce que cette garde locale ne couvre pas. Aucun compteur appareil fabrique.
 
 ## Preuve exigee
-Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
+`shrub_trunk_anchor_defects == 0` dans `reports/acquis-shrub-trunk-contact/proof.txt`.
 Le proof se produit par `lib/proof_run.sh acquis-shrub-trunk-contact x86` — jamais a la main, jamais recopie dans le rapport.
 
 ## Hors perimetre
