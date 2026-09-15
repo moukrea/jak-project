@@ -1,0 +1,33 @@
+{
+  "compiler": "/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++",
+  "build_command": [
+    "/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++",
+    "-B/usr/aarch64-linux-gnu/lib/",
+    "--target=aarch64-linux-gnu",
+    "--gcc-install-dir=/usr/aarch64-linux-gnu/lib/gcc-cross/12",
+    "-isystem",
+    "/usr/aarch64-linux-gnu/include/c++/12",
+    "-isystem",
+    "/usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu",
+    "-isystem",
+    "/usr/aarch64-linux-gnu/include",
+    "-L/usr/aarch64-linux-gnu/lib",
+    "-L/usr/aarch64-linux-gnu/lib/gcc-cross/12",
+    "-Wl,-rpath-link,/usr/aarch64-linux-gnu/lib",
+    "-O3",
+    "-DNDEBUG",
+    "-std=gnu++20",
+    "-ffp-contract=off",
+    "-I.",
+    "-Ithird-party/fmt/include",
+    ".autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity.cpp",
+    ".autoport/reports/perf-mips2c-neon/notes/attempt7/assert-fail-fast.cpp",
+    "-o",
+    "/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/supervisor-clang-20260915/block-parity-arm-clang"
+  ],
+  "build_exit": 0,
+  "run_exit": 1,
+  "scope": "banc synthetique Clang Linux ARM/QEMU, pas preuve Android ni performance materielle",
+  "source_sha256": "7c9ec53f32050b7f0719718ce069a6cad726c66e2c23fcaddb9c5054989231b5",
+  "binary_sha256": "7528d9fc590fbca5a51ae54bddd56d03c594b97854884e7dd985bbfd058e5514"
+}
