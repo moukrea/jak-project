@@ -1,0 +1,32 @@
+[proof_run soft-baseline] verrou d'ecriture pris (.autoport/reports/soft-baseline/proof-writer.lock) : pid=2589937 lanceur=2589936 essai=soft-baseline@2#1789459788 course=20260915T081453Z-2589937-bbf45ad8
+[proof_run soft-baseline] PEREMPTION VUE AVANT LA COURSE (code 5) : la preuve qui etait la datait d'avant une edition.
+[proof_run soft-baseline]   [stale_precheck soft-baseline] PEREMPTION VUE AVANT LA COURSE : 1 fichier(s) plus recent(s) que .autoport/reports/soft-baseline/proof.txt.
+[proof_run soft-baseline]     source(s) MOTEUR     : game/graphics/opengl_renderer/soft_draw_census.cpp
+[proof_run soft-baseline]     C'est le constat que validators/generic.sh rendrait a la fin de l'essai. La course
+[proof_run soft-baseline]     qui demarre le repare ; si elle n'aboutit pas, l'essai mourra la-dessus.
+[proof_run soft-baseline] attente : APK reecrit il y a 42s
+[proof_run soft-baseline] build fini apres 30s d'attente, on mesure.
+[proof_run soft-baseline] garde de build : decision=passe demon_gradle=1 apk_age=73s attendu=30s
+[proof_run soft-baseline] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run soft-baseline] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire soft-baseline] ECART : le telephone porte 389a9b481382a56439cde8f13721e0fb, le build local 50593ceb443052c05324a8b786e2096b
+[garde-binaire soft-baseline] verrou pose (pid=2591290) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire soft-baseline] LIVRE : 50593ceb443052c05324a8b786e2096b sur eae4df44 ; la course peut mesurer
+[proof_run soft-baseline] garde binaire : decision=deploye local=50593ceb443052c05324a8b786e2096b appareil=50593ceb443052c05324a8b786e2096b (code 0)
+[proof_run soft-baseline] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run soft-baseline] ecran : mWakefulness=Awake
+[proof_run soft-baseline] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run soft-baseline] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run soft-baseline] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 85303 o, sha=22fb46a7ffbb1ed2 ; filet proof-prev ecrit : 1)
+[proof_run soft-baseline] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 60s (armed=1)
+[proof_run soft-baseline] contexte de course : verdict=sans-objet images=2460 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'soft-baseline' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'village1-hut' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp.pos etait '-116 14 40' -> vide
+[teardown] eae4df44: debug.opengoal.want.levels etait 'village1,beach' -> vide
+[teardown] eae4df44: 5 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.level.warp,debug.opengoal.level.warp.pos,debug.opengoal.want.levels], 5 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run soft-baseline] teardown de fin : 5 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.level.warp,debug.opengoal.level.warp.pos,debug.opengoal.want.levels], publie sous 'proof-teardown-fin.txt'
+[proof_run soft-baseline] ecrit .autoport/reports/soft-baseline/proof.txt (frames=2460 crash=0 duree=74s) ; sortie moteur : .autoport/reports/soft-baseline/proof-engine.log

@@ -81,30 +81,38 @@ void record(const char* system,
     return;
   }
   uint64_t vertices = 0, triangles = 0;
-  uint32_t a = 0, b = 0;
-  size_t run = 0;
-  for (size_t i = first; i < first + count; ++i) {
-    const uint32_t v = indices[i];
-    if (v == UINT32_MAX) {
-      run = 0;
-      continue;
+  const uint32_t* submitted = indices + first;
+  if (topology == GL_TRIANGLE_STRIP) {
+    for (size_t i = 0; i < count; ++i)
+      vertices += submitted[i] != UINT32_MAX;
+    // Every strip triangle is a consecutive window; a restart invalidates
+    // every window crossing it without carrying assembly state between iterations.
+    for (size_t i = 2; i < count; ++i) {
+      const uint32_t a = submitted[i - 2], b = submitted[i - 1], c = submitted[i];
+      triangles += (a != UINT32_MAX) & (b != UINT32_MAX) & (c != UINT32_MAX) &
+                   (a != b) & (a != c) & (b != c);
     }
-    ++vertices;
-    if (topology == GL_TRIANGLE_STRIP) {
-      if (run >= 2 && a != b && a != v && b != v)
-        ++triangles;
-      a = b;
-      b = v;
-      ++run;
-    } else if (topology == GL_TRIANGLES) {
-      if (run == 0)
-        a = v;
-      if (run == 1)
-        b = v;
-      if (run == 2 && a != b && a != v && b != v)
-        ++triangles;
-      run = (run + 1) % 3;
+  } else if (topology == GL_TRIANGLES) {
+    size_t i = 0;
+    while (count - i >= 3) {
+      const uint32_t a = submitted[i], b = submitted[i + 1], c = submitted[i + 2];
+      // Resume assembly immediately after the first restart in this group.
+      if (a == UINT32_MAX) {
+        ++i;
+      } else if (b == UINT32_MAX) {
+        ++vertices;
+        i += 2;
+      } else {
+        vertices += 2 + (c != UINT32_MAX);
+        triangles += (c != UINT32_MAX) & (a != b) & (a != c) & (b != c);
+        i += 3;
+      }
     }
+    for (; i < count; ++i)
+      vertices += submitted[i] != UINT32_MAX;
+  } else {
+    for (size_t i = 0; i < count; ++i)
+      vertices += submitted[i] != UINT32_MAX;
   }
   c.vertices += vertices * instances;
   c.triangles += triangles * instances;

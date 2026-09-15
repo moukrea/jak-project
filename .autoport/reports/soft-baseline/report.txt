@@ -1,32 +1,33 @@
-Critère machine atteint sur Redmi USB ; baseline livrée, plafond de coût du census non tenu.
+Critère machine atteint sur Redmi USB ; coût du census toujours supérieur au plafond de 200 µs.
 DIRECTIVES v1707e53cb2
 
-Changé : outil soft_bake déterministe, tables versionnées et snapshot embarqué ; 25 niveaux, 37 îlots, densité sur 4 niveaux.
-Attribution géométrique : snow 13 clumpcorner + 6 clumpmassive ; ogre 18 cliffedge. Les 13 centroïdes sans surface sont conservés.
-Census : snow 5 968 / 72 181 m² ; deepsnow 762 / 2 332 m² ; beach sand 10 294 / 90 299 m² (aires arrondies).
-Compteurs : 19 systèmes, références de sommets et triangles soumis ; une ligne indivisible par image pour éviter le mélange entre fils.
-Banc : R16 64²/128², 16 opérations par chemin, erreurs antérieures séparées, état GL restauré.
-Preuve produite exclusivement par lib/proof_run.sh — 8 lignes recopiées :
+Essai 2 : scan spécialisé par topologie, fenêtres de strips indépendantes, triangles réassemblés après restart ; aucun cache de pointeur.
+Tests CPU : 6 575 445 cas, totaux comparés par longueur/topologie à une référence scalaire ; ON/OFF passent (notes/attempt2-cpu-tests.txt).
+Builds incrémentaux x86/arm64 et APK : codes 0 ; SHA256 du .so bâti identique à celui embarqué (notes/attempt2-build-summary.txt).
+Baseline hors ligne et référence R16 x86 conservées : code du banc et empreinte de sa course inchangés ; aucun nouveau recensement hors ligne.
+Preuve USB propre à cet essai, produite exclusivement par lib/proof_run.sh — 8 lignes recopiées :
 source=device
 serial=eae4df44
-sha=fc08e6e1b73d8b9b
-frames=2520
+sha=b25d6f806ccd9158
+frames=2460
 crash=0
-FEATURE soft-baseline armed=1 hits=146688
-proof_feature_own_hits=146688
+FEATURE soft-baseline armed=1 hits=143208
+proof_feature_own_hits=143208
 soft_baseline_gaps=0
 
-Temps par tuile (ms, soumission CPU + glFinish ; pas un chronomètre GPU isolé) :
-Opération | x86 | Redmi
-64² upload | 0.001190 | 0.006494
-64² raster | 0.104034 | 0.166995
-128² upload | 0.001588 | 0.008779
-128² raster | 0.106833 | 0.219255
-
 Complétude : census, densité, attribution, données, dessins, tuiles et paire de cibles ont chacun un terme publié à zéro.
-Validation locale : builds incrémentaux x86/arm64 et APK réussis ; tests CPU armé/désarmé réussis ; aucun validateur exécuté par le worker.
-Owner : examiner baseline.json et tile-costs.csv pour la décision 4 sur l’épaisseur ; aucune nouvelle image à regarder.
-Limite mesurée : comptage médian 2.530 ms x86 / 0.948 ms Redmi, publication en plus ; plafond 200 µs non tenu en mode census.
+Snapshot final : image 2460, 19 systèmes, aucun draw non mesuré dans cette publication.
+Temps par tuile en ms (soumission CPU + glFinish ; x86 conservé / Redmi essai 2) :
+64² upload : 0.001190 / 0.006413
+64² raster : 0.104034 / 0.150527
+128² upload : 0.001588 / 0.007474
+128² raster : 0.106833 / 0.208903
+
+Coût Redmi : médianes comptage 0.945294 ms (78 publications), publication 0.112344 ms (77).
+Aucun gain significatif revendiqué face aux 0,948 ms / 0,111 ms de l’essai 1 ; plafond 200 µs non tenu (notes/attempt2-counter-costs.json).
+Rouge hérité reproduit : .autoport/tests/harness/test_proof.py::test_le_bac_a_sable_contient_exactement_ce_que_la_porte_epingle -> item:harness-verdict-sources-are-incomplete
+Ce test exclut tests/harness/shrub_contact_local.py de son inventaire ; trace notes/attempt2-inherited-test.txt, tri dans FINDINGS.txt.
+Owner : chiffres de data/soft-baseline/baseline.json et tile-costs.csv pour la décision 4 ; aucun changement d’image.
 non prouvé : extrema continus, provenance collision→instance sérialisée, domaine final de classification des coques.
-non prouvé : ablation complète en jeu, contenu relu des texels R16, coût des snapshots au chargement et coût hors mode census.
-Signalements détaillés dans FINDINGS.txt. L’orchestrateur seul lance la porte ; aucune validation owner fabriquée.
+non prouvé : ablation complète en jeu, contenu relu des texels R16, coût au chargement, coût hors census et coût du scanner actuel en jeu x86.
+Le worker n’a pas lancé generic.sh ; l’orchestrateur juge la fermeture. Aucun jeton owner fabriqué.

@@ -1,0 +1,43 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_le_bac_a_sable_contient_exactement_ce_que_la_porte_epingle ________
+
+tmp_path = PosixPath('/home/emeric/.cache/autoport-supervisor-tests/pytest-of-emeric/pytest-26/test_le_bac_a_sable_contient_e0')
+
+    def test_le_bac_a_sable_contient_exactement_ce_que_la_porte_epingle(tmp_path):
+        """Un bac a sable incomplet fabrique un rouge qui ne decrit AUCUN defaut.
+
+        Mesure du 12/09 : `1 failed, 556 passed`, ECHECS-ATTENDUS.yaml vide, douze jambes tombees
+        ensemble parce que la porte venait de gagner une dependance que ce fichier ne copiait pas.
+        L'ecart entre les deux listes est donc une grandeur, pas une intention : il se mesure, et il
+        vaut zero. `AUTOPORT_SANDBOX_MANIFEST` le rend lisible depuis
+        `lib/census/harness-verdict-sources-are-incomplete.sh`.
+        """
+        root, gk, sha = _repo(tmp_path)
+        attendu = set(sources_du_verdict())
+        trouve = set()
+        for chemin in (root / ".autoport").rglob("*"):
+            if not chemin.is_file():
+                continue
+            rel = chemin.relative_to(root).as_posix()
+            if rel.startswith(FAMILLES):
+                trouve.add(rel)
+        manque = sorted(attendu - trouve)
+        en_trop = sorted(trouve - attendu)
+        cible = os.environ.get("AUTOPORT_SANDBOX_MANIFEST")
+        if cible:
+            with open(cible, "w", encoding="utf-8") as f:
+                f.write("sandbox=test_proof.py\n")
+                f.write("attendu=%d\ntrouve=%d\n" % (len(attendu), len(trouve)))
+                f.write("manque=%d\nen_trop=%d\n" % (len(manque), len(en_trop)))
+                f.write("manque_liste=%s\n" % (",".join(manque) or "-"))
+                f.write("en_trop_liste=%s\n" % (",".join(en_trop) or "-"))
+        assert attendu, "la porte n'epingle rien : l'ecart serait vide de sens"
+>       assert not manque, "le bac a sable ne copie pas %s" % manque
+E       AssertionError: le bac a sable ne copie pas ['.autoport/tests/harness/shrub_contact_local.py']
+E       assert not ['.autoport/tests/harness/shrub_contact_local.py']
+
+.autoport/tests/harness/test_proof.py:305: AssertionError
+=========================== short test summary info ============================
+FAILED .autoport/tests/harness/test_proof.py::test_le_bac_a_sable_contient_exactement_ce_que_la_porte_epingle
+1 failed in 0.30s

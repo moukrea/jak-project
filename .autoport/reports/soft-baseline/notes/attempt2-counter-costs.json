@@ -1,0 +1,12 @@
+{
+  "count": {
+    "publications": 78,
+    "median_ms": 0.9452935,
+    "max_ms": 2.257444
+  },
+  "publish": {
+    "publications": 77,
+    "median_ms": 0.112344,
+    "max_ms": 0.402709
+  }
+}

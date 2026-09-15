@@ -1,0 +1,15 @@
+DIRECTIVES v1707e53cb2
+Builds x86/arm64 et APK réussis ; bibliothèque APK identique au build arm64.
+command_x86=.autoport/lib/build_x86.sh --target gk
+exit_code_x86=0
+command_android=cmake --build build-android --target gk -j
+exit_code_android=0
+command_package=cd android && ./gradlew assembleJak1Debug
+exit_code_package=0
+x86_sha256=085b38cc9bce53474132f94a81568c49acec14e73074264ec56b35228e92e9ed
+android_so_sha256=b25d6f806ccd91580c5fff03db6a0e27b3cf8dd3fbe4648b2a4d166d2a8f15e3
+apk_libgk_sha256=b25d6f806ccd91580c5fff03db6a0e27b3cf8dd3fbe4648b2a4d166d2a8f15e3
+apk_sha256=97c6ff7ae490f28b93b934207099371672767f59d35a0ac698e61179c98ce4cf
+apk_so_matches_build=1
+apk_path=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+non prouvé : exécution du moteur ou validation sur appareil (hors périmètre).

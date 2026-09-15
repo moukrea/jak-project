@@ -90,6 +90,13 @@ comprises. Ce ne sont ni les sommets uniques ni les exécutions de vertex shader
 Les compteurs couvrent la géométrie du moteur Jak1 ; ImGui tiers est hors scope.
 Les deux sites hfrag Jak3 publient un manque au lieu de prétendre être comptés.
 Les durées CPU du comptage et de publication sont exposées séparément.
+Le scan choisit sa boucle une fois par topologie. Les strips comptent des
+fenêtres indépendantes de trois indices distincts sans restart ; les listes
+réassemblent les groupes de trois après chaque restart. Aucun cache de pointeur
+ne remplace la lecture du range réellement soumis, qui peut changer entre deux
+passes d'une même image. Le test CPU compare ces chemins au compteur scalaire
+sur tous les flux de longueur 0 à 7 de trois indices et d'un restart, tous leurs
+sous-ranges et les trois topologies prises en charge.
 
 Le banc utilise de vraies textures R16 UNORM et un FBO privé : 16 uploads et
 16 quads par taille (64², 128²), chaque opération attendue par `glFinish`.

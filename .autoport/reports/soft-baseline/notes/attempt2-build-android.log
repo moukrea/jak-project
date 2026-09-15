@@ -1,0 +1,6 @@
+[0/2] Re-checking globbed directories...
+[1/3] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/soft_draw_census.cpp.o
+[2/3] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues
+
+exit_code=0
