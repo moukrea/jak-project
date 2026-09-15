@@ -1,0 +1,3 @@
+android/android_gfx.cpp:250 | Les cumuls DMA sont publies au nouveau maximum ou toutes les 60 tentatives ; la fin non publiee reste hors observation. | Les compteurs seuls ne couvrent pas les dernieres tentatives entre deux publications.
+common/dma/dma_chain_read.h:63 | Les formes SPR, CNT non nul et piles CALL/RET invalides restent des assertions heritees. | Ces corruptions peuvent encore arreter le moteur au lieu de produire un rejet transactionnel.
+common/dma/dma_copy.cpp:136 | Le copieur conserve l'hypothese de tags DMA alignes sur 16 octets, deja signalee par perf-dma-chain-copies. | Un tag mal aligne traversant deux tranches reste hors garantie du copieur.

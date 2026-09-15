@@ -12274,3 +12274,6 @@ items:
   max_turns: 700
   proof_timeout: 420
   prompt: prompts/item-acquis-perf-dma-chain-copies.md
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
