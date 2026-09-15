@@ -1,0 +1,17 @@
+DIRECTIVES vb28ab89244
+Essai6 — revue lecture seule du protocole restart, researcher restart_contract (high).
+Aucune course/build/appareil par le researcher; aucune source modifiée.
+Contrat : backlog.yaml:7197–7252, persistance exigée, sans proof_plan ni harness_edit_allowlist.
+proof_run.sh:1306 arrête le jeu; :1373 efface logcat; :1383 capture PID0; :1419–1421 classe PID1 différent comme crash.
+validators/generic.sh:136 exige crash=0. Aucune modification ni exécution du validateur.
+progress-pc.gc:9709,9724 publie res_unproved_process_restart=1; :9638–9641 conserve +2 au total final.
+L'audit change les paramètres en mémoire puis les restaure, sans écriture persistante.
+proof_run.sh:1589–1594 extrait la dernière valeur moteur; aucun traitement spécifique de redémarrage.
+Le crochet census existe :1530–1538; census/res-menu-truth.sh absent; nouvel instrument hors périmètre.
+pckernel-common.gc:1202–1203 écrit dimensions/game-size-picked?; :1063–1087,1109 relit; :1277–1310 charge.
+Chemin statique identifié, succès après sélection de cette course non prouvé.
+Trace ANCIENNE essai5 uniquement : proof-engine.log:1888–1890, PID24727, 07:20:38.467,
+[PC Settings]: Valid game-size resolution 800 x 600
+Cette lecture ne donne pas la sélection/écriture antérieure; aucune nouvelle preuve de persistance.
+Ni recharge en mémoire ni redémarrage caché avant PID0/après PID1 ne satisferait le contrat.
+Conclusion : protocole restart reconnu par le harnais nécessaire; pas de nouvelle matrice identique.

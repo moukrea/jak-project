@@ -1,0 +1,33 @@
+DIRECTIVES vb28ab89244
+VERDICT : NON VALIDÉ — correctif de bascule DRS livré ; res_menu_defects=2, redémarrage et monotonie après adaptation restent ouverts.
+
+CHANGEMENTS — source 07e19f3ccc ; pack livré a0e3070ffd, USB eae4df44.
+Le changement de base conserve le pourcentage DRS ; il réamorce verrou/EMA/délai sans remettre le rendu à 100 %.
+Initialisation et mode OFF gardent 100 % ; minimum utilisateur et adaptation de cadence conservés dans le code.
+GOAL arm64/x86 et APK compilés ; aucune compilation native. Revue de deux researchers et livraison par tester terminées.
+
+PREUVE — huit lignes exactes de proof.txt, essai res-menu-truth@5#1789449236.
+crash=0
+frames=9000
+res_matrix_states=108
+res_matrix_defects=0
+res_transition_edges_expected=1500
+res_transition_edges_observed=1500
+res_transition_defects=0
+res_menu_defects=2
+Course unique : 2026-09-15T05:20:28Z, 309 s, proof_run code 0 ; aucun résultat ancien repris.
+14 gestes depuis une source DRS réduite : 14 ordres de pixels respectés ; notes/extract-attempt5.txt et edges-attempt5.csv.
+Exemple frames 4174→4177 : BASE1920x1080/FBO1728x972 → BASE1280x720/FBO1152x648, échelle 90 % conservée.
+108 libellés présélectionnés concordent au FBO ; un état de matrice DRS réduit.
+640x480=307200 pixels ; 800x600=480000 ; fb_extra_passes_per_frame=0 et fb_pass_ends_no_invalidate_max=0.
+Fraîcheur : MD5 local/appareil a1e389727fea13f308cbfeb34f313342 ; proof_feature_own_hits=108.
+Le compteur moteur atteint 1500 ; le log permet 1498 traces complètes, deux fragments manquent, sans les reconstruire.
+Fin normale à 07:25:08.807 : RES-AUDIT restored width=800 height=600 drs=#f ; teardown efface deux propriétés.
+
+À REGARDER : Options > Graphismes, libellé/préselection, baisse de résolution sous DRS actif, et 4:3 640x480/800x600.
+non prouvé : persistance après nouveau processus, monotonie après convergence, gain de cadence, deux traces intégrales manquantes.
+La matrice reste non monotone : a7/r6=1555200 pixels à 100 %, a7/r7=865532 à 70 % ; convergence non établie.
+Deux bases peuvent converger au même FBO optimal tenant la cible ; imposer un ordre strict modifierait le contrat DRS validé.
+proof_run classe le changement de PID comme crash ; aucun protocole restart autorisé et aucun contournement ajouté.
+non prouvé : annulation précoce, effacement override actif et Jak2 ; libgk courant différent de l’essai4, aucun gain comparatif attribué.
+FINDINGS.txt et handoff.md consignent les limites ; validateur laissé à l’orchestrateur, aucun owner-ok fabriqué.

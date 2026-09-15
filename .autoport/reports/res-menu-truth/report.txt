@@ -1,0 +1,30 @@
+DIRECTIVES vb28ab89244
+VERDICT : NON VALIDÉ — essai6 sans nouvelle preuve ; deux obligations restent bloquées par le contrat/protocole actuels.
+CHANGEMENTS : rapport, handoff et notes de revue seulement ; aucune modification moteur ou harnais.
+Deux researchers ont revu séparément DRS et restart ; un tester a vérifié la disponibilité USB.
+USB actuel : 2026-09-15T05:31:03Z, eae4df44, Redmi Note 9 Pro, get-state=device, sorties0 (notes/availability-attempt6.txt).
+Aucun build, déploiement ou proof_run lancé : handoff essai5 interdit la répétition identique sans nouveau périmètre.
+Le périmètre courant ne prévoit ni protocole restart ni autorisation de modification du harnais.
+
+HISTORIQUE UNIQUEMENT — huit lignes de proof.txt conservé ; elles ne constituent PAS un résultat de l’essai6 :
+proof_attempt_id=res-menu-truth@5#1789449236
+started_at=2026-09-15T05:20:28Z
+res_menu_defects=2
+res_unproved_process_restart=1
+res_unproved_drs_monotonicity=1
+res_matrix_states=108
+res_transition_edges_observed=1500
+res_transition_defects=0
+
+RESTART : proof_run.sh:1383,1419–1421 compare PID0/PID1 et classe tout changement en crash.
+L’audit ne persiste pas son choix ; progress-pc.gc:9709,9724 laisse l’obligation restart ouverte.
+DRS : les validations owner du 11/09 figurent dans backlog.yaml:2136,2180.
+Exemple théorique : 640x480 à100% = 800x600 à80%, soit307200 pixels ; ce n’est pas une mesure nouvelle.
+Garantir davantage de pixels après adaptation peut contredire la meilleure qualité tenant la même cible FPS.
+Le correctif immédiat de l’essai5 reste livré ; aucune nouvelle correction conforme identifiée.
+progress-pc.gc:9638–9641 ajoute explicitement2 pour ces obligations ; les retirer sans preuve serait un faux vert.
+À REGARDER après reprise/livraison : Options > Graphismes, libellé/préselection, 4:3 640x480/800x600 et bascules DRS.
+non prouvé : tout résultat appareil de l’essai6, persistance après nouveau processus, monotonie après convergence, gain de cadence.
+non prouvé : deux traces intégrales de l’essai5, annulation précoce, effacement override actif, Jak2 et écran >8:3.
+Suite pour le superviseur : définir la portée temporelle de monotonie et un protocole restart reconnu avant nouvelle course.
+FINDINGS.txt conserve les dettes ; validateur réservé à l’orchestrateur, aucun owner-ok ni statut de fermeture écrit.

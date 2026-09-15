@@ -1,0 +1,30 @@
+DIRECTIVES vb28ab89244
+Périmètre : disponibilité USB uniquement ; aucune exécution du jeu.
+UTC début : 2026-09-15T05:31:02.936621+00:00
+$ git status --short
+stdout:
+ M .autoport/.release_notes_hash
+ M .autoport/backlog.yaml
+stderr:
+
+exit=0
+$ env -u ANDROID_SERIAL -u ANDROID_SERIAL_STRICT bash .autoport/lib/pick_device.sh
+stdout:
+eae4df44
+stderr:
+
+exit=0
+$ timeout 10 /home/emeric/Android/platform-tools/adb -s eae4df44 get-state
+stdout:
+device
+stderr:
+
+exit=0
+$ timeout 10 /home/emeric/Android/platform-tools/adb -s eae4df44 shell getprop ro.product.model
+stdout:
+Redmi Note 9 Pro
+stderr:
+
+exit=0
+Non prouvé : exécution du jeu et comportement res-menu-truth ; aucune course, aucun build, aucun déploiement, aucun validateur ni proof_run lancé.
+UTC fin : 2026-09-15T05:31:03.051863+00:00

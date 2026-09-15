@@ -1,0 +1,22 @@
+DIRECTIVES vb28ab89244
+Essai6 — revue researcher drs_contract (high), lecture seule.
+Autorité courante : backlog.yaml:2136,2180, DRS et réaction réglages validés owner 11/09.
+phase-Gdynamic-fix.md:12–16,48–61 est historique : meilleure qualité tenant cible, incréments, verrou.
+Il documente l'origine du comportement, pas un ordre actif ni une preuve d'exécution actuelle.
+Contrat courant res-menu-truth : backlog.yaml:7214–7222 exige monotonie et toute matrice DRS.
+Exemple THÉORIQUE : 640x480 à100% et 800x600 à80% donnent 640x480, soit307200 pixels.
+Si la scène ne tient pas la cible au cran supérieur, ces deux états sont chacun l'optimum DRS.
+Un ordre strict imposerait alors manquer la cible ou dégrader volontairement la petite base.
+Calcul statique appliqué : pckernel-common.gc:635–655, base multipliée par pourcentage et tronquée par axe.
+Le correctif déjà livré : pckernel-common.gc:410–425 conserve pourcentage et réamorce verrou/EMA/délai.
+ANCIEN essai5 seulement : extract-attempt5.txt:11–24, 14 transitions réduites immédiatement ordonnées.
+ANCIEN essai5 : matrix-attempt5.csv:107–109, base supérieure observée avec1555200 puis865532 pixels.
+Ces états diffèrent d'instant/échelle, ce n'est pas une mesure de convergence.
+progress-pc.gc:9709–9710,9724 publie unproved restart/monotonicity à1, jamais effacés.
+progress-pc.gc:9632–9641 ajoute2 au total final, plus défauts/incomplétude/absence état DRS réduit.
+Ces deux1 sont des obligations non prouvées, pas deux anomalies mesurées.
+progress-pc.gc:9818–9832 contrôle ordre des arêtes seulement à échelles identiques.
+ANCIEN proof.txt:2101–2102 :632 arêtes comparables et4 exclues; adaptation=0 indique un état réduit.
+Aucune garantie de convergence ni de remontée issue de ces compteurs.
+Conclusion : aucune correction conforme supplémentaire identifiée sans préciser la portée temporelle
+requise de monotonie ou changer le contrat DRS. Ne pas geler DRS ni supprimer les deux obligations.
