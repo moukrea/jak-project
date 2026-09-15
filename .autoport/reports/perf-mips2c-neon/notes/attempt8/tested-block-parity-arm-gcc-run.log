@@ -1,0 +1,53 @@
+$ qemu-aarch64 -L /usr/aarch64-linux-gnu /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt8/tested-block-parity-arm-gcc
+FAIL sample=13 s4=64 s5=256 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=64 s5=256 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+FAIL sample=13 s4=64 s5=64 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=64 s5=64 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+FAIL sample=13 s4=64 s5=48 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=64 s5=48 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+FAIL sample=13 s4=64 s5=80 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=64 s5=80 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+FAIL sample=13 s4=128 s5=64 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=128 s5=64 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+FAIL sample=13 s4=64 s5=128 fade=7fc12345
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+FAIL sample=13 s4=64 s5=128 fade=ff854321
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+LAB cases=6048 finite_memory_cases=2304 damped=5040 bypass=1008 context_and_memory_defects=163
+RESULT FAIL
+
+EXIT 1

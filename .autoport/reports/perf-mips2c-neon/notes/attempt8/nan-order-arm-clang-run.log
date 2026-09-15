@@ -1,0 +1,10 @@
+qemu-aarch64 -L /usr/aarch64-linux-gnu .autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-clang
+MUL velocity=7fc00000 damping=7fc12345 before_order=7fc00000 after_order=7fc12345 different=1
+MUL velocity=7fc00000 damping=ffc54321 before_order=7fc00000 after_order=ffc54321 different=1
+MUL velocity=7fc12345 damping=ffc54321 before_order=7fc12345 after_order=ffc54321 different=1
+MUL velocity=7fc12345 damping=ff854321 before_order=ffc54321 after_order=ffc54321 different=0
+MUL velocity=7f812345 damping=ffc54321 before_order=7fc12345 after_order=7fc12345 different=0
+MUL velocity=3f800000 damping=3f000000 before_order=3f000000 after_order=3f000000 different=0
+REPRO cases=6 order_differences=3
+
+EXIT 0

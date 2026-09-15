@@ -1,0 +1,13 @@
+DIRECTIVES vaff5c1afea — laboratoire local uniquement; aucune preuve Android.
+CWD /home/emeric/code/jak-project
+sha256sum .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-x86 .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-arm-gcc > .autoport/reports/perf-mips2c-neon/notes/attempt8/trace/binaries.sha256
+rc=0
+
+gdb -nx -batch -x .autoport/reports/perf-mips2c-neon/notes/attempt8/trace/x86.gdb .autoport/reports/perf-mips2c-neon/notes/attempt7/block-parity-x86 > .autoport/reports/perf-mips2c-neon/notes/attempt8/trace/x86.log 2>&1
+rc=0
+
+bash .autoport/reports/perf-mips2c-neon/notes/attempt8/trace/run-arm.sh > .autoport/reports/perf-mips2c-neon/notes/attempt8/trace/arm-command-status.log 2>&1
+rc=0
+
+Les scripts posent un breakpoint conditionnel à l'entrée before, sur vf16.x=ff800000, s4=64, s5=256 et fade mémoire=7fc12345. f0 n'est chargé que plus tard dans le bloc, donc son offset 0x200 n'est pas utilisé pour le filtre d'entrée. Cela sélectionne le premier sample13 cible; les cas précédents nécessaires pour atteindre l'entrée sont exécutés. Arrêt après le retour after du même cas. Aucun résumé de campagne 6048 n'est exécuté.
+Tous vmul/vadd/vsub x86 et fmul/fadd/fsub ARM sont capturés avec opérandes avant et registre destination après si. Les lanes hautes non calculées des instructions scalaires ne sont pas des sorties sémantiques à comparer.

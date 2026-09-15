@@ -1,0 +1,10 @@
+{
+  "directives": "vaff5c1afea",
+  "candidate_exact_single_replacement": true,
+  "bench_after_block_exact_corrected_source": true,
+  "candidate_correction_hunks": 1,
+  "bench_correction_hunks": 2,
+  "build_or_runtime_tests_run": false,
+  "bench_outside_after_code_identical": true,
+  "bench_outside_after_documentary_exception": "Only after source sha256 comment updated to corrected-sparticle.cpp SHA256: 61984083762c0d479d148f627280ba5d84015d97bbe0b324c9e8e5346e47167d"
+}

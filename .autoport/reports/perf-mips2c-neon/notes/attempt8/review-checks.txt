@@ -1,0 +1,8 @@
+DIRECTIVES vaff5c1afea
+Sources des sept compilations empreintees et stables ; sept build_exit=0, trois run_exit=1.
+Main et seed du comparateur identiques octet a octet ; reference before identique.
+Preservation avant/apres : toutes empreintes identiques.
+Rapport33 lignes, handoff24 lignes, version DIRECTIVES presente.
+git diff --cached --check sur fichiers rediges : exit0.
+Controle brut incluant objdump et patches : espaces terminaux generes et lignes de contexte vides des patches ; sorties conservees telles quelles.
+Index limite aux rapports/notes de perf-mips2c-neon ; aucune source moteur ni backlog ajoute.

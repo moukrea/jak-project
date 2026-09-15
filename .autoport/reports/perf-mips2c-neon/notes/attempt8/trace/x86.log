@@ -1,0 +1,437 @@
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <ima:enforcing>
+  <https://debuginfod.fedoraproject.org/>
+  <ima:ignore>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+Breakpoint 1 at 0x401780
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+
+Breakpoint 1, 0x0000000000401780 in before(Mips2C::ExecutionContext*) ()
+TRACE before sample13 s4=64 s5=256 fade=7fc12345
+$1 = 0x1fbb
+
+0x0000000000401784 in before(Mips2C::ExecutionContext*) ()
+0x000000000040178b in before(Mips2C::ExecutionContext*) ()
+0x000000000040178e in before(Mips2C::ExecutionContext*) ()
+0x0000000000401794 in before(Mips2C::ExecutionContext*) ()
+0x000000000040179b in before(Mips2C::ExecutionContext*) ()
+0x000000000040179d in before(Mips2C::ExecutionContext*) ()
+0x00000000004017a2 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017a7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017af in before(Mips2C::ExecutionContext*) ()
+0x00000000004017b6 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017bb in before(Mips2C::ExecutionContext*) ()
+0x00000000004017c0 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017c7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017ce in before(Mips2C::ExecutionContext*) ()
+0x00000000004017d4 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017d9 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017e0 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017e8 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017ef in before(Mips2C::ExecutionContext*) ()
+0x00000000004017f2 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017f8 in before(Mips2C::ExecutionContext*) ()
+0x00000000004017fa in before(Mips2C::ExecutionContext*) ()
+0x0000000000401800 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401806 in before(Mips2C::ExecutionContext*) ()
+0x000000000040180f in before(Mips2C::ExecutionContext*) ()
+0x0000000000401814 in before(Mips2C::ExecutionContext*) ()
+0x000000000040181c in before(Mips2C::ExecutionContext*) ()
+0x000000000040181f in before(Mips2C::ExecutionContext*) ()
+0x0000000000401823 in before(Mips2C::ExecutionContext*) ()
+0x000000000040182a in before(Mips2C::ExecutionContext*) ()
+0x0000000000401831 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401837 in before(Mips2C::ExecutionContext*) ()
+0x000000000040183c in before(Mips2C::ExecutionContext*) ()
+0x0000000000401844 in before(Mips2C::ExecutionContext*) ()
+0x000000000040184b in before(Mips2C::ExecutionContext*) ()
+0x0000000000401851 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401857 in before(Mips2C::ExecutionContext*) ()
+0x000000000040185c in before(Mips2C::ExecutionContext*) ()
+0x0000000000401864 in before(Mips2C::ExecutionContext*) ()
+0x000000000040186b in before(Mips2C::ExecutionContext*) ()
+0x0000000000401871 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401877 in before(Mips2C::ExecutionContext*) ()
+0x000000000040187f in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40187f <_Z6beforePN6Mips2C16ExecutionContextE+255>:	vmulps %xmm3,%xmm2,%xmm2
+%xmm3 $2 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm2 $3 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x0000000000401883 in before(Mips2C::ExecutionContext*) ()
+POST %xmm2 $4 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x000000000040188b in before(Mips2C::ExecutionContext*) ()
+0x000000000040188f in before(Mips2C::ExecutionContext*) ()
+0x0000000000401893 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401897 in before(Mips2C::ExecutionContext*) ()
+0x000000000040189c in before(Mips2C::ExecutionContext*) ()
+0x00000000004018a0 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018a4 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018ab in before(Mips2C::ExecutionContext*) ()
+0x00000000004018ae in before(Mips2C::ExecutionContext*) ()
+0x00000000004018b2 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018b6 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018be in before(Mips2C::ExecutionContext*) ()
+0x00000000004018c2 in before(Mips2C::ExecutionContext*) ()
+PRE => 0x4018c2 <_Z6beforePN6Mips2C16ExecutionContextE+322>:	vaddps %xmm7,%xmm3,%xmm3
+%xmm7 $5 = {0x7f800000, 0x7f800000, 0x0, 0x0}
+%xmm3 $6 = {0xff800000, 0xff800000, 0x0, 0x0}
+0x00000000004018c6 in before(Mips2C::ExecutionContext*) ()
+POST %xmm3 $7 = {0xffc00000, 0xffc00000, 0x0, 0x0}
+0x00000000004018cb in before(Mips2C::ExecutionContext*) ()
+PRE => 0x4018cb <_Z6beforePN6Mips2C16ExecutionContextE+331>:	vaddss %xmm7,%xmm2,%xmm7
+%xmm7 $8 = {0xff800000, 0x0, 0x0, 0x0}
+%xmm2 $9 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x00000000004018cf in before(Mips2C::ExecutionContext*) ()
+POST %xmm7 $10 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x00000000004018d7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018df in before(Mips2C::ExecutionContext*) ()
+0x00000000004018e2 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018e4 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018e9 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018ed in before(Mips2C::ExecutionContext*) ()
+0x00000000004018f0 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018f8 in before(Mips2C::ExecutionContext*) ()
+0x00000000004018fc in before(Mips2C::ExecutionContext*) ()
+0x0000000000401902 in before(Mips2C::ExecutionContext*) ()
+PRE => 0x401902 <_Z6beforePN6Mips2C16ExecutionContextE+386>:	vsubss %xmm2,%xmm8,%xmm9
+%xmm2 $11 = {0x7fc12345, 0x0, 0x0, 0x0}
+%xmm8 $12 = {0x3f800000, 0x0, 0x0, 0x0}
+%xmm9 $13 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x0000000000401906 in before(Mips2C::ExecutionContext*) ()
+POST %xmm9 $14 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x000000000040190b in before(Mips2C::ExecutionContext*) ()
+0x000000000040190f in before(Mips2C::ExecutionContext*) ()
+0x0000000000401914 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401919 in before(Mips2C::ExecutionContext*) ()
+0x000000000040191e in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40191e <_Z6beforePN6Mips2C16ExecutionContextE+414>:	vmulps %xmm10,%xmm2,%xmm2
+%xmm10 $15 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm2 $16 = {0x7fc12345, 0x0, 0x4e11503c, 0x7fc12345}
+0x0000000000401923 in before(Mips2C::ExecutionContext*) ()
+POST %xmm2 $17 = {0x7fc12345, 0xffc00000, 0xff800000, 0x7fc12345}
+0x0000000000401927 in before(Mips2C::ExecutionContext*) ()
+0x000000000040192f in before(Mips2C::ExecutionContext*) ()
+0x0000000000401934 in before(Mips2C::ExecutionContext*) ()
+PRE => 0x401934 <_Z6beforePN6Mips2C16ExecutionContextE+436>:	vsubss %xmm2,%xmm8,%xmm2
+%xmm2 $18 = {0x7fc12345, 0x7fc12345, 0x7fc12345, 0x7fc12345}
+%xmm8 $19 = {0x3f800000, 0x0, 0x0, 0x0}
+0x0000000000401938 in before(Mips2C::ExecutionContext*) ()
+POST %xmm2 $20 = {0x7fc12345, 0x0, 0x0, 0x0}
+PRE => 0x401938 <_Z6beforePN6Mips2C16ExecutionContextE+440>:	vmulss %xmm2,%xmm7,%xmm7
+%xmm2 $21 = {0x7fc12345, 0x0, 0x0, 0x0}
+%xmm7 $22 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x000000000040193c in before(Mips2C::ExecutionContext*) ()
+POST %xmm7 $23 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401940 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401948 in before(Mips2C::ExecutionContext*) ()
+0x000000000040194c in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40194c <_Z6beforePN6Mips2C16ExecutionContextE+460>:	vmulps %xmm9,%xmm3,%xmm3
+%xmm9 $24 = {0xffc00000, 0xffc00000, 0x0, 0x0}
+%xmm3 $25 = {0x7fc12345, 0x7fc12345, 0x0, 0x0}
+0x0000000000401951 in before(Mips2C::ExecutionContext*) ()
+POST %xmm3 $26 = {0x7fc12345, 0x7fc12345, 0x0, 0x0}
+0x0000000000401959 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401961 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401969 in before(Mips2C::ExecutionContext*) ()
+0x000000000040196e in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40196e <_Z6beforePN6Mips2C16ExecutionContextE+494>:	vmulps %xmm1,%xmm0,%xmm1
+%xmm1 $27 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $28 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x0000000000401972 in before(Mips2C::ExecutionContext*) ()
+POST %xmm1 $29 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401976 in before(Mips2C::ExecutionContext*) ()
+PRE => 0x401976 <_Z6beforePN6Mips2C16ExecutionContextE+502>:	vmulps %xmm0,%xmm3,%xmm2
+%xmm0 $30 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm3 $31 = {0x7fc12345, 0x7fc12345, 0xffc00000, 0xff800000}
+%xmm2 $32 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x000000000040197a in before(Mips2C::ExecutionContext*) ()
+POST %xmm2 $33 = {0x7fc12345, 0x7fc12345, 0xffc00000, 0x7f800000}
+PRE => 0x40197a <_Z6beforePN6Mips2C16ExecutionContextE+506>:	vmulps %xmm6,%xmm0,%xmm0
+%xmm6 $34 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $35 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x000000000040197e in before(Mips2C::ExecutionContext*) ()
+POST %xmm0 $36 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401982 in before(Mips2C::ExecutionContext*) ()
+0x000000000040198a in before(Mips2C::ExecutionContext*) ()
+0x000000000040198f in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40198f <_Z6beforePN6Mips2C16ExecutionContextE+527>:	vaddss %xmm6,%xmm1,%xmm1
+%xmm6 $37 = {0xff800000, 0x0, 0x0, 0x0}
+%xmm1 $38 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401993 in before(Mips2C::ExecutionContext*) ()
+POST %xmm1 $39 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x000000000040199b in before(Mips2C::ExecutionContext*) ()
+PRE => 0x40199b <_Z6beforePN6Mips2C16ExecutionContextE+539>:	vaddps %xmm5,%xmm2,%xmm2
+%xmm5 $40 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm2 $41 = {0x7fc12345, 0x7fc12345, 0xffc00000, 0x7f800000}
+0x000000000040199f in before(Mips2C::ExecutionContext*) ()
+POST %xmm2 $42 = {0x7fc12345, 0x7fc12345, 0xffc00000, 0xffc00000}
+0x00000000004019a7 in before(Mips2C::ExecutionContext*) ()
+PRE => 0x4019a7 <_Z6beforePN6Mips2C16ExecutionContextE+551>:	vaddps %xmm4,%xmm0,%xmm0
+%xmm4 $43 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $44 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x00000000004019ab in before(Mips2C::ExecutionContext*) ()
+POST %xmm0 $45 = {0xffc00000, 0xffc00000, 0xffc00000, 0xffc00000}
+0x00000000004019b3 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019b7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019bf in before(Mips2C::ExecutionContext*) ()
+0x00000000004019c3 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019cb in before(Mips2C::ExecutionContext*) ()
+0x00000000004019d0 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019d7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019da in before(Mips2C::ExecutionContext*) ()
+0x00000000004019dc in before(Mips2C::ExecutionContext*) ()
+0x00000000004019e4 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019e6 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019eb in before(Mips2C::ExecutionContext*) ()
+0x00000000004019f2 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019f5 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019f7 in before(Mips2C::ExecutionContext*) ()
+0x00000000004019ff in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a01 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a07 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a0e in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a11 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a13 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a1b in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a1e in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a20 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a26 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a29 in before(Mips2C::ExecutionContext*) ()
+0x0000000000401a2d in before(Mips2C::ExecutionContext*) ()
+OUTPUT vf11 0x7fffffffce30:	0x7fc12345	0x7fc12345	0xffc00000	0xff800000
+
+Temporary breakpoint 2 at 0x401a70
+
+Temporary breakpoint 2, 0x0000000000401a70 in after(Mips2C::ExecutionContext*) ()
+TRACE after sample13 s4=64 s5=256 fade=7fc12345
+$46 = 0x1fbb
+
+0x0000000000401a71 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a74 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a76 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a78 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a7a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a7c in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a7d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a81 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a85 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a8b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a8e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a94 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401a9b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401aa1 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401aa6 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401aab in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ab0 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ab3 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ab6 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401abc in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ac3 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ac9 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ad3 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ad9 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401adf in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ae3 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ae8 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401aef in after(Mips2C::ExecutionContext*) ()
+0x0000000000401af4 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401af4 <_Z5afterPN6Mips2C16ExecutionContextE+132>:	vmulps %xmm1,%xmm2,%xmm2
+%xmm1 $47 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm2 $48 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x0000000000401af8 in after(Mips2C::ExecutionContext*) ()
+POST %xmm2 $49 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401afc in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b02 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b07 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b0a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b0f in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b15 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b1a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b1d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b20 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b26 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b2a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b2e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b32 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b39 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401b39 <_Z5afterPN6Mips2C16ExecutionContextE+201>:	vaddps %xmm1,%xmm0,%xmm1
+%xmm1 $50 = {0x7f800000, 0x7f800000, 0x0, 0x0}
+%xmm0 $51 = {0xff800000, 0xff800000, 0x0, 0x0}
+0x0000000000401b3d in after(Mips2C::ExecutionContext*) ()
+POST %xmm1 $52 = {0xffc00000, 0xffc00000, 0x0, 0x0}
+0x0000000000401b41 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401b41 <_Z5afterPN6Mips2C16ExecutionContextE+209>:	vaddss %xmm0,%xmm8,%xmm8
+%xmm0 $53 = {0xff800000, 0x0, 0x0, 0x0}
+%xmm8 $54 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401b45 in after(Mips2C::ExecutionContext*) ()
+POST %xmm8 $55 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401b4b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b50 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b53 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b58 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b5b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b61 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b65 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b69 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b6d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b71 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b79 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b7e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b83 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b88 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401b88 <_Z5afterPN6Mips2C16ExecutionContextE+280>:	vsubss %xmm6,%xmm0,%xmm6
+%xmm6 $56 = {0x7fc12345, 0x0, 0x0, 0x0}
+%xmm0 $57 = {0x3f800000, 0x0, 0x0, 0x0}
+0x0000000000401b8c in after(Mips2C::ExecutionContext*) ()
+POST %xmm6 $58 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x0000000000401b91 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b96 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b9a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401b9e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ba3 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ba6 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bb0 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bb5 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401bb5 <_Z5afterPN6Mips2C16ExecutionContextE+325>:	vmulps 0x20(%rsp),%xmm6,%xmm6
+%xmm6 $59 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x7fffffffbec0:	0x7fc12345	0x00000000	0x4e11503c	0x7fc12345
+
+0x0000000000401bbb in after(Mips2C::ExecutionContext*) ()
+POST %xmm6 $60 = {0x7fc12345, 0xffc00000, 0xff800000, 0x7fc12345}
+0x0000000000401bc1 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bc7 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bcb in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bd1 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bd7 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401bd7 <_Z5afterPN6Mips2C16ExecutionContextE+359>:	vsubss %xmm6,%xmm0,%xmm0
+%xmm6 $61 = {0x7fc12345, 0x0, 0x0, 0x0}
+%xmm0 $62 = {0x3f800000, 0x0, 0x0, 0x0}
+0x0000000000401bdb in after(Mips2C::ExecutionContext*) ()
+POST %xmm0 $63 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x0000000000401bdf in after(Mips2C::ExecutionContext*) ()
+0x0000000000401be4 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401be4 <_Z5afterPN6Mips2C16ExecutionContextE+372>:	vmulss %xmm8,%xmm0,%xmm0
+%xmm8 $64 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+%xmm0 $65 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x0000000000401be9 in after(Mips2C::ExecutionContext*) ()
+POST %xmm0 $66 = {0x7fc12345, 0x0, 0x0, 0x0}
+0x0000000000401bed in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bf0 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bf5 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bfa in after(Mips2C::ExecutionContext*) ()
+0x0000000000401bfe in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c01 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401c01 <_Z5afterPN6Mips2C16ExecutionContextE+401>:	vmulps %xmm9,%xmm1,%xmm1
+%xmm9 $67 = {0xffc00000, 0xffc00000, 0x0, 0x0}
+%xmm1 $68 = {0x7fc12345, 0x7fc12345, 0x0, 0x0}
+0x0000000000401c06 in after(Mips2C::ExecutionContext*) ()
+POST %xmm1 $69 = {0x7fc12345, 0x7fc12345, 0x0, 0x0}
+0x0000000000401c0a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c0d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c12 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c18 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c1c in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c20 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c27 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c2b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c2f in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c32 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c3a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c3f in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401c3f <_Z5afterPN6Mips2C16ExecutionContextE+463>:	vmulps %xmm5,%xmm0,%xmm6
+%xmm5 $70 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $71 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm6 $72 = {0xff800000, 0x0, 0x0, 0x0}
+0x0000000000401c43 in after(Mips2C::ExecutionContext*) ()
+POST %xmm6 $73 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401c4b in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401c4b <_Z5afterPN6Mips2C16ExecutionContextE+475>:	vmulps 0x30(%rsp),%xmm0,%xmm8
+%xmm0 $74 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm8 $75 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x7fffffffbed0:	0x7fc12345	0x7fc12345	0x7fc12345	0xff800000
+
+0x0000000000401c51 in after(Mips2C::ExecutionContext*) ()
+POST %xmm8 $76 = {0x7fc12345, 0x7fc12345, 0x7fc12345, 0x7f800000}
+0x0000000000401c59 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401c59 <_Z5afterPN6Mips2C16ExecutionContextE+489>:	vmulps %xmm4,%xmm0,%xmm0
+%xmm4 $77 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $78 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+0x0000000000401c5d in after(Mips2C::ExecutionContext*) ()
+POST %xmm0 $79 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401c62 in after(Mips2C::ExecutionContext*) ()
+PRE => 0x401c62 <_Z5afterPN6Mips2C16ExecutionContextE+498>:	vaddss %xmm10,%xmm1,%xmm1
+%xmm10 $80 = {0xff800000, 0x0, 0x0, 0x0}
+%xmm1 $81 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401c67 in after(Mips2C::ExecutionContext*) ()
+POST %xmm1 $82 = {0xffc00000, 0x7f800000, 0x7f800000, 0x7f800000}
+PRE => 0x401c67 <_Z5afterPN6Mips2C16ExecutionContextE+503>:	vaddps %xmm7,%xmm8,%xmm7
+%xmm7 $83 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm8 $84 = {0x7fc12345, 0x7fc12345, 0x7fc12345, 0x7f800000}
+0x0000000000401c6b in after(Mips2C::ExecutionContext*) ()
+POST %xmm7 $85 = {0x7fc12345, 0x7fc12345, 0x7fc12345, 0xffc00000}
+PRE => 0x401c6b <_Z5afterPN6Mips2C16ExecutionContextE+507>:	vaddps %xmm3,%xmm0,%xmm3
+%xmm3 $86 = {0xff800000, 0xff800000, 0xff800000, 0xff800000}
+%xmm0 $87 = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000}
+0x0000000000401c6f in after(Mips2C::ExecutionContext*) ()
+POST %xmm3 $88 = {0xffc00000, 0xffc00000, 0xffc00000, 0xffc00000}
+0x0000000000401c73 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c77 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c7b in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c83 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c87 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c8d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c90 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c97 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401c9f in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ca7 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401caa in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d70 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d76 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d7e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cb0 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cb4 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cbc in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cc4 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ccc in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cd2 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cda in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cde in after(Mips2C::ExecutionContext*) ()
+0x0000000000401ce6 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cf0 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cf4 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cf8 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401cfc in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d03 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d0a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d0d in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d0f in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d17 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d19 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d1e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d25 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d28 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d2a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d32 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d34 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d3a in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d41 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d44 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d46 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d4e in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d51 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d53 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d59 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d5c in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d60 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d61 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d63 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d65 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d67 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d69 in after(Mips2C::ExecutionContext*) ()
+0x0000000000401d6a in after(Mips2C::ExecutionContext*) ()
+OUTPUT vf11 0x7fffffffd2f0:	0x7fc12345	0x7fc12345	0x7fc12345	0xff800000
+
+TARGET COMPLETE; quit before remaining campaign

@@ -1,0 +1,111 @@
+--- a/game/mips2c/jak1_functions/sparticle.cpp
++++ b/game/mips2c/jak1_functions/sparticle.cpp
+@@ -244,34 +244,80 @@
+   c->daddiu(sp, sp, 96);                            // daddiu sp, sp, 96
+ 
+   block_18:
+-  c->lqc2(vf8, 0, s4);                              // lqc2 vf8, 0(s4)
+-  c->lqc2(vf9, 16, s4);                             // lqc2 vf9, 16(s4)
+-  c->lqc2(vf10, 32, s4);                            // lqc2 vf10, 32(s4)
+-  c->lqc2(vf11, 16, s5);                            // lqc2 vf11, 16(s5)
+-  c->lqc2(vf12, 32, s5);                            // lqc2 vf12, 32(s5)
+-  c->lqc2(vf13, 48, s5);                            // lqc2 vf13, 48(s5)
+-  c->lqc2(vf14, 64, s5);                            // lqc2 vf14, 64(s5)
+-  c->lwc1(f0, 96, s5);                              // lwc1 f0, 96(s5)
+-  c->mfc1(v1, f0);                                  // mfc1 v1, f0
+-  c->vmul_bc(DEST::xyzw, BC::z, vf14, vf14, vf16);  // vmulz.xyzw vf14, vf14, vf16
+-  bc = c->sgpr64(v1) == 0;                          // beq v1, r0, L76
+-  c->vadd(DEST::xyz, vf11, vf11, vf14);             // vadd.xyz vf11, vf11, vf14
+-  if (bc) {goto block_20;}                          // branch non-likely
+-
+-  c->mov128_vf_gpr(vf15, v1);                       // qmtc2.i vf15, v1
+-  c->vsub_bc(DEST::w, BC::x, vf15, vf0, vf15);      // vsubx.w vf15, vf0, vf15
+-  c->vmul_bc(DEST::xyzw, BC::w, vf15, vf15, vf16);  // vmulw.xyzw vf15, vf15, vf16
+-  c->vsub_bc(DEST::w, BC::w, vf15, vf0, vf15);      // vsubw.w vf15, vf0, vf15
+-  c->vmul_bc(DEST::xyz, BC::w, vf11, vf11, vf15);   // vmulw.xyz vf11, vf11, vf15
+-
+-  block_20:
+-  c->vmul_bc(DEST::xyzw, BC::y, vf17, vf11, vf16);  // vmuly.xyzw vf17, vf11, vf16
+-  c->vmul_bc(DEST::xyzw, BC::y, vf18, vf12, vf16);  // vmuly.xyzw vf18, vf12, vf16
+-  c->vmul_bc(DEST::xyzw, BC::y, vf19, vf13, vf16);  // vmuly.xyzw vf19, vf13, vf16
+-  c->vadd(DEST::xyzw, vf8, vf8, vf17);              // vadd.xyzw vf8, vf8, vf17
+-  c->vadd_bc(DEST::w, BC::w, vf9, vf9, vf18);       // vaddw.w vf9, vf9, vf18
+-  c->vadd(DEST::xyzw, vf10, vf10, vf19);            // vadd.xyzw vf10, vf10, vf19
+-  c->vmax_bc(DEST::xyzw, BC::x, vf10, vf10, vf0);   // vmaxx.xyzw vf10, vf10, vf0
++  {
++    // Keep integration intermediates local, then publish every visible VF register.
++    Mips2c_vf r8, r9, r10, r11, r12, r13, r14, r15, r17, r18, r19;
++    ASSERT(((c->gpr_src(s4).du32[0] + 0) & 0xf) == 0);
++    memcpy(&r8, g_ee_main_mem + c->gpr_src(s4).du32[0] + 0, 16);
++    ASSERT(((c->gpr_src(s4).du32[0] + 16) & 0xf) == 0);
++    memcpy(&r9, g_ee_main_mem + c->gpr_src(s4).du32[0] + 16, 16);
++    ASSERT(((c->gpr_src(s4).du32[0] + 32) & 0xf) == 0);
++    memcpy(&r10, g_ee_main_mem + c->gpr_src(s4).du32[0] + 32, 16);
++    ASSERT(((c->gpr_src(s5).du32[0] + 16) & 0xf) == 0);
++    memcpy(&r11, g_ee_main_mem + c->gpr_src(s5).du32[0] + 16, 16);
++    ASSERT(((c->gpr_src(s5).du32[0] + 32) & 0xf) == 0);
++    memcpy(&r12, g_ee_main_mem + c->gpr_src(s5).du32[0] + 32, 16);
++    ASSERT(((c->gpr_src(s5).du32[0] + 48) & 0xf) == 0);
++    memcpy(&r13, g_ee_main_mem + c->gpr_src(s5).du32[0] + 48, 16);
++    ASSERT(((c->gpr_src(s5).du32[0] + 64) & 0xf) == 0);
++    memcpy(&r14, g_ee_main_mem + c->gpr_src(s5).du32[0] + 64, 16);
++    c->lwc1(f0, 96, s5);                            // lwc1 f0, 96(s5)
++    c->mfc1(v1, f0);                                // mfc1 v1, f0
++    const Mips2c_vf r16 = c->vf_src(vf16);
++    const Mips2c_vf zero = c->vf_src(vf0);
++    for (int lane = 0; lane < 4; ++lane) {
++      r14.f[lane] = r14.f[lane] * r16.f[2];          // vmulz.xyzw
++    }
++    bc = c->sgpr64(v1) == 0;                        // beq v1, r0, L76
++    for (int lane = 0; lane < 3; ++lane) {
++      r11.f[lane] = r11.f[lane] + r14.f[lane];      // vadd.xyz
++    }
++    if (!bc) {
++      const auto damping = c->gpr_src(v1);
++      memcpy(&r15, &damping, 16);                   // qmtc2.i vf15, v1
++      r15.f[3] = zero.f[3] - r15.f[0];             // vsubx.w
++      for (int lane = 0; lane < 4; ++lane) {
++        r15.f[lane] = r15.f[lane] * r16.f[3];      // vmulw.xyzw
++      }
++      r15.f[3] = zero.f[3] - r15.f[3];             // vsubw.w
++      c->vfs[vf11] = r11;
++      c->vfs[vf15] = r15;
++      c->vmul_bc(DEST::xyz, BC::w, vf11, vf11, vf15);
++      r11 = c->vfs[vf11];
++    }
++    for (int lane = 0; lane < 4; ++lane) {
++      r17.f[lane] = r11.f[lane] * r16.f[1];        // vmuly.xyzw vf17
++    }
++    for (int lane = 0; lane < 4; ++lane) {
++      r18.f[lane] = r12.f[lane] * r16.f[1];        // vmuly.xyzw vf18
++    }
++    for (int lane = 0; lane < 4; ++lane) {
++      r19.f[lane] = r13.f[lane] * r16.f[1];        // vmuly.xyzw vf19
++    }
++    for (int lane = 0; lane < 4; ++lane) {
++      r8.f[lane] = r8.f[lane] + r17.f[lane];       // vadd.xyzw vf8
++    }
++    r9.f[3] = r9.f[3] + r18.f[3];                 // vaddw.w vf9
++    for (int lane = 0; lane < 4; ++lane) {
++      r10.f[lane] = r10.f[lane] + r19.f[lane];     // vadd.xyzw vf10
++    }
++    for (int lane = 0; lane < 4; ++lane) {
++      r10.f[lane] = std::max(r10.f[lane], 0.f);    // vmaxx.xyzw vf10
++    }
++    c->vfs[vf8] = r8;
++    c->vfs[vf9] = r9;
++    c->vfs[vf10] = r10;
++    c->vfs[vf11] = r11;
++    c->vfs[vf12] = r12;
++    c->vfs[vf13] = r13;
++    c->vfs[vf14] = r14;
++    if (!bc) {
++      c->vfs[vf15] = r15;
++    }
++    c->vfs[vf17] = r17;
++    c->vfs[vf18] = r18;
++    c->vfs[vf19] = r19;
++  }
+   c->sqc2(vf11, 16, s5);                            // sqc2 vf11, 16(s5)
+   c->sqc2(vf8, 0, s4);                              // sqc2 vf8, 0(s4)
+   c->sqc2(vf9, 16, s4);                             // sqc2 vf9, 16(s4)

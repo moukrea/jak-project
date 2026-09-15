@@ -1,0 +1,80 @@
+{
+  "x86": {
+    "build_command": [
+      "g++",
+      "-mavx",
+      "-O3",
+      "-DNDEBUG",
+      "-std=gnu++20",
+      "-ffp-contract=off",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order.cpp",
+      "-o",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-x86"
+    ],
+    "build_exit": 0,
+    "run_command": [
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-x86"
+    ],
+    "run_exit": 0
+  },
+  "arm-gcc": {
+    "build_command": [
+      "aarch64-linux-gnu-g++",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include/c++/12",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include",
+      "-L/usr/aarch64-linux-gnu/lib/gcc-cross/12",
+      "-Wl,-rpath-link,/usr/aarch64-linux-gnu/lib",
+      "-O3",
+      "-DNDEBUG",
+      "-std=gnu++20",
+      "-ffp-contract=off",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order.cpp",
+      "-o",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-gcc"
+    ],
+    "build_exit": 0,
+    "run_command": [
+      "qemu-aarch64",
+      "-L",
+      "/usr/aarch64-linux-gnu",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-gcc"
+    ],
+    "run_exit": 0
+  },
+  "arm-clang": {
+    "build_command": [
+      "/home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++",
+      "-B/usr/aarch64-linux-gnu/lib/",
+      "--target=aarch64-linux-gnu",
+      "--gcc-install-dir=/usr/aarch64-linux-gnu/lib/gcc-cross/12",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include/c++/12",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu",
+      "-isystem",
+      "/usr/aarch64-linux-gnu/include",
+      "-L/usr/aarch64-linux-gnu/lib",
+      "-L/usr/aarch64-linux-gnu/lib/gcc-cross/12",
+      "-Wl,-rpath-link,/usr/aarch64-linux-gnu/lib",
+      "-O3",
+      "-DNDEBUG",
+      "-std=gnu++20",
+      "-ffp-contract=off",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order.cpp",
+      "-o",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-clang"
+    ],
+    "build_exit": 0,
+    "run_command": [
+      "qemu-aarch64",
+      "-L",
+      "/usr/aarch64-linux-gnu",
+      ".autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-clang"
+    ],
+    "run_exit": 0
+  }
+}

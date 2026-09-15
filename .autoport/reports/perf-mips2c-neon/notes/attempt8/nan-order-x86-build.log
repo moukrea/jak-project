@@ -1,0 +1,3 @@
+g++ -mavx -O3 -DNDEBUG -std=gnu++20 -ffp-contract=off .autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order.cpp -o .autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-x86
+
+EXIT 0

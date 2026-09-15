@@ -1,0 +1,39 @@
+$ qemu-aarch64 -L /usr/aarch64-linux-gnu /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt8/tested-block-parity-arm-clang
+FAIL sample=15 s4=128 s5=64 fade=7fc12345
+vf10.0 before=ffc54321 after=7fc12345
+FAIL sample=17 s4=128 s5=64 fade=7fc12345
+vf10.0 before=ffc54321 after=7fc12345
+FAIL sample=20 s4=64 s5=256 fade=00000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=256 fade=80000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=256 fade=3f000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=256 fade=3f800000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=256 fade=7fc12345
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=256 fade=ff854321
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=64 fade=7fc12345
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=48 fade=00000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=48 fade=80000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+FAIL sample=20 s4=64 s5=48 fade=3f000000
+vf8.0 before=7fc12345 after=ffc54321
+vf17.0 before=7fc12345 after=ffc54321
+LAB cases=6048 finite_memory_cases=2304 damped=5040 bypass=1008 context_and_memory_defects=153
+RESULT FAIL
+
+EXIT 1

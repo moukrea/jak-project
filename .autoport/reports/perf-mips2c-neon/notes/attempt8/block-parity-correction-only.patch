@@ -1,0 +1,25 @@
+--- attempt7/block-parity.cpp
++++ attempt8/block-parity.cpp
+@@ -44,7 +44,7 @@
+ 
+  return bc;
+ }
+-// after source sha256=713810c6a594adaa76272a9480745666ae9e2e074dcc0b43917534f43c1880e1
++// after source sha256=61984083762c0d479d148f627280ba5d84015d97bbe0b324c9e8e5346e47167d
+ __attribute__((noinline)) bool after(ExecutionContext* c) {
+  bool bc = false;
+   {
+@@ -83,9 +83,10 @@
+         r15.f[lane] = r15.f[lane] * r16.f[3];      // vmulw.xyzw
+       }
+       r15.f[3] = zero.f[3] - r15.f[3];             // vsubw.w
+-      for (int lane = 0; lane < 3; ++lane) {
+-        r11.f[lane] = r11.f[lane] * r15.f[3];      // vmulw.xyz
+-      }
++      c->vfs[vf11] = r11;
++      c->vfs[vf15] = r15;
++      c->vmul_bc(DEST::xyz, BC::w, vf11, vf11, vf15);
++      r11 = c->vfs[vf11];
+     }
+     for (int lane = 0; lane < 4; ++lane) {
+       r17.f[lane] = r11.f[lane] * r16.f[1];        // vmuly.xyzw vf17

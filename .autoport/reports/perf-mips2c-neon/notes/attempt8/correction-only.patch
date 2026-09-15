@@ -1,0 +1,16 @@
+--- attempt7/candidate-sparticle.cpp
++++ attempt8/corrected-sparticle.cpp
+@@ -280,9 +280,10 @@
+         r15.f[lane] = r15.f[lane] * r16.f[3];      // vmulw.xyzw
+       }
+       r15.f[3] = zero.f[3] - r15.f[3];             // vsubw.w
+-      for (int lane = 0; lane < 3; ++lane) {
+-        r11.f[lane] = r11.f[lane] * r15.f[3];      // vmulw.xyz
+-      }
++      c->vfs[vf11] = r11;
++      c->vfs[vf15] = r15;
++      c->vmul_bc(DEST::xyz, BC::w, vf11, vf11, vf15);
++      r11 = c->vfs[vf11];
+     }
+     for (int lane = 0; lane < 4; ++lane) {
+       r17.f[lane] = r11.f[lane] * r16.f[1];        // vmuly.xyzw vf17

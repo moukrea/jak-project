@@ -1,0 +1,3 @@
+aarch64-linux-gnu-g++ -isystem /usr/aarch64-linux-gnu/include/c++/12 -isystem /usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu -isystem /usr/aarch64-linux-gnu/include -L/usr/aarch64-linux-gnu/lib/gcc-cross/12 -Wl,-rpath-link,/usr/aarch64-linux-gnu/lib -O3 -DNDEBUG -std=gnu++20 -ffp-contract=off .autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order.cpp -o .autoport/reports/perf-mips2c-neon/notes/attempt8/nan-order-arm-gcc
+
+EXIT 0

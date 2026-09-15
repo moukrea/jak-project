@@ -1,0 +1,28 @@
+DIRECTIVES vaff5c1afea — TRACE LABORATOIRE, PAS PREUVE ANDROID
+Sample13, s4=64, s5=256, fade=7fc12345.
+
+Première divergence avant/après dans la chaîne calculée : vmulw.xyz vf11, vf11, vf15, lane z.
+x86 before 401938 vmulss %xmm2,%xmm7,%xmm7 : SRC1 velocity ffc00000, SRC2 damping 7fc12345 => ffc00000.
+x86 after 401be4 vmulss %xmm8,%xmm0,%xmm0 : SRC1 damping 7fc12345, SRC2 velocity ffc00000 => 7fc12345.
+ARM before 4013f8 fmul s27,s27,s25 : SRC1 velocity 7fc00000, SRC2 damping 7fc12345 => 7fc00000.
+ARM after 4015fc fmul s29,s31,s29 : SRC1 damping 7fc12345, SRC2 velocity 7fc00000 => 7fc12345.
+
+Étapes antérieures avant/après, adresses respectives :
+x86 accel 40187f/401af4 : ff800000 * ff800000 => 7f800000, quatre lanes.
+x86 velocity xy 4018c2/401b39 et z 4018cb/401b41 : -inf + +inf => ffc00000.
+x86 première soustraction 401902/401b88 : 3f800000 - 7fc12345 =>7fc12345.
+x86 damping vector 40191e/401bb5 => {7fc12345,ffc00000,ff800000,7fc12345}.
+x86 seconde soustraction 401934/401bd7 =>7fc12345.
+ARM accel 401384/401588 => {7f800000,7f800000,7f800000,7f800000}.
+ARM velocity xy 4013a0/401590 et z 4013a4/40159c =>7fc00000.
+ARM première soustraction 4013d0/4015d0 =>7fc12345.
+ARM damping vector 4013e4/4015e4 => {7fc12345,7fc00000,ff800000,7fc12345}.
+ARM seconde soustraction 4013f0/4015f4 =>7fc12345.
+
+Cause constatée : l'ordre machine des deux opérandes NaN de la multiplication scalaire z est inversé; les deux exécutions propagent les bits du premier opérande. Pas d'erreur arithmétique finie ni de changement d'ordre de la chaîne requis pour expliquer ce sample. Les traces montrent le mécanisme de ce cas, pas une preuve générale de règles NaN de toutes cibles/compilateurs.
+MXCSR x86=1fbb aux deux entrées; FPCR QEMU=0 aux deux entrées.
+Différence interarchitecture indépendante : NaN généré par +inf+-inf est ffc00000 x86, 7fc00000 ARM/QEMU.
+VF11 final x86 before {7fc12345,7fc12345,ffc00000,ff800000}, after {7fc12345,7fc12345,7fc12345,ff800000}.
+VF11 final ARM before {7fc00000,7fc00000,7fc00000,ff800000}, after {7fc00000,7fc00000,7fc12345,ff800000}.
+La divergence z se propage ensuite à vf17.z et vf8.z dans les traces.
+Aucun appareil, source moteur/banc, validateur ou historique modifié. Scripts/logs uniquement dans attempt8/trace.
