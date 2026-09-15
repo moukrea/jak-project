@@ -11375,6 +11375,25 @@ items:
     tested_build: non identifie
     scope: retour positif conserve ; ne pas attribuer ce test aux modifications ulterieures de la preparation
       comparative
+  proposed_proof_plan:
+    status: proposed-awaiting-owner
+    owner_authorized: false
+    date: '2026-09-15'
+    additional_runs: 1
+    campaign_max_runs_if_approved: 4
+    already_consumed: 1
+    existing_unconsumed: 2
+    max_timeout_s_per_run: 130
+    reason: 'Reference essai10 inexploitable : fonctions TransformFeedback absentes de la table Android
+      et publication archive refusee. Reparation livree et deux binaires recompiles ; aucun resultat appareil
+      des reparations.'
+    sequence:
+    - Une nouvelle reference apres reparation, nouvelles archives et bande exogene, propres sources/build
+      du temoin13735a9bea.
+    - 'Si reference complete et contact reel non vide : OFF et ON avec les deux courses encore disponibles.'
+    stop: Sans captures exploitables ou contact reel, conserver l echec et ne pas lancer OFF/ON. Aucun
+      reset des consommations, aucun temoin synthetique. Ce plan ne peut etre lance avant reponse owner.
+    evidence: notes/attempt-10-preparation.md ; notes/attempt-10-reference-result/proof.txt ; notes/attempt-10-reference-ready-manifest.json
 - status: validated
   game: jak1
   owner_test: false
