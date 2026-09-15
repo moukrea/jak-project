@@ -12394,6 +12394,16 @@ items:
   priority: 34
   game: jak1
   device: false
+  owner_test: false
+  proof_timeout: 60
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_HDR=0
+  - OG_HDR_OUT=0
+  gate:
+    key: shrub_trunk_anchor_defects
+    op: ==
+    value: 0
   code_scope: harnais
   depends_on:
   - shrub-trunk-contact

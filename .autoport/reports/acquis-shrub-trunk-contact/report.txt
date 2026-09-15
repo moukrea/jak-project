@@ -1,0 +1,29 @@
+DIRECTIVES v14fcd1a084
+Garde locale livrée et preuve x86 produite ; décision de porte réservée à l’orchestrateur.
+
+Changements : acquis/shrub-trunk-contact.sh protège les blocs CPU/GLSL du correctif livré.
+Séparation tronc/feuillage, pivot porté, maintien des sommets à la jonction et finalisation géométrique.
+Critère moteur existant épinglé dans backlog.yaml : shrub_trunk_anchor_defects == 0.
+owner_test: false ; aucun nouveau test owner, aucune modification du jeu ou du validateur.
+Recensement : exécution de la garde et du banc existant promu sous tests/harness.
+Cinq régressions dans des copies refusées ; test synthétique tronc/jonction/feuillage conservé.
+notes/local-tests.log : 7 passed in 2.88s ; proof_census_rc=0 dans proof.txt.
+Binaire x86 vérifié frais sans reconstruction (46 entrées, zéro travail résiduel).
+
+Huit lignes de proof.txt, produit exclusivement par lib/proof_run.sh :
+source=x86
+sha=8736e1cfa84c8efa
+crash=0
+frames=3423
+shrub_trunk_anchor_defects=0
+shrub_trunk_instances=37
+shrub_joint_pairs=36
+shrub_foliage_anchored=2800
+
+Owner : rien à retester ; la validation antérieure des mini-palmiers reste acquise.
+non prouvé : déplacement GPU, continuité rendue des jonctions, mobilité de chaque couronne,
+rendu Android, exhaustivité des niveaux et comparaison vent/herbe/ablation.
+Le critère CPU arrondit l’écart du pivot au millimètre ; il ne mesure pas le déplacement.
+La garde structurelle peut refuser un refactoring équivalent : revue des blocs nécessaire.
+Le banc synthétique teste les mesures avec des fixtures, pas le rendu du jeu.
+Aucun contact appareil ni campagne. L’AO mur/toit hors périmètre est consigné dans FINDINGS.txt.
