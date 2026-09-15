@@ -55,10 +55,8 @@ vec4 world_to_clip(vec3 pos) {
 void main() {
   vec2 world_xz = u_ring_center + in_grid * u_ring_step;
 
-  // LA HAUTEUR VISUELLE. Aujourd'hui elle vaut EXACTEMENT la hauteur de jeu : les couches B
-  // (Gerstner) et C (RT de rides) appartiennent aux items 2 et 4 et n'existent pas encore. La
-  // borne `water_visual_excess_mm <= 450` est donc tenue par CONSTRUCTION et le rapport le dit :
-  // un zero obtenu par absence de couche n'est pas un zero obtenu par bornage.
+  // LA HAUTEUR VISUELLE. A est evaluee aux sommets ; les couches B (Gerstner) et C (RT de rides)
+  // n'existent pas encore. La borne de l'excedent visuel entre sommets reste non mesuree.
   float a = ocean_layer_a(world_xz);
   float y = u_water_y + a;
 

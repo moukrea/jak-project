@@ -582,7 +582,7 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
 
 void OceanRecharged::publish() {
   using autoport_proof::publish;
-  // LA PORTE. 1/1024 d'unite GOAL vaut 1/4194,304 de millimetre : convertir puis arrondir, c'est
+  // LA PORTE. 1/256 d'unite GOAL vaut 1/1048,576 de millimetre : convertir puis arrondir, c'est
   // dire « au millimetre pres », l'unite meme de la regle 2. Le chiffre BRUT est publie a cote —
   // un seuil qui censure fabrique une fausse constante, et personne ne pourrait distinguer un
   // vrai zero d'un ecart de 0,4 mm.
@@ -590,10 +590,8 @@ void OceanRecharged::publish() {
     const double mm = (double)m_maxdelta_q256 / 1048.576;  // 256 * 4096 / 1000
     publish("water_gameplay_height_maxdelta_mm", (u64)std::llround(mm));
     publish("water_gameplay_height_maxdelta_q256", (u64)m_maxdelta_q256);
-    // Les couches B et C n'existent pas encore (items 2 et 4) : la hauteur VISUELLE vaut
-    // exactement la couche A, donc l'excedent visuel est la MEME grandeur. C'est un zero par
-    // absence de couche, pas par bornage, et le rapport le dit.
-    publish("water_visual_excess_mm", (u64)std::llround(mm));
+    // run_probe compare A CPU/GPU sur 64 sommets, pas la surface triangulee apres interpolation.
+    // L'excedent visuel global reste non mesure : ne pas publier zero.
   }
   publish("water_probe_runs", m_probe_runs);
   publish("water_probe_alpha_missing", m_probe_alpha_missing);
