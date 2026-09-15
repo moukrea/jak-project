@@ -5655,6 +5655,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.water=1
+  - debug.opengoal.level.warp=jungle-start
+  - debug.opengoal.level.warp.pos=260.7 2.3 -233.3
   where: 'Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur) : la houle ne deborde
     plus du lit. Puis la mer depuis Sandover.'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce

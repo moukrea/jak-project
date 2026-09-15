@@ -100,7 +100,9 @@ class OceanRecharged {
   u64 m_frames_drawn = 0;
   u64 m_frames_layer_a_fresh = 0;
   u64 m_frames_layer_a_stale = 0;
-  u64 m_verts_moved = 0;
+  u64 m_verts_moved = 0;  // indices soumis sur les images a couche A non plate (historique cost)
+  u64 m_probe_verts_moved = 0;  // observations de sommets sonde : alpha valide et gpu_q != 0
+  u64 m_probe_verts_sampled = 0;  // observations de sommets sonde a alpha valide
   u64 m_probe_runs = 0;
   u64 m_probe_alpha_missing = 0;
   s64 m_maxdelta_q256 = -1;
@@ -129,7 +131,7 @@ class OceanRecharged {
   // background_common.cpp:1419) : le binaire de l'owner ne paie pas l'instrument qui mesure
   // l'instrument.
   u64 m_hit_calls = 0;     // appels de note_hit_for emis par CE site
-  u64 m_hit_units = 0;     // unites passees a ces appels — ce que `hits=` porte
+  u64 m_hit_units = 0;     // unites passees a ces appels, distinctes des sommets sondes
   u64 m_hit_events = 0;    // evenements observes : images dessinees a couche A non plate
   u64 m_cost_call_ns = 0;  // temps PROCESSEUR passe DANS ces appels
   u64 m_cost_call_ns_max = 0;

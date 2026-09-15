@@ -543,6 +543,10 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
     }
     const s64 gpu_q = (s64)pixels[k * 4 + 0] + ((s64)pixels[k * 4 + 1] << 8) +
                       ((s64)pixels[k * 4 + 2] << 16) - 8388608;
+    m_probe_verts_sampled++;
+    if (gpu_q != 0) {
+      m_probe_verts_moved++;
+    }
     const float cpu_a = layer_a_cpu(m_layer_a.data(), m_start_corner[0], m_start_corner[2],
                                     m_probe_xz[k][0], m_probe_xz[k][1]);
     const s64 cpu_q = (s64)std::llround(cpu_a * 256.0);
@@ -584,7 +588,12 @@ void OceanRecharged::publish() {
   publish("water_layerA_absmax_q256", (u64)m_layer_a_absmax_q256);
   publish("water_layerA_nonzero_texels", (u64)m_layer_a_nonzero);
   publish("water_clipmap_frames", m_frames_drawn);
-  publish("water_clipmap_verts_moved", m_verts_moved);
+  publish("water_clipmap_verts_moved", m_probe_verts_moved);
+  publish("water_clipmap_verts_sampled", m_probe_verts_sampled);
+  publish("water_clipmap_indices_submitted", m_verts_moved);
+  autoport_proof::publish_text(
+      "water_clipmap_verts_scope",
+      "cumulative-valid-observations-of-64-probe-vertex-subset-not-total-draw-vertices-or-fragments");
   publish("water_layerA_fresh_frames", m_frames_layer_a_fresh);
   publish("water_layerA_stale_frames", m_frames_layer_a_stale);
   publish("water_mask_skip_cells", m_mask_skip_cells);
@@ -600,7 +609,7 @@ void OceanRecharged::publish() {
   // ===== water-ocean-mesh-hit-counter-cost ====================================================
   // CE QUE LE SITE FAIT, DIT EN TROIS GRANDEURS QUE `hits=` CONFONDAIT.
   //   `hit_counter_calls`  : le nombre d'APPELS de `note_hit_for` emis par ce site.
-  //   `hit_counter_units`  : la somme des `n` passes a ces appels — c'est ce que `hits=` porte.
+  //   `hit_counter_units`  : la somme des `n` passes a ces appels, distincte des sommets sondes.
   //   `hit_counter_events` : les EVENEMENTS observes, images dessinees a couche A non plate.
   // Le 12/09, la table par feature a lu 4 536 325 248 pour `water-ocean-mesh` et cet ecart a ete
   // lu comme quatorze millions d'incrementations par seconde. Il n'y en avait qu'UNE par image :
@@ -793,9 +802,9 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   glBindVertexArray(0);
   m_frames_drawn++;
 
-  // LES `hits` SONT LUS SUR L'EFFET. Un sommet n'est « deplace » que si la couche A n'est pas
-  // plate : on ne compte donc que les images ou la houle captee porte au moins un texel non nul.
-  // Un compteur qui monterait meme sur une mer d'huile ne separerait rien.
+  // Le compteur historique recense les indices soumis quand la couche A porte au moins un
+  // texel non nul. Il ne mesure pas les sommets deplaces : cette grandeur est echantillonnee
+  // par run_probe sur son sous-ensemble de 64 sommets, sans mesurer les fragments masques.
   // water-ocean-mesh-hit-counter-cost : le chronometre ne tourne que sous mesure.
   static const bool s_cost_measured = autoport_proof::feature_is(kCostId);
   u64 fails = 0;
@@ -820,7 +829,7 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     // nombre d'INDICES dessines par les trois anneaux, et non des sommets. Le compteur portait
     // donc 289 824 unites par image pour UN evenement : trois ordres de grandeur au-dessus de ce
     // qu'il observait. L'unite est desormais l'evenement lui-meme, et la grandeur qui s'y cachait
-    // reste publiee, entiere, par `water_clipmap_verts_moved`.
+    // reste publiee, entiere, par `water_clipmap_indices_submitted`.
     const u64 t_call0 = s_cost_measured ? cpu_ns(&fails) : 0;
     autoport_proof::note_hit_for(kItemId, 1);
     const u64 t_call1 = s_cost_measured ? cpu_ns(&fails) : 0;
@@ -862,7 +871,9 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
 
   // La sonde ne tourne que sur une image FRAICHE : comparer la hauteur de jeu de cette image a
   // une couche A d'il y a dix images mesurerait le retard, pas la fidelite.
-  if (had_fresh && (m_frames_drawn % kProbeEveryFrames) == 0) {
+  // Compter les captures fraiches : des buckets near intermittents ne doivent pas
+  // rater indefiniment la sonde en arrivant entre deux multiples du total d'images.
+  if (had_fresh && (m_frames_layer_a_fresh % kProbeEveryFrames) == 0) {
     run_probe(render_state);
   }
   if ((m_frames_drawn % kProbeEveryFrames) == 0) {

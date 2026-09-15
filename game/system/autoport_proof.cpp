@@ -220,9 +220,14 @@ void emit_locked() {
   feature_census_locked();
   if (!id.empty()) {
     // These contracts count their own fragments or canonical vertices.
-    const uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact")
-                              ? site_hits_ref()[id]
-                              : g_hits;
+    uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact")
+                        ? site_hits_ref()[id]
+                        : g_hits;
+    if (id == "water-ocean-mesh") {
+      // Cumulative valid observations of the 64 probe vertices, not all submitted vertices.
+      const auto it = g_keys.find("water_clipmap_verts_moved");
+      hits = armed() && it != g_keys.end() ? it->second : uint64_t{0};
+    }
     fmt::print("FEATURE {} armed={} hits={}\n", id, armed() ? 1 : 0, hits);
   }
   for (const auto& kv : g_keys) {
