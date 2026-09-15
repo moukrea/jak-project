@@ -1,0 +1,26 @@
+DIRECTIVES vf72d3bd470
+Protection DMA livree : preuve USB scellee et lecteur acquis acceptes ; verdict generic reserve a l'orchestrateur.
+
+Ajout de acquis/perf-dma-chain-copies.sh : refus des parcours >2, populations vides,
+cumuls incoherents, erreurs de copie/crash et preuves perimees ou divergentes.
+Le recensement reutilise les compteurs Android et rejoue 115 temoins isoles.
+proof_props epingle recharged=0 et perf.buckets=1 ; aucun changement moteur ni build.
+
+Preuve fraiche : proof_run, appareil eae4df44 (Redmi_Note_9_Pro), une course de 60 s.
+Course 20260915T000803Z-1325842-2c13369e ; producteur rc=0, lecteur dma_check_proof rc=0.
+MD5 local/appareil identique : 5ff265dc1ae1cfdb3313faa0a6410b70 ; sha binaire 2a0c531477f9391f.
+Huit lignes de proof.txt :
+dma_acquis_defects=0
+dma_acquis_cases=115
+dma_chain_frames_measured=4200
+dma_chain_attempts_measured=4200
+dma_chain_walks_total=8400
+dma_chain_walks_per_frame=2
+dma_chain_bytes_copied=1566310
+crash=0
+
+Le journal notes/dma-acquis.log indique 115 passed in 23.45s dans cette course.
+L'instrument de harnais a publie : proof_census_present=1, rc=0, keys=7 (proof.txt:147-149).
+Owner : protection automatique, rien a retester.
+non prouve : identite pixel, gain FPS, tentatives finales entre deux publications de compteurs.
+Signalements hors perimetre consignes dans FINDINGS.txt.
