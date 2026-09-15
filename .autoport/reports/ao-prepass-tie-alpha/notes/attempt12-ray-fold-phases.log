@@ -1,0 +1,89 @@
+GL_VENDOR=Intel
+GL_RENDERER=Mesa Intel(R) UHD Graphics (CML GT2)
+GL_VERSION=OpenGL ES 3.2 Mesa 25.3.6
+CHAIN passes=8blur+4ridge strides=1,2,3,5
+FOLD_PHASE shader=reference format=R8 x=390 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=391 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=392 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=393 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=394 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=395 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=396 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=397 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=398 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=399 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=400 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=401 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=402 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=403 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=404 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=405 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=406 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=407 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=408 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE shader=reference format=R8 x=409 phases=16 min=0.470588237047 max=0.470588237047 range=0
+FOLD_PHASE_MAX shader=reference format=R8 phases=16 max_range=0 x=-1
+FOLD_PHASE shader=candidate format=R8 x=390 phases=16 min=0.454901963472 max=0.486274510622 range=0.0313725471497
+FOLD_PHASE shader=candidate format=R8 x=391 phases=16 min=0.450980395079 max=0.486274510622 range=0.0352941155434
+FOLD_PHASE shader=candidate format=R8 x=392 phases=16 min=0.450980395079 max=0.486274510622 range=0.0352941155434
+FOLD_PHASE shader=candidate format=R8 x=393 phases=16 min=0.447058826685 max=0.490196079016 range=0.0431372523308
+FOLD_PHASE shader=candidate format=R8 x=394 phases=16 min=0.447058826685 max=0.490196079016 range=0.0431372523308
+FOLD_PHASE shader=candidate format=R8 x=395 phases=16 min=0.443137258291 max=0.494117647409 range=0.0509803891182
+FOLD_PHASE shader=candidate format=R8 x=396 phases=16 min=0.439215689898 max=0.501960813999 range=0.0627451241016
+FOLD_PHASE shader=candidate format=R8 x=397 phases=16 min=0.43137255311 max=0.501960813999 range=0.0705882608891
+FOLD_PHASE shader=candidate format=R8 x=398 phases=16 min=0.419607847929 max=0.517647087574 range=0.098039239645
+FOLD_PHASE shader=candidate format=R8 x=399 phases=16 min=0.376470595598 max=0.486274510622 range=0.109803915024
+FOLD_PHASE shader=candidate format=R8 x=400 phases=16 min=0.46274510026 max=0.486274510622 range=0.0235294103622
+FOLD_PHASE shader=candidate format=R8 x=401 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE shader=candidate format=R8 x=402 phases=16 min=0.46274510026 max=0.478431373835 range=0.0156862735748
+FOLD_PHASE shader=candidate format=R8 x=403 phases=16 min=0.46274510026 max=0.478431373835 range=0.0156862735748
+FOLD_PHASE shader=candidate format=R8 x=404 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE shader=candidate format=R8 x=405 phases=16 min=0.46274510026 max=0.478431373835 range=0.0156862735748
+FOLD_PHASE shader=candidate format=R8 x=406 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE shader=candidate format=R8 x=407 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE shader=candidate format=R8 x=408 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE shader=candidate format=R8 x=409 phases=16 min=0.466666668653 max=0.478431373835 range=0.0117647051811
+FOLD_PHASE_MAX shader=candidate format=R8 phases=16 max_range=0.109803915024 x=399
+FOLD_PHASE shader=reference format=R32F x=390 phases=16 min=0.468749940395 max=0.468750327826 range=3.8743019104e-07
+FOLD_PHASE shader=reference format=R32F x=391 phases=16 min=0.468749761581 max=0.468750208616 range=4.47034835815e-07
+FOLD_PHASE shader=reference format=R32F x=392 phases=16 min=0.468749761581 max=0.468750268221 range=5.06639480591e-07
+FOLD_PHASE shader=reference format=R32F x=393 phases=16 min=0.468749672174 max=0.468750208616 range=5.36441802979e-07
+FOLD_PHASE shader=reference format=R32F x=394 phases=16 min=0.468749731779 max=0.468750357628 range=6.25848770142e-07
+FOLD_PHASE shader=reference format=R32F x=395 phases=16 min=0.468749731779 max=0.46875038743 range=6.55651092529e-07
+FOLD_PHASE shader=reference format=R32F x=396 phases=16 min=0.468749523163 max=0.468750208616 range=6.85453414917e-07
+FOLD_PHASE shader=reference format=R32F x=397 phases=16 min=0.468749672174 max=0.468750417233 range=7.45058059692e-07
+FOLD_PHASE shader=reference format=R32F x=398 phases=16 min=0.468749642372 max=0.46875038743 range=7.45058059692e-07
+FOLD_PHASE shader=reference format=R32F x=399 phases=16 min=0.468749582767 max=0.468750357628 range=7.7486038208e-07
+FOLD_PHASE shader=reference format=R32F x=400 phases=16 min=0.468749731779 max=0.468750476837 range=7.45058059692e-07
+FOLD_PHASE shader=reference format=R32F x=401 phases=16 min=0.46874961257 max=0.468750357628 range=7.45058059692e-07
+FOLD_PHASE shader=reference format=R32F x=402 phases=16 min=0.468749642372 max=0.46875038743 range=7.45058059692e-07
+FOLD_PHASE shader=reference format=R32F x=403 phases=16 min=0.468749731779 max=0.468750417233 range=6.85453414917e-07
+FOLD_PHASE shader=reference format=R32F x=404 phases=16 min=0.468749672174 max=0.468750268221 range=5.96046447754e-07
+FOLD_PHASE shader=reference format=R32F x=405 phases=16 min=0.468749791384 max=0.468750417233 range=6.25848770142e-07
+FOLD_PHASE shader=reference format=R32F x=406 phases=16 min=0.468749731779 max=0.468750268221 range=5.36441802979e-07
+FOLD_PHASE shader=reference format=R32F x=407 phases=16 min=0.468749731779 max=0.468750238419 range=5.06639480591e-07
+FOLD_PHASE shader=reference format=R32F x=408 phases=16 min=0.468749880791 max=0.468750357628 range=4.76837158203e-07
+FOLD_PHASE shader=reference format=R32F x=409 phases=16 min=0.468749761581 max=0.468750208616 range=4.47034835815e-07
+FOLD_PHASE_MAX shader=reference format=R32F phases=16 max_range=7.7486038208e-07 x=399
+FOLD_PHASE shader=candidate format=R32F x=390 phases=16 min=0.45246887207 max=0.48469543457 range=0.0322265625
+FOLD_PHASE shader=candidate format=R32F x=391 phases=16 min=0.452026367188 max=0.484985351562 range=0.032958984375
+FOLD_PHASE shader=candidate format=R32F x=392 phases=16 min=0.450286865234 max=0.486541748047 range=0.0362548828125
+FOLD_PHASE shader=candidate format=R32F x=393 phases=16 min=0.447509765625 max=0.4892578125 range=0.041748046875
+FOLD_PHASE shader=candidate format=R32F x=394 phases=16 min=0.44596862793 max=0.490280151367 range=0.0443115234375
+FOLD_PHASE shader=candidate format=R32F x=395 phases=16 min=0.44189453125 max=0.494262695312 range=0.0523681640625
+FOLD_PHASE shader=candidate format=R32F x=396 phases=16 min=0.437210083008 max=0.49836730957 range=0.0611572265625
+FOLD_PHASE shader=candidate format=R32F x=397 phases=16 min=0.432586669922 max=0.502166748047 range=0.069580078125
+FOLD_PHASE shader=candidate format=R32F x=398 phases=16 min=0.418395996094 max=0.515808105469 range=0.097412109375
+FOLD_PHASE shader=candidate format=R32F x=399 phases=16 min=0.375 max=0.484219610691 range=0.109219610691
+FOLD_PHASE shader=candidate format=R32F x=400 phases=16 min=0.46198284626 max=0.484219610691 range=0.022236764431
+FOLD_PHASE shader=candidate format=R32F x=401 phases=16 min=0.464064121246 max=0.478504657745 range=0.014440536499
+FOLD_PHASE shader=candidate format=R32F x=402 phases=16 min=0.463044434786 max=0.478950232267 range=0.0159057974815
+FOLD_PHASE shader=candidate format=R32F x=403 phases=16 min=0.463013678789 max=0.478437304497 range=0.0154236257076
+FOLD_PHASE shader=candidate format=R32F x=404 phases=16 min=0.463948488235 max=0.477054089308 range=0.0131056010723
+FOLD_PHASE shader=candidate format=R32F x=405 phases=16 min=0.462568283081 max=0.477478533983 range=0.0149102509022
+FOLD_PHASE shader=candidate format=R32F x=406 phases=16 min=0.463713049889 max=0.476196438074 range=0.0124833881855
+FOLD_PHASE shader=candidate format=R32F x=407 phases=16 min=0.463605314493 max=0.47587493062 range=0.012269616127
+FOLD_PHASE shader=candidate format=R32F x=408 phases=16 min=0.463044434786 max=0.476115256548 range=0.0130708217621
+FOLD_PHASE shader=candidate format=R32F x=409 phases=16 min=0.462827056646 max=0.476212531328 range=0.0133854746819
+FOLD_PHASE_MAX shader=candidate format=R32F phases=16 max_range=0.109219610691 x=399
+gl_errors=0 diagnostic_only=1

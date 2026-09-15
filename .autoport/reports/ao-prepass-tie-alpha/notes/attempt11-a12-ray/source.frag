@@ -34,10 +34,12 @@ uniform float u_edge_reject;   // 1 = rejet franc a 1 % arme ; 0 = temoin (gauss
 // le meme `glReadPixels(GL_RED)` que le tampon d'AO : aucun instrument neuf.
 uniform int u_blur_report;
 
-// Full-resolution strict ridge fill after blur. This bounded operation does not
-// correct monotone dilution or secondary peaks in the wall/roof contact profile.
-// The wider concave envelope was removed: local replays showed secondary peaks
-// and darkening outside the qualified contact (attempt12-delivered-diagnostic.json).
+// ── (h) LE REMPLISSAGE DE CRETE AU CONTACT ───────────────────────────────────────────────────
+// Owner, 2026-09-13 : « aux contact on a comme une petite bande ou l'ao n'a pas d'effet, laissant
+// une bande de quelques pixels eclairee sans AO, c'est distrayant ». Contrat (h) : « elle vaut 0
+// ou est declaree et justifiee, jamais "quelques pixels" ». Livre au 14/09 : 850 texels de crete
+// (temoin 4204). 0 = flou normal, comportement INCHANGE ; 1 = passe de crete, en pleine
+// resolution, APRES le flou.
 uniform int u_ridge_fill;
 
 vec3 world_from_depth(vec2 uv, float dpt) {
@@ -50,8 +52,19 @@ vec3 world_from_depth(vec2 uv, float dpt) {
 }
 
 void main() {
-  // Only strict AO maxima at a depth fold enter this historical rule. The native
-  // contact profile and the complete profile diagnostic remain separate checks.
+  // ── (h) LA PASSE DE CRETE : ELLE NE FLOUTE PAS, ELLE CREUSE LES MAXIMA LOCAUX D'UN PLI ─────
+  // L'AO doit CREUSER au contact : la ou deux surfaces se replient l'une vers l'autre, l'horizon
+  // se ferme et l'occlusion MONTE. Une CRETE — l'AO plus claire au pli qu'a ses deux voisins —
+  // y est donc l'artefact que l'owner nomme, pas une nuance. Le test de pli est EXACTEMENT
+  // celui de `contact_band()` (AmbientOcclusion.cpp) : la courbure de la profondeur de fenetre
+  // pese plus du quart des differences premieres (le pli), et aucune des deux differences n'est
+  // un SAUT au-dela de 2 % (sinon c'est une silhouette, ou l'AO a le DROIT de remonter parce
+  // qu'il y a du vide derriere). Un voisin de ciel annule l'axe.
+  // La passe ne touche QUE les maxima locaux STRICTS poses sur un pli, et ne peut qu'ABAISSER
+  // (le resultat est un min) : elle ne sait donc ni eclaircir quoi que ce soit, ni assombrir une
+  // surface continue (aucun pli), ni une silhouette (le saut l'exclut). Maximum strict SANS
+  // marge : une crete de 3/255 passe sous les 4/255 de la mesure, la corriger quand meme est la
+  // seule facon que la mesure ne soit pas ce qu'on optimise.
   if (u_ridge_fill == 1) {
     vec2 px = 1.0 / vec2(textureSize(u_ao, 0));
     float rd0 = texture(u_depth, tex_coord).r;
@@ -146,6 +159,44 @@ void main() {
     }
   }
 
+  // Locate a continuous concave fold inside THIS blur support. Four consecutive
+  // depth texels define the two one-sided planes and their subpixel intersection.
+  // The centre must belong to the receiving plane; distant surface changes cannot
+  // supply a boundary. Limit normal diffusion by distance to that intersection.
+  float stride = length(u_dir * u_depth_size);
+  vec2 unit_dir = u_dir / max(stride, 1.0);
+  float support = 2.0 * stride;
+  float radius = support;
+  float receiving_slope = zslope / max(stride, 1.0);
+  if (u_edge_reject > 0.5) {
+    for (int k = -10; k < 10; ++k) {
+      if (float(k) < -support || float(k) >= support) continue;
+      vec2 uv = tex_coord + float(k) * unit_dir;
+      float za = texture(u_depth, uv - unit_dir).r;
+      float zb = texture(u_depth, uv).r;
+      float zc = texture(u_depth, uv + unit_dir).r;
+      float zd = texture(u_depth, uv + 2.0 * unit_dir).r;
+      float sm = zb - za;
+      float sp = zd - zc;
+      float bend = sp - sm;
+      if (min(min(za, zb), min(zc, zd)) <= 1e-6 ||
+          bend <= 0.25 * (abs(sm) + abs(sp)) + 1e-5 ||
+          max(max(abs(sm), abs(sp)), abs(zc-zb)) > 0.02 * min(zb, zc)) continue;
+      float t = (zb + sp - zc) / bend;
+      if (t < 0.0 || t > 1.0) continue;
+      float crease = float(k) + t;
+      float plane_slope = crease > 0.0 ? sm : sp;
+      float plane_centre = crease > 0.0 ? zb - sm * float(k)
+                                       : zc - sp * float(k + 1);
+      float tolerance = (abs(float(k)) + 3.0) / 16777215.0;
+      if (abs(d0 - plane_centre) > tolerance) continue;
+      if (abs(crease) < radius) {
+        radius = abs(crease);
+        receiving_slope = plane_slope;
+      }
+    }
+  }
+
   // Noyau centre : les poids des quatre classes modulo 4 valent chacun 1/4,
   // et le premier moment est nul. Sur profondeur plane, il moyenne les quatre
   // phases sans le decalage d'un demi-pas de l'ancienne boite -1..2.
@@ -160,14 +211,17 @@ void main() {
   for (int i = 0; i < 4; i++) {
     float off = (i == 0) ? -2.0 : (i == 1) ? -1.0 : (i == 2) ? 1.0 : 2.0;
     float tap_weight = abs(off) > 1.5 ? 0.125 : 0.25;
-    vec2 tuv = tex_coord + u_dir * off;
+    float sample_offset = off * stride * (radius / max(support, 1.0));
+    vec2 tuv = tex_coord + unit_dir * sample_offset;
     float td = texture(u_depth, tuv).r;
     if (td <= 0.000001) {
       continue;  // sky tap
     }
     // Le residu au PLAN, en profondeur de fenetre : zero exact sur un plan, explose sur une
     // arete. C'est LUI qui decide, dans les deux bras, ce qui compte comme « traverser ».
-    float rz = abs(td - (d0 + zslope * off));
+    float predicted_depth = radius < support ? d0 + receiving_slope * sample_offset
+                                              : d0 + zslope * off;
+    float rz = abs(td - predicted_depth);
     bool over = rz > zlim;
     float w;
     if (u_edge_reject > 0.5) {

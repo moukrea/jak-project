@@ -1,0 +1,21 @@
+[0/2] Re-checking globbed directories...
+[1/4] Phase 21: preprocessing OpenGOAL shaders for GLES 3.20
+preprocess.py: emitted 58 shader pairs + 7 shared chunks + blob header to /home/emeric/code/jak-project/build-android/shaders; purged 0 stale file(s)
+[2/4] Building CXX object android/CMakeFiles/gk.dir/__/game/graphics/opengl_renderer/Shader.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Shader.cpp:13:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:64:8: warning: 'init_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   64 |   void init_splash();
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:34:16: note: overridden virtual function is here
+   34 |   virtual void init_splash() = 0;
+      |                ^
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/Shader.cpp:13:
+/home/emeric/code/jak-project/game/graphics/pipelines/opengl.h:65:8: warning: 'draw_splash' overrides a member function but is not marked 'override' [-Winconsistent-missing-override]
+   65 |   void draw_splash(int fb_w, int fb_h);
+      |        ^
+/home/emeric/code/jak-project/game/graphics/display.h:35:16: note: overridden virtual function is here
+   35 |   virtual void draw_splash(int fb_w, int fb_h) = 0;
+      |                ^
+2 warnings generated.
+[3/4] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues

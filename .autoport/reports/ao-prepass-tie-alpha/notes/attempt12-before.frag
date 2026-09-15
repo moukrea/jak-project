@@ -34,10 +34,9 @@ uniform float u_edge_reject;   // 1 = rejet franc a 1 % arme ; 0 = temoin (gauss
 // le meme `glReadPixels(GL_RED)` que le tampon d'AO : aucun instrument neuf.
 uniform int u_blur_report;
 
-// Full-resolution strict ridge fill after blur. This bounded operation does not
-// correct monotone dilution or secondary peaks in the wall/roof contact profile.
-// The wider concave envelope was removed: local replays showed secondary peaks
-// and darkening outside the qualified contact (attempt12-delivered-diagnostic.json).
+// Full-resolution contact reconstruction after blur. Zero selects the blur pass;
+// one retains the historical ridge fill and reconstructs concave contacts from
+// the filtered AO on their two sides. No estimator sample is reintroduced.
 uniform int u_ridge_fill;
 
 vec3 world_from_depth(vec2 uv, float dpt) {
@@ -50,8 +49,9 @@ vec3 world_from_depth(vec2 uv, float dpt) {
 }
 
 void main() {
-  // Only strict AO maxima at a depth fold enter this historical rule. The native
-  // contact profile and the complete profile diagnostic remain separate checks.
+  // The historical strict-maximum rule handles ridges. The concave-contact rule
+  // also handles monotone profiles: blur can dilute a contact without making a
+  // local maximum (attempt10-residual-ssao.md). Both operate on the filtered AO.
   if (u_ridge_fill == 1) {
     vec2 px = 1.0 / vec2(textureSize(u_ao, 0));
     float rd0 = texture(u_depth, tex_coord).r;
@@ -82,14 +82,38 @@ void main() {
       if (jump > 0.02 * rd0) {
         continue;  // silhouette
       }
-      if (curv <= 0.25 * (abs(rd1) + abs(rd2)) + 1e-5) {
-        continue;  // pas un pli
-      }
       float am = texture(u_ao, tex_coord - st).r;
       float ap = texture(u_ao, tex_coord + st).r;
-      if (a0 > am && a0 > ap) {
-        filled = min(filled, min(am, ap));  // le candidat de CET axe
+      if (curv > 0.25 * (abs(rd1) + abs(rd2)) + 1e-5 && a0 > am && a0 > ap) {
+        filled = min(filled, min(am, ap));
       }
+
+      // A contact can fall between texels and have a monotone AO profile after blur.
+      // Estimate its two surface slopes independently instead of spanning the fold.
+      // Positive curvature is a concave valley in reverse-Z. Reject a detected
+      // immediate convex fold too: the outer samples may span several folds.
+      // The original ridge rule above remains.
+      float zmm = texture(u_depth, tex_coord - 2.0 * st).r;
+      float zpp = texture(u_depth, tex_coord + 2.0 * st).r;
+      if (zmm <= 1e-9 || zpp <= 1e-9) {
+        continue;
+      }
+      float slope_m = zm - zmm;
+      float slope_p = zpp - zp;
+      float outer_jump = max(max(jump, max(abs(slope_m), abs(slope_p))),
+                             max(abs(zmm - rd0), abs(zpp - rd0)));
+      float concavity = slope_p - slope_m;
+      if (rd2 - rd1 < -(0.25 * (abs(rd1) + abs(rd2)) + 1e-5) ||
+          outer_jump > 0.02 * rd0 ||
+          concavity <= 0.25 * (abs(slope_m) + abs(slope_p)) + 1e-5) {
+        continue;
+      }
+      // Reconstruct the dark contact envelope from ALREADY FILTERED neighbours.
+      // Average on each side before taking the minimum: no raw estimator sample
+      // is restored, and the envelope uses side averages rather than individual taps.
+      float side_m = 0.5 * (am + texture(u_ao, tex_coord - 2.0 * st).r);
+      float side_p = 0.5 * (ap + texture(u_ao, tex_coord + 2.0 * st).r);
+      filled = min(filled, min(side_m, side_p));
     }
     color = vec4(vec3(filled), 1.0);
     return;

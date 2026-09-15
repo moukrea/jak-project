@@ -1,0 +1,30 @@
+DIRECTIVES v775512c234
+Verdict : candidat local compilé, correction partielle ; pic clair intérieur restant, tâche non validée.
+Changement : reconstruction des contacts concaves depuis les moyennes de l’AO déjà filtrée, stencil2.
+Flou centré, règle historique des crêtes, critères et populations conservés ; gardes convexité et silhouette ajoutées.
+Cause : attempt10-residual-ssao.md ; détail/rejeux : notes/attempt11-summary.md.
+Comparaison Intel/Mesa référence/candidat, 425pixels et15contacts identiques : SSAO12/3→0/0, HBAO2/1→0/0, GTAO7/2→0/0.
+Ce sont les cumul/max des largeurs préfixes mesurables : PAS une preuve de disparition de toute bande.
+29côtésvalides en SSAO/GTAO ; HBAO28valides+1censuré ; le côté manquant reste1 dans chaque mode.
+Pic secondaire au mur(100,550) : SSAO[133,138,135,133,131,130], GTAO[160,165,162,160,159,158].
+La correction complète du raccord reste donc non établie, même localement ; lecteur inchangé.
+Preuves locales : notes/attempt11-delivered/summary.json et attempt11-delivery.json.
+Compilation/lien GLSL410/GLES et build arm64 incrémental : exit0, logs attempt11-delivered-invariants et attempt11-build-delivered.log.
+Tests synthétiques :16×480000pixels référence/candidat identiques ; quatre phases R8/R32F range0 sur plans horizontal/incliné.
+Aucune course, installation ou recapture appareil ; budgets historiques9/9 et6/6 inchangés.
+Huit lignes de provenance de proof.txt ESSAI10 : archives seulement, AUCUN résultat appareil de cet essai11 :
+proof_attempt_id=ao-prepass-tie-alpha@10#1789445465
+proof_run_id=20260915T050351Z-1918997-78095b58
+started_at=2026-09-15T05:03:53Z
+device_serial=eae4df44
+device_model=Redmi_Note_9_Pro
+frames=840
+crash=0
+ao_hut_archive_status=complete
+Le critère ao_tie_prepass_defects reste absent ; aucune preuve actuelle fabriquée ou ancienne revendiquée courante.
+Candidat compilé : build-android/lib/arm64-v8a/libgk.so ; empreintes dans notes/attempt11-delivery.json, pas d’APK livré.
+À regarder après livraison appareil autorisée : jonction mur/toit et quelques pixels de mur juste en dessous.
+Options > Recharged > Recharged Lighting > Ambient Occlusion : chaque palier/mode, force maximale ; shrubs et stabilité.
+non prouvé : disparition du pic intérieur, côté HBAO plat, acquis/stabilité/couleur OFF du contrat complet sur appareil.
+non prouvé : absence de damier/pixelisation sur géométrie réelle, coût GPU et neutralité hors du raccord.
+FINDINGS.txt conserve les défauts ; handoff.md prépare la reprise. Aucun verdict owner ni fermeture.

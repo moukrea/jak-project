@@ -1,0 +1,35 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "diagnostic_only": true,
+  "command": "python3 .autoport/reports/ao-prepass-tie-alpha/notes/attempt12-analyze.py --replay .autoport/reports/ao-prepass-tie-alpha/notes/attempt11-delivered --output .autoport/reports/ao-prepass-tie-alpha/notes/attempt12-delivered-diagnostic.json",
+  "command_exit": 0,
+  "checks": {
+    "historical_summary_exact_copy": true,
+    "regression_133_138_135_indices_1_2": true,
+    "ssao_exact425": true,
+    "ssao_exact15contacts": true,
+    "ssao_self_comparison_zero": true,
+    "ssao_outside_mask_matches_count": true,
+    "ssao_geometry_partition_exact": true,
+    "ssao_nine_sample_bound": true,
+    "ssao_unknown_not_zero": true,
+    "hbao_exact425": true,
+    "hbao_exact15contacts": true,
+    "hbao_self_comparison_zero": true,
+    "hbao_outside_mask_matches_count": true,
+    "hbao_geometry_partition_exact": true,
+    "hbao_nine_sample_bound": true,
+    "hbao_unknown_not_zero": true,
+    "gtao_exact425": true,
+    "gtao_exact15contacts": true,
+    "gtao_self_comparison_zero": true,
+    "gtao_outside_mask_matches_count": true,
+    "gtao_geometry_partition_exact": true,
+    "gtao_nine_sample_bound": true,
+    "gtao_unknown_not_zero": true
+  },
+  "input_diagnostic_sha256": "6205aecaa8482227be57fedb683bb17a4175e30453050ea3374d6bcffa4cbdda",
+  "limitations": [
+    "Local offline diagnostic checks only; no device or shader build validation."
+  ]
+}

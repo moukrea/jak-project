@@ -1,0 +1,103 @@
+GL_VENDOR=Intel
+GL_RENDERER=Mesa Intel(R) UHD Graphics (CML GT2)
+GL_VERSION=OpenGL ES 3.2 Mesa 25.3.6
+CHAIN passes=8blur+4ridge strides=1,2,3,5
+PLANE inclined=0
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+PERIODIC format=R8 nonuniform_input=1 pixels=394496 min=0.470588237047 max=0.470588237047 range=0 sum=185645.177162 mean16=0.470588235294 max_error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=0 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=1 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=2 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=3 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=4 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=5 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=6 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=7 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=8 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=9 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=10 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=11 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=12 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=13 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=14 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=15 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+CONSTANT format=R8 pixels=480000 value=0.376470595598 max_error=0
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+SILHOUETTE format=R8 max_error=0.501960754395
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+SKY_EDGE format=R8 terrain_pixels=2144 sky_pixels=2144 terrain_max_error=0 sky_max_error=0
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+PERIODIC format=R32F nonuniform_input=1 pixels=394496 min=0.46875 max=0.46875 range=0 sum=184920 mean16=0.46875 max_error_to_mean16=0
+PHASE format=R32F phase=0 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=1 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=2 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=3 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=4 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=5 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=6 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=7 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=8 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=9 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=10 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=11 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=12 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=13 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=14 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=15 count=24656 mean=0.46875 error_to_mean16=0
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+CONSTANT format=R32F pixels=480000 value=0.375 max_error=0
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+SILHOUETTE format=R32F max_error=0.501543462276
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+SKY_EDGE format=R32F terrain_pixels=2144 sky_pixels=2144 terrain_max_error=0 sky_max_error=0
+PLANE inclined=1
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+PERIODIC format=R8 nonuniform_input=1 pixels=394496 min=0.470588237047 max=0.470588237047 range=0 sum=185645.177162 mean16=0.470588235294 max_error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=0 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=1 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=2 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=3 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=4 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=5 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=6 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=7 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=8 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=9 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=10 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=11 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=12 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=13 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=14 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+PHASE format=R8 phase=15 count=24656 mean=0.470588237047 error_to_mean16=1.75307784955e-09
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+CONSTANT format=R8 pixels=480000 value=0.376470595598 max_error=0
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+SILHOUETTE format=R8 max_error=0.501960754395
+COMPARE format=R8 pixels=480000 changed=0 max_abs=0
+SKY_EDGE format=R8 terrain_pixels=2144 sky_pixels=2144 terrain_max_error=0 sky_max_error=0
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+PERIODIC format=R32F nonuniform_input=1 pixels=394496 min=0.46875 max=0.46875 range=0 sum=184920 mean16=0.46875 max_error_to_mean16=0
+PHASE format=R32F phase=0 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=1 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=2 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=3 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=4 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=5 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=6 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=7 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=8 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=9 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=10 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=11 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=12 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=13 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=14 count=24656 mean=0.46875 error_to_mean16=0
+PHASE format=R32F phase=15 count=24656 mean=0.46875 error_to_mean16=0
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+CONSTANT format=R32F pixels=480000 value=0.375 max_error=1.19209289551e-07
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+SILHOUETTE format=R32F max_error=0.501535415649
+COMPARE format=R32F pixels=480000 changed=0 max_abs=0
+SKY_EDGE format=R32F terrain_pixels=2144 sky_pixels=2144 terrain_max_error=5.96046447754e-08 sky_max_error=0
+gl_errors=0

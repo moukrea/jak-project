@@ -1,0 +1,190 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "diagnostic_only": true,
+  "initial_source_sha256": "9bda9d04174d82567c4e9e57ce63bf7d27803908111767467f29e24e033dadbb",
+  "commands": {
+    "replay": {
+      "command": [
+        "python3",
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-replay.py",
+        "--shader",
+        "game/graphics/opengl_renderer/shaders/ao_blur.frag",
+        "--output",
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-a12-delivery"
+      ],
+      "exit_code": 0,
+      "log": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt12-delivery-replay.log"
+    },
+    "invariants": {
+      "command": [
+        "python3",
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-run-invariants.py",
+        "--shader",
+        "game/graphics/opengl_renderer/shaders/ao_blur.frag",
+        "--output",
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-a12-delivery-invariants"
+      ],
+      "exit_code": 0,
+      "log": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt12-delivery-invariants.log"
+    },
+    "desktop_compile": {
+      "command": [
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-desktop-compile",
+        "game/graphics/opengl_renderer/shaders/ao_blur.vert",
+        ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-reference.frag",
+        "game/graphics/opengl_renderer/shaders/ao_blur.frag"
+      ],
+      "exit_code": 0,
+      "log": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt12-desktop-compile.log"
+    },
+    "android_build": {
+      "command": [
+        "cmake",
+        "--build",
+        "build-android",
+        "--target",
+        "gk",
+        "-j"
+      ],
+      "exit_code": 0,
+      "log": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt12-build-android.log"
+    }
+  },
+  "proof_runs_this_attempt": 0,
+  "limits": [
+    "No device validation",
+    "Contact defect remains",
+    "Local Intel results do not validate arm64 runtime",
+    "One missing contact profile side remains explicit",
+    "Replay exit 0 indicates command success, not resolution of contact defect",
+    "Synthetic silhouette absolute max_error about 0.502 remains unchanged against reference"
+  ],
+  "source": {
+    "path": "game/graphics/opengl_renderer/shaders/ao_blur.frag",
+    "sha256": "9bda9d04174d82567c4e9e57ce63bf7d27803908111767467f29e24e033dadbb",
+    "mtime_ns": 1789498839656537535,
+    "size_bytes": 10633
+  },
+  "tested_source": {
+    "path": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-a12-delivery/source.frag",
+    "sha256": "9bda9d04174d82567c4e9e57ce63bf7d27803908111767467f29e24e033dadbb",
+    "mtime_ns": 1789498883711484740,
+    "size_bytes": 10633
+  },
+  "tested_invariants_source": {
+    "path": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-a12-delivery-invariants/candidate.source",
+    "sha256": "9bda9d04174d82567c4e9e57ce63bf7d27803908111767467f29e24e033dadbb",
+    "mtime_ns": 1789498883713513910,
+    "size_bytes": 10633
+  },
+  "generated_gles": {
+    "path": "build-android/shaders/ao_blur.android.frag",
+    "sha256": "419220e7c75cda77ed94d6d7315d4d5a35dfafe7f52898e74fd0e4c4a0f69e1b",
+    "mtime_ns": 1789498883772125200,
+    "size_bytes": 10846
+  },
+  "generated_blob": {
+    "path": "build-android/shaders/shaders_android_blob.h",
+    "sha256": "151732d6396d8b790f1aae44fbc89880eabbdf3e07d2f6901fd53ee4b08630c9",
+    "mtime_ns": 1789498883814045895,
+    "size_bytes": 369508
+  },
+  "libgk": {
+    "path": "build-android/lib/arm64-v8a/libgk.so",
+    "sha256": "4d0bb4978ac9f9b6325fbd859fce90dcc253b3431b35aa42a14e3c62beaa3efd",
+    "mtime_ns": 1789498888281924643,
+    "size_bytes": 17502528
+  },
+  "identity_checks": {
+    "source_unchanged_during_tests_build": true,
+    "tested_source_byte_identical": true,
+    "generated_exactly_matches_preprocessed_source": true,
+    "complete_gles_payload_present_in_generated_blob": true,
+    "complete_gles_payload_present_in_libgk": true,
+    "libgk_payload_byte_offset": 1992232,
+    "libgk_payload_occurrences": 1
+  },
+  "local_replay_final_stages": {
+    "ssao": {
+      "input_valid": true,
+      "measured": true,
+      "adjacent_wall_roof_edges": 15,
+      "contacts": 15,
+      "valid_contacts": 15,
+      "missing_contacts": 0,
+      "valid_sides": 29,
+      "missing_sides": 1,
+      "censored_sides": 0,
+      "depth_discontinuities": 15,
+      "band_pixels": 12,
+      "max_width": 3,
+      "native_exit": 0,
+      "stage": "ridge-3.r8"
+    },
+    "hbao": {
+      "input_valid": true,
+      "measured": true,
+      "adjacent_wall_roof_edges": 15,
+      "contacts": 15,
+      "valid_contacts": 15,
+      "missing_contacts": 0,
+      "valid_sides": 29,
+      "missing_sides": 1,
+      "censored_sides": 0,
+      "depth_discontinuities": 15,
+      "band_pixels": 2,
+      "max_width": 1,
+      "native_exit": 0,
+      "stage": "ridge-3.r8"
+    },
+    "gtao": {
+      "input_valid": true,
+      "measured": true,
+      "adjacent_wall_roof_edges": 15,
+      "contacts": 15,
+      "valid_contacts": 15,
+      "missing_contacts": 0,
+      "valid_sides": 29,
+      "missing_sides": 1,
+      "censored_sides": 0,
+      "depth_discontinuities": 15,
+      "band_pixels": 7,
+      "max_width": 2,
+      "native_exit": 0,
+      "stage": "ridge-3.r8"
+    }
+  },
+  "invariants": {
+    "log": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-a12-delivery-invariants/invariants.log",
+    "comparison_rows": [
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R8 pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0",
+      "COMPARE format=R32F pixels=480000 changed=0 max_abs=0"
+    ],
+    "gl_errors_zero": true,
+    "silhouette_rows": [
+      "SILHOUETTE format=R8 max_error=0.501960754395",
+      "SILHOUETTE format=R32F max_error=0.501543462276",
+      "SILHOUETTE format=R8 max_error=0.501960754395",
+      "SILHOUETTE format=R32F max_error=0.501535415649"
+    ],
+    "interpretation": "All candidate/reference comparison rows have changed=0; silhouette absolute error about 0.502 remains shared, no absolute silhouette correctness claim."
+  },
+  "android_build_warnings": [
+    "game/graphics/pipelines/opengl.h:64 init_splash missing override",
+    "game/graphics/pipelines/opengl.h:65 draw_splash missing override"
+  ]
+}
