@@ -314,8 +314,9 @@ void OceanRecharged::rebuild_mask_texture() {
   // Hierarchie ND : 36 masques mid de 8x8 cellules de 96 m, une paire trans
   // parent/child par cellule, puis 16 indices near par child. Chaque indice near
   // designe un masque de 8x8 cellules de 3 m (ocean-near.gc:393-412, 556-570).
-  // Les bits parent servent aux triangles de transition : seuls leur signe et
-  // celui de child filtrent ici, jamais leur masque de triangles.
+  // Parent : 4 octets utiles, 4 bits/ligne, 1 bit/carre de 24 m (2 triangles),
+  // ocean-transition.gc:573-579. Near ne teste pas ces bits : parent >= 0 rend child
+  // disponible, puis near utilise ses indices/masques (ocean-near.gc:558-570).
   std::vector<u8> mask(kMaskSide * kMaskSide, 255);
   std::array<u8, kMidMaskSide * kMidMaskSide> mid_mask;
   mid_mask.fill(255);
@@ -713,6 +714,16 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     return;
   }
   if (!refresh_ocean_map()) {
+    m_have_layer_a = false;
+    m_layer_a_map_ptr = 0;
+    return;
+  }
+  if (had_fresh) {
+    // Association cote rendu uniquement, sans nouvelle synchronisation GOAL.
+    m_layer_a_map_ptr = m_map_ptr;
+  } else if (m_map_ptr != m_layer_a_map_ptr) {
+    m_have_layer_a = false;
+    m_layer_a_map_ptr = 0;
     return;
   }
   if (!ensure_gl()) {
@@ -730,8 +741,8 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 32, 32, GL_RED, GL_FLOAT, m_layer_a.data());
   } else {
     // Au-dessus de 48 m, `draw-ocean` n'insere plus le bucket 63 (ocean.gc:543) et la houle ne
-    // part plus au DMA. On garde la derniere captee : c'est ce que le joueur voit de toute facon
-    // a cette altitude, et la porte, elle, ne se mesure QUE sur une image fraiche.
+    // part plus au DMA. On garde la derniere A captee sur la meme carte ; la fraicheur
+    // est mesuree separement.
     m_frames_layer_a_stale++;
   }
 

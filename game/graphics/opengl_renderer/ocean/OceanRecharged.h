@@ -78,6 +78,7 @@ class OceanRecharged {
   std::array<float, 1024> m_layer_a = {};
   bool m_have_layer_a = false;
   bool m_layer_a_fresh = false;
+  u32 m_layer_a_map_ptr = 0;  // carte associee a la derniere capture au draw
   u32 m_tex_layer_a = 0;
 
   // --- carte ND ----------------------------------------------------------------------------
