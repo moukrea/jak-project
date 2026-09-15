@@ -6807,19 +6807,21 @@ items:
   - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: null
-  supervisor_recovery: true
+  block_reason: Candidat3D rejete par comparaison des fonctions completes avant appel GOAL :226 contextes
+    divergents x86,335 ARM ; memoire differente aussi. Aucun gain ni candidat exact livre. Diagnostic
+    et banc local termines ; reprendre seulement avec une nouvelle piste justifiee et references qualifiees,
+    pas avec ces candidats ni le meme audit. Sources moteur conservees.
+  supervisor_recovery: false
   supervisor_review:
-    date: '2026-09-14'
-    source: handoff, report et FINDINGS du dernier essai
-    observed: 20183198 operations joints et 159438 particules sans ecart, mais os=0 et parity_frames=0
-      ; gate 3, refset 255. Tests isoles 951808 cas par mode/architecture sans divergence, ne remplacent
-      pas la population executee.
-    unresolved: Selection des trois noyaux chauds non etablie par les seaux de familles. Code ARM de l
-      ancien os 716 -> 4812 octets ; gain inconnu, risque de cout instructions/cache. Avertissement GCC
-      array-bounds dans hdr_output.cpp a qualifier hors perimetre.
-    next: Reprise de diagnostic/perimetre, conserver acquis partiels et code sans validation ; aucune
-      course identique ni reference nouvelle implicitement autorisee.
+    date: '2026-09-15'
+    source: handoff9, report, FINDINGS, validator009 et notes/attempt9/diagnostic.md
+    observed: 6048 cas :5976 traversent integration puis frontiere quaternion,72 sortent avant. X86 contexte226/memoire147
+      differents ; ARM335/258. Source moteur inchangee. Banc complet corrige la limite du bloc extrait
+      mais confirme rejet.
+    unresolved: Aucun candidat utile exact, trois cibles/references qualifiees absentes ; callbacks/post-appel/retour
+      non certifies.
+    next: Reprise superviseur traitee. Pas de nouvel essai identique. Attendre piste concretement differente
+      ; travaux autorises de la file continuent.
   owner_feedback:
   - date: '2026-09-15'
     text: 'Reprise superviseur requise pour : perf-mips2c-neon. Ces priorités sont bloquées. Lis leurs
@@ -6827,7 +6829,7 @@ items:
       nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt ; ne
       valide rien et ne relance pas le même essai sans diagnostic.'
   recovery_plan:
-    stage: comparateur-fonctions-completes-hote
+    stage: candidat-rejete-diagnostic-local-termine
     previous_deliverable: 'Lot 1 : gnd_oob_check compile hors du build quand la prop n''est pas armee.
       Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques
       (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l''eau lit ripple-find-height).
@@ -6849,6 +6851,13 @@ items:
     - reference hutte/plage existante coherente, cas et empreintes verifies
     - oracle hors fenetre de cout
     owner_validation: false
+    resume_conditions:
+    - Nouvelle transformation justifiee, distincte des deux candidats rejetes, sans abandon de la fidelite
+      bit a bit.
+    - Utiliser le comparateur des fonctions completes avec frontiere explicite ; ne pas certifier callbacks/retour
+      non executes.
+    - Avant toute preuve appareil, references hutte/plage qualifiees et trois cibles actives ; aucune
+      campagne nouvelle implicitement autorisee.
   max_retries: 9
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
@@ -11344,14 +11353,16 @@ items:
     refusee). Instruments repares et deux builds prets, non mesures. Une reference de remplacement necessaire
     avant les deux ON/OFF restants : proposition +1 course en attente owner, budget1/3 conserve. Ne pas
     relancer le meme audit ni utiliser le temoin rouge.'
-  supervisor_recovery: true
+  supervisor_recovery: false
   proof_plan_pending: null
   supervisor_observation:
-    date: 2026-09-14 21:28 CEST
-    diagnostic: 'Essai 3 : deux courses 130 s, 7500/7740 images sans crash et classes identiques ; seulement
-      classes et ancres mesurees. Nouveau correctif 3ab119cff3 ne fournit toujours pas deplacement/jonction
-      ; repetition de preuve arretee avant depense inutile. Essai 4 sauvegarde c8267776f7, non compte.
-      Contrat et gate inchanges.'
+    date: '2026-09-15'
+    diagnostic: Handoff10/validator010 traites. Reference rouge sans capture ; fonctions GPU et publication
+      archive reparees. actors=0 exclut Jak :20616 echantillons Jak transmis, contact geometrique non
+      prouve. Budget1/3 et proposition +1 conserves.
+    action: Preparation et arbitrage superviseur termines ; extension de campagne en attente owner. Notification
+      automatique ne vaut pas autorisation. Rester visible en blocked, ne pas rappeler une reprise technique
+      identique.
   proof_plan:
     owner_authorized: true
     date: '2026-09-14'
