@@ -8,7 +8,9 @@
 - 2026-09-15 : « j'ai testé un build il y a une heure environ ou les mini pal… »
 
 ## Cause connue
-REPRISE APRES ESSAI9 : le temoin instrumente f54ea18c485ca156816824522d2e67ece9bc3992 est prepare dans /home/emeric/code/jak-shrub-reference-602cd. Sa premiere configuration a ete refusee a tort par la garde CMake ; correction harnais 5471f0f7c6 testee (46 tests), commande exacte maintenant acceptee sans contourner la garde. Reprendre la compilation puis notes/attempt-9-protocol.md, avec sources et build propres a chaque bras. Ne pas refaire l audit/preparation termines. Budget appareil inchange […suite dans le contrat]
+PRECISION SUPERVISEUR DU15/09 : actors=0 ne compte PAS Jak (seulement g_tramp_published). La reference rouge contient20616 echantillons Jak SHRUB et61848 TIE, binding_failures0 ; rejeu ancre tick603 et mouvement du clip120..249. Cela ne prouve pas l intersection avec le palmier, mais ne justifie pas de refaire le parcours au motif d absence de Jak. Lire notes/supervisor-contact-inputs-20260915.md ; exiger les captures de contact reel apres reparation. Aucun nouveau budget autorise.
+
+REPRISE APRE […suite dans le contrat]
 
 ## Livrable
 `shrub_trunk_squash_defects` = 0, somme de termes publies SEPAREMENT.
