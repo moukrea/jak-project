@@ -1,0 +1,49 @@
+[0/2] Re-checking globbed directories...
+[1/6] Building CXX object goalc/CMakeFiles/compiler.dir/emitter/IGenARM64.cpp.o
+In file included from /home/emeric/code/jak-project/./goalc/emitter/Instruction.h:9,
+                 from /home/emeric/code/jak-project/goalc/emitter/IGenARM64.h:3,
+                 from /home/emeric/code/jak-project/goalc/emitter/IGenARM64.cpp:2:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h: In function ‘constexpr emitter::ARM64::Field emitter::ARM64::Imm12(u32)’:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h:74:12: warning: comparison of unsigned expression in ‘>= 0’ is always true [-Wtype-limits]
+   74 |   ASSERT(x >= 0 && x <= 4095);
+      |          ~~^~~~
+/home/emeric/code/jak-project/./common/util/Assert.h:29:11: note: in definition of macro ‘ASSERT’
+   29 |   (void)((EX) || (private_assert_failed(#EX, __FILE__, __LINE__, __PRETTY_FUNCTION__), 0))
+      |           ^~
+[2/6] Building CXX object goalc/CMakeFiles/compiler.dir/compiler/CodeGenerator.cpp.o
+In file included from /home/emeric/code/jak-project/./common/type_system/TypeSpec.h:12,
+                 from /home/emeric/code/jak-project/goalc/compiler/StaticObject.h:6,
+                 from /home/emeric/code/jak-project/goalc/compiler/Env.h:14,
+                 from /home/emeric/code/jak-project/goalc/compiler/CodeGenerator.h:13,
+                 from /home/emeric/code/jak-project/goalc/compiler/CodeGenerator.cpp:8:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h: In function ‘constexpr emitter::ARM64::Field emitter::ARM64::Imm12(u32)’:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h:74:12: warning: comparison of unsigned expression in ‘>= 0’ is always true [-Wtype-limits]
+   74 |   ASSERT(x >= 0 && x <= 4095);
+      |          ~~^~~~
+/home/emeric/code/jak-project/./common/util/Assert.h:29:11: note: in definition of macro ‘ASSERT’
+   29 |   (void)((EX) || (private_assert_failed(#EX, __FILE__, __LINE__, __PRETTY_FUNCTION__), 0))
+      |           ^~
+[3/6] Building CXX object goalc/CMakeFiles/compiler.dir/compiler/IR.cpp.o
+In file included from /home/emeric/code/jak-project/./common/goos/Object.h:57,
+                 from /home/emeric/code/jak-project/goalc/compiler/Lambda.h:3,
+                 from /home/emeric/code/jak-project/goalc/compiler/Val.h:13,
+                 from /home/emeric/code/jak-project/goalc/compiler/IR.h:5,
+                 from /home/emeric/code/jak-project/goalc/compiler/IR.cpp:1:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h: In function ‘constexpr emitter::ARM64::Field emitter::ARM64::Imm12(u32)’:
+/home/emeric/code/jak-project/./goalc/emitter/Instruction.h:74:12: warning: comparison of unsigned expression in ‘>= 0’ is always true [-Wtype-limits]
+   74 |   ASSERT(x >= 0 && x <= 4095);
+      |          ~~^~~~
+/home/emeric/code/jak-project/./common/util/Assert.h:29:11: note: in definition of macro ‘ASSERT’
+   29 |   (void)((EX) || (private_assert_failed(#EX, __FILE__, __LINE__, __PRETTY_FUNCTION__), 0))
+      |           ^~
+In file included from /home/emeric/code/jak-project/goalc/compiler/IR.cpp:7:
+/home/emeric/code/jak-project/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-project/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+/home/emeric/code/jak-project/./common/symbols.h: In function ‘constexpr int empty_pair_offset_from_s7(GameVersion)’:
+/home/emeric/code/jak-project/./common/symbols.h:526:1: warning: control reaches end of non-void function [-Wreturn-type]
+  526 | }
+      | ^
+[4/6] Linking CXX shared library goalc/libcompiler.so
+[5/6] Linking CXX executable goalc/goalc

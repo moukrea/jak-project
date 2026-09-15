@@ -1,0 +1,11 @@
+DIRECTIVES vd321fc8caf
+Essai 2 : une capture unique puis un rejeu, 120 secondes maximum par course.
+Cause de recapture autorisee : changement codegen (callee-save GPR, symboles) et preservation X12 mips2c.
+Reference nouvelle : /sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a2
+Selection : legacy (hutte historique village1-hut), h09, phase origine uniquement.
+Parametres epingles dans proof_props de l'item avant les courses ; aucun setprop manuel.
+Pad neutre copie : sha256 local et appareil 5aadc3ab702e9bffeebc47f85611867906ab66f58914dde37d2d344374a69656.
+Transfert exec-out vers cat interrompu (PID exact 1508054, fichier vide) ; copie par adb push puis run-as cp et empreinte verifiee.
+Les references historiques sont conservees ; a1 n'est pas reutilise.
+Le rejeu mesure la repetabilite de ce candidat ; il ne prouve ni parite avec ancien rendu ni baisse de goal_busy_ms.
+Aucun controle positif ni campagne supplementaire ; pas de generic.sh depuis le worker.

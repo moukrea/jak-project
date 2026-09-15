@@ -1,10 +1,10 @@
 teardown_fin_ran=1
 teardown_fin_skip=-
-teardown_fin_props_found=9
-teardown_fin_props_list=debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.phases,debug.opengoal.refset.vantages
-teardown_fin_props_cleared=9
+teardown_fin_props_found=16
+teardown_fin_props_list=debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.fixed_tick,debug.opengoal.level.warp,debug.opengoal.pad_replay_realtime,debug.opengoal.padreplay,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.loadsettle,debug.opengoal.refset.phases,debug.opengoal.refset.settle,debug.opengoal.refset.vantages,debug.opengoal.refset.warpat
+teardown_fin_props_cleared=16
 teardown_fin_props_resisted=0
 teardown_fin_resisted_list=-
 teardown_fin_getprop_ok=1
-teardown_fin_getprop_total=887
+teardown_fin_getprop_total=890
 teardown_fin_props_source=enumere

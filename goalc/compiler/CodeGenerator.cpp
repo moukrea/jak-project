@@ -506,6 +506,10 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   //                 +-------------------+  <- SP at function entry
   //                 |   saved FP/LR     |  16 bytes (stp x29,x30,[sp,#-16]!)
   //                 +-------------------+  <- X29 (FP)
+  //                 |   saved GPRs      |  16 bytes per pair (XZR padding)
+  //                 +-------------------+
+  //                 |   saved XMMs      |  16 bytes per register
+  //                 +-------------------+
   //                 |  spill / var      |
   //                 |  slots (8 bytes   |  frame_bytes (16-byte aligned)
   //                 |  per slot)        |
@@ -514,10 +518,14 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // Prologue:
   //   stp x29, x30, [sp, #-16]!     ; save FP/LR, SP -= 16    (0xA9BF7BFD)
   //   mov x29, sp                   ; FP = SP                  (0x910003FD)
+  //   stp xN, xM, [sp, #-16]!       ; save used GOAL GPRs in pairs
+  //   str qN, [sp, #-16]!           ; save used GOAL XMMs
   //   sub sp, sp, #frame_bytes      ; reserve spill area       (only if > 0)
   //
   // Epilogue (mirrors the prologue):
   //   add sp, sp, #frame_bytes      ; free spill area          (only if > 0)
+  //   ldr qN, [sp], #16             ; restore XMMs in reverse order
+  //   ldp xN, xM, [sp], #16         ; restore GPR pairs in reverse order
   //   ldp x29, x30, [sp], #16       ; restore FP/LR, SP += 16  (0xA8C17BFD)
   //   [A24 X30 stack-range check, only when OG_X30_TRACE_EMIT is set]
   //   ret                           ;                          (0xD65F03C0)
@@ -562,6 +570,27 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // mov x29, sp
   m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x910003FDu),
                         InstructionInfo::Kind::PROLOGUE);
+  // GOAL's saved GPRs map to X3/X5/X10/X11/X12. Save only those used by
+  // this callee, including spill temporaries tracked by the allocator.
+  // Classify raw allocator ids: Register::is_gpr(ARM64) is not suitable
+  // for distinguishing the allocator's GPR and XMM register banks.
+  std::vector<uint32_t> saved_gpr_rt;
+  for (const auto& saved_reg : allocs.used_saved_regs) {
+    const auto id = saved_reg.id();
+    if (m_gen.version() == GameVersion::Jak1 &&
+        (id == 3 || id == 5 || id == 10 || id == 11 || id == 12)) {
+      saved_gpr_rt.push_back(static_cast<uint32_t>(id));
+    }
+  }
+  if (saved_gpr_rt.size() % 2 != 0) {
+    saved_gpr_rt.push_back(31);  // XZR padding keeps SP 16-byte aligned.
+  }
+  for (size_t i = 0; i < saved_gpr_rt.size(); i += 2) {
+    // stp xN, xM, [sp, #-16]!
+    const uint32_t enc = 0xA9BF03E0u | saved_gpr_rt[i] | (saved_gpr_rt[i + 1] << 10);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(enc),
+                          InstructionInfo::Kind::PROLOGUE);
+  }
   // A40: bank the GOAL-callee-saved XMMs this function actually uses,
   // mirroring do_goal_function_x86's xmm backup. GOAL's ABI promises
   // xmm8-15 survive calls; they map to V24-V31 on arm64, which AAPCS
@@ -596,7 +625,8 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
     m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(sub_sp_enc),
                           InstructionInfo::Kind::PROLOGUE);
   }
-  debug->stack_usage = 16 + frame_bytes + 16 * static_cast<int>(a40_saved_xmm_rt.size());
+  debug->stack_usage = 16 + frame_bytes + 8 * static_cast<int>(saved_gpr_rt.size()) +
+                       16 * static_cast<int>(a40_saved_xmm_rt.size());
 
   // G1 — REVERTED the F1f broadening of the pop-RA scan into normal defuns.
   //
@@ -724,6 +754,13 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   // A40: restore the banked callee-saved XMMs (reverse push order).
   for (auto it = a40_saved_xmm_rt.rbegin(); it != a40_saved_xmm_rt.rend(); ++it) {
     m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x3CC107E0u | *it),
+                          InstructionInfo::Kind::EPILOGUE);
+  }
+  for (size_t i = saved_gpr_rt.size(); i > 0; i -= 2) {
+    // ldp xN, xM, [sp], #16
+    const uint32_t enc =
+        0xA8C103E0u | saved_gpr_rt[i - 2] | (saved_gpr_rt[i - 1] << 10);
+    m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(enc),
                           InstructionInfo::Kind::EPILOGUE);
   }
   // ldp x29, x30, [sp], #16

@@ -1724,8 +1724,9 @@ InstructionARM64 pop_gpr64(Register reg) {
 }
 
 // The following A6/A19 notes describe the historical full save set, still
-// used by the legacy overload. IR_FunctionCall now supplies a CFG live-out
-// mask to preserve only the GOAL values crossing that call.
+// used by the legacy overload. Jak1 IR_FunctionCall uses an empty mask: normal
+// GOAL callees now preserve their used GPRs in CodeGenerator.cpp, while
+// kernel asm functions and native wrappers preserve them explicitly.
 // A6/A19 — callee-saved register preservation around BLR. The locked
 // CodeGenerator.cpp prologue/epilogue saves only X29/X30 (the AArch64
 // frame pointer + link register), not the goalc "saved" GPRs that the

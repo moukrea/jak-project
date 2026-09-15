@@ -850,22 +850,30 @@ void IR_FunctionCall::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto freg = get_reg(m_func, allocs, irec);
   gen->add_instr(emitter::IGen::ARM64::add_gpr64_gpr64(freg, emitter::gRegInfo.get_offset_reg()),
                  irec);
-  uint32_t live_saved_gprs = 0;
-  for (int var : allocs.live_out.at(irec.ir_id)) {
-    // These values are written by the call itself; restoring their old
-    // contents would discard a result, not preserve a value across the call.
-    if (var == m_func->ireg().id || var == m_ret->ireg().id) {
-      continue;
+  // This lot changes Jak1 only. Other games retain their caller-save
+  // convention until their native and asm entry paths are migrated too.
+  if (gen->version() == GameVersion::Jak1) {
+    // Normal GOAL callees, kernel asm functions and native wrappers all
+    // preserve the GOAL saved banks. Keep the optional target tracer.
+    gen->add_instr(emitter::IGen::ARM64::call_r64(freg, 0), irec);
+  } else {
+    uint32_t live_saved_gprs = 0;
+    for (int var : allocs.live_out.at(irec.ir_id)) {
+      // These values are written by the call itself; restoring their old
+      // contents would discard a result, not preserve a value across the call.
+      if (var == m_func->ireg().id || var == m_ret->ireg().id) {
+        continue;
+      }
+      const auto& range = allocs.ass_as_ranges.at(var);
+      ASSERT(range.is_live_at_instr(irec.ir_id));
+      const auto& assignment = range.get(irec.ir_id);
+      if (assignment.kind == Assignment::Kind::REGISTER && assignment.reg.id() >= 0 &&
+          assignment.reg.id() < 16) {
+        live_saved_gprs |= (1u << assignment.reg.id()) & emitter::IGen::ARM64::kCallSavedGprMask;
+      }
     }
-    const auto& range = allocs.ass_as_ranges.at(var);
-    ASSERT(range.is_live_at_instr(irec.ir_id));
-    const auto& assignment = range.get(irec.ir_id);
-    if (assignment.kind == Assignment::Kind::REGISTER && assignment.reg.id() >= 0 &&
-        assignment.reg.id() < 16) {
-      live_saved_gprs |= (1u << assignment.reg.id()) & emitter::IGen::ARM64::kCallSavedGprMask;
-    }
+    gen->add_instr(emitter::IGen::ARM64::call_r64(freg, live_saved_gprs), irec);
   }
-  gen->add_instr(emitter::IGen::ARM64::call_r64(freg, live_saved_gprs), irec);
 }
 
 /////////////////////

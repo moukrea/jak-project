@@ -1,0 +1,56 @@
+[
+  {
+    "path": "build-arm64/goalc/goalc",
+    "mtime_ns": 1789435335092458885,
+    "sha256": "6af735bd60a859c957bc5aad201d793ee7d17e2a19670d7f52c379baf1916e2c",
+    "source_checks": [
+      {
+        "path": "goalc/compiler/CodeGenerator.cpp",
+        "mtime_ns": 1789435303330751665,
+        "newer": true
+      },
+      {
+        "path": "goalc/compiler/IR.cpp",
+        "mtime_ns": 1789435303328874897,
+        "newer": true
+      },
+      {
+        "path": "goalc/emitter/ObjectGenerator.cpp",
+        "mtime_ns": 1789435014048537327,
+        "newer": true
+      },
+      {
+        "path": "goalc/emitter/IGenARM64.cpp",
+        "mtime_ns": 1789435303331327561,
+        "newer": true
+      }
+    ]
+  },
+  {
+    "path": "build-arm64/goalc/libcompiler.so",
+    "mtime_ns": 1789435334771452983,
+    "sha256": "85431722c4ebec8056e7370a35180d7119bbaa64f6633c05fa18ccd6952047a3",
+    "source_checks": [
+      {
+        "path": "goalc/compiler/CodeGenerator.cpp",
+        "mtime_ns": 1789435303330751665,
+        "newer": true
+      },
+      {
+        "path": "goalc/compiler/IR.cpp",
+        "mtime_ns": 1789435303328874897,
+        "newer": true
+      },
+      {
+        "path": "goalc/emitter/ObjectGenerator.cpp",
+        "mtime_ns": 1789435014048537327,
+        "newer": true
+      },
+      {
+        "path": "goalc/emitter/IGenARM64.cpp",
+        "mtime_ns": 1789435303331327561,
+        "newer": true
+      }
+    ]
+  }
+]

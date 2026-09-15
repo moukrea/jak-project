@@ -218,19 +218,22 @@ IR_Record ObjectGenerator::get_future_ir_record_in_same_func(const IR_Record& ir
  * A5 — far-reloc sym-mem expansion: when m_instruction_set == ARM64 and the
  * incoming InstructionARM64 carries the A5 sym-mem sentinel encoding
  * (0x0000_AKRT — see kA5SymMemMarker above), we expand it in place into a
- * 3-instruction far-reloc sequence:
+ * far-reloc sequence. Jak1 uses two instructions:
+ *
+ *     ADRP X16, <sym>              ; imm21 placeholder, runtime-patched
+ *     LDR/STR Wt, [X16, #<lo12>]   ; scaled imm12 placeholder, runtime-patched
+ *
+ * Other versions retain three instructions to apply their symbol-value bias:
  *
  *     ADRP X16, <sym>              ; imm21 placeholder, runtime-patched
  *     ADD  X16, X16, #<lo12>       ; imm12 placeholder, runtime-patched
  *     LDR/STR Wt, [X16, #0]        ; not patched; address already in X16
  *
- * The returned InstructionRecord points at the ADRP (the first of the
- * three). `link_instruction_symbol_mem` notices the ADRP X16 pattern and
- * records two link entries — one for the ADRP and one for the ADD — so the
- * runtime patcher's existing ADRP-imm21 / ADD-imm12 handling closes both
- * halves of the address materialisation. The LDR/STR at the end is left
- * unpatched (its imm12 is 0; Rn=X16 already contains the symbol's full
- * host address by the time it executes).
+ * Signed loads use LDRSW Xt in either sequence. The returned InstructionRecord
+ * points at the ADRP. `link_instruction_symbol_mem` records two link entries:
+ * the ADRP and its continuation (Jak1's access, otherwise the ADD). Jak1 has
+ * no symbol-value bias, so the runtime patcher's page-low-12 access path
+ * supplies the remaining address bits directly in the load/store.
  */
 InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
   // only this second condition is an actual error.
@@ -247,10 +250,6 @@ InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
         // ADRP X16: 0x90000000 | Rd. imm21 stays 0 (placeholder; patched at
         // link time by handle_temp_instr_sym_links → runtime).
         const uint32_t enc_adrp = 0x90000000u | kA5ScratchRegId;
-
-        // ADD X16, X16, #0: 0x91000000 | (imm12<<10) | (Rn<<5) | Rd. imm12=0
-        // placeholder.
-        const uint32_t enc_add = 0x91000000u | (kA5ScratchRegId << 5) | kA5ScratchRegId;
 
         // LDR/STR Wt or LDRSW Xt at [X16, #0]: pick base by kind.
         uint32_t access_base;
@@ -280,13 +279,18 @@ InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
         auto debug = func_data.debug;
 
         Instruction inst_adrp{InstructionARM64{enc_adrp}};
-        Instruction inst_add{InstructionARM64{enc_add}};
         Instruction inst_access{InstructionARM64{enc_access}};
 
         func_data.instructions.emplace_back(inst_adrp);
         debug->instructions.emplace_back(inst_adrp, InstructionInfo::Kind::IR, ir.ir_id);
-        func_data.instructions.emplace_back(inst_add);
-        debug->instructions.emplace_back(inst_add, InstructionInfo::Kind::IR, ir.ir_id);
+        if (m_version != GameVersion::Jak1) {
+          // ADD X16, X16, #0: the runtime patcher applies symbol-value bias
+          // here; the X16-relative load/store patch path does not apply it.
+          const uint32_t enc_add = 0x91000000u | (kA5ScratchRegId << 5) | kA5ScratchRegId;
+          Instruction inst_add{InstructionARM64{enc_add}};
+          func_data.instructions.emplace_back(inst_add);
+          debug->instructions.emplace_back(inst_add, InstructionInfo::Kind::IR, ir.ir_id);
+        }
         func_data.instructions.emplace_back(inst_access);
         debug->instructions.emplace_back(inst_access, InstructionInfo::Kind::IR, ir.ir_id);
 
@@ -364,8 +368,8 @@ void ObjectGenerator::link_instruction_jump(InstructionRecord jump_instr, IR_Rec
  *
  * A5 — when the rec points at the ADRP X16 head of a far-reloc sym-mem
  * expansion (see add_instr above), this also pushes a link entry for the
- * following ADD X16, X16, #imm12 so the runtime patcher closes both halves
- * of the symbol's host address materialisation.
+ * following load/store (Jak1) or ADD X16, X16, #imm12 (other versions), so
+ * the runtime patcher supplies both the page and its low address bits.
  */
 void ObjectGenerator::link_instruction_symbol_mem(const InstructionRecord& rec,
                                                   const std::string& name) {
@@ -375,11 +379,11 @@ void ObjectGenerator::link_instruction_symbol_mem(const InstructionRecord& rec,
       const auto& first = fd.instructions.at(rec.instr_id);
       const auto* arm = std::get_if<InstructionARM64>(&first.instr);
       if (arm && (arm->encoding & kArm64MaskADRP_with_Rd) == kArm64Op_ADRP_X16) {
-        // Far-reloc expansion: link both ADRP (rec) and ADD (rec.instr_id+1).
-        InstructionRecord add_rec = rec;
-        add_rec.instr_id = rec.instr_id + 1;
+        // Link ADRP and its continuation: Jak1's access, otherwise ADD.
+        InstructionRecord continuation_rec = rec;
+        continuation_rec.instr_id = rec.instr_id + 1;
         m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({rec, true});
-        m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({add_rec, true});
+        m_symbol_instr_temp_links_by_seg.at(rec.seg)[name].push_back({continuation_rec, true});
         return;
       }
     }

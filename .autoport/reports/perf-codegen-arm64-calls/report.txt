@@ -1,30 +1,34 @@
 DIRECTIVES vd321fc8caf
-Verdict : livraison partielle testée sur USB ; porte non franchie, codegen_lot_defects=2.
+Verdict : 47 sites à deux instructions livrés sur USB ; lot non validé, rejeu refset divergent.
 
-Changements : sauvegardes limitées aux GPR vivants après appel, calculées par le CFG v1/v2.
-Sans GPR vivant : ADD+BLR ; X23 protégé par les trois entrées C++ existantes, inchangées.
-56 symboles fixes Jak1 accédés par X14 ; mémoire sans déplacement en une instruction.
-pc-prof Android déjà raccordé : goal_bucket_ms_camera=0.040 dans proof.txt.
-Compteur moteur : lecture du code chargé de cinq fonctions, survie et présence du rejeu.
+Changements Jak1 : GPR utilisés sauvegardés en prologue callee, appel ADD+BLR.
+Le trampoline mips2c protège X12 avant son écrasement ; ABI C++, asm_funcs et kscheme inchangés.
+56 symboles fixes directs X14 ; symboles dynamiques réduits à ADRP+LDR/STR, sans NOP.
+Mémoire sans déplacement déjà raccourcie et pc-prof Android déjà raccordé, conservés.
+Les autres jeux gardent leur enrobage antérieur ; archives x86 restaurées 28/28 identiques.
 
 Preuve — huit lignes recopiées de proof.txt :
 source=device
 serial=eae4df44
-frames=6240
+frames=5100
 crash=0
-codegen_markers_complete=5
 codegen_call_sites=47
-codegen_reduced_call_sites=46
-codegen_lot_defects=2
+codegen_call_max_instructions=2
+refset_replay_maxdiff=61
+codegen_lot_defects=1
 
-Maximum par marqueur : 8/6/6/2/4 instructions (codegen_marker_0..4_instructions).
-Fraîcheur : md5 local/appareil 35785e4ce6a3e9e09eb5591fabd0f961 ; pack ce406b6b71b5a chargé.
-goalc et gk reconstruits ; 438 assertions encoding et 14 assertions CFG passent (notes/).
-CGO : 1324 cibles en 57.742 s ; grep -a trouve 4825/4633 motifs neufs dans GAME/ENGINE.
-Les 28 CGO/DGO x86 restaurés sont identiques aux sauvegardes (notes/x86-cgos-restored.log).
-La capture unique a réservé un candidat mais aucun échantillon : paramètre level.warp omis.
-Rejeu non lancé faute de référence ; aucun ancien proof réutilisé. Reprise dans handoff.md.
-Owner : APK livré ; vérifier le jeu habituel, aucune validation visuelle ne vaut preuve.
-non prouvé : parité refset, deux instructions pour tous les marqueurs, baisse de goal_busy_ms.
-non prouvé : GTest complet (échec HDR préexistant) ; symboles dynamiques et offsets non nuls.
-Validateur laissé à l’orchestrateur ; aucun owner-ok écrit.
+Les cinq maxima sont 2/2/2/2/2 ; 47 sites inspectés, pas un compteur dynamique des appels.
+Capture unique : 4920 images, crash=0, 1 échantillon ; rejeu : 577 pixels différents, maxdiff=61.
+Provenance valide ; données/input identiques, ancre=901 et échantillon=1081 dans les deux courses.
+La cause des 577 différences reste inconnue ; aucune référence historique remplacée.
+Deux courses de 120 s demandées via proof_run.sh ; aucune course supplémentaire.
+Fraîcheur : md5 local/appareil a65acc137c3f34e71c77c82f96ff62cc ; pack c7b7c7fbc96ef.
+Livraison vérifiée : CGO/DGO appareil 28/28 et banques texte 23/23 identiques (notes/a2/deploy-assets.log).
+Builds incrémentaux réussis ; encoding 438 assertions/247 cas ; oracle NDK du trampoline conforme.
+Goalc/libcompiler reconstruits ; regen finale 1324 cibles en 31,435 s ; grep-a GAME/ENGINE=2193/2034 prologues.
+Owner : APK livré ; jeu habituel identique attendu, mais la comparaison exacte n'est pas acquise.
+non prouvé : parité refset avant/après, baisse de goal_busy_ms, non-régression complète des acquis.
+non prouvé : symboles dynamiques en une instruction et optimisation des déplacements mémoire non nuls.
+Le trampoline mips2c ajoute trois instructions internes ; son gain total n'est pas établi.
+Rapport des limites dans FINDINGS.txt ; reprise ciblée dans handoff.md.
+Validateur laissé à l'orchestrateur ; aucun owner-ok écrit.

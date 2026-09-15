@@ -1,0 +1,18 @@
+DIRECTIVES vd321fc8caf
+Compiler : quatre TU recompilees, libcompiler et goalc relies ; logs build-goalc.log puis build-goalc-final.log.
+La deuxieme passe borne la migration a Jak1 apres decouverte du trampoline mips2c X12.
+SHA256 libcompiler final : 85431722c4ebec8056e7370a35180d7119bbaa64f6633c05fa18ccd6952047a3.
+Le hash goalc ELF reste identique car il charge cette bibliotheque (goalc-ldd.log).
+Encoding : 438 assertions, zero echec, 247 cas (encoding-tests.log).
+Native : une TU mips2c recompilee, libandroid_kernel et libgk relies (build-gk.log).
+Native md5 : a65acc137c3f34e71c77c82f96ff62cc.
+NDK oracle mips2c : sept instructions plus alignement DATA de quatre octets, 56 octets dans slot64.
+Contrat helper inchange (X16 exec, X12 stack_size), arguments et X0 retour preserves.
+Aucun edit asm_funcs_arm64.s ou kscheme ; Jak2 garde ancien stub et ancien enrobage live-out.
+CGO : premiere regen56.698s, finale31.435s, 1324 cibles chacune.
+GAME/ENGINE : grep -aP du prologue FP/LR+X3/X5 trouve 2193/2034 motifs.
+Archives : finale ARM64 identique a premiere regen a2, 28/28 ; x86 restaure identique 28/28.
+APK : assemblage52s, 9 taches executees et29 inchangees, installationUSB Success.
+Pack : c7b7c7fbc96ef ; archives appareil 28/28 et banquestexte23/23 identiques (deploy-assets.log).
+Gain global non mesure : le prologue mips2c ajoute3 instructions, le compteur des5 marqueurs compte uniquement les sitesGOAL.
+Symboles :56 fixes directX14 ; dynamiquesJak1 deux instructions ADRP+LDR/STR. Une instruction dynamique impossible sans garantie compile-time ou relaxation des objets au chargement.

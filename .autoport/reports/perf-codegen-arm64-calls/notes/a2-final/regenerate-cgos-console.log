@@ -1,0 +1,4 @@
+OpenGOAL goalc — backend: arm64 (scaffold, phase 01)
+Successfully built all 1324 targets in 31.435s
+GAME.CGO callee_save_prologues=2193
+ENGINE.CGO callee_save_prologues=2034

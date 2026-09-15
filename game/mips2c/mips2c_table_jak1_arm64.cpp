@@ -679,26 +679,36 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
   {
     // arm64 (contract shared with _mips2c_call_arm64). GOAL passes args in
     // the x86-id registers X7,X6,X2,X1,X8,X9,X10,X11 (see the A6 FFI
-    // shuffle comment in game/kernel/jak1/kscheme.cpp), so the trampoline
-    // may only touch X12 (caller-saved, never regalloc'd, and saved by
-    // call_r64 anyway) and the AAPCS intra-call scratches X16/X17:
-    //   0:  ldr x16, +16   ; the C++ exec body
-    //   4:  ldr x12, +20   ; the GOAL fake-stack size
-    //   8:  ldr x17, +24   ; _mips2c_call_arm64
-    //   12: br  x17        ; x30 still holds the GOAL caller's return
-    //   16: .quad exec
-    //   24: .quad stack_size
-    //   32: .quad _mips2c_call_arm64
-    const u32 insns[4] = {
-        0x58000090,  // ldr x16, pc+16
-        0x580000ac,  // ldr x12, pc+20
-        0x580000d1,  // ldr x17, pc+24
-        0xd61f0220,  // br  x17
-    };
-    memcpy(ptr, insns, sizeof(insns));
+    // shuffle comment in game/kernel/jak1/kscheme.cpp). X12 is GOAL
+    // callee-saved, but carries the fake-stack size into the helper.
+    // Jak1 preserves its incoming value and the GOAL return address here;
+    // X16/X17 remain AAPCS intra-call scratch registers.
     const u64 lits[3] = {reinterpret_cast<u64>(exec), static_cast<u64>(stack_size),
                          reinterpret_cast<u64>(&_mips2c_call_arm64)};
-    memcpy(ptr + 16, lits, sizeof(lits));
+    if (g_game_version == GameVersion::Jak1) {
+      const u32 insns[8] = {
+          0xa9bf7bec,  //  0: stp x12, x30, [sp, #-16]!
+          0x580000f0,  //  4: ldr x16, pc+28 (exec at 32)
+          0x5800010c,  //  8: ldr x12, pc+32 (stack_size at 40)
+          0x58000131,  // 12: ldr x17, pc+36 (helper at 48)
+          0xd63f0220,  // 16: blr x17
+          0xa8c17bec,  // 20: ldp x12, x30, [sp], #16
+          0xd65f03c0,  // 24: ret
+          0x00000000,  // 28: literal alignment data, never executed
+      };
+      memcpy(ptr, insns, sizeof(insns));
+      memcpy(ptr + 32, lits, sizeof(lits));
+    } else {
+      // Keep Jak2's historical tail-branch stub byte-for-byte.
+      const u32 insns[4] = {
+          0x58000090,  // ldr x16, pc+16
+          0x580000ac,  // ldr x12, pc+20
+          0x580000d1,  // ldr x17, pc+24
+          0xd61f0220,  // br  x17
+      };
+      memcpy(ptr, insns, sizeof(insns));
+      memcpy(ptr + 16, lits, sizeof(lits));
+    }
     __builtin___clear_cache(reinterpret_cast<char*>(ptr), reinterpret_cast<char*>(ptr) + 0x40);
   }
 }

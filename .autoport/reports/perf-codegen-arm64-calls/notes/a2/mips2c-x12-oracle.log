@@ -1,0 +1,26 @@
+
+.autoport/reports/perf-codegen-arm64-calls/notes/a2/mips2c-x12-oracle.o:	file format elf64-littleaarch64
+
+Disassembly of section .text:
+
+0000000000000000 <mips2c_x12_oracle>:
+       0: a9bf7bec     	stp	x12, x30, [sp, #-0x10]!
+       4: 580000f0     	ldr	x16, 0x20 <exec_literal>
+       8: 5800010c     	ldr	x12, 0x28 <stack_literal>
+       c: 58000131     	ldr	x17, 0x30 <helper_literal>
+      10: d63f0220     	blr	x17
+      14: a8c17bec     	ldp	x12, x30, [sp], #0x10
+      18: d65f03c0     	ret
+      1c: 00 00 00 00  	.word	0x00000000
+
+0000000000000020 <exec_literal>:
+      20: 00 00 00 00  	.word	0x00000000
+      24: 00 00 00 00  	.word	0x00000000
+
+0000000000000028 <stack_literal>:
+      28: 00 00 00 00  	.word	0x00000000
+      2c: 00 00 00 00  	.word	0x00000000
+
+0000000000000030 <helper_literal>:
+      30: 00 00 00 00  	.word	0x00000000
+      34: 00 00 00 00  	.word	0x00000000

@@ -6869,7 +6869,7 @@ items:
     recapturees une fois avec cause nommee.'
   out_of_scope: Pas de changement de convention d'appel visible du C++ (asm_funcs_arm64.s, kscheme) dans
     ce lot. Ne touche a aucune feature validee.
-  notes: 'budget : goalc + regen CGO + refset. Lire goalc/CODEGEN_COOKBOOK.md (fichiers verrouilles).
+  notes: 'budget : goalc + regen CGO + refset. Lire .autoport/CODEGEN_COOKBOOK.md (fichiers verrouilles).
     Point de vue : village1-hut.'
   max_turns: 1200
   hits_means: sites d'appel allegees
@@ -6878,14 +6878,30 @@ items:
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_LEVEL_WARP=village1-hut
+  - OG_PAD_REPLAY_REALTIME=0
+  proof_plan:
+    authority: Recapture unique et rejeu exiges par le livrable du lot 1.
+    cause: Sauvegardes GPR dans les callees, X12 protege avant mips2c et acces symboles ARM64 raccourcis.
+    legs: Une capture du candidat a2 puis un rejeu du meme candidat, chacun plafonne a 120 secondes.
+    selection: Hutte historique uniquement (legacy), heure 9, une phase, pad neutre identique.
+    limitation: Le rejeu du candidat mesure sa repetabilite ; la parite avec le rendu anterieur reste
+      non prouvee.
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  - debug.opengoal.refset=capture
-  - debug.opengoal.refset.dir=/sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a1
+  - debug.opengoal.fixed_tick=0
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
+  - debug.opengoal.pad_replay_realtime=0
+  - debug.opengoal.refset=replay
+  - debug.opengoal.refset.dir=/sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a2
   - debug.opengoal.refset.phases=1
-  - debug.opengoal.refset.vantages=village1-hut
+  - debug.opengoal.refset.vantages=legacy
   - debug.opengoal.refset.hours=9
+  - debug.opengoal.refset.warpat=600
+  - debug.opengoal.refset.settle=180
+  - debug.opengoal.refset.loadsettle=600
   prompt: prompts/item-perf-codegen-arm64-calls.md
   device_serial: eae4df44
   block_reason: null

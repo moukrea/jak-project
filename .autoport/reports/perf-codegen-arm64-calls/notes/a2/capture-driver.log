@@ -1,0 +1,39 @@
+[proof_run perf-codegen-arm64-calls] verrou d'ecriture pris (.autoport/reports/perf-codegen-arm64-calls/proof-writer.lock) : pid=1518777 lanceur=1518775 essai=perf-codegen-arm64-calls@2#1789434742 course=20260915T012523Z-1518777-9c5a2624
+[proof_run perf-codegen-arm64-calls] PEREMPTION VUE AVANT LA COURSE (code 5) : la preuve qui etait la datait d'avant une edition.
+[proof_run perf-codegen-arm64-calls]   [stale_precheck perf-codegen-arm64-calls] PEREMPTION VUE AVANT LA COURSE : 1 fichier(s) plus recent(s) que .autoport/reports/perf-codegen-arm64-calls/proof.txt.
+[proof_run perf-codegen-arm64-calls]     source(s) MOTEUR     : game/mips2c/mips2c_table_jak1_arm64.cpp
+[proof_run perf-codegen-arm64-calls]     C'est le constat que validators/generic.sh rendrait a la fin de l'essai. La course
+[proof_run perf-codegen-arm64-calls]     qui demarre le repare ; si elle n'aboutit pas, l'essai mourra la-dessus.
+[proof_run perf-codegen-arm64-calls] attente : APK reecrit il y a 54s
+[proof_run perf-codegen-arm64-calls] build fini apres 15s d'attente, on mesure.
+[proof_run perf-codegen-arm64-calls] garde de build : decision=passe demon_gradle=1 apk_age=69s attendu=15s
+[proof_run perf-codegen-arm64-calls] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run perf-codegen-arm64-calls] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire perf-codegen-arm64-calls] md5 identiques (a65acc137c3f34e71c77c82f96ff62cc) : la course peut mesurer
+[proof_run perf-codegen-arm64-calls] garde binaire : decision=identique local=a65acc137c3f34e71c77c82f96ff62cc appareil=a65acc137c3f34e71c77c82f96ff62cc (code 0)
+[proof_run perf-codegen-arm64-calls] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run perf-codegen-arm64-calls] ecran : mWakefulness=Awake
+[proof_run perf-codegen-arm64-calls] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run perf-codegen-arm64-calls] paire (preuve, sceau) de la course precedente archivee sous 'proof-prev.txt' / 'proof-prev.seal'
+[proof_run perf-codegen-arm64-calls] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 49064 o, sha=346479313d920cab ; filet proof-prev ecrit : 1)
+[proof_run perf-codegen-arm64-calls] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 120s (armed=1)
+[proof_run perf-codegen-arm64-calls] contexte de course : verdict=sans-objet images=4920 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'perf-codegen-arm64-calls' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.fixed_tick etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'village1-hut' -> vide
+[teardown] eae4df44: debug.opengoal.pad_replay_realtime etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.padreplay etait '/data/data/org.opengoal.gk.jak1/files/neutral.inputs' -> vide
+[teardown] eae4df44: debug.opengoal.perf.buckets etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.recharged etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.refset etait 'capture' -> vide
+[teardown] eae4df44: debug.opengoal.refset.dir etait '/sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a2' -> vide
+[teardown] eae4df44: debug.opengoal.refset.hours etait '9' -> vide
+[teardown] eae4df44: debug.opengoal.refset.loadsettle etait '600' -> vide
+[teardown] eae4df44: debug.opengoal.refset.phases etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset.settle etait '180' -> vide
+[teardown] eae4df44: debug.opengoal.refset.vantages etait 'legacy' -> vide
+[teardown] eae4df44: debug.opengoal.refset.warpat etait '600' -> vide
+[teardown] eae4df44: 16 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.fixed_tick,debug.opengoal.level.warp,debug.opengoal.pad_replay_realtime,debug.opengoal.padreplay,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.loadsettle,debug.opengoal.refset.phases,debug.opengoal.refset.settle,debug.opengoal.refset.vantages,debug.opengoal.refset.warpat], 16 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run perf-codegen-arm64-calls] teardown de fin : 16 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.fixed_tick,debug.opengoal.level.warp,debug.opengoal.pad_replay_realtime,debug.opengoal.padreplay,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.loadsettle,debug.opengoal.refset.phases,debug.opengoal.refset.settle,debug.opengoal.refset.vantages,debug.opengoal.refset.warpat], publie sous 'proof-teardown-fin.txt'
+[proof_run perf-codegen-arm64-calls] ecrit .autoport/reports/perf-codegen-arm64-calls/proof.txt (frames=4920 crash=0 duree=132s) ; sortie moteur : .autoport/reports/perf-codegen-arm64-calls/proof-engine.log
