@@ -1,0 +1,11 @@
+static_probe_header_unchanged=1 sha256=3cba696d6a40128b111e589f5005ab43907cdd2d638257421b99bdb5a7f2f4dc
+historical_function_unchanged=bool color_frame() {
+historical_function_unchanged=void finish_color(
+capture_consumer=ao_contact_draws.h
+capture_consumer=AmbientOcclusion.cpp
+capture_consumer=PrePass.cpp
+capture_consumer=ao_tie_alpha_probe.cpp
+capture_consumer=frame_ubo.cpp
+directory_suffix_from_constant=1
+historical_1400_uses_preserved=2
+source_checks_pass=1 runtime_capture_not_tested=1

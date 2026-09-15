@@ -1,0 +1,8 @@
+DIRECTIVES v775512c234
+run	run_id	frames	crash	archive	static_defects	pattern	final_band_sum	max_width
+attempt10-01-ssao-before	20260915T042532Z-1849157-da8e689d	1620	0	complete	2	1	non_mesure	non_mesure
+attempt10-02-hbao-before	20260915T043748Z-1868321-700eaaf1	1200	0	ABSENT	16	0	non_mesure	non_mesure
+attempt10-03-gtao-before	20260915T044726Z-1886851-77fefe3e	840	0	complete	19	non-mesure	96	7
+attempt10-04-ssao-after	20260915T045559Z-1904605-7444ddc7	1620	0	complete	1	0	10	2
+attempt10-05-hbao-after	20260915T050034Z-1912358-8d4923dc	1260	0	complete	9	0	3	1
+attempt10-06-gtao-after	20260915T050351Z-1918997-78095b58	840	0	complete	19	non-mesure	10	2

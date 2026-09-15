@@ -1,0 +1,7 @@
+test_native_bridge_band_censored_and_unqualified (__main__.NativeProfileTest.test_native_bridge_band_censored_and_unqualified) ... ok
+test_physical_intersection_and_pixel_segment (__main__.NativeProfileTest.test_physical_intersection_and_pixel_segment) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.009s
+
+OK

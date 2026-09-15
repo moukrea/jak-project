@@ -1,0 +1,24 @@
+{
+  "reason": "Conservative margin includes one extra texel at every bilinear pass, then color sampling. Fixed physical population unchanged.",
+  "envelope": [
+    45,
+    500,
+    108,
+    100
+  ],
+  "extra_texels": 40,
+  "comparisons": {
+    "estimator.r8": {
+      "pixels": 10800,
+      "changed": 0
+    },
+    "scene-depth.f32": {
+      "pixels": 10800,
+      "changed": 0
+    },
+    "prepass-depth.f32": {
+      "pixels": 10800,
+      "changed": 0
+    }
+  }
+}

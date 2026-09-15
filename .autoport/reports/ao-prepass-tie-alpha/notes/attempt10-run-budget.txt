@@ -1,0 +1,7 @@
+DIRECTIVES v775512c234
+2026-09-15T04:25:32.848305+00:00 course1/6 SSAO avant correction timeout150s commit57f8e11dce ; restant5/6.
+2026-09-15T04:37:48.099678+00:00 course2/6 HBAO avant correction timeout150s commite35448f4a8 ; identifiant primitive GPU ajouté après échec attributionCPU, aucune tolérance abaissée ; restant4/6.
+2026-09-15T04:47:20.924991+00:00 course3/6 GTAO avant correction timeout150s commit548b01ab0d ; capture hutte600 après brasHBAO2 incomplet1200/1400 ; restant3/6.
+2026-09-15T04:55:51.300150+00:00 course4/6 SSAO après correctiffloucentré timeout150s commitadafa03109 ; capture600 ; restant2/6.
+2026-09-15T05:00:34.721139+00:00 course5/6 HBAO après correctiffloucentré timeout150s commitadafa03109 ; mêmebinaire ; restant1/6.
+2026-09-15T05:03:51.853379+00:00 course6/6 GTAO après correctiffloucentré timeout150s commitadafa03109 ; mêmebinaire ; restant0/6, aucune septième course autorisée.

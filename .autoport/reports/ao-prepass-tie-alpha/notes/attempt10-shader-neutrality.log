@@ -1,0 +1,43 @@
+GL_VENDOR=Intel
+GL_RENDERER=Mesa Intel(R) UHD Graphics (CML GT2)
+GL_VERSION=OpenGL ES 3.2 Mesa 25.3.6
+mode=ao_ssao pattern=0 quality=0 pixels=192 dark=28 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=0 quality=1 pixels=768 dark=152 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=0 quality=2 pixels=3072 dark=747 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=1 quality=0 pixels=192 dark=0 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=1 quality=1 pixels=768 dark=0 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=1 quality=2 pixels=3072 dark=0 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=2 quality=0 pixels=192 dark=5 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=2 quality=1 pixels=768 dark=17 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=2 quality=2 pixels=3072 dark=82 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=3 quality=0 pixels=192 dark=48 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=3 quality=1 pixels=768 dark=217 changed=0 changed_after_replays=0
+mode=ao_ssao pattern=3 quality=2 pixels=3072 dark=946 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=0 quality=0 pixels=192 dark=85 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=0 quality=1 pixels=768 dark=347 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=0 quality=2 pixels=3072 dark=1475 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=1 quality=0 pixels=192 dark=10 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=1 quality=1 pixels=768 dark=12 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=1 quality=2 pixels=3072 dark=0 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=2 quality=0 pixels=192 dark=6 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=2 quality=1 pixels=768 dark=20 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=2 quality=2 pixels=3072 dark=71 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=3 quality=0 pixels=192 dark=60 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=3 quality=1 pixels=768 dark=274 changed=0 changed_after_replays=0
+mode=ao_hbao pattern=3 quality=2 pixels=3072 dark=768 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=0 quality=0 pixels=192 dark=80 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=0 quality=1 pixels=768 dark=307 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=0 quality=2 pixels=3072 dark=1334 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=1 quality=0 pixels=192 dark=0 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=1 quality=1 pixels=768 dark=0 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=1 quality=2 pixels=3072 dark=0 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=2 quality=0 pixels=192 dark=4 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=2 quality=1 pixels=768 dark=16 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=2 quality=2 pixels=3072 dark=71 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=3 quality=0 pixels=192 dark=44 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=3 quality=1 pixels=768 dark=200 changed=0 changed_after_replays=0
+mode=ao_gtao pattern=3 quality=2 pixels=3072 dark=768 changed=0 changed_after_replays=0
+RESULT cases=36 changed=0 changed_after_replays=0 dark_population=8194 diagnostic_nonzero=517095
+COUNTERS mode=ao_ssao max_candidates=24 max_broad=0
+COUNTERS mode=ao_hbao max_candidates=64 max_broad=10
+COUNTERS mode=ao_gtao max_candidates=160 max_broad=10

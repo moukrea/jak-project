@@ -1,0 +1,119 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "qualified_edges": [
+    [
+      98,
+      550,
+      0,
+      1
+    ],
+    [
+      99,
+      550,
+      0,
+      1
+    ],
+    [
+      100,
+      550,
+      0,
+      1
+    ],
+    [
+      87,
+      551,
+      0,
+      1
+    ],
+    [
+      88,
+      551,
+      0,
+      1
+    ],
+    [
+      89,
+      551,
+      0,
+      1
+    ],
+    [
+      90,
+      551,
+      0,
+      1
+    ],
+    [
+      91,
+      551,
+      0,
+      1
+    ],
+    [
+      92,
+      551,
+      0,
+      1
+    ],
+    [
+      93,
+      551,
+      0,
+      1
+    ],
+    [
+      94,
+      551,
+      0,
+      1
+    ],
+    [
+      95,
+      551,
+      0,
+      1
+    ],
+    [
+      96,
+      551,
+      0,
+      1
+    ],
+    [
+      97,
+      551,
+      1,
+      0
+    ],
+    [
+      97,
+      551,
+      0,
+      1
+    ]
+  ],
+  "contact_endpoints": 28,
+  "populations": {
+    "wall_pixels": 250,
+    "roof_pixels": 175,
+    "physically_qualified_edges": 15
+  },
+  "compare": {
+    "all_qualified_patch_pixels": {
+      "pixels": 425,
+      "sampled_vs_ridge_byte_mismatch": 0,
+      "max_byte_delta": 0,
+      "sampled_vs_ridge_f32_mismatch": 0,
+      "max_f32_delta": 0.0,
+      "ao_changed_rgb_pixels": 425
+    },
+    "contact_endpoints": {
+      "pixels": 28,
+      "sampled_vs_ridge_byte_mismatch": 0,
+      "max_byte_delta": 0,
+      "sampled_vs_ridge_f32_mismatch": 0,
+      "max_f32_delta": 0.0,
+      "ao_changed_rgb_pixels": 28
+    }
+  }
+}

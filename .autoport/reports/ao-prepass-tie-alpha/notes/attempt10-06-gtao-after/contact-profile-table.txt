@@ -1,0 +1,18 @@
+DIRECTIVES v775512c234
+mode=3
+population={'wall_pixels': 250, 'roof_pixels': 175, 'physically_qualified_edges': 15}
+reference_mask={'pixel_population_identical': True, 'contact_populations_identical': True, 'physical_segment_identical': True, 'projected_segment_identical': True}
+stage measured contacts valid_sides missing_sides censored_sides band_pixels max_width
+estimator.r8 True 15 29 1 0 26 5
+blur-0.r8 True 15 29 1 0 20 1
+blur-1.r8 True 15 29 1 0 1 1
+blur-2.r8 True 15 29 1 0 3 1
+blur-3.r8 True 15 29 1 0 8 2
+blur-4.r8 True 15 29 1 0 11 2
+blur-5.r8 True 15 29 1 0 10 2
+blur-6.r8 True 15 29 1 0 14 3
+blur-7.r8 True 15 29 1 0 10 2
+ridge-0.r8 True 15 29 1 0 10 2
+ridge-1.r8 True 15 29 1 0 10 2
+ridge-2.r8 True 15 29 1 0 10 2
+ridge-3.r8 True 15 29 1 0 10 2

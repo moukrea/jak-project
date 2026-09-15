@@ -1,0 +1,20 @@
+DIRECTIVES v775512c234
+wall_source=[73087, 73088, 73089]
+roof_source=[29051, 29052, 29053]
+populations={'wall_pixels': 250, 'roof_pixels': 175, 'physically_qualified_edges': 15}
+physical_segment_world=[[-479376.54539616173, 87695.7839884281, 194445.42861643143], [-480899.55248346785, 87697.94594545387, 190683.87767494883]]
+projected_segment_px=[[68.80726707164513, 553.3737271455492], [108.59727473064713, 550.7796376683089]]
+stage measured contacts valid_sides missing_sides censored_sides band_pixels max_width
+estimator.r8 True 15 29 1 0 26 5
+blur-0.r8 True 15 29 1 0 26 4
+blur-1.r8 True 15 29 1 0 4 2
+blur-2.r8 True 15 29 1 0 12 3
+blur-3.r8 True 15 29 1 0 33 4
+blur-4.r8 True 15 29 1 0 50 6
+blur-5.r8 True 15 29 1 0 69 7
+blur-6.r8 True 15 29 1 0 88 7
+blur-7.r8 True 15 29 1 0 96 7
+ridge-0.r8 True 15 29 1 0 96 7
+ridge-1.r8 True 15 29 1 0 96 7
+ridge-2.r8 True 15 29 1 0 96 7
+ridge-3.r8 True 15 29 1 0 96 7

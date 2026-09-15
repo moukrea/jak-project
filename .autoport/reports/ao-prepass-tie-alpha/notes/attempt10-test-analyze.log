@@ -1,0 +1,14 @@
+test_ambiguity_never_unique (__main__.AttributionTest.test_ambiguity_never_unique) ... ok
+test_archive_to_pixel_refuses_overlapping_primitives_and_wrong_draw (__main__.AttributionTest.test_archive_to_pixel_refuses_overlapping_primitives_and_wrong_draw) ... ok
+test_clipping_near_plane (__main__.AttributionTest.test_clipping_near_plane) ... ok
+test_contact_indices_required_and_effective (__main__.AttributionTest.test_contact_indices_required_and_effective) ... ok
+test_contact_sidecar_hash_and_absence (__main__.AttributionTest.test_contact_sidecar_hash_and_absence) ... ok
+test_depth_quantum_and_boundary_refused (__main__.AttributionTest.test_depth_quantum_and_boundary_refused) ... ok
+test_gpu_primitive_counter_restart_degenerate_and_new_draw (__main__.AttributionTest.test_gpu_primitive_counter_restart_degenerate_and_new_draw) ... ok
+test_projection_overwrites_translation_w (__main__.AttributionTest.test_projection_overwrites_translation_w) ... ok
+test_strip_parity_restart_and_degenerate (__main__.AttributionTest.test_strip_parity_restart_and_degenerate) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.035s
+
+OK

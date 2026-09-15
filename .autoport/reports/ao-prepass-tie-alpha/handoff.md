@@ -1,29 +1,29 @@
 DIRECTIVES v775512c234
 ## ÉTABLI
-Essai9 : préparation code livrée ; défaut mur/toit encore non corrigé.
-Plan15/09 autorisé0/6, restant6 ; plan historique9/9 conservé, ne plus attendre arbitrage.
-Builds x86/Android finaux0 ; logs attempt9-final-build-*, identités attempt9-build-identities.txt.
-Tests geometry28 cas, profile reverse-Z/largeurs1/3/8, readback GLES :compile0/run0.
-Readback local Intel/Mesa :pixels/dessin suivant/états identiques, PBO intact ; pas preuve USB.
-USB pick_device=eae4df44, notes/attempt9-usb.txt ; aucune course ni livraison explicite.
-Geometry export :origine matrix-group/run conservée avant lookup indice soudé ; stride sway8.
-AO archive :tick1400, mode quelconque, brut+blur+ridge, caméra/paramètres/render_frame.
-UBO224 exact archivé par render_frame/hash ; association aux draws encore absente.
-Profil CPU exige classe+identité nonzero+qualification physique ; uniforme censuré, seuil4 conservé.
+Essai10 : correctif partiel livré adafa03109, flou centré5taps ; bande non supprimée complètement.
+USB eae4df44 Redmi_Note_9_Pro, local/appareil md5 a1e389727fea13f308cbfeb34f313342.
+Plan15/09 consommé6/6 ; historique9/9 inchangé. Aucune course7 autorisée.
+Six proof_run timeout150, crash0 tous ; preuves/archives séparées notes/attempt10-01..06-*.
+GTAO avant/après :15contacts physiques fixes,425pixels sources TFRAG mur73087..89/toit29051..53.
+Cumul/largeur GTAO96/7→10/2 ; après SSAO10/2,HBAO3/1.29côtés valides,1manquant inchangé.
+AO consommée couleur == ridge final exactement float32 et octet sur425pixels.
+GTAO3/6 AO brut+profondeurs identiques enveloppe40px/10800pixels ;41champscam+24flou identiques.
+SSAO après cinq acquis0 ; static1 référence absente. HBAOstatic9/GTAO19 acquisitions manquantes.
+ao_tie_prepass_defects absent : porte non passée, aucune validation owner.
+Builds x86/Android0, APK0 ; tests shader livré impulsion0déplacement/masse1 et phase4résidu0.
 ## TENTÉ
-Sous-agents researcher/implementer/tester ; bugs gating,stride,frontières,reverse-Z corrigés.
-Tests neutres sans appareil ; /tmp quota contourné via TMPDIR notes, aucun nouveau harnais.
-Aucun réglage alpha/biais/flou ni modification sonde statique ; cause non attribuée.
-Pas de preuve9 :archives ne contiennent pas encore chaîne profondeur/normales/couleur complète.
-Preuves/sceaux historiques intacts ; huit lignes rapport marquées historiques uniquement.
+Capture1400 trop tard pour HBAOavant1200 : bras2 consommé sans archive, pas répété.
+Capture hutte seule avancée600 ; ordonnanceur/populations/critères sonde statique inchangés.
+CPUprojection D24 incompatible : remplacée par IDprimitiveGPU v2, aucune tolérance élargie.
+Cause qualifiée avant fix : GTAOblur1 bande4/max2→blur7 bande96/max7, ridge inchangé.
+Noyau -1..2 décalait impulsion(-5.5,-5.5) ; noyau centré corrige ce déplacement, conserve phase4.
+Résidu SSAOmur(100,550) : brut[25,31,23,63]sansbande→final[141,138,135,133]largeur2.
+Ridge triplet[138,141,146] monotone : pas maximum strict ; filtrage recrée encore le résidu.
 ## RESTE
-Finir préparation, PAS audit : notes/attempt9-preparation.md décrit code/schema et raccordements.
-Exporter profondeur scène/prépasse, normales et exclusions estimateurs, contribution AO couleur.
-Associer plages/draws/UBO puis pixels aux instances/triangles mur/toit, populations non vides.
-Qualifier contacts physiquement ; adjacency écran seule insuffisante ; mur TFRAG possible.
-Brancher ao_contact_profile ; neutralité instrument complet et entrées exogènes à vérifier.
-Avant course épingler proof_props BACKLOG :ils portent encore beach/campagne historique.
-Utiliser nouveau capture=1, village1-hut -116 14 40, mode1 puis2 puis3, timeout<=150.
-Consigner budget puis exclusivement proof_run ; trio avant, correction causale, trio après.
-En cas archive/raccord absent :diagnostiquer sans relancement identique, ni budget dépassé.
-Contrat complet extérieur couleur/stabilité/acquis reste requis ; aucun owner-ok, porte non passée.
+Corriger cette dilution résiduelle sans dégrader shrubs/damier/pixelisation ; aucun seuil assoupli.
+Lire notes/attempt10-residual-ssao.md et tables parmode ; ne pas refaire préparation/diagnostic établis.
+Lecteurs notes/attempt10-analyze.py puis attempt10-profile.py : commandes attempt10-after-profile-commands.md.
+--reference-profile bras3 fige425pixels/15contacts ; maintenir1côté manquant, jamais zéro artificiel.
+Budget épuisé : aucune nouvelle course sans périmètre autorisé ; préserver toutes archives et preuves.
+Le contrat complet extérieur/couleur/stabilité et somme finale restent requis, actuellement non prouvés.
+FINDINGS conserve ambiguïtés AFAIL/multidraw, états MRT indexés, coûtGPU et autres dettes ouvertes.

@@ -1,0 +1,4 @@
+DIRECTIVES v775512c234
+build/game/gk sha256=c1da0976c1851bb5462357d5c03525bc9eb97fe58acab840cbebc37513229568 md5=b514f485aaa2a50291579f910d0c8cfc bytes=217241680
+build-android/lib/arm64-v8a/libgk.so sha256=9e3f6ce42e4867a8f4b870f4616cf9cd1d0b3ef26365b9edb2037afe2b657479 md5=a1e389727fea13f308cbfeb34f313342 bytes=17095632
+game/graphics/opengl_renderer/shaders/ao_blur.frag sha256=221e6700852584ae59bfbc3b40b083628ad61e0ad8c1bcb2a9d61deaa680b0ae md5=b4a78d3f3309f559673f8bc48ab23852 bytes=11961

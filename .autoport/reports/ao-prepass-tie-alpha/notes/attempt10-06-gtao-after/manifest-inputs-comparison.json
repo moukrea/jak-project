@@ -1,0 +1,16 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "keys_before": 98,
+  "keys_after": 98,
+  "nonstage_manifest_exact_equal": false,
+  "differences": [
+    [
+      "depth_stage",
+      "prepass-depth.f32 width=800 height=600 bytes=1920000 fnv1a64=14781831417447864668 encoding=ieee754-native-f32-from-d24 reverse_z=1 origin=lower-left",
+      "prepass-depth.f32 width=800 height=600 bytes=1920000 fnv1a64=14881026626504705370 encoding=ieee754-native-f32-from-d24 reverse_z=1 origin=lower-left"
+    ]
+  ],
+  "camera_keys_identical": true,
+  "camera_key_count": 41,
+  "blur_keys_identical": true
+}

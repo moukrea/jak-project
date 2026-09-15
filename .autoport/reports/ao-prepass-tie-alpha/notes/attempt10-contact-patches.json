@@ -1,0 +1,30 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "source_evidence": [
+    "attempt10-01-ssao-before/tfrag-physical-intersections.json",
+    "attempt10-01-ssao-before/tfrag-visible-contact-candidates.json"
+  ],
+  "label_rationale": "Deux patches sources de geometrie seulement. Mur incline: normale face (-0.898724,0.244505,0.364023). Plafond/toit: normale face (0.078688,-0.996372,-0.032432). Leur intersection 3D est recalculee avant mesure. Aucun label owner ni attribution pixel v1 ne sont presumes.",
+  "wall": {
+    "family": "tfrag",
+    "geo": 0,
+    "tree": 0,
+    "geometry_sha256": "3323bc7559f2e84a3662863247c65ee1de61b25ba56bf25d90515e2568c782a4",
+    "full_source_offsets": [
+      73087,
+      73088,
+      73089
+    ]
+  },
+  "roof": {
+    "family": "tfrag",
+    "geo": 0,
+    "tree": 0,
+    "geometry_sha256": "3323bc7559f2e84a3662863247c65ee1de61b25ba56bf25d90515e2568c782a4",
+    "full_source_offsets": [
+      29051,
+      29052,
+      29053
+    ]
+  }
+}

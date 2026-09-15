@@ -1,0 +1,8 @@
+GL_VENDOR=Intel
+GL_RENDERER=Mesa Intel(R) UHD Graphics (CML GT2)
+GL_VERSION=OpenGL ES 3.2 Mesa 25.3.6
+COLOR rt=0 ao=0 kept=480 discarded=288 changed_float_rgba=0 probe_gba_or_off_rgba_changed=0 delta_nonzero=0 normal_exact=1 state_equal=1 primitive_id_plus_one_exact=1
+COLOR rt=0 ao=1 kept=480 discarded=288 changed_float_rgba=0 probe_gba_or_off_rgba_changed=0 delta_nonzero=480 normal_exact=1 state_equal=1 primitive_id_plus_one_exact=1
+COLOR rt=1 ao=0 kept=480 discarded=288 changed_float_rgba=0 probe_gba_or_off_rgba_changed=0 delta_nonzero=0 normal_exact=1 state_equal=1 primitive_id_plus_one_exact=1
+COLOR rt=1 ao=1 kept=480 discarded=288 changed_float_rgba=0 probe_gba_or_off_rgba_changed=0 delta_nonzero=480 normal_exact=1 state_equal=1 primitive_id_plus_one_exact=1
+RESULT color_changed=0 probe_gba_or_off_rgba_changed=0 delta_nonzero=960 kept=1920 discarded=1152
