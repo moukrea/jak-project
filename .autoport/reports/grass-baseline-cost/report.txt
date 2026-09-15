@@ -1,12 +1,11 @@
 DIRECTIVES v07b292c21f
-Verdict : essai 2 NON VALIDÉ ; les mesures exigées restent impossibles dans le périmètre inchangé.
-Changements : rapport, handoff et note de reprise ; signalements conservés et précisés.
-Aucune nouvelle course, aucun build ; aucun résultat appareil revendiqué pour cet essai.
-Le handoff interdit de répéter la course diagnostique sans résoudre l'absence d'instrument.
-Comparaison statique avec f4f2fcb9d0 : aucun diff dans game/common/scripts, le prompt et la SPEC.
-Relecture indépendante par researcher Codex : aucune autorisation nouvelle d'instrumentation.
-L'item n'a ni proof_plan ni décision levant « Ne change RIEN » (backlog.yaml:9674-9712).
-Huit lignes de proof.txt ci-dessous : HISTORIQUE ESSAI 1, PAS preuve de l'essai 2.
+Verdict : essai 3 NON ABOUTI ; le contrat inchangé interdit les instruments nécessaires aux mesures.
+Changements : rapport, FINDINGS, note de reprise et handoff uniquement.
+Aucune nouvelle preuve, aucun build ni appareil engagé dans cet essai.
+Delta statique depuis 641076114f : aucun changement game/common/scripts, proof_run.sh, prompt ou SPEC.
+Lecture YAML : proof_plan et autorisation d'instrumentation absents ; « Ne change RIEN » maintenu.
+Les dix fenêtres sont demandées ; le blocage porte sur les instruments manquants, pas sur l'accès USB.
+Huit lignes recopiées pour traçabilité : HISTORIQUE ESSAI 1, aucune preuve de l'essai 3.
 source=device
 serial=eae4df44
 sha=3f2422035af8dc58
@@ -15,12 +14,12 @@ frames=4920
 proof_feature_state=absent
 proof_feature_declared=0
 proof_feature_own_hits=0
-validator-001.txt rejette le site absent et grass_baseline_gaps absent ; ce verdict est historique.
-proof.txt et son sceau sont conservés sans modification ; aucune fraîcheur nouvelle revendiquée.
-Le validateur de cet essai reste à l'orchestrateur conformément au prompt.
-Owner : rien à regarder ; owner_test=false, aucune validation visuelle demandée.
-non prouvé : dix cadences ON/OFF aux cinq paliers, chacune ≥300 images au même vantage/binaire.
+Le verdict existant validator-002.txt contient trois FAIL : preuve d'un autre essai, site absent, gaps absent.
+proof.txt et proof.seal conservés à l'identique ; ces anciens résultats ne valident pas cette reprise.
+Aucune exécution du validateur : l'orchestrateur en a la charge.
+Owner : rien à regarder, owner_test=false ; aucun test visuel demandé.
+non prouvé : dix cadences ON/OFF aux cinq paliers, ≥300 images chacune au même vantage et binaire.
 non prouvé : préparation CPU, dessin, instances soumises et réellement dans le champ de vision.
-non prouvé : chargement par palier, mémoire des deux tampons, compte isolé des instances jamais dessinées.
-non prouvé : ablation --off, fraîcheur et non-régression appareil pour cet essai.
-Suite : arbitrage de périmètre par le superviseur avant toute nouvelle course ; voir handoff.md.
+non prouvé : source/expansion/upload par palier, mémoire des deux tampons, instances jamais dessinées.
+non prouvé : ablation --off, fraîcheur et non-régression appareil pour cet essai ; grass_baseline_gaps=0.
+Suite : arbitrage de périmètre par le superviseur avant une reprise ; détails dans handoff.md.

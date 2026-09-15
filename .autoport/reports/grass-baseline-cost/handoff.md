@@ -1,23 +1,21 @@
 ## ÉTABLI
 DIRECTIVES v07b292c21f
-Essai 2 : aucune nouvelle preuve ; proof.txt et proof.seal restent ceux de l'essai 1.
-validator-001.txt rejette proof_feature_state=absent et grass_baseline_gaps absent.
-Historique seulement : essai 1 USB eae4df44, sha=3f2422035af8dc58, frames=4920, crash=0.
-Aucun relevé du contrat acquis ; ces anciennes valeurs ne prouvent pas l'essai 2.
-Diff vide depuis f4f2fcb9d0 pour game/common/scripts, prompt de l'item et SPEC.
-L'item actuel conserve « Ne change RIEN » ; proof_plan et décision d'extension absents.
-Researcher Codex gpt-6-astra/high confirme ce constat en lecture seule ; agent terminé.
+Essai 3 : aucune preuve nouvelle ; proof.txt et proof.seal restent ceux de l'essai 1.
+validator-002.txt : trois FAIL (identité d'essai périmée, site absent, grass_baseline_gaps absent).
+Delta depuis 641076114f vide pour game/common/scripts, proof_run.sh, prompt et SPEC.
+Lecture YAML : proof_plan et autorisation d'instrumentation absents ; « Ne change RIEN » maintenu.
+Aucun relevé du contrat acquis ; aucune indisponibilité USB alléguée (appareil non interrogé).
+Researcher natif gpt-6-astra/high terminé : seul delta de l’item, status open -> in-progress.
 ## TENTÉ
-Reprise ciblée du delta contractuel et lecture du verdict existant, sans refaire l'audit moteur.
+Reprise du seul delta contractuel et lecture du verdict de l'essai 2 ; audit moteur non répété.
 Aucun build, appareil, réglage, instrumentation, campagne ou ablation engagé.
-L'ancienne course n'a pas été répétée : son absence d'instrument est déjà établie.
-Rapport/FINDINGS/notes mis à jour ; aucun changement de backlog, moteur ou validateur.
-Investigation externe liée dans la SPEC inaccessible via l'outil web ; SPEC locale lue.
+Course diagnostique non répétée : l'absence d'instruments reste établie et sans correctif autorisé.
+Rapport/FINDINGS/notes mis à jour ; backlog, moteur, validateur et preuves inchangés.
 ## RESTE
-Le superviseur doit arbitrer explicitement l'instrumentation neutre et inscrire le proof_plan.
-Ne pas relancer le même essai à contrat et instrument inchangés.
-Après résolution : implémenter seulement les mesures, sans optimisation ni changement de rendu.
-Préparer une scène fixe et dix fenêtres ON/OFF de ≥300 images, cinq paliers, même binaire.
+Le superviseur doit résoudre explicitement « Ne change RIEN » pour l'instrumentation neutre.
+Inscrire le proof_plan des dix fenêtres demandées ; ne pas relancer à contrat/instrument inchangés.
+Après résolution : ajouter seulement les mesures, sans optimisation ni changement du rendu.
+Préparer cinq paliers, ON/OFF, dix fenêtres de ≥300 images au même vantage et sur le même binaire.
 Mesurer CPU préparation/dessin, soumis/frustum, source/expansion/upload, deux mémoires et queue morte.
 Calculer gaps depuis les mesures manquantes ; attribuer les hits aux fenêtres terminées.
-Produire une preuve USB neuve via proof_run.sh puis l'ablation prévue, et laisser l'orchestrateur juger.
+Produire une preuve USB neuve via proof_run.sh, l'ablation requise ; laisser l'orchestrateur juger.
