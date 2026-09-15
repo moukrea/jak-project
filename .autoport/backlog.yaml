@@ -6921,7 +6921,24 @@ items:
   - debug.opengoal.refset.loadsettle=600
   prompt: prompts/item-perf-codegen-arm64-calls.md
   device_serial: eae4df44
-  block_reason: null
+  block_reason: 'Essai6 refuse : la provenance refset inclut les CGO modifies par l optimisation, donc
+    comparaison couleur non effectuee (255 sentinelle). Reference a2 conservee ; anciens ecarts de repetabilite
+    toujours inexpliques. Appels mesures a2 instructions sur47 sites, mais symboles proches/lointains
+    incomplets et aucun gain demontre. Diagnostiquer le contrat de comparaison des donnees compilees avant
+    nouvelle course ; ne pas ecraser la reference ni repeter ce refus.'
+  supervisor_recovery: false
+  supervisor_review:
+    date: '2026-09-15'
+    evidence:
+    - .autoport/reports/perf-codegen-arm64-calls/handoff.md
+    - .autoport/logs/perf-codegen-arm64-calls/validator-006.txt
+    diagnosis: codegen_lot_defects=1 ; refset refuse data 4eabb0fc1e6d0a6c -> d854ac9ec1a0ee00 avant comparaison
+      RGB. Le dernier essai ne mesure donc pas un ecart RGB de255. Tests locaux et compteurs structurels
+      ne prouvent ni rendu identique ni gain temporel.
+    next_step: Analyser localement la separation entre provenance du code compile candidat et identite
+      des donnees de scene, avec reference immuable et sans affaiblir le verdict visuel ; identifier aussi
+      les exigences de symboles restant a implementer. Aucune nouvelle course ou recapture autorisee par
+      cette revue.
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
   status: open
