@@ -352,9 +352,9 @@ void finish_hut(uint64_t render_frame) {
   restore();
   bool ok = enabled && color_cleared && !color_meta.empty();
   std::ostringstream meta;
-  meta << "format=ao-hut-color-f32-v1\nlogic_frame=1400\nrender_frame=" << render_frame
+  meta << "format=ao-hut-color-f32-v2\nlogic_frame=1400\nrender_frame=" << render_frame
        << "\nwidth=" << width << "\nheight=" << height
-       << "\norigin=lower-left\nalpha=post-discard\ncolor=before-fog-and-framebuffer-blend\n";
+       << "\norigin=lower-left\nalpha=post-discard\nidentity_r=primitive-id-plus-one\nidentity_g=tested-alpha\nidentity_b=window-depth\nidentity_a=draw-id\ncolor=before-fog-and-framebuffer-blend\n";
   const GLuint textures[] = {targets[1], hut_targets[0], hut_targets[1]};
   const char* names[] = {"color-identity.rgba32f", "color-contribution.rgba32f", "color-normal.rgba32f"};
   for (int i = 0; i < 3 && ok; ++i) {

@@ -125,6 +125,11 @@ void main() {
   }
 
   tie_alpha_probe = vec4(tie_raw_alpha, color.a, gl_FragCoord.z, float(u_tie_alpha_probe_id));
+#ifdef OG_PBR
+  // Proof archive only: GPU primitive ordinal includes degenerate triangles and
+  // continues across strip restarts. Zero remains the cleared/unwritten value.
+  if (u_hut_capture != 0) tie_alpha_probe.r = float(gl_PrimitiveID + 1);
+#endif
   color.rgb = mix(color.rgb, fog_color.rgb, clamp(fogginess * fog_color.a, 0.0, 1.0));
 #ifdef OG_PBR
   // ETIQUETTE DE PROGRAMME (u_pbr_debug == 30) : quel programme a dessine ce pixel. Les teintes
