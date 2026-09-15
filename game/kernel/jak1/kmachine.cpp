@@ -97,6 +97,7 @@
 #include <sstream>
 
 #include "common/util/font/font_utils.h"
+#include "game/graphics/opengl_renderer/fb_passes.h"
 #if defined(__ANDROID__) || defined(__linux__)
 #include <unistd.h>  // fsync (Gcollision-glitchcapture dump durability)
 #endif
@@ -1760,6 +1761,20 @@ void pc_scl10n_end() {
 // 1 quand le harnais mesure CET item. Le recensement appelle `init-game-options` au boot, ce que
 // le jeu ne fait qu'a l'ouverture du menu : hors mesure, on ne touche a rien. C'est l'INSTRUMENT
 // qui est sous drapeau, jamais le correctif — les libelles traduits sont dans le banc pour tous.
+AUTOPORT_FEATURE_SITE("res-menu-truth");
+
+s64 pc_get_render_resolution(u32 w_ptr, u32 h_ptr) {
+  int w = 0, h = 0;
+  const auto serial = fb_passes::read_scene_geometry(w, h);
+  *Ptr<s64>(w_ptr) = w;
+  *Ptr<s64>(h_ptr) = h;
+  return serial;
+}
+
+s32 pc_res_menu_wanted() {
+  return autoport_proof::feature_is("res-menu-truth") ? 1 : 0;
+}
+
 s32 pc_scl10n_wanted() {
   return autoport_proof::feature_is("recharged-settings-case-l10n") ? 1 : 0;
 }
@@ -5596,6 +5611,8 @@ void InitMachineScheme() {
   // de jak1), le seul chemin d'enregistrement des pc-* qui soit atteint sur les DEUX
   // plateformes — `init_common_pc_port_functions` ne tourne pas sur Android.
   make_function_symbol_from_c("pc-set-fixed-tick!", (void*)pc_set_fixed_tick);
+  make_function_symbol_from_c("pc-get-render-resolution", (void*)pc_get_render_resolution);
+  make_function_symbol_from_c("__pc-res-menu-wanted?", (void*)pc_res_menu_wanted);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used

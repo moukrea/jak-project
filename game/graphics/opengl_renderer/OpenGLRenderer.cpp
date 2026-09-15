@@ -1646,7 +1646,7 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
                                  m_fbo_state.resources.window.height,
                                  m_render_state.draw_region_w, m_render_state.draw_region_h,
                                  m_render_state.draw_offset_x, m_render_state.draw_offset_y,
-                                 settings.game_res_w, settings.game_res_h);
+                                 m_fbo_state.render_fbo->width, m_fbo_state.render_fbo->height);
   fb_passes::note_ui_regime(split_active, false, m_ui_direct_block);
 
   if (split_active && !m_ui_direct_allowed) {

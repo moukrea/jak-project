@@ -126,6 +126,10 @@ void note_frame_geometry(int win_w,
                          int scene_w,
                          int scene_h);
 
+// Allocated scene size of the last submitted frame, shared with the menu on the EE thread.
+// Returns zero until the renderer has supplied an observation.
+uint64_t read_scene_geometry(int& width, int& height);
+
 // Le regime de la passe UI. `block_reason` NOMME pourquoi l'UI n'a pas pu etre dessinee
 // directement dans la fenetre ; "-" quand elle l'a ete, "no-split" quand la question ne se
 // pose pas. Un refus muet serait indiscernable d'un correctif absent.

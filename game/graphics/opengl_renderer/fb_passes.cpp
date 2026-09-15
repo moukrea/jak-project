@@ -56,6 +56,9 @@ char g_sites[kMaxSites][40];
 int g_site_count = 0;
 char g_block_reason[40] = "-";
 int g_geom[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+uint64_t g_geometry_serial = 0;
+int g_completed_scene_w = 0;
+int g_completed_scene_h = 0;
 
 void bump_max(std::atomic<uint64_t>& slot, uint64_t v) {
   uint64_t prev = slot.load(std::memory_order_relaxed);
@@ -297,6 +300,13 @@ void note_frame_geometry(int win_w,
   g_geom[7] = scene_h;
 }
 
+uint64_t read_scene_geometry(int& width, int& height) {
+  std::lock_guard<std::mutex> lock(g_text_mutex);
+  width = g_completed_scene_w;
+  height = g_completed_scene_h;
+  return g_geometry_serial;
+}
+
 void note_ui_regime(bool split_active, bool direct_to_window, const char* block_reason) {
   if (split_active) {
     g_split_frames.fetch_add(1, std::memory_order_relaxed);
@@ -316,6 +326,14 @@ void note_ui_direct() {
 }
 
 void frame_boundary() {
+  {
+    std::lock_guard<std::mutex> lock(g_text_mutex);
+    g_completed_scene_w = g_geom[6];
+    g_completed_scene_h = g_geom[7];
+    if (g_completed_scene_w > 0 && g_completed_scene_h > 0) {
+      ++g_geometry_serial;
+    }
+  }
   const uint64_t n = g_frames.fetch_add(1, std::memory_order_relaxed) + 1;
 
   const uint64_t copies = g_copies.exchange(0, std::memory_order_relaxed);

@@ -167,16 +167,6 @@
     (set! (-> out-h) h))
   (none))
 
-;; res-menu-truth — LA REGLE D'AVANT, gardee UNIQUEMENT comme temoin de l'audit. Elle dit ce que
-;; le binaire livre AURAIT rendu pour une taille choisie. Sans elle, `res_menu_defects = 0` ne
-;; serait pas falsifiable : on ne saurait pas distinguer « le defaut est corrige » de « l'audit
-;; ne regarde rien ». Aucun chemin de jeu ne l'appelle.
-(defun legacy-game-base-size ((obj pc-settings) (in-w int) (in-h int)
-                              (out-w (pointer int64)) (out-h (pointer int64)))
-  "La traduction telle qu'elle etait AVANT res-menu-truth (repli non garde)."
-  (resolve-game-base-size obj in-w in-h #f out-w out-h)
-  (none))
-
 (defmethod set-aspect! ((obj pc-settings) (aw int) (ah int))
   "set the aspect ratio used for rendering. this forces native widescreen and takes width and height ratios."
   (let ((aspect (/ (the float aw) (the float ah))))
@@ -401,6 +391,8 @@
 ;; into the new [floor,100] window. -1 => uninitialized (primes on the first frame).
 (define *dyn-rs-last-min* -1.0)           ;; last-seen min-render-scale
 (define *dyn-rs-last-target* -1.0)        ;; last-seen dyn-target-fps
+(define *dyn-rs-last-base-w* -1)
+(define *dyn-rs-last-base-h* -1)
 
 (defun dynamic-render-scale-update ((obj pc-settings))
   "Return the effective render-scale % to use this frame. OFF -> the manual
@@ -413,6 +405,22 @@
    average is below target (worst-case fluidity first). A runtime change to the Minimum
    Render Scale or the target immediately RE-CLAMPS the running scale into the new range
    (owner bug #1). All decisions use a SMOOTHED average fps, one step per cooldown."
+  ;; A lock measured at another base resolution says nothing about the new workload.
+  ;; Reset at the producer so menu choices and restored settings share this behavior.
+  (let ((w (if (= (pc-get-display-mode) 'windowed)
+               (-> obj framebuffer-scissor-width) (-> obj width)))
+        (h (if (= (pc-get-display-mode) 'windowed)
+               (-> obj framebuffer-scissor-height) (-> obj height))))
+    (when (or (!= w *dyn-rs-last-base-w*) (!= h *dyn-rs-last-base-h*))
+      (set! *dyn-rs-last-base-w* w)
+      (set! *dyn-rs-last-base-h* h)
+      (set! *dyn-rs-scale* 100.0)
+      (set! *dyn-rs-locked* #f)
+      (set! *dyn-rs-lock-fps* -1.0)
+      (set! *dyn-rs-last-dir* 0)
+      (set! *dyn-rs-fps-ema* (the float (pc-get-fps)))
+      (set! *dyn-rs-last-adjust-time*
+            (#cond ((eq? GAME_VERSION 'jak1) (real-current-time)) (#t (current-time))))))
   (cond
     ((not (-> obj dynamic-render-scale?))
      ;; disabled: keep the live scale primed at native so a later enable starts at 100,

@@ -1703,7 +1703,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   fb_passes::note_frame_geometry(settings.window_fb_w, settings.window_fb_h,
                                  m_render_state.draw_region_w, m_render_state.draw_region_h,
                                  m_render_state.draw_offset_x, m_render_state.draw_offset_y,
-                                 fbo_w, fbo_h);
+                                 m_fbo_state.render_fbo->width, m_fbo_state.render_fbo->height);
   fb_passes::note_ui_regime(split_active, false, m_ui_direct_block);
 
   if (split_active && !m_ui_direct_allowed) {
