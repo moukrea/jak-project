@@ -5,6 +5,7 @@
 namespace ao_tie_alpha_probe {
 void begin_frame(bool enabled, int width, int height);
 bool active();
+void finish_hut(uint64_t render_frame);
 bool color_frame();
 void note_color_binding(bool ao_off, bool proof_off);
 void shader_variant(const std::string& name, std::string& source);

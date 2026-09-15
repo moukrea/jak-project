@@ -114,6 +114,12 @@ void update_and_bind(const GoalBackgroundCameraData& cam, const SharedRenderStat
   }
 }
 
+uint64_t contact_bound_hash() {
+  GLint bound = 0;
+  glGetIntegeri_v(GL_UNIFORM_BUFFER_BINDING, kBindingPoint, &bound);
+  return g_valid && GLuint(bound) == g_ubo ? ao_contact_archive::hash(&g_last, sizeof(g_last)) : 0;
+}
+
 void bind_program(GLuint program) {
   const GLint idx = glGetUniformBlockIndex(program, "ub_frame");
   if (idx != -1) {

@@ -1,5 +1,8 @@
 #include "ao_tie_alpha_probe.h"
 #include "ao_static_probe.h"
+#include "ao_contact_archive.h"
+#include "ao_contact_readback.h"
+#include <set>
 #include <cstring>
 #include <cstdlib>
 #ifdef __ANDROID__
@@ -29,6 +32,10 @@ unsigned populated_frames = 0;
 uint64_t total_observed = 0, total_missing = 0, total_pre_judged = 0;
 std::unordered_map<std::string, uint64_t> total_causes;
 GLuint targets[2] = {}, reader = 0;
+GLuint hut_targets[2] = {};
+bool hut_frame = false, hut_attempted = false;
+GLboolean hut_blend[2] = {}, hut_masks[2][4] = {};
+std::set<GLuint> hut_programs;
 GLint attached_fbo = 0;
 std::vector<GLenum> buffers;
 GLboolean blend1 = false, mask1[4] = {};
@@ -52,6 +59,19 @@ void restore() {
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, attached_fbo);
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, 0, 0);
+  if (hut_frame && !pre) {
+    GLint program; glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    for (GLuint p : hut_programs) {
+      glUseProgram(p); glUniform1i(glGetUniformLocation(p, "u_hut_capture"), 0);
+    }
+    glUseProgram(program);
+    hut_programs.clear();
+    for (int i = 0; i < 2; ++i) {
+      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 + i, GL_TEXTURE_2D, 0, 0);
+      glColorMaski(i + 2, hut_masks[i][0], hut_masks[i][1], hut_masks[i][2], hut_masks[i][3]);
+      if (hut_blend[i]) glEnablei(GL_BLEND, i + 2); else glDisablei(GL_BLEND, i + 2);
+    }
+  }
   glDrawBuffers(buffers.size(), buffers.data());
   glColorMaski(1, mask1[0], mask1[1], mask1[2], mask1[3]);
   if (blend1) glEnablei(GL_BLEND, 1); else glDisablei(GL_BLEND, 1);
@@ -71,11 +91,20 @@ void attach(bool is_pre) {
                                        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
   if (kind != GL_NONE) { unsupported("attachment1_occupied"); return; }
   glGetIntegerv(GL_MAX_DRAW_BUFFERS, &maxbuf);
-  if (maxbuf < 2) { unsupported("mrt_unavailable"); return; }
+  if (maxbuf < (hut_frame && !is_pre ? 4 : 2)) { unsupported("mrt_unavailable"); return; }
   buffers.resize(maxbuf);
   for (int i = 0; i < maxbuf; ++i) {
     GLint value; glGetIntegerv(GL_DRAW_BUFFER0 + i, &value); buffers[i] = value;
     if (i > 0 && value != GL_NONE) { unsupported("other_draw_buffers_active"); return; }
+  }
+  if (hut_frame && !is_pre) {
+    for (int i = 0; i < 2; ++i) {
+      glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 + i,
+                                           GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
+      if (kind != GL_NONE) { unsupported("hut_attachment_occupied"); return; }
+      hut_blend[i] = glIsEnabledi(GL_BLEND, i + 2);
+      glGetBooleani_v(GL_COLOR_WRITEMASK, i + 2, hut_masks[i]);
+    }
   }
   attached_fbo = fbo;
   blend1 = glIsEnabledi(GL_BLEND, 1);
@@ -83,8 +112,13 @@ void attach(bool is_pre) {
   attached = true; pre = is_pre;
   glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
                          targets[is_pre ? 0 : 1], 0);
-  GLenum mrt[2] = {buffers[0], GL_COLOR_ATTACHMENT1};
-  glDrawBuffers(2, mrt);
+  GLenum mrt[4] = {buffers[0], GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+  if (hut_frame && !is_pre) for (int i = 0; i < 2; ++i) {
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 + i, GL_TEXTURE_2D, hut_targets[i], 0);
+    glColorMaski(i + 2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisablei(GL_BLEND, i + 2);
+  }
+  glDrawBuffers(hut_frame && !is_pre ? 4 : 2, mrt);
   if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     restore(); unsupported("rgba32f_fbo_incomplete"); return;
   }
@@ -93,6 +127,9 @@ void attach(bool is_pre) {
     GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
     glDisable(GL_SCISSOR_TEST);
     const float zero[4] = {}; glClearBufferfv(GL_COLOR, 1, zero);
+    if (hut_frame && !is_pre) {
+      glClearBufferfv(GL_COLOR, 2, zero); glClearBufferfv(GL_COLOR, 3, zero);
+    }
     if (scissor) glEnable(GL_SCISSOR_TEST);
     if (!is_pre) color_cleared = true;
   }
@@ -173,10 +210,12 @@ uint32_t draw_id(const void* source_draws, uint32_t source_index) {
 }
 void begin_frame(bool on, int w, int h) {
   restore();
-  enabled = color_frame() || (on && populated_frames < 4 && autoport_proof::feature_is(kItem) && autoport_proof::armed_for(kItem));
+  hut_frame = !hut_attempted && ao_contact_archive::requested() && ao_static_probe::logic_frame() == 1400;
+  if (hut_frame) hut_attempted = true;
+  enabled = hut_frame || color_frame() || (on && populated_frames < 4 && autoport_proof::feature_is(kItem) && autoport_proof::armed_for(kItem));
   color_cleared = false; color_meta.clear(); pre_meta.clear();
   if (!enabled) return;
-  if (!color_frame()) {
+  if (!color_frame() && !hut_frame) {
     autoport_proof::publish_text("ao_tie_alpha_state", "collecting");
     autoport_proof::publish_text("ao_tie_alpha_missing", "cause_not_yet_observed");
   }
@@ -197,6 +236,19 @@ void begin_frame(bool on, int w, int h) {
     glBindTexture(GL_TEXTURE_2D, old);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpack);
   }
+  if (hut_frame) {
+    ao_contact_readback::ExportState state;
+    if (!state.errors.empty()) { unsupported("hut_init_prior_error"); return; }
+    if (!hut_targets[0]) glGenTextures(2, hut_targets);
+    for (GLuint target : hut_targets) {
+      glBindTexture(GL_TEXTURE_2D, target);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+    state.collect("hut-target-init");
+    if (!state.restore()) unsupported("hut_target_init_or_restore_error");
+  }
 }
 void pre_capture_begin(bool nocut) { if (nocut) attach(true); }
 void pre_capture_end() { if (attached && pre) restore(); }
@@ -212,13 +264,18 @@ void before_color_draw(unsigned program, uint32_t id) {
   if (!enabled || !attached || pre) return;
   glUniform1i(glGetUniformLocation(program, "u_tie_alpha_probe_id"), id);
   if (id) color_meta[id] = metadata(program, false);
+  if (hut_frame) {
+    glUniform1i(glGetUniformLocation(program, "u_hut_capture"), 1);
+    hut_programs.insert(program);
+    glDisablei(GL_BLEND, 2); glDisablei(GL_BLEND, 3);
+  }
   glDisablei(GL_BLEND, 1);
 }
 void finish_frame(const std::vector<float>& delivered_depth,
                   const std::vector<float>& scene_depth,
                   const std::vector<uint8_t>& resolved_rgba) {
   restore();
-  if (!enabled) return;
+  if (!enabled || hut_frame) return;
   if (!color_cleared || pre_meta.empty() || delivered_depth.size() != size_t(width) * height ||
       scene_depth.size() != delivered_depth.size() || resolved_rgba.size() != delivered_depth.size() * 4) {
     unsupported("color_pre_or_delivered_depth_missing"); return;
@@ -289,6 +346,31 @@ void finish_frame(const std::vector<float>& delivered_depth,
   autoport_proof::publish_text("ao_tie_alpha_state", "diagnostic_only");
   autoport_proof::publish_text("ao_tie_alpha_missing", samples >= 16 ? "correction_and_contract_checks_pending" : "fewer_than_16_missing_pixels");
   enabled = false;
+}
+void finish_hut(uint64_t render_frame) {
+  if (!hut_frame) return;
+  restore();
+  bool ok = enabled && color_cleared && !color_meta.empty();
+  std::ostringstream meta;
+  meta << "format=ao-hut-color-f32-v1\nlogic_frame=1400\nrender_frame=" << render_frame
+       << "\nwidth=" << width << "\nheight=" << height
+       << "\norigin=lower-left\nalpha=post-discard\ncolor=before-fog-and-framebuffer-blend\n";
+  const GLuint textures[] = {targets[1], hut_targets[0], hut_targets[1]};
+  const char* names[] = {"color-identity.rgba32f", "color-contribution.rgba32f", "color-normal.rgba32f"};
+  for (int i = 0; i < 3 && ok; ++i) {
+    const auto data = read(textures[i]);
+    const size_t bytes = data.size() * sizeof(float);
+    ok = enabled && data.size() == size_t(width) * height * 4 &&
+      ao_contact_archive::write_exclusive(ao_contact_archive::directory() + "/" + names[i], data.data(), bytes);
+    if (ok) meta << "stage=" << names[i] << " bytes=" << bytes << " fnv1a64="
+                 << ao_contact_archive::hash(data.data(), bytes) << '\n';
+  }
+  for (const auto& entry : color_meta) meta << "draw_id=" << entry.first << " state=" << describe(entry.second) << '\n';
+  meta << "status=" << (ok ? "complete" : "failed") << '\n';
+  const auto data = meta.str();
+  ok = ao_contact_archive::write_exclusive(ao_contact_archive::directory() + "/color.meta", data.data(), data.size()) && ok;
+  autoport_proof::publish_text("ao_hut_color_status", ok ? "complete" : "failed");
+  autoport_proof::publish("ao_hut_color_draws", color_meta.size());
 }
 }  // namespace ao_tie_alpha_probe
 

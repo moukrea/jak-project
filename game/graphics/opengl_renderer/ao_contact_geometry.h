@@ -145,6 +145,19 @@ inline void archive_impl(const tfrag3::Level& level, int geo, size_t tree_index)
     u32(sources[i].group); u32(sources[i].vertex);
     write(&tree.unpacked.sway[i * foliage_law::kSwayRecordBytes], foliage_law::kSwayRecordBytes);
   }
+  std::string draw_offsets;
+  size_t draw_number = 0;
+  for (const auto& draw : tree.static_draws) {
+    size_t count = 0;
+    for (const auto& group : draw.vis_groups) count += group.num_inds;
+    draw_offsets += "geo=" + std::to_string(geo) + " tree=" + std::to_string(tree_index) +
+        " draw=" + std::to_string(draw_number++) + " first=" +
+        std::to_string(draw.unpacked.idx_of_first_idx_in_full_buffer) + " count=" +
+        std::to_string(count) + "\n";
+  }
+  ok = ao_contact_archive::write_exclusive(directory + "/tie-draw-offsets-" +
+      std::to_string(geo) + "-" + std::to_string(tree_index) + ".txt",
+      draw_offsets.data(), draw_offsets.size()) && ok;
   for (const auto& draw : tree.static_draws) {
     if (!indices(tree, draw, stream)) { ok = false; break; }
     u32(draw.mode.as_int()); u32(uint32_t(draw.tree_tex_id)); u64(stream.size());
@@ -166,5 +179,65 @@ inline void archive(const tfrag3::Level& level, int geo, size_t tree_index) {
   } catch (const std::exception&) {
     autoport_proof::publish("ao_hut_geometry_exception", 1);
   }
+}
+
+// TFRAG: AOHUTF01, endian/geo/source-tree/kind/strips(u32), vertex/draw counts(u64),
+// level string. Vertices xyzst(f32*5), normal(u32). Draws mode(u32), texture(i32),
+// full-EBO first/count(u64), then effective vertex indices(u32). No transform/sway.
+inline void archive_tfrag_impl(const tfrag3::Level& level, int geo, size_t tree_index) {
+  if (!ao_contact_archive::requested() || level.level_name != "village1") return;
+  const std::string prefix = "ao_hut_tfrag_geometry_" + std::to_string(geo) + "_" + std::to_string(tree_index);
+  static std::set<std::pair<int, size_t>> attempted;
+  if (!attempted.emplace(geo, tree_index).second) {
+    autoport_proof::publish((prefix + "_reload_untracked").c_str(), 1);
+    return;
+  }
+  const auto& tree = level.tfrag_trees.at(geo).at(tree_index);
+  bool ok = !tree.unpacked.vertices.empty() && tree.unpacked.vertices.size() <= 4u * 1024u * 1024u;
+  for (const auto& draw : tree.draws) {
+    size_t count = 0;
+    for (const auto& group : draw.vis_groups) count += group.num_inds;
+    const size_t first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    ok = ok && first <= tree.unpacked.indices.size() && count <= tree.unpacked.indices.size() - first &&
+         count <= 8u * 1024u * 1024u;
+  }
+  autoport_proof::publish((prefix + "_provenance_valid").c_str(), ok);
+  if (!ok) return;
+  const auto& directory = ao_contact_archive::directory();
+  const auto path = directory + "/geometry-tfrag-" + std::to_string(geo) + "-" + std::to_string(tree_index) + ".bin";
+  FILE* f = directory.empty() ? nullptr : std::fopen(path.c_str(), "wbx");
+  if (!f) { autoport_proof::publish((prefix + "_io_error").c_str(), 1); return; }
+  auto write = [&](const void* p, size_t n) { if (ok && n) ok = std::fwrite(p, 1, n, f) == n; };
+  auto u32 = [&](uint32_t v) { write(&v, sizeof(v)); };
+  auto u64 = [&](uint64_t v) { write(&v, sizeof(v)); };
+  write("AOHUTF01", 8); u32(0x01020304); u32(geo); u32(tree_index); u32(uint32_t(tree.kind)); u32(tree.use_strips);
+  u64(tree.unpacked.vertices.size()); u64(tree.draws.size());
+  u64(level.level_name.size()); write(level.level_name.data(), level.level_name.size());
+  for (const auto& v : tree.unpacked.vertices) {
+    const float coords[] = {v.x, v.y, v.z, v.s, v.t};
+    write(coords, sizeof(coords)); u32(v.nor);
+  }
+  for (const auto& draw : tree.draws) {
+    size_t count = 0;
+    for (const auto& group : draw.vis_groups) count += group.num_inds;
+    const size_t first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    u32(draw.mode.as_int()); u32(uint32_t(draw.tree_tex_id)); u64(first); u64(count);
+    for (size_t i = first; i < first + count; ++i) {
+      const auto index = tree.unpacked.indices[i];
+      if (index != UINT32_MAX && index >= tree.unpacked.vertices.size()) ok = false;
+      u32(index);
+    }
+  }
+  if (std::fflush(f) != 0 || std::ferror(f)) ok = false;
+  if (std::fclose(f) != 0) ok = false;
+  if (!ok) std::remove(path.c_str());
+  const auto hash = ok ? refset_file::hash_file(path) : 0;
+  autoport_proof::publish((prefix + "_io_error").c_str(), !hash);
+  autoport_proof::publish((prefix + "_hash").c_str(), hash);
+  if (hash) autoport_proof::publish_text((prefix + "_path").c_str(), path.c_str());
+}
+inline void archive_tfrag(const tfrag3::Level& level, int geo, size_t tree_index) {
+  try { archive_tfrag_impl(level, geo, tree_index); }
+  catch (const std::exception&) { autoport_proof::publish("ao_hut_tfrag_geometry_exception", 1); }
 }
 }  // namespace ao_contact_geometry

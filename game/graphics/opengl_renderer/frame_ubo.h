@@ -34,4 +34,7 @@ void bind_program(GLuint program);
 // Une fois par image (tete de dispatch) : publie `frame_ubo_uploads_per_frame`.
 void frame_begin();
 
+// Proof archive identity; zero if the effective binding is not our cached 224-byte block.
+uint64_t contact_bound_hash();
+
 }  // namespace frame_ubo

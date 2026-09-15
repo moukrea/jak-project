@@ -429,12 +429,24 @@ vec4 shade_body(in Surface s, float sao) {
 //       sortie REELLE du programme a une grandeur qu'il ne fabrique pas lui-meme.
 //   G = l'indirect a recu l'AO (sao < 1 et la couleur a bouge).
 //   B = chemin exclu de la porte. Ce seau est desormais toujours vide (voir plus bas).
+#ifdef OG_HUT_COLOR
+uniform int u_hut_capture;
+layout(location = 2) out vec4 hut_color_sample; // actual delta RGB, sampled AO
+layout(location = 3) out vec4 hut_color_normal; // actual shade normal, valid
+#endif
 vec4 shade(in Surface s) {
   float sao = 1.0;
   if (u_screen_ao_on != 0) {
     sao = clamp(texture(tex_screen_ao, gl_FragCoord.xy * u_screen_ao_inv_size).r, 0.0, 1.0);
   }
   vec4 c = shade_body(s, sao);
+#ifdef OG_HUT_COLOR
+  if (u_hut_capture != 0) {
+    vec4 without_ao = shade_body(s, 1.0);
+    hut_color_sample = vec4(c.rgb - without_ao.rgb, sao);
+    hut_color_normal = vec4(s.N, 1.0);
+  }
+#endif
   if (u_ao_proof != 0) {
     vec4 c1 = shade_body(s, 1.0);
     float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);

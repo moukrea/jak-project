@@ -331,6 +331,7 @@ class TfragLoadStage : public LoaderStage {
       for (int geo = 0; geo < tfrag3::TFRAG_GEOS; geo++) {
         auto& in_trees = data.lev_data->level->tfrag_trees[geo];
         for (auto& in_tree : in_trees) {
+          ao_contact_geometry::archive_tfrag(*data.lev_data->level, geo, &in_tree - in_trees.data());
           GLuint& tree_out = data.lev_data->tfrag_vertex_data[geo].emplace_back();
           glGenBuffers(1, &tree_out);
           glBindBuffer(GL_ARRAY_BUFFER, tree_out);
@@ -666,6 +667,23 @@ class TieLoadStage : public LoaderStage {
             }
             glGenBuffers(1, &tree_out.contact_buffer);
             glBindBuffer(GL_ARRAY_BUFFER, tree_out.contact_buffer);
+            // Archive the exact validated attribute-10 payload at its production point.
+            // No sidecar is emitted for rejected mappings or absent contact buffers.
+            if (ao_contact_archive::requested() && data.lev_data->level->level_name == "village1") {
+              const size_t ti = &in_tree - in_trees.data();
+              const std::string key = "ao_hut_contact_indices_" + std::to_string(geo) + "_" + std::to_string(ti);
+              const auto& directory = ao_contact_archive::directory();
+              const std::string path = directory + "/contact-indices-" + std::to_string(geo) + "-" + std::to_string(ti) + ".u32";
+              const size_t bytes = contact_indices.size() * sizeof(u32);
+              const bool archived = !directory.empty() && ao_contact_archive::write_exclusive(
+                  path, contact_indices.data(), bytes);
+              autoport_proof::publish((key + "_io_error").c_str(), !archived);
+              autoport_proof::publish((key + "_count").c_str(), contact_indices.size());
+              autoport_proof::publish((key + "_buffer").c_str(), tree_out.contact_buffer);
+              autoport_proof::publish((key + "_hash").c_str(), archived ?
+                  ao_contact_archive::hash(contact_indices.data(), bytes) : 0);
+              if (archived) autoport_proof::publish_text((key + "_path").c_str(), path.c_str());
+            }
             glBufferData(GL_ARRAY_BUFFER, contact_indices.size() * sizeof(u32),
                          contact_indices.data(), GL_STATIC_DRAW);
             glGenTextures(1, &tree_out.contact_texture);

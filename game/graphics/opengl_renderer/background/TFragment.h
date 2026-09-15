@@ -130,6 +130,7 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
   static constexpr int GEOM_MAX = 3;
 
   struct TreeCache {
+    size_t source_tree_index = 0;
     tfrag3::TFragmentTreeKind kind = tfrag3::TFragmentTreeKind::INVALID;
     GLuint vertex_buffer = -1;
     GLuint index_buffer = -1;
@@ -197,6 +198,7 @@ class TFragment : public BucketRenderer, public prepass::DepthContributor {
     std::vector<u8> vis_temp;
     std::vector<std::pair<int, int>> draw_idx_temp;
     std::vector<u32> index_temp;
+    std::vector<u32> contact_source_offsets;
     std::vector<std::pair<int, int>> multidraw_offset_per_stripdraw;
     std::vector<GLsizei> multidraw_count_buffer;
     std::vector<void*> multidraw_index_offset_buffer;

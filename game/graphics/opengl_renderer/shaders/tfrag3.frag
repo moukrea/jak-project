@@ -27,10 +27,15 @@ uniform vec4 u_fringe_fade;
 // lighting-unify : les uniformes du modele, le disque de Poisson, `Surface` et `shade()`
 // vivent dans UN seul fichier, partage par les cinq programmes monde. Ce bloc etait
 // duplique a l'identique dans les quatre hotes.
+#define OG_HUT_COLOR
 #include "shade.glsl"
 #endif
 
 void main() {
+#ifdef OG_PBR
+  hut_color_sample = vec4(0.0);
+  hut_color_normal = vec4(0.0);
+#endif
   float tie_raw_alpha = 1.0;
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);

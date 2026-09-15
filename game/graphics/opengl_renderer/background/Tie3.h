@@ -189,6 +189,7 @@ class Tie3 : public BucketRenderer, public prepass::DepthContributor {
 
     std::vector<std::pair<int, int>> draw_idx_temp;
     std::vector<u32> index_temp;
+    std::vector<u32> contact_source_offsets;
     std::vector<u8> vis_temp;
     std::vector<std::pair<int, int>> multidraw_offset_per_stripdraw;
     std::vector<GLsizei> multidraw_count_buffer;

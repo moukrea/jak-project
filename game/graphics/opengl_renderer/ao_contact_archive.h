@@ -4,7 +4,8 @@
 // GL lower-left origin, rows increasing in y, no padding: AO = byte / 255.
 // manifest.txt lists dimensions and FNV-1a-64 (standard offset basis) per file.
 // Camera floats are lossless decimal (max_digits10), matrices column-major.
-// No depth or normals are claimed by this archive. Completion describes I/O only.
+// Stage metadata declares depth and diagnostic encodings. Completion describes I/O only;
+// physical contact and source identity require the separate geometry/draw/color joins.
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>

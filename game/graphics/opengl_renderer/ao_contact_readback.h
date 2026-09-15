@@ -28,7 +28,81 @@ inline bool dimensions(int w, int h, size_t& bytes) {
   bytes = size_t(w) * size_t(h);
   return true;
 }
-inline Result read(GLuint fbo, int w, int h) {
+// Covers export_depth initialization as well as the fullscreen draw. Restore is explicit
+// so restoration errors participate in the result; destructor also covers early exits.
+class ExportState {
+ public:
+  std::vector<Error> errors;
+  bool collect(const char* stage) {
+    for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) errors.push_back({stage, e});
+    return errors.empty();
+  }
+  ExportState() {
+    if (!collect("export-prior-error")) return;
+    for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) glGetIntegerv(keys[i], &values[i]);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &active_texture);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetBooleanv(GL_COLOR_WRITEMASK, color);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depth);
+    for (size_t i = 0; i < sizeof(caps) / sizeof(caps[0]); ++i) enabled[i] = glIsEnabled(caps[i]);
+    for (int i = 0; i < 2; ++i) {
+      glActiveTexture(GL_TEXTURE0 + i);
+      glGetIntegerv(GL_TEXTURE_BINDING_2D, &textures[i]);
+      glGetIntegerv(GL_SAMPLER_BINDING, &samplers[i]);
+    }
+    glActiveTexture(values[5]);
+    captured = true;
+    if (!collect("export-snapshot-error")) return;
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    for (size_t i = 8; i < sizeof(keys) / sizeof(keys[0]); ++i)
+      glPixelStorei(keys[i], (keys[i] == GL_PACK_ALIGNMENT || keys[i] == GL_UNPACK_ALIGNMENT) ? 1 : 0);
+    glBindSampler(0, 0); glBindSampler(1, 0);
+    glDisable(GL_RASTERIZER_DISCARD);
+    glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    glDisable(GL_SAMPLE_COVERAGE);
+    glDisable(GL_DITHER);
+    collect("export-neutralize-error");
+  }
+  bool restore() {
+    if (!captured) return errors.empty();
+    captured = false;
+    glUseProgram(values[0]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, values[1]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, values[2]);
+    glBindVertexArray(values[3]);
+    glBindBuffer(GL_ARRAY_BUFFER, values[4]);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, values[6]);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, values[7]);
+    for (size_t i = 8; i < sizeof(keys) / sizeof(keys[0]); ++i) glPixelStorei(keys[i], values[i]);
+    for (int i = 0; i < 2; ++i) {
+      glActiveTexture(GL_TEXTURE0 + i); glBindTexture(GL_TEXTURE_2D, textures[i]);
+      glBindSampler(i, samplers[i]);
+    }
+    // Initialization may bind a texture on the originally active unit, too.
+    glActiveTexture(values[5]);
+    glBindTexture(GL_TEXTURE_2D, active_texture);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    glColorMask(color[0], color[1], color[2], color[3]); glDepthMask(depth);
+    for (size_t i = 0; i < sizeof(caps) / sizeof(caps[0]); ++i)
+      if (enabled[i]) glEnable(caps[i]); else glDisable(caps[i]);
+    return collect("export-restore-error");
+  }
+  ~ExportState() { restore(); }
+ private:
+  const GLenum keys[16] = {GL_CURRENT_PROGRAM, GL_DRAW_FRAMEBUFFER_BINDING,
+    GL_READ_FRAMEBUFFER_BINDING, GL_VERTEX_ARRAY_BINDING, GL_ARRAY_BUFFER_BINDING,
+    GL_ACTIVE_TEXTURE, GL_PIXEL_PACK_BUFFER_BINDING, GL_PIXEL_UNPACK_BUFFER_BINDING,
+    GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS,
+    GL_UNPACK_ALIGNMENT, GL_UNPACK_ROW_LENGTH, GL_UNPACK_SKIP_ROWS, GL_UNPACK_SKIP_PIXELS};
+  const GLenum caps[9] = {GL_BLEND, GL_DEPTH_TEST, GL_STENCIL_TEST, GL_SCISSOR_TEST,
+    GL_CULL_FACE, GL_RASTERIZER_DISCARD, GL_SAMPLE_ALPHA_TO_COVERAGE, GL_SAMPLE_COVERAGE, GL_DITHER};
+  GLint values[16] = {}, viewport[4] = {}, textures[2] = {}, samplers[2] = {};
+  GLint active_texture = 0;
+  GLboolean color[4] = {}, depth = GL_FALSE, enabled[9] = {};
+  bool captured = false;
+};
+inline Result read(GLuint fbo, int w, int h, bool rgba = false) {
   Result result;
   auto& pixels = result.pixels;
   auto fail = [&](const char* reason) { result.errors.push_back({reason, GL_NO_ERROR}); };
@@ -42,7 +116,7 @@ inline Result read(GLuint fbo, int w, int h) {
     return result;
   }
   try {
-    pixels.resize(n);
+    pixels.resize(n * (rgba ? 4 : 1));
   } catch (const std::exception&) {
     fail("allocation");
     return result;
@@ -75,7 +149,7 @@ inline Result read(GLuint fbo, int w, int h) {
     if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       fail("incomplete-read-framebuffer");
     if (result.ok())
-      glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
+      glReadPixels(0, 0, w, h, rgba ? GL_RGBA : GL_RED, GL_UNSIGNED_BYTE, pixels.data());
     errors("readback-gl-error");
     glReadBuffer(target_buffer);
   }

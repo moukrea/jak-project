@@ -49,7 +49,7 @@ std::vector<GLint> state() {
     glGetIntegerv(key, &x);
     v.push_back(x);
   }
-  for (auto key : {GL_BLEND, GL_DEPTH_TEST, GL_SCISSOR_TEST, GL_CULL_FACE})
+  for (auto key : {GL_BLEND, GL_DEPTH_TEST, GL_SCISSOR_TEST, GL_CULL_FACE, GL_DITHER})
     v.push_back(glIsEnabled(key));
   GLint x[4];
   glGetIntegerv(GL_VIEWPORT, x);
@@ -172,6 +172,32 @@ int main() {
   CHECK(after.ok());
   CHECK(after.pixels == baseline.pixels);
   CHECK(state() == before);
+  // Exercise initialization mutations, including a nonzero active texture and unpack PBO.
+  glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, tex[1]);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 8); glPixelStorei(GL_UNPACK_ROW_LENGTH, 17);
+  glPixelStorei(GL_UNPACK_SKIP_ROWS, 2); glPixelStorei(GL_UNPACK_SKIP_PIXELS, 3);
+  const auto export_before = state();
+  ao_contact_readback::ExportState export_state;
+  CHECK(export_state.errors.empty());
+  GLint neutral;
+  glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &neutral); CHECK(neutral == 0);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &neutral); CHECK(neutral == 0);
+  glBindTexture(GL_TEXTURE_2D, tex[0]); glBindVertexArray(0);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo[0]); glViewport(1, 2, 3, 4);
+  glColorMask(GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE); glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND); glDisable(GL_DEPTH_TEST); glUseProgram(0);
+  CHECK(export_state.restore()); CHECK(state() == export_before);
+  glGetIntegerv(GL_UNPACK_ROW_LENGTH, &neutral); CHECK(neutral == 17);
+  glGetIntegerv(GL_UNPACK_SKIP_ROWS, &neutral); CHECK(neutral == 2);
+  glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &neutral); CHECK(neutral == 3);
+  glGetIntegerv(GL_UNPACK_ALIGNMENT, &neutral); CHECK(neutral == 8);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  auto export_after = ao_contact_readback::read(fbo[2], W, H);
+  CHECK(export_after.ok() && export_after.pixels == baseline.pixels);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); glActiveTexture(GL_TEXTURE0);
+  CHECK(state() == before);
+  std::printf("PASS export_state_equal=1 export_subsequent_draw_identical=1 unpack_restored=1 active_texture5_restored=1\n");
   for (auto wh : {std::array<int, 2>{0, H}, {W, -1}, {INT_MAX, INT_MAX}}) {
     auto bad = ao_contact_readback::read(fbo[0], wh[0], wh[1]);
     CHECK(!bad.ok());

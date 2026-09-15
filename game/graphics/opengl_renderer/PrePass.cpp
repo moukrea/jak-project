@@ -1,4 +1,7 @@
 #include "PrePass.h"
+#include "ao_contact_readback.h"
+#include "ao_contact_archive.h"
+#include <sstream>
 
 #include <algorithm>
 #include <array>
@@ -1370,6 +1373,8 @@ bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
   if (!g_shaders || depth_tex == 0 || w <= 0 || h <= 0) {
     return false;
   }
+  ao_contact_readback::ExportState archive_state;
+  if (!archive_state.errors.empty()) return false;
   ensure_quad();
   ensure_export(w, h);
   if (g_exp_state != 1) {
@@ -1405,8 +1410,7 @@ bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
   const GLboolean prev_blend = glIsEnabled(GL_BLEND);
   const GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
   const GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
-  while (glGetError() != GL_NO_ERROR) {
-  }
+  if (!archive_state.collect("export-initialize-error")) return false;
   ensure_white();
   (*g_shaders)[ShaderId::AO_PROBE].activate();
   const GLuint id = (*g_shaders)[ShaderId::AO_PROBE].id();
@@ -1477,7 +1481,7 @@ bool export_depth(GLuint depth_tex, int w, int h, std::vector<float>* out) {
                        ((uint32_t)g_exp_buf[i * 4 + 1] << 8) | (uint32_t)g_exp_buf[i * 4 + 2];
     (*out)[i] = (float)v * inv;
   }
-  return true;
+  return archive_state.restore();
 }
 
 void note_noz_range(uint32_t inds) {
@@ -1772,6 +1776,56 @@ void ensure_probe(int w, int h, GLenum color_fmt) {
 
 void proof_post_opaque(SharedRenderState* rs) {
   gl_query_census::Armed _ap("prepass-proof");
+  if (rs) ao_tie_alpha_probe::finish_hut(rs->frame_idx);
+  // Independent archive tick; does not schedule or alter the static probe population.
+  static bool hut_scene_attempted = false;
+  if (!hut_scene_attempted && rs && ao_contact_archive::requested() &&
+      ao_static_probe::logic_frame() >= 1400) {
+    hut_scene_attempted = true;
+    std::ostringstream metadata;
+    const auto tick = ao_static_probe::logic_frame();
+    const int w = rs->render_fb_w, h = rs->render_fb_h;
+    metadata << "format=ao-hut-scene-depth-v1\nlogic_frame=" << tick
+             << "\nrender_frame=" << rs->frame_idx << "\nwidth=" << w << "\nheight=" << h
+             << "\norigin=lower-left\nencoding=ieee754-native-f32-from-d24\nreverse_z=1\n"
+                "source=render_fb-post-opaque\n";
+    ao_contact_readback::ExportState state;
+    bool ok = state.errors.empty() && tick == 1400 && w > 0 && h > 0;
+    GLuint texture = 0, fbo = 0;
+    std::vector<float> values;
+    if (ok) {
+      glGenTextures(1, &texture); glBindTexture(GL_TEXTURE_2D, texture);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0,
+                   GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+      glGenFramebuffers(1, &fbo); glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, texture, 0);
+      const GLenum none = GL_NONE; glDrawBuffers(1, &none); glReadBuffer(GL_NONE);
+      ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, rs->render_fb);
+      glDisable(GL_SCISSOR_TEST);
+      glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+      ok = state.collect("scene-depth-copy-error") && ok;
+      if (ok) ok = export_depth(texture, w, h, &values);
+    }
+    if (fbo) glDeleteFramebuffers(1, &fbo);
+    if (texture) glDeleteTextures(1, &texture);
+    ok = state.restore() && ok;
+    for (const auto& error : state.errors)
+      metadata << "error=" << error.reason << " gl=" << error.code << '\n';
+    const auto& dir = ao_contact_archive::directory();
+    const size_t bytes = values.size() * sizeof(float);
+    if (ok) ok = !dir.empty() && ao_contact_archive::write_exclusive(
+        dir + "/scene-depth.f32", values.data(), bytes);
+    metadata << "bytes=" << bytes << "\nfnv1a64=" << ao_contact_archive::hash(values.data(), bytes)
+             << "\nstatus=" << (ok ? "complete" : "failed") << '\n';
+    const auto data = metadata.str();
+    const bool written = !dir.empty() && ao_contact_archive::write_exclusive(
+        dir + "/scene-depth.meta", data.data(), data.size());
+    autoport_proof::publish_text("ao_hut_scene_depth_status", ok && written ? "complete" : "failed");
+  }
   // Dedicated real-color frame, after the static probe's unchanged population.
   if (ao_tie_alpha_probe::color_frame() && rs) {
     GLint old_read, old_draw, old_tex, pack, alignment, row, skipx, skipy;

@@ -10,6 +10,8 @@ precision highp float;
 in vec2 tex_coord;
 out vec4 color;
 
+#include "ao_hut_report.glsl"
+
 uniform highp sampler2D u_depth;
 
 uniform mat4 u_camera;
@@ -69,7 +71,7 @@ void main() {
   vec2 snapped = (floor(tex_coord * u_depth_size) + 0.5) / u_depth_size;
   float d = texture(u_depth, snapped).r;
   if (d <= 0.000001) {  // sky / far -> fully lit
-    color = vec4(1.0);
+    color = u_hut_report == 0 ? vec4(1.0) : vec4(0.0);
     return;
   }
 
@@ -166,10 +168,12 @@ void main() {
 
     vec4 proj = project_world(sp);
     if (proj.w <= 0.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) {
+      if (u_hut_report != 0) hut_reject.x += 1.0;
       continue;
     }
     float ds = texture(u_depth, proj.xy).r;
     if (ds <= 0.000001) {
+      if (u_hut_report != 0) hut_reject.y += 1.0;
       continue;  // sky sample
     }
     vec3 Ps = world_from_depth(proj.xy, ds);
@@ -181,6 +185,13 @@ void main() {
     // radial-distance compare alone is ill-conditioned there (defect #5's 16% open-area
     // darkening came from range-quantized depth noise passing it).
     float above = dot(Ps - P, N);
+    if (u_hut_report != 0) {
+      hut_reject.z += float(dPPs >= u_radius * 1.5);
+      hut_reject.w += float(dPPs <= minr);
+      hut_other.x += float(!(dist_Ps < dist_sp - bias));
+      hut_other.y += float(!(above > above_thresh));
+      hut_other.w += 1.0;
+    }
     if (dist_Ps < dist_sp - bias && dPPs < u_radius * 1.5 && dPPs > minr &&
         above > above_thresh) {
       // bounded occluders only: full weight inside the radius, fading to 0 by 1.5r
@@ -189,6 +200,7 @@ void main() {
     }
   }
 
+  if (u_hut_report != 0) hut_terms.xy = vec2(occ / float(n));
   float ao = clamp(1.0 - u_intensity * occ / float(n), 0.0, 1.0);
   // defect #7 (owner: "AO = local detail, not global shading"): near-field fade — AO is
   // a contact/crease effect. Fade the term to 1.0 between 20 m and 45 m from the camera
@@ -196,4 +208,9 @@ void main() {
   // untouched; platformer contact shadows live well inside 30 m. 4096 units = 1 m.
   ao = mix(ao, 1.0, smoothstep(81920.0, 184320.0, dcam));
   color = vec4(vec3(ao), 1.0);
+  if (u_hut_report != 0) {
+    hut_terms.z = smoothstep(81920.0, 184320.0, dcam);
+    hut_terms.w = ao;
+    hut_finish(N);
+  }
 }

@@ -14,6 +14,8 @@ precision highp float;
 in vec2 tex_coord;
 out vec4 color;
 
+#include "ao_hut_report.glsl"
+
 uniform highp sampler2D u_depth;
 
 uniform mat4 u_camera;
@@ -83,17 +85,27 @@ float broad_occ(vec3 P, vec3 N, vec3 V, float dcam, float ign) {
     vec3 sp = P + N * (0.02 * BR) + dirb * (BR * mix(0.25, 1.0, r));
     vec4 proj = project_world(sp);
     if (proj.w <= 0.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) {
+      if (u_hut_report != 0) hut_broad_reject.x += 1.0;
       continue;
     }
     float ds = texture(u_depth, proj.xy).r;
     if (ds <= 0.000001) {
+      if (u_hut_report != 0) hut_broad_reject.y += 1.0;
       continue;
     }
     vec3 Ps = world_from_depth(proj.xy, ds);
     float dPPs = distance(P, Ps);
     float above = dot(Ps - P, N);
+    if (u_hut_report != 0) {
+      hut_broad_reject.z += float(dPPs >= BR * 1.5);
+      hut_broad_reject.w += float(dPPs <= minr_b);
+      hut_broad_other.x += float(!(distance(Ps, u_cam_pos.xyz) < distance(sp, u_cam_pos.xyz) - bias_b));
+      hut_broad_other.y += float(!(above > above_b));
+      hut_broad_other.w += 1.0;
+    }
     if (distance(Ps, u_cam_pos.xyz) < distance(sp, u_cam_pos.xyz) - bias_b &&
         dPPs < BR * 1.5 && dPPs > minr_b && above > above_b) {
+      if (u_hut_report != 0) hut_broad_other.z += 1.0;
       occ_b += 1.0 - smoothstep(BR, BR * 1.5, dPPs);
     }
   }
@@ -115,7 +127,7 @@ void main() {
   vec2 snapped = (floor(tex_coord * u_depth_size) + 0.5) / u_depth_size;
   float d = texture(u_depth, snapped).r;
   if (d <= 0.000001) {
-    color = vec4(1.0);
+    color = u_hut_report == 0 ? vec4(1.0) : vec4(0.0);
     return;
   }
 
@@ -251,6 +263,7 @@ void main() {
     dir_uv *= sign(mdet);
     float dl_uv = length(dir_uv);
     if (dl_uv < 1e-8 || abs(mdet) < 1e-12) {
+      if (u_hut_report != 0) hut_other.z += 1.0;
       continue;
     }
     dir_uv /= dl_uv;
@@ -263,11 +276,18 @@ void main() {
     for (int s = 1; s <= steps; s++) {
       // positive side
       vec2 uvp = tex_coord + step_uv * float(s);
+      if (u_hut_report != 0) hut_reject.x += float(!(uvp.x >= 0.0 && uvp.x <= 1.0 && uvp.y >= 0.0 && uvp.y <= 1.0));
       if (uvp.x >= 0.0 && uvp.x <= 1.0 && uvp.y >= 0.0 && uvp.y <= 1.0) {
         float sdp = texture(u_depth, uvp).r;
+        if (u_hut_report != 0) hut_reject.y += float(!(sdp > 0.000001));
         if (sdp > 0.000001) {
           vec3 Dp = world_from_depth(uvp, sdp) - P;
           float lp = length(Dp);
+          if (u_hut_report != 0) {
+            hut_reject.z += float(lp >= 1.5 * u_radius);
+            hut_reject.w += float(!(lp > max(1e-4, minr)));
+            hut_other.w += 1.0;
+          }
           if (lp > max(1e-4, minr)) {
             float hs = dot(Dp / lp, V);
             hs = mix(hs, -1.0, clamp((lp - u_radius) / (0.5 * u_radius), 0.0, 1.0));
@@ -277,11 +297,18 @@ void main() {
       }
       // negative side
       vec2 uvn = tex_coord - step_uv * float(s);
+      if (u_hut_report != 0) hut_reject.x += float(!(uvn.x >= 0.0 && uvn.x <= 1.0 && uvn.y >= 0.0 && uvn.y <= 1.0));
       if (uvn.x >= 0.0 && uvn.x <= 1.0 && uvn.y >= 0.0 && uvn.y <= 1.0) {
         float sdn = texture(u_depth, uvn).r;
+        if (u_hut_report != 0) hut_reject.y += float(!(sdn > 0.000001));
         if (sdn > 0.000001) {
           vec3 Dn = world_from_depth(uvn, sdn) - P;
           float ln = length(Dn);
+          if (u_hut_report != 0) {
+            hut_reject.z += float(ln >= 1.5 * u_radius);
+            hut_reject.w += float(!(ln > max(1e-4, minr)));
+            hut_other.w += 1.0;
+          }
           if (ln > max(1e-4, minr)) {
             float hs = dot(Dn / ln, V);
             hs = mix(hs, -1.0, clamp((ln - u_radius) / (0.5 * u_radius), 0.0, 1.0));
@@ -310,6 +337,7 @@ void main() {
     float n_along_V = dot(N, V);
     float projLen = length(vec2(n_along_dir, n_along_V));
     if (projLen < 1e-5) {
+      if (u_hut_report != 0) hut_other.z += 1.0;
       continue;
     }
     float gamma = atan(n_along_dir, n_along_V);  // signed angle of N vs V within slice
@@ -343,7 +371,9 @@ void main() {
   // creases gate near 0 (calibrated look unchanged) — at every strength and time of day.
   float grzg = 1.0 - abs(dot(N, V));
   float gate_lo = 0.05 + 0.38 * grzg * grzg;
+  if (u_hut_report != 0) hut_terms.x = occ;
   occ *= smoothstep(gate_lo, gate_lo + 0.14, occ);
+  if (u_hut_report != 0) hut_terms.y = occ;
   float ao = clamp(1.0 - u_intensity * occ, 0.0, 1.0);
   // round F: multiply in the SSAO-model broad soft depth term (own SSAO-matched
   // 20->45 m fade; the contact term below keeps GTAO's 30->70 m fade unchanged).
@@ -366,4 +396,9 @@ void main() {
   // seafloor seen through its transparency) still fades out. 4096 units = 1 m.
   ao = mix(ao, 1.0, smoothstep(122880.0, 286720.0, dcam));
   color = vec4(vec3(ao), 1.0);
+  if (u_hut_report != 0) {
+    hut_terms.z = smoothstep(81920.0, 184320.0, dcam);
+    hut_terms.w = ao;
+    hut_finish(N);
+  }
 }

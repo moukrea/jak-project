@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "shrub_contact_measurement.h"
 #include "Tie3.h"
 #include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
@@ -1024,6 +1025,19 @@ void Tie3::setup_tree(int idx,
       }
     }
 
+    if (ao_contact_draws::active(m_level_name)) {
+      ao_contact_draws::compact(tree.contact_source_offsets, tree.index_temp.size(),
+          tree.draw_idx_temp, idx_buffer_size, [&](auto* ranges, auto* out, const auto* source) {
+            u32 tris = 0;
+            if (m_debug_all_visible)
+              return make_all_visible_index_list(ranges, out, *tree.draws, source, &tris);
+            if (tree.has_proto_visibility)
+              return make_index_list_from_vis_and_proto_string(ranges, out, *tree.draws,
+                  tree.vis_temp, tree.proto_visibility.vis_flags, source, &tris);
+            return make_index_list_from_vis_string(ranges, out, *tree.draws, tree.vis_temp,
+                                                   source, &tris);
+          });
+    }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.single_draw_index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32), tree.index_temp.data(),
                  GL_STREAM_DRAW);
@@ -1384,7 +1398,12 @@ uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
                                  : 0;
         auto range = prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode);
         range.tie_probe_id = r.tie_probe_id;
-        total += prepass::draw_depth_range(tree.draw_mode, range);
+        const auto submitted = prepass::draw_depth_range(tree.draw_mode, range);
+        total += submitted;
+        if (submitted && ao_contact_draws::active(m_level_name)) ao_contact_draws::record(m_level_name, "tie", prepass::noz_pass_active() ? "prepass_noz" : "prepass",
+            rs ? rs->frame_idx : 0, lod(), &tree - m_trees[lod()].data(), 0, tree.draws->size(),
+            tree.vertex_buffer, tree.draw_mode, r.first, r.count, tree.index_data,
+            ao_contact_draws::full_count(*tree.draws));
       }
     }
     // Un uniforme laisse a 1 par un voisin est un defaut : l'arbre suivant, le chemin VENT et le
@@ -1643,6 +1662,15 @@ void Tie3::draw_matching_draws_for_tree(int idx,
 
   const bool alpha_probe = category == tfrag3::TieCategory::NORMAL && ao_tie_alpha_probe::active();
   if (alpha_probe) ao_tie_alpha_probe::color_begin();
+  auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (!ao_contact_draws::active(m_level_name)) return;
+    ao_contact_draws::record(m_level_name, "tie", "color", render_state->frame_idx, geom, idx,
+        begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
+        render_state->no_multidraw ? tree.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? tree.index_temp.size() : ao_contact_draws::full_count(*tree.draws),
+        render_state->no_multidraw ? &tree.contact_source_offsets : nullptr,
+        ao_tie_alpha_probe::draw_id(tree.draws, begin));
+  };
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw && !alpha_probe) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
@@ -1705,6 +1733,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      contact_record(draw_idx, next, first, count);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
@@ -1753,6 +1782,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
@@ -1762,6 +1792,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
+      for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
+        const auto contact_slot = multidraw_indices.first + contact_i;
+        contact_record(draw_idx, draw_idx + 1,
+            uintptr_t(tree.multidraw_index_offset_buffer[contact_slot]) / sizeof(u32),
+            tree.multidraw_count_buffer[contact_slot]);
+      }
       shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
@@ -1789,6 +1825,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
               render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
+      contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
           shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
@@ -1799,6 +1836,12 @@ void Tie3::draw_matching_draws_for_tree(int idx,
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
                               multidraw_indices.second);
+      for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
+        const auto contact_slot = multidraw_indices.first + contact_i;
+        contact_record(draw_idx, draw_idx + 1,
+            uintptr_t(tree.multidraw_index_offset_buffer[contact_slot]) / sizeof(u32),
+            tree.multidraw_count_buffer[contact_slot]);
+      }
           shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1878,6 +1921,15 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
   BgDrawStateCache draw_state_cache;
   GLuint bound_tex = 0;
 
+  auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (!ao_contact_draws::active(m_level_name)) return;
+    ao_contact_draws::record(m_level_name, "tie", "color", render_state->frame_idx, geom, idx,
+        begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
+        render_state->no_multidraw ? tree.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? tree.index_temp.size() : ao_contact_draws::full_count(*tree.draws),
+        render_state->no_multidraw ? &tree.contact_source_offsets : nullptr,
+        ao_tie_alpha_probe::draw_id(tree.draws, begin));
+  };
   int last_texture = -1;
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merged-draw variant (see render_tree above). Envmap
@@ -1929,6 +1981,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
       prof.add_draw_call();
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      contact_record(draw_idx, next, first, count);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
@@ -1973,6 +2026,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
@@ -1980,6 +2034,12 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
+      for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
+        const auto contact_slot = multidraw_indices.first + contact_i;
+        contact_record(draw_idx, draw_idx + 1,
+            uintptr_t(tree.multidraw_index_offset_buffer[contact_slot]) / sizeof(u32),
+            tree.multidraw_count_buffer[contact_slot]);
+      }
       shrub_contact_measurement::multi_draw_elements(m_level_name, geom, idx, render_state->frame_idx,
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);

@@ -1,3 +1,5 @@
+#include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
+#include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "TFragment.h"
 #include "game/system/recharged_gating.h"
 
@@ -367,6 +369,7 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
       if (std::find(tree_kinds.begin(), tree_kinds.end(), tree.kind) != tree_kinds.end()) {
         auto& tree_cache = m_cached_trees[geom].emplace_back();
         tree_cache.kind = tree.kind;
+        tree_cache.source_tree_index = tree_idx;
         max_draws = std::max(tree.draws.size(), max_draws);
         size_t num_grps = 0;
         for (auto& draw : tree.draws) {
@@ -533,7 +536,7 @@ bool TFragment::setup_for_level(const std::vector<tfrag3::TFragmentTreeKind>& tr
 // actif, FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait
 // que lier et dessiner. Meme jeu de casters que la passe soleil : NORMAL / DIRT / ICE, jamais
 // LOWRES (coque LOD lointaine jusqu'a +57 m au-dessus du sol, OWNER #4) ni TRANS / WATER.
-uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
+uint64_t TFragment::draw_depth_prepass(SharedRenderState* rs) {
   // lighting-ao-indirect (i) : le TERRAIN ne bouge pas. Il le DIT, au lieu d'heriter du
   // deplacement pose par le contributeur precedent — c'est exactement le piege que
   // `first_tfrag_draw_setup` ferme pour la passe couleur : un `u_tie_sway_amp` laisse a sa
@@ -611,9 +614,13 @@ uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
       const GLuint gltex = (r.cut_aref > 0.f && m_textures && r.tex < m_textures->size())
                                ? m_textures->at(r.tex)
                                : 0;
-      total += prepass::draw_depth_range(
+      const auto submitted = prepass::draw_depth_range(
           tree.draw_mode,
           prepass::make_depth_range(gltex, r.cut_aref, r.first, r.count, r.tex_mode));
+      total += submitted;
+      if (submitted) ao_contact_draws::record(m_level_name, "tfrag", prepass::noz_pass_active() ? "prepass_noz" : "prepass",
+          rs ? rs->frame_idx : 0, lod(), tree.source_tree_index, 0, tree.draws ? tree.draws->size() : 0,
+          tree.vertex_buffer, tree.draw_mode, r.first, r.count, tree.index_data, tree.index_count);
     }
   }
   return total;
@@ -722,6 +729,16 @@ void TFragment::render_tree(int geom,
     u32 idx_buffer_size = make_index_list_from_vis_string(
         m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, m_cache.vis_temp,
         tree.index_data, &total_tris);
+    if (ao_contact_draws::active(m_level_name)) {
+      ao_contact_draws::compact(m_cache.contact_source_offsets, ao_contact_draws::full_count(*tree.draws),
+          std::vector<std::pair<int, int>>(m_cache.draw_idx_temp.begin(),
+              m_cache.draw_idx_temp.begin() + tree.draws->size()),
+          idx_buffer_size, [&](auto* ranges, auto* out, const auto* source) {
+            u32 tris = 0;
+            return make_index_list_from_vis_string(ranges, out, *tree.draws, m_cache.vis_temp,
+                                                   source, &tris);
+          });
+    }
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32), m_cache.index_temp.data(),
                  GL_STREAM_DRAW);
 #ifdef OG_FEAT_PBR
@@ -1118,7 +1135,18 @@ void TFragment::render_tree(int geom,
 
 
 
-  if (render_state->no_multidraw && render_state->batch_singledraw) {
+  const bool contact_alpha_probe = ao_contact_draws::active(m_level_name) && ao_tie_alpha_probe::active();
+  if (contact_alpha_probe) ao_tie_alpha_probe::color_begin();
+  auto contact_record = [&](size_t begin, size_t end, size_t first, size_t count) {
+    if (!ao_contact_draws::active(m_level_name)) return;
+    ao_contact_draws::record(m_level_name, "tfrag", "color", render_state->frame_idx, geom, tree.source_tree_index,
+        begin, end, tree.vertex_buffer, tree.draw_mode, first, count,
+        render_state->no_multidraw ? m_cache.index_temp.data() : tree.index_data,
+        render_state->no_multidraw ? m_cache.index_temp.size() : ao_contact_draws::full_count(*tree.draws),
+        render_state->no_multidraw ? &m_cache.contact_source_offsets : nullptr,
+        ao_tie_alpha_probe::draw_id(tree.draws, begin));
+  };
+  if (render_state->no_multidraw && render_state->batch_singledraw && !contact_alpha_probe) {
     // Gperf-batching: merge consecutive draws that share texture+mode into one
     // glDrawElements. The single-draw index list packs draw ranges adjacently
     // (contiguity re-checked per merge), and every strip already ends with a
@@ -1176,7 +1204,10 @@ void TFragment::render_tree(int geom,
 
       prof.add_draw_call();
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+      if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      contact_record(draw_idx, next, first, count);
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
         prof.add_draw_call();
@@ -1186,7 +1217,10 @@ void TFragment::render_tree(int geom,
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
         lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+        if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
+      contact_record(draw_idx, next, first, count);
       }
       draw_idx = next;
     }
@@ -1226,14 +1260,25 @@ void TFragment::render_tree(int geom,
     prof.add_draw_call();
     if (render_state->no_multidraw) {
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+      if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
+      contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+      if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
       glMultiDrawElements(tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
                           GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
                           multidraw_indices.second);
+      for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
+        const auto contact_slot = multidraw_indices.first + contact_i;
+        contact_record(draw_idx, draw_idx + 1,
+            uintptr_t(m_cache.multidraw_index_offset_buffer[contact_slot]) / sizeof(u32),
+            m_cache.multidraw_count_buffer[contact_slot]);
+      }
     }
 
     switch (double_draw.kind) {
@@ -1253,14 +1298,25 @@ void TFragment::render_tree(int geom,
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+          if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
+      contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
+          if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
+          render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
           glMultiDrawElements(
               tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
               multidraw_indices.second);
+      for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
+        const auto contact_slot = multidraw_indices.first + contact_i;
+        contact_record(draw_idx, draw_idx + 1,
+            uintptr_t(m_cache.multidraw_index_offset_buffer[contact_slot]) / sizeof(u32),
+            m_cache.multidraw_count_buffer[contact_slot]);
+      }
         }
         break;
       } // AFAIL_NO_DEPTH_WRITE
@@ -1269,6 +1325,7 @@ void TFragment::render_tree(int geom,
     }
   }
   }
+  if (contact_alpha_probe) ao_tie_alpha_probe::color_end();
   // Grecharged-grass-overhang2: leave the fringe fade off for any subsequent TFRAG3 user.
   set_fringe(false);
 #ifdef __ANDROID__

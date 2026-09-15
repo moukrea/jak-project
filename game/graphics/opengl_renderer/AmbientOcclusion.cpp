@@ -534,7 +534,7 @@ class HutArchive {
     manifest.imbue(std::locale::classic());
     manifest << "format=ao-hut-r8-v1\nlogic_frame=" << frame
              << "\norigin=lower-left\nlayout=R8-tight-rows\nhash=fnv1a64\n"
-                "depth=not-captured-here\nnormals=not-captured\n";
+                "depth=prepass-f32-d24-decoded\nscene_depth=scene-depth.meta\n";
     manifest << std::setprecision(std::numeric_limits<float>::max_digits10);
     autoport_proof::publish_text("ao_hut_archive_status", "missing");
     if (frame != 1400) fail("logical-frame-1400-missing");
@@ -554,9 +554,9 @@ class HutArchive {
       manifest << "gl_error=" << unsigned(e) << '\n';
     }
   }
-  void capture(const std::string& name, GLuint fbo, int w, int h) {
+  void capture(const std::string& name, GLuint fbo, int w, int h, bool rgba = false) {
     if (!active || failed) return;
-    const auto result = ao_contact_readback::read(fbo, w, h);
+    const auto result = ao_contact_readback::read(fbo, w, h, rgba);
     for (const auto& error : result.errors) {
       fail(error.reason);
       if (error.code != GL_NO_ERROR) manifest << "gl_error=" << unsigned(error.code) << '\n';
@@ -564,7 +564,7 @@ class HutArchive {
     if (failed) return;
     const auto& pixels = result.pixels;
     const size_t n = pixels.size();
-    const std::string file = name + ".r8";
+    const std::string file = name + (rgba ? ".rgba8" : ".r8");
     if (!ao_contact_archive::write_exclusive(ao_contact_archive::directory() + "/" + file,
                                             pixels.data(), pixels.size())) {
       fail("stage-write-failed"); return;
@@ -572,6 +572,18 @@ class HutArchive {
     manifest << "stage=" << file << " width=" << w << " height=" << h
              << " bytes=" << n << " fnv1a64=" << ao_contact_archive::hash(pixels.data(), n) << '\n';
     ++stages;
+  }
+  void capture_depth(GLuint texture, int w, int h) {
+    if (!active || failed) return;
+    std::vector<float> values;
+    if (!prepass::export_depth(texture, w, h, &values)) { fail("prepass-depth-export"); return; }
+    errors("prepass-depth-gl-error");
+    const size_t bytes = values.size() * sizeof(float);
+    if (failed || !ao_contact_archive::write_exclusive(ao_contact_archive::directory() +
+        "/prepass-depth.f32", values.data(), bytes)) { fail("prepass-depth-write"); return; }
+    manifest << "depth_stage=prepass-depth.f32 width=" << w << " height=" << h
+             << " bytes=" << bytes << " fnv1a64=" << ao_contact_archive::hash(values.data(), bytes)
+             << " encoding=ieee754-native-f32-from-d24 reverse_z=1 origin=lower-left" << '\n';
   }
   ~HutArchive() {
     if (!active) return;
@@ -2289,7 +2301,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   u_intensity *= ao_strength_mul;
 
   if (hut_archive.active) {
-    hut_archive.expected = dbg == 2 ? 0 : 1 + ((s_measure_legacy != 0) ? 2 : 2 * nboxes + 4);
+    hut_archive.expected = dbg == 2 ? 0 : 7 + ((s_measure_legacy != 0) ? 2 : 2 * nboxes + 4);
     hut_archive.manifest << "render_frame=" << rs->frame_idx << "\nmode=" << mode << "\nquality=" << quality
         << "\nlegacy=" << s_measure_legacy << "\ndebug=" << dbg
         << "\nradius=" << u_radius << "\nintensity=" << u_intensity
@@ -2304,6 +2316,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       hut_archive.manifest << "pos_" << i << "=" << rs->camera_pos[i] << '\n';
     }
     hut_archive.manifest << "fog=" << rs->camera_fog.x() << '\n';
+    hut_archive.capture_depth(depth_tex, depth_w, depth_h);
   }
   glBindVertexArray(m_quad_vao);
   glDisable(GL_BLEND);
@@ -2323,6 +2336,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, depth_tex);
     glUniform1i(glu::loc(id, "u_depth"), 0);
+    glUniform1i(glu::loc(id, "u_hut_report"), 0);
     upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
     glUniform1f(glu::loc(id, "u_radius"), u_radius);
     glUniform1f(glu::loc(id, "u_intensity"), u_intensity);
@@ -2360,6 +2374,60 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       glDisable(GL_SCISSOR_TEST);  // pass invariant: scissor off (restored at the end)
     }
     note_target(m_ao_fbo[0]);
+    // One archived tick only: replay the same estimator into a private target.
+    // The production R8 target is never rebound for drawing by this diagnostic.
+    if (hut_archive.active && !hut_archive.failed && dbg != 2) {
+      ao_contact_readback::ExportState saved;
+      GLuint diagnostic_fbo = 0, diagnostic_texture = 0;
+      const GLint report = glu::loc(id, "u_hut_report");
+      if (report < 0) hut_archive.fail("estimator-report-uniform-missing");
+      if (!saved.errors.empty()) hut_archive.fail("estimator-report-state-error");
+      if (!hut_archive.failed) {
+        glGenTextures(1, &diagnostic_texture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, diagnostic_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ao_w, ao_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glGenFramebuffers(1, &diagnostic_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, diagnostic_fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                               diagnostic_texture, 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+          hut_archive.fail("estimator-report-framebuffer");
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, depth_tex);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_CULL_FACE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        hut_archive.errors("estimator-report-init");
+        hut_archive.manifest << "estimator_report_encoding=rgba8-normal-and-terms-unorm-counts-integer-bytes\n"
+            << "report_2=offscreen,sky,beyond-radius,below-min-radius\n"
+            << "report_3=bias-or-horizon,above-plane,degenerate-slice,candidates\n"
+            << "report_4=broad-offscreen,broad-sky,broad-beyond-radius,broad-below-min-radius\n"
+            << "report_5=broad-bias,broad-above-plane,broad-accepted,broad-candidates\n"
+            << "report_6=occ-before-gate,occ-after-gate,fade,ao-final\n"
+            << "report_counts_overlap=1\nreport_gtao_horizon_count_unavailable=1\n";
+        for (int channel = 1; channel <= 6 && !hut_archive.failed; ++channel) {
+          glUniform1i(report, channel);
+          if (bands > 1) glEnable(GL_SCISSOR_TEST);
+          for (int b = 0; b < bands; ++b) {
+            const int y0 = int(int64_t(ao_h) * b / bands);
+            const int y1 = int(int64_t(ao_h) * (b + 1) / bands);
+            if (bands > 1) glScissor(0, y0, ao_w, y1 - y0);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+          }
+          if (bands > 1) glDisable(GL_SCISSOR_TEST);
+          hut_archive.capture("estimator-report-" + std::to_string(channel),
+                              diagnostic_fbo, ao_w, ao_h, true);
+        }
+        glUniform1i(report, 0);
+      }
+      if (diagnostic_fbo) glDeleteFramebuffers(1, &diagnostic_fbo);
+      if (diagnostic_texture) glDeleteTextures(1, &diagnostic_texture);
+      if (!saved.restore()) hut_archive.fail("estimator-report-restore-error");
+      hut_archive.errors("estimator-report-final-error");
+    }
   }
   hut_archive.capture("estimator", m_ao_fbo[0], ao_w, ao_h);
   ao_glerr("estimate");
