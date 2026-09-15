@@ -1,0 +1,30 @@
+DIRECTIVES v775512c234
+Non validé : la bande claire mur/toit reste non corrigée ; essai8 bloqué par le plan épuisé.
+Livré : audit d'autorisation, rapport et handoff actualisés ; diagnostic essai7 conservé.
+Chercheur lecture seule et manager : aucun nouveau budget dans contrat/backlog.
+Registre recompté :9 départs,9 fins, restant0 ; notes/attempt8-audit.txt.
+Aucun correctif moteur, build, déploiement ou nouvelle course pendant cet essai.
+Aucune preuve de l'essai8 ; huit lignes HISTORIQUES de proof.txt (essai5), contexte seulement :
+proof_run_id=20260914T215213Z-1018583-753ad700
+proof_attempt_id=ao-prepass-tie-alpha@5#1789420807
+ao_contact_pop_px=58416
+ao_ridge_fill_passes=4784
+ao_tie_prepass_defects=359306
+ao_tie_view_village1_hut_contact_band_px=0
+ao_tie_view_village1_out_contact_band_px=6
+ao_contact_band_px=0
+Ces lignes ne sont pas un résultat de cet essai ; preuves et sceaux conservés intacts.
+Le zéro contact historique ne valide pas la jonction signalée par l'owner.
+Le diagnostic essai7 n'attribue pas le défaut à une étape du rendu ; il n'est pas refait.
+Manquent : identité des surfaces et pixels du raccord, profondeur/normale/AO par étape.
+Le contrat impose ce diagnostic avant correction ; aucun réglage spéculatif appliqué.
+Reprise : plan borné réautorisé dans l'item pour ces données, sans rejouer les neuf bras.
+Disponibilité USB connue à l'essai7 seulement ; aucun appareil consulté dans cet essai.
+non prouvé : cause et disparition de la bande claire mur/toit.
+non prouvé : identité couleur, stabilité et acquis sur les trois vues.
+non prouvé : fraîcheur et absence de crash d'une nouvelle livraison ; aucune livraison ici.
+L'owner doit regarder sur HONOR : Options > Recharged > Recharged Lighting > Ambient Occlusion,
+chaque palier et SSAO/HBAO/GTAO, force maximale : contact mur/toit, damier/pixellisation,
+ombres suivant les shrubs sans débordement ; caméra immobile, aucune oscillation.
+FINDINGS conservé et complété ; contexte détaillé : notes/attempt8-authorization.md.
+Validateur réservé à l'orchestrateur ; aucune fermeture ni validation owner revendiquée.

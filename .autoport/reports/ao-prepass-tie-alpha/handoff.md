@@ -1,29 +1,29 @@
 DIRECTIVES v775512c234
 ## ÉTABLI
-Essai8 : audit documentaire uniquement ; aucun correctif moteur ni preuve nouvelle.
-Chercheur et manager : contrat/backlog inchangés, proof_plan exhausted,9/9 consommées, restant0.
-Registre recompté :9 départs/9 fins ; notes/attempt8-audit.txt et attempt8-authorization.md.
-Preuve HISTORIQUE essai5 :20260914T215213Z-1018583-753ad700, defects359306.
-SHA256 preuve inchangé :6731799ae5b114c1ec853065e03fac211c599bfe1f5e028067af8f969b8c9762.
-Preuves ON/OFF et sceaux conservés intacts ; pas de preuve réutilisée comme résultat essai8.
-Essai7 établissait USB eae4df44 disponible ; aucune consultation appareil à l'essai8.
-Diagnostic essai7 déjà terminé : notes/attempt7-contact-diagnostic.md, ne pas le refaire.
-Archives hut : contact_pop106578, band0, ridge_passes5744, sans attribution mur/toit.
-Table alpha32/draw10 : ancien défaut de mesure ; ne diagnostique pas ce raccord.
-Référence couleur hut RGBA+masque, sans profondeur/normales ni identité des surfaces.
+Essai9 : préparation code livrée ; défaut mur/toit encore non corrigé.
+Plan15/09 autorisé0/6, restant6 ; plan historique9/9 conservé, ne plus attendre arbitrage.
+Builds x86/Android finaux0 ; logs attempt9-final-build-*, identités attempt9-build-identities.txt.
+Tests geometry28 cas, profile reverse-Z/largeurs1/3/8, readback GLES :compile0/run0.
+Readback local Intel/Mesa :pixels/dessin suivant/états identiques, PBO intact ; pas preuve USB.
+USB pick_device=eae4df44, notes/attempt9-usb.txt ; aucune course ni livraison explicite.
+Geometry export :origine matrix-group/run conservée avant lookup indice soudé ; stride sway8.
+AO archive :tick1400, mode quelconque, brut+blur+ridge, caméra/paramètres/render_frame.
+UBO224 exact archivé par render_frame/hash ; association aux draws encore absente.
+Profil CPU exige classe+identité nonzero+qualification physique ; uniforme censuré, seuil4 conservé.
 ## TENTÉ
-Vérification de l'autorisation restante, sans réinspection moteur/archives ou course.
-Aucun nouvel arbitrage trouvé ; owner_authorized concerne uniquement le plan épuisé du14/09.
-Le retour15/09 rouvre le contact mais n'autorise pas de courses supplémentaires.
-Aucun build, déploiement, réglage alpha/flou/seuil ni modification de la sonde statique.
-Rapport/handoff essai7 archivés dans notes/before-attempt8-* ; FINDINGS complété.
+Sous-agents researcher/implementer/tester ; bugs gating,stride,frontières,reverse-Z corrigés.
+Tests neutres sans appareil ; /tmp quota contourné via TMPDIR notes, aucun nouveau harnais.
+Aucun réglage alpha/biais/flou ni modification sonde statique ; cause non attribuée.
+Pas de preuve9 :archives ne contiennent pas encore chaîne profondeur/normales/couleur complète.
+Preuves/sceaux historiques intacts ; huit lignes rapport marquées historiques uniquement.
 ## RESTE
-Inscrire un plan borné réautorisé dans l'item avant toute nouvelle acquisition.
-Identifier surfaces/instances et pixels mur/toit avec profondeur/normale/AO par étape.
-Départager exclusions estimateur, reconstruction, filtrage et lecture couleur avant correction.
-Ne pas relancer le plan9/9 ni réutiliser une référence native consommée.
-Ne pas répéter un essai documentaire identique sans changement d'autorisation ou nouvelles données.
-Garder les acquis owner shrubs/absence damier/pixellisation et la sonde statique inchangée.
-Couleur/stabilité/acquis extérieurs restent non validés ; before-attempt7-handoff.md détaille.
-Revue owner sur HONOR : tous modes/paliers AO, force maximale, jonction mur/toit.
-Validateur réservé à l'orchestrateur ; porte non passée, aucun owner-ok.
+Finir préparation, PAS audit : notes/attempt9-preparation.md décrit code/schema et raccordements.
+Exporter profondeur scène/prépasse, normales et exclusions estimateurs, contribution AO couleur.
+Associer plages/draws/UBO puis pixels aux instances/triangles mur/toit, populations non vides.
+Qualifier contacts physiquement ; adjacency écran seule insuffisante ; mur TFRAG possible.
+Brancher ao_contact_profile ; neutralité instrument complet et entrées exogènes à vérifier.
+Avant course épingler proof_props BACKLOG :ils portent encore beach/campagne historique.
+Utiliser nouveau capture=1, village1-hut -116 14 40, mode1 puis2 puis3, timeout<=150.
+Consigner budget puis exclusivement proof_run ; trio avant, correction causale, trio après.
+En cas archive/raccord absent :diagnostiquer sans relancement identique, ni budget dépassé.
+Contrat complet extérieur couleur/stabilité/acquis reste requis ; aucun owner-ok, porte non passée.

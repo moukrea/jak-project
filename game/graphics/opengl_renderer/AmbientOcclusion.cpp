@@ -1,4 +1,9 @@
 #include "AmbientOcclusion.h"
+#include "ao_contact_readback.h"
+#include "ao_contact_archive.h"
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include "game/system/recharged_gating.h"
 #include "game/graphics/origin_ablate.h"
 
@@ -510,6 +515,79 @@ void AmbientOcclusionPass::ensure_scratch(int full_w, int full_h) {
 // pass needs. Uploads camera + inverse + hvdf + fog + cam_pos + sizes.
 // ---------------------------------------------------------------------------
 namespace {
+
+// One attempt per process at logical frame 1400; no scheduling or mode changes.
+class HutArchive {
+ public:
+  bool active = false;
+  bool failed = false;
+  unsigned stages = 0, expected = 0;
+  std::ostringstream manifest;
+
+  HutArchive() {
+    static bool attempted = false;
+    if (attempted || !ao_contact_archive::requested()) return;
+    const auto frame = ao_static_probe::logic_frame();
+    if (frame < 1400) return;
+    attempted = true;
+    active = true;
+    manifest.imbue(std::locale::classic());
+    manifest << "format=ao-hut-r8-v1\nlogic_frame=" << frame
+             << "\norigin=lower-left\nlayout=R8-tight-rows\nhash=fnv1a64\n"
+                "depth=not-captured-here\nnormals=not-captured\n";
+    manifest << std::setprecision(std::numeric_limits<float>::max_digits10);
+    autoport_proof::publish_text("ao_hut_archive_status", "missing");
+    if (frame != 1400) fail("logical-frame-1400-missing");
+    if (ao_contact_archive::directory().empty()) fail("directory-unavailable");
+  }
+  void fail(const char* reason) {
+    if (!active) return;
+    failed = true;
+    manifest << "error=" << reason << '\n';
+  }
+  void errors(const char* reason) {
+    if (!active) return;
+    // GL error flags cannot be re-inserted. Record every consumed prior/read/restore
+    // error and fail the archive, never silently turn an old error into a success.
+    for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) {
+      fail(reason);
+      manifest << "gl_error=" << unsigned(e) << '\n';
+    }
+  }
+  void capture(const std::string& name, GLuint fbo, int w, int h) {
+    if (!active || failed) return;
+    const auto result = ao_contact_readback::read(fbo, w, h);
+    for (const auto& error : result.errors) {
+      fail(error.reason);
+      if (error.code != GL_NO_ERROR) manifest << "gl_error=" << unsigned(error.code) << '\n';
+    }
+    if (failed) return;
+    const auto& pixels = result.pixels;
+    const size_t n = pixels.size();
+    const std::string file = name + ".r8";
+    if (!ao_contact_archive::write_exclusive(ao_contact_archive::directory() + "/" + file,
+                                            pixels.data(), pixels.size())) {
+      fail("stage-write-failed"); return;
+    }
+    manifest << "stage=" << file << " width=" << w << " height=" << h
+             << " bytes=" << n << " fnv1a64=" << ao_contact_archive::hash(pixels.data(), n) << '\n';
+    ++stages;
+  }
+  ~HutArchive() {
+    if (!active) return;
+    if (!expected || stages != expected) fail("missing-stages");
+    manifest << "expected_stages=" << expected << "\nstages=" << stages
+             << "\nstatus=" << (failed ? "failed" : "complete") << '\n';
+    const std::string data = manifest.str();
+    const auto& dir = ao_contact_archive::directory();
+    if (dir.empty() || !ao_contact_archive::write_exclusive(dir + "/manifest.txt", data.data(), data.size()))
+      failed = true;
+    autoport_proof::publish_text("ao_hut_archive_status", failed ? "failed" : "complete");
+    autoport_proof::publish_text("ao_hut_archive_directory", dir.empty() ? "missing" : dir.c_str());
+    autoport_proof::publish("ao_hut_archive_stages", stages);
+    if (!failed) autoport_proof::publish("ao_hut_archive_manifest_fnv1a64", ao_contact_archive::hash(data.data(), data.size()));
+  }
+};
 
 void upload_common_uniforms(GLuint id,
                             SharedRenderState* rs,
@@ -1916,6 +1994,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
                                     int depth_w,
                                     int depth_h) {
   gl_query_census::Armed _ap("ao-estimate");
+  HutArchive hut_archive;
   ++s_exact_frame;
   s_exact_input_hash = 0;
   s_exact_estimator_valid = false;
@@ -2084,6 +2163,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       }
     }
   };
+  hut_archive.errors("preexisting-gl-error");
   ao_glerr("pre");  // drain pre-existing errors so later reads are ours
 
   // (2) full GL state snapshot (restored before returning). The pass runs mid-frame, avant le
@@ -2208,6 +2288,23 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   }
   u_intensity *= ao_strength_mul;
 
+  if (hut_archive.active) {
+    hut_archive.expected = dbg == 2 ? 0 : 1 + ((s_measure_legacy != 0) ? 2 : 2 * nboxes + 4);
+    hut_archive.manifest << "render_frame=" << rs->frame_idx << "\nmode=" << mode << "\nquality=" << quality
+        << "\nlegacy=" << s_measure_legacy << "\ndebug=" << dbg
+        << "\nradius=" << u_radius << "\nintensity=" << u_intensity
+        << "\nsamples=" << u_samples << "\ndirs=" << u_dirs << "\nsteps=" << u_steps
+        << "\nbroad=" << ((mode == 1) ? 0.0f : 2.0f * ao_strength_mul)
+        << "\ndepth_width=" << depth_w << "\ndepth_height=" << depth_h << '\n';
+    for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r)
+      hut_archive.manifest << "camera_" << c * 4 + r << "=" << rs->camera_matrix[c][r] << '\n';
+    for (int i = 0; i < 16; ++i) hut_archive.manifest << "inverse_" << i << "=" << invf[i] << '\n';
+    for (int i = 0; i < 4; ++i) {
+      hut_archive.manifest << "hvdf_" << i << "=" << rs->camera_hvdf_off[i] << '\n';
+      hut_archive.manifest << "pos_" << i << "=" << rs->camera_pos[i] << '\n';
+    }
+    hut_archive.manifest << "fog=" << rs->camera_fog.x() << '\n';
+  }
   glBindVertexArray(m_quad_vao);
   glDisable(GL_BLEND);
   glDisable(GL_DEPTH_TEST);
@@ -2264,6 +2361,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     }
     note_target(m_ao_fbo[0]);
   }
+  hut_archive.capture("estimator", m_ao_fbo[0], ao_w, ao_h);
   ao_glerr("estimate");
   if (exact_static_probe() && s_pattern_census_request && dbg != 2) {
     capture_estimator(m_ao_fbo[0], ao_w, ao_h);
@@ -2357,6 +2455,12 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       glUniform1i(glu::loc(id, "u_ridge_fill"), 0);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
       note_target(legs[p].fbo);
+      if (hut_archive.active) {
+        hut_archive.manifest << "blur_" << p << "_dx=" << legs[p].dx
+                             << "\nblur_" << p << "_dy=" << legs[p].dy
+                             << "\nblur_" << p << "_edge_reject=" << leg_reject << '\n';
+        hut_archive.capture("blur-" + std::to_string(p), legs[p].fbo, legs[p].vw, legs[p].vh);
+      }
     }
 
     // ── (h) LA PASSE DE CRETE, EN PLEINE RESOLUTION, APRES LE FLOU ─────────────────────────
@@ -2400,6 +2504,8 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform1i(glu::loc(id, "u_ridge_fill"), 1);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         note_target(ping_fbo[rp]);
+        if (hut_archive.active)
+          hut_archive.capture("ridge-" + std::to_string(rpi), ping_fbo[rp], out_w, out_h);
         s_ridge_fill_passes++;
       }
       s_ridge_fill_armed = 1;

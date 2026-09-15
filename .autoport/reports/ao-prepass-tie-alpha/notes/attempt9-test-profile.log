@@ -1,0 +1,14 @@
+PASS width=1 max_width=1 band_pixels=2
+PASS width=3 max_width=3 band_pixels=6
+PASS width=8 max_width=8 band_pixels=16
+PASS uniform_plateau measured=0 censored_sides=2
+PASS unilateral horizontal_and_vertical width=3 depth_discontinuities=1
+PASS difference=4 max_width=0
+PASS difference=5 max_width=1
+PASS empty unqualified missing_arrays short_arrays
+PASS NaN infinity sky_zero sky_1e-9 negative_depth depth_above_one endpoints_missing
+PASS reverse_Z depth_one_valid depth_above_sky_threshold_valid
+PASS identity different_wall unknown_interior unknown_endpoint absent_array
+PASS interior_stop NaN unknown changed_identity unknown_endpoint
+PASS image_border measured=0 missing_sides=2
+PASS ao_contact_profile all cases

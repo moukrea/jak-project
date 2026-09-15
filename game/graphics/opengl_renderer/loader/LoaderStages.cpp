@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/background/shrub_contact_probe.h"
+#include "game/graphics/opengl_renderer/ao_contact_geometry.h"
 #include "LoaderStages.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include <unordered_map>
@@ -552,6 +553,7 @@ class TieLoadStage : public LoaderStage {
       for (int geo = 0; geo < tfrag3::TIE_GEOS; geo++) {
         auto& in_trees = data.lev_data->level->tie_trees[geo];
         for (auto& in_tree : in_trees) {
+          ao_contact_geometry::archive(*data.lev_data->level, geo, &in_tree - in_trees.data());
           LevelData::TieOpenGL& tree_out = data.lev_data->tie_data[geo].emplace_back();
           glGenBuffers(1, &tree_out.vertex_buffer);
           glBindBuffer(GL_ARRAY_BUFFER, tree_out.vertex_buffer);

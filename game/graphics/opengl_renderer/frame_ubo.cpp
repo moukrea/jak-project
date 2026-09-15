@@ -4,10 +4,13 @@
 #include <chrono>
 #include <cstddef>
 #include <cstring>
+#include <set>
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/system/autoport_proof.h"
+#include "game/graphics/opengl_renderer/ao_contact_archive.h"
+#include "game/graphics/opengl_renderer/ao_static_probe.h"
 
 // Definie dans background_common.cpp (liaison externe) : LA matrice que tfrag3.vert consomme
 // sous le nom `pc_camera`. PrePass.cpp la declare de la meme facon.
@@ -91,6 +94,24 @@ void update_and_bind(const GoalBackgroundCameraData& cam, const SharedRenderStat
     g_uploads_frame++;
   }
   glBindBufferBase(GL_UNIFORM_BUFFER, kBindingPoint, g_ubo);
+  if (ao_contact_archive::requested() && ao_static_probe::logic_frame() == 1400) {
+    // Archive the exact bytes just bound, including cached misc, not a recomputed camera.
+    static std::set<std::pair<uint64_t, uint64_t>> seen;
+    static uint64_t errors = 0;
+    const uint64_t hash = ao_contact_archive::hash(&g_last, sizeof(g_last));
+    const auto identity = std::make_pair(uint64_t(rs->frame_idx), hash);
+    if (!seen.count(identity) && seen.size() >= 64) {
+      autoport_proof::publish("ao_hut_frame_ubo_overflow", 1);
+    } else if (seen.insert(identity).second) {
+      const auto& dir = ao_contact_archive::directory();
+      const bool ok = !dir.empty() && ao_contact_archive::write_exclusive(
+          dir + "/frame-ubo-" + std::to_string(rs->frame_idx) + "-" + std::to_string(hash) + ".bin",
+          &g_last, sizeof(g_last));
+      errors += !ok;
+      autoport_proof::publish("ao_hut_frame_ubo_write_error", errors);
+      autoport_proof::publish("ao_hut_frame_ubo_count", seen.size());
+    }
+  }
 }
 
 void bind_program(GLuint program) {
