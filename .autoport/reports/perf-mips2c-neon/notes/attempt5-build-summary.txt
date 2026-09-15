@@ -1,0 +1,118 @@
+{
+  "directives": "vaff5c1afea",
+  "before": {
+    "game/system/perf_instruments.cpp": {
+      "mtime_ns": 1789431904114327897,
+      "size": 26313
+    },
+    "build/game/CMakeFiles/runtime.dir/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789419936179268027,
+      "size": 1935976
+    },
+    "build/game/gk": {
+      "mtime_ns": 1789426732488968307,
+      "size": 212200440
+    },
+    "build-android/android/CMakeFiles/android_kernel.dir/__/game/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789419934181230903,
+      "size": 85792
+    },
+    "build-android/android/libandroid_kernel.a": {
+      "mtime_ns": 1789427868509240453,
+      "size": 9473968
+    },
+    "build-android/lib/arm64-v8a/libgk.so": {
+      "mtime_ns": 1789430136473865763,
+      "size": 17009392
+    }
+  },
+  "builds": [
+    {
+      "arch": "x86",
+      "command": [
+        "bash",
+        ".autoport/lib/build_x86.sh",
+        "--target",
+        "gk"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 45.5538417971693,
+      "start_utc": "2026-09-15T00:26:08.841333+00:00"
+    },
+    {
+      "arch": "arm64",
+      "command": [
+        "cmake",
+        "--build",
+        "build-android",
+        "--target",
+        "gk",
+        "-j"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 9.52210886287503,
+      "start_utc": "2026-09-15T00:26:54.398058+00:00"
+    }
+  ],
+  "after_x86": {
+    "game/system/perf_instruments.cpp": {
+      "mtime_ns": 1789431904114327897,
+      "size": 26313
+    },
+    "build/game/CMakeFiles/runtime.dir/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789431997786061527,
+      "size": 1936264
+    },
+    "build/game/gk": {
+      "mtime_ns": 1789432006778227950,
+      "size": 214725208
+    },
+    "build-android/android/CMakeFiles/android_kernel.dir/__/game/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789419934181230903,
+      "size": 85792
+    },
+    "build-android/android/libandroid_kernel.a": {
+      "mtime_ns": 1789427868509240453,
+      "size": 9473968
+    },
+    "build-android/lib/arm64-v8a/libgk.so": {
+      "mtime_ns": 1789430136473865763,
+      "size": 17009392
+    }
+  },
+  "after_arm64": {
+    "game/system/perf_instruments.cpp": {
+      "mtime_ns": 1789431904114327897,
+      "size": 26313
+    },
+    "build/game/CMakeFiles/runtime.dir/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789431997786061527,
+      "size": 1936264
+    },
+    "build/game/gk": {
+      "mtime_ns": 1789432006778227950,
+      "size": 214725208
+    },
+    "build-android/android/CMakeFiles/android_kernel.dir/__/game/system/perf_instruments.cpp.o": {
+      "mtime_ns": 1789432016584409438,
+      "size": 85928
+    },
+    "build-android/android/libandroid_kernel.a": {
+      "mtime_ns": 1789432016719411936,
+      "size": 9474104
+    },
+    "build-android/lib/arm64-v8a/libgk.so": {
+      "mtime_ns": 1789432016960416397,
+      "size": 17009328
+    }
+  },
+  "freshness": {
+    "x86": true,
+    "arm64": true
+  },
+  "warning_excerpts": {
+    "x86": [],
+    "arm64": []
+  },
+  "limitations": "Build uniquement ; aucun gain runtime d\u00e9duit, aucun appareil, d\u00e9ploiement, proof_run ni validateur ex\u00e9cut\u00e9. Les 7 tests isol\u00e9s ant\u00e9rieurs ne sont pas relanc\u00e9s."
+}

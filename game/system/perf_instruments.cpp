@@ -64,18 +64,21 @@ void frame_boundary() {
     return;
   }
   bool active = false;
+  bool all_active = true;
   for (unsigned i = 0; i < 3; ++i) {
     if (compared[i] != previous[i]) {
       ++active_frames[i];
       active = true;
+    } else {
+      all_active = false;
     }
     previous[i] = compared[i];
   }
   if (active) {
     autoport_proof::note_hit_for(kItem);
-    // Boot can animate joints for hundreds of frames before drawing any bones.
-    // Do not exhaust the comparison window before all three kernels have run.
-    if (compared[0] && compared[1] && compared[2]) {
+    // Qualify only frames with comparisons from all three kernels in this frame.
+    // Partial activity must not exhaust the 600-frame comparison window.
+    if (all_active) {
       ++frames;
     } else {
       ++warmup_frames;

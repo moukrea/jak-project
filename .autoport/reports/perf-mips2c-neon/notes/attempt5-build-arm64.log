@@ -1,0 +1,11 @@
+COMMAND: cmake --build build-android --target gk -j
+START_UTC: 2026-09-15T00:26:54.398058+00:00
+[0/2] Re-checking globbed directories...
+[1/5] Building CXX object android/CMakeFiles/android_kernel.dir/__/common/versions/versions.cpp.o
+[2/5] Building CXX object android/CMakeFiles/android_kernel.dir/__/game/system/perf_instruments.cpp.o
+[3/5] Linking CXX static library android/libandroid_kernel.a
+[4/5] Linking CXX shared library lib/arm64-v8a/libgk.so
+[npc-flicker] garde OK — 47 proprietes tenues
+
+EXIT_CODE: 0
+DURATION_SECONDS: 9.522

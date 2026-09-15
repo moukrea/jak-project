@@ -1,0 +1,5 @@
+$ git diff --exit-code 8363e895b1^ HEAD -- game/mips2c/jak1_functions/bones.cpp game/mips2c/jak1_functions/joint.cpp game/mips2c/jak1_functions/sparticle_launcher.cpp
+exit_code=0
+$ bash .autoport/lib/pick_device.sh
+eae4df44
+exit_code=0
