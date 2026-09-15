@@ -5,7 +5,7 @@
 # Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires
 
 ## Defaut cite
-- 2026-09-15 : « j'ai testé un build il y a une heure environ ou les mini pal… »
+- 2026-09-15 : « les mini palmiers j'ai déjà validé t'es relou et tu te fous… »
 
 ## Cause connue
 PRECISION SUPERVISEUR DU15/09 : actors=0 ne compte PAS Jak (seulement g_tramp_published). La reference rouge contient20616 echantillons Jak SHRUB et61848 TIE, binding_failures0 ; rejeu ancre tick603 et mouvement du clip120..249. Cela ne prouve pas l intersection avec le palmier, mais ne justifie pas de refaire le parcours au motif d absence de Jak. Lire notes/supervisor-contact-inputs-20260915.md ; exiger les captures de contact reel apres reparation. Aucun nouveau budget autorise.

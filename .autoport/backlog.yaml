@@ -11288,7 +11288,7 @@ items:
   prompt: prompts/item-soft-levels.md
   owner_feedback: []
   owner_ok: null
-- status: open
+- status: validated
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -11306,7 +11306,7 @@ items:
   - debug.opengoal.fixed_tick=1
   - debug.opengoal.foliage.force=1
   - debug.opengoal.pad_trace=shrub-contact.statedump.txt
-  priority: 33
+  priority: null
   device: true
   feature: Le tronc d'un mini-palmier ne s'ecrase pas comme un brin d'herbe, et ses feuilles restent solidaires
   gate:
@@ -11365,21 +11365,23 @@ items:
       laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit...
       ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas.
       mar xontre plus de damier ou pixelisation  pixelisation'
-  owner_ok: null
-  block_reason: 'Premiere reference consommee sans capture (fonctions GPU absentes et ecriture archive
-    refusee). Instruments repares et deux builds prets, non mesures. Une reference de remplacement necessaire
-    avant les deux ON/OFF restants : proposition +1 course en attente owner, budget1/3 conserve. Ne pas
-    relancer le meme audit ni utiliser le temoin rouge.'
+  - date: '2026-09-15'
+    text: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite
+      c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit
+      un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+  owner_ok:
+    date: '2026-09-15'
+    text: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite
+      c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit
+      un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+    build_sha: null
+  block_reason: null
   supervisor_recovery: false
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-15'
-    diagnostic: Handoff10/validator010 traites. Reference rouge sans capture ; fonctions GPU et publication
-      archive reparees. actors=0 exclut Jak :20616 echantillons Jak transmis, contact geometrique non
-      prouve. Budget1/3 et proposition +1 conserves.
-    action: Preparation et arbitrage superviseur termines ; extension de campagne en attente owner. Notification
-      automatique ne vaut pas autorisation. Rester visible en blocked, ne pas rappeler une reprise technique
-      identique.
+    action: Validation owner confirmee explicitement ; retrait de la demande de mesure supplementaire.
+      Aucun verdict machine invente ; revision du build teste inconnue.
   proof_plan:
     owner_authorized: true
     date: '2026-09-14'
@@ -11400,7 +11402,7 @@ items:
       : ne pas rendre la main sur leur seule absence deja connue. Si obstacle nouveau concret hors de
       ce perimetre, le nommer avec fichier/operation avant arret. Aucune course en plus des trois, aucune
       preuve historique reutilisee.'
-    status: authorized
+    status: closed-owner-validated
     owner_quote: bah oui faut que ça avance
     authorization_kind: mesures supplementaires, pas validation de correction
     budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
@@ -11456,7 +11458,7 @@ items:
     scope: retour positif conserve ; ne pas attribuer ce test aux modifications ulterieures de la preparation
       comparative
   proposed_proof_plan:
-    status: proposed-awaiting-owner
+    status: withdrawn-owner-validated
     owner_authorized: false
     date: '2026-09-15'
     additional_runs: 1
@@ -11965,7 +11967,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 6
+  max_retries: 7
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
@@ -11987,7 +11989,7 @@ items:
   - debug.opengoal.ao.tie.campaign=tie-alpha-20260914-attempt5
   - debug.opengoal.ao.tie.view=beach
   - debug.opengoal.ao.tie.reference=0
-  priority: 26
+  priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
     calculee a cote de la geometrie'
@@ -11996,6 +11998,8 @@ items:
     op: ==
     value: 0
   known_cause: |-
+    REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire.
+
     RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee non identifiee. Diagnostic causal a etablir, la capture nest pas une mesure moteur.
 
     MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur restent non prouves. Ne pas forcer une modification de prepasse sur cette seule hypothese.
@@ -12019,11 +12023,14 @@ items:
 
     Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
     EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
+    REPRISE15/09 APRES REPONSE OWNER : le plan historique9/9 reste clos. Le proof_plan courant borne la correction demandee au raccord hutte, six mesures maximum150s, instrumentation necessaire comprise. Ce nouveau perimetre remplace l attente d arbitrage precedente ; ne pas refaire la campagne trois vues ni toucher aux mini-palmiers valides. Preserver tous les criteres finaux ; aucune validation acquise par cette reprise.
   notes: 'SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l''owner le 14/09. C''est
     ici que l''owner juge l''AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux
     essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret.
     Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact
-    est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis.'
+    est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis. | budget :
+    7, un essai de reprise concret apres retour owner explicite sur le raccord. Ancienne proposition remplacee
+    par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8.'
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -12037,6 +12044,10 @@ items:
       laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit...
       ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas.
       mar xontre plus de damier ou pixelisation  pixelisation'
+  - date: '2026-09-15'
+    text: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite
+      c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit
+      un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -12045,10 +12056,7 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: 'Diagnostic termine : le compteur de bande ne cible pas le raccord mur/toit, sa largeur
-    est limitee a1 et HBAO non couvert. Archives sans profondeur/normales/identite de surfaces : cause
-    du rendu non etablie. Plan precedent epuise9/9. Proposition de six mesures automatiques sur la hutte
-    (trois modes avant/apres), en attente de reponse owner ; ne pas relancer l audit identique essai8.'
+  block_reason: null
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -12057,48 +12065,8 @@ items:
     action: Essai 4 annule par scope_stamp (non compte), item bloque avant reprise externe. Causalite
       rectifiee sans supprimer les exigences de resultat. Les autres items restent eligibles.
   proof_plan:
-    status: exhausted
+    status: authorized
     owner_authorized: true
-    mode: bounded-three-view-on-off
-    vantages:
-    - village1-hut
-    - village1-out
-    - beach
-    max_runs: 9
-    max_timeout_s_per_run: 150
-    per_vantage:
-    - ON reference native de stabilite
-    - ON comparaison meme binaire et entrees, geometrie et acquis
-    - OFF controle du desarmement et equivalence couleur au moyen de compteurs ou empreintes
-    requirements:
-    - Passer exclusivement par proof_run.sh et le validateur.
-    - Nommer les positions et les populations TIE non vides avant lancement.
-    - Les mesures de couleur manquantes peuvent etre instrumentees seulement dans le perimetre autorise
-      du plan.
-    - 'Publier tous les termes : aucune clause ni zero sur population vide ne disparait.'
-    - Aucune course supplementaire sans nouvel arbitrage ; ne pas reutiliser une reference consommee.
-    date: '2026-09-14'
-    owner_quote: bah oui faut que ça avance
-    authorization_kind: mesures supplementaires, pas validation de correction
-    budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
-      consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
-      ne pas reinitialiser le budget a chaque retry.
-    runs_consumed: 9
-    runs_remaining: 0
-    ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
-  owner_evidence:
-    path: owner-feedback/2026-09-15-ao-hut-contact.png
-    sha256: df95a72a18a07bfcdbbf9a46fed42e047f13464ae16456fcdd9632c953a2db0c
-    kind: signalement visuel owner, pas preuve machine
-    build: build teste environ une heure avant message, revision non identifiee
-    reported_defect: bande claire entre mur de hutte et toit
-    reported_improvements:
-    - mini-palmiers bons
-    - AO shrubs bonne
-    - plus de damier ni pixelisation
-  proposed_proof_plan:
-    status: proposed-awaiting-owner
-    owner_authorized: false
     date: '2026-09-15'
     purpose: Attribuer puis corriger la bande claire au raccord mur/toit signalee le15/09, conserver absence
       damier/pixellisation et AO shrubs.
@@ -12133,10 +12101,56 @@ items:
     - Si raccord non identifie ou archives manquantes, conserver l echec et diagnostiquer ; aucun lancement
       identique ni depassement des six courses.
     limits:
-    - Ce plan est une PROPOSITION, ne pas le lancer avant reponse explicite de l owner.
     - Ne pas reinitialiser le registre historique9/9 ni reutiliser une reference native consommee.
     - 'Le plan ne valide pas a lui seul le contrat complet trois vues : identite couleur, stabilite et
       acquis exterieurs restent requis. Aucune validation owner implicite.'
+    owner_quote: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible
+      ! Ensuite c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et
+      qu'on voit un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+    authorization_kind: Reprise de correction demandee par l owner ; mise en oeuvre bornee par le superviseur,
+      aucune validation du resultat.
+    runs_remaining: 6
+  owner_evidence:
+    path: owner-feedback/2026-09-15-ao-hut-contact.png
+    sha256: df95a72a18a07bfcdbbf9a46fed42e047f13464ae16456fcdd9632c953a2db0c
+    kind: signalement visuel owner, pas preuve machine
+    build: build teste environ une heure avant message, revision non identifiee
+    reported_defect: bande claire entre mur de hutte et toit
+    reported_improvements:
+    - mini-palmiers bons
+    - AO shrubs bonne
+    - plus de damier ni pixelisation
+  proposed_proof_plan: null
+  proof_plan_history:
+  - status: exhausted
+    owner_authorized: true
+    mode: bounded-three-view-on-off
+    vantages:
+    - village1-hut
+    - village1-out
+    - beach
+    max_runs: 9
+    max_timeout_s_per_run: 150
+    per_vantage:
+    - ON reference native de stabilite
+    - ON comparaison meme binaire et entrees, geometrie et acquis
+    - OFF controle du desarmement et equivalence couleur au moyen de compteurs ou empreintes
+    requirements:
+    - Passer exclusivement par proof_run.sh et le validateur.
+    - Nommer les positions et les populations TIE non vides avant lancement.
+    - Les mesures de couleur manquantes peuvent etre instrumentees seulement dans le perimetre autorise
+      du plan.
+    - 'Publier tous les termes : aucune clause ni zero sur population vide ne disparait.'
+    - Aucune course supplementaire sans nouvel arbitrage ; ne pas reutiliser une reference consommee.
+    date: '2026-09-14'
+    owner_quote: bah oui faut que ça avance
+    authorization_kind: mesures supplementaires, pas validation de correction
+    budget_scope: Total de cette campagne autorisee, tous essais confondus ; les courses historiques ne
+      consomment pas ce nouveau budget. Consigner chaque course et le budget restant dans le handoff ;
+      ne pas reinitialiser le budget a chaque retry.
+    runs_consumed: 9
+    runs_remaining: 0
+    ledger: reports/ao-prepass-tie-alpha/notes/campaign-runs.jsonl
 - status: open
   game: jak1
   device: false
@@ -12354,3 +12368,28 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+- id: acquis-shrub-trunk-contact
+  feature: Proteger les mini-palmiers valides contre le retour du tronc qui se couche
+  status: open
+  priority: 34
+  game: jak1
+  device: false
+  code_scope: harnais
+  depends_on:
+  - shrub-trunk-contact
+  max_retries: 6
+  max_turns: 180
+  known_cause: Mini-palmiers valides par l owner ; aucun acquis/shrub-trunk-contact.sh present. Les mesures
+    historiques incompletes ne doivent pas annuler sa validation.
+  deliverable: Ajouter acquis/shrub-trunk-contact.sh pour proteger les invariants locaux observables du
+    correctif livre (separation tronc/feuillage et jonctions), avec echec sur regression pertinente. Reutiliser
+    les instruments et tests existants ; annoncer explicitement ce que cette garde locale ne couvre pas.
+    Aucun compteur appareil fabrique.
+  out_of_scope: Pas de modification du jeu, pas de campagne ni de contact appareil ; ne pas rouvrir la
+    validation owner.
+  owner_feedback:
+  - date: '2026-09-15'
+    text: les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite
+      c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit
+      un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+  prompt: prompts/item-acquis-shrub-trunk-contact.md

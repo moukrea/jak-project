@@ -46,6 +46,9 @@ Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tron
 ### 2026-09-15
 > j'ai testé un build il y a une heure environ ou les mini palmiers etaient bons, l'AOnsur les shrubs etait bon, mais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap eclairemais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé éclairé est toujours lamais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ou pixelisation  pixelisation
 
+### 2026-09-15
+> les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

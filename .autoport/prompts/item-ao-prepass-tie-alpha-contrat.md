@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire.
+
 RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee non identifiee. Diagnostic causal a etablir, la capture nest pas une mesure moteur.
 
 MISE A JOUR SUPERVISEUR 14/09, essais 2-3 : la table de diagnostic contredit l hypothese de sur-decoupage du rendu. Le correctif porte sur l alpha ecrit par la MESURE (shade.glsl), et la course 3 rend zero trou sur village1-hut avec 86866 pixels TIE observes. La stabilite et les cinq acquis sont a zero ; les deux autres vues et l identite couleur restent non prouves. Ne pas forcer une modification de prepasse sur cette seule hypothese.
@@ -28,6 +30,7 @@ Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations
 
 Campagne explicitement autorisee par l owner le 2026-09-14 (« bah oui faut que ça avance »), proof_plan du backlog : village1-hut, village1-out et beach, neuf courses maximum au TOTAL de 150 s maximum chacune ; par vue reference ON, comparaison ON, controle OFF. Instrumentation couleur manquante autorisee dans ce seul plan. Preparer les populations et positions avant les courses, garder les criteres et cinq acquis. L autorisation couvre ces mesures supplementaires, aucune validation owner.
 EXCEPTION EXPLICITE AU GEL DU CONTACT : le retour owner du15/09 rouvre la bande claire mur/toit ; les autres ameliorations restent protegees. Le plan trois vues a epuise9/9 courses : ce retour est une non-validation de contact, pas un budget de campagne augmente. Commencer par diagnostic des sources/archives et correspondance avec la jonction signalee, sans relancer ce plan epuise.
+REPRISE15/09 APRES REPONSE OWNER : le plan historique9/9 reste clos. Le proof_plan courant borne la correction demandee au raccord hutte, six mesures maximum150s, instrumentation necessaire comprise. Ce nouveau perimetre remplace l attente d arbitrage precedente ; ne pas refaire la campagne trois vues ni toucher aux mini-palmiers valides. Preserver tous les criteres finaux ; aucune validation acquise par cette reprise.
 
 ## Ou l'owner regardera
 
@@ -40,6 +43,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 
 ### 2026-09-15
 > j'ai testé un build il y a une heure environ ou les mini palmiers etaient bons, l'AOnsur les shrubs etait bon, mais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap eclairemais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé éclairé est toujours lamais le fait que l'AO est pas exactement aux zones de congact mais laisse un gap éclairé est toujours là à regarde [Image #1] engre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ounpixelisatiengre le mur de la hutte et le toit... ca va mas. mar xontre plus de damier ou pixelisation  pixelisation
+
+### 2026-09-15
+> les mini palmiers j'ai déjà validé t'es relou et tu te fous de moi c'est pas possible ! Ensuite c'est obvious pour l'AO entre mur et toit que l'ombrage est pas pile a la jonction et qu'on voit un peu de blanc non ombré du mur pile entre le mur et le toit ! T'es relou !
 
 ## Pourquoi ce fichier existe
 

@@ -5,10 +5,10 @@
 # La prepasse d'AO garde les memes fragments que la couleur sur le TIE statique : plus d'ombre calculee a cote de la geometrie
 
 ## Defaut cite
-- 2026-09-15 : « j'ai testé un build il y a une heure environ ou les mini pal… »
+- 2026-09-15 : « les mini palmiers j'ai déjà validé t'es relou et tu te fous… »
 
 ## Cause connue
-RETOUR OWNER 15/09 : bande claire persistante au CONTACT ENTRE MUR DE HUTTE ET TOIT, capture owner-feedback/2026-09-15-ao-hut-contact.png. Plus de damier/pixelisation et AO shrubs bonne sur le build teste. Le zero historique ao_contact_band_px NE COUVRE PAS ce defaut observe ; ne pas le defendre comme validation de cette jonction. Revision testee n […suite dans le contrat]
+REPRISE OWNER15/09 : le defaut visible est etabli par son test et sa capture : bande de mur claire exactement entre mur et toit. Corriger ce raccord, ne pas redemander de prouver son existence. Le diagnostic des instruments est deja fait (attempt7-contact-diagnostic.md) : reprendre la preparation puis la correction, pas un nouvel audit documentaire […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.
