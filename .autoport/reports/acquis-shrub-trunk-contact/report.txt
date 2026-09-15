@@ -1,33 +1,32 @@
 DIRECTIVES v14fcd1a084
-Garde locale livrée et critère x86 tenu ; dernier refus de fermeture extérieur au périmètre.
+Garde locale livrée et critère x86 tenu à l’essai 5 ; fermeture encore non établie.
 
-Acquis livré : blocs CPU/GLSL épinglés pour séparation tronc/feuillage et jonctions.
-Ancres SHRUB nulles, sentinelles TIE et attachement exact couverts depuis l’essai 3.
-Essai 4 : aucun changement de code ; diagnostic du refus et mise à jour du rapport/handoff.
-Course x86 unique renouvelée car generic.sh:102-107 exige l’identité de cet essai.
-proof_attempt_id=acquis-shrub-trunk-contact@4#1789485350 ; durée 63 s, aucun build.
-proof-census.log : 12 passed in 2.96s ; dix mutations refusées ; proof_census_rc=0.
-Empreintes relues identiques : sources 0a60f6f25952185c, acquis af926c1ac648bc77.
+Livrable existant depuis ca4929da13 : garde des blocs CPU/GLSL tronc/feuillage et jonctions.
+Essai 5 : actualisation du rapport, des signalements et du handoff ; aucun changement de code.
+Une course x86 via lib/proof_run.sh, imposée par generic.sh:101-107 (identité d’essai).
+Course acquis-shrub-trunk-contact@5#1789485664 ; sortie 0, durée 64 s ; aucun build du jeu.
+Preuve originale conservée dans proof.txt, produite uniquement par lib/proof_run.sh.
+Références de preuve, sans recopier le fichier dans le rapport :
+proof.txt:1 — plateforme mesurée : x86.
+proof.txt:3 — empreinte du binaire : 085b38cc9bce5347.
+proof.txt:6 — crash : 0.
+proof.txt:7 — images : 3434.
+proof.txt:1313 — défauts d’ancrage du tronc : 0.
+proof.txt:1316 — instances de tronc : 37.
+proof.txt:1310 — paires de jonctions : 36.
+proof.txt:1306 — ancres de feuillage : 2800.
+proof-census.log : 12 passed in 2.99s ; dix mutations refusées.
+proof.txt:126,1395-1396 : recensement, garde et tests rendent chacun 0.
+proof.txt:22 : empreinte des sources 0a60f6f25952185c, identique à l’essai 4.
 
-Huit lignes de proof.txt, produit exclusivement par lib/proof_run.sh :
-source=x86
-sha=085b38cc9bce5347
-crash=0
-frames=3436
-shrub_trunk_anchor_defects=0
-shrub_trunk_instances=37
-shrub_joint_pairs=36
-shrub_foliage_anchored=2800
-
-Owner : rien à retester ; validation antérieure des mini-palmiers conservée.
-Aucun changement du jeu, du validateur ou du backlog par ce worker ; aucun contact appareil.
-Dernier verdict : validator-003.txt:1 accepte le critère ; ligne 4 refuse l’acquis DMA.
-Trace device-binary-gate.tsv:79 : code 6, aucun-apk-porte-le-binaire-local.
-MD5 téléphone 50593ceb443052c05324a8b786e2096b, local aa5e4cef9c4a0fa58038fbcc92787e9c.
-Livraison Android nécessaire hors périmètre ; signalement dans FINDINGS.txt.
-Le validateur de l’essai 4 reste à exécuter par l’orchestrateur.
+Owner : rien à retester ; validation antérieure des mini-palmiers conservée (owner_test=false).
+Aucun contact appareil ni changement du jeu, du validateur ou du backlog par ce worker.
+Dernier verdict historique : validator-004.txt:1 accepte le critère ; lignes 4-8 refusent l’acquis DMA.
+device-binary-gate.tsv:80 : refus 6 à 15:20:31Z, aucun-apk-porte-le-binaire-local ; aucun déploiement.
+Livraison Android à résoudre par le superviseur/constructeur, hors périmètre ; FINDINGS.txt.
+L’orchestrateur doit exécuter le validateur et les portes de fermeture de l’essai 5.
 non prouvé : déplacement GPU, continuité rendue, mobilité de chaque couronne, Android,
 exhaustivité des niveaux, comparaison vent/herbe/ablation et fermeture de cet essai.
-La garde de blocs source peut refuser un refactoring équivalent ; elle ne prouve pas tout le flux.
+La garde peut refuser un refactoring équivalent ; elle ne prouve pas tout le flux.
 Le compteur CPU arrondit le pivot au millimètre ; fixtures synthétiques, wind_contact non mesuré.
-AO mur/toit hors périmètre, signalement owner conservé dans FINDINGS.txt.
+AO mur/toit hors périmètre ; signalement owner conservé dans FINDINGS.txt.
