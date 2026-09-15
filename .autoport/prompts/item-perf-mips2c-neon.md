@@ -8,12 +8,10 @@
 - 2026-09-15 : « Reprise superviseur requise pour : perf-mips2c-neon. Ces pri… »
 
 ## Cause connue
-DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier et 0 image qualifiee, malgre joints/particules compares sans ecart. Le candidat os grossit de 716 a 4812 octets ; aucun gain demontre. Refset USB : hutte maxdiff233 et deux references plage absentes ; A/B x86 egalement incompl […suite dans le contrat]
+Essais5/6 : absence de troisieme cible et references phase1 incompletes provoquaient un arret avant toute experimentation locale. Reprise bornee a un candidat, sans appareil ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier et 0 image qualifiee, m […suite dans le contrat]
 
 ## Livrable
-Lot 1 : gnd_oob_check compile hors du build quand la prop n'est pas armee. Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l'eau lit ripple-find-height). mips2c_parity_defects = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff != 0). Gain publie par seau.
-REPRISE DIAGNOSTIQUE OBLIGATOIRE AVANT NOUVELLE COURSE :
-1. Auditer le c […suite dans le contrat]
+ETAPE DE REPRISE LOCALE DU15/09 : les essais5/6 ont identifie les deux prealables manquants. Ne pas refaire ces audits. Le prochain essai doit produire UN candidat concret avant/apres, compile et compare localement. Les trois cibles sont une exigence de livraison finale, PAS un prealable a toute preparation : l absence de troisieme cible ou de references Android n interdit pas cet essai local. Choisir parmi les chemins joints/particules deja observes actifs ; commencer par examiner les transfert […suite dans le contrat]
 
 ## Preuve exigee
 `mips2c_parity_defects == 0` dans `reports/perf-mips2c-neon/proof.txt`.
