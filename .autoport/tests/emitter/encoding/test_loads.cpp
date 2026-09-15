@@ -3,6 +3,7 @@
 // retain the ADD X16 plus immediate access sequence.
 
 #include "test_helpers.h"
+#include "goalc/emitter/Arm64GoalMemory.h"
 
 namespace {
 
@@ -301,4 +302,69 @@ TEST_CASE("load_goal_gpr unaligned offset=316 retains materialized byte address"
     EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 316, 8, false), 2);
     EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 316, 8, false), 0, 0x9104f210u);
     EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 316, 8, false), 1, expect_ldr_x_x16(3, 0));
+}
+
+TEST_CASE("GOAL memory base shared across mixed loads and stores") {
+    arm64::Arm64GoalMemoryCache cache;
+    auto first = cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+    EXPECT_ENC(first, 0x8b0f00b0u); // add x16,x5,x15
+    EXPECT_EXTRA_WORDS(first, 1);
+    auto second = cache.reuse(store_goal_gpr(X5, X3, X15, -4, 4), false);
+    EXPECT_ENC(second, 0xb81fc203u); // stur w3,[x16,#-4]
+    EXPECT_EXTRA_WORDS(second, 0);
+    auto third = cache.reuse(load_goal_xmm128(Q0, X5, X15, 32), false);
+    EXPECT_ENC(third, 0x3dc00a00u); // ldr q0,[x16,#32]
+    EXPECT_EXTRA_WORDS(third, 0);
+    auto fourth = cache.reuse(load_goal_xmm32(Q0, X5, X15, 4), false);
+    EXPECT_ENC(fourth, 0xbd400600u); // ldr s0,[x16,#4]
+    EXPECT_EXTRA_WORDS(fourth, 0);
+}
+
+TEST_CASE("GOAL memory base is invalid after barrier or different base") {
+    arm64::Arm64GoalMemoryCache cache;
+    cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+    auto different = cache.reuse(load_goal_gpr(X3, X6, X15, 64, 4, false), false);
+    EXPECT_EXTRA_WORDS(different, 1);
+    cache.reset(); // branch target, intervening IR or spill in CodeGenerator
+    auto after_barrier = cache.reuse(load_goal_gpr(X3, X6, X15, 64, 4, false), false);
+    EXPECT_EXTRA_WORDS(after_barrier, 1);
+}
+
+TEST_CASE("GOAL load may reuse old base before overwriting an address operand") {
+    for (const auto dest : {X5, X15}) {
+        arm64::Arm64GoalMemoryCache cache;
+        cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+        auto overwrite = cache.reuse(load_goal_gpr(dest, X5, X15, 8, 8, false), true);
+        EXPECT_EXTRA_WORDS(overwrite, 0);
+        auto next = cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+        EXPECT_EXTRA_WORDS(next, 1);
+    }
+}
+
+TEST_CASE("GOAL zero and materialized offsets do not establish a reusable base") {
+    for (const int offset : {0, 316, -316}) {
+        arm64::Arm64GoalMemoryCache cache;
+        cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+        auto original = load_goal_gpr(X3, X5, X15, offset, 8, false);
+        auto emitted = cache.reuse(original, false);
+        EXPECT_ENC(emitted, original.encoding);
+        EXPECT_EXTRA_WORDS(emitted, original.extra_words.size());
+        for (size_t n = 0; n < original.extra_words.size(); ++n) {
+            EXPECT_EXTRA_AT(emitted, n, original.extra_words[n]);
+        }
+        EXPECT_EXTRA_WORDS(cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false), 1);
+    }
+}
+
+TEST_CASE("GOAL memory cache rejects other offset registers and writeback") {
+    arm64::Arm64GoalMemoryCache cache;
+    cache.reuse(load_goal_gpr(X3, X5, X9, 64, 4, false), false);
+    EXPECT_EXTRA_WORDS(cache.reuse(load_goal_gpr(X3, X5, X9, 64, 4, false), false), 1);
+    cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false);
+    // ldr x3,[x16],#8: mutates the cached sum, never admissible.
+    auto post_index = InstructionARM64::paired(0x8b0f00b0u, 0xf8408603u);
+    auto emitted = cache.reuse(post_index, false);
+    EXPECT_ENC(emitted, 0x8b0f00b0u);
+    EXPECT_EXTRA_WORDS(emitted, 1);
+    EXPECT_EXTRA_WORDS(cache.reuse(load_goal_gpr(X3, X5, X15, 64, 4, false), false), 1);
 }

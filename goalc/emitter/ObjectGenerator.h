@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 
+#include "Arm64GoalMemory.h"
 #include "Instruction.h"
 #include "ObjectFileData.h"
 
@@ -75,6 +76,15 @@ class ObjectGenerator {
   IR_Record get_future_ir_record(const FunctionRecord& func, int ir_id);
   IR_Record get_future_ir_record_in_same_func(const IR_Record& irec, int ir_id);
   InstructionRecord add_instr(Instruction inst, IR_Record ir);
+  InstructionRecord add_arm64_goal_memory_instr(InstructionARM64 inst,
+                                                IR_Record ir,
+                                                bool allow_reuse,
+                                                bool writes_address_reg);
+  void enable_arm64_goal_memory_reuse(bool enabled) {
+    m_arm64_goal_memory_reuse_enabled = enabled;
+    reset_arm64_goal_memory_reuse();
+  }
+  void reset_arm64_goal_memory_reuse() { m_arm64_goal_memory_cache.reset(); }
   void add_instr_no_ir(FunctionRecord func, Instruction inst, InstructionInfo::Kind kind);
   StaticRecord add_static_to_seg(int seg, int min_align = 16);
   std::vector<u8>& get_static_data(const StaticRecord& rec);
@@ -104,6 +114,8 @@ class ObjectGenerator {
   InstructionSet instr_set() const { return m_instruction_set; }
 
  private:
+  arm64::Arm64GoalMemoryCache m_arm64_goal_memory_cache;
+  bool m_arm64_goal_memory_reuse_enabled = false;
   void handle_temp_static_type_links(int seg);
   void handle_temp_jump_links(int seg);
   void handle_temp_instr_sym_links(int seg);

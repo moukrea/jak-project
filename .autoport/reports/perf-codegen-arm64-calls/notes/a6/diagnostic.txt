@@ -1,0 +1,45 @@
+DIRECTIVES vd321fc8caf
+Essai6 : implémentation compiler mémoire et une course USB, aucun changement moteur/ABI/ND/refset.
+Recherche indépendante : cache physique X16 sûr entre seuls IR mémoire contigus, borné par branches/spills.
+Implémentation relue : charge GPR base/X15 invalide ; SIMD homonyme distinct ; offset0/matérialisé exclus.
+ObjectGenerator invalide chaque émission ordinaire, no_ir et transition de fonction.
+Le préscan to_rai couvre les cibles anonymes/inlinées ; get_label_map seul serait incomplet.
+Fonctions contenant JumpReg/AsmRet/AsmPush exclues ; pas de cache asm-func, x86 ni Jak2/Jak3.
+
+TESTS ET ARTEFACTS
+build-encoding.log + test-encoding.log : 252 cas,469 assertions,0 échec.
+build-goalc-arm64.log : cible goalc reconstruite ; build-goalc-x86.log : porte rc0,126 arêtes,366s,0 restante.
+regen-arm64.log : 1324 cibles en59.188s ; grep callee prologues GAME2193,ENGINE2034.
+28 archives x86 restaurées et vérifiées par tester, aucune génération livrée au mauvais backend.
+archive-diff.json : 28 archives,27 empreintes changées ;235983360→235955760 octets (-27600).
+GAME12124768→12113952 ;ENGINE8498656→8488720. Taille statique, pas mesure de temps exécuté.
+Le banc test-compiled-memory.py réutilise build_a3_diff.py, sans modifier le harnais.
+Deux fonctions GOAL complètes compilées puis exécutées : shared142/142 et branch168/168, x86/ARM64-QEMU.
+shared.asm : ADD10028 ;STR1002c ;LDRSW10030 sans ADD ;MOV10034 puis nouvel ADD10038.
+branch.asm : ADD10080 ;LDRSW10084 ;STR10088 sans ADD ;join1009c puis ADD100a0.
+Ces tests ne couvrent pas exhaustivement toutes les barrières/spills ; aucune qualification temps depuis QEMU.
+package-apk.log : succès55s,5 tâches exécutées/33 à jour ; installation USB eae4df44 Success.
+APK local/appareil sha256=2b16a896e95846c1e7e771332e2727cbb31f683dea9da57c12d7abf838ac4561.
+
+LIMITES CONNUES AVANT COURSE
+Provenance v2 data_fingerprint inclut CGO/DGO ; une nouvelle émission change cet input.
+Référence a2 conservée : ni réécriture ni nouvelle capture. La course ne peut présumer sa parité admissible.
+La divergence historique a2/a3 (61/577 puis57/550) et son attribution animation restent non expliquées.
+Dynamiques proches1/loin2 : relaxation de corps de fonctions possible seulement avec nouvelles métadonnées.
+Il faudrait bornes de fonctions, sites relaxables, branches locales, carte ancien→nouveau et fixups/debug.
+Aucune telle passe implémentée ; aucun stub lent ni NOP substitué pour prétendre une instruction.
+Symbole fixe asize-of-basic-func : recherche suggère +0x188 (CRC197e1e7f, bucket62456), non ajouté.
+Aucun gain goal_busy_ms ni acquis complets revendiqué ; aucune validation ni owner-ok fabriqué.
+
+COURSE FRAÎCHE
+source=device
+serial=eae4df44
+frames=4980
+crash=0
+codegen_call_sites=47
+codegen_call_max_instructions=2
+refset_replay_maxdiff=255
+codegen_lot_defects=1
+refset_provenance_origine_h09=data
+proof_run rc0 ;course120s,harnais132s ;data d854ac9ec1a0ee00 ;références inchangées,proof-audit.json.
+deploy-assets.log :28/28CGO-DGO et23banques texte identiques après amorçage.

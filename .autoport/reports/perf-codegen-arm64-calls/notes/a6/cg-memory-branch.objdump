@@ -1,0 +1,87 @@
+
+/home/emeric/code/jak-project/.autoport/reports/perf-codegen-arm64-calls/notes/a6/cg-memory-branch.arm64.elf:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000400078 <_start>:
+  400078:	d2880000 	mov	x0, #0x4000                	// #16384
+  40007c:	d370bc00 	lsl	x0, x0, #16
+  400080:	d2a00021 	mov	x1, #0x10000               	// #65536
+  400084:	d2800062 	mov	x2, #0x3                   	// #3
+  400088:	d2800643 	mov	x3, #0x32                  	// #50
+  40008c:	92800004 	mov	x4, #0xffffffffffffffff    	// #-1
+  400090:	d2800005 	mov	x5, #0x0                   	// #0
+  400094:	d2801bc8 	mov	x8, #0xde                  	// #222
+  400098:	d4000001 	svc	#0x0
+  40009c:	d2800004 	mov	x4, #0x0                   	// #0
+  4000a0:	d280000f 	mov	x15, #0x0                   	// #0
+  4000a4:	d2800016 	mov	x22, #0x0                   	// #0
+  4000a8:	94000003 	bl	4000b4 <test_fn>
+  4000ac:	d2800ba8 	mov	x8, #0x5d                  	// #93
+  4000b0:	d4000001 	svc	#0x0
+
+00000000004000b4 <test_fn>:
+  4000b4:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
+  4000b8:	910003fd 	mov	x29, sp
+  4000bc:	d2800009 	mov	x9, #0x0                   	// #0
+  4000c0:	f2a80009 	movk	x9, #0x4000, lsl #16
+  4000c4:	aa0903e9 	mov	x9, x9
+  4000c8:	d2800808 	mov	x8, #0x40                  	// #64
+  4000cc:	f2a80008 	movk	x8, #0x4000, lsl #16
+  4000d0:	aa0803e8 	mov	x8, x8
+  4000d4:	d2800000 	mov	x0, #0x0                   	// #0
+  4000d8:	d2800001 	mov	x1, #0x0                   	// #0
+  4000dc:	aa0903e9 	mov	x9, x9
+  4000e0:	aa0803e8 	mov	x8, x8
+  4000e4:	aa0003e0 	mov	x0, x0
+  4000e8:	aa0103e1 	mov	x1, x1
+  4000ec:	d2800c82 	mov	x2, #0x64                  	// #100
+  4000f0:	8b0f0130 	add	x16, x9, x15
+  4000f4:	b9000602 	str	w2, [x16, #4]
+  4000f8:	d2800542 	mov	x2, #0x2a                  	// #42
+  4000fc:	8b0f0130 	add	x16, x9, x15
+  400100:	b9000a02 	str	w2, [x16, #8]
+  400104:	d2800002 	mov	x2, #0x0                   	// #0
+  400108:	8b0f0110 	add	x16, x8, x15
+  40010c:	b9000602 	str	w2, [x16, #4]
+  400110:	d28000e2 	mov	x2, #0x7                   	// #7
+  400114:	8b0f0110 	add	x16, x8, x15
+  400118:	b9000a02 	str	w2, [x16, #8]
+  40011c:	1400001d 	b	400190 <test_fn+0xdc>
+  400120:	8b0f0110 	add	x16, x8, x15
+  400124:	b9800602 	ldrsw	x2, [x16, #4]
+  400128:	d2800006 	mov	x6, #0x0                   	// #0
+  40012c:	eb06005f 	cmp	x2, x6
+  400130:	540000c1 	b.ne	400148 <test_fn+0x94>  // b.any
+  400134:	8b0f0130 	add	x16, x9, x15
+  400138:	b9800a02 	ldrsw	x2, [x16, #8]
+  40013c:	b9000602 	str	w2, [x16, #4]
+  400140:	aa0203e2 	mov	x2, x2
+  400144:	14000003 	b	400150 <test_fn+0x9c>
+  400148:	aa0e03e2 	mov	x2, x14
+  40014c:	cb0f0042 	sub	x2, x2, x15
+  400150:	aa0003e0 	mov	x0, x0
+  400154:	8b0f0130 	add	x16, x9, x15
+  400158:	b9800602 	ldrsw	x2, [x16, #4]
+  40015c:	aa0203e2 	mov	x2, x2
+  400160:	8b0f0130 	add	x16, x9, x15
+  400164:	b9800a06 	ldrsw	x6, [x16, #8]
+  400168:	8b060042 	add	x2, x2, x6
+  40016c:	8b020000 	add	x0, x0, x2
+  400170:	aa0003e0 	mov	x0, x0
+  400174:	d2800022 	mov	x2, #0x1                   	// #1
+  400178:	8b0f0110 	add	x16, x8, x15
+  40017c:	b9000602 	str	w2, [x16, #4]
+  400180:	aa0103e1 	mov	x1, x1
+  400184:	d2800022 	mov	x2, #0x1                   	// #1
+  400188:	8b020021 	add	x1, x1, x2
+  40018c:	aa0103e1 	mov	x1, x1
+  400190:	d2800042 	mov	x2, #0x2                   	// #2
+  400194:	eb02003f 	cmp	x1, x2
+  400198:	54fffc4b 	b.lt	400120 <test_fn+0x6c>  // b.tstop
+  40019c:	aa0e03e9 	mov	x9, x14
+  4001a0:	cb0f0129 	sub	x9, x9, x15
+  4001a4:	aa0003e0 	mov	x0, x0
+  4001a8:	a8c17bfd 	ldp	x29, x30, [sp], #16
+  4001ac:	d65f03c0 	ret

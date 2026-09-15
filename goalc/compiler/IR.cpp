@@ -1862,22 +1862,25 @@ void IR_LoadConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                  m_info.size, (int)m_info.sign_extend, (int)m_dest->ireg().reg_class);
   }
   if (m_dest->ireg().reg_class == RegClass::GPR_64) {
-    gen->add_instr(emitter::IGen::ARM64::load_goal_gpr(dest_reg, base_reg,
-                                                       emitter::gRegInfo.get_offset_reg(),
-                                                       m_offset, m_info.size, m_info.sign_extend),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::load_goal_gpr(dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(),
+                                          m_offset, m_info.size, m_info.sign_extend),
+        irec, m_use_coloring,
+        dest_reg == base_reg || dest_reg == emitter::gRegInfo.get_offset_reg());
   } else if (m_dest->ireg().reg_class == RegClass::FLOAT && m_info.size == 4 &&
              m_info.sign_extend == false && m_info.reg == RegClass::FLOAT) {
-    gen->add_instr(emitter::IGen::ARM64::load_goal_xmm32(
-                       dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::load_goal_xmm32(
+            dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
+        irec, m_use_coloring, false);
   } else if ((m_dest->ireg().reg_class == RegClass::VECTOR_FLOAT ||
               m_dest->ireg().reg_class == RegClass::INT_128) &&
              m_info.size == 16 && m_info.sign_extend == false &&
              m_info.reg == m_dest->ireg().reg_class) {
-    gen->add_instr(emitter::IGen::ARM64::load_goal_xmm128(
-                       dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::load_goal_xmm128(
+            dest_reg, base_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
+        irec, m_use_coloring, false);
   } else {
     throw std::runtime_error("IR_LoadConstOffset::do_codegen_arm64 not supported");
   }
@@ -1946,20 +1949,22 @@ void IR_StoreConstOffset::do_codegen_arm64(emitter::ObjectGenerator* gen,
                  m_size, (int)m_value->ireg().reg_class);
   }
   if (m_value->ireg().reg_class == RegClass::GPR_64) {
-    gen->add_instr(emitter::IGen::ARM64::store_goal_gpr(base_reg, value_reg,
-                                                        emitter::gRegInfo.get_offset_reg(),
-                                                        m_offset, m_size),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::store_goal_gpr(base_reg, value_reg, emitter::gRegInfo.get_offset_reg(),
+                                           m_offset, m_size),
+        irec, m_use_coloring, false);
   } else if (m_value->ireg().reg_class == RegClass::FLOAT && m_size == 4) {
-    gen->add_instr(emitter::IGen::ARM64::store_goal_xmm32(
-                       base_reg, value_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::store_goal_xmm32(
+            base_reg, value_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
+        irec, m_use_coloring, false);
   } else if ((m_value->ireg().reg_class == RegClass::VECTOR_FLOAT ||
               m_value->ireg().reg_class == RegClass::INT_128) &&
              m_size == 16) {
-    gen->add_instr(emitter::IGen::ARM64::store_goal_vf(
-                       base_reg, value_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
-                   irec);
+    gen->add_arm64_goal_memory_instr(
+        emitter::IGen::ARM64::store_goal_vf(
+            base_reg, value_reg, emitter::gRegInfo.get_offset_reg(), m_offset),
+        irec, m_use_coloring, false);
   } else {
     throw std::runtime_error(
         fmt::format("IR_StoreConstOffset::do_codegen_arm64 can't handle this (c {} sz {})",

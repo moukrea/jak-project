@@ -1,0 +1,19 @@
+{
+  "proof_attempt_id": "perf-codegen-arm64-calls@6#1789438574",
+  "proof_run_id": "20260915T023442Z-1630758-da5d43c9",
+  "proof_sha256": "e58c71efe67d2fc9671482fd6f9fad6ca6afffc7d634e12e133d3fb45aacd8b8",
+  "seal_matches": true,
+  "current_data_fp": "d854ac9ec1a0ee00",
+  "current_refs_fp": "3a1feecef859c3a1",
+  "reference_preserved": {
+    ".autoport/reports/perf-codegen-arm64-calls/notes/a2/refset-candidate/origine/h09.png": {
+      "sha256": "35e9644c2b4dde94cb93355e95be3476c1362543b8af827b0c73115f13d07248",
+      "unchanged": true
+    },
+    ".autoport/reports/perf-codegen-arm64-calls/notes/a2/refset-candidate/origine/h09.png.provenance.txt": {
+      "sha256": "a7b9719288b15e43079394f0e216848f936a1dc07cb0afde3118f1418337734a",
+      "unchanged": true
+    }
+  },
+  "reference_fingerprint_matches_a3": true
+}

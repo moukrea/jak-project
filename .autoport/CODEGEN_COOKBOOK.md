@@ -353,3 +353,24 @@ in one phase is a red flag for cheat-shaped logic.
 If you find yourself reaching for any of these, **stop and write a
 next-blocker report instead**. The supervisor will give you the
 right unlock or pivot strategy.
+
+## 12 Jak1 ARM64 — shared GOAL memory base (2026-09-15)
+
+`Arm64GoalMemoryCache` shortens adjacent colored field accesses before object
+placement, so branch/debug offsets are derived from the shortened instructions.
+Only `ADD X16, Xbase, X15` plus one immediate access is eligible. A GPR load
+overwriting either address operand invalidates the sum; a SIMD register with
+the same number does not. Zero offsets and materialized displacements do not
+establish a reusable sum.
+
+`CodeGenerator::do_goal_function_arm64` supplies the control-flow barriers:
+all `to_rai().jumps` targets, intervening IR (including IR without machine
+instructions), and spills. Named labels alone are insufficient because they
+omit anonymous/inlined labels. Functions containing `IR_JumpReg`, `IR_AsmRet`
+or `IR_AsmPush`, and asm functions, keep the original emission. Ordinary
+`ObjectGenerator` instructions and function transitions also reset the cache.
+
+The candidate refset v2 fingerprints CGO/DGO contents as data
+(`refset.cpp::data_fingerprint` / `check_capture_provenance`). A codegen
+change therefore changes that input to the provenance check. Preserve an
+existing reference; do not recapture it to conceal a rejected comparison.

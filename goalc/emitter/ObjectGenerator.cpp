@@ -15,6 +15,8 @@
 
 #include "ObjectGenerator.h"
 
+#include <utility>
+
 #include "common/goal_constants.h"
 #include "common/type_system/TypeSystem.h"
 #include "common/versions/versions.h"
@@ -161,6 +163,7 @@ ObjectFileData ObjectGenerator::generate_data_v3(const TypeSystem* ts) {
 FunctionRecord ObjectGenerator::add_function_to_seg(int seg,
                                                     FunctionDebugInfo* debug,
                                                     int min_align) {
+  reset_arm64_goal_memory_reuse();
   FunctionRecord rec;
   rec.seg = seg;
   rec.func_id = int(m_function_data_by_seg.at(seg).size());
@@ -236,6 +239,7 @@ IR_Record ObjectGenerator::get_future_ir_record_in_same_func(const IR_Record& ir
  * supplies the remaining address bits directly in the load/store.
  */
 InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
+  reset_arm64_goal_memory_reuse();
   // only this second condition is an actual error.
   ASSERT(ir.ir_id ==
          int(m_function_data_by_seg.at(ir.seg).at(ir.func_id).ir_to_instruction.size()) - 1);
@@ -311,9 +315,25 @@ InstructionRecord ObjectGenerator::add_instr(Instruction inst, IR_Record ir) {
   return rec;
 }
 
+InstructionRecord ObjectGenerator::add_arm64_goal_memory_instr(InstructionARM64 inst,
+                                                              IR_Record ir,
+                                                              bool allow_reuse,
+                                                              bool writes_address_reg) {
+  if (!m_arm64_goal_memory_reuse_enabled || !allow_reuse ||
+      m_version != GameVersion::Jak1 || m_instruction_set != InstructionSet::ARM64) {
+    return add_instr(inst, ir);
+  }
+  inst = m_arm64_goal_memory_cache.reuse(std::move(inst), writes_address_reg);
+  const auto cache = m_arm64_goal_memory_cache;
+  const auto result = add_instr(inst, ir);
+  m_arm64_goal_memory_cache = cache;
+  return result;
+}
+
 void ObjectGenerator::add_instr_no_ir(FunctionRecord func,
                                       Instruction inst,
                                       InstructionInfo::Kind kind) {
+  reset_arm64_goal_memory_reuse();
   auto info = InstructionInfo(inst, kind);
   m_function_data_by_seg.at(func.seg).at(func.func_id).instructions.emplace_back(inst);
   func.debug->instructions.push_back(info);

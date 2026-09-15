@@ -499,6 +499,7 @@ static void mark_push_jr_pop_ra_arm64(FunctionEnv* env, bool no_sp_adjust = fals
 }
 
 void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
+  m_gen.enable_arm64_goal_memory_reuse(false);
   // AArch64 prologue + spill load/store + epilogue.
   //
   // Frame layout after prologue:
@@ -669,10 +670,32 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
     mark_push_jr_pop_ra_arm64(env, /*no_sp_adjust=*/true);
   }
 
+  std::unordered_set<int> memory_reuse_targets;
+  bool memory_reuse_enabled = m_gen.version() == GameVersion::Jak1;
+  for (const auto& ir : env->code()) {
+    for (const int target : ir->to_rai().jumps) {
+      memory_reuse_targets.insert(target);
+    }
+    if (dynamic_cast<IR_JumpReg*>(ir.get()) || dynamic_cast<IR_AsmRet*>(ir.get()) ||
+        dynamic_cast<IR_AsmPush*>(ir.get())) {
+      memory_reuse_enabled = false;
+    }
+  }
+  for (const auto& [name, label] : env->get_label_map()) {
+    memory_reuse_targets.insert(label.idx);
+  }
+  m_gen.enable_arm64_goal_memory_reuse(memory_reuse_enabled);
+
   for (int ir_idx = 0; ir_idx < int(env->code().size()); ir_idx++) {
     auto& ir = env->code().at(ir_idx);
     auto i_rec = m_gen.add_ir(f_rec);
     const auto& bonus = allocs.stack_ops.at(ir_idx);
+    // A branch entry or spill breaks the straight-line lifetime of scratch X16.
+    if (memory_reuse_targets.count(ir_idx) || !bonus.ops.empty() ||
+        (!dynamic_cast<IR_LoadConstOffset*>(ir.get()) &&
+         !dynamic_cast<IR_StoreConstOffset*>(ir.get()))) {
+      m_gen.reset_arm64_goal_memory_reuse();
+    }
 
     // Spill LOAD before the IR: restore stashed values into the IR's input regs.
     //   LDR Xt, [SP, #imm]   base 0xF9400000   imm12 scaled by 8
@@ -741,7 +764,11 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
       }
       m_gen.add_instr(emitter::InstructionARM64(enc), i_rec);
     }
+    if (!bonus.ops.empty()) {
+      m_gen.reset_arm64_goal_memory_reuse();
+    }
   }
+  m_gen.enable_arm64_goal_memory_reuse(false);
 
   if (frame_bytes > 0) {
     // add sp, sp, #frame_bytes

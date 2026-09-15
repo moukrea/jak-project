@@ -1,0 +1,204 @@
+{
+  "archives": 28,
+  "changed": 27,
+  "before_bytes": 235983360,
+  "after_bytes": 235955760,
+  "files": [
+    {
+      "file": "BEA.DGO",
+      "before_bytes": 10823104,
+      "after_bytes": 10822592,
+      "before_sha256": "aa964fb3b0591181070e2a192a007bafd16d3dbbd511e85ae32de57fe4b323cb",
+      "after_sha256": "750a87b0eff650bea6ff166b938bbe11b594dbdc149c4a8eab5bd28f4b639d07"
+    },
+    {
+      "file": "CIT.DGO",
+      "before_bytes": 10781248,
+      "after_bytes": 10780864,
+      "before_sha256": "1d9132f7514c9aa55e0be5ddb52000f572df6e3f4356d87826081d54cc836485",
+      "after_sha256": "f660dad451cea95152a0e23b3fa093cb07d4ea96defb52acb2f8420eaa348a48"
+    },
+    {
+      "file": "DAR.DGO",
+      "before_bytes": 6681344,
+      "after_bytes": 6681328,
+      "before_sha256": "39e86efe42d2f0b0c67fe50cb8001abf79e919cd831a1ef57b59b427e4effa0c",
+      "after_sha256": "cdaf3d58770af690dd521237699368a7796e8b93559f0ceec0a8a8994eadaa23"
+    },
+    {
+      "file": "DEM.DGO",
+      "before_bytes": 5599008,
+      "after_bytes": 5599008,
+      "before_sha256": "c26c01f8a96d42d1a5a4f663eda4fbbc64a8b4e34eca773004deb010a7005ad6",
+      "after_sha256": "5a0e474bc2dec6534908907268efb1af1142f10bad7c5ea9e12e17118ffb20c4"
+    },
+    {
+      "file": "ENGINE.CGO",
+      "before_bytes": 8498656,
+      "after_bytes": 8488720,
+      "before_sha256": "31ba5ad6a684a394257e26825a874c69a7304da122c2cc5bb95bbc5d93c449a2",
+      "after_sha256": "38d86013509d10e6d40cca8032343952b514393af246cd5ab94fcd7e03087bb4"
+    },
+    {
+      "file": "FIC.DGO",
+      "before_bytes": 7895904,
+      "after_bytes": 7895712,
+      "before_sha256": "364b8a4d949af56bd822a3b95f1b47902490291073f99ebe50b463d8f4553114",
+      "after_sha256": "c41bdcfe531d108a802e191097e68112e473817f3188e6eefc33a3f740989611"
+    },
+    {
+      "file": "FIN.DGO",
+      "before_bytes": 9520064,
+      "after_bytes": 9519824,
+      "before_sha256": "db8fd89b7fb8c85612d1803402d358cfc4832c89b8e2a0ba6ae4b4601ad6aedd",
+      "after_sha256": "f4a69e5827433ed96495427807faa371459e9481049caf334ffb09969a37ab2d"
+    },
+    {
+      "file": "GAME.CGO",
+      "before_bytes": 12124768,
+      "after_bytes": 12113952,
+      "before_sha256": "6d72849da810f976700d6d370d44545f572ba53d89e4d16e74a7965425cc817b",
+      "after_sha256": "4f5c0585e962c98c6a4df67a5320954707d7a0d0f1cf12128dd866b5c911edaf"
+    },
+    {
+      "file": "INT.DGO",
+      "before_bytes": 1656624,
+      "after_bytes": 1656608,
+      "before_sha256": "ef05e239646677041d3a2c7395f469a7ccc69924ca4383947fcd12faa0d94666",
+      "after_sha256": "6262464e9441534c778979b288e7dfb1857d9e19dc455e385baa2883708ff792"
+    },
+    {
+      "file": "JUB.DGO",
+      "before_bytes": 4302512,
+      "after_bytes": 4302400,
+      "before_sha256": "e0ab77a7a9178bf920b30fb0e3d3dcd5b9d9efb3bc7e4f36e6d3e372147ba12f",
+      "after_sha256": "49bbde4d5094120dfd1f70c68f5f7c08218f84c83d2558acec96a783bb220fc0"
+    },
+    {
+      "file": "JUN.DGO",
+      "before_bytes": 10513648,
+      "after_bytes": 10513024,
+      "before_sha256": "c755bfb5c831ed918d28844c8263c355885b27e1c93fade8d49f9521fa69d282",
+      "after_sha256": "e8912365b97cfb03bf767b7d523b52ecf633fd8fc2f65c78917206e9a30ac024"
+    },
+    {
+      "file": "KERNEL.CGO",
+      "before_bytes": 137328,
+      "after_bytes": 137184,
+      "before_sha256": "c67e3f17e9c305c14ba9765a0a4e94b1ae8c9aad551428f5443d2494039ea1d9",
+      "after_sha256": "5ef4082914c7206871ac2dc10451c120d0023499a06491c84b44493a777e8b9b"
+    },
+    {
+      "file": "LAV.DGO",
+      "before_bytes": 11439424,
+      "after_bytes": 11439152,
+      "before_sha256": "ae4b49a937d405720a59b46fbb0c4d717c31ccf7e3674b93676587dbc45a85ca",
+      "after_sha256": "445c58d088a88be98349ead2ba3d1e2ba4939b3b02c39a31e25270be8742950b"
+    },
+    {
+      "file": "MAI.DGO",
+      "before_bytes": 10582912,
+      "after_bytes": 10582336,
+      "before_sha256": "651e85005037a6643956ddc0f75eaabe47e93aa2a3e1410e9405898949050169",
+      "after_sha256": "73f9dec53ca9d08a3437449b07f9e2455d15cbdef67d8a25269ab83642d4738d"
+    },
+    {
+      "file": "MIS.DGO",
+      "before_bytes": 11694464,
+      "after_bytes": 11693920,
+      "before_sha256": "2fab849eaa4cee8aa8b6c2faf885b0dfed60d13312d4e0b1a47f951478ec58f7",
+      "after_sha256": "32672cfc457a6bf5dbfe632d8b392c65ebd62474f629c50acdd70b4d3cefccfa"
+    },
+    {
+      "file": "OGR.DGO",
+      "before_bytes": 11243840,
+      "after_bytes": 11243184,
+      "before_sha256": "d9f167830b9c547ae18d5bb6165433656f10357b7995715475e9df7717990a4a",
+      "after_sha256": "7e6c65099aede1d04c4d5028803f3e4f70917e1466b0effd96d87242c8b8bc26"
+    },
+    {
+      "file": "ROB.DGO",
+      "before_bytes": 10533600,
+      "after_bytes": 10533552,
+      "before_sha256": "2642accf6d7b104f9fbda66d7c2f57a5709abc69e017e7d72064257d7bf5b8ef",
+      "after_sha256": "01818daf2da172ee6f604480b0674488dfe8409767e29e730258fc28170b3a2a"
+    },
+    {
+      "file": "ROL.DGO",
+      "before_bytes": 11564720,
+      "after_bytes": 11564368,
+      "before_sha256": "59050a93376de61259ec3f1ba711b320e860198ae21097dd0be573897ec8e2db",
+      "after_sha256": "7e0b0a689a0de897b0afff15cc20c6b3b584f48618e69bbaa2d7549d5a09e5f3"
+    },
+    {
+      "file": "SNO.DGO",
+      "before_bytes": 11552144,
+      "after_bytes": 11551616,
+      "before_sha256": "be72020c02099a8e06145ee48fe58047489fcc10a63b3a8d125ac3c7e49df8b0",
+      "after_sha256": "47aeb48219ba4090cdef8a139b8326095365b0f12a251d1d55d5be5365d25eb3"
+    },
+    {
+      "file": "SUB.DGO",
+      "before_bytes": 4812512,
+      "after_bytes": 4812512,
+      "before_sha256": "c878310a25870d817cd035ac2ffff056c25e0aaaa90029b874d6bbad5d167a36",
+      "after_sha256": "c878310a25870d817cd035ac2ffff056c25e0aaaa90029b874d6bbad5d167a36"
+    },
+    {
+      "file": "SUN.DGO",
+      "before_bytes": 10456864,
+      "after_bytes": 10456304,
+      "before_sha256": "9dfa10bad9206815a55432b0a1ca5c2bada3d6ca65b8b61d03dba6a300b5bb09",
+      "after_sha256": "4c63c79167b844ce09e31c0d80f7b94ae55e821bea140d048522b312c66fc780"
+    },
+    {
+      "file": "SWA.DGO",
+      "before_bytes": 9696384,
+      "after_bytes": 9696096,
+      "before_sha256": "5ba83b699dc41ccca98701ea4cdd7d6e139dd08fa4c812af2843ef9cb325e546",
+      "after_sha256": "f0b193d22211dd01807411513195cce214b4efdff77ea1462cf5d92eff37f5bb"
+    },
+    {
+      "file": "TIT.DGO",
+      "before_bytes": 1368928,
+      "after_bytes": 1368880,
+      "before_sha256": "780b01e64cd2d85ec2428454359eb58870b1e240e84637cb8861b8bcfe62271b",
+      "after_sha256": "8bbc0273af10527da2ac3551e03b00d196885e1b7404d4f7374255203aeffea5"
+    },
+    {
+      "file": "TRA.DGO",
+      "before_bytes": 6803184,
+      "after_bytes": 6803152,
+      "before_sha256": "797f1eefcf626c33744183f180b6c575b42480836d36feff02beb9c01551e76c",
+      "after_sha256": "daa3495cf006fc08920f62db74ae17b070b4389d05dd683c81f61770213a5e27"
+    },
+    {
+      "file": "TSZ.DGO",
+      "before_bytes": 2015184,
+      "after_bytes": 2015168,
+      "before_sha256": "d9bd66b152953bc9e989ca087a59fc43b5c4ed0e124ba4d9587d9c9c2eec1590",
+      "after_sha256": "15a8e0bb03cffb000fc30f6bbb1eef1b79a904303eeef097bf54e7a0a6f069e9"
+    },
+    {
+      "file": "VI1.DGO",
+      "before_bytes": 11551280,
+      "after_bytes": 11550944,
+      "before_sha256": "247ca1bdf6f86e3401642c6d0ea4f4483c6f1b3bc0fd99e7889d779cf3a665f9",
+      "after_sha256": "405d84eccbd66bfdddbc1010b122a22d8e5d34d3ca7a1e0b92176febd8d43969"
+    },
+    {
+      "file": "VI2.DGO",
+      "before_bytes": 11100592,
+      "after_bytes": 11100352,
+      "before_sha256": "accd83af7ea8d6c9fd16f1c11ad18e28d5c2472bd1ef6f05a2f32302cbeba67e",
+      "after_sha256": "bc8673c4192fd8dfc57e9f37e4d681d2e8573c47ebc51af75e5192103d601944"
+    },
+    {
+      "file": "VI3.DGO",
+      "before_bytes": 11033120,
+      "after_bytes": 11033008,
+      "before_sha256": "a62c07c1ae6f50d6c240a403f78f5df0f9a2c2dbb4783ae2f63abea98210c18e",
+      "after_sha256": "8458dfe749b182bcb58ad87de0b4eecf45a879abc7a8c46135a0b4cadcba2af0"
+    }
+  ]
+}

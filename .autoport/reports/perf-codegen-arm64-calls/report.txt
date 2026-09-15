@@ -1,29 +1,30 @@
 DIRECTIVES vd321fc8caf
-Verdict : essai5 non validé ; diagnostic précisé, aucune correction justifiée ni nouvelle preuve USB.
-Changement : notes/a5, FINDINGS et handoff ; aucune modification de source ni de référence.
-USB eae4df44 disponible via pick_device.sh ; aucun build ni rejeu inchangé relancé.
+Verdict : lot non validé (codegen_lot_defects=1) ; mutualisation mémoire livrée, preuve USB fraîche essai6.
+Changement : X16 réutilisé entre accès GOAL contigus admissibles, avant placement/relocalisations.
+Barrières : branches, spills, autres IR, base écrasée ; fonctions indirectes/asm exclues.
+Tests : 469 assertions sur 252 cas ; fonctions GOAL complètes x86/QEMU : 142/142 et 168/168.
+Build : goalc ARM64+x86  ; 1324 cibles GOAL ;GAME/ENGINE vérifiés grep-a (2193/2034 prologues).
+Livraison : APK installé sur eae4df44  ; 28/28 CGO/DGO et 23 banques texte vérifiés identiques.
+Archives : 27 600 octets de moins, sans prétendre mesurer un gain de temps.
 
-Huit lignes du proof.txt HISTORIQUE ESSAI3, pas une preuve de cet essai5 :
+Huit lignes de proof.txt produit par proof_run.sh, essai6, course du 2026-09-15T02:34:43Z :
 source=device
 serial=eae4df44
-frames=5100
+frames=4980
 crash=0
 codegen_call_sites=47
 codegen_call_max_instructions=2
-refset_replay_maxdiff=57
+refset_replay_maxdiff=255
 codegen_lot_defects=1
 
-Nouveau : C27995/render608 et R28236/render607, mêmes payloads HDSKINEV medres-jungle1-lod0.
-C28005/render609 et R28246/render608 confirment le décalage des événements imprimés.
-Ces événements arrondis/plafonnés ne prouvent pas le début d'activation ni une pose complète.
-Scan vérifié de368 assets : seul medres-jungle1-idle a le taux quantifié273 de la sonde.
-Attribution probable seulement : base runtime et lien squelette/process absents des traces.
-Correction du handoff : chan.parent est joint-control ; group-sub-index n'est pas l'index canal.
-Hash vérifié :46291sites départ>16380,58563autres ; exceptions des noms fixes à traiter.
-Un repli à4 instructions pour ces candidats ne justifie pas un gain ; non implémenté.
-Preuve/seal et référence a2 conservées : quatre empreintes inchangées, notes/a5.
-Owner : aucun nouveau build à examiner ; aucun owner-ok ni succès revendiqué.
-non prouvé : identité du canal, activation, causalité RGB/codegen et répétabilité du rejeu.
-non prouvé : dynamiques proches1 instruction, mutualisation des bases non nulles, gain goal_busy_ms.
-non prouvé : parité avant/après et acquis complets ; le livrable reste incomplet.
-La porte generic.sh appartient à l'orchestrateur ; elle n'a pas été lancée par ce worker.
+Course unique demandée 120 s, durée harnais 132 s ; 5 marqueurs complets, 14 props effectives et 0 perdue.
+Le rejet est refset_provenance_origine_h09=data, refset_provenance_bad=1 ;255 n'est pas un écart RGB mesuré.
+La provenance inclut les CGO :data passe de 4eabb0fc1e6d0a6c à d854ac9ec1a0ee00.
+Référence a2 et son empreinte 3a1feecef859c3a1 conservées ; aucune recapture ni modification du juge.
+Il faut un arbitrage du contrat de référence pour comparer une émission différente ; aucun rejeu inchangé utile.
+Pour l'owner : APK livré, jouabilité habituelle en village1-hut à examiner ; aucun owner-ok fabriqué.
+non prouvé : parité/répétabilité du rendu, acquis complets et baisse goal_busy_ms (course : 19.477 ms).
+non prouvé : attribution animation de l'ancien écart 57/550 ; aucun diagnostic runtime neuf ajouté.
+Incomplet : symboles dynamiques proches en 1 instruction ; relaxation nécessitant métadonnées/fixups nouveaux.
+non prouvé : couverture exhaustive branches/spills et fréquence exécutée des accès mutualisés.
+FINDINGS et handoff écrits ; generic.sh laissé à l'orchestrateur, aucun statut backlog modifié par ce worker.

@@ -1,0 +1,44 @@
+
+/home/emeric/code/jak-project/.autoport/reports/perf-codegen-arm64-calls/notes/a6/cg-memory-shared.arm64.elf:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000400078 <_start>:
+  400078:	d2880000 	mov	x0, #0x4000                	// #16384
+  40007c:	d370bc00 	lsl	x0, x0, #16
+  400080:	d2a00021 	mov	x1, #0x10000               	// #65536
+  400084:	d2800062 	mov	x2, #0x3                   	// #3
+  400088:	d2800643 	mov	x3, #0x32                  	// #50
+  40008c:	92800004 	mov	x4, #0xffffffffffffffff    	// #-1
+  400090:	d2800005 	mov	x5, #0x0                   	// #0
+  400094:	d2801bc8 	mov	x8, #0xde                  	// #222
+  400098:	d4000001 	svc	#0x0
+  40009c:	d2800004 	mov	x4, #0x0                   	// #0
+  4000a0:	d280000f 	mov	x15, #0x0                   	// #0
+  4000a4:	d2800016 	mov	x22, #0x0                   	// #0
+  4000a8:	94000003 	bl	4000b4 <test_fn>
+  4000ac:	d2800ba8 	mov	x8, #0x5d                  	// #93
+  4000b0:	d4000001 	svc	#0x0
+
+00000000004000b4 <test_fn>:
+  4000b4:	a9bf7bfd 	stp	x29, x30, [sp, #-16]!
+  4000b8:	910003fd 	mov	x29, sp
+  4000bc:	d2800009 	mov	x9, #0x0                   	// #0
+  4000c0:	f2a80009 	movk	x9, #0x4000, lsl #16
+  4000c4:	aa0903e9 	mov	x9, x9
+  4000c8:	aa0903e9 	mov	x9, x9
+  4000cc:	d2800c88 	mov	x8, #0x64                  	// #100
+  4000d0:	8b0f0130 	add	x16, x9, x15
+  4000d4:	b9000608 	str	w8, [x16, #4]
+  4000d8:	d2800548 	mov	x8, #0x2a                  	// #42
+  4000dc:	8b0f0130 	add	x16, x9, x15
+  4000e0:	b9000a08 	str	w8, [x16, #8]
+  4000e4:	b9800600 	ldrsw	x0, [x16, #4]
+  4000e8:	aa0003e0 	mov	x0, x0
+  4000ec:	8b0f0130 	add	x16, x9, x15
+  4000f0:	b9800a09 	ldrsw	x9, [x16, #8]
+  4000f4:	8b090000 	add	x0, x0, x9
+  4000f8:	aa0003e0 	mov	x0, x0
+  4000fc:	a8c17bfd 	ldp	x29, x30, [sp], #16
+  400100:	d65f03c0 	ret

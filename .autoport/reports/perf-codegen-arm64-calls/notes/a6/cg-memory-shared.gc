@@ -1,0 +1,6 @@
+;; Nonzero field accesses with a store-to-load shared base; expected 142.
+(defun test-cg-memory-shared ()
+  (let ((buf (the (pointer int32) #x40000000)))
+    (set! (-> buf 1) 100)
+    (set! (-> buf 2) 42)
+    (+ (-> buf 1) (-> buf 2))))

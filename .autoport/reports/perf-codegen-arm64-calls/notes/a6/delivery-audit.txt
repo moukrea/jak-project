@@ -1,0 +1,33 @@
+DIRECTIVES vd321fc8caf
+Audit livraison essai6, lecture seule hors ce fichier. UTC 2026-09-15T02:19:24.079036+00:00
+Verdict : USB disponible ; fraîcheur après changement codegen non prouvée ; aucune exécution du jeu.
+pick_device.sh rc=0 serial=eae4df44 ; lsusb 001:040 2717:ff48 Xiaomi Mi/Redmi MTP+ADB.
+adb -s eae4df44 getprop : Xiaomi / Redmi Note 9 Pro / joyeuse.
+Instantané processus : auto_push_builds PID59525 PPID1158 Ss ; auto_build_apk PID311261 PPID1158 Ss.
+GradleDaemon PID304415 et925845 présents ; aucun ninja/cmake/goalc/installation actif observé ; adb serveur PID954844.
+lslocks : .auto_build_apk.lock détenu PID311261 ; .delivery-artifacts.lock non détenu ; .deploy-in-progress absent.
+kill -0 59525: vivant
+kill -0 311261: vivant
+kill -0 3254618: absent ; .refset-campaign.lock contient ce PID périmé, non supprimé.
+build-arm64/goalc/goalc | mtime_UTC=2026-09-15T01:22:15.092459+00:00 | bytes=9186568 | sha256=6af735bd60a859c957bc5aad201d793ee7d17e2a19670d7f52c379baf1916e2c
+build-android/lib/arm64-v8a/libgk.so | mtime_UTC=2026-09-15T01:22:10.562376+00:00 | bytes=17013240 | sha256=0650799f8e3323e8aa8eaa6c535860eba0d108b2a422becfaf33fdb50cd81031
+android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk | mtime_UTC=2026-09-15T01:24:31.021958+00:00 | bytes=1132944812 | sha256=9df5be39c519a4983b410812fe2f0b8c7f6967fcf7418de8f9cc2a9c15e16664
+out/jak1-arm64-full/iso/GAME.CGO | mtime_UTC=2026-09-15T01:23:02.803336+00:00 | bytes=12124768 | sha256=6d72849da810f976700d6d370d44545f572ba53d89e4d16e74a7965425cc817b
+out/jak1-arm64-full/iso/ENGINE.CGO | mtime_UTC=2026-09-15T01:23:02.337327+00:00 | bytes=8498656 | sha256=31ba5ad6a684a394257e26825a874c69a7304da122c2cc5bb95bbc5d93c449a2
+.autoport/reports/perf-codegen-arm64-calls/proof.txt | mtime_UTC=2026-09-15T01:47:02.670659+00:00 | bytes=55683 | sha256=90d1e8136841df0be303ee9be2f3f22d67505047a984f99b298919bca363a26d
+.autoport/reports/perf-codegen-arm64-calls/proof.seal | mtime_UTC=2026-09-15T01:47:02.680659+00:00 | bytes=211 | sha256=64bcffe6c1fc6eb00f324f6ffdd7daf763198d01337bedab14dccd4de19b358d
+Comparaison a3 : libgk=True ; proof=True ; seal=True
+Comparaison a5 : proof=True ; seal=True ; références image/provenance non rehachées (hors audit livraison).
+a3/a5 ne contiennent aucune empreinte goalc/APK/GAME.CGO/ENGINE.CGO : comparaison historique de ces fichiers impossible.
+adb -s eae4df44 shell pm path org.opengoal.gk.jak1 rc=0 : /data/app/~~TusMG8TcZkYb_sP4cCuBGA==/org.opengoal.gk.jak1-QUUxqQyOP3TV5LU7lPessw==/base.apk
+adb -s eae4df44 shell sha256sum APK/libgk rc=0: 9df5be39c519a4983b410812fe2f0b8c7f6967fcf7418de8f9cc2a9c15e16664  /data/app/~~TusMG8TcZkYb_sP4cCuBGA==/org.opengoal.gk.jak1-QUUxqQyOP3TV5LU7lPessw==/base.apk ; 0650799f8e3323e8aa8eaa6c535860eba0d108b2a422becfaf33fdb50cd81031  /data/app/~~TusMG8TcZkYb_sP4cCuBGA==/org.opengoal.gk.jak1-QUUxqQyOP3TV5LU7lPessw==/lib/arm64/libgk.so
+adb -s eae4df44 shell stat APK/libgk rc=0: 2026-09-15 03:25:02.796974246 +0200 1132944812 /data/app/~~TusMG8TcZkYb_sP4cCuBGA==/org.opengoal.gk.jak1-QUUxqQyOP3TV5LU7lPessw==/base.apk ; 1981-01-01 01:01:02.000000000 +0100 17013240 /data/app/~~TusMG8TcZkYb_sP4cCuBGA==/org.opengoal.gk.jak1-QUUxqQyOP3TV5LU7lPessw==/lib/arm64/libgk.so
+adb -s eae4df44 shell run-as sha256sum CGO rc=0: 6d72849da810f976700d6d370d44545f572ba53d89e4d16e74a7965425cc817b  files/cgo/jak1/GAME.CGO ; 31ba5ad6a684a394257e26825a874c69a7304da122c2cc5bb95bbc5d93c449a2  files/cgo/jak1/ENGINE.CGO
+APK local lib/arm64-v8a/libgk.so sha256=0650799f8e3323e8aa8eaa6c535860eba0d108b2a422becfaf33fdb50cd81031
+proof.txt reste HISTORIQUE essai3 : started_at=2026-09-15T01:44:48Z, duration_s=133, proof_attempt_id=perf-codegen-arm64-calls@3#1789436561 ; aucune preuve essai6 créée.
+Après changement codegen : rebâtir goalc ARM64 (arbre build-arm64 existant), régénérer ensemble CGO/DGO ARM64 impactés, dont GAME/ENGINE ; vérifier marqueur neuf grep -a dans les deux.
+Si moteur/header sérialisé changé : rebâtir compilateurs concernés et libgk via build-android ; assembler APK cohérent et livrer par harnais, vérifier empreintes locales/appareil avant preuve.
+Attendre absence activité/verrou de livraison ; sélectionner USB épinglé eae4df44 ; préserver référence a2, aucune nouvelle capture autorisée par cet audit.
+Coût minimal restant : compilation incrémentale goalc + régénération GOAL/pack + livraison ; durée build non mesurée. Puis un run court via lib/proof_run.sh selon plan courant ; historique essai3 133 s, plafond item600 s.
+Le proof_plan autorise capture unique a2 et rejeu plafonnés120 s ; ne pas inventer une recapture après modification : arbitrage du manager requis sur référence admissible.
+Non prouvé : nouvelle fraîcheur source→goalc→CGO après modification, parité RGB, identité runtime animation, gain goal_busy_ms ; aucun validateur exécuté.
