@@ -1,0 +1,72 @@
+$ aarch64-linux-gnu-nm -S /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-arm-clang
+0000000000034eb0 0000000000000008 d DW.ref.__gxx_personality_v0
+0000000000001510 r GCC_except_table0
+0000000000001580 r GCC_except_table0
+00000000000014e0 r GCC_except_table1
+0000000000001534 r GCC_except_table1
+00000000000015b0 r GCC_except_table1
+0000000000001548 r GCC_except_table2
+00000000000015c4 r GCC_except_table2
+000000000000156c r GCC_except_table3
+00000000000015e8 r GCC_except_table3
+0000000000024c88 d _DYNAMIC
+                 w _ITM_deregisterTMCloneTable
+                 w _ITM_registerTMCloneTable
+                 U _Unwind_Resume
+0000000000012dd8 000000000000003c T _Z21private_assert_failedPKcS0_iS0_S0_
+                 U _ZNSt6chrono3_V212steady_clock3nowEv
+0000000000024c58 0000000000000010 V _ZTI8Boundary
+0000000000000e20 000000000000000a V _ZTS8Boundary
+                 U _ZTVN10__cxxabiv117__class_type_infoE
+0000000000024c68 0000000000000020 d _ZZL10route_namejE5names
+0000000000001668 r __FRAME_END__
+0000000000034ea0 d __TMC_END__
+0000000000034ea0 d __TMC_LIST__
+0000000000035148 0000000000000001 b __aarch64_have_lse_atomics
+0000000000014a50 0000000000000030 t __aarch64_ldadd8_relax
+00000000000002c4 0000000000000020 r __abi_tag
+                 U __cxa_allocate_exception
+                 U __cxa_begin_catch
+                 U __cxa_end_catch
+                 w __cxa_finalize
+                 U __cxa_throw
+00000000000119c0 t __do_global_dtors_aux
+0000000000024c40 d __do_global_dtors_aux_fini_array_entry
+0000000000034ea0 d __dso_handle
+0000000000024c48 d __frame_dummy_init_array_entry
+                 U __getauxval
+                 w __gmon_start__
+                 U __gxx_personality_v0
+                 U __libc_start_main
+0000000000011a14 0000000000000090 T _call_goal8_asm_systemv
+0000000000014abc t _fini
+0000000000014aa4 t _init
+0000000000011900 0000000000000034 T _start
+                 U abort
+                 U bcmp
+0000000000011934 0000000000000014 t call_weak_fn
+0000000000034f78 0000000000000001 b completed.0
+0000000000011950 t deregister_tm_clones
+                 U fclose
+                 U ferror
+                 U fopen
+                 U fprintf
+0000000000011a10 t frame_dummy
+0000000000035128 0000000000000020 B full_after_cache
+0000000000013c24 0000000000000e24 T full_after_execute
+0000000000035068 00000000000000c0 B full_after_g_spart_prof
+0000000000035048 0000000000000020 B full_before_cache
+0000000000012e14 0000000000000e10 T full_before_execute
+0000000000034f88 00000000000000c0 B full_before_g_spart_prof
+                 U fwrite
+0000000000034f80 0000000000000008 B g_ee_main_mem
+0000000000014a80 0000000000000024 t init_have_lse_atomics
+0000000000011aa4 0000000000001334 T main
+                 U memcpy
+                 U memset
+                 U perror
+                 U printf
+0000000000011980 t register_tm_clones
+                 U stderr
+
+EXIT 0

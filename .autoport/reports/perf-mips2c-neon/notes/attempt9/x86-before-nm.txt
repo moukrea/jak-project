@@ -1,0 +1,42 @@
+$ nm -S /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before.o
+0000000000000000 r .LC11
+0000000000000004 r .LC15
+0000000000000008 r .LC16
+000000000000000c r .LC17
+0000000000000010 r .LC18
+0000000000000000 r .LC22
+0000000000000010 r .LC28
+                 U _Unwind_Resume
+                 U _Z21private_assert_failedPKcS0_iS0_S0_
+                 U _ZN4jak113intern_from_cEPKc
+                 U _ZN6Mips2C19LinkedFunctionTable3regERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFmPvEj
+                 U _ZN6Mips2C20gLinkedFunctionTableE
+0000000000000000 0000000000000119 T _ZN6Mips2C4jak119sp_process_block_2d4linkEv
+0000000000000000 000000000000002c t _ZN6Mips2C4jak119sp_process_block_2d4linkEv.cold
+0000000000000000 0000000000000020 B _ZN6Mips2C4jak119sp_process_block_2d5cacheE
+0000000000000000 0000000000001842 T _ZN6Mips2C4jak119sp_process_block_2d7executeEPv
+0000000000000000 0000000000000119 T _ZN6Mips2C4jak119sp_process_block_3d4linkEv
+0000000000000000 000000000000002c t _ZN6Mips2C4jak119sp_process_block_3d4linkEv.cold
+0000000000000000 0000000000000020 B _ZN6Mips2C4jak119sp_process_block_3d5cacheE
+0000000000000000 0000000000001303 T _ZN6Mips2C4jak119sp_process_block_3d7executeEPv
+0000000000000000 00000000000000c4 t _ZN6Mips2C4jak1L21geco_spart_dump_armedEv
+0000000000000000 0000000000000004 b _ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count
+0000000000000000 0000000000000004 b _ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_0
+0000000000000000 0000000000000004 b _ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_1
+0000000000000000 0000000000000004 b _ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_2
+0000000000000000 0000000000000008 d _ZZN6Mips2C4jak1L21geco_spart_dump_armedEvE7s_delay
+                 U _ZdlPvm
+                 U _Znwm
+                 U __gxx_personality_v0
+                 U __isoc23_strtol
+                 U _call_goal8_asm_systemv
+                 U fflush
+                 U g_ee_main_mem
+0000000000000000 0000000000000001 B g_perf_2dvec_off
+0000000000000000 00000000000000c0 B g_spart_prof
+                 U getenv
+                 U printf
+                 U stdout
+                 U time
+
+EXIT 0

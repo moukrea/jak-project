@@ -1,0 +1,324 @@
+$ qemu-aarch64 -L /usr/aarch64-linux-gnu .autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-arm-clang .autoport/reports/perf-mips2c-neon/notes/attempt9/arm-clang-cases.csv
+CASE id=472 sample=13 s4=64 s5=256 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf0.0 before=ff800000 after=ff800000
+vf0.1 before=ff800000 after=ff800000
+vf0.2 before=ff800000 after=ff800000
+vf0.3 before=ff800000 after=ff800000
+vf1.0 before=ff800000 after=ff800000
+vf1.1 before=ff800000 after=ff800000
+vf1.2 before=ff800000 after=ff800000
+vf1.3 before=ff800000 after=ff800000
+vf2.0 before=ff800000 after=ff800000
+vf2.1 before=ff800000 after=ff800000
+vf2.2 before=ff800000 after=ff800000
+vf2.3 before=ff800000 after=ff800000
+vf3.0 before=ff800000 after=ff800000
+vf3.1 before=ff800000 after=ff800000
+vf3.2 before=ff800000 after=ff800000
+vf3.3 before=ff800000 after=ff800000
+vf4.0 before=ff800000 after=ff800000
+vf4.1 before=ff800000 after=ff800000
+vf4.2 before=ff800000 after=ff800000
+vf4.3 before=ff800000 after=ff800000
+vf5.0 before=ff800000 after=ff800000
+vf5.1 before=ff800000 after=ff800000
+vf5.2 before=ff800000 after=ff800000
+vf5.3 before=ff800000 after=ff800000
+vf6.0 before=ff800000 after=ff800000
+vf6.1 before=ff800000 after=ff800000
+vf6.2 before=ff800000 after=ff800000
+vf6.3 before=ff800000 after=ff800000
+vf7.0 before=ff800000 after=ff800000
+vf7.1 before=ff800000 after=ff800000
+vf7.2 before=ff800000 after=ff800000
+vf7.3 before=ff800000 after=ff800000
+vf8.0 before=7fc00000 after=7fc00000
+vf8.1 before=7fc00000 after=7fc00000
+vf8.2 before=7fc00000 after=7fc12345
+vf8.3 before=7fc00000 after=7fc00000
+vf9.0 before=ff800000 after=ff800000
+vf9.1 before=ff800000 after=ff800000
+vf9.2 before=ff800000 after=ff800000
+vf9.3 before=7fc00000 after=7fc00000
+vf10.0 before=7fc00000 after=7fc00000
+vf10.1 before=7fc00000 after=7fc00000
+vf10.2 before=7fc00000 after=7fc00000
+vf10.3 before=7fc00000 after=7fc00000
+vf11.0 before=7fc00000 after=7fc00000
+vf11.1 before=7fc00000 after=7fc00000
+vf11.2 before=7fc00000 after=7fc12345
+vf11.3 before=ff800000 after=ff800000
+vf12.0 before=ff800000 after=ff800000
+vf12.1 before=ff800000 after=ff800000
+vf12.2 before=ff800000 after=ff800000
+vf12.3 before=ff800000 after=ff800000
+vf13.0 before=ff800000 after=ff800000
+vf13.1 before=ff800000 after=ff800000
+vf13.2 before=ff800000 after=ff800000
+vf13.3 before=ff800000 after=ff800000
+vf14.0 before=7f800000 after=7f800000
+vf14.1 before=7f800000 after=7f800000
+vf14.2 before=7f800000 after=7f800000
+vf14.3 before=7f800000 after=7f800000
+vf15.0 before=7fc12345 after=7fc12345
+vf15.1 before=7fc00000 after=7fc00000
+vf15.2 before=7fc00000 after=7fc00000
+vf15.3 before=7fc12345 after=7fc12345
+vf16.0 before=ff800000 after=ff800000
+vf16.1 before=ff800000 after=ff800000
+vf16.2 before=ff800000 after=ff800000
+vf16.3 before=ff800000 after=ff800000
+vf17.0 before=7fc00000 after=7fc00000
+vf17.1 before=7fc00000 after=7fc00000
+vf17.2 before=7fc00000 after=7fc12345
+vf17.3 before=7f800000 after=7f800000
+vf18.0 before=7f800000 after=7f800000
+vf18.1 before=7f800000 after=7f800000
+vf18.2 before=7f800000 after=7f800000
+vf18.3 before=7f800000 after=7f800000
+vf19.0 before=7f800000 after=7f800000
+vf19.1 before=7f800000 after=7f800000
+vf19.2 before=7f800000 after=7f800000
+vf19.3 before=7f800000 after=7f800000
+vf20.0 before=ff800000 after=ff800000
+vf20.1 before=ff800000 after=ff800000
+vf20.2 before=ff800000 after=ff800000
+vf20.3 before=ff800000 after=ff800000
+vf21.0 before=ff800000 after=ff800000
+vf21.1 before=ff800000 after=ff800000
+vf21.2 before=ff800000 after=ff800000
+vf21.3 before=ff800000 after=ff800000
+vf22.0 before=ff800000 after=ff800000
+vf22.1 before=ff800000 after=ff800000
+vf22.2 before=ff800000 after=ff800000
+vf22.3 before=ff800000 after=ff800000
+vf23.0 before=ff800000 after=ff800000
+vf23.1 before=ff800000 after=ff800000
+vf23.2 before=ff800000 after=ff800000
+vf23.3 before=ff800000 after=ff800000
+vf24.0 before=ff800000 after=ff800000
+vf24.1 before=ff800000 after=ff800000
+vf24.2 before=ff800000 after=ff800000
+vf24.3 before=ff800000 after=ff800000
+vf25.0 before=ff800000 after=ff800000
+vf25.1 before=ff800000 after=ff800000
+vf25.2 before=ff800000 after=ff800000
+vf25.3 before=ff800000 after=ff800000
+vf26.0 before=ff800000 after=ff800000
+vf26.1 before=ff800000 after=ff800000
+vf26.2 before=ff800000 after=ff800000
+vf26.3 before=ff800000 after=ff800000
+vf27.0 before=ff800000 after=ff800000
+vf27.1 before=ff800000 after=ff800000
+vf27.2 before=ff800000 after=ff800000
+vf27.3 before=ff800000 after=ff800000
+vf28.0 before=ff800000 after=ff800000
+vf28.1 before=ff800000 after=ff800000
+vf28.2 before=ff800000 after=ff800000
+vf28.3 before=ff800000 after=ff800000
+vf29.0 before=ff800000 after=ff800000
+vf29.1 before=ff800000 after=ff800000
+vf29.2 before=ff800000 after=ff800000
+vf29.3 before=ff800000 after=ff800000
+vf30.0 before=ff800000 after=ff800000
+vf30.1 before=ff800000 after=ff800000
+vf30.2 before=ff800000 after=ff800000
+vf30.3 before=ff800000 after=ff800000
+vf31.0 before=ff800000 after=ff800000
+vf31.1 before=ff800000 after=ff800000
+vf31.2 before=ff800000 after=ff800000
+vf31.3 before=ff800000 after=ff800000
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000150 after=0000000000000150
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=473 sample=13 s4=64 s5=256 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000150 after=0000000000000150
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=478 sample=13 s4=64 s5=64 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000090 after=0000000000000090
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=479 sample=13 s4=64 s5=64 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000090 after=0000000000000090
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=484 sample=13 s4=64 s5=48 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000080 after=0000000000000080
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=485 sample=13 s4=64 s5=48 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000080 after=0000000000000080
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=490 sample=13 s4=64 s5=80 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=00000000000000a0 after=00000000000000a0
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=491 sample=13 s4=64 s5=80 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=00000000000000a0 after=00000000000000a0
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=496 sample=13 s4=128 s5=64 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=88 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000090 after=0000000000000090
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=497 sample=13 s4=128 s5=64 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=88 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=0000000000000090 after=0000000000000090
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=502 sample=13 s4=64 s5=128 fade=7fc12345 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=45
+memory_byte before=00 after=45
+vf8.2 before=7fc00000 after=7fc12345
+vf11.2 before=7fc00000 after=7fc12345
+vf17.2 before=7fc00000 after=7fc12345
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=00000000000000d0 after=00000000000000d0
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+CASE id=503 sample=13 s4=64 s5=128 fade=ff854321 before=quaternion after=quaternion context=1 memory=1 call=0 unexpected=0
+first_context_byte=776 context_size=1216 first_memory_byte=72 memory_size=4096
+context_byte before=00 after=21
+memory_byte before=00 after=21
+vf8.2 before=7fc00000 after=ffc54321
+vf11.2 before=7fc00000 after=ffc54321
+vf17.2 before=7fc00000 after=ffc54321
+call_goal before=2048 after=2048 zero=0/0 pp=0/0 st=768/768 offset_ok=1/1 return=0/0
+arg0 before=0000000000000f70 after=0000000000000f70
+arg1 before=0000000000000f70 after=0000000000000f70
+arg2 before=00000000000000d0 after=00000000000000d0
+arg3 before=0000000000000000 after=0000000000000000
+arg4 before=0000000000000001 after=0000000000000001
+arg5 before=0000000000000300 after=0000000000000300
+arg6 before=fdeb26bf5fb3ad06 after=fdeb26bf5fb3ad06
+arg7 before=76c90da3d89193ea after=76c90da3d89193ea
+LAB variant=before quaternion=5976 free=72 other=0 return=0
+LAB variant=after quaternion=5976 free=72 other=0 return=0
+LAB cases=6048 finite_memory_cases=2304 failures=335 context_defects=335 memory_defects=258 call_defects=0 unexpected=0 csv_io_error=0
+RESULT_SCOPE frontier_only RESULT DIFFERENCES
+
+EXIT 1

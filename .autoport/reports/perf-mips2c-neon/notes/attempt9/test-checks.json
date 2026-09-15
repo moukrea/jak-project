@@ -1,0 +1,74 @@
+{
+  "x86": {
+    "data_rows": 6048,
+    "rows_with_header": 6049,
+    "case_ids_contiguous": true,
+    "unexpected_rows": 0,
+    "paired_dependencies_equal": true,
+    "paired_header_dependency_count": 500,
+    "manifest_paired_dependencies_equal": true,
+    "case472": {
+      "case": "472",
+      "sample": "13",
+      "s4": "64",
+      "s5": "256",
+      "fade": "7fc12345",
+      "before_frontier": "quaternion",
+      "after_frontier": "quaternion",
+      "context_defect": "0",
+      "memory_defect": "0",
+      "call_defect": "0",
+      "unexpected": "0",
+      "before_goal": "2048",
+      "after_goal": "2048",
+      "before_vf11z": "ffc00000",
+      "after_vf11z": "ffc00000",
+      "before_return": "0",
+      "after_return": "0"
+    },
+    "before_frontiers": {
+      "free": 72,
+      "quaternion": 5976
+    },
+    "after_frontiers": {
+      "free": 72,
+      "quaternion": 5976
+    }
+  },
+  "arm-clang": {
+    "data_rows": 6048,
+    "rows_with_header": 6049,
+    "case_ids_contiguous": true,
+    "unexpected_rows": 0,
+    "paired_dependencies_equal": true,
+    "paired_header_dependency_count": 362,
+    "manifest_paired_dependencies_equal": true,
+    "case472": {
+      "case": "472",
+      "sample": "13",
+      "s4": "64",
+      "s5": "256",
+      "fade": "7fc12345",
+      "before_frontier": "quaternion",
+      "after_frontier": "quaternion",
+      "context_defect": "1",
+      "memory_defect": "1",
+      "call_defect": "0",
+      "unexpected": "0",
+      "before_goal": "2048",
+      "after_goal": "2048",
+      "before_vf11z": "7fc00000",
+      "after_vf11z": "7fc12345",
+      "before_return": "0",
+      "after_return": "0"
+    },
+    "before_frontiers": {
+      "free": 72,
+      "quaternion": 5976
+    },
+    "after_frontiers": {
+      "free": 72,
+      "quaternion": 5976
+    }
+  }
+}

@@ -1,24 +1,26 @@
 ## ÉTABLI
 DIRECTIVES vaff5c1afea
-Essai8 local terminé : cause sample13 attribuée, une correction testée puis rejetée ; aucune livraison.
-GDB x86/ARM QEMU exit0 : première différence vmulw.xyz vf11,vf11,vf15 lane z, ordre NaN inversé.
-x86 avant401938 ffc00000*7fc12345→ffc00000 ; après401be4 ordre inverse→7fc12345.
-ARM avant4013f8 7fc00000*7fc12345→7fc00000 ; après4015fc ordre inverse→7fc12345.
-Toutes étapes antérieures concordent ; notes/attempt8/trace/{findings.log,x86.log,arm.log}.
-Reproducer nan-order.cpp : six paires,5 différences x86,3 ARM GCC/Clang,aucun NaN normalisé.
-Attention : objet moteur x86 complet essai7 n’inverse pas z à ce site ; banc extrait sensible au contexte.
+Essai9 : qualification locale entrée complète→premier appel GOAL ; aucune livraison ni validation.
+Banc notes/attempt9/frontier-parity.cpp appelle TU complètes archives essai7, aucune extraction arithmétique.
+Objets x86 execute pré-relocalisation identiques essai7 ; objcopy conserve les octets des4 symboles.
+Quatre objets/deux liens exit0 ; dépendances communes identiques par paire ; manifestes et relocs conservés.
+Deux runs uniques6048 combinaisons adaptées :5976 quaternion après candidat +72 free avant candidat par variante.
+X86226 contextes/147 mémoires différents ; ARM Clang Linux/QEMU335/258 ; appels0,unexpected0 ; deux exit1.
+Cas472/sample13 : x86 aucun écart vf11.z ffc00000/ffc00000 ; ARM7fc00000/7fc12345 avec écarts contexte/mémoire.
+run-manifest.json, CSV exhaustifs,test-checks.json,codegen-byte-review.json dans notes/attempt9/.
+Sources moteur/ripple/preuve historique/validateur inchangés ; aucun appareil,proof_run,refset,déploiement ou validateur.
 ## TENTÉ
-Unique correction : publication vf11/vf15 + appel vmul_bc original + reprise r11, reste candidat inchangé.
-Comparateur6048 cas identique :343 défauts x86,163 ARM GCC,153 ARM Clang ; trois exit1.
-Trois bancs et quatre objets complets compilés exit0 ; tested-manifest.json,codegen intégral dans notes/attempt8.
-Symbole3D x864867→5069 octets, Android3740→3852 ; aucune utilité/gain exact démontré.
-Candidat rejeté conservé corrected-sparticle.cpp/corrected.patch ; jamais appliqué aux sources livrées.
-Moteur sparticle SHA93117b90c7b101bb47373369ef8fcb167b3180ccfcaeb816f83a449f1c36761b inchangé.
-Preuve historique/ripple/validateur préservés ; aucun appareil,proof_run,refset,déploiement ou validateur lancé.
+Comparateur intégral1216 octets contexte+4096 mémoire+adresse GOAL/8 arguments ; NaN et registres non filtrés.
+Adaptateurs ABI et métadonnées func/launcher/valid explicites ; timer/flags/alpha bruts conservés.
+Prologue v1 et collisions timer/couleur changent l’état avant bloc : totaux non directement comparables au banc extrait.
+Interception fail-closed du pont _call_goal8_asm_systemv capture puis throw, sans résultat de callback simulé.
+quaternion*! obligatoire après candidat ; vraie fonction GOAL dans quaternion.gc:253, aucun symbole C++ à lier seul.
+Retour complet non essayé : code GOAL chargé/relocalisé et environnement ABI absents du banc ; frontière nommée.
+Aucune optimisation nouvelle ni correction essai8 réessayée ; candidat reste rejeté par différences observées.
 ## RESTE
-Ne pas relancer les candidats essai7/8 inchangés ; le contrat à une correction est épuisé.
-La cause sample13 est désormais démontrée ; ne pas refaire sa découverte ni la sélection2D/3D.
-Une suite requiert une nouvelle borne explicite à partir de ces résultats ; aucun élargissement effectué.
-Trois optimisations actives/références origine qualifiées toujours nécessaires à livraison finale.
-non prouvé : gain matériel,parité en jeu600 images,hd-mtx-check-all,replay0,crash/non-régression/fraîcheur.
-Preuve.txt reste celle de l’essai1 et ne décrit pas l’essai8 ; dettes complètes dans FINDINGS.txt.
+Utiliser le banc complet/frontière explicite pour toute future comparaison, pas les blocs extraits comme oracle moteur.
+Ne pas relancer essai7/8 inchangés ni redécouvrir sample13 ;226/335 autres défauts non attribués instruction par instruction.
+Une certification du retour demanderait vraie dépendance GOAL ; aucune simulation no-op acceptable.
+non prouvé : callbacks/post-appel/retour, population en jeu, Android, gain matériel,600 images,hd-mtx-check-all,replay0.
+Trois optimisations actives et références origine qualifiées restent nécessaires à la livraison finale.
+Preuve.txt est toujours celle de l’essai1 ; elle ne décrit pas cet essai9. Voir FINDINGS.txt pour dettes persistantes.

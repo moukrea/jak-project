@@ -1,0 +1,6 @@
+{
+  "seed_source_exact": true,
+  "preservation_equal": true,
+  "x86_driver_matches_tested": true,
+  "arm-clang_driver_matches_tested": true
+}

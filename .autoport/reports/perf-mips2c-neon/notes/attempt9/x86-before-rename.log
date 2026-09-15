@@ -1,0 +1,3 @@
+$ objcopy --redefine-syms=/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-rename.txt /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before.o /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+
+EXIT 0

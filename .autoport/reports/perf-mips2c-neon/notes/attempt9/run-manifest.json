@@ -1,0 +1,61 @@
+{
+  "directives": "DIRECTIVES vaff5c1afea",
+  "scope": "local x86 and ARM Clang Linux/QEMU complete translation units; entry to first external GOAL call",
+  "runs": {
+    "x86": {
+      "command": [
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-x86",
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/x86-cases.csv"
+      ],
+      "exit": 1,
+      "started_utc": "2026-09-15T02:10:59.025088+00:00",
+      "binary": ".autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-x86",
+      "binary_sha256": "aee6029b0b6ac48aacf39eb8d7405a0da5cfaaab8a9e719528428bdaf40c6c84",
+      "csv": ".autoport/reports/perf-mips2c-neon/notes/attempt9/x86-cases.csv",
+      "csv_sha256": "5db0f45dc68ecaae7f3b1299b44dbfcf0b432f60ab3355f1508f18d2f5323d52",
+      "log": ".autoport/reports/perf-mips2c-neon/notes/attempt9/x86-run.log",
+      "log_sha256": "7cff41ed9ed40df4d1e5b53c198d4cdf732e66faf94d6897d48b28229748fd00",
+      "build_command": [
+        "python3",
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/build-frontier.py",
+        "x86"
+      ],
+      "build_exit": 0,
+      "build_log": ".autoport/reports/perf-mips2c-neon/notes/attempt9/test-build-x86.log",
+      "build_log_sha256": "eb165a937d965f28d777373f10a038f7eac75f6c2d6cfed161c7473f94af1904",
+      "build_manifest": ".autoport/reports/perf-mips2c-neon/notes/attempt9/x86-manifest.json",
+      "build_manifest_sha256": "47e2d1e2d0ed35ca95a54ec3431efa766a051cf223c78cf6bcb0b1bdc16a2c52"
+    },
+    "arm-clang": {
+      "command": [
+        "qemu-aarch64",
+        "-L",
+        "/usr/aarch64-linux-gnu",
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-arm-clang",
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/arm-clang-cases.csv"
+      ],
+      "exit": 1,
+      "started_utc": "2026-09-15T02:10:59.053931+00:00",
+      "binary": ".autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-arm-clang",
+      "binary_sha256": "8c466dcd9fd90e8fa0980f306179b258079a173a1e99b2a7cc670b5beb5d1e89",
+      "csv": ".autoport/reports/perf-mips2c-neon/notes/attempt9/arm-clang-cases.csv",
+      "csv_sha256": "b632d064928c4b4f9fb47c2246998909882185fab97ff5d53a763e1e7ccbf606",
+      "log": ".autoport/reports/perf-mips2c-neon/notes/attempt9/arm-clang-run.log",
+      "log_sha256": "30b6adbd7ac02d16802c57f4c035ecc8c5d303294714130fc6b7c46235f6ca6e",
+      "build_command": [
+        "python3",
+        ".autoport/reports/perf-mips2c-neon/notes/attempt9/build-frontier.py",
+        "arm-clang"
+      ],
+      "build_exit": 0,
+      "build_log": ".autoport/reports/perf-mips2c-neon/notes/attempt9/test-build-arm-clang.log",
+      "build_log_sha256": "a49cc85894082685176eda5c33a950a84e9ffedd5c75d401a72bac52d0296b76",
+      "build_manifest": ".autoport/reports/perf-mips2c-neon/notes/attempt9/arm-clang-manifest.json",
+      "build_manifest_sha256": "6a2f7c166f6d0a0e3bc6f1aabacc7dbc31fe5827a087a62c6b47a9ff4a4081c5"
+    }
+  },
+  "checks": {
+    "path": ".autoport/reports/perf-mips2c-neon/notes/attempt9/test-checks.json",
+    "sha256": "7e6b266e6206744c9fc9c78995b751251065a565c46c8688de0a39d522233663"
+  }
+}

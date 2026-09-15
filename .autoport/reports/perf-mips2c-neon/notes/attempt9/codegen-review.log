@@ -1,0 +1,30 @@
+{
+  "before": {
+    "old_size": 4867,
+    "new_size": 4867,
+    "old_sha256": "90a831b8d74cfd475f00f770f1bb7d7fbf3085e15e69257e611fd41f8a1c41a6",
+    "new_sha256": "90a831b8d74cfd475f00f770f1bb7d7fbf3085e15e69257e611fd41f8a1c41a6",
+    "byte_equal_old": true,
+    "objcopy_bytes_equal": true,
+    "differences": 0
+  },
+  "after": {
+    "old_size": 5085,
+    "new_size": 5085,
+    "old_sha256": "240800b958e36a2ed0c04f812da4478de41379f08af2263d98a1b5bb5f089ac3",
+    "new_sha256": "240800b958e36a2ed0c04f812da4478de41379f08af2263d98a1b5bb5f089ac3",
+    "byte_equal_old": true,
+    "objcopy_bytes_equal": true,
+    "differences": 0
+  },
+  "arm-clang-before": {
+    "size": 3600,
+    "object_symbol_sha256": "216f1550a2d723abf37557318c5005f2d13de91e8ba96f4f26763b2442c5b3ae",
+    "objcopy_bytes_equal": true
+  },
+  "arm-clang-after": {
+    "size": 3620,
+    "object_symbol_sha256": "ebcafcae1068924750b65be7caa9c20bb95caa976dd58a08a9fcf285fc42ac46",
+    "objcopy_bytes_equal": true
+  }
+}

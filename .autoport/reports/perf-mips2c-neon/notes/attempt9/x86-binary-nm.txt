@@ -1,0 +1,52 @@
+$ nm -S /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-x86
+0000000000408dd8 d _DYNAMIC
+0000000000408fe8 d _GLOBAL_OFFSET_TABLE_
+0000000000403440 000000000000002a T _Z21private_assert_failedPKcS0_iS0_S0_
+0000000000406e10 0000000000000010 V _ZTI8Boundary
+0000000000406e00 000000000000000a V _ZTS8Boundary
+0000000000408d80 0000000000000058 V _ZTVN10__cxxabiv117__class_type_infoE@CXXABI_1.3
+0000000000407170 r __FRAME_END__
+0000000000406f7c r __GNU_EH_FRAME_HDR
+0000000000409070 D __TMC_END__
+0000000000407208 0000000000000020 r __abi_tag
+0000000000409080 B __bss_start
+                 U __cxa_allocate_exception@CXXABI_1.3
+                 U __cxa_begin_catch@CXXABI_1.3
+                 U __cxa_end_catch@CXXABI_1.3
+                 U __cxa_throw@CXXABI_1.3
+0000000000403360 t __do_global_dtors_aux
+0000000000408d78 d __do_global_dtors_aux_fini_array_entry
+0000000000408d70 d __frame_dummy_init_array_entry
+                 w __gmon_start__
+                 U __gxx_personality_v0@CXXABI_1.3
+                 U __libc_start_main@GLIBC_2.34
+00000000004033a0 0000000000000099 T _call_goal8_asm_systemv
+00000000004032e0 0000000000000005 T _dl_relocate_static_pie
+0000000000409070 D _edata
+00000000004090e0 B _end
+0000000000405b60 T _fini
+000000000040033c T _init
+00000000004032b0 0000000000000026 T _start
+                 U abort@GLIBC_2.2.5
+0000000000409088 0000000000000001 b completed.0
+00000000004032f0 t deregister_tm_clones
+                 U fclose@GLIBC_2.2.5
+                 U ferror@GLIBC_2.2.5
+                 U fopen@GLIBC_2.2.5
+                 U fprintf@GLIBC_2.2.5
+0000000000403390 t frame_dummy
+00000000004090c0 0000000000000020 B full_after_cache
+0000000000404780 00000000000013dd T full_after_execute
+00000000004090a0 0000000000000020 B full_before_cache
+0000000000403470 0000000000001303 T full_before_execute
+                 U fwrite@GLIBC_2.2.5
+0000000000409090 0000000000000008 B g_ee_main_mem
+0000000000400a00 00000000000028a3 T main
+0000000000400480 000000000000054b t main.cold
+                 U memcmp@GLIBC_2.2.5
+                 U perror@GLIBC_2.2.5
+                 U printf@GLIBC_2.2.5
+0000000000403320 t register_tm_clones
+0000000000409080 0000000000000008 B stderr@GLIBC_2.2.5
+
+EXIT 0

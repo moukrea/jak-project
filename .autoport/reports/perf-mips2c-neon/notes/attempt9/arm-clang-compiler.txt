@@ -1,0 +1,7 @@
+$ /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --version
+Android (12470979, +pgo, +bolt, +lto, +mlgo, based on r522817c) clang version 18.0.3 (https://android.googlesource.com/toolchain/llvm-project d8003a456d14a3deb8054cdaa529ffbf02d9b262)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /home/emeric/Android/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin
+
+EXIT 0

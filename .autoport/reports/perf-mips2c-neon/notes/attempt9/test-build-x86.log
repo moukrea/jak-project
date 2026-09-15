@@ -1,0 +1,4 @@
+$ python3 .autoport/reports/perf-mips2c-neon/notes/attempt9/build-frontier.py x86
+BUILD arch=x86 exit=0 binary_sha256=aee6029b0b6ac48aacf39eb8d7405a0da5cfaaab8a9e719528428bdaf40c6c84
+
+EXIT 0

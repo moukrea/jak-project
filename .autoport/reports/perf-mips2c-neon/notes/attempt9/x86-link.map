@@ -1,0 +1,833 @@
+
+Merging program properties
+
+Removed property 0xc0000002 to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x3) and /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o (not found)
+Updated property 0xc0010001 (0x19) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x1) and /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o (0x19)
+Updated property 0xc0010002 (0x5) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x1) and /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o (0x5)
+Updated property 0xc0010001 (0x19) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x19) and /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o (0x1)
+Updated property 0xc0010002 (0x5) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x5) and /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o (0x1)
+Updated property 0xc0010001 (0x19) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x19) and /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o (0x1)
+Updated property 0xc0010002 (0x5) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x5) and /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o (0x0)
+Removed property 0xc0000002 to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (not found) and /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o (0x3)
+Updated property 0xc0010001 (0x19) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x19) and /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o (0x1)
+Updated property 0xc0010002 (0x5) to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (0x5) and /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o (0x1)
+Removed property 0xc0000002 to merge /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o (not found) and /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o (0x3)
+
+Discarded input sections
+
+ .rodata.cst4   0x0000000000000000        0x4 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .data          0x0000000000000000        0x4 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .bss           0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .data          0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ .bss           0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ .note.gnu.property
+                0x0000000000000000       0x50 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ .data          0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .rodata        0x0000000000000000        0x8 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .note.gnu.property
+                0x0000000000000000       0x50 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .group         0x0000000000000000        0x8 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .group         0x0000000000000000        0xc /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .text          0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .data          0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .bss           0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .note.gnu.property
+                0x0000000000000000       0x30 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .text          0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .data          0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .bss           0x0000000000000000        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .note.gnu.property
+                0x0000000000000000       0x30 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .text          0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .data          0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss           0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .rodata._ZN6Mips2C4jak1L21geco_spart_dump_armedEv.str1.1
+                0x0000000000000000        0xe /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text._ZN6Mips2C4jak1L21geco_spart_dump_armedEv
+                0x0000000000000000       0xc4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_2d7executeEPv
+                0x0000000000000000     0x1842 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .rodata._ZN6Mips2C4jak119sp_process_block_3d4linkEv.str1.1
+                0x0000000000000000       0x46 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text.unlikely._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000       0x2c /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000      0x119 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .gcc_except_table._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000       0x17 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .rodata._ZN6Mips2C4jak119sp_process_block_2d4linkEv.str1.1
+                0x0000000000000000       0x23 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text.unlikely._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000       0x2c /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000      0x119 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .gcc_except_table._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000       0x17 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_2
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_1
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_0
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss._ZN6Mips2C4jak119sp_process_block_2d5cacheE
+                0x0000000000000000       0x20 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .data._ZZN6Mips2C4jak1L21geco_spart_dump_armedEvE7s_delay
+                0x0000000000000000        0x8 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss.g_perf_2dvec_off
+                0x0000000000000000        0x1 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .bss.g_spart_prof
+                0x0000000000000000       0xc0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .note.gnu.property
+                0x0000000000000000       0x30 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .text          0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .data          0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss           0x0000000000000000        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .rodata._ZN6Mips2C4jak1L21geco_spart_dump_armedEv.str1.1
+                0x0000000000000000        0xe /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text._ZN6Mips2C4jak1L21geco_spart_dump_armedEv
+                0x0000000000000000       0xc4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .rodata._ZN6Mips2C4jak119sp_process_block_2d7executeEPv.str1.8
+                0x0000000000000000      0x1f0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_2d7executeEPv
+                0x0000000000000000     0x1842 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .rodata._ZN6Mips2C4jak119sp_process_block_3d4linkEv.str1.1
+                0x0000000000000000       0x46 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text.unlikely._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000       0x2c /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000      0x119 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .gcc_except_table._ZN6Mips2C4jak119sp_process_block_3d4linkEv
+                0x0000000000000000       0x17 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .rodata._ZN6Mips2C4jak119sp_process_block_2d4linkEv.str1.1
+                0x0000000000000000       0x23 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text.unlikely._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000       0x2c /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .text._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000      0x119 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .gcc_except_table._ZN6Mips2C4jak119sp_process_block_2d4linkEv
+                0x0000000000000000       0x17 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_2
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_1
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count_0
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss._ZZN6Mips2C4jak119sp_process_block_2d7executeEPvE7s_count
+                0x0000000000000000        0x4 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss._ZN6Mips2C4jak119sp_process_block_2d5cacheE
+                0x0000000000000000       0x20 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .data._ZZN6Mips2C4jak1L21geco_spart_dump_armedEvE7s_delay
+                0x0000000000000000        0x8 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss.g_perf_2dvec_off
+                0x0000000000000000        0x1 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .bss.g_spart_prof
+                0x0000000000000000       0xc0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .note.gnu.property
+                0x0000000000000000       0x30 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .data          0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .bss           0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .note.gnu.property
+                0x0000000000000000       0x50 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .data          0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+ .bss           0x0000000000000000        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+ .note.gnu.property
+                0x0000000000000000       0x50 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+LOAD /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+LOAD /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+LOAD /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+LOAD /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libstdc++.so
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/libm.so
+START GROUP
+LOAD /lib64/libm.so.6
+LOAD /lib64/libmvec.so.1
+END GROUP
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc_s.so
+START GROUP
+LOAD /lib64/libgcc_s.so.1
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a
+END GROUP
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/libc.so
+START GROUP
+LOAD /lib64/libc.so.6
+LOAD /usr/lib64/libc_nonshared.a
+LOAD /lib64/ld-linux-x86-64.so.2
+END GROUP
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc_s.so
+START GROUP
+LOAD /lib64/libgcc_s.so.1
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a
+END GROUP
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/libgcc.a
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+LOAD /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+                [!provide]                        PROVIDE (__executable_start = SEGMENT_START ("text-segment", 0x400000))
+                0x0000000000400318                . = (SEGMENT_START ("text-segment", 0x400000) + SIZEOF_HEADERS)
+
+.note.gnu.build-id
+                0x0000000000400318       0x24
+ *(.note.gnu.build-id)
+ .note.gnu.build-id
+                0x0000000000400318       0x24 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.init           0x000000000040033c       0x1b
+ *(SORT_NONE(.init))
+ .init          0x000000000040033c       0x16 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+                0x000000000040033c                _init
+ .init          0x0000000000400352        0x5 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+
+.plt            0x0000000000400360       0xf0
+ *(.plt)
+ .plt           0x0000000000400360       0xf0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000400370                printf@@GLIBC_2.2.5
+                0x0000000000400380                __cxa_begin_catch@@CXXABI_1.3
+                0x0000000000400390                memcmp@@GLIBC_2.2.5
+                0x00000000004003a0                __cxa_allocate_exception@@CXXABI_1.3
+                0x00000000004003b0                abort@@GLIBC_2.2.5
+                0x00000000004003c0                perror@@GLIBC_2.2.5
+                0x00000000004003d0                fclose@@GLIBC_2.2.5
+                0x00000000004003e0                fopen@@GLIBC_2.2.5
+                0x00000000004003f0                fprintf@@GLIBC_2.2.5
+                0x0000000000400400                __cxa_end_catch@@CXXABI_1.3
+                0x0000000000400410                __gxx_personality_v0@@CXXABI_1.3
+                0x0000000000400420                __cxa_throw@@CXXABI_1.3
+                0x0000000000400430                ferror@@GLIBC_2.2.5
+                0x0000000000400440                fwrite@@GLIBC_2.2.5
+ *(.iplt)
+ .iplt          0x0000000000400450        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.plt.got        0x0000000000400450        0x0
+ *(.plt.got)
+ .plt.got       0x0000000000400450        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.plt.sec
+ *(.plt.sec)
+
+.text           0x0000000000400480     0x56dd
+ *(.text.unlikely .text.*_unlikely .text.unlikely.*)
+ .text.unlikely.main
+                0x0000000000400480      0x54b /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ *(.text.exit .text.exit.*)
+ *(.text.startup .text.startup.*)
+ *fill*         0x00000000004009cb       0x35 
+ .text.startup.main
+                0x0000000000400a00     0x28a3 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                0x0000000000400a00                main
+ *(.text.hot .text.hot.*)
+ *(SORT_BY_NAME(.text.sorted.*))
+ *(.text .stub .text.* .gnu.linkonce.t.*)
+ *fill*         0x00000000004032a3        0xd 
+ .text          0x00000000004032b0       0x35 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x00000000004032b0                _start
+                0x00000000004032e0                _dl_relocate_static_pie
+ .text          0x00000000004032e5        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ *fill*         0x00000000004032e5        0xb 
+ .text          0x00000000004032f0       0xa6 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ *fill*         0x0000000000403396        0xa 
+ .text._call_goal8_asm_systemv
+                0x00000000004033a0       0x99 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                0x00000000004033a0                _call_goal8_asm_systemv
+ *fill*         0x0000000000403439        0x7 
+ .text._Z21private_assert_failedPKcS0_iS0_S0_
+                0x0000000000403440       0x2a /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                0x0000000000403440                private_assert_failed(char const*, char const*, int, char const*, char const*)
+ *fill*         0x000000000040346a        0x6 
+ .text._ZN6Mips2C4jak119sp_process_block_3d7executeEPv
+                0x0000000000403470     0x1303 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                0x0000000000403470                full_before_execute
+ *fill*         0x0000000000404773        0xd 
+ .text._ZN6Mips2C4jak119sp_process_block_3d7executeEPv
+                0x0000000000404780     0x13dd /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                0x0000000000404780                full_after_execute
+ .text          0x0000000000405b5d        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .text          0x0000000000405b5d        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+ *(.gnu.warning)
+
+.fini           0x0000000000405b60        0xd
+ *(SORT_NONE(.fini))
+ .fini          0x0000000000405b60        0x8 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+                0x0000000000405b60                _fini
+ .fini          0x0000000000405b68        0x5 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+                [!provide]                        PROVIDE (__etext = .)
+                [!provide]                        PROVIDE (_etext = .)
+                [!provide]                        PROVIDE (etext = .)
+                0x0000000000406000                . = ALIGN (CONSTANT (MAXPAGESIZE))
+                0x0000000000406000                . = SEGMENT_START ("rodata-segment", (ALIGN (CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 0x1))))
+
+.interp         0x0000000000406000       0x1c
+ *(.interp)
+ .interp        0x0000000000406000       0x1c /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.hash
+ *(.hash)
+
+.gnu.hash       0x0000000000406020       0x30
+ *(.gnu.hash)
+ .gnu.hash      0x0000000000406020       0x30 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.dynsym         0x0000000000406050      0x1c8
+ *(.dynsym)
+ .dynsym        0x0000000000406050      0x1c8 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.dynstr         0x0000000000406218      0x135
+ *(.dynstr)
+ .dynstr        0x0000000000406218      0x135 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.gnu.version    0x000000000040634e       0x26
+ *(.gnu.version)
+ .gnu.version   0x000000000040634e       0x26 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.gnu.version_d  0x0000000000406378        0x0
+ *(.gnu.version_d)
+ .gnu.version_d
+                0x0000000000406378        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.gnu.version_r  0x0000000000406378       0x50
+ *(.gnu.version_r)
+ .gnu.version_r
+                0x0000000000406378       0x50 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.rela.dyn       0x00000000004063c8       0x60
+ *(.rela.init)
+ *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
+ .rela.text     0x00000000004063c8        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .rela.text._call_goal8_asm_systemv
+                0x00000000004063c8        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .rela.text._Z21private_assert_failedPKcS0_iS0_S0_
+                0x00000000004063c8        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.rela.fini)
+ *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
+ .rela.rodata._ZTI8Boundary
+                0x00000000004063c8        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
+ .rela.data.rel.ro
+                0x00000000004063c8       0x18 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
+ *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)
+ *(.rela.ctors)
+ *(.rela.dtors)
+ *(.rela.got)
+ .rela.got      0x00000000004063e0       0x30 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+ .rela.bss      0x0000000000406410       0x18 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.rela.ldata .rela.ldata.* .rela.gnu.linkonce.l.*)
+ *(.rela.lbss .rela.lbss.* .rela.gnu.linkonce.lb.*)
+ *(.rela.lrodata .rela.lrodata.* .rela.gnu.linkonce.lr.*)
+ *(.rela.ifunc)
+ .rela.gcc_except_table.main
+                0x0000000000406428        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .rela.eh_frame
+                0x0000000000406428        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.rela.plt       0x0000000000406428      0x150
+ *(.rela.plt)
+ .rela.plt      0x0000000000406428      0x150 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                [!provide]                        PROVIDE (__rela_iplt_start = .)
+ *(.rela.iplt)
+ .rela.iplt     0x0000000000406578        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                [!provide]                        PROVIDE (__rela_iplt_end = .)
+
+.relr.dyn
+ *(.relr.dyn)
+
+.rodata         0x0000000000406580      0x9fc
+ *(.rodata .rodata.* .gnu.linkonce.r.*)
+ .rodata.main.str1.1
+                0x0000000000406580       0x6b /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                         0x5b (size before relaxing)
+ *fill*         0x00000000004065eb        0x5 
+ .rodata.main.str1.8
+                0x00000000004065f0      0x80b /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                        0x3da (size before relaxing)
+ *fill*         0x0000000000406dfb        0x5 
+ .rodata._ZTS8Boundary
+                0x0000000000406e00        0xa /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                0x0000000000406e00                typeinfo name for Boundary
+ *fill*         0x0000000000406e0a        0x6 
+ .rodata._ZTI8Boundary
+                0x0000000000406e10       0x10 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                0x0000000000406e10                typeinfo for Boundary
+ .rodata.cst16  0x0000000000406e20       0xc0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                         0xa0 (size before relaxing)
+ .rodata.cst8   0x0000000000406ee0        0x8 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ *fill*         0x0000000000406ee8       0x18 
+ .rodata.cst32  0x0000000000406f00       0x60 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .rodata.cst4   0x0000000000406f60       0x1c /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                          0x8 (size before relaxing)
+ .rodata._Z21private_assert_failedPKcS0_iS0_S0_.str1.1
+                0x0000000000406f7c        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                                         0x17 (size before relaxing)
+ .rodata._ZN6Mips2C4jak119sp_process_block_2d7executeEPv.str1.1
+                0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                          0x6 (size before relaxing)
+ .rodata._ZN6Mips2C4jak119sp_process_block_2d7executeEPv.str1.8
+                0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                        0x328 (size before relaxing)
+ .rodata.cst4   0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                         0x14 (size before relaxing)
+ .rodata.cst16  0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                         0x20 (size before relaxing)
+ .rodata._ZN6Mips2C4jak119sp_process_block_3d7executeEPv.str1.1
+                0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                          0x6 (size before relaxing)
+ .rodata._ZN6Mips2C4jak119sp_process_block_3d7executeEPv.str1.8
+                0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                        0x237 (size before relaxing)
+ .rodata.cst4   0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                         0x14 (size before relaxing)
+ .rodata.cst16  0x0000000000406f7c        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                         0x20 (size before relaxing)
+
+.rodata1
+ *(.rodata1)
+
+.eh_frame_hdr   0x0000000000406f7c       0x54
+ *(.eh_frame_hdr)
+ .eh_frame_hdr  0x0000000000406f7c       0x54 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000406f7c                __GNU_EH_FRAME_HDR
+ *(.eh_frame_entry .eh_frame_entry.*)
+
+.eh_frame       0x0000000000406fd0      0x1a4
+ *(.eh_frame)
+ .eh_frame      0x0000000000406fd0       0x40 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                                         0x5c (size before relaxing)
+ *fill*         0x0000000000407010        0x0 
+ .eh_frame      0x0000000000407010       0x28 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                                         0x40 (size before relaxing)
+ .eh_frame      0x0000000000407038        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .eh_frame      0x0000000000407038       0xc0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                         0xd8 (size before relaxing)
+ .eh_frame      0x00000000004070f8       0x18 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                                         0x30 (size before relaxing)
+ .eh_frame      0x0000000000407110       0x30 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                        0x160 (size before relaxing)
+ .eh_frame      0x0000000000407140       0x30 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                        0x160 (size before relaxing)
+ .eh_frame      0x0000000000407170        0x4 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ *(.eh_frame.*)
+
+.sframe         0x0000000000407174        0x0
+ *(.sframe)
+ .sframe        0x0000000000407174        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .sframe        0x0000000000407174        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.sframe.*)
+
+.gcc_except_table
+                0x0000000000407174       0x50
+ *(.gcc_except_table .gcc_except_table.*)
+ .gcc_except_table.main
+                0x0000000000407174       0x50 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+
+.gnu_extab
+ *(.gnu_extab*)
+
+.exception_ranges
+ *(.exception_ranges*)
+
+.note.build-id
+ *(.note.build-id)
+
+.note.GNU-stack
+                0x00000000004071c4        0x0
+ *(.note.GNU-stack)
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .note.GNU-stack
+                0x00000000004071c4        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+
+.note.gnu-property
+ *(.note.gnu-property)
+
+.note.gnu.property
+                0x00000000004071c8       0x40
+ .note.gnu.property
+                0x00000000004071c8       0x40 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.note.ABI-tag   0x0000000000407208       0x20
+ *(.note.ABI-tag)
+ .note.ABI-tag  0x0000000000407208       0x20 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.note.package
+ *(.note.package)
+
+.note.dlopen
+ *(.note.dlopen)
+
+.note.netbsd.ident
+ *(.note.netbsd.ident)
+
+.note.openbsd.ident
+ *(.note.openbsd.ident)
+                0x0000000000408d70                . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE))
+
+.eh_frame
+ *(.eh_frame)
+ *(.eh_frame.*)
+
+.sframe
+ *(.sframe)
+ *(.sframe.*)
+
+.gnu_extab
+ *(.gnu_extab)
+
+.gcc_except_table
+ *(.gcc_except_table .gcc_except_table.*)
+
+.exception_ranges
+ *(.exception_ranges*)
+
+.tdata          0x0000000000408d70        0x0
+                [!provide]                        PROVIDE (__tdata_start = .)
+ *(.tdata .tdata.* .gnu.linkonce.td.*)
+
+.tbss
+ *(.tbss .tbss.* .gnu.linkonce.tb.*)
+ *(.tcommon)
+
+.preinit_array  0x0000000000408d70        0x0
+                [!provide]                        PROVIDE (__preinit_array_start = .)
+ *(.preinit_array)
+                [!provide]                        PROVIDE (__preinit_array_end = .)
+
+.init_array     0x0000000000408d70        0x8
+                [!provide]                        PROVIDE (__init_array_start = .)
+ *(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*))
+ *(.init_array EXCLUDE_FILE(*crtend?.o *crtend.o *crtbegin?.o *crtbegin.o) .ctors)
+ .init_array    0x0000000000408d70        0x8 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+                [!provide]                        PROVIDE (__init_array_end = .)
+
+.fini_array     0x0000000000408d78        0x8
+                [!provide]                        PROVIDE (__fini_array_start = .)
+ *(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*))
+ *(.fini_array EXCLUDE_FILE(*crtend?.o *crtend.o *crtbegin?.o *crtbegin.o) .dtors)
+ .fini_array    0x0000000000408d78        0x8 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+                [!provide]                        PROVIDE (__fini_array_end = .)
+
+.ctors
+ *crtbegin.o(.ctors)
+ *crtbegin?.o(.ctors)
+ *(EXCLUDE_FILE(*crtend?.o *crtend.o) .ctors)
+ *(SORT_BY_NAME(.ctors.*))
+ *(.ctors)
+
+.dtors
+ *crtbegin.o(.dtors)
+ *crtbegin?.o(.dtors)
+ *(EXCLUDE_FILE(*crtend?.o *crtend.o) .dtors)
+ *(SORT_BY_NAME(.dtors.*))
+ *(.dtors)
+
+.jcr
+ *(.jcr)
+
+.data.rel.ro    0x0000000000408d80       0x58
+ *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*)
+ *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*)
+ .data.rel.ro   0x0000000000408d80       0x58 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000408d80                vtable for __cxxabiv1::__class_type_info@@CXXABI_1.3
+
+.dynamic        0x0000000000408dd8      0x200
+ *(.dynamic)
+ .dynamic       0x0000000000408dd8      0x200 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000408dd8                _DYNAMIC
+
+.got            0x0000000000408fd8       0x10
+ *(.got)
+ .got           0x0000000000408fd8       0x10 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ *(.igot)
+                0x0000000000408fe8                . = DATA_SEGMENT_RELRO_END (., (SIZEOF (.got.plt) >= 0x18)?0x18:0x0)
+
+.got.plt        0x0000000000408fe8       0x88
+ *(.got.plt)
+ .got.plt       0x0000000000408fe8       0x88 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000408fe8                _GLOBAL_OFFSET_TABLE_
+ *(.igot.plt)
+ .igot.plt      0x0000000000409070        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+
+.data
+ *(.data .data.* .gnu.linkonce.d.*)
+
+.tm_clone_table
+                0x0000000000409070        0x0
+ .tm_clone_table
+                0x0000000000409070        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .tm_clone_table
+                0x0000000000409070        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+
+.data1
+ *(.data1)
+                0x0000000000409070                _edata = .
+                [!provide]                        PROVIDE (edata = .)
+                0x0000000000409070                . = ALIGN (ALIGNOF (NEXT_SECTION))
+                0x0000000000409080                __bss_start = .
+
+.bss            0x0000000000409080       0x60
+ *(.dynbss)
+ .dynbss        0x0000000000409080        0x8 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                0x0000000000409080                stderr@@GLIBC_2.2.5
+ *(.bss .bss.* .gnu.linkonce.b.*)
+ .bss           0x0000000000409088        0x1 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ *fill*         0x0000000000409089        0x7 
+ .bss.g_ee_main_mem
+                0x0000000000409090        0x8 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                0x0000000000409090                g_ee_main_mem
+ *fill*         0x0000000000409098        0x8 
+ .bss._ZN6Mips2C4jak119sp_process_block_3d5cacheE
+                0x00000000004090a0       0x20 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                0x00000000004090a0                full_before_cache
+ .bss._ZN6Mips2C4jak119sp_process_block_3d5cacheE
+                0x00000000004090c0       0x20 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                0x00000000004090c0                full_after_cache
+ *(COMMON)
+                0x00000000004090e0                . = ALIGN ((. != 0x0)?0x8:0x1)
+
+.lbss
+ *(.dynlbss)
+ *(.lbss .lbss.* .gnu.linkonce.lb.*)
+ *(LARGE_COMMON)
+                0x00000000004090e0                . = ALIGN (0x8)
+                0x00000000004090e0                . = SEGMENT_START ("ldata-segment", .)
+
+.lrodata
+ *(.lrodata .lrodata.* .gnu.linkonce.lr.*)
+
+.ldata          0x000000000040b0e0        0x0
+ *(.ldata .ldata.* .gnu.linkonce.l.*)
+                0x000000000040b0e0                . = ALIGN ((. != 0x0)?0x8:0x1)
+                0x000000000040b0e0                . = ALIGN (0x8)
+                0x00000000004090e0                _end = .
+                [!provide]                        PROVIDE (end = .)
+                0x000000000040b0e0                . = DATA_SEGMENT_END (.)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x0000000000000000       0x2e
+ *(.comment)
+ .comment       0x0000000000000000       0x2e /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                                         0x8d (size before relaxing)
+ .comment       0x000000000000002e        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+                                         0x2f (size before relaxing)
+ .comment       0x000000000000002e        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                         0x2f (size before relaxing)
+ .comment       0x000000000000002e        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                                         0x2f (size before relaxing)
+ .comment       0x000000000000002e        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                         0x2f (size before relaxing)
+ .comment       0x000000000000002e        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                         0x2f (size before relaxing)
+ .comment       0x000000000000002e        0x0 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+                                         0x2f (size before relaxing)
+
+.annobin.notes  0x0000000000000000      0x14f
+ .annobin.notes
+                0x0000000000000000      0x14f /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+                                        0x216 (size before relaxing)
+
+.gnu.build.attributes
+                0x000000000040b0e0      0x144
+ *(.gnu.build.attributes .gnu.build.attributes.*)
+ .gnu.build.attributes
+                0x000000000040b0e0       0x24 /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crt1.o
+ .gnu.build.attributes
+                0x000000000040b104       0x6c /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crti.o
+ .gnu.build.attributes
+                0x000000000040b170       0x24 /usr/lib/gcc/x86_64-redhat-linux/15/crtbegin.o
+ .gnu.build.attributes
+                0x000000000040b194       0x24 /usr/lib/gcc/x86_64-redhat-linux/15/crtend.o
+ .gnu.build.attributes
+                0x000000000040b1b8       0x6c /usr/lib/gcc/x86_64-redhat-linux/15/../../../../lib64/crtn.o
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x0000000000000000      0x1a0
+ *(.debug_aranges)
+ .debug_aranges
+                0x0000000000000000       0x50 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_aranges
+                0x0000000000000050       0x30 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_aranges
+                0x0000000000000080       0x90 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_aranges
+                0x0000000000000110       0x90 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_pubnames
+ *(.debug_pubnames)
+
+.debug_info     0x0000000000000000    0x4ba64
+ *(.debug_info .gnu.linkonce.wi.*)
+ .debug_info    0x0000000000000000     0xc229 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_info    0x000000000000c229      0xd22 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_info    0x000000000000cf4b    0x1f8c1 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_info    0x000000000002c80c    0x1f258 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_abbrev   0x0000000000000000     0x3492
+ *(.debug_abbrev)
+ .debug_abbrev  0x0000000000000000      0xe2d /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_abbrev  0x0000000000000e2d      0x2bd /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_abbrev  0x00000000000010ea     0x11c8 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_abbrev  0x00000000000022b2     0x11e0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_line     0x0000000000000000     0xf8da
+ *(.debug_line .debug_line.* .debug_line_end)
+ .debug_line    0x0000000000000000     0x2769 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_line    0x0000000000002769       0xce /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_line    0x0000000000002837     0x6910 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_line    0x0000000000009147     0x6793 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_frame
+ *(.debug_frame)
+
+.debug_str      0x0000000000000000    0x1f9fa
+ *(.debug_str)
+ .debug_str     0x0000000000000000    0x1f9fa /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                       0xb63f (size before relaxing)
+ .debug_str     0x000000000001f9fa        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                                        0x62a (size before relaxing)
+ .debug_str     0x000000000001f9fa        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                      0x1ee90 (size before relaxing)
+ .debug_str     0x000000000001f9fa        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                      0x1ee9d (size before relaxing)
+
+.debug_loc
+ *(.debug_loc)
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+
+.debug_pubtypes
+ *(.debug_pubtypes)
+
+.debug_ranges
+ *(.debug_ranges)
+
+.debug_addr
+ *(.debug_addr)
+
+.debug_line_str
+                0x0000000000000000      0x9f9
+ *(.debug_line_str)
+ .debug_line_str
+                0x0000000000000000      0x9f9 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+                                        0x78b (size before relaxing)
+ .debug_line_str
+                0x00000000000009f9        0x0 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+                                        0x252 (size before relaxing)
+ .debug_line_str
+                0x00000000000009f9        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+                                        0x918 (size before relaxing)
+ .debug_line_str
+                0x00000000000009f9        0x0 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+                                        0x921 (size before relaxing)
+
+.debug_loclists
+                0x0000000000000000    0x153d6
+ *(.debug_loclists)
+ .debug_loclists
+                0x0000000000000000     0x2533 /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_loclists
+                0x0000000000002533       0xb7 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_loclists
+                0x00000000000025ea     0x9805 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_loclists
+                0x000000000000bdef     0x95e7 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_macro
+ *(.debug_macro)
+
+.debug_names
+ *(.debug_names)
+
+.debug_rnglists
+                0x0000000000000000     0x40b5
+ *(.debug_rnglists)
+ .debug_rnglists
+                0x0000000000000000      0x8aa /home/emeric/.cache/autoport-supervisor-tests/ccbKzXR0.o
+ .debug_rnglists
+                0x00000000000008aa       0x17 /home/emeric/.cache/autoport-supervisor-tests/ccgOnpc9.o
+ .debug_rnglists
+                0x00000000000008c1     0x1cd7 /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-before-linked.o
+ .debug_rnglists
+                0x0000000000002598     0x1b1d /home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/x86-after-linked.o
+
+.debug_str_offsets
+ *(.debug_str_offsets)
+
+.debug_sup
+ *(.debug_sup)
+
+.gnu.attributes
+ *(.gnu.attributes)
+
+/DISCARD/
+ *(.note.GNU-stack)
+ *(.gnu_debuglink)
+ *(.gnu.lto_*)
+ *(.gnu_object_only)
+OUTPUT(/home/emeric/code/jak-project/.autoport/reports/perf-mips2c-neon/notes/attempt9/frontier-x86 elf64-x86-64)

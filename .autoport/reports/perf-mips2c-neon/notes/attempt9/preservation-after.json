@@ -1,0 +1,12 @@
+{
+  ".autoport/reports/perf-mips2c-neon/proof.txt": "6dd592e39f0ebfbd368f2174fe14613d888fcf66b2864d9c4c91bda7e9eb31c8",
+  ".autoport/reports/perf-mips2c-neon/proof-engine.log": "ad560f43322604d2b2a90bf41815bf13474f29a4ef0e56668af6f294d2e0c142",
+  ".autoport/reports/perf-mips2c-neon/proof-run.txt": "bccbefe4c7a5fafc9b982b5eaa3d390da2c2bb773f0cd528c3e36af48f7972fd",
+  "game/mips2c/jak1_functions/ripple.cpp": "9169c3837b5f120b6865296f9cedc139689e62ae9b146bc85eb640abd1ed35a5",
+  ".autoport/validators/generic.sh": "4cca8d83669b4f679e727bf721c050caad132a9778ccac1d9a07e80c9273782f",
+  "game/mips2c/jak1_functions/sparticle.cpp": "93117b90c7b101bb47373369ef8fcb167b3180ccfcaeb816f83a449f1c36761b",
+  "game/mips2c/mips2c_private.h": "91f5ae75e721eae3b36bebeca9821eab706e6c46d9c33dcc9a8bcd16f8476c7b",
+  "game/mips2c/spart_prof.h": "92cb62dea5ed12321f97781340cbd5c471332f33f9d83b04e5d63805f6f20f97",
+  ".autoport/reports/perf-mips2c-neon/notes/attempt7/before-sparticle.cpp": "93117b90c7b101bb47373369ef8fcb167b3180ccfcaeb816f83a449f1c36761b",
+  ".autoport/reports/perf-mips2c-neon/notes/attempt7/candidate-sparticle.cpp": "713810c6a594adaa76272a9480745666ae9e2e074dcc0b43917534f43c1880e1"
+}

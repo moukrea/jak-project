@@ -1,0 +1,4 @@
+$ python3 .autoport/reports/perf-mips2c-neon/notes/attempt9/build-frontier.py arm-clang
+BUILD arch=arm-clang exit=0 binary_sha256=8c466dcd9fd90e8fa0980f306179b258079a173a1e99b2a7cc670b5beb5d1e89
+
+EXIT 0
