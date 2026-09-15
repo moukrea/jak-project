@@ -1,22 +1,23 @@
 ## ÉTABLI
 DIRECTIVES v07b292c21f
-Essai 1 : proof_run.sh grass-baseline-cost device --timeout 90, sortie 0, preuve neuve.
-USB eae4df44 ; sha=3f2422035af8dc58 ; frames=4920 ; crash=0 ; duration_s=101.
-MD5 local/appareil identiques : 6849ccee18ad64f8a9d5d92e426cc82a (proof.txt).
-proof_feature_state=absent ; proof_feature_declared=0 ; proof_feature_own_hits=0.
-grass_baseline_gaps absent. Aucun relevé du contrat acquis, aucune ancienne preuve réutilisée.
-Audit researcher terminé : notes/audit.md décrit les instruments et leurs limites.
+Essai 2 : aucune nouvelle preuve ; proof.txt et proof.seal restent ceux de l'essai 1.
+validator-001.txt rejette proof_feature_state=absent et grass_baseline_gaps absent.
+Historique seulement : essai 1 USB eae4df44, sha=3f2422035af8dc58, frames=4920, crash=0.
+Aucun relevé du contrat acquis ; ces anciennes valeurs ne prouvent pas l'essai 2.
+Diff vide depuis f4f2fcb9d0 pour game/common/scripts, prompt de l'item et SPEC.
+L'item actuel conserve « Ne change RIEN » ; proof_plan et décision d'extension absents.
+Researcher Codex gpt-6-astra/high confirme ce constat en lecture seule ; agent terminé.
 ## TENTÉ
-Une seule course diagnostique courte, sans modifier moteur, shaders, réglages ou backlog.
-La course écrit une preuve honnête mais ne peut publier les mesures dont l'instrument manque.
-PLACE-TIME agrège les coûts ; R19SYNC emploie glFinish ; aucun compte frustum d'instances.
-Le compteur global FEATURE hits n'est pas le nombre de relevés de cadence de l'herbe.
-Aucun build, aucune campagne cinq paliers, aucune ablation ; generic.sh laissé à l'orchestrateur.
+Reprise ciblée du delta contractuel et lecture du verdict existant, sans refaire l'audit moteur.
+Aucun build, appareil, réglage, instrumentation, campagne ou ablation engagé.
+L'ancienne course n'a pas été répétée : son absence d'instrument est déjà établie.
+Rapport/FINDINGS/notes mis à jour ; aucun changement de backlog, moteur ou validateur.
+Investigation externe liée dans la SPEC inaccessible via l'outil web ; SPEC locale lue.
 ## RESTE
-Le superviseur doit résoudre le conflit entre métriques inédites et « Ne change RIEN ».
-Si instrumentation neutre incluse explicitement : préparer mesure et scène fixe avant toute nouvelle course.
-Mesurer les dix fenêtres ON/OFF de ≥300 images, cinq paliers servis, même binaire/vantage.
-Publier CPU préparation/dessin, instances soumises/frustum, chargement, deux mémoires et queue jamais dessinée.
-Attribuer les hits aux fenêtres terminées ; gaps doit compter les manques, jamais être constant.
-Produire preuve et ablation via proof_run.sh, puis faire juger par l'orchestrateur.
-Ne pas relancer seulement la même course : elle ne peut créer un instrument absent.
+Le superviseur doit arbitrer explicitement l'instrumentation neutre et inscrire le proof_plan.
+Ne pas relancer le même essai à contrat et instrument inchangés.
+Après résolution : implémenter seulement les mesures, sans optimisation ni changement de rendu.
+Préparer une scène fixe et dix fenêtres ON/OFF de ≥300 images, cinq paliers, même binaire.
+Mesurer CPU préparation/dessin, soumis/frustum, source/expansion/upload, deux mémoires et queue morte.
+Calculer gaps depuis les mesures manquantes ; attribuer les hits aux fenêtres terminées.
+Produire une preuve USB neuve via proof_run.sh puis l'ablation prévue, et laisser l'orchestrateur juger.

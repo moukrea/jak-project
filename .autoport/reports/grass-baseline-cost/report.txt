@@ -1,9 +1,12 @@
 DIRECTIVES v07b292c21f
-Verdict : NON VALIDÉ, le binaire courant ne possède pas l'instrument nécessaire à la référence de coût.
-Changements : rapport, audit et signalements seulement ; aucune source, aucun shader, aucun réglage modifié.
-Course unique produite par proof_run.sh grass-baseline-cost device --timeout 90, sortie 0.
-La sortie 0 signifie preuve écrite, pas porte passée ; generic.sh reste à lancer par l'orchestrateur.
-Huit lignes recopiées de proof.txt :
+Verdict : essai 2 NON VALIDÉ ; les mesures exigées restent impossibles dans le périmètre inchangé.
+Changements : rapport, handoff et note de reprise ; signalements conservés et précisés.
+Aucune nouvelle course, aucun build ; aucun résultat appareil revendiqué pour cet essai.
+Le handoff interdit de répéter la course diagnostique sans résoudre l'absence d'instrument.
+Comparaison statique avec f4f2fcb9d0 : aucun diff dans game/common/scripts, le prompt et la SPEC.
+Relecture indépendante par researcher Codex : aucune autorisation nouvelle d'instrumentation.
+L'item n'a ni proof_plan ni décision levant « Ne change RIEN » (backlog.yaml:9674-9712).
+Huit lignes de proof.txt ci-dessous : HISTORIQUE ESSAI 1, PAS preuve de l'essai 2.
 source=device
 serial=eae4df44
 sha=3f2422035af8dc58
@@ -12,15 +15,12 @@ frames=4920
 proof_feature_state=absent
 proof_feature_declared=0
 proof_feature_own_hits=0
-Fraîcheur : local_lib_md5 et device_lib_md5 valent tous deux 6849ccee18ad64f8a9d5d92e426cc82a dans proof.txt.
-La durée totale publiée est 101 s ; les 4 920 images ne constituent aucun relevé apparié du contrat.
-grass_baseline_gaps est absent : aucun zéro n'est revendiqué.
-FEATURE hits est global dans cette course ; own_hits=0 interdit de le compter comme relevés de cadence.
-Le hors-périmètre « Ne change RIEN » est appliqué littéralement ; l'instrumentation manquante n'est pas ajoutée.
-Les logs existants agrègent les coûts ; ils ne mesurent ni le frustum d'instances ni les dix fenêtres requises.
-Owner : rien à regarder, aucun test visuel demandé (owner_test=false).
-non prouvé : dix cadences ON/OFF aux cinq paliers, chacune sur ≥300 images au même vantage/binaire.
+validator-001.txt rejette le site absent et grass_baseline_gaps absent ; ce verdict est historique.
+proof.txt et son sceau sont conservés sans modification ; aucune fraîcheur nouvelle revendiquée.
+Le validateur de cet essai reste à l'orchestrateur conformément au prompt.
+Owner : rien à regarder ; owner_test=false, aucune validation visuelle demandée.
+non prouvé : dix cadences ON/OFF aux cinq paliers, chacune ≥300 images au même vantage/binaire.
 non prouvé : préparation CPU, dessin, instances soumises et réellement dans le champ de vision.
 non prouvé : chargement par palier, mémoire des deux tampons, compte isolé des instances jamais dessinées.
-non prouvé : ablation --off dans la même scène et non-régression des acquis de l'herbe.
-Suite précise : handoff.md ; inventaire technique : notes/audit.md ; dettes : FINDINGS.txt.
+non prouvé : ablation --off, fraîcheur et non-régression appareil pour cet essai.
+Suite : arbitrage de périmètre par le superviseur avant toute nouvelle course ; voir handoff.md.
