@@ -1,7 +1,6 @@
 // Encoding tests for GOAL store helpers in IGenARM64.cpp.
-//
-// store_goal_gpr / store_goal_vf emit the same A6 paired
-// "ADD X16, addr, off ; STR Wt, [X16, #imm]" sequence as the loads.
+// Zero displacement uses one register-offset instruction; nonzero displacements
+// retain the ADD X16 plus immediate access sequence.
 
 #include "test_helpers.h"
 
@@ -44,33 +43,16 @@ constexpr uint32_t expect_strh_w(uint32_t rt, uint32_t base, uint32_t imm12_h) {
 
 // ---- emit_store_goal_gpr — 4-byte, off-register paired with X16 ----
 // store_goal_gpr(addr, value, off, offset, size).
-TEST_CASE("emit_store_goal_gpr 4-byte off=X9 offset=0") {
-    EXPECT_ENC(store_goal_gpr(X5, X3, X9, 0, 4), expect_add_x16(5, 9));
-    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, 0, 4), 1);
-    EXPECT_EXTRA_AT(store_goal_gpr(X5, X3, X9, 0, 4), 0, expect_str_w_x16(3, 0));
-}
 TEST_CASE("emit_store_goal_gpr 4-byte offset=64") {
     EXPECT_EXTRA_AT(store_goal_gpr(X5, X3, X9, 64, 4), 0, expect_str_w_x16(3, 64));
 }
-TEST_CASE("emit_store_goal_gpr 8-byte offset=0") {
-    EXPECT_EXTRA_AT(store_goal_gpr(X5, X3, X9, 0, 8), 0, expect_str_x_x16(3, 0));
-}
 
 // ---- emit_store_goal_vf — 16-byte, off-register paired with X16 ----
-TEST_CASE("emit_store_goal_vf Q0 X5 X9 offset=0") {
-    EXPECT_ENC(store_goal_vf(X5, Q0, X9, 0), expect_add_x16(5, 9));
-    EXPECT_EXTRA_AT(store_goal_vf(X5, Q0, X9, 0), 0, expect_str_q_x16(0, 0));
-}
 TEST_CASE("emit_store_goal_vf Q4 X5 X9 offset=32") {
     EXPECT_EXTRA_AT(store_goal_vf(X5, Q4, X9, 32), 0, expect_str_q_x16(4, 32));
 }
 
 // ---- emit_store_goal_xmm32 ----
-TEST_CASE("emit_store_goal_xmm32 Q0 X5 X9 offset=0") {
-    // Shape: ADD X16, X5, X9 ; STR St, [X16, #0]
-    EXPECT_ENC(store_goal_xmm32(X5, Q0, X9, 0), expect_add_x16(5, 9));
-    EXPECT_EXTRA_WORDS(store_goal_xmm32(X5, Q0, X9, 0), 1);
-}
 
 // ---- emit_store8/16/32/64_gpr64_gpr64_plus_gpr64 family ----
 TEST_CASE("emit_store8_gpr64_gpr64_plus_gpr64 X5 X3") {
@@ -220,4 +202,45 @@ TEST_CASE("emit_static_load_xmm32 Q0 +32") {
 }
 TEST_CASE("emit_static_store_xmm32 Q0 +32") {
     EXPECT_ARM64_SHAPED(static_store_xmm32(Q0, 32));
+}
+
+// Words independently assembled with aarch64-linux-gnu-as: [x5, x9], LSL #0.
+TEST_CASE("register-offset store_goal_gpr(X5, X3, X9, 0, 1)") {
+    EXPECT_ENC(store_goal_gpr(X5, X3, X9, 0, 1), 0x382968a3u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, 0, 1), 0);
+}
+TEST_CASE("register-offset store_goal_gpr(X5, X3, X9, 0, 2)") {
+    EXPECT_ENC(store_goal_gpr(X5, X3, X9, 0, 2), 0x782968a3u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, 0, 2), 0);
+}
+TEST_CASE("register-offset store_goal_gpr(X5, X3, X9, 0, 4)") {
+    EXPECT_ENC(store_goal_gpr(X5, X3, X9, 0, 4), 0xb82968a3u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, 0, 4), 0);
+}
+TEST_CASE("register-offset store_goal_gpr(X5, X3, X9, 0, 8)") {
+    EXPECT_ENC(store_goal_gpr(X5, X3, X9, 0, 8), 0xf82968a3u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, 0, 8), 0);
+}
+TEST_CASE("register-offset store_goal_vf(X5, Q0, X9, 0)") {
+    EXPECT_ENC(store_goal_vf(X5, Q0, X9, 0), 0x3ca968a0u);
+    EXPECT_EXTRA_WORDS(store_goal_vf(X5, Q0, X9, 0), 0);
+}
+TEST_CASE("register-offset store_goal_xmm32(X5, Q0, X9, 0)") {
+    EXPECT_ENC(store_goal_xmm32(X5, Q0, X9, 0), 0xbc2968a0u);
+    EXPECT_EXTRA_WORDS(store_goal_xmm32(X5, Q0, X9, 0), 0);
+}
+TEST_CASE("register-offset store_goal_gpr(X5, X5, X9, 0, 8)") {
+    EXPECT_ENC(store_goal_gpr(X5, X5, X9, 0, 8), 0xf82968a5u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X5, X9, 0, 8), 0);
+}
+TEST_CASE("register-offset store_goal_gpr(X5, X9, X9, 0, 8)") {
+    EXPECT_ENC(store_goal_gpr(X5, X9, X9, 0, 8), 0xf82968a9u);
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X9, X9, 0, 8), 0);
+}
+
+TEST_CASE("store_goal_gpr offset=-316 retains materialized byte address") {
+    EXPECT_ENC(store_goal_gpr(X5, X3, X9, -316, 8), expect_add_x16(5, 9));
+    EXPECT_EXTRA_WORDS(store_goal_gpr(X5, X3, X9, -316, 8), 2);
+    EXPECT_EXTRA_AT(store_goal_gpr(X5, X3, X9, -316, 8), 0, 0xd104f210u);
+    EXPECT_EXTRA_AT(store_goal_gpr(X5, X3, X9, -316, 8), 1, expect_str_x_x16(3, 0));
 }

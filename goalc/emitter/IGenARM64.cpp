@@ -1193,7 +1193,8 @@ static inline uint32_t a6_enc_ldur_stur(uint32_t base, Register tgt, int simm9) 
 //   STUR  St (32 SIMD)0xBC000000     LDUR St  0xBC400000
 //   STUR  Qt (128 SIMD)0x3C800000    LDUR Qt  0x3CC00000
 
-// Emit the full GOAL off-register access sequence for [addr + off + offset]:
+// Emit one register-offset access [addr, off] when offset is zero.
+// Otherwise emit the GOAL access sequence for [addr + off + offset]:
 //
 //   ADD X16, Xaddr, Xoff            ; X16 = host address sans struct offset
 //   <access> Rt, [X16, #offset]     ; scaled imm12 or LDUR/STUR simm9
@@ -1226,6 +1227,13 @@ static inline InstructionARM64 a6_offreg_access(Register addr,
   const uint32_t rt = arm64_reg5(tgt);
   const uint32_t rn_x16 = (kA6OffRegScratchRegId << 5);
   const uint32_t add0 = a6_enc_add_x16_xn_xm(addr, off);
+  if (offset == 0) {
+    // Register offset, UXTX (LSL #0): retain the size/V/opc fields from
+    // LDUR/STUR and select Rm, option=011, S=0, mode=10. Computing add0
+    // above retains the GPR-bank assertions for both address operands.
+    return InstructionARM64(unscaled_base | 0x00206800u | (arm64_reg5(off) << 16) |
+                            (arm64_reg5(addr) << 5) | rt);
+  }
   if (a6_fits_scaled_imm12(offset, scale)) {
     const uint32_t imm12 = static_cast<uint32_t>(offset / scale);
     return InstructionARM64::paired(add0, scaled_base | (imm12 << 10) | rn_x16 | rt);
@@ -1715,6 +1723,9 @@ InstructionARM64 pop_gpr64(Register reg) {
                           Rt(reg.id()));
 }
 
+// The following A6/A19 notes describe the historical full save set, still
+// used by the legacy overload. IR_FunctionCall now supplies a CFG live-out
+// mask to preserve only the GOAL values crossing that call.
 // A6/A19 — callee-saved register preservation around BLR. The locked
 // CodeGenerator.cpp prologue/epilogue saves only X29/X30 (the AArch64
 // frame pointer + link register), not the goalc "saved" GPRs that the
@@ -1828,13 +1839,20 @@ static bool blr_target_trace_emit_enabled() {
   return enabled;
 }
 
-InstructionARM64 call_r64(Register reg_) {
-  constexpr uint32_t kStpX3X5Push   = 0xA9BF17E3u;
-  constexpr uint32_t kStpX10X11Push = 0xA9BF2FEAu;
-  constexpr uint32_t kStpX12X23Push = 0xA9BF5FECu;
-  constexpr uint32_t kLdpX12X23Pop  = 0xA8C15FECu;
-  constexpr uint32_t kLdpX10X11Pop  = 0xA8C12FEAu;
-  constexpr uint32_t kLdpX3X5Pop    = 0xA8C117E3u;
+static InstructionARM64 call_r64_saved(Register reg_, uint32_t live_saved_gprs) {
+  std::vector<uint32_t> saved;
+  for (uint32_t reg : {3u, 5u, 10u, 11u, 12u, 23u}) {
+    if (live_saved_gprs & (1u << reg)) {
+      saved.push_back(reg);
+    }
+  }
+  if (saved.size() & 1) {
+    saved.push_back(31u);  // XZR padding keeps SP aligned to 16 bytes.
+  }
+  std::vector<uint32_t> words;
+  for (size_t i = 0; i < saved.size(); i += 2) {
+    words.push_back(0xA9BF03E0u | (saved[i + 1] << 10) | saved[i]);
+  }
   // A40 note: an earlier revision of this fix banked q24-q31 (GOAL's
   // callee-saved xmm8-15) here, around every BLR. That was correct but
   // too expensive: +32 B of code per call site overflowed the GOAL
@@ -1869,16 +1887,29 @@ InstructionARM64 call_r64(Register reg_) {
     //   freg=R3 → UDF #0x1EE3, freg=R5 → 0x1EE5, freg=R10 → 0x1EEA, etc.
     //   The handler matches on (imm16 & 0xFFE0) == 0x1EE0.
     uint32_t udf_blr_target_stack = 0x00001EE0u | (freg & 0x1Fu);
-    return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStpX12X23Push,
-                                    sub_x17_freg_x15, movz_x16_0x0700_lsl16,
-                                    cmp_x17_x16, blo_skip_udf, udf_blr_target_stack,
-                                    blr,
-                                    kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
+    words.insert(words.end(), {sub_x17_freg_x15, movz_x16_0x0700_lsl16,
+                               cmp_x17_x16, blo_skip_udf, udf_blr_target_stack});
   }
 
-  return InstructionARM64::multi({kStpX3X5Push, kStpX10X11Push, kStpX12X23Push,
-                                  blr,
-                                  kLdpX12X23Pop, kLdpX10X11Pop, kLdpX3X5Pop});
+  words.push_back(blr);
+  for (size_t i = saved.size(); i > 0; i -= 2) {
+    words.push_back(0xA8C103E0u | (saved[i - 1] << 10) | saved[i - 2]);
+  }
+  InstructionARM64 result(words.front());
+  result.extra_words.assign(words.begin() + 1, words.end());
+  return result;
+}
+
+InstructionARM64 call_r64(Register reg_) {
+  // Keep the conservative API byte-identical for callers without allocation data.
+  return call_r64_saved(reg_, kCallSavedGprMask | (1u << 23));
+}
+
+InstructionARM64 call_r64(Register reg_, uint32_t live_saved_gprs) {
+  ASSERT((live_saved_gprs & ~kCallSavedGprMask) == 0);
+  // X23 is never allocated to GOAL. All three C++ -> GOAL entry wrappers save
+  // it (asm_funcs_arm64.s), and native callees preserve it under AAPCS64.
+  return call_r64_saved(reg_, live_saved_gprs);
 }
 
 // A24 — extend the tracer to BR Xn (.jr form). A23's tracer covers BLR

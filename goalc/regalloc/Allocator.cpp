@@ -816,6 +816,19 @@ AllocationResult allocate_registers(const AllocationInput& input) {
   result.stack_slots_for_spills = cache.current_stack_slot;
   result.stack_slots_for_vars = input.stack_slots_for_stack_vars;
 
+  result.live_out.resize(input.instructions.size());
+  for (auto& block : cache.control_flow.basic_blocks) {
+    for (size_t i = 0; i < block.instr_idx.size(); ++i) {
+      auto& live = block.live.at(i);
+      auto& output = result.live_out.at(block.instr_idx.at(i));
+      for (int var = 0; var < input.max_vars; ++var) {
+        if (live[var]) {
+          output.push_back(var);
+        }
+      }
+    }
+  }
+
   // check for use of saved registers
   for (auto sr : emitter::gRegInfo.get_all_saved()) {
     bool uses_sr = false;

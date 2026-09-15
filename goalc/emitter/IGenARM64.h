@@ -397,6 +397,11 @@ InstructionARM64 pop_gpr64(Register reg);
  * Call a function stored in a 64-bit gpr
  */
 InstructionARM64 call_r64(Register reg_);
+// Bits use the shared physical register IDs. Native callee-saved registers
+// such as X23 are protected by the existing C++ entry wrappers.
+constexpr uint32_t kCallSavedGprMask =
+    (1u << 3) | (1u << 5) | (1u << 10) | (1u << 11) | (1u << 12);
+InstructionARM64 call_r64(Register reg_, uint32_t live_saved_gprs);
 
 /*!
  * Jump to an x86-64 address stored in a 64-bit gpr.

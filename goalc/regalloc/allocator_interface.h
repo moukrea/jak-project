@@ -126,6 +126,9 @@ struct AllocationResult {
   bool ok = false;  // did it work?
   // std::vector<std::vector<Assignment>> assignment;  // variable, instruction
   std::vector<AssignmentRange> ass_as_ranges;      // another format, maybe easier?
+  // Virtual registers live after each IR, from control-flow analysis (not the
+  // wider assignment ranges, which also include instruction inputs/outputs).
+  std::vector<std::vector<int>> live_out;
   std::vector<emitter::Register> used_saved_regs;  // which saved regs get clobbered?
   int stack_slots_for_spills = 0;                  // how many space on the stack do we need?
   int stack_slots_for_vars = 0;

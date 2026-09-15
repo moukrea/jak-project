@@ -1,0 +1,17 @@
+5a2c23a0be7bfb9e7bd3c67f0f7835ab9e7649f6e3d6085b9aecd8a5bd2530ff  build-android/android/CMakeFiles/android_kernel.dir/__/asm_funcs_arm64_gnu.s.o
+
+0000000000000210 <_call_goal_asm_arm64>:
+ 220:	a9bf63f7 	stp	x23, x24, [sp, #-16]!
+ 270:	a8c163f7 	ldp	x23, x24, [sp], #16
+ 28c:	540000a3 	b.cc	2a0 <_call_goal_asm_arm64+0x90>  // b.lo, b.ul, b.last
+ 298:	54000042 	b.cs	2a0 <_call_goal_asm_arm64+0x90>  // b.hs, b.nlast
+00000000000002b0 <_call_goal8_asm_arm64>:
+ 2c0:	a9bf63f7 	stp	x23, x24, [sp, #-16]!
+ 334:	a8c163f7 	ldp	x23, x24, [sp], #16
+ 350:	540000a3 	b.cc	364 <_call_goal8_asm_arm64+0xb4>  // b.lo, b.ul, b.last
+ 35c:	54000042 	b.cs	364 <_call_goal8_asm_arm64+0xb4>  // b.hs, b.nlast
+0000000000000370 <_call_goal_on_stack_asm_arm64>:
+ 380:	a9bf63f7 	stp	x23, x24, [sp, #-16]!
+ 3e8:	a8c163f7 	ldp	x23, x24, [sp], #16
+ 404:	540000a3 	b.cc	418 <_call_goal_on_stack_asm_arm64+0xa8>  // b.lo, b.ul, b.last
+ 410:	54000042 	b.cs	418 <_call_goal_on_stack_asm_arm64+0xa8>  // b.hs, b.nlast

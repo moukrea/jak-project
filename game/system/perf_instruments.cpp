@@ -29,6 +29,7 @@
 #include "game/mips2c/vu_simd_state.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/codegen_arm64_calls.h"
 
 namespace Mips2C::vu_simd {
 namespace {
@@ -297,6 +298,68 @@ void resolve_symbols() {
 }
 
 std::unordered_map<uint32_t, bool> g_type_is_actor;
+
+constexpr const char* kCodegenItem = "perf-codegen-arm64-calls";
+AUTOPORT_FEATURE_SITE(kCodegenItem);
+
+void publish_codegen_calls() {
+  if (!autoport_proof::feature_is(kCodegenItem) || g_frames_total % 60 != 0) {
+    return;
+  }
+  // Existing, normally generated functions from the display loop and camera.
+  // Inspect the linked code, not compiler claims or an APK build-time constant.
+  constexpr const char* markers[] = {"display-frame-start", "display-frame-finish",
+                                    "display-sync", "main-draw-hook", "update-math-camera"};
+  uint64_t complete = 0, max_instructions = 0, sites = 0, reduced = 0;
+#if defined(__aarch64__)
+  if (g_game_version == GameVersion::Jak1 && g_ee_main_mem && SymbolTable2.offset) {
+    uint32_t function_type = 0;
+    rd32(s7.offset + jak1_symbols::FIX_SYM_FUNCTION_TYPE, &function_type);
+    for (size_t m = 0; m < 5; ++m) {
+      uint32_t address = 0, type = 0;
+      const auto symbol = jak1::find_symbol_from_c(markers[m]);
+      codegen_arm64::CallStats stats;
+      if (symbol.offset && rd32(symbol.offset, &address) && (address & 3u) == 0 &&
+          rd32(address - 4, &type) && function_type && type == function_type) {
+        std::vector<uint32_t> words;
+        // Bound malformed functions; none of these markers is an asm-func or a
+        // trampoline. A missing RET or an unfamiliar BLR wrapper is incomplete.
+        for (uint32_t offset = 0; offset < 65536; offset += 4) {
+          uint32_t word = 0;
+          if (!rd32(address + offset, &word)) break;
+          words.push_back(word);
+          if (word == 0xd65f03c0u) break;
+        }
+        stats = codegen_arm64::inspect_calls(words.data(), words.size());
+      }
+      const std::string prefix = "codegen_marker_" + std::to_string(m);
+      autoport_proof::publish_text((prefix + "_name").c_str(), markers[m]);
+      autoport_proof::publish((prefix + "_address").c_str(), address);
+      autoport_proof::publish((prefix + "_calls").c_str(), stats.calls);
+      autoport_proof::publish((prefix + "_instructions").c_str(), stats.max_instructions);
+      autoport_proof::publish((prefix + "_complete").c_str(), stats.complete);
+      complete += stats.complete;
+      sites += stats.calls;
+      reduced += stats.reduced_calls;
+      max_instructions = std::max<uint64_t>(max_instructions, stats.max_instructions);
+    }
+  }
+#endif
+  uint64_t refset_diff = 0;
+  const bool refset_present = autoport_proof::read_uint("refset_replay_maxdiff", refset_diff);
+  autoport_proof::publish("codegen_markers_complete", complete);
+  autoport_proof::publish("codegen_call_sites", sites);
+  autoport_proof::publish("codegen_reduced_call_sites", reduced);
+  autoport_proof::publish("codegen_call_max_instructions", max_instructions);
+  autoport_proof::publish("codegen_boot_frames", g_frames_total);
+  autoport_proof::publish("codegen_refset_present", refset_present);
+  autoport_proof::publish("codegen_lot_defects",
+                         (!refset_present || refset_diff != 0) + (g_frames_total < 600) +
+                             (complete != 5 || max_instructions > 2));
+  // Hits identify the reduced sites observed in the running process. The
+  // separate frame counter proves survival; this is not a dynamic call count.
+  autoport_proof::note_hit_for(kCodegenItem, reduced);
+}
 
 bool type_is_actor(uint32_t type) {
   auto it = g_type_is_actor.find(type);
@@ -740,6 +803,7 @@ void note_vsync_wait_ns(uint64_t ns) {
 void frame_boundary() {
   Mips2C::vu_simd::frame_boundary();
   g_frames_total++;
+  publish_codegen_calls();
   // Le reglage peut etre pose avant le lancement (propriete) : on le relit toutes les 120
   // images, comme le vidage A35-PERF, pour ne pas figer un etat lu trop tot.
   if (g_frames_total % 120 == 1) {

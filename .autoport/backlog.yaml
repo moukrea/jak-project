@@ -6874,6 +6874,11 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  - debug.opengoal.refset=capture
+  - debug.opengoal.refset.dir=/sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a1
+  - debug.opengoal.refset.phases=1
+  - debug.opengoal.refset.vantages=village1-hut
+  - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-codegen-arm64-calls.md
   device_serial: eae4df44
   block_reason: null

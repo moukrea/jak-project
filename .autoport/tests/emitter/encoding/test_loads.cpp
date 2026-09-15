@@ -1,10 +1,6 @@
 // Encoding tests for GOAL load helpers in IGenARM64.cpp.
-//
-// load_goal_gpr / load_goal_xmm32 / load_goal_xmm128 emit the A6 paired
-// "ADD X16, addr, off ; LDR Wt, [X16, #imm]" sequence — the original
-// pre-A6 helper class silently dropped `off`, which manifested as the
-// display.gc NULL fn-pointer BLR on device. These tests assert the
-// paired emission shape AND each instruction word.
+// Zero displacement uses one register-offset instruction; nonzero displacements
+// retain the ADD X16 plus immediate access sequence.
 
 #include "test_helpers.h"
 
@@ -62,12 +58,6 @@ constexpr uint32_t expect_ldur_w(uint32_t rt, uint32_t base, int simm9) {
 // ---- emit_load_goal_gpr — 4-byte unsigned, off-register paired with X16 ----
 // load_goal_gpr(dst, addr, off, offset, size, sign_extend)
 // size=4, sign_extend=false → LDR Wt, [X16, #offset].
-TEST_CASE("emit_load_goal_gpr 4-byte unsigned off=X9 offset=0") {
-    auto enc = load_goal_gpr(X3, X5, X9, 0, 4, false);
-    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 4, false), expect_add_x16(5, 9));
-    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 4, false), 1);
-    EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 0, 4, false), 0, expect_ldr_w_x16(3, 0));
-}
 TEST_CASE("emit_load_goal_gpr 4-byte aligned offset=64") {
     EXPECT_ENC(load_goal_gpr(X3, X5, X9, 64, 4, false), expect_add_x16(5, 9));
     EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 64, 4, false), 0, expect_ldr_w_x16(3, 64));
@@ -77,25 +67,13 @@ TEST_CASE("emit_load_goal_gpr 4-byte negative offset → LDUR fallback") {
     EXPECT_ENC(load_goal_gpr(X3, X5, X9, -4, 4, false), expect_add_x16(5, 9));
     EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, -4, 4, false), 0, expect_ldur_w(3, 16, -4));
 }
-TEST_CASE("emit_load_goal_gpr 8-byte offset=0") {
-    EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 0, 8, false), 0, expect_ldr_x_x16(3, 0));
-}
 
 // ---- emit_load_goal_xmm128 ----
-TEST_CASE("emit_load_goal_xmm128 Q0 X5 X9 offset=0") {
-    EXPECT_ENC(load_goal_xmm128(Q0, X5, X9, 0), expect_add_x16(5, 9));
-    EXPECT_EXTRA_WORDS(load_goal_xmm128(Q0, X5, X9, 0), 1);
-    EXPECT_EXTRA_AT(load_goal_xmm128(Q0, X5, X9, 0), 0, expect_ldr_q_x16(0, 0));
-}
 TEST_CASE("emit_load_goal_xmm128 Q4 offset=32") {
     EXPECT_EXTRA_AT(load_goal_xmm128(Q4, X5, X9, 32), 0, expect_ldr_q_x16(4, 32));
 }
 
 // ---- emit_load_goal_xmm32 ----
-TEST_CASE("emit_load_goal_xmm32 Q0 X5 X9 offset=0") {
-    EXPECT_ENC(load_goal_xmm32(Q0, X5, X9, 0), expect_add_x16(5, 9));
-    EXPECT_EXTRA_AT(load_goal_xmm32(Q0, X5, X9, 0), 0, expect_ldr_s_x16(0, 0));
-}
 
 // ---- emit_load8s_gpr64_gpr64_plus_gpr64 family ----
 // These collapse to a single LDRSB/LDRB (the (void)addr2 path); A6 work
@@ -266,4 +244,61 @@ TEST_CASE("emit_load8s_gpr64_gpr64_plus_gpr64_plus_s8 X3 X5 +8") {
 }
 TEST_CASE("emit_load8s_gpr64_gpr64_plus_gpr64_plus_s32 X3 X5 +64") {
     EXPECT_ARM64_SHAPED(load8s_gpr64_gpr64_plus_gpr64_plus_s32(X3, X5, X9, 64));
+}
+
+// Words independently assembled with aarch64-linux-gnu-as: [x5, x9], LSL #0.
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 1, false)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 1, false), 0x386968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 1, false), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 1, true)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 1, true), 0x38a968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 1, true), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 2, false)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 2, false), 0x786968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 2, false), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 2, true)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 2, true), 0x78a968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 2, true), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 4, false)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 4, false), 0xb86968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 4, false), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 4, true)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 4, true), 0xb8a968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 4, true), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 8, false)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 8, false), 0xf86968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 8, false), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X3, X5, X9, 0, 8, true)") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 0, 8, true), 0xf86968a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 0, 8, true), 0);
+}
+TEST_CASE("register-offset load_goal_xmm128(Q0, X5, X9, 0)") {
+    EXPECT_ENC(load_goal_xmm128(Q0, X5, X9, 0), 0x3ce968a0u);
+    EXPECT_EXTRA_WORDS(load_goal_xmm128(Q0, X5, X9, 0), 0);
+}
+TEST_CASE("register-offset load_goal_xmm32(Q0, X5, X9, 0)") {
+    EXPECT_ENC(load_goal_xmm32(Q0, X5, X9, 0), 0xbc6968a0u);
+    EXPECT_EXTRA_WORDS(load_goal_xmm32(Q0, X5, X9, 0), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X5, X5, X9, 0, 8, false)") {
+    EXPECT_ENC(load_goal_gpr(X5, X5, X9, 0, 8, false), 0xf86968a5u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X5, X5, X9, 0, 8, false), 0);
+}
+TEST_CASE("register-offset load_goal_gpr(X9, X5, X9, 0, 8, false)") {
+    EXPECT_ENC(load_goal_gpr(X9, X5, X9, 0, 8, false), 0xf86968a9u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X9, X5, X9, 0, 8, false), 0);
+}
+
+TEST_CASE("load_goal_gpr unaligned offset=316 retains materialized byte address") {
+    EXPECT_ENC(load_goal_gpr(X3, X5, X9, 316, 8, false), expect_add_x16(5, 9));
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X9, 316, 8, false), 2);
+    EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 316, 8, false), 0, 0x9104f210u);
+    EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X9, 316, 8, false), 1, expect_ldr_x_x16(3, 0));
 }

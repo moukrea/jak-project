@@ -1,0 +1,26 @@
+
+.autoport/reports/perf-codegen-arm64-calls/notes/memory-offset-oracle.o:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	386968a3 	ldrb	w3, [x5, x9]
+   4:	38a968a3 	ldrsb	x3, [x5, x9]
+   8:	786968a3 	ldrh	w3, [x5, x9]
+   c:	78a968a3 	ldrsh	x3, [x5, x9]
+  10:	b86968a3 	ldr	w3, [x5, x9]
+  14:	b8a968a3 	ldrsw	x3, [x5, x9]
+  18:	f86968a3 	ldr	x3, [x5, x9]
+  1c:	3ce968a0 	ldr	q0, [x5, x9]
+  20:	bc6968a0 	ldr	s0, [x5, x9]
+  24:	f86968a5 	ldr	x5, [x5, x9]
+  28:	f86968a9 	ldr	x9, [x5, x9]
+  2c:	382968a3 	strb	w3, [x5, x9]
+  30:	782968a3 	strh	w3, [x5, x9]
+  34:	b82968a3 	str	w3, [x5, x9]
+  38:	f82968a3 	str	x3, [x5, x9]
+  3c:	3ca968a0 	str	q0, [x5, x9]
+  40:	bc2968a0 	str	s0, [x5, x9]
+  44:	f82968a5 	str	x5, [x5, x9]
+  48:	f82968a9 	str	x9, [x5, x9]

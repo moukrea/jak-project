@@ -17,6 +17,25 @@
 //      regression that re-introduces a -4 shift will fail these tests.
 
 #include "test_helpers.h"
+#include "game/system/codegen_arm64_calls.h"
+
+TEST_CASE("Codegen call census rejects missing, malformed and truncated evidence") {
+    auto check = [](bool ok) { ++g_total; if (ok) ++g_passed; else ++g_failed; };
+    const uint32_t two[] = {0x8b0f0108u, 0xd63f0100u, 0xd65f03c0u};
+    auto stats = codegen_arm64::inspect_calls(two, 3);
+    check(stats.complete && stats.calls == 1 && stats.max_instructions == 2);
+    const uint32_t four[] = {0x8b0f0108u, 0xa9bf7ff7u, 0xd63f0100u,
+                            0xa8c17ff7u, 0xd65f03c0u};
+    stats = codegen_arm64::inspect_calls(four, 5);
+    check(stats.complete && stats.calls == 1 && stats.max_instructions == 4);
+    const uint32_t wrong_pop[] = {0x8b0f0108u, 0xa9bf7ff7u, 0xd63f0100u,
+                                 0xa8c17ff6u, 0xd65f03c0u};
+    check(!codegen_arm64::inspect_calls(wrong_pop, 5).complete);
+    check(!codegen_arm64::inspect_calls(four, 3).complete);
+    check(!codegen_arm64::inspect_calls(two, 2).complete);
+    check(!codegen_arm64::inspect_calls(two + 1, 2).complete);
+    check(!codegen_arm64::inspect_calls(two + 2, 1).complete);
+}
 
 namespace {
 
@@ -77,8 +96,9 @@ TEST_CASE("A19 store_goal_gpr offset=100 emits STR Wt at #100 (dead-list.next fi
 TEST_CASE("A19 load_goal_gpr basic-tag at offset 0 — sanity baseline") {
     // For basic types the GOAL pointer is at offset 0 of fields; reading
     // (-> obj first-int-field) where first-int-field is at offset 0 must
-    // emit LDR at #0. This is the lowest-offset sanity check.
-    EXPECT_EXTRA_AT(load_goal_gpr(X3, X5, X15, 0, 4, false), 0, expect_ldr_w_x16(3, 0));
+    // emit one LDR W3, [X5, X15] without a scratch-address instruction.
+    EXPECT_ENC(load_goal_gpr(X3, X5, X15, 0, 4, false), 0xb86f68a3u);
+    EXPECT_EXTRA_WORDS(load_goal_gpr(X3, X5, X15, 0, 4, false), 0);
 }
 
 TEST_CASE("A19 load_goal_gpr offset boundary — 4 and 8") {

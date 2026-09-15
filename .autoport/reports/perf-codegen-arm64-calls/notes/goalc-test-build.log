@@ -1,0 +1,88 @@
+[0/2] Re-checking globbed directories...
+[1/432] Building C object third-party/SDL/CMakeFiles/SDL3-shared.dir/src/SDL.c.o
+[2/432] Building C object third-party/SDL/CMakeFiles/SDL3-shared.dir/src/video/SDL_egl.c.o
+[3/432] Linking C shared library third-party/SDL/libSDL3.so.0.4.4
+[4/432] Creating library symlink third-party/SDL/libSDL3.so.0 third-party/SDL/libSDL3.so
+[5/432] Building CXX object game/sound/CMakeFiles/sound.dir/989snd/player.cpp.o
+In file included from /home/emeric/code/jak-project/game/sound/989snd/loader.h:9,
+                 from /home/emeric/code/jak-project/game/sound/989snd/ame_handler.h:6,
+                 from /home/emeric/code/jak-project/game/sound/989snd/player.h:11,
+                 from /home/emeric/code/jak-project/game/sound/989snd/player.cpp:3:
+/home/emeric/code/jak-project/game/sound/989snd/soundbank.h:58:3: warning: ‘virtual std::optional<std::unique_ptr<snd::SoundHandler> > snd::SoundBank::MakeHandler(snd::VoiceManager&, u32, s32, s32, s32, s32, s32)’ was hidden [-Woverloaded-virtual=]
+   58 |   MakeHandler(VoiceManager& vm, u32 sound_id, s32 vol, s32 pan, s32 pm, s32 pb, s32 current_tick) {
+      |   ^~~~~~~~~~~
+In file included from /home/emeric/code/jak-project/game/sound/989snd/player.cpp:8:
+/home/emeric/code/jak-project/game/sound/989snd/sfxblock.h:51:48: note:   by ‘virtual std::optional<std::unique_ptr<snd::SoundHandler> > snd::SFXBlock::MakeHandler(snd::VoiceManager&, u32, s32, s32, snd::SndPlayParams&, s32)’
+   51 |   std::optional<std::unique_ptr<SoundHandler>> MakeHandler(VoiceManager& vm,
+      |                                                ^~~~~~~~~~~
+cc1plus: note: unrecognized command-line option ‘-Wno-unused-private-field’ may have been intended to silence earlier diagnostics
+cc1plus: note: unrecognized command-line option ‘-Wno-unknown-warning-option’ may have been intended to silence earlier diagnostics
+[6/432] Building CXX object game/sound/CMakeFiles/sound.dir/sndshim.cpp.o
+[7/432] Linking CXX shared library third-party/imgui/libimgui.so
+[8/432] Building CXX object game/CMakeFiles/runtime.dir/external/discord_jak1.cpp.o
+[9/432] Building CXX object game/CMakeFiles/runtime.dir/external/discord_jak2.cpp.o
+[10/432] Building CXX object game/CMakeFiles/runtime.dir/external/discord_jak3.cpp.o
+[11/432] Building CXX object game/CMakeFiles/runtime.dir/external/discord_jakx.cpp.o
+[12/432] Building CXX object game/CMakeFiles/runtime.dir/external/discord.cpp.o
+[13/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/display.cpp.o
+[14/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/fire_red_census.cpp.o
+[15/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/fixed_tick.cpp.o
+[16/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/gl_query_census.cpp.o
+[17/432] Building CXX object third-party/googletest/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[18/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/render_pace.cpp.o
+[19/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/uncap.cpp.o
+/home/emeric/code/jak-project/game/graphics/uncap.cpp: In function ‘double uncap::scene_vblank_seconds(double, bool)’:
+/home/emeric/code/jak-project/game/graphics/uncap.cpp:646:36: warning: unused parameter ‘engine_target_fps’ [-Wunused-parameter]
+  646 | double scene_vblank_seconds(double engine_target_fps, bool reset) {
+      |                             ~~~~~~~^~~~~~~~~~~~~~~~~
+[20/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/gfx.cpp.o
+[21/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/screenshot.cpp.o
+[22/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/background_common.cpp.o
+[23/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Hfrag.cpp.o
+[24/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/foliage_wind.cpp.o
+[25/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Shrub.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:2:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h: In function ‘void shrub_contact_measurement::consume(const std::string&, int, size_t, u64, const shrub_contact_probe::Sample*, size_t)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of ‘const auto& tree’ shadows a parameter [-Wshadow]
+  140 |     for (const auto& tree : state.geometry->trees)
+      |                      ^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:118:62: note: shadowed declaration is here
+  118 | inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
+      |                                                       ~~~~~~~^~~~
+[26/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/TFragment.cpp.o
+[27/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BlitDisplays.cpp.o
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/BlitDisplays.cpp: In member function ‘virtual void BlitDisplays::render(DmaFollower&, SharedRenderState*, ScopedProfilerNode&)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/BlitDisplays.cpp:40:47: warning: unused parameter ‘prof’ [-Wunused-parameter]
+   40 |                           ScopedProfilerNode& prof) {
+      |                           ~~~~~~~~~~~~~~~~~~~~^~~~
+[28/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/BucketRenderer.cpp.o
+[29/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Tie3.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:1:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h: In function ‘void shrub_contact_measurement::consume(const std::string&, int, size_t, u64, const shrub_contact_probe::Sample*, size_t)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:140:22: warning: declaration of ‘const auto& tree’ shadows a parameter [-Wshadow]
+  140 |     for (const auto& tree : state.geometry->trees)
+      |                      ^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/shrub_contact_measurement.h:118:62: note: shadowed declaration is here
+  118 | inline void consume(const std::string& name, int geo, size_t tree, u64 frame,
+      |                                                       ~~~~~~~^~~~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp: In member function ‘void Tie3::load_from_fr3_data(const LevelData*)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:329:12: warning: declaration of ‘ul’ shadows a previous local [-Wshadow]
+  329 |       auto ul = scoped_prof("load-tree");
+      |            ^~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:298:8: note: shadowed declaration is here
+  298 |   auto ul = scoped_prof("update-load");
+      |        ^~
+[30/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/CollideMeshRenderer.cpp.o
+[31/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/lighting_census.cpp.o
+[32/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/shade_proof.cpp.o
+[33/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/fb_passes.cpp.o
+[34/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o
+FAILED: [code=1] game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o 
+/usr/bin/c++ -DDISCORD_DYNAMIC_LIB -DFMT_SHARED -DGOALC_BACKEND_ARM64 -DHAVE_USLEEP=1 -DREPLXX_BUILDING_DLL -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE -DSQLITE_THREADSAFE=1 -I/home/emeric/code/jak-project/. -I/home/emeric/code/jak-project/third-party/tree-sitter/tree-sitter/lib/include -I/home/emeric/code/jak-project/third-party/glad/include -I/home/emeric/code/jak-project/third-party/SDL/include -I/home/emeric/code/jak-project/build-arm64/third-party/SDL/include-revision -isystem /home/emeric/code/jak-project/third-party/inja -isystem /home/emeric/code/jak-project/third-party/curl/include -isystem /home/emeric/code/jak-project/third-party/fmt/include -isystem /home/emeric/code/jak-project/third-party/lzokay -isystem /home/emeric/code/jak-project/third-party/replxx/include -Wall         -Winit-self         -ggdb         -Wextra         -Wno-cast-align         -Wcast-qual         -Wdisabled-optimization         -Wformat         -Wextra         -Woverloaded-virtual         -Wredundant-decls         -Wshadow         -Wsign-promo         -fdiagnostics-color=always         -mavx -O3 -O3 -DNDEBUG -std=gnu++20 -MD -MT game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o -MF game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o.d -o game/CMakeFiles/runtime.dir/graphics/opengl_renderer/hdr.cpp.o -c /home/emeric/code/jak-project/game/graphics/opengl_renderer/hdr.cpp
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/hdr.cpp: In function ‘bool hdr::tonemap_draw(Shader&, const char*, GLuint, int, int, GLuint, int, int, GLuint, GLuint)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/hdr.cpp:622:39: error: ‘struct GfxGlobalSettings’ has no member named ‘recharged_pbr_exposure’; did you mean ‘recharged_hdr_exposure’?
+  622 |   const float e_pbr = Gfx::settings().recharged_pbr_exposure;
+      |                                       ^~~~~~~~~~~~~~~~~~~~~~
+      |                                       recharged_hdr_exposure
+[35/432] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/shrub_contact_probe.cpp.o
+ninja: build stopped: subcommand failed.

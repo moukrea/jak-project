@@ -155,6 +155,37 @@ TEST_CASE("emit_call_r64 X9 changes only BLR target") {
     EXPECT_EXTRA_AT(call_r64(X9), 5, kLdpX3X5Pop);     // unchanged
 }
 
+TEST_CASE("call_r64 empty live set emits only BLR") {
+    EXPECT_ENC(call_r64(X9, 0), expect_blr(9));
+    EXPECT_EXTRA_WORDS(call_r64(X9, 0), 0);
+}
+
+TEST_CASE("call_r64 one live saved register pairs it with XZR") {
+    EXPECT_ENC(call_r64(X9, 1u << 12), 0xA9BF7FECu);
+    EXPECT_EXTRA_WORDS(call_r64(X9, 1u << 12), 2);
+    EXPECT_EXTRA_AT(call_r64(X9, 1u << 12), 0, expect_blr(9));
+    EXPECT_EXTRA_AT(call_r64(X9, 1u << 12), 1, 0xA8C17FECu);
+}
+
+TEST_CASE("call_r64 sparse live registers compact into one pair") {
+    constexpr uint32_t mask = (1u << 3) | (1u << 12);
+    EXPECT_ENC(call_r64(X9, mask), 0xA9BF33E3u);
+    EXPECT_EXTRA_WORDS(call_r64(X9, mask), 2);
+    EXPECT_EXTRA_AT(call_r64(X9, mask), 0, expect_blr(9));
+    EXPECT_EXTRA_AT(call_r64(X9, mask), 1, 0xA8C133E3u);
+}
+
+TEST_CASE("call_r64 full GOAL mask saves five registers and no native register") {
+    EXPECT_ENC(call_r64(X12, kCallSavedGprMask), kStpX3X5Push);
+    EXPECT_EXTRA_WORDS(call_r64(X12, kCallSavedGprMask), 6);
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 0, kStpX10X11Push);
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 1, 0xA9BF7FECu);
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 2, expect_blr(12));
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 3, 0xA8C17FECu);
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 4, kLdpX10X11Pop);
+    EXPECT_EXTRA_AT(call_r64(X12, kCallSavedGprMask), 5, kLdpX3X5Pop);
+}
+
 // ---- emit_push_gpr64 / emit_pop_gpr64 — pre-/post-indexed [SP, #-16]! ----
 TEST_CASE("emit_push_gpr64 X3 — STR X3, [SP, #-16]!") {
     // From IGenARM64.cpp: Base(0b1111100000000000000011, 22) | Imm9(-16) | Rn(SP=31) | Rt(reg)

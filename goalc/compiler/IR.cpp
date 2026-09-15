@@ -7,6 +7,7 @@
 #include "common/symbols.h"
 
 #include "goalc/compiler/Env.h"
+#include "goalc/compiler/FixedSymbolsARM64.h"
 #include "goalc/emitter/IGen.h"
 #include "goalc/emitter/IGenARM64.h"
 
@@ -587,9 +588,13 @@ void IR_SetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                          const AllocationResult& allocs,
                                          emitter::IR_Record irec) {
   auto src_reg = get_reg(m_src, allocs, irec);
-  // STR Wsrc, [Xst, #imm12_scaled4]. The imm12 field holds (symbol_offset >> 2);
-  // the arm64-aware ObjectGenerator fix-up rewrites the instruction word at
-  // link time once the symbol's offset within the symbol table is known.
+  if (auto offset = arm64::fixed_symbol_offset(gen->version(), m_dest->name())) {
+    gen->add_instr(InstructionARM64(arm64::fixed_symbol_instruction(
+                       arm64::SymbolAccess::Store, src_reg.id(), *offset)),
+                   irec);
+    return;
+  }
+  // Other symbols retain the A5 far-address relocation.
   auto instr = gen->add_instr(emitter::IGen::ARM64::store32_gpr64_gpr64_plus_gpr64_plus_s32(
                                   gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(), src_reg,
                                   LINK_SYM_NO_OFFSET_FLAG),
@@ -650,22 +655,28 @@ void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
   // x12/x11/x10/x5/x3) and MOV SP, X1.
   const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
   auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
-  // LDRSW Xdst, [Xst, #imm12_scaled4] (sext) or LDR Wdst, [Xst, #imm12_scaled4]
-  // (unsigned). The arm64-aware fix-up rewrites the imm12 field once the
-  // symbol's offset is known at link time.
-  emitter::InstructionRecord instr;
-  if (m_sext) {
-    instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                               LINK_SYM_NO_OFFSET_FLAG),
-                           irec);
+  // Fixed Jak1 slots use one instruction; other names retain the A5 relocation.
+  if (auto offset = arm64::fixed_symbol_offset(gen->version(), m_src->name())) {
+    const auto access = m_sext ? arm64::SymbolAccess::LoadSigned
+                               : arm64::SymbolAccess::LoadUnsigned;
+    gen->add_instr(InstructionARM64(
+                       arm64::fixed_symbol_instruction(access, load_dst.id(), *offset)),
+                   irec);
   } else {
-    instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                               LINK_SYM_NO_OFFSET_FLAG),
-                           irec);
+    emitter::InstructionRecord instr;
+    if (m_sext) {
+      instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
+                                 load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                                 LINK_SYM_NO_OFFSET_FLAG),
+                             irec);
+    } else {
+      instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
+                                 load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                                 LINK_SYM_NO_OFFSET_FLAG),
+                             irec);
+    }
+    gen->link_instruction_symbol_mem(instr, m_src->name());
   }
-  gen->link_instruction_symbol_mem(instr, m_src->name());
   if (dst_is_sp) {
     // MOV SP, X1 (= ADD SP, X1, #0)
     constexpr uint32_t kMovSpX1 = 0x9100003Fu;
@@ -839,7 +850,22 @@ void IR_FunctionCall::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto freg = get_reg(m_func, allocs, irec);
   gen->add_instr(emitter::IGen::ARM64::add_gpr64_gpr64(freg, emitter::gRegInfo.get_offset_reg()),
                  irec);
-  gen->add_instr(emitter::IGen::ARM64::call_r64(freg), irec);
+  uint32_t live_saved_gprs = 0;
+  for (int var : allocs.live_out.at(irec.ir_id)) {
+    // These values are written by the call itself; restoring their old
+    // contents would discard a result, not preserve a value across the call.
+    if (var == m_func->ireg().id || var == m_ret->ireg().id) {
+      continue;
+    }
+    const auto& range = allocs.ass_as_ranges.at(var);
+    ASSERT(range.is_live_at_instr(irec.ir_id));
+    const auto& assignment = range.get(irec.ir_id);
+    if (assignment.kind == Assignment::Kind::REGISTER && assignment.reg.id() >= 0 &&
+        assignment.reg.id() < 16) {
+      live_saved_gprs |= (1u << assignment.reg.id()) & emitter::IGen::ARM64::kCallSavedGprMask;
+    }
+  }
+  gen->add_instr(emitter::IGen::ARM64::call_r64(freg, live_saved_gprs), irec);
 }
 
 /////////////////////
@@ -2474,21 +2500,28 @@ void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
   // only RAX and immediately pop x12/x11/x10/x5/x3) then MOV SP, X1.
   const bool dst_is_sp = (dst_reg.id() == emitter::RSP);
   auto load_dst = dst_is_sp ? emitter::Register(emitter::RCX) : dst_reg;
-  // Same shape as IR_GetSymbolValue: LDRSW Xd / LDR Wd, [Xst, #imm12_scaled4].
-  // The arm64-aware fix-up rewrites the imm12 field at link time.
-  emitter::InstructionRecord instr;
-  if (m_sext) {
-    instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
-                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                               LINK_SYM_NO_OFFSET_FLAG),
-                           irec);
+  // Match the normal symbol load, including its fixed-slot fast path.
+  if (auto offset = arm64::fixed_symbol_offset(gen->version(), m_sym_name)) {
+    const auto access = m_sext ? arm64::SymbolAccess::LoadSigned
+                               : arm64::SymbolAccess::LoadUnsigned;
+    gen->add_instr(InstructionARM64(
+                       arm64::fixed_symbol_instruction(access, load_dst.id(), *offset)),
+                   irec);
   } else {
-    instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
-                               load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
-                               LINK_SYM_NO_OFFSET_FLAG),
-                           irec);
+    emitter::InstructionRecord instr;
+    if (m_sext) {
+      instr = gen->add_instr(emitter::IGen::ARM64::load32s_gpr64_gpr64_plus_gpr64_plus_s32(
+                                 load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                                 LINK_SYM_NO_OFFSET_FLAG),
+                             irec);
+    } else {
+      instr = gen->add_instr(emitter::IGen::ARM64::load32u_gpr64_gpr64_plus_gpr64_plus_s32(
+                                 load_dst, gRegInfo.get_st_reg(), gRegInfo.get_offset_reg(),
+                                 LINK_SYM_NO_OFFSET_FLAG),
+                             irec);
+    }
+    gen->link_instruction_symbol_mem(instr, m_sym_name);
   }
-  gen->link_instruction_symbol_mem(instr, m_sym_name);
   if (dst_is_sp) {
     // MOV SP, X1 (= ADD SP, X1, #0)
     constexpr uint32_t kMovSpX1 = 0x9100003Fu;

@@ -1,0 +1,30 @@
+[proof_run perf-codegen-arm64-calls] verrou d'ecriture pris (.autoport/reports/perf-codegen-arm64-calls/proof-writer.lock) : pid=1467791 lanceur=1467784 essai=perf-codegen-arm64-calls@1#1789432411 course=20260915T005425Z-1467791-80a51c96
+[proof_run perf-codegen-arm64-calls] attente : APK reecrit il y a 12s
+[proof_run perf-codegen-arm64-calls] build fini apres 60s d'attente, on mesure.
+[proof_run perf-codegen-arm64-calls] garde de build : decision=passe demon_gradle=1 apk_age=73s attendu=60s
+[proof_run perf-codegen-arm64-calls] attente de ce bras publiee sous 'proof-wait.txt', nom derive par lib/impossible.py
+[proof_run perf-codegen-arm64-calls] hygiene des etats impossibles : purged=0 standing=0
+[garde-binaire perf-codegen-arm64-calls] ECART : le telephone porte 5ff265dc1ae1cfdb3313faa0a6410b70, le build local 35785e4ce6a3e9e09eb5591fabd0f961
+[garde-binaire perf-codegen-arm64-calls] verrou pose (pid=1469314) ; installation de android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk sur eae4df44
+Performing Streamed Install
+Success
+[garde-binaire perf-codegen-arm64-calls] LIVRE : 35785e4ce6a3e9e09eb5591fabd0f961 sur eae4df44 ; la course peut mesurer
+[proof_run perf-codegen-arm64-calls] garde binaire : decision=deploye local=35785e4ce6a3e9e09eb5591fabd0f961 appareil=35785e4ce6a3e9e09eb5591fabd0f961 (code 0)
+[proof_run perf-codegen-arm64-calls] app-op MIUI 10020 (afficher sur ecran verrouille) : ignore -> allow
+[proof_run perf-codegen-arm64-calls] ecran : mWakefulness=Awake
+[proof_run perf-codegen-arm64-calls] teardown : 0 propriete(s) trouvee(s) posee(s) [-]
+[proof_run perf-codegen-arm64-calls] preuve precedente retiree au point d'amorcage 'amorcage-appareil' (trouvee : 0 o, sha=- ; filet proof-prev ecrit : 0)
+[proof_run perf-codegen-arm64-calls] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 120s (armed=1)
+[proof_run perf-codegen-arm64-calls] contexte de course : verdict=sans-objet images=6240 temoins=6/6
+[teardown] eae4df44: debug.opengoal.feature etait 'perf-codegen-arm64-calls' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.perf.buckets etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.recharged etait '0' -> vide
+[teardown] eae4df44: debug.opengoal.refset etait 'capture' -> vide
+[teardown] eae4df44: debug.opengoal.refset.dir etait '/sdcard/Android/data/org.opengoal.gk.jak1/files/codegen-calls-a1' -> vide
+[teardown] eae4df44: debug.opengoal.refset.hours etait '9' -> vide
+[teardown] eae4df44: debug.opengoal.refset.phases etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset.vantages etait 'village1-hut' -> vide
+[teardown] eae4df44: 9 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.phases,debug.opengoal.refset.vantages], 9 effacee(s), 0 resistante(s), marqueurs fichier retires.
+[proof_run perf-codegen-arm64-calls] teardown de fin : 9 propriete(s) trouvee(s) posee(s) [debug.opengoal.feature,debug.opengoal.feature.armed,debug.opengoal.perf.buckets,debug.opengoal.recharged,debug.opengoal.refset,debug.opengoal.refset.dir,debug.opengoal.refset.hours,debug.opengoal.refset.phases,debug.opengoal.refset.vantages], publie sous 'proof-teardown-fin.txt'
+[proof_run perf-codegen-arm64-calls] ecrit .autoport/reports/perf-codegen-arm64-calls/proof.txt (frames=6240 crash=0 duree=133s) ; sortie moteur : .autoport/reports/perf-codegen-arm64-calls/proof-engine.log

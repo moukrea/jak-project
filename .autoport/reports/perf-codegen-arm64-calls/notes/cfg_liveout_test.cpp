@@ -1,14 +1,10 @@
-#include "goalc/compiler/Compiler.h"
 #include "goalc/regalloc/Allocator.h"
 #include "goalc/regalloc/Allocator_v2.h"
-#include "gtest/gtest.h"
+#include <iostream>
+#define CHECK(expr) do { ++checks; if (!(expr)) { std::cerr << "failed=" << #expr << "\n"; return 1; } } while (0)
+int main() {
+int checks=0;
 
-TEST(CompilerAndRuntime, ConstructCompiler) {
-  Compiler compiler1(GameVersion::Jak1, emitter::InstructionSet::X86);
-  Compiler compiler2(GameVersion::Jak2, emitter::InstructionSet::X86);
-}
-
-TEST(RegisterAllocation, LiveOutIncludesBothBranchSuccessorsAndExcludesDeadArguments) {
   // v0 survives the call only on one branch; the other branch redefines it.
   // v1 is the branch condition, v2 is the dead call target, v3 is the result.
   const IRegister v0{RegClass::GPR_64, 0}, v1{RegClass::GPR_64, 1},
@@ -36,15 +32,17 @@ TEST(RegisterAllocation, LiveOutIncludesBothBranchSuccessorsAndExcludesDeadArgum
   input.instructions[5].fallthrough = false;
 
   for (int version : {1, 2}) {
-    SCOPED_TRACE(version);
+    std::cout << "allocator_version=" << version << "\n";
     input.allocator_version = version;
     const auto result = version == 1 ? allocate_registers(input) : allocate_registers_v2(input);
-    ASSERT_TRUE(result.ok);
-    ASSERT_EQ(result.live_out.size(), input.instructions.size());
-    EXPECT_EQ(result.live_out[1], (std::vector<int>{0, 1, 3}));
-    EXPECT_EQ(result.live_out[2], (std::vector<int>{0, 3}));
-    EXPECT_EQ(result.live_out[3], (std::vector<int>{3}));
-    EXPECT_TRUE(result.live_out[4].empty());
-    EXPECT_TRUE(result.live_out[5].empty());
+    CHECK(result.ok);
+    CHECK(result.live_out.size() == input.instructions.size());
+    CHECK((result.live_out[1] == std::vector<int>{0, 1, 3}));
+    CHECK((result.live_out[2] == std::vector<int>{0, 3}));
+    CHECK((result.live_out[3] == std::vector<int>{3}));
+    CHECK(result.live_out[4].empty());
+    CHECK(result.live_out[5].empty());
   }
+std::cout << "cfg_assertions=" << checks << "\ncfg_failures=0\n";
+return 0;
 }

@@ -1,0 +1,5 @@
+DIRECTIVES vd321fc8caf
+Recapture unique autorisée par le livrable : changement de codegen ARM64 (allocation saved vivants, symboles fixes, mémoire register-offset).
+Candidat neuf appareil codegen-calls-a1 ; aucune référence origine remplacée.
+Plan borné : ORIGINE phase1, village1-hut, h09. Capture unique puis rejeu unique, chacun par proof_run.sh ; pas de contrôle positif.
+La recapture mesure la répétabilité de la livraison ; elle ne prouve pas sa parité avec le binaire antérieur.

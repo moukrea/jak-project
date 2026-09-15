@@ -1,0 +1,4 @@
+OpenGOAL goalc — backend: arm64 (scaffold, phase 01)
+Successfully built all 1324 targets in 57.742s
+GAME.CGO sparse_call_markers=4825
+ENGINE.CGO sparse_call_markers=4633

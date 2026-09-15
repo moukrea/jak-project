@@ -1,0 +1,30 @@
+DIRECTIVES vd321fc8caf
+Verdict : livraison partielle testée sur USB ; porte non franchie, codegen_lot_defects=2.
+
+Changements : sauvegardes limitées aux GPR vivants après appel, calculées par le CFG v1/v2.
+Sans GPR vivant : ADD+BLR ; X23 protégé par les trois entrées C++ existantes, inchangées.
+56 symboles fixes Jak1 accédés par X14 ; mémoire sans déplacement en une instruction.
+pc-prof Android déjà raccordé : goal_bucket_ms_camera=0.040 dans proof.txt.
+Compteur moteur : lecture du code chargé de cinq fonctions, survie et présence du rejeu.
+
+Preuve — huit lignes recopiées de proof.txt :
+source=device
+serial=eae4df44
+frames=6240
+crash=0
+codegen_markers_complete=5
+codegen_call_sites=47
+codegen_reduced_call_sites=46
+codegen_lot_defects=2
+
+Maximum par marqueur : 8/6/6/2/4 instructions (codegen_marker_0..4_instructions).
+Fraîcheur : md5 local/appareil 35785e4ce6a3e9e09eb5591fabd0f961 ; pack ce406b6b71b5a chargé.
+goalc et gk reconstruits ; 438 assertions encoding et 14 assertions CFG passent (notes/).
+CGO : 1324 cibles en 57.742 s ; grep -a trouve 4825/4633 motifs neufs dans GAME/ENGINE.
+Les 28 CGO/DGO x86 restaurés sont identiques aux sauvegardes (notes/x86-cgos-restored.log).
+La capture unique a réservé un candidat mais aucun échantillon : paramètre level.warp omis.
+Rejeu non lancé faute de référence ; aucun ancien proof réutilisé. Reprise dans handoff.md.
+Owner : APK livré ; vérifier le jeu habituel, aucune validation visuelle ne vaut preuve.
+non prouvé : parité refset, deux instructions pour tous les marqueurs, baisse de goal_busy_ms.
+non prouvé : GTest complet (échec HDR préexistant) ; symboles dynamiques et offsets non nuls.
+Validateur laissé à l’orchestrateur ; aucun owner-ok écrit.

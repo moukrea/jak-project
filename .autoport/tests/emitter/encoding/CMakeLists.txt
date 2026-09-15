@@ -29,6 +29,7 @@ add_executable(encoding_tests
     test_loads.cpp
     test_stores.cpp
     test_branches.cpp
+    test_fixed_symbols.cpp
     test_far_relocs.cpp
     test_far_reloc_ptr.cpp
     test_coverage_manifest.cpp

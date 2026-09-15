@@ -283,7 +283,7 @@ struct AssignmentOrder {
 // preservation for these on every call.  On arm64 they map to
 // {X3, X5, X12, X11, X10}, ALL of which are caller-save (the arm64
 // AAPCS callee-saved set is X19–X28). The arm64 backend therefore must
-// manually preserve every entry in this list across every BLR.
+// manually preserve the entries that hold values live across each BLR.
 //
 // The arm64 emitter's IGenARM64::call_r64 implements this manual
 // preservation by surrounding every BLR with STP/LDP pairs that push
@@ -294,10 +294,10 @@ struct AssignmentOrder {
 // values (see A18 attempt-4 disasm of dead-pool-heap.get-process), so
 // the omission corrupted any value held in X12 across a call.
 //
-// INVARIANT: the GPR entries in REG_saved_first_order below that
-// correspond to true x86 callee-saved regs (RBX, RBP, R10, R11, R12)
-// MUST also appear in IGenARM64::call_r64's save list. Validators check
-// this by counting the per-CGO STP/LDP-around-BLR sequence length.
+// INVARIANT: a true x86 callee-saved GPR (RBX, RBP, R10, R11, R12)
+// holding a value live across the call must appear in that call's save
+// mask. IR_FunctionCall uses the CFG live-out result exported below;
+// the emitter's legacy overload still preserves the complete set.
 AssignmentOrder REG_saved_first_order = {
     {emitter::XMM8, emitter::XMM9, emitter::XMM10, emitter::XMM11, emitter::XMM12, emitter::XMM13,
      emitter::XMM14, emitter::XMM15, emitter::XMM7, emitter::XMM6, emitter::XMM5, emitter::XMM4,
@@ -1321,6 +1321,16 @@ AllocationResult allocate_registers_v2(const AllocationInput& input) {
   result.needs_aligned_stack_for_spills = cache.used_stack;
   result.stack_slots_for_spills = cache.current_stack_slot;
   result.stack_slots_for_vars = input.stack_slots_for_stack_vars;
+
+  result.live_out.resize(input.instructions.size());
+  for (size_t i = 0; i < cache.liveout_per_instr.size(); ++i) {
+    auto& live = cache.liveout_per_instr.at(i);
+    for (int var = 0; var < input.max_vars; ++var) {
+      if (live[var]) {
+        result.live_out.at(i).push_back(var);
+      }
+    }
+  }
 
   // check for use of saved registers
   for (auto sr : emitter::gRegInfo.get_all_saved()) {
