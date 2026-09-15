@@ -8,10 +8,11 @@
 - 2026-09-15 : « Reprise superviseur requise pour : perf-mips2c-neon. Ces pri… »
 
 ## Cause connue
-Essai7 candidat3D retire :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048, cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun gain ni resultat appareil. Essais5/6 : absence de troisieme cible et references phase1 incompletes provoquaient un arret avant toute experimentation locale. Reprise bornee a un candidat, sans appareil ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese de b […suite dans le contrat]
+Essai8 : premiere divergence NaN expliquee et correction rejetee. NOUVELLE LIMITE HARNAIS : ordre des operandes different entre banc extrait et fonction moteur complete x86. Comparateur a qualifier au niveau des fonctions completes avant toute autre optimisation. Essai7 candidat3D retire :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048, cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun gain n […suite dans le contrat]
 
 ## Livrable
-REPRISE LOCALE APRES LE REJET MESURE DE L ESSAI7 (15/09). Un candidat3D a effectivement ete compile et rejete pour divergence NaN, puis retire. Ne pas refaire la selection2D/3D ni relancer ce candidat inchange. Le banc Clang a ete repare par le superviseur : -B/usr/aarch64-linux-gnu/lib/ selectionne les CRT ARM au lieu des CRT x86 ; compilation0, 330 divergences/6048 cas sous Clang ARM Linux/QEMU. Corpus notes/supervisor-clang-20260915 (commande reproductible dans manifest.json). Ce banc ne vaut […suite dans le contrat]
+REPRISE HARNAIS APRES ESSAI8 : le diagnostic sample13 est termine (permutation des operandes NaN) et la correction essayee reste fausse :343/6048 x86,163 ARM GCC,153 ARM Clang. Les deux candidats ont ete rejetes, aucune livraison. Ne refaire ni leur decouverte ni une correction arithmetique de plus.
+NOUVEL OBJET BORNE : qualifier le comparateur contre les FONCTIONS COMPLETES compilees. Le worker a etabli que l objet moteur complet x86 conserve l ordre du site sample13 alors que le bloc extrait l […suite dans le contrat]
 
 ## Preuve exigee
 `mips2c_parity_defects == 0` dans `reports/perf-mips2c-neon/proof.txt`.

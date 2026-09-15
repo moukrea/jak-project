@@ -6741,22 +6741,25 @@ items:
   - perf-instruments
   - perf-stock-baseline
   where: 'rien a voir : identique au pixel et a la pose ; goal_busy_ms baisse'
-  known_cause: 'Essai7 candidat3D retire :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par
-    choix explicite des CRT ARM :330/6048, cause de premiere operation encore non attribuee. Les trois
-    compilateurs rejettent le candidat ; aucun gain ni resultat appareil. Essais5/6 : absence de troisieme
-    cible et references phase1 incompletes provoquaient un arret avant toute experimentation locale. Reprise
-    bornee a un candidat, sans appareil ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese
-    de boucles source scalaires sans SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait
-    deja os et joints. bones.gc active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc
-    : 0 operation de ce dernier et 0 image qualifiee, malgre joints/particules compares sans ecart. Le
-    candidat os grossit de 716 a 4812 octets ; aucun gain demontre. Refset USB : hutte maxdiff233 et deux
-    references plage absentes ; A/B x86 egalement incomplets. Le refset local origine contient beach-start-h09,
-    mais presence ne prouve ni deploiement ni provenance/equivalence ; README impose origines immuables.
-    Ne pas confondre cette piste de distribution avec une nouvelle reference qualifiee. Le lot de suppression
-    gnd_oob du build normal est etabli et se conserve.'
+  known_cause: 'Essai8 : premiere divergence NaN expliquee et correction rejetee. NOUVELLE LIMITE HARNAIS
+    : ordre des operandes different entre banc extrait et fonction moteur complete x86. Comparateur a
+    qualifier au niveau des fonctions completes avant toute autre optimisation. Essai7 candidat3D retire
+    :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048,
+    cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun
+    gain ni resultat appareil. Essais5/6 : absence de troisieme cible et references phase1 incompletes
+    provoquaient un arret avant toute experimentation locale. Reprise bornee a un candidat, sans appareil
+    ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans
+    SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc
+    active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier
+    et 0 image qualifiee, malgre joints/particules compares sans ecart. Le candidat os grossit de 716
+    a 4812 octets ; aucun gain demontre. Refset USB : hutte maxdiff233 et deux references plage absentes
+    ; A/B x86 egalement incomplets. Le refset local origine contient beach-start-h09, mais presence ne
+    prouve ni deploiement ni provenance/equivalence ; README impose origines immuables. Ne pas confondre
+    cette piste de distribution avec une nouvelle reference qualifiee. Le lot de suppression gnd_oob du
+    build normal est etabli et se conserve.'
   deliverable: |-
-    REPRISE LOCALE APRES LE REJET MESURE DE L ESSAI7 (15/09). Un candidat3D a effectivement ete compile et rejete pour divergence NaN, puis retire. Ne pas refaire la selection2D/3D ni relancer ce candidat inchange. Le banc Clang a ete repare par le superviseur : -B/usr/aarch64-linux-gnu/lib/ selectionne les CRT ARM au lieu des CRT x86 ; compilation0, 330 divergences/6048 cas sous Clang ARM Linux/QEMU. Corpus notes/supervisor-clang-20260915 (commande reproductible dans manifest.json). Ce banc ne vaut pas preuve Android.
-    PROCHAIN ESSAI BORNE : partir du sample13 et des contextes avant/apres archives ; isoler la PREMIERE operation compilee qui change les bits NaN en confrontant code machine et comparateur existant. Produire un reproducer minimal de cette divergence, sans normaliser les NaN ni ignorer leurs payloads. Puis, seulement si cette cause est attribuee, essayer UNE correction localisee de la meme transformation preservant semantique et etats visibles (ordre effectif des operandes/intrinseques, points de publication necessaires) ; pas de nouveau noyau ni reecriture. Comparer les memes6048 cas sur x86 et ARM GCC/Clang, avec contexte/memoire/branche ; ajouter seulement les cas frontiere justifies par le diagnostic. Conserver le codegen complet avant/apres : raccourcir un bloc en grossissant son symbole n est pas un gain etabli. Si aucune correction exacte et utile n apparait, retirer la modification et rendre la cause et les donnees, sans inventer un gain ni rechercher encore une troisieme cible. Aucun appareil, proof_run, refset ou deploiement. Tous les criteres finaux ci-dessous restent necessaires ; references et trois cibles non resolues ne bloquent pas ce diagnostic local mais interdisent de revendiquer livraison.
+    REPRISE HARNAIS APRES ESSAI8 : le diagnostic sample13 est termine (permutation des operandes NaN) et la correction essayee reste fausse :343/6048 x86,163 ARM GCC,153 ARM Clang. Les deux candidats ont ete rejetes, aucune livraison. Ne refaire ni leur decouverte ni une correction arithmetique de plus.
+    NOUVEL OBJET BORNE : qualifier le comparateur contre les FONCTIONS COMPLETES compilees. Le worker a etabli que l objet moteur complet x86 conserve l ordre du site sample13 alors que le bloc extrait le permute. Lire notes/attempt8/diagnostic.md et ses objets/desassemblages. Construire un banc hote appelant les fonctions completes avant/apres depuis les sources/archivees, memes options et dependances par paire ; conserver les objets, symboles, options et relocalisations identifies. Ne pas recompiler le seul bloc isole comme substitut a cette verification. Reutiliser les entrees et comparateurs contexte/memoire existants ; rendre explicites preconditions d entree et chemins/callbacks executes. Ne pas simuler des dependances par des stubs qui changent leur semantique pour rendre le test vert. Commencer par x86 et ARM Clang Linux/QEMU (CRT ARM explicites deja corriges). Mesurer si les divergences du banc extrait existent dans la fonction complete, sans normaliser NaN, ignorer des registres ou fabriquer une population en jeu. Comparer la frontiere reellement executee ; si un chemin/dependance ne peut etre reproduit, nommer le point exact et ne pas certifier ce chemin. Cette etape est un correctif de HARNAIS LOCAL, sans modification des sources moteur livrees ni nouvelle optimisation. Pas de qualification de temps appareil depuis QEMU ou du compte statique. Aucun proof_run, appareil, refset, deploiement ou validation. Les references manquantes ne bloquent pas ce banc ; elles et les trois cibles restent requises pour la livraison finale ci-dessous.
 
     Lot 1 : gnd_oob_check compile hors du build quand la prop n'est pas armee. Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l'eau lit ripple-find-height). mips2c_parity_defects = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff != 0). Gain publie par seau.
     REPRISE DIAGNOSTIQUE OBLIGATOIRE AVANT NOUVELLE COURSE :
@@ -6775,7 +6778,10 @@ items:
     conserves, aucun budget appareil ajoute. Script build_x86 executable retabli, syntaxe et --help verifies
     sans build. | 15/09 budget : 8, un seul suivi local fonde sur les nouvelles divergences concretement
     mesurees de l essai7 et le banc Clang repare (330/6048). Isoler premiere operation NaN puis au plus
-    une correction, conserver retrait si echec ; aucune nouvelle course appareil.'
+    une correction, conserver retrait si echec ; aucune nouvelle course appareil. | 15/09 budget : 9,
+    un seul essai de harnais local pour traiter la nouvelle limite etablie a l essai8 : bloc extrait non
+    equivalent au codegen de la fonction complete. Aucun nouveau candidat moteur ni campagne appareil,
+    huit echecs conserves.'
   max_turns: 1200
   hits_means: images en chemin vectoriel
   proof_timeout: 600
@@ -6821,7 +6827,7 @@ items:
       nécessaire et reprends le travail autorisé sous Codex. Ne te limite pas à annoncer l''arrêt ; ne
       valide rien et ne relance pas le même essai sans diagnostic.'
   recovery_plan:
-    stage: diagnostic-operation-NaN-et-une-correction-locale
+    stage: comparateur-fonctions-completes-hote
     previous_deliverable: 'Lot 1 : gnd_oob_check compile hors du build quand la prop n''est pas armee.
       Lot 2 : NEON (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques
       (hd-mtx-check-all, A/B x86, ripple.cpp intact ou bit-identique car l''eau lit ripple-find-height).
@@ -6836,12 +6842,14 @@ items:
     - reports/perf-mips2c-neon/notes/attempt6-diagnostic.md
     - reports/perf-mips2c-neon/notes/attempt7/manager-review.md
     - reports/perf-mips2c-neon/notes/supervisor-clang-20260915/manifest.json
+    - reports/perf-mips2c-neon/notes/attempt8/diagnostic.md
+    - reports/perf-mips2c-neon/notes/attempt8/tested-manifest.json
     required_before_run:
     - trois cibles actives justifiees
     - reference hutte/plage existante coherente, cas et empreintes verifies
     - oracle hors fenetre de cout
     owner_validation: false
-  max_retries: 8
+  max_retries: 9
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
   status: open
