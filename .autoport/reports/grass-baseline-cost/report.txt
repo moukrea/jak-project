@@ -1,12 +1,12 @@
 DIRECTIVES v07b292c21f
-Verdict : essai 5 NON ABOUTI ; les mesures restent bloquées par le contrat inchangé.
+Verdict : essai 6/6 NON ABOUTI ; aucun relevé nouveau, blocage contractuel inchangé.
 Changements : rapport, FINDINGS, note de reprise et handoff uniquement.
-USB disponible : pick_device.sh exit=0, serial=eae4df44 (notes/attempt5-scope.md).
-Delta depuis 4f64520694 vide : game/common/scripts, proof_run.sh, prompt et SPEC.
+USB disponible : pick_device.sh exit=0, serial=eae4df44 (notes/attempt6-scope.md).
+Delta depuis 6331c8fb35 vide : game/common/scripts, proof_run.sh, prompt et SPEC.
 Lecture YAML : proof_plan absent ; la clause « Ne change RIEN » reste présente.
-Les dix fenêtres sont demandées ; créer les instruments manquants reste hors autorisation.
-Aucune course nouvelle : répéter le diagnostic ne produirait pas ces instruments.
-Huit lignes historiques de proof.txt, ESSAI 1 uniquement, aucun résultat de cet essai :
+Le contrat exige dix fenêtres mais interdit les instruments neufs hors campagne autorisée.
+Aucune course nouvelle ; le diagnostic historique ne remplace pas les mesures manquantes.
+Huit lignes historiques de proof.txt, ESSAI 1 uniquement, PAS une preuve de cet essai :
 source=device
 serial=eae4df44
 sha=3f2422035af8dc58
@@ -15,12 +15,12 @@ frames=4920
 proof_feature_state=absent
 proof_feature_declared=0
 proof_feature_own_hits=0
-validator-004.txt : trois FAIL, preuve d’un autre essai, site absent, gaps absent.
-proof.txt et proof.seal conservés à l’identique ; empreintes dans la note de reprise.
+validator-005.txt : trois FAIL, preuve d’un autre essai, site absent, gaps absent.
+proof.txt et proof.seal inchangés ; empreintes dans notes/attempt6-scope.md.
 Aucun build ni changement moteur ; validateur laissé à l’orchestrateur.
 Owner : rien à regarder ; owner_test=false, aucun verdict visuel attendu.
 non prouvé : dix cadences ON/OFF aux cinq paliers, ≥300 images au même vantage/binaire.
 non prouvé : préparation CPU, dessin, instances soumises et dans le champ de vision.
 non prouvé : source/expansion/upload par palier, mémoire des deux tampons et queue jamais dessinée.
 non prouvé : ablation --off, fraîcheur et non-régression appareil de cet essai ; grass_baseline_gaps=0.
-Suite : résoudre le périmètre des instruments et inscrire le proof_plan avant une nouvelle reprise.
+Suite superviseur : résoudre le périmètre des instruments et inscrire le proof_plan avant toute relance.
