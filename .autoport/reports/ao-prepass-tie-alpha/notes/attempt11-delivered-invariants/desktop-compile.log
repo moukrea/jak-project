@@ -1,0 +1,4 @@
+GL_VENDOR=Intel
+GL_RENDERER=Mesa Intel(R) UHD Graphics (CML GT2)
+GL_VERSION=4.6 (Core Profile) Mesa 25.3.6
+desktop_shader_compile_link=pass gl_errors=0

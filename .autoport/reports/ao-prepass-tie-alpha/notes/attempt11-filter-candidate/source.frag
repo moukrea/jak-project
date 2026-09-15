@@ -34,9 +34,12 @@ uniform float u_edge_reject;   // 1 = rejet franc a 1 % arme ; 0 = temoin (gauss
 // le meme `glReadPixels(GL_RED)` que le tampon d'AO : aucun instrument neuf.
 uniform int u_blur_report;
 
-// Full-resolution contact reconstruction after blur. Zero selects the blur pass;
-// one retains the historical ridge fill and reconstructs concave contacts from
-// the filtered AO on their two sides. No estimator sample is reintroduced.
+// ── (h) LE REMPLISSAGE DE CRETE AU CONTACT ───────────────────────────────────────────────────
+// Owner, 2026-09-13 : « aux contact on a comme une petite bande ou l'ao n'a pas d'effet, laissant
+// une bande de quelques pixels eclairee sans AO, c'est distrayant ». Contrat (h) : « elle vaut 0
+// ou est declaree et justifiee, jamais "quelques pixels" ». Livre au 14/09 : 850 texels de crete
+// (temoin 4204). 0 = flou normal, comportement INCHANGE ; 1 = passe de crete, en pleine
+// resolution, APRES le flou.
 uniform int u_ridge_fill;
 
 vec3 world_from_depth(vec2 uv, float dpt) {
@@ -49,9 +52,19 @@ vec3 world_from_depth(vec2 uv, float dpt) {
 }
 
 void main() {
-  // The historical strict-maximum rule handles ridges. The concave-contact rule
-  // also handles monotone profiles: blur can dilute a contact without making a
-  // local maximum (attempt10-residual-ssao.md). Both operate on the filtered AO.
+  // ── (h) LA PASSE DE CRETE : ELLE NE FLOUTE PAS, ELLE CREUSE LES MAXIMA LOCAUX D'UN PLI ─────
+  // L'AO doit CREUSER au contact : la ou deux surfaces se replient l'une vers l'autre, l'horizon
+  // se ferme et l'occlusion MONTE. Une CRETE — l'AO plus claire au pli qu'a ses deux voisins —
+  // y est donc l'artefact que l'owner nomme, pas une nuance. Le test de pli est EXACTEMENT
+  // celui de `contact_band()` (AmbientOcclusion.cpp) : la courbure de la profondeur de fenetre
+  // pese plus du quart des differences premieres (le pli), et aucune des deux differences n'est
+  // un SAUT au-dela de 2 % (sinon c'est une silhouette, ou l'AO a le DROIT de remonter parce
+  // qu'il y a du vide derriere). Un voisin de ciel annule l'axe.
+  // La passe ne touche QUE les maxima locaux STRICTS poses sur un pli, et ne peut qu'ABAISSER
+  // (le resultat est un min) : elle ne sait donc ni eclaircir quoi que ce soit, ni assombrir une
+  // surface continue (aucun pli), ni une silhouette (le saut l'exclut). Maximum strict SANS
+  // marge : une crete de 3/255 passe sous les 4/255 de la mesure, la corriger quand meme est la
+  // seule facon que la mesure ne soit pas ce qu'on optimise.
   if (u_ridge_fill == 1) {
     vec2 px = 1.0 / vec2(textureSize(u_ao, 0));
     float rd0 = texture(u_depth, tex_coord).r;
@@ -82,38 +95,14 @@ void main() {
       if (jump > 0.02 * rd0) {
         continue;  // silhouette
       }
+      if (curv <= 0.25 * (abs(rd1) + abs(rd2)) + 1e-5) {
+        continue;  // pas un pli
+      }
       float am = texture(u_ao, tex_coord - st).r;
       float ap = texture(u_ao, tex_coord + st).r;
-      if (curv > 0.25 * (abs(rd1) + abs(rd2)) + 1e-5 && a0 > am && a0 > ap) {
-        filled = min(filled, min(am, ap));
+      if (a0 > am && a0 > ap) {
+        filled = min(filled, min(am, ap));  // le candidat de CET axe
       }
-
-      // A contact can fall between texels and have a monotone AO profile after blur.
-      // Estimate its two surface slopes independently instead of spanning the fold.
-      // Positive curvature is a concave valley in reverse-Z. Reject a detected
-      // immediate convex fold too: the outer samples may span several folds.
-      // The original ridge rule above remains.
-      float zmm = texture(u_depth, tex_coord - 2.0 * st).r;
-      float zpp = texture(u_depth, tex_coord + 2.0 * st).r;
-      if (zmm <= 1e-9 || zpp <= 1e-9) {
-        continue;
-      }
-      float slope_m = zm - zmm;
-      float slope_p = zpp - zp;
-      float outer_jump = max(max(jump, max(abs(slope_m), abs(slope_p))),
-                             max(abs(zmm - rd0), abs(zpp - rd0)));
-      float concavity = slope_p - slope_m;
-      if (rd2 - rd1 < -(0.25 * (abs(rd1) + abs(rd2)) + 1e-5) ||
-          outer_jump > 0.02 * rd0 ||
-          concavity <= 0.25 * (abs(slope_m) + abs(slope_p)) + 1e-5) {
-        continue;
-      }
-      // Reconstruct the dark contact envelope from ALREADY FILTERED neighbours.
-      // Average on each side before taking the minimum: no raw estimator sample
-      // is restored, and the envelope uses side averages rather than individual taps.
-      float side_m = 0.5 * (am + texture(u_ao, tex_coord - 2.0 * st).r);
-      float side_p = 0.5 * (ap + texture(u_ao, tex_coord + 2.0 * st).r);
-      filled = min(filled, min(side_m, side_p));
     }
     color = vec4(vec3(filled), 1.0);
     return;
@@ -174,6 +163,18 @@ void main() {
   // et le premier moment est nul. Sur profondeur plane, il moyenne les quatre
   // phases sans le decalage d'un demi-pas de l'ancienne boite -1..2.
   // Un tap supplementaire par passe ; son cout GPU reste non mesure.
+  float dm = texture(u_depth, tex_coord - u_dir).r;
+  float dp = texture(u_depth, tex_coord + u_dir).r;
+  float dmm = texture(u_depth, tex_coord - 2.0 * u_dir).r;
+  float dpp = texture(u_depth, tex_coord + 2.0 * u_dir).r;
+  float lm = dm - dmm;
+  float lp = dpp - dp;
+  float jump = max(max(abs(d0 - dm), abs(dp - d0)), max(abs(lm), abs(lp)));
+  bool contact = u_edge_reject > 0.5 && min(min(dm, dp), min(dmm, dpp)) > 1e-6
+      && jump <= 0.02 * d0
+      && lp - lm > 0.25 * (abs(lm) + abs(lp)) + 1e-5;
+  vec3 contact_sum = vec3(0.0);
+  vec3 contact_weight = vec3(0.0);
   float gw0 = 0.25;
 
   float sum = texture(u_ao, tex_coord).r * gw0;
@@ -227,9 +228,33 @@ void main() {
     wsum += w;
   }
 
+  if (contact) {
+    for (int tap = -3; tap <= 3; ++tap) {
+      float off = float(tap);
+      vec2 uv = tex_coord + u_dir * off;
+      float td = texture(u_depth, uv).r;
+      if (td <= 1e-6) continue;
+      float rz = abs(td - (d0 + zslope * off));
+      float zsig = 4.0 * zlim;
+      float dw = exp(-(rz * rz) / (2.0 * zsig * zsig));
+      vec3 radius = abs(vec3(off + 1.0, off, off - 1.0));
+      vec3 weights = mix(vec3(0.25), vec3(0.125), step(vec3(1.5), radius));
+      weights *= vec3(lessThan(radius, vec3(2.5))) * dw;
+      contact_sum += weights * texture(u_ao, uv).r;
+      contact_weight += weights;
+      if (rz > zlim && max(weights.x, max(weights.y, weights.z)) > 0.0009765625)
+        crossed = 1.0;
+    }
+  }
+
   if (u_blur_report == 1) {
     color = vec4(vec3(crossed), 1.0);
     return;
   }
-  color = vec4(vec3(sum / max(wsum, 1e-5)), 1.0);
+  float filtered = sum / max(wsum, 1e-5);
+  if (contact && min(contact_weight.x, min(contact_weight.y, contact_weight.z)) > 0.0) {
+    vec3 means = contact_sum / contact_weight;
+    filtered = min(filtered, min(means.x, min(means.y, means.z)));
+  }
+  color = vec4(vec3(filtered), 1.0);
 }

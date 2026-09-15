@@ -1,29 +1,26 @@
 DIRECTIVES v775512c234
 ## ÉTABLI
-Essai10 : correctif partiel livré adafa03109, flou centré5taps ; bande non supprimée complètement.
-USB eae4df44 Redmi_Note_9_Pro, local/appareil md5 a1e389727fea13f308cbfeb34f313342.
-Plan15/09 consommé6/6 ; historique9/9 inchangé. Aucune course7 autorisée.
-Six proof_run timeout150, crash0 tous ; preuves/archives séparées notes/attempt10-01..06-*.
-GTAO avant/après :15contacts physiques fixes,425pixels sources TFRAG mur73087..89/toit29051..53.
-Cumul/largeur GTAO96/7→10/2 ; après SSAO10/2,HBAO3/1.29côtés valides,1manquant inchangé.
-AO consommée couleur == ridge final exactement float32 et octet sur425pixels.
-GTAO3/6 AO brut+profondeurs identiques enveloppe40px/10800pixels ;41champscam+24flou identiques.
-SSAO après cinq acquis0 ; static1 référence absente. HBAOstatic9/GTAO19 acquisitions manquantes.
-ao_tie_prepass_defects absent : porte non passée, aucune validation owner.
-Builds x86/Android0, APK0 ; tests shader livré impulsion0déplacement/masse1 et phase4résidu0.
+Essai11 : candidat partiel compilé, shader ca400d609b07cfc5, libgk d661208db0ec9150.
+Aucun appareil touché, aucune course ni preuve neuve ; budgets9/9 et6/6 clos ; porte non passée.
+Reconstruction concave après flou, moyennes AO filtrée±1/2 ; ancien ridge et flou préservés.
+Gardes ciel, convexité immédiate et profondeur cumulative2% ; critères sonde inchangés.
+Même pilote Intel/Mesa,425pixels/15contacts figés bras3 : SSAO12/max3→0, HBAO2/max1→0, GTAO7/max2→0.
+29côtésvalides SSAO/GTAO ; HBAO28valides+1censuré ;1manquant conservé dans chaque mode.
+Zéro uniquement préfixe contact : pic intérieur subsiste au mur100,550, SSAO[133,138,135,133,131,130].
+GTAO[160,165,162,160,159,158], HBAO[160,164,162,161,160,160] : correction complète NON établie.
+GLES/GLSL410 compile+lien0 ;16×480000pixels synthétiques identiques, phases4x4 range0.
+Build arm64 incrémental0, source exacte testée et embarquée ; pas APK, pas déploiement.
 ## TENTÉ
-Capture1400 trop tard pour HBAOavant1200 : bras2 consommé sans archive, pas répété.
-Capture hutte seule avancée600 ; ordonnanceur/populations/critères sonde statique inchangés.
-CPUprojection D24 incompatible : remplacée par IDprimitiveGPU v2, aucune tolérance élargie.
-Cause qualifiée avant fix : GTAOblur1 bande4/max2→blur7 bande96/max7, ridge inchangé.
-Noyau -1..2 décalait impulsion(-5.5,-5.5) ; noyau centré corrige ce déplacement, conserve phase4.
-Résidu SSAOmur(100,550) : brut[25,31,23,63]sansbande→final[141,138,135,133]largeur2.
-Ridge triplet[138,141,146] monotone : pas maximum strict ; filtrage recrée encore le résidu.
+Minimum voisins sans moyenne :2profils censurés ; minimum fenêtres dans flou :HBAO empire ; rejetés.
+Stencil3 :4profils censurés par mode ; rejeté, archives conservées.
+Stencil2 retenu PARTIEL : fixe premier pixel sans supprimer pic+1 ; zéro natif pas défendu comme succès.
+Revue géométrie : gardes convexité immédiate et écart cumulé ajoutées au candidat final, rejeu/tests repassés.
 ## RESTE
-Corriger cette dilution résiduelle sans dégrader shrubs/damier/pixelisation ; aucun seuil assoupli.
-Lire notes/attempt10-residual-ssao.md et tables parmode ; ne pas refaire préparation/diagnostic établis.
-Lecteurs notes/attempt10-analyze.py puis attempt10-profile.py : commandes attempt10-after-profile-commands.md.
---reference-profile bras3 fige425pixels/15contacts ; maintenir1côté manquant, jamais zéro artificiel.
-Budget épuisé : aucune nouvelle course sans périmètre autorisé ; préserver toutes archives et preuves.
-Le contrat complet extérieur/couleur/stabilité et somme finale restent requis, actuellement non prouvés.
-FINDINGS conserve ambiguïtés AFAIL/multidraw, états MRT indexés, coûtGPU et autres dettes ouvertes.
+Reprendre notes/attempt11-summary.md, attempt11-delivery.json et attempt11-delivered/summary.json.
+Traiter le pic secondaire sans élargir arbitrairement masque ni réinjecter AO brut ; préserver phases/damier/shrubs.
+Lecteur actuel compte un préfixe depuis contact : ne prouve pas absence de pic après premier pixel sombre.
+Conserver1manquant et1HBAOcensuré ; ne pas les transformer en zéros. Équivalence locale ne vaut pas appareil.
+Rejeux prêts : attempt11-replay.py --shader CHEMIN --output notes/attempt11-NOM (chemin complet).
+Tests : attempt11-run-invariants.py ; commandes exactes dans attempt11-delivered-invariants/commands.md.
+Contrat complet couleur/troisvues/stabilité/somme finale reste non prouvé ; aucune validation owner.
+Aucune nouvelle course autorisée dans cette reprise ; FINDINGS conserve les limites et coûts non mesurés.

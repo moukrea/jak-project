@@ -1,0 +1,16 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "diagnostic_only": true,
+  "command": [
+    "/home/emeric/code/jak-project/.autoport/reports/ao-prepass-tie-alpha/notes/attempt11-invariants",
+    "/home/emeric/code/jak-project/.autoport/reports/ao-prepass-tie-alpha/notes/attempt11-delivered-invariants/vertex.glsl",
+    "/home/emeric/code/jak-project/.autoport/reports/ao-prepass-tie-alpha/notes/attempt11-delivered-invariants/reference.glsl",
+    "/home/emeric/code/jak-project/.autoport/reports/ao-prepass-tie-alpha/notes/attempt11-delivered-invariants/candidate.glsl"
+  ],
+  "returncode": 0,
+  "sha256": {
+    "reference.source": "221e6700852584ae59bfbc3b40b083628ad61e0ad8c1bcb2a9d61deaa680b0ae",
+    "candidate.source": "ca400d609b07cfc53ff464ba125ce524b70fed3e68ed03ffe5c498fb0eef6b05",
+    "vertex.source": "a2a780d798945b694efa3c9207331a45889b258e0f9a5648b93b468344a5aff4"
+  }
+}

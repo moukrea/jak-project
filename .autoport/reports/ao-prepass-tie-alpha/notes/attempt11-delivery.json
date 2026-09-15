@@ -1,0 +1,127 @@
+{
+  "directives": "DIRECTIVES v775512c234",
+  "diagnostic_only": true,
+  "shader_marker_in_generated_and_lib": true,
+  "android_build_exit": 0,
+  "proof_runs_this_attempt": 0,
+  "limits": [
+    "no device validation",
+    "no current proof produced",
+    "secondary interior peak persists despite native contact prefix width zero"
+  ],
+  "source": {
+    "path": "game/graphics/opengl_renderer/shaders/ao_blur.frag",
+    "sha256": "ca400d609b07cfc53ff464ba125ce524b70fed3e68ed03ffe5c498fb0eef6b05",
+    "mtime_ns": 1789484696721084333
+  },
+  "tested_source": {
+    "path": ".autoport/reports/ao-prepass-tie-alpha/notes/attempt11-delivered-invariants/candidate.source",
+    "sha256": "ca400d609b07cfc53ff464ba125ce524b70fed3e68ed03ffe5c498fb0eef6b05",
+    "mtime_ns": 1789484713991821559
+  },
+  "generated_gles": {
+    "path": "build-android/shaders/ao_blur.android.frag",
+    "sha256": "44729eb9dc8c228102e6309e4622c50a175ef262a2974701b15b2f65d1b9eead",
+    "mtime_ns": 1789484714025624898
+  },
+  "libgk": {
+    "path": "build-android/lib/arm64-v8a/libgk.so",
+    "sha256": "d661208db0ec9150f18e48ef5e56e669e256391617699b057b66f43ea870688e",
+    "mtime_ns": 1789484717712334368
+  },
+  "profiles_x100_contact_y550_inward": {
+    "ssao": {
+      "reference": [
+        141,
+        138,
+        135,
+        133,
+        131,
+        130,
+        130,
+        131,
+        132
+      ],
+      "delivered": [
+        133,
+        138,
+        135,
+        133,
+        131,
+        130,
+        130,
+        131,
+        132
+      ]
+    },
+    "hbao": {
+      "reference": [
+        167,
+        164,
+        162,
+        161,
+        160,
+        160,
+        160,
+        161,
+        162
+      ],
+      "delivered": [
+        160,
+        164,
+        162,
+        161,
+        160,
+        160,
+        160,
+        161,
+        162
+      ]
+    },
+    "gtao": {
+      "reference": [
+        167,
+        165,
+        162,
+        160,
+        159,
+        158,
+        159,
+        159,
+        160
+      ],
+      "delivered": [
+        160,
+        165,
+        162,
+        160,
+        159,
+        158,
+        159,
+        159,
+        160
+      ]
+    }
+  },
+  "tested_source_byte_identical": true,
+  "local_stage_comparison": {
+    "ssao": {
+      "eight_blur_outputs_identical": true,
+      "final_changed_pixels": 11666,
+      "final_brightened_pixels": 1,
+      "final_max_darkening_byte": 61
+    },
+    "hbao": {
+      "eight_blur_outputs_identical": true,
+      "final_changed_pixels": 10877,
+      "final_brightened_pixels": 1,
+      "final_max_darkening_byte": 50
+    },
+    "gtao": {
+      "eight_blur_outputs_identical": true,
+      "final_changed_pixels": 11220,
+      "final_brightened_pixels": 2,
+      "final_max_darkening_byte": 51
+    }
+  }
+}

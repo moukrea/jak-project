@@ -1,0 +1,32 @@
+DIRECTIVES v775512c234
+Verdict : correction partielle livrée ; bande résiduelle dans les trois modes, tâche non validée.
+Changement : flou centré à cinq taps ; annulation des quatre phases conservée, aucun seuil changé.
+Cause avant correction : contact-profile-table.txt du bras3, 15 contacts physiques GPU qualifiés.
+Sur ces mêmes 425 pixels, GTAO : cumul des largeurs 96 → 10 ; largeur maximale 7 → 2 pixels.
+Causalité locale : AO brute/profondeurs identiques sur 10 800 pixels voisins, caméra et paramètres de flou identiques.
+Après : largeurs maximales SSAO 2, HBAO 1, GTAO 2 pixels ; 29 côtés mesurés et 1 manquant par mode.
+Le filtre crée encore une bande sur certains profils bruts sans bande ; ridge conserve ce résidu monotone.
+Code : 57f8e11dce, e35448f4a8, 548b01ab0d ; correctif rendu adafa03109.
+Préparation : profondeur, normales, exclusions, couleur et primitives GPU archivées ; capture hutte seule à l’image 600.
+Builds incrémentaux x86/Android et paquet réussis ; tests locaux GLES, profil natif et neutralité réussis.
+Test du shader livré : impulsion centrée, masse 1 ; motif 4×4 sans résidu sur 457 856 pixels intérieurs.
+Six courses USB par proof_run, six sans crash ; budget 6/6 consommé, aucune septième course.
+Huit lignes de la preuve courante (bras6 GTAO après) :
+device_serial=eae4df44
+device_model=Redmi_Note_9_Pro
+local_lib_md5=a1e389727fea13f308cbfeb34f313342
+device_lib_md5=a1e389727fea13f308cbfeb34f313342
+frames=840
+crash=0
+ao_hut_archive_status=complete
+ao_hut_draw_archive_errors=0
+SSAO après : cinq acquis à 0, stabilité 1 faute de référence ; HBAO 9/GTAO 19 incluent des acquisitions manquantes.
+Le critère ao_tie_prepass_defects est absent de la preuve courante : aucun zéro global revendiqué.
+À regarder : jonction mur/toit ; Options > Recharged > Recharged Lighting > Ambient Occlusion,
+chaque palier et SSAO/HBAO/GTAO, force maximale ; conserver shrubs, absence de damier/pixelisation et stabilité.
+Les mini-palmiers déjà validés ne sont pas rouverts. Appareil effectivement livré : Redmi USB ci-dessus.
+non prouvé : disparition complète du raccord, équivalence couleur AO éteinte du moteur entier.
+non prouvé : contrat complet trois vues/stabilité/acquis dans la même preuve ; coût GPU du tap ajouté.
+HBAO avant sans archive (1200/1400) ; SSAO avant 1400/après 600, comparaison globale non établie.
+Détails : notes/attempt10-final-summary.tsv, notes/attempt10-cause-before-fix.md et notes/attempt10-residual-ssao.md.
+FINDINGS.txt et handoff.md consignent le reste ; aucune validation owner ni fermeture effectuée.
