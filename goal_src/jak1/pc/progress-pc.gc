@@ -9325,6 +9325,7 @@
 ;; Tampon du libelle de la rangee « Resolution ». Reformate a chaque image passee sur l'ecran
 ;; Graphismes : la valeur suit un changement d'aspect ou de resolution sans rouvrir le menu.
 (define *resolution-row-label* (new 'global 'string 96 (the-as string #f)))
+(define *resolution-current-choice-label* (new 'global 'string 96 (the-as string #f)))
 
 (defun current-game-base-size ((w-out (pointer int64)) (h-out (pointer int64)))
   "La taille de base choisie, avant application du render-scale courant."
@@ -9434,9 +9435,9 @@
   (none))
 
 (defun resolution-menu-initial-index ()
-  "Index of the chosen BASE resolution, or -1 when absent. DRS can change the FBO
-   each frame; preselection must remain on the base choice that caps its resolution.
-   Rebuild first because the options depend on the current aspect."
+  "Find the chosen base, and label that choice with its actual FBO when scaled.
+   Keep its parameters: selecting a row matching the scaled dimensions would apply
+   the scale twice. Rebuild first because the options depend on the current aspect."
   (build-resolution-options)
   (let ((w 0)
         (h 0)
@@ -9448,11 +9449,19 @@
                  (= (the int (-> *temp-options* i param1)) w)
                  (= (the int (-> *temp-options* i param2)) h))
         (set! found i)))
+    (when (>= found 0)
+      (let ((fw 0) (fh 0))
+        (when (and (nonzero? (pc-get-render-resolution (& fw) (& fh)))
+                   (or (!= fw w) (!= fh h)))
+          (format (clear *resolution-current-choice-label*) "~D X ~D (BASE ~D X ~D)"
+                  fw fh w h)
+          (set! (-> *temp-options* found name-override) *resolution-current-choice-label*))))
     found))
 
 ;; Audit USB: each state waits for actual renderer frames. Never changes saved settings.
 (define-extern __pc-res-menu-wanted? (function int))
 (define *res-menu-audit-done* #f)
+(define *res-audit-save-active* #f)
 (define *res-audit-stage* 0)
 (define *res-audit-aspect* 0)
 (define *res-audit-row* 0)
@@ -9489,11 +9498,18 @@
 (define *res-edge-source-bh* 0)
 (define *res-edge-comparable* 0)
 (define *res-edge-noncomparable* 0)
+;; One unique slot per (aspect,row,DRS,command), sized from the real lists.
+(define *res-edge-row-counts* (the-as (pointer int32) #f))
+(define *res-edge-offsets* (the-as (pointer int32) #f))
+(define *res-edge-visited* (the-as (pointer int32) #f))
+(define *res-edge-slots* 0)
 
 (defun res-edge-count! ()
   (dotimes (a (length *aspect-ratio-options*))
     (when (= (-> *aspect-ratio-options* a option-type) (game-option-type aspect-new))
       (1+! *res-edge-aspects*)))
+  (set! *res-edge-row-counts* (new 'global 'array 'int32 *res-edge-aspects*))
+  (set! *res-edge-offsets* (new 'global 'array 'int32 *res-edge-aspects*))
   (dotimes (a (length *aspect-ratio-options*))
     (when (= (-> *aspect-ratio-options* a option-type) (game-option-type aspect-new))
       (apply-resolution-aspect! (-> *aspect-ratio-options* a))
@@ -9502,8 +9518,13 @@
         (dotimes (r (length *temp-options*))
           (when (= (-> *temp-options* r option-type) (game-option-type resolution))
             (1+! rows)))
+        (set! (-> *res-edge-row-counts* a) rows)
+        (set! (-> *res-edge-offsets* a) *res-edge-slots*)
+        (+! *res-edge-slots* (* 2 rows (+ *res-edge-aspects* rows 1)))
         ;; Per DRS arm: other aspects + other rows + one toggle.
         (+! *res-edge-expected* (* 2 rows (+ *res-edge-aspects* rows -1))))))
+  (set! *res-edge-visited* (new 'global 'array 'int32 *res-edge-slots*))
+  (dotimes (i *res-edge-slots*) (set! (-> *res-edge-visited* i) 0))
   (__pc-autoport-publish "res_transition_edges_expected" *res-edge-expected*)
   (none))
 
@@ -9542,7 +9563,8 @@
     (set! (-> *res-audit-save* 10) (the-as int (-> *setting-control* default aspect-ratio)))
     (set! *res-audit-save-scale* (-> s render-scale))
     (set! *res-audit-save-floor* (-> s min-render-scale))
-    (set! *res-audit-save-aspect* (-> s aspect-ratio))))
+    (set! *res-audit-save-aspect* (-> s aspect-ratio))
+    (true! *res-audit-save-active*)))
 
 (defun res-audit-restore! ()
   (let ((s *pc-settings*))
@@ -9563,7 +9585,10 @@
     (set! (-> s min-render-scale) *res-audit-save-floor*)
     (set! *dyn-rs-last-base-w* -1)
     (set! *dyn-rs-last-base-h* -1)
-    (update-from-os s))
+    (update-from-os s)
+    (false! *res-audit-save-active*)
+    (format 0 "RES-AUDIT restored width=~D height=~D drs=~S~%"
+            (-> s width) (-> s height) (-> s dynamic-render-scale?)))
   (none))
 
 (defun res-audit-publish-cell! ((suffix string) (value int))
@@ -9571,51 +9596,106 @@
           *res-audit-aspect* *res-audit-row* *res-audit-dyn* suffix)
   (__pc-autoport-publish *res-audit-key* value))
 
+(defun res-edge-slot ((aspect int) (row int) (dyn int) (command int))
+  (+ (-> *res-edge-offsets* aspect)
+     (* (+ (* row 2) dyn) (+ *res-edge-aspects* (-> *res-edge-row-counts* aspect) 1))
+     command))
+
+(defun res-edge-next-command ((aspect int) (row int) (dyn int))
+  (let ((found -1))
+    (when (and (>= aspect 0) (< aspect *res-edge-aspects*)
+               (>= row 0) (< row (-> *res-edge-row-counts* aspect))
+               (or (= dyn 0) (= dyn 1)))
+      (dotimes (c (+ *res-edge-aspects* (-> *res-edge-row-counts* aspect) 1))
+        (when (and (< found 0) (!= c aspect) (!= c (+ *res-edge-aspects* row))
+                   (zero? (-> *res-edge-visited* (res-edge-slot aspect row dyn c))))
+          (set! found c))))
+    found))
+
 (defun res-edge-prepare! ((frame int))
-  (set! *res-audit-stage* 4)
-  (cond
-    ((>= *res-audit-aspect* *res-edge-aspects*)
-     (let ((incomplete (if (and (> *res-edge-expected* 0)
-                                 (= *res-edge-observed* *res-edge-expected*)) 0 1)))
-       (__pc-autoport-publish "res_transition_edges_observed" *res-edge-observed*)
-       (__pc-autoport-publish "res_transition_defects" (+ *res-edge-defects* incomplete))
-       (__pc-autoport-publish "res_transition_incomplete" incomplete)
-       (__pc-autoport-publish "res_unproved_all_transition_edges" incomplete)
-       ;; Restart persistence remains unproved even with complete edge coverage.
-       (__pc-autoport-publish "res_menu_defects"
-                             (+ *res-audit-defects* *res-edge-defects* incomplete 2
-                                (if (zero? *res-audit-scaled-states*) 1 0))))
-     (res-audit-restore!)
-     (true! *res-menu-audit-done*))
-    (else
-     ;; Restore the source before EVERY gesture, using production setters.
-     ;; Do not touch the dynamic controller's scale, lock or history.
-     (apply-resolution-aspect! (-> *aspect-ratio-options* *res-audit-aspect*))
-     (build-resolution-options)
-     (set! *res-edge-rows* 0)
-     (dotimes (r (length *temp-options*))
-       (when (= (-> *temp-options* r option-type) (game-option-type resolution))
-         (1+! *res-edge-rows*)))
-     (cond
-       ((>= *res-audit-row* *res-edge-rows*)
-        (1+! *res-audit-aspect*)
-        (set! *res-audit-row* 0))
-       (else
-        (set! *res-audit-w* (the int (-> *temp-options* *res-audit-row* param1)))
-        (set! *res-audit-h* (the int (-> *temp-options* *res-audit-row* param2)))
-        (set-window-size! *pc-settings* *res-audit-w* *res-audit-h*)
-        (set! (-> *pc-settings* dynamic-render-scale?) (if (zero? *res-audit-dyn*) #f #t))
-        ;; Commands are aspect indices, then resolution indices, then DRS.
-        (while (or (= *res-edge-command* *res-audit-aspect*)
-                   (= *res-edge-command* (+ *res-edge-aspects* *res-audit-row*)))
-          (1+! *res-edge-command*))
-        (set! *res-audit-start-frame* frame)
-        (set! *res-audit-stage* 5)))))
+  ;; Only restore when the observed node is exhausted or its row invalid.
+  ;; Search metadata first: skipping spent nodes does not mutate settings.
+  (let ((found #f))
+    (dotimes (a *res-edge-aspects*)
+      (dotimes (r (-> *res-edge-row-counts* a))
+        (dotimes (d 2)
+          (unless found
+            (let ((command (res-edge-next-command a r d)))
+              (when (>= command 0)
+                (set! *res-audit-aspect* a)
+                (set! *res-audit-row* r)
+                (set! *res-audit-dyn* d)
+                (set! *res-edge-command* command)
+                (true! found)))))))
+    (cond
+      ((not found)
+       (let ((incomplete (if (and (> *res-edge-expected* 0)
+                                   (= *res-edge-observed* *res-edge-expected*)) 0 1)))
+         (__pc-autoport-publish "res_transition_edges_observed" *res-edge-observed*)
+         (__pc-autoport-publish "res_transition_defects" (+ *res-edge-defects* incomplete))
+         (__pc-autoport-publish "res_transition_incomplete" incomplete)
+         (__pc-autoport-publish "res_unproved_all_transition_edges" incomplete)
+         ;; Restart persistence remains unproved even with complete edge coverage.
+         (__pc-autoport-publish "res_menu_defects"
+                               (+ *res-audit-defects* *res-edge-defects* incomplete 2
+                                  (if (zero? *res-audit-scaled-states*) 1 0))))
+       (res-audit-restore!)
+       (true! *res-menu-audit-done*))
+      (else
+       ;; Restore through production setters, without resetting dynamic scale,
+       ;; controller lock or history. Wait three renderer frames afterwards.
+       (apply-resolution-aspect! (-> *aspect-ratio-options* *res-audit-aspect*))
+       (build-resolution-options)
+       (set! *res-edge-rows* (-> *res-edge-row-counts* *res-audit-aspect*))
+       (set! *res-audit-w* (the int (-> *temp-options* *res-audit-row* param1)))
+       (set! *res-audit-h* (the int (-> *temp-options* *res-audit-row* param2)))
+       (set-window-size! *pc-settings* *res-audit-w* *res-audit-h*)
+       (set! (-> *pc-settings* dynamic-render-scale?) (if (zero? *res-audit-dyn*) #f #t))
+       (set! *res-audit-start-frame* frame)
+       (set! *res-audit-stage* 5))))
   (none))
 
+(defun res-edge-apply! ((fw int) (fh int) (frame int))
+  ;; Source FBO comes from a restoration or the previous destination; both
+  ;; observations wait three renderer frames after the preceding mutation.
+  (res-edge-check! fw fh *res-audit-row* *res-audit-dyn*)
+  (set! *res-edge-source-frame* frame)
+  (set! *res-edge-source-fw* fw)
+  (set! *res-edge-source-fh* fh)
+  (set! *res-edge-source-bw* *res-audit-w*)
+  (set! *res-edge-source-bh* *res-audit-h*)
+  (set! *res-edge-dest-aspect* *res-audit-aspect*)
+  (set! *res-edge-dest-row* *res-audit-row*)
+  (set! *res-edge-dest-dyn* *res-audit-dyn*)
+  (cond
+    ((< *res-edge-command* *res-edge-aspects*)
+     (set! *res-edge-dest-aspect* *res-edge-command*)
+     (apply-resolution-aspect! (-> *aspect-ratio-options* *res-edge-command*))
+     ;; This gesture must reconcile the resolution by itself.
+     (set! *res-edge-dest-row* (resolution-menu-initial-index)))
+    ((< *res-edge-command* (+ *res-edge-aspects* *res-edge-rows*))
+     (set! *res-edge-dest-row* (- *res-edge-command* *res-edge-aspects*))
+     (set-window-size! *pc-settings*
+                       (the int (-> *temp-options* *res-edge-dest-row* param1))
+                       (the int (-> *temp-options* *res-edge-dest-row* param2))))
+    (else
+     (set! *res-edge-dest-dyn* (- 1 *res-audit-dyn*))
+     (set! (-> *pc-settings* dynamic-render-scale?) (not (-> *pc-settings* dynamic-render-scale?)))))
+  (let ((bw 0) (bh 0))
+    (current-game-base-size (& bw) (& bh))
+    (set! *res-audit-w* bw)
+    (set! *res-audit-h* bh))
+  (set! *res-audit-start-frame* frame)
+  (set! *res-audit-stage* 6)
+  (none))
 
 (defun res-menu-audit! ()
   "Observe each cell and tous gestes unitaires depuis chaque etat; no long-path claim."
+  ;; Collection can end before traversal. Restore once from the original snapshot,
+  ;; including when Android teardown clears the feature property mid-process.
+  (when (and (zero? (__pc-res-menu-wanted?)) *res-audit-save-active*)
+    (res-audit-restore!)
+    (true! *res-menu-audit-done*))
   (when (and (nonzero? (__pc-res-menu-wanted?)) (not *res-menu-audit-done*))
     (let* ((fw 0) (fh 0) (frame (pc-get-render-resolution (& fw) (& fh))))
       (case *res-audit-stage*
@@ -9687,6 +9767,9 @@
            (unless (string= *res-audit-expected-label* *resolution-row-label*) (1+! *res-audit-defects*))
            (format 0 "RES-MATRIX a=~D row=~D drs=~D label=~S fbo=~Dx~D~%"
                    *res-audit-aspect* *res-audit-row* *res-audit-dyn* *resolution-row-label* fw fh)
+           (format 0 "RES-CHOICE a=~D row=~D drs=~D label=~S~%"
+                   *res-audit-aspect* *res-audit-row* *res-audit-dyn*
+                   (-> *temp-options* *res-audit-row* name-override))
            (cond
              ((zero? *res-audit-dyn*)
               (when (or (!= fw *res-audit-w*) (!= fh *res-audit-h*)) (1+! *res-audit-defects*))
@@ -9714,35 +9797,7 @@
         ((4) (res-edge-prepare! frame))
         ((5)
          (when (>= (- frame *res-audit-start-frame*) 3)
-           (res-edge-check! fw fh *res-audit-row* *res-audit-dyn*)
-           (set! *res-edge-source-frame* frame)
-           (set! *res-edge-source-fw* fw)
-           (set! *res-edge-source-fh* fh)
-           (set! *res-edge-source-bw* *res-audit-w*)
-           (set! *res-edge-source-bh* *res-audit-h*)
-           (set! *res-edge-dest-aspect* *res-audit-aspect*)
-           (set! *res-edge-dest-row* *res-audit-row*)
-           (set! *res-edge-dest-dyn* *res-audit-dyn*)
-           (cond
-             ((< *res-edge-command* *res-edge-aspects*)
-              (set! *res-edge-dest-aspect* *res-edge-command*)
-              (apply-resolution-aspect! (-> *aspect-ratio-options* *res-edge-command*))
-              ;; This gesture must reconcile the resolution by itself.
-              (set! *res-edge-dest-row* (resolution-menu-initial-index)))
-             ((< *res-edge-command* (+ *res-edge-aspects* *res-edge-rows*))
-              (set! *res-edge-dest-row* (- *res-edge-command* *res-edge-aspects*))
-              (set-window-size! *pc-settings*
-                                (the int (-> *temp-options* *res-edge-dest-row* param1))
-                                (the int (-> *temp-options* *res-edge-dest-row* param2))))
-             (else
-              (set! *res-edge-dest-dyn* (- 1 *res-audit-dyn*))
-              (set! (-> *pc-settings* dynamic-render-scale?) (not (-> *pc-settings* dynamic-render-scale?)))))
-           (let ((bw 0) (bh 0))
-             (current-game-base-size (& bw) (& bh))
-             (set! *res-audit-w* bw)
-             (set! *res-audit-h* bh))
-           (set! *res-audit-start-frame* frame)
-           (set! *res-audit-stage* 6)))
+           (res-edge-apply! fw fh frame)))
         ((6)
          (when (>= (- frame *res-audit-start-frame*) 3)
            (res-edge-check! fw fh *res-edge-dest-row* *res-edge-dest-dyn*)
@@ -9777,19 +9832,29 @@
                (else (1+! *res-edge-noncomparable*))))
            (__pc-autoport-publish "res_transition_pixel_comparable" *res-edge-comparable*)
            (__pc-autoport-publish "res_transition_pixel_noncomparable" *res-edge-noncomparable*)
-           (1+! *res-edge-observed*)
+           (let ((slot (res-edge-slot *res-audit-aspect* *res-audit-row* *res-audit-dyn* *res-edge-command*)))
+             (cond
+               ((zero? (-> *res-edge-visited* slot))
+                (set! (-> *res-edge-visited* slot) 1)
+                (1+! *res-edge-observed*))
+               (else (1+! *res-edge-defects*))))
            (__pc-autoport-publish "res_transition_edges_observed" *res-edge-observed*)
            ;; Keep the running result red until the complete traversal finishes.
            (__pc-autoport-publish "res_transition_defects" (+ *res-edge-defects* 1))
            (__pc-autoport-publish "res_menu_defects"
                                  (+ *res-audit-defects* *res-edge-defects* 3
                                     (if (zero? *res-audit-scaled-states*) 1 0)))
-           (1+! *res-edge-command*)
-           (when (> *res-edge-command* (+ *res-edge-aspects* *res-edge-rows*))
-             (set! *res-edge-command* 0)
-             (if (zero? *res-audit-dyn*) (set! *res-audit-dyn* 1)
-               (begin (set! *res-audit-dyn* 0) (1+! *res-audit-row*))))
-           (res-edge-prepare! frame))))))
+           ;; Reuse the actual observed destination as the next source.
+           (let ((command (res-edge-next-command *res-edge-dest-aspect* *res-edge-dest-row* *res-edge-dest-dyn*)))
+             (cond
+               ((>= command 0)
+                (set! *res-audit-aspect* *res-edge-dest-aspect*)
+                (set! *res-audit-row* *res-edge-dest-row*)
+                (set! *res-audit-dyn* *res-edge-dest-dyn*)
+                (set! *res-edge-rows* (-> *res-edge-row-counts* *res-audit-aspect*))
+                (set! *res-edge-command* command)
+                (res-edge-apply! fw fh frame))
+               (else (res-edge-prepare! frame)))))))))
   (none))
 
 (defun build-flava-player-options ((mus-idx int))
@@ -11351,7 +11416,7 @@
   (case (-> obj display-state)
     (((progress-screen resolution))
      ;; TODO infinite scrolling
-     (build-resolution-options))
+     (resolution-menu-initial-index))
     ;; res-menu-truth : la rangee « Resolution » porte la resolution EFFECTIVE, ici, a chaque
     ;; image passee sur l'ecran Graphismes — donc sans entrer dans le sous-menu, et a jour
     ;; des le retour d'un changement d'aspect. `init-game-options` ne tourne qu'a l'ouverture.

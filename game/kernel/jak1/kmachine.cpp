@@ -1772,7 +1772,17 @@ s64 pc_get_render_resolution(u32 w_ptr, u32 h_ptr) {
 }
 
 s32 pc_res_menu_wanted() {
+#if defined(__ANDROID__)
+  // The traversal temporarily changes live settings. Teardown clears this property;
+  // unlike attribution's cached feature id, its lifetime must end with the run.
+  char feature[PROP_VALUE_MAX] = {};
+  return __system_property_get("debug.opengoal.feature", feature) > 0 &&
+                 std::strcmp(feature, "res-menu-truth") == 0
+             ? 1
+             : 0;
+#else
   return autoport_proof::feature_is("res-menu-truth") ? 1 : 0;
+#endif
 }
 
 s32 pc_scl10n_wanted() {

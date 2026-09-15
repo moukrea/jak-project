@@ -691,22 +691,16 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       static int s_render_scale = kRenderScaleDefault;
       static unsigned s_scale_poll = 0;
       if ((s_scale_poll++ % 30) == 0) {
-        char pv[16] = {0};
-        if (__system_property_get("debug.opengoal.render.scale", pv) > 0) {
-          int v = atoi(pv);
-          if (v >= 25 && v <= 400 && v != s_render_scale) {
-            s_render_scale = v;
-            __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                                "RENDER-SCALE set to %d%% (offscreen 3D FBO scale; "
-                                "blit resamples to native window)",
-                                s_render_scale);
-          } else if ((v < 25 || v > 400) && s_render_scale != kRenderScaleDefault) {
-            // out-of-range / cleared prop -> back to the chosen default
-            s_render_scale = kRenderScaleDefault;
-            __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                                "RENDER-SCALE reset to default %d%% (prop cleared/invalid)",
-                                kRenderScaleDefault);
-          }
+        char pv[PROP_VALUE_MAX] = {0};
+        const int v = __system_property_get("debug.opengoal.render.scale", pv) > 0
+                          ? atoi(pv)
+                          : 0;
+        const int wanted_scale = v >= 25 && v <= 400 ? v : kRenderScaleDefault;
+        if (wanted_scale != s_render_scale) {
+          s_render_scale = wanted_scale;
+          __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                              "RENDER-SCALE set to %d%% (prop=%s; offscreen 3D FBO scale)",
+                              s_render_scale, pv[0] ? pv : "cleared");
         }
         // perf-goal-gl-overlap (2026-09-13) — RECOUVREMENT ON PAR DEFAUT.
         //
