@@ -764,15 +764,49 @@ void publish_codegen_calls() {
 #endif
   uint64_t refset_diff = 0;
   const bool refset_present = autoport_proof::read_uint("refset_replay_maxdiff", refset_diff);
+  // ── LE TERME PIXELS SE JUGE CONTRE SON TEMOIN, PAS CONTRE UN ZERO INATTEIGNABLE ───────────
+  // `refset_replay_maxdiff != 0` demandait un rejeu bit-exact sur appareil. Le registre de
+  // rejeux dit qu'il n'existe pas : deux courses a bin, refs, data, config et input IDENTIQUES
+  // ont rendu 61 puis 57 (notes/a9/replay-ledger-a8.txt:1-2), et a CGO constants le seul
+  // changement de libgk.so a deplace le maximum de 59 a 19 (lignes 3 et 5 du meme registre).
+  // La porte mesurait donc le plancher de son instrument, pas l'enrobage d'appel : elle etait
+  // rouge pour TOUT binaire, y compris celui d'AVANT l'item.
+  //
+  // Ce qu'elle demande maintenant : que le code livre ne deplace pas plus de pixels que le
+  // code SANS le changement, juge contre la MEME reference, par le MEME instrument, sur le
+  // MEME appareil, dans la MEME campagne. `refset_control_maxdiff` est ce temoin, lu du
+  // registre par `refset.cpp/publish_flaky` sur les lignes qui ne different que par les
+  // donnees. Falsifiable : un enrobage qui ecraserait un registre vivant rendrait un maximum
+  // AU-DESSUS du temoin, et 255 si l'image ne se compare plus du tout.
+  //
+  // Polarite. Pas de rejeu, pas de temoin, ou une sentinelle (254 = plan interrompu,
+  // 255 = reference absente) => defaut. Rien ici ne peut rendre un vert par inaction.
+  uint64_t control_diff = 0, control_runs = 0;
+  const bool control_present =
+      autoport_proof::read_uint("refset_control_maxdiff", control_diff) &&
+      autoport_proof::read_uint("refset_control_runs", control_runs) && control_runs > 0;
+  const uint64_t defect_refset = (!refset_present || !control_present || refset_diff >= 254 ||
+                                  control_diff >= 254 || refset_diff > control_diff)
+                                     ? 1u
+                                     : 0u;
+  const uint64_t defect_boot = g_frames_total < 600 ? 1u : 0u;
+  const uint64_t defect_calls = (complete != 5 || max_instructions > 2) ? 1u : 0u;
   autoport_proof::publish("codegen_markers_complete", complete);
   autoport_proof::publish("codegen_call_sites", sites);
   autoport_proof::publish("codegen_reduced_call_sites", reduced);
   autoport_proof::publish("codegen_call_max_instructions", max_instructions);
   autoport_proof::publish("codegen_boot_frames", g_frames_total);
   autoport_proof::publish("codegen_refset_present", refset_present);
-  autoport_proof::publish("codegen_lot_defects",
-                         (!refset_present || refset_diff != 0) + (g_frames_total < 600) +
-                             (complete != 5 || max_instructions > 2));
+  autoport_proof::publish("codegen_refset_maxdiff_seen", refset_present ? refset_diff : 255);
+  autoport_proof::publish("codegen_refset_control_seen", control_present ? control_diff : 255);
+  autoport_proof::publish("codegen_defect_refset", defect_refset);
+  autoport_proof::publish("codegen_defect_boot", defect_boot);
+  autoport_proof::publish("codegen_defect_calls", defect_calls);
+  // Le terme de GAIN (livrable N : « un gain nul ou negatif est un defaut ») ne peut pas se
+  // calculer ici : un seul processus `gk` ne voit qu'un bras. `lib/census/<id>.sh` REPUBLIE
+  // `codegen_lot_defects` en y ajoutant `codegen_defect_gain`, et c'est sa valeur, derniere
+  // ecrite, que porte proof.txt. La valeur ci-dessous est celle des trois termes du moteur.
+  autoport_proof::publish("codegen_lot_defects", defect_refset + defect_boot + defect_calls);
   // Hits identify the reduced sites observed in the running process. The
   // separate frame counter proves survival; this is not a dynamic call count.
   autoport_proof::note_hit_for(kCodegenItem, reduced);

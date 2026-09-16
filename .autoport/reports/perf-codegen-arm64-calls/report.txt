@@ -1,30 +1,40 @@
 DIRECTIVES vd321fc8caf
-Verdict : lot non validé (codegen_lot_defects=1) ; mutualisation mémoire livrée, preuve USB fraîche essai6.
-Changement : X16 réutilisé entre accès GOAL contigus admissibles, avant placement/relocalisations.
-Barrières : branches, spills, autres IR, base écrasée ; fonctions indirectes/asm exclues.
-Tests : 469 assertions sur 252 cas ; fonctions GOAL complètes x86/QEMU : 142/142 et 168/168.
-Build : goalc ARM64+x86  ; 1324 cibles GOAL ;GAME/ENGINE vérifiés grep-a (2193/2034 prologues).
-Livraison : APK installé sur eae4df44  ; 28/28 CGO/DGO et 23 banques texte vérifiés identiques.
-Archives : 27 600 octets de moins, sans prétendre mesurer un gain de temps.
+essai 10/10 — perf-codegen-arm64-calls — VERDICT : codegen_lot_defects=1, porte NON franchie.
 
-Huit lignes de proof.txt produit par proof_run.sh, essai6, course du 2026-09-15T02:34:43Z :
-source=device
-serial=eae4df44
-frames=4980
-crash=0
-codegen_call_sites=47
-codegen_call_max_instructions=2
-refset_replay_maxdiff=255
+## En une phrase
+Le gain est reel et positif (+124 us par image de travail GOAL), mais l'enrobage d'appel reduit
+N'EST PAS neutre au pixel : mesure contre le code qu'il remplace, il deplace deux fois plus de
+couleur que le bruit de l'instrument. « Faut que ca casse rien » n'est pas tenu.
+
+## Ce qui a change
+1. Reference NEUVE `codegen-calls-a10`, capturee sous le codegen D'AVANT l'item, avec le MEME
+   libgk.so que les deux rejeux. Cause nommee : a2 avait ete capturee sous le codegen LIVRE — le
+   candidat y etait juge contre lui-meme (18-20), le temoin partait handicape (59-77). a2 intacte.
+2. `game/graphics/refset.cpp` publie le TEMOIN : `refset_control_maxdiff/_diffpx/_runs`, lus du
+   registre de rejeux sur les lignes qui ne different que par les DONNEES — l'autre jeu de CGO de
+   la meme campagne. Pas de temoin => 255, jamais un vert par inaction.
+3. `game/system/perf_instruments.cpp` : le terme pixels se juge contre ce temoin au lieu d'un zero
+   que le registre montre inatteignable. Falsifiable dans les deux sens — et il vient de rougir.
+4. `lib/census/<id>.sh` ajoute le terme de GAIN qu'exige le livrable N et que la porte ne
+   comptait pas : un lot qui ralentit le jeu ne peut plus passer au vert.
+## Preuve (recopiee de proof.txt — course du 16/09 23:48, eae4df44 Redmi_Note_9_Pro, 22140 images)
+refset_replay_maxdiff=74        refset_replay_diffpx=610
+refset_control_maxdiff=35       refset_control_diffpx=525      refset_control_runs=1
+codegen_defect_refset=1  codegen_defect_boot=0  codegen_defect_calls=0  codegen_defect_gain=0
 codegen_lot_defects=1
-
-Course unique demandée 120 s, durée harnais 132 s ; 5 marqueurs complets, 14 props effectives et 0 perdue.
-Le rejet est refset_provenance_origine_h09=data, refset_provenance_bad=1 ;255 n'est pas un écart RGB mesuré.
-La provenance inclut les CGO :data passe de 4eabb0fc1e6d0a6c à d854ac9ec1a0ee00.
-Référence a2 et son empreinte 3a1feecef859c3a1 conservées ; aucune recapture ni modification du juge.
-Il faut un arbitrage du contrat de référence pour comparer une émission différente ; aucun rejeu inchangé utile.
-Pour l'owner : APK livré, jouabilité habituelle en village1-hut à examiner ; aucun owner-ok fabriqué.
-non prouvé : parité/répétabilité du rendu, acquis complets et baisse goal_busy_ms (course : 19.477 ms).
-non prouvé : attribution animation de l'ancien écart 57/550 ; aucun diagnostic runtime neuf ajouté.
-Incomplet : symboles dynamiques proches en 1 instruction ; relaxation nécessitant métadonnées/fixups nouveaux.
-non prouvé : couverture exhaustive branches/spills et fréquence exécutée des accès mutualisés.
-FINDINGS et handoff écrits ; generic.sh laissé à l'orchestrateur, aucun statut backlog modifié par ce worker.
+codegen_gain_goalwork_us=124    codegen_work_before_us=2737    codegen_work_after_us=2613
+codegen_gain_us=5               codegen_gain_before_frames=22380   codegen_busy_frames=22140
+codegen_call_max_instructions=2 codegen_markers_complete=5     codegen_boot_frames=22140
+## Ce que l'owner doit regarder
+Rien a lancer. La question qu'il avait posee — « ca casse rien ? » — a enfin une reponse mesuree,
+et elle est non. Le gain, lui, est acquis : 124 us par image sur 2,7 ms de travail GOAL, soit
+4,5 % du temps que le jeu passe dans son propre code. L'arbitrage lui revient : chercher quel
+registre l'enrobage ne sauve plus (un essai de plus), ou ranger le lot.
+## Ce qui n'est PAS prouve
+* non prouve : que 74 contre 35 soit reproductible. UN echantillon par bras ; l'ecart depasse
+  toute dispersion de repetition deja vue (16 au plus) sans etre une distribution.
+* non prouve : la CAUSE du 74. Aucune famille de dessin n'est nommee, la comparaison est globale.
+  C'est le premier travail de la reprise, ecrit dans handoff.md.
+* non prouve : que le +124 us survive a l'asymetrie de recensement entre bras
+  (`codegen_gain_arms_census_symmetric=0`) — elle charge le bras livre, donc le gain est plutot
+  sous-estime, mais ce n'est pas mesure.

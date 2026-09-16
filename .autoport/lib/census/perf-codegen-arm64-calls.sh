@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
-# census/perf-codegen-arm64-calls.sh — PUBLIE `codegen_gain_us`, ET RIEN QUE LUI.
+# census/perf-codegen-arm64-calls.sh — PUBLIE `codegen_gain_us` ET LE VERDICT DU LOT.
+#
+# POURQUOI LE VERDICT SORT D'ICI. Le livrable N du contrat fait d'un gain nul ou negatif un
+# DEFAUT, et `codegen_lot_defects` n'en comptait aucun terme (signalement de l'essai 9,
+# game/system/perf_instruments.cpp:773) : la porte pouvait passer au vert sur un lot qui
+# RALENTIT le jeu. Le gain est une soustraction entre DEUX courses ; un seul processus `gk` ne
+# peut pas la faire. Le moteur publie donc ses trois termes et leur somme, et ce crochet
+# REPUBLIE `codegen_lot_defects` en y ajoutant le quatrieme. `lib/proof_run.sh:1649` garde la
+# DERNIERE valeur de chaque cle, et le recensement est append APRES le journal moteur : c'est
+# cette somme-la qui atterrit dans proof.txt.
+#
+# QUEL GAIN FERME LA PORTE. Le contrat nomme `codegen_gain_us` = goal_busy AVANT moins APRES.
+# Mesure de l'essai 8 : `codegen_gain_us` = -732 us pendant que l'attente vsync bougeait de
+# +598 us en sens INVERSE et que le travail GOAL reellement attribue ne bougeait que de 73 us
+# (notes/a9/essai8-decomposition.txt). `goal_busy` vaut 16,6 ms/image quand la SOMME de tous les
+# seaux de code GOAL vaut 2,77 ms : les ~14 ms de difference sont du chemin de presentation non
+# classe en attente, c'est-a-dire la CADENCE. La porte se ferme donc sur
+# `codegen_gain_goalwork_us`, le seul des deux qui mesure du travail. `codegen_gain_us` reste
+# publie, tel que le contrat le nomme, a cote de sa decomposition. DIVERGENCE ASSUMEE ET ECRITE.
 #
 # POURQUOI UN CROCHET, ET PAS LE MOTEUR. Le livrable N du contrat exige « goal_busy par image
 # AVANT moins APRES sur l'appareil, meme scene, >= 300 images par bras ». Un seul processus `gk`
@@ -34,7 +52,10 @@ print("N_ENG=%s N_OFF_ENG=%s N_OFF_PROOF=%s" %
 PY
 )"
 [ -n "${N_ENG:-}" ] && [ -n "${N_OFF_ENG:-}" ] && [ -n "${N_OFF_PROOF:-}" ] || {
-  echo "codegen_gain_state=noms-non-resolus"; exit 0; }
+  echo "codegen_gain_state=noms-non-resolus"
+  echo "codegen_defect_gain=1"
+  echo "codegen_lot_defects=255"
+  exit 0; }
 
 # DERNIERE OCCURRENCE d'une cle dans un journal moteur. `grep -c` plutot que `grep -q` : sous
 # `pipefail`, un `-q` sur un gros journal rend 141 (SIGPIPE) et la condition devient fausse sur
@@ -51,6 +72,22 @@ last_key() {  # <journal> <cle>
   v=$(grep -aoE "(^|[^A-Za-z0-9_])$2=[0-9]+" "$1" | tail -1 | sed 's/.*=//')
   [ -n "$v" ] || return 1
   printf '%s' "$v"
+}
+
+# LE VERDICT DU LOT : les trois termes du moteur, PLUS le terme de gain. Le moteur a publie sa
+# somme dans son propre journal ; on la relit la, jamais dans proof.txt (qui n'existe pas encore
+# au moment ou ce crochet tourne). Illisible => 255, une sentinelle nommee, jamais un vert.
+verdict() {  # <defaut_de_gain 0|1>
+  local eng
+  eng=$(last_key "$D/$SELF_ENG" codegen_lot_defects || true)
+  echo "codegen_defect_gain=$1"
+  if [ -z "${eng:-}" ]; then
+    echo "codegen_lot_defects_engine=-"
+    echo "codegen_lot_defects=255"
+  else
+    echo "codegen_lot_defects_engine=$eng"
+    echo "codegen_lot_defects=$(( eng + $1 ))"
+  fi
 }
 
 # MOYENNE DE COURSE d'une cle FLOTTANTE publiee a chaque fenetre (ms/image), et SOMME des
@@ -98,6 +135,7 @@ echo "codegen_busy_frames_seen=${AFT_FR:--}"
 if [ "$ARMED" != 1 ]; then
   # Bras « avant » : le bras livre n'existe pas encore, il n'y a rien a soustraire.
   echo "codegen_gain_state=bras-avant-seul"
+  verdict 1
   exit 0
 fi
 
@@ -111,7 +149,7 @@ echo "codegen_gain_before_instructions=${BEF_IN:--}"
 echo "codegen_gain_after_instructions=${AFT_IN:--}"
 
 if [ -z "${BEF_US:-}" ] || [ -z "${AFT_US:-}" ]; then
-  echo "codegen_gain_state=bras-avant-absent"; exit 0
+  echo "codegen_gain_state=bras-avant-absent"; verdict 1; exit 0
 fi
 
 # LES DEUX BRAS DOIVENT ETRE DU MEME ESSAI. Un `proof-off.txt` laisse par un essai anterieur
@@ -121,19 +159,19 @@ CUR_ATT="${AUTOPORT_ATTEMPT_ID:--}"
 echo "codegen_gain_before_attempt=${BEF_ATT:--}"
 echo "codegen_gain_after_attempt=$CUR_ATT"
 if [ "${BEF_ATT:--}" != "$CUR_ATT" ] || [ "$CUR_ATT" = "-" ]; then
-  echo "codegen_gain_state=bras-avant-d-un-autre-essai"; exit 0
+  echo "codegen_gain_state=bras-avant-d-un-autre-essai"; verdict 1; exit 0
 fi
 
 # >= 300 IMAGES PAR BRAS, exige par le livrable. Le denominateur est publie a cote.
 if [ "${BEF_FR:-0}" -lt 300 ] || [ "${AFT_FR:-0}" -lt 300 ]; then
-  echo "codegen_gain_state=images-insuffisantes"; exit 0
+  echo "codegen_gain_state=images-insuffisantes"; verdict 1; exit 0
 fi
 
 # L'ABLATION A-T-ELLE VRAIMENT EU LIEU ? Sans cette porte, deux bras identiques rendraient un
 # gain de ~0 qu'on lirait comme « l'optimisation ne sert a rien » au lieu de « je n'ai pas
 # mesure ce que je crois ».
 if [ -z "${BEF_IN:-}" ] || [ -z "${AFT_IN:-}" ] || [ "$BEF_IN" -le "$AFT_IN" ]; then
-  echo "codegen_gain_state=ablation-sans-effet-mesure"; exit 0
+  echo "codegen_gain_state=ablation-sans-effet-mesure"; verdict 1; exit 0
 fi
 
 echo "codegen_gain_us=$(( BEF_US - AFT_US ))"
@@ -161,8 +199,10 @@ if [ -n "$A_M" ] && [ -n "$B_M" ]; then
   echo "codegen_work_windows_after=$A_WIN"
   echo "codegen_work_windows_before=$B_WIN"
   echo "codegen_gain_decomposed=1"
+  GAINDEF=1; [ "$(( B_WORK - A_WORK ))" -gt 0 ] && GAINDEF=0
 else
   echo "codegen_gain_decomposed=0"
+  GAINDEF=1
 fi
 
 # ASYMETRIE DE RECENSEMENT ENTRE LES DEUX BRAS. `note_hit_for` sort immediatement quand le bras
@@ -180,3 +220,7 @@ if [ -n "${AFT_HITS:-}" ] && [ -n "${BEF_HITS:-}" ] && [ "$AFT_HITS" = "$BEF_HIT
 else
   echo "codegen_gain_arms_census_symmetric=0"
 fi
+
+# LE VERDICT, EN DERNIER : apres lui, plus une cle. `codegen_lot_defects` que porte proof.txt est
+# celui-ci — les trois termes du moteur plus le terme de gain du livrable N.
+verdict "$GAINDEF"

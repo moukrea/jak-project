@@ -2708,6 +2708,24 @@ void publish_flaky() {
   // le maximum est celle qui sature.
   std::vector<std::pair<uint64_t, uint64_t>> md;
   uint64_t census_runs = 0, census_maxdiff = 0;
+  // ── LE TEMOIN : LES LIGNES DU REGISTRE QUI NE DIFFERENT QUE PAR LES DONNEES ───────────────
+  // Pourquoi il existe. `refset_replay_maxdiff != 0` demande un rejeu BIT-EXACT sur appareil.
+  // Le registre dit qu'aucun n'y arrive : deux courses a bin, refs, data, config et input
+  // IDENTIQUES ont rendu maxdiff 61 puis 57 sur 577 puis 550 px (notes/a9/replay-ledger-a8.txt
+  // :1-2). Un plancher d'instrument n'est pas un defaut de la chose mesuree, et une porte
+  // calibree SOUS le plancher de son instrument est rouge quel que soit le code livre.
+  //
+  // Ce que le temoin mesure. Les lignes de MEME binaire, MEME reference, MEME plan et MEME
+  // entree, mais de DONNEES differentes, sont l'autre jeu de CGO de la meme campagne : le code
+  // sans le changement, juge contre la meme reference par le meme instrument, sur le meme
+  // appareil, a quelques minutes pres. C'est un ecart MESURE, pas une constante posee a la
+  // main, et il vient d'une AUTRE course que celle qui est jugee — pas un miroir de son
+  // propre etat. On retient le MINIMUM : la barre la plus haute que le registre permette.
+  //
+  // Polarite. Aucune ligne temoin => `refset_control_runs = 0` et le maximum 255 : une course
+  // livree seule ne peut pas etre verte, la campagne a deux bras est EXIGEE pour juger.
+  uint64_t ctrl_runs = 0, ctrl_maxdiff = 255, ctrl_diffpx = 0, ctrl_data = 0;
+  uint64_t self_min = 255, self_max = 0;
   if (FILE* f = std::fopen(path.c_str(), "r")) {
     char line[256];
     while (std::fgets(line, sizeof(line), f)) {
@@ -2715,12 +2733,15 @@ void publish_flaky() {
       int complete = 0;
       // Keep old rows as history; they cannot identify the input consumed by the run.
       // Both reproducibility and census credit require the same plan and loaded input.
-      if (std::sscanf(line,
+      const bool parsed = std::sscanf(line,
                       "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu config=%llx "
                       "census=%d input=%llx",
-                      &b, &r, &dt, &m, &d, &cfg, &complete, &input) == 8 &&
-          b == bin && r == refs && dt == data && cfg == config && input == g_input_fp) {
+                      &b, &r, &dt, &m, &d, &cfg, &complete, &input) == 8;
+      const bool same_run = parsed && b == bin && r == refs && cfg == config && input == g_input_fp;
+      if (same_run && dt == data) {
         md.emplace_back((uint64_t)m, (uint64_t)d);
+        self_min = std::min(self_min, (uint64_t)m);
+        self_max = std::max(self_max, (uint64_t)m);
         if (complete == 1) {
           census_runs++;
           census_maxdiff = std::max(census_maxdiff, uint64_t(m));
@@ -2728,10 +2749,27 @@ void publish_flaky() {
             census_maxdiff = 255;  // registre incoherent, jamais un zero
           }
         }
+      } else if (same_run) {
+        ctrl_runs++;
+        if ((uint64_t)m < ctrl_maxdiff) {
+          ctrl_maxdiff = (uint64_t)m;
+          ctrl_diffpx = (uint64_t)d;
+          ctrl_data = (uint64_t)dt;
+        }
       }
     }
     std::fclose(f);
   }
+  autoport_proof::publish("refset_control_runs", ctrl_runs);
+  autoport_proof::publish("refset_control_maxdiff", ctrl_runs ? ctrl_maxdiff : uint64_t(255));
+  autoport_proof::publish("refset_control_diffpx", ctrl_runs ? ctrl_diffpx : uint64_t(0));
+  std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)ctrl_data);
+  autoport_proof::publish_text("refset_control_data_fp", ctrl_runs ? t : "-");
+  // L'ECART DE L'INSTRUMENT AVEC LUI-MEME, sur les lignes a cle STRICTEMENT identique. Publie a
+  // cote du temoin pour qu'un lecteur voie de combien le meme code, relance, se deplace deja.
+  autoport_proof::publish("refset_self_spread", md.size() > 1 ? self_max - self_min : uint64_t(0));
+  autoport_proof::publish("refset_self_min", md.empty() ? uint64_t(255) : self_min);
+  autoport_proof::publish("refset_self_max", md.empty() ? uint64_t(255) : self_max);
   uint64_t flaky = 0;
   for (size_t i = 1; i < md.size(); i++) {
     if (md[i] != md[i - 1]) {
