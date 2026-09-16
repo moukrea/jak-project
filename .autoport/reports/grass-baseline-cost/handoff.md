@@ -1,48 +1,30 @@
 DIRECTIVES v07b292c21f
-
-## ÉTABLI (mesuré)
-
-AUCUN APPAREIL USB N'EXISTE SUR CETTE MACHINE. `lsusb` ne liste qu'un disque WD, un lecteur de
-cartes, une webcam et le Bluetooth Intel — pas un seul appareil Android. Serveur adb tué et
-relancé : `List of devices attached` vide. `pick_device.sh` sort en 3. Ce n'est pas un incident adb.
-
-LA COURSE A ÉTÉ LANCÉE, et elle a NOMMÉ son empêchement — c'est ce que l'essai 7 n'avait pas fait.
-`lib/proof_run.sh grass-baseline-cost device` (essai `grass-baseline-cost@8`, pid 276419) a pris le
-verrou d'écriture, attendu 135 s le verrou de déploiement d'un build arm64 VIVANT (pid 222205),
-puis écrit `reports/grass-baseline-cost/proof-impossible.txt` :
-`proof_impossible_reason=appareil-non-choisi`, `exit=3`. `impossible.py standing` rend
-`standing=1`. `orchestrator.close_gate` lit cet état en GATE -1 (`orchestrator.py:951`) :
-l'essai est REQUALIFIÉ, `retries` est rendu, et 3 d'affilée BLOQUENT l'item au lieu de boucler.
-La preuve de l'essai 1 n'a PAS été réutilisée ni détruite : copiée dans
-`notes/proof-essai1-device-20260915-ARCHIVE.txt`, et `proof_run.sh` ne l'a pas effacée.
-
-UN FAUX VERT CORRIGÉ DANS LA PORTE DE L'ITEM. `publish_gaps` exigeait `render_frames` PRÉSENT sans
-jamais le relire : une cellule ÉTEINTE dont la surcharge d'herbe n'aurait pas mordu mesurait
-l'herbe ALLUMÉE, publiait une cadence, et `gaps` restait à 0 — les cinq « OFF » devenaient une
-copie des cinq « ON » et l'écart ON/OFF, seule grandeur pour laquelle cet item existe, était faux
-sans qu'un terme rougisse. Le terme juge maintenant les deux sens (`off ⇒ ==0`, `on ⇒ !=0`) et
-nomme le coupable avec sa valeur. Seuil `!= 0` et non un plancher : la course à blanc rend 288/300
-au palier very_low (`has_pc_data` faux quelques images, cf. FINDINGS). Denominateur publié à côté :
-`grass_baseline_regime_read`. Les deux arbres rebâtis par leur porte (x86 46 s ; arm64 `gk` lié),
-marqueur `_vaut_%llu_sous_regime_%s` vérifié par `strings` dans build/game/gk ET
-build-android/lib/arm64-v8a/libgk.so.
-
-## TENTÉ, et pourquoi ça a échoué
-
-Preuve APPAREIL : impossible, cause matérielle ci-dessus. Veille USB de 40 min pendant l'essai :
-aucun appareil. Bras `--off` non lancé, même cause.
-Égalité du VANTAGE entre cellules (clause 1 du contrat) NON corrigée : `autoport_proof.h` n'expose
-que `has_key` et `read_uint`, aucun lecteur de TEXTE, et `jak_pos`/`cam_dm` sont du texte. La
-corriger demande d'élargir un module partagé par tous les items. Inscrit en FINDINGS, pas fait.
-
+## ETABLI (mesure)
+CLAUSE 1 DEVENUE UN TERME (commit e3d55c6fbe). « au MEME vantage » n'etait juge par rien : dix
+cellules sous dix points de vue passaient vertes. Deux termes le jugent, relus dans la table par
+`autoport_proof::read_text` (neuf ; troncature = echec, pas prefixe) : `..._vantage_spread_mm`
+(10 cellules, seuil 100 mm) et `..._camera_spread_dm` (5 cellules ON, seuil 1 dm), chacun avec sa
+population a cote et un `-` — jamais 0 — sous deux cellules comparables.
+Course a blanc x86 (notes/dry-run-x86-essai9.txt, aucun fichier de preuve touche) : gaps 199 -> 0,
+vantage_cells=10, camera_cells=5, ecarts 0 et 0, cells_short=0. Sans les deux termes le premier
+gaps aurait valu 197 : ils MORDENT. Arbres batis par leur porte ; l'APK porte le libgk de l'arbre
+(md5 6f1a86f039b3e3e86497f3113361f1e9). APPAREIL USB PRESENT DEPUIS 16:24 : eae4df44 usb:1-6
+Redmi_Note_9_Pro — l'empechement de l'essai 8 (aucun appareil) n'existe plus.
+## TENTE, et pourquoi ca a echoue
+LA COURSE N'A PAS PU DEMARRER : TELEPHONE EN DIRECT BOOT, PIN jamais saisi depuis son demarrage
+de 16:24. Grandeurs relues, pas deduites :
+  dumpsys user  -> Started users state: [0=RUNNING_LOCKED]
+  dumpsys trust -> deviceLocked=1, strongAuthRequired=0x1 (AFTER_BOOT)
+  logcat        -> ActivityTaskManager: aInfo is null ... com.miui.securitycenter/
+                   ...AdbInstallActivity ; PKMSImpl: MIUILOG- ... Install canceled by user
+L'activite de confirmation MIUI n'est pas directBootAware : elle n'existe pas avant le PIN. LES
+DEUX chemins rendent ce refus — `adb install` (garde binaire, 16:24:07, code 6) et
+`pm install -r -d -t -i com.android.vending` apres push (16:26:11), celui que
+device-validate.sh:230 annonce a tort comme keyguard-independent. Les 4 reglages MIUI sont poses
+et ne changent rien. Ecran reveille, alerte ntfy envoyee, attente de 1700 s armee.
 ## RESTE
-
-1. Brancher l'USB, puis `lib/proof_run.sh grass-baseline-cost device`. Rien d'autre à préparer.
-2. AVANT : vérifier que l'APK porte le `libgk.so` du 16/09 16:09. Le démon `auto_build_apk.sh` a
-   refusé son tour (« sources modifiees pendant la fabrication ») parce que l'édition est tombée
-   pendant son build ; il retente seul, mais l'APK de 16:05 est ANTÉRIEUR au binaire.
-   Contrôle : `unzip -p <apk> lib/arm64-v8a/libgk.so | md5sum` contre le fichier de build-android.
-3. NE PAS rééditer game/ common/ android/ goal_src/ après la course.
-4. Mode d'échec le plus probable sur appareil : throttling thermique sur les cellules `high` et
-   `very_high`, qui passent en DERNIER (FINDINGS ligne 18). Si `cells_short>0`, c'est ça, pas
-   l'instrument.
+1. DEVERROUILLER LE TELEPHONE UNE FOIS (PIN) : seul geste manquant, aucun code ne le remplace.
+   Controle : `adb shell dumpsys user | grep "Started users state:"` doit rendre RUNNING_UNLOCKED.
+2. Puis `bash .autoport/lib/proof_run.sh grass-baseline-cost device`. Rien d'autre a preparer.
+3. NE PAS rebatir sur « le telephone porte <autre md5> » : le binaire est bon, c'est l'INSTALL qui
+   est refuse (FINDINGS). Echec le plus probable ensuite : throttling sur high/very_high, derniers.

@@ -1,40 +1,39 @@
 DIRECTIVES v07b292c21f
-
-VERDICT : l'instrument que les cinq essais precedents n'ont pas ecrit EXISTE et tient le critere
-de la porte de bout en bout sur x86 (`grass_baseline_gaps=0`, 10 cellules, 0 courte) ; la preuve
-APPAREIL n'a PAS pu etre produite, aucun appareil USB de tout l'essai. L'item ne se ferme pas.
-
-CE QUI A CHANGE (commit 680e369de6)
-- `game/system/grass_baseline.{h,cpp}` : campagne de 10 cellules (5 paliers x herbe ON/OFF), un
-  seul vantage (`training-start`), un seul binaire, sur le patron eprouve de `perf_baseline`. Le
-  regime est impose AU POINT DE PRODUCTION (`pc_set_recharged_grass`, `pc_set_grass_dists`) :
-  GOAL repousse les deux reglages a CHAQUE image, une ecriture faite ailleurs serait ecrasee.
-- `GrassRenderer.cpp` : chronometres preparation / attente de barriere / soumission, comptes
-  d'instances soumises, et le recensement du champ de vision, qui rejoue `world_to_clip` de
-  `grass.vert:81-98` — AUCUN test de frustum n'existe dans ce renderer.
-- `proof_timeout` 420 -> 1800 et `proof_props` epingles (level.warp=training-start,
-  perf.buckets=1, recharged=1, uncap.fps=240). Les deux arbres compilent et lient ; l'APK est
-  rebati, son `libgk.so` md5-identique a `build-android/lib/arm64-v8a/libgk.so`.
-
-PREUVE — ATTENTION A CE QUE VOUS LISEZ
-AUCUNE ligne n'est recopiee de `proof.txt` : celui qui est la date de l'essai 1 et je ne le
-presente pas comme un resultat. Les huit lignes ci-dessous viennent de la course a blanc x86
-(`notes/dry-run-x86-2026-09-16.txt`), qui n'a touche aucun fichier de preuve. Elles montrent que
-l'instrument FONCTIONNE ; elles ne sont PAS la ligne de base (cadences contaminees par un build
-concurrent).
-  GRASS-BASELINE done cells=10 short=0
-  grass_baseline_gaps=0
-  grass_baseline_dead_instances=110472
-  grass_baseline_built_instances=726851
-  grass_load_medium_instances=726851
-  grass_load_medium_inst_bytes=46518464
-  grass_on_medium_render_frames=300
-  grass_off_medium_render_frames=0
-Les deux dernieres sont le contraste falsifiable (meme instrument, meme palier, 300 contre 0) ; et
-`dead_instances`/`built_instances` confirment le chiffre d'aout sur le binaire COURANT, au brin pres.
-
-CE QUE L'OWNER DOIT REGARDER : rien. Aucun pixel ne bouge, c'est une mesure. Le seul geste
-attendu est de BRANCHER UN APPAREIL EN USB : tout le reste est pret.
-NON PROUVE : la preuve appareil (`lib/proof_run.sh grass-baseline-cost device`), donc les dix
-cadences reelles, la decomposition sur Adreno 618 et les durees de chargement de l'appareil.
-NON PROUVE : le bras `--off` (`armed=0 hits=0`), meme cause. Le validateur ne le reclame pas.
+VERDICT : la clause 1 du contrat — dix cellules « au MEME vantage » — est passee d'une affirmation
+a DEUX termes de la porte, verifies sur x86 ; la preuve APPAREIL n'a pas pu etre produite, mais
+l'empechement a CHANGE de nature et la machine le nomme. L'item ne se ferme pas.
+CE QUI A CHANGE (commit e3d55c6fbe, 4 fichiers moteur)
+- `grass_baseline` : « au MEME vantage » n'etait juge par rien. `jak_pos` etait exige PRESENT,
+  jamais EGAL d'une cellule a l'autre, `cam_dm` n'etait dans aucune liste : dix cellules sous dix
+  points de vue passaient vertes, et l'ecart ON/OFF — la seule grandeur pour laquelle cet item
+  existe — aurait compare deux scenes. Deux termes de plus, relus dans la table moissonnee et
+  jamais dans les variables du module : `grass_baseline_vantage_spread_mm` (10 cellules, seuil
+  100 mm) et `grass_baseline_camera_spread_dm` (5 cellules allumees, seuil 1 dm). Chacun publie SA
+  population a cote et vaut `-`, jamais 0, sous deux cellules comparables : pas de vert par inaction.
+- `autoport_proof::read_text` : la table n'avait aucun lecteur de TEXTE, donc aucune porte ne
+  pouvait juger l'EGALITE d'une grandeur non entiere. La troncature y est un ECHEC, jamais un
+  prefixe, sinon le comparateur fabriquerait l'egalite qu'il verifie.
+- Arbres batis par leur porte (x86 119 s ; arm64 `gk` lie) ; l'APK porte le MEME libgk que l'arbre
+  (md5 6f1a86f039b3e3e86497f3113361f1e9, verifie par unzip).
+PREUVE — ATTENTION A CE QUE VOUS LISEZ. Aucune ligne n'est recopiee de `proof.txt` : celui du
+disque date de l'essai 1 et je ne le presente pas comme un resultat. Les huit lignes viennent de la
+course a blanc x86 (`notes/dry-run-x86-essai9.txt`), qui n'a touche aucun fichier de preuve.
+  grass_baseline_gaps=199      <- premier publie, rien de mesure ; 197 sans les deux termes neufs
+  grass_baseline_vantage_cells=0   grass_baseline_vantage_spread_mm=-
+  grass_baseline_camera_cells=1    grass_baseline_camera_spread_dm=-
+  grass_baseline_vantage_cells=10  grass_baseline_vantage_spread_mm=0
+  grass_baseline_camera_cells=5    grass_baseline_camera_spread_dm=0
+  grass_baseline_gaps=0   grass_baseline_missing=-   grass_baseline_cells_short=0
+  grass_baseline_vantage=-635598.9_222551.7_710496.2   <- au boot
+  grass_baseline_vantage=-5393626.5_28072.4_4332472.5  <- pendant la campagne, dix fois
+Les deux dernieres sont la falsifiabilite : la cle compare une grandeur qui BOUGE. Et l'ecart ne
+sort en chiffre qu'a partir de DEUX cellules, jamais avant.
+CE QUE L'OWNER DOIT REGARDER : aucun pixel, c'est une mesure. UN SEUL GESTE est attendu et aucun
+code ne le remplace : DEVERROUILLER LE TELEPHONE (PIN). Le Redmi eae4df44 est branche en USB
+depuis 16:24 mais il a redemarre sans recevoir son code : `dumpsys user` rend `[0=RUNNING_LOCKED]`,
+`dumpsys trust` rend `strongAuthRequired=0x1`, et le journal nomme la cause — `aInfo is null` pour
+`com.miui.securitycenter/...AdbInstallActivity`, non directBootAware. `adb install` (16:24:07) et
+`pm install` apres push (16:26:11) rendent le MEME refus. Une fois le PIN saisi, tout est pret.
+NON PROUVE : la preuve appareil, donc les dix cadences reelles, la decomposition sur Adreno 618 et
+les durees de chargement. NON PROUVE : le bras `--off` (le validateur ne le reclame pas). NON
+MESURE : l'ORIENTATION de la camera — les deux positions la contraignent, elles ne la relevent pas.
