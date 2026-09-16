@@ -1346,6 +1346,202 @@ void contact_band(const uint8_t* ao,
   *wmax_out = wmax;
 }
 
+// ── (essai 17) CE QUE `contact_band()` NE PEUT PAS VOIR, ET LE TEMOIN QUI LE DIT ─────────────
+// `contact_band()` exige que le pixel du PLI soit un maximum local a 3 taps, 4/255 au-dessus de
+// SES DEUX voisins. Le defaut que l'owner decrit n'a pas cette forme : c'est une RAMPE claire A
+// COTE du pli. Sur une rampe monotone tout pixel a un voisin plus clair, le `||` court-circuite
+// toujours, et `band` reste 0 — mesure locale sur le tampon d'AO APPAREIL de la hutte
+// (`notes/attempt17-band-calib.json`) : 0 sur l'etat livre ET sur l'etat d'avant, la ou le
+// lecteur de profils en compte 12. Un zero par CECITE, pas par proprete.
+//
+// Pourquoi pas un simple comptage de pixels clairs. Le meme banc chiffre le plancher : une regle
+// « plus clair que le fond de 4/255 » rend 1,2435 par cote sur un VRAI PLAN, ou il n'y a aucun
+// contact. Transpose aux 35 379 cotes de plis, son plancher vaut ~44 000 : une porte `== 0` y
+// serait condamnee par le bruit, et le correctif ne la deplace que de 3,7 %.
+//
+// D'ou le TEMOIN GRATUIT : la MEME statistique, dans la MEME image, sur les pixels dont la
+// profondeur est PLANE au sens de l'essai 15 (courbure sous 2 % des differences premieres aux
+// rayons 1..6, deux axes). Un plan n'a pas de contact : ce qu'on y lit est le zero de
+// l'instrument. Le defaut, lui, est l'EXCES des plis sur ce zero.
+struct ContactRamp {
+  uint64_t sides = 0;        // cotes juges (denominateur)
+  uint64_t positive = 0;     // cotes dont le contact est plus CLAIR que le fond, d'un quantum
+  uint64_t bright = 0;       // idem, mais de 4/255 : le seuil de la crete historique
+  uint64_t lift_pos = 0;     // somme des levees positives, en milli-quanta d'AO
+  uint64_t lift_neg = 0;     // somme des levees negatives, meme unite, VALEUR ABSOLUE
+  uint64_t rejected = 0;     // cotes ECARTES : hors ecran, ou la marche quitte la surface
+};
+// Fenetres du profil : `near` colle au contact, `far` est le fond de la MEME surface. Les deux
+// fenetres ont la MEME largeur : le banc local montre qu'une fenetre asymetrique (2 pres / 4
+// loin) biaise la moyenne de 5,8 ecarts-types sur un plan, ou elle doit valoir zero.
+constexpr int kRampNear = 3;   // v[0..2]
+constexpr int kRampFar0 = 6;   // v[6..8]
+constexpr int kRampLen = 9;
+constexpr int kRampBright = 4;  // 4/255, le meme seuil que la crete historique
+constexpr double kRampJumpRel = 0.02;  // au-dela, la marche a quitte la surface
+constexpr int kPlaneRadius = 6;
+constexpr double kPlaneRel = 0.02;
+constexpr double kPlaneAbs = 1e-5;
+constexpr int kPlaneStride = 4;  // le plan est vaste : un pixel sur 16 suffit a sa moyenne
+
+// Un cote : le profil de `k = 0..8` en s'eloignant du point, dans la direction (dx,dy)*s.
+// LA MARCHE DOIT RESTER SUR LA SURFACE. Mesure locale : sans ce confinement, 23 % des cotes
+// d'un plan en sortent, et ils portent A EUX SEULS un biais de +0,78 quantum — un biais qui
+// CROIT avec la force du correctif, donc qui se ferait passer pour son effet. Confinee, la
+// moyenne d'un plan vaut zero a 0,002 erreur-type pres.
+inline void ramp_side(const uint8_t* ao,
+                      const float* depth,
+                      const uint8_t* mask,
+                      int w,
+                      int h,
+                      int x,
+                      int y,
+                      int dx,
+                      int dy,
+                      int s,
+                      ContactRamp* out) {
+  int v[kRampLen];
+  double zprev = 0.0;
+  for (int k = 0; k < kRampLen; k++) {
+    const int xx = x + dx * s * k;
+    const int yy = y + dy * s * k;
+    if (xx < 0 || yy < 0 || xx >= w || yy >= h) {
+      out->rejected++;
+      return;
+    }
+    const size_t idx = (size_t)yy * (size_t)w + (size_t)xx;
+    const double zz = (double)depth[idx];
+    if (zz <= 1e-9 || (mask && !mask[idx])) {
+      out->rejected++;
+      return;
+    }
+    if (k > 0 && std::fabs(zz - zprev) > kRampJumpRel * zz) {
+      out->rejected++;  // un SAUT : la marche est passee sur une autre surface
+      return;
+    }
+    zprev = zz;
+    v[k] = (int)ao[idx];
+  }
+  int near_sum = 0, far_sum = 0;
+  for (int k = 0; k < kRampNear; k++) near_sum += v[k];
+  for (int k = kRampFar0; k < kRampLen; k++) far_sum += v[k];
+  const int n_near = kRampNear, n_far = kRampLen - kRampFar0;
+  // Levee = moyenne pres du point MOINS moyenne au loin, SIGNEE, en milli-quanta.
+  const int64_t lift =
+      ((int64_t)near_sum * 1000) / n_near - ((int64_t)far_sum * 1000) / n_far;
+  out->sides++;
+  if (lift > 0) {
+    out->lift_pos += (uint64_t)lift;
+    out->positive++;
+  } else {
+    out->lift_neg += (uint64_t)(-lift);
+  }
+  if (lift > (int64_t)kRampBright * 1000) {
+    out->bright++;
+  }
+}
+
+// Le plan : courbure nulle a tous les rayons 1..6, deux axes — la definition de l'essai 15.
+inline bool plane_pixel(const float* depth, int w, int h, int x, int y) {
+  auto z = [&](int xx, int yy) -> double {
+    return (double)depth[(size_t)yy * (size_t)w + (size_t)xx];
+  };
+  const double z0 = z(x, y);
+  if (z0 <= 1e-9) return false;
+  for (int r = 1; r <= kPlaneRadius; r++) {
+    for (int axis = 0; axis < 2; axis++) {
+      const int dx = axis == 0 ? r : 0;
+      const int dy = axis == 0 ? 0 : r;
+      if (x - dx < 0 || y - dy < 0 || x + dx >= w || y + dy >= h) return false;
+      const double zm = z(x - dx, y - dy), zp = z(x + dx, y + dy);
+      if (zm <= 1e-9 || zp <= 1e-9) return false;
+      const double d1 = z0 - zm, d2 = zp - z0;
+      if (std::fabs(d2 - d1) > kPlaneRel * (std::fabs(d1) + std::fabs(d2)) + kPlaneAbs) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Le masque de plan ne depend QUE de la profondeur, et la camera ne bouge pas : il se calcule
+// une fois et se relit pour les douze etats. L'empreinte de la profondeur le dit — un plan
+// recalcule sur une autre image serait un temoin d'une AUTRE scene.
+std::vector<uint8_t> s_plane_mask;
+uint64_t s_plane_mask_key = 0;
+int s_plane_mask_w = 0, s_plane_mask_h = 0;
+uint64_t s_plane_mask_px = 0;
+
+const uint8_t* plane_mask(const float* depth, int w, int h) {
+  uint64_t key = 14695981039346656037ull;
+  const size_t n = (size_t)w * (size_t)h;
+  const auto* bytes = reinterpret_cast<const uint8_t*>(depth);
+  for (size_t i = 0; i < n * sizeof(float); i++) key = (key ^ bytes[i]) * 1099511628211ull;
+  if (key != s_plane_mask_key || w != s_plane_mask_w || h != s_plane_mask_h) {
+    s_plane_mask.assign(n, 0);
+    s_plane_mask_px = 0;
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        if (plane_pixel(depth, w, h, x, y)) {
+          s_plane_mask[(size_t)y * (size_t)w + (size_t)x] = 1;
+          s_plane_mask_px++;
+        }
+      }
+    }
+    s_plane_mask_key = key;
+    s_plane_mask_w = w;
+    s_plane_mask_h = h;
+  }
+  return s_plane_mask.data();
+}
+
+void contact_ramp(const uint8_t* ao,
+                  const float* depth,
+                  int w,
+                  int h,
+                  ContactRamp* folds_out,
+                  ContactRamp* plane_out) {
+  const double kCreaseRel = 0.25, kCreaseAbs = 1e-5, kJumpRel = 0.02;
+  auto z = [&](int x, int y) -> double {
+    return (double)depth[(size_t)y * (size_t)w + (size_t)x];
+  };
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      const double z0 = z(x, y);
+      if (z0 <= 1e-9) continue;
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        const double zm = z(x - dx, y - dy), zp = z(x + dx, y + dy);
+        if (zm <= 1e-9 || zp <= 1e-9) continue;
+        const double d1 = z0 - zm, d2 = zp - z0;
+        if (std::max(std::fabs(d1), std::fabs(d2)) > kJumpRel * z0) continue;
+        if (std::fabs(d2 - d1) <= kCreaseRel * (std::fabs(d1) + std::fabs(d2)) + kCreaseAbs) {
+          continue;
+        }
+        // MEME population que `contact_band()` : les deux partagent leur denominateur, et
+        // `ao_contact_pop_px` reste lisible a cote de `ao_ramp_sides`.
+        ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, folds_out);
+        ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, +1, folds_out);
+      }
+    }
+  }
+  const uint8_t* mask = plane_mask(depth, w, h);
+  for (int y = 1; y < h - 1; y += kPlaneStride) {
+    for (int x = 1; x < w - 1; x += kPlaneStride) {
+      if (!mask[(size_t)y * (size_t)w + (size_t)x]) continue;
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        ramp_side(ao, depth, mask, w, h, x, y, dx, dy, -1, plane_out);
+        ramp_side(ao, depth, mask, w, h, x, y, dx, dy, +1, plane_out);
+      }
+    }
+  }
+}
+ContactRamp s_contact_ramp[kCensusStates];
+ContactRamp s_contact_plane[kCensusStates];
+
 // Relit le tampon d'AO pleine resolution et accumule la force du motif pour `quality`.
 // `scale` donne la periode candidate : p = max(2, round(1/scale)) — 4 au palier bas, 2 ailleurs.
 void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int w, int h) {
@@ -1522,6 +1718,10 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
           // (h) LA BANDE DE CONTACT : meme relecture, test inverse, zero cout GL de plus.
           uint64_t cpop = 0, cband = 0, cwmax = 0;
           contact_band(s_pat_buf.data(), s_depth_buf.data(), w, h, &cpop, &cband, &cwmax);
+          // (essai 17) La MEME relecture sert la grandeur qui SAIT voir la rampe, et son temoin
+          // de plan. Zero cout GL de plus, une passe CPU sur le tampon deja en memoire.
+          contact_ramp(s_pat_buf.data(), s_depth_buf.data(), w, h, &s_contact_ramp[state],
+                       &s_contact_plane[state]);
           s_contact_pop[state] += cpop;
           s_contact_band[state] += cband;
           if (cwmax > s_contact_wmax[state]) {
@@ -1813,6 +2013,14 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish(("ao_contact_pop_" + n).c_str(), s_contact_pop[i]);
     autoport_proof::publish(("ao_contact_band_" + n).c_str(), s_contact_band[i]);
     autoport_proof::publish(("ao_contact_wmax_" + n).c_str(), s_contact_wmax[i]);
+    // (essai 17) La RAMPE, et le plan qui lui sert de zero — chacun avec son denominateur.
+    autoport_proof::publish(("ao_ramp_sides_" + n).c_str(), s_contact_ramp[i].sides);
+    autoport_proof::publish(("ao_ramp_positive_" + n).c_str(), s_contact_ramp[i].positive);
+    autoport_proof::publish(("ao_ramp_bright_" + n).c_str(), s_contact_ramp[i].bright);
+    autoport_proof::publish(("ao_ramp_rejected_" + n).c_str(), s_contact_ramp[i].rejected);
+    autoport_proof::publish(("ao_plane_sides_" + n).c_str(), s_contact_plane[i].sides);
+    autoport_proof::publish(("ao_plane_positive_" + n).c_str(), s_contact_plane[i].positive);
+    autoport_proof::publish(("ao_plane_rejected_" + n).c_str(), s_contact_plane[i].rejected);
     autoport_proof::publish(("ao_static_pop_" + n).c_str(), s_static_pop[i]);
     autoport_proof::publish(("ao_static_moved_" + n).c_str(), s_static_moved[i]);
     // Les deux populations restent SEPAREES par etat : guardee (confinee a la causalite) et
@@ -1926,6 +2134,86 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish_text("ao_contact_band_legacy_px", "non-mesure");
   }
   const uint64_t t6 = contact_measured ? contact_band_px : 1ull;
+
+  // ── (essai 17) LA RAMPE DE CONTACT, ET LE PLAN QUI EN DONNE LE ZERO ──────────────────────
+  // `ao_contact_band_px` ci-dessus reste la CRETE historique — elle ne sait voir qu'un pic d'un
+  // pixel, et le banc local prouve qu'elle rend 0 sur le tampon d'AO appareil qui PORTE le
+  // defaut. Elle n'est pas retiree (aucune grandeur publiee ne se redefinit en silence) ; la
+  // grandeur qui REPOND a l'owner est publiee A COTE, avec son temoin de plan et ses deux
+  // denominateurs. L'EXCES des plis sur le plan est le defaut : sur un plan il n'y a pas de
+  // contact, donc pas de bande — ce qu'on y lit est le bruit de l'estimateur, dans la MEME image.
+  {
+    ContactRamp fold_on{}, fold_off{}, plane_on{}, plane_off{};
+    auto add = [](ContactRamp& dst, const ContactRamp& src) {
+      dst.sides += src.sides;
+      dst.positive += src.positive;
+      dst.bright += src.bright;
+      dst.lift_pos += src.lift_pos;
+      dst.lift_neg += src.lift_neg;
+      dst.rejected += src.rejected;
+    };
+    for (int i = 0; i < kCensusStates; i++) {
+      add(i < 6 ? fold_on : fold_off, s_contact_ramp[i]);
+      add(i < 6 ? plane_on : plane_off, s_contact_plane[i]);
+    }
+    auto rate = [](const ContactRamp& r) -> uint64_t {
+      return r.sides ? (1000ull * r.bright / r.sides) : 0ull;
+    };
+    auto prate = [](const ContactRamp& r) -> uint64_t {
+      return r.sides ? (1000ull * r.positive / r.sides) : 0ull;
+    };
+    auto publish_arm = [&](const char* suffix, const ContactRamp& f, const ContactRamp& p) {
+      const std::string s = suffix;
+      autoport_proof::publish(("ao_ramp_sides" + s).c_str(), f.sides);
+      autoport_proof::publish(("ao_ramp_rejected" + s).c_str(), f.rejected);
+      autoport_proof::publish(("ao_ramp_positive" + s).c_str(), f.positive);
+      autoport_proof::publish(("ao_ramp_positive_rate" + s + "_x1000").c_str(), prate(f));
+      autoport_proof::publish(("ao_ramp_bright" + s).c_str(), f.bright);
+      autoport_proof::publish(("ao_ramp_bright_rate" + s + "_x1000").c_str(), rate(f));
+      autoport_proof::publish(("ao_ramp_lift_up" + s + "_milli").c_str(),
+                              f.sides ? f.lift_pos / f.sides : 0ull);
+      autoport_proof::publish(("ao_ramp_lift_down" + s + "_milli").c_str(),
+                              f.sides ? f.lift_neg / f.sides : 0ull);
+      autoport_proof::publish(("ao_plane_sides" + s).c_str(), p.sides);
+      autoport_proof::publish(("ao_plane_rejected" + s).c_str(), p.rejected);
+      autoport_proof::publish(("ao_plane_positive" + s).c_str(), p.positive);
+      autoport_proof::publish(("ao_plane_positive_rate" + s + "_x1000").c_str(), prate(p));
+      autoport_proof::publish(("ao_plane_bright" + s).c_str(), p.bright);
+      autoport_proof::publish(("ao_plane_bright_rate" + s + "_x1000").c_str(), rate(p));
+      autoport_proof::publish(("ao_plane_lift_up" + s + "_milli").c_str(),
+                              p.sides ? p.lift_pos / p.sides : 0ull);
+      autoport_proof::publish(("ao_plane_lift_down" + s + "_milli").c_str(),
+                              p.sides ? p.lift_neg / p.sides : 0ull);
+      // L'EXCES, dans les deux sens : un contact CORRECT est plus SOMBRE qu'un plan, donc
+      // `deficit > 0` et `excess == 0`. Publier les deux interdit de perdre le SIGNE.
+      const uint64_t rf = rate(f), rp = rate(p);
+      autoport_proof::publish(("ao_contact_bright_excess" + s + "_x1000").c_str(),
+                              rf > rp ? rf - rp : 0ull);
+      autoport_proof::publish(("ao_contact_bright_deficit" + s + "_x1000").c_str(),
+                              rp > rf ? rp - rf : 0ull);
+      const uint64_t pf = prate(f), pp = prate(p);
+      autoport_proof::publish(("ao_contact_positive_excess" + s + "_x1000").c_str(),
+                              pf > pp ? pf - pp : 0ull);
+      autoport_proof::publish(("ao_contact_positive_deficit" + s + "_x1000").c_str(),
+                              pp > pf ? pp - pf : 0ull);
+      const int64_t lf = f.sides ? (int64_t)(f.lift_pos / f.sides) - (int64_t)(f.lift_neg / f.sides) : 0;
+      const int64_t lp = p.sides ? (int64_t)(p.lift_pos / p.sides) - (int64_t)(p.lift_neg / p.sides) : 0;
+      autoport_proof::publish(("ao_contact_lift_excess" + s + "_milli").c_str(),
+                              lf > lp ? (uint64_t)(lf - lp) : 0ull);
+      autoport_proof::publish(("ao_contact_lift_deficit" + s + "_milli").c_str(),
+                              lp > lf ? (uint64_t)(lp - lf) : 0ull);
+      autoport_proof::publish(("ao_ramp_measured" + s).c_str(),
+                              (f.sides > 0 && p.sides > 0) ? 1ull : 0ull);
+    };
+    publish_arm("", fold_on, plane_on);
+    publish_arm("_legacy", fold_off, plane_off);
+    autoport_proof::publish("ao_ramp_near_taps", (uint64_t)kRampNear);
+    autoport_proof::publish("ao_ramp_far_taps", (uint64_t)(kRampLen - kRampFar0));
+    autoport_proof::publish("ao_ramp_bright_threshold", (uint64_t)kRampBright);
+    autoport_proof::publish("ao_plane_stride", (uint64_t)kPlaneStride);
+    autoport_proof::publish("ao_plane_radius", (uint64_t)kPlaneRadius);
+    autoport_proof::publish("ao_plane_mask_px", s_plane_mask_px);
+  }
 
   // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE — SUR LA POPULATION DE LA PREMISSE.
   // `ao_static_cam_delta_px` garde son nom (la porte le lit en t5) mais compte desormais la

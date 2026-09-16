@@ -1,40 +1,38 @@
 DIRECTIVES v775512c234
-essai 16 — ao-prepass-tie-alpha — VERDICT : porte NON FRANCHIE (ao_tie_prepass_defects=5, exige 0).
-
-CE QUI A CHANGE
-Aucune ligne de moteur. Le code de l'essai 15 (295bb10673) etait commite mais JAMAIS mesure :
-sa course avait ete tuee a 3 min. Mesure deux fois sur l'appareil USB eae4df44 (md5 local ==
-appareil == 129b167b003c5042df683b21afcbf944, aucun rebuild), plus un rejeu INDEPENDANT du
-banc local avec son bras temoin.
-
-PREUVE (recopiee de proof.txt, course 2, 1860 images, crash=0, 430 s)
-  FEATURE ao-prepass-tie-alpha armed=1 hits=1444
-  ao_tie_prepass_defects=5
-  ao_owner_terms_measured=7
-  ao_geom_tie_absent_px=0
-  ao_contact_band_px=0
-  ao_flatstep_worst_delivered_x1000=7
-  ao_static_defects=0
-  ao_probe_compared=1
-  ao_tie_view_village1_hut_on_present=1
-POURQUOI 5, ET PAS UN DEFAUT D'IMAGE
-ao_tie_contract.h:187-210 somme (!on + !off) sur TROIS vues ; proof_props n'en epingle qu'une
-(village1-hut). Plancher d'une course isolee = 4. Course 1 a rendu 7, course 2 rend 5 :
-exactement la prediction de la formule quand la hutte enregistre son bras ARME. Sur cette vue
-TOUS les termes d'image sont a zero. Distance reelle au 0, decodee de la campagne appareil :
-village1-out porte direct_leak_px=6459, static_defects=260450, color_changed_px=90534 ;
-beach on_alpha_device_px=10, static_defects=832 ; hutte color_changed_px=903. ~359 000 unites,
-sur deux vues que cet item n'a jamais travaillees.
-CE QUE L'OWNER DOIT REGARDER
-La bande claire entre le mur de la hutte et le toit. Le banc qui la VOIT (425 px, 15 contacts),
-remesure aujourd'hui avec son temoin : sans le correctif SSAO 12 px (max 3), HBAO 2 (1),
-GTAO 8 (2) ; avec, 0 / 0 / 0 (max 0), flat_step sous le plafond (7,594 / 4,719 / 5,231 pour 10)
-donc sans reintroduire le damier. A verifier sur le HONOR : Options > Recharged >
-Recharged Lighting > Ambient Occlusion, chaque palier et chaque mode, force au maximum.
-NON PROUVE
-- non prouve : la bande corrigee SUR L'APPAREIL. ao_contact_band_px rend 0 la ou le lecteur
-  natif mesure 12 px au meme raccord : la porte est aveugle a cette classe de defaut.
-- non prouve : les vues village1-out et beach, jamais mesurees par ce regime ; ni l'identite
-  bit-a-bit de l'image couleur (livrable 3), que attempt5 chiffre a 903.
-- ao_sway_gap_px est BRUYANT : 2, puis 0, puis 4, meme binaire et memes props (pop 109 965) :
-  ao_owner_defects bascule 0 -> 4 sans changement de code.
+# Essai 17 — la bande de contact n'etait pas verte : elle n'etait pas mesuree
+VERDICT : la porte reste a 5, et ces 5 sont COMPTABLES (deux vues jamais enregistrees, un bras
+OFF manquant ; zero defaut d'image sur la vue epinglee). Ce qui change : une grandeur de l'owner
+cesse d'etre un vert par INACTION — le bras TEMOIN du recensement, MORT depuis le raccordement
+de la sonde, est repare et rend 225 cretes de bande la ou le bras livre en rend 0, MEME course.
+LA CAUSE, NOMMEE AVANT LE CORRECTIF
+1. `PrePass.cpp:1605` tirait l'etat du recensement de `g_static_probe.state`, et
+   `ao_static_probe::kStates` vaut 6 : `st / 6` valait TOUJOURS 0. Les six etats temoin annonces
+   par `AmbientOcclusion.cpp:2595` n'ont jamais ete rendus sur l'appareil. Le temoin etait deja
+   dans la preuve du 16/09 : `ao_contact_pop_legacy_ssao_q0=0` en face de `..._ssao_q0=17763`.
+2. `AmbientOcclusion.cpp:1319` cherche un maximum local a 3 taps AU PLI ; le defaut de l'owner
+   est une rampe claire A COTE du pli, ou tout pixel a un voisin plus clair. Banc local
+   (`notes/attempt17-band-calib.json`) : la regle rend 0 sur un tampon d'AO APPAREIL qui PORTE
+   le defaut. Elle n'est ni assouplie ni redefinie ; la grandeur qui repond est publiee A COTE.
+CE QUI A CHANGE (detail : notes/attempt17-what-changed.md) — `PrePass.cpp` : fenetre TEMOIN au
+tick 1380, APRES la sonde, qui garde ses ticks, ses phases et ses populations ; vent coupe comme
+chez elle, image lourde eteinte. `AmbientOcclusion.cpp` : `contact_ramp()` sur le tampon deja
+relu (zero appel GL de plus) — levee signee sur 9 taps CONFINES a la surface, et la MEME
+statistique sur les pixels PLANS, qui donne le zero de l'instrument dans la MEME image.
+PREUVE (proof.txt, appareil eae4df44, md5 b7be352a…, 1860 images, crash=0, 430 s)
+    ao_contact_band_px=0                      ao_contact_band_legacy_px=225
+    ao_contact_pop_legacy_ssao_q0=17763       (0 avant cet essai)
+    ao_flatstep_worst_delivered_x1000=7       ao_flatstep_worst_legacy_x1000=41 (plafond 10)
+    ao_ramp_bright_rate_x1000=187             ao_ramp_bright_rate_legacy_x1000=247
+    ao_contact_bright_excess_x1000=27         ao_contact_bright_excess_legacy_x1000=70
+    ao_plane_lift_up_milli=2077               ao_plane_lift_down_milli=2077 (plan : zero exact)
+    ao_static_defects=0 ao_probe_compared=1 ao_probe_nondeterminism=0 ao_direct_leak_px=0
+    ao_tie_prepass_defects=5  ao_tie_view_village1_hut_defects=1 (le 1 = bras OFF non enregistre)
+Trois courses aujourd'hui, deux binaires : memes 225/0 et 41/7 a chaque fois.
+CE QUE L'OWNER DOIT REGARDER — Options > Recharged > Recharged Lighting > Ambient Occlusion,
+chaque palier et chaque mode, force au maximum : le raccord mur/toit de la hutte du village 1,
+et les facades. La machine dit que le regime d'AVANT porte la bande ET le pixelise, et que le
+regime livre n'a ni l'un ni l'autre ; l'aspect, c'est son oeil qui le tranche.
+NON PROUVE — que ces 225 cretes soient CELLES de son raccord : la population (17 763 plis) est
+globale, et la seule qui isole ce raccord (15 aretes) a ete choisie A LA MAIN parmi 75 candidats
+sans qu'aucun code du moteur sache la retrouver — c'est le chantier suivant. Non prouve aussi :
+`village1-out`, `beach`, l'identite de l'image couleur (bras OFF), le cout GPU/CPU des passes.

@@ -254,6 +254,22 @@ bool g_probe_frame = false;
 // LEGERES : elles ne font que garder le meme etat de mesure pour que le recensement du tampon
 // d'AO dispose de deux releves SEPARES D'UNE SEULE IMAGE, ce que le contrat (k) demande.
 int g_probe_pair_phase = -1;  // -1 hors sonde, 0 lourde, 1 reference, 2 comparee
+// ── (essai 17) LE BRAS TEMOIN DU RECENSEMENT ETAIT MORT ──────────────────────────────────────
+// Le recensement tire son etat de `g_static_probe.state`, et `ao_static_probe::kStates` vaut 6 :
+// `st / 6` valait donc TOUJOURS 0 des que la sonde de stabilite est active — c'est-a-dire a
+// CHAQUE course appareil de cet item. Les six etats TEMOIN que le commentaire d'AmbientOcclusion
+// annonce (« l'ablation ne coute aucune jambe de plus ») n'ont jamais ete rendus : la preuve le
+// dit, toutes les populations `ao_*_legacy_*` y sont a ZERO en face de leurs jumelles livrees.
+// Consequence : `ao_contact_band_px=0` n'avait AUCUN contraste — un vert par INACTION sur la
+// grandeur meme qui juge la bande claire que l'owner voit au raccord mur/toit.
+// Reparation, purement ADDITIVE : la sonde garde ses ticks (1200..1353) et ses populations, et
+// les six etats temoin sont rendus APRES elle, au meme pas de 30 ticks et avec la meme triade de
+// phases. Aucune image du bras LIVRE ne change de tick, donc aucune valeur acquise ne bouge.
+constexpr int64_t kWitnessStart =
+    ao_static_probe::kStart + ao_static_probe::kStates * ao_static_probe::kStride;
+bool g_census_witness = false;
+int g_census_witness_state = -1;
+int64_t g_census_witness_last_tick = -1;
 uint64_t g_probe_seq = 0;  // combien d'images sondees ont commence — choisit le palier d'AO
 uint64_t g_probe_frames = 0;
 uint64_t g_probe_px = 0;
@@ -1142,6 +1158,26 @@ void frame_begin(SharedRenderState* rs) {
     g_probe_pair_phase = g_static_probe.phase <= 2 ? g_static_probe.phase : -1;
     g_probe_frame = g_static_probe.phase == 3;
   }
+  // ── LES SIX ETATS TEMOIN, APRES LA SONDE ────────────────────────────────────────────────
+  // Ils ne se declenchent QUE hors de la fenetre de la sonde (`phase < 0`) : elle a fini son
+  // office a 1353, la fenetre temoin ouvre a 1380. L'image LOURDE (`g_probe_frame`) reste
+  // eteinte : les termes 1, 3 et 4 gardent la population de la sonde, au texel pres.
+  // Le garde-fou de tick est celui de la sonde : un tick logique relu par deux images de rendu
+  // ne doit accumuler la bande QU'UNE fois, sinon `ao_contact_pop_*` double sans qu'un shader
+  // ait bouge.
+  g_census_witness = false;
+  g_census_witness_state = -1;
+  if (ao_static_probe::active() && g_static_probe.phase < 0) {
+    const int64_t lf = ao_static_probe::logic_frame();
+    const int64_t off = lf - kWitnessStart;
+    if (lf >= kWitnessStart && off < ao_static_probe::kStates * ao_static_probe::kStride &&
+        off % ao_static_probe::kStride <= 2 && lf != g_census_witness_last_tick) {
+      g_census_witness_last_tick = lf;
+      g_census_witness = true;
+      g_census_witness_state = (int)(off / ao_static_probe::kStride);
+      g_probe_pair_phase = (int)(off % ao_static_probe::kStride);
+    }
+  }
   if (g_probe_frame) {
     g_probe_seq++;
   }
@@ -1151,7 +1187,10 @@ void frame_begin(SharedRenderState* rs) {
 }
 
 bool static_probe_wind_disabled() {
-  return ao_static_probe::active() && g_static_probe.phase >= 0 && g_static_probe.phase <= 2;
+  // Le bras temoin mesure la MEME scene que le bras livre ou rien n'est comparable : le vent
+  // reste coupe pendant ses six etats, exactement comme pendant les phases de la sonde.
+  return (ao_static_probe::active() && g_static_probe.phase >= 0 && g_static_probe.phase <= 2) ||
+         g_census_witness;
 }
 
 int64_t static_probe_logic_frame() {
@@ -1602,8 +1641,13 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME scene.
   //   etat = legacy*6 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO
   if (g_probe_pair_phase >= 0) {
-    const int st = ao_static_probe::active() ? g_static_probe.state : (int)(g_probe_seq % 12);
-    AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, st / 6);
+    const int st = g_census_witness
+                       ? g_census_witness_state
+                       : (ao_static_probe::active() ? g_static_probe.state
+                                                    : (int)(g_probe_seq % 12));
+    // `st / 6` ne peut pas porter le temoin quand la sonde donne l'etat : elle n'en a que SIX.
+    const int legacy = g_census_witness ? 1 : (st / 6);
+    AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, legacy);
     AmbientOcclusionPass::set_census_pair_phase(g_probe_pair_phase);
     AmbientOcclusionPass::request_pattern_census(true);
   } else {
