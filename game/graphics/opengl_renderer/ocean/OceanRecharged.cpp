@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <vector>
@@ -566,6 +567,27 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
     const float cpu_a = layer_a_cpu(m_layer_a.data(), m_start_corner[0], m_start_corner[2],
                                     m_probe_xz[k][0], m_probe_xz[k][1]);
     const s64 cpu_q = (s64)std::llround(cpu_a * 256.0);
+
+    // CE QUE L'ATTENUATION DE NAUGHTY DOG RETIRE ICI. Meme formule que le vertex shader, donc
+    // AUCUNE fidelite n'est prouvee par ce chiffre : c'est un temoin de COUVERTURE. Il dit si la
+    // course contient des points au-dela des 24 m ou ND eteint sa houle, et de combien elle y
+    // etait haute. Sans lui, un excedent d'emprise nul ne se distinguerait pas d'une course ou
+    // l'attenuation n'avait rien a mordre.
+    {
+      const float dx = m_probe_xz[k][0] - render_state->camera_pos[0];
+      const float dy = (m_start_corner[1] + cpu_a) - render_state->camera_pos[1];
+      const float dz = m_probe_xz[k][1] - render_state->camera_pos[2];
+      const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
+      const float f = 1.f - std::min(d * 0.000010172526f, 1.f);
+      const s64 removed = (s64)std::llround(std::fabs((double)cpu_a) * (1.0 - (double)f) * 256.0);
+      m_atten_points_total++;
+      if (f < 1.f) {
+        m_atten_points_beyond++;
+      }
+      if (removed > m_atten_removed_max_q256) {
+        m_atten_removed_max_q256 = removed;
+      }
+    }
     const s64 d = std::llabs(gpu_q - cpu_q);
     if (d > m_maxdelta_q256) {
       m_maxdelta_q256 = d;
@@ -581,6 +603,203 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   if (!first && (span_max - span_min) > m_probe_span_q256) {
     m_probe_span_q256 = span_max - span_min;
   }
+}
+
+bool OceanRecharged::ensure_census_gl() {
+  if (m_census_gl_ready) {
+    return true;
+  }
+  if (m_census_gl_failed) {
+    return false;
+  }
+  m_census_gl_failed = true;
+
+  glGenBuffers(1, &m_census_ibo);
+  for (int i = 0; i < 2; i++) {
+    glGenTextures(1, &m_census_tex[i]);
+    glBindTexture(GL_TEXTURE_2D, m_census_tex[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kCensusW, kCensusH, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenFramebuffers(1, &m_census_fbo[i]);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[i]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_census_tex[i], 0);
+    const GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (st != GL_FRAMEBUFFER_COMPLETE) {
+      lg::error("[water-ocean-mesh] census FBO {} incomplete (0x{:x}) — emprise non mesurable", i,
+                (u32)st);
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      glBindTexture(GL_TEXTURE_2D, 0);
+      return false;
+    }
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  lg::info("[water-ocean-mesh] comparateur d'emprise pret : 2 x {}x{} cellules", kCensusW,
+           kCensusH);
+  m_census_gl_failed = false;
+  m_census_gl_ready = true;
+  return true;
+}
+
+void OceanRecharged::census_begin_frame(SharedRenderState* render_state) {
+  m_census_armed = false;
+  m_census_nd_draws = 0;
+  // Le bucket 4 precede le 63 : la clipmap de CETTE image n'est pas encore dessinee, mais ses
+  // objets GL le sont depuis l'image precedente. Une premiere image sans eux se saute.
+  if (!m_gl_ready || !m_have_layer_a) {
+    return;
+  }
+  if ((m_frames_drawn % kCensusEveryFrames) != 0) {
+    return;
+  }
+  if (!ensure_census_gl()) {
+    return;
+  }
+  const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+  if (scissor) {
+    glDisable(GL_SCISSOR_TEST);
+  }
+  GLfloat clear[4];
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
+  for (int i = 0; i < 2; i++) {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[i]);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+  }
+  glClearColor(clear[0], clear[1], clear[2], clear[3]);
+  glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
+  glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
+             render_state->render_fb_h);
+  if (scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+  m_census_armed = true;
+}
+
+void OceanRecharged::census_capture_nd(SharedRenderState* render_state,
+                                       const u32* indices,
+                                       u32 index_count) {
+  if (!m_census_armed || !index_count || !indices) {
+    return;
+  }
+  auto& shader = render_state->shaders[ShaderId::OCEAN_FOOTPRINT_ND];
+  if (!shader.okay()) {
+    return;
+  }
+  // L'appelant vient d'envoyer ses sommets et n'a pas encore pose son propre etat : on ne sauve
+  // que ce qu'il ne repose PAS derriere nous — la cible, la fenetre, le masque de couleur, le
+  // ciseau. Le programme, le tampon d'indices et les etats de profondeur/melange sont reecrits
+  // par `flush_near`/`flush_mid` juste apres cet appel.
+  const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+  if (scissor) {
+    glDisable(GL_SCISSOR_TEST);
+  }
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_BLEND);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_census_ibo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)index_count * sizeof(u32), indices,
+               GL_STREAM_DRAW);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[0]);
+  glViewport(0, 0, kCensusW, kCensusH);
+  glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);  // canal R : l'ocean d'origine
+  shader.activate();
+  glDrawElements(GL_TRIANGLE_STRIP, index_count, GL_UNSIGNED_INT, nullptr);
+  soft_draw_census::record("instrument", indices, index_count, 0, index_count, GL_TRIANGLE_STRIP);
+  m_census_nd_draws++;
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
+  glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
+             render_state->render_fb_h);
+  if (scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  }
+}
+
+void OceanRecharged::census_draw_rings(SharedRenderState* render_state,
+                                       u32 program,
+                                       int target,
+                                       float atten_on) {
+  // UN CANAL PAR NIVEAU. « par niveau et par cellule » : le niveau est l'anneau, la cellule est
+  // le texel de la cible. Cible 0 = l'oracle ND en R, puis nos trois anneaux LIVRES en G, B, A.
+  // Cible 1 = les memes trois anneaux dans le regime de l'essai 6 (A entiere, sans attenuation),
+  // dessines dans la MEME image : deux courses separees auraient une scene et une cadence qui
+  // derivent, et l'ecart ne serait plus imputable a l'attenuation.
+  static const GLboolean kMask[2][kNumRings][4] = {
+      {{GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE},
+       {GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE},
+       {GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE}},
+      {{GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE},
+       {GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE},
+       {GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE}},
+  };
+  glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[target]);
+  glViewport(0, 0, kCensusW, kCensusH);
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_BLEND);
+  glUniform1i(glGetUniformLocation(program, "u_footprint"), 1);
+  glUniform1f(glGetUniformLocation(program, "u_atten_on"), atten_on);
+  glBindVertexArray(m_vao);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
+  for (int r = 0; r < kNumRings; r++) {
+    const GLboolean* m = kMask[target][r];
+    glColorMask(m[0], m[1], m[2], m[3]);
+    glUniform2f(glGetUniformLocation(program, "u_ring_center"), m_rings[r].center[0],
+                m_rings[r].center[1]);
+    glUniform1f(glGetUniformLocation(program, "u_ring_step"), m_rings[r].step);
+    glDrawElements(GL_TRIANGLES, m_rings[r].index_count, GL_UNSIGNED_INT,
+                   (void*)(intptr_t)(m_rings[r].index_offset * sizeof(u32)));
+    soft_draw_census::record("instrument", m_soft_indices.data(), m_soft_indices.size(),
+                             m_rings[r].index_offset, m_rings[r].index_count, GL_TRIANGLES);
+  }
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  // Le drapeau de recensement ne survit PAS a cet appel : un `u_footprint` laisse a 1 peindrait
+  // la mer en blanc a l'image suivante, et le defaut ne ressemblerait pas a sa cause.
+  glUniform1i(glGetUniformLocation(program, "u_footprint"), 0);
+  glUniform1f(glGetUniformLocation(program, "u_atten_on"), 1.f);
+}
+
+void OceanRecharged::census_read_and_count() {
+  std::vector<u8> a((size_t)kCensusCells * 4), b((size_t)kCensusCells * 4);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[0]);
+  glReadPixels(0, 0, kCensusW, kCensusH, GL_RGBA, GL_UNSIGNED_BYTE, a.data());
+  glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[1]);
+  glReadPixels(0, 0, kCensusW, kCensusH, GL_RGBA, GL_UNSIGNED_BYTE, b.data());
+
+  for (int i = 0; i < kCensusCells; i++) {
+    const bool nd = a[i * 4 + 0] > 127;
+    bool ours = false, before = false;
+    for (int r = 0; r < kNumRings; r++) {
+      const bool mine = a[i * 4 + 1 + r] > 127;
+      const bool was = b[i * 4 + r] > 127;
+      if (mine) {
+        ours = true;
+        m_fp_ours_ring[r]++;
+        if (!nd) {
+          m_fp_excess_ring[r]++;
+        }
+      }
+      if (was) {
+        before = true;
+        if (!nd) {
+          m_fp_excess_before_ring[r]++;
+        }
+      }
+    }
+    m_fp_nd += nd;
+    m_fp_ours += ours;
+    m_fp_before += before;
+    m_fp_excess += (ours && !nd);
+    m_fp_deficit += (nd && !ours);
+    m_fp_excess_before += (before && !nd);
+  }
+  m_fp_cells += kCensusCells;
+  m_fp_nd_draws += m_census_nd_draws;
+  m_fp_runs++;
 }
 
 void OceanRecharged::publish() {
@@ -619,6 +838,60 @@ void OceanRecharged::publish() {
   publish("water_mask_near_skip_cells", m_mask_near_skip_cells);
   publish("water_mask_near_draw_cells", m_mask_near_draw_cells);
   publish("water_mask_invalid_reads", m_mask_invalid_reads);
+
+  // ===== LE COMPARATEUR RASTER ND/CLIPMAP, TERME PAR TERME (defaut 4) =========================
+  // L'excedent est la grandeur que le livrable reclame : « aucun pixel d'eau la ou l'origine n'en
+  // dessine pas ». Le deficit est publie a cote parce qu'un excedent nul obtenu en ne dessinant
+  // rien serait vert par inaction. Le bras AVANT (A entiere, sans attenuation) est rasterise dans
+  // la MEME image : c'est lui qui chiffre ce que l'attenuation retire, au lieu de le raconter.
+  autoport_proof::publish_text(
+      "water_footprint_scope",
+      "ecran-clip-320x180-sans-test-de-profondeur;oracle=sommets-VU1-ND-buckets-4+63-bucket0;"
+      "quad-far-ND-EXCLU");
+  publish("water_footprint_census_runs", m_fp_runs);
+  publish("water_footprint_nd_rasters", m_fp_nd_draws);
+  publish("water_footprint_cells", m_fp_cells);
+  publish("water_footprint_nd_cells", m_fp_nd);
+  publish("water_footprint_ours_cells", m_fp_ours);
+  publish("water_footprint_before_cells", m_fp_before);
+  publish("water_footprint_excess_cells", m_fp_excess);
+  publish("water_footprint_excess_before_cells", m_fp_excess_before);
+  publish("water_footprint_deficit_cells", m_fp_deficit);
+  for (int r = 0; r < kNumRings; r++) {
+    char key[64];
+    snprintf(key, sizeof(key), "water_footprint_ours_cells_ring%d", r);
+    publish(key, m_fp_ours_ring[r]);
+    snprintf(key, sizeof(key), "water_footprint_excess_cells_ring%d", r);
+    publish(key, m_fp_excess_ring[r]);
+    snprintf(key, sizeof(key), "water_footprint_excess_before_cells_ring%d", r);
+    publish(key, m_fp_excess_before_ring[r]);
+  }
+  // LES TERMES REELLEMENT MESURES. Un terme absent compte comme defaut (arbitrage du 16/09) :
+  // la somme se lit AVANT les excedents, sinon un zero d'aveuglement se lirait comme un zero de
+  // defaut.
+  const u64 t_runs = m_fp_runs > 0 ? 1 : 0;
+  const u64 t_oracle = m_fp_nd_draws > 0 && m_fp_nd > 0 ? 1 : 0;
+  const u64 t_ours = m_fp_ours > 0 ? 1 : 0;
+  const u64 t_before = m_fp_before > 0 ? 1 : 0;
+  publish("water_footprint_term_runs", t_runs);
+  publish("water_footprint_term_oracle", t_oracle);
+  publish("water_footprint_term_ours", t_ours);
+  publish("water_footprint_term_before", t_before);
+  publish("water_footprint_terms_measured", t_runs + t_oracle + t_ours + t_before);
+  publish("water_footprint_terms_expected", 4);
+
+  // ===== L'ATTENUATION DE NAUGHTY DOG (defaut 1) =============================================
+  autoport_proof::publish_text(
+      "water_swell_atten_scope",
+      "temoin-de-COUVERTURE-pas-de-fidelite;meme-formule-des-deux-cotes;"
+      "la-fidelite-est-jugee-par-water_footprint_excess_cells");
+  publish("water_swell_atten_on", 1);
+  publish("water_swell_atten_cutoff_goal_units", 98304);
+  publish("water_swell_atten_points_total", m_atten_points_total);
+  publish("water_swell_atten_points_beyond_cutoff", m_atten_points_beyond);
+  publish("water_swell_atten_max_removed_mm",
+          (u64)std::llround((double)m_atten_removed_max_q256 / 1048.576));
+  publish("water_swell_atten_max_removed_q256", (u64)m_atten_removed_max_q256);
 
   // ===== water-ocean-mesh-hit-counter-cost ====================================================
   // CE QUE LE SITE FAIT, DIT EN TROIS GRANDEURS QUE `hits=` CONFONDAIT.
@@ -783,6 +1056,11 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
               render_state->camera_pos[1], render_state->camera_pos[2],
               render_state->camera_pos[3]);
   glUniform1f(glGetUniformLocation(id, "fog_constant"), render_state->camera_fog.x());
+  // Le regime LIVRE, pose a chaque image : attenuation ND active, recensement eteint. Les deux
+  // uniformes sont reecrits par le comparateur puis remis ici — jamais laisses a la valeur d'un
+  // autre appel.
+  glUniform1f(glGetUniformLocation(id, "u_atten_on"), 1.f);
+  glUniform1i(glGetUniformLocation(id, "u_footprint"), 0);
   glUniform1f(glGetUniformLocation(id, "u_water_y"), m_start_corner[1]);
   glUniform4f(glGetUniformLocation(id, "u_ocean_origin"), m_start_corner[0], m_start_corner[1],
               m_start_corner[2], m_start_corner[3]);
@@ -825,6 +1103,33 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     verts_this_frame += m_rings[r].index_count;
   }
   glBindVertexArray(0);
+
+  // LE COMPARATEUR. Arme au bucket 4 de cette meme image, il porte deja l'oracle ND (mid + near)
+  // dans le canal R de la cible 0. On y ajoute nos trois anneaux, puis les memes trois anneaux
+  // sans attenuation dans la cible 1, et on releve.
+  if (m_census_armed) {
+    gl_query_census::Armed _ac("ocean-footprint");
+    const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+    if (scissor) {
+      glDisable(GL_SCISSOR_TEST);
+    }
+    census_draw_rings(render_state, id, 0, 1.f);
+    census_draw_rings(render_state, id, 1, 0.f);
+    census_read_and_count();
+    glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
+    glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
+               render_state->render_fb_h);
+    if (scissor) {
+      glEnable(GL_SCISSOR_TEST);
+    }
+    // Rendre EXACTEMENT l'etat de profondeur que la clipmap venait de poser : la meme raison que
+    // pour la sonde, rien ne le repose entre ici et le bucket suivant.
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glDepthMask(GL_TRUE);
+    m_census_armed = false;
+  }
+
   m_frames_drawn++;
 
   // Le compteur historique recense les indices soumis quand la couche A porte au moins un

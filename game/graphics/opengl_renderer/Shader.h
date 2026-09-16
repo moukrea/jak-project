@@ -105,6 +105,10 @@ enum class ShaderId {
   // dans un RGBA8, et resolution des drapeaux de shade() par test de STENCIL. GLES 3.2 ne relit
   // ni GL_DEPTH_COMPONENT ni GL_STENCIL_INDEX ; il relit un RGBA8.
   AO_PROBE = 54,
+  // water-ocean-mesh (defaut 4 de l'arbitrage du 16/09) : l'oracle du recensement d'emprise —
+  // l'ocean de Naughty Dog, rasterise depuis les sommets que son microcode VU1 emule produit
+  // deja, dans une cible de recensement et non a l'ecran.
+  OCEAN_FOOTPRINT_ND = 55,
   MAX_SHADERS
 };
 

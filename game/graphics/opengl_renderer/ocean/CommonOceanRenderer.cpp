@@ -4,6 +4,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/ocean/OceanRecharged.h"
 #include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
@@ -296,6 +297,17 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
 #endif
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
+
+  // water-ocean-mesh (defaut 4) : L'ORACLE. Les sommets ci-dessus sortent de l'emulation du
+  // microcode VU1 de Naughty Dog — hierarchie mid/trans/near, triangles ADC, attenuation de
+  // houle comprises. Sous `recharged_water` ils ne sont plus dessines a l'ecran ; le comparateur
+  // les rasterise dans sa propre cible pour savoir OU l'original met de l'eau. Pose ici, avant
+  // que ce flush ne pose son programme, son tampon d'indices et ses etats : tout ce que cet
+  // appel touche d'autre est reecrit par les lignes qui suivent.
+  if (m_suppress_draw) {
+    OceanRecharged::get().census_capture_nd(render_state, m_indices[0].data(),
+                                            m_next_free_index[0]);
+  }
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();
   // lighting-ao-indirect : l'eau est ombree par l'AO d'ecran comme le decor (SPEC §4.7). La
   // texture n'existe qu'apres la prepasse (bucket 6) : l'ocean lointain (bucket 4) lit
@@ -491,6 +503,17 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
 #endif
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
+
+  // water-ocean-mesh (defaut 4) : L'ORACLE. Les sommets ci-dessus sortent de l'emulation du
+  // microcode VU1 de Naughty Dog — hierarchie mid/trans/near, triangles ADC, attenuation de
+  // houle comprises. Sous `recharged_water` ils ne sont plus dessines a l'ecran ; le comparateur
+  // les rasterise dans sa propre cible pour savoir OU l'original met de l'eau. Pose ici, avant
+  // que ce flush ne pose son programme, son tampon d'indices et ses etats : tout ce que cet
+  // appel touche d'autre est reecrit par les lignes qui suivent.
+  if (m_suppress_draw) {
+    OceanRecharged::get().census_capture_nd(render_state, m_indices[0].data(),
+                                            m_next_free_index[0]);
+  }
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();
   glUniform4f(glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "fog_color"),
               render_state->fog_color[0] / 255.f, render_state->fog_color[1] / 255.f,

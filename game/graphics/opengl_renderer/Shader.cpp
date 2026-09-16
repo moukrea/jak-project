@@ -446,6 +446,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   // water-ocean-mesh : clipmap d'ocean + sonde de controle de la couche A.
   at(ShaderId::OCEAN_RECHARGED) = {"ocean_recharged", version};
   at(ShaderId::OCEAN_PROBE) = {"ocean_probe", version};
+  at(ShaderId::OCEAN_FOOTPRINT_ND) = {"ocean_footprint_nd", version};
 #ifdef OG_FEAT_PBR
   at(ShaderId::PBR_DEPTH) = {"pbr_depth", version};
   // lighting-legacy-purge (2026-09-11) : le programme TFRAG3_TESS n'est plus construit — il

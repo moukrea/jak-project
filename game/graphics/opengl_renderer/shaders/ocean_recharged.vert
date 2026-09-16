@@ -27,6 +27,13 @@ uniform vec2  u_ring_center;  // centre monde xz de l'anneau, DEJA snappe au pas
 uniform float u_ring_step;    // unites GOAL par cellule
 uniform float u_water_y;      // (-> *ocean-map* start-corner y), unites GOAL
 
+// L'ATTENUATION DE NAUGHTY DOG, ET SON BRAS D'ABLATION.
+// 1.0 = le regime LIVRE (la houle s'eteint comme chez ND) ; 0.0 = le regime de l'essai 6 (A
+// entiere a toute distance). Les deux sont dessines dans la MEME image par le recensement
+// d'emprise, qui chiffre ce que l'attenuation retire a l'ecran. Le drapeau est pose a CHAQUE
+// draw : une valeur laissee par un autre appel ferait mesurer l'autre regime sans rien montrer.
+uniform float u_atten_on;
+
 #include "ocean_layer_a.glsl"
 
 out vec2  vs_world_xz;
@@ -58,10 +65,28 @@ void main() {
   // LA HAUTEUR VISUELLE. A est evaluee aux sommets ; les couches B (Gerstner) et C (RT de rides)
   // n'existent pas encore. La borne de l'excedent visuel entre sommets reste non mesuree.
   float a = ocean_layer_a(world_xz);
-  float y = u_water_y + a;
+
+  // LA DISTANCE QUE NAUGHTY DOG MESURE. `run_L15_vu2c` transforme le sommet PORTANT SA HAUTEUR
+  // par la matrice de l'ocean near (vf08..vf11), puis prend `eleng.xyz` du resultat
+  // (OceanNear_PS2.cpp:210-222). La rotation de cette matrice est celle de la camera, donc
+  // orthonormale : la longueur en espace camera EST la distance monde de la camera au sommet.
+  // Le sommet porte sa hauteur AVANT attenuation — c'est la circularite de ND, reproduite telle
+  // quelle et non corrigee.
+  float y_raw = u_water_y + a;
+  float d = length(vec3(world_xz.x, y_raw, world_xz.y) - camera_position.xyz);
+
+  // L'ATTENUATION, MOT POUR MOT. `mulw.w vf22, vf20, vf05.w` puis `miniw.w vf22, vf22, vf00.w`
+  // puis `subw.w vf28, vf00, vf22.w` puis `mulw.y vf28, vf28, vf28.w` — OceanNear_PS2.cpp:226-238.
+  // La constante est `(-> arg0 constants)` w, posee a 0.000010172526 par
+  // `ocean-near-setup-constants` (ocean-near.gc:34) : c'est 1/98304, soit 1/24 m en unites GOAL.
+  // Au-dela de 24 m de la camera, l'ocean de Naughty Dog est PLAT — le mid et la transition le
+  // sont par construction (ocean-transition.gc:500-504). La clipmap gardait A entiere jusqu'a
+  // 2304 m : c'est la houle qui montait sur les berges.
+  float f = 1.0 - min(d * 0.000010172526, 1.0);
+  float y = u_water_y + a * mix(1.0, f, u_atten_on);
 
   vs_world_xz = world_xz;
-  vs_dist = length(vec3(world_xz.x, y, world_xz.y) - camera_position.xyz);
+  vs_dist = d;
   // Une periode de houle (32 cellules de 3 m = 96 m) couvre exactement une fois la texture
   // d'ocean de Naughty Dog : c'est le meme modulo 32 que la couche A, pas un tuilage invente.
   vs_uv = (world_xz - u_ocean_origin.xz) * (0.00008138021 / 32.0);

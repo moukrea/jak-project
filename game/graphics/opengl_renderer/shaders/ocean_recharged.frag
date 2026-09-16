@@ -20,6 +20,13 @@ uniform sampler2D tex_mask;   // R8 1536x1536 : 0 = dessiner, 255 = sauter
 uniform vec4 u_far_color;     // (-> *ocean-map* far-color), composantes 0..255
 uniform vec4 u_ocean_origin;  // redeclare par ocean_layer_a.glsl cote vertex ; ici c'est le notre
 
+// RECENSEMENT D'EMPRISE. A 0 ce shader ombre normalement. A 1 il ne rend plus qu'un « il y a de
+// l'eau ici » — APRES les memes `discard` que le rendu livre, jamais avant. C'est ce qui interdit
+// au recensement de mesurer une decoupe qui ne serait pas celle du jeu : une seconde copie du
+// masque deriverait du rendu des la premiere retouche, et l'emprise mesuree ne serait plus la
+// sienne.
+uniform int u_footprint;
+
 out vec4 color;
 
 void main() {
@@ -32,6 +39,11 @@ void main() {
   }
   if (texelFetch(tex_mask, mi, 0).r > 0.5) {
     discard;  // bit a 1 = sous-cellule sautee par l'original (terre)
+  }
+
+  if (u_footprint != 0) {
+    color = vec4(1.0);
+    return;
   }
 
   vec3 far_rgb = u_far_color.rgb * (1.0 / 255.0);

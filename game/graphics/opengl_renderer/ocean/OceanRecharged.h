@@ -47,6 +47,20 @@ class OceanRecharged {
   // Appele a la fin du bucket 63, apres que le renderer ND a fini de consommer son DMA.
   void draw(SharedRenderState* render_state, ScopedProfilerNode& prof);
 
+  // --- LE COMPARATEUR RASTER ND/CLIPMAP (defaut 4 de l'arbitrage owner du 16/09) -------------
+  // « Mesurer par niveau et par cellule l'emprise de l'eau DESSINEE contre celle de l'origine :
+  // aucun pixel d'eau la ou l'origine n'en dessine pas. » L'oracle n'est pas une seconde lecture
+  // des masques — ce serait un miroir de la decoupe qu'il juge — mais les SOMMETS que l'emulation
+  // du microcode VU1 de Naughty Dog produit deja chaque image aux buckets 4 et 63. Sous
+  // `recharged_water` leur `glDrawElements` est supprime, mais tout le calcul tourne : la
+  // hierarchie mid/trans/near, les triangles ADC et l'attenuation de houle sont dedans, et aucun
+  // n'est calcule par notre code.
+  //
+  // DEUX MOITIES DANS LA MEME IMAGE : le mid arrive au bucket 4, le near et la clipmap au 63.
+  // L'armement se decide donc au 4, avant que quoi que ce soit ne soit rasterise.
+  void census_begin_frame(SharedRenderState* render_state);
+  void census_capture_nd(SharedRenderState* render_state, const u32* indices, u32 index_count);
+
  private:
   OceanRecharged() = default;
 
@@ -62,6 +76,9 @@ class OceanRecharged {
   bool refresh_ocean_map();
   void rebuild_mask_texture();
   void run_probe(SharedRenderState* render_state);
+  bool ensure_census_gl();
+  void census_draw_rings(SharedRenderState* render_state, u32 program, int target, float atten_on);
+  void census_read_and_count();
   void publish();
 
   // --- geometrie ---------------------------------------------------------------------------
@@ -102,6 +119,44 @@ class OceanRecharged {
   u32 m_probe_fbo = 0;
   u32 m_probe_tex = 0;
   float m_probe_xz[kProbeCount][4] = {};
+
+  // --- comparateur raster d'emprise --------------------------------------------------------
+  // 320 x 180 : la cible est rasterisee en CLIP SPACE par les memes shaders que l'ecran, donc
+  // c'est l'ecran, reduit. Une cellule vaut 1/57600 de l'image. Une image sur 120 seulement : le
+  // relevé coute deux `glReadPixels` de 230 Ko et il n'a rien a gagner a etre pris plus souvent
+  // qu'une fois toutes les cinq secondes.
+  static constexpr int kCensusW = 320;
+  static constexpr int kCensusH = 180;
+  static constexpr int kCensusCells = kCensusW * kCensusH;
+  static constexpr int kCensusEveryFrames = 120;
+  bool m_census_gl_ready = false;
+  bool m_census_gl_failed = false;
+  bool m_census_armed = false;
+  u32 m_census_fbo[2] = {0, 0};
+  u32 m_census_tex[2] = {0, 0};
+  u32 m_census_ibo = 0;
+  u64 m_census_nd_draws = 0;        // rasterisations d'oracle de l'image en cours
+  u64 m_fp_runs = 0;
+  u64 m_fp_nd_draws = 0;
+  u64 m_fp_cells = 0;
+  u64 m_fp_nd = 0;
+  u64 m_fp_ours = 0;
+  u64 m_fp_before = 0;
+  u64 m_fp_excess = 0;
+  u64 m_fp_deficit = 0;
+  u64 m_fp_excess_before = 0;
+  u64 m_fp_excess_ring[kNumRings] = {0, 0, 0};
+  u64 m_fp_ours_ring[kNumRings] = {0, 0, 0};
+  u64 m_fp_excess_before_ring[kNumRings] = {0, 0, 0};
+
+  // --- temoin de couverture de l'attenuation (defaut 1) ------------------------------------
+  // Ce que l'attenuation ND RETIRE aux points de la sonde, en 1/256 d'unite GOAL. Ce n'est PAS
+  // une porte de fidelite — la formule est la meme des deux cotes — mais le temoin qu'une course
+  // contient bien des points au-dela de 24 m portant une houle non plate : sans lui, un zero
+  // d'excedent ne se distinguerait pas d'une course ou l'attenuation n'avait rien a mordre.
+  u64 m_atten_points_total = 0;
+  u64 m_atten_points_beyond = 0;
+  s64 m_atten_removed_max_q256 = 0;
 
   // --- recensement -------------------------------------------------------------------------
   u64 m_frames_drawn = 0;

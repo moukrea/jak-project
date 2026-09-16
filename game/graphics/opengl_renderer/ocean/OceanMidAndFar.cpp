@@ -67,6 +67,13 @@ void OceanMidAndFar::render_jak1(DmaFollower& dma,
   m_suppress_draw = ocean_recharged_enabled();
   m_mid_renderer.set_suppress_draw(m_suppress_draw);
 
+  // water-ocean-mesh (defaut 4) : le comparateur d'emprise s'arme ICI. C'est le seul point du
+  // graphe d'ou les deux moities de l'oracle — le mid de ce bucket et le near du 63 — tombent
+  // dans la MEME image. Un armement pris au bucket 63 mesurerait un mid d'il y a une image.
+  if (m_suppress_draw) {
+    OceanRecharged::get().census_begin_frame(render_state);
+  }
+
   {
     auto p = prof.make_scoped_child("texture");
     m_texture_renderer.handle_ocean_texture_jak1(dma, render_state, p);
