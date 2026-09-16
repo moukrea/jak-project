@@ -8,7 +8,7 @@
 - 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
 
 ## Cause connue
-16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJET […suite dans le contrat]
+16/09 19h — ESSAI 13 LU : la voie que j'avais imposee (poids nul des taps traversants, support inchange) est REFUTEE par la mesure : le creux de contact (3 px) est efface par les BOITES LARGES du flou (29 texels), pas par le cote des taps ; 4 candidats locaux refuses (bande OU flat_step, jamais les deux). Je LEVE ma clause « ni elargir ni reduire l […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

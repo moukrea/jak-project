@@ -5642,7 +5642,7 @@ items:
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 3
+  max_retries: 9
   depends_on:
   - water-census
   history: []
@@ -6740,7 +6740,7 @@ items:
   block_reason: null
 - id: perf-mips2c-neon
   feature: Les calculs d animation et de particules coutent moins sans changer leurs resultats
-  status: open
+  status: in-progress
   priority: 40
   game: jak1
   gate:
@@ -6858,7 +6858,7 @@ items:
       non executes.
     - Avant toute preuve appareil, references hutte/plage qualifiees et trois cibles actives ; aucune
       campagne nouvelle implicitement autorisee.
-  max_retries: 3
+  max_retries: 12
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
   status: open
@@ -6935,7 +6935,7 @@ items:
       des donnees de scene, avec reference immuable et sans affaiblir le verdict visuel ; identifier aussi
       les exigences de symboles restant a implementer. Aucune nouvelle course ou recapture autorisee par
       cette revue.
-  max_retries: 3
+  max_retries: 9
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
   status: open
@@ -9657,7 +9657,7 @@ items:
     proof_bytes: 45708
     attempt: 1
     journal: validator-001.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9700,6 +9700,13 @@ items:
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.recharged=1
   - debug.opengoal.uncap.fps=240
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-16'
+    proof_sha: cd2ff108cdca0e26
+    proof_bytes: 59395
+    attempt: 10
+    journal: validator-010.txt
 - status: open
   game: jak1
   owner_test: false
@@ -12005,7 +12012,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 13
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
@@ -12037,6 +12044,8 @@ items:
     op: ==
     value: 0
   known_cause: |-
+    16/09 19h — ESSAI 13 LU : la voie que j'avais imposee (poids nul des taps traversants, support inchange) est REFUTEE par la mesure : le creux de contact (3 px) est efface par les BOITES LARGES du flou (29 texels), pas par le cote des taps ; 4 candidats locaux refuses (bande OU flat_step, jamais les deux). Je LEVE ma clause « ni elargir ni reduire le support ». 2 essais restent. ORDRE : (1) d'abord armer le recensement : PrePass.cpp:1568 n'est jamais atteint, donc les 7 termes de ao_owner_defects ne mesurent rien et `ao_tie_prepass_defects=` manque — sans ca aucun essai ne compte ; (2) ensuite UNE des deux voies non testees : restauration APRES le flou au profil CONTINU (pas la reconstruction 11, qui touchait des milliers de pixels hors raccord : borner les pixels hors raccord et le publier), ou estimateur de creux plus large que 3 px ; (3) tenir les DEUX exigences : bande de contact ET flat_step <= 10 (le pixelise des facades que l'owner a vu). Si les deux se combattent vraiment, publier la courbe bande/flat_step des reglages essayes : l'owner tranchera avec des chiffres, pas avec un essai de plus. Ne pas rejouer : deplacement/annulation des taps traversants, borne de sortie des boites larges, enveloppe concave, reflexion, rayon reduit, pli local.
+
     16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJETE et retire ; les 3 variantes de support reduit sont REJETEES, ne pas les rejouer. Strategie imposee : (1) preuve USB NEUVE du residu de l'essai 10 avec attempt12-analyze.py sur profils entiers (pics/plateaux apres le premier pixel sombre), publiee terme par terme dans les 7 termes de ao_owner_defects ; (2) SEULEMENT ensuite, corriger le pic clair a +1 px du raccord par une voie qui n'elargit ni ne reduit le support du flou (ex. poids nul des echantillons qui traversent le pli, detecte sur la profondeur/normale), mesuree sur les memes 15 contacts et 425 px identifies ; (3) aucun pixel hors raccord ne change (controle bit-identique des 36 sorties locales). Un essai sans preuve appareil est un echec.
 
     REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombrissement61/50/51octets non qualifies. Reprendre attempt11-summary.md et bancs existants : cette information change le diagnostic, ne pas refaire le meme candidat.
@@ -12114,7 +12123,7 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: max_retries (10) épuisé
+  block_reason: max_retries (3) épuisé
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
