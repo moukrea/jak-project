@@ -43,6 +43,7 @@
 #include "game/system/menu_dpad_census.h"
 #include "game/system/mesh_browser_census.h"
 #include "game/system/recharged_gating.h"
+#include "game/system/grass_baseline.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/sched_affinity.h"
@@ -2081,7 +2082,13 @@ s32 pc_goal_slice_expired(s32 slot) {
 // Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass?) down to the renderer. 0 = off (stock).
 void pc_set_recharged_grass(u32 on) {
-  recharged_gating::set(recharged_gating::kGrass, (on != 0));
+  bool want = (on != 0);
+  // grass-baseline-cost : LA CAMPAGNE IMPOSE SON REGIME AU POINT DE PRODUCTION. GOAL repousse ce
+  // reglage a CHAQUE image (hud-classes-pc.gc:1798) ; une ecriture faite ailleurs serait ecrasee
+  // a l'image suivante et les dix cellules porteraient le reglage du joueur au lieu du leur. Hors
+  // campagne, `grass_on_override` rend faux et ne touche pas `want`.
+  grass_baseline::grass_on_override(&want);
+  recharged_gating::set(recharged_gating::kGrass, want);
 }
 
 // External-asset-root: toggle runtime custom texture replacements (user PNGs
@@ -4358,8 +4365,10 @@ void pc_set_grass_dists(u32 vec) {
   float* p = Ptr<float>(vec).c();
   recharged_gating::set(recharged_gating::kGrassNearDist, p[0]);
   recharged_gating::set(recharged_gating::kGrassCardDist, p[1]);
-  recharged_gating::set(recharged_gating::kGrassDensity,
-                        grass_bake::clamp_density_preset((int)(p[2] + 0.5f)));
+  // grass-baseline-cost : meme geste que pour la bascule ci-dessus, au meme point de production.
+  int preset = grass_bake::clamp_density_preset((int)(p[2] + 0.5f));
+  grass_baseline::preset_override(&preset);
+  recharged_gating::set(recharged_gating::kGrassDensity, preset);
   // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
   // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.
   recharged_gating::set(recharged_gating::kGrassPrecomputed, p[3] > 0.5f);

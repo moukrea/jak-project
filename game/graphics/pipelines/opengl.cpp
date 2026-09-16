@@ -46,6 +46,7 @@
 #include "game/runtime.h"
 #include "game/sce/libscf.h"
 #include "game/system/hid/input_manager.h"
+#include "game/system/grass_baseline.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/hid/sdl_util.h"
@@ -1035,6 +1036,9 @@ void GLDisplay::render() {
       // android_gfx.cpp). Ce fichier n'est PAS dans android/CMakeLists.txt, d'ou le doublon
       // assume : sans lui, la campagne serait muette sur x86.
       perf_baseline::note_drawn_frame((double)busy_ms);
+      // grass-baseline-cost : la MEME image dessinee, sur le meme fil, pour la campagne de ligne
+      // de base de l'herbe. Desarmee, la fonction sort a sa premiere ligne.
+      grass_baseline::note_drawn_frame((double)busy_ms);
     }
     // If we took a screenshot, stop taking them now!
     if (m_take_screenshot_next_frame) {

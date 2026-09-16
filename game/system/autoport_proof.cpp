@@ -220,8 +220,11 @@ void emit_locked() {
   feature_census_locked();
   if (!id.empty()) {
     // These contracts count their own fragments, vertices, or baseline quantities.
+    // `grass-baseline-cost` compte ses RELEVES DE CADENCE, pas les prises du binaire entier : son
+    // contrat exige `hits=<releves de cadence effectivement pris>`, et le compteur global monte
+    // pour tout le monde.
     uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
-                     id == "soft-baseline")
+                     id == "soft-baseline" || id == "grass-baseline-cost")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

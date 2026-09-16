@@ -32,6 +32,7 @@
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/grass_baseline.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 
 namespace {
@@ -1403,6 +1404,35 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count,
       grass_async_expand_enabled() ? 1 : 0, m_expand_waits, ms(tExpandJoin, tExpandDone));
 
+  // grass-baseline-cost : LA MEME DECOMPOSITION QUE LA LIGNE CI-DESSUS, PUBLIEE. Le contrat dit
+  // « le chargement, decompose comme il l'est DEJA — source, expansion, televersement » : on ne
+  // fabrique donc pas une seconde mesure a cote, on publie CELLE-LA. `bloque_ms` l'accompagne
+  // parce que le chemin asynchrone est celui qui est LIVRE : `expand+logs` y est un delai MURAL
+  // qui couvre plusieurs images, et lu seul il ferait passer une attente pour une charge
+  // processeur. Les deux tampons sont ceux que ce meme corps de fonction televerse : instances
+  // (64 o chacune, GL_STATIC_DRAW) et lumiere de sol (4 o chacune, GL_DYNAMIC_DRAW). La queue
+  // MORTE est ce que la passe brin ne dessine pas — `OG_FEAT_GRASS_OVERHANG` est OFF dans les
+  // deux arbres livres, donc elle s'arrete a `m_droop_start`.
+  {
+    const int drawn_n =
+#ifdef OG_FEAT_GRASS_OVERHANG
+        recharged_gating::on(recharged_gating::kGrassOverhang)
+            ? m_instance_count
+            : std::min(m_droop_start, m_instance_count);
+#else
+        std::min(m_droop_start, m_instance_count);
+#endif
+    grass_baseline::note_load(
+        from_bake ? m_pending.served_preset : m_pending.want_preset, m_pending.want_preset,
+        ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC),
+        ms(tExpandJoin, tExpandDone), grass_async_expand_enabled(), (uint64_t)m_expand_waits,
+        (uint64_t)(m_instance_count < 0 ? 0 : m_instance_count),
+        (uint64_t)(drawn_n < 0 ? 0 : drawn_n),
+        (uint64_t)(m_instance_count < 0 ? 0 : m_instance_count) *
+            (uint64_t)sizeof(grass_bake::GrassInstance),
+        (uint64_t)m_light.size());
+  }
+
   // Ggrass-crash (owner 2026-08-30, bissection : « avec l'herbe ca crash, sans ca fonctionne ») —
   // LA VALEUR DE RETOUR MANQUANTE, ET C'EST ELLE QUI TUAIT LE JEU SUR L'APPAREIL.
   //
@@ -1565,6 +1595,10 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (!rs->has_pc_data) {
     return;
   }
+  // grass-baseline-cost : LE DENOMINATEUR QUI SEPARE « l'herbe ne coute rien » DE « l'instrument
+  // n'a pas tourne ». Compte a l'ENTREE, avant tout retour anticipe : la cellule eteinte du meme
+  // palier rendra 0 avec le MEME instrument, ce qui rend le zero falsifiable.
+  grass_baseline::note_render_entry();
   // Grecharged-grass-overhang7: iterate the grass allowlist (background_common.h) — first loaded
   // grass level wins. Single slot is correct today: training is an isolated island and beach's
   // neighbour (village1) carries none of the grass textures, so two grass levels never co-load.
@@ -1643,6 +1677,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
 
   // POLISH#9: refresh the per-instance GROUND baked-light for the current time of day (only actually
   // re-uploads when the time-of-day weights changed — so the grass tracks the day cycle dynamically).
+  // grass-baseline-cost : debut du chronometre de PREPARATION processeur. Il court jusqu'a
+  // l'attente de la barriere posee a l'image PRECEDENTE — c'est-a-dire tout ce qui precede le
+  // dessin : la lumiere du cycle du jour, les uniformes, les occulteurs de contact. Declare ICI et
+  // pas plus haut : les retours anticipes (pas d'instances, ecran de chargement) sont en amont, et
+  // un chronometre ouvert sur un chemin qui ne dessine pas ne mesurerait rien de comparable.
+  const auto t_prep0 = std::chrono::steady_clock::now();
   update_light(rs);
 
   // monotonic seconds for the breeze
@@ -1853,12 +1893,17 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // fence before submitting this frame's draws. Costs nothing while the GPU keeps up; becomes the
   // throttle exactly when the GPU falls behind (which is when the unbounded queue used to wedge).
   // Grass-ON path only: OFF never reaches this code, stock rendering untouched.
+  // grass-baseline-cost : fin de la preparation, debut de l'attente de la barriere.
+  const auto t_fence0 = std::chrono::steady_clock::now();
+  grass_baseline::note_prepare_us(
+      std::chrono::duration<double, std::micro>(t_fence0 - t_prep0).count());
   static GLsync s_grass_fence = nullptr;
   if (s_grass_fence) {
     glClientWaitSync(s_grass_fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000ull /* 1 s cap */);
     glDeleteSync(s_grass_fence);
     s_grass_fence = nullptr;
   }
+  const auto t_fence1 = std::chrono::steady_clock::now();
   const bool sync_log = s_gpusync;  // every frame while the forensic prop is set (run dies in ~2 s)
   auto sync_ms = [&](const char* what) {
     if (!sync_log) {
@@ -2159,6 +2204,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   };
 
   // NEAR: individual blades (10-vert triangle strip)
+  const auto t_draw0 = std::chrono::steady_clock::now();
   glUniform1i(mode_loc, 0);
   glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, draw_n);
   soft_draw_census::record_arrays("grass", 10, GL_TRIANGLE_STRIP, draw_n);
@@ -2176,6 +2222,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   prof.add_draw_call();
   prof.add_tri(card_n * 4);
   sync_ms("card draw");
+  // grass-baseline-cost : le dessin de cette image, en DEUX grandeurs SEPAREES, parce qu'elles
+  // nomment deux causes differentes. `fence` est l'attente de la barriere posee a l'image
+  // PRECEDENTE — la contre-pression GPU que le correctif Adreno 618 a rendue explicite ; `submit`
+  // est le temps processeur des deux appels de dessin. Melangees, elles feraient passer une
+  // attente du GPU pour un cout de soumission, et le diagnostic partirait a l'envers.
+  grass_baseline::note_draw(
+      std::chrono::duration<double, std::micro>(t_fence1 - t_fence0).count(),
+      std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t_draw0).count(),
+      (uint64_t)draw_n, (uint64_t)card_n);
 
   // ROUND#19 wedge fix, part 2: fence THIS frame's grass draws; the wait above (next frame) will not
   // submit more grass until these have fully retired -> pipeline depth <= 1 grass frame, the unbounded
@@ -2183,6 +2238,69 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   s_grass_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
   glBindVertexArray(0);
+
+  // ===== grass-baseline-cost : LE RECENSEMENT DU CHAMP DE VISION =============================
+  // « instances SOUMISES contre celles reellement DANS LE CHAMP DE VISION » : le denominateur est
+  // `draw_n` ci-dessus ; le numerateur n'existe NULLE PART — aucun test de frustum n'est ecrit
+  // dans ce renderer, ni par instance ni par chunk (`m_chunks` n'est meme peuple que sous
+  // `OG_GRASS_DIAG`, et son `DROPPED` est calcule sur ses propres variables). On le FABRIQUE ici,
+  // hors de la fenetre de mesure — quelques images par cellule — en rejouant EXACTEMENT
+  // `world_to_clip` de `shaders/grass.vert:81-98` sur la base de chaque instance.
+  //
+  // POURQUOI RECOPIER CES LIGNES AU LIEU D'UNE PROJECTION « NORMALE ». Ce n'est pas une mat4
+  // standard : la division par `transformed[3]`, l'ajout de `hvdf_offset`, les -2048 / /256 /
+  // /-128 et la remultiplication par w viennent du chemin PS2. Un test de frustum ecrit avec une
+  // projection ordinaire compterait autre chose que ce que le rasteriseur garde, et rien ne le
+  // dirait. Les deux constantes de gabarit sont celles que `Shader.cpp:234-236` substitue pour
+  // jak1 — HEIGHT_SCALE = 1.0, SCISSOR_ADJUST = 512/448 — et l'herbe n'existe que sur jak1
+  // (`kGrassLevels` = {"training"}).
+  //
+  // CE RECENSEMENT NE DECIDE DE RIEN. Il ne saute aucun dessin : les deux appels ci-dessus ont
+  // deja eu lieu, sur la TOTALITE des instances soumises. Il mesure ce qu'un culling rendrait.
+  if (grass_baseline::want_frustum_census()) {
+    const auto& cm0 = proof_camera[0];
+    const auto& cm1 = proof_camera[1];
+    const auto& cm2 = proof_camera[2];
+    const auto& cm3 = proof_camera[3];
+    const float fogc = rs->camera_fog.x();
+    const float scissor_y = 512.0f / 448.0f;  // SCISSOR_ADJUST * HEIGHT_SCALE, jak1
+    const float lod_reach = card_m * U;       // la portee des cartes, la plus lointaine des deux
+    const float cpx = proof_position[0], cpy = proof_position[1], cpz = proof_position[2];
+    uint64_t in_frustum = 0, in_lod = 0, behind = 0;
+    const int tested = draw_n < 0 ? 0 : draw_n;
+    for (int i = 0; i < tested && i < m_instance_count; i++) {
+      const auto& gi = m_instances[(size_t)i];
+      float tx = -cm3[0] - cm0[0] * gi.px - cm1[0] * gi.py - cm2[0] * gi.pz;
+      float ty = -cm3[1] - cm0[1] * gi.px - cm1[1] * gi.py - cm2[1] * gi.pz;
+      float tz = -cm3[2] - cm0[2] * gi.px - cm1[2] * gi.py - cm2[2] * gi.pz;
+      const float tw = -cm3[3] - cm0[3] * gi.px - cm1[3] * gi.py - cm2[3] * gi.pz;
+      if (tw <= 0.f) {
+        behind++;
+        continue;
+      }
+      const float q = fogc / tw;
+      tx = tx * q + proof_hvdf[0];
+      ty = ty * q + proof_hvdf[1];
+      tz = tz * q + proof_hvdf[2];
+      tx -= 2048.f;
+      ty -= 2048.f;
+      tz = tz / 8388608.f - 1.f;
+      tx /= 256.f;
+      ty /= -128.f;
+      tx *= tw;
+      ty *= tw * scissor_y;
+      tz *= tw;
+      if (tx >= -tw && tx <= tw && ty >= -tw && ty <= tw && tz >= -tw && tz <= tw) {
+        in_frustum++;
+        const float dx = gi.px - cpx, dy = gi.py - cpy, dz = gi.pz - cpz;
+        if (dx * dx + dy * dy + dz * dz <= lod_reach * lod_reach) {
+          in_lod++;
+        }
+      }
+    }
+    grass_baseline::note_camera(cpx, cpy, cpz);
+    grass_baseline::note_frustum(in_frustum, in_lod, (uint64_t)tested, behind);
+  }
 
   // ---- CULLING INSTRUMENTATION (owner feedback #2): prove that every in-range
   // chunk stays DRAWN while MOVING. Throttled to ~1 log / 30 frames. With the

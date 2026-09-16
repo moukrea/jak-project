@@ -9678,7 +9678,7 @@ items:
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
   max_retries: 6
-  proof_timeout: 420
+  proof_timeout: 1800
   depends_on: []
   history: []
   id: grass-baseline-cost
@@ -9709,6 +9709,11 @@ items:
   block_reason: 'consigne PERIMEE : item-grass-baseline-cost.md est notre fabrication, mais l''item a
     bouge depuis. Refabrique-la avant de relancer — sinon le worker travaille sur un cahier des charges
     depasse.'
+  proof_props:
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.perf.buckets=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.uncap.fps=240
 - status: open
   game: jak1
   owner_test: false
