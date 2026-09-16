@@ -66,6 +66,15 @@ constexpr double kCensusMaxSeconds = 30.0;
 constexpr size_t kMaxSamples = 420;
 constexpr size_t kMinPercentileSamples = 30;
 
+// LES DEUX SEUILS DU VANTAGE. Ce qu'on refuse est un CHANGEMENT DE POINT DE VUE — plusieurs
+// metres, une autre orientation — jamais le frisson d'une position au repos. 100 mm pour Jak ;
+// 1 decimetre pour la camera, dont la valeur publiee est DEJA quantifiee au decimetre par
+// troncature, ce qui laisse un seau entier de jeu a la frontiere.
+constexpr uint64_t kVantageMaxMm = 100;
+constexpr uint64_t kCameraMaxDm = 1;
+// L'unite de longueur de GOAL : 4096 par metre. `jak_pos` est publie dans cette unite brute.
+constexpr double kUnitsPerMeter = 4096.0;
+
 // LES DIX CELLULES, DANS CET ORDRE, ET L'ORDRE COMPTE. L'herbe ALLUMEE vient d'abord pour chaque
 // palier : c'est la cellule allumee qui declenche la reconstruction du champ, donc le chargement
 // qu'on decompose. Eteinte, `GrassRenderer::render` n'est jamais appele et un changement de
@@ -270,13 +279,86 @@ void publish_witnesses() {
 // la : le contrat refuse ce releve.
 const char* const kCellMetrics[] = {"fps",   "frames",         "frame_ms_p50",  "frame_ms_p95",
                                     "jak_pos", "render_frames", "actors_active", "loadcover_frames"};
-const char* const kOnMetrics[] = {"prep_us",        "fence_us",      "submit_us",
+const char* const kOnMetrics[] = {"prep_us",        "fence_us",       "submit_us",
                                   "submitted_blade", "submitted_card", "frustum_in",
-                                  "frustum_lod",    "frustum_tested", "frustum_behind"};
+                                  "frustum_lod",    "frustum_tested", "frustum_behind",
+                                  // `cam_dm` est publie dans la MEME image que le recensement,
+                                  // par l'appel qui precede `note_frustum` sans aucune garde
+                                  // (GrassRenderer.cpp:2301) : sa population est exactement
+                                  // celle des quatre `frustum_*`. L'exiger ne peut donc pas
+                                  // rougir pour une raison qu'elles ne rougiraient pas deja, et
+                                  // sans lui le comparateur de vantage ci-dessous n'aurait rien
+                                  // a relire sur une cellule dont la camera a bouge.
+                                  "cam_dm"};
 const char* const kLoadMetrics[] = {"total_ms",   "source_ms", "expand_ms", "upload_ms",
                                     "blocked_ms", "async",     "waits",     "instances",
                                     "requested",  "drawn",     "dead",       "inst_bytes",
                                     "light_bytes"};
+
+// ── LE VANTAGE, JUGE ET PAS SEULEMENT PUBLIE ────────────────────────────────────────────────
+// « au MEME vantage » est la clause 1 du contrat, et elle n'avait AUCUN terme : `jak_pos` etait
+// exige PRESENT, jamais EGAL d'une cellule a l'autre, et `cam_dm` n'etait dans aucune liste. Dix
+// cellules prises sous dix points de vue passaient donc vertes, et l'ecart ON/OFF — la seule
+// grandeur pour laquelle cet item existe — aurait compare deux scenes differentes sans qu'un
+// seul terme proteste. C'est un faux vert, pas une lacune de confort.
+//
+// LES DEUX GRANDEURS SONT NECESSAIRES. La position de Jak dit qu'il n'a pas bouge ; elle ne dit
+// RIEN de la direction du regard. La position de la camera, qui orbite autour d'un Jak immobile,
+// la fixe : meme Jak + meme camera = meme volume de vue, donc les `frustum_in` des cinq cellules
+// allumees sont comparables. L'ORIENTATION elle-meme n'est pas relevee (non prouve : voir le
+// rapport) ; ces deux positions la contraignent, elles ne la mesurent pas.
+//
+// ON RELIT LA TABLE QUI SERA MOISSONNEE, pas les variables du module — meme regle que le reste de
+// `publish_gaps`. Une porte calculee sur son propre etat est un miroir : ici c'est la valeur
+// REELLEMENT publiee, celle que l'owner lira dans `proof.txt`, qui est comparee.
+//
+// ON PUBLIE UNE MAGNITUDE, JAMAIS UN BOOLEEN. `..._spread_mm` / `..._spread_dm` disent DE COMBIEN
+// le vantage a bouge ; un drapeau dirait qu'il a bouge sans nommer l'ampleur, et personne ne
+// saurait si le releve est a jeter ou a lire avec une reserve.
+//
+// LA POPULATION SORT A COTE. `..._cells` est le denominateur : sans lui, un ecart nul se lirait
+// « toutes les cellules au meme endroit » alors qu'il peut vouloir dire « une seule cellule
+// relue » — une porte verte par INACTION. Moins de deux cellules comparables EST un manque, et il
+// se nomme au lieu de se publier en zero.
+//
+// Rend le nombre de cellules relues ET analysees ; `*spread` recoit l'ecart maximal sur les trois
+// axes, multiplie par `scale`. Une cellule dont la cle manque ou dont le texte ne se relit pas en
+// trois nombres n'entre dans aucun des deux : elle se compte deja comme cle manquante ailleurs.
+int vantage_spread(bool on_cells_only, const char* metric, double scale, double* spread) {
+  int cells = 0;
+  double lo[3] = {0.0, 0.0, 0.0};
+  double hi[3] = {0.0, 0.0, 0.0};
+  char key[96];
+  char val[96];
+  for (int c = 0; c < kCellCount; c++) {
+    if (on_cells_only && !kCells[c].grass_on) {
+      continue;
+    }
+    cell_key(key, sizeof(key), c, metric);
+    if (!autoport_proof::read_text(key, val, sizeof(val))) {
+      continue;
+    }
+    double p[3] = {0.0, 0.0, 0.0};
+    if (std::sscanf(val, "%lf_%lf_%lf", &p[0], &p[1], &p[2]) != 3) {
+      continue;
+    }
+    for (int a = 0; a < 3; a++) {
+      if (cells == 0 || p[a] < lo[a]) {
+        lo[a] = p[a];
+      }
+      if (cells == 0 || p[a] > hi[a]) {
+        hi[a] = p[a];
+      }
+    }
+    cells++;
+  }
+  double s = 0.0;
+  for (int a = 0; a < 3; a++) {
+    s = std::max(s, hi[a] - lo[a]);
+  }
+  *spread = s * scale;
+  return cells;
+}
 
 void publish_gaps() {
   uint64_t gaps = 0;
@@ -355,6 +437,55 @@ void publish_gaps() {
   }
   if (!autoport_proof::has_key("grass_baseline_built_instances")) {
     miss("grass_baseline_built_instances");
+  }
+  // LE VANTAGE (clause 1 du contrat). Voir le commentaire au-dessus de `vantage_spread`.
+  {
+    char v[48];
+    char why[160];
+    double spread = 0.0;
+    const int cells = vantage_spread(false, "jak_pos", 1000.0 / kUnitsPerMeter, &spread);
+    autoport_proof::publish("grass_baseline_vantage_cells", (uint64_t)cells);
+    if (cells >= 2) {
+      const uint64_t mm = (uint64_t)(spread + 0.5);
+      std::snprintf(v, sizeof(v), "%llu", (unsigned long long)mm);
+      autoport_proof::publish_text("grass_baseline_vantage_spread_mm", v);
+      if (mm > kVantageMaxMm) {
+        std::snprintf(why, sizeof(why), "vantage_spread_mm_vaut_%llu_sur_%d_cellules",
+                      (unsigned long long)mm, cells);
+        miss(why);
+      }
+    } else {
+      // JAMAIS ZERO ICI. Un ecart non mesure et un ecart nul se publieraient sur la meme ligne,
+      // et c'est le zero qui se lirait comme la reussite.
+      autoport_proof::publish_text("grass_baseline_vantage_spread_mm", "-");
+      std::snprintf(why, sizeof(why), "vantage_cells_vaut_%d_sur_%d", cells, kCellCount);
+      miss(why);
+    }
+  }
+  {
+    char v[48];
+    char why[160];
+    double spread = 0.0;
+    const int cells = vantage_spread(true, "cam_dm", 1.0, &spread);
+    autoport_proof::publish("grass_baseline_camera_cells", (uint64_t)cells);
+    int on_cells = 0;
+    for (int c = 0; c < kCellCount; c++) {
+      on_cells += kCells[c].grass_on ? 1 : 0;
+    }
+    if (cells >= 2) {
+      const uint64_t dm = (uint64_t)(spread + 0.5);
+      std::snprintf(v, sizeof(v), "%llu", (unsigned long long)dm);
+      autoport_proof::publish_text("grass_baseline_camera_spread_dm", v);
+      if (dm > kCameraMaxDm) {
+        std::snprintf(why, sizeof(why), "camera_spread_dm_vaut_%llu_sur_%d_cellules",
+                      (unsigned long long)dm, cells);
+        miss(why);
+      }
+    } else {
+      autoport_proof::publish_text("grass_baseline_camera_spread_dm", "-");
+      std::snprintf(why, sizeof(why), "camera_cells_vaut_%d_sur_%d", cells, on_cells);
+      miss(why);
+    }
   }
   autoport_proof::publish_text("grass_baseline_missing", missing.empty() ? "-" : missing.c_str());
   autoport_proof::publish("grass_baseline_regime_read", regime_read);

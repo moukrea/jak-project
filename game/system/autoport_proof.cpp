@@ -352,6 +352,24 @@ bool read_uint(const char* key, uint64_t& value) {
   return true;
 }
 
+bool read_text(const char* key, char* out, size_t cap) {
+  if (!valid_key(key) || !out || cap == 0) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  const auto it = g_text_keys.find(key);
+  if (it == g_text_keys.end()) {
+    return false;
+  }
+  // TRONCATURE = ECHEC (voir l'en-tete). Rendre un prefixe ferait passer deux valeurs
+  // differentes pour la meme aux yeux du comparateur qui appelle.
+  if (it->second.size() + 1 > cap) {
+    return false;
+  }
+  std::memcpy(out, it->second.c_str(), it->second.size() + 1);
+  return true;
+}
+
 void note_flag_consult(int polarity, const char* id) {
   const int p = (polarity == kFlagSafe) ? 1 : 0;
   const char* key = (id && id[0]) ? id : "__unnamed";

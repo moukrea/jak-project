@@ -41,6 +41,7 @@
 // refusait pour « rien n'a ete dessine assez longtemps ». C'est une panne d'instrument, pas du
 // jeu.
 
+#include <cstddef>
 #include <cstdint>
 
 namespace autoport_proof {
@@ -121,6 +122,20 @@ bool has_key(const char* key);
 
 // Read an integer already published by another instrument. Missing is distinct from zero.
 bool read_uint(const char* key, uint64_t& value);
+
+// LA MEME LECTURE, POUR UNE VALEUR DE TEXTE. Sans elle, un module qui doit juger l'EGALITE de
+// deux grandeurs non entieres — deux vantages, deux orientations, deux empreintes — ne pouvait
+// que les publier et affirmer qu'elles se ressemblaient : `has_key` dit qu'une valeur existe, pas
+// laquelle.
+//
+// LA TRONCATURE EST UN ECHEC, PAS UN TEXTE PLUS COURT. Deux valeurs differentes qui partagent un
+// prefixe rendraient, tronquees, la MEME chaine : un comparateur bati dessus fabriquerait
+// l'egalite qu'il est cense verifier. On rend donc `false` des que la valeur ne tient pas dans
+// `cap` (zero terminal compris), et `out` n'est pas touche.
+//
+// ABSENT ET VIDE RESTENT DISTINCTS : `publish_text` refuse deja une valeur vide, donc un `true`
+// signifie toujours « une valeur a ete publiee, la voici ».
+bool read_text(const char* key, char* out, size_t cap);
 
 // LE RECENSEMENT DES CONSULTATIONS DE L'ARMEMENT PAR DU CODE DE JEU (hd-stretch-flag-in-game-logic).
 // -----------------------------------------------------------------------------------------------

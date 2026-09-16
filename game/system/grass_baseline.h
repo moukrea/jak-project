@@ -28,9 +28,18 @@
 //   grass_load_<p>_blocked_ms / _async / _waits                    ce que le fil de rendu a PAYE
 //   grass_load_<p>_instances / _drawn / _dead                      construites, dessinees, mortes
 //   grass_load_<p>_inst_bytes / _light_bytes                       la memoire des DEUX tampons
+//   grass_on_<p>_cam_dm                                           la camera du recensement, en dm
 //   grass_baseline_dead_instances                                  la queue morte, seule sur sa ligne
 //   grass_baseline_regime_read                                     cellules dont le REGIME a ete relu
+//   grass_baseline_vantage_spread_mm / _vantage_cells              « au MEME vantage » : Jak
+//   grass_baseline_camera_spread_dm  / _camera_cells               « au MEME vantage » : la camera
 //   grass_baseline_gaps                                            ce qui MANQUE, et c'est la porte
+//
+// « AU MEME VANTAGE » EST UN TERME, PAS UNE AFFIRMATION. Les deux positions sont relues dans la
+// table moissonnee et leur ECART est publie en grandeur (mm pour Jak, dm pour la camera), a cote
+// du nombre de cellules effectivement comparees. Un ecart qui depasse le seuil compte comme un
+// manque et se NOMME ; moins de deux cellules comparables aussi, sinon la porte serait verte par
+// inaction. Sans ces deux termes, dix cellules prises sous dix points de vue passaient vertes.
 //
 // `grass_baseline_gaps` SE CALCULE EN RELISANT `autoport_proof::has_key`, jamais une variable
 // interne (patron de `perf_baseline`) : la table qui sera moissonnee fait foi, et une cle refusee
