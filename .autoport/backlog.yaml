@@ -5645,6 +5645,7 @@ items:
   max_retries: 9
   depends_on:
   - water-census
+  - harness-judge-waits-for-the-proof-a-worker-left-in-flight
   history: []
   prompt: prompts/item-water-ocean-mesh.md
   owner_ok: null
