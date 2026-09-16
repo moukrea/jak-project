@@ -8,6 +8,7 @@
 #include "game/kernel/jak1/kscheme.h"
 #include "game/kernel/jak2/kscheme.h"
 #include "game/kernel/jak3/kscheme.h"
+#include "game/mips2c/mips2c_census.h"
 #include "game/runtime.h"
 
 extern "C" {
@@ -676,6 +677,10 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
               name);
   }
 
+  // perf-mips2c-neon (essai 10) : substitution au POINT D'APPEL UNIQUE. Hors mesure,
+  // `wrap` rend `exec` et le stub grave est celui d'avant, a l'octet pres.
+  u64 (*const traced)(void*) = census::wrap(name.c_str(), exec);
+
   // this is short stub that will jump to the appropriate function.
   Ptr<u8> jump_to_asm;
   switch (g_game_version) {
@@ -706,7 +711,7 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
     // linux
 
     // push the function
-    u64 addr = (u64)exec;
+    u64 addr = (u64)traced;
     *ptr = 0x48;
     ptr++;
     *ptr = 0xb8;

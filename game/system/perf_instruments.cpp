@@ -9,6 +9,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <vector>
 
@@ -26,6 +27,8 @@
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
+#include "game/mips2c/mips2c_census.h"
+#include "game/mips2c/spart_prof.h"
 #include "game/mips2c/vu_simd_state.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
@@ -110,6 +113,230 @@ void frame_boundary() {
                              (frames < 600) + (!refset_present || refset_diff != 0));
 }
 }  // namespace Mips2C::vu_simd
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// RECENSEMENT MIPS2C — LE PLAFOND DU GAIN, MESURE (perf-mips2c-neon, essai 10)
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// Voir l'en-tete de `game/mips2c/mips2c_census.h` pour le pourquoi. Ici : le comment.
+//
+// UN SHIM PAR INDICE, PAS UN SHIM PAR FONCTION. Le stub GOAL grave un pointeur nu
+// `u64(*)(void*)` : il ne transporte aucun contexte, donc un shim unique ne saurait pas QUELLE
+// fonction il enveloppe. On instancie donc un gabarit sur un indice entier, 128 fois ; chaque
+// instance connait sa ligne de table a la compilation. 94 fonctions jak1 sont enregistrees au
+// 16/09 — le depassement est COMPTE et publie, jamais silencieux.
+//
+// DEUX TEMPS, ET C'EST VOULU. `ns` par fonction est le temps INCLUSIF : un noyau qui rappelle
+// GOAL, qui rappelle un autre noyau mips2c, porte le temps de son appele. Additionner la
+// colonne compterait donc deux fois. `g_union_ns` n'accumule qu'a la PROFONDEUR ZERO : c'est
+// lui, et lui seul, qui est le plafond du gain. `mips2c_census_reentrant` dit combien d'appels
+// etaient imbriques, pour que l'ecart entre les deux soit lisible au lieu d'etre devine.
+//
+// L'INSTRUMENT PUBLIE SON PROPRE COUT. Deux lectures d'horloge par appel. Leur prix est MESURE
+// au demarrage (`mips2c_census_clock_ns_x1000`) et le surcout par image est publie a cote de la
+// mesure : un lecteur peut soustraire. Sans ce chiffre, un plafond gonfle par l'instrument
+// ressemblerait a un gisement.
+namespace Mips2C {
+namespace census {
+namespace {
+
+constexpr const char* kItem = "perf-mips2c-neon";
+constexpr int kMax = 128;
+
+struct Entry {
+  u64 (*exec)(void*) = nullptr;
+  char key[64] = {};
+  u64 calls = 0;
+  u64 ns = 0;  // temps INCLUSIF (voir l'en-tete de section)
+};
+
+Entry g_entries[kMax];
+int g_count = 0;
+int g_overflow = 0;
+int g_depth = 0;
+u64 g_union_ns = 0;
+u64 g_calls = 0;
+u64 g_reentrant = 0;
+u64 g_frames = 0;
+u64 g_clock_ns_x1000 = 0;
+bool g_started = false;
+
+inline u64 mono_ns() {
+  return (u64)std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+// Le prix d'une lecture d'horloge, sur CETTE machine, mesure et non suppose.
+void calibrate() {
+  constexpr int kReads = 20000;
+  const u64 t0 = mono_ns();
+  u64 sink = 0;
+  for (int i = 0; i < kReads; ++i) {
+    sink += mono_ns();
+  }
+  const u64 t1 = mono_ns();
+  // `sink` empeche l'elimination de la boucle sans rien publier de faux.
+  g_clock_ns_x1000 = sink ? (t1 - t0) * 1000ull / (u64)kReads : 0;
+}
+
+template <int I>
+u64 shim(void* ctxt) {
+  Entry& e = g_entries[I];
+  ++e.calls;
+  ++g_calls;
+  const int depth = g_depth++;
+  const u64 t0 = mono_ns();
+  const u64 result = e.exec(ctxt);
+  const u64 dt = mono_ns() - t0;
+  --g_depth;
+  e.ns += dt;
+  if (depth == 0) {
+    g_union_ns += dt;
+  } else {
+    ++g_reentrant;
+  }
+  return result;
+}
+
+using Shim = u64 (*)(void*);
+
+template <int... I>
+constexpr void fill_shims(Shim* out, std::integer_sequence<int, I...>) {
+  ((out[I] = &shim<I>), ...);
+}
+
+const Shim* shims() {
+  static Shim table[kMax];
+  static const bool once = [] {
+    fill_shims(table, std::make_integer_sequence<int, kMax>{});
+    return true;
+  }();
+  (void)once;
+  return table;
+}
+
+// `mips2c_fn_` + le nom GOAL rendu publiable. Le moissonneur de proof_run.sh n'accepte que
+// `[A-Za-z_][A-Za-z0-9_]*` : « (method 12 collide-mesh) » deviendrait une ligne ignoree, donc
+// une fonction chaude INVISIBLE. On substitue, on ne tronque pas en silence : un nom trop long
+// pour la cle serait deux fonctions confondues sous la meme etiquette.
+void make_key(const char* prefix, const char* name, char* out, size_t cap) {
+  size_t i = 0;
+  for (const char* p = prefix; *p && i + 1 < cap; ++p) {
+    out[i++] = *p;
+  }
+  for (const char* p = name; *p && i + 1 < cap; ++p) {
+    const char c = *p;
+    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    out[i++] = ok ? c : '_';
+  }
+  out[i] = 0;
+}
+
+}  // namespace
+
+u64 (*wrap(const char* name, u64 (*exec)(void*)))(void*) {
+  static const bool on = autoport_proof::feature_is(kItem);
+  if (!on) {
+    return exec;
+  }
+  if (!g_started) {
+    g_started = true;
+    calibrate();
+  }
+  if (g_count >= kMax) {
+    ++g_overflow;
+    return exec;
+  }
+  Entry& e = g_entries[g_count];
+  e.exec = exec;
+  make_key("", name, e.key, sizeof(e.key));
+  return shims()[g_count++];
+}
+
+void frame_boundary() {
+  static const bool on = autoport_proof::feature_is(kItem);
+  if (!on) {
+    return;
+  }
+  ++g_frames;
+  if (g_frames % 60 != 0) {
+    return;
+  }
+  const u64 f = g_frames;
+  int active = 0;
+  int hot[3] = {-1, -1, -1};
+  char key[96];
+  for (int i = 0; i < g_count; ++i) {
+    const Entry& e = g_entries[i];
+    if (e.calls == 0) {
+      continue;
+    }
+    ++active;
+    make_key("mips2c_fn_calls_", e.key, key, sizeof(key));
+    autoport_proof::publish(key, e.calls);
+    make_key("mips2c_fn_ns_", e.key, key, sizeof(key));
+    autoport_proof::publish(key, e.ns);
+    for (int r = 0; r < 3; ++r) {
+      if (hot[r] < 0 || e.ns > g_entries[hot[r]].ns) {
+        for (int k = 2; k > r; --k) {
+          hot[k] = hot[k - 1];
+        }
+        hot[r] = i;
+        break;
+      }
+    }
+  }
+  autoport_proof::publish("mips2c_census_on", 1);
+  autoport_proof::publish("mips2c_census_funcs", (u64)g_count);
+  autoport_proof::publish("mips2c_census_active", (u64)active);
+  autoport_proof::publish("mips2c_census_overflow", (u64)g_overflow);
+  autoport_proof::publish("mips2c_census_frames", f);
+  autoport_proof::publish("mips2c_census_calls", g_calls);
+  autoport_proof::publish("mips2c_census_reentrant", g_reentrant);
+  autoport_proof::publish("mips2c_census_ns", g_union_ns);
+  // LE PLAFOND : ce qu'une vectorisation PARFAITE de tout mips2c pourrait rendre, par image.
+  autoport_proof::publish("mips2c_census_ns_frame", g_union_ns / f);
+  autoport_proof::publish("mips2c_census_calls_frame", g_calls / f);
+  autoport_proof::publish("mips2c_census_clock_ns_x1000", g_clock_ns_x1000);
+  autoport_proof::publish("mips2c_census_overhead_ns_frame",
+                          (g_calls / f) * 2ull * g_clock_ns_x1000 / 1000ull);
+  // Les trois premieres lignes de la table, nommees : c'est la « table fonction/preuve
+  // d'activite » que le contrat reclame, lisible sans depiler 90 cles.
+  static const char* const kRank[3] = {"mips2c_hot1", "mips2c_hot2", "mips2c_hot3"};
+  for (int r = 0; r < 3; ++r) {
+    const std::string base(kRank[r]);
+    if (hot[r] < 0) {
+      autoport_proof::publish_text((base + "_name").c_str(), "-");
+      autoport_proof::publish((base + "_ns_frame").c_str(), 0);
+      autoport_proof::publish((base + "_calls").c_str(), 0);
+      continue;
+    }
+    const Entry& e = g_entries[hot[r]];
+    autoport_proof::publish_text((base + "_name").c_str(), e.key[0] ? e.key : "-");
+    autoport_proof::publish((base + "_ns_frame").c_str(), e.ns / f);
+    autoport_proof::publish((base + "_calls").c_str(), e.calls);
+  }
+  // LES QUATRE NOYAUX SPARTICLE DEJA CHRONOMETRES, ENFIN PUBLIES. `g_spart_prof` accumule ces
+  // nanosecondes depuis Gperf-particles et AUCUN lecteur n'existait dans l'arbre : un instrument
+  // qui mesure sans publier ne prouve rien. Ils ne coutent rien de plus ici.
+  autoport_proof::publish("mips2c_spart_ns_3d", g_spart_prof.ns_3d.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_ns_2d", g_spart_prof.ns_2d.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_ns_launch",
+                          g_spart_prof.ns_launch.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_ns_adgif",
+                          g_spart_prof.ns_adgif.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_calls_3d",
+                          g_spart_prof.calls_3d.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_calls_2d",
+                          g_spart_prof.calls_2d.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_calls_launch",
+                          g_spart_prof.calls_launch.load(std::memory_order_relaxed));
+  autoport_proof::publish("mips2c_spart_calls_adgif",
+                          g_spart_prof.calls_adgif.load(std::memory_order_relaxed));
+}
+
+}  // namespace census
+}  // namespace Mips2C
 
 #if defined(__ANDROID__)
 // Repertoire de fichiers externe de l'application (pousse par Java avant le boot,
@@ -802,6 +1029,7 @@ void note_vsync_wait_ns(uint64_t ns) {
 
 void frame_boundary() {
   Mips2C::vu_simd::frame_boundary();
+  Mips2C::census::frame_boundary();
   g_frames_total++;
   publish_codegen_calls();
   // Le reglage peut etre pose avant le lancement (propriete) : on le relit toutes les 120

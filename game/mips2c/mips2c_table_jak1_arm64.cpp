@@ -29,6 +29,8 @@
 
 #include "mips2c_table.h"
 
+#include "game/mips2c/mips2c_census.h"
+
 #include "common/log/log.h"
 #include "common/symbols.h"
 
@@ -646,6 +648,10 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
   // allocs get reused by later heap traffic on this DGO path — see the
   // arena note above). Per-game (Gjak2-render): each game has its own arena,
   // used-counter, and fallback alloc idiom.
+  // perf-mips2c-neon (essai 10) : substitution au POINT D'APPEL UNIQUE. Hors mesure,
+  // `wrap` rend `exec` et le stub grave est celui d'avant, a l'octet pres.
+  u64 (*const traced)(void*) = census::wrap(name.c_str(), exec);
+
   Ptr<u8> jump_to_asm;
   if (g_game_version == GameVersion::Jak2) {
     if (s_a37_arena_jak2 && s_a37_arena_jak2_used < kA37TrampSlots) {
@@ -683,7 +689,7 @@ void LinkedFunctionTable::reg(const std::string& name, u64 (*exec)(void*), u32 s
     // callee-saved, but carries the fake-stack size into the helper.
     // Jak1 preserves its incoming value and the GOAL return address here;
     // X16/X17 remain AAPCS intra-call scratch registers.
-    const u64 lits[3] = {reinterpret_cast<u64>(exec), static_cast<u64>(stack_size),
+    const u64 lits[3] = {reinterpret_cast<u64>(traced), static_cast<u64>(stack_size),
                          reinterpret_cast<u64>(&_mips2c_call_arm64)};
     if (g_game_version == GameVersion::Jak1) {
       const u32 insns[8] = {
