@@ -106,7 +106,151 @@ mark_built(){
     mv -f "$COMMIT_STAMP.tmp.$$" "$COMMIT_STAMP"
 }
 
+# >>> BUILDER-GUARD-BEGIN — tranche lue telle quelle par lib/builder_guard_selftest.sh.
+# NE PAS SCINDER : le banc a deux bras extrait ce bloc du FICHIER et l'execute. S'il disparait,
+# perd son indirection `builder_pid_list` ou son etranglement, le banc sort en 2 et le
+# recensement de l'item rougit.
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
+
+#
+# SEPT HEURES SANS UN MOT, LE 16/09 (17:41 -> 00:40), et rien dans le journal pour le dire.
+# La garde d'origine comptait `java` dans `busy` ET dans `hard` :
+#     busy=$(ps -eo comm,args | grep -vE '^(claude|codex) ' \
+#              | grep -cE '^(cmake|ninja|cc1plus|java|goalc|gk)([^n]|$)' || true)
+# Un demon Gradle INACTIF — lance par le gradle d'une course de preuve appareil, et vivant trois
+# heures par son `idleTimeout=10800000` — est un `java`. Il faisait donc `continue` SANS UN MOT,
+# et comme il comptait aussi dans `hard`, la patience de 20 minutes ne s'appliquait JAMAIS
+# (`hard > 0`). Deux commits livrables (herbe, ocean) ont attendu la nuit entiere.
+#
+# CE QUI SEPARE UN DEMON QUI DORT D'UN GRADLE QUI BATIT :
+#   1. la LIGNE DE COMMANDE. Le client et les workers portent GradleWrapperMain / GradleMain /
+#      GradleWorkerMain / gradle-wrapper.jar ; le demon porte GradleDaemon et rien de tout ca.
+#      C'est un RELEVE, pas une supposition : lib/fixtures/gradle-cmdlines.tsv les a lus dans
+#      /proc pendant un vrai `./gradlew help`. Meme litteral que lib/proof_run.sh::busy_reason
+#      (item frere harness-busy-guard-matches-gradle-daemon, 14/09) — la copie VIVANTE etait ici.
+#   2. le TRAVAIL REEL, quand la ligne de commande ne trahit rien : un demon qui compile brule du
+#      CPU et fork des workers. On echantillonne utime+stime sur 10 s et on regarde ses enfants.
+#      Zero des deux = il dort ; il ne compte alors NI dans busy NI dans hard.
+# On ne TUE aucun demon (ce serait le travail d'un autre) : on cesse de le prendre pour un build.
+
+BUILDER_REG=.autoport/logs/builder-ticks.tsv
+BUILDER_REG_MAX=${BUILDER_REG_MAX:-20000}
+BUILDER_SAY_THROTTLE=${BUILDER_SAY_THROTTLE:-1200}
+# Le MEME litteral que lib/proof_run.sh::busy_reason. Deux copies divergeraient en silence ;
+# lib/builder_guard_selftest.sh compare les deux et rougit si elles s'ecartent.
+BUILDER_GRADLE_TRAVAIL='GradleWrapperMain|org\.gradle\.launcher\.GradleMain|GradleWorkerMain|gradle-wrapper\.jar'
+BUILDER_CPU_FENETRE=${BUILDER_CPU_FENETRE:-10}      # secondes d'observation
+BUILDER_CPU_TICKS_MIN=${BUILDER_CPU_TICKS_MIN:-25}  # 0,25 s de CPU en 10 s = 2,5 % d'un coeur
+declare -A _builder_cause_vue
+
+# L'INDIRECTION, ET C'EST LA SEULE PORTE DE CETTE GARDE VERS LE SYSTEME. Le banc la remplace pour
+# n'exposer que SES processus ; tout le reste (comm, ligne de commande, CPU, enfants) reste lu
+# dans le VRAI /proc, sur de VRAIS processus. Un banc qui simulerait aussi /proc ne mesurerait
+# que son propre decor.
+builder_pid_list(){ ls -1 /proc 2>/dev/null | grep -xE '[0-9]+'; }
+
+builder_cpu_ticks(){ awk '{print $14+$15}' "/proc/$1/stat" 2>/dev/null; }
+
+# Un demon qui BATIT fork des workers ; un demon qui dort n'a pas d'enfant. Si le noyau ne rend
+# pas `children`, le compte est 0 et c'est le CPU qui tranche seul — l'etat est publie.
+BUILDER_CHILDREN_LISIBLE=$([ -r "/proc/$$/task/$$/children" ] && echo 1 || echo 0)
+builder_enfants_compilateurs(){          # $1 = pid parent
+  local k c n=0
+  for k in /proc/"$1"/task/*/children; do
+    [ -r "$k" ] || continue
+    for c in $(cat "$k" 2>/dev/null); do
+      case "$(cat "/proc/$c/comm" 2>/dev/null)" in
+        java|javac|kotlin*|cc1plus|cc1|clang*|d8|r8|aapt2|ld|as|ninja|cmake) n=$((n+1)) ;;
+      esac
+    done
+  done
+  printf '%s' "$n"
+}
+
+# Rend UNE ligne : "<busy> <hard> <demons-inactifs-ecartes> <pourquoi>". `hard` ne compte que les
+# COMPILATEURS (c'est lui qui debloque la patience de 20 min) ; `busy` y ajoute un `gk` de mesure.
+builder_busy_counts(){
+  local pid comm cmd busy=0 hard=0 idle=0 pourquoi="" a b enf
+  local cand=() ; local -A t0=()
+  for pid in $(builder_pid_list); do
+    comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue
+    [ -n "$comm" ] || continue
+    case "$comm" in
+      claude|codex) continue ;;
+      cmake|ninja|cc1plus|cc1|goalc)
+        busy=$((busy+1)); hard=$((hard+1)); pourquoi="${pourquoi:+$pourquoi,}$comm:$pid" ;;
+      gk)
+        busy=$((busy+1)); pourquoi="${pourquoi:+$pourquoi,}gk:$pid" ;;
+      java)
+        cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)
+        # `[[ =~ ]]` ET PAS `printf | grep -q` : sous `-o pipefail`, `grep -q` sort a la premiere
+        # correspondance, SIGPIPE le `printf` en amont, et le pipeline rend 141 — donc FAUX sur
+        # une ligne de commande qui PORTE le motif. Un vrai client Gradle serait alors range
+        # parmi les candidats inactifs, c'est-a-dire l'inverse exact de ce qu'on repare.
+        if [[ "$cmd" =~ $BUILDER_GRADLE_TRAVAIL ]]; then
+          busy=$((busy+1)); hard=$((hard+1)); pourquoi="${pourquoi:+$pourquoi,}gradle-travail:$pid"
+        else
+          cand+=("$pid"); t0[$pid]=$(builder_cpu_ticks "$pid")
+        fi ;;
+    esac
+  done
+  # LE SEUL COUT DE LA MESURE, ET IL N'EST PAYE QUE S'IL Y A UN CANDIDAT : 10 s par tour de 240 s.
+  if [ "${#cand[@]}" -gt 0 ]; then
+    sleep "$BUILDER_CPU_FENETRE"
+    for pid in "${cand[@]}"; do
+      [ -d "/proc/$pid" ] || { pourquoi="${pourquoi:+$pourquoi,}java-disparu:$pid"; continue; }
+      a=${t0[$pid]}; b=$(builder_cpu_ticks "$pid")
+      if [ -z "$a" ] || [ -z "$b" ]; then
+        # ILLISIBLE N'EST PAS INACTIF. On ne fabrique pas un vert avec une lecture ratee.
+        busy=$((busy+1)); hard=$((hard+1)); pourquoi="${pourquoi:+$pourquoi,}java-illisible:$pid"; continue
+      fi
+      enf=$(builder_enfants_compilateurs "$pid")
+      if [ $(( b - a )) -ge "$BUILDER_CPU_TICKS_MIN" ] || [ "$enf" -gt 0 ]; then
+        busy=$((busy+1)); hard=$((hard+1))
+        pourquoi="${pourquoi:+$pourquoi,}java-actif:$pid:cpu$((b-a)):enf$enf"
+      else
+        idle=$((idle+1))
+        pourquoi="${pourquoi:+$pourquoi,}java-inactif-ecarte:$pid:cpu$((b-a)):enf$enf"
+      fi
+    done
+  fi
+  printf '%s %s %s %s\n' "$busy" "$hard" "$idle" "${pourquoi:--}"
+}
+
+# LE REGISTRE N'EST JAMAIS ETRANGLE — c'est LUI qui rend un tour muet impossible. Le journal
+# lisible par un humain, lui, ne recoit qu'UNE ligne par cause et par 20 min : la consigne est
+# « aucun tick muet », pas « noyer le journal ». Les deux sorties ont donc des regimes distincts,
+# et c'est le registre que le recensement lit.
+builder_tick_record(){                   # $1=cause  $2..=texte
+  local c=$1; shift
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date +%s)" "$$" "$c" "${busy:--}" "${hard:--}" "${idle_daemons:--}" \
+    "$(git rev-parse --short HEAD 2>/dev/null || echo -)" \
+    "$(printf '%s' "${*:-}" | tr '\t\n' '  ')" >> "$BUILDER_REG" 2>/dev/null || true
+  # Rotation bornee : un registre qui grossit sans fin finirait par couter plus cher que le
+  # defaut qu'il surveille.
+  local n
+  n=$(wc -l < "$BUILDER_REG" 2>/dev/null || echo 0); n=${n// /}
+  if [ "${n:-0}" -gt "$BUILDER_REG_MAX" ]; then
+    tail -n $(( BUILDER_REG_MAX / 2 )) "$BUILDER_REG" > "$BUILDER_REG.tmp.$$" 2>/dev/null &&
+      mv -f "$BUILDER_REG.tmp.$$" "$BUILDER_REG" 2>/dev/null || rm -f "$BUILDER_REG.tmp.$$"
+  fi
+}
+
+# AUCUN `continue` DE LA BOUCLE SANS ELLE. lib/builder_mute_census.py le verifie sur le FICHIER
+# et publie la liste des fautifs : la perte est rendue impossible au point de PRODUCTION, pas
+# detectable au point de controle.
+say_cause(){                             # $1=cause  $2..=texte
+  local c=$1; shift
+  builder_tick_record "$c" "$*"
+  local now last
+  now=$(date +%s); last=${_builder_cause_vue[$c]:-0}
+  if [ $(( now - last )) -ge "$BUILDER_SAY_THROTTLE" ]; then
+    _builder_cause_vue[$c]=$now
+    say "$*"
+  fi
+}
+# <<< BUILDER-GUARD-END
 
 # L'INSTANTANE QUI A REMPLACE LE CHECKPOINT. `checkpoint_snapshot` enregistre un arbre sale sans
 # commiter, sans toucher l'index ni l'arbre de travail du worker : voir l'en-tete de la librairie
@@ -378,7 +522,7 @@ while true; do
     h=$( { git rev-parse HEAD; cat "$REQ"; } 2>/dev/null | md5sum | cut -d' ' -f1)
     reason="demande explicite ($(head -c 120 "$REQ" 2>/dev/null | tr '\n' ' '))"
   elif head_is_wip; then
-    continue                       # checkpoint WIP : du travail en cours, pas une livraison
+    say_cause wip "aucun build — HEAD est un checkpoint WIP ($(git log -1 --format=%h 2>/dev/null))"; continue
   else
     h=$(git rev-parse HEAD 2>/dev/null | md5sum | cut -d' ' -f1)
     reason="commit livrable $(git log -1 --format=%h 2>/dev/null)"
@@ -387,13 +531,14 @@ while true; do
   # ils ne peuvent plus supprimer la tentative de reprise.
   ready=0
   python3 .autoport/delivery_artifact.py check >/dev/null 2>&1 && ready=1
-  [ "$ready" = 1 ] && [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
+  if [ "$ready" = 1 ] && [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ]; then
+    say_cause deja-bati "aucun build — $reason : deja bati, artefacts prets"; continue
+  fi
 
   # PORTE DE CONTENU : rien hors `.autoport/` depuis le dernier build ⇒ ni build ni publication.
   # Une demande explicite du worker passe outre : lui sait que son code est final.
   if [ "$ready" = 1 ] && [ ! -f "$REQ" ] && ! range_touches_game; then
-    say "build IGNORE — aucun fichier de jeu depuis le dernier build ($(git log -1 --format=%h))"
-    continue
+    say_cause sans-fichier-de-jeu "build IGNORE — aucun fichier de jeu depuis le dernier build ($(git log -1 --format=%h))"; continue
   fi
 
   # ne jamais démarrer par-dessus un build en cours (goalc, cmake, gradle) ni pendant qu'un
@@ -408,16 +553,11 @@ while true; do
   # la garde de build_cgo_pack.sh (« staged KERNEL.CGO == x86 oracle »). `-c` lit toute
   # l'entree, donc le tuyau ne se ferme jamais tot. `|| true` : grep -c sort 1 quand le compte
   # est 0, ce qui n'est pas une erreur ici.
-  busy=$(ps -eo comm,args | grep -vE '^(claude|codex) ' \
-           | grep -cE '^(cmake|ninja|cc1plus|java|goalc|gk)([^n]|$)' || true)
-  # PATIENCE BORNEE. Mesure du 2026-08-11 15:10 : pendant que le worker travaille, ce verrou est
-  # ferme EN PERMANENCE -- 0 fenetre libre sur 10 sondages en 100 s. L'owner ne recevait donc plus
-  # aucun APK, alors qu'il a explicitement demande a etre livre meme quand ce n'est pas vert.
-  # Passe 25 minutes d'attente avec des changements en attente, on n'exige plus que l'absence de
-  # COMPILATEUR : un `gk` de mesure peut etre relance par le worker, une compilation ecrasee est
-  # du travail perdu.
-  hard=$(ps -eo comm,args | grep -vE '^(claude|codex) ' \
-           | grep -cE '^(cmake|ninja|cc1plus|java|goalc)([^n]|$)' || true)
+  # LA GARDE, MESUREE (bloc BUILDER-GUARD ci-dessus) : un demon Gradle INACTIF n'entre ni dans
+  # `busy` ni dans `hard`. `read` sur une chaine-ici s'execute dans CE shell, pas dans un tuyau :
+  # les quatre valeurs survivent a la ligne.
+  busy=-; hard=-; idle_daemons=-; busy_why=-
+  read -r busy hard idle_daemons busy_why <<< "$(builder_busy_counts)"
   now=$(date +%s); : "${blocked_since:=$now}"
   if [ "${busy:-0}" -gt 0 ]; then
     # MESURE du 2026-08-11 16:40 : 6 sondages sur 6 montrent un compilateur actif — le worker
@@ -432,10 +572,10 @@ while true; do
     # Ecraser l'ISO sous un `gk` de mesure produisait un faux rouge ET un APK depareille.
     # On n'exige plus que l'absence de COMPILATEUR passe 20 min, jamais l'absence de gk seule.
     if [ $(( now - blocked_since )) -gt 1200 ] && [ "${hard:-0}" -eq 0 ]; then
-      say "patience depassee (20 min) mais aucun compilateur actif — build lance"
+      say "patience depassee (20 min) mais aucun compilateur actif — build lance (busy=$busy why=$busy_why)"
       blocked_since=$now
     else
-      continue
+      say_cause build-en-cours "aucun build — un build tourne (busy=$busy hard=$hard demons-inactifs-ecartes=$idle_daemons : $busy_why)"; continue
     fi
   else
     blocked_since=$now
@@ -461,8 +601,7 @@ while true; do
     if [ -n "$HOLDER" ] && ! kill -0 "$HOLDER" 2>/dev/null; then
       say "verrou de livraison ORPHELIN (detenteur pid=$HOLDER mort, ${age}s) — ignore, on construit"
     elif [ "$age" -lt 3600 ]; then
-      say "livraison en cours ($(cat "$LOCK" 2>/dev/null), ${age}s) — on ne rebatit pas par-dessus"
-      continue
+      say_cause livraison-en-cours "livraison en cours ($(cat "$LOCK" 2>/dev/null | tr '\n' ' '), ${age}s, detenteur pid=$HOLDER vivant) — on ne rebatit pas par-dessus"; continue
     else
       say "verrou de livraison perime (${age}s > 3600) — ignore"
     fi
@@ -470,19 +609,19 @@ while true; do
 
   # Exclusion avec le publieur ; verrou PID tenu aussi pendant les preparatifs.
   exec 8>.autoport/.delivery-artifacts.lock
-  if ! flock -n -x 8; then exec 8>&-; continue; fi
+  if ! flock -n -x 8; then exec 8>&-; say_cause verrou-publieur "aucun build — .delivery-artifacts.lock est tenu (le publieur travaille)"; continue; fi
   printf '%s pid=%s\n' "$0" "$$" > .autoport/.deploy-in-progress
   trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
   fin_de_passe(){ rm -f .autoport/.deploy-in-progress; flock -u 8; exec 8>&-; }
-  build_commit=$(git rev-parse HEAD) || { fin_de_passe; continue; }
-  build_sources=$(python3 .autoport/delivery_artifact.py sources) || { fin_de_passe; continue; }
+  build_commit=$(git rev-parse HEAD) || { say_cause git-muet "aucun build — git rev-parse HEAD a echoue"; fin_de_passe; continue; }
+  build_sources=$(python3 .autoport/delivery_artifact.py sources) || { say_cause sources-illisibles "aucun build — delivery_artifact.py sources a echoue"; fin_de_passe; continue; }
   request_hash=$(sha256sum "$REQ" 2>/dev/null | cut -d' ' -f1)
   rm -f .autoport/.delivery-ready.json
   # Les deux compilateurs consomment les headers serialises, eux aussi.
   if ! bash .autoport/lib/build_x86.sh --target goalc >> "$LOG" 2>&1 ||
      ! cmake --build build-arm64 --target goalc -j "$(nproc)" >> "$LOG" 2>&1 ||
      ! bash .autoport/prepare_delivery_bakes.sh >> "$LOG" 2>&1; then
-    say "preparation/cuisson ECHOUEE — demande conservee, prochain tour retente"
+    say_cause preparation-echouee "preparation/cuisson ECHOUEE — demande conservee, prochain tour retente"
     fin_de_passe
     continue
   fi
@@ -518,7 +657,7 @@ while true; do
         say "arbre sale mais COMPILE — instantane IMPOSSIBLE (git a refuse) ; build autorise, toujours aucun commit"
       fi
     else
-      say "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
+      say_cause arbre-ne-compile-pas "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
       fin_de_passe
       continue
     fi
@@ -540,7 +679,7 @@ while true; do
   # shellcheck disable=SC2317
   say "build declenche — $reason"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
-    say "build arm64 ÉCHOUÉ — rien à publier, prochain tour retente"
+    say_cause build-arm64-echoue "build arm64 ÉCHOUÉ — rien à publier, prochain tour retente"
     fin_de_passe
     continue
   fi
@@ -565,7 +704,7 @@ while true; do
   rm -f android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
-    say "gradle ÉCHOUÉ"
+    say_cause gradle-echoue "gradle ÉCHOUÉ"
     fin_de_passe
     continue
   fi
@@ -592,7 +731,7 @@ while true; do
   # (qui compare des md5) ne le renvoie pas. Ca ne coute rien et ca ne peut plus etre oublie.
   rm -f out/artifacts/jak1_hd_assets.zip
   if ! timeout 900 bash scripts/package_hd_assets.sh jak1 >> "$LOG" 2>&1; then
-    say "pack HD ÉCHOUÉ — l'APK partirait avec un mesh perime, on ne publie pas"
+    say_cause pack-hd-echoue "pack HD ÉCHOUÉ — l'APK partirait avec un mesh perime, on ne publie pas"
     fin_de_passe
     continue
   fi
@@ -625,7 +764,7 @@ while true; do
       _sz=$(stat -c %s "$_apk" 2>/dev/null || echo 0)
       say "apres nettoyage : $_sz octets"
     else
-      say "reassemblage apres nettoyage ECHOUE"
+      say_cause reassemblage-echoue "reassemblage apres nettoyage ECHOUE"
       ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
       fin_de_passe
       continue
@@ -642,7 +781,7 @@ while true; do
     ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
   fi
   if [ "$_sz" -gt 700000000 ]; then
-    say "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"
+    say_cause apk-trop-gros "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"
     fin_de_passe
     continue
   fi
@@ -684,13 +823,13 @@ while true; do
     echo "qui est a cote de lui. Si les deux dates divergent, dis-le moi."
   } > out/artifacts/BUILD-INFO.txt
   if ! python3 .autoport/delivery_artifact.py seal "$build_commit" "$build_sources" >> "$LOG" 2>&1; then
-    say "artefacts incomplets ou sources modifiees — prochain tour retente"
+    say_cause artefacts-incomplets "artefacts incomplets ou sources modifiees — prochain tour retente"
     fin_de_passe
     continue
   fi
   if ! mark_built "$h"; then
     rm -f .autoport/.delivery-ready.json
-    say "reperes non ecrits — prochain tour retente"
+    say_cause reperes-non-ecrits "reperes non ecrits — prochain tour retente"
     fin_de_passe
     continue
   fi
