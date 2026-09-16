@@ -40,6 +40,27 @@ uniform int u_blur_report;
 // and darkening outside the qualified contact (attempt12-delivered-diagnostic.json).
 uniform int u_ridge_fill;
 
+// ── LA RESTAURATION DE CONTACT, APRES LE FLOU, AU PROFIL CONTINU ──────────────────────────────
+// Mesure de l'essai 13 : le creux d'AO de contact fait 3 px quand le support composite du flou
+// fait 29 texels. Aucune reponderation des taps ne garde un creux dix fois plus etroit que la
+// moyenne, et toute modulation BINAIRE du lisseur (borne au pli, deplacement des taps) a porte
+// `flat_step` de 8 a 30-54 pour un plafond de 10 : deux voisins qui prennent la decision
+// differemment recoivent des quantites de flou differentes, et c'est une marche d'un texel.
+//
+// Le contact est donc RESTAURE apres le flou, et depuis la PROFONDEUR seule — qui, elle, ne
+// porte aucun bruit d'estimateur. `g` est la concavite de la profondeur de fenetre, sommee sur
+// les rayons 1..5 a poids decroissants : le profil qui en resulte est une TENTE de demi-largeur
+// 5 px centree sur le pli, pas une marche. Sur un plan, la profondeur de fenetre est affine :
+// la courbure y est nulle AU BIT PRES (mesure : 251 186 px de l'archive hutte a courbure
+// exactement 0 a tous les rayons), donc `g` y vaut zero et le flou livre n'est pas touche.
+// La derivee seconde d'une tente d'amplitude D et de demi-largeur W vaut ~5D/W^2 : a W = 5 px,
+// D reste sous les 8/255 que `flat_step` compte jusqu'a D = 40/255. C'est ce qui permet a la
+// bande de contact ET au plafond du damier de tenir ensemble, ce qu'aucun reglage local ne
+// faisait.
+uniform int u_contact_pass;        // 0 : rien. 1 : calcule g. 2 : lisse g le long de u_dir.
+uniform highp sampler2D u_gterm;   // la carte g lissee, lue par la DERNIERE jambe du flou
+uniform float u_contact_strength;  // K ; 0 = desarme (bras temoin, et toutes les autres jambes)
+
 vec3 world_from_depth(vec2 uv, float dpt) {
   vec3 ndc = vec3(uv * 2.0 - 1.0, dpt * 2.0 - 1.0);
   float sx = ndc.x * 256.0 + 2048.0 - u_hvdf_offset.x;
@@ -49,7 +70,76 @@ vec3 world_from_depth(vec2 uv, float dpt) {
   return ph.xyz / ph.w;
 }
 
+const int kContactRadius = 5;  // demi-largeur de la tente, en texels pleine resolution
+
 void main() {
+  // ── PASSE 1 : `g`, LA CONCAVITE DE LA PROFONDEUR, SANS AUCUNE LECTURE D'AO ────────────────
+  // Une seule ligne de profondeur par axe est relue (13 texels), et TOUS les rayons s'en
+  // servent. Le lissage interne (k = -1,0,+1, poids 1/4,1/2,1/4) est ce qui evite une passe de
+  // plus dans l'axe du rayon ; les deux passes 2 ci-dessous font le lissage TRANSVERSE.
+  if (u_contact_pass == 1) {
+    vec2 px = 1.0 / vec2(textureSize(u_depth, 0));
+    float zc = texture(u_depth, tex_coord).r;
+    if (zc <= 1e-9) {
+      color = vec4(0.0);  // ciel : aucun contact
+      return;
+    }
+    float g = 0.0;
+    float wsum = 0.0;
+    for (int axis = 0; axis < 2; axis++) {
+      vec2 st = (axis == 0) ? vec2(px.x, 0.0) : vec2(0.0, px.y);
+      float zs[2 * kContactRadius + 3];
+      for (int i = 0; i < 2 * kContactRadius + 3; i++) {
+        zs[i] = texture(u_depth, tex_coord + st * float(i - kContactRadius - 1)).r;
+      }
+      for (int r = 1; r <= kContactRadius; r++) {
+        float v = float(kContactRadius + 1 - r);
+        if (axis == 0) {
+          wsum += v;  // le poids radial se compte UNE fois, les deux axes sont moyennes
+        }
+        float acc = 0.0;
+        for (int k = -1; k <= 1; k++) {
+          float tw = (k == 0) ? 0.5 : 0.25;
+          int c = kContactRadius + 1 + k;
+          float z0 = zs[c], zm = zs[c - r], zp = zs[c + r];
+          if (zm <= 1e-9 || zp <= 1e-9 || z0 <= 1e-9) {
+            continue;
+          }
+          float d1 = z0 - zm;
+          float d2 = zp - z0;
+          // Signe : `d2 - d1 > 0` = la surface vient VERS la camera au pli (profondeur de
+          // fenetre PS2, 0 = le plus loin), c'est-a-dire un coin CONCAVE — le toit qui
+          // surplombe le mur. Un arete convexe rend un signe negatif et n'est PAS assombrie.
+          float ratio = clamp((d2 - d1) / (abs(d1) + abs(d2) + 1e-9), 0.0, 1.0);
+          // Porte de SILHOUETTE, DOUCE : au-dela de 2 % de pente par texel c'est un saut de
+          // profondeur, pas un pli, et l'AO y a deja le droit de marcher. Douce, pour ne pas
+          // reintroduire la marche binaire que l'essai 13 a chiffree.
+          float slope = max(abs(d1), abs(d2)) / float(r);
+          float hi = 0.02 * z0;
+          float gate = clamp((hi - slope) / max(0.5 * hi, 1e-12), 0.0, 1.0);
+          acc += tw * ratio * gate;
+        }
+        g += v * acc * 0.5;
+      }
+    }
+    color = vec4(vec3(clamp(g / max(wsum, 1e-9), 0.0, 1.0)), 1.0);
+    return;
+  }
+
+  // ── PASSE 2 : la tente (1,4,6,4,1)/16 le long de `u_dir`, sur la carte `g` ────────────────
+  // C'est CE lissage qui tient le plafond du damier : sans lui, `g` varie d'un texte a l'autre
+  // sur les surfaces que `flat_step` declare planes AU RAYON 1 mais qui portent un pli a
+  // rayon 3 ou 5, et `flat_step` passe de 7,5 a 11,6 (banc local, archive hutte, SSAO Eleve).
+  if (u_contact_pass == 2) {
+    float s = texture(u_ao, tex_coord - 2.0 * u_dir).r * 0.0625;
+    s += texture(u_ao, tex_coord - u_dir).r * 0.25;
+    s += texture(u_ao, tex_coord).r * 0.375;
+    s += texture(u_ao, tex_coord + u_dir).r * 0.25;
+    s += texture(u_ao, tex_coord + 2.0 * u_dir).r * 0.0625;
+    color = vec4(vec3(s), 1.0);
+    return;
+  }
+
   // Only strict AO maxima at a depth fold enter this historical rule. The native
   // contact profile and the complete profile diagnostic remain separate checks.
   if (u_ridge_fill == 1) {
@@ -207,5 +297,11 @@ void main() {
     color = vec4(vec3(crossed), 1.0);
     return;
   }
-  color = vec4(vec3(sum / max(wsum, 1e-5)), 1.0);
+  float blurred = sum / max(wsum, 1e-5);
+  // La restauration ne s'applique QU'A la derniere jambe (le moteur ne pose `u_contact_strength`
+  // que la) : l'appliquer a chaque jambe l'eleverait a la puissance huit.
+  if (u_contact_strength > 0.0) {
+    blurred *= 1.0 - u_contact_strength * texture(u_gterm, tex_coord).r;
+  }
+  color = vec4(vec3(blurred), 1.0);
 }

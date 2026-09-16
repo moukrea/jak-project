@@ -109,6 +109,8 @@ class AmbientOcclusionPass {
   void ensure_targets(int ao_w, int ao_h, int full_w, int full_h);
   // Cible de la passe de RAPPORT du recensement, allouee paresseusement (hors mesure : absente).
   void ensure_scratch(int full_w, int full_h);
+  // Cible de la carte de concavite `g` de la restauration de contact, allouee paresseusement.
+  void ensure_gterm(int full_w, int full_h);
   void free_targets();
 
   ShaderLibrary* m_shaders = nullptr;
@@ -141,6 +143,14 @@ class AmbientOcclusionPass {
   // resolution ; la passe V finale ecrit toujours dans `m_ao_full_tex`, que shade() lit.
   GLuint m_ao_scratch_fbo = 0;
   GLuint m_ao_scratch_tex = 0;
+
+  // ao-prepass-tie-alpha, essai 15 : la carte `g` de concavite de la PROFONDEUR, pleine
+  // resolution, R8. Elle ne porte aucun bruit d'estimateur — c'est ce qui permet de rendre le
+  // contact que les boites larges du flou effacent sans faire remonter `ao_flatstep_*`.
+  GLuint m_ao_gterm_fbo = 0;
+  GLuint m_ao_gterm_tex = 0;
+  int m_ao_gterm_w = 0;
+  int m_ao_gterm_h = 0;
 
   // Output-size hint (window-keyed AO chain sizing; 0 == fall back to depth size).
   int m_hint_w = 0, m_hint_h = 0;

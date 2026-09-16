@@ -426,6 +426,15 @@ void AmbientOcclusionPass::free_targets() {
     m_ao_scratch_fbo = 0;
     m_ao_scratch_tex = 0;
   }
+  if (m_ao_gterm_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &m_ao_gterm_fbo);
+    glDeleteTextures(1, &m_ao_gterm_tex);
+    m_ao_gterm_fbo = 0;
+    m_ao_gterm_tex = 0;
+    m_ao_gterm_w = 0;
+    m_ao_gterm_h = 0;
+  }
 }
 
 void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int full_h) {
@@ -508,6 +517,39 @@ void AmbientOcclusionPass::ensure_scratch(int full_w, int full_h) {
   glDrawBuffers(1, bufs);
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     lg::error("AO: scratch ao target FBO incomplete ({}x{})", full_w, full_h);
+  }
+}
+
+// Cible de la carte `g` de la restauration de contact (essai 15). Meme forme que le brouillon,
+// meme allocation paresseuse : le bras temoin et la vue de debug ne la demandent pas.
+void AmbientOcclusionPass::ensure_gterm(int full_w, int full_h) {
+  if (m_ao_gterm_fbo && m_ao_gterm_w == full_w && m_ao_gterm_h == full_h) {
+    return;
+  }
+  if (m_ao_gterm_fbo) {
+    glFinish();
+    glDeleteFramebuffers(1, &m_ao_gterm_fbo);
+    glDeleteTextures(1, &m_ao_gterm_tex);
+    m_ao_gterm_fbo = 0;
+    m_ao_gterm_tex = 0;
+  }
+  m_ao_gterm_w = full_w;
+  m_ao_gterm_h = full_h;
+  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
+  glGenFramebuffers(1, &m_ao_gterm_fbo);
+  glGenTextures(1, &m_ao_gterm_tex);
+  glBindTexture(GL_TEXTURE_2D, m_ao_gterm_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, full_w, full_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+  hdr::note_input_source("ao-gterm", GL_R8, full_w, full_h, 1);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_ao_gterm_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ao_gterm_tex, 0);
+  glDrawBuffers(1, bufs);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("AO: contact gterm FBO incomplete ({}x{})", full_w, full_h);
   }
 }
 
@@ -872,6 +914,22 @@ std::vector<uint32_t> s_static_sat;      // somme cumulee 2D du masque, (w+1) x 
 // En jeu `s_measure_legacy` vaut 0 : le chemin livre l'a TOUJOURS.
 uint64_t s_ridge_fill_armed = 0;
 uint64_t s_ridge_fill_passes = 0;
+// ── ao-prepass-tie-alpha, essai 15 : la restauration de contact ──────────────────────────────
+// `s_contact_strength_milli` est le K EFFECTIVEMENT pose sur la derniere jambe ; `s_contact_fbo`
+// donne au recensement de quoi relire la carte `g` produite par le GPU, pour que la preuve porte
+// une grandeur MESUREE et pas un compteur de passes qui se regarde lui-meme.
+constexpr float kContactStrength = 0.25f;
+uint64_t s_contact_armed = 0;
+uint64_t s_contact_passes = 0;
+uint64_t s_contact_strength_milli = 0;
+uint64_t s_contact_g_frames = 0;
+uint64_t s_contact_g_pop = 0;
+uint64_t s_contact_g_px = 0;
+uint64_t s_contact_g_hi_px = 0;
+uint64_t s_contact_g_max = 0;
+uint64_t s_contact_g_sum = 0;
+GLuint s_contact_gterm_fbo = 0;
+std::vector<uint8_t> s_contact_buf;
 
 uint64_t s_cross_px[2] = {0, 0};
 uint64_t s_cross_pop[2] = {0, 0};
@@ -1330,6 +1388,50 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
                                    t_end_gl - t0)
                                    .count();
     return;
+  }
+
+  // ── (essai 15) CE QUE LA RESTAURATION DE CONTACT A REELLEMENT POSE, RELU SUR LE GPU ───────
+  // Une relecture R8 de plus, dans la MEME image de recensement, sur la carte `g`. Sans elle la
+  // preuve ne porterait qu'un compteur de passes — un miroir de la variable qui l'incremente.
+  // Bras temoin : `s_contact_gterm_fbo` reste a 0, donc `ao_contact_g_frames` vaut 0 et les
+  // quatre grandeurs aussi. La population est publiee a cote des comptes.
+  if (s_contact_gterm_fbo != 0) {
+    if (s_contact_buf.size() < n) {
+      s_contact_buf.resize(n);
+    }
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s_contact_gterm_fbo);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, s_contact_buf.data());
+    const GLenum gerr = glGetError();
+    glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
+    if (gerr == GL_NO_ERROR) {
+      uint64_t px = 0, hi = 0, sum = 0, mx = 0;
+      for (size_t i = 0; i < n; i++) {
+        const uint8_t g = s_contact_buf[i];
+        if (g) {
+          px++;
+          sum += g;
+          if (g >= 64) {
+            hi++;
+          }
+          if (g > mx) {
+            mx = g;
+          }
+        }
+      }
+      s_contact_g_frames++;
+      s_contact_g_pop += (uint64_t)n;
+      s_contact_g_px += px;
+      s_contact_g_hi_px += hi;
+      s_contact_g_sum += sum;
+      if (mx > s_contact_g_max) {
+        s_contact_g_max = mx;
+      }
+    }
   }
 
   const int p = std::max(2, (int)std::lround(1.0 / (double)std::max(scale, 1e-6f)));
@@ -1887,6 +1989,18 @@ void AmbientOcclusionPass::publish_pattern_census() {
   // signature d'un compteur sans site d'ecriture.
   autoport_proof::publish("ao_ridge_fill_armed", s_ridge_fill_armed);
   autoport_proof::publish("ao_ridge_fill_passes", s_ridge_fill_passes);
+  autoport_proof::publish("ao_contact_restore_armed", s_contact_armed);
+  autoport_proof::publish("ao_contact_restore_passes", s_contact_passes);
+  autoport_proof::publish("ao_contact_restore_strength_milli", s_contact_strength_milli);
+  autoport_proof::publish("ao_contact_restore_radius", 5);
+  // Ce que le GPU a REELLEMENT produit, relu par le recensement : population, pixels portes,
+  // pixels a plus de 25 %, maximum et somme. Bras temoin = zero partout, sans exception.
+  autoport_proof::publish("ao_contact_g_frames", s_contact_g_frames);
+  autoport_proof::publish("ao_contact_g_pop_px", s_contact_g_pop);
+  autoport_proof::publish("ao_contact_g_px", s_contact_g_px);
+  autoport_proof::publish("ao_contact_g_hi_px", s_contact_g_hi_px);
+  autoport_proof::publish("ao_contact_g_max", s_contact_g_max);
+  autoport_proof::publish("ao_contact_g_sum", s_contact_g_sum);
   const bool q2_full = (s_scale_q_x1000[2] >= 1000);
   // Le temoin DOIT etre non nul : sans lui, le 0 d'a cote ne prouve rien.
   const bool cross_measured =
@@ -2303,7 +2417,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   u_intensity *= ao_strength_mul;
 
   if (hut_archive.active) {
-    hut_archive.expected = dbg == 2 ? 0 : 7 + ((s_measure_legacy != 0) ? 2 : 2 * nboxes + 4);
+    hut_archive.expected = dbg == 2 ? 0 : 7 + ((s_measure_legacy != 0) ? 2 : 2 * nboxes + 5);
     hut_archive.manifest << "render_frame=" << rs->frame_idx << "\nmode=" << mode << "\nquality=" << quality
         << "\nlegacy=" << s_measure_legacy << "\ndebug=" << dbg
         << "\nradius=" << u_radius << "\nintensity=" << u_intensity
@@ -2487,6 +2601,53 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     if (ridge_fill) {
       ensure_scratch(out_w, out_h);
     }
+    // ── (essai 15) LA CARTE `g` SE CALCULE AVANT LE FLOU, ELLE NE DEPEND QUE DE LA PROFONDEUR ─
+    // Trois passes pleine resolution : une qui lit 26 texels de profondeur et rend la concavite,
+    // deux qui la lissent (tente 1,4,6,4,1 en H puis en V). Le brouillon sert d'intermediaire :
+    // aucune cible de plus que `m_ao_gterm_tex`. Elles sont DESARMEES sur le bras temoin, donc
+    // `ao_contact_g_*` y vaut zero et l'ablation est gratuite.
+    const bool contact_restore = ridge_fill;
+    // REMIS A ZERO A CHAQUE IMAGE : sans ca, une image du bras TEMOIN relirait la carte `g`
+    // laissee par l'image LIVREE precedente et l'ablation rendrait le meme chiffre des deux
+    // cotes — une porte verte par inertie, pas par mesure.
+    s_contact_gterm_fbo = 0;
+    if (contact_restore) {
+      ensure_gterm(out_w, out_h);
+      s_contact_gterm_fbo = m_ao_gterm_fbo;
+      shader.activate();
+      GLuint gid = shader.id();
+      struct GLeg { GLuint fbo; GLuint src; int pass; float dx, dy; };
+      const GLeg glegs[3] = {
+          {m_ao_gterm_fbo, 0u, 1, 0.0f, 0.0f},
+          {m_ao_scratch_fbo, m_ao_gterm_tex, 2, 1.0f / (float)out_w, 0.0f},
+          {m_ao_gterm_fbo, m_ao_scratch_tex, 2, 0.0f, 1.0f / (float)out_h}};
+      for (const auto& leg : glegs) {
+        glBindFramebuffer(GL_FRAMEBUFFER, leg.fbo);
+        glViewport(0, 0, out_w, out_h);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, leg.src ? leg.src : m_ao_tex[0]);
+        glUniform1i(glu::loc(gid, "u_ao"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depth_tex);
+        glUniform1i(glu::loc(gid, "u_depth"), 1);
+        upload_common_uniforms(gid, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
+        glUniform2f(glu::loc(gid, "u_dir"), leg.dx, leg.dy);
+        glUniform1f(glu::loc(gid, "u_edge_reject"), 1.0f);
+        glUniform1i(glu::loc(gid, "u_blur_report"), 0);
+        glUniform1i(glu::loc(gid, "u_ridge_fill"), 0);
+        glUniform1i(glu::loc(gid, "u_contact_pass"), leg.pass);
+        glUniform1f(glu::loc(gid, "u_contact_strength"), 0.0f);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
+        note_target(leg.fbo);
+        s_contact_passes++;
+      }
+      s_contact_armed = 1;
+      s_contact_strength_milli = (uint64_t)std::lround(kContactStrength * 1000.0f);
+      if (hut_archive.active) {
+        hut_archive.capture("contact-g", m_ao_gterm_fbo, out_w, out_h);
+      }
+    }
     const GLuint last_v_fbo = m_ao_full_fbo;
     BlurLeg legs[8];
     if (nlegs == 2) {
@@ -2525,6 +2686,17 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
       // `glUseProgram` ne remet AUCUN uniforme a zero : un `u_ridge_fill` laisse a 1 par la
       // passe precedente transformerait toute la chaine de flou en passes de crete.
       glUniform1i(glu::loc(id, "u_ridge_fill"), 0);
+      // La restauration de contact ne se pose que sur la DERNIERE jambe — celle qui ecrit dans
+      // la texture que shade() lit. Sur les autres, K vaut 0 : le flou reste exactement celui
+      // d'avant, et le facteur (1 - K.g) n'est applique qu'UNE fois, pas huit.
+      glUniform1i(glu::loc(id, "u_contact_pass"), 0);
+      const bool last_leg = (p == nlegs - 1);
+      glUniform1f(glu::loc(id, "u_contact_strength"),
+                  (contact_restore && last_leg) ? kContactStrength : 0.0f);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, contact_restore ? m_ao_gterm_tex : depth_tex);
+      glUniform1i(glu::loc(id, "u_gterm"), 2);
+      glActiveTexture(GL_TEXTURE0);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
       soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
       note_target(legs[p].fbo);
@@ -2575,6 +2747,8 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform1f(glu::loc(id, "u_edge_reject"), leg_reject);
         glUniform1i(glu::loc(id, "u_blur_report"), 0);
         glUniform1i(glu::loc(id, "u_ridge_fill"), 1);
+        glUniform1i(glu::loc(id, "u_contact_pass"), 0);
+        glUniform1f(glu::loc(id, "u_contact_strength"), 0.0f);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
         note_target(ping_fbo[rp]);
@@ -2611,6 +2785,8 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform1f(glu::loc(id, "u_edge_reject"), (arm == 0) ? 1.0f : 0.0f);
         glUniform1i(glu::loc(id, "u_blur_report"), 1);
         glUniform1i(glu::loc(id, "u_ridge_fill"), 0);  // rapport de FLOU, pas de crete
+        glUniform1i(glu::loc(id, "u_contact_pass"), 0);
+        glUniform1f(glu::loc(id, "u_contact_strength"), 0.0f);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         soft_draw_census::record_arrays("postprocess", 4, GL_TRIANGLE_STRIP);
         note_target(m_ao_scratch_fbo);
@@ -2635,6 +2811,9 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   glBindVertexArray(prev_vao);
   glBindBuffer(GL_ARRAY_BUFFER, prev_array_buffer);
   glUseProgram(prev_program);
+  // L'unite 2 n'existait pas avant l'essai 15 : la passe la pose pour `u_gterm`, elle la rend.
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, prev_tex0);
   glActiveTexture(GL_TEXTURE1);
