@@ -21,7 +21,7 @@
 //   grass_<a>_<p>_fps / _frames / _frame_ms_p50 / _frame_ms_p95   la cadence et son denominateur
 //   grass_<a>_<p>_render_frames                                   images ou GrassRenderer a tourne
 //   grass_<a>_<p>_actors_active / _loadcover_frames               le regime de la cellule
-//   grass_on_<p>_prep_us / _fence_us / _draw_us                   la decomposition cote processeur
+//   grass_on_<p>_prep_us / _fence_us / _submit_us                 la decomposition cote processeur
 //   grass_on_<p>_submitted_blade / _submitted_card                instances SOUMISES au dessin
 //   grass_on_<p>_frustum_in / _lod / _tested / _behind             instances DANS LE CHAMP DE VISION
 //   grass_load_<p>_total_ms / _source_ms / _expand_ms / _upload_ms   le chargement, decompose
@@ -29,6 +29,7 @@
 //   grass_load_<p>_instances / _drawn / _dead                      construites, dessinees, mortes
 //   grass_load_<p>_inst_bytes / _light_bytes                       la memoire des DEUX tampons
 //   grass_baseline_dead_instances                                  la queue morte, seule sur sa ligne
+//   grass_baseline_regime_read                                     cellules dont le REGIME a ete relu
 //   grass_baseline_gaps                                            ce qui MANQUE, et c'est la porte
 //
 // `grass_baseline_gaps` SE CALCULE EN RELISANT `autoport_proof::has_key`, jamais une variable

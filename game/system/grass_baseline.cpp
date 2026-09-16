@@ -280,6 +280,10 @@ const char* const kLoadMetrics[] = {"total_ms",   "source_ms", "expand_ms", "upl
 
 void publish_gaps() {
   uint64_t gaps = 0;
+  // COMBIEN DE CELLULES ONT VU LEUR REGIME RELU. Une porte agregee qui compte 1 par terme NON
+  // MESURE se lit comme une porte verte : ce denominateur sort a cote de `gaps` pour qu'on
+  // sache, AVANT de lire la somme, sur combien de cellules le terme de regime a mordu.
+  uint64_t regime_read = 0;
   std::string missing;
   char key[96];
   auto miss = [&](const char* what) {
@@ -313,6 +317,30 @@ void publish_gaps() {
     if (autoport_proof::read_uint(key, n) && n < kMeasureFrames) {
       miss(key);
     }
+    // LE REGIME DE LA CELLULE, JUGE ET PAS SEULEMENT PUBLIE. `render_frames` etait exige PRESENT
+    // et jamais relu : une cellule ETEINTE dont la surcharge n'a pas mordu — GOAL qui n'appelle
+    // pas `pc_set_recharged_grass`, porte `recharged_gating` ecrasee — mesure l'herbe ALLUMEE,
+    // publie une cadence, et `gaps` reste a zero. Les cinq cellules « OFF » seraient alors une
+    // copie des cinq « ON », et l'ECART ON/OFF — la seule grandeur pour laquelle cet item
+    // existe — serait faux sans qu'un seul terme rougisse. C'est un faux vert, pas une lacune
+    // de confort. Le terme ne coute rien : la valeur est deja dans la table moissonnee.
+    //
+    // LES DEUX SENS, parce qu'un seul laisserait l'autre panne muette : une cellule ALLUMEE ou
+    // le renderer n'a jamais tourne rend « l'herbe ne coute rien » et « l'instrument n'a pas
+    // tourne » sur la meme ligne. Le seuil est `!= 0`, pas `>= frames` : la course a blanc rend
+    // 288 sur 300 au palier very_low (`has_pc_data` faux quelques images), et un plancher serre
+    // rougirait sur un regime pourtant correct.
+    cell_key(key, sizeof(key), c, "render_frames");
+    uint64_t rf = 0;
+    if (autoport_proof::read_uint(key, rf)) {
+      regime_read++;
+      if (kCells[c].grass_on ? (rf == 0) : (rf != 0)) {
+        char why[128];
+        std::snprintf(why, sizeof(why), "%s_vaut_%llu_sous_regime_%s", key,
+                      (unsigned long long)rf, kCells[c].grass_on ? "on" : "off");
+        miss(why);
+      }
+    }
   }
   for (int p = 0; p < grass_bake::kDensityPresetCount; p++) {
     for (const char* m : kLoadMetrics) {
@@ -329,6 +357,7 @@ void publish_gaps() {
     miss("grass_baseline_built_instances");
   }
   autoport_proof::publish_text("grass_baseline_missing", missing.empty() ? "-" : missing.c_str());
+  autoport_proof::publish("grass_baseline_regime_read", regime_read);
   autoport_proof::publish("grass_baseline_gaps", gaps);
 }
 

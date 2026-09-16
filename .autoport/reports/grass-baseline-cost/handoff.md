@@ -1,31 +1,48 @@
 DIRECTIVES v07b292c21f
 
 ## ÉTABLI (mesuré)
-Instrument LIVRÉ : `game/system/grass_baseline.{h,cpp}`, campagne 10 cellules (5 paliers x ON/OFF)
-sur le patron `perf_baseline`. `build_x86.sh` rc=0, `build_arm64.sh --dir build-android` rc=0, APK
-rebâti, `libgk.so` de l'APK md5-identique à `build-android/lib/arm64-v8a/libgk.so`.
-Course à blanc x86 (notes/smoke3-x86.log, n'a PAS touché proof.txt) : `GRASS-BASELINE done
-cells=10 short=0`, `grass_baseline_gaps=0`. Le critère de la porte est donc TENU par l'instrument
-de bout en bout — reste à le produire sur l'appareil, seul bras qui ferme l'item.
-Chiffres d'août CONFIRMÉS sur le binaire courant : `dead_instances=110472`,
-`built_instances=726851` (7,07 Mo de VBO d'instances jamais dessinés).
-Contraste falsifiable : cellule ON `render_frames=300` contre OFF `render_frames=0`, même
-instrument. Aucun test de frustum n'existait dans GrassRenderer ; celui-ci rejoue `world_to_clip`
-(grass.vert:81-98) et publie `frustum_behind`, qui rend sa convention de signe falsifiable.
-Item épinglé : `proof_timeout` 420 -> 1800 ; `proof_props` = level.warp=training-start,
-perf.buckets=1, recharged=1, uncap.fps=240.
+
+AUCUN APPAREIL USB N'EXISTE SUR CETTE MACHINE. `lsusb` ne liste qu'un disque WD, un lecteur de
+cartes, une webcam et le Bluetooth Intel — pas un seul appareil Android. Serveur adb tué et
+relancé : `List of devices attached` vide. `pick_device.sh` sort en 3. Ce n'est pas un incident adb.
+
+LA COURSE A ÉTÉ LANCÉE, et elle a NOMMÉ son empêchement — c'est ce que l'essai 7 n'avait pas fait.
+`lib/proof_run.sh grass-baseline-cost device` (essai `grass-baseline-cost@8`, pid 276419) a pris le
+verrou d'écriture, attendu 135 s le verrou de déploiement d'un build arm64 VIVANT (pid 222205),
+puis écrit `reports/grass-baseline-cost/proof-impossible.txt` :
+`proof_impossible_reason=appareil-non-choisi`, `exit=3`. `impossible.py standing` rend
+`standing=1`. `orchestrator.close_gate` lit cet état en GATE -1 (`orchestrator.py:951`) :
+l'essai est REQUALIFIÉ, `retries` est rendu, et 3 d'affilée BLOQUENT l'item au lieu de boucler.
+La preuve de l'essai 1 n'a PAS été réutilisée ni détruite : copiée dans
+`notes/proof-essai1-device-20260915-ARCHIVE.txt`, et `proof_run.sh` ne l'a pas effacée.
+
+UN FAUX VERT CORRIGÉ DANS LA PORTE DE L'ITEM. `publish_gaps` exigeait `render_frames` PRÉSENT sans
+jamais le relire : une cellule ÉTEINTE dont la surcharge d'herbe n'aurait pas mordu mesurait
+l'herbe ALLUMÉE, publiait une cadence, et `gaps` restait à 0 — les cinq « OFF » devenaient une
+copie des cinq « ON » et l'écart ON/OFF, seule grandeur pour laquelle cet item existe, était faux
+sans qu'un terme rougisse. Le terme juge maintenant les deux sens (`off ⇒ ==0`, `on ⇒ !=0`) et
+nomme le coupable avec sa valeur. Seuil `!= 0` et non un plancher : la course à blanc rend 288/300
+au palier very_low (`has_pc_data` faux quelques images, cf. FINDINGS). Denominateur publié à côté :
+`grass_baseline_regime_read`. Les deux arbres rebâtis par leur porte (x86 46 s ; arm64 `gk` lié),
+marqueur `_vaut_%llu_sous_regime_%s` vérifié par `strings` dans build/game/gk ET
+build-android/lib/arm64-v8a/libgk.so.
 
 ## TENTÉ, et pourquoi ça a échoué
-Preuve APPAREIL impossible : aucun appareil USB de tout l'essai (`pick_device.sh` exit 3, `adb
-devices` vide, veilleur en fond jamais déclenché). `proof.txt` n'a pas été reproduit et celui de
-l'essai 1 n'a pas été réutilisé. Bras `--off` non lancé, même cause.
-Deux défauts de MON code trouvés par la course à blanc, corrigés avant qu'ils comptent :
-`close_cell` lisait `g_state_frames` après sa remise à zéro par `enter_state(kCensus)` ; et les
-témoins ne sortaient qu'aux fermetures, donc une course tronquée aurait dit `state=0`.
+
+Preuve APPAREIL : impossible, cause matérielle ci-dessus. Veille USB de 40 min pendant l'essai :
+aucun appareil. Bras `--off` non lancé, même cause.
+Égalité du VANTAGE entre cellules (clause 1 du contrat) NON corrigée : `autoport_proof.h` n'expose
+que `has_key` et `read_uint`, aucun lecteur de TEXTE, et `jak_pos`/`cam_dm` sont du texte. La
+corriger demande d'élargir un module partagé par tous les items. Inscrit en FINDINGS, pas fait.
 
 ## RESTE
-1. Brancher l'USB puis `lib/proof_run.sh grass-baseline-cost device`. Rien d'autre à préparer.
-2. Optionnel (contrat, pas le validateur) : `... device --off --timeout 240` -> `armed=0 hits=0`.
-3. NE PAS rééditer game/ common/ android/ goal_src/ après la course : le validateur refuse une
-   preuve plus vieille que ses sources moteur.
-4. Cellule sous 300 images -> lire `cells_short` ; `kMeasureMaxSeconds`=220 s vise 4,6 img/s.
+
+1. Brancher l'USB, puis `lib/proof_run.sh grass-baseline-cost device`. Rien d'autre à préparer.
+2. AVANT : vérifier que l'APK porte le `libgk.so` du 16/09 16:09. Le démon `auto_build_apk.sh` a
+   refusé son tour (« sources modifiees pendant la fabrication ») parce que l'édition est tombée
+   pendant son build ; il retente seul, mais l'APK de 16:05 est ANTÉRIEUR au binaire.
+   Contrôle : `unzip -p <apk> lib/arm64-v8a/libgk.so | md5sum` contre le fichier de build-android.
+3. NE PAS rééditer game/ common/ android/ goal_src/ après la course.
+4. Mode d'échec le plus probable sur appareil : throttling thermique sur les cellules `high` et
+   `very_high`, qui passent en DERNIER (FINDINGS ligne 18). Si `cells_short>0`, c'est ça, pas
+   l'instrument.
