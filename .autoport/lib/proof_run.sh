@@ -869,6 +869,58 @@ else
   log "hygiene des etats impossibles : echec (non bloquant) — $(printf '%s' "$PURGED" | tail -1)"
 fi
 
+# ====================================================== VERROU-ECRAN/debut ===================
+# UN TELEPHONE EN DIRECT BOOT N'EST PAS UN BINAIRE PERIME
+# (essai 10 de grass-baseline-cost, 2026-09-16).
+#
+# CE QUI ETAIT LA. La garde binaire qui suit lisait l'ECART de md5, tentait l'installation, la
+# voyait refusee, et sortait en 6 en ORDONNANT de reconstruire le binaire. Mesure du 16/09 sur
+# eae4df44 : a 16:24:07 `adb install` rend `java.lang.SecurityException: System is not ready
+# yet!`, a 16:26:11 `pm install -r -d -t` rend `INSTALL_FAILED_USER_RESTRICTED: Install
+# canceled by user`, et le journal systeme NOMME la cause — `ActivityTaskManager: aInfo is null
+# for resolve intent ... com.miui.securitycenter/...AdbInstallActivity`. L'activite de
+# confirmation de MIUI n'est pas directBootAware : elle n'EXISTE PAS tant que le PIN n'a pas
+# ete saisi depuis le demarrage. Le binaire local etait bon au bit pres. Le commentaire de
+# `lib/device-validate.sh:230` qui annonce `pm install` comme independant du keyguard est FAUX
+# sur ce chemin : les DEUX voies rendent le meme refus, et le refus ACCUSE le binaire.
+#
+# CE QUI EST LA MAINTENANT. On lit L'ETAT DE L'UTILISATEUR — une grandeur que le SYSTEME
+# produit — AVANT de toucher a l'installation :
+#   dumpsys user                -> `Started users state: [0=RUNNING_LOCKED]` : stockage CE verrouille
+#   cmd package resolve-activity -> `No activity found` : l'application ne peut meme pas etre
+#                                   LANCEE. Ce n'est donc pas l'installation qui est impossible,
+#                                   c'est LA MESURE ; le deuxieme temoin le dit, le premier non.
+# C'est un etat NOMME (`appareil-verrouille`), pas un refus : la seule action utile est un geste
+# de l'owner — saisir le PIN une fois — et aucun code ne le remplace. L'essai se requalifie au
+# lieu d'etre debite pour une cause que la machine sait nommer. Quand l'appareil est DEVERROUILLE
+# les deux temoins sont publies quand meme : une course qui a mesure dit sur quel etat d'ecran.
+if [ "$MODE" = device ]; then
+  _vk_adb="${ADB:-/home/emeric/Android/platform-tools/adb}"; [ -x "$_vk_adb" ] || _vk_adb=adb
+  _vk_pkg="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
+  _vk_strict=""; [ -z "${ANDROID_SERIAL:-}" ] && [ -n "$ITEM_SERIAL" ] && _vk_strict=1
+  _vk_ser=$(ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" ANDROID_SERIAL_STRICT="$_vk_strict" \
+            bash "$AP/lib/pick_device.sh" 2>/dev/null) || _vk_ser=""
+  if [ -n "$_vk_ser" ]; then
+    _vk_state=$(timeout 25 "$_vk_adb" -s "$_vk_ser" shell dumpsys user 2>/dev/null \
+                | tr -d '\r' | sed -n 's/.*Started users state: *//p' | head -1)
+    _vk_state=${_vk_state:--}
+    _vk_act=$(timeout 25 "$_vk_adb" -s "$_vk_ser" shell "cmd package resolve-activity --brief $_vk_pkg" \
+              2>/dev/null | tr -d '\r' | grep -v '^$' | tail -1)
+    _vk_act=${_vk_act:--}
+    _vk_boot=$(timeout 25 "$_vk_adb" -s "$_vk_ser" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+    log "verrou d'ecran : users='$_vk_state' boot_completed='${_vk_boot:--}' lancement='$_vk_act'"
+    extra "proof_device_users_state=$(printf '%s' "$_vk_state" | tr ' ' '_')"
+    extra "proof_device_boot_completed=${_vk_boot:--}"
+    extra "proof_device_launch_resolve=$(printf '%s' "$_vk_act" | tr ' ' '_')"
+    case "$_vk_state" in
+      *RUNNING_LOCKED*)
+        die3 appareil-verrouille \
+"$_vk_ser en Direct Boot : dumpsys user rend '$_vk_state', resolve-activity de $_vk_pkg rend '$_vk_act', boot_completed=${_vk_boot:--}. Ni installation ni LANCEMENT possibles. Il manque UN geste de l'owner : saisir le PIN une fois. Reconstruire le binaire n'y changerait rien." ;;
+    esac
+  fi
+fi
+# VERROU-ECRAN/fin
+
 # ====================================================== GARDE-BINAIRE/debut ==================
 # LA VERIFICATION PRECEDE LA MESURE
 # (harness-proof-run-device-deploys-or-refuses-first, 2026-09-14).
