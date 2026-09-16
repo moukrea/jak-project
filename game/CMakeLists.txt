@@ -440,6 +440,26 @@ if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
                 # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
                 # collide TUs above. No-op on today's build (already non-contracted).
                 mips2c/jak1_functions/sparticle.cpp
+                # perf-mips2c-neon 2026-09-16 : LES NOYAUX D'ANIMATION, JAMAIS AJOUTES.
+                # Meme defaut que Gcollision-arm et Gjak2-polish, sur la famille que cet
+                # item porte dans son titre (« les calculs d'animation [...] sans changer
+                # leurs resultats »). Mesure sur l'artefact arm64 LIVRE, llvm-objdump du
+                # NDK, comptage fmla|fmls|fmadd|fmsub|fnmadd|fnmsub :
+                #     jak1_functions/joint .....  296     (les six TU deja listees plus
+                #     jak1_functions/bones .....   76      haut rendent 0 : controle
+                #                                          positif gratuit de la mesure)
+                # `cspace<-parented-transformq-joint!` vit dans joint.cpp et est la
+                # fonction mips2c la PLUS APPELEE du jeu sur l'appareil de preuve
+                # (5 091 240 appels en 34 980 images). Ses `vmadda_bc`/`vmadd_bc`
+                # (mips2c_private.h : `acc.f[i] += s0.f[i] * s1.f[bc]`, une seule
+                # instruction C++) se contractent en `fmadd` : UN arrondi la ou l'oracle
+                # x86 (GCC sans -mfma) en fait DEUX. Toute pose de personnage sur arm64
+                # diverge donc de sa reference avant meme qu'on parle d'optimisation.
+                # bones.cpp est sur le chemin `bones-mtx-calc`, inactif dans le regime
+                # livre (*use-new-bones*) : son ajout est une garantie, pas un correctif
+                # — exactement le statut que le commentaire sparticle ci-dessus decrit.
+                mips2c/jak1_functions/joint.cpp
+                mips2c/jak1_functions/bones.cpp
                 # Gjak2-polish 2026-08-31: les memes TU pour jak2 — la liste Gcollision-arm
                 # n'avait jamais ete etendue au second jeu (501 FMA fusionnees mesurees dans
                 # les objets arm64 livres, contre 0 chez les jumelles jak1 ; detail et mise en

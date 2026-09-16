@@ -564,6 +564,33 @@ set_source_files_properties(
     # requirement as the collision TUs above.
     "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle.cpp"
     # ---------------------------------------------------------------------------------
+    # perf-mips2c-neon 2026-09-16 — LE MEME CORRECTIF, JAMAIS ETENDU A L'ANIMATION JAK 1.
+    # Gjak2-polish avait cherche les TU oubliees CHEZ JAK 2 et conclu « 0 chez les
+    # jumelles jak1 ». C'etait vrai des cinq collide_*.cpp — et faux du reste de jak1 :
+    # personne n'avait compte les TU mips2c jak1 qui ne sont pas de la collision.
+    #
+    # MESURE SUR L'ARTEFACT LIVRE, meme methode que ci-dessous (llvm-objdump du NDK sur
+    # build-android/.../jak1_functions/*.o, comptage fmla|fmls|fmadd|fmsub|fnmadd|fnmsub),
+    # AVANT ce correctif — les 25 TU jak1, triees :
+    #     joint ........ 296   sky_tng ...... 122   ocean_vu0 ..  64   ocean ...... 30
+    #     generic_tie .. 208   draw_string ..  87   shadow .....  55   tfrag ...... 13
+    #     tie_methods .. 133   bones ........  76   generic_effect 51  generic_merc 10
+    #     ripple ........  8
+    #     collide_cache, collide_edge_grab, collide_func, collide_mesh, collide_probe,
+    #     sparticle ....   0   <- les six deja listees : CONTROLE POSITIF de la mesure
+    # Soit 1153 multiply-add FUSIONNES (un seul arrondi) la ou l'oracle x86 en fait deux.
+    #
+    # PORTEE DE CET ITEM : joint.cpp et bones.cpp, la famille ANIMATION qu'il porte dans
+    # son titre. `cspace<-parented-transformq-joint!` (joint.cpp) est la fonction mips2c
+    # la plus appelee du jeu sur l'appareil de preuve : 5 091 240 appels en 34 980 images.
+    # Les 781 FMA des onze autres TU (rendu de fond, ciel, eau, ondes) sont NOMMEES dans
+    # .autoport/reports/perf-mips2c-neon/FINDINGS.txt et ne sont pas corrigees ici : elles
+    # touchent des acquis valides par l'owner (TIE, ciel, eau) dont aucun n'a demande ce
+    # changement, et « par symetrie » n'est pas une justification — c'est la regle que
+    # Gjak2-polish a posee juste en dessous.
+    "${JAK_ROOT}/game/mips2c/jak1_functions/joint.cpp"
+    "${JAK_ROOT}/game/mips2c/jak1_functions/bones.cpp"
+    # ---------------------------------------------------------------------------------
     # Gjak2-polish 2026-08-31 — LE MEME CORRECTIF, JAMAIS ETENDU A JAK 2.
     # L'owner, 2026-07-09 : « au lieu d'avoir tire des lecons de Jak 1 on reinvente la roue
     # pour le 2, c'est bizarre et surtout wasteful. » En voici une, litterale : la liste
