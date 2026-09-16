@@ -42,6 +42,13 @@ TICK = re.compile(rb"^(\d{2}):(\d{2}):(\d{2}) ")
 WIP = re.compile(r"WIP checkpoint|checkpoint automatique|^\[[^]]*\] *WIP |validateur .CHOU|PAS une r.ussite",
                  re.IGNORECASE)
 JOUR = 86400
+SEPT_HEURES = 7 * 3600
+# LES DEUX SEULES PAROLES QUE LE CONSTRUCTEUR PRONONCE AVANT D'ENTRER DANS SA BOUCLE. Un silence
+# que l'une d'elles rouvre n'est pas un tour muet : le demon ne TOURNAIT pas. Le premier filtre
+# ne connaissait que « auto-builder demarre » ; un redemarrage ou le verrou est encore tenu par
+# le `sleep` orphelin de l'instance precedente sort par l'autre ligne, et son silence etait
+# impute a cet item (mesure : 790 s attribues a tort apres le redemarrage du 17/09 01:21).
+DEMARRAGE = re.compile(r"^(auto-builder |une autre instance detient le verrou)")
 
 
 def ticks(chemin):
@@ -123,6 +130,7 @@ def main():
     silences = 0
     muets = 0
     redemarrages = 0
+    longs = []
     for i in range(len(T) - 1):
         t0, t1 = T[i][0], T[i + 1][0]
         d = t1 - t0
@@ -132,13 +140,15 @@ def main():
         # « auto-builder demarré », le constructeur ne TOURNAIT pas : c'est une panne de
         # supervision, un autre defaut. On ne l'impute pas a cet item (feedback : une porte qui
         # IMPUTE doit ancrer sur l'essai et NOMMER sa cause). Le compte des exclus est publie.
-        if T[i + 1][1].startswith("auto-builder"):
+        if DEMARRAGE.match(T[i + 1][1]):
             redemarrages += 1
             continue
         dedans = [c for c in C if t0 < c[0] < t1]
         if not dedans:
             continue                      # rien de livrable n'attendait : pas le defaut de cet item
         silences += 1
+        if d >= SEPT_HEURES:
+            longs.append(str(t1))
         if periode > 0:
             muets += max(0, d // periode - 1)
         courant = {"s": d, "t0": t0, "t1": t1, "commits": dedans,
@@ -163,6 +173,12 @@ def main():
         "cost_tick_period_s": periode,
         "cost_silences_with_pending_commit": silences,
         "cost_silences_excluded_daemon_restart": redemarrages,
+        # LES EPISODES QUI TIENNENT LA PORTE : combien de silences d'au moins SEPT HEURES ont
+        # couvert un commit livrable, et quand ils se sont refermes. Le plus RECENT des silences
+        # n'est pas une grandeur de cout : il RETRECIT quand le correctif marche, donc le juger
+        # rendrait la porte rouge exactement le jour ou le defaut disparait.
+        "cost_silences_over_7h": len(longs),
+        "cost_over_7h_ends": ",".join(longs[-12:]) or "-",
         "cost_max_silence_s": pire["s"],
         "cost_max_silence_from": pire["t0"],
         "cost_max_silence_to": pire["t1"],
@@ -171,6 +187,7 @@ def main():
         "cost_max_silence_pending_commits": len(pire["commits"]),
         "cost_max_silence_commit_list": ",".join(c[1] for c in pire["commits"][:12]) or "-",
         "cost_max_silence_mute_ticks": max(0, p_muets),
+        "cost_max_silence_over_7h": 1 if pire["s"] >= SEPT_HEURES else 0,
         "cost_mute_ticks_lower_bound": muets,
         # LE PLUS RECENT, celui que la cause connue de l'item nomme (16/09 17:41 -> 17/09 00:40).
         "cost_last_silence_s": dernier["s"],

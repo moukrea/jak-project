@@ -45,16 +45,21 @@ C_OCTETS=$(n "$(c cost_log_bytes)")
 C_TICKS=$(n "$(c cost_ticks_total)")
 C_DERNIER=$(n "$(c cost_last_silence_s)")
 C_PIRE=$(n "$(c cost_max_silence_s)")
-C_COMMITS=$(n "$(c cost_last_silence_pending_commits)")
-C_MUETS=$(n "$(c cost_last_silence_mute_ticks)")
+C_COMMITS=$(n "$(c cost_max_silence_pending_commits)")
+C_MUETS=$(n "$(c cost_max_silence_mute_ticks)")
+C_LONGS=$(n "$(c cost_silences_over_7h)")
 C_WIP=$(n "$(c cost_wip_motif_identique)")
 t_cout=0
 [ -n "$COUT" ] || { t_cout=$((t_cout+1)); faute instrument-de-cout-muet; }
 [ "$C_OCTETS" -ge 1000000 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute journal-trop-maigre; }
 [ "$C_TICKS" -ge 100 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute trop-peu-de-ticks-lus; }
-# LE CHIFFRE QUE LA CAUSE CONNUE NOMME : sept heures le 16/09. Sous 7 h, l'instrument n'a pas
-# retrouve l'episode et son verdict ne vaut rien.
-[ "$C_DERNIER" -ge 25200 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute dernier-silence-sous-7h; }
+# LE CHIFFRE QUE LE LIVRABLE NOMME : « le plus LONG silence ... >= 7 h le 16/09 ». C'est le PIRE
+# qui est juge, jamais le plus RECENT : le plus recent retrecit des que le correctif tourne, et
+# une porte posee dessus rougirait le jour ou le defaut disparait. Mesure : apres le redemarrage
+# du constructeur sur le code corrige, le dernier silence est tombe a 790 s — et la porte, posee
+# sur lui, a rendu 2 alors que rien n'avait cede.
+[ "$C_PIRE" -ge 25200 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute pire-silence-sous-7h; }
+[ "$C_LONGS" -ge 1 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute aucun-episode-de-sept-heures; }
 [ "$C_PIRE" -ge "$C_DERNIER" ] 2>/dev/null || { t_cout=$((t_cout+1)); faute pire-silence-incoherent; }
 [ "$C_COMMITS" -ge 1 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute aucun-commit-livrable-en-attente; }
 [ "$C_MUETS" -ge 1 ] 2>/dev/null || { t_cout=$((t_cout+1)); faute aucun-tick-muet-compte; }
@@ -168,8 +173,10 @@ pub builder_terms "cout$t_cout+garde$t_garde+muet$t_muet+registre$t_reg+penalite
 
 # LES GRANDEURS BRUTES : une porte qui ne publie que son total ne dit pas ce qui a cede.
 pub builder_cost_last_silence_s "$C_DERNIER"
-pub builder_cost_last_silence_mute_ticks "$C_MUETS"
-pub builder_cost_last_silence_commits "$C_COMMITS"
+pub builder_cost_max_silence_mute_ticks "$C_MUETS"
+pub builder_cost_max_silence_commits "$C_COMMITS"
+pub builder_cost_silences_over_7h "$C_LONGS"
+pub builder_cost_last_silence_commits "$(c cost_last_silence_pending_commits)"
 pub builder_cost_max_silence_s "$C_PIRE"
 pub builder_cost_ticks_read "$C_TICKS"
 pub builder_mute_continues "$M_MUETS"
