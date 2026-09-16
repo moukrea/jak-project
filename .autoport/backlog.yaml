@@ -5612,7 +5612,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: open
+  status: in-progress
   priority: 51
   owner_feedback:
   - date: '2026-09-09'
@@ -6854,7 +6854,7 @@ items:
   max_retries: 13
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: in-progress
+  status: archived
   priority: 41
   game: jak1
   gate:
@@ -6879,6 +6879,7 @@ items:
   notes: |-
     budget : goalc + regen CGO + refset. Lire .autoport/CODEGEN_COOKBOOK.md (fichiers verrouilles). Point de vue : village1-hut.
     budget : plafond 10 = compteur 7 + 3 essais neufs (owner 16/09) ; l'essai 7 (18:20-18:38) est RENDU : bras 'avant' en vol (pid 527475) quand le worker a rendu la main, preuve ancienne jugee (voir harness-judge-waits-for-the-proof-a-worker-left-in-flight).
+    17/09 00:25 ARCHIVE par le superviseur selon la regle posee avec l'owner le 16/09 (3 essais ; sans gain mesure > 0, archive) : 3 essais neufs (8-10), gain mesure 101 us puis 5 us par image sur 16,7 ms (non reproductible, dans le bruit), codegen_lot_defects=1 a chaque essai (comparateur d'images refuse). Ni gain etabli ni innocuite prouvee. Le code des appels a 2 instructions reste dans l'arbre sous son drapeau, non livre.
   max_turns: 1200
   hits_means: sites d'appel allegees
   proof_timeout: 600
@@ -6919,11 +6920,7 @@ items:
   - debug.opengoal.refset.loadsettle=600
   prompt: prompts/item-perf-codegen-arm64-calls.md
   device_serial: eae4df44
-  block_reason: 'Essai6 refuse : la provenance refset inclut les CGO modifies par l optimisation, donc
-    comparaison couleur non effectuee (255 sentinelle). Reference a2 conservee ; anciens ecarts de repetabilite
-    toujours inexpliques. Appels mesures a2 instructions sur47 sites, mais symboles proches/lointains
-    incomplets et aucun gain demontre. Diagnostiquer le contrat de comparaison des donnees compilees avant
-    nouvelle course ; ne pas ecraser la reference ni repeter ce refus.'
+  block_reason: max_retries (10) épuisé
   supervisor_recovery: false
   supervisor_review:
     date: '2026-09-15'
