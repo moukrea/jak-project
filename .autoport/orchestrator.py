@@ -1038,15 +1038,19 @@ def ecrire_journal_impossible(validator_log: Path, st: dict, gate_reason: str,
 PROOF_WRITER_WAIT_MAX = int(os.environ.get("AUTOPORT_JUDGE_WAIT_MAX", "1200"))
 
 
-def proof_writer_alive(item_id: str) -> tuple[int, str]:
+def proof_writer_alive(item_id: str, reports_dir: str | None = None) -> tuple[int, str]:
     """Le pid de la course qui ECRIT la preuve de cet item, et l'instant ou elle a pris le
     verrou. (0, "") quand personne n'ecrit.
 
     Le nom du verrou vient de l'AUTORITE (`lib/impossible.py`), comme celui de la preuve : un
-    nom fabrique ici serait le deuxieme nommeur, et il divergerait en silence."""
+    nom fabrique ici serait le deuxieme nommeur, et il divergerait en silence.
+
+    `reports_dir` n'existe que pour le banc (`lib/inflight_selftest.py`), qui doit poser ses
+    faux verrous ailleurs que dans les rapports de production. La production ne le passe
+    jamais : elle lit le dossier que ce fichier nomme."""
+    racine = reports_dir or str(AUTOPORT_DIR / "reports")
     for suffix in impossible_state.SUFFIXES:
-        path = Path(impossible_state.arm_path(str(AUTOPORT_DIR / "reports"), item_id,
-                                              "writer", suffix))
+        path = Path(impossible_state.arm_path(racine, item_id, "writer", suffix))
         try:
             champs = impossible_state.parse(path.read_text(errors="replace"))
         except OSError:
@@ -1072,6 +1076,126 @@ def wait_for_proof_writer(item_id: str, ceiling: int = PROOF_WRITER_WAIT_MAX) ->
             break
         time.sleep(2)
     return int(time.monotonic() - debut), pid
+
+
+# ============================================================
+# LA COURSE QUE LE WORKER A LAISSEE EN VOL (2026-09-16)
+# ============================================================
+# Le 16/09, trois essais ont ete detruits en cinquante minutes — ao-prepass-tie-alpha 14 et 15,
+# perf-mips2c-neon 10. Le worker lance `proof_run.sh <id> <bras>` en arriere-plan, arme un
+# moniteur sur son PID, et TERMINE SON TOUR : « En vol — j'attends la notification ». En mode
+# `-p` cette notification n'arrive jamais. La CLI se tait, `STALL_POST_RESULT_SEC` expire, et
+# `_kill('post-result')` envoie SIGTERM au GROUPE de processus du worker : la course part avec
+# lui. Le juge lit alors « proof.txt absent ou vide » et l'essai est COMPTE. L'essai 14 avait
+# pourtant trouve la cause de treize essais aveugles ; ce travail a ete perdu deux fois.
+#
+# `wait_for_proof_writer` n'y pouvait rien : il tourne APRES la boucle, quand la course est
+# deja morte — ou avant qu'elle ait pris son verrou.
+#
+# CE QUI CHANGE : avant de fermer, on REGARDE si une course de preuve de CET item ecrit
+# encore. Si oui, aucun signal n'est envoye ; on attend sa fin, bornee par le `proof_timeout`
+# de l'item plus une marge, et on juge APRES. On ne relance jamais rien : attendre n'est pas
+# produire, et une course qu'on n'a pas vue n'est pas une course qu'on invente.
+INFLIGHT_GRACE_SEC = 120.0     # la marge du contrat, par-dessus le proof_timeout de l'item
+INFLIGHT_DEFAULT_TIMEOUT = {0: 120.0, 1: 180.0}   # ce que proof_run.sh prend faute d'item
+
+
+def inflight_ceiling_s(item: dict) -> float:
+    """La borne de l'attente : le `proof_timeout` de l'item + la marge. Jamais l'infini.
+
+    Sans `proof_timeout`, on reprend le defaut que `lib/proof_run.sh` s'applique a lui-meme
+    (120 s en x86, 180 s sur appareil) : une borne inventee ici divergerait de la sienne."""
+    brut = item.get("proof_timeout")
+    try:
+        secondes = float(brut)
+    except (TypeError, ValueError):
+        secondes = INFLIGHT_DEFAULT_TIMEOUT[1 if item.get("device") else 0]
+    return secondes + INFLIGHT_GRACE_SEC
+
+
+def proof_run_processes(item_id: str) -> list[int]:
+    """Les PID des courses `proof_run.sh <item_id>` vivantes, le notre exclu.
+
+    ON COMPARE LES ARGUMENTS UN PAR UN, JAMAIS UN MOTIF SUR LA LIGNE ENTIERE. Un `pkill -f`
+    sans crochet se matche lui-meme ; et la ligne de commande d'un worker qui CITE le nom du
+    script — ce qu'il fait des qu'il le lance — serait prise pour une course. Un argument
+    dont le nom de fichier est `proof_run.sh`, ET un argument EGAL a l'id de l'item : c'est
+    la course de CET item, ou rien. Un item voisin en vol ne retient pas ce juge-ci."""
+    trouves: list[int] = []
+    moi = os.getpid()
+    try:
+        entrees = list(os.scandir("/proc"))
+    except OSError:
+        return trouves
+    for entree in entrees:
+        if not entree.name.isdigit():
+            continue
+        pid = int(entree.name)
+        if pid == moi:
+            continue
+        try:
+            brut = (Path(entree.path) / "cmdline").read_bytes()
+        except OSError:          # le processus est mort entre le scandir et la lecture
+            continue
+        args = [a.decode("utf-8", "replace") for a in brut.split(b"\0") if a]
+        if item_id not in args:
+            continue
+        if not any(a.rsplit("/", 1)[-1] == "proof_run.sh" for a in args):
+            continue
+        trouves.append(pid)
+    return sorted(trouves)
+
+
+def inflight_proof_run(item_id: str, reports_dir: str | None = None) -> tuple[int, str]:
+    """(pid, par quoi elle a ete vue) de la course de preuve VIVANTE de cet item.
+
+    DEUX TEMOINS, PARCE QU'UN SEUL EST AVEUGLE LA MOITIE DU TEMPS. Le verrou d'ecriture n'est
+    pris qu'apres le prologue de `proof_run.sh` : une course de trois secondes n'a encore rien
+    ecrit. Le processus, lui, existe des le premier instant, mais il disparait avant que le
+    verrou soit relache si la course meurt. On regarde les deux, et on DIT lequel a parle."""
+    pid, _ = proof_writer_alive(item_id, reports_dir)
+    if pid:
+        return pid, "verrou"
+    vivants = proof_run_processes(item_id)
+    if vivants:
+        return vivants[0], "processus"
+    return 0, ""
+
+
+def post_result_verdict(item_id: str, carnet: dict, idle: float) -> bool:
+    """Vrai = NE PAS fermer maintenant : une course de preuve de cet item ecrit toujours.
+
+    Aucun signal n'est envoye depuis ici. Cette fonction ne fait que dire « attends encore »,
+    et elle tient le carnet que le journal de l'essai publiera : le PID vu, par quel temoin,
+    combien de temps on a attendu, et si c'est la borne qui a tranche ou la course qui a fini.
+    Faux la premiere fois qu'aucune course ne vit : la fermeture d'avant reprend, intacte."""
+    maintenant = time.monotonic()
+    pid, vu_par = inflight_proof_run(item_id, carnet.get("reports_dir"))
+    if pid:
+        if not carnet.get("pid"):
+            carnet["pid"] = pid
+            carnet["how"] = vu_par
+            carnet["since"] = maintenant
+            carnet["deadline"] = maintenant + float(carnet.get("ceiling_s") or 0.0)
+            carnet["idle_at_hold_s"] = round(idle, 1)
+            log(f"· résultat émis, mais une course de preuve de {item_id} ÉCRIT encore "
+                f"(pid={pid}, vue par le {vu_par}) — AUCUN signal : on attend sa fin, "
+                f"borne {float(carnet.get('ceiling_s') or 0.0):.0f}s", "cyan")
+        carnet["waited_s"] = round(maintenant - carnet["since"], 1)
+        carnet["holds"] = int(carnet.get("holds", 0)) + 1
+        if maintenant < carnet["deadline"]:
+            return True
+        carnet["expired"] = 1
+        log(f"· la course de preuve (pid={carnet['pid']}) dépasse la borne "
+            f"{float(carnet.get('ceiling_s') or 0.0):.0f}s — on ferme, et le juge tranchera "
+            f"sur ce qu'elle aura écrit", "yellow")
+        return False
+    if carnet.get("pid") and not carnet.get("ended"):
+        carnet["waited_s"] = round(maintenant - carnet["since"], 1)
+        carnet["ended"] = 1
+        log(f"· la course de preuve (pid={carnet['pid']}) est terminée après "
+            f"{carnet['waited_s']:.0f}s — fermeture, et jugement APRÈS elle", "green")
+    return False
 
 
 def _impossible_reset(state: dict, item_id: str) -> None:
@@ -2384,6 +2508,10 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         last_progress_at = time.monotonic()
         last_progress_fp = _progress_fingerprint(iid)
         scope_seen = _scope_changed(None)
+        # LE CARNET DE LA COURSE LAISSEE EN VOL. Passe par reference a `post_result_verdict`,
+        # il finit dans `attempt_end` : l'attente et le PID sont publies, pas racontes.
+        inflight = {"ceiling_s": inflight_ceiling_s(item), "pid": 0, "how": "",
+                    "waited_s": 0.0, "holds": 0, "expired": 0, "ended": 0}
 
         def _kill(reason: str) -> None:
             nonlocal abort_reason
@@ -2413,12 +2541,26 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     if proc.poll() is not None:
                         break
                     # claude said `result` but won't exit (TaskCreate re-engagements
-                    # keep the process open in -p mode). Force the issue.
+                    # keep the process open in -p mode). Force the issue — SAUF si le worker a
+                    # laisse une course de preuve EN VOL : la tuer detruit la preuve de son
+                    # propre essai (trois essais perdus le 16/09).
+                    # POST-RESULT/debut
+                    # DEUX MARQUEURS, ET C'EST VOULU. Le banc `lib/inflight_selftest.py` leve
+                    # CE bloc-ci tel quel pour en faire son bras d'APRES, et le MEME bloc prive
+                    # de `EN-VOL/` pour son bras d'AVANT : le bras d'avant n'est pas la couche
+                    # desarmee, c'est la couche ABSENTE, aux octets pres de ce qui tournait le
+                    # 16/09. Une recopie a la main dans le banc mesurerait la recopie.
                     if pstate.result_seen and idle >= STALL_POST_RESULT_SEC:
+                        # EN-VOL/debut
+                        if post_result_verdict(iid, inflight, idle):
+                            _maybe_emit_tick(pstate)
+                            continue
+                        # EN-VOL/fin
                         log(f"· {BACKEND} a émis son résultat sans sortir ({idle:.0f}s) — "
                             f"fermeture forcée", "yellow")
                         _kill("post-result")
                         break
+                    # POST-RESULT/fin
                     sc = _scope_changed(scope_seen)
                     if sc != scope_seen:
                         log("· PÉRIMÈTRE CHANGÉ — essai annulé immédiatement "
@@ -2498,6 +2640,11 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             "ended_at": datetime.now(timezone.utc).isoformat(),
             "abort_reason": abort_reason, "halted": HALT,
             "launcher_abort_s": launcher_abort_sec,
+            # L'ATTENTE ET LE PID, PUBLIES (2026-09-16). `waited_s` a zero avec `pid` a zero
+            # veut dire qu'aucune course n'etait en vol — pas que l'on n'a pas regarde.
+            "inflight": {k: inflight.get(k) for k in
+                         ("pid", "how", "waited_s", "holds", "ceiling_s", "expired",
+                          "ended", "idle_at_hold_s")},
             "tool_calls": pstate.tool_calls,
             "tokens_in": pstate.tokens_in, "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
