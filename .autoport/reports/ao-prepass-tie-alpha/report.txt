@@ -1,40 +1,40 @@
 DIRECTIVES v775512c234
-Verdict : la voie imposée le 16/09 est REFUTÉE par la mesure, et la preuve appareil neuve montre
-que les sept termes de la porte ne mesurent RIEN. Raccord mur/toit non corrigé, rien livré.
-Changement : aucune source du jeu touchée. ao_blur.frag reste sha256 9bda9d04174d8256, identique à c1581d95da ; arbre propre, binaire appareil inchangé (md5 local = md5 appareil).
-Cause du défaut, enfin chiffrée : au raccord (100,550) le tap qui tombe sur le TOIT garde 96,7 %
-de son poids (rz=1,498e-4 pour zsig=5,81e-4). L'AO de contact vaut 25 brute, 52 après les deux
-passes de pas 1, 85 après celles de pas 2, 141 à la fin — l'intérieur du mur se pose à 130.
-Ce sont les boîtes LARGES qui l'effacent, pas le côté d'où viennent les taps. Creux de contact
-3 px contre 29 texels de support, plis sur 35 à 41 % de l'écran au pas 5 : aucune repondération
-d'une moyenne dix fois plus large ne garde ce creux.
-Quatre candidats locaux essayés, tous refusés, tous mesurés sur le même banc que l'essai 12 :
-- déplacer les taps traversants de 4 pas (phases exactement conservées) : bande 17/7/10 contre
-  12/2/7 livré — PIRE — et flat_step 54/39/41 pour un plafond de 10 ;
-- borner la sortie au pli (deux variantes) : bande 8/0/1 et 5/3/4, mais flat_step 30 à 33 ;
-- borner au pas 2 seul ou 2 et 3 : flat_step 8/5/6 et 10/7/8, sous le plafond, mais bande 9/2/7
-  et 13/8/11 — ils ne corrigent rien. Aucun réglage ne tient les deux exigences à la fois.
-Huit lignes de la preuve courante (.autoport/reports/ao-prepass-tie-alpha/proof.txt) :
-  source=device / serial=eae4df44 / sha=c0072ca1b597bb50 / crash=0 / frames=840 / duration_s=158
-  ao_owner_defects=7
-  ao_owner_terms_measured=0
-  ao_contact_pop_px=0
-  ao_contact_band_px=non-mesure
-  ao_flat_dbg_visited=0
-  ao_probe_wind_on_acquisition_mask=0
-  ao_static_defects=19
-  FEATURE ao-prepass-tie-alpha armed=1 hits=0
-Lecture : pattern_census() n'a jamais été appelé (ao_flat_dbg_visited=0, ao_census_frames_*=0 sur
-les 12 états), donc ni flat_step() ni contact_band(). Les sept termes valent 1 par ABSENCE
-d'instrument, pas par défaut mesuré. Identique au 15/09 avec un autre binaire : c'est structurel.
-La clé de porte ao_tie_prepass_defects est absente de toutes les preuves depuis l'essai 1 : la campagne n'est jamais armée (props absentes) et want.display attendu « beach,display » en dur
-(ao_tie_contract.h:93) contredit « village1,display » posé par proof_props.
-Ce que l'owner doit regarder : rien de neuf n'est livré, le build installé est celui d'avant.
-La question à trancher : il demande une ombre PILE au contact ; la porte du damier interdit toute
-marche d'AO sur les pixels plans qui bordent un pli (plafond 10, mesuré à 30-54 dès qu'on corrige).
-Les deux se combattent, c'est mesuré ; aucun worker ne peut assouplir l'une pour l'autre.
-non prouvé : correction du raccord ; identité couleur ; trois vues ; ao_geom_tie_absent_px ;
-ao_tie_prepass_defects (jamais publié) ; les cinq acquis et ao_static_defects sur cette course —
-tous « non-mesure », donc ni tenus ni cassés. Aucune validation owner, aucune porte franchie.
-Détail : notes/attempt13-summary.md, notes/attempt13-flatstep.log, FINDINGS.txt (9 entrées
-neuves), handoff.md. Validateur laissé à l'orchestrateur.
+essai 16 — ao-prepass-tie-alpha — VERDICT : porte NON FRANCHIE (ao_tie_prepass_defects=5, exige 0).
+
+CE QUI A CHANGE
+Aucune ligne de moteur. Le code de l'essai 15 (295bb10673) etait commite mais JAMAIS mesure :
+sa course avait ete tuee a 3 min. Mesure deux fois sur l'appareil USB eae4df44 (md5 local ==
+appareil == 129b167b003c5042df683b21afcbf944, aucun rebuild), plus un rejeu INDEPENDANT du
+banc local avec son bras temoin.
+
+PREUVE (recopiee de proof.txt, course 2, 1860 images, crash=0, 430 s)
+  FEATURE ao-prepass-tie-alpha armed=1 hits=1444
+  ao_tie_prepass_defects=5
+  ao_owner_terms_measured=7
+  ao_geom_tie_absent_px=0
+  ao_contact_band_px=0
+  ao_flatstep_worst_delivered_x1000=7
+  ao_static_defects=0
+  ao_probe_compared=1
+  ao_tie_view_village1_hut_on_present=1
+POURQUOI 5, ET PAS UN DEFAUT D'IMAGE
+ao_tie_contract.h:187-210 somme (!on + !off) sur TROIS vues ; proof_props n'en epingle qu'une
+(village1-hut). Plancher d'une course isolee = 4. Course 1 a rendu 7, course 2 rend 5 :
+exactement la prediction de la formule quand la hutte enregistre son bras ARME. Sur cette vue
+TOUS les termes d'image sont a zero. Distance reelle au 0, decodee de la campagne appareil :
+village1-out porte direct_leak_px=6459, static_defects=260450, color_changed_px=90534 ;
+beach on_alpha_device_px=10, static_defects=832 ; hutte color_changed_px=903. ~359 000 unites,
+sur deux vues que cet item n'a jamais travaillees.
+CE QUE L'OWNER DOIT REGARDER
+La bande claire entre le mur de la hutte et le toit. Le banc qui la VOIT (425 px, 15 contacts),
+remesure aujourd'hui avec son temoin : sans le correctif SSAO 12 px (max 3), HBAO 2 (1),
+GTAO 8 (2) ; avec, 0 / 0 / 0 (max 0), flat_step sous le plafond (7,594 / 4,719 / 5,231 pour 10)
+donc sans reintroduire le damier. A verifier sur le HONOR : Options > Recharged >
+Recharged Lighting > Ambient Occlusion, chaque palier et chaque mode, force au maximum.
+NON PROUVE
+- non prouve : la bande corrigee SUR L'APPAREIL. ao_contact_band_px rend 0 la ou le lecteur
+  natif mesure 12 px au meme raccord : la porte est aveugle a cette classe de defaut.
+- non prouve : les vues village1-out et beach, jamais mesurees par ce regime ; ni l'identite
+  bit-a-bit de l'image couleur (livrable 3), que attempt5 chiffre a 903.
+- ao_sway_gap_px est BRUYANT : 2, puis 0, puis 4, meme binaire et memes props (pop 109 965) :
+  ao_owner_defects bascule 0 -> 4 sans changement de code.
