@@ -1,30 +1,39 @@
 DIRECTIVES v07b292c21f
+L'ESSAI 10 A ABOUTI : ce fichier n'est plus un relais, c'est le releve de ce qui a debloque
+l'item. Le verdict complet est dans `report.txt`, la mesure dans `proof.txt`.
+
 ## ETABLI (mesure)
-CLAUSE 1 DEVENUE UN TERME (commit e3d55c6fbe). « au MEME vantage » n'etait juge par rien : dix
-cellules sous dix points de vue passaient vertes. Deux termes le jugent, relus dans la table par
-`autoport_proof::read_text` (neuf ; troncature = echec, pas prefixe) : `..._vantage_spread_mm`
-(10 cellules, seuil 100 mm) et `..._camera_spread_dm` (5 cellules ON, seuil 1 dm), chacun avec sa
-population a cote et un `-` — jamais 0 — sous deux cellules comparables.
-Course a blanc x86 (notes/dry-run-x86-essai9.txt, aucun fichier de preuve touche) : gaps 199 -> 0,
-vantage_cells=10, camera_cells=5, ecarts 0 et 0, cells_short=0. Sans les deux termes le premier
-gaps aurait valu 197 : ils MORDENT. Arbres batis par leur porte ; l'APK porte le libgk de l'arbre
-(md5 6f1a86f039b3e3e86497f3113361f1e9). APPAREIL USB PRESENT DEPUIS 16:24 : eae4df44 usb:1-6
-Redmi_Note_9_Pro — l'empechement de l'essai 8 (aucun appareil) n'existe plus.
-## TENTE, et pourquoi ca a echoue
-LA COURSE N'A PAS PU DEMARRER : TELEPHONE EN DIRECT BOOT, PIN jamais saisi depuis son demarrage
-de 16:24. Grandeurs relues, pas deduites :
-  dumpsys user  -> Started users state: [0=RUNNING_LOCKED]
-  dumpsys trust -> deviceLocked=1, strongAuthRequired=0x1 (AFTER_BOOT)
-  logcat        -> ActivityTaskManager: aInfo is null ... com.miui.securitycenter/
-                   ...AdbInstallActivity ; PKMSImpl: MIUILOG- ... Install canceled by user
-L'activite de confirmation MIUI n'est pas directBootAware : elle n'existe pas avant le PIN. LES
-DEUX chemins rendent ce refus — `adb install` (garde binaire, 16:24:07, code 6) et
-`pm install -r -d -t -i com.android.vending` apres push (16:26:11), celui que
-device-validate.sh:230 annonce a tort comme keyguard-independent. Les 4 reglages MIUI sont poses
-et ne changent rien. Ecran reveille, alerte ntfy envoyee, attente de 1700 s armee.
+`grass_baseline_gaps=0` sur eae4df44, 55 920 images, crash=0, 1816 s, dix cellules de 300
+images au meme vantage (spreads 0 mm / 0 dm), binaire 6f1a86f039b3e3e86497f3113361f1e9.
+CE QUI BLOQUAIT LES ESSAIS 8, 9 ET LE DEBUT DU 10 : le telephone etait en Direct Boot, PIN
+jamais saisi depuis son demarrage de 16:23. Grandeurs lues, pas deduites :
+  dumpsys user -> [0=RUNNING_LOCKED] ; dumpsys trust -> deviceLocked=1, strongAuth=0x1
+  getprop sys.boot_completed -> 1  (le demarrage etait FINI : ce n'etait pas l'excuse de 16:24)
+  cmd package resolve-activity --brief org.opengoal.gk.jak1 -> No activity found
+CE DERNIER TEMOIN ETAIT LE DECISIF et manquait a l'essai 9 : ce n'etait pas l'INSTALLATION qui
+etait impossible, c'etait LE LANCEMENT. A 16:42:28 l'owner a deverrouille ; a 16:42:30 la garde
+binaire a installe l'APK du premier coup (`Success`) et publie
+`proof_device_launch_resolve=org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity`. Le binaire
+n'a JAMAIS ete en cause, et aucune reconstruction n'a eu lieu.
+PISTE MIUI MORTE, MESUREE : les 4 reglages d'installation ADB etaient DEJA a 0 et le refus
+persistait. Ne pas la refaire.
+
+## TENTE, et ce que ca a donne
+1. `proof_run.sh`, bloc VERROU-ECRAN avant la garde binaire (commit ecf837bb21) : rend l'etat
+   NOMME `appareil-verrouille` (die3, code 3) au lieu du code 6 qui ordonnait de reconstruire.
+   Eprouve sur trois controles, puis EXERCE en course reelle sur le bras deverrouille — il a
+   publie ses trois temoins et laisse passer. `impossible_state.read` ne filtre pas sur la
+   raison : tout etat nomme requalifie l'essai, verifie dans orchestrator.py:1664.
+2. `notes/watch-unlock-essai10.sh` (pid 327728) : sonde `dumpsys user` toutes les 10 s et lance
+   la course DES le deverrouillage. C'est ce qui a converti un geste de 2 s en une mesure.
+3. PREVENIR L'OWNER : IMPOSSIBLE, et c'est la dette qui reste. `lib/notify.sh:2` porte un
+   `exit 0` pose par l'owner le 13/06 ; l'« alerte ntfy » que l'essai 9 dit avoir envoyee n'est
+   jamais partie. Aucun autre canal n'existe. Je n'ai pas re-active ntfy : l'owner l'a coupe
+   expressement — c'est au superviseur de choisir le canal, pas au worker.
+
 ## RESTE
-1. DEVERROUILLER LE TELEPHONE UNE FOIS (PIN) : seul geste manquant, aucun code ne le remplace.
-   Controle : `adb shell dumpsys user | grep "Started users state:"` doit rendre RUNNING_UNLOCKED.
-2. Puis `bash .autoport/lib/proof_run.sh grass-baseline-cost device`. Rien d'autre a preparer.
-3. NE PAS rebatir sur « le telephone porte <autre md5> » : le binaire est bon, c'est l'INSTALL qui
-   est refuse (FINDINGS). Echec le plus probable ensuite : throttling sur high/very_high, derniers.
+1. Rien pour cet item : la mesure est faite, `owner_test` n'a rien a montrer (aucun pixel).
+2. Pour la campagne : le gisement de culling est chiffre (22,8 % a medium, `submitted ==
+   frustum_tested` aux cinq paliers) et le cout est 99,8 % GPU. Voir FINDINGS.
+3. Pour le harnais : donner au harnais un moyen de DEMANDER un geste physique a l'owner. Trois
+   essais ont attendu un PIN que personne n'a jamais su qu'il fallait saisir.

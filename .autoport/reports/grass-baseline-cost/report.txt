@@ -1,39 +1,40 @@
 DIRECTIVES v07b292c21f
-VERDICT : la clause 1 du contrat — dix cellules « au MEME vantage » — est passee d'une affirmation
-a DEUX termes de la porte, verifies sur x86 ; la preuve APPAREIL n'a pas pu etre produite, mais
-l'empechement a CHANGE de nature et la machine le nomme. L'item ne se ferme pas.
-CE QUI A CHANGE (commit e3d55c6fbe, 4 fichiers moteur)
-- `grass_baseline` : « au MEME vantage » n'etait juge par rien. `jak_pos` etait exige PRESENT,
-  jamais EGAL d'une cellule a l'autre, `cam_dm` n'etait dans aucune liste : dix cellules sous dix
-  points de vue passaient vertes, et l'ecart ON/OFF — la seule grandeur pour laquelle cet item
-  existe — aurait compare deux scenes. Deux termes de plus, relus dans la table moissonnee et
-  jamais dans les variables du module : `grass_baseline_vantage_spread_mm` (10 cellules, seuil
-  100 mm) et `grass_baseline_camera_spread_dm` (5 cellules allumees, seuil 1 dm). Chacun publie SA
-  population a cote et vaut `-`, jamais 0, sous deux cellules comparables : pas de vert par inaction.
-- `autoport_proof::read_text` : la table n'avait aucun lecteur de TEXTE, donc aucune porte ne
-  pouvait juger l'EGALITE d'une grandeur non entiere. La troncature y est un ECHEC, jamais un
-  prefixe, sinon le comparateur fabriquerait l'egalite qu'il verifie.
-- Arbres batis par leur porte (x86 119 s ; arm64 `gk` lie) ; l'APK porte le MEME libgk que l'arbre
-  (md5 6f1a86f039b3e3e86497f3113361f1e9, verifie par unzip).
-PREUVE — ATTENTION A CE QUE VOUS LISEZ. Aucune ligne n'est recopiee de `proof.txt` : celui du
-disque date de l'essai 1 et je ne le presente pas comme un resultat. Les huit lignes viennent de la
-course a blanc x86 (`notes/dry-run-x86-essai9.txt`), qui n'a touche aucun fichier de preuve.
-  grass_baseline_gaps=199      <- premier publie, rien de mesure ; 197 sans les deux termes neufs
-  grass_baseline_vantage_cells=0   grass_baseline_vantage_spread_mm=-
-  grass_baseline_camera_cells=1    grass_baseline_camera_spread_dm=-
-  grass_baseline_vantage_cells=10  grass_baseline_vantage_spread_mm=0
-  grass_baseline_camera_cells=5    grass_baseline_camera_spread_dm=0
-  grass_baseline_gaps=0   grass_baseline_missing=-   grass_baseline_cells_short=0
-  grass_baseline_vantage=-635598.9_222551.7_710496.2   <- au boot
-  grass_baseline_vantage=-5393626.5_28072.4_4332472.5  <- pendant la campagne, dix fois
-Les deux dernieres sont la falsifiabilite : la cle compare une grandeur qui BOUGE. Et l'ecart ne
-sort en chiffre qu'a partir de DEUX cellules, jamais avant.
-CE QUE L'OWNER DOIT REGARDER : aucun pixel, c'est une mesure. UN SEUL GESTE est attendu et aucun
-code ne le remplace : DEVERROUILLER LE TELEPHONE (PIN). Le Redmi eae4df44 est branche en USB
-depuis 16:24 mais il a redemarre sans recevoir son code : `dumpsys user` rend `[0=RUNNING_LOCKED]`,
-`dumpsys trust` rend `strongAuthRequired=0x1`, et le journal nomme la cause — `aInfo is null` pour
-`com.miui.securitycenter/...AdbInstallActivity`, non directBootAware. `adb install` (16:24:07) et
-`pm install` apres push (16:26:11) rendent le MEME refus. Une fois le PIN saisi, tout est pret.
-NON PROUVE : la preuve appareil, donc les dix cadences reelles, la decomposition sur Adreno 618 et
-les durees de chargement. NON PROUVE : le bras `--off` (le validateur ne le reclame pas). NON
-MESURE : l'ORIENTATION de la camera — les deux positions la contraignent, elles ne la relevent pas.
+[autoport/grass-baseline-cost] essai 10 — LA LIGNE DE BASE EXISTE.
+VERDICT : `grass_baseline_gaps=0` sur eae4df44 (Redmi_Note_9_Pro, USB 1-6), 55 920 images,
+crash=0, 1816 s, dix cellules de 300 images au MEME vantage (spreads 0 mm / 0 dm) et sur le MEME
+binaire 6f1a86f039b3e3e86497f3113361f1e9. Les quatre termes du contrat sont mesures.
+CE QUI A CHANGE — aucun code de l'item : l'instrument est celui de l'essai 9.
+1. proof_run.sh, bloc VERROU-ECRAN avant la garde binaire : il lit `Started users state:` et
+`cmd package resolve-activity` AVANT d'installer, et rend en Direct Boot l'etat NOMME
+`appareil-verrouille` au lieu du code 6 qui ordonnait de RECONSTRUIRE un binaire deja bon —
+l'ordre qui a brule les essais 8 et 9. Controles : bidon deverrouille (passe), bidon verrouille
+(die3), appareil reel (die3). 2. notes/watch-unlock-essai10.sh, arme a 16:31 : a vu
+RUNNING_UNLOCKED a 16:42:28 et lance la course dans la seconde.
+PREUVE (8 lignes recopiees de proof.txt)
+  grass_baseline_gaps=0 | frames=55920 | crash=0 | duration_s=1816 | serial=eae4df44
+  FEATURE grass-baseline-cost armed=1 hits=10
+  grass_on_very_low_fps=15.978  grass_on_medium_fps=8.001  grass_on_very_high_fps=4.028
+  grass_off_very_low_fps=34.736 grass_off_medium_fps=34.780 grass_off_very_high_fps=34.316
+  grass_on_medium_prep_us=155.5 grass_on_medium_submit_us=92.6 grass_on_medium_gpu_ms=123.4332
+  grass_on_medium_frustum_tested=616379 _frustum_in=469775 _frustum_lod=138886 _behind=1662
+  grass_baseline_dead_instances=110472 / grass_baseline_built_instances=726851
+  grass_load_medium_source_ms=24.96 _expand_ms=224.62 _upload_ms=14.92 _inst_bytes=46518464
+UN COMMIT EST TOMBE PENDANT LA COURSE : 5c615d1627 (superviseur, 16:54). proof_commits_during_run=1
+mais proof_commits_verdict_sources=0 — aucune source du verdict n'a bouge, la chaine tient.
+CE QUE CA DIT
+* 4,35x au palier livre (8,001 contre 34,780), 8,5x a very_high ; OFF est PLAT a ~34,3-34,8 sur
+les cinq paliers, controle gratuit : le palier seul ne coute rien.
+* COUT ENTIEREMENT GPU : prep 155,5 us + soumission 92,6 us = 0,25 ms contre 123,4 ms de GPU
+(0,2 %) a medium. Optimiser le cote processeur ne rendra rien.
+* GISEMENT DE CULLING CHIFFRE : submitted_blade == submitted_card == frustum_tested EXACTEMENT
+aux cinq paliers, rien n'est ecarte avant soumission ; a medium 138 886 + 1 662 des 616 379
+soumises sont hors LOD ou derriere la camera, soit 22,8 %.
+* 110 472 instances construites et JAMAIS dessinees sur 726 851 (15,2 %), chiffre d'aout confirme
+au brin pres, plus 46,5 Mo + 2,9 Mo de VBO ecrits a chaque chargement.
+CE QUE L'OWNER DOIT REGARDER : rien, aucun pixel n'a bouge. Son seul geste, deverrouiller le telephone a 16:42, est ce qui a debloque trois essais.
+NON PROUVE
+* non prouve : la comparaison au rapport d'aout (ON 4,6-6,0 / OFF 20,0-21,1) — l'OFF d'ici vaut
+34,8 sous OG_UNCAP_FPS=240 et vsync=0, ce n'est pas le meme regime.
+* non prouve : le cout propre de l'expansion par palier — very_low rend 685,90 ms contre 166-273
+pour les quatre autres ; le PREMIER chargement paie autre chose (FINDINGS).
+* non prouve : l'ORIENTATION de la camera — deux positions relevees egales, l'angle non.
