@@ -5675,9 +5675,9 @@ items:
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF et recharged_water
     OFF ; tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master seul (SPEC 1.2).
     La hauteur de JEU ne bouge pas.'
-  notes: 'SPEC sections 5.2, 5.3, 8 (controle causal 1 : 64 sommets compares a la hauteur de jeu). Vantage
-    : village1-out. | 09-09 (perf) : SPEC 5.2 amendee — perf-ocean-idle saute la houle GOAL sans carte
-    ; la couche A reste produite des qu''il y a une carte.'
+  notes: |-
+    SPEC sections 5.2, 5.3, 8 (controle causal 1 : 64 sommets compares a la hauteur de jeu). Vantage : village1-out. | 09-09 (perf) : SPEC 5.2 amendee — perf-ocean-idle saute la houle GOAL sans carte ; la couche A reste produite des qu'il y a une carte.
+    budget : plafond 9 = compteur 6 + 3 essais neufs accordes par l'owner le 16/09 (« 2 a »), sans remise a zero du compteur (orchestrateur en course).
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
