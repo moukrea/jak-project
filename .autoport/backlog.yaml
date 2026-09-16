@@ -5612,7 +5612,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: blocked
+  status: open
   priority: 51
   owner_feedback:
   - date: '2026-09-09'
@@ -5642,7 +5642,7 @@ items:
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 6
+  max_retries: 3
   depends_on:
   - water-census
   history: []
@@ -5659,10 +5659,10 @@ items:
   - debug.opengoal.level.warp.pos=260.7 2.3 -233.3
   where: 'Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur) : la houle ne deborde
     plus du lit. Puis la mer depuis Sandover.'
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
-    prompt ne repete pas. L''ocean mid ecrit la profondeur en GL_ALWAYS au bucket 4 AVANT le monde et
-    le near au 63 sans Z (SPEC 2.1) : la profondeur de scene est illisible au dessin. Les 64 frames 32x32
-    de houle sont LUES par le gameplay a 4 endroits : elles se conservent comme couche A (SPEC 5.2).'
+  known_cause: |-
+    16/09 ARBITRAGE OWNER : « 2 a » = 3 essais pour corriger les defauts NOMMES dans FINDINGS.txt, dans cet ordre, rien d'autre : (1) ocean_recharged.frag ecrit alpha=1 : restituer l'attenuation ND jusqu'a zero (ocean_recharged.vert:60 / OceanNear_PS2.cpp:1205) ; (2) anneaux qui se recouvrent sans morphing de bord ni culling par les 36 spheres ND (OceanRecharged.cpp:195) ; (3) houle A conservee sans DMA near et sans identite de carte, OFF/ON sans reactivation (OceanRecharged.cpp:723/733/755, OceanNear.cpp:30) ; (4) comparateur raster ND/clipmap par niveau/cellule absent (OceanRecharged.cpp:326) : le construire, c'est lui qui juge 1-3. Chaque defaut corrige = un terme publie ; un terme non mesure compte comme defaut. Ne pas rouvrir les 6 essais precedents : lire leur handoff, repartir de leur code.
+
+    LIS D'ABORD prompts/SPEC-refonte-eau.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. L'ocean mid ecrit la profondeur en GL_ALWAYS au bucket 4 AVANT le monde et le near au 63 sans Z (SPEC 2.1) : la profondeur de scene est illisible au dessin. Les 64 frames 32x32 de houle sont LUES par le gameplay a 4 endroits : elles se conservent comme couche A (SPEC 5.2).
   deliverable: 'Sous recharged_water : buckets 4 et 63 consomment leur DMA sans dessiner ; OceanRecharged
     dessine la clipmap 3 anneaux (SPEC 5.3) en W2a, couche A captee au DMA near, MEME modulo 32 que ocean-get-height,
     decoupe par les masques ND. Shading provisoire = l''actuel. OFF = graphe ORIGINE bit-identique. Publie
@@ -6740,7 +6740,7 @@ items:
   block_reason: null
 - id: perf-mips2c-neon
   feature: Les calculs d animation et de particules coutent moins sans changer leurs resultats
-  status: blocked
+  status: open
   priority: 40
   game: jak1
   gate:
@@ -6752,22 +6752,10 @@ items:
   - perf-instruments
   - perf-stock-baseline
   where: 'rien a voir : identique au pixel et a la pose ; goal_busy_ms baisse'
-  known_cause: 'Essai8 : premiere divergence NaN expliquee et correction rejetee. NOUVELLE LIMITE HARNAIS
-    : ordre des operandes different entre banc extrait et fonction moteur complete x86. Comparateur a
-    qualifier au niveau des fonctions completes avant toute autre optimisation. Essai7 candidat3D retire
-    :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048,
-    cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun
-    gain ni resultat appareil. Essais5/6 : absence de troisieme cible et references phase1 incompletes
-    provoquaient un arret avant toute experimentation locale. Reprise bornee a un candidat, sans appareil
-    ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans
-    SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc
-    active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier
-    et 0 image qualifiee, malgre joints/particules compares sans ecart. Le candidat os grossit de 716
-    a 4812 octets ; aucun gain demontre. Refset USB : hutte maxdiff233 et deux references plage absentes
-    ; A/B x86 egalement incomplets. Le refset local origine contient beach-start-h09, mais presence ne
-    prouve ni deploiement ni provenance/equivalence ; README impose origines immuables. Ne pas confondre
-    cette piste de distribution avec une nouvelle reference qualifiee. Le lot de suppression gnd_oob du
-    build normal est etabli et se conserve.'
+  known_cause: |-
+    16/09 ARBITRAGE OWNER : « t'es sur qu'il n'y a aucun gain ? je prefere si ca a plus de perfs potentielle c'est mieux, mais faut que ca casse rien ». Donc 3 essais, et SEUL oracle admis : le banc frontiere complet de l'essai 9 (notes/attempt9/frontier-parity.cpp), jamais les blocs extraits. Interdit : redecouvrir sample13, rejouer les essais 7/8, toute correction arithmetique des candidats rejetes. Livrable : un noyau vectorise qui passe la parite complete (mips2c_parity_defects=0) ET un gain MESURE sur l'appareil, publie mips2c_gain_us (temps par image du fil GOAL avant/apres, meme scene, meme binaire sauf le noyau, >=300 images chaque bras). Sans gain mesure > 0 en 3 essais, l'item sera archive : c'est la regle de l'owner, pas une punition.
+
+    Essai8 : premiere divergence NaN expliquee et correction rejetee. NOUVELLE LIMITE HARNAIS : ordre des operandes different entre banc extrait et fonction moteur complete x86. Comparateur a qualifier au niveau des fonctions completes avant toute autre optimisation. Essai7 candidat3D retire :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048, cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun gain ni resultat appareil. Essais5/6 : absence de troisieme cible et references phase1 incompletes provoquaient un arret avant toute experimentation locale. Reprise bornee a un candidat, sans appareil ; criteres finaux conserves. DIAGNOSTIC DE REPRISE : l hypothese de boucles source scalaires sans SIMD est refutee par old-codegen-review.txt. Le compilateur vectorisait deja os et joints. bones.gc active *use-new-bones* et execute new-bones-mtx-calc-asm, pas bones-mtx-calc : 0 operation de ce dernier et 0 image qualifiee, malgre joints/particules compares sans ecart. Le candidat os grossit de 716 a 4812 octets ; aucun gain demontre. Refset USB : hutte maxdiff233 et deux references plage absentes ; A/B x86 egalement incomplets. Le refset local origine contient beach-start-h09, mais presence ne prouve ni deploiement ni provenance/equivalence ; README impose origines immuables. Ne pas confondre cette piste de distribution avec une nouvelle reference qualifiee. Le lot de suppression gnd_oob du build normal est etabli et se conserve.
   deliverable: |-
     REPRISE HARNAIS APRES ESSAI8 : le diagnostic sample13 est termine (permutation des operandes NaN) et la correction essayee reste fausse :343/6048 x86,163 ARM GCC,153 ARM Clang. Les deux candidats ont ete rejetes, aucune livraison. Ne refaire ni leur decouverte ni une correction arithmetique de plus.
     NOUVEL OBJET BORNE : qualifier le comparateur contre les FONCTIONS COMPLETES compilees. Le worker a etabli que l objet moteur complet x86 conserve l ordre du site sample13 alors que le bloc extrait le permute. Lire notes/attempt8/diagnostic.md et ses objets/desassemblages. Construire un banc hote appelant les fonctions completes avant/apres depuis les sources/archivees, memes options et dependances par paire ; conserver les objets, symboles, options et relocalisations identifies. Ne pas recompiler le seul bloc isole comme substitut a cette verification. Reutiliser les entrees et comparateurs contexte/memoire existants ; rendre explicites preconditions d entree et chemins/callbacks executes. Ne pas simuler des dependances par des stubs qui changent leur semantique pour rendre le test vert. Commencer par x86 et ARM Clang Linux/QEMU (CRT ARM explicites deja corriges). Mesurer si les divergences du banc extrait existent dans la fonction complete, sans normaliser NaN, ignorer des registres ou fabriquer une population en jeu. Comparer la frontiere reellement executee ; si un chemin/dependance ne peut etre reproduit, nommer le point exact et ne pas certifier ce chemin. Cette etape est un correctif de HARNAIS LOCAL, sans modification des sources moteur livrees ni nouvelle optimisation. Pas de qualification de temps appareil depuis QEMU ou du compte statique. Aucun proof_run, appareil, refset, deploiement ou validation. Les references manquantes ne bloquent pas ce banc ; elles et les trois cibles restent requises pour la livraison finale ci-dessous.
@@ -6778,6 +6766,7 @@ items:
     2. Retirer des seuls noyaux de cet item les ajouts speculatifs qui n ont aucun benefice etabli, en preservant les travaux voisins. Un compilateur deja vectoriel n est pas une victoire de ce patch. Separer la fenetre de parite de 600 images de la fenetre de cout : oracle eteint pendant mesure de gain, compteurs d ecarts conserves ; aucune parite vide acceptee.
     3. Reparer la selection/distribution du refset EXISTANT par le chemin autorise si le diagnostic le justifie : verifier noms reels des cas demandes, phases, heure, origine, manifeste, empreinte et provenance des fichiers locaux puis leur correspondance dans la preuve. Les deux origines sont immuables. Ne pas fabriquer beach-sun depuis beach-start, ne pas recapturer par-dessus, ne pas retirer hutte/plage ni convertir 255 en zero. Diagnostiquer hutte233 avant replay ; un lot encore absent/non equivalent interdit de refaire le meme run. Les corrections de preparation du harnais necessaires a ce perimetre sont autorisees.
     4. Conserver les exigences hd-mtx-check-all, trois populations actives, 600 images, refset_replay_maxdiff=0, ripple et gain par seau. Le banc SSE/NEON deja vert ne remplace pas le resultat en jeu. Avant proof_run, consigner les changements effectifs de cible et de references par rapport a l essai 1. Aucune campagne supplementaire autorisee par cette reprise ; utiliser uniquement le cycle de preuve deja prevu une fois ses prealables resolus.
+    N. GAIN MESURE : publier `mips2c_gain_us` = temps par image du fil GOAL AVANT moins APRES sur l'appareil, meme scene, >= 300 images par bras ; un gain nul ou negatif est un defaut.
   out_of_scope: 'Aucun changement de resultat, meme au dernier bit. Ne touche a aucune feature validee.
     Reprise : ne pas porter new-bones-mtx-calc-asm vers un ancien chemin pour satisfaire le compteur,
     ne pas transformer l item en reecriture de tous les noyaux. Pas de nouvelle campagne de captures/refset
@@ -6869,10 +6858,10 @@ items:
       non executes.
     - Avant toute preuve appareil, references hutte/plage qualifiees et trois cibles actives ; aucune
       campagne nouvelle implicitement autorisee.
-  max_retries: 9
+  max_retries: 3
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: blocked
+  status: open
   priority: 41
   game: jak1
   gate:
@@ -6884,17 +6873,13 @@ items:
   - perf-instruments
   - perf-stock-baseline
   where: 'rien a voir : identique au pixel ; goal_busy_ms baisse'
-  known_cause: 'Backend arm64 = traduction 1:1 du modele x86 (IGenARM64.cpp). Appel : ADD + 3 STP + BLR
-    + 3 LDP (:1831-1882) pour sauver X3/X5/X10/X11/X12/X23 « saved » x86 mais caller-saved en AAPCS. Symbole
-    : ADRP+ADD+LDR (IR.cpp:636-674, marqueur A5), s7/X14 inutilise. Acces memoire : ADD X16,Xaddr,X15
-    avant chaque load/store (:1198-1347), jamais [Xn,Xm]. Trampoline GOAL->C ~45 instr (kscheme.cpp jak1:856-982)
-    avec check X30 toujours actif. pc-prof appele 20-30 fois par image vers un stub (gcommon.gc:29).'
-  deliverable: 'Lot 1 : enrobage d''appel reduit aux saved vivants (ou sauvegarde en prologue callee),
-    LDR [X14,#imm12] pour les symboles a moins de 16 Ko, forme [Xn,Xm] ou base pre-ajoutee pour les acces,
-    pc-prof branche sur perf-instruments ou coupe sans recepteur. Le moteur publie codegen_lot_defects
-    = (refset_replay_maxdiff != 0) + (boot non survecu 600 images) + (instructions par appel sur 5 fonctions
-    marqueurs > cible). goalc rebati, GAME/ENGINE.CGO regeneres et verifies par grep -a, references refset
-    recapturees une fois avec cause nommee.'
+  known_cause: |-
+    16/09 ARBITRAGE OWNER : garder si gain potentiel, « mais faut que ca casse rien ». Etat : appels a 2 instructions livres (essai 6), 4980 images sur le Redmi sans crash, MAIS codegen_lot_defects=1 parce que le comparateur refset REFUSE le CGO modifie (provenance=data, maxdiff255 = sentinelle de refus, PAS un ecart RGB) et aucun gain de temps n'a jamais ete mesure. 3 essais, strategie : (1) diagnostiquer le contrat de comparaison : un CGO dont le CODE change est l'effet ATTENDU de cet item, la comparaison doit porter sur les pixels rendus contre la reference a2, pas sur l'empreinte des donnees ; ne pas recapturer la reference pour fabriquer le vert ; (2) publier le maxdiff RGB reel ; (3) mesurer goal_busy_ms avant/apres sur la meme scene, >=300 images par bras, publier codegen_gain_us. Sans gain mesure > 0 en 3 essais, archive.
+
+    Backend arm64 = traduction 1:1 du modele x86 (IGenARM64.cpp). Appel : ADD + 3 STP + BLR + 3 LDP (:1831-1882) pour sauver X3/X5/X10/X11/X12/X23 « saved » x86 mais caller-saved en AAPCS. Symbole : ADRP+ADD+LDR (IR.cpp:636-674, marqueur A5), s7/X14 inutilise. Acces memoire : ADD X16,Xaddr,X15 avant chaque load/store (:1198-1347), jamais [Xn,Xm]. Trampoline GOAL->C ~45 instr (kscheme.cpp jak1:856-982) avec check X30 toujours actif. pc-prof appele 20-30 fois par image vers un stub (gcommon.gc:29).
+  deliverable: |-
+    Lot 1 : enrobage d'appel reduit aux saved vivants (ou sauvegarde en prologue callee), LDR [X14,#imm12] pour les symboles a moins de 16 Ko, forme [Xn,Xm] ou base pre-ajoutee pour les acces, pc-prof branche sur perf-instruments ou coupe sans recepteur. Le moteur publie codegen_lot_defects = (refset_replay_maxdiff != 0) + (boot non survecu 600 images) + (instructions par appel sur 5 fonctions marqueurs > cible). goalc rebati, GAME/ENGINE.CGO regeneres et verifies par grep -a, references refset recapturees une fois avec cause nommee.
+    N. GAIN MESURE : publier `codegen_gain_us` = goal_busy par image AVANT moins APRES sur l'appareil, meme scene, >= 300 images par bras ; un gain nul ou negatif est un defaut.
   out_of_scope: Pas de changement de convention d'appel visible du C++ (asm_funcs_arm64.s, kscheme) dans
     ce lot. Ne touche a aucune feature validee.
   notes: 'budget : goalc + regen CGO + refset. Lire .autoport/CODEGEN_COOKBOOK.md (fichiers verrouilles).
@@ -6950,6 +6935,7 @@ items:
       des donnees de scene, avec reference immuable et sans affaiblir le verdict visuel ; identifier aussi
       les exigences de symboles restant a implementer. Aucune nouvelle course ou recapture autorisee par
       cette revue.
+  max_retries: 3
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
   status: open
@@ -12013,13 +11999,13 @@ items:
     proof_bytes: 60510
     attempt: 3
     journal: validator-003.txt
-- status: blocked
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 10
+  max_retries: 3
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
@@ -12051,6 +12037,8 @@ items:
     op: ==
     value: 0
   known_cause: |-
+    16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJETE et retire ; les 3 variantes de support reduit sont REJETEES, ne pas les rejouer. Strategie imposee : (1) preuve USB NEUVE du residu de l'essai 10 avec attempt12-analyze.py sur profils entiers (pics/plateaux apres le premier pixel sombre), publiee terme par terme dans les 7 termes de ao_owner_defects ; (2) SEULEMENT ensuite, corriger le pic clair a +1 px du raccord par une voie qui n'elargit ni ne reduit le support du flou (ex. poids nul des echantillons qui traversent le pli, detecte sur la profondeur/normale), mesuree sur les memes 15 contacts et 425 px identifies ; (3) aucun pixel hors raccord ne change (controle bit-identique des 36 sorties locales). Un essai sans preuve appareil est un echec.
+
     REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombrissement61/50/51octets non qualifies. Reprendre attempt11-summary.md et bancs existants : cette information change le diagnostic, ne pas refaire le meme candidat.
 
     REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.

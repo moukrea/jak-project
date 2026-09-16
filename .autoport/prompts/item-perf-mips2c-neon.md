@@ -8,7 +8,7 @@
 - 2026-09-15 : « Reprise superviseur requise pour : perf-mips2c-neon. Ces pri… »
 
 ## Cause connue
-Essai8 : premiere divergence NaN expliquee et correction rejetee. NOUVELLE LIMITE HARNAIS : ordre des operandes different entre banc extrait et fonction moteur complete x86. Comparateur a qualifier au niveau des fonctions completes avant toute autre optimisation. Essai7 candidat3D retire :343 divergences/6048 x86 et163 ARM GCC. Banc Clang repare par choix explicite des CRT ARM :330/6048, cause de premiere operation encore non attribuee. Les trois compilateurs rejettent le candidat ; aucun gain n […suite dans le contrat]
+16/09 ARBITRAGE OWNER : « t'es sur qu'il n'y a aucun gain ? je prefere si ca a plus de perfs potentielle c'est mieux, mais faut que ca casse rien ». Donc 3 essais, et SEUL oracle admis : le banc frontiere complet de l'essai 9 (notes/attempt9/frontier-parity.cpp), jamais les blocs extraits. Interdit : redecouvrir sample13, rejouer les essais 7/8, toute correction arithmetique des candidats rejetes. Livrable : un noyau vectorise qui passe la parite complete (mips2c_parity_defects=0) ET un gain MES […suite dans le contrat]
 
 ## Livrable
 REPRISE HARNAIS APRES ESSAI8 : le diagnostic sample13 est termine (permutation des operandes NaN) et la correction essayee reste fausse :343/6048 x86,163 ARM GCC,153 ARM Clang. Les deux candidats ont ete rejetes, aucune livraison. Ne refaire ni leur decouverte ni une correction arithmetique de plus.

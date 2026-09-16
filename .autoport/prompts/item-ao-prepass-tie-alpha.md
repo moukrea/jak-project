@@ -8,7 +8,7 @@
 - 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
 
 ## Cause connue
-REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombris […suite dans le contrat]
+16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJET […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

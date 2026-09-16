@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJETE et retire ; les 3 variantes de support reduit sont REJETEES, ne pas les rejouer. Strategie imposee : (1) preuve USB NEUVE du residu de l'essai 10 avec attempt12-analyze.py sur profils entiers (pics/plateaux apres le premier pixel sombre), publiee terme par terme dans les 7 termes de ao_owner_defects ; (2) SEULEMENT ensuite, corriger le pic clair a +1 px du raccord par une voie qui n'elargit ni ne reduit le support du flou (ex. poids nul des echantillons qui traversent le pli, detecte sur la profondeur/normale), mesuree sur les memes 15 contacts et 425 px identifies ; (3) aucun pixel hors raccord ne change (controle bit-identique des 36 sorties locales). Un essai sans preuve appareil est un echec.
+
 REPRISE APRES ESSAI11 : candidat17b659564c encore insuffisant. Le premier pixel devient sombre mais le pic clair se deplace a+1 : SSAO[133,138,135,133,131,130]. Le lecteur prefixe rend0 a tort pour ce defaut ; analyser tout le profil physique, sans changer les populations/seuils precedents. Modifications globales11666/10877/11220pixels et assombrissement61/50/51octets non qualifies. Reprendre attempt11-summary.md et bancs existants : cette information change le diagnostic, ne pas refaire le meme candidat.
 
 REPRISE APRES ESSAI10 : cause locale etablie, pas de nouvel audit. Le flou decale et dilue le contact ; centrage adafa03109 reduit GTAO7px a2px, reste SSAO2/HBAO1/GTAO2. notes/attempt10-residual-ssao.md montre une bande creee des blur1 et un profil monotone ignore par ridge. Reprendre ces archives, pas la preparation de capture terminee.
@@ -61,3 +63,4 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
 iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est
 plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.
+
