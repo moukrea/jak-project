@@ -1,25 +1,40 @@
 DIRECTIVES v775512c234
-Verdict : reconstruction partielle retirée et état compilé ; raccord mur/toit non corrigé, tâche non validée.
-Changement : retrait de l'enveloppe concave ajoutée à l'essai11, propagation hors raccord non justifiée.
-Noyau centré et ridge antérieur conservés ; aucune modification des populations, seuils, TIE ou shrubs.
-Cause reprise : dilution pendant le flou ; alpha-table.tsv reste le diagnostic alpha, sans nouvel audit.
-Complément local : profils entiers aux425pixels/15contacts, verdicts natifs inchangés, inconnus explicites.
-L'ancien133,138,135 reste rouge : indices1/2 dépassent130+4 ; voir notes/attempt12-comparison.json.
-Essai11 modifiait11551/10769/11105pixels hors425, jusqu'à61/50/51octets d'assombrissement.
-Trois variantes de traitement pendant le flou rejetées : régressions des profils ou des phases.
-La variante rayon local varie de28octets R8 au pli selon les16phases ; référence0.
-Livré : les36sorties complètes locales sont bit-identiques à la référence pré11.
-Contact restant SSAO12/max3, HBAO2/max1, GTAO7/max2 ;29côtésvalides+1manquant par mode.
-Le retrait rétablit ces défauts pré11 ; aucune disparition complète du raccord revendiquée.
-GLSL410/GLES,16témoins plans/ciel/silhouette et build arm64 incrémental : exit0.
-Phases au pli du livré : R8range0 ; R32F7.7486e-7, identiques référence.
-Source9bda9d04174d8256 ; libgk4d0bb4978ac9f9b6 ; payload GLES complet vérifié, offset1992232.
-Commandes et empreintes : notes/attempt12-build-delivery.json ; détail : notes/attempt12-summary.md.
-Aucune preuve appareil produite :0proof_run,0capture ; budgets9/9 et6/6 clos.
-Huit lignes de preuve courante indisponibles ; proof.txt historique ni recopié ni revendiqué pour cet essai.
-Aucun APK ni déploiement. Validateur réservé à l'orchestrateur ; aucune fermeture ou validation owner.
-À regarder après livraison autorisée : jonction mur/toit et profil du mur juste dessous, chaque palier/mode à force maximale.
-Options > Recharged > Recharged Lighting > Ambient Occlusion ; shrubs qui bougent et caméra immobile.
-non prouvé : correction du raccord, couleur OFF, troisvues, acquis/stabilité/qualité et performance appareil.
-non prouvé : conformité silhouette ; erreur synthétique absolue~0.502 préexistante conservée.
-FINDINGS.txt et handoff.md conservent les limites et la reprise.
+Verdict : la voie imposée le 16/09 est REFUTÉE par la mesure, et la preuve appareil neuve montre
+que les sept termes de la porte ne mesurent RIEN. Raccord mur/toit non corrigé, rien livré.
+Changement : aucune source du jeu touchée. ao_blur.frag reste sha256 9bda9d04174d8256, identique à c1581d95da ; arbre propre, binaire appareil inchangé (md5 local = md5 appareil).
+Cause du défaut, enfin chiffrée : au raccord (100,550) le tap qui tombe sur le TOIT garde 96,7 %
+de son poids (rz=1,498e-4 pour zsig=5,81e-4). L'AO de contact vaut 25 brute, 52 après les deux
+passes de pas 1, 85 après celles de pas 2, 141 à la fin — l'intérieur du mur se pose à 130.
+Ce sont les boîtes LARGES qui l'effacent, pas le côté d'où viennent les taps. Creux de contact
+3 px contre 29 texels de support, plis sur 35 à 41 % de l'écran au pas 5 : aucune repondération
+d'une moyenne dix fois plus large ne garde ce creux.
+Quatre candidats locaux essayés, tous refusés, tous mesurés sur le même banc que l'essai 12 :
+- déplacer les taps traversants de 4 pas (phases exactement conservées) : bande 17/7/10 contre
+  12/2/7 livré — PIRE — et flat_step 54/39/41 pour un plafond de 10 ;
+- borner la sortie au pli (deux variantes) : bande 8/0/1 et 5/3/4, mais flat_step 30 à 33 ;
+- borner au pas 2 seul ou 2 et 3 : flat_step 8/5/6 et 10/7/8, sous le plafond, mais bande 9/2/7
+  et 13/8/11 — ils ne corrigent rien. Aucun réglage ne tient les deux exigences à la fois.
+Huit lignes de la preuve courante (.autoport/reports/ao-prepass-tie-alpha/proof.txt) :
+  source=device / serial=eae4df44 / sha=c0072ca1b597bb50 / crash=0 / frames=840 / duration_s=158
+  ao_owner_defects=7
+  ao_owner_terms_measured=0
+  ao_contact_pop_px=0
+  ao_contact_band_px=non-mesure
+  ao_flat_dbg_visited=0
+  ao_probe_wind_on_acquisition_mask=0
+  ao_static_defects=19
+  FEATURE ao-prepass-tie-alpha armed=1 hits=0
+Lecture : pattern_census() n'a jamais été appelé (ao_flat_dbg_visited=0, ao_census_frames_*=0 sur
+les 12 états), donc ni flat_step() ni contact_band(). Les sept termes valent 1 par ABSENCE
+d'instrument, pas par défaut mesuré. Identique au 15/09 avec un autre binaire : c'est structurel.
+La clé de porte ao_tie_prepass_defects est absente de toutes les preuves depuis l'essai 1 : la campagne n'est jamais armée (props absentes) et want.display attendu « beach,display » en dur
+(ao_tie_contract.h:93) contredit « village1,display » posé par proof_props.
+Ce que l'owner doit regarder : rien de neuf n'est livré, le build installé est celui d'avant.
+La question à trancher : il demande une ombre PILE au contact ; la porte du damier interdit toute
+marche d'AO sur les pixels plans qui bordent un pli (plafond 10, mesuré à 30-54 dès qu'on corrige).
+Les deux se combattent, c'est mesuré ; aucun worker ne peut assouplir l'une pour l'autre.
+non prouvé : correction du raccord ; identité couleur ; trois vues ; ao_geom_tie_absent_px ;
+ao_tie_prepass_defects (jamais publié) ; les cinq acquis et ao_static_defects sur cette course —
+tous « non-mesure », donc ni tenus ni cassés. Aucune validation owner, aucune porte franchie.
+Détail : notes/attempt13-summary.md, notes/attempt13-flatstep.log, FINDINGS.txt (9 entrées
+neuves), handoff.md. Validateur laissé à l'orchestrateur.
