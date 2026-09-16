@@ -5612,7 +5612,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: in-progress
+  status: to-test
   priority: 51
   owner_feedback:
   - date: '2026-09-09'
@@ -5682,10 +5682,17 @@ items:
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
-  delivered: null
+  delivered: '2026-09-17'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:4
   block_reason: max_retries (6) épuisé
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: a45b3bbc1e713f90
+    proof_bytes: 55210
+    attempt: 7
+    journal: validator-007.txt
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
@@ -9706,7 +9713,7 @@ items:
     proof_bytes: 59395
     attempt: 10
     journal: validator-010.txt
-- status: open
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9749,6 +9756,11 @@ items:
   hits_means: instances emises par l'expansion
   prompt: prompts/item-grass-dead-tail.md
   block_reason: null
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  proof_env:
+  - OG_RECHARGED=1
 - status: open
   game: jak1
   owner_test: false

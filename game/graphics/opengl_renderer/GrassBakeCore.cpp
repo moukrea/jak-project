@@ -1520,6 +1520,20 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   res.inst_tri.reserve(res.instances.capacity());
 
   // ===========================================================================
+  // grass-dead-tail : TOUT CE QUI SUIT NE SERT QU'A LA QUEUE D'OVERHANG, ET RIEN NE LA DESSINE
+  // quand `OG_FEAT_GRASS_OVERHANG` est OFF — ce qu'il est dans les DEUX arbres livres
+  // (build/CMakeCache.txt et build-android/CMakeCache.txt). `GrassRenderer.cpp` borne alors les
+  // deux passes a `nondroop_n = droop_start` (:1873-1883) et pousse `u_overhang = 0.0f` en
+  // LITTERAL (:1763-1768) : les instances >= droop_start ne sont jamais passees a un
+  // `instancecount`, et le `nspare` negatif pose sur les originales n'a aucun lecteur (le shader
+  // ne le lit que sous `is_comb_orig && u_overhang > 0.5`, grass.vert:159).
+  // Mesure : 110 472 instances de queue sur 726 851 au palier livre, construites, ecrites dans le
+  // tampon, televersees (64 o chacune + 4 o de lumiere), jamais dessinees.
+  // ON NE SUPPRIME RIEN : on CONDITIONNE, a la compilation, comme les quatre autres sites du
+  // meme drapeau. Option ON -> la queue est emise exactement comme avant.
+  // ===========================================================================
+#ifdef OG_FEAT_GRASS_OVERHANG
+  // ===========================================================================
   // Grecharged-grass-overhang4 shared machinery. The comb and droop tail geometry, the shader that
   // draws it, and .autoport/goverhang4_placement.py (the objective tip-violation / seam / spacing
   // metrics) MUST agree bit-for-bit on the rest-pose blade shape, or the metrics measure fiction.
@@ -1761,6 +1775,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
     float px, py, pz, h, yaw, tint, curve, phase, gr, gg, gb, ox, oz, k;
   };
   std::vector<LeanCand> lean_list;
+#endif  // OG_FEAT_GRASS_OVERHANG (machinerie de queue)
   int dbg_trans_blades = 0, dbg_trans_tilt0 = 0;  // ROUND6 curl-band census (zone-2 coverage proof)
 
   for (size_t tj = 0; tj < d.tris.size(); ++tj) {
@@ -1824,6 +1839,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       // standing on the descending strip in every prior round. Round 6: a blade ON a bit4 tri is combed
       // by its PURE TILT ramp ("en suivant EXACTEMENT cette partie" — the mesh's own steepness IS the
       // gradient), no proximity gate; elsewhere the round-4 tilt*near rule is unchanged.
+#ifdef OG_FEAT_GRASS_OVERHANG
       bool tagged = false;  // did this original get a negative nspare (comb OR lean)?
       bool on_trans = (tri.flags & 16u) != 0u;
       if (on_trans) dbg_trans_blades++;
@@ -1878,6 +1894,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
           }
         }
       }
+#endif  // OG_FEAT_GRASS_OVERHANG (marquage + collecte des jumelles)
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
     }
@@ -1885,6 +1902,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   res.scatter_kept = scatter_kept;
   res.occ_culled = occ_culled;
 
+#ifdef OG_FEAT_GRASS_OVERHANG
   // 2D exit distance from a point along the FACE down-slope: the tri's own texture extent, so a blade
   // never overshoots the painted fringe (the neighbour-plane cap handles clip-through). Hoisted up so
   // BOTH the zone-2 strip pass and the zone-3 fall pass can length-cap against it (round-2 lesson).
@@ -1920,8 +1938,11 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
     }
     return best < 1e29f ? best : 0.f;
   };
+#endif  // OG_FEAT_GRASS_OVERHANG (exit_dist ne sert qu'aux zones 2 et 3)
 
   int plane_capped = 0, plane_dropped = 0;
+  // grass-dead-tail : lu par le journal de fin d'expansion, donc declare HORS de la garde.
+  int z3_texb = 0;
 
   // ---- ZONE 2 (owner round-6): blades ON the flat-green descending mesh, following it EXACTLY with
   // increasing lean ("un peu de mesh qui descend toujours avec l'herbe verte plate... des brins de
@@ -1935,6 +1956,12 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   // fully bent where the mesh steepens — the mesh drives the gradient); on below-rim strip faces the
   // depth ramp floors it at Z2_K1 (zone-1's end) so the gradient never steps back.
   res.droop_start = (int)res.instances.size();
+
+  // grass-dead-tail : `trans_start` est pose ICI pour que le build sans overhang le rende egal
+  // a `droop_start` (aucune jumelle de comb) au lieu du 0 par defaut, que le dump hors ligne
+  // lirait comme une queue commencant a l'instance 0. Le build ON l'ecrase plus bas.
+  res.trans_start = (int)res.instances.size();
+#ifdef OG_FEAT_GRASS_OVERHANG
   int z2_placed = 0;
   {
     struct Z2Face {
@@ -2117,7 +2144,6 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
   // flat one (the tfrag/TIE fringe-fade still hides it near; restored at distance as the cards LOD
   // out — crossfade, no double-up). The R8-R10 solid fall classes (nspare 7.x) are DELETED.
   int z3_placed = 0;
-  int z3_texb = 0;
   {
     // hang-face grid (GCELL cells): cards only hang from rim segments that actually have native-
     // alpha strip faces below them — clean drop-offs keep their stock silhouette. Per entry we keep
@@ -2243,6 +2269,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
     }
   }
   res.z3_count = z3_placed;
+#endif  // OG_FEAT_GRASS_OVERHANG (zones 1, 2, 3 : la queue que rien ne dessine)
 
   res.plane_capped = plane_capped;
   res.plane_dropped = plane_dropped;

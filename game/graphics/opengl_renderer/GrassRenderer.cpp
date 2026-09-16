@@ -46,6 +46,12 @@ void grass_proof_register_program(unsigned int colour, unsigned int measure) {
 
 namespace {
 
+// grass-dead-tail : l'item qui conditionne la construction de la queue d'overhang. Le SITE est
+// enregistre au chargement (pas a l'execution) : c'est ce qui separe « aucun site compile ici »
+// de « site compile, jamais atteint » dans validators/generic.sh.
+constexpr const char* kDeadTailItemId = "grass-dead-tail";
+AUTOPORT_FEATURE_SITE(kDeadTailItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1431,6 +1437,37 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         (uint64_t)(m_instance_count < 0 ? 0 : m_instance_count) *
             (uint64_t)sizeof(grass_bake::GrassInstance),
         (uint64_t)m_light.size());
+
+    // grass-dead-tail : LE COUT DU CHARGEMENT, PUBLIE SOUS CET ITEM. `note_load` ci-dessus ne
+    // publie que si le harnais mesure grass-baseline-cost ; un item n'a acces qu'a SES cles. Les
+    // grandeurs sont les MEMES (aucune seconde mesure fabriquee a cote) : la decomposition que la
+    // ligne PLACE-TIME porte deja, en microsecondes entieres pour que le moissonneur les prenne.
+    if (autoport_proof::armed_for(kDeadTailItemId) && autoport_proof::feature_is(kDeadTailItemId)) {
+      const uint64_t built = (uint64_t)(m_instance_count < 0 ? 0 : m_instance_count);
+      const uint64_t dstart = (uint64_t)(m_droop_start < 0 ? 0 : m_droop_start);
+      autoport_proof::publish("grass_dead_tail_built", built > dstart ? built - dstart : 0);
+      autoport_proof::publish("grass_dead_droop_start", dstart);
+      autoport_proof::publish("grass_dead_expanded_instances", built);
+      autoport_proof::publish("grass_dead_inst_bytes",
+                              built * (uint64_t)sizeof(grass_bake::GrassInstance));
+      autoport_proof::publish("grass_dead_light_bytes", (uint64_t)m_light.size());
+      autoport_proof::publish("grass_dead_source_us", (uint64_t)(ms(tA, tB) * 1000.f));
+      autoport_proof::publish("grass_dead_expand_us", (uint64_t)(ms(tB, tExpandEnd) * 1000.f));
+      autoport_proof::publish("grass_dead_upload_us", (uint64_t)(ms(tExpandEnd, tC) * 1000.f));
+      autoport_proof::publish("grass_dead_total_us", (uint64_t)(ms(tA, tC) * 1000.f));
+      autoport_proof::publish("grass_dead_blocked_us",
+                              (uint64_t)(ms(tExpandJoin, tExpandDone) * 1000.f));
+      autoport_proof::publish_text(
+          "grass_dead_preset",
+          grass_bake::density_preset_slug(from_bake ? m_pending.served_preset
+                                                    : m_pending.want_preset));
+      autoport_proof::publish_text("grass_dead_level", lvl_name.c_str());
+#ifdef OG_FEAT_GRASS_OVERHANG
+      autoport_proof::publish("grass_dead_tail_compiled", 1);
+#else
+      autoport_proof::publish("grass_dead_tail_compiled", 0);
+#endif
+    }
   }
 
   // Ggrass-crash (owner 2026-08-30, bissection : « avec l'herbe ca crash, sans ca fonctionne ») —
@@ -2231,6 +2268,29 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       std::chrono::duration<double, std::micro>(t_fence1 - t_fence0).count(),
       std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t_draw0).count(),
       (uint64_t)draw_n, (uint64_t)card_n);
+
+  // grass-dead-tail : LE COMPTE ATTEINT PAR UN APPEL DE DESSIN, LU AU POINT D'APPEL — pas la
+  // variable qu'un autre bout de code croit passer. `grass_dead_instances` est la DIFFERENCE de
+  // deux termes publies SEPAREMENT juste au-dessus : l'egalite est le verdict, et un ecart dans
+  // l'autre sens (plus dessine que construit) rend une valeur POSITIVE, donc rouge, au lieu de se
+  // faire ecraser a zero. Publie une fois par couple (construit, atteint) : une image qui ne
+  // change rien n'ecrit pas 55 000 lignes dans le journal.
+  if (autoport_proof::armed_for(kDeadTailItemId) && autoport_proof::feature_is(kDeadTailItemId)) {
+    static int s_pub_built = -1, s_pub_reached = -1;
+    const int reached = std::max(draw_n, card_n);
+    if (s_pub_built != m_instance_count || s_pub_reached != reached) {
+      s_pub_built = m_instance_count;
+      s_pub_reached = reached;
+      const uint64_t built = (uint64_t)(m_instance_count < 0 ? 0 : m_instance_count);
+      const uint64_t rch = (uint64_t)(reached < 0 ? 0 : reached);
+      autoport_proof::publish("grass_dead_built_instances", built);
+      autoport_proof::publish("grass_dead_drawn_instances", rch);
+      autoport_proof::publish("grass_dead_instances", built >= rch ? built - rch : rch - built);
+      autoport_proof::publish("grass_dead_draw_blade_n", (uint64_t)(draw_n < 0 ? 0 : draw_n));
+      autoport_proof::publish("grass_dead_draw_card_n", (uint64_t)(card_n < 0 ? 0 : card_n));
+      autoport_proof::note_hit_for(kDeadTailItemId, built);
+    }
+  }
 
   // ROUND#19 wedge fix, part 2: fence THIS frame's grass draws; the wait above (next frame) will not
   // submit more grass until these have fully retired -> pipeline depth <= 1 grass frame, the unbounded
