@@ -6740,7 +6740,7 @@ items:
   block_reason: null
 - id: perf-mips2c-neon
   feature: Les calculs d animation et de particules coutent moins sans changer leurs resultats
-  status: in-progress
+  status: open
   priority: 40
   game: jak1
   gate:
@@ -6751,6 +6751,7 @@ items:
   depends_on:
   - perf-instruments
   - perf-stock-baseline
+  - harness-judge-waits-for-the-proof-a-worker-left-in-flight
   where: 'rien a voir : identique au pixel et a la pose ; goal_busy_ms baisse'
   known_cause: |-
     16/09 ARBITRAGE OWNER : « t'es sur qu'il n'y a aucun gain ? je prefere si ca a plus de perfs potentielle c'est mieux, mais faut que ca casse rien ». Donc 3 essais, et SEUL oracle admis : le banc frontiere complet de l'essai 9 (notes/attempt9/frontier-parity.cpp), jamais les blocs extraits. Interdit : redecouvrir sample13, rejouer les essais 7/8, toute correction arithmetique des candidats rejetes. Livrable : un noyau vectorise qui passe la parite complete (mips2c_parity_defects=0) ET un gain MESURE sur l'appareil, publie mips2c_gain_us (temps par image du fil GOAL avant/apres, meme scene, meme binaire sauf le noyau, >=300 images chaque bras). Sans gain mesure > 0 en 3 essais, l'item sera archive : c'est la regle de l'owner, pas une punition.
@@ -6772,16 +6773,9 @@ items:
     ne pas transformer l item en reecriture de tous les noyaux. Pas de nouvelle campagne de captures/refset
     ni de nouvelle origine implicite. Instrumentation de parite existante raccordable aux cibles actives,
     sans relacher les seuils. Conserver preuves historiques et modifications des autres items.'
-  notes: 'budget : trois noyaux, deux plateformes, parite prouvee. Point de vue : village1-hut + beach.
-    | 15/09 budget : 7, un seul essai supplementaire apres correction du perimetre de preparation. Produire
-    un candidat local avant/apres au lieu du meme audit de trois cibles/references introuvables. Six echecs
-    conserves, aucun budget appareil ajoute. Script build_x86 executable retabli, syntaxe et --help verifies
-    sans build. | 15/09 budget : 8, un seul suivi local fonde sur les nouvelles divergences concretement
-    mesurees de l essai7 et le banc Clang repare (330/6048). Isoler premiere operation NaN puis au plus
-    une correction, conserver retrait si echec ; aucune nouvelle course appareil. | 15/09 budget : 9,
-    un seul essai de harnais local pour traiter la nouvelle limite etablie a l essai8 : bloc extrait non
-    equivalent au codegen de la fonction complete. Aucun nouveau candidat moteur ni campagne appareil,
-    huit echecs conserves.'
+  notes: |-
+    budget : trois noyaux, deux plateformes, parite prouvee. Point de vue : village1-hut + beach. | 15/09 budget : 7, un seul essai supplementaire apres correction du perimetre de preparation. Produire un candidat local avant/apres au lieu du meme audit de trois cibles/references introuvables. Six echecs conserves, aucun budget appareil ajoute. Script build_x86 executable retabli, syntaxe et --help verifies sans build. | 15/09 budget : 8, un seul suivi local fonde sur les nouvelles divergences concretement mesurees de l essai7 et le banc Clang repare (330/6048). Isoler premiere operation NaN puis au plus une correction, conserver retrait si echec ; aucune nouvelle course appareil. | 15/09 budget : 9, un seul essai de harnais local pour traiter la nouvelle limite etablie a l essai8 : bloc extrait non equivalent au codegen de la fonction complete. Aucun nouveau candidat moteur ni campagne appareil, huit echecs conserves.
+    budget : plafond 13 = compteur 10 + 3 essais neufs (owner 16/09), l'essai 10 ferme avec la preuve en vol etant rendu (voir harness-judge-waits-for-the-proof-a-worker-left-in-flight)
   max_turns: 1200
   hits_means: images en chemin vectoriel
   proof_timeout: 600
@@ -6807,10 +6801,7 @@ items:
   - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: Candidat3D rejete par comparaison des fonctions completes avant appel GOAL :226 contextes
-    divergents x86,335 ARM ; memoire differente aussi. Aucun gain ni candidat exact livre. Diagnostic
-    et banc local termines ; reprendre seulement avec une nouvelle piste justifiee et references qualifiees,
-    pas avec ces candidats ni le meme audit. Sources moteur conservees.
+  block_reason: max_retries (3) épuisé
   supervisor_recovery: false
   supervisor_review:
     date: '2026-09-15'
@@ -6858,10 +6849,10 @@ items:
       non executes.
     - Avant toute preuve appareil, references hutte/plage qualifiees et trois cibles actives ; aucune
       campagne nouvelle implicitement autorisee.
-  max_retries: 12
+  max_retries: 13
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: open
+  status: in-progress
   priority: 41
   game: jak1
   gate:
@@ -12012,15 +12003,16 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
-  max_retries: 13
+  max_retries: 15
   proof_timeout: 420
   depends_on:
   - ao-static-probe-deterministic
+  - harness-judge-waits-for-the-proof-a-worker-left-in-flight
   history: []
   id: ao-prepass-tie-alpha
   proof_props:
   - debug.opengoal.want.levels=village1,beach
-  - debug.opengoal.want.display=village1,display
+  - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   - debug.opengoal.pad_replay_realtime=0
   - debug.opengoal.fixed_tick=1
@@ -12034,7 +12026,9 @@ items:
   - debug.opengoal.foliage.force=1
   - debug.opengoal.level.warp=village1-hut
   - debug.opengoal.level.warp.pos=-116 14 40
-  - debug.opengoal.ao.contact.capture=1
+  - debug.opengoal.ao.tie.campaign=tie-alpha-20260916-attempt14
+  - debug.opengoal.ao.tie.view=village1-hut
+  - debug.opengoal.ao.tie.reference=0
   priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
@@ -12080,21 +12074,9 @@ items:
     REPRISE15/09 APRES REPONSE OWNER : le plan historique9/9 reste clos. Le proof_plan courant borne la correction demandee au raccord hutte, six mesures maximum150s, instrumentation necessaire comprise. Ce nouveau perimetre remplace l attente d arbitrage precedente ; ne pas refaire la campagne trois vues ni toucher aux mini-palmiers valides. Preserver tous les criteres finaux ; aucune validation acquise par cette reprise.
     REPRISE LOCALE APRES6/6 : preparer une correction de la dilution residuelle sur les archives deja acquises, avec rejeu local du shader et profils fixes425pixels/15contacts. Pas de nouvel appel proof_run appareil ni de recapture : campagne6/6 close. Traiter aussi les phases du damier pour ne pas le reintroduire. Comparer reference/candidat sur le meme pilote local ; les ecarts connus Intel/Redmi1..2quantums interdisent de presenter le resultat local comme validation appareil. Livrer candidat compile, tests et limites ; ne pas rendre la main en repetant uniquement budget epuise. Aucune baisse de seuil, aucun cote manquant efface, aucune cloture de resultat.
     SUITE LOCALE ESSAI11 : commencer par un controle complementaire du profil entier incluant pics secondaires et plateaux apres le premier pixel sombre, sans supprimer les anciens verdicts ni censurer les echecs. Reprendre explicitement le cas133,138,135 qui doit rester rouge. Qualifier la propagation hors raccord sur les archives completes (surfaces/concavite), conserver temoins plans/ciel/silhouettes/phases4 ; revoir ou retirer la reconstruction partielle si sa portee ne se justifie pas. Corriger la dilution a sa cause et qualifier tout effet hors contact ; aucun elargissement arbitraire de masque. Aucune nouvelle mesure appareil, aucun verdict machine courant tire de proof.txt historique. Le prochain resultat est candidat local compile et ses limites, pas fermeture globale.
-  notes: 'SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l''owner le 14/09. C''est
-    ici que l''owner juge l''AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux
-    essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret.
-    Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact
-    est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis. | budget :
-    7, un essai de reprise concret apres retour owner explicite sur le raccord. Ancienne proposition remplacee
-    par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8.
-    | budget : 8, un essai de continuation apres preparation code2d4d5bb656. Terminer raccordement profondeur/normales/couleur
-    et identites mur/toit de notes/attempt9-preparation.md ; ne pas refaire audit ni les trois tests deja
-    passes sans modification. Epinger proof_props hutte/capture avant toute course ; plan0/6 conserve,
-    aucune extension appareil. | budget : 9, un essai de correction LOCALE apres cause nouvellement etablie
-    essai10 (bande recreee par flou). Six mesures consommees conservees, zero course supplementaire. Exploiter
-    archives/profile/readers existants ; aucun nouvel audit de preparation. | budget : 10, une continuation
-    locale apres diagnostic nouveau essai11 du pic secondaire et de la propagation sur4passes. Reutiliser
-    attempt11-replay.py et tests ; 9/9 et6/6 clos, zero course supplementaire.'
+  notes: |-
+    SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est ici que l'owner juge l'AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret. Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis. | budget : 7, un essai de reprise concret apres retour owner explicite sur le raccord. Ancienne proposition remplacee par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8. | budget : 8, un essai de continuation apres preparation code2d4d5bb656. Terminer raccordement profondeur/normales/couleur et identites mur/toit de notes/attempt9-preparation.md ; ne pas refaire audit ni les trois tests deja passes sans modification. Epinger proof_props hutte/capture avant toute course ; plan0/6 conserve, aucune extension appareil. | budget : 9, un essai de correction LOCALE apres cause nouvellement etablie essai10 (bande recreee par flou). Six mesures consommees conservees, zero course supplementaire. Exploiter archives/profile/readers existants ; aucun nouvel audit de preparation. | budget : 10, une continuation locale apres diagnostic nouveau essai11 du pic secondaire et de la propagation sur4passes. Reutiliser attempt11-replay.py et tests ; 9/9 et6/6 clos, zero course supplementaire.
+    budget : plafond 15 = compteur 13 + 2 essais RENDUS (14 et 15 fermes par l'orchestrateur avec la preuve en vol, voir harness-judge-waits-for-the-proof-a-worker-left-in-flight)
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -12123,7 +12105,7 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: max_retries (3) épuisé
+  block_reason: max_retries (13) épuisé
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -12520,3 +12502,53 @@ items:
     proof_bytes: 44334
     attempt: 5
     journal: validator-005.txt
+- status: open
+  game: jak1
+  owner_test: false
+  code_scope: harnais
+  spec: null
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  depends_on: []
+  id: harness-judge-waits-for-the-proof-a-worker-left-in-flight
+  priority: 31
+  device: false
+  feature: 'Un worker qui laisse une course de preuve EN VOL n''est plus ferme apres 45 s : le juge attend
+    la course, bornee par proof_timeout, avant de trancher'
+  gate:
+    key: inflight_kill_defects
+    op: ==
+    value: 0
+  known_cause: '16/09, trois essais brules en 50 min (ao-prepass-tie-alpha 14 et 15, perf-mips2c-neon
+    10). Le worker Claude lance `proof_run.sh <id> device` en arriere-plan, arme un moniteur sur son PID
+    et TERMINE SON TOUR (« En vol — j''attends la notification », « I''ll wait for the run rather than
+    poll »). En mode `-p` cette notification n''arrive jamais : l''orchestrateur voit un `result`, compte
+    45 s d''inactivite (STALL_POST_RESULT_SEC, orchestrator.py:143) et fait `_kill(''post-result'')`,
+    puis juge : `proof.txt absent` (validator-014/015). `wait_for_proof_writer` n''aide pas : au moment
+    du juge la course est deja morte avec le groupe de processus du worker, ou pas encore verrouillee.
+    L''essai 14 avait pourtant trouve la cause de 13 essais aveugles (fenetre de la sonde statique au
+    tick 1200, courses tuees a 840 par --timeout 150) : ce travail est perdu deux fois.'
+  deliverable: |-
+    `inflight_kill_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. LE COUT D'AVANT EST CHIFFRE : compte d'essais archives dont le journal porte « fermeture forcee » (post-result) ET dont le validateur dit « proof.txt absent » ou « course ECRIVAIT » ; publie par item ; non nul (au moins 3 le 16/09).
+
+    2. LE JUGE ATTEND LA COURSE : quand le worker a emis son resultat et se tait, l'orchestrateur regarde d'abord si une course de preuve de CET item est vivante (verrou/PID de proof_run.sh, ou processus enfant `proof_run.sh <id>`) ; si oui, il n'envoie aucun signal, attend sa fin bornee par `proof_timeout` de l'item + 120 s, et juge APRES. Publier l'attente et le PID.
+
+    3. LA FERMETURE N'EMPORTE PAS LA COURSE : quand la fermeture forcee reste legitime (aucune course vivante), une course lancee par le worker en `setsid` survit au `_kill` ; temoin : bac a sable, faux worker qui lance un faux proof_run de 60 s puis emet un resultat et se tait ; proof.txt final present et juge.
+
+    4. LE TEMOIN A DEUX BRAS : meme bac a sable, (a) course vivante = pas de kill, verdict sur la preuve finale ; (b) aucune course = kill post-result inchange apres 45 s. Les deux verdicts cote a cote, `--off` = comportement d'avant (course tuee, proof absent).
+
+    PREUVE : `FEATURE harness-judge-waits-for-the-proof-a-worker-left-in-flight armed=1 hits=<juges retenus par une course vivante>` + la ligne `inflight_kill_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Rien a voir dans le jeu : c''est du harnais. L''effet se lit sur les essais AO et perf qui ne
+    meurent plus avec leur preuve en vol.'
+  out_of_scope: Ne change pas STALL_POST_RESULT_SEC pour tout le monde ; ne relance jamais une course
+    ; ne touche ni au validateur ni a proof_run.sh au-dela du verrou/PID lisible. Tout ce qui n'est pas
+    cet item.
+  notes: Cree par le superviseur le 16/09 apres lecture des attempt-014/015.jsonl (AO) et attempt-010.jsonl
+    (mips2c). Publier par lib/census/harness-judge-waits-for-the-proof-a-worker-left-in-flight.sh.
+  hits_means: juges retenus par une course vivante
+  owner_ok: null
+  no_code: true
+  prompt: prompts/item-harness-judge-waits-for-the-proof-a-worker-left-in-flight.md
