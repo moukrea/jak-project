@@ -6741,7 +6741,7 @@ items:
   block_reason: null
 - id: perf-mips2c-neon
   feature: Les calculs d animation et de particules coutent moins sans changer leurs resultats
-  status: open
+  status: archived
   priority: 40
   game: jak1
   gate:
@@ -6777,6 +6777,7 @@ items:
   notes: |-
     budget : trois noyaux, deux plateformes, parite prouvee. Point de vue : village1-hut + beach. | 15/09 budget : 7, un seul essai supplementaire apres correction du perimetre de preparation. Produire un candidat local avant/apres au lieu du meme audit de trois cibles/references introuvables. Six echecs conserves, aucun budget appareil ajoute. Script build_x86 executable retabli, syntaxe et --help verifies sans build. | 15/09 budget : 8, un seul suivi local fonde sur les nouvelles divergences concretement mesurees de l essai7 et le banc Clang repare (330/6048). Isoler premiere operation NaN puis au plus une correction, conserver retrait si echec ; aucune nouvelle course appareil. | 15/09 budget : 9, un seul essai de harnais local pour traiter la nouvelle limite etablie a l essai8 : bloc extrait non equivalent au codegen de la fonction complete. Aucun nouveau candidat moteur ni campagne appareil, huit echecs conserves.
     budget : plafond 13 = compteur 10 + 3 essais neufs (owner 16/09), l'essai 10 ferme avec la preuve en vol etant rendu (voir harness-judge-waits-for-the-proof-a-worker-left-in-flight)
+    16/09 22:25 ARCHIVE par le superviseur selon la regle posee avec l'owner le 16/09 (« si ca a plus de perfs potentielle c'est mieux, mais faut que ca casse rien » -> 3 essais, sans gain mesure > 0, archive) : 3 essais neufs (11-13), derniere mesure mips2c_parity_defects=1 sur 600 images, mips2c_gain_us=0. Aucun gain livre, un calcul encore faux.
   max_turns: 1200
   hits_means: images en chemin vectoriel
   proof_timeout: 600
@@ -6789,7 +6790,7 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   - OG_REFSET=replay
   - OG_REFSET_PHASES=1
-  - OG_REFSET_VANTAGES=legacy,beach-start
+  - OG_REFSET_VANTAGES=legacy
   - OG_REFSET_HOURS=9
   proof_props:
   - debug.opengoal.level.warp=village1-hut
@@ -6798,11 +6799,11 @@ items:
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.refset=replay
   - debug.opengoal.refset.phases=1
-  - debug.opengoal.refset.vantages=legacy,beach-start
+  - debug.opengoal.refset.vantages=legacy
   - debug.opengoal.refset.hours=9
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: max_retries (3) épuisé
+  block_reason: max_retries (13) épuisé
   supervisor_recovery: false
   supervisor_review:
     date: '2026-09-15'
@@ -6853,7 +6854,7 @@ items:
   max_retries: 13
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: open
+  status: in-progress
   priority: 41
   game: jak1
   gate:
@@ -12007,7 +12008,7 @@ items:
     proof_bytes: 60510
     attempt: 3
     journal: validator-003.txt
-- status: open
+- status: blocked
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -12115,7 +12116,7 @@ items:
       dans la MEME preuve du successeur ne peut donc pas etre satisfaite sans raccordement.'
     decision: Reutilisation de la sonde autorisee, criteres et populations conserves. Aucune porte assouplie,
       aucune valeur archivee acceptee comme mesure nouvelle.
-  block_reason: max_retries (13) épuisé
+  block_reason: max_retries (15) épuisé
   proof_plan_pending: null
   supervisor_observation:
     date: '2026-09-14'
@@ -12512,7 +12513,7 @@ items:
     proof_bytes: 44334
     attempt: 5
     journal: validator-005.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -12562,7 +12563,14 @@ items:
   owner_ok: null
   no_code: true
   prompt: prompts/item-harness-judge-waits-for-the-proof-a-worker-left-in-flight.md
-- status: open
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-16'
+    proof_sha: 371cd51593c907e1
+    proof_bytes: 52858
+    attempt: 1
+    journal: validator-001.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -12612,3 +12620,10 @@ items:
   owner_ok: null
   no_code: true
   prompt: prompts/item-harness-judge-runs-the-proof-when-the-worker-left-none.md
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-16'
+    proof_sha: b6eebdfae8d51ec1
+    proof_bytes: 60757
+    attempt: 2
+    journal: validator-002.txt
