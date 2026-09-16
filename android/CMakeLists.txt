@@ -563,6 +563,13 @@ set_source_files_properties(
     # bit-identical to the original per-op mips2c VU0 path. Same IEEE-strict
     # requirement as the collision TUs above.
     "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle.cpp"
+    # perf-mips2c-neon 2026-09-16 (essai 12) : sparticle_launcher.cpp porte desormais le
+    # comparateur VuSimd, dont le bras vectoriel des multiply-add fait DEUX arrondis
+    # (`vmulq_f32` puis `vaddq_f32`). Sous contraction, clang refusionnerait les deux
+    # intrinseques en `fmla` : un arrondi, donc un ecart bit a bit avec son propre oracle
+    # scalaire. La TU mesurait deja 0 FMA — on verrouille la garantie au lieu d'en
+    # dependre, comme le commentaire sparticle ci-dessus.
+    "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle_launcher.cpp"
     # ---------------------------------------------------------------------------------
     # perf-mips2c-neon 2026-09-16 — LE MEME CORRECTIF, JAMAIS ETENDU A L'ANIMATION JAK 1.
     # Gjak2-polish avait cherche les TU oubliees CHEZ JAK 2 et conclu « 0 chez les

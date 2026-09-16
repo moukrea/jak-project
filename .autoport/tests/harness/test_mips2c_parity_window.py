@@ -44,7 +44,7 @@ void step(unsigned mask, uint64_t mismatches = 0) {
 }
 void snapshot(const char* label) {
   std::cout << "{\"label\":\"" << label << "\",\"verify\":"
-            << settings(Kernel::Bones).verify << ",\"hits\":" << autoport_proof::hits;
+            << settings(Kernel::Collide).verify << ",\"hits\":" << autoport_proof::hits;
   for (const auto& [key, value] : autoport_proof::values) {
     std::cout << ",\"" << key << "\":" << value;
   }
@@ -105,7 +105,7 @@ def test_sparse_frames_do_not_exhaust_oracle(parity_executable):
     row, = run_scenario(parity_executable, "sparse")
     assert row["mips2c_parity_frames"] == 1
     assert row["mips2c_warmup_frames"] == 599
-    assert row["mips2c_bones_frames"] == row["mips2c_particles_frames"] == 1
+    assert row["mips2c_collide_frames"] == row["mips2c_particles_frames"] == 1
     assert row["mips2c_joints_frames"] == row["hits"] == 600
     assert row["verify"] == 1
     assert row["mips2c_parity_defects"] > 0
@@ -141,6 +141,6 @@ def test_qualified_window_and_persistent_gate(parity_executable, scenario, gate,
         assert row["mips2c_refset_present"] == present
         assert row["mips2c_parity_incomplete"] == (not present)
         assert row["mips2c_parity_defects"] == gate
-        for kernel in ("bones", "joints", "particles"):
+        for kernel in ("collide", "joints", "particles"):
             assert row[f"mips2c_{kernel}_frames"] == 600
             assert row[f"mips2c_{kernel}_compared_ops"] == 600

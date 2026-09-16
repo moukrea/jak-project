@@ -32,13 +32,31 @@ void invoke(Context& c, int op, DEST m, BC bc, int d, int a, int b) {
     case 10: c.vaddq(m,d,a); break;
     case 11: c.vmove(m,d,a); break;
     case 12: c.vabs(m,d,a); break;
+    // essai 12 — la famille multiply-add et les min/max, ajoutees a VuSimd le 16/09.
+    case 13: c.vmadda_bc(m,bc,a,b); break;
+    case 14: c.vmadda(m,a,b); break;
+    case 15: c.vmadd_bc(m,bc,d,a,b); break;
+    case 16: c.vmadd(m,d,a,b); break;
+    case 17: c.vmsuba_bc(m,bc,a,b); break;
+    case 18: c.vmsuba(m,a,b); break;
+    case 19: c.vmsub_bc(m,bc,d,a,b); break;
+    case 20: c.vmsub(m,d,a,b); break;
+    case 21: c.vmsubq(m,d,a); break;
+    case 22: c.vadda_bc(m,bc,a,b); break;
+    case 23: c.vmini(m,d,a,b); break;
+    case 24: c.vmax(m,d,a,b); break;
+    case 25: c.vmini_bc(m,bc,d,a,b); break;
+    case 26: c.vmax_bc(m,bc,d,a,b); break;
     default: std::abort();
   }
 }
 
 static constexpr const char* names[] = {"vmul", "vadd", "vsub", "vmul_bc",
   "vadd_bc", "vsub_bc", "vmula", "vmula_bc", "vmula_q", "vmulq", "vaddq",
-  "vmove", "vabs"};
+  "vmove", "vabs",
+  "vmadda_bc", "vmadda", "vmadd_bc", "vmadd", "vmsuba_bc", "vmsuba",
+  "vmsub_bc", "vmsub", "vmsubq", "vadda_bc", "vmini", "vmax", "vmini_bc", "vmax_bc"};
+static constexpr int kOps = (int)(sizeof(names) / sizeof(names[0]));
 
 static void seed(ExecutionContext& c, unsigned sample) {
   // ±zero, min/max subnormal, min normal, finite extrema, infinities,
@@ -70,13 +88,13 @@ int main() {
     config={mode!=2, mode==1};
     std::memset(comparisons,0,sizeof(comparisons));
     std::memset(defects,0,sizeof(defects));
-    uint64_t cases=0, recorded_per_op[13]{};
+    uint64_t cases=0, recorded_per_op[kOps]{};
     for (unsigned sample=0; sample<104; ++sample) {
       ExecutionContext initial{}; seed(initial,sample);
       for (int mask=0; mask<16; ++mask)
         for (int bc=0; bc<4; ++bc)
           for (const auto& ids:aliases)
-            for (int op=0; op<13; ++op) {
+            for (int op=0; op<kOps; ++op) {
               ExecutionContext expected=initial, actual=initial;
               const int kernel=cases%3;
               VuSimd simd(&actual,static_cast<Kernel>(kernel));
@@ -98,7 +116,7 @@ int main() {
               ++cases;
             }
     }
-    for (int op=0;op<13;++op) {
+    for (int op=0;op<kOps;++op) {
       if ((mode==1 && !recorded_per_op[op]) || (mode!=1 && recorded_per_op[op])) ++failures;
       std::printf("mode=%s op=%s recorded_comparisons=%llu\n",modes[mode],names[op],
                   static_cast<unsigned long long>(recorded_per_op[op]));

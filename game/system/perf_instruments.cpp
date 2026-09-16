@@ -41,7 +41,24 @@ AUTOPORT_FEATURE_SITE(kItem);
 // All counters are owned by the GOAL thread, like the VU contexts themselves.
 uint64_t compared[3] = {}, defects[3] = {}, active_frames[3] = {};
 uint64_t previous[3] = {}, frames = 0, warmup_frames = 0, ticks = 0;
-constexpr const char* names[] = {"bones", "joints", "particles"};
+// ── LA FENETRE DE COUT ────────────────────────────────────────────────────────────────
+// Le contrat demande `mips2c_gain_us`, « meme scene, meme binaire sauf le noyau, >= 300
+// images chaque bras ». Deux COURSES ne peuvent pas tenir « meme scene » : la scene derive.
+// On alterne donc le regime DANS LA MEME COURSE, par blocs de 30 images, une fois la
+// fenetre de parite epuisee (l'oracle est alors eteint : contrat, point 2).
+//
+// CE QU'ON NE MESURE PAS, ET POURQUOI. `goal_busy_ms` vaut 14,957 ms dont 12,824 de
+// `swap-display` : c'est une attente d'affichage qui ABSORBE toute avance du fil GOAL. Un
+// gain de quelques dizaines de microsecondes y serait invisible par construction. La
+// grandeur mesuree est donc le temps passe DANS les noyaux raccordes, chronometre par le
+// recensement mips2c qui les enveloppe deja — le surcout de son horloge est identique dans
+// les deux regimes et se SOUSTRAIT dans l'ecart.
+constexpr uint64_t kCostBlock = 30;
+uint64_t cost_frames[2] = {};
+uint64_t cost_ticks = 0;
+bool vector_now = true;   // la phase de parite tourne toujours en vectoriel
+int cost_slot_now = -1;   // -1 : cette image n'est comptee par personne
+constexpr const char* names[] = {"collide", "joints", "particles"};
 bool measuring() {
   static const bool value = autoport_proof::feature_is(kItem);
   return value;
@@ -51,10 +68,21 @@ bool measuring() {
 Settings settings(Kernel) {
 #if defined(__aarch64__) || defined(__SSE2__) || defined(_M_X64)
   static const bool on = autoport_proof::armed_for(kItem);
-  return {on, on && measuring() && frames < 600};
+  // `vector_now` ne vaut faux que pendant un bloc scalaire de la fenetre de cout, et cette
+  // fenetre n'existe que sous `measuring()`. Hors course de preuve, le chemin livre est le
+  // chemin vectoriel, toujours.
+  return {on && vector_now, on && measuring() && frames < 600};
 #else
   return {false, false};
 #endif
+}
+
+int cost_slot() {
+  return cost_slot_now;
+}
+
+uint64_t cost_frames_in(int slot) {
+  return (slot == 0 || slot == 1) ? cost_frames[slot] : 0;
 }
 
 void record(Kernel kernel, uint64_t count, uint64_t mismatches) {
@@ -87,6 +115,19 @@ void frame_boundary() {
     } else {
       ++warmup_frames;
     }
+  }
+  // L'image qui vient de finir a tourne sous `cost_slot_now` : on la compte, puis on choisit
+  // le regime de la SUIVANTE. La premiere image de chaque bloc est jetee (`-1`) : c'est celle
+  // qui porte la transition de regime, pas un etat stable.
+  if (frames >= 600) {
+    if (cost_slot_now >= 0) {
+      ++cost_frames[cost_slot_now];
+    }
+    const uint64_t block = cost_ticks / kCostBlock;
+    const bool first_of_block = (cost_ticks % kCostBlock) == 0;
+    vector_now = (block & 1) != 0;
+    cost_slot_now = first_of_block ? -1 : (vector_now ? 1 : 0);
+    ++cost_ticks;
   }
   if (++ticks % 60 != 0) {
     return;
@@ -147,7 +188,21 @@ struct Entry {
   char key[64] = {};
   u64 calls = 0;
   u64 ns = 0;  // temps INCLUSIF (voir l'en-tete de section)
+  bool wired = false;  // raccorde au comparateur VuSimd : compte dans la fenetre de cout
 };
+
+// LES NOYAUX RACCORDES, NOMMES. Ce sont les seules fonctions dont le temps entre dans
+// `mips2c_gain_us` : elles, et rien d'autre. Un nom qui ne s'apparie plus fait tomber
+// `mips2c_cost_wired_fns` a zero, et la mesure se lit alors « aveugle », pas « nulle ».
+// Noms assainis par `make_key`, comme les cles publiees.
+constexpr const char* kWired[] = {
+    "cspace__parented_transformq_joint_",  // joint.cpp        — Kernel::Joints
+    "_method_32_collide_cache_",           // collide_cache.cpp — Kernel::Collide
+    "_method_29_collide_cache_",           // collide_cache.cpp — Kernel::Collide
+    "sp_launch_particles_var",             // sparticle_launcher.cpp — Kernel::Particles
+};
+u64 g_wired_ns[2] = {}, g_wired_calls[2] = {};
+int g_wired_fns = 0;
 
 Entry g_entries[kMax];
 int g_count = 0;
@@ -192,6 +247,13 @@ u64 shim(void* ctxt) {
   e.ns += dt;
   if (depth == 0) {
     g_union_ns += dt;
+    if (e.wired) {
+      const int slot = Mips2C::vu_simd::cost_slot();
+      if (slot >= 0) {
+        g_wired_ns[slot] += dt;
+        ++g_wired_calls[slot];
+      }
+    }
   } else {
     ++g_reentrant;
   }
@@ -250,6 +312,13 @@ u64 (*wrap(const char* name, u64 (*exec)(void*)))(void*) {
   Entry& e = g_entries[g_count];
   e.exec = exec;
   make_key("", name, e.key, sizeof(e.key));
+  for (const char* wired : kWired) {
+    if (std::strcmp(wired, e.key) == 0) {
+      e.wired = true;
+      ++g_wired_fns;
+      break;
+    }
+  }
   return shims()[g_count++];
 }
 
@@ -309,6 +378,52 @@ void frame_boundary() {
   autoport_proof::publish("mips2c_census_net_ns_frame",
                           g_union_ns / f > overhead_ns_frame ? g_union_ns / f - overhead_ns_frame
                                                              : 0);
+
+  // ════════════════════════════════════════════════════════════════════════════════════
+  // LE GAIN, MESURE — `mips2c_gain_us` (contrat, point N)
+  // ════════════════════════════════════════════════════════════════════════════════════
+  // Les deux bras vivent dans LA MEME COURSE et alternent par blocs de 30 images
+  // (`Mips2C::vu_simd`), donc : meme binaire, meme appareil, meme scene a la derive pres,
+  // que l'alternance moyenne. La grandeur comparee est le temps passe DANS les quatre
+  // fonctions raccordees, chronometre par le meme shim des deux cotes : le surcout de
+  // l'horloge est le meme par appel dans les deux bras et disparait dans l'ecart.
+  //
+  // TROIS ETATS NOMMES, JAMAIS UN ZERO MUET. `mips2c_gain_measured` ne vaut 1 que si les
+  // quatre fonctions ont ete appariees ET que chaque bras porte au moins 300 images. Un
+  // gain nul ou negatif est un DEFAUT, pas une absence : `mips2c_gain_negative` le dit.
+  {
+    const u64 fr_sca = Mips2C::vu_simd::cost_frames_in(0);
+    const u64 fr_vec = Mips2C::vu_simd::cost_frames_in(1);
+    autoport_proof::publish("mips2c_cost_wired_fns", (u64)g_wired_fns);
+    autoport_proof::publish("mips2c_cost_frames_sca", fr_sca);
+    autoport_proof::publish("mips2c_cost_frames_vec", fr_vec);
+    autoport_proof::publish("mips2c_cost_calls_sca", g_wired_calls[0]);
+    autoport_proof::publish("mips2c_cost_calls_vec", g_wired_calls[1]);
+    autoport_proof::publish("mips2c_cost_ns_sca", g_wired_ns[0]);
+    autoport_proof::publish("mips2c_cost_ns_vec", g_wired_ns[1]);
+    const u64 per_frame_sca = fr_sca ? g_wired_ns[0] / fr_sca : 0;
+    const u64 per_frame_vec = fr_vec ? g_wired_ns[1] / fr_vec : 0;
+    autoport_proof::publish("mips2c_cost_ns_frame_sca", per_frame_sca);
+    autoport_proof::publish("mips2c_cost_ns_frame_vec", per_frame_vec);
+    autoport_proof::publish("mips2c_cost_ns_call_sca",
+                            g_wired_calls[0] ? g_wired_ns[0] / g_wired_calls[0] : 0);
+    autoport_proof::publish("mips2c_cost_ns_call_vec",
+                            g_wired_calls[1] ? g_wired_ns[1] / g_wired_calls[1] : 0);
+    const bool measured = g_wired_fns == (int)(sizeof(kWired) / sizeof(kWired[0])) &&
+                          fr_sca >= 300 && fr_vec >= 300;
+    const bool slower = per_frame_vec > per_frame_sca;
+    autoport_proof::publish("mips2c_gain_measured", measured ? 1 : 0);
+    autoport_proof::publish("mips2c_gain_negative", measured && slower ? 1 : 0);
+    autoport_proof::publish("mips2c_gain_ns_frame",
+                            measured && !slower ? per_frame_sca - per_frame_vec : 0);
+    autoport_proof::publish(
+        "mips2c_gain_us", measured && !slower ? (per_frame_sca - per_frame_vec) / 1000 : 0);
+    autoport_proof::publish_text("mips2c_gain_state",
+                                 !g_wired_fns              ? "aucune-fonction-appariee"
+                                 : !measured               ? "bras-trop-courts"
+                                 : slower                  ? "vectoriel-plus-lent"
+                                                           : "vectoriel-plus-rapide");
+  }
   // L'INSTRUMENT DE CET ITEM VIENT DE TOURNER, ET IL LE DIT SOUS SON PROPRE NOM.
   // Le recensement est l'instrument de `perf-mips2c-neon` : il porte son `kItem`, il
   // enveloppe ses 94 fonctions, il publie ses 90 cles — et il n'a JAMAIS attribue une

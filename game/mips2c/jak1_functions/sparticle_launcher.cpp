@@ -6,6 +6,7 @@
 #include <ctime>
 
 #include "game/mips2c/mips2c_private.h"
+#include "game/mips2c/vu_simd.h"
 #include "game/mips2c/spart_prof.h"
 #include "game/kernel/jak1/kscheme.h"
 #if defined(__ANDROID__)
@@ -211,6 +212,7 @@ u64 execute(void* ctxt) {
   g_spart_prof.calls_launch.fetch_add(1, std::memory_order_relaxed);
 #endif
   auto* c = (ExecutionContext*)ctxt;
+  vu_simd::VuSimd vu(c, vu_simd::Kernel::Particles);
   bool bc = false;
   u32 call_addr = 0;
   c->mov64(v1, a0);                                 // or v1, a0, r0
@@ -550,7 +552,7 @@ u64 execute(void* ctxt) {
   c->andi(v1, s5, 256);                             // andi v1, s5, 256
   c->lqc2(vf4, 160, sp);                            // lqc2 vf4, 160(sp)
   bc = c->sgpr64(v1) != 0;                          // bne v1, r0, L115
-  c->vmini_bc(DEST::xyz, BC::x, vf4, vf4, vf31);    // vminix.xyz vf4, vf4, vf31
+  vu.vmini_bc(DEST::xyz, BC::x, vf4, vf4, vf31);    // vminix.xyz vf4, vf4, vf31
   if (bc) {goto block_25;}                          // branch non-likely
 
   c->sqc2(vf4, 160, sp);                            // sqc2 vf4, 160(sp)
@@ -815,7 +817,7 @@ u64 execute(void* ctxt) {
   block_45:
   c->lqc2(vf4, 128, sp);                            // lqc2 vf4, 128(sp)
   // nop                                            // sll r0, r0, 0
-  c->vadd(DEST::xyz, vf4, vf4, vf30);               // vadd.xyz vf4, vf4, vf30
+  vu.vadd(DEST::xyz, vf4, vf4, vf30);               // vadd.xyz vf4, vf4, vf30
   c->lw(a0, 4, s2);                                 // lw a0, 4(s2)
   c->lw(a1, 96, sp);                                // lw a1, 96(sp)
   // nop                                            // sll r0, r0, 0
@@ -1012,9 +1014,9 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->lqc2(vf6, 48, s2);                             // lqc2 vf6, 48(s2)
   // nop                                            // sll r0, r0, 0
-  c->vmul(DEST::xyz, vf5, vf5, vf4);                // vmul.xyz vf5, vf5, vf4
+  vu.vmul(DEST::xyz, vf5, vf5, vf4);                // vmul.xyz vf5, vf5, vf4
   // nop                                            // sll r0, r0, 0
-  c->vmul(DEST::xyz, vf6, vf6, vf4);                // vmul.xyz vf6, vf6, vf4
+  vu.vmul(DEST::xyz, vf6, vf6, vf4);                // vmul.xyz vf6, vf6, vf4
   // nop                                            // sll r0, r0, 0
   c->sqc2(vf5, 160, sp);                            // sqc2 vf5, 160(sp)
   // nop                                            // sll r0, r0, 0
@@ -1040,7 +1042,7 @@ u64 execute(void* ctxt) {
   // nop                                            // sll r0, r0, 0
   c->sqc2(vf5, 16, v1);                             // sqc2 vf5, 16(v1)
   // nop                                            // sll r0, r0, 0
-  c->vsub_bc(DEST::w, BC::w, vf6, vf0, vf0);        // vsubw.w vf6, vf0, vf0
+  vu.vsub_bc(DEST::w, BC::w, vf6, vf0, vf0);        // vsubw.w vf6, vf0, vf0
   // nop                                            // sll r0, r0, 0
   c->sqc2(vf6, 32, v1);                             // sqc2 vf6, 32(v1)
   // Geco-spheres TEMPORARY diagnostic: the WORLD state the launch just wrote to

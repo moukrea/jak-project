@@ -440,6 +440,14 @@ if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
                 # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
                 # collide TUs above. No-op on today's build (already non-contracted).
                 mips2c/jak1_functions/sparticle.cpp
+                # perf-mips2c-neon 2026-09-16 (essai 12) : sparticle_launcher.cpp porte
+                # desormais le comparateur VuSimd, dont le bras vectoriel des multiply-add
+                # fait DEUX arrondis (`vmulq_f32` puis `vaddq_f32`). Sous contraction, clang
+                # refusionnerait les deux intrinseques en `fmla` : un arrondi, donc un ecart
+                # bit a bit avec son propre oracle scalaire. La TU mesurait deja 0 FMA — on
+                # verrouille la garantie au lieu d'en dependre, comme le commentaire
+                # sparticle ci-dessus.
+                mips2c/jak1_functions/sparticle_launcher.cpp
                 # perf-mips2c-neon 2026-09-16 : LES NOYAUX D'ANIMATION, JAMAIS AJOUTES.
                 # Meme defaut que Gcollision-arm et Gjak2-polish, sur la famille que cet
                 # item porte dans son titre (« les calculs d'animation [...] sans changer
@@ -487,6 +495,7 @@ else()
                 mips2c/jak1_functions/collide_mesh.cpp
                 mips2c/jak1_functions/collide_probe.cpp
                 mips2c/jak1_functions/sparticle.cpp
+                mips2c/jak1_functions/sparticle_launcher.cpp
                 PROPERTIES COMPILE_OPTIONS "/fp:precise")
         set_source_files_properties(graphics/opengl_renderer/GrassBakeCore.cpp
                 PROPERTIES COMPILE_OPTIONS "/fp:precise")
