@@ -260,7 +260,17 @@ class VuSimd {
         nonfinite = vorrq_u32(
             nonfinite, vceqq_u32(vandq_u32(vreinterpretq_u32_f32(cv), exponent), exponent));
       }
-      if (vmaxvq_u32(nonfinite) != 0) {
+      // PAS DE REDUCTION INTER-VOIES. `vmaxvq_u32` compile en `umaxv .4s`, une reduction
+      // horizontale que le Cortex-A55 de l'appareil de preuve execute en plusieurs micro-ops
+      // avant le transfert SIMD->GPR. Les voies de `nonfinite` valent 0 ou 0xFFFFFFFF : un OR
+      // des deux moities 64 bits est non nul EXACTEMENT quand une voie est mise. Meme
+      // predicat, meme repli, pas un flottant touche — un `orr` 64 bits (pleine cadence sur
+      // A55) et UN SEUL `fmov` au lieu de la reduction.
+      const uint32x2_t folded = vorr_u32(vget_low_u32(nonfinite), vget_high_u32(nonfinite));
+      if (vget_lane_u64(vreinterpret_u64_u32(folded), 0) != 0) {
+        if (verify_) {
+          record_nonfinite(kernel_, 1);
+        }
         scalar();
         return;
       }
@@ -302,6 +312,9 @@ class VuSimd {
             nonfinite, _mm_cmpeq_epi32(_mm_and_si128(_mm_castps_si128(cv), exponent), exponent));
       }
       if (_mm_movemask_ps(_mm_castsi128_ps(nonfinite)) != 0) {
+        if (verify_) {
+          record_nonfinite(kernel_, 1);
+        }
         scalar();
         return;
       }

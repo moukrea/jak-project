@@ -16,6 +16,12 @@ struct Settings {
 };
 Settings settings(Kernel kernel);
 void record(Kernel kernel, uint64_t compared, uint64_t defects);
+// LA POPULATION QUI N'EST PAS PASSEE PAR LE BRAS VECTORIEL. Une operation dont un operande
+// est infini ou NaN part au repli scalaire AVANT toute comparaison : elle n'entre ni dans
+// `compared` ni dans `defects`. Sans ce compteur, `mips2c_bit_defects=0` se lit « le bras
+// vectoriel est exact » sans dire sur QUELLE fraction des operations il a seulement tourne.
+// Compte uniquement sous `verify` — la fenetre de cout ne doit rien payer pour lui.
+void record_nonfinite(Kernel kernel, uint64_t n);
 // Called on the GOAL thread, once per simulated frame.
 void frame_boundary();
 // LA FENETRE DE COUT. Apres les 600 images de parite, l'oracle s'eteint et le regime

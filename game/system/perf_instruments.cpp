@@ -39,7 +39,7 @@ namespace {
 constexpr const char* kItem = "perf-mips2c-neon";
 AUTOPORT_FEATURE_SITE(kItem);
 // All counters are owned by the GOAL thread, like the VU contexts themselves.
-uint64_t compared[3] = {}, defects[3] = {}, active_frames[3] = {};
+uint64_t compared[3] = {}, defects[3] = {}, active_frames[3] = {}, nonfinite[3] = {};
 uint64_t previous[3] = {}, frames = 0, warmup_frames = 0, ticks = 0;
 // ── LA FENETRE DE COUT ────────────────────────────────────────────────────────────────
 // Le contrat demande `mips2c_gain_us`, « meme scene, meme binaire sauf le noyau, >= 300
@@ -65,13 +65,28 @@ bool measuring() {
 }
 }  // namespace
 
+// ── L'ARBITRAGE DE L'ESSAI 13 : LE CHEMIN VECTORIEL N'EST PLUS LIVRE ────────────────────
+// L'essai 12 a MESURE le cout de ce chemin sur l'appareil, par alternance des deux regimes
+// dans la MEME course : 1026 ns/appel scalaire contre 1250 vectoriel (+21,8 %), soit
+// +66 134 ns par image. Le contrat de l'item ordonne alors, point 2 : « Retirer des seuls
+// noyaux de cet item les ajouts speculatifs qui n ont aucun benefice etabli ». Le benefice
+// est etabli NEGATIF, donc le retrait est du.
+//
+// `armed_for(kItem)` rendait VRAI partout ou le harnais ne nomme pas CET item : dans le
+// binaire de l'owner, et dans la course de preuve de TOUS LES AUTRES items. Le surcout etait
+// donc paye par l'owner ET melange a chaque mesure de perf du backlog. `measuring()`
+// (`feature_is(kItem)`) le confine a la course de preuve de cet item seul.
+//
+// CE QUI EST CONSERVE, ET POURQUOI. La condition garde `armed_for` : sans elle les deux bras
+// de l'ablation seraient identiques et la course ne mesurerait plus rien. Sous la course de
+// cet item, le bras arme allume le chemin vectoriel — la parite bit a bit et la fenetre de
+// cout restent donc reproductibles a l'identique. Ce qui disparait, c'est la facture.
 Settings settings(Kernel) {
 #if defined(__aarch64__) || defined(__SSE2__) || defined(_M_X64)
   static const bool on = autoport_proof::armed_for(kItem);
   // `vector_now` ne vaut faux que pendant un bloc scalaire de la fenetre de cout, et cette
-  // fenetre n'existe que sous `measuring()`. Hors course de preuve, le chemin livre est le
-  // chemin vectoriel, toujours.
-  return {on && vector_now, on && measuring() && frames < 600};
+  // fenetre n'existe que sous `measuring()`.
+  return {on && measuring() && vector_now, on && measuring() && frames < 600};
 #else
   return {false, false};
 #endif
@@ -89,6 +104,10 @@ void record(Kernel kernel, uint64_t count, uint64_t mismatches) {
   const auto index = static_cast<unsigned>(kernel);
   compared[index] += count;
   defects[index] += mismatches;
+}
+
+void record_nonfinite(Kernel kernel, uint64_t count) {
+  nonfinite[static_cast<unsigned>(kernel)] += count;
 }
 
 void frame_boundary() {
@@ -132,20 +151,27 @@ void frame_boundary() {
   if (++ticks % 60 != 0) {
     return;
   }
-  uint64_t bit_defects = 0, missing_kernels = 0;
+  uint64_t bit_defects = 0, missing_kernels = 0, total_nonfinite = 0;
   for (unsigned i = 0; i < 3; ++i) {
     const std::string prefix = std::string("mips2c_") + names[i];
     autoport_proof::publish((prefix + "_compared_ops").c_str(), compared[i]);
     autoport_proof::publish((prefix + "_bit_defects").c_str(), defects[i]);
     autoport_proof::publish((prefix + "_frames").c_str(), active_frames[i]);
+    autoport_proof::publish((prefix + "_nonfinite_ops").c_str(), nonfinite[i]);
     bit_defects += defects[i];
     missing_kernels += compared[i] == 0;
+    total_nonfinite += nonfinite[i];
   }
   uint64_t refset_diff = 0;
   const bool refset_present = autoport_proof::read_uint("refset_replay_maxdiff", refset_diff);
   autoport_proof::publish("mips2c_parity_frames", frames);
   autoport_proof::publish("mips2c_warmup_frames", warmup_frames);
   autoport_proof::publish("mips2c_bit_defects", bit_defects);
+  // COMBIEN D'OPERATIONS N'ONT PAS PRIS LE BRAS VECTORIEL. Un operande infini ou NaN part au
+  // repli scalaire avant toute comparaison : ces operations-la ne sont ni comparees ni
+  // comptees en defaut. Publie a cote de `compared_ops`, son denominateur, pour qu'un lecteur
+  // sache sur quelle fraction du trafic le zero de `bit_defects` a ete etabli.
+  autoport_proof::publish("mips2c_nonfinite_ops", total_nonfinite);
   autoport_proof::publish("mips2c_missing_kernels", missing_kernels);
   autoport_proof::publish("mips2c_refset_present", refset_present);
   autoport_proof::publish("mips2c_parity_incomplete", frames < 600 || missing_kernels || !refset_present);
@@ -418,6 +444,20 @@ void frame_boundary() {
                             measured && !slower ? per_frame_sca - per_frame_vec : 0);
     autoport_proof::publish(
         "mips2c_gain_us", measured && !slower ? (per_frame_sca - per_frame_vec) / 1000 : 0);
+    // LA PERTE EST UN NOMBRE, PAS UN ZERO. `mips2c_gain_us` est plancher a zero quand le bras
+    // vectoriel est le plus lent : un lecteur y lit « aucun effet » la ou la mesure dit
+    // « pire ». La grandeur signee est donc publiee sous son propre nom, des deux cotes de
+    // l'ecart, pour que l'ampleur du refus soit lisible sans relire un rapport.
+    autoport_proof::publish("mips2c_loss_ns_frame",
+                            measured && slower ? per_frame_vec - per_frame_sca : 0);
+    const u64 call_sca = g_wired_calls[0] ? g_wired_ns[0] / g_wired_calls[0] : 0;
+    const u64 call_vec = g_wired_calls[1] ? g_wired_ns[1] / g_wired_calls[1] : 0;
+    autoport_proof::publish("mips2c_loss_ns_call",
+                            measured && call_vec > call_sca ? call_vec - call_sca : 0);
+    autoport_proof::publish("mips2c_loss_pct_x100",
+                            measured && slower && per_frame_sca
+                                ? ((per_frame_vec - per_frame_sca) * 10000) / per_frame_sca
+                                : 0);
     autoport_proof::publish_text("mips2c_gain_state",
                                  !g_wired_fns              ? "aucune-fonction-appariee"
                                  : !measured               ? "bras-trop-courts"
