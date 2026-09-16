@@ -3543,7 +3543,21 @@ def main(argv: list[str] | None = None) -> int:
     # propre item y est légitimement `in-progress`.
     release_stale_in_progress(load_backlog())
 
-    pause_file = Path(__file__).resolve().parent / "PAUSE"
+    # LE FREIN EST CELUI DU DEPOT QU'ON PILOTE, PAS CELUI DU FICHIER SOURCE. `AUTOPORT_DIR`
+    # vaut `Path(__file__).resolve().parent` (l.333-334) : en production ce frein est le MEME
+    # fichier, au chemin pres. Sous le banc, non — `tests/harness/conftest.py` repointe
+    # `AUTOPORT_DIR` sur un bac a sable, et cette ligne-ci lisait quand meme le VRAI arbre.
+    # Mesure du 16/09, les quatre jambes : `test_loop.py::test_a_full_turn_marks_in_progress_
+    # _then_records_the_verdict` passe sans PAUSE et ECHOUE avec, a l'identique a HEAD (79854ea0e5)
+    # ET a la base de cet essai (ca49b3b059), qui n'en porte pas une ligne. Un `touch
+    # .autoport/PAUSE` de l'owner arretait le tour du banc, `set_status` n'etait jamais appele,
+    # et le test mourait sur un `FileNotFoundError` de `backlog.yaml.calls`.
+    # CE QUE CA COUTAIT : la porte de fermeture a IMPUTE ce rouge a ce travail-ci. Elle rejoue le
+    # test a la base DANS UN WORKTREE, ou PAUSE — gitignore — n'existe pas : vert a la base,
+    # rouge a HEAD, « c'est toi ». Un essai perdu pour un fichier que l'owner avait pose a 19:22.
+    # La regle en tete de `conftest.py` — « aucun test ne touche le vrai depot » — se tient ici,
+    # au point de PRODUCTION, pas dans chaque test qui aurait a s'en defendre.
+    pause_file = AUTOPORT_DIR / "PAUSE"
 
     while not HALT:
         backend_control.require(BACKEND, REPO_ROOT)

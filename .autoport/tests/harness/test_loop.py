@@ -154,3 +154,61 @@ def test_the_shield_prohibition_refuses_the_start(orch, sandbox, monkeypatch):
 
     orch.SHIELD_GUARD.write_text("#!/usr/bin/env bash\nexit 0\n")
     assert orch._startup_refusals() == ""
+
+
+def test_le_frein_pause_est_celui_du_depot_pilote(orch, repo, monkeypatch):
+    """Le `PAUSE` que le tour lit est celui du depot qu'il PILOTE, pas celui du fichier source.
+
+    LE DEFAUT, mesure le 2026-09-16. `main()` lisait
+    `Path(__file__).resolve().parent / "PAUSE"` : le VRAI `.autoport/`, quoi que
+    `conftest.py` ait repointe. Un `touch .autoport/PAUSE` de l'owner — pose a 19:22 ce
+    jour-la — arretait donc le tour du BANC : `set_status` n'etait jamais appele et
+    `test_a_full_turn_marks_in_progress_then_records_the_verdict` mourait sur un
+    `FileNotFoundError` de `backlog.yaml.calls`. Verifie sur quatre jambes, dans deux
+    worktrees jetables : sans PAUSE il passe, avec PAUSE il echoue — A L'IDENTIQUE a
+    79854ea0e5 et a ca49b3b059, qui ne porte pas une ligne de l'item accuse.
+
+    CE QUE CA COUTAIT. La porte de fermeture rejoue un rouge a la base DANS UN WORKTREE,
+    ou `PAUSE` — gitignore — n'existe jamais : vert a la base, rouge a HEAD, elle impute
+    le rouge au travail juge. Un essai perdu pour un fichier de l'owner.
+
+    CE TEST-CI EST LA JAMBE QUI FALSIFIE. Il pose le frein dans le bac a sable et exige
+    que le tour s'arrete. Sous l'ancien code, ce frein-la est INVISIBLE — le tour part,
+    reclame l'item, et l'assertion tombe. Il ne touche pas au vrai arbre : c'est
+    precisement ce qu'on vient de rendre impossible.
+    """
+    import sys
+    from test_attempt import _fake_claude, _WORKS_THEN_EXITS
+
+    lib = orch.AUTOPORT_DIR / "lib"
+    lib.mkdir(parents=True, exist_ok=True)
+    (lib / "backlog.py").write_text(textwrap.dedent(FAKE_BACKLOG))
+    monkeypatch.setenv("FAKE_BACKLOG_PATH", str(orch.BACKLOG_PATH))
+    monkeypatch.delitem(sys.modules, "backlog", raising=False)
+    orch.BACKLOG_PATH.write_text(yaml.safe_dump(
+        {"version": 1, "items": _items({"id": "demo", "max_retries": 1})},
+        allow_unicode=True))
+
+    (orch.AUTOPORT_DIR / "prompts").mkdir(parents=True, exist_ok=True)
+    (orch.AUTOPORT_DIR / "prompts" / "item-demo.md").write_text("Fais la chose.\n")
+    orch.GENERIC_VALIDATOR.write_text("#!/usr/bin/env bash\nexit 0\n")
+    orch.GENERIC_VALIDATOR.chmod(0o755)
+
+    creds = orch.AUTOPORT_DIR / "creds.json"
+    creds.write_text("{}")
+    monkeypatch.setattr(orch, "CREDENTIALS_PATH", creds)
+    monkeypatch.setattr(orch, "build_instructions", lambda item, seq: "prompt\n")
+    monkeypatch.setattr(orch, "READ_POLL_SEC", 0.2)
+    _fake_claude(orch, _WORKS_THEN_EXITS)
+
+    # LE FREIN, DANS LE BAC A SABLE — nulle part ailleurs.
+    (orch.AUTOPORT_DIR / "PAUSE").write_text("frein de l'owner\n")
+
+    assert orch.main([]) == 0, "un frein pose n'est pas une erreur : le tour s'arrete, il ne casse pas"
+
+    calls = orch.BACKLOG_PATH.parent / (orch.BACKLOG_PATH.name + ".calls")
+    assert not calls.exists(), (
+        "le frein du depot pilote a ete IGNORE : le tour a reclame un item malgre "
+        f".autoport/PAUSE dans le bac a sable ({calls.read_text() if calls.exists() else ''})")
+    assert orch.load_backlog().get("demo")["status"] == "open", \
+        "l'item doit rester intact : le frein arrete AVANT la selection"
