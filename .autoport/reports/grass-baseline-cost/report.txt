@@ -1,26 +1,40 @@
 DIRECTIVES v07b292c21f
-Verdict : essai 6/6 NON ABOUTI ; aucun relevé nouveau, blocage contractuel inchangé.
-Changements : rapport, FINDINGS, note de reprise et handoff uniquement.
-USB disponible : pick_device.sh exit=0, serial=eae4df44 (notes/attempt6-scope.md).
-Delta depuis 6331c8fb35 vide : game/common/scripts, proof_run.sh, prompt et SPEC.
-Lecture YAML : proof_plan absent ; la clause « Ne change RIEN » reste présente.
-Le contrat exige dix fenêtres mais interdit les instruments neufs hors campagne autorisée.
-Aucune course nouvelle ; le diagnostic historique ne remplace pas les mesures manquantes.
-Huit lignes historiques de proof.txt, ESSAI 1 uniquement, PAS une preuve de cet essai :
-source=device
-serial=eae4df44
-sha=3f2422035af8dc58
-crash=0
-frames=4920
-proof_feature_state=absent
-proof_feature_declared=0
-proof_feature_own_hits=0
-validator-005.txt : trois FAIL, preuve d’un autre essai, site absent, gaps absent.
-proof.txt et proof.seal inchangés ; empreintes dans notes/attempt6-scope.md.
-Aucun build ni changement moteur ; validateur laissé à l’orchestrateur.
-Owner : rien à regarder ; owner_test=false, aucun verdict visuel attendu.
-non prouvé : dix cadences ON/OFF aux cinq paliers, ≥300 images au même vantage/binaire.
-non prouvé : préparation CPU, dessin, instances soumises et dans le champ de vision.
-non prouvé : source/expansion/upload par palier, mémoire des deux tampons et queue jamais dessinée.
-non prouvé : ablation --off, fraîcheur et non-régression appareil de cet essai ; grass_baseline_gaps=0.
-Suite superviseur : résoudre le périmètre des instruments et inscrire le proof_plan avant toute relance.
+
+VERDICT : l'instrument que les cinq essais precedents n'ont pas ecrit EXISTE et tient le critere
+de la porte de bout en bout sur x86 (`grass_baseline_gaps=0`, 10 cellules, 0 courte) ; la preuve
+APPAREIL n'a PAS pu etre produite, aucun appareil USB de tout l'essai. L'item ne se ferme pas.
+
+CE QUI A CHANGE (commit 680e369de6)
+- `game/system/grass_baseline.{h,cpp}` : campagne de 10 cellules (5 paliers x herbe ON/OFF), un
+  seul vantage (`training-start`), un seul binaire, sur le patron eprouve de `perf_baseline`. Le
+  regime est impose AU POINT DE PRODUCTION (`pc_set_recharged_grass`, `pc_set_grass_dists`) :
+  GOAL repousse les deux reglages a CHAQUE image, une ecriture faite ailleurs serait ecrasee.
+- `GrassRenderer.cpp` : chronometres preparation / attente de barriere / soumission, comptes
+  d'instances soumises, et le recensement du champ de vision, qui rejoue `world_to_clip` de
+  `grass.vert:81-98` — AUCUN test de frustum n'existe dans ce renderer.
+- `proof_timeout` 420 -> 1800 et `proof_props` epingles (level.warp=training-start,
+  perf.buckets=1, recharged=1, uncap.fps=240). Les deux arbres compilent et lient ; l'APK est
+  rebati, son `libgk.so` md5-identique a `build-android/lib/arm64-v8a/libgk.so`.
+
+PREUVE — ATTENTION A CE QUE VOUS LISEZ
+AUCUNE ligne n'est recopiee de `proof.txt` : celui qui est la date de l'essai 1 et je ne le
+presente pas comme un resultat. Les huit lignes ci-dessous viennent de la course a blanc x86
+(`notes/dry-run-x86-2026-09-16.txt`), qui n'a touche aucun fichier de preuve. Elles montrent que
+l'instrument FONCTIONNE ; elles ne sont PAS la ligne de base (cadences contaminees par un build
+concurrent).
+  GRASS-BASELINE done cells=10 short=0
+  grass_baseline_gaps=0
+  grass_baseline_dead_instances=110472
+  grass_baseline_built_instances=726851
+  grass_load_medium_instances=726851
+  grass_load_medium_inst_bytes=46518464
+  grass_on_medium_render_frames=300
+  grass_off_medium_render_frames=0
+Les deux dernieres sont le contraste falsifiable (meme instrument, meme palier, 300 contre 0) ; et
+`dead_instances`/`built_instances` confirment le chiffre d'aout sur le binaire COURANT, au brin pres.
+
+CE QUE L'OWNER DOIT REGARDER : rien. Aucun pixel ne bouge, c'est une mesure. Le seul geste
+attendu est de BRANCHER UN APPAREIL EN USB : tout le reste est pret.
+NON PROUVE : la preuve appareil (`lib/proof_run.sh grass-baseline-cost device`), donc les dix
+cadences reelles, la decomposition sur Adreno 618 et les durees de chargement de l'appareil.
+NON PROUVE : le bras `--off` (`armed=0 hits=0`), meme cause. Le validateur ne le reclame pas.
