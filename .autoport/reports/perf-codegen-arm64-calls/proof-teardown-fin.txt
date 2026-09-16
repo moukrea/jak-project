@@ -6,5 +6,5 @@ teardown_fin_props_cleared=16
 teardown_fin_props_resisted=0
 teardown_fin_resisted_list=-
 teardown_fin_getprop_ok=1
-teardown_fin_getprop_total=890
+teardown_fin_getprop_total=882
 teardown_fin_props_source=enumere
