@@ -1198,6 +1198,276 @@ def post_result_verdict(item_id: str, carnet: dict, idle: float) -> bool:
     return False
 
 
+# ============================================================
+# LE JUGE MESURE LUI-MEME QUAND LE WORKER N'A RIEN LAISSE (2026-09-16)
+# ============================================================
+# Accord de l'owner du 16/09 (« vas-y ! ») apres le releve du superviseur. Sur les 339 verdicts
+# rendus par `validators/generic.sh` et archives sous `logs/<id>/validator-*.txt`, 186 sont des
+# REFUS ; 87 d'entre eux — 46,8 % — ont pour PREMIER constat une preuve ABSENTE (41), PERIMEE
+# (34), ou portant l'identite d'un AUTRE essai (12). Ces 87-la ne decrivent aucun defaut du
+# travail juge : le worker n'a pas laisse de mesure NEUVE, parce qu'une course dure de une a
+# quinze minutes et qu'il rend la main avant. Le juge refusait une vieille preuve, et l'essai
+# etait COMPTE : le budget de l'item partait en plomberie, pas en jeu.
+#
+# CE QUI CHANGE. L'item precedent apprend au juge a ATTENDRE une course EN VOL. Celui-ci lui
+# apprend a MESURER quand il n'y en a AUCUNE : preuve absente, plus vieille que l'essai, ou
+# portant l'identite d'un autre — le juge lance LUI-MEME `lib/proof_run.sh <id> <bras>`, UNE
+# fois, borne, puis appelle le validateur SUR CETTE COURSE.
+#
+# CE QU'IL NE FAIT PAS. Il ne relance JAMAIS une course vivante : c'est le perimetre de l'item
+# precedent, et une seconde course resterait de toute facon bloquee sur le verrou d'ecriture de
+# la premiere. Il ne REDEFINIT aucun predicat du juge : chaque lecture ci-dessous sort d'un
+# nommeur deja en place — `lib/impossible.py` pour le nom de la preuve et son analyse,
+# `lib/stale_precheck.sh` (et `lib/verdict_sources.sh` derriere lui) pour la peremption des
+# sources. Une regle recopiee ici en plus stricte fabriquerait un SECOND juge, plus severe que
+# celui qui ferme les items, et ferait rougir des essais que personne n'a touches.
+
+# La borne, terme par terme, tous lus la ou `lib/proof_run.sh` les applique a lui-meme :
+#   proof_timeout de l'item (defaut 120 x86 / 180 appareil, lib/proof_run.sh:611-613)
+# + le recensement, qui s'AJOUTE integralement a la mesure     (AUTOPORT_CENSUS_TIMEOUT, :1589)
+# + l'amorcage, le teardown d'appareil et le deploiement.
+# Mesure du 16/09 sur les 31 preuves x86 archivees : mediane 303 s, maximum 913 s, et
+# `duration_s` = borne + recensement (502 = 420 + 82 sur l'item precedent). Une borne posee au
+# `proof_timeout` seul tuerait donc une course NORMALE juste avant qu'elle publie.
+JUDGE_CENSUS_CEILING_SEC = float(os.environ.get("AUTOPORT_CENSUS_TIMEOUT", "900") or 900)
+JUDGE_BOOT_GRACE_SEC = 300.0
+JUDGE_RUN_HARD_CEILING_SEC = 3600.0
+
+# LE BINAIRE QUE LA PREUVE DECRIT, par `source=`. CES DEUX LITTERAUX SONT CEUX DE
+# `validators/generic.sh` (« src=$(kv source); bin=build/game/gk; [ "$src" = device ] &&
+# bin=build-android/lib/arm64-v8a/libgk.so »). On ne peut pas les lui demander — DIRECTIVES 5
+# interdit de le modifier, et il ne les expose pas. On les EPINGLE donc, et le recensement de
+# cet item verifie a chaque course qu'ils sont encore dans son texte, au mot pres : le jour ou
+# le juge change de chemin, la porte ROUGIT au lieu de devenir aveugle en silence.
+JUDGE_BINARY_OF_SOURCE = {"x86": "build/game/gk",
+                          "device": "build-android/lib/arm64-v8a/libgk.so"}
+
+
+def judge_run_ceiling_s(item: dict) -> float:
+    """La borne de la course du juge : jamais l'infini, jamais le `proof_timeout` tout seul."""
+    brut = item.get("proof_timeout")
+    try:
+        mesure = float(brut)
+    except (TypeError, ValueError):
+        mesure = INFLIGHT_DEFAULT_TIMEOUT[1 if item.get("device") else 0]
+    return min(mesure + JUDGE_CENSUS_CEILING_SEC + JUDGE_BOOT_GRACE_SEC,
+               JUDGE_RUN_HARD_CEILING_SEC)
+
+
+def judge_proof_arm(item: dict) -> str:
+    """`device` quand l'item l'exige, `x86` sinon — les deux seuls modes que `proof_run.sh`
+    accepte (lib/proof_run.sh:88). C'est le meme choix que la phrase du validateur."""
+    return "device" if item.get("device") else "x86"
+
+
+def proof_freshness(item_id: str, attempt_token: str, started_at: float,
+                    reports_dir: str | None = None,
+                    root: str | None = None) -> dict:
+    """Ce qui MANQUE a la preuve en place pour etre celle de CET essai.
+
+    Rend un carnet dont `trigger` vaut `""` (la preuve est NEUVE, le juge ne mesure pas),
+    `absent`, `perime` ou `identite` — les trois declencheurs que le contrat nomme. `why` dit
+    lequel des controles a parle, et chacun d'eux est la lecture d'un nommeur deja en place."""
+    racine = reports_dir or str(AUTOPORT_DIR / "reports")
+    depot = root or str(REPO_ROOT)
+    vu: dict = {"trigger": "", "why": "-", "proof": "-", "bytes": 0,
+                "attempt_in_proof": "-", "sha_in_proof": "-", "sha_on_disk": "-",
+                "source": "-", "binary": "-", "precheck_rc": -1, "mtime": 0.0}
+    try:
+        preuve = Path(impossible_state.arm_path(racine, item_id, "proof", ""))
+    except (KeyError, ValueError) as e:      # l'autorite de nommage a refuse
+        vu["trigger"], vu["why"] = "absent", f"nommage-refuse:{e}"
+        return vu
+    vu["proof"] = str(preuve)
+    try:
+        etat = preuve.stat()
+        vu["bytes"], vu["mtime"] = etat.st_size, etat.st_mtime
+    except OSError:
+        etat = None
+    if not etat or etat.st_size <= 0:
+        vu["trigger"], vu["why"] = "absent", "proof.txt absent ou vide"
+        return vu
+
+    champs = impossible_state.parse(preuve.read_text(errors="replace"))
+    vu["source"] = champs.get("source", "-") or "-"
+
+    # 1. L'IDENTITE DE L'ESSAI. C'est la regle du bloc `IDENTITE-DE-LA-COURSE` du validateur :
+    #    la preuve porte l'essai qui l'a produite, et les deux doivent coincider. Les espaces
+    #    sont ecrases des DEUX cotes, comme `lib/proof_run.sh:346` et `validators/generic.sh:101`.
+    porte = champs.get("proof_attempt_id", "") or ""
+    vu["attempt_in_proof"] = porte or "-"
+    attendu = re.sub(r"\s+", "_", attempt_token or "")
+    if attendu and porte != attendu:
+        vu["trigger"] = "identite"
+        vu["why"] = ("la preuve ne porte pas 'proof_attempt_id='" if not porte
+                     else f"proof_attempt_id={porte} n'est pas l'essai courant {attendu}")
+        return vu
+
+    # 2. PLUS VIEILLE QUE L'ESSAI. FRAICHEUR/juge-mesure — registre `lib/freshness_registry.tsv`.
+    #    Les deux cotes sont des flottants a pleine resolution (`st_mtime` contre le `time.time()`
+    #    du depart de l'essai) : meme resolution, et l'egalite tombe du cote PERIME, jamais du
+    #    cote frais. Une preuve ecrite a la seconde du depart de l'essai est mesuree a nouveau ;
+    #    l'erreur coute une course, l'erreur inverse coute un essai.
+    if etat.st_mtime <= started_at:
+        vu["trigger"] = "perime"
+        vu["why"] = f"preuve ecrite a {etat.st_mtime:.3f}, essai demarre a {started_at:.3f}"
+        return vu
+
+    # 3. LE BINAIRE QU'ELLE DECRIT. `sha=` contre le binaire sur le disque : un worker qui
+    #    rebatit APRES sa course laisse une preuve qui decrit un autre binaire, et le juge la
+    #    refuse. Le chemin vient de `source=`, comme chez lui.
+    binaire = JUDGE_BINARY_OF_SOURCE.get(vu["source"], "")
+    vu["binary"] = binaire or "-"
+    if binaire:
+        sha_preuve = (champs.get("sha", "") or "").strip()
+        vu["sha_in_proof"] = sha_preuve or "-"
+        try:
+            with open(os.path.join(depot, binaire), "rb") as fh:
+                sha_disque = hashlib.sha256(fh.read()).hexdigest()[:16]
+        except OSError:
+            sha_disque = ""
+        vu["sha_on_disk"] = sha_disque or "-"
+        if sha_disque and sha_preuve and sha_disque != sha_preuve:
+            vu["trigger"] = "identite"
+            vu["why"] = f"sha={sha_preuve} dans la preuve, {sha_disque} sur le disque"
+            return vu
+
+    # 4. LES SOURCES EDITEES APRES ELLE. On ne recopie pas le predicat : on appelle celui que
+    #    `lib/stale_precheck.sh` deplace deja, au mot pres, depuis le 12/09. Son code 5 dit
+    #    « peremption vue » et ne se confond avec aucun autre (2 usage, 3 mesure impossible).
+    try:
+        pre = subprocess.run(["bash", str(AUTOPORT_DIR / "lib" / "stale_precheck.sh"),
+                              item_id, "--root", depot],
+                             cwd=depot, capture_output=True, text=True, timeout=300)
+        vu["precheck_rc"] = pre.returncode
+    except (OSError, subprocess.SubprocessError) as e:
+        vu["precheck_rc"] = -1
+        vu["why"] = f"stale_precheck injoignable : {e}"
+        return vu
+    if pre.returncode == 5:
+        vu["trigger"] = "perime"
+        premiere = next((l for l in (pre.stderr or "").splitlines() if l.strip()), "")
+        vu["why"] = premiere[:200] or "stale_precheck rend 5"
+    return vu
+
+
+def judge_name_the_impossible(item_id: str, rc: int, detail: str,
+                              reports_dir: str | None = None,
+                              root: str | None = None) -> int:
+    """Nommer la cause quand la course du juge n'a PAS mesure et que personne ne l'a nommee.
+
+    `lib/proof_run.sh` ecrit cet etat par `die3` (rc 3) — mais PAS sur son rc 6 (la garde
+    binaire de `lib/device_binary_gate.sh` refuse de mesurer un autre libgk), PAS sur rc 2
+    (usage), et PAS sur les sorties 3 de son prologue nu, ou le nom de l'etat n'est pas encore
+    derive. Sans ce filet, ces courses-la retombent en « echec » et DEBITENT l'essai, ce que le
+    contrat interdit. On n'ecrit rien si l'etat existe deja : un second ecrivain sur le meme
+    fichier est exactement ce que le harnais s'interdit. Rend 1 si on a ecrit."""
+    racine = reports_dir or str(AUTOPORT_DIR / "reports")
+    depot = root or str(REPO_ROOT)
+    try:
+        deja = impossible_state.read(racine, item_id, since=0.0)
+    except Exception:                                    # noqa: BLE001
+        deja = None
+    if deja:
+        return 0
+    try:
+        ecrit = subprocess.run(
+            ["bash", str(AUTOPORT_DIR / "lib" / "proof_impossible.sh"),
+             os.path.join(racine, item_id), item_id, "",
+             "juge-course-sans-mesure",
+             f"la course lancee par le juge est sortie en {rc} sans ecrire de preuve : {detail}",
+             "0", "0", "juge-course"],
+            cwd=depot, capture_output=True, text=True, timeout=60)
+        return 1 if ecrit.returncode == 0 else 0
+    except (OSError, subprocess.SubprocessError):
+        return 0
+
+
+def judge_measure(item: dict, item_id: str, attempt_token: str, carnet: dict,
+                  journal: Path | None = None, reports_dir: str | None = None,
+                  root: str | None = None) -> None:
+    """Lancer UNE course de preuve pour CET essai, bornee, et publier ce qu'elle a rendu.
+
+    Aucune boucle : cette fonction refuse de lancer une seconde course pour le meme essai, et
+    elle refuse de lancer quoi que ce soit tant qu'une course de cet item VIT — la voir suffit
+    a s'abstenir, c'est l'item precedent qui l'attend."""
+    depot = root or str(REPO_ROOT)
+    carnet["arm"] = judge_proof_arm(item)
+    carnet["ceiling_s"] = round(judge_run_ceiling_s(item), 1)
+
+    if carnet.get("launched"):
+        carnet["refused"] = "deja-mesure"
+        return
+    vivant, vu_par = inflight_proof_run(item_id, reports_dir)
+    if vivant:
+        carnet["refused"] = "course-vivante"
+        carnet["live_pid"], carnet["live_seen_by"] = vivant, vu_par
+        try:
+            carnet["live_cmd"] = (Path(f"/proc/{vivant}/cmdline").read_bytes()
+                                  .replace(b"\0", b" ").decode("utf-8", "replace")[:160])
+        except OSError:
+            carnet["live_cmd"] = "-"
+        log(f"· une course de preuve de {item_id} VIT encore (pid={vivant}, vue par le "
+            f"{vu_par}) — le juge ne lance RIEN et juge sur ce qu'elle laissera", "yellow")
+        return
+
+    cmd = ["bash", str(AUTOPORT_DIR / "lib" / "proof_run.sh"), item_id, carnet["arm"]]
+    carnet["cmd"] = " ".join(cmd)
+    log(f"· aucune mesure NEUVE pour {item_id} ({carnet.get('trigger')} : "
+        f"{carnet.get('why')}) — LE JUGE MESURE : {' '.join(cmd)}, borne "
+        f"{carnet['ceiling_s']:.0f}s", "cyan")
+    depart = time.monotonic()
+    sortie = None
+    try:
+        with (journal.open("w") if journal else open(os.devnull, "w")) as fh:
+            # `start_new_session` : la course ne partage plus le groupe de l'orchestrateur, donc
+            # un `killpg` visant un worker ne l'emporte pas (c'est la mesure de l'item
+            # precedent). Le PPID, lui, reste le notre : `pw_orphelin` de `lib/proof_run.sh`
+            # arrete l'ecrivain dont le LANCEUR est mort, et le juge doit rester ce lanceur.
+            sortie = subprocess.Popen(cmd, cwd=depot,
+                                      env={**os.environ,
+                                           "AUTOPORT_ATTEMPT_ID": attempt_token},
+                                      stdin=subprocess.DEVNULL, stdout=fh,
+                                      stderr=subprocess.STDOUT, start_new_session=True)
+            carnet["pid"] = sortie.pid
+            carnet["launched"] = 1
+            carnet["rc"] = sortie.wait(timeout=carnet["ceiling_s"])
+    except subprocess.TimeoutExpired:
+        carnet["expired"] = 1
+        carnet["rc"] = -15
+        log(f"· la course du juge (pid={carnet.get('pid')}) depasse sa borne "
+            f"{carnet['ceiling_s']:.0f}s — on l'arrete et on juge sur ce qu'elle a ecrit",
+            "yellow")
+        if sortie is not None:
+            for signe in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(sortie.pid, signe)      # SON groupe, cree par start_new_session
+                    sortie.wait(timeout=30)
+                    break
+                except (ProcessLookupError, PermissionError):
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+    except (OSError, subprocess.SubprocessError) as e:
+        carnet["rc"] = -1
+        carnet["why_failed"] = str(e)
+        log(f"· la course du juge n'a pas pu etre lancee : {e}", "red")
+    carnet["duration_s"] = round(time.monotonic() - depart, 1)
+
+    if carnet.get("rc") == 0:
+        carnet["measured_by"] = "juge"
+        log(f"· le JUGE a mesure {item_id} lui-meme en {carnet['duration_s']:.0f}s "
+            f"(rc=0) — le verdict portera sur CETTE course, pas sur celle d'avant", "green")
+    else:
+        carnet["measured_by"] = "-"
+        carnet["named"] = judge_name_the_impossible(
+            item_id, int(carnet.get("rc", -1)),
+            f"bras {carnet['arm']}, {carnet['duration_s']:.0f}s, borne "
+            f"{carnet['ceiling_s']:.0f}s", reports_dir, depot)
+        log(f"· la course du juge est sortie en {carnet.get('rc')} sans mesurer "
+            f"({carnet['duration_s']:.0f}s) — cause nommee par le juge : "
+            f"{carnet['named']}. L'essai sera CLASSE A PART, pas compte.", "yellow")
+
 def _impossible_reset(state: dict, item_id: str) -> None:
     """Un essai JUGÉ remet la série à zéro — le compte `total` et `read`, jamais."""
     rec = _impossible_record(state, item_id)
@@ -2777,6 +3047,10 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     # anti-boucle a lu trois empreintes d'echec identiques et a bloque l'item, ce qui a demande
     # un arbitrage humain pour un travail qui etait fait. Le verrou d'ecriture dit qu'une course
     # ECRIT : on l'attend, borne, et on le DIT. On ne relance rien, on ne tue rien.
+    # JUGEMENT/debut
+    # LE BLOC QUE LE BANC `lib/judge_measure_selftest.py` LEVE, et dont il retire la region
+    # `MESURE-DU-JUGE/` pour son bras d'AVANT : le bras d'avant n'est pas la couche desarmee,
+    # c'est le code du 16/09, celui qui jugeait sur ce que le worker avait bien voulu laisser.
     waited_writer, writer_pid = wait_for_proof_writer(iid)
     if writer_pid:
         log(f"· une course ECRIVAIT la preuve de {iid} (pid={writer_pid}) — juge retenu "
@@ -2785,6 +3059,48 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             "waited_s": waited_writer, "pid": writer_pid,
             "at": datetime.now(timezone.utc).isoformat()}
         save_state(state)
+    # MESURE-DU-JUGE/debut
+    # LA MESURE N'EST PLUS A LA CHARGE DU WORKER. Si la preuve en place n'est pas celle de CET
+    # essai — absente, plus vieille que lui, ou portant une autre identite — le juge lance UNE
+    # course et juge sur elle. Rien n'est lance quand la preuve est NEUVE : le chemin nominal ne
+    # paie pas cette couche, et c'est ce que mesure la jambe de controle du banc.
+    judge = {"trigger": "", "why": "-", "launched": 0, "rc": None, "duration_s": 0.0,
+             "measured_by": "worker", "refused": "-", "named": 0}
+    # ET SI CETTE COUCHE TOMBE, ELLE NE PREND PAS L'ESSAI AVEC ELLE. `run_attempt` n'est
+    # protege que contre `StateConflict` (voir la boucle principale) : n'importe quelle autre
+    # exception levee ici tuerait le pilote entier, et une couche de CONFORT deviendrait la
+    # panne la plus chere du harnais. On retombe donc exactement sur le comportement d'avant
+    # elle — juger ce que le worker a laisse — et on le DIT en rouge. Jamais en silence : une
+    # degradation muette se lit « la couche marche » pendant des jours.
+    try:
+        judge.update(proof_freshness(iid, attempt_token, started_at))
+        if judge["trigger"]:
+            judge_measure(item, iid, attempt_token, judge,
+                          journal=log_dir / f"judge-run-{seq:03d}.log")
+        else:
+            log(f"· la preuve de {iid} est celle de cet essai — le juge n'a rien a mesurer",
+                "dim")
+    except Exception as _e:                  # noqa: BLE001 — le pilote ne meurt pas pour ca
+        judge["refused"] = f"couche-en-panne:{type(_e).__name__}"
+        judge["why"] = str(_e)[:200]
+        log(f"· la couche « le juge mesure » est TOMBEE ({type(_e).__name__}: {_e}) — on juge "
+            f"comme AVANT elle, sur ce que le worker a laisse. L'essai n'est pas perdu, mais "
+            f"la mesure neuve n'a pas eu lieu.", "red")
+    # LE JOURNAL DIT QUI A MESURE — DANS SON PROPRE FICHIER. La mesure du juge a lieu APRES la
+    # fin de l'essai : l'ajouter au journal de l'essai mettrait un evenement APRES son
+    # `attempt_end`, et le dernier enregistrement d'un `attempt-NNN.jsonl` ne serait plus sa
+    # fin. Aucun lecteur de production n'en serait mort — ils filtrent tous sur `event` — mais
+    # `tests/harness/test_cli_backend.py:71` lit bien `records[-1]`, et cette forme-la est un
+    # contrat qu'on ne casse pas pour se loger. Le journal du juge porte donc son propre nom,
+    # a cote du `judge-run-NNN.log` ou la course a ecrit sa sortie.
+    with (log_dir / f"judge-{seq:03d}.jsonl").open("a") as f:
+        f.write(json.dumps({"event": "judge_run", "item_id": iid, "attempt": seq,
+                            **{k: judge.get(k) for k in
+                               ("trigger", "why", "launched", "rc", "duration_s", "arm",
+                                "ceiling_s", "pid", "expired", "refused", "measured_by",
+                                "named", "precheck_rc", "bytes", "attempt_in_proof")},
+                            "at": datetime.now(timezone.utc).isoformat()}) + "\n")
+    # MESURE-DU-JUGE/fin
     log(f"{BACKEND} est sorti en {rc}. Validateur…", "dim")
     with validator_log.open("w") as f:
         v = subprocess.run(["bash", str(GENERIC_VALIDATOR)], cwd=REPO_ROOT,
@@ -2796,6 +3112,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     attempt_count = state["retries"][iid]
     _aborted_record(state, iid)["streak"] = 0   # un essai JUGE remet la serie a zero
     save_state(state)
+    # JUGEMENT/fin
 
     gate_reason = ""
     # LA PORTE DE FERMETURE EST APPELÉE DANS LES DEUX CAS. GATE -1 — « preuve impossible » —
