@@ -6852,7 +6852,7 @@ items:
   max_retries: 13
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: in-progress
+  status: open
   priority: 41
   game: jak1
   gate:
@@ -6863,6 +6863,7 @@ items:
   depends_on:
   - perf-instruments
   - perf-stock-baseline
+  - harness-judge-waits-for-the-proof-a-worker-left-in-flight
   where: 'rien a voir : identique au pixel ; goal_busy_ms baisse'
   known_cause: |-
     16/09 ARBITRAGE OWNER : garder si gain potentiel, « mais faut que ca casse rien ». Etat : appels a 2 instructions livres (essai 6), 4980 images sur le Redmi sans crash, MAIS codegen_lot_defects=1 parce que le comparateur refset REFUSE le CGO modifie (provenance=data, maxdiff255 = sentinelle de refus, PAS un ecart RGB) et aucun gain de temps n'a jamais ete mesure. 3 essais, strategie : (1) diagnostiquer le contrat de comparaison : un CGO dont le CODE change est l'effet ATTENDU de cet item, la comparaison doit porter sur les pixels rendus contre la reference a2, pas sur l'empreinte des donnees ; ne pas recapturer la reference pour fabriquer le vert ; (2) publier le maxdiff RGB reel ; (3) mesurer goal_busy_ms avant/apres sur la meme scene, >=300 images par bras, publier codegen_gain_us. Sans gain mesure > 0 en 3 essais, archive.
@@ -6873,8 +6874,9 @@ items:
     N. GAIN MESURE : publier `codegen_gain_us` = goal_busy par image AVANT moins APRES sur l'appareil, meme scene, >= 300 images par bras ; un gain nul ou negatif est un defaut.
   out_of_scope: Pas de changement de convention d'appel visible du C++ (asm_funcs_arm64.s, kscheme) dans
     ce lot. Ne touche a aucune feature validee.
-  notes: 'budget : goalc + regen CGO + refset. Lire .autoport/CODEGEN_COOKBOOK.md (fichiers verrouilles).
-    Point de vue : village1-hut.'
+  notes: |-
+    budget : goalc + regen CGO + refset. Lire .autoport/CODEGEN_COOKBOOK.md (fichiers verrouilles). Point de vue : village1-hut.
+    budget : plafond 10 = compteur 7 + 3 essais neufs (owner 16/09) ; l'essai 7 (18:20-18:38) est RENDU : bras 'avant' en vol (pid 527475) quand le worker a rendu la main, preuve ancienne jugee (voir harness-judge-waits-for-the-proof-a-worker-left-in-flight).
   max_turns: 1200
   hits_means: sites d'appel allegees
   proof_timeout: 600
@@ -6933,7 +6935,7 @@ items:
       des donnees de scene, avec reference immuable et sans affaiblir le verdict visuel ; identifier aussi
       les exigences de symboles restant a implementer. Aucune nouvelle course ou recapture autorisee par
       cette revue.
-  max_retries: 9
+  max_retries: 10
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
   status: open
@@ -12509,7 +12511,7 @@ items:
     proof_bytes: 44334
     attempt: 5
     journal: validator-005.txt
-- status: open
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: harnais
