@@ -6885,12 +6885,19 @@ items:
   - OG_LEVEL_WARP=village1-hut
   - OG_PAD_REPLAY_REALTIME=0
   proof_plan:
-    authority: Recapture unique et rejeu exiges par le livrable du lot 1.
-    cause: Sauvegardes GPR dans les callees, X12 protege avant mips2c et acces symboles ARM64 raccourcis.
-    legs: Une capture du candidat a2 puis un rejeu du meme candidat, chacun plafonne a 120 secondes.
-    selection: Hutte historique uniquement (legacy), heure 9, une phase, pad neutre identique.
-    limitation: Le rejeu du candidat mesure sa repetabilite ; la parite avec le rendu anterieur reste
-      non prouvee.
+    authority: 'Livrable N du contrat, ecrit par l''owner : « publier codegen_gain_us = goal_busy par
+      image AVANT moins APRES sur l''appareil, meme scene, >= 300 images par bras ». Deux bras sont donc
+      EXIGES par le perimetre, pas choisis par le worker.'
+    cause: 'L''enrobage d''appel est cuit dans les CGO par goalc : aucun reglage d''execution ne peut
+      le basculer. Le bras AVANT est un second jeu de CGO, bati avec OG_CODEGEN_LEGACY_CALLS=1.'
+    legs: 'Deux jambes, meme appareil, meme scene, meme pad neutre, chacune plafonnee a 120 s. Jambe 1
+      (--off) : CGO batis avec l''ancien enrobage, publie codegen_busy_us de reference. Jambe 2 (livre)
+      : CGO a deux instructions ; le crochet lib/census/<id>.sh soustrait.'
+    selection: Hutte historique uniquement (legacy), heure 9, une phase, pad neutre identique aux deux
+      bras.
+    limitation: 'Le bras AVANT ne bascule QUE l''enrobage d''appel. Les trois autres leviers du lot (symboles
+      a offset fixe, acces [Xn,Xm], cache X16) sont ACTIFS dans les deux bras : codegen_gain_us mesure
+      l''enrobage d''appel seul, pas le gain total du lot. Le rejeu refset ne juge que le bras livre.'
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1

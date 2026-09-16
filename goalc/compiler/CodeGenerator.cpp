@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #if __has_include(<cxxabi.h>)
 #include <cxxabi.h>
 #define OG_HAVE_CXXABI 1
@@ -384,6 +385,24 @@ void CodeGenerator::do_goal_function_x86(FunctionEnv* env, int f_idx) {
   m_gen.add_instr_no_ir(f_rec, IGen::ret(m_gen), InstructionInfo::Kind::EPILOGUE);
 }
 
+// Interrupteur d'ABLATION de l'enrobage d'appel arm64 (OG_CODEGEN_LEGACY_CALLS).
+// Il n'existe que pour fabriquer le bras AVANT de `codegen_gain_us` : il
+// restitue l'ancienne emission d'appel et rien d'autre. Il est lu a la
+// COMPILATION (goalc), pas a l'execution : les deux bras sont deux jeux de CGO
+// DISTINCTS, et poser la variable devant `gk` n'a aucun effet. Il ne bascule
+// QUE l'enrobage d'appel — les trois autres leviers du lot (symboles a offset
+// fixe, acces memoire [Xn,Xm], cache X16) restent ACTIFS dans les deux bras,
+// pour que le bras d'ablation isole l'enrobage d'appel SEUL.
+// Lu une seule fois par processus goalc (static local), jamais par instruction.
+// Absente, vide ou "0" = comportement actuel, strictement inchange.
+bool codegen_legacy_calls_enabled() {
+  static const bool v = []() {
+    const char* e = std::getenv("OG_CODEGEN_LEGACY_CALLS");
+    return e && e[0] && std::strcmp(e, "0") != 0;
+  }();
+  return v;
+}
+
 // A24 — OG_X30_TRACE_EMIT: env-gated AT GOALC COMPILE TIME post-LDP X30
 // stack-range tracer. A23's call_r64 BLR-target tracer fired ZERO times
 // across 61204 instrumented sites + a complete 216-link-finish boot run,
@@ -578,7 +597,10 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   std::vector<uint32_t> saved_gpr_rt;
   for (const auto& saved_reg : allocs.used_saved_regs) {
     const auto id = saved_reg.id();
-    if (m_gen.version() == GameVersion::Jak1 &&
+    // Bras AVANT (OG_CODEGEN_LEGACY_CALLS) : les GPR « saved » repartent au site
+    // d'appel, donc `saved_gpr_rt` reste VIDE ici — ni `stp` de prologue, ni
+    // `ldp` d'epilogue (la boucle de restitution itere sur ce meme vecteur).
+    if (m_gen.version() == GameVersion::Jak1 && !codegen_legacy_calls_enabled() &&
         (id == 3 || id == 5 || id == 10 || id == 11 || id == 12)) {
       saved_gpr_rt.push_back(static_cast<uint32_t>(id));
     }

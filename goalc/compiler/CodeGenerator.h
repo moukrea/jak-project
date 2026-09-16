@@ -31,6 +31,19 @@ void set_output_path(const std::string& path);
 bool dump_to_file();  // returns true if a file was written
 }  // namespace ir_emit_stats
 
+// Interrupteur d'ABLATION de l'enrobage d'appel arm64 (OG_CODEGEN_LEGACY_CALLS).
+// Il n'existe que pour fabriquer le bras AVANT de `codegen_gain_us` : il restitue
+// l'ancienne emission d'appel (masque complet + X23 : 3 STP + BLR + 3 LDP, 8
+// instructions avec l'ADD d'offset) et les sauvegardes de GPR « saved » au
+// site d'appel plutot qu'une fois dans le prologue de la callee. Il est lu a la
+// COMPILATION, par goalc,
+// jamais a l'execution : les deux bras sont donc deux jeux de CGO DISTINCTS,
+// et poser la variable devant `gk` ne change rien. Il ne bascule QUE l'enrobage
+// d'appel : les autres leviers du lot (symboles a offset fixe, acces memoire
+// [Xn,Xm], cache X16) restent actifs dans les deux bras.
+// Variable absente, vide ou "0" = comportement ACTUEL, strictement inchange.
+bool codegen_legacy_calls_enabled();
+
 class CodeGenerator {
  public:
   CodeGenerator(FileEnv* env,

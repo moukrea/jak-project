@@ -486,6 +486,19 @@ uint64_t g_dispatch_ns = 0, g_syncpath_ns = 0, g_vsync_ns = 0;
 uint64_t g_dispatches = 0;
 uint64_t g_frames_window = 0;
 uint64_t g_frames_total = 0;
+
+// Accumulateurs de COURSE (pas de fenetre) : la fenetre de 60 images publiee
+// dans `goal_busy_ms` est une PHOTO, pas la course — sur l'essai 6, la derniere
+// fenetre valait 19,477 ms quand la moyenne des 80 fenetres valait 16,746 ms.
+// Le contrat de `codegen_gain_us` exige >= 300 images par bras, donc la moyenne
+// se prend depuis le debut de la course, et le DENOMINATEUR se publie a cote
+// d'elle (`codegen_busy_frames`) : une moyenne sans son denominateur ne se lit
+// pas. Le min et le max de fenetre disent le bruit de l'instrument.
+uint64_t g_run_busy_ns = 0;
+uint64_t g_run_busy_frames = 0;
+uint64_t g_run_busy_windows = 0;
+uint64_t g_run_busy_win_min_us = 0;
+uint64_t g_run_busy_win_max_us = 0;
 uint64_t g_dma_bytes_window = 0;
 uint64_t g_dma_frames = 0;
 bool g_dma_copy_mode = false;
@@ -896,6 +909,27 @@ void publish_window() {
   };
   const uint64_t waits = g_syncpath_ns + g_vsync_ns;
   const uint64_t busy = g_dispatch_ns > waits ? g_dispatch_ns - waits : 0;
+  // Cumul de COURSE, avant toute remise a zero de la fenetre.
+  g_run_busy_ns += busy;
+  g_run_busy_frames += g_frames_window;
+  ++g_run_busy_windows;
+  const uint64_t win_us = (busy / 1000) / frames;
+  if (g_run_busy_windows == 1 || win_us < g_run_busy_win_min_us) {
+    g_run_busy_win_min_us = win_us;
+  }
+  if (win_us > g_run_busy_win_max_us) {
+    g_run_busy_win_max_us = win_us;
+  }
+  // Ces cinq cles sortent a CHAQUE fenetre, sans garde de feature : elles
+  // doivent exister sur les DEUX bras, y compris celui lance avec --off.
+  autoport_proof::publish(
+      "codegen_busy_us",
+      g_run_busy_frames ? (g_run_busy_ns / 1000) / g_run_busy_frames : (uint64_t)0);
+  autoport_proof::publish("codegen_busy_frames", g_run_busy_frames);
+  autoport_proof::publish("codegen_busy_windows", g_run_busy_windows);
+  autoport_proof::publish("codegen_busy_win_min_us", g_run_busy_win_min_us);
+  autoport_proof::publish("codegen_busy_win_max_us", g_run_busy_win_max_us);
+
   pub_ms("goal_busy_ms", busy);
   pub_ms("goal_dispatch_ms", g_dispatch_ns);
   pub_ms("goal_syncpath_wait_ms", g_syncpath_ns);

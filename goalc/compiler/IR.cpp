@@ -6,6 +6,7 @@
 
 #include "common/symbols.h"
 
+#include "goalc/compiler/CodeGenerator.h"
 #include "goalc/compiler/Env.h"
 #include "goalc/compiler/FixedSymbolsARM64.h"
 #include "goalc/emitter/IGen.h"
@@ -855,7 +856,15 @@ void IR_FunctionCall::do_codegen_arm64(emitter::ObjectGenerator* gen,
   if (gen->version() == GameVersion::Jak1) {
     // Normal GOAL callees, kernel asm functions and native wrappers all
     // preserve the GOAL saved banks. Keep the optional target tracer.
-    gen->add_instr(emitter::IGen::ARM64::call_r64(freg, 0), irec);
+    if (codegen_legacy_calls_enabled()) {
+      // Bras AVANT de `codegen_gain_us` : la surcharge conservatrice restitue
+      // l'enrobage d'appel d'avant l'item — masque complet + X23, soit 6 GPR
+      // sauves/restitues = 3 STP + BLR + 3 LDP = 7 mots ici, 8 avec l'ADD
+      // d'offset ci-dessus. Voir CodeGenerator.h — lu a la COMPILATION.
+      gen->add_instr(emitter::IGen::ARM64::call_r64(freg), irec);
+    } else {
+      gen->add_instr(emitter::IGen::ARM64::call_r64(freg, 0), irec);
+    }
   } else {
     uint32_t live_saved_gprs = 0;
     for (int var : allocs.live_out.at(irec.ir_id)) {

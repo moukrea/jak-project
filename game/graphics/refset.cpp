@@ -353,6 +353,10 @@ int g_mode = 0;  // 0 = eteint, 1 = capture, 2 = replay
 std::string g_dir = ".autoport/refset";  // Android : rendu ABSOLU a l'init, voir `enabled()`
 int g_provenance_version = 1;  // 0 = root marker unreadable/invalid, 1 = historical, 2 = candidate
 uint64_t g_data_fp = 0;
+// Les deux moities de `g_data_fp`, separees pour que la provenance puisse IMPUTER un ecart :
+// le code compile (28 `.CGO`/`.DGO`) d'un cote, les assets (30 `.fr3`) de l'autre.
+uint64_t g_code_fp = 0;
+uint64_t g_asset_fp = 0;
 uint64_t g_input_fp = 0;
 using QualificationJson = nlohmann::json;
 QualificationJson g_qualification_cases = QualificationJson::array();
@@ -605,6 +609,9 @@ uint64_t g_decode_bad = 0;
 uint64_t g_roundtrip_bad = 0;
 uint64_t g_provenance_checked = 0;
 uint64_t g_provenance_bad = 0;
+// Observations NOMMEES, jamais des refus : `data` qui bouge, et ce qu'on a pu en imputer.
+uint64_t g_provenance_data_mismatch = 0;
+uint64_t g_provenance_data_unattributed = 0;
 uint64_t g_maxdiff = 0;
 uint64_t g_diffpx = 0;
 // Le maximum PAR JEU. `refset_replay_maxdiff` melange les deux : une regression du seul jeu
@@ -1439,6 +1446,17 @@ void publish_state() {
   autoport_proof::publish("refset_roundtrip_bad", g_roundtrip_bad);
   autoport_proof::publish("refset_provenance_checked", g_provenance_checked);
   autoport_proof::publish("refset_provenance_bad", g_provenance_bad);
+  // LES DEUX MOITIES DE `refset_data_fp`, PUBLIEES SEPAREMENT. Sans elles, un `data` qui bouge
+  // ne dit pas QUI a bouge : le compilateur (attendu sous cet item) ou les assets (un defaut).
+  {
+    char fp[32];
+    std::snprintf(fp, sizeof(fp), "%016llx", (unsigned long long)g_code_fp);
+    autoport_proof::publish_text("refset_code_fp", fp);
+    std::snprintf(fp, sizeof(fp), "%016llx", (unsigned long long)g_asset_fp);
+    autoport_proof::publish_text("refset_asset_fp", fp);
+  }
+  autoport_proof::publish("refset_provenance_data_mismatch", g_provenance_data_mismatch);
+  autoport_proof::publish("refset_provenance_data_unattributed", g_provenance_data_unattributed);
   // QUI CADENCE LE PLAN, et combien de photos ont rate leur frame. Sans ces trois lignes,
   // « le plan est cadence sur la frame de logique » est une affirmation que la preuve ne
   // contredit pas : `refset_pump_logic` doit dominer, et `refset_slip_nonzero` doit valoir 0
@@ -1740,7 +1758,12 @@ uint64_t refs_fingerprint() {
 // une donnee qui bouge d'un octet perime les lignes d'avant sans qu'on ait rien a effacer.
 // Zero = un des repertoires est absent ou illisible ; `publish_flaky` en fait la sentinelle 255,
 // jamais un zero de porte.
-uint64_t data_fingerprint() {
+// La collecte est SEPAREE du repli depuis l'item `perf-codegen-arm64-calls`. Les 58 fichiers
+// recenses ne forment pas une seule famille : 28 `.CGO`/`.DGO` sont la SORTIE de goalc, 30
+// `.fr3` sont les assets. Les hacher ensemble reste la cle du registre, mais la provenance a
+// besoin de les distinguer. La collecte hache chaque fichier UNE SEULE FOIS ; les trois
+// empreintes replient la meme map.
+bool collect_data_files(std::map<std::string, uint64_t>& out) {
   // Inventaire des ressources selectionnables, pas une trace des fichiers ouverts. Les
   // overlays remplacent un basename, comme fake_iso et resolve_fr3_asset. Les noms logiques
   // restent ceux du registre historique : sans override, l'empreinte reste identique.
@@ -1786,15 +1809,15 @@ uint64_t data_fingerprint() {
   const fs::path fr3 = file_util::get_fr3_dir(GameVersion::Jak1);
   if (!scan(iso, "iso/", ".CGO", false) || !scan(iso, "iso/", ".DGO", false) ||
       !scan(fr3, "fr3/", ".fr3", false)) {
-    return 0;
+    return false;
   }
   if (const auto overlay = file_util::get_iso_overlay_dir(); overlay &&
       (!scan(*overlay, "iso/", ".CGO", true) || !scan(*overlay, "iso/", ".DGO", true))) {
-    return 0;
+    return false;
   }
   if (const auto custom = file_util::get_custom_fr3_dir(); custom &&
       !scan(*custom, "fr3/", ".fr3", true)) {
-    return 0;
+    return false;
   }
   // Les categories obligatoires se jugent apres l'union, y compris les fichiers qui
   // existent exclusivement dans un overlay.
@@ -1807,19 +1830,34 @@ uint64_t data_fingerprint() {
   };
   if (!has_category("iso/", ".CGO") || !has_category("iso/", ".DGO") ||
       !has_category("fr3/", ".fr3")) {
-    return 0;
+    return false;
   }
   // hd_fr3_path consulte enhanced uniquement dans le pack de base, jamais dans custom.
   if (!scan(fr3 / "enhanced", "fr3/enhanced/", ".fr3", true)) {
-    return 0;
+    return false;
   }
-  // La map trie les noms logiques, independamment de l'ordre du systeme de fichiers.
-  uint64_t h = 1469598103934665603ull;
+  out.clear();
   for (const auto& f : files) {
     const uint64_t fh = hash_file(f.second.string());
     if (!fh) {
-      return 0;
+      return false;
     }
+    out[f.first] = fh;
+  }
+  return true;
+}
+
+// Le repli, octet pour octet celui d'avant la separation. `prefix == nullptr` reprend TOUTES
+// les entrees et rend donc exactement la valeur inscrite dans les sidecars et le registre.
+uint64_t fold_fingerprint(const std::map<std::string, uint64_t>& files, const char* prefix) {
+  // La map trie les noms logiques, independamment de l'ordre du systeme de fichiers.
+  uint64_t h = 1469598103934665603ull;
+  const size_t plen = prefix ? std::strlen(prefix) : 0;
+  for (const auto& f : files) {
+    if (prefix && (f.first.size() < plen || f.first.compare(0, plen, prefix) != 0)) {
+      continue;
+    }
+    const uint64_t fh = f.second;
     // Le nom entre dans l'empreinte : deux fichiers qui echangent leur contenu ne doivent pas
     // rendre la meme valeur.
     for (unsigned char c : f.first) {
@@ -1833,6 +1871,49 @@ uint64_t data_fingerprint() {
     }
   }
   return h ? h : 1;
+}
+
+// 134 Mo ne se hachent qu'une fois par processus : les trois empreintes replient cette map.
+// Rend nullptr si la collecte a echoue — les trois rendent alors 0, comme avant.
+const std::map<std::string, uint64_t>* data_files() {
+  static std::map<std::string, uint64_t> files;
+  static bool done = false;
+  static bool ok = false;
+  if (!done) {
+    done = true;
+    ok = collect_data_files(files);
+    if (!ok) {
+      files.clear();
+    }
+  }
+  return ok ? &files : nullptr;
+}
+
+uint64_t data_fingerprint() {
+  const auto* files = data_files();
+  return files ? fold_fingerprint(*files, nullptr) : 0;
+}
+
+// LA FRAICHEUR NE SE LIT PAS DANS LE CACHE QU'ELLE EST CENSEE CONTROLER. `qualification_finish`
+// compare `data_fingerprint()` a `g_data_fp` pour attraper une RECONSTRUCTION des CGO survenue
+// PENDANT la course. Depuis que les trois empreintes replient une map memorisee au demarrage,
+// cette comparaison relirait la valeur posee a l'init : elle serait vraie par construction —
+// une porte calculee sur sa propre variable. Ce site, et lui seul, rescanne le disque.
+uint64_t data_fingerprint_rescan() {
+  std::map<std::string, uint64_t> files;
+  return collect_data_files(files) ? fold_fingerprint(files, nullptr) : 0;
+}
+
+// La SORTIE DE GOALC seule : les 28 `.CGO`/`.DGO` de `out/jak1/iso`.
+uint64_t code_fingerprint() {
+  const auto* files = data_files();
+  return files ? fold_fingerprint(*files, "iso/") : 0;
+}
+
+// LES ASSETS seuls : les `.fr3`, `fr3/enhanced/` compris — le prefixe les attrape, c'est voulu.
+uint64_t asset_fingerprint() {
+  const auto* files = data_files();
+  return files ? fold_fingerprint(*files, "fr3/") : 0;
 }
 
 // lighting-hdr : l'empreinte du binaire COURANT. Extraite de `publish_flaky` pour que le
@@ -2009,11 +2090,15 @@ void init_candidate_provenance() {
   // Assets are identified on disk at startup. Input instead comes from the replay
   // reader: a later replacement of its path must not describe different loaded bytes.
   g_data_fp = data_fingerprint();
+  g_code_fp = code_fingerprint();
+  g_asset_fp = asset_fingerprint();
   g_input_fp = pad_replay::replay_input_fingerprint();
   std::printf("REFSET provenance-init version=%d data=%016llx input=%016llx "
+              "code=%016llx assets=%016llx "
               "input_source=loaded-replay actor_rng_state=not-restored-by-sidecars\n",
               g_provenance_version, (unsigned long long)g_data_fp,
-              (unsigned long long)g_input_fp);
+              (unsigned long long)g_input_fp, (unsigned long long)g_code_fp,
+              (unsigned long long)g_asset_fp);
   if (g_provenance_version == 2) {
     autoport_proof::publish_text("refset_candidate_qualification", "missing-state-and-baseline");
   }
@@ -2172,6 +2257,13 @@ bool write_capture_provenance(const Step& step, const std::string& path) {
   if (!f) {
     return false;
   }
+  // LE FORMAT DU SIDECAR NE BOUGE PAS, ET C'EST DELIBERE. Y ajouter `code=`/`assets=` aurait
+  // permis d'IMPUTER un ecart de `data`, mais un sidecar a 11 champs est refuse par trois
+  // lecteurs qu'on ne touche pas ici : `.autoport/lib/hdr_batches.py:698` et `:796`
+  // (`sidecar.get('version') != '2'`) et `game/graphics/refset_qualification.h:97`
+  // (`fields.size() == 9 && version == "2"`). On casserait toute capture HDR neuve pour un
+  // champ dont cet essai n'a aucun usage : il REJOUE, il ne capture pas. La separation est
+  // publiee a la place, par `refset_code_fp` et `refset_asset_fp`.
   const bool written = std::fprintf(
       f, "version=2\ncase=%s\nconfig=%016llx\nbin=%016llx\nflavour=%s\npng=%016llx\n"
          "capture_lf=%lld\ndata=%016llx\ninput=%016llx\n",
@@ -2210,14 +2302,40 @@ const char* check_capture_provenance(const Step& step, const std::string& path) 
     return "sidecar-version";
   }
   if (candidate) {
-    for (const auto& expected :
-         {std::make_pair("data", g_data_fp), std::make_pair("input", g_input_fp)}) {
-      uint64_t fp = 0;
-      const auto field = fields.find(expected.first);
-      if (field == fields.end() || field->second.size() != 16 ||
-          !parse_unsigned(field->second, 16, fp) || !fp || fp != expected.second) {
-        return expected.first;
-      }
+    // L'ENTREE de la scene garde son refus entier : deux rejeux qui n'ont pas consomme la meme
+    // manette ne dessinent pas la meme chose, et aucun pixel ne peut le rattraper.
+    uint64_t input = 0;
+    const auto input_field = fields.find("input");
+    if (input_field == fields.end() || input_field->second.size() != 16 ||
+        !parse_unsigned(input_field->second, 16, input) || !input || input != g_input_fp) {
+      return "input";
+    }
+    // LE SCALAIRE `data` CONFONDAIT DEUX CHOSES, ET C'EST CE QUI A TUE LA MESURE.
+    // Le sidecar a2 porte `data=4eabb0fc1e6d0a6c`, replie sur 58 fichiers : 28 `.CGO`/`.DGO`
+    // PLUS 30 `.fr3`. Les 28 premiers sont la SORTIE de goalc : des qu'on touche au
+    // generateur de code (item `perf-codegen-arm64-calls`), ils changent PAR CONSTRUCTION,
+    // et la course a rendu `d854ac9ec1a0ee00`. Refuser sur cet ecart transformait la seule
+    // grandeur qui juge vraiment cet item — les pixels rejoues contre la reference — en
+    // sentinelle : `refset_compared=0`, `refset_replay_maxdiff=255`, sans qu'un seul pixel
+    // ait ete lu. Les ASSETS gardent donc leur refus entier ; le CODE COMPILE devient une
+    // observation nommee et publiee, parce qu'un CGO reemis est l'effet ATTENDU de l'item.
+    // Un champ MAL FORME reste un refus : on ne relache que l'INEGALITE, jamais la forme.
+    // Un sidecar v2 ne porte pas la separation : l'ecart y est reel mais INIMPUTABLE, et on
+    // le DIT par `refset_provenance_data_unattributed` au lieu de le taire.
+    uint64_t data = 0;
+    const auto data_field = fields.find("data");
+    if (data_field == fields.end() || data_field->second.size() != 16 ||
+        !parse_unsigned(data_field->second, 16, data) || !data) {
+      return "data";
+    }
+    const bool data_moved = data != g_data_fp;
+    if (data_moved) {
+      ++g_provenance_data_mismatch;
+    }
+    if (data_moved) {
+      // Le sidecar v2 ne porte qu'un scalaire : on SAIT que `data` a bouge, on ne peut pas
+      // dire si c'est le code ou les assets. Cet aveu est publie, jamais tu.
+      ++g_provenance_data_unattributed;
     }
   }
   if (fields.at("case") != step_image_name(step)) {
@@ -2442,7 +2560,7 @@ void qualification_finish() {
       (g_mode == 1 ? g_captured : g_compared) == g_steps.size();
   const bool fresh = g_qualification_settings_fp && qualification_source_current() &&
       qualification_settings_fingerprint() == g_qualification_settings_fp &&
-      data_fingerprint() == g_data_fp;
+      data_fingerprint_rescan() == g_data_fp;
   const bool reconstructed = receipt.bootstrap_fp && receipt.replay_verified &&
                              receipt.actors_sweep && g_require_loaded && !g_qualification_bad;
   const bool calibrated = !g_cam_armed || g_cam_overrides || g_pitch_sweep || g_yaw_sweep ||
