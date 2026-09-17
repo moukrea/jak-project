@@ -18,6 +18,16 @@ dans ton prompt ; s'il n'y est pas, demande-le au lieu d'improviser.
 6. **Jamais `git push --force`, jamais `rm -rf` sur du code, jamais de kill par motif** :
    `pkill -f` sans crochet se matche lui-même. PID exacts uniquement.
 
+## Refonte
+
+Owner, 17/09 : « On parle de refonte hein ! Retordre l'existant en espérant atteindre le niveau
+de la refonte ça va pas fonctionner. » Un item d'une campagne de refonte (eau, herbe, lumière,
+surfaces meubles) se juge contre la CIBLE de sa SPEC, jamais seulement contre la non-régression
+de l'existant : sa porte porte une grandeur de la cible, et une brique qui change ce qui se voit
+ne régresse pas sur le build précédent (ça se mesure, ça entre dans la porte). Une brique
+intermédiaire qui n'a rien à montrer le dit (`where` : « rien à voir ») au lieu d'envoyer l'owner
+tester ce qui n'existe pas encore.
+
 ## Reprise
 
 Un retour de l'owner qui décrit un défaut EST un verdict de non-validation : la tâche se
