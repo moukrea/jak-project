@@ -12278,7 +12278,7 @@ items:
     journal: validator-003.txt
 - status: validated
   game: jak1
-  owner_test: true
+  owner_test: false
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
   max_turns: 800
@@ -12346,10 +12346,8 @@ items:
 
     PERIMETRE 17/09 (owner : « démerdes toi et fait le meilleur choix » -> HUTTE SEULE) : la porte se juge sur la vue signalee par l'owner, le raccord mur/toit de la hutte (capture owner-feedback/2026-09-15-ao-hut-contact.png). Les termes des deux autres vues sont HORS PERIMETRE : ils publient `view_scope=hut` et `ao_other_views_measured=0`, et ne comptent ni defaut ni zero. Verdict ajoute :
     H. DETECTEUR D'ARETES AUTOMATIQUE : la population des aretes mur/toit de la hutte est trouvee par le moteur (angle diedre + profondeur), pas par des triangles choisis a la main ; publier le nombre d'aretes trouvees et leur recouvrement avec les 15 aretes / 425 px identifies a l'essai 10 (>= 80 %). La bande de contact se mesure sur CETTE population.
-  where: 'Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : chaque palier et
-    chaque mode (SSAO, HBAO, GTAO), force au maximum. Aucun damier ni pixelisation, meme en Eleve ; aucune
-    bande claire aux contacts ; sur les shrubs qui balancent, l''ombre suit le feuillage et rien ne flotte
-    hors des textures ; camera immobile, rien ne bouge.'
+  where: 'Rien a juger a l''oeil sur ce ticket seul : c''est la prepasse et la mesure du raccord. Ce que
+    l''owner regarde (bande de contact, AO posee en filtre) est porte par le parent lighting-ao-indirect.'
   out_of_scope: |-
     Ne rouvre aucun des cinq acquis. Ne change ni l ordonnanceur, ni les populations, ni les criteres de la sonde de stabilite ao-static-probe-deterministic. Son raccordement a cet item est autorise pour produire ao_static_defects dans la preuve exigee : activer et reutiliser la MEME sonde et son lecteur, sans dupliquer leur logique ni reutiliser une valeur archivee comme mesure courante. Conserver les temoins, le regime et les controles de non-vacuite. Tout autre changement de la sonde reste hors perimetre.
 
