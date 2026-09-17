@@ -34,9 +34,7 @@
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
-#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
-#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureAnimator.h"
@@ -777,9 +775,9 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   // recharged hud sprites (Grecharged-hud): same runtime slots 8300+ as desktop.
-#ifdef OG_FEAT_RECHARGED_HUD
+  // hud-eco-gauge : PAS sous le drapeau HUD -- le build arm64 LIVRE est hud=0 et les slots
+  // 8300+ restaient vides sur l'appareil. Meme raison que l'ecran de chargement ci-dessous.
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
-#endif
   // Gloading-screen: NOT under the HUD flag on purpose -- the shipped android build is
   // hud=0, and gating these two textures on it left slots 8311/8312 empty (checkerboard
   // placeholder instead of the silhouette). See LoadingScreenTextures.h.

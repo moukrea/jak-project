@@ -132,6 +132,10 @@ AUTOPORT_FEATURE_SITE("firstperson-hd-hide");
 // `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
 // CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
 AUTOPORT_FEATURE_SITE("hud-3d-pickups");
+// hud-eco-gauge : l'instrument est le recensement GOAL de hud-classes-pc.gc, qui tire par
+// `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
+// CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("hud-eco-gauge");
 
 using namespace ee;
 

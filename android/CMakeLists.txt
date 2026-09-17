@@ -782,7 +782,10 @@ add_library(gk SHARED
     # Grecharged-hud: PC recharged HUD sprite loader (slots 8300+). Compiled into
     # the desktop gk via game/CMakeLists.txt; the Android build has its own source
     # list, so it must be listed here too or load_recharged_hud_textures is undefined.
-    # Grecharged-buildsys-flags: appended conditionally below (OG_FEAT_RECHARGED_HUD).
+    # hud-eco-gauge : INCONDITIONNEL. Sous OG_FEAT_RECHARGED_HUD ce TU ne rejoignait pas le
+    # build arm64 LIVRE (hud=0) et les slots 8300+ restaient vides sur l'appareil ; les PNG,
+    # eux, voyagent toujours dans l'APK. Une texture n'est pas une feature de menu.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp"
     # Grecharged-grass-poc: procedural 3D grass renderer (jak1 training). Desktop
     # lists it in game/CMakeLists.txt; the Android build has its own source list,
     # so it must be listed here too or GrassRenderer's symbols are undefined.
@@ -969,13 +972,6 @@ add_library(gk SHARED
     # the silhouette and of every precursor glyph.
     "${JAK_ROOT}/game/graphics/opengl_renderer/LoadingScreenTextures.cpp"
 )
-
-# Grecharged-buildsys-flags: feature-gated TUs join libgk.so only when their
-# flag is ON (default OFF => symbol absent from the .so). The runtime callers
-# are #ifdef'd on the same OG_FEAT_* macro (inherited from the root CMakeLists).
-if(OG_FEAT_RECHARGED_HUD)
-    target_sources(gk PRIVATE "${JAK_ROOT}/game/graphics/opengl_renderer/RechargedHudTextures.cpp")
-endif()
 
 # Grecharged-buildsys-flags: stamp the flag-set id onto the marker TU only
 # (kboot.cpp is compiled into android_kernel here). Source-file properties are

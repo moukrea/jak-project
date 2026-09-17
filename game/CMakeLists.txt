@@ -510,12 +510,15 @@ endif()
 # placeholder in place of the silhouette. The loading screen is not the HUD.
 list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/LoadingScreenTextures.cpp)
 
+# hud-eco-gauge : les textures du HUD recharge (slots 8300+) ne sont PAS sous drapeau.
+# Sous OG_FEAT_RECHARGED_HUD elles ne rejoignaient pas le build arm64 LIVRE (hud=0) et les
+# slots 8300+ restaient vides sur l'appareil de l'owner. Une texture n'est pas une feature
+# de menu : meme raison que LoadingScreenTextures.cpp ci-dessus.
+list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/RechargedHudTextures.cpp)
+
 # Grecharged-buildsys-flags: feature-gated TUs are appended to RUNTIME_SOURCE
 # only when their flag is ON (default OFF => symbol absent from gk). The
 # runtime code that calls into them is #ifdef'd on the same OG_FEAT_* macro.
-if(OG_FEAT_RECHARGED_HUD)
-        list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/RechargedHudTextures.cpp)
-endif()
 if(OG_FEAT_VULKAN_SUPPORT)
         list(APPEND RUNTIME_SOURCE graphics/pipelines/vulkan.cpp)
 endif()

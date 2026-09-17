@@ -13326,6 +13326,14 @@ items:
   depends_on: *id005
   id: hud-eco-gauge
   priority: 46
+  proof_props:
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.fixed_tick=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.costprobe=hud-eco-gauge
   owner_test: true
   feature: 'La jauge d''éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l''éco
     active, embout qui suit le remplissage'

@@ -1087,23 +1087,126 @@
 ;; recharged-hud? toggle; when it is OFF nothing below runs and the stock hud
 ;; is untouched.
 
-;; Grecharged-buildsys-flags: the recharged HUD types/methods/helpers are compiled only with --recharged-hud.
+;; Grecharged-buildsys-flags: le COEUR recharge (SPEC HUD §3, chantier `hud-heart`) reste derriere
+;; --recharged-hud. La JAUGE, elle, en est sortie juste en dessous.
 (#when FLAG_RECHARGED_HUD
 ;; replacement for the stock hud-health (the 3-pip heart)
 (deftype hud-recharged-health (hud-pc)
   ((active-flag symbol) ;; last-seen state of the toggle, for transition handling
    (cell-proc   process) ;; hud-fuel-cell process whose icon we upgraded
    (buzz-proc   process) ;; hud-buzzers process we added the 3d icon to
-   ))
+   )))
 
+;; hud-eco-gauge : LA JAUGE VIT DANS LE BINAIRE LIVRE, HORS DE FLAG_RECHARGED_HUD.
+;; `recharged-flags.gc` porte `FLAG_RECHARGED_HUD #f` dans l'arbre suivi depuis le 02/09, et
+;; `.autoport/lib/build_x86.sh` / `build_arm64.sh` relancent ninja sur l'arbre deja configure sans
+;; jamais repasser par `build.sh --recharged-hud` : tout ce chantier etait donc ABSENT des CGO
+;; livres, sur les deux cibles. Aucune correction de la jauge n'aurait pu se voir chez l'owner.
+;; C'est la meme cause que la ronde 4 de `hud-3d-pickups`, qui a ete sorti du drapeau pour ca.
+;; L'extinction reste a l'EXECUTION : maitre Recharged + reglage HUD (SPEC HUD §1.2).
 ;; replacement for the stock hud-power (the eco gauge)
 (deftype hud-recharged-power (hud-pc)
   ((last-eco-idx int32) ;; which per-type gauge-centre launcher spawned last frame (-1 = none yet)
-   )))
+   ;; --- instrument de preuve (hud-eco-gauge). Inerte hors `debug.opengoal.costprobe`. ---
+   (probe?       symbol)   ;; le harnais mesure CET item
+   (stock-off    symbol)   ;; la jauge d'origine est actuellement supprimee par nous
+   (bench-n      int32)    ;; images ecoulees dans le bloc courant du banc
+   (bench-phase  int32)    ;; 0 bleu, 1 rouge, 2 jaune, 3 vide, 4 eteint, 5 controle
+   (bench-cycle  int32)    ;; nombre de tours complets du banc
+   (draws        int32)    ;; images ou la jauge rechargee a ete DESSINEE
+   (off-frames   int32)    ;; images jugees HUD rechargé ETEINT
+   (off-draws    int32)    ;; dessins observes pendant ces images-la (doit rester 0)
+   (off-stock-ko int32)    ;; images eteintes ou la jauge d'origine n'etait PAS rendue
+   (t1-n         int32)    ;; images ou l'angle a pu etre mesure
+   (t1-bad       int32)    ;;   ... dont l'ecart depasse le seuil
+   (t1-max       int32)    ;; pire ecart d'angle observe, en milli-degres
+   (t2-n         int32)
+   (t2-bad       int32)
+   (t2-max       int32)    ;; pire ecart d'embout, en milli-degres
+   (t2-ghost     int32)    ;; embout dessine alors que la fraction est nulle
+   (t3-n         int32)
+   (t3-bad       int32)
+   (t4-n         int32)
+   (t4-bad       int32)
+   (t4-max       int32)    ;; pire ecart de fraction contre la jauge d'origine, en 1/100000
+   (t4-hi        int32)    ;; plus haute fraction observee, en 1/100000
+   (t4-lo        int32)    ;; plus basse fraction observee, en 1/100000
+   (drain-t0     int32)    ;; game-frame-counter de la derniere image a 100 %
+   (drain-ticks  int32)    ;; duree du dernier vidage complet, en unites de game-frame-counter
+   (drain-n      int32)    ;; vidages complets chronometres
+   (drain-bad    int32)
+   (t5-n         int32)
+   (t5-bad       int32)
+   (t5-self      int32)    ;; sous-terme : les trois primitives ne partagent pas un centre
+   (t5-stock     int32)    ;; sous-terme : notre centre n'est pas celui de la jauge d'origine
+   (t5-max       int32)    ;; pire ecart de position, en 1/16 d'unite de canevas 512x448
+   (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
+   (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
+   (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
+   (seeded       int32)    ;; ramassages scriptes deja declenches
+   ))
 
 ;;;----------------------------------------------
 ;;  direct-renderer draw helpers
 ;;;----------------------------------------------
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — L'INSTRUMENT LIT LES SOMMETS REELLEMENT EMIS
+;;;----------------------------------------------
+;; La porte de cet item ne peut pas lire une image (DIRECTIVES, regle 2) et elle ne doit pas se
+;; contenter de relire les variables qui ont servi a dessiner — ce serait un miroir, pas une
+;; mesure. Elle lit donc ce que le code a ECRIT dans le buffer DMA : les entiers 12.4 de xyzf2 et
+;; les coordonnees de texture, relus depuis la memoire apres l'ecriture. Le meme motif est deja
+;; utilise comme instrument dans `pc/cutscene-skip-draw.gc` (`cs-scan-quads!`) et `pc/subtitle.gc`.
+;;
+;; Les angles se lisent sur les UV, pas sur les positions : `rhud-fan` pose l'UV d'un sommet de
+;; jante a l'image affine de sa position DANS LE CANEVAS, donc l'angle du masque en espace de
+;; texture est exactement ce que le joueur voit sur la jauge, sans passer par le facteur d'aspect.
+(defconstant RHUD_GP_BASE 0)  ;; l'anneau vide
+(defconstant RHUD_GP_FAN  1)  ;; le camembert de remplissage
+(defconstant RHUD_GP_TIP  2)  ;; l'embout
+
+(deftype rhud-gauge-probe (structure)
+  ((tag  int32)       ;; primitive en cours d'emission ; -1 = ne rien enregistrer
+   (n    int32 3)     ;; sommets emis
+   (tbp  int32 3)     ;; le tbp REELLEMENT pose dans TEX0 pour cette primitive
+   (u0   float 3) (v0 float 3) (x0 float 3) (y0 float 3)   ;; 1er sommet
+   (u1   float 3) (v1 float 3) (x1 float 3) (y1 float 3)   ;; 2e sommet
+   (ul   float 3) (vl float 3) (xl float 3) (yl float 3)   ;; dernier sommet
+   (minx float 3) (maxx float 3) (miny float 3) (maxy float 3)))
+
+(define *rhud-gauge-probe* (new 'static 'rhud-gauge-probe :tag -1))
+
+(defun rhud-gauge-probe-reset ()
+  "ouvre une image de mesure : aucune primitive enregistree, aucun enregistrement en cours."
+  (let ((pr *rhud-gauge-probe*))
+    (set! (-> pr tag) -1)
+    (dotimes (i 3)
+      (set! (-> pr n i) 0)
+      (set! (-> pr tbp i) 0)))
+  (none))
+
+(defun rhud-gauge-note-vert ((xi float) (yi float) (uu float) (vv float))
+  "un sommet de plus pour la primitive en cours. xi/yi sont les ENTIERS 12.4 relus du buffer."
+  (let* ((pr *rhud-gauge-probe*)
+         (ti (-> pr tag))
+         (k  (-> pr n ti)))
+    (when (zero? k)
+      (set! (-> pr u0 ti) uu) (set! (-> pr v0 ti) vv)
+      (set! (-> pr x0 ti) xi) (set! (-> pr y0 ti) yi)
+      (set! (-> pr minx ti) xi) (set! (-> pr maxx ti) xi)
+      (set! (-> pr miny ti) yi) (set! (-> pr maxy ti) yi))
+    (when (= k 1)
+      (set! (-> pr u1 ti) uu) (set! (-> pr v1 ti) vv)
+      (set! (-> pr x1 ti) xi) (set! (-> pr y1 ti) yi))
+    (set! (-> pr ul ti) uu) (set! (-> pr vl ti) vv)
+    (set! (-> pr xl ti) xi) (set! (-> pr yl ti) yi)
+    (if (< xi (-> pr minx ti)) (set! (-> pr minx ti) xi))
+    (if (> xi (-> pr maxx ti)) (set! (-> pr maxx ti) xi))
+    (if (< yi (-> pr miny ti)) (set! (-> pr miny ti) yi))
+    (if (> yi (-> pr maxy ti)) (set! (-> pr maxy ti) yi))
+    (set! (-> pr n ti) (+ k 1)))
+  (none))
 
 (defun rhud-set-shader ((buf dma-buffer) (tbp int))
   "set up the GS registers (blend/clamp/filter/texture) for drawing one of the
@@ -1121,6 +1224,10 @@
                            (gs-reg64 tex1-1)
                            (logior (the-as uint tbp) RHUD_TEX0_BITS)
                            (gs-reg64 tex0-1)))
+  ;; hud-eco-gauge : le tbp REELLEMENT pose pour la primitive qui suit, releve au point de pose.
+  ;; Un `case` qui retomberait sur la mauvaise couleur se lit ici et nulle part ailleurs.
+  (let ((pr *rhud-gauge-probe*))
+    (if (>= (-> pr tag) 0) (set! (-> pr tbp (-> pr tag)) tbp)))
   (none))
 
 (defmacro rhud-rgba (rr gg bb aa)
@@ -1153,6 +1260,14 @@
     ;; near-plane z for the 24-bit zbuffer, same as the font renderer (draws over the scene)
     (set! (-> data 2) (the-as uint (ash #xfffffe 4)))
     (set! (-> data 3) (the-as uint 0)))
+  ;; hud-eco-gauge : LE SOMMET TEL QU'IL PART, relu dans le buffer. On relit les octets ecrits
+  ;; juste au-dessus au lieu de recopier `px`/`py`/`ss`/`tv` : la quantification 12.4 fait partie
+  ;; de ce que la jauge dessine, et une porte qui relirait ses propres arguments serait un miroir.
+  (let ((pr *rhud-gauge-probe*))
+    (when (>= (-> pr tag) 0)
+      (let ((st (the-as (pointer float) (-> buf base)))
+            (xy (the-as (pointer int32) (&+ (-> buf base) 32))))
+        (rhud-gauge-note-vert (the float (-> xy 0)) (the float (-> xy 1)) (-> st 0) (-> st 1)))))
   (&+! (-> buf base) 48)
   (none))
 
@@ -1462,8 +1577,322 @@
   0
   (none))
 
+)  ;; fin du #when FLAG_RECHARGED_HUD (methodes hud-recharged-health SEULEMENT)
+
 ;;;----------------------------------------------
-;;  hud-recharged-power
+;;  hud-eco-gauge — suppression de la jauge d'ORIGINE, cote jauge
+;;;----------------------------------------------
+;; `rhud-suppress-stock` vit sur le process du COEUR, derriere FLAG_RECHARGED_HUD. Dans le binaire
+;; LIVRE ce process n'existe pas : sans les deux fonctions ci-dessous, la jauge rechargee se
+;; dessinerait PAR-DESSUS celle d'origine. Elles ne touchent QUE `power` — le coeur d'origine
+;; reste en place, c'est le chantier `hud-heart`.
+(defun rhud-power-suppress-stock ()
+  "garde idempotente par image : la jauge d'eco d'origine reste desactivee et cachee."
+  (let ((p (-> *hud-parts* power)))
+    (when p
+      (if (not (-> p 0 disable)) (send-event (ppointer->process p) 'disable))
+      (if (not (hidden? (-> p 0))) (send-event (ppointer->process p) 'hide-quick))))
+  (none))
+
+(defun rhud-power-restore-stock ()
+  "rend la jauge d'origine quand le HUD recharge est eteint."
+  (let ((p (-> *hud-parts* power)))
+    (if (and p (-> p 0 disable)) (send-event (ppointer->process p) 'enable)))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — LE JUGE
+;;;----------------------------------------------
+;; Seuils. `RHUD_GAUGE_TOL_MDEG` est le 0,5 degre du livrable, en milli-degres.
+(defconstant RHUD_GAUGE_TOL_MDEG 500)
+;; 1000 / 182,04445 : unites de rotation -> milli-degres.
+(defconstant RHUD_MDEG_PER_ROT 5.4931641)
+;; ecart de position tolere, en 1/16 d'unite du canevas 512x448 : « 0 px » du livrable.
+(defconstant RHUD_GAUGE_POS_TOL 16)
+;; Ecart de fraction tolere contre la jauge d'origine, en 1/100000. Le plancher n'est pas un
+;; gout : les deux processus se mettent a jour a des tours differents de la meme image, et un
+;; tour d'ecart vaut 5 unites de `game-frame-counter` sur les 6000 du plein, soit 83. On prend
+;; 300 (0,3 %) et on publie `hud_gauge_t4_max` : un vrai defaut de denominateur ou de borne
+;; sortirait a plusieurs dizaines de milliers, pas a 83.
+(defconstant RHUD_GAUGE_FRAC_TOL 300)
+;; Images jetees apres chaque bascule du banc. Une bascule de reglage ne prend effet qu'a l'image
+;; SUIVANTE (l'etat `hud-hidden` et l'evenement `enable` de la jauge d'origine mettent chacun une
+;; image a atterrir) : sans ce sas on chiffrerait le temps de reponse de nos propres bascules.
+(defconstant RHUD_GB_SETTLE 30)
+;; Ecart tolere sur la duree d'un vidage complet, en unites de game-frame-counter (300 par
+;; seconde) : 10 = un trentieme de seconde, soit deux images de logique.
+(defconstant RHUD_GB_DRAIN_TOL 10)
+
+(defmacro rhud-gp-px (raw) `(- (/ ,raw 16.0) 1792.0))
+(defmacro rhud-gp-py (raw) `(* 2.0 (- (/ ,raw 16.0) 1936.0)))
+
+(defun rhud-gauge-wrap ((a float))
+  "un angle en unites de rotation, ramene dans [0, 65536)."
+  (let ((x a))
+    (while (< x 0.0) (set! x (+ x 65536.0)))
+    (while (>= x 65536.0) (set! x (- x 65536.0)))
+    x))
+
+(defun rhud-gauge-wrap-signed ((a float))
+  "un ecart d'angle, ramene dans (-32768, 32768]."
+  (let ((x (rhud-gauge-wrap a)))
+    (if (> x 32768.0) (set! x (- x 65536.0)))
+    x))
+
+(defun rhud-gauge-uv-ang ((uu float) (vv float))
+  "l'angle d'un sommet de jante, lu sur SES coordonnees de texture. `rhud-fan` pose
+   u = 0,5(1,5 cos a + 1) et v = 0,5(1,5 sin a + 1) : l'angle se retrouve sans passer par
+   le facteur d'aspect, donc c'est bien l'angle du MASQUE sur la jauge."
+  (atan (- (* 2.0 vv) 1.0) (- (* 2.0 uu) 1.0)))
+
+(defun rhud-gauge-judge ((this hud-recharged-power) (frac float) (fx float) (want-full int))
+  "hud-eco-gauge : juge les sommets que l'image qui vient d'etre dessinee a REELLEMENT emis."
+  (let* ((pr *rhud-gauge-probe*)
+         (nb (-> pr n RHUD_GP_BASE))
+         (nf (-> pr n RHUD_GP_FAN))
+         (nt (-> pr n RHUD_GP_TIP)))
+
+    ;; --- terme 1 : L'ANGLE. depart de l'arc ET amplitude, tous deux lus sur les UV emis. ---
+    (when (>= nf 3)
+      (let* ((a0 (rhud-gauge-uv-ang (-> pr u1 RHUD_GP_FAN) (-> pr v1 RHUD_GP_FAN)))
+             (a1 (rhud-gauge-uv-ang (-> pr ul RHUD_GP_FAN) (-> pr vl RHUD_GP_FAN)))
+             (d-start (the int (* RHUD_MDEG_PER_ROT (fabs (rhud-gauge-wrap-signed (- a0 RHUD_GAUGE_ARC_START))))))
+             (d-span  (the int (* RHUD_MDEG_PER_ROT
+                                  (fabs (rhud-gauge-wrap-signed (- (rhud-gauge-wrap (- a1 a0))
+                                                                   (* RHUD_GAUGE_ARC_SPAN frac)))))))
+             (d (max d-start d-span)))
+        (+! (-> this t1-n) 1)
+        (if (> d (-> this t1-max)) (set! (-> this t1-max) d))
+        (if (> d RHUD_GAUGE_TOL_MDEG) (+! (-> this t1-bad) 1))))
+
+    ;; --- terme 2 : L'EMBOUT. sa rotation se lit sur l'ARETE emise entre ses sommets 0 et 1. ---
+    (cond
+      ((> frac 0.0)
+       (when (>= nt 2)
+         (let* ((dpx (/ (- (rhud-gp-px (-> pr x1 RHUD_GP_TIP)) (rhud-gp-px (-> pr x0 RHUD_GP_TIP))) fx))
+                (dpy (- (rhud-gp-py (-> pr y1 RHUD_GP_TIP)) (rhud-gp-py (-> pr y0 RHUD_GP_TIP))))
+                (rot (atan dpy dpx))
+                (d (the int (* RHUD_MDEG_PER_ROT
+                               (fabs (rhud-gauge-wrap-signed (- rot (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)))))))))
+           (+! (-> this t2-n) 1)
+           (if (> d (-> this t2-max)) (set! (-> this t2-max) d))
+           (if (> d RHUD_GAUGE_TOL_MDEG) (+! (-> this t2-bad) 1)))))
+      (else
+       ;; a 0 % l'embout ne doit pas exister du tout
+       (+! (-> this t2-n) 1)
+       (if (> nt 0) (+! (-> this t2-ghost) 1))))
+
+    ;; --- terme 3 : LA COULEUR, lue sur le tbp REELLEMENT pose dans TEX0. ---
+    (when (> frac 0.0)
+      (+! (-> this t3-n) 1)
+      (if (or (!= (-> pr tbp RHUD_GP_BASE) RHUD_TBP_GAUGE_EMPTY)
+              (!= (-> pr tbp RHUD_GP_FAN) want-full)
+              ;; les embouts occupent les trois slots juste apres les trois pleines
+              (!= (-> pr tbp RHUD_GP_TIP) (+ want-full 3)))
+        (+! (-> this t3-bad) 1)))
+
+    ;; --- terme 4 : LE VIDAGE. La fraction qu'on vient de DESSINER contre la quantite d'eco que la
+    ;; jauge d'ORIGINE tient, la meme image, sur son propre process. `hud-power` continue de faire
+    ;; tourner `hud-update`/`tally-value` meme desactivee et cachee (hud.gc, :post de hud-hidden) :
+    ;; c'est un oracle VIVANT, produit par le code d'origine, pas une formule qu'on recopierait.
+    ;; Le garde sur `value2` ecarte les images ou `tally-value` s'est tu (cinematique, pause,
+    ;; letterbox) et ou l'oracle serait simplement perime.
+    (let ((p (-> *hud-parts* power)))
+      ;; `bench-n` : les images qui SUIVENT un ramassage scripte sont ecartees. `tally-value` est
+      ;; muette pendant le noir et le letterbox (hud.gc), et l'oracle y est simplement perime :
+      ;; le mesurer la reviendrait a chiffrer le retard de l'instrument, pas la jauge.
+      (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE)
+                 (= (the-as int (-> p 0 value2)) (the-as int (-> *target* fact eco-timeout))))
+        (let* ((sfull (the float (the-as uint (-> *FACT-bank* eco-full-timeout))))
+               (sfrac (fmin 1.0 (/ (the float (-> p 0 value)) sfull)))
+               (mine (the int (* 100000.0 frac)))
+               (d (the int (fabs (* 100000.0 (- frac sfrac))))))
+          (+! (-> this t4-n) 1)
+          (set! (-> this last-frac) mine)
+          (if (> mine (-> this t4-hi)) (set! (-> this t4-hi) mine))
+          (if (< mine (-> this t4-lo)) (set! (-> this t4-lo) mine))
+          (if (> d (-> this t4-max)) (set! (-> this t4-max) d))
+          (if (> d RHUD_GAUGE_FRAC_TOL) (+! (-> this t4-bad) 1)))))
+
+    ;; --- terme 4, second temoin : LA VITESSE DE VIDAGE, CHRONOMETREE.
+    ;; De la derniere image a 100 % a la premiere image a 0 %, il doit s'ecouler exactement
+    ;; `eco-full-timeout` unites de `game-frame-counter` — la duree qu'une pleine charge d'eco
+    ;; dure dans le jeu d'origine. C'est une mesure de TEMPS : elle ne partage aucune variable
+    ;; avec la formule de remplissage qu'elle controle.
+    (let ((gfc (the int (-> *display* game-frame-counter))))
+      (cond
+        ((>= frac 0.9999) (set! (-> this drain-t0) gfc))
+        ((and (<= frac 0.0) (> (-> this drain-t0) 0))
+         (let* ((ticks (- gfc (-> this drain-t0)))
+                (want (the int (the-as uint (-> *FACT-bank* eco-full-timeout)))))
+           (set! (-> this drain-ticks) ticks)
+           (+! (-> this drain-n) 1)
+           (if (> (abs (- ticks want)) RHUD_GB_DRAIN_TOL) (+! (-> this drain-bad) 1))
+           (set! (-> this drain-t0) 0)))))
+
+    ;; --- terme 5 : LA POSITION. les trois primitives sur UN centre, celui de la jauge d'ORIGINE.
+    ;; Juge uniquement les images ou l'animation d'arrivee est finie (`offset` nul) : sinon on
+    ;; comparerait un HUD en cours de glissement a une position de repos.
+    (when (and (>= nb 4) (zero? (-> this offset)))
+      (let* ((bcx (* 0.5 (+ (-> pr minx RHUD_GP_BASE) (-> pr maxx RHUD_GP_BASE))))
+             (bcy (* 0.5 (+ (-> pr miny RHUD_GP_BASE) (-> pr maxy RHUD_GP_BASE))))
+             (d 0)
+             (mesure 0))
+        (when (>= nf 1)
+          (set! mesure 1)
+          (set! d (max d (the int (fabs (- bcx (-> pr x0 RHUD_GP_FAN))))))
+          (set! d (max d (the int (fabs (- bcy (-> pr y0 RHUD_GP_FAN)))))))
+        (when (>= nt 4)
+          (set! mesure 1)
+          (set! d (max d (the int (fabs (- bcx (* 0.5 (+ (-> pr minx RHUD_GP_TIP) (-> pr maxx RHUD_GP_TIP))))))))
+          (set! d (max d (the int (fabs (- bcy (* 0.5 (+ (-> pr miny RHUD_GP_TIP) (-> pr maxy RHUD_GP_TIP)))))))))
+        (if (>= d RHUD_GAUGE_POS_TOL) (+! (-> this t5-self) 1))
+        ;; sous-terme B : ce centre est-il celui que la jauge d'ORIGINE se donne ? La comparaison
+        ;; se fait dans le canevas 512x448, et elle n'est VALABLE que si la chaine y du HUD est
+        ;; l'identite (`relative-y-scale` = 1 et `screen-sy` = 224) — c'est ce que `rhud-add-vert`
+        ;; suppose en ecrivant 1936 + 0,5 py. Hors de ce regime on ne saurait comparer sans
+        ;; recopier la formule d'en face : on ne MESURE pas, et le terme le dit.
+        (let ((p (-> *hud-parts* power))
+              (rys (-> *video-parms* relative-y-scale))
+              (ssy (-> *video-parms* screen-sy)))
+          (when (and p (> (-> p 0 nb-of-particles) 2)
+                     (< (fabs (- rys 1.0)) 0.0005) (= ssy 224))
+            (set! mesure 1)
+            (let ((ds (max (the int (* 16.0 (fabs (- (rhud-gp-px bcx) (-> p 0 particles 2 init-pos x)))))
+                           (the int (* 16.0 (fabs (- (rhud-gp-py bcy) (-> p 0 particles 2 init-pos y))))))))
+              (if (>= ds RHUD_GAUGE_POS_TOL) (+! (-> this t5-stock) 1))
+              (set! d (max d ds)))))
+        (when (nonzero? mesure)
+          (+! (-> this t5-n) 1)
+          (if (> d (-> this t5-max)) (set! (-> this t5-max) d))
+          (if (>= d RHUD_GAUGE_POS_TOL) (+! (-> this t5-bad) 1))))))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — LE RAMASSAGE SCRIPTE ET LA PUBLICATION
+;;;----------------------------------------------
+;; Tout ce bloc est inerte hors `debug.opengoal.costprobe=hud-eco-gauge` : le joueur ne ramasse
+;; jamais d'eco a sa place.
+(defconstant RHUD_GB_MIN 300)     ;; images exigees par terme avant qu'il soit MESURE
+(defconstant RHUD_GB_DRAIN 1500)  ;; bloc de vidage complet (20 s d'eco a 60 img/s, plus la marge)
+(defconstant RHUD_GB_SHORT 240)   ;; blocs courts (une couleur)
+(defconstant RHUD_GB_SPAN 50000)  ;; amplitude de fraction exigee pour que le vidage soit MESURE
+
+(defun rhud-gauge-phase-len ((ph int))
+  (case ph
+    ((0) RHUD_GB_DRAIN)
+    (else RHUD_GB_SHORT)))
+
+(defun rhud-gauge-eco-seed ((kind pickup-type))
+  "UN RAMASSAGE, par le point d'entree du JEU. On n'ecrit pas `eco-timeout` a la main : la vitesse
+   de vidage qu'on pretend mesurer est justement celle que ce chemin-la fixe."
+  (if *target* (pickup-collectable! (-> *target* fact) kind 5.0 (the-as handle #f)))
+  (none))
+
+(defun rhud-gauge-bench ((this hud-recharged-power) (on symbol))
+  "la sequence de mesure : bleu (vidage complet), rouge, jaune, puis ETEINT, puis rallume."
+  (when *target*
+    (+! (-> this bench-n) 1)
+    (let ((ph (-> this bench-phase)))
+      (when (= (-> this bench-n) 1)
+        (case ph
+          ((0) (rhud-gauge-eco-seed (pickup-type eco-blue)) (+! (-> this seeded) 1))
+          ((1) (rhud-gauge-eco-seed (pickup-type eco-red)) (+! (-> this seeded) 1))
+          ((2) (rhud-gauge-eco-seed (pickup-type eco-yellow)) (+! (-> this seeded) 1))
+          ((3) (rhud-gauge-eco-seed (pickup-type eco-blue)) (+! (-> this seeded) 1)
+               ;; terme 6 : ETEINT = ORIGINE, mesure DANS la course, par le reglage du joueur.
+               (set! (-> *pc-settings* recharged-hud?) #f))
+          ((4) (set! (-> *pc-settings* recharged-hud?) #t))))
+      ;; terme 6 : pendant le bloc eteint, rien de recharge ne doit sortir et la jauge d'origine
+      ;; doit etre RENDUE (pas seulement non supprimee : son process doit etre reactive).
+      (when (and (= ph 3) (>= (-> this bench-n) RHUD_GB_SETTLE)
+                 (<= (-> this bench-n) (- (rhud-gauge-phase-len ph) RHUD_GB_SETTLE)))
+        (+! (-> this off-frames) 1)
+        (let ((p (-> *hud-parts* power)))
+          (if (or (not p) (-> p 0 disable)) (+! (-> this off-stock-ko) 1))))
+      (when (>= (-> this bench-n) (rhud-gauge-phase-len ph))
+        (set! (-> this bench-n) 0)
+        ;; la garde de securite : quoi qu'il arrive, le reglage du joueur repart ALLUME.
+        (set! (-> *pc-settings* recharged-hud?) #t)
+        (cond
+          ((>= ph 4) (set! (-> this bench-phase) 0) (+! (-> this bench-cycle) 1))
+          (else (set! (-> this bench-phase) (+ ph 1)))))))
+  (none))
+
+(defun rhud-gauge-publish ((this hud-recharged-power))
+  "hud-eco-gauge : chaque terme sur SA ligne, le compte de termes MESURES a cote de la somme.
+   Un terme qu'on n'a pas pu mesurer vaut UN, jamais zero : une porte qui compterait zero un
+   terme aveugle passerait au vert sans rien avoir regarde."
+  (let ((measured 0))
+    (let* ((t1 (if (>= (-> this t1-n) RHUD_GB_MIN)
+                 (begin (+! measured 1) (-> this t1-bad))
+                 (+ (-> this t1-bad) 1)))
+           (t2 (if (and (>= (-> this t2-n) RHUD_GB_MIN) (> (-> this t2-max) 0))
+                 (begin (+! measured 1) (+ (-> this t2-bad) (-> this t2-ghost)))
+                 (+ (-> this t2-bad) (-> this t2-ghost) 1)))
+           (t3 (if (>= (-> this t3-n) RHUD_GB_MIN)
+                 (begin (+! measured 1) (-> this t3-bad))
+                 (+ (-> this t3-bad) 1)))
+           ;; le vidage n'est MESURE que si la course a vu la jauge parcourir la moitie de sa
+           ;; plage : sur une fraction figee, l'egalite des deux jauges ne prouve rien.
+           (t4 (if (and (>= (-> this t4-n) RHUD_GB_MIN)
+                        (>= (- (-> this t4-hi) (-> this t4-lo)) RHUD_GB_SPAN)
+                        (> (-> this drain-n) 0))
+                 (begin (+! measured 1) (+ (-> this t4-bad) (-> this drain-bad)))
+                 (+ (-> this t4-bad) (-> this drain-bad) 1)))
+           (t5 (if (>= (-> this t5-n) RHUD_GB_MIN)
+                 (begin (+! measured 1) (-> this t5-bad))
+                 (+ (-> this t5-bad) 1)))
+           ;; eteint : il faut des images ETEINTES *et* des images DESSINEES, sinon « rien n'est
+           ;; sorti » se lit aussi bien sur une jauge qui ne marche pas du tout.
+           (t6 (if (and (>= (-> this off-frames) RHUD_GB_MIN) (>= (-> this draws) RHUD_GB_MIN))
+                 (begin (+! measured 1) (+ (-> this off-draws) (-> this off-stock-ko)))
+                 (+ (-> this off-draws) (-> this off-stock-ko) 1))))
+      (__pc-autoport-publish "hud_gauge_t1_angle" t1)
+      (__pc-autoport-publish "hud_gauge_t2_tip" t2)
+      (__pc-autoport-publish "hud_gauge_t3_color" t3)
+      (__pc-autoport-publish "hud_gauge_t4_drain" t4)
+      (__pc-autoport-publish "hud_gauge_t5_position" t5)
+      (__pc-autoport-publish "hud_gauge_t6_off" t6)
+      (__pc-autoport-publish "hud_gauge_terms_measured" measured)
+      ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
+      (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
+      (__pc-autoport-publish "hud_gauge_t1_max_mdeg" (-> this t1-max))
+      (__pc-autoport-publish "hud_gauge_t2_n" (-> this t2-n))
+      (__pc-autoport-publish "hud_gauge_t2_max_mdeg" (-> this t2-max))
+      (__pc-autoport-publish "hud_gauge_t2_ghost" (-> this t2-ghost))
+      (__pc-autoport-publish "hud_gauge_t3_n" (-> this t3-n))
+      (__pc-autoport-publish "hud_gauge_t4_n" (-> this t4-n))
+      (__pc-autoport-publish "hud_gauge_t4_max" (-> this t4-max))
+      (__pc-autoport-publish "hud_gauge_t4_hi" (-> this t4-hi))
+      (__pc-autoport-publish "hud_gauge_t4_lo" (-> this t4-lo))
+      (__pc-autoport-publish "hud_gauge_drain_n" (-> this drain-n))
+      (__pc-autoport-publish "hud_gauge_drain_bad" (-> this drain-bad))
+      (__pc-autoport-publish "hud_gauge_drain_ticks" (-> this drain-ticks))
+      (__pc-autoport-publish "hud_gauge_drain_want" (the int (the-as uint (-> *FACT-bank* eco-full-timeout))))
+      (__pc-autoport-publish "hud_gauge_t5_n" (-> this t5-n))
+      (__pc-autoport-publish "hud_gauge_t5_self" (-> this t5-self))
+      (__pc-autoport-publish "hud_gauge_t5_stock" (-> this t5-stock))
+      ;; le regime de la chaine y du HUD : c'est lui qui dit si le terme 5 avait le droit de
+      ;; comparer notre centre a celui de la jauge d'origine dans le canevas.
+      (__pc-autoport-publish "hud_gauge_rel_y_milli" (the int (* 1000.0 (-> *video-parms* relative-y-scale))))
+      (__pc-autoport-publish "hud_gauge_screen_sy" (-> *video-parms* screen-sy))
+      (__pc-autoport-publish "hud_gauge_t5_max_16th" (-> this t5-max))
+      (__pc-autoport-publish "hud_gauge_off_frames" (-> this off-frames))
+      (__pc-autoport-publish "hud_gauge_off_draws" (-> this off-draws))
+      (__pc-autoport-publish "hud_gauge_off_stock_ko" (-> this off-stock-ko))
+      (__pc-autoport-publish "hud_gauge_draws" (-> this draws))
+      (__pc-autoport-publish "hud_gauge_seeded" (-> this seeded))
+      (__pc-autoport-publish "hud_gauge_cycles" (-> this bench-cycle))
+      (__pc-autoport-publish "hud_gauge_probe" (if (-> this probe?) 1 0))
+      ;; le plancher angulaire de l'instrument : la quantification 12.4 de l'embout. Publie pour
+      ;; que la porte ne soit pas en train de mesurer sa propre tolerance.
+      (__pc-autoport-publish "hud_gauge_quant_floor_mdeg" (-> this quant-mdeg))
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6))))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-recharged-power  — HORS du drapeau de compilation (voir le deftype)
 ;;;----------------------------------------------
 
 (defmethod init-particles! ((this hud-recharged-power) (arg0 int))
@@ -1502,10 +1931,30 @@
   (set! (-> this y-sgn) 1)
   ;; ROUND 5: -1 = "no type has spawned yet", so the first draw-hud frame clears the other two
   (set! (-> this last-eco-idx) -1)
+  ;; hud-eco-gauge : l'instrument. `t4-lo` part du HAUT, sinon la plage observee vaudrait tout de
+  ;; suite le maximum et le terme se dirait mesure sans avoir rien vu se vider.
+  (set! (-> this t4-lo) 100000)
+  (set! (-> this last-frac) -1)
+  (set! (-> this bench-phase) 0)
+  (set! (-> this bench-n) 0)
+  ;; le plancher angulaire de l'embout : une arete de 2*hs unites de canevas, dont l'ordonnee est
+  ;; quantifiee au 1/8 (xyzf2 en 12.4, et `py` divise par deux avant).
+  (set! (-> this quant-mdeg) (the int (* RHUD_MDEG_PER_ROT (atan 0.125 (* 2.0 RHUD_GAUGE_HALF)))))
   0
   (none))
 
 (defmethod hud-update ((this hud-recharged-power))
+  ;; hud-eco-gauge : LA JAUGE D'ORIGINE EST SUPPRIMEE PAR NOUS, PAS PAR LE COEUR.
+  ;; `rhud-suppress-stock` vit sur `hud-recharged-health`, derriere FLAG_RECHARGED_HUD : dans le
+  ;; binaire livre ce process n'existe pas, et sans les deux lignes ci-dessous les deux jauges se
+  ;; dessineraient l'une sur l'autre.
+  (let ((on (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) #t)))
+    (set! (-> this stock-off) on)
+    (if on (rhud-power-suppress-stock) (rhud-power-restore-stock))
+    (set! (-> this probe?) (and (nonzero? (__pc-autoport-cost-probe "hud-eco-gauge")) #t))
+    (if (-> this probe?) (rhud-gauge-bench this on))
+    (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60))
+      (rhud-gauge-publish this)))
   (cond
     ((not (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?)))
      ;; hide-quick is handled SYNCHRONOUSLY and the handler re-enters (hud-update self)
@@ -1529,13 +1978,36 @@
 
 (defmethod draw-hud ((this hud-recharged-power))
   (when (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) (not (hidden? this)) (not (paused?)))
+    ;; hud-eco-gauge : UNE IMAGE OU LA JAUGE RECHARGEE EST DESSINEE — c'est le `hits=` que
+    ;; l'item declare, et l'instrument qui le suit mesure CETTE image-la.
+    (__pc-autoport-hit-for "hud-eco-gauge" 1)
+    (+! (-> this draws) 1)
+    (if (and (-> this probe?) (= (-> this bench-phase) 3) (>= (-> this bench-n) RHUD_GB_SETTLE)
+             (<= (-> this bench-n) (- RHUD_GB_SHORT RHUD_GB_SETTLE)))
+      (+! (-> this off-draws) 1))
+    (rhud-gauge-probe-reset)
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
-      (let ((cx (+ RHUD_GAUGE_X (the float (* (-> this x-sgn) (-> this offset)))))
-            (cy (+ RHUD_GAUGE_Y (the float (* (-> this y-sgn) (-> this offset)))))
-            (fx (rhud-aspect-fx)))
+      ;; hud-eco-gauge : LE CENTRE VIENT DE LA JAUGE D'ORIGINE, PAS D'UNE CONSTANTE.
+      ;; `set-pos-and-scale` (engine/ui/hud-classes.gc) recale la position du HUD d'origine sur le
+      ;; format de l'ecran des que `use-vis?` est faux : sur un ecran large, la jauge d'origine
+      ;; n'est plus a x=435. Nos constantes RHUD_GAUGE_X/Y ignoraient ce recalage, et la jauge
+      ;; rechargee se dessinait a cote de celle qu'elle remplace — d'autant plus loin que l'ecran
+      ;; est large, donc sur un telephone. On lit donc SA position, et les constantes ne servent
+      ;; plus que de repli quand son process n'existe pas encore.
+      (let* ((sp (-> *hud-parts* power))
+             (ok (and sp (> (-> sp 0 nb-of-particles) 2)))
+             (cx (+ (if ok (-> sp 0 particles 2 init-pos x) RHUD_GAUGE_X)
+                    (the float (* (-> this x-sgn) (-> this offset)))))
+             (cy (+ (if ok (-> sp 0 particles 2 init-pos y) RHUD_GAUGE_Y)
+                    (the float (* (-> this y-sgn) (-> this offset)))))
+             (fx (rhud-aspect-fx))
+             (jfrac 0.0)
+             (jwant RHUD_TBP_GAUGE_BLUE_FULL))
         ;; empty ring base
+        (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_BASE))
         (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
         (rhud-quad buf cx cy RHUD_GAUGE_HALF fx 0.0 (rhud-rgba 128 128 128 128))
+        (set! (-> *rhud-gauge-probe* tag) -1)
         (when *target*
           (let* ((remaining (max 0
                                  (min (the-as int
@@ -1561,12 +2033,17 @@
                                  (zero? (logand (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 4)))
                           64
                           128)))
+                (set! jfrac frac)
+                (set! jwant tbp-full)
                 ;; fill: angular mask over the full-gauge sprite
+                (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_FAN))
                 (rhud-set-shader buf tbp-full)
                 (rhud-fan buf cx cy RHUD_GAUGE_HALF fx RHUD_GAUGE_ARC_START (+ RHUD_GAUGE_ARC_START (* RHUD_GAUGE_ARC_SPAN frac)) aa)
                 ;; tip: authored at the full position, rotated back to the fill edge
+                (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_TIP))
                 (rhud-set-shader buf tbp-end)
                 (rhud-quad buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) (rhud-rgba 128 128 128 aa))
+                (set! (-> *rhud-gauge-probe* tag) -1)
                 ;; owner round-3 item 3: the ACTIVE eco's real particle system in the center
                 ;; hole (the same launcher clone per type; spawn only the active one)
                 (let ((idx (case (-> *target* fact eco-type)
@@ -1585,10 +2062,12 @@
                     (dotimes (i (-> this nb-of-particles))
                       (if (!= i idx) (kill-particles (-> this particles i part))))
                     (set! (-> this last-eco-idx) idx))
-                  (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*))))))))))
+                  (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*)))))))
+        (set! (-> *rhud-gauge-probe* tag) -1)
+        ;; hud-eco-gauge : le jugement se fait ICI, sur les sommets qui viennent de partir.
+        (if (-> this probe?) (rhud-gauge-judge this jfrac fx jwant)))))
   0
   (none))
-)  ;; #when FLAG_RECHARGED_HUD (hud-recharged-* methods)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud helper funcs
@@ -3062,9 +3541,11 @@
         (the-as (pointer hud-pc) (process-spawn hud-3d-pickups :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   (#when FLAG_RECHARGED_HUD
   (set! (-> *hud-parts-pc* recharged-health)
-        (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))))
+  ;; hud-eco-gauge : la jauge d'eco est lancee dans TOUS les binaires, comme pickups-3d ; elle
+  ;; s'eteint a l'execution sur le maitre Recharged et le reglage HUD.
   (set! (-> *hud-parts-pc* recharged-power)
-        (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))))
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   0)
 
 (activate-hud-pc *display-pool*)

@@ -35,9 +35,7 @@
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/prop_cache.h"
-#ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
-#endif
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
@@ -975,9 +973,9 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, m_version);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, m_version);
 
-#ifdef OG_FEAT_RECHARGED_HUD
+  // hud-eco-gauge : PAS sous le drapeau HUD -- l'arm64 livre est hud=0 et les slots 8300+
+  // y restaient vides. Meme raison que les textures d'ecran de chargement ci-dessous.
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
-#endif
   // Gloading-screen: NOT under the HUD flag on purpose -- see LoadingScreenTextures.h.
   load_loading_screen_textures(*m_render_state.texture_pool, GameVersion::Jak1);
 }
