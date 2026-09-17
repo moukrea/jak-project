@@ -43,7 +43,7 @@ SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
 STATES = [  # (nom Linear, type Linear) — colonnes NATIVES de Linear quand elles existent (owner 17/09), custom sinon
     ("Backlog", "backlog"), ("Todo", "unstarted"), ("In Progress", "started"),
-    ("À tester", "started"), ("Bloqué", "started"), ("Validé", "completed"),
+    ("In Review", "started"), ("Bloqué", "started"), ("Validé", "completed"),
     ("Done", "completed"), ("Canceled", "canceled"),
 ]
 PROJECTS = {  # prefixe d'id -> projet
@@ -66,11 +66,13 @@ def load_key():
 
 class Linear:
     def __init__(self, key):
+        self.n = 0
         self.s = requests.Session()
         self.s.headers.update({"Authorization": key, "Content-Type": "application/json"})
 
     def q(self, query, **vars):
         for attempt in range(4):
+            self.n += 1
             r = self.s.post(API, json={"query": query, "variables": vars}, timeout=60)
             if r.status_code == 429:
                 time.sleep(5 * (attempt + 1)); continue
@@ -112,7 +114,7 @@ def target_state(bl, it):
     if s == "in-progress":
         return "In Progress"
     if s == "to-test":
-        return "À tester"
+        return "In Review"
     if s == "blocked":
         return "Bloqué"
     if s == "validated":
@@ -329,7 +331,7 @@ def apply_owner_move(L, bl, iid, rec, here):
             if here in ("Todo", "In Progress"):
                 msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
             _say(L, rec, msg)
-    elif here in ("À tester", "Done"):
+    elif here in ("In Review", "Done"):
         _say(L, rec, "Cette colonne est celle de la machine (une porte mesurée). Je le remets où le backlog le place ; si tu veux le forcer, commente ce que tu attends.")
         rec["hash"] = ""  # recalage par la synchro
     bl = B.load()
@@ -363,7 +365,7 @@ def sync_relations(L, bl, mp, dry):
     made = 0
     for it in bl.items:
         rec = mp.get(it["id"])
-        if not rec:
+        if not rec or it["id"].startswith("_"):
             continue
         have = set(rec.get("relations") or [])
         for dep in it.get("depends_on") or []:
@@ -389,12 +391,12 @@ def viewer_id(L):
 def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     """Commentaires sans marqueur et deplacements faits a la main -> backlog."""
     pulled = 0
-    ids = [v["issue_id"] for v in mp.values()]
+    ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
         d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id } reactions { emoji } } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
-            iid = next((k for k, v in mp.items() if v["issue_id"] == iss["id"]), None)
+            iid = next((k for k, v in mp.items() if not k.startswith("_") and v["issue_id"] == iss["id"]), None)
             if not iid:
                 continue
             rec = mp[iid]
@@ -445,13 +447,15 @@ def main():
         bl = B.load(); mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
         team = ensure_team(L); states = ensure_states(L, team); by_id = {v: k for k, v in states.items()}
         drift = orphans = 0
-        ids = [v["issue_id"] for v in mp.values()]
+        ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
         live = {}
         for i in range(0, len(ids), 50):
             d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50){ nodes { id state { name } title } } }', ids=ids[i:i + 50])
             for iss in d["issues"]["nodes"]:
                 live[iss["id"]] = iss
         for iid, rec in mp.items():
+            if iid.startswith("_"):
+                continue
             iss = live.get(rec["issue_id"])
             it = bl.get(iid)
             if it is None:
@@ -485,11 +489,15 @@ def main():
     if STATE_JSON.exists():
         retries = (json.loads(STATE_JSON.read_text()).get("retries") or {})
     mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
-    team = ensure_team(L)
-    states = ensure_states(L, team)
-    projects = ensure_projects(L, team)
+    ids = mp.get("_ids") or {}
+    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels"):
+        team, states, projects = ids["team"], ids["states"], ids["projects"]
+        label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]
+    else:
+        team = ensure_team(L); states = ensure_states(L, team); projects = ensure_projects(L, team)
+        label, todo = labels(L, team)
+        mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"]}}
     today = dt.date.today()
-    label, todo = labels(L, team)
     if mp and not a.no_pull:
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
         bl = B.load()
@@ -525,7 +533,7 @@ def main():
                 lv = last_verdict(iid)
                 body = MARK + "→ **%s**" % st + (("\n" + lv) if lv else "") + (("\nBloqué : " + str(it.get("block_reason"))[:300]) if it["status"] == "blocked" else "")
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
-                if st == "À tester":
+                if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
                 elif st in ("Validé", "Canceled"):
                     for lab in (label, todo, _TALK.get("id")):
@@ -540,12 +548,12 @@ def main():
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage
     # tant qu'un ticket la porte : le guetteur du superviseur lit ces lignes.
     d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo)
-    by_issue = {v["issue_id"]: k for k, v in mp.items()}
+    by_issue = {v["issue_id"]: k for k, v in mp.items() if not k.startswith("_")}
     for iss in d["issueLabel"]["issues"]["nodes"]:
         print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "?")))
     if not a.dry_run:
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
-    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis" % (created, updated, moved, rel, swept, len(mp)))
+    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis, %d requêtes" % (created, updated, moved, rel, swept, len([k for k in mp if not k.startswith("_")]), L.n))
 
 
 if __name__ == "__main__":

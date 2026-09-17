@@ -1,4 +1,34 @@
 {
+ "_ids": {
+  "labels": {
+   "read": "77a7ca0d-bb7d-47d8-9ddb-78144e731db1",
+   "talk": "e1480f29-4721-4791-acd8-0afd06772c31",
+   "todo": "5a4c3706-0a12-4b2b-85e1-dcc2d5525b40"
+  },
+  "projects": {
+   "Divers": "87ae2f79-c95a-4c6b-8c42-81fe5cef2cb1",
+   "Eau": "2b699175-2406-4926-955b-89f052098b0a",
+   "Harnais": "5bc76db9-d6d2-4453-bb98-cf23f8124f9e",
+   "Herbe": "a746e138-909d-40da-833f-d809ad548071",
+   "Lumière": "edad646c-59ac-4b7d-afcd-0509836e3837",
+   "Performances": "422383d4-3768-4553-a5ab-5bf5da594d9e",
+   "Personnages": "3ba11c46-3224-4167-b8ca-da07af08add1",
+   "Surfaces meubles": "d2fe11a7-5ec7-44e6-96e4-7b8909e5a1c7",
+   "Végétation": "6ea6cc9e-9545-4474-b5ac-7925d879df6a",
+   "Écran et menus": "547e5491-9a15-45c6-93a3-ce421ad66b00"
+  },
+  "states": {
+   "Backlog": "01641322-ffe1-42bd-ab1e-a019b7cb2d33",
+   "Bloqué": "bcbec6e7-38b0-4613-b5f3-1b49a9e8bd0d",
+   "Canceled": "39b71180-e383-41eb-8263-1a90b73d54a7",
+   "Done": "c2520b85-2d6e-4fc5-98e6-cc46f7f28bb7",
+   "In Progress": "5e5ce78a-66f0-4042-bafa-a91e76196593",
+   "In Review": "8a4d396a-5d7d-44e2-9edc-1558c99c708c",
+   "Todo": "f0cae7bd-902d-4ddc-b07d-1ec04bfcc66e",
+   "Validé": "4cb9650c-51cd-4cea-a713-dba0c906d97f"
+  },
+  "team": "10c12a42-312a-4b90-9d3c-321e156cf31a"
+ },
  "acquis-perf-dma-chain-copies": {
   "hash": "2cfa508af3dbd4971b15f6ee07205b2fd25be98d",
   "identifier": "JAK-164",
