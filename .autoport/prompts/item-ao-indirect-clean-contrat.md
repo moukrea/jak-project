@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+17/09 18:35 ARBITRAGE OWNER : « Option a, mais 0,009 % c'est infime, et tu parles d'un truc mobile j'ai l'impression ». 2 essais, PERIMETRE UNIQUE : le point F « rien ne bouge camera fixe » (1802 texels sur 21 M, bords de buissons) et les 2 px de `ao_sway_gap_px`. Tout le reste est acquis et ne se retouche pas (A-E, G). ORDRE : (1) d'abord NOMMER la source du changement image a image sur une scene immobile par ablation, en une course : (i) la prepasse echantillonne-t-elle le feuillage autrement que la passe couleur (mip, filtre, seuil alpha) ? publier les deux etats d'echantillonnage ; (ii) l'estimateur utilise-t-il un bruit / une rotation PAR IMAGE (texture de bruit, jitter temporel) ? publier le compte de texels qui changent avec le feuillage exclu de la population : s'il reste non nul, la cause est dans l'estimateur, pas dans l'alpha ; (2) ensuite corriger LA cause nommee : echantillonnage de la prepasse identique a la couleur (meme mip, meme filtre, meme alpha_min) et/ou bruit de l'estimateur fixe par pixel (pas par image). Un texel qui change alors que TOUT est immobile est le defaut ; ce n'est pas un objet mobile : vent coupe et temoin `ao_sway_moved_px` publie, acteurs et particules exclus.
+
 Owner 17/09 : « AO legacy poubelle → Nouvelle AO plus en filtre à la fin », puis « être clair sur ce qu'on veut exactement par rapport à la spec » : le livrable recopie la spec (4.2 lignes 2-6, 4.6, 4.7), il ne la resume pas. Et : « une bande claire à la zone de contact… l'AO est juste posée par-dessus comme un filtre ». Ce ticket REMPLACE lighting-ao-indirect (14 essais, livrable devenu illisible) : memes mesures, contrat lisible. Prepasse (ao-prepass-tie-alpha) et sonde stable (ao-static-probe-deterministic) sont faites et se gardent. Ne pas chasser la bande dans le flou : la cause probable est le masque de luminance de la composition finale, qui disparait avec elle (A).
 
 ## Livrable — le contrat, en entier
@@ -55,6 +57,9 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ### 2026-09-17
 > Et aussi, attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés, caisses, collectibles …
+
+### 2026-09-17
+> Option a, mais 0,009% c'est infime, et tu parle d'un truc mobile j'ai l'impression
 
 ## Pourquoi ce fichier existe
 

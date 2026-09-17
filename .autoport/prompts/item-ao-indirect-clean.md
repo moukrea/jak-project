@@ -5,10 +5,10 @@
 # Une nouvelle AO : l'ancienne à la poubelle, la nouvelle calculée dans l'éclairage sur le seul indirect, plus jamais un filtre posé à la fin
 
 ## Defaut cite
-- 2026-09-17 : « Et aussi, attention au cycle jour/nuit, ça peut peut-être jo… »
+- 2026-09-17 : « Option a, mais 0,009% c'est infime, et tu parle d'un truc mo… »
 
 ## Cause connue
-Owner 17/09 : « AO legacy poubelle → Nouvelle AO plus en filtre à la fin », puis « être clair sur ce qu'on veut exactement par rapport à la spec » : le livrable recopie la spec (4.2 lignes 2-6, 4.6, 4.7), il ne la resume pas. Et : « une bande claire à la zone de contact… l'AO est juste posée par-dessus comme un filtre ». Ce ticket REMPLACE lighting-ao-indirect (14 essais, livrable devenu illisible) : memes mesures, contrat lisible. Prepasse (ao-prepass-tie-alpha) et sonde stable (ao-static-probe […suite dans le contrat]
+17/09 18:35 ARBITRAGE OWNER : « Option a, mais 0,009 % c'est infime, et tu parles d'un truc mobile j'ai l'impression ». 2 essais, PERIMETRE UNIQUE : le point F « rien ne bouge camera fixe » (1802 texels sur 21 M, bords de buissons) et les 2 px de `ao_sway_gap_px`. Tout le reste est acquis et ne se retouche pas (A-E, G). ORDRE : (1) d'abord NOMMER la source du changement image a image sur une scene immobile par ablation, en une course : (i) la prepasse echantillonne-t-elle le feuillage autrement […suite dans le contrat]
 
 ## Livrable
 `ao_owner_defects` = 0, somme de termes publies SEPAREMENT ; un terme non mesure compte 1. CE QUE LA SPEC DIT, EXACTEMENT (SPEC lumiere 4.2, 4.6, 4.7) :
