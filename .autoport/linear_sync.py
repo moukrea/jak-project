@@ -218,7 +218,7 @@ def plain_state_comment(bl, it, st):
     if mfr:
         frames = " (mesure machine tenue sur %s images, sans plantage)" % mfr.group(1)
     if st == "In Review":
-        return "→ **À tester par toi**%s.\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
+        return "→ **À tester par toi**%s, sur le DERNIER build de jak-builds (il remplace le précédent à chaque publication).\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
     if st == "Done":
         return "→ **Terminé**%s. %s" % (frames, "Rien à te montrer : c'est une mesure ou une fondation." if not it.get("owner_test") else "")
     if st == "In Progress":
