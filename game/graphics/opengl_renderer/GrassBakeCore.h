@@ -450,6 +450,82 @@ struct ExpandResult {
 };
 ExpandResult expand(const BakeData& d, float density_slider_pct);
 
+// ---------------------------------------------------------------------------
+// grass-surface-truth : LES DEUX SOURCES QUI DISENT SI UNE SURFACE PORTE DE L'HERBE.
+// ---------------------------------------------------------------------------
+//
+// SPEC sections 2, 3 et 9. L'eligibilite du bake tient a TROIS noms de texture exacts
+// (`is_grass_ground`, GrassBakeCore.cpp) ; le detecteur de bord en deduit qu'une arete
+// ouvre sur le vide des qu'aucun AUTRE triangle de cette population ne la partage, si
+// bien qu'une frontiere de materiau est indiscernable d'un precipice. Or chaque triangle
+// de collision de chaque `.fr3` porte deja le classement des auteurs d'origine, dans les
+// bits 6..11 de son `pat` (`pat-material`, 23 valeurs, `pat-h.gc:5-27`). AUCUN site C++
+// ne les lisait : `GrassBakeCore.cpp:816` ne prend que les bits de mode.
+//
+// CE RECENSEMENT NE PLACE RIEN. Il lit, il croise, il compte. `scan_level`, `expand` et le
+// format du `.grassbake` ne le voient pas : le placement est identique au bit.
+//
+// LA POPULATION est le SOL tel que le jeu lui-meme le definit : un triangle de collision
+// dont le mode vaut 0 (`pat-mode ground`, celui sur lequel Jak marche). Elle vit dans
+// TOUS les niveaux, pas seulement ceux qui ont de l'herbe.
+//
+// LES DEUX SOURCES, lues separement et publiees separement :
+//   MATERIAU : `(pat >> 6) & 0x3f`. Elle CLASSE quand la valeur nomme un `pat-material`
+//              (< kPatMaterialCount) ; au-dela, la donnee ne dit rien et la source se tait.
+//   TEXTURE  : le nom de la texture du triangle de RENDU qui couvre le centroide du
+//              triangle de collision (recherche XZ + fenetre verticale). Elle CLASSE quand
+//              un tel triangle existe et porte un nom non vide.
+// Un triangle qu'AUCUNE des deux ne classe est un trou : c'est `unclassified`, et c'est lui
+// que la porte de l'item lit.
+//
+// LE DESACCORD SE COMPTE. Les deux sources rendent chacune un verdict « herbe / pas herbe » ;
+// quand elles divergent sur un triangle que les DEUX classent, on compte, on separe les deux
+// sens, et on NOMME les textures impliquees. Un desaccord n'est pas un defaut : c'est la
+// donnee dont `grass-edge-truth` et `grass-path-transitions` ont besoin.
+struct SurfaceCensus {
+  // Population et couverture.
+  u64 ground_tris = 0;       // triangles de collision de mode 0 (le sol du jeu)
+  u64 collision_tris = 0;    // tous les triangles de collision, mode compris (denominateur)
+  // CE QUE LA POPULATION EXCLUT, CHIFFRE. Un seau exclu qu'on ne compte pas est un seau ou le
+  // defaut se cache : les faces de chute des terrasses de Sandover sont des MURS (mode 1), donc
+  // hors de ce recensement-ci, et `grass-edge-truth` en aura besoin.
+  u64 mode_ground = 0, mode_wall = 0, mode_obstacle = 0, mode_other = 0;
+  u64 by_material = 0;       // classes par le materiau de collision
+  u64 by_texture = 0;        // classes par le nom de texture de rendu
+  u64 by_both = 0;
+  u64 classified = 0;        // classes par AU MOINS une source  <- `hits=` de l'item
+  u64 unclassified = 0;      // classes par AUCUNE des deux      <- la porte
+  // Ce que chaque source laisse seule dans le noir. `tex_only_unclassified` est la mesure de
+  // l'etat d'AVANT : ce que le regime « trois noms de texture » ne sait pas classer.
+  u64 tex_only_unclassified = 0;
+  u64 mat_only_unclassified = 0;
+  // Repartition par materiau (les quatre que la SPEC nomme, plus les deux seaux restants).
+  u64 mat_grass = 0, mat_sand = 0, mat_dirt = 0, mat_stone = 0, mat_other = 0, mat_unnamed = 0;
+  // Verdicts « herbe » des deux sources, et l'etat d'AVANT : les trois noms exacts en vigueur.
+  u64 tex_grass = 0;
+  u64 tex_grass_legacy3 = 0;
+  // CE QUE LA REGLE EN VIGUEUR LAISSE SANS VERDICT. Calcule sur la MEME population et la MEME
+  // donnee : c'est une comparaison de REGLES, pas la mesure d'un binaire d'avant.
+  u64 legacy3_unclassified = 0;
+  // Desaccords, dans les deux sens.
+  u64 disagree = 0;
+  u64 disagree_mat_grass_tex_not = 0;
+  u64 disagree_tex_grass_mat_not = 0;
+  // Geometrie de rendu indexee pour la source TEXTURE (temoin de non-vacuite).
+  u64 render_ground_tris = 0;
+  u64 render_draws = 0;
+  u64 textures_seen = 0;
+  // Noms, sans espace, prets pour `proof.txt` : "nom:compte,nom:compte,..." (10 au plus).
+  std::string disagree_tex_top;
+  std::string mat_grass_tex_top;   // textures posees SUR un materiau `grass`
+  std::string tex_grass_mat_top;   // materiaux SOUS une texture herbeuse
+};
+// Deterministe, sans GL, sans horloge, sans fil : les memes octets rendent les memes comptes.
+SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_name);
+// Le nom d'un `pat-material` (pat-h.gc:5-27), ou nullptr hors table.
+const char* pat_material_name(u32 material);
+constexpr u32 kPatMaterialCount = 23;
+
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
 

@@ -80,6 +80,12 @@ namespace {
 constexpr const char* kDeadTailItemId = "grass-dead-tail";
 AUTOPORT_FEATURE_SITE(kDeadTailItemId);
 
+// grass-surface-truth : l'item qui fait lire les DEUX sources de classement d'une surface. Meme
+// raison d'etre pour le SITE : « pas d'instrument ici » et « instrument jamais atteint » ne sont
+// pas le meme zero.
+constexpr const char* kSurfaceTruthItemId = "grass-surface-truth";
+AUTOPORT_FEATURE_SITE(kSurfaceTruthItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1162,6 +1168,42 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       return true;  // rien a construire (pas de niveau) — ce n'est PAS une expansion en cours
     }
     const tfrag3::Level* lev = ld->level.get();
+
+    // ===================== grass-surface-truth : LES DEUX SOURCES ==========================
+    // Ce bloc LIT et PUBLIE, il ne decide rien. `m_bake`, `m_instances`, `expand()` et le format
+    // du `.grassbake` ne le voient pas : le placement de cette course est identique au bit a
+    // celui d'avant. Il ne s'execute QUE lorsque le harnais mesure CET item (`feature_is`), donc
+    // le binaire que l'owner joue ne paie pas ce recensement ; et il compte ses prises par
+    // `note_hit_for`, qui se tait tout seul dans le bras `--off` (d'ou `armed=0 hits=0`).
+    //
+    // UNE COURSE DE JEU NE CHARGE QU'UN NIVEAU. Les DIX niveaux que le contrat demande sont
+    // recenses par le MEME code hors ligne (`tools/grass_bake --surface-census`), appele par
+    // `.autoport/lib/census/grass-surface-truth.sh` : c'est lui qui publie la grandeur de la
+    // porte. Ici, le temoin est que l'instrument vit bien DANS le moteur et qu'il a tire.
+    if (autoport_proof::feature_is(kSurfaceTruthItemId)) {
+      static std::string s_surface_census_done;
+      if (s_surface_census_done != level_name) {
+        s_surface_census_done = level_name;
+        const auto sc = grass_bake::surface_census(*lev, level_name);
+        autoport_proof::publish_text("grass_surface_engine_level", level_name.c_str());
+        autoport_proof::publish("grass_surface_engine_ground", sc.ground_tris);
+        autoport_proof::publish("grass_surface_engine_collision", sc.collision_tris);
+        autoport_proof::publish("grass_surface_engine_by_material", sc.by_material);
+        autoport_proof::publish("grass_surface_engine_by_texture", sc.by_texture);
+        autoport_proof::publish("grass_surface_engine_by_both", sc.by_both);
+        autoport_proof::publish("grass_surface_engine_classified", sc.classified);
+        autoport_proof::publish("grass_surface_engine_unclassified", sc.unclassified);
+        autoport_proof::publish("grass_surface_engine_disagree", sc.disagree);
+        autoport_proof::publish("grass_surface_engine_mat_grass", sc.mat_grass);
+        autoport_proof::publish("grass_surface_engine_tex_grass", sc.tex_grass);
+        autoport_proof::publish("grass_surface_engine_legacy3_unclassified",
+                                sc.legacy3_unclassified);
+        autoport_proof::publish_text("grass_surface_engine_disagree_tex",
+                                     sc.disagree_tex_top.c_str());
+        autoport_proof::note_hit_for(kSurfaceTruthItemId, sc.classified);
+      }
+    }
+    // ====================== fin grass-surface-truth ========================================
 
     // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
     float floor_gap_m = grass_bake::FLOOR_GAP_M;

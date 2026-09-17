@@ -9713,7 +9713,7 @@ items:
     proof_bytes: 59395
     attempt: 10
     journal: validator-010.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9761,7 +9761,14 @@ items:
   - debug.opengoal.level.warp=training-start
   proof_env:
   - OG_RECHARGED=1
-- status: open
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 831561e0d539ff02
+    proof_bytes: 49279
+    attempt: 1
+    journal: validator-001.txt
+- status: validated
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9802,7 +9809,22 @@ items:
   hits_means: chunks testes par le culling
   prompt: prompts/item-grass-chunk-cull.md
   block_reason: null
-- status: open
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.uncap.fps=240
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
+  - OG_UNCAP_FPS=240
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 628c037bada15242
+    proof_bytes: 52259
+    attempt: 2
+    journal: validator-002.txt
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9846,6 +9868,9 @@ items:
   hits_means: triangles de sol classes par au moins une source
   prompt: prompts/item-grass-surface-truth.md
   block_reason: null
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
 - status: open
   game: jak1
   owner_test: false
@@ -12636,7 +12661,7 @@ items:
     proof_bytes: 60757
     attempt: 2
     journal: validator-002.txt
-- status: open
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -12683,3 +12708,10 @@ items:
   owner_ok: null
   no_code: true
   prompt: prompts/item-harness-builder-does-not-mistake-an-idle-gradle-daemon-for-a-build.md
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: ff1492d344ebc400
+    proof_bytes: 52974
+    attempt: 1
+    journal: validator-001.txt

@@ -39,7 +39,11 @@ static void usage() {
       "  --dump PREFIX  write PREFIX_instances.csv + PREFIX_tris.csv of the ship-default\n"
       "                 (slider 150) expansion, for offline placement analysis\n"
       "  --weld-stats   run the GLOBAL cross-chunk/bucket/system vertex weld (REOPEN #13) and print\n"
-      "                 its stats (writes <repo>/pbr_tan_diag.txt), then exit without the grass scan\n");
+      "                 its stats (writes <repo>/pbr_tan_diag.txt), then exit without the grass scan\n"
+      "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
+      "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
+      "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
+      "                 que ce soit. Lecture pure : il ne touche aucun `.grassbake`.\n");
 }
 
 int main(int argc, char** argv) {
@@ -48,6 +52,7 @@ int main(int argc, char** argv) {
   std::string out_path;
   std::string dump_prefix;
   bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
+  bool surface_census = false;  // grass-surface-truth : lit et croise les deux sources, n'ecrit rien
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -69,6 +74,8 @@ int main(int argc, char** argv) {
       dump_prefix = need_val("--dump");
     } else if (a == "--weld-stats") {
       weld_stats = true;
+    } else if (a == "--surface-census") {
+      surface_census = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -202,6 +209,49 @@ int main(int argc, char** argv) {
       fmt::print("(could not read {}: {})\n", diag.string(), e.what());
     }
     fmt::print("[grass_bake] weld-stats DONE.\n");
+    return 0;
+  }
+
+  // grass-surface-truth : LE RECENSEMENT DES DEUX SOURCES. Il sort AVANT `scan_level`, donc
+  // aucune table n'est cuite et aucun fichier n'est ecrit — `.autoport/lib/census/` l'appelle
+  // pendant une course de preuve et ne doit pas reecrire la donnee livree sous elle. Les
+  // `cle=valeur` partent sur stdout ; c'est le recensement qui les prefixe par niveau.
+  if (surface_census) {
+    const auto sc = grass_bake::surface_census(lev, level_name);
+    fmt::print("surface_census_level={}\n", level_name);
+    fmt::print("surface_census_fr3_bytes={}\n", fr3_size);
+    fmt::print("surface_census_ground={}\n", sc.ground_tris);
+    fmt::print("surface_census_collision={}\n", sc.collision_tris);
+    fmt::print("surface_census_mode_ground={}\n", sc.mode_ground);
+    fmt::print("surface_census_mode_wall={}\n", sc.mode_wall);
+    fmt::print("surface_census_mode_obstacle={}\n", sc.mode_obstacle);
+    fmt::print("surface_census_mode_other={}\n", sc.mode_other);
+    fmt::print("surface_census_by_material={}\n", sc.by_material);
+    fmt::print("surface_census_by_texture={}\n", sc.by_texture);
+    fmt::print("surface_census_by_both={}\n", sc.by_both);
+    fmt::print("surface_census_classified={}\n", sc.classified);
+    fmt::print("surface_census_unclassified={}\n", sc.unclassified);
+    fmt::print("surface_census_tex_only_unclassified={}\n", sc.tex_only_unclassified);
+    fmt::print("surface_census_mat_only_unclassified={}\n", sc.mat_only_unclassified);
+    fmt::print("surface_census_mat_grass={}\n", sc.mat_grass);
+    fmt::print("surface_census_mat_sand={}\n", sc.mat_sand);
+    fmt::print("surface_census_mat_dirt={}\n", sc.mat_dirt);
+    fmt::print("surface_census_mat_stone={}\n", sc.mat_stone);
+    fmt::print("surface_census_mat_other={}\n", sc.mat_other);
+    fmt::print("surface_census_mat_unnamed={}\n", sc.mat_unnamed);
+    fmt::print("surface_census_tex_grass={}\n", sc.tex_grass);
+    fmt::print("surface_census_tex_grass_legacy3={}\n", sc.tex_grass_legacy3);
+    fmt::print("surface_census_legacy3_unclassified={}\n", sc.legacy3_unclassified);
+    fmt::print("surface_census_disagree={}\n", sc.disagree);
+    fmt::print("surface_census_disagree_mat_grass_tex_not={}\n", sc.disagree_mat_grass_tex_not);
+    fmt::print("surface_census_disagree_tex_grass_mat_not={}\n", sc.disagree_tex_grass_mat_not);
+    fmt::print("surface_census_render_ground={}\n", sc.render_ground_tris);
+    fmt::print("surface_census_render_draws={}\n", sc.render_draws);
+    fmt::print("surface_census_textures={}\n", sc.textures_seen);
+    fmt::print("surface_census_disagree_tex_top={}\n", sc.disagree_tex_top);
+    fmt::print("surface_census_mat_grass_tex_top={}\n", sc.mat_grass_tex_top);
+    fmt::print("surface_census_tex_grass_mat_top={}\n", sc.tex_grass_mat_top);
+    fmt::print("[grass_bake] surface-census DONE.\n");
     return 0;
   }
 

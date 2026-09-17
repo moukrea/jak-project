@@ -2717,4 +2717,361 @@ bool load_bake(BakeData& d, const std::string& path) {
   return true;
 }
 
+// ===========================================================================================
+// grass-surface-truth : LES DEUX SOURCES. Le contrat est dans GrassBakeCore.h.
+// ===========================================================================================
+//
+// CE BLOC NE TOUCHE RIEN. Il ne partage aucune variable avec `scan_level` / `expand`, il
+// n'ecrit dans aucune structure cuite, et il n'est appele par aucun chemin de placement. Le
+// `.grassbake` produit apres ce commit est octet pour octet celui d'avant ; le recensement de
+// l'item le VERIFIE au lieu de l'affirmer.
+
+namespace {
+
+// pat-h.gc:5-27. L'ORDRE EST LE CODE : `grass` vaut 7 parce qu'il est le huitieme de la liste,
+// `dirt` 15, `sand` 5, `stone` 0. Une valeur hors de cette table est une valeur que la donnee
+// ne nomme pas : la source MATERIAU se tait alors, elle ne fabrique pas un nom de repli.
+const char* const kPatMaterialNames[kPatMaterialCount] = {
+    "stone", "ice",   "quicksand", "waterbottom", "tar",    "sand",     "wood",   "grass",
+    "pcmetal", "snow", "deepsnow",  "hotcoals",    "lava",   "crwood",   "gravel", "dirt",
+    "metal", "straw", "tube",      "swamp",       "stopproj", "rotate", "neutral"};
+constexpr u32 kPatMatStone = 0;
+constexpr u32 kPatMatSand = 5;
+constexpr u32 kPatMatGrass = 7;
+constexpr u32 kPatMatDirt = 15;
+
+// LA REGLE DE LA SOURCE TEXTURE, ET POURQUOI ELLE N'EST PAS LA REGLE DU BAKE. Reprendre
+// `is_grass_ground` ici ferait un miroir : la source TEXTURE rendrait le meme verdict que la
+// population qu'on cherche justement a elargir, et le desaccord serait nul par construction.
+// Le filet est donc un filet de NOMS, publie tel quel, et chaque desaccord qu'il produit est
+// NOMME texture par texture pour que les items suivants le curent sur mesure.
+inline bool census_tex_is_grassy(const std::string& n) {
+  return n.find("grass") != std::string::npos || n.find("leafy") != std::string::npos ||
+         n.find("moss") != std::string::npos || n.find("turf") != std::string::npos;
+}
+
+// Les TROIS noms exacts qui font l'eligibilite aujourd'hui (GrassBakeCore.cpp:39-44). Recense
+// pour chiffrer l'etat d'AVANT, jamais pour decider.
+inline bool census_tex_is_legacy3(const std::string& n) {
+  return n == "tra-grass" || n == "bch-grassfringe" || n == "bch-leafyground-hang-2x1";
+}
+
+// Un triangle de RENDU projete en XZ, prepare pour la requete point-dans-triangle.
+struct SurfRenderTri {
+  float p0x, p0y, p0z;
+  float e1x, e1y, e1z;
+  float e2x, e2y, e2z;
+  float minx, maxx, minz, maxz;
+  float d00, d01, d11, inv_denom;
+  s32 tex;
+};
+
+constexpr float SURF_BUCKET_M = 4.0f;    // maille XZ de l'index des triangles de rendu
+constexpr float SURF_YWIN_M = 1.5f;      // fenetre verticale centroide de collision <-> sol dessine
+constexpr float SURF_UPNESS = 0.20f;     // au-dessous, la face est un mur : ce n'est pas un sol
+constexpr s64 SURF_MAX_SPAN = 32;        // au-dela, le triangle va dans la liste des geants
+
+// « nom:compte,... », les `top` premiers, tri par compte decroissant puis par nom. Aucun espace :
+// `proof_run.sh` jette toute valeur qui en porte un (motif `^cle=[^[:space:]]+$`). Une liste vide
+// rend "-", jamais la chaine vide — une cle absente et une cle vide ne se lisent pas pareil.
+std::string surf_top_names(const std::unordered_map<std::string, u64>& m, size_t top) {
+  std::vector<std::pair<std::string, u64>> v(m.begin(), m.end());
+  std::sort(v.begin(), v.end(), [](const auto& a, const auto& b) {
+    if (a.second != b.second) {
+      return a.second > b.second;
+    }
+    return a.first < b.first;
+  });
+  std::string out;
+  for (size_t i = 0; i < v.size() && i < top; ++i) {
+    std::string name = v[i].first;
+    if (name.empty()) {
+      name = "(sans-nom)";
+    }
+    for (char& c : name) {
+      if (c == ' ' || c == '\t' || c == ',' || c == ':' || c == '=') {
+        c = '_';
+      }
+    }
+    if (!out.empty()) {
+      out += ',';
+    }
+    out += name + ":" + std::to_string(v[i].second);
+  }
+  return out.empty() ? std::string("-") : out;
+}
+
+}  // namespace
+
+const char* pat_material_name(u32 material) {
+  return material < kPatMaterialCount ? kPatMaterialNames[material] : nullptr;
+}
+
+SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_name) {
+  SurfaceCensus c;
+
+  // ---- SOURCE TEXTURE : index XZ de TOUS les triangles de rendu qui regardent vers le haut.
+  // La population de rendu n'est PAS filtree par nom : filtrer ici ramenerait la question a la
+  // reponse (voir census_tex_is_grassy).
+  std::vector<SurfRenderTri> rtris;
+  std::unordered_map<u64, std::vector<u32>> rgrid;
+  std::vector<u32> rbig;  // triangles trop etendus pour l'index : balayes lineairement
+  const float binv = 1.0f / (SURF_BUCKET_M * U);
+
+  auto add_render_tri = [&](const tfrag3::PreloadedVertex& a, const tfrag3::PreloadedVertex& b,
+                            const tfrag3::PreloadedVertex& cc, s32 tex) {
+    float e1x = b.x - a.x, e1y = b.y - a.y, e1z = b.z - a.z;
+    float e2x = cc.x - a.x, e2y = cc.y - a.y, e2z = cc.z - a.z;
+    float nx = e1y * e2z - e1z * e2y;
+    float ny = e1z * e2x - e1x * e2z;
+    float nz = e1x * e2y - e1y * e2x;
+    float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (nlen < 1e-3f) {
+      return;  // degenere
+    }
+    if (std::fabs(ny) / nlen < SURF_UPNESS) {
+      return;  // mur : ce n'est pas un sol dessine
+    }
+    SurfRenderTri r;
+    r.p0x = a.x; r.p0y = a.y; r.p0z = a.z;
+    r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
+    r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
+    r.d00 = e1x * e1x + e1z * e1z;
+    r.d01 = e1x * e2x + e1z * e2z;
+    r.d11 = e2x * e2x + e2z * e2z;
+    float denom = r.d00 * r.d11 - r.d01 * r.d01;
+    if (std::fabs(denom) < 1e-6f) {
+      return;  // sliver vertical en projection XZ : ne couvre aucun point
+    }
+    r.inv_denom = 1.0f / denom;
+    r.minx = std::min(a.x, std::min(b.x, cc.x));
+    r.maxx = std::max(a.x, std::max(b.x, cc.x));
+    r.minz = std::min(a.z, std::min(b.z, cc.z));
+    r.maxz = std::max(a.z, std::max(b.z, cc.z));
+    r.tex = tex;
+    u32 ri = (u32)rtris.size();
+    rtris.push_back(r);
+    s64 gx0 = (s64)std::floor(r.minx * binv), gx1 = (s64)std::floor(r.maxx * binv);
+    s64 gz0 = (s64)std::floor(r.minz * binv), gz1 = (s64)std::floor(r.maxz * binv);
+    if ((gx1 - gx0) > SURF_MAX_SPAN || (gz1 - gz0) > SURF_MAX_SPAN) {
+      rbig.push_back(ri);  // un triangle geant n'explose pas l'index : il est balaye a part
+      return;
+    }
+    for (s64 gz = gz0; gz <= gz1; ++gz) {
+      for (s64 gx = gx0; gx <= gx1; ++gx) {
+        rgrid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(ri);
+      }
+    }
+  };
+
+  auto index_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
+                         const std::vector<tfrag3::PreloadedVertex>& verts,
+                         const std::vector<u32>& idx, bool use_strips) {
+    if (verts.empty() || idx.empty()) {
+      return;
+    }
+    for (const auto& draw : draws) {
+      if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev.textures.size()) {
+        continue;
+      }
+      u32 begin = draw.unpacked.idx_of_first_idx_in_full_buffer;
+      u32 len = 0;
+      for (const auto& g : draw.vis_groups) {
+        len += g.num_inds;
+      }
+      if (len == 0 || begin >= idx.size()) {
+        continue;
+      }
+      if (begin + len > idx.size()) {
+        len = (u32)(idx.size() - begin);
+      }
+      c.render_draws++;
+      auto take = [&](u32 i0, u32 i1, u32 i2) {
+        if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
+          return;
+        }
+        if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+          return;
+        }
+        if (i0 == i1 || i1 == i2 || i0 == i2) {
+          return;  // couture de strip
+        }
+        add_render_tri(verts[i0], verts[i1], verts[i2], draw.tree_tex_id);
+      };
+      if (use_strips) {
+        u32 a = UINT32_MAX, b = UINT32_MAX;
+        for (u32 k = begin; k < begin + len; ++k) {
+          u32 ci = idx[k];
+          if (ci == UINT32_MAX) {
+            a = UINT32_MAX;
+            b = UINT32_MAX;
+            continue;
+          }
+          take(a, b, ci);
+          a = b;
+          b = ci;
+        }
+      } else {
+        for (u32 k = begin; k + 2 < begin + len; k += 3) {
+          take(idx[k], idx[k + 1], idx[k + 2]);
+        }
+      }
+    }
+  };
+
+  // tfrag (geo 0) puis TIE (geo 0) — la MEME enumeration que `scan_level`, sans son filtre de nom.
+  for (const auto& tree : lev.tfrag_trees[0]) {
+    index_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
+  }
+  for (const auto& tree : lev.tie_trees[0]) {
+    index_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
+  }
+  c.render_ground_tris = (u64)rtris.size();
+  c.textures_seen = (u64)lev.textures.size();
+
+  const float YWIN = SURF_YWIN_M * U;
+  // Rend l'index de texture du sol DESSINE le plus proche verticalement du point, ou -1.
+  auto tex_at = [&](float px, float py, float pz) -> s32 {
+    s32 best = -1;
+    float bestd = YWIN;
+    auto probe = [&](u32 ri) {
+      const auto& r = rtris[ri];
+      if (px < r.minx || px > r.maxx || pz < r.minz || pz > r.maxz) {
+        return;
+      }
+      float qx = px - r.p0x, qz = pz - r.p0z;
+      float d20 = qx * r.e1x + qz * r.e1z;
+      float d21 = qx * r.e2x + qz * r.e2z;
+      float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+      float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+      if (u < -0.02f || v < -0.02f || u + v > 1.02f) {
+        return;
+      }
+      float y = r.p0y + u * r.e1y + v * r.e2y;
+      float d = std::fabs(y - py);
+      if (d < bestd) {
+        bestd = d;
+        best = r.tex;
+      }
+    };
+    s64 gx = (s64)std::floor(px * binv), gz = (s64)std::floor(pz * binv);
+    auto it = rgrid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+    if (it != rgrid.end()) {
+      for (u32 ri : it->second) {
+        probe(ri);
+      }
+    }
+    for (u32 ri : rbig) {
+      probe(ri);
+    }
+    return best;
+  };
+
+  // ---- LA POPULATION : le sol tel que la collision du jeu le declare (pat-mode ground).
+  std::unordered_map<std::string, u64> disagree_tex, mat_grass_tex, tex_grass_mat;
+  const auto& cv = lev.collision.vertices;
+  const size_t ntri = cv.size() / 3;
+  c.collision_tris = (u64)ntri;
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    const auto& b = cv[t * 3 + 1];
+    const auto& d = cv[t * 3 + 2];
+    const u32 mode = (a.pat >> 3) & 0x7u;
+    switch (mode) {
+      case 0: c.mode_ground++; break;
+      case 1: c.mode_wall++; break;
+      case 2: c.mode_obstacle++; break;
+      default: c.mode_other++; break;
+    }
+    if (mode != 0) {
+      continue;  // pat-mode 0 = ground : la meme porte que GrassBakeCore.cpp:816
+    }
+    c.ground_tris++;
+
+    // SOURCE 1 — LE MATERIAU DE COLLISION, bits 6..11 (pat-h.gc:55). Personne ne les lisait.
+    const u32 material = (a.pat >> 6) & 0x3fu;
+    const bool mat_ok = material < kPatMaterialCount;
+    const bool mat_grass = mat_ok && material == kPatMatGrass;
+    if (mat_ok) {
+      c.by_material++;
+      switch (material) {
+        case kPatMatGrass: c.mat_grass++; break;
+        case kPatMatSand: c.mat_sand++; break;
+        case kPatMatDirt: c.mat_dirt++; break;
+        case kPatMatStone: c.mat_stone++; break;
+        default: c.mat_other++; break;
+      }
+    } else {
+      c.mat_unnamed++;
+    }
+
+    // SOURCE 2 — LE NOM DE LA TEXTURE DE RENDU au-dessus du centroide.
+    const float cx = (a.x + b.x + d.x) * (1.0f / 3.0f);
+    const float cy = (a.y + b.y + d.y) * (1.0f / 3.0f);
+    const float cz = (a.z + b.z + d.z) * (1.0f / 3.0f);
+    const s32 tex = tex_at(cx, cy, cz);
+    const std::string* tname = nullptr;
+    if (tex >= 0 && (size_t)tex < lev.textures.size() && !lev.textures[tex].debug_name.empty()) {
+      tname = &lev.textures[tex].debug_name;
+    }
+    const bool tex_ok = tname != nullptr;
+    const bool tex_grass = tex_ok && census_tex_is_grassy(*tname);
+    if (tex_ok) {
+      c.by_texture++;
+      if (tex_grass) {
+        c.tex_grass++;
+      }
+      if (census_tex_is_legacy3(*tname)) {
+        c.tex_grass_legacy3++;
+      }
+    }
+
+    // LE CROISEMENT.
+    if (mat_ok && tex_ok) {
+      c.by_both++;
+    }
+    if (mat_ok || tex_ok) {
+      c.classified++;
+    } else {
+      c.unclassified++;
+    }
+    if (!tex_ok) {
+      c.tex_only_unclassified++;
+    }
+    if (!mat_ok) {
+      c.mat_only_unclassified++;
+    }
+
+    // LE DESACCORD, DANS LES DEUX SENS, ET IL EST NOMME.
+    if (mat_ok && tex_ok && mat_grass != tex_grass) {
+      c.disagree++;
+      disagree_tex[*tname]++;
+      if (mat_grass) {
+        c.disagree_mat_grass_tex_not++;
+      } else {
+        c.disagree_tex_grass_mat_not++;
+      }
+    }
+    if (mat_grass && tex_ok) {
+      mat_grass_tex[*tname]++;
+    }
+    if (tex_grass) {
+      const char* mn = pat_material_name(material);
+      tex_grass_mat[mn ? std::string(mn) : ("inconnu-" + std::to_string(material))]++;
+    }
+  }
+
+  c.legacy3_unclassified = c.ground_tris - c.tex_grass_legacy3;
+  c.disagree_tex_top = surf_top_names(disagree_tex, 10);
+  c.mat_grass_tex_top = surf_top_names(mat_grass_tex, 10);
+  c.tex_grass_mat_top = surf_top_names(tex_grass_mat, 10);
+
+  lg::info(
+      "[grass-surface-truth] {} : sol={} (collision={}) materiau={} texture={} deux={} "
+      "aucune={} desaccord={} rendu={} textures={}",
+      level_name, c.ground_tris, c.collision_tris, c.by_material, c.by_texture, c.by_both,
+      c.unclassified, c.disagree, c.render_ground_tris, c.textures_seen);
+  return c;
+}
+
 }  // namespace grass_bake
