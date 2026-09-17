@@ -304,11 +304,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-117/les-meshes-de-sable-ou-de-terre-poses-par-dessus-un-sol-herbeux"
  },
  "grass-path-transitions": {
-  "hash": "ff18ee8803138088cbde7765e514cf127b43cfad",
+  "hash": "4f1d6850bec7a1e1017addda57ca8fe81360a289",
   "identifier": "JAK-118",
   "issue_id": "40495f73-0ba0-4b75-a1fc-4bf09daf2ca5",
   "last_state": "Backlog",
-  "pulled_at": "2026-09-17T06:32:23.804Z",
+  "pulled_at": "2026-09-17T07:40:27.578Z",
   "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
  },
  "grass-shading": {

@@ -266,7 +266,7 @@ def labels(L, team):
     read = ensure_label(L, team, LABEL_READ, "#f2994a")
     todo = ensure_label(L, team, LABEL_TODO, "#eb5757")
     ensure_view(L, team, read)
-    ensure_view(L, team, todo, name="À traiter", icon="Bell", color="#eb5757",
+    ensure_view(L, team, todo, name="À traiter", icon="Inbox", color="#eb5757",
                 desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
     return read, todo
 
