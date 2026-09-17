@@ -1751,10 +1751,20 @@
   (none))
 
 (defun hud3d-alive? ((ic (pointer manipy)))
-  "vrai quand le slot porte un manipy VIVANT et DOTE D'UN SQUELETTE. Un manipy ne dans la fenetre
-   de chargement du niveau revient sans squelette et ne dessine jamais rien — c'est le defaut
-   « la pile n'apparait pas » de juillet, et il faut le distinguer d'un slot vide."
-  (and (hud3d-icon-live? ic) (nonzero? (-> ic 0 skel)) #t))
+  "vrai quand ce slot dessine VRAIMENT un modele.
+   LE PIEGE, MESURE LE 17/09. Le test evident — « le manipy a-t-il un squelette ? » — est FAUX, et
+   c'est lui qui a fait declarer l'orbe mort pendant tout cet essai. `initialize-skeleton`
+   (process-drawable.gc:434-447) ne cree un `joint-control` que si la geometrie de squelette declare
+   `joint-channel > 0` ; un modele RIGIDE comme l'orbe (`money`) en declare zero, son `skel` reste
+   legitimement nul, et il dessine parfaitement. Les mesures qui ont mene ici : groupe d'art charge
+   (`hud3d_artgrp_money=1`), garde `joint-geo` passee (`hud3d_money_jgeo_ok=1`), 5 elements dans
+   `money-ag` — tout etait sain, sauf la question qu'on posait.
+   Le controle de juillet (`rhud-icon-alive?`, plus haut dans ce fichier) porte la meme erreur.
+   Ce qui dit qu'un modele sera dessine, c'est son `draw-control` et le groupe d'art qui y pend."
+  (and (hud3d-icon-live? ic)
+       (nonzero? (-> ic 0 draw))
+       (nonzero? (-> ic 0 draw art-group))
+       #t))
 
 (defun hud3d-art-name ((ic (pointer manipy)))
   "le NOM DU GROUPE D'ART reellement attache au modele dessine. C'est la meme chaine que
@@ -1875,7 +1885,7 @@
    la cadence propre au manipy — « animation beaucoup trop vite » (owner). Et une pile du monde ne
    tourne pas sur elle-meme : son mouvement est dans l'anim, le lacet etait celui de l'element de
    HUD d'origine."
-  (when (hud3d-alive? ic)
+  (when (and (hud3d-alive? ic) (nonzero? (-> ic 0 skel)))
     (let ((jg (-> ic 0 skel root-channel 0 frame-group)))
       (when (and (nonzero? jg) jg)
         (let ((leni (+ (-> jg data 0 length) -1)))
@@ -1990,7 +2000,7 @@
       ((not mo) 0)
       ((zero? (-> mo 0 nb-of-icons)) 1)
       ((let ((ic (-> mo 0 icons 0 icon))) (not (and (nonzero? ic) ic (-> ic 0)))) 2)
-      ((zero? (-> mo 0 icons 0 icon 0 skel)) 3)
+      ((not (hud3d-alive? (-> mo 0 icons 0 icon))) 3)
       (else 4))))
 
 (defun hud3d-repair-orb-icon ((this hud-3d-pickups))
@@ -2005,7 +2015,11 @@
    en SIGSEGV (course du 17/09) : `deactivate` ne remet pas `self` a zero, et le slot peut deja
    pointer sur de la memoire rendue au pool puis reprise par un autre process. On remplace le
    pointeur ; le zombie, qui ne dessine rien, s'eteindra avec son parent."
-  (when (and (hud3d-elt HUD3D_SLOT_MONEY) (>= (hud3d-orb-state this) 1) (< (-> this orb-tries) 200))
+  ;; SEULEMENT QUAND L'EMPLACEMENT EST REELLEMENT EN PANNE. La condition precedente etait
+  ;; `>= 1`, c'est-a-dire TOUJOURS VRAIE : la reparation refaisait l'icone 200 fois de suite sur un
+  ;; orbe parfaitement sain et abandonnait 200 manipys derriere elle (`hud3d_orb_tries=200` avec
+  ;; `hud3d_orb_spawn_noskel=0`). L'etat 4 veut dire « l'orbe dessine » : il n'y a rien a reparer.
+  (when (and (hud3d-elt HUD3D_SLOT_MONEY) (< (hud3d-orb-state this) 4) (< (-> this orb-tries) 200))
     (let* ((mo (hud3d-elt HUD3D_SLOT_MONEY))
            (obj (-> mo 0))
            (nm (manipy-spawn (new 'static 'vector :w 1.0) #f *money-sg* #f :to obj)))
@@ -2013,10 +2027,10 @@
       (if (not (and nm (-> nm 0))) (+! (-> this orb-null) 1))
       ;; un manipy sans squelette est un process VIVANT qui ne dessinera jamais : le laisser en
       ;; fuirait un par image. On le rend tout de suite.
-      (when (and nm (-> nm 0) (zero? (-> nm 0 skel)))
+      (when (and nm (-> nm 0) (not (hud3d-alive? nm)))
         (+! (-> this orb-noskel) 1)
         (deactivate (ppointer->process nm)))
-      (when (and nm (-> nm 0) (nonzero? (-> nm 0 skel)))
+      (when (hud3d-alive? nm)
         (set! (-> nm 0 draw dma-add-func) dma-add-process-drawable-hud)
         (set-vector! (-> nm 0 root trans) 0.0 0.0 0.0 1.0)
         (set-vector! (-> nm 0 root scale)
