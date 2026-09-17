@@ -56,6 +56,10 @@ bool enabled();
 
 // ── fil GOAL : le regime, pose au POINT DE PRODUCTION ───────────────────────────────────────
 // GOAL repousse ces reglages a chaque image ; une ecriture faite ailleurs serait ecrasee.
+// LEURS APPELANTS, ET IL N'Y EN A PAS D'AUTRES : `pc_set_recharged_grass` (kmachine.cpp) pour la
+// bascule, `pc_set_grass_dists` pour le palier et les deux distances. Declarees sans etre
+// appelees, elles ne posent RIEN : l'essai 1 a mesure une herbe eteinte sur l'appareil et publie
+// zero cle. Un appelant retire = la campagne redevient muette.
 bool grass_on_override(bool* on);
 bool preset_override(int* preset);
 bool dists_override(float* near_m, float* card_m);

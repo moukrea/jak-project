@@ -44,6 +44,7 @@
 #include "game/system/mesh_browser_census.h"
 #include "game/system/recharged_gating.h"
 #include "game/system/grass_baseline.h"
+#include "game/system/grass_cull.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/sched_affinity.h"
@@ -2088,6 +2089,11 @@ void pc_set_recharged_grass(u32 on) {
   // a l'image suivante et les dix cellules porteraient le reglage du joueur au lieu du leur. Hors
   // campagne, `grass_on_override` rend faux et ne touche pas `want`.
   grass_baseline::grass_on_override(&want);
+  // grass-chunk-cull : MEME POINT DE PRODUCTION, MEME RAISON. Sans cet appel la campagne de
+  // `grass_cull` ne pose aucun regime : elle attend une herbe que personne n'allume, le renderer
+  // n'est jamais invoque, et la course publie ZERO cle — c'est exactement ce qui a rendu l'essai
+  // 1 muet sur l'appareil (l'herbe y est eteinte par defaut, allumee sur le bureau).
+  grass_cull::grass_on_override(&want);
   recharged_gating::set(recharged_gating::kGrass, want);
 }
 
@@ -4363,11 +4369,17 @@ void pc_set_grass_dists(u32 vec) {
     return;
   }
   float* p = Ptr<float>(vec).c();
-  recharged_gating::set(recharged_gating::kGrassNearDist, p[0]);
-  recharged_gating::set(recharged_gating::kGrassCardDist, p[1]);
+  // grass-chunk-cull : les deux distances passent par la campagne AVANT d'etre posees — elle
+  // epingle le regime qu'elle mesure (30 m / 95 m), et rend faux hors campagne.
+  float near_m = p[0];
+  float card_m = p[1];
+  grass_cull::dists_override(&near_m, &card_m);
+  recharged_gating::set(recharged_gating::kGrassNearDist, near_m);
+  recharged_gating::set(recharged_gating::kGrassCardDist, card_m);
   // grass-baseline-cost : meme geste que pour la bascule ci-dessus, au meme point de production.
   int preset = grass_bake::clamp_density_preset((int)(p[2] + 0.5f));
   grass_baseline::preset_override(&preset);
+  grass_cull::preset_override(&preset);
   recharged_gating::set(recharged_gating::kGrassDensity, preset);
   // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
   // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.

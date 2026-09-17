@@ -1,6 +1,7 @@
 #include "game/system/grass_cull.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -78,12 +79,31 @@ double median(std::vector<double>& v) {
   return v[v.size() / 2];
 }
 
-// Etat global. TOUT ce qui suit ne vit que sur le fil GL, sauf `g_on`, lu aussi depuis GOAL.
-bool g_on_cached = false;
-bool g_on_valid = false;
+// Etat global. TOUT ce qui suit ne vit que sur le fil GL, SAUF ce qui est atomique ci-dessous :
+// les trois surcharges de regime tournent sur le fil GOAL (kmachine.cpp les appelle a chaque
+// image), et le fil GOAL n'a le droit de lire que des atomiques.
+std::atomic<int> g_enabled{-1};          // -1 = pas encore evalue, 0 = non, 1 = oui
+std::atomic<bool> g_regime_active{true};  // faux des que la campagne est finie (etat kDone)
 State g_state = kBoot;
 int g_state_frames = 0;
 int g_view = 0;
+
+// ── LE TEMOIN DE PROGRESSION, PUBLIE MEME QUAND LA CAMPAGNE N'ABOUTIT PAS ────────────────────
+// Essai 1 : les trois surcharges ci-dessous n'etaient appelees par PERSONNE. Sur l'appareil
+// l'herbe est restee eteinte, `GrassRenderer::render` n'a jamais tourne, `note_frame` non plus,
+// la machine a etats est restee a `kBoot` et `publish_all` n'a jamais ete atteint. La preuve ne
+// portait alors AUCUNE cle de la campagne : muette, donc inexploitable — il a fallu relire le
+// journal du moteur pour comprendre. Ces compteurs-ci sont publies depuis le fil GOAL, qui tourne
+// que l'herbe soit dessinee ou non : une course qui n'aboutit pas NOMME desormais son blocage.
+std::atomic<uint64_t> g_grass_overrides{0};
+std::atomic<uint64_t> g_preset_overrides{0};
+std::atomic<uint64_t> g_dists_overrides{0};
+std::atomic<uint64_t> g_render_frames{0};
+std::atomic<uint64_t> g_field_ready_frames{0};
+std::atomic<int> g_state_pub{kBoot};
+std::atomic<int> g_view_pub{0};
+std::atomic<int> g_state_frames_pub{0};
+std::atomic<int> g_published_pub{0};
 Samples g_samples;
 ViewResult g_res[kViewCount];
 bool g_published = false;
@@ -102,6 +122,11 @@ void enter(State s) {
   g_state_frames = 0;
   g_samples.clear();
   g_last_frame_valid = false;
+  // Le fil GOAL ne lit que ceci : a `kDone` les surcharges se taisent et le reglage du joueur
+  // reprend la main a l'image suivante.
+  g_regime_active.store(s != kDone, std::memory_order_relaxed);
+  g_state_pub.store((int)s, std::memory_order_relaxed);
+  g_state_frames_pub.store(0, std::memory_order_relaxed);
 }
 
 void close_leg(Leg& leg) {
@@ -253,38 +278,87 @@ void publish_all() {
 
   // `hits` = les lots TESTES par le culling sur toute la course (`hits_means` de l'item).
   autoport_proof::note_hit_for(kItemId, g_chunk_tests_total ? g_chunk_tests_total : 1);
+
+  // Les memes cles de diagnostic que le temoin du fil GOAL, posees une derniere fois avec l'etat
+  // final. Le temoin continue de battre apres `kDone` et republiera ces valeurs a l'identique.
+  g_published_pub.store(1, std::memory_order_relaxed);
+  g_state_pub.store((int)kDone, std::memory_order_relaxed);
+  pub("grass_cull_grass_overrides", g_grass_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_preset_overrides", g_preset_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_dists_overrides", g_dists_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_render_frames", g_render_frames.load(std::memory_order_relaxed));
+  pub("grass_cull_field_ready_frames", g_field_ready_frames.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_state", (uint64_t)kDone);
+  pub("grass_cull_campaign_view", (uint64_t)g_view_pub.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_state_frames",
+      (uint64_t)g_state_frames_pub.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_complete", 1);
+}
+
+// LE TEMOIN, POSE SUR LE FIL GOAL. Il ne lit que des atomiques et ne publie que des cles de
+// DIAGNOSTIC : le verdict reste a `publish_all`, sur le fil GL. Deux publications par seconde
+// environ (le fil GOAL tourne a la cadence du jeu) — un verrou de table, rien d'autre.
+void heartbeat() {
+  static std::atomic<uint64_t> ticks{0};
+  if ((ticks.fetch_add(1, std::memory_order_relaxed) % 120) != 0) {
+    return;
+  }
+  pub("grass_cull_grass_overrides", g_grass_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_preset_overrides", g_preset_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_dists_overrides", g_dists_overrides.load(std::memory_order_relaxed));
+  pub("grass_cull_render_frames", g_render_frames.load(std::memory_order_relaxed));
+  pub("grass_cull_field_ready_frames", g_field_ready_frames.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_state", (uint64_t)g_state_pub.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_view", (uint64_t)g_view_pub.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_state_frames",
+      (uint64_t)g_state_frames_pub.load(std::memory_order_relaxed));
+  pub("grass_cull_campaign_complete", (uint64_t)g_published_pub.load(std::memory_order_relaxed));
 }
 
 }  // namespace
 
 bool enabled() {
-  if (!g_on_valid) {
-    g_on_valid = true;
-    g_on_cached = autoport_proof::armed_for(kItemId) && autoport_proof::feature_is(kItemId);
+  int v = g_enabled.load(std::memory_order_relaxed);
+  if (v < 0) {
+    v = (autoport_proof::armed_for(kItemId) && autoport_proof::feature_is(kItemId)) ? 1 : 0;
+    g_enabled.store(v, std::memory_order_relaxed);
   }
-  return g_on_cached;
+  return v == 1;
 }
 
+// ── fil GOAL. LE REGIME SE POSE ICI OU IL NE SE POSE NULLE PART ──────────────────────────────
+// `pc_set_recharged_grass` et `pc_set_grass_dists` (kmachine.cpp) repoussent le reglage du joueur
+// a CHAQUE image ; c'est le seul point ou la campagne peut tenir le sien.
 bool grass_on_override(bool* on) {
-  if (!enabled() || g_state == kDone) {
+  if (!on || !enabled()) {
     return false;
   }
+  // Le temoin bat AVANT la garde de regime : apres `kDone` les surcharges se taisent, et un
+  // temoin qui se tairait avec elles laisserait `grass_cull_campaign_complete` a 0 pour toujours.
+  heartbeat();
+  if (!g_regime_active.load(std::memory_order_relaxed)) {
+    return false;
+  }
+  g_grass_overrides.fetch_add(1, std::memory_order_relaxed);
   *on = true;
   return true;
 }
 
 bool preset_override(int* preset) {
-  if (!enabled() || g_state == kDone) {
+  if (!preset || !enabled() || !g_regime_active.load(std::memory_order_relaxed)) {
     return false;
   }
-  *preset = grass_bake::kDensityPresetDefault;  // medium : le palier livre, celui de la ligne de base
+  g_preset_overrides.fetch_add(1, std::memory_order_relaxed);
+  // medium : le palier livre, celui que la ligne de base a mesure
+  *preset = grass_bake::kDensityPresetDefault;
   return true;
 }
 
 bool dists_override(float* near_m, float* card_m) {
-  if (!enabled() || g_state == kDone) {
+  if (!near_m || !card_m || !enabled() || !g_regime_active.load(std::memory_order_relaxed)) {
     return false;
   }
+  g_dists_overrides.fetch_add(1, std::memory_order_relaxed);
   *near_m = 30.f;
   *card_m = 95.f;
   return true;
@@ -376,6 +450,14 @@ void note_frame(double prep_us,
   }
   g_chunk_tests_total += chunks_tested;
   g_uniform_lookups = uniform_lookups;
+  // Miroirs pour le fil GOAL (voir `heartbeat`). `render_frames` est LA grandeur qui separe
+  // « l'herbe n'a jamais ete dessinee » de « elle l'a ete et la campagne a cale ».
+  g_render_frames.fetch_add(1, std::memory_order_relaxed);
+  if (field_ready) {
+    g_field_ready_frames.fetch_add(1, std::memory_order_relaxed);
+  }
+  g_view_pub.store(g_view, std::memory_order_relaxed);
+  g_state_frames_pub.store(g_state_frames, std::memory_order_relaxed);
 
   const auto now = std::chrono::steady_clock::now();
   const bool have_dt = g_last_frame_valid;
