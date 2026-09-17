@@ -2570,15 +2570,24 @@
               (if (= v 1) (+! (-> this vis-bad-orb) 1))
               (if (= v 2) (+! (-> this vis-ok-orb) 1))
               (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-orb) 1))))
-          (when pk
-            (let ((v (hud3d-vis-verdict this
-                                        (hidden? (-> pk 0))
-                                        (and (> (-> this nb-of-particles) 0)
-                                             (hud3d-spawned-this-frame? (-> this particles 0 part)))
-                                        3)))
-              (if (= v 1) (+! (-> this vis-bad-eco) 1))
-              (if (= v 2) (+! (-> this vis-ok-eco) 1))
-              (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-eco) 1)))))
+          ;; L'ECO VERTE SE JUGE SUR TROIS IMAGES, PAS DEUX. Son temoin n'est pas un bit lu dans
+          ;; l'image : `hud3d-spawned-this-frame?` regarde UNE image en arriere (l'ordre des
+          ;; process dans l'image n'est pas garanti). Accuser sur deux images ferait donc porter
+          ;; a l'image du repli un lancement qui, lui, etait legitime. Avec trois images
+          ;; consecutives repliees, tout lancement vu dans la fenetre du temoin a bien eu lieu
+          ;; alors que le sprite d'origine ne se lancait plus.
+          (when (and pk (> (-> this nb-of-particles) 0))
+            (let* ((h (and (hidden? (-> pk 0)) #t))
+                   (h1 (logtest? (-> this was-hid) (ash 1 3)))
+                   (h2 (logtest? (-> this was-hid) (ash 1 4)))
+                   (spawned (hud3d-spawned-this-frame? (-> this particles 0 part))))
+              (if h1 (logior! (-> this was-hid) (ash 1 4)) (logclear! (-> this was-hid) (ash 1 4)))
+              (if h (logior! (-> this was-hid) (ash 1 3)) (logclear! (-> this was-hid) (ash 1 3)))
+              (cond
+                ((and h h1 h2)
+                 (+! (-> this vis-hid-eco) 1)
+                 (if spawned (+! (-> this vis-bad-eco) 1)))
+                ((not h) (if spawned (+! (-> this vis-ok-eco) 1)))))))
 
         ;; LA POPULATION JUGEE : les quatre elements d'origine existent et au moins un
         ;; emplacement dessine. Elle N'EXIGE PAS que les quatre modeles soient vivants — une porte
@@ -2615,6 +2624,24 @@
       (hud3d-eco-identity this))
 
     (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60)) (hud3d-publish this)))
+  0
+  (none))
+
+(defmethod draw-hud ((this hud-3d-pickups))
+  "L'EMETTEUR SUIT L'ELEMENT D'ORIGINE A L'IMAGE MEME, PAS PAR SON PROPRE ETAT.
+   MESURE DU 17/09 (course appareil, 12 643 images jugees) : `hud3d_vis_bad_eco=51` — l'emetteur
+   lancait encore une a deux images APRES que `hud-pickups` se soit replie, sur une vingtaine de
+   replis. La cause est un aller-retour : notre process suit l'element par un evenement
+   'show/'hide-quick, et cet evenement ne prend effet qu'a l'image SUIVANTE (et jamais dans une
+   image ou `last-hide-time` vaut deja l'instant courant). Les trois autres emplacements n'ont pas
+   ce defaut : leur visibilite est un bit qu'on pose sur le draw-control dans l'image meme.
+   Ici la seule chose qui lance, c'est `hud::draw-hud`. On lui met donc la condition de l'element
+   d'origine DEVANT : une lecture d'etat par image, et le lancement cesse a l'image exacte ou le
+   sprite d'origine aurait cesse. L'evenement 'hide-quick reste — c'est lui qui libere les
+   particules deja vivantes."
+  (let ((pk (hud3d-elt HUD3D_SLOT_PICKUPS)))
+    (if (or (not pk) (not (hidden? (-> pk 0))))
+      ((method-of-type hud draw-hud) this)))
   0
   (none))
 
