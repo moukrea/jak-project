@@ -223,6 +223,7 @@ def ensure_projects(L, team_id):
 
 LABEL_READ = "À lire : réponse du harnais"
 LABEL_TODO = "À traiter : retour de l'owner"
+LABEL_TALK = "En discussion"
 
 
 def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
@@ -254,6 +255,9 @@ def swap_labels(L, issue_id, add=None, remove=None):
     want = [i for i in ids if i != remove]
     if add and add not in want:
         want.append(add)
+    talk = _TALK.get("id")
+    if add and talk and talk not in want:
+        want.append(talk)
     if sorted(want) != sorted(ids):
         L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=issue_id, i={"labelIds": want})
 
@@ -262,12 +266,19 @@ def set_read_label(L, issue_id, label_id, on):
     swap_labels(L, issue_id, add=label_id if on else None, remove=None if on else label_id)
 
 
+_TALK = {}
+
+
 def labels(L, team):
     read = ensure_label(L, team, LABEL_READ, "#f2994a")
     todo = ensure_label(L, team, LABEL_TODO, "#eb5757")
+    talk = ensure_label(L, team, LABEL_TALK, "#5e6ad2")
+    _TALK["id"] = talk
     ensure_view(L, team, read)
     ensure_view(L, team, todo, name="À traiter", icon="Inbox", color="#eb5757",
                 desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
+    ensure_view(L, team, talk, name="En discussion", icon="Inbox", color="#5e6ad2",
+                desc="Tous les tickets où l'un de nous deux a parlé en dernier : tes retours à traiter et les réponses du harnais à lire.")
     return read, todo
 
 
