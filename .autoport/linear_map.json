@@ -701,6 +701,43 @@
   "pulled_at": "2026-09-17T05:37:04.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
+ "hud-3d-pickups": {
+  "hash": "0d58ce30e901346baf248efce14bd1730f80414c",
+  "identifier": "JAK-177",
+  "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-17T10:37:22.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
+ },
+ "hud-behavior-parity": {
+  "hash": "7562a95e92dfc7bfc53de92bac83ae285b2d7bd0",
+  "identifier": "JAK-178",
+  "issue_id": "dede6433-d481-4eb8-a9f3-1ff56e61a216",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T10:37:22.000Z",
+  "relations": [
+   "hud-3d-pickups",
+   "hud-eco-gauge",
+   "hud-heart"
+  ],
+  "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
+ },
+ "hud-eco-gauge": {
+  "hash": "e36fd08c7b4bc3ab34973136df2d39a740db1e0f",
+  "identifier": "JAK-176",
+  "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-17T10:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
+ },
+ "hud-heart": {
+  "hash": "aa7d09e6ea07c0edf899a0fb237b85bf369e7044",
+  "identifier": "JAK-175",
+  "issue_id": "190bf33c-24ca-4b73-b1e5-fe6034f624ce",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-17T10:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-175/le-coeur-du-hud-recharge-quatre-paliers-de-sante-et-le-coeur-a-33"
+ },
  "jak1-intermittent-events": {
   "hash": "2f6edb2da4ec961e2c15ba581d18fdc22e39b961",
   "identifier": "JAK-25",
@@ -1199,11 +1236,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "adc3372d7966faa3c61f2c4d9a0460d31ca36489",
+  "hash": "ac396210863da54f65b7fafa3659de7436e06103",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
-  "last_state": "À arbitrer",
-  "pulled_at": "2026-09-17T10:34:48.843Z",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T10:36:35.551Z",
+  "relations": [
+   "hud-3d-pickups",
+   "hud-behavior-parity",
+   "hud-eco-gauge",
+   "hud-heart"
+  ],
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-lightprobes": {

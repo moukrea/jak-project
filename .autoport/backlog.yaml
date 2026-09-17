@@ -4038,8 +4038,8 @@ items:
   build: build du 2026-08-08, remplace depuis
 - id: recharged-hud-jak1
   feature: Le HUD Recharged de jak1
-  status: blocked
-  priority: 224
+  status: open
+  priority: 56
   owner_feedback:
   - date: '2026-09-17'
     text: |-
@@ -4091,11 +4091,21 @@ items:
       super utile ! à voir si tu dois en fair eun ticket dédié
   - date: '2026-09-17'
     text: Sinon oui, let's go pour ce que tu propose, je veux le relancer ! Fais ce que tu suggérais !
-  gate: null
+  - date: '2026-09-17'
+    text: Alors c'est bien que tu puisse pousser des images, mais là tu vois tu me dis que tu m'a envoyé
+      le coeur vide, sauf que non, tu m'a envoyé la endcap de la jauge d'eco rouge !
+  gate:
+    key: hud_recharged_defects
+    op: ==
+    value: 0
   game: jak1
   max_turns: 800
   max_retries: 6
-  depends_on: []
+  depends_on:
+  - hud-heart
+  - hud-eco-gauge
+  - hud-3d-pickups
+  - hud-behavior-parity
   history:
   - Grecharged-hud-jak1
   prompt: prompts/item-recharged-hud-jak1.md
@@ -4103,8 +4113,30 @@ items:
   device: true
   notes: 'statut force : l''owner a ordonne le 2026-07-09 de parquer le HUD (« revisit later, more important
     work first ») ; livre par defaut ETEINT'
-  block_reason: l'owner a ordonne le 2026-07-09 de parquer le HUD (« revisit later, more important work
-    first ») ; livre par defaut ETEINT
+  block_reason: ''
+  spec: prompts/SPEC-refonte-hud.md
+  owner_test: true
+  hits_means: images avec le HUD recharge allume
+  code_scope: jeu
+  proof_timeout: 420
+  known_cause: '17/09 : relance par l''owner (« let''s go pour ce que tu propose, je veux le relancer
+    ! Fais ce que tu suggérais ! »). SPEC prompts/SPEC-refonte-hud.md. Ce ticket est le PARENT : il ferme
+    la refonte quand les quatre chantiers sont passes.'
+  deliverable: |-
+    `hud_recharged_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. LE REGLAGE : Options > Recharged porte la ligne du HUD recharge, ALLUME par defaut quand le maitre Recharged l'est ; le choix survit au redemarrage (publie).
+
+    2. ETEINT = ORIGINE, BIT-IDENTIQUE : empreinte de l'image du HUD eteint contre le binaire sans la couche (`--off`), sur >= 300 images, egale.
+
+    3. LES QUATRE CHANTIERS SONT LIVRES ENSEMBLE sur le meme binaire : leurs quatre portes relues a 0 dans cette meme course.
+
+    4. LES POLICES : inchangees (empreinte des atlas de police identique avant/apres).
+
+    PREUVE : `FEATURE recharged-hud-jak1 armed=1 hits=<images avec le HUD recharge allume>` + la ligne `hud_recharged_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Options > Recharged : le HUD rechargé est allumé ; en jeu, cœur, jauge d''éco, mécamouche, orbe,
+    particule d''éco et pile sont les nouveaux, et tout se comporte comme l''original. Éteint : le HUD
+    d''origine, à l''identique.'
 - id: recharged-materials-modern-parity
   feature: Des materiaux au niveau des moteurs modernes
   status: archived
@@ -5692,7 +5724,7 @@ items:
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
   status: open
-  priority: 51
+  priority: 54
   owner_feedback:
   - date: '2026-09-09'
     text: faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques,
@@ -13035,7 +13067,7 @@ items:
   no_code: true
   depends_on: &id004 []
   id: res-list-sorted-by-pixels
-  priority: 45
+  priority: 52
   feature: La liste des résolutions est classée par nombre total de pixels, du plus petit au plus grand
   gate:
     key: res_list_unsorted_pairs
@@ -13067,7 +13099,7 @@ items:
   no_code: true
   depends_on: *id004
   id: res-scale-submenu
-  priority: 46
+  priority: 53
   feature: L'échelle de rendu se choisit dans un sous-menu (10 à 100 %) qui affiche la résolution de rendu
     calculée en direct
   gate:
@@ -13167,3 +13199,163 @@ items:
   - date: '2026-09-17'
     text: Bah les nouveaux tickets de Linear devraient attérir dans le backlog non ? sinon c'est dissonant
       et ça va exploser dans le temps !
+- status: open
+  game: jak1
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-hud.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  device: true
+  owner_ok: null
+  no_code: true
+  depends_on: &id005 []
+  id: hud-heart
+  priority: 51
+  owner_test: true
+  feature: 'Le cœur du HUD rechargé : quatre paliers de santé, et le cœur à 33 % qui clignote sur le cœur
+    vide'
+  gate:
+    key: hud_heart_defects
+    op: ==
+    value: 0
+  hits_means: images ou le coeur recharge est dessine
+  known_cause: SPEC HUD §3. Assets recharged_assets/jak_heart_{0,33,66,100}.png ; chargement deja present
+    dans RechargedHudTextures.cpp (eteint depuis juillet).
+  deliverable: |-
+    `hud_heart_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. LE MAPPAGE : pour chaque valeur de sante de la plage du jeu, le palier dessine (100/66/33/0) est publie ; un trou ou un saut non monotone = defaut.
+
+    2. LA POSITION : le coeur recharge est dessine au rectangle exact du coeur d'origine (publier les deux rectangles, ecart 0 px).
+
+    3. LE CLIGNOTEMENT : a 33 %, jak_heart_33 alterne par-dessus jak_heart_0 avec la periode et le rapport cyclique du clignotement d'origine (mesures sur le meme evenement, egaux).
+
+    4. L'ASSET ENTIER : a chaque palier c'est l'image entiere qui change (identifiant de texture publie par image).
+
+    5. ETEINT = ORIGINE : `--off` rend le HUD d'origine, aucun appel du chemin recharge.
+
+    PREUVE : `FEATURE hud-heart armed=1 hits=<images ou le coeur recharge est dessine>` + la ligne `hud_heart_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+  where: 'HUD en jeu, Recharged allume : le coeur change d''image a 100 / 66 / 33 / 0 % de sante, et a
+    33 % il clignote sur le coeur vide, au meme rythme que dans le jeu d''origine.'
+  out_of_scope: Ne touche pas a la jauge, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
+  prompt: prompts/item-hud-heart.md
+- status: open
+  game: jak1
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-hud.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  device: true
+  owner_ok: null
+  no_code: true
+  depends_on: *id005
+  id: hud-eco-gauge
+  priority: 46
+  owner_test: true
+  feature: 'La jauge d''éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l''éco
+    active, embout qui suit le remplissage'
+  gate:
+    key: hud_gauge_defects
+    op: ==
+    value: 0
+  hits_means: images ou la jauge rechargee est dessinee
+  known_cause: 'SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end.
+    Owner : « c''est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent
+    suivre la rotation ».'
+  deliverable: |-
+    `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. L'ANGLE : par image, angle du masque = fraction d'eco x angle plein, ecart publie (< 0,5 degre).
+
+    2. L'EMBOUT : l'embout de la couleur active est dessine a la frontiere du remplissage, tourne du meme angle (ecart publie < 0,5 degre), et disparait a 0 %.
+
+    3. LA COULEUR : pleine et embout de l'eco ACTIVE (bleu/rouge/jaune), jamais d'une autre.
+
+    4. LE VIDAGE : la fraction suit la quantite d'eco du jeu, et sa vitesse de vidage est celle d'origine (memes valeurs aux memes images sur un ramassage scripte).
+
+    5. LA POSITION : base, pleine et embout au rectangle de la jauge d'origine (ecart 0 px).
+
+    6. ETEINT = ORIGINE.
+
+    PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+  where: 'HUD en jeu apres un ramassage d''eco bleue, rouge ou jaune : la jauge se remplit dans la bonne
+    couleur, l''embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d''origine.'
+  out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
+  prompt: prompts/item-hud-eco-gauge.md
+- status: open
+  game: jak1
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-hud.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  device: true
+  owner_ok: null
+  no_code: true
+  depends_on: *id005
+  id: hud-3d-pickups
+  priority: 45
+  owner_test: true
+  feature: 'Mécamouche, orbe, particule d''éco verte et pile d''énergie du HUD : les vrais modèles du
+    jeu à la place des sprites'
+  gate:
+    key: hud_model_defects
+    op: ==
+    value: 0
+  hits_means: emplacements du HUD dessines avec un modele
+  known_cause: 'SPEC HUD §5, mots de l''owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite
+    dégueu », « une vraie orbe », « une vraie particule d''eco verte comme celles qu''on ramasse in game
+    », « pour la pile d''énergie, idem ».'
+  deliverable: |-
+    `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. QUATRE EMPLACEMENTS, QUATRE MODELES : mecamouche (vue de face), orbe, particule d'eco verte, pile ; par emplacement, l'identifiant du modele dessine est publie et c'est celui du jeu (le meme que l'objet ramassable).
+
+    2. PLUS DE SPRITE : allume, le nombre d'appels du chemin sprite d'origine pour ces quatre elements = 0.
+
+    3. LA POSITION ET LA TAILLE : chaque modele est cadre dans le rectangle de l'element d'origine (rectangles publies, ecart 0 px).
+
+    4. LE COUT : temps par image du HUD allume contre eteint, >= 300 images, publie (< 0,3 ms sur le telephone).
+
+    5. ETEINT = ORIGINE.
+
+    PREUVE : `FEATURE hud-3d-pickups armed=1 hits=<emplacements du HUD dessines avec un modele>` + la ligne `hud_model_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+  where: 'HUD en jeu : la mecamouche, l''orbe, la particule d''eco verte a cote du coeur et la pile d''energie
+    sont les vrais objets du jeu en 3D, a la place des sprites plats.'
+  out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
+  prompt: prompts/item-hud-3d-pickups.md
+- status: open
+  game: jak1
+  code_scope: jeu
+  spec: prompts/SPEC-refonte-hud.md
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 420
+  device: true
+  owner_ok: null
+  no_code: true
+  depends_on:
+  - hud-heart
+  - hud-eco-gauge
+  - hud-3d-pickups
+  id: hud-behavior-parity
+  priority: 55
+  owner_test: true
+  feature: Le HUD rechargé apparaît, disparaît et clignote exactement comme le HUD d'origine
+  gate:
+    key: hud_parity_defects
+    op: ==
+    value: 0
+  hits_means: evenements de HUD compares
+  known_cause: 'SPEC HUD §6, owner : « faut que les comportements de clignotement/affichage soient identiques
+    à l''original (du moins dans un premier temps) ».'
+  deliverable: |-
+    `hud_parity_defects` = 0 : sur un rejeu scripte (ramassages, degats, entree/sortie de zone), le journal des evenements du HUD (apparition, disparition, debut/fin de clignotement, flash de degat, ramassage, debut/fin de vidage) est enregistre HUD recharge ALLUME puis ETEINT ; chaque evenement doit exister des deux cotes a la meme image (ecart 0). Publier le nombre d'evenements compares (non nul), le nombre d'ecarts, et la liste des ecarts.
+
+    PREUVE : `FEATURE hud-behavior-parity armed=1 hits=<evenements de HUD compares>` + la ligne `hud_parity_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+  where: 'Jouer normalement, HUD rechargé allumé puis éteint : mêmes moments d''apparition, de disparition
+    et de clignotement.'
+  out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
+  prompt: prompts/item-hud-behavior-parity.md
