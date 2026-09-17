@@ -229,6 +229,19 @@ uint64_t g_fam_gap64_far[kFamCount] = {};
 // correctif de dessin peut les retirer.
 uint64_t g_fam_gap64_edge[kFamCount] = {};
 uint64_t g_fam_gap64_inner[kFamCount] = {};
+// (4) LE PIXEL LE PLUS ECARTE, NOMME. Quand `gap64` tombe a UN pixel, « 1 sur 5 411, au bord
+// d'une silhouette » ne dit ni ou il est, ni de combien il s'ecarte — et sur le shrub le TAUX DE
+// BASE du test de silhouette vaut 1000 pour 1000 (`ao_geom_shrub_edge_base_rate_x1000`), donc la
+// repartition edge/inner y est vraie par construction et ne classe rien. On garde le maximum de
+// |d| par famille avec ses coordonnees, les deux profondeurs en quanta 24 bits et l'image de
+// recensement ou il est tombe : un sous-compte gratuit de la MEME branche, qui nomme le residu
+// au lieu de le laisser deviner.
+uint64_t g_fam_worst_q[kFamCount] = {};
+uint64_t g_fam_worst_x[kFamCount] = {};
+uint64_t g_fam_worst_y[kFamCount] = {};
+uint64_t g_fam_worst_pre_q[kFamCount] = {};
+uint64_t g_fam_worst_scene_q[kFamCount] = {};
+uint64_t g_fam_worst_frame[kFamCount] = {};
 // ── (n) L'INTERROGATOIRE DU PILOTE, ses trois compteurs ──────────────────────────────────────
 // Remplis par `arch_interrogate`, une fois par programme lie qui recoit l'AO. Voir le
 // commentaire de cette fonction : `_switch_readers` est le CONTROLE POSITIF sans lequel
@@ -1068,6 +1081,13 @@ void publish_all() {
     // `inner` = aucune. Un `inner` non nul REFUTE l'hypothese silhouette. Leur somme vaut
     // aussi `_gap64_px`.
     autoport_proof::publish((base + "_gap64_edge_px").c_str(), g_fam_gap64_edge[f]);
+    // (4) LE RESIDU, NOMME : de combien, ou, et entre quelles deux profondeurs.
+    autoport_proof::publish((base + "_worst_q").c_str(), g_fam_worst_q[f]);
+    autoport_proof::publish((base + "_worst_x").c_str(), g_fam_worst_x[f]);
+    autoport_proof::publish((base + "_worst_y").c_str(), g_fam_worst_y[f]);
+    autoport_proof::publish((base + "_worst_pre_q").c_str(), g_fam_worst_pre_q[f]);
+    autoport_proof::publish((base + "_worst_scene_q").c_str(), g_fam_worst_scene_q[f]);
+    autoport_proof::publish((base + "_worst_frame").c_str(), g_fam_worst_frame[f]);
     autoport_proof::publish((base + "_gap64_inner_px").c_str(), g_fam_gap64_inner[f]);
     // ... et LE TAUX DE BASE du meme test, sur la population couverte, un pixel sur
     // `kEdgeProbeStride`. `edge = 100 %` ne veut rien dire si le taux de base vaut deja 1000.
@@ -2479,6 +2499,18 @@ void proof_post_opaque(SharedRenderState* rs) {
             g_geom_gap[k]++;
             // (1) la MEME echelle, mais par famille.
             g_fam_gap_hist[fam][k]++;
+          }
+        }
+        // (4) le pixel le plus ecarte de la famille, avec de quoi aller le regarder.
+        {
+          const uint64_t adq = (uint64_t)(ad * 16777215.f);
+          if (adq > g_fam_worst_q[fam]) {
+            g_fam_worst_q[fam] = adq;
+            g_fam_worst_x[fam] = (uint64_t)(i % (size_t)w);
+            g_fam_worst_y[fam] = (uint64_t)(i / (size_t)w);
+            g_fam_worst_pre_q[fam] = (uint64_t)(pl * 16777215.f);
+            g_fam_worst_scene_q[fam] = (uint64_t)(sz * 16777215.f);
+            g_fam_worst_frame[fam] = g_geom_frames;
           }
         }
         if (ad > tol[1]) {

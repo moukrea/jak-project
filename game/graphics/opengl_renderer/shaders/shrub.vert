@@ -110,6 +110,13 @@ void main() {
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup
 #endif
   vec4 transformed = -pc_camera[3];
+  // lighting-ao-indirect (terme 3) : LA MEME SEQUENCE QUE tfrag3.vert:85 ET prepass_world.vert:170.
+  // `make_new_cam_mat` (background_common.cpp:493-512) met `result` a zero puis n'ecrit que
+  // result[3][2] : `pc_camera[3].w` vaut donc 0 par construction et cette ligne ne change AUCUNE
+  // valeur — ni la profondeur, ni le brouillard qui relit `transformed.w`. Elle retire la derniere
+  // difference de TEXTE entre la projection du shrub et celle que la prepasse de profondeur rejoue,
+  // pour que les deux programmes aient la meme sequence d'operations a compiler.
+  transformed.w = 0.0;
   transformed -= pc_camera[0] * vert.x;
   transformed -= pc_camera[1] * vert.y;
   transformed -= pc_camera[2] * vert.z;

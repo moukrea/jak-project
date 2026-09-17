@@ -28,7 +28,8 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
   void draw_debug_window() override;
 
   // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Dessine le
-  // caster_index_buffer (GL_TRIANGLES assainis) de chaque arbre — le draw de la passe soleil.
+  // MEME `index_buffer` en GL_TRIANGLE_STRIP que la passe couleur, plage par plage (voir
+  // `prepass_groups`) — la liste assainie `caster_index_buffer` reste a la passe soleil.
   const char* prepass_kind() const override { return "shrub"; }
   const std::string& prepass_level_name() const override { return m_level_name; }
   uint64_t draw_depth_prepass(SharedRenderState* rs) override;
@@ -81,6 +82,18 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
       u8 tex_mode = 0xff;
     };
     std::vector<CasterGroup> caster_groups;
+    // lighting-ao-indirect (terme 3) : LES PLAGES DE LA PREPASSE DE PROFONDEUR, ET POURQUOI CE
+    // N'EST PAS `caster_groups`. La liste assainie ci-dessus est une liste de TRIANGLES rebatie
+    // a partir du flux de strips : ordre des sommets recompose, slivers inter-instances retires.
+    // La passe COULEUR, elle, dessine `index_buffer` en GL_TRIANGLE_STRIP. Deux geometries
+    // voisines mais pas identiques, donc deux profondeurs voisines mais pas identiques — mesure
+    // de l'essai 1 : `ao_geom_shrub_gap4q_px` = 61 px sur 5 411 couverts, quand le TFRAG et le
+    // TIE, dont la prepasse dessine le MEME `index_buffer` que leur passe couleur, rendent
+    // 0 sur 2 124 894 et 0 sur 652 891. Ces plages-ci pointent donc dans le flux de strips, aux
+    // memes offsets que les draws de la passe couleur (`first_index_index` / `num_indices`).
+    // `caster_groups` reste au service de la passe SOLEIL, qui veut au contraire la liste
+    // assainie (les slivers y dessinaient les traits d'ombre fantomes de l'owner).
+    std::vector<CasterGroup> prepass_groups;
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
     // Gperf-particles round 3: second TOD texture for the ping-pong path, plus

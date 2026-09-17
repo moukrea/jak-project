@@ -70,18 +70,39 @@ void Shrub::init_shaders(ShaderLibrary& shaders) {
 
 // lighting-ao-indirect : prepasse de profondeur vue camera. Programme PREPASS_WORLD actif,
 // FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait que lier
-// et dessiner. Meme draw que la passe soleil : la liste GL_TRIANGLES assainie
-// (caster_index_buffer, slivers inter-instances retires), jamais le flux de strips brut.
-// caster_index_buffer n'est rempli que sous OG_FEAT_PBR (update_load) : hors de la, le compte
-// reste 0 et rien n'est dessine.
+// et dessiner.
+//
+// LE MEME BUFFER QUE LA PASSE COULEUR, ET C'EST TOUT L'INTERET (terme 3, essai 2 de
+// `ao-indirect-clean`). Jusqu'ici cette prepasse dessinait `caster_index_buffer` — la liste
+// GL_TRIANGLES assainie batie pour la passe SOLEIL : triangles recomposes un a un a partir du
+// flux de strips, ordre des sommets refait, slivers inter-instances retires. La passe couleur,
+// elle, dessine `index_buffer` en GL_TRIANGLE_STRIP (:1157, :1210). Deux geometries voisines
+// rendent deux profondeurs voisines, pas identiques — et la porte, elle, exige l'identite.
+// LE CONTROLE EST DANS LA MEME COURSE, il n'y a rien a supposer : le TFRAG et le TIE, dont la
+// prepasse soumet le MEME `index_buffer` que leur passe couleur (TFragment.cpp:564,
+// Tie3.cpp:1359), rendent `ao_geom_tfrag_gap4q_px=0` sur 2 124 894 px couverts et
+// `ao_geom_tie_*_gap4q_px=0` sur 652 891 ; le shrub, seule famille dessinee depuis un buffer
+// REBATI, rendait 61 px sur 5 411 — dont le pixel unique de `ao_sway_gap_px` qui est le dernier
+// defaut de la porte. On dessine donc les MEMES plages d'indices que la passe couleur
+// (`prepass_groups`, offsets `first_index_index` / `num_indices` des draws), en strips.
+// `caster_index_buffer` reste la propriete de la passe soleil : ses slivers y dessinaient les
+// traits d'ombre fantomes de l'owner, et ils n'ont rien a voir avec la profondeur de l'image.
 uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
   uint64_t total = 0;
+#ifdef __ANDROID__
+  // GLES n'a pas d'index de restart reglable : le mode fixe restarte sur tout-a-un, ce qui EST
+  // UINT32_MAX pour nos indices u32 (meme raison qu'a TFragment.cpp:549).
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
+  glEnable(GL_PRIMITIVE_RESTART);
+  glPrimitiveRestartIndex(UINT32_MAX);
+#endif
   for (auto& tree : m_trees) {
-    if (tree.caster_index_count == 0) {
+    if (tree.index_count == 0) {
       continue;
     }
     glBindVertexArray(tree.vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
     // lighting-ao-indirect (i), refus owner du 2026-09-13 : « les shrubs qui bougent avec le
     // vent... Leur AO reste a la place initiale ». Le MEME deplacement que la passe couleur
     // (:786-831) : brise partagee, ressort natif de ND, contact vegetation. Les trois reglages
@@ -100,7 +121,7 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
     prepass::sway_shrub(pre_frame, tree.wind_tex,
                         tree.wind_active && tree.wind_seeded,
                         foliage_wind::enabled() && tree.contact_active);
-    if (tree.caster_groups.empty()) {
+    if (tree.prepass_groups.empty()) {
       // partition inconnue (buffer bati hors OG_FEAT_PBR) : un seul draw, sans texture.
       // lighting-ao-indirect (c)/(g) : sans partition, on ne sait pas QUELS draws coupent le
       // z-write — la passe fantome ne dessine donc RIEN ici plutot que d'inventer.
@@ -108,14 +129,15 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
         continue;
       }
       const auto submitted = prepass::draw_depth_range(
-          GL_TRIANGLES, prepass::make_depth_range(0, 0.f, 0, tree.caster_index_count));
+          GL_TRIANGLE_STRIP, prepass::make_depth_range(0, 0.f, 0, tree.index_count));
       total += submitted;
-      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), 0, submitted, GL_TRIANGLES);
+      soft_draw_census::record("shrub", tree.index_data, tree.index_count, 0, submitted,
+                               GL_TRIANGLE_STRIP);
       continue;
     }
     // Un draw par groupe : le feuillage a decoupe doit passer son alpha-test ici, sinon l'AO
     // voit un quad plein la ou l'image voit des brins (owner 2026-09-10, defaut b).
-    for (const auto& g : tree.caster_groups) {
+    for (const auto& g : tree.prepass_groups) {
       // lighting-ao-indirect (c)/(g) : la prepasse LIVREE dessine les groupes a z-write, la
       // passe fantome les autres — jamais les deux.
       if (g.noz != prepass::noz_pass_active()) {
@@ -123,10 +145,11 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
       }
       const GLuint tex = (m_textures && g.tex_id < m_textures->size()) ? m_textures->at(g.tex_id) : 0;
       const auto submitted = prepass::draw_depth_range(
-          GL_TRIANGLES,
+          GL_TRIANGLE_STRIP,
           prepass::make_depth_range(tex, g.alpha_min, g.first, g.count, g.tex_mode));
       total += submitted;
-      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), g.first, submitted, GL_TRIANGLES);
+      soft_draw_census::record("shrub", tree.index_data, tree.index_count, g.first, submitted,
+                               GL_TRIANGLE_STRIP);
     }
   }
   return total;
@@ -466,6 +489,10 @@ void Shrub::update_load(const LevelData* loader_data) {
       // une bande ne traverse pas une frontiere de draw.
       std::vector<Tree::CasterGroup> groups;
       groups.reserve(tree.static_draws.size());
+      // lighting-ao-indirect (terme 3) : les plages de la PREPASSE, baties dans la meme boucle
+      // mais pointant dans le FLUX DE STRIPS, pas dans la liste assainie. Voir Shrub.h.
+      std::vector<Tree::CasterGroup> pre_groups;
+      pre_groups.reserve(tree.static_draws.size());
       for (const auto& draw : tree.static_draws) {
         const u32 first_out = (u32)caster.size();
         a = UINT32_MAX;
@@ -491,12 +518,20 @@ void Shrub::update_load(const LevelData* loader_data) {
           b = idx;
         }
         const u32 count_out = (u32)caster.size() - first_out;
+        const bool noz = !prepass_writes_depth(draw.mode);
         if (count_out > 0) {
-          const bool noz = !prepass_writes_depth(draw.mode);
           groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode), first_out, count_out,
                             noz, prepass_tex_mode(draw.mode)});
+        }
+        // ... et la MEME partition, mais sur le flux de strips que la passe couleur dessine.
+        // `note_noz_range` compte ICI et plus au-dessus : c'est cette liste-la que la prepasse
+        // soumet, donc c'est son compte d'indices ecartes qui a un sens.
+        if (draw.num_indices > 0) {
+          pre_groups.push_back({draw.tree_tex_id, prepass_alpha_min(draw.mode),
+                                draw.first_index_index, draw.num_indices, noz,
+                                prepass_tex_mode(draw.mode)});
           if (noz) {
-            prepass::note_noz_range(count_out);
+            prepass::note_noz_range(draw.num_indices);
           }
         }
       }
@@ -507,6 +542,7 @@ void Shrub::update_load(const LevelData* loader_data) {
       m_trees[l_tree].caster_index_count = (u32)caster.size();
       if (soft_draw_census::active()) m_trees[l_tree].soft_caster_indices = caster;
       m_trees[l_tree].caster_groups = std::move(groups);
+      m_trees[l_tree].prepass_groups = std::move(pre_groups);
       // restore the VAO's element binding to the stock stream for the main draws.
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_trees[l_tree].index_buffer);
       if (dropped > 0) {
