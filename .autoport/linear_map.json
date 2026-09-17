@@ -1,10 +1,11 @@
 {
  "_ids": {
   "labels": {
-   "ok": "1f8ae56e-f3c3-4786-baf0-ee7a8c22dcc0",
+   "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
    "read": "77a7ca0d-bb7d-47d8-9ddb-78144e731db1",
    "talk": "e1480f29-4721-4791-acd8-0afd06772c31",
-   "todo": "5a4c3706-0a12-4b2b-85e1-dcc2d5525b40"
+   "todo": "5a4c3706-0a12-4b2b-85e1-dcc2d5525b40",
+   "v2": true
   },
   "projects": {
    "Divers": "87ae2f79-c95a-4c6b-8c42-81fe5cef2cb1",

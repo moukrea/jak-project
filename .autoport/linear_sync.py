@@ -226,7 +226,7 @@ def ensure_projects(L, team_id):
 LABEL_READ = "À lire : réponse du harnais"
 LABEL_TODO = "À traiter : retour de l'owner"
 LABEL_TALK = "En discussion"
-LABEL_OK = "Validé par l'owner"
+LABEL_OK = "Sans revue (machine)"  # owner 17/09 : marquer ceux que la machine passe Done seule, pas l'inverse
 
 
 def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
@@ -259,7 +259,7 @@ def swap_labels(L, issue_id, add=None, remove=None):
     if add and add not in want:
         want.append(add)
     talk = _TALK.get("id")
-    if add and talk and talk not in want:
+    if add and talk and talk not in want and add in (_TALK.get("read"), _TALK.get("todo")):
         want.append(talk)
     if sorted(want) != sorted(ids):
         L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=issue_id, i={"labelIds": want})
@@ -276,8 +276,8 @@ def labels(L, team):
     read = ensure_label(L, team, LABEL_READ, "#f2994a")
     todo = ensure_label(L, team, LABEL_TODO, "#eb5757")
     talk = ensure_label(L, team, LABEL_TALK, "#5e6ad2")
-    _TALK["id"] = talk
-    _TALK["ok"] = ensure_label(L, team, LABEL_OK, "#27ae60")
+    _TALK["id"] = talk; _TALK["read"] = read; _TALK["todo"] = todo
+    _TALK["ok"] = ensure_label(L, team, LABEL_OK, "#95a2b3")
     ensure_view(L, team, read)
     ensure_view(L, team, todo, name="À traiter", icon="Inbox", color="#eb5757",
                 desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
@@ -304,7 +304,9 @@ def apply_owner_move(L, bl, iid, rec, here):
     if here == "Done":
         if not it.get("owner_ok"):
             bl.validate(iid, "Déplacé en « Done » dans Linear par l'owner", date=today)
-            _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel (étiquette « Validé par l'owner »).")
+            _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel.")
+            if _TALK.get("ok"):
+                swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
     elif here == "Canceled":
         if s != "archived":
             bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
@@ -322,8 +324,8 @@ def apply_owner_move(L, bl, iid, rec, here):
             fields["status"] = "open"
             if s == "validated":
                 fields["owner_ok"] = None
-                if _TALK.get("ok"):
-                    swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
+            if _TALK.get("ok"):
+                swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
         if here in ("Todo", "In Progress"):
             fields["priority"] = top_priority()
         if fields:
@@ -494,13 +496,13 @@ def main():
         retries = (json.loads(STATE_JSON.read_text()).get("retries") or {})
     mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
     ids = mp.get("_ids") or {}
-    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and ids["labels"].get("ok") and "Validé" not in ids["states"]:
+    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and ids["labels"].get("ok") and ids["labels"].get("v2") and "Validé" not in ids["states"]:
         team, states, projects = ids["team"], ids["states"], ids["projects"]
-        label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]; _TALK["ok"] = ids["labels"].get("ok")
+        label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]; _TALK["ok"] = ids["labels"].get("ok"); _TALK["read"] = label; _TALK["todo"] = todo
     else:
         team = ensure_team(L); states = ensure_states(L, team); projects = ensure_projects(L, team)
         label, todo = labels(L, team)
-        mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"], "ok": _TALK["ok"]}}
+        mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"], "ok": _TALK["ok"], "v2": True}}
     today = dt.date.today()
     if mp and not a.no_pull:
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
@@ -544,8 +546,8 @@ def main():
                         if lab:
                             swap_labels(L, rec["issue_id"], remove=lab)
                 moved += 1
-            if it.get("owner_ok") and _TALK.get("ok"):
-                swap_labels(L, rec["issue_id"], add=_TALK["ok"])
+            if _TALK.get("ok") and it["status"] == "validated":
+                swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
             rec.update({"last_state": st, "hash": h})
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
