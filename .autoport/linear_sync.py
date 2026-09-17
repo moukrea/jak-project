@@ -43,7 +43,7 @@ SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
 STATES = [  # (nom Linear, type Linear) — colonnes NATIVES de Linear quand elles existent (owner 17/09), custom sinon
     ("Backlog", "backlog"), ("Todo", "unstarted"), ("In Progress", "started"),
-    ("In Review", "started"), ("À arbitrer", "started"), ("Validé", "completed"),
+    ("In Review", "started"), ("À arbitrer", "started"),
     ("Done", "completed"), ("Canceled", "canceled"),
 ]
 PROJECTS = {  # prefixe d'id -> projet
@@ -118,7 +118,7 @@ def target_state(bl, it):
     if s == "blocked":
         return "À arbitrer"
     if s == "validated":
-        return "Validé" if it.get("owner_ok") else "Done"
+        return "Done"  # owner 17/09 : Validé et Done c'est redondant ; l'accord de l'owner est une etiquette
     return "Canceled"
 
 
@@ -226,6 +226,7 @@ def ensure_projects(L, team_id):
 LABEL_READ = "À lire : réponse du harnais"
 LABEL_TODO = "À traiter : retour de l'owner"
 LABEL_TALK = "En discussion"
+LABEL_OK = "Validé par l'owner"
 
 
 def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
@@ -276,6 +277,7 @@ def labels(L, team):
     todo = ensure_label(L, team, LABEL_TODO, "#eb5757")
     talk = ensure_label(L, team, LABEL_TALK, "#5e6ad2")
     _TALK["id"] = talk
+    _TALK["ok"] = ensure_label(L, team, LABEL_OK, "#27ae60")
     ensure_view(L, team, read)
     ensure_view(L, team, todo, name="À traiter", icon="Inbox", color="#eb5757",
                 desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
@@ -299,10 +301,10 @@ def apply_owner_move(L, bl, iid, rec, here):
     def top_priority():
         opens = [x.get("priority") for x in bl.items if x["status"] == "open" and isinstance(x.get("priority"), int)]
         return (min(opens) - 1) if opens else 0
-    if here == "Validé":
+    if here == "Done":
         if not it.get("owner_ok"):
-            bl.validate(iid, "Déplacé en « Validé » dans Linear par l'owner", date=today)
-            _say(L, rec, "Validé par ton déplacement du ticket : c'est ton feu vert, enregistré tel quel.")
+            bl.validate(iid, "Déplacé en « Done » dans Linear par l'owner", date=today)
+            _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel (étiquette « Validé par l'owner »).")
     elif here == "Canceled":
         if s != "archived":
             bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
@@ -320,6 +322,8 @@ def apply_owner_move(L, bl, iid, rec, here):
             fields["status"] = "open"
             if s == "validated":
                 fields["owner_ok"] = None
+                if _TALK.get("ok"):
+                    swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
         if here in ("Todo", "In Progress"):
             fields["priority"] = top_priority()
         if fields:
@@ -331,8 +335,8 @@ def apply_owner_move(L, bl, iid, rec, here):
             if here in ("Todo", "In Progress"):
                 msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
             _say(L, rec, msg)
-    elif here in ("In Review", "Done"):
-        _say(L, rec, "Cette colonne est celle de la machine (une porte mesurée). Je le remets où le backlog le place ; si tu veux le forcer, commente ce que tu attends.")
+    elif here == "In Review":
+        _say(L, rec, "In Review est posé par la machine quand une porte mesurée tient. Je le remets où le backlog le place ; si tu veux forcer, commente ce que tu attends.")
         rec["hash"] = ""  # recalage par la synchro
     bl = B.load()
     it = bl.get(iid)
@@ -490,13 +494,13 @@ def main():
         retries = (json.loads(STATE_JSON.read_text()).get("retries") or {})
     mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
     ids = mp.get("_ids") or {}
-    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels"):
+    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and ids["labels"].get("ok") and "Validé" not in ids["states"]:
         team, states, projects = ids["team"], ids["states"], ids["projects"]
-        label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]
+        label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]; _TALK["ok"] = ids["labels"].get("ok")
     else:
         team = ensure_team(L); states = ensure_states(L, team); projects = ensure_projects(L, team)
         label, todo = labels(L, team)
-        mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"]}}
+        mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"], "ok": _TALK["ok"]}}
     today = dt.date.today()
     if mp and not a.no_pull:
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
@@ -511,7 +515,7 @@ def main():
         st = target_state(bl, it)
         desc = description(bl, it, retries)
         title = (it.get("feature") or iid).strip()[:250]
-        h = hashlib.sha1((title + "|" + st + "|" + desc + "|" + str(priority_for(bl, it))).encode()).hexdigest()
+        h = hashlib.sha1((title + "|" + st + "|" + desc + "|" + str(priority_for(bl, it)) + "|ok=" + str(bool(it.get("owner_ok")))).encode()).hexdigest()
         rec = mp.get(iid)
         if rec and rec.get("hash") == h:
             continue
@@ -535,11 +539,13 @@ def main():
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
                 if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
-                elif st in ("Validé", "Canceled"):
+                elif st in ("Done", "Canceled"):
                     for lab in (label, todo, _TALK.get("id")):
                         if lab:
                             swap_labels(L, rec["issue_id"], remove=lab)
                 moved += 1
+            if it.get("owner_ok") and _TALK.get("ok"):
+                swap_labels(L, rec["issue_id"], add=_TALK["ok"])
             rec.update({"last_state": st, "hash": h})
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
