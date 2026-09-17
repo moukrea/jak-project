@@ -18,6 +18,7 @@ Jeton : ~/.config/autoport/linear.env (LINEAR_API_KEY), jamais dans le depot.
 Correspondance id -> ticket : .autoport/linear_map.json (versionne).
 """
 import argparse
+import re
 import datetime as dt
 import hashlib
 import json
@@ -360,6 +361,43 @@ def apply_owner_move(L, bl, iid, rec, here):
     return bl
 
 
+def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
+    """Un ticket cree par l'owner directement dans Linear devient un item du backlog (owner 17/09 :
+    « j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal ! »). Il arrive en bas de la pile,
+    sans porte : le superviseur est reveille (ligne NOUVEAU TICKET) et le cadre."""
+    known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
+    d = L.q('query($t:String!){ team(id:$t){ issues(first:250){ nodes { id identifier title description state { name type } } } } }', t=team)
+    n = 0
+    for iss in d["team"]["issues"]["nodes"]:
+        if iss["id"] in known or iss["state"]["type"] in ("completed", "canceled"):
+            continue
+        base = re.sub(r"[^a-z0-9]+", "-", iss["title"].lower().encode("ascii", "ignore").decode()).strip("-")[:48] or "ticket"
+        iid = "owner-" + base
+        k = 2
+        while bl.get(iid):
+            iid = "owner-%s-%d" % (base, k); k += 1
+        print("NOUVEAU TICKET OWNER : %s « %s » -> item %s (a cadrer par le superviseur)" % (iss["identifier"], iss["title"][:60], iid))
+        if dry:
+            continue
+        item = {"id": iid, "status": "open", "game": "jak1", "priority": 999, "feature": iss["title"].strip()[:200],
+                "gate": None, "depends_on": [], "device": False, "owner_test": True, "owner_ok": None, "code_scope": "jeu",
+                "max_turns": 600, "max_retries": 6, "proof_timeout": 420, "no_code": True,
+                "known_cause": "Ticket cree par l'owner dans Linear le %s. Son texte : %s" % (dt.date.today().isoformat(), (iss.get("description") or "").strip()),
+                "notes": "A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.",
+                "where": "", "deliverable": "", "out_of_scope": "", "spec": None}
+        path = bl.path
+        with B._Lock(path):
+            fresh = B._read(path)
+            fresh["items"].append(item)
+            B._atomic_write(path, B._dump(fresh))
+        mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
+                   "last_state": iss["state"]["name"], "hash": "", "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+        _say(L, {"issue_id": iss["id"]}, "Ticket adopté par le harnais (item « %s »). Il n'a pas encore de porte de mesure : le superviseur le cadre, puis il entrera dans la file. Ta description est conservée dans l'item." % iid)
+        swap_labels(L, iss["id"], add=todo_id)
+        n += 1
+    return n
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -569,6 +607,9 @@ def main():
             rec.update({"last_state": st, "hash": h})
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+    adopted = adopt_owner_issues(L, bl, mp, team, todo, a.dry_run)
+    if adopted:
+        bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage

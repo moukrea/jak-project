@@ -72,11 +72,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "ae7d0d0cc648b55b7df9f2e8422c5764690664ad",
+  "hash": "8a6a348680f76928c7880ff7d742a4f1e61a9d8b",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
   "last_state": "In Progress",
-  "pulled_at": "2026-09-17T08:40:23.193Z",
+  "pulled_at": "2026-09-17T09:41:05.522Z",
   "relations": [
    "ao-static-probe-deterministic",
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
