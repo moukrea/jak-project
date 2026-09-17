@@ -9990,7 +9990,7 @@ items:
     attempt: 1
     journal: validator-001.txt
   delivered: '2026-09-17'
-- status: in-progress
+- status: to-test
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -10040,6 +10040,14 @@ items:
   hits_means: touffes effectivement montees
   prompt: prompts/item-grass-clumps.md
   block_reason: null
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 20a795444fbc3f02
+    proof_bytes: 56963
+    attempt: 2
+    journal: validator-002.txt
+  delivered: '2026-09-17'
 - status: open
   game: jak1
   owner_test: true
@@ -10590,7 +10598,7 @@ items:
     proof_bytes: 85355
     attempt: 2
     journal: validator-002.txt
-- status: open
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -10602,6 +10610,9 @@ items:
   - soft-baseline
   - grass-surface-truth
   history: []
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
   id: soft-surface-truth
   priority: 81
   device: false

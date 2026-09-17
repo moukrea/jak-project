@@ -989,6 +989,96 @@ inline bool pat_material_is_bare(u32 m) {
 }
 
 // ---------------------------------------------------------------------------
+// soft-surface-truth : UNE SURFACE EST DE NEIGE OU DE SABLE SELON DEUX SOURCES.
+// ---------------------------------------------------------------------------
+//
+// SPEC-surfaces-meubles.md, sections 1 et 11. La campagne `soft-*` pose une COQUE de matiere
+// sur le sable et la neige ; avant de poser quoi que ce soit il faut savoir OU, et le savoir
+// par une mesure. `sand`=5, `snow`=9, `deepsnow`=10 vivent dans les memes bits 6..11 de
+// `pat-surface` que `grass`=7 : c'est LE MEME LECTEUR que `grass-surface-truth`, et il est
+// APPELE, pas recopie. Ce recensement-ci vit dans le meme fichier, apres lui, et se sert de ses
+// helpers d'index et de son predicat de texture herbeuse tels quels — une seconde copie aurait
+// derive, et le compte croise des deux campagnes serait devenu un artefact de recopie.
+//
+// CE RECENSEMENT NE PLACE RIEN, NE CUIT RIEN, N'ECRIT AUCUN FICHIER. Point 4 du contrat :
+// l'image est identique au bit. Il lit, il croise, il compte, il NOMME.
+//
+// LES DEUX SOURCES, lues et publiees separement (point 1) :
+//   MATERIAU : `(pat >> 6) & 0x3f`, exactement la lecture de `surface_census`. Elle dit MEUBLE
+//              quand la valeur est `sand`, `snow` ou `deepsnow` ; elle se tait quand la valeur
+//              ne nomme aucun `pat-material`.
+//   TEXTURE  : le nom de la texture du triangle de RENDU qui couvre le centroide, par le MEME
+//              index XZ et la MEME sonde. Elle dit MEUBLE quand le nom tombe dans un filet de
+//              NOMS publie tel quel (`census_tex_is_sandy` / `census_tex_is_snowy`).
+//
+// LE DESACCORD SE COMPTE, IL NE SE DEVINE PAS (point 2). `disagree` = les deux sources classent
+// et divergent sur « meuble ? » ; les deux sens sont separes et les textures impliquees sont
+// NOMMEES par niveau. Un desaccord n'est PAS un defaut de cet item : c'est la donnee que
+// `soft-support-map` et `soft-levels` consommeront.
+//
+// L'ARBITRAGE EST NOMME, ET C'EST LUI QUI REND L'EXCLUSIVITE AVEC L'HERBE (point 3). Chaque
+// triangle recoit UNE classe resolue :
+//     materiau nomme  -> la classe du MATERIAU tranche      (SPEC decision 12 : une texture de
+//                        sable posee sur une collision `grass` est un mesh pose par-dessus, et
+//                        la decision 12 l'EXCLUT de la coque tant que `grass-overlay-meshes`
+//                        n'a pas mesure ; c'est donc la collision qui a le dernier mot)
+//     materiau muet   -> la classe de la TEXTURE, faute de mieux
+//     ni l'un ni l'autre -> INCONNUE : le triangle tombe dans `unclassified`, la grandeur de la porte
+// Les classes etant exclusives, `cross_eligible` vaut zero par construction — c'est une GARDE,
+// pas la mesure. LA MESURE, c'est `cross_raw` : le nombre de triangles que les deux campagnes
+// se disputeraient si l'on prenait le OU des deux sources sans arbitrer. Il est publie a cote,
+// avec les textures qui le composent, et il n'est PAS nul.
+struct SoftSurfaceCensus {
+  // Population et denominateurs — memes definitions que `SurfaceCensus`.
+  u64 ground_tris = 0;
+  u64 collision_tris = 0;
+  u64 mode_ground = 0, mode_wall = 0, mode_obstacle = 0, mode_other = 0;
+  // CE QUE LA POPULATION EXCLUT, CHIFFRE : les 2 952 triangles de sable en mode MUR de
+  // `training` (SPEC section 1) sortent d'ici, et on les compte au lieu de les perdre.
+  u64 mode_wall_soft = 0, mode_obstacle_soft = 0, mode_other_soft = 0;
+  // Couverture des deux sources sur la population de sol.
+  u64 by_material = 0, by_texture = 0, by_both = 0;
+  u64 classified = 0;    // au moins une source  <- `hits=` de l'item
+  u64 unclassified = 0;  // aucune des deux      <- premier terme de la porte
+  u64 tex_only_unclassified = 0, mat_only_unclassified = 0;
+  // SOURCE MATERIAU, par classe. `mat_soft` = sand + snow + deepsnow.
+  u64 mat_sand = 0, mat_snow = 0, mat_deepsnow = 0, mat_soft = 0;
+  u64 mat_grass = 0, mat_unnamed = 0;
+  // SOURCE TEXTURE, par classe. `tex_soft` = sableuse ou neigeuse.
+  u64 tex_sand = 0, tex_snow = 0, tex_soft = 0, tex_grass = 0;
+  // CE QUE LA LISTE DE REJET DU FILET A ECARTE : un nom qui porte « sand »/« beach »/« snow »
+  // mais aussi un jeton de matiere dure (`beachrock`, `snow-metalroof-01`). Compte ET nomme.
+  u64 tex_reject = 0;
+  // LE CROISEMENT DES DEUX SOURCES SUR LA QUESTION « MEUBLE ? ».
+  u64 soft_by_material = 0, soft_by_texture = 0, soft_by_both = 0, soft_by_either = 0;
+  u64 disagree = 0, disagree_mat_soft_tex_not = 0, disagree_tex_soft_mat_not = 0;
+  // LA CLASSE RESOLUE, et l'exclusivite qui en decoule.
+  u64 eligible_soft = 0;    // classe resolue sand/snow/deepsnow
+  u64 eligible_grass = 0;   // classe resolue grass, par les predicats de `surface_census`
+  u64 cross_eligible = 0;   // les deux a la fois — GARDE, nulle par construction
+  u64 cross_raw = 0;        // les deux au sens du OU des sources — LA MESURE, non nulle
+  u64 overlay_soft_tex_on_grass_mat = 0;  // decision 12 : texture meuble sur collision `grass`
+  u64 overlay_grass_tex_on_soft_mat = 0;  // le sens inverse
+  // Temoins de non-vacuite de la source TEXTURE.
+  u64 render_ground_tris = 0, render_draws = 0, textures_seen = 0;
+  // Noms, sans espace, prets pour `proof.txt` : "nom:compte,...".
+  std::string mat_soft_tex_top;   // les textures posees SUR un materiau meuble
+  std::string tex_soft_mat_top;   // les materiaux SOUS une texture meuble
+  std::string disagree_tex_top;   // les textures des desaccords
+  std::string cross_raw_tex_top;  // les textures du litige herbe/coque avant arbitrage
+  std::string tex_reject_top;     // les noms que la liste de rejet a ecartes
+};
+// Deterministe, sans GL, sans horloge, sans fil : les memes octets rendent les memes comptes.
+SoftSurfaceCensus soft_surface_census(const tfrag3::Level& lev, const std::string& level_name);
+// pat-h.gc:5-27 — les deux valeurs de neige, a cote de `kPatMatSand` deja declare ci-dessus.
+constexpr u32 kPatMatSnow = 9;
+constexpr u32 kPatMatDeepSnow = 10;
+// Un materiau que la campagne `soft-*` revendique (SPEC section 1).
+inline bool pat_material_is_soft(u32 m) {
+  return m == kPatMatSand || m == kPatMatSnow || m == kPatMatDeepSnow;
+}
+
+// ---------------------------------------------------------------------------
 // grass-overlay-meshes : LES MESHES POSES PAR-DESSUS UN SOL HERBEUX.
 // ---------------------------------------------------------------------------
 //

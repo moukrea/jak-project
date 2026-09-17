@@ -90,6 +90,12 @@ AUTOPORT_FEATURE_SITE(kSurfaceTruthItemId);
 constexpr const char* kOverlayMeshesItemId = "grass-overlay-meshes";
 AUTOPORT_FEATURE_SITE(kOverlayMeshesItemId);
 
+// soft-surface-truth : l'item qui etablit sable, neige et neige profonde par les MEMES deux
+// sources que l'herbe. Meme raison d'etre pour le SITE : « pas d'instrument ici » et « instrument
+// jamais atteint » ne sont pas le meme zero.
+constexpr const char* kSoftSurfaceItemId = "soft-surface-truth";
+AUTOPORT_FEATURE_SITE(kSoftSurfaceItemId);
+
 // grass-edge-truth : l'item qui etablit le bord sur le vide PAR LA GEOMETRIE. Meme raison d'etre
 // pour le SITE : « pas d'instrument ici » et « instrument jamais atteint » ne sont pas le meme zero.
 constexpr const char* kEdgeTruthItemId = "grass-edge-truth";
@@ -1227,6 +1233,46 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       }
     }
     // ====================== fin grass-surface-truth ========================================
+
+    // ===================== soft-surface-truth : SABLE ET NEIGE ============================
+    // MEME REGLE, MEME LECTEUR, MEME INNOCUITE que le bloc ci-dessus : il LIT et PUBLIE, il ne
+    // decide rien, `m_bake` / `m_instances` / `expand()` ne le voient pas, et il ne tourne que
+    // lorsque le harnais mesure CET item. Les niveaux que la campagne `soft-*` vise (snow, beach,
+    // village1, ogre...) sont recenses hors ligne par le MEME code
+    // (`tools/grass_bake --soft-surface-census`, appele par `.autoport/lib/census/soft-surface-truth.sh`) :
+    // c'est lui qui publie la grandeur de la porte. Ici, le temoin est que l'instrument vit dans
+    // le moteur et qu'il a tire sur le niveau charge.
+    if (autoport_proof::feature_is(kSoftSurfaceItemId)) {
+      static std::string s_soft_census_done;
+      if (s_soft_census_done != level_name) {
+        s_soft_census_done = level_name;
+        const auto sc = grass_bake::soft_surface_census(*lev, level_name);
+        autoport_proof::publish_text("soft_surface_engine_level", level_name.c_str());
+        autoport_proof::publish("soft_surface_engine_ground", sc.ground_tris);
+        autoport_proof::publish("soft_surface_engine_collision", sc.collision_tris);
+        autoport_proof::publish("soft_surface_engine_by_material", sc.by_material);
+        autoport_proof::publish("soft_surface_engine_by_texture", sc.by_texture);
+        autoport_proof::publish("soft_surface_engine_classified", sc.classified);
+        autoport_proof::publish("soft_surface_engine_unclassified", sc.unclassified);
+        autoport_proof::publish("soft_surface_engine_mat_sand", sc.mat_sand);
+        autoport_proof::publish("soft_surface_engine_mat_snow", sc.mat_snow);
+        autoport_proof::publish("soft_surface_engine_mat_deepsnow", sc.mat_deepsnow);
+        autoport_proof::publish("soft_surface_engine_tex_soft", sc.tex_soft);
+        autoport_proof::publish("soft_surface_engine_soft_by_either", sc.soft_by_either);
+        autoport_proof::publish("soft_surface_engine_disagree", sc.disagree);
+        autoport_proof::publish("soft_surface_engine_cross_raw", sc.cross_raw);
+        autoport_proof::publish("soft_surface_engine_cross_eligible", sc.cross_eligible);
+        autoport_proof::publish("soft_surface_engine_eligible_soft", sc.eligible_soft);
+        autoport_proof::publish("soft_surface_engine_eligible_grass", sc.eligible_grass);
+        autoport_proof::publish("soft_surface_engine_mode_wall_soft", sc.mode_wall_soft);
+        autoport_proof::publish_text("soft_surface_engine_mat_soft_tex",
+                                     sc.mat_soft_tex_top.c_str());
+        autoport_proof::publish_text("soft_surface_engine_cross_raw_tex",
+                                     sc.cross_raw_tex_top.c_str());
+        autoport_proof::note_hit_for(kSoftSurfaceItemId, sc.classified);
+      }
+    }
+    // ====================== fin soft-surface-truth =========================================
 
     // ================== grass-overlay-meshes : LES MESHES POSES PAR-DESSUS ==================
     // Meme regle que ci-dessus : ce bloc LIT et PUBLIE, il ne place rien, et il ne tourne que

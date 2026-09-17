@@ -57,7 +57,11 @@ static void usage() {
       "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
       "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
       "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
-      "                 que ce soit. Lecture pure : il ne touche aucun `.grassbake`.\n");
+      "                 que ce soit. Lecture pure : il ne touche aucun `.grassbake`.\n"
+      "  --soft-surface-census  soft-surface-truth : les MEMES deux sources, pour sand/snow/\n"
+      "                 deepsnow (SPEC-surfaces-meubles sections 1 et 11). Publie le desaccord,\n"
+      "                 le litige avec l'herbe avant arbitrage, et la classe resolue. Lecture\n"
+      "                 pure : il sort avant `scan_level` et n'ecrit aucun fichier.\n");
 }
 
 int main(int argc, char** argv) {
@@ -67,6 +71,7 @@ int main(int argc, char** argv) {
   std::string dump_prefix;
   bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
   bool surface_census = false;  // grass-surface-truth : lit et croise les deux sources, n'ecrit rien
+  bool soft_surface_census = false;  // soft-surface-truth : les memes deux sources, pour sable/neige
   bool overlay_census = false;  // grass-overlay-meshes : cherche les meshes poses sur l'herbe
   bool overlay_selftest_only = false;  // ... le controle positif seul, sans niveau
   bool edge_census_on = false;    // grass-edge-truth : classe les aretes de sol, n'ecrit rien
@@ -97,6 +102,8 @@ int main(int argc, char** argv) {
       weld_stats = true;
     } else if (a == "--surface-census") {
       surface_census = true;
+    } else if (a == "--soft-surface-census") {
+      soft_surface_census = true;
     } else if (a == "--overlay-census") {
       overlay_census = true;
     } else if (a == "--overlay-selftest") {
@@ -438,6 +445,65 @@ int main(int argc, char** argv) {
     fmt::print("surface_census_mat_grass_tex_top={}\n", sc.mat_grass_tex_top);
     fmt::print("surface_census_tex_grass_mat_top={}\n", sc.tex_grass_mat_top);
     fmt::print("[grass_bake] surface-census DONE.\n");
+    return 0;
+  }
+
+  // soft-surface-truth : LE MEME RECENSEMENT, POUR LE SABLE ET LA NEIGE. Il sort lui aussi AVANT
+  // `scan_level` : aucune table n'est cuite, aucun fichier n'est ecrit, la donnee livree ne bouge
+  // pas d'un octet sous la course de preuve qui l'appelle.
+  if (soft_surface_census) {
+    const auto sc = grass_bake::soft_surface_census(lev, level_name);
+    fmt::print("soft_census_level={}\n", level_name);
+    fmt::print("soft_census_fr3_bytes={}\n", fr3_size);
+    fmt::print("soft_census_ground={}\n", sc.ground_tris);
+    fmt::print("soft_census_collision={}\n", sc.collision_tris);
+    fmt::print("soft_census_mode_ground={}\n", sc.mode_ground);
+    fmt::print("soft_census_mode_wall={}\n", sc.mode_wall);
+    fmt::print("soft_census_mode_obstacle={}\n", sc.mode_obstacle);
+    fmt::print("soft_census_mode_other={}\n", sc.mode_other);
+    fmt::print("soft_census_mode_wall_soft={}\n", sc.mode_wall_soft);
+    fmt::print("soft_census_mode_obstacle_soft={}\n", sc.mode_obstacle_soft);
+    fmt::print("soft_census_mode_other_soft={}\n", sc.mode_other_soft);
+    fmt::print("soft_census_by_material={}\n", sc.by_material);
+    fmt::print("soft_census_by_texture={}\n", sc.by_texture);
+    fmt::print("soft_census_by_both={}\n", sc.by_both);
+    fmt::print("soft_census_classified={}\n", sc.classified);
+    fmt::print("soft_census_unclassified={}\n", sc.unclassified);
+    fmt::print("soft_census_tex_only_unclassified={}\n", sc.tex_only_unclassified);
+    fmt::print("soft_census_mat_only_unclassified={}\n", sc.mat_only_unclassified);
+    fmt::print("soft_census_mat_sand={}\n", sc.mat_sand);
+    fmt::print("soft_census_mat_snow={}\n", sc.mat_snow);
+    fmt::print("soft_census_mat_deepsnow={}\n", sc.mat_deepsnow);
+    fmt::print("soft_census_mat_soft={}\n", sc.mat_soft);
+    fmt::print("soft_census_mat_grass={}\n", sc.mat_grass);
+    fmt::print("soft_census_mat_unnamed={}\n", sc.mat_unnamed);
+    fmt::print("soft_census_tex_sand={}\n", sc.tex_sand);
+    fmt::print("soft_census_tex_snow={}\n", sc.tex_snow);
+    fmt::print("soft_census_tex_soft={}\n", sc.tex_soft);
+    fmt::print("soft_census_tex_grass={}\n", sc.tex_grass);
+    fmt::print("soft_census_tex_reject={}\n", sc.tex_reject);
+    fmt::print("soft_census_soft_by_material={}\n", sc.soft_by_material);
+    fmt::print("soft_census_soft_by_texture={}\n", sc.soft_by_texture);
+    fmt::print("soft_census_soft_by_both={}\n", sc.soft_by_both);
+    fmt::print("soft_census_soft_by_either={}\n", sc.soft_by_either);
+    fmt::print("soft_census_disagree={}\n", sc.disagree);
+    fmt::print("soft_census_disagree_mat_soft_tex_not={}\n", sc.disagree_mat_soft_tex_not);
+    fmt::print("soft_census_disagree_tex_soft_mat_not={}\n", sc.disagree_tex_soft_mat_not);
+    fmt::print("soft_census_eligible_soft={}\n", sc.eligible_soft);
+    fmt::print("soft_census_eligible_grass={}\n", sc.eligible_grass);
+    fmt::print("soft_census_cross_eligible={}\n", sc.cross_eligible);
+    fmt::print("soft_census_cross_raw={}\n", sc.cross_raw);
+    fmt::print("soft_census_overlay_soft_tex_on_grass_mat={}\n", sc.overlay_soft_tex_on_grass_mat);
+    fmt::print("soft_census_overlay_grass_tex_on_soft_mat={}\n", sc.overlay_grass_tex_on_soft_mat);
+    fmt::print("soft_census_render_ground={}\n", sc.render_ground_tris);
+    fmt::print("soft_census_render_draws={}\n", sc.render_draws);
+    fmt::print("soft_census_textures={}\n", sc.textures_seen);
+    fmt::print("soft_census_mat_soft_tex_top={}\n", sc.mat_soft_tex_top);
+    fmt::print("soft_census_tex_soft_mat_top={}\n", sc.tex_soft_mat_top);
+    fmt::print("soft_census_disagree_tex_top={}\n", sc.disagree_tex_top);
+    fmt::print("soft_census_cross_raw_tex_top={}\n", sc.cross_raw_tex_top);
+    fmt::print("soft_census_tex_reject_top={}\n", sc.tex_reject_top);
+    fmt::print("[grass_bake] soft-surface-census DONE.\n");
     return 0;
   }
 

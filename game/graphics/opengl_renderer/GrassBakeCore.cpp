@@ -3735,6 +3735,228 @@ SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_
   return c;
 }
 
+
+// ===========================================================================================
+// soft-surface-truth : SABLE ET NEIGE, SELON LES DEUX MEMES SOURCES. Le contrat est dans le .h.
+// ===========================================================================================
+//
+// CE BLOC EST VOLONTAIREMENT PLACE ICI, DANS LA MEME UNITE DE COMPILATION, JUSTE APRES
+// `surface_census`. C'est ce qui lui permet d'APPELER le lecteur de l'herbe — `census_tex_is_grassy`,
+// `surf_build_render_index`, `surf_index_probe`, `surf_top_names` — au lieu d'en fabriquer un
+// second. Le contrat de l'item l'exige mot pour mot : « calcule avec le lecteur de
+// grass-surface-truth, pas un second ». Rien de `surface_census` n'est modifie : ni son corps,
+// ni ses helpers, ni ses seuils.
+//
+// IL NE PLACE RIEN. Il ne partage aucune variable avec `scan_level` / `expand`, il n'ecrit dans
+// aucune structure cuite, et aucun chemin de placement ne l'appelle.
+
+namespace {
+
+// LE FILET DE NOMS DE LA SOURCE TEXTURE, ET POURQUOI IL PORTE UNE LISTE DE REJET.
+//
+// Un filet de noms se trompe dans LES DEUX SENS, et la donnee le montre : `bch-beachrock` porte
+// « beach » et c'est de la roche ; et dans `snow.fr3` le PREFIXE DU NIVEAU est litteralement
+// `snow-`, si bien qu'un `n.find("snow")` nu classe `snow-metalroof-01`, `snow-woodpole` et
+// `snow-ecovalve-grate` comme de la neige. Une liste de rejet est donc NECESSAIRE — mais une
+// liste de rejet qu'on ne compte pas est un filtre qui se cache. Chaque rejet est donc COMPTE
+// (`tex_reject`) et NOMME (`tex_reject_top`), et le lecteur du rapport peut le contredire.
+//
+// CE FILET N'A AUCUN EFFET SUR LA GRANDEUR DE LA PORTE : `unclassified` tient a la source
+// MATERIAU, complete partout. Il ne pilote que le DESACCORD et le litige `cross_raw`, que le
+// contrat demande de compter, pas d'annuler.
+//
+// LES JETONS DE REJET nomment une matiere dure ou un ouvrage bati — jamais un sol meuble.
+const char* const kSoftTexRejectTokens[] = {
+    "rock",  "stone", "wall",   "cliff",  "metal", "wood",  "roof",  "pole",
+    "valve", "rivet", "grate",  "torch",  "panel", "brick", "plank", "door",
+    "gate",  "tile",  "pipe",   "crate",  "fence", "ladder", "ice",  "precursor",
+    "circuit", "window", "bridge", "statue", "column", "step"};
+inline bool soft_tex_name_rejected(const std::string& n) {
+  for (const char* tok : kSoftTexRejectTokens) {
+    if (n.find(tok) != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+// Les jetons qui NOMMENT la matiere meuble, separes par classe.
+inline bool soft_tex_token_sandy(const std::string& n) {
+  return n.find("sand") != std::string::npos || n.find("beach") != std::string::npos ||
+         n.find("dune") != std::string::npos;
+}
+inline bool soft_tex_token_snowy(const std::string& n) {
+  return n.find("snow") != std::string::npos;
+}
+inline bool census_tex_is_sandy(const std::string& n) {
+  return soft_tex_token_sandy(n) && !soft_tex_name_rejected(n);
+}
+inline bool census_tex_is_snowy(const std::string& n) {
+  return soft_tex_token_snowy(n) && !soft_tex_name_rejected(n);
+}
+
+// LA CLASSE RESOLUE. UNE seule par triangle : c'est ce qui rend l'exclusivite herbe/coque, et
+// c'est pourquoi l'arbitrage est ecrit ici, en clair, plutot que disperse dans des `if`.
+enum SoftCls : u8 { SOFTCLS_UNKNOWN = 0, SOFTCLS_GRASS, SOFTCLS_SOFT, SOFTCLS_OTHER };
+
+}  // namespace
+
+SoftSurfaceCensus soft_surface_census(const tfrag3::Level& lev, const std::string& level_name) {
+  SoftSurfaceCensus c;
+
+  // ---- SOURCE TEXTURE : LE MEME INDEX, LA MEME SONDE que `surface_census`. Aucune copie.
+  SurfRenderIndex rix;
+  surf_build_render_index(lev, rix);
+  c.render_draws = rix.draws;
+  c.render_ground_tris = (u64)rix.tris.size();
+  c.textures_seen = (u64)lev.textures.size();
+
+  const float YWIN = SURF_YWIN_M * U;
+
+  std::unordered_map<std::string, u64> mat_soft_tex, tex_soft_mat, disagree_tex, cross_tex,
+      tex_reject_names;
+  const auto& cv = lev.collision.vertices;
+  const size_t ntri = cv.size() / 3;
+  c.collision_tris = (u64)ntri;
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    const auto& b = cv[t * 3 + 1];
+    const auto& d = cv[t * 3 + 2];
+    const u32 mode = (a.pat >> 3) & 0x7u;
+    const u32 material = (a.pat >> 6) & 0x3fu;
+    const bool mat_ok = material < kPatMaterialCount;
+    const bool mat_soft = mat_ok && pat_material_is_soft(material);
+    if (mode != 0) {
+      // HORS POPULATION, MAIS COMPTE. Les 2 952 triangles de sable en mode MUR de `training`
+      // (SPEC section 1) vivent ici : un seau exclu qu'on ne chiffre pas est un seau ou le
+      // defaut se cache.
+      switch (mode) {
+        case 1: c.mode_wall++; if (mat_soft) { c.mode_wall_soft++; } break;
+        case 2: c.mode_obstacle++; if (mat_soft) { c.mode_obstacle_soft++; } break;
+        default: c.mode_other++; if (mat_soft) { c.mode_other_soft++; } break;
+      }
+      continue;
+    }
+    c.mode_ground++;
+    c.ground_tris++;
+
+    // SOURCE 1 — LE MATERIAU DE COLLISION, bits 6..11. Meme lecture que `surface_census`.
+    const bool mat_grass = mat_ok && material == kPatMatGrass;
+    if (mat_ok) {
+      c.by_material++;
+      switch (material) {
+        case kPatMatSand: c.mat_sand++; break;
+        case kPatMatSnow: c.mat_snow++; break;
+        case kPatMatDeepSnow: c.mat_deepsnow++; break;
+        default: break;
+      }
+      if (mat_soft) {
+        c.mat_soft++;
+      }
+      if (mat_grass) {
+        c.mat_grass++;
+      }
+    } else {
+      c.mat_unnamed++;
+    }
+
+    // SOURCE 2 — LE NOM DE LA TEXTURE DE RENDU au-dessus du centroide. Meme sonde.
+    const float cx = (a.x + b.x + d.x) * (1.0f / 3.0f);
+    const float cy = (a.y + b.y + d.y) * (1.0f / 3.0f);
+    const float cz = (a.z + b.z + d.z) * (1.0f / 3.0f);
+    const s32 tex = surf_index_probe(rix, cx, cy, cz, YWIN);
+    const std::string* tname = nullptr;
+    if (tex >= 0) {
+      const s32 lbl = rix.tris[tex].label;
+      if (lbl >= 0 && (size_t)lbl < lev.textures.size() && !lev.textures[lbl].debug_name.empty()) {
+        tname = &lev.textures[lbl].debug_name;
+      }
+    }
+    const bool tex_ok = tname != nullptr;
+    const bool tex_sand = tex_ok && census_tex_is_sandy(*tname);
+    const bool tex_snow = tex_ok && census_tex_is_snowy(*tname);
+    const bool tex_soft = tex_sand || tex_snow;
+    // CE QUE LA LISTE DE REJET A ECARTE, compte et nomme : un filtre muet est un filtre qui ment.
+    const bool tex_rejected =
+        tex_ok && !tex_soft && (soft_tex_token_sandy(*tname) || soft_tex_token_snowy(*tname));
+    // LE PREDICAT DE L'HERBE EST CELUI DE `surface_census`, APPELE. Pas une seconde regle.
+    const bool tex_grass = tex_ok && census_tex_is_grassy(*tname);
+    if (tex_ok) {
+      c.by_texture++;
+      if (tex_sand) { c.tex_sand++; }
+      if (tex_snow) { c.tex_snow++; }
+      if (tex_soft) { c.tex_soft++; }
+      if (tex_grass) { c.tex_grass++; }
+    }
+
+    // COUVERTURE DES DEUX SOURCES. `unclassified` est le premier terme de la porte.
+    if (mat_ok && tex_ok) { c.by_both++; }
+    if (mat_ok || tex_ok) { c.classified++; } else { c.unclassified++; }
+    if (!tex_ok) { c.tex_only_unclassified++; }
+    if (!mat_ok) { c.mat_only_unclassified++; }
+
+    // LE CROISEMENT SUR « MEUBLE ? », PUIS LE DESACCORD, NOMME.
+    if (mat_soft) { c.soft_by_material++; }
+    if (tex_soft) { c.soft_by_texture++; }
+    if (mat_soft && tex_soft) { c.soft_by_both++; }
+    if (mat_soft || tex_soft) { c.soft_by_either++; }
+    if (mat_ok && tex_ok && mat_soft != tex_soft) {
+      c.disagree++;
+      disagree_tex[*tname]++;
+      if (mat_soft) { c.disagree_mat_soft_tex_not++; } else { c.disagree_tex_soft_mat_not++; }
+    }
+    if (tex_rejected) {
+      c.tex_reject++;
+      tex_reject_names[*tname]++;
+    }
+    if (mat_soft && tex_ok) { mat_soft_tex[*tname]++; }
+    if (tex_soft) {
+      const char* mn = pat_material_name(material);
+      tex_soft_mat[mn ? std::string(mn) : ("inconnu-" + std::to_string(material))]++;
+    }
+    // SPEC decision 12, dans les deux sens : ce que l'arbitrage par le materiau ecarte.
+    if (mat_grass && tex_soft) { c.overlay_soft_tex_on_grass_mat++; }
+    if (mat_soft && tex_grass) { c.overlay_grass_tex_on_soft_mat++; }
+
+    // L'ARBITRAGE, ECRIT EN CLAIR. Le materiau tranche ; la texture ne parle que s'il se tait.
+    SoftCls cls;
+    if (mat_ok) {
+      cls = mat_grass ? SOFTCLS_GRASS : (mat_soft ? SOFTCLS_SOFT : SOFTCLS_OTHER);
+    } else if (tex_ok) {
+      cls = tex_soft ? SOFTCLS_SOFT : (tex_grass ? SOFTCLS_GRASS : SOFTCLS_OTHER);
+    } else {
+      cls = SOFTCLS_UNKNOWN;
+    }
+    const bool elig_soft = (cls == SOFTCLS_SOFT);
+    const bool elig_grass = (cls == SOFTCLS_GRASS);
+    if (elig_soft) { c.eligible_soft++; }
+    if (elig_grass) { c.eligible_grass++; }
+    if (elig_soft && elig_grass) { c.cross_eligible++; }  // GARDE : nul par exclusivite des classes
+
+    // LA MESURE, ELLE : ce que les deux campagnes se disputeraient SANS arbitrage.
+    const bool grass_by_either = mat_grass || tex_grass;
+    const bool soft_by_either = mat_soft || tex_soft;
+    if (grass_by_either && soft_by_either) {
+      c.cross_raw++;
+      if (tex_ok) {
+        cross_tex[*tname]++;
+      }
+    }
+  }
+
+  c.mat_soft_tex_top = surf_top_names(mat_soft_tex, 25);
+  c.tex_soft_mat_top = surf_top_names(tex_soft_mat, 25);
+  c.disagree_tex_top = surf_top_names(disagree_tex, 25);
+  c.cross_raw_tex_top = surf_top_names(cross_tex, 25);
+  c.tex_reject_top = surf_top_names(tex_reject_names, 25);
+
+  lg::info(
+      "[soft-surface-truth] {} : sol={} materiau={} texture={} meuble(mat)={} meuble(tex)={} "
+      "aucune={} desaccord={} litige_brut={} litige_arbitre={}",
+      level_name, c.ground_tris, c.by_material, c.by_texture, c.soft_by_material,
+      c.soft_by_texture, c.unclassified, c.disagree, c.cross_raw, c.cross_eligible);
+  return c;
+}
+
 // ===========================================================================================
 // grass-overlay-meshes : LES MESHES POSES PAR-DESSUS UN SOL HERBEUX. Le contrat est dans le .h.
 // ===========================================================================================
