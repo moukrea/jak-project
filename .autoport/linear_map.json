@@ -613,11 +613,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
  "harness-linear-own-identity": {
-  "hash": "bffef35340682311acfed17ce7a27cc1d733075f",
+  "hash": "8513ddadc87b767cec4f77b284271d8fc5651df9",
   "identifier": "JAK-180",
   "issue_id": "ab7deb05-dda7-41c3-9083-48feb760fdf2",
   "last_state": "Todo",
-  "pulled_at": "2026-09-17T18:56:33.000Z",
+  "pulled_at": "2026-09-17T19:01:17.335Z",
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-proof-file-has-no-writer-lock": {
@@ -805,12 +805,12 @@
  },
  "hud-3d-pickups": {
   "build_announced": "25b9d247e2ea",
-  "hash": "b9dee6b13561b3470a62c9492b8aef165629edac",
+  "hash": "a94008f1b62ac188337a8d0549df4d3108fcd7d2",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T18:53:19.670Z",
+  "pulled_at": "2026-09-17T19:03:07.257Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {

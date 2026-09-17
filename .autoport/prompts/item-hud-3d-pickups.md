@@ -5,7 +5,7 @@
 # Mécamouche, orbe, particule d'éco verte et pile d'énergie du HUD : les vrais modèles du jeu à la place des sprites
 
 ## Defaut cite
-- 2026-09-17 : « Alors l'orbe Precursor c'est good, la mecamouche c'est good… »
+- 2026-09-17 : « Attention le téléphone run en 4:3 sur une résolution basse,… »
 
 ## Cause connue
 17/09 20:55 REFUS OWNER (build 4833ab) : orbe, mecamouche, eco vert acquis ; la PILE D'ENERGIE apparait minuscule et « squeezee » au centre de l'ecran, avec la bonne animation mais pas la bonne place ni la bonne echelle (positionnement absolu suspecte, aspect faux). La mesure de position de l'essai 2 a rendu 0 px pour la pile : elle mesurait a cote. Corriger la mesure d'abord, puis la pile. Ne pas toucher aux trois autres elements.

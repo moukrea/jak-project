@@ -41,6 +41,8 @@ RETOUR OWNER 17/09 20:55 (build 4833ab) : « l'orbe Precursor c'est good, la mec
 9. LA PILE EST A SA PLACE ET A SA TAILLE : boite englobante de la pile rendue, lue sur l'image finale du telephone (2400x1080), contre la boite du sprite d'origine lue de la meme facon sur le bras `--off`, au moment ou le HUD s'affiche ET pendant son animation d'apparition : centre a 2 px, largeur ET hauteur a 5 % chacune (une pile « squeezee » = rapport largeur/hauteur faux : publier les deux rapports, ecart < 5 %). Publier aussi POURQUOI le verdict 7 de l'essai 2 rendait 0 pour la pile alors qu'elle est au centre de l'ecran : la mesure lisait-elle un autre dessin, un autre espace de coordonnees, ou la boite calculee au lieu de l'image ? Une mesure qui a dit « 0 px » sur un element visiblement faux est corrigee AVANT le code.
 Note (pas un verdict) : la mecamouche est « un peu sombre » ; si l'eclairage du modele dans le HUD est facile a aligner sur celui du sprite d'origine (luminance moyenne comparee), le faire, sinon le signaler dans FINDINGS.
 
+OWNER 17/09 21:15 : « Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce qui me fait penser que tu utilisais du positionnement absolu ! ». Les verdicts 7 et 9 se mesurent dans DEUX configurations, toutes deux sur l'appareil : (a) native 21:9 pleine resolution, (b) ASPECT FORCE 4:3 A BASSE RESOLUTION (le reglage de l'owner). Le placement est une fraction de l'espace HUD d'origine, donc identique dans les deux ; publier les boites et les ecarts pour chacune. Un element juste en 21:9 et faux en 4:3 est un defaut. Toute coordonnee en pixels absolus dans le code de placement est un defaut (publier le nombre de sites de placement et la forme de chacun : fraction d'espace HUD, jamais des pixels).
+
 ## Hors perimetre
 
 Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
@@ -86,6 +88,9 @@ HUD en jeu : la mecamouche, l'orbe, la particule d'eco verte a cote du coeur et 
 
 ### 2026-09-17
 > Alors l'orbe Precursor c'est good, la mecamouche c'est good (elle est un peu sombre) et l'eco vert c'est good, mais la pile d'énergie elle apparaît minuscule et squeezée au centre de l'écran  quand on montre le HUD (elle semble faire l'animation d'apparition et disparition, mais pas au bon endroit et pas à la bonne échelle ! C'est ce qui m'avais fait dire que tu utilisais peut être une sorte de positionning absolu !)
+
+### 2026-09-17
+> Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce qui me fait penser que tu utilisais du positionnement absolu !
 
 ## Pourquoi ce fichier existe
 
