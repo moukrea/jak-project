@@ -42,6 +42,14 @@ STATE_JSON = AP / "state.json"
 TEAM_KEY = "JAK"
 TEAM_NAME = "Jak and Daxter: Recharged Collection"
 MARK = "🤖 "
+
+
+def mark(L):
+    """Prefixe ECRIT devant nos messages. Owner 17/09 21:35, une fois l'identite d'application en
+    place : « tu peux virer l'emoji bot de tes réponses ». Sous l'application, l'auteur est rendu
+    par le serveur et le marqueur ne sert plus qu'a relire l'AVANT-bascule (is_harness_comment) ;
+    en repli sur la cle personnelle, il reste le seul moyen de nous distinguer de l'owner."""
+    return "" if getattr(L, "mode", "owner") == "app" else MARK
 MAP_DOCS = {}
 SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
@@ -358,7 +366,7 @@ def labels(L, team):
 # imiter. C'est lui qui tranche desormais.
 #
 # LE MARQUEUR RESTE ECRIT, ET IL RESTE LU — pas par nostalgie, pour deux raisons :
-#   1. l'owner l'a garde pour la lisibilite (le contrat le dit) ;
+#   1. il n'est plus ECRIT sous l'application (owner 17/09 21:35 : « vire l'emoji bot ») ;
 #   2. NON-DESTRUCTION : les centaines de commentaires postes AVANT la bascule portent
 #      `botActor: null` et l'identifiant de l'owner. Sans le repli sur le marqueur, la premiere
 #      synchro apres la bascule les relirait TOUS comme des retours de l'owner et les deverserait
@@ -441,7 +449,7 @@ def post_comment(L, issue_id, body):
 
 
 def _say(L, rec, text):
-    post_comment(L, rec["issue_id"], MARK + text)
+    post_comment(L, rec["issue_id"], mark(L) + text)
 
 
 def apply_owner_move(L, bl, iid, rec, here):
@@ -926,7 +934,7 @@ def announce_verdicts(L, bl, mp, read, dry):
             attach += imgs
         print("  verdict essai %d de %s annonce (%s)" % (num, it["id"], "ok" if ok else "impossible" if impossible else "echec"))
         if not dry:
-            body = MARK + "\n".join(lines)
+            body = mark(L) + "\n".join(lines)
             for f in attach:
                 try:
                     url, ctype = upload_file(L, f)
@@ -1093,7 +1101,7 @@ def main():
                 orphans += 1
                 if iss and iss["state"]["name"] != "Canceled":
                     L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
-                    post_comment(L, rec["issue_id"], MARK + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
+                    post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
                     print("  orphelin archive :", rec["identifier"], iid)
                 continue
             want = target_state(bl, it)
@@ -1110,7 +1118,7 @@ def main():
         rec = mp.get(a.comment)
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
-        body = MARK + (a.body or "").strip()
+        body = mark(L) + (a.body or "").strip()
         for f in a.attach:
             url, ctype = upload_file(L, f)
             body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
@@ -1170,7 +1178,7 @@ def main():
         else:
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
-                body = MARK + plain_state_comment(bl, it, st)
+                body = mark(L) + plain_state_comment(bl, it, st)
                 post_comment(L, rec["issue_id"], body)
                 if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
