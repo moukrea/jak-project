@@ -29,6 +29,7 @@
 #include "game/graphics/opengl_renderer/ao_hut_edge_reference.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/ao_item.h"
 
 #include <string>
 #include <type_traits>
@@ -161,14 +162,26 @@ uint64_t s_arch_programs_queried = 0;
 // campagne tournait en premier et que la course expirait avant sa fin, la preuve sortirait
 // SANS sa cle de porte. La campagne prend donc ce qui reste et se laisse tronquer sans rien
 // casser : elle publie combien de jambes elle a bouclees (`ao_cost_legs_done`) et le plus
-// petit compte d'images des cinq (`ao_cost_min_frames`).
+// petit compte d'images des quatre (`ao_cost_min_frames`).
 struct CostLeg {
   int mode;
   int quality;
   const char* key;
 };
-constexpr CostLeg kCostLegs[5] = {
-    {0, 0, "off"}, {1, 0, "ssao_q0"}, {1, 2, "ssao_q2"}, {3, 0, "gtao_q0"}, {3, 2, "gtao_q2"}};
+// ao-indirect-clean (G) : « temps par image AO eteinte / SSAO / HBAO / GTAO, meme vantage,
+// >= 300 images chacun, publie ». LES QUATRE JAMBES QUE LE CONTRAT NOMME, ET HBAO EN FAISAIT
+// PARTIE SANS ETRE LA : les cinq jambes d'avant etaient off / ssao_q0 / ssao_q2 / gtao_q0 /
+// gtao_q2 — l'estimateur du milieu n'avait AUCUNE jambe, et rien ne le disait. Les trois
+// estimateurs sont releves au meme palier (Eleve, 2), celui que l'owner force au maximum quand
+// il teste ; le palier est publie (`ao_cost_quality`) pour qu'on ne le devine pas. Quatre
+// jambes au lieu de cinq, c'est aussi 360 images de moins a tenir dans la course.
+constexpr int kCostQuality = 2;
+constexpr CostLeg kCostLegs[4] = {
+    {0, kCostQuality, "off"},
+    {1, kCostQuality, "ssao"},
+    {2, kCostQuality, "hbao"},
+    {3, kCostQuality, "gtao"}};
+constexpr int kCostLegCount = (int)(sizeof(kCostLegs) / sizeof(kCostLegs[0]));
 constexpr uint64_t kCostStartFrame = 2000;  // apres la phase de recensement. Ce nombre est un
                                             // COMPROMIS mesure : la porte (ao_direct_leak_px)
                                             // vient des images SONDEES, qui se taisent pendant
@@ -196,8 +209,8 @@ int s_timing_mode = -1;
 int s_timing_quality = -1;
 int s_cost_leg = -1;
 uint64_t s_cost_leg_frame = 0;
-uint64_t s_cost_us[5] = {0, 0, 0, 0, 0};
-uint64_t s_cost_frames[5] = {0, 0, 0, 0, 0};
+uint64_t s_cost_us[kCostLegCount] = {0, 0, 0, 0};
+uint64_t s_cost_frames[kCostLegCount] = {0, 0, 0, 0};
 std::chrono::steady_clock::time_point s_cost_last;
 bool s_cost_have_last = false;
 uint64_t s_cost_legs_done = 0;
@@ -256,7 +269,7 @@ int AmbientOcclusionPass::effective_debug() {
 // elle relache le reglage impose et oublie l'horodatage precedent (un ecart mesure a cheval
 // sur l'entree en campagne compterait une image qui n'appartient a aucune jambe).
 void AmbientOcclusionPass::measure_frame_begin(uint64_t frame) {
-  if (!autoport_proof::feature_is("lighting-ao-indirect") || frame < kCostStartFrame) {
+  if (!ao_item::measured() || frame < kCostStartFrame) {
     s_timing_mode = -1;
     s_timing_quality = -1;
     s_cost_have_last = false;
@@ -266,7 +279,7 @@ void AmbientOcclusionPass::measure_frame_begin(uint64_t frame) {
     s_cost_leg = 0;
     s_cost_leg_frame = 0;
   }
-  if (s_cost_leg >= 5) {
+  if (s_cost_leg >= kCostLegCount) {
     // Campagne finie : on rend le binaire a son reglage normal.
     s_timing_mode = -1;
     s_timing_quality = -1;
@@ -300,7 +313,7 @@ bool AmbientOcclusionPass::measure_timing_active() {
 
 void AmbientOcclusionPass::publish_cost_census() {
   uint64_t min_frames = s_cost_frames[0];
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < kCostLegCount; i++) {
     // MICROSECONDES PAR IMAGE, arrondies : pas de milliemes de milliseconde, pas de division
     // par 1000 qui reperdrait ce qu'une multiplication par 1000 venait de gagner.
     const std::string key = std::string("ao_us_") + kCostLegs[i].key;
@@ -314,7 +327,11 @@ void AmbientOcclusionPass::publish_cost_census() {
     }
   }
   autoport_proof::publish("ao_cost_legs_done", s_cost_legs_done);
-  // Rend falsifiable « un releve de moins de 300 images ne compte pas » sans relire 5 cles.
+  autoport_proof::publish("ao_cost_legs_total", (uint64_t)kCostLegCount);
+  autoport_proof::publish("ao_cost_quality", (uint64_t)kCostQuality);
+  autoport_proof::publish("ao_cost_frames_min_required", kCostMeasured);
+  autoport_proof::publish("ao_cost_start_frame", kCostStartFrame);
+  // Rend falsifiable « un releve de moins de 300 images ne compte pas » sans relire 4 cles.
   autoport_proof::publish("ao_cost_min_frames", min_frames);
 }
 
@@ -2936,6 +2953,35 @@ void AmbientOcclusionPass::publish_pattern_census() {
     t9_measured = (mask_measured && s_arch_probe_px > 0) ? 1ull : 0ull;
   }
 
+  // ═══ (G) LE COUT EST CHIFFRE, OU IL NE L'EST PAS ═════════════════════════════════════════
+  // Contrat de `ao-indirect-clean`, point G : « temps par image AO eteinte / SSAO / HBAO /
+  // GTAO, meme vantage, >= 300 images chacun, publie ». Jusqu'ici ce point n'entrait dans
+  // AUCUN terme : la campagne pouvait rendre `ao_cost_legs_done=0` — ce qu'elle a fait a
+  // l'essai 15, la course s'arretant a 1680 images pour un depart a 2000 — et la porte passer
+  // quand meme. Un point du contrat qu'aucun terme ne lit est un vert obtenu en ne regardant
+  // pas ; la regle du contrat est « un terme non mesure compte 1 », elle vaut pour celui-la.
+  // Le terme compte UNE unite par jambe qui n'a pas ses 300 images mesurees : il nomme
+  // COMBIEN de jambes manquent, pas seulement qu'il en manque.
+  uint64_t t10 = 0, cost_legs_measured = 0;
+  {
+    std::string uncovered;
+    for (int i = 0; i < kCostLegCount; i++) {
+      if (s_cost_frames[i] >= kCostMeasured) {
+        cost_legs_measured++;
+        continue;
+      }
+      t10++;
+      if (!uncovered.empty()) {
+        uncovered += ",";
+      }
+      uncovered += kCostLegs[i].key;
+    }
+    autoport_proof::publish("ao_cost_legs_measured", cost_legs_measured);
+    // Une cle de TEXTE garde sa derniere valeur : une liste vide se publie « - », jamais rien.
+    autoport_proof::publish_text("ao_cost_legs_uncovered",
+                                 uncovered.empty() ? "-" : uncovered.c_str());
+  }
+
   autoport_proof::publish("ao_owner_term1_direct_leak", t1);
   autoport_proof::publish("ao_owner_term2_pattern", t2);
   autoport_proof::publish("ao_owner_term3_sway", t3);
@@ -2945,6 +2991,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_owner_term7_high_res", t7);
   autoport_proof::publish("ao_owner_term8_band_by_mode", t8);
   autoport_proof::publish("ao_owner_term9_not_a_final_filter", t9);
+  autoport_proof::publish("ao_owner_term10_cost", t10);
   autoport_proof::publish("ao_owner_terms_measured",
                           (uint64_t)(((s_prepass_mask & 1) ? 1 : 0) +
                                      ((s_prepass_mask & 2) ? 1 : 0) +
@@ -2952,13 +2999,16 @@ void AmbientOcclusionPass::publish_pattern_census() {
                                      (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
                                      ((q2_full || cross_measured) ? 1 : 0) +
                                      ((band_couples_measured == 9) ? 1 : 0) +
-                                     (int)t9_measured));
-  autoport_proof::publish("ao_owner_terms_total", 9ull);
-  // LA PORTE. Les sept termes du 14/09, plus les deux que le retour owner du 17/09 ajoute au
-  // contrat : (m) la bande du raccord couple par couple, (n) l'AO qui n'est plus un filtre
-  // final. Un terme non mesure compte pour un defaut nomme — c'est la regle du contrat, et
-  // c'est elle qui interdit un vert obtenu en ne regardant pas.
-  autoport_proof::publish("ao_owner_defects", t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9);
+                                     (int)t9_measured +
+                                     ((cost_legs_measured == kCostLegCount) ? 1 : 0)));
+  autoport_proof::publish("ao_owner_terms_total", 10ull);
+  // LA PORTE. Les sept termes du 14/09, les deux que le retour owner du 17/09 a ajoutes —
+  // (m) la bande du raccord couple par couple, (n) l'AO qui n'est plus un filtre final — et
+  // le dixieme que `ao-indirect-clean` ajoute : (G) le cout chiffre sur ses quatre jambes.
+  // Un terme non mesure compte pour un defaut nomme — c'est la regle du contrat, et c'est
+  // elle qui interdit un vert obtenu en ne regardant pas.
+  autoport_proof::publish("ao_owner_defects",
+                          t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10);
   if (exact_static_probe()) {
     uint64_t missing = 0, depth_delta = 0, camera_delta = 0;
     uint64_t estimator_delta = 0, spatial_delta = 0, estimator_pop = 0;

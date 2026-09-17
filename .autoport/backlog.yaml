@@ -13467,7 +13467,7 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
@@ -13525,3 +13525,27 @@ items:
   notes: Cree le 17/09 par le superviseur sur demande de clarte de l'owner ; remplace lighting-ao-indirect
     a la fin de son essai 14 (supplante si echec, redondant si succes).
   prompt: prompts/item-ao-indirect-clean.md
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_RT_LIGHT=1
+  - AO_FORCE_MODE=3
+  - OG_UNCAP_FPS=240
+  - FOLIAGE_WIND_FORCE=1
+  proof_props:
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.rt.light=1
+  - debug.opengoal.ao.force_mode=3
+  - debug.opengoal.uncap.fps=240
+  - debug.opengoal.foliage.force=1

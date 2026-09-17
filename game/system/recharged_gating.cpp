@@ -9,6 +9,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/ao_item.h"
 
 namespace recharged_gating {
 namespace {
@@ -770,8 +771,7 @@ bool census_wanted() {
   // peut pas le dire. Il n'arme PAS le balayage de forçage, qui reste au seul item qui l'a livre
   // (`g_sweep.wanted`) : un balayage qui eteint chaque parent a tour de role pendant neuf fenetres
   // detruirait la mesure d'AO de la course.
-  return autoport_proof::feature_is("recharged-gating-real") ||
-         autoport_proof::feature_is("lighting-ao-indirect");
+  return autoport_proof::feature_is("recharged-gating-real") || ao_item::measured();
 }
 
 void menu_end() {

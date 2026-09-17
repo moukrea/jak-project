@@ -1,5 +1,7 @@
 #include "game/system/autoport_proof.h"
 
+#include "game/system/ao_item.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -235,7 +237,11 @@ void emit_locked() {
     // `hud-3d-pickups` compte les EMPLACEMENTS DU HUD DESSINES AVEC UN MODELE dans l'image
     // jugee — `hits_means` de son item. Le compteur global du binaire ne dirait rien de ces
     // quatre emplacements.
-    uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
+    // `ao-indirect-clean` compte les PIXELS dont l'indirect a recu l'AO (et, sur l'appareil,
+    // le denominateur de la decoupe d'alpha de la prepasse) — `hits_means` de son item. Le
+    // compteur global du binaire monte pour tout le monde et ne dirait rien de ces pixels-la.
+    uint64_t hits = (id == ao_item::kId || id == "ao-prepass-tie-alpha" ||
+                     id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
                      id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
                      id == "soft-surface-truth" || id == "soft-support-map" ||

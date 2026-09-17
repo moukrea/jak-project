@@ -21,10 +21,11 @@
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/ao_item.h"
 
 // Armement des ancres SHRUB ; le comptage canonique est dans foliage_wind.cpp.
 static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
-static constexpr const char* kAoItemId = "lighting-ao-indirect";
+static constexpr const char* kAoItemId = ao_item::kId;
 
 // lighting-ao-indirect (i), essai 15 : QUI a televerse le ressort, image par image. Sous la
 // preuve de cet item la prepasse tourne a chaque image : `_color` DOIT rester a zero, sinon la

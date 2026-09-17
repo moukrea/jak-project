@@ -25,6 +25,7 @@
 #include "game/graphics/opengl_renderer/buckets.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/ao_item.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 // Definie dans background_common.cpp (liaison externe, pas de declaration dans son .h) : LA
@@ -38,7 +39,10 @@ std::array<math::Vector4f, 4> make_new_cam_mat(const math::Vector4f cam_T_w[4],
 namespace prepass {
 namespace {
 
-constexpr const char* kItemId = "lighting-ao-indirect";
+// L'IDENTIFIANT VIENT DE `game/system/ao_item.h`, ECRIT UNE SEULE FOIS (ao-indirect-clean,
+// 2026-09-17). Le litteral etait ici et a cinq autres endroits ; le ticket a change de nom et
+// les six conditions seraient devenues fausses en meme temps, en silence.
+constexpr const char* kItemId = ao_item::kId;
 AUTOPORT_FEATURE_SITE(kItemId);
 AUTOPORT_FEATURE_SITE(ao_static_probe::kItem);
 ao_static_probe::Run g_static_probe;
@@ -1279,9 +1283,10 @@ void frame_begin(SharedRenderState* rs) {
   g_frame_ran = false;
   g_ao_valid = false;
   g_geom_frame = false;
+  // `ao_item::measured()` (et non `feature_is(kItemId)`) : le ticket REMPLACE arme encore la
+  // mesure, pour qu'une course relancee sur l'ancien nom ne rende pas une preuve muette.
   const bool probe_base =
-      (autoport_proof::feature_is(kItemId) ||
-       autoport_proof::feature_is("ao-prepass-tie-alpha")) &&
+      (ao_item::measured() || autoport_proof::feature_is("ao-prepass-tie-alpha")) &&
       !AmbientOcclusionPass::measure_timing_active();
   const uint64_t probe_slot = g_frame % kProbeEvery;
   g_probe_frame = probe_base && probe_slot == 0;
