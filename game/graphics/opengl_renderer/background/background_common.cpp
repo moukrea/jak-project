@@ -2287,9 +2287,62 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #endif
 }
 
+
+// ── (terme 3, essai 4) LES DEUX ETATS D'ALPHA, MESURES AU LIEU D'ETRE SUPPOSES ───────────────
+// L'ordre de l'owner du 2026-09-17 : « la prepasse echantillonne-t-elle le feuillage AUTREMENT
+// que la passe couleur (mip, filtre, seuil alpha) ? publier les deux etats d'echantillonnage ».
+// L'ECHANTILLONNAGE est identique — meme objet texture, memes quatre `glTexParameteri` par
+// `prepass_tex_params`, meme `texture()` a LOD implicite, meme resolution, meme viewport. Ce qui
+// DIFFERE est la GRANDEUR COMPAREE :
+//   couleur  : `fragment_color.a * T0.a < alpha_min`, avec `fragment_color.a = tod_color.a * 4`
+//              (shrub.vert / tfrag3.vert), plus `color.a > alpha_max` que la prepasse n'a pas,
+//              plus, pour tfrag3 SEULEMENT, `color.a *= mix(1, dist_f, steep_w)` du fondu de
+//              frange (tfrag3.frag) que la prepasse ne rejoue pas du tout ;
+//   prepasse : `T0.a < alpha_min * 255/512` (prepass_world.frag, `u_cut_aref`).
+// Les deux ne coincident QUE si `tod_color.a == 128/255` EXACTEMENT, c'est-a-dire quand le
+// `min(128, …)` ci-dessous SATURE. Rien dans l'arbre ne le garantit : c'est une somme de huit
+// produits poids x palette. On le MESURE donc, au seul endroit qui le calcule, et la question
+// « le cycle jour/nuit desaccorde-t-il les deux tests ? » cesse d'etre une lecture de code.
+namespace {
+uint64_t g_tod_a_min = 255, g_tod_a_max = 0, g_tod_a_samples = 0, g_tod_a_unsaturated = 0;
+
+void note_tod_alpha(const math::Vector<u8, 4>* out, u32 count) {
+  if (!out || count == 0 || !autoport_proof::armed_for("ao-indirect-clean")) {
+    return;
+  }
+  for (u32 i = 0; i < count; i++) {
+    const uint64_t a = out[i][3];
+    if (a < g_tod_a_min) {
+      g_tod_a_min = a;
+    }
+    if (a > g_tod_a_max) {
+      g_tod_a_max = a;
+    }
+    if (a != 128) {
+      g_tod_a_unsaturated++;
+    }
+  }
+  g_tod_a_samples += count;
+  // Une seule publication par appel : `publish` ecrase, la derniere valeur est la course entiere.
+  autoport_proof::publish("ao_alpha_tod_a_min", g_tod_a_min);
+  autoport_proof::publish("ao_alpha_tod_a_max", g_tod_a_max);
+  autoport_proof::publish("ao_alpha_tod_a_samples", g_tod_a_samples);
+  autoport_proof::publish("ao_alpha_tod_a_unsaturated", g_tod_a_unsaturated);
+  autoport_proof::publish_text("ao_alpha_state_prepass", "T0.a<alpha_min*255/512");
+  autoport_proof::publish_text("ao_alpha_state_color",
+                               "tod.a*4*T0.a<alpha_min|>alpha_max|tfrag3:*mix(1,dist_f,steep_w)");
+}
+}  // namespace
+
 void interp_time_of_day_slow(const math::Vector<s32, 4> itimes[4],
                              const tfrag3::PackedTimeOfDay& in,
                              math::Vector<u8, 4>* out) {
+  // (terme 5, essai 4) L'UNIQUE POINT PAR LEQUEL L'HEURE DU JEU ENTRE DANS LA COULEUR DU DECOR.
+  // Pendant la paire d'images que le point F juge, la valeur de la premiere image est rendue a
+  // la seconde : le cycle jour/nuit et l'oscillateur de foyer (`update-mood-flames`) cessent de
+  // repeindre tfrag, tie, shrub et hfrag entre deux images d'une scene qu'on declare immobile.
+  // Hors preuve, `census_tod_pin` rend son argument tel quel. Contrat : PrePass.h.
+  itimes = prepass::census_tod_pin(itimes);
   math::Vector<u16, 4> weights[8];
   for (int component = 0; component < 8; component++) {
     int quad_idx = component / 2;
@@ -2330,11 +2383,18 @@ void interp_time_of_day_slow(const math::Vector<s32, 4> itimes[4],
       o[3] = std::min(128, temp[color][3] >> 6);
     }
   }
+  note_tod_alpha(out, in.color_count);
 }
 
 void interp_time_of_day(const math::Vector<s32, 4> itimes[4],
                         const tfrag3::PackedTimeOfDay& packed_colors,
                         math::Vector<u8, 4>* out) {
+  // (terme 5, essai 4) L'UNIQUE POINT PAR LEQUEL L'HEURE DU JEU ENTRE DANS LA COULEUR DU DECOR.
+  // Pendant la paire d'images que le point F juge, la valeur de la premiere image est rendue a
+  // la seconde : le cycle jour/nuit et l'oscillateur de foyer (`update-mood-flames`) cessent de
+  // repeindre tfrag, tie, shrub et hfrag entre deux images d'une scene qu'on declare immobile.
+  // Hors preuve, `census_tod_pin` rend son argument tel quel. Contrat : PrePass.h.
+  itimes = prepass::census_tod_pin(itimes);
   math::Vector<u16, 4> weights[8];
   for (int component = 0; component < 8; component++) {
     int quad_idx = component / 2;
@@ -2486,6 +2546,8 @@ void interp_time_of_day(const math::Vector<s32, 4> itimes[4],
       _mm_storel_epi64((__m128i*)(&out[color_quad * 4 + 2]), result);
     }
   }
+  // Le compte de la boucle est `color_count / 4` quads : on ne lit que ce qui a ete ecrit.
+  note_tod_alpha(out, (packed_colors.color_count / 4) * 4);
 }
 
 bool sphere_in_view_ref(const math::Vector4f& sphere, const math::Vector4f* planes) {

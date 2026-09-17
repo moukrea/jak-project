@@ -205,4 +205,26 @@ void proof_stencil_family(int fam);
 // stencil remis a zero et desactive. Ne touche a rien hors mesure.
 void proof_post_opaque(SharedRenderState* rs);
 
+// ── (terme 5, essai 4) L'HEURE DU JEU, EPINGLEE SUR LA PAIRE D'IMAGES JUGEE ─────────────────
+// Contrat, precision owner du 2026-09-17 : « l'heure du jeu est FIGEE pendant la paire d'images
+// … publier l'heure de jeu lue aux deux images, egale ». `itimes` entre par la chaine DMA et
+// REPEINT tfrag, tie, shrub et hfrag a chaque image rendue (`interp_time_of_day`,
+// background_common.cpp) ; deux choses le font bouger, et aucune des deux n'est l'AO :
+//   . le cycle jour/nuit — le morph est quantifie sur 64 paliers (mood.gc:182-184) et l'heure
+//     avance d'une seconde de jeu par frame de logique (time-of-day.gc:68) : un palier change
+//     toutes les ~170 frames de logique, soit 3 a 6 % des paires a sept frames d'ecart ;
+//   . `update-mood-flames` (mood.gc:352-372), qui ecrit `times[5].w` A CHAQUE IMAGE DESSINEE
+//     sur les moods a foyer — et le village en a un. Celui-la bouge a TOUTES les paires.
+// Sans cette garde, le decor changerait de couleur d'une image a l'autre pour une raison
+// ETRANGERE a ce qu'on mesure, et le point F ne pourrait jamais etre tenu.
+// La valeur que la PREMIERE image de la paire a reellement recue est donc rendue a la seconde,
+// ICI et nulle part ailleurs — un seul point de passage, celui par lequel l'heure entre dans la
+// couleur — et UNIQUEMENT pendant les phases 1 et 2 d'une triade de recensement, c'est-a-dire
+// sous l'armement de la preuve. Hors preuve, rend `live` tel quel : le build du joueur ne voit
+// rien de cette clause.
+// L'ECART BRUT QUI A ETE SUPPRIME EST PUBLIE (`ao_static_visible_tod_raw_delta`,
+// `ao_static_visible_tod_pinned_frames`) : une clause qui ne supprime jamais rien est une clause
+// vide, et un lecteur doit pouvoir le lire au lieu de le supposer.
+const math::Vector<s32, 4>* census_tod_pin(const math::Vector<s32, 4>* live);
+
 }  // namespace prepass

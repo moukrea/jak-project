@@ -75,6 +75,18 @@ class AmbientOcclusionPass {
   // que le terme 5 puisse REFUSER une paire qui ne l'a pas eue, au lieu de publier un chiffre
   // dont la premisse n'est pas etablie.
   static void set_census_wind_cut(bool cut);
+
+  // ── (terme 5, essai 4) L'IMAGE RENDUE, A DEUX INSTANTS DE LA MEME IMAGE ──────────────────
+  // ARBITRAGE OWNER du 2026-09-17 : le point F (« camera immobile, rien ne bouge ») se juge sur
+  // L'IMAGE, pas sur le tampon d'AO — « si c'est imperceptible … on peut passer a autre chose ».
+  // `prepass::proof_before_bucket` appelle ceci deux fois par image sondee :
+  //   stage 0, au bucket 31 (`ALPHA_TEX_LEVEL0`) : le DECOR OPAQUE seul est dessine ;
+  //   stage 1, au bucket 64 (`DEPTH_CUE`)        : la scene 3D est complete.
+  // Un pixel dont les deux etapes different a recu un acteur, un collectible, une ombre, un
+  // transparent ou l'eau par-dessus : il sort de la population, MESURE au lieu d'etre declare.
+  // `depth_tex` est la profondeur de la prepasse, deja a la resolution pleine de l'image.
+  // Inerte hors des phases 1 et 2 d'une triade : le build du joueur ne relit rien.
+  static void note_scene_stage(int stage, int w, int h, unsigned int depth_tex);
   static void request_pattern_census(bool on);
   // Cross-run input comparison supplied by PrePass before census publication.
   static void set_static_probe_verdict(uint64_t nondeterminism, uint64_t samples, bool compared);

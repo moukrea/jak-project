@@ -727,6 +727,9 @@ int s_census_pair_phase = -1;
 // DEUX images de la paire jugee ? `s_static_pairs_wind_cut` doit egaler `s_static_pairs`, sinon
 // le terme se declare non mesure — et un terme non mesure compte pour un defaut nomme.
 bool s_census_wind_cut = false;
+// L'etat du recensement de l'image en cours ; -1 quand l'image n'est pas sondee. Pose par
+// `set_measure_state`, lu par `estimate()` ET par le terme 5 sur l'image (avant le bucket 31).
+int s_census_state_now = -1;
 uint64_t s_static_pairs_wind_cut = 0;
 uint64_t s_static_pairs = 0;
 
@@ -1052,6 +1055,197 @@ constexpr uint64_t kAoTemporalCeilingX1000 = 6;
 // INDEXE PAR ETAT, pas par palier : un tampon partage entre les deux regimes ferait comparer
 // une image LIVREE a une image TEMOIN et mesurerait l'ecart entre les deux BRAS au lieu du
 // temps. C'est le piege central de cet indexage.
+
+// ══ (terme 5, essai 4) « RIEN NE BOUGE » SE JUGE SUR L'IMAGE, PAS SUR LE TAMPON D'AO ════════
+// ARBITRAGE OWNER du 2026-09-17 : « ca se voit comme du grain qui bouge… faudrait que ce soit
+// prouve ca parce que si c'est imperceptible juste a cause d'un alpha de texture filtree mais
+// imperceptible bon… on peut passer a autre chose ! ». Le terme 5 ne lit donc plus
+// `ao_static_cam_delta_px` — le tampon d'AO, 1802 texels sur 21 M, soit 0,0086 %, que l'owner a
+// lui-meme qualifie d'infime — mais `ao_static_visible_px` : les pixels de L'IMAGE RENDUE, a la
+// resolution reelle de l'appareil, dont la LUMINANCE change de plus de 2/255 entre deux images
+// consecutives. `ao_static_cam_delta_px` reste publie, a titre d'information.
+//
+// L'IMAGE EST RELUE DEUX FOIS DANS LA MEME IMAGE DE RENDU, sans un seul appel de dessin en plus
+// (crochet `prepass::proof_before_bucket`, deja appele par les DEUX renderers) :
+//   . etape 0, avant le bucket 31 (`ALPHA_TEX_LEVEL0`) : le DECOR OPAQUE seul — ciel (3), ocean
+//     lointain (4), tfrag et tie (5-18), shrub (19-30). Ce sont exactement les familles qui
+//     lisent `tex_screen_ao` (background_common.cpp) ;
+//   . etape 1, avant le bucket 64 (`DEPTH_CUE`) : la scene 3D COMPLETE — le fond transparent
+//     (31-44), MERC_AFTER_ALPHA et les acteurs/collectibles PRIS (45-56), les ombres (47) et
+//     l'eau (57-63) sont venus par-dessus.
+// UN PIXEL DONT LES DEUX ETAPES DIFFERENT A RECU UN DESSIN D'UNE DE CES FAMILLES : il SORT de la
+// population. C'est l'exclusion « acteurs divers et varies, caisses, collectibles » que l'owner
+// a demandee, MESUREE au lieu d'etre declaree — elle ne suppose aucune liste de noms a tenir a
+// jour, et une famille neuve y tombe toute seule. Les sprites (66) et le texte 2D (67-69) sont
+// dessines APRES l'etape 1 : ils ne sont dans aucune des deux relectures, donc dans aucune
+// population, et le HUD ne peut pas fabriquer un faux rouge.
+//
+// LES AUTRES GARDES, sur la profondeur de PREPASSE exportee a la resolution PLEINE
+// (`g_depth_tex` est deja alloue en `render_fb_w x render_fb_h`) :
+//   . le ciel sort — il n'a pas de geometrie, et ses nuages defilent ;
+//   . un pixel dont la profondeur a change d'UN SEUL quantum sort : c'est ce qui retire les
+//     acteurs opaques, que la prepasse dessine, des qu'ils ont bouge ;
+//   . un pixel dont un VOISIN a change de profondeur dans la PORTEE REELLE de la chaine d'AO
+//     sort — le meme garde pixel par pixel que l'essai 3 (boule monde 1,02*5120 deprojetee a la
+//     profondeur du pixel, plus flou + crete + carte de contact) ;
+//   . l'heure du jeu est EPINGLEE sur la paire (`prepass::census_tod_pin`), sans quoi le cycle
+//     jour/nuit ET l'oscillateur de foyer de `update-mood-flames` repeindraient le decor entre
+//     les deux images pour une raison etrangere a l'AO.
+//
+// L'OCTET AFFICHE, PAS LA VALEUR BRUTE. Sur l'appareil le tampon de scene est en RGBA16F : ses
+// valeurs sont deja dans l'encodage d'affichage du jeu, mais sans le plafond a 1,0 ni l'epaule
+// SDR que `tonemap.frag` applique en allant vers le tampon d'interface. On passe donc chaque
+// canal par `hdr::sdr_display_u8`, miroir de cette branche avec les MEMES uniformes vivants :
+// « 2/255 » veut alors dire 2/255 DE CE QUE L'ECRAN MONTRE.
+//
+// ANTI-VACUITE. `ao_static_visible_raw_px` compte la MEME chose SANS AUCUNE exclusion. S'il est
+// nul, la scene entiere etait figee et le zero du terme ne prouverait rien : la premisse tombe
+// et le terme compte 1. C'est la lecon de « porte verte par INACTION ».
+// Le plus grand |sp - P| que les trois estimateurs atteignent : SSAO `sp = P + N*0,02*R + dir*R`
+// avec R = 5120 (ao_ssao.frag, u_radius), GTAO et HBAO le MEME noyau par `broad_occ` (BR = 5120,
+// ao_gtao.frag / ao_hbao.frag). Aucun reglage : deux constantes du code.
+constexpr float kAoWorldReach = 1.02f * 5120.f;
+constexpr int kVisMove = 2;  // 2/255 : le seuil que le contrat nomme, en unites d'affichage
+
+std::vector<float> s_vis_f[2];       // relecture flottante (tampon de scene RGBA16F)
+std::vector<uint8_t> s_vis_b[2];     // relecture octet (tampon de scene RGBA8)
+std::vector<uint8_t> s_vis_luma, s_vis_luma_ref;
+std::vector<uint8_t> s_vis_pure, s_vis_pure_ref;
+std::vector<float> s_vis_depth, s_vis_depth_ref;
+std::vector<uint8_t> s_vis_changed;
+std::vector<uint32_t> s_vis_sat;
+
+int s_vis_w = 0, s_vis_h = 0;
+int s_vis_ref_state = -1;
+bool s_vis_stage0_ok = false;
+bool s_vis_ref_ok = false;
+uint8_t s_vis_ref_wind = 0;
+
+uint64_t s_vis_px[kCensusStates] = {0};
+uint64_t s_vis_pop[kCensusStates] = {0};
+uint64_t s_vis_pairs_state[kCensusStates] = {0};
+uint64_t s_vis_pairs = 0, s_vis_pairs_wind_cut = 0;
+uint64_t s_vis_raw_px = 0, s_vis_raw_pop = 0;
+uint64_t s_vis_excl_overdrawn = 0, s_vis_excl_sky = 0;
+uint64_t s_vis_excl_moved = 0, s_vis_excl_near_moved = 0;
+uint64_t s_vis_gt4[2] = {0, 0}, s_vis_gt8[2] = {0, 0}, s_vis_gt16[2] = {0, 0};
+uint64_t s_vis_worst_delta = 0, s_vis_worst_x = 0, s_vis_worst_y = 0, s_vis_worst_state = 0;
+uint64_t s_vis_over_one_px = 0;  // pixels dont le tampon depasse 1,0, donc que l'epaule comprime
+uint64_t s_vis_src_float = 0;    // 1 si le tampon de scene est flottant
+uint64_t s_vis_read_fail = 0;    // relectures refusees par le pilote
+uint64_t s_vis_depth_fail = 0;   // exports de profondeur refuses
+uint64_t s_vis_box_rx = 0, s_vis_box_ry = 0;
+// ── LE PARTAGE QUI NOMME LA CAUSE : L'AO A-T-ELLE BOUGE LA OU L'IMAGE BOUGE ? ───────────────
+// L'owner, 17/09 : « preuve demandee pour le grain qui bouge en cas d'echec ». Un compte de
+// pixels qui changent ne dit pas QUI les fait changer : entre deux images rendues, la scene a
+// avance de plusieurs frames de LOGIQUE, et l'AO n'est pas la seule chose qui varie. On partage
+// donc la population en deux, dans la MEME image et sans une mesure de plus : les pixels dont le
+// texel d'AO (et ses huit voisins, parce que l'AO est remontee a la resolution de l'image) est
+// IDENTIQUE entre les deux images, et les autres. Si le taux de changement est le MEME dans les
+// deux moities, l'AO est hors de cause et le grain vient d'ailleurs — c'est la reponse que le
+// contrat exige avant de depenser un essai de plus.
+// Le masque est FIGE dans `pattern_census`, avant que la reference d'AO ne soit ecrasee : au
+// moment ou ce censeur tourne (bucket 31), les deux tampons d'AO sont deja identiques et le
+// partage serait vide par construction.
+std::vector<uint8_t> s_vis_ao_changed;
+int s_vis_ao_w = 0, s_vis_ao_h = 0, s_vis_ao_state = -1;
+uint64_t s_vis_ao_same_pop[2] = {0, 0}, s_vis_ao_same_px[2] = {0, 0};
+uint64_t s_vis_ao_moved_pop[2] = {0, 0}, s_vis_ao_moved_px[2] = {0, 0};
+
+// ── LA PAIRE D'IMAGES, EN CAS D'ECHEC SEULEMENT ─────────────────────────────────────────────
+// Le contrat : « s'il est > 0, joindre au ticket la paire d'images (les deux captures et une
+// image de difference amplifiee) … EN ILLUSTRATION POUR L'OWNER, JAMAIS COMME PORTE ». Elles ne
+// sont donc ecrites que lorsqu'une paire bat le pire ecart deja vu, en P6 brut — aucun encodeur,
+// aucune dependance — sous `$HOME`, que le lanceur Android pose sur le dossier de l'application.
+// Rien n'est ecrit quand le terme est a zero : il n'y a alors rien a illustrer.
+uint64_t s_vis_dump_written = 0;
+
+void vis_dump_ppm(const char* name, const uint8_t* luma_a, const uint8_t* luma_b, int w, int h,
+                  int mode) {
+  const char* home = std::getenv("HOME");
+  if (!home || !home[0]) {
+    return;
+  }
+  std::string path = std::string(home) + "/" + name;
+  FILE* f = std::fopen(path.c_str(), "wb");
+  if (!f) {
+    return;
+  }
+  std::fprintf(f, "P6\n%d %d\n255\n", w, h);
+  std::vector<uint8_t> row((size_t)w * 3);
+  for (int y = h - 1; y >= 0; y--) {  // le tampon GL part d'en bas : on remet l'image a l'endroit
+    for (int x = 0; x < w; x++) {
+      const size_t i = (size_t)y * (size_t)w + (size_t)x;
+      int v;
+      if (mode == 2) {
+        const int d = (int)luma_b[i] - (int)luma_a[i];
+        const int ad = (d < 0 ? -d : d) * 16;  // difference AMPLIFIEE x16, ecretee a blanc
+        v = ad > 255 ? 255 : ad;
+      } else {
+        v = (mode == 0) ? luma_a[i] : luma_b[i];
+      }
+      row[(size_t)x * 3 + 0] = (uint8_t)v;
+      row[(size_t)x * 3 + 1] = (uint8_t)v;
+      row[(size_t)x * 3 + 2] = (uint8_t)v;
+    }
+    std::fwrite(row.data(), 1, row.size(), f);
+  }
+  std::fclose(f);
+  s_vis_dump_written++;
+}
+
+inline int vis_luma(int r, int g, int b) {
+  // Rec. 601 en entiers : la meme ponderation que toute grandeur de luminance de cet arbre.
+  return (77 * r + 150 * g + 29 * b + 128) >> 8;
+}
+
+// Relit le tampon de couleur LIE EN DESSIN, quel que soit son format, dans `s_vis_f[slot]` ou
+// `s_vis_b[slot]`. Rend faux si le pilote refuse : un zero obtenu sur une relecture ratee serait
+// un vert par inaction, et `ao_static_visible_read_fail` le dit.
+bool vis_read_scene(int slot, int w, int h) {
+  GLint prev_read = 0, prev_pack = 4, draw_fbo = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &prev_pack);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
+  while (glGetError() != GL_NO_ERROR) {
+  }  // vidange : on veut l'erreur de NOTRE relecture, pas celle d'un voisin
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)draw_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  // Le TYPE du composant est DEMANDE au pilote, jamais suppose : sur l'appareil la chaine HDR
+  // rend le tampon de scene en RGBA16F, sur bureau il peut etre RGBA8, et
+  // `GL_RGBA`/`GL_UNSIGNED_BYTE` sur un attachement flottant est un `GL_INVALID_OPERATION`.
+  GLint ctype = GL_UNSIGNED_NORMALIZED;
+  glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE, &ctype);
+  if (glGetError() != GL_NO_ERROR) {
+    ctype = GL_UNSIGNED_NORMALIZED;
+  }
+  const bool is_float = (ctype == GL_FLOAT);
+  s_vis_src_float = is_float ? 1ull : 0ull;
+  const size_t n = (size_t)w * (size_t)h;
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  if (is_float) {
+    // `GL_RGBA`/`GL_FLOAT` est le seul couple que la spec GLES 3.2 garantit sur une cible
+    // flottante ; c'est le repli que tout le reste de l'arbre utilise.
+    if (s_vis_f[slot].size() < n * 4) {
+      s_vis_f[slot].resize(n * 4);
+    }
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, s_vis_f[slot].data());
+  } else {
+    if (s_vis_b[slot].size() < n * 4) {
+      s_vis_b[slot].resize(n * 4);
+    }
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, s_vis_b[slot].data());
+  }
+  const GLenum err = glGetError();
+  glPixelStorei(GL_PACK_ALIGNMENT, prev_pack);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read);
+  if (err != GL_NO_ERROR) {
+    s_vis_read_fail++;
+    return false;
+  }
+  return true;
+}
 std::vector<uint8_t> s_prev_buf[kCensusStates];
 uint8_t s_prev_wind_cut[kCensusStates] = {0};
 int s_prev_w[kCensusStates] = {0};
@@ -2252,7 +2446,9 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
                                        : (q_state == 0 ? 250ull : q_state == 1 ? 500ull : 1000ull);
           const int blur_px = (int)std::ceil(2000.0 * (double)sum_strides / (double)q_milli);
           const int chain_px = blur_px + 4 /* crete, 4 passes de ±1 */ + 8 /* carte de contact */;
-          constexpr float kAoWorldReach = 1.02f * 5120.f;  // le plus grand |sp - P| des trois
+          // `kAoWorldReach` : le plus grand |sp - P| des trois estimateurs, hisse au fichier
+          // (une seule source, trois lecteurs : ce garde, celui du terme 5 sur l'image, et la
+          // cle `ao_static_chain_world_reach` qui le publie).
           // `s_static_box_rx/ry` gardent le PLUS GRAND rayon exige sur TOUTE la course : les
           // remettre a `chain_px` a chaque paire ne publierait que la derniere.
           // Table de surface en uint32_t : le masque ne vaut que 0 ou 1 et w*h se compte en
@@ -2461,6 +2657,25 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
       }
     }
   }
+  // ── LE MASQUE DE CE QUE L'AO A CHANGE, FIGE AVANT L'ECRASEMENT DE LA REFERENCE ───────────
+  // Le censeur d'image (terme 5) tourne plus tard dans la MEME image, au bucket 31 : a ce
+  // moment-la `s_prev_buf[state]` porte deja la valeur COURANTE et la comparaison serait
+  // vide par construction. On la fige donc ici, une passe sur un tampon deja en memoire.
+  if (has_state && s_census_pair_phase == 2 && s_prev_w[state] == w && s_prev_h[state] == h &&
+      s_prev_buf[state].size() >= n) {
+    if (s_vis_ao_changed.size() < n) {
+      s_vis_ao_changed.resize(n);
+    }
+    for (size_t i = 0; i < n; i++) {
+      s_vis_ao_changed[i] = (s_pat_buf[i] != s_prev_buf[state][i]) ? 1u : 0u;
+    }
+    s_vis_ao_w = w;
+    s_vis_ao_h = h;
+    s_vis_ao_state = state;
+  } else if (s_census_pair_phase == 2) {
+    s_vis_ao_w = 0;  // pas de reference comparable : le partage se tait au lieu de mentir
+    s_vis_ao_state = -1;
+  }
   // L'enregistrement de la REFERENCE, lui, est inconditionnel : c'est la copie posee par la
   // phase 1 que la phase 2 relit une image plus tard.
   if (has_state) {
@@ -2524,6 +2739,15 @@ void AmbientOcclusionPass::set_measure_state(int mode, int quality, int legacy) 
   s_measure_mode = (mode == 1 || mode == 2 || mode == 3) ? mode : -1;
   s_measure_quality = (quality >= 0 && quality <= 2) ? quality : -1;
   s_measure_legacy = (legacy != 0) ? 1 : 0;
+  // L'ETAT DU RECENSEMENT, CALCULE UNE FOIS ET ICI : `legacy*9 + mode_idx*3 + qualite`, mode_idx
+  // 0 = SSAO, 1 = GTAO, 2 = HBAO. `estimate()` le relit au lieu de refaire l'arithmetique, et le
+  // terme 5 sur l'image en a besoin AVANT le bucket 31, c'est-a-dire avant que `estimate()` ne
+  // l'ait publie. Deux copies de cette formule auraient pu deriver l'une de l'autre en silence.
+  const int mode_idx = (s_measure_mode == 1) ? 0 : (s_measure_mode == 3) ? 1
+                       : (s_measure_mode == 2) ? 2 : -1;
+  s_census_state_now = (mode_idx < 0 || s_measure_quality < 0)
+                           ? -1
+                           : (s_measure_legacy * 9 + mode_idx * 3 + s_measure_quality);
 }
 
 void AmbientOcclusionPass::set_prepass_defect_terms(uint64_t direct_leak_px,
@@ -2550,6 +2774,285 @@ void AmbientOcclusionPass::set_arch_terms(uint64_t indirect_hit_px,
 
 void AmbientOcclusionPass::set_census_wind_cut(bool cut) {
   s_census_wind_cut = cut;
+}
+
+// ── (terme 5, essai 4) LES DEUX RELECTURES, ET LA COMPARAISON DE LA PAIRE ───────────────────
+// Contrat en tete de fichier, section « RIEN NE BOUGE SE JUGE SUR L'IMAGE ». Appelee par
+// `prepass::proof_before_bucket` aux buckets 31 et 64, dans les DEUX renderers. Hors des phases
+// 1 et 2 d'une triade de recensement, elle rend immediatement et ne touche a rien : le build du
+// joueur ne fait pas une relecture de plus.
+void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned int depth_tex) {
+  if (!ao_item::measured()) {
+    return;  // hors preuve de cet item : aucune relecture
+  }
+  const int phase = s_census_pair_phase;
+  if ((phase != 1 && phase != 2) || w <= 1 || h <= 1) {
+    return;
+  }
+  if (s_census_state_now < 0 || s_census_state_now >= kCensusStates) {
+    return;  // etat inconnu : on ne sait pas a quel couple attribuer la mesure
+  }
+  const size_t n = (size_t)w * (size_t)h;
+  if (w != s_vis_w || h != s_vis_h) {
+    // La fenetre a change de taille : la reference d'avant ne decrit plus la meme image.
+    s_vis_w = w;
+    s_vis_h = h;
+    s_vis_ref_ok = false;
+    s_vis_stage0_ok = false;
+  }
+  if (stage == 0) {
+    s_vis_stage0_ok = vis_read_scene(0, w, h);
+    return;
+  }
+  if (stage != 1 || !s_vis_stage0_ok) {
+    return;
+  }
+  s_vis_stage0_ok = false;
+  if (!vis_read_scene(1, w, h)) {
+    s_vis_ref_ok = false;
+    return;
+  }
+  // ── CE QUE LES DEUX ETAPES DISENT, PIXEL PAR PIXEL ────────────────────────────────────────
+  // `pure` : les deux etapes sont IDENTIQUES, donc rien n'a ete dessine par-dessus le decor
+  // opaque entre le bucket 31 et le bucket 64. `luma` : la luminance de l'etape 1 — la scene 3D
+  // complete — en unites d'AFFICHAGE.
+  if (s_vis_pure.size() < n) {
+    s_vis_pure.resize(n);
+  }
+  if (s_vis_luma.size() < n) {
+    s_vis_luma.resize(n);
+  }
+  const bool is_float = (s_vis_src_float != 0);
+  // Les parametres de la courbe d'affichage, relus UNE fois : par pixel, `sdr_encode_params`
+  // coutait trois `std::pow`.
+  const hdr::SdrEncode enc = hdr::sdr_encode_params();
+  for (size_t i = 0; i < n; i++) {
+    int r, g, b;
+    bool pure;
+    if (is_float) {
+      const float* a = &s_vis_f[0][i * 4];
+      const float* c = &s_vis_f[1][i * 4];
+      // RVB SEULEMENT. L'alpha du tampon de scene sert au melange de la passe 2D et beaucoup de
+      // draws l'ecrivent sans rien changer a ce qui se voit : l'inclure dans l'egalite viderait
+      // la population pour une raison qui n'a pas de pixel.
+      pure = (a[0] == c[0]) && (a[1] == c[1]) && (a[2] == c[2]);
+      if (c[0] > 1.f || c[1] > 1.f || c[2] > 1.f) {
+        s_vis_over_one_px++;
+      }
+      r = hdr::sdr_display_u8(enc, c[0]);
+      g = hdr::sdr_display_u8(enc, c[1]);
+      b = hdr::sdr_display_u8(enc, c[2]);
+    } else {
+      const uint8_t* a = &s_vis_b[0][i * 4];
+      const uint8_t* c = &s_vis_b[1][i * 4];
+      pure = (std::memcmp(a, c, 3) == 0);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    }
+    s_vis_pure[i] = pure ? 1u : 0u;
+    s_vis_luma[i] = (uint8_t)vis_luma(r, g, b);
+  }
+  // La profondeur de la PREPASSE, a la resolution PLEINE de l'image : c'est elle qui dit ce qui
+  // a bouge. `export_depth` re-encode la profondeur 24 bits dans un RGBA8 — le seul chemin que
+  // GLES rend — et sauve/restaure tout l'etat GL qu'elle touche.
+  if (depth_tex == 0 || !prepass::export_depth((GLuint)depth_tex, w, h, &s_vis_depth)) {
+    s_vis_depth_fail++;
+    s_vis_ref_ok = false;
+    return;
+  }
+  if (phase == 1) {
+    // L'IMAGE DE REFERENCE. On garde son etat pour que la phase 2 refuse une paire dont l'etat
+    // de mesure aurait change entre les deux images.
+    s_vis_luma_ref = s_vis_luma;
+    s_vis_pure_ref = s_vis_pure;
+    s_vis_depth_ref = s_vis_depth;
+    s_vis_ref_state = s_census_state_now;
+    s_vis_ref_wind = s_census_wind_cut ? 1u : 0u;
+    s_vis_ref_ok = true;
+    return;
+  }
+  // ── PHASE 2 : LA COMPARAISON ──────────────────────────────────────────────────────────────
+  if (!s_vis_ref_ok || s_vis_ref_state != s_census_state_now || s_vis_luma_ref.size() < n ||
+      s_vis_depth_ref.size() < n) {
+    s_vis_ref_ok = false;
+    return;
+  }
+  s_vis_ref_ok = false;
+  const int state = s_census_state_now;
+  s_vis_pairs++;
+  s_vis_pairs_state[state]++;
+  if (s_vis_ref_wind && s_census_wind_cut) {
+    s_vis_pairs_wind_cut++;
+  }
+  // (1) LE TEMOIN D'ANTI-VACUITE : le meme compte, sur TOUTE l'image, sans une seule exclusion.
+  // S'il reste nul sur la course, c'est que rien ne bougeait nulle part et qu'un zero ne dit
+  // rien. Il est calcule AVANT tout `continue`, sur la population entiere.
+  for (size_t i = 0; i < n; i++) {
+    const int d = (int)s_vis_luma[i] - (int)s_vis_luma_ref[i];
+    if (d > kVisMove || d < -kVisMove) {
+      s_vis_raw_px++;
+    }
+  }
+  s_vis_raw_pop += n;
+  // (2) LE MASQUE DE CE QUI A BOUGE, SANS AUCUN SEUIL, et sa table de surface — un texel a bouge
+  // si sa profondeur a change d'un seul quantum, ou si l'un des deux releves est du ciel et
+  // l'autre pas (un mobile qui DECOUVRE ou MASQUE le ciel a bouge lui aussi).
+  if (s_vis_changed.size() < n) {
+    s_vis_changed.resize(n);
+  }
+  for (size_t i = 0; i < n; i++) {
+    const float zn = s_vis_depth[i], zo = s_vis_depth_ref[i];
+    const bool sn = (zn <= 1e-9f), so = (zo <= 1e-9f);
+    s_vis_changed[i] = (sn && so) ? 0u : ((sn != so || zn != zo) ? 1u : 0u);
+  }
+  const size_t sw = (size_t)w + 1, sh = (size_t)h + 1;
+  if (s_vis_sat.size() < sw * sh) {
+    s_vis_sat.resize(sw * sh);
+  }
+  for (size_t x = 0; x < sw; x++) {
+    s_vis_sat[x] = 0;
+  }
+  for (int y = 0; y < h; y++) {
+    uint32_t row = 0;
+    const size_t o0 = (size_t)(y + 1) * sw, om = (size_t)y * sw;
+    s_vis_sat[o0] = 0;
+    for (int x = 0; x < w; x++) {
+      row += (uint32_t)s_vis_changed[(size_t)y * (size_t)w + (size_t)x];
+      s_vis_sat[o0 + (size_t)x + 1] = s_vis_sat[om + (size_t)x + 1] + row;
+    }
+  }
+  auto box_changed = [&](int x, int y, int brx, int bry) -> uint32_t {
+    const int x0 = std::max(0, x - brx), y0 = std::max(0, y - bry);
+    const int x1 = std::min(w - 1, x + brx), y1 = std::min(h - 1, y + bry);
+    return s_vis_sat[(size_t)(y1 + 1) * sw + (size_t)(x1 + 1)] -
+           s_vis_sat[(size_t)y0 * sw + (size_t)(x1 + 1)] -
+           s_vis_sat[(size_t)(y1 + 1) * sw + (size_t)x0] +
+           s_vis_sat[(size_t)y0 * sw + (size_t)x0];
+  };
+  // Ce que la chaine AVAL propage, en pixels d'ecran — meme calcul que le garde du tampon d'AO.
+  const int q_state = state % 3;
+  const int sum_strides = (q_state == 2) ? (1 + 2 + 3 + 5) : (1 + 2 + 3);
+  const uint64_t q_milli = s_scale_q_x1000[q_state]
+                               ? s_scale_q_x1000[q_state]
+                               : (q_state == 0 ? 250ull : q_state == 1 ? 500ull : 1000ull);
+  const int blur_px = (int)std::ceil(2000.0 * (double)sum_strides / (double)q_milli);
+  const int chain_px = blur_px + 4 /* crete, 4 passes de +-1 */ + 8 /* carte de contact */;
+  // ── LA POPULATION, ET LES QUATRE RAISONS D'EN SORTIR, COMPTEES SEPAREMENT ─────────────────
+  bool dump_pair = false;
+  const int arm = (state < 9) ? 0 : 1;  // 0 = bras LIVRE, 1 = bras TEMOIN
+  const bool ao_known = (s_vis_ao_w > 0 && s_vis_ao_h > 0 && s_vis_ao_state == state &&
+                         s_vis_ao_changed.size() >= (size_t)s_vis_ao_w * (size_t)s_vis_ao_h);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      const size_t i = (size_t)y * (size_t)w + (size_t)x;
+      if (!s_vis_pure[i] || !s_vis_pure_ref[i]) {
+        s_vis_excl_overdrawn++;  // acteur, collectible, ombre, transparent ou eau par-dessus
+        continue;
+      }
+      const float zn = s_vis_depth[i], zo = s_vis_depth_ref[i];
+      if (zn <= 1e-9f || zo <= 1e-9f) {
+        s_vis_excl_sky++;
+        continue;
+      }
+      if (zn != zo) {
+        s_vis_excl_moved++;  // la geometrie de CE pixel a bouge
+        continue;
+      }
+      int brx = 0, bry = 0;
+      if (s_census_cam_valid) {
+        // UN pixel en unites MONDE a CETTE profondeur : la deprojection du voisin immediat au
+        // meme z, par la MEME formule que les shaders. Pas de focale supposee.
+        float pc[3], pxn[3], pyn[3];
+        census_world(x, y, w, h, zn, pc);
+        census_world(x + 1, y, w, h, zn, pxn);
+        census_world(x, y + 1, w, h, zn, pyn);
+        const float ux = std::sqrt((pxn[0] - pc[0]) * (pxn[0] - pc[0]) +
+                                   (pxn[1] - pc[1]) * (pxn[1] - pc[1]) +
+                                   (pxn[2] - pc[2]) * (pxn[2] - pc[2]));
+        const float uy = std::sqrt((pyn[0] - pc[0]) * (pyn[0] - pc[0]) +
+                                   (pyn[1] - pc[1]) * (pyn[1] - pc[1]) +
+                                   (pyn[2] - pc[2]) * (pyn[2] - pc[2]));
+        brx = std::min((ux > 1e-4f) ? (int)std::ceil(kAoWorldReach / ux) : w, w) + chain_px;
+        bry = std::min((uy > 1e-4f) ? (int)std::ceil(kAoWorldReach / uy) : h, h) + chain_px;
+        if ((uint64_t)brx > s_vis_box_rx) {
+          s_vis_box_rx = (uint64_t)brx;
+        }
+        if ((uint64_t)bry > s_vis_box_ry) {
+          s_vis_box_ry = (uint64_t)bry;
+        }
+      } else {
+        // Camera inconnue : on ne peut pas borner la portee, donc on ne compte pas ce pixel.
+        s_vis_excl_near_moved++;
+        continue;
+      }
+      if (box_changed(x, y, brx, bry) != 0) {
+        s_vis_excl_near_moved++;  // un occulteur a bouge assez pres : l'AO a le DROIT de changer
+        continue;
+      }
+      s_vis_pop[state]++;
+      const int d = (int)s_vis_luma[i] - (int)s_vis_luma_ref[i];
+      const int ad = d < 0 ? -d : d;
+      // LE PARTAGE PAR LA CAUSE. Le texel d'AO correspondant ET ses huit voisins : l'AO est
+      // remontee a la resolution de l'image, un pixel en lit donc plusieurs.
+      if (ao_known) {
+        const int ax = (int)((int64_t)x * s_vis_ao_w / w);
+        const int ay = (int)((int64_t)y * s_vis_ao_h / h);
+        bool ao_same = true;
+        for (int dy = -1; dy <= 1 && ao_same; dy++) {
+          for (int dx = -1; dx <= 1 && ao_same; dx++) {
+            const int tx = std::min(std::max(ax + dx, 0), s_vis_ao_w - 1);
+            const int ty = std::min(std::max(ay + dy, 0), s_vis_ao_h - 1);
+            if (s_vis_ao_changed[(size_t)ty * (size_t)s_vis_ao_w + (size_t)tx]) {
+              ao_same = false;
+            }
+          }
+        }
+        if (ao_same) {
+          s_vis_ao_same_pop[arm]++;
+          if (ad > kVisMove) {
+            s_vis_ao_same_px[arm]++;
+          }
+        } else {
+          s_vis_ao_moved_pop[arm]++;
+          if (ad > kVisMove) {
+            s_vis_ao_moved_px[arm]++;
+          }
+        }
+      }
+      if (ad > kVisMove) {
+        s_vis_px[state]++;
+        // PAR BRAS : un compteur global melangerait le bras livre et le bras temoin, et le
+        // « pixel a regarder » designerait le code qu'on a REMPLACE (FINDINGS de l'essai 3).
+        if (ad > 4) {
+          s_vis_gt4[arm]++;
+        }
+        if (ad > 8) {
+          s_vis_gt8[arm]++;
+        }
+        if (ad > 16) {
+          s_vis_gt16[arm]++;
+        }
+        // Le pixel A REGARDER, bras LIVRE seulement : le designer sur le bras temoin enverrait
+        // l'essai suivant chercher un defaut dans le code qu'on a REMPLACE.
+        if (state < 9 && (uint64_t)ad > s_vis_worst_delta) {
+          s_vis_worst_delta = (uint64_t)ad;
+          s_vis_worst_x = (uint64_t)x;
+          s_vis_worst_y = (uint64_t)y;
+          s_vis_worst_state = (uint64_t)state;
+          dump_pair = true;
+        }
+      }
+    }
+  }
+  if (dump_pair) {
+    // ILLUSTRATION, PAS PREUVE (regle 2 des DIRECTIVES) : la paire qui porte le pire ecart, et
+    // leur difference amplifiee x16. Le nombre reste la preuve ; ces trois fichiers ne servent
+    // qu'a montrer a l'owner ou se trouve le grain qu'il decrit.
+    vis_dump_ppm("ao-visible-a.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 0);
+    vis_dump_ppm("ao-visible-b.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 1);
+    vis_dump_ppm("ao-visible-diff.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 2);
+  }
 }
 
 void AmbientOcclusionPass::set_census_pair_phase(int phase) {
@@ -3027,7 +3530,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_chain_worst_state", s_static_w_worst_state);
   // Les deux constantes du code dont la boite descend, publiees pour qu'on puisse la refaire :
   // le rayon monde des noyaux hemispheriques, et le fait que la camera etait relue.
-  autoport_proof::publish("ao_static_chain_world_reach", (uint64_t)(1.02 * 5120.0));
+  autoport_proof::publish("ao_static_chain_world_reach", (uint64_t)kAoWorldReach);
   autoport_proof::publish("ao_static_chain_cam_valid", s_census_cam_valid ? 1ull : 0ull);
   // PAR ETAT : sans ca, « 4 texels bougent » ne dit pas QUEL couple (mode, qualite) les porte,
   // et le correctif suivant vise au hasard. Le rayon de boite retenu par etat est publie avec.
@@ -3094,7 +3597,126 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish_text("ao_static_cam_delta_px", "non-mesure");
     autoport_proof::publish_text("ao_static_cam_legacy_px", "non-mesure");
   }
-  const uint64_t t5 = static_measured ? term5_moved : 1ull;
+  // ── (terme 5, essai 4) CE QUE LA PORTE LIT : L'IMAGE, PLUS LE TAMPON D'AO ────────────────
+  // ARBITRAGE OWNER du 2026-09-17 : « si c'est imperceptible juste a cause d'un alpha de texture
+  // filtree mais imperceptible bon… on peut passer a autre chose ! ». Le contrat le dit mot pour
+  // mot : « si `ao_static_visible_px` = 0, le point F est TENU meme si le tampon d'AO change ;
+  // `ao_static_cam_delta_px` reste publie a titre d'information et ne compte plus dans
+  // `ao_owner_defects` ». Tout le bloc au-dessus reste donc en place et publie ; il ne compte
+  // plus. Ce qui compte est ci-dessous.
+  uint64_t vis_px = 0, vis_pop = 0, vis_legacy_px = 0, vis_legacy_pop = 0;
+  uint64_t vis_couples_measured = 0;
+  std::string vis_uncovered;
+  for (int i = 0; i < kCensusStates; i++) {
+    autoport_proof::publish(("ao_static_visible_px_" + std::string(kCensusName[i])).c_str(),
+                            s_vis_px[i]);
+    autoport_proof::publish(("ao_static_visible_pop_px_" + std::string(kCensusName[i])).c_str(),
+                            s_vis_pop[i]);
+    if (i < 9) {
+      vis_px += s_vis_px[i];
+      vis_pop += s_vis_pop[i];
+    } else {
+      vis_legacy_px += s_vis_px[i];
+      vis_legacy_pop += s_vis_pop[i];
+    }
+  }
+  autoport_proof::publish("ao_static_visible_pop_px", vis_pop);
+  autoport_proof::publish("ao_static_visible_legacy_px", vis_legacy_px);
+  autoport_proof::publish("ao_static_visible_legacy_pop_px", vis_legacy_pop);
+  autoport_proof::publish("ao_static_visible_raw_px", s_vis_raw_px);
+  autoport_proof::publish("ao_static_visible_raw_pop_px", s_vis_raw_pop);
+  autoport_proof::publish("ao_static_visible_pairs", s_vis_pairs);
+  autoport_proof::publish("ao_static_visible_pairs_wind_cut", s_vis_pairs_wind_cut);
+  // LES QUATRE RAISONS DE SORTIR DE LA POPULATION, COMPTEES SEPAREMENT. « Exclus » n'est pas
+  // « correct » : un lecteur doit pouvoir voir LEQUEL des quatre mange la population, et une
+  // exclusion qui gonflerait se lit ici avant de fausser le terme.
+  autoport_proof::publish("ao_static_visible_excl_overdrawn_px", s_vis_excl_overdrawn);
+  autoport_proof::publish("ao_static_visible_excl_sky_px", s_vis_excl_sky);
+  autoport_proof::publish("ao_static_visible_excl_moved_px", s_vis_excl_moved);
+  autoport_proof::publish("ao_static_visible_excl_near_moved_px", s_vis_excl_near_moved);
+  autoport_proof::publish_text(
+      "ao_static_visible_excluded",
+      "dessine-par-dessus(acteurs,collectibles,ombres,transparents,eau);ciel;"
+      "geometrie-du-pixel-a-bouge;voisin-mobile-dans-la-portee-de-l-AO");
+  autoport_proof::publish("ao_static_visible_gt4_px", s_vis_gt4[0]);
+  autoport_proof::publish("ao_static_visible_gt8_px", s_vis_gt8[0]);
+  autoport_proof::publish("ao_static_visible_gt16_px", s_vis_gt16[0]);
+  autoport_proof::publish("ao_static_visible_legacy_gt4_px", s_vis_gt4[1]);
+  autoport_proof::publish("ao_static_visible_legacy_gt8_px", s_vis_gt8[1]);
+  autoport_proof::publish("ao_static_visible_legacy_gt16_px", s_vis_gt16[1]);
+  // ── LA REPONSE A « EST-CE L'AO ? », CHIFFREE, DANS LA MEME COURSE ─────────────────────────
+  // Deux moities de la MEME population : celle dont le texel d'AO (et ses huit voisins) est
+  // IDENTIQUE entre les deux images, et celle dont il a bouge. Si le taux est le meme des deux
+  // cotes, ce qui bouge a l'ecran n'est pas l'AO. Les deux denominateurs sont publies a cote :
+  // un taux sans son denominateur ne se compare a rien.
+  autoport_proof::publish("ao_static_visible_ao_same_px", s_vis_ao_same_px[0]);
+  autoport_proof::publish("ao_static_visible_ao_same_pop_px", s_vis_ao_same_pop[0]);
+  autoport_proof::publish("ao_static_visible_ao_moved_px", s_vis_ao_moved_px[0]);
+  autoport_proof::publish("ao_static_visible_ao_moved_pop_px", s_vis_ao_moved_pop[0]);
+  autoport_proof::publish("ao_static_visible_legacy_ao_same_px", s_vis_ao_same_px[1]);
+  autoport_proof::publish("ao_static_visible_legacy_ao_same_pop_px", s_vis_ao_same_pop[1]);
+  autoport_proof::publish("ao_static_visible_legacy_ao_moved_px", s_vis_ao_moved_px[1]);
+  autoport_proof::publish("ao_static_visible_legacy_ao_moved_pop_px", s_vis_ao_moved_pop[1]);
+  // Le taux pour mille de chaque moitie, pour que la comparaison ne demande pas une division.
+  autoport_proof::publish(
+      "ao_static_visible_ao_same_rate_x1000",
+      s_vis_ao_same_pop[0] ? (1000ull * s_vis_ao_same_px[0] / s_vis_ao_same_pop[0]) : 0ull);
+  autoport_proof::publish(
+      "ao_static_visible_ao_moved_rate_x1000",
+      s_vis_ao_moved_pop[0] ? (1000ull * s_vis_ao_moved_px[0] / s_vis_ao_moved_pop[0]) : 0ull);
+  autoport_proof::publish("ao_static_visible_worst_delta", s_vis_worst_delta);
+  autoport_proof::publish("ao_static_visible_worst_x", s_vis_worst_x);
+  autoport_proof::publish("ao_static_visible_worst_y", s_vis_worst_y);
+  autoport_proof::publish("ao_static_visible_worst_state", s_vis_worst_state);
+  autoport_proof::publish("ao_static_visible_threshold_x255", (uint64_t)kVisMove);
+  autoport_proof::publish("ao_static_visible_w", (uint64_t)s_vis_w);
+  autoport_proof::publish("ao_static_visible_h", (uint64_t)s_vis_h);
+  autoport_proof::publish("ao_static_visible_box_rx", s_vis_box_rx);
+  autoport_proof::publish("ao_static_visible_box_ry", s_vis_box_ry);
+  autoport_proof::publish("ao_static_visible_src_float", s_vis_src_float);
+  autoport_proof::publish("ao_static_visible_over_one_px", s_vis_over_one_px);
+  autoport_proof::publish("ao_static_visible_read_fail", s_vis_read_fail);
+  autoport_proof::publish("ao_static_visible_depth_fail", s_vis_depth_fail);
+  autoport_proof::publish("ao_static_visible_dump_written", s_vis_dump_written);
+  autoport_proof::publish("ao_static_visible_curve_mode",
+                          (uint64_t)Gfx::settings().recharged_hdr_curve);
+  autoport_proof::publish("ao_static_visible_knee_x1000",
+                          (uint64_t)(Gfx::settings().recharged_hdr_knee * 1000.f + 0.5f));
+  // LA PREMISSE, ET ELLE VAUT COUPLE PAR COUPLE. C'est le signalement que l'essai 3 a laisse
+  // dans FINDINGS : un terme qui n'exige qu'une population AGREGEE non vide compte zero defaut
+  // pour un mode qu'il n'a pas regarde. La regle du contrat — « un terme non mesure compte 1 » —
+  // s'applique donc aux NEUF couples livres, un par un, et le couple manquant est NOMME.
+  const bool vis_wind =
+      (s_vis_pairs > 0) && (s_vis_pairs_wind_cut == s_vis_pairs);
+  const bool vis_motion = (s_vis_raw_px > 0);
+  uint64_t t5 = 0;
+  for (int i = 0; i < 9; i++) {
+    if (s_vis_pop[i] > 0 && vis_wind && vis_motion) {
+      vis_couples_measured++;
+      t5 += s_vis_px[i];
+      continue;
+    }
+    t5 += 1ull;
+    if (!vis_uncovered.empty()) {
+      vis_uncovered += ",";
+    }
+    vis_uncovered += kCensusName[i];
+  }
+  autoport_proof::publish("ao_static_visible_couples_measured", vis_couples_measured);
+  // Une cle de TEXTE garde sa derniere valeur : une liste vide se publie « - », jamais rien.
+  autoport_proof::publish_text("ao_static_visible_uncovered",
+                               vis_uncovered.empty() ? "-" : vis_uncovered.c_str());
+  autoport_proof::publish("ao_static_visible_wind_premise", vis_wind ? 1ull : 0ull);
+  autoport_proof::publish("ao_static_visible_motion_seen", vis_motion ? 1ull : 0ull);
+  autoport_proof::publish("ao_static_visible_measured",
+                          (vis_couples_measured == 9) ? 1ull : 0ull);
+  if (vis_couples_measured == 9) {
+    autoport_proof::publish("ao_static_visible_px", vis_px);
+  } else {
+    // Un terme non mesure ne se publie pas a zero : une cle de TEXTE, qu'aucun seuil numerique
+    // ne peut franchir, a cote de son denominateur.
+    autoport_proof::publish_text("ao_static_visible_px", "non-mesure");
+  }
 
   // (7) LE PALIER ELEVE. Le contrat laisse DEUX facons de le tenir : pleine resolution, OU un
   // flou bilateral qui NE TRAVERSE PAS les aretes, prouve par un compte de texels melangeant
@@ -3276,7 +3898,8 @@ void AmbientOcclusionPass::publish_pattern_census() {
                           (uint64_t)(((s_prepass_mask & 1) ? 1 : 0) +
                                      ((s_prepass_mask & 2) ? 1 : 0) +
                                      ((s_prepass_mask & 4) ? 1 : 0) + (flat_measured ? 1 : 0) +
-                                     (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
+                                     ((vis_couples_measured == 9) ? 1 : 0) +
+                                     (contact_measured ? 1 : 0) +
                                      ((q2_full || cross_measured) ? 1 : 0) +
                                      ((band_couples_measured == 9) ? 1 : 0) +
                                      (int)t9_measured +
@@ -4101,9 +4724,9 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     s_pattern_census_request = false;
     // L'ETAT, EXPLICITE : legacy*9 + mode_idx*3 + quality, mode_idx 0 = SSAO, 1 = GTAO,
     // 2 = HBAO. Les trois modes que l'owner teste sont recenses, chacun sur ses trois paliers.
-    const int mode_idx = (mode == 1) ? 0 : (mode == 3) ? 1 : (mode == 2) ? 2 : -1;
-    const int census_state =
-        (mode_idx < 0) ? -1 : ((s_measure_legacy ? 1 : 0) * 9 + mode_idx * 3 + quality);
+    // Il est calcule par `set_measure_state`, seule source : le terme 5 sur l'image le lit avant
+    // le bucket 31, donc avant cet endroit, et deux formules auraient pu diverger.
+    const int census_state = s_census_state_now;
     // (essai 18) La camera que les estimateurs viennent de recevoir, rangee pour le detecteur
     // d'aretes : `invf` est l'inverse deja calcule plus haut, pas un second calcul.
     for (int i = 0; i < 16; i++) s_census_cam_inv[i] = invf[i];

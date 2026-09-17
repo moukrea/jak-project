@@ -82,6 +82,27 @@ GLenum scene_color_format();
 bool note_scene_fbo_result(GLenum requested, bool complete);
 
 bool format_is_float(GLenum fmt);
+
+// ── (ao-indirect-clean, terme 5) UNE VALEUR DU TAMPON DE SCENE, EN OCTET AFFICHE ────────────
+// Le point F de `ao-indirect-clean` compte des pixels dont la LUMINANCE change de plus de 2/255
+// « sur l'image rendue ». Sur l'appareil ce tampon est en RGBA16F : ses valeurs sont deja dans
+// l'encodage d'affichage du jeu (tonemap.frag:7-11), mais le plafond a 1,0 n'y est pas encore
+// pose et l'epaule SDR n'y est pas encore appliquee. Comparer les valeurs BRUTES mesurerait un
+// ecart que l'ecran ne montre pas. Cette fonction est le miroir scalaire, PAR CANAL, de la
+// branche SDR de `tonemap.frag:222-239`, avec les MEMES uniformes vivants (exposition, coude,
+// courbe) : elle n'invente aucune constante, elle relit celles que la passe pousse.
+// Elle vit ICI et pas chez l'appelant : une troisieme copie de l'epaule serait une constante
+// qui derive en silence le jour ou la courbe change.
+// Les trois parametres vivants de la courbe, relus UNE FOIS par image : `u_hdr_exposure`
+// (qui contient un `pow`), `u_hdr_knee`, `u_hdr_curve`. Les appeler par pixel coutait trois
+// `std::pow` par pixel — 290 millions sur une course de preuve.
+struct SdrEncode {
+  float exposure = 1.f;
+  float knee = 1.f;
+  int curve = 0;
+};
+SdrEncode sdr_encode_params();
+uint8_t sdr_display_u8(const SdrEncode& p, float v);
 const char* format_name(GLenum fmt);
 
 // ------------------------------------------------------------------------- le site unique ----

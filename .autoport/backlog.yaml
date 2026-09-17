@@ -13467,6 +13467,10 @@ items:
     text: Correction… pas d'apk sur jak-builds… c'est quoi ce bordel ???
   - date: '2026-09-17'
     text: Putain mais tu merdouilles là !
+  - date: '2026-09-17'
+    text: Ça fait 15 minutes et toujours rien ! C'est quoi ce bordel ???
+  - date: '2026-09-17'
+    text: Comment ça se fait que ça refuse autant c'est pas normal !
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'
@@ -13581,6 +13585,7 @@ items:
   - AO_FORCE_MODE=3
   - OG_UNCAP_FPS=240
   - FOLIAGE_WIND_FORCE=1
+  - OG_TOD_HOUR=12
   proof_props:
   - debug.opengoal.level.warp=village1-hut
   - debug.opengoal.level.warp.pos=-116 14 40
@@ -13593,6 +13598,7 @@ items:
   - debug.opengoal.ao.force_mode=3
   - debug.opengoal.uncap.fps=240
   - debug.opengoal.foliage.force=1
+  - debug.opengoal.tod.hour=12
   owner_feedback:
   - date: '2026-09-17'
     text: alors ils sont cools tes commetaires d'update, mais on pourrait au moins avoir une raison des

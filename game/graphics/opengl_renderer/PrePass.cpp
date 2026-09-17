@@ -306,6 +306,18 @@ bool g_probe_frame = false;
 // LEGERES : elles ne font que garder le meme etat de mesure pour que le recensement du tampon
 // d'AO dispose de deux releves SEPARES D'UNE SEULE IMAGE, ce que le contrat (k) demande.
 int g_probe_pair_phase = -1;  // -1 hors sonde, 0 lourde, 1 reference, 2 comparee
+// (terme 5, essai 4) LA TAILLE DU FBO DE SCENE DE L'IMAGE COURANTE. `proof_before_bucket` ne
+// recoit pas l'etat de rendu ; les deux relectures d'image du terme 5 en ont besoin, et c'est
+// `on_first_camera` — appele plus tot dans la MEME image — qui la connait.
+int g_fb_w = 0, g_fb_h = 0;
+// (terme 5, essai 4) L'HEURE DU JEU EPINGLEE SUR LA PAIRE. Voir PrePass.h, `census_tod_pin`.
+math::Vector<s32, 4> g_tod_pin[4];
+bool g_tod_pin_valid = false;
+uint64_t g_tod_pin_frame = 0;     // l'image de rendu ou le releve a ete pris
+uint64_t g_tod_pin_counted = 0;   // l'image de rendu ou l'ecart a deja ete compte
+uint64_t g_tod_pinned_frames = 0; // images ou la valeur de la reference a ete rendue
+uint64_t g_tod_pinned_moved = 0;  // ... et ou elle DIFFERAIT de ce que l'image avait recu
+uint64_t g_tod_raw_delta = 0;     // la somme des ecarts bruts supprimes, tous canaux
 // ── (essai 17) LE BRAS TEMOIN DU RECENSEMENT ETAIT MORT ──────────────────────────────────────
 // Le recensement tire son etat de `g_static_probe.state`, et `ao_static_probe::kStates` vaut 6 :
 // `st / 6` valait donc TOUJOURS 0 des que la sonde de stabilite est active — c'est-a-dire a
@@ -1143,6 +1155,14 @@ void publish_all() {
   // `ao_sway_gap_px` « prepasse contre scene sous vent, shrub ET TIE, `ao_geom_tie_absent_px`
   // compte dedans » : une grandeur qui doit TOMBER a zero. Deux grandeurs opposees sous un seul
   // nom : le temoin prend donc son vrai nom, et `ao_sway_gap_px` publie ce que la porte lit.
+  // ── (terme 5, essai 4) CE QUE L'EPINGLAGE DE L'HEURE A REELLEMENT SUPPRIME ────────────────
+  // `_pinned_frames` : images de phase 2 ou la valeur de la reference a ete rendue a la place de
+  // la valeur vive. `_pinned_moved` : celles ou les deux DIFFERAIENT. `_raw_delta` : la somme des
+  // ecarts bruts, tous canaux, qui ont ete supprimes. Un `_pinned_moved` a zero voudrait dire que
+  // la clause n'a jamais rien fait — elle serait vide, et il faudrait le lire, pas le supposer.
+  autoport_proof::publish("ao_static_visible_tod_pinned_frames", g_tod_pinned_frames);
+  autoport_proof::publish("ao_static_visible_tod_pinned_moved", g_tod_pinned_moved);
+  autoport_proof::publish("ao_static_visible_tod_raw_delta", g_tod_raw_delta);
   autoport_proof::publish("ao_sway_moved_px", g_sway_gap_px);
   autoport_proof::publish("ao_sway_moved_world_px", g_sway_gap_world_px);
   // LA GRANDEUR DE LA PORTE (terme 3) : sur les deux familles qui plient — shrub et TIE — les
@@ -1814,6 +1834,8 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   if (w <= 0 || h <= 0) {
     return;
   }
+  g_fb_w = w;
+  g_fb_h = h;
 
   // ── LE BRAS LIVRE ───────────────────────────────────────────────────────────────────────────
   // La prepasse avec la decoupe d'alpha ARMEE : c'est CETTE profondeur que l'estimateur d'AO
@@ -2008,7 +2030,61 @@ void bind_screen_ao(GLuint program, SharedRenderState* rs) {
 }
 
 // ------------------------------------------------------------------------------- preuve ----
+// ── (terme 5, essai 4) L'HEURE DU JEU, EPINGLEE SUR LA PAIRE ────────────────────────────────
+// Le contrat de la fonction est dans PrePass.h. Elle est appelee une fois par ARBRE et par
+// image (TFragment.cpp:668, Tie3.cpp:956, Shrub.cpp:898, Hfrag.cpp:399) : le releve et le
+// comptage sont donc gardes par le numero d'image, sans quoi un compteur d'IMAGES compterait
+// des arbres.
+const math::Vector<s32, 4>* census_tod_pin(const math::Vector<s32, 4>* live) {
+  if (!live) {
+    return live;
+  }
+  if (g_probe_pair_phase == 1) {
+    // L'image de REFERENCE : on retient ce qu'elle a REELLEMENT recu, pas une valeur choisie.
+    if (g_tod_pin_frame != g_frame) {
+      g_tod_pin_frame = g_frame;
+      for (int i = 0; i < 4; i++) {
+        g_tod_pin[i] = live[i];
+      }
+      g_tod_pin_valid = true;
+    }
+    return live;
+  }
+  if (g_probe_pair_phase == 2 && g_tod_pin_valid) {
+    if (g_tod_pin_counted != g_frame) {
+      g_tod_pin_counted = g_frame;
+      g_tod_pinned_frames++;
+      uint64_t delta = 0;
+      for (int i = 0; i < 4; i++) {
+        for (int c = 0; c < 4; c++) {
+          const int64_t d = (int64_t)live[i][c] - (int64_t)g_tod_pin[i][c];
+          delta += (uint64_t)(d < 0 ? -d : d);
+        }
+      }
+      if (delta != 0) {
+        g_tod_pinned_moved++;
+        g_tod_raw_delta += delta;
+      }
+    }
+    return g_tod_pin;
+  }
+  return live;
+}
+
 void proof_before_bucket(int bucket_id) {
+  // ── (terme 5, essai 4) LES DEUX RELECTURES DE L'IMAGE, DANS LA MEME IMAGE DE RENDU ────────
+  // Le point F se juge desormais sur l'IMAGE RENDUE (arbitrage owner du 17/09). Deux instants,
+  // choisis sur l'ordre des buckets jak1 (buckets.h:5-79) et non sur une liste de renderers :
+  //   bucket 31 (`ALPHA_TEX_LEVEL0`) : le DECOR OPAQUE seul vient d'etre dessine — ciel (3),
+  //     ocean lointain (4), tfrag et tie (5-18), shrub (19-30) ;
+  //   bucket 64 (`DEPTH_CUE`)        : la scene 3D est COMPLETE — fond transparent (31-44),
+  //     acteurs et collectibles (45-56), ombres (47), eau (57-63) sont venus par-dessus.
+  // Les sprites (66) et le texte 2D (67-69) sont dessines APRES : ils ne sont dans aucune des
+  // deux relectures. Le module d'AO decide lui-meme s'il y a quelque chose a faire — hors des
+  // phases 1 et 2 d'une triade, cet appel rend immediatement et ne touche a rien.
+  if (bucket_id == 31 || bucket_id == 64) {
+    AmbientOcclusionPass::note_scene_stage(bucket_id == 31 ? 0 : 1, g_fb_w, g_fb_h, g_depth_tex);
+  }
   if (!g_probe_frame || bucket_id > 30) {
     return;
   }

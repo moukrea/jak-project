@@ -520,6 +520,30 @@ GLenum scene_color_format() {
   return kFormatLadder[s_ladder_step];
 }
 
+SdrEncode sdr_encode_params() {
+  SdrEncode p;
+  // L'exposition, telle que `tonemap_draw` la pousse (meme expression, meme garde).
+  const float e_pbr = Gfx::settings().recharged_pbr_exposure;
+  const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
+  p.exposure = e_moved * Gfx::settings().recharged_hdr_exposure;
+  p.knee = Gfx::settings().recharged_hdr_knee;
+  p.curve = Gfx::settings().recharged_hdr_curve;
+  return p;
+}
+
+uint8_t sdr_display_u8(const SdrEncode& p, float v) {
+  float x = v * p.exposure;
+  if (!(x > 0.f)) {
+    x = 0.f;  // `max(src.rgb * u_hdr_exposure, 0)` — et les NaN tombent ici aussi
+  }
+  // `ceiling` vaut 1 en SDR (`sdr_params`) : la division et la remultiplication sont l'identite.
+  x = curve_eval(x, p.knee, p.curve);
+  if (x > 1.f) {
+    x = 1.f;
+  }
+  return (uint8_t)(x * 255.f + 0.5f);
+}
+
 bool note_scene_fbo_result(GLenum requested, bool complete) {
   if (complete) {
     return false;
