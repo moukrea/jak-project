@@ -956,6 +956,16 @@ std::vector<uint8_t> s_static_changed_x;  // masque exact (zn != zo), aucun seui
 std::vector<uint32_t> s_static_sat_x;     // sa somme cumulee 2D
 uint64_t s_static_moved_near_any = 0;   // ... dont un voisin de la boite a bouge, seuil 0
 uint64_t s_static_moved_self_dz = 0;    // ... dont la profondeur PROPRE a bouge, seuil 0
+// ── (terme 5) LA MEME POPULATION SOUS UN GARDE SANS SEUIL, ET SON DENOMINATEUR ───────────────
+// « 27 807 texels sur 27 807 ont un voisin qui a bouge » ne classe RIEN tant qu'on ne sait pas
+// combien de texels de la POPULATION en ont un : la boite fait 0,10 UV de demi-cote, soit
+// ~160 x 120 texels, et un seul mobile quelque part dedans la marque. D'ou ces deux tableaux :
+// la population et les texels qui bougent sous le garde EXACT (profondeur propre inchangee au
+// quantum pres ET aucun voisin de la boite qui ait bouge d'un seul quantum). `_pop` est le
+// denominateur qui rend `_moved` lisible ; `_moved` est la valeur que le terme 5 prendrait si
+// son garde n'avait pas de seuil. Publies par etat, sommes par bras. Aucun terme ne les lit.
+uint64_t s_static_pop_x[kCensusStates] = {0};
+uint64_t s_static_moved_x[kCensusStates] = {0};
 uint64_t s_static_moved_worst_ao = 0;   // le plus gros ecart d'AO (unites R8) parmi eux
 uint64_t s_static_moved_worst_x = 0, s_static_moved_worst_y = 0;
 uint64_t s_static_moved_worst_state = 0, s_static_moved_worst_dzq = 0;
@@ -2263,6 +2273,17 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
                 continue;  // un occluder a bouge assez pres : l'AO a le DROIT de changer
               }
               spop++;
+              // (terme 5, diagnostic) LE MEME TEXEL SOUS UN GARDE SANS SEUIL. La condition est
+              // strictement plus severe que celle au-dessus : `zn == zo` implique
+              // `|zn - zo| <= kSameGeom`, et une boite vide au seuil 0 implique une boite vide
+              // au seuil de 4 quanta. Cette population est donc un SOUS-ENSEMBLE de `spop`, et
+              // le rapport des deux dit ce que le seuil laisse passer.
+              if (zn == zo && box_changed_x(x, y) == 0) {
+                s_static_pop_x[state]++;
+                if (ao_moved) {
+                  s_static_moved_x[state]++;
+                }
+              }
               if (ao_moved) {
                 smoved++;
                 // (terme 5, diagnostic) CE QUI A BOUGE MALGRE TOUT, sans seuil de profondeur.
@@ -2881,6 +2902,22 @@ void AmbientOcclusionPass::publish_pattern_census() {
     // a change : c'est la mesure du signalement « kSameGeom = 4 quanta laisse passer les mobiles
     // lents » (FINDINGS de l'essai 16 de lighting-ao-indirect). Les `_worst_*` donnent le texel a
     // regarder. Aucun de ces compteurs n'entre dans un terme.
+    {
+      uint64_t xpop_l = 0, xmoved_l = 0, xpop_w = 0, xmoved_w = 0;
+      for (int i = 0; i < kCensusStates; i++) {
+        if (i < 9) {
+          xpop_l += s_static_pop_x[i];
+          xmoved_l += s_static_moved_x[i];
+        } else {
+          xpop_w += s_static_pop_x[i];
+          xmoved_w += s_static_moved_x[i];
+        }
+      }
+      autoport_proof::publish("ao_static_exactguard_pop_px", xpop_l);
+      autoport_proof::publish("ao_static_exactguard_moved_px", xmoved_l);
+      autoport_proof::publish("ao_static_exactguard_legacy_pop_px", xpop_w);
+      autoport_proof::publish("ao_static_exactguard_legacy_moved_px", xmoved_w);
+    }
     autoport_proof::publish("ao_static_moved_near_any_px", s_static_moved_near_any);
     autoport_proof::publish("ao_static_moved_self_dz_px", s_static_moved_self_dz);
     autoport_proof::publish("ao_static_moved_worst_ao", s_static_moved_worst_ao);
