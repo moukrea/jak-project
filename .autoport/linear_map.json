@@ -592,12 +592,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-judge-runs-the-proof-when-the-worker-left-none": {
-  "hash": "f59358ec4b83222c799aee97a34d25ec23044c8a",
+  "hash": "19b5f764eda5006699e4bf4dd9ac4549417029cf",
   "identifier": "JAK-167",
   "issue_id": "8f68ed9c-6432-4dff-9128-779d7a5626e4",
   "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T05:37:24.000Z",
+  "pulled_at": "2026-09-17T14:50:23.071Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
   ],
