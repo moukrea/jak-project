@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
   bool overlay_selftest_only = false;  // ... le controle positif seul, sans niveau
   bool edge_census_on = false;    // grass-edge-truth : classe les aretes de sol, n'ecrit rien
   bool edge_selftest_only = false;  // ... le banc nomme seul
+  bool trans_census_on = false;  // grass-path-transitions : mesure la transition au bord des chemins
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -99,6 +100,8 @@ int main(int argc, char** argv) {
     } else if (a == "--edge-selftest") {
       edge_census_on = true;
       edge_selftest_only = true;
+    } else if (a == "--transition-census") {
+      trans_census_on = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -440,8 +443,91 @@ int main(int argc, char** argv) {
   // grass-chunk-cull : LA PARTITION EST CUITE, DONC ELLE SE CALCULE AVANT L'ECRITURE. Elle est
   // celle de l'expansion A LA DENSITE DE CE BAKE — la seule que le moteur demandera, puisque
   // chaque palier porte son propre fichier et que `expand()` y est appelee avec `bake_density_pct`.
-  auto eBake = grass_bake::expand(bake, density);
+  auto eBake = grass_bake::expand(bake, density, trans_census_on);
   bake.chunks = eBake.chunks;
+
+  // grass-path-transitions : il MESURE, il n'ecrit rien. Il sort AVANT toute ecriture de fichier,
+  // exactement comme les trois recensements qui le precedent — la seule difference est qu'il lui
+  // faut le scan ET l'expansion, puisque la grandeur qu'il juge porte sur les brins EMIS.
+  if (trans_census_on) {
+    const auto tc = grass_bake::transition_census(bake, eBake);
+    fmt::print("trans_census_level={}\n", level_name);
+    fmt::print("trans_census_fr3_bytes={}\n", fr3_size);
+    fmt::print("trans_census_density={:.0f}\n", density);
+    fmt::print("trans_bare_draws_geom={}\n", tc.bare_draws_geom);
+    fmt::print("trans_bare_draws_mat={}\n", tc.bare_draws_mat);
+    fmt::print("trans_bare_draws_both={}\n", tc.bare_draws_both);
+    fmt::print("trans_bare_draws_disagree={}\n", tc.bare_draws_disagree);
+    fmt::print("trans_bare_tris={}\n", tc.bare_tris);
+    fmt::print("trans_bare_area_m2={:.2f}\n", tc.bare_area_m2);
+    fmt::print("trans_occ_pts_object={}\n", tc.occ_pts_object);
+    fmt::print("trans_occ_pts_removed={}\n", tc.occ_pts_removed);
+    fmt::print("trans_bare_tex_top={}\n", tc.bare_tex_top);
+    fmt::print("trans_bare_rej_top={}\n", tc.bare_rej_top);
+    fmt::print("trans_bare_mat_top={}\n", tc.bare_mat_top);
+    fmt::print("trans_faces_up={}\n", tc.faces_up);
+    fmt::print("trans_faces_bare_mat={}\n", tc.faces_bare_mat);
+    fmt::print("trans_faces_affleurantes={}\n", tc.faces_affleurantes);
+    fmt::print("trans_faces_lifted={}\n", tc.faces_lifted);
+    fmt::print("trans_faces_nofloor={}\n", tc.faces_nofloor);
+    fmt::print("trans_blades_total={}\n", tc.blades_total);
+    fmt::print("trans_blades_tested={}\n", tc.blades_tested);
+    fmt::print("trans_blades_inside={}\n", tc.blades_inside);
+    fmt::print("trans_blades_band={}\n", tc.blades_band);
+    fmt::print("trans_blades_interior={}\n", tc.blades_interior);
+    fmt::print("trans_cand_total={}\n", tc.cand_total);
+    fmt::print("trans_cand_inside={}\n", tc.cand_inside);
+    fmt::print("trans_cand_limit={}\n", tc.cand_limit);
+    fmt::print("trans_pos_mismatch={}\n", tc.pos_mismatch);
+    fmt::print("trans_gap_p50={:.4f}\n", tc.gap_p50);
+    fmt::print("trans_gap_p90={:.4f}\n", tc.gap_p90);
+    fmt::print("trans_gap_p99={:.4f}\n", tc.gap_p99);
+    fmt::print("trans_gap_max={:.4f}\n", tc.gap_max);
+    fmt::print("trans_gap_over_cap={}\n", tc.gap_over_cap);
+    fmt::print("trans_gap_cause_nofloor={}\n", tc.gap_cause_nofloor);
+    fmt::print("trans_gap_cause_object={}\n", tc.gap_cause_object);
+    fmt::print("trans_gap_cause_nograss={}\n", tc.gap_cause_nograss);
+    fmt::print("trans_gap_cause_inside={}\n", tc.gap_cause_inside);
+    fmt::print("trans_gap_cause_trans={}\n", tc.gap_cause_trans);
+    fmt::print("trans_gap_defect_frac={:.5f}\n", tc.gap_defect_frac);
+    fmt::print("trans_gap_defect_max={:.4f}\n", tc.gap_defect_max);
+    fmt::print("trans_gap_defect_cands={:.2f}\n", tc.gap_defect_cands);
+    fmt::print("trans_gap_defect_thin={:.2f}\n", tc.gap_defect_thin);
+    fmt::print("trans_gap_defect_frac_cap={:.4f}\n", grass_bake::TRANS_GAP_DEFECT_FRAC);
+    fmt::print("trans_gap_cap={:.3f}\n", grass_bake::TRANS_GAP_CAP_M);
+    fmt::print("trans_gap_max_cap={:.3f}\n", grass_bake::TRANS_GAP_MAX_CAP_M);
+    fmt::print("trans_front_cells={}\n", tc.front_cells);
+    fmt::print("trans_front_median={:.4f}\n", tc.front_median_m);
+    fmt::print("trans_edge_follow={:.4f}\n", tc.edge_follow_frac);
+    fmt::print("trans_edge_follow_cap={:.3f}\n", grass_bake::TRANS_EDGE_FOLLOW_CAP);
+    fmt::print("trans_band_cells={}\n", tc.band_cells);
+    fmt::print("trans_graded_frac={:.4f}\n", tc.graded_frac);
+    fmt::print("trans_graded_floor={:.3f}\n", grass_bake::TRANS_GRADED_FLOOR);
+    for (int b = 0; b < 4; ++b) {
+      fmt::print("trans_band_ratio{}={:.4f}\n", b, tc.band_ratio[b]);
+      fmt::print("trans_band_elig{}={:.4f}\n", b, tc.band_elig[b]);
+      fmt::print("trans_band_dens{}={:.4f}\n", b, tc.band_dens[b]);
+      fmt::print("trans_band_height{}={:.4f}\n", b, tc.band_height[b]);
+    }
+    fmt::print("trans_interior_height={:.1f}\n", tc.interior_height);
+    fmt::print("trans_mono_ratio_breaks={}\n", tc.mono_ratio_breaks);
+    fmt::print("trans_mono_dens_breaks={}\n", tc.mono_dens_breaks);
+    fmt::print("trans_dens_ramp_missing={}\n", tc.dens_ramp_missing);
+    fmt::print("trans_height_ramp_missing={}\n", tc.height_ramp_missing);
+    fmt::print("trans_ramp_max={:.3f}\n", grass_bake::TRANS_RAMP_MAX);
+    fmt::print("trans_mono_height_breaks={}\n", tc.mono_height_breaks);
+    fmt::print("trans_population_empty={}\n", tc.population_empty);
+    fmt::print("trans_bare_absent={}\n", tc.bare_absent);
+    fmt::print("trans_band_absent={}\n", tc.band_absent);
+    fmt::print("trans_limit_absent={}\n", tc.limit_absent);
+    fmt::print("trans_terms_measured={}\n", tc.terms_measured);
+    fmt::print("trans_w_m={:.3f}\n", grass_bake::TRANS_W_M);
+    fmt::print("trans_dens_floor={:.3f}\n", grass_bake::TRANS_DENS_FLOOR);
+    fmt::print("trans_h_floor={:.3f}\n", grass_bake::TRANS_H_FLOOR);
+    fmt::print("trans_noise_amp_m={:.3f}\n", grass_bake::TRANS_NOISE_AMP_M);
+    fmt::print("[grass_bake] transition-census DONE.\n");
+    return 0;
+  }
   {
     u64 cmin = 0, cmax = 0, csum = 0;
     std::vector<u64> counts;

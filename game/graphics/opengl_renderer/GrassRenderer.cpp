@@ -95,6 +95,12 @@ AUTOPORT_FEATURE_SITE(kOverlayMeshesItemId);
 constexpr const char* kEdgeTruthItemId = "grass-edge-truth";
 AUTOPORT_FEATURE_SITE(kEdgeTruthItemId);
 
+// grass-path-transitions : l'item qui fait s'arreter l'herbe PROGRESSIVEMENT au bord des chemins.
+// Contrairement aux trois ci-dessus, son travail CHANGE le placement : le site sert au temoin
+// « l'instrument a tire », le recensement publie ce que la transition a produit.
+constexpr const char* kPathTransItemId = "grass-path-transitions";
+AUTOPORT_FEATURE_SITE(kPathTransItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1510,12 +1516,14 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       // thread. Il revient dans `m_bake` a la consommation (la consommation ET le dessin le lisent).
       m_pending.bake = std::move(m_bake);
       m_expand_pending = true;
-      m_expand_future = std::async(std::launch::async, &grass_bake::expand,
-                                   std::cref(m_pending.bake), m_pending.density);
+      m_expand_future =
+          std::async(std::launch::async, &grass_bake::expand, std::cref(m_pending.bake),
+                     m_pending.density, autoport_proof::feature_is(kPathTransItemId));
       return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
     }
     tExpandJoin = clk::now();
-    res = grass_bake::expand(m_bake, m_pending.density);
+    res = grass_bake::expand(m_bake, m_pending.density,
+                             autoport_proof::feature_is(kPathTransItemId));
     } catch (const std::exception& e) {
       // La garde couvre TOUTE l'etape SOURCE : lecture du bake, scan en direct, mise en place de
       // `m_pending`, lancement du thread d'expansion, et l'expansion synchrone.
@@ -1543,6 +1551,51 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     m_bake = std::move(m_pending.bake);
   }
   const auto tExpandDone = clk::now();
+
+  // ============ grass-path-transitions : CE QUE LA TRANSITION A PRODUIT, SUR CE NIVEAU ===========
+  // Le placement, lui, a deja change : il n'est PAS conditionne par `feature_is`, sinon l'owner ne
+  // verrait rien. Ce qui l'est, c'est la MESURE — elle relit les brins qu'on vient d'emettre, elle
+  // n'en deplace aucun, et elle ne coute rien au binaire que l'owner joue. Le recensement hors
+  // ligne (`.autoport/lib/census/grass-path-transitions.sh`) passe le MEME code sur les niveaux ;
+  // ici, le temoin est que l'instrument vit dans le moteur et qu'il a tire.
+  if (autoport_proof::feature_is(kPathTransItemId)) {
+    const auto tc = grass_bake::transition_census(m_bake, res);
+    autoport_proof::publish_text("grass_trans_engine_level", level_name.c_str());
+    autoport_proof::publish("grass_trans_engine_bare_draws", tc.bare_draws_both);
+    autoport_proof::publish("grass_trans_engine_bare_tris", tc.bare_tris);
+    autoport_proof::publish("grass_trans_engine_faces_up", tc.faces_up);
+    autoport_proof::publish("grass_trans_engine_faces_flush", tc.faces_affleurantes);
+    autoport_proof::publish("grass_trans_engine_faces_lifted", tc.faces_lifted);
+    autoport_proof::publish("grass_trans_engine_occ_object", tc.occ_pts_object);
+    autoport_proof::publish("grass_trans_engine_occ_removed", tc.occ_pts_removed);
+    autoport_proof::publish("grass_trans_engine_blades", tc.blades_total);
+    autoport_proof::publish("grass_trans_engine_blades_band", tc.blades_band);
+    autoport_proof::publish("grass_trans_engine_blades_inside", tc.blades_inside);
+    autoport_proof::publish("grass_trans_engine_cand_limit", tc.cand_limit);
+    autoport_proof::publish("grass_trans_engine_pos_mismatch", tc.pos_mismatch);
+    autoport_proof::publish("grass_trans_engine_gap_defect", tc.gap_cause_trans);
+    autoport_proof::publish("grass_trans_engine_gap_object", tc.gap_cause_object);
+    autoport_proof::publish("grass_trans_engine_gap_inside", tc.gap_cause_inside);
+    autoport_proof::publish("grass_trans_engine_terms", tc.terms_measured);
+    autoport_proof::publish("grass_trans_engine_culled_inside",
+                            (uint64_t)res.trans_culled_inside);
+    autoport_proof::publish("grass_trans_engine_culled_thin", (uint64_t)res.trans_culled_thin);
+    autoport_proof::publish_text("grass_trans_engine_bare_tex", tc.bare_tex_top.c_str());
+    autoport_proof::publish_text("grass_trans_engine_bare_mat", tc.bare_mat_top.c_str());
+    // Les flottants passent par un texte : `publish` ne porte que des entiers, et un millieme de
+    // metre ecrit en entier resterait lisible sans inventer une seconde unite.
+    autoport_proof::publish("grass_trans_engine_gap_p50_mm", (uint64_t)std::lround(tc.gap_p50 * 1000.f));
+    autoport_proof::publish("grass_trans_engine_gap_p99_mm", (uint64_t)std::lround(tc.gap_p99 * 1000.f));
+    autoport_proof::publish("grass_trans_engine_defect_max_mm",
+                            (uint64_t)std::lround(tc.gap_defect_max * 1000.f));
+    autoport_proof::publish("grass_trans_engine_edge_follow_pm",
+                            (uint64_t)std::lround(tc.edge_follow_frac * 1000.f));
+    autoport_proof::publish("grass_trans_engine_graded_pm",
+                            (uint64_t)std::lround(tc.graded_frac * 1000.f));
+    // `hits=` de la ligne FEATURE : les brins situes dans une bande de transition, exactement ce
+    // que le contrat de l'item nomme.
+    autoport_proof::note_hit_for(kPathTransItemId, tc.blades_band);
+  }
 
   // ================================= ETAPE CONSOMMATION =================================
   // INCHANGEE. Ses locales de contexte viennent de l'etape SOURCE, portees par `m_pending` : sur le

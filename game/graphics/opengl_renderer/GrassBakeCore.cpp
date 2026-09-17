@@ -163,6 +163,34 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   // near grass height — exact level.warp.pos targets for the small-rock leak close-ups.
   std::unordered_map<s64, std::array<float, 3>> r23_rock_spots;
 
+  // ====================== grass-path-transitions : LES SOLS NUS POSES ========================
+  // Un chemin ou une zone de terre n'est ni de l'herbe ni un objet : c'est une DALLE. On la
+  // reconnait par DEUX sources independantes — la geometrie de son draw de rendu (faces plates,
+  // draw peu epais, empreinte assez large) et le materiau de collision SOUS elle
+  // (`sand|dirt|gravel|stone`). La geometrie se mesure ici, pendant le balayage des draws ; le
+  // materiau ne peut l'etre qu'apres la construction de l'index de collision, plus bas. Les deux
+  // verdicts sont conserves SEPAREMENT : un draw que seule la geometrie retient est un DESACCORD
+  // publie, jamais un recouvrement silencieux.
+  struct BareTri {
+    float x0, y0, z0, x1, y1, z1, x2, y2, z2;
+  };
+  struct BareDraw {
+    std::string tex;
+    bool is_tie = false;
+    size_t occ_first = 0, occ_last = 0;  // sa plage dans occ_pts (TIE seulement)
+    size_t tri_first = 0, tri_last = 0;  // sa plage dans bare_tris
+    float miny = 1e30f, maxy = -1e30f;
+    double area_xz = 0.0;    // m^2 projetes en XZ
+    double area_full = 0.0;  // m^2 de surface
+    double area_up = 0.0;    // ... ponderes par l'upness de chaque face
+    u32 f_up = 0, f_bare = 0, f_flush = 0, f_lifted = 0, f_nofloor = 0;  // seconde source
+    double area_flush = 0.0;  // aire XZ des faces qui AFFLEURENT un plancher nu
+    const char* reason = "-";
+    bool geom_ok = false, mat_ok = false, keep_as_bare = false;
+  };
+  std::vector<BareTri> bare_tris;
+  std::vector<BareDraw> bare_draws;
+
   // POLISH#8 edge instrumentation: grass-textured tris rejected purely by the upness gate.
   int rej_upness = 0;          // grass-textured tris rejected by the upness net (edge lips / walls)
   float rej_upness_area = 0.f;
@@ -249,6 +277,10 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
         if (looks_groundish(tname)) {
           unmatched_ground[tname]++;
         }
+        // grass-path-transitions : ou commence la plage de points d'occultation de CE draw. Si le
+        // draw se revele etre un sol nu pose, c'est cette plage exacte qui sortira de
+        // l'occultation binaire — et elle seule.
+        const size_t occ_first_of_draw = occ_pts.size();
         // ROUND#13: a NON-grass TIE draw is a real solid object (rock / prop / tree-trunk / warp-gate)
         // that can sit ON the grass -> collect its vertices as object-hide occluders. Grass-textured TIE
         // draws are deliberately NOT collected (a grass platform must not occlude its own grass), and
@@ -330,6 +362,79 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
               }
             }
           }
+        }
+        // ---- SOURCE 1 : LA GEOMETRIE DE RENDU. Un feuillage n'est jamais un chemin (POLISH#8) ;
+        // on garde les faces qui REGARDENT VERS LE HAUT, on mesure l'upness sur TOUTES les faces
+        // (un rocher a un dessus plat mais des flancs, sa moyenne le trahit) et on borne
+        // l'epaisseur du draw. Les triangles retenus sont l'EMPREINTE : la distance sera prise sur
+        // eux, exactement, jamais sur un nuage de points echantillonne — un pas de 0,35 m posait un
+        // plancher de 0,25 m sur toute distance mesuree, et les faces de plus de 6 m n'etaient pas
+        // echantillonnees du tout.
+        if (!is_foliage(tname)) {
+          BareDraw bd;
+          bd.tex = tname;
+          bd.is_tie = is_tie;
+          bd.occ_first = occ_first_of_draw;
+          bd.occ_last = occ_pts.size();
+          bd.tri_first = bare_tris.size();
+          u32 bb = draw.unpacked.idx_of_first_idx_in_full_buffer;
+          u32 bl = 0;
+          for (const auto& g : draw.vis_groups) {
+            bl += g.num_inds;
+          }
+          if (bl > 2 && bb < idx.size()) {
+            if (bb + bl > idx.size()) {
+              bl = (u32)(idx.size() - bb);
+            }
+            for (u32 k = bb + 2; k < bb + bl; ++k) {
+              u32 i0 = idx[k - 2], i1 = idx[k - 1], i2 = idx[k];
+              if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
+                continue;
+              }
+              if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+                continue;
+              }
+              if (i0 == i1 || i1 == i2 || i0 == i2) {
+                continue;  // couture de strip degeneree
+              }
+              const float ax = verts[i0].x, ay = verts[i0].y, az = verts[i0].z;
+              const float e1x = verts[i1].x - ax, e1y = verts[i1].y - ay, e1z = verts[i1].z - az;
+              const float e2x = verts[i2].x - ax, e2y = verts[i2].y - ay, e2z = verts[i2].z - az;
+              const float cx = e1y * e2z - e1z * e2y;
+              const float cy = e1z * e2x - e1x * e2z;
+              const float cz = e1x * e2y - e1y * e2x;
+              const float nl = std::sqrt(cx * cx + cy * cy + cz * cz);
+              if (nl <= 1e-3f) {
+                continue;
+              }
+              const float up = std::fabs(cy) / nl;
+              const double a_full = (double)(0.5f * nl) / (4096.0 * 4096.0);
+              bd.area_full += a_full;
+              bd.area_up += a_full * (double)up;
+              bd.miny = std::min(bd.miny, std::min(ay, std::min(verts[i1].y, verts[i2].y)));
+              bd.maxy = std::max(bd.maxy, std::max(ay, std::max(verts[i1].y, verts[i2].y)));
+              if (up < TRANS_OVL_UPNESS) {
+                continue;  // un flanc ne fait pas partie de l'empreinte
+              }
+              bd.area_xz += (double)(0.5f * std::fabs(cy)) / (4096.0 * 4096.0);
+              bare_tris.push_back({ax, ay, az, verts[i1].x, verts[i1].y, verts[i1].z, verts[i2].x,
+                                   verts[i2].y, verts[i2].z});
+            }
+          }
+          bd.tri_last = bare_tris.size();
+          // LE SEUL FILTRE DE DRAW EST L'AIRE. « Plat » et « bas » etaient des filtres de draw :
+          // un chemin qui ondule sur trois metres etait rejete en bloc, et 1 604 points sur
+          // 10 757 959 sortaient de l'occultation. La platitude se juge FACE PAR FACE, plus bas,
+          // contre le plancher de collision — une dalle affleure le sien, le dessus d'un rocher est
+          // souleve. L'aire, elle, reste un filtre de draw : c'est ce qui separe une allee d'un
+          // caillou, et elle est publiee pour chaque draw ecarte.
+          bd.geom_ok = bd.tri_last > bd.tri_first && bd.area_xz >= (double)TRANS_OVL_MINAREA_M2;
+          if (!bd.geom_ok) {
+            bd.reason = bd.tri_last > bd.tri_first ? "aire" : "sansface";
+            bare_tris.resize(bd.tri_first);  // rien a garder : on ne paie pas la memoire
+            bd.tri_last = bd.tri_first;
+          }
+          bare_draws.push_back(std::move(bd));
         }
         continue;
       }
@@ -800,6 +905,8 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     float p0x, p0y, p0z, e1x, e1y, e1z, e2x, e2y, e2z;  // world (GOAL units), same space as render tris
     float minx, maxx, minz, maxz;                       // XZ bbox (padded) for the cheap reject
     float d00, d01, d11, inv_denom;                     // precomputed XZ barycentric denominators
+  
+    u32 mat;  // grass-path-transitions : pat-material (bits 6..11) — la SECONDE source
   };
   std::vector<FloorTri> floor_tris;
   std::unordered_map<u64, std::vector<int>> floor_grid;  // XZ bucket -> floor tri indices
@@ -827,6 +934,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       float denom = r.d00 * r.d11 - r.d01 * r.d01;
       if (std::fabs(denom) < 1e-6f) continue;  // degenerate (near-vertical/sliver) -> drop at build
       r.inv_denom = 1.0f / denom;
+      r.mat = (a.pat >> 6) & 0x3fu;  // grass-path-transitions : lu, pas devine
       r.minx = minx - pad; r.maxx = maxx + pad;
       r.minz = minz - pad; r.maxz = maxz + pad;
       int fi = (int)floor_tris.size();
@@ -873,6 +981,265 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   // Grecharged-grass-precompute-mode: floor-gap threshold comes from the caller (the #ifdef __ANDROID__
   // prop read moved out to GrassRenderer, which passes the value in via ScanParams).
   float floor_gap_thresh = params.floor_gap_m * U;
+
+  std::string out_bare_tex_top = "-", out_bare_rej_top = "-", out_bare_mat_top = "-";
+  // ================ grass-path-transitions : LA SECONDE SOURCE, PUIS L'EMPREINTE ==============
+  // SOURCE 2 : le materiau de collision SOUS chaque face du draw. `floor_mat` rend le materiau du
+  // sol marchable le plus HAUT a la verticale d'un point, dans une fenetre de TRANS_OVL_YWIN_M.
+  // Un draw n'est un sol nu pose que si les DEUX sources le disent ; le desaccord est compte.
+  auto floor_mat = [&](float px, float py, float pz, float* out_y) -> s32 {
+    if (floor_tris.empty()) {
+      return -1;
+    }
+    s64 gx = (s64)std::floor(px * floor_inv), gz = (s64)std::floor(pz * floor_inv);
+    auto it = floor_grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+    if (it == floor_grid.end()) {
+      return -1;
+    }
+    float bestY = -1e30f;
+    s32 best = -1;
+    const float ywin = TRANS_OVL_YWIN_M * U;
+    for (int ti : it->second) {
+      const auto& r = floor_tris[ti];
+      if (px < r.minx || px > r.maxx || pz < r.minz || pz > r.maxz) {
+        continue;
+      }
+      const float qx = px - r.p0x, qz = pz - r.p0z;
+      const float d20 = qx * r.e1x + qz * r.e1z;
+      const float d21 = qx * r.e2x + qz * r.e2z;
+      const float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+      const float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+      if (u < -0.02f || v < -0.02f || u + v > 1.02f) {
+        continue;
+      }
+      const float fy = r.p0y + u * r.e1y + v * r.e2y;
+      if (std::fabs(fy - py) > ywin) {
+        continue;
+      }
+      if (fy > bestY) {
+        bestY = fy;
+        best = (s32)r.mat;
+      }
+    }
+    if (out_y) {
+      *out_y = bestY;
+    }
+    return best;
+  };
+
+  size_t trans_bare_geom = 0, trans_bare_mat = 0, trans_bare_both = 0, trans_bare_disagree = 0;
+  size_t f_up_tot = 0, f_bare_tot = 0, f_flush_tot = 0, f_lift_tot = 0, f_nofl_tot = 0;
+  std::unordered_map<u32, u64> bare_mat_hist;  // materiau -> faces plates non-herbe au-dessus
+  std::vector<char> occ_is_bare(occ_pts.size(), 0);
+  std::vector<u32> bare_keep_tris;  // index dans bare_tris des empreintes RETENUES
+  std::vector<char> bare_tri_keep(bare_tris.size(), 0);
+  for (auto& bd : bare_draws) {
+    if (bd.geom_ok) {
+      trans_bare_geom++;
+    }
+    // SOURCE 2, FACE PAR FACE. Une face plate non-herbe est une EMPREINTE DE SOL NU quand le
+    // plancher de collision sous elle porte un materiau nu ET qu'elle AFFLEURE ce plancher. Le
+    // dessus d'un rocher porte bien `stone`, mais il est SOULEVE au-dessus du sol : c'est ce qui
+    // separe une dalle de chemin d'un objet pose, et c'est ce qui garde
+    // `recharged-grass-object-clip` intact.
+    for (size_t t = bd.tri_first; t < bd.tri_last; ++t) {
+      const auto& bt = bare_tris[t];
+      const float cxp = (bt.x0 + bt.x1 + bt.x2) * (1.f / 3.f);
+      const float cyp = (bt.y0 + bt.y1 + bt.y2) * (1.f / 3.f);
+      const float czp = (bt.z0 + bt.z1 + bt.z2) * (1.f / 3.f);
+      float fy = 0.f;
+      const s32 m = floor_mat(cxp, cyp, czp, &fy);
+      bd.f_up++;
+      if (m < 0) {
+        bd.f_nofloor++;
+        continue;
+      }
+      bare_mat_hist[(u32)m]++;
+      if (!pat_material_is_bare((u32)m)) {
+        continue;
+      }
+      bd.f_bare++;
+      if (std::fabs(cyp - fy) > TRANS_OVL_LIFT_M * U) {
+        bd.f_lifted++;
+        continue;
+      }
+      bd.f_flush++;
+      bare_tri_keep[t] = 1;
+      // aire XZ de cette face (recalculee : on n'a garde que ses sommets)
+      const float e1x = bt.x1 - bt.x0, e1y = bt.y1 - bt.y0, e1z = bt.z1 - bt.z0;
+      const float e2x = bt.x2 - bt.x0, e2y = bt.y2 - bt.y0, e2z = bt.z2 - bt.z0;
+      const float cy2 = e1z * e2x - e1x * e2z;
+      bd.area_flush += (double)(0.5f * std::fabs(cy2)) / (4096.0 * 4096.0);
+    }
+    f_up_tot += bd.f_up;
+    f_bare_tot += bd.f_bare;
+    f_flush_tot += bd.f_flush;
+    f_lift_tot += bd.f_lifted;
+    f_nofl_tot += bd.f_nofloor;
+    bd.mat_ok = bd.area_flush >= (double)TRANS_OVL_MINAREA_M2;
+    if (bd.mat_ok) {
+      trans_bare_mat++;
+    }
+    if (bd.geom_ok != bd.mat_ok) {
+      trans_bare_disagree++;
+      if (!bd.mat_ok && bd.geom_ok) {
+        bd.reason = bd.f_bare == 0 ? "materiau" : (bd.f_lifted > bd.f_flush ? "souleve" : "aireplate");
+      }
+    }
+    bd.keep_as_bare = bd.geom_ok && bd.mat_ok;
+    if (!bd.keep_as_bare) {
+      continue;
+    }
+    trans_bare_both++;
+    for (size_t t = bd.tri_first; t < bd.tri_last; ++t) {
+      if (bare_tri_keep[t]) {
+        bare_keep_tris.push_back((u32)t);
+      }
+    }
+    // CE DRAW SORT DE L'OCCULTATION BINAIRE. C'est LA correction : ses points ne tuent plus un
+    // brin a 0,45 m a la ronde. `recharged-grass-object-clip` ne bouge pas d'un pouce pour tous
+    // les autres — un rocher, une caisse, la borne de warp gardent leurs points et leur rayon.
+    for (size_t q = bd.occ_first; q < bd.occ_last && q < occ_is_bare.size(); ++q) {
+      occ_is_bare[q] = 1;
+    }
+  }
+  // CE QUI EST RETENU, ET CE QUI EST ECARTE, NOMME ET CHIFFRE. Une liste vide s'ecrit "-" :
+  // `publish_text` garderait sinon la valeur de la course precedente.
+  {
+    auto top = [](std::vector<std::pair<std::string, double>>& v, size_t n) -> std::string {
+      std::sort(v.begin(), v.end(),
+                [](const std::pair<std::string, double>& a,
+                   const std::pair<std::string, double>& b) { return a.second > b.second; });
+      std::string out;
+      for (size_t i = 0; i < v.size() && i < n; ++i) {
+        out += (out.empty() ? "" : ",") + v[i].first + ":" +
+               std::to_string((long long)std::lround(v[i].second * 100.0));
+      }
+      return out.empty() ? "-" : out;
+    };
+    std::vector<std::pair<std::string, double>> kept, rej;
+    for (const auto& bd : bare_draws) {
+      if (bd.keep_as_bare) {
+        kept.push_back({bd.tex, bd.area_flush});
+      } else if (bd.area_xz > 0.0) {
+        rej.push_back({bd.tex + ":" + bd.reason, bd.area_xz});
+      }
+    }
+    out_bare_tex_top = top(kept, 8);
+    out_bare_rej_top = top(rej, 8);
+    std::vector<std::pair<std::string, double>> mats;
+    for (const auto& kv : bare_mat_hist) {
+      const char* nm = pat_material_name(kv.first);
+      mats.push_back({nm ? std::string(nm) : ("mat" + std::to_string(kv.first)), (double)kv.second});
+    }
+    for (auto& m : mats) {
+      m.second *= 0.01;  // `top` multiplie par 100 : ici la valeur est un COMPTE de faces, pas une aire
+    }
+    out_bare_mat_top = top(mats, 8);
+  }
+
+  // L'EMPREINTE, PRETE POUR LA REQUETE. Distance XZ EXACTE au triangle (pas a un nuage de points),
+  // avec le Y du point le plus proche pour la fenetre verticale.
+  struct BareFx {
+    float x0, y0, z0, e1x, e1y, e1z, e2x, e2y, e2z;
+    float d00, d01, d11, inv_denom;
+    float minx, maxx, minz, maxz;
+  };
+  std::vector<BareFx> bare_fx;
+  bare_fx.reserve(bare_keep_tris.size());
+  const float BARE_CELL = 2.0f * U;
+  const float bare_inv = 1.0f / BARE_CELL;
+  const float bare_pad = TRANS_QUERY_M * U;
+  std::unordered_map<s64, std::vector<u32>> bare_grid;
+  for (u32 ti : bare_keep_tris) {
+    const auto& bt = bare_tris[ti];
+    BareFx r;
+    r.x0 = bt.x0; r.y0 = bt.y0; r.z0 = bt.z0;
+    r.e1x = bt.x1 - bt.x0; r.e1y = bt.y1 - bt.y0; r.e1z = bt.z1 - bt.z0;
+    r.e2x = bt.x2 - bt.x0; r.e2y = bt.y2 - bt.y0; r.e2z = bt.z2 - bt.z0;
+    r.d00 = r.e1x * r.e1x + r.e1z * r.e1z;
+    r.d01 = r.e1x * r.e2x + r.e1z * r.e2z;
+    r.d11 = r.e2x * r.e2x + r.e2z * r.e2z;
+    const float den = r.d00 * r.d11 - r.d01 * r.d01;
+    if (std::fabs(den) < 1e-6f) {
+      continue;  // sliver vu de dessus : il n'apporte aucune empreinte
+    }
+    r.inv_denom = 1.0f / den;
+    r.minx = std::min(bt.x0, std::min(bt.x1, bt.x2)) - bare_pad;
+    r.maxx = std::max(bt.x0, std::max(bt.x1, bt.x2)) + bare_pad;
+    r.minz = std::min(bt.z0, std::min(bt.z1, bt.z2)) - bare_pad;
+    r.maxz = std::max(bt.z0, std::max(bt.z1, bt.z2)) + bare_pad;
+    const u32 fi = (u32)bare_fx.size();
+    bare_fx.push_back(r);
+    const s64 gx0 = (s64)std::floor(r.minx * bare_inv), gx1 = (s64)std::floor(r.maxx * bare_inv);
+    const s64 gz0 = (s64)std::floor(r.minz * bare_inv), gz1 = (s64)std::floor(r.maxz * bare_inv);
+    for (s64 gz = gz0; gz <= gz1; ++gz) {
+      for (s64 gx = gx0; gx <= gx1; ++gx) {
+        bare_grid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(fi);
+      }
+    }
+  }
+
+  // DISTANCE XZ D'UNE RACINE A L'EMPREINTE NUE LA PLUS PROCHE. Rend 0 et `*inside=true` quand la
+  // racine est SOUS l'empreinte (le brin pousserait dans le chemin).
+  auto path_dist = [&](float bx, float by, float bz, bool* inside) -> float {
+    *inside = false;
+    if (bare_fx.empty()) {
+      return 1.0e18f;
+    }
+    const s64 gx = (s64)std::floor(bx * bare_inv), gz = (s64)std::floor(bz * bare_inv);
+    auto it = bare_grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+    if (it == bare_grid.end()) {
+      return 1.0e18f;
+    }
+    const float ywin = TRANS_OVL_YWIN_M * U;
+    float best = 1.0e18f;
+    for (u32 fi : it->second) {
+      const auto& r = bare_fx[fi];
+      if (bx < r.minx || bx > r.maxx || bz < r.minz || bz > r.maxz) {
+        continue;
+      }
+      const float qx = bx - r.x0, qz = bz - r.z0;
+      const float d20 = qx * r.e1x + qz * r.e1z;
+      const float d21 = qx * r.e2x + qz * r.e2z;
+      const float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+      const float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+      if (u >= 0.f && v >= 0.f && u + v <= 1.f) {
+        const float fy = r.y0 + u * r.e1y + v * r.e2y;
+        if (std::fabs(fy - by) <= ywin) {
+          *inside = true;
+          return 0.f;
+        }
+        continue;
+      }
+      // Hors du triangle : le point le plus proche vit sur l'une des trois aretes, en XZ.
+      const float vx[3] = {r.x0, r.x0 + r.e1x, r.x0 + r.e2x};
+      const float vy[3] = {r.y0, r.y0 + r.e1y, r.y0 + r.e2y};
+      const float vz[3] = {r.z0, r.z0 + r.e1z, r.z0 + r.e2z};
+      for (int e = 0; e < 3; ++e) {
+        const int a = e, b = (e + 1) % 3;
+        const float ex = vx[b] - vx[a], ez = vz[b] - vz[a];
+        const float l2 = ex * ex + ez * ez;
+        float t = 0.f;
+        if (l2 > 1e-6f) {
+          t = ((bx - vx[a]) * ex + (bz - vz[a]) * ez) / l2;
+          t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        }
+        const float px2 = vx[a] + t * ex, pz2 = vz[a] + t * ez;
+        const float py2 = vy[a] + t * (vy[b] - vy[a]);
+        if (std::fabs(py2 - by) > ywin) {
+          continue;
+        }
+        const float ddx = bx - px2, ddz = bz - pz2;
+        const float dd = std::sqrt(ddx * ddx + ddz * ddz);
+        if (dd < best) {
+          best = dd;
+        }
+      }
+    }
+    return best;
+  };
+  int trans_inside_n = 0, trans_thin_n = 0, trans_band_n = 0;
 
   // ---- PHASE 2 -> TABLE builder: density-complete candidate enumeration. ----
   // No budget break here (tables are density-complete; the budget is applied in expand()). The counters
@@ -925,8 +1292,17 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   };
   std::unordered_map<s64, std::vector<OP>> objpts;
   objpts.reserve(4096);
-  for (const auto& p : occ_pts) {
+  size_t occ_kept_object = 0, occ_moved_to_field = 0;
+  for (size_t q = 0; q < occ_pts.size(); ++q) {
+    // grass-path-transitions : un point de sol nu pose N'OCCULTE PLUS. Il pilote un champ de
+    // distance, pas un rayon binaire de 0,45 m. Tous les autres points sont inchanges.
+    if (q < occ_is_bare.size() && occ_is_bare[q]) {
+      occ_moved_to_field++;
+      continue;
+    }
+    const auto& p = occ_pts[q];
     objpts[occ_bkey(p[0], p[2])].push_back({p[0], p[1], p[2]});
+    occ_kept_object++;
   }
   size_t occ_objpts = objpts.size();
   const float occ_lo = OCC_LO_M * U, occ_hi = OCC_HI_M * U;
@@ -948,6 +1324,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   // Tables. Every candidate index over all tris (in tri order); keep/rim_q are indexed by cand_base+i.
   std::vector<u8> keep_tbl;
   std::vector<u16> rimq_tbl;
+  std::vector<u16> pathq_tbl;  // grass-path-transitions : distance a l'empreinte nue
   std::vector<BakeTri> bake_tris;
   bake_tris.reserve(tris.size());
   u64 cand_running = 0;
@@ -1056,8 +1433,48 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
         }
       }
 
-      keep_tbl.push_back((u8)((scatter_keep ? 1u : 0u) | (occ_hidden ? 0u : 2u)));
+      // ================= grass-path-transitions : LA TRANSITION, TRANCHEE ICI =================
+      // Trois cas, et trois seulement :
+      //   * la racine est SOUS une empreinte nue -> le brin est retire, le chemin reste degage ;
+      //   * elle est dans la bande -> elle est eclaircie par un tirage compare a `trans_density_mul`
+      //     d'une distance PERTURBEE par un bruit coherent : la frontiere devient dentelee au lieu
+      //     de suivre un decalage constant, et le plancher `TRANS_DENS_FLOOR` interdit le zero qui
+      //     refabriquerait la bande pelee ;
+      //   * elle est au-dela -> rien ne change, bit a bit.
+      // La HAUTEUR, elle, est attenuee a l'expansion depuis `path_q` SANS bruit : une rampe
+      // continue ne peut pas dessiner de ligne sur le maillage.
+      bool p_inside = false;
+      const float p_d = path_dist(bx, by, bz, &p_inside);
+      bool trans_keep = true;
+      if (p_inside) {
+        trans_keep = false;
+        trans_inside_n++;
+      } else if (p_d < TRANS_QUERY_M * U) {
+        float dn = p_d + TRANS_NOISE_AMP_M * U * trans_noise(bx, bz);
+        if (dn < 0.f) {
+          dn = 0.f;
+        }
+        // TIRAGE A FAIBLE DISCREPANCE, PAS UN HACHAGE INDEPENDANT. Un Bernoulli independant
+        // s'agglutine : mesure sur `training`, 7,6 candidats en moyenne autour d'un echantillon de
+        // limite et 4,6 retires, soit 4,5 % des limites laissees nues — la bande pelee revenait par
+        // la statistique apres avoir ete retiree par la geometrie. La suite dorée garde une
+        // fraction `w` REGULIEREMENT repartie dans l'ordre d'enumeration, qui est lui-meme sans
+        // structure spatiale (les positions sortent d'un hachage). Meme densite moyenne, sans trou.
+        const float ld = (float)i * 0.61803399f;
+        if ((ld - std::floor(ld)) >= trans_density_mul(dn)) {
+          trans_keep = false;
+          trans_thin_n++;
+        } else if (p_d < TRANS_W_M * U) {
+          trans_band_n++;
+        }
+      }
+      keep_tbl.push_back((u8)((scatter_keep ? 1u : 0u) | (occ_hidden ? 0u : 2u) |
+                              (trans_keep ? 4u : 0u)));
       rimq_tbl.push_back(rim_encode(dmin));
+      // `0` est RESERVE a « dans l'empreinte ». Sans ce plancher, un candidat pose exactement sur
+      // l'arete rendait 0 lui aussi et le recensement le comptait comme une invasion : 8 faux
+      // positifs sur `training`, un compte de defaut fabrique par sa propre quantification.
+      pathq_tbl.push_back(p_inside ? (u16)0 : std::max<u16>(1, path_encode(p_d)));
     }
     cand_running += (u64)n;
     bake_tris.push_back(bt);
@@ -1489,6 +1906,37 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   out.tris = std::move(bake_tris);
   out.keep = std::move(keep_tbl);
   out.rim_q = std::move(rimq_tbl);
+  out.path_q = std::move(pathq_tbl);
+  out.stats.trans_bare_geom = (u32)trans_bare_geom;
+  out.stats.trans_bare_mat = (u32)trans_bare_mat;
+  out.stats.trans_bare_both = (u32)trans_bare_both;
+  out.stats.trans_bare_disagree = (u32)trans_bare_disagree;
+  out.stats.trans_bare_tris = (u32)bare_fx.size();
+  out.stats.faces_up = f_up_tot;
+  out.stats.faces_bare_mat = f_bare_tot;
+  out.stats.faces_affleurantes = f_flush_tot;
+  out.stats.faces_lifted = f_lift_tot;
+  out.stats.faces_nofloor = f_nofl_tot;
+  out.stats.bare_tex_top = out_bare_tex_top;
+  out.stats.bare_rej_top = out_bare_rej_top;
+  out.stats.bare_mat_top = out_bare_mat_top;
+  out.stats.trans_occ_object = (u32)occ_kept_object;
+  out.stats.trans_occ_moved = (u32)occ_moved_to_field;
+  {
+    double ar = 0.0;
+    for (const auto& bd : bare_draws) {
+      if (bd.keep_as_bare) {
+        ar += bd.area_xz;
+      }
+    }
+    out.stats.trans_bare_area_m2 = (float)ar;
+  }
+  lg::info(
+      "[grass-path-transitions] sols nus poses : draws geometrie={} materiau={} LES DEUX={} "
+      "desaccord={} ; empreinte tris={} ; points d'occultation objet={} retires={} ; candidats "
+      "dans l'empreinte={} eclaircis={} dans la bande={}",
+      trans_bare_geom, trans_bare_mat, trans_bare_both, trans_bare_disagree, bare_fx.size(),
+      occ_kept_object, occ_moved_to_field, trans_inside_n, trans_thin_n, trans_band_n);
   out.droop = std::move(droop_tbl);  // Grecharged-grass-overhang
   out.droop_rims = std::move(droop_rim_segs);  // Grecharged-grass-overhang2 (GBK3)
   out.rimdrape = std::move(rimdrape_segs);      // Grecharged-grass-overhang5 (GBK6)
@@ -1547,7 +1995,7 @@ void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk
   out.push_back(c);
 }
 
-ExpandResult expand(const BakeData& d, float density_slider_pct) {
+ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map) {
   ExpandResult res;
   float dens_scale = std::min(2.5f, std::max(0.5f, density_slider_pct / 100.0f));
   int budget = (int)((float)MAX_INSTANCES * dens_scale);
@@ -1831,13 +2279,31 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       n += 1;
     }
     if ((u32)n > tri.cand_count) n = (int)tri.cand_count;  // safety (slider <= bake density)
+    if (want_cand_map) {
+      res.tri_n.resize(d.tris.size(), 0u);
+      res.tri_n[tj] = (u32)n;
+    }
     for (int i = 0; i < n; ++i) {
       if (scatter_kept >= budget) break;
-      u8 k = d.keep[tri.cand_base + (u64)i];
+      const u64 ci = tri.cand_base + (u64)i;
+      u8 k = d.keep[ci];
       if (!(k & 1)) continue;
       scatter_kept++;
       if (!(k & 2)) {
         occ_culled++;
+        continue;
+      }
+      // grass-path-transitions : le bit2 porte la decision de DENSITE, tranchee a la cuisson (bruit
+      // coherent compris) ; `path_q` porte la distance qui attenue la HAUTEUR. Un bake sans table
+      // de distance (aucun sol nu retenu) laisse les deux inactifs, sans branche morte.
+      const bool have_path = d.path_q.size() == d.keep.size();
+      const u16 pq = have_path ? d.path_q[ci] : (u16)0xFFFF;
+      if (!(k & 4)) {
+        if (pq == 0) {
+          res.trans_culled_inside++;
+        } else {
+          res.trans_culled_thin++;
+        }
         continue;
       }
       u32 sd = tri.seed + (u32)i * 3266489917u;
@@ -1856,6 +2322,15 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
       gi.py = by;
       gi.pz = bz;
       gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
+      {
+        const float p_d = path_decode(pq);
+        if (p_d < TRANS_W_M * U) {
+          gi.h *= trans_height_mul(p_d);   // grass-path-transitions : la hauteur retombe, sans jamais s'annuler
+          res.trans_band++;
+        } else {
+          res.trans_interior++;
+        }
+      }
       gi.tint = hash_f(sd + 5u);
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
@@ -1940,6 +2415,9 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
 #endif  // OG_FEAT_GRASS_OVERHANG (marquage + collecte des jumelles)
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
+      if (want_cand_map) {
+        res.inst_cand.push_back((u32)ci);  // grass-path-transitions : le recensement, jamais le jeu
+      }
     }
   }
   res.scatter_kept = scatter_kept;
@@ -2350,7 +2828,7 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // grass-chunk-cull: v8: section `chunks` en queue (partition spatiale cuite de l'expansion a
 // `bake_density_pct`). Un v7 echoue la garde de version et n'est PAS charge : les cinq bakes
 // livres se recuisent par `scripts/shell/build_grass_bakes.sh`.
-constexpr u32 GBK_FORMAT_VERSION = 8;
+constexpr u32 GBK_FORMAT_VERSION = 9;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -2473,6 +2951,32 @@ bool save_bake(const BakeData& d, const std::string& path) {
     for (int k = 0; k < 3; ++k) {
       put<float>(buf, c.hi[k]);
     }
+  }
+
+  // grass-path-transitions (GBK9) : la distance a l'empreinte du sol nu, par candidat. Ecrite
+  // EN QUEUE, apres toutes les sections v8, pour ne deplacer aucun offset existant. Un compte
+  // explicite precede la table : « section absente » et « section tronquee » ne se lisent pas
+  // pareil, et un v8 est refuse par la garde de version, jamais lu de travers.
+  put<u64>(buf, (u64)d.path_q.size());
+  put_bytes(buf, d.path_q.data(), d.path_q.size() * sizeof(u16));
+  put<u32>(buf, d.stats.trans_bare_geom);
+  put<u32>(buf, d.stats.trans_bare_mat);
+  put<u32>(buf, d.stats.trans_bare_both);
+  put<u32>(buf, d.stats.trans_bare_disagree);
+  put<u32>(buf, d.stats.trans_bare_tris);
+  put<u32>(buf, d.stats.trans_occ_object);
+  put<u32>(buf, d.stats.trans_occ_moved);
+  put<float>(buf, d.stats.trans_bare_area_m2);
+  put<u64>(buf, d.stats.faces_up);
+  put<u64>(buf, d.stats.faces_bare_mat);
+  put<u64>(buf, d.stats.faces_affleurantes);
+  put<u64>(buf, d.stats.faces_lifted);
+  put<u64>(buf, d.stats.faces_nofloor);
+  for (const std::string* sp : {&d.stats.bare_tex_top, &d.stats.bare_rej_top,
+                                &d.stats.bare_mat_top}) {
+    const u32 n = (u32)std::min<size_t>(sp->size(), 1024);
+    put<u32>(buf, n);
+    put_bytes(buf, sp->data(), n);
   }
 
   std::vector<u8> comp = compression::compress_zstd(buf.data(), buf.size());
@@ -2713,6 +3217,51 @@ bool load_bake(BakeData& d, const std::string& path) {
     covered += c.count;
   }
 
+  // grass-path-transitions (GBK9) : la table de distance a l'empreinte nue.
+  u64 npath = 0;
+  if (!get(buf, off, npath)) {
+    lg::warn("[recharged-grass] load_bake: compte de path_q absent dans '{}'", path);
+    return false;
+  }
+  if (npath != 0 && npath != ncand) {
+    lg::warn("[recharged-grass] load_bake: path_q de taille {} pour {} candidats dans '{}' — refuse",
+             npath, ncand, path);
+    return false;
+  }
+  if (!count_fits(buf, off, (u32)npath, sizeof(u16))) {
+    lg::warn("[recharged-grass] load_bake: compte de path_q aberrant ({}) dans '{}' — refuse",
+             npath, path);
+    return false;
+  }
+  tmp.path_q.resize((size_t)npath);
+  if (npath && !get_bytes(buf, off, tmp.path_q.data(), (size_t)npath * sizeof(u16))) {
+    lg::warn("[recharged-grass] load_bake: truncated path_q[] in '{}'", path);
+    return false;
+  }
+  if (!get(buf, off, tmp.stats.trans_bare_geom) || !get(buf, off, tmp.stats.trans_bare_mat) ||
+      !get(buf, off, tmp.stats.trans_bare_both) || !get(buf, off, tmp.stats.trans_bare_disagree) ||
+      !get(buf, off, tmp.stats.trans_bare_tris) || !get(buf, off, tmp.stats.trans_occ_object) ||
+      !get(buf, off, tmp.stats.trans_occ_moved) ||
+      !get(buf, off, tmp.stats.trans_bare_area_m2) || !get(buf, off, tmp.stats.faces_up) ||
+      !get(buf, off, tmp.stats.faces_bare_mat) || !get(buf, off, tmp.stats.faces_affleurantes) ||
+      !get(buf, off, tmp.stats.faces_lifted) || !get(buf, off, tmp.stats.faces_nofloor)) {
+    lg::warn("[recharged-grass] load_bake: compteurs de transition tronques dans '{}'", path);
+    return false;
+  }
+  for (std::string* sp : {&tmp.stats.bare_tex_top, &tmp.stats.bare_rej_top,
+                          &tmp.stats.bare_mat_top}) {
+    u32 n = 0;
+    if (!get(buf, off, n) || n > 1024) {
+      lg::warn("[recharged-grass] load_bake: liste de transition aberrante dans '{}'", path);
+      return false;
+    }
+    sp->assign(n, '\0');
+    if (n && !get_bytes(buf, off, &(*sp)[0], n)) {
+      lg::warn("[recharged-grass] load_bake: liste de transition tronquee dans '{}'", path);
+      return false;
+    }
+  }
+
   d = std::move(tmp);
   return true;
 }
@@ -2735,10 +3284,8 @@ const char* const kPatMaterialNames[kPatMaterialCount] = {
     "stone", "ice",   "quicksand", "waterbottom", "tar",    "sand",     "wood",   "grass",
     "pcmetal", "snow", "deepsnow",  "hotcoals",    "lava",   "crwood",   "gravel", "dirt",
     "metal", "straw", "tube",      "swamp",       "stopproj", "rotate", "neutral"};
-constexpr u32 kPatMatStone = 0;
-constexpr u32 kPatMatSand = 5;
-constexpr u32 kPatMatGrass = 7;
-constexpr u32 kPatMatDirt = 15;
+// grass-path-transitions : les cinq identifiants et le predicat « sol nu » vivent desormais dans
+// GrassBakeCore.h — `scan_level`, compile AVANT ce bloc, en a besoin. Une seule definition.
 
 // LA REGLE DE LA SOURCE TEXTURE, ET POURQUOI ELLE N'EST PAS LA REGLE DU BAKE. Reprendre
 // `is_grass_ground` ici ferait un miroir : la source TEXTURE rendrait le meme verdict que la
@@ -3172,7 +3719,6 @@ constexpr double OVL_MIN_AREA_FRAC = 0.05;  // ... et fraction du plus petit des
 constexpr float OVL_YGAP_M = 1.0f;          // au-dela, deux etages (un pont), pas une superposition
 constexpr float OVL_ZFIGHT_M = 0.01f;       // en deca, le dessus est INDECIDABLE
 constexpr float OVL_COLL_YWIN_M = 1.5f;     // fenetre verticale de la sonde de collision
-constexpr u32 kPatMatGravel = 14;
 
 // « SABLE OU TERRE » AU SENS DU CONTRAT. Un filet de noms, publie tel quel par les listes de
 // textures de chaque classe : ce qu'il rate se voit dans `ambiguous_tex`, pas dans un silence.
@@ -3184,7 +3730,7 @@ inline bool ovl_tex_is_bare(const std::string& n) {
 
 // Un materiau de collision sur lequel le JEU LUI-MEME a fait autre chose que de l'herbe.
 inline bool ovl_material_is_path(u32 m) {
-  return m == kPatMatSand || m == kPatMatDirt || m == kPatMatGravel || m == kPatMatStone;
+  return pat_material_is_bare(m);
 }
 
 // AIRE ET CENTROIDE DU RECOUVREMENT XZ DE DEUX TRIANGLES (Sutherland-Hodgman + lacet).
@@ -4354,6 +4900,380 @@ EdgeSelftest edge_probe_selftest() {
   lg::info("[grass-edge-truth] banc nomme : {} cas, {} d'accord, {} desaccords ({})", r.cases,
            r.agree, r.disagree, r.disagree_list);
   return r;
+}
+
+// ===========================================================================================
+// grass-path-transitions : LE RECENSEMENT. Le contrat est dans GrassBakeCore.h.
+// ===========================================================================================
+//
+// CE BLOC NE PLACE RIEN. Il lit `path_q`, `keep`, `tri_n` et les brins EMIS, et il mesure. Il ne
+// relit aucune de ses propres constantes de placement pour juger : `TRANS_DENS_FLOOR`,
+// `TRANS_NOISE_AMP_M` et `TRANS_W_M` n'apparaissent dans aucune des quatre grandeurs. Ce qu'il
+// lit, ce sont des POSITIONS et des DISTANCES GEOMETRIQUES a l'empreinte du sol nu.
+
+TransitionCensus transition_census(const BakeData& d, const ExpandResult& e) {
+  TransitionCensus c;
+  c.bare_draws_geom = d.stats.trans_bare_geom;
+  c.bare_draws_mat = d.stats.trans_bare_mat;
+  c.bare_draws_both = d.stats.trans_bare_both;
+  c.bare_draws_disagree = d.stats.trans_bare_disagree;
+  c.bare_draws_seen = (u64)d.stats.trans_bare_geom + (u64)d.stats.trans_bare_disagree +
+                      (u64)d.stats.trans_bare_mat;
+  c.bare_tris = d.stats.trans_bare_tris;
+  c.bare_area_m2 = (double)d.stats.trans_bare_area_m2;
+  c.occ_pts_object = d.stats.trans_occ_object;
+  c.occ_pts_removed = d.stats.trans_occ_moved;
+  c.bare_tex_top = d.stats.bare_tex_top.empty() ? "-" : d.stats.bare_tex_top;
+  c.bare_rej_top = d.stats.bare_rej_top.empty() ? "-" : d.stats.bare_rej_top;
+  c.bare_mat_top = d.stats.bare_mat_top.empty() ? "-" : d.stats.bare_mat_top;
+  c.faces_up = d.stats.faces_up;
+  c.faces_bare_mat = d.stats.faces_bare_mat;
+  c.faces_affleurantes = d.stats.faces_affleurantes;
+  c.faces_lifted = d.stats.faces_lifted;
+  c.faces_nofloor = d.stats.faces_nofloor;
+  c.blades_total = e.instances.size();
+  c.population_empty = e.instances.empty() ? 1 : 0;
+  c.bare_absent = (c.bare_tris == 0) ? 1 : 0;
+
+  const bool have_path = d.path_q.size() == d.keep.size();
+  const bool have_map = e.inst_cand.size() == e.instances.size() && e.tri_n.size() == d.tris.size();
+  if (!have_path || !have_map || c.population_empty || c.bare_absent) {
+    lg::warn(
+        "[grass-path-transitions] recensement IMPOSSIBLE : path_q={} keep={} inst_cand={} "
+        "instances={} tri_n={} tris={} empreinte={} — aucune grandeur n'est publiee, et ce n'est "
+        "PAS un zero",
+        d.path_q.size(), d.keep.size(), e.inst_cand.size(), e.instances.size(), e.tri_n.size(),
+        d.tris.size(), c.bare_tris);
+    return c;
+  }
+
+  // ---- LA GRILLE DES BRINS EMIS (requete « le brin le plus proche »), maille 0,5 m.
+  const float NCELL = 0.5f * U;
+  const float ninv = 1.0f / NCELL;
+  auto nkey = [ninv](float x, float z) -> u64 {
+    const s64 gx = (s64)std::floor(x * ninv), gz = (s64)std::floor(z * ninv);
+    return ((u64)(u32)(s32)gx << 32) | (u32)(s32)gz;
+  };
+  std::unordered_map<u64, std::vector<u32>> blade_grid;
+  blade_grid.reserve(e.instances.size() / 4 + 16);
+  for (u32 k = 0; k < (u32)e.instances.size(); ++k) {
+    blade_grid[nkey(e.instances[k].px, e.instances[k].pz)].push_back(k);
+  }
+
+  // ---- LA GRILLE DU RECENSEMENT DE DENSITE LOCALE (points 3 et 4), maille TRANS_CELL_M.
+  struct Cell {
+    u32 cand = 0, kept = 0;
+    double sum_d = 0.0, sum_h = 0.0;
+  };
+  std::unordered_map<u64, Cell> cells;
+  const float CINV = 1.0f / (TRANS_CELL_M * U);
+  auto ckey = [CINV](float x, float z) -> u64 {
+    const s64 gx = (s64)std::floor(x * CINV), gz = (s64)std::floor(z * CINV);
+    return ((u64)(u32)(s32)gx << 32) | (u32)(s32)gz;
+  };
+
+  // ---- PARCOURS APPARIE : les candidats dans l'ordre d'enumeration, le curseur des brins emis
+  // dans le meme ordre. `inst_cand` est strictement croissant, donc un seul curseur suffit.
+  std::vector<float> gaps;
+  gaps.reserve(4096);
+  double band_kept[4] = {0, 0, 0, 0}, band_cand[4] = {0, 0, 0, 0}, band_h[4] = {0, 0, 0, 0};
+  double band_elig[4] = {0, 0, 0, 0};  // candidats que plancher ET objet ont laisses passer
+  double interior_h_sum = 0.0;
+  u64 interior_h_n = 0;
+  size_t cursor = 0;
+  const float LIMIT = TRANS_LIMIT_BAND_M * U;
+  const float W = TRANS_W_M * U;
+
+  struct Limit {
+    float x, z;
+  };
+  std::vector<Limit> limits;
+  limits.reserve(4096);
+  // TOUS les candidats, avec leurs bits : c'est ce qui permet de NOMMER la cause d'un trou au lieu
+  // de l'ecarter en silence.
+  struct CandRec {
+    float x, z;
+    u8 k;        // bits keep 1/2/4
+    u8 inside;   // 1 = sous l'empreinte nue : ce candidat N'A PAS a porter d'herbe
+  };
+  std::vector<CandRec> cand_rec;
+  cand_rec.reserve(d.keep.size());
+  std::unordered_map<u64, std::vector<u32>> cand_grid;
+
+  for (size_t tj = 0; tj < d.tris.size(); ++tj) {
+    const BakeTri& tri = d.tris[tj];
+    const u32 n = e.tri_n[tj];
+    for (u32 i = 0; i < n; ++i) {
+      const u64 ci = tri.cand_base + (u64)i;
+      if (ci >= d.keep.size()) {
+        break;
+      }
+      float r1, r2;
+      u32 sd;
+      cand_barycentric(tri.seed, (int)i, r1, r2, sd);
+      const float bx = tri.p0[0] + r1 * tri.e1[0] + r2 * tri.e2[0];
+      const float bz = tri.p0[2] + r1 * tri.e1[2] + r2 * tri.e2[2];
+      const u16 pq = d.path_q[ci];
+      const float dist = path_decode(pq);
+      const bool emitted = cursor < e.inst_cand.size() && e.inst_cand[cursor] == (u32)ci;
+      float height = 0.f;
+      if (emitted) {
+        const auto& gi = e.instances[cursor];
+        if (std::fabs(gi.px - bx) > 1.0f || std::fabs(gi.pz - bz) > 1.0f) {
+          c.pos_mismatch++;
+        }
+        height = gi.h;
+        ++cursor;
+      }
+
+      {
+        const u32 ri = (u32)cand_rec.size();
+        cand_rec.push_back({bx, bz, d.keep[ci], (u8)(pq == 0 ? 1 : 0)});
+        cand_grid[nkey(bx, bz)].push_back(ri);
+      }
+      c.cand_total++;
+      if (pq == 0) {
+        c.cand_inside++;
+        if (emitted) {
+          c.blades_inside++;  // POINT 2 : une racine sur le chemin
+        }
+      } else if (pq != 0xFFFF) {
+        if (dist <= LIMIT) {
+          c.cand_limit++;
+          limits.push_back({bx, bz});
+        }
+        if (dist <= W) {
+          const int b = (int)(dist / (W * 0.25f));
+          const int bi = b < 0 ? 0 : (b > 3 ? 3 : b);
+          band_cand[bi] += 1.0;
+          if ((d.keep[ci] & 3u) == 3u) {
+            band_elig[bi] += 1.0;  // le seul denominateur sur lequel la transition ait decide
+          }
+          if (emitted) {
+            band_kept[bi] += 1.0;
+            band_h[bi] += (double)height;
+          }
+        }
+      }
+      if (emitted) {
+        if (pq != 0xFFFF && dist <= W) {
+          c.blades_band++;
+        } else {
+          c.blades_interior++;
+          interior_h_sum += (double)height;
+          interior_h_n++;
+        }
+        if (pq != 0xFFFF) {
+          c.blades_tested++;
+        }
+      }
+
+      // Cellule locale : seuls les candidats a portee d'un sol nu decrivent une transition.
+      if (pq != 0xFFFF && pq != 0) {
+        Cell& cl = cells[ckey(bx, bz)];
+        cl.cand++;
+        cl.sum_d += (double)dist;
+        if (emitted) {
+          cl.kept++;
+          cl.sum_h += (double)height;
+        }
+      }
+    }
+  }
+  c.limit_absent = limits.empty() ? 1 : 0;
+  c.band_absent = (c.blades_band == 0) ? 1 : 0;
+
+  // ---- POINT 1 : DE LA LIMITE DE LA ZONE NUE AU BRIN LE PLUS PROCHE.
+  if (!limits.empty()) {
+    for (const auto& L : limits) {
+      float best2 = 1e30f;
+      const s64 gx = (s64)std::floor(L.x * ninv), gz = (s64)std::floor(L.z * ninv);
+      for (s64 dz = -1; dz <= 1; ++dz) {
+        for (s64 dx = -1; dx <= 1; ++dx) {
+          auto it = blade_grid.find(((u64)(u32)(s32)(gx + dx) << 32) | (u32)(s32)(gz + dz));
+          if (it == blade_grid.end()) {
+            continue;
+          }
+          for (u32 k : it->second) {
+            const float ddx = e.instances[k].px - L.x, ddz = e.instances[k].pz - L.z;
+            const float dd2 = ddx * ddx + ddz * ddz;
+            if (dd2 < best2) {
+              best2 = dd2;
+            }
+          }
+        }
+      }
+      // Rien dans les neuf cellules = au moins 0,5 m ; on le publie a sa borne INFERIEURE, jamais
+      // en l'ecartant : un echantillon ecarte est un echantillon qui ne peut plus rougir.
+      gaps.push_back(best2 >= 1e29f ? (0.5f * U) : std::sqrt(best2));
+    }
+    // ---- POURQUOI. Pour chaque echantillon au-dessus du plafond, on regarde les candidats de son
+    // voisinage : s'ils sont tous sans plancher, tous occultes par un objet, ou s'il n'y a aucun
+    // candidat d'herbe du tout, le trou n'est pas celui de la transition. La cause DOMINANTE est
+    // publiee ; aucune n'est ecartee sans compte.
+    std::vector<float> defect_gaps;
+    double def_cands = 0.0, def_thin = 0.0;
+    for (size_t li = 0; li < limits.size(); ++li) {
+      const float g = gaps[li];
+      if (g / U <= TRANS_GAP_CAP_M) {
+        continue;
+      }
+      c.gap_over_cap++;
+      const float R = g;
+      const s64 ring = (s64)std::ceil(R * ninv) + 1;
+      const s64 gx = (s64)std::floor(limits[li].x * ninv), gz = (s64)std::floor(limits[li].z * ninv);
+      u64 n_nofloor = 0, n_object = 0, n_thin = 0, n_any = 0, n_inside = 0;
+      for (s64 dz = -ring; dz <= ring; ++dz) {
+        for (s64 dx = -ring; dx <= ring; ++dx) {
+          auto it = cand_grid.find(((u64)(u32)(s32)(gx + dx) << 32) | (u32)(s32)(gz + dz));
+          if (it == cand_grid.end()) {
+            continue;
+          }
+          for (u32 ri : it->second) {
+            const auto& cr = cand_rec[ri];
+            const float ddx = cr.x - limits[li].x, ddz = cr.z - limits[li].z;
+            if (ddx * ddx + ddz * ddz > R * R) {
+              continue;
+            }
+            n_any++;
+            if (cr.inside) {
+              n_inside++;   // le chemin lui-meme : l'absence d'herbe y est le SUCCES, pas le trou
+            } else if (!(cr.k & 1)) {
+              n_nofloor++;
+            } else if (!(cr.k & 2)) {
+              n_object++;
+            } else if (!(cr.k & 4)) {
+              n_thin++;
+            }
+          }
+        }
+      }
+      // LA CAUSE DOMINANTE, et les egalites tranchees CONTRE NOUS : a nombre egal, le trou est
+      // impute a la transition. Une regle qui s'accorderait le benefice du doute serait un
+      // plafond deguise.
+      if (n_any == 0) {
+        c.gap_cause_nograss++;
+      } else if (n_inside > n_thin && n_inside >= n_nofloor && n_inside >= n_object) {
+        c.gap_cause_inside++;
+      } else if (n_nofloor > n_thin && n_nofloor >= n_object) {
+        c.gap_cause_nofloor++;
+      } else if (n_object > n_thin) {
+        c.gap_cause_object++;
+      } else {
+        c.gap_cause_trans++;
+        defect_gaps.push_back(g / U);
+        def_cands += (double)n_any;
+        def_thin += (double)n_thin;
+      }
+    }
+    c.gap_defect_frac = (float)((double)c.gap_cause_trans / (double)limits.size());
+    if (c.gap_cause_trans) {
+      c.gap_defect_cands = (float)(def_cands / (double)c.gap_cause_trans);
+      c.gap_defect_thin = (float)(def_thin / (double)c.gap_cause_trans);
+    }
+    c.gap_defect_max = defect_gaps.empty() ? 0.f
+                                           : *std::max_element(defect_gaps.begin(),
+                                                               defect_gaps.end());
+    std::sort(gaps.begin(), gaps.end());
+    auto q = [&](double f) -> float {
+      const size_t idx = (size_t)((double)(gaps.size() - 1) * f + 0.5);
+      return gaps[idx] / U;
+    };
+    c.gap_p50 = q(0.50);
+    c.gap_p90 = q(0.90);
+    c.gap_p99 = q(0.99);
+    c.gap_max = gaps.back() / U;
+    c.terms_measured++;
+  }
+
+  // ---- POINTS 3 ET 4 : LE FRONT ET LA PROGRESSIVITE, sur les cellules assez peuplees.
+  std::vector<float> front_d;
+  u64 graded = 0;
+  for (const auto& kv : cells) {
+    const Cell& cl = kv.second;
+    if (cl.cand < TRANS_CELL_MIN_CAND) {
+      continue;
+    }
+    const double mean_d = cl.sum_d / (double)cl.cand;
+    if (mean_d > (double)W) {
+      continue;
+    }
+    c.band_cells++;
+    const double ratio = (double)cl.kept / (double)cl.cand;
+    if (ratio > 0.15 && ratio < 0.85) {
+      graded++;
+    }
+    if (std::fabs(ratio - 0.5) <= 0.12) {
+      front_d.push_back((float)mean_d);
+    }
+  }
+  if (c.band_cells > 0) {
+    c.graded_frac = (float)((double)graded / (double)c.band_cells);
+    c.terms_measured++;
+  }
+  c.front_cells = front_d.size();
+  if (!front_d.empty()) {
+    std::sort(front_d.begin(), front_d.end());
+    const float med = front_d[front_d.size() / 2];
+    c.front_median_m = med / U;
+    u64 near = 0;
+    for (float v : front_d) {
+      if (std::fabs(v - med) <= TRANS_FRONT_EPS_M * U) {
+        near++;
+      }
+    }
+    c.edge_follow_frac = (float)((double)near / (double)front_d.size());
+    c.terms_measured++;
+  }
+
+  // ---- POINT 4 (suite) : les quatre tranches de 25 cm, et la monotonie.
+  c.interior_height = interior_h_n ? (float)(interior_h_sum / (double)interior_h_n) : -1.f;
+  for (int b = 0; b < 4; ++b) {
+    if (band_cand[b] > 0.0) {
+      c.band_ratio[b] = (float)(band_kept[b] / band_cand[b]);
+      c.band_elig[b] = (float)(band_elig[b] / band_cand[b]);
+    }
+    if (band_elig[b] > 0.0) {
+      c.band_dens[b] = (float)(band_kept[b] / band_elig[b]);
+    }
+    if (band_kept[b] > 0.0 && c.interior_height > 0.f) {
+      c.band_height[b] = (float)((band_h[b] / band_kept[b]) / (double)c.interior_height);
+    }
+  }
+  for (int b = 1; b < 4; ++b) {
+    if (c.band_ratio[b] >= 0.f && c.band_ratio[b - 1] >= 0.f &&
+        c.band_ratio[b] < c.band_ratio[b - 1] - 0.02f) {
+      c.mono_ratio_breaks++;
+    }
+    if (c.band_dens[b] >= 0.f && c.band_dens[b - 1] >= 0.f &&
+        c.band_dens[b] < c.band_dens[b - 1] - 0.02f) {
+      c.mono_dens_breaks++;
+    }
+    if (c.band_height[b] >= 0.f && c.band_height[b - 1] >= 0.f &&
+        c.band_height[b] < c.band_height[b - 1] - 0.02f) {
+      c.mono_height_breaks++;
+    }
+  }
+  // LA RAMPE DOIT EXISTER. Une transition qui ne descend pas est une transition absente, et une
+  // porte qu'une valeur neutre satisfait est verte par inaction.
+  if (c.band_dens[0] >= 0.f && c.band_dens[3] > 0.f) {
+    c.dens_ramp_missing = (c.band_dens[0] <= TRANS_RAMP_MAX * c.band_dens[3]) ? 0 : 1;
+  }
+  if (c.band_height[0] >= 0.f && c.band_height[3] > 0.f) {
+    c.height_ramp_missing = (c.band_height[0] <= TRANS_RAMP_MAX * c.band_height[3]) ? 0 : 1;
+  }
+  if (c.band_dens[0] >= 0.f && c.band_dens[3] >= 0.f && c.band_height[0] >= 0.f) {
+    c.terms_measured++;
+  }
+
+  lg::info(
+      "[grass-path-transitions] {} brins ({} dans la bande, {} SUR le chemin) ; bande nue p50={:.3f} "
+      "p90={:.3f} p99={:.3f} max={:.3f} m (plafond {:.2f}) ; front {} cellules, suivi={:.3f} ; "
+      "gradue={:.3f} ; tranches {:.2f}/{:.2f}/{:.2f}/{:.2f} ; termes mesures={}",
+      c.blades_total, c.blades_band, c.blades_inside, c.gap_p50, c.gap_p90, c.gap_p99, c.gap_max,
+      TRANS_GAP_CAP_M, c.front_cells, c.edge_follow_frac, c.graded_frac, c.band_ratio[0],
+      c.band_ratio[1], c.band_ratio[2], c.band_ratio[3], c.terms_measured);
+  return c;
 }
 
 

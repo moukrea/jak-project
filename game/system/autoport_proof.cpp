@@ -229,7 +229,8 @@ void emit_locked() {
     // ce `hits=` la, pas les prises du binaire entier.
     uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
-                     id == "grass-surface-truth" || id == "grass-overlay-meshes")
+                     id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
+                     id == "grass-path-transitions")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

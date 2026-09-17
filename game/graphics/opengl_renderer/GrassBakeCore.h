@@ -283,6 +283,25 @@ struct GrassInstance {
 };
 static_assert(sizeof(GrassInstance) == 64, "GrassInstance must stay 16 floats");
 
+// LA POSITION D'UN CANDIDAT, EN UN SEUL ENDROIT. `expand()` la calcule pour emettre le brin ; le
+// recensement la recalcule pour les candidats qu'AUCUN brin ne represente (ceux que la transition
+// a retires) — sans quoi il ne pourrait pas mesurer la ou l'herbe manque. Les deux appellent CECI,
+// et le recensement COMPARE sa position a celle du brin emis : une divergence se compte
+// (`pos_mismatch`), elle ne se suppose pas absente.
+struct BakeTri;
+inline void cand_barycentric(u32 seed, int i, float& r1o, float& r2o, u32& sdo) {
+  const u32 sd = seed + (u32)i * 3266489917u;
+  float r1 = hash_f(sd + 1u);
+  float r2 = hash_f(sd + 2u);
+  if (r1 + r2 > 1.0f) {
+    r1 = 1.0f - r1;
+    r2 = 1.0f - r2;
+  }
+  r1o = r1;
+  r2o = r2;
+  sdo = sd;
+}
+
 // ---------------------------------------------------------------------------
 // Bake tables.
 // ---------------------------------------------------------------------------
@@ -366,6 +385,25 @@ struct BakeStats {
   int considered_draws = 0, tie_draws = 0, tris_kept = 0, giant_tris = 0;
   float max_area = 0.f;
   int occ_objpt_buckets = 0;  // spatial-hash object-point bucket count (occ log)
+  // grass-path-transitions (GBK9) : les DEUX sources du classement « sol nu pose », comptees a la
+  // cuisson. Serialisees : le moteur charge un bake, il ne rescanne pas, et sans elles sa
+  // publication confondrait « aucun sol nu » avec « je n'ai pas regarde ».
+  u32 trans_bare_geom = 0;      // draws retenus par la GEOMETRIE de rendu
+  u32 trans_bare_mat = 0;       // ... par le MATERIAU de collision dessous
+  u32 trans_bare_both = 0;      // les deux -> empreinte
+  u32 trans_bare_disagree = 0;  // exactement une des deux
+  u32 trans_bare_tris = 0;      // triangles d'empreinte retenus
+  u32 trans_occ_object = 0;     // points restes occulteurs d'OBJET (comportement inchange)
+  u32 trans_occ_moved = 0;      // points sortis de l'occultation binaire
+  float trans_bare_area_m2 = 0.f;
+  u64 faces_up = 0;            // faces non-herbe regardant vers le haut, examinees
+  u64 faces_bare_mat = 0;      // ... dont le plancher de collision porte un materiau NU
+  u64 faces_affleurantes = 0;  // ... et qui AFFLEURENT ce plancher -> empreinte
+  u64 faces_lifted = 0;        // ... mais SOULEVEES : un dessus d'objet, pas une dalle
+  u64 faces_nofloor = 0;       // ... sans plancher sous elles dans la fenetre
+  std::string bare_tex_top;    // "texture:aire_cm2,..." des draws RETENUS
+  std::string bare_rej_top;    // "texture:raison:aire_cm2,..." des draws ECARTES
+  std::string bare_mat_top;    // "materiau:faces,..." sous les faces plates non-herbe
 };
 
 struct BakeData {
@@ -380,6 +418,11 @@ struct BakeData {
                                   // (flags bit3) so all pre-existing tri indices are unchanged
   std::vector<u8>  keep;          // per candidate: bit0 scatter_keep (floor+rim pass), bit1 occ_keep
   std::vector<u16> rim_q;         // per candidate: quantized rim_dist; 0xFFFF = NO_RIM/far
+  // grass-path-transitions (GBK9) : par candidat, distance XZ EXACTE a l'empreinte du sol nu le
+  // plus proche (chemin / terre), quantifiee ; 0 = DANS l'empreinte, 0xFFFF = aucun sol nu a
+  // portee. C'est la seule grandeur continue que le placement lit pour attenuer la HAUTEUR ; la
+  // DENSITE, elle, est deja tranchee a la cuisson dans `keep` bit2 (bruit coherent compris).
+  std::vector<u16> path_q;
   std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
   std::vector<DroopRimSeg> droop_rims;  // Grecharged-grass-overhang2: droop-zone rim segments (GBK3)
   std::vector<RimDrapeSeg> rimdrape;    // Grecharged-grass-overhang5: walkable-top drop-off lip edges (GBK6)
@@ -407,6 +450,110 @@ inline float rim_decode(u16 q) {
 }
 
 // ---------------------------------------------------------------------------
+// grass-path-transitions : LA TRANSITION AU BORD DES CHEMINS ET DES ZONES DE TERRE.
+// ---------------------------------------------------------------------------
+//
+// SPEC section 9 : « TRANSITIONS : jamais binaires. Reduction progressive de densite et de
+// hauteur, irregularite du bord par bruit coherent. Ne pas laisser de bande vide entre le
+// dernier brin et la limite du chemin. »
+//
+// CE QUE LE SOCLE FAISAIT, MESURE AVANT D'ETRE CHANGE. Un chemin de `training` n'est pas un trou
+// dans le tfrag herbeux : c'est un mesh pose PAR-DESSUS (`grass-overlay-meshes` : 11 210 paires
+// sur `training`). Un draw TIE non-herbe devient un OCCULTEUR D'OBJET : ses faces sont
+// echantillonnees au pas de 0,35 m et tout brin a moins de `OCC_RADIUS_M` (0,45 m) en XZ d'un de
+// ces points est TUE (le test `occ_hidden` de scan_level). Un chemin produit donc un halo pele de
+// 45 cm a bord net tout autour de lui : la « bande vide » ET la « decoupe nette » sont CE test.
+//
+// CE QU'ON MET A LA PLACE, POUR LES RECOUVREMENTS DE SOL SEULEMENT. Un draw reconnu « sol nu »
+// par DEUX sources independantes — sa geometrie de rendu est plate et basse, et le materiau de
+// collision sous lui est `sand|dirt|gravel|stone` — sort de la population d'occulteurs d'objet et
+// entre dans un CHAMP DE DISTANCE : la distance XZ EXACTE du brin a l'empreinte du chemin, prise
+// sur les triangles eux-memes et non sur un nuage de points echantillonne.
+// `recharged-grass-object-clip`, valide par l'owner, n'est pas touche : un rocher, une caisse ou
+// la borne de warp restent des occulteurs binaires a 0,45 m.
+constexpr float TRANS_OVL_UPNESS = 0.70f;     // face « posee a plat » : n.y/|n| au moins
+constexpr float TRANS_OVL_LIFT_M = 0.35f;     // une DALLE affleure son plancher de collision ;
+                                              // le dessus d'un rocher, lui, est SOULEVE
+constexpr float TRANS_OVL_MINAREA_M2 = 2.0f;  // aire XZ min : un caillou n'est pas un chemin
+constexpr float TRANS_OVL_YWIN_M = 1.00f;     // |dy| max entre l'empreinte et la racine du brin
+constexpr float TRANS_W_M = 1.00f;            // largeur DECLAREE de la bande de transition
+constexpr float TRANS_DENS_FLOOR = 0.72f;     // densite relative AU BORD — jamais zero, sinon la bande revient
+constexpr float TRANS_H_FLOOR = 0.40f;        // hauteur relative AU BORD
+constexpr float TRANS_NOISE_AMP_M = 0.35f;    // amplitude du bruit coherent sur la distance
+constexpr float TRANS_NOISE_LEN_M = 1.60f;    // longueur d'onde de sa premiere octave
+constexpr float TRANS_QUERY_M = 1.35f;        // == TRANS_W_M + TRANS_NOISE_AMP_M : rayon de requete
+constexpr float PATH_ENC_MAX_M = 2.5f;        // plafond de quantification de `path_q`
+// ---- LES PLAFONDS ET PLANCHERS DU RECENSEMENT, DECLARES AVANT D'ETRE MESURES.
+constexpr float TRANS_LIMIT_BAND_M = 0.15f;    // « a la limite de la zone nue » : 0 < d <= ceci
+constexpr float TRANS_CELL_M = 0.35f;          // maille du recensement de densite locale
+constexpr u32 TRANS_CELL_MIN_CAND = 6;         // sous ce compte, une cellule ne dit rien
+constexpr float TRANS_FRONT_EPS_M = 0.05f;     // +/- autour de la mediane du front
+constexpr float TRANS_GAP_CAP_M = 0.20f;       // POINT 1 : plafond du 99e centile de la bande nue
+constexpr float TRANS_GAP_MAX_CAP_M = 0.60f;   // POINT 1 : plafond dur du PIRE echantillon
+constexpr float TRANS_GAP_DEFECT_FRAC = 0.01f; // POINT 1 : part max d'echantillons IMPUTES a la transition
+constexpr float TRANS_EDGE_FOLLOW_CAP = 0.35f; // POINT 3 : plafond de rectitude du bord
+constexpr float TRANS_GRADED_FLOOR = 0.30f;    // POINT 4 : plancher de cellules a densite moyenne
+constexpr float TRANS_RAMP_MAX = 0.90f;        // POINT 4 : le bord doit rendre au plus 90 % du fond de bande
+
+// Quantification de la distance a l'empreinte nue. MEME forme que rim_encode : u16 lineaire,
+// 0xFFFF = « aucun sol nu a portee ». 0 = DANS l'empreinte.
+inline u16 path_encode(float d_world) {
+  if (d_world >= PATH_ENC_MAX_M * 4096.f) {
+    return 0xFFFF;
+  }
+  if (d_world <= 0.f) {
+    return 0;
+  }
+  return (u16)std::lround(d_world * (65534.0f / (PATH_ENC_MAX_M * 4096.f)));
+}
+inline float path_decode(u16 q) {
+  if (q == 0xFFFF) {
+    return 1.0e9f;
+  }
+  return (float)q * ((PATH_ENC_MAX_M * 4096.f) / 65534.0f);
+}
+
+// BRUIT COHERENT, ENTIEREMENT DETERMINISTE. Les coins du reseau sont haches par des ENTIERS :
+// aucune horloge, aucun flottant en entree du hachage, donc la cuisson x86 et la relecture arm64
+// voient la meme valeur. Deux octaves : la premiere creuse les golfes, la seconde dentelle.
+inline float trans_lattice(s32 a, s32 b) {
+  return hash_f((u32)(a * 73856093) ^ (u32)(b * 19349663)) * 2.0f - 1.0f;
+}
+inline float trans_noise_octave(float x, float z, float len_world) {
+  const float fx = x / len_world, fz = z / len_world;
+  const float ix = std::floor(fx), iz = std::floor(fz);
+  float tx = fx - ix, tz = fz - iz;
+  tx = tx * tx * (3.0f - 2.0f * tx);
+  tz = tz * tz * (3.0f - 2.0f * tz);
+  const s32 X = (s32)ix, Z = (s32)iz;
+  const float n00 = trans_lattice(X, Z), n10 = trans_lattice(X + 1, Z);
+  const float n01 = trans_lattice(X, Z + 1), n11 = trans_lattice(X + 1, Z + 1);
+  return (n00 * (1.0f - tx) + n10 * tx) * (1.0f - tz) + (n01 * (1.0f - tx) + n11 * tx) * tz;
+}
+inline float trans_noise(float x, float z) {
+  const float L = TRANS_NOISE_LEN_M * 4096.f;
+  return 0.70f * trans_noise_octave(x, z, L) + 0.30f * trans_noise_octave(x, z, L * 0.4f);
+}
+inline float trans_smooth01(float t) {
+  if (t <= 0.f) {
+    return 0.f;
+  }
+  if (t >= 1.f) {
+    return 1.f;
+  }
+  return t * t * (3.0f - 2.0f * t);
+}
+// Densite RELATIVE et hauteur RELATIVE d'un brin a `d` unites-monde de l'empreinte nue. Ni l'une
+// ni l'autre ne tombe a zero : un plancher nul REFABRIQUERAIT la bande pelee qu'on retire.
+inline float trans_density_mul(float d_world) {
+  return TRANS_DENS_FLOOR +
+         (1.0f - TRANS_DENS_FLOOR) * trans_smooth01(d_world / (TRANS_W_M * 4096.f));
+}
+inline float trans_height_mul(float d_world) {
+  return TRANS_H_FLOOR + (1.0f - TRANS_H_FLOOR) * trans_smooth01(d_world / (TRANS_W_M * 4096.f));
+}
+
+// ---------------------------------------------------------------------------
 // API.
 // ---------------------------------------------------------------------------
 struct ScanParams {
@@ -421,6 +568,20 @@ struct ExpandResult {
   std::vector<u32> inst_tri;    // instance -> tris index
   int scatter_kept = 0;         // pre-occ kept count (budget accounting, for the occ log)
   int occ_culled = 0;
+  // grass-path-transitions : ce que la TRANSITION retire, compte separement de ce que
+  // l'occultation d'OBJET retire. Confondre les deux causes rendrait le correctif invisible.
+  int trans_culled_inside = 0;  // racine DANS l'empreinte d'un sol nu -> le chemin reste degage
+  int trans_culled_thin = 0;    // racine dans la bande, eclaircie par le bruit coherent
+  int trans_band = 0;           // brins EMIS dont la racine est a moins de TRANS_W_M de l'empreinte
+  int trans_interior = 0;       // brins emis hors de portee de tout sol nu
+  // Index du candidat dont chaque instance est issue (parallele a `inst_tri`) : le recensement lit
+  // `keep`/`path_q` par cet index au lieu de re-enumerer une seconde fois — une re-enumeration
+  // serait une COPIE de la boucle de placement, donc une divergence en attente.
+  std::vector<u32> inst_cand;
+  // Nombre de candidats que l'expansion a REELLEMENT enumeres par triangle (0 pour lip/dup et
+  // pour la queue coupee par le budget). Le recensement le lit au lieu de recalculer la densite :
+  // recalculer serait une seconde copie de la regle, donc une divergence en attente.
+  std::vector<u32> tri_n;
   // Grecharged-grass-overhang: droop instances are appended at the TAIL of instances[]. The renderer
   // draws [0, droop_start) for the card pass always, and [0, droop_start or size) for the blade pass
   // depending on the overhang toggle — so flipping the toggle never needs a rebuild.
@@ -448,7 +609,9 @@ struct ExpandResult {
   int z2_count = 0;
   int z3_count = 0;
 };
-ExpandResult expand(const BakeData& d, float density_slider_pct);
+// `want_cand_map` remplit `inst_cand` — le recensement de grass-path-transitions seul en a
+// besoin ; le jeu l'appelle a false et ne paie pas les 4 octets par instance.
+ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map = false);
 
 // ---------------------------------------------------------------------------
 // grass-surface-truth : LES DEUX SOURCES QUI DISENT SI UNE SURFACE PORTE DE L'HERBE.
@@ -525,6 +688,19 @@ SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_
 // Le nom d'un `pat-material` (pat-h.gc:5-27), ou nullptr hors table.
 const char* pat_material_name(u32 material);
 constexpr u32 kPatMaterialCount = 23;
+// pat-h.gc:5-27, les quatre valeurs que la SPEC nomme plus `gravel`. Elles vivaient dans un
+// namespace anonyme du .cpp, DEUX fois, et apres `scan_level` : le placement ne pouvait donc pas
+// lire le materiau du sol. Une seule definition, ici, lue par le recensement ET par la cuisson.
+constexpr u32 kPatMatStone = 0;
+constexpr u32 kPatMatSand = 5;
+constexpr u32 kPatMatGrass = 7;
+constexpr u32 kPatMatGravel = 14;
+constexpr u32 kPatMatDirt = 15;
+// Un materiau sur lequel le JEU LUI-MEME a fait autre chose que de l'herbe : la SECONDE source
+// qui autorise un recouvrement a piloter une transition (`ovl_material_is_path` appelle celle-ci).
+inline bool pat_material_is_bare(u32 m) {
+  return m == kPatMatSand || m == kPatMatDirt || m == kPatMatGravel || m == kPatMatStone;
+}
 
 // ---------------------------------------------------------------------------
 // grass-overlay-meshes : LES MESHES POSES PAR-DESSUS UN SOL HERBEUX.
@@ -808,6 +984,103 @@ struct EdgeSelftest {
   std::string disagree_list;  // "nom:attendu>obtenu,..." ou "-"
 };
 EdgeSelftest edge_probe_selftest();
+
+// ---------------------------------------------------------------------------
+// grass-path-transitions : CE QUE LA TRANSITION PRODUIT, MESURE SUR LES BRINS EMIS.
+// ---------------------------------------------------------------------------
+//
+// Le recensement ne relit AUCUNE de ses propres constantes pour juger : il lit des positions de
+// brins et des distances geometriques a l'empreinte du sol nu. Les quatre points du contrat :
+//   1. PAS DE BANDE VIDE   -> `gap_*` : de chaque candidat pose A LA LIMITE de la zone nue, la
+//      distance au brin EMIS le plus proche. Le plafond est declare, les quantiles publies.
+//   2. PAS D'INVASION      -> `blades_inside` sur `blades_tested`.
+//   3. PAS DE DECOUPE NETTE-> `edge_follow_frac` : part des cellules ou la densite locale croise
+//      50 % dont la distance a l'empreinte tient dans +/- 5 cm de la mediane. Une frontiere qui
+//      suit un decalage constant rend 1,0 ; une frontiere dentelee rend peu.
+//   4. TRANSITION PROGRESSIVE -> `band_ratio[]` / `band_height[]` par tranche de 25 cm, et
+//      `graded_frac`, la part des cellules de la bande dont la densite locale n'est ni ~0 ni ~1.
+struct TransitionCensus {
+  // ---- LES DEUX SOURCES, et ce que chacune seule aurait dit.
+  u64 bare_draws_seen = 0;       // draws non-herbe examines (tfrag + tie)
+  u64 bare_draws_geom = 0;       // ... retenus par la geometrie de rendu (plats, bas, assez larges)
+  u64 bare_draws_mat = 0;        // ... dont le materiau de collision dessous est NU
+  u64 bare_draws_both = 0;       // les deux -> RECOUVREMENT DE SOL
+  u64 bare_draws_disagree = 0;   // geometrie oui / materiau non, ou l'inverse
+  u64 bare_tris = 0;             // triangles d'empreinte retenus
+  double bare_area_m2 = 0.0;     // leur aire XZ
+  u64 occ_pts_object = 0;        // points d'occultation restes OBJETS (comportement inchange)
+  u64 occ_pts_removed = 0;       // points retires de l'occultation binaire (ils sont devenus champ)
+  std::string bare_tex_top;      // "texture:aire_dm2,..." des draws RETENUS
+  std::string bare_rej_top;      // "texture:raison:aire_dm2,..." des draws ECARTES
+  std::string bare_mat_top;      // "materiau:faces,..." sous les faces plates non-herbe
+  u64 faces_up = 0;              // faces non-herbe regardant vers le haut, examinees
+  u64 faces_bare_mat = 0;        // ... dont le plancher de collision est NU
+  u64 faces_affleurantes = 0;    // ... et qui affleurent ce plancher  -> empreinte
+  u64 faces_lifted = 0;          // ... mais SOULEVEES : un dessus d'objet, pas une dalle
+  u64 faces_nofloor = 0;         // ... sans plancher sous elles dans la fenetre
+  // ---- LA POPULATION DE BRINS.
+  u64 blades_total = 0;          // instances emises
+  u64 blades_tested = 0;         // instances dont la distance a un sol nu est CONNUE (< PATH_ENC_MAX)
+  u64 blades_inside = 0;         // POINT 2 : racine DANS l'empreinte nue
+  u64 blades_band = 0;           // racine dans [0, TRANS_W_M]
+  u64 cand_total = 0;            // candidats enumerables
+  u64 cand_inside = 0;           // candidats dans l'empreinte (le chemin, avant coupe)
+  u64 cand_limit = 0;            // POINT 1 : candidats A LA LIMITE (0 < d <= LIMIT_BAND)
+  // ---- POINT 1 : la bande vide, en metres.
+  float gap_p50 = -1.f, gap_p90 = -1.f, gap_p99 = -1.f, gap_max = -1.f;
+  u64 gap_over_cap = 0;          // echantillons au-dessus du plafond principal, TOUTES causes
+  // POURQUOI UN ECHANTILLON EST NU. Un trou a la limite d'un chemin peut venir de quatre causes,
+  // et une seule est la notre. Les ECARTER sans les compter rendrait n'importe quel zero vert :
+  // chacune est publiee, et seule `gap_cause_trans` alimente la porte.
+  u64 gap_cause_nofloor = 0;   // il n'y a pas de plancher sous ce voisinage (cull de porte-a-faux)
+  u64 gap_cause_object = 0;    // un OBJET l'occulte encore a 0,45 m — `recharged-grass-object-clip`
+  u64 gap_cause_nograss = 0;   // aucun candidat d'herbe dans le rayon : ce bord n'est pas herbeux
+  u64 gap_cause_inside = 0;    // le voisinage est le CHEMIN lui-meme : il doit rester degage
+  u64 gap_cause_trans = 0;     // AUCUNE des trois : c'est la transition qui a laisse le trou
+  float gap_defect_frac = -1.f;
+  float gap_defect_max = -1.f;
+  // Ce que le voisinage d'un trou IMPUTE a la transition contient vraiment : sans ces deux
+  // nombres, « trop eclairci » et « deja pauvre en candidats » s'ecriraient du meme zero.
+  float gap_defect_cands = -1.f;  // candidats moyens dans le rayon
+  float gap_defect_thin = -1.f;   // ... dont la transition a retire
+  // ---- POINT 3 : la rectitude du bord.
+  u64 front_cells = 0;           // cellules de croisement 50 % trouvees
+  float front_median_m = -1.f;
+  float edge_follow_frac = -1.f;
+  // ---- POINT 4 : la progressivite.
+  u64 band_cells = 0;
+  float graded_frac = -1.f;      // part des cellules de bande a densite locale strictement moyenne
+  // DEUX DENOMINATEURS, ET C'EST LE SUJET. `band_ratio` divise par TOUS les candidats de la
+  // tranche : sur `beach`, 93 % d'entre eux sont deja retires par le cull de plancher ou par
+  // l'occultation d'objet, deux causes qui n'ont rien a voir avec cet item et qui se renforcent
+  // pres d'un chemin — la « densite » y decroissait donc a l'envers. `band_dens` divise par les
+  // candidats ELIGIBLES (bits plancher et objet tenus) : c'est la seule population sur laquelle
+  // la transition decide. Les deux sont publiees, et la part eligible avec, pour que la
+  // contamination se LISE au lieu de se deviner.
+  float band_ratio[4] = {-1.f, -1.f, -1.f, -1.f};   // contamine — publie pour information
+  float band_elig[4] = {-1.f, -1.f, -1.f, -1.f};    // part des candidats eligibles par tranche
+  float band_dens[4] = {-1.f, -1.f, -1.f, -1.f};    // densite relative SUR LES ELIGIBLES
+  float band_height[4] = {-1.f, -1.f, -1.f, -1.f};  // hauteur moyenne relative par tranche
+  float interior_height = -1.f;
+  u32 mono_ratio_breaks = 0, mono_height_breaks = 0, mono_dens_breaks = 0;
+  // LA RAMPE EXISTE-T-ELLE VRAIMENT ? Un champ qui ne descend pas est un champ absent : une
+  // valeur neutre serait un vert par INACTION. `TRANS_RAMP_MAX` est le rapport maximal tolere
+  // entre la tranche du bord et celle du fond de bande.
+  u8 dens_ramp_missing = 1, height_ramp_missing = 1;
+  // ---- Temoins de non-vacuite.
+  u8 population_empty = 1;       // aucun brin
+  u8 bare_absent = 1;            // aucun sol nu retenu : la mesure ne dit RIEN, elle ne dit pas « zero »
+  u8 band_absent = 1;            // aucun brin dans la bande
+  u8 limit_absent = 1;           // aucun candidat a la limite
+  u64 blades_interior = 0;       // brins hors de portee de tout sol nu
+  // TEMOIN DE NON-DIVERGENCE : le recensement recalcule la position d'un candidat emis et la
+  // compare a celle du brin. Une seule divergence invaliderait toute mesure prise sur les
+  // candidats NON emis, ceux que precisement on veut voir.
+  u64 pos_mismatch = 0;
+  u32 terms_measured = 0;        // combien des termes ci-dessus ont ete reellement MESURES
+};
+// Deterministe, sans GL, sans horloge, sans fil. `d` et `e` doivent venir du MEME scan.
+TransitionCensus transition_census(const BakeData& d, const ExpandResult& e);
 
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
