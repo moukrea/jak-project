@@ -225,7 +225,18 @@ def plain_state_comment(bl, it, st):
     if st == "Done":
         return "→ **Terminé**%s. %s" % (frames, "Rien à te montrer : c'est une mesure ou une fondation." if not it.get("owner_test") else "")
     if st == "In Progress":
-        return "→ **En cours** : un robot travaille dessus."
+        try:
+            backend = json.loads((AP / ".backend.json").read_text()).get("backend", "claude")
+        except Exception:  # noqa: BLE001
+            backend = "claude"
+        who = {"claude": "Claude", "codex": "Codex"}.get(backend, backend)
+        n = None
+        try:
+            n = (json.loads(STATE_JSON.read_text()).get("retries") or {}).get(it["id"])
+        except Exception:  # noqa: BLE001
+            pass
+        essai = " — essai %d sur %s" % (int(n) + 1, it.get("max_retries", 6)) if isinstance(n, int) else " — essai 1 sur %s" % it.get("max_retries", 6)
+        return "→ **En cours** : le harnais (agent %s) y travaille%s." % (who, essai)
     if st == "Todo":
         return "→ **Prêt à démarrer** : plus rien ne le bloque, il attend son tour (rang %s)." % it.get("priority")
     if st == "Backlog":
