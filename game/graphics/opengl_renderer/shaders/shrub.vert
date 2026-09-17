@@ -56,6 +56,19 @@ out vec3 probe_post_contact;
 flat out uint probe_vertex_index;
 #endif
 
+// (terme 3 de `ao-indirect-clean`) L'INVARIANCE DE `gl_Position`, ET POURQUOI ELLE EST ICI.
+// La prepasse de profondeur d'AO rejoue le deplacement du sommet dans un AUTRE programme
+// (`prepass_world.vert`), avec la MEME sequence d'operations et les MEMES entrees. Le TFRAG et le
+// TIE, dont la prepasse et la passe couleur partagent cette sequence, rendent zero pixel d'ecart
+// sur 2,7 M ; le shrub, lui, garde quelques dizaines de pixels a un a trente quanta de profondeur
+// 24 bits, et de temps en temps un basculement de couverture sur un bord de feuille. La cause
+// candidate est la seule chose que deux programmes n'ont AUCUNE obligation de calculer pareil :
+// les transcendantes de `breeze_offset` (breeze.glsl) et la contraction en FMA. `invariant` est
+// exactement l'outil que GLSL donne pour ca — il oblige le compilateur a rendre le meme resultat
+// pour la meme sequence dans deux programmes. Il est declare des DEUX cotes, sinon il ne vaut
+// rien.
+invariant gl_Position;
+
 void main() {
   // old system:
   // - load vf12
