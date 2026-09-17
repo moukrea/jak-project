@@ -739,7 +739,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "hash": "d6e7aa1f13224b65340cfdc9094c401ee8f101c2",
+  "hash": "388a0a1a6502dc52d06319ac3fa61328ae84f1f3",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "In Progress",
@@ -792,11 +792,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-22/jak-ii-demarre-sur-android"
  },
  "jak2-polish": {
-  "hash": "04146afe91d3474a8b0457f5b4ab86cbcf2b4e56",
+  "hash": "c1dc2d9847d324346c2b98de9813882b435a533f",
   "identifier": "JAK-45",
   "issue_id": "fd9774f3-0769-40e3-80ac-57de91f273d8",
   "last_state": "Canceled",
-  "pulled_at": "2026-09-17T11:16:54.678Z",
+  "pulled_at": "2026-09-17T11:19:13.443Z",
   "url": "https://linear.app/moukrea/issue/JAK-45/les-finitions-de-jak-ii-mapping-l1r1-cadrage-menus-particules"
  },
  "jak2-render": {
