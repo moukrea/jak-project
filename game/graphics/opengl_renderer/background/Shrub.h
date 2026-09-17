@@ -40,6 +40,14 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
   void update_native_wind(Tree& tree,
                           const TfragRenderSettings& settings,
                           SharedRenderState* render_state);
+  // lighting-ao-indirect (i), essai 15 — LE TELEVERSEMENT DU RESSORT, SORTI DE L'INTEGRATION.
+  // `update_native_wind` integrait ET televersait, au debut de la passe COULEUR : la prepasse,
+  // qui vient AVANT, echantillonnait donc l'etat de l'image n-1 pendant que la couleur
+  // echantillonnait celui de l'image n. Un seul televersement par image, pose par le PREMIER
+  // des deux passages (la prepasse quand elle tourne, la couleur sinon) : les deux passes lisent
+  // alors les MEMES texels, au bit pres. Mesure : `ao_geom_shrub_gap4q_px` = 1312 px sur 5440
+  // couverts, la ou le tfrag rend 8 sur 2 127 376 et le TIE 0.
+  static void upload_native_wind(Tree& tree, uint64_t frame_idx);
 
   struct Tree {
     GLuint vertex_buffer;
@@ -103,6 +111,11 @@ class Shrub : public BucketRenderer, public prepass::DepthContributor {
     std::vector<float> wind_state;
     std::vector<float> wind_texels;
     u32 wind_last_time = 0;
+    // lighting-ao-indirect (i) : l'image dont les texels sont DANS la texture, et celle dont
+    // l'integration les a produits. `wind_upload_frame` interdit deux televersements dans la
+    // meme image — la prepasse tourne plusieurs fois par image sondee (bras livre, bras sans
+    // deplacement, bras sans decoupe) et chacune passe par le meme appel.
+    uint64_t wind_upload_frame = (uint64_t)-1;
     bool wind_seeded = false;
     bool wind_active = false;  // sidecar valide ET au moins une instance a raideur > 0
     bool wind_logged = false;

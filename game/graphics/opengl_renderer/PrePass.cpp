@@ -306,6 +306,29 @@ bool g_census_witness = false;
 int g_census_witness_state = -1;
 int64_t g_census_witness_last_tick = -1;
 uint64_t g_probe_seq = 0;  // combien d'images sondees ont commence — choisit le palier d'AO
+// ── (terme 3) LES SIX IMAGES DU RECENSEMENT GEOMETRIQUE, ANCREES SUR LE TICK LOGIQUE ────────
+// essai 15. Elles se tiraient sur `g_probe_seq % 6`, c'est-a-dire sur le compteur de CHAINES
+// RENDUES (`g_frame`, PrePass.cpp:1196) — pas sur un tick. Deux consequences mesurees, toutes
+// deux fatales a une grandeur de porte :
+//   . `ao_sway_gap_px` est un TOTAL DE COURSE que rien ne remet a zero : une course qui rend
+//     60 chaines de plus ajoute une image entiere de recensement au total. Mesure : proof.txt
+//     frames=1740, ao_geom_frames=6, gap=94 ; proof-prev.txt frames=1800, ao_geom_frames=7,
+//     gap=33 — deux denominateurs differents sous un seul nom.
+//   . l'instant lui-meme se promene : le tick logique (une image SIMULEE) et le compteur de
+//     chaines rendues peuvent diverger (kmachine.cpp:6261-6265 le dit et le chiffre).
+// D'ou six ticks FIXES, tous au-dela de 1200 — le tick ou la sonde deterministe de l'item
+// enfant trouve la scene etablie — et espaces de 60 ticks, une seconde de jeu, pour que la
+// phase de la brise differe d'un echantillon a l'autre. Les ticks REELLEMENT retenus sont
+// publies : un lecteur peut contredire la determinisme au lieu de le croire.
+constexpr int64_t kGeomTickStart = 1200;
+constexpr int64_t kGeomTickStride = 60;
+constexpr int kGeomTicks = 6;
+bool g_geom_due = false;
+bool g_geom_tick_anchored = false;
+int g_geom_tick_next = 0;
+int64_t g_geom_tick_last = -1;
+int64_t g_geom_tick_seen[kGeomTicks] = {-1, -1, -1, -1, -1, -1};
+uint64_t g_geom_tick_exact = 0;
 uint64_t g_probe_frames = 0;
 uint64_t g_probe_px = 0;
 uint64_t g_leak_px = 0;
@@ -1050,6 +1073,19 @@ void publish_all() {
   // tous les `_absent_nocut_px` ci-dessus sont muets, pas innocents.
   autoport_proof::publish("ao_geom_nocut_frames", g_geom_nocut_frames);
   autoport_proof::publish("ao_geom_nocut_extra_px", g_geom_nocut_extra_px);
+  // (terme 3) L'ANCRAGE DU RECENSEMENT, VERIFIABLE. Les six ticks VOULUS, les six ticks
+  // RETENUS, et combien sont tombes pile. Deux courses du meme binaire doivent publier les
+  // memes six ticks ; si elles n'y arrivent pas, c'est ici que ca se lit — pas dans un ecart
+  // inexplique du terme 3.
+  autoport_proof::publish("ao_geom_tick_expected", (uint64_t)kGeomTicks);
+  autoport_proof::publish("ao_geom_tick_start", (uint64_t)kGeomTickStart);
+  autoport_proof::publish("ao_geom_tick_stride", (uint64_t)kGeomTickStride);
+  autoport_proof::publish("ao_geom_tick_armed", (uint64_t)g_geom_tick_next);
+  autoport_proof::publish("ao_geom_tick_exact", g_geom_tick_exact);
+  for (int i = 0; i < kGeomTicks; i++) {
+    autoport_proof::publish(("ao_geom_tick_" + std::to_string(i)).c_str(),
+                            (uint64_t)(g_geom_tick_seen[i] < 0 ? 0 : g_geom_tick_seen[i]));
+  }
   // ── LES DEUX CLES DE VENT, ET POURQUOI L'UNE CHANGE DE NOM ──────────────────────────────
   // Jusqu'au 2026-09-14 ces deux compteurs se publiaient sous `ao_sway_gap_px` /
   // `ao_sway_gap_world_px`. Ils ne mesurent PAS un ecart de prepasse a la scene : ils comptent
@@ -1142,7 +1178,14 @@ void publish_all() {
   if (g_probe_px > 0) {
     mask |= 1;
   }
-  if (sway_pop > 0 && g_geom_frames > 0) {
+  // (terme 3) LE TOTAL N'EST COMPARABLE QUE SOUS SON DENOMINATEUR. `sway_gap` cumule toute la
+  // course sans jamais se remettre a zero : il ne veut dire quelque chose que si le recensement
+  // a tourne sur les SIX ticks prevus et sur une population de shrub non nulle. Cinq images au
+  // lieu de six, ou une camera qui ne voit aucun buisson, et le zero serait un vert par
+  // INACTION — le terme se declare alors NON MESURE, ce que le contrat compte pour un defaut.
+  const bool geom_complete =
+      g_geom_tick_anchored ? (g_geom_frames == (uint64_t)kGeomTicks) : (g_geom_frames > 0);
+  if (sway_pop > 0 && g_fam_cover[kFamShrub] > 0 && geom_complete) {
     mask |= 2;
   }
 #ifdef __ANDROID__
@@ -1245,8 +1288,36 @@ void frame_begin(SharedRenderState* rs) {
       g_probe_pair_phase = (int)(off % ao_static_probe::kStride);
     }
   }
+  // (terme 3) LE RECENSEMENT GEOMETRIQUE EST DU SUR SON TICK, pas sur un multiple d'images
+  // rendues. Le premier passage dont le tick logique a ATTEINT l'echeance l'arme, une fois, et
+  // force l'image lourde : les trois relectures pleine resolution dont le recensement a besoin
+  // (couleur/stencil, profondeur de prepasse, profondeur de scene) vivent toutes sous
+  // `g_probe_frame`. Le tick retenu est note tel quel — si le rendu a saute l'echeance, le
+  // chiffre publie le dit au lieu de faire semblant.
+  // L'ancrage par tick ne vaut QUE hors sonde deterministe : quand la sonde tourne (les deux
+  // items enfants), c'est ELLE qui choisit les images lourdes, et lui en ajouter deplacerait ses
+  // propres ticks. Ces courses-la gardent l'ancien tirage, ligne pour ligne.
+  g_geom_tick_anchored = probe_base && !ao_static_probe::active();
+  g_geom_due = false;
+  if (g_geom_tick_anchored && g_geom_tick_next < kGeomTicks) {
+    const int64_t lf = ao_static_probe::logic_frame();
+    const int64_t due = kGeomTickStart + (int64_t)g_geom_tick_next * kGeomTickStride;
+    if (lf >= due && lf != g_geom_tick_last) {
+      g_geom_tick_last = lf;
+      g_geom_tick_seen[g_geom_tick_next] = lf;
+      if (lf == due) {
+        g_geom_tick_exact++;
+      }
+      g_geom_tick_next++;
+      g_geom_due = true;
+      g_probe_frame = true;
+    }
+  }
   if (g_probe_frame) {
     g_probe_seq++;
+  }
+  if (!g_geom_tick_anchored && g_probe_frame && (g_probe_seq % 6) == 0) {
+    g_geom_due = true;  // ancien tirage, conserve pour les courses sous sonde deterministe
   }
   // The alpha comparison accompanies the existing geometry snapshot, before any fix.
   ao_tie_alpha_probe::begin_frame(g_probe_frame && (g_probe_seq % 6) == 0,
@@ -1260,8 +1331,23 @@ bool static_probe_wind_disabled() {
          g_census_witness;
 }
 
+// ── L'HORLOGE DU VENT, EPINGLEE SUR LE TICK LOGIQUE PENDANT LA PREUVE DE CET ITEM ───────────
+// essai 15. `foliage_wind::clock_seconds` (foliage_wind.cpp:434-460) n'epingle la phase de la
+// brise sur le tick logique que si CETTE fonction rend une valeur ; sinon elle retombe sur
+// `refset::render_logic_frame()` — absent, `OG_REFSET` n'est pas pose dans la preuve, la cle
+// `refset_wind_clock_pinned` ne figure dans AUCUNE des deux preuves — puis sur un accumulateur
+// de `steady_clock`. La phase de la brise dependait donc de la MONTRE : deux courses du MEME
+// binaire, a la MEME image, pliaient les buissons differemment, et le terme 3 de la porte a
+// rendu 57, 33 puis 94 le meme jour sur le meme appareil. `requested()` ne couvre que les deux
+// items enfants ; l'armement de CET item-ci est ajoute, et lui seul — l'armer par
+// `ao_static_probe::requested()` rendrait `active()` vrai et ferait retomber le recensement a
+// SIX etats alors qu'il en a DIX-HUIT. Hors preuve (`armed_for` faux) le joueur garde le chemin
+// d'avant, ligne pour ligne.
 int64_t static_probe_logic_frame() {
-  return ao_static_probe::requested() ? ao_static_probe::logic_frame() : -1;
+  if (ao_static_probe::requested() || autoport_proof::armed_for(kItemId)) {
+    return ao_static_probe::logic_frame();
+  }
+  return -1;
 }
 
 // ── LES PLAGES DE LA PREPASSE ─────────────────────────────────────────────────────────────────
@@ -1749,7 +1835,7 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // reclame. Une image sondee sur six — deux relectures pleine resolution ne se paient pas a
   // chaque sonde — et le compte d'images est publie a cote des populations.
   g_geom_frame = false;
-  if (g_probe_frame && g_geom_state >= 0 && (g_probe_seq % 6) == 0) {
+  if (g_geom_due && g_geom_state >= 0) {
     if (read_prepass_depth(w, h, &g_pre_depth)) {
       g_sway_off = true;
       run_prepass(rs, cam, w, h, /*armed=*/true, /*classify=*/false, nullptr, nullptr, nullptr,

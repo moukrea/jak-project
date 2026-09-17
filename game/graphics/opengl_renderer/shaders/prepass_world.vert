@@ -108,13 +108,25 @@ vec3 prepass_world_position() {
     if (u_shrub_contact_on == 1) {
       vec4 anchor = texelFetch(tex_T18, ivec2(shrub_inst_in, 1), 0);
       if (anchor.w > 0.0) {
-        float heightMul;
-        vec3 trample;
-        float debug_contact = 0.0;
-        vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
-        float dy = position_in.y - anchor.y;
-        wpos.y += dy * (heightMul - 1.0);
-        wpos += trample * (dy / anchor.w);
+        // essai 15 : LA BRANCHE `carried` ETAIT ABSENTE ICI. shrub.vert:86-102 lit la ligne 2
+        // (plan d'attache) et, pour une instance PORTEE par un tronc, prend ce plan pour pivot
+        // et SAUTE le bloc quand `dy <= 0` (sommets epingles). Ce fichier prenait sans condition
+        // le sol pour pivot : deux passes, deux deplacements, sur les instances portees
+        // (`village1/palmplant-base.mb`, 36 sur 37). La ligne 2 ne vaut autre chose que zero que
+        // sous `shrub-trunk-contact` (Shrub.cpp:363) — la divergence est donc LATENTE aujourd'hui
+        // et ce correctif ne se voit dans aucun compteur de cet item ; il empeche qu'elle
+        // reapparaisse le jour ou cet item-la arme la ligne.
+        vec4 attachment = texelFetch(tex_T18, ivec2(shrub_inst_in, 2), 0);
+        bool carried = attachment.y > 0.0;
+        float dy = carried ? max(0.0, position_in.y - attachment.x) : position_in.y - anchor.y;
+        if (!carried || dy > 0.0) {
+          float heightMul;
+          vec3 trample;
+          float debug_contact = 0.0;
+          vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
+          wpos.y += dy * (heightMul - 1.0);
+          wpos += trample * (dy / anchor.w);
+        }
       }
     }
     return wpos;

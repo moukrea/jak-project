@@ -24,6 +24,14 @@
 
 // Armement des ancres SHRUB ; le comptage canonique est dans foliage_wind.cpp.
 static constexpr const char* kTrunkItemId = "shrub-trunk-contact";
+static constexpr const char* kAoItemId = "lighting-ao-indirect";
+
+// lighting-ao-indirect (i), essai 15 : QUI a televerse le ressort, image par image. Sous la
+// preuve de cet item la prepasse tourne a chaque image : `_color` DOIT rester a zero, sinon la
+// passe couleur a pose des texels que la prepasse n'avait pas lus et la parite est rompue. Les
+// deux compteurs sont publies ensemble : un zero seul ne dirait pas si le site a ete atteint.
+static std::atomic<uint64_t> g_shrub_wind_upload_prepass{0};
+static std::atomic<uint64_t> g_shrub_wind_upload_color{0};
 
 static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
 static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
@@ -77,10 +85,18 @@ uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
     // vent... Leur AO reste a la place initiale ». Le MEME deplacement que la passe couleur
     // (:786-831) : brise partagee, ressort natif de ND, contact vegetation. Les trois reglages
     // sont PAR ARBRE — `wind_tex` porte l'etat du ressort par instance — d'ou l'appel ici et non
-    // en tete de fonction. UN RETARD D'UNE IMAGE SUR LE RESSORT ET LE CONTACT, et c'est dit :
-    // `update_native_wind` televerse `wind_tex` pendant la passe COULEUR, qui vient apres cette
-    // prepasse ; la brise, elle, est exacte (meme `frame_idx`, meme horloge).
-    prepass::sway_shrub(rs ? rs->frame_idx : 0, tree.wind_tex,
+    // en tete de fonction.
+    // essai 15 : LE RETARD D'UNE IMAGE SUR LE RESSORT EST CORRIGE ICI, au point de production.
+    // Le televersement de la ligne 0 appartenait a la passe COULEUR, qui vient APRES : la
+    // prepasse lisait l'etat de l'image n-1, la couleur celui de l'image n. C'est desormais la
+    // PREPASSE qui televerse, une fois par image ; la couleur trouve la texture deja a jour et
+    // n'y touche plus. La brise partagee, elle, etait deja exacte (meme `frame_idx`).
+    const uint64_t pre_frame = rs ? rs->frame_idx : 0;
+    if (tree.wind_upload_frame != pre_frame) {
+      upload_native_wind(tree, pre_frame);
+      g_shrub_wind_upload_prepass.fetch_add(1, std::memory_order_relaxed);
+    }
+    prepass::sway_shrub(pre_frame, tree.wind_tex,
                         tree.wind_active && tree.wind_seeded,
                         foliage_wind::enabled() && tree.contact_active);
     if (tree.caster_groups.empty()) {
@@ -616,6 +632,32 @@ void Shrub::discard_tree_cache() {
   m_trees.clear();
 }
 
+// lighting-ao-indirect (i), essai 15 — UN SEUL TELEVERSEMENT DU RESSORT PAR IMAGE, LE PLUS TOT.
+// Refus de l'owner du 2026-09-13 : « les shrubs qui bougent avec le vent... Leur AO reste a la
+// place initiale ». Le deplacement etait bien rejoue dans la prepasse depuis l'essai 7, mais la
+// prepasse lisait la ligne 0 de `tex_T18` AVANT que la passe couleur n'y ecrive l'etat de
+// l'image : deux passes, deux etats du ressort. Mesure de l'essai 14 : `ao_geom_shrub_gap4q_px`
+// = 1312 px sur 5440 couverts, quand le tfrag rend 8 sur 2 127 376 et le TIE 0 — la prepasse est
+// exacte partout SAUF la ou le ressort par instance entre en jeu.
+// Le televersement est donc pose par le PREMIER passage de l'image : la prepasse quand elle
+// tourne (`draw_depth_prepass`), la passe couleur sinon (option d'AO eteinte : le joueur garde
+// exactement le chemin d'avant, a une image de retard pres, invisible). Les deux passes lisent
+// alors les MEMES texels, au bit pres.
+void Shrub::upload_native_wind(Tree& tree, uint64_t frame_idx) {
+  if (!tree.wind_active || tree.wind_tex == 0 || tree.wind_texels.empty()) {
+    return;
+  }
+  if (tree.wind_upload_frame == frame_idx) {
+    return;  // deja fait pour cette image — la prepasse sondee rejoue le meme dessin trois fois
+  }
+  tree.wind_upload_frame = frame_idx;
+  glActiveTexture(GL_TEXTURE18);
+  glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)(tree.wind_texels.size() / 4), 1, GL_RGBA,
+                  GL_FLOAT, tree.wind_texels.data());
+  glActiveTexture(GL_TEXTURE0);
+}
+
 // foliage-wind (essai 11) — LE RESSORT DE ND PAR BUISSON, INTEGRE SUR CPU UNE FOIS PAR IMAGE.
 // Meme arithmetique que le TIE (do_wind_math, transcrit de l'EE ; sur PS2 le shrub execute le MEME
 // bloc, shrub_asm.md:957-1057) : ring slot `(wind-time + wind-index) & 63`, etat persistant par
@@ -707,15 +749,15 @@ void Shrub::update_native_wind(Tree& tree,
     }
   }
   foliage_wind::note_shrub_native_shear_peak(peak_s);
-  glActiveTexture(GL_TEXTURE18);
-  glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)n_mat, 1, GL_RGBA, GL_FLOAT,
-                  tree.wind_texels.data());
+  // lighting-ao-indirect (i), essai 15 : L'INTEGRATION S'ARRETE ICI. Le televersement est parti
+  // dans `upload_native_wind`, appele par le PREMIER des deux passages de l'image — la prepasse
+  // quand elle tourne, la passe couleur sinon. Televerser ici rendait la texture NEUVE entre la
+  // prepasse et la couleur : deux passes, deux etats du ressort, et l'AO posee la ou le
+  // feuillage n'etait plus. Les texels integres ci-dessus partiront au prochain televersement.
   if (autoport_proof::feature_is(kTrunkItemId)) {
     shrub_contact_probe::archive_blob("shrub", m_level_name, -1, &tree - m_trees.data(),
         "native-row0", tree.wind_texels.data(), n_mat * 4 * sizeof(float));
   }
-  glActiveTexture(GL_TEXTURE0);
   if (!tree.wind_logged) {
     tree.wind_logged = true;
     lg::info("[foliage-wind] SHRUB native ACTIVE lev={} matrices={} raideur_instances={} "
@@ -857,6 +899,20 @@ void Shrub::render_tree(int idx,
     // unite de texture 18 (l'ancienne LUT de vent occupait la meme, elle est retiree). Hors option
     // Recharged : c'est du stock restaure ; `u_shrub_native_on` = 0 quand rien n'est pret.
     {
+      // lighting-ao-indirect (i), essai 15 : LE REPLI. Quand la prepasse ne tourne pas (option
+      // d'AO eteinte), personne n'a encore televerse cette image : la passe couleur le fait,
+      // comme avant. Quand la prepasse tourne, cet appel ne fait RIEN — et c'est ce que le
+      // compteur `_color` prouve en restant a zero sous la preuve de cet item.
+      if (tree.wind_upload_frame != render_state->frame_idx) {
+        upload_native_wind(tree, render_state->frame_idx);
+        g_shrub_wind_upload_color.fetch_add(1, std::memory_order_relaxed);
+      }
+      if (autoport_proof::armed_for(kAoItemId)) {
+        autoport_proof::publish("ao_shrub_wind_upload_prepass",
+                                g_shrub_wind_upload_prepass.load(std::memory_order_relaxed));
+        autoport_proof::publish("ao_shrub_wind_upload_color",
+                                g_shrub_wind_upload_color.load(std::memory_order_relaxed));
+      }
       update_native_wind(tree, settings, render_state);
       const GLuint prog = render_state->shaders[ShaderId::SHRUB].id();
       const GLint on_loc = glu::loc(prog, "u_shrub_native_on");
