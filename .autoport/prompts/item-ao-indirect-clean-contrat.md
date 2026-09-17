@@ -29,6 +29,8 @@ PREUVE : `FEATURE ao-indirect-clean armed=1 hits=<pixels dont l'indirect a recu 
 
 PRECISION OWNER 17/09 sur F (« faut être sûrs que ce qui est mesuré est vraiment immobile ! Pas une plante qui bouge au vent ») : la mesure « rien ne bouge » ne compte QUE ce qui est immobile par construction : vent coupe (epingle dans proof_env, et le temoin `ao_sway_moved_px` doit lire 0 sur la course), aucun acteur anime ni particule dans la population (masque par famille de dessin, publie `ao_static_excluded_px` et la liste de ce qui est exclu), cadence figee (deux images consecutives du MEME etat de jeu). Un texel qui change alors que tout est immobile est un vrai defaut (c'est le scintillement que l'owner voit) ; un texel qui change parce qu'un objet bouge n'en est pas un et doit etre exclu AVANT de compter. Publier `ao_static_cam_delta_px` avec son denominateur (`ao_static_cam_pop_px`) et le compte exclu.
 
+PRECISION OWNER 17/09 (suite) : « attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés, caisses, collectibles… ». Pour F : l'heure du jeu est FIGEE pendant la paire d'images (le cycle jour/nuit change l'eclairage, donc l'indirect, donc l'image, pas l'AO ; mais le tampon d'AO se compare entre deux images du MEME instant : publier l'heure de jeu lue aux deux images, egale) ; caisses, collectibles, orbes, mouches, PNJ et tout acteur qui tourne, flotte ou clignote sont exclus par famille de dessin comme les acteurs animes, et comptes dans `ao_static_excluded_px`. Ce qui reste dans la population : le decor immobile (tfrag/TIE) et les acteurs sans animation.
+
 ## Hors perimetre
 
 Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas cet item.
@@ -50,6 +52,9 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ### 2026-09-17
 > Alors faut p'tetre être sûrs que ce qui est mesuré est vraiment immobile ! Pas une plante qui bouge au vent ou trucs du style, sinon ça réussira jamais !
+
+### 2026-09-17
+> Et aussi, attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés, caisses, collectibles …
 
 ## Pourquoi ce fichier existe
 
