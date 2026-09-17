@@ -49,6 +49,11 @@ static void usage() {
       "                 PLANCHER geometrique et non par l'absence de voisin. Lecture pure.\n"
       "  --edge-selftest  le banc NOMME de --edge-census : dix cas geometriques, dix-neuf aretes,\n"
       "                 reponses attendues declarees avant la course.\n"
+      "  --clump-census  grass-clumps : mesure le regroupement des racines en touffes — voisinage\n"
+      "                 moyen des racines livrees CONTRE celui du tirage uniforme sur les memes\n"
+      "                 brins, dispersion du compte et du rayon par touffe. Lecture pure.\n"
+      "  --clump-nest PCT  rejoue le scan a CE palier et compare : origines de touffe qui bougent,\n"
+      "                 et prefixe des candidats. Les deux doivent rendre zero.\n"
       "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
       "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
       "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
@@ -67,6 +72,8 @@ int main(int argc, char** argv) {
   bool edge_census_on = false;    // grass-edge-truth : classe les aretes de sol, n'ecrit rien
   bool edge_selftest_only = false;  // ... le banc nomme seul
   bool trans_census_on = false;  // grass-path-transitions : mesure la transition au bord des chemins
+  bool clump_census_on = false;  // grass-clumps : mesure le regroupement des racines en touffes
+  float nest_pct = 0.0f;         // grass-clumps : palier de comparaison pour la nidification (0 = off)
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -102,6 +109,10 @@ int main(int argc, char** argv) {
       edge_selftest_only = true;
     } else if (a == "--transition-census") {
       trans_census_on = true;
+    } else if (a == "--clump-census") {
+      clump_census_on = true;
+    } else if (a == "--clump-nest") {
+      nest_pct = std::stof(need_val("--clump-nest"));
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -443,8 +454,78 @@ int main(int argc, char** argv) {
   // grass-chunk-cull : LA PARTITION EST CUITE, DONC ELLE SE CALCULE AVANT L'ECRITURE. Elle est
   // celle de l'expansion A LA DENSITE DE CE BAKE — la seule que le moteur demandera, puisque
   // chaque palier porte son propre fichier et que `expand()` y est appelee avec `bake_density_pct`.
-  auto eBake = grass_bake::expand(bake, density, trans_census_on);
+  // `want_cand_map` : les deux recensements en ont besoin — sans la carte brin -> candidat, ils
+  // apparieraient le premier candidat d'un triangle au premier brin et sauteraient tout ce que
+  // `keep` a ecarte. Le jeu, lui, l'appelle a false et ne paie pas les 4 octets par instance.
+  const bool want_map = trans_census_on || clump_census_on || nest_pct > 0.0f;
+  auto eBake = grass_bake::expand(bake, density, want_map);
   bake.chunks = eBake.chunks;
+
+  // grass-clumps : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de fichier.
+  if (clump_census_on) {
+    const auto cc = grass_bake::clump_census(bake, eBake);
+    fmt::print("clump_level={}\n", level_name);
+    fmt::print("clump_fr3_bytes={}\n", fr3_size);
+    fmt::print("clump_density={:.0f}\n", density);
+    fmt::print("clump_blades_total={}\n", cc.blades_total);
+    fmt::print("clump_clumps_total={}\n", cc.clumps_total);
+    fmt::print("clump_clumps_mounted={}\n", cc.clumps_mounted);
+    fmt::print("clump_pairs_clumped={:.4f}\n", cc.pairs_clumped);
+    fmt::print("clump_pairs_uniform={:.4f}\n", cc.pairs_uniform);
+    fmt::print("clump_pairs_ratio={:.4f}\n", cc.pairs_ratio);
+    fmt::print("clump_pairs_sampled={}\n", cc.pairs_sampled);
+    fmt::print("clump_size_mean={:.4f}\n", cc.size_mean);
+    fmt::print("clump_size_cv={:.4f}\n", cc.size_cv);
+    fmt::print("clump_radius_mean_m={:.4f}\n", cc.radius_mean_m);
+    fmt::print("clump_radius_cv={:.4f}\n", cc.radius_cv);
+    fmt::print("clump_origin_digest={:016x}\n", cc.origin_digest);
+    fmt::print("clump_root_outside={}\n", cc.root_outside);
+    fmt::print("clump_pos_mismatch={}\n", cc.pos_mismatch);
+    fmt::print("clump_clipped={}\n", cc.clipped);
+    fmt::print("clump_height_mean_ratio={:.4f}\n", cc.height_mean_ratio);
+    fmt::print("clump_terms_measured={}\n", cc.terms_measured);
+    // LES SEUILS SONT PUBLIES PAR CE QUI MESURE, jamais recopies dans le juge : un seuil duplique
+    // derive du code mesure et rend la porte fausse en silence.
+    fmt::print("clump_pair_r_m={:.4f}\n", grass_bake::CLUMP_PAIR_R_M);
+    fmt::print("clump_ratio_floor={:.4f}\n", grass_bake::CLUMP_RATIO_FLOOR);
+    fmt::print("clump_size_cv_floor={:.4f}\n", grass_bake::CLUMP_SIZE_CV_FLOOR);
+    fmt::print("clump_radius_cv_floor={:.4f}\n", grass_bake::CLUMP_RADIUS_CV_FLOOR);
+    fmt::print("clump_blades_medium={:.2f}\n", grass_bake::CLUMP_BLADES_MEDIUM);
+  }
+
+  // grass-clumps, point 3 : LES PALIERS RESTENT IMBRIQUES. On rejoue le scan a l'autre palier —
+  // dans CE processus, sur le MEME .fr3 — et on compare touffe par touffe. Rien n'est ecrit.
+  if (nest_pct > 0.0f) {
+    grass_bake::BakeData other;
+    try {
+      other = grass_bake::scan_level(lev, level_name, fr3_size,
+                                     {nest_pct, grass_bake::FLOOR_GAP_M});
+    } catch (const std::exception& e) {
+      fmt::print("clump_nest_error={}\n", e.what());
+      return 1;
+    }
+    auto eOther = grass_bake::expand(other, nest_pct, true);
+    const bool cur_is_low = density <= nest_pct;
+    const auto& blo = cur_is_low ? bake : other;
+    const auto& elo = cur_is_low ? eBake : eOther;
+    const auto& bhi = cur_is_low ? other : bake;
+    const auto& ehi = cur_is_low ? eOther : eBake;
+    const auto nc = grass_bake::clump_nest_census(blo, elo, bhi, ehi);
+    fmt::print("clump_nest_low_pct={:.0f}\n", cur_is_low ? density : nest_pct);
+    fmt::print("clump_nest_high_pct={:.0f}\n", cur_is_low ? nest_pct : density);
+    fmt::print("clump_nest_tris_compared={}\n", nc.tris_compared);
+    fmt::print("clump_nest_tris_misaligned={}\n", nc.tris_misaligned);
+    fmt::print("clump_nest_clumps_compared={}\n", nc.clumps_compared);
+    fmt::print("clump_nest_origin_moved={}\n", nc.origin_moved);
+    fmt::print("clump_nest_count_mismatch={}\n", nc.count_mismatch);
+    fmt::print("clump_nest_prefix_breaks={}\n", nc.prefix_breaks);
+    fmt::print("clump_nest_blades_low={}\n", nc.blades_low);
+    fmt::print("clump_nest_blades_high={}\n", nc.blades_high);
+  }
+  if (clump_census_on || nest_pct > 0.0f) {
+    fmt::print("[grass_bake] clump-census DONE.\n");
+    return 0;
+  }
 
   // grass-path-transitions : il MESURE, il n'ecrit rien. Il sort AVANT toute ecriture de fichier,
   // exactement comme les trois recensements qui le precedent — la seule difference est qu'il lui

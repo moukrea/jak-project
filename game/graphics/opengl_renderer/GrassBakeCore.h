@@ -283,24 +283,14 @@ struct GrassInstance {
 };
 static_assert(sizeof(GrassInstance) == 64, "GrassInstance must stay 16 floats");
 
-// LA POSITION D'UN CANDIDAT, EN UN SEUL ENDROIT. `expand()` la calcule pour emettre le brin ; le
-// recensement la recalcule pour les candidats qu'AUCUN brin ne represente (ceux que la transition
-// a retires) — sans quoi il ne pourrait pas mesurer la ou l'herbe manque. Les deux appellent CECI,
-// et le recensement COMPARE sa position a celle du brin emis : une divergence se compte
-// (`pos_mismatch`), elle ne se suppose pas absente.
+// LA POSITION D'UN CANDIDAT, EN UN SEUL ENDROIT — pour de bon depuis grass-clumps. Ce fichier
+// portait ici un `cand_barycentric()` dont le commentaire annoncait deja « EN UN SEUL ENDROIT »
+// alors que `scan_level` et `expand` en gardaient chacun une COPIE inline, et que lui-meme n'etait
+// appele que par `transition_census`. Trois copies d'une formule que cet item devait deplacer : la
+// fonction a ete retiree et remplacee par `ClumpPlacer` (plus bas), que les trois sites appellent.
+// Le tirage uniforme qu'elle rendait reste calcule, par `ClumpPlacer::place` (`ClumpSite::u1/u2`) :
+// c'est le bras de comparaison de la porte de grass-clumps.
 struct BakeTri;
-inline void cand_barycentric(u32 seed, int i, float& r1o, float& r2o, u32& sdo) {
-  const u32 sd = seed + (u32)i * 3266489917u;
-  float r1 = hash_f(sd + 1u);
-  float r2 = hash_f(sd + 2u);
-  if (r1 + r2 > 1.0f) {
-    r1 = 1.0f - r1;
-    r2 = 1.0f - r2;
-  }
-  r1o = r1;
-  r2o = r2;
-  sdo = sd;
-}
 
 // ---------------------------------------------------------------------------
 // Bake tables.
@@ -322,6 +312,292 @@ struct BakeTri {
   // every tri border (no per-tri state -> no seams, defect 2). Computed on x86 at bake, read verbatim
   // on device (no cross-platform weld); a v4 bake fails the version check and falls back to live scan.
   float vn0[3], vn1[3], vn2[3];  // smooth normal at p0, p0+e1, p0+e2 (unit, ny>=0-oriented like nx/ny/nz)
+};
+
+// ---------------------------------------------------------------------------
+// grass-clumps : LA TOUFFE, ET LA SEULE COPIE DE LA FORMULE DE POSITION.
+// ---------------------------------------------------------------------------
+//
+// SPEC section 6. Avant cet item il n'existait AUCUNE touffe : chaque candidat tirait sa position
+// d'un barycentre uniforme et ses cinq proprietes de cinq hachages independants. Le mot « tuft »
+// du code designait une decoupe de fragment a l'interieur d'une carte.
+//
+// POURQUOI CETTE CLASSE PLUTOT QU'UNE QUATRIEME COPIE. La formule de position etait ecrite TROIS
+// fois — `scan_level` (les bits `keep`, `rim_q` et `path_q` s'y decident, sur la position),
+// `expand` (le brin s'y emet) et `transition_census` (il la recalcule pour les candidats qu'aucun
+// brin ne represente) — alors que le commentaire de `cand_barycentric` annonce « EN UN SEUL
+// ENDROIT ». Deplacer les racines avec trois copies aurait pose les bits `keep` sur des positions
+// que plus aucun brin n'occupe : un brin valide au-dessus du vide. Les trois sites passent par
+// CECI, et `clump_census` compte l'ecart (`pos_mismatch`) au lieu de le supposer nul.
+//
+// CE QUI TIENT LA NIDIFICATION DES PALIERS (SPEC sections 4 et 10 : « un changement de preset ne
+// redistribue JAMAIS l'herbe »). Un palier bas est le PREFIXE EXACT du tableau de candidats. La
+// touffe d'un candidat ne doit donc dependre QUE de son indice :
+//   * le NOMBRE de touffes d'un triangle vient de son aire et de la densite du palier MEDIUM,
+//     jamais de la densite courante — il est identique dans les cinq bakes du niveau ;
+//   * la touffe d'un candidat `i` se tire de `i` seul, donc elle ne change pas quand `n` grandit ;
+//   * son RANG `j` dans la touffe est le nombre de candidats d'indice INFERIEUR tombes dans la
+//     meme touffe : il ne depend pas de `n` non plus.
+// Consequence : un palier inferieur retire des brins DANS les memes touffes, en commencant par les
+// peripheriques, et garde le brin dominant (rang 0, au centre). Ce n'est pas affirme ici :
+// `clump_census` compte `origin_moved` et `prefix_breaks` entre deux paliers.
+//
+// CE QUI FAIT QUE DEUX TOUFFES NE SE RESSEMBLENT PAS. Trois tirages independants : l'origine, le
+// rayon, et le POIDS. Sans le poids, le compte par touffe serait poissonien (CV 0,45 a 5 brins) ;
+// l'etirement `g(u) = 0,5u2 + 0,5u` — monotone, g(0)=0, g(1)=1 — donne aux touffes des poids
+// allant de 2,0 a 0,67 fois la moyenne et porte le CV mesure a 0,56.
+// ---------------------------------------------------------------------------
+
+// Brins par touffe VISES AU PALIER MEDIUM. Les autres paliers en decoulent par la nidification
+// (mesure sur `training` : 1,7 / 3,3 / 5,0 / 6,7 / 8,3), ce qui approche la colonne « brins par
+// touffe » de la matrice SPEC section 13 sans jamais redistribuer une racine.
+constexpr float CLUMP_BLADES_MEDIUM = 5.0f;
+// Rayon d'une touffe, tire uniformement dans cette plage — soit 14 a 30 cm de diametre. Regle sur
+// la densite REELLE de `training` (le budget d'instances ramene le palier medium a 44,7 brins/m2,
+// et non a `D_TARGET`), puis MESURE sur le niveau : 2,49 fois le voisinage du tirage uniforme a
+// 12 cm. Les deux autres plages essayees rendent 1,87 (18-40 cm, trop lache pour se lire) et 2,96
+// (11-24 cm, ou la pelouse commence a se lire en plaques isolees).
+// `grass-biome-profiles` remplacera ces deux constantes par une donnee cuite par zone.
+constexpr float CLUMP_R_MIN_M = 0.070f;
+constexpr float CLUMP_R_MAX_M = 0.150f;
+// Une touffe plus fournie que le nominal deborde de son rayon ; on borne le debordement.
+constexpr float CLUMP_RHO_CAP = 1.40f;
+// « des brins dominants et des brins peripheriques » : la hauteur decroit du centre vers le bord.
+// Le profil est a MOYENNE CONSERVEE (0,997 mesure) — cet item ne change pas la hauteur moyenne.
+constexpr float CLUMP_H_CENTER = 1.30f;
+constexpr float CLUMP_H_SLOPE = 0.45f;
+constexpr float CLUMP_H_LO = 0.70f;
+constexpr float CLUMP_H_HI = 1.35f;
+constexpr float CLUMP_BARY_EPS = 1.0e-4f;  // marge barycentrique : la racine reste DANS son support
+constexpr u32 CLUMP_SALT = 0x51ED2701u;
+
+// Les seuils que `clump_census` publie AVEC ses mesures : un seuil recopie dans le juge derive du
+// code mesure et rend la porte fausse en silence (lecon de `grass-path-transitions`).
+constexpr float CLUMP_PAIR_R_M = 0.12f;       // rayon de comptage des voisins
+constexpr float CLUMP_RATIO_FLOOR = 1.50f;    // plancher du rapport touffes / uniforme
+constexpr float CLUMP_SIZE_CV_FLOOR = 0.30f;  // plancher de dispersion du compte par touffe
+constexpr float CLUMP_RADIUS_CV_FLOOR = 0.15f;  // ... et du rayon
+
+inline float clump_height_mul(float rho) {
+  const float m = CLUMP_H_CENTER - CLUMP_H_SLOPE * rho;
+  return m < CLUMP_H_LO ? CLUMP_H_LO : (m > CLUMP_H_HI ? CLUMP_H_HI : m);
+}
+
+// Densite de touffes DU NIVEAU. Derivee de la densite du palier MEDIUM, elle-meme derivee de
+// `total_area_m2` (cuit, identique dans les cinq bakes) et du budget d'instances. Elle ne lit
+// JAMAIS la densite du palier courant : c'est ce qui fait tenir « les memes touffes aux memes
+// endroits » d'un palier a l'autre.
+inline float clump_density_for(float total_area_m2) {
+  const float budget =
+      (float)MAX_INSTANCES * (density_preset_pct(kDensityPresetDefault) / 100.0f);
+  float dens = D_TARGET;
+  if (total_area_m2 > 1.0f && total_area_m2 * D_TARGET > BUDGET_SAFETY * budget) {
+    dens = BUDGET_SAFETY * budget / total_area_m2;
+  }
+  return dens / CLUMP_BLADES_MEDIUM;
+}
+
+// Ce qu'un candidat rend : sa racine, la racine qu'il AURAIT eue au tirage uniforme (le bras de
+// comparaison de la porte, calcule au meme endroit pour qu'aucun des deux ne derive), et son
+// appartenance.
+struct ClumpSite {
+  float r1, r2;      // barycentriques de la RACINE livree
+  float u1, u2;      // barycentriques du tirage UNIFORME (le code REMPLACE, toujours calcule)
+  u32 sd;            // graine du candidat : hauteur, teinte, courbure, phase, lacet la lisent
+  u32 clump;         // indice de la touffe DANS SON TRIANGLE
+  u32 rank;          // rang du brin dans la touffe (0 = le brin dominant, au centre)
+  float rho;         // rayon normalise dans la touffe, APRES ecretage
+  float radius_wu;   // rayon de la touffe (unites monde)
+  float co1, co2;    // barycentriques de l'ORIGINE de la touffe
+  float clip;        // facteur d'ecretage (1 = la racine tenait sans etre raccourcie)
+};
+
+class ClumpPlacer {
+ public:
+  ClumpPlacer(float total_area_m2, bool clumped)
+      : m_cdens(clump_density_for(total_area_m2)), m_on(clumped) {}
+
+  bool on() const { return m_on; }
+  u32 clumps() const { return m_m; }
+  u64 total_clumps() const { return m_tot_clumps; }
+  u64 total_mounted() const { return m_tot_mounted; }
+  // Empreinte des ORIGINES : quantifiees au millimetre monde, repliees en FNV-1a. Preset-
+  // independante par construction, donc comparable d'un palier a l'autre ET d'un chargement a
+  // l'autre. C'est le point 4 du contrat de l'item.
+  u64 origin_digest() const { return m_digest; }
+
+  // A appeler AVANT la boucle des candidats du triangle, et sur LE MEME ensemble de triangles des
+  // trois cotes (scan, expansion, recensement), sans quoi l'empreinte ne serait plus comparable.
+  void begin(const BakeTri& t) {
+    fold();
+    // DESARME, il n'y a PAS « une touffe par triangle » : il n'y a AUCUNE touffe. Un placeur qui
+    // rendrait 1 ferait compter au bras `--off` une touffe montee par triangle — un `hits=` non
+    // nul sur un regime ou la feature n'existe pas, donc une ablation qui ne separe rien.
+    m_m = 0u;
+    if (m_on) {
+      const long k = std::lround((double)t.area_m2 * (double)m_cdens);
+      m_m = k < 1 ? 1u : (u32)k;
+    }
+    m_fill.assign(m_m, 0u);
+    m_seen.assign(m_m, 0u);
+    // Base orthonormee du plan du triangle et matrice de Gram de (e1, e2) : un decalage exprime
+    // dans le plan se convertit EXACTEMENT en increments barycentriques.
+    const float l1 = std::sqrt(t.e1[0] * t.e1[0] + t.e1[1] * t.e1[1] + t.e1[2] * t.e1[2]);
+    if (l1 > 1.0e-6f) {
+      m_u[0] = t.e1[0] / l1; m_u[1] = t.e1[1] / l1; m_u[2] = t.e1[2] / l1;
+    } else {
+      m_u[0] = 1.f; m_u[1] = 0.f; m_u[2] = 0.f;
+    }
+    m_v[0] = t.ny * m_u[2] - t.nz * m_u[1];
+    m_v[1] = t.nz * m_u[0] - t.nx * m_u[2];
+    m_v[2] = t.nx * m_u[1] - t.ny * m_u[0];
+    const float lv = std::sqrt(m_v[0] * m_v[0] + m_v[1] * m_v[1] + m_v[2] * m_v[2]);
+    if (lv > 1.0e-6f) {
+      m_v[0] /= lv; m_v[1] /= lv; m_v[2] /= lv;
+    }
+    m_a11 = t.e1[0] * t.e1[0] + t.e1[1] * t.e1[1] + t.e1[2] * t.e1[2];
+    m_a12 = t.e1[0] * t.e2[0] + t.e1[1] * t.e2[1] + t.e1[2] * t.e2[2];
+    m_a22 = t.e2[0] * t.e2[0] + t.e2[1] * t.e2[1] + t.e2[2] * t.e2[2];
+    const float det = m_a11 * m_a22 - m_a12 * m_a12;
+    m_inv_det = std::fabs(det) > 1.0e-9f ? 1.0f / det : 0.0f;
+    if (m_on) {
+      for (u32 c = 0; c < m_m; ++c) {
+        float c1, c2, r;
+        clump_of(t, c, c1, c2, r);
+        const float ox = t.p0[0] + c1 * t.e1[0] + c2 * t.e2[0];
+        const float oy = t.p0[1] + c1 * t.e1[1] + c2 * t.e2[1];
+        const float oz = t.p0[2] + c1 * t.e1[2] + c2 * t.e2[2];
+        mix(ox); mix(oy); mix(oz);
+      }
+    }
+  }
+
+  // Origine (barycentrique) et rayon de la touffe `c` du triangle `t`. Fonction PURE de
+  // (t.seed, c) : c'est elle qui rend « l'origine ne bouge pas » verifiable de l'exterieur.
+  static void clump_of(const BakeTri& t, u32 c, float& c1, float& c2, float& radius_wu) {
+    const u32 cs = hash_u32(t.seed ^ (CLUMP_SALT + c * 2654435761u));
+    float a = hash_f(cs + 1u), b = hash_f(cs + 2u);
+    if (a + b > 1.0f) {
+      a = 1.0f - a;
+      b = 1.0f - b;
+    }
+    c1 = a;
+    c2 = b;
+    radius_wu = (CLUMP_R_MIN_M + (CLUMP_R_MAX_M - CLUMP_R_MIN_M) * hash_f(cs + 3u)) * U;
+  }
+
+  // Le candidat `i` du triangle `t`. A appeler dans l'ordre croissant des `i` : le rang dans la
+  // touffe est un compte des candidats INFERIEURS, et c'est lui qui rend la nidification exacte.
+  void place(const BakeTri& t, int i, ClumpSite& s) {
+    const u32 sd = t.seed + (u32)i * 3266489917u;
+    float a = hash_f(sd + 1u), b = hash_f(sd + 2u);
+    if (a + b > 1.0f) {
+      a = 1.0f - a;
+      b = 1.0f - b;
+    }
+    s.sd = sd;
+    s.u1 = a;
+    s.u2 = b;
+    if (!m_on) {
+      s.r1 = a; s.r2 = b; s.co1 = a; s.co2 = b;
+      s.clump = 0u; s.rank = 0u; s.rho = 0.f; s.radius_wu = 0.f; s.clip = 1.0f;
+      return;
+    }
+    const float g0 = hash_f(sd + 8u);
+    const float g = 0.5f * g0 * g0 + 0.5f * g0;  // poids de touffe : 2,0 -> 0,67 fois la moyenne
+    u32 c = (u32)((float)m_m * g);
+    if (c >= m_m) {
+      c = m_m - 1u;
+    }
+    const u32 j = m_fill[c]++;
+    float c1, c2, R;
+    clump_of(t, c, c1, c2, R);
+    // Spirale d'or par rang + phase propre a la touffe : les brins d'une touffe ne s'empilent pas
+    // sur un rayon. Rayon en RACINE du rang -> repartition en aire, rang 0 au centre.
+    const u32 cs = hash_u32(t.seed ^ (CLUMP_SALT + c * 2654435761u));
+    const float th = (float)j * 2.39996323f + 6.2831853f * hash_f(cs + 4u);
+    float rho = std::sqrt(((float)j + hash_f(sd + 9u)) / (CLUMP_BLADES_MEDIUM + 1.0f));
+    if (rho > CLUMP_RHO_CAP) {
+      rho = CLUMP_RHO_CAP;
+    }
+    const float off = R * rho;
+    const float ct = std::cos(th), st = std::sin(th);
+    const float dx = off * (ct * m_u[0] + st * m_v[0]);
+    const float dy = off * (ct * m_u[1] + st * m_v[1]);
+    const float dz = off * (ct * m_u[2] + st * m_v[2]);
+    const float b1 = dx * t.e1[0] + dy * t.e1[1] + dz * t.e1[2];
+    const float b2 = dx * t.e2[0] + dy * t.e2[1] + dz * t.e2[2];
+    float d1 = (m_a22 * b1 - m_a12 * b2) * m_inv_det;
+    float d2 = (-m_a12 * b1 + m_a11 * b2) * m_inv_det;
+    // ECRETAGE. « Aucune racine ne doit migrer » hors de sa surface support (SPEC section 9) : on
+    // RACCOURCIT le decalage jusqu'au bord au lieu de rabattre la racine dessus — une touffe
+    // coupee par une arete s'aplatit contre elle, elle ne s'y empile pas.
+    float sc = 1.0f;
+    clip(1.0f - c1 - c2, -(d1 + d2), sc);
+    clip(c1, d1, sc);
+    clip(c2, d2, sc);
+    if (sc < 0.0f) {
+      sc = 0.0f;
+    }
+    s.clump = c;
+    s.rank = j;
+    s.radius_wu = R;
+    s.co1 = c1;
+    s.co2 = c2;
+    s.clip = sc;
+    s.rho = rho * sc;
+    s.r1 = c1 + d1 * sc;
+    s.r2 = c2 + d2 * sc;
+  }
+
+  // Le candidat vient d'etre EMIS : sa touffe est montee. `hits=` de la ligne FEATURE les compte.
+  void mark(u32 c) {
+    if (c < m_seen.size()) {
+      m_seen[c] = 1u;
+    }
+  }
+  // A appeler apres le dernier triangle, sinon le sien manque aux totaux.
+  void finish() { fold(); }
+
+ private:
+  static void clip(float b, float d, float& s) {
+    if (d < -1.0e-12f) {
+      const float t = (CLUMP_BARY_EPS - b) / d;
+      if (t < s) {
+        s = t;
+      }
+    }
+  }
+  void mix(float w) {
+    const s64 q = (s64)std::llround((double)w * (1000.0 / (double)U));  // millimetre monde
+    u64 v = (u64)q;
+    for (int k = 0; k < 8; ++k) {
+      m_digest ^= (v >> (k * 8)) & 0xFFull;
+      m_digest *= 1099511628211ull;
+    }
+  }
+  void fold() {
+    if (!m_started) {
+      m_started = true;
+      return;
+    }
+    m_tot_clumps += m_m;
+    for (u8 v : m_seen) {
+      m_tot_mounted += v;
+    }
+  }
+
+  float m_cdens;
+  bool m_on;
+  bool m_started = false;
+  u32 m_m = 1u;
+  std::vector<u32> m_fill;
+  std::vector<u8> m_seen;
+  float m_u[3] = {1.f, 0.f, 0.f};
+  float m_v[3] = {0.f, 0.f, 1.f};
+  float m_a11 = 1.f, m_a12 = 0.f, m_a22 = 1.f, m_inv_det = 1.f;
+  u64 m_tot_clumps = 0, m_tot_mounted = 0;
+  u64 m_digest = 1469598103934665603ull;
 };
 
 // Grecharged-grass-overhang: one droop-placement face (a lip or fringe tri) with its scan-resolved
@@ -608,10 +884,20 @@ struct ExpandResult {
   int lean_twins = 0;    // emitted zone-1 twins (== lean_tagged minus cap-dropped)
   int z2_count = 0;
   int z3_count = 0;
+  // grass-clumps : ce que le placement en touffes a REELLEMENT monte, compte pendant l'emission.
+  u64 clumps_total = 0;         // touffes enumerees sur les triangles porteurs
+  u64 clumps_mounted = 0;       // ... portant au moins un brin EMIS : le `hits=` de la ligne FEATURE
+  u64 clump_origin_digest = 0;  // empreinte FNV-1a des origines (point 4 du contrat)
+  u32 clump_clipped = 0;        // racines dont le decalage a ete raccourci par le bord du triangle
+  bool clumped = true;          // le regime sous lequel CETTE expansion a tourne (bras d'ablation)
 };
 // `want_cand_map` remplit `inst_cand` — le recensement de grass-path-transitions seul en a
 // besoin ; le jeu l'appelle a false et ne paie pas les 4 octets par instance.
-ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map = false);
+// `clumped` = le bras d'ablation de grass-clumps. FAUX rend le tirage barycentrique uniforme du
+// code REMPLACE, sur le MEME bake : c'est l'oracle non-miroir, pas un zero muet. Le moteur y passe
+// `armed_for("grass-clumps")` ; l'outil de cuisson ecrit toujours le regime livre (vrai).
+ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map = false,
+                    bool clumped = true);
 
 // ---------------------------------------------------------------------------
 // grass-surface-truth : LES DEUX SOURCES QUI DISENT SI UNE SURFACE PORTE DE L'HERBE.
@@ -1081,6 +1367,57 @@ struct TransitionCensus {
 };
 // Deterministe, sans GL, sans horloge, sans fil. `d` et `e` doivent venir du MEME scan.
 TransitionCensus transition_census(const BakeData& d, const ExpandResult& e);
+
+// ---------------------------------------------------------------------------
+// grass-clumps : CE QUE LE REGROUPEMENT A PRODUIT, MESURE ET NON AFFIRME.
+// ---------------------------------------------------------------------------
+//
+// « Une touffe qu'aucune mesure ne distingue d'un tirage uniforme n'existe pas. » Le recensement
+// calcule donc DEUX fois la meme statistique sur LA MEME population, LA MEME surface et LE MEME
+// compte de brins : une fois sur les racines livrees, une fois sur les racines que le tirage
+// uniforme — le code REMPLACE, toujours calcule par `ClumpPlacer::place` — leur aurait donnees.
+// Ce second bras n'est pas un miroir : c'est l'autre regime, dans la meme image.
+//
+// La statistique est le NOMBRE MOYEN DE VOISINS a `CLUMP_PAIR_R_M`, restreint aux racines situees
+// a plus de ce rayon de toute arete de leur triangle support — sans cette restriction on
+// mesurerait le decoupage du maillage, pas le regroupement.
+struct ClumpCensus {
+  // --- point 1 : la dispersion spatiale, les deux bras
+  double pairs_clumped = 0.0;   // voisins moyens a CLUMP_PAIR_R_M, racines livrees
+  double pairs_uniform = 0.0;   // ... memes brins, tirage uniforme
+  double pairs_ratio = 0.0;     // le rapport que la porte lit
+  u64 pairs_sampled = 0;        // racines interieures effectivement comptees (denominateur)
+  // --- point 2 : les touffes ne se ressemblent pas
+  u64 clumps_total = 0;
+  u64 clumps_mounted = 0;
+  double size_mean = 0.0, size_cv = 0.0;      // brins par touffe montee
+  double radius_mean_m = 0.0, radius_cv = 0.0;
+  // --- point 4 et integrite
+  u64 origin_digest = 0;    // empreinte des origines de TOUTES les touffes des tris porteurs
+  u64 blades_total = 0;
+  u64 root_outside = 0;     // racines hors de leur triangle support (SPEC section 9) : doit etre 0
+  u64 pos_mismatch = 0;     // ecart entre la racine emise et celle que le recensement recalcule
+  u64 clipped = 0;          // racines raccourcies par le bord du triangle (publie, non juge)
+  double height_mean_ratio = 0.0;  // hauteur moyenne livree / hauteur moyenne sans profil de touffe
+  u32 terms_measured = 0;   // combien des grandeurs ci-dessus ont une population non vide
+};
+ClumpCensus clump_census(const BakeData& d, const ExpandResult& e);
+
+// Nidification entre DEUX paliers du meme niveau : les origines bougent-elles, et l'ensemble des
+// candidats du palier bas est-il un PREFIXE de celui du palier haut ? Les deux `BakeData` viennent
+// de deux `scan_level` du meme `.fr3`, donc leurs `tris` sont alignes index par index.
+struct ClumpNestCensus {
+  u64 tris_compared = 0;
+  u64 tris_misaligned = 0;  // meme index, geometrie differente -> comparaison impossible
+  u64 clumps_compared = 0;
+  u64 origin_moved = 0;     // touffes dont l'origine bouge d'un palier a l'autre : doit etre 0
+  u64 count_mismatch = 0;   // triangles dont le NOMBRE de touffes change : doit etre 0
+  u64 prefix_breaks = 0;    // candidats du palier bas absents du palier haut : doit etre 0
+  u64 blades_low = 0, blades_high = 0;
+};
+ClumpNestCensus clump_nest_census(const BakeData& lo, const ExpandResult& elo, const BakeData& hi,
+                                  const ExpandResult& ehi);
+
 
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch

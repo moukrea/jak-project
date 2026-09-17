@@ -101,6 +101,14 @@ AUTOPORT_FEATURE_SITE(kEdgeTruthItemId);
 constexpr const char* kPathTransItemId = "grass-path-transitions";
 AUTOPORT_FEATURE_SITE(kPathTransItemId);
 
+// grass-clumps : l'item qui fait pousser l'herbe en TOUFFES au lieu d'un bruit blanc de brins
+// independants. Comme le precedent, son travail CHANGE le placement — mais lui porte aussi un bras
+// d'ablation GEOMETRIQUE : `armed_for` a 0 rend le tirage barycentrique uniforme du code REMPLACE,
+// sur le meme bake. Le bras `--off` ne mesure donc pas un instrument eteint, il mesure l'AUTRE
+// regime, et `hits=` y tombe a 0 parce qu'aucune touffe n'est montee.
+constexpr const char* kClumpItemId = "grass-clumps";
+AUTOPORT_FEATURE_SITE(kClumpItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1516,14 +1524,18 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       // thread. Il revient dans `m_bake` a la consommation (la consommation ET le dessin le lisent).
       m_pending.bake = std::move(m_bake);
       m_expand_pending = true;
-      m_expand_future =
-          std::async(std::launch::async, &grass_bake::expand, std::cref(m_pending.bake),
-                     m_pending.density, autoport_proof::feature_is(kPathTransItemId));
+      m_expand_future = std::async(std::launch::async, &grass_bake::expand,
+                                   std::cref(m_pending.bake), m_pending.density,
+                                   autoport_proof::feature_is(kPathTransItemId) ||
+                                       autoport_proof::feature_is(kClumpItemId),
+                                   autoport_proof::armed_for(kClumpItemId));
       return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
     }
     tExpandJoin = clk::now();
     res = grass_bake::expand(m_bake, m_pending.density,
-                             autoport_proof::feature_is(kPathTransItemId));
+                             autoport_proof::feature_is(kPathTransItemId) ||
+                                 autoport_proof::feature_is(kClumpItemId),
+                             autoport_proof::armed_for(kClumpItemId));
     } catch (const std::exception& e) {
       // La garde couvre TOUTE l'etape SOURCE : lecture du bake, scan en direct, mise en place de
       // `m_pending`, lancement du thread d'expansion, et l'expansion synchrone.
@@ -1595,6 +1607,55 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     // `hits=` de la ligne FEATURE : les brins situes dans une bande de transition, exactement ce
     // que le contrat de l'item nomme.
     autoport_proof::note_hit_for(kPathTransItemId, tc.blades_band);
+  }
+
+  // ================= grass-clumps : CE QUE LE REGROUPEMENT A PRODUIT, SUR CE NIVEAU =============
+  // Meme regle que ci-dessus : le PLACEMENT n'est pas conditionne par `feature_is` (l'owner doit
+  // voir les touffes dans son binaire), seule la MESURE l'est. Elle relit les brins qu'on vient
+  // d'emettre et recalcule, pour chacun, la racine que le tirage uniforme lui aurait donnee : les
+  // deux regimes dans LA MEME image, sur LA MEME surface, avec LE MEME compte de brins.
+  // `res.clumped` dit sous quel regime cette expansion a tourne — un temoin, pas un reglage.
+  if (autoport_proof::feature_is(kClumpItemId)) {
+    const auto cc = grass_bake::clump_census(m_bake, res);
+    autoport_proof::publish_text("grass_clump_engine_level", level_name.c_str());
+    autoport_proof::publish("grass_clump_engine_armed", res.clumped ? 1u : 0u);
+    autoport_proof::publish("grass_clump_engine_blades", cc.blades_total);
+    autoport_proof::publish("grass_clump_engine_clumps", cc.clumps_total);
+    autoport_proof::publish("grass_clump_engine_mounted", cc.clumps_mounted);
+    autoport_proof::publish("grass_clump_engine_pairs_sampled", cc.pairs_sampled);
+    autoport_proof::publish("grass_clump_engine_root_outside", cc.root_outside);
+    autoport_proof::publish("grass_clump_engine_pos_mismatch", cc.pos_mismatch);
+    autoport_proof::publish("grass_clump_engine_clipped", cc.clipped);
+    autoport_proof::publish("grass_clump_engine_terms", cc.terms_measured);
+    // Les flottants passent en milli-unites entieres : `publish` ne porte que des entiers, et le
+    // moissonneur de proof_run.sh refuse toute valeur qui contient un espace.
+    autoport_proof::publish("grass_clump_engine_pairs_clumped_pm",
+                            (uint64_t)std::lround(cc.pairs_clumped * 1000.0));
+    autoport_proof::publish("grass_clump_engine_pairs_uniform_pm",
+                            (uint64_t)std::lround(cc.pairs_uniform * 1000.0));
+    autoport_proof::publish("grass_clump_engine_pairs_ratio_pm",
+                            (uint64_t)std::lround(cc.pairs_ratio * 1000.0));
+    autoport_proof::publish("grass_clump_engine_size_mean_pm",
+                            (uint64_t)std::lround(cc.size_mean * 1000.0));
+    autoport_proof::publish("grass_clump_engine_size_cv_pm",
+                            (uint64_t)std::lround(cc.size_cv * 1000.0));
+    autoport_proof::publish("grass_clump_engine_radius_mm",
+                            (uint64_t)std::lround(cc.radius_mean_m * 1000.0));
+    autoport_proof::publish("grass_clump_engine_radius_cv_pm",
+                            (uint64_t)std::lround(cc.radius_cv * 1000.0));
+    autoport_proof::publish("grass_clump_engine_height_ratio_pm",
+                            (uint64_t)std::lround(cc.height_mean_ratio * 1000.0));
+    {
+      // L'empreinte des origines : c'est elle qui rend « deux chargements donnent les memes
+      // touffes aux memes endroits » comparable entre deux courses.
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)cc.origin_digest);
+      autoport_proof::publish_text("grass_clump_engine_digest", buf);
+    }
+    // `hits=` de la ligne FEATURE : les touffes EFFECTIVEMENT MONTEES, exactement ce que
+    // `hits_means` du backlog nomme. Desarme, le placement est uniforme : aucune touffe n'est
+    // montee, `clumps_mounted` vaut 0, et la ligne rend `armed=0 hits=0`.
+    autoport_proof::note_hit_for(kClumpItemId, cc.clumps_mounted);
   }
 
   // ================================= ETAPE CONSOMMATION =================================

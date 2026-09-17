@@ -9928,7 +9928,7 @@ items:
     proof_bytes: 64995
     attempt: 1
     journal: validator-001.txt
-- status: in-progress
+- status: to-test
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9982,7 +9982,15 @@ items:
   - debug.opengoal.level.warp=training-start
   - debug.opengoal.grass=1
   - debug.opengoal.grass.preset=2
-- status: open
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 808f7d3f276cf1bb
+    proof_bytes: 70057
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-17'
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9996,6 +10004,16 @@ items:
   id: grass-clumps
   priority: 69
   device: true
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
+  - OG_GRASS=1
+  - OG_GRASS_PRESET=2
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.grass=1
+  - debug.opengoal.grass.preset=2
   feature: L'herbe pousse en touffes coherentes, plus en bruit blanc de brins independants
   gate:
     key: grass_clump_defects

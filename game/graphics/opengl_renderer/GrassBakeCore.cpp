@@ -1329,6 +1329,13 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
   bake_tris.reserve(tris.size());
   u64 cand_running = 0;
 
+  // grass-clumps : LA MEME classe de placement qu'a l'expansion. Les bits `keep`, `rim_q` et
+  // `path_q` se decident ci-dessous SUR LA POSITION du candidat : si la cuisson et l'expansion ne
+  // partagent pas la formule, le plancher, l'occultation et le chemin sont testes a un endroit ou
+  // aucun brin ne pousse. C'est pourquoi la version du format monte avec cet item (voir
+  // GBK_FORMAT_VERSION) : un bake d'avant n'est PAS charge, il n'est pas relu de travers.
+  ClumpPlacer placer(total_area_m2, true);
+
   for (size_t tj = 0; tj < tris.size(); ++tj) {
     const auto& r = tris[tj];
     BakeTri bt;
@@ -1355,14 +1362,12 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       n += 1;
     }
     bt.cand_count = (u32)n;
+    placer.begin(bt);
     for (int i = 0; i < n; ++i) {
-      u32 sd = r.seed + (u32)i * 3266489917u;
-      float r1 = hash_f(sd + 1u);
-      float r2 = hash_f(sd + 2u);
-      if (r1 + r2 > 1.0f) {
-        r1 = 1.0f - r1;
-        r2 = 1.0f - r2;
-      }
+      ClumpSite site;
+      placer.place(bt, i, site);
+      const float r1 = site.r1;
+      const float r2 = site.r2;
       // Barycentric weights (A,B,C) = (1-r1-r2, r1, r2).
       float wA = 1.0f - r1 - r2, wB = r1, wC = r2;
       float bx = r.p0x + r1 * r.e1x + r2 * r.e2x;
@@ -1995,8 +2000,14 @@ void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk
   out.push_back(c);
 }
 
-ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map) {
+ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map,
+                    bool clumped) {
   ExpandResult res;
+  res.clumped = clumped;
+  // grass-clumps : LA MEME classe qu'a la cuisson. `clumped=false` est le bras d'ablation — le
+  // tirage uniforme du code REMPLACE, sur le MEME bake. Les bits `keep` restent ceux des positions
+  // en touffes : ce bras mesure le regroupement, il n'est pas un etat livrable.
+  ClumpPlacer placer(d.total_area_m2, clumped);
   float dens_scale = std::min(2.5f, std::max(0.5f, density_slider_pct / 100.0f));
   int budget = (int)((float)MAX_INSTANCES * dens_scale);
   float density = D_TARGET;
@@ -2279,12 +2290,19 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       n += 1;
     }
     if ((u32)n > tri.cand_count) n = (int)tri.cand_count;  // safety (slider <= bake density)
+    placer.begin(tri);
     if (want_cand_map) {
       res.tri_n.resize(d.tris.size(), 0u);
       res.tri_n[tj] = (u32)n;
     }
     for (int i = 0; i < n; ++i) {
       if (scatter_kept >= budget) break;
+      // LA PLACE SE TIRE AVANT TOUTE PORTE. Le rang d'un brin dans sa touffe compte les candidats
+      // d'indice INFERIEUR tombes dans la meme touffe : le sauter pour un candidat ecarte
+      // decalerait tous les suivants, et la cuisson — qui, elle, les enumere tous — placerait ses
+      // bits `keep` ailleurs que les brins. C'est la seule raison pour laquelle cet appel est ici.
+      ClumpSite site;
+      placer.place(tri, i, site);
       const u64 ci = tri.cand_base + (u64)i;
       u8 k = d.keep[ci];
       if (!(k & 1)) continue;
@@ -2306,22 +2324,24 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
         }
         continue;
       }
-      u32 sd = tri.seed + (u32)i * 3266489917u;
-      float r1 = hash_f(sd + 1u);
-      float r2 = hash_f(sd + 2u);
-      if (r1 + r2 > 1.0f) {
-        r1 = 1.0f - r1;
-        r2 = 1.0f - r2;
-      }
+      const u32 sd = site.sd;
+      const float r1 = site.r1;
+      const float r2 = site.r2;
       float bx = tri.p0[0] + r1 * tri.e1[0] + r2 * tri.e2[0];
       float by = tri.p0[1] + r1 * tri.e1[1] + r2 * tri.e2[1];
       float bz = tri.p0[2] + r1 * tri.e1[2] + r2 * tri.e2[2];
+      if (site.clip < 1.0f) {
+        res.clump_clipped++;
+      }
 
       GrassInstance gi;
       gi.px = bx;
       gi.py = by;
       gi.pz = bz;
       gi.h = BASE_H * (0.50f + 1.55f * hash_f(sd + 3u));   // OWNER POLISH#3: wider SIZE variation
+      // grass-clumps : « des brins dominants et des brins peripheriques ». Le profil est a MOYENNE
+      // CONSERVEE, donc il ne touche pas la hauteur moyenne du champ (hors perimetre de cet item).
+      gi.h *= clump_height_mul(site.rho);
       {
         const float p_d = path_decode(pq);
         if (p_d < TRANS_W_M * U) {
@@ -2413,6 +2433,7 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
         }
       }
 #endif  // OG_FEAT_GRASS_OVERHANG (marquage + collecte des jumelles)
+      placer.mark(site.clump);  // grass-clumps : cette touffe est MONTEE (le `hits=` les compte)
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
       if (want_cand_map) {
@@ -2420,6 +2441,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       }
     }
   }
+  placer.finish();
+  res.clumps_total = placer.total_clumps();
+  res.clumps_mounted = placer.total_mounted();
+  res.clump_origin_digest = placer.origin_digest();
   res.scatter_kept = scatter_kept;
   res.occ_culled = occ_culled;
 
@@ -2828,7 +2853,14 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // grass-chunk-cull: v8: section `chunks` en queue (partition spatiale cuite de l'expansion a
 // `bake_density_pct`). Un v7 echoue la garde de version et n'est PAS charge : les cinq bakes
 // livres se recuisent par `scripts/shell/build_grass_bakes.sh`.
-constexpr u32 GBK_FORMAT_VERSION = 9;
+// grass-clumps: v10 = bump SEMANTIQUE, layout inchange. Les racines ne sont plus un tirage
+// barycentrique uniforme mais un placement en TOUFFES, et les bits `keep` / `rim_q` / `path_q` se
+// decident SUR CES POSITIONS. Un bake v9 relu par ce binaire aurait ses verdicts de plancher,
+// d'occultation et de chemin a des endroits ou plus aucun brin ne pousse — un brin valide
+// au-dessus du vide, en silence. La garde de version l'interdit AU POINT DE PRODUCTION : un v9
+// n'est pas charge (et le niveau reste sans herbe, il n'y a PAS de repli en direct), donc les cinq
+// bakes livres se recuisent par `scripts/shell/build_grass_bakes.sh`.
+constexpr u32 GBK_FORMAT_VERSION = 10;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -5000,17 +5032,22 @@ TransitionCensus transition_census(const BakeData& d, const ExpandResult& e) {
   cand_rec.reserve(d.keep.size());
   std::unordered_map<u64, std::vector<u32>> cand_grid;
 
+  // grass-clumps : le recensement recalcule la position des candidats qu'AUCUN brin ne represente.
+  // Il doit le faire avec la MEME classe et dans le MEME ordre que l'expansion, sinon `pos_mismatch`
+  // accuserait le placement d'une divergence qui serait la sienne.
+  ClumpPlacer tplacer(d.total_area_m2, e.clumped);
   for (size_t tj = 0; tj < d.tris.size(); ++tj) {
     const BakeTri& tri = d.tris[tj];
     const u32 n = e.tri_n[tj];
+    tplacer.begin(tri);
     for (u32 i = 0; i < n; ++i) {
       const u64 ci = tri.cand_base + (u64)i;
       if (ci >= d.keep.size()) {
         break;
       }
-      float r1, r2;
-      u32 sd;
-      cand_barycentric(tri.seed, (int)i, r1, r2, sd);
+      ClumpSite tsite;
+      tplacer.place(tri, (int)i, tsite);
+      const float r1 = tsite.r1, r2 = tsite.r2;
       const float bx = tri.p0[0] + r1 * tri.e1[0] + r2 * tri.e2[0];
       const float bz = tri.p0[2] + r1 * tri.e1[2] + r2 * tri.e2[2];
       const u16 pq = d.path_q[ci];
@@ -5276,5 +5313,302 @@ TransitionCensus transition_census(const BakeData& d, const ExpandResult& e) {
   return c;
 }
 
+
+
+// ===========================================================================
+// grass-clumps : LE RECENSEMENT.
+// ===========================================================================
+//
+// Point 1 du contrat — « LE REGROUPEMENT EST MESURE, pas affirme ». La statistique est le NOMBRE
+// MOYEN DE VOISINS a `CLUMP_PAIR_R_M`, calcule DEUX fois : sur les racines livrees, puis sur les
+// racines que le tirage uniforme aurait donnees AUX MEMES BRINS, sur LA MEME surface. Le second
+// bras n'est pas un miroir : c'est le code REMPLACE, que `ClumpPlacer::place` continue de calculer
+// a cote du placement livre (`ClumpSite::u1/u2`).
+//
+// POURQUOI LA POPULATION EST RESTREINTE. Un brin dont la racine est a moins de `CLUMP_PAIR_R_M`
+// d'une arete de son triangle support a une partie de son voisinage hors du triangle. La compter
+// mesurerait le DECOUPAGE DU MAILLAGE — identique dans les deux bras, donc un plancher qui
+// rapprocherait le rapport de 1 sans rien dire du regroupement. Le denominateur retenu est publie
+// (`pairs_sampled`) : un rapport sans son denominateur ne se relit pas.
+ClumpCensus clump_census(const BakeData& d, const ExpandResult& e) {
+  ClumpCensus c;
+  c.origin_digest = 0;
+  c.blades_total = e.instances.size();
+  if (e.inst_tri.size() != e.instances.size() || e.inst_cand.size() != e.instances.size()) {
+    // Sans la carte brin -> candidat, on ne peut PAS savoir quel candidat un brin represente : on
+    // apparierait le premier candidat du triangle au premier brin, en sautant ceux que `keep` a
+    // ecartes. `terms_measured` reste a 0 — une mesure absente ne dit pas « zero », elle ne dit
+    // RIEN, et le juge lit ce compte avant la somme.
+    return c;
+  }
+
+  // ---- LES ORIGINES DE TOUTES LES TOUFFES DES TRIANGLES PORTEURS.
+  // Independante du palier par construction (`clump_of` ne lit que `t.seed` et `c`), donc
+  // comparable d'un bake a l'autre ET d'un chargement a l'autre : c'est le point 4 du contrat.
+  {
+    ClumpPlacer dig(d.total_area_m2, e.clumped);
+    for (const BakeTri& t : d.tris) {
+      if (t.flags & (2u | 4u)) {
+        continue;  // lip / dup : aucun candidat, donc aucune touffe
+      }
+      dig.begin(t);
+      c.clumps_total += dig.clumps();
+    }
+    dig.finish();
+    c.origin_digest = dig.origin_digest();
+  }
+
+  // ---- LES DEUX JEUX DE RACINES, DANS L'ORDRE D'EMISSION.
+  struct Root {
+    float cx, cy, cz;  // racine livree
+    float ux, uy, uz;  // racine du tirage uniforme
+    u8 interior;       // a plus de CLUMP_PAIR_R_M de toute arete de son triangle support
+  };
+  std::vector<Root> roots;
+  roots.reserve(e.instances.size());
+  std::unordered_map<u64, u32> clump_fill;   // (tri << 32 | clump) -> brins emis
+  std::unordered_map<u64, float> clump_rad;  // ... -> rayon (unites monde)
+  clump_fill.reserve(e.instances.size() / 2 + 16);
+  clump_rad.reserve(e.instances.size() / 2 + 16);
+  double h_sum = 0.0, h_flat_sum = 0.0;
+
+  const float PR = CLUMP_PAIR_R_M * U;
+  ClumpPlacer placer(d.total_area_m2, e.clumped);
+  size_t cursor = 0;
+  for (size_t tj = 0; tj < d.tris.size() && cursor < e.instances.size(); ++tj) {
+    const BakeTri& tri = d.tris[tj];
+    if (tri.flags & (2u | 4u)) {
+      continue;
+    }
+    placer.begin(tri);
+    // Combien de candidats l'expansion a-t-elle enumeres sur ce triangle ? `tri_n` le dit quand il
+    // est rempli ; sinon on borne par `cand_count`, qui le majore toujours.
+    const u32 n = (tj < e.tri_n.size() && !e.tri_n.empty()) ? e.tri_n[tj] : tri.cand_count;
+    // Rayons perpendiculaires du triangle : la distance barycentrique a chaque arete vaut
+    // w * (2*aire) / longueur_de_l_arete_opposee. On la compare a PR sans quitter le barycentrique.
+    const float ax = tri.e1[0], ay = tri.e1[1], az = tri.e1[2];
+    const float bx = tri.e2[0], by = tri.e2[1], bz = tri.e2[2];
+    const float cx = bx - ax, cy = by - ay, cz = bz - az;
+    const float lAB = std::sqrt(ax * ax + ay * ay + az * az);       // arete p0->p0+e1
+    const float lAC = std::sqrt(bx * bx + by * by + bz * bz);       // arete p0->p0+e2
+    const float lBC = std::sqrt(cx * cx + cy * cy + cz * cz);       // arete opposee a p0
+    const float twoA = 2.0f * tri.area_m2 * U * U;
+    for (u32 i = 0; i < n; ++i) {
+      ClumpSite s;
+      placer.place(tri, (int)i, s);
+      const u64 ci = tri.cand_base + (u64)i;
+      const bool emitted = cursor < e.instances.size() && e.inst_cand[cursor] == (u32)ci;
+      if (!emitted) {
+        continue;
+      }
+      const GrassInstance& gi = e.instances[cursor];
+      ++cursor;
+      const float rx = tri.p0[0] + s.r1 * tri.e1[0] + s.r2 * tri.e2[0];
+      const float ry = tri.p0[1] + s.r1 * tri.e1[1] + s.r2 * tri.e2[1];
+      const float rz = tri.p0[2] + s.r1 * tri.e1[2] + s.r2 * tri.e2[2];
+      if (std::fabs(gi.px - rx) > 1.0f || std::fabs(gi.py - ry) > 1.0f ||
+          std::fabs(gi.pz - rz) > 1.0f) {
+        c.pos_mismatch++;  // le recensement et l'expansion ne placent pas au meme endroit
+      }
+      // INTEGRITE DE LA RACINE (SPEC section 9) : un barycentrique negatif = une racine hors de son
+      // triangle support. L'ecretage le rend impossible ; on le COMPTE quand meme.
+      const float w0 = 1.0f - s.r1 - s.r2;
+      if (w0 < -1.0e-3f || s.r1 < -1.0e-3f || s.r2 < -1.0e-3f) {
+        c.root_outside++;
+      }
+      if (s.clip < 1.0f) {
+        c.clipped++;
+      }
+      const float hm = e.clumped ? clump_height_mul(s.rho) : 1.0f;
+      h_sum += (double)gi.h;
+      h_flat_sum += hm > 1.0e-6f ? (double)gi.h / (double)hm : (double)gi.h;
+      if (e.clumped) {
+        const u64 key = ((u64)tj << 32) | (u64)s.clump;
+        clump_fill[key]++;
+        clump_rad[key] = s.radius_wu;
+      }
+      // Interieur : les trois distances aux aretes au-dessus du rayon de comptage.
+      u8 inte = 0;
+      if (twoA > 1.0e-3f && lAB > 1.0e-3f && lAC > 1.0e-3f && lBC > 1.0e-3f) {
+        const float dBC = w0 * twoA / lBC;
+        const float dAC = s.r1 * twoA / lAC;
+        const float dAB = s.r2 * twoA / lAB;
+        inte = (dBC > PR && dAC > PR && dAB > PR) ? 1u : 0u;
+      }
+      roots.push_back({rx, ry, rz,
+                       tri.p0[0] + s.u1 * tri.e1[0] + s.u2 * tri.e2[0],
+                       tri.p0[1] + s.u1 * tri.e1[1] + s.u2 * tri.e2[1],
+                       tri.p0[2] + s.u1 * tri.e1[2] + s.u2 * tri.e2[2], inte});
+    }
+  }
+  placer.finish();
+  c.clumps_mounted = clump_fill.size();
+
+  // ---- POINT 2 : LES TOUFFES NE SE RESSEMBLENT PAS.
+  if (!clump_fill.empty()) {
+    double sn = 0, sn2 = 0;
+    for (const auto& kv : clump_fill) {
+      sn += (double)kv.second;
+      sn2 += (double)kv.second * (double)kv.second;
+    }
+    const double nn = (double)clump_fill.size();
+    c.size_mean = sn / nn;
+    const double var = std::max(0.0, sn2 / nn - c.size_mean * c.size_mean);
+    c.size_cv = c.size_mean > 1e-9 ? std::sqrt(var) / c.size_mean : 0.0;
+    double sr = 0, sr2 = 0;
+    for (const auto& kv : clump_rad) {
+      const double r = (double)kv.second / (double)U;
+      sr += r;
+      sr2 += r * r;
+    }
+    const double rn = (double)clump_rad.size();
+    c.radius_mean_m = sr / rn;
+    const double rvar = std::max(0.0, sr2 / rn - c.radius_mean_m * c.radius_mean_m);
+    c.radius_cv = c.radius_mean_m > 1e-9 ? std::sqrt(rvar) / c.radius_mean_m : 0.0;
+  }
+  c.height_mean_ratio = h_flat_sum > 1e-9 ? h_sum / h_flat_sum : 0.0;
+
+  // ---- POINT 1 : LA DISPERSION SPATIALE, LES DEUX BRAS.
+  auto mean_neighbours = [&](bool uniform_arm) -> double {
+    const float cell = PR;
+    const float inv = 1.0f / cell;
+    std::unordered_map<u64, std::vector<u32>> grid;
+    grid.reserve(roots.size() * 2 + 16);
+    for (u32 k = 0; k < (u32)roots.size(); ++k) {
+      const Root& r = roots[k];
+      const float px = uniform_arm ? r.ux : r.cx, pz = uniform_arm ? r.uz : r.cz;
+      const s64 gx = (s64)std::floor(px * inv), gz = (s64)std::floor(pz * inv);
+      grid[((u64)(u32)gx << 32) ^ (u64)(u32)gz].push_back(k);
+    }
+    const float pr2 = PR * PR;
+    double tot = 0.0;
+    u64 cnt = 0;
+    for (u32 k = 0; k < (u32)roots.size(); ++k) {
+      const Root& r = roots[k];
+      if (!r.interior) {
+        continue;
+      }
+      const float px = uniform_arm ? r.ux : r.cx;
+      const float py = uniform_arm ? r.uy : r.cy;
+      const float pz = uniform_arm ? r.uz : r.cz;
+      const s64 gx = (s64)std::floor(px * inv), gz = (s64)std::floor(pz * inv);
+      u32 hit = 0;
+      for (s64 dz = -1; dz <= 1; ++dz) {
+        for (s64 dx = -1; dx <= 1; ++dx) {
+          auto it = grid.find(((u64)(u32)(gx + dx) << 32) ^ (u64)(u32)(gz + dz));
+          if (it == grid.end()) {
+            continue;
+          }
+          for (u32 q : it->second) {
+            if (q == k) {
+              continue;
+            }
+            const Root& o = roots[q];
+            const float ox = uniform_arm ? o.ux : o.cx;
+            const float oy = uniform_arm ? o.uy : o.cy;
+            const float oz = uniform_arm ? o.uz : o.cz;
+            const float ddx = ox - px, ddy = oy - py, ddz = oz - pz;
+            if (ddx * ddx + ddy * ddy + ddz * ddz < pr2) {
+              hit++;
+            }
+          }
+        }
+      }
+      tot += (double)hit;
+      cnt++;
+    }
+    if (!uniform_arm) {
+      c.pairs_sampled = cnt;
+    }
+    return cnt ? tot / (double)cnt : 0.0;
+  };
+  c.pairs_clumped = mean_neighbours(false);
+  c.pairs_uniform = mean_neighbours(true);
+  c.pairs_ratio = c.pairs_uniform > 1e-9 ? c.pairs_clumped / c.pairs_uniform : 0.0;
+
+  // ---- COMBIEN DE GRANDEURS ONT UNE POPULATION. Un terme sans population n'est pas « a zero »,
+  // il n'est PAS MESURE : le juge lit ce compte avant la somme.
+  c.terms_measured = 0;
+  if (c.blades_total > 0) c.terms_measured++;
+  if (c.pairs_sampled > 0) c.terms_measured++;
+  if (c.clumps_mounted > 0) c.terms_measured++;
+  if (c.pairs_uniform > 1e-9) c.terms_measured++;
+  if (c.clumps_total > 0) c.terms_measured++;
+  return c;
+}
+
+// ---------------------------------------------------------------------------
+// Point 3 du contrat : LES PALIERS RESTENT IMBRIQUES.
+// ---------------------------------------------------------------------------
+//
+// Les deux `BakeData` viennent de deux `scan_level` du MEME `.fr3` : leurs `tris` sont alignes
+// index par index, ce qu'on VERIFIE (`tris_misaligned`) au lieu de le supposer. Pour chaque
+// triangle porteur on compare le nombre de touffes et chaque origine ; puis on verifie que
+// l'ensemble des candidats du palier bas est un PREFIXE de celui du palier haut — la propriete
+// dont depend « un palier inferieur retire des brins DANS les memes touffes ».
+ClumpNestCensus clump_nest_census(const BakeData& lo, const ExpandResult& elo, const BakeData& hi,
+                                  const ExpandResult& ehi) {
+  ClumpNestCensus c;
+  c.blades_low = elo.instances.size();
+  c.blades_high = ehi.instances.size();
+  const size_t nt = std::min(lo.tris.size(), hi.tris.size());
+  if (lo.tris.size() != hi.tris.size()) {
+    c.tris_misaligned += (u64)(std::max(lo.tris.size(), hi.tris.size()) - nt);
+  }
+  ClumpPlacer plo(lo.total_area_m2, true), phi(hi.total_area_m2, true);
+  for (size_t tj = 0; tj < nt; ++tj) {
+    const BakeTri& a = lo.tris[tj];
+    const BakeTri& b = hi.tris[tj];
+    if (a.flags & (2u | 4u)) {
+      continue;
+    }
+    if (a.seed != b.seed || std::fabs(a.area_m2 - b.area_m2) > 1e-4f ||
+        std::fabs(a.p0[0] - b.p0[0]) > 1e-3f || std::fabs(a.p0[2] - b.p0[2]) > 1e-3f) {
+      c.tris_misaligned++;
+      continue;
+    }
+    c.tris_compared++;
+    plo.begin(a);
+    phi.begin(b);
+    if (plo.clumps() != phi.clumps()) {
+      c.count_mismatch++;
+    }
+    const u32 m = std::min(plo.clumps(), phi.clumps());
+    for (u32 k = 0; k < m; ++k) {
+      float a1, a2, ar, b1, b2, br;
+      ClumpPlacer::clump_of(a, k, a1, a2, ar);
+      ClumpPlacer::clump_of(b, k, b1, b2, br);
+      c.clumps_compared++;
+      // 1 mm monde : l'origine est la MEME, ou elle a bouge.
+      const float ox = (a1 - b1) * a.e1[0] + (a2 - b2) * a.e2[0];
+      const float oy = (a1 - b1) * a.e1[1] + (a2 - b2) * a.e2[1];
+      const float oz = (a1 - b1) * a.e1[2] + (a2 - b2) * a.e2[2];
+      if (std::sqrt(ox * ox + oy * oy + oz * oz) > 0.001f * U || std::fabs(ar - br) > 0.001f * U) {
+        c.origin_moved++;
+      }
+    }
+    // PREFIXE : le palier bas enumere `n_lo` candidats, le haut `n_hi`. La propriete tient si
+    // n_lo <= n_hi ET si les `n_lo` premiers candidats du bas ont la MEME touffe et le MEME rang
+    // que ceux du haut — ce que `place()` rend verifiable en les rejouant tous les deux.
+    const u32 nlo = tj < elo.tri_n.size() ? elo.tri_n[tj] : 0u;
+    const u32 nhi = tj < ehi.tri_n.size() ? ehi.tri_n[tj] : 0u;
+    if (nlo > nhi) {
+      c.prefix_breaks += (u64)(nlo - nhi);
+    }
+    const u32 nmin = std::min(nlo, nhi);
+    for (u32 i = 0; i < nmin; ++i) {
+      ClumpSite sa, sb;
+      plo.place(a, (int)i, sa);
+      phi.place(b, (int)i, sb);
+      if (sa.clump != sb.clump || sa.rank != sb.rank ||
+          std::fabs(sa.r1 - sb.r1) > 1e-5f || std::fabs(sa.r2 - sb.r2) > 1e-5f) {
+        c.prefix_breaks++;
+      }
+    }
+  }
+  plo.finish();
+  phi.finish();
+  return c;
+}
 
 }  // namespace grass_bake
