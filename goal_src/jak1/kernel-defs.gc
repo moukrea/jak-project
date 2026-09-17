@@ -573,6 +573,16 @@
 ;; AUTOPORT_COST_PROBE). Hors course de preuve, 0 : aucun banc d'alternance ne tourne chez le joueur.
 (define-extern __pc-autoport-cost-probe (function string int))
 
+;; hud-3d-pickups : LA BOITE ENGLOBANTE D'UN ELEMENT DU HUD, LUE SUR L'IMAGE RENDUE.
+;; `__pc-autoport-hud-capture` demande que CETTE image soit lue : slot 0 = l'image de reference
+;; (l'element cache), 1 = pile d'origine, 2 = notre pile, 3 = mecamouche, 4 = orbe, 5 = controle
+;; (rien n'a change : le plancher de l'instrument). `__pc-autoport-hud-box` relit le resultat :
+;; champ 0 = paires retenues, 1..4 = min-x/min-y/max-x/max-y en pixels de la FBO de rendu,
+;; 5 = pixels retenus, 6/7 = largeur/hauteur de la FBO, 8 = paires ou rien n'avait change.
+;; Les deux ponts sont inertes hors `debug.opengoal.costprobe=hud-3d-pickups`.
+(define-extern __pc-autoport-hud-capture (function int none))
+(define-extern __pc-autoport-hud-box (function int int int))
+
 ;; menu-dpad-steps : une passe de respond-common. mask 1=haut tenu 2=bas tenu 4=front haut
 ;; 8=front bas 16=tap haut 32=tap bas ; steps = crans de CETTE image ; screen = display-state.
 (define-extern __pc-menu-dpad-frame (function int int int none))

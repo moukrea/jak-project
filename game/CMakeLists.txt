@@ -52,6 +52,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/BlitDisplays.cpp
         graphics/opengl_renderer/BucketRenderer.cpp
         graphics/opengl_renderer/CollideMeshRenderer.cpp
+        graphics/opengl_renderer/hud_box_probe.cpp
         graphics/opengl_renderer/lighting_census.cpp
         graphics/opengl_renderer/shade_proof.cpp
         graphics/opengl_renderer/soft_baseline.cpp

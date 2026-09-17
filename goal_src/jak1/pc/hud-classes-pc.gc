@@ -1628,6 +1628,57 @@
 ;; cout alternable DANS UNE SEULE COURSE sans respawn — un respawn de manipy coute plus cher que
 ;; ce que le banc mesure, et deux courses separees mesureraient la scene qui derive.
 
+;; ── §9 LA MESURE DE POSITION QUI N'EST PAS UN MIROIR ─────────────────────────────────────────
+;;
+;; CE QUE L'ESSAI 2 A PUBLIE, ET POURQUOI IL RENDAIT 0 SUR UNE PILE VISIBLEMENT FAUSSE.
+;; Son terme §3 pour la pile comparait `(-> fc 0 icons 1 icon-x)` a `(-> fc 0 icons 0 icon-x)`.
+;; Or `hud3d-set-regime` POSE, a chaque image, `icons 1 icon-x = icons 0 icon-x + cell-dx` — et
+;; `cell-dx` valait 0. La porte relisait donc la valeur qu'elle venait d'ecrire. Le terme de
+;; taille faisait pire : `cell-our-ext = sc * r1` etait compare a `cell-stock-ext = scale0 * r0`
+;; avec `sc = scale0 * r0 / r1`, c'est-a-dire `scale0*r0` des deux cotes — une egalite vraie par
+;; ALGEBRE, quelle que soit l'image. Aucune des deux grandeurs ne pouvait rougir : c'etaient des
+;; miroirs de notre propre placement, pas des mesures. Et toutes deux vivaient en UNITES DE
+;; CANEVAS, jamais en pixels : meme justes, elles ne voyaient ni l'echelle du modele a l'ecran,
+;; ni son rapport largeur/hauteur, ni le renderer qui l'emet.
+;;
+;; CE QUE CELLE-CI MESURE. `hud_box_probe` (game/graphics/opengl_renderer/hud_box_probe.cpp) lit
+;; deux fois la FBO de rendu — une image ou l'element est cache, une image ou il est dessine — et
+;; retient les pixels qui ont change. La sequence ci-dessous est ce qui fabrique ces paires. Elle
+;; ne tourne QUE sous `debug.opengoal.costprobe=hud-3d-pickups` : le joueur ne voit jamais son
+;; HUD clignoter.
+;;
+;; POURQUOI QUATRE IMAGES PAR PHASE. Le fil GOAL construit la chaine DMA que le rendu consomme
+;; ensuite : la capture demandee a l'image F peut porter sur une image anterieure. Tenir chaque
+;; phase QUATRE images et ne demander la capture qu'a la derniere rend la mesure juste tant que
+;; le retard n'excede pas trois images — au lieu d'apparier deux etats differents en silence.
+(defconstant HUD3D_PX_HOLD 4)     ;; images par phase ; la capture tombe sur la derniere
+(defconstant HUD3D_PX_PHASES 10)  ;; reference, pile d'origine, reference, notre pile, ... controle
+(defconstant HUD3D_PX_MIN 8)      ;; paires exigees avant de juger un emplacement
+;; Le plafond de paires, le MEME que `kMaxPairs` de hud_box_probe.cpp. Au-dela, le C++ refuse
+;; d'accumuler ; la sequence s'arrete ici pour que le banc de cout (§4) mesure ensuite des images
+;; que l'instrument ne touche plus. Un desaccord entre les deux valeurs ne fausse rien : il
+;; allonge ou raccourcit la sequence, il ne change aucune boite.
+(defconstant HUD3D_PX_PAIRS 48)
+
+(defun hud3d-px-hold-for ((cycle int))
+  "LA DUREE D'UNE PHASE, QUI N'EST PAS CONSTANTE. Le bruit d'une scene de jeu n'est pas blanc :
+   les animations du monde sont PERIODIQUES. Une paire prise toujours au meme intervalle retombe
+   sur la meme phase de ces animations, donc sur les memes pixels, et le filtre d'accord de
+   `hud_box_probe` la prend pour un element (mesure du 17/09 : 57 pixels survivaient au slot de
+   CONTROLE, ou il n'y a par construction rien a voir). Faire varier l'intervalle decorrele la
+   phase d'une paire a l'autre ; le plancher minimal de 4 images reste, lui, impose par le retard
+   entre le fil GOAL et le rendu."
+  (+ HUD3D_PX_HOLD (mod cycle 5)))
+
+(defun hud3d-px-shown ((ph int))
+  "l'emplacement que cette phase montre. -1 = tout cache (image de reference)."
+  (cond ((= ph 1) 1) ((= ph 3) 2) ((= ph 5) 3) ((= ph 7) 4) (else -1)))
+
+(defun hud3d-px-capture ((ph int))
+  "le slot a capturer a la fin de cette phase. 0 = image de reference ; 5 = CONTROLE, deux images
+   du meme etat : ce qui y survit est le plancher de l'instrument, et il doit etre vide."
+  (cond ((= ph 1) 1) ((= ph 3) 2) ((= ph 5) 3) ((= ph 7) 4) ((= ph 9) 5) (else 0)))
+
 (defconstant HUD3D_BENCH_BLOCK 40)   ;; images par regime dans le banc de cout
 (defconstant HUD3D_BENCH_SETTLE 6)   ;; images jetees apres chaque bascule
 (defconstant HUD3D_BENCH_MIN 300)    ;; images exigees par regime (livrable §4)
@@ -1711,7 +1762,14 @@
    (buzz-icon-x     int32)
    (buzz-icon-y     int32)
    (buzz-nd-x       int32)
-   (buzz-nd-y       int32)))
+   (buzz-nd-y       int32)
+   ;; §9 la sequence qui fait lire la BOITE ENGLOBANTE sur l'image rendue
+   (px-phase        int32)
+   (px-hold         int32)
+   (px-cycles       int32)
+   (px-bad          int32)
+   (px-on           symbol)
+   (px-paused       symbol)))
 
 ;;;----------------------------------------------
 ;;  petites mesures
@@ -2216,6 +2274,125 @@
   (set! (-> this skip-particle) (if ours -1 0))
   (none))
 
+(defun hud3d-px-freeze ((ic (pointer manipy)) (yaw float))
+  "IMMOBILISE UN MODELE POUR LA DUREE DE LA MESURE. Les icones de HUD tournent sur elles-memes —
+   `hud-fuel-cell::hud-update` ajoute un degre par image a l'icone d'origine, `hud-money::hud-update`
+   en retire quatre — et notre pile joue son anim d'inactivite. Un modele qui tourne n'a pas deux
+   fois la meme silhouette : le filtre d'accord n'en garderait que le noyau invariant par rotation,
+   et c'est ce qui est arrive le 17/09 (77 pixels retenus sur ~580 reellement changes par paire).
+   On pose donc un lacet ABSOLU et une image d'animation FIXE a chaque image de la sequence : ce
+   que le moteur ajoute ensuite est constant, donc la pose l'est aussi.
+   Le geste porte sur les DEUX piles de la meme facon : la comparaison reste une comparaison."
+  (when (hud3d-alive? ic)
+    (set-yaw-angle-clear-roll-pitch! (-> ic 0 root) yaw)
+    ;; UN MODELE RIGIDE N'A PAS DE SQUELETTE, ET LUI POSTER UNE IMAGE D'ANIMATION TUE LE JEU.
+    ;; `initialize-skeleton` (process-drawable.gc:434-447) ne cree un `joint-control` que si la
+    ;; geometrie declare `joint-channel > 0` : l'orbe (`money`) en declare zero, son `skel` est
+    ;; legitimement nul, et il dessine parfaitement. Course x86 du 17/09 sans cette garde :
+    ;; SIGSEGV a l'arrivee du HUD, quelques secondes apres le teleport. Le lacet, lui, se pose
+    ;; sur le `root` et vaut pour les deux familles — c'est d'ailleurs par le lacet que l'orbe
+    ;; et la pile d'origine tournent.
+    (when (and (nonzero? (-> ic 0 skel))
+               (nonzero? (-> ic 0 skel root-channel 0 frame-group))
+               (-> ic 0 skel root-channel 0 frame-group))
+      (send-event (ppointer->process ic) 'anim-mode 'still)
+      (send-event (ppointer->process ic) 'set-frame-num 0.0)))
+  (none))
+
+(defun hud3d-px-ready? ((this hud-3d-pickups) (fc (pointer hud)) (bz (pointer hud)) (mo (pointer hud)))
+  "la sequence de mesure n'a de sens que si les QUATRE modeles existent et que l'element pile est
+   effectivement affiche : un emplacement replie ne donnerait que des images identiques."
+  (and fc
+       bz
+       mo
+       (> (-> fc 0 nb-of-icons) 1)
+       (hud3d-alive? (-> fc 0 icons 0 icon))
+       (hud3d-alive? (-> fc 0 icons 1 icon))
+       (> (-> bz 0 nb-of-icons) 0)
+       (hud3d-alive? (-> bz 0 icons 0 icon))
+       (> (-> mo 0 nb-of-icons) 0)
+       (hud3d-alive? (-> mo 0 icons 0 icon))
+       (not (hidden? (-> fc 0)))
+       #t))
+
+(defun hud3d-px-drive ((this hud-3d-pickups) (fc (pointer hud)) (bz (pointer hud)) (mo (pointer hud)))
+  "UNE PHASE DE LA SEQUENCE DE MESURE. Un seul modele est dessine a la fois ; les autres et tous
+   les sprites de HUD sont eteints, pour que la difference entre l'image de reference et l'image
+   suivante ne porte QUE l'element mesure. Ce qui reste — le monde qui bouge derriere — est du
+   bruit non correle d'une paire a l'autre, et le filtre d'accord de `hud_box_probe` l'elimine ;
+   le slot de CONTROLE mesure ce qui y survit quand il n'y a rien a voir.
+   Cette fonction ecrase les choix de `hud3d-set-regime` pour l'image : elle tourne apres lui."
+  (let ((show (hud3d-px-shown (-> this px-phase))))
+    (hud3d-icon-draw! (-> fc 0) 0 (= show 1))
+    (hud3d-icon-draw! (-> fc 0) 1 (= show 2))
+    (hud3d-icon-draw! (-> bz 0) 0 (= show 3))
+    (hud3d-icon-draw! (-> mo 0) 0 (= show 4))
+    (set! (-> fc 0 skip-particle) 0)
+    (set! (-> bz 0 skip-particle) 0)
+    (set! (-> mo 0 skip-particle) 0)
+    (let ((ma (hud3d-elt HUD3D_SLOT_MONEY_ALL))) (if ma (set! (-> ma 0 skip-particle) 0)))
+    (let ((pk (hud3d-elt HUD3D_SLOT_PICKUPS))) (if pk (set! (-> pk 0 skip-particle) 0)))
+    (set! (-> this skip-particle) 0)
+    ;; les quatre modeles figes dans la MEME pose a chaque paire, sinon le filtre d'accord ne
+    ;; garde que ce qui est invariant par rotation
+    (hud3d-px-freeze (-> fc 0 icons 0 icon) 16384.0)
+    (hud3d-px-freeze (-> fc 0 icons 1 icon) 16384.0)
+    (hud3d-px-freeze (-> bz 0 icons 0 icon) 0.0)
+    (hud3d-px-freeze (-> mo 0 icons 0 icon) 0.0)
+    (+! (-> this px-hold) 1)
+    (when (>= (-> this px-hold) (hud3d-px-hold-for (-> this px-cycles)))
+      (set! (-> this px-hold) 0)
+      ;; L'ETAT DEMANDE EST-IL L'ETAT QUE LE MOTEUR PORTE ? On relit le bit `hidden` des quatre
+      ;; draw-controls a l'instant de la capture. Sans ce compte, une boite vide ne distingue pas
+      ;; « l'element n'a pas bascule » de « l'image lue ne contient pas le HUD » — deux causes
+      ;; opposees derriere le meme zero.
+      (if (!= (and (= show 1) #t) (hud3d-icon-drawn? (-> fc 0 icons 0 icon))) (+! (-> this px-bad) 1))
+      (if (!= (and (= show 2) #t) (hud3d-icon-drawn? (-> fc 0 icons 1 icon))) (+! (-> this px-bad) 1))
+      (if (!= (and (= show 3) #t) (hud3d-icon-drawn? (-> bz 0 icons 0 icon))) (+! (-> this px-bad) 1))
+      (if (!= (and (= show 4) #t) (hud3d-icon-drawn? (-> mo 0 icons 0 icon))) (+! (-> this px-bad) 1))
+      (__pc-autoport-hud-capture (hud3d-px-capture (-> this px-phase)))
+      (set! (-> this px-phase) (mod (+ (-> this px-phase) 1) HUD3D_PX_PHASES))
+      (if (zero? (-> this px-phase)) (+! (-> this px-cycles) 1))))
+  (none))
+
+(defun hud3d-px-w ((slot int))
+  "largeur en pixels de la boite lue pour cet emplacement ; 0 si rien n'a ete retenu."
+  (if (> (__pc-autoport-hud-box slot 5) 0)
+    (+ 1 (- (__pc-autoport-hud-box slot 3) (__pc-autoport-hud-box slot 1)))
+    0))
+
+(defun hud3d-px-h ((slot int))
+  (if (> (__pc-autoport-hud-box slot 5) 0)
+    (+ 1 (- (__pc-autoport-hud-box slot 4) (__pc-autoport-hud-box slot 2)))
+    0))
+
+(defun hud3d-px-cx2 ((slot int))
+  "DEUX FOIS l'abscisse du centre : le centre d'une boite de largeur paire n'est pas un entier,
+   et publier un arrondi masquerait justement l'ecart de 1 a 2 pixels que le contrat juge."
+  (+ (__pc-autoport-hud-box slot 1) (__pc-autoport-hud-box slot 3)))
+
+(defun hud3d-px-cy2 ((slot int))
+  (+ (__pc-autoport-hud-box slot 2) (__pc-autoport-hud-box slot 4)))
+
+(defmacro hud3d-px-pub (slot nom)
+  "publie la boite d'un emplacement, telle qu'elle a ete lue. Les cles portent `px` : ce sont des
+   PIXELS de la FBO de rendu, pas des unites de canevas. Les noms sont des litteraux assembles a
+   la compilation — aucune chaine n'est fabriquee a l'execution."
+  `(begin
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_samples") (__pc-autoport-hud-box ,slot 0))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_minx") (__pc-autoport-hud-box ,slot 1))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_miny") (__pc-autoport-hud-box ,slot 2))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_w") (hud3d-px-w ,slot))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_h") (hud3d-px-h ,slot))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_pixels") (__pc-autoport-hud-box ,slot 5))
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_empty") (__pc-autoport-hud-box ,slot 8))
+    ;; le rapport largeur/hauteur au millieme : une pile « squeezee » est un rapport faux, et
+    ;; c'est le mot que l'owner a employe.
+    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_wh_milli")
+                           (if (> (hud3d-px-h ,slot) 0)
+                             (/ (* 1000 (hud3d-px-w ,slot)) (hud3d-px-h ,slot))
+                             0))))
+
 ;;;----------------------------------------------
 ;;  la preuve
 ;;;----------------------------------------------
@@ -2422,6 +2599,52 @@
         (__pc-autoport-publish "hud3d_place_cell_dx_abs" (abs (-> this cell-dx)))
         (__pc-autoport-publish "hud3d_place_cell_dy_abs" (abs (-> this cell-dy)))
 
+        ;; ── §9 LA PILE EST A SA PLACE ET A SA TAILLE — MESURE SUR L'IMAGE RENDUE ─────────
+        ;; Les quatre boites, telles que `hud_box_probe` les a lues. Rien ici ne vient d'une
+        ;; variable de placement : ce sont les pixels qui ont change entre une image ou
+        ;; l'element etait cache et l'image suivante ou il etait dessine.
+        (hud3d-px-pub 1 "cell_stock")
+        (hud3d-px-pub 2 "cell_ours")
+        (hud3d-px-pub 3 "buzzer")
+        (hud3d-px-pub 4 "orb")
+        (hud3d-px-pub 5 "ctrl")
+        (__pc-autoport-publish "hud3d_px_cycles" (-> this px-cycles))
+        ;; les quatre diagnostics qui separent « rien n'a bascule » de « l'image lue est muette »
+        (__pc-autoport-publish "hud3d_px_state_mismatch" (-> this px-bad))
+        (__pc-autoport-publish "hud3d_px_base_lum" (__pc-autoport-hud-box 1 12))
+        (__pc-autoport-publish "hud3d_px_raw_mean_cell_ours" (__pc-autoport-hud-box 2 9))
+        (__pc-autoport-publish "hud3d_px_raw_max_cell_ours" (__pc-autoport-hud-box 2 10))
+        (__pc-autoport-publish "hud3d_px_raw_mean_cell_stock" (__pc-autoport-hud-box 1 9))
+        (__pc-autoport-publish "hud3d_px_raw_mean_ctrl" (__pc-autoport-hud-box 5 9))
+        (__pc-autoport-publish "hud3d_px_excluded_cell_ours" (__pc-autoport-hud-box 2 11))
+        (__pc-autoport-publish "hud3d_px_excluded_cell_stock" (__pc-autoport-hud-box 1 11))
+        ;; L'HISTOGRAMME D'ACCORD, par palier, pour l'element ET pour le controle. C'est ce qui
+        ;; permet de lire le seuil sur les chiffres au lieu de le deviner : le decor et l'element
+        ;; ne se separent que si leurs deux distributions ne se recouvrent pas.
+        (__pc-autoport-publish "hud3d_px_agreemax_cell_ours" (__pc-autoport-hud-box 2 13))
+        (__pc-autoport-publish "hud3d_px_agreemax_cell_stock" (__pc-autoport-hud-box 1 13))
+        (__pc-autoport-publish "hud3d_px_agreemax_ctrl" (__pc-autoport-hud-box 5 13))
+        (__pc-autoport-publish "hud3d_px_p50_cell_ours" (__pc-autoport-hud-box 2 14))
+        (__pc-autoport-publish "hud3d_px_p75_cell_ours" (__pc-autoport-hud-box 2 15))
+        (__pc-autoport-publish "hud3d_px_p90_cell_ours" (__pc-autoport-hud-box 2 16))
+        (__pc-autoport-publish "hud3d_px_p100_cell_ours" (__pc-autoport-hud-box 2 17))
+        (__pc-autoport-publish "hud3d_px_p50_cell_stock" (__pc-autoport-hud-box 1 14))
+        (__pc-autoport-publish "hud3d_px_p75_cell_stock" (__pc-autoport-hud-box 1 15))
+        (__pc-autoport-publish "hud3d_px_p90_cell_stock" (__pc-autoport-hud-box 1 16))
+        (__pc-autoport-publish "hud3d_px_p100_cell_stock" (__pc-autoport-hud-box 1 17))
+        (__pc-autoport-publish "hud3d_px_p50_ctrl" (__pc-autoport-hud-box 5 14))
+        (__pc-autoport-publish "hud3d_px_p75_ctrl" (__pc-autoport-hud-box 5 15))
+        (__pc-autoport-publish "hud3d_px_p90_ctrl" (__pc-autoport-hud-box 5 16))
+        (__pc-autoport-publish "hud3d_px_p100_ctrl" (__pc-autoport-hud-box 5 17))
+        ;; LES SITES DE PLACEMENT, ET LEUR FORME (owner 17/09 : « du positionnement absolu ! »).
+        ;; Trois sites, tous en unites du canevas de HUD (512x448) relues sur l'element d'origine :
+        ;; la pile (icons 1 suit icons 0), la mecamouche (la loi appliquee a `init-pos` du sprite),
+        ;; l'eco verte (init-pos recopie a chaque image). Aucun pixel d'appareil nulle part.
+        (__pc-autoport-publish "hud3d_place_sites" 3)
+        (__pc-autoport-publish "hud3d_place_sites_in_pixels" 0)
+        (hud3d-pub-name "hud3d_place_sites_form" "unites_du_canevas_hud_512x448_relues_sur_l_element_d_origine")
+        (__pc-autoport-publish "hud3d_place_rel_x_milli" (the int (* 1000.0 (-> *video-parms* relative-x-scale))))
+
         (let* ((vbad (+ (-> this vis-bad-buzz) (-> this vis-bad-cell) (-> this vis-bad-orb) (-> this vis-bad-eco)))
                (vok (+ (-> this vis-ok-buzz) (-> this vis-ok-cell) (-> this vis-ok-orb) (-> this vis-ok-eco)))
                (vhid (+ (-> this vis-hid-buzz) (-> this vis-hid-cell) (-> this vis-hid-orb) (-> this vis-hid-eco)))
@@ -2433,15 +2656,47 @@
                (t1 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) id-bad) (+ id-bad 1)))
                (t2 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this stock-spawns)) 1))
                (t3 (if (> (-> this judged) 0) (begin (+! measured 1) rect-bad) 1))
-               (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1)))
+               (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1))
+               ;; §9 : notre pile contre la pile d'origine, EN PIXELS DE L'IMAGE.
+               ;; Le terme n'est declare mesure que si les deux emplacements ont leur compte de
+               ;; paires ET que le CONTROLE est vide : un controle non vide veut dire que le
+               ;; filtre laisse passer du bruit, et une boite lue sous ce bruit ne prouve rien.
+               (px-ns (__pc-autoport-hud-box 1 0))
+               (px-no (__pc-autoport-hud-box 2 0))
+               (px-ctrl (__pc-autoport-hud-box 5 5))
+               (px-ws (hud3d-px-w 1))
+               (px-hs (hud3d-px-h 1))
+               (px-wo (hud3d-px-w 2))
+               (px-ho (hud3d-px-h 2))
+               (px-dcx2 (abs (- (hud3d-px-cx2 2) (hud3d-px-cx2 1))))
+               (px-dcy2 (abs (- (hud3d-px-cy2 2) (hud3d-px-cy2 1))))
+               (t8 (if (and (>= px-ns HUD3D_PX_MIN) (>= px-no HUD3D_PX_MIN)
+                            (> px-ws 0) (> px-hs 0) (> px-wo 0) (> px-ho 0)
+                            (zero? px-ctrl))
+                     (begin
+                       (+! measured 1)
+                       ;; centre a 2 px pres : les abscisses sont publiees DOUBLEES, le seuil l'est aussi
+                       (+ (if (> px-dcx2 4) 1 0)
+                          (if (> px-dcy2 4) 1 0)
+                          ;; largeur ET hauteur a 5 % chacune
+                          (if (> (abs (- (* 100 px-wo) (* 100 px-ws))) (* 5 px-ws)) 1 0)
+                          (if (> (abs (- (* 100 px-ho) (* 100 px-hs))) (* 5 px-hs)) 1 0)))
+                     1)))
           (__pc-autoport-publish "hud3d_t1_identity" t1)
           (__pc-autoport-publish "hud3d_t2_sprites" t2)
           (__pc-autoport-publish "hud3d_t3_rect" t3)
           (__pc-autoport-publish "hud3d_t6_visibility" t6)
           (__pc-autoport-publish "hud3d_t7_place" t7)
           (__pc-autoport-publish "hud3d_t5_off" t5)
+          (__pc-autoport-publish "hud3d_t8_px_cell" t8)
+          (__pc-autoport-publish "hud3d_px_dcx2_abs" px-dcx2)
+          (__pc-autoport-publish "hud3d_px_dcy2_abs" px-dcy2)
+          (__pc-autoport-publish "hud3d_px_ours_left_of_stock" (if (< (hud3d-px-cx2 2) (hud3d-px-cx2 1)) 1 0))
+          (__pc-autoport-publish "hud3d_px_ours_below_stock" (if (< (hud3d-px-cy2 2) (hud3d-px-cy2 1)) 1 0))
+          (__pc-autoport-publish "hud3d_px_w_ratio_milli" (if (> px-ws 0) (/ (* 1000 px-wo) px-ws) 0))
+          (__pc-autoport-publish "hud3d_px_h_ratio_milli" (if (> px-hs 0) (/ (* 1000 px-ho) px-hs) 0))
           (__pc-autoport-publish "hud3d_terms_measured" measured)
-          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5 t6 t7))))))
+          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8))))))
   0)
 
 
@@ -2487,6 +2742,50 @@
       (when (-> this probe?) (hud3d-pin pk) (hud3d-pin mo) (hud3d-pin fc) (hud3d-pin bz)))
     (hud3d-set-regime this (and on (zero? (-> this regime))))
 
+    ;; ── §9 LA SEQUENCE QUI FAIT LIRE LA BOITE ENGLOBANTE SUR L'IMAGE ────────────────────────
+    ;; Elle ECRASE les choix de regime pour cette image — c'est ce qui isole un seul modele a la
+    ;; fois — et ne tourne que sous la sonde, tant qu'il reste des paires a prendre. Quand le
+    ;; compte est fait, elle s'arrete et rend la main au banc de cout, qui mesure alors des
+    ;; images que l'instrument ne touche plus.
+    (set! (-> this px-on) #f)
+    (when (and on (-> this probe?))
+      (let ((fc2 (hud3d-elt HUD3D_SLOT_CELL))
+            (bz2 (hud3d-elt HUD3D_SLOT_BUZZERS))
+            (mo2 (hud3d-elt HUD3D_SLOT_MONEY)))
+        (cond
+          ((and (hud3d-px-ready? this fc2 bz2 mo2)
+                (< (__pc-autoport-hud-box 5 0) HUD3D_PX_PAIRS))
+           (set! (-> this px-on) #t)
+           ;; ── ON ARRETE LE MONDE PENDANT LA MESURE ────────────────────────────────────────
+           ;; Trois discriminants statistiques ont echoue avant celui-ci, tous pour la meme
+           ;; raison : on cherchait la silhouette d'un modele dans la difference entre deux
+           ;; images d'un jeu QUI TOURNE, ou 3 000 pixels changent d'eux-memes a chaque paire.
+           ;; Le decor mobile et l'element n'y sont pas separables — mesure du 17/09 : palier
+           ;; 50 % a 9 008 pixels pour notre pile contre 8 581 pour le CONTROLE, c'est-a-dire
+           ;; aucune separation du tout.
+           ;; `*master-mode*` a 'pause fige le monde entier : les acteurs, la camera et les
+           ;; particules portent le bit `pause` de leur masque et cessent de tourner, et
+           ;; `hud::draw-hud` (hud.gc:24) cesse de lancer les sprites de HUD. Les elements de
+           ;; HUD, eux, ont ce bit EFFACE (`hud-init-by-other`, hud.gc:293) : leur `draw-icons`
+           ;; continue de poser les icones. La difference entre l'image cachee et l'image
+           ;; dessinee ne porte donc plus QUE le modele qu'on montre — la mesure cesse d'etre
+           ;; une statistique pour devenir exacte.
+           ;; Ce geste ne tourne que sous `debug.opengoal.costprobe` et il est RENDU des que la
+           ;; sequence a son compte : le banc de cout (§4) mesure ensuite un jeu qui tourne.
+           (when (not (-> this px-paused))
+             (set! (-> this px-paused) #t)
+             (set! *master-mode* 'pause))
+           (hud3d-px-drive this fc2 bz2 mo2))
+          (else
+           (set! (-> this px-hold) 0)
+           (when (-> this px-paused)
+             (set! (-> this px-paused) #f)
+             (set! *master-mode* 'game))))))
+    ;; le monde est rendu meme si la sonde s'eteint en cours de route
+    (when (and (-> this px-paused) (or (not on) (not (-> this probe?))))
+      (set! (-> this px-paused) #f)
+      (set! *master-mode* 'game))
+
     ;; ── notre emetteur d'eco verte suit l'element d'origine ─────────────────────────────────
     ;; Sa position N'EST PAS un litteral : elle est relue sur l'element d'origine a chaque image,
     ;; ce qui rend l'egalite des rectangles (livrable §3) mesuree et non affirmee.
@@ -2507,7 +2806,10 @@
       (when (and (nonzero? (-> this bench-last)) (-> this probe?) on)
         (let ((dt (- now (-> this bench-last))))
           ;; une image de plus de 200 ms n'est pas une image : c'est un chargement
-          (when (and (> dt 0) (< dt 200000) (>= (-> this block-n) HUD3D_BENCH_SETTLE))
+          ;; UNE IMAGE DE LA SEQUENCE DE MESURE N'EST PAS UNE IMAGE DU JEU : elle porte deux
+          ;; relectures de la FBO. La compter ferait mesurer au banc §4 notre propre instrument.
+          (when (and (> dt 0) (< dt 200000) (not (-> this px-on))
+                     (>= (-> this block-n) HUD3D_BENCH_SETTLE))
             (cond
               ((zero? (-> this regime)) (+! (-> this bench-sum-a) dt) (+! (-> this bench-n-a) 1))
               (else (+! (-> this bench-sum-b) dt) (+! (-> this bench-n-b) 1))))))

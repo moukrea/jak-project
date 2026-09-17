@@ -3,6 +3,7 @@
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hud_box_probe.h"
 #include "game/graphics/opengl_renderer/hdr_desktop.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
@@ -1299,6 +1300,21 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
     }
     finish_screenshot(settings.screenshot_path, w, h, x, y, fbo_id, read_buffer,
                       settings.quick_screenshot);
+  }
+
+  // hud-3d-pickups — LA BOITE ENGLOBANTE D'UN ELEMENT DU HUD, LUE SUR L'IMAGE RENDUE.
+  // Meme FBO que la capture « resolution interne » juste au-dessus : celle ou le jeu a dessine
+  // le monde PUIS son HUD. On lit ici, apres le composite, parce que c'est la derniere image
+  // que la dalle recevra. Inerte hors `debug.opengoal.costprobe=hud-3d-pickups` : `armed()` est
+  // faux et rien n'est lu ni alloue.
+  if (hud_box_probe::armed()) {
+    Fbo* src = m_fbo_state.resources.resolve_buffer.valid ? &m_fbo_state.resources.resolve_buffer
+                                                          : m_fbo_state.render_fbo;
+    hud_box_probe::end_of_frame(src && src->valid ? src->fbo_id : 0,
+                                src && src->valid ? src->width : 0,
+                                src && src->valid ? src->height : 0,
+                                m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+                                settings.draw_region_width, settings.draw_region_height);
   }
 
   if (settings.draw_render_debug_window) {

@@ -33,6 +33,7 @@
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/hud_box_probe.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
@@ -1671,6 +1672,23 @@ s32 pc_autoport_cost_probe(u32 id_str) {
   }
 #endif
   return 0;
+}
+
+// hud-3d-pickups — LA MESURE DE POSITION EN PIXELS, PILOTEE PAR GOAL.
+//
+// La porte de l'essai 2 comparait `icons 1 icon-x` a `icons 0 icon-x` — deux entiers que
+// `hud3d-set-regime` venait de rendre egaux — et l'etendue `sc*r1` a `scale0*r0` avec
+// `sc = scale0*r0/r1` : deux egalites vraies PAR CONSTRUCTION. Elle rendait donc 0 sur une pile
+// que l'owner voyait « minuscule et squeezee ». Ces deux ponts remplacent ce miroir par une
+// lecture de l'IMAGE : GOAL cache l'element une image, le montre l'image suivante, et
+// `hud_box_probe` retient les pixels qui ont change. Aucune variable de placement n'entre dans
+// le resultat.
+void pc_autoport_hud_capture(s64 slot) {
+  hud_box_probe::request((int)slot);
+}
+
+s64 pc_autoport_hud_box(s64 slot, s64 field) {
+  return (s64)hud_box_probe::read((int)slot, (int)field);
 }
 
 // menu-dpad-steps : une passe de `respond-common` remontee au recensement. GOAL donne l'etat
@@ -4930,6 +4948,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-autoport-publish-text", (void*)pc_autoport_publish_text);
   make_function_symbol_from_c("__pc-autoport-now-us", (void*)pc_autoport_now_us);
   make_function_symbol_from_c("__pc-autoport-cost-probe", (void*)pc_autoport_cost_probe);
+  // hud-3d-pickups : la boite englobante lue sur l'image rendue (remplace le miroir de l'essai 2)
+  make_function_symbol_from_c("__pc-autoport-hud-capture", (void*)pc_autoport_hud_capture);
+  make_function_symbol_from_c("__pc-autoport-hud-box", (void*)pc_autoport_hud_box);
   make_function_symbol_from_c("__pc-menu-dpad-frame", (void*)pc_menu_dpad_frame);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
