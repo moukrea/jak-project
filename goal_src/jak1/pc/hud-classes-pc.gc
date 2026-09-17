@@ -1640,6 +1640,22 @@
 (defconstant HUD3D_SLOT_BUZZERS 4)
 (defconstant HUD3D_SLOT_MONEY_ALL 8)
 
+;; L'ORBE NE DESSINE AUCUN MODELE, ET CE N'EST PAS CETTE COUCHE (mesure du 17/09, bureau).
+;; `hud-money` porte deja le vrai modele du ramassable (`*money-sg*`, hud-classes.gc:597), mais son
+;; icone revient SANS SQUELETTE : `hud3d_orb_state=3`. Le bras d'ablation, ou rien de ce fichier ne
+;; tourne, publie le MEME 3 — le defaut preexiste a l'item. Ce qui est etabli :
+;;   * le groupe d'art EST charge : `hud3d_artgrp_money=1` (et `_any=1`) ;
+;;   * un respawn echoue exactement pareil, 200 fois sur 200 : `hud3d_orb_spawn_noskel=200`,
+;;     `hud3d_orb_spawn_null=0` — ce n'est ni le pool de process ni une fenetre de chargement ;
+;;   * ramener la liste des detours de detail a un seul maillage (money-lod0-mg) ne change RIEN :
+;;     `setup-lods!` n'est donc pas le chemin d'echec.
+;; Restent, dans `initialize-skeleton` (process-drawable.gc:390-398), la garde `joint-geo` — un
+;; indice d'element d'art fige a la COMPILATION qui ne designerait plus un `art-joint-geo` dans le
+;; `money-ag` reellement charge. La chaine HD (`HD-MODELS merc-load model=money-lod0/1/2`) touche
+;; ces memes groupes d'art sur le bureau et PAS sur l'appareil livre : c'est la piste, et c'est la
+;; course appareil qui tranchera. Consigne dans reports/hud-3d-pickups/FINDINGS.txt.
+;; La reparation ci-dessous reste en place et plafonnee : elle repare le jour ou l'art se resout.
+
 (deftype hud-3d-pickups (hud-pc)
   ((on?             symbol)
    (probe?          symbol)
@@ -1669,7 +1685,10 @@
    (id-bad          int32)
    (rect-bad        int32)
    (slots-drawn     int32)
-   (live-slots      int32)))
+   (live-slots      int32)
+   (orb-tries       int32)
+   (orb-null        int32)
+   (orb-noskel      int32)))
 
 ;;;----------------------------------------------
 ;;  petites mesures
@@ -1973,10 +1992,17 @@
    en SIGSEGV (course du 17/09) : `deactivate` ne remet pas `self` a zero, et le slot peut deja
    pointer sur de la memoire rendue au pool puis reprise par un autre process. On remplace le
    pointeur ; le zombie, qui ne dessine rien, s'eteindra avec son parent."
-  (when (and (hud3d-elt HUD3D_SLOT_MONEY) (>= (hud3d-orb-state this) 1))
+  (when (and (hud3d-elt HUD3D_SLOT_MONEY) (>= (hud3d-orb-state this) 1) (< (-> this orb-tries) 200))
     (let* ((mo (hud3d-elt HUD3D_SLOT_MONEY))
            (obj (-> mo 0))
            (nm (manipy-spawn (new 'static 'vector :w 1.0) #f *money-sg* #f :to obj)))
+      (+! (-> this orb-tries) 1)
+      (if (not (and nm (-> nm 0))) (+! (-> this orb-null) 1))
+      ;; un manipy sans squelette est un process VIVANT qui ne dessinera jamais : le laisser en
+      ;; fuirait un par image. On le rend tout de suite.
+      (when (and nm (-> nm 0) (zero? (-> nm 0 skel)))
+        (+! (-> this orb-noskel) 1)
+        (deactivate (ppointer->process nm)))
       (when (and nm (-> nm 0) (nonzero? (-> nm 0 skel)))
         (set! (-> nm 0 draw dma-add-func) dma-add-process-drawable-hud)
         (set-vector! (-> nm 0 root trans) 0.0 0.0 0.0 1.0)
@@ -2085,6 +2111,21 @@
     ;; variable : c'est ce que `initialize-skeleton` a trouve.
     (hud3d-pub-name "hud3d_model_orb" n-orb)
     (__pc-autoport-publish "hud3d_orb_state" (hud3d-orb-state this))
+    (__pc-autoport-publish "hud3d_orb_tries" (-> this orb-tries))
+    (__pc-autoport-publish "hud3d_orb_spawn_null" (-> this orb-null))
+    (__pc-autoport-publish "hud3d_orb_spawn_noskel" (-> this orb-noskel))
+    ;; L'ORBE NE DESSINE AUCUN MODELE, ET CE N'EST PAS NOUS : le bras d'ablation rend le meme
+    ;; `hud3d_orb_state=3`. On demande donc au CHARGEUR ce qu'il porte, au lieu de supposer.
+    (__pc-autoport-publish "hud3d_artgrp_money"
+                           (if (art-group-get-by-name (-> *level* level-default) "money") 1 0))
+    (__pc-autoport-publish "hud3d_artgrp_fuel_cell"
+                           (if (art-group-get-by-name (-> *level* level-default) "fuel-cell") 1 0))
+    (__pc-autoport-publish "hud3d_artgrp_fuelcell_naked"
+                           (if (art-group-get-by-name (-> *level* level-default) "fuelcell-naked") 1 0))
+    (__pc-autoport-publish "hud3d_artgrp_buzzer"
+                           (if (art-group-get-by-name (-> *level* level-default) "buzzer") 1 0))
+    (__pc-autoport-publish "hud3d_artgrp_money_any"
+                           (if (art-group-get-by-name *level* "money") 1 0))
     (hud3d-pub-name "hud3d_model_cell" n-cell)
     (hud3d-pub-name "hud3d_model_buzzer" n-buzz)
     (hud3d-pub-name "hud3d_pickup_orb" (-> *money-sg* art-group-name))
