@@ -966,6 +966,30 @@ uint64_t s_static_moved_self_dz = 0;    // ... dont la profondeur PROPRE a bouge
 // son garde n'avait pas de seuil. Publies par etat, sommes par bras. Aucun terme ne les lit.
 uint64_t s_static_pop_x[kCensusStates] = {0};
 uint64_t s_static_moved_x[kCensusStates] = {0};
+// ── (terme 5, essai 3) LE GARDE QUI COUVRE CE QUE LE TEXEL LIT VRAIMENT ──────────────────────
+// La boite ci-dessus fait 0,10 UV : c'est le plafond que GTAO et HBAO se donnent sur leur marche
+// d'ECRAN (`ao_gtao.frag`, `ao_hbao.frag`), et rien de plus. Or le texel publie n'est pas la
+// sortie de l'estimateur. Entre les deux il y a, dans cet ordre :
+//   . le FLOU, 4 boites a la qualite Elevee et 3 sinon, strides {1,2,3,5}, taps a ±2·s TEXELS DU
+//     TAMPON D'AO (`kBlurStrides`, AmbientOcclusion.cpp) — soit 2·Σs/scale PIXELS D'ECRAN :
+//     22 px en pleine resolution, 24 px a demi, 48 px au quart ;
+//   . la passe de CRETE, ±1 texel pleine resolution (`ao_blur.frag`, `u_ridge_fill`) ;
+//   . la carte de CONTACT, ±(kContactRadius + 1) puis une tente ±2, pleine resolution : ±8 px.
+// Un occluder qui bouge entre 80 et 137 pixels du texel change donc son AO sans que le garde de
+// 0,10 UV ne le voie, et le texel est compte comme un defaut. Ces compteurs-ci portent le garde
+// ELARGI a la chaine ENTIERE, avec la profondeur identique AU BIT PRES (aucun seuil de 4 quanta),
+// et DEUX seuils d'ecart d'AO : `_gt2` garde l'ancien (2/255) pour la comparaison, `_any` n'en a
+// AUCUN. C'est `_any` que le terme 5 lit — le contrat dit « 0 texel bouge », pas « peu » — et
+// c'est defendable : entrees identiques au bit pres, un shader deterministe rend la MEME sortie,
+// et les trois estimateurs n'ont ni `u_frame` ni `u_time` (leur bruit est procedural, ancre a
+// l'ECRAN dans le regime livre). Un ecart non nul est un defaut, pas un arrondi.
+uint64_t s_static_pop_w[kCensusStates] = {0};
+uint64_t s_static_moved_w_gt2[kCensusStates] = {0};
+uint64_t s_static_moved_w_any[kCensusStates] = {0};
+uint64_t s_static_box_rx[kCensusStates] = {0};
+uint64_t s_static_box_ry[kCensusStates] = {0};
+uint64_t s_static_w_worst_ao = 0, s_static_w_worst_x = 0, s_static_w_worst_y = 0;
+uint64_t s_static_w_worst_state = 0;
 uint64_t s_static_moved_worst_ao = 0;   // le plus gros ecart d'AO (unites R8) parmi eux
 uint64_t s_static_moved_worst_x = 0, s_static_moved_worst_y = 0;
 uint64_t s_static_moved_worst_state = 0, s_static_moved_worst_dzq = 0;
@@ -2186,17 +2210,51 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
             s_static_changed_x[i] = (sn && so) ? 0u : ((sn != so || zn != zo) ? 1u : 0u);
           }
           // ── LA BOITE DE CONFINEMENT : 0,10 EN UV, ET CE N'EST PAS UN REGLAGE ───────────
-          // C'est la borne que les estimateurs se donnent EUX-MEMES sur leur marche d'ecran :
-          // `ao_gtao.frag:155` et `ao_hbao.frag:148` font tous deux
-          // `screen_r = clamp(screen_r, 2.0*max(px.x,px.y), 0.10)`, en unites UV. Un mobile
-          // plus loin que cette borne ne peut PAS avoir change l'AO de ce texel, en GTAO comme
-          // en HBAO : aucun de leurs echantillons ne l'atteint. LA LIMITE, DITE : SSAO, lui,
-          // projette ses points d'echantillon a l'ecran sans plafond (`project_world(sp)`,
-          // ao_ssao.frag) — pour SSAO la boite est une borne PRATIQUE, pas une garantie.
+          // C'est la borne que GTAO et HBAO se donnent sur leur MARCHE D'HORIZON :
+          // `screen_r = clamp(screen_r, 2.0*max(px.x,px.y), 0.10)`, en unites UV.
+          // ATTENTION — CE N'EST UNE GARANTIE POUR AUCUN DES TROIS ESTIMATEURS, et l'essai 3 l'a
+          // chiffre. Les trois portent EN PLUS un noyau hemispherique MONDE de rayon 5120 qui
+          // n'est pas plafonne a l'ecran (SSAO directement, GTAO et HBAO par `broad_occ`, arme
+          // en jeu par `u_broad`) : sur la vue de la hutte il porte a 157 px en x et 137 px en y,
+          // contre les 80 x 60 de cette boite. Et la boite n'a jamais compte AUCUNE des passes
+          // qui suivent l'estimateur — le flou porte a lui seul 48 px a la qualite Basse.
+          // Cette boite-ci reste donc ce qu'elle est : le garde LACHE, publie sous
+          // `ao_static_loose_*` et qu'AUCUN terme ne lit plus. Le terme 5 lit le garde de la
+          // portee reelle, calcule pixel par pixel un peu plus bas.
           const int rx = (int)std::ceil(0.10 * (double)w);
           const int ry = (int)std::ceil(0.10 * (double)h);
           s_static_guard_rx = (uint64_t)rx;
           s_static_guard_ry = (uint64_t)ry;
+          // ══ LA PORTEE REELLE D'UN TEXEL D'AO, ET POURQUOI ELLE N'EST PAS 0,10 UV ═══════════
+          // Le commentaire ci-dessus est FAUX et la mesure de l'essai 3 le montre : le plafond
+          // `clamp(screen_r, …, 0.10)` ne borne QUE la marche d'horizon de GTAO et HBAO. Les
+          // trois estimateurs portent EN PLUS un noyau hemispherique MONDE, non plafonne a
+          // l'ecran :
+          //   . SSAO : `sp = P + N*0,02*R + dir*R`, R = 5120 (ao_ssao.frag:167 ; u_radius,
+          //     AmbientOcclusion.cpp, case 1) ;
+          //   . GTAO et HBAO : le MEME noyau par `broad_occ`, `BR = 5120` (ao_gtao.frag:71,85 et
+          //     ao_hbao.frag), arme EN JEU par `u_broad` (jamais nul pour les modes 2 et 3).
+          // Le texel lit donc une BOULE MONDE de rayon 1,02*5120 — et le rapport monde/pixel va
+          // en 1/D. Une boite fixe est soit trop petite au premier plan (157 px mesures sur la
+          // vue de la hutte contre 80), soit absurde au fond, ou elle mangerait la population
+          // entiere. On convertit donc la boule PIXEL PAR PIXEL, avec la MEME deprojection que
+          // les shaders (`census_world`), en mesurant ce que vaut UN pixel en unites monde a la
+          // profondeur de CE texel. Aucun reglage : deux constantes du code et une projection.
+          // S'y ajoute ce que la chaine AVAL propage, en pixels d'ecran :
+          //   . le flou, 2·Σ strides / scale  (kBlurStrides {1,2,3,5}, nboxes 4 a la qualite
+          //     Elevee et 3 sinon) : 22 px en pleine resolution, 24 a demi, 48 au quart ;
+          //   . la passe de crete, 4 passes de ±1 texel pleine resolution ;
+          //   . la carte de contact, ±(kContactRadius+1) puis une tente ±2 : ±8 px.
+          const int q_state = state % 3;
+          const int sum_strides = (q_state == 2) ? (1 + 2 + 3 + 5) : (1 + 2 + 3);
+          const uint64_t q_milli =
+              s_scale_q_x1000[q_state] ? s_scale_q_x1000[q_state]
+                                       : (q_state == 0 ? 250ull : q_state == 1 ? 500ull : 1000ull);
+          const int blur_px = (int)std::ceil(2000.0 * (double)sum_strides / (double)q_milli);
+          const int chain_px = blur_px + 4 /* crete, 4 passes de ±1 */ + 8 /* carte de contact */;
+          constexpr float kAoWorldReach = 1.02f * 5120.f;  // le plus grand |sp - P| des trois
+          // `s_static_box_rx/ry` gardent le PLUS GRAND rayon exige sur TOUTE la course : les
+          // remettre a `chain_px` a chaque paire ne publierait que la derniere.
           // Table de surface en uint32_t : le masque ne vaut que 0 ou 1 et w*h se compte en
           // millions, la somme totale tient largement. Recalculee sur les seules images
           // SONDEES, comme tout le bloc.
@@ -2242,6 +2300,14 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
                    s_static_sat_x[(size_t)(y1 + 1) * sw + (size_t)x0] +
                    s_static_sat_x[(size_t)y0 * sw + (size_t)x0];
           };
+          auto box_changed_x_w = [&](int x, int y, int brx, int bry) -> uint32_t {
+            const int x0 = std::max(0, x - brx), y0 = std::max(0, y - bry);
+            const int x1 = std::min(w - 1, x + brx), y1 = std::min(h - 1, y + bry);
+            return s_static_sat_x[(size_t)(y1 + 1) * sw + (size_t)(x1 + 1)] -
+                   s_static_sat_x[(size_t)y0 * sw + (size_t)(x1 + 1)] -
+                   s_static_sat_x[(size_t)(y1 + 1) * sw + (size_t)x0] +
+                   s_static_sat_x[(size_t)y0 * sw + (size_t)x0];
+          };
           auto box_changed = [&](int x, int y) -> uint32_t {
             const int x0 = std::max(0, x - rx), y0 = std::max(0, y - ry);
             const int x1 = std::min(w - 1, x + rx), y1 = std::min(h - 1, y + ry);
@@ -2268,6 +2334,54 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
               upop++;
               if (ao_moved) {
                 umoved++;
+              }
+              // ── (terme 5) LE GARDE DE LA CHAINE ENTIERE ────────────────────────────────
+              // Il se compte AVANT le `continue` du garde LACHE : sinon le terme serait un
+              // SOUS-ENSEMBLE d'une population que le seuil de 4 quanta a deja rabotee, et
+              // son zero dependrait du seuil qu'il est justement cense ne plus porter.
+              int brx = 0, bry = 0;
+              if (zn == zo && s_census_cam_valid) {
+                // UN pixel, en unites monde, A CETTE PROFONDEUR : la deprojection du voisin
+                // immediat AU MEME z. Pas de matrice avant a connaitre, pas de focale supposee.
+                float pc[3], pxn[3], pyn[3];
+                census_world(x, y, w, h, (float)zn, pc);
+                census_world(x + 1, y, w, h, (float)zn, pxn);
+                census_world(x, y + 1, w, h, (float)zn, pyn);
+                const float ux = std::sqrt((pxn[0] - pc[0]) * (pxn[0] - pc[0]) +
+                                           (pxn[1] - pc[1]) * (pxn[1] - pc[1]) +
+                                           (pxn[2] - pc[2]) * (pxn[2] - pc[2]));
+                const float uy = std::sqrt((pyn[0] - pc[0]) * (pyn[0] - pc[0]) +
+                                           (pyn[1] - pc[1]) * (pyn[1] - pc[1]) +
+                                           (pyn[2] - pc[2]) * (pyn[2] - pc[2]));
+                brx = (ux > 1e-4f) ? (int)std::ceil(kAoWorldReach / ux) : w;
+                bry = (uy > 1e-4f) ? (int)std::ceil(kAoWorldReach / uy) : h;
+                brx = std::min(brx, w) + chain_px;
+                bry = std::min(bry, h) + chain_px;
+                if ((uint64_t)brx > s_static_box_rx[state]) {
+                  s_static_box_rx[state] = (uint64_t)brx;
+                }
+                if ((uint64_t)bry > s_static_box_ry[state]) {
+                  s_static_box_ry[state] = (uint64_t)bry;
+                }
+              }
+              if (zn == zo && s_census_cam_valid && box_changed_x_w(x, y, brx, bry) == 0) {
+                s_static_pop_w[state]++;
+                if (ao_moved) {
+                  s_static_moved_w_gt2[state]++;
+                }
+                if (d != 0) {
+                  s_static_moved_w_any[state]++;
+                  const uint64_t adw = (uint64_t)(d < 0 ? -d : d);
+                  // Le bras LIVRE seulement : `ao_static_moved_worst_state` valait 17, c'est-a-
+                  // dire `legacy_hbao_q2` — le « texel a regarder » designait le TEMOIN, pas le
+                  // defaut que la porte compte.
+                  if (state < 9 && adw > s_static_w_worst_ao) {
+                    s_static_w_worst_ao = adw;
+                    s_static_w_worst_x = (uint64_t)x;
+                    s_static_w_worst_y = (uint64_t)y;
+                    s_static_w_worst_state = (uint64_t)state;
+                  }
+                }
               }
               if (box_changed(x, y) != 0) {
                 continue;  // un occluder a bouge assez pres : l'AO a le DROIT de changer
@@ -2581,7 +2695,19 @@ void AmbientOcclusionPass::publish_pattern_census() {
   uint64_t static_moved = 0, static_pop = 0, static_legacy = 0;
   uint64_t static_moved_ug = 0, static_pop_ug = 0;
   uint64_t contact_frames = 0, static_frames = 0;
+  // (terme 5, essai 3) LE GARDE DE LA CHAINE ENTIERE, agrege par bras.
+  uint64_t chain_pop = 0, chain_any = 0, chain_gt2 = 0;
+  uint64_t chain_pop_leg = 0, chain_any_leg = 0, chain_gt2_leg = 0;
   for (int i = 0; i < kCensusStates; i++) {
+    if (i < 9) {
+      chain_pop += s_static_pop_w[i];
+      chain_any += s_static_moved_w_any[i];
+      chain_gt2 += s_static_moved_w_gt2[i];
+    } else {
+      chain_pop_leg += s_static_pop_w[i];
+      chain_any_leg += s_static_moved_w_any[i];
+      chain_gt2_leg += s_static_moved_w_gt2[i];
+    }
     if (i < 9) {
       contact_band_px += s_contact_band[i];
       contact_pop_px += s_contact_pop[i];
@@ -2875,11 +3001,49 @@ void AmbientOcclusionPass::publish_pattern_census() {
   const bool wind_premise =
       exact_static_probe() || (s_static_pairs > 0 && s_static_pairs_wind_cut == s_static_pairs);
   const bool motion_seen = exact_static_probe() || (static_legacy > 0) || (static_moved_ug > 0);
-  const bool static_measured = (static_pop > 0) && wind_premise && motion_seen;
+  // ═══ (terme 5, essai 3) CE QUE LA PORTE LIT CHANGE, ET CA S'ECRIT ═══════════════════════
+  // Jusqu'a l'essai 2 le terme lisait `static_moved` : le garde LACHE (profondeur a 4 quanta
+  // pres, boite de 0,10 UV). Mesure de l'essai 2, course appareil : 14 191 des 14 195 texels
+  // comptes par les deux bras avaient un voisin de la boite qui avait bouge SANS AUCUN SEUIL.
+  // Le terme mesurait la tolerance de son propre garde. Il lit desormais le garde EXACT etendu
+  // a la portee reelle de la chaine (`s_static_*_w`, declaration ci-dessus), avec zero seuil
+  // d'ecart d'AO. L'ancienne grandeur n'est PAS retiree : elle est republiee sous
+  // `ao_static_loose_*`, avec son denominateur, pour que les cinq courses de l'essai 2 restent
+  // comparables et que personne n'ait a deviner ce qui a change.
+  const bool probe5 = exact_static_probe();
+  const uint64_t term5_moved = probe5 ? static_moved : chain_any;
+  const uint64_t term5_pop = probe5 ? static_pop : chain_pop;
+  const uint64_t term5_legacy = probe5 ? static_legacy : chain_any_leg;
+  const bool static_measured = (term5_pop > 0) && wind_premise && motion_seen;
+  autoport_proof::publish("ao_static_loose_delta_px", static_moved);
+  autoport_proof::publish("ao_static_loose_pop_px", static_pop);
+  autoport_proof::publish("ao_static_loose_legacy_px", static_legacy);
+  autoport_proof::publish("ao_static_chain_gt2_px", chain_gt2);
+  autoport_proof::publish("ao_static_chain_legacy_gt2_px", chain_gt2_leg);
+  autoport_proof::publish("ao_static_chain_legacy_pop_px", chain_pop_leg);
+  autoport_proof::publish("ao_static_chain_worst_ao", s_static_w_worst_ao);
+  autoport_proof::publish("ao_static_chain_worst_x", s_static_w_worst_x);
+  autoport_proof::publish("ao_static_chain_worst_y", s_static_w_worst_y);
+  autoport_proof::publish("ao_static_chain_worst_state", s_static_w_worst_state);
+  // Les deux constantes du code dont la boite descend, publiees pour qu'on puisse la refaire :
+  // le rayon monde des noyaux hemispheriques, et le fait que la camera etait relue.
+  autoport_proof::publish("ao_static_chain_world_reach", (uint64_t)(1.02 * 5120.0));
+  autoport_proof::publish("ao_static_chain_cam_valid", s_census_cam_valid ? 1ull : 0ull);
+  // PAR ETAT : sans ca, « 4 texels bougent » ne dit pas QUEL couple (mode, qualite) les porte,
+  // et le correctif suivant vise au hasard. Le rayon de boite retenu par etat est publie avec.
+  for (int i = 0; i < kCensusStates; i++) {
+    const std::string sfx = std::string("_") + kCensusName[i];
+    autoport_proof::publish(("ao_static_chain_pop_px" + sfx).c_str(), s_static_pop_w[i]);
+    autoport_proof::publish(("ao_static_chain_moved_px" + sfx).c_str(), s_static_moved_w_any[i]);
+    // Le PLUS GRAND rayon de garde qu'un texel de cet etat ait exige (pixels d'ecran) : la
+    // boule monde convertie a la profondeur du texel, plus ce que la chaine aval propage.
+    autoport_proof::publish(("ao_static_chain_box_rx" + sfx).c_str(), s_static_box_rx[i]);
+    autoport_proof::publish(("ao_static_chain_box_ry" + sfx).c_str(), s_static_box_ry[i]);
+  }
   autoport_proof::publish("ao_static_cam_wind_cut_pairs", s_static_pairs_wind_cut);
   autoport_proof::publish("ao_static_cam_wind_premise", wind_premise ? 1ull : 0ull);
   autoport_proof::publish("ao_static_cam_motion_seen", motion_seen ? 1ull : 0ull);
-  autoport_proof::publish("ao_static_cam_pop_px", static_pop);
+  autoport_proof::publish("ao_static_cam_pop_px", term5_pop);
   autoport_proof::publish("ao_static_cam_frames", static_frames);
   autoport_proof::publish("ao_static_cam_unguarded_px", static_moved_ug);
   autoport_proof::publish("ao_static_cam_unguarded_pop_px", static_pop_ug);
@@ -2896,7 +3060,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_guard_ry", s_static_guard_ry);
   autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
   if (static_measured) {
-    autoport_proof::publish("ao_static_cam_delta_px", static_moved);
+    autoport_proof::publish("ao_static_cam_delta_px", term5_moved);
     // (terme 5, diagnostic) LE RESIDU, NOMME. `_near_any_px` / `_self_dz_px` disent combien des
     // texels comptes ont, sans AUCUN seuil, un voisin de la boite ou eux-memes une profondeur qui
     // a change : c'est la mesure du signalement « kSameGeom = 4 quanta laisse passer les mobiles
@@ -2925,12 +3089,12 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish("ao_static_moved_worst_y", s_static_moved_worst_y);
     autoport_proof::publish("ao_static_moved_worst_state", s_static_moved_worst_state);
     autoport_proof::publish("ao_static_moved_worst_dzq", s_static_moved_worst_dzq);
-    autoport_proof::publish("ao_static_cam_legacy_px", static_legacy);
+    autoport_proof::publish("ao_static_cam_legacy_px", term5_legacy);
   } else {
     autoport_proof::publish_text("ao_static_cam_delta_px", "non-mesure");
     autoport_proof::publish_text("ao_static_cam_legacy_px", "non-mesure");
   }
-  const uint64_t t5 = static_measured ? static_moved : 1ull;
+  const uint64_t t5 = static_measured ? term5_moved : 1ull;
 
   // (7) LE PALIER ELEVE. Le contrat laisse DEUX facons de le tenir : pleine resolution, OU un
   // flou bilateral qui NE TRAVERSE PAS les aretes, prouve par un compte de texels melangeant
