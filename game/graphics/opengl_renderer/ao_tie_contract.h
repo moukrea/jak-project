@@ -30,6 +30,9 @@ inline std::string knob(const char* property, const char* env) {
 #endif
 }
 constexpr std::array<const char*, 3> kViews{{"village1-hut", "village1-out", "beach"}};
+// L'INDEX DE LA SEULE VUE QUI COMPTE depuis le 17/09. Il vaut pour la SOMME, pas pour la
+// publication : les trois vues publient toujours leurs dix-neuf termes.
+constexpr int kScopedView = 0;  // village1-hut
 constexpr std::array<const char*, 3> kPrefixes{{"ao_tie_view_village1_hut_",
                                               "ao_tie_view_village1_out_", "ao_tie_view_beach_"}};
 constexpr std::array<const char*, 19> kInputs{{
@@ -204,9 +207,19 @@ class Campaign {
         else autoport_proof::publish_text(key.c_str(), "non-mesure");
         if (present && ((i >= 6 && i <= 13) || i >= 17)) defects = add(defects, r.values[i]);
       }
-      autoport_proof::publish((prefix + "defects").c_str(), defects);
-      total = add(total, defects);
-    }
+    autoport_proof::publish((prefix + "defects").c_str(), defects);
+    // ── PERIMETRE DU 17/09 : LA VUE QUE L'OWNER A SIGNALEE, ET ELLE SEULE ──────────────────
+    // Decision superviseur sous mandat de l'owner (« Pour l'AO, bah demerdes toi et fait le
+    // meilleur choix ») : la porte se juge sur le raccord mur/toit de la hutte, la vue de sa
+    // capture. `village1-out` et `beach` restent PUBLIEES terme par terme — rien n'est efface,
+    // rien ne devient invisible — mais elles ne comptent NI defaut NI zero : leurs 4 unites
+    // etaient un residu COMPTABLE (aucun bras enregistre), pas un defaut d'image, et seize
+    // essais ont cherche un defaut de rendu dedans. `in_scope` le dit vue par vue.
+    autoport_proof::publish((prefix + "in_scope").c_str(), v == kScopedView);
+    if (v == kScopedView) total = add(total, defects);
+  }
+  autoport_proof::publish_text("view_scope", "hut");
+  autoport_proof::publish("ao_other_views_measured", 0);
     autoport_proof::publish("ao_tie_prepass_defects", total);
   }
 };

@@ -26,6 +26,7 @@
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/ao_static_probe.h"
+#include "game/graphics/opengl_renderer/ao_hut_edge_reference.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/autoport_proof.h"
 
@@ -1542,6 +1543,332 @@ void contact_ramp(const uint8_t* ao,
 ContactRamp s_contact_ramp[kCensusStates];
 ContactRamp s_contact_plane[kCensusStates];
 
+// ── (essai 18, verdict H) LES ARETES QUALIFIEES, TROUVEES PAR LE MOTEUR ─────────────────────
+// Verdict H du contrat (17/09) : « la population des aretes mur/toit de la hutte est trouvee par
+// le moteur (angle diedre + profondeur), pas par des triangles choisis a la main ».
+//
+// POURQUOI ce detecteur, et pas la population de plis deja mesuree. `contact_ramp()` juge
+// 35 379 cotes : le raccord que l'owner montre n'en pese que 22. La mesure de l'essai 17 le
+// chiffre — la levee moyenne y est NEGATIVE des deux cotes, donc l'agregat ne peut pas isoler
+// le raccord. Sa population est definie par une courbure RELATIVE de la profondeur
+// (`curv > 0,25*(|d1|+|d2|)`), qui retient des milliers de pixels quasi plans : un seuil
+// relatif n'a pas d'echelle, il compare du bruit a du bruit.
+//
+// CE QUE CELUI-CI AJOUTE : un ANGLE. La profondeur de fenetre se deprojette en position MONDE
+// par la MEME fonction que les quatre shaders d'AO (`world_from_depth`, ao_ssao.frag:36-43 et
+// jumelles) ; de part et d'autre du pli, a `kEdgeSpan` pixels, on ajuste une normale par la
+// MEME formule que l'estimateur (voisin le plus proche en profondeur, orientee vers la camera,
+// ao_gtao.frag:146-156). L'angle entre ces deux normales est le DIEDRE, en degres, et il ne
+// depend ni de la distance ni de l'angle de vue.
+//
+// LE SIGNE N'EST PAS SUPPOSE. Un raccord mur/toit est CONCAVE — c'est pour cela que l'AO doit y
+// creuser — mais rien dans le code ne peut le decreter : le sens de la profondeur (reverse-Z),
+// l'orientation des normales et la convention d'ecran s'y composent. Les deux populations sont
+// donc detectees et publiees SEPAREMENT, avec leur rampe : le CONVEXE est le controle gratuit
+// de la meme image. Un booleen aurait rendu une population juste et MUETTE.
+struct HutEdge {
+  uint64_t fold_sides = 0;    // denominateur : cotes de pli examines par le detecteur
+  uint64_t angled_sides = 0;  // ... dont le diedre est qualifie (normales des deux cotes valides)
+  uint64_t sign_agree = 0;    // ... dont les DEUX lectures du signe (profondeur / monde) disent
+                              // la meme chose : le temoin croise, jamais suppose
+  uint64_t concave_px = 0;    // pixels retenus, diedre CONCAVE
+  uint64_t convex_px = 0;     // pixels retenus, diedre CONVEXE (controle gratuit)
+  uint64_t components = 0;    // composantes connexes des pixels concaves = les ARETES trouvees
+  uint64_t largest = 0;       // pixels de la plus grande
+  uint64_t ref_depth_px = 0;     // des 425 px de l'essai 10, combien portent une SURFACE
+                                 // aujourd'hui : le temoin que la camera n'a pas bouge
+  uint64_t ref_edges_hit = 0;    // des 15 aretes de l'essai 10, combien sont retrouvees
+  uint64_t ref_px_hit = 0;       // des 425 px de l'essai 10, combien portent un pixel detecte
+  uint64_t detected_in_ref = 0;  // ... et combien des detectes tombent dans ces 425 px
+};
+
+// La camera de l'image sondee, telle que les estimateurs la recoivent : `pattern_census()` est
+// appelee depuis `estimate()`, qui les a posees une ligne plus haut. Rien n'est recalcule ici —
+// une deuxieme inversion de matrice serait un SECOND instrument.
+float s_census_cam_inv[16] = {0};
+float s_census_cam_hvdf[4] = {0};
+float s_census_cam_pos[4] = {0};
+float s_census_cam_fog = 0.0f;
+bool s_census_cam_valid = false;
+
+// `world_from_depth` des shaders, au flottant pres : memes constantes GS (256, -128, 2048,
+// 2^23), meme `u_fog` en composante W, meme inverse column-major. Le recensement lit la
+// profondeur A LA MEME RESOLUTION que `u_depth` (garde `s_census_depth_w != w`), donc le centre
+// de texel `(x+0,5)/w` EST le `snapped` du shader.
+inline void census_world(int x, int y, int w, int h, float d, float out[3]) {
+  const float ndc_x = ((float)x + 0.5f) / (float)w * 2.0f - 1.0f;
+  const float ndc_y = ((float)y + 0.5f) / (float)h * 2.0f - 1.0f;
+  const float ndc_z = d * 2.0f - 1.0f;
+  const float v[4] = {ndc_x * 256.0f + 2048.0f - s_census_cam_hvdf[0],
+                      ndc_y * -128.0f + 2048.0f - s_census_cam_hvdf[1],
+                      (ndc_z + 1.0f) * 8388608.0f - s_census_cam_hvdf[2], s_census_cam_fog};
+  float p[4];
+  for (int r = 0; r < 4; r++) {
+    p[r] = s_census_cam_inv[0 * 4 + r] * v[0] + s_census_cam_inv[1 * 4 + r] * v[1] +
+           s_census_cam_inv[2 * 4 + r] * v[2] + s_census_cam_inv[3 * 4 + r] * v[3];
+  }
+  const float iw = (p[3] != 0.0f) ? 1.0f / p[3] : 0.0f;
+  out[0] = p[0] * iw;
+  out[1] = p[1] * iw;
+  out[2] = p[2] * iw;
+}
+
+// Position et normale MONDE de toute l'image. La camera ne bouge pas et les douze etats
+// partagent la MEME profondeur : la carte se calcule une fois et se relit. La cle est
+// l'empreinte de la profondeur, comme pour `plane_mask` — une carte recalculee sur une autre
+// image serait le temoin d'une AUTRE scene.
+struct CensusGeometry {
+  uint64_t key = 0;
+  int w = 0, h = 0;
+  std::vector<float> P;
+  std::vector<float> N;
+  std::vector<uint8_t> ok;  // 1 = position valide, 2 = position ET normale valides
+  uint64_t surface_px = 0;
+  uint64_t normal_px = 0;
+};
+CensusGeometry s_geom;
+
+uint64_t depth_key(const float* depth, int w, int h) {
+  uint64_t key = 14695981039346656037ull;
+  const size_t n = (size_t)w * (size_t)h * sizeof(float);
+  const auto* bytes = reinterpret_cast<const uint8_t*>(depth);
+  for (size_t i = 0; i < n; i++) key = (key ^ bytes[i]) * 1099511628211ull;
+  return key;
+}
+
+const CensusGeometry* census_geometry(const float* depth, int w, int h) {
+  if (!s_census_cam_valid) return nullptr;
+  const uint64_t key = depth_key(depth, w, h);
+  if (key == s_geom.key && w == s_geom.w && h == s_geom.h) return &s_geom;
+  const size_t n = (size_t)w * (size_t)h;
+  s_geom.P.assign(n * 3, 0.0f);
+  s_geom.N.assign(n * 3, 0.0f);
+  s_geom.ok.assign(n, 0);
+  s_geom.surface_px = 0;
+  s_geom.normal_px = 0;
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      const size_t i = (size_t)y * (size_t)w + (size_t)x;
+      if (depth[i] <= 1e-9f) continue;  // ciel : reverse-Z, 0 = le plus loin
+      census_world(x, y, w, h, depth[i], &s_geom.P[i * 3]);
+      s_geom.ok[i] = 1;
+      s_geom.surface_px++;
+    }
+  }
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      const size_t i = (size_t)y * (size_t)w + (size_t)x;
+      if (!s_geom.ok[i]) continue;
+      const size_t l = i - 1, r = i + 1, dn = i - (size_t)w, up = i + (size_t)w;
+      if (!s_geom.ok[l] || !s_geom.ok[r] || !s_geom.ok[dn] || !s_geom.ok[up]) continue;
+      const float d = depth[i];
+      // Le MEME choix de voisin que l'estimateur : le plus proche en profondeur, pour que la
+      // normale reste sur la surface quand le pli est a un pixel.
+      const float* p = &s_geom.P[i * 3];
+      const float* px = (std::fabs(depth[r] - d) < std::fabs(depth[l] - d)) ? &s_geom.P[r * 3]
+                                                                           : &s_geom.P[l * 3];
+      const float sx = (std::fabs(depth[r] - d) < std::fabs(depth[l] - d)) ? 1.0f : -1.0f;
+      const float* py = (std::fabs(depth[up] - d) < std::fabs(depth[dn] - d)) ? &s_geom.P[up * 3]
+                                                                             : &s_geom.P[dn * 3];
+      const float sy = (std::fabs(depth[up] - d) < std::fabs(depth[dn] - d)) ? 1.0f : -1.0f;
+      const float dh[3] = {(px[0] - p[0]) * sx, (px[1] - p[1]) * sx, (px[2] - p[2]) * sx};
+      const float dv[3] = {(py[0] - p[0]) * sy, (py[1] - p[1]) * sy, (py[2] - p[2]) * sy};
+      float nx = dh[1] * dv[2] - dh[2] * dv[1];
+      float ny = dh[2] * dv[0] - dh[0] * dv[2];
+      float nz = dh[0] * dv[1] - dh[1] * dv[0];
+      const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+      if (!(len > 1e-12f)) continue;
+      nx /= len; ny /= len; nz /= len;
+      const float vx = s_census_cam_pos[0] - p[0], vy = s_census_cam_pos[1] - p[1],
+                  vz = s_census_cam_pos[2] - p[2];
+      if (nx * vx + ny * vy + nz * vz < 0.0f) { nx = -nx; ny = -ny; nz = -nz; }
+      s_geom.N[i * 3] = nx; s_geom.N[i * 3 + 1] = ny; s_geom.N[i * 3 + 2] = nz;
+      s_geom.ok[i] = 2;
+      s_geom.normal_px++;
+    }
+  }
+  s_geom.key = key;
+  s_geom.w = w;
+  s_geom.h = h;
+  return &s_geom;
+}
+
+constexpr int kEdgeSpan = 4;        // les deux normales sont prises a 4 px du pli : leurs
+                                    // fenetres d'ajustement (rayon 1) ne se recouvrent pas
+constexpr double kEdgeCosQual = 0.9063;   // 25 deg : en deca, ce n'est pas une arete
+constexpr double kEdgeCosFlat = -0.9063;  // 155 deg : au dela, la surface se replie sur elle-meme
+constexpr double kEdgeOpenRel = 0.02;     // marge du test de concavite, en fraction de l'ecart
+constexpr int kEdgeMinPx = 3;             // une arete de moins de 3 px est du bruit de normale
+
+HutEdge s_hut_edge[kCensusStates];
+ContactRamp s_hutedge_ramp[kCensusStates];
+ContactRamp s_hutedge_convex[kCensusStates];
+std::vector<uint8_t> s_edge_mask;  // bit0 : concave axe +x, bit1 : concave axe +y,
+                                   // bit2/bit3 : idem convexe
+std::vector<uint8_t> s_ref_mask;   // les 425 px de l'essai 10, pour le seul recouvrement
+
+// Le recensement d'aretes. MEME relecture et MEME test de pli que `contact_ramp()`, a une
+// restriction pres qu'il faut nommer : seuls les pixels dont la NORMALE a pu etre ajustee
+// entrent, donc pas la bordure de l'image ni les pixels qui touchent le ciel. `fold_sides` est
+// ce denominateur-la, PAS `ao_ramp_sides` ; les deux se lisent cote a cote et leur ecart est la
+// mesure de cette restriction. Ce qui s'ajoute ensuite est la QUALIFICATION par l'angle diedre
+// et par le signe du repli.
+void hut_edge_census(const uint8_t* ao,
+                     const float* depth,
+                     int w,
+                     int h,
+                     HutEdge* out,
+                     ContactRamp* concave_ramp,
+                     ContactRamp* convex_ramp) {
+  const CensusGeometry* geom = census_geometry(depth, w, h);
+  if (!geom) return;
+  // `HutEdge` decrit UNE image (une population, pas une somme) : il s'ECRASE. Le nombre
+  // d'images qui l'ont alimente se lit a cote, dans `ao_census_frames_<etat>`. Les rampes, elles,
+  // s'accumulent comme celles de l'essai 17 — ce sont des sommes de cotes.
+  *out = HutEdge{};
+  const double kCreaseRel = 0.25, kCreaseAbs = 1e-5, kJumpRel = 0.02;
+  const size_t n = (size_t)w * (size_t)h;
+  s_edge_mask.assign(n, 0);
+  auto z = [&](int x, int y) -> double {
+    return (double)depth[(size_t)y * (size_t)w + (size_t)x];
+  };
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      const size_t i = (size_t)y * (size_t)w + (size_t)x;
+      if (geom->ok[i] != 2) continue;
+      const double z0 = z(x, y);
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        const double zm = z(x - dx, y - dy), zp = z(x + dx, y + dy);
+        if (zm <= 1e-9 || zp <= 1e-9) continue;
+        const double d1 = z0 - zm, d2 = zp - z0;
+        if (std::max(std::fabs(d1), std::fabs(d2)) > kJumpRel * z0) continue;  // silhouette
+        if (std::fabs(d2 - d1) <= kCreaseRel * (std::fabs(d1) + std::fabs(d2)) + kCreaseAbs)
+          continue;  // pas un pli
+        out->fold_sides++;
+        const int xm = x - dx * kEdgeSpan, ym = y - dy * kEdgeSpan;
+        const int xp = x + dx * kEdgeSpan, yp = y + dy * kEdgeSpan;
+        if (xm < 0 || ym < 0 || xp >= w || yp >= h) continue;
+        const size_t im = (size_t)ym * (size_t)w + (size_t)xm;
+        const size_t ip = (size_t)yp * (size_t)w + (size_t)xp;
+        if (geom->ok[im] != 2 || geom->ok[ip] != 2) continue;
+        const float* nm = &geom->N[im * 3];
+        const float* np = &geom->N[ip * 3];
+        const float* pm = &geom->P[im * 3];
+        const float* pp = &geom->P[ip * 3];
+        const double cosine = (double)(nm[0] * np[0] + nm[1] * np[1] + nm[2] * np[2]);
+        if (cosine > kEdgeCosQual || cosine < kEdgeCosFlat) continue;  // pas un diedre
+        out->angled_sides++;
+        // ── LE SIGNE DU REPLI, SANS PROJECTION ────────────────────────────────────────────
+        // Sous une projection perspective, la profondeur de FENETRE est une fonction AFFINE des
+        // coordonnees d'ecran sur tout plan (c'est le theoreme que `flat_step` exploite deja).
+        // Sur les deux faces d'un pli, elle suit donc deux droites, et le pli est leur
+        // intersection : sa position par rapport a la CORDE qui joint les deux echantillons
+        // lointains donne le sens du repli, exactement, sans matrice. Reverse-Z (0 = le plus
+        // loin) : un pli PLUS LOIN que la corde est un creux — un raccord CONCAVE.
+        const double zspan_m = z(xm, ym), zspan_p = z(xp, yp);
+        if (zspan_m <= 1e-9 || zspan_p <= 1e-9) continue;
+        const double chord = 0.5 * (zspan_m + zspan_p) - z0;
+        const double reach = std::fabs(zspan_p - zspan_m) + std::fabs(chord);
+        if (!(reach > 0.0)) continue;
+        const bool concave_depth = chord > kEdgeOpenRel * reach;
+        const bool convex_depth = chord < -kEdgeOpenRel * reach;
+        // Le MEME signe, lu dans le MONDE : chaque face voit-elle l'autre du cote de sa normale
+        // sortante ? Deux instruments independants pour une seule grandeur — leur ACCORD est
+        // publie (`ao_hutedge_sign_agree`), il n'est pas suppose.
+        const double ex = pp[0] - pm[0], ey = pp[1] - pm[1], ez = pp[2] - pm[2];
+        const double span = std::sqrt(ex * ex + ey * ey + ez * ez);
+        const double margin = kEdgeOpenRel * span;
+        const double am = nm[0] * ex + nm[1] * ey + nm[2] * ez;
+        const double ap = -(np[0] * ex + np[1] * ey + np[2] * ez);
+        const bool concave_world = span > 0.0 && am > margin && ap > margin;
+        const bool convex_world = span > 0.0 && am < -margin && ap < -margin;
+        if (concave_depth == concave_world && convex_depth == convex_world) out->sign_agree++;
+        if (concave_depth) {
+          s_edge_mask[i] |= (uint8_t)(1 << axis);
+        } else if (convex_depth) {
+          s_edge_mask[i] |= (uint8_t)(4 << axis);
+        }
+      }
+    }
+  }
+  // Les cotes de rampe, sur CETTE population et sur son controle convexe. `ramp_side()` est
+  // celle de l'essai 17, inchangee : elle confine la marche a la surface.
+  for (int y = 1; y < h - 1; y++) {
+    for (int x = 1; x < w - 1; x++) {
+      const uint8_t m = s_edge_mask[(size_t)y * (size_t)w + (size_t)x];
+      if (!m) continue;
+      if (m & 3) out->concave_px++;
+      if (m & 12) out->convex_px++;
+      for (int axis = 0; axis < 2; axis++) {
+        const int dx = axis == 0 ? 1 : 0;
+        const int dy = axis == 0 ? 0 : 1;
+        if (m & (1 << axis)) {
+          ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, concave_ramp);
+          ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, +1, concave_ramp);
+        }
+        if (m & (4 << axis)) {
+          ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, convex_ramp);
+          ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, +1, convex_ramp);
+        }
+      }
+    }
+  }
+  // LES ARETES : les composantes connexes (4-voisinage) des pixels concaves. Une arete de moins
+  // de `kEdgeMinPx` pixels est ecartee et le dit — c'est du bruit de normale, pas un raccord.
+  std::vector<uint8_t> seen(n, 0);
+  std::vector<int> stack;
+  for (size_t i = 0; i < n; i++) {
+    if (!(s_edge_mask[i] & 3) || seen[i]) continue;
+    uint64_t size = 0;
+    stack.clear();
+    stack.push_back((int)i);
+    seen[i] = 1;
+    while (!stack.empty()) {
+      const int c = stack.back();
+      stack.pop_back();
+      size++;
+      const int cx = c % w, cy = c / w;
+      const int nb[4][2] = {{cx - 1, cy}, {cx + 1, cy}, {cx, cy - 1}, {cx, cy + 1}};
+      for (const auto& q : nb) {
+        if (q[0] < 0 || q[1] < 0 || q[0] >= w || q[1] >= h) continue;
+        const size_t j = (size_t)q[1] * (size_t)w + (size_t)q[0];
+        if (seen[j] || !(s_edge_mask[j] & 3)) continue;
+        seen[j] = 1;
+        stack.push_back((int)j);
+      }
+    }
+    if (size >= (uint64_t)kEdgeMinPx) {
+      out->components++;
+      if (size > out->largest) out->largest = size;
+    }
+  }
+  // LE RECOUVREMENT AVEC L'ESSAI 10 — publie, jamais utilise pour decider. Une arete de
+  // reference est RETROUVEE si l'un de ses deux pixels porte une detection sur le MEME axe.
+  if (w == ao_hut_edge_reference::kWidth && h == ao_hut_edge_reference::kHeight) {
+    for (const auto& e : ao_hut_edge_reference::kEdges) {
+      const int dx = e.axis == 0 ? 1 : 0, dy = e.axis == 0 ? 0 : 1;
+      const size_t a = (size_t)e.y * (size_t)w + (size_t)e.x;
+      const size_t b = (size_t)(e.y + dy) * (size_t)w + (size_t)(e.x + dx);
+      const uint8_t bit = (uint8_t)(1 << e.axis);
+      if ((s_edge_mask[a] & bit) || (b < n && (s_edge_mask[b] & bit))) out->ref_edges_hit++;
+    }
+    for (const auto& p : ao_hut_edge_reference::kPixels) {
+      const size_t i = (size_t)p.y * (size_t)w + (size_t)p.x;
+      if (geom->ok[i]) out->ref_depth_px++;
+      if (s_edge_mask[i] & 3) out->ref_px_hit++;
+    }
+    if (s_ref_mask.size() != n) {
+      s_ref_mask.assign(n, 0);
+      for (const auto& p : ao_hut_edge_reference::kPixels)
+        s_ref_mask[(size_t)p.y * (size_t)w + (size_t)p.x] = 1;
+    }
+    for (size_t i = 0; i < n; i++)
+      if ((s_edge_mask[i] & 3) && s_ref_mask[i]) out->detected_in_ref++;
+  }
+}
+
 // Relit le tampon d'AO pleine resolution et accumule la force du motif pour `quality`.
 // `scale` donne la periode candidate : p = max(2, round(1/scale)) — 4 au palier bas, 2 ailleurs.
 void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int w, int h) {
@@ -1722,6 +2049,10 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
           // de plan. Zero cout GL de plus, une passe CPU sur le tampon deja en memoire.
           contact_ramp(s_pat_buf.data(), s_depth_buf.data(), w, h, &s_contact_ramp[state],
                        &s_contact_plane[state]);
+          // (essai 18, verdict H) Les aretes QUALIFIEES, sur la meme relecture : zero appel GL
+          // de plus. La carte de positions/normales est partagee par les douze etats.
+          hut_edge_census(s_pat_buf.data(), s_depth_buf.data(), w, h, &s_hut_edge[state],
+                          &s_hutedge_ramp[state], &s_hutedge_convex[state]);
           s_contact_pop[state] += cpop;
           s_contact_band[state] += cband;
           if (cwmax > s_contact_wmax[state]) {
@@ -2213,6 +2544,113 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish("ao_plane_stride", (uint64_t)kPlaneStride);
     autoport_proof::publish("ao_plane_radius", (uint64_t)kPlaneRadius);
     autoport_proof::publish("ao_plane_mask_px", s_plane_mask_px);
+  }
+
+  // ── (essai 18, verdict H) LES ARETES QUALIFIEES, ET CE QUE L'AO Y FAIT ────────────────────
+  // La population de l'owner, trouvee PAR LE MOTEUR : un pli de profondeur dont les deux faces,
+  // deprojetees en monde, forment un diedre d'au moins 25 degres, et dont le repli est
+  // CONCAVE. Le recouvrement avec les 15 aretes / 425 px de l'essai 10 est publie A COTE : il
+  // juge le detecteur, il ne le guide pas.
+  //
+  // TROIS POPULATIONS DANS LA MEME IMAGE, pour qu'aucun zero ne soit muet :
+  //   concave  — le raccord ; c'est la que l'AO doit CREUSER, et la que l'owner voit du blanc ;
+  //   convexe  — le controle gratuit : meme detecteur, signe oppose, l'AO n'y doit rien ;
+  //   plan     — le zero de l'instrument, deja mesure par `ao_plane_*` dans la MEME image.
+  {
+    HutEdge edge_on{}, edge_off{};
+    ContactRamp cc_on{}, cc_off{}, cx_on{}, cx_off{}, plane_on{}, plane_off{};
+    auto addr = [](ContactRamp& dst, const ContactRamp& src) {
+      dst.sides += src.sides; dst.positive += src.positive; dst.bright += src.bright;
+      dst.lift_pos += src.lift_pos; dst.lift_neg += src.lift_neg; dst.rejected += src.rejected;
+    };
+    auto adde = [](HutEdge& dst, const HutEdge& src) {
+      dst.fold_sides += src.fold_sides; dst.angled_sides += src.angled_sides;
+      dst.concave_px += src.concave_px; dst.convex_px += src.convex_px;
+      dst.sign_agree += src.sign_agree;
+      dst.components += src.components;
+      if (src.largest > dst.largest) dst.largest = src.largest;
+      if (src.ref_depth_px > dst.ref_depth_px) dst.ref_depth_px = src.ref_depth_px;
+      if (src.ref_edges_hit > dst.ref_edges_hit) dst.ref_edges_hit = src.ref_edges_hit;
+      if (src.ref_px_hit > dst.ref_px_hit) dst.ref_px_hit = src.ref_px_hit;
+      if (src.detected_in_ref > dst.detected_in_ref) dst.detected_in_ref = src.detected_in_ref;
+    };
+    for (int i = 0; i < kCensusStates; i++) {
+      adde(i < 6 ? edge_on : edge_off, s_hut_edge[i]);
+      addr(i < 6 ? cc_on : cc_off, s_hutedge_ramp[i]);
+      addr(i < 6 ? cx_on : cx_off, s_hutedge_convex[i]);
+      addr(i < 6 ? plane_on : plane_off, s_contact_plane[i]);
+    }
+    auto rate = [](const ContactRamp& r) -> uint64_t {
+      return r.sides ? (1000ull * r.bright / r.sides) : 0ull;
+    };
+    auto lift = [](const ContactRamp& r) -> int64_t {
+      return r.sides ? (int64_t)(r.lift_pos / r.sides) - (int64_t)(r.lift_neg / r.sides) : 0;
+    };
+    auto arm = [&](const char* suffix, const HutEdge& e, const ContactRamp& cc,
+                   const ContactRamp& cx, const ContactRamp& pl) {
+      const std::string t = suffix;
+      autoport_proof::publish(("ao_hutedge_fold_sides" + t).c_str(), e.fold_sides);
+      autoport_proof::publish(("ao_hutedge_angled_sides" + t).c_str(), e.angled_sides);
+      autoport_proof::publish(("ao_hutedge_sign_agree" + t).c_str(), e.sign_agree);
+      autoport_proof::publish(("ao_hutedge_concave_px" + t).c_str(), e.concave_px);
+      autoport_proof::publish(("ao_hutedge_convex_px" + t).c_str(), e.convex_px);
+      autoport_proof::publish(("ao_hutedge_edges" + t).c_str(), e.components);
+      autoport_proof::publish(("ao_hutedge_largest_px" + t).c_str(), e.largest);
+      // LE RECOUVREMENT AVEC L'ESSAI 10, terme par terme et avec ses DEUX denominateurs.
+      autoport_proof::publish(("ao_hutedge_ref_edges" + t).c_str(),
+                              (uint64_t)ao_hut_edge_reference::kEdges.size());
+      autoport_proof::publish(("ao_hutedge_ref_edges_hit" + t).c_str(), e.ref_edges_hit);
+      autoport_proof::publish(("ao_hutedge_ref_overlap" + t + "_x1000").c_str(),
+                              1000ull * e.ref_edges_hit / ao_hut_edge_reference::kEdges.size());
+      autoport_proof::publish(("ao_hutedge_ref_px" + t).c_str(),
+                              (uint64_t)ao_hut_edge_reference::kPixels.size());
+      autoport_proof::publish(("ao_hutedge_ref_px_hit" + t).c_str(), e.ref_px_hit);
+      autoport_proof::publish(("ao_hutedge_detected_in_ref" + t).c_str(), e.detected_in_ref);
+      // LE TEMOIN DE CAMERA. Les 425 px ont ete releves a l'image logique 600, le recensement
+      // mesure vers 1380. Si la camera avait bouge, ces pixels ne porteraient plus de surface :
+      // ce compte le CHIFFRE au lieu de le supposer.
+      autoport_proof::publish(("ao_hutedge_ref_depth_px" + t).c_str(), e.ref_depth_px);
+      // CE QUE L'AO FAIT SUR CHAQUE POPULATION. `bright_rate` = part des cotes dont le contact
+      // est plus CLAIR que le fond de la meme surface, de 4/255 ; `lift` = la levee moyenne
+      // signee, en milli-quanta. Un contact CORRECT est plus SOMBRE : levee negative.
+      autoport_proof::publish(("ao_hutedge_ramp_sides" + t).c_str(), cc.sides);
+      autoport_proof::publish(("ao_hutedge_ramp_rejected" + t).c_str(), cc.rejected);
+      autoport_proof::publish(("ao_hutedge_ramp_bright" + t).c_str(), cc.bright);
+      autoport_proof::publish(("ao_hutedge_ramp_bright_rate" + t + "_x1000").c_str(), rate(cc));
+      autoport_proof::publish(("ao_hutedge_ramp_lift_up" + t + "_milli").c_str(),
+                              cc.sides ? cc.lift_pos / cc.sides : 0ull);
+      autoport_proof::publish(("ao_hutedge_ramp_lift_down" + t + "_milli").c_str(),
+                              cc.sides ? cc.lift_neg / cc.sides : 0ull);
+      autoport_proof::publish(("ao_hutedge_convex_sides" + t).c_str(), cx.sides);
+      autoport_proof::publish(("ao_hutedge_convex_bright_rate" + t + "_x1000").c_str(), rate(cx));
+      autoport_proof::publish(("ao_hutedge_plane_sides" + t).c_str(), pl.sides);
+      autoport_proof::publish(("ao_hutedge_plane_bright_rate" + t + "_x1000").c_str(), rate(pl));
+      // L'EXCES SUR LE PLAN : sur un plan il n'y a pas de contact, donc pas de bande. Ce qu'on y
+      // lit est le bruit de l'estimateur, dans la MEME image. Le defaut est l'EXCES.
+      const uint64_t rc = rate(cc), rp = rate(pl);
+      autoport_proof::publish(("ao_hutedge_bright_excess" + t + "_x1000").c_str(),
+                              rc > rp ? rc - rp : 0ull);
+      autoport_proof::publish(("ao_hutedge_bright_deficit" + t + "_x1000").c_str(),
+                              rp > rc ? rp - rc : 0ull);
+      const int64_t lc = lift(cc), lp = lift(pl);
+      autoport_proof::publish(("ao_hutedge_lift_excess" + t + "_milli").c_str(),
+                              lc > lp ? (uint64_t)(lc - lp) : 0ull);
+      autoport_proof::publish(("ao_hutedge_lift_deficit" + t + "_milli").c_str(),
+                              lp > lc ? (uint64_t)(lp - lc) : 0ull);
+      autoport_proof::publish(("ao_hutedge_measured" + t).c_str(),
+                              (e.fold_sides > 0 && cc.sides > 0 && pl.sides > 0) ? 1ull : 0ull);
+    };
+    arm("", edge_on, cc_on, cx_on, plane_on);
+    arm("_legacy", edge_off, cc_off, cx_off, plane_off);
+    autoport_proof::publish("ao_hutedge_span_px", (uint64_t)kEdgeSpan);
+    autoport_proof::publish("ao_hutedge_cos_qual_x1000", (uint64_t)(kEdgeCosQual * 1000.0));
+    autoport_proof::publish("ao_hutedge_min_px", (uint64_t)kEdgeMinPx);
+    autoport_proof::publish("ao_hutedge_open_rel_x1000", (uint64_t)(kEdgeOpenRel * 1000.0));
+    autoport_proof::publish("ao_hutedge_cam_valid", s_census_cam_valid ? 1ull : 0ull);
+    autoport_proof::publish("ao_hutedge_surface_px", s_geom.surface_px);
+    autoport_proof::publish("ao_hutedge_normal_px", s_geom.normal_px);
+    autoport_proof::publish("ao_hutedge_geom_w", (uint64_t)s_geom.w);
+    autoport_proof::publish("ao_hutedge_geom_h", (uint64_t)s_geom.h);
   }
 
   // (5) RIEN NE BOUGE A GEOMETRIE IDENTIQUE — SUR LA POPULATION DE LA PREMISSE.
@@ -3146,6 +3584,13 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     const int mode_idx = (mode == 1) ? 0 : (mode == 3) ? 1 : -1;
     const int census_state =
         (mode_idx < 0) ? -1 : ((s_measure_legacy ? 1 : 0) * 6 + mode_idx * 3 + quality);
+    // (essai 18) La camera que les estimateurs viennent de recevoir, rangee pour le detecteur
+    // d'aretes : `invf` est l'inverse deja calcule plus haut, pas un second calcul.
+    for (int i = 0; i < 16; i++) s_census_cam_inv[i] = invf[i];
+    for (int i = 0; i < 4; i++) s_census_cam_hvdf[i] = rs->camera_hvdf_off[i];
+    for (int i = 0; i < 4; i++) s_census_cam_pos[i] = rs->camera_pos[i];
+    s_census_cam_fog = rs->camera_fog.x();
+    s_census_cam_valid = true;
     pattern_census(quality, census_state, scale, m_ao_full_fbo, m_ao_full_w, m_ao_full_h);
   }
 
