@@ -2763,13 +2763,235 @@ struct SurfRenderTri {
   float e2x, e2y, e2z;
   float minx, maxx, minz, maxz;
   float d00, d01, d11, inv_denom;
-  s32 tex;
+  // L'ETIQUETTE : index de texture pour un triangle de RENDU, `pat-material` pour un triangle de
+  // COLLISION. Le meme index sert aux deux, donc le meme champ porte les deux sens.
+  s32 label;
+  // LA PROVENANCE. Elle NOMME ce qu'est un mesh pose par-dessus : le tfrag `dirt` est un arbre de
+  // terrain a part entiere dans la donnee d'origine (TFragmentTreeKind::DIRT), et une piece TIE
+  // n'est pas du terrain du tout — c'est la population que l'occultation d'objets traite deja
+  // (SPEC section 9, question 2). Sans elle, « superposition » melangerait un chemin de terre et
+  // le plancher d'une hutte.
+  u8 src;
 };
+// TFragmentTreeKind (8 valeurs) puis TIE, puis la collision.
+constexpr u8 kSrcTie = 8;
+constexpr u8 kSrcCollision = 9;
+inline const char* ovl_src_name(u8 s) {
+  static const char* const kNames[] = {"tfrag-normal", "tfrag-trans",        "tfrag-dirt",
+                                       "tfrag-ice",    "tfrag-lowres",       "tfrag-lowres-trans",
+                                       "tfrag-water",  "tfrag-invalid",      "tie",
+                                       "collision"};
+  return s < 10 ? kNames[s] : "?";
+}
 
 constexpr float SURF_BUCKET_M = 4.0f;    // maille XZ de l'index des triangles de rendu
 constexpr float SURF_YWIN_M = 1.5f;      // fenetre verticale centroide de collision <-> sol dessine
 constexpr float SURF_UPNESS = 0.20f;     // au-dessous, la face est un mur : ce n'est pas un sol
 constexpr s64 SURF_MAX_SPAN = 32;        // au-dela, le triangle va dans la liste des geants
+
+// ---------------------------------------------------------------------------------------------
+// L'INDEX SPATIAL XZ, PARTAGE PAR LES DEUX RECENSEMENTS (grass-surface-truth, grass-overlay-meshes).
+// ---------------------------------------------------------------------------------------------
+// `label` porte l'ETIQUETTE du triangle : l'index de texture pour un triangle de RENDU, la valeur
+// de `pat-material` pour un triangle de COLLISION. Une SEULE construction, une SEULE sonde : deux
+// copies auraient derive l'une de l'autre, et le desaccord entre les deux items serait devenu un
+// artefact de recopie au lieu d'une mesure.
+struct SurfRenderIndex {
+  std::vector<SurfRenderTri> tris;
+  std::unordered_map<u64, std::vector<u32>> grid;
+  std::vector<u32> big;  // trop etendus pour l'index : balayes lineairement
+  float binv = 1.0f / (SURF_BUCKET_M * U);
+  u64 draws = 0;
+};
+
+// Entre un triangle s'il regarde vers le haut et n'est pas degenere. Rend son indice, ou -1.
+s32 surf_index_add(SurfRenderIndex& ix, float ax, float ay, float az, float bx, float by, float bz,
+                   float cx, float cy, float cz, s32 label, u8 src) {
+  float e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+  float e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+  float nx = e1y * e2z - e1z * e2y;
+  float ny = e1z * e2x - e1x * e2z;
+  float nz = e1x * e2y - e1y * e2x;
+  float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+  if (nlen < 1e-3f) {
+    return -1;  // degenere
+  }
+  if (std::fabs(ny) / nlen < SURF_UPNESS) {
+    return -1;  // mur : ce n'est pas un sol
+  }
+  SurfRenderTri r;
+  r.p0x = ax; r.p0y = ay; r.p0z = az;
+  r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
+  r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
+  r.d00 = e1x * e1x + e1z * e1z;
+  r.d01 = e1x * e2x + e1z * e2z;
+  r.d11 = e2x * e2x + e2z * e2z;
+  float denom = r.d00 * r.d11 - r.d01 * r.d01;
+  if (std::fabs(denom) < 1e-6f) {
+    return -1;  // sliver vertical en projection XZ : ne couvre aucun point
+  }
+  r.inv_denom = 1.0f / denom;
+  r.minx = std::min(ax, std::min(bx, cx));
+  r.maxx = std::max(ax, std::max(bx, cx));
+  r.minz = std::min(az, std::min(bz, cz));
+  r.maxz = std::max(az, std::max(bz, cz));
+  r.label = label;
+  r.src = src;
+  u32 ri = (u32)ix.tris.size();
+  ix.tris.push_back(r);
+  s64 gx0 = (s64)std::floor(r.minx * ix.binv), gx1 = (s64)std::floor(r.maxx * ix.binv);
+  s64 gz0 = (s64)std::floor(r.minz * ix.binv), gz1 = (s64)std::floor(r.maxz * ix.binv);
+  if ((gx1 - gx0) > SURF_MAX_SPAN || (gz1 - gz0) > SURF_MAX_SPAN) {
+    ix.big.push_back(ri);  // un triangle geant n'explose pas l'index : il est balaye a part
+    return (s32)ri;
+  }
+  for (s64 gz = gz0; gz <= gz1; ++gz) {
+    for (s64 gx = gx0; gx <= gx1; ++gx) {
+      ix.grid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(ri);
+    }
+  }
+  return (s32)ri;
+}
+
+// L'ordonnee du plan du triangle a la verticale de (px,pz) — appelee seulement sur un point dont
+// on a deja verifie qu'il est DANS le triangle projete.
+double surf_tri_y_at(const SurfRenderTri& r, double px, double pz) {
+  double qx = px - r.p0x, qz = pz - r.p0z;
+  double d20 = qx * r.e1x + qz * r.e1z;
+  double d21 = qx * r.e2x + qz * r.e2z;
+  double u = ((double)r.d11 * d20 - (double)r.d01 * d21) * (double)r.inv_denom;
+  double v = ((double)r.d00 * d21 - (double)r.d01 * d20) * (double)r.inv_denom;
+  return (double)r.p0y + u * (double)r.e1y + v * (double)r.e2y;
+}
+
+// Rend l'indice du triangle indexe le plus proche VERTICALEMENT du point, dans `ywin`, ou -1.
+//
+// DEUX FILTRES OPTIONNELS, et ils ne sont pas du confort. `mask` restreint la recherche aux
+// triangles qui portent un caractere donne : quand DEUX surfaces sont empilees, « la plus proche »
+// rend toujours celle du dessous, si bien qu'une sonde non filtree ne pourrait JAMAIS voir le mesh
+// pose par-dessus — la question meme de `grass-overlay-meshes`. `above_only` refuse ce qui est
+// SOUS le point : un mesh de sable un metre plus bas n'est pas pose par-dessus.
+s32 surf_index_probe_masked(const SurfRenderIndex& ix, float px, float py, float pz, float ywin,
+                            const u8* mask, bool above_only, float above_eps) {
+  s32 best = -1;
+  float bestd = ywin;
+  auto probe = [&](u32 ri) {
+    const auto& r = ix.tris[ri];
+    if (mask && !mask[ri]) {
+      return;
+    }
+    if (px < r.minx || px > r.maxx || pz < r.minz || pz > r.maxz) {
+      return;
+    }
+    float qx = px - r.p0x, qz = pz - r.p0z;
+    float d20 = qx * r.e1x + qz * r.e1z;
+    float d21 = qx * r.e2x + qz * r.e2z;
+    float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+    float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+    if (u < -0.02f || v < -0.02f || u + v > 1.02f) {
+      return;
+    }
+    float y = r.p0y + u * r.e1y + v * r.e2y;
+    if (above_only && y < py - above_eps) {
+      return;
+    }
+    float d = std::fabs(y - py);
+    if (d < bestd) {
+      bestd = d;
+      best = (s32)ri;
+    }
+  };
+  s64 gx = (s64)std::floor(px * ix.binv), gz = (s64)std::floor(pz * ix.binv);
+  auto it = ix.grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+  if (it != ix.grid.end()) {
+    for (u32 ri : it->second) {
+      probe(ri);
+    }
+  }
+  for (u32 ri : ix.big) {
+    probe(ri);
+  }
+  return best;
+}
+
+s32 surf_index_probe(const SurfRenderIndex& ix, float px, float py, float pz, float ywin) {
+  return surf_index_probe_masked(ix, px, py, pz, ywin, nullptr, false, 0.f);
+}
+
+// TOUS les triangles de rendu qui regardent vers le haut — tfrag (geo 0) puis TIE (geo 0), la MEME
+// enumeration que `scan_level`, SANS son filtre de nom : filtrer ici ramenerait la question a la
+// reponse.
+void surf_build_render_index(const tfrag3::Level& lev, SurfRenderIndex& ix) {
+  auto index_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
+                         const std::vector<tfrag3::PreloadedVertex>& verts,
+                         const std::vector<u32>& idx, bool use_strips, u8 src) {
+    if (verts.empty() || idx.empty()) {
+      return;
+    }
+    for (const auto& draw : draws) {
+      if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev.textures.size()) {
+        continue;
+      }
+      u32 begin = draw.unpacked.idx_of_first_idx_in_full_buffer;
+      u32 len = 0;
+      for (const auto& g : draw.vis_groups) {
+        len += g.num_inds;
+      }
+      if (len == 0 || begin >= idx.size()) {
+        continue;
+      }
+      if (begin + len > idx.size()) {
+        len = (u32)(idx.size() - begin);
+      }
+      ix.draws++;
+      auto take = [&](u32 i0, u32 i1, u32 i2) {
+        if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
+          return;
+        }
+        if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+          return;
+        }
+        if (i0 == i1 || i1 == i2 || i0 == i2) {
+          return;  // couture de strip
+        }
+        const auto& a = verts[i0];
+        const auto& b = verts[i1];
+        const auto& c = verts[i2];
+        surf_index_add(ix, a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, draw.tree_tex_id, src);
+      };
+      if (use_strips) {
+        u32 a = UINT32_MAX, b = UINT32_MAX;
+        for (u32 k = begin; k < begin + len; ++k) {
+          u32 ci = idx[k];
+          if (ci == UINT32_MAX) {
+            a = UINT32_MAX;
+            b = UINT32_MAX;
+            continue;
+          }
+          take(a, b, ci);
+          a = b;
+          b = ci;
+        }
+      } else {
+        for (u32 k = begin; k + 2 < begin + len; k += 3) {
+          take(idx[k], idx[k + 1], idx[k + 2]);
+        }
+      }
+    }
+  };
+  for (const auto& tree : lev.tfrag_trees[0]) {
+    u8 src = (u8)tree.kind;
+    if (src > 7) {
+      src = 7;  // hors enum : « invalid », nomme comme tel plutot que fabrique
+    }
+    index_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips, src);
+  }
+  for (const auto& tree : lev.tie_trees[0]) {
+    index_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips,
+                kSrcTie);
+  }
+}
+
 
 // « nom:compte,... », les `top` premiers, tri par compte decroissant puis par nom. Aucun espace :
 // `proof_run.sh` jette toute valeur qui en porte un (motif `^cle=[^[:space:]]+$`). Une liste vide
@@ -2810,161 +3032,21 @@ const char* pat_material_name(u32 material) {
 SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_name) {
   SurfaceCensus c;
 
-  // ---- SOURCE TEXTURE : index XZ de TOUS les triangles de rendu qui regardent vers le haut.
+  // ---- SOURCE TEXTURE : l'index XZ de TOUS les triangles de rendu qui regardent vers le haut.
   // La population de rendu n'est PAS filtree par nom : filtrer ici ramenerait la question a la
-  // reponse (voir census_tex_is_grassy).
-  std::vector<SurfRenderTri> rtris;
-  std::unordered_map<u64, std::vector<u32>> rgrid;
-  std::vector<u32> rbig;  // triangles trop etendus pour l'index : balayes lineairement
-  const float binv = 1.0f / (SURF_BUCKET_M * U);
-
-  auto add_render_tri = [&](const tfrag3::PreloadedVertex& a, const tfrag3::PreloadedVertex& b,
-                            const tfrag3::PreloadedVertex& cc, s32 tex) {
-    float e1x = b.x - a.x, e1y = b.y - a.y, e1z = b.z - a.z;
-    float e2x = cc.x - a.x, e2y = cc.y - a.y, e2z = cc.z - a.z;
-    float nx = e1y * e2z - e1z * e2y;
-    float ny = e1z * e2x - e1x * e2z;
-    float nz = e1x * e2y - e1y * e2x;
-    float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
-    if (nlen < 1e-3f) {
-      return;  // degenere
-    }
-    if (std::fabs(ny) / nlen < SURF_UPNESS) {
-      return;  // mur : ce n'est pas un sol dessine
-    }
-    SurfRenderTri r;
-    r.p0x = a.x; r.p0y = a.y; r.p0z = a.z;
-    r.e1x = e1x; r.e1y = e1y; r.e1z = e1z;
-    r.e2x = e2x; r.e2y = e2y; r.e2z = e2z;
-    r.d00 = e1x * e1x + e1z * e1z;
-    r.d01 = e1x * e2x + e1z * e2z;
-    r.d11 = e2x * e2x + e2z * e2z;
-    float denom = r.d00 * r.d11 - r.d01 * r.d01;
-    if (std::fabs(denom) < 1e-6f) {
-      return;  // sliver vertical en projection XZ : ne couvre aucun point
-    }
-    r.inv_denom = 1.0f / denom;
-    r.minx = std::min(a.x, std::min(b.x, cc.x));
-    r.maxx = std::max(a.x, std::max(b.x, cc.x));
-    r.minz = std::min(a.z, std::min(b.z, cc.z));
-    r.maxz = std::max(a.z, std::max(b.z, cc.z));
-    r.tex = tex;
-    u32 ri = (u32)rtris.size();
-    rtris.push_back(r);
-    s64 gx0 = (s64)std::floor(r.minx * binv), gx1 = (s64)std::floor(r.maxx * binv);
-    s64 gz0 = (s64)std::floor(r.minz * binv), gz1 = (s64)std::floor(r.maxz * binv);
-    if ((gx1 - gx0) > SURF_MAX_SPAN || (gz1 - gz0) > SURF_MAX_SPAN) {
-      rbig.push_back(ri);  // un triangle geant n'explose pas l'index : il est balaye a part
-      return;
-    }
-    for (s64 gz = gz0; gz <= gz1; ++gz) {
-      for (s64 gx = gx0; gx <= gx1; ++gx) {
-        rgrid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(ri);
-      }
-    }
-  };
-
-  auto index_draws = [&](const std::vector<tfrag3::StripDraw>& draws,
-                         const std::vector<tfrag3::PreloadedVertex>& verts,
-                         const std::vector<u32>& idx, bool use_strips) {
-    if (verts.empty() || idx.empty()) {
-      return;
-    }
-    for (const auto& draw : draws) {
-      if (draw.tree_tex_id < 0 || (size_t)draw.tree_tex_id >= lev.textures.size()) {
-        continue;
-      }
-      u32 begin = draw.unpacked.idx_of_first_idx_in_full_buffer;
-      u32 len = 0;
-      for (const auto& g : draw.vis_groups) {
-        len += g.num_inds;
-      }
-      if (len == 0 || begin >= idx.size()) {
-        continue;
-      }
-      if (begin + len > idx.size()) {
-        len = (u32)(idx.size() - begin);
-      }
-      c.render_draws++;
-      auto take = [&](u32 i0, u32 i1, u32 i2) {
-        if (i0 == UINT32_MAX || i1 == UINT32_MAX || i2 == UINT32_MAX) {
-          return;
-        }
-        if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
-          return;
-        }
-        if (i0 == i1 || i1 == i2 || i0 == i2) {
-          return;  // couture de strip
-        }
-        add_render_tri(verts[i0], verts[i1], verts[i2], draw.tree_tex_id);
-      };
-      if (use_strips) {
-        u32 a = UINT32_MAX, b = UINT32_MAX;
-        for (u32 k = begin; k < begin + len; ++k) {
-          u32 ci = idx[k];
-          if (ci == UINT32_MAX) {
-            a = UINT32_MAX;
-            b = UINT32_MAX;
-            continue;
-          }
-          take(a, b, ci);
-          a = b;
-          b = ci;
-        }
-      } else {
-        for (u32 k = begin; k + 2 < begin + len; k += 3) {
-          take(idx[k], idx[k + 1], idx[k + 2]);
-        }
-      }
-    }
-  };
-
-  // tfrag (geo 0) puis TIE (geo 0) — la MEME enumeration que `scan_level`, sans son filtre de nom.
-  for (const auto& tree : lev.tfrag_trees[0]) {
-    index_draws(tree.draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
-  }
-  for (const auto& tree : lev.tie_trees[0]) {
-    index_draws(tree.static_draws, tree.unpacked.vertices, tree.unpacked.indices, tree.use_strips);
-  }
-  c.render_ground_tris = (u64)rtris.size();
+  // reponse (voir census_tex_is_grassy). C'est le MEME index que celui de `grass-overlay-meshes`
+  // — une seule construction, donc aucun ecart de recopie entre les deux items.
+  SurfRenderIndex rix;
+  surf_build_render_index(lev, rix);
+  c.render_draws = rix.draws;
+  c.render_ground_tris = (u64)rix.tris.size();
   c.textures_seen = (u64)lev.textures.size();
 
   const float YWIN = SURF_YWIN_M * U;
   // Rend l'index de texture du sol DESSINE le plus proche verticalement du point, ou -1.
   auto tex_at = [&](float px, float py, float pz) -> s32 {
-    s32 best = -1;
-    float bestd = YWIN;
-    auto probe = [&](u32 ri) {
-      const auto& r = rtris[ri];
-      if (px < r.minx || px > r.maxx || pz < r.minz || pz > r.maxz) {
-        return;
-      }
-      float qx = px - r.p0x, qz = pz - r.p0z;
-      float d20 = qx * r.e1x + qz * r.e1z;
-      float d21 = qx * r.e2x + qz * r.e2z;
-      float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
-      float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
-      if (u < -0.02f || v < -0.02f || u + v > 1.02f) {
-        return;
-      }
-      float y = r.p0y + u * r.e1y + v * r.e2y;
-      float d = std::fabs(y - py);
-      if (d < bestd) {
-        bestd = d;
-        best = r.tex;
-      }
-    };
-    s64 gx = (s64)std::floor(px * binv), gz = (s64)std::floor(pz * binv);
-    auto it = rgrid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
-    if (it != rgrid.end()) {
-      for (u32 ri : it->second) {
-        probe(ri);
-      }
-    }
-    for (u32 ri : rbig) {
-      probe(ri);
-    }
-    return best;
+    const s32 ti = surf_index_probe(rix, px, py, pz, YWIN);
+    return ti < 0 ? -1 : rix.tris[ti].label;
   };
 
   // ---- LA POPULATION : le sol tel que la collision du jeu le declare (pat-mode ground).
@@ -3072,6 +3154,466 @@ SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_
       level_name, c.ground_tris, c.collision_tris, c.by_material, c.by_texture, c.by_both,
       c.unclassified, c.disagree, c.render_ground_tris, c.textures_seen);
   return c;
+}
+
+// ===========================================================================================
+// grass-overlay-meshes : LES MESHES POSES PAR-DESSUS UN SOL HERBEUX. Le contrat est dans le .h.
+// ===========================================================================================
+//
+// CE BLOC NE PLACE RIEN. Comme `surface_census`, il ne partage aucune variable avec `scan_level`
+// / `expand`, il n'ecrit dans aucune structure cuite et aucun chemin de placement ne l'appelle.
+
+namespace {
+
+// LES SEUILS, NOMMES. Chacun est publie par son terme d'entonnoir : un seuil qui vide la
+// population se lit dans `pairs_*`, il ne se devine pas apres coup.
+constexpr float OVL_MIN_AREA_M2 = 0.05f;    // aire de recouvrement minimale, en m^2
+constexpr double OVL_MIN_AREA_FRAC = 0.05;  // ... et fraction du plus petit des deux triangles
+constexpr float OVL_YGAP_M = 1.0f;          // au-dela, deux etages (un pont), pas une superposition
+constexpr float OVL_ZFIGHT_M = 0.01f;       // en deca, le dessus est INDECIDABLE
+constexpr float OVL_COLL_YWIN_M = 1.5f;     // fenetre verticale de la sonde de collision
+constexpr u32 kPatMatGravel = 14;
+
+// « SABLE OU TERRE » AU SENS DU CONTRAT. Un filet de noms, publie tel quel par les listes de
+// textures de chaque classe : ce qu'il rate se voit dans `ambiguous_tex`, pas dans un silence.
+inline bool ovl_tex_is_bare(const std::string& n) {
+  return n.find("sand") != std::string::npos || n.find("dirt") != std::string::npos ||
+         n.find("mud") != std::string::npos || n.find("soil") != std::string::npos ||
+         n.find("gravel") != std::string::npos || n.find("earth") != std::string::npos;
+}
+
+// Un materiau de collision sur lequel le JEU LUI-MEME a fait autre chose que de l'herbe.
+inline bool ovl_material_is_path(u32 m) {
+  return m == kPatMatSand || m == kPatMatDirt || m == kPatMatGravel || m == kPatMatStone;
+}
+
+// AIRE ET CENTROIDE DU RECOUVREMENT XZ DE DEUX TRIANGLES (Sutherland-Hodgman + lacet).
+// EN DOUBLE, ET CE N'EST PAS UN LUXE : les coordonnees montent a ~1e6 unites, leurs produits a
+// 1e12, et un float n'a que ~7 chiffres — l'aire d'un recouvrement de 0,05 m^2 (8,4e5 unites^2)
+// disparaitrait dans l'erreur d'arrondi de la difference.
+double surf_tri_overlap_area(const double A[3][2], const double B[3][2], double& out_cx,
+                             double& out_cz) {
+  double poly[8][2];
+  int n = 3;
+  for (int i = 0; i < 3; ++i) {
+    poly[i][0] = A[i][0];
+    poly[i][1] = A[i][1];
+  }
+  const double bs = 0.5 * ((B[1][0] - B[0][0]) * (B[2][1] - B[0][1]) -
+                           (B[2][0] - B[0][0]) * (B[1][1] - B[0][1]));
+  if (std::fabs(bs) < 1e-9) {
+    return 0.0;
+  }
+  static const int kEdge[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+  for (int e = 0; e < 3 && n >= 3; ++e) {
+    double x0 = B[kEdge[e][0]][0], y0 = B[kEdge[e][0]][1];
+    double x1 = B[kEdge[e][1]][0], y1 = B[kEdge[e][1]][1];
+    if (bs < 0) {  // toujours dans le sens trigonometrique : « interieur » = « a gauche »
+      std::swap(x0, x1);
+      std::swap(y0, y1);
+    }
+    const double ex = x1 - x0, ey = y1 - y0;
+    double out[8][2];
+    int m = 0;
+    for (int i = 0; i < n && m < 7; ++i) {
+      const double* P = poly[i];
+      const double* Q = poly[(i + 1) % n];
+      const double sp = ex * (P[1] - y0) - ey * (P[0] - x0);
+      const double sq = ex * (Q[1] - y0) - ey * (Q[0] - x0);
+      if (sp >= 0.0) {
+        out[m][0] = P[0];
+        out[m][1] = P[1];
+        ++m;
+      }
+      if ((sp > 0.0 && sq < 0.0) || (sp < 0.0 && sq > 0.0)) {
+        const double t = sp / (sp - sq);
+        out[m][0] = P[0] + t * (Q[0] - P[0]);
+        out[m][1] = P[1] + t * (Q[1] - P[1]);
+        ++m;
+      }
+    }
+    n = m;
+    for (int i = 0; i < n; ++i) {
+      poly[i][0] = out[i][0];
+      poly[i][1] = out[i][1];
+    }
+  }
+  if (n < 3) {
+    return 0.0;
+  }
+  double a2 = 0.0, cx = 0.0, cz = 0.0;
+  for (int i = 0; i < n; ++i) {
+    const int j = (i + 1) % n;
+    const double cr = poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
+    a2 += cr;
+    cx += (poly[i][0] + poly[j][0]) * cr;
+    cz += (poly[i][1] + poly[j][1]) * cr;
+  }
+  if (std::fabs(a2) < 1e-9) {
+    return 0.0;
+  }
+  out_cx = cx / (3.0 * a2);
+  out_cz = cz / (3.0 * a2);
+  return std::fabs(a2) * 0.5;
+}
+
+}  // namespace
+
+OverlayCensus overlay_census(const tfrag3::Level& lev, const std::string& level_name) {
+  OverlayCensus c;
+
+  // ---- LA POPULATION : tous les triangles de RENDU qui regardent vers le haut. Le MEME index
+  // que `surface_census`, donc aucun ecart de recopie entre les deux items.
+  SurfRenderIndex rix;
+  surf_build_render_index(lev, rix);
+  const size_t n = rix.tris.size();
+  c.render_up_tris = (u64)n;
+  c.render_big_tris = (u64)rix.big.size();
+  c.render_draws = rix.draws;
+
+  // Ce que chaque triangle porte comme NOM, et ce que ce nom dit.
+  std::vector<const std::string*> tname(n, nullptr);
+  std::vector<u8> grassy(n, 0), bare(n, 0), nongrass(n, 0);
+  std::unordered_map<std::string, u64> src_pop;
+  for (size_t i = 0; i < n; ++i) {
+    const s32 lb = rix.tris[i].label;
+    src_pop[ovl_src_name(rix.tris[i].src)]++;
+    if (lb >= 0 && (size_t)lb < lev.textures.size() && !lev.textures[lb].debug_name.empty()) {
+      tname[i] = &lev.textures[lb].debug_name;
+      grassy[i] = census_tex_is_grassy(*tname[i]) ? 1 : 0;
+      bare[i] = ovl_tex_is_bare(*tname[i]) ? 1 : 0;
+      nongrass[i] = grassy[i] ? 0 : 1;
+    }
+  }
+
+  // ---- L'INDEX DE COLLISION : le sol declare par le jeu, etiquete par son MATERIAU.
+  SurfRenderIndex cix;
+  const auto& cv = lev.collision.vertices;
+  const size_t ntri = cv.size() / 3;
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    const auto& b = cv[t * 3 + 1];
+    const auto& d = cv[t * 3 + 2];
+    if (((a.pat >> 3) & 0x7u) != 0) {
+      continue;  // pat-mode 0 = ground, la meme porte que surface_census
+    }
+    c.collision_ground_declared++;
+    surf_index_add(cix, a.x, a.y, a.z, b.x, b.y, b.z, d.x, d.y, d.z,
+                   (s32)((a.pat >> 6) & 0x3fu), kSrcCollision);
+  }
+  c.collision_ground_tris = (u64)cix.tris.size();
+
+  const double MIN_AREA = (double)OVL_MIN_AREA_M2 * (double)U * (double)U;
+  const double YGAP = (double)OVL_YGAP_M * (double)U;
+  const double ZF = (double)OVL_ZFIGHT_M * (double)U;
+  const float CYWIN = OVL_COLL_YWIN_M * U;
+
+  // La table des SUPERPOSITIONS TROUVEES, par triangle de rendu : bit 0 = methode A, bit 1 =
+  // methode B, bit 2 = ecart sous le z-fighting (le dessus est indecidable).
+  std::unordered_map<u32, u8> finding;
+  std::unordered_map<std::string, u64> pair_names, pair_srcs;
+
+  auto xz_area = [](const SurfRenderTri& r) {
+    return std::fabs(0.5 * ((double)r.e1x * (double)r.e2z - (double)r.e2x * (double)r.e1z));
+  };
+
+  // ---- METHODE A : LA GEOMETRIE, SANS PREJUGE.
+  auto test_pair = [&](u32 i, u32 j) {
+    c.pairs_tested++;
+    const auto& A = rix.tris[i];
+    const auto& B = rix.tris[j];
+    if (A.maxx < B.minx || B.maxx < A.minx || A.maxz < B.minz || B.maxz < A.minz) {
+      return;
+    }
+    c.pairs_bbox++;
+    if (A.label == B.label) {
+      return;  // meme texture : une seule surface, pas deux meshes
+    }
+    if (tname[i] && tname[j] && *tname[i] == *tname[j]) {
+      return;  // deux entrees de texture, un seul nom : la donnee n'y voit pas deux materiaux
+    }
+    c.pairs_diff_tex++;
+    if (!grassy[i] && !grassy[j]) {
+      return;  // le contrat ne retient que les paires dont l'UNE est herbeuse
+    }
+    c.pairs_one_grassy++;
+    const double pa[3][2] = {{A.p0x, A.p0z},
+                             {(double)A.p0x + A.e1x, (double)A.p0z + A.e1z},
+                             {(double)A.p0x + A.e2x, (double)A.p0z + A.e2z}};
+    const double pb[3][2] = {{B.p0x, B.p0z},
+                             {(double)B.p0x + B.e1x, (double)B.p0z + B.e1z},
+                             {(double)B.p0x + B.e2x, (double)B.p0z + B.e2z}};
+    double ox = 0.0, oz = 0.0;
+    const double area = surf_tri_overlap_area(pa, pb, ox, oz);
+    if (area < MIN_AREA || area < OVL_MIN_AREA_FRAC * std::min(xz_area(A), xz_area(B))) {
+      return;  // deux triangles qui se TOUCHENT par une arete ne se superposent pas
+    }
+    c.pairs_overlap_area++;
+    const double dy = surf_tri_y_at(A, ox, oz) - surf_tri_y_at(B, ox, oz);
+    if (std::fabs(dy) > YGAP) {
+      c.pairs_far_y++;
+      return;  // un etage au-dessus d'un autre : un pont, pas un mesh pose par-dessus
+    }
+    c.pairs_close_y++;
+    if (std::fabs(dy) < ZF) {
+      // LE DESSUS EST INDECIDABLE. On ne l'arbitre pas : on retient le candidat non herbeux et
+      // on le NOMME ambigu.
+      c.pairs_coincident++;
+      const u32 cand = grassy[i] ? j : i;
+      if (!grassy[cand]) {
+        finding[cand] |= 4;
+      }
+      return;
+    }
+    const u32 top = dy > 0 ? i : j;
+    const u32 bot = dy > 0 ? j : i;
+    if (grassy[top] && grassy[bot]) {
+      c.pairs_both_grassy++;
+      return;
+    }
+    if (grassy[top]) {
+      c.pairs_grass_over_bare++;
+      return;  // de l'herbe posee sur du nu : l'inverse du cas de l'owner, compte a part
+    }
+    c.pairs_bare_over_grass++;
+    finding[top] |= 1;
+    pair_names[(tname[top] ? *tname[top] : std::string("(sans-nom)")) + ">" +
+               (tname[bot] ? *tname[bot] : std::string("(sans-nom)"))]++;
+    pair_srcs[std::string(ovl_src_name(rix.tris[top].src)) + ">" +
+              ovl_src_name(rix.tris[bot].src)]++;
+  };
+
+  // Les paires. Un triangle GEANT n'est dans aucune cellule : les paires qui le concernent sont
+  // enumerees a part, sinon la moitie du cas de l'owner (une grande pelouse, un petit chemin)
+  // serait invisible par construction.
+  std::vector<u32> seen(n, UINT32_MAX);
+  std::vector<u8> is_big(n, 0);
+  for (u32 b : rix.big) {
+    is_big[b] = 1;
+  }
+  for (u32 i = 0; i < (u32)n; ++i) {
+    if (is_big[i]) {
+      continue;
+    }
+    const auto& r = rix.tris[i];
+    const s64 gx0 = (s64)std::floor(r.minx * rix.binv), gx1 = (s64)std::floor(r.maxx * rix.binv);
+    const s64 gz0 = (s64)std::floor(r.minz * rix.binv), gz1 = (s64)std::floor(r.maxz * rix.binv);
+    for (s64 gz = gz0; gz <= gz1; ++gz) {
+      for (s64 gx = gx0; gx <= gx1; ++gx) {
+        auto it = rix.grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+        if (it == rix.grid.end()) {
+          continue;
+        }
+        for (u32 j : it->second) {
+          if (j <= i || seen[j] == i) {
+            continue;
+          }
+          seen[j] = i;
+          test_pair(i, j);
+        }
+      }
+    }
+    for (u32 b : rix.big) {
+      test_pair(b < i ? b : i, b < i ? i : b);
+    }
+  }
+  for (size_t bi = 0; bi < rix.big.size(); ++bi) {
+    for (size_t bj = bi + 1; bj < rix.big.size(); ++bj) {
+      test_pair(rix.big[bi], rix.big[bj]);
+    }
+  }
+
+  // ---- METHODE B : LA CONTRE-EPREUVE PAR LA COLLISION. Un triangle de collision de materiau
+  // `grass` recouvert par un triangle de RENDU texture sable ou terre. Les deux sources ne se
+  // copient pas : l'une est le classement des auteurs d'origine, l'autre le nom d'une image.
+  for (size_t t = 0; t < cix.tris.size(); ++t) {
+    const auto& ct = cix.tris[t];
+    if (ct.label != (s32)kPatMatGrass) {
+      continue;
+    }
+    c.method_b_probed++;
+    const float px = ct.p0x + (ct.e1x + ct.e2x) / 3.f;
+    const float py = ct.p0y + (ct.e1y + ct.e2y) / 3.f;
+    const float pz = ct.p0z + (ct.e1z + ct.e2z) / 3.f;
+    // SONDE MASQUEE : « le plus proche » rendrait toujours la surface du dessous quand deux
+    // meshes sont empiles, donc un mesh POSE PAR-DESSUS ne serait jamais vu.
+    //
+    // LE MASQUE EST « NON HERBEUX », PAS « QUI S'APPELLE SABLE ». Le filet de noms sable/terre ne
+    // rend RIEN sur training : la donnee d'origine y nomme ses sols nus `tra-beachrock`,
+    // `jng-smallrocks01`... Chercher le mot « sand » aurait rendu un zero qui ne parle que du
+    // filet. Le sous-ensemble dont la texture DIT sable/terre est publie a part.
+    const s32 ri =
+        surf_index_probe_masked(rix, px, py, pz, CYWIN, nongrass.data(), true, (float)ZF);
+    if (ri < 0) {
+      // Y avait-il un mesh non herbeux, mais SOUS la collision ? Ce n'est pas « pose par-dessus ».
+      if (surf_index_probe_masked(rix, px, py, pz, CYWIN, nongrass.data(), false, 0.f) >= 0) {
+        c.method_b_rejected_below++;
+      }
+      continue;
+    }
+    c.method_b_coll_tris++;
+    if (bare[ri]) {
+      c.method_b_named_bare++;
+    }
+    finding[(u32)ri] |= 2;
+  }
+
+  // ---- LA CLASSIFICATION, NOMMEE. L'ordre de parcours est TRIE : une table de hachage ne rend
+  // pas deux fois le meme ordre, et un recensement qui change d'ordre change de listes.
+  std::vector<u32> fidx;
+  fidx.reserve(finding.size());
+  for (const auto& kv : finding) {
+    fidx.push_back(kv.first);
+  }
+  std::sort(fidx.begin(), fidx.end());
+  c.found = (u64)fidx.size();
+  std::unordered_map<std::string, u64> path_names, patch_names, ambig_names, b_names, found_srcs;
+  for (u32 ti : fidx) {
+    const u8 fl = finding[ti];
+    if (fl & 1) {
+      c.method_a++;
+    }
+    if (fl & 2) {
+      c.method_b++;
+    }
+    if ((fl & 3) == 3) {
+      c.intersection++;
+    }
+    const std::string nm = tname[ti] ? *tname[ti] : std::string("(sans-nom)");
+    found_srcs[ovl_src_name(rix.tris[ti].src)]++;
+    if (fl & 2) {
+      b_names[nm]++;
+    }
+    if (!tname[ti]) {
+      c.found_texture_unnamed++;  // temoin : la donnee ne nomme pas l'image, la collision si
+    }
+    if ((fl & 4) && !(fl & 3)) {
+      c.ambig_zfight++;
+      ambig_names[nm]++;
+      continue;
+    }
+    const auto& r = rix.tris[ti];
+    const float px = r.p0x + (r.e1x + r.e2x) / 3.f;
+    const float py = r.p0y + (r.e1y + r.e2y) / 3.f;
+    const float pz = r.p0z + (r.e1z + r.e2z) / 3.f;
+    const s32 ci = surf_index_probe(cix, px, py, pz, CYWIN);
+    if (ci < 0) {
+      c.ambig_no_collision++;  // rien dessous : le jeu n'en dit rien, et on le dit
+      ambig_names[nm]++;
+      continue;
+    }
+    const u32 mat = (u32)cix.tris[ci].label;
+    if (mat >= kPatMaterialCount) {
+      c.unclass_material_unnamed++;
+      continue;
+    }
+    if (mat == kPatMatGrass) {
+      c.cls_patch++;
+      patch_names[nm]++;
+    } else if (ovl_material_is_path(mat)) {
+      c.cls_path++;
+      path_names[nm]++;
+    } else {
+      c.ambig_material_other++;
+      ambig_names[nm]++;
+    }
+  }
+  c.cls_ambiguous = c.ambig_no_collision + c.ambig_material_other + c.ambig_zfight;
+  c.unclassified = c.unclass_material_unnamed + c.unclass_no_rule;
+  c.sum_check = (c.cls_path + c.cls_patch + c.cls_ambiguous + c.unclassified == c.found) ? 1 : 0;
+  c.pair_tex_top = surf_top_names(pair_names, 10);
+  c.method_b_tex_top = surf_top_names(b_names, 10);
+  c.cls_path_tex_top = surf_top_names(path_names, 10);
+  c.cls_patch_tex_top = surf_top_names(patch_names, 10);
+  c.ambiguous_tex_top = surf_top_names(ambig_names, 10);
+  c.src_population_top = surf_top_names(src_pop, 10);
+  c.pair_src_top = surf_top_names(pair_srcs, 10);
+  c.found_src_top = surf_top_names(found_srcs, 10);
+
+  lg::info(
+      "[grass-overlay-meshes] {} : rendu={} collision={} paires={} retenues={} A={} B={} "
+      "inter={} trouve={} chemin={} patch={} ambigu={} aucune={}",
+      level_name, c.render_up_tris, c.collision_ground_tris, c.pairs_tested, c.pairs_close_y,
+      c.method_a, c.method_b, c.intersection, c.found, c.cls_path, c.cls_patch, c.cls_ambiguous,
+      c.unclassified);
+  return c;
+}
+
+// ---- LE CONTROLE POSITIF. Trois zones fabriquees, trois classes attendues. Il traverse
+// `overlay_census()` LUI-MEME : une copie de ses primitives ne prouverait que la copie.
+OverlaySelftest overlay_census_selftest() {
+  tfrag3::Level lev;
+  lev.textures.resize(2);
+  lev.textures[0].debug_name = "tra-grass";   // herbeuse (census_tex_is_grassy)
+  lev.textures[1].debug_name = "tst-sandpath";  // nue (ovl_tex_is_bare)
+  lev.tfrag_trees[0].resize(1);
+  auto& tr = lev.tfrag_trees[0][0];
+  tr.use_strips = false;
+
+  auto add_tri = [&](float x0, float z0, float side, float y, s32 tex) {
+    const u32 base = (u32)tr.unpacked.vertices.size();
+    tfrag3::PreloadedVertex v;
+    v.x = x0 * U; v.y = y * U; v.z = z0 * U;
+    tr.unpacked.vertices.push_back(v);
+    v.x = (x0 + side) * U; v.y = y * U; v.z = z0 * U;
+    tr.unpacked.vertices.push_back(v);
+    v.x = x0 * U; v.y = y * U; v.z = (z0 + side) * U;
+    tr.unpacked.vertices.push_back(v);
+    tfrag3::StripDraw d;
+    d.tree_tex_id = tex;
+    d.unpacked.idx_of_first_idx_in_full_buffer = base;
+    tfrag3::StripDraw::VisGroup g;
+    g.num_inds = 3;
+    g.num_tris = 1;
+    d.vis_groups.push_back(g);
+    tr.draws.push_back(d);
+    tr.unpacked.indices.push_back(base + 0);
+    tr.unpacked.indices.push_back(base + 1);
+    tr.unpacked.indices.push_back(base + 2);
+  };
+  auto add_coll = [&](float x0, float z0, float side, float y, u32 material) {
+    tfrag3::CollisionMesh::Vertex v{};
+    v.pat = material << 6;  // pat-mode 0 (ground), materiau dans les bits 6..11
+    v.x = x0 * U; v.y = y * U; v.z = z0 * U;
+    lev.collision.vertices.push_back(v);
+    v.x = (x0 + side) * U; v.y = y * U; v.z = z0 * U;
+    lev.collision.vertices.push_back(v);
+    v.x = x0 * U; v.y = y * U; v.z = (z0 + side) * U;
+    lev.collision.vertices.push_back(v);
+  };
+
+  // Trois zones, loin l'une de l'autre : une pelouse, un mesh nu pose 10 cm au-dessus, et ce que
+  // la COLLISION dit dessous.
+  for (int zone = 0; zone < 3; ++zone) {
+    const float ox = 100.f * (float)zone;
+    add_tri(ox, 0.f, 20.f, 0.f, 0);          // la pelouse
+    add_tri(ox + 2.f, 2.f, 6.f, 0.1f, 1);    // le mesh nu, pose par-dessus
+    if (zone == 0) {
+      add_coll(ox + 2.f, 2.f, 6.f, 0.f, kPatMatSand);   // le jeu en a fait un vrai chemin
+    } else if (zone == 1) {
+      add_coll(ox + 2.f, 2.f, 6.f, 0.f, kPatMatGrass);  // la collision dit encore « herbe »
+    }
+    // zone 2 : AUCUNE collision -> le cas ambigu, nomme.
+  }
+
+  const auto oc = overlay_census(lev, "selftest");
+  OverlaySelftest r;
+  r.method_a = oc.method_a;
+  r.method_b = oc.method_b;
+  r.intersection = oc.intersection;
+  r.found = oc.found;
+  r.cls_path = oc.cls_path;
+  r.cls_patch = oc.cls_patch;
+  r.cls_ambiguous = oc.cls_ambiguous;
+  r.unclassified = oc.unclassified;
+  r.pairs_tested = oc.pairs_tested;
+  // CHAQUE CLASSE DOIT ETRE PRODUITE : une classe morte se voit ici, et un detecteur mort aussi.
+  r.ok = (oc.method_a == 3 && oc.method_b == 1 && oc.intersection == 1 && oc.found == 3 &&
+          oc.cls_path == 1 && oc.cls_patch == 1 && oc.cls_ambiguous == 1 && oc.unclassified == 0 &&
+          oc.sum_check == 1)
+             ? 1
+             : 0;
+  return r;
 }
 
 }  // namespace grass_bake

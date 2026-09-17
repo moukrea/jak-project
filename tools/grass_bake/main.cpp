@@ -40,6 +40,10 @@ static void usage() {
       "                 (slider 150) expansion, for offline placement analysis\n"
       "  --weld-stats   run the GLOBAL cross-chunk/bucket/system vertex weld (REOPEN #13) and print\n"
       "                 its stats (writes <repo>/pbr_tan_diag.txt), then exit without the grass scan\n"
+      "  --overlay-census  grass-overlay-meshes : cherche les paires de triangles de sol qui se\n"
+      "                 superposent (geometrie) et les croise avec le materiau de collision, puis\n"
+      "                 classe chaque superposition. Lecture pure, il n'ecrit rien.\n"
+      "  --overlay-selftest  le CONTROLE POSITIF de --overlay-census sur un niveau fabrique.\n"
       "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
       "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
       "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
@@ -53,6 +57,8 @@ int main(int argc, char** argv) {
   std::string dump_prefix;
   bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
   bool surface_census = false;  // grass-surface-truth : lit et croise les deux sources, n'ecrit rien
+  bool overlay_census = false;  // grass-overlay-meshes : cherche les meshes poses sur l'herbe
+  bool overlay_selftest_only = false;  // ... le controle positif seul, sans niveau
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -76,6 +82,11 @@ int main(int argc, char** argv) {
       weld_stats = true;
     } else if (a == "--surface-census") {
       surface_census = true;
+    } else if (a == "--overlay-census") {
+      overlay_census = true;
+    } else if (a == "--overlay-selftest") {
+      overlay_census = true;
+      overlay_selftest_only = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -209,6 +220,76 @@ int main(int argc, char** argv) {
       fmt::print("(could not read {}: {})\n", diag.string(), e.what());
     }
     fmt::print("[grass_bake] weld-stats DONE.\n");
+    return 0;
+  }
+
+  // grass-overlay-meshes : LES MESHES POSES PAR-DESSUS. Il sort AVANT `scan_level`, donc aucune
+  // table n'est cuite et aucun fichier n'est ecrit. Le controle positif tourne A CHAQUE FOIS :
+  // la reponse attendue de cet item peut etre ZERO, et un zero de detecteur mort s'ecrirait
+  // exactement comme un zero de donnee propre.
+  if (overlay_census) {
+    const auto st = grass_bake::overlay_census_selftest();
+    fmt::print("overlay_selftest_ok={}\n", st.ok);
+    fmt::print("overlay_selftest_pairs_tested={}\n", st.pairs_tested);
+    fmt::print("overlay_selftest_method_a={}\n", st.method_a);
+    fmt::print("overlay_selftest_method_b={}\n", st.method_b);
+    fmt::print("overlay_selftest_intersection={}\n", st.intersection);
+    fmt::print("overlay_selftest_found={}\n", st.found);
+    fmt::print("overlay_selftest_path={}\n", st.cls_path);
+    fmt::print("overlay_selftest_patch={}\n", st.cls_patch);
+    fmt::print("overlay_selftest_ambiguous={}\n", st.cls_ambiguous);
+    fmt::print("overlay_selftest_unclassified={}\n", st.unclassified);
+    if (overlay_selftest_only) {
+      fmt::print("[grass_bake] overlay-selftest DONE.\n");
+      return 0;
+    }
+    const auto oc = grass_bake::overlay_census(lev, level_name);
+    fmt::print("overlay_census_level={}\n", level_name);
+    fmt::print("overlay_census_fr3_bytes={}\n", fr3_size);
+    fmt::print("overlay_census_render_up={}\n", oc.render_up_tris);
+    fmt::print("overlay_census_render_big={}\n", oc.render_big_tris);
+    fmt::print("overlay_census_render_draws={}\n", oc.render_draws);
+    fmt::print("overlay_census_collision_declared={}\n", oc.collision_ground_declared);
+    fmt::print("overlay_census_collision_indexed={}\n", oc.collision_ground_tris);
+    fmt::print("overlay_census_pairs_tested={}\n", oc.pairs_tested);
+    fmt::print("overlay_census_pairs_bbox={}\n", oc.pairs_bbox);
+    fmt::print("overlay_census_pairs_diff_tex={}\n", oc.pairs_diff_tex);
+    fmt::print("overlay_census_pairs_one_grassy={}\n", oc.pairs_one_grassy);
+    fmt::print("overlay_census_pairs_overlap_area={}\n", oc.pairs_overlap_area);
+    fmt::print("overlay_census_pairs_close_y={}\n", oc.pairs_close_y);
+    fmt::print("overlay_census_pairs_far_y={}\n", oc.pairs_far_y);
+    fmt::print("overlay_census_pairs_bare_over_grass={}\n", oc.pairs_bare_over_grass);
+    fmt::print("overlay_census_pairs_grass_over_bare={}\n", oc.pairs_grass_over_bare);
+    fmt::print("overlay_census_pairs_both_grassy={}\n", oc.pairs_both_grassy);
+    fmt::print("overlay_census_pairs_coincident={}\n", oc.pairs_coincident);
+    fmt::print("overlay_census_method_a={}\n", oc.method_a);
+    fmt::print("overlay_census_method_b={}\n", oc.method_b);
+    fmt::print("overlay_census_method_b_probed={}\n", oc.method_b_probed);
+    fmt::print("overlay_census_method_b_coll_tris={}\n", oc.method_b_coll_tris);
+    fmt::print("overlay_census_method_b_rejected_below={}\n", oc.method_b_rejected_below);
+    fmt::print("overlay_census_method_b_named_bare={}\n", oc.method_b_named_bare);
+    fmt::print("overlay_census_intersection={}\n", oc.intersection);
+    fmt::print("overlay_census_found={}\n", oc.found);
+    fmt::print("overlay_census_cls_path={}\n", oc.cls_path);
+    fmt::print("overlay_census_cls_patch={}\n", oc.cls_patch);
+    fmt::print("overlay_census_cls_ambiguous={}\n", oc.cls_ambiguous);
+    fmt::print("overlay_census_ambig_no_collision={}\n", oc.ambig_no_collision);
+    fmt::print("overlay_census_ambig_material_other={}\n", oc.ambig_material_other);
+    fmt::print("overlay_census_ambig_zfight={}\n", oc.ambig_zfight);
+    fmt::print("overlay_census_unclassified={}\n", oc.unclassified);
+    fmt::print("overlay_census_found_texture_unnamed={}\n", oc.found_texture_unnamed);
+    fmt::print("overlay_census_unclass_material_unnamed={}\n", oc.unclass_material_unnamed);
+    fmt::print("overlay_census_unclass_no_rule={}\n", oc.unclass_no_rule);
+    fmt::print("overlay_census_sum_check={}\n", oc.sum_check);
+    fmt::print("overlay_census_pair_tex_top={}\n", oc.pair_tex_top);
+    fmt::print("overlay_census_method_b_tex_top={}\n", oc.method_b_tex_top);
+    fmt::print("overlay_census_cls_path_tex_top={}\n", oc.cls_path_tex_top);
+    fmt::print("overlay_census_cls_patch_tex_top={}\n", oc.cls_patch_tex_top);
+    fmt::print("overlay_census_ambiguous_tex_top={}\n", oc.ambiguous_tex_top);
+    fmt::print("overlay_census_src_population_top={}\n", oc.src_population_top);
+    fmt::print("overlay_census_pair_src_top={}\n", oc.pair_src_top);
+    fmt::print("overlay_census_found_src_top={}\n", oc.found_src_top);
+    fmt::print("[grass_bake] overlay-census DONE.\n");
     return 0;
   }
 

@@ -225,9 +225,11 @@ void emit_locked() {
     // pour tout le monde.
     // `grass-surface-truth` compte les TRIANGLES DE SOL qu'au moins une de ses deux sources
     // classe — c'est le `hits=` que son contrat exige, pas les prises du binaire entier.
+    // `grass-overlay-meshes` compte les PAIRES DE TRIANGLES QU'IL A TESTEES — son contrat exige
+    // ce `hits=` la, pas les prises du binaire entier.
     uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
-                     id == "grass-surface-truth")
+                     id == "grass-surface-truth" || id == "grass-overlay-meshes")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

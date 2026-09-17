@@ -526,6 +526,108 @@ SurfaceCensus surface_census(const tfrag3::Level& lev, const std::string& level_
 const char* pat_material_name(u32 material);
 constexpr u32 kPatMaterialCount = 23;
 
+// ---------------------------------------------------------------------------
+// grass-overlay-meshes : LES MESHES POSES PAR-DESSUS UN SOL HERBEUX.
+// ---------------------------------------------------------------------------
+//
+// SPEC section 9. L'owner affirme qu'un second mesh est parfois pose AU-DESSUS d'un sol
+// herbeux pour simuler l'absence d'herbe. C'est la SEULE de ses affirmations que
+// l'investigation n'a su ni confirmer ni infirmer : le seul compteur voisin — les triangles
+// strictement coincidents — ne regarde que les triangles DEJA filtres par les trois noms de
+// texture d'herbe, si bien qu'un triangle de sable n'y entre jamais.
+//
+// CE RECENSEMENT MESURE D'ABORD, SANS PREJUGE, et il ne place rien. Un zero se lit « la
+// superposition n'existe pas » et c'est une reponse valable ; c'est pourquoi le controle
+// positif `overlay_census_selftest()` tourne a cote : sans lui, un zero de detecteur mort et
+// un zero de donnee propre s'ecriraient pareil.
+//
+// DEUX METHODES QUI NE SE COPIENT PAS, chacune publiee seule, puis leur intersection :
+//   A — GEOMETRIE : deux triangles de RENDU regardant tous deux vers le haut, dont les
+//       empreintes au sol se recouvrent d'une aire franche, separes verticalement de peu, et
+//       de textures DIFFERENTES dont l'une est herbeuse.
+//   B — COLLISION : un triangle de COLLISION de materiau `grass` (pat bits 6..11) recouvert
+//       par un triangle de RENDU texture sable ou terre. La collision et le nom de texture
+//       sont deux sources qui ne se copient pas (grass-surface-truth les a separees).
+//
+// LA CLASSIFICATION EST NOMMEE, jamais arbitree en silence. Chaque superposition trouvee est
+// rangee par ce que la COLLISION dit sous elle :
+//   `path`   le materiau sous le mesh pose est sable/terre/gravier/pierre : le jeu lui-meme a
+//            fait un chemin, le mesh n'est pas qu'un decor.
+//   `patch`  le materiau sous lui est encore `grass` : c'est une piece decorative posee sur de
+//            l'herbe, et la collision ne le sait pas.
+//   `ambiguous` NOMME PAR SA RAISON : aucune collision dessous, materiau qui n'est ni herbe ni
+//            chemin, ou ecart vertical sous le seuil de z-fighting (le dessus est indecidable).
+// `unclassified` est ce qu'AUCUNE des trois ne nomme — c'est la grandeur de la porte, et c'est
+// une somme de termes publies separement.
+struct OverlayCensus {
+  // Population et denominateurs.
+  u64 render_up_tris = 0;      // triangles de rendu regardant vers le haut (la population)
+  u64 render_big_tris = 0;     // ... dont trop etendus pour l'index : balayes a part
+  u64 render_draws = 0;
+  u64 collision_ground_declared = 0;  // triangles de collision de mode `ground` (le denominateur)
+  u64 collision_ground_tris = 0;      // ... dont indexables : le reste est un quasi-mur, chiffre ici
+  // L'entonnoir, terme par terme : un seuil qui vide la population se lit ici, pas apres coup.
+  u64 pairs_tested = 0;        // paires reellement soumises au test        <- `hits=` de l'item
+  u64 pairs_bbox = 0;          // ... dont les boites XZ se croisent
+  u64 pairs_diff_tex = 0;      // ... et de textures differentes
+  u64 pairs_one_grassy = 0;    // ... dont l'une est herbeuse
+  u64 pairs_overlap_area = 0;  // ... et dont l'aire de recouvrement depasse le seuil
+  u64 pairs_close_y = 0;       // ... et dont l'ecart vertical est faible : LA METHODE A
+  u64 pairs_far_y = 0;         // recouvrement franc mais etage : un pont, pas une superposition
+  // Ce que les paires retenues racontent.
+  u64 pairs_bare_over_grass = 0;  // dessus non herbeux sur dessous herbeux : le cas de l'owner
+  u64 pairs_grass_over_bare = 0;  // l'inverse
+  u64 pairs_both_grassy = 0;
+  u64 pairs_coincident = 0;       // ecart sous le z-fighting : le dessus est indecidable
+  // Les deux methodes, en triangles de rendu DISTINCTS, et leur intersection.
+  u64 method_a = 0;
+  u64 method_b = 0;
+  u64 method_b_coll_tris = 0;      // triangles de collision `grass` qui ont produit un B
+  u64 method_b_probed = 0;         // triangles de collision `grass` sondes (le denominateur de B)
+  u64 method_b_rejected_below = 0; // un mesh nu existe, mais SOUS la collision : pas par-dessus
+  u64 method_b_named_bare = 0;     // ... dont la texture du dessus DIT sable/terre/gravier
+  u64 intersection = 0;
+  u64 found = 0;               // l'union : la population que la classification doit couvrir
+  // Les trois classes.
+  u64 cls_path = 0, cls_patch = 0, cls_ambiguous = 0;
+  u64 ambig_no_collision = 0, ambig_material_other = 0, ambig_zfight = 0;
+  // UN NOM DE TEXTURE ABSENT N'EMPECHE PAS DE CLASSER : la classe est lue sur la COLLISION, pas
+  // sur le nom. Ce compteur est un TEMOIN publie, pas un terme de la porte — le compter comme
+  // « non classe » aurait refuse une superposition que les deux sources savent pourtant nommer.
+  u64 found_texture_unnamed = 0;
+  // La porte, et les termes dont elle est la somme.
+  u64 unclassified = 0;
+  u64 unclass_material_unnamed = 0, unclass_no_rule = 0;
+  u64 sum_check = 0;           // 1 si classes + unclassified == found
+  // Noms, sans espace, prets pour `proof.txt`.
+  std::string pair_tex_top;       // "dessus>dessous:compte,..."
+  // LA PROVENANCE, qui NOMME ce qu'est le mesh pose : un arbre tfrag `dirt` est du terrain de
+  // terre dans la donnee d'origine ; une piece TIE est un OBJET, et l'occultation d'objets la
+  // traite deja. Les melanger ferait passer le plancher d'une hutte pour un chemin.
+  std::string src_population_top;  // "tfrag-normal:12345,tie:6789,..."
+  std::string pair_src_top;        // "tfrag-dirt>tfrag-normal:123,..."
+  std::string found_src_top;
+  std::string method_b_tex_top;
+  std::string cls_path_tex_top;
+  std::string cls_patch_tex_top;
+  std::string ambiguous_tex_top;
+};
+// Deterministe, sans GL, sans horloge, sans fil.
+OverlayCensus overlay_census(const tfrag3::Level& lev, const std::string& level_name);
+
+// LE CONTROLE POSITIF DE L'INSTRUMENT, ET POURQUOI IL EXISTE. La reponse attendue de cet item
+// peut etre ZERO, et un zero de detecteur mort s'ecrit exactement comme un zero de donnee sans
+// superposition. Ce banc fabrique un niveau de trois zones — chemin, piece decorative, aucune
+// collision — et le fait traverser a `overlay_census()` LUI-MEME, pas a une copie de ses
+// primitives. Chaque classe doit etre PRODUITE : une classe morte se voit ici.
+struct OverlaySelftest {
+  u64 method_a = 0, method_b = 0, intersection = 0, found = 0;
+  u64 cls_path = 0, cls_patch = 0, cls_ambiguous = 0, unclassified = 0;
+  u64 pairs_tested = 0;
+  u64 ok = 0;  // 1 si les trois classes sont produites et `unclassified` vaut 0
+};
+OverlaySelftest overlay_census_selftest();
+
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
 

@@ -9824,7 +9824,7 @@ items:
     proof_bytes: 52259
     attempt: 2
     journal: validator-002.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9871,7 +9871,14 @@ items:
   proof_env:
   - OG_RECHARGED=1
   - OG_LEVEL_WARP=training-start
-- status: open
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 70370a9ac1dc28a2
+    proof_bytes: 60656
+    attempt: 1
+    journal: validator-001.txt
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -9911,6 +9918,9 @@ items:
   hits_means: paires de triangles testees
   prompt: prompts/item-grass-overlay-meshes.md
   block_reason: null
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
 - status: open
   game: jak1
   owner_test: true

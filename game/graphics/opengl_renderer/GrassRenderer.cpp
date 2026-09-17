@@ -86,6 +86,10 @@ AUTOPORT_FEATURE_SITE(kDeadTailItemId);
 constexpr const char* kSurfaceTruthItemId = "grass-surface-truth";
 AUTOPORT_FEATURE_SITE(kSurfaceTruthItemId);
 
+// grass-overlay-meshes : l'item qui etablit ou ecarte les meshes poses PAR-DESSUS un sol herbeux.
+constexpr const char* kOverlayMeshesItemId = "grass-overlay-meshes";
+AUTOPORT_FEATURE_SITE(kOverlayMeshesItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1204,6 +1208,44 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       }
     }
     // ====================== fin grass-surface-truth ========================================
+
+    // ================== grass-overlay-meshes : LES MESHES POSES PAR-DESSUS ==================
+    // Meme regle que ci-dessus : ce bloc LIT et PUBLIE, il ne place rien, et il ne tourne que
+    // lorsque le harnais mesure CET item. Le recensement hors ligne
+    // (`.autoport/lib/census/grass-overlay-meshes.sh`) passe les DIX niveaux avec le MEME code ;
+    // ici, le temoin est que l'instrument vit dans le moteur et qu'il a tire.
+    //
+    // LE CONTROLE POSITIF TOURNE AUSSI. La reponse attendue de cet item peut etre zero, et un
+    // zero de detecteur mort s'ecrirait exactement comme un zero de donnee propre.
+    if (autoport_proof::feature_is(kOverlayMeshesItemId)) {
+      static std::string s_overlay_census_done;
+      if (s_overlay_census_done != level_name) {
+        s_overlay_census_done = level_name;
+        const auto st = grass_bake::overlay_census_selftest();
+        autoport_proof::publish("grass_overlay_engine_selftest_ok", st.ok);
+        autoport_proof::publish("grass_overlay_engine_selftest_found", st.found);
+        const auto oc = grass_bake::overlay_census(*lev, level_name);
+        autoport_proof::publish_text("grass_overlay_engine_level", level_name.c_str());
+        autoport_proof::publish("grass_overlay_engine_render_up", oc.render_up_tris);
+        autoport_proof::publish("grass_overlay_engine_collision", oc.collision_ground_tris);
+        autoport_proof::publish("grass_overlay_engine_pairs_tested", oc.pairs_tested);
+        autoport_proof::publish("grass_overlay_engine_pairs_close_y", oc.pairs_close_y);
+        autoport_proof::publish("grass_overlay_engine_bare_over_grass", oc.pairs_bare_over_grass);
+        autoport_proof::publish("grass_overlay_engine_method_a", oc.method_a);
+        autoport_proof::publish("grass_overlay_engine_method_b", oc.method_b);
+        autoport_proof::publish("grass_overlay_engine_intersection", oc.intersection);
+        autoport_proof::publish("grass_overlay_engine_found", oc.found);
+        autoport_proof::publish("grass_overlay_engine_cls_path", oc.cls_path);
+        autoport_proof::publish("grass_overlay_engine_cls_patch", oc.cls_patch);
+        autoport_proof::publish("grass_overlay_engine_cls_ambiguous", oc.cls_ambiguous);
+        autoport_proof::publish("grass_overlay_engine_unclassified", oc.unclassified);
+        autoport_proof::publish("grass_overlay_engine_sum_check", oc.sum_check);
+        autoport_proof::publish_text("grass_overlay_engine_pair_src", oc.pair_src_top.c_str());
+        autoport_proof::publish_text("grass_overlay_engine_pair_tex", oc.pair_tex_top.c_str());
+        autoport_proof::note_hit_for(kOverlayMeshesItemId, oc.pairs_tested);
+      }
+    }
+    // ====================== fin grass-overlay-meshes ========================================
 
     // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
     float floor_gap_m = grass_bake::FLOOR_GAP_M;
