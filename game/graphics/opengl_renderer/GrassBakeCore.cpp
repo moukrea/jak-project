@@ -1504,6 +1504,49 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
 // ===========================================================================
 // expand: replicates today's budget/order semantics exactly.
 // ===========================================================================
+// grass-chunk-cull : LE DECOUPAGE. Un seul parcours, dans l'ordre d'emission, aucune allocation
+// par instance. Un lot se ferme quand il DEBORDERAIT — la boite testee est celle qu'on aurait APRES
+// avoir ajoute l'instance — ce qui garantit que la boite publiee respecte toujours la borne.
+void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk>& out) {
+  out.clear();
+  const size_t n = inst.size();
+  if (n == 0) {
+    return;
+  }
+  const float maxd = CHUNK_MAX_DIAG_M * 4096.f;
+  const float maxd2 = maxd * maxd;
+  out.reserve(n / CHUNK_MAX_COUNT + 16);
+  GrassChunk c{};
+  auto open_at = [&](size_t i) {
+    const auto& g = inst[i];
+    c.first = (u32)i;
+    c.count = 0;
+    c.lo[0] = c.hi[0] = g.px;
+    c.lo[1] = c.hi[1] = g.py;
+    c.lo[2] = c.hi[2] = g.pz;
+  };
+  open_at(0);
+  for (size_t i = 0; i < n; i++) {
+    const auto& g = inst[i];
+    if (c.count > 0) {
+      const float dx = std::max(c.hi[0], g.px) - std::min(c.lo[0], g.px);
+      const float dz = std::max(c.hi[2], g.pz) - std::min(c.lo[2], g.pz);
+      if (c.count >= CHUNK_MAX_COUNT || dx * dx + dz * dz > maxd2) {
+        out.push_back(c);
+        open_at(i);
+      }
+    }
+    c.lo[0] = std::min(c.lo[0], g.px);
+    c.hi[0] = std::max(c.hi[0], g.px);
+    c.lo[1] = std::min(c.lo[1], g.py);
+    c.hi[1] = std::max(c.hi[1], g.py + g.h);  // le SOMMET du brin, pas seulement sa racine
+    c.lo[2] = std::min(c.lo[2], g.pz);
+    c.hi[2] = std::max(c.hi[2], g.pz);
+    c.count++;
+  }
+  out.push_back(c);
+}
+
 ExpandResult expand(const BakeData& d, float density_slider_pct) {
   ExpandResult res;
   float dens_scale = std::min(2.5f, std::max(0.5f, density_slider_pct / 100.0f));
@@ -2278,6 +2321,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct) {
            "plane_capped={} plane_dropped={}",
            res.lean_tagged, res.lean_twins, LEAN_BAND_M, res.z2_count, res.z3_count, Z3C_LAYERS,
            z3_texb, res.comb_pairs, dbg_trans_blades, dbg_trans_tilt0, plane_capped, plane_dropped);
+  // grass-chunk-cull : la partition, recalculee depuis les instances qu'on vient d'emettre. Un
+  // seul parcours de min/max sur un tableau deja chaud : c'est la meme fonction que l'outil de
+  // cuisson appelle, donc les deux cotes ne peuvent pas diverger sans que le moteur le voie.
+  build_chunks(res.instances, res.chunks);
   return res;
 }
 
@@ -2300,7 +2347,10 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // Grecharged-grass-overhang6: v7: tri flags bit5 (is_hang) + 3-zone expand semantics (round 6); layout
 // identical to v6 (flags/rimdrape sections already serialized — the rimdrape edge table now feeds
 // zone-1's outward-lean directions instead of the deleted rim-drape blades).
-constexpr u32 GBK_FORMAT_VERSION = 7;
+// grass-chunk-cull: v8: section `chunks` en queue (partition spatiale cuite de l'expansion a
+// `bake_density_pct`). Un v7 echoue la garde de version et n'est PAS charge : les cinq bakes
+// livres se recuisent par `scripts/shell/build_grass_bakes.sh`.
+constexpr u32 GBK_FORMAT_VERSION = 8;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -2409,6 +2459,20 @@ bool save_bake(const BakeData& d, const std::string& path) {
     put<float>(buf, s.gg);
     put<float>(buf, s.gb);
     put<u32>(buf, s.tri);
+  }
+
+  // grass-chunk-cull (GBK8) : la partition. Ecrite en queue, apres toutes les sections v7, pour
+  // qu'un lecteur v8 lise un v8 sans deplacer un seul offset existant.
+  put<u32>(buf, (u32)d.chunks.size());
+  for (const auto& c : d.chunks) {
+    put<u32>(buf, c.first);
+    put<u32>(buf, c.count);
+    for (int k = 0; k < 3; ++k) {
+      put<float>(buf, c.lo[k]);
+    }
+    for (int k = 0; k < 3; ++k) {
+      put<float>(buf, c.hi[k]);
+    }
   }
 
   std::vector<u8> comp = compression::compress_zstd(buf.data(), buf.size());
@@ -2610,6 +2674,43 @@ bool load_bake(BakeData& d, const std::string& path) {
       lg::warn("[recharged-grass] load_bake: rimdrape tri index out of range in '{}'", path);
       return false;
     }
+  }
+
+  // grass-chunk-cull (GBK8) : la partition cuite. Les bornes de sanite sont les MEMES que celles
+  // que `build_chunks` respecte par construction ; une table qui ne couvre pas exactement
+  // [0, somme des comptes) est refusee ici plutot que de faire sauter des instances au dessin.
+  u32 nch = 0;
+  if (!get(buf, off, nch)) {
+    lg::warn("[recharged-grass] load_bake: truncated chunk count in '{}'", path);
+    return false;
+  }
+  if (!count_fits(buf, off, nch, 32)) {  // 2 u32 + 6 floats
+    lg::warn("[recharged-grass] load_bake: compte de chunks aberrant ({}) dans '{}' — refuse", nch,
+             path);
+    return false;
+  }
+  tmp.chunks.resize(nch);
+  u64 covered = 0;
+  for (u32 i = 0; i < nch; ++i) {
+    GrassChunk& c = tmp.chunks[i];
+    bool okc = get(buf, off, c.first) && get(buf, off, c.count);
+    for (int k = 0; k < 3 && okc; ++k) {
+      okc = get(buf, off, c.lo[k]);
+    }
+    for (int k = 0; k < 3 && okc; ++k) {
+      okc = get(buf, off, c.hi[k]);
+    }
+    if (!okc) {
+      lg::warn("[recharged-grass] load_bake: truncated chunks[] in '{}'", path);
+      return false;
+    }
+    if (c.first != (u32)covered) {
+      lg::warn("[recharged-grass] load_bake: chunks[{}] ne suit pas le precedent ({} != {}) dans "
+               "'{}' — refuse",
+               i, c.first, covered, path);
+      return false;
+    }
+    covered += c.count;
   }
 
   d = std::move(tmp);

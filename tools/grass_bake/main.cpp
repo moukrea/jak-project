@@ -6,10 +6,12 @@
 //
 // Usage: grass_bake <level-name> [--fr3-dir <dir>] [--out <path>] [--density <pct>]
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "common/util/FileUtil.h"
 #include "common/util/Serializer.h"
@@ -213,6 +215,30 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // grass-chunk-cull : LA PARTITION EST CUITE, DONC ELLE SE CALCULE AVANT L'ECRITURE. Elle est
+  // celle de l'expansion A LA DENSITE DE CE BAKE — la seule que le moteur demandera, puisque
+  // chaque palier porte son propre fichier et que `expand()` y est appelee avec `bake_density_pct`.
+  auto eBake = grass_bake::expand(bake, density);
+  bake.chunks = eBake.chunks;
+  {
+    u64 cmin = 0, cmax = 0, csum = 0;
+    std::vector<u64> counts;
+    counts.reserve(bake.chunks.size());
+    for (const auto& c : bake.chunks) {
+      counts.push_back(c.count);
+      csum += c.count;
+    }
+    std::sort(counts.begin(), counts.end());
+    if (!counts.empty()) {
+      cmin = counts.front();
+      cmax = counts.back();
+    }
+    fmt::print("[grass_bake] chunks @slider={:.0f}: n={} instances={} min={} p50={} p90={} max={}\n",
+               density, (u64)bake.chunks.size(), csum, cmin,
+               counts.empty() ? 0 : counts[counts.size() / 2],
+               counts.empty() ? 0 : counts[(counts.size() * 9) / 10], cmax);
+  }
+
   // Save.
   if (!grass_bake::save_bake(bake, out_path)) {
     fmt::print("error: save_bake failed to write '{}'\n", out_path);
@@ -225,9 +251,9 @@ int main(int argc, char** argv) {
   } catch (...) {
   }
 
-  // Self-check expands at the shipping default (150) and at the bake density.
+  // Self-check expands at the shipping default (150); the bake-density expansion was already
+  // computed above (its partition is what got written).
   auto e150 = grass_bake::expand(bake, 150.0f);
-  auto eBake = grass_bake::expand(bake, density);
 
   fmt::print("\n[grass_bake] ===== BAKE SUMMARY '{}' =====\n", level_name);
   fmt::print("[grass_bake] scan: considered_draws={} tie_draws={} tris_kept={} giant_tris={} "
@@ -293,6 +319,19 @@ int main(int argc, char** argv) {
                 (rtE.instances.empty() ||
                  std::memcmp(rtE.instances.data(), e150.instances.data(),
                              rtE.instances.size() * sizeof(grass_bake::GrassInstance)) == 0);
+    // grass-chunk-cull : la partition RELUE DU FICHIER doit etre celle que `build_chunks` rend
+    // sur les instances du meme palier. Sans cette comparaison, une table cuite a la mauvaise
+    // densite passerait la porte et le moteur culerait sur des boites qui ne bornent rien.
+    const bool chunks_same =
+        rt.chunks.size() == bake.chunks.size() &&
+        (rt.chunks.empty() || std::memcmp(rt.chunks.data(), bake.chunks.data(),
+                                          rt.chunks.size() * sizeof(grass_bake::GrassChunk)) == 0);
+    fmt::print("[grass_bake] round-trip chunks: {} (n={} vs {})\n",
+               chunks_same ? "IDENTICAL" : "MISMATCH", (u64)rt.chunks.size(),
+               (u64)bake.chunks.size());
+    if (!chunks_same) {
+      return 1;
+    }
     fmt::print("[grass_bake] round-trip @150: {} (instances={} droop_start={} droop_tris={})\n",
                same ? "IDENTICAL" : "MISMATCH", (u64)rtE.instances.size(), rtE.droop_start,
                (u64)rt.droop.size());

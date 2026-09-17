@@ -331,6 +331,37 @@ struct RimDrapeSeg {
   u32 tri;                       // owning walkable tri index (into BakeData::tris) for light sampling
 };
 
+// grass-chunk-cull : LA PARTITION SPATIALE, CUITE DANS LE FICHIER.
+//
+// POURQUOI ELLE EST UNE PLAGE CONTIGUE ET NON UNE CELLULE DE GRILLE. Les deux passes de dessin
+// lisent le MEME tampon d'instances, dans l'ordre ou `expand()` les emet, et le melange alpha est
+// ACTIF (`glEnable(GL_BLEND)`, GrassRenderer.cpp) : reordonner les instances pour les grouper par
+// cellule changerait l'ordre de melange des fragments translucides, donc l'image. Le contrat de
+// l'item l'interdit (« l'image ne change pas, identique au bit »). Un lot est donc une PLAGE
+// CONTIGUE de l'ordre existant, fermee des que sa boite passe `CHUNK_MAX_DIAG_M` ou
+// `CHUNK_MAX_COUNT`. Mesure sur training@150 (616 379 instances) : l'ordre d'emission est deja
+// spatialement coherent — 1 129 lots, diagonale XZ mediane 5,7 m — et un lot cull-e n'est jamais
+// qu'un SOUS-ENSEMBLE retire de la sequence, jamais une permutation.
+//
+// « Une touffe traversant une frontiere appartient au chunk de son ORIGINE » (SPEC section 10) :
+// il n'existe pas encore de touffe, et un brin n'appartient qu'au lot qui contient SA POSITION —
+// la boite est celle des origines, etendue vers le haut par la hauteur du brin.
+struct GrassChunk {
+  u32 first;           // premiere instance du lot dans expand()->instances
+  u32 count;           // nombre d'instances du lot
+  float lo[3], hi[3];  // boite des ORIGINES, hi[1] releve au sommet du brin (unites monde GOAL)
+};
+
+// Taille visee. `CHUNK_MAX_COUNT` borne le nombre d'instances par lot (« un nombre d'instances par
+// chunk a peu pres constant », SPEC section 10) ; `CHUNK_MAX_DIAG_M` borne son etendue, sans quoi
+// une plage peu coherente produirait une boite qui couvre le niveau et ne serait jamais rejetee.
+constexpr float CHUNK_MAX_DIAG_M = 12.0f;
+constexpr u32 CHUNK_MAX_COUNT = 1024;
+
+// Deterministe : aucun aleatoire, aucune horloge, un seul parcours dans l'ordre d'emission. Le
+// meme tableau d'instances rend le meme decoupage sur x86 et sur arm64.
+void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk>& out);
+
 struct BakeStats {
   int considered_draws = 0, tie_draws = 0, tris_kept = 0, giant_tris = 0;
   float max_area = 0.f;
@@ -352,6 +383,10 @@ struct BakeData {
   std::vector<DroopTri> droop;    // Grecharged-grass-overhang: droop faces + outward dirs (GBK2)
   std::vector<DroopRimSeg> droop_rims;  // Grecharged-grass-overhang2: droop-zone rim segments (GBK3)
   std::vector<RimDrapeSeg> rimdrape;    // Grecharged-grass-overhang5: walkable-top drop-off lip edges (GBK6)
+  // grass-chunk-cull (GBK8) : la partition de l'expansion A LA DENSITE DE CE BAKE. Cuite par
+  // `tools/grass_bake`, relue telle quelle par le moteur ; `expand()` la recalcule de son cote et
+  // le renderer publie l'ecart, ce qui rend le determinisme falsifiable au lieu d'etre affirme.
+  std::vector<GrassChunk> chunks;
   BakeStats stats;
 };
 
@@ -403,6 +438,9 @@ struct ExpandResult {
   int comb_pairs = 0;
   int plane_capped = 0;
   int plane_dropped = 0;
+  // grass-chunk-cull : la partition RECALCULEE depuis les instances qu'on vient d'emettre. Le
+  // moteur la compare a celle lue dans le fichier ; l'outil de cuisson y ecrit celle-ci.
+  std::vector<GrassChunk> chunks;
   // Grecharged-grass-overhang6 census: zone-1 lean twins (walkable boundary), zone-2 strip scatter
   // (flat-green sub-lip mesh, emitted as 5+w comb-class), zone-3 layered fall (native-alpha faces).
   int lean_tagged = 0;   // walkable originals tagged for a lean twin

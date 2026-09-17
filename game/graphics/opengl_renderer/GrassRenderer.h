@@ -100,6 +100,23 @@ class GrassRenderer {
   };
   std::vector<ChunkInfo> m_chunks;
 
+  // grass-chunk-cull : LA PARTITION EN VIGUEUR, et de quelle source elle vient. Elle est lue dans
+  // le `.grassbake` (le contrat veut les bounds DANS LE FICHIER) ; `expand()` en recalcule une de
+  // son cote et `m_cull_mismatch` publie leur ecart, ce qui rend le determinisme de la cuisson
+  // falsifiable. `m_cull_covered` est le nombre d'instances que la table couvre : s'il ne vaut
+  // pas `m_instance_count`, aucun culling n'a lieu et les deux passes repartent sur [0, n).
+  std::vector<grass_bake::GrassChunk> m_cull_chunks;
+  bool m_cull_from_file = false;
+  u64 m_cull_mismatch = 0;
+  u64 m_cull_covered = 0;
+  // Plages contigues de lots visibles, une par appel de dessin. Membres pour ne rien allouer par
+  // image : le cout de soumission est precisement ce que l'item doit mesurer.
+  std::vector<std::pair<int, int>> m_blade_runs, m_card_runs;
+  std::vector<u8> m_cull_keep;
+  // ROUND#19 attribut 4 : `ensure_gl` peut le laisser desactive (garde d'appareil). Le rebind par
+  // lot doit savoir s'il existe, sinon il repose un pointeur sur un attribut eteint.
+  bool m_attr4_on = true;
+
   const void* m_cached_level = nullptr;
   u64 m_cached_load_id = UINT64_MAX;
   // Grecharged-grass-overhang7 ROUND 11: GL handles of the two native hang-alpha strip textures

@@ -470,6 +470,7 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/perf_instruments.cpp"
     "${JAK_ROOT}/game/system/sched_affinity.cpp"
     "${JAK_ROOT}/game/system/grass_baseline.cpp"
+    "${JAK_ROOT}/game/system/grass_cull.cpp"
     "${JAK_ROOT}/game/system/perf_baseline.cpp"
     "${JAK_ROOT}/game/system/water_census.cpp"
     "${JAK_ROOT}/game/system/naming_census.cpp"

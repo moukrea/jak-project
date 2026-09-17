@@ -33,7 +33,31 @@
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/grass_baseline.h"
+#include "game/system/grass_cull.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
+
+// grass-chunk-cull : LE CACHE DE LOCALISATIONS D'UNIFORMES. La cause connue de l'item le nomme :
+// « une trentaine de `glGetUniformLocation` par image sans cache, ce qui sur Adreno est un appel
+// de pilote par nom ». On ne change RIEN a ce qui est demande ni a ce qui en est fait — la valeur
+// rendue est celle du pilote, -1 compris (le repli `u_trample_str[0]` du correctif Adreno 618 la
+// relit donc a l'identique). Les deux compteurs publient l'A/B dans la MEME course : les sites
+// DEMANDES par image, et les appels de pilote reellement passes.
+static u64 g_grass_uloc_requests = 0, g_grass_uloc_misses = 0;
+static u64 g_grass_uloc_requests_frame = 0, g_grass_uloc_misses_frame = 0;
+static GLint grass_uloc(GLuint prog, const char* name) {
+  g_grass_uloc_requests++;
+  static std::unordered_map<u64, std::unordered_map<std::string, GLint>> cache;
+  auto& m = cache[(u64)prog];
+  const auto it = m.find(name);
+  if (it != m.end()) {
+    return it->second;
+  }
+  g_grass_uloc_misses++;
+  const GLint loc = glGetUniformLocation(prog, name);
+  m.emplace(name, loc);
+  return loc;
+}
+
 
 namespace {
 std::unordered_map<unsigned int, unsigned int> grass_proof_programs;
@@ -709,31 +733,31 @@ ContactSources contact_sources(bool include_static) {
 bool push_contact_uniforms(unsigned int id, bool include_static) {
   const auto& positions = include_static ? contact_all_positions : g_tramp_published;
   const auto& strengths = include_static ? contact_all_strengths : g_tramp_strength;
-  glUniform4fv(glGetUniformLocation(id, "u_jak_pos"), 1, contact_jak.data());
-  glUniform4fv(glGetUniformLocation(id, "u_jak_ledge"), 1, contact_ledge.data());
-  glUniform4fv(glGetUniformLocation(id, "u_jak_trail"), 4, contact_trail);
+  glUniform4fv(grass_uloc(id, "u_jak_pos"), 1, contact_jak.data());
+  glUniform4fv(grass_uloc(id, "u_jak_ledge"), 1, contact_ledge.data());
+  glUniform4fv(grass_uloc(id, "u_jak_trail"), 4, contact_trail);
   // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
   // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
   // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
   {
     int ntr = (int)std::min<size_t>(positions.size(), include_static ? 16 : 8);  // literal-index shared contact cap
     if (ntr > 0) {
-      glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &positions[0][0]);
+      glUniform4fv(grass_uloc(id, "u_trample"), ntr, &positions[0][0]);
       // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
       // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
       // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
       // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
       // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
       // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
-      int str_loc = glGetUniformLocation(id, "u_trample_str");
+      int str_loc = grass_uloc(id, "u_trample_str");
       if (str_loc < 0) {
-        str_loc = glGetUniformLocation(id, "u_trample_str[0]");
+        str_loc = grass_uloc(id, "u_trample_str[0]");
       }
       static bool s_str_loc_logged = false;
       if (!s_str_loc_logged) {
         s_str_loc_logged = true;
         lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
-                 str_loc, glGetUniformLocation(id, "u_trample_str"),
+                 str_loc, grass_uloc(id, "u_trample_str"),
                  strengths.empty() ? -1.f : strengths[0], ntr);
       }
       glUniform1fv(str_loc, ntr, strengths.data());
@@ -744,17 +768,17 @@ bool push_contact_uniforms(unsigned int id, bool include_static) {
         str4[si][0] = strengths[si];
         str4[si][1] = str4[si][2] = str4[si][3] = 0.f;
       }
-      glUniform4fv(glGetUniformLocation(id, "u_trample2"), ntr, &str4[0][0]);
+      glUniform4fv(grass_uloc(id, "u_trample2"), ntr, &str4[0][0]);
     }
-    glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
+    glUniform1i(grass_uloc(id, "u_trample_count"), ntr);
   }
 
-  return glGetUniformLocation(id, "u_jak_pos") >= 0 &&
-         glGetUniformLocation(id, "u_jak_trail") >= 0 &&
-         glGetUniformLocation(id, "u_jak_ledge") >= 0 &&
-         glGetUniformLocation(id, "u_trample") >= 0 &&
-         glGetUniformLocation(id, "u_trample2") >= 0 &&
-         glGetUniformLocation(id, "u_trample_count") >= 0;
+  return grass_uloc(id, "u_jak_pos") >= 0 &&
+         grass_uloc(id, "u_jak_trail") >= 0 &&
+         grass_uloc(id, "u_jak_ledge") >= 0 &&
+         grass_uloc(id, "u_trample") >= 0 &&
+         grass_uloc(id, "u_trample2") >= 0 &&
+         grass_uloc(id, "u_trample_count") >= 0;
 }
 }  // namespace grass_occ
 
@@ -797,6 +821,7 @@ void GrassRenderer::ensure_gl() {
     }
   }
 #endif
+  m_attr4_on = !noattr4;
   if (!noattr4) {
     glEnableVertexAttribArray(4);
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
@@ -814,6 +839,183 @@ void GrassRenderer::ensure_gl() {
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   m_gl_ready = true;
+}
+
+// ===== grass-chunk-cull : LES DEUX IMPLEMENTATIONS DU MEME PREDICAT ==========================
+//
+// La transformation monde->clip de `grass.vert:81-98` n'est PAS une mat4 ordinaire : division par
+// w, ajout de `hvdf_offset`, -2048 / /256 / /-128, remultiplication par w. Elle est pourtant
+// AFFINE en la position monde — la division et la remultiplication par le MEME `w` s'annulent
+// algebriquement :
+//     X = (fog*tx + (hvdf.x-2048)*tw) / 256
+//     Y = -scissor * (fog*ty + (hvdf.y-2048)*tw) / 128
+//     Z = (fog*tz + hvdf.z*tw) / 8388608 - tw
+//     W = tw            avec  t = -camera[3] - camera[0]*x - camera[1]*y - camera[2]*z
+// C'est ce qui permet d'en extraire six plans et de tester une boite par centre/extension.
+//
+// LE CULLER utilise ces plans. L'ORACLE, lui, rejoue la sequence LITTERALE du shader (division
+// puis remultiplication) sur chaque point qu'il teste. Deux arithmetiques differentes pour le
+// meme predicat : une transposition, un signe ou un terme oublie dans l'une se lit comme un ecart
+// non nul, jamais comme un zero silencieux. L'oracle porte en plus une marge de 5 cm — largement
+// au-dessus du bruit flottant, largement sous toute erreur reelle — pour qu'une egalite exacte au
+// bord d'un plan ne puisse pas rougir la porte.
+struct GrassClipPlanes {
+  // plan k : g_k(p) = n[k][0]*x + n[k][1]*y + n[k][2]*z + n[k][3] >= 0 == DEDANS
+  float n[6][4];
+};
+
+static GrassClipPlanes grass_build_planes(const std::array<math::Vector4f, 4>& cam,
+                                          const float* hvdf,
+                                          float fogc,
+                                          float scissor_y) {
+  // T[i][j] : t_i = T[i][0]*x + T[i][1]*y + T[i][2]*z + T[i][3]
+  float T[4][4];
+  for (int i = 0; i < 4; i++) {
+    T[i][0] = -cam[0][i];
+    T[i][1] = -cam[1][i];
+    T[i][2] = -cam[2][i];
+    T[i][3] = -cam[3][i];
+  }
+  float X[4], Y[4], Z[4], W[4];
+  for (int j = 0; j < 4; j++) {
+    W[j] = T[3][j];
+    X[j] = (fogc * T[0][j] + (hvdf[0] - 2048.f) * T[3][j]) / 256.f;
+    Y[j] = -scissor_y * (fogc * T[1][j] + (hvdf[1] - 2048.f) * T[3][j]) / 128.f;
+    Z[j] = (fogc * T[2][j] + hvdf[2] * T[3][j]) / 8388608.f - T[3][j];
+  }
+  GrassClipPlanes pl;
+  for (int j = 0; j < 4; j++) {
+    pl.n[0][j] = W[j] + X[j];
+    pl.n[1][j] = W[j] - X[j];
+    pl.n[2][j] = W[j] + Y[j];
+    pl.n[3][j] = W[j] - Y[j];
+    pl.n[4][j] = W[j] + Z[j];
+    pl.n[5][j] = W[j] - Z[j];
+  }
+  return pl;
+}
+
+// LE CULLER : test centre/extension, six plans, pas de branche par coin.
+static inline bool grass_box_outside(const GrassClipPlanes& pl,
+                                     const float lo[3],
+                                     const float hi[3]) {
+  const float cx = 0.5f * (lo[0] + hi[0]), cy = 0.5f * (lo[1] + hi[1]),
+              cz = 0.5f * (lo[2] + hi[2]);
+  const float ex = 0.5f * (hi[0] - lo[0]), ey = 0.5f * (hi[1] - lo[1]),
+              ez = 0.5f * (hi[2] - lo[2]);
+  for (int k = 0; k < 6; k++) {
+    const float* n = pl.n[k];
+    const float d = n[0] * cx + n[1] * cy + n[2] * cz + n[3];
+    const float r = std::fabs(n[0]) * ex + std::fabs(n[1]) * ey + std::fabs(n[2]) * ez;
+    if (d + r < 0.f) {
+      return true;  // la boite entiere est du mauvais cote de ce plan
+    }
+  }
+  return false;
+}
+
+// L'ORACLE : la sequence LITTERALE de `grass.vert`, puis les six valeurs de plan du point.
+static inline void grass_clip_literal(const std::array<math::Vector4f, 4>& cam,
+                                      const float* hvdf,
+                                      float fogc,
+                                      float scissor_y,
+                                      float px,
+                                      float py,
+                                      float pz,
+                                      float g[6]) {
+  float tx = -cam[3][0] - cam[0][0] * px - cam[1][0] * py - cam[2][0] * pz;
+  float ty = -cam[3][1] - cam[0][1] * px - cam[1][1] * py - cam[2][1] * pz;
+  float tz = -cam[3][2] - cam[0][2] * px - cam[1][2] * py - cam[2][2] * pz;
+  const float tw = -cam[3][3] - cam[0][3] * px - cam[1][3] * py - cam[2][3] * pz;
+  const float Q = fogc / tw;
+  float x = tx * Q + hvdf[0];
+  float y = ty * Q + hvdf[1];
+  float z = tz * Q + hvdf[2];
+  x -= 2048.f;
+  y -= 2048.f;
+  z = z / 8388608.f - 1.f;
+  x /= 256.f;
+  y /= -128.f;
+  const float X = x * tw;
+  const float Y = y * tw * scissor_y;
+  const float Z = z * tw;
+  g[0] = tw + X;
+  g[1] = tw - X;
+  g[2] = tw + Y;
+  g[3] = tw - Y;
+  g[4] = tw + Z;
+  g[5] = tw - Z;
+}
+
+// Une boite est DEHORS pour l'oracle quand ses huit coins tombent du mauvais cote d'un MEME plan.
+// Exact pour un convexe, et sans hypothese de signe sur w.
+static bool grass_box_outside_literal(const std::array<math::Vector4f, 4>& cam,
+                                      const float* hvdf,
+                                      float fogc,
+                                      float scissor_y,
+                                      const float lo[3],
+                                      const float hi[3]) {
+  bool out[6] = {true, true, true, true, true, true};
+  for (int c = 0; c < 8; c++) {
+    const float px = (c & 1) ? hi[0] : lo[0];
+    const float py = (c & 2) ? hi[1] : lo[1];
+    const float pz = (c & 4) ? hi[2] : lo[2];
+    float g[6];
+    grass_clip_literal(cam, hvdf, fogc, scissor_y, px, py, pz, g);
+    bool any = false;
+    for (int k = 0; k < 6; k++) {
+      if (g[k] >= 0.f) {
+        out[k] = false;
+      } else {
+        any = true;
+      }
+    }
+    (void)any;
+  }
+  for (int k = 0; k < 6; k++) {
+    if (out[k]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Marges du culler, en metres. Elles couvrent tout ce que le shader ajoute autour de l'origine
+// d'une instance : hauteur du brin (deja dans `hi[1]` de la boite cuite), courbure, lacet, brise,
+// pietinement, demi-largeur d'une carte. Genereuses A DESSEIN : une marge trop large ne coute que
+// quelques lots gardes en trop, une marge trop courte retire des pixels.
+constexpr float kCullMarginXZ_M = 1.5f;
+constexpr float kCullMarginY_M = 0.5f;
+// L'oracle teste une boite 5 cm PLUS LARGE que le culler. Largement au-dessus du bruit flottant
+// entre deux ecritures de la meme algebre, largement en dessous de toute erreur reelle : une
+// egalite exacte au bord d'un plan ne peut pas rougir la porte, une transposition ou un signe
+// inverse la rougissent de plusieurs milliers d'instances.
+constexpr float kOracleSlack_M = 0.05f;
+// SCISSOR_ADJUST * HEIGHT_SCALE substitues par Shader.cpp pour jak1 (l'herbe n'existe que la).
+constexpr float kGrassScissorY = 512.0f / 448.0f;
+// Au-dela, un appel de dessin par lot couterait plus qu'il ne rapporte : on retombe sur la plage
+// entiere et la preuve le NOMME (`grass_cull_run_overflow`), au lieu de livrer 1 400 appels.
+constexpr int kMaxRunsPerPass = 128;
+
+// Les plages CONTIGUES de lots gardes. Aucune fusion a travers un trou : une instance soumise est
+// une instance qu'un lot garde a demandee, sinon le compte d'instances hors champ mentirait.
+static void grass_build_runs(const std::vector<grass_bake::GrassChunk>& chunks,
+                             const std::vector<u8>& keep,
+                             u8 mask,
+                             std::vector<std::pair<int, int>>& out) {
+  out.clear();
+  for (size_t i = 0; i < chunks.size(); i++) {
+    if (!(keep[i] & mask)) {
+      continue;
+    }
+    const int first = (int)chunks[i].first;
+    const int count = (int)chunks[i].count;
+    if (!out.empty() && out.back().first + out.back().second == first) {
+      out.back().second += count;
+    } else {
+      out.push_back({first, count});
+    }
+  }
 }
 
 // Gloading-screen-window : les deux passes de diagnostic de `rebuild` (RIMCAND, grille de chunks)
@@ -1213,6 +1415,60 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
   m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
   m_droop_start = res.droop_start;
+  // grass-chunk-cull : LA PARTITION EN VIGUEUR. Le contrat veut les bounds DANS LE FICHIER, on les
+  // y prend ; `expand()` vient d'en recalculer une, et leur ecart est publie. Une table absente
+  // (bake d'une version anterieure) ou qui ne couvre pas exactement [0, n) n'est pas utilisee : le
+  // dessin repart alors sur la plage entiere, jamais sur une partition douteuse.
+  {
+    auto covered_by = [](const std::vector<grass_bake::GrassChunk>& t) -> u64 {
+      u64 sum = 0;
+      for (const auto& c : t) {
+        if (c.first != (u32)sum) {
+          return 0;
+        }
+        sum += c.count;
+      }
+      return sum;
+    };
+    const u64 file_cov = covered_by(m_bake.chunks);
+    const u64 calc_cov = covered_by(res.chunks);
+    m_cull_from_file = (file_cov == (u64)m_instance_count) && m_instance_count > 0;
+    m_cull_chunks = m_cull_from_file ? m_bake.chunks : res.chunks;
+    m_cull_covered = m_cull_from_file ? file_cov : calc_cov;
+    if (m_cull_covered != (u64)m_instance_count) {
+      m_cull_chunks.clear();
+      m_cull_covered = 0;
+    }
+    m_cull_mismatch = 0;
+    if (m_bake.chunks.size() != res.chunks.size()) {
+      m_cull_mismatch = m_bake.chunks.size() > res.chunks.size()
+                            ? m_bake.chunks.size() - res.chunks.size()
+                            : res.chunks.size() - m_bake.chunks.size();
+    } else {
+      for (size_t i = 0; i < res.chunks.size(); i++) {
+        if (std::memcmp(&res.chunks[i], &m_bake.chunks[i], sizeof(grass_bake::GrassChunk)) != 0) {
+          m_cull_mismatch++;
+        }
+      }
+    }
+    std::vector<u64> cnts;
+    cnts.reserve(m_cull_chunks.size());
+    for (const auto& c : m_cull_chunks) {
+      cnts.push_back(c.count);
+    }
+    std::sort(cnts.begin(), cnts.end());
+    grass_cull::note_partition(
+        (u64)m_cull_chunks.size(), cnts.empty() ? 0 : cnts.front(),
+        cnts.empty() ? 0 : cnts[cnts.size() / 2],
+        cnts.empty() ? 0 : cnts[(cnts.size() * 9) / 10], cnts.empty() ? 0 : cnts.back(),
+        m_cull_from_file, m_cull_mismatch, (u64)m_instance_count);
+    lg::info(
+        "[recharged-grass] CHUNK-CULL partition: lots={} source={} mismatch={} couvre={} sur {} "
+        "instances (p50={} max={})",
+        (int)m_cull_chunks.size(), m_cull_from_file ? "fichier" : "recalcule", m_cull_mismatch,
+        m_cull_covered, m_instance_count, cnts.empty() ? 0 : cnts[cnts.size() / 2],
+        cnts.empty() ? 0 : cnts.back());
+  }
   // Grecharged-grass-overhang6 census: the 3-zone tail (drawn only while the toggle is ON). Zone 2 =
   // sub-lip strip blades (5+w comb-class), zone 1 = walkable-boundary lean twins, zone 3 = layered
   // fall over the native-alpha overhang faces.
@@ -1720,6 +1976,9 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // pas plus haut : les retours anticipes (pas d'instances, ecran de chargement) sont en amont, et
   // un chronometre ouvert sur un chemin qui ne dessine pas ne mesurerait rien de comparable.
   const auto t_prep0 = std::chrono::steady_clock::now();
+  // grass-chunk-cull : la fenetre de comptage des localisations d'uniformes commence ici, au meme
+  // point que le chronometre de preparation — c'est ce bloc-la que l'item doit chiffrer.
+  const u64 uloc_req0 = g_grass_uloc_requests, uloc_miss0 = g_grass_uloc_misses;
   update_light(rs);
 
   // monotonic seconds for the breeze
@@ -1756,11 +2015,35 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   shrub_proof_inputs::exchange("grass/camera", proof_camera[0].data(), sizeof(float) * 16);
   shrub_proof_inputs::exchange("grass/hvdf", proof_hvdf.data(), sizeof(float) * 4);
   shrub_proof_inputs::exchange("grass/camera-position", proof_position.data(), sizeof(float) * 4);
-  glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE, proof_camera[0].data());
-  glUniform4f(glGetUniformLocation(id, "hvdf_offset"), proof_hvdf[0], proof_hvdf[1], proof_hvdf[2], proof_hvdf[3]);
-  glUniform4f(glGetUniformLocation(id, "camera_position"), proof_position[0], proof_position[1], proof_position[2], proof_position[3]);
-  glUniform1f(glGetUniformLocation(id, "fog_constant"), rs->camera_fog.x());
-  glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
+
+  // grass-chunk-cull : L'ORIENTATION DE LA VUE, imposee par la campagne et par elle seule (la
+  // fonction rend faux hors campagne et a la vue 0). On tourne le MONDE autour de l'oeil,
+  // p -> R(p-e)+e ; la transformation monde->clip etant affine en p, cela se reecrit exactement
+  // sur les quatre vecteurs `camera[]`, sans toucher au shader :
+  //     c0' = cos*c0 - sin*c2     c1' = c1     c2' = sin*c0 + cos*c2
+  //     c3' = c3 + C(e - R e)     avec C(v) = c0*v.x + c1*v.y + c2*v.z (ANCIENNES colonnes)
+  // L'oeil est point fixe : `camera_position` — et donc `cam_dist` du shader — ne bouge pas.
+  float grass_view_yaw = 0.f;
+  const bool grass_view_rotated = grass_cull::view_yaw(&grass_view_yaw);
+  if (grass_view_rotated) {
+    const float cs = std::cos(grass_view_yaw), sn = std::sin(grass_view_yaw);
+    const math::Vector4f c0 = proof_camera[0], c1 = proof_camera[1], c2 = proof_camera[2];
+    const float ex = proof_position[0], ez = proof_position[2];
+    const float rex = cs * ex + sn * ez;
+    const float rez = -sn * ex + cs * ez;
+    const float dx = ex - rex, dz = ez - rez;
+    for (int i = 0; i < 4; i++) {
+      proof_camera[0][i] = cs * c0[i] - sn * c2[i];
+      proof_camera[2][i] = sn * c0[i] + cs * c2[i];
+      proof_camera[3][i] = proof_camera[3][i] + c0[i] * dx + c2[i] * dz;
+    }
+    (void)c1;
+  }
+  glUniformMatrix4fv(grass_uloc(id, "camera"), 1, GL_FALSE, proof_camera[0].data());
+  glUniform4f(grass_uloc(id, "hvdf_offset"), proof_hvdf[0], proof_hvdf[1], proof_hvdf[2], proof_hvdf[3]);
+  glUniform4f(grass_uloc(id, "camera_position"), proof_position[0], proof_position[1], proof_position[2], proof_position[3]);
+  glUniform1f(grass_uloc(id, "fog_constant"), rs->camera_fog.x());
+  glUniform1f(grass_uloc(id, "u_time"), u_time);
   const auto& jp = Gfx::settings().recharged_jak_pos;
   grass_occ::push_contact_uniforms(id);
   // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to
@@ -1768,15 +2051,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   float near_m = std::min(80.0f, std::max(8.0f, Gfx::settings().recharged_grass_near_dist));
   float card_m = std::min(200.0f, std::max(near_m + 5.0f,
                                            Gfx::settings().recharged_grass_card_dist));
-  glUniform1f(glGetUniformLocation(id, "u_near_dist"), near_m * U);
-  glUniform1f(glGetUniformLocation(id, "u_card_dist"), card_m * U);
+  glUniform1f(grass_uloc(id, "u_near_dist"), near_m * U);
+  glUniform1f(grass_uloc(id, "u_card_dist"), card_m * U);
   // POLISH#4: Jak's ledge-grab point (parts the ledge-top grass while he hangs).
   // ROUND#14 DISCRIMINATOR (0 normal / 1 base-stubs magenta / 2 blades cyan / 3 cards yellow):
   // isolates every tier so ONE fixed-viewpoint capture at a rim discriminates the floating
   // mechanism (H-A blade geometry / H-B base-past-silhouette / H-C cards). Control (default OFF):
   //   prop debug.opengoal.grass_dbg = c (cycle every 4 s) | 1 | 2 | 3   (Android)
   //   env  GRASS_DISCRIMINATE       = c | 1 | 2 | 3                     (desktop x86)
-  glUniform1i(glGetUniformLocation(id, "u_debug"), grass_debug_mode(u_time));
+  glUniform1i(grass_uloc(id, "u_debug"), grass_debug_mode(u_time));
 #ifdef OG_FEAT_PBR
   // ROUND 23 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A). Grass draws are tagged in
   // debug mode 30 so the coverage census can attribute every screen pixel to the program that drew
@@ -1791,12 +2074,12 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
 #endif
   // ROUND#19: optional normal-tilt blend — blade growth axis = mix(world-up, ground-face normal, u_tilt).
   // 0.0 (default) is bit-identical to the world-up-only growth; the owner A/Bs ~0.30 via the debug prop.
-  glUniform1f(glGetUniformLocation(id, "u_tilt"), grass_tilt_amount());
+  glUniform1f(grass_uloc(id, "u_tilt"), grass_tilt_amount());
   // Grecharged-grass-overhang2: droop arc length scale (owner defect 2 — see grass_droop_len()).
-  glUniform1f(glGetUniformLocation(id, "u_droop_len"), grass_droop_len());
+  glUniform1f(grass_uloc(id, "u_droop_len"), grass_droop_len());
   // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle
   // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
-  glUniform1f(glGetUniformLocation(id, "u_overhang"),
+  glUniform1f(grass_uloc(id, "u_overhang"),
 #ifdef OG_FEAT_GRASS_OVERHANG
               recharged_gating::on(recharged_gating::kGrassOverhang) ? 1.0f : 0.0f);
 #else
@@ -1810,9 +2093,9 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   {
     int nocc = (int)std::min<size_t>(grass_occ::g_published.size(), 8);  // R21f literal-unroll cap
     if (nocc > 0) {
-      glUniform4fv(glGetUniformLocation(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
+      glUniform4fv(grass_uloc(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
     }
-    glUniform1i(glGetUniformLocation(id, "u_occ_count"), nocc);
+    glUniform1i(grass_uloc(id, "u_occ_count"), nocc);
   }
   // ROUND#19 forensics (owner: registered radii have NO visual): prove what actually reaches the
   // shader — uniform locations (a -1 = the GLES link dropped it) once, then the published entries +
@@ -1820,7 +2103,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   static bool s_occ_loc_logged = false;
   if (!s_occ_loc_logged) {
     s_occ_loc_logged = true;
-    lg::info("[recharged-grass] R19OCC uniform-locations: u_occ={} u_occ_count={} u_trample={} u_trample_count={} u_jak_pos={} u_tilt={}", glGetUniformLocation(id, "u_occ"), glGetUniformLocation(id, "u_occ_count"), glGetUniformLocation(id, "u_trample"), glGetUniformLocation(id, "u_trample_count"), glGetUniformLocation(id, "u_jak_pos"), glGetUniformLocation(id, "u_tilt"));
+    lg::info("[recharged-grass] R19OCC uniform-locations: u_occ={} u_occ_count={} u_trample={} u_trample_count={} u_jak_pos={} u_tilt={}", grass_uloc(id, "u_occ"), grass_uloc(id, "u_occ_count"), grass_uloc(id, "u_trample"), grass_uloc(id, "u_trample_count"), grass_uloc(id, "u_jak_pos"), grass_uloc(id, "u_tilt"));
   }
   static int s_occ_dump_frame = 0;
   if ((s_occ_dump_frame++ % 150) == 0) {
@@ -1869,7 +2152,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glBindVertexArray(m_vao);
-  GLint mode_loc = glGetUniformLocation(id, "u_mode");
+  GLint mode_loc = grass_uloc(id, "u_mode");
 
   // ROUND 11: bind the native hang-alpha strip textures for the zone-3 textured cards (units 0/1 —
   // the grass program samples nothing else; every other renderer re-binds its own units per draw).
@@ -1877,8 +2160,8 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glBindTexture(GL_TEXTURE_2D, m_hang_tex[1]);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_hang_tex[0]);
-  glUniform1i(glGetUniformLocation(id, "u_hang0"), 0);
-  glUniform1i(glGetUniformLocation(id, "u_hang1"), 1);
+  glUniform1i(grass_uloc(id, "u_hang0"), 0);
+  glUniform1i(grass_uloc(id, "u_hang1"), 1);
 
   // ROUND#19 GPU-wedge forensics (device props, read once at first frame):
   //   debug.opengoal.grass_maxinst=N  -> draw only the FIRST N instances of the SAME built buffer.
@@ -1918,6 +2201,72 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
 #endif
   const int draw_n = (s_maxinst > 0 && s_maxinst < blade_total) ? s_maxinst : blade_total;
   const int card_n = (s_maxinst > 0 && s_maxinst < nondroop_n) ? s_maxinst : nondroop_n;
+
+  // ===== grass-chunk-cull : LE CULLING PAR LOT ================================================
+  // Trois rejets, tous CONSERVATEURS, tous derives de ce que le shader fait deja :
+  //   * hors du volume de vue    — six plans extraits de la matrice monde->clip ;
+  //   * au-dela de B_END         — `alpha = 1 - smoothstep(B_FULL, B_END, cam_dist)` vaut
+  //                                EXACTEMENT 0 des que cam_dist >= u_near_dist (grass.vert:210) ;
+  //   * en deca de C_IN0         — `smoothstep(C_IN0, C_IN1, cam_dist)` vaut EXACTEMENT 0 en deca
+  //                                de 0,45*u_near_dist, et la passe carte s'y tait (grass.vert:212).
+  // Les bornes de distance portent sur la BASE du brin (`distance(base, camera_position)`), donc
+  // sur la boite des origines ; les elargir ne peut que GARDER plus de lots.
+  //
+  // CE N'EST PAS UN CHANGEMENT DE LOD. Aucune distance n'est modifiee : on cesse de SOUMETTRE ce
+  // que le shader repliait deja sur un point degenere apres l'avoir transforme.
+  m_blade_runs.clear();
+  m_card_runs.clear();
+  u64 chunks_tested = 0, chunks_kept_blade = 0, chunks_kept_card = 0;
+  bool run_overflow = false;
+  const bool cull_on = grass_cull::culling_active() && !m_cull_chunks.empty() &&
+                       m_cull_covered == (u64)m_instance_count && m_instance_count > 0;
+  GrassClipPlanes cull_planes{};
+  if (cull_on) {
+    cull_planes = grass_build_planes(proof_camera, proof_hvdf.data(), rs->camera_fog.x(),
+                                     kGrassScissorY);
+    const float mxz = kCullMarginXZ_M * U, my = kCullMarginY_M * U;
+    const float blade_reach = near_m * U;      // B_END
+    const float card_out = card_m * U;         // C_OUT1
+    const float card_in = 0.45f * near_m * U;  // C_IN0
+    const float cp[3] = {proof_position[0], proof_position[1], proof_position[2]};
+    m_cull_keep.assign(m_cull_chunks.size(), 0);
+    for (size_t i = 0; i < m_cull_chunks.size(); i++) {
+      const auto& c = m_cull_chunks[i];
+      const float lo[3] = {c.lo[0] - mxz, c.lo[1] - my, c.lo[2] - mxz};
+      const float hi[3] = {c.hi[0] + mxz, c.hi[1] + my, c.hi[2] + mxz};
+      chunks_tested++;
+      if (grass_box_outside(cull_planes, lo, hi)) {
+        continue;
+      }
+      float dmin2 = 0.f, dmax2 = 0.f;
+      for (int k = 0; k < 3; k++) {
+        const float q = std::min(std::max(cp[k], lo[k]), hi[k]) - cp[k];
+        dmin2 += q * q;
+        const float f = std::max(std::fabs(lo[k] - cp[k]), std::fabs(hi[k] - cp[k]));
+        dmax2 += f * f;
+      }
+      u8 keep = 0;
+      if (dmin2 < blade_reach * blade_reach) {
+        keep |= 1;
+      }
+      if (dmin2 < card_out * card_out && dmax2 > card_in * card_in) {
+        keep |= 2;
+      }
+      m_cull_keep[i] = keep;
+      chunks_kept_blade += (keep & 1) ? 1 : 0;
+      chunks_kept_card += (keep & 2) ? 1 : 0;
+    }
+    grass_build_runs(m_cull_chunks, m_cull_keep, 1, m_blade_runs);
+    grass_build_runs(m_cull_chunks, m_cull_keep, 2, m_card_runs);
+    if ((int)m_blade_runs.size() > kMaxRunsPerPass ||
+        (int)m_card_runs.size() > kMaxRunsPerPass) {
+      run_overflow = true;
+      m_blade_runs.clear();
+      m_blade_runs.push_back({0, m_instance_count});
+      m_card_runs.clear();
+      m_card_runs.push_back({0, m_instance_count});
+    }
+  }
 
   // ROUND#19 GPU-WEDGE FIX (the REAL one, forensically pinned): the per-draw costs are healthy
   // (blade ~35 ms, card ~55 ms at density 150 — R19SYNC logs), but WITHOUT any drain the CPU queues
@@ -2100,8 +2449,8 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       if (bracket != std::string::npos) base.resize(bracket);
       for (int e = 0; e < count; ++e) {
         const auto entry = count > 1 ? base + "[" + std::to_string(e) + "]" : base;
-        const GLint src = glGetUniformLocation(id, entry.c_str());
-        const GLint dst = glGetUniformLocation(measure_program, entry.c_str());
+        const GLint src = grass_uloc(id, entry.c_str());
+        const GLint dst = grass_uloc(measure_program, entry.c_str());
         float f[16] = {}; GLint v[4] = {};
         switch (type) {
           case GL_FLOAT: glGetUniformfv(id, src, f); glUniform1fv(dst, 1, f); break;
@@ -2121,7 +2470,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, result_count * sizeof(Result), nullptr, GL_STREAM_READ);
     glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buffer);
     glEnable(GL_RASTERIZER_DISCARD);
-    const GLint contact_switch = glGetUniformLocation(measure_program, "u_probe_grass_no_contact");
+    const GLint contact_switch = grass_uloc(measure_program, "u_probe_grass_no_contact");
     if (!gl_clean() || contact_switch < 0) {
       restore(); fail_capture("measurement setup GL error"); return;
     }
@@ -2220,7 +2569,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       std::vector<u32> bits(size_t(count) * width);
       for (int e = 0; e < count; ++e) {
         const std::string entry = count > 1 ? base + "[" + std::to_string(e) + "]" : base;
-        const GLint location = glGetUniformLocation(id, entry.c_str());
+        const GLint location = grass_uloc(id, entry.c_str());
         if (floating) {
           float values[16] = {};
           glGetUniformfv(id, location, values);
@@ -2240,34 +2589,91 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
         after.data(), after.size() * sizeof(float));
   };
 
+  // grass-chunk-cull : LES ATTRIBUTS D'INSTANCE, REPOSES A L'OFFSET D'UN LOT. GLES 3 n'a pas de
+  // `baseInstance` : la seule facon de dessiner [first, first+count) d'un tampon d'instances est
+  // de decaler les pointeurs d'attribut. Les cinq pointeurs se reposent ensemble — trois sur le
+  // tampon d'instances (0/1/2, plus 4 si l'appareil l'autorise), un sur le tampon de lumiere (3) —
+  // sinon la couleur d'une instance viendrait d'une AUTRE.
+  using grass_bake::GrassInstance;
+  auto bind_at = [&](int first) {
+    const size_t base = (size_t)first * sizeof(GrassInstance);
+    glBindBuffer(GL_ARRAY_BUFFER, m_instance_vbo);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance), (void*)base);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
+                          (void*)(base + 4 * sizeof(float)));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
+                          (void*)(base + 8 * sizeof(float)));
+    if (m_attr4_on) {
+      glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(GrassInstance),
+                            (void*)(base + 12 * sizeof(float)));
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, m_light_vbo);
+    glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4 * sizeof(u8),
+                          (void*)((size_t)first * 4));
+  };
+  u64 draw_calls = 0;
+  auto draw_pass = [&](GLenum mode, GLint verts, const std::vector<std::pair<int, int>>& runs,
+                       int limit, int tris_per) -> u64 {
+    u64 total = 0;
+    if (!cull_on) {
+      if (limit > 0) {
+        bind_at(0);
+        glDrawArraysInstanced(mode, 0, verts, limit);
+        soft_draw_census::record_arrays("grass", verts, mode, limit);
+        prof.add_draw_call();
+        prof.add_tri(limit * tris_per);
+        draw_calls++;
+        total = (u64)limit;
+      }
+      return total;
+    }
+    for (const auto& r : runs) {
+      if (r.first >= limit) {
+        break;
+      }
+      const int cnt = std::min(r.second, limit - r.first);
+      if (cnt <= 0) {
+        continue;
+      }
+      bind_at(r.first);
+      glDrawArraysInstanced(mode, 0, verts, cnt);
+      soft_draw_census::record_arrays("grass", verts, mode, cnt);
+      prof.add_draw_call();
+      prof.add_tri(cnt * tris_per);
+      draw_calls++;
+      total += (u64)cnt;
+    }
+    return total;
+  };
+
   // NEAR: individual blades (10-vert triangle strip)
   const auto t_draw0 = std::chrono::steady_clock::now();
   glUniform1i(mode_loc, 0);
-  glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 10, draw_n);
-  soft_draw_census::record_arrays("grass", 10, GL_TRIANGLE_STRIP, draw_n);
-  capture_grass(0, 10, draw_n);
-  prof.add_draw_call();
-  prof.add_tri(draw_n * 8);
+  const u64 submitted_blade = draw_pass(GL_TRIANGLE_STRIP, 10, m_blade_runs, draw_n, 8);
+  // La sonde de contact lit les pointeurs d'attribut EN L'ETAT et echantillonne une instance sur
+  // 256 depuis le debut du tampon : on les remet a zero avant de l'appeler, sinon elle decrirait
+  // le dernier lot au lieu du champ.
+  bind_at(0);
+  capture_grass(0, 10, (int)submitted_blade);
   sync_ms("blade draw");
 
   // MID: X-cross cards (12-vert, 4 triangles). card_n stops before the droop tail: droop NEVER
   // has a card tier (far LOD = the game's own alpha overhang texture).
   glUniform1i(mode_loc, 1);
-  glDrawArraysInstanced(GL_TRIANGLES, 0, 12, card_n);
-  soft_draw_census::record_arrays("grass", 12, GL_TRIANGLES, card_n);
-  capture_grass(1, 12, card_n);
-  prof.add_draw_call();
-  prof.add_tri(card_n * 4);
+  const u64 submitted_card = draw_pass(GL_TRIANGLES, 12, m_card_runs, card_n, 4);
+  bind_at(0);
+  capture_grass(1, 12, (int)submitted_card);
   sync_ms("card draw");
   // grass-baseline-cost : le dessin de cette image, en DEUX grandeurs SEPAREES, parce qu'elles
   // nomment deux causes differentes. `fence` est l'attente de la barriere posee a l'image
   // PRECEDENTE — la contre-pression GPU que le correctif Adreno 618 a rendue explicite ; `submit`
   // est le temps processeur des deux appels de dessin. Melangees, elles feraient passer une
   // attente du GPU pour un cout de soumission, et le diagnostic partirait a l'envers.
+  const double submit_us =
+      std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t_draw0).count();
   grass_baseline::note_draw(
-      std::chrono::duration<double, std::micro>(t_fence1 - t_fence0).count(),
-      std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t_draw0).count(),
-      (uint64_t)draw_n, (uint64_t)card_n);
+      std::chrono::duration<double, std::micro>(t_fence1 - t_fence0).count(), submit_us,
+      submitted_blade, submitted_card);
 
   // grass-dead-tail : LE COMPTE ATTEINT PAR UN APPEL DE DESSIN, LU AU POINT D'APPEL — pas la
   // variable qu'un autre bout de code croit passer. `grass_dead_instances` est la DIFFERENCE de
@@ -2361,6 +2767,141 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     grass_baseline::note_camera(cpx, cpy, cpz);
     grass_baseline::note_frustum(in_frustum, in_lod, (uint64_t)tested, behind);
   }
+
+  // ===== grass-chunk-cull : LE RECENSEMENT, PAR L'ORACLE ======================================
+  // Tout ce qui suit est mesure sur CETTE image, celle dont les deux passes viennent d'etre
+  // soumises. Les comptes SOUMIS sont lus aux appels de dessin (`submitted_blade`/`_card`), pas a
+  // une variable qu'un autre bout de code croit passer. Les comptes de l'oracle sont produits par
+  // l'arithmetique LITTERALE du shader, sur une boite 5 cm plus large que celle du culler.
+  //
+  // Une image par jambe : le balayage des instances coute un parcours complet, et il n'a rien a
+  // faire dans la fenetre ou l'on chronometre le dessin (la campagne l'exclut de ses echantillons).
+  if (grass_cull::want_census()) {
+    const float fogc = rs->camera_fog.x();
+    const float omxz = (kCullMarginXZ_M + kOracleSlack_M) * U;
+    const float omy = (kCullMarginY_M + kOracleSlack_M) * U;
+    const float blade_reach = near_m * U;
+    const float card_out = card_m * U;
+    const float card_in = 0.45f * near_m * U;
+    const float cp[3] = {proof_position[0], proof_position[1], proof_position[2]};
+
+    // --- niveau LOT : ce que l'oracle garde, et ce que le culler a soumis en trop.
+    std::vector<u8> oracle_keep(m_cull_chunks.size(), 0);
+    u64 chunk_visible = 0;
+    for (size_t i = 0; i < m_cull_chunks.size(); i++) {
+      const auto& c = m_cull_chunks[i];
+      const float lo[3] = {c.lo[0] - omxz, c.lo[1] - omy, c.lo[2] - omxz};
+      const float hi[3] = {c.hi[0] + omxz, c.hi[1] + omy, c.hi[2] + omxz};
+      if (grass_box_outside_literal(proof_camera, proof_hvdf.data(), fogc, kGrassScissorY, lo,
+                                    hi)) {
+        continue;
+      }
+      float dmin2 = 0.f, dmax2 = 0.f;
+      for (int k = 0; k < 3; k++) {
+        const float q = std::min(std::max(cp[k], lo[k]), hi[k]) - cp[k];
+        dmin2 += q * q;
+        const float f = std::max(std::fabs(lo[k] - cp[k]), std::fabs(hi[k] - cp[k]));
+        dmax2 += f * f;
+      }
+      u8 k2 = 0;
+      if (dmin2 < blade_reach * blade_reach) {
+        k2 |= 1;
+      }
+      if (dmin2 < card_out * card_out && dmax2 > card_in * card_in) {
+        k2 |= 2;
+      }
+      oracle_keep[i] = k2;
+      chunk_visible += ((k2 & 1) ? c.count : 0) + ((k2 & 2) ? c.count : 0);
+    }
+    u64 offscreen = 0;
+    for (size_t i = 0; i < m_cull_chunks.size(); i++) {
+      const u8 sub = cull_on ? m_cull_keep[i] : (u8)3;
+      const u8 orc = oracle_keep[i];
+      if ((sub & 1) && !(orc & 1)) {
+        offscreen += m_cull_chunks[i].count;
+      }
+      if ((sub & 2) && !(orc & 2)) {
+        offscreen += m_cull_chunks[i].count;
+      }
+    }
+
+    // --- niveau INSTANCE : ce qui aurait DESSINE quelque chose, et ce qui n'a pas ete soumis.
+    // La boite d'une instance couvre le brin entier ; le predicat de distance est celui du
+    // shader, sur la base. `dropped_visible` est le terme qui interdit de gagner du temps en
+    // retirant des pixels : il est independant de toute la machinerie de lots.
+    const float ixz = 0.35f * U, iy = 0.15f * U;
+    u64 ideal = 0, dropped = 0;
+    size_t rb = 0, rc = 0;
+    const int scan_n = std::min(draw_n, m_instance_count);
+    for (int i = 0; i < scan_n; i++) {
+      const auto& gi = m_instances[(size_t)i];
+      const float lo[3] = {gi.px - ixz, gi.py - iy, gi.pz - ixz};
+      const float hi[3] = {gi.px + ixz, gi.py + gi.h + iy, gi.pz + ixz};
+      const float dx = gi.px - cp[0], dy = gi.py - cp[1], dz = gi.pz - cp[2];
+      const float d2 = dx * dx + dy * dy + dz * dz;
+      const bool near_ok = d2 < blade_reach * blade_reach;
+      const bool card_ok = d2 < card_out * card_out && d2 > card_in * card_in && i < card_n;
+      bool in_vol = false;
+      if (near_ok || card_ok) {
+        in_vol = !grass_box_outside_literal(proof_camera, proof_hvdf.data(), fogc, kGrassScissorY,
+                                            lo, hi);
+      }
+      while (rb < m_blade_runs.size() &&
+             m_blade_runs[rb].first + m_blade_runs[rb].second <= i) {
+        rb++;
+      }
+      while (rc < m_card_runs.size() && m_card_runs[rc].first + m_card_runs[rc].second <= i) {
+        rc++;
+      }
+      const bool sub_b = !cull_on ? (i < draw_n)
+                                  : (rb < m_blade_runs.size() && i >= m_blade_runs[rb].first);
+      const bool sub_c = !cull_on ? (i < card_n)
+                                  : (rc < m_card_runs.size() && i >= m_card_runs[rc].first);
+      if (in_vol && near_ok) {
+        ideal++;
+        if (!sub_b) {
+          dropped++;
+        }
+      }
+      if (in_vol && card_ok) {
+        ideal++;
+        if (!sub_c) {
+          dropped++;
+        }
+      }
+    }
+
+    // L'avant de la camera EFFECTIVE : le gradient de la profondeur, seul temoin qui distingue
+    // trois vues de trois fois la meme.
+    float fwd[3] = {-proof_camera[0][3], -proof_camera[1][3], -proof_camera[2][3]};
+    const float fl = std::sqrt(fwd[0] * fwd[0] + fwd[1] * fwd[1] + fwd[2] * fwd[2]);
+    if (fl > 1e-9f) {
+      fwd[0] /= fl;
+      fwd[1] /= fl;
+      fwd[2] /= fl;
+    }
+    grass_cull::note_census(submitted_blade + submitted_card, chunk_visible, offscreen, dropped,
+                            ideal, chunks_kept_blade + chunks_kept_card,
+                            (u64)m_cull_chunks.size(), fwd);
+    lg::info(
+        "[recharged-grass] CHUNK-CULL census: soumises={} (lame {} carte {}) oracle_lots={} "
+        "hors_champ={} perdues={} ideal={} lots={}/{} appels={} overflow={}",
+        submitted_blade + submitted_card, submitted_blade, submitted_card, chunk_visible, offscreen,
+        dropped, ideal, chunks_kept_blade + chunks_kept_card, (u64)m_cull_chunks.size(), draw_calls,
+        run_overflow ? 1 : 0);
+  }
+
+  g_grass_uloc_requests_frame = g_grass_uloc_requests - uloc_req0;
+  g_grass_uloc_misses_frame = g_grass_uloc_misses - uloc_miss0;
+
+  // grass-chunk-cull : UNE IMAGE DESSINEE PAR LE RENDERER D'HERBE. C'est ce qui fait avancer la
+  // campagne : elle n'a pas besoin d'un crochet par plateforme, elle compte les images ou l'herbe
+  // a REELLEMENT ete dessinee.
+  grass_cull::note_frame(
+      std::chrono::duration<double, std::micro>(t_fence0 - t_prep0).count(), submit_us, draw_calls,
+      submitted_blade + submitted_card, chunks_tested, g_grass_uloc_misses_frame,
+      m_instance_count > 0);
+  autoport_proof::publish("grass_cull_uniform_requests_per_frame", g_grass_uloc_requests_frame);
 
   // ---- CULLING INSTRUMENTATION (owner feedback #2): prove that every in-range
   // chunk stays DRAWN while MOVING. Throttled to ~1 log / 30 frames. With the
