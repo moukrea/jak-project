@@ -456,6 +456,18 @@ fi
 # il ne se voyait qu'a l'execution, sur l'appareil. On le rend visible ICI, au moment ou le
 # fichier entre dans le pack, en relisant l'en-tete du bake et en le comparant au fr3 qui part
 # avec lui — les deux etant les fichiers EXACTS que l'APK embarque.
+# La VERSION DE FORMAT est le second verrou, et il MANQUAIT. Le 17/09 le pack a embarque cinq bakes
+# v9 pendant que le moteur embarquait `GBK_FORMAT_VERSION = 10` : `fr3_size` concordait, la garde
+# ci-dessus passait, l'APK est parti. A l'arrivee le moteur a rendu « format_version mismatch » sur
+# les cinq paliers puis « AUCUN BAKE VALIDE ... PAS D'HERBE ». Resultat : une course de preuve de
+# 466 s et 14 520 images sans UN SEUL brin a l'ecran, avec un recensement hors ligne tout vert a
+# cote, parce que lui lisait les bakes frais du DISQUE. Le defaut ne se voyait qu'en relisant le
+# journal du moteur. On le rend impossible ICI, au point de production.
+# La version attendue se LIT dans le moteur, elle ne se recopie pas : une constante dupliquee ici
+# vieillirait au prochain bump exactement comme les bakes qu'elle est censee attraper.
+GBFMT_SRC="$ROOT/game/graphics/opengl_renderer/GrassBakeCore.cpp"
+GBFMT_WANT="$(grep -oP 'constexpr\s+u32\s+GBK_FORMAT_VERSION\s*=\s*\K[0-9]+' "$GBFMT_SRC" 2>/dev/null || true)"
+[ -n "$GBFMT_WANT" ] || fail "grassbake guard: GBK_FORMAT_VERSION illisible dans $GBFMT_SRC — impossible de savoir quel format de bake ce moteur accepte"
 for gb in "$STAGE"/fr3/*.grassbake; do
   [ -e "$gb" ] || continue
   gbbase="$(basename "$gb")"
@@ -463,7 +475,11 @@ for gb in "$STAGE"/fr3/*.grassbake; do
     || fail "grassbake guard: en-tete illisible pour $gbbase — $hdrline"
   gblev="$(sed -n 's/.* niveau=\([^ ]*\).*/\1/p' <<< "$hdrline")"
   gbsz="$(sed -n 's/.* fr3_size=\([0-9]*\).*/\1/p' <<< "$hdrline")"
-  [ -n "$gblev" ] && [ -n "$gbsz" ] || fail "grassbake guard: en-tete incomplet pour $gbbase — $hdrline"
+  gbfmt="$(sed -n 's/.* format=\([0-9]*\).*/\1/p' <<< "$hdrline")"
+  [ -n "$gblev" ] && [ -n "$gbsz" ] && [ -n "$gbfmt" ] || fail "grassbake guard: en-tete incomplet pour $gbbase — $hdrline"
+  # Le moteur teste ce champ AVANT tout le reste (GrassBakeCore.cpp, load_bake) : un ecart ici
+  # supprime l'herbe du niveau sans plantage ni message a l'ecran.
+  [ "$gbfmt" = "$GBFMT_WANT" ] || fail "grassbake guard: '$gbbase' est en format $gbfmt alors que ce moteur n'accepte QUE le format $GBFMT_WANT (GBK_FORMAT_VERSION) — il serait REFUSE au chargement et le niveau '$gblev' n'aurait AUCUNE herbe, en silence. Regenere : scripts/shell/build_grass_bakes.sh"
   # le nom doit porter le palier : le moteur ne resout QUE <niveau>.<palier>.grassbake
   case "$gbbase" in
     "$gblev".very-low.grassbake|"$gblev".low.grassbake|"$gblev".medium.grassbake|"$gblev".high.grassbake|"$gblev".very-high.grassbake) ;;
@@ -473,7 +489,7 @@ for gb in "$STAGE"/fr3/*.grassbake; do
   [ -e "$gbfr3" ] || fail "grassbake guard: '$gbbase' cuit pour le niveau '$gblev' mais aucun $gblev.fr3 n'entre dans le pack"
   gbfr3sz="$(stat -Lc %s "$gbfr3")"
   [ "$gbsz" = "$gbfr3sz" ] || fail "grassbake guard: '$gbbase' porte fr3_size=$gbsz alors que le $gblev.fr3 LIVRE fait $gbfr3sz octets — le moteur le REFUSERAIT a l'arrivee et le niveau perdrait son herbe. Regenere : scripts/shell/build_grass_bakes.sh"
-  echo "[custom-pack] grassbake OK: $gbbase (niveau=$gblev fr3_size=$gbsz == $gblev.fr3 livre)"
+  echo "[custom-pack] grassbake OK: $gbbase (niveau=$gblev format=$gbfmt fr3_size=$gbsz == $gblev.fr3 livre)"
 done
 
 # 2d. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
