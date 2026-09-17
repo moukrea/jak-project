@@ -1131,6 +1131,9 @@
    (t4-max       int32)    ;; pire ecart de fraction contre la jauge d'origine, en 1/100000
    (t4-hi        int32)    ;; plus haute fraction observee, en 1/100000
    (t4-lo        int32)    ;; plus basse fraction observee, en 1/100000
+   (t4-stale     int32)    ;; images ecartees parce que l'oracle d'origine n'avait pas tourne
+   (t4-lag       int32 6)  ;; combien d'images separent notre mesure du dernier passage de l'oracle
+   (t4-lagmax    int32)
    (drain-t0     int32)    ;; game-frame-counter de la derniere image a 100 %
    (drain-ticks  int32)    ;; duree du dernier vidage complet, en unites de game-frame-counter
    (drain-n      int32)    ;; vidages complets chronometres
@@ -1698,11 +1701,18 @@
     ;; Le garde sur `value2` ecarte les images ou `tally-value` s'est tu (cinematique, pause,
     ;; letterbox) et ou l'oracle serait simplement perime.
     (let ((p (-> *hud-parts* power)))
-      ;; `bench-n` : les images qui SUIVENT un ramassage scripte sont ecartees. `tally-value` est
-      ;; muette pendant le noir et le letterbox (hud.gc), et l'oracle y est simplement perime :
-      ;; le mesurer la reviendrait a chiffrer le retard de l'instrument, pas la jauge.
+      ;; L'ORACLE N'EST VALABLE QUE QUAND IL VIENT DE TOURNER.
+      ;; `value` n'est pas la jauge : c'est la tally d'APPARITION du HUD, et `tally-value`
+      ;; (engine/ui/hud.gc) se tait pendant un noir, un letterbox, une cinematique ou le menu.
+      ;; Pendant ces silences `value` GELE tandis que l'eco continue de se vider — et la garde
+      ;; d'avant, `value2 == eco-timeout`, ne pouvait pas le voir : `eco-timeout` ne bouge pas
+      ;; d'un ramassage a l'autre. Course appareil du 18/09 : 8441 images sur 16783 accusees,
+      ;; jusqu'a 84,5 % d'ecart, pour un oracle simplement perime — le bureau, qui ne diffuse
+      ;; rien, n'en montrait aucune. On lit donc son horodatage de passage : `trigger-time` est
+      ;; estampille a chaque fois que le corps de `tally-value` s'execute. Les images ecartees
+      ;; sont COMPTEES et publiees, pour que l'aveuglement se lise au lieu de se deviner.
       (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE)
-                 (= (the-as int (-> p 0 value2)) (the-as int (-> *target* fact eco-timeout))))
+                 (< (- (current-time) (-> p 0 trigger-time)) (the-as time-frame 2)))
         (let* ((sfull (the float (the-as uint (-> *FACT-bank* eco-full-timeout))))
                (sfrac (fmin 1.0 (/ (the float (-> p 0 value)) sfull)))
                (mine (the int (* 100000.0 frac)))
@@ -1712,7 +1722,15 @@
           (if (> mine (-> this t4-hi)) (set! (-> this t4-hi) mine))
           (if (< mine (-> this t4-lo)) (set! (-> this t4-lo) mine))
           (if (> d (-> this t4-max)) (set! (-> this t4-max) d))
-          (if (> d RHUD_GAUGE_FRAC_TOL) (+! (-> this t4-bad) 1)))))
+          (if (> d RHUD_GAUGE_FRAC_TOL) (+! (-> this t4-bad) 1))))
+    (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE))
+      (let ((lag (the int (- (current-time) (-> p 0 trigger-time)))))
+        (if (>= lag 2) (+! (-> this t4-stale) 1))
+        (if (> lag (-> this t4-lagmax)) (set! (-> this t4-lagmax) lag))
+        (cond
+          ((< lag 0) (+! (-> this t4-lag 0) 1))
+          ((< lag 5) (+! (-> this t4-lag (+ 1 lag)) 1))
+          (else (+! (-> this t4-lag 5) 1))))))
 
     ;; --- terme 4, second temoin : LA VITESSE DE VIDAGE, CHRONOMETREE.
     ;; De la derniere image a 100 % a la premiere image a 0 %, il doit s'ecouler exactement
@@ -1777,6 +1795,13 @@
 (defconstant RHUD_GB_DRAIN 1500)  ;; bloc de vidage complet (20 s d'eco a 60 img/s, plus la marge)
 (defconstant RHUD_GB_SHORT 240)   ;; blocs courts (une couleur)
 (defconstant RHUD_GB_SPAN 50000)  ;; amplitude de fraction exigee pour que le vidage soit MESURE
+;; Images exigees pour que la COMPARAISON a la tally d'origine compte. Le plancher est bas parce
+;; que la population l'est : la tally d'origine ne se met a jour qu'a de rares images (mesure du
+;; 18/09 : latence 0 sur 37 images, puis >= 4 et jusqu'a 730 sur les 5764 autres ; grandeur
+;; BIMODALE, donc etat binaire, pas un reglage a elargir). On la juge QUAND elle est a jour, on
+;; COMPTE les images ecartees, et on publie les deux — au lieu d'elargir la fenetre jusqu'a
+;; mesurer la peremption de l'oracle plutot que la jauge.
+(defconstant RHUD_GB_T4_MIN 25)
 
 (defun rhud-gauge-phase-len ((ph int))
   (case ph
@@ -1835,7 +1860,7 @@
                  (+ (-> this t3-bad) 1)))
            ;; le vidage n'est MESURE que si la course a vu la jauge parcourir la moitie de sa
            ;; plage : sur une fraction figee, l'egalite des deux jauges ne prouve rien.
-           (t4 (if (and (>= (-> this t4-n) RHUD_GB_MIN)
+           (t4 (if (and (>= (-> this t4-n) RHUD_GB_T4_MIN)
                         (>= (- (-> this t4-hi) (-> this t4-lo)) RHUD_GB_SPAN)
                         (> (-> this drain-n) 0))
                  (begin (+! measured 1) (+ (-> this t4-bad) (-> this drain-bad)))
@@ -1864,6 +1889,14 @@
       (__pc-autoport-publish "hud_gauge_t3_n" (-> this t3-n))
       (__pc-autoport-publish "hud_gauge_t4_n" (-> this t4-n))
       (__pc-autoport-publish "hud_gauge_t4_max" (-> this t4-max))
+      (__pc-autoport-publish "hud_gauge_t4_stale" (-> this t4-stale))
+      (__pc-autoport-publish "hud_gauge_t4_lagmax" (-> this t4-lagmax))
+      (__pc-autoport-publish "hud_gauge_t4_lag_neg" (-> this t4-lag 0))
+      (__pc-autoport-publish "hud_gauge_t4_lag0" (-> this t4-lag 1))
+      (__pc-autoport-publish "hud_gauge_t4_lag1" (-> this t4-lag 2))
+      (__pc-autoport-publish "hud_gauge_t4_lag2" (-> this t4-lag 3))
+      (__pc-autoport-publish "hud_gauge_t4_lag3" (-> this t4-lag 4))
+      (__pc-autoport-publish "hud_gauge_t4_lag4plus" (-> this t4-lag 5))
       (__pc-autoport-publish "hud_gauge_t4_hi" (-> this t4-hi))
       (__pc-autoport-publish "hud_gauge_t4_lo" (-> this t4-lo))
       (__pc-autoport-publish "hud_gauge_drain_n" (-> this drain-n))
