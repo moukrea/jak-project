@@ -4166,9 +4166,13 @@ items:
     ; livre par lighting-materials.'
 - id: jak2-polish
   feature: Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
-  status: blocked
+  status: archived
   priority: 241
-  owner_feedback: []
+  owner_feedback:
+  - date: '2026-09-17'
+    text: En vrai c'est toujours pertinent qu'il soit là ce ticket ? On s'en cogne un peu non ? On a fait
+      rouler Jak II, ça marchottais un peu mais bof.. et on a parké ça… Mais de toutes façons on est all
+      in sur Jak 1, donc bon…
   gate: null
   game: jak2
   max_turns: 800
@@ -4179,7 +4183,9 @@ items:
   prompt: prompts/item-jak2-polish.md
   owner_ok: null
   device: true
-  notes: 'statut force : l''owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1'
+  notes: |-
+    statut force : l'owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1
+    17/09 owner (Linear) : « c'est toujours pertinent qu'il soit là ce ticket ? On s'en cogne un peu non ? […] on est all in sur Jak 1 » -> archive. Jak II reviendra comme une campagne neuve avec sa spec, pas depuis ce ticket.
   block_reason: l'owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1
 - id: menu-census-cleanup
   feature: Le menu contient des options inutiles ou incomprehensibles

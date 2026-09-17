@@ -109,11 +109,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "5b24d90e353eb277d2c868acde9bbe986825c0f6",
+  "hash": "a68ae2bcb58cf4166c27bf12943d87dfba0a4cea",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
   "last_state": "Done",
-  "pulled_at": "2026-09-17T10:52:33.502Z",
+  "pulled_at": "2026-09-17T10:59:44.929Z",
   "relations": [
    "ao-static-probe-deterministic",
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
@@ -792,11 +792,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-22/jak-ii-demarre-sur-android"
  },
  "jak2-polish": {
-  "hash": "91509e99d3943ef1417d5e6a7967eae9c66e44f2",
+  "hash": "04146afe91d3474a8b0457f5b4ab86cbcf2b4e56",
   "identifier": "JAK-45",
   "issue_id": "fd9774f3-0769-40e3-80ac-57de91f273d8",
-  "last_state": "À arbitrer",
-  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "last_state": "Canceled",
+  "pulled_at": "2026-09-17T11:16:54.678Z",
   "url": "https://linear.app/moukrea/issue/JAK-45/les-finitions-de-jak-ii-mapping-l1r1-cadrage-menus-particules"
  },
  "jak2-render": {
