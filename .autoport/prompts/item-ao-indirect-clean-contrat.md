@@ -33,6 +33,8 @@ PRECISION OWNER 17/09 sur F (« faut être sûrs que ce qui est mesuré est vrai
 
 PRECISION OWNER 17/09 (suite) : « attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés, caisses, collectibles… ». Pour F : l'heure du jeu est FIGEE pendant la paire d'images (le cycle jour/nuit change l'eclairage, donc l'indirect, donc l'image, pas l'AO ; mais le tampon d'AO se compare entre deux images du MEME instant : publier l'heure de jeu lue aux deux images, egale) ; caisses, collectibles, orbes, mouches, PNJ et tout acteur qui tourne, flotte ou clignote sont exclus par famille de dessin comme les acteurs animes, et comptes dans `ao_static_excluded_px`. Ce qui reste dans la population : le decor immobile (tfrag/TIE) et les acteurs sans animation.
 
+ARBITRAGE OWNER 17/09 (fin) : « faudrait que ce soit prouvé ça parce que si c'est imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer à autre chose ! Donc ok pour les deux essais, mais preuve demandée pour le grain qui bouge en cas d'échec ! ». Le point F se juge donc SUR L'IMAGE FINALE, pas sur le tampon d'AO : publier `ao_static_visible_px` = nombre de pixels de l'image rendue (telephone, resolution reelle) dont la luminance change de plus de 2/255 entre deux images consecutives d'une scene immobile (vent coupe, acteurs/particules/collectibles exclus, heure figee), avec son denominateur. REGLE : si `ao_static_visible_px` = 0, le point F est TENU meme si le tampon d'AO change (imperceptible = on passe a autre chose) ; s'il est > 0, joindre au ticket la paire d'images (les deux captures et une image de difference amplifiee) par `linear_sync.py --comment ... --attach`, en illustration pour l'owner, jamais comme porte. `ao_static_cam_delta_px` reste publie a titre d'information et ne compte plus dans `ao_owner_defects`.
+
 ## Hors perimetre
 
 Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas cet item.
@@ -60,6 +62,9 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ### 2026-09-17
 > Option a, mais 0,009% c'est infime, et tu parle d'un truc mobile j'ai l'impression
+
+### 2026-09-17
+> Alors ça se voit comme du grain qui bouge… faudrait que ce soit prouvé ça parce que si c'est imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer à autre chose ! Donc ok pour les deux essais, mais preuve demandé pour le grain qui bouge en cas d'échec !
 
 ## Pourquoi ce fichier existe
 
