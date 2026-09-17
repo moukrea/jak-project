@@ -431,6 +431,51 @@ def adopt_owner_order(L, bl, mp, states, dry):
     return 1
 
 
+IMG_RX = re.compile(r"!\[[^\]]*\]\((https://uploads\.linear\.app/[^)\s]+)\)")
+
+
+def save_owner_images(L, iid, body, when):
+    """Owner 17/09 : « je sais pas si tu sais récupérer les images de Linear (tu devrais, c'est un bon endroit
+    pour avoir des feedbacks visuels !) ». Les images d'un commentaire owner sont enregistrees sous
+    .autoport/owner-feedback/<item>/ et leur chemin est ajoute au retour, pour que le worker et le superviseur les voient."""
+    urls = IMG_RX.findall(body or "")
+    if not urls:
+        return body
+    d = AP / "owner-feedback" / iid
+    d.mkdir(parents=True, exist_ok=True)
+    stamp = when.replace("-", "").replace(":", "")[:13]
+    saved = []
+    for n, u in enumerate(urls, 1):
+        try:
+            r = L.s.get(u, timeout=60)
+            if r.status_code != 200:
+                saved.append("%s (HTTP %d)" % (u, r.status_code)); continue
+            ext = {"image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp"}.get(r.headers.get("content-type", "").split(";")[0], "bin")
+            path = d / ("%s-%d.%s" % (stamp, n, ext))
+            path.write_bytes(r.content)
+            saved.append(str(path.relative_to(ROOT)))
+        except requests.RequestException as e:
+            saved.append("%s (erreur %s)" % (u, e))
+    return body + "\n[images enregistrees : " + " ; ".join(saved) + "]"
+
+
+def upload_file(L, path):
+    """Televerse un fichier local dans Linear (fileUpload -> PUT signe) et rend son URL d'asset."""
+    path = Path(path)
+    ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp",
+             "txt": "text/plain", "md": "text/markdown", "json": "application/json", "log": "text/plain"}.get(path.suffix.lower().lstrip("."), "application/octet-stream")
+    data = path.read_bytes()
+    r = L.q('mutation($ct:String!,$fn:String!,$sz:Int!){ fileUpload(contentType:$ct, filename:$fn, size:$sz){ success uploadFile { uploadUrl assetUrl headers { key value } } } }',
+            ct=ctype, fn=path.name, sz=len(data))
+    up = r["fileUpload"]["uploadFile"]
+    headers = {h["key"]: h["value"] for h in up["headers"]}
+    headers["Content-Type"] = ctype
+    put = requests.put(up["uploadUrl"], data=data, headers=headers, timeout=120)
+    if put.status_code not in (200, 201, 204):
+        raise RuntimeError("televersement refuse : HTTP %d" % put.status_code)
+    return up["assetUrl"], ctype
+
+
 def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     """Tickets HORS backlog (questions closes, tickets de l'owner non adoptes) qui portent nos etiquettes :
     memes regles que les autres — 👍/✅ sur la derniere reponse robot = lu ; commentaire owner = « A traiter ».
@@ -524,7 +569,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 date = c["createdAt"][:10]
                 print("  retour owner sur %s (%s) : %s" % (iid, date, c["body"][:80].replace("\n", " ")))
                 if not dry:
-                    bl.add_owner_feedback(iid, date, c["body"].strip()); bl = B.load()
+                    bl.add_owner_feedback(iid, date, save_owner_images(L, iid, c["body"].strip(), c["createdAt"])); bl = B.load()
                     # le retour entre dans le prompt du worker (render_prompt) ; sans refabrication, l'orchestrateur bloquerait
                     # l'item sur « consigne PERIMEE » au prochain tirage.
                     it2 = bl.get(iid)
@@ -569,6 +614,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="verifier la coherence Linear <-> backlog, archiver les tickets orphelins")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
+    ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     a = ap.parse_args()
     L = Linear(load_key())
     if a.check:
@@ -607,7 +653,11 @@ def main():
         rec = mp.get(a.comment)
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
-        L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + (a.body or "").strip()})
+        body = MARK + (a.body or "").strip()
+        for f in a.attach:
+            url, ctype = upload_file(L, f)
+            body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
+        L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
         team = ensure_team(L); read, todo = labels(L, team)
         # Owner 17/09 : « si tu commentes, ça a une valeur de le mettre à lire » — toujours, ticket clos ou non.
         swap_labels(L, rec["issue_id"], add=read, remove=todo)

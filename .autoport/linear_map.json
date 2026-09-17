@@ -72,7 +72,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "29e177590e9c98ca6b032740b32ef1e915134f78",
+  "hash": "e74f54131c9569874e5fe474c556fe70ab5d9311",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
   "last_state": "In Progress",
@@ -1199,11 +1199,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "e33863a0c9e7d03e6e27c31af3c104f7d1ba6314",
+  "hash": "adc3372d7966faa3c61f2c4d9a0460d31ca36489",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
   "last_state": "À arbitrer",
-  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "pulled_at": "2026-09-17T10:34:48.843Z",
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-lightprobes": {

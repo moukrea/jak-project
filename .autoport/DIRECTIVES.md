@@ -79,7 +79,10 @@ poste UN commentaire court sur le ticket, en français courant, sans identifiant
 en une phrase, ce que l'owner verra ou ne verra pas, ce qui reste. Les retours de l'owner arrivent
 dans ton prompt (« owner_feedback ») : réponds-y dans ce commentaire quand ils te concernent.
 
-    python3 .autoport/linear_sync.py --comment <id-de-l-item> --body "…"
+    python3 .autoport/linear_sync.py --comment <id-de-l-item> --body "…" [--attach capture.png]
+
+Les images que l'owner poste sur le ticket sont dans `owner-feedback/<id>/` : regarde-les. Une pièce
+jointe illustre, elle ne prouve rien (règle 2).
 
 ## Signalements
 
