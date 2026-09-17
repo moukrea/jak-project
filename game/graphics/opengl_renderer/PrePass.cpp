@@ -318,6 +318,14 @@ uint64_t g_tod_pin_counted = 0;   // l'image de rendu ou l'ecart a deja ete comp
 uint64_t g_tod_pinned_frames = 0; // images ou la valeur de la reference a ete rendue
 uint64_t g_tod_pinned_moved = 0;  // ... et ou elle DIFFERAIT de ce que l'image avait recu
 uint64_t g_tod_raw_delta = 0;     // la somme des ecarts bruts supprimes, tous canaux
+// (terme 5, essai 5) LES ENTREES D'ECLAIRAGE QUI BOUGENT PAR CONSTRUCTION. Voir PrePass.h.
+uint64_t g_lightpin_shadow_skipped = 0;  // promotions de carte d'ombre sautees sur une paire
+uint64_t g_lightpin_ho_delta_x1e6 = 0;   // ce que le gel de l'EMA a supprime, x1e6
+float g_light_in_pin[16] = {0};          // TEMOIN : les entrees d'eclairage de la reference
+int g_light_in_n = 0;
+bool g_light_in_valid = false;
+uint64_t g_light_in_frame = 0, g_light_in_counted = 0;
+uint64_t g_light_in_pairs = 0, g_light_in_moved = 0, g_light_in_delta_x1e6 = 0;
 // ── (essai 17) LE BRAS TEMOIN DU RECENSEMENT ETAIT MORT ──────────────────────────────────────
 // Le recensement tire son etat de `g_static_probe.state`, et `ao_static_probe::kStates` vaut 6 :
 // `st / 6` valait donc TOUJOURS 0 des que la sonde de stabilite est active — c'est-a-dire a
@@ -1163,6 +1171,15 @@ void publish_all() {
   autoport_proof::publish("ao_static_visible_tod_pinned_frames", g_tod_pinned_frames);
   autoport_proof::publish("ao_static_visible_tod_pinned_moved", g_tod_pinned_moved);
   autoport_proof::publish("ao_static_visible_tod_raw_delta", g_tod_raw_delta);
+  // (terme 5, essai 5) CE QUE LE GEL DES ENTREES D'ECLAIRAGE A SUPPRIME, et ce que le TEMOIN des
+  // entrees venues du fil GOAL a MESURE sans rien toucher. Un `_skipped` a zero voudrait dire que
+  // la clause d'ombre portee n'a jamais rien fait ; `_moved` a zero dirait que les entrees
+  // d'eclairage etaient deja identiques sur la paire. Les deux se lisent, ils ne se supposent pas.
+  autoport_proof::publish("ao_static_lightpin_shadow_skipped", g_lightpin_shadow_skipped);
+  autoport_proof::publish("ao_static_lightpin_ho_delta_x1e6", g_lightpin_ho_delta_x1e6);
+  autoport_proof::publish("ao_static_light_inputs_pairs", g_light_in_pairs);
+  autoport_proof::publish("ao_static_light_inputs_moved", g_light_in_moved);
+  autoport_proof::publish("ao_static_light_inputs_delta_x1e6", g_light_in_delta_x1e6);
   autoport_proof::publish("ao_sway_moved_px", g_sway_gap_px);
   autoport_proof::publish("ao_sway_moved_world_px", g_sway_gap_world_px);
   // LA GRANDEUR DE LA PORTE (terme 3) : sur les deux familles qui plient — shrub et TIE — les
@@ -2071,19 +2088,83 @@ const math::Vector<s32, 4>* census_tod_pin(const math::Vector<s32, 4>* live) {
   return live;
 }
 
+// ── (terme 5, essai 5) LES ENTREES D'ECLAIRAGE QUI BOUGENT PAR CONSTRUCTION ─────────────────
+// Le contrat est dans PrePass.h. `census_lighting_pinned` est la SEULE condition : les phases 1
+// et 2 d'une triade de recensement, c'est-a-dire la paire d'images que le point F juge.
+bool census_lighting_pinned() {
+  return g_probe_pair_phase == 1 || g_probe_pair_phase == 2;
+}
+
+void note_lightpin_shadow_skipped() {
+  g_lightpin_shadow_skipped++;
+}
+
+void note_lightpin_ho_delta(float suppressed) {
+  const float a = suppressed < 0.f ? -suppressed : suppressed;
+  g_lightpin_ho_delta_x1e6 += (uint64_t)(a * 1e6f);
+}
+
+// TEMOIN, PAS EPINGLAGE : cette fonction ne modifie RIEN. Meme patron que `census_tod_pin` — la
+// phase 1 retient ce que l'image de reference a recu, la phase 2 mesure l'ecart, et les deux
+// sont gardees par le numero d'image parce que l'appel a lieu une fois par ARBRE.
+void census_note_light_inputs(const float* vals, int n) {
+  if (!vals || n <= 0) {
+    return;
+  }
+  if (n > 16) {
+    n = 16;
+  }
+  if (g_probe_pair_phase == 1) {
+    if (g_light_in_frame != g_frame) {
+      g_light_in_frame = g_frame;
+      for (int i = 0; i < n; i++) {
+        g_light_in_pin[i] = vals[i];
+      }
+      g_light_in_n = n;
+      g_light_in_valid = true;
+    }
+    return;
+  }
+  if (g_probe_pair_phase == 2 && g_light_in_valid && g_light_in_n == n &&
+      g_light_in_counted != g_frame) {
+    g_light_in_counted = g_frame;
+    g_light_in_pairs++;
+    float delta = 0.f;
+    for (int i = 0; i < n; i++) {
+      const float d = vals[i] - g_light_in_pin[i];
+      delta += d < 0.f ? -d : d;
+    }
+    if (delta != 0.f) {
+      g_light_in_moved++;
+      g_light_in_delta_x1e6 += (uint64_t)(delta * 1e6f);
+    }
+  }
+}
+
 void proof_before_bucket(int bucket_id) {
-  // ── (terme 5, essai 4) LES DEUX RELECTURES DE L'IMAGE, DANS LA MEME IMAGE DE RENDU ────────
-  // Le point F se juge desormais sur l'IMAGE RENDUE (arbitrage owner du 17/09). Deux instants,
-  // choisis sur l'ordre des buckets jak1 (buckets.h:5-79) et non sur une liste de renderers :
-  //   bucket 31 (`ALPHA_TEX_LEVEL0`) : le DECOR OPAQUE seul vient d'etre dessine — ciel (3),
-  //     ocean lointain (4), tfrag et tie (5-18), shrub (19-30) ;
-  //   bucket 64 (`DEPTH_CUE`)        : la scene 3D est COMPLETE — fond transparent (31-44),
-  //     acteurs et collectibles (45-56), ombres (47), eau (57-63) sont venus par-dessus.
+  // ── (terme 5, essai 5) LES SIX RELECTURES DE L'IMAGE, DANS LA MEME IMAGE DE RENDU ─────────
+  // Le point F se juge desormais sur l'IMAGE RENDUE (arbitrage owner du 17/09). Les instants sont
+  // choisis sur l'ordre des buckets jak1 (buckets.h:5-79) et non sur une liste de renderers.
+  // L'essai 4 n'en prenait que DEUX (31 et 64) et cela ne suffisait pas : les ACTEURS ANIMES sont
+  // dessines AVANT le bucket 31. `MERC_TFRAG_TEX_LEVEL0` (buckets.h:10),
+  // `GENERIC_TFRAG_TEX_LEVEL0` (11), `MERC_TFRAG_TEX_LEVEL1` (17) et
+  // `GENERIC_TFRAG_TEX_LEVEL1` (18) sont merc et generic — des personnages et des objets, pas du
+  // decor. Leurs pixels etaient DEJA dans la relecture du bucket 31, donc identiques a ceux du
+  // bucket 64 : le test « rien n'a ete dessine par-dessus » les declarait PURS et un PNJ qui
+  // marche entrait dans la population « decor immobile ».
+  //   bucket 10 : ciel (3), ocean lointain (4), tfrag et tie LEVEL0 (5-9) seuls ;
+  //   bucket 12 : merc (10) et generic (11) de LEVEL0 sont venus ;
+  //   bucket 17 : tfrag et tie LEVEL1 (12-16) sont venus ;
+  //   bucket 19 : merc (17) et generic (18) de LEVEL1 sont venus ;
+  //   bucket 31 : le shrub (19-30) est venu ;
+  //   bucket 64 : la scene 3D est COMPLETE — fond transparent (31-44), acteurs et collectibles
+  //     (45-56), ombres (47), eau (57-63) sont venus par-dessus.
   // Les sprites (66) et le texte 2D (67-69) sont dessines APRES : ils ne sont dans aucune des
-  // deux relectures. Le module d'AO decide lui-meme s'il y a quelque chose a faire — hors des
+  // relectures. Le module d'AO decide lui-meme s'il y a quelque chose a faire — hors des
   // phases 1 et 2 d'une triade, cet appel rend immediatement et ne touche a rien.
-  if (bucket_id == 31 || bucket_id == 64) {
-    AmbientOcclusionPass::note_scene_stage(bucket_id == 31 ? 0 : 1, g_fb_w, g_fb_h, g_depth_tex);
+  if (bucket_id == 10 || bucket_id == 12 || bucket_id == 17 || bucket_id == 19 ||
+      bucket_id == 31 || bucket_id == 64) {
+    AmbientOcclusionPass::note_scene_stage(bucket_id, g_fb_w, g_fb_h, g_depth_tex);
   }
   if (!g_probe_frame || bucket_id > 30) {
     return;

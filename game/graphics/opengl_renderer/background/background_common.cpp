@@ -868,6 +868,21 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   }
   st.cast_indices = 0;
 
+  // (terme 5, essai 5) LA PAIRE D'IMAGES DU RECENSEMENT LIT LA MEME CARTE D'OMBRE.
+  // La carte est lue avec UNE IMAGE DE RETARD (`depth_tex[1 - st.write]`, ligne 1074) et
+  // re-ecrite a chaque image avec les casters LA OU ILS SONT : deux images consecutives lisent
+  // donc deux cartes ECRITES SOUS DEUX ETATS DE JEU. L'ombre portee d'un PNJ qui marche ou
+  // d'une lanterne qui se balance repeint alors du decor IMMOBILE, pour une raison etrangere a
+  // l'AO — et l'owner a demande que ces objets sortent de la mesure. Pendant les phases 1 et 2
+  // d'une triade de recensement, on ne promeut pas, on ne bascule pas et on ne dessine aucun
+  // caster : les deux images lisent la MEME carte avec la MEME matrice. Hors preuve
+  // (`census_lighting_pinned()` rend faux), rien ne change pour le joueur. Le compte des
+  // promotions sautees est publie : une clause qui ne supprime jamais rien est une clause vide.
+  if (prepass::census_lighting_pinned()) {
+    prepass::note_lightpin_shadow_skipped();
+    return false;
+  }
+
   // NEW FRAME: promote last frame's completed write buffer to the read side (receivers
   // sample it with its matching matrix), then start writing into the other buffer. On a
   // frame gap (pause, level load) the pair may be stale; keep it read_valid anyway — map
@@ -1805,6 +1820,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // residuel que le shader lisait (1 - force = 0,2 a la valeur livree) y est desormais ecrit en
   // dur : `u_rt_shadow_residual` n'est plus pousse, et la surcharge de propriete
   // `debug.opengoal.rt.shadowstrength` part avec le reglage qu'elle surchargeait.
+  {
+    // (terme 5, essai 5) TEMOIN, PAS EPINGLAGE. Ces cinq vecteurs sont lisses par une EMA du
+    // cote GOAL (`rt_ema`, kmachine.cpp) : ils peuvent changer d'une image a l'autre sans
+    // qu'aucun objet n'ait bouge. On ne les touche pas — on MESURE s'ils ont bouge sur la paire,
+    // pour que le rapport puisse NOMMER la cause au lieu de la supposer.
+    const float in[15] = {gs.recharged_pbr_sun_color[0], gs.recharged_pbr_sun_color[1],
+                          gs.recharged_pbr_sun_color[2], gs.recharged_pbr_ambient[0],
+                          gs.recharged_pbr_ambient[1],   gs.recharged_pbr_ambient[2],
+                          gs.recharged_pbr_shadow[0],    gs.recharged_pbr_shadow[1],
+                          gs.recharged_pbr_shadow[2],    gs.recharged_pbr_sky_sun[0],
+                          gs.recharged_pbr_sky_sun[1],   gs.recharged_pbr_sky_sun[2],
+                          gs.recharged_pbr_green_sun[0], gs.recharged_pbr_green_sun[1],
+                          gs.recharged_pbr_green_sun[2]};
+    prepass::census_note_light_inputs(in, 15);
+  }
   lgt_keep_1i(id, "u_rt_light_on", rt_light_on);
   lighting_census::gate_rt_light(rt_light_on);
   lgt_keep_3f(id, "u_rt_sun_dir", light_dir[0], light_dir[1], light_dir[2]);
@@ -2005,12 +2035,26 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       ho.ambY = ambW_y_raw; ho.ambG = ambW_g_raw; ho.seeded = true;
     }
     if (render_state->frame_idx != ho.frame) {  // advance the EMA exactly once per frame
-      ho.frame = render_state->frame_idx;
-      ho.sunelev += handoff_alpha * (rt_sun_elev - ho.sunelev);
-      ho.moon += handoff_alpha * (moon_scale - ho.moon);
-      ho.conf += handoff_alpha * (rt_shadow_conf - ho.conf);
-      ho.ambY += handoff_alpha * (ambW_y_raw - ho.ambY);
-      ho.ambG += handoff_alpha * (ambW_g_raw - ho.ambG);
+      // (terme 5, essai 5) L'EMA AVANCE PAR CONSTRUCTION A CHAQUE IMAGE : sur la paire que le
+      // point F juge, elle ferait bouger `u_rt_sun_elev`, `u_rt_moon_color`, `u_rt_shadow_conf`
+      // et les deux poids d'ambiante sans qu'aucun objet n'ait bouge. On la GELE sur la paire et
+      // on PUBLIE ce que le gel supprime (`ao_static_lightpin_ho_delta_x1e6`).
+      if (prepass::census_lighting_pinned()) {
+        // Somme des VALEURS ABSOLUES, composante par composante : une somme signee laisserait
+        // deux avances opposees s'annuler et publierait zero sur un gel qui a bien supprime
+        // quelque chose — le temoin mesurerait alors sa propre compensation.
+        const float sup = std::fabs(rt_sun_elev - ho.sunelev) + std::fabs(moon_scale - ho.moon) +
+                          std::fabs(rt_shadow_conf - ho.conf) + std::fabs(ambW_y_raw - ho.ambY) +
+                          std::fabs(ambW_g_raw - ho.ambG);
+        prepass::note_lightpin_ho_delta(handoff_alpha * sup);
+      } else {
+        ho.frame = render_state->frame_idx;
+        ho.sunelev += handoff_alpha * (rt_sun_elev - ho.sunelev);
+        ho.moon += handoff_alpha * (moon_scale - ho.moon);
+        ho.conf += handoff_alpha * (rt_shadow_conf - ho.conf);
+        ho.ambY += handoff_alpha * (ambW_y_raw - ho.ambY);
+        ho.ambG += handoff_alpha * (ambW_g_raw - ho.ambG);
+      }
     }
     rt_sun_elev = ho.sunelev;
     moon_scale = ho.moon;

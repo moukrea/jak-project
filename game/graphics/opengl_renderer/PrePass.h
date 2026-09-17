@@ -227,4 +227,26 @@ void proof_post_opaque(SharedRenderState* rs);
 // vide, et un lecteur doit pouvoir le lire au lieu de le supposer.
 const math::Vector<s32, 4>* census_tod_pin(const math::Vector<s32, 4>* live);
 
+// ── (terme 5, essai 5) LES ENTREES D'ECLAIRAGE QUI BOUGENT PAR CONSTRUCTION ────────────────
+// Deux entrees de l'eclairage avancent d'une image a l'autre SANS qu'aucun objet n'ait bouge,
+// et repeignent donc du decor IMMOBILE sur la paire que le point F juge :
+//   . LA CARTE D'OMBRE PORTEE est lue avec UNE IMAGE DE RETARD (`depth_tex[1 - st.write]`,
+//     background_common.cpp) et re-ecrite a chaque image avec les casters LA OU ILS SONT :
+//     deux images consecutives lisent deux cartes ECRITES SOUS DEUX ETATS DE JEU. L'ombre d'un
+//     PNJ qui marche ou d'une lanterne qui se balance repeint le sol sous elle.
+//   . L'EMA d'eclairage `lgtmath::g_ho` avance EXACTEMENT UNE FOIS PAR IMAGE, par construction :
+//     `u_rt_sun_elev`, `u_rt_moon_color`, `u_rt_shadow_conf` et les deux poids d'ambiante
+//     changent tout seuls.
+// `census_lighting_pinned()` rend vrai pendant les phases 1 et 2 d'une triade de recensement,
+// c'est-a-dire sous l'armement de la preuve et nulle part ailleurs : hors preuve, rien ne change
+// pour le joueur. Ce que le gel SUPPRIME est publie — une clause qui ne supprime jamais rien est
+// une clause vide.
+// `census_note_light_inputs` est un TEMOIN, pas un epinglage : les cinq vecteurs d'eclairage
+// viennent du fil GOAL, deja lisses par une EMA de ce cote-la. On ne les touche pas — on MESURE
+// s'ils ont bouge sur la paire, pour que le rapport NOMME la cause au lieu de la supposer.
+bool census_lighting_pinned();
+void note_lightpin_shadow_skipped();
+void note_lightpin_ho_delta(float suppressed);
+void census_note_light_inputs(const float* vals, int n);
+
 }  // namespace prepass

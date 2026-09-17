@@ -76,17 +76,30 @@ class AmbientOcclusionPass {
   // dont la premisse n'est pas etablie.
   static void set_census_wind_cut(bool cut);
 
-  // ── (terme 5, essai 4) L'IMAGE RENDUE, A DEUX INSTANTS DE LA MEME IMAGE ──────────────────
+  // ── (terme 5, essai 5) L'IMAGE RENDUE, A SIX INSTANTS DE LA MEME IMAGE ──────────────────
   // ARBITRAGE OWNER du 2026-09-17 : le point F (« camera immobile, rien ne bouge ») se juge sur
   // L'IMAGE, pas sur le tampon d'AO — « si c'est imperceptible … on peut passer a autre chose ».
-  // `prepass::proof_before_bucket` appelle ceci deux fois par image sondee :
-  //   stage 0, au bucket 31 (`ALPHA_TEX_LEVEL0`) : le DECOR OPAQUE seul est dessine ;
-  //   stage 1, au bucket 64 (`DEPTH_CUE`)        : la scene 3D est complete.
-  // Un pixel dont les deux etapes different a recu un acteur, un collectible, une ombre, un
-  // transparent ou l'eau par-dessus : il sort de la population, MESURE au lieu d'etre declare.
+  // POURQUOI DEUX POINTS NE SUFFISAIENT PAS. L'essai 4 relisait au bucket 31 puis au bucket 64 et
+  // declarait PUR tout pixel identique entre les deux. Or les ACTEURS ANIMES sont dessines AVANT
+  // le bucket 31 : `MERC_TFRAG_TEX_LEVEL0` (buckets.h:10), `GENERIC_TFRAG_TEX_LEVEL0` (11),
+  // `MERC_TFRAG_TEX_LEVEL1` (17) et `GENERIC_TFRAG_TEX_LEVEL1` (18) ne sont ni du tfrag ni du
+  // tie : ce sont les personnages, les caisses et les objets suspendus. Leurs pixels etaient deja
+  // dans la relecture du bucket 31, donc identiques a ceux du bucket 64, donc declares PURS —
+  // et un PNJ qui marche entrait dans une population qui se dit « decor immobile ».
+  // `prepass::proof_before_bucket` appelle donc ceci SIX fois par image sondee, et lui passe le
+  // NUMERO DE BUCKET :
+  //   bucket 10 : sky(3), ocean lointain(4), tfrag/tie LEVEL0 (5-9) seuls -> point de depart ;
+  //   bucket 12 : merc(10) et generic(11) de LEVEL0 sont venus            -> MARQUE ;
+  //   bucket 17 : tfrag/tie LEVEL1 (12-16) sont venus                     -> repere ;
+  //   bucket 19 : merc(17) et generic(18) de LEVEL1 sont venus            -> MARQUE ;
+  //   bucket 31 : le shrub (19-30) est venu                               -> repere ;
+  //   bucket 64 : la scene 3D est complete (31-63)                        -> MARQUE, image jugee.
+  // Aux trois points MARQUE, tout pixel qui a change depuis le point precedent est marque SALE
+  // pour de bon : il a recu un acteur, un collectible, une ombre, un transparent ou l'eau. Il
+  // sort de la population, MESURE au lieu d'etre declare.
   // `depth_tex` est la profondeur de la prepasse, deja a la resolution pleine de l'image.
   // Inerte hors des phases 1 et 2 d'une triade : le build du joueur ne relit rien.
-  static void note_scene_stage(int stage, int w, int h, unsigned int depth_tex);
+  static void note_scene_stage(int bucket_id, int w, int h, unsigned int depth_tex);
   static void request_pattern_census(bool on);
   // Cross-run input comparison supplied by PrePass before census publication.
   static void set_static_probe_verdict(uint64_t nondeterminism, uint64_t samples, bool compared);

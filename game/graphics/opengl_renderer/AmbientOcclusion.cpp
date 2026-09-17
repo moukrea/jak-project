@@ -1111,13 +1111,21 @@ std::vector<float> s_vis_f[2];       // relecture flottante (tampon de scene RGB
 std::vector<uint8_t> s_vis_b[2];     // relecture octet (tampon de scene RGBA8)
 std::vector<uint8_t> s_vis_luma, s_vis_luma_ref;
 std::vector<uint8_t> s_vis_pure, s_vis_pure_ref;
+// (terme 5, essai 5) LE MARQUAGE « SALE », ACCUMULE SUR LES SIX POINTS DE RELECTURE DE L'IMAGE.
+// Un pixel devient SALE des qu'il change entre deux points consecutifs : quelque chose a ete
+// dessine par-dessus le decor opaque. Remis a zero au premier point de CHAQUE image.
+std::vector<uint8_t> s_vis_dirty;
+// Le MASQUE de la population, ecrit a la comparaison : 0 = exclu, 128 = compte et immobile,
+// 255 = compte et a bouge. Illustration de diagnostic, jamais une porte.
+std::vector<uint8_t> s_vis_counted;
+uint64_t s_vis_dirty_merc_l0 = 0, s_vis_dirty_merc_l1 = 0, s_vis_dirty_late = 0;
 std::vector<float> s_vis_depth, s_vis_depth_ref;
 std::vector<uint8_t> s_vis_changed;
 std::vector<uint32_t> s_vis_sat;
 
 int s_vis_w = 0, s_vis_h = 0;
 int s_vis_ref_state = -1;
-bool s_vis_stage0_ok = false;
+bool s_vis_chain_ok = false;
 bool s_vis_ref_ok = false;
 uint8_t s_vis_ref_wind = 0;
 
@@ -2776,12 +2784,23 @@ void AmbientOcclusionPass::set_census_wind_cut(bool cut) {
   s_census_wind_cut = cut;
 }
 
-// ── (terme 5, essai 4) LES DEUX RELECTURES, ET LA COMPARAISON DE LA PAIRE ───────────────────
+// ── (terme 5, essai 5) LES SIX RELECTURES, ET LA COMPARAISON DE LA PAIRE ────────────────────
 // Contrat en tete de fichier, section « RIEN NE BOUGE SE JUGE SUR L'IMAGE ». Appelee par
-// `prepass::proof_before_bucket` aux buckets 31 et 64, dans les DEUX renderers. Hors des phases
-// 1 et 2 d'une triade de recensement, elle rend immediatement et ne touche a rien : le build du
-// joueur ne fait pas une relecture de plus.
-void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned int depth_tex) {
+// `prepass::proof_before_bucket` aux buckets 10, 12, 17, 19, 31 et 64, dans les DEUX renderers.
+// Hors des phases 1 et 2 d'une triade de recensement, elle rend immediatement et ne touche a
+// rien : le build du joueur ne fait pas une relecture de plus.
+//   bucket 10 : sky(3), ocean lointain(4), tfrag/tie LEVEL0 (5-9) seuls    -> point de depart
+//   bucket 12 : merc(10) et generic(11) de LEVEL0 sont venus               -> MARQUE
+//   bucket 17 : tfrag/tie LEVEL1 (12-16) sont venus                        -> repere
+//   bucket 19 : merc(17) et generic(18) de LEVEL1 sont venus               -> MARQUE
+//   bucket 31 : le shrub (19-30) est venu                                  -> repere
+//   bucket 64 : la scene 3D est complete (31-63)                           -> MARQUE + image jugee
+// POURQUOI. L'essai 4 ne relisait qu'aux buckets 31 et 64 : les acteurs animes (merc et generic,
+// buckets 10, 11, 17 et 18) etaient DEJA dessines a la premiere relecture, leurs pixels etaient
+// donc identiques entre les deux etapes et le test « rien n'a ete dessine par-dessus » les
+// declarait PURS. Un PNJ qui marche, une caisse ou une lanterne suspendue entraient ainsi dans
+// une population qui se dit « decor immobile » — exactement ce que l'owner demande d'exclure.
+void AmbientOcclusionPass::note_scene_stage(int bucket_id, int w, int h, unsigned int depth_tex) {
   if (!ao_item::measured()) {
     return;  // hors preuve de cet item : aucune relecture
   }
@@ -2798,24 +2817,91 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
     s_vis_w = w;
     s_vis_h = h;
     s_vis_ref_ok = false;
-    s_vis_stage0_ok = false;
+    s_vis_chain_ok = false;
   }
-  if (stage == 0) {
-    s_vis_stage0_ok = vis_read_scene(0, w, h);
-    return;
+  // Le NUMERO DE BUCKET devient un rang dans la chaine, et dit si ce point MARQUE ce qui vient
+  // d'etre dessine (merc, generic, puis tout le reste de la scene 3D) ou s'il ne sert que de
+  // repere intermediaire (du decor est venu, il n'y a rien a exclure).
+  int idx;
+  bool mark;
+  switch (bucket_id) {
+    case 10: idx = 0; mark = false; break;
+    case 12: idx = 1; mark = true;  break;
+    case 17: idx = 2; mark = false; break;
+    case 19: idx = 3; mark = true;  break;
+    case 31: idx = 4; mark = false; break;
+    case 64: idx = 5; mark = true;  break;
+    default: return;
   }
-  if (stage != 1 || !s_vis_stage0_ok) {
-    return;
+  if (idx == 0) {
+    // LE DEPART DE LA CHAINE. `assign` et pas `resize` : le marquage doit repartir de zero a
+    // CHAQUE image, sinon la population se viderait image apres image.
+    s_vis_chain_ok = true;
+    s_vis_dirty.assign(n, 0);
   }
-  s_vis_stage0_ok = false;
+  if (!s_vis_chain_ok) {
+    return;  // un point de la chaine a manque ou a rate : cette image n'est pas jugeable
+  }
   if (!vis_read_scene(1, w, h)) {
+    s_vis_chain_ok = false;
     s_vis_ref_ok = false;
     return;
   }
-  // ── CE QUE LES DEUX ETAPES DISENT, PIXEL PAR PIXEL ────────────────────────────────────────
-  // `pure` : les deux etapes sont IDENTIQUES, donc rien n'a ete dessine par-dessus le decor
-  // opaque entre le bucket 31 et le bucket 64. `luma` : la luminance de l'etape 1 — la scene 3D
-  // complete — en unites d'AFFICHAGE.
+  if (idx > 0 && mark) {
+    // CE QUI EST VENU DEPUIS LE POINT PRECEDENT. RVB SEULEMENT, la MEME regle d'egalite que le
+    // test `pure` : l'alpha du tampon de scene sert au melange de la passe 2D et beaucoup de
+    // draws l'ecrivent sans rien changer a ce qui se voit.
+    const bool is_float_mark = (s_vis_src_float != 0);
+    // Le releve PRECEDENT doit exister DANS LE MEME FORMAT : si le pilote a change le type du
+    // tampon de scene entre deux points, il n'y a rien a comparer et lire le slot 0 sortirait du
+    // tableau. La chaine tombe, l'image n'est pas jugee — jamais un zero pris sur une lecture
+    // hors bornes.
+    const size_t need = n * 4;
+    const bool slots_ok = is_float_mark
+                              ? (s_vis_f[0].size() >= need && s_vis_f[1].size() >= need)
+                              : (s_vis_b[0].size() >= need && s_vis_b[1].size() >= need);
+    if (!slots_ok || s_vis_dirty.size() < n) {
+      s_vis_chain_ok = false;
+      s_vis_ref_ok = false;
+      return;
+    }
+    uint64_t marked = 0;
+    for (size_t i = 0; i < n; i++) {
+      if (s_vis_dirty[i]) {
+        continue;  // deja sale : un pixel ne se salit qu'une fois
+      }
+      bool same;
+      if (is_float_mark) {
+        const float* a = &s_vis_f[0][i * 4];
+        const float* c = &s_vis_f[1][i * 4];
+        same = (a[0] == c[0]) && (a[1] == c[1]) && (a[2] == c[2]);
+      } else {
+        same = (std::memcmp(&s_vis_b[0][i * 4], &s_vis_b[1][i * 4], 3) == 0);
+      }
+      if (!same) {
+        s_vis_dirty[i] = 1;
+        marked++;
+      }
+    }
+    if (idx == 1) {
+      s_vis_dirty_merc_l0 += marked;
+    } else if (idx == 3) {
+      s_vis_dirty_merc_l1 += marked;
+    } else {
+      s_vis_dirty_late += marked;
+    }
+  }
+  if (idx < 5) {
+    // Le releve de ce point devient le point de comparaison du suivant. `swap` de vector =
+    // echange de pointeurs : aucune copie.
+    s_vis_f[0].swap(s_vis_f[1]);
+    s_vis_b[0].swap(s_vis_b[1]);
+    return;
+  }
+  // ── CE QUE LES SIX ETAPES DISENT, PIXEL PAR PIXEL ─────────────────────────────────────────
+  // `pure` : le pixel n'a ete marque SALE a AUCUN des trois points MARQUE, donc rien n'a ete
+  // dessine par-dessus le decor opaque — ni merc, ni generic, ni aucun des buckets 31-63.
+  // `luma` : la luminance du dernier releve — la scene 3D complete — en unites d'AFFICHAGE.
   if (s_vis_pure.size() < n) {
     s_vis_pure.resize(n);
   }
@@ -2828,14 +2914,8 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
   const hdr::SdrEncode enc = hdr::sdr_encode_params();
   for (size_t i = 0; i < n; i++) {
     int r, g, b;
-    bool pure;
     if (is_float) {
-      const float* a = &s_vis_f[0][i * 4];
       const float* c = &s_vis_f[1][i * 4];
-      // RVB SEULEMENT. L'alpha du tampon de scene sert au melange de la passe 2D et beaucoup de
-      // draws l'ecrivent sans rien changer a ce qui se voit : l'inclure dans l'egalite viderait
-      // la population pour une raison qui n'a pas de pixel.
-      pure = (a[0] == c[0]) && (a[1] == c[1]) && (a[2] == c[2]);
       if (c[0] > 1.f || c[1] > 1.f || c[2] > 1.f) {
         s_vis_over_one_px++;
       }
@@ -2843,14 +2923,14 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
       g = hdr::sdr_display_u8(enc, c[1]);
       b = hdr::sdr_display_u8(enc, c[2]);
     } else {
-      const uint8_t* a = &s_vis_b[0][i * 4];
       const uint8_t* c = &s_vis_b[1][i * 4];
-      pure = (std::memcmp(a, c, 3) == 0);
       r = c[0];
       g = c[1];
       b = c[2];
     }
-    s_vis_pure[i] = pure ? 1u : 0u;
+    // La purete n'est plus une comparaison de DEUX etapes : c'est le marquage accumule sur les
+    // six points, qui voit aussi ce qui a ete dessine AVANT le bucket 31.
+    s_vis_pure[i] = s_vis_dirty[i] ? 0u : 1u;
     s_vis_luma[i] = (uint8_t)vis_luma(r, g, b);
   }
   // La profondeur de la PREPASSE, a la resolution PLEINE de l'image : c'est elle qui dit ce qui
@@ -2943,6 +3023,9 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
   const int arm = (state < 9) ? 0 : 1;  // 0 = bras LIVRE, 1 = bras TEMOIN
   const bool ao_known = (s_vis_ao_w > 0 && s_vis_ao_h > 0 && s_vis_ao_state == state &&
                          s_vis_ao_changed.size() >= (size_t)s_vis_ao_w * (size_t)s_vis_ao_h);
+  // Le MASQUE de la population, pour l'illustration de diagnostic plus bas : 0 = exclu,
+  // 128 = compte et immobile, 255 = compte et a bouge. Il ne compte rien, il montre.
+  s_vis_counted.assign(n, 0);
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       const size_t i = (size_t)y * (size_t)w + (size_t)x;
@@ -2991,6 +3074,7 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
         continue;
       }
       s_vis_pop[state]++;
+      s_vis_counted[i] = 128;
       const int d = (int)s_vis_luma[i] - (int)s_vis_luma_ref[i];
       const int ad = d < 0 ? -d : d;
       // LE PARTAGE PAR LA CAUSE. Le texel d'AO correspondant ET ses huit voisins : l'AO est
@@ -3022,6 +3106,7 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
       }
       if (ad > kVisMove) {
         s_vis_px[state]++;
+        s_vis_counted[i] = 255;
         // PAR BRAS : un compteur global melangerait le bras livre et le bras temoin, et le
         // « pixel a regarder » designerait le code qu'on a REMPLACE (FINDINGS de l'essai 3).
         if (ad > 4) {
@@ -3052,6 +3137,10 @@ void AmbientOcclusionPass::note_scene_stage(int stage, int w, int h, unsigned in
     vis_dump_ppm("ao-visible-a.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 0);
     vis_dump_ppm("ao-visible-b.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 1);
     vis_dump_ppm("ao-visible-diff.ppm", s_vis_luma_ref.data(), s_vis_luma.data(), w, h, 2);
+    // Le MASQUE de la population elle-meme : 0 = exclu, 128 = compte et immobile, 255 = compte
+    // et a bouge. ILLUSTRATION de diagnostic — elle montre OU la mesure regarde — jamais une
+    // porte : aucun chiffre de la preuve n'en sort.
+    vis_dump_ppm("ao-visible-counted.ppm", s_vis_counted.data(), s_vis_counted.data(), w, h, 0);
   }
 }
 
@@ -3636,8 +3725,15 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_visible_excl_near_moved_px", s_vis_excl_near_moved);
   autoport_proof::publish_text(
       "ao_static_visible_excluded",
+      "merc-et-generic-des-buckets-10-11-17-18;"
       "dessine-par-dessus(acteurs,collectibles,ombres,transparents,eau);ciel;"
       "geometrie-du-pixel-a-bouge;voisin-mobile-dans-la-portee-de-l-AO");
+  // (terme 5, essai 5) CE QUE CHACUN DES TROIS POINTS MARQUE A REELLEMENT EXCLU. Un point qui ne
+  // marque jamais rien serait un point vide, et il faut pouvoir le LIRE au lieu de le supposer.
+  autoport_proof::publish("ao_static_visible_dirty_merc_l0_px", s_vis_dirty_merc_l0);
+  autoport_proof::publish("ao_static_visible_dirty_merc_l1_px", s_vis_dirty_merc_l1);
+  autoport_proof::publish("ao_static_visible_dirty_late_px", s_vis_dirty_late);
+  autoport_proof::publish("ao_static_visible_checkpoints", (uint64_t)6);
   autoport_proof::publish("ao_static_visible_gt4_px", s_vis_gt4[0]);
   autoport_proof::publish("ao_static_visible_gt8_px", s_vis_gt8[0]);
   autoport_proof::publish("ao_static_visible_gt16_px", s_vis_gt16[0]);
