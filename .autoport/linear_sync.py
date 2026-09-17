@@ -622,6 +622,116 @@ def announce_builds(L, bl, mp, read, dry):
     return n
 
 
+def _proof_for(item_id, vpath):
+    """La preuve qui correspond a ce verdict : proof.txt si elle n'a pas ete reecrite depuis, sinon proof-prev.txt."""
+    d = AP / "reports" / item_id
+    vt = vpath.stat().st_mtime
+    for name in ("proof.txt", "proof-prev.txt"):
+        f = d / name
+        if f.exists() and abs(f.stat().st_mtime - vt) < 180:
+            return f
+    return None
+
+
+def _key_numbers(text, gate_key):
+    """Les chiffres qui expliquent un verdict : la porte, ses termes non nuls, les comptes d'images."""
+    vals = {}
+    for line in text.splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            vals[k.strip()] = v.strip()
+    out = []
+    if gate_key in vals:
+        out.append("%s = %s" % (gate_key, vals[gate_key]))
+    for k in ("frames", "crash", "duration_s", "source"):
+        if k in vals:
+            out.append("%s = %s" % (k, vals[k]))
+    prefix = gate_key.split("_")[0] + "_"
+    bad = []
+    for k, v in vals.items():
+        if k == gate_key or not k.startswith(prefix):
+            continue
+        if re.search(r"(_defects|_px|_x1000|_leak|_gap|_delta|_over_|_not_)", k) and re.fullmatch(r"-?\d+(\.\d+)?", v) and float(v) != 0:
+            bad.append("%s = %s" % (k, v))
+    out += sorted(bad)[:10]
+    return out
+
+
+def announce_verdicts(L, bl, mp, read, dry):
+    """Owner 17/09 : « on pourrait au moins avoir une raison des échecs et possiblement des preuves à l'appui ! Et pareil
+    pour les succès ». A chaque verdict (validator-NNN.txt nouveau), un commentaire : essai, resultat, pourquoi, chiffres,
+    resume de l'agent, pieces jointes (rapport, mesures, captures recentes)."""
+    n = 0
+    for it in bl.items:
+        rec = mp.get(it["id"])
+        if not rec or it["status"] == "archived":
+            continue
+        d = AP / "logs" / it["id"]
+        if not d.is_dir():
+            continue
+        files = sorted(d.glob("validator-*.txt"), key=lambda p: p.stat().st_mtime)
+        if not files:
+            continue
+        v = files[-1]
+        if rec.get("last_verdict_announced") == v.name:
+            continue
+        if "last_verdict_announced" not in rec:  # premier passage : on n'annonce pas l'histoire, seulement ce qui vient
+            rec["last_verdict_announced"] = v.name; continue
+        if time.time() - v.stat().st_mtime > 3 * 86400:
+            rec["last_verdict_announced"] = v.name; continue  # vieux verdict d'avant le miroir : on ne rejoue pas l'histoire
+        text = v.read_text(errors="replace")
+        fails = [l.strip() for l in text.splitlines() if "FAIL]" in l and "constat(s)" not in l]
+        ok = " ok]" in text and not fails
+        impossible = "PREUVE IMPOSSIBLE" in text
+        num = int(v.stem.split("-")[-1])
+        gate = (it.get("gate") or {}).get("key", "")
+        lines = []
+        if impossible:
+            lines.append("**Essai %d : pas de mesure possible** (non compté)." % num)
+            lines.append(text.splitlines()[0][:400])
+        elif ok:
+            lines.append("**Essai %d : porte tenue.**" % num)
+        else:
+            lines.append("**Essai %d : échec.** Pourquoi :" % num)
+            for f in fails[:8]:
+                lines.append("- " + re.sub(r"^\[%s FAIL\]\s*" % re.escape(it["id"]), "", f)[:300])
+        attach = []
+        pf = _proof_for(it["id"], v)
+        if pf:
+            nums = _key_numbers(pf.read_text(errors="replace"), gate)
+            if nums:
+                lines.append("\n**Chiffres** : " + " · ".join(nums))
+            mes = AP / "reports" / it["id"] / ("essai-%d-mesures.txt" % num)
+            keep = [l for l in pf.read_text(errors="replace").splitlines() if l.startswith(gate.split("_")[0] + "_") or l.split("=")[0] in ("frames", "crash", "duration_s", "source", "serial")]
+            mes.write_text("\n".join(keep) + "\n"); attach.append(mes)
+        rep = AP / "reports" / it["id"] / "report.txt"
+        if rep.exists() and abs(rep.stat().st_mtime - v.stat().st_mtime) < 1800:
+            body_lines = [l for l in rep.read_text(errors="replace").splitlines() if l.strip() and not l.startswith("DIRECTIVES")]
+            lines.append("\n**Ce que dit l'agent** : " + " ".join(body_lines[:6])[:900])
+            attach.append(rep)
+        else:
+            lines.append("\nL'agent n'a pas laissé de rapport pour cet essai.")
+        notes = AP / "reports" / it["id"] / "notes"
+        if notes.is_dir():
+            prev_t = files[-2].stat().st_mtime if len(files) > 1 else 0
+            imgs = sorted([p for p in notes.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg") and p.stat().st_mtime > prev_t and p.stat().st_size < 8_000_000], key=lambda p: p.stat().st_mtime)[-3:]
+            attach += imgs
+        print("  verdict essai %d de %s annonce (%s)" % (num, it["id"], "ok" if ok else "impossible" if impossible else "echec"))
+        if not dry:
+            body = MARK + "\n".join(lines)
+            for f in attach:
+                try:
+                    url, ctype = upload_file(L, f)
+                    body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (f.name, url)
+                except Exception as e:  # noqa: BLE001
+                    body += "\n\n(piece jointe %s non televersee : %s)" % (f.name, str(e)[:80])
+            L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
+            swap_labels(L, rec["issue_id"], add=read)
+            rec["last_verdict_announced"] = v.name
+        n += 1
+    return n
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -848,6 +958,7 @@ def main():
     if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run):
         bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
+    announce_verdicts(L, bl, mp, label, a.dry_run)
     announce_builds(L, bl, mp, label, a.dry_run)
     pull_labeled_unmapped(L, mp, label, todo, _TALK["id"], a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)

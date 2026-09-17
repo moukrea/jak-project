@@ -72,6 +72,7 @@
   "identifier": "JAK-164",
   "issue_id": "71ce5d76-7664-42d0-a0bc-503b132fd5fd",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:23.000Z",
   "relations": [
    "perf-dma-chain-copies"
@@ -83,6 +84,7 @@
   "identifier": "JAK-161",
   "issue_id": "2ec85232-facd-4d9e-a3f2-8add2f882120",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:23.000Z",
   "relations": [
    "perf-fbo-passes"
@@ -94,6 +96,7 @@
   "identifier": "JAK-165",
   "issue_id": "2caea7f2-21b0-4848-8c32-42bd1a9fabf3",
   "last_state": "Done",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-17T05:37:23.000Z",
   "relations": [
    "shrub-trunk-contact"
@@ -105,15 +108,17 @@
   "identifier": "JAK-88",
   "issue_id": "d740e5de-2878-4ff8-810f-cc1de26a69db",
   "last_state": "Done",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-17T05:37:02.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-indirect-clean": {
-  "hash": "4bc2d50ddb529851427e3a779d2bcc9e1f5da9f3",
+  "hash": "d001b631d5f69479f6773858300da181b7301ceb",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
   "last_state": "In Progress",
-  "pulled_at": "2026-09-17T13:24:14.000Z",
+  "last_verdict_announced": "validator-001.txt",
+  "pulled_at": "2026-09-17T14:21:46.212Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
  },
  "ao-prepass-tie-alpha": {
@@ -121,6 +126,7 @@
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
   "last_state": "Done",
+  "last_verdict_announced": "validator-019.txt",
   "pulled_at": "2026-09-17T10:59:44.929Z",
   "relations": [
    "ao-static-probe-deterministic",
@@ -133,6 +139,7 @@
   "identifier": "JAK-159",
   "issue_id": "75c1769a-df98-4836-9368-c141b852c835",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:22.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a"
  },
@@ -141,6 +148,7 @@
   "identifier": "JAK-112",
   "issue_id": "805f5d7a-1fe3-4ebb-ba2b-ac159c9abace",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:10.000Z",
   "relations": [
    "build-tree-reinvalidates-itself"
@@ -152,6 +160,7 @@
   "identifier": "JAK-109",
   "issue_id": "5bbfb7f3-ae53-43f5-81ad-142add7dd9c0",
   "last_state": "Done",
+  "last_verdict_announced": "validator-006.txt",
   "pulled_at": "2026-09-17T05:37:09.000Z",
   "relations": [
    "build-tree-reinvalidates-itself"
@@ -163,6 +172,7 @@
   "identifier": "JAK-104",
   "issue_id": "fbcda107-fdde-4d8d-91d0-2adb4ebea40a",
   "last_state": "Done",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-17T05:37:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-104/une-construction-sans-edition-cesse-de-tout-recompiler-et-de-laisser"
  },
@@ -195,6 +205,7 @@
   "identifier": "JAK-84",
   "issue_id": "8dae171c-4070-4af0-827d-dc4f6ba46bd9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-84/un-reglage-mort-dans-le-code-ecrit-par-personne-lu-par-personne"
  },
@@ -203,6 +214,7 @@
   "identifier": "JAK-103",
   "issue_id": "4bc4527b-46ad-4658-ac85-7eacfc7f4bd4",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:06.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-103/le-controle-des-particules-et-le-nettoyage-des-shaders-verifient-des"
  },
@@ -235,6 +247,7 @@
   "identifier": "JAK-89",
   "issue_id": "1188ae28-e8f6-4af8-b7f5-860b8b9f5e14",
   "last_state": "Done",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-17T05:37:02.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-89/les-aplats-noirs-et-rouges-qui-recouvrent-les-feux-et-les-portails"
  },
@@ -243,6 +256,7 @@
   "identifier": "JAK-41",
   "issue_id": "ae2b7f44-a66b-4d8d-a609-f76f9acf8773",
   "last_state": "Done",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-17T05:36:53.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-41/en-vue-premiere-personne-on-se-retrouve-dans-la-tete-de-jak"
  },
@@ -251,6 +265,7 @@
   "identifier": "JAK-2",
   "issue_id": "8e36435b-4bcd-4957-bef0-cb3f3ca0c26b",
   "last_state": "Done",
+  "last_verdict_announced": "validator-020.txt",
   "pulled_at": "2026-09-17T05:36:37.000Z",
   "relations": [
    "hdr-display-output",
@@ -284,6 +299,7 @@
   "identifier": "JAK-86",
   "issue_id": "baf059e2-aee5-4921-9d6a-322e4988545d",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:01.000Z",
   "relations": [
    "gl-uniforms-off-cost"
@@ -295,6 +311,7 @@
   "identifier": "JAK-83",
   "issue_id": "f4dfc683-b2c3-43b2-9306-45dbbc343dbd",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-83/eclairage-eteint-le-processeur-arrete-de-pousser-des-parametres-pour"
  },
@@ -303,6 +320,7 @@
   "identifier": "JAK-100",
   "issue_id": "724ba286-a26d-4bb6-bf3a-eb4357e95244",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:06.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-100/le-jeu-cesse-de-payer-68-mo-de-vram-pour-un-chemin-de-halo-qui-ne"
  },
@@ -322,6 +340,7 @@
   "identifier": "JAK-113",
   "issue_id": "5ebeb104-5886-4865-a063-29efa0b5ba96",
   "last_state": "Done",
+  "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-17T05:37:10.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-113/le-cout-reel-de-lherbe-mesure-avant-quon-y-touche"
  },
@@ -354,6 +373,7 @@
   "identifier": "JAK-115",
   "issue_id": "0b95a2cd-15a0-49b5-a521-312fc37f5b97",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:10.000Z",
   "relations": [
    "grass-baseline-cost"
@@ -365,6 +385,7 @@
   "identifier": "JAK-119",
   "issue_id": "24dbdb0f-c378-4cd3-b939-32c56ea5b024",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T08:12:48.874Z",
   "relations": [
    "grass-chunk-cull"
@@ -376,6 +397,7 @@
   "identifier": "JAK-114",
   "issue_id": "6209c5fa-31e1-4eb4-92e4-53557dfddee4",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:10.000Z",
   "relations": [
    "grass-baseline-cost"
@@ -400,6 +422,7 @@
   "identifier": "JAK-126",
   "issue_id": "c5800847-865d-4691-9740-5941adf1d8a4",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:13.000Z",
   "relations": [
    "grass-overlay-meshes",
@@ -451,6 +474,7 @@
   "identifier": "JAK-117",
   "issue_id": "68347edb-a9b0-43e9-a0b0-1d48b58ce246",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "relations": [
    "grass-surface-truth"
@@ -462,6 +486,7 @@
   "identifier": "JAK-118",
   "issue_id": "40495f73-0ba0-4b75-a1fc-4bf09daf2ca5",
   "last_state": "Backlog",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T07:40:27.578Z",
   "relations": [
    "grass-levels",
@@ -486,6 +511,7 @@
   "identifier": "JAK-116",
   "issue_id": "27d7bba2-ed3d-45e0-b890-c40d1c0a8e0e",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:10.000Z",
   "relations": [
    "grass-chunk-cull"
@@ -531,6 +557,7 @@
   "identifier": "JAK-168",
   "issue_id": "03297c93-f1f4-42d2-8026-621511082a7f",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-168/le-constructeur-dapk-ne-prend-plus-un-demon-gradle-inactif-pour-un"
  },
@@ -539,6 +566,7 @@
   "identifier": "JAK-154",
   "issue_id": "3fedaff8-ad33-4275-951f-52fa6679cc99",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-154/la-garde-build-en-cours-ne-prend-plus-le-demon-gradle-pour-un-build"
  },
@@ -547,6 +575,7 @@
   "identifier": "JAK-155",
   "issue_id": "39ec73eb-ad69-4121-a458-f6ddb4884552",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-155/un-rouge-de-la-suite-ne-du-commit-dun-autre-ne-tue-plus-lessai-qui"
  },
@@ -555,6 +584,7 @@
   "identifier": "JAK-162",
   "issue_id": "753af55c-2d45-404e-b207-459c4da55caf",
   "last_state": "Done",
+  "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-17T05:37:23.000Z",
   "relations": [
    "harness-suite-temporary-files-outside-quota"
@@ -566,6 +596,7 @@
   "identifier": "JAK-167",
   "issue_id": "8f68ed9c-6432-4dff-9128-779d7a5626e4",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
@@ -577,6 +608,7 @@
   "identifier": "JAK-166",
   "issue_id": "4ad49c4e-1c8c-4e13-82df-6f0d0cd2b0f0",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
@@ -585,6 +617,7 @@
   "identifier": "JAK-111",
   "issue_id": "18f794ba-fcc7-4bbd-940c-b6e7686d6a6c",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:09.000Z",
   "relations": [
    "build-tree-reinvalidates-itself"
@@ -596,6 +629,7 @@
   "identifier": "JAK-158",
   "issue_id": "52b6fd4e-8c3a-4d2a-b68a-b8bdb314360c",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-158/une-preuve-sur-appareil-deploie-le-binaire-local-ou-refuse-tout-de"
  },
@@ -604,6 +638,7 @@
   "identifier": "JAK-157",
   "issue_id": "af9a0bf1-c2d3-4072-9bcc-e11def6be3b2",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-157/une-course-qui-meurt-a-la-porte-ne-detruit-plus-la-preuve-precedente"
  },
@@ -612,6 +647,7 @@
   "identifier": "JAK-106",
   "issue_id": "2be013b8-d2c5-4f1a-9f09-6e34bb8ca21f",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-106/un-fichier-a-moitie-ecrit-ne-tue-plus-la-boucle-du-harnais"
  },
@@ -620,6 +656,7 @@
   "identifier": "JAK-130",
   "issue_id": "93f7a335-74f7-46cc-b964-3e05ad775db9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:15.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-130/une-preuve-perimee-se-voit-avant-la-course-pas-au-validateur-une-heure"
  },
@@ -628,6 +665,7 @@
   "identifier": "JAK-110",
   "issue_id": "7e6349f5-2766-49d8-b82f-05acca74be67",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:09.000Z",
   "relations": [
    "build-tree-reinvalidates-itself"
@@ -639,6 +677,7 @@
   "identifier": "JAK-107",
   "issue_id": "daa7e5ca-da7a-4964-bfb0-0f9173811cbf",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:09.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-107/la-suite-de-tests-est-lue-par-la-porte-de-fermeture-sinon-son-vert-se"
  },
@@ -647,6 +686,7 @@
   "identifier": "JAK-163",
   "issue_id": "28b861e8-3699-4848-b633-5b743f154cd9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:23.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-163/la-suite-du-harnais-ne-depend-plus-du-quota-temporaire-sature"
  },
@@ -655,6 +695,7 @@
   "identifier": "JAK-156",
   "issue_id": "57025c49-fcca-4eeb-b113-8bb95b49052e",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-156/le-banc-de-la-suite-nherite-plus-de-lenvironnement-de-celui-qui-la"
  },
@@ -671,6 +712,7 @@
   "identifier": "JAK-85",
   "issue_id": "44a984fc-ea4f-4f0d-8c9b-37eb9d32e68f",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-85/un-drapeau-de-preuve-ne-doit-pas-decider-du-comportement-du-jeu"
  },
@@ -679,6 +721,7 @@
   "identifier": "JAK-94",
   "issue_id": "fa9e8a48-a30c-4cf1-9456-93ebd5fbb1b2",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:04.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-94/la-sortie-hdr-existe-aussi-sur-pc-windows-comme-linux"
  },
@@ -687,6 +730,7 @@
   "identifier": "JAK-47",
   "issue_id": "a875a546-4712-42a6-b585-752194513829",
   "last_state": "Done",
+  "last_verdict_announced": "validator-020.txt",
   "pulled_at": "2026-09-17T05:36:54.000Z",
   "relations": [
    "hdr-output-regime",
@@ -699,6 +743,7 @@
   "identifier": "JAK-99",
   "issue_id": "b58cf62f-023b-4803-bd0e-43a95647f8cb",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:05.000Z",
   "relations": [
    "hdr-plan"
@@ -710,6 +755,7 @@
   "identifier": "JAK-101",
   "issue_id": "5b9959ff-fc34-4a8f-a79a-2ed01225f668",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:06.000Z",
   "relations": [
    "hdr-output-regime"
@@ -721,6 +767,7 @@
   "identifier": "JAK-98",
   "issue_id": "4b6a3be8-73bc-40ef-91a1-2d4bfa2383d1",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:05.000Z",
   "relations": [
    "hdr-study"
@@ -732,6 +779,7 @@
   "identifier": "JAK-108",
   "issue_id": "92fc98d7-97f2-4c93-b2be-73c8cef11ede",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:09.000Z",
   "relations": [
    "hdr-output-regime"
@@ -743,6 +791,7 @@
   "identifier": "JAK-97",
   "issue_id": "333aee5c-4214-4a71-aec0-cc45dcc14ca6",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:04.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
@@ -752,6 +801,7 @@
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "Todo",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T12:30:36.540Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
@@ -900,6 +950,7 @@
   "identifier": "JAK-90",
   "issue_id": "1e9c0d99-b448-4d12-a4d6-98e086ff490b",
   "last_state": "Done",
+  "last_verdict_announced": "validator-009.txt",
   "pulled_at": "2026-09-17T05:37:02.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
  },
@@ -930,6 +981,7 @@
   "identifier": "JAK-87",
   "issue_id": "9db44d24-06cf-4a05-b2cd-a37ff10d73b9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:01.000Z",
   "relations": [
    "gl-uniforms-off-cost"
@@ -976,6 +1028,7 @@
   "identifier": "JAK-96",
   "issue_id": "3367f380-8497-4999-9cd6-212e1fbc1abd",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:04.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-96/le-retour-des-sous-menus-affiche-le-bon-texte-pas-une-chaine-au-hasard"
  },
@@ -984,6 +1037,7 @@
   "identifier": "JAK-95",
   "issue_id": "1a2ebfbf-a81d-4004-84a8-27d279857ce5",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:04.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-95/une-pression-sur-la-croix-deplace-dun-cran-jamais-deux"
  },
@@ -992,6 +1046,7 @@
   "identifier": "JAK-91",
   "issue_id": "963ae827-3428-46c0-bf2d-73375a189546",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:02.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-91/le-navigateur-de-mesh-quitte-le-jeu-entrees-de-menu-et-raccourcis"
  },
@@ -1000,6 +1055,7 @@
   "identifier": "JAK-102",
   "issue_id": "9db8deac-a09d-4b95-895f-402351862b78",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:06.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-102/le-soudage-de-normales-tourne-a-chaque-chargement-de-niveau-pour-un"
  },
@@ -1078,6 +1134,7 @@
   "identifier": "JAK-73",
   "issue_id": "1f3f05b2-90a9-4c28-a1e6-35869964b170",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-73/la-chaine-dma-nest-plus-parcourue-cinq-fois-par-image"
  },
@@ -1086,6 +1143,7 @@
   "identifier": "JAK-69",
   "issue_id": "b1f97a2f-e95f-4524-a5f7-8b767ecf40b4",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "relations": [
    "hdr-display-output"
@@ -1108,6 +1166,7 @@
   "identifier": "JAK-67",
   "issue_id": "20a87627-5220-49ba-8220-6b86dc816422",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-67/le-pilote-gl-ne-valide-plus-chaque-appel-et-ne-fait-plus-de-sondes-en"
  },
@@ -1116,6 +1175,7 @@
   "identifier": "JAK-70",
   "issue_id": "d2939744-6ea7-4927-ba5b-e5d867cf8ef9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "relations": [
    "perf-merc-defuse"
@@ -1138,6 +1198,7 @@
   "identifier": "JAK-68",
   "issue_id": "d23f084f-00cf-41ff-b97b-11bb43ce3103",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-68/le-fil-de-rendu-nattend-plus-le-gpu-au-milieu-de-chaque-image"
  },
@@ -1204,6 +1265,7 @@
   "identifier": "JAK-71",
   "issue_id": "6a4a152d-b714-4954-a5ce-b44a064cedbe",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:58.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-71/le-fil-goal-tourne-sur-un-gros-coeur-dans-un-binaire-release"
  },
@@ -1212,6 +1274,7 @@
   "identifier": "JAK-93",
   "issue_id": "fd2f1f8f-b4d5-4697-ac92-25580f3596d6",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:03.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-93/une-course-qui-ne-dessine-rien-dit-pourquoi-au-lieu-de-se-lire-comme"
  },
@@ -1260,6 +1323,7 @@
   "identifier": "JAK-81",
   "issue_id": "69ae69c4-7a67-48be-b45c-cd6d094ba524",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-81/eteindre-une-option-eteint-vraiment-ce-qui-en-depend-et-leclairage-a"
  },
@@ -1342,6 +1406,7 @@
   "identifier": "JAK-34",
   "issue_id": "637ed006-36f5-4e60-bdaa-e1b66f7c9bfc",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:36:52.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-34/le-nom-des-jeux-et-de-la-collection-recharged"
  },
@@ -1358,6 +1423,7 @@
   "identifier": "JAK-40",
   "issue_id": "000fe22f-9738-44e2-b93a-51a2cad07bc4",
   "last_state": "Backlog",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:53.000Z",
   "relations": [
    "hdr-display-output",
@@ -1370,6 +1436,7 @@
   "identifier": "JAK-38",
   "issue_id": "994997ea-984a-4314-9763-35fc6a5fcd18",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:53.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-38/basculer-les-textures-recharged-sans-redemarrer-le-jeu"
  },
@@ -1402,6 +1469,7 @@
   "identifier": "JAK-82",
   "issue_id": "fc9322c1-0e17-4a1d-99b2-856f1ae15b0c",
   "last_state": "Done",
+  "last_verdict_announced": "validator-006.txt",
   "pulled_at": "2026-09-17T08:11:40.566Z",
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
@@ -1418,6 +1486,7 @@
   "identifier": "JAK-153",
   "issue_id": "78bc378a-d77e-4ec1-880a-d8c345fee005",
   "last_state": "Done",
+  "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-153/le-tronc-dun-mini-palmier-ne-secrase-pas-comme-un-brin-dherbe-et-ses"
  },
@@ -1448,6 +1517,7 @@
   "identifier": "JAK-131",
   "issue_id": "ef407c6e-15a0-42b1-8784-f0fd6f802ec0",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:15.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-131/les-instruments-et-la-baseline-des-surfaces-meubles-lepaisseur-des"
  },
@@ -1639,6 +1709,7 @@
   "identifier": "JAK-133",
   "issue_id": "8d4fb98b-6a6f-44d9-9dca-b73c2fc807b9",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:17.000Z",
   "relations": [
    "soft-surface-truth"
@@ -1650,6 +1721,7 @@
   "identifier": "JAK-132",
   "issue_id": "ddd9e665-b8ff-4d7a-b06e-0a2a70c0a367",
   "last_state": "Done",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:17.000Z",
   "relations": [
    "grass-surface-truth",
@@ -1682,6 +1754,7 @@
   "identifier": "JAK-92",
   "issue_id": "5758f80c-e1de-48e7-8c88-8eea0496ee88",
   "last_state": "Done",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:03.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-92/au-titre-linvite-dit-touche-lecran-quand-il-y-a-un-ecran-tactile"
  },
@@ -1752,6 +1825,7 @@
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
   "last_state": "Todo",
+  "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-17T05:36:56.000Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
@@ -1763,6 +1837,7 @@
   "identifier": "JAK-105",
   "issue_id": "9ecdb45d-5e65-4e65-ba4f-78d89e7f9d43",
   "last_state": "Done",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-105/quatorze-millions-dincrementations-par-seconde-depuis-un-seul"
  },
