@@ -27,6 +27,10 @@ de l'existant : sa porte porte une grandeur de la cible, et une brique qui chang
 ne régresse pas sur le build précédent (ça se mesure, ça entre dans la porte). Une brique
 intermédiaire qui n'a rien à montrer le dit (`where` : « rien à voir ») au lieu d'envoyer l'owner
 tester ce qui n'existe pas encore.
+Un défaut VISIBLE se corrige d'abord dans l'étage que la SPEC remplace (ses tables « aujourd'hui /
+cible ») : si le pixel que tu chasses est produit par un étage condamné, tu t'arrêtes, tu l'écris dans
+FINDINGS et dans ton rapport, et tu ne dépenses pas un essai de plus dessus (owner, 17/09 : sept
+essais d'AO perdus sur une bande produite par une composition à jeter).
 
 ## Reprise
 
