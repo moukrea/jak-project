@@ -685,14 +685,18 @@ def explain_numbers(it, proof_text):
     gate = (it.get("gate") or {}).get("key", "")
     deliv = it.get("deliverable") or ""
     out = []
-    if gate in vals:
-        out.append("**Porte** : %s défaut(s) au total (objectif 0)." % _fmt(gate, vals[gate]))
-    fr = vals.get("frames"); cr = vals.get("crash"); du = vals.get("duration_s"); src = vals.get("source")
-    if fr:
-        out.append("Mesure : %s images%s%s%s." % (fr, " sur le téléphone" if src == "device" else " sur PC", (", %s s" % du) if du else "", (", %s plantage" % cr) if cr is not None else ""))
+    # Owner 17/09 (JAK-177) : « source=device… frames=15720… Tu crois vraiment que ça m'aide ? » — ni compte d'images,
+    # ni duree, ni valeur brute de la porte : seulement les points nommes par le ticket, en clair, et ce qui est en defaut.
+    try:
+        gate_val = float(vals.get(gate, "nan"))
+    except ValueError:
+        gate_val = float("nan")
+    if gate_val == gate_val and gate_val > 0:
+        out.append("**%d point(s) en défaut** sur la mesure." % gate_val)
     named = [k for k in dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]+)`", deliv)) if k != gate and not k.startswith("FEATURE")]
     paras = [pg.strip() for pg in re.split(r"\n\s*\n", deliv) if pg.strip()]
     shown = 0
+    ok_points = []
     for key in named:
         family = [kk for kk in vals if kk == key or (kk.startswith(key) and re.fullmatch(r"_(gtao|hbao|ssao)?(_q[0-9])?(_x1000)?", kk[len(key):]))]
         nums = []
@@ -710,13 +714,17 @@ def explain_numbers(it, proof_text):
         if len(head) < 12:
             head = re.split(r"(?<=[.;])\s", body, 1)[0].strip(" .-")
         sent = (head[:1].upper() + head[1:].lower())[:100] if head else key.replace("_", " ")
+        if worst == 0:
+            ok_points.append(sent)
+            continue
         line = "- %s : %s" % (sent, _fmt(family[0], worst))
         if len(family) > 1:
             line += " au pire, sur %d modes/qualités" % len(family)
-        line += " — " + ("OK" if worst == 0 else "défaut")
-        out.append(line); shown += 1
+        out.append(line + " — en défaut"); shown += 1
         if shown >= 8:
             break
+    if ok_points:
+        out.append("Tenu : " + " ; ".join(ok_points[:6]) + ".")
     return out
 
 
