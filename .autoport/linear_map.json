@@ -812,7 +812,7 @@
  },
  "hud-3d-pickups": {
   "build_announced": "25b9d247e2ea",
-  "hash": "23ae3b32cbf59c911def700025acfc2a7d2eda8b",
+  "hash": "43722594bb7ef4ecde3a20bf52b56f924bca4e37",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "In Progress",
