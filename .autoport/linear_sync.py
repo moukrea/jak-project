@@ -282,6 +282,31 @@ def labels(L, team):
     return read, todo
 
 
+def sync_relations(L, bl, mp, dry):
+    """depends_on -> relation Linear « bloque » (la dependance BLOQUE l'item). Owner 17/09 :
+    « ils devraient être clairement liés, avec des blocked by, depends on […] sinon on s'y retrouvera jamais »."""
+    made = 0
+    for it in bl.items:
+        rec = mp.get(it["id"])
+        if not rec:
+            continue
+        have = set(rec.get("relations") or [])
+        for dep in it.get("depends_on") or []:
+            drec = mp.get(dep)
+            if not drec or dep in have:
+                continue
+            if dry:
+                print("  relation %s bloque %s" % (dep, it["id"])); continue
+            try:
+                L.q('mutation($i:IssueRelationCreateInput!){ issueRelationCreate(input:$i){ success } }',
+                    i={"issueId": drec["issue_id"], "relatedIssueId": rec["issue_id"], "type": "blocks"})
+            except RuntimeError as e:
+                if "already" not in str(e).lower() and "exist" not in str(e).lower():
+                    raise
+            have.add(dep); rec["relations"] = sorted(have); made += 1
+    return made
+
+
 def viewer_id(L):
     return L.q("{ viewer { id } }")["viewer"]["id"]
 
@@ -397,9 +422,10 @@ def main():
             rec.update({"last_state": st, "hash": h})
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+    rel = sync_relations(L, bl, mp, a.dry_run)
     if not a.dry_run:
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
-    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d tickets suivis" % (created, updated, moved, len(mp)))
+    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d tickets suivis" % (created, updated, moved, rel, len(mp)))
 
 
 if __name__ == "__main__":
