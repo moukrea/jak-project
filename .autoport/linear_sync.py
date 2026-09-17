@@ -41,6 +41,7 @@ STATE_JSON = AP / "state.json"
 TEAM_KEY = "JAK"
 TEAM_NAME = "Jak and Daxter: Recharged Collection"
 MARK = "🤖 "
+MAP_DOCS = {}
 SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
 STATES = [  # (nom Linear, type Linear) — colonnes NATIVES de Linear quand elles existent (owner 17/09), custom sinon
@@ -203,7 +204,9 @@ def description(bl, it, retries):
         for f in fb[-6:]:
             if isinstance(f, dict):
                 lines += ["- %s : « %s »" % (f.get("date", "?"), str(f.get("text", "")).strip()[:700])]
-    lines += ["", "---", "Identifiant harnais : `%s` — rang %s — spec : %s" % (it["id"], it.get("priority"), it.get("spec") or "—")]
+    spec = it.get("spec") or ""
+    doc = (MAP_DOCS.get(os.path.basename(spec)) or {}).get("url") if spec else None
+    lines += ["", "---", "Identifiant harnais : `%s` — rang %s — spec : %s" % (it["id"], it.get("priority"), ("[%s](%s)" % (os.path.basename(spec), doc)) if doc else (spec or "—"))]
     return "\n".join(lines)
 
 
@@ -536,6 +539,39 @@ def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     return n
 
 
+SPEC_PROJECT = {"SPEC-refonte-eau.md": "Eau", "SPEC-refonte-herbe.md": "Herbe", "SPEC-refonte-lumiere.md": "Lumière",
+                "SPEC-surfaces-meubles.md": "Surfaces meubles", "SPEC-refonte-hud.md": "Écran et menus",
+                "SPEC-keira-physique.md": "Personnages", "SPEC-c20-code-changes.md": "Divers"}
+
+
+def sync_docs(L, mp, projects, dry):
+    """Les SPEC deviennent des documents Linear rattaches au projet de leur campagne (owner 17/09 :
+    « Les specs… Linear il peut pas les avoir ? […] voir que la spec existe sans pouvoir la lire… »)."""
+    docs = mp.setdefault("_docs", {})
+    n = 0
+    for name, proj in SPEC_PROJECT.items():
+        path = AP / "prompts" / name
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        h = hashlib.sha1(text.encode()).hexdigest()
+        rec = docs.get(name)
+        if rec and rec.get("hash") == h:
+            continue
+        title = text.splitlines()[0].lstrip("# ").strip()[:120] or name
+        body = text + "\n\n---\n_Copie du fichier `.autoport/prompts/%s` du dépôt, mise à jour automatiquement ; la version du dépôt fait foi._" % name
+        if dry:
+            print("  document %s (%s)" % (name, "maj" if rec else "creation")); continue
+        if rec:
+            L.q('mutation($id:String!,$i:DocumentUpdateInput!){ documentUpdate(id:$id,input:$i){ success } }', id=rec["id"], i={"title": title, "content": body})
+        else:
+            r = L.q('mutation($i:DocumentCreateInput!){ documentCreate(input:$i){ document { id slugId } } }', i={"title": title, "content": body, "projectId": projects.get(proj) or projects.get("Divers")})
+            d = r["documentCreate"]["document"]
+            rec = {"id": d["id"], "url": "https://linear.app/moukrea/document/" + d["slugId"]}
+        rec["hash"] = h; docs[name] = rec; n += 1
+    return n
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -707,6 +743,9 @@ def main():
         label, todo = labels(L, team)
         mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"], "ok": _TALK["ok"], "v2": True}}
     today = dt.date.today()
+    MAP_DOCS.update(mp.get("_docs") or {})
+    if sync_docs(L, mp, projects, a.dry_run):
+        MAP_DOCS.update(mp.get("_docs") or {})
     if mp and not a.no_pull:
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
         bl = B.load()
