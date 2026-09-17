@@ -1,7 +1,7 @@
 # L'herbe qui traverse les objets poses au sol
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-11 : « TERMINÉ »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
@@ -11,7 +11,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh recharged-grass-object-clip device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh recharged-grass-object-clip x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : le bouton du portail de l'ile de depart, et les decors poses au sol.
 
 ## Hors perimetre

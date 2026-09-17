@@ -1,7 +1,11 @@
+> LIS D'ABORD `prompts/item-recharged-gating-real-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
 
 ## Defaut cite
-- 2026-09-10 : « ca serait top que ses entrees menu genre soient « Occlusion ambiante: Non/SSAO/HBAO/GTAO » et pas « Occlusion ambiante » sans savoir l'option courante (et selection auto de l'item courant quand on tape dans l'option), pa… »
+- 2026-09-11 : « Validé »
 
 ## Cause connue
 Owner 10/09 sur le Redmi : « passer a off une option dans les reglages recharges qui desactive d'autres options qui en dependent... Ne desactive pas les options qui en dependent reellement, elles restent actives dans l'etat ou elles etaient quand elles ont ete grisees ». Il soupconne aussi des reglages actifs sous le master Recharged, et relie explicitement les mauvaises perfs du Redmi a ce defaut. Un grisage qui n'eteint rien rend FAUSSE toute preuve ON/OFF du harnais : OFF doit egaler l'ABSENCE.

@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-11 : « parcourir les menus au d-pad tactile est un peu pete, pas teste a la manette mais quand on appuie un cran vers le bas par example, parfois ca saute deux ou plus items au lieu d'un seul, pareil dans les sous menus et compagnie »
+- 2026-09-13 : « Navigation au D-Pad, validé »
 
 ## Cause connue
 Owner 11/09 : « parcourir les menus au d-pad tactile est un peu pete [...] quand on appuie un cran vers le bas par exemple, parfois ca saute deux items ou plus au lieu d'un seul, pareil dans les sous menus ». Non teste a la manette : le recensement doit dire si le defaut est propre au TACTILE ou commun aux deux entrees.

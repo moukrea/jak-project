@@ -65,6 +65,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion : essaie CHAQUE pal
 ### 2026-09-17
 > Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper ? C'est quoi le problème ?
 
+### 2026-09-17
+> Top, mais étrangement je vois aucun ticket liés à ce dernier, ils devraient être clairement liés, avec des blocked by, depends on, etc etc. pour tous les sujets sinon on s'y retrouvera jamais, pas étonnant que tu fasse un peu de la merde si on a pas des dépendances claires… C'est un feedback à chaud qui concerne plus le harnais et sa façon de travailler, mais c'est important !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

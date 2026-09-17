@@ -1,7 +1,7 @@
 # Basculer les textures Recharged sans redemarrer le jeu
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-11 : « TERMINÉ, MAIS ÇA MARCHE PAS, FAUT REDÉMARRER LE JEU SI ON VEUT REPASSER SUR LES TEXTURES D'ORIGINE, N'OUVRE PAS D'ITEM POUR ÇA, ON Y REVIENDRA UN JOUR, MET CELUI-CI EN TERMINÉ »
 
 ## Cause connue
 Aucun cycle n'a tourne sur cet item.

@@ -34,6 +34,9 @@ Sur Sandover puis dans la jungle, une fois l'herbe posee (grass-levels) : le bor
 ### 2026-09-17
 > Bah du coup c'est pas à tester, c'est pas validé du tout ! Il suffit de lire le ticket pour voir que c'est pas à tester ! À moins qu'il y ait une info que j'ai loupé, un build spécifique que j'ai loupé… En tout cas c'est pas bon du tout !
 
+### 2026-09-17
+> Tu dis "Le ticket se rejouera après « l'herbe sur Sandover et la jungle », là où des chemins existent, et c'est là que tu regarderas."… Et il y a un ticket qui couvre ça ? Parce que sinon ça sera juste jamais vrai !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

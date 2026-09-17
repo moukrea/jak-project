@@ -5,7 +5,7 @@
 # En vue premiere personne on se retrouve dans la tete de Jak
 
 ## Defaut cite
-- 2026-09-13 : « on a une régression sur la vue première personne avec les mo… »
+- 2026-09-14 : « vue première personne validé aussi »
 
 ## Cause connue
 REGRESSION d'un acquis valide le 2026-08-29 (« Pour la vue en premiere personne et la visiere de Keira c'est regle, bien joue »). L'owner, 13/09 : on voit les modeles HD de Jak et Daxter DE L'INTERIEUR en vue premiere personne. Le correctif d'aout existe dans l'historique (`git log -S` sur le masquage premiere personne des modeles HD, `goal_src/jak1/pc/jak-hd.gc`, `Merc2.cpp`) : chercher d'abord QUEL commit l'a defait — pas de temps fixe (`fixed_tick`), interpolation d'animation (`render_pace`, `*anim-interp-on*`), correctif d'etirement HD — avant de le reecrire. CONTRAINTE DE L'OWNER : ne rien casser de ces trois-la.

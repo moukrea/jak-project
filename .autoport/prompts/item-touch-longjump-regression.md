@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-08-04 : « Pour le long jump j'ai pas de manette, mais faut faire en sorte qu'avec le tactile ça fonctionne aussi ! **Ça fonctionnait avant** donc il n'y a pas de raisons que ça fonctionne plus ! »
+- 2026-09-11 : « TERMINÉ »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
@@ -11,7 +12,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh touch-longjump-regression device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh touch-longjump-regression x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : au tactile : avance + R1/R2 + saut, tu dois partir en long jump.
 
 ## Hors perimetre

@@ -3,6 +3,7 @@
 ## Defaut cite
 - 2026-09-11 : « JE SAIS PAS DE QUOI IL S'AGIT VRAIMENT... « Jak and Daxter: The Precursor Legacy » doit etre nomme « Jak and Daxter: Recharged » (sans mention d'OpenGOAL) »
 - 2026-09-11 : « le jeu doit etre nomme « Jak and Daxter: Recharged » dans toutes les langues hein ! pas de « Jak et Daxter: Recharges » en francais par exemple, non, pour toutes les langues c'est « Jak and Daxter: Recharged », la fenetre de jeu sur PC doit etre titree « Jak and Daxter: Recharged », l'APK Android pareil, etc etc. Pas de mention de OpenGoal dans les titres ou autres. »
+- 2026-09-11 : « Le nom du jeu c'est validé aussi »
 
 ## Cause connue
 L'owner ne reconnait pas l'item ; il pose l'exigence en clair le 11/09 : « Jak and Daxter: The Precursor Legacy » doit s'appeler « Jak and Daxter: Recharged », sans aucune mention d'OpenGOAL.

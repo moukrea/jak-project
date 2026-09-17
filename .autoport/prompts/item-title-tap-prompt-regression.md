@@ -3,6 +3,7 @@
 ## Defaut cite
 - 2026-09-11 : « TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran » »
 - 2026-09-11 : « non, ca dit toujours Appuie sur start. »
+- 2026-09-11 : « L'invite de l'écran-titre : elle doit dire « Appuie sur start ou touche l'écran » -> Validé »
 
 ## Cause connue
 Owner 11/09, en validant title-tap : « TERMINÉ, MAIS RÉGRESSÉ ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran » ». L'invite est donc choisie sans lire la presence d'un ecran tactile.

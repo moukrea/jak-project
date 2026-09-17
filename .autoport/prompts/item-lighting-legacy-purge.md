@@ -5,7 +5,7 @@
 # Les reglages d'eclairage de l'ancien monde ne cohabitent plus avec la refonte
 
 ## Defaut cite
-- 2026-09-11 : « bah non faut supprimer le code ! On en veut plus, ca va etre… »
+- 2026-09-12 : « lighting-legacy-purge, valide »
 
 ## Cause connue
 Owner 10/09 : « Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres [...] c'est des trucs anciens [...] j'ai peur que ca rentre en collision avec notre nouvelle approche ». Sa crainte est fondee : lighting-ao-indirect a trouve un verrou safe-boot herite qui epinglait l'AO a zero en silence, ligne de menu sur HBAO et moteur a zero.

@@ -1,7 +1,7 @@
 # Le fil GOAL tourne sur un gros coeur, dans un binaire release
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-13 : « Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé »
 
 ## Cause connue
 Aucun thread n'a de priorite ni d'affinite (grep vide sur android/, game/system/, game/kernel/ ; SystemThread.cpp:120 = std::thread nu) ; seul le fil GL recoit THREAD_PRIORITY_DISPLAY par Java (SDLActivity.java:2158). Sur 2xA76 + 6xA55, EAS peut laisser opengoal-rt sur un A55. Manifeste sans appCategory=game ni profileable (AndroidManifest.xml:47-59). APK variante debug seule (build.gradle.kts:177-182), C++ en RelWithDebInfo -O2 -g (CMakeCache) contre -O3 sur desktop. Les traceurs codegen sont bien absents des CGO livres (verifie).

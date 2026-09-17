@@ -1,7 +1,7 @@
 # GOAL construit l'image suivante pendant que le GPU rend la precedente
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-13 : « Pour les deux points de perfs je vois le jeux globalement plus fluide , donc c'est validé »
 
 ## Cause connue
 Sur Android g_perf_overlap (android_gfx.cpp:145) est ecrase a faux au premier sondage (:621-636) depuis le 2026-07-04 : GOAL attend sync-path (rendu fini) puis syncv (swap) avant de construire ; sur PC gl_vsync/gl_sync_path (opengl.cpp:1089-1111) ont le meme predicat. Periode = T_goal + T_gl au lieu de max. La regression de juillet : le rendu lisait hors chaine des donnees (merc-mod, texture-anim, eye, pointeurs GOAL) que GOAL reecrivait pour l'image suivante. Gperf-particles mesurait goal idle 142 -> 0,1 ms/60 img avec l'overlap.

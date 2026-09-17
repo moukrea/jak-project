@@ -33,6 +33,9 @@ Sur le HONOR, sortie HDR allumee : une scene sombre — interieur, grotte, nuit 
 ### 2026-09-13
 > Pour le HDR c'est pas mal mais je vois pas plus de détails dans les ombres à on versus off
 
+### 2026-09-14
+> le HDR dans les ombres on va histoire d'avancer, comme ça on verra bien si ça s'ameliore au plus on avance dans la refonte, c'est deja vraiment pas mal.
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

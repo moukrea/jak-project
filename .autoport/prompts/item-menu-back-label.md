@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-11 : « dans les sous-menus, la string 'Retour' n'est pas la ca prend une string random dans les sous menus des reglages realtime lighting, p'tetre dans les autres aussi »
+- 2026-09-13 : « Labels retour propres dans les menus, validé »
 
 ## Cause connue
 Owner 11/09 : « dans les sous-menus, la string « Retour » n'est pas la, ca prend une string random dans les sous menus des reglages realtime lighting, p'tetre dans les autres aussi ». Une chaine prise au hasard sent l'identifiant hors bornes ou l'index decale dans le banc de texte — la page « Recharged Lighting » est construite a l'execution, ses lignes ne sont pas numerotees a la main.

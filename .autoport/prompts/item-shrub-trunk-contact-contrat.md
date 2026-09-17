@@ -54,3 +54,4 @@ Sur Geyser Rock, marcher dans un mini-palmier : les feuilles s'ecartent, le tron
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
 iteratif est un peu detruit ». Chaque refus ajoute un verdict ; la consigne est
 plafonnee. Ce qui en sort atterrit ici, jamais a la poubelle.
+

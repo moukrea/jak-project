@@ -32,6 +32,9 @@ En vue premiere personne (viser), avec les modeles HD : on ne doit voir ni l'int
 ### 2026-09-13
 > on a une régression sur la vue première personne avec les modèles HD de Jak et Daxter, on les voit de l'intérieur, on avait corrigé ça et c'est revenu, faut corriger à nouveau mais attention à rien casser d'autre (Le pas de temps fixe et le jitter des animations+stretch glitch des modèles HD)
 
+### 2026-09-14
+> vue première personne validé aussi
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

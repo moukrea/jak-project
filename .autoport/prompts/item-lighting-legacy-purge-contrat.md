@@ -34,6 +34,12 @@ Options > Recharged > Recharged Lighting : plus aucune ligne de l'ancien monde, 
 ### 2026-09-11
 > bah non faut supprimer le code ! On en veut plus, ca va etre refait, mieux, donc ca degage pour eviter de polluer !
 
+### 2026-09-12
+> pour la purge des vieux trucs ca a l'air bon, j'ai plus de PBR mal fait sur le HONOR
+
+### 2026-09-12
+> lighting-legacy-purge, valide
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

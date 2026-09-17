@@ -5,7 +5,7 @@
 # Sortir un vrai signal HDR sur les ecrans qui le supportent
 
 ## Defaut cite
-- 2026-09-11 : « bah ca devrait aussi avoir pour impact d'avoir plus de detai… »
+- 2026-09-14 : « hdr-display-output est validé non ? enfin il me semble vu qu… »
 
 ## Cause connue
 L'ETUDE hdr-study DOIT ETRE LUE AVANT TOUTE CORRECTION : cet item en depend. Refus 11/09, cinquieme. L'owner ne voit toujours AUCUN gain dans les ombres. Le code dit pourquoi, en toutes lettres : `hdr_out_shadow_gain_x100` compare des NOMBRES DE PALIERS (10 bits contre 8), et son commentaire l'assume — « le SEUL gain que ce chemin livre quand l'ecran n'accorde aucune marge : la finesse ». 17 -> 127 niveaux est un effet de profondeur de quantification, PAS du detail visible. C'est exactement le piege « compter des paliers n'est pas mesurer une amplitude » que j'avais ferme pour les hautes lumieres et JAMAIS applique aux ombres. L'owner demande aussi si l'espace de couleur du calcul est assez […suite dans le contrat]

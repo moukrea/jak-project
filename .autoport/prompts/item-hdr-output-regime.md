@@ -5,7 +5,7 @@
 # Trois regimes de sortie explicites, et le jeu dit lequel il utilise
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-12 : « scRGB display HDR c'est ce que ca dit pour le HDR on/off sur… »
 
 ## Cause connue
 LIS D'ABORD `reports/hdr-plan/PLAN.md` — OBLIGATOIRE, c'est le contrat. Owner 11/09, sur « ou juger le HDR » : « bah c'est moi qui vais juger de toute facons donc tu devrais rien en avoir a cogner, tu peux pas voir le rendu final par des yeux ». Donc : la machine prouve le MECANISME et epingle son regime ; le JUGEMENT du rendu appartient a l'owner. Aucun appareil code en dur, aucun choix de materiel cible. Chantier C du plan (§7.1). Owner 11/09 : « je vois aucune mention de HDR10/HLG in game juste HDR output On/Off ». Et son arbitrage du jour : quand aucune marge n'est accordee, la sortie HDR promet LE CONTENEUR et rien d'autre — et elle le DIT. Fabriquer une difference visible a marge nulle […suite dans le contrat]

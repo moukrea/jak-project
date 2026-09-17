@@ -1,7 +1,7 @@
 # Les libelles ecrits POUR le tactile repartent dans l'APK
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-12 : « pour le appuie sur start ou touche l'ecran j'avais deja valide ce matin, je vais pas le valider 45 fois »
 
 ## Cause connue
 Trouve par le worker de hd-stretch-flag-in-game-logic le 2026-09-10, en bâtissant l'APK de sa propre preuve. `android/build_cgo_pack.sh` compare le md5 des surcharges figees `out/jak1-android-text/{0,1}COMMON.TXT` (datees du 31/08) au banc bureau FRAIS ; elles ne correspondent plus, la regeneration (`.autoport/gtt_build_android_text.sh`) ne s'est pas declenchee, et le packeur les ABANDONNE : `android-overrides: 0`. Son propre message le dit — « android-only wording for that bank is lost this build ». L'APK part donc avec le banc bureau : l'ecran-titre affiche « Press Start » / « Appuie sur start » au lieu de « Press Start or Tap Screen » / « Appuie sur start ou touche l'ecran » (id #x16e), sur un appareil ou il n'y a pas de bouton start. Ce n'est pas une regression d'un jour : ca se reproduit a CHAQUE build ou le banc bureau a bouge, en silence, depuis le 31/08.

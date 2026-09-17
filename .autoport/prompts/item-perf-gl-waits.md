@@ -1,7 +1,7 @@
 # Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-11 : « Validé »
 
 ## Cause connue
 android_gfx.cpp:355-380 arme KHR_debug en mode SYNCHRONE a chaque lancement (le pilote valide chaque appel sur le fil appelant). Sondes non gatees : glGetIntegerv apres chacun des 69 buckets (android_opengl_renderer.cpp:1795), sonde F1e a chaque flush merc (Merc2.cpp:5038-5048 : glIsTexture, 2 glGetIntegerv, glCheckFramebufferStatus, glGetError), sonde A42 avec glReadPixels toutes les 300 images (TFragment.cpp:1062-1066, 1452-1480), __system_property_get par image dans setup_frame (:1469), glFinish a chaque fin de chargement (Loader.cpp:2173). PC : glGetIntegerv(GL_MAX_SAMPLES) par image (opengl.cpp:702), ImGui rendu meme invisible (:847-851, 977-981).

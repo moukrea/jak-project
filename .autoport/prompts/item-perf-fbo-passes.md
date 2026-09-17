@@ -1,7 +1,7 @@
 # Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-14 : « validé du coup »
 
 ## Cause connue
 android_opengl_renderer.cpp:1520-1536 : clear complet de FB0 puis de la scene (le quad final recouvre FB0 entierement). Aucun glInvalidateFramebuffer dans le renderer : le depth/stencil 2400x1080 (10 Mo) est stocke en tuiles a chaque fin de passe puis recharge. Des que l'echelle dynamique descend sous 100 % (defaut ON), une passe UI native s'ajoute (:1585-1660) : FBO plein ecran, glBlitFramebuffer LINEAR de toute la scene, UI rasterisee, puis quad. PC : idem sans le cout tiler.

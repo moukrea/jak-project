@@ -81,6 +81,9 @@ Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee su
 ### 2026-09-11
 > bah ca devrait aussi avoir pour impact d'avoir plus de details dans les ombres, il me semble que c'est un des benefices du HDR.. c'est pas du tout le cas ici, juste les endroits les plus brillants brillent plus. j'ai pas vu si ca s'ajustait au fil de l'eau non plus (mais ca c'est peut-etre imperceptible) et je me demande si l'espace couleur dans lequel on calcule le HDR est assez riche pour commencer... je pense qu'avant la prochaine iteration faut vraiment creuser le sujet en profondeur (d'ailleurs je vois aucune mention de HDR10/HLG in game juste HDR output On/Off)
 
+### 2026-09-14
+> hdr-display-output est validé non ? enfin il me semble vu que je valide le HDR output avec réserves (mais c'est pour moi les réserves et que j'ai déjà validé pour les highlights
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

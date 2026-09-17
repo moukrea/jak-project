@@ -1,7 +1,7 @@
 # Le fil de rendu n'attend plus le GPU au milieu de chaque image
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-11 : « Le fil de rendu qui n'attend plus le GPU au milieu de chaque image -> Validé »
 
 ## Cause connue
 Merc2.cpp:4470-4527 (#ifdef __ANDROID__, contournement F1a/F1d) mappe en LECTURE 16 octets de l'IBO puis du VBO merc, par niveau et par image, pour eviter un SIGSEGV dans libGLESv2_adreno au premier draw d'un niveau televerse par tranches glBufferSubData (LoaderStages.cpp:1697-1726). Un map READ sans UNSYNCHRONIZED est une barriere : le pilote attend que tout ce qui reference le tampon soit fini, donc l'image precedente entiere. Mesure : 19,4 ms medians, 52 ms max, 0 draw (A35-PERF, framerate-uncap essai 4). 5 ms en juillet. Rien ne prouve que la faute existe encore sur le build actuel (les runs 16-19 precedent la refonte du loader).

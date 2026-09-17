@@ -39,6 +39,9 @@ Sandover Village : le feu dans la hutte, et le portail de la hutte du Sage vert.
 ### 2026-09-11
 > si le defaut se reproduit pas sur Redmi, passe a autre chose plutot que bloquer
 
+### 2026-09-11
+> C'est bon pour les particules bizarres rouges et noires là, j'ai plus le soucis sur le Honor, validé !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

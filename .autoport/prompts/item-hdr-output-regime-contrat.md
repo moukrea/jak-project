@@ -26,7 +26,11 @@ Options > Recharged > Eclairage Recharge : la ligne de sortie HDR dit quel trans
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-12
+> scRGB display HDR c'est ce que ca dit pour le HDR on/off sur HONOR, en effet toggled on on a plus de details/pop dans les hauts blanc/zones brillantes, peut-etre un chouille plus de saturation globale (vraiment un chouilla) et pas plus de detail dans les ombres.... peut etre que c'est vraiment le max de ce qu'on peut esperer en l'etat ? je sais pas
+
+### 2026-09-12
+> scRGB display HDR c'est ce que ca dit pour le HDR on/off sur HONOR, en effet toggled on on a plus de details/pop dans les hauts blanc/zones brillantes [...] la ligne de sortie HDR, je te l'ai deja dit [...] je t'ai deja fait le feedback quelques messages avant
 
 ## Pourquoi ce fichier existe
 

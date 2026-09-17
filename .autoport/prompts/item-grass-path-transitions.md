@@ -5,7 +5,7 @@
 # L'herbe s'arrete progressivement au bord des chemins, sans bande vide ni decoupe nette
 
 ## Defaut cite
-- 2026-09-17 : « Bah du coup c'est pas à tester, c'est pas validé du tout ! I… »
+- 2026-09-17 : « Tu dis "Le ticket se rejouera après « l'herbe sur Sandover e… »
 
 ## Cause connue
 17/09 OWNER (Linear) : « c'est pas à tester, c'est pas validé du tout ! ». La mesure de l'essai 1 (0 defaut de transition) a ete faite sur Geyser Rock, qui n'a pas de chemin, et Sandover n'a pas encore d'herbe. Cet item se rejoue APRES grass-levels, sur Sandover et la jungle, la ou des chemins existent : la porte se mesure la, et c'est la que l'owner regardera.

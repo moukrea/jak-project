@@ -1,7 +1,11 @@
+> LIS D'ABORD `prompts/item-res-menu-truth-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
 
 ## Defaut cite
-- 2026-09-10 : « la partie aspect ratio, resolution, dynamic resolution scaling on/off, bascule entre toutes ces options... C'est finiky, je sais pas comment expliquer mais j'ai l'impression que certaines resolutions marchent pas vraimen… »
+- 2026-09-17 : « il est plus que validé du coup non ? C'est terminé ! Enfin dis moi si je me trompe »
 
 ## Cause connue
 Aucun cycle n'a etabli de cause. Deux symptomes distincts rapportes le 10/09 sur le dernier build. (a) la ligne « Resolution » n'affiche pas la valeur courante hors du sous-menu, et le sous-menu ne preselectionne pas la valeur en cours : on ne sait jamais ou l'on est. (b) en aspect force 4:3, 640x480 rend PLUS de detail que 800x600 et coute beaucoup plus cher en cadence — un rendu plus fin sous un nom plus petit, donc une resolution effective qui ne suit pas le libelle. Voir aussi l'item res-picker (livre le 30/06, jamais confirme).

@@ -415,6 +415,14 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 print("  retour owner sur %s (%s) : %s" % (iid, date, c["body"][:80].replace("\n", " ")))
                 if not dry:
                     bl.add_owner_feedback(iid, date, c["body"].strip()); bl = B.load()
+                    # le retour entre dans le prompt du worker (render_prompt) ; sans refabrication, l'orchestrateur bloquerait
+                    # l'item sur « consigne PERIMEE » au prochain tirage.
+                    it2 = bl.get(iid)
+                    if it2 and it2["status"] not in ("archived",):
+                        try:
+                            B.write_prompt(it2)
+                        except Exception as e:  # noqa: BLE001
+                            print("  prompt non refabrique pour %s : %s" % (iid, e))
                 pulled += 1
                 newest = max(newest, c["createdAt"])
             if newest != since and label_id and not dry:

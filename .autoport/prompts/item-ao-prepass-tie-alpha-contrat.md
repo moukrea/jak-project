@@ -68,6 +68,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 ### 2026-09-17
 > Pour l'AO, bah démerdes toi et fait le meilleur choix.
 
+### 2026-09-17
+> Alors ce ticket est bloqué par [JAK-159](https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a) et [JAK-166](https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres) il semblerait… Pourquoi il est en cours donc ? Peut-être que je suis con mais s'il est bloqué par un autre ticket qui n'est pas fait… Pourquoi il serait en cours ? Ah mais c'est deux tickets sont faits… My bad tu peux ignorer 😀
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
