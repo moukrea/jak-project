@@ -708,7 +708,7 @@ def explain_numbers(it, proof_text):
         if not nums:
             continue
         worst = max(nums)
-        pg = next((pg for pg in paras if ("`%s`" % key) in pg), "")
+        pg = next((pg for pg in paras if re.search(r"`%s\b" % re.escape(key), pg)), "")
         body = re.sub(r"^\s*\(?[0-9A-Za-z]{1,2}[.)]\s*", "", re.sub(r"`[^`]*`", "", pg))  # sans le « E. » de tete
         head = body.split(":", 1)[0].strip(" .-")
         if len(head) < 12:
