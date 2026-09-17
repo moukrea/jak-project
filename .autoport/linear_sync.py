@@ -207,6 +207,37 @@ def description(bl, it, retries):
     return "\n".join(lines)
 
 
+def plain_state_comment(bl, it, st):
+    """Commentaire de changement de colonne en francais courant. Owner 17/09, devant « OK : source=device
+    sha=… frames=… ; ao_tie_prepass_defects == 0 tenu » : « Genre je suis sensé comprendre ce que je dois
+    vérifier avec ce commentaire ? »."""
+    where = (it.get("where") or "").strip()
+    lv = last_verdict(it["id"])
+    frames = ""
+    mfr = re.search(r"frames=(\d+)", lv or "")
+    if mfr:
+        frames = " (mesure machine tenue sur %s images, sans plantage)" % mfr.group(1)
+    if st == "In Review":
+        return "→ **À tester par toi**%s.\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
+    if st == "Done":
+        return "→ **Terminé**%s. %s" % (frames, "Rien à te montrer : c'est une mesure ou une fondation." if not it.get("owner_test") else "")
+    if st == "In Progress":
+        return "→ **En cours** : un robot travaille dessus."
+    if st == "Todo":
+        return "→ **Prêt à démarrer** : plus rien ne le bloque, il attend son tour (rang %s)." % it.get("priority")
+    if st == "Backlog":
+        deps = [d for d in (it.get("depends_on") or []) if (bl.get(d) or {}).get("status") != "validated"]
+        return "→ **En attente** de : %s." % ", ".join((bl.get(d) or {}).get("feature", d) for d in deps) if deps else "→ **En attente**."
+    if st == "À arbitrer":
+        why = str(it.get("block_reason") or "").strip()
+        if why.startswith("max_retries"):
+            why = "tous les essais accordés sont consommés sans passer la mesure"
+        return "→ **À arbitrer** : %s. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver." % (why[:300] or "la machine s'est arrêtée dessus")
+    if st == "Canceled":
+        return "→ **Archivé** : abandonné ou supplanté, il ne sera pas fait."
+    return "→ **%s**" % st
+
+
 def ensure_team(L):
     d = L.q("{ teams { nodes { id key name } } }")
     for t in d["teams"]["nodes"]:
@@ -710,8 +741,7 @@ def main():
         else:
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
-                lv = last_verdict(iid)
-                body = MARK + "→ **%s**" % st + (("\n" + lv) if lv else "") + (("\nÀ arbitrer : " + str(it.get("block_reason"))[:300]) if it["status"] == "blocked" else "")
+                body = MARK + plain_state_comment(bl, it, st)
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
                 if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
