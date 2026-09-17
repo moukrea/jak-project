@@ -853,11 +853,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "05a79411b07431569b4ab6fa101ce8bc3b8504b3",
+  "hash": "074406c9b15965d832da6ff50add55c771856c26",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-17T13:38:50.552Z",
+  "last_state": "Canceled",
+  "pulled_at": "2026-09-17T13:44:33.025Z",
   "relations": [
    "ao-prepass-tie-alpha"
   ],

@@ -5105,7 +5105,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: archived
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5185,6 +5185,11 @@ items:
       Mon commentaire "asique : AO legacy poubelle → Nouvelle AO plus en filtre à la fin" était un peu basico basique, p'tetre quand même être clair non dans [JAK-179](https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans) sur ce qu'on veut exactement par rapport à la spec et tout le toutim ?
 
       Faudrait pas que ce soit l'effet inverse 😀
+  - date: '2026-09-17'
+    text: Du coup ce ticket est repassé en Todo, attendu ? Pourquoi ? L'autre le supplante pas ? J'ai
+      l'impression de devoir faire la police alors je surveille un peu et je veux m'assurer qu'on fasse
+      pas de la merde, pour potentiellement améliorer le harnais et que ça se reproduise pas si c'est
+      pas normal (si c'est normal alors rien à faire of course)
   gate:
     key: ao_owner_defects
     op: ==
@@ -5235,6 +5240,7 @@ items:
   notes: |-
     SPEC section 6.4. Point de vue : village1-hut. L'ablation se prend a la MEME vantage. | budget : porte a 10 essais le 2026-09-12 apres le REFUS de l'owner sur le Honor. L'item repart avec DEUX verdicts neufs — les plantes que sa porte verte ne voit pas, et l'instabilite temporelle du flou — dont le second exige une grandeur qui n'existe pas encore. Quatre essais avaient deja servi a la version d'avant ces verdicts. | 14/09 08:25 : rouvert par le superviseur — porte passee sur un seul terme, flatstep > plafond a 12/12 paliers. | 14/09 : renvoye par le superviseur avant test owner — porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes. | 14/09 11:55 : l'essai 9 est RENDU par le superviseur — refuse pour « proof.txt absent » alors que la preuve appareil etait EN COURS (PID 3769835) quand le worker est sorti en 143 (tue) ; cause de harnais, pas de l'item. max_retries 10 -> 11. | 14/09 15:30 ARBITRAGE OWNER PAR AVANCE : si l'essai 11/11 echoue, decouper en trois items a une propriete (stabilite camera fixe ; prepasse qui suit le TIE a vent ; bande de contact) ; les quatre termes verts (Eleve pleine resolution, damier sous plafond, alpha appareil, fuite du direct) deviennent des ACQUIS a ne pas rouvrir. | 14/09 16:25 : DECOUPE en trois selon l'arbitrage owner : lighting-ao-prepass-follows-wind (seul terme rouge), lighting-ao-static-camera et lighting-ao-contact-band (acquis a verrouiller). Les quatre autres termes sont des acquis. Cet item reste bloque comme trace.
     budget : plafond 14 = compteur 11 + 3 essais (retour owner 17/09 : bande de contact + AO « filtre final », SPEC 4.7).
+    17/09 15:40 : SUPPLANTE par ao-indirect-clean (meme porte ao_owner_defects, contrat recopie de la SPEC). Son essai 14 s'est termine « preuve impossible » (course du juge sortie en 6 sans mesure, non compte). L'owner a vu deux tickets pour le meme travail : on n'en garde qu'un.
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont l indirect a recu l AO
   supervisor_recovery: false
