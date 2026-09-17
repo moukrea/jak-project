@@ -27,6 +27,8 @@ G. LE COUT : temps par image AO eteinte / SSAO / HBAO / GTAO, meme vantage, >= 3
 
 PREUVE : `FEATURE ao-indirect-clean armed=1 hits=<pixels dont l'indirect a recu l'AO>` + la ligne `ao_owner_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` : AO absente, image = eclairage sans AO.
 
+PRECISION OWNER 17/09 sur F (« faut être sûrs que ce qui est mesuré est vraiment immobile ! Pas une plante qui bouge au vent ») : la mesure « rien ne bouge » ne compte QUE ce qui est immobile par construction : vent coupe (epingle dans proof_env, et le temoin `ao_sway_moved_px` doit lire 0 sur la course), aucun acteur anime ni particule dans la population (masque par famille de dessin, publie `ao_static_excluded_px` et la liste de ce qui est exclu), cadence figee (deux images consecutives du MEME etat de jeu). Un texel qui change alors que tout est immobile est un vrai defaut (c'est le scintillement que l'owner voit) ; un texel qui change parce qu'un objet bouge n'en est pas un et doit etre exclu AVANT de compter. Publier `ao_static_cam_delta_px` avec son denominateur (`ao_static_cam_pop_px`) et le compte exclu.
+
 ## Hors perimetre
 
 Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas cet item.
@@ -37,7 +39,17 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-17
+> alors ils sont cools tes commetaires d'update, mais on pourrait au moins avoir une raison des échecs et possiblement des preuves à l'appui ! Et pareil pour les succès / réusites partielles d'ailleurs (avec des screens, de la donnée quoi !) Parce que là bah ok je vois qu'il y a eu un échec et que c'est au deuxième essai… mais aucune info !
+
+### 2026-09-17
+> Je cite ton extrait de mesures:  source=device  duration_s=610  crash=0  frames=5100  ao_blocky_ceiling_x1000=400  ao_blocky_gtao_q0_x1000=357  ao_blocky_gtao_q1_x1000=259  ao_blocky_gtao_q2_x1000=222  ao_blocky_hbao_q0_x1000=354  ao_blocky_hbao_q1_x1000=253  ao_blocky_hbao_q2_x1000=287  ao_blocky_legacy_gtao_q0_x1000=197  ao_blocky_legacy_gtao_q1_x1000=211  ao_blocky_legacy_gtao_q2_x1000=186  ao_blocky_legacy_hbao_q0_x1000=231  ao_blocky_legacy_hbao_q1_x1000=190  ao_blocky_legacy_hbao_q2_x1000=191  ao_blocky_legacy_ssao_q0_x1000=186  ao_blocky_legacy_ssao_q1_x1000=219  ao_blocky_legacy_ssao_q2_x1000=257  ao_blocky_pop_gtao_q0=4406036  ao_blocky_pop_gtao_q1=4743366  ao_blocky_pop_gtao_q2=3804304  ao_blocky_pop_hbao_q0=5540917  ao_blocky_pop_hbao_q1=4958034  ao_blocky_pop_hbao_q2=4781376  ao_blocky_pop_legacy_gtao_q0=3786042  ao_blocky_pop_legacy_gtao_q1=3315708  ao_blocky_pop_legacy_gtao_q2=2388040  ao_blocky_pop_legacy_hbao_q0=4322394  ao_blocky_pop_legacy_hbao_q1=2998955  ao_blocky_pop_legacy_hbao_q2=3153246  ao_blocky_pop_legacy_ssao_q0=3782976  ao_blocky_pop_legacy_ssao_q1=3582522  ao_blocky_pop_legacy_ssao_q2=3324768  ao_blocky_pop_ssao_q0=4508020  ao_blocky_pop_ssao_q1=4081590  ao_blocky_pop_ssao_q2=4723472  ao_blocky_ssao_q0_x1000=328  ao_blocky_ssao_q1_x1000=194  ao_blocky_ssao_q2_x1000=189  ao_blocky_worst_delivered_x1000=357  ao_blocky_worst_legacy_x1000=257  ao_contact_band_gtao_q0=0  ao_contact_band_gtao_q1=0  ao_contact_band_gtao_q2=0  ao_contact_band_hbao_q0=0  ao_contact_band_hbao_q1=0  ao_contact_band_hbao_q2=0  ao_contact_band_legacy_gtao_q0=78  ao_contact_band_legacy_gtao_q1=60  ao_contact_band_legacy_gtao_q2=65  ao_contact_band_legacy_hbao_q0=42  ao_contact_band_legacy_hbao_q1=10  ao_contact_band_legacy_hbao_q2=66  ao_contact_band_legacy_ssao_q0=156  ao_contact_band_legacy_ssao_q1=96  ao_contact_band_legacy_ssao_q2=114  ao_contact_band_measured=1  ao_contact_band_ssao_q0=0  Tu penses vraiment que c'est le genre de truc que je peux intelligiblement comprendre sérieux ? ça n'apporte vraiment rien pour un humain, ça n'a AUCUN sens !
+
+### 2026-09-17
+> Alors ton échec sur truc machin qui viole le critère… oui d'accord, mais c'est quoi le critère et pourquoi ça le viole ? C'est ça que j'attends sur les retours sinon c'est pas bien mieux qu'un rapport brut sans âme ! Et si c'est ça les retours que se prennent les agents pas étonnant que ça tourne en rond d'ailleurs !
+
+### 2026-09-17
+> Alors faut p'tetre être sûrs que ce qui est mesuré est vraiment immobile ! Pas une plante qui bouge au vent ou trucs du style, sinon ça réussira jamais !
 
 ## Pourquoi ce fichier existe
 
