@@ -28,6 +28,10 @@ S'AJOUTE (TROISIEME REFUS DE L'OWNER, 2026-09-13, GTAO/SSAO/HBAO en Eleve et for
 (l) LA RESOLUTION EST CELLE DU PALIER, ET LE FILTRE EST CONSCIENT DE LA PROFONDEUR. Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de remontee ; en Eleve l'AO est pleine resolution ou filtree par un flou bilateral qui ne traverse pas les aretes (compte de texels ou le filtre a melange deux profondeurs a plus de 1 % d'ecart = zero). Un palier plus laid qu'AO ETEINTE reste un DEFAUT ; Faible doit etre exploitable ou retire du menu.
 REFUS DU SUPERVISEUR AVANT L'OWNER (2026-09-14 08:25) : la porte `ao_direct_leak_px` a passe SEULE alors que le verdict (a) est VIOLE dans la meme preuve — force du motif `ao_flatstep_*_x1000` au-dessus du plafond 10 a 12 paliers sur 12 (GTAO 11-12, SSAO 18-19 ; plafond 10), et le rapport du worker l'ecrit lui-meme (« inchange »). La verification (j) sur l'appareil n'a pas eu lieu (`ao_geom_*` absent du binaire arm64 : population de bureau seule, 4 464 px de shrub sur 38 images). LA PORTE AGREGE : `ao_owner_defects` (posee le 14/09 08:24 par l'autre session superviseur, sept termes publies separement, `device: true`) est la seule porte ; mes termes (a) a (l) s'y rangent, et un terme NON MESURE compte comme un defaut nomme. On ne renvoie pas a l'owner un quatrieme passage avec la meme pixelisation des facades.
 
+S'AJOUTE (RETOUR OWNER DU 17/09, build 36c980, apres l'enfant ao-prepass-tie-alpha) : « on a quand même (quelque soit le model de AO sélectionné et la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO est juste posée par dessus comme un filtre, comme si elle était calculée tout à la fin ».
+(m) LA BANDE DU RACCORD, PAR MODE ET PAR QUALITE : sur les aretes mur/toit de la hutte trouvees par le detecteur automatique de l'enfant, publier `ao_hutedge_bright_excess_x1000` et `ao_contact_band_px` pour CHAQUE mode (SSAO, HBAO, GTAO) et CHAQUE qualite : tous a 0. Un mode ou une qualite non mesure compte 1.
+(n) L'AO N'EST PLUS UN FILTRE FINAL : c'est exactement la ligne « Aujourd'hui / Cible » de SPEC 4.7 — aujourd'hui la passe compose sur l'image opaque en gamma, tout le pixel, avec un masque de luminance ; cible : texture R8, lineaire, le SEUL terme indirect dans shade(), aucun masque. Publier le site d'application (shade(), avant le tone map), l'absence du masque de luminance (site supprime, compte = 0) et un temoin : un pixel eclaire par le direct seul (aucun indirect) a la MEME valeur AO allumee et eteinte ; un pixel a l'ombre (indirect seul) est assombri du facteur AO exactement.
+
 ## Hors perimetre
 
 Tout ce qui n'est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting OFF ; tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas. Precision par variable dans shade() : SPEC 4.4 amendee.
@@ -67,6 +71,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion : essaie CHAQUE pal
 
 ### 2026-09-17
 > Top, mais étrangement je vois aucun ticket liés à ce dernier, ils devraient être clairement liés, avec des blocked by, depends on, etc etc. pour tous les sujets sinon on s'y retrouvera jamais, pas étonnant que tu fasse un peu de la merde si on a pas des dépendances claires… C'est un feedback à chaud qui concerne plus le harnais et sa façon de travailler, mais c'est important !
+
+### 2026-09-17
+> Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO est juste posée par dessu comme un filtre, comme si elle était calculée tout à la fin, alors qu'il me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà présent de la vieille implem ou un truc du style…
 
 ## Pourquoi ce fichier existe
 

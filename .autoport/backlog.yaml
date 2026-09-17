@@ -4094,6 +4094,9 @@ items:
   - date: '2026-09-17'
     text: Alors c'est bien que tu puisse pousser des images, mais là tu vois tu me dis que tu m'a envoyé
       le coeur vide, sauf que non, tu m'a envoyé la endcap de la jauge d'eco rouge !
+  - date: '2026-09-17'
+    text: Et du coup… le sujet va bien être repris ? T'as fait des tickets dédiés ? tu me laisse un peu
+      dans le flou là, et relis le commentaire sur l'envoi d'image, tu t'es chié !
   gate:
     key: hud_recharged_defects
     op: ==
@@ -5147,13 +5150,20 @@ items:
       liés, avec des blocked by, depends on, etc etc. pour tous les sujets sinon on s'y retrouvera jamais,
       pas étonnant que tu fasse un peu de la merde si on a pas des dépendances claires… C'est un feedback
       à chaud qui concerne plus le harnais et sa façon de travailler, mais c'est important !
+  - date: '2026-09-17'
+    text: Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et
+      la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO
+      est juste posée par dessu comme un filtre, comme si elle était calculée tout à la fin, alors qu'il
+      me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois
+      que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà
+      présent de la vieille implem ou un truc du style…
   gate:
     key: ao_owner_defects
     op: ==
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 11
+  max_retries: 14
   depends_on:
   - lighting-hdr
   - perf-instruments
@@ -5186,25 +5196,17 @@ items:
     (k) RIEN NE BOUGE CAMERA FIXE. Camera immobile, scene immobile, vent COUPE pour la mesure : variation du tampon d'AO entre deux images consecutives = 0 texel a tous les paliers. Le « ca bouge dans tous les sens » est ce compte.
     (l) LA RESOLUTION EST CELLE DU PALIER, ET LE FILTRE EST CONSCIENT DE LA PROFONDEUR. Publier par palier l'echelle effective du tampon d'AO, la taille et le type du filtre de remontee ; en Eleve l'AO est pleine resolution ou filtree par un flou bilateral qui ne traverse pas les aretes (compte de texels ou le filtre a melange deux profondeurs a plus de 1 % d'ecart = zero). Un palier plus laid qu'AO ETEINTE reste un DEFAUT ; Faible doit etre exploitable ou retire du menu.
     REFUS DU SUPERVISEUR AVANT L'OWNER (2026-09-14 08:25) : la porte `ao_direct_leak_px` a passe SEULE alors que le verdict (a) est VIOLE dans la meme preuve — force du motif `ao_flatstep_*_x1000` au-dessus du plafond 10 a 12 paliers sur 12 (GTAO 11-12, SSAO 18-19 ; plafond 10), et le rapport du worker l'ecrit lui-meme (« inchange »). La verification (j) sur l'appareil n'a pas eu lieu (`ao_geom_*` absent du binaire arm64 : population de bureau seule, 4 464 px de shrub sur 38 images). LA PORTE AGREGE : `ao_owner_defects` (posee le 14/09 08:24 par l'autre session superviseur, sept termes publies separement, `device: true`) est la seule porte ; mes termes (a) a (l) s'y rangent, et un terme NON MESURE compte comme un defaut nomme. On ne renvoie pas a l'owner un quatrieme passage avec la meme pixelisation des facades.
+
+    S'AJOUTE (RETOUR OWNER DU 17/09, build 36c980, apres l'enfant ao-prepass-tie-alpha) : « on a quand même (quelque soit le model de AO sélectionné et la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO est juste posée par dessus comme un filtre, comme si elle était calculée tout à la fin ».
+    (m) LA BANDE DU RACCORD, PAR MODE ET PAR QUALITE : sur les aretes mur/toit de la hutte trouvees par le detecteur automatique de l'enfant, publier `ao_hutedge_bright_excess_x1000` et `ao_contact_band_px` pour CHAQUE mode (SSAO, HBAO, GTAO) et CHAQUE qualite : tous a 0. Un mode ou une qualite non mesure compte 1.
+    (n) L'AO N'EST PLUS UN FILTRE FINAL : c'est exactement la ligne « Aujourd'hui / Cible » de SPEC 4.7 — aujourd'hui la passe compose sur l'image opaque en gamma, tout le pixel, avec un masque de luminance ; cible : texture R8, lineaire, le SEUL terme indirect dans shade(), aucun masque. Publier le site d'application (shade(), avant le tone map), l'absence du masque de luminance (site supprime, compte = 0) et un temoin : un pixel eclaire par le direct seul (aucun indirect) a la MEME valeur AO allumee et eteinte ; un pixel a l'ombre (indirect seul) est assombri du facteur AO exactement.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting
     OFF ; tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC
     1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
     Precision par variable dans shade() : SPEC 4.4 amendee.'
-  notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage. | budget
-    : porte a 10 essais le 2026-09-12 apres le REFUS de l''owner sur le Honor. L''item repart avec DEUX
-    verdicts neufs — les plantes que sa porte verte ne voit pas, et l''instabilite temporelle du flou
-    — dont le second exige une grandeur qui n''existe pas encore. Quatre essais avaient deja servi a la
-    version d''avant ces verdicts. | 14/09 08:25 : rouvert par le superviseur — porte passee sur un seul
-    terme, flatstep > plafond a 12/12 paliers. | 14/09 : renvoye par le superviseur avant test owner —
-    porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes. | 14/09 11:55
-    : l''essai 9 est RENDU par le superviseur — refuse pour « proof.txt absent » alors que la preuve appareil
-    etait EN COURS (PID 3769835) quand le worker est sorti en 143 (tue) ; cause de harnais, pas de l''item.
-    max_retries 10 -> 11. | 14/09 15:30 ARBITRAGE OWNER PAR AVANCE : si l''essai 11/11 echoue, decouper
-    en trois items a une propriete (stabilite camera fixe ; prepasse qui suit le TIE a vent ; bande de
-    contact) ; les quatre termes verts (Eleve pleine resolution, damier sous plafond, alpha appareil,
-    fuite du direct) deviennent des ACQUIS a ne pas rouvrir. | 14/09 16:25 : DECOUPE en trois selon l''arbitrage
-    owner : lighting-ao-prepass-follows-wind (seul terme rouge), lighting-ao-static-camera et lighting-ao-contact-band
-    (acquis a verrouiller). Les quatre autres termes sont des acquis. Cet item reste bloque comme trace.'
+  notes: |-
+    SPEC section 6.4. Point de vue : village1-hut. L'ablation se prend a la MEME vantage. | budget : porte a 10 essais le 2026-09-12 apres le REFUS de l'owner sur le Honor. L'item repart avec DEUX verdicts neufs — les plantes que sa porte verte ne voit pas, et l'instabilite temporelle du flou — dont le second exige une grandeur qui n'existe pas encore. Quatre essais avaient deja servi a la version d'avant ces verdicts. | 14/09 08:25 : rouvert par le superviseur — porte passee sur un seul terme, flatstep > plafond a 12/12 paliers. | 14/09 : renvoye par le superviseur avant test owner — porte elargie a ao_owner_defects (7 termes), device: true. Essais : 7/10 consommes. | 14/09 11:55 : l'essai 9 est RENDU par le superviseur — refuse pour « proof.txt absent » alors que la preuve appareil etait EN COURS (PID 3769835) quand le worker est sorti en 143 (tue) ; cause de harnais, pas de l'item. max_retries 10 -> 11. | 14/09 15:30 ARBITRAGE OWNER PAR AVANCE : si l'essai 11/11 echoue, decouper en trois items a une propriete (stabilite camera fixe ; prepasse qui suit le TIE a vent ; bande de contact) ; les quatre termes verts (Eleve pleine resolution, damier sous plafond, alpha appareil, fuite du direct) deviennent des ACQUIS a ne pas rouvrir. | 14/09 16:25 : DECOUPE en trois selon l'arbitrage owner : lighting-ao-prepass-follows-wind (seul terme rouge), lighting-ao-static-camera et lighting-ao-contact-band (acquis a verrouiller). Les quatre autres termes sont des acquis. Cet item reste bloque comme trace.
+    budget : plafond 14 = compteur 11 + 3 essais (retour owner 17/09 : bande de contact + AO « filtre final », SPEC 4.7).
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont l indirect a recu l AO
   supervisor_recovery: false
@@ -12274,7 +12276,7 @@ items:
     proof_bytes: 60510
     attempt: 3
     journal: validator-003.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -12360,6 +12362,7 @@ items:
     SPEC lumiere 4.6, 4.7. Decoupage de lighting-ao-indirect arbitre par l'owner le 14/09. C'est ici que l'owner juge l'AO. | 15/09 supervision : handoffs7/8, FINDINGS et validator008 lus. Deux essais documentaires sans nouvelle preuve ; ne pas augmenter max_retries avant changement concret. Proposition bornee inscrite dans proposed_proof_plan, NON autorisee. Le defaut reel du compteur contact est etabli par lecture ; cause mur/toit non etablie, aucun correctif ni nouvel acquis. | budget : 7, un essai de reprise concret apres retour owner explicite sur le raccord. Ancienne proposition remplacee par proof_plan courant ; six mesures bornees, registre ancien9/9 conserve. Ne pas repeter audit8. | budget : 8, un essai de continuation apres preparation code2d4d5bb656. Terminer raccordement profondeur/normales/couleur et identites mur/toit de notes/attempt9-preparation.md ; ne pas refaire audit ni les trois tests deja passes sans modification. Epinger proof_props hutte/capture avant toute course ; plan0/6 conserve, aucune extension appareil. | budget : 9, un essai de correction LOCALE apres cause nouvellement etablie essai10 (bande recreee par flou). Six mesures consommees conservees, zero course supplementaire. Exploiter archives/profile/readers existants ; aucun nouvel audit de preparation. | budget : 10, une continuation locale apres diagnostic nouveau essai11 du pic secondaire et de la propagation sur4passes. Reutiliser attempt11-replay.py et tests ; 9/9 et6/6 clos, zero course supplementaire.
     budget : plafond 15 = compteur 13 + 2 essais RENDUS (14 et 15 fermes par l'orchestrateur avec la preuve en vol, voir harness-judge-waits-for-the-proof-a-worker-left-in-flight)
     budget : plafond 17 = compteur 15 + 2 essais (decision hutte seule, 17/09).
+    17/09 13:05 : porte tenue (essai 19), owner : « beaucoup mieux » MAIS bande claire encore visible tous modes/qualites et AO « posee par-dessus comme un filtre » : pas de feu vert. La suite (emplacement de l'AO sur le seul indirect, SPEC 4.7, et la bande) est portee par le parent lighting-ao-indirect.
   hits_means: fragments de TIE statique juges dans la prepasse
   prompt: prompts/item-ao-prepass-tie-alpha.md
   owner_feedback:
@@ -12393,6 +12396,26 @@ items:
   - date: '2026-09-17'
     text: Je commente ici en vrac, j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal
       ! [JAK-173](https://linear.app/moukrea/issue/JAK-173/distinction-entre-todo-et-backlog)
+  - date: '2026-09-17'
+    text: |-
+      "🤖 → **In Review**
+      17/09 12:25 — OK : source=device sha=abd171f6d5082f16 frames=1860 crash=0 ; ao_tie_prepass_defects == 0 tenu"
+
+      MOI. ROBOT. MOI. DÉBILE.
+
+      Genre je suis sensé compredre ce que je dois vérifier avec ce commentaire ? T'es sérieux là ?
+  - date: '2026-09-17'
+    text: |-
+      "**À regarder sur le build 36c980 (publié 12:31, déjà sur ton Redmi)"**… Alors la pluspart du temps la revue manuelle se fait sur mon HONOR, à partir d'un build sur jak-builds (qui ne l'oublions pas est remplacé à chaque fois qu'un nouveau build y est poussé), prends ça en compte !
+
+      Du coup questions subsidiaire qu'on pourra éviter à l'avenir, c'est bien dispo sur jak-builds ?
+  - date: '2026-09-17'
+    text: Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et
+      la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO
+      est juste posée par dessu comme un filtre, comme si elle était calculée tout à la fin, alors qu'il
+      me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois
+      que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà
+      présent de la vieille implem ou un truc du style…
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -12509,6 +12532,14 @@ items:
       de preuve historique attendu : aucune validation a forcer.'
     next_step: Controle complementaire du profil complet et confinement geometrique du correctif, sur
       archives et bancs existants uniquement.
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: c333cfb6f11138ed
+    proof_bytes: 84282
+    attempt: 19
+    journal: validator-019.txt
+  delivered: '2026-09-17'
 - status: validated
   game: jak1
   device: false
@@ -13284,7 +13315,7 @@ items:
     couleur, l''embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13295,6 +13326,15 @@ items:
   owner_ok: null
   no_code: true
   depends_on: *id005
+  proof_props:
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.fixed_tick=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.uncap.fps=240
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.costprobe=hud-3d-pickups
   id: hud-3d-pickups
   priority: 45
   owner_test: true

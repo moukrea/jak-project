@@ -72,11 +72,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "e74f54131c9569874e5fe474c556fe70ab5d9311",
+  "hash": "af71cd0032946d9e3a62b77d3033dcc081c47554",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
-  "last_state": "In Progress",
-  "pulled_at": "2026-09-17T09:41:05.522Z",
+  "last_state": "Done",
+  "pulled_at": "2026-09-17T10:52:33.502Z",
   "relations": [
    "ao-static-probe-deterministic",
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
@@ -702,10 +702,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "hash": "c173c81b5acd06001bc5c7bafcbe65e76a251899",
+  "hash": "1ccf35857df6aba0ad291a2e62964652af321121",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-17T10:37:22.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
@@ -807,10 +807,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "8aea8c5b20da8029644ec7847666197b423045c9",
+  "hash": "9947ec9d7704e766136166dcc3e53670d6514725",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T07:43:52.682Z",
   "relations": [
    "ao-prepass-tie-alpha"
@@ -818,10 +818,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "804290ef6bfdc0b0569a57dc3d5d480b69b841f6",
+  "hash": "af9168432e0044cace291d642d7140c778e3e836",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha"
@@ -912,10 +912,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "499b64e9dd347640e0bf5b80c7fe4df780cc1a55",
+  "hash": "6f9cb6baacb54a9b26f97c8ab7e5bcda450519ea",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
@@ -1754,7 +1754,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-59/des-vagues-tranquilles-qui-arrivent-une-a-une-et-remontent-le-sable"
  },
  "water-surface-material": {
-  "hash": "6d80ff6cd2a119eaf13cea252c35112eb1419e67",
+  "hash": "0039432a25e9f753bd61941e8b35479348ffe82f",
   "identifier": "JAK-58",
   "issue_id": "c554814f-99ff-4c69-93af-523deb198fb2",
   "last_state": "Backlog",

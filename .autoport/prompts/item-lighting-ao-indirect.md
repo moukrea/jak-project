@@ -5,7 +5,7 @@
 # L'occlusion ambiante multiplie l'indirect, plus l'image finale
 
 ## Defaut cite
-- 2026-09-17 : « Top, mais étrangement je vois aucun ticket liés à ce dernier… »
+- 2026-09-17 : « Alors c'est beaucoup mieux, mais on a quand même (quelque so… »
 
 ## Cause connue
 17/09 OWNER (Linear) : « Toujours pertinent ? Bloqué pourquoi ? ». Reponse : c'est le ticket PARENT de l'AO. Ses 7 termes sont tous mesures ; 5 sont acquis (Eleve pleine resolution, damier des facades, alpha appareil, fuite du direct, bande de contact), le 6e (sonde stable) est fait, le 7e est le raccord mur/toit de la hutte, en cours dans ao-prepass-tie-alpha. Quand l'enfant passe, cet item se rejoue UNE fois pour mesurer les 7 termes ensemble sur le meme binaire et fermer l'AO. Pas de redecoup […suite dans le contrat]
