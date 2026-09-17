@@ -304,7 +304,7 @@ def main():
             r = L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }', i=payload)
             iss = r["issueCreate"]["issue"]
             mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": iss["url"],
-                       "last_state": st, "hash": h, "pulled_at": dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+                       "last_state": st, "hash": h, "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
             created += 1
         else:
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
