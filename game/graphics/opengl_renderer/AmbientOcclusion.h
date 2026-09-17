@@ -88,6 +88,20 @@ class AmbientOcclusionPass {
                                        uint64_t on_alpha_device_px,
                                        int measured_mask);
 
+  // ── (n) « L'AO N'EST PLUS UN FILTRE FINAL » — les faits que seule la prepasse peut produire.
+  // `indirect_hit_px` / `probe_px` : pixels dont l'indirect a REELLEMENT recu l'AO, et leur
+  // denominateur ; le bras `--off` rend 0, c'est ce qui rend le chiffre falsifiable.
+  // `luma_mask_sites` : programmes lies qui exposent encore un uniforme de masque de luminance
+  // — le PILOTE repond, pas un grep, parce qu'un uniforme declare mais jamais lu est retire par
+  // le compilateur GLSL. `switch_readers` est le CONTROLE POSITIF du meme interrogatoire (un
+  // nom dont on sait qu'il est lu) : sans lui, un zero dirait seulement que personne n'a ete
+  // interroge. `programs_queried` est le denominateur.
+  static void set_arch_terms(uint64_t indirect_hit_px,
+                             uint64_t probe_px,
+                             uint64_t luma_mask_sites,
+                             uint64_t switch_readers,
+                             uint64_t programs_queried);
+
   // ── LA CAMPAGNE DE COUT (refus owner (f) du 2026-09-12) ──────────────────────────────────
   // Un debut d'image. Fait avancer la campagne de cout ; sans effet hors mesure. `frame` est le
   // compteur d'images de la prepasse. Elle demarre TARD (image 3000) pour laisser la phase de

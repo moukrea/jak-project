@@ -47,7 +47,7 @@ bool g_static_acquisition_alpha_ok = false;
 bool g_static_acquisition_witness_ok = false;
 // Une image sondee sur N sous mesure : la relecture couleur + stencil pleine resolution coute
 // une synchronisation GPU, on ne la paie pas a chaque image.
-constexpr uint64_t kProbeEvery = 30;  // 12 etats de recensement a couvrir (etait 60 pour 3)
+constexpr uint64_t kProbeEvery = 30;  // 18 etats de recensement a couvrir (etait 60 pour 3)
 
 std::vector<DepthContributor*> g_contributors;
 AmbientOcclusionPass g_ao;
@@ -203,6 +203,36 @@ uint64_t g_fam_cover[kFamCount] = {};
 uint64_t g_fam_absent[kFamCount] = {};
 uint64_t g_fam_gap64[kFamCount] = {};
 uint64_t g_fam_gap64_legacy[kFamCount] = {};
+// ── TROIS DECOUPAGES DE DIAGNOSTIC DE LA POPULATION `gap64`, PAR FAMILLE ────────────────────
+// Ils ne changent aucune definition de terme : ce sont des sous-comptes gratuits de la MEME
+// branche `else` de la boucle de comparaison, destines a trancher entre trois causes du
+// `ao_sway_gap_px` residuel : (A) desaccord de rasterisation d'un pixel sur une silhouette —
+// structurel, aucun correctif de dessin ne le retire —, (B) petit deplacement de sommet,
+// (C) la prepasse dessine un occluder que l'image ne dessine pas.
+// (1) L'ECHELLE de l'ecart par famille : pour chaque k, les pixels dont |d| depasse
+// tol[k] (4 / 64 / 1024 / 16384 quanta). Seule la somme TOUTES familles existait
+// (`g_geom_gap[k]`). L'indice 1 doit reproduire exactement `g_fam_gap64`.
+uint64_t g_fam_gap_hist[kFamCount][4] = {};
+// (2) Le SIGNE de l'ecart parmi les pixels qui franchissent tol[1] : `near` = la prepasse est
+// DEVANT la scene (elle dessine un occluder que l'image ne dessine pas), `far` = elle est
+// DERRIERE (il lui manque une surface, ou son sommet est deplace autrement).
+uint64_t g_fam_gap64_near[kFamCount] = {};
+uint64_t g_fam_gap64_far[kFamCount] = {};
+// (3) La SILHOUETTE parmi les memes pixels : `edge` = le voisinage 8-connexe de la profondeur
+// de SCENE porte une marche (au moins un voisin a une profondeur et s'ecarte de plus de
+// tol[1]), `inner` = aucun. Un `inner` NON NUL REFUTE l'hypothese « desaccord de
+// rasterisation sur silhouette » : ces pixels-la sont au milieu d'une surface plane et un
+// correctif de dessin peut les retirer.
+uint64_t g_fam_gap64_edge[kFamCount] = {};
+uint64_t g_fam_gap64_inner[kFamCount] = {};
+// ── (n) L'INTERROGATOIRE DU PILOTE, ses trois compteurs ──────────────────────────────────────
+// Remplis par `arch_interrogate`, une fois par programme lie qui recoit l'AO. Voir le
+// commentaire de cette fonction : `_switch_readers` est le CONTROLE POSITIF sans lequel
+// `_luma_mask_sites = 0` ne prouverait rien.
+std::vector<GLuint> g_arch_seen_programs;
+uint64_t g_arch_programs_queried = 0;
+uint64_t g_arch_switch_readers = 0;
+uint64_t g_arch_luma_mask_sites = 0;
 // La SEPARATION des pixels « absent » : au bord d'une silhouette (au moins un voisin porte une
 // profondeur de prepasse) ou au MILIEU d'un trou (aucun). Voir le commentaire du site de compte,
 // dans `proof_post_opaque`.
@@ -968,6 +998,23 @@ void publish_all() {
     autoport_proof::publish((base + "_absent_px").c_str(), g_fam_absent[f]);
     autoport_proof::publish((base + "_gap64_px").c_str(), g_fam_gap64[f]);
     autoport_proof::publish((base + "_legacy_gap64_px").c_str(), g_fam_gap64_legacy[f]);
+    // ── LES TROIS DECOUPAGES DE `gap64` (diagnostic, aucune definition de terme ne change) ──
+    // (1) l'ECHELLE de l'ecart, par famille. `_gap64q_px` doit valoir EXACTEMENT `_gap64_px`
+    // ci-dessus : c'est un controle de coherence gratuit du decoupage, et une divergence
+    // signalerait un defaut de l'instrument, pas du jeu.
+    autoport_proof::publish((base + "_gap4q_px").c_str(), g_fam_gap_hist[f][0]);
+    autoport_proof::publish((base + "_gap64q_px").c_str(), g_fam_gap_hist[f][1]);
+    autoport_proof::publish((base + "_gap1024q_px").c_str(), g_fam_gap_hist[f][2]);
+    autoport_proof::publish((base + "_gap16384q_px").c_str(), g_fam_gap_hist[f][3]);
+    // (2) le SIGNE : `near` = prepasse DEVANT la scene (occluder que l'image ne dessine pas),
+    // `far` = DERRIERE. Leur somme vaut `_gap64_px`.
+    autoport_proof::publish((base + "_gap64_near_px").c_str(), g_fam_gap64_near[f]);
+    autoport_proof::publish((base + "_gap64_far_px").c_str(), g_fam_gap64_far[f]);
+    // (3) la SILHOUETTE : `edge` = marche de profondeur de SCENE dans le voisinage 8-connexe,
+    // `inner` = aucune. Un `inner` non nul REFUTE l'hypothese silhouette. Leur somme vaut
+    // aussi `_gap64_px`.
+    autoport_proof::publish((base + "_gap64_edge_px").c_str(), g_fam_gap64_edge[f]);
+    autoport_proof::publish((base + "_gap64_inner_px").c_str(), g_fam_gap64_inner[f]);
     // (terme 3) Parmi les « absent » de cette famille, ceux que le bras SANS DECOUPE D'ALPHA
     // porte : la prepasse dessine bien cette geometrie, c'est son alpha-test qui l'a jetee.
     autoport_proof::publish((base + "_absent_nocut_px").c_str(), g_fam_absent_nocut[f]);
@@ -1094,6 +1141,13 @@ void publish_all() {
   autoport_proof::publish("ao_on_alpha_device_witness_px", g_witness_px);
 #endif
   AmbientOcclusionPass::set_prepass_defect_terms(g_leak_px, sway_gap, g_on_alpha_px, mask);
+  // ── (n) L'AO N'EST PLUS UN FILTRE FINAL : les faits, remis a la porte ────────────────────
+  // `g_hit_px` est le compte de pixels dont l'INDIRECT a reellement recu l'AO (drapeau G de
+  // `shade_body` sous `u_ao_proof`), `g_probe_px` son denominateur. Le bras `--off` rend 0 :
+  // c'est ce qui empeche ce chiffre d'etre un miroir. Les trois autres viennent de
+  // l'interrogatoire du pilote.
+  AmbientOcclusionPass::set_arch_terms(g_hit_px, g_probe_px, g_arch_luma_mask_sites,
+                                       g_arch_switch_readers, g_arch_programs_queried);
   // ── (a) AUCUN MOTIF VISIBLE ─────────────────────────────────────────────────────────────
   AmbientOcclusionPass::publish_pattern_census();
 }
@@ -1634,20 +1688,23 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   // paliers ne peuvent etre juges dans la MEME scene qu'en les alternant d'une image sondee a
   // l'autre. Le cout — la chaine d'AO se redimensionne a chaque bascule — ne se paie qu'une
   // image sur soixante, et seulement sous mesure.
-  // (e) DOUZE ETATS, PAS TROIS. L'owner a vu le damier « en qualite faible, teste en SSAO » ET
-  // « en qualite elevee, teste en GTAO » : un recensement qui ne couvre qu'un estimateur ne
-  // repond pas a son verdict. Et une grandeur qui ne RETROUVE pas le defaut sur le regime
-  // d'AVANT ne peut pas prouver sa disparition : la moitie haute des etats rallume l'ancrage
-  // MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME scene.
-  //   etat = legacy*6 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO
+  // (e) DIX-HUIT ETATS, PAS TROIS. L'owner a vu le damier « en qualite faible, teste en SSAO »
+  // ET « en qualite elevee, teste en GTAO », et il a teste HBAO aussi : un recensement qui ne
+  // couvre qu'un estimateur ne repond pas a son verdict. Et une grandeur qui ne RETROUVE pas le
+  // defaut sur le regime d'AVANT ne peut pas prouver sa disparition : la moitie haute des etats
+  // rallume l'ancrage MONDE du bruit (`u_ao_legacy_noise`), dans la MEME course et sur la MEME
+  // scene.
+  //   etat = legacy*9 + mode_idx*3 + palier,  mode_idx : 0 = SSAO, 1 = GTAO, 2 = HBAO
   if (g_probe_pair_phase >= 0) {
     const int st = g_census_witness
                        ? g_census_witness_state
                        : (ao_static_probe::active() ? g_static_probe.state
-                                                    : (int)(g_probe_seq % 12));
-    // `st / 6` ne peut pas porter le temoin quand la sonde donne l'etat : elle n'en a que SIX.
-    const int legacy = g_census_witness ? 1 : (st / 6);
-    AmbientOcclusionPass::set_measure_state(((st % 6) < 3) ? 1 : 3, st % 3, legacy);
+                                                    : (int)(g_probe_seq % 18));
+    // `st / 9` ne peut pas porter le temoin quand la sonde donne l'etat : elle n'en a que SIX.
+    const int legacy = g_census_witness ? 1 : (st / 9);
+    const int st9 = st % 9;
+    const int mode = (st9 < 3) ? 1 : (st9 < 6) ? 3 : 2;  // 1 = SSAO, 3 = GTAO, 2 = HBAO
+    AmbientOcclusionPass::set_measure_state(mode, st9 % 3, legacy);
     AmbientOcclusionPass::set_census_pair_phase(g_probe_pair_phase);
     AmbientOcclusionPass::request_pattern_census(true);
   } else {
@@ -1717,7 +1774,45 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   }
 }
 
+// ── (n) « L'AO N'EST PLUS UN FILTRE FINAL » : L'INTERROGATOIRE DU PILOTE ────────────────────
+// Retour owner du 2026-09-17 : « j'ai toujours comme cette impression que l'AO est juste posee
+// par dessus comme un filtre ». SPEC 4.7 condamne nommement le masque `1 - smoothstep(0.45,
+// 0.90, luma)` qui protegeait le direct. Prouver qu'il n'est plus la ne se fait PAS par un
+// grep : un uniforme declare mais jamais lu est retire par le compilateur GLSL, et un grep du
+// texte ne distingue pas les deux. Seul le PILOTE repond — c'est la lecon de
+// `gl-uniforms-dead-seven`. On interroge donc chaque programme qui recoit l'AO, une fois, sur
+// les quatre noms qu'a portes le masque, ET sur un nom dont on SAIT qu'il est lu (`tex_screen_ao`,
+// puisque ce programme vient d'echantillonner l'AO avec) : sans ce controle positif, un zero
+// dirait seulement que personne n'a ete interroge.
+constexpr const char* kLumaMaskNames[] = {"u_ao_luma_mask", "u_ao_mask", "u_ao_scene",
+                                          "tex_ao_scene"};
+
+void arch_interrogate(GLuint program) {
+  if (program == 0 || !autoport_proof::armed_for(kItemId)) {
+    return;
+  }
+  for (GLuint p : g_arch_seen_programs) {
+    if (p == program) {
+      return;  // une fois par programme lie, pas une fois par dessin
+    }
+  }
+  g_arch_seen_programs.push_back(program);
+  g_arch_programs_queried++;
+  // `glGetUniformLocation` en direct, pas `glu::loc` : cet interrogatoire ne doit pas entrer
+  // dans le compteur de recherches d'uniformes par image (`uniform_lookups_per_frame`, acquis
+  // de SPEC 4.3, qui vaut 0 en regime etabli). Il ne tire qu'une fois par programme.
+  if (glGetUniformLocation(program, "tex_screen_ao") >= 0) {
+    g_arch_switch_readers++;  // LE CONTROLE POSITIF
+  }
+  for (const char* name : kLumaMaskNames) {
+    if (glGetUniformLocation(program, name) >= 0) {
+      g_arch_luma_mask_sites++;
+    }
+  }
+}
+
 void bind_screen_ao(GLuint program, SharedRenderState* rs) {
+  arch_interrogate(program);
   const bool on = screen_ao_active() && !ao_tie_alpha_probe::color_frame();
   const int w = rs ? rs->render_fb_w : 0;
   const int h = rs ? rs->render_fb_h : 0;
@@ -2196,10 +2291,45 @@ void proof_post_opaque(SharedRenderState* rs) {
         for (int k = 0; k < 4; k++) {
           if (ad > tol[k]) {
             g_geom_gap[k]++;
+            // (1) la MEME echelle, mais par famille.
+            g_fam_gap_hist[fam][k]++;
           }
         }
         if (ad > tol[1]) {
           g_fam_gap64[fam]++;
+          // (2) le SIGNE : prepasse DEVANT (occluder que l'image ne dessine pas) ou DERRIERE
+          // (surface manquante, ou sommet deplace autrement).
+          if (d > 0.f) {
+            g_fam_gap64_near[fam]++;
+          } else {
+            g_fam_gap64_far[fam]++;
+          }
+          // (3) SILHOUETTE ou non, lu sur la profondeur de SCENE seule : un voisin compte comme
+          // marche s'il porte une profondeur et s'ecarte de `sz` de plus de tol[1]. `inner` non
+          // nul REFUTE l'hypothese « desaccord de rasterisation d'un pixel sur une silhouette ».
+          const size_t gxi = i % (size_t)w, gyi = i / (size_t)w;
+          bool nbr_is_step = false;
+          for (int dy = -1; dy <= 1 && !nbr_is_step; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+              if (dx == 0 && dy == 0) {
+                continue;
+              }
+              const long nx = (long)gxi + dx, ny = (long)gyi + dy;
+              if (nx < 0 || ny < 0 || nx >= (long)w || ny >= (long)h) {
+                continue;
+              }
+              const float nz = sd[(size_t)ny * (size_t)w + (size_t)nx];
+              if (nz > 1e-6f && fabsf(nz - sz) > tol[1]) {
+                nbr_is_step = true;
+                break;
+              }
+            }
+          }
+          if (nbr_is_step) {
+            g_fam_gap64_edge[fam]++;
+          } else {
+            g_fam_gap64_inner[fam]++;
+          }
         }
         if (d > tol[0]) {
           g_geom_near++;

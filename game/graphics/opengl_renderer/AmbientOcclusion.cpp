@@ -137,6 +137,17 @@ struct AoLegacyWitnessControl {
 uint64_t s_ao_draws_total = 0;
 uint64_t s_ao_draws_on_scene = 0;
 
+// ── (n) LES FAITS D'ARCHITECTURE QUE LA PREPASSE MESURE ──────────────────────────────────────
+// Le terme 9 se juge ici, mais trois de ses grandeurs se produisent la ou l'AO est LIEE aux
+// programmes du decor (`prepass::bind_screen_ao`) : c'est le seul endroit qui connaisse les
+// programmes lies, et seul le PILOTE peut dire si un nom d'uniforme a un lecteur. Elles
+// arrivent par `set_arch_terms`, comme les trois termes de prepasse.
+uint64_t s_arch_indirect_hit_px = 0;
+uint64_t s_arch_probe_px = 0;
+uint64_t s_arch_luma_mask_sites = 0;
+uint64_t s_arch_switch_readers = 0;
+uint64_t s_arch_programs_queried = 0;
+
 // ── LA CAMPAGNE DE COUT (refus owner (f), 2026-09-12) ────────────────────────────────────────
 // « Publier le temps par image, AO eteinte puis SSAO puis GTAO, au MEME vantage, sur le MEME
 // binaire, camera immobile, avec le nombre d'images de chaque releve. Un releve de moins de
@@ -818,11 +829,16 @@ GLuint s_census_depth_tex = 0;
 int s_census_depth_w = 0, s_census_depth_h = 0;
 std::vector<float> s_depth_buf;
 
-constexpr int kCensusStates = 12;
+// (m) HBAO ENTRE AU RECENSEMENT. L'owner a teste les TROIS modes, et le contrat compte 1 par
+// couple (mode, qualite) NON mesure : laisser HBAO hors du recensement, c'est trois defauts
+// nommes d'avance. L'ordre ci-dessous est l'arithmetique `legacy*9 + mode_idx*3 + quality`.
+constexpr int kCensusStates = 18;
 constexpr const char* kCensusName[kCensusStates] = {
     "ssao_q0", "ssao_q1", "ssao_q2", "gtao_q0", "gtao_q1", "gtao_q2",
+    "hbao_q0", "hbao_q1", "hbao_q2",
     "legacy_ssao_q0", "legacy_ssao_q1", "legacy_ssao_q2",
-    "legacy_gtao_q0", "legacy_gtao_q1", "legacy_gtao_q2"};
+    "legacy_gtao_q0", "legacy_gtao_q1", "legacy_gtao_q2",
+    "legacy_hbao_q0", "legacy_hbao_q1", "legacy_hbao_q2"};
 
 // Accumulateurs par palier de qualite (0..2). CES CLES-LA (ao_pattern_*, ao_grain_*,
 // ao_lag_rough_*) sont celles de l'essai 5 : elles n'accumulent QUE dans le regime LIVRE, pour
@@ -2291,6 +2307,18 @@ void AmbientOcclusionPass::set_prepass_defect_terms(uint64_t direct_leak_px,
   s_prepass_mask = measured_mask;
 }
 
+void AmbientOcclusionPass::set_arch_terms(uint64_t indirect_hit_px,
+                                          uint64_t probe_px,
+                                          uint64_t luma_mask_sites,
+                                          uint64_t switch_readers,
+                                          uint64_t programs_queried) {
+  s_arch_indirect_hit_px = indirect_hit_px;
+  s_arch_probe_px = probe_px;
+  s_arch_luma_mask_sites = luma_mask_sites;
+  s_arch_switch_readers = switch_readers;
+  s_arch_programs_queried = programs_queried;
+}
+
 void AmbientOcclusionPass::set_census_pair_phase(int phase) {
   s_census_pair_phase = (phase >= 0 && phase <= 2) ? phase : -1;
 }
@@ -2377,14 +2405,14 @@ void AmbientOcclusionPass::publish_pattern_census() {
     autoport_proof::publish(("ao_static_unguarded_pop_" + n).c_str(), s_static_pop_ug[i]);
     autoport_proof::publish(("ao_static_unguarded_moved_" + n).c_str(), s_static_moved_ug[i]);
     if (s_flat_pop[i]) {
-      if (i < 6) {
+      if (i < 9) {
         worst_flat_delivered = std::max(worst_flat_delivered, flat);
       } else {
         worst_flat_legacy = std::max(worst_flat_legacy, flat);
       }
     }
     if (s_census_frames[i]) {
-      if (i < 6) {
+      if (i < 9) {
         worst_delivered = std::max(worst_delivered, blocky);
       } else {
         worst_legacy = std::max(worst_legacy, blocky);
@@ -2435,7 +2463,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   uint64_t static_moved_ug = 0, static_pop_ug = 0;
   uint64_t contact_frames = 0, static_frames = 0;
   for (int i = 0; i < kCensusStates; i++) {
-    if (i < 6) {
+    if (i < 9) {
       contact_band_px += s_contact_band[i];
       contact_pop_px += s_contact_pop[i];
       contact_w = std::max(contact_w, s_contact_wmax[i]);
@@ -2502,8 +2530,8 @@ void AmbientOcclusionPass::publish_pattern_census() {
       dst.rejected += src.rejected;
     };
     for (int i = 0; i < kCensusStates; i++) {
-      add(i < 6 ? fold_on : fold_off, s_contact_ramp[i]);
-      add(i < 6 ? plane_on : plane_off, s_contact_plane[i]);
+      add(i < 9 ? fold_on : fold_off, s_contact_ramp[i]);
+      add(i < 9 ? plane_on : plane_off, s_contact_plane[i]);
     }
     auto rate = [](const ContactRamp& r) -> uint64_t {
       return r.sides ? (1000ull * r.bright / r.sides) : 0ull;
@@ -2594,11 +2622,11 @@ void AmbientOcclusionPass::publish_pattern_census() {
       if (src.detected_in_ref > dst.detected_in_ref) dst.detected_in_ref = src.detected_in_ref;
     };
     for (int i = 0; i < kCensusStates; i++) {
-      adde(i < 6 ? edge_on : edge_off, s_hut_edge[i]);
-      addr(i < 6 ? cc_on : cc_off, s_hutedge_ramp[i]);
-      addr(i < 6 ? cx_on : cx_off, s_hutedge_convex[i]);
-      addr(i < 6 ? rf_on : rf_off, s_hutedge_ref[i]);
-      addr(i < 6 ? plane_on : plane_off, s_contact_plane[i]);
+      adde(i < 9 ? edge_on : edge_off, s_hut_edge[i]);
+      addr(i < 9 ? cc_on : cc_off, s_hutedge_ramp[i]);
+      addr(i < 9 ? cx_on : cx_off, s_hutedge_convex[i]);
+      addr(i < 9 ? rf_on : rf_off, s_hutedge_ref[i]);
+      addr(i < 9 ? plane_on : plane_off, s_contact_plane[i]);
     }
     auto rate = [](const ContactRamp& r) -> uint64_t {
       return r.sides ? (1000ull * r.bright / r.sides) : 0ull;
@@ -2677,6 +2705,13 @@ void AmbientOcclusionPass::publish_pattern_census() {
     };
     arm("", edge_on, cc_on, cx_on, plane_on, rf_on);
     arm("_legacy", edge_off, cc_off, cx_off, plane_off, rf_off);
+    // (m) LE CONTRAT DEMANDE CHAQUE MODE ET CHAQUE QUALITE, PAS UNE MOYENNE : « un mode ou une
+    // qualite non mesure compte 1 ». Les agregats ci-dessus restent ; ils ne disent pas LEQUEL
+    // des neuf couples porte la bande claire que l'owner voit.
+    for (int i = 0; i < kCensusStates; i++) {
+      arm((std::string("_") + kCensusName[i]).c_str(), s_hut_edge[i], s_hutedge_ramp[i],
+          s_hutedge_convex[i], s_contact_plane[i], s_hutedge_ref[i]);
+    }
     autoport_proof::publish("ao_hutedge_span_px", (uint64_t)kEdgeSpan);
     autoport_proof::publish("ao_hutedge_cos_qual_x1000", (uint64_t)(kEdgeCosQual * 1000.0));
     autoport_proof::publish("ao_hutedge_min_px", (uint64_t)kEdgeMinPx);
@@ -2789,6 +2824,86 @@ void AmbientOcclusionPass::publish_pattern_census() {
   if (!(s_prepass_mask & 4)) {
     autoport_proof::publish_text("ao_on_alpha_device_px", "non-mesure");
   }
+  // ═══ (m) LA BANDE DU RACCORD, PAR MODE ET PAR QUALITE ════════════════════════════════════
+  // Retour owner du 2026-09-17 : « on a quand meme (QUELQUE SOIT le model de AO selectionne ET
+  // la qualite) une bande claire a la zone de contact ». Le contrat (m) l'ecrit en grandeur :
+  // publier l'exces de clarte du raccord pour CHACUN des neuf couples (SSAO/HBAO/GTAO x q0/q1/
+  // q2) ; « un mode ou une qualite non mesure compte 1 ». Jusqu'a cet essai HBAO n'entrait dans
+  // AUCUN etat de recensement : trois couples sur neuf etaient aveugles sans qu'aucune cle ne
+  // le dise. La grandeur jugee est l'EXCES sur le plan (`bright_rate` du pli moins celui du
+  // plan, meme image) et non `ao_contact_band_px` : ce dernier exige un maximum LOCAL a trois
+  // taps et rend donc 0 sur une RAMPE, qui est la forme du defaut (banc de l'enfant, essai 17).
+  // Il reste publie a cote, comme crete historique.
+  uint64_t t8 = 0, band_couples_measured = 0, band_couples_bright = 0;
+  {
+    std::string uncovered;
+    for (int i = 0; i < 9; i++) {
+      const ContactRamp& cc = s_hutedge_ramp[i];
+      const ContactRamp& pl = s_contact_plane[i];
+      const bool measured = (s_census_frames[i] > 0 && cc.sides > 0 && pl.sides > 0);
+      const uint64_t rc = cc.sides ? (1000ull * cc.bright / cc.sides) : 0ull;
+      const uint64_t rp = pl.sides ? (1000ull * pl.bright / pl.sides) : 0ull;
+      const uint64_t excess = (rc > rp) ? rc - rp : 0ull;
+      if (!measured) {
+        t8++;
+        if (!uncovered.empty()) {
+          uncovered += ",";
+        }
+        uncovered += kCensusName[i];
+        continue;
+      }
+      band_couples_measured++;
+      if (excess > 0) {
+        t8++;
+        band_couples_bright++;
+      }
+    }
+    autoport_proof::publish("ao_band_couples_total", 9ull);
+    autoport_proof::publish("ao_band_couples_measured", band_couples_measured);
+    autoport_proof::publish("ao_band_couples_bright", band_couples_bright);
+    // Une cle de TEXTE garde sa derniere valeur : une liste vide se publie « - », jamais rien.
+    autoport_proof::publish_text("ao_band_couples_uncovered",
+                                 uncovered.empty() ? "-" : uncovered.c_str());
+  }
+
+  // ═══ (n) L'AO N'EST PLUS UN FILTRE FINAL ═════════════════════════════════════════════════
+  // Retour owner du 2026-09-17 : « j'ai toujours comme cette impression que l'AO est juste
+  // posee par dessus comme un filtre, comme si elle etait calculee tout a la fin ». SPEC 4.7,
+  // ligne « Aujourd'hui / Cible » : la passe condamnee composait sur l'image opaque en gamma,
+  // multipliait TOUT le pixel et protegeait le direct par un masque de luminance. Le terme
+  // compte un defaut par fait NON TENU, et un fait non mesurable compte aussi :
+  //   . la classe de composite n'est plus compilee   (temoin : le detecteur se teste lui-meme
+  //     sur une classe qui LA porte — sans lui, un zero prouverait seulement que le detecteur
+  //     ne detecte rien)
+  //   . aucun dessin d'AO ne prend le FBO de scene pour cible
+  //   . aucun programme lie n'expose d'uniforme de masque de luminance, et le controle positif
+  //     du meme interrogatoire (l'uniforme d'AO lui-meme) est trouve
+  //   . l'indirect a REELLEMENT recu l'AO sur cette course (le bras `--off` rend 0)
+  // Le quatrieme fait du contrat — « un pixel eclaire par le direct seul a la MEME valeur AO
+  // allumee et eteinte » — est deja le terme 1 (`ao_direct_leak_px`) et n'est pas compte deux
+  // fois.
+  uint64_t t9 = 0;
+  {
+    const uint64_t composite_compiled = ao_has_composite<AmbientOcclusionPass>::value ? 1ull : 0ull;
+    const uint64_t selftest = ao_has_composite<AoLegacyWitnessControl>::value ? 1ull : 0ull;
+    const bool mask_measured = (s_arch_programs_queried > 0 && s_arch_switch_readers > 0);
+    autoport_proof::publish("ao_arch_composite_compiled", composite_compiled);
+    autoport_proof::publish("ao_arch_composite_selftest", selftest);
+    autoport_proof::publish("ao_arch_draws_on_scene", s_ao_draws_on_scene);
+    autoport_proof::publish("ao_arch_programs_queried", s_arch_programs_queried);
+    autoport_proof::publish("ao_arch_switch_readers", s_arch_switch_readers);
+    autoport_proof::publish("ao_arch_luma_mask_sites", s_arch_luma_mask_sites);
+    autoport_proof::publish("ao_arch_luma_mask_measured", mask_measured ? 1ull : 0ull);
+    autoport_proof::publish("ao_arch_indirect_hit_px", s_arch_indirect_hit_px);
+    autoport_proof::publish("ao_arch_indirect_pop_px", s_arch_probe_px);
+    autoport_proof::publish_text("ao_arch_apply_site", "shade.glsl:shade_body (avant tone map)");
+    t9 += (composite_compiled != 0) ? 1ull : 0ull;
+    t9 += (selftest != 1) ? 1ull : 0ull;
+    t9 += (s_ao_draws_on_scene != 0) ? 1ull : 0ull;
+    t9 += mask_measured ? ((s_arch_luma_mask_sites != 0) ? 1ull : 0ull) : 1ull;
+    t9 += (s_arch_probe_px > 0) ? ((s_arch_indirect_hit_px == 0) ? 1ull : 0ull) : 1ull;
+  }
+
   autoport_proof::publish("ao_owner_term1_direct_leak", t1);
   autoport_proof::publish("ao_owner_term2_pattern", t2);
   autoport_proof::publish("ao_owner_term3_sway", t3);
@@ -2796,13 +2911,19 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_owner_term5_static_cam", t5);
   autoport_proof::publish("ao_owner_term6_contact_band", t6);
   autoport_proof::publish("ao_owner_term7_high_res", t7);
+  autoport_proof::publish("ao_owner_term8_band_by_mode", t8);
+  autoport_proof::publish("ao_owner_term9_not_a_final_filter", t9);
   autoport_proof::publish("ao_owner_terms_measured",
                           (uint64_t)(((s_prepass_mask & 1) ? 1 : 0) +
                                      ((s_prepass_mask & 2) ? 1 : 0) +
                                      ((s_prepass_mask & 4) ? 1 : 0) + (flat_measured ? 1 : 0) +
                                      (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
                                      ((q2_full || cross_measured) ? 1 : 0)));
-  autoport_proof::publish("ao_owner_defects", t1 + t2 + t3 + t4 + t5 + t6 + t7);
+  // LA PORTE. Les sept termes du 14/09, plus les deux que le retour owner du 17/09 ajoute au
+  // contrat : (m) la bande du raccord couple par couple, (n) l'AO qui n'est plus un filtre
+  // final. Un terme non mesure compte pour un defaut nomme — c'est la regle du contrat, et
+  // c'est elle qui interdit un vert obtenu en ne regardant pas.
+  autoport_proof::publish("ao_owner_defects", t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9);
   if (exact_static_probe()) {
     uint64_t missing = 0, depth_delta = 0, camera_delta = 0;
     uint64_t estimator_delta = 0, spatial_delta = 0, estimator_pop = 0;
@@ -3613,12 +3734,11 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   // Le recensement du motif, UNE image par armement : la sonde arme, `estimate` consomme.
   if (produced && dbg != 2 && s_pattern_census_request) {
     s_pattern_census_request = false;
-    // L'ETAT, EXPLICITE : legacy*6 + mode_idx*3 + quality, mode_idx 0 = SSAO, 1 = GTAO.
-    // HBAO (mode 2) n'est nomme par aucun des deux verdicts : il rend -1 et n'alimente que
-    // les cles par palier.
-    const int mode_idx = (mode == 1) ? 0 : (mode == 3) ? 1 : -1;
+    // L'ETAT, EXPLICITE : legacy*9 + mode_idx*3 + quality, mode_idx 0 = SSAO, 1 = GTAO,
+    // 2 = HBAO. Les trois modes que l'owner teste sont recenses, chacun sur ses trois paliers.
+    const int mode_idx = (mode == 1) ? 0 : (mode == 3) ? 1 : (mode == 2) ? 2 : -1;
     const int census_state =
-        (mode_idx < 0) ? -1 : ((s_measure_legacy ? 1 : 0) * 6 + mode_idx * 3 + quality);
+        (mode_idx < 0) ? -1 : ((s_measure_legacy ? 1 : 0) * 9 + mode_idx * 3 + quality);
     // (essai 18) La camera que les estimateurs viennent de recevoir, rangee pour le detecteur
     // d'aretes : `invf` est l'inverse deja calcule plus haut, pas un second calcul.
     for (int i = 0; i < 16; i++) s_census_cam_inv[i] = invf[i];
