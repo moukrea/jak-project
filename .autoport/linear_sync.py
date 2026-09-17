@@ -18,6 +18,7 @@ Jeton : ~/.config/autoport/linear.env (LINEAR_API_KEY), jamais dans le depot.
 Correspondance id -> ticket : .autoport/linear_map.json (versionne).
 """
 import argparse
+import fcntl
 import re
 import datetime as dt
 import hashlib
@@ -550,6 +551,10 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
 
 
 def main():
+    # Une seule synchro a la fois : le veilleur (30 s) et les appels du superviseur s'entrelacaient
+    # (17/09, JAK-173 : trois etiquettes a la fois, un deplacement du superviseur lu comme celui de l'owner).
+    lock = open(AP / ".linear_sync.lock", "a+")
+    fcntl.flock(lock, fcntl.LOCK_EX)
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-pull", action="store_true")

@@ -927,11 +927,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
  },
  "owner-distinction-entre-todo-et-backlog": {
-  "hash": "9ee8045aaec9d94d52ebd7b90241bcf78ee39cc3",
+  "hash": "61ff39e2f52217a40fd5dfa60773a4a3d5039c42",
   "identifier": "JAK-173",
   "issue_id": "63c75763-18f9-4c97-bc27-fa125fc1811c",
   "last_state": "Done",
-  "pulled_at": "2026-09-17T10:07:13.570Z",
+  "pulled_at": "2026-09-17T10:08:16.165Z",
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-todo-priorisation": {
