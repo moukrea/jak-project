@@ -42,6 +42,10 @@
 // rendue est celle du pilote, -1 compris (le repli `u_trample_str[0]` du correctif Adreno 618 la
 // relit donc a l'identique). Les deux compteurs publient l'A/B dans la MEME course : les sites
 // DEMANDES par image, et les appels de pilote reellement passes.
+// Images ou le repli « plage entiere » s'est declenche. Un compteur PUBLIE, pas seulement
+// journalise : si le decoupage produisait un jour plus d'appels que le budget, le gain
+// disparaitrait en silence et la preuve n'aurait rien pour le nommer.
+static u64 g_grass_run_overflow_frames = 0;
 static u64 g_grass_uloc_requests = 0, g_grass_uloc_misses = 0;
 static u64 g_grass_uloc_requests_frame = 0, g_grass_uloc_misses_frame = 0;
 static GLint grass_uloc(GLuint prog, const char* name) {
@@ -2261,6 +2265,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     if ((int)m_blade_runs.size() > kMaxRunsPerPass ||
         (int)m_card_runs.size() > kMaxRunsPerPass) {
       run_overflow = true;
+      g_grass_run_overflow_frames++;
       m_blade_runs.clear();
       m_blade_runs.push_back({0, m_instance_count});
       m_card_runs.clear();
@@ -2880,6 +2885,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       fwd[1] /= fl;
       fwd[2] /= fl;
     }
+    autoport_proof::publish("grass_cull_run_overflow_frames", g_grass_run_overflow_frames);
     grass_cull::note_census(submitted_blade + submitted_card, chunk_visible, offscreen, dropped,
                             ideal, chunks_kept_blade + chunks_kept_card,
                             (u64)m_cull_chunks.size(), fwd);
