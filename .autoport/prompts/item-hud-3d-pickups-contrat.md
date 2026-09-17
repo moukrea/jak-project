@@ -33,6 +33,8 @@ S'AJOUTE (REFUS DE L'OWNER, 17/09, build ae4272, deux captures dans owner-feedba
 
 8. LA MECAMOUCHE N'EST PAS TROP HAUTE : ecart vertical de son centre contre le centre du sprite d'origine, en pixels sur l'appareil, publie : <= 2 px.
 
+CLARIFICATION OWNER 17/09 : « pas de trucs over-engineered qui coûtent du calcul au binaire final […] je parle du positionnement et compagnie ». Les verdicts 6-8 sont des MESURES DE PREUVE (bras de preuve, masque d'identite de dessin, lecture d'image) : elles n'existent pas dans le binaire livre hors preuve. Le placement lui-meme reste celui du HUD d'origine : les memes coordonnees HUD que le sprite remplace, la meme logique d'apparition/disparition/echelle, une transformation par element et par image, rien de plus. Verdict 4 (cout par image) le verifie : le surcout hors dessin des modeles doit etre nul au bruit pres, publie a part du cout des modeles.
+
 ## Hors perimetre
 
 Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
@@ -48,6 +50,9 @@ HUD en jeu : la mecamouche, l'orbe, la particule d'eco verte a cote du coeur et 
 
 ### 2026-09-17
 > Alors la mecamouche elle est bizarre… tant que le hud n'a pas été affiché in game, dès la première frame du jeu on l'a en plein milieu de l'écran, ça se règle dès qu'on ouvre le hud in game. Si tu paie bien attention au même screen, tu verra qu'on voit aussi une pile d'énergie tout minuscule juste en dessous… et elle, on l'a voit tout le temps on game, je pense que t'as fais du positionning absolu pour la pile d'énergie sur une petite résolution et du coup c'est complètement à côté de la plaque (avec un aspect ratio différent en prime je présume). Sinon, in game, la mecamouche trouve bien sa place dans le hud uand on l'affiche (la pile d'énergie non) mais est un poil trop haute par rapport à où était originalement son sprite, tu devrais pouvoir facilement régler ça   ![71422.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/6f19ebc7-9cda-42ba-9daf-b4b876156c8d/6085f020-ebfa-4e85-9d28-653fd6d46658)  ![71423.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/66db29eb-44f2-497c-935d-6cbab80bb657/e6f6d4aa-4c7c-4d4a-b3c0-e0840fe80e57) [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T1225-1.jpg ; .autoport/owner-feedback/hud-3d-pickups/20260917T1225-2.jpg]
+
+### 2026-09-17
+> Alors attention avec tes trucs compliqués à pas induire des calculs gaspillage au runtime hein ! Faut bien les placer, qu'ils se comportent comme l'original (façon d'apparaître et disparaitre, échelle, position) mais pas de trucs over-engineered qui coûtent du calcul au binaire final pour y arriver ! Qu'on soit bien clair (après oui ça va coûter plus parce qu'on remplace des sprites par des modèles 3D, c'est normal, mais je parle du positionnement et compagnie)
 
 ## Pourquoi ce fichier existe
 

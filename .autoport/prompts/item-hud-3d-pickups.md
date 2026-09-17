@@ -5,7 +5,7 @@
 # Mécamouche, orbe, particule d'éco verte et pile d'énergie du HUD : les vrais modèles du jeu à la place des sprites
 
 ## Defaut cite
-- 2026-09-17 : « Alors la mecamouche elle est bizarre… tant que le hud n'a pa… »
+- 2026-09-17 : « Alors attention avec tes trucs compliqués à pas induire des… »
 
 ## Cause connue
 17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu trop haute une fois le HUD affiche ; pile pas placee. Les deux captures sont dans owner-feedback/hud-3d-pickups/ (regarde-les). La porte de l'essai 1 etait aveugle : mesurer sur l'IMAGE RENDUE de l'appareil, et suivre la visibilite du HUD d'origine.

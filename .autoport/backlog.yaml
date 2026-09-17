@@ -13385,6 +13385,8 @@ items:
     7. LA POSITION SE MESURE SUR L'IMAGE RENDUE DE L'APPAREIL : pour chaque element, boite englobante du modele lue sur l'image finale du telephone (masque d'identite de dessin, resolution et aspect reels : 2400x1080, 21:9), contre la boite du sprite d'origine lue de la MEME facon sur le bras `--off` : centre a 2 px pres, taille a 5 % pres, publies par element. Aucune coordonnee absolue en pixels : le placement est une fraction de l'espace HUD d'origine, aspect compris.
 
     8. LA MECAMOUCHE N'EST PAS TROP HAUTE : ecart vertical de son centre contre le centre du sprite d'origine, en pixels sur l'appareil, publie : <= 2 px.
+
+    CLARIFICATION OWNER 17/09 : « pas de trucs over-engineered qui coûtent du calcul au binaire final […] je parle du positionnement et compagnie ». Les verdicts 6-8 sont des MESURES DE PREUVE (bras de preuve, masque d'identite de dessin, lecture d'image) : elles n'existent pas dans le binaire livre hors preuve. Le placement lui-meme reste celui du HUD d'origine : les memes coordonnees HUD que le sprite remplace, la meme logique d'apparition/disparition/echelle, une transformation par element et par image, rien de plus. Verdict 4 (cout par image) le verifie : le surcout hors dessin des modeles doit etre nul au bruit pres, publie a part du cout des modeles.
   where: 'HUD en jeu : la mecamouche, l''orbe, la particule d''eco verte a cote du coeur et la pile d''energie
     sont les vrais objets du jeu en 3D, a la place des sprites plats.'
   out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
@@ -13405,6 +13407,12 @@ items:
       \ \n\n![71422.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/6f19ebc7-9cda-42ba-9daf-b4b876156c8d/6085f020-ebfa-4e85-9d28-653fd6d46658)\n\
       \n![71423.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/66db29eb-44f2-497c-935d-6cbab80bb657/e6f6d4aa-4c7c-4d4a-b3c0-e0840fe80e57)\n\
       [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T1225-1.jpg ; .autoport/owner-feedback/hud-3d-pickups/20260917T1225-2.jpg]"
+  - date: '2026-09-17'
+    text: Alors attention avec tes trucs compliqués à pas induire des calculs gaspillage au runtime hein
+      ! Faut bien les placer, qu'ils se comportent comme l'original (façon d'apparaître et disparaitre,
+      échelle, position) mais pas de trucs over-engineered qui coûtent du calcul au binaire final pour
+      y arriver ! Qu'on soit bien clair (après oui ça va coûter plus parce qu'on remplace des sprites
+      par des modèles 3D, c'est normal, mais je parle du positionnement et compagnie)
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'
