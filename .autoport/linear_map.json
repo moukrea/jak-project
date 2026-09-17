@@ -285,11 +285,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-115/lherbe-hors-du-champ-de-vision-cesse-de-couter"
  },
  "grass-clumps": {
-  "hash": "9360eb96db2a04453966638678327929ae9e5b05",
+  "hash": "c5f40b378dd7d190cba22aa1ea4bcd2d5d24c5fe",
   "identifier": "JAK-119",
   "issue_id": "24dbdb0f-c378-4cd3-b939-32c56ea5b024",
-  "last_state": "Terminé (machine)",
-  "pulled_at": "2026-09-17T06:34:07.108Z",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T08:12:48.874Z",
   "relations": [
    "grass-chunk-cull"
   ],
@@ -1260,11 +1260,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-171/la-liste-des-resolutions-est-classee-par-nombre-total-de-pixels-du"
  },
  "res-menu-truth": {
-  "hash": "e93edf0ac6c1a178c1574115fee75c0b520a72a5",
+  "hash": "9e439917eaf888eec1ba06b477d8c1ac8854f4de",
   "identifier": "JAK-82",
   "issue_id": "fc9322c1-0e17-4a1d-99b2-856f1ae15b0c",
   "last_state": "Validé",
-  "pulled_at": "2026-09-17T06:43:52.426Z",
+  "pulled_at": "2026-09-17T08:11:40.566Z",
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {

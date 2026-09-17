@@ -416,6 +416,10 @@ items:
       du lighting, commençant par reprendre le HDR/blancs brûlés !
   - date: '2026-09-17'
     text: Heuuuuu… C'est fini ce sujet non ? Je vois pas pouquroi il est "bloqué" !
+  - date: '2026-09-17'
+    text: Mhhh vérifies si on a pas des tickets qui supplantent ça, c'est bizarre ! Parce que j'ai déjà
+      un menu "Max framerate" avec pour choix 30 / 45 / 60 / 75 / 90 / 120 / 240 / illimité qui fonctionne
+      !
   block_reason: 'Même empreinte d''échec ''c6fa8779424b'' 3 essais de suite : le worker n''apprend plus
     du validateur. On arrête cet item au lieu de brûler du quota dessus.'
   code_scope: jeu
@@ -5055,6 +5059,11 @@ items:
     text: ok, si ça bloque découpe en trois comme tu proposes
   - date: '2026-09-17'
     text: Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper ? C'est quoi le problème ?
+  - date: '2026-09-17'
+    text: Top, mais étrangement je vois aucun ticket liés à ce dernier, ils devraient être clairement
+      liés, avec des blocked by, depends on, etc etc. pour tous les sujets sinon on s'y retrouvera jamais,
+      pas étonnant que tu fasse un peu de la merde si on a pas des dépendances claires… C'est un feedback
+      à chaud qui concerne plus le harnais et sa façon de travailler, mais c'est important !
   gate:
     key: ao_owner_defects
     op: ==
@@ -7262,6 +7271,8 @@ items:
   - date: '2026-09-17'
     text: Je comprend même pas pourquoi il est considéré comme bloqué, je viens de tester sur le build
       de… 6h et quelques ce matin, ça fonctionne !
+  - date: '2026-09-17'
+    text: il est plus que validé du coup non ? C'est terminé ! Enfin dis moi si je me trompe
   prompt: prompts/item-res-menu-truth.md
   delivered: null
   code_scope: jeu
@@ -10024,6 +10035,10 @@ items:
     text: Bah du coup c'est pas à tester, c'est pas validé du tout ! Il suffit de lire le ticket pour
       voir que c'est pas à tester ! À moins qu'il y ait une info que j'ai loupé, un build spécifique que
       j'ai loupé… En tout cas c'est pas bon du tout !
+  - date: '2026-09-17'
+    text: Tu dis "Le ticket se rejouera après « l'herbe sur Sandover et la jungle », là où des chemins
+      existent, et c'est là que tu regarderas."… Et il y a un ticket qui couvre ça ? Parce que sinon ça
+      sera juste jamais vrai !
 - status: validated
   game: jak1
   owner_test: false
@@ -10036,7 +10051,7 @@ items:
   - grass-chunk-cull
   history: []
   id: grass-clumps
-  priority: 69
+  priority: null
   device: true
   proof_env:
   - OG_RECHARGED=1
@@ -10091,6 +10106,14 @@ items:
     text: Mhhhh ouais OK je vois bien le truc de touffes… mais j'ai l'impression que c'est juste l'ancienne
       herbe en touffe… J'ai pas l'impression que ce soit raccord avec la SPEC que tu as à portée de main,
       ni si c'est raccord avec le reste de la refonte ou pas… Faut que tu vérifies là !
+  - date: '2026-09-17'
+    text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
+      pour moi
+  owner_ok:
+    date: '2026-09-17'
+    text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
+      pour moi
+    build_sha: c42de28de380
 - status: open
   game: jak1
   owner_test: true
