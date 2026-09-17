@@ -72,6 +72,10 @@ struct SlotState {
   uint64_t raw_sum = 0;
   int raw_max = 0;
   int excluded = 0;
+  // LA DERIVE DE L'IMAGE, MESUREE AU LIEU D'ETRE SUPPOSEE. Ecart absolu moyen, par pixel et par
+  // paire, entre l'image « dessine » et la reference de stabilite du slot. C'est la grandeur qui
+  // dit si la conjonction echoue parce que le decor bouge ou parce que l'element n'est pas la.
+  uint64_t drift_sum = 0;
 };
 
 bool g_armed = false;
@@ -264,6 +268,21 @@ void publish_diag() {
   // 1 = la propriete `debug.opengoal.costprobe` porte bien notre identifiant vue d'ICI ;
   // 0 = elle ne le porte pas, alors que kmachine la lit et rend 1 (hud3d_probe_on).
   autoport_proof::publish("hud3d_px_prop_match", (uint64_t)(g_prop_match < 0 ? 0 : g_prop_match));
+  // LA DERIVE, EN MILLIEMES DE NIVEAU DE LUMINANCE PAR PIXEL ET PAR PAIRE. Zero = deux images
+  // « dessine » consecutives sont identiques et la conjonction ne peut echouer que faute
+  // d'element ; une valeur elevee dit que l'image bouge sous l'instrument.
+  {
+    const uint64_t px = (uint64_t)(g_region_w > 0 ? g_region_w : 0) *
+                        (uint64_t)(g_region_h > 0 ? g_region_h : 0);
+    static const char* kDriftKeys[kSlotCount] = {
+        "hud3d_px_drift_base",   "hud3d_px_drift_cell_stock", "hud3d_px_drift_cell_ours",
+        "hud3d_px_drift_buzzer", "hud3d_px_drift_orb",        "hud3d_px_drift_ctrl"};
+    for (int i = 0; i < kSlotCount; i++) {
+      const SlotState& d = g_slots[i];
+      const uint64_t den = px * (uint64_t)(d.samples > 0 ? d.samples : 0);
+      autoport_proof::publish(kDriftKeys[i], den ? (uint64_t)((d.drift_sum * 1000ull) / den) : 0ull);
+    }
+  }
   autoport_proof::publish("hud3d_px_thresh", (uint64_t)kThresh);
   autoport_proof::publish("hud3d_px_stable", (uint64_t)kStable);
   autoport_proof::publish("hud3d_px_agree_pct", (uint64_t)(100 * kAgreeNum / kAgreeDen));
@@ -288,6 +307,7 @@ void reset_all() {
     s.empty = 0;
     s.raw_sum = 0;
     s.raw_max = 0;
+    s.drift_sum = 0;
     s.dirty = true;
   }
 }
@@ -395,6 +415,7 @@ void end_of_frame(unsigned fbo_id,
     s.empty = 0;
     s.raw_sum = 0;
     s.raw_max = 0;
+    s.drift_sum = 0;
   }
   if (!s.ref_set) {
     // La PREMIERE image « dessine » de ce slot devient sa reference de stabilite. Elle ne compte
@@ -411,6 +432,7 @@ void end_of_frame(unsigned fbo_id,
     const int lum = g_lum[i];
     const int d_base = lum - (int)g_base_lum[i];
     const int d_ref = lum - (int)s.ref_lum[i];
+    s.drift_sum += (uint64_t)(d_ref < 0 ? -d_ref : d_ref);
     if ((d_base > kThresh || d_base < -kThresh) && d_ref <= kStable && d_ref >= -kStable) {
       changed++;
       if (s.agree[i] < 255) {
@@ -418,6 +440,15 @@ void end_of_frame(unsigned fbo_id,
       }
     }
   }
+  // REFERENCE DE STABILITE GLISSANTE. Elle etait figee sur la PREMIERE image « dessine » du slot,
+  // prise au debut de la course. Mesure appareil du 17/09 22h54 : accord maximal 12 a 13 paires
+  // sur 48 pour les QUATRE emplacements ET pour le CONTROLE, aucun pixel au-dela — c'est-a-dire
+  // que la conjonction ne tenait plus passe le premier quart de la course, y compris au coeur
+  // opaque des modeles. Une reference vieille de plusieurs minutes ne decrit plus l'image :
+  // toute derive lente (exposition, adaptation, resolution) la fait sortir de +/-kStable.
+  // On compare donc chaque image « dessine » a la PRECEDENTE image « dessine » du meme slot :
+  // quelques secondes d'ecart au lieu de plusieurs minutes. Le bruit, lui, reste non correle.
+  s.ref_lum = g_lum;
   s.samples++;
   s.raw_sum += (uint64_t)changed;
   if (changed > s.raw_max) {
