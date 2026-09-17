@@ -612,6 +612,14 @@
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
+ "harness-linear-own-identity": {
+  "hash": "bffef35340682311acfed17ce7a27cc1d733075f",
+  "identifier": "JAK-180",
+  "issue_id": "ab7deb05-dda7-41c3-9083-48feb760fdf2",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-17T18:56:33.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-180"
+ },
  "harness-proof-file-has-no-writer-lock": {
   "hash": "d6511d43c4e4fb87f132ce03d2e8c1495d3c83f8",
   "identifier": "JAK-111",
