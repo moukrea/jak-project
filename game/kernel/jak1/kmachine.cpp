@@ -127,6 +127,10 @@ AUTOPORT_FEATURE_SITE("dead-follow-probe");
 // parce qu'il doit s'enregistrer au CHARGEMENT : c'est ce qui separe « aucun site compile » de
 // « site jamais atteint » dans `proof_feature_state`.
 AUTOPORT_FEATURE_SITE("firstperson-hd-hide");
+// hud-3d-pickups : l'instrument est le recensement GOAL de hud-pickups-3d.gc, qui tire par
+// `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
+// CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("hud-3d-pickups");
 
 using namespace ee;
 
@@ -1621,6 +1625,52 @@ void pc_autoport_hit_for(u32 id_str, s64 n) {
     return;
   }
   autoport_proof::note_hit_for(id, (u64)(n < 0 ? 0 : n));
+}
+
+// hud-3d-pickups — LE TEXTE D'UNE GRANDEUR, PUBLIE PAR GOAL. `__pc-autoport-publish` ci-dessus
+// n'accepte qu'un ENTIER ; l'identite d'un modele est un NOM — le groupe d'art que le moteur a
+// reellement dessine. Sans ce pont, une porte d'identite ne pourrait publier qu'un condense
+// opaque, que personne ne relit. Une valeur vide est refusee par `publish_text` : on publie le
+// tiret, qui dit « rien a cet emplacement » au lieu de laisser la valeur PRECEDENTE en place
+// (publish-text-key-never-clears).
+void pc_autoport_publish_text(u32 key_str, u32 val_str) {
+  const char* k = key_str ? Ptr<String>(key_str).c()->data() : nullptr;
+  const char* v = val_str ? Ptr<String>(val_str).c()->data() : nullptr;
+  autoport_proof::publish_text(k, (v && v[0]) ? v : "-");
+}
+
+// hud-3d-pickups — L'HORLOGE MONOTONE EN MICROSECONDES, LUE PAR GOAL. Le cout par image se
+// mesure en ALTERNANT les deux regimes DANS LA MEME COURSE : deux courses separees mesurent une
+// scene et une cadence qui derivent, pas la feature (feedback_gain_measured_by_alternating_...).
+// GOAL n'a pas d'horloge plus fine que l'image ; celle-ci en donne une.
+s64 pc_autoport_now_us() {
+  return (s64)std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+// hud-3d-pickups — LE BANC DE COUT EST EPINGLE PAR `proof_props`, JAMAIS PAR LE JEU. Rend 1
+// uniquement quand la propriete `debug.opengoal.costprobe` (ou l'environnement
+// `AUTOPORT_COST_PROBE` sur le bureau) porte EXACTEMENT l'identifiant demande. Hors course de
+// preuve elle est absente et le banc ne tourne pas : le joueur ne voit jamais son HUD alterner
+// entre deux regimes. Un `adb shell setprop` tape a la main ne survit pas au teardown de
+// `proof_run.sh` — seul `proof_props` de l'item traverse.
+s32 pc_autoport_cost_probe(u32 id_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  if (!id || !id[0]) {
+    return 0;
+  }
+  const char* env = std::getenv("AUTOPORT_COST_PROBE");
+  if (env && env[0]) {
+    return std::strcmp(env, id) == 0 ? 1 : 0;
+  }
+#if defined(__ANDROID__)
+  char pv[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.costprobe", pv) > 0 && pv[0]) {
+    return std::strcmp(pv, id) == 0 ? 1 : 0;
+  }
+#endif
+  return 0;
 }
 
 // menu-dpad-steps : une passe de `respond-common` remontee au recensement. GOAL donne l'etat
@@ -4875,6 +4925,11 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-autoport-hit", (void*)pc_autoport_hit);
   // proof-feature-hits-is-vacuous : la prise ATTRIBUEE, pour un instrument ecrit en GOAL.
   make_function_symbol_from_c("__pc-autoport-hit-for", (void*)pc_autoport_hit_for);
+  // hud-3d-pickups : le NOM d'une grandeur (identite d'un modele), l'horloge microseconde du
+  // banc de cout, et l'armement de ce banc par `proof_props`.
+  make_function_symbol_from_c("__pc-autoport-publish-text", (void*)pc_autoport_publish_text);
+  make_function_symbol_from_c("__pc-autoport-now-us", (void*)pc_autoport_now_us);
+  make_function_symbol_from_c("__pc-autoport-cost-probe", (void*)pc_autoport_cost_probe);
   make_function_symbol_from_c("__pc-menu-dpad-frame", (void*)pc_menu_dpad_frame);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);

@@ -232,11 +232,14 @@ void emit_locked() {
     // `soft-support-map` compte les SOMMETS DE COQUE AYANT RECU UNE EPAISSEUR strictement
     // positive — `hits_means` de son item. Un sommet de frontiere, cuit a zero par contrat, n'en
     // fait PAS partie : il est publie a cote, dans `soft_support_boundary_verts`.
+    // `hud-3d-pickups` compte les EMPLACEMENTS DU HUD DESSINES AVEC UN MODELE dans l'image
+    // jugee — `hits_means` de son item. Le compteur global du binaire ne dirait rien de ces
+    // quatre emplacements.
     uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
                      id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
                      id == "soft-surface-truth" || id == "soft-support-map" ||
-                     id == "grass-path-transitions")
+                     id == "grass-path-transitions" || id == "hud-3d-pickups")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

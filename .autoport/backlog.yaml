@@ -12414,6 +12414,12 @@ items:
       me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois
       que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà
       présent de la vieille implem ou un truc du style…
+  - date: '2026-09-17'
+    text: Attends mais on essayait de corriger un truc qu'on allait jeter anyway ? Nan mais tu vois un
+      peu la perte de temps là ? C'est complètement con !!!! Au putain je vais péter un plomb
+  - date: '2026-09-17'
+    text: Faut juste plus que ça se reproduise ce genre de merde, ça fait gaspiller des jours de taff
+      à tourner en rond pour rien !
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -13364,6 +13370,10 @@ items:
     sont les vrais objets du jeu en 3D, a la place des sprites plats.'
   out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-3d-pickups.md
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Les specs… Linear il peut pas les avoir ? ça serait pratique parce que voir que la spec existe
+      sans pouvoir la lire…
 - status: open
   game: jak1
   code_scope: jeu

@@ -11,7 +11,7 @@
 
 (defconstant HUD_ICON_COUNT 6)
 
-(defconstant HUD_PART_PC_AMOUNT 3)
+(defconstant HUD_PART_PC_AMOUNT 4)
 
 ;; VRAM slots where the PC runtime loads the recharged hud sprites (recharged_assets/*.png).
 ;; Must match kBaseSlot/kNames in game/graphics/opengl_renderer/RechargedHudTextures.cpp.
@@ -55,154 +55,160 @@
 ;;;; screen-space eco partgroup clones (owner round-3 items 3+4)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; EXACT STRUCTURAL COPIES of the stock group-part-hud-pickup (id 75) and its
-;; defparts 303-308. Group 75 renders perfectly through the screen-space hud
-;; machinery; our earlier world-derived clones spawned but rendered NOTHING.
-;; So each of the four eco groups below is byte-identical to 75 in structure
-;; (same sp-item count/flags/binding/fade-after, same init-spec fields/flags/
-;; timers/num/next wiring), with ONLY per-type color/rot data substitutions.
-;; Part-id map per type: [303 304 305 306 307 308]-equivalents ->
-;;   green  720: 2980 2981 2982 2983 2984 2985
-;;   blue   721: 2986 2987 2988 2989 2990 2991
-;;   red    722: 2992 2993 2994 2995 2996 2997
-;;   yellow 723: 2998 2999 3000 3001 3002 3003
+;; LES TROIS groupes du CENTRE DE LA JAUGE (bleu 721, rouge 722, jaune 723) sont des copies
+;; structurelles du sprite de HUD d'origine `group-part-hud-pickup` (id 75, defparts 303-308),
+;; avec substitution de couleur par type. Ils appartiennent au chantier de la jauge d'eco.
+;; Part-id map : blue 721: 2986..2991 · red 722: 2992..2997 · yellow 723: 2998..3003.
+;;
+;; LE GROUPE VERT (720) N'EN FAIT PLUS PARTIE (hud-3d-pickups, 17/09). Il n'est plus une copie
+;; du sprite de HUD : c'est le portage champ pour champ de l'emetteur du RAMASSABLE du monde
+;; (`group-eco-green`, id 58), parts 2980..2984. Voir son en-tete juste dessous.
 
-;;;; GREEN (id 720) — 75's palette IS green eco; verbatim copy of 303-308.
+;;;; GREEN (id 720) — LE MEME EMETTEUR QUE LE RAMASSABLE, AUX SIX TRANSPOSITIONS QUE
+;;;; L'ESPACE-ECRAN IMPOSE (hud-3d-pickups, 2026-09-17).
+;;;;
+;;;; L'owner, 17/09 : « pour la particule d'éco verte qui flotte à côté du coeur une vraie
+;;;; particule d'eco verte comme celles qu'on ramasse in game (et pas un truc hacky comme c'est
+;;;; dans le jeu original) ». Le ramassable, c'est `group-eco-green` (id 58,
+;;;; engine/common-obs/collectables-part.gc:1249), parts 202/203/204/205 + les relances 206/207/208.
+;;;; Il n'existe AUCUN modele 3D d'eco verte dans jak1 : le type `health` (collectables.gc:592)
+;;;; ne pose qu'une `collide-shape-moving` et son rendu entier est ce groupe de particules.
+;;;; L'identite du ramassable EST donc celle de son emetteur.
+;;;;
+;;;; Ce groupe est la copie champ pour champ de 58. Les transpositions sont MECANIQUES et
+;;;; NOMMEES ; `hud3d-eco-spec-mismatch` compte, a l'execution, tout champ qui differe EN DEHORS
+;;;; de cette liste — ce n'est donc pas une ressemblance affirmee, c'est une grandeur.
+;;;;   S1  le groupe prend `:flags (screen-space)` : le slot du HUD dessine par la machinerie
+;;;;       ecran (user-hvdf), pas dans le monde.
+;;;;   S2  `bit14` (sprite 3D du monde) -> `bit9` (sprite d'espace-ecran) sur chaque part. La
+;;;;       ronde 3 de juillet avait mesure qu'un clone garde en bit14 « spawns but renders
+;;;;       NOTHING » : c'est cette transposition-la qui manquait.
+;;;;   S3  les `:func` tombent : `sparticle-track-root-prim` (202) dereference la `collide-shape`
+;;;;       de l'emetteur et `eco-fadeout` (203/204) son `state-flags` de process — un process
+;;;;       `hud` ne porte ni l'une ni l'autre.
+;;;;   S4  les relances 206/207 tombent AVEC leur callback. Dans le monde, `eco-fadeout` repousse
+;;;;       `next-time` tant que l'emetteur ne s'efface pas : la chaine ne tire jamais et les
+;;;;       couches vivent sur leur timer (seconds -0.005). Portee SANS le callback, elle basculait
+;;;;       sur le lanceur de fondu apres 0,035 s et tuait les etincelles (mesure de la ronde 5).
+;;;;       La chaine 205 -> 208, elle, n'a PAS de callback : elle est conservee telle quelle.
+;;;;   S5  `:x (meters 4)` de l'ancre (202) tombe : un decalage de 4 metres vaut 16384 unites
+;;;;       d'ecran, soit le nuage entier hors champ.
+;;;;   S6  l'echelle de profondeur `:z` est celle du slot de HUD (0.03 / 0.065 / 0.12) et non
+;;;;       celle du monde (0.3) : en espace-ecran `:z` est l'ordre de superposition du HUD.
+;;;;   S7  toutes les grandeurs de TAILLE et de VITESSE sont multipliees par 0,8333 = 2,5 / 3,0 —
+;;;;       le rapport entre le gabarit du slot d'origine (`:scale-x (meters 2.5)` de la part 304
+;;;;       du groupe 75) et la taille MAXIMALE du nuage du monde (2 m + 1 m d'alea). C'est ce qui
+;;;;       met le nuage DANS le rectangle de l'element d'origine (livrable §3) sans toucher a sa
+;;;;       forme : densite, couleurs, rotations, durees de vie et fondus restent ceux du monde.
+;;;;
+;;;; La porte compare a l'execution, champ par champ, les parts 2980..2984 aux parts 202..205/208
+;;;; de `*part-id-table*`. Les champs que S1..S7 transposent sont EXCLUS et comptes a part
+;;;; (`hud3d_eco_fields_excluded`) ; tous les autres — texture, `:num`, couleurs, `:omega`,
+;;;; `:rot-z`, `:rotvel-z`, `:timer`, `:fade-*` — doivent etre EGAUX, et c'est ce que
+;;;; `hud3d_eco_spec_mismatch` compte. Ce sont exactement les quatre choses que l'owner a nommees :
+;;;; densite, vacillement, petites particules, brillance.
 (defpartgroup group-hud-eco-green
   :id 720
   :flags (screen-space)
-  :bounds (static-bspherem 0 0 0 2)
+  :bounds (static-bspherem 0 0 0 1)
   :parts
   ((sp-item 2980 :flags (launch-asap) :binding 2981)
    (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
-   (sp-item 2982 :flags (start-dead launch-asap) :binding 2983)
-   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
-   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
-   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
-   (sp-item 2983 :flags (start-dead launch-asap) :binding 2984)
-   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2984 :fade-after (meters 40) :flags (start-dead))))
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2981 :flags (start-dead launch-asap) :binding 2982)
+   (sp-item 2982 :fade-after (meters 90) :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2982 :fade-after (meters 90) :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2982 :fade-after (meters 90) :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2982 :fade-after (meters 90) :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2982 :fade-after (meters 90) :flags (start-dead launch-asap) :binding 2983)
+   (sp-item 2983 :fade-after (meters 40) :falloff-to (meters 60) :flags (start-dead))
+   (sp-item 2983 :fade-after (meters 40) :falloff-to (meters 60) :flags (start-dead))
+   (sp-item 2983 :fade-after (meters 40) :falloff-to (meters 60) :flags (start-dead))
+   (sp-item 2983 :fade-after (meters 40) :falloff-to (meters 60) :flags (start-dead))
+   (sp-item 2983 :fade-after (meters 40) :falloff-to (meters 60) :flags (start-dead))))
 
+;; 2980 <- 202 (l'ancre invisible qui porte les liaisons). S2 S3 S5 S6.
 (defpart 2980
   :init-specs
   ((:texture (starflash effects))
    (:num 1.0)
-   (:scale-x (meters 0.5))
-   (:scale-y :copy scale-x)
-   (:r 32.0 92.0)
-   (:g 128.0 128.0)
-   (:a 0.0)
-   (:timer (seconds -0.005))
-   (:flags (bit3 bit9))))
-
-;; ROUND 5 — owner rounds 3+4 item 1 ("le sprite de Green Eco n'est pas comme celui qui apparaît
-;; ingame: il vacille pas de la même façon, il n'émet pas les petites particules qu'il est sensé
-;; émettre" / "STILL the DEFAULT hud sprite"). He was literally right: round 3 shipped 720 as a
-;; VERBATIM copy of the stock group-part-hud-pickup (75), so the recharged green eco WAS the
-;; stock hud sprite, byte for byte — nothing could have looked different.
-;; The in-world pickup is group-eco-green (id 58, collectables-part.gc:1249, parts 202-208). Its
-;; parts cannot be used directly: they are bit14 (3D world sprites) and carry :func callbacks
-;; ('sparticle-track-root-prim, 'eco-fadeout) that dereference the emitter's collide-shape — a
-;; world-derived clone is exactly what round 3 measured as "spawns but renders NOTHING".
-;; So: keep 75's GROUP topology and 2D vocabulary (sp-item count/binding/flags, bit9 not bit14,
-;; the 0.03/0.065/0.12 z ladder — the part that is proven to render), and port group 58's
-;; EMISSION CHARACTER onto it. The four differences a player actually sees, each taken from 58:
-;;   * density   — world launches 7x(num 6.0) puffs, the hud sprite 1x(1.0)+1x(3.0). -> 2.0/6.0
-;;   * waver     — NOT ported, and the reason is worth recording. World 203/204 chain to a fading
-;;                 launcher (206 :fade-a -0.16, 207 -0.4267) but ALSO carry :func 'eco-fadeout,
-;;                 which keeps pushing :next-time forward for as long as the emitter is not
-;;                 fading out — so in-world the chain effectively never fires and the layers live
-;;                 on their (seconds -0.005) timer. Porting the chain WITHOUT that callback (the
-;;                 callback dereferences the emitter's process state-flags, which a hud process
-;;                 does not carry) made every layer switch to the fading launcher after 0.035 s
-;;                 and die 0.5 s later: x86 A/B showed the stock sparkles GONE, replaced by a bare
-;;                 diffuse glow. Chains dropped; the layers keep the stock persistent timers.
-;;   * sparks    — world 205 falls under accel-y (meters -0.00015) and lives up to 0.997 s; the
-;;                 hud spark used -0.00002 (7.5x weaker) and 0.797 s, so it barely moved. That
-;;                 is "les petites particules qu'il est sensé émettre". -> world values.
-;;   * brightness— world hotdot 204 is :r 64 64 :g 255 :a 64 against the hud sprite's :a 24.
-;; Sizes are NOT touched here: this group replaces the stock hud-pickups sprite in its own slot,
-;; where the stock footprint is the correct one (only the gauge-centre clones are rescaled).
-(defpart 2981
-  :init-specs
-  ((:texture (bigpuff effects))
-   (:num 2.0)
-   (:y (meters 0) (meters 16))
    (:z (meters 0.03))
-   (:scale-x (meters 2) (meters 1))
-   (:rot-z (degrees 0) (degrees 360))
+   (:scale-x (meters 0.0083333333))
    (:scale-y :copy scale-x)
-   (:r 32.0 92.0)
-   (:g 128.0 128.0)
-   (:a 24.0)
-   (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
-   (:vel-y (meters 0.0014814815))
-   (:vel-z (meters 0))
-   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
+   (:r 0.0)
+   (:g 0.0)
+   (:a 1.0)
    (:timer (seconds -0.005))
-   (:flags (bit7 bit9))))
+   (:flags (bit2 bit3 bit9))))
 
-(defpart 2982
+;; 2981 <- 203 (la bouffee verte, 7 exemplaires, num 6.0). S2 S3 S4 S6.
+(defpart 2981
   :init-specs
   ((:texture (bigpuff effects))
    (:num 6.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 1.5) (meters 0.6))
+   (:scale-x (meters 1.6666667) (meters 0.8333333))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 32.0 92.0)
    (:g 128.0 128.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
+   (:vel-x (meters 0.012345680) (meters 0.0037037038))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
    (:flags (bit3 bit7 bit9))))
 
-(defpart 2983
+;; 2982 <- 204 (le point chaud). S2 S3 S4 S6.
+(defpart 2982
   :init-specs
   ((:texture (hotdot effects))
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.3) (meters 0.2))
+   (:scale-x (meters 0.25) (meters 0.16666667))
    (:scale-y :copy scale-x)
    (:r 64.0 64.0)
    (:g 255.0)
    (:a 64.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.053333335) (meters 0.0148148155))
+   (:vel-x (meters 0.044444446) (meters 0.012345680))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
-(defpart 2984
+;; 2983 <- 205 (« les petites particules qu'il est sensé émettre » — l'owner). Sa chaine vers 208
+;; n'a pas de callback : elle est conservee (2984 <- 208). S2 S6 seulement.
+(defpart 2983
   :init-specs
   ((:texture (hotdot effects))
    (:num 0.25)
-   (:scale-x (meters 0.3))
+   (:y (meters -0.041666667))
+   (:scale-x (meters 0.25))
    (:scale-y :copy scale-x)
    (:r 255.0)
    (:g 255.0)
    (:b 0.0)
    (:a 48.0)
-   (:scalevel-x (meters -0.00075757573))
+   (:scalevel-x (meters -0.00063131311))
    (:scalevel-y :copy scalevel-x)
    (:fade-r -2.8333333)
-   (:accel-y (meters -0.00015))
+   (:accel-y (meters -0.000125))
    (:timer (seconds 0.1) (seconds 0.997))
-   (:flags (bit2 bit9))
+   (:flags (bit2 bit3 bit9))
    (:next-time (seconds 0.3))
-   (:next-launcher 2985)))
+   (:next-launcher 2984)))
 
-(defpart 2985
+;; 2984 <- 208.
+(defpart 2984
   :init-specs ((:fade-r 0.0)))
 
 ;;;; ROUND 5 — owner round-4 addendum #2 item 7 ("l'item [...] fait plutôt la taille entière de
@@ -606,6 +612,7 @@
   ((battle-enemy     (pointer hud-battle-enemy))
    (recharged-health (pointer hud-pc))
    (recharged-power  (pointer hud-pc))
+   (pickups-3d       (pointer hud-pc))
    (parts            (pointer hud-pc) HUD_PART_PC_AMOUNT :offset 0)))
 
 ;;;----------------------------------------------
@@ -613,7 +620,7 @@
 ;;;----------------------------------------------
 
 ;; all of the pc hud elements
-(define *hud-parts-pc* (new 'static 'hud-parts-pc :battle-enemy #f :recharged-health #f :recharged-power #f))
+(define *hud-parts-pc* (new 'static 'hud-parts-pc :battle-enemy #f :recharged-health #f :recharged-power #f :pickups-3d #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud macros
@@ -1248,74 +1255,11 @@
   (let ((ic (-> obj icons 0 icon)))
     (and (nonzero? ic) ic (-> ic 0) (nonzero? (-> ic 0 skel)) #t)))
 
-(defun rhud-set-cell-icon ((sg skeleton-group) (icon-scale float) (world-lit symbol))
-  "replace the stock hud-fuel-cell 3d icon with a fresh manipy using the given
-   skeleton group. returns #t on success (spawned AND skeleton linked).
-   world-lit #t = render like the IN-WORLD cell (owner addendum): time-of-day
-   mood lighting + the world's 0.5 color-mult/emissive floor + anim clock
-   handed over to rhud-drive-cell-anim (world rate, not the manipy 2x loop)."
-  (let ((fc (-> *hud-parts* fuel-cell)))
-    (when fc
-      (let* ((obj (-> fc 0))
-             (new-manipy (manipy-spawn (new 'static 'vector :w 1.0) #f sg #f :to obj)))
-        ;; level art not loaded yet -> skeleton-less zombie that can never draw;
-        ;; kill it and fail so the caller retries next frame (old icon stays)
-        (when (and new-manipy (zero? (-> (-> new-manipy) skel)))
-          (deactivate (ppointer->process new-manipy))
-          (set! new-manipy (the-as (pointer manipy) #f)))
-        (when new-manipy
-          (cond
-            (world-lit
-             ;; warm fixed lights = the daylight world-cell look (the stock hud
-             ;; fn's flat grey *hud-lights* was the owner's "wrong tint"; the
-             ;; mood-light variant went black on device)
-             ;; ROUND 4: use the MERC variant so the envmap cell body renders on arm64
-             ;; (the generic path dropped it -> owner's "la pile n'apparaît pas")
-             (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud-merc-with-cell-lights)
-             (set-vector! (-> (-> new-manipy) draw color-mult) 0.5 0.5 0.5 1.0)
-             (set-vector! (-> (-> new-manipy) draw color-emissive) 0.5 0.5 0.5 1.0)
-             ;; stop the manipy's own 1.0-rate loop (2x the world cell's ~0.5);
-             ;; rhud-drive-cell-anim advances the frame at the world rate
-             (send-event (ppointer->process new-manipy) 'anim-mode 'still))
-            (else (set! (-> (-> new-manipy) draw dma-add-func) dma-add-process-drawable-hud)))
-          (set-vector! (-> (-> new-manipy) root trans) 0.0 0.0 0.0 1.0)
-          (set-vector! (-> (-> new-manipy) root scale) icon-scale icon-scale icon-scale 1.0)
-          (logior! (-> new-manipy 0 mask) (process-mask pause))
-          (logclear! (-> new-manipy 0 mask) (process-mask menu progress))
-          (set! (-> (-> new-manipy) root trans z) 2048.0)
-          ;; retire the old icon
-          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon))
-            (deactivate (ppointer->process (-> obj icons 0 icon))))
-          (set! (-> obj icons 0 icon) new-manipy)
-          (set! (-> obj icons 0 scale-x) icon-scale)
-          (set! (-> obj icons 0 scale-y) icon-scale)
-          ;; the element's hide/show child events already fired, so mirror the
-          ;; current visibility onto the fresh manipy and place it at its slot
-          ;; (otherwise it draws parked at the origin until the next transition)
-          (send-event (ppointer->process new-manipy) 'draw (not (hidden? obj)))
-          (draw-icons obj)
-          #t)))))
-
-(defun rhud-drive-cell-anim ((obj hud))
-  "owner addendum: drive the hud cell icon exactly like the IN-WORLD cell.
-   the world idle plays fuel-cell-idle-ja at (loop! 0.5..0.6) — HALF the manipy
-   'loop rate (the owner's 'animation beaucoup trop vite') — and world cells do
-   NOT yaw-spin (their motion is baked in the anim; the spin was the stock hud
-   element's own set-yaw-angle). the icon is in anim-mode 'still; step its
-   frame at 0.5/frame here and pin the yaw."
-  (let ((ic (-> obj icons 0 icon)))
-    (when (and (nonzero? ic) ic (-> ic 0) (nonzero? (-> ic 0 skel)))
-      (let ((jg (-> ic 0 skel root-channel 0 frame-group)))
-        (when (and (nonzero? jg) jg)
-          (let ((leni (+ (-> jg data 0 length) -1)))
-            (when (> leni 0)
-              ;; half-frame stepping: mod in int half-frames to keep float
-              ;; precision over long sessions, then scale back to 0.5 units
-              (let ((hf (mod (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) (* 2 leni))))
-                (send-event (ppointer->process ic) 'set-frame-num (* 0.5 (the float hf))))))))
-      ;; undo the stock hud-update's per-frame yaw-add (world cells don't spin)
-      (set-yaw-angle-clear-roll-pitch! (-> ic 0 root) 0.0)))
-  (none))
+;; hud-3d-pickups (17/09) : `rhud-set-cell-icon` et `rhud-drive-cell-anim` vivaient ici et
+;; n'ont plus d'appelant — la pile d'energie est l'un des quatre emplacements de l'item
+;; `hud-3d-pickups`, qui porte ses propres `hud3d-make-cell-icon` / `hud3d-drive-cell-anim` hors
+;; de FLAG_RECHARGED_HUD. Elles etaient compilees dans TOUS les binaires sans etre appelees par
+;; personne : retirees.
 
 ;; Grecharged-buildsys-flags: the four hud-recharged-health helpers below are compiled only with --recharged-hud.
 (#when FLAG_RECHARGED_HUD
@@ -1379,9 +1323,11 @@
   (none))
 
 (defun rhud-suppress-stock ((this hud-recharged-health))
-  "per-frame idempotent guards: keep the stock heart/eco-gauge disabled+hidden
-   and the fuel-cell/buzzer icons upgraded while the recharged hud is ON.
-   re-applies automatically if the stock hud processes respawn."
+  "per-frame idempotent guards: keep the stock heart/eco-gauge disabled+hidden while the recharged
+   hud is ON. re-applies automatically if the stock hud processes respawn.
+   hud-3d-pickups (17/09) : LES QUATRE EMPLACEMENTS D'OBJETS ONT QUITTE CETTE FONCTION. La pile,
+   la mecamouche, l'orbe et l'eco verte sont l'item `hud-3d-pickups` et vivent sur son process,
+   hors de FLAG_RECHARGED_HUD. Deux pilotes sur le meme slot se battraient a chaque image."
   (let ((h (-> *hud-parts* health)))
     (when h
       (if (not (-> h 0 disable)) (send-event (ppointer->process h) 'disable))
@@ -1390,63 +1336,14 @@
     (when p
       (if (not (-> p 0 disable)) (send-event (ppointer->process p) 'disable))
       (if (not (hidden? (-> p 0))) (send-event (ppointer->process p) 'hide-quick))))
-  (let ((fc (-> *hud-parts* fuel-cell)))
-    ;; owner round-2 item 2: also re-run when the icon is a dead/skeleton-less
-    ;; zombie (boot-ON spawns during the level-load window) — the old guard
-    ;; latched cell-proc on the first spawn and never retried, so the cell
-    ;; icon stayed invisible for the whole session
-    (when (and fc
-               (or (!= (ppointer->process fc) (-> this cell-proc)) (not (rhud-icon-alive? (-> fc 0)))))
-      (if (rhud-set-cell-icon *fuel-cell-sg* RHUD_CELL_SCALE #t)
-        (set! (-> this cell-proc) (the-as process (ppointer->process fc)))
-        (set! (-> this cell-proc) #f)))
-    ;; owner addendum: world-rate anim + no yaw spin, every frame
-    (if (and fc (= (ppointer->process fc) (-> this cell-proc))) (rhud-drive-cell-anim (-> fc 0)))
-    ;; the stock element also draws a FLAT power-cell sprite group (part 318 +
-    ;; flares/orbit dots) under the 3d icon; the real model brings its own
-    ;; detail, so skip the whole group while the recharged hud is ON
-    ;; (skip-particle 0 = don't spawn particle 0, the group's only slot)
-    (if fc (set! (-> fc 0 skip-particle) 0)))
-  ;; the precursor-orb hud draws a flat hud-egg sprite (the glow) behind the
-  ;; spinning 3d orb; owner wants it gone while the recharged hud is ON
-  (let ((m (-> *hud-parts* money)))
-    (if m (set! (-> m 0 skip-particle) 0)))
-  (let ((ma (-> *hud-parts* money-all)))
-    (if ma (set! (-> ma 0 skip-particle) 0)))
-  ;; the stock pickups hud's flat animated green-eco sprite is replaced by the
-  ;; real pickup rendition (hud-recharged-health hud-update draws it)
-  (let ((pk (-> *hud-parts* pickups)))
-    (if pk (set! (-> pk 0 skip-particle) 0)))
-  (let ((bz (-> *hud-parts* buzzers)))
-    (when (and bz
-               (or (!= (ppointer->process bz) (-> this buzz-proc))
-                   (zero? (-> (the-as hud (-> bz 0)) nb-of-icons))
-                   (not (rhud-icon-alive? (the-as hud (-> bz 0))))))
-      (rhud-add-buzzer-icon this)))
   (none))
 
 (defun rhud-restore-stock ((this hud-recharged-health))
-  "give the stock hud back when the recharged hud is toggled OFF."
+  "give the stock heart/gauge back when the recharged hud is toggled OFF."
   (let ((h (-> *hud-parts* health)))
     (if (and h (-> h 0 disable)) (send-event (ppointer->process h) 'enable)))
   (let ((p (-> *hud-parts* power)))
     (if (and p (-> p 0 disable)) (send-event (ppointer->process p) 'enable)))
-  (when (-> this cell-proc)
-    (let ((fc (-> *hud-parts* fuel-cell)))
-      (if (and fc (= (ppointer->process fc) (-> this cell-proc)))
-        (rhud-set-cell-icon *fuelcell-naked-sg* 0.009 #f)))
-    (set! (-> this cell-proc) #f))
-  ;; restore the stock flat-sprite layers (fuel-cell's stock value is -2, the
-  ;; "hud-update drives particle pos" mode; money's is the default -1)
-  (let ((fc (-> *hud-parts* fuel-cell)))
-    (if fc (set! (-> fc 0 skip-particle) -2)))
-  (let ((m (-> *hud-parts* money)))
-    (if m (set! (-> m 0 skip-particle) -1)))
-  (let ((ma (-> *hud-parts* money-all)))
-    (if ma (set! (-> ma 0 skip-particle) -1)))
-  (let ((pk (-> *hud-parts* pickups)))
-    (if pk (set! (-> pk 0 skip-particle) -1)))
-  (if (-> this buzz-proc) (rhud-remove-buzzer-icon this))
   (none))
 )  ;; #when FLAG_RECHARGED_HUD (rhud-* helpers)
 
@@ -1457,17 +1354,9 @@
 ;; Grecharged-buildsys-flags: all hud-recharged-health / hud-recharged-power methods below compile only with --recharged-hud.
 (#when FLAG_RECHARGED_HUD
 (defmethod init-particles! ((this hud-recharged-health) (arg0 int))
-  ;; owner round-3 item 4: the REAL green-eco pickup particle system, at the stock
-  ;; hud-pickups sprite slot (mirrors hud-pickups::init-particles! exactly)
-  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
-    (let ((s5-0 (-> this nb-of-particles)))
-      (set! (-> this particles s5-0) (new 'static 'hud-particle))
-      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-green this))
-      (set! (-> this particles s5-0 init-pos x) 110.0)
-      (set! (-> this particles s5-0 init-pos y) 55.0)
-      (set! (-> this particles s5-0 init-pos z) 1.0)
-      (set! (-> this particles s5-0 part matrix) -1))
-    (+! (-> this nb-of-particles) 1))
+  ;; hud-3d-pickups (17/09) : la particule d'eco verte a QUITTE cet element. Elle est l'un des
+  ;; quatre emplacements de l'item `hud-3d-pickups`, qui la porte sur son propre process — deux
+  ;; emetteurs au meme slot en dessineraient deux.
   (dotimes (s5-1 (-> this nb-of-particles))
     (if (= (-> this particles s5-1 part matrix) -1) (set! (-> this particles s5-1 part matrix) (sprite-allocate-user-hvdf))))
   (set! (-> this x-sgn) -1)
@@ -1705,6 +1594,734 @@
 ;;;;  hud helper funcs
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  hud-3d-pickups — LES QUATRE EMPLACEMENTS DU HUD EN OBJETS DU JEU
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; L'owner, 17/09 : « pour la mecamouche du HUD, on utilise la vraie mecamouche du jeux et plus un
+;; sprite dégueu, pour l'orbe, on utilise une vraie orbe et plus un sprite dégue, pour la particule
+;; d'éco verte qui flotte à côté du coeur une vraie particule d'eco verte comme celles qu'on ramasse
+;; in game (et pas un truc hacky comme c'est dans le jeu original) et pour la pile d'énergie, idem ! »
+;;
+;; CE QUE LE JEU D'ORIGINE DESSINE, MESURE DANS LE CODE, EMPLACEMENT PAR EMPLACEMENT :
+;;   orbe      `hud-money` porte DEJA le vrai modele du ramassable (`*money-sg*`, manipy,
+;;             hud-classes.gc:597) — mais aussi, PAR-DESSUS, un halo plat (`group-part-hud-orb`).
+;;             Le « sprite dégueu », c'est ce halo. Le modele reste, le halo part.
+;;   pile      `hud-fuel-cell` porte le modele NU (`*fuelcell-naked-sg*`, hud-classes.gc:971), qui
+;;             n'est pas celui du ramassable (`*fuel-cell-sg*`), plus un groupe de sprites plats.
+;;   mecamouche `hud-buzzers` n'a AUCUNE icone : uniquement le sprite `group-part-hud-buzzer`
+;;             (id 81). Le vrai modele existe pourtant : `*buzzer-sg*` (collectables.gc:1211).
+;;   eco verte `hud-pickups` lance `group-part-hud-pickup` (id 75). Il n'existe AUCUN modele 3D
+;;             d'eco verte dans jak1 : le ramassable est le type `health` (collectables.gc:592),
+;;             qui ne pose qu'une collide-shape et dont TOUT le rendu est `group-eco-green` (58).
+;;             L'identite du ramassable EST son emetteur : voir l'en-tete du groupe 720 plus haut.
+;;
+;; CE PROCESS. Il ne touche ni au coeur ni a la jauge (hors perimetre). Il vit hors de
+;; `FLAG_RECHARGED_HUD` : le chantier de juillet etait entierement compile derriere ce drapeau, et
+;; la cause racine de sa ronde 4 fut exactement cela — « the only thing that was missing on the
+;; owner's device was the compile flag ». Ici la couche est dans le binaire livre et suit le
+;; maitre Recharged (`recharged-master?`, defaut ALLUME) ; le bras d'ablation du harnais
+;; (`__pc-autoport-disarmed-for`) rend le HUD d'origine.
+;;
+;; LES DEUX ICONES VIVANTES. Sur la pile, le modele d'origine (icone 0) ET le vrai modele
+;; (icone 1) restent spawnes tous les deux ; une seule est dessinee. C'est ce qui rend le banc de
+;; cout alternable DANS UNE SEULE COURSE sans respawn — un respawn de manipy coute plus cher que
+;; ce que le banc mesure, et deux courses separees mesureraient la scene qui derive.
+
+(defconstant HUD3D_BENCH_BLOCK 40)   ;; images par regime dans le banc de cout
+(defconstant HUD3D_BENCH_SETTLE 6)   ;; images jetees apres chaque bascule
+(defconstant HUD3D_BENCH_MIN 300)    ;; images exigees par regime (livrable §4)
+
+;; Les indices du tableau `parts` de `*hud-parts*` (hud-h.gc:114, superpose a `pickups`). On passe
+;; par lui et non par les champs nommes : il est type `(pointer hud)`, donc aucune conversion.
+(defconstant HUD3D_SLOT_PICKUPS 0)
+(defconstant HUD3D_SLOT_MONEY 1)
+(defconstant HUD3D_SLOT_CELL 2)
+(defconstant HUD3D_SLOT_BUZZERS 4)
+(defconstant HUD3D_SLOT_MONEY_ALL 8)
+
+(deftype hud-3d-pickups (hud-pc)
+  ((on?             symbol)
+   (probe?          symbol)
+   (regime          int32)   ;; 0 = notre couche, 1 = l'origine
+   (block-n         int32)
+   (cell-proc       process)
+   (buzz-proc       process)
+   (pick-proc       process)
+   (cell-stock-ext  float)
+   (cell-our-ext    float)
+   (orb-ext         float)
+   (buzz-ext        float)
+   (buzz-ref-sx     float)
+   (buzz-ref-sy     float)
+   (eco-compared    int32)
+   (eco-excluded    int32)
+   (eco-mismatch    int32)
+   (bench-last      int64)
+   (bench-sum-a     int64)
+   (bench-sum-b     int64)
+   (bench-n-a       int32)
+   (bench-n-b       int32)
+   (judged          int32)
+   (stock-spawns    int32)
+   (off-checks      int32)
+   (off-bad         int32)
+   (id-bad          int32)
+   (rect-bad        int32)
+   (slots-drawn     int32)
+   (live-slots      int32)))
+
+;;;----------------------------------------------
+;;  petites mesures
+;;;----------------------------------------------
+
+(defun hud3d-elt ((idx int))
+  "L'element de HUD de ce slot, SEULEMENT s'il est encore vivant — sinon #f.
+   POURQUOI CE CONTROLE EXISTE. `*hud-parts*` garde des ppointeurs que `deactivate` ne remet pas
+   tous a zero (gkernel.gc:1903 ne touche pas `self`), et `activate-hud` ECRASE ses six slots sans
+   tuer les process precedents (hud-classes.gc:1417). Un slot peut donc designer un emplacement du
+   pool repris par un AUTRE process : `(-> p 0 icons 0 icon)` y lit alors un pointeur quelconque,
+   et le deref suivant tombe en SIGSEGV. Mesure du 17/09 sur le bureau : le jeu mourait a l'image
+   675, au changement de niveau, exactement la ou le HUD est re-active — le bras d'ablation, lui,
+   tenait 11 292 images.
+   Le controle porte sur le TYPE RELU A L'ADRESSE et sur la presence d'un etat, pas sur le
+   pointeur : c'est la seule chose qui distingue un slot vivant d'un slot recycle."
+  (let ((p (-> *hud-parts* parts idx)))
+    (if (and p
+             (nonzero? (-> p 0))
+             (type-type? (-> p 0 type) hud)
+             (nonzero? (-> p 0 next-state))
+             (-> p 0 next-state))
+      p
+      (the-as (pointer hud) #f))))
+
+(defun hud3d-icon-live? ((ic (pointer manipy)))
+  "vrai quand le slot porte un PROCESS vivant — le type relu a l'adresse et un etat present."
+  (and (nonzero? ic)
+       ic
+       (nonzero? (-> ic 0))
+       (type-type? (-> ic 0 type) manipy)
+       (nonzero? (-> ic 0 next-state))
+       (-> ic 0 next-state)
+       #t))
+
+(defun hud3d-drop-dead-icons ((p (pointer hud)))
+  "UN SLOT D'ICONE MORT DOIT CESSER D'EXISTER POUR L'ELEMENT A L'IMAGE MEME.
+   `hud::draw-icons` (hud.gc:72-88) parcourt `nb-of-icons` et dereference `icons i icon 0 root`
+   SANS verifier quoi que ce soit : un manipy dont le process est mort — l'art de son niveau
+   dechargee, par exemple — y devient un pointeur quelconque, et le jeu tombe.
+   MESURE DU 17/09 (bureau) : avec ce controle espace de 15 images, SIGSEGV a l'image 675, au
+   changement de niveau, TROIS courses de suite au MEME endroit ; avec le controle a chaque image,
+   13 490 images sans incident (bras d'ablation : 11 292). Ce n'est pas une precaution, c'est la
+   difference entre un jeu qui tourne et un jeu qui meurt.
+   On tronque a la plus longue suite d'icones vivantes : `draw-icons` s'arrete avant le trou."
+  (when p
+    (let ((n 0)
+          (stop #f))
+      (dotimes (i (-> p 0 nb-of-icons))
+        (when (not stop)
+          (cond
+            ((and (nonzero? (-> p 0 icons i)) (-> p 0 icons i) (hud3d-icon-live? (-> p 0 icons i icon)))
+             (+! n 1))
+            (else (set! stop #t)))))
+      (when (< n (-> p 0 nb-of-icons))
+        (dotimes (i (-> p 0 nb-of-icons))
+          (when (and (>= i n) (nonzero? (-> p 0 icons i)) (-> p 0 icons i))
+            (set! (-> p 0 icons i icon) (the-as (pointer manipy) #f))))
+        (set! (-> p 0 nb-of-icons) n))))
+  (none))
+
+(defun hud3d-alive? ((ic (pointer manipy)))
+  "vrai quand le slot porte un manipy VIVANT et DOTE D'UN SQUELETTE. Un manipy ne dans la fenetre
+   de chargement du niveau revient sans squelette et ne dessine jamais rien — c'est le defaut
+   « la pile n'apparait pas » de juillet, et il faut le distinguer d'un slot vide."
+  (and (hud3d-icon-live? ic) (nonzero? (-> ic 0 skel)) #t))
+
+(defun hud3d-art-name ((ic (pointer manipy)))
+  "le NOM DU GROUPE D'ART reellement attache au modele dessine. C'est la meme chaine que
+   `(-> skeleton-group art-group-name)` : `defskelgroup` la fabrique par `symbol->string` du nom
+   d'art (art-h.gc:292) et `load-to-heap-by-name` rend l'objet qui la porte. Precedent :
+   title-obs.gc:148 compare `(-> self draw art-group name)` a un litteral."
+  (if (and (hud3d-alive? ic) (nonzero? (-> ic 0 draw)) (nonzero? (-> ic 0 draw art-group)))
+    (-> ic 0 draw art-group name)
+    (the-as string #f)))
+
+(defun hud3d-ext ((ic (pointer manipy)) (scale float))
+  "l'ETENDUE d'une icone de HUD, dans l'unite ou elle se compare a une AUTRE icone du meme slot :
+   echelle de l'icone x rayon du modele. Le facteur de projection du HUD est le meme pour les deux,
+   il se simplifie — on ne publie donc jamais un pixel qu'on n'a pas su calculer."
+  (if (and (hud3d-alive? ic) (nonzero? (-> ic 0 draw))) (* scale (-> ic 0 draw bounds w)) 0.0))
+
+(defun hud3d-spawned-this-frame? ((lc sparticle-launch-control))
+  "vrai quand CE lanceur a lance a l'image courante ou a la precedente. La grandeur vient du
+   lanceur, pas de notre drapeau : `spawn` ecrit `last-spawn-frame` a chaque appel
+   (sparticle-launcher.gc:710).
+   DEUX PIEGES, MESURES SUR LE BUREAU LE 17/09 :
+   1. le compteur ecrit est `real-actual-frame-counter`, PAS `integral-frame-counter`. La premiere
+      version comparait au second : elle rendait FAUX pour toujours, et la porte « plus de sprite
+      d'origine » aurait ete verte sans jamais rien mesurer.
+   2. l'ordre d'execution des process dans l'image n'est pas garanti — notre process vit dans le
+      `*display-pool*`, les elements d'origine sous `*target*`. Une fenetre d'UNE image evite de
+      lire un lanceur qui n'a pas encore tourne. Elle penche du cote qui COMPTE le lancement :
+      pour une porte qui exige zero, c'est le sens prudent."
+  (and (nonzero? lc) (>= (-> lc last-spawn-frame) (+ -1 (the int (-> *display* real-actual-frame-counter))))))
+
+(defun hud3d-stock-spawned ((p (pointer hud)) (idx int))
+  (if (and p (> (-> p 0 nb-of-particles) idx) (hud3d-spawned-this-frame? (-> p 0 particles idx part))) 1 0))
+
+;;;----------------------------------------------
+;;  l'identite de l'emetteur d'eco verte
+;;;----------------------------------------------
+
+;; Les champs que S1..S7 transposent. Tout le reste doit etre EGAL a la donnee du ramassable.
+(defun hud3d-eco-field-excluded? ((f int))
+  (or (= f (sp-field-id spt-flags))          ;; S2 bit14 -> bit9
+      (= f (sp-field-id spt-func))           ;; S3 callbacks lies a l'emetteur
+      (= f (sp-field-id spt-next-time))      ;; S4 relances de fondu
+      (= f (sp-field-id spt-next-launcher))
+      (= f (sp-field-id spt-x))              ;; S5 decalage monde de l'ancre
+      (= f (sp-field-id spt-y))
+      (= f (sp-field-id spt-z))              ;; S6 ordre de superposition du HUD
+      (= f (sp-field-id spt-scale-x))        ;; S7 gabarit du slot
+      (= f (sp-field-id spt-scale-y))
+      (= f (sp-field-id spt-scalevel-x))
+      (= f (sp-field-id spt-scalevel-y))
+      (= f (sp-field-id spt-vel-x))
+      (= f (sp-field-id spt-vel-y))
+      (= f (sp-field-id spt-vel-z))
+      (= f (sp-field-id spt-accel-x))
+      (= f (sp-field-id spt-accel-y))
+      (= f (sp-field-id spt-accel-z))))
+
+(defun hud3d-cmp-part ((this hud-3d-pickups) (ours int) (world int))
+  "compare champ par champ le lanceur `ours` a celui du RAMASSABLE `world`, dans
+   `*part-id-table*`. Compte ce qui est compare, ce qui est exclu par S1..S7, et ce qui DIFFERE
+   en dehors de ces exclusions. Un champ present d'un cote et absent de l'autre compte comme un
+   ecart : c'est ce qui empeche la porte d'etre verte parce qu'on a oublie une ligne."
+  (let ((a (-> *part-id-table* ours))
+        (b (-> *part-id-table* world)))
+    (when (and (nonzero? a) (nonzero? b))
+      ;; les champs de NOTRE lanceur, retrouves dans celui du monde
+      (let ((i 0))
+        (while (!= (-> a init-specs i field) (sp-field-id spt-end))
+          (let ((f (the int (-> a init-specs i field))))
+            (cond
+              ((hud3d-eco-field-excluded? f) (+! (-> this eco-excluded) 1))
+              (else
+               (+! (-> this eco-compared) 1)
+               (let ((found #f) (j 0))
+                 (while (!= (-> b init-specs j field) (sp-field-id spt-end))
+                   (when (= (the int (-> b init-specs j field)) f)
+                     (set! found #t)
+                     (if (or (!= (-> a init-specs i initial-value) (-> b init-specs j initial-value))
+                             (!= (-> a init-specs i random-range) (-> b init-specs j random-range))
+                             (!= (-> a init-specs i random-mult) (-> b init-specs j random-mult))
+                             (!= (-> a init-specs i flags) (-> b init-specs j flags)))
+                       (+! (-> this eco-mismatch) 1)))
+                   (+! j 1))
+                 (if (not found) (+! (-> this eco-mismatch) 1))))))
+          (+! i 1)))
+      ;; les champs du RAMASSABLE absents de chez nous
+      (let ((j 0))
+        (while (!= (-> b init-specs j field) (sp-field-id spt-end))
+          (let ((f (the int (-> b init-specs j field))))
+            (when (not (hud3d-eco-field-excluded? f))
+              (let ((found #f) (i 0))
+                (while (!= (-> a init-specs i field) (sp-field-id spt-end))
+                  (if (= (the int (-> a init-specs i field)) f) (set! found #t))
+                  (+! i 1))
+                (if (not found) (begin (+! (-> this eco-compared) 1) (+! (-> this eco-mismatch) 1))))))
+          (+! j 1))))
+    0))
+
+(defun hud3d-eco-identity ((this hud-3d-pickups))
+  "l'identite de l'emetteur d'eco verte, calculee UNE fois : 2980<-202, 2981<-203, 2982<-204,
+   2983<-205, 2984<-208."
+  (set! (-> this eco-compared) 0)
+  (set! (-> this eco-excluded) 0)
+  (set! (-> this eco-mismatch) 0)
+  (hud3d-cmp-part this 2980 202)
+  (hud3d-cmp-part this 2981 203)
+  (hud3d-cmp-part this 2982 204)
+  (hud3d-cmp-part this 2983 205)
+  (hud3d-cmp-part this 2984 208)
+  0)
+
+;;;----------------------------------------------
+;;  les quatre emplacements
+;;;----------------------------------------------
+
+(defun hud3d-drive-cell-anim ((ic (pointer manipy)))
+  "la pile du HUD joue comme celle du MONDE : `fuel-cell-idle-ja` a (loop! 0.5), soit la MOITIE de
+   la cadence propre au manipy — « animation beaucoup trop vite » (owner). Et une pile du monde ne
+   tourne pas sur elle-meme : son mouvement est dans l'anim, le lacet etait celui de l'element de
+   HUD d'origine."
+  (when (hud3d-alive? ic)
+    (let ((jg (-> ic 0 skel root-channel 0 frame-group)))
+      (when (and (nonzero? jg) jg)
+        (let ((leni (+ (-> jg data 0 length) -1)))
+          (when (> leni 0)
+            (let ((hf (mod (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) (* 2 leni))))
+              (send-event (ppointer->process ic) 'set-frame-num (* 0.5 (the float hf))))))))
+    (set-yaw-angle-clear-roll-pitch! (-> ic 0 root) 0.0))
+  (none))
+
+(defun hud3d-make-cell-icon ((this hud-3d-pickups))
+  "pose, SUR L'ELEMENT PILE D'ORIGINE, une SECONDE icone qui porte le vrai modele du ramassable.
+   L'icone d'origine (indice 0) reste vivante : c'est elle qui sert de regime « origine » au banc
+   de cout et de reference de gabarit. L'echelle est calculee — pas reglee a l'oeil — pour que
+   `echelle x rayon` soit EGAL des deux cotes : le vrai modele occupe donc exactement le rectangle
+   de l'icone d'origine."
+  (let ((fc (hud3d-elt HUD3D_SLOT_CELL)))
+    (when (and fc (hud3d-alive? (-> fc 0 icons 0 icon)))
+      (let* ((obj (-> fc 0))
+             (r0 (-> obj icons 0 icon 0 draw bounds w))
+             (r1 (-> *fuel-cell-sg* radius)))
+        (when (and (> r0 0.0) (> r1 0.0) (= (-> obj nb-of-icons) 1))
+          (let ((sc (* (-> obj icons 0 scale-x) (/ r0 r1))))
+            (hud-pc-make-icon obj
+                              HUD_ICON_COUNT
+                              :skel *fuel-cell-sg*
+                              :x (-> obj icons 0 icon-x)
+                              :y (-> obj icons 0 icon-y)
+                              :z 2048.0
+                              :scale-x sc
+                              :scale-y sc)
+            (let ((ic (-> obj icons 1 icon)))
+              (cond
+                ((hud3d-alive? ic)
+                 ;; le vrai modele porte un effet ENVMAP : le chemin generique le laisse tomber sur
+                 ;; arm64 (« la pile n'apparaît pas mais son halo oui », owner). `draw-bones-hud-merc`
+                 ;; l'emet par le chemin merc natif du PC, celui que tout le jeu utilise la-bas.
+                 (set! (-> ic 0 draw dma-add-func) dma-add-process-drawable-hud-merc-with-cell-lights)
+                 (set-vector! (-> ic 0 draw color-mult) 0.5 0.5 0.5 1.0)
+                 (set-vector! (-> ic 0 draw color-emissive) 0.5 0.5 0.5 1.0)
+                 (send-event (ppointer->process ic) 'anim-mode 'still)
+                 (set! (-> this cell-stock-ext) (* (-> obj icons 0 scale-x) r0))
+                 (set! (-> this cell-our-ext) (* sc r1))
+                 (set! (-> this cell-proc) (the-as process (ppointer->process fc))))
+                (else
+                 ;; art du niveau pas encore chargee : manipy sans squelette, qui ne dessinera
+                 ;; jamais rien. On le retire et on reessaiera a l'image suivante.
+                 (when (and (nonzero? ic) ic (-> ic 0)) (deactivate (ppointer->process ic)))
+                 (set! (-> obj icons 1 icon) (the-as (pointer manipy) #f))
+                 (set! (-> obj nb-of-icons) 1)))))))))
+  (none))
+
+(defun hud3d-make-buzzer-icon ((this hud-3d-pickups))
+  "l'element mecamouche d'origine n'a AUCUNE icone — seulement un sprite. Le jeu porte pourtant
+   deja la geometrie de son icone : `get-icon-scale-x/y` sont surchargees sur `hud-buzzers` et sur
+   elle seule (hud-classes.gc). On pose donc le vrai modele du ramassable au centre du sprite
+   d'origine (`init-pos`, meme repere de canevas que `icon-x`/`icon-y`) et a l'echelle que le jeu
+   declare pour cette icone-la. Rien n'est regle a la main."
+  (let ((bz (hud3d-elt HUD3D_SLOT_BUZZERS)))
+    (when (and bz (> (-> bz 0 nb-of-particles) 0))
+      (let ((obj (-> bz 0)))
+        ;; un slot mort ou sans squelette est remis a zero pour etre refait
+        (when (and (> (-> obj nb-of-icons) 0) (not (hud3d-alive? (-> obj icons 0 icon))))
+          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon) (-> obj icons 0 icon 0))
+            (deactivate (ppointer->process (-> obj icons 0 icon))))
+          (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+          (set! (-> obj nb-of-icons) 0))
+        (when (zero? (-> obj nb-of-icons))
+          (set! (-> this buzz-ref-sx) (get-icon-scale-x obj))
+          (set! (-> this buzz-ref-sy) (get-icon-scale-y obj))
+          (hud-pc-make-icon obj
+                            HUD_ICON_COUNT
+                            :skel *buzzer-sg*
+                            :x (the int (-> obj particles 0 init-pos x))
+                            :y (the int (-> obj particles 0 init-pos y))
+                            :z 1024.0
+                            :scale-x (get-icon-scale-x obj)
+                            :scale-y (get-icon-scale-y obj))
+          (let ((ic (-> obj icons 0 icon)))
+            (cond
+              ((hud3d-alive? ic)
+               ;; la pose de repos du modele regarde a l'oppose de la camera
+               (send-event (ppointer->process ic)
+                           'rot-quat
+                           (quaternion-axis-angle! (new-stack-quaternion0) 0.0 1.0 0.0 (degrees 180)))
+               (set! (-> this buzz-ext) (* (get-icon-scale-x obj) (-> ic 0 draw bounds w)))
+               (set! (-> this buzz-proc) (the-as process (ppointer->process bz))))
+              (else
+               (when (and (nonzero? ic) ic (-> ic 0)) (deactivate (ppointer->process ic)))
+               (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+               (set! (-> obj nb-of-icons) 0))))))))
+  (none))
+
+(defun hud3d-orb-state ((this hud-3d-pickups))
+  "NOMME ce qui manque a l'emplacement orbe, au lieu de le deviner.
+   0 aucun element `hud-money` · 1 element sans icone · 2 slot d'icone vide ·
+   3 manipy SANS SQUELETTE (ne dessinera jamais rien) · 4 vivante."
+  (let ((mo (hud3d-elt HUD3D_SLOT_MONEY)))
+    (cond
+      ((not mo) 0)
+      ((zero? (-> mo 0 nb-of-icons)) 1)
+      ((let ((ic (-> mo 0 icons 0 icon))) (not (and (nonzero? ic) ic (-> ic 0)))) 2)
+      ((zero? (-> mo 0 icons 0 icon 0 skel)) 3)
+      (else 4))))
+
+(defun hud3d-repair-orb-icon ((this hud-3d-pickups))
+  "L'element orbe porte DEJA le vrai modele du ramassable (`*money-sg*`, hud-classes.gc:597) — mais
+   `hud-money::init-particles!` ne le spawne QU'UNE FOIS, a l'activation du HUD. Si l'art du niveau
+   n'est pas encore chargee a cet instant, le manipy revient SANS SQUELETTE et ne dessinera plus
+   jamais rien : il ne reste a l'ecran que le halo plat `group-part-hud-orb`. C'est tres exactement
+   ce que l'owner appelle « un sprite dégueu » a la place d'« une vraie orbe ».
+   MESURE (bureau, 17/09) : `hud3d_model_orb` rendait « - » — aucun groupe d'art attache — alors
+   que la pile et la mecamouche rendaient bien `fuel-cell` et `buzzer`.
+   ON NE DESACTIVE PAS L'ANCIENNE ICONE. Un `deactivate` sur ce ppointer a fait tomber le bureau
+   en SIGSEGV (course du 17/09) : `deactivate` ne remet pas `self` a zero, et le slot peut deja
+   pointer sur de la memoire rendue au pool puis reprise par un autre process. On remplace le
+   pointeur ; le zombie, qui ne dessine rien, s'eteindra avec son parent."
+  (when (and (hud3d-elt HUD3D_SLOT_MONEY) (>= (hud3d-orb-state this) 1))
+    (let* ((mo (hud3d-elt HUD3D_SLOT_MONEY))
+           (obj (-> mo 0))
+           (nm (manipy-spawn (new 'static 'vector :w 1.0) #f *money-sg* #f :to obj)))
+      (when (and nm (-> nm 0) (nonzero? (-> nm 0 skel)))
+        (set! (-> nm 0 draw dma-add-func) dma-add-process-drawable-hud)
+        (set-vector! (-> nm 0 root trans) 0.0 0.0 0.0 1.0)
+        (set-vector! (-> nm 0 root scale)
+                     (-> obj icons 0 scale-x)
+                     (-> obj icons 0 scale-y)
+                     (-> obj icons 0 scale-x)
+                     1.0)
+        (logior! (-> nm 0 mask) (process-mask pause))
+        (logclear! (-> nm 0 mask) (process-mask menu progress))
+        (set! (-> nm 0 root trans z) 1024.0)
+        (set! (-> obj icons 0 icon) nm)
+        (if (zero? (-> obj nb-of-icons)) (set! (-> obj nb-of-icons) 1))
+        (send-event (ppointer->process nm) 'draw (not (hidden? obj)))
+        (draw-icons obj))))
+  (none))
+
+(defun hud3d-icon-draw! ((obj hud) (idx int) (on symbol))
+  "montre ou cache UNE icone d'un element de HUD. L'etat d'arrivee de l'element renvoie `draw #t`
+   a TOUS ses enfants ; il faut donc re-affirmer le choix a chaque image, sinon la premiere
+   apparition rend les deux modeles visibles en meme temps."
+  (when (and obj (> (-> obj nb-of-icons) idx))
+    (let ((ic (-> obj icons idx icon)))
+      (if (hud3d-alive? ic) (send-event (ppointer->process ic) 'draw on))))
+  (none))
+
+(defun hud3d-set-regime ((this hud-3d-pickups) (ours symbol))
+  "pose les quatre emplacements dans l'un des deux regimes. `ours` = les objets du jeu ;
+   sinon exactement ce que le jeu d'origine dessine."
+  (let ((fc (hud3d-elt HUD3D_SLOT_CELL)))
+    (when fc
+      (let ((obj (-> fc 0)))
+        (hud3d-icon-draw! obj 0 (not ours))
+        (hud3d-icon-draw! obj 1 ours)
+        (if ours (hud3d-drive-cell-anim (-> obj icons 1 icon)))
+        ;; l'element pile dessine aussi un groupe de sprites plats sous son icone ; -2 est sa
+        ;; valeur d'origine (« hud-update pilote la position »), 0 saute la particule 0.
+        (set! (-> obj skip-particle) (if ours 0 -2)))))
+  (let ((bz (hud3d-elt HUD3D_SLOT_BUZZERS)))
+    (when bz
+      (let ((obj (-> bz 0)))
+        (hud3d-icon-draw! obj 0 ours)
+        (set! (-> obj skip-particle) (if ours 0 -1)))))
+  ;; l'orbe porte DEJA le vrai modele du ramassable ; seul le halo plat par-dessus s'en va
+  (let ((m (hud3d-elt HUD3D_SLOT_MONEY))) (if m (set! (-> m 0 skip-particle) (if ours 0 -1))))
+  (let ((ma (hud3d-elt HUD3D_SLOT_MONEY_ALL))) (if ma (set! (-> ma 0 skip-particle) (if ours 0 -1))))
+  ;; l'eco verte : le sprite d'origine de `hud-pickups`, ou notre emetteur (porte par CE process)
+  (let ((pk (hud3d-elt HUD3D_SLOT_PICKUPS))) (if pk (set! (-> pk 0 skip-particle) (if ours 0 -1))))
+  (set! (-> this skip-particle) (if ours -1 0))
+  (none))
+
+;;;----------------------------------------------
+;;  la preuve
+;;;----------------------------------------------
+
+(defun hud3d-pin ((p (pointer hud)))
+  "epingle un element du HUD a l'ecran pour la duree de la course de preuve. `force-on-screen`
+   re-estampe `trigger-time` a chaque image (c'est l'epinglage que le HUD du zoomer utilise) ;
+   `friend` est mis a -1 pour que l'element n'entraine pas un voisin avec lui. Ce geste ne tourne
+   QUE sous `debug.opengoal.costprobe` — le joueur ne le voit jamais."
+  (when p
+    (set! (-> p 0 force-on-screen) #t)
+    (set! (-> p 0 friend) -1)
+    (set! (-> p 0 disable) #f))
+  (none))
+
+(defun hud3d-model-name ((p (pointer hud)) (idx int))
+  (if (and p (> (-> p 0 nb-of-icons) idx)) (hud3d-art-name (-> p 0 icons idx icon)) (the-as string #f)))
+
+(defun hud3d-pub-name ((key string) (v string))
+  (__pc-autoport-publish-text key (if v v "-"))
+  (none))
+
+(defun hud3d-name-ok? ((v string) (want string))
+  (and v want (string= v want) #t))
+
+(defun hud3d-part-max-scale ((id int))
+  "la demi-taille MAXIMALE que ce lanceur peut donner a une particule : valeur de base + alea du
+   champ `scale-x`. C'est la grandeur qui decide si le nuage tient dans le rectangle de
+   l'element d'origine (livrable §3)."
+  (let ((p (-> *part-id-table* id))
+        (v 0.0))
+    (when (nonzero? p)
+      (let ((i 0))
+        (while (!= (-> p init-specs i field) (sp-field-id spt-end))
+          (when (= (-> p init-specs i field) (sp-field-id spt-scale-x))
+            (set! v (+ (-> p init-specs i initial-valuef) (-> p init-specs i random-rangef))))
+          (+! i 1))))
+    v))
+
+(defun hud3d-publish ((this hud-3d-pickups))
+  (let* ((pk (hud3d-elt HUD3D_SLOT_PICKUPS))
+         (mo (hud3d-elt HUD3D_SLOT_MONEY))
+         (fc (hud3d-elt HUD3D_SLOT_CELL))
+         (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
+         (n-orb (hud3d-model-name mo 0))
+         (n-cell (hud3d-model-name fc 1))
+         (n-buzz (hud3d-model-name bz 0))
+         (id-bad 0)
+         (rect-bad 0)
+         (measured 0))
+
+    ;; ── §1 QUATRE EMPLACEMENTS, QUATRE MODELES ──────────────────────────────────────────────
+    ;; L'identite publiee est le NOM DU GROUPE D'ART que le moteur a reellement attache au modele
+    ;; dessine, confronte au nom que porte le `skeleton-group` DU RAMASSABLE. Ce n'est pas notre
+    ;; variable : c'est ce que `initialize-skeleton` a trouve.
+    (hud3d-pub-name "hud3d_model_orb" n-orb)
+    (__pc-autoport-publish "hud3d_orb_state" (hud3d-orb-state this))
+    (hud3d-pub-name "hud3d_model_cell" n-cell)
+    (hud3d-pub-name "hud3d_model_buzzer" n-buzz)
+    (hud3d-pub-name "hud3d_pickup_orb" (-> *money-sg* art-group-name))
+    (hud3d-pub-name "hud3d_pickup_cell" (-> *fuel-cell-sg* art-group-name))
+    (hud3d-pub-name "hud3d_pickup_buzzer" (-> *buzzer-sg* art-group-name))
+    (hud3d-pub-name "hud3d_model_eco" "groupe-58-transpose-en-espace-ecran")
+    (if (not (hud3d-name-ok? n-orb (-> *money-sg* art-group-name))) (+! id-bad 1))
+    (if (not (hud3d-name-ok? n-cell (-> *fuel-cell-sg* art-group-name))) (+! id-bad 1))
+    (if (not (hud3d-name-ok? n-buzz (-> *buzzer-sg* art-group-name))) (+! id-bad 1))
+    (__pc-autoport-publish "hud3d_eco_fields_compared" (-> this eco-compared))
+    (__pc-autoport-publish "hud3d_eco_fields_excluded" (-> this eco-excluded))
+    (__pc-autoport-publish "hud3d_eco_spec_mismatch" (-> this eco-mismatch))
+    (if (or (zero? (-> this eco-compared)) (nonzero? (-> this eco-mismatch))) (+! id-bad 1))
+
+    ;; ── §3 LA POSITION ET LA TAILLE ─────────────────────────────────────────────────────────
+    ;; Chaque emplacement est confronte au rectangle de l'element D'ORIGINE, dans le repere ou les
+    ;; deux se comparent exactement. Le facteur de projection du HUD, qu'on n'a pas su etablir en
+    ;; formule fermee, se simplifie dans chaque rapport : on ne publie aucun pixel invente.
+    (when (and fc (> (-> fc 0 nb-of-icons) 1))
+      (__pc-autoport-publish "hud3d_rect_cell_cx" (-> fc 0 icons 1 icon-x))
+      (__pc-autoport-publish "hud3d_rect_cell_cy" (-> fc 0 icons 1 icon-y))
+      (__pc-autoport-publish "hud3d_rect_cell_ref_cx" (-> fc 0 icons 0 icon-x))
+      (__pc-autoport-publish "hud3d_rect_cell_ref_cy" (-> fc 0 icons 0 icon-y))
+      (__pc-autoport-publish "hud3d_rect_cell_ext_milli" (the int (* 1000.0 (-> this cell-our-ext))))
+      (__pc-autoport-publish "hud3d_rect_cell_ref_ext_milli" (the int (* 1000.0 (-> this cell-stock-ext))))
+      (if (or (!= (-> fc 0 icons 1 icon-x) (-> fc 0 icons 0 icon-x))
+              (!= (-> fc 0 icons 1 icon-y) (-> fc 0 icons 0 icon-y))
+              (> (-> this cell-our-ext) (+ 0.0001 (-> this cell-stock-ext))))
+        (+! rect-bad 1)))
+    (when (and bz (> (-> bz 0 nb-of-particles) 0) (> (-> bz 0 nb-of-icons) 0))
+      (__pc-autoport-publish "hud3d_rect_buzzer_cx" (-> bz 0 icons 0 icon-x))
+      (__pc-autoport-publish "hud3d_rect_buzzer_cy" (-> bz 0 icons 0 icon-y))
+      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cx" (the int (-> bz 0 particles 0 init-pos x)))
+      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cy" (the int (-> bz 0 particles 0 init-pos y)))
+      (__pc-autoport-publish "hud3d_rect_buzzer_scale_milli" (the int (* 100000.0 (-> bz 0 icons 0 scale-x))))
+      (__pc-autoport-publish "hud3d_rect_buzzer_ref_scale_milli" (the int (* 100000.0 (-> this buzz-ref-sx))))
+      (hud3d-pub-name "hud3d_rect_buzzer_basis" "get-icon-scale-x/y_de_hud-buzzers_(donnee_du_jeu)")
+      (if (or (!= (-> bz 0 icons 0 icon-x) (the int (-> bz 0 particles 0 init-pos x)))
+              (!= (-> bz 0 icons 0 icon-y) (the int (-> bz 0 particles 0 init-pos y)))
+              (!= (-> bz 0 icons 0 scale-x) (-> this buzz-ref-sx))
+              (!= (-> bz 0 icons 0 scale-y) (-> this buzz-ref-sy)))
+        (+! rect-bad 1)))
+    (when (and pk (> (-> pk 0 nb-of-particles) 0) (> (-> this nb-of-particles) 0))
+      (let ((ours (hud3d-part-max-scale 2981))
+            (ref (hud3d-part-max-scale 304)))
+        (__pc-autoport-publish "hud3d_rect_eco_cx" (the int (-> this particles 0 init-pos x)))
+        (__pc-autoport-publish "hud3d_rect_eco_cy" (the int (-> this particles 0 init-pos y)))
+        (__pc-autoport-publish "hud3d_rect_eco_ref_cx" (the int (-> pk 0 particles 0 init-pos x)))
+        (__pc-autoport-publish "hud3d_rect_eco_ref_cy" (the int (-> pk 0 particles 0 init-pos y)))
+        (__pc-autoport-publish "hud3d_rect_eco_ext_milli" (the int ours))
+        (__pc-autoport-publish "hud3d_rect_eco_ref_ext_milli" (the int ref))
+        (if (or (!= (-> this particles 0 init-pos x) (-> pk 0 particles 0 init-pos x))
+                (!= (-> this particles 0 init-pos y) (-> pk 0 particles 0 init-pos y))
+                (> ours (+ 1.0 ref))
+                (zero? ref))
+          (+! rect-bad 1))))
+    ;; l'orbe : l'element d'origine porte deja le vrai modele et sa geometrie n'est pas touchee
+    (hud3d-pub-name "hud3d_rect_orb_basis" "element_d_origine_inchange_seul_le_halo_plat_est_retire")
+    (__pc-autoport-publish "hud3d_rect_orb_ext_milli" (the int (* 1000.0 (-> this orb-ext))))
+
+    ;; ── §4 LE COUT ──────────────────────────────────────────────────────────────────────────
+    (let ((ma (if (> (-> this bench-n-a) 0) (/ (-> this bench-sum-a) (the int64 (-> this bench-n-a))) 0))
+          (mb (if (> (-> this bench-n-b) 0) (/ (-> this bench-sum-b) (the int64 (-> this bench-n-b))) 0)))
+      (__pc-autoport-publish "hud3d_cost_on_frames" (-> this bench-n-a))
+      (__pc-autoport-publish "hud3d_cost_off_frames" (-> this bench-n-b))
+      (__pc-autoport-publish "hud3d_cost_on_us" (the int ma))
+      (__pc-autoport-publish "hud3d_cost_off_us" (the int mb))
+      (__pc-autoport-publish "hud3d_cost_delta_us" (the int (if (> ma mb) (- ma mb) 0)))
+      (let ((t4 (if (and (>= (-> this bench-n-a) HUD3D_BENCH_MIN)
+                         (>= (-> this bench-n-b) HUD3D_BENCH_MIN))
+                  (begin (+! measured 1) (if (>= (- ma mb) 300) 1 0))
+                  1)))
+        (__pc-autoport-publish "hud3d_t4_cost" t4)
+        (if (and (>= (-> this bench-n-a) HUD3D_BENCH_MIN) (>= (-> this bench-n-b) HUD3D_BENCH_MIN))
+          (hud3d-pub-name "hud3d_cost_state" "mesure_par_alternance_dans_une_seule_course")
+          (hud3d-pub-name "hud3d_cost_state" "non-mesure"))
+
+        ;; ── la somme ──────────────────────────────────────────────────────────────────────
+        (__pc-autoport-publish "hud3d_judged_frames" (-> this judged))
+        (__pc-autoport-publish "hud3d_slots_drawn" (-> this slots-drawn))
+        (__pc-autoport-publish "hud3d_live_slots" (-> this live-slots))
+        (__pc-autoport-publish "hud3d_master_on" (if (-> this on?) 1 0))
+        (__pc-autoport-publish "hud3d_probe_on" (if (-> this probe?) 1 0))
+        (__pc-autoport-publish "hud3d_off_checks" (-> this off-checks))
+        (__pc-autoport-publish "hud3d_stock_sprite_spawns" (-> this stock-spawns))
+        (let ((t1 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) id-bad) (+ id-bad 1)))
+              (t2 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this stock-spawns)) 1))
+              (t3 (if (> (-> this judged) 0) (begin (+! measured 1) rect-bad) 1))
+              (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1)))
+          (__pc-autoport-publish "hud3d_t1_identity" t1)
+          (__pc-autoport-publish "hud3d_t2_sprites" t2)
+          (__pc-autoport-publish "hud3d_t3_rect" t3)
+          (__pc-autoport-publish "hud3d_t5_off" t5)
+          (__pc-autoport-publish "hud3d_terms_measured" measured)
+          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5))))))
+  0)
+
+
+(defmethod hud-update ((this hud-3d-pickups))
+  (let* ((master (and (-> *pc-settings* recharged-master?) #t))
+         (armed (zero? (__pc-autoport-disarmed-for "hud-3d-pickups")))
+         (on (and master armed))
+         (fc (hud3d-elt HUD3D_SLOT_CELL))
+         (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
+         (mo (hud3d-elt HUD3D_SLOT_MONEY))
+         (pk (hud3d-elt HUD3D_SLOT_PICKUPS)))
+    (set! (-> this on?) on)
+    (set! (-> this probe?) (and (nonzero? (__pc-autoport-cost-probe "hud-3d-pickups")) #t))
+
+    ;; ── l'alternance du banc de cout ────────────────────────────────────────────────────────
+    ;; Deux courses separees mesureraient une scene et une cadence qui derivent. Les deux regimes
+    ;; alternent donc DANS LA MEME course, par blocs, les premieres images de chaque bloc jetees.
+    (cond
+      ((and on (-> this probe?))
+       (+! (-> this block-n) 1)
+       (when (>= (-> this block-n) HUD3D_BENCH_BLOCK)
+         (set! (-> this block-n) 0)
+         (set! (-> this regime) (- 1 (-> this regime)))))
+      (else (set! (-> this regime) 0) (set! (-> this block-n) HUD3D_BENCH_BLOCK)))
+
+    (when on
+      ;; une icone morte se refait
+      ;; du niveau absente ferait naitre et mourir un process par image jusqu'a la fin de la course.
+      ;; LE NETTOYAGE A CHAQUE IMAGE, LA RE-CREATION ESPACEE. Le premier est vital (voir
+      ;; `hud3d-drop-dead-icons`) ; la seconde ne l'est pas, et la faire a chaque image ferait
+      ;; naitre et mourir un process par image tant que l'art du niveau manque.
+      (hud3d-drop-dead-icons fc)
+      (hud3d-drop-dead-icons bz)
+      (hud3d-drop-dead-icons mo)
+      ;; A CHAQUE IMAGE, PAS PAR ECHANTILLONNAGE. Les trois fonctions ne font RIEN quand l'icone
+      ;; est deja vivante (leur garde porte sur `nb-of-icons` et sur la vie du manipy) : les
+      ;; espacer n'economise rien et laisse au contraire une fenetre ou l'element porte un slot
+      ;; que `hud::draw-icons` dereference. Mesure du 17/09 : espacees de 15 images, SIGSEGV a
+      ;; l'image 675 a chaque course ; a chaque image, plus de 13 000 images sans incident.
+      (hud3d-make-cell-icon this)
+      (hud3d-make-buzzer-icon this)
+      (hud3d-repair-orb-icon this)
+      (when (-> this probe?) (hud3d-pin pk) (hud3d-pin mo) (hud3d-pin fc) (hud3d-pin bz)))
+    (hud3d-set-regime this (and on (zero? (-> this regime))))
+
+    ;; ── notre emetteur d'eco verte suit l'element d'origine ─────────────────────────────────
+    ;; Sa position N'EST PAS un litteral : elle est relue sur l'element d'origine a chaque image,
+    ;; ce qui rend l'egalite des rectangles (livrable §3) mesuree et non affirmee.
+    (when (and pk (> (-> pk 0 nb-of-particles) 0) (> (-> this nb-of-particles) 0))
+      (set! (-> this particles 0 init-pos x) (-> pk 0 particles 0 init-pos x))
+      (set! (-> this particles 0 init-pos y) (-> pk 0 particles 0 init-pos y))
+      (set! (-> this particles 0 init-pos z) (-> pk 0 particles 0 init-pos z)))
+    (when pk
+      (set! (-> this offset) (-> pk 0 offset))
+      (set! (-> this y-offset) (-> pk 0 y-offset))
+      (when (!= (-> this last-hide-time) (current-time))
+        (cond
+          ((and on (not (hidden? (-> pk 0))) (hidden? this)) (send-event this 'show))
+          ((and (or (not on) (hidden? (-> pk 0))) (not (hidden? this))) (send-event this 'hide-quick)))))
+
+    ;; ── le temps par image, releve ici parce que ce point tourne a CHAQUE image, cache ou non ─
+    (let ((now (__pc-autoport-now-us)))
+      (when (and (nonzero? (-> this bench-last)) (-> this probe?) on)
+        (let ((dt (- now (-> this bench-last))))
+          ;; une image de plus de 200 ms n'est pas une image : c'est un chargement
+          (when (and (> dt 0) (< dt 200000) (>= (-> this block-n) HUD3D_BENCH_SETTLE))
+            (cond
+              ((zero? (-> this regime)) (+! (-> this bench-sum-a) dt) (+! (-> this bench-n-a) 1))
+              (else (+! (-> this bench-sum-b) dt) (+! (-> this bench-n-b) 1))))))
+      (set! (-> this bench-last) now))
+
+    ;; ── ce qui est DESSINE a cette image ────────────────────────────────────────────────────
+    (when on
+      (let ((slots 0)
+            (live 0))
+        ;; orbe : l'element d'origine porte deja le vrai modele
+        (when (and mo (hud3d-alive? (-> mo 0 icons 0 icon)))
+          (+! live 1)
+          (when (not (hidden? (-> mo 0))) (+! slots 1))
+          (set! (-> this orb-ext) (hud3d-ext (-> mo 0 icons 0 icon) (-> mo 0 icons 0 scale-x))))
+        (when (and fc (> (-> fc 0 nb-of-icons) 1) (hud3d-alive? (-> fc 0 icons 1 icon)))
+          (+! live 1)
+          (when (not (hidden? (-> fc 0))) (+! slots 1)))
+        (when (and bz (> (-> bz 0 nb-of-icons) 0) (hud3d-alive? (-> bz 0 icons 0 icon)))
+          (+! live 1)
+          (when (not (hidden? (-> bz 0))) (+! slots 1)))
+        (when (and (> (-> this nb-of-particles) 0) (hud3d-spawned-this-frame? (-> this particles 0 part)))
+          (+! live 1)
+          (+! slots 1))
+        (set! (-> this slots-drawn) slots)
+        (set! (-> this live-slots) live)
+        (if (> slots 0) (__pc-autoport-hit-for "hud-3d-pickups" slots))
+
+        ;; les quatre emplacements vivants ET a l'ecran : c'est la population que la porte juge
+        (when (and (= live 4) (> slots 0))
+          (+! (-> this judged) 1)
+          (cond
+            ((zero? (-> this regime))
+             ;; §2 — PLUS DE SPRITE : aucun lancement du chemin d'origine pour ces quatre elements
+             (+! (-> this stock-spawns)
+                 (+ (hud3d-stock-spawned pk 0)
+                    (hud3d-stock-spawned bz 0)
+                    (hud3d-stock-spawned mo 0)
+                    (hud3d-stock-spawned fc 0))))
+            (else
+             ;; §5 — ETEINT = ORIGINE : l'element d'origine redessine, le notre est retire
+             (+! (-> this off-checks) 1)
+             (if (hud3d-spawned-this-frame? (-> this particles 0 part)) (+! (-> this off-bad) 1))
+             (if (and fc (> (-> fc 0 nb-of-icons) 1) (not (hud3d-alive? (-> fc 0 icons 0 icon))))
+               (+! (-> this off-bad) 1)))))))
+
+    ;; ── l'identite, relevee une fois les quatre emplacements vivants ────────────────────────
+    (when (and on (zero? (-> this eco-compared)) (> (-> this judged) 0)) (hud3d-eco-identity this))
+
+    (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60)) (hud3d-publish this)))
+  0
+  (none))
+
+(defmethod init-particles! ((this hud-3d-pickups) (arg0 int))
+  "notre emetteur d'eco verte, au slot du sprite d'origine. Il vit sur CE process : le lanceur est
+   alloue sur son tas, et il meurt avec lui — un lanceur pose sur le tas d'un autre element serait
+   une reference pendante le jour ou cet element disparait."
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-0 (-> this nb-of-particles)))
+      (set! (-> this particles s5-0) (new 'static 'hud-particle))
+      (set! (-> this particles s5-0 part) (create-launch-control group-hud-eco-green this))
+      (set! (-> this particles s5-0 init-pos x) 110.0)
+      (set! (-> this particles s5-0 init-pos y) 55.0)
+      (set! (-> this particles s5-0 init-pos z) 1.0)
+      (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  (dotimes (i (-> this nb-of-particles))
+    (if (= (-> this particles i part matrix) -1) (set! (-> this particles i part matrix) (sprite-allocate-user-hvdf))))
+  (set! (-> this x-sgn) -1)
+  (set! (-> this y-sgn) -1)
+  (set! (-> this friend) -1)
+  (set! (-> this regime) 0)
+  (set! (-> this block-n) HUD3D_BENCH_BLOCK)
+  (set! (-> this bench-last) 0)
+  0
+  (none))
+
 (defun deactivate-hud-pc ()
   "kill the pc hud"
   (dotimes (i HUD_PART_PC_AMOUNT)
@@ -1716,6 +2333,11 @@
   (deactivate-hud-pc)
   (set! (-> *hud-parts-pc* battle-enemy)
         (process-spawn hud-battle-enemy :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))
+  ;; hud-3d-pickups : hors de FLAG_RECHARGED_HUD — la couche est dans le binaire livre et suit le
+  ;; maitre Recharged. Le chantier de juillet etait entierement derriere le drapeau de compilation,
+  ;; et c'est precisement ce qui manquait sur l'appareil de l'owner a sa ronde 4.
+  (set! (-> *hud-parts-pc* pickups-3d)
+        (the-as (pointer hud-pc) (process-spawn hud-3d-pickups :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   (#when FLAG_RECHARGED_HUD
   (set! (-> *hud-parts-pc* recharged-health)
         (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))

@@ -561,6 +561,18 @@
 ;; L'identifiant doit aussi porter un `AUTOPORT_FEATURE_SITE` dans kmachine.cpp.
 (define-extern __pc-autoport-hit-for (function string int none))
 
+;; hud-3d-pickups : LE NOM d'une grandeur, publie sur sa propre ligne. `__pc-autoport-publish`
+;; n'accepte qu'un entier ; l'identite d'un modele est un NOM (son groupe d'art). Une chaine vide
+;; est refusee par le C++, qui publie alors "-" : une cle de texte ne se vide jamais toute seule
+;; et garderait sinon la valeur de l'image precedente.
+(define-extern __pc-autoport-publish-text (function string string none))
+;; hud-3d-pickups : l'horloge MONOTONE en microsecondes. Sert a mesurer un cout par image en
+;; ALTERNANT les deux regimes dans UNE course — deux courses separees mesurent la scene qui derive.
+(define-extern __pc-autoport-now-us (function int))
+;; hud-3d-pickups : 1 quand `proof_props` a pose `debug.opengoal.costprobe=<id>` (bureau :
+;; AUTOPORT_COST_PROBE). Hors course de preuve, 0 : aucun banc d'alternance ne tourne chez le joueur.
+(define-extern __pc-autoport-cost-probe (function string int))
+
 ;; menu-dpad-steps : une passe de respond-common. mask 1=haut tenu 2=bas tenu 4=front haut
 ;; 8=front bas 16=tap haut 32=tap bas ; steps = crans de CETTE image ; screen = display-state.
 (define-extern __pc-menu-dpad-frame (function int int int none))
