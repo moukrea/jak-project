@@ -423,6 +423,35 @@ def adopt_owner_order(L, bl, mp, states, dry):
     return 1
 
 
+def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
+    """Tickets HORS backlog (questions closes, tickets de l'owner non adoptes) qui portent nos etiquettes :
+    memes regles que les autres — 👍/✅ sur la derniere reponse robot = lu ; commentaire owner = « A traiter ».
+    17/09 : JAK-173 (question, passee Done sans etre dans la carte) a garde « A lire » 21 min malgre son pouce."""
+    known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
+    OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
+    n = 0
+    for lab in (read, todo, talk):
+        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } comments { nodes { body createdAt reactions { emoji } } } } } } }', id=lab)
+        for iss in d["issueLabel"]["issues"]["nodes"]:
+            if iss["id"] in known:
+                continue
+            have = {l["id"] for l in iss["labels"]["nodes"]}
+            cs = sorted(iss["comments"]["nodes"], key=lambda c: c["createdAt"])
+            ours = [c for c in cs if c["body"].startswith(MARK)]
+            last_owner = [c for c in cs if not c["body"].startswith(MARK)]
+            if read in have and ours and any(any(k in str(r["emoji"]) for k in OK_EMOJI) for r in (ours[-1].get("reactions") or [])):
+                print("  reaction owner sur la derniere reponse de %s (hors backlog) : lu" % iss["identifier"])
+                if not dry:
+                    swap_labels(L, iss["id"], remove=read); swap_labels(L, iss["id"], remove=talk)
+                n += 1
+            elif cs and not cs[-1]["body"].startswith(MARK) and todo not in have:
+                print("  retour owner sur %s (hors backlog) : %s" % (iss["identifier"], cs[-1]["body"][:80].replace("\n", " ")))
+                if not dry:
+                    swap_labels(L, iss["id"], add=todo, remove=read)
+                n += 1
+    return n
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -638,13 +667,14 @@ def main():
     if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run):
         bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
+    pull_labeled_unmapped(L, mp, label, todo, _TALK["id"], a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage
     # tant qu'un ticket la porte : le guetteur du superviseur lit ces lignes.
     d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo)
     by_issue = {v["issue_id"]: k for k, v in mp.items() if not k.startswith("_")}
     for iss in d["issueLabel"]["issues"]["nodes"]:
-        print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "?")))
+        print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "hors-backlog")))
     if not a.dry_run:
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis, %d requêtes" % (created, updated, moved, rel, swept, len([k for k in mp if not k.startswith("_")]), L.n))

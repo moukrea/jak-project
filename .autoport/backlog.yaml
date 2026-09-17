@@ -12223,7 +12223,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.ao.tie.campaign=tie-alpha-20260916-attempt14
   - debug.opengoal.ao.tie.view=village1-hut
-  - debug.opengoal.ao.tie.reference=2
+  - debug.opengoal.ao.tie.reference=1
   priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
@@ -13076,3 +13076,41 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Déplacé en « Done » dans Linear par l'owner
+  - date: '2026-09-17'
+    text: Mhhhh du coup il y a pas un pendant natif linéar pour ce rang ? ça serait plus clair côté linear,
+      si ça pouvait être adapté programmatiquement ce serait encore mieux d'ailleurs. ça peut mériter
+      un nouveau ticket pour faire ça, je sais pas
+- id: owner-distinction-entre-todo-et-backlog
+  status: validated
+  game: jak1
+  priority: null
+  feature: Distinction entre Todo et Backlog
+  gate: null
+  depends_on: []
+  device: false
+  owner_test: true
+  owner_ok:
+    date: '2026-09-17'
+    text: question de l'owner (JAK-173), repondue ; il l'a repassee en Todo faute de reponse a sa reaction,
+      corrige
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-17. Son texte : Qu''est ce qui fait qu''un
+    item du backlog passe en Todo ? Est-ce que les items en Todo sont ceux qui n''ont pas de blockers
+    actifs (pas terminé) et les items dans le backlog sont ceux qui ont des blockers ? Je vois pas trop
+    la différence entre Todo et Backlog… D''où cette issue.'
+  notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
+  where: ''
+  deliverable: ''
+  out_of_scope: ''
+  spec: null
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
+  - date: '2026-09-17'
+    text: Déplacé en « Done » dans Linear par l'owner
+  - date: '2026-09-17'
+    text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
