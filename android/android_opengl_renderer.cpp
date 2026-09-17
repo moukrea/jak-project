@@ -22,6 +22,7 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/fb_passes.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hud_box_probe.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
@@ -1381,6 +1382,28 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     m_stats.pcrtc_cpu_s = prof.get_elapsed_time();
   }
   m_last_pmode_alp = settings.pmode_alp_register;
+
+  // hud-3d-pickups — LA BOITE ENGLOBANTE D'UN ELEMENT DU HUD, LUE SUR L'IMAGE RENDUE.
+  //
+  // CE POINT DE MESURE MANQUAIT, ET C'EST LA SEULE RAISON POUR LAQUELLE L'ESSAI 3 A ECHOUE.
+  // Il n'existait que dans `OpenGLRenderer.cpp` (le renderer de BUREAU), exactement le piege que
+  // le pave de `hdr::frame_end` ci-dessous decrit : deux CMakeLists, deux unites de traduction,
+  // et c'est CE fichier qui tourne sur l'appareil. La course du 17/09 le dit en chiffres, sans
+  // supposition : `hud3d_px_prop_match=1` (la propriete est bien posee et lue d'ici),
+  // `hud3d_px_requests=2336` (GOAL a bien demande ses captures) et `hud3d_px_eof_calls=0` —
+  // la fin d'image n'a jamais ete appelee une seule fois. Trois etages, un seul muet, nomme.
+  //
+  // On lit APRES `do_pcrtc_effects`, comme le bureau : c'est le composite, donc la derniere
+  // image que la dalle recevra. La sonde reste inerte tant que GOAL n'a rien demande — et GOAL
+  // ne demande que sous `debug.opengoal.costprobe=hud-3d-pickups`. Le joueur ne paie rien.
+  if (hud_box_probe::armed()) {
+    Fbo* src = m_fbo_state.render_fbo;
+    hud_box_probe::end_of_frame(src && src->valid ? src->fbo_id : 0,
+                                src && src->valid ? src->width : 0,
+                                src && src->valid ? src->height : 0,
+                                m_render_state.draw_offset_x, m_render_state.draw_offset_y,
+                                m_render_state.draw_region_w, m_render_state.draw_region_h);
+  }
 
   // lighting-hdr : le recensement publie ICI aussi. Le renderer Android est une COPIE separee
   // du renderer bureau (deux CMakeLists, deux TU) : un `frame_end()` pose seulement cote x86
