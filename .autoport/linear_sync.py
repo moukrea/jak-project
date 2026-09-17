@@ -398,6 +398,31 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
     return n
 
 
+def adopt_owner_order(L, bl, mp, states, dry):
+    """Le pendant natif du rang = l'ordre manuel de la colonne Todo (sortOrder). Si l'owner reordonne
+    a la main, le backlog adopte cet ordre : les rangs des eligibles sont permutes, rien d'autre ne bouge
+    (owner 17/09, JAK-174 : « si ça pouvait être adapté programmatiquement ce serait encore mieux »)."""
+    el = [i for i in bl.items if i["status"] == "open" and isinstance(i.get("priority"), int) and eligible(bl, i) and i["id"] in mp]
+    if len(el) < 2:
+        return 0
+    ids = {mp[i["id"]]["issue_id"]: i for i in el}
+    d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:100){ nodes { id sortOrder } } }', ids=list(ids))
+    so = {n["id"]: n["sortOrder"] for n in d["issues"]["nodes"]}
+    linear_order = [ids[k]["id"] for k in sorted(ids, key=lambda k: (so.get(k, 0), ids[k]["id"]))]
+    backlog_order = [i["id"] for i in sorted(el, key=lambda i: (i["priority"], i["id"]))]
+    if linear_order == backlog_order:
+        return 0
+    ranks = sorted(i["priority"] for i in el)
+    print("  owner a reordonne la colonne Todo : le backlog adopte cet ordre : " + " > ".join(linear_order))
+    if dry:
+        return 1
+    for iid, rank in zip(linear_order, ranks):
+        it = bl.get(iid)
+        if it["priority"] != rank:
+            bl.set_status(iid, it["status"], priority=rank); bl = B.load(); refresh_prompt(bl.get(iid))
+    return 1
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -610,7 +635,7 @@ def main():
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     adopted = adopt_owner_issues(L, bl, mp, team, todo, a.dry_run)
-    if adopted:
+    if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run):
         bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
