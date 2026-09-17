@@ -2314,8 +2314,18 @@
         (set! (-> this live-slots) live)
         (if (> slots 0) (__pc-autoport-hit-for "hud-3d-pickups" slots))
 
-        ;; les quatre emplacements vivants ET a l'ecran : c'est la population que la porte juge
-        (when (and (= live 4) (> slots 0))
+        ;; LA POPULATION JUGEE : les quatre elements d'origine existent et au moins un
+        ;; emplacement dessine. Elle N'EXIGE PAS que les quatre modeles soient vivants — une porte
+        ;; qui attend « les quatre dans la MEME image » est morte des qu'UN emplacement l'est, et
+        ;; ne dit alors plus rien des trois autres. L'emplacement manquant est compte par le terme
+        ;; d'identite (§1), qui le NOMME ; les termes §2, §3 et §5 restent mesures.
+        ;; ET APRES LE TEMPS D'ETABLISSEMENT DU BANC. `hud3d-spawned-this-frame?` regarde UNE
+        ;; image en arriere (l'ordre des process dans l'image n'est pas garanti) : les premieres
+        ;; images d'un bloc relisent donc le lanceur du regime PRECEDENT. Sans cette garde, la
+        ;; mesure du 17/09 rendait `hud3d_t2_sprites=994` et `hud3d_t5_off=254` pour 125 bascules
+        ;; — soit 2 images x 4 lanceurs par bascule : un plancher STRUCTUREL du banc, pas un
+        ;; defaut du jeu. C'est la meme fenetre que celle qui protege le temps par image.
+        (when (and (> slots 0) pk bz mo fc (>= (-> this block-n) HUD3D_BENCH_SETTLE))
           (+! (-> this judged) 1)
           (cond
             ((zero? (-> this regime))
@@ -2332,8 +2342,11 @@
              (if (and fc (> (-> fc 0 nb-of-icons) 1) (not (hud3d-alive? (-> fc 0 icons 0 icon))))
                (+! (-> this off-bad) 1)))))))
 
-    ;; ── l'identite, relevee une fois les quatre emplacements vivants ────────────────────────
-    (when (and on (zero? (-> this eco-compared)) (> (-> this judged) 0)) (hud3d-eco-identity this))
+    ;; ── l'identite de l'emetteur d'eco verte, relevee des que la table des lanceurs est la ──
+    ;; Elle ne depend d'AUCUN autre emplacement : la faire dependre de la population complete la
+    ;; rendrait muette le jour ou un seul emplacement manque, et c'est exactement ce qui arrive.
+    (when (and on (zero? (-> this eco-compared)) (nonzero? (-> *part-id-table* 202)) (nonzero? (-> *part-id-table* 2980)))
+      (hud3d-eco-identity this))
 
     (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60)) (hud3d-publish this)))
   0
