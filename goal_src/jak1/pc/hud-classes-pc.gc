@@ -2059,10 +2059,30 @@
             (let ((ic (-> obj icons 1 icon)))
               (cond
                 ((hud3d-alive? ic)
-                 ;; le vrai modele porte un effet ENVMAP : le chemin generique le laisse tomber sur
-                 ;; arm64 (« la pile n'apparaît pas mais son halo oui », owner). `draw-bones-hud-merc`
-                 ;; l'emet par le chemin merc natif du PC, celui que tout le jeu utilise la-bas.
-                 (set! (-> ic 0 draw dma-add-func) dma-add-process-drawable-hud-merc-with-cell-lights)
+                 ;; ── LE CHEMIN MERC NE SAIT PAS CE QU'EST UN HUD : C'EST LA « PILE MINUSCULE » ──
+                 ;; Notre pile etait le SEUL des quatre emplacements route par `draw-bones-hud-merc`
+                 ;; (bones.gc:1568) vers Merc2. Or Merc2 n'a AUCUN chemin HUD : ses uniformes sont la
+                 ;; `LowMemory` du bucket, ecrite par `merc-vu1-init-buffers` avec la perspective du
+                 ;; MONDE (merc.gc:299-300, Merc2.cpp:4469-4480), et son nuanceur divise par la
+                 ;; composante w du sommet transforme (shaders/merc2.vert:86-96). Une icone de HUD est
+                 ;; posee a z = 2048 dans le canevas 512x448 : tout y est donc divise par ~2048 —
+                 ;; « minuscule et squeezee au centre de l'ecran », mot pour mot ce que l'owner voit.
+                 ;; `draw-bones-hud`, lui, appelle `draw-bones-generic-merc` avec use-isometric = 1
+                 ;; (bones.gc:1551) : `mercneric-convert` charge alors `*math-camera* isometric`
+                 ;; (generic_merc.cpp:628-664), dont mat_33 est non nul — exactement ce que Generic2
+                 ;; teste pour reconnaitre un dessin de HUD (Generic2_Build.cpp:311-320) avant de lui
+                 ;; appliquer l'echelle du HUD et de le differer (Generic2_OpenGL.cpp:369-376, :416).
+                 ;; C'est ce que font les TROIS emplacements que l'owner declare bons.
+                 ;; Et `draw-bones-hud-merc` ne dessinait meme pas toute la pile : il marque les
+                 ;; effets SANS envmap `use-mercneric 1` (bones.gc:1655) puis n'appelle jamais le
+                 ;; chemin generique — ces effets-la n'etaient emis nulle part.
+                 ;; On remet donc la pile sur le chemin de HUD du jeu, avec les memes lumieres
+                 ;; chaudes qu'avant (`*rhud-cell-lights*`, hud-classes-pc.gc:725).
+                 ;; RISQUE NOMME : c'est le chemin qui, en juillet (rondes 2-4), perdait le CORPS de
+                 ;; la pile sur arm64 en n'y laissant que son halo de sparticle. Le halo plat est
+                 ;; parti depuis (livrable §2) et la sonde de boite mesure maintenant si le corps est
+                 ;; la : `hud3d_px_cell_ours_pixels` / `_empty` le disent au lieu de le supposer.
+                 (set! (-> ic 0 draw dma-add-func) dma-add-process-drawable-hud-with-cell-lights)
                  (set-vector! (-> ic 0 draw color-mult) 0.5 0.5 0.5 1.0)
                  (set-vector! (-> ic 0 draw color-emissive) 0.5 0.5 0.5 1.0)
                  (send-event (ppointer->process ic) 'anim-mode 'still)
@@ -2556,6 +2576,11 @@
           (+! rect-bad 1))))
     ;; l'orbe : l'element d'origine porte deja le vrai modele et sa geometrie n'est pas touchee
     (hud3d-pub-name "hud3d_rect_orb_basis" "element_d_origine_inchange_seul_le_halo_plat_est_retire")
+    ;; PAR QUEL CHEMIN LA PILE EST DESSINEE. C'est la grandeur qui separe l'essai 3 de celui-ci :
+    ;; `draw-bones-hud` passe use-isometric=1 a `draw-bones-generic-merc` (bones.gc:1551), donc la
+    ;; matrice `isometric` du HUD ; `draw-bones-hud-merc` partait chez Merc2, qui n'a aucun chemin
+    ;; HUD et applique la perspective du MONDE a une icone posee a z=2048.
+    (hud3d-pub-name "hud3d_cell_draw_path" "draw-bones-hud_generic_isometric")
     (__pc-autoport-publish "hud3d_rect_orb_ext_milli" (the int (* 1000.0 (-> this orb-ext))))
 
     ;; ── §4 LE COUT ──────────────────────────────────────────────────────────────────────────

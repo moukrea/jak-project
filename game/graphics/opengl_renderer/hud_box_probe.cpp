@@ -74,9 +74,27 @@ struct SlotState {
   int excluded = 0;
 };
 
-bool g_checked = false;
 bool g_armed = false;
 int g_pending = -1;
+
+// POURQUOI L'ARMEMENT NE LIT PLUS DE PROPRIETE ICI (course appareil du 17/09, essai 3).
+// Cette unite lisait `debug.opengoal.costprobe` pour son propre compte, et mettait le resultat en
+// cache au PREMIER appel. La course du 17/09 a rendu, dans la MEME preuve :
+//   hud3d_probe_on=1        (kmachine, meme propriete, relue a chaque image : la sonde est bien la)
+//   hud3d_px_cycles=231     (GOAL a demande 2310 captures)
+//   et AUCUNE des cles de `publish_diag()` dans tout le journal de la course.
+// Autrement dit : `request()` a ete appele 2310 fois et n'a rien fait. Une deuxieme copie du
+// meme test, armee a un autre instant et sur un autre fil, a rendu l'inverse de la premiere.
+// On supprime la copie : l'instrument est arme PAR LA DEMANDE DE GOAL, c'est-a-dire par le seul
+// signal dont la preuve etablit qu'il fonctionne sur l'appareil. GOAL n'appelle
+// `__pc-autoport-hud-capture` que sous `(-> this probe?)`, donc le joueur ne paie toujours rien :
+// hors course de preuve, `armed()` reste faux pour toujours et rien n'est alloue.
+// Ce que la propriete AURAIT rendu est quand meme publie (`hud3d_px_prop_match`), avec le nombre
+// de demandes et d'appels de fin d'image : si la prochaine course echoue encore, elle NOMME
+// lequel des trois etages est muet au lieu de rendre trois zeros identiques.
+int g_requests = 0;
+int g_eof_calls = 0;
+int g_prop_match = -1;
 
 std::vector<uint8_t> g_base_lum;  // l'image de reference, en luminance
 int g_region_w = 0;
@@ -238,6 +256,14 @@ void note_error(const char* why) {
 void publish_diag() {
   autoport_proof::publish("hud3d_px_captures", (uint64_t)g_captures);
   autoport_proof::publish("hud3d_px_read_errors", (uint64_t)g_read_errors);
+  // LES TROIS ETAGES, SEPAREMENT. demandes -> appels de fin d'image -> relectures reussies.
+  // Un zero a un etage donne et non aux precedents dit lequel est muet ; trois zeros disaient
+  // seulement « rien n'a tourne », ce qui a coute l'essai 3.
+  autoport_proof::publish("hud3d_px_requests", (uint64_t)g_requests);
+  autoport_proof::publish("hud3d_px_eof_calls", (uint64_t)g_eof_calls);
+  // 1 = la propriete `debug.opengoal.costprobe` porte bien notre identifiant vue d'ICI ;
+  // 0 = elle ne le porte pas, alors que kmachine la lit et rend 1 (hud3d_probe_on).
+  autoport_proof::publish("hud3d_px_prop_match", (uint64_t)(g_prop_match < 0 ? 0 : g_prop_match));
   autoport_proof::publish("hud3d_px_thresh", (uint64_t)kThresh);
   autoport_proof::publish("hud3d_px_stable", (uint64_t)kStable);
   autoport_proof::publish("hud3d_px_agree_pct", (uint64_t)(100 * kAgreeNum / kAgreeDen));
@@ -269,17 +295,21 @@ void reset_all() {
 }  // namespace
 
 bool armed() {
-  if (!g_checked) {
-    g_checked = true;
-    g_armed = probe_key_matches();
-  }
   return g_armed;
 }
 
 void request(int slot) {
-  if (!armed() || slot < 0 || slot >= kSlotCount) {
+  if (slot < 0 || slot >= kSlotCount) {
     return;
   }
+  if (!g_armed) {
+    // PREMIERE DEMANDE : c'est elle qui arme. On releve au passage ce que la lecture de propriete
+    // aurait rendu, pour que la cause du silence du 17/09 soit NOMMEE par la prochaine preuve.
+    g_armed = true;
+    g_prop_match = probe_key_matches() ? 1 : 0;
+  }
+  g_requests++;
+  publish_diag();
   // Le plafond porte sur les paires deja retenues ; la reference reste capturable pour que le
   // dernier etat connu ne devienne pas perime.
   if (slot != kBase && g_slots[slot].samples >= kMaxPairs) {
@@ -298,6 +328,7 @@ void end_of_frame(unsigned fbo_id,
   if (!armed()) {
     return;
   }
+  g_eof_calls++;
   const int slot = g_pending;
   g_pending = -1;
   if (slot < 0) {
