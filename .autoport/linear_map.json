@@ -183,10 +183,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-2/la-brise-dans-les-arbres-et-les-buissons"
  },
  "framerate-uncap": {
-  "hash": "3fbc8377c850d799bf15a7894dda969cd63e25a7",
+  "hash": "81512bfebe080a24e78dbe3aea5caeabf65ce511",
   "identifier": "JAK-1",
   "issue_id": "7f260e2d-2eb8-4f01-a8cf-2b41f8cc0068",
-  "last_state": "Backlog",
+  "last_state": "Archivé",
   "pulled_at": "2026-09-17T07:46:34.238Z",
   "relations": [
    "hdr-display-output",

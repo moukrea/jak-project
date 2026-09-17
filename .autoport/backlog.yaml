@@ -361,7 +361,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:20
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
-  status: open
+  status: archived
   priority: 991
   game: jak1
   gate:
@@ -399,6 +399,7 @@ items:
   notes: |-
     Ne du retour owner 2026-09-05 ; il le classe explicitement « un truc a faire plus tard ». Depend des animations lisses aux cadences non entieres. | owner 2026-09-07 : a traiter APRES la chaine d'eclairage. | Owner 2026-09-07 : reporte apres TOUTE la refonte lighting ; dependances explicites empechent la selection quand le HDR bloque.
     17/09 owner (Linear) : « C'est fini ce sujet non ? Je vois pas pourquoi il est bloqué ! » -> sorti de bloque, laisse tout en bas de la pile (rang 991) comme il l'a ordonne le 07/09 ; pas fini : 3 essais identiques rates, et ses demandes du 07/09 (choix 30/45/60/75/90/120/240/Illimite au lieu du curseur, plafond apparent a 90 img/s) restent ouvertes.
+    17/09 owner (Linear) : « j'ai déjà un menu Max framerate avec pour choix 30 / 45 / 60 / 75 / 90 / 120 / 240 / illimité qui fonctionne ! » -> supplante par framerate-variable (valide : le jeu tourne a la cadence de l'ecran, sans verrou 30/60) ; archive.
   owner_feedback:
   - date: '2026-09-05'
     text: on devrait pouvoir unlock le framerate, là ça lock à 60 max alors que ça pourrait ne pas être
