@@ -1715,6 +1715,7 @@
    (cell-proc       process)
    (buzz-proc       process)
    (pick-proc       process)
+   (cell-scale      float)
    (cell-stock-ext  float)
    (cell-our-ext    float)
    (orb-ext         float)
@@ -2083,6 +2084,7 @@
                                      (- (* (-> b0 y) (-> obj icons 0 scale-y)) (* (-> b1 y) sc))))))
                  (draw-icons obj)
                  (send-event (ppointer->process ic) 'draw (not (hidden? obj)))
+                 (set! (-> this cell-scale) sc)
                  (set! (-> this cell-stock-ext) (* (-> obj icons 0 scale-x) r0))
                  (set! (-> this cell-our-ext) (* sc r1))
                  (set! (-> this cell-proc) (the-as process (ppointer->process fc))))
@@ -2254,7 +2256,30 @@
           ;; notre icone suit celle d'origine : `hud-fuel-cell::hud-update` reecrit `icon-y` a
           ;; chaque image (hud-classes.gc:944). Deux entiers, pas une formule.
           (set! (-> obj icons 1 icon-x) (+ (-> obj icons 0 icon-x) (-> this cell-dx)))
-          (set! (-> obj icons 1 icon-y) (+ (-> obj icons 0 icon-y) (-> this cell-dy))))
+          (set! (-> obj icons 1 icon-y) (+ (-> obj icons 0 icon-y) (-> this cell-dy)))
+          ;; ── L'ECHELLE DE NOTRE PILE EST CELLE DE LA PILE D'ORIGINE, DONC ISOTROPE ──────────
+          ;; MESURE x86 DU 17/09, lue sur la transformation qui atteint le renderer :
+          ;;   pile d'origine : root scale = (0,00899 · 0,00899)
+          ;;   la notre       : root scale = (0,00539 · 0,00899)      539/899 = 0,600
+          ;; 0,600 est exactement `relative-x-scale` = (4/3)/aspect. `hud::draw-icons`
+          ;; (hud.gc:74-78) multiplie l'abscisse de TOUTE icone par ce facteur, mais la projection
+          ;; du HUD 3D rend deja des pixels carres : rien en aval ne l'annule, contrairement aux
+          ;; SPRITES de HUD que `sprite-add-matrix-data` (sprite.gc:467-469) recorrige par
+          ;; `aspect-ratio-scale`. La pile d'origine y echappe par accident : la part 318 de son
+          ;; groupe de sprites rappelle `fuel-cell-hud-center-callback` (hud-classes.gc:932) a
+          ;; chaque image, qui lui repose une echelle UNIFORME. Notre icone, elle, n'a pas de
+          ;; sprite — livrable §2 — donc personne ne la reposait : elle restait ecrasee de 40 %
+          ;; en largeur. C'est le mot de l'owner : « squeezee ».
+          ;; On refait donc, pour notre icone, le geste que le jeu fait deja pour la sienne : une
+          ;; ecriture de vecteur par image, la meme valeur que celle du sprite remplace.
+          ;; (Sur l'appareil, Android force `aspect-ratio` a 4:3 et le facteur vaut 1,000 : ce
+          ;; correctif y est neutre. Il cesse de l'etre des que le format de rendu change.)
+          (when (and (> (-> this cell-scale) 0.0) (hud3d-alive? (-> obj icons 1 icon)))
+            (set-vector! (-> obj icons 1 icon 0 root scale)
+                         (-> this cell-scale)
+                         (-> this cell-scale)
+                         (-> this cell-scale)
+                         1.0)))
         (hud3d-icon-draw! obj 0 (and (not ours) shown))
         (hud3d-icon-draw! obj 1 (and ours shown))
         (if (and ours shown) (hud3d-drive-cell-anim (-> obj icons 1 icon)))
@@ -2636,6 +2661,29 @@
         (__pc-autoport-publish "hud3d_px_p75_ctrl" (__pc-autoport-hud-box 5 15))
         (__pc-autoport-publish "hud3d_px_p90_ctrl" (__pc-autoport-hud-box 5 16))
         (__pc-autoport-publish "hud3d_px_p100_ctrl" (__pc-autoport-hud-box 5 17))
+        ;; ── DE QUOI CONVERTIR DES PIXELS EN UNITES DE CANEVAS SANS UNE COURSE DE PLUS ────────
+        ;; Une boite en pixels ne dit pas, a elle seule, de combien il faut corriger l'echelle ou
+        ;; la position : il manque le facteur de projection du HUD, qui depend de la profondeur de
+        ;; l'icone et du champ de la camera. On publie donc, pour les DEUX piles, la transformation
+        ;; qui a produit ces pixels. Le facteur se deduit alors d'une boite et de sa transformation,
+        ;; au lieu d'etre suppose — c'est ce qui manquait a l'essai 2 pour passer de « 0 px » a une
+        ;; correction chiffree. Valeurs absolues : `pc_autoport_publish` ecrase les negatifs a zero.
+        (when (and fc (> (-> fc 0 nb-of-icons) 1))
+          (__pc-autoport-publish "hud3d_tr_stock_x_abs" (abs (the int (-> fc 0 icons 0 icon 0 root trans x))))
+          (__pc-autoport-publish "hud3d_tr_stock_y_abs" (abs (the int (-> fc 0 icons 0 icon 0 root trans y))))
+          (__pc-autoport-publish "hud3d_tr_stock_y_negatif" (if (< (-> fc 0 icons 0 icon 0 root trans y) 0.0) 1 0))
+          (__pc-autoport-publish "hud3d_tr_stock_z" (abs (the int (-> fc 0 icons 0 icon 0 root trans z))))
+          (__pc-autoport-publish "hud3d_tr_stock_sx_e5" (abs (the int (* 100000.0 (-> fc 0 icons 0 icon 0 root scale x)))))
+          (__pc-autoport-publish "hud3d_tr_stock_sy_e5" (abs (the int (* 100000.0 (-> fc 0 icons 0 icon 0 root scale y)))))
+          (__pc-autoport-publish "hud3d_tr_ours_x_abs" (abs (the int (-> fc 0 icons 1 icon 0 root trans x))))
+          (__pc-autoport-publish "hud3d_tr_ours_y_abs" (abs (the int (-> fc 0 icons 1 icon 0 root trans y))))
+          (__pc-autoport-publish "hud3d_tr_ours_y_negatif" (if (< (-> fc 0 icons 1 icon 0 root trans y) 0.0) 1 0))
+          (__pc-autoport-publish "hud3d_tr_ours_z" (abs (the int (-> fc 0 icons 1 icon 0 root trans z))))
+          (__pc-autoport-publish "hud3d_tr_ours_sx_e5" (abs (the int (* 100000.0 (-> fc 0 icons 1 icon 0 root scale x)))))
+          (__pc-autoport-publish "hud3d_tr_ours_sy_e5" (abs (the int (* 100000.0 (-> fc 0 icons 1 icon 0 root scale y)))))
+          ;; le rayon que CHAQUE draw-control declare : c'est lui que l'essai 2 croyait comparer
+          (__pc-autoport-publish "hud3d_tr_stock_bounds_w" (the int (-> fc 0 icons 0 icon 0 draw bounds w)))
+          (__pc-autoport-publish "hud3d_tr_ours_bounds_w" (the int (-> fc 0 icons 1 icon 0 draw bounds w))))
         ;; LES SITES DE PLACEMENT, ET LEUR FORME (owner 17/09 : « du positionnement absolu ! »).
         ;; Trois sites, tous en unites du canevas de HUD (512x448) relues sur l'element d'origine :
         ;; la pile (icons 1 suit icons 0), la mecamouche (la loi appliquee a `init-pos` du sprite),
