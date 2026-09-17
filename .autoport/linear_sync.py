@@ -693,7 +693,7 @@ def explain_numbers(it, proof_text):
         gate_val = float("nan")
     if gate_val == gate_val and gate_val > 0:
         out.append("**%d point(s) en défaut** sur la mesure." % gate_val)
-    named = [k for k in dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]+)`", deliv)) if k != gate and not k.startswith("FEATURE")]
+    named = [k for k in dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]+)[^`]*`", deliv)) if k != gate and not k.startswith("FEATURE")]
     paras = [pg.strip() for pg in re.split(r"\n\s*\n", deliv) if pg.strip()]
     shown = 0
     ok_points = []
@@ -763,8 +763,15 @@ def announce_verdicts(L, bl, mp, read, dry):
         elif ok:
             lines.append("**Essai %d : porte tenue.**" % num)
         else:
-            lines.append("**Essai %d : échec.** Pourquoi :" % num)
-            for f in fails[:8]:
+            lines.append("**Essai %d : échec.**" % num)
+            # Owner 17/09 : « c'est quoi le critère et pourquoi ça le viole ? » — le critere est la premiere phrase du
+            # livrable (en francais), le pourquoi = les points du ticket en defaut (explain_numbers) ; la ligne brute du
+            # juge n'est montree que si elle dit autre chose qu'un chiffre (preuve perimee, site jamais tire…).
+            crit = re.split(r"(?<=[.])\s", re.sub(r"`[^`]*`\s*=\s*0\s*[,:]?\s*", "", (it.get("deliverable") or "").strip()), 1)[0].strip()[:220]
+            if crit:
+                lines.append("Critère : %s" % crit)
+            other = [f for f in fails if "viole le critere" not in f]
+            for f in other[:6]:
                 lines.append("- " + re.sub(r"^\[%s FAIL\]\s*" % re.escape(it["id"]), "", f)[:300])
         attach = []
         pf = _proof_for(it["id"], v)
@@ -774,10 +781,21 @@ def announce_verdicts(L, bl, mp, read, dry):
                 lines.append("")
                 lines += expl
         rep = AP / "reports" / it["id"] / "report.txt"
+        hand = AP / "reports" / it["id"] / "handoff.md"
         if rep.exists() and abs(rep.stat().st_mtime - v.stat().st_mtime) < 1800:
             body_lines = [l for l in rep.read_text(errors="replace").splitlines() if l.strip() and not l.startswith("DIRECTIVES")]
             lines.append("\n**Ce que dit l'agent** : " + " ".join(body_lines[:6])[:900])
             attach.append(rep)
+        elif hand.exists() and abs(hand.stat().st_mtime - v.stat().st_mtime) < 1800:
+            ht = hand.read_text(errors="replace")
+            reste = re.search(r"## RESTE\s*(.+?)(?:\n## |\Z)", ht, re.S)
+            etabli = re.search(r"## ÉTABLI\s*(.+?)(?:\n## |\Z)", ht, re.S)
+            if etabli and etabli.group(1).strip() and "inconnu" not in etabli.group(1):
+                lines.append("\n**Ce que l'agent a établi** : " + " ".join(l.strip() for l in etabli.group(1).splitlines() if l.strip())[:600])
+            if reste and reste.group(1).strip() and "inconnu" not in reste.group(1) and "remplir" not in reste.group(1):
+                lines.append("\n**Ce qui reste, selon l'agent** : " + " ".join(l.strip() for l in reste.group(1).splitlines() if l.strip())[:700])
+            else:
+                lines.append("\nL'agent n'a pas laissé de rapport pour cet essai.")
         else:
             lines.append("\nL'agent n'a pas laissé de rapport pour cet essai.")
         notes = AP / "reports" / it["id"] / "notes"
