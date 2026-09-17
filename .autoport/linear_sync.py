@@ -222,43 +222,60 @@ def ensure_projects(L, team_id):
 
 
 LABEL_READ = "À lire : réponse du harnais"
+LABEL_TODO = "À traiter : retour de l'owner"
 
 
-def ensure_label(L, team_id):
+def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
     d = L.q('query($t:String!){ team(id:$t){ labels { nodes { id name } } } }', t=team_id)
     for l in d["team"]["labels"]["nodes"]:
-        if l["name"] == LABEL_READ:
+        if l["name"] == name:
             return l["id"]
     r = L.q('mutation($i:IssueLabelCreateInput!){ issueLabelCreate(input:$i){ issueLabel { id } } }',
-            i={"teamId": team_id, "name": LABEL_READ, "color": "#f2994a"})
+            i={"teamId": team_id, "name": name, "color": color})
     return r["issueLabelCreate"]["issueLabel"]["id"]
 
 
-def ensure_view(L, team_id, label_id):
+def ensure_view(L, team_id, label_id, name="À lire", icon="Inbox", color="#f2994a",
+                desc="Tickets où le harnais t'a répondu et que tu n'as pas encore relus. L'étiquette tombe dès que tu commentes."):
     d = L.q('{ customViews { nodes { id name } } }')
     for v in d["customViews"]["nodes"]:
-        if v["name"] == "À lire":
+        if v["name"] == name:
             return v["id"]
     r = L.q('mutation($i:CustomViewCreateInput!){ customViewCreate(input:$i){ customView { id } } }',
-            i={"name": "À lire", "teamId": team_id, "icon": "Inbox", "color": "#f2994a",
-               "description": "Tickets où le harnais t'a répondu et que tu n'as pas encore relus. L'étiquette tombe dès que tu commentes.",
+            i={"name": name, "teamId": team_id, "icon": icon, "color": color, "description": desc,
                "filterData": {"labels": {"some": {"id": {"eq": label_id}}}}})
     return r["customViewCreate"]["customView"]["id"]
 
 
-def set_read_label(L, issue_id, label_id, on):
+def swap_labels(L, issue_id, add=None, remove=None):
+    """Pose `add`, retire `remove` (ids d'etiquettes), en une ecriture."""
     d = L.q('query($id:String!){ issue(id:$id){ labels { nodes { id } } } }', id=issue_id)
     ids = [l["id"] for l in d["issue"]["labels"]["nodes"]]
-    want = sorted(set(ids) | {label_id}) if on else [i for i in ids if i != label_id]
-    if want != ids:
+    want = [i for i in ids if i != remove]
+    if add and add not in want:
+        want.append(add)
+    if sorted(want) != sorted(ids):
         L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=issue_id, i={"labelIds": want})
+
+
+def set_read_label(L, issue_id, label_id, on):
+    swap_labels(L, issue_id, add=label_id if on else None, remove=None if on else label_id)
+
+
+def labels(L, team):
+    read = ensure_label(L, team, LABEL_READ, "#f2994a")
+    todo = ensure_label(L, team, LABEL_TODO, "#eb5757")
+    ensure_view(L, team, read)
+    ensure_view(L, team, todo, name="À traiter", icon="Bell", color="#eb5757",
+                desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
+    return read, todo
 
 
 def viewer_id(L):
     return L.q("{ viewer { id } }")["viewer"]["id"]
 
 
-def pull_owner(L, bl, mp, states_by_id, dry, label_id=None):
+def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     """Commentaires sans marqueur et deplacements faits a la main -> backlog."""
     pulled = 0
     ids = [v["issue_id"] for v in mp.values()]
@@ -282,7 +299,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None):
                 pulled += 1
                 newest = max(newest, c["createdAt"])
             if newest != since and label_id and not dry:
-                set_read_label(L, iss["id"], label_id, False)
+                swap_labels(L, iss["id"], add=todo_id, remove=label_id)
             rec["pulled_at"] = newest
             here = iss["state"]["name"]
             if here != rec.get("last_state") and rec.get("last_state"):
@@ -311,9 +328,9 @@ def main():
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
         L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + (a.body or "").strip()})
-        team = ensure_team(L); label = ensure_label(L, team); ensure_view(L, team, label)
-        set_read_label(L, rec["issue_id"], label, True)
-        print("commentaire poste sur", rec["identifier"], "+ etiquette « A lire »"); return
+        team = ensure_team(L); read, todo = labels(L, team)
+        swap_labels(L, rec["issue_id"], add=read, remove=todo)
+        print("commentaire poste sur", rec["identifier"], "+ « A lire », - « A traiter »"); return
     bl = B.load()
     retries = {}
     if STATE_JSON.exists():
@@ -323,9 +340,9 @@ def main():
     states = ensure_states(L, team)
     projects = ensure_projects(L, team)
     today = dt.date.today()
-    label = ensure_label(L, team); ensure_view(L, team, label)
+    label, todo = labels(L, team)
     if mp and not a.no_pull:
-        pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label)
+        pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
         bl = B.load()
     created = updated = moved = 0
     for it in bl.items:
