@@ -221,7 +221,7 @@ def plain_state_comment(bl, it, st):
     if mfr:
         frames = " (mesure machine tenue sur %s images, sans plantage)" % mfr.group(1)
     if st == "In Review":
-        return "→ **À tester par toi**%s, sur le DERNIER build de jak-builds (il remplace le précédent à chaque publication).\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
+        return "→ **À tester par toi**%s. Attends le commentaire « build publié » ci-dessous : il dit quel build de jak-builds porte ce chantier (jak-builds ne garde que le dernier).\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
     if st == "Done":
         return "→ **Terminé**%s. %s" % (frames, "Rien à te montrer : c'est une mesure ou une fondation." if not it.get("owner_test") else "")
     if st == "In Progress":
@@ -572,6 +572,44 @@ def sync_docs(L, mp, projects, dry):
     return n
 
 
+def announce_builds(L, bl, mp, read, dry):
+    """Quand le build publie sur jak-builds contient le dernier commit d'un chantier « a tester », le dire sur le ticket
+    (owner 17/09 : « la revue manuelle se fait sur mon HONOR, à partir d'un build sur jak-builds […] c'est bien dispo ? »)."""
+    import subprocess
+    info = AP / ".published_build_info.txt"
+    if not info.exists():
+        return 0
+    txt = info.read_text(errors="replace")
+    mc = re.search(r"commit: ([0-9a-f]{7,40})", txt); mt = re.search(r"TAG: (\S+)", txt); md = re.search(r"date: (\S+)", txt)
+    if not mc:
+        return 0
+    pub, tag = mc.group(1), (mt.group(1) if mt else mc.group(1)[:6])
+    when = (md.group(1)[11:16] if md else "?")
+    n = 0
+    for it in bl.items:
+        if it["status"] != "to-test":
+            continue
+        rec = mp.get(it["id"])
+        if not rec or rec.get("build_announced") == pub:
+            continue
+        try:
+            last = subprocess.run(["git", "log", "-1", "--format=%H", "--grep=[autoport/%s]" % it["id"]], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+            if not last:
+                continue
+            ok = subprocess.run(["git", "merge-base", "--is-ancestor", last, pub], cwd=ROOT).returncode == 0
+        except Exception:  # noqa: BLE001
+            continue
+        if not ok:
+            continue
+        print("  build %s porte %s : annonce sur le ticket" % (tag, it["id"]))
+        if not dry:
+            _say(L, rec, "**Build publié** : le build %s (jak-builds, %s) porte ce chantier. C'est celui-là à regarder." % (tag, when))
+            swap_labels(L, rec["issue_id"], add=read)
+            rec["build_announced"] = pub
+        n += 1
+    return n
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -798,6 +836,7 @@ def main():
     if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run):
         bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
+    announce_builds(L, bl, mp, label, a.dry_run)
     pull_labeled_unmapped(L, mp, label, todo, _TALK["id"], a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage

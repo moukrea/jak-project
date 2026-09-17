@@ -739,10 +739,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "hash": "388a0a1a6502dc52d06319ac3fa61328ae84f1f3",
+  "hash": "04ce0a56ff2b38d687a93ece8d46d9e229c0ae47",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "pulled_at": "2026-09-17T10:55:59.084Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
@@ -844,10 +844,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "cbc4a444edb6560671b6c9e7f022566196071ad9",
+  "hash": "f72259c9c7016a099907f2e966e1113e4e83dd26",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-17T07:43:52.682Z",
   "relations": [
    "ao-prepass-tie-alpha"
