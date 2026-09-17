@@ -113,11 +113,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-indirect-clean": {
-  "hash": "ed378f5d43372e9d2ca7e8414bc094f0955d884d",
+  "hash": "e193d9bf5f941f361f2504c05a4c7f97e87f9095",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-003.txt",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-17T18:18:02.175Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
  },
@@ -796,13 +796,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "build_announced": "59cf4b4b318e",
-  "hash": "de8b56f07d26c28e082634d7980d3fe400a7dd9d",
+  "build_announced": "25b9d247e2ea",
+  "hash": "f343ccb96da9c6f419e1d4608dd1d9f714b9410a",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "In Review",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T18:31:14.810Z",
+  "pulled_at": "2026-09-17T18:43:27.901Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
