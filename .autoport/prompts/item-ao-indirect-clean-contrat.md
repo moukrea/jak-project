@@ -35,6 +35,8 @@ PRECISION OWNER 17/09 (suite) : « attention au cycle jour/nuit, ça peut peut-�
 
 ARBITRAGE OWNER 17/09 (fin) : « faudrait que ce soit prouvé ça parce que si c'est imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer à autre chose ! Donc ok pour les deux essais, mais preuve demandée pour le grain qui bouge en cas d'échec ! ». Le point F se juge donc SUR L'IMAGE FINALE, pas sur le tampon d'AO : publier `ao_static_visible_px` = nombre de pixels de l'image rendue (telephone, resolution reelle) dont la luminance change de plus de 2/255 entre deux images consecutives d'une scene immobile (vent coupe, acteurs/particules/collectibles exclus, heure figee), avec son denominateur. REGLE : si `ao_static_visible_px` = 0, le point F est TENU meme si le tampon d'AO change (imperceptible = on passe a autre chose) ; s'il est > 0, joindre au ticket la paire d'images (les deux captures et une image de difference amplifiee) par `linear_sync.py --comment ... --attach`, en illustration pour l'owner, jamais comme porte. `ao_static_cam_delta_px` reste publie a titre d'information et ne compte plus dans `ao_owner_defects`.
 
+OBSERVATION OWNER 17/09, sur le Redmi pendant la mesure : « je vois qu'il y a des lanternes d'intérieur… ces dernières bougent ! Donc oui tu vas avoir des variations ! » Les LANTERNES (et tout luminaire, flamme, objet suspendu ou balancant : acteurs et objets a animation propre, meme sans vent) sont EXCLUS de la population du point F par famille de dessin, au meme titre que les acteurs animes, particules et collectibles ; et le vantage de la paire d'images doit etre choisi SANS lanterne ni objet mobile dans le champ, ou les masquer et publier la surface exclue. Un texel qui change a cause d'une lanterne qui bouge n'est pas un defaut.
+
 ## Hors perimetre
 
 Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas cet item.
@@ -65,6 +67,9 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ### 2026-09-17
 > Alors ça se voit comme du grain qui bouge… faudrait que ce soit prouvé ça parce que si c'est imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer à autre chose ! Donc ok pour les deux essais, mais preuve demandé pour le grain qui bouge en cas d'échec !
+
+### 2026-09-17
+> Alors si ça peut t'aider, je vois les mesures tourner sur le Redmi… (c'est pas toujours le cas car je suis souvent à distance), et je vois qu'il y a des lanternes d'intérieur… je sais pas si t'es au courant mais ces dernières bougent ! Donc oui tu va avoir des variations !
 
 ## Pourquoi ce fichier existe
 

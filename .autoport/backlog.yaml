@@ -13357,7 +13357,7 @@ items:
     couleur, l''embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13458,13 +13458,22 @@ items:
       hud_model_defects=0"
 
       Tu crois vraiment que ça m'aide ? C'est ça tes mesures ? Qu'est-ce que ça dit du succès ou de l'échec ? Vraiment d'une c'est pas intelligible pour moi (p'tetre pour l'agent qui a le contexte, mais j'en vient même à douter), de deux qu'elle est la valeur de ce genre de preuves en commentaire sur les tickets ? Nan mais sérieux faut pas exaggérer, certes je demande des infos, mais faut que les infos apportent quelque chose !
+  - date: '2026-09-17'
+    text: Il est publié le build ou pas ?
+  - date: '2026-09-17'
+    text: Évite ce bruit la prochaine fois, fais les modifs nécessaires pour éviter ce bordel à l'avenir
+      si besoin. Je vais tester et te fais mon feedback dans la foulée
+  - date: '2026-09-17'
+    text: Correction… pas d'apk sur jak-builds… c'est quoi ce bordel ???
+  - date: '2026-09-17'
+    text: Putain mais tu merdouilles là !
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'
-    proof_sha: 2585a8979e6d076c
-    proof_bytes: 51683
-    attempt: 1
-    journal: validator-001.txt
+    proof_sha: 8cee5d8af5250729
+    proof_bytes: 52511
+    attempt: 2
+    journal: validator-002.txt
   delivered: '2026-09-17'
 - status: open
   game: jak1
@@ -13499,7 +13508,7 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
@@ -13548,6 +13557,8 @@ items:
     PRECISION OWNER 17/09 (suite) : « attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés, caisses, collectibles… ». Pour F : l'heure du jeu est FIGEE pendant la paire d'images (le cycle jour/nuit change l'eclairage, donc l'indirect, donc l'image, pas l'AO ; mais le tampon d'AO se compare entre deux images du MEME instant : publier l'heure de jeu lue aux deux images, egale) ; caisses, collectibles, orbes, mouches, PNJ et tout acteur qui tourne, flotte ou clignote sont exclus par famille de dessin comme les acteurs animes, et comptes dans `ao_static_excluded_px`. Ce qui reste dans la population : le decor immobile (tfrag/TIE) et les acteurs sans animation.
 
     ARBITRAGE OWNER 17/09 (fin) : « faudrait que ce soit prouvé ça parce que si c'est imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer à autre chose ! Donc ok pour les deux essais, mais preuve demandée pour le grain qui bouge en cas d'échec ! ». Le point F se juge donc SUR L'IMAGE FINALE, pas sur le tampon d'AO : publier `ao_static_visible_px` = nombre de pixels de l'image rendue (telephone, resolution reelle) dont la luminance change de plus de 2/255 entre deux images consecutives d'une scene immobile (vent coupe, acteurs/particules/collectibles exclus, heure figee), avec son denominateur. REGLE : si `ao_static_visible_px` = 0, le point F est TENU meme si le tampon d'AO change (imperceptible = on passe a autre chose) ; s'il est > 0, joindre au ticket la paire d'images (les deux captures et une image de difference amplifiee) par `linear_sync.py --comment ... --attach`, en illustration pour l'owner, jamais comme porte. `ao_static_cam_delta_px` reste publie a titre d'information et ne compte plus dans `ao_owner_defects`.
+
+    OBSERVATION OWNER 17/09, sur le Redmi pendant la mesure : « je vois qu'il y a des lanternes d'intérieur… ces dernières bougent ! Donc oui tu vas avoir des variations ! » Les LANTERNES (et tout luminaire, flamme, objet suspendu ou balancant : acteurs et objets a animation propre, meme sans vent) sont EXCLUS de la population du point F par famille de dessin, au meme titre que les acteurs animes, particules et collectibles ; et le vantage de la paire d'images doit etre choisi SANS lanterne ni objet mobile dans le champ, ou les masquer et publier la surface exclue. Un texel qui change a cause d'une lanterne qui bouge n'est pas un defaut.
   where: 'Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et chaque qualite,
     force au maximum, sur le dernier build de jak-builds : le raccord mur/toit de la hutte porte une ombre
     de contact sans bande claire ; les facades n''ont ni damier ni grain ; l''AO n''a plus l''air d''un
@@ -13731,4 +13742,8 @@ items:
       imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer
       à autre chose ! Donc ok pour les deux essais, mais preuve demandé pour le grain qui bouge en cas
       d'échec !
+  - date: '2026-09-17'
+    text: Alors si ça peut t'aider, je vois les mesures tourner sur le Redmi… (c'est pas toujours le cas
+      car je suis souvent à distance), et je vois qu'il y a des lanternes d'intérieur… je sais pas si
+      t'es au courant mais ces dernières bougent ! Donc oui tu va avoir des variations !
   block_reason: ''
