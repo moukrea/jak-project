@@ -278,8 +278,23 @@ def labels(L, team):
     ensure_view(L, team, todo, name="À traiter", icon="Inbox", color="#eb5757",
                 desc="Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.")
     ensure_view(L, team, talk, name="En discussion", icon="Inbox", color="#5e6ad2",
-                desc="Tous les tickets où l'un de nous deux a parlé en dernier : tes retours à traiter et les réponses du harnais à lire.")
+                desc="Tous les tickets où l'un de nous deux a parlé en dernier. Pour clore sans répondre : retire « À lire » du ticket, « En discussion » tombe à la synchro suivante (5 min).")
     return read, todo
+
+
+def sweep_talk(L, read, todo, talk, dry):
+    """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
+    réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
+    fait tomber « En discussion » au passage suivant."""
+    d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } } } } }', id=talk)
+    n = 0
+    for iss in d["issueLabel"]["issues"]["nodes"]:
+        ids = {l["id"] for l in iss["labels"]["nodes"]}
+        if read not in ids and todo not in ids:
+            if not dry:
+                swap_labels(L, iss["id"], remove=talk)
+            n += 1
+    return n
 
 
 def sync_relations(L, bl, mp, dry):
@@ -423,9 +438,10 @@ def main():
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     rel = sync_relations(L, bl, mp, a.dry_run)
+    swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
     if not a.dry_run:
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
-    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d tickets suivis" % (created, updated, moved, rel, len(mp)))
+    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis" % (created, updated, moved, rel, swept, len(mp)))
 
 
 if __name__ == "__main__":
