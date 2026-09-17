@@ -13824,14 +13824,10 @@ items:
     op: ==
     value: 0
   hits_means: commentaires postes sous l identite du harnais
-  known_cause: 'Owner 17/09 (JAK-180) : « Le harnais poste sur les issues en tant que Emeric Commenge
-    (moukrea) parce que c''est un token personnel… c''est pénible car dur à dissocier, et surtout on bénéficie
-    pas des notifs Linear du coup parce que tous les messages sont envoyés par… moi-même ». Deux voies
-    : (1) un second compte Linear « Autoport » invite dans le workspace (organizationInviteCreate), sa
-    propre cle API dans ~/.config/autoport/linear.env : aucun changement de code, l''owner recoit les
-    notifications comme pour un collegue ; (2) une application OAuth Linear en mode acteur=application
-    (identite « app »), qui demande la creation de l''app dans les reglages Linear par l''owner et un
-    flux OAuth cote harnais. Recommandation : (1).'
+  known_cause: |-
+    Owner 17/09 (JAK-180) : « Le harnais poste sur les issues en tant que Emeric Commenge (moukrea) parce que c'est un token personnel… c'est pénible car dur à dissocier, et surtout on bénéficie pas des notifs Linear du coup parce que tous les messages sont envoyés par… moi-même ». Deux voies : (1) un second compte Linear « Autoport » invite dans le workspace (organizationInviteCreate), sa propre cle API dans ~/.config/autoport/linear.env : aucun changement de code, l'owner recoit les notifications comme pour un collegue ; (2) une application OAuth Linear en mode acteur=application (identite « app »), qui demande la creation de l'app dans les reglages Linear par l'owner et un flux OAuth cote harnais. Recommandation : (1).
+
+    OWNER 17/09 21:10 : « C'est un peu dégueu non de créer un compte fake pour ça ? Il n'y a pas un moyen natif propre ? » -> VOIE RETENUE : (2) application OAuth Linear en mode acteur=application (c'est ce que font les integrations officielles et les « agents » Linear) : le harnais poste sous l'identite de l'application « Autoport », l'owner est notifie. Prerequis owner : creer l'application dans Linear (Settings > API > OAuth applications : nom Autoport, icone, redirect http://127.0.0.1:8765/callback, scopes read write comments:create issues:create), me donner client id + secret (dans ~/.config/autoport/linear.env, jamais dans le depot), puis UNE fois donner son accord sur la page d'autorisation (actor=app). Le harnais garde le jeton d'acces et le rafraichit.
   deliverable: |-
     `linear_identity_defects` = 0 :
 
@@ -13846,7 +13842,11 @@ items:
     une notification quand il te repond.'
   out_of_scope: Pas de changement de la logique du miroir au-dela de l'identite. Tout ce qui n'est pas
     cet item.
-  notes: 'Cree le 17/09 depuis le ticket owner JAK-180 (item auto « owner-identit-diffrentes-pour-le-harnais-et-les-users-
-    » archive, ticket rattache ici). Prerequis owner : une adresse mail pour le compte Autoport (ou creation
-    de l''app OAuth).'
+  notes: |-
+    Cree le 17/09 depuis le ticket owner JAK-180 (item auto « owner-identit-diffrentes-pour-le-harnais-et-les-users- » archive, ticket rattache ici). Prerequis owner : une adresse mail pour le compte Autoport (ou creation de l'app OAuth).
+    Voie (1) compte separe REFUSEE par l'owner (« compte fake »). Voie OAuth actor=app retenue.
   prompt: prompts/item-harness-linear-own-identity.md
+  owner_feedback:
+  - date: '2026-09-17'
+    text: C'est un peu dégueu non de créer un compte fake pour ça ? Il n'y a pas un moyen natif propre
+      ?

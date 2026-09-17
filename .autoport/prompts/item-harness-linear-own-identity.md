@@ -1,10 +1,14 @@
+> LIS D'ABORD `prompts/item-harness-linear-own-identity-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Le harnais parle sur Linear sous sa propre identité, pas sous celle de l'owner
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « C'est un peu dégueu non de créer un compte fake pour ça ? Il… »
 
 ## Cause connue
-Owner 17/09 (JAK-180) : « Le harnais poste sur les issues en tant que Emeric Commenge (moukrea) parce que c'est un token personnel… c'est pénible car dur à dissocier, et surtout on bénéficie pas des notifs Linear du coup parce que tous les messages sont envoyés par… moi-même ». Deux voies : (1) un second compte Linear « Autoport » invite dans le workspace (organizationInviteCreate), sa propre cle API dans ~/.config/autoport/linear.env : aucun changement de code, l'owner recoit les notifications comme pour un collegue ; (2) une application OAuth Linear en mode acteur=application (identite « app »), qui demande la creation de l'app dans les reglages Linear par l'owner et un flux OAuth cote harnais. Recommandation : (1).
+Owner 17/09 (JAK-180) : « Le harnais poste sur les issues en tant que Emeric Commenge (moukrea) parce que c'est un token personnel… c'est pénible car dur à dissocier, et surtout on bénéficie pas des notifs Linear du coup parce que tous les messages sont envoyés par… moi-même ». Deux voies : (1) un second compte Linear « Autoport » invite dans le workspace (organizationInviteCreate), sa propre cle API dans ~/.config/autoport/linear.env : aucun changement de code, l'owner recoit les notifications comme pour un collegue ; (2) une application OAuth Linear en mode acteur=application (identite « app »), qui demande la creation de l'app dans les reglages Linear par l'owner et un flux OAuth cote har […suite dans le contrat]
 
 ## Livrable
 `linear_identity_defects` = 0 :
@@ -15,7 +19,7 @@ Owner 17/09 (JAK-180) : « Le harnais poste sur les issues en tant que Emeric Co
 
 3. LES NOTIFICATIONS : un commentaire du harnais sur un ticket cree par l'owner lui produit une notification Linear (verifie par l'owner : une fois suffit).
 
-4. RIEN NE CASSE : etiquettes, adoption des tickets, deplacements, reactions et annonces fonctionnent sous la nouvelle identite (une passe de synchro sans erreur, `--check` a 0 ecart).
+4. RIEN NE CASSE : etiquettes, adoption des tickets, deplacement […suite dans le contrat]
 
 ## Preuve exigee
 `linear_identity_defects == 0` dans `reports/harness-linear-own-identity/proof.txt`.
