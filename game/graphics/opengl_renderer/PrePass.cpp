@@ -229,6 +229,11 @@ uint64_t g_fam_gap64_inner[kFamCount] = {};
 // Remplis par `arch_interrogate`, une fois par programme lie qui recoit l'AO. Voir le
 // commentaire de cette fonction : `_switch_readers` est le CONTROLE POSITIF sans lequel
 // `_luma_mask_sites = 0` ne prouverait rien.
+// Le taux de base du test de silhouette, echantillonne un pixel sur N sur la population
+// COUVERTE : c'est le denominateur sans lequel `gap64_edge / gap64_inner` n'est pas jugeable.
+constexpr size_t kEdgeProbeStride = 16;
+uint64_t g_fam_edge_probe_pop[kFamCount] = {};
+uint64_t g_fam_edge_probe_hit[kFamCount] = {};
 std::vector<GLuint> g_arch_seen_programs;
 uint64_t g_arch_programs_queried = 0;
 uint64_t g_arch_switch_readers = 0;
@@ -1015,6 +1020,14 @@ void publish_all() {
     // aussi `_gap64_px`.
     autoport_proof::publish((base + "_gap64_edge_px").c_str(), g_fam_gap64_edge[f]);
     autoport_proof::publish((base + "_gap64_inner_px").c_str(), g_fam_gap64_inner[f]);
+    // ... et LE TAUX DE BASE du meme test, sur la population couverte, un pixel sur
+    // `kEdgeProbeStride`. `edge = 100 %` ne veut rien dire si le taux de base vaut deja 1000.
+    autoport_proof::publish((base + "_edge_base_pop_px").c_str(), g_fam_edge_probe_pop[f]);
+    autoport_proof::publish((base + "_edge_base_hit_px").c_str(), g_fam_edge_probe_hit[f]);
+    autoport_proof::publish(
+        (base + "_edge_base_rate_x1000").c_str(),
+        g_fam_edge_probe_pop[f] ? (1000ull * g_fam_edge_probe_hit[f] / g_fam_edge_probe_pop[f])
+                                : 0ull);
     // (terme 3) Parmi les « absent » de cette famille, ceux que le bras SANS DECOUPE D'ALPHA
     // porte : la prepasse dessine bien cette geometrie, c'est son alpha-test qui l'a jetee.
     autoport_proof::publish((base + "_absent_nocut_px").c_str(), g_fam_absent_nocut[f]);
@@ -2232,6 +2245,37 @@ void proof_post_opaque(SharedRenderState* rs) {
       }
       g_geom_cover++;
       g_fam_cover[fam]++;
+      // ── LE TAUX DE BASE DU TEST DE SILHOUETTE ───────────────────────────────────────────
+      // Sans lui, « 33 pixels de `gap64` sur 33 sont au bord d'une marche » ne prouve rien :
+      // sur du feuillage a decoupe, presque TOUT pixel touche une marche, et le test serait
+      // vrai par construction. On mesure donc le MEME test sur la population couverte, un
+      // pixel sur `kEdgeProbeStride` — la borne du cout, publiee avec son compte d'echantillons
+      // pour qu'un lecteur puisse la contredire. Un taux de base proche de 1000 rend la
+      // repartition edge/inner MUETTE ; un taux bas la rend concluante.
+      if ((i % kEdgeProbeStride) == 0) {
+        g_fam_edge_probe_pop[fam]++;
+        const size_t exi = i % (size_t)w, eyi = i / (size_t)w;
+        bool e_step = false;
+        for (int dy = -1; dy <= 1 && !e_step; dy++) {
+          for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) {
+              continue;
+            }
+            const long nx = (long)exi + dx, ny = (long)eyi + dy;
+            if (nx < 0 || ny < 0 || nx >= (long)w || ny >= (long)h) {
+              continue;
+            }
+            const float nz = sd[(size_t)ny * (size_t)w + (size_t)nx];
+            if (nz > 1e-6f && fabsf(nz - sz) > tol[1]) {
+              e_step = true;
+              break;
+            }
+          }
+        }
+        if (e_step) {
+          g_fam_edge_probe_hit[fam]++;
+        }
+      }
       if (moved > tol[0]) {
         g_sway_gap_world_px++;
       }

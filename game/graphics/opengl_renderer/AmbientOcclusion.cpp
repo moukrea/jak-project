@@ -2882,7 +2882,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   // Le quatrieme fait du contrat — « un pixel eclaire par le direct seul a la MEME valeur AO
   // allumee et eteinte » — est deja le terme 1 (`ao_direct_leak_px`) et n'est pas compte deux
   // fois.
-  uint64_t t9 = 0;
+  uint64_t t9 = 0, t9_measured = 0;
   {
     const uint64_t composite_compiled = ao_has_composite<AmbientOcclusionPass>::value ? 1ull : 0ull;
     const uint64_t selftest = ao_has_composite<AoLegacyWitnessControl>::value ? 1ull : 0ull;
@@ -2902,6 +2902,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
     t9 += (s_ao_draws_on_scene != 0) ? 1ull : 0ull;
     t9 += mask_measured ? ((s_arch_luma_mask_sites != 0) ? 1ull : 0ull) : 1ull;
     t9 += (s_arch_probe_px > 0) ? ((s_arch_indirect_hit_px == 0) ? 1ull : 0ull) : 1ull;
+    t9_measured = (mask_measured && s_arch_probe_px > 0) ? 1ull : 0ull;
   }
 
   autoport_proof::publish("ao_owner_term1_direct_leak", t1);
@@ -2918,7 +2919,10 @@ void AmbientOcclusionPass::publish_pattern_census() {
                                      ((s_prepass_mask & 2) ? 1 : 0) +
                                      ((s_prepass_mask & 4) ? 1 : 0) + (flat_measured ? 1 : 0) +
                                      (static_measured ? 1 : 0) + (contact_measured ? 1 : 0) +
-                                     ((q2_full || cross_measured) ? 1 : 0)));
+                                     ((q2_full || cross_measured) ? 1 : 0) +
+                                     ((band_couples_measured == 9) ? 1 : 0) +
+                                     (int)t9_measured));
+  autoport_proof::publish("ao_owner_terms_total", 9ull);
   // LA PORTE. Les sept termes du 14/09, plus les deux que le retour owner du 17/09 ajoute au
   // contrat : (m) la bande du raccord couple par couple, (n) l'AO qui n'est plus un filtre
   // final. Un terme non mesure compte pour un defaut nomme — c'est la regle du contrat, et
