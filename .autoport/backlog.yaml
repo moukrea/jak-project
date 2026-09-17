@@ -13393,6 +13393,8 @@ items:
     17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu trop haute une fois le HUD affiche ; pile pas placee. Les deux captures sont dans owner-feedback/hud-3d-pickups/ (regarde-les). La porte de l'essai 1 etait aveugle : mesurer sur l'IMAGE RENDUE de l'appareil, et suivre la visibilite du HUD d'origine.
 
     SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game », « pour la pile d'énergie, idem ».
+
+    17/09 23:25 SUPERVISEUR — owner (JAK-177) : « si tu bute sur une mesure, je peux faire la vérif moi même… suffit de me dire quoi vérifier ». Essai 3 : 1 seul defaut restant (la pile) ; cause nommee par l'agent : draw-bones-hud-merc ne dessine qu'une partie du modele (effets sans envmap) et color-mult/color-emissive sont inertes sur un dessin de HUD. Essai 4 en vol (22:51) applique le correctif. REGLE : si l'essai 4 rougit sur la MESURE, PAS d'essai 5 : l'item passe a tester par l'owner avec les 4 questions de `where`.
   deliverable: |-
     `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13423,8 +13425,11 @@ items:
     Note (pas un verdict) : la mecamouche est « un peu sombre » ; si l'eclairage du modele dans le HUD est facile a aligner sur celui du sprite d'origine (luminance moyenne comparee), le faire, sinon le signaler dans FINDINGS.
 
     OWNER 17/09 21:15 : « Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce qui me fait penser que tu utilisais du positionnement absolu ! ». Les verdicts 7 et 9 se mesurent dans DEUX configurations, toutes deux sur l'appareil : (a) native 21:9 pleine resolution, (b) ASPECT FORCE 4:3 A BASSE RESOLUTION (le reglage de l'owner). Le placement est une fraction de l'espace HUD d'origine, donc identique dans les deux ; publier les boites et les ecarts pour chacune. Un element juste en 21:9 et faux en 4:3 est un defaut. Toute coordonnee en pixels absolus dans le code de placement est un defaut (publier le nombre de sites de placement et la forme de chacun : fraction d'espace HUD, jamais des pixels).
-  where: 'HUD en jeu : la mecamouche, l''orbe, la particule d''eco verte a cote du coeur et la pile d''energie
-    sont les vrais objets du jeu en 3D, a la place des sprites plats.'
+  where: 'HUD en jeu, sur le build nomme dans le commentaire « build publie », en 21:9 ET en 4:3 basse
+    resolution. Quatre oui/non : (1) la pile d''energie du HUD est-elle ENTIERE (aucune partie manquante)
+    ? (2) a-t-elle la bonne taille par rapport au coeur, sans etre ecrasee ni aplatie ? (3) est-elle a
+    la bonne place, la ou etait le sprite ? (4) mecamouche, orbe et particule d''eco verte sont-ils inchanges
+    (bons a l''essai 2) ? Quatre oui = valide ; un non = dire lequel.'
   out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-3d-pickups.md
   owner_feedback:
@@ -13492,6 +13497,9 @@ items:
   - date: '2026-09-17'
     text: Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce
       qui me fait penser que tu utilisais du positionnement absolu !
+  - date: '2026-09-17'
+    text: Je l'ai déjà dit, si tu bute sur une mesure, je peux faire la vérif moi même et suffit de me
+      dire quoi vérifier, plutôt que perdre du temps et gaspiller des tokens
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'
@@ -13801,6 +13809,9 @@ items:
       exactement ce que tu veux que je vérifie et on peut aller plus vite !
   - date: '2026-09-17'
     text: Et bah voilà ! C'est pas compliqué ! C'est réussi ! Je valide !
+  - date: '2026-09-17'
+    text: '"dans une scène pleine de choses qui bougent"… t''étais même pas foutu de me dire que des trucs
+      bougeaient… donc juste quand la machine bute sur une mesure tout court !'
   block_reason: ''
 - id: owner-identit-diffrentes-pour-le-harnais-et-les-users-
   status: archived
