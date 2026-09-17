@@ -216,10 +216,7 @@ def plain_state_comment(bl, it, st):
     vérifier avec ce commentaire ? »."""
     where = (it.get("where") or "").strip()
     lv = last_verdict(it["id"])
-    frames = ""
-    mfr = re.search(r"frames=(\d+)", lv or "")
-    if mfr:
-        frames = " (mesure machine tenue sur %s images, sans plantage)" % mfr.group(1)
+    frames = ""  # owner 17/09 : les comptes d'images n'aident personne
     if st == "In Review":
         return "→ **À tester par toi**%s. Attends le commentaire « build publié » ci-dessous : il dit quel build de jak-builds porte ce chantier (jak-builds ne garde que le dernier).\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
     if st == "Done":
