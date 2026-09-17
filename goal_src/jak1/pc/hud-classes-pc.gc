@@ -1688,7 +1688,30 @@
    (live-slots      int32)
    (orb-tries       int32)
    (orb-null        int32)
-   (orb-noskel      int32)))
+   (orb-noskel      int32)
+   ;; §6 la visibilite : une population par emplacement, lue sur le draw-control
+   (vis-frames      int32)
+   (was-hid         uint32)
+   (vis-bad-buzz    int32)
+   (vis-bad-cell    int32)
+   (vis-bad-orb     int32)
+   (vis-bad-eco     int32)
+   (vis-ok-buzz     int32)
+   (vis-ok-cell     int32)
+   (vis-ok-orb      int32)
+   (vis-ok-eco      int32)
+   (vis-hid-buzz    int32)
+   (vis-hid-cell    int32)
+   (vis-hid-orb     int32)
+   (vis-hid-eco     int32)
+   ;; le decalage constant entre l'icone d'origine de la pile et la notre
+   (cell-dx         int32)
+   (cell-dy         int32)
+   ;; §7 le placement de la mecamouche, et le temoin que le jeu en donne
+   (buzz-icon-x     int32)
+   (buzz-icon-y     int32)
+   (buzz-nd-x       int32)
+   (buzz-nd-y       int32)))
 
 ;;;----------------------------------------------
 ;;  petites mesures
@@ -1780,6 +1803,64 @@
    echelle de l'icone x rayon du modele. Le facteur de projection du HUD est le meme pour les deux,
    il se simplifie — on ne publie donc jamais un pixel qu'on n'a pas su calculer."
   (if (and (hud3d-alive? ic) (nonzero? (-> ic 0 draw))) (* scale (-> ic 0 draw bounds w)) 0.0))
+
+;;;----------------------------------------------
+;;  LA LOI DE PLACEMENT — ou va le modele qui remplace un sprite
+;;;----------------------------------------------
+;;
+;; LES DEUX REPERES NE SONT PAS LE MEME (hud.gc:72-116, mesure du 17/09). Un sprite de HUD et une
+;; icone de HUD ne se posent pas par la meme formule :
+;;   sprite : pos.y = 1/2 (rel_y (init_y + ...) - screen_sy)      (`draw-particles`)
+;;   icone  : trans.y = icon_y + ... - screen_sy                  (`draw-icons`)
+;; L'essai 1 recopiait `init_y` dans `icon_y`. En unites d'icone le sprite est a `rel_y init_y`,
+;; l'icone a `icon_y` : recopier revient a poser le modele TROP HAUT de tout le decalage du
+;; modele — « un poil trop haute » (owner, 17/09), 32 unites sur 448, soit ~77 px sur l'appareil.
+;;
+;; ET UN MODELE NE SE POSE PAS PAR SON CENTRE. `draw-icons` pose son ORIGINE ; le sprite, lui, est
+;; centre sur sa position. Le decalage entre les deux est la donnee que le jeu porte deja :
+;; `(-> skeleton-group bounds)`, la sphere que `initialize-skeleton` recopie dans le draw-control
+;; (process-drawable.gc:416). Pour la mecamouche elle vaut (0, 1 metre, 0) : le corps est a 4096
+;; unites au-dessus de l'origine du modele.
+;;
+;;   icon_x = init_x - bounds_x * scale_x * rel_x
+;;   icon_y = rel_y * (init_y - bounds_y * scale_y)
+;;
+;; LE TEMOIN, ET IL N'EST PAS DE NOUS. Le jeu declare lui-meme ou va l'icone de la mecamouche :
+;; `get-icon-pos-y` sur `hud-buzzers` (hud-classes.gc:1146) rend `text-y + 50` = 412 — la methode
+;; que `hud-collecting` (hud.gc:316) utilise pour faire voler la mouche ramassee vers le HUD, dans
+;; le repere des ICONES. La loi ci-dessus rend 412,77 a partir du sprite (380) et des bornes du
+;; modele (4096) : deux sources independantes du jeu, 0,77 unite d'ecart. C'est le terme §7.
+;; (`get-icon-pos-x` rend `text-x` = 85, la position du TEXTE et non de l'icone : l'owner a valide
+;; l'abscisse actuelle, on garde celle du sprite. Consigne dans FINDINGS.txt.)
+
+(defun hud3d-icon-x-for-sprite ((init-x float) (cx float) (sx float))
+  "l'abscisse d'icone qui pose le CENTRE du modele la ou le sprite d'origine etait."
+  (the int (- init-x (* cx sx (-> *video-parms* relative-x-scale)))))
+
+(defun hud3d-icon-y-for-sprite ((init-y float) (cy float) (sy float))
+  "l'ordonnee d'icone qui pose le CENTRE du modele la ou le sprite d'origine etait."
+  (the int (* (-> *video-parms* relative-y-scale) (- init-y (* cy sy)))))
+
+(defun hud3d-icon-drawn? ((ic (pointer manipy)))
+  "vrai quand ce modele est EFFECTIVEMENT soumis au rendu. La grandeur est le bit `hidden` de son
+   draw-control — celui que le moteur lit — et non un drapeau a nous : c'est ce qui rend le terme
+   §6 mesurable au lieu d'etre un miroir de notre propre decision."
+  (and (hud3d-alive? ic) (not (logtest? (-> ic 0 draw status) (draw-status hidden))) #t))
+
+(defun hud3d-vis-verdict ((this hud-3d-pickups) (hid object) (drawn object) (bit int))
+  "0 rien a compter · 1 DESSINE alors que l'element d'origine est cache (le defaut du 17/09) ·
+   2 dessine quand l'element d'origine est la · 3 efface quand il faut.
+   L'etat cache doit tenir DEUX images avant de compter : notre process et les elements de HUD ne
+   tournent pas dans un ordre garanti dans l'image, et l'image de la bascule se lirait des deux
+   cotes. Le defaut que l'owner a vu durait, lui, toute la sequence d'amorcage."
+  (let ((was (logtest? (-> this was-hid) (ash 1 bit))))
+    (if hid
+      (logior! (-> this was-hid) (ash 1 bit))
+      (logclear! (-> this was-hid) (ash 1 bit)))
+    (cond
+      ((and hid was) (if drawn 1 3))
+      (hid 0)
+      (else (if drawn 2 0)))))
 
 (defun hud3d-spawned-this-frame? ((lc sparticle-launch-control))
   "vrai quand CE lanceur a lance a l'image courante ou a la precedente. La grandeur vient du
@@ -1926,6 +2007,24 @@
                  (set-vector! (-> ic 0 draw color-mult) 0.5 0.5 0.5 1.0)
                  (set-vector! (-> ic 0 draw color-emissive) 0.5 0.5 0.5 1.0)
                  (send-event (ppointer->process ic) 'anim-mode 'still)
+                 ;; MEME GESTE QUE POUR LA MECAMOUCHE. L'element pile passe l'essentiel du temps
+                 ;; dans `hud-hidden`, qui n'appelle `draw-icons` qu'a l'entree : notre icone,
+                 ;; nee apres, gardait l'origine du repere et son echelle de naissance — « une
+                 ;; pile d'energie tout minuscule qu'on voit tout le temps » (owner, 17/09).
+                 ;; LE DECALAGE DES DEUX ORIGINES, UNE FOIS POUR TOUTES. `draw-icons` pose
+                 ;; l'ORIGINE d'un modele ; ce qu'on veut superposer, ce sont les deux CENTRES.
+                 ;; Les deux groupes declarent aujourd'hui la meme sphere (0, 1 metre, 0, 1,6 m) —
+                 ;; le decalage vaut donc zero — mais la formule le mesure au lieu de le supposer.
+                 (let ((b0 (-> obj icons 0 icon 0 draw bounds))
+                       (b1 (-> ic 0 draw bounds)))
+                   (set! (-> this cell-dx)
+                         (the int (* (-> *video-parms* relative-x-scale)
+                                     (- (* (-> b0 x) (-> obj icons 0 scale-x)) (* (-> b1 x) sc)))))
+                   (set! (-> this cell-dy)
+                         (the int (* (-> *video-parms* relative-y-scale)
+                                     (- (* (-> b0 y) (-> obj icons 0 scale-y)) (* (-> b1 y) sc))))))
+                 (draw-icons obj)
+                 (send-event (ppointer->process ic) 'draw (not (hidden? obj)))
                  (set! (-> this cell-stock-ext) (* (-> obj icons 0 scale-x) r0))
                  (set! (-> this cell-our-ext) (* sc r1))
                  (set! (-> this cell-proc) (the-as process (ppointer->process fc))))
@@ -1955,14 +2054,25 @@
         (when (zero? (-> obj nb-of-icons))
           (set! (-> this buzz-ref-sx) (get-icon-scale-x obj))
           (set! (-> this buzz-ref-sy) (get-icon-scale-y obj))
+          ;; LA LOI DE PLACEMENT (en-tete plus haut), et le temoin que le jeu en donne
+          (set! (-> this buzz-icon-x)
+                (hud3d-icon-x-for-sprite (-> obj particles 0 init-pos x)
+                                         (-> *buzzer-sg* bounds x)
+                                         (-> this buzz-ref-sx)))
+          (set! (-> this buzz-icon-y)
+                (hud3d-icon-y-for-sprite (-> obj particles 0 init-pos y)
+                                         (-> *buzzer-sg* bounds y)
+                                         (-> this buzz-ref-sy)))
+          (set! (-> this buzz-nd-x) (get-icon-pos-x obj))
+          (set! (-> this buzz-nd-y) (- (get-icon-pos-y obj) (-> obj next-y-offset)))
           (hud-pc-make-icon obj
                             HUD_ICON_COUNT
                             :skel *buzzer-sg*
-                            :x (the int (-> obj particles 0 init-pos x))
-                            :y (the int (-> obj particles 0 init-pos y))
+                            :x (-> this buzz-icon-x)
+                            :y (-> this buzz-icon-y)
                             :z 1024.0
-                            :scale-x (get-icon-scale-x obj)
-                            :scale-y (get-icon-scale-y obj))
+                            :scale-x (-> this buzz-ref-sx)
+                            :scale-y (-> this buzz-ref-sy))
           (let ((ic (-> obj icons 0 icon)))
             (cond
               ((hud3d-alive? ic)
@@ -1970,7 +2080,15 @@
                (send-event (ppointer->process ic)
                            'rot-quat
                            (quaternion-axis-angle! (new-stack-quaternion0) 0.0 1.0 0.0 (degrees 180)))
-               (set! (-> this buzz-ext) (* (get-icon-scale-x obj) (-> ic 0 draw bounds w)))
+               ;; A SA NAISSANCE, PAS A LA PROCHAINE OUVERTURE DU HUD. `hud-buzzers` n'a aucune
+               ;; icone d'origine : son etat `hud-hidden` n'appelle donc jamais `draw-icons`
+               ;; (hud.gc:159 ne le fait qu'a l'entree, avant que la notre existe), et l'icone
+               ;; restait a l'origine du repere, EN PLEIN MILIEU DE L'ECRAN, visible des la
+               ;; premiere image jusqu'a la premiere ouverture du HUD (owner, 17/09). On la place
+               ;; et on lui donne la visibilite de son element a l'image meme.
+               (draw-icons obj)
+               (send-event (ppointer->process ic) 'draw (not (hidden? obj)))
+               (set! (-> this buzz-ext) (* (-> this buzz-ref-sx) (-> ic 0 draw bounds w)))
                (set! (-> this buzz-proc) (the-as process (ppointer->process bz))))
               (else
                (when (and (nonzero? ic) ic (-> ic 0)) (deactivate (ppointer->process ic)))
@@ -2049,29 +2167,46 @@
 
 (defun hud3d-icon-draw! ((obj hud) (idx int) (on symbol))
   "montre ou cache UNE icone d'un element de HUD. L'etat d'arrivee de l'element renvoie `draw #t`
-   a TOUS ses enfants ; il faut donc re-affirmer le choix a chaque image, sinon la premiere
-   apparition rend les deux modeles visibles en meme temps."
+   a TOUS ses enfants (hud.gc:203) ; il faut donc re-affirmer le choix, sinon la premiere
+   apparition rend les deux modeles visibles en meme temps.
+   L'EVENEMENT NE PART QUE SI L'ETAT CHANGE. On lit d'abord le bit `hidden` du draw-control — la
+   grandeur que le moteur regarde — et on ne poste rien quand il est deja bon : sur une course
+   entiere cela vaut quatre `send-event` par image economises, et l'owner a demande le 17/09 de
+   ne pas payer le placement au calcul."
   (when (and obj (> (-> obj nb-of-icons) idx))
     (let ((ic (-> obj icons idx icon)))
-      (if (hud3d-alive? ic) (send-event (ppointer->process ic) 'draw on))))
+      (when (hud3d-alive? ic)
+        (if (!= (and on #t) (hud3d-icon-drawn? ic))
+          (send-event (ppointer->process ic) 'draw on)))))
   (none))
 
 (defun hud3d-set-regime ((this hud-3d-pickups) (ours symbol))
   "pose les quatre emplacements dans l'un des deux regimes. `ours` = les objets du jeu ;
    sinon exactement ce que le jeu d'origine dessine."
+  ;; UN MODELE N'EST VISIBLE QUE QUAND L'ELEMENT D'ORIGINE L'EST (livrable §6). L'essai 1
+  ;; re-affirmait `draw` a partir du seul regime : les modeles restaient dessines pendant que le
+  ;; HUD etait replie — c'est le defaut que l'owner a vu le 17/09 sur ses deux captures. La
+  ;; reference est `hidden?` (hud.gc:143), l'etat de l'element, qui est aussi ce qui autorise le
+  ;; sprite d'origine a se lancer (`hud::draw-hud`, hud.gc:24).
   (let ((fc (hud3d-elt HUD3D_SLOT_CELL)))
     (when fc
-      (let ((obj (-> fc 0)))
-        (hud3d-icon-draw! obj 0 (not ours))
-        (hud3d-icon-draw! obj 1 ours)
-        (if ours (hud3d-drive-cell-anim (-> obj icons 1 icon)))
+      (let* ((obj (-> fc 0))
+             (shown (not (hidden? obj))))
+        (when (> (-> obj nb-of-icons) 1)
+          ;; notre icone suit celle d'origine : `hud-fuel-cell::hud-update` reecrit `icon-y` a
+          ;; chaque image (hud-classes.gc:944). Deux entiers, pas une formule.
+          (set! (-> obj icons 1 icon-x) (+ (-> obj icons 0 icon-x) (-> this cell-dx)))
+          (set! (-> obj icons 1 icon-y) (+ (-> obj icons 0 icon-y) (-> this cell-dy))))
+        (hud3d-icon-draw! obj 0 (and (not ours) shown))
+        (hud3d-icon-draw! obj 1 (and ours shown))
+        (if (and ours shown) (hud3d-drive-cell-anim (-> obj icons 1 icon)))
         ;; l'element pile dessine aussi un groupe de sprites plats sous son icone ; -2 est sa
         ;; valeur d'origine (« hud-update pilote la position »), 0 saute la particule 0.
         (set! (-> obj skip-particle) (if ours 0 -2)))))
   (let ((bz (hud3d-elt HUD3D_SLOT_BUZZERS)))
     (when bz
       (let ((obj (-> bz 0)))
-        (hud3d-icon-draw! obj 0 ours)
+        (hud3d-icon-draw! obj 0 (and ours (not (hidden? obj))))
         (set! (-> obj skip-particle) (if ours 0 -1)))))
   ;; l'orbe porte DEJA le vrai modele du ramassable ; seul le halo plat par-dessus s'en va
   (let ((m (hud3d-elt HUD3D_SLOT_MONEY))) (if m (set! (-> m 0 skip-particle) (if ours 0 -1))))
@@ -2191,13 +2326,15 @@
     (when (and bz (> (-> bz 0 nb-of-particles) 0) (> (-> bz 0 nb-of-icons) 0))
       (__pc-autoport-publish "hud3d_rect_buzzer_cx" (-> bz 0 icons 0 icon-x))
       (__pc-autoport-publish "hud3d_rect_buzzer_cy" (-> bz 0 icons 0 icon-y))
-      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cx" (the int (-> bz 0 particles 0 init-pos x)))
-      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cy" (the int (-> bz 0 particles 0 init-pos y)))
+      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cx" (-> this buzz-icon-x))
+      (__pc-autoport-publish "hud3d_rect_buzzer_ref_cy" (-> this buzz-icon-y))
+      (__pc-autoport-publish "hud3d_rect_buzzer_sprite_cx" (the int (-> bz 0 particles 0 init-pos x)))
+      (__pc-autoport-publish "hud3d_rect_buzzer_sprite_cy" (the int (-> bz 0 particles 0 init-pos y)))
       (__pc-autoport-publish "hud3d_rect_buzzer_scale_milli" (the int (* 100000.0 (-> bz 0 icons 0 scale-x))))
       (__pc-autoport-publish "hud3d_rect_buzzer_ref_scale_milli" (the int (* 100000.0 (-> this buzz-ref-sx))))
       (hud3d-pub-name "hud3d_rect_buzzer_basis" "get-icon-scale-x/y_de_hud-buzzers_(donnee_du_jeu)")
-      (if (or (!= (-> bz 0 icons 0 icon-x) (the int (-> bz 0 particles 0 init-pos x)))
-              (!= (-> bz 0 icons 0 icon-y) (the int (-> bz 0 particles 0 init-pos y)))
+      (if (or (!= (-> bz 0 icons 0 icon-x) (-> this buzz-icon-x))
+              (!= (-> bz 0 icons 0 icon-y) (-> this buzz-icon-y))
               (!= (-> bz 0 icons 0 scale-x) (-> this buzz-ref-sx))
               (!= (-> bz 0 icons 0 scale-y) (-> this buzz-ref-sy)))
         (+! rect-bad 1)))
@@ -2244,16 +2381,67 @@
         (__pc-autoport-publish "hud3d_probe_on" (if (-> this probe?) 1 0))
         (__pc-autoport-publish "hud3d_off_checks" (-> this off-checks))
         (__pc-autoport-publish "hud3d_stock_sprite_spawns" (-> this stock-spawns))
-        (let ((t1 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) id-bad) (+ id-bad 1)))
-              (t2 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this stock-spawns)) 1))
-              (t3 (if (> (-> this judged) 0) (begin (+! measured 1) rect-bad) 1))
-              (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1)))
+        ;; ── §6 LA VISIBILITE EST CELLE DU HUD D'ORIGINE ───────────────────────────────────
+        ;; `bad` = images ou le modele est soumis au rendu alors que son element de HUD est
+        ;; replie. `ok` = images ou il l'est quand l'element est la. `hid` = taille de la
+        ;; population « element replie » : sans elle, un zero ne dirait rien.
+        (__pc-autoport-publish "hud3d_vis_frames" (-> this vis-frames))
+        (__pc-autoport-publish "hud3d_vis_bad_buzzer" (-> this vis-bad-buzz))
+        (__pc-autoport-publish "hud3d_vis_bad_cell" (-> this vis-bad-cell))
+        (__pc-autoport-publish "hud3d_vis_bad_orb" (-> this vis-bad-orb))
+        (__pc-autoport-publish "hud3d_vis_bad_eco" (-> this vis-bad-eco))
+        (__pc-autoport-publish "hud3d_vis_shown_buzzer" (-> this vis-ok-buzz))
+        (__pc-autoport-publish "hud3d_vis_shown_cell" (-> this vis-ok-cell))
+        (__pc-autoport-publish "hud3d_vis_shown_orb" (-> this vis-ok-orb))
+        (__pc-autoport-publish "hud3d_vis_shown_eco" (-> this vis-ok-eco))
+        (__pc-autoport-publish "hud3d_vis_hidden_buzzer" (-> this vis-hid-buzz))
+        (__pc-autoport-publish "hud3d_vis_hidden_cell" (-> this vis-hid-cell))
+        (__pc-autoport-publish "hud3d_vis_hidden_orb" (-> this vis-hid-orb))
+        (__pc-autoport-publish "hud3d_vis_hidden_eco" (-> this vis-hid-eco))
+
+        ;; ── §7 LE PLACEMENT, CONFRONTE A CE QUE LE JEU DECLARE ────────────────────────────
+        ;; `..._y` est l'ordonnee d'icone que NOTRE loi calcule a partir du sprite d'origine et
+        ;; des bornes du modele ; `..._y_nd` est celle que le jeu declare pour cette icone-la
+        ;; (`get-icon-pos-y` sur `hud-buzzers`), la methode que `hud-collecting` utilise pour y
+        ;; faire voler la mouche ramassee. Les deux sources sont independantes : c'est le seul
+        ;; terme de position de cet item qui ne soit pas un miroir de notre propre calcul.
+        ;; AUCUNE VALEUR NEGATIVE ICI. `pc_autoport_publish` (kmachine.cpp:1566) ECRASE tout
+        ;; negatif a zero : un ecart de -10 se publierait « 0 », c'est-a-dire « parfait ». On
+        ;; publie donc la VALEUR ABSOLUE et le SENS a part. Consigne dans FINDINGS.txt.
+        (__pc-autoport-publish "hud3d_place_buzzer_y" (-> this buzz-icon-y))
+        (__pc-autoport-publish "hud3d_place_buzzer_y_nd" (-> this buzz-nd-y))
+        (__pc-autoport-publish "hud3d_place_buzzer_dy_abs" (abs (- (-> this buzz-icon-y) (-> this buzz-nd-y))))
+        (__pc-autoport-publish "hud3d_place_buzzer_above_nd" (if (< (-> this buzz-icon-y) (-> this buzz-nd-y)) 1 0))
+        (__pc-autoport-publish "hud3d_place_buzzer_x" (-> this buzz-icon-x))
+        (__pc-autoport-publish "hud3d_place_buzzer_x_nd_text" (-> this buzz-nd-x))
+        (__pc-autoport-publish "hud3d_place_buzzer_bounds_y" (the int (-> *buzzer-sg* bounds y)))
+        (__pc-autoport-publish "hud3d_place_buzzer_scale_y_milli_abs" (abs (the int (* 100000.0 (-> this buzz-ref-sy)))))
+        (__pc-autoport-publish "hud3d_place_buzzer_scale_y_negatif" (if (< (-> this buzz-ref-sy) 0.0) 1 0))
+        (__pc-autoport-publish "hud3d_place_rel_y_milli" (the int (* 1000.0 (-> *video-parms* relative-y-scale))))
+        (__pc-autoport-publish "hud3d_place_screen_sy" (-> *video-parms* screen-sy))
+        (__pc-autoport-publish "hud3d_place_cell_dx_abs" (abs (-> this cell-dx)))
+        (__pc-autoport-publish "hud3d_place_cell_dy_abs" (abs (-> this cell-dy)))
+
+        (let* ((vbad (+ (-> this vis-bad-buzz) (-> this vis-bad-cell) (-> this vis-bad-orb) (-> this vis-bad-eco)))
+               (vok (+ (-> this vis-ok-buzz) (-> this vis-ok-cell) (-> this vis-ok-orb) (-> this vis-ok-eco)))
+               (vhid (+ (-> this vis-hid-buzz) (-> this vis-hid-cell) (-> this vis-hid-orb) (-> this vis-hid-eco)))
+               (t6 (if (and (> vhid 0) (> vok 0)) (begin (+! measured 1) vbad) (+ vbad 1)))
+               (t7 (if (zero? (-> this buzz-icon-y))
+                     1
+                     (begin (+! measured 1)
+                            (if (> (abs (- (-> this buzz-icon-y) (-> this buzz-nd-y))) 2) 1 0))))
+               (t1 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) id-bad) (+ id-bad 1)))
+               (t2 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this stock-spawns)) 1))
+               (t3 (if (> (-> this judged) 0) (begin (+! measured 1) rect-bad) 1))
+               (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1)))
           (__pc-autoport-publish "hud3d_t1_identity" t1)
           (__pc-autoport-publish "hud3d_t2_sprites" t2)
           (__pc-autoport-publish "hud3d_t3_rect" t3)
+          (__pc-autoport-publish "hud3d_t6_visibility" t6)
+          (__pc-autoport-publish "hud3d_t7_place" t7)
           (__pc-autoport-publish "hud3d_t5_off" t5)
           (__pc-autoport-publish "hud3d_terms_measured" measured)
-          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5))))))
+          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5 t6 t7))))))
   0)
 
 
@@ -2346,6 +2534,51 @@
         (set! (-> this slots-drawn) slots)
         (set! (-> this live-slots) live)
         (if (> slots 0) (__pc-autoport-hit-for "hud-3d-pickups" slots))
+
+        ;; ── §6 LE RECENSEMENT DE VISIBILITE ───────────────────────────────────────────────
+        ;; Par emplacement, et seulement dans NOTRE regime : « ce modele est-il soumis au rendu
+        ;; alors que son element de HUD est replie ? ». Les deux grandeurs viennent du jeu — le
+        ;; bit `hidden` du draw-control d'un cote, l'etat de l'element de l'autre — et aucune des
+        ;; deux n'est une variable a nous. C'est ce terme qui aurait rougi sur les captures du
+        ;; 17/09, ou la mecamouche et la pile etaient dessinees HUD replie.
+        (when (zero? (-> this regime))
+          (+! (-> this vis-frames) 1)
+          (when bz
+            (let ((v (hud3d-vis-verdict this
+                                        (hidden? (-> bz 0))
+                                        (and (> (-> bz 0 nb-of-icons) 0)
+                                             (hud3d-icon-drawn? (-> bz 0 icons 0 icon)))
+                                        0)))
+              (if (= v 1) (+! (-> this vis-bad-buzz) 1))
+              (if (= v 2) (+! (-> this vis-ok-buzz) 1))
+              (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-buzz) 1))))
+          (when fc
+            (let ((v (hud3d-vis-verdict this
+                                        (hidden? (-> fc 0))
+                                        (and (> (-> fc 0 nb-of-icons) 1)
+                                             (hud3d-icon-drawn? (-> fc 0 icons 1 icon)))
+                                        1)))
+              (if (= v 1) (+! (-> this vis-bad-cell) 1))
+              (if (= v 2) (+! (-> this vis-ok-cell) 1))
+              (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-cell) 1))))
+          (when mo
+            (let ((v (hud3d-vis-verdict this
+                                        (hidden? (-> mo 0))
+                                        (and (> (-> mo 0 nb-of-icons) 0)
+                                             (hud3d-icon-drawn? (-> mo 0 icons 0 icon)))
+                                        2)))
+              (if (= v 1) (+! (-> this vis-bad-orb) 1))
+              (if (= v 2) (+! (-> this vis-ok-orb) 1))
+              (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-orb) 1))))
+          (when pk
+            (let ((v (hud3d-vis-verdict this
+                                        (hidden? (-> pk 0))
+                                        (and (> (-> this nb-of-particles) 0)
+                                             (hud3d-spawned-this-frame? (-> this particles 0 part)))
+                                        3)))
+              (if (= v 1) (+! (-> this vis-bad-eco) 1))
+              (if (= v 2) (+! (-> this vis-ok-eco) 1))
+              (if (or (= v 1) (= v 3)) (+! (-> this vis-hid-eco) 1)))))
 
         ;; LA POPULATION JUGEE : les quatre elements d'origine existent et au moins un
         ;; emplacement dessine. Elle N'EXIGE PAS que les quatre modeles soient vivants — une porte
