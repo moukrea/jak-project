@@ -1,10 +1,16 @@
+> LIS D'ABORD `prompts/item-hud-eco-gauge-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « Alors c'est vraiment, VRAIMENT très bien ! Mais c'est quand… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
+
+18/09 01:45 ARBITRAGE OWNER, sur le build 9d3aa9-cad029 (PORTE MACHINE VERTE, hud_gauge_defects==0 : la porte ne voyait AUCUN des trois defauts ci-dessous — elle mesure le remplissage et le rythme, pas l'aspect). « c'est vraiment, VRAIMENT tres bien ! Mais c'est quan […suite dans le contrat]
 
 ## Livrable
 `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
@@ -15,18 +21,12 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 
 3. LA COULEUR : pleine et embout de l'eco ACTIVE (bleu/rouge/jaune), jamais d'une autre.
 
-4. LE VIDAGE : la fraction suit la quantite d'eco du jeu, et sa vitesse de vidage est celle d'origine (memes valeurs aux memes images sur un ramassage scripte).
-
-5. LA POSITION : base, pleine et embout au rectangle de la jauge d'origine (ecart 0 px).
-
-6. ETEINT = ORIGINE.
-
-PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+4. LE VIDAGE : la fraction suit la quantite d'eco du jeu, et sa vitesse de vidage est cell […suite dans le contrat]
 
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu apres un ramassage d'eco bleue, rouge ou jaune : la jauge se remplit dans la bonne couleur, l'embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d'origine..
+Ou l'owner regardera : HUD en jeu apres un ramassage d'eco bleue, rouge ou jaune, sur le build nomme dans le commentaire « build publie ». Trois questions : (1) sur les tout derniers pourcents, l'embout deborde-t-il encore sur le quart bas-droit de la jauge (celui qui ne se remplit jamais) ? (2) reste-t-il des particules parasites sous la jauge, a gauche ? (3) le creux au centre de la jauge porte-t-il la vraie particule d'eco en cours, en 3D, assez grande pour deborder un peu mais sans gener la lecture ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
