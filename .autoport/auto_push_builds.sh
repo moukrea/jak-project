@@ -151,8 +151,22 @@ while true; do
   # avant ferait oublier un zip dont l'envoi a echoue — il ne repartirait plus jamais.
   [ -n "$zh" ] && [ "$zh" != "${LASTZIP:-}" ] && UP+=("$ZIP")
   [ ${#UP[@]} -gt 0 ] || continue
-  if timeout 1800 gh release upload jak1-rtlight-wip "${UP[@]}" \
-       --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
+  # 17/09 22:50 : `--clobber` a EFFACE l'APK de la release puis a echoue sur l'archive avec
+  # « HTTP 422 ReleaseAsset.name already exists » : la suppression implicite n'avait pas pris
+  # cote GitHub, et la release est restee SANS APK. On supprime chaque nom explicitement,
+  # on laisse GitHub digerer, puis on televerse ; un 422 residuel donne droit a UNE reprise.
+  for f in "${UP[@]}"; do
+    gh release delete-asset jak1-rtlight-wip "$(basename "$f")" --repo moukrea/jak-builds --yes >>"$LOG" 2>&1 || true
+  done
+  sleep 5
+  UPLOAD_OK=0
+  for essai in 1 2; do
+    if timeout 1800 gh release upload jak1-rtlight-wip "${UP[@]}" \
+         --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then UPLOAD_OK=1; break; fi
+    echo "$(date +%H:%M:%S) televersement rate (tentative $essai)" >> "$LOG"
+    sleep 20
+  done
+  if [ "$UPLOAD_OK" = 1 ]; then
     LAST="$h"; LASTZIP="$zh"
     LASTINFO="$INFOSHA"
     printf '%s\n' "$h" > .autoport/.last_published_apk_md5
