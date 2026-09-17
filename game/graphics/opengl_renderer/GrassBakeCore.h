@@ -628,6 +628,187 @@ struct OverlaySelftest {
 };
 OverlaySelftest overlay_census_selftest();
 
+// ---------------------------------------------------------------------------
+// grass-edge-truth : LE BORD QUI DONNE SUR LE VIDE, ETABLI PAR LA GEOMETRIE.
+// ---------------------------------------------------------------------------
+//
+// SPEC sections 2 et 16. Le detecteur en vigueur (`scan_level`, GrassBakeCore.cpp:596-694)
+// declare qu'une arete ouvre sur le vide des qu'AUCUN AUTRE TRIANGLE TEXTURE HERBE ne la
+// partage : `edge_count[...] <= 1`. C'est une question de TOPOLOGIE posee sur une population
+// filtree par TROIS noms de texture. Aucun test geometrique du vide n'existe nulle part.
+// Une frontiere de materiau — pelouse vers terre — porte donc exactement la meme signature
+// qu'un precipice, et c'est la cause racine des onze rounds d'overhang.
+//
+// CE RECENSEMENT NE PLACE RIEN ET NE DEPLACE RIEN. Comme `surface_census` et `overlay_census`
+// il ne partage aucune variable avec `scan_level` / `expand`, n'ecrit dans aucune structure
+// cuite et n'est appele par aucun chemin de placement : le `.grassbake` est identique au bit.
+//
+// LA POPULATION : les aretes UNIQUES (sommets soudes a 3 cm) des triangles de collision de
+// mode 0 — le sol tel que le jeu le definit, la meme porte que `GrassBakeCore.cpp:816` et que
+// `surface_census`. Les triangles degeneres en projection XZ en sont EXCLUS, et cette
+// exclusion est COMPTEE (`tris_xz_degenerate`) : un seau exclu qu'on ne compte pas est un
+// seau ou le defaut se cache.
+//
+// LE « DE L'AUTRE COTE » EST TROUVE PAR SONDE, JAMAIS PAR TOPOLOGIE. Pour chaque arete on
+// sort de `EDGE_OUT_M` metres dans le plan XZ, PERPENDICULAIREMENT a l'arete, du cote oppose
+// au troisieme sommet, et on cherche le sol marchable le plus haut dans la fenetre verticale
+// [-EDGE_DROP_M, +EDGE_UP_M] autour du milieu de l'arete. Ce triangle-la — pas le voisin
+// topologique — est le « au-dela » qui repond a toutes les questions suivantes. Une arete
+// qu'aucun triangle ne partage mais sous laquelle le sol continue N'EST PAS un bord ; une
+// arete partagee au-dessus d'un a-pic EN EST un. Les deux ecarts sont comptes
+// (`unshared_but_floor`, `shared_but_void`) : c'est la mesure de la faute des onze rounds.
+//
+// LES HUIT CLASSES DE L'OWNER, EVALUEES COMME HUIT PREDICATS INDEPENDANTS et non par une
+// cascade `else if` : chacun porte dans son enonce les negations qui le rendent disjoint des
+// sept autres. On les evalue TOUS LES HUIT sur chaque arete et on COMPTE combien la
+// reclament. `claimed_none` et `claimed_multi` sont donc des controles de somme sur la forme
+// des predicats — ils valent structurellement zero tant que les predicats sont bien formes, et
+// c'est dit ici plutot que presente comme une mesure. CE QUI FALSIFIE VRAIMENT LA SONDE est
+// ailleurs : `edge_probe_selftest()`, dix-neuf aretes NOMMEES sur les dix cas geometriques de
+// la SPEC, chacune portant une reponse ATTENDUE declaree AVANT la course, dans les DEUX
+// polarites (onze « vide », huit « le sol continue »). Une sonde qui repondrait toujours
+// « vide » y meurt ; une porte qui ne compterait que des attendus « vide » serait verte par
+// inaction.
+//
+//   1 kEdgeTriangle     le sol continue au-dela, et RIEN ne differe : simple pavage.
+//   2 kEdgeUvSeam       ... mais le triangle de RENDU qui couvre l'autre cote change de
+//                       texture : une couture de fragment, pas un bord.
+//   3 kEdgeMaterial     ... mais le `pat-material` change, hors du cas « chemin ».
+//   4 kEdgeNormalBreak  ... mais les normales de face rompent de plus de EDGE_NORMAL_DEG.
+//   5 kEdgeChunk        ... mais les deux centroides tombent dans deux mailles distinctes de
+//                       la grille de `CHUNK_MAX_DIAG_M` que borne grass-chunk-cull.
+//   6 kEdgeOverlay      l'autre cote est un mesh POSE PAR-DESSUS : collision `grass`, rendu
+//                       nu (sable/terre). La definition de `overlay_census` (methode B).
+//   7 kEdgePath         l'autre cote est un chemin fait par le jeu lui-meme : on part d'un
+//                       materiau `grass` et on arrive sur sable/terre/gravier/pierre.
+//   8 kEdgeVoid         LE VERITABLE BORD : la sonde ne trouve AUCUN sol marchable au-dela.
+//
+// L'ANCIENNE REGLE EST REJOUEE SUR LA MEME DONNEE, pas citee de memoire : `old_rule_void`
+// applique `edge_count <= 1` sur la population des triangles de sol dont la texture de rendu
+// porte l'un des TROIS noms historiques. Les deux verdicts sont publies cote a cote, avec
+// leur intersection et leurs deux differences.
+//
+// LE FAUX VERT DU ROUND 4 EST RENDU IMPOSSIBLE par `terrace_dirt_void` : les aretes que la
+// GEOMETRIE declare sur le vide et qu'un triangle de collision NON MARCHABLE de materiau
+// `dirt` partage — c'est-a-dire le haut d'une terrasse dont la face de chute est EN TERRE, le
+// cas exact ou les rounds 1 a 4 ne posaient aucun brin pendant que leurs metriques passaient.
+// Ce compte doit etre NON NUL, et il est publie par niveau a cote de ce que l'ancienne regle
+// trouvait sur les MEMES aretes.
+constexpr float EDGE_OUT_M = 0.35f;       // de combien on sort de l'arete, dans le plan XZ
+constexpr float EDGE_DROP_M = 1.0f;       // en deca, une marche : le sol continue
+constexpr float EDGE_UP_M = 1.5f;         // au-dessus, une montee : le sol continue aussi
+constexpr float EDGE_NORMAL_DEG = 25.0f;  // au-dela, rupture de normale
+constexpr float EDGE_WELD_M = 0.03f;      // la MEME soudure canonique que le socle (round 16)
+constexpr float EDGE_BUCKET_M = 4.0f;     // maille XZ de l'index de sol marchable
+constexpr float EDGE_OUT_FAR_M = 0.70f;   // temoin de sensibilite : deux fois plus loin
+constexpr float EDGE_DROP_FAR_M = 2.5f;   // temoin de sensibilite : deux fois et demie plus bas
+
+enum EdgeClass : u8 {
+  kEdgeClassNone = 0,
+  kEdgeTriangle = 1,
+  kEdgeUvSeam = 2,
+  kEdgeMaterial = 3,
+  kEdgeNormalBreak = 4,
+  kEdgeChunk = 5,
+  kEdgeOverlay = 6,
+  kEdgePath = 7,
+  kEdgeVoid = 8,
+  kEdgeClassCount = 9,
+};
+const char* edge_class_name(u8 cls);
+
+// Une arete NOMMEE, interrogee par ses deux extremites (unites GOAL). Le recensement rend la
+// classe qu'il lui a donnee LUI-MEME, au milieu de sa boucle : le banc ne rejoue aucune copie
+// des primitives.
+struct EdgeQuery {
+  float ax, ay, az;
+  float bx, by, bz;
+};
+
+struct EdgeCensus {
+  // ---- POPULATION ET CE QU'ELLE EXCLUT, CHIFFRE.
+  u64 collision_tris = 0;       // tous les triangles de collision (denominateur)
+  u64 mode_ground = 0;          // ... de mode 0
+  u64 tris_used = 0;            // ... retenus (non degeneres en XZ)
+  u64 tris_xz_degenerate = 0;   // EXCLUS, et nommes : pas de direction sortante definie
+  u64 verts_raw = 0, verts_welded = 0;
+  u64 edges_total = 0;          // aretes UNIQUES apres soudure  <- le denominateur de tout
+  u64 edges_zero_length = 0;    // deux sommets soudes en un : aucune direction sortante
+  u64 edge_slots = 0;           // 3 * tris_used (avant deduplication)
+  u64 deg1 = 0, deg2 = 0, deg3plus = 0;  // TOPOLOGIE : temoin seul, elle ne decide rien
+
+  // ---- LES HUIT CLASSES.
+  u64 cls[kEdgeClassCount] = {};
+  u64 classified = 0;      // reclamees par EXACTEMENT une classe  <- `hits=` de l'item
+  u64 claimed_none = 0;    // <- terme de la porte
+  u64 claimed_multi = 0;   // <- terme de la porte
+  u64 class_sum_check = 0; // 1 si la somme des huit classes vaut `edges_total`
+
+  // ---- LA SONDE, ET CE QU'ELLE VOIT.
+  u64 beyond_found = 0, beyond_missing = 0;
+  u64 probe_selfhit = 0;            // la sonde est retombee sur son propre triangle (garde)
+  u64 void_with_far_floor = 0;      // vide, mais un sol existe PLUS BAS que la fenetre
+  u64 void_no_floor_at_all = 0;     // vide, et rien du tout dessous
+  u64 void_out_far = 0;             // le meme compte a EDGE_OUT_FAR_M  (sensibilite)
+  u64 void_drop_far = 0;            // le meme compte a EDGE_DROP_FAR_M (sensibilite)
+  u64 unshared_but_floor = 0;       // LA FAUTE DES ONZE ROUNDS, mesuree
+  u64 shared_but_void = 0;          // l'ecart inverse, mesure aussi
+  u64 own_unrendered = 0;           // aucun triangle de rendu ne couvre ce cote
+  u64 beyond_unrendered = 0;        // ... ni celui-la : temoin d'aveuglement de `kEdgeUvSeam`
+  u64 beyond_mat_unnamed = 0;       // materiau hors table : la DIFFERENCE reste lisible
+
+  // ---- L'ANCIENNE REGLE, REJOUEE SUR LA MEME DONNEE.
+  u64 legacy_tris = 0;        // triangles de sol sous l'un des TROIS noms historiques
+  u64 legacy_edges = 0;       // leurs aretes : le denominateur de la comparaison
+  u64 old_rule_void = 0;      // `edge_count <= 1` sur cette population
+  u64 geom_void_on_legacy = 0;
+  u64 old_only = 0;           // l'ancienne dit vide, la geometrie dit non : LES FAUX PRECIPICES
+  u64 geom_only = 0;          // la geometrie dit vide, l'ancienne ne le voyait pas
+  u64 void_both = 0;
+
+  // ---- LE CAS DU ROUND 4 : LES TERRASSES A FACE DE CHUTE EN TERRE.
+  u64 void_edges_with_wall = 0;   // aretes sur le vide qu'un triangle NON marchable partage
+  u64 terrace_dirt_void = 0;      // ... et ce triangle est en `dirt`   <- terme de la porte
+  u64 terrace_sand_void = 0;
+  u64 terrace_stone_void = 0;
+  u64 terrace_dirt_void_old = 0;  // combien l'ancienne regle en voyait, sur les MEMES aretes
+  // LA GENERALISATION HONNETE. La SPEC annonce des faces de chute EN TERRE a Sandover ; la
+  // donnee de collision y repond `stone` et `wood`. Le cas du round 4 n'est pas le materiau
+  // `dirt`, c'est une face de chute qui n'est PAS de l'herbe : elle sort de la population des
+  // trois noms, et l'ancienne regle ne pouvait pas la distinguer d'un precipice.
+  u64 terrace_nongrass_void = 0;
+  u64 terrace_dirt_on_grass = 0;  // ... dont le HAUT est un materiau `grass`
+
+  // ---- NOMS, sans espace, prets pour proof.txt ("nom:compte,...", 10 au plus).
+  std::string void_wall_mat_top;   // les materiaux des faces de chute
+  std::string material_pair_top;   // "grass>dirt:123,..." aux separations de materiau
+  std::string void_tex_top;        // les textures de rendu des cotes qui donnent sur le vide
+  std::string class_top;           // les huit classes, par compte
+};
+
+// Deterministe, sans GL, sans horloge, sans fil : les memes octets rendent les memes comptes.
+// `queries` / `out_class` sont le canal du banc nomme : `out_class[i]` recoit la classe que
+// CETTE fonction a donnee a l'arete `queries[i]`, ou `kEdgeClassNone` si elle ne l'a pas vue.
+EdgeCensus edge_census(const tfrag3::Level& lev, const std::string& level_name,
+                       const EdgeQuery* queries = nullptr, size_t n_queries = 0,
+                       u8* out_class = nullptr);
+
+// LE BANC NOMME. Dix cas geometriques de la SPEC section 16, dix-neuf aretes, chacune avec sa
+// reponse ATTENDUE ecrite dans le code AVANT la course, et les DEUX polarites. Chaque cas
+// fabrique un niveau en memoire et le fait traverser a `edge_census()` LUI-MEME.
+struct EdgeSelftest {
+  u64 cases = 0;
+  u64 agree = 0;
+  u64 disagree = 0;      // <- terme de la porte
+  u64 not_found = 0;     // arete nommee jamais vue : compte AUSSI comme desaccord
+  u64 expect_void = 0;   // les deux polarites sont presentes, et c'est publie
+  u64 expect_floor = 0;
+  u64 ok = 0;
+  std::string verdict_list;   // "nom:classe,..." dans l'ordre declare
+  std::string disagree_list;  // "nom:attendu>obtenu,..." ou "-"
+};
+EdgeSelftest edge_probe_selftest();
+
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
 

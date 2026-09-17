@@ -44,6 +44,11 @@ static void usage() {
       "                 superposent (geometrie) et les croise avec le materiau de collision, puis\n"
       "                 classe chaque superposition. Lecture pure, il n'ecrit rien.\n"
       "  --overlay-selftest  le CONTROLE POSITIF de --overlay-census sur un niveau fabrique.\n"
+      "  --edge-census  grass-edge-truth : classe CHAQUE arete de sol dans l'une des huit\n"
+      "                 classes de la SPEC, le bord sur le vide etant etabli par une SONDE DE\n"
+      "                 PLANCHER geometrique et non par l'absence de voisin. Lecture pure.\n"
+      "  --edge-selftest  le banc NOMME de --edge-census : dix cas geometriques, dix-neuf aretes,\n"
+      "                 reponses attendues declarees avant la course.\n"
       "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
       "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
       "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
@@ -59,6 +64,8 @@ int main(int argc, char** argv) {
   bool surface_census = false;  // grass-surface-truth : lit et croise les deux sources, n'ecrit rien
   bool overlay_census = false;  // grass-overlay-meshes : cherche les meshes poses sur l'herbe
   bool overlay_selftest_only = false;  // ... le controle positif seul, sans niveau
+  bool edge_census_on = false;    // grass-edge-truth : classe les aretes de sol, n'ecrit rien
+  bool edge_selftest_only = false;  // ... le banc nomme seul
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -87,6 +94,11 @@ int main(int argc, char** argv) {
     } else if (a == "--overlay-selftest") {
       overlay_census = true;
       overlay_selftest_only = true;
+    } else if (a == "--edge-census") {
+      edge_census_on = true;
+    } else if (a == "--edge-selftest") {
+      edge_census_on = true;
+      edge_selftest_only = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -290,6 +302,85 @@ int main(int argc, char** argv) {
     fmt::print("overlay_census_pair_src_top={}\n", oc.pair_src_top);
     fmt::print("overlay_census_found_src_top={}\n", oc.found_src_top);
     fmt::print("[grass_bake] overlay-census DONE.\n");
+    return 0;
+  }
+
+  // grass-edge-truth : LE BORD SUR LE VIDE. Il sort AVANT `scan_level`, donc aucune table n'est
+  // cuite et aucun fichier n'est ecrit. Le BANC NOMME tourne A CHAQUE FOIS : c'est lui, et non le
+  // controle de somme des huit classes, qui peut rendre la sonde FAUSSE.
+  if (edge_census_on) {
+    const auto st = grass_bake::edge_probe_selftest();
+    fmt::print("edge_selftest_ok={}\n", st.ok);
+    fmt::print("edge_selftest_cases={}\n", st.cases);
+    fmt::print("edge_selftest_agree={}\n", st.agree);
+    fmt::print("edge_selftest_disagree={}\n", st.disagree);
+    fmt::print("edge_selftest_not_found={}\n", st.not_found);
+    fmt::print("edge_selftest_expect_void={}\n", st.expect_void);
+    fmt::print("edge_selftest_expect_floor={}\n", st.expect_floor);
+    fmt::print("edge_selftest_verdicts={}\n", st.verdict_list);
+    fmt::print("edge_selftest_disagreements={}\n", st.disagree_list);
+    if (edge_selftest_only) {
+      fmt::print("[grass_bake] edge-selftest DONE.\n");
+      return 0;
+    }
+    const auto ec = grass_bake::edge_census(lev, level_name);
+    fmt::print("edge_census_level={}\n", level_name);
+    fmt::print("edge_census_fr3_bytes={}\n", fr3_size);
+    fmt::print("edge_census_collision={}\n", ec.collision_tris);
+    fmt::print("edge_census_mode_ground={}\n", ec.mode_ground);
+    fmt::print("edge_census_tris_used={}\n", ec.tris_used);
+    fmt::print("edge_census_tris_xz_degenerate={}\n", ec.tris_xz_degenerate);
+    fmt::print("edge_census_verts_raw={}\n", ec.verts_raw);
+    fmt::print("edge_census_verts_welded={}\n", ec.verts_welded);
+    fmt::print("edge_census_edges={}\n", ec.edges_total);
+    fmt::print("edge_census_edges_zero_length={}\n", ec.edges_zero_length);
+    fmt::print("edge_census_edge_slots={}\n", ec.edge_slots);
+    fmt::print("edge_census_deg1={}\n", ec.deg1);
+    fmt::print("edge_census_deg2={}\n", ec.deg2);
+    fmt::print("edge_census_deg3plus={}\n", ec.deg3plus);
+    fmt::print("edge_census_cls_triangle={}\n", ec.cls[grass_bake::kEdgeTriangle]);
+    fmt::print("edge_census_cls_uv_seam={}\n", ec.cls[grass_bake::kEdgeUvSeam]);
+    fmt::print("edge_census_cls_material={}\n", ec.cls[grass_bake::kEdgeMaterial]);
+    fmt::print("edge_census_cls_normal_break={}\n", ec.cls[grass_bake::kEdgeNormalBreak]);
+    fmt::print("edge_census_cls_chunk={}\n", ec.cls[grass_bake::kEdgeChunk]);
+    fmt::print("edge_census_cls_overlay={}\n", ec.cls[grass_bake::kEdgeOverlay]);
+    fmt::print("edge_census_cls_path={}\n", ec.cls[grass_bake::kEdgePath]);
+    fmt::print("edge_census_cls_void={}\n", ec.cls[grass_bake::kEdgeVoid]);
+    fmt::print("edge_census_classified={}\n", ec.classified);
+    fmt::print("edge_census_claimed_none={}\n", ec.claimed_none);
+    fmt::print("edge_census_claimed_multi={}\n", ec.claimed_multi);
+    fmt::print("edge_census_class_sum_check={}\n", ec.class_sum_check);
+    fmt::print("edge_census_beyond_found={}\n", ec.beyond_found);
+    fmt::print("edge_census_beyond_missing={}\n", ec.beyond_missing);
+    fmt::print("edge_census_probe_selfhit={}\n", ec.probe_selfhit);
+    fmt::print("edge_census_void_with_far_floor={}\n", ec.void_with_far_floor);
+    fmt::print("edge_census_void_no_floor_at_all={}\n", ec.void_no_floor_at_all);
+    fmt::print("edge_census_void_out_far={}\n", ec.void_out_far);
+    fmt::print("edge_census_void_drop_far={}\n", ec.void_drop_far);
+    fmt::print("edge_census_unshared_but_floor={}\n", ec.unshared_but_floor);
+    fmt::print("edge_census_shared_but_void={}\n", ec.shared_but_void);
+    fmt::print("edge_census_own_unrendered={}\n", ec.own_unrendered);
+    fmt::print("edge_census_beyond_unrendered={}\n", ec.beyond_unrendered);
+    fmt::print("edge_census_beyond_mat_unnamed={}\n", ec.beyond_mat_unnamed);
+    fmt::print("edge_census_legacy_tris={}\n", ec.legacy_tris);
+    fmt::print("edge_census_legacy_edges={}\n", ec.legacy_edges);
+    fmt::print("edge_census_old_rule_void={}\n", ec.old_rule_void);
+    fmt::print("edge_census_geom_void_on_legacy={}\n", ec.geom_void_on_legacy);
+    fmt::print("edge_census_old_only={}\n", ec.old_only);
+    fmt::print("edge_census_geom_only={}\n", ec.geom_only);
+    fmt::print("edge_census_void_both={}\n", ec.void_both);
+    fmt::print("edge_census_void_edges_with_wall={}\n", ec.void_edges_with_wall);
+    fmt::print("edge_census_terrace_dirt_void={}\n", ec.terrace_dirt_void);
+    fmt::print("edge_census_terrace_sand_void={}\n", ec.terrace_sand_void);
+    fmt::print("edge_census_terrace_stone_void={}\n", ec.terrace_stone_void);
+    fmt::print("edge_census_terrace_dirt_void_old={}\n", ec.terrace_dirt_void_old);
+    fmt::print("edge_census_terrace_dirt_on_grass={}\n", ec.terrace_dirt_on_grass);
+    fmt::print("edge_census_terrace_nongrass_void={}\n", ec.terrace_nongrass_void);
+    fmt::print("edge_census_void_wall_mat_top={}\n", ec.void_wall_mat_top);
+    fmt::print("edge_census_material_pair_top={}\n", ec.material_pair_top);
+    fmt::print("edge_census_void_tex_top={}\n", ec.void_tex_top);
+    fmt::print("edge_census_class_top={}\n", ec.class_top);
+    fmt::print("[grass_bake] edge-census DONE.\n");
     return 0;
   }
 

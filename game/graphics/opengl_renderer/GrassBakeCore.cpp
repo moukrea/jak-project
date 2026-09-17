@@ -3616,4 +3616,745 @@ OverlaySelftest overlay_census_selftest() {
   return r;
 }
 
+// ===========================================================================================
+// grass-edge-truth : LE BORD QUI DONNE SUR LE VIDE, ETABLI PAR LA GEOMETRIE. Contrat dans le .h.
+// ===========================================================================================
+//
+// CE BLOC NE PLACE RIEN. Comme `surface_census` et `overlay_census`, il ne partage aucune
+// variable avec `scan_level` / `expand` et aucun chemin de placement ne l'appelle.
+
+namespace {
+
+constexpr u32 kEdgeNoTri = 0xffffffffu;
+
+// Un triangle de SOL (collision, mode 0) prepare pour la sonde XZ et pour les six questions
+// que la classification pose de part et d'autre d'une arete.
+struct EdgeTri {
+  float p0x, p0y, p0z, e1x, e1y, e1z, e2x, e2y, e2z;
+  float minx, maxx, minz, maxz;
+  float d00, d01, d11, inv_denom;
+  float nx, ny, nz;  // normale de face, normalisee et ORIENTEE VERS LE HAUT
+  u32 mat;           // pat-material brut (bits 6..11) : la DIFFERENCE se lit meme hors table
+  s32 tex;           // index de texture de rendu au centroide, ou -1
+  s64 cgx, cgz;      // maille de chunk du centroide
+  u8 legacy;         // la texture porte l'un des TROIS noms historiques
+};
+
+struct EdgeFloorIndex {
+  std::vector<EdgeTri> tris;
+  std::unordered_map<u64, std::vector<u32>> grid;
+  std::vector<u32> big;
+  float binv = 1.0f / (EDGE_BUCKET_M * U);
+};
+
+// LA SONDE DE PLANCHER. Rend le sol marchable le plus HAUT a la verticale de (px,pz) dans la
+// fenetre [py-drop, py+up], en excluant `skip` (son propre triangle). `any_below` dit qu'un sol
+// existe PLUS BAS que la fenetre : « rien du tout » et « trop loin sous les pieds » ne sont pas
+// le meme vide, et les deux sont publies.
+//
+// AUCUNE TOLERANCE BARYCENTRIQUE. `floor_gap` s'en donne une pour qu'un brin pose exactement sur
+// une couture ne passe pas au travers ; ici le point sonde est a 35 cm de l'arete, jamais sur une
+// couture, et une tolerance de 0,02 sur un triangle de 10 m deborderait de 20 cm — de quoi faire
+// dire « le sol continue » a un vrai coin convexe.
+s32 edge_floor_probe(const EdgeFloorIndex& ix, float px, float py, float pz, float drop, float up,
+                     u32 skip, bool* any_below, bool* selfhit) {
+  s32 best = -1;
+  float bestY = -1e30f;
+  auto probe = [&](u32 ri) {
+    const auto& r = ix.tris[ri];
+    if (px < r.minx || px > r.maxx || pz < r.minz || pz > r.maxz) {
+      return;
+    }
+    const float qx = px - r.p0x, qz = pz - r.p0z;
+    const float d20 = qx * r.e1x + qz * r.e1z;
+    const float d21 = qx * r.e2x + qz * r.e2z;
+    const float u = (r.d11 * d20 - r.d01 * d21) * r.inv_denom;
+    const float v = (r.d00 * d21 - r.d01 * d20) * r.inv_denom;
+    if (u < 0.f || v < 0.f || u + v > 1.f) {
+      return;
+    }
+    const float y = r.p0y + u * r.e1y + v * r.e2y;
+    if (ri == skip) {
+      if (selfhit) {
+        *selfhit = true;
+      }
+      return;
+    }
+    if (y < py - drop) {
+      if (any_below) {
+        *any_below = true;
+      }
+      return;
+    }
+    if (y > py + up) {
+      return;
+    }
+    if (y > bestY) {
+      bestY = y;
+      best = (s32)ri;
+    }
+  };
+  const s64 gx = (s64)std::floor(px * ix.binv), gz = (s64)std::floor(pz * ix.binv);
+  auto it = ix.grid.find(((u64)(u32)(s32)gx << 32) | (u32)(s32)gz);
+  if (it != ix.grid.end()) {
+    for (u32 ri : it->second) {
+      probe(ri);
+    }
+  }
+  for (u32 ri : ix.big) {
+    probe(ri);
+  }
+  return best;
+}
+
+// Ce qu'on sait d'une arete unique du sol. `owner` est le PLUS PETIT indice de triangle qui la
+// porte : l'ordre de parcours ne doit rien au hachage.
+struct EdgeRec {
+  u32 owner = kEdgeNoTri;
+  u8 owner_e = 0;
+  u32 deg = 0;          // triangles de sol qui la partagent
+  u32 legacy_deg = 0;   // ... dont la texture porte l'un des trois noms historiques
+  u64 wall_mat_bits = 0;  // materiaux des triangles NON marchables qui la partagent (6 bits -> u64)
+  u8 cls = kEdgeClassNone;
+};
+
+// La soudure canonique a 3 cm, sur TOUS les sommets de collision — murs compris, sans quoi la
+// face de chute d'une terrasse ne partagerait pas l'arete de son sommet.
+struct EdgeWeld {
+  std::vector<float> x, y, z;
+  std::unordered_map<u64, std::vector<u32>> cells;
+  float inv = 1.0f / (EDGE_WELD_M * U);
+  static u64 key(s64 gx, s64 gy, s64 gz) {
+    return ((u64)((u32)(s32)gx & 0x1fffffu) << 42) | ((u64)((u32)(s32)gy & 0x1fffffu) << 21) |
+           ((u64)((u32)(s32)gz & 0x1fffffu));
+  }
+  u32 add(float px, float py, float pz) {
+    const s64 gx = (s64)std::floor(px * inv), gy = (s64)std::floor(py * inv),
+              gz = (s64)std::floor(pz * inv);
+    const float tol = EDGE_WELD_M * U;
+    for (s64 dz = -1; dz <= 1; ++dz) {
+      for (s64 dy = -1; dy <= 1; ++dy) {
+        for (s64 dx = -1; dx <= 1; ++dx) {
+          auto it = cells.find(key(gx + dx, gy + dy, gz + dz));
+          if (it == cells.end()) {
+            continue;
+          }
+          for (u32 vi : it->second) {
+            if (std::fabs(x[vi] - px) <= tol && std::fabs(y[vi] - py) <= tol &&
+                std::fabs(z[vi] - pz) <= tol) {
+              return vi;
+            }
+          }
+        }
+      }
+    }
+    const u32 vi = (u32)x.size();
+    x.push_back(px);
+    y.push_back(py);
+    z.push_back(pz);
+    cells[key(gx, gy, gz)].push_back(vi);
+    return vi;
+  }
+};
+
+inline u64 edge_key(u32 a, u32 b) {
+  return a < b ? (((u64)a << 32) | b) : (((u64)b << 32) | a);
+}
+
+}  // namespace
+
+const char* edge_class_name(u8 cls) {
+  switch (cls) {
+    case kEdgeTriangle: return "limite-de-triangle";
+    case kEdgeUvSeam: return "couture-uv";
+    case kEdgeMaterial: return "separation-de-materiau";
+    case kEdgeNormalBreak: return "rupture-de-normale";
+    case kEdgeChunk: return "limite-de-chunk";
+    case kEdgeOverlay: return "limite-de-mesh-superpose";
+    case kEdgePath: return "transition-vers-un-chemin";
+    case kEdgeVoid: return "bord-sur-le-vide";
+    default: return "aucune";
+  }
+}
+
+EdgeCensus edge_census(const tfrag3::Level& lev, const std::string& level_name,
+                       const EdgeQuery* queries, size_t n_queries, u8* out_class) {
+  EdgeCensus c;
+  const float OUT = EDGE_OUT_M * U;
+  const float OUT_FAR = EDGE_OUT_FAR_M * U;
+  const float DROP = EDGE_DROP_M * U;
+  const float DROP_FAR = EDGE_DROP_FAR_M * U;
+  const float UP = EDGE_UP_M * U;
+  const float NCOS = std::cos(EDGE_NORMAL_DEG * 3.14159265358979f / 180.0f);
+  const float CHUNK = CHUNK_MAX_DIAG_M * U;
+  const float CYWIN = OVL_COLL_YWIN_M * U;
+  const float ZF = OVL_ZFIGHT_M * U;
+
+  // ---- LA SOURCE TEXTURE : le MEME index de rendu que `surface_census` et `overlay_census`.
+  // Une deuxieme construction aurait derive, et le desaccord entre items serait devenu un
+  // artefact de recopie.
+  SurfRenderIndex rix;
+  surf_build_render_index(lev, rix);
+  std::vector<u8> bare(rix.tris.size(), 0);
+  for (size_t i = 0; i < rix.tris.size(); ++i) {
+    const s32 ti = rix.tris[i].label;
+    if (ti >= 0 && (size_t)ti < lev.textures.size() &&
+        ovl_tex_is_bare(lev.textures[ti].debug_name)) {
+      bare[i] = 1;
+    }
+  }
+
+  const auto& cv = lev.collision.vertices;
+  const size_t ntri = cv.size() / 3;
+  c.collision_tris = (u64)ntri;
+  c.verts_raw = (u64)cv.size();
+
+  // ---- LA SOUDURE, sur TOUS les sommets de collision.
+  EdgeWeld weld;
+  std::vector<u32> wid(cv.size(), 0);
+  for (size_t i = 0; i < cv.size(); ++i) {
+    wid[i] = weld.add(cv[i].x, cv[i].y, cv[i].z);
+  }
+  c.verts_welded = (u64)weld.x.size();
+
+  // ---- LA POPULATION : les triangles de sol, et ce qu'ils portent.
+  EdgeFloorIndex fx;
+  std::vector<u32> tri_src;        // indice du triangle de collision d'origine
+  std::vector<std::array<u32, 3>> tri_w;  // ses trois sommets soudes
+  fx.tris.reserve(ntri);
+  const float PAD = 0.05f * U;
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    const auto& b = cv[t * 3 + 1];
+    const auto& d = cv[t * 3 + 2];
+    if (((a.pat >> 3) & 0x7u) != 0) {
+      continue;  // pat-mode 0 = sol marchable : la MEME porte que GrassBakeCore.cpp:816
+    }
+    c.mode_ground++;
+    EdgeTri r;
+    r.p0x = a.x; r.p0y = a.y; r.p0z = a.z;
+    r.e1x = b.x - a.x; r.e1y = b.y - a.y; r.e1z = b.z - a.z;
+    r.e2x = d.x - a.x; r.e2y = d.y - a.y; r.e2z = d.z - a.z;
+    r.d00 = r.e1x * r.e1x + r.e1z * r.e1z;
+    r.d01 = r.e1x * r.e2x + r.e1z * r.e2z;
+    r.d11 = r.e2x * r.e2x + r.e2z * r.e2z;
+    const float denom = r.d00 * r.d11 - r.d01 * r.d01;
+    if (std::fabs(denom) < 1e-6f) {
+      c.tris_xz_degenerate++;  // EXCLU, et compte : aucune direction sortante n'y est definie
+      continue;
+    }
+    r.inv_denom = 1.0f / denom;
+    float nx = r.e1y * r.e2z - r.e1z * r.e2y;
+    float ny = r.e1z * r.e2x - r.e1x * r.e2z;
+    float nz = r.e1x * r.e2y - r.e1y * r.e2x;
+    const float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (nlen < 1e-3f) {
+      c.tris_xz_degenerate++;
+      continue;
+    }
+    const float s = (ny < 0.f ? -1.0f : 1.0f) / nlen;  // orientee vers le haut
+    r.nx = nx * s; r.ny = ny * s; r.nz = nz * s;
+    r.minx = std::min(a.x, std::min(b.x, d.x)) - PAD;
+    r.maxx = std::max(a.x, std::max(b.x, d.x)) + PAD;
+    r.minz = std::min(a.z, std::min(b.z, d.z)) - PAD;
+    r.maxz = std::max(a.z, std::max(b.z, d.z)) + PAD;
+    r.mat = (a.pat >> 6) & 0x3fu;
+    const float ccx = (a.x + b.x + d.x) * (1.f / 3.f);
+    const float ccy = (a.y + b.y + d.y) * (1.f / 3.f);
+    const float ccz = (a.z + b.z + d.z) * (1.f / 3.f);
+    const s32 ri = surf_index_probe(rix, ccx, ccy, ccz, SURF_YWIN_M * U);
+    r.tex = ri < 0 ? -1 : rix.tris[ri].label;
+    r.legacy = 0;
+    if (r.tex >= 0 && (size_t)r.tex < lev.textures.size() &&
+        census_tex_is_legacy3(lev.textures[r.tex].debug_name)) {
+      r.legacy = 1;
+    }
+    r.cgx = (s64)std::floor(ccx / CHUNK);
+    r.cgz = (s64)std::floor(ccz / CHUNK);
+    const u32 gi = (u32)fx.tris.size();
+    fx.tris.push_back(r);
+    tri_src.push_back((u32)t);
+    tri_w.push_back({wid[t * 3 + 0], wid[t * 3 + 1], wid[t * 3 + 2]});
+    if (r.legacy) {
+      c.legacy_tris++;
+    }
+    const s64 gx0 = (s64)std::floor(r.minx * fx.binv), gx1 = (s64)std::floor(r.maxx * fx.binv);
+    const s64 gz0 = (s64)std::floor(r.minz * fx.binv), gz1 = (s64)std::floor(r.maxz * fx.binv);
+    if ((gx1 - gx0) > SURF_MAX_SPAN || (gz1 - gz0) > SURF_MAX_SPAN) {
+      fx.big.push_back(gi);
+    } else {
+      for (s64 gz = gz0; gz <= gz1; ++gz) {
+        for (s64 gx = gx0; gx <= gx1; ++gx) {
+          fx.grid[((u64)(u32)(s32)gx << 32) | (u32)(s32)gz].push_back(gi);
+        }
+      }
+    }
+  }
+  c.tris_used = (u64)fx.tris.size();
+  c.edge_slots = c.tris_used * 3;
+
+  // ---- LES ARETES UNIQUES DU SOL.
+  std::unordered_map<u64, EdgeRec> edges;
+  edges.reserve(c.tris_used * 2 + 16);
+  for (u32 g = 0; g < (u32)fx.tris.size(); ++g) {
+    for (u8 e = 0; e < 3; ++e) {
+      const u32 va = tri_w[g][e], vb = tri_w[g][(e + 1) % 3];
+      auto& rec = edges[edge_key(va, vb)];
+      rec.deg++;
+      if (fx.tris[g].legacy) {
+        rec.legacy_deg++;
+      }
+      if (rec.owner == kEdgeNoTri || g < rec.owner) {
+        rec.owner = g;
+        rec.owner_e = e;
+      }
+    }
+  }
+  // ---- LES MURS QUI PARTAGENT CES ARETES. Deuxieme passe : on MET A JOUR, on ne CREE pas —
+  // seules les aretes du sol nous interessent, et c'est la que se lit la face de chute.
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    if (((a.pat >> 3) & 0x7u) == 0) {
+      continue;
+    }
+    const u32 m = (a.pat >> 6) & 0x3fu;
+    const u32 w[3] = {wid[t * 3 + 0], wid[t * 3 + 1], wid[t * 3 + 2]};
+    for (int e = 0; e < 3; ++e) {
+      auto it = edges.find(edge_key(w[e], w[(e + 1) % 3]));
+      if (it != edges.end()) {
+        it->second.wall_mat_bits |= (1ull << m);
+      }
+    }
+  }
+
+  // ---- LE PARCOURS, TRIE. Une table de hachage ne rend pas deux fois le meme ordre, et un
+  // recensement qui change d'ordre change de listes.
+  std::vector<u64> ekeys;
+  ekeys.reserve(edges.size());
+  for (const auto& kv : edges) {
+    ekeys.push_back(kv.first);
+  }
+  std::sort(ekeys.begin(), ekeys.end());
+  c.edges_total = (u64)ekeys.size();
+
+  std::unordered_map<std::string, u64> wall_mat_names, mat_pair_names, void_tex_names, class_names;
+  bool selfhit = false;
+  for (u64 k : ekeys) {
+    auto& rec = edges[k];
+    const u32 va = (u32)(k >> 32), vb = (u32)(k & 0xffffffffu);
+    if (va == vb) {
+      c.edges_zero_length++;
+      continue;
+    }
+    if (rec.deg == 1) {
+      c.deg1++;
+    } else if (rec.deg == 2) {
+      c.deg2++;
+    } else {
+      c.deg3plus++;
+    }
+    const EdgeTri& T = fx.tris[rec.owner];
+    const float pax = weld.x[va], pay = weld.y[va], paz = weld.z[va];
+    const float pbx = weld.x[vb], pby = weld.y[vb], pbz = weld.z[vb];
+    const float mx = 0.5f * (pax + pbx), my = 0.5f * (pay + pby), mz = 0.5f * (paz + pbz);
+    // Le troisieme sommet du triangle porteur, pour savoir de quel cote est « dehors ».
+    const u32 v3 = tri_w[rec.owner][(rec.owner_e + 2) % 3];
+    const float rx = weld.x[v3], rz = weld.z[v3];
+    // LA DIRECTION SORTANTE : la perpendiculaire XZ a l'arete, du cote oppose au 3e sommet.
+    // « s'eloigner du 3e sommet » ne suffit pas : sur un triangle obtus cette direction peut ne
+    // jamais franchir l'arete.
+    float ex = pbx - pax, ez = pbz - paz;
+    const float elen = std::sqrt(ex * ex + ez * ez);
+    if (elen < 1e-4f) {
+      c.edges_zero_length++;
+      continue;
+    }
+    ex /= elen; ez /= elen;
+    float ox = ez, oz = -ex;
+    if (ox * (rx - mx) + oz * (rz - mz) > 0.f) {
+      ox = -ox; oz = -oz;
+    }
+
+    // ---- LA SONDE. C'est ELLE qui designe « l'autre cote », jamais la topologie.
+    bool any_below = false;
+    const s32 B = edge_floor_probe(fx, mx + ox * OUT, my, mz + oz * OUT, DROP, UP, rec.owner,
+                                   &any_below, &selfhit);
+    // Deux temoins de sensibilite, dans la MEME course : un seuil au couteau se verrait ici.
+    bool dummy = false;
+    if (edge_floor_probe(fx, mx + ox * OUT_FAR, my, mz + oz * OUT_FAR, DROP, UP, rec.owner, &dummy,
+                         nullptr) < 0) {
+      c.void_out_far++;
+    }
+    if (edge_floor_probe(fx, mx + ox * OUT, my, mz + oz * OUT, DROP_FAR, UP, rec.owner, &dummy,
+                         nullptr) < 0) {
+      c.void_drop_far++;
+    }
+
+    const bool has_beyond = B >= 0;
+    if (has_beyond) {
+      c.beyond_found++;
+    } else {
+      c.beyond_missing++;
+      if (any_below) {
+        c.void_with_far_floor++;
+      } else {
+        c.void_no_floor_at_all++;
+      }
+    }
+    if (T.tex < 0) {
+      c.own_unrendered++;
+    }
+    if (has_beyond && fx.tris[B].tex < 0) {
+      c.beyond_unrendered++;
+    }
+    if (has_beyond && fx.tris[B].mat >= kPatMaterialCount) {
+      c.beyond_mat_unnamed++;
+    }
+    // LES DEUX ECARTS ENTRE TOPOLOGIE ET GEOMETRIE : la faute des onze rounds, chiffree.
+    if (rec.deg <= 1 && has_beyond) {
+      c.unshared_but_floor++;
+    }
+    if (rec.deg >= 2 && !has_beyond) {
+      c.shared_but_void++;
+    }
+
+    // ---- LES HUIT PREDICATS, EVALUES TOUS LES HUIT.
+    const bool b_overlay =
+        has_beyond && fx.tris[B].mat == kPatMatGrass &&
+        surf_index_probe_masked(rix, mx + ox * OUT, my, mz + oz * OUT, CYWIN, bare.data(), true,
+                                ZF) >= 0;
+    const bool b_path = has_beyond && !b_overlay && T.mat == kPatMatGrass &&
+                        ovl_material_is_path(fx.tris[B].mat);
+    const bool b_mat =
+        has_beyond && !b_overlay && !b_path && fx.tris[B].mat != T.mat;
+    const bool b_norm = has_beyond && !b_overlay && !b_path && !b_mat &&
+                        (T.nx * fx.tris[B].nx + T.ny * fx.tris[B].ny + T.nz * fx.tris[B].nz) < NCOS;
+    const bool b_uv = has_beyond && !b_overlay && !b_path && !b_mat && !b_norm &&
+                      fx.tris[B].tex != T.tex;
+    const bool b_chunk = has_beyond && !b_overlay && !b_path && !b_mat && !b_norm && !b_uv &&
+                         (fx.tris[B].cgx != T.cgx || fx.tris[B].cgz != T.cgz);
+    const bool b_tri =
+        has_beyond && !b_overlay && !b_path && !b_mat && !b_norm && !b_uv && !b_chunk;
+    const bool b_void = !has_beyond;
+
+    const bool claim[kEdgeClassCount] = {false,   b_tri,     b_uv,      b_mat, b_norm,
+                                         b_chunk, b_overlay, b_path,    b_void};
+    int nclaim = 0;
+    u8 cls = kEdgeClassNone;
+    for (int i = 1; i < kEdgeClassCount; ++i) {
+      if (claim[i]) {
+        nclaim++;
+        cls = (u8)i;
+      }
+    }
+    if (nclaim == 0) {
+      c.claimed_none++;
+    } else if (nclaim > 1) {
+      c.claimed_multi++;
+      cls = kEdgeClassNone;
+    } else {
+      c.classified++;
+      c.cls[cls]++;
+      class_names[edge_class_name(cls)]++;
+    }
+    rec.cls = cls;
+
+    if (cls == kEdgeMaterial) {
+      const char* na = pat_material_name(T.mat);
+      const char* nb = pat_material_name(fx.tris[B].mat);
+      mat_pair_names[std::string(na ? na : "?") + ">" + std::string(nb ? nb : "?")]++;
+    }
+
+    // ---- L'ANCIENNE REGLE, REJOUEE SUR LA MEME ARETE.
+    bool old_void = false;
+    if (rec.legacy_deg >= 1) {
+      c.legacy_edges++;
+      old_void = rec.legacy_deg <= 1;
+      if (old_void) {
+        c.old_rule_void++;
+      }
+      if (b_void) {
+        c.geom_void_on_legacy++;
+      }
+      if (old_void && b_void) {
+        c.void_both++;
+      } else if (old_void) {
+        c.old_only++;
+      } else if (b_void) {
+        c.geom_only++;
+      }
+    }
+
+    // ---- LE CAS DU ROUND 4 : la face de chute d'une terrasse.
+    if (b_void) {
+      if (T.tex >= 0 && (size_t)T.tex < lev.textures.size()) {
+        void_tex_names[lev.textures[T.tex].debug_name]++;
+      }
+      if (rec.wall_mat_bits) {
+        c.void_edges_with_wall++;
+        for (u32 m = 0; m < 64; ++m) {
+          if (rec.wall_mat_bits & (1ull << m)) {
+            const char* nm = pat_material_name(m);
+            wall_mat_names[nm ? std::string(nm) : ("m" + std::to_string(m))]++;
+          }
+        }
+        if (rec.wall_mat_bits & ~(1ull << kPatMatGrass)) {
+          c.terrace_nongrass_void++;
+        }
+        if (rec.wall_mat_bits & (1ull << kPatMatDirt)) {
+          c.terrace_dirt_void++;
+          if (old_void) {
+            c.terrace_dirt_void_old++;
+          }
+          if (T.mat == kPatMatGrass) {
+            c.terrace_dirt_on_grass++;
+          }
+        }
+        if (rec.wall_mat_bits & (1ull << kPatMatSand)) {
+          c.terrace_sand_void++;
+        }
+        if (rec.wall_mat_bits & (1ull << kPatMatStone)) {
+          c.terrace_stone_void++;
+        }
+      }
+    }
+  }
+  if (selfhit) {
+    c.probe_selfhit = 1;
+  }
+
+  u64 sum = c.edges_zero_length;
+  for (int i = 1; i < kEdgeClassCount; ++i) {
+    sum += c.cls[i];
+  }
+  sum += c.claimed_none + c.claimed_multi;
+  c.class_sum_check = (sum == c.edges_total) ? 1 : 0;
+
+  c.void_wall_mat_top = surf_top_names(wall_mat_names, 10);
+  c.material_pair_top = surf_top_names(mat_pair_names, 10);
+  c.void_tex_top = surf_top_names(void_tex_names, 10);
+  c.class_top = surf_top_names(class_names, 10);
+
+  // ---- LE CANAL DU BANC NOMME. La classe rendue est celle que CETTE fonction vient de poser.
+  if (queries && out_class && n_queries) {
+    for (size_t q = 0; q < n_queries; ++q) {
+      out_class[q] = kEdgeClassNone;
+      const float tol = EDGE_WELD_M * U * 2.f;
+      u32 ia = kEdgeNoTri, ib = kEdgeNoTri;
+      for (u32 v = 0; v < (u32)weld.x.size(); ++v) {
+        if (std::fabs(weld.x[v] - queries[q].ax) <= tol &&
+            std::fabs(weld.y[v] - queries[q].ay) <= tol &&
+            std::fabs(weld.z[v] - queries[q].az) <= tol) {
+          ia = v;
+        }
+        if (std::fabs(weld.x[v] - queries[q].bx) <= tol &&
+            std::fabs(weld.y[v] - queries[q].by) <= tol &&
+            std::fabs(weld.z[v] - queries[q].bz) <= tol) {
+          ib = v;
+        }
+      }
+      if (ia == kEdgeNoTri || ib == kEdgeNoTri || ia == ib) {
+        continue;
+      }
+      auto it = edges.find(edge_key(ia, ib));
+      if (it != edges.end()) {
+        out_class[q] = it->second.cls;
+      }
+    }
+  }
+
+  lg::info(
+      "[grass-edge-truth] {} : sol={} aretes={} classees={} vide={} materiau={} chemin={} "
+      "superpose={} normale={} uv={} chunk={} triangle={} | ancienne-regle={} vide-seul-geom={} "
+      "vide-seul-ancienne={} terrasse-terre={}",
+      level_name, c.tris_used, c.edges_total, c.classified, c.cls[kEdgeVoid],
+      c.cls[kEdgeMaterial], c.cls[kEdgePath], c.cls[kEdgeOverlay], c.cls[kEdgeNormalBreak],
+      c.cls[kEdgeUvSeam], c.cls[kEdgeChunk], c.cls[kEdgeTriangle], c.old_rule_void, c.geom_only,
+      c.old_only, c.terrace_dirt_void);
+  return c;
+}
+
+// -------------------------------------------------------------------------------------------
+// LE BANC NOMME : dix cas geometriques, dix-neuf aretes, les reponses ecrites AVANT la course.
+// -------------------------------------------------------------------------------------------
+namespace {
+
+void edge_add_quad(tfrag3::Level& lev, float x0, float z0, float x1, float z1, float y00,
+                   float y10, float y11, float y01, u32 mat, u32 mode) {
+  const float P[4][3] = {{x0, y00, z0}, {x1, y10, z0}, {x1, y11, z1}, {x0, y01, z1}};
+  const int TRI[2][3] = {{0, 1, 2}, {0, 2, 3}};
+  for (auto& t : TRI) {
+    for (int k = 0; k < 3; ++k) {
+      tfrag3::CollisionMesh::Vertex v{};
+      v.x = P[t[k]][0] * U;
+      v.y = P[t[k]][1] * U;
+      v.z = P[t[k]][2] * U;
+      v.pat = (mat << 6) | (mode << 3);
+      lev.collision.vertices.push_back(v);
+    }
+  }
+}
+
+void edge_add_flat(tfrag3::Level& lev, float x0, float z0, float x1, float z1, float y, u32 mat,
+                   u32 mode) {
+  edge_add_quad(lev, x0, z0, x1, z1, y, y, y, y, mat, mode);
+}
+
+EdgeQuery edge_q(float ax, float ay, float az, float bx, float by, float bz) {
+  return EdgeQuery{ax * U, ay * U, az * U, bx * U, by * U, bz * U};
+}
+
+}  // namespace
+
+EdgeSelftest edge_probe_selftest() {
+  EdgeSelftest r;
+  struct Case {
+    const char* name;
+    u8 expect;
+  };
+  std::vector<std::string> verdicts, disagreements;
+
+  auto run = [&](tfrag3::Level& lev, const std::vector<EdgeQuery>& qs,
+                 const std::vector<Case>& cases) {
+    std::vector<u8> got(qs.size(), kEdgeClassNone);
+    edge_census(lev, "selftest", qs.data(), qs.size(), got.data());
+    for (size_t i = 0; i < cases.size(); ++i) {
+      r.cases++;
+      if (cases[i].expect == kEdgeVoid) {
+        r.expect_void++;
+      } else {
+        r.expect_floor++;
+      }
+      verdicts.push_back(std::string(cases[i].name) + ":" + edge_class_name(got[i]));
+      if (got[i] == kEdgeClassNone) {
+        r.not_found++;
+        r.disagree++;
+        disagreements.push_back(std::string(cases[i].name) + ":" +
+                                edge_class_name(cases[i].expect) + ">jamais-vue");
+      } else if (got[i] != cases[i].expect) {
+        r.disagree++;
+        disagreements.push_back(std::string(cases[i].name) + ":" +
+                                edge_class_name(cases[i].expect) + ">" + edge_class_name(got[i]));
+      } else {
+        r.agree++;
+      }
+    }
+  };
+
+  // 1. PLATEFORME ETROITE — une bande de 1 m sur 6 m, seule. Son grand cote donne sur le vide ;
+  //    sa diagonale interne ne donne sur rien du tout.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 1, 6, 0, kPatMatGrass, 0);
+    run(lev, {edge_q(0, 0, 0, 0, 0, 6), edge_q(0, 0, 0, 1, 0, 6)},
+        {{"plateforme_etroite", kEdgeVoid}, {"plateforme_etroite_diagonale", kEdgeTriangle}});
+  }
+  // 2 & 3. COINS CONVEXE ET CONCAVE — un L de trois carres. Au coin concave (2,2), deux aretes
+  //    se touchent et la reponse doit etre OPPOSEE : celle qui sort donne sur le vide, celle qui
+  //    est partagee ne donne sur rien.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 2, 2, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 2, 0, 4, 2, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 0, 2, 2, 4, 0, kPatMatGrass, 0);
+    run(lev,
+        {edge_q(4, 0, 0, 4, 0, 2), edge_q(2, 0, 0, 4, 0, 0), edge_q(2, 0, 2, 2, 0, 4),
+         edge_q(2, 0, 0, 2, 0, 2)},
+        {{"coin_convexe_est", kEdgeVoid},
+         {"coin_convexe_nord", kEdgeVoid},
+         {"coin_concave_sortant", kEdgeVoid},
+         {"coin_concave_partage", kEdgeTriangle}});
+  }
+  // 4. ILOT — un carre de 2 m isole.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 2, 2, 0, kPatMatGrass, 0);
+    run(lev, {edge_q(0, 0, 0, 2, 0, 0), edge_q(0, 0, 0, 2, 0, 2)},
+        {{"ilot", kEdgeVoid}, {"ilot_diagonale", kEdgeTriangle}});
+  }
+  // 5. PENTE PRES D'UNE FALAISE — un plat, puis une pente a 37 degres qui s'arrete dans le vide.
+  //    Le bas de la pente est un bord ; sa jonction avec le plat est une RUPTURE DE NORMALE, pas
+  //    un bord — c'est exactement la confusion que l'owner interdit.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 4, 2, 0, kPatMatGrass, 0);
+    edge_add_quad(lev, 0, 2, 4, 6, 0, 0, -3, -3, kPatMatGrass, 0);
+    run(lev, {edge_q(0, -3, 6, 4, -3, 6), edge_q(0, 0, 2, 4, 0, 2)},
+        {{"pente_pres_falaise", kEdgeVoid}, {"pente_jonction", kEdgeNormalBreak}});
+  }
+  // 6. SURFACES EMPILEES — une marche de 40 cm n'est pas un bord ; un etage de 3 m en est un.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 8, 8, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 3, 3, 5, 5, 0.4f, kPatMatGrass, 0);
+    run(lev, {edge_q(3, 0.4f, 5, 3, 0.4f, 3)}, {{"surfaces_empilees_marche", kEdgeTriangle}});
+  }
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 8, 8, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 3, 3, 5, 5, 3.0f, kPatMatGrass, 0);
+    run(lev, {edge_q(3, 3.0f, 5, 3, 3.0f, 3)}, {{"surfaces_empilees_etage", kEdgeVoid}});
+  }
+  // 7. PONT — le flanc du tablier donne sur le vide ; son about touche la rive SANS partager la
+  //    moindre arete avec elle. C'est le cas ou la topologie ment et la geometrie dit vrai.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 4, 6, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 10, 0, 14, 6, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 4, 2, 10, 4, 0, kPatMatGrass, 0);
+    run(lev, {edge_q(4, 0, 2, 10, 0, 2), edge_q(4, 0, 2, 4, 0, 4)},
+        {{"pont_flanc", kEdgeVoid}, {"pont_about", kEdgeTriangle}});
+  }
+  // 8. SURPLOMB — un sol existe bien en dessous, trois metres plus bas : c'est un bord quand meme.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 10, 10, -3, kPatMatGrass, 0);
+    edge_add_flat(lev, 2, 2, 6, 6, 0, kPatMatGrass, 0);
+    run(lev, {edge_q(6, 0, 2, 6, 0, 6)}, {{"surplomb", kEdgeVoid}});
+  }
+  // 9. CAVITE — un trou de 2 m au milieu d'un plancher de 6 m. Le rebord du trou est un bord ;
+  //    une couture entre deux dalles pleines n'en est pas un.
+  {
+    tfrag3::Level lev;
+    for (int gx = 0; gx < 3; ++gx) {
+      for (int gz = 0; gz < 3; ++gz) {
+        if (gx == 1 && gz == 1) {
+          continue;
+        }
+        edge_add_flat(lev, gx * 2.f, gz * 2.f, gx * 2.f + 2.f, gz * 2.f + 2.f, 0, kPatMatGrass, 0);
+      }
+    }
+    run(lev, {edge_q(2, 0, 2, 2, 0, 4), edge_q(2, 0, 0, 2, 0, 2)},
+        {{"cavite_rebord", kEdgeVoid}, {"cavite_couture", kEdgeTriangle}});
+  }
+  // 10. BORD PARTIELLEMENT MASQUE — une dalle NON MARCHABLE (mode 2) posee juste au-dela de
+  //     l'arete ne comble pas le vide ; une dalle marchable, si.
+  {
+    tfrag3::Level lev;
+    edge_add_flat(lev, 0, 0, 4, 4, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 4, 0, 6, 4, 0, kPatMatStone, 2);
+    edge_add_flat(lev, 0, 6, 4, 10, 0, kPatMatGrass, 0);
+    edge_add_flat(lev, 4, 6, 6, 10, 0, kPatMatGrass, 0);
+    run(lev, {edge_q(4, 0, 0, 4, 0, 4), edge_q(4, 0, 6, 4, 0, 10)},
+        {{"bord_masque", kEdgeVoid}, {"bord_masque_controle", kEdgeTriangle}});
+  }
+
+  std::string vl, dl;
+  for (const auto& s : verdicts) {
+    vl += (vl.empty() ? "" : ",") + s;
+  }
+  for (const auto& s : disagreements) {
+    dl += (dl.empty() ? "" : ",") + s;
+  }
+  r.verdict_list = vl.empty() ? "-" : vl;
+  r.disagree_list = dl.empty() ? "-" : dl;
+  // LES DEUX POLARITES DOIVENT EXISTER : un banc qui n'attendrait que « vide » serait vert pour
+  // une sonde qui repond toujours « vide ».
+  r.ok = (r.disagree == 0 && r.expect_void > 0 && r.expect_floor > 0) ? 1 : 0;
+  lg::info("[grass-edge-truth] banc nomme : {} cas, {} d'accord, {} desaccords ({})", r.cases,
+           r.agree, r.disagree, r.disagree_list);
+  return r;
+}
+
+
 }  // namespace grass_bake

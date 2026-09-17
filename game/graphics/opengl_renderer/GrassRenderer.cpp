@@ -90,6 +90,11 @@ AUTOPORT_FEATURE_SITE(kSurfaceTruthItemId);
 constexpr const char* kOverlayMeshesItemId = "grass-overlay-meshes";
 AUTOPORT_FEATURE_SITE(kOverlayMeshesItemId);
 
+// grass-edge-truth : l'item qui etablit le bord sur le vide PAR LA GEOMETRIE. Meme raison d'etre
+// pour le SITE : « pas d'instrument ici » et « instrument jamais atteint » ne sont pas le meme zero.
+constexpr const char* kEdgeTruthItemId = "grass-edge-truth";
+AUTOPORT_FEATURE_SITE(kEdgeTruthItemId);
+
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
 // only the renderer-side debug knobs (grass_debug_mode, grass_tilt_amount) and instrumentation
@@ -1246,6 +1251,58 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       }
     }
     // ====================== fin grass-overlay-meshes ========================================
+
+    // ============== grass-edge-truth : LE BORD SUR LE VIDE, PAR LA GEOMETRIE ================
+    // Meme regle que ci-dessus : ce bloc LIT et PUBLIE, il ne place rien, il ne deplace aucun
+    // brin, et il ne tourne que lorsque le harnais mesure CET item. Le recensement hors ligne
+    // (`.autoport/lib/census/grass-edge-truth.sh`) passe les DIX niveaux avec le MEME code et
+    // publie la grandeur de la porte ; ici, le temoin est que l'instrument vit bien DANS le
+    // moteur et qu'il a tire.
+    //
+    // LE BANC NOMME TOURNE AUSSI, et c'est lui qui peut rendre la sonde FAUSSE : le controle de
+    // somme des huit classes est structurel, les dix-neuf aretes nommees ne le sont pas.
+    if (autoport_proof::feature_is(kEdgeTruthItemId)) {
+      static std::string s_edge_census_done;
+      if (s_edge_census_done != level_name) {
+        s_edge_census_done = level_name;
+        const auto st = grass_bake::edge_probe_selftest();
+        autoport_proof::publish("grass_edge_engine_selftest_ok", st.ok);
+        autoport_proof::publish("grass_edge_engine_selftest_cases", st.cases);
+        autoport_proof::publish("grass_edge_engine_selftest_disagree", st.disagree);
+        autoport_proof::publish("grass_edge_engine_selftest_expect_void", st.expect_void);
+        autoport_proof::publish("grass_edge_engine_selftest_expect_floor", st.expect_floor);
+        autoport_proof::publish_text("grass_edge_engine_selftest_disagreements",
+                                     st.disagree_list.c_str());
+        const auto ec = grass_bake::edge_census(*lev, level_name);
+        autoport_proof::publish_text("grass_edge_engine_level", level_name.c_str());
+        autoport_proof::publish("grass_edge_engine_tris_used", ec.tris_used);
+        autoport_proof::publish("grass_edge_engine_edges", ec.edges_total);
+        autoport_proof::publish("grass_edge_engine_cls_triangle", ec.cls[grass_bake::kEdgeTriangle]);
+        autoport_proof::publish("grass_edge_engine_cls_uv_seam", ec.cls[grass_bake::kEdgeUvSeam]);
+        autoport_proof::publish("grass_edge_engine_cls_material", ec.cls[grass_bake::kEdgeMaterial]);
+        autoport_proof::publish("grass_edge_engine_cls_normal_break",
+                                ec.cls[grass_bake::kEdgeNormalBreak]);
+        autoport_proof::publish("grass_edge_engine_cls_chunk", ec.cls[grass_bake::kEdgeChunk]);
+        autoport_proof::publish("grass_edge_engine_cls_overlay", ec.cls[grass_bake::kEdgeOverlay]);
+        autoport_proof::publish("grass_edge_engine_cls_path", ec.cls[grass_bake::kEdgePath]);
+        autoport_proof::publish("grass_edge_engine_cls_void", ec.cls[grass_bake::kEdgeVoid]);
+        autoport_proof::publish("grass_edge_engine_classified", ec.classified);
+        autoport_proof::publish("grass_edge_engine_claimed_none", ec.claimed_none);
+        autoport_proof::publish("grass_edge_engine_claimed_multi", ec.claimed_multi);
+        autoport_proof::publish("grass_edge_engine_class_sum_check", ec.class_sum_check);
+        autoport_proof::publish("grass_edge_engine_unshared_but_floor", ec.unshared_but_floor);
+        autoport_proof::publish("grass_edge_engine_shared_but_void", ec.shared_but_void);
+        autoport_proof::publish("grass_edge_engine_old_rule_void", ec.old_rule_void);
+        autoport_proof::publish("grass_edge_engine_old_only", ec.old_only);
+        autoport_proof::publish("grass_edge_engine_geom_only", ec.geom_only);
+        autoport_proof::publish("grass_edge_engine_terrace_nongrass_void",
+                                ec.terrace_nongrass_void);
+        autoport_proof::publish_text("grass_edge_engine_wall_mat", ec.void_wall_mat_top.c_str());
+        autoport_proof::publish_text("grass_edge_engine_class_top", ec.class_top.c_str());
+        autoport_proof::note_hit_for(kEdgeTruthItemId, ec.classified);
+      }
+    }
+    // ====================== fin grass-edge-truth ============================================
 
     // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
     float floor_gap_m = grass_bake::FLOOR_GAP_M;
