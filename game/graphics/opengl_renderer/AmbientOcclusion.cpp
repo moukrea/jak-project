@@ -706,6 +706,11 @@ bool s_pattern_census_request = false;
 // `s_prev_*[state]` vient de l'image IMMEDIATEMENT precedente. Le contrat (k) dit « deux images
 // consecutives » : jusqu'a l'essai 10 l'ecart valait un tour complet des douze etats, 360 images.
 int s_census_pair_phase = -1;
+// (k) LA PREMISSE DU TERME 5 : le vent etait-il coupe sur CETTE image, et l'etait-il sur les
+// DEUX images de la paire jugee ? `s_static_pairs_wind_cut` doit egaler `s_static_pairs`, sinon
+// le terme se declare non mesure — et un terme non mesure compte pour un defaut nomme.
+bool s_census_wind_cut = false;
+uint64_t s_static_pairs_wind_cut = 0;
 uint64_t s_static_pairs = 0;
 
 // Exact, unmasked census for features requesting the deterministic static probe.
@@ -981,6 +986,7 @@ constexpr uint64_t kAoTemporalCeilingX1000 = 6;
 // une image LIVREE a une image TEMOIN et mesurerait l'ecart entre les deux BRAS au lieu du
 // temps. C'est le piege central de cet indexage.
 std::vector<uint8_t> s_prev_buf[kCensusStates];
+uint8_t s_prev_wind_cut[kCensusStates] = {0};
 int s_prev_w[kCensusStates] = {0};
 int s_prev_h[kCensusStates] = {0};
 uint64_t s_temporal_sum_milli[kCensusStates] = {0};
@@ -2195,6 +2201,9 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
             }
           }
           s_static_pairs++;
+          if (s_census_wind_cut && s_prev_wind_cut[state] != 0) {
+            s_static_pairs_wind_cut++;
+          }
           s_static_pop[state] += spop;
           s_static_moved[state] += smoved;
           s_static_pop_ug[state] += upop;
@@ -2237,6 +2246,7 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
   // phase 1 que la phase 2 relit une image plus tard.
   if (has_state) {
     s_prev_buf[state].assign(s_pat_buf.begin(), s_pat_buf.begin() + (ptrdiff_t)n);
+    s_prev_wind_cut[state] = s_census_wind_cut ? 1u : 0u;
     s_prev_w[state] = w;
     s_prev_h[state] = h;
   }
@@ -2317,6 +2327,10 @@ void AmbientOcclusionPass::set_arch_terms(uint64_t indirect_hit_px,
   s_arch_luma_mask_sites = luma_mask_sites;
   s_arch_switch_readers = switch_readers;
   s_arch_programs_queried = programs_queried;
+}
+
+void AmbientOcclusionPass::set_census_wind_cut(bool cut) {
+  s_census_wind_cut = cut;
 }
 
 void AmbientOcclusionPass::set_census_pair_phase(int phase) {
@@ -2742,7 +2756,24 @@ void AmbientOcclusionPass::publish_pattern_census() {
     static_moved_ug = static_moved;
     static_pop_ug = static_pop;
   }
-  const bool static_measured = (static_pop > 0);
+  // essai 16 : LA PREMISSE EST UNE CONDITION, PLUS UNE INTENTION. Trois faits, tous exigibles,
+  // chacun publie a cote pour qu'un lecteur puisse les contredire un par un :
+  //   . la population guardee est non vide — si le confinement mange tout, il n'y a rien a lire ;
+  //   . CHAQUE paire jugee a eu le vent COUPE sur ses DEUX images (contrat (k) : « camera
+  //     immobile, scene immobile, vent COUPE pour la mesure »). Jusqu'a l'essai 15 la course de
+  //     l'item PARENT n'en coupait AUCUNE : `g_census_witness` n'est arme que sous
+  //     `ao_static_probe::active()`, qui ne nomme que les deux items ENFANTS. Le terme etait
+  //     mesure sous un regime que son propre contrat interdit, et personne ne le voyait ;
+  //   . quelque chose a BOUGE quelque part dans cette course — le bras temoin (l'ancrage MONDE
+  //     du bruit d'avant) ou la population NON guardee du bras livre. Les deux a zero, la scene
+  //     entiere etait figee et le zero du terme est un vert par INACTION, pas une mesure.
+  const bool wind_premise =
+      exact_static_probe() || (s_static_pairs > 0 && s_static_pairs_wind_cut == s_static_pairs);
+  const bool motion_seen = exact_static_probe() || (static_legacy > 0) || (static_moved_ug > 0);
+  const bool static_measured = (static_pop > 0) && wind_premise && motion_seen;
+  autoport_proof::publish("ao_static_cam_wind_cut_pairs", s_static_pairs_wind_cut);
+  autoport_proof::publish("ao_static_cam_wind_premise", wind_premise ? 1ull : 0ull);
+  autoport_proof::publish("ao_static_cam_motion_seen", motion_seen ? 1ull : 0ull);
   autoport_proof::publish("ao_static_cam_pop_px", static_pop);
   autoport_proof::publish("ao_static_cam_frames", static_frames);
   autoport_proof::publish("ao_static_cam_unguarded_px", static_moved_ug);

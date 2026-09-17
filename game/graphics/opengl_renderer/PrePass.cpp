@@ -317,11 +317,29 @@ uint64_t g_probe_seq = 0;  // combien d'images sondees ont commence — choisit 
 //   . l'instant lui-meme se promene : le tick logique (une image SIMULEE) et le compteur de
 //     chaines rendues peuvent diverger (kmachine.cpp:6261-6265 le dit et le chiffre).
 // D'ou six ticks FIXES, tous au-dela de 1200 — le tick ou la sonde deterministe de l'item
-// enfant trouve la scene etablie — et espaces de 60 ticks, une seconde de jeu, pour que la
-// phase de la brise differe d'un echantillon a l'autre. Les ticks REELLEMENT retenus sont
-// publies : un lecteur peut contredire la determinisme au lieu de le croire.
+// enfant trouve la scene etablie. Les ticks REELLEMENT retenus sont publies : un lecteur peut
+// contredire le determinisme au lieu de le croire.
+//
+// essai 16, LE PAS PASSE DE 60 A 21, POUR DEUX RAISONS MESUREES — pas pour arranger la porte :
+//   . LE CALENDRIER NE TENAIT PAS DANS LA COURSE. Pas de 60, le sixieme tick tombe a 1500 ;
+//     l'essai 15 a fini a lf ~= 1423 (proof.txt : `ao_geom_tick_0..3` = 1200/1260/1320/1380,
+//     `_4` et `_5` a 0, `ao_geom_frames=4`). Deux ticks manquants, et le terme 3 se declare
+//     NON MESURE — c'est-a-dire un defaut nomme — sur un recensement dont les quatre images
+//     tirees rendent pourtant zero. Pas de 21, le sixieme tombe a 1305 : 118 ticks de marge,
+//     et la course n'a plus a etre allongee. Le plafond de l'autre bout est structurel : la
+//     campagne de cout prend la parole a l'image 2000 (`AmbientOcclusion.cpp` kCostStartFrame)
+//     et desarme `probe_base` avec elle — tout tick non encore tire y serait perdu. 1305
+//     tombe vers l'image 1545, loin dessous ; 1500 tombait vers 1739, a 261 images du bord.
+//   . 60 TICKS RATAIT SA PROPRE RAISON D'ETRE. Le pas etait justifie par « une seconde de jeu,
+//     pour que la phase de la brise differe d'un echantillon a l'autre ». Or la composante
+//     dominante du feuillage est a 2,13 Hz (`foliage_wind.cpp:908`), soit une periode de
+//     28,2 ticks : 60 ticks valent 2,13 periodes et n'avancent la phase que de 0,13 cycle par
+//     echantillon — six echantillons quasiment en phase. 21 ticks valent 0,745 periode : la
+//     phase avance de trois quarts de cycle a chaque fois, ce que le pas de 60 promettait.
+//     21 est aussi premier avec la cadence de sonde (30 images) : les echeances ne viennent
+//     pas se coller systematiquement sur les memes creneaux.
 constexpr int64_t kGeomTickStart = 1200;
-constexpr int64_t kGeomTickStride = 60;
+constexpr int64_t kGeomTickStride = 21;
 constexpr int kGeomTicks = 6;
 bool g_geom_due = false;
 bool g_geom_tick_anchored = false;
@@ -329,6 +347,10 @@ int g_geom_tick_next = 0;
 int64_t g_geom_tick_last = -1;
 int64_t g_geom_tick_seen[kGeomTicks] = {-1, -1, -1, -1, -1, -1};
 uint64_t g_geom_tick_exact = 0;
+// L'IMAGE DESSINEE du dernier tick tire. Le calendrier a un plafond STRUCTUREL a l'autre bout :
+// la campagne de cout s'arme a l'image 2000 et desarme `probe_base`, donc l'ancrage par tick.
+// Publier cette image, c'est publier la marge qui reste avant ce bord.
+uint64_t g_geom_tick_last_frame = 0;
 uint64_t g_probe_frames = 0;
 uint64_t g_probe_px = 0;
 uint64_t g_leak_px = 0;
@@ -1082,6 +1104,8 @@ void publish_all() {
   autoport_proof::publish("ao_geom_tick_stride", (uint64_t)kGeomTickStride);
   autoport_proof::publish("ao_geom_tick_armed", (uint64_t)g_geom_tick_next);
   autoport_proof::publish("ao_geom_tick_exact", g_geom_tick_exact);
+  autoport_proof::publish("ao_geom_tick_last_frame", g_geom_tick_last_frame);
+  autoport_proof::publish("ao_geom_tick_deadline_frame", 2000ull);
   for (int i = 0; i < kGeomTicks; i++) {
     autoport_proof::publish(("ao_geom_tick_" + std::to_string(i)).c_str(),
                             (uint64_t)(g_geom_tick_seen[i] < 0 ? 0 : g_geom_tick_seen[i]));
@@ -1311,6 +1335,7 @@ void frame_begin(SharedRenderState* rs) {
     if (lf >= due && lf != g_geom_tick_last) {
       g_geom_tick_last = lf;
       g_geom_tick_seen[g_geom_tick_next] = lf;
+      g_geom_tick_last_frame = g_frame;
       if (lf == due) {
         g_geom_tick_exact++;
       }
@@ -1333,8 +1358,23 @@ void frame_begin(SharedRenderState* rs) {
 bool static_probe_wind_disabled() {
   // Le bras temoin mesure la MEME scene que le bras livre ou rien n'est comparable : le vent
   // reste coupe pendant ses six etats, exactement comme pendant les phases de la sonde.
+  //
+  // essai 16 : ET PENDANT LA TRIADE DU RECENSEMENT, MEME HORS SONDE. Les deux clauses au-dessus
+  // exigent toutes deux `ao_static_probe::active()` (`g_census_witness` n'est arme que sous elle,
+  // ligne 1280), et `requested()` ne nomme que les deux items ENFANTS
+  // (`ao_static_probe.h:30-32`). Dans la course de l'item PARENT cette fonction rendait donc
+  // FAUX a chaque image : le terme 5 etait mesure VENT ALLUME alors que le contrat (k) dit
+  // « camera immobile, scene immobile, vent COUPE pour la mesure ». Le zero de l'essai 14 etait
+  // un accident — la prepasse ne suivait pas encore le vent, l'AO ne POUVAIT pas bouger avec
+  // lui. L'essai 15 l'a fait suivre (3c51ca3c9f) et les 4 texels sont apparus : entre les
+  // phases 1 et 2 d'une triade le feuillage se deplace d'une fraction de tick, la profondeur
+  // de prepasse y varie SOUS les 4 quanta de `kSameGeom`, le garde ne marque donc pas ces
+  // voisinages, et le jitter d'AO qui y subsiste est compte. Ce n'est pas le jeu qui bouge,
+  // c'est la premisse qui n'etait pas etablie.
+  // `g_probe_pair_phase >= 0` n'est vrai que sous `probe_base` (ligne 1258-1266), c'est-a-dire
+  // sous l'armement de la preuve : le build du joueur ne voit rien de cette coupure.
   return (ao_static_probe::active() && g_static_probe.phase >= 0 && g_static_probe.phase <= 2) ||
-         g_census_witness;
+         g_census_witness || g_probe_pair_phase >= 0;
 }
 
 // ── L'HORLOGE DU VENT, EPINGLEE SUR LE TICK LOGIQUE PENDANT LA PREUVE DE CET ITEM ───────────
@@ -1811,10 +1851,15 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
     const int mode = (st9 < 3) ? 1 : (st9 < 6) ? 3 : 2;  // 1 = SSAO, 3 = GTAO, 2 = HBAO
     AmbientOcclusionPass::set_measure_state(mode, st9 % 3, legacy);
     AmbientOcclusionPass::set_census_pair_phase(g_probe_pair_phase);
+    // (k) LA PREMISSE DU TERME 5, REMISE AU MODULE QUI JUGE : ce module-ci DECIDE de la coupure,
+    // l'autre ne doit pas la deviner. Une paire dont l'une des deux images portait le vent ne
+    // mesure pas « scene immobile » : elle sortira du terme au lieu d'y entrer en silence.
+    AmbientOcclusionPass::set_census_wind_cut(static_probe_wind_disabled());
     AmbientOcclusionPass::request_pattern_census(true);
   } else {
     AmbientOcclusionPass::set_measure_state(-1, -1, 0);
     AmbientOcclusionPass::set_census_pair_phase(-1);
+    AmbientOcclusionPass::set_census_wind_cut(false);
   }
 
   // L'estimation lit la profondeur de la prepasse et ecrit sa texture R8. Elle sauvegarde et

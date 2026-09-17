@@ -71,6 +71,10 @@ class AmbientOcclusionPass {
   // Seule la phase 2 alimente `ao_static_cam_delta_px`, et son ecart a la reference vaut
   // EXACTEMENT une image. -1 = cette image n'est pas sondee.
   static void set_census_pair_phase(int phase);
+  // (k) « vent COUPE pour la mesure ». La prepasse DECIDE de la coupure ; elle la remet ici pour
+  // que le terme 5 puisse REFUSER une paire qui ne l'a pas eue, au lieu de publier un chiffre
+  // dont la premisse n'est pas etablie.
+  static void set_census_wind_cut(bool cut);
   static void request_pattern_census(bool on);
   // Cross-run input comparison supplied by PrePass before census publication.
   static void set_static_probe_verdict(uint64_t nondeterminism, uint64_t samples, bool compared);
