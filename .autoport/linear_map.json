@@ -32,7 +32,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "ffc3790168e8663a50bec296c66ae1c50efbbe42",
+  "hash": "360411aefd142cd986aec1ca866def0ac613b117",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
   "last_state": "En cours",
@@ -160,11 +160,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-2/la-brise-dans-les-arbres-et-les-buissons"
  },
  "framerate-uncap": {
-  "hash": "8f415de28f8cf12238745f4f190c3488f8a0146b",
+  "hash": "f0b3dccec932c05ec726e749ae025a535529b908",
   "identifier": "JAK-1",
   "issue_id": "7f260e2d-2eb8-4f01-a8cf-2b41f8cc0068",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:36:37.000Z",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T07:30:21.549Z",
   "url": "https://linear.app/moukrea/issue/JAK-1/debrider-la-cadence-au-dela-de-60-imagess"
  },
  "framerate-variable": {

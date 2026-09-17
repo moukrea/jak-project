@@ -361,7 +361,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:20
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
-  status: blocked
+  status: open
   priority: 991
   game: jak1
   gate:
@@ -396,10 +396,9 @@ items:
   known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
     % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
   out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
-  notes: 'Ne du retour owner 2026-09-05 ; il le classe explicitement « un truc a faire plus tard ». Depend
-    des animations lisses aux cadences non entieres. | owner 2026-09-07 : a traiter APRES la chaine d''eclairage.
-    | Owner 2026-09-07 : reporte apres TOUTE la refonte lighting ; dependances explicites empechent la
-    selection quand le HDR bloque.'
+  notes: |-
+    Ne du retour owner 2026-09-05 ; il le classe explicitement « un truc a faire plus tard ». Depend des animations lisses aux cadences non entieres. | owner 2026-09-07 : a traiter APRES la chaine d'eclairage. | Owner 2026-09-07 : reporte apres TOUTE la refonte lighting ; dependances explicites empechent la selection quand le HDR bloque.
+    17/09 owner (Linear) : « C'est fini ce sujet non ? Je vois pas pourquoi il est bloqué ! » -> sorti de bloque, laisse tout en bas de la pile (rang 991) comme il l'a ordonne le 07/09 ; pas fini : 3 essais identiques rates, et ses demandes du 07/09 (choix 30/45/60/75/90/120/240/Illimite au lieu du curseur, plafond apparent a 90 img/s) restent ouvertes.
   owner_feedback:
   - date: '2026-09-05'
     text: on devrait pouvoir unlock le framerate, là ça lock à 60 max alors que ça pourrait ne pas être
@@ -415,6 +414,8 @@ items:
     text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
       être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
       du lighting, commençant par reprendre le HDR/blancs brûlés !
+  - date: '2026-09-17'
+    text: Heuuuuu… C'est fini ce sujet non ? Je vois pas pouquroi il est "bloqué" !
   block_reason: 'Même empreinte d''échec ''c6fa8779424b'' 3 essais de suite : le worker n''apprend plus
     du validateur. On arrête cet item au lieu de brûler du quota dessus.'
   code_scope: jeu
@@ -12198,7 +12199,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.ao.tie.campaign=tie-alpha-20260916-attempt14
   - debug.opengoal.ao.tie.view=village1-hut
-  - debug.opengoal.ao.tie.reference=0
+  - debug.opengoal.ao.tie.reference=1
   priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
