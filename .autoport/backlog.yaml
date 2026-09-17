@@ -9975,9 +9975,13 @@ items:
   proof_env:
   - OG_RECHARGED=1
   - OG_LEVEL_WARP=training-start
+  - OG_GRASS=1
+  - OG_GRASS_PRESET=2
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.level.warp=training-start
+  - debug.opengoal.grass=1
+  - debug.opengoal.grass.preset=2
 - status: open
   game: jak1
   owner_test: true

@@ -469,6 +469,44 @@ inline int read_override(const char* prop, const char* env) {
   return -1;
 }
 
+// LE REGIME D'HERBE, EPINGLABLE PAR LA COURSE — et non par une campagne de plus.
+//
+// `harness-proof-props-pin` : un reglage de course se pose dans l'ITEM du backlog, jamais a la
+// main. Or l'herbe est ETEINTE sur l'appareil (`recharged-grass? = #f` dans settings.ini, palier
+// `very-low`), GOAL repousse le reglage du joueur A CHAQUE IMAGE, et aucune propriete ne
+// permettait de l'epingler : une course d'item qui mesure l'herbe mesurait donc le regime laisse
+// par quelqu'un d'autre, et publiait ZERO cle sans que rien ne dise pourquoi. Deux campagnes
+// avaient deja invente chacune sa surcharge pour ce seul probleme (`grass_baseline`,
+// `grass_cull`) ; celle-ci est generique et ne demande aucune ligne de C++ par item.
+//
+//   debug.opengoal.grass        / OG_GRASS         0 = force ETEINTE, autre entier = force ALLUMEE
+//   debug.opengoal.grass.preset / OG_GRASS_PRESET  index de palier (0..4), hors plage = ignore
+//
+// Non posee, chaque propriete rend -1 et le reglage du joueur passe INTACT : ce lecteur n'a pas
+// d'effet de bord et n'ecrit jamais dans les reglages sauvegardes.
+inline int read_override_int(const char* prop, const char* env) {
+#ifdef __ANDROID__
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get(prop, buf) > 0 && buf[0]) {
+    return std::atoi(buf);
+  }
+#else
+  (void)prop;
+#endif
+  if (const char* e = std::getenv(env)) {
+    if (e[0]) {
+      return std::atoi(e);
+    }
+  }
+  return -1;
+}
+inline int grass_pin_on() {
+  return read_override("debug.opengoal.grass", "OG_GRASS");
+}
+inline int grass_pin_preset() {
+  return read_override_int("debug.opengoal.grass.preset", "OG_GRASS_PRESET");
+}
+
 namespace detail {
 struct RechargedFrameState {
   bool active = false;

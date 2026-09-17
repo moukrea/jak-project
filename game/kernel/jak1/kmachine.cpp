@@ -2094,6 +2094,21 @@ void pc_set_recharged_grass(u32 on) {
   // n'est jamais invoque, et la course publie ZERO cle — c'est exactement ce qui a rendu l'essai
   // 1 muet sur l'appareil (l'herbe y est eteinte par defaut, allumee sur le bureau).
   grass_cull::grass_on_override(&want);
+  // L'EPINGLE GENERIQUE DU HARNAIS, EN DERNIER. Elle ne s'applique que si la course l'a posee
+  // (`proof_props` / `proof_env` de l'item) ; sinon elle rend -1 et le reglage du joueur passe.
+  // Elle est lue ICI, au point ou GOAL repousse le reglage a chaque image : ecrite ailleurs, elle
+  // serait ecrasee a l'image suivante — le piege que les deux campagnes d'herbe ont deja paye.
+  {
+    const int pin = Gfx::grass_pin_on();
+    if (pin >= 0) {
+      static int s_seen = -2;
+      if (s_seen != pin) {
+        s_seen = pin;
+        lg::info("[recharged-grass] regime EPINGLE par la course : herbe -> {}", pin ? "ON" : "OFF");
+      }
+      want = (pin != 0);
+    }
+  }
   recharged_gating::set(recharged_gating::kGrass, want);
 }
 
@@ -4380,6 +4395,14 @@ void pc_set_grass_dists(u32 vec) {
   int preset = grass_bake::clamp_density_preset((int)(p[2] + 0.5f));
   grass_baseline::preset_override(&preset);
   grass_cull::preset_override(&preset);
+  // MEME EPINGLE, MEME POINT DE PRODUCTION : le palier du joueur est repousse a chaque image lui
+  // aussi, et l'appareil est reste sur `very-low` apres une autre course.
+  {
+    const int pin = Gfx::grass_pin_preset();
+    if (pin >= 0 && pin < grass_bake::kDensityPresetCount) {
+      preset = pin;
+    }
+  }
   recharged_gating::set(recharged_gating::kGrassDensity, preset);
   // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
   // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.
