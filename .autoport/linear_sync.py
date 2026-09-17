@@ -536,6 +536,12 @@ def main():
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     rel = sync_relations(L, bl, mp, a.dry_run)
     swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
+    # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage
+    # tant qu'un ticket la porte : le guetteur du superviseur lit ces lignes.
+    d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo)
+    by_issue = {v["issue_id"]: k for k, v in mp.items()}
+    for iss in d["issueLabel"]["issues"]["nodes"]:
+        print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "?")))
     if not a.dry_run:
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis" % (created, updated, moved, rel, swept, len(mp)))
