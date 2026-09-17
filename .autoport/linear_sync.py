@@ -41,10 +41,10 @@ TEAM_NAME = "Jak and Daxter: Recharged Collection"
 MARK = "🤖 "
 SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
-STATES = [  # (nom Linear, type Linear)
-    ("Backlog", "backlog"), ("À faire", "unstarted"), ("En cours", "started"),
+STATES = [  # (nom Linear, type Linear) — colonnes NATIVES de Linear quand elles existent (owner 17/09), custom sinon
+    ("Backlog", "backlog"), ("Todo", "unstarted"), ("In Progress", "started"),
     ("À tester", "started"), ("Bloqué", "started"), ("Validé", "completed"),
-    ("Terminé (machine)", "completed"), ("Archivé", "canceled"),
+    ("Done", "completed"), ("Canceled", "canceled"),
 ]
 PROJECTS = {  # prefixe d'id -> projet
     "grass": "Herbe", "water": "Eau", "lighting": "Lumière", "hdr": "Lumière", "ao": "Lumière",
@@ -108,16 +108,16 @@ def eligible(bl, it):
 def target_state(bl, it):
     s = it["status"]
     if s == "open":
-        return "À faire" if eligible(bl, it) else "Backlog"
+        return "Todo" if eligible(bl, it) else "Backlog"
     if s == "in-progress":
-        return "En cours"
+        return "In Progress"
     if s == "to-test":
         return "À tester"
     if s == "blocked":
         return "Bloqué"
     if s == "validated":
-        return "Validé" if it.get("owner_ok") else "Terminé (machine)"
-    return "Archivé"
+        return "Validé" if it.get("owner_ok") else "Done"
+    return "Canceled"
 
 
 def priority_for(bl, it):
@@ -301,7 +301,7 @@ def apply_owner_move(L, bl, iid, rec, here):
         if not it.get("owner_ok"):
             bl.validate(iid, "Déplacé en « Validé » dans Linear par l'owner", date=today)
             _say(L, rec, "Validé par ton déplacement du ticket : c'est ton feu vert, enregistré tel quel.")
-    elif here == "Archivé":
+    elif here == "Canceled":
         if s != "archived":
             bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
             _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
@@ -312,13 +312,13 @@ def apply_owner_move(L, bl, iid, rec, here):
         elif s != "blocked":
             bl.set_status(iid, "blocked", block_reason="Bloqué par l'owner dans Linear le %s" % today)
             _say(L, rec, "Bloqué sur ton déplacement : le harnais ne le prendra pas tant que tu ne le remets pas dans À faire ou Backlog.")
-    elif here in ("Backlog", "À faire", "En cours"):
+    elif here in ("Backlog", "Todo", "In Progress"):
         fields = {}
         if s in ("blocked", "to-test", "validated", "archived"):
             fields["status"] = "open"
             if s == "validated":
                 fields["owner_ok"] = None
-        if here in ("À faire", "En cours"):
+        if here in ("Todo", "In Progress"):
             fields["priority"] = top_priority()
         if fields:
             status = fields.pop("status", s if s != "archived" else "open")
@@ -326,10 +326,10 @@ def apply_owner_move(L, bl, iid, rec, here):
                 status = "open"
             bl.set_status(iid, status, **fields)
             msg = "Rouvert sur ton déplacement." if s != "open" else "Noté."
-            if here in ("À faire", "En cours"):
+            if here in ("Todo", "In Progress"):
                 msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
             _say(L, rec, msg)
-    elif here in ("À tester", "Terminé (machine)"):
+    elif here in ("À tester", "Done"):
         _say(L, rec, "Cette colonne est celle de la machine (une porte mesurée). Je le remets où le backlog le place ; si tu veux le forcer, commente ce que tu attends.")
         rec["hash"] = ""  # recalage par la synchro
     bl = B.load()
@@ -456,8 +456,8 @@ def main():
             it = bl.get(iid)
             if it is None:
                 orphans += 1
-                if iss and iss["state"]["name"] != "Archivé":
-                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Archivé"]})
+                if iss and iss["state"]["name"] != "Canceled":
+                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
                     L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé."})
                     print("  orphelin archive :", rec["identifier"], iid)
                 continue
@@ -527,7 +527,7 @@ def main():
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
                 if st == "À tester":
                     set_read_label(L, rec["issue_id"], label, True)
-                elif st in ("Validé", "Archivé"):
+                elif st in ("Validé", "Canceled"):
                     for lab in (label, todo, _TALK.get("id")):
                         if lab:
                             swap_labels(L, rec["issue_id"], remove=lab)
