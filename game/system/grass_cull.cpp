@@ -232,13 +232,24 @@ void publish_all() {
   }
   pub("grass_cull_missing_terms", missing);
 
+  // Les invariants des plages sont publies par le renderer (il est le seul a les connaitre) ;
+  // on les RELIT dans la table moissonnee pour les faire entrer dans la somme. Une cle absente
+  // compte comme un manque : un chemin de dessin qui n'aurait jamais verifie son arithmetique ne
+  // doit pas se lire comme un chemin verifie a zero.
+  uint64_t run_viol = 0;
+  if (!autoport_proof::read_uint("grass_cull_run_invariant_violations", run_viol)) {
+    run_viol = 0;
+    missing++;
+    pub("grass_cull_missing_terms", missing);
+  }
+
   // LA PORTE. Somme des termes ci-dessus, tous nuls quand le culling est correct et mesure.
   // `sum_gap` n'y entre PAS : il porte la marge deliberee de l'oracle (voir plus haut). Ce qui y
   // entre est ce qu'aucun culling correct ne peut produire — soumettre un lot hors du volume,
   // retirer une instance qui aurait dessine, une partition qui ne reproduit pas celle du fichier,
   // et une course qui n'aurait pas mesure ses trois vues.
   pub("grass_offscreen_submitted",
-      sum_dropped + sum_offscreen + g_chunk_mismatch + missing + empty_views);
+      sum_dropped + sum_offscreen + g_chunk_mismatch + missing + empty_views + run_viol);
 
   // `hits` = les lots TESTES par le culling sur toute la course (`hits_means` de l'item).
   autoport_proof::note_hit_for(kItemId, g_chunk_tests_total ? g_chunk_tests_total : 1);

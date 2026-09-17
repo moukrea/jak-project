@@ -2885,6 +2885,38 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       fwd[1] /= fl;
       fwd[2] /= fl;
     }
+    // --- L'ARITHMETIQUE DES PLAGES, verifiee au lieu d'etre supposee. Le seul mecanisme NEUF
+    // du chemin de dessin est le decalage des pointeurs d'attribut : une plage qui deborderait le
+    // tampon, en chevaucherait une autre, ou ne couvrirait pas exactement les lots gardes ferait
+    // lire a une instance la donnee d'une autre. Ces trois invariants se verifient pour trois
+    // comparaisons par plage, et leur violation se PUBLIE.
+    u64 run_viol = 0;
+    auto check_runs = [&](const std::vector<std::pair<int, int>>& runs, u8 mask, int limit) {
+      int prev_end = 0;
+      u64 sum = 0;
+      for (const auto& r : runs) {
+        if (r.first < prev_end || r.second <= 0 || r.first + r.second > m_instance_count) {
+          run_viol++;
+        }
+        prev_end = r.first + r.second;
+        sum += (u64)r.second;
+      }
+      u64 want = 0;
+      for (size_t i = 0; i < m_cull_chunks.size(); i++) {
+        if (m_cull_keep[i] & mask) {
+          want += m_cull_chunks[i].count;
+        }
+      }
+      if (sum != want) {
+        run_viol++;
+      }
+      (void)limit;
+    };
+    if (cull_on && !run_overflow) {
+      check_runs(m_blade_runs, 1, draw_n);
+      check_runs(m_card_runs, 2, card_n);
+    }
+    autoport_proof::publish("grass_cull_run_invariant_violations", run_viol);
     autoport_proof::publish("grass_cull_run_overflow_frames", g_grass_run_overflow_frames);
     grass_cull::note_census(submitted_blade + submitted_card, chunk_visible, offscreen, dropped,
                             ideal, chunks_kept_blade + chunks_kept_card,
