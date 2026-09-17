@@ -1703,6 +1703,7 @@ constexpr int kEdgeMinPx = 3;             // une arete de moins de 3 px est du b
 HutEdge s_hut_edge[kCensusStates];
 ContactRamp s_hutedge_ramp[kCensusStates];
 ContactRamp s_hutedge_convex[kCensusStates];
+ContactRamp s_hutedge_ref[kCensusStates];
 std::vector<uint8_t> s_edge_mask;  // bit0 : concave axe +x, bit1 : concave axe +y,
                                    // bit2/bit3 : idem convexe
 std::vector<uint8_t> s_ref_mask;   // les 425 px de l'essai 10, pour le seul recouvrement
@@ -1719,7 +1720,8 @@ void hut_edge_census(const uint8_t* ao,
                      int h,
                      HutEdge* out,
                      ContactRamp* concave_ramp,
-                     ContactRamp* convex_ramp) {
+                     ContactRamp* convex_ramp,
+                     ContactRamp* ref_ramp) {
   const CensusGeometry* geom = census_geometry(depth, w, h);
   if (!geom) return;
   // `HutEdge` decrit UNE image (une population, pas une somme) : il s'ECRASE. Le nombre
@@ -1729,6 +1731,15 @@ void hut_edge_census(const uint8_t* ao,
   const double kCreaseRel = 0.25, kCreaseAbs = 1e-5, kJumpRel = 0.02;
   const size_t n = (size_t)w * (size_t)h;
   s_edge_mask.assign(n, 0);
+  // La reference de l'essai 10, en carte : elle ne sert QU'A des temoins — le recouvrement, et
+  // la rampe RESTREINTE au raccord que l'owner a photographie. Elle ne qualifie aucun pixel.
+  const bool ref_frame = (w == ao_hut_edge_reference::kWidth &&
+                          h == ao_hut_edge_reference::kHeight);
+  if (ref_frame && s_ref_mask.size() != n) {
+    s_ref_mask.assign(n, 0);
+    for (const auto& p : ao_hut_edge_reference::kPixels)
+      s_ref_mask[(size_t)p.y * (size_t)w + (size_t)p.x] = 1;
+  }
   auto z = [&](int x, int y) -> double {
     return (double)depth[(size_t)y * (size_t)w + (size_t)x];
   };
@@ -1807,6 +1818,17 @@ void hut_edge_census(const uint8_t* ao,
         if (m & (1 << axis)) {
           ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, concave_ramp);
           ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, +1, concave_ramp);
+          // ── LE RACCORD DE SA CAPTURE, ET LUI SEUL ─────────────────────────────────────
+          // La population qualifiee couvre tout l'ecran : 2 124 aretes, dont celle de la
+          // hutte. Un agregat sur 74 082 cotes ne peut pas dire si LE raccord qu'il montre
+          // est encore clair — c'est la lecon des dix-sept essais precedents. Cette rampe-ci
+          // est la MEME mesure, restreinte aux pixels detectes qui tombent dans les 425 px de
+          // sa capture. Elle est un TEMOIN : elle ne qualifie rien et n'entre dans aucune
+          // population de decision.
+          if (ref_frame && s_ref_mask[(size_t)y * (size_t)w + (size_t)x]) {
+            ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, ref_ramp);
+            ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, +1, ref_ramp);
+          }
         }
         if (m & (4 << axis)) {
           ramp_side(ao, depth, nullptr, w, h, x, y, dx, dy, -1, convex_ramp);
@@ -1846,7 +1868,7 @@ void hut_edge_census(const uint8_t* ao,
   }
   // LE RECOUVREMENT AVEC L'ESSAI 10 — publie, jamais utilise pour decider. Une arete de
   // reference est RETROUVEE si l'un de ses deux pixels porte une detection sur le MEME axe.
-  if (w == ao_hut_edge_reference::kWidth && h == ao_hut_edge_reference::kHeight) {
+  if (ref_frame) {
     for (const auto& e : ao_hut_edge_reference::kEdges) {
       const int dx = e.axis == 0 ? 1 : 0, dy = e.axis == 0 ? 0 : 1;
       const size_t a = (size_t)e.y * (size_t)w + (size_t)e.x;
@@ -1858,11 +1880,6 @@ void hut_edge_census(const uint8_t* ao,
       const size_t i = (size_t)p.y * (size_t)w + (size_t)p.x;
       if (geom->ok[i]) out->ref_depth_px++;
       if (s_edge_mask[i] & 3) out->ref_px_hit++;
-    }
-    if (s_ref_mask.size() != n) {
-      s_ref_mask.assign(n, 0);
-      for (const auto& p : ao_hut_edge_reference::kPixels)
-        s_ref_mask[(size_t)p.y * (size_t)w + (size_t)p.x] = 1;
     }
     for (size_t i = 0; i < n; i++)
       if ((s_edge_mask[i] & 3) && s_ref_mask[i]) out->detected_in_ref++;
@@ -2052,7 +2069,8 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
           // (essai 18, verdict H) Les aretes QUALIFIEES, sur la meme relecture : zero appel GL
           // de plus. La carte de positions/normales est partagee par les douze etats.
           hut_edge_census(s_pat_buf.data(), s_depth_buf.data(), w, h, &s_hut_edge[state],
-                          &s_hutedge_ramp[state], &s_hutedge_convex[state]);
+                          &s_hutedge_ramp[state], &s_hutedge_convex[state],
+                          &s_hutedge_ref[state]);
           s_contact_pop[state] += cpop;
           s_contact_band[state] += cband;
           if (cwmax > s_contact_wmax[state]) {
@@ -2559,6 +2577,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
   {
     HutEdge edge_on{}, edge_off{};
     ContactRamp cc_on{}, cc_off{}, cx_on{}, cx_off{}, plane_on{}, plane_off{};
+    ContactRamp rf_on{}, rf_off{};
     auto addr = [](ContactRamp& dst, const ContactRamp& src) {
       dst.sides += src.sides; dst.positive += src.positive; dst.bright += src.bright;
       dst.lift_pos += src.lift_pos; dst.lift_neg += src.lift_neg; dst.rejected += src.rejected;
@@ -2578,6 +2597,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
       adde(i < 6 ? edge_on : edge_off, s_hut_edge[i]);
       addr(i < 6 ? cc_on : cc_off, s_hutedge_ramp[i]);
       addr(i < 6 ? cx_on : cx_off, s_hutedge_convex[i]);
+      addr(i < 6 ? rf_on : rf_off, s_hutedge_ref[i]);
       addr(i < 6 ? plane_on : plane_off, s_contact_plane[i]);
     }
     auto rate = [](const ContactRamp& r) -> uint64_t {
@@ -2587,7 +2607,7 @@ void AmbientOcclusionPass::publish_pattern_census() {
       return r.sides ? (int64_t)(r.lift_pos / r.sides) - (int64_t)(r.lift_neg / r.sides) : 0;
     };
     auto arm = [&](const char* suffix, const HutEdge& e, const ContactRamp& cc,
-                   const ContactRamp& cx, const ContactRamp& pl) {
+                   const ContactRamp& cx, const ContactRamp& pl, const ContactRamp& rf) {
       const std::string t = suffix;
       autoport_proof::publish(("ao_hutedge_fold_sides" + t).c_str(), e.fold_sides);
       autoport_proof::publish(("ao_hutedge_angled_sides" + t).c_str(), e.angled_sides);
@@ -2637,11 +2657,26 @@ void AmbientOcclusionPass::publish_pattern_census() {
                               lc > lp ? (uint64_t)(lc - lp) : 0ull);
       autoport_proof::publish(("ao_hutedge_lift_deficit" + t + "_milli").c_str(),
                               lp > lc ? (uint64_t)(lp - lc) : 0ull);
+      // ── LE RACCORD DE LA CAPTURE DE L'OWNER, NOMME ────────────────────────────────────
+      // Les memes cotes, restreints aux pixels detectes qui tombent dans ses 425 px. C'est la
+      // seule grandeur de cette preuve qui reponde a sa phrase — « on voit un peu de blanc non
+      // ombre du mur pile entre le mur et le toit » — sur SON raccord et pas sur une moyenne
+      // d'ecran. `sides` est son denominateur : s'il est nul, la grandeur est MUETTE, pas verte.
+      autoport_proof::publish(("ao_hutedge_ref_ramp_sides" + t).c_str(), rf.sides);
+      autoport_proof::publish(("ao_hutedge_ref_ramp_rejected" + t).c_str(), rf.rejected);
+      autoport_proof::publish(("ao_hutedge_ref_ramp_bright" + t).c_str(), rf.bright);
+      autoport_proof::publish(("ao_hutedge_ref_ramp_bright_rate" + t + "_x1000").c_str(), rate(rf));
+      autoport_proof::publish(("ao_hutedge_ref_ramp_lift_up" + t + "_milli").c_str(),
+                              rf.sides ? rf.lift_pos / rf.sides : 0ull);
+      autoport_proof::publish(("ao_hutedge_ref_ramp_lift_down" + t + "_milli").c_str(),
+                              rf.sides ? rf.lift_neg / rf.sides : 0ull);
+      autoport_proof::publish(("ao_hutedge_ref_ramp_measured" + t).c_str(),
+                              rf.sides > 0 ? 1ull : 0ull);
       autoport_proof::publish(("ao_hutedge_measured" + t).c_str(),
                               (e.fold_sides > 0 && cc.sides > 0 && pl.sides > 0) ? 1ull : 0ull);
     };
-    arm("", edge_on, cc_on, cx_on, plane_on);
-    arm("_legacy", edge_off, cc_off, cx_off, plane_off);
+    arm("", edge_on, cc_on, cx_on, plane_on, rf_on);
+    arm("_legacy", edge_off, cc_off, cx_off, plane_off, rf_off);
     autoport_proof::publish("ao_hutedge_span_px", (uint64_t)kEdgeSpan);
     autoport_proof::publish("ao_hutedge_cos_qual_x1000", (uint64_t)(kEdgeCosQual * 1000.0));
     autoport_proof::publish("ao_hutedge_min_px", (uint64_t)kEdgeMinPx);
