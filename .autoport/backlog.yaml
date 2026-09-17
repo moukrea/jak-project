@@ -13533,7 +13533,7 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
-- status: in-progress
+- status: blocked
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
@@ -13781,7 +13781,17 @@ items:
     text: Et oui, tes screens montrent bien le problème ! Les variations détectées viennent des deux lenternes
       visibles à l'écran + la caisse de mecamouche en arrière plan qui est animée (faisant comme si la
       mouche à l'intérieur essayait de sortir)… donc tu mesure sur un truc qui est sûr d'échouer !
-  block_reason: ''
+  - date: '2026-09-17'
+    text: Bah t'es con ou quoi, t'as mesuré exactement au même endroit… Forcément ça échoue toujours !
+      T'as toujours le soucis des deux lanternes et de la caisse de mecamouche ! C'est pas possible d'être
+      aussi con !
+  - date: '2026-09-17'
+    text: Ah et fais aussi attention au dynamic resolution scaling qui pourrait jouer !
+  - date: '2026-09-17'
+    text: Si on tu sais… tu peux aussi me demander de vérifier moi plutôt que gaspiller du temps, des
+      tours et des milliers de tokens pour faire un truc que t'arrives pas à faire… suffit de me dire
+      exactement ce que tu veux que je vérifie et on peut aller plus vite !
+  block_reason: max_retries (5) épuisé
 - id: owner-identit-diffrentes-pour-le-harnais-et-les-users-
   status: archived
   game: jak1
@@ -13809,7 +13819,7 @@ items:
   deliverable: ''
   out_of_scope: ''
   spec: null
-- status: open
+- status: in-progress
   game: jak1
   code_scope: harnais
   spec: null
@@ -13855,3 +13865,12 @@ items:
   - date: '2026-09-17'
     text: C'est un peu dégueu non de créer un compte fake pour ça ? Il n'y a pas un moyen natif propre
       ?
+  - date: '2026-09-17'
+    text: |-
+      Client ID: 07cfe53da53cdd99394450b6f36b1715
+
+      Client Secret: [range dans ~/.config/autoport/linear.env, retire d ici]
+
+      Je te les donnes direct en commentaire, c'est pas sensible car nous deux seulement avons accès à cet espace.
+  - date: '2026-09-17'
+    text: Je rêve ou t'as supprimé le message avec le client id et client secret ?
