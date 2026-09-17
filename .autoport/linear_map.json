@@ -19,13 +19,13 @@
   },
   "states": {
    "Backlog": "01641322-ffe1-42bd-ab1e-a019b7cb2d33",
-   "Bloqué": "bcbec6e7-38b0-4613-b5f3-1b49a9e8bd0d",
    "Canceled": "39b71180-e383-41eb-8263-1a90b73d54a7",
    "Done": "c2520b85-2d6e-4fc5-98e6-cc46f7f28bb7",
    "In Progress": "5e5ce78a-66f0-4042-bafa-a91e76196593",
    "In Review": "8a4d396a-5d7d-44e2-9edc-1558c99c708c",
    "Todo": "f0cae7bd-902d-4ddc-b07d-1ec04bfcc66e",
-   "Validé": "4cb9650c-51cd-4cea-a713-dba0c906d97f"
+   "Validé": "4cb9650c-51cd-4cea-a713-dba0c906d97f",
+   "À arbitrer": "bcbec6e7-38b0-4613-b5f3-1b49a9e8bd0d"
   },
   "team": "10c12a42-312a-4b90-9d3c-321e156cf31a"
  },
@@ -717,10 +717,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-22/jak-ii-demarre-sur-android"
  },
  "jak2-polish": {
-  "hash": "78ce6ab9bbbc154f306be406c6ee5b200bedac83",
+  "hash": "",
   "identifier": "JAK-45",
   "issue_id": "fd9774f3-0769-40e3-80ac-57de91f273d8",
-  "last_state": "Bloqué",
+  "last_state": "À arbitrer",
   "pulled_at": "2026-09-17T05:36:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-45/les-finitions-de-jak-ii-mapping-l1r1-cadrage-menus-particules"
  },
@@ -1182,10 +1182,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "1d37e9444278886d439bb22861c849f2d6bac619",
+  "hash": "",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
-  "last_state": "Bloqué",
+  "last_state": "À arbitrer",
   "pulled_at": "2026-09-17T05:36:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },

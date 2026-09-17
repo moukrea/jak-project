@@ -43,7 +43,7 @@ SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
 STATES = [  # (nom Linear, type Linear) — colonnes NATIVES de Linear quand elles existent (owner 17/09), custom sinon
     ("Backlog", "backlog"), ("Todo", "unstarted"), ("In Progress", "started"),
-    ("In Review", "started"), ("Bloqué", "started"), ("Validé", "completed"),
+    ("In Review", "started"), ("À arbitrer", "started"), ("Validé", "completed"),
     ("Done", "completed"), ("Canceled", "canceled"),
 ]
 PROJECTS = {  # prefixe d'id -> projet
@@ -116,7 +116,7 @@ def target_state(bl, it):
     if s == "to-test":
         return "In Review"
     if s == "blocked":
-        return "Bloqué"
+        return "À arbitrer"
     if s == "validated":
         return "Validé" if it.get("owner_ok") else "Done"
     return "Canceled"
@@ -169,7 +169,7 @@ def description(bl, it, retries):
     essais = "%s/%s essais" % (n if n is not None else 0, it.get("max_retries", 6)) if s in ("open", "in-progress", "blocked") else ""
     lines += ["**État** : %s%s" % (STATUS_FR.get(s, s), (" — " + essais) if essais else "")]
     if s == "blocked" and it.get("block_reason"):
-        lines += ["**Bloqué parce que** : " + str(it["block_reason"]).strip()[:600]]
+        lines += ["**À arbitrer parce que** : " + str(it["block_reason"]).strip()[:600]]
     lv = last_verdict(it["id"])
     if lv:
         lines += ["**Dernier verdict machine** : " + lv]
@@ -307,9 +307,9 @@ def apply_owner_move(L, bl, iid, rec, here):
         if s != "archived":
             bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
             _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
-    elif here == "Bloqué":
+    elif here == "À arbitrer":
         if s == "in-progress":
-            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « Bloqué » pendant un essai : sera bloqué à la fin de l'essai en cours")
+            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de l'essai en cours")
             _say(L, rec, "Un essai est en cours dessus ; je le bloque dès qu'il se termine, pas au milieu.")
         elif s != "blocked":
             bl.set_status(iid, "blocked", block_reason="Bloqué par l'owner dans Linear le %s" % today)
@@ -531,7 +531,7 @@ def main():
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
                 lv = last_verdict(iid)
-                body = MARK + "→ **%s**" % st + (("\n" + lv) if lv else "") + (("\nBloqué : " + str(it.get("block_reason"))[:300]) if it["status"] == "blocked" else "")
+                body = MARK + "→ **%s**" % st + (("\n" + lv) if lv else "") + (("\nÀ arbitrer : " + str(it.get("block_reason"))[:300]) if it["status"] == "blocked" else "")
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
                 if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
