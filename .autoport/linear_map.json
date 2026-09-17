@@ -740,11 +740,11 @@
  },
  "hud-3d-pickups": {
   "build_announced": "ae427297e586",
-  "hash": "152c516cb2237a4cb434b57ec96df2dbea0967f3",
+  "hash": "0c583042532db5b8f82e2742c5b4d1a94faea62c",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "Todo",
-  "pulled_at": "2026-09-17T12:25:59.166Z",
+  "pulled_at": "2026-09-17T12:30:36.540Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
@@ -845,11 +845,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "f72259c9c7016a099907f2e966e1113e4e83dd26",
+  "hash": "68a1cdd1e18ff7121addb2ee963124ee346683e1",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
   "last_state": "In Progress",
-  "pulled_at": "2026-09-17T07:43:52.682Z",
+  "pulled_at": "2026-09-17T12:38:04.319Z",
   "relations": [
    "ao-prepass-tie-alpha"
   ],
