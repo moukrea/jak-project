@@ -1,10 +1,7 @@
-> LIS D'ABORD `prompts/item-water-presets-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
-> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
-> sont dans ce fichier.
-
 # Chaque techno d'eau a son reglage, son echelle, et un OFF prouve
 
 ## Defaut cite
+- 2026-09-09 : « la refonte de l'eau doit pouvoir être toggled off individuellement aussi, ou on retrouve l'eau vanilla. »
 - 2026-09-09 : « bah je valide, beau boulot ! »
 
 ## Cause connue

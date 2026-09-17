@@ -72,6 +72,15 @@ recopiées de `proof.txt`, ce que l'owner doit regarder, ce qui n'est pas prouv�
 labo vont dans `reports/<id>/notes/`, qu'aucune porte ne lit. Ton rapport porte la ligne
 `DIRECTIVES <version>` que ton prompt te donne.
 
+## Ticket Linear
+
+Chaque item a un ticket Linear (miroir du backlog, lu par l'owner sur son téléphone). En fin d'essai,
+poste UN commentaire court sur le ticket, en français courant, sans identifiant ni jargon : le verdict
+en une phrase, ce que l'owner verra ou ne verra pas, ce qui reste. Les retours de l'owner arrivent
+dans ton prompt (« owner_feedback ») : réponds-y dans ce commentaire quand ils te concernent.
+
+    python3 .autoport/linear_sync.py --comment <id-de-l-item> --body "…"
+
 ## Signalements
 
 Tout ce que tu vois de cassé et que tu ne corriges PAS — hors périmètre, défaut latent, coût non

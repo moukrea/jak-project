@@ -83,6 +83,16 @@ class Linear:
         raise RuntimeError("Linear : 429 persistant")
 
 
+def refresh_prompt(it):
+    """Refabrique la consigne SEULEMENT si c'est la notre et qu'elle est perimee. Une consigne ecrite a la main
+    (prompt_state 'a-la-main') ne s'ecrase jamais : le 17/09 neuf consignes manuelles ont ete ecrasees par erreur."""
+    st = B.prompt_state(it)
+    if st in ("perime", "absent"):
+        B.write_prompt(it)
+    elif st == "a-la-main":
+        print("  consigne ECRITE A LA MAIN pour %s : non touchee (l'item a bouge, a relire par le superviseur)" % it["id"])
+
+
 def project_for(item_id):
     return PROJECTS.get(item_id.split("-")[0], "Divers")
 
@@ -344,7 +354,7 @@ def apply_owner_move(L, bl, iid, rec, here):
     it = bl.get(iid)
     if it and it["status"] != "archived":
         try:
-            B.write_prompt(it)
+            refresh_prompt(it)
         except Exception as e:  # noqa: BLE001
             print("  prompt non refabrique pour %s : %s" % (iid, e))
     return bl
@@ -420,7 +430,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                     it2 = bl.get(iid)
                     if it2 and it2["status"] not in ("archived",):
                         try:
-                            B.write_prompt(it2)
+                            refresh_prompt(it2)
                         except Exception as e:  # noqa: BLE001
                             print("  prompt non refabrique pour %s : %s" % (iid, e))
                 pulled += 1

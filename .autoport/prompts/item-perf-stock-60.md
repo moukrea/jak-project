@@ -1,7 +1,7 @@
 # Le jeu STOCK tient 60 images par seconde sur le Redmi, en natif 21:9
 
 ## Defaut cite
-- 2026-09-11 : « 74 au lieu de 71 et 91 au lieu de 84 respectivement... mais le HONOR ne struggle pas, c'est probablement plus sur le Redmi »
+- (aucun retour de l'owner enregistre sur cet item)
 
 ## Cause connue
 Item de cloture : la meme campagne que perf-stock-baseline, apres tous les items perf. stock_frame_ms_p95 en centiemes de ms (1667 = 16,67 ms) a l'echelle 100 %. Si la porte ne tient qu'a une echelle < 100 %, l'item publie l'echelle atteinte et l'owner tranche : c'est le reglage par defaut de l'auto-echelle (cible 60, plancher releve) qui devient le livrable.
