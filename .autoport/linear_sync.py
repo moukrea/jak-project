@@ -4,7 +4,7 @@
 Owner, 17/09/2026 : « ce serait mieux si on passait par un vrai systeme genre Linear ? Tu pourrais
 setup le MCP […] tu sera le seul (enfin toi, le harnais) a utiliser ce compte ». Le fichier
 backlog.yaml RESTE la source de verite de la machine (portes, livrables, ecritures atomiques) ;
-Linear en est le miroir en francais courant : un ticket par chantier, un etat, un rang, ce que
+Linear en est le miroir en francais courant, ET un canal de decision : un ticket que l'owner deplace fait suivre le backlog (voir apply_owner_move) : un ticket par chantier, un etat, un rang, ce que
 l'owner doit regarder, le dernier verdict, et les retours de l'owner en commentaires.
 
 Sens des ecritures :
@@ -282,6 +282,66 @@ def labels(L, team):
     return read, todo
 
 
+def _say(L, rec, text):
+    L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + text})
+
+
+def apply_owner_move(L, bl, iid, rec, here):
+    """Un deplacement de ticket fait par l'owner est une DECISION : le backlog suit, et on le dit.
+    Owner 17/09 : « si je change un status de ticket moi même […] ça serait con que ce soit systématiquement écrasé »."""
+    it = bl.get(iid)
+    if it is None:
+        return bl
+    today = dt.date.today().isoformat()
+    s = it["status"]
+    def top_priority():
+        opens = [x.get("priority") for x in bl.items if x["status"] == "open" and isinstance(x.get("priority"), int)]
+        return (min(opens) - 1) if opens else 0
+    if here == "Validé":
+        if not it.get("owner_ok"):
+            bl.validate(iid, "Déplacé en « Validé » dans Linear par l'owner", date=today)
+            _say(L, rec, "Validé par ton déplacement du ticket : c'est ton feu vert, enregistré tel quel.")
+    elif here == "Archivé":
+        if s != "archived":
+            bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
+            _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
+    elif here == "Bloqué":
+        if s == "in-progress":
+            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « Bloqué » pendant un essai : sera bloqué à la fin de l'essai en cours")
+            _say(L, rec, "Un essai est en cours dessus ; je le bloque dès qu'il se termine, pas au milieu.")
+        elif s != "blocked":
+            bl.set_status(iid, "blocked", block_reason="Bloqué par l'owner dans Linear le %s" % today)
+            _say(L, rec, "Bloqué sur ton déplacement : le harnais ne le prendra pas tant que tu ne le remets pas dans À faire ou Backlog.")
+    elif here in ("Backlog", "À faire", "En cours"):
+        fields = {}
+        if s in ("blocked", "to-test", "validated", "archived"):
+            fields["status"] = "open"
+            if s == "validated":
+                fields["owner_ok"] = None
+        if here in ("À faire", "En cours"):
+            fields["priority"] = top_priority()
+        if fields:
+            status = fields.pop("status", s if s != "archived" else "open")
+            if s in ("blocked", "to-test", "validated", "archived"):
+                status = "open"
+            bl.set_status(iid, status, **fields)
+            msg = "Rouvert sur ton déplacement." if s != "open" else "Noté."
+            if here in ("À faire", "En cours"):
+                msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
+            _say(L, rec, msg)
+    elif here in ("À tester", "Terminé (machine)"):
+        _say(L, rec, "Cette colonne est celle de la machine (une porte mesurée). Je le remets où le backlog le place ; si tu veux le forcer, commente ce que tu attends.")
+        rec["hash"] = ""  # recalage par la synchro
+    bl = B.load()
+    it = bl.get(iid)
+    if it and it["status"] != "archived":
+        try:
+            B.write_prompt(it)
+        except Exception as e:  # noqa: BLE001
+            print("  prompt non refabrique pour %s : %s" % (iid, e))
+    return bl
+
+
 def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
@@ -354,20 +414,19 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu, comme retirer « A lire ».
             have = {l["id"] for l in iss["labels"]["nodes"]}
             ours = [c for c in iss["comments"]["nodes"] if c["body"].startswith(MARK)]
-            if label_id in have and ours and (ours[-1].get("reactions") or []) and newest == since:
-                print("  reaction owner sur la derniere reponse de %s (%s) : lu" % (iid, ",".join(r["emoji"] for r in ours[-1]["reactions"])))
+            OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
+            reacts = [r["emoji"] for r in (ours[-1].get("reactions") or [])] if ours else []
+            if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since:
+                print("  reaction owner sur la derniere reponse de %s (%s) : lu" % (iid, ",".join(reacts)))
                 if not dry:
                     swap_labels(L, iss["id"], remove=label_id)
             rec["pulled_at"] = newest
             here = iss["state"]["name"]
             if here != rec.get("last_state") and rec.get("last_state"):
                 print("  owner a déplacé %s : %s -> %s" % (iid, rec.get("last_state"), here))
-                if here == "Validé" and not dry:
-                    it = bl.get(iid)
-                    if it and not it.get("owner_ok"):
-                        bl.validate(iid, "Déplacé en « Validé » dans Linear par l'owner", date=dt.date.today().isoformat()); bl = B.load()
-                elif not dry:
-                    bl.add_owner_feedback(iid, dt.date.today().isoformat(), "[Linear] l'owner a déplacé le ticket vers « %s »" % here); bl = B.load()
+                if not dry:
+                    bl = apply_owner_move(L, bl, iid, rec, here)
+                    rec["last_state"] = here
     return pulled
 
 
