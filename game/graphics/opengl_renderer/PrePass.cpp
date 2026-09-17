@@ -1299,7 +1299,13 @@ void frame_begin(SharedRenderState* rs) {
   // propres ticks. Ces courses-la gardent l'ancien tirage, ligne pour ligne.
   g_geom_tick_anchored = probe_base && !ao_static_probe::active();
   g_geom_due = false;
-  if (g_geom_tick_anchored && g_geom_tick_next < kGeomTicks) {
+  // JAMAIS A L'INTERIEUR D'UNE TRIADE DU RECENSEMENT DE MOTIF. Les phases 0, 1, 2 d'un bloc
+  // partagent un etat, et c'est `g_probe_seq` qui le porte : forcer une image lourde entre la
+  // phase 1 et la phase 2 incrementerait le compteur au milieu, et la paire jugee (1, 2)
+  // comparerait deux paliers differents — les termes 2, 6 et 8 rougiraient sans qu'aucun shader
+  // n'ait bouge. L'echeance est en `>=` : differer d'une ou deux images ne la perd pas, et
+  // `ao_geom_tick_<i>` publie le tick REELLEMENT retenu.
+  if (g_geom_tick_anchored && g_probe_pair_phase < 0 && g_geom_tick_next < kGeomTicks) {
     const int64_t lf = ao_static_probe::logic_frame();
     const int64_t due = kGeomTickStart + (int64_t)g_geom_tick_next * kGeomTickStride;
     if (lf >= due && lf != g_geom_tick_last) {
