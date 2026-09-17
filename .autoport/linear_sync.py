@@ -693,8 +693,16 @@ def explain_numbers(it, proof_text):
         gate_val = float("nan")
     if gate_val == gate_val and gate_val > 0:
         out.append("**%d point(s) en défaut** sur la mesure." % gate_val)
-    named = [k for k in dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]+)[^`]*`", deliv)) if k != gate and not k.startswith("FEATURE")]
+    named = []
+    for key, rest in re.findall(r"`([a-z][a-z0-9_]+)([^`]*)`", deliv):
+        if key == gate or key.startswith("FEATURE") or key in named:
+            continue
+        expected_zero = ("= 0" in rest or "== 0" in rest) or re.search(r"(_defects|_leak_px|_gap_px|_delta_px|_band_px|_over_ceiling|_not_fullres|_excess_x1000)$", key)
+        witness = re.search(r"(_moved_px|_excluded_px|_pop_px|_pop$|_measured|_frames|_witness|_cover|_sites|_compiled|_selftest|_queried|_readers|_hit_px)$", key)
+        if expected_zero and not witness:
+            named.append(key)
     paras = [pg.strip() for pg in re.split(r"\n\s*\n", deliv) if pg.strip()]
+    paras = sorted(paras, key=lambda pg: 0 if re.match(r"^\(?[A-Z0-9]{1,2}[.)]\s", pg) else 1)  # verdicts lettres d'abord
     shown = 0
     ok_points = []
     for key in named:
@@ -767,9 +775,9 @@ def announce_verdicts(L, bl, mp, read, dry):
             # Owner 17/09 : « c'est quoi le critère et pourquoi ça le viole ? » — le critere est la premiere phrase du
             # livrable (en francais), le pourquoi = les points du ticket en defaut (explain_numbers) ; la ligne brute du
             # juge n'est montree que si elle dit autre chose qu'un chiffre (preuve perimee, site jamais tire…).
-            crit = re.split(r"(?<=[.])\s", re.sub(r"`[^`]*`\s*=\s*0\s*[,:]?\s*", "", (it.get("deliverable") or "").strip()), 1)[0].strip()[:220]
+            crit = (it.get("feature") or "").strip()
             if crit:
-                lines.append("Critère : %s" % crit)
+                lines.append("Critère : « %s », chaque point du ticket mesuré à zéro défaut." % crit)
             other = [f for f in fails if "viole le critere" not in f]
             for f in other[:6]:
                 lines.append("- " + re.sub(r"^\[%s FAIL\]\s*" % re.escape(it["id"]), "", f)[:300])
