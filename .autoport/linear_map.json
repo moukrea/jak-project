@@ -118,10 +118,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-indirect-clean": {
-  "hash": "2377f4e6529822ebbf5b94b65120a3e43c03a2fd",
+  "hash": "49a53b20372fad3dc1bf1b00ea0953aa9344d92c",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
-  "last_state": "À arbitrer",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-17T19:21:59.580Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
@@ -618,12 +618,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
  "harness-linear-own-identity": {
-  "hash": "164b6ee450cbba26fba556a3d6312ae60e6a729d",
+  "hash": "4ef245442d87694da46a10929b18cbf1f26cd4e4",
   "identifier": "JAK-180",
   "issue_id": "ab7deb05-dda7-41c3-9083-48feb760fdf2",
   "last_state": "In Progress",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-17T19:14:54.760Z",
+  "pulled_at": "2026-09-17T19:24:30.582Z",
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-proof-file-has-no-writer-lock": {

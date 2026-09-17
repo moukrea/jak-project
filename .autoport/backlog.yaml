@@ -13533,7 +13533,7 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
-- status: blocked
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
@@ -13558,6 +13558,8 @@ items:
     17/09 18:35 ARBITRAGE OWNER : « Option a, mais 0,009 % c'est infime, et tu parles d'un truc mobile j'ai l'impression ». 2 essais, PERIMETRE UNIQUE : le point F « rien ne bouge camera fixe » (1802 texels sur 21 M, bords de buissons) et les 2 px de `ao_sway_gap_px`. Tout le reste est acquis et ne se retouche pas (A-E, G). ORDRE : (1) d'abord NOMMER la source du changement image a image sur une scene immobile par ablation, en une course : (i) la prepasse echantillonne-t-elle le feuillage autrement que la passe couleur (mip, filtre, seuil alpha) ? publier les deux etats d'echantillonnage ; (ii) l'estimateur utilise-t-il un bruit / une rotation PAR IMAGE (texture de bruit, jitter temporel) ? publier le compte de texels qui changent avec le feuillage exclu de la population : s'il reste non nul, la cause est dans l'estimateur, pas dans l'alpha ; (2) ensuite corriger LA cause nommee : echantillonnage de la prepasse identique a la couleur (meme mip, meme filtre, meme alpha_min) et/ou bruit de l'estimateur fixe par pixel (pas par image). Un texel qui change alors que TOUT est immobile est le defaut ; ce n'est pas un objet mobile : vent coupe et temoin `ao_sway_moved_px` publie, acteurs et particules exclus.
 
     Owner 17/09 : « AO legacy poubelle → Nouvelle AO plus en filtre à la fin », puis « être clair sur ce qu'on veut exactement par rapport à la spec » : le livrable recopie la spec (4.2 lignes 2-6, 4.6, 4.7), il ne la resume pas. Et : « une bande claire à la zone de contact… l'AO est juste posée par-dessus comme un filtre ». Ce ticket REMPLACE lighting-ao-indirect (14 essais, livrable devenu illisible) : memes mesures, contrat lisible. Prepasse (ao-prepass-tie-alpha) et sonde stable (ao-static-probe-deterministic) sont faites et se gardent. Ne pas chasser la bande dans le flou : la cause probable est le masque de luminance de la composition finale, qui disparait avec elle (A).
+
+    17/09 21:30 SUPERVISEUR, apres l'essai 5 : la texture d'AO est IDENTIQUE image a image (0 texel sur 20 M, ao_static_visible_ao_moved_px=0) ; les 115 369 px comptes par le terme F sont des pixels de l'IMAGE FINALE qui changent a AO egale = eclairage des lanternes (hutlamp, joint 3 oscille ±10°, periode 900 images, village-obs.gc:751) et feu du maire. Le point de mesure -116 14 40 est a 3,5 m de hutlamp-9 (-115.18 16.07 42.67), 8,5 m de hutlamp-8 (-108.63 16.07 36.34), 9 m de la caisse buzzer crate-3146 (-122.57 10.79 34.80) et 9,1 m du feu (-108.53 9.77 42.95) — aucun cadrage de la hutte n'exclut tout ; source decompiler_out/jak1/entities/village1-actors.json. Le terme F doit lire la CONTRIBUTION de l'AO (ON-OFF), pas l'image finale. Resolution dynamique (owner) : verifiee, dynamic-render-scale? est ON par defaut (pckernel-h.gc:219) mais la chaine AO est dimensionnee a 100 % (android_opengl_renderer.cpp:1481) et la course 5 n'a eu aucun pas d'echelle (une seule ligne [dyn-rs], 800x600 a 100 %). Owner 21:25 : « tu peux aussi me demander de verifier moi… suffit de me dire exactement ce que tu veux que je verifie » -> passe a tester par lui.
   deliverable: |-
     `ao_owner_defects` = 0, somme de termes publies SEPAREMENT ; un terme non mesure compte 1. CE QUE LA SPEC DIT, EXACTEMENT (SPEC lumiere 4.2, 4.6, 4.7) :
 
@@ -13588,10 +13590,13 @@ items:
     CORRECTION DU SUPERVISEUR 17/09 20:55, apres l'essai 4 : `ao_static_visible_px` = 123 412 alors que le tampon d'AO ne bouge plus que de 36 texels ; l'agent a etabli que ces pixels ne sont PAS produits par l'AO (l'eclairage Recharged lui-meme varie image a image, premier suspect `update-mood-flames`). Ma mesure « image finale » accusait donc l'AO d'un mouvement qui vient de l'eclairage. Le point F se juge par la PART DE L'AO : `ao_static_visible_ao_px` = pixels dont l'ecart entre deux images consecutives change de plus de 2/255 QUAND l'AO est allumee ET PAS quand elle est eteinte, au meme vantage, memes exclusions (paire ON contre paire OFF sur le meme etat de jeu) ; c'est cette grandeur qui doit valoir 0, et elle remplace `ao_static_visible_px` dans `ao_owner_defects`. `ao_static_visible_px` reste publiee a titre d'information. Le mouvement propre a l'eclairage (flammes de mood) n'est pas du ressort de cet item : l'owner tranche s'il en fait un chantier.
 
     OWNER 17/09 21:05, sur les captures de l'essai 4 : « Les variations détectées viennent des deux lanternes visibles à l'écran + la caisse de mecamouche en arrière-plan qui est animée… donc tu mesures sur un truc qui est sûr d'échouer ! ». REGLE MECANIQUE pour F : le vantage de la mesure « rien ne bouge » est CHOISI pour ne contenir AUCUN objet anime dans le champ (lanternes, caisses de mecamouche, flammes, PNJ, collectibles) ; publier le vantage (position, orientation) et le compte d'acteurs animes dans le frustum = 0. Si aucun vantage propre n'existe sur le niveau, masquer ces objets par famille de dessin et joindre la paire de captures AVEC le masque superpose. Le vantage de l'essai 4 (deux lanternes + caisse animee) est INTERDIT.
-  where: 'Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et chaque qualite,
-    force au maximum, sur le dernier build de jak-builds : le raccord mur/toit de la hutte porte une ombre
-    de contact sans bande claire ; les facades n''ont ni damier ni grain ; l''AO n''a plus l''air d''un
-    filtre pose sur l''image ; les buissons n''ont pas d''ombre flottante ; camera immobile, rien ne bouge.'
+  where: 'Sur le PROCHAIN build de jak-builds (celui qui contient l''essai 5, pas celui de 20:19). Hutte
+    du maire a Sandover, puis dehors devant la hutte, midi. Trois questions, oui/non : (1) camera immobile
+    10 s a l''interieur : les ombres de contact (pied des murs, coins, sous les meubles) grouillent-elles
+    / scintillent-elles alors que rien ne bouge ? (le balancement de la lumiere des lanternes et la caisse
+    qui saute ne comptent pas) ; (2) reste-t-il une bande CLAIRE au ras du sol le long des murs ? ; (3)
+    dehors en plein soleil : l''AO assombrit-elle encore les surfaces eclairees directement (elle ne doit
+    toucher que l''ombre / la lumiere indirecte) ?'
   out_of_scope: Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas
     cet item.
   notes: |-
@@ -13791,7 +13796,7 @@ items:
     text: Si on tu sais… tu peux aussi me demander de vérifier moi plutôt que gaspiller du temps, des
       tours et des milliers de tokens pour faire un truc que t'arrives pas à faire… suffit de me dire
       exactement ce que tu veux que je vérifie et on peut aller plus vite !
-  block_reason: max_retries (5) épuisé
+  block_reason: ''
 - id: owner-identit-diffrentes-pour-le-harnais-et-les-users-
   status: archived
   game: jak1
@@ -13874,3 +13879,5 @@ items:
       Je te les donnes direct en commentaire, c'est pas sensible car nous deux seulement avons accès à cet espace.
   - date: '2026-09-17'
     text: Je rêve ou t'as supprimé le message avec le client id et client secret ?
+  - date: '2026-09-17'
+    text: Bah c'est parfait ça ! Du coup tu peux virer l'emoji bot de tes réponses aussi
