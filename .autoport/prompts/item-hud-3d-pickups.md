@@ -1,10 +1,16 @@
+> LIS D'ABORD `prompts/item-hud-3d-pickups-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Mécamouche, orbe, particule d'éco verte et pile d'énergie du HUD : les vrais modèles du jeu à la place des sprites
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « Alors la mecamouche elle est bizarre… tant que le hud n'a pa… »
 
 ## Cause connue
-SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game », « pour la pile d'énergie, idem ».
+17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu trop haute une fois le HUD affiche ; pile pas placee. Les deux captures sont dans owner-feedback/hud-3d-pickups/ (regarde-les). La porte de l'essai 1 etait aveugle : mesurer sur l'IMAGE RENDUE de l'appareil, et suivre la visibilite du HUD d'origine.
+
+SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game » […suite dans le contrat]
 
 ## Livrable
 `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
@@ -19,7 +25,7 @@ SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus u
 
 5. ETEINT = ORIGINE.
 
-PREUVE : `FEATURE hud-3d-pickups armed=1 hits=<emplacements du HUD dessines avec un modele>` + la ligne `hud_model_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
+PREUVE : `FEATURE hud-3d-pickups armed=1 hits=<empl […suite dans le contrat]
 
 ## Preuve exigee
 `hud_model_defects == 0` dans `reports/hud-3d-pickups/proof.txt`.

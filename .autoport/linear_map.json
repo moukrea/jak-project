@@ -740,11 +740,11 @@
  },
  "hud-3d-pickups": {
   "build_announced": "ae427297e586",
-  "hash": "04ce0a56ff2b38d687a93ece8d46d9e229c0ae47",
+  "hash": "152c516cb2237a4cb434b57ec96df2dbea0967f3",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
-  "last_state": "In Review",
-  "pulled_at": "2026-09-17T10:55:59.084Z",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-17T12:25:59.166Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
