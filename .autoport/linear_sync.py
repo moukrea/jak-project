@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 AP = ROOT / ".autoport"
 sys.path.insert(0, str(AP))
 from lib import backlog as B  # noqa: E402
+import linear_identity as LI  # noqa: E402
 
 API = "https://api.linear.app/graphql"
 MAP_PATH = AP / "linear_map.json"
@@ -59,19 +60,18 @@ STATUS_FR = {"open": "à faire", "in-progress": "en cours", "to-test": "à teste
              "blocked": "bloqué", "validated": "validé", "archived": "archivé"}
 
 
-def load_key():
-    env = Path.home() / ".config/autoport/linear.env"
-    for line in env.read_text().splitlines():
-        if line.startswith("LINEAR_API_KEY="):
-            return line.split("=", 1)[1].strip()
-    raise SystemExit("LINEAR_API_KEY absent de %s" % env)
-
-
 class Linear:
-    def __init__(self, key):
+    def __init__(self, ident):
+        """`ident` vient de `linear_identity.resolve()`. Le jeton et L'IDENTITE SOUS LAQUELLE IL
+        PARLE voyagent ensemble, volontairement : tant qu'on ne passait qu'une chaine, aucun code
+        du fichier ne pouvait savoir qu'il postait sous le compte de l'owner — c'est exactement la
+        panne du 17/09 (JAK-180)."""
         self.n = 0
+        self.ident = ident
+        self.mode = ident["mode"]          # "app" = l'application Autoport ; "owner" = repli
         self.s = requests.Session()
-        self.s.headers.update({"Authorization": key, "Content-Type": "application/json"})
+        auth = ("Bearer " + ident["key"]) if ident.get("bearer") else ident["key"]
+        self.s.headers.update({"Authorization": auth, "Content-Type": "application/json"})
 
     def q(self, query, **vars):
         last = None
@@ -347,8 +347,101 @@ def labels(L, team):
     return read, todo
 
 
+# ====================================================== QUI PARLE, ET COMMENT ON LE SAIT ======
+# Le harnais et l'owner ont longtemps ete le MEME compte Linear : la seule facon de les
+# distinguer etait le prefixe « 🤖 » du CORPS du message. Un marqueur de texte n'est pas une
+# identite. Il se colle a la main, il disparait a la copie, et surtout il ne produit aucune
+# notification : l'owner recevait ses propres messages (JAK-180, 17/09).
+#
+# Sous l'identite d'application (voir `linear_identity.py`), Linear attache a chaque commentaire
+# un `botActor` : un AUTEUR, produit par le serveur, que rien dans un corps de message ne peut
+# imiter. C'est lui qui tranche desormais.
+#
+# LE MARQUEUR RESTE ECRIT, ET IL RESTE LU — pas par nostalgie, pour deux raisons :
+#   1. l'owner l'a garde pour la lisibilite (le contrat le dit) ;
+#   2. NON-DESTRUCTION : les centaines de commentaires postes AVANT la bascule portent
+#      `botActor: null` et l'identifiant de l'owner. Sans le repli sur le marqueur, la premiere
+#      synchro apres la bascule les relirait TOUS comme des retours de l'owner et les deverserait
+#      dans `owner_feedback`. On rend la perte impossible au point de production.
+
+def comment_author(c):
+    """('app', id) | ('user', id) | ('inconnu', None) — l'auteur tel que le SERVEUR le rend.
+
+    DEUX formes d'auteur non-humain, et il a fallu les mesurer pour le savoir (17/09) :
+      - `botActor` : les integrations (Slack, GitHub) ;
+      - `user { app: true }` : une application OAuth qui parle en son nom. C'est NOTRE cas —
+        l'application apparait comme un utilisateur du workspace dont l'adresse finit par
+        « @oauthapp.linear.app ». Attendre un `botActor` ici, c'est ne rien voir."""
+    bot = c.get("botActor") or {}
+    if bot.get("id"):
+        return "app", bot["id"]
+    u = c.get("user") or {}
+    if u.get("id"):
+        return ("app" if u.get("app") else "user"), u["id"]
+    return "inconnu", None
+
+
+def is_harness_comment(c):
+    """Nous. D'abord l'auteur ; le marqueur seulement pour l'avant-bascule."""
+    kind, _ = comment_author(c)
+    if kind == "app":
+        return True
+    return (c.get("body") or "").startswith(MARK)
+
+
+def is_owner_comment(c, owner_id=None):
+    """Un retour de l'OWNER : un humain, et CET humain-la.
+
+    Quand on sait qui est l'owner, un commentaire d'un tiers invite dans le workspace n'est pas
+    un retour de l'owner et n'a rien a faire dans `owner_feedback`. Un auteur INCONNU qui n'est
+    pas nous reste compte comme owner : perdre un retour coute plus cher qu'en lire un de trop."""
+    if is_harness_comment(c):
+        return False
+    kind, who = comment_author(c)
+    if owner_id and kind == "user":
+        return who == owner_id
+    return True
+
+
+def owner_user_id(L, mp):
+    """L'identifiant de l'owner, releve UNE fois et garde dans `linear_map.json`.
+
+    Il FAUT le relever tant qu'on tient encore la cle personnelle : sous l'identite
+    d'application, `viewer` ne designe plus un humain et l'information serait hors d'atteinte."""
+    rec = mp.get("_owner") or {}
+    if rec.get("user_id"):
+        return rec["user_id"]
+    if getattr(L, "mode", "owner") != "app":
+        d = L.q("{ viewer { id name email } }")["viewer"]
+    else:
+        # Sous l'identite d'application, `viewer` est l'APPLICATION : il ne dira jamais qui est
+        # l'owner. On le releve alors avec la cle personnelle, qui reste dans linear.env pour
+        # exactement cet usage. Sans ce repli, un poste neuf (carte vide) partirait avec un
+        # owner INCONNU et perdrait la distinction « l'owner » / « un tiers ».
+        key = LI.load_env().get("LINEAR_API_KEY")
+        if not key:
+            return None
+        try:
+            d = LI.gql(key, "{ viewer { id name email } }")["viewer"]
+        except Exception:  # noqa: BLE001
+            return None
+    mp["_owner"] = {"user_id": d["id"], "name": d.get("name"), "email": d.get("email")}
+    return d["id"]
+
+
+def post_comment(L, issue_id, body):
+    """LE SEUL endroit d'ou le harnais poste un commentaire.
+
+    Il y en avait CINQ, chacun portant sa copie de la mutation. Une bascule d'identite aurait
+    tenu dans quatre et laisse le cinquieme parler sous l'owner sans que rien ne rougisse.
+    L'identite elle-meme ne se pose pas ici : elle est portee par le JETON (`Linear.__init__`),
+    donc par toutes les ecritures a la fois, commentaires compris."""
+    return L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }',
+               i={"issueId": issue_id, "body": body})
+
+
 def _say(L, rec, text):
-    L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + text})
+    post_comment(L, rec["issue_id"], MARK + text)
 
 
 def apply_owner_move(L, bl, iid, rec, here):
@@ -523,23 +616,23 @@ def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     memes regles que les autres — 👍/✅ sur la derniere reponse robot = lu ; commentaire owner = « A traiter ».
     17/09 : JAK-173 (question, passee Done sans etre dans la carte) a garde « A lire » 21 min malgre son pouce."""
     known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
+    owner_id = owner_user_id(L, mp)
     OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
     n = 0
     for lab in (read, todo, talk):
-        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } comments { nodes { body createdAt reactions { emoji } } } } } } }', id=lab)
+        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } comments { nodes { body createdAt user { id app } botActor { id } reactions { emoji } } } } } } }', id=lab)
         for iss in d["issueLabel"]["issues"]["nodes"]:
             if iss["id"] in known:
                 continue
             have = {l["id"] for l in iss["labels"]["nodes"]}
             cs = sorted(iss["comments"]["nodes"], key=lambda c: c["createdAt"])
-            ours = [c for c in cs if c["body"].startswith(MARK)]
-            last_owner = [c for c in cs if not c["body"].startswith(MARK)]
+            ours = [c for c in cs if is_harness_comment(c)]
             if read in have and ours and any(any(k in str(r["emoji"]) for k in OK_EMOJI) for r in (ours[-1].get("reactions") or [])):
                 print("  reaction owner sur la derniere reponse de %s (hors backlog) : lu" % iss["identifier"])
                 if not dry:
                     swap_labels(L, iss["id"], remove=read); swap_labels(L, iss["id"], remove=talk)
                 n += 1
-            elif cs and not cs[-1]["body"].startswith(MARK) and todo not in have:
+            elif cs and is_owner_comment(cs[-1], owner_id) and todo not in have:
                 print("  retour owner sur %s (hors backlog) : %s" % (iss["identifier"], cs[-1]["body"][:80].replace("\n", " ")))
                 if not dry:
                     swap_labels(L, iss["id"], add=todo, remove=read)
@@ -840,7 +933,7 @@ def announce_verdicts(L, bl, mp, read, dry):
                     body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (f.name, url)
                 except Exception as e:  # noqa: BLE001
                     body += "\n\n(piece jointe %s non televersee : %s)" % (f.name, str(e)[:80])
-            L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
+            post_comment(L, rec["issue_id"], body)
             swap_labels(L, rec["issue_id"], add=read)
             rec["last_verdict_announced"] = v.name
         n += 1
@@ -887,17 +980,14 @@ def sync_relations(L, bl, mp, dry):
     return made
 
 
-def viewer_id(L):
-    return L.q("{ viewer { id } }")["viewer"]["id"]
-
-
 def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     """Commentaires sans marqueur et deplacements faits a la main -> backlog."""
     pulled = 0
+    owner_id = owner_user_id(L, mp)
     ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id } reactions { emoji } } } } } }', ids=chunk)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } reactions { emoji } } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
             iid = next((k for k, v in mp.items() if not k.startswith("_") and v["issue_id"] == iss["id"]), None)
             if not iid:
@@ -906,7 +996,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             since = rec.get("pulled_at", "1970-01-01T00:00:00Z")
             newest = since
             for c in iss["comments"]["nodes"]:
-                if c["body"].startswith(MARK) or c["createdAt"] <= since:
+                if not is_owner_comment(c, owner_id) or c["createdAt"] <= since:
                     continue
                 date = c["createdAt"][:10]
                 print("  retour owner sur %s (%s) : %s" % (iid, date, c["body"][:80].replace("\n", " ")))
@@ -927,7 +1017,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu, comme retirer « A lire ».
             have = {l["id"] for l in iss["labels"]["nodes"]}
             # l'API rend les commentaires du plus recent au plus ancien : trier, sinon « dernier » = le premier
-            ours = sorted([c for c in iss["comments"]["nodes"] if c["body"].startswith(MARK)], key=lambda c: c["createdAt"])
+            ours = sorted([c for c in iss["comments"]["nodes"] if is_harness_comment(c)], key=lambda c: c["createdAt"])
             OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
             reacts = [r["emoji"] for r in (ours[-1].get("reactions") or [])] if ours else []
             if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since:
@@ -957,9 +1047,29 @@ def main():
     ap.add_argument("--delivery", action="store_true", help="dire, verifie, quel build est sur jak-builds (a lire AVANT d'ecrire sur une livraison)")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
+    ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     a = ap.parse_args()
-    L = Linear(load_key())
+    ident = LI.resolve()
+    if a.identity:
+        print("identite : %s" % ident["mode"])
+        print("pourquoi : %s" % ident["why"])
+        if ident["mode"] != "app":
+            print("bloque par: %s" % ident.get("blocked_by"))
+            print("")
+            print("Pour que le harnais parle sous SON nom, il manque UNE chose : une cle")
+            print("Linear portant le scope `oauth:create`. Linear > Settings > Security & access >")
+            print("Personal API keys > New key, cocher `oauth:create`, puis :")
+            print("  echo 'LINEAR_BOOTSTRAP_KEY=lin_api_...' >> ~/.config/autoport/linear.env")
+            print("  python3 .autoport/linear_sync.py --identity")
+            print("Le harnais cree alors l'application « Autoport » et retire son jeton tout seul.")
+            print("Aucun compte a creer, aucune page d'autorisation a ouvrir.")
+        return
+    if ident["mode"] != "app":
+        # NOMME, jamais silencieux : le miroir continue de tourner sous le compte de l'owner,
+        # mais personne ne peut plus le prendre pour un fonctionnement normal.
+        print("IDENTITE : le harnais parle sous le compte de l'owner (%s)" % ident["why"])
+    L = Linear(ident)
     if a.delivery:
         ds = delivery_state()
         print("LIVRAISON VERIFIEE : build %s (%s) commit %s sur jak-builds" % (ds.get("tag"), ds.get("when"), ds.get("commit", "?")[:12]) if ds["ok"] else "LIVRAISON NON VERIFIEE : %s" % ds["why"])
@@ -983,7 +1093,7 @@ def main():
                 orphans += 1
                 if iss and iss["state"]["name"] != "Canceled":
                     L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
-                    L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé."})
+                    post_comment(L, rec["issue_id"], MARK + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
                     print("  orphelin archive :", rec["identifier"], iid)
                 continue
             want = target_state(bl, it)
@@ -1004,7 +1114,7 @@ def main():
         for f in a.attach:
             url, ctype = upload_file(L, f)
             body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
-        L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
+        post_comment(L, rec["issue_id"], body)
         team = ensure_team(L); read, todo = labels(L, team)
         # Owner 17/09 : « si tu commentes, ça a une valeur de le mettre à lire » — toujours, ticket clos ou non.
         swap_labels(L, rec["issue_id"], add=read, remove=todo)
@@ -1061,7 +1171,7 @@ def main():
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
                 body = MARK + plain_state_comment(bl, it, st)
-                L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
+                post_comment(L, rec["issue_id"], body)
                 if st == "In Review":
                     set_read_label(L, rec["issue_id"], label, True)
                 elif st in ("Done", "Canceled"):

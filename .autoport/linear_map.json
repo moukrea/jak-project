@@ -67,6 +67,11 @@
   },
   "team": "10c12a42-312a-4b90-9d3c-321e156cf31a"
  },
+ "_owner": {
+  "email": "moukrea@gmail.com",
+  "name": "Emeric Commenge (moukrea)",
+  "user_id": "d0008b80-8dd5-41c3-bf05-e65b59f5f4e5"
+ },
  "acquis-perf-dma-chain-copies": {
   "hash": "39b00ec13c1fadcb7152a770194098cb109f2e54",
   "identifier": "JAK-164",
@@ -113,12 +118,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-indirect-clean": {
-  "hash": "1ac98b2673b7a7a05d4948252b19907c871c22cf",
+  "hash": "803662b666b3e3a26a5a509459f7652513c5c6ee",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
-  "last_state": "In Progress",
-  "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-17T19:00:04.988Z",
+  "last_state": "À arbitrer",
+  "last_verdict_announced": "validator-005.txt",
+  "pulled_at": "2026-09-17T19:17:40.367Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
  },
  "ao-prepass-tie-alpha": {
@@ -613,11 +618,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
  "harness-linear-own-identity": {
-  "hash": "8513ddadc87b767cec4f77b284271d8fc5651df9",
+  "hash": "f51f466e5fd650be33808ee537480c7b1e0feb4d",
   "identifier": "JAK-180",
   "issue_id": "ab7deb05-dda7-41c3-9083-48feb760fdf2",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-17T19:01:17.335Z",
+  "last_state": "In Progress",
+  "pulled_at": "2026-09-17T19:14:54.760Z",
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-proof-file-has-no-writer-lock": {
