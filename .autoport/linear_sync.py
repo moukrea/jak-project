@@ -332,7 +332,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     ids = [v["issue_id"] for v in mp.values()]
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } comments { nodes { id body createdAt user { id } } } } } }', ids=chunk)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id } reactions { emoji } } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
             iid = next((k for k, v in mp.items() if v["issue_id"] == iss["id"]), None)
             if not iid:
@@ -351,6 +351,13 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 newest = max(newest, c["createdAt"])
             if newest != since and label_id and not dry:
                 swap_labels(L, iss["id"], add=todo_id, remove=label_id)
+            # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu, comme retirer « A lire ».
+            have = {l["id"] for l in iss["labels"]["nodes"]}
+            ours = [c for c in iss["comments"]["nodes"] if c["body"].startswith(MARK)]
+            if label_id in have and ours and (ours[-1].get("reactions") or []) and newest == since:
+                print("  reaction owner sur la derniere reponse de %s (%s) : lu" % (iid, ",".join(r["emoji"] for r in ours[-1]["reactions"])))
+                if not dry:
+                    swap_labels(L, iss["id"], remove=label_id)
             rec["pulled_at"] = newest
             here = iss["state"]["name"]
             if here != rec.get("last_state") and rec.get("last_state"):
@@ -369,10 +376,40 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-pull", action="store_true")
     ap.add_argument("--only", default=None, help="un seul id")
+    ap.add_argument("--check", action="store_true", help="verifier la coherence Linear <-> backlog, archiver les tickets orphelins")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
     a = ap.parse_args()
     L = Linear(load_key())
+    if a.check:
+        bl = B.load(); mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
+        team = ensure_team(L); states = ensure_states(L, team); by_id = {v: k for k, v in states.items()}
+        drift = orphans = 0
+        ids = [v["issue_id"] for v in mp.values()]
+        live = {}
+        for i in range(0, len(ids), 50):
+            d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50){ nodes { id state { name } title } } }', ids=ids[i:i + 50])
+            for iss in d["issues"]["nodes"]:
+                live[iss["id"]] = iss
+        for iid, rec in mp.items():
+            iss = live.get(rec["issue_id"])
+            it = bl.get(iid)
+            if it is None:
+                orphans += 1
+                if iss and iss["state"]["name"] != "Archivé":
+                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Archivé"]})
+                    L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé."})
+                    print("  orphelin archive :", rec["identifier"], iid)
+                continue
+            want = target_state(bl, it)
+            if iss and iss["state"]["name"] != want:
+                drift += 1
+                print("  ecart %s : Linear=%s backlog=%s (recale au prochain passage)" % (rec["identifier"], iss["state"]["name"], want))
+                rec["hash"] = ""  # force la mise a jour
+        MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+        missing = [it["id"] for it in bl.items if it["status"] in ("open", "in-progress", "to-test", "blocked") and it["id"] not in mp]
+        print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len(mp), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
+        return
     if a.comment:
         mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
         rec = mp.get(a.comment)
