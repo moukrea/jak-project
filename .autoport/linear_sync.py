@@ -472,7 +472,7 @@ def main():
                 rec["hash"] = ""  # force la mise a jour
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
         missing = [it["id"] for it in bl.items if it["status"] in ("open", "in-progress", "to-test", "blocked") and it["id"] not in mp]
-        print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len(mp), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
+        print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len([k for k in mp if not k.startswith("_")]), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
         return
     if a.comment:
         mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
