@@ -25,7 +25,7 @@
    "In Review": "8a4d396a-5d7d-44e2-9edc-1558c99c708c",
    "Todo": "f0cae7bd-902d-4ddc-b07d-1ec04bfcc66e",
    "Validé": "4cb9650c-51cd-4cea-a713-dba0c906d97f",
-   "À arbitrer": "bcbec6e7-38b0-4613-b5f3-1b49a9e8bd0d"
+   "À arbitrer": "295e9a26-a8a3-4f41-8d37-db4d66a82639"
   },
   "team": "10c12a42-312a-4b90-9d3c-321e156cf31a"
  },
@@ -717,10 +717,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-22/jak-ii-demarre-sur-android"
  },
  "jak2-polish": {
-  "hash": "",
+  "hash": "1d055575c6b532d8f493f50ecc3636d3eea0a77f",
   "identifier": "JAK-45",
   "issue_id": "fd9774f3-0769-40e3-80ac-57de91f273d8",
-  "last_state": "Bloqué",
+  "last_state": "À arbitrer",
   "pulled_at": "2026-09-17T05:36:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-45/les-finitions-de-jak-ii-mapping-l1r1-cadrage-menus-particules"
  },
@@ -1182,10 +1182,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "",
+  "hash": "282a4303c4164ad00a2537ddc99154decafd9db6",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
-  "last_state": "Bloqué",
+  "last_state": "À arbitrer",
   "pulled_at": "2026-09-17T05:36:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
