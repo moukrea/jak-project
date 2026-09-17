@@ -1,0 +1,1362 @@
+{
+ "acquis-perf-dma-chain-copies": {
+  "hash": "8a9ca5fb679baacce6f967c4067935e0b6b4067d",
+  "identifier": "JAK-164",
+  "issue_id": "71ce5d76-7664-42d0-a0bc-503b132fd5fd",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-164/proteger-la-reduction-des-parcours-dma-validee-par-l-owner"
+ },
+ "acquis-perf-fbo-passes": {
+  "hash": "0103862cc916b139559cfd081efd916a8986783d",
+  "identifier": "JAK-161",
+  "issue_id": "2ec85232-facd-4d9e-a3f2-8add2f882120",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-161/proteger-automatiquement-la-suppression-des-passes-plein-ecran"
+ },
+ "acquis-shrub-trunk-contact": {
+  "hash": "3f9f52cbc89205f4f722fe7c141e277b1ca248fa",
+  "identifier": "JAK-165",
+  "issue_id": "2caea7f2-21b0-4848-8c32-42bd1a9fabf3",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-165/proteger-les-mini-palmiers-valides-contre-le-retour-du-tronc-qui-se"
+ },
+ "android-text-overrides-dropped": {
+  "hash": "6463bc9d5c60ee4c44e9b6c3522117df745cf2e1",
+  "identifier": "JAK-88",
+  "issue_id": "d740e5de-2878-4ff8-810f-cc1de26a69db",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:02.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
+ },
+ "ao-prepass-tie-alpha": {
+  "hash": "c9d53587be5939c6bbde0ed57eaf22add4eb55ab",
+  "identifier": "JAK-160",
+  "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
+  "last_state": "À faire",
+  "pulled_at": "2026-09-17T05:37:22.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-160/la-prepasse-dao-garde-les-memes-fragments-que-la-couleur-sur-le-tie"
+ },
+ "ao-static-probe-deterministic": {
+  "hash": "d999996ddd22d4d221bca152f61359822087d79a",
+  "identifier": "JAK-159",
+  "issue_id": "75c1769a-df98-4836-9368-c141b852c835",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:22.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a"
+ },
+ "build-and-harness-leftovers": {
+  "hash": "f0d9b9f886f2a70465b36db2658de07dc54dd946",
+  "identifier": "JAK-112",
+  "issue_id": "805f5d7a-1fe3-4ebb-ba2b-ac159c9abace",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-112/le-reliquat-du-chantier-de-la-construction-neuf-petites-choses-aucune"
+ },
+ "build-android-reinvalidates-itself": {
+  "hash": "37b93be9d4d906df789a51ebcd83ceb646c3ecef",
+  "identifier": "JAK-109",
+  "issue_id": "5bbfb7f3-ae53-43f5-81ad-142add7dd9c0",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:09.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-109/larbre-arm64-livre-porte-le-meme-declencheur-que-le-bureau-vient-de"
+ },
+ "build-tree-reinvalidates-itself": {
+  "hash": "ac60e586b0933384d65fee58a5959351490eb37b",
+  "identifier": "JAK-104",
+  "issue_id": "fbcda107-fdde-4d8d-91d0-2adb4ebea40a",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:08.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-104/une-construction-sans-edition-cesse-de-tout-recompiler-et-de-laisser"
+ },
+ "camera-interp": {
+  "hash": "d5f8498dfc9e3d2ad0b39b043ca642dc238c1f01",
+  "identifier": "JAK-11",
+  "issue_id": "da7ff639-221f-49b4-b3e7-6e523e6caf3e",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-11/la-camera-qui-saute-encore-par-petits-pas"
+ },
+ "camera-smooth": {
+  "hash": "ae4786b83e5f938d911a0a20705991345a9bcc35",
+  "identifier": "JAK-9",
+  "issue_id": "aaaeca71-a5f0-4f49-808b-52700ef5a77f",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:39.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-9/la-camera-qui-saccade-quand-on-tourne-autour-de-jak"
+ },
+ "crash-blueeco": {
+  "hash": "e527ceb25b04f1c24fee3126ad79776784ac65ed",
+  "identifier": "JAK-14",
+  "issue_id": "d810a8d9-64fc-4cd2-8e9c-e19aec663b14",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-14/plantage-a-la-source-deco-bleue-de-la-jungle-interdite"
+ },
+ "dead-follow-probe": {
+  "hash": "7f1c98ea2ebc24ebe3cd90055bcade4fbc97259b",
+  "identifier": "JAK-84",
+  "issue_id": "8dae171c-4070-4af0-827d-dc4f6ba46bd9",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-84/un-reglage-mort-dans-le-code-ecrit-par-personne-lu-par-personne"
+ },
+ "dead-literals-round-3": {
+  "hash": "dd2816dddb78d3e5255e79d83193dc5b11a923b6",
+  "identifier": "JAK-103",
+  "issue_id": "4bc4527b-46ad-4658-ac85-7eacfc7f4bd4",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:06.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-103/le-controle-des-particules-et-le-nettoyage-des-shaders-verifient-des"
+ },
+ "dynamic-fix": {
+  "hash": "0f44d3406641a4a485c6f71b96e8c917478f60b2",
+  "identifier": "JAK-10",
+  "issue_id": "742defd1-3b05-46b7-a35b-d41c735a967f",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:45.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-10/lechelle-de-rendu-dynamique-qui-ne-repondait-pas-aux-reglages"
+ },
+ "dynamic-renderscale": {
+  "hash": "9f2d8dcc146704b89d6511243ec7a41ae888b966",
+  "identifier": "JAK-8",
+  "issue_id": "77e64e78-2d44-444d-bc8c-94a2569cbce7",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:39.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-8/lechelle-de-rendu-qui-sadapte-toute-seule-pour-tenir-la-cadence"
+ },
+ "eco-spheres": {
+  "hash": "7e8365175d919e64a656ade9aebb9f72cf31408f",
+  "identifier": "JAK-16",
+  "issue_id": "4289bb50-18cb-4954-9742-78813fb84184",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:49.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-16/les-spheres-deco-mal-rendues-sur-android"
+ },
+ "fire-red-particles": {
+  "hash": "76968126df3c696d41a42b84362df9f4a0fec051",
+  "identifier": "JAK-89",
+  "issue_id": "1188ae28-e8f6-4af8-b7f5-860b8b9f5e14",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:02.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-89/les-aplats-noirs-et-rouges-qui-recouvrent-les-feux-et-les-portails"
+ },
+ "firstperson-hd-hide": {
+  "hash": "0fe8aeebd372deaea35d86361500e31c01ec39d5",
+  "identifier": "JAK-41",
+  "issue_id": "ae2b7f44-a66b-4d8d-a609-f76f9acf8773",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-41/en-vue-premiere-personne-on-se-retrouve-dans-la-tete-de-jak"
+ },
+ "foliage-wind": {
+  "hash": "b7f71b549c4b53e50d1ad1177b8798d9b627d7ea",
+  "identifier": "JAK-2",
+  "issue_id": "8e36435b-4bcd-4957-bef0-cb3f3ca0c26b",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:37.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-2/la-brise-dans-les-arbres-et-les-buissons"
+ },
+ "framerate-uncap": {
+  "hash": "8f415de28f8cf12238745f4f190c3488f8a0146b",
+  "identifier": "JAK-1",
+  "issue_id": "7f260e2d-2eb8-4f01-a8cf-2b41f8cc0068",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:37.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-1/debrider-la-cadence-au-dela-de-60-imagess"
+ },
+ "framerate-variable": {
+  "hash": "4c478d8ae59681fdb13091f54cc87f562cc04b66",
+  "identifier": "JAK-6",
+  "issue_id": "6a9602cc-0e3f-401a-86ed-88ab69b815a6",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:39.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-6/le-jeu-tourne-a-la-cadence-de-lecran-sans-verrou-3060"
+ },
+ "gl-uniforms-dead-seven": {
+  "hash": "d2abefb21ecd8f2f962d8a754d94201744742c1c",
+  "identifier": "JAK-86",
+  "issue_id": "baf059e2-aee5-4921-9d6a-322e4988545d",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-86/sept-parametres-declairage-partent-a-chaque-image-et-aucun-shader-ne"
+ },
+ "gl-uniforms-off-cost": {
+  "hash": "1e8a351f3287d75b727b32dd74f6377d1cf4bd1f",
+  "identifier": "JAK-83",
+  "issue_id": "f4dfc683-b2c3-43b2-9306-45dbbc343dbd",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-83/eclairage-eteint-le-processeur-arrete-de-pousser-des-parametres-pour"
+ },
+ "glow-targets-not-built-on-jak1": {
+  "hash": "2d4ca9349427a1928dd2ec2a0298dd4c867209f8",
+  "identifier": "JAK-100",
+  "issue_id": "724ba286-a26d-4bb6-bf3a-eb4357e95244",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:06.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-100/le-jeu-cesse-de-payer-68-mo-de-vram-pour-un-chemin-de-halo-qui-ne"
+ },
+ "grass-bake-invalidation": {
+  "hash": "df6d8dd9da4fc960df5ba427f1378b5bfd8219fb",
+  "identifier": "JAK-169",
+  "issue_id": "f0364a05-0417-4545-8914-1791f0e40507",
+  "last_state": "À faire",
+  "pulled_at": "2026-09-17T05:37:24.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-169/la-cuisson-de-lherbe-se-recuit-quand-son-contenu-change"
+ },
+ "grass-baseline-cost": {
+  "hash": "ebf4fc22123ef90869da2bc9a63bc0591071e629",
+  "identifier": "JAK-113",
+  "issue_id": "5ebeb104-5886-4865-a063-29efa0b5ba96",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-113/le-cout-reel-de-lherbe-mesure-avant-quon-y-touche"
+ },
+ "grass-biome-profiles": {
+  "hash": "1cc90301545bc5484b58e96b681ec67c7b89f054",
+  "identifier": "JAK-128",
+  "issue_id": "f281ceff-55c9-4f5a-9dfd-9afdb6b3aa44",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
+ },
+ "grass-blade-variants": {
+  "hash": "77c87b83ea4104eaa96486444cbb3d272d534963",
+  "identifier": "JAK-120",
+  "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-120/plusieurs-silhouettes-de-brins-simples-au-lieu-dune-seule-forme-hachee"
+ },
+ "grass-chunk-cull": {
+  "hash": "8fd28c236a901c39e71e75ff0f081c9de266d393",
+  "identifier": "JAK-115",
+  "issue_id": "0b95a2cd-15a0-49b5-a521-312fc37f5b97",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-115/lherbe-hors-du-champ-de-vision-cesse-de-couter"
+ },
+ "grass-clumps": {
+  "hash": "1a0b2d2d4710f4d3c823ab4d8532f1361cfbf20e",
+  "identifier": "JAK-119",
+  "issue_id": "24dbdb0f-c378-4cd3-b939-32c56ea5b024",
+  "last_state": "À tester",
+  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-119/lherbe-pousse-en-touffes-coherentes-plus-en-bruit-blanc-de-brins"
+ },
+ "grass-dead-tail": {
+  "hash": "86922be3f791bdbe89962ae4f4f6e4f989db5228",
+  "identifier": "JAK-114",
+  "issue_id": "6209c5fa-31e1-4eb4-92e4-53557dfddee4",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-114/lherbe-cesse-de-construire-et-de-televerser-ce-que-rien-ne-dessine"
+ },
+ "grass-edge-falloff": {
+  "hash": "58bfd71294894771a3302a3ad78ee656da30433a",
+  "identifier": "JAK-127",
+  "issue_id": "90737bfc-bca7-4ebf-9a9d-d6cd1d7f1786",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-127/lherbe-se-penche-vers-le-vide-au-bord-des-plateformes-au-lieu-de"
+ },
+ "grass-edge-truth": {
+  "hash": "aba1169f95d4897840d75a1c81dbe2150c1acade",
+  "identifier": "JAK-126",
+  "issue_id": "c5800847-865d-4691-9740-5941adf1d8a4",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:13.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-126/le-bord-qui-donne-sur-le-vide-etabli-par-la-geometrie-et-non-par"
+ },
+ "grass-interaction-direction": {
+  "hash": "62f910d92ab79563c0287cadd5a68440966a5e4f",
+  "identifier": "JAK-124",
+  "issue_id": "9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:12.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-124/lherbe-se-couche-dans-la-direction-du-pas-au-lieu-de-secraser-en-rond"
+ },
+ "grass-levels": {
+  "hash": "4215cd5253dbb5d69461b3060fb0743639268d27",
+  "identifier": "JAK-125",
+  "issue_id": "3f65f2c8-e4ef-48d0-88d1-73342005cd50",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:13.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-125/lherbe-existe-ailleurs-que-sur-geyser-rock"
+ },
+ "grass-lod-popin": {
+  "hash": "929e949a108a7cb100aad088542c1ce1a40d00ba",
+  "identifier": "JAK-129",
+  "issue_id": "9f9cd259-59c8-42ba-9842-d1234ccfd587",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-129/lherbe-lointaine-change-de-representation-sans-que-rien-apparaisse-ni"
+ },
+ "grass-overlay-meshes": {
+  "hash": "ecdbc6939606d9cfe69e03daa050480b81226eaf",
+  "identifier": "JAK-117",
+  "issue_id": "68347edb-a9b0-43e9-a0b0-1d48b58ce246",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-117/les-meshes-de-sable-ou-de-terre-poses-par-dessus-un-sol-herbeux"
+ },
+ "grass-path-transitions": {
+  "hash": "150f3bea709a864100c3baec1cdd916f03bf3825",
+  "identifier": "JAK-118",
+  "issue_id": "40495f73-0ba0-4b75-a1fc-4bf09daf2ca5",
+  "last_state": "À tester",
+  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
+ },
+ "grass-shading": {
+  "hash": "e61ac31fd753ab45a410f687ec6da0c128b14dca",
+  "identifier": "JAK-121",
+  "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-121/lherbe-cesse-detre-un-aplat-du-relief-par-la-couleur-pas-par-la"
+ },
+ "grass-surface-truth": {
+  "hash": "3010e3ecd00f8b1ab8c7670e6c0c404e719865a0",
+  "identifier": "JAK-116",
+  "issue_id": "27d7bba2-ed3d-45e0-b890-c40d1c0a8e0e",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-116/une-surface-porte-de-lherbe-selon-deux-sources-pas-selon-trois-noms-de"
+ },
+ "grass-wear-map": {
+  "hash": "e09d42926307f689a0ef71d2f67d2b59f96779b4",
+  "identifier": "JAK-170",
+  "issue_id": "210e7e95-c7fc-438d-a8fb-b3fcc11b588e",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:25.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-170/lherbe-est-usee-la-ou-lon-passe-carte-de-frequentation-cuite-par"
+ },
+ "grass-wind": {
+  "hash": "b2ae6e73321c274e1384aad4795a797a98e03159",
+  "identifier": "JAK-122",
+  "issue_id": "7da89a1c-3c97-4ebe-a745-f31d76e7d8fb",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:12.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-122/un-vent-qui-a-une-direction-et-qui-courbe-le-brin-au-lieu-de-le-faire"
+ },
+ "grass-wind-exposure": {
+  "hash": "9b420f7dd8e1cee7ca821ff34fe3debfee21c757",
+  "identifier": "JAK-123",
+  "issue_id": "78129a81-7470-4618-8119-af0cec46ebd3",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:12.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-123/une-touffe-abritee-bouge-moins-quune-touffe-exposee-et-cest-cuit"
+ },
+ "harness-builder-does-not-mistake-an-idle-gradle-daemon-for-a-build": {
+  "hash": "ffad356cc5d2f1e168012fe45f2c7023ad6cb675",
+  "identifier": "JAK-168",
+  "issue_id": "03297c93-f1f4-42d2-8026-621511082a7f",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:24.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-168/le-constructeur-dapk-ne-prend-plus-un-demon-gradle-inactif-pour-un"
+ },
+ "harness-busy-guard-matches-gradle-daemon": {
+  "hash": "011666ddfb2044a5114ab0554854ae00e074ea99",
+  "identifier": "JAK-154",
+  "issue_id": "3fedaff8-ad33-4275-951f-52fa6679cc99",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-154/la-garde-build-en-cours-ne-prend-plus-le-demon-gradle-pour-un-build"
+ },
+ "harness-close-gate-separates-inherited-reds": {
+  "hash": "fa1e3f7db94cba0ce1ef8225ce00caf394b53601",
+  "identifier": "JAK-155",
+  "issue_id": "39ec73eb-ad69-4121-a458-f6ddb4884552",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-155/un-rouge-de-la-suite-ne-du-commit-dun-autre-ne-tue-plus-lessai-qui"
+ },
+ "harness-delivery-stale-bake-recovery": {
+  "hash": "73cb7c8901a0a13e58cb36412e84fe2821920714",
+  "identifier": "JAK-162",
+  "issue_id": "753af55c-2d45-404e-b207-459c4da55caf",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
+ },
+ "harness-judge-runs-the-proof-when-the-worker-left-none": {
+  "hash": "d755427050392180cfd7a976a843f17e9cdddbb2",
+  "identifier": "JAK-167",
+  "issue_id": "8f68ed9c-6432-4dff-9128-779d7a5626e4",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:24.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-167/quand-le-worker-termine-sans-preuve-neuve-le-juge-lance-lui-meme-proof"
+ },
+ "harness-judge-waits-for-the-proof-a-worker-left-in-flight": {
+  "hash": "03f21439c14a16ab8d579e0293b1563ee3989c7f",
+  "identifier": "JAK-166",
+  "issue_id": "4ad49c4e-1c8c-4e13-82df-6f0d0cd2b0f0",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:24.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
+ },
+ "harness-proof-file-has-no-writer-lock": {
+  "hash": "38a216d0ef035c5141b1924c7f86161dfeda666c",
+  "identifier": "JAK-111",
+  "issue_id": "18f794ba-fcc7-4bbd-940c-b6e7686d6a6c",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:09.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-111/une-course-tuee-ne-peut-plus-ecraser-la-preuve-de-celle-qui-lui"
+ },
+ "harness-proof-run-device-deploys-or-refuses-first": {
+  "hash": "5c8c1321915ddf59f3e6108e70f105ccd8580ad3",
+  "identifier": "JAK-158",
+  "issue_id": "52b6fd4e-8c3a-4d2a-b68a-b8bdb314360c",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-158/une-preuve-sur-appareil-deploie-le-binaire-local-ou-refuse-tout-de"
+ },
+ "harness-proof-run-erases-proof-only-once-it-runs": {
+  "hash": "3b627cdbe6458fbcd8acd9d0593c123d2fcf3260",
+  "identifier": "JAK-157",
+  "issue_id": "af9a0bf1-c2d3-4072-9bcc-e11def6be3b2",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-157/une-course-qui-meurt-a-la-porte-ne-detruit-plus-la-preuve-precedente"
+ },
+ "harness-reload-must-not-kill-the-loop": {
+  "hash": "cf60ee8bbf4a5476b0774e73bdd394cfeb29108f",
+  "identifier": "JAK-106",
+  "issue_id": "2be013b8-d2c5-4f1a-9f09-6e34bb8ca21f",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:08.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-106/un-fichier-a-moitie-ecrit-ne-tue-plus-la-boucle-du-harnais"
+ },
+ "harness-stale-proof-caught-before-the-run": {
+  "hash": "1e2dc338a199c6c64f243acf7fe0457f66f53504",
+  "identifier": "JAK-130",
+  "issue_id": "93f7a335-74f7-46cc-b964-3e05ad775db9",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-130/une-preuve-perimee-se-voit-avant-la-course-pas-au-validateur-une-heure"
+ },
+ "harness-subsecond-freshness-is-blind": {
+  "hash": "e186029cd933eae85201286e107c3d15d4199328",
+  "identifier": "JAK-110",
+  "issue_id": "7e6349f5-2766-49d8-b82f-05acca74be67",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:09.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-110/les-comparaisons-de-fraicheur-cessent-detre-aveugles-a-la-seconde"
+ },
+ "harness-suite-must-be-a-close-gate": {
+  "hash": "2c53a34594226adea64d3c45796bd38ee03617f6",
+  "identifier": "JAK-107",
+  "issue_id": "daa7e5ca-da7a-4964-bfb0-0f9173811cbf",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:09.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-107/la-suite-de-tests-est-lue-par-la-porte-de-fermeture-sinon-son-vert-se"
+ },
+ "harness-suite-temporary-files-outside-quota": {
+  "hash": "4ece4dd07ff23853fec0c1d6f2ce9bc9e2df5eb3",
+  "identifier": "JAK-163",
+  "issue_id": "28b861e8-3699-4848-b633-5b743f154cd9",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-163/la-suite-du-harnais-ne-depend-plus-du-quota-temporaire-sature"
+ },
+ "harness-test-bench-does-not-inherit-the-worker-env": {
+  "hash": "e1559ca74c28fffdf8e59ea00d4ed36cc381f405",
+  "identifier": "JAK-156",
+  "issue_id": "57025c49-fcca-4eeb-b113-8bb95b49052e",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-156/le-banc-de-la-suite-nherite-plus-de-lenvironnement-de-celui-qui-la"
+ },
+ "hd-models": {
+  "hash": "653c9978883edea8aef225256cb91721785a16a2",
+  "identifier": "JAK-3",
+  "issue_id": "cdf132a2-8a7f-4fef-8b40-c551a2457894",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:37.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-3/les-modeles-hd-de-jak-daxter-samos-et-keira"
+ },
+ "hd-stretch-flag-in-game-logic": {
+  "hash": "170b73962dbe399a9e6dd04eda593fbf9ba6b664",
+  "identifier": "JAK-85",
+  "issue_id": "44a984fc-ea4f-4f0d-8c9b-37eb9d32e68f",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-85/un-drapeau-de-preuve-ne-doit-pas-decider-du-comportement-du-jeu"
+ },
+ "hdr-desktop-output": {
+  "hash": "3f9198cc4945f14de491035f551582d11715b443",
+  "identifier": "JAK-94",
+  "issue_id": "fa9e8a48-a30c-4cf1-9456-93ebd5fbb1b2",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:04.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-94/la-sortie-hdr-existe-aussi-sur-pc-windows-comme-linux"
+ },
+ "hdr-display-output": {
+  "hash": "d20c6be3c8a6b4c2e146fc5d02ab4d4665eba32a",
+  "identifier": "JAK-47",
+  "issue_id": "a875a546-4712-42a6-b585-752194513829",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-47/sortir-un-vrai-signal-hdr-sur-les-ecrans-qui-le-supportent"
+ },
+ "hdr-output-regime": {
+  "hash": "496ec66668497f67b5397e96b4d0e6e438e51078",
+  "identifier": "JAK-99",
+  "issue_id": "b58cf62f-023b-4803-bd0e-43a95647f8cb",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:05.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-99/trois-regimes-de-sortie-explicites-et-le-jeu-dit-lequel-il-utilise"
+ },
+ "hdr-output-visible": {
+  "hash": "3d0098d111969333ac21633b08c46ec30404c473",
+  "identifier": "JAK-101",
+  "issue_id": "5b9959ff-fc34-4a8f-a79a-2ed01225f668",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:06.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-101/la-ligne-de-sortie-hdr-dit-le-regime-courant-pas-celui-de-louverture"
+ },
+ "hdr-plan": {
+  "hash": "c61e44ce725ebb947af93c37061d07d145c46b1a",
+  "identifier": "JAK-98",
+  "issue_id": "4b6a3be8-73bc-40ef-91a1-2d4bfa2383d1",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:05.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-98/le-plan-de-la-sortie-hdr-avant-dy-toucher-une-ligne-de-plus"
+ },
+ "hdr-shadow-range": {
+  "hash": "ce4ce6f874d7ed49a75b578b238928316a699821",
+  "identifier": "JAK-108",
+  "issue_id": "92fc98d7-97f2-4c93-b2be-73c8cef11ede",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:09.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-108/le-bas-de-la-plage-du-detail-dans-les-ombres-pas-seulement-dans-les"
+ },
+ "hdr-study": {
+  "hash": "de358deb521762cb36e5d01eb7654edd65aacd31",
+  "identifier": "JAK-97",
+  "issue_id": "333aee5c-4214-4a71-aec0-cc45dcc14ca6",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:04.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
+ },
+ "jak1-intermittent-events": {
+  "hash": "1d505213f835ea1f061d4b56a6bccae323cf274d",
+  "identifier": "JAK-25",
+  "issue_id": "eb6f1e03-6447-4f34-916d-08e16fc125e5",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-25/des-mini-cinematiques-et-des-plateformes-qui-ne-se-declenchent-pas"
+ },
+ "jak2-boot": {
+  "hash": "0fba9a2d520e8578397408b62e282156ae880d62",
+  "identifier": "JAK-22",
+  "issue_id": "4190d29b-88ff-4319-8a46-5299e5f1b3a1",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:50.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-22/jak-ii-demarre-sur-android"
+ },
+ "jak2-polish": {
+  "hash": "78ce6ab9bbbc154f306be406c6ee5b200bedac83",
+  "identifier": "JAK-45",
+  "issue_id": "fd9774f3-0769-40e3-80ac-57de91f273d8",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-45/les-finitions-de-jak-ii-mapping-l1r1-cadrage-menus-particules"
+ },
+ "jak2-render": {
+  "hash": "bf60b0a0423335d704634f5c99544201aa6e5dda",
+  "identifier": "JAK-23",
+  "issue_id": "0a0a4407-ad6a-4211-89b2-14f61d5c94b5",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-23/jak-ii-affiche-haven-city-sur-le-telephone"
+ },
+ "jak2-visuals": {
+  "hash": "21fc8ffb9b7aa954966e372b8042e28e9652e8c6",
+  "identifier": "JAK-24",
+  "issue_id": "d3bbe0c9-0f54-4ee0-8b29-1816dfbbde3d",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-24/la-qualite-dimage-de-jak-ii-au-titre-et-dans-lintro"
+ },
+ "lang-mixed": {
+  "hash": "19c4e135c03b2cffb10ac7a1b77f8a5969c0a62e",
+  "identifier": "JAK-17",
+  "issue_id": "d6f78713-49f0-4384-9f1b-6e332355be2a",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:49.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-17/des-invites-restent-en-anglais-quand-le-texte-est-en-francais"
+ },
+ "launcher-collection": {
+  "hash": "09c0e16ae53230578c48d439427fbfe4ca9435bf",
+  "identifier": "JAK-12",
+  "issue_id": "8ea5766f-4b2d-4bb1-87ff-9cab04f17f41",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-12/un-apk-par-jeu-avec-son-nom-et-son-icone"
+ },
+ "lighting-actors": {
+  "hash": "52e1d68d5af2711ea3c9423165769c9949217e22",
+  "identifier": "JAK-54",
+  "issue_id": "b240a812-8e47-4a88-ad8d-c65672c46bc5",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
+ },
+ "lighting-ao-indirect": {
+  "hash": "46dbbe6d8a059a2d4bbadbe792f250085637a770",
+  "identifier": "JAK-48",
+  "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
+ },
+ "lighting-bake": {
+  "hash": "4591bfc3019dd32f0ccdcc823c3a16afccb8be07",
+  "identifier": "JAK-49",
+  "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
+ },
+ "lighting-census": {
+  "hash": "3204925f142c16d74aff1ce9840f8f73eeeb9fd3",
+  "identifier": "JAK-46",
+  "issue_id": "fc19917f-6dd9-427c-b15e-d0707f296a19",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
+ },
+ "lighting-interiors": {
+  "hash": "cc6cf413215b1d03e1ad167a94cc5ac5dc2272b8",
+  "identifier": "JAK-53",
+  "issue_id": "2cce07e7-1627-4bb3-8833-65ca0ef722c6",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-53/les-interieurs-gardent-leur-lumiere-sans-fuite-par-les-murs"
+ },
+ "lighting-legacy-purge": {
+  "hash": "3a8074e792bf6356a8de38341d72a2040da30e89",
+  "identifier": "JAK-90",
+  "issue_id": "1e9c0d99-b448-4d12-a4d6-98e086ff490b",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:02.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
+ },
+ "lighting-local-lights": {
+  "hash": "10602414520d6ad43529f0ed7b606488a79309fc",
+  "identifier": "JAK-52",
+  "issue_id": "e4cfe312-46c3-45fb-a3ce-f4f65ca6ef0b",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-52/les-lampes-torches-et-laves-eclairent-enfin"
+ },
+ "lighting-materials": {
+  "hash": "caf52512a9714e631d7e089983c46e3d5ab8b156",
+  "identifier": "JAK-55",
+  "issue_id": "5ddf26ed-28fd-41fa-8d4b-e0a6a07827b3",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-55/les-matieres-pbr-eclairees-par-la-lumiere-temps-reel-sans-fusion"
+ },
+ "lighting-off-math-still-runs": {
+  "hash": "4fa3d95333cc9820cd71bc47e8d7425e15acbd89",
+  "identifier": "JAK-87",
+  "issue_id": "9db44d24-06cf-4a05-b2cd-a37ff10d73b9",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-87/eclairage-eteint-le-processeur-calcule-encore-leclairage-entier-a"
+ },
+ "lighting-presets": {
+  "hash": "208531cd65e8c2b02e603f35f78256a764935b4e",
+  "identifier": "JAK-56",
+  "issue_id": "5808d875-3691-4b65-be18-7b469b5bb89f",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
+ },
+ "lighting-regimes": {
+  "hash": "c08ea405b272cf77e9fd5b4a7f91fef6f08d0c07",
+  "identifier": "JAK-50",
+  "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
+ },
+ "lighting-shadows": {
+  "hash": "d5100754c66bcd7ab876c843e546df79c274d430",
+  "identifier": "JAK-51",
+  "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
+ },
+ "menu-back-label": {
+  "hash": "fcc4ead4d4724fa766644539f6dbcbd68a811d75",
+  "identifier": "JAK-96",
+  "issue_id": "3367f380-8497-4999-9cd6-212e1fbc1abd",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:04.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-96/le-retour-des-sous-menus-affiche-le-bon-texte-pas-une-chaine-au-hasard"
+ },
+ "menu-dpad-steps": {
+  "hash": "771a06ba230dca741cd54cfb16a3f2b12e4d6e26",
+  "identifier": "JAK-95",
+  "issue_id": "1a2ebfbf-a81d-4004-84a8-27d279857ce5",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:04.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-95/une-pression-sur-la-croix-deplace-dun-cran-jamais-deux"
+ },
+ "mesh-browser-removal": {
+  "hash": "8ff63aafe1003cfd1c196ba4e1b9ef51059a587f",
+  "identifier": "JAK-91",
+  "issue_id": "963ae827-3428-46c0-bf2d-73375a189546",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:02.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-91/le-navigateur-de-mesh-quitte-le-jeu-entrees-de-menu-et-raccourcis"
+ },
+ "mesh-consolidate-without-consumer": {
+  "hash": "f458aa651164f4c9498056cb4c3c1029227925df",
+  "identifier": "JAK-102",
+  "issue_id": "9db8deac-a09d-4b95-895f-402351862b78",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:06.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-102/le-soudage-de-normales-tourne-a-chaque-chargement-de-niveau-pour-un"
+ },
+ "ndskip": {
+  "hash": "176570add36384c2bdb30b075765e9ccb05edb71",
+  "identifier": "JAK-18",
+  "issue_id": "abf08712-d500-4ac0-95d9-df067dd4f451",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:49.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
+ },
+ "pbr-per-material": {
+  "hash": "f83fbb66220bf1542e15fca207e804894eb86ead",
+  "identifier": "JAK-4",
+  "issue_id": "1280cb05-6cfa-4216-bcd6-875f57287c55",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:37.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-4/des-proprietes-pbr-par-matiere-pas-deux-curseurs-globaux"
+ },
+ "perf-actor-pause-dist": {
+  "hash": "f4453167987242d4b398da7dfaaa124758af560c",
+  "identifier": "JAK-72",
+  "issue_id": "7cf2a54e-1609-4d35-8423-67f79fee2ae5",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-72/les-acteurs-loin-de-jak-dorment-comme-sur-ps2-et-cest-un-reglage"
+ },
+ "perf-batching": {
+  "hash": "2435a582d7680896fccca0b0102d9f7e875224a0",
+  "identifier": "JAK-15",
+  "issue_id": "58ad0ce0-4e82-4fa6-96c0-168d17fc2a2c",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-15/le-gain-de-cadence-par-regroupement-des-appels-de-dessin"
+ },
+ "perf-codegen-arm64-regs": {
+  "hash": "4bc74c3eca6e5dabe2527e64609cde8025b2fec8",
+  "identifier": "JAK-78",
+  "issue_id": "9177393e-d4ef-429d-a2ee-28a13f78153d",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
+ },
+ "perf-codegen-arm64-scalar": {
+  "hash": "a5268d4deaf31f8240fd6a3659cdbbd0e1dd9527",
+  "identifier": "JAK-77",
+  "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
+ },
+ "perf-dma-chain-copies": {
+  "hash": "cb45b397baf855d48c52b221221b6d5faad67a13",
+  "identifier": "JAK-73",
+  "issue_id": "1f3f05b2-90a9-4c28-a1e6-35869964b170",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-73/la-chaine-dma-nest-plus-parcourue-cinq-fois-par-image"
+ },
+ "perf-fbo-passes": {
+  "hash": "c180f3202ef7e6a9ce9163713109bc8ba84d35a2",
+  "identifier": "JAK-69",
+  "issue_id": "b1f97a2f-e95f-4524-a5f7-8b767ecf40b4",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-69/une-seule-passe-plein-ecran-par-image-et-le-depth-nest-plus-stocke"
+ },
+ "perf-gl-state": {
+  "hash": "5ba76a5e214e74e01182935d62034ddadbdf4975",
+  "identifier": "JAK-74",
+  "issue_id": "b417ee15-7b64-4996-9353-a04bf222aad4",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-74/moins-dappels-pilote-par-draw-memes-pixels"
+ },
+ "perf-gl-waits": {
+  "hash": "db15ed234e1a08d4c2015b4c3234a938ae24d5b9",
+  "identifier": "JAK-67",
+  "issue_id": "20a87627-5220-49ba-8220-6b86dc816422",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-67/le-pilote-gl-ne-valide-plus-chaque-appel-et-ne-fait-plus-de-sondes-en"
+ },
+ "perf-goal-gl-overlap": {
+  "hash": "5566771dbdb7d43c1c7fc9a8f80a5c05e5fe7569",
+  "identifier": "JAK-70",
+  "issue_id": "d2939744-6ea7-4927-ba5b-e5d867cf8ef9",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-70/goal-construit-limage-suivante-pendant-que-le-gpu-rend-la-precedente"
+ },
+ "perf-instrument-cost": {
+  "hash": "ce5d8f7a76e5ab3831e473a985da5469c0efb900",
+  "identifier": "JAK-79",
+  "issue_id": "56b3b7e6-29ec-472b-99c9-626f9a78dbec",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-79/un-instrument-desarme-ne-coute-rien-et-le-prouve-lui-meme"
+ },
+ "perf-merc-defuse": {
+  "hash": "29cbfcdca9c11c8645a857ddadb2cc3c94d09f75",
+  "identifier": "JAK-68",
+  "issue_id": "d23f084f-00cf-41ff-b97b-11bb43ce3103",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-68/le-fil-de-rendu-nattend-plus-le-gpu-au-milieu-de-chaque-image"
+ },
+ "perf-mips2c-neon": {
+  "hash": "a57c4a3fc7264549cd799cee816394459c06e7ce",
+  "identifier": "JAK-76",
+  "issue_id": "ce6b6500-6836-44f3-9a22-3227f798afd9",
+  "last_state": "Archivé",
+  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-76/les-calculs-d-animation-et-de-particules-coutent-moins-sans-changer"
+ },
+ "perf-particles": {
+  "hash": "72b00b87c44c379a2aa79d49311071ce1d0f4ec7",
+  "identifier": "JAK-20",
+  "issue_id": "cd434fb4-3bff-43bb-8fda-342061027cd9",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:50.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-20/la-cadence-dans-les-zones-a-particules-les-feux"
+ },
+ "perf-particles2": {
+  "hash": "3cdc0fb99001e7018b9e70a7e51a0a115f9b8ecb",
+  "identifier": "JAK-21",
+  "issue_id": "c191560c-e282-4d63-a82d-73a159bb885b",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:50.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-21/les-particules-image-qui-pope-et-textures-qui-clignotent"
+ },
+ "perf-sky-distort": {
+  "hash": "40d84b99f6f418963ce5ccb4999381ec1ad5c13e",
+  "identifier": "JAK-75",
+  "issue_id": "9ab9f956-fcd1-4078-8288-fa5170e9a67e",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-75/le-ciel-se-melange-sur-le-gpu-et-la-distorsion-ne-recopie-plus-tout"
+ },
+ "perf-stock-60": {
+  "hash": "f3cb8d10af9f2e6ded930476090bf07a2a5357cf",
+  "identifier": "JAK-80",
+  "issue_id": "e3942ad2-411b-49e6-9000-565eeab1d43e",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-80/le-jeu-stock-tient-60-images-par-seconde-sur-le-redmi-en-natif-219"
+ },
+ "perf-thread-build": {
+  "hash": "becf59e850c5c188b8165eb844b91c7dbf5b5c14",
+  "identifier": "JAK-71",
+  "issue_id": "6a4a152d-b714-4954-a5ce-b44a064cedbe",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-71/le-fil-goal-tourne-sur-un-gros-coeur-dans-un-binaire-release"
+ },
+ "proof-context-on-zero-frames": {
+  "hash": "bb31e9b33e14000ce871ec4df28663d72f1c5ee4",
+  "identifier": "JAK-93",
+  "issue_id": "fd2f1f8f-b4d5-4697-ac92-25580f3596d6",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:03.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-93/une-course-qui-ne-dessine-rien-dit-pourquoi-au-lieu-de-se-lire-comme"
+ },
+ "recharged-ambient-occlusion": {
+  "hash": "f055fae5b80eb4a2b3a089120a81865f69795cca",
+  "identifier": "JAK-29",
+  "issue_id": "d4a317bc-5022-46bc-b817-d1d6ac7f2d42",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-29/locclusion-ambiante-le-relief-dans-les-creux"
+ },
+ "recharged-buildsys": {
+  "hash": "eae833c24219890b5e8e02281368c4e326c849dc",
+  "identifier": "JAK-5",
+  "issue_id": "d5066f76-d36b-4a0f-8c0d-9a9b193c9cf0",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:38.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-5/le-systeme-de-build-unifie-le-packaging-et-linstallation"
+ },
+ "recharged-bundled-textures": {
+  "hash": "a01bae134fd7e1a80f1ae5958b9b72ad7be9af55",
+  "identifier": "JAK-33",
+  "issue_id": "72df97c7-242b-47e5-8e34-70f96e024599",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-33/les-textures-pbr-maison-livrees-dans-lapk"
+ },
+ "recharged-directional-ambient": {
+  "hash": "e7e3f7e6cacca5348df4d5a2b9e4e4f3f9ffa93d",
+  "identifier": "JAK-30",
+  "issue_id": "e3755fa4-d4dd-4b34-bf0c-1ed4c3189365",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-30/lambiante-directionnelle-le-relief-dans-les-zones-dombre"
+ },
+ "recharged-external-assets": {
+  "hash": "7a88dd478bb787308ce7ebc09640a710a6102847",
+  "identifier": "JAK-28",
+  "issue_id": "2f07fcde-74a6-4ec5-bb96-c18c8ce7ef3b",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-28/les-assets-hors-de-lapk-telecharges-a-part"
+ },
+ "recharged-gating-real": {
+  "hash": "26bad2ea0a614440a680ae2dcd5882802b747176",
+  "identifier": "JAK-81",
+  "issue_id": "69ae69c4-7a67-48be-b45c-cd6d094ba524",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-81/eteindre-une-option-eteint-vraiment-ce-qui-en-depend-et-leclairage-a"
+ },
+ "recharged-grass-object-clip": {
+  "hash": "f2d2ff23642c1c0306e7a903f05ec873a4b4df57",
+  "identifier": "JAK-26",
+  "issue_id": "c6f522e3-734c-4027-adec-1cb0e9577874",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-26/lherbe-qui-traverse-les-objets-poses-au-sol"
+ },
+ "recharged-grass-wear": {
+  "hash": "2ed2a2a565deb79f0a039acd35601742c3ce5af3",
+  "identifier": "JAK-27",
+  "issue_id": "501abe3e-2ef5-4c09-8f9d-c8546b9cc1fd",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
+ },
+ "recharged-hud-jak1": {
+  "hash": "1d37e9444278886d439bb22861c849f2d6bac619",
+  "identifier": "JAK-43",
+  "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
+ },
+ "recharged-lightprobes": {
+  "hash": "932feaacc9d09cc0aa7e4925df5923d9b00fb520",
+  "identifier": "JAK-31",
+  "issue_id": "4fb239c8-0fb8-431f-aeef-c0bfdc89b3bd",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-31/les-sondes-de-lumiere-locales-a-la-place-de-lambiante-globale"
+ },
+ "recharged-master-toggle": {
+  "hash": "293ba2b80a39b6eafb9a0e4d8937190239036378",
+  "identifier": "JAK-32",
+  "issue_id": "de2a7926-a93e-4faa-8ac8-422947cb65e7",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-32/un-interrupteur-global-recharged-marchearret"
+ },
+ "recharged-materials-modern-parity": {
+  "hash": "bba3db54761c6e164d2f5de2e04595186f51d790",
+  "identifier": "JAK-44",
+  "issue_id": "f61a6488-43e5-49f8-b95d-86b78b704645",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-44/des-materiaux-au-niveau-des-moteurs-modernes"
+ },
+ "recharged-mesh-browser": {
+  "hash": "5ef613ba97bfeac1457fe870be9f112609449b53",
+  "identifier": "JAK-37",
+  "issue_id": "d889e34b-5ddf-494f-8b3f-3288fb660097",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-37/le-navigateur-de-mesh-de-debug"
+ },
+ "recharged-mesh-consolidation": {
+  "hash": "e053bd87fc79ddceb2828856ca68eb0a5a5fce50",
+  "identifier": "JAK-35",
+  "issue_id": "bc457594-a9f6-46e5-97ed-24de26b6d294",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-35/les-coutures-visibles-sur-les-meshes-du-jeu"
+ },
+ "recharged-naming": {
+  "hash": "ea7c1dde3443b29564ccfa6d9b6c5e6789c8edc0",
+  "identifier": "JAK-34",
+  "issue_id": "637ed006-36f5-4e60-bdaa-e1b66f7c9bfc",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-34/le-nom-des-jeux-et-de-la-collection-recharged"
+ },
+ "recharged-pbr-realtime-fusion": {
+  "hash": "aec5e810f471f284679ad42d19c8c25bf98ae4f8",
+  "identifier": "JAK-36",
+  "issue_id": "4861fc9d-fc03-4d35-bd29-a74d64cfc967",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-36/les-matieres-pbr-eclairees-par-la-lumiere-temps-reel"
+ },
+ "recharged-secondary-motion": {
+  "hash": "648dd2a1cc43111887551431ffaccd4f51e6e47f",
+  "identifier": "JAK-40",
+  "issue_id": "000fe22f-9738-44e2-b93a-51a2cad07bc4",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-40/ancien-chantier-de-physique-des-personnages-hd-a-reclasser"
+ },
+ "recharged-texture-hotreload": {
+  "hash": "0087d4d90ad01c0ea5614ffaa0015a28eedd6fbe",
+  "identifier": "JAK-38",
+  "issue_id": "994997ea-984a-4314-9763-35fc6a5fcd18",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-38/basculer-les-textures-recharged-sans-redemarrer-le-jeu"
+ },
+ "recharged-title-logo-fullres": {
+  "hash": "656e1d795cd40323e476482ed2c137490c793638",
+  "identifier": "JAK-42",
+  "issue_id": "44bc9479-8164-4876-bbb8-059414d54c76",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-42/le-logo-du-titre-pixelise-a-basse-resolution-de-rendu"
+ },
+ "render-split": {
+  "hash": "a7b415bc757a1f899cc7683a569c6406885e7f43",
+  "identifier": "JAK-7",
+  "issue_id": "2a87a5d4-c196-4379-8e1a-a3b02d45b3ab",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:39.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-7/linterface-reste-nette-quand-on-baisse-lechelle-de-rendu"
+ },
+ "res-menu-truth": {
+  "hash": "322d8dd9ad6aed5c16bb8bbab07015b3e4f1fc0a",
+  "identifier": "JAK-82",
+  "issue_id": "fc9322c1-0e17-4a1d-99b2-856f1ae15b0c",
+  "last_state": "Bloqué",
+  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
+ },
+ "shrub-trunk-contact": {
+  "hash": "f5c63fe1c1c16a96ec274c9ee28c222b8b8b437f",
+  "identifier": "JAK-153",
+  "issue_id": "78bc378a-d77e-4ec1-880a-d8c345fee005",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-153/le-tronc-dun-mini-palmier-ne-secrase-pas-comme-un-brin-dherbe-et-ses"
+ },
+ "soft-actor-channel": {
+  "hash": "7883c7d3bc57d4ecc51c17cdf7f3b56d7329750c",
+  "identifier": "JAK-138",
+  "issue_id": "013cc756-d63e-40f0-ac80-eeb64e690e25",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:18.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-138/le-canal-dacteurs-pieds-vitesses-pas-un-tableau-un-appel-zero-par"
+ },
+ "soft-bake-format": {
+  "hash": "20246de5bb50aae8969d70cb867202562d33a168",
+  "identifier": "JAK-134",
+  "issue_id": "12c89632-9785-42b0-a128-82ca5abbd6ce",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:17.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-134/le-compagnon-softbake-la-coque-imbriquee-ses-chunks-son-outil"
+ },
+ "soft-baseline": {
+  "hash": "ecc92b19f4fecd96027464401d7483376b47b099",
+  "identifier": "JAK-131",
+  "issue_id": "ef407c6e-15a0-42b1-8784-f0fd6f802ec0",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-131/les-instruments-et-la-baseline-des-surfaces-meubles-lepaisseur-des"
+ },
+ "soft-chunk-lod": {
+  "hash": "194388949f5868910befd3cc291c312bb6abde3d",
+  "identifier": "JAK-147",
+  "issue_id": "2677468e-cdea-470f-aac5-d2435b68c899",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-147/chunks-culling-lod-la-coque-a-distance-sans-pop-et-sans-couture"
+ },
+ "soft-debug-views": {
+  "hash": "9e3866065d84acfa2f9e17f83f24509a0616fc00",
+  "identifier": "JAK-136",
+  "issue_id": "81794d32-93e7-4cb7-8696-fbddd2a7725b",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:17.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-136/les-vues-de-debug-de-la-coque-des-le-debut"
+ },
+ "soft-deform-core": {
+  "hash": "f82cab8d6c810890fd1ef3b5eceef5ecd931c241",
+  "identifier": "JAK-137",
+  "issue_id": "d8e69022-ef01-4f57-9912-5801b1602b94",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:18.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-137/le-moteur-de-deformation-tuiles-par-chunk-tampons-de-contact-volumes"
+ },
+ "soft-device-budget": {
+  "hash": "8947b6c31cc5b6396c38763cc79af57ad2e45125",
+  "identifier": "JAK-150",
+  "issue_id": "076614bf-e70f-4a1b-8a79-ac7bfafe1046",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-150/le-redmi-tient-son-budget-bas-et-moyen-mesures-sur-lappareil"
+ },
+ "soft-enemies": {
+  "hash": "e6b9661c04e547297c848d6dbae036c77907d6ef",
+  "identifier": "JAK-141",
+  "issue_id": "c131bf9d-74c7-4d7d-a65c-ba774308986b",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:19.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-141/les-ennemis-vivants-deforment-les-morts-non-par-construction"
+ },
+ "soft-jak-body": {
+  "hash": "4f1e931460753b640e5e4733325930c24a644683",
+  "identifier": "JAK-140",
+  "issue_id": "cd2cbfbc-1148-4868-9955-3b35fd1a48d9",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:18.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-140/jambes-receptions-glissades-et-roulades-dans-la-neige-profonde-un"
+ },
+ "soft-jak-feet": {
+  "hash": "7767512e0f82df38ecbfc406d8a20f362d3e0c32",
+  "identifier": "JAK-139",
+  "issue_id": "ae389757-13b1-464e-8cc5-af4586b28d33",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:18.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-139/les-pieds-de-jak-laissent-des-empreintes-gauche-et-droite-jamais-en"
+ },
+ "soft-levels": {
+  "hash": "b23a58532d6b4e24739723d10694eaa1aa05032d",
+  "identifier": "JAK-152",
+  "issue_id": "d3e7a612-72ba-4932-a99c-0b60fbbf7895",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:21.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-152/niveau-par-niveau-snow-training-village1-puis-beach-et-ogre"
+ },
+ "soft-lifecycle": {
+  "hash": "e167cffd50ad587f6674f647e72c0a4247166033",
+  "identifier": "JAK-146",
+  "issue_id": "cb547541-e155-4394-b634-92b6fbc5dd33",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-146/le-cycle-de-vie-vieillissement-eviction-persistance-changement-de"
+ },
+ "soft-material-profiles": {
+  "hash": "53abbd2d12ceb54f390da42065083401405c9d3c",
+  "identifier": "JAK-143",
+  "issue_id": "7be6dfdd-649b-4a74-baad-a3718aee7624",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:19.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-143/trois-profils-de-matiere-en-donnees-la-neige-compacte-nest-pas-une"
+ },
+ "soft-objects": {
+  "hash": "144ca049fd81434ea0045b0ece0651c6b2138d1c",
+  "identifier": "JAK-142",
+  "issue_id": "08cd0b63-fcba-4bf5-9ee9-136e18d1b539",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:19.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-142/la-boule-de-neige-le-yakow-les-montures-traces-dobjets-qui-bougent"
+ },
+ "soft-pc-ultra": {
+  "hash": "532356e60e2929ebf55953007406f33d30dd4745",
+  "identifier": "JAK-151",
+  "issue_id": "497a12d5-b79a-47b0-9d24-2a0625608f99",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-151/la-coque-monte-en-gamme-sur-pc-ultra-visible-et-mesure"
+ },
+ "soft-presets": {
+  "hash": "820390e558f16114e0c02161a84bff66a866d8dd",
+  "identifier": "JAK-149",
+  "issue_id": "ccfda19a-3633-4349-80ca-94111de99f15",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-149/les-paliers-et-le-menu-des-surfaces-meubles"
+ },
+ "soft-ridges": {
+  "hash": "88ffc7b8bbc8a23a44cc815b1bec8f8b1bb45019",
+  "identifier": "JAK-144",
+  "issue_id": "ae1b1f89-ebe4-4713-8275-fd7841b79bc5",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:19.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-144/les-bourrelets-la-matiere-repoussee-bornee-du-bon-cote"
+ },
+ "soft-shading": {
+  "hash": "941fb017ef44ada502a08e65d53413f6749da128",
+  "identifier": "JAK-145",
+  "issue_id": "6aeab096-1b1b-46ba-8b3c-7ac81c3a63c8",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:19.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-145/la-trace-se-voit-dans-la-lumiere-normales-albedo-rugosite-dans-shade"
+ },
+ "soft-shell-renderer": {
+  "hash": "cad38bb66cd345db1beb9d7b33cc79bd14cf6076",
+  "identifier": "JAK-135",
+  "issue_id": "c3be6755-accd-4227-9637-5301c07473bd",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:17.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-135/la-coque-remplace-le-sol-dans-les-trois-passes-sans-encore-se-deformer"
+ },
+ "soft-support-map": {
+  "hash": "93bb36926acafd6b51ce225c1f2d728a8a311c28",
+  "identifier": "JAK-133",
+  "issue_id": "8d4fb98b-6a6f-44d9-9dca-b73c2fc807b9",
+  "last_state": "En cours",
+  "pulled_at": "2026-09-17T05:37:17.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-133/le-support-et-lepaisseur-de-chaque-point-de-matiere-cuits"
+ },
+ "soft-surface-truth": {
+  "hash": "46f159b0a0750c3bbf9474a0e7e788f74847b4b4",
+  "identifier": "JAK-132",
+  "issue_id": "ddd9e665-b8ff-4d7a-b06e-0a2a70c0a367",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:17.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-132/une-surface-est-de-neige-ou-de-sable-selon-deux-sources-et-jamais"
+ },
+ "soft-water-contract": {
+  "hash": "ac9282992be555183c93e2010fcfcb728c711e52",
+  "identifier": "JAK-148",
+  "issue_id": "a5f12e1b-8788-45e3-a9a4-78967aa047b0",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:37:20.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-148/le-sable-au-bord-de-leau-la-coque-lit-le-rivage-de-leau-elle-ne-le"
+ },
+ "title-tap": {
+  "hash": "88b0ce534cc6cfe425b79efe16cde7ecb4a13791",
+  "identifier": "JAK-19",
+  "issue_id": "3b4dbbb1-3fb8-417a-a679-1f20f54041a1",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:50.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-19/appuie-sur-start-ou-touche-lecran-et-le-tap-au-titre"
+ },
+ "title-tap-prompt-regression": {
+  "hash": "f10d10640ca79e891a57b502eaea4b652bb3b102",
+  "identifier": "JAK-92",
+  "issue_id": "5758f80c-e1de-48e7-8c88-8eea0496ee88",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:37:03.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-92/au-titre-linvite-dit-touche-lecran-quand-il-y-a-un-ecran-tactile"
+ },
+ "touch-longjump-regression": {
+  "hash": "2f399534f1b656eb6e7ef3662ecf46b2c606135d",
+  "identifier": "JAK-39",
+  "issue_id": "0972ec59-5be0-4ed7-a416-f6d2556a4bab",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-39/le-long-jump-au-tactile-qui-ne-part-plus"
+ },
+ "warp-dpad": {
+  "hash": "f15914bf54bdd3c8308c921774214784a86a052f",
+  "identifier": "JAK-13",
+  "issue_id": "8e9251ad-702c-4bef-9fc6-f5307a83d9cd",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T05:36:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-13/le-stick-fait-office-de-croix-directionnelle-devant-un-teleporteur"
+ },
+ "water-caustics": {
+  "hash": "562a2536877b386e8fcd59468b32c12eb75c4c20",
+  "identifier": "JAK-62",
+  "issue_id": "6f93d6a4-7e52-410f-bae0-bb63e40dfb64",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-62/la-lumiere-danse-sur-le-sable-jamais-au-dessus-de-leau"
+ },
+ "water-falls": {
+  "hash": "48282e79b226bcb9d808d33bbb9a9e16f7b509d5",
+  "identifier": "JAK-63",
+  "issue_id": "4828d46b-d69b-448d-ba39-6256cb374f05",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-63/les-cascades-tombent-quelque-part"
+ },
+ "water-interaction": {
+  "hash": "cf4366dca89401ec9527a832e7b1059a45f8391d",
+  "identifier": "JAK-60",
+  "issue_id": "fbda3da7-3524-4e2b-9864-916f44718ad8",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-60/marcher-tomber-nager-la-surface-repond"
+ },
+ "water-materials-types": {
+  "hash": "e1188306bc96b78572db67d0136697cb1babf719",
+  "identifier": "JAK-64",
+  "issue_id": "275f008e-1d02-4dfd-8c35-c5c321f4936e",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
+ },
+ "water-ocean-mesh": {
+  "hash": "367da1a6454f7bf70f84153852ab9e3056e01925",
+  "identifier": "JAK-57",
+  "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
+  "last_state": "À faire",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-57/la-clipmap-remplace-le-microcode-vu1-la-houle-reste-celle-de-naughty"
+ },
+ "water-ocean-mesh-hit-counter-cost": {
+  "hash": "5b3fbcfb01ad6c61a51d127468adbc137bf3d706",
+  "identifier": "JAK-105",
+  "issue_id": "9ecdb45d-5e65-4e65-ba4f-78d89e7f9d43",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T05:37:08.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-105/quatorze-millions-dincrementations-par-seconde-depuis-un-seul"
+ },
+ "water-presets": {
+  "hash": "4e594c6c7e14f321bf58b7c091a8e0def60451f0",
+  "identifier": "JAK-66",
+  "issue_id": "e4d906f2-d3b6-46b5-84f6-07cefcc8ca82",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:58.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-66/chaque-techno-deau-a-son-reglage-son-echelle-et-un-off-prouve"
+ },
+ "water-refraction-reflection": {
+  "hash": "18cefea5fbcad94f6bd297802ad6ac18c18b0321",
+  "identifier": "JAK-61",
+  "issue_id": "fcc4d3be-e16a-4cd1-a6be-863ace1bca6e",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-61/voir-a-travers-leau-et-voir-le-ciel-dedans"
+ },
+ "water-shore": {
+  "hash": "a6dcb35fe079a4ae8c609cd6d66bdc8f48ff8e19",
+  "identifier": "JAK-59",
+  "issue_id": "2d7ad66a-aad5-47aa-8199-d7e4064ef60f",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-59/des-vagues-tranquilles-qui-arrivent-une-a-une-et-remontent-le-sable"
+ },
+ "water-surface-material": {
+  "hash": "792def029008b84dc0baf0b85a13603331f42f20",
+  "identifier": "JAK-58",
+  "issue_id": "c554814f-99ff-4c69-93af-523deb198fb2",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-58/une-seule-matiere-deau-eclairee-par-shade"
+ },
+ "water-underwater": {
+  "hash": "9c97390a605c94714f9974fbce4d2582f9dc3503",
+  "identifier": "JAK-65",
+  "issue_id": "2d6bcfe6-c874-4fc4-b1ce-4b578f8a7dfd",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T05:36:57.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-65/sous-la-surface-on-est-sous-leau"
+ }
+}
