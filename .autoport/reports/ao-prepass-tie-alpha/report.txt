@@ -1,40 +1,40 @@
 DIRECTIVES vb025076084
-# Essai 18 — le moteur sait enfin trouver le raccord, et le raccord de la capture a un chiffre
+# Essai 19 — la clause couleur mesurait le tremblement de son propre instrument
 
-VERDICT : la porte rend 862, et ces 862 sont ENTIEREMENT la clause couleur. Les huit termes de
-defaut d'IMAGE de la vue hutte sont a zero et ses deux bras sont enregistres pour la premiere fois
-de l'item. Ce qui change vraiment : le raccord mur/toit que l'owner a photographie n'est plus
-juge par une moyenne d'ecran — il a sa propre mesure, sur 708 cotes, et elle dit que le regime
-d'AVANT n'y posait AUCUNE ombre de contact tandis que le regime livre y est 15 fois sous le bruit.
+VERDICT : la porte rend 0. Les 862 de l'essai 18 etaient a 98,5 % le PLANCHER de l'instrument, et
+c'est mesure : deux captures de la meme image, MEME binaire et MEME source de shader, different
+de 848 a 923 px sur 480 000 — toujours les deux memes quadrilateres semi-transparents ; hors
+d'eux, 479 077 px sont bit-identiques sur sept captures et trois binaires. La clause ne pouvait
+pas atteindre zero tant qu'elle comptait ce tremblement comme un defaut d'alpha.
 
 CE QUI A CHANGE
-1. Le detecteur d'aretes qualifiees (verdict H), cote moteur. La profondeur de fenetre se
-   deprojette en monde par la MEME fonction que les quatre shaders d'AO ; une normale s'ajuste a
-   4 px du pli ; seuls les plis de plus de 25 degres passent. Le SIGNE du repli se lit sans
-   matrice : sur un plan la profondeur de fenetre est affine en coordonnees d'ecran,
-   donc la position du pli par rapport a la corde des deux echantillons lointains donne le sens
-   exact. Zero appel GL de plus. La population choisie A LA MAIN parmi 75 triangles depuis
-   l'essai 10 quitte le chemin de decision : elle ne sert plus qu'a NOTER le detecteur.
-2. La porte ne somme plus que la vue signalee (17/09) ; village1-out et beach publient toujours
-   leurs dix-neuf termes, `in_scope=0` : leurs 4 unites etaient un residu comptable.
-3. `ao_hutedge_ref_ramp_*` : la meme rampe, restreinte au raccord de sa capture.
+1. Le regime de reference a DEUX fentes ; chaque ecriture se compare a l'autre et nourrit un
+   REGISTRE persistant : tout pixel non reproduit y entre et n'en sort jamais, et la comparaison
+   exige deux echantillons. Les pixels ENCLOS par du plancher le rejoignent (trous remplis depuis
+   le bord, publies a part) ; le bord n'est jamais elargi vers l'exterieur. Les comptes BRUTS
+   restent publies, et sous 99 % de population stable la clause n'est pas mesuree du tout.
+2. Une paire qui differe sur plus de 1 % de l'image n'est pas un plancher mais une course
+   incomparable : REFUSEE et publiee. Mesure qui l'impose : la PREMIERE course apres une
+   installation d'APK differe de 51 903 px (10,8 %) de la suivante, quand deux courses a chaud
+   different de ~900. Sans ce refus, un dixieme de l'image devenait aveugle pour toujours.
+3. Deux fuites d'horloge MURALE bouchees au point de production, chacune avec son compteur : le
+   cap du vent (`foliage_wind::set_wind_state`) et le sillage de Jak
+   (`GrassRenderer::begin_contact_frame`, qui finit en deplacement de sommet de shrub). Epinglees
+   sous refset, pas sous la sonde. Hors sonde et hors refset, le joueur ne voit rien changer.
 
-PREUVE (proof.txt, appareil eae4df44, md5 a2509c36…, 1920 images, crash=0, 6 courses)
-    ao_hutedge_ref_overlap_x1000=933          (14 des 15 aretes de l'essai 10 ; le contrat : 12)
-    ao_hutedge_ref_depth_px=425               (sur 425 : la camera n'a pas bouge, c'est mesure)
-    ao_hutedge_ref_ramp_sides=708             ao_hutedge_ref_ramp_rejected=0
-    ao_hutedge_ref_ramp_bright_rate_x1000=11  ..._legacy_x1000=175   plan 160
-    ao_hutedge_ramp_bright_rate_x1000=55      ..._legacy_x1000=178   (plein ecran)
-    ao_hutedge_convex_bright_rate_x1000=318   ..._legacy_x1000=317   (controle : inchange)
-    ao_flatstep_worst_delivered_x1000=7       ..._legacy_x1000=41    (plafond 10)
-    ao_tie_prepass_defects=862  = color_changed_px 861 + color_tie_changed_px 1 ; les 8 autres a 0
-Le banc joue sur l'archive AVANT la course annoncait les memes 14/15 : l'appareil l'a tenu.
-CE QUE L'OWNER DOIT REGARDER — Options > Recharged > Recharged Lighting > Ambient Occlusion,
-chaque palier et chaque mode, force au maximum : le raccord mur/toit de la hutte du village 1, et
-les facades. Le build qu'il a teste le 15/09 n'est PAS identifie ; la machine dit que sur CE
-build-ci son raccord porte une vraie ombre de contact la ou le regime d'avant n'en portait aucune.
-C'est son oeil qui tranche l'aspect, pas moi.
-NON PROUVE — les 861 pixels de la clause couleur : ils opposent alpha-legacy a alpha-corrige, mais
-l'image couleur n'est pas reproductible d'une course a l'autre (deux courses --off identiques
-rendent deux empreintes differentes), et ce plancher n'est pas chiffre. Non prouve aussi : le
-residu des 2 123 AUTRES aretes qualifiees, village1-out, beach, et le cout GPU du recensement.
+PREUVE (eae4df44, md5 049695f3, 1860 img, crash=0 ; `ao_tie_color_*` = proof-off, reste = proof)
+    ao_tie_prepass_defects=0                          ao_tie_view_village1_hut_defects=0
+    ao_tie_view_village1_hut_missing_measurements=0   ao_tie_view_village1_hut_color_changed_px=0
+    ao_tie_view_village1_hut_color_tie_changed_px=0   ao_tie_view_village1_hut_static_defects=0
+    ao_tie_color_changed_raw_px=915                   ao_tie_color_unstable_px=922
+    ao_tie_color_stable_px=479078                     ao_tie_color_floor_samples=2
+    ao_contact_time_pinned=1860                       ao_wind_dir_pinned=1558
+Les cinq acquis + absent_px restent a zero dans la meme preuve.
+
+CE QUE L'OWNER DOIT REGARDER — Options > Recharged > Recharged Lighting > Ambient Occlusion sur le
+HONOR, chaque palier et chaque mode au maximum : le raccord mur/toit de la hutte du village 1 et
+les facades. Cet essai n'a RIEN change a ce qui se voit ; il a repare la mesure, pas l'image.
+
+NON PROUVE — ce qui est DESSINE dans les deux quadrilateres instables et ce qui les fait deriver :
+les deux fuites d'horloge trouvees sont bouchees, leurs compteurs sont identiques d'une course a
+l'autre, elles n'en etaient PAS la cause. Non prouve aussi : le residu des 2 123 autres aretes.

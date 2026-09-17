@@ -702,7 +702,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "hash": "0d58ce30e901346baf248efce14bd1730f80414c",
+  "hash": "c173c81b5acd06001bc5c7bafcbe65e76a251899",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "Todo",
@@ -723,7 +723,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "e36fd08c7b4bc3ab34973136df2d39a740db1e0f",
+  "hash": "3972a80a6efef35083ede75bb68320ad7a2d39cd",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "Todo",
@@ -731,7 +731,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
-  "hash": "aa7d09e6ea07c0edf899a0fb237b85bf369e7044",
+  "hash": "87bb7df8c8aa6906cc71e535c882db75b573d6e8",
   "identifier": "JAK-175",
   "issue_id": "190bf33c-24ca-4b73-b1e5-fe6034f624ce",
   "last_state": "Todo",
@@ -1236,11 +1236,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "ac396210863da54f65b7fafa3659de7436e06103",
+  "hash": "58ba92e177cfa8adc20d07bb70a4ed05d0b12980",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
   "last_state": "Backlog",
-  "pulled_at": "2026-09-17T10:36:35.551Z",
+  "pulled_at": "2026-09-17T10:38:01.271Z",
   "relations": [
    "hud-3d-pickups",
    "hud-behavior-parity",
@@ -1342,7 +1342,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-7/linterface-reste-nette-quand-on-baisse-lechelle-de-rendu"
  },
  "res-list-sorted-by-pixels": {
-  "hash": "761c37ecee1b2d49b2e37b517da0094b1bfe5e2f",
+  "hash": "ff5d41d98941e97cbfda0337d47d66b9d0806e92",
   "identifier": "JAK-171",
   "issue_id": "9ed2127e-03eb-4734-9054-d9da293e32da",
   "last_state": "Todo",
@@ -1358,7 +1358,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "hash": "8a2edf57a1b12115b3997dcc9e5d000c8b1c1692",
+  "hash": "1bb8c824b2b854de1736968c28a49ad27ad6d9a7",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "Todo",
@@ -1700,7 +1700,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "hash": "05e3def2e3beb107dc7a8afe87ccf187c854d30c",
+  "hash": "3dd8798f94c8a793b06b4610665cf4af0db5adf9",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
   "last_state": "Todo",
