@@ -145,7 +145,8 @@ while true; do
   # Owner 2026-08-11: on publie meme quand ce n'est PAS vert, pour qu'il puisse tester et
   # renvoyer des retours. BUILD-INFO.txt part avec, pour qu'il sache exactement ce qu'il a
   # entre les mains (commit, branche, ce qui est rouge) au lieu de deviner.
-  [ -f out/artifacts/BUILD-INFO.txt ] && UP+=("out/artifacts/BUILD-INFO.txt")
+  # Owner 17/09 : « BUILD_INFO.txt, jak1_hd_assets.manifest.txt et jak1_ui_fonts.zip sur la release j'en ai rien a
+  # taper… ça pollue pour rien » : BUILD-INFO reste LOCAL (.published_build_info.txt, description de release), il ne part plus.
   # `LASTZIP` n'est PAS pose ici : il ne l'est qu'apres un televersement REUSSI, plus bas. Le poser
   # avant ferait oublier un zip dont l'envoi a echoue — il ne repartirait plus jamais.
   [ -n "$zh" ] && [ "$zh" != "${LASTZIP:-}" ] && UP+=("$ZIP")
