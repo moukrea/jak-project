@@ -1,5 +1,5 @@
-TAG: ed6a95-cad029      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
-date: 2026-09-17T14:41:51+02:00     commit: ed6a95fdfaf7     build AUTOMATIQUE (etat compile)
+TAG: aef625-cad029      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
+date: 2026-09-17T15:12:06+02:00     commit: aef625ecba30     build AUTOMATIQUE (etat compile)
 
 MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :
   chestL        0.1796
