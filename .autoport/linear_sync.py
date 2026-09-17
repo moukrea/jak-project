@@ -389,6 +389,10 @@ def main():
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
                 if st == "À tester":
                     set_read_label(L, rec["issue_id"], label, True)
+                elif st in ("Validé", "Archivé"):
+                    for lab in (label, todo, _TALK.get("id")):
+                        if lab:
+                            swap_labels(L, rec["issue_id"], remove=lab)
                 moved += 1
             rec.update({"last_state": st, "hash": h})
             updated += 1
