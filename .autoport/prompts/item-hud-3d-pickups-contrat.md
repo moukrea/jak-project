@@ -11,6 +11,12 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game », « pour la pile d'énergie, idem ».
 
+17/09 23:25 SUPERVISEUR — owner (JAK-177) : « si tu bute sur une mesure, je peux faire la vérif moi même… suffit de me dire quoi vérifier ». Essai 3 : 1 seul defaut restant (la pile) ; cause nommee par l'agent : draw-bones-hud-merc ne dessine qu'une partie du modele (effets sans envmap) et color-mult/color-emissive sont inertes sur un dessin de HUD. Essai 4 en vol (22:51) applique le correctif. REGLE : si l'essai 4 rougit sur la MESURE, PAS d'essai 5 : l'item passe a tester par l'owner avec les 4 questions de `where`.
+
+18/09 00:10 ESSAI 4 — ETABLI par l'agent : la cause de « la pile minuscule et ecrasee » est TROUVEE ET CORRIGEE (la pile etait le seul des quatre emplacements route vers Merc2, qui n'a aucun chemin HUD et divise par le w du monde ; elle passe desormais par dma-add-process-drawable-hud-with-cell-lights, le chemin des trois emplacements que l'owner declare bons ; commit a656d3da9e, DANS le build publie 0ed531-cad029). Le seul defaut restant est le terme §9 (stabilite de la boite mesuree par difference d'images) : CHIFFRE INEXPLOITABLE sur cet appareil — derive de 2,8 a 3,4 niveaux de luminance par pixel entre deux images identiques, seuil 6, 0 pixel retenu, controle compris. Le bruit de l'appareil est au-dessus du signal. L'agent demande l'autorisation avant de construire un instrument exact (boite des sommets transformes lue dans Generic2). PAS d'essai 5 : l'owner tranche (regle du 17/09 23:15).
+
+18/09 00:20 ARBITRAGE OWNER, sur photo (owner-feedback/hud-3d-pickups/20260917T2215-1.jpg) : « elle est bien à son emplacement attendu ! Mais […] une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! […] c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! ». PERIMETRE UNIQUE DE LA REPRISE : donner a la pile du HUD l'effet lumineux qu'elle a dans le monde. Position, taille et les trois autres emplacements sont ACQUIS par l'owner et NE SE RETOUCHENT PAS. Le terme §9 (stabilite par difference d'images) reste inexploitable sur l'appareil, il ne motive aucun essai. La porte de cette reprise se lit sur une grandeur de l'effet lui-meme (l'element lumineux du monde est-il emis pour l'icone de HUD, et combien de fois par image), jamais sur une image. Si la mesure bute sans cause nommee : demander a l'owner, ne pas relancer un essai.
+
 ## Livrable — le contrat, en entier
 
 `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
@@ -49,7 +55,7 @@ Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
 
 ## Ou l'owner regardera
 
-HUD en jeu : la mecamouche, l'orbe, la particule d'eco verte a cote du coeur et la pile d'energie sont les vrais objets du jeu en 3D, a la place des sprites plats.
+HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la pile d'energie du HUD a-t-elle le meme effet lumineux que la pile posee dans le monde ? (position, taille et les trois autres emplacements sont deja valides par l'owner le 18/09, ne pas les redemander).
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -91,6 +97,12 @@ HUD en jeu : la mecamouche, l'orbe, la particule d'eco verte a cote du coeur et 
 
 ### 2026-09-17
 > Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce qui me fait penser que tu utilisais du positionnement absolu !
+
+### 2026-09-17
+> Je l'ai déjà dit, si tu bute sur une mesure, je peux faire la vérif moi même et suffit de me dire quoi vérifier, plutôt que perdre du temps et gaspiller des tokens
+
+### 2026-09-17
+> Alors elle est bien à sont emplacement attendu ! Mais il y a un mais que tu peux voir sur le screen, une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! Sinon c'est vraiment pas mal ! Donc c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! Encore une fois, plutôt que se fatiguer en preuves visuelles que t'arrives pas à prendre… j'ai répondu en quelques minutes !  ![71492.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/0a99d129-a2ee-424d-bbb3-7bc5042efece/69fb552b-fc1f-4d50-96f1-be7be1edd055) [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T2215-1.jpg]
 
 ## Pourquoi ce fichier existe
 
