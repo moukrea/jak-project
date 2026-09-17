@@ -5,10 +5,10 @@
 # La prepasse d'AO garde les memes fragments que la couleur sur le TIE statique : plus d'ombre calculee a cote de la geometrie
 
 ## Defaut cite
-- 2026-09-15 : « c'est peut-être Lié à un flou "inconditionnel" qui va floute… »
+- 2026-09-17 : « Pour l'AO, bah démerdes toi et fait le meilleur choix. »
 
 ## Cause connue
-16/09 19h — ESSAI 13 LU : la voie que j'avais imposee (poids nul des taps traversants, support inchange) est REFUTEE par la mesure : le creux de contact (3 px) est efface par les BOITES LARGES du flou (29 texels), pas par le cote des taps ; 4 candidats locaux refuses (bande OU flat_step, jamais les deux). Je LEVE ma clause « ni elargir ni reduire l […suite dans le contrat]
+17/09 DECISION SUPERVISEUR (mandat owner) : HUTTE SEULE, 2 essais. Ordre : (1) armer le recensement sur la vue hutte (PrePass.cpp:1568 jamais atteint, `ao_tie_prepass_defects=` present, 7 termes mesures sur la hutte) ; (2) detecteur d'aretes qualifiees automatique (verdict H) ; (3) SEULEMENT ensuite la correction du raccord, par une des deux voies […suite dans le contrat]
 
 ## Livrable
 `ao_tie_prepass_defects` = 0, somme de termes publies SEPAREMENT.

@@ -22,11 +22,12 @@ Ne touche pas au bord donnant sur le VIDE : c'est le sujet de `grass-edge-truth`
 
 ## Ou l'owner regardera
 
-Sur le niveau d'entrainement et a Sandover : le bord des chemins et des zones de terre. L'herbe doit couvrir jusqu'a la limite reelle, sans bande pelee laissant voir la texture, et le chemin doit rester degage.
+A TESTER PLUS TARD, quand l'herbe sera posee sur un niveau qui a des chemins (Sandover, item grass-levels) : le bord des chemins et des zones de terre, l'herbe couvre jusqu'a la limite reelle sans bande pelee, le chemin reste degage. Owner 17/09 : Sandover n'a pas encore d'herbe et Geyser Rock n'a pas de chemin ; ne pas le relister avant.
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-17
+> Pour l'herbe au bord des chemins... Bah sandover t'as pas mis l'herbe donc tu me dis de tester mais elle n'est pas là, sur geyser rock (niveau d'entrainement) c'était déjà bon avant qu'on décide re refaire l'herbe... Et il n'y a pas de chemin.
 
 ## Pourquoi ce fichier existe
 

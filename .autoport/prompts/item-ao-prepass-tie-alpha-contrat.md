@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+17/09 DECISION SUPERVISEUR (mandat owner) : HUTTE SEULE, 2 essais. Ordre : (1) armer le recensement sur la vue hutte (PrePass.cpp:1568 jamais atteint, `ao_tie_prepass_defects=` present, 7 termes mesures sur la hutte) ; (2) detecteur d'aretes qualifiees automatique (verdict H) ; (3) SEULEMENT ensuite la correction du raccord, par une des deux voies non testees (restauration apres flou au profil continu, ou estimateur de creux plus large que 3 px), en tenant bande ET flat_step <= 10 ; si elles se combattent, publier la courbe bande/flat_step pour l'owner. Ne pas rejouer : 4 candidats essai 13, reconstruction 11, supports reduits, deplacement des taps. Une preuve appareil neuve par essai.
+
 16/09 19h — ESSAI 13 LU : la voie que j'avais imposee (poids nul des taps traversants, support inchange) est REFUTEE par la mesure : le creux de contact (3 px) est efface par les BOITES LARGES du flou (29 texels), pas par le cote des taps ; 4 candidats locaux refuses (bande OU flat_step, jamais les deux). Je LEVE ma clause « ni elargir ni reduire le support ». 2 essais restent. ORDRE : (1) d'abord armer le recensement : PrePass.cpp:1568 n'est jamais atteint, donc les 7 termes de ao_owner_defects ne mesurent rien et `ao_tie_prepass_defects=` manque — sans ca aucun essai ne compte ; (2) ensuite UNE des deux voies non testees : restauration APRES le flou au profil CONTINU (pas la reconstruction 11, qui touchait des milliers de pixels hors raccord : borner les pixels hors raccord et le publier), ou estimateur de creux plus large que 3 px ; (3) tenir les DEUX exigences : bande de contact ET flat_step <= 10 (le pixelise des facades que l'owner a vu). Si les deux se combattent vraiment, publier la courbe bande/flat_step des reglages essayes : l'owner tranchera avec des chiffres, pas avec un essai de plus. Ne pas rejouer : deplacement/annulation des taps traversants, borne de sortie des boites larges, enveloppe concave, reflexion, rayon reduit, pli local.
 
 16/09 ARBITRAGE OWNER : « 1 a » = 3 essais, STRATEGIE NOUVELLE, pas une repetition. Lire d'abord handoff.md, FINDINGS.txt, notes/attempt12-summary.md, attempt12-comparison.json. Acquis : essai 10 (flou centre, adafa03109) a reduit la bande claire mur/toit de 7 a 2 px en GTAO sur le Redmi ; residus SSAO2/HBAO1/GTAO2 ; essai 11 (reconstruction) REJETE et retire ; les 3 variantes de support reduit sont REJETEES, ne pas les rejouer. Strategie imposee : (1) preuve USB NEUVE du residu de l'essai 10 avec attempt12-analyze.py sur profils entiers (pics/plateaux apres le premier pixel sombre), publiee terme par terme dans les 7 termes de ao_owner_defects ; (2) SEULEMENT ensuite, corriger le pic clair a +1 px du raccord par une voie qui n'elargit ni ne reduit le support du flou (ex. poids nul des echantillons qui traversent le pli, detecte sur la profondeur/normale), mesuree sur les memes 15 contacts et 425 px identifies ; (3) aucun pixel hors raccord ne change (controle bit-identique des 36 sorties locales). Un essai sans preuve appareil est un echec.
@@ -31,6 +33,9 @@ Ne du blocage de lighting-ao-indirect (13 essais). Handoff de l'essai 13, mesure
 4. LES ACQUIS TIENNENT ET L'OWNER PEUT JUGER : les cinq cles acquises et `ao_static_defects` restent a zero dans la MEME preuve ; `where` decrit exactement ce que l'owner regarde.
 PREUVE : `FEATURE ao-prepass-tie-alpha armed=1 hits=<fragments de TIE statique juges dans la prepasse>` + la ligne `ao_tie_prepass_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
 RETOUR OWNER 15/09 : la bande claire mur/toit de la hutte reste NON CORRIGEE. La clause contact inclut explicitement cette jonction, avec population geometrique identifiee et diagnostic du decalage avant correction. Ne pas conclure depuis une autre vue ou ao_contact_band_px=0 hors de cette population. Preserver les ameliorations confirmees par l owner : AO suivant les shrubs, absence de damier et de pixelisation. Aucun seuil assoupli pour faire disparaitre le signalement.
+
+PERIMETRE 17/09 (owner : « démerdes toi et fait le meilleur choix » -> HUTTE SEULE) : la porte se juge sur la vue signalee par l'owner, le raccord mur/toit de la hutte (capture owner-feedback/2026-09-15-ao-hut-contact.png). Les termes des deux autres vues sont HORS PERIMETRE : ils publient `view_scope=hut` et `ao_other_views_measured=0`, et ne comptent ni defaut ni zero. Verdict ajoute :
+H. DETECTEUR D'ARETES AUTOMATIQUE : la population des aretes mur/toit de la hutte est trouvee par le moteur (angle diedre + profondeur), pas par des triangles choisis a la main ; publier le nombre d'aretes trouvees et leur recouvrement avec les 15 aretes / 425 px identifies a l'essai 10 (>= 80 %). La bande de contact se mesure sur CETTE population.
 
 ## Hors perimetre
 
@@ -59,6 +64,9 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 
 ### 2026-09-15
 > c'est peut-être Lié à un flou "inconditionnel" qui va flouter l'AOnde contact au point de contact tout autant qu'à tout le reste ?
+
+### 2026-09-17
+> Pour l'AO, bah démerdes toi et fait le meilleur choix.
 
 ## Pourquoi ce fichier existe
 
