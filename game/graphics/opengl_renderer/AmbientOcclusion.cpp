@@ -943,6 +943,22 @@ uint64_t s_static_guard_rx = 0;
 uint64_t s_static_guard_ry = 0;
 std::vector<uint8_t> s_static_changed;   // masque : la profondeur de ce texel a bouge
 std::vector<uint32_t> s_static_sat;      // somme cumulee 2D du masque, (w+1) x (h+1)
+// ── (terme 5) LE MEME MASQUE, MAIS SANS SEUIL — POUR NOMMER LA CAUSE, PAS POUR LA JUGER ──────
+// `kSameGeom` vaut 4 quanta de profondeur 24 bits : un mobile qui se deplace MOINS que ca d'une
+// image a l'autre reste dans la population alors que l'estimateur d'AO, lui, l'a vu bouger. Le
+// signalement de l'essai 16 de `lighting-ao-indirect` le disait deja et personne ne l'a chiffre.
+// Ces deux compteurs le chiffrent, SANS toucher a la definition du terme : parmi les texels
+// comptes « l'AO a bouge alors que rien n'a bouge », combien ont, a UN quantum pres (egalite
+// stricte des entiers 24 bits relus), soit un voisin dans la boite qui a bouge, soit une
+// profondeur a eux qui a bouge. Si la quasi-totalite tombe dedans, le residu est un defaut du
+// SEUIL, pas une instabilite de l'AO — et ca se lit au lieu de se supposer.
+std::vector<uint8_t> s_static_changed_x;  // masque exact (zn != zo), aucun seuil
+std::vector<uint32_t> s_static_sat_x;     // sa somme cumulee 2D
+uint64_t s_static_moved_near_any = 0;   // ... dont un voisin de la boite a bouge, seuil 0
+uint64_t s_static_moved_self_dz = 0;    // ... dont la profondeur PROPRE a bouge, seuil 0
+uint64_t s_static_moved_worst_ao = 0;   // le plus gros ecart d'AO (unites R8) parmi eux
+uint64_t s_static_moved_worst_x = 0, s_static_moved_worst_y = 0;
+uint64_t s_static_moved_worst_state = 0, s_static_moved_worst_dzq = 0;
 
 // ── (l) LE FILTRE BILATERAL NE TRAVERSE PAS LES ARETES ───────────────────────────────────────
 // Relecture de la passe de RAPPORT du flou (`u_blur_report`). Indice 0 : bras ARME (rejet franc
@@ -2149,6 +2165,16 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
             }
             s_static_changed[i] = moved_geom ? 1u : 0u;
           }
+          // (terme 5, diagnostic) le MEME masque, seuil 0 : « ce texel a-t-il bouge du tout ».
+          if (s_static_changed_x.size() < n) {
+            s_static_changed_x.resize(n);
+          }
+          for (size_t i = 0; i < n; i++) {
+            const double zn = (double)s_depth_buf[i];
+            const double zo = (double)s_prev_depth[state][i];
+            const bool sn = (zn <= 1e-9), so = (zo <= 1e-9);
+            s_static_changed_x[i] = (sn && so) ? 0u : ((sn != so || zn != zo) ? 1u : 0u);
+          }
           // ── LA BOITE DE CONFINEMENT : 0,10 EN UV, ET CE N'EST PAS UN REGLAGE ───────────
           // C'est la borne que les estimateurs se donnent EUX-MEMES sur leur marche d'ecran :
           // `ao_gtao.frag:155` et `ao_hbao.frag:148` font tous deux
@@ -2181,6 +2207,31 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
               s_static_sat[o0 + (size_t)x + 1] = s_static_sat[om + (size_t)x + 1] + row;
             }
           }
+          // (terme 5, diagnostic) la MEME table de surface, sur le masque sans seuil.
+          if (s_static_sat_x.size() < sw * sh) {
+            s_static_sat_x.resize(sw * sh);
+          }
+          for (size_t x = 0; x < sw; x++) {
+            s_static_sat_x[x] = 0;
+          }
+          for (int y = 0; y < h; y++) {
+            uint32_t row = 0;
+            const size_t o0 = (size_t)(y + 1) * sw;
+            const size_t om = (size_t)y * sw;
+            s_static_sat_x[o0] = 0;
+            for (int x = 0; x < w; x++) {
+              row += (uint32_t)s_static_changed_x[(size_t)y * (size_t)w + (size_t)x];
+              s_static_sat_x[o0 + (size_t)x + 1] = s_static_sat_x[om + (size_t)x + 1] + row;
+            }
+          }
+          auto box_changed_x = [&](int x, int y) -> uint32_t {
+            const int x0 = std::max(0, x - rx), y0 = std::max(0, y - ry);
+            const int x1 = std::min(w - 1, x + rx), y1 = std::min(h - 1, y + ry);
+            return s_static_sat_x[(size_t)(y1 + 1) * sw + (size_t)(x1 + 1)] -
+                   s_static_sat_x[(size_t)y0 * sw + (size_t)(x1 + 1)] -
+                   s_static_sat_x[(size_t)(y1 + 1) * sw + (size_t)x0] +
+                   s_static_sat_x[(size_t)y0 * sw + (size_t)x0];
+          };
           auto box_changed = [&](int x, int y) -> uint32_t {
             const int x0 = std::max(0, x - rx), y0 = std::max(0, y - ry);
             const int x1 = std::min(w - 1, x + rx), y1 = std::min(h - 1, y + ry);
@@ -2214,6 +2265,22 @@ void pattern_census(int quality, int state, float scale, GLuint ao_full_fbo, int
               spop++;
               if (ao_moved) {
                 smoved++;
+                // (terme 5, diagnostic) CE QUI A BOUGE MALGRE TOUT, sans seuil de profondeur.
+                if (box_changed_x(x, y) != 0) {
+                  s_static_moved_near_any++;
+                }
+                if (zn != zo) {
+                  s_static_moved_self_dz++;
+                }
+                const uint64_t ad = (uint64_t)(d < 0 ? -d : d);
+                if (ad > s_static_moved_worst_ao) {
+                  s_static_moved_worst_ao = ad;
+                  s_static_moved_worst_x = (uint64_t)x;
+                  s_static_moved_worst_y = (uint64_t)y;
+                  s_static_moved_worst_state = (uint64_t)state;
+                  s_static_moved_worst_dzq =
+                      (uint64_t)(std::fabs(zn - zo) * 16777215.0 + 0.5);
+                }
               }
             }
           }
@@ -2809,6 +2876,18 @@ void AmbientOcclusionPass::publish_pattern_census() {
   autoport_proof::publish("ao_static_cam_measured", static_measured ? 1ull : 0ull);
   if (static_measured) {
     autoport_proof::publish("ao_static_cam_delta_px", static_moved);
+    // (terme 5, diagnostic) LE RESIDU, NOMME. `_near_any_px` / `_self_dz_px` disent combien des
+    // texels comptes ont, sans AUCUN seuil, un voisin de la boite ou eux-memes une profondeur qui
+    // a change : c'est la mesure du signalement « kSameGeom = 4 quanta laisse passer les mobiles
+    // lents » (FINDINGS de l'essai 16 de lighting-ao-indirect). Les `_worst_*` donnent le texel a
+    // regarder. Aucun de ces compteurs n'entre dans un terme.
+    autoport_proof::publish("ao_static_moved_near_any_px", s_static_moved_near_any);
+    autoport_proof::publish("ao_static_moved_self_dz_px", s_static_moved_self_dz);
+    autoport_proof::publish("ao_static_moved_worst_ao", s_static_moved_worst_ao);
+    autoport_proof::publish("ao_static_moved_worst_x", s_static_moved_worst_x);
+    autoport_proof::publish("ao_static_moved_worst_y", s_static_moved_worst_y);
+    autoport_proof::publish("ao_static_moved_worst_state", s_static_moved_worst_state);
+    autoport_proof::publish("ao_static_moved_worst_dzq", s_static_moved_worst_dzq);
     autoport_proof::publish("ao_static_cam_legacy_px", static_legacy);
   } else {
     autoport_proof::publish_text("ao_static_cam_delta_px", "non-mesure");
