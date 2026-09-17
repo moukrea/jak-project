@@ -1968,6 +1968,19 @@
                (set! (-> obj nb-of-icons) 0))))))))
   (none))
 
+(defun hud3d-jgeo-ok? ((sg skeleton-group))
+  "REJOUE LA GARDE `joint-geo` D'`initialize-skeleton` (process-drawable.gc:394-398) SUR LE GROUPE
+   D'ART REELLEMENT CHARGE. C'est le seul chemin restant par lequel un `manipy` peut revenir sans
+   squelette alors que son groupe d'art EST la, et c'est une chose qui se mesure au lieu de se
+   supposer : l'indice de la geometrie de squelette est fige a la COMPILATION ; si le fichier
+   d'art livre n'a plus le meme ordre d'elements, l'indice ne designe plus un `art-joint-geo`."
+  (let ((ag (art-group-get-by-name (-> *level* level-default) (-> sg art-group-name))))
+    (if (and ag (< (-> sg jgeo) (-> ag length)) (= (-> ag data (-> sg jgeo) type) art-joint-geo)) 1 0)))
+
+(defun hud3d-ag-len ((sg skeleton-group))
+  (let ((ag (art-group-get-by-name (-> *level* level-default) (-> sg art-group-name))))
+    (if ag (-> ag length) -1)))
+
 (defun hud3d-orb-state ((this hud-3d-pickups))
   "NOMME ce qui manque a l'emplacement orbe, au lieu de le deviner.
    0 aucun element `hud-money` · 1 element sans icone · 2 slot d'icone vide ·
@@ -2124,6 +2137,12 @@
                            (if (art-group-get-by-name (-> *level* level-default) "fuelcell-naked") 1 0))
     (__pc-autoport-publish "hud3d_artgrp_buzzer"
                            (if (art-group-get-by-name (-> *level* level-default) "buzzer") 1 0))
+    (__pc-autoport-publish "hud3d_money_jgeo_idx" (-> *money-sg* jgeo))
+    (__pc-autoport-publish "hud3d_money_ag_len" (hud3d-ag-len *money-sg*))
+    (__pc-autoport-publish "hud3d_money_jgeo_ok" (hud3d-jgeo-ok? *money-sg*))
+    (__pc-autoport-publish "hud3d_cell_jgeo_idx" (-> *fuel-cell-sg* jgeo))
+    (__pc-autoport-publish "hud3d_cell_ag_len" (hud3d-ag-len *fuel-cell-sg*))
+    (__pc-autoport-publish "hud3d_cell_jgeo_ok" (hud3d-jgeo-ok? *fuel-cell-sg*))
     (__pc-autoport-publish "hud3d_artgrp_money_any"
                            (if (art-group-get-by-name *level* "money") 1 0))
     (hud3d-pub-name "hud3d_model_cell" n-cell)
