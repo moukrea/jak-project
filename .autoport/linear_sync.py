@@ -221,11 +221,44 @@ def ensure_projects(L, team_id):
     return have
 
 
+LABEL_READ = "À lire : réponse du harnais"
+
+
+def ensure_label(L, team_id):
+    d = L.q('query($t:String!){ team(id:$t){ labels { nodes { id name } } } }', t=team_id)
+    for l in d["team"]["labels"]["nodes"]:
+        if l["name"] == LABEL_READ:
+            return l["id"]
+    r = L.q('mutation($i:IssueLabelCreateInput!){ issueLabelCreate(input:$i){ issueLabel { id } } }',
+            i={"teamId": team_id, "name": LABEL_READ, "color": "#f2994a"})
+    return r["issueLabelCreate"]["issueLabel"]["id"]
+
+
+def ensure_view(L, team_id, label_id):
+    d = L.q('{ customViews { nodes { id name } } }')
+    for v in d["customViews"]["nodes"]:
+        if v["name"] == "À lire":
+            return v["id"]
+    r = L.q('mutation($i:CustomViewCreateInput!){ customViewCreate(input:$i){ customView { id } } }',
+            i={"name": "À lire", "teamId": team_id, "icon": "Inbox", "color": "#f2994a",
+               "description": "Tickets où le harnais t'a répondu et que tu n'as pas encore relus. L'étiquette tombe dès que tu commentes.",
+               "filterData": {"labels": {"some": {"id": {"eq": label_id}}}}})
+    return r["customViewCreate"]["customView"]["id"]
+
+
+def set_read_label(L, issue_id, label_id, on):
+    d = L.q('query($id:String!){ issue(id:$id){ labels { nodes { id } } } }', id=issue_id)
+    ids = [l["id"] for l in d["issue"]["labels"]["nodes"]]
+    want = sorted(set(ids) | {label_id}) if on else [i for i in ids if i != label_id]
+    if want != ids:
+        L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=issue_id, i={"labelIds": want})
+
+
 def viewer_id(L):
     return L.q("{ viewer { id } }")["viewer"]["id"]
 
 
-def pull_owner(L, bl, mp, states_by_id, dry):
+def pull_owner(L, bl, mp, states_by_id, dry, label_id=None):
     """Commentaires sans marqueur et deplacements faits a la main -> backlog."""
     pulled = 0
     ids = [v["issue_id"] for v in mp.values()]
@@ -248,6 +281,8 @@ def pull_owner(L, bl, mp, states_by_id, dry):
                     bl.add_owner_feedback(iid, date, c["body"].strip()); bl = B.load()
                 pulled += 1
                 newest = max(newest, c["createdAt"])
+            if newest != since and label_id and not dry:
+                set_read_label(L, iss["id"], label_id, False)
             rec["pulled_at"] = newest
             here = iss["state"]["name"]
             if here != rec.get("last_state") and rec.get("last_state"):
@@ -276,7 +311,9 @@ def main():
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
         L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + (a.body or "").strip()})
-        print("commentaire poste sur", rec["identifier"]); return
+        team = ensure_team(L); label = ensure_label(L, team); ensure_view(L, team, label)
+        set_read_label(L, rec["issue_id"], label, True)
+        print("commentaire poste sur", rec["identifier"], "+ etiquette « A lire »"); return
     bl = B.load()
     retries = {}
     if STATE_JSON.exists():
@@ -286,8 +323,9 @@ def main():
     states = ensure_states(L, team)
     projects = ensure_projects(L, team)
     today = dt.date.today()
+    label = ensure_label(L, team); ensure_view(L, team, label)
     if mp and not a.no_pull:
-        pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run)
+        pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label)
         bl = B.load()
     created = updated = moved = 0
     for it in bl.items:
@@ -321,6 +359,8 @@ def main():
                 lv = last_verdict(iid)
                 body = MARK + "→ **%s**" % st + (("\n" + lv) if lv else "") + (("\nBloqué : " + str(it.get("block_reason"))[:300]) if it["status"] == "blocked" else "")
                 L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": body})
+                if st == "À tester":
+                    set_read_label(L, rec["issue_id"], label, True)
                 moved += 1
             rec.update({"last_state": st, "hash": h})
             updated += 1
