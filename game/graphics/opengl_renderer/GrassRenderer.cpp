@@ -30,6 +30,7 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/grass_baseline.h"
@@ -700,10 +701,35 @@ void begin_contact_frame() {
   float pub_now =
       std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
   pub_now = shrub_proof_inputs::value("contact/time", pub_now);
-  grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
+  // L'HORLOGE DU CONTACT S'EPINGLE SUR LA FRAME DE LOGIQUE, COMME CELLE DE LA BRISE.
+  // 2026-09-17, ao-prepass-tie-alpha : `u_time` n'etait epingle que sous `refset::enabled()`,
+  // jamais sous la sonde statique. Il descend dans `u_jak_trail[ti].w` (:754), puis dans
+  // `vegetation_contact.glsl:38-49`, puis dans un DEPLACEMENT DE SOMMET (`shrub.vert:97`) :
+  // deux courses appareil du MEME binaire au MEME tick logique pliaient donc les cartes de
+  // shrub voisines de Jak differemment. Mesure : sur quatre captures de l'image 1400, 479077
+  // pixels sur 480000 sont bit-identiques et les seuls qui bougent sont DEUX quadrilateres
+  // semi-transparents hors TIE (notes/attempt19-plancher.md). Temoins de la meme preuve :
+  // `wind_contact_jak_samples=5821` pour `wind_contact_uploads=1463`, `wind_contact_tie_*=0`
+  // — les seuls contacts vivants sont Jak et son sillage, cote SHRUB seulement.
+  // `:744` et `:753` sont des fonctions PURES de `u_time` : pas besoin du garde « un pas par
+  // frame de logique » qu'exige l'accumulateur de `foliage_wind::set_wind_state`.
+  static int64_t s_contact_lf = -1;
+  static uint64_t s_contact_pins = 0;
+  const int64_t probe_lf = prepass::static_probe_logic_frame();
+  const bool pin = probe_lf >= 0;
+  const bool fresh_lf = pin && probe_lf != s_contact_lf;
+  if (fresh_lf) {
+    s_contact_lf = probe_lf;
+    autoport_proof::publish("ao_contact_time_pinned", ++s_contact_pins);
+  }
+  // Le `dt` de l'accumulateur d'objets avance d'un pas par frame de logique NEUVE, zero sinon :
+  // deux images de rendu du meme tick ne doivent pas le faire avancer deux fois.
+  grass_occ::publish(pin ? (fresh_lf ? 1.f / 60.f : 0.f)
+                         : (s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev));
   s_pub_prev = pub_now;
-  const float u_time = refset::enabled() && refset::render_logic_frame() >= 0
-      ? (float)refset::render_logic_frame() / 60.f : pub_now;
+  const float u_time = pin ? (float)probe_lf / 60.f
+      : (refset::enabled() && refset::render_logic_frame() >= 0
+             ? (float)refset::render_logic_frame() / 60.f : pub_now);
   std::array<float, 4> jp, jl;
   std::copy_n(Gfx::settings().recharged_jak_pos, 4, jp.begin());
   std::copy_n(Gfx::settings().recharged_jak_ledge, 4, jl.begin());

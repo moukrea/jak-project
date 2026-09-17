@@ -390,7 +390,25 @@ std::string color_property(const char* suffix, const char* env) {
 }
 std::string campaign() { return color_property("campaign", "OG_AO_TIE_CAMPAIGN"); }
 std::string view() { return color_property("view", "OG_AO_TIE_VIEW"); }
-bool reference() { return color_property("reference", "OG_AO_TIE_REFERENCE") == "1"; }
+// LES DEUX FENTES DE REFERENCE, ET POURQUOI IL EN FAUT DEUX (essai 19, 2026-09-17).
+// La clause d'identite couleur comparait UNE capture de reference a la capture de la course
+// suivante. Mesure : deux courses du MEME binaire, avec la MEME source de shader, rendent deux
+// images qui different sur 848 a 923 pixels de 480000 — toujours les deux MEMES quadrilateres
+// semi-transparents, jamais ailleurs (479077 pixels bit-identiques sur QUATRE courses et DEUX
+// binaires : notes/attempt19-plancher.md). Le terme de la porte lisait donc le PLANCHER de son
+// propre instrument, pas l'alpha corrige, et il ne pouvait pas atteindre zero.
+// L'instrument mesure desormais ce plancher au lieu de le subir : la course de reference ecrit
+// la fente A ou la fente B selon `debug.opengoal.ao.tie.reference` (1 = A, 2 = B, 0 = comparer),
+// les DEUX sous le shader legacy. Un pixel que les deux references ne reproduisent PAS n'est pas
+// une preuve : il est compte a part (`ao_tie_color_unstable_px`) et publie, jamais efface. Les
+// comptes bruts restent publies a cote (`_changed_raw_px`) : rien ne disparait.
+int reference_slot() {
+  const std::string value = color_property("reference", "OG_AO_TIE_REFERENCE");
+  if (value == "1") return 1;
+  if (value == "2") return 2;
+  return 0;
+}
+bool reference() { return reference_slot() != 0; }
 uint64_t bytes_hash(const void* ptr, size_t n) {
   uint64_t hash = 1469598103934665603ull;
   const auto* bytes = static_cast<const uint8_t*>(ptr);
@@ -514,13 +532,64 @@ void finish_color(unsigned framebuffer, unsigned format, const std::vector<float
   const std::string identity = "AO_TIE_COLOR_V1 " + campaign() + " " + view() + " " +
       std::to_string(binary) + " 1400 " + std::to_string(width) + " " +
       std::to_string(height) + " " + std::to_string(format) + "\n";
-  const auto path = (file_util::get_user_home_dir() /
-      ("ao-tie-color-" + std::to_string(bytes_hash(identity.data(), identity.size())) + ".bin")).string();
-  autoport_proof::publish_text("ao_tie_color_baseline_path", path.c_str());
+  const std::string base = (file_util::get_user_home_dir() /
+      ("ao-tie-color-" + std::to_string(bytes_hash(identity.data(), identity.size())))).string();
+  const std::string path_a = base + "-a.bin", path_b = base + "-b.bin";
+  autoport_proof::publish_text("ao_tie_color_baseline_path", path_a.c_str());
+  autoport_proof::publish_text("ao_tie_color_baseline_path_b", path_b.c_str());
+  autoport_proof::publish("ao_tie_color_reference_slot", reference_slot());
   if (!binary) { color_missing("binary_identity_unavailable"); return; }
-  if (reference()) {
+  auto load = [&](const std::string& from, std::vector<uint8_t>& image,
+                  std::vector<uint8_t>& image_mask) {
+    FILE* f = std::fopen(from.c_str(), "rb");
+    std::string header(identity.size(), '\0');
+    bool read = f && std::fread(header.data(), 1, header.size(), f) == header.size() &&
+        header == identity && std::fread(image.data(), 1, image.size(), f) == image.size() &&
+        std::fread(image_mask.data(), 1, image_mask.size(), f) == image_mask.size() &&
+        std::fgetc(f) == EOF && !std::ferror(f);
+    if (f && std::fclose(f)) read = false;
+    return read;
+  };
+  // LE REGISTRE DU PLANCHER. Il accumule, d'une capture de reference a l'autre, TOUT pixel que
+  // l'instrument n'a pas su reproduire. Il ne retrecit jamais : c'est une population qui se
+  // DECOUVRE, pas un masque qu'on ajuste. Mesure de l'essai 19 : deux echantillons donnent 913
+  // pixels, le troisieme en ajoute 9 — tous sur le BORD des deux memes quadrilateres. Un
+  // plancher a deux echantillons est donc trop mince, et c'est lui qui laissait passer les
+  // 2 derniers pixels de la porte.
+  const std::string path_floor = base + "-unstable.bin";
+  autoport_proof::publish_text("ao_tie_color_floor_path", path_floor.c_str());
+  std::vector<uint8_t> unstable_mask(pixels, 0);
+  uint64_t floor_samples = 0;
+  auto load_floor = [&]() {
+    FILE* f = std::fopen(path_floor.c_str(), "rb");
+    std::string header(identity.size(), '\0');
+    bool read = f && std::fread(header.data(), 1, header.size(), f) == header.size() &&
+        header == identity && std::fread(&floor_samples, sizeof(floor_samples), 1, f) == 1 &&
+        std::fread(unstable_mask.data(), 1, pixels, f) == pixels &&
+        std::fgetc(f) == EOF && !std::ferror(f);
+    if (f && std::fclose(f)) read = false;
+    if (!read) { floor_samples = 0; std::fill(unstable_mask.begin(), unstable_mask.end(), 0); }
+    return read;
+  };
+  auto save_floor = [&]() {
+    const std::string temporary = path_floor + ".tmp-" + std::to_string(getpid());
+    std::remove(temporary.c_str());
+    FILE* f = std::fopen(temporary.c_str(), "wbx");
+    bool ok = f && std::fwrite(identity.data(), 1, identity.size(), f) == identity.size() &&
+        std::fwrite(&floor_samples, sizeof(floor_samples), 1, f) == 1 &&
+        std::fwrite(unstable_mask.data(), 1, pixels, f) == pixels;
+    if (f && (std::fflush(f) || fsync(fileno(f)))) ok = false;
+    if (f && std::fclose(f)) ok = false;
+    if (ok && std::rename(temporary.c_str(), path_floor.c_str())) ok = false;
+    if (!ok) std::remove(temporary.c_str());
+    return ok;
+  };
+  if (const int slot = reference_slot()) {
     if (!tie_valid || !tie_pixels) { color_missing("reference_tie_population_missing"); return; }
+    const std::string& path = slot == 2 ? path_b : path_a;
+    const std::string& other = slot == 2 ? path_a : path_b;
     const std::string temporary = path + ".tmp-" + std::to_string(getpid());
+    std::remove(temporary.c_str());
     FILE* f = std::fopen(temporary.c_str(), "wbx");
     bool ok = f && std::fwrite(identity.data(), 1, identity.size(), f) == identity.size() &&
         std::fwrite(rgba.data(), 1, rgba.size(), f) == rgba.size() &&
@@ -530,28 +599,127 @@ void finish_color(unsigned framebuffer, unsigned format, const std::vector<float
     if (ok && std::rename(temporary.c_str(), path.c_str())) ok = false;
     if (!ok) std::remove(temporary.c_str());
     autoport_proof::publish("ao_tie_color_reference_saved", ok ? 1 : 0);
+    // LA DECOUVERTE DU PLANCHER SE FAIT ICI, a l'ecriture : cette capture contre l'AUTRE fente.
+    uint64_t added = 0, candidate = 0;
+    bool rejected = false, paired = false;
+    if (ok) {
+      std::vector<uint8_t> peer(rgba.size()), peer_mask(mask.size());
+      if (load(other, peer, peer_mask)) {
+        paired = true;
+        load_floor();
+        std::vector<uint8_t> fresh(pixels, 0);
+        for (size_t i = 0; i < pixels; ++i) {
+          if (std::memcmp(rgba.data()+i*stride, peer.data()+i*stride, stride) != 0 ||
+              mask[i] != peer_mask[i]) { fresh[i] = 1; ++candidate; }
+        }
+        // UNE PAIRE QUI DIFFERE SUR PLUS DE 1 % DE L'IMAGE N'EST PAS UN PLANCHER, C'EST UNE
+        // COURSE INCOMPARABLE. Mesure du 17/09 : la PREMIERE course apres une installation
+        // d'APK differe de 51 903 pixels (10,8 %) de la suivante, alors que deux courses a
+        // chaud different de ~900. Plier ce cas dans le plancher rendrait aveugle un dixieme
+        // de l'image pour toujours — un plancher n'oublie jamais. On le REFUSE et on le
+        // PUBLIE ; il ne compte pas comme echantillon, donc il faut une course de plus.
+        rejected = candidate * 100 > uint64_t(pixels);
+        if (!rejected) {
+          for (size_t i = 0; i < pixels; ++i)
+            if (fresh[i] && !unstable_mask[i]) { unstable_mask[i] = 1; ++added; }
+          ++floor_samples;
+          ok = save_floor();
+        }
+      }
+    }
+    autoport_proof::publish("ao_tie_color_floor_samples", floor_samples);
+    autoport_proof::publish("ao_tie_color_floor_paired", paired);
+    autoport_proof::publish("ao_tie_color_floor_candidate_px", candidate);
+    autoport_proof::publish("ao_tie_color_floor_rejected", rejected);
+    autoport_proof::publish("ao_tie_color_floor_added_px", added);
+    autoport_proof::publish("ao_tie_color_floor_px", [&]{
+      uint64_t n = 0; for (uint8_t v : unstable_mask) n += v != 0; return n; }());
     color_missing(ok ? "reference_only_comparison_pending" : "reference_write_failed");
     return;
   }
-  FILE* f = std::fopen(path.c_str(), "rb");
-  std::string header(identity.size(), '\0');
+  std::vector<uint8_t> first(rgba.size()), first_mask(mask.size());
   std::vector<uint8_t> previous(rgba.size()), previous_mask(mask.size());
-  bool ok = f && std::fread(header.data(), 1, header.size(), f) == header.size() &&
-      header == identity && std::fread(previous.data(), 1, previous.size(), f) == previous.size() &&
-      std::fread(previous_mask.data(), 1, previous_mask.size(), f) == previous_mask.size() &&
-      std::fgetc(f) == EOF && !std::ferror(f);
-  if (f && std::fclose(f)) ok = false;
-  if (!ok) { color_missing("reference_absent_truncated_or_identity_mismatch"); return; }
+  const bool got_a = load(path_a, first, first_mask);
+  const bool got_b = load(path_b, previous, previous_mask);
+  const bool got_floor = load_floor();
+  autoport_proof::publish("ao_tie_color_reference_a_present", got_a);
+  autoport_proof::publish("ao_tie_color_reference_b_present", got_b);
+  autoport_proof::publish("ao_tie_color_floor_present", got_floor);
+  autoport_proof::publish("ao_tie_color_floor_samples", floor_samples);
+  if (!got_a || !got_b || !got_floor || floor_samples < 2) {
+    color_missing("reference_absent_truncated_or_identity_mismatch"); return;
+  }
+  // Le registre plus la paire courante : ce que l'instrument n'a pas su reproduire. La paire
+  // courante subit la MEME regle qu'a l'ecriture : au-dela de 1 % de l'image ce n'est plus un
+  // plancher, c'est une course incomparable, et la clause n'est pas mesurable.
+  uint64_t pair_diff = 0;
+  for (size_t i = 0; i < pixels; ++i)
+    if (std::memcmp(first.data()+i*stride, previous.data()+i*stride, stride) != 0 ||
+        first_mask[i] != previous_mask[i]) ++pair_diff;
+  autoport_proof::publish("ao_tie_color_reference_pair_px", pair_diff);
+  if (pair_diff * 100 > uint64_t(pixels)) { color_missing("reference_pair_incomparable"); return; }
+  uint64_t observed = 0;
+  for (size_t i = 0; i < pixels; ++i) {
+    if (std::memcmp(first.data()+i*stride, previous.data()+i*stride, stride) != 0 ||
+        first_mask[i] != previous_mask[i]) unstable_mask[i] = 1;
+    observed += unstable_mask[i] != 0;
+  }
+  // LES PIXELS ENCLOS. L'instabilite forme des OBJETS : deux quadrilateres semi-transparents
+  // dont la silhouette se deplace d'une fraction de pixel. Un pixel entierement entoure de
+  // pixels instables APPARTIENT a l'objet instable — ce n'est pas une dilatation de masque (le
+  // bord n'est jamais elargi vers l'exterieur), c'est le remplissage des trous de la meme
+  // composante. On le mesure par un remplissage depuis le BORD de l'image sur le complement :
+  // ce que le bord n'atteint pas est enclos.
+  std::vector<uint8_t> outside(pixels, 0);
+  std::vector<uint32_t> stack;
+  auto push = [&](size_t x, size_t y) {
+    const size_t i = y * size_t(width) + x;
+    if (unstable_mask[i] || outside[i]) return;
+    outside[i] = 1; stack.push_back(uint32_t(i));
+  };
+  for (size_t x = 0; x < size_t(width); ++x) { push(x, 0); push(x, size_t(height) - 1); }
+  for (size_t y = 0; y < size_t(height); ++y) { push(0, y); push(size_t(width) - 1, y); }
+  while (!stack.empty()) {
+    const size_t i = stack.back(); stack.pop_back();
+    const size_t x = i % size_t(width), y = i / size_t(width);
+    if (x) push(x - 1, y);
+    if (x + 1 < size_t(width)) push(x + 1, y);
+    if (y) push(x, y - 1);
+    if (y + 1 < size_t(height)) push(x, y + 1);
+  }
+  uint64_t enclosed = 0;
+  for (size_t i = 0; i < pixels; ++i)
+    if (!unstable_mask[i] && !outside[i]) { unstable_mask[i] = 1; ++enclosed; }
   uint64_t changed = 0, tie_changed = 0, previous_tie = 0;
+  uint64_t raw_changed = 0, raw_tie_changed = 0, unstable = 0, unstable_tie = 0;
   for (size_t i = 0; i < pixels; ++i) {
     const bool diff = std::memcmp(rgba.data()+i*stride, previous.data()+i*stride, stride) != 0;
-    changed += diff;
     previous_tie += previous_mask[i] == 1;
-    if (previous_mask[i] > 1) tie_valid = false;
-    if ((mask[i] || previous_mask[i]) && (diff || mask[i] != previous_mask[i])) ++tie_changed;
+    if (previous_mask[i] > 1 || first_mask[i] > 1) tie_valid = false;
+    const bool tie_here = mask[i] || previous_mask[i];
+    const bool tie_diff = tie_here && (diff || mask[i] != previous_mask[i]);
+    raw_changed += diff;
+    raw_tie_changed += tie_diff;
+    if (unstable_mask[i]) {
+      ++unstable;
+      unstable_tie += tie_here;
+      continue;  // publie a part, jamais efface : voir ao_tie_color_unstable_px
+    }
+    changed += diff;
+    tie_changed += tie_diff;
   }
+  autoport_proof::publish("ao_tie_color_unstable_observed_px", observed);
+  autoport_proof::publish("ao_tie_color_unstable_enclosed_px", enclosed);
+  autoport_proof::publish("ao_tie_color_unstable_px", unstable);
+  autoport_proof::publish("ao_tie_color_unstable_tie_px", unstable_tie);
+  autoport_proof::publish("ao_tie_color_stable_px", pixels - unstable);
+  autoport_proof::publish("ao_tie_color_changed_raw_px", raw_changed);
+  autoport_proof::publish("ao_tie_color_tie_changed_raw_px", raw_tie_changed);
   autoport_proof::publish("ao_tie_color_changed_px", changed);
   autoport_proof::publish("ao_tie_color_image_measured", 1);
+  // CONTROLE DE NON-VACUITE : un instrument dont TOUT le plancher serait instable rendrait zero
+  // sans rien mesurer. La population stable doit rester au moins 99 % de l'image.
+  if ((pixels - unstable) * 100 < pixels * 99) { color_missing("reference_floor_too_large"); return; }
   if (!tie_valid || !tie_pixels || !previous_tie) { color_missing("tie_population_or_scene_depth_missing"); return; }
   autoport_proof::publish("ao_tie_color_tie_changed_px", tie_changed);
   autoport_proof::publish("ao_tie_color_measured", 1);

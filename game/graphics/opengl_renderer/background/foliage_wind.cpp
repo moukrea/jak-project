@@ -500,22 +500,45 @@ void set_wind_state(float x, float z, bool paused_now) {
   if (!(dt > 0.f) || dt > 0.5f) {
     dt = 0.f;  // un a-coup de chargement ne fait pas tourner le vent d'un quart de tour
   }
-  if (refset::enabled()) {
-    // UN PAS PAR FRAME DE LOGIQUE, PAS PAR APPEL. Ce lissage est un ACCUMULATEUR : poser
-    // `dt = 1/60` ne suffit pas, parce que cette fonction est appelee une fois par image RENDUE
-    // et que la course en dessine plusieurs par image simulee (mesure du 2026-09-06 sur
-    // eae4df44 : `frames=16320` pour `refset_pump_logic=5223`, soit 3,1 appels par frame de
-    // logique, et ce rapport depend de la charge). On ne fait donc avancer le filtre que sur une
-    // frame de logique NEUVE ; les appels suivants de la meme frame rendent le cap deja calcule.
+  // LE CAP S'EPINGLE SUR LA FRAME DE LOGIQUE, SOUS REFSET **ET** SOUS LA SONDE STATIQUE.
+  // UN PAS PAR FRAME DE LOGIQUE, PAS PAR APPEL. Ce lissage est un ACCUMULATEUR : poser
+  // `dt = 1/60` ne suffit pas, parce que cette fonction est appelee une fois par image RENDUE
+  // et que la course en dessine plusieurs par image simulee (mesure du 2026-09-06 sur
+  // eae4df44 : `frames=16320` pour `refset_pump_logic=5223`, soit 3,1 appels par frame de
+  // logique, et ce rapport depend de la charge). On ne fait donc avancer le filtre que sur une
+  // frame de logique NEUVE ; les appels suivants de la meme frame rendent le cap deja calcule.
+  //
+  // 2026-09-17, ao-prepass-tie-alpha : `clock_seconds` ci-dessus etait epingle par la sonde
+  // (`prepass::static_probe_logic_frame()`), CE filtre-ci ne l'etait pas. Il gardait donc un
+  // `dt` de `steady_clock` dans une course de preuve, et comme c'est un accumulateur exponentiel
+  // l'ecart ne se referme jamais : deux courses du MEME binaire au MEME tick logique rendaient
+  // deux caps differents, donc deux silhouettes de touffes differentes. MESURE : deux captures
+  // de l'image 1400 ecrites par le meme md5 avec la MEME source de shader different sur
+  // 848 pixels sur 480000, tous hors TIE, groupes dans x[208,371] y[217,369] — la clause
+  // d'identite couleur de la porte lisait CE tremblement, pas l'alpha corrige
+  // (notes/attempt19/, diff des deux `ao-tie-color-*.bin`). Hors sonde et hors refset le chemin
+  // reste celui d'avant, ligne pour ligne : le joueur ne voit rien changer.
+  const int64_t probe_lf = prepass::static_probe_logic_frame();
+  static bool s_pin_seen = false;
+  if (probe_lf >= 0) {
+    s_pin_seen = true;
+  }
+  if (probe_lf >= 0 || refset::enabled()) {
     static int64_t s_lf_last = -1;
-    const int64_t lf = refset::render_logic_frame();
+    static uint64_t s_pin_count = 0;
+    const int64_t lf = probe_lf >= 0 ? probe_lf : refset::render_logic_frame();
     if (lf >= 0) {
       if (lf == s_lf_last) {
         return;
       }
       s_lf_last = lf;
+      autoport_proof::publish("ao_wind_dir_pinned", ++s_pin_count);
     }
     dt = 1.f / 60.f;
+  } else if (s_pin_seen) {
+    // La sonde a deja epingle cette course : un trou de frame de logique ne doit PAS rouvrir
+    // l'horloge murale au point de production. On ne fait simplement pas avancer le filtre.
+    dt = 0.f;
   }
   dt = shrub_proof_inputs::value("direction/dt", dt);
   if (!s_seeded) {

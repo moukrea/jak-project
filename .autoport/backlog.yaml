@@ -12223,7 +12223,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.ao.tie.campaign=tie-alpha-20260916-attempt14
   - debug.opengoal.ao.tie.view=village1-hut
-  - debug.opengoal.ao.tie.reference=1
+  - debug.opengoal.ao.tie.reference=0
   priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
@@ -13114,3 +13114,6 @@ items:
     text: Déplacé en « Done » dans Linear par l'owner
   - date: '2026-09-17'
     text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
+  - date: '2026-09-17'
+    text: Bah les nouveaux tickets de Linear devraient attérir dans le backlog non ? sinon c'est dissonant
+      et ça va exploser dans le temps !
