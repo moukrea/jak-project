@@ -1,32 +1,30 @@
-# Handoff — ao-prepass-tie-alpha (essai 17, 2026-09-16)
-DIRECTIVES v775512c234
-## ETABLI (3 courses appareil eae4df44, 2 binaires, 1860 images, crash=0)
-- Le bras TEMOIN du recensement d'AO etait MORT sur appareil : `PrePass.cpp:1605` tirait `st` de
-  `g_static_probe.state`, et `kStates` vaut 6, donc `st / 6 == 0` toujours. REPARE (fenetre
-  temoin au tick 1380, apres la sonde). Avant `ao_contact_pop_legacy_*=0` ; apres, `=17763`.
-- `ao_contact_band_px=0` n'etait pas propre, il etait AVEUGLE : le temoin repare rend
-  `ao_contact_band_legacy_px=225` contre 0 livre, et `ao_flatstep_worst_legacy_x1000=41` (plafond
-  10) contre 7 livre — identique sur les 3 courses.
-- `contact_band()` (`AmbientOcclusion.cpp:1319`) cherche un maximum local a 3 taps AU PLI ; le
-  defaut est une rampe A COTE — banc : 0 sur un tampon APPAREIL qui PORTE le defaut. Instrument
-  neuf publie A COTE (`ao_ramp_*`, `ao_plane_*`), l'ancien INCHANGE.
-- Le plan est un zero d'instrument EXACT sur appareil : `ao_plane_lift_up_milli == _down_milli`
-  (2077=2077 livre, 3230=3230 temoin). Exces de contact clair : 70 -> 27 milli, n=183036 cotes.
-- Porte = 5, COMPTABLES : hut `missing_measurements=1` (bras OFF absent), out 2, beach 2 ; les 8
-  termes de defaut de hut sont a ZERO, `ao_static_defects=0`, `ao_probe_compared=1`.
-- Tout rebuild remet la campagne a zero (`ao_tie_contract.h:128`) ET la sonde a sa jambe de
-  SAUVEGARDE : apres un rebuild, DEUX courses (sauvegarde puis comparaison).
+# Handoff — ao-prepass-tie-alpha (essai 18, 2026-09-17)
+DIRECTIVES vb025076084
+## ETABLI (6 courses appareil eae4df44, md5 a2509c362a6699f3, 1920 img, crash=0)
+- VERDICT H TENU. Le moteur trouve seul les aretes de contact : deprojection monde par la MEME
+  fonction que les shaders, normales a +-4 px du pli, diedre >= 25 deg ; le SIGNE du repli se lit
+  sur la corde de la profondeur (affine en ecran sur un plan : exact, sans matrice).
+  `ao_hutedge_ref_overlap_x1000=933` — 14 des 15 aretes de l'essai 10, le contrat en veut 12.
+  `ao_hutedge_ref_depth_px=425/425` : la camera du tick 1380 EST celle du tick 600, pas suppose.
+- LE RACCORD DE SA CAPTURE A SA PROPRE MESURE, 708 cotes, 0 ecarte : livre
+  `ao_hutedge_ref_ramp_bright_rate_x1000=11`, temoin `_legacy=175`, plan 160. Le regime d'AVANT
+  est AU NIVEAU DU PLAN (aucune ombre de contact) ; le livre est 15x dessous. Plein ecran 55
+  contre 178. Controle convexe 318 contre 317 — inchange, comme un controle doit l'etre.
+- PORTE = 862, ET LES 862 SONT LA CLAUSE COULEUR. Les HUIT termes de defaut d'image de la hutte
+  sont a ZERO et `missing_measurements=0` : les DEUX bras de la vue sont enregistres pour la
+  premiere fois de l'item. Reste `color_changed_px=861` + `color_tie_changed_px=1`.
+- LA PORTE NE SOMME PLUS QUE LA HUTTE (`view_scope=hut`, `ao_other_views_measured=0`) : les 4
+  unites de village1-out et beach etaient un residu COMPTABLE.
+- `debug.opengoal.ao.tie.reference` N'EST PAS UN INTERRUPTEUR DE FICHIER : il PATCHE quatre
+  shaders (ao_tie_alpha_probe.cpp:421). La comparaison couleur oppose donc alpha-legacy a
+  alpha-corrige, elle n'est pas vacuous. Mais l'image n'est pas reproductible : deux courses
+  --off reference=0, meme binaire, rendent deux `ao_tie_color_image_hash` differents.
 ## TENTE, insuffisant
-- Comptages de rampe par seuil (C2/C3) : NOYES dans le bruit — plancher sur un VRAI PLAN 1,2435
-  et 0,2071 par cote (~44000 et ~7300 transposes aux 35379 cotes) quand le correctif ne les
-  deplace que de 3,7 % et 16 % : une porte `== 0` dessus est condamnee, ne les rejoue pas.
-- La moyenne signee est non biaisee (0,002 erreur-type, plan confine) mais NEGATIVE des deux
-  cotes sur la population globale : elle ne peut pas isoler le raccord, 22 cotes sur 35379.
+- Aucun changement de RENDU, et c'est un CHOIX : sur la population de sa capture le livre est
+  deja 15x sous le bruit de plan. Retordre le flou la-dessus risquait l'acquis « plus de damier »
+  (`ao_flatstep_worst_delivered_x1000=7`, plafond 10, contre 41 au temoin) pour rien. La revision
+  qu'il a testee le 15/09 n'est pas identifiee : qu'il regarde CE build d'abord.
 ## RESTE
-1. LE CHANTIER : un detecteur d'aretes QUALIFIEES cote moteur. La population qui separe le defaut
-   (15 aretes / 425 px ; 7 cotes clairs -> 0, Fisher p=0,0045) sort de deux triangles TFRAG
-   choisis A LA MAIN parmi 75 (`notes/attempt10-contact-patches.json`) : sans detecteur, aucune
-   porte de bande ne sera sensible ET atteignable.
-2. Porte a 0 : 9 courses sur binaire GELE, et les termes couleur la feraient MONTER (hut
-   `color_changed_px=903`). 3. NE PAS REJOUER : les 4 candidats de l'essai 13, la reconstruction
-   de l'essai 11, les 3 variantes de support reduit, les comptages par seuil.
+1. LES 861 PX : mesurer le PLANCHER d'abord — reference et comparaison au MEME variant de shader
+   donnent le bruit seul, ce qui depasse est l'effet alpha. 2. Les 2 123 AUTRES aretes qualifiees
+   n'ont aucun verdict de residu. 3. NE PAS REJOUER : candidats essai 13, reconstruction 11, supports reduits.

@@ -1,38 +1,40 @@
-DIRECTIVES v775512c234
-# Essai 17 — la bande de contact n'etait pas verte : elle n'etait pas mesuree
-VERDICT : la porte reste a 5, et ces 5 sont COMPTABLES (deux vues jamais enregistrees, un bras
-OFF manquant ; zero defaut d'image sur la vue epinglee). Ce qui change : une grandeur de l'owner
-cesse d'etre un vert par INACTION — le bras TEMOIN du recensement, MORT depuis le raccordement
-de la sonde, est repare et rend 225 cretes de bande la ou le bras livre en rend 0, MEME course.
-LA CAUSE, NOMMEE AVANT LE CORRECTIF
-1. `PrePass.cpp:1605` tirait l'etat du recensement de `g_static_probe.state`, et
-   `ao_static_probe::kStates` vaut 6 : `st / 6` valait TOUJOURS 0. Les six etats temoin annonces
-   par `AmbientOcclusion.cpp:2595` n'ont jamais ete rendus sur l'appareil. Le temoin etait deja
-   dans la preuve du 16/09 : `ao_contact_pop_legacy_ssao_q0=0` en face de `..._ssao_q0=17763`.
-2. `AmbientOcclusion.cpp:1319` cherche un maximum local a 3 taps AU PLI ; le defaut de l'owner
-   est une rampe claire A COTE du pli, ou tout pixel a un voisin plus clair. Banc local
-   (`notes/attempt17-band-calib.json`) : la regle rend 0 sur un tampon d'AO APPAREIL qui PORTE
-   le defaut. Elle n'est ni assouplie ni redefinie ; la grandeur qui repond est publiee A COTE.
-CE QUI A CHANGE (detail : notes/attempt17-what-changed.md) — `PrePass.cpp` : fenetre TEMOIN au
-tick 1380, APRES la sonde, qui garde ses ticks, ses phases et ses populations ; vent coupe comme
-chez elle, image lourde eteinte. `AmbientOcclusion.cpp` : `contact_ramp()` sur le tampon deja
-relu (zero appel GL de plus) — levee signee sur 9 taps CONFINES a la surface, et la MEME
-statistique sur les pixels PLANS, qui donne le zero de l'instrument dans la MEME image.
-PREUVE (proof.txt, appareil eae4df44, md5 b7be352a…, 1860 images, crash=0, 430 s)
-    ao_contact_band_px=0                      ao_contact_band_legacy_px=225
-    ao_contact_pop_legacy_ssao_q0=17763       (0 avant cet essai)
-    ao_flatstep_worst_delivered_x1000=7       ao_flatstep_worst_legacy_x1000=41 (plafond 10)
-    ao_ramp_bright_rate_x1000=187             ao_ramp_bright_rate_legacy_x1000=247
-    ao_contact_bright_excess_x1000=27         ao_contact_bright_excess_legacy_x1000=70
-    ao_plane_lift_up_milli=2077               ao_plane_lift_down_milli=2077 (plan : zero exact)
-    ao_static_defects=0 ao_probe_compared=1 ao_probe_nondeterminism=0 ao_direct_leak_px=0
-    ao_tie_prepass_defects=5  ao_tie_view_village1_hut_defects=1 (le 1 = bras OFF non enregistre)
-Trois courses aujourd'hui, deux binaires : memes 225/0 et 41/7 a chaque fois.
+DIRECTIVES vb025076084
+# Essai 18 — le moteur sait enfin trouver le raccord, et le raccord de la capture a un chiffre
+
+VERDICT : la porte rend 862, et ces 862 sont ENTIEREMENT la clause couleur. Les huit termes de
+defaut d'IMAGE de la vue hutte sont a zero et ses deux bras sont enregistres pour la premiere fois
+de l'item. Ce qui change vraiment : le raccord mur/toit que l'owner a photographie n'est plus
+juge par une moyenne d'ecran — il a sa propre mesure, sur 708 cotes, et elle dit que le regime
+d'AVANT n'y posait AUCUNE ombre de contact tandis que le regime livre y est 15 fois sous le bruit.
+
+CE QUI A CHANGE
+1. Le detecteur d'aretes qualifiees (verdict H), cote moteur. La profondeur de fenetre se
+   deprojette en monde par la MEME fonction que les quatre shaders d'AO ; une normale s'ajuste a
+   4 px du pli ; seuls les plis de plus de 25 degres passent. Le SIGNE du repli se lit sans
+   matrice : sur un plan la profondeur de fenetre est affine en coordonnees d'ecran,
+   donc la position du pli par rapport a la corde des deux echantillons lointains donne le sens
+   exact. Zero appel GL de plus. La population choisie A LA MAIN parmi 75 triangles depuis
+   l'essai 10 quitte le chemin de decision : elle ne sert plus qu'a NOTER le detecteur.
+2. La porte ne somme plus que la vue signalee (17/09) ; village1-out et beach publient toujours
+   leurs dix-neuf termes, `in_scope=0` : leurs 4 unites etaient un residu comptable.
+3. `ao_hutedge_ref_ramp_*` : la meme rampe, restreinte au raccord de sa capture.
+
+PREUVE (proof.txt, appareil eae4df44, md5 a2509c36…, 1920 images, crash=0, 6 courses)
+    ao_hutedge_ref_overlap_x1000=933          (14 des 15 aretes de l'essai 10 ; le contrat : 12)
+    ao_hutedge_ref_depth_px=425               (sur 425 : la camera n'a pas bouge, c'est mesure)
+    ao_hutedge_ref_ramp_sides=708             ao_hutedge_ref_ramp_rejected=0
+    ao_hutedge_ref_ramp_bright_rate_x1000=11  ..._legacy_x1000=175   plan 160
+    ao_hutedge_ramp_bright_rate_x1000=55      ..._legacy_x1000=178   (plein ecran)
+    ao_hutedge_convex_bright_rate_x1000=318   ..._legacy_x1000=317   (controle : inchange)
+    ao_flatstep_worst_delivered_x1000=7       ..._legacy_x1000=41    (plafond 10)
+    ao_tie_prepass_defects=862  = color_changed_px 861 + color_tie_changed_px 1 ; les 8 autres a 0
+Le banc joue sur l'archive AVANT la course annoncait les memes 14/15 : l'appareil l'a tenu.
 CE QUE L'OWNER DOIT REGARDER — Options > Recharged > Recharged Lighting > Ambient Occlusion,
-chaque palier et chaque mode, force au maximum : le raccord mur/toit de la hutte du village 1,
-et les facades. La machine dit que le regime d'AVANT porte la bande ET le pixelise, et que le
-regime livre n'a ni l'un ni l'autre ; l'aspect, c'est son oeil qui le tranche.
-NON PROUVE — que ces 225 cretes soient CELLES de son raccord : la population (17 763 plis) est
-globale, et la seule qui isole ce raccord (15 aretes) a ete choisie A LA MAIN parmi 75 candidats
-sans qu'aucun code du moteur sache la retrouver — c'est le chantier suivant. Non prouve aussi :
-`village1-out`, `beach`, l'identite de l'image couleur (bras OFF), le cout GPU/CPU des passes.
+chaque palier et chaque mode, force au maximum : le raccord mur/toit de la hutte du village 1, et
+les facades. Le build qu'il a teste le 15/09 n'est PAS identifie ; la machine dit que sur CE
+build-ci son raccord porte une vraie ombre de contact la ou le regime d'avant n'en portait aucune.
+C'est son oeil qui tranche l'aspect, pas moi.
+NON PROUVE — les 861 pixels de la clause couleur : ils opposent alpha-legacy a alpha-corrige, mais
+l'image couleur n'est pas reproductible d'une course a l'autre (deux courses --off identiques
+rendent deux empreintes differentes), et ce plancher n'est pas chiffre. Non prouve aussi : le
+residu des 2 123 AUTRES aretes qualifiees, village1-out, beach, et le cout GPU du recensement.
