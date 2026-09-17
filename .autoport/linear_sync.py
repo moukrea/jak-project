@@ -37,7 +37,7 @@ API = "https://api.linear.app/graphql"
 MAP_PATH = AP / "linear_map.json"
 STATE_JSON = AP / "state.json"
 TEAM_KEY = "JAK"
-TEAM_NAME = "Jak Android"
+TEAM_NAME = "Jak and Daxter: Recharged Collection"
 MARK = "🤖 "
 SINCE_DAYS = 7  # validés/archivés plus vieux que ça ne sont pas miroités
 
