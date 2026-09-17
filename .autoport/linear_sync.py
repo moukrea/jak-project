@@ -580,19 +580,42 @@ def sync_docs(L, mp, projects, dry):
     return n
 
 
+def delivery_state():
+    """LA seule source de verite sur « le build est-il sur jak-builds ? » (17/09 : deux commentaires faux ecrits sur une fin de
+    journal perimee). Verifie : la ligne PUSHED du publieur, l'empreinte locale == publiee, et l'asset APK en ligne (etat uploaded)."""
+    import subprocess, hashlib as hl
+    info = AP / ".published_build_info.txt"
+    out = {"ok": False, "why": ""}
+    if not info.exists():
+        out["why"] = "aucune publication enregistree"; return out
+    txt = info.read_text(errors="replace")
+    mc = re.search(r"commit: ([0-9a-f]{7,40})", txt); mt = re.search(r"TAG: (\S+)", txt); md = re.search(r"date: (\S+)", txt)
+    out.update({"commit": mc.group(1) if mc else "?", "tag": mt.group(1) if mt else "?", "when": (md.group(1)[11:16] if md else "?")})
+    try:
+        pub = (AP / ".last_published_apk_md5").read_text().strip()
+        dist = AP / "dist" / "app-jak1-HD-recharged.apk"
+        loc = hl.md5(dist.read_bytes()).hexdigest() if dist.exists() else ""
+        if not pub or pub != loc:
+            out["why"] = "empreinte publiee (%s) != APK local (%s)" % (pub[:8], loc[:8]); return out
+        r = subprocess.run(["gh", "release", "view", "--repo", "moukrea/jak-builds", "jak1-rtlight-wip", "--json", "assets",
+                            "--jq", '.assets[] | select(.name|test("apk")) | "\\(.size) \\(.state)"'], capture_output=True, text=True, timeout=60)
+        line = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
+        size, state = (line.split() + ["", ""])[:2]
+        if state != "uploaded" or (dist.exists() and str(dist.stat().st_size) != size):
+            out["why"] = "asset en ligne : %s %s (local %s)" % (size, state, dist.stat().st_size if dist.exists() else "?"); return out
+    except Exception as e:  # noqa: BLE001
+        out["why"] = "verification impossible : %s" % str(e)[:80]; return out
+    out["ok"] = True; return out
+
+
 def announce_builds(L, bl, mp, read, dry):
     """Quand le build publie sur jak-builds contient le dernier commit d'un chantier « a tester », le dire sur le ticket
     (owner 17/09 : « la revue manuelle se fait sur mon HONOR, à partir d'un build sur jak-builds […] c'est bien dispo ? »)."""
     import subprocess
-    info = AP / ".published_build_info.txt"
-    if not info.exists():
+    ds = delivery_state()
+    if not ds["ok"]:
         return 0
-    txt = info.read_text(errors="replace")
-    mc = re.search(r"commit: ([0-9a-f]{7,40})", txt); mt = re.search(r"TAG: (\S+)", txt); md = re.search(r"date: (\S+)", txt)
-    if not mc:
-        return 0
-    pub, tag = mc.group(1), (mt.group(1) if mt else mc.group(1)[:6])
-    when = (md.group(1)[11:16] if md else "?")
+    pub, tag, when = ds["commit"], ds["tag"], ds["when"]
     n = 0
     for it in bl.items:
         if it["status"] != "to-test":
@@ -931,11 +954,16 @@ def main():
     ap.add_argument("--no-pull", action="store_true")
     ap.add_argument("--only", default=None, help="un seul id")
     ap.add_argument("--check", action="store_true", help="verifier la coherence Linear <-> backlog, archiver les tickets orphelins")
+    ap.add_argument("--delivery", action="store_true", help="dire, verifie, quel build est sur jak-builds (a lire AVANT d'ecrire sur une livraison)")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     a = ap.parse_args()
     L = Linear(load_key())
+    if a.delivery:
+        ds = delivery_state()
+        print("LIVRAISON VERIFIEE : build %s (%s) commit %s sur jak-builds" % (ds.get("tag"), ds.get("when"), ds.get("commit", "?")[:12]) if ds["ok"] else "LIVRAISON NON VERIFIEE : %s" % ds["why"])
+        return
     if a.check:
         bl = B.load(); mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
         team = ensure_team(L); states = ensure_states(L, team); by_id = {v: k for k, v in states.items()}
