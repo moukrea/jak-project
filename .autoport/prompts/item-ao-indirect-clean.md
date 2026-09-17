@@ -5,7 +5,7 @@
 # Une nouvelle AO : l'ancienne à la poubelle, la nouvelle calculée dans l'éclairage sur le seul indirect, plus jamais un filtre posé à la fin
 
 ## Defaut cite
-- 2026-09-17 : « Alors si ça peut t'aider, je vois les mesures tourner sur le… »
+- 2026-09-17 : « Et oui, tes screens montrent bien le problème ! Les variatio… »
 
 ## Cause connue
 17/09 18:35 ARBITRAGE OWNER : « Option a, mais 0,009 % c'est infime, et tu parles d'un truc mobile j'ai l'impression ». 2 essais, PERIMETRE UNIQUE : le point F « rien ne bouge camera fixe » (1802 texels sur 21 M, bords de buissons) et les 2 px de `ao_sway_gap_px`. Tout le reste est acquis et ne se retouche pas (A-E, G). ORDRE : (1) d'abord NOMMER la source du changement image a image sur une scene immobile par ablation, en une course : (i) la prepasse echantillonne-t-elle le feuillage autrement […suite dans le contrat]

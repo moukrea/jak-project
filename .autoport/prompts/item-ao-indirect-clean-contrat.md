@@ -39,6 +39,8 @@ OBSERVATION OWNER 17/09, sur le Redmi pendant la mesure : « je vois qu'il y a d
 
 CORRECTION DU SUPERVISEUR 17/09 20:55, apres l'essai 4 : `ao_static_visible_px` = 123 412 alors que le tampon d'AO ne bouge plus que de 36 texels ; l'agent a etabli que ces pixels ne sont PAS produits par l'AO (l'eclairage Recharged lui-meme varie image a image, premier suspect `update-mood-flames`). Ma mesure « image finale » accusait donc l'AO d'un mouvement qui vient de l'eclairage. Le point F se juge par la PART DE L'AO : `ao_static_visible_ao_px` = pixels dont l'ecart entre deux images consecutives change de plus de 2/255 QUAND l'AO est allumee ET PAS quand elle est eteinte, au meme vantage, memes exclusions (paire ON contre paire OFF sur le meme etat de jeu) ; c'est cette grandeur qui doit valoir 0, et elle remplace `ao_static_visible_px` dans `ao_owner_defects`. `ao_static_visible_px` reste publiee a titre d'information. Le mouvement propre a l'eclairage (flammes de mood) n'est pas du ressort de cet item : l'owner tranche s'il en fait un chantier.
 
+OWNER 17/09 21:05, sur les captures de l'essai 4 : « Les variations détectées viennent des deux lanternes visibles à l'écran + la caisse de mecamouche en arrière-plan qui est animée… donc tu mesures sur un truc qui est sûr d'échouer ! ». REGLE MECANIQUE pour F : le vantage de la mesure « rien ne bouge » est CHOISI pour ne contenir AUCUN objet anime dans le champ (lanternes, caisses de mecamouche, flammes, PNJ, collectibles) ; publier le vantage (position, orientation) et le compte d'acteurs animes dans le frustum = 0. Si aucun vantage propre n'existe sur le niveau, masquer ces objets par famille de dessin et joindre la paire de captures AVEC le masque superpose. Le vantage de l'essai 4 (deux lanternes + caisse animee) est INTERDIT.
+
 ## Hors perimetre
 
 Pas de nouveau modele d'AO, pas de reglage en plus dans le menu. Tout ce qui n'est pas cet item.
@@ -72,6 +74,9 @@ Options > Recharged > Eclairage recharge > Occlusion ambiante, chaque mode et ch
 
 ### 2026-09-17
 > Alors si ça peut t'aider, je vois les mesures tourner sur le Redmi… (c'est pas toujours le cas car je suis souvent à distance), et je vois qu'il y a des lanternes d'intérieur… je sais pas si t'es au courant mais ces dernières bougent ! Donc oui tu va avoir des variations !
+
+### 2026-09-17
+> Et oui, tes screens montrent bien le problème ! Les variations détectées viennent des deux lenternes visibles à l'écran + la caisse de mecamouche en arrière plan qui est animée (faisant comme si la mouche à l'intérieur essayait de sortir)… donc tu mesure sur un truc qui est sûr d'échouer !
 
 ## Pourquoi ce fichier existe
 
