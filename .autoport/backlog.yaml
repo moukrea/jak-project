@@ -13357,7 +13357,7 @@ items:
     couleur, l''embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13388,6 +13388,8 @@ items:
     value: 0
   hits_means: emplacements du HUD dessines avec un modele
   known_cause: |-
+    17/09 20:55 REFUS OWNER (build 4833ab) : orbe, mecamouche, eco vert acquis ; la PILE D'ENERGIE apparait minuscule et « squeezee » au centre de l'ecran, avec la bonne animation mais pas la bonne place ni la bonne echelle (positionnement absolu suspecte, aspect faux). La mesure de position de l'essai 2 a rendu 0 px pour la pile : elle mesurait a cote. Corriger la mesure d'abord, puis la pile. Ne pas toucher aux trois autres elements.
+
     17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu trop haute une fois le HUD affiche ; pile pas placee. Les deux captures sont dans owner-feedback/hud-3d-pickups/ (regarde-les). La porte de l'essai 1 etait aveugle : mesurer sur l'IMAGE RENDUE de l'appareil, et suivre la visibilite du HUD d'origine.
 
     SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game », « pour la pile d'énergie, idem ».
@@ -13415,6 +13417,10 @@ items:
     8. LA MECAMOUCHE N'EST PAS TROP HAUTE : ecart vertical de son centre contre le centre du sprite d'origine, en pixels sur l'appareil, publie : <= 2 px.
 
     CLARIFICATION OWNER 17/09 : « pas de trucs over-engineered qui coûtent du calcul au binaire final […] je parle du positionnement et compagnie ». Les verdicts 6-8 sont des MESURES DE PREUVE (bras de preuve, masque d'identite de dessin, lecture d'image) : elles n'existent pas dans le binaire livre hors preuve. Le placement lui-meme reste celui du HUD d'origine : les memes coordonnees HUD que le sprite remplace, la meme logique d'apparition/disparition/echelle, une transformation par element et par image, rien de plus. Verdict 4 (cout par image) le verifie : le surcout hors dessin des modeles doit etre nul au bruit pres, publie a part du cout des modeles.
+
+    RETOUR OWNER 17/09 20:55 (build 4833ab) : « l'orbe Precursor c'est good, la mecamouche c'est good (elle est un peu sombre) et l'eco vert c'est good, mais la pile d'énergie elle apparaît minuscule et squeezée au centre de l'écran quand on montre le HUD (elle semble faire l'animation d'apparition et disparition, mais pas au bon endroit et pas à la bonne échelle ! C'est ce qui m'avait fait dire que tu utilisais peut-être une sorte de positionning absolu !) ». TROIS des quatre elements sont acquis ; ne pas y toucher. Reste LA PILE D'ENERGIE :
+    9. LA PILE EST A SA PLACE ET A SA TAILLE : boite englobante de la pile rendue, lue sur l'image finale du telephone (2400x1080), contre la boite du sprite d'origine lue de la meme facon sur le bras `--off`, au moment ou le HUD s'affiche ET pendant son animation d'apparition : centre a 2 px, largeur ET hauteur a 5 % chacune (une pile « squeezee » = rapport largeur/hauteur faux : publier les deux rapports, ecart < 5 %). Publier aussi POURQUOI le verdict 7 de l'essai 2 rendait 0 pour la pile alors qu'elle est au centre de l'ecran : la mesure lisait-elle un autre dessin, un autre espace de coordonnees, ou la boite calculee au lieu de l'image ? Une mesure qui a dit « 0 px » sur un element visiblement faux est corrigee AVANT le code.
+    Note (pas un verdict) : la mecamouche est « un peu sombre » ; si l'eclairage du modele dans le HUD est facile a aligner sur celui du sprite d'origine (luminance moyenne comparee), le faire, sinon le signaler dans FINDINGS.
   where: 'HUD en jeu : la mecamouche, l''orbe, la particule d''eco verte a cote du coeur et la pile d''energie
     sont les vrais objets du jeu en 3D, a la place des sprites plats.'
   out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
@@ -13475,6 +13481,12 @@ items:
     text: BUILD_INFO.txt, jak1_hd_assets.manifest.txt et jak1_ui_fonts.zip sur la release j'en ai rien
       a taper… tu peux les supprimer et t'assurer qu'ils soient plus poussés ça pollue pour rien. Prochain
       commentaire de ma part sera un feedback.
+  - date: '2026-09-17'
+    text: Alors l'orbe Precursor c'est good, la mecamouche c'est good (elle est un peu sombre) et l'eco
+      vert c'est good, mais la pile d'énergie elle apparaît minuscule et squeezée au centre de l'écran  quand
+      on montre le HUD (elle semble faire l'animation d'apparition et disparition, mais pas au bon endroit
+      et pas à la bonne échelle ! C'est ce qui m'avais fait dire que tu utilisais peut être une sorte
+      de positionning absolu !)
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'

@@ -5,12 +5,12 @@
 # Mécamouche, orbe, particule d'éco verte et pile d'énergie du HUD : les vrais modèles du jeu à la place des sprites
 
 ## Defaut cite
-- 2026-09-17 : « Alors attention avec tes trucs compliqués à pas induire des… »
+- 2026-09-17 : « Alors l'orbe Precursor c'est good, la mecamouche c'est good… »
 
 ## Cause connue
-17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu trop haute une fois le HUD affiche ; pile pas placee. Les deux captures sont dans owner-feedback/hud-3d-pickups/ (regarde-les). La porte de l'essai 1 etait aveugle : mesurer sur l'IMAGE RENDUE de l'appareil, et suivre la visibilite du HUD d'origine.
+17/09 20:55 REFUS OWNER (build 4833ab) : orbe, mecamouche, eco vert acquis ; la PILE D'ENERGIE apparait minuscule et « squeezee » au centre de l'ecran, avec la bonne animation mais pas la bonne place ni la bonne echelle (positionnement absolu suspecte, aspect faux). La mesure de position de l'essai 2 a rendu 0 px pour la pile : elle mesurait a cote. Corriger la mesure d'abord, puis la pile. Ne pas toucher aux trois autres elements.
 
-SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus un sprite dégueu », « une vraie orbe », « une vraie particule d'eco verte comme celles qu'on ramasse in game » […suite dans le contrat]
+17/09 REFUS OWNER (build ae4272) : mecamouche au milieu de l'ecran des la premiere image tant que le HUD n'a pas ete affiche ; pile d'energie minuscule toujours visible, positionnement absolu en pixels sur une petite resolution (aspect faux) ; mecamouche un peu t […suite dans le contrat]
 
 ## Livrable
 `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
