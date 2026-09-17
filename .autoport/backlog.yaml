@@ -13533,7 +13533,7 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
-- status: to-test
+- status: validated
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-lumiere.md
@@ -13542,11 +13542,14 @@ items:
   proof_timeout: 600
   device: true
   owner_test: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-17'
+    text: Et bah voilà ! C'est pas compliqué ! C'est réussi ! Je valide !
+    build_sha: 30617315b495
   no_code: true
   depends_on: []
   id: ao-indirect-clean
-  priority: 26
+  priority: null
   feature: 'Une nouvelle AO : l''ancienne à la poubelle, la nouvelle calculée dans l''éclairage sur le
     seul indirect, plus jamais un filtre posé à la fin'
   gate:
@@ -13796,6 +13799,8 @@ items:
     text: Si on tu sais… tu peux aussi me demander de vérifier moi plutôt que gaspiller du temps, des
       tours et des milliers de tokens pour faire un truc que t'arrives pas à faire… suffit de me dire
       exactement ce que tu veux que je vérifie et on peut aller plus vite !
+  - date: '2026-09-17'
+    text: Et bah voilà ! C'est pas compliqué ! C'est réussi ! Je valide !
   block_reason: ''
 - id: owner-identit-diffrentes-pour-le-harnais-et-les-users-
   status: archived

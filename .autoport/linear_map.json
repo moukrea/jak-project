@@ -119,12 +119,12 @@
  },
  "ao-indirect-clean": {
   "build_announced": "30617315b495",
-  "hash": "49a53b20372fad3dc1bf1b00ea0953aa9344d92c",
+  "hash": "4cb6d9e1fba03e75b7932f6cc2a0035ae01403db",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-005.txt",
-  "pulled_at": "2026-09-17T19:21:59.580Z",
+  "pulled_at": "2026-09-17T20:40:00.850Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
  },
  "ao-prepass-tie-alpha": {
@@ -812,11 +812,11 @@
  },
  "hud-3d-pickups": {
   "build_announced": "25b9d247e2ea",
-  "hash": "1a32d940422fca040f116d5cdbbe809245b28991",
+  "hash": "b2d364f754fd568d2a4a06c779dbd53e96313410",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-002.txt",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T19:03:07.257Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
