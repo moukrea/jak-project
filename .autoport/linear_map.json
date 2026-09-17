@@ -739,6 +739,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
+  "build_announced": "ae427297e586",
   "hash": "04ce0a56ff2b38d687a93ece8d46d9e229c0ae47",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",

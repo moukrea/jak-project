@@ -593,7 +593,8 @@ def announce_builds(L, bl, mp, read, dry):
         if not rec or rec.get("build_announced") == pub:
             continue
         try:
-            last = subprocess.run(["git", "log", "-1", "--format=%H", "--grep=[autoport/%s]" % it["id"]], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+            # -F : sans lui, « [autoport/x] » est une classe de caracteres et matche n'importe quel commit
+            last = subprocess.run(["git", "log", "-1", "--format=%H", "-F", "--grep=[autoport/%s]" % it["id"]], cwd=ROOT, capture_output=True, text=True).stdout.strip()
             if not last:
                 continue
             ok = subprocess.run(["git", "merge-base", "--is-ancestor", last, pub], cwd=ROOT).returncode == 0
