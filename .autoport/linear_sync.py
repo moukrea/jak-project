@@ -413,7 +413,8 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 swap_labels(L, iss["id"], add=todo_id, remove=label_id)
             # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu, comme retirer « A lire ».
             have = {l["id"] for l in iss["labels"]["nodes"]}
-            ours = [c for c in iss["comments"]["nodes"] if c["body"].startswith(MARK)]
+            # l'API rend les commentaires du plus recent au plus ancien : trier, sinon « dernier » = le premier
+            ours = sorted([c for c in iss["comments"]["nodes"] if c["body"].startswith(MARK)], key=lambda c: c["createdAt"])
             OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
             reacts = [r["emoji"] for r in (ours[-1].get("reactions") or [])] if ours else []
             if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since:
