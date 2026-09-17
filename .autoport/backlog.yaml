@@ -708,7 +708,7 @@ items:
     ; le jeton Gcutscene-reframe dit que Gcine-vertical-frame porte le verdict'
 - id: pbr-per-material
   feature: Des proprietes PBR par matiere, pas deux curseurs globaux
-  status: blocked
+  status: archived
   priority: 14
   owner_feedback:
   - date: '2026-08-28'
@@ -760,8 +760,9 @@ items:
   where: Options > Recharged > PBR Materials, puis regarde le sable, la pierre et le tissu de Sandover
   delivered: '2026-09-02'
   build: dernier build publie sur jak-builds
-  notes: 'l''owner : « pourquoi deux chantiers ? c''est debile » ; Gpbr-material-props dit « la phase
-    precedente en avait livre 7 » et le refus de Gpbr-props-reach-draw porte sur ces memes 7 textures'
+  notes: |-
+    l'owner : « pourquoi deux chantiers ? c'est debile » ; Gpbr-material-props dit « la phase precedente en avait livre 7 » et le refus de Gpbr-props-reach-draw porte sur ces memes 7 textures
+    17/09 : archive par le superviseur, meme logique que l'owner sur les deux items supplantes du matin (« s'il est supplanté par la refonte, on peut même l'archiver ») ; livre par la refonte lumiere.
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials : surfaces.json
     etend a TOUTE matiere, y compris sans carte, sur le chemin unique. — L''OWNER A TRANCHE le 2026-09-05
     : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR la refonte, il ne se
@@ -2875,7 +2876,7 @@ items:
   build: jak2-alpha1
 - id: recharged-ambient-occlusion
   feature: L'occlusion ambiante (le relief dans les creux)
-  status: blocked
+  status: archived
   priority: 230
   owner_feedback: []
   gate: null
@@ -2894,6 +2895,9 @@ items:
     de composer sur l''image finale et multiplie le seul terme indirect, en lineaire, dans shade(). —
     L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting ». Cet item
     est livre PAR la refonte, il ne se rouvre pas seul.'
+  notes: '17/09 : archive par le superviseur, meme logique que l''owner sur les deux items supplantes
+    du matin (« s''il est supplanté par la refonte, on peut même l''archiver ») ; livre par la refonte
+    lumiere.'
 - id: recharged-pbr-materials
   feature: Les matieres PBR (le systeme de remplacement de textures)
   status: validated
@@ -2942,7 +2946,7 @@ items:
     source: owner-ok/Grecharged-realtime-lighting
 - id: recharged-directional-ambient
   feature: L'ambiante directionnelle (le relief dans les zones d'ombre)
-  status: blocked
+  status: archived
   priority: 228
   owner_feedback: []
   gate: null
@@ -2961,9 +2965,12 @@ items:
     d''ambiante analytiques sont remplaces par l''environnement mesure (SH du ciel reel renormalise sur
     amb-color). — L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting
     ». Cet item est livre PAR la refonte, il ne se rouvre pas seul.'
+  notes: '17/09 : archive par le superviseur, meme logique que l''owner sur les deux items supplantes
+    du matin (« s''il est supplanté par la refonte, on peut même l''archiver ») ; livre par la refonte
+    lumiere.'
 - id: recharged-lightprobes
   feature: Les sondes de lumiere locales a la place de l'ambiante globale
-  status: blocked
+  status: archived
   priority: 223
   owner_feedback: []
   gate: null
@@ -2982,6 +2989,9 @@ items:
     epars avec visibilite inter-sondes cuite (anti-fuite au point de production). La grille dense de juillet
     est supprimee. — L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting
     ». Cet item est livre PAR la refonte, il ne se rouvre pas seul.'
+  notes: '17/09 : archive par le superviseur, meme logique que l''owner sur les deux items supplantes
+    du matin (« s''il est supplanté par la refonte, on peut même l''archiver ») ; livre par la refonte
+    lumiere.'
 - id: recharged-master-toggle
   feature: Un interrupteur global Recharged marche/arret
   status: validated

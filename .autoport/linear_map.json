@@ -736,10 +736,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
  },
  "pbr-per-material": {
-  "hash": "f83fbb66220bf1542e15fca207e804894eb86ead",
+  "hash": "8fdec94419edac6a211be32b8a6da6d5c42d97b4",
   "identifier": "JAK-4",
   "issue_id": "1280cb05-6cfa-4216-bcd6-875f57287c55",
-  "last_state": "Bloqué",
+  "last_state": "Archivé",
   "pulled_at": "2026-09-17T05:36:37.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-4/des-proprietes-pbr-par-matiere-pas-deux-curseurs-globaux"
  },
@@ -888,10 +888,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-93/une-course-qui-ne-dessine-rien-dit-pourquoi-au-lieu-de-se-lire-comme"
  },
  "recharged-ambient-occlusion": {
-  "hash": "f055fae5b80eb4a2b3a089120a81865f69795cca",
+  "hash": "3e8ebf652b726e64ffad6c9e87b743014d019623",
   "identifier": "JAK-29",
   "issue_id": "d4a317bc-5022-46bc-b817-d1d6ac7f2d42",
-  "last_state": "Bloqué",
+  "last_state": "Archivé",
   "pulled_at": "2026-09-17T05:36:51.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-29/locclusion-ambiante-le-relief-dans-les-creux"
  },
@@ -912,10 +912,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-33/les-textures-pbr-maison-livrees-dans-lapk"
  },
  "recharged-directional-ambient": {
-  "hash": "e7e3f7e6cacca5348df4d5a2b9e4e4f3f9ffa93d",
+  "hash": "78d200f3d6a37c7976b9c27aef2789c0e3cd0e92",
   "identifier": "JAK-30",
   "issue_id": "e3755fa4-d4dd-4b34-bf0c-1ed4c3189365",
-  "last_state": "Bloqué",
+  "last_state": "Archivé",
   "pulled_at": "2026-09-17T05:36:52.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-30/lambiante-directionnelle-le-relief-dans-les-zones-dombre"
  },
@@ -960,10 +960,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-lightprobes": {
-  "hash": "932feaacc9d09cc0aa7e4925df5923d9b00fb520",
+  "hash": "b208398b25bce9ae83d236faf47edc01a19dfc9e",
   "identifier": "JAK-31",
   "issue_id": "4fb239c8-0fb8-431f-aeef-c0bfdc89b3bd",
-  "last_state": "Bloqué",
+  "last_state": "Archivé",
   "pulled_at": "2026-09-17T05:36:52.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-31/les-sondes-de-lumiere-locales-a-la-place-de-lambiante-globale"
  },
