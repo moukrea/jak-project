@@ -73,16 +73,23 @@ class Linear:
         self.s.headers.update({"Authorization": key, "Content-Type": "application/json"})
 
     def q(self, query, **vars):
+        last = None
         for attempt in range(4):
             self.n += 1
-            r = self.s.post(API, json={"query": query, "variables": vars}, timeout=60)
-            if r.status_code == 429:
-                time.sleep(5 * (attempt + 1)); continue
-            d = r.json()
+            try:
+                r = self.s.post(API, json={"query": query, "variables": vars}, timeout=60)
+            except requests.RequestException as e:  # reseau : transitoire
+                last = "reseau : %s" % e; time.sleep(3 * (attempt + 1)); continue
+            if r.status_code == 429 or r.status_code >= 500:
+                last = "HTTP %d" % r.status_code; time.sleep(5 * (attempt + 1)); continue
+            try:
+                d = r.json()
+            except ValueError:  # reponse non JSON (page d'erreur) : transitoire
+                last = "reponse non JSON (HTTP %d)" % r.status_code; time.sleep(3 * (attempt + 1)); continue
             if "errors" in d:
                 raise RuntimeError(json.dumps(d["errors"])[:600])
             return d["data"]
-        raise RuntimeError("Linear : 429 persistant")
+        raise RuntimeError("Linear indisponible apres 4 essais : %s" % last)
 
 
 def refresh_prompt(it):
