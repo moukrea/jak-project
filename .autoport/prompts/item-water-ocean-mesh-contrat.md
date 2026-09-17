@@ -21,6 +21,8 @@ B. ECRAN TITRE : l'eau n'est pas noire sur l'ecran titre. Publier la luminance m
 C. LES VAGUES RESTENT DES VAGUES : la houle visible n'est pas plus plate qu'avant la reprise. Publier l'amplitude de deplacement vertical et la variance des normales de la surface, meme vue, meme instant de houle, contre le binaire d'avant water-ocean-mesh ; une baisse > 10 % = defaut.
 `water_ocean_owner_defects` = A + B + C + (water_gameplay_height_maxdelta_mm != 0), un terme non mesure compte 1. C'est LA porte depuis le 17/09 : la hauteur de jeu seule ne suffit plus.
 
+DECISION 1 DE LA SPEC (1.3), partie non portee (audit 17/09) : TESSELLATION par-dessus la clipmap aux paliers Haut et Ultra, anneau proche raffine x2 a x8 par la tessellation existante (tfrag3_tess.*). Publier le facteur effectif par palier et le nombre de triangles de l'anneau proche, Haut et Ultra contre Bas. A traiter APRES les verdicts A, B, C.
+
 ## Hors perimetre
 
 Tout ce qui n'est pas cet item. DEUX origines bit-identiques : master OFF et recharged_water OFF ; tout sous-reglage d'eau se garde sur recharged_water, jamais sur le master seul (SPEC 1.2). La hauteur de JEU ne bouge pas.

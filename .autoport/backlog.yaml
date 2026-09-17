@@ -5680,6 +5680,8 @@ items:
     B. ECRAN TITRE : l'eau n'est pas noire sur l'ecran titre. Publier la luminance moyenne de la mer sur l'ecran titre, comparee a celle du build d'avant la reprise (reference archivee) ; ecart > tolerance = defaut.
     C. LES VAGUES RESTENT DES VAGUES : la houle visible n'est pas plus plate qu'avant la reprise. Publier l'amplitude de deplacement vertical et la variance des normales de la surface, meme vue, meme instant de houle, contre le binaire d'avant water-ocean-mesh ; une baisse > 10 % = defaut.
     `water_ocean_owner_defects` = A + B + C + (water_gameplay_height_maxdelta_mm != 0), un terme non mesure compte 1. C'est LA porte depuis le 17/09 : la hauteur de jeu seule ne suffit plus.
+
+    DECISION 1 DE LA SPEC (1.3), partie non portee (audit 17/09) : TESSELLATION par-dessus la clipmap aux paliers Haut et Ultra, anneau proche raffine x2 a x8 par la tessellation existante (tfrag3_tess.*). Publier le facteur effectif par palier et le nombre de triangles de l'anneau proche, Haut et Ultra contre Bas. A traiter APRES les verdicts A, B, C.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF et recharged_water
     OFF ; tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master seul (SPEC 1.2).
     La hauteur de JEU ne bouge pas.'
@@ -5731,14 +5733,10 @@ items:
     4.2). NOTE 09-09 (perf) : perf-fbo-passes invalide depth/stencil apres la derniere lecture : W0 se
     place AVANT ce point, marque par un commentaire nomme dans android_opengl_renderer.cpp et OpenGLRenderer.cpp.
     Porte water_scene_copies_per_frame == 1 inchangee.'
-  deliverable: 'Le chunk shaders/water/water_surface.glsl (SPEC 5.6 : normales a deux cartes, Fresnel
-    plafonne, paliers de couleur par profondeur, absorption, shade() avec SURF_WATER, SSS deux couleurs,
-    etincelles) inclus par la clipmap ET par un programme merc2_water pour les buckets water 58/59. W0
-    en profondeur seule. Aucun dFdx pour construire N. Publie water_refract_front_reject et water_dfdx_sites=0.
-    Shaders neufs dans kChunks. PREUVE : `FEATURE water-surface-material armed=1 hits=<fragments d''eau
-    passes par shade()>` + la ligne `water_shade_calls_outside_shade=` seule sur sa ligne ; `--off` doit
-    rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
-    — appelle armed_for("water-surface-material"), jamais armed(), et n''en ecris pas un second.'
+  deliverable: |-
+    Le chunk shaders/water/water_surface.glsl (SPEC 5.6 : normales a deux cartes, Fresnel plafonne, paliers de couleur par profondeur, absorption, shade() avec SURF_WATER, SSS deux couleurs, etincelles) inclus par la clipmap ET par un programme merc2_water pour les buckets water 58/59. W0 en profondeur seule. Aucun dFdx pour construire N. Publie water_refract_front_reject et water_dfdx_sites=0. Shaders neufs dans kChunks. PREUVE : `FEATURE water-surface-material armed=1 hits=<fragments d'eau passes par shade()>` + la ligne `water_shade_calls_outside_shade=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-surface-material"), jamais armed(), et n'en ecris pas un second.
+
+    DECISION 2 DE LA SPEC (1.3), qu'aucun item ne portait (audit superviseur 17/09) : 4 a 8 ondes de GERSTNER de faible amplitude en vertex, par-dessus la houle ND conservee, plus les deux cartes de normales. Publier le nombre d'ondes actives, leur amplitude totale (en unites jeu) et le deplacement vertical crete a creux mesure sur la clipmap, bras ON et bras OFF ; OFF = houle ND nue. Owner 17/09 : « avant cette reprise les vagues ressemblaient plus a des vagues » : c'est ICI que les vagues reviennent, et la cible est la SPEC, pas l'ancien rendu.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
     seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
@@ -5780,19 +5778,10 @@ items:
     prompt ne repete pas. La houle ND monte et descend de +/-0,75 m mais aucune vague n''ARRIVE ; le rivage
     est un masque d''alpha a 4 couleurs, aucune ecume nommee (SPEC 2.1). Une bande d''ecume constante
     exige une DISTANCE au rivage, pas une profondeur (SPEC 1.3 d3).'
-  deliverable: 'Le compagnon <niveau>.waterbake (shore_sdf par jump flood, shore_dir, floor_depth, flow)
-    produit par tools/water_bake depuis la collision croisee avec le fr3, charge a cote du fr3, ignore
-    proprement si absent/perime (waterbake_missing). Vagues GEOMETRIQUES en vertex en 4 phases sur d (houle
-    40->12 m, cambrure 12->3 m par la raideur Q, deferlement 3->0 m, jet de rive 0->-4 m), plafond 0,30
-    m, periode ~7 s, aucune ecume au large ; trois ecumes ; sable mouille via shade(). SPEC 5.5. Publie
-    shore_wave_amp_max_mm (<=300), shore_runup_max_m (<=4), shore_wave_period_s, shore_band_width_var.
-    PREUVE : `FEATURE water-shore armed=1 hits=<vagues arrivees a d=0 (comptees au deferlement)>` + la
-    ligne `waterbake_sdf_coverage_pct=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans
-    la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-shore"),
-    jamais armed(), et n''en ecris pas un second. CONTRAT SURFACES MEUBLES (prompts/SPEC-surfaces-meubles.md
-    section 10) : publier chaque image la phase du jet de rive en UN scalaire (slot par image, jamais
-    un pointeur), lisible par la coque de sable, et la cle `shore_phase_published=1` ; la coque LIT shore_sdf
-    au bake et cette phase au runtime, elle n''ecrit jamais dans le .waterbake.'
+  deliverable: |-
+    Le compagnon <niveau>.waterbake (shore_sdf par jump flood, shore_dir, floor_depth, flow) produit par tools/water_bake depuis la collision croisee avec le fr3, charge a cote du fr3, ignore proprement si absent/perime (waterbake_missing). Vagues GEOMETRIQUES en vertex en 4 phases sur d (houle 40->12 m, cambrure 12->3 m par la raideur Q, deferlement 3->0 m, jet de rive 0->-4 m), plafond 0,30 m, periode ~7 s, aucune ecume au large ; trois ecumes ; sable mouille via shade(). SPEC 5.5. Publie shore_wave_amp_max_mm (<=300), shore_runup_max_m (<=4), shore_wave_period_s, shore_band_width_var. PREUVE : `FEATURE water-shore armed=1 hits=<vagues arrivees a d=0 (comptees au deferlement)>` + la ligne `waterbake_sdf_coverage_pct=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-shore"), jamais armed(), et n'en ecris pas un second. CONTRAT SURFACES MEUBLES (prompts/SPEC-surfaces-meubles.md section 10) : publier chaque image la phase du jet de rive en UN scalaire (slot par image, jamais un pointeur), lisible par la coque de sable, et la cle `shore_phase_published=1` ; la coque LIT shore_sdf au bake et cette phase au runtime, elle n'ecrit jamais dans le .waterbake.
+
+    DECISION 3 DE LA SPEC (1.3), partie non portee (audit 17/09) : en plus du SDF de rivage cuit, le DEPTH FADE ecran pour le dynamique (objets, acteurs, geometrie non cuite). Publier la largeur de fondu mesuree en pixels a la ligne d'eau et le nombre de fragments qui y passent, bras ON/OFF.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
     seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
@@ -5891,14 +5880,10 @@ items:
     est la passe P3 de l''eclairage (item lighting-regimes). NOTE 09-09 (perf) : perf-fbo-passes invalide
     depth/stencil apres la derniere lecture : W0 se place AVANT ce point, marque par un commentaire nomme
     dans android_opengl_renderer.cpp et OpenGLRenderer.cpp. Porte water_scene_copies_per_frame == 1 inchangee.'
-  deliverable: 'W0 avec couleur : UNE copie apres les alphas, partagee avec DepthCue (qui cesse de blitter
-    la sienne). Refraction avec REJET des echantillons devant la surface. Reflet du cube P3 via env_specular
-    de shade(). Echelle a 4 crans reglable : ciel / cube / planaire 1/4 sur les plans immobiles listes
-    / SSR sur toute l''eau avec repli cube. SPEC 5.6, 6. Publie water_fresnel_max (<= plafond) et water_env_source.
-    PREUVE : `FEATURE water-refraction-reflection armed=1 hits=<pixels d''eau refractes>` + la ligne `water_scene_copies_per_frame=`
-    seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE
-    : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-refraction-reflection"), jamais armed(),
-    et n''en ecris pas un second.'
+  deliverable: |-
+    W0 avec couleur : UNE copie apres les alphas, partagee avec DepthCue (qui cesse de blitter la sienne). Refraction avec REJET des echantillons devant la surface. Reflet du cube P3 via env_specular de shade(). Echelle a 4 crans reglable : ciel / cube / planaire 1/4 sur les plans immobiles listes / SSR sur toute l'eau avec repli cube. SPEC 5.6, 6. Publie water_fresnel_max (<= plafond) et water_env_source. PREUVE : `FEATURE water-refraction-reflection armed=1 hits=<pixels d'eau refractes>` + la ligne `water_scene_copies_per_frame=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-refraction-reflection"), jamais armed(), et n'en ecris pas un second.
+
+    DECISION 5 DE LA SPEC (1.3), qu'aucun item ne portait (audit 17/09) : l'eau se dessine APRES tous les opaques et les alphas, a la place du bucket 63, avec UNE copie unique de couleur + profondeur de scene ; le mid ecrit la profondeur en GL_ALWAYS au bucket 4, donc la profondeur lue AVANT est illisible (SPEC 2.x). Publier le bucket effectif de dessin de l'eau, le nombre de copies couleur/profondeur par image (= 1) et leur taille.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
     seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
