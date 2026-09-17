@@ -233,7 +233,10 @@ void Shrub::update_load(const LevelData* loader_data) {
     max_num_grps = std::max(max_num_grps, num_grps);
 
     time_of_day_count = std::max(tree.time_of_day_colors.color_count, time_of_day_count);
-    max_inds = std::max(tree.indices.size(), max_inds);
+    // `make_all_visible_index_list` ecrit desormais UN restart de plus par draw non vide
+    // (background_common.cpp) : le tampon temporaire doit en tenir compte, sinon le dernier
+    // arbre deborde `index_temp` d'autant d'entrees qu'il a de draws.
+    max_inds = std::max(tree.indices.size() + tree.static_draws.size(), max_inds);
     u32 verts = tree.unpacked.vertices.size();
     // foliage-wind (owner 2026-09-03) : LE RECENSEMENT des buissons de cet arbre, une entree par
     // instance (identite lue dans `instance_groups`, jamais supposee par `color_index`). C'est la
@@ -1140,10 +1143,14 @@ void Shrub::render_tree(int idx,
   };
   if (render_state->no_multidraw && render_state->batch_singledraw) {
     // Gperf-batching: merge consecutive draws sharing texture+mode into one
-    // glDrawElements (see TFragment.cpp — same contiguity + trailing-restart
-    // guarantees; every shrub draw's index stream ends with UINT32_MAX,
-    // extract_shrub.cpp). Runs break on proto-vis-masked draws (their index
-    // range sits between and must not be drawn) and on double-draw modes.
+    // glDrawElements. Runs break on proto-vis-masked draws (their index range sits
+    // between and must not be drawn) and on double-draw modes.
+    // CORRIGE le 2026-09-17 : ce commentaire affirmait « every shrub draw's index stream ends
+    // with UINT32_MAX, extract_shrub.cpp ». C'etait faux — `clean_up_vertex_indices` retire le
+    // restart terminal — et la fusion fabriquait donc deux triangles-pont inter-instances par
+    // frontiere. Le restart est desormais ECRIT par `make_all_visible_index_list`
+    // (background_common.cpp) et compte dans la plage du draw ; la garantie que cette fusion
+    // suppose est enfin vraie.
     const auto& alpha_u = tfrag_alpha_uniforms(render_state->shaders[ShaderId::SHRUB].id());
     size_t draw_idx = 0;
     while (draw_idx < tree.draws->size()) {

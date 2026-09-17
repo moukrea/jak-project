@@ -2570,6 +2570,23 @@ u32 make_all_visible_index_list(std::pair<int, int>* group_out,
     memcpy(&idx_out[idx_buffer_ptr], idx_in + draw.first_index_index,
            draw.num_indices * sizeof(u32));
     idx_buffer_ptr += draw.num_indices;
+    // ── LE RESTART TERMINAL QUE LE FLUX DU SHRUB N'A JAMAIS PORTE ─────────────────────────
+    // `Shrub.cpp` (chemin `no_multidraw && batch_singledraw`, c'est-a-dire ANDROID) fusionne
+    // les draws contigus de meme texture+mode en UN SEUL `glDrawElements(GL_TRIANGLE_STRIP)`.
+    // Son commentaire affirme « every shrub draw's index stream ends with UINT32_MAX » : c'est
+    // FAUX. `clean_up_vertex_indices` (decompiler/level_extractor/extract_common.cpp:23-25 et
+    // :36-38) ne pousse un restart qu'ENTRE deux strips et jamais a la fin, et
+    // `extract_shrub.cpp:567-574` concatene les draws SANS separateur. Chaque frontiere fusionnee
+    // fabriquait donc deux triangles-pont reliant les sommets de DEUX INSTANCES differentes —
+    // des slivers qui traversent la scene. Le TIE, lui, pousse bien un restart en fin de strip
+    // (`extract_tie.cpp:2456-2457`) : il fusionne juste, et il rend `gap64 = 0`.
+    // Le restart est ecrit ICI et COMPTE dans `ds.second` : la contiguite `sd2.first ==
+    // first + count` sur laquelle repose la fusion reste vraie, mais le strip fusionne est COUPE
+    // a chaque frontiere. Un draw vide n'en recoit pas : `second == 0` doit rester le temoin
+    // « rien a dessiner » que la boucle de fusion lit.
+    if (draw.num_indices) {
+      idx_out[idx_buffer_ptr++] = UINT32_MAX;
+    }
     ds.second = idx_buffer_ptr - ds.first;
     group_out[i] = ds;
   }
