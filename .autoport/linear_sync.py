@@ -573,12 +573,14 @@ def main():
         st = target_state(bl, it)
         desc = description(bl, it, retries)
         title = (it.get("feature") or iid).strip()[:250]
-        h = hashlib.sha1((title + "|" + st + "|" + desc + "|" + str(priority_for(bl, it)) + "|ok=" + str(bool(it.get("owner_ok")))).encode()).hexdigest()
+        h = hashlib.sha1((title + "|" + st + "|" + desc + "|" + str(priority_for(bl, it)) + "|ok=" + str(bool(it.get("owner_ok"))) + "|rang=" + str(it.get("priority"))).encode()).hexdigest()
         rec = mp.get(iid)
         if rec and rec.get("hash") == h:
             continue
         payload = {"title": title, "description": desc, "stateId": states[st],
                    "projectId": projects[project_for(iid)], "priority": priority_for(bl, it)}
+        if isinstance(it.get("priority"), int):
+            payload["sortOrder"] = float(it["priority"])  # l'ordre des colonnes = l'ordre reel de la file (owner 17/09, JAK-174)
         if a.dry_run:
             print(("CRÉER " if not rec else "MAJ   ") + "%-40s %-18s %s" % (iid, st, title[:60]))
             continue

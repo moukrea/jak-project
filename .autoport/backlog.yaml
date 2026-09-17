@@ -12223,7 +12223,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.ao.tie.campaign=tie-alpha-20260916-attempt14
   - debug.opengoal.ao.tie.view=village1-hut
-  - debug.opengoal.ao.tie.reference=1
+  - debug.opengoal.ao.tie.reference=2
   priority: 32
   device: true
   feature: 'La prepasse d''AO garde les memes fragments que la couleur sur le TIE statique : plus d''ombre
@@ -12300,6 +12300,17 @@ items:
       tout autant qu'à tout le reste ?
   - date: '2026-09-17'
     text: Pour l'AO, bah démerdes toi et fait le meilleur choix.
+  - date: '2026-09-17'
+    text: Alors ce ticket est bloqué par [JAK-159](https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a)
+      et [JAK-166](https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres)
+      il semblerait… Pourquoi il est en cours donc ? Peut-être que je suis con mais s'il est bloqué par
+      un autre ticket qui n'est pas fait… Pourquoi il serait en cours ? Ah mais c'est deux tickets sont
+      faits… My bad tu peux ignorer 😀
+  - date: '2026-09-17'
+    text: Ça avance ? J'ai l'impression que tu te buttes là dessus…
+  - date: '2026-09-17'
+    text: Je commente ici en vrac, j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal
+      ! [JAK-173](https://linear.app/moukrea/issue/JAK-173/distinction-entre-todo-et-backlog)
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -13035,3 +13046,33 @@ items:
   hits_means: entrees dessinees
   notes: Cree le 17/09 depuis un commentaire Linear de l'owner sur res-menu-truth.
   prompt: prompts/item-res-scale-submenu.md
+- id: owner-todo-priorisation
+  status: validated
+  game: jak1
+  priority: null
+  feature: Todo priorisation
+  gate: null
+  depends_on: []
+  device: false
+  owner_test: true
+  owner_ok:
+    date: '2026-09-17'
+    text: Déplacé en « Done » dans Linear par l'owner
+    build_sha: 7c43b9017f12dcc2
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-17. Son texte : Comment sont priorisés
+    les Todo (9 actuels) par le harnais, il prend quoi en premier ? C''est juste du hasard ?'
+  notes: |-
+    A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.
+    Question de l'owner (JAK-174), repondue sur le ticket le 17/09 : pas un chantier.
+  where: ''
+  deliverable: ''
+  out_of_scope: ''
+  spec: null
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Déplacé en « Done » dans Linear par l'owner
