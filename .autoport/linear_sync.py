@@ -657,6 +657,69 @@ def _key_numbers(text, gate_key):
     return out
 
 
+def _fmt(k, v):
+    try:
+        x = float(v)
+    except ValueError:
+        return v
+    if k.endswith("_x1000"):
+        return "%.1f %%" % (x / 10.0)
+    if k.endswith("_px"):
+        return "%d px" % x
+    if k.endswith("_ms"):
+        return "%.2f ms" % x
+    if k.endswith("_us"):
+        return "%d µs" % x
+    return ("%d" % x) if x == int(x) else ("%.3f" % x)
+
+
+def explain_numbers(it, proof_text):
+    """Owner 17/09 : « Tu penses vraiment que c'est le genre de truc que je peux intelligiblement comprendre ? ».
+    SEULES les grandeurs que le livrable nomme explicitement (entre accents graves) sont montrees, chacune avec la
+    phrase du livrable qui lui donne son sens ; la porte et le compte d'images en tete ; jamais une cle brute."""
+    vals = {}
+    for line in proof_text.splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            vals[k.strip()] = v.strip()
+    gate = (it.get("gate") or {}).get("key", "")
+    deliv = it.get("deliverable") or ""
+    out = []
+    if gate in vals:
+        out.append("**Porte** : %s défaut(s) au total (objectif 0)." % _fmt(gate, vals[gate]))
+    fr = vals.get("frames"); cr = vals.get("crash"); du = vals.get("duration_s"); src = vals.get("source")
+    if fr:
+        out.append("Mesure : %s images%s%s%s." % (fr, " sur le téléphone" if src == "device" else " sur PC", (", %s s" % du) if du else "", (", %s plantage" % cr) if cr is not None else ""))
+    named = [k for k in dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]+)`", deliv)) if k != gate and not k.startswith("FEATURE")]
+    paras = [pg.strip() for pg in re.split(r"\n\s*\n", deliv) if pg.strip()]
+    shown = 0
+    for key in named:
+        family = [kk for kk in vals if kk == key or (kk.startswith(key) and re.fullmatch(r"_(gtao|hbao|ssao)?(_q[0-9])?(_x1000)?", kk[len(key):]))]
+        nums = []
+        for kk in family:
+            try:
+                nums.append(float(vals[kk]))
+            except ValueError:
+                pass
+        if not nums:
+            continue
+        worst = max(nums)
+        pg = next((pg for pg in paras if ("`%s`" % key) in pg), "")
+        body = re.sub(r"^\s*\(?[0-9A-Za-z]{1,2}[.)]\s*", "", re.sub(r"`[^`]*`", "", pg))  # sans le « E. » de tete
+        head = body.split(":", 1)[0].strip(" .-")
+        if len(head) < 12:
+            head = re.split(r"(?<=[.;])\s", body, 1)[0].strip(" .-")
+        sent = (head[:1].upper() + head[1:].lower())[:100] if head else key.replace("_", " ")
+        line = "- %s : %s" % (sent, _fmt(family[0], worst))
+        if len(family) > 1:
+            line += " au pire, sur %d modes/qualités" % len(family)
+        line += " — " + ("OK" if worst == 0 else "défaut")
+        out.append(line); shown += 1
+        if shown >= 8:
+            break
+    return out
+
+
 def announce_verdicts(L, bl, mp, read, dry):
     """Owner 17/09 : « on pourrait au moins avoir une raison des échecs et possiblement des preuves à l'appui ! Et pareil
     pour les succès ». A chaque verdict (validator-NNN.txt nouveau), un commentaire : essai, resultat, pourquoi, chiffres,
@@ -698,12 +761,10 @@ def announce_verdicts(L, bl, mp, read, dry):
         attach = []
         pf = _proof_for(it["id"], v)
         if pf:
-            nums = _key_numbers(pf.read_text(errors="replace"), gate)
-            if nums:
-                lines.append("\n**Chiffres** : " + " · ".join(nums))
-            mes = AP / "reports" / it["id"] / ("essai-%d-mesures.txt" % num)
-            keep = [l for l in pf.read_text(errors="replace").splitlines() if l.startswith(gate.split("_")[0] + "_") or l.split("=")[0] in ("frames", "crash", "duration_s", "source", "serial")]
-            mes.write_text("\n".join(keep) + "\n"); attach.append(mes)
+            expl = explain_numbers(it, pf.read_text(errors="replace"))
+            if expl:
+                lines.append("")
+                lines += expl
         rep = AP / "reports" / it["id"] / "report.txt"
         if rep.exists() and abs(rep.stat().st_mtime - v.stat().st_mtime) < 1800:
             body_lines = [l for l in rep.read_text(errors="replace").splitlines() if l.strip() and not l.startswith("DIRECTIVES")]
