@@ -5643,7 +5643,7 @@ items:
       fois en jeu) évidemment qu'elle ne sort plus du lit de la rivière qui se jette dans la mer de forbidden
       jungle vu que c'est exactmeent pareil que l'eau du jeu original sauf qu'elle est opaque...
   gate:
-    key: water_gameplay_height_maxdelta_mm
+    key: water_ocean_owner_defects
     op: ==
     value: 0
   game: jak1
@@ -5679,7 +5679,7 @@ items:
     A. TRANSPARENCE : l'eau n'est plus opaque. Publier l'alpha effectif ecrit par le fragment (min/max sur la surface visible) : max < 1 et attenuation vers zero au bord comme Naughty Dog (ocean_recharged.vert:60 / OceanNear_PS2.cpp:1205) ; un alpha constant a 1 est un defaut.
     B. ECRAN TITRE : l'eau n'est pas noire sur l'ecran titre. Publier la luminance moyenne de la mer sur l'ecran titre, comparee a celle du build d'avant la reprise (reference archivee) ; ecart > tolerance = defaut.
     C. LES VAGUES RESTENT DES VAGUES : la houle visible n'est pas plus plate qu'avant la reprise. Publier l'amplitude de deplacement vertical et la variance des normales de la surface, meme vue, meme instant de houle, contre le binaire d'avant water-ocean-mesh ; une baisse > 10 % = defaut.
-    `water_ocean_owner_defects` = A + B + C, un terme non mesure compte 1.
+    `water_ocean_owner_defects` = A + B + C + (water_gameplay_height_maxdelta_mm != 0), un terme non mesure compte 1. C'est LA porte depuis le 17/09 : la hauteur de jeu seule ne suffit plus.
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF et recharged_water
     OFF ; tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master seul (SPEC 1.2).
     La hauteur de JEU ne bouge pas.'
