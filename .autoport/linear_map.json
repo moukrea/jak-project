@@ -32,10 +32,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-prepass-tie-alpha": {
-  "hash": "c9d53587be5939c6bbde0ed57eaf22add4eb55ab",
+  "hash": "ffc3790168e8663a50bec296c66ae1c50efbbe42",
   "identifier": "JAK-160",
   "issue_id": "3ecb9f6c-5fbc-4c82-9781-4738fc135af0",
-  "last_state": "À faire",
+  "last_state": "En cours",
   "pulled_at": "2026-09-17T05:37:22.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-160/la-prepasse-dao-garde-les-memes-fragments-que-la-couleur-sur-le-tie"
  },
@@ -224,10 +224,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "77c87b83ea4104eaa96486444cbb3d272d534963",
+  "hash": "255f023e1fe64b379c34eb3d9a95137ba60b7751",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "Backlog",
+  "last_state": "À faire",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-120/plusieurs-silhouettes-de-brins-simples-au-lieu-dune-seule-forme-hachee"
  },
@@ -240,11 +240,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-115/lherbe-hors-du-champ-de-vision-cesse-de-couter"
  },
  "grass-clumps": {
-  "hash": "1a0b2d2d4710f4d3c823ab4d8532f1361cfbf20e",
+  "hash": "9360eb96db2a04453966638678327929ae9e5b05",
   "identifier": "JAK-119",
   "issue_id": "24dbdb0f-c378-4cd3-b939-32c56ea5b024",
-  "last_state": "À tester",
-  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "last_state": "Terminé (machine)",
+  "pulled_at": "2026-09-17T06:34:07.108Z",
   "url": "https://linear.app/moukrea/issue/JAK-119/lherbe-pousse-en-touffes-coherentes-plus-en-bruit-blanc-de-brins"
  },
  "grass-dead-tail": {
@@ -256,7 +256,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-114/lherbe-cesse-de-construire-et-de-televerser-ce-que-rien-ne-dessine"
  },
  "grass-edge-falloff": {
-  "hash": "58bfd71294894771a3302a3ad78ee656da30433a",
+  "hash": "d48d45638401309b41a77c9ad757916c7fe68273",
   "identifier": "JAK-127",
   "issue_id": "90737bfc-bca7-4ebf-9a9d-d6cd1d7f1786",
   "last_state": "Backlog",
@@ -272,10 +272,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-126/le-bord-qui-donne-sur-le-vide-etabli-par-la-geometrie-et-non-par"
  },
  "grass-interaction-direction": {
-  "hash": "62f910d92ab79563c0287cadd5a68440966a5e4f",
+  "hash": "942af38cadcb91c25334d842c89210100af0d0ed",
   "identifier": "JAK-124",
   "issue_id": "9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403",
-  "last_state": "Backlog",
+  "last_state": "À faire",
   "pulled_at": "2026-09-17T05:37:12.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-124/lherbe-se-couche-dans-la-direction-du-pas-au-lieu-de-secraser-en-rond"
  },
@@ -288,7 +288,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-125/lherbe-existe-ailleurs-que-sur-geyser-rock"
  },
  "grass-lod-popin": {
-  "hash": "929e949a108a7cb100aad088542c1ce1a40d00ba",
+  "hash": "56080d227cb5b58ab9d3c693c60edcf02e88b0dd",
   "identifier": "JAK-129",
   "issue_id": "9f9cd259-59c8-42ba-9842-d1234ccfd587",
   "last_state": "Backlog",
@@ -304,18 +304,18 @@
   "url": "https://linear.app/moukrea/issue/JAK-117/les-meshes-de-sable-ou-de-terre-poses-par-dessus-un-sol-herbeux"
  },
  "grass-path-transitions": {
-  "hash": "150f3bea709a864100c3baec1cdd916f03bf3825",
+  "hash": "ff18ee8803138088cbde7765e514cf127b43cfad",
   "identifier": "JAK-118",
   "issue_id": "40495f73-0ba0-4b75-a1fc-4bf09daf2ca5",
-  "last_state": "À tester",
-  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T06:32:23.804Z",
   "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
  },
  "grass-shading": {
-  "hash": "e61ac31fd753ab45a410f687ec6da0c128b14dca",
+  "hash": "b6543fd28954b30b11ffebace6c88d9e62ce634d",
   "identifier": "JAK-121",
   "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
-  "last_state": "Backlog",
+  "last_state": "À faire",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-121/lherbe-cesse-detre-un-aplat-du-relief-par-la-couleur-pas-par-la"
  },
@@ -336,10 +336,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-170/lherbe-est-usee-la-ou-lon-passe-carte-de-frequentation-cuite-par"
  },
  "grass-wind": {
-  "hash": "b2ae6e73321c274e1384aad4795a797a98e03159",
+  "hash": "d6717c84b5c8493bb44ab0822bae49626145761f",
   "identifier": "JAK-122",
   "issue_id": "7da89a1c-3c97-4ebe-a745-f31d76e7d8fb",
-  "last_state": "Backlog",
+  "last_state": "À faire",
   "pulled_at": "2026-09-17T05:37:12.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-122/un-vent-qui-a-une-direction-et-qui-courbe-le-brin-au-lieu-de-le-faire"
  },
@@ -608,11 +608,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "46dbbe6d8a059a2d4bbadbe792f250085637a770",
+  "hash": "f5d2e61577c8ec2ac0bc38c8661f789a2204ae1d",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-17T06:44:53.617Z",
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
@@ -624,11 +624,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
-  "hash": "3204925f142c16d74aff1ce9840f8f73eeeb9fd3",
+  "hash": "f7d3be9201495d1800c84674679fbfdb4b9180f7",
   "identifier": "JAK-46",
   "issue_id": "fc19917f-6dd9-427c-b15e-d0707f296a19",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "last_state": "Archivé",
+  "pulled_at": "2026-09-17T06:46:05.327Z",
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-interiors": {
@@ -944,7 +944,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-26/lherbe-qui-traverse-les-objets-poses-au-sol"
  },
  "recharged-grass-wear": {
-  "hash": "2ed2a2a565deb79f0a039acd35601742c3ce5af3",
+  "hash": "c5714684cfd79af7645170890a852d787c6fdda2",
   "identifier": "JAK-27",
   "issue_id": "501abe3e-2ef5-4c09-8f9d-c8546b9cc1fd",
   "last_state": "Backlog",
@@ -976,11 +976,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-32/un-interrupteur-global-recharged-marchearret"
  },
  "recharged-materials-modern-parity": {
-  "hash": "bba3db54761c6e164d2f5de2e04595186f51d790",
+  "hash": "c1d02e566b6491de185f4be8ab60c4d209d532dd",
   "identifier": "JAK-44",
   "issue_id": "f61a6488-43e5-49f8-b95d-86b78b704645",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:36:54.000Z",
+  "last_state": "Archivé",
+  "pulled_at": "2026-09-17T06:46:45.833Z",
   "url": "https://linear.app/moukrea/issue/JAK-44/des-materiaux-au-niveau-des-moteurs-modernes"
  },
  "recharged-mesh-browser": {
@@ -1008,11 +1008,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-34/le-nom-des-jeux-et-de-la-collection-recharged"
  },
  "recharged-pbr-realtime-fusion": {
-  "hash": "aec5e810f471f284679ad42d19c8c25bf98ae4f8",
+  "hash": "09d235ccb317930794a6edb59ea8e7e158b008a4",
   "identifier": "JAK-36",
   "issue_id": "4861fc9d-fc03-4d35-bd29-a74d64cfc967",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:36:53.000Z",
+  "last_state": "Archivé",
+  "pulled_at": "2026-09-17T06:47:18.686Z",
   "url": "https://linear.app/moukrea/issue/JAK-36/les-matieres-pbr-eclairees-par-la-lumiere-temps-reel"
  },
  "recharged-secondary-motion": {
@@ -1047,13 +1047,29 @@
   "pulled_at": "2026-09-17T05:36:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-7/linterface-reste-nette-quand-on-baisse-lechelle-de-rendu"
  },
+ "res-list-sorted-by-pixels": {
+  "hash": "2fefdad50fb3e5c49eb3b3f55aa9d62cee27e269",
+  "identifier": "JAK-171",
+  "issue_id": "9ed2127e-03eb-4734-9054-d9da293e32da",
+  "last_state": "À faire",
+  "pulled_at": "2026-09-17T06:51:42.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-171/la-liste-des-resolutions-est-classee-par-nombre-total-de-pixels-du"
+ },
  "res-menu-truth": {
-  "hash": "322d8dd9ad6aed5c16bb8bbab07015b3e4f1fc0a",
+  "hash": "e93edf0ac6c1a178c1574115fee75c0b520a72a5",
   "identifier": "JAK-82",
   "issue_id": "fc9322c1-0e17-4a1d-99b2-856f1ae15b0c",
-  "last_state": "Bloqué",
-  "pulled_at": "2026-09-17T05:37:00.000Z",
+  "last_state": "Validé",
+  "pulled_at": "2026-09-17T06:43:52.426Z",
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
+ },
+ "res-scale-submenu": {
+  "hash": "5100cfa070d447e10b3faa7537121889c29ff12c",
+  "identifier": "JAK-172",
+  "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
+  "last_state": "À faire",
+  "pulled_at": "2026-09-17T06:51:42.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
  },
  "shrub-trunk-contact": {
   "hash": "f5c63fe1c1c16a96ec274c9ee28c222b8b8b437f",
@@ -1072,10 +1088,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-138/le-canal-dacteurs-pieds-vitesses-pas-un-tableau-un-appel-zero-par"
  },
  "soft-bake-format": {
-  "hash": "20246de5bb50aae8969d70cb867202562d33a168",
+  "hash": "c6302f24d7b3d91f0650884837b933be80390a45",
   "identifier": "JAK-134",
   "issue_id": "12c89632-9785-42b0-a128-82ca5abbd6ce",
-  "last_state": "Backlog",
+  "last_state": "À faire",
   "pulled_at": "2026-09-17T05:37:17.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-134/le-compagnon-softbake-la-coque-imbriquee-ses-chunks-son-outil"
  },
@@ -1216,10 +1232,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-135/la-coque-remplace-le-sol-dans-les-trois-passes-sans-encore-se-deformer"
  },
  "soft-support-map": {
-  "hash": "e857e3f8db190d88475d92bbdb6a52a690ba877c",
+  "hash": "faad7cfba956e6708beaddde1a0645c70ed6320c",
   "identifier": "JAK-133",
   "issue_id": "8d4fb98b-6a6f-44d9-9dca-b73c2fc807b9",
-  "last_state": "En cours",
+  "last_state": "Terminé (machine)",
   "pulled_at": "2026-09-17T05:37:17.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-133/le-support-et-lepaisseur-de-chaque-point-de-matiere-cuits"
  },

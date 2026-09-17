@@ -5,6 +5,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 ## Cause connue
 
+17/09 OWNER (Linear) : « Toujours pertinent ? Bloqué pourquoi ? ». Reponse : c'est le ticket PARENT de l'AO. Ses 7 termes sont tous mesures ; 5 sont acquis (Eleve pleine resolution, damier des facades, alpha appareil, fuite du direct, bande de contact), le 6e (sonde stable) est fait, le 7e est le raccord mur/toit de la hutte, en cours dans ao-prepass-tie-alpha. Quand l'enfant passe, cet item se rejoue UNE fois pour mesurer les 7 termes ensemble sur le meme binaire et fermer l'AO. Pas de redecoupage.
+
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. ao_composite.frag multiplie l'image opaque FINALE, apres l'encodage gamma, ce qui assombrit aussi le direct — d'ou le masque de luminance, qui est le symptome du mauvais emplacement. SPEC 4.7.
 
 ## Livrable — le contrat, en entier
@@ -56,6 +58,12 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion : essaie CHAQUE pal
 
 ### 2026-09-13
 > Occlusion ambiante : j'ai poussé à l'extrême les tests... Du coup GTAO en qualité élevé et force plus fort (pour exagérer au plus possible)... Sur les façades même en élevé on a un aspect pixelisé, comme si c'était un filtre collé par dessus en pauvre qualité au final (d'ailleurs étrangement aux contact on a comme une petite bande ou l'ao n'a pas d'effet, laissant une bande de quelques pixels éclairée sans AO, c'est distrayant. Idem en SSAO en élevé, idem en HBAO. L'effet est pire en qualité faible, là c'est carrément dégueulasse et inexploitable (plus un damier comme avant c'est mieux hein, mais c'est inconsistant, avec des bandes, pixelisés, ça bouge, c'est laid. Il y a toujours l'occlusion ambiante sur tous les shrubs en dehors de la zone occupée par une texture, donc des ombres qui flottent dans le vide... D'ailleurs à ce propos, les shrubs qui bougent avec le vent... Leur AO reste à la place initiale (en plus de d'avoir de l'AO sur les parties transparentes) alors que le "vent" les fait bouger (un feature qu'on a terminé il y a quelques jours) et ça aussi c'est un désastre.
+
+### 2026-09-14
+> ok, si ça bloque découpe en trois comme tu proposes
+
+### 2026-09-17
+> Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper ? C'est quoi le problème ?
 
 ## Pourquoi ce fichier existe
 

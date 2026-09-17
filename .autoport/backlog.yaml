@@ -3119,9 +3119,11 @@ items:
   notes: 'owner 2026-09-05 : « le jeu boot sur mon Honor, supprime moi ça »'
 - id: recharged-pbr-realtime-fusion
   feature: Les matieres PBR eclairees par la lumiere temps reel
-  status: blocked
+  status: archived
   priority: 217
-  owner_feedback: []
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Bah s'il est supplanté par la refonte, on peut même l'archiver non ?
   gate: null
   game: jak1
   max_turns: 800
@@ -3141,6 +3143,8 @@ items:
     les matieres PBR sur le chemin unique. 25 rounds, jamais accepte. — L''OWNER A TRANCHE le 2026-09-05
     : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR la refonte, il ne se
     rouvre pas seul.'
+  notes: '17/09 owner (Linear) : « supplanté par la refonte, on peut même l''archiver non ? » -> archive
+    ; livre par lighting-unify + lighting-materials.'
 - id: recharged-mesh-browser
   feature: Le navigateur de mesh de debug
   status: validated
@@ -4037,9 +4041,11 @@ items:
     first ») ; livre par defaut ETEINT
 - id: recharged-materials-modern-parity
   feature: Des materiaux au niveau des moteurs modernes
-  status: blocked
+  status: archived
   priority: 220
-  owner_feedback: []
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Bah s'il est couvert par la refonte, on peut même l'archiver non ?
   gate: null
   game: jak1
   max_turns: 800
@@ -4055,6 +4061,8 @@ items:
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials. — L''OWNER A
     TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR
     la refonte, il ne se rouvre pas seul.'
+  notes: '17/09 owner (Linear) : « couvert par la refonte, on peut même l''archiver non ? » -> archive
+    ; livre par lighting-materials.'
 - id: jak2-polish
   feature: Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
   status: blocked
@@ -4161,7 +4169,7 @@ items:
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
 - id: lighting-census
   feature: Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
-  status: blocked
+  status: archived
   priority: 900
   owner_feedback:
   - date: '2026-09-03'
@@ -4235,6 +4243,8 @@ items:
       Arrêtes de trouver des excuses pour bosser sur de la merde au lieu de faire du vrai taff... Si tu
       continues je retourne sous Claude Code et je cancel mon abonnement, Claude Code est bien moins teubé
       tu m'a fait perdre la journée avec tes conneries j'ai envie de te cogner très fort
+  - date: '2026-09-17'
+    text: Je comprend rien à ce ticket, c'est un bordel sans nom… Tu m'expliques ? Détaille ?
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -4256,14 +4266,9 @@ items:
   out_of_scope: Aucune correction de textures, modeles HD, herbe, brise ou cadence dans cette priorite.
     Aucun nouveau travail sur master OFF/historique. Ne pas annuler aveuglement les corrections deja commitees.
     Pas de masque ni validation owner. HDR ecran natif ulterieur.
-  notes: 'SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut. | owner
-    2026-09-04 : « s''il n''y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel,
-    il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
-    : preuve MACHINE, l''owner n''a rien a regarder, et le laisser en attente de sa parole gelait tout
-    ce qui en depend. | rouvert le 2026-09-07 : le jeu de references ne contenait pas de ciel, d''ou un
-    faux vert sur lighting-hdr. | Revue superviseur apres essai18 : plafond6 atteint mais changements
-    reels a chaque essai ; reprise bornee avec baseline pre-refonte identifiee et livrable adaptation/construction.
-    Historique et criteres conserves.'
+  notes: |-
+    SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut. | owner 2026-09-04 : « s'il n'y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel, il pose l'instrument et fige les references : owner_test=false. | promu 'validated' le 2026-09-06 : preuve MACHINE, l'owner n'a rien a regarder, et le laisser en attente de sa parole gelait tout ce qui en depend. | rouvert le 2026-09-07 : le jeu de references ne contenait pas de ciel, d'ou un faux vert sur lighting-hdr. | Revue superviseur apres essai18 : plafond6 atteint mais changements reels a chaque essai ; reprise bornee avec baseline pre-refonte identifiee et livrable adaptation/construction. Historique et criteres conserves.
+    17/09 : archive. Prerequis de rejeux exacts que l'owner a lui-meme abandonne le 07/09 (« arrêtes de perdre du temps a trouver comment reproduire l'exact same frame ») ; sa partie utile (chronometre GPU) vit dans perf-instruments ; lighting-unify, seul dependant, est deja valide.
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: draws monde classes dans un des cinq chemins
   proof_env:
@@ -4989,7 +4994,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:22
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: blocked
+  status: open
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5037,6 +5042,8 @@ items:
       c''est un désastre.'
   - date: '2026-09-14'
     text: ok, si ça bloque découpe en trois comme tu proposes
+  - date: '2026-09-17'
+    text: Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper ? C'est quoi le problème ?
   gate:
     key: ao_owner_defects
     op: ==
@@ -5047,6 +5054,7 @@ items:
   depends_on:
   - lighting-hdr
   - perf-instruments
+  - ao-prepass-tie-alpha
   history: []
   prompt: prompts/item-lighting-ao-indirect.md
   owner_ok: null
@@ -5054,10 +5062,10 @@ items:
   where: 'Options > Recharged > Recharged Lighting > Ambient Occlusion : essaie CHAQUE palier de qualite
     — aucun damier ni pixelisation. Et regarde les shrubs : plus d''ombre qui flotte au-dessus des brins
     d''herbe.'
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
-    ce prompt ne repete pas. ao_composite.frag multiplie l''image opaque FINALE, apres l''encodage gamma,
-    ce qui assombrit aussi le direct — d''ou le masque de luminance, qui est le symptome du mauvais emplacement.
-    SPEC 4.7.'
+  known_cause: |-
+    17/09 OWNER (Linear) : « Toujours pertinent ? Bloqué pourquoi ? ». Reponse : c'est le ticket PARENT de l'AO. Ses 7 termes sont tous mesures ; 5 sont acquis (Eleve pleine resolution, damier des facades, alpha appareil, fuite du direct, bande de contact), le 6e (sonde stable) est fait, le 7e est le raccord mur/toit de la hutte, en cours dans ao-prepass-tie-alpha. Quand l'enfant passe, cet item se rejoue UNE fois pour mesurer les 7 termes ensemble sur le meme binaire et fermer l'AO. Pas de redecoupage.
+
+    LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. ao_composite.frag multiplie l'image opaque FINALE, apres l'encodage gamma, ce qui assombrit aussi le direct — d'ou le masque de luminance, qui est le symptome du mauvais emplacement. SPEC 4.7.
   deliverable: |-
     `ao_owner_defects` = 0 — LA PORTE LIT DESORMAIS TOUS LES POINTS DE L'OWNER, plus un seul terme. Somme publiee SEPAREMENT de : (1) `ao_direct_leak_px` ; (2) `ao_pattern_over_ceiling` = 1 si `ao_flatstep_worst_delivered` > 10 a un palier quelconque (le damier des facades) ; (3) `ao_sway_gap_px` (prepasse contre scene sous vent, shrub ET TIE : `ao_geom_tie_absent_px` compte dedans) ; (4) `ao_on_alpha_device_px` (alpha respecte SUR L'APPAREIL, vent allume) ; (5) `ao_static_cam_delta_px` (camera fixe, vent coupe : 0 texel bouge) ; (6) `ao_contact_band_px` (largeur de la bande sans AO aux contacts) ; (7) `ao_high_not_fullres` = 1 si `ao_scale_q2` < 1,0 (Eleve doit etre pleine resolution ou son filtre bilateral publie). Chaque terme est publie avec son denominateur.
     RENVOYE PAR LE SUPERVISEUR le 14/09 (pas un refus de l'owner) : l'essai 7 a ete promu « a tester » sur `ao_direct_leak_px == 0` alors que son propre rapport dit : « le palier ELEVE a la MEME resolution que le MOYEN », « ao_flatstep_worst_delivered=19 pour un plafond de 10, inchange », « sur l'appareil ao_geom_* est ABSENT du binaire », bande de contact non mesuree. Acquis de l'essai 7 a GARDER : la prepasse suit le vent des shrubs (26,7 % -> 0,31 % de pixels d'AO sur une geometrie qui n'y est pas) ; le stencil de preuve nomme la famille.
@@ -7184,8 +7192,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:9
 - id: res-menu-truth
   feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
-  status: blocked
-  priority: 45
+  status: validated
+  priority: null
   game: jak1
   device: true
   gate:
@@ -7233,11 +7241,26 @@ items:
       ces options... C'est finiky, je sais pas comment expliquer mais j'ai l'impression que certaines
       resolutions marchent pas vraiment, quand on bascule de ratio la resolution s'ajuste pas toute seule
       en accord, etc etc.. Faut vraiment que tu testes tout la dessus, c'est pas bon en l'etat
+  - date: '2026-09-17'
+    text: |-
+      Je comprend même pas pourquoi il est considéré comme bloqué, je viens de tester sur le build de… 6h et quelques ce matin, ça fonctionne ! Par contre, j'ai remarqué que dans la liste de résolutions, les résolutions sont pas classées par nombre de pixels au total, donc on peut se retrouver avec des résolutions plus basses en après des résolutions très élevées dans la liste de résolutions à choisir… P'tetre un nouveau ticket à faire pour ça.
+
+      Aussi, le truc de l'échelle de rendu… Le slider c'est chiant, je préfèrerais un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100… Mais avec à côté la résolution de rendu calculée live en raccord à la résolution utilisée dans le picker de résolution ! Encore une fois, p'tetre un nouveau ticket dédié pour ça
+
+      C'est aussi valable pour l'échelle de rendu min quand on est en échelle de rendu dynamique ! D'ailleurs on devrait aussi avoir un Echelle de rendu max (la value min de cette échelle étant systématiquement supérieure ou égale à l'échelle de rendu min, à ajuster automatiquement, avec les mêmes trucs de display que j'explique juste avant), p'tetre un ticket dédié pour ça aussi.
+  - date: '2026-09-17'
+    text: Je comprend même pas pourquoi il est considéré comme bloqué, je viens de tester sur le build
+      de… 6h et quelques ce matin, ça fonctionne !
   prompt: prompts/item-res-menu-truth.md
   delivered: null
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:5
   block_reason: max_retries (6) épuisé
+  owner_ok:
+    date: '2026-09-17'
+    text: Je comprend même pas pourquoi il est considéré comme bloqué, je viens de tester sur le build
+      de… 6h et quelques ce matin, ça fonctionne !
+    build_sha: c42de28de380
 - id: gl-uniforms-off-cost
   priority: 20
   device: false
@@ -9921,7 +9944,7 @@ items:
     proof_bytes: 64995
     attempt: 1
     journal: validator-001.txt
-- status: to-test
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -9932,6 +9955,7 @@ items:
   depends_on:
   - grass-surface-truth
   - grass-overlay-meshes
+  - grass-levels
   history: []
   id: grass-path-transitions
   priority: 68
@@ -9941,13 +9965,10 @@ items:
     key: grass_transition_defects
     op: ==
     value: 0
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
-    12/09. SPEC section 9. La transition est aujourd''hui BINAIRE : une surface porte de l''herbe ou n''en
-    porte pas, et la frontiere suit exactement des aretes de triangles. Il n''existe aucun champ de distance,
-    aucun poids, aucune reduction a l''approche. Un correctif partiel existe deja et doit etre generalise
-    : quand un triangle plat conserve partage son arete d''epaule avec une levre rejetee par le filtre
-    de pente, cette arete est traitee comme INTERIEURE, si bien que l''herbe remplit jusqu''a l''epaule
-    au lieu de s''arreter court. C''est exactement le remede au grief de bande vide de l''owner.'
+  known_cause: |-
+    17/09 OWNER (Linear) : « c'est pas à tester, c'est pas validé du tout ! ». La mesure de l'essai 1 (0 defaut de transition) a ete faite sur Geyser Rock, qui n'a pas de chemin, et Sandover n'a pas encore d'herbe. Cet item se rejoue APRES grass-levels, sur Sandover et la jungle, la ou des chemins existent : la porte se mesure la, et c'est la que l'owner regardera.
+
+    LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 9. La transition est aujourd'hui BINAIRE : une surface porte de l'herbe ou n'en porte pas, et la frontiere suit exactement des aretes de triangles. Il n'existe aucun champ de distance, aucun poids, aucune reduction a l'approche. Un correctif partiel existe deja et doit etre generalise : quand un triangle plat conserve partage son arete d'epaule avec une levre rejetee par le filtre de pente, cette arete est traitee comme INTERIEURE, si bien que l'herbe remplit jusqu'a l'epaule au lieu de s'arreter court. C'est exactement le remede au grief de bande vide de l'owner.
   deliverable: |-
     `grass_transition_defects` = 0, somme de termes publies SEPAREMENT.
     1. PAS DE BANDE VIDE : la largeur entre le dernier brin et la limite reelle de la zone nue, mesuree sur des vantages NOMMES couvrant un chemin traversant et une zone de terre, reste sous un plafond DECLARE. Publier la largeur mesuree et le plafond.
@@ -9955,10 +9976,9 @@ items:
     3. PAS DE DECOUPE PROCEDURALE PARFAITE : publier une mesure de rectitude du bord, sous un plafond declare. Une frontiere qui suit exactement les aretes de triangles est un defaut, pas une transition.
     4. LA TRANSITION EST PROGRESSIVE ET DETERMINISTE : densite et hauteur decroissent sur une distance declaree, et deux chargements donnent la MEME frontiere au brin pres.
     PREUVE : `FEATURE grass-path-transitions armed=1 hits=<brins situes dans une bande de transition>` + la ligne `grass_transition_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME scene.
-  where: 'A TESTER PLUS TARD, quand l''herbe sera posee sur un niveau qui a des chemins (Sandover, item
-    grass-levels) : le bord des chemins et des zones de terre, l''herbe couvre jusqu''a la limite reelle
-    sans bande pelee, le chemin reste degage. Owner 17/09 : Sandover n''a pas encore d''herbe et Geyser
-    Rock n''a pas de chemin ; ne pas le relister avant.'
+  where: 'Sur Sandover puis dans la jungle, une fois l''herbe posee (grass-levels) : le bord des chemins
+    et des zones de terre, l''herbe couvre jusqu''a la limite reelle sans bande pelee, le chemin reste
+    degage.'
   out_of_scope: 'Ne touche pas au bord donnant sur le VIDE : c''est le sujet de `grass-edge-truth` et
     `grass-edge-falloff`, deux items distincts de cette meme campagne. Ne change ni la densite globale
     ni les distances d''affichage. Tout ce qui n''est pas cet item.'
@@ -9989,9 +10009,13 @@ items:
     text: Pour l'herbe au bord des chemins... Bah sandover t'as pas mis l'herbe donc tu me dis de tester
       mais elle n'est pas là, sur geyser rock (niveau d'entrainement) c'était déjà bon avant qu'on décide
       re refaire l'herbe... Et il n'y a pas de chemin.
-- status: to-test
+  - date: '2026-09-17'
+    text: Bah du coup c'est pas à tester, c'est pas validé du tout ! Il suffit de lire le ticket pour
+      voir que c'est pas à tester ! À moins qu'il y ait une info que j'ai loupé, un build spécifique que
+      j'ai loupé… En tout cas c'est pas bon du tout !
+- status: validated
   game: jak1
-  owner_test: true
+  owner_test: false
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
@@ -10031,11 +10055,15 @@ items:
     3. LES PALIERS RESTENT IMBRIQUES : un palier inferieur retire des brins DANS les memes touffes, il ne redistribue rien. Publier le compte de touffes dont l'origine bouge entre deux paliers : zero.
     4. LE DETERMINISME TIENT : deux chargements donnent les memes touffes aux memes endroits. Publier une empreinte de l'ensemble des origines.
     PREUVE : `FEATURE grass-clumps armed=1 hits=<touffes effectivement montees>` + la ligne `grass_clump_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Sur le niveau d''entrainement : l''herbe doit se lire par groupes, avec des brins dominants
-    et des brins peripheriques, au lieu d''un tapis uniforme.'
+  where: 'Rien a juger a l''oeil pour l''instant : cette brique pose la STRUCTURE des touffes de la SPEC
+    §6 (origine cuite, graine, rayon 110 mm ±21 %, 4,9 brins en moyenne, 2,5 x plus de voisins proches
+    qu''un tirage uniforme, stable entre paliers). Le rendu qui change l''aspect vient avec les variantes
+    de brins, le shading, le vent et les profils par biome : c''est LA que l''owner regardera l''herbe.'
   out_of_scope: Ne change ni la densite moyenne, ni la couleur, ni le vent — ce sont les items suivants,
     qui dependent de celui-ci. Tout ce qui n'est pas cet item.
-  notes: SPEC section 6. La couleur, le vent et l'interaction par touffe en dependent.
+  notes: |-
+    SPEC section 6. La couleur, le vent et l'interaction par touffe en dependent.
+    17/09 owner (Linear) : « j'ai l'impression que c'est juste l'ancienne herbe en touffe… pas raccord avec la SPEC ? » -> verifie par le superviseur : structure conforme a §6 (touffe = origine cuite + graine + rayon + compte + composition) ; la composition par profil et la phase de vent partagee sont portees par grass-biome-profiles et grass-wind. Retire de « a tester » ; jugement visuel de l'owner au jalon rendu.
   hits_means: touffes effectivement montees
   prompt: prompts/item-grass-clumps.md
   block_reason: null
@@ -10047,6 +10075,11 @@ items:
     attempt: 2
     journal: validator-002.txt
   delivered: '2026-09-17'
+  owner_feedback:
+  - date: '2026-09-17'
+    text: Mhhhh ouais OK je vois bien le truc de touffes… mais j'ai l'impression que c'est juste l'ancienne
+      herbe en touffe… J'ai pas l'impression que ce soit raccord avec la SPEC que tu as à portée de main,
+      ni si c'est raccord avec le reste de la refonte ou pas… Faut que tu vérifies là !
 - status: open
   game: jak1
   owner_test: true
@@ -10646,7 +10679,7 @@ items:
     proof_bytes: 80658
     attempt: 1
     journal: validator-001.txt
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: jeu
@@ -10690,6 +10723,13 @@ items:
   prompt: prompts/item-soft-support-map.md
   owner_feedback: []
   owner_ok: null
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 3b4b842976e54a39
+    proof_bytes: 120245
+    attempt: 1
+    journal: validator-001.txt
 - status: open
   game: jak1
   owner_test: false
@@ -12117,7 +12157,7 @@ items:
     proof_bytes: 60510
     attempt: 3
     journal: validator-003.txt
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -12887,3 +12927,76 @@ items:
   notes: 'Cree le 17/09 par le superviseur : section 12 de la SPEC sans item ; reprend phase-Grecharged-grass-wear.md.'
   hits_means: instances d'herbe attenuees par la carte
   prompt: prompts/item-grass-wear-map.md
+- status: open
+  game: jak1
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  device: false
+  owner_test: true
+  owner_ok: null
+  no_code: true
+  depends_on: &id004 []
+  id: res-list-sorted-by-pixels
+  priority: 45
+  feature: La liste des résolutions est classée par nombre total de pixels, du plus petit au plus grand
+  gate:
+    key: res_list_unsorted_pairs
+    op: ==
+    value: 0
+  known_cause: 'Owner 17/09 (Linear) : « dans la liste de résolutions, les résolutions sont pas classées
+    par nombre de pixels au total, donc on peut se retrouver avec des résolutions plus basses après des
+    résolutions très élevées ».'
+  deliverable: |-
+    `res_list_unsorted_pairs` = 0 : nombre de paires consecutives de la liste PROPOSEE (celle que le menu affiche, par aspect) dont largeur x hauteur decroit. Publier la liste effective (largeur x hauteur, dans l'ordre affiche) pour chaque aspect, et le nombre de paires comparees (non nul). Le classement se fait a la construction de la liste, pas a l'affichage.
+
+    PREUVE : `FEATURE res-list-sorted-by-pixels armed=1 hits=<listes construites>` + la ligne `res_list_unsorted_pairs=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Options > Affichage > Résolution : la liste va du plus petit au plus grand nombre de pixels,
+    quel que soit l''aspect choisi.'
+  out_of_scope: Ne change ni les resolutions proposees ni le comportement de l'echelle de rendu. Tout
+    ce qui n'est pas cet item.
+  hits_means: listes construites
+  notes: Cree le 17/09 depuis un commentaire Linear de l'owner sur res-menu-truth.
+  prompt: prompts/item-res-list-sorted-by-pixels.md
+- status: open
+  game: jak1
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  device: false
+  owner_test: true
+  owner_ok: null
+  no_code: true
+  depends_on: *id004
+  id: res-scale-submenu
+  priority: 46
+  feature: L'échelle de rendu se choisit dans un sous-menu (10 à 100 %) qui affiche la résolution de rendu
+    calculée en direct
+  gate:
+    key: res_scale_menu_defects
+    op: ==
+    value: 0
+  known_cause: 'Owner 17/09 (Linear) : « le truc de l''échelle de rendu… Le slider c''est chiant, je préfèrerais
+    un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100… Mais avec à côté la résolution de rendu
+    calculée live en raccord à la résolution utilisée dans le picker de résolution ».'
+  deliverable: |-
+    `res_scale_menu_defects` = 0, somme de termes publies SEPAREMENT.
+
+    1. LE SOUS-MENU EXISTE : dix entrees, 10 % a 100 % par pas de 10, a la place du curseur ; publier le nombre d'entrees (=10) et l'absence du curseur (site de dessin du curseur = 0 appel).
+
+    2. LA RESOLUTION CALCULEE EST VRAIE : a cote de chaque entree, largeur x hauteur = resolution choisie dans le picker x pourcentage, arrondie comme le moteur l'arrondit REELLEMENT ; publier pour chaque entree la valeur affichee et la valeur que le framebuffer prend une fois l'entree choisie : identiques.
+
+    3. LE LIBELLE SUIT LE PICKER : changer la resolution dans le picker met a jour les dix libelles ; publier un temoin avant/apres.
+
+    4. LE CHOIX SURVIT AU REDEMARRAGE : publie.
+
+    PREUVE : `FEATURE res-scale-submenu armed=1 hits=<entrees dessinees>` + la ligne `res_scale_menu_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
+  where: 'Options > Affichage > Échelle de rendu : un sous-menu de 10 % à 100 %, chaque ligne montrant
+    la résolution de rendu réelle qui en résulte avec la résolution choisie juste au-dessus.'
+  out_of_scope: Ne touche pas au picker de resolution ni a l'echelle dynamique. Tout ce qui n'est pas
+    cet item.
+  hits_means: entrees dessinees
+  notes: Cree le 17/09 depuis un commentaire Linear de l'owner sur res-menu-truth.
+  prompt: prompts/item-res-scale-submenu.md

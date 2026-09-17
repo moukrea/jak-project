@@ -266,8 +266,17 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-pull", action="store_true")
     ap.add_argument("--only", default=None, help="un seul id")
+    ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
+    ap.add_argument("--body", default=None)
     a = ap.parse_args()
     L = Linear(load_key())
+    if a.comment:
+        mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
+        rec = mp.get(a.comment)
+        if not rec:
+            raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
+        L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + (a.body or "").strip()})
+        print("commentaire poste sur", rec["identifier"]); return
     bl = B.load()
     retries = {}
     if STATE_JSON.exists():

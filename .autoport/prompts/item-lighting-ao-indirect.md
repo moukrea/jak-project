@@ -5,14 +5,13 @@
 # L'occlusion ambiante multiplie l'indirect, plus l'image finale
 
 ## Defaut cite
-- 2026-09-13 : « Occlusion ambiante : j'ai poussé à l'extrême les tests... Du… »
+- 2026-09-17 : « Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper… »
 
 ## Cause connue
-LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. ao_composite.frag multiplie l'image opaque FINALE, apres l'encodage gamma, ce qui assombrit aussi le direct — d'ou le masque de luminance, qui est le symptome du mauvais emplacement. SPEC 4.7.
+17/09 OWNER (Linear) : « Toujours pertinent ? Bloqué pourquoi ? ». Reponse : c'est le ticket PARENT de l'AO. Ses 7 termes sont tous mesures ; 5 sont acquis (Eleve pleine resolution, damier des facades, alpha appareil, fuite du direct, bande de contact), le 6e (sonde stable) est fait, le 7e est le raccord mur/toit de la hutte, en cours dans ao-prepass-tie-alpha. Quand l'enfant passe, cet item se rejoue UNE fois pour mesurer les 7 termes ensemble sur le meme binaire et fermer l'AO. Pas de redecoup […suite dans le contrat]
 
 ## Livrable
-`ao_owner_defects` = 0 — LA PORTE LIT DESORMAIS TOUS LES POINTS DE L'OWNER, plus un seul terme. Somme publiee SEPAREMENT de : (1) `ao_direct_leak_px` ; (2) `ao_pattern_over_ceiling` = 1 si `ao_flatstep_worst_delivered` > 10 a un palier quelconque (le damier des facades) ; (3) `ao_sway_gap_px` (prepasse contre scene sous vent, shrub ET TIE : `ao_geom_tie_absent_px` compte dedans) ; (4) `ao_on_alpha_device_px` (alpha respecte SUR L'APPAREIL, vent allume) ; (5) `ao_static_cam_delta_px` (camera fixe, vent coupe : 0 texel bouge) ; (6) `ao_contact_band_px` (largeur de la bande sans AO aux contacts) ; (7) `ao_high_not_fullres` = 1 si `ao_scale_q2` < 1,0 (Eleve doit etre pleine resolution ou son filtre bilateral publie). Chaque terme est publie avec son denominateur.
-RENVOYE PAR LE SUPERVISEUR le 14/09 (pas un refus de l'owner) : l'essai 7 a ete promu « a tester » sur `ao_direct_leak_px == 0` al […suite dans le contrat]
+`ao_owner_defects` = 0 — LA PORTE LIT DESORMAIS TOUS LES POINTS DE L'OWNER, plus un seul terme. Somme publiee SEPAREMENT de : (1) `ao_direct_leak_px` ; (2) `ao_pattern_over_ceiling` = 1 si `ao_flatstep_worst_delivered` > 10 a un palier quelconque (le damier des facades) ; (3) `ao_sway_gap_px` (prepasse contre scene sous vent, shrub ET TIE : `ao_geom_tie_absent_px` compte dedans) ; (4) `ao_on_alpha_device_px` (alpha respecte SUR L'APPAREIL, vent allume) ; (5) `ao_static_cam_delta_px` (camera fixe […suite dans le contrat]
 
 ## Preuve exigee
 `ao_owner_defects == 0` dans `reports/lighting-ao-indirect/proof.txt`.
