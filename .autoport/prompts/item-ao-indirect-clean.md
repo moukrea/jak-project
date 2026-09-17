@@ -8,14 +8,12 @@
 - (aucun retour de l'owner enregistre sur cet item)
 
 ## Cause connue
-Owner 17/09 : « Basique : AO legacy poubelle → Nouvelle AO plus en filtre à la fin ». Et : « on a quand même (quel que soit le modèle d'AO et la qualité) une bande claire à la zone de contact… l'AO est juste posée par-dessus comme un filtre, comme si elle était calculée tout à la fin ». SPEC lumiere 4.7, table aujourd'hui/cible : aujourd'hui ao_composite.frag multiplie l'image opaque FINALE en gamma, tout le pixel, avec un masque de luminance 1-smoothstep(0.45,0.90,luma) ; cible : texture R8, li […suite dans le contrat]
+Owner 17/09 : « AO legacy poubelle → Nouvelle AO plus en filtre à la fin », puis « être clair sur ce qu'on veut exactement par rapport à la spec » : le livrable recopie la spec (4.2 lignes 2-6, 4.6, 4.7), il ne la resume pas. Et : « une bande claire à la zone de contact… l'AO est juste posée par-dessus comme un filtre ». Ce ticket REMPLACE lighting-ao-indirect (14 essais, livrable devenu illisible) : memes mesures, contrat lisible. Prepasse (ao-prepass-tie-alpha) et sonde stable (ao-static-probe […suite dans le contrat]
 
 ## Livrable
-`ao_owner_defects` = 0, somme de termes publies SEPAREMENT ; un terme non mesure compte 1.
+`ao_owner_defects` = 0, somme de termes publies SEPAREMENT ; un terme non mesure compte 1. CE QUE LA SPEC DIT, EXACTEMENT (SPEC lumiere 4.2, 4.6, 4.7) :
 
-A. L'ANCIENNE AO EST A LA POUBELLE : la passe de composition finale (ao_composite.frag, GL_ZERO/GL_ONE_MINUS_SRC_COLOR) et son masque de luminance n'existent plus dans le binaire (sites = 0, temoin de compilation), aucun chemin ne les rappelle.
-
-B. LA NOUVELLE AO EST DANS L'ECLAIRAGE : la texture d'AO (R8) est lue dans shade(), en lineaire, avant le tone map, et multiplie le SEUL terme indirect. Temoins : […suite dans le contrat]
+A. L'ANCIENNE AO EST SUPPRIMEE (4.7) : la passe qui composait l'AO sur l'image opaque finale (`ao_composite.frag`, `GL_ZERO / GL_ONE_MINUS_SRC_COLOR`, espace gamma, tout le pixel), son masque de luminance `1 - smoothstep(0.45, 0.90, luma)` et la copie de scene `m_scene_tex` n'existent plus dans le binaire : sites = 0, temoin de compilation, auc […suite dans le contrat]
 
 ## Preuve exigee
 `ao_owner_defects == 0` dans `reports/ao-indirect-clean/proof.txt`.

@@ -109,10 +109,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-88/les-libelles-ecrits-pour-le-tactile-repartent-dans-lapk"
  },
  "ao-indirect-clean": {
-  "hash": "68ecee107706a2b972e651364abdaa59c137f0c8",
+  "hash": "4bc2d50ddb529851427e3a779d2bcc9e1f5da9f3",
   "identifier": "JAK-179",
   "issue_id": "f74a4ea7-6a7e-4a92-8e29-f36dc2242b91",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-17T13:24:14.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans"
  },
@@ -853,11 +853,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-54/jak-les-pnj-et-les-ennemis-eclaires-comme-le-sol-sur-lequel-ils"
  },
  "lighting-ao-indirect": {
-  "hash": "5ffb7f0e594fcd4bdcaa57f1c4b35929366c9f4b",
+  "hash": "05a79411b07431569b4ab6fa101ce8bc3b8504b3",
   "identifier": "JAK-48",
   "issue_id": "a66778a4-f7f1-4843-bd78-59c6f91cfd95",
   "last_state": "Todo",
-  "pulled_at": "2026-09-17T13:22:44.455Z",
+  "pulled_at": "2026-09-17T13:38:50.552Z",
   "relations": [
    "ao-prepass-tie-alpha"
   ],
