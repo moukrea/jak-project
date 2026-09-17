@@ -71,6 +71,21 @@ Options > Recharged > Recharged Lighting > Ambient Occlusion, sur le HONOR : cha
 ### 2026-09-17
 > Alors ce ticket est bloqué par [JAK-159](https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a) et [JAK-166](https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres) il semblerait… Pourquoi il est en cours donc ? Peut-être que je suis con mais s'il est bloqué par un autre ticket qui n'est pas fait… Pourquoi il serait en cours ? Ah mais c'est deux tickets sont faits… My bad tu peux ignorer 😀
 
+### 2026-09-17
+> Ça avance ? J'ai l'impression que tu te buttes là dessus…
+
+### 2026-09-17
+> Je commente ici en vrac, j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal ! [JAK-173](https://linear.app/moukrea/issue/JAK-173/distinction-entre-todo-et-backlog)
+
+### 2026-09-17
+> "🤖 → **In Review** 17/09 12:25 — OK : source=device sha=abd171f6d5082f16 frames=1860 crash=0 ; ao_tie_prepass_defects == 0 tenu"  MOI. ROBOT. MOI. DÉBILE.  Genre je suis sensé compredre ce que je dois vérifier avec ce commentaire ? T'es sérieux là ?
+
+### 2026-09-17
+> "**À regarder sur le build 36c980 (publié 12:31, déjà sur ton Redmi)"**… Alors la pluspart du temps la revue manuelle se fait sur mon HONOR, à partir d'un build sur jak-builds (qui ne l'oublions pas est remplacé à chaque fois qu'un nouveau build y est poussé), prends ça en compte !  Du coup questions subsidiaire qu'on pourra éviter à l'avenir, c'est bien dispo sur jak-builds ?
+
+### 2026-09-17
+> Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO est juste posée par dessu comme un filtre, comme si elle était calculée tout à la fin, alors qu'il me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà présent de la vieille implem ou un truc du style…
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

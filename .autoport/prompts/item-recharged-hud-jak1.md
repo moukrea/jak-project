@@ -7,6 +7,7 @@
 ## Defaut cite
 - 2026-09-17 : « Sinon oui, let's go pour ce que tu propose, je veux le relancer ! Fais ce que tu suggérais ! »
 - 2026-09-17 : « Alors c'est bien que tu puisse pousser des images, mais là tu vois tu me dis que tu m'a envoyé le coeur vide, sauf que non, tu m'a envoyé la endcap de la jauge d'eco rouge ! »
+- 2026-09-17 : « Et du coup… le sujet va bien être repris ? T'as fait des tickets dédiés ? tu me laisse un peu dans le flou là, et relis le commentaire sur l'envoi d'image, tu t'es chié ! »
 
 ## Cause connue
 17/09 : relance par l'owner (« let's go pour ce que tu propose, je veux le relancer ! Fais ce que tu suggérais ! »). SPEC prompts/SPEC-refonte-hud.md. Ce ticket est le PARENT : il ferme la refonte quand les quatre chantiers sont passes.

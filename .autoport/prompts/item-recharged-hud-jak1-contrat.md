@@ -43,6 +43,9 @@ Options > Recharged : le HUD rechargé est allumé ; en jeu, cœur, jauge d'éco
 ### 2026-09-17
 > Alors c'est bien que tu puisse pousser des images, mais là tu vois tu me dis que tu m'a envoyé le coeur vide, sauf que non, tu m'a envoyé la endcap de la jauge d'eco rouge !
 
+### 2026-09-17
+> Et du coup… le sujet va bien être repris ? T'as fait des tickets dédiés ? tu me laisse un peu dans le flou là, et relis le commentaire sur l'envoi d'image, tu t'es chié !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

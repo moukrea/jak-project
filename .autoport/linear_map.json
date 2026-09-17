@@ -818,13 +818,14 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "af9168432e0044cace291d642d7140c778e3e836",
+  "hash": "9f17bd586784fe406d581555e1949b320692f2e5",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "Todo",
+  "last_state": "Backlog",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
-   "ao-prepass-tie-alpha"
+   "ao-prepass-tie-alpha",
+   "lighting-ao-indirect"
   ],
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
@@ -912,13 +913,14 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "6f9cb6baacb54a9b26f97c8ab7e5bcda450519ea",
+  "hash": "c42f2c7c9b64acab372a07935e448767fd09af97",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Todo",
+  "last_state": "Backlog",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
+   "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
@@ -1754,13 +1756,14 @@
   "url": "https://linear.app/moukrea/issue/JAK-59/des-vagues-tranquilles-qui-arrivent-une-a-une-et-remontent-le-sable"
  },
  "water-surface-material": {
-  "hash": "0039432a25e9f753bd61941e8b35479348ffe82f",
+  "hash": "83030e284ab9575d8b2cd9275d47893790454a73",
   "identifier": "JAK-58",
   "issue_id": "c554814f-99ff-4c69-93af-523deb198fb2",
   "last_state": "Backlog",
   "pulled_at": "2026-09-17T05:36:56.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
+   "lighting-ao-indirect",
    "water-ocean-mesh"
   ],
   "url": "https://linear.app/moukrea/issue/JAK-58/une-seule-matiere-deau-eclairee-par-shade"

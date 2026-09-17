@@ -5289,7 +5289,7 @@ items:
   max_turns: 2000
   max_retries: 8
   depends_on:
-  - ao-prepass-tie-alpha
+  - lighting-ao-indirect
   history: []
   prompt: prompts/item-lighting-bake.md
   owner_ok: null
@@ -5383,7 +5383,7 @@ items:
   max_retries: 8
   depends_on:
   - perf-merc-defuse
-  - ao-prepass-tie-alpha
+  - lighting-ao-indirect
   history: []
   prompt: prompts/item-lighting-shadows.md
   owner_ok: null
@@ -5833,7 +5833,7 @@ items:
   depends_on:
   - water-ocean-mesh
   - lighting-hdr
-  - ao-prepass-tie-alpha
+  - lighting-ao-indirect
   history: []
   prompt: prompts/item-water-surface-material.md
   owner_ok: null
