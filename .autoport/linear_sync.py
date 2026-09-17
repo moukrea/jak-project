@@ -476,13 +476,9 @@ def main():
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
         L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i={"issueId": rec["issue_id"], "body": MARK + (a.body or "").strip()})
         team = ensure_team(L); read, todo = labels(L, team)
-        closed = rec.get("last_state") in ("Validé", "Archivé")
-        if closed:  # ticket clos : on repond, mais on n'attend rien de l'owner
-            for lab in (read, todo, _TALK.get("id")):
-                swap_labels(L, rec["issue_id"], remove=lab)
-        else:
-            swap_labels(L, rec["issue_id"], add=read, remove=todo)
-        print("commentaire poste sur", rec["identifier"], "(ticket clos, discussion close)" if closed else "+ « A lire », - « A traiter »"); return
+        # Owner 17/09 : « si tu commentes, ça a une valeur de le mettre à lire » — toujours, ticket clos ou non.
+        swap_labels(L, rec["issue_id"], add=read, remove=todo)
+        print("commentaire poste sur", rec["identifier"], "+ « A lire », - « A traiter »"); return
     bl = B.load()
     retries = {}
     if STATE_JSON.exists():
