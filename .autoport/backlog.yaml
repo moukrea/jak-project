@@ -10658,6 +10658,9 @@ items:
   - soft-surface-truth
   history: []
   id: soft-support-map
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
   priority: 82
   device: false
   feature: Le support et l'epaisseur de chaque point de matiere, cuits

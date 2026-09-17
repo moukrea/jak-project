@@ -1512,4 +1512,143 @@ ClumpNestCensus clump_nest_census(const BakeData& lo, const ExpandResult& elo, c
 bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
 
+// ---------------------------------------------------------------------------
+// soft-support-map : LE SUPPORT ET L'EPAISSEUR DE CHAQUE POINT DE MATIERE, CUITS.
+// ---------------------------------------------------------------------------
+//
+// SPEC-surfaces-meubles.md, sections 2, 3, 7 et decisions 3, 5, 9, 12. `soft-surface-truth` a dit
+// OU la matiere est meuble ; cet item dit, pour chaque SOMMET de la coque, SUR QUOI il repose et
+// DE COMBIEN il est souleve. Il ne subdivise pas (L0-L3 : `soft-bake-format`), il ne serialise
+// rien, il n'ecrit aucun fichier : il CUIT en memoire et il PUBLIE.
+//
+// LE LECTEUR EST CELUI DE `soft-surface-truth`, APPELE. `soft_resolve_class()` est extrait de
+// `soft_surface_census()` et les DEUX l'appellent : l'arbitrage « le materiau tranche, la texture
+// ne parle que s'il se tait » a une seule definition, donc les deux items ne peuvent pas diverger.
+// L'index XZ (`surf_build_render_index`) et ses predicats de nom sont ceux de `grass-surface-truth`.
+//
+// LA POPULATION EST CELLE DU RENDU, PAS DE LA COLLISION. La coque REMPLACE les triangles de
+// terrain dessines (SPEC section 2) ; c'est donc leurs sommets qu'il faut cuire. La collision,
+// elle, est le SUPPORT : elle ne bouge pas d'une unite.
+//
+// L'INVARIANT QUE LA PORTE LIT, et il est le meme pour les trois matieres :
+//
+//     depuis la position cuite P, le rayon le long de -dir rencontre la collision a t,
+//     avec t >= h - tolerance, et h >= 0, et h == 0 exactement en frontiere.
+//
+// Autrement dit : le plancher que la compression maximale peut atteindre, `P - dir*h`, ne passe
+// JAMAIS sous le support (SPEC section 2 : « une tuile ne PEUT PAS exprimer un creusement sous le
+// support, par construction »). Les trois grandeurs P, dir et h sont cuites SEPAREMENT, par des
+// formules differentes selon la matiere ; la verification les recompose et les confronte a la
+// collision. Une direction fausse, un falloff applique a la position mais pas a l'epaisseur, une
+// epaisseur de congere mesuree a la verticale au lieu de la direction de couche : chacun de ces
+// defauts fait rougir le terme, aucun n'est masque par construction.
+//
+// SABLE ET NEIGE COMPACTE : P = sommet de terrain + dir*h, h = profil (143 u = 3,5 cm, decision 5)
+//   attenue aux frontieres et sous les objets poses. Le support est la collision historique.
+// CONGERES (deepsnow) : P = sommet de la surface RENDUE de la congere, h = la distance le long de
+//   -dir jusqu'a l'ilot de collision (SPEC section 2), attenuee aux frontieres.
+//
+// LES REJETS SONT NOMMES, PAS PERDUS. Un sommet sans support, un support en mode MUR, une face
+// retournee, une pente au-dela du seuil du profil, une texture meuble posee sur une collision
+// `grass` (decision 12), une surface sous -0,5 m (decision 9) : chacun a son compteur, et ces
+// compteurs sont NON NULS la ou l'investigation les a vus.
+struct SoftSupportIsland {
+  u64 id = 0;
+  u64 collision_tris = 0;
+  u64 hull_verts = 0;
+  // CUITE : apres attenuation aux frontieres et sous les objets. C'est ce que le moteur posera.
+  double min_u = 0, med_u = 0, max_u = 0;
+  // MESUREE : la distance BRUTE du rayon, de la surface rendue a l'ilot de collision, le long de
+  // la direction de couche. C'est le chiffre que la decision 4 de la SPEC attend — « coque sur
+  // toute l'epaisseur, ou les 0,5 m superieurs ». L'attenuation ne doit pas le cacher : sans
+  // subdivision (L0-L3 appartient a `soft-bake-format`), l'immense majorite des sommets d'un ilot
+  // de 36 a 42 triangles est SUR la frontiere, donc cuite a zero.
+  double raw_min_u = 0, raw_med_u = 0, raw_max_u = 0;
+};
+struct SoftSupportMap {
+  // ---- POPULATION DE RENDU (denominateurs).
+  u64 render_draws = 0;
+  u64 render_tris_offered = 0;   // triangles proposes a l'index XZ
+  u64 render_tris_indexed = 0;   // retenus par l'index (faces montantes non degenerees)
+  u64 collision_tris = 0;
+  // ---- CLASSIFICATION (le lecteur de soft-surface-truth, appele).
+  u64 soft_tris = 0;             // triangles de rendu dont la classe resolue est MEUBLE
+  u64 hull_tris = 0;             // ce qui reste apres tous les rejets
+  u64 hull_tris_sand = 0, hull_tris_snow = 0, hull_tris_deepsnow = 0;
+  // ---- SOMMETS DE COQUE (soudes a l'unite GOAL pres).
+  u64 hull_verts = 0;            // sommets distincts de la coque
+  u64 hull_verts_thick = 0;      // ceux qui ont recu une epaisseur > 0   <- `hits=`
+  u64 hull_verts_tested = 0;     // denominateur du terme 1 : tous les sommets verifies
+  u64 boundary_verts = 0, interior_verts = 0;
+  // POURQUOI un sommet est fige : les trois regles se comptent separement, sinon « tout est
+  // frontiere » ne se distingue pas de « la frontiere est bien placee ».
+  u64 bnd_by_other = 0, bnd_by_dead = 0, bnd_by_open_edge = 0;
+  u64 vert_slots = 0;      // 3 x triangles de coque : le denominateur de la soudure
+  u64 hull_tris_dup = 0;   // le MEME triangle dessine deux fois : compte, pas cuit deux fois
+  u64 hull_verts_sand = 0, hull_verts_snow = 0, hull_verts_deepsnow = 0;
+  // ---- REJETS, NOMMES (terme 4). Chacun est un triangle de rendu ecarte.
+  u64 rej_degenerate = 0;        // normale nulle ou sliver vertical en projection XZ
+  u64 rej_wall_render = 0;       // |ny|/|n| sous le seuil de l'index : ce n'est pas un sol
+  u64 rej_backface = 0;          // ny < 0 : face retournee, marchable ou non
+  u64 rej_slope = 0;             // pente > seuil du profil
+  u64 rej_unclassified = 0;      // aucune des deux sources ne classe le triangle
+  u64 rej_not_soft = 0;          // classe resolue autre que MEUBLE
+  u64 rej_overlay_grass = 0;     // decision 12 : texture meuble sur une collision `grass`
+  u64 rej_no_support = 0;        // aucune collision le long de -dir dans la fenetre
+  u64 rej_support_above = 0;     // la collision est AU-DESSUS de la surface de repos
+  u64 rej_support_wall = 0;      // le support trouve est en mode MUR
+  u64 rej_support_obstacle = 0;  // le support trouve est en mode OBSTACLE
+  u64 rej_support_material = 0;  // le support trouve n'est pas un materiau meuble
+  u64 rej_seafloor = 0;          // decision 9 : aucune coque sous -0,5 m
+  u64 rej_no_headroom = 0;       // une autre collision occupe la place de la couche
+  u64 rej_tie_not_terrain = 0;   // une piece TIE n'est du terrain que si c'est une congere
+  u64 rej_off_island = 0;        // le rayon d'une congere manque son ilot et trouve le sol en bas
+  // ---- LE MUR VU DU COTE COLLISION : le 2 952 de `training` (SPEC section 1), lu tel quel.
+  u64 coll_soft = 0, coll_mode_wall_soft = 0, coll_mode_obstacle_soft = 0, coll_mode_ground = 0;
+  // ---- OBJETS STATIQUES ET DEPRESSIONS (terme 3).
+  u64 static_cells = 0;          // cellules d'empreinte au pas de 12,5 cm
+  double static_area_u2 = 0, static_area_m2 = 0;
+  u64 static_objects = 0;        // composantes connexes de l'empreinte
+  u64 static_from_collision = 0, static_from_tie = 0;  // d'ou vient chaque cellule
+  u64 static_skipped_large = 0;  // triangles trop etendus pour etre un objet pose : comptes, pas perdus
+  u64 fixpoint_rounds = 0;       // tours de retrait avant que la coque ne bouge plus
+  u64 depression_verts = 0;      // sommets de coque dans une depression cuite
+  // LA OU LES DEUX SURFACES COINCIDENT : le rendu et la collision se touchent a moins de 2 cm.
+  // Il n'y a PAS de matiere entre elles, donc l'epaisseur y vaut zero — ce n'est pas un ecretage
+  // d'une valeur fausse, c'est la lecture juste de deux maillages confondus. Mesure de
+  // `soft-baseline` sur les 18 ilots d'`ogre` : ecart median -0,007 m.
+  u64 verts_coincident = 0;
+  double objdist_min_u = 0, objdist_med_u = 0, objdist_max_u = 0;  // distance cuite a l'objet
+  // ---- EPAISSEURS CUITES (terme 2), toute la coque puis les congeres.
+  double thick_min_u = 0, thick_med_u = 0, thick_max_u = 0;
+  u64 deep_islands = 0;
+  double deep_raw_min_u = 0, deep_raw_med_u = 0, deep_raw_max_u = 0;  // toutes congeres confondues
+  std::vector<SoftSupportIsland> islands;  // par ilot deepsnow : epaisseur min / mediane / max
+  // ---- TERMES DE LA PORTE. Chacun est publie SEPAREMENT ; leur somme est `soft_thickness_defects`.
+  u64 defect_no_support = 0;     // 1. un sommet de coque sans support le long de dir
+  u64 defect_below_support = 0;  // 1bis. le plancher comprime passerait SOUS le support
+  u64 defect_negative = 0;       // 2. une epaisseur < 0
+  u64 defect_boundary = 0;       // 3. un sommet de frontiere a epaisseur non nulle
+  u64 defect_direction = 0;      // 3bis. direction non unitaire a l'interieur, non nulle en frontiere
+  // ---- TEMOINS DE NON-VACUITE.
+  u64 population_empty = 0;      // 1 si le niveau n'offre AUCUN triangle de rendu
+  std::string reject_tex_top;    // les textures des triangles meubles rejetes, nommees
+  std::string support_mat_top;   // les materiaux de collision qui portent la coque, nommes
+  std::string soft_src_top;      // d'ou viennent les triangles dits meubles : tfrag, LOD, TIE
+  std::string hull_src_top;      // d'ou viennent ceux qui restent
+};
+// Deterministe, sans GL, sans horloge, sans fil, sans ecriture : les memes octets rendent les
+// memes comptes. `-ffp-contract=off` est pose sur cette unite par les deux CMakeLists.
+SoftSupportMap soft_support_map(const tfrag3::Level& lev, const std::string& level_name);
+// Les constantes du profil, publiees telles quelles par le recensement : une porte dont le seuil
+// n'est pas publie n'est pas relisible.
+constexpr float kSoftProfileThicknessU = 143.0f;  // 3,5 cm — SPEC decision 5
+constexpr float kSoftFalloffSandU = 0.30f * 4096.0f;
+constexpr float kSoftFalloffSnowU = 0.50f * 4096.0f;
+constexpr float kSoftSlopeFlatDeg = 10.0f;   // w = 0 en deca — SPEC section 7
+constexpr float kSoftSlopeFullDeg = 35.0f;   // w = 1 au-dela — SPEC section 7
+constexpr float kSoftSlopeRejectDeg = 45.0f; // pente > seuil du profil : rejet
+constexpr float kSoftSeafloorU = -0.5f * 4096.0f;  // SPEC decision 9
+constexpr float kSoftObjectMarginU = 0.10f * 4096.0f;  // depression plus large que l'empreinte
+
 }  // namespace grass_bake

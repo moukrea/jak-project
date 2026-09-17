@@ -7,7 +7,12 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <map>
+#include <queue>
+#include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -3381,6 +3386,11 @@ struct SurfRenderIndex {
   std::vector<u32> big;  // trop etendus pour l'index : balayes lineairement
   float binv = 1.0f / (SURF_BUCKET_M * U);
   u64 draws = 0;
+  // soft-support-map : CE QUE L'INDEX ECARTE, COMPTE AU LIEU D'ETRE PERDU. Purement additif —
+  // aucune decision de `surf_index_add` ne change, seuls ces compteurs montent. Sans eux, les
+  // murs et les faces degenerees disparaitraient du denominateur et le terme « les rejets sont
+  // nommes » lirait une population deja filtree en silence.
+  u64 offered = 0, rej_degenerate = 0, rej_wall = 0, rej_sliver = 0;
 };
 
 // Entre un triangle s'il regarde vers le haut et n'est pas degenere. Rend son indice, ou -1.
@@ -3392,10 +3402,13 @@ s32 surf_index_add(SurfRenderIndex& ix, float ax, float ay, float az, float bx, 
   float ny = e1z * e2x - e1x * e2z;
   float nz = e1x * e2y - e1y * e2x;
   float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+  ix.offered++;
   if (nlen < 1e-3f) {
+    ix.rej_degenerate++;
     return -1;  // degenere
   }
   if (std::fabs(ny) / nlen < SURF_UPNESS) {
+    ix.rej_wall++;
     return -1;  // mur : ce n'est pas un sol
   }
   SurfRenderTri r;
@@ -3407,6 +3420,7 @@ s32 surf_index_add(SurfRenderIndex& ix, float ax, float ay, float az, float bx, 
   r.d11 = e2x * e2x + e2z * e2z;
   float denom = r.d00 * r.d11 - r.d01 * r.d01;
   if (std::fabs(denom) < 1e-6f) {
+    ix.rej_sliver++;
     return -1;  // sliver vertical en projection XZ : ne couvre aucun point
   }
   r.inv_denom = 1.0f / denom;
@@ -3798,6 +3812,21 @@ inline bool census_tex_is_snowy(const std::string& n) {
 // c'est pourquoi l'arbitrage est ecrit ici, en clair, plutot que disperse dans des `if`.
 enum SoftCls : u8 { SOFTCLS_UNKNOWN = 0, SOFTCLS_GRASS, SOFTCLS_SOFT, SOFTCLS_OTHER };
 
+// L'ARBITRAGE, UNE SEULE FOIS. `soft_surface_census` (la population de COLLISION) et
+// `soft_support_map` (la population de RENDU) l'APPELLENT tous les deux : deux copies auraient
+// derive, et l'exclusivite herbe/coque serait devenue un artefact de recopie. Le materiau tranche,
+// la texture ne parle que s'il se tait (SPEC decision 12).
+inline SoftCls soft_resolve_class(bool mat_ok, bool mat_grass, bool mat_soft, bool tex_ok,
+                                  bool tex_soft, bool tex_grass) {
+  if (mat_ok) {
+    return mat_grass ? SOFTCLS_GRASS : (mat_soft ? SOFTCLS_SOFT : SOFTCLS_OTHER);
+  }
+  if (tex_ok) {
+    return tex_soft ? SOFTCLS_SOFT : (tex_grass ? SOFTCLS_GRASS : SOFTCLS_OTHER);
+  }
+  return SOFTCLS_UNKNOWN;
+}
+
 }  // namespace
 
 SoftSurfaceCensus soft_surface_census(const tfrag3::Level& lev, const std::string& level_name) {
@@ -3917,15 +3946,8 @@ SoftSurfaceCensus soft_surface_census(const tfrag3::Level& lev, const std::strin
     if (mat_grass && tex_soft) { c.overlay_soft_tex_on_grass_mat++; }
     if (mat_soft && tex_grass) { c.overlay_grass_tex_on_soft_mat++; }
 
-    // L'ARBITRAGE, ECRIT EN CLAIR. Le materiau tranche ; la texture ne parle que s'il se tait.
-    SoftCls cls;
-    if (mat_ok) {
-      cls = mat_grass ? SOFTCLS_GRASS : (mat_soft ? SOFTCLS_SOFT : SOFTCLS_OTHER);
-    } else if (tex_ok) {
-      cls = tex_soft ? SOFTCLS_SOFT : (tex_grass ? SOFTCLS_GRASS : SOFTCLS_OTHER);
-    } else {
-      cls = SOFTCLS_UNKNOWN;
-    }
+    // L'ARBITRAGE, ECRIT EN CLAIR ET APPELE : `soft_support_map` lit la MEME fonction.
+    const SoftCls cls = soft_resolve_class(mat_ok, mat_grass, mat_soft, tex_ok, tex_soft, tex_grass);
     const bool elig_soft = (cls == SOFTCLS_SOFT);
     const bool elig_grass = (cls == SOFTCLS_GRASS);
     if (elig_soft) { c.eligible_soft++; }
@@ -5831,6 +5853,999 @@ ClumpNestCensus clump_nest_census(const BakeData& lo, const ExpandResult& elo, c
   plo.finish();
   phi.finish();
   return c;
+}
+
+// ===============================================================================================
+// soft-support-map : LE SUPPORT ET L'EPAISSEUR DE CHAQUE POINT DE MATIERE. Le contrat est dans
+// GrassBakeCore.h. Comme les deux recensements ci-dessus, ce bloc LIT et CUIT EN MEMOIRE : il ne
+// touche ni `m_bake`, ni `expand()`, ni aucun fichier.
+// ===============================================================================================
+
+namespace {
+
+// -----------------------------------------------------------------------------------------------
+// LE SUPPORT : un index XZ des triangles de COLLISION et un vrai lancer de rayon dessus.
+// -----------------------------------------------------------------------------------------------
+// `surf_index_probe` ne sait sonder qu'a la VERTICALE. La direction de couche est inclinee jusqu'a
+// 35 degres (SPEC section 7) : sonder a la verticale mesurerait une AUTRE grandeur que celle que
+// la compression parcourt. D'ou Moller-Trumbore, en double, sur la collision brute.
+struct SoftCollTri {
+  double ax, ay, az;
+  double e1x, e1y, e1z;
+  double e2x, e2y, e2z;
+  float minx, maxx, minz, maxz;
+  u32 mode = 0, material = 0;
+  s16 ny = 0;       // la normale STOCKEE du triangle de collision : la seule qui soit orientee
+  s32 island = -1;  // composante connexe deepsnow, ou -1
+};
+
+struct SoftCollGrid {
+  std::vector<SoftCollTri> tris;
+  std::unordered_map<u64, std::vector<u32>> grid;
+  std::vector<u32> big;
+  float binv = 1.0f / (SURF_BUCKET_M * U);
+};
+
+inline u64 soft_cell_key(s64 gx, s64 gz) {
+  return ((u64)(u32)(s32)gx << 32) | (u32)(s32)gz;
+}
+
+void soft_coll_insert(SoftCollGrid& g, u32 ri) {
+  const auto& t = g.tris[ri];
+  s64 gx0 = (s64)std::floor(t.minx * g.binv), gx1 = (s64)std::floor(t.maxx * g.binv);
+  s64 gz0 = (s64)std::floor(t.minz * g.binv), gz1 = (s64)std::floor(t.maxz * g.binv);
+  if ((gx1 - gx0) > SURF_MAX_SPAN || (gz1 - gz0) > SURF_MAX_SPAN) {
+    g.big.push_back(ri);
+    return;
+  }
+  for (s64 gz = gz0; gz <= gz1; ++gz) {
+    for (s64 gx = gx0; gx <= gx1; ++gx) {
+      g.grid[soft_cell_key(gx, gz)].push_back(ri);
+    }
+  }
+}
+
+// Moller-Trumbore, en double, sans culling de face : un support retourne reste un support, et
+// c'est le compteur `rej_backface` qui nomme la face retournee, pas un rayon qui l'ignore.
+inline bool soft_ray_tri(const SoftCollTri& t, double px, double py, double pz, double dx,
+                         double dy, double dz, double& t_out) {
+  const double hx = dy * t.e2z - dz * t.e2y;
+  const double hy = dz * t.e2x - dx * t.e2z;
+  const double hz = dx * t.e2y - dy * t.e2x;
+  const double a = t.e1x * hx + t.e1y * hy + t.e1z * hz;
+  if (std::fabs(a) < 1e-12) {
+    return false;  // rayon parallele au plan
+  }
+  const double f = 1.0 / a;
+  const double sx = px - t.ax, sy = py - t.ay, sz = pz - t.az;
+  const double u = f * (sx * hx + sy * hy + sz * hz);
+  if (u < -1e-9 || u > 1.0 + 1e-9) {
+    return false;
+  }
+  const double qx = sy * t.e1z - sz * t.e1y;
+  const double qy = sz * t.e1x - sx * t.e1z;
+  const double qz = sx * t.e1y - sy * t.e1x;
+  const double v = f * (dx * qx + dy * qy + dz * qz);
+  if (v < -1e-9 || u + v > 1.0 + 1e-9) {
+    return false;
+  }
+  t_out = f * (t.e2x * qx + t.e2y * qy + t.e2z * qz);
+  return true;
+}
+
+// Le support le plus proche en |t| sur [tmin, tmax] le long de (dx,dy,dz), unitaire. Rend l'indice
+// du triangle de collision touche, ou -1. `tmin` peut etre NEGATIF : une collision AU-DESSUS de la
+// surface de repos n'est pas « pas de support », c'est un support MAL PLACE, et les deux se
+// comptent separement.
+s32 soft_coll_cast(const SoftCollGrid& g, double px, double py, double pz, double dx, double dy,
+                   double dz, double tmin, double tmax, double& t_out) {
+  const double x0 = px + dx * tmin, z0 = pz + dz * tmin;
+  const double x1 = px + dx * tmax, z1 = pz + dz * tmax;
+  const s64 gx0 = (s64)std::floor(std::min(x0, x1) * g.binv) - 1;
+  const s64 gx1 = (s64)std::floor(std::max(x0, x1) * g.binv) + 1;
+  const s64 gz0 = (s64)std::floor(std::min(z0, z1) * g.binv) - 1;
+  const s64 gz1 = (s64)std::floor(std::max(z0, z1) * g.binv) + 1;
+  s32 best = -1;
+  double bestt = 0;
+  auto test = [&](u32 ri) {
+    double t;
+    if (!soft_ray_tri(g.tris[ri], px, py, pz, dx, dy, dz, t)) {
+      return;
+    }
+    if (t < tmin || t > tmax) {
+      return;
+    }
+    if (best < 0 || std::fabs(t) < std::fabs(bestt) ||
+        (std::fabs(t) == std::fabs(bestt) && ri < (u32)best)) {
+      bestt = t;
+      best = (s32)ri;
+    }
+  };
+  for (s64 gz = gz0; gz <= gz1; ++gz) {
+    for (s64 gx = gx0; gx <= gx1; ++gx) {
+      const auto it = g.grid.find(soft_cell_key(gx, gz));
+      if (it == g.grid.end()) {
+        continue;
+      }
+      for (u32 ri : it->second) {
+        test(ri);
+      }
+    }
+  }
+  for (u32 ri : g.big) {
+    test(ri);
+  }
+  t_out = bestt;
+  return best;
+}
+
+// Falloff cosinusoidal, SPEC section 7 : nul a la frontiere, plein au-dela de R. `f(0) == 0`
+// EXACTEMENT — c'est ce que le terme 3 de la porte relit.
+inline double soft_falloff(double d, double R) {
+  if (d <= 0.0) {
+    return 0.0;
+  }
+  if (d >= R) {
+    return 1.0;
+  }
+  return 0.5 * (1.0 - std::cos(3.14159265358979323846 * d / R));
+}
+
+// La cle de soudure : l'unite GOAL entiere (0,24 mm). Les positions d'un meme sommet partage
+// arrivent par des draws differents et ne sont egales qu'au bit pres apres reconstruction
+// p0 + e ; quantifier a l'unite les rapproche sans jamais coller deux sommets distincts du
+// maillage de terrain, dont l'arete mediane vaut 4 220 u (SPEC section 1).
+struct SoftVKey {
+  s64 x, y, z;
+  bool operator==(const SoftVKey& o) const { return x == o.x && y == o.y && z == o.z; }
+};
+struct SoftVKeyHash {
+  size_t operator()(const SoftVKey& k) const {
+    u64 h = 1469598103934665603ull;
+    for (s64 v : {k.x, k.y, k.z}) {
+      h = (h ^ (u64)v) * 1099511628211ull;
+    }
+    return (size_t)h;
+  }
+};
+inline SoftVKey soft_vkey(double x, double y, double z) {
+  return {(s64)std::llround(x), (s64)std::llround(y), (s64)std::llround(z)};
+}
+
+struct SoftStat {
+  double mn = 0, med = 0, mx = 0;
+};
+SoftStat soft_stats(std::vector<double> v) {
+  SoftStat s;
+  if (v.empty()) {
+    return s;
+  }
+  std::sort(v.begin(), v.end());
+  s.mn = v.front();
+  s.mx = v.back();
+  s.med = (v[(v.size() - 1) / 2] + v[v.size() / 2]) * 0.5;
+  return s;
+}
+
+constexpr double kSoftSupportWindowFlatU = 0.5 * U;  // sable / neige compacte : SPEC section 1
+constexpr double kSoftSupportWindowDeepU = 10.0 * U; // congeres : SPEC section 1 (denivele 3 a 6 m)
+constexpr double kSoftSupportAboveTolU = 0.02 * U;   // 2 cm : au-dela, le support est MAL PLACE
+constexpr double kSoftObjectCellU = 0.125 * U;       // pas de rasterisation de l'empreinte
+constexpr int kSoftFixpointMaxRounds = 6;
+
+}  // namespace
+
+SoftSupportMap soft_support_map(const tfrag3::Level& lev, const std::string& level_name) {
+  SoftSupportMap m;
+  (void)level_name;
+
+  // ---- 1. L'INDEX DE RENDU. Celui de `grass-surface-truth`, APPELE : une seule enumeration des
+  // triangles dessines, tfrag geo 0 puis TIE geo 0, et ses rejets sont desormais CHIFFRES.
+  SurfRenderIndex rix;
+  surf_build_render_index(lev, rix);
+  m.render_draws = rix.draws;
+  m.render_tris_offered = rix.offered;
+  m.render_tris_indexed = (u64)rix.tris.size();
+  m.rej_degenerate = rix.rej_degenerate + rix.rej_sliver;
+  m.rej_wall_render = rix.rej_wall;
+  m.population_empty = rix.offered == 0 ? 1 : 0;
+
+  // ---- 2. LA COLLISION : LE SUPPORT. Il ne bouge pas d'une unite (SPEC section 2) ; on le lit.
+  const auto& cv = lev.collision.vertices;
+  const size_t ntri = cv.size() / 3;
+  m.collision_tris = (u64)ntri;
+  SoftCollGrid cg;
+  cg.tris.reserve(ntri);
+  std::vector<s32> deep_of_tri(ntri, -1);
+  std::vector<u32> uf;  // union-find des triangles deepsnow, par position de sommet exacte
+  std::vector<size_t> deep_ids;
+  for (size_t t = 0; t < ntri; ++t) {
+    const auto& a = cv[t * 3 + 0];
+    const auto& b = cv[t * 3 + 1];
+    const auto& c = cv[t * 3 + 2];
+    SoftCollTri ct;
+    ct.ax = a.x; ct.ay = a.y; ct.az = a.z;
+    ct.e1x = (double)b.x - a.x; ct.e1y = (double)b.y - a.y; ct.e1z = (double)b.z - a.z;
+    ct.e2x = (double)c.x - a.x; ct.e2y = (double)c.y - a.y; ct.e2z = (double)c.z - a.z;
+    ct.minx = std::min(a.x, std::min(b.x, c.x));
+    ct.maxx = std::max(a.x, std::max(b.x, c.x));
+    ct.minz = std::min(a.z, std::min(b.z, c.z));
+    ct.maxz = std::max(a.z, std::max(b.z, c.z));
+    ct.mode = (a.pat >> 3) & 0x7u;
+    ct.material = (a.pat >> 6) & 0x3fu;
+    ct.ny = a.ny;
+    const bool soft = ct.material < kPatMaterialCount && pat_material_is_soft(ct.material);
+    if (soft) {
+      m.coll_soft++;
+    }
+    if (ct.mode == 0) {
+      m.coll_mode_ground++;
+    } else if (ct.mode == 1 && soft) {
+      m.coll_mode_wall_soft++;
+    } else if (ct.mode == 2 && soft) {
+      m.coll_mode_obstacle_soft++;
+    }
+    if (ct.material == kPatMatDeepSnow) {
+      deep_ids.push_back(t);
+    }
+    cg.tris.push_back(ct);
+  }
+  for (u32 i = 0; i < (u32)cg.tris.size(); ++i) {
+    soft_coll_insert(cg, i);
+  }
+  // LES ILOTS DEEPSNOW : composantes connexes par position de sommet EXACTE. Meme regle que la
+  // baseline (`tools/soft_bake`), qui a trouve 19 ilots a `snow` et 18 a `ogre`.
+  {
+    uf.resize(deep_ids.size());
+    for (u32 i = 0; i < (u32)uf.size(); ++i) {
+      uf[i] = i;
+    }
+    std::function<u32(u32)> root = [&](u32 i) {
+      while (uf[i] != i) {
+        uf[i] = uf[uf[i]];
+        i = uf[i];
+      }
+      return i;
+    };
+    std::map<std::tuple<float, float, float>, u32> vmap;
+    for (u32 i = 0; i < (u32)deep_ids.size(); ++i) {
+      const size_t t = deep_ids[i];
+      for (int k = 0; k < 3; ++k) {
+        const auto& p = cv[t * 3 + k];
+        auto ins = vmap.emplace(std::make_tuple(p.x, p.y, p.z), i);
+        if (!ins.second) {
+          uf[root(i)] = root(ins.first->second);
+        }
+      }
+    }
+    std::map<u32, s32> label;
+    for (u32 i = 0; i < (u32)deep_ids.size(); ++i) {
+      const u32 r = root(i);
+      auto ins = label.emplace(r, (s32)label.size());
+      deep_of_tri[deep_ids[i]] = ins.first->second;
+      cg.tris[deep_ids[i]].island = ins.first->second;
+    }
+    m.deep_islands = (u64)label.size();
+  }
+
+  // ---- 3. CLASSER LES TRIANGLES DE RENDU, ET NOMMER CHAQUE REJET.
+  // La classe resolue est celle de `soft-surface-truth` : `soft_resolve_class()`, APPELEE. Le
+  // materiau vient du SUPPORT trouve sous le triangle, la texture du draw qui le dessine.
+  struct HullTri {
+    u32 v[3];
+    u8 family;  // 0 sable, 1 neige compacte, 2 congere
+    u8 src;     // l'arbre de rendu d'ou il vient (TFragmentTreeKind, ou TIE)
+    s32 island;
+    double nx, ny, nz, area;
+  };
+  std::vector<HullTri> hull;
+  std::unordered_map<SoftVKey, u32, SoftVKeyHash> vindex;
+  std::vector<double> vx, vy, vz;
+  std::unordered_map<std::string, u64> reject_tex, support_mat, soft_src, hull_src;
+
+  auto vert_id = [&](double x, double y, double z) -> u32 {
+    const SoftVKey k = soft_vkey(x, y, z);
+    auto it = vindex.find(k);
+    if (it != vindex.end()) {
+      return it->second;
+    }
+    const u32 id = (u32)vx.size();
+    vindex.emplace(k, id);
+    vx.push_back(x);
+    vy.push_back(y);
+    vz.push_back(z);
+    return id;
+  };
+
+  const double DEG = 3.14159265358979323846 / 180.0;
+  const double COS_REJECT = std::cos(kSoftSlopeRejectDeg * DEG);
+
+  std::vector<std::array<u32, 3>> other_tris;  // triangles indexes NON retenus : frontiere + objets
+  std::vector<u8> other_is_tie;
+
+  for (u32 ri = 0; ri < (u32)rix.tris.size(); ++ri) {
+    const auto& r = rix.tris[ri];
+    const double ax = r.p0x, ay = r.p0y, az = r.p0z;
+    const double bx = ax + r.e1x, by = ay + r.e1y, bz = az + r.e1z;
+    const double cx2 = ax + r.e2x, cy2 = ay + r.e2y, cz2 = az + r.e2z;
+    const double nx = (double)r.e1y * r.e2z - (double)r.e1z * r.e2y;
+    const double ny = (double)r.e1z * r.e2x - (double)r.e1x * r.e2z;
+    const double nz = (double)r.e1x * r.e2y - (double)r.e1y * r.e2x;
+    const double nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+    const double px = (ax + bx + cx2) / 3.0, py = (ay + by + cy2) / 3.0,
+                 pz = (az + bz + cz2) / 3.0;
+    const std::string* tname = nullptr;
+    if (r.label >= 0 && (size_t)r.label < lev.textures.size() &&
+        !lev.textures[r.label].debug_name.empty()) {
+      tname = &lev.textures[r.label].debug_name;
+    }
+    const bool tex_ok = tname != nullptr;
+    const bool tex_sand = tex_ok && census_tex_is_sandy(*tname);
+    const bool tex_snow = tex_ok && census_tex_is_snowy(*tname);
+    const bool tex_soft = tex_sand || tex_snow;
+    const bool tex_grass = tex_ok && census_tex_is_grassy(*tname);
+
+    auto discard = [&](u64& counter) {
+      counter++;
+      if (tex_soft && tname) {
+        reject_tex[*tname]++;
+      }
+      other_tris.push_back({vert_id(ax, ay, az), vert_id(bx, by, bz), vert_id(cx2, cy2, cz2)});
+      other_is_tie.push_back(r.src == kSrcTie ? 1 : 0);
+    };
+
+    if (nlen <= 0.0) {
+      discard(m.rej_degenerate);
+      continue;
+    }
+    // LE SENS DE PARCOURS D'UN STRIP N'EST PAS UNE ORIENTATION. Mesure : 120 213 des 241 085
+    // triangles de rendu indexes de `training` ont `ny < 0` au produit vectoriel, soit la moitie
+    // — c'est la PARITE DU STRIP, pas de la geometrie retournee. `surf_index_add` prend deja
+    // |ny| pour la meme raison. La face retournee se lit donc sur la NORMALE STOCKEE du triangle
+    // de COLLISION qui porte le sommet (SPEC section 1 : « faces retournees marchables » y est
+    // dit des ilots de collision), jamais sur l'enroulement du rendu.
+    const double up = ny >= 0.0 ? 1.0 : -1.0;
+    const double unx = nx * up / nlen, uny = ny * up / nlen, unz = nz * up / nlen;
+    const double slope = std::acos(std::min(1.0, std::max(-1.0, uny)));
+    double w = (slope / DEG - kSoftSlopeFlatDeg) / (kSoftSlopeFullDeg - kSoftSlopeFlatDeg);
+    w = std::min(1.0, std::max(0.0, w));
+    double dxr = w * unx, dyr = (1.0 - w) + w * uny, dzr = w * unz;
+    const double dl = std::sqrt(dxr * dxr + dyr * dyr + dzr * dzr);
+    dxr /= dl; dyr /= dl; dzr /= dl;
+    // LE SUPPORT SOUS LE CENTROIDE, le long de la direction que porte ce triangle.
+    double thit = 0;
+    const s32 ct = soft_coll_cast(cg, px, py, pz, -dxr, -dyr, -dzr, -kSoftSupportAboveTolU,
+                                  kSoftSupportWindowDeepU, thit);
+    if (ct < 0) {
+      discard(m.rej_no_support);
+      continue;
+    }
+    if (thit < -1e-9) {
+      discard(m.rej_support_above);
+      continue;
+    }
+    const auto& sup = cg.tris[ct];
+    if (sup.mode == 1) {
+      discard(m.rej_support_wall);
+      continue;
+    }
+    if (sup.mode == 2) {
+      discard(m.rej_support_obstacle);
+      continue;
+    }
+    if (sup.mode != 0) {
+      discard(m.rej_support_material);
+      continue;
+    }
+    const u32 material = sup.material;
+    const bool mat_ok = material < kPatMaterialCount;
+    const bool mat_soft = mat_ok && pat_material_is_soft(material);
+    const bool mat_grass = mat_ok && material == kPatMatGrass;
+    // DECISION 12 : une texture meuble posee sur une collision `grass` est un mesh pose
+    // par-dessus. Il est EXCLU tant que `grass-overlay-meshes` n'a pas mesure.
+    if (mat_grass && tex_soft) {
+      discard(m.rej_overlay_grass);
+      continue;
+    }
+    const SoftCls cls = soft_resolve_class(mat_ok, mat_grass, mat_soft, tex_ok, tex_soft, tex_grass);
+    if (cls == SOFTCLS_UNKNOWN) {
+      discard(m.rej_unclassified);
+      continue;
+    }
+    if (cls != SOFTCLS_SOFT) {
+      discard(m.rej_not_soft);
+      continue;
+    }
+    m.soft_tris++;
+    soft_src[ovl_src_name(r.src)]++;
+    // LES REJETS PROPRES A LA MATIERE MEUBLE, comptes sur la SEULE population qui les rend
+    // lisibles : celle que les deux sources ont dite meuble.
+    if (sup.ny < 0) {
+      discard(m.rej_backface);  // face de collision retournee : elle ne porte pas de couche
+      continue;
+    }
+    if (uny < COS_REJECT) {
+      discard(m.rej_slope);  // pente > seuil du profil : ni le sable ni la neige n'y tiennent
+      continue;
+    }
+    if (py < kSoftSeafloorU) {
+      discard(m.rej_seafloor);  // DECISION 9 : aucune coque sous -0,5 m
+      continue;
+    }
+    // LA MATIERE DE LA COQUE EST CELLE DU SUPPORT quand il la nomme, sinon celle de la texture.
+    u8 family;
+    if (mat_ok && mat_soft) {
+      family = material == kPatMatSand ? 0 : (material == kPatMatSnow ? 1 : 2);
+    } else {
+      family = tex_sand ? 0 : 1;
+    }
+    // LA COQUE REMPLACE DU TERRAIN, PAS DES OBJETS (SPEC section 2). Une piece TIE posee sur du
+    // sable — planche, caisse, plancher de hutte — porte souvent une texture sableuse et repose
+    // sur une collision `sand` : les deux sources la disent meuble, et elle n'est pourtant pas du
+    // sol. Elle appartient a la population des OBJETS STATIQUES (section 7 : « sommets TIE non
+    // eligibles densifies au pas de 0,35 m »). SEULE EXCEPTION, ecrite dans la SPEC section 2 :
+    // les congeres, dont la surface rendue EST du TIE. Mesure a `training` : 9 749 des 14 710
+    // triangles dits meubles venaient du TIE, et c'est ce qui faisait echouer le degagement.
+    if (r.src == kSrcTie && family != 2) {
+      discard(m.rej_tie_not_terrain);
+      continue;
+    }
+    // Une coque plate ne peut pas s'appuyer sur un support a plus de 0,5 m : c'est la fenetre de
+    // l'investigation (`no_support_within_0_5m`). Seules les congeres ont le droit d'etre loin.
+    if (family != 2 && thit > kSoftSupportWindowFlatU) {
+      discard(m.rej_no_support);
+      continue;
+    }
+    if (mat_ok) {
+      const char* mn = pat_material_name(material);
+      support_mat[mn ? std::string(mn) : ("inconnu-" + std::to_string(material))]++;
+    }
+    HullTri h;
+    h.v[0] = vert_id(ax, ay, az);
+    h.v[1] = vert_id(bx, by, bz);
+    h.v[2] = vert_id(cx2, cy2, cz2);
+    h.family = family;
+    h.src = r.src;
+    h.island = family == 2 ? sup.island : -1;
+    hull_src[ovl_src_name(r.src)]++;
+    h.nx = unx; h.ny = uny; h.nz = unz;
+    h.area = 0.5 * nlen;
+    hull.push_back(h);
+  }
+  // LE MEME TRIANGLE PEUT ETRE DESSINE DEUX FOIS. Les draws d'un arbre tfrag se recouvrent, et
+  // un strip repasse ses sommets : sans dedoublonnage, CHAQUE arete serait utilisee deux fois et
+  // « arete ouverte » ne designerait plus rien (mesure : 1 seule arete ouverte sur 7 788 a
+  // `training`, ce qui est impossible pour 2 596 faces). On deduplique par le triplet de sommets
+  // SOUDES, trie — l'enroulement n'entre pas dans la cle, deux parites du meme triangle sont le
+  // meme triangle.
+  auto face_key = [](u32 a, u32 b, u32 c) {
+    u32 v[3] = {a, b, c};
+    std::sort(v, v + 3);
+    return std::make_tuple(v[0], v[1], v[2]);
+  };
+  {
+    std::set<std::tuple<u32, u32, u32>> seen;
+    std::vector<HullTri> keep;
+    for (const auto& h : hull) {
+      if (seen.insert(face_key(h.v[0], h.v[1], h.v[2])).second) {
+        keep.push_back(h);
+      } else {
+        m.hull_tris_dup++;
+      }
+    }
+    hull.swap(keep);
+  }
+  // LES ARETES QUE PORTE UN TRIANGLE NON RETENU. C'est la definition de la frontiere que la SPEC
+  // ecrit (section 7 : « distance cuite a l'arete non eligible ») : le bord de la nappe eligible,
+  // pas « tout sommet qu'un triangle voisin touche quelque part ». Un sommet partage par six
+  // triangles dont un seul est inelig1ble n'est pas un bord ; une ARETE partagee, si.
+  std::set<std::pair<u32, u32>> other_edges;
+  {
+    std::set<std::tuple<u32, u32, u32>> seen;
+    std::vector<std::array<u32, 3>> keep;
+    std::vector<u8> keep_tie;
+    for (size_t i = 0; i < other_tris.size(); ++i) {
+      const auto& o = other_tris[i];
+      if (!seen.insert(face_key(o[0], o[1], o[2])).second) {
+        continue;
+      }
+      keep.push_back(o);
+      keep_tie.push_back(other_is_tie[i]);
+      for (u32 k = 0; k < 3; ++k) {
+        const u32 a = o[k], b = o[(k + 1) % 3];
+        other_edges.insert({std::min(a, b), std::max(a, b)});
+      }
+    }
+    other_tris.swap(keep);
+    other_is_tie.swap(keep_tie);
+  }
+
+  // ---- 4. LE POINT FIXE. Un sommet sans support retire ses triangles ; les retirer deplace la
+  // frontiere, donc les directions, donc les rayons. On recommence jusqu'a ce que la coque ne
+  // bouge plus, et le nombre de tours est PUBLIE : une coque qui n'a pas converge se voit.
+  const u32 NV = (u32)vx.size();
+  std::vector<u8> alive(hull.size(), 1);
+  std::vector<u8> boundary(NV, 0), vfamily(NV, 0), vhull(NV, 0);
+  // DEUX DIRECTIONS, ET ELLES NE SONT PAS LA MEME CHOSE. `dirg` est la direction GEOMETRIQUE de
+  // la couche : elle existe partout, et c'est elle qui porte les rayons — selection, mesure de
+  // l'epaisseur des congeres, verification. `dir` est la direction CUITE : la SPEC (section 7) la
+  // veut NULLE en frontiere, et c'est cette nullite que `defect_direction` relit. Confondre les
+  // deux ferait mesurer la congere a la verticale la ou la coque est figee.
+  std::vector<double> dirx(NV, 0), diry(NV, 0), dirz(NV, 0), dbnd(NV, 0), trest(NV, 0);
+  std::vector<double> dgx(NV, 0), dgy(NV, 1), dgz(NV, 0);
+  std::vector<s32> visland(NV, -1);
+  std::vector<u8> supported(NV, 0), fail_reason(NV, 0);
+
+  for (int round = 1; round <= kSoftFixpointMaxRounds; ++round) {
+    m.fixpoint_rounds = (u64)round;
+    std::fill(vhull.begin(), vhull.end(), 0);
+    std::fill(vfamily.begin(), vfamily.end(), 0);
+    std::fill(visland.begin(), visland.end(), -1);
+    std::vector<double> snx(NV, 0), sny(NV, 0), snz(NV, 0);
+    std::map<std::pair<u32, u32>, u32> edge_use;
+    std::set<std::pair<u32, u32>> dead_edges;
+    for (size_t i = 0; i < hull.size(); ++i) {
+      const auto& h = hull[i];
+      if (!alive[i]) {
+        for (u32 k = 0; k < 3; ++k) {
+          const u32 a = h.v[k], b = h.v[(k + 1) % 3];
+          dead_edges.insert({std::min(a, b), std::max(a, b)});
+        }
+        continue;
+      }
+      for (u32 k = 0; k < 3; ++k) {
+        const u32 v = h.v[k];
+        vhull[v] = 1;
+        vfamily[v] = std::max(vfamily[v], h.family);  // la congere l'emporte sur la couche plate
+        if (h.island >= 0) {
+          visland[v] = h.island;
+        }
+        snx[v] += h.nx * h.area;
+        sny[v] += h.ny * h.area;
+        snz[v] += h.nz * h.area;
+        const u32 a = h.v[k], b = h.v[(k + 1) % 3];
+        edge_use[{std::min(a, b), std::max(a, b)}]++;
+      }
+    }
+    // FRONTIERE : le sommet touche un triangle non retenu, ou il porte une arete ouverte.
+    // FRONTIERE : une ARETE de la coque qui n'a qu'une face (bord ouvert), ou qu'un triangle NON
+    // eligible porte aussi (bord contre le terrain qui reste). Les deux se comptent separement.
+    std::fill(boundary.begin(), boundary.end(), 0);
+    m.bnd_by_other = m.bnd_by_dead = m.bnd_by_open_edge = 0;
+    for (const auto& e : edge_use) {
+      const bool open_edge = e.second == 1;
+      const bool touches_other = other_edges.count(e.first) != 0;
+      const bool touches_dead = dead_edges.count(e.first) != 0;
+      if (!open_edge && !touches_other && !touches_dead) {
+        continue;
+      }
+      if (open_edge) {
+        m.bnd_by_open_edge++;
+      }
+      if (touches_other) {
+        m.bnd_by_other++;
+      }
+      if (touches_dead) {
+        m.bnd_by_dead++;
+      }
+      boundary[e.first.first] = 1;
+      boundary[e.first.second] = 1;
+    }
+    // DIRECTION DE COUCHE (SPEC section 7, decision 3) : verticale a plat, normale lissee bornee
+    // au-dela de 35 degres, NULLE en frontiere.
+    for (u32 v = 0; v < NV; ++v) {
+      dirx[v] = diry[v] = dirz[v] = 0;
+      dgx[v] = 0; dgy[v] = 1; dgz[v] = 0;
+      if (!vhull[v]) {
+        continue;
+      }
+      const double l = std::sqrt(snx[v] * snx[v] + sny[v] * sny[v] + snz[v] * snz[v]);
+      double nx = 0, ny = 1, nz = 0;
+      if (l > 0) {
+        nx = snx[v] / l; ny = sny[v] / l; nz = snz[v] / l;
+      }
+      const double slope = std::acos(std::min(1.0, std::max(-1.0, ny))) / DEG;
+      double w = (slope - kSoftSlopeFlatDeg) / (kSoftSlopeFullDeg - kSoftSlopeFlatDeg);
+      w = std::min(1.0, std::max(0.0, w));
+      double dx = w * nx, dy = (1.0 - w) + w * ny, dz = w * nz;
+      const double dl = std::sqrt(dx * dx + dy * dy + dz * dz);
+      dgx[v] = dx / dl; dgy[v] = dy / dl; dgz[v] = dz / dl;
+      if (!boundary[v]) {
+        dirx[v] = dgx[v]; diry[v] = dgy[v]; dirz[v] = dgz[v];
+      }
+    }
+    // LE SUPPORT, SOMMET PAR SOMMET, le long de SA direction. Ce n'est pas le rayon qui a
+    // selectionne le triangle : celui-la partait du centroide et suivait la normale de la face.
+    std::fill(supported.begin(), supported.end(), 0);
+    std::fill(fail_reason.begin(), fail_reason.end(), 0);
+    for (u32 v = 0; v < NV; ++v) {
+      if (!vhull[v]) {
+        continue;
+      }
+      const double dx = dgx[v], dy = dgy[v], dz = dgz[v];
+      const double win = vfamily[v] == 2 ? kSoftSupportWindowDeepU : kSoftSupportWindowFlatU;
+      double t = 0;
+      // DEUX MAILLAGES DISTINCTS NE COINCIDENT PAS AU BIT PRES. Le rayon accepte donc un support
+      // jusqu'a 2 cm AU-DESSUS du sommet de repos ; l'epaisseur y vaut alors zero — il n'y a pas
+      // de matiere entre deux surfaces confondues. Au-dela de 2 cm, le support est MAL PLACE et
+      // le sommet est refuse : une epaisseur negative ne se clampe pas, elle se NOMME.
+      const s32 ct = soft_coll_cast(cg, vx[v], vy[v], vz[v], -dx, -dy, -dz,
+                                    -kSoftSupportAboveTolU, win, t);
+      if (ct < 0) {
+        fail_reason[v] = 1;  // rien du tout sous ce sommet
+      } else if (cg.tris[ct].mode != 0 ||
+                 !(cg.tris[ct].material < kPatMaterialCount &&
+                   pat_material_is_soft(cg.tris[ct].material))) {
+        fail_reason[v] = 2;  // il y a bien une collision, mais elle ne porte pas de matiere meuble
+      } else if (vfamily[v] == 2 && cg.tris[ct].island < 0) {
+        // LA CONGERE VISE SON ILOT (SPEC section 2 : « jusqu'a l'ilot de collision »). Sans cette
+        // regle, la levre d'une congere en surplomb trouvait le sol 10 m plus bas et se voyait
+        // cuire 10 m de neige : `raw_max_u` montait a 40 946 u.
+        fail_reason[v] = 3;
+      } else {
+        supported[v] = 1;
+        trest[v] = t > 0.0 ? t : 0.0;
+        if (vfamily[v] == 2) {
+          visland[v] = cg.tris[ct].island;
+        }
+      }
+      // LE DEGAGEMENT. Une coque plate est SOULEVEE de 143 u : si une autre surface de collision
+      // occupe deja cette place, la couche la traverserait et son plancher de compression
+      // maximale passerait sous ce support-la. La mesure a nomme le defaut avant ce test :
+      // 7 sommets a `training`, 11 a `beach`, tous `defect_below_support`. Le test est
+      // CONSERVATEUR — il prend le profil PLEIN, pas l'epaisseur attenuee — donc il ne peut pas
+      // etre le miroir de la verification finale, qui, elle, recompose P, dir et h.
+      if (supported[v] && vfamily[v] != 2) {
+        double th = 0;
+        const s32 up_hit = soft_coll_cast(cg, vx[v], vy[v], vz[v], dx, dy, dz, 2.0,
+                                          (double)kSoftProfileThicknessU + kSoftSupportAboveTolU,
+                                          th);
+        if (up_hit >= 0) {
+          supported[v] = 0;
+          fail_reason[v] = 4;
+        }
+      }
+    }
+    u64 killed = 0;
+    for (size_t i = 0; i < hull.size(); ++i) {
+      if (!alive[i]) {
+        continue;
+      }
+      const u32* hv = hull[i].v;
+      if (supported[hv[0]] && supported[hv[1]] && supported[hv[2]]) {
+        continue;
+      }
+      alive[i] = 0;
+      killed++;
+      u8 why = 0;
+      for (u32 k = 0; k < 3; ++k) {
+        if (!supported[hv[k]] && fail_reason[hv[k]] > why) {
+          why = fail_reason[hv[k]];
+        }
+      }
+      switch (why) {
+        case 2: m.rej_support_material++; break;
+        case 3: m.rej_off_island++; break;
+        case 4: m.rej_no_headroom++; break;
+        default: m.rej_no_support++; break;
+      }
+    }
+    if (killed == 0) {
+      break;
+    }
+  }
+
+  // DISTANCE A LA FRONTIERE, le long des aretes de la coque vivante (Dijkstra depuis la frontiere).
+  {
+    std::vector<std::vector<u32>> adj(NV);
+    for (size_t i = 0; i < hull.size(); ++i) {
+      if (!alive[i]) {
+        continue;
+      }
+      for (u32 k = 0; k < 3; ++k) {
+        adj[hull[i].v[k]].push_back(hull[i].v[(k + 1) % 3]);
+        adj[hull[i].v[(k + 1) % 3]].push_back(hull[i].v[k]);
+      }
+    }
+    std::vector<double> d(NV, 1e300);
+    std::priority_queue<std::pair<double, u32>, std::vector<std::pair<double, u32>>,
+                        std::greater<std::pair<double, u32>>>
+        pq;
+    for (u32 v = 0; v < NV; ++v) {
+      if (vhull[v] && boundary[v]) {
+        d[v] = 0;
+        pq.push({0.0, v});
+      }
+    }
+    while (!pq.empty()) {
+      const auto top = pq.top();
+      pq.pop();
+      if (top.first > d[top.second]) {
+        continue;
+      }
+      const u32 u = top.second;
+      for (u32 n : adj[u]) {
+        const double ex = vx[n] - vx[u], ey = vy[n] - vy[u], ez = vz[n] - vz[u];
+        const double nd = top.first + std::sqrt(ex * ex + ey * ey + ez * ez);
+        if (nd < d[n]) {
+          d[n] = nd;
+          pq.push({nd, n});
+        }
+      }
+    }
+    for (u32 v = 0; v < NV; ++v) {
+      dbnd[v] = (vhull[v] && d[v] < 1e299) ? d[v] : 0.0;
+    }
+  }
+
+  // ---- 5. LES OBJETS STATIQUES ET LEURS DEPRESSIONS (SPEC section 3 et 7). Les caisses ne sont
+  // JAMAIS mobiles : leur empreinte est cuite, pas simulee. Deux sources : la collision en mode
+  // OBSTACLE, et les pieces TIE dessinees qui ne sont pas de la coque.
+  std::unordered_map<u64, float> ocell;  // cellule 12,5 cm -> y minimal de ce qui la couvre
+  {
+    // Ou la coque existe, et a quelle hauteur : sans ce filtre, tout toit de hutte deviendrait
+    // une depression et la rasterisation exploserait.
+    struct YRange { float lo, hi; };
+    std::unordered_map<u64, YRange> hullcell;
+    const float cinv = 1.0f / (SURF_BUCKET_M * U);
+    for (u32 v = 0; v < NV; ++v) {
+      if (!vhull[v]) {
+        continue;
+      }
+      const u64 k = soft_cell_key((s64)std::floor(vx[v] * cinv), (s64)std::floor(vz[v] * cinv));
+      auto it = hullcell.find(k);
+      if (it == hullcell.end()) {
+        hullcell.emplace(k, YRange{(float)vy[v], (float)vy[v]});
+      } else {
+        it->second.lo = std::min(it->second.lo, (float)vy[v]);
+        it->second.hi = std::max(it->second.hi, (float)vy[v]);
+      }
+    }
+    const double OINV = 1.0 / kSoftObjectCellU;
+    auto rasterize = [&](double ax, double ay, double az, double bx, double by, double bz,
+                         double cx2, double cy2, double cz2, u64& from) {
+      const double minx = std::min(ax, std::min(bx, cx2)), maxx = std::max(ax, std::max(bx, cx2));
+      const double minz = std::min(az, std::min(bz, cz2)), maxz = std::max(az, std::max(bz, cz2));
+      const double miny = std::min(ay, std::min(by, cy2));
+      const s64 i0 = (s64)std::floor(minx * OINV), i1 = (s64)std::floor(maxx * OINV);
+      const s64 j0 = (s64)std::floor(minz * OINV), j1 = (s64)std::floor(maxz * OINV);
+      if ((i1 - i0) > 64 || (j1 - j0) > 64) {
+        m.static_skipped_large++;  // trop etendu pour etre un objet pose : c'est du terrain
+        return;
+      }
+      bool any = false;
+      for (s64 j = j0; j <= j1; ++j) {
+        for (s64 i = i0; i <= i1; ++i) {
+          const double px = (i + 0.5) * kSoftObjectCellU, pz = (j + 0.5) * kSoftObjectCellU;
+          const u64 hk = soft_cell_key((s64)std::floor(px * cinv), (s64)std::floor(pz * cinv));
+          const auto hit = hullcell.find(hk);
+          if (hit == hullcell.end()) {
+            continue;
+          }
+          if (miny < hit->second.lo - 0.5 * U || miny > hit->second.hi + 3.0 * U) {
+            continue;
+          }
+          const u64 k = soft_cell_key(i, j);
+          auto it = ocell.find(k);
+          if (it == ocell.end()) {
+            ocell.emplace(k, (float)miny);
+          } else {
+            it->second = std::min(it->second, (float)miny);
+          }
+          any = true;
+        }
+      }
+      if (any) {
+        from++;
+      }
+    };
+    for (const auto& t : cg.tris) {
+      if (t.mode != 2) {
+        continue;
+      }
+      rasterize(t.ax, t.ay, t.az, t.ax + t.e1x, t.ay + t.e1y, t.az + t.e1z, t.ax + t.e2x,
+                t.ay + t.e2y, t.az + t.e2z, m.static_from_collision);
+    }
+    for (size_t i = 0; i < other_tris.size(); ++i) {
+      if (!other_is_tie[i]) {
+        continue;
+      }
+      const auto& o = other_tris[i];
+      rasterize(vx[o[0]], vy[o[0]], vz[o[0]], vx[o[1]], vy[o[1]], vz[o[1]], vx[o[2]], vy[o[2]],
+                vz[o[2]], m.static_from_tie);
+    }
+    m.static_cells = (u64)ocell.size();
+    m.static_area_u2 = (double)ocell.size() * kSoftObjectCellU * kSoftObjectCellU;
+    m.static_area_m2 = m.static_area_u2 / ((double)U * U);
+    // COMPOSANTES CONNEXES (4-voisinage) : le nombre d'OBJETS, pas de cellules.
+    std::unordered_map<u64, u8> seen;
+    for (const auto& kv : ocell) {
+      if (seen.count(kv.first)) {
+        continue;
+      }
+      m.static_objects++;
+      std::vector<u64> stack{kv.first};
+      seen[kv.first] = 1;
+      while (!stack.empty()) {
+        const u64 k = stack.back();
+        stack.pop_back();
+        const s64 i = (s64)(s32)(u32)(k >> 32), j = (s64)(s32)(u32)k;
+        const s64 di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+        for (int n = 0; n < 4; ++n) {
+          const u64 nk = soft_cell_key(i + di[n], j + dj[n]);
+          if (ocell.count(nk) && !seen.count(nk)) {
+            seen[nk] = 1;
+            stack.push_back(nk);
+          }
+        }
+      }
+    }
+  }
+
+  // ---- 6. L'EPAISSEUR, SOMMET PAR SOMMET. Trois grandeurs cuites separement : la position P, la
+  // direction dir, l'epaisseur h. La frontiere n'est PAS un cas special : son epaisseur tombe a
+  // zero parce que sa distance a la frontiere vaut zero et que `soft_falloff(0) == 0`. C'est
+  // exactement ce que le terme 3 de la porte relit — si le champ de distance et l'ensemble des
+  // sommets de frontiere se contredisaient, il rougirait.
+  std::vector<double> px_(NV, 0), py_(NV, 0), pz_(NV, 0), thick(NV, 0), objd(NV, 0);
+  std::vector<double> thick_all, objd_all;
+  std::map<s32, std::vector<double>> island_thick, island_raw;
+  std::vector<double> deep_raw;
+  const double OINV = 1.0 / kSoftObjectCellU;
+  for (u32 v = 0; v < NV; ++v) {
+    if (!vhull[v]) {
+      continue;
+    }
+    m.hull_verts++;
+    if (boundary[v]) {
+      m.boundary_verts++;
+    } else {
+      m.interior_verts++;
+    }
+    switch (vfamily[v]) {
+      case 0: m.hull_verts_sand++; break;
+      case 1: m.hull_verts_snow++; break;
+      default: m.hull_verts_deepsnow++; break;
+    }
+    const double R = vfamily[v] == 0 ? (double)kSoftFalloffSandU : (double)kSoftFalloffSnowU;
+    // DISTANCE A L'OBJET STATIQUE, cuite : zero sous l'empreinte elargie de 0,1 m (SPEC section 7).
+    double best = R + kSoftObjectMarginU;
+    const s64 rad = (s64)std::ceil((R + kSoftObjectMarginU) * OINV) + 1;
+    const s64 ci = (s64)std::floor(vx[v] * OINV), cj = (s64)std::floor(vz[v] * OINV);
+    for (s64 j = cj - rad; j <= cj + rad; ++j) {
+      for (s64 i = ci - rad; i <= ci + rad; ++i) {
+        const auto it = ocell.find(soft_cell_key(i, j));
+        if (it == ocell.end()) {
+          continue;
+        }
+        if (it->second < vy[v] - 0.5 * U || it->second > vy[v] + 3.0 * U) {
+          continue;  // ce n'est pas pose SUR cette nappe
+        }
+        const double dx = (i + 0.5) * kSoftObjectCellU - vx[v];
+        const double dz = (j + 0.5) * kSoftObjectCellU - vz[v];
+        best = std::min(best, std::sqrt(dx * dx + dz * dz));
+      }
+    }
+    if (trest[v] < kSoftSupportAboveTolU) {
+      m.verts_coincident++;
+    }
+    objd[v] = std::max(0.0, best - (double)kSoftObjectMarginU);
+    if (objd[v] <= 0.0) {
+      m.depression_verts++;
+    }
+    objd_all.push_back(objd[v]);
+
+    const double fb = soft_falloff(dbnd[v], R);
+    const double fo = soft_falloff(objd[v], R);
+    double h;
+    if (vfamily[v] == 2) {
+      // CONGERE : l'epaisseur est la distance mesuree jusqu'a l'ilot de collision le long de la
+      // direction de couche, pas une constante de profil (SPEC section 2).
+      h = trest[v] * fb * fo;
+      px_[v] = vx[v]; py_[v] = vy[v]; pz_[v] = vz[v];
+    } else {
+      // NEIGE COMPACTE ET SABLE : 143 u = 3,5 cm au depart (decision 5), au-DESSUS de la collision
+      // historique, qui ne bouge pas.
+      h = (double)kSoftProfileThicknessU * fb * fo;
+      px_[v] = vx[v] + dgx[v] * h;
+      py_[v] = vy[v] + dgy[v] * h;
+      pz_[v] = vz[v] + dgz[v] * h;
+    }
+    thick[v] = h;
+    if (h > 0.0) {
+      m.hull_verts_thick++;
+      thick_all.push_back(h);
+    }
+    if (vfamily[v] == 2 && visland[v] >= 0) {
+      island_thick[visland[v]].push_back(h);
+      island_raw[visland[v]].push_back(trest[v]);
+      deep_raw.push_back(trest[v]);
+    }
+  }
+  for (size_t i = 0; i < hull.size(); ++i) {
+    if (!alive[i]) {
+      continue;
+    }
+    m.hull_tris++;
+    m.vert_slots += 3;
+    switch (hull[i].family) {
+      case 0: m.hull_tris_sand++; break;
+      case 1: m.hull_tris_snow++; break;
+      default: m.hull_tris_deepsnow++; break;
+    }
+  }
+
+  // ---- 7. LA VERIFICATION. Elle ne relit AUCUNE variable de la selection : elle repart de la
+  // position cuite P, de la direction cuite dir et de l'epaisseur cuite h, et elle les confronte a
+  // la collision. Une direction fausse, un falloff applique a la position mais pas a l'epaisseur,
+  // une epaisseur de congere mesuree a la verticale : chacun deplace le point d'impact et fait
+  // rougir un terme.
+  for (u32 v = 0; v < NV; ++v) {
+    if (!vhull[v]) {
+      continue;
+    }
+    m.hull_verts_tested++;
+    const double dl = std::sqrt(dirx[v] * dirx[v] + diry[v] * diry[v] + dirz[v] * dirz[v]);
+    if (boundary[v]) {
+      if (dl != 0.0) {
+        m.defect_direction++;  // la direction doit etre NULLE en frontiere (SPEC section 7)
+      }
+      if (thick[v] != 0.0) {
+        m.defect_boundary++;   // un sommet de frontiere est FIGE
+      }
+    } else if (std::fabs(dl - 1.0) > 1e-9) {
+      m.defect_direction++;
+    }
+    if (thick[v] < 0.0) {
+      m.defect_negative++;
+    }
+    const double ex = dgx[v], ey = dgy[v], ez = dgz[v];
+    const double win =
+        thick[v] + (vfamily[v] == 2 ? kSoftSupportWindowDeepU : kSoftSupportWindowFlatU);
+    double t = 0;
+    const s32 ct = soft_coll_cast(cg, px_[v], py_[v], pz_[v], -ex, -ey, -ez,
+                                  -kSoftSupportAboveTolU, win, t);
+    if (ct < 0) {
+      m.defect_no_support++;
+    } else if (t < thick[v] - kSoftSupportAboveTolU) {
+      // LE PLANCHER DE COMPRESSION MAXIMALE, `P - dir*h`, PASSERAIT SOUS LE SUPPORT.
+      m.defect_below_support++;
+    }
+  }
+
+  // ---- 8. LES CHIFFRES PUBLIES. Les congeres sont chiffrees ILOT PAR ILOT : c'est la decision 4
+  // de la SPEC qui attend ces nombres.
+  const SoftStat ts = soft_stats(thick_all);
+  m.thick_min_u = ts.mn; m.thick_med_u = ts.med; m.thick_max_u = ts.mx;
+  const SoftStat os = soft_stats(objd_all);
+  m.objdist_min_u = os.mn; m.objdist_med_u = os.med; m.objdist_max_u = os.mx;
+  std::map<s32, u64> island_coll;
+  for (size_t t = 0; t < ntri; ++t) {
+    if (deep_of_tri[t] >= 0) {
+      island_coll[deep_of_tri[t]]++;
+    }
+  }
+  for (const auto& kv : island_coll) {
+    SoftSupportIsland is;
+    is.id = (u64)kv.first;
+    is.collision_tris = kv.second;
+    const auto it = island_thick.find(kv.first);
+    if (it != island_thick.end()) {
+      is.hull_verts = (u64)it->second.size();
+      const SoftStat s = soft_stats(it->second);
+      is.min_u = s.mn; is.med_u = s.med; is.max_u = s.mx;
+      const SoftStat r = soft_stats(island_raw[kv.first]);
+      is.raw_min_u = r.mn; is.raw_med_u = r.med; is.raw_max_u = r.mx;
+    }
+    m.islands.push_back(is);
+  }
+  const SoftStat dr = soft_stats(deep_raw);
+  m.deep_raw_min_u = dr.mn; m.deep_raw_med_u = dr.med; m.deep_raw_max_u = dr.mx;
+  m.soft_src_top = surf_top_names(soft_src, 10);
+  m.hull_src_top = surf_top_names(hull_src, 10);
+  m.reject_tex_top = surf_top_names(reject_tex, 10);
+  m.support_mat_top = surf_top_names(support_mat, 10);
+  return m;
 }
 
 }  // namespace grass_bake

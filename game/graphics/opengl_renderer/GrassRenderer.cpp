@@ -96,6 +96,12 @@ AUTOPORT_FEATURE_SITE(kOverlayMeshesItemId);
 constexpr const char* kSoftSurfaceItemId = "soft-surface-truth";
 AUTOPORT_FEATURE_SITE(kSoftSurfaceItemId);
 
+// soft-support-map : l'item qui cuit, pour chaque sommet de coque, SUR QUOI il repose et de
+// COMBIEN il est souleve. Meme raison d'etre pour le SITE : « pas d'instrument ici » et
+// « instrument jamais atteint » ne sont pas le meme zero.
+constexpr const char* kSoftSupportItemId = "soft-support-map";
+AUTOPORT_FEATURE_SITE(kSoftSupportItemId);
+
 // grass-edge-truth : l'item qui etablit le bord sur le vide PAR LA GEOMETRIE. Meme raison d'etre
 // pour le SITE : « pas d'instrument ici » et « instrument jamais atteint » ne sont pas le meme zero.
 constexpr const char* kEdgeTruthItemId = "grass-edge-truth";
@@ -1273,6 +1279,49 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       }
     }
     // ====================== fin soft-surface-truth =========================================
+
+    // ================= soft-support-map : LE SUPPORT ET L'EPAISSEUR, CUITS ==================
+    // MEME REGLE, MEME INNOCUITE : il LIT, il CUIT EN MEMOIRE, il PUBLIE. Rien n'est ecrit, ni
+    // dans `m_bake`, ni sur le disque ; la serialisation appartient a `soft-bake-format`. Le
+    // MEME code (`grass_bake::soft_support_map`) est appele hors ligne sur les 25 niveaux par
+    // `.autoport/lib/census/soft-support-map.sh`, et c'est LUI qui publie la grandeur de la
+    // porte. Ici, le temoin est que l'instrument vit dans le moteur et qu'il a tire sur le
+    // niveau charge.
+    if (autoport_proof::feature_is(kSoftSupportItemId)) {
+      static std::string s_soft_map_done;
+      if (s_soft_map_done != level_name) {
+        s_soft_map_done = level_name;
+        const auto sm = grass_bake::soft_support_map(*lev, level_name);
+        autoport_proof::publish_text("soft_map_engine_level", level_name.c_str());
+        autoport_proof::publish("soft_map_engine_render_indexed", sm.render_tris_indexed);
+        autoport_proof::publish("soft_map_engine_collision", sm.collision_tris);
+        autoport_proof::publish("soft_map_engine_soft_tris", sm.soft_tris);
+        autoport_proof::publish("soft_map_engine_hull_tris", sm.hull_tris);
+        autoport_proof::publish("soft_map_engine_hull_verts", sm.hull_verts);
+        autoport_proof::publish("soft_map_engine_hull_verts_thick", sm.hull_verts_thick);
+        autoport_proof::publish("soft_map_engine_hull_verts_tested", sm.hull_verts_tested);
+        autoport_proof::publish("soft_map_engine_boundary_verts", sm.boundary_verts);
+        autoport_proof::publish("soft_map_engine_interior_verts", sm.interior_verts);
+        autoport_proof::publish("soft_map_engine_coll_mode_wall_soft", sm.coll_mode_wall_soft);
+        autoport_proof::publish("soft_map_engine_rej_support_wall", sm.rej_support_wall);
+        autoport_proof::publish("soft_map_engine_rej_slope", sm.rej_slope);
+        autoport_proof::publish("soft_map_engine_rej_backface", sm.rej_backface);
+        autoport_proof::publish("soft_map_engine_rej_overlay_grass", sm.rej_overlay_grass);
+        autoport_proof::publish("soft_map_engine_rej_seafloor", sm.rej_seafloor);
+        autoport_proof::publish("soft_map_engine_rej_tie_not_terrain", sm.rej_tie_not_terrain);
+        autoport_proof::publish("soft_map_engine_static_objects", sm.static_objects);
+        autoport_proof::publish("soft_map_engine_depression_verts", sm.depression_verts);
+        autoport_proof::publish("soft_map_engine_deep_islands", sm.deep_islands);
+        autoport_proof::publish("soft_map_engine_fixpoint_rounds", sm.fixpoint_rounds);
+        autoport_proof::publish("soft_map_engine_defects",
+                                sm.defect_no_support + sm.defect_below_support +
+                                    sm.defect_negative + sm.defect_boundary +
+                                    sm.defect_direction);
+        autoport_proof::publish_text("soft_map_engine_support_mat", sm.support_mat_top.c_str());
+        autoport_proof::note_hit_for(kSoftSupportItemId, sm.hull_verts_thick);
+      }
+    }
+    // ====================== fin soft-support-map ===========================================
 
     // ================== grass-overlay-meshes : LES MESHES POSES PAR-DESSUS ==================
     // Meme regle que ci-dessus : ce bloc LIT et PUBLIE, il ne place rien, et il ne tourne que

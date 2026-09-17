@@ -71,7 +71,8 @@ int main(int argc, char** argv) {
   std::string dump_prefix;
   bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
   bool surface_census = false;  // grass-surface-truth : lit et croise les deux sources, n'ecrit rien
-  bool soft_surface_census = false;  // soft-surface-truth : les memes deux sources, pour sable/neige
+  bool soft_surface_census = false;
+  bool soft_support_map_on = false;  // soft-surface-truth : les memes deux sources, pour sable/neige
   bool overlay_census = false;  // grass-overlay-meshes : cherche les meshes poses sur l'herbe
   bool overlay_selftest_only = false;  // ... le controle positif seul, sans niveau
   bool edge_census_on = false;    // grass-edge-truth : classe les aretes de sol, n'ecrit rien
@@ -104,6 +105,8 @@ int main(int argc, char** argv) {
       surface_census = true;
     } else if (a == "--soft-surface-census") {
       soft_surface_census = true;
+    } else if (a == "--soft-support-map") {
+      soft_support_map_on = true;
     } else if (a == "--overlay-census") {
       overlay_census = true;
     } else if (a == "--overlay-selftest") {
@@ -504,6 +507,98 @@ int main(int argc, char** argv) {
     fmt::print("soft_census_cross_raw_tex_top={}\n", sc.cross_raw_tex_top);
     fmt::print("soft_census_tex_reject_top={}\n", sc.tex_reject_top);
     fmt::print("[grass_bake] soft-surface-census DONE.\n");
+    return 0;
+  }
+
+  // soft-support-map : LE SUPPORT ET L'EPAISSEUR, CUITS. Meme regime que les recensements
+  // ci-dessus : il sort AVANT `scan_level`, il n'ouvre aucun fichier en ecriture, la donnee
+  // livree ne bouge pas d'un octet. Il CUIT en memoire et il PUBLIE ; la serialisation est
+  // l'affaire de `soft-bake-format`.
+  if (soft_support_map_on) {
+    const auto sm = grass_bake::soft_support_map(lev, level_name);
+    fmt::print("soft_map_level={}\n", level_name);
+    fmt::print("soft_map_fr3_bytes={}\n", fr3_size);
+    fmt::print("soft_map_render_draws={}\n", sm.render_draws);
+    fmt::print("soft_map_render_offered={}\n", sm.render_tris_offered);
+    fmt::print("soft_map_render_indexed={}\n", sm.render_tris_indexed);
+    fmt::print("soft_map_collision={}\n", sm.collision_tris);
+    fmt::print("soft_map_soft_tris={}\n", sm.soft_tris);
+    fmt::print("soft_map_hull_tris={}\n", sm.hull_tris);
+    fmt::print("soft_map_hull_tris_sand={}\n", sm.hull_tris_sand);
+    fmt::print("soft_map_hull_tris_snow={}\n", sm.hull_tris_snow);
+    fmt::print("soft_map_hull_tris_deepsnow={}\n", sm.hull_tris_deepsnow);
+    fmt::print("soft_map_hull_verts={}\n", sm.hull_verts);
+    fmt::print("soft_map_hull_verts_thick={}\n", sm.hull_verts_thick);
+    fmt::print("soft_map_hull_verts_tested={}\n", sm.hull_verts_tested);
+    fmt::print("soft_map_hull_verts_sand={}\n", sm.hull_verts_sand);
+    fmt::print("soft_map_hull_verts_snow={}\n", sm.hull_verts_snow);
+    fmt::print("soft_map_hull_verts_deepsnow={}\n", sm.hull_verts_deepsnow);
+    fmt::print("soft_map_boundary_verts={}\n", sm.boundary_verts);
+    fmt::print("soft_map_interior_verts={}\n", sm.interior_verts);
+    fmt::print("soft_map_bnd_by_other={}\n", sm.bnd_by_other);
+    fmt::print("soft_map_bnd_by_dead={}\n", sm.bnd_by_dead);
+    fmt::print("soft_map_bnd_by_open_edge={}\n", sm.bnd_by_open_edge);
+    fmt::print("soft_map_vert_slots={}\n", sm.vert_slots);
+    fmt::print("soft_map_hull_tris_dup={}\n", sm.hull_tris_dup);
+    fmt::print("soft_map_rej_degenerate={}\n", sm.rej_degenerate);
+    fmt::print("soft_map_rej_wall_render={}\n", sm.rej_wall_render);
+    fmt::print("soft_map_rej_backface={}\n", sm.rej_backface);
+    fmt::print("soft_map_rej_slope={}\n", sm.rej_slope);
+    fmt::print("soft_map_rej_unclassified={}\n", sm.rej_unclassified);
+    fmt::print("soft_map_rej_not_soft={}\n", sm.rej_not_soft);
+    fmt::print("soft_map_rej_overlay_grass={}\n", sm.rej_overlay_grass);
+    fmt::print("soft_map_rej_no_support={}\n", sm.rej_no_support);
+    fmt::print("soft_map_rej_support_above={}\n", sm.rej_support_above);
+    fmt::print("soft_map_rej_support_wall={}\n", sm.rej_support_wall);
+    fmt::print("soft_map_rej_support_obstacle={}\n", sm.rej_support_obstacle);
+    fmt::print("soft_map_rej_support_material={}\n", sm.rej_support_material);
+    fmt::print("soft_map_rej_seafloor={}\n", sm.rej_seafloor);
+    fmt::print("soft_map_rej_no_headroom={}\n", sm.rej_no_headroom);
+    fmt::print("soft_map_rej_tie_not_terrain={}\n", sm.rej_tie_not_terrain);
+    fmt::print("soft_map_rej_off_island={}\n", sm.rej_off_island);
+    fmt::print("soft_map_coll_soft={}\n", sm.coll_soft);
+    fmt::print("soft_map_coll_mode_ground={}\n", sm.coll_mode_ground);
+    fmt::print("soft_map_coll_mode_wall_soft={}\n", sm.coll_mode_wall_soft);
+    fmt::print("soft_map_coll_mode_obstacle_soft={}\n", sm.coll_mode_obstacle_soft);
+    fmt::print("soft_map_static_cells={}\n", sm.static_cells);
+    fmt::print("soft_map_static_objects={}\n", sm.static_objects);
+    fmt::print("soft_map_static_from_collision={}\n", sm.static_from_collision);
+    fmt::print("soft_map_static_from_tie={}\n", sm.static_from_tie);
+    fmt::print("soft_map_static_skipped_large={}\n", sm.static_skipped_large);
+    fmt::print("soft_map_static_area_u2={:.6f}\n", sm.static_area_u2);
+    fmt::print("soft_map_static_area_m2={:.6f}\n", sm.static_area_m2);
+    fmt::print("soft_map_depression_verts={}\n", sm.depression_verts);
+    fmt::print("soft_map_verts_coincident={}\n", sm.verts_coincident);
+    fmt::print("soft_map_objdist_min_u={:.6f}\n", sm.objdist_min_u);
+    fmt::print("soft_map_objdist_med_u={:.6f}\n", sm.objdist_med_u);
+    fmt::print("soft_map_objdist_max_u={:.6f}\n", sm.objdist_max_u);
+    fmt::print("soft_map_thick_min_u={:.6f}\n", sm.thick_min_u);
+    fmt::print("soft_map_thick_med_u={:.6f}\n", sm.thick_med_u);
+    fmt::print("soft_map_thick_max_u={:.6f}\n", sm.thick_max_u);
+    fmt::print("soft_map_fixpoint_rounds={}\n", sm.fixpoint_rounds);
+    fmt::print("soft_map_population_empty={}\n", sm.population_empty);
+    fmt::print("soft_map_deep_islands={}\n", sm.deep_islands);
+    fmt::print("soft_map_deep_raw_min_u={:.6f}\n", sm.deep_raw_min_u);
+    fmt::print("soft_map_deep_raw_med_u={:.6f}\n", sm.deep_raw_med_u);
+    fmt::print("soft_map_deep_raw_max_u={:.6f}\n", sm.deep_raw_max_u);
+    fmt::print("soft_map_defect_no_support={}\n", sm.defect_no_support);
+    fmt::print("soft_map_defect_below_support={}\n", sm.defect_below_support);
+    fmt::print("soft_map_defect_negative={}\n", sm.defect_negative);
+    fmt::print("soft_map_defect_boundary={}\n", sm.defect_boundary);
+    fmt::print("soft_map_defect_direction={}\n", sm.defect_direction);
+    fmt::print("soft_map_reject_tex_top={}\n", sm.reject_tex_top);
+    fmt::print("soft_map_support_mat_top={}\n", sm.support_mat_top);
+    fmt::print("soft_map_soft_src_top={}\n", sm.soft_src_top);
+    fmt::print("soft_map_hull_src_top={}\n", sm.hull_src_top);
+    // UNE LIGNE PAR ILOT DEEPSNOW : la decision 4 de la SPEC attend ces nombres.
+    for (const auto& is : sm.islands) {
+      fmt::print(
+          "soft_map_island_{}=tris:{},verts:{},min_u:{:.6f},med_u:{:.6f},max_u:{:.6f},"
+          "raw_min_u:{:.6f},raw_med_u:{:.6f},raw_max_u:{:.6f}\n",
+          is.id, is.collision_tris, is.hull_verts, is.min_u, is.med_u, is.max_u, is.raw_min_u,
+          is.raw_med_u, is.raw_max_u);
+    }
+    fmt::print("[grass_bake] soft-support-map DONE.\n");
     return 0;
   }
 

@@ -229,10 +229,13 @@ void emit_locked() {
     // ce `hits=` la, pas les prises du binaire entier.
     // `soft-surface-truth` compte, comme `grass-surface-truth`, les TRIANGLES DE SOL qu'au moins
     // une de ses deux sources classe : c'est le `hits=` que son contrat exige.
+    // `soft-support-map` compte les SOMMETS DE COQUE AYANT RECU UNE EPAISSEUR strictement
+    // positive — `hits_means` de son item. Un sommet de frontiere, cuit a zero par contrat, n'en
+    // fait PAS partie : il est publie a cote, dans `soft_support_boundary_verts`.
     uint64_t hits = (id == "ao-prepass-tie-alpha" || id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
                      id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
-                     id == "soft-surface-truth" ||
+                     id == "soft-surface-truth" || id == "soft-support-map" ||
                      id == "grass-path-transitions")
                         ? site_hits_ref()[id]
                         : g_hits;
