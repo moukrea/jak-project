@@ -218,6 +218,13 @@ def description(bl, it, retries):
     return "\n".join(lines)
 
 
+def needs_build(it):
+    """Un chantier se teste-t-il sur un build du jeu ? Non pour un chantier du harnais : sa preuve
+    est un crochet `lib/census/<id>.sh` (ou son id commence par harness-), rien n'est a installer."""
+    iid = it.get("id") or ""
+    return not (iid.startswith("harness-") or os.path.exists(os.path.join(ROOT, ".autoport", "lib", "census", iid + ".sh")))
+
+
 def plain_state_comment(bl, it, st):
     """Commentaire de changement de colonne en francais courant. Owner 17/09, devant « OK : source=device
     sha=… frames=… ; ao_tie_prepass_defects == 0 tenu » : « Genre je suis sensé comprendre ce que je dois
@@ -225,6 +232,10 @@ def plain_state_comment(bl, it, st):
     where = (it.get("where") or "").strip()
     lv = last_verdict(it["id"])
     frames = ""  # owner 17/09 : les comptes d'images n'aident personne
+    if st == "In Review" and not needs_build(it):
+        # Owner 17/09 21:50, sur un chantier du harnais : « je vois pas pourquoi on devrait attendre
+        # qu'un build soit publié pour ça ». Un chantier qui ne touche pas le jeu se teste tout de suite.
+        return "→ **À tester par toi, tout de suite** : ce chantier ne touche pas le jeu, il n'y a rien à installer.\n\n**Où regarder** : %s" % (where or "voir la description du ticket")
     if st == "In Review":
         return "→ **À tester par toi**%s. Attends le commentaire « build publié » ci-dessous : il dit quel build de jak-builds porte ce chantier (jak-builds ne garde que le dernier).\n\n**Où regarder** : %s" % (frames, where or "voir la description du ticket")
     if st == "Done":

@@ -13357,7 +13357,7 @@ items:
     couleur, l''embout suit le bord du remplissage, et elle se vide au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13824,7 +13824,7 @@ items:
   deliverable: ''
   out_of_scope: ''
   spec: null
-- status: in-progress
+- status: validated
   game: jak1
   code_scope: harnais
   spec: null
@@ -13833,11 +13833,15 @@ items:
   proof_timeout: 300
   device: false
   owner_test: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-17'
+    text: Oui et pour moi c'est bon, je vois pas pourquoi on devrait attendre qu'un build soit publié
+      pour ça du coup !
+    build_sha: 6e642f4d157180d2
   no_code: true
   depends_on: []
   id: harness-linear-own-identity
-  priority: 31
+  priority: null
   feature: Le harnais parle sur Linear sous sa propre identité, pas sous celle de l'owner
   gate:
     key: linear_identity_defects
@@ -13881,3 +13885,14 @@ items:
     text: Je rêve ou t'as supprimé le message avec le client id et client secret ?
   - date: '2026-09-17'
     text: Bah c'est parfait ça ! Du coup tu peux virer l'emoji bot de tes réponses aussi
+  - date: '2026-09-17'
+    text: Oui et pour moi c'est bon, je vois pas pourquoi on devrait attendre qu'un build soit publié
+      pour ça du coup !
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-17'
+    proof_sha: 55e4f45fdd1eb899
+    proof_bytes: 51561
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-17'
