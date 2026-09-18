@@ -844,10 +844,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
-  "hash": "e84eeaaa9864590109d3b7974060cc85780d08fa",
+  "build_announced": "0c48f70e8074",
+  "hash": "098057d6b3e44ca1079a329dffa40a2f4980b76e",
   "identifier": "JAK-175",
   "issue_id": "190bf33c-24ca-4b73-b1e5-fe6034f624ce",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T10:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-175/le-coeur-du-hud-recharge-quatre-paliers-de-sante-et-le-coeur-a-33"
@@ -1475,10 +1476,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-7/linterface-reste-nette-quand-on-baisse-lechelle-de-rendu"
  },
  "res-list-sorted-by-pixels": {
-  "hash": "ff5d41d98941e97cbfda0337d47d66b9d0806e92",
+  "hash": "828db885cf28e79d059353781f93d40edb658ea4",
   "identifier": "JAK-171",
   "issue_id": "9ed2127e-03eb-4734-9054-d9da293e32da",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T06:51:42.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-171/la-liste-des-resolutions-est-classee-par-nombre-total-de-pixels-du"
  },
