@@ -13272,7 +13272,7 @@ items:
   - date: '2026-09-17'
     text: Bah les nouveaux tickets de Linear devraient attérir dans le backlog non ? sinon c'est dissonant
       et ça va exploser dans le temps !
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13285,6 +13285,21 @@ items:
   depends_on: &id005 []
   id: hud-heart
   priority: 51
+  proof_props:
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.fixed_tick=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.costprobe=hud-heart
+  proof_env:
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - AUTOPORT_COST_PROBE=hud-heart
   owner_test: true
   feature: 'Le cœur du HUD rechargé : quatre paliers de santé, et le cœur à 33 % qui clignote sur le cœur
     vide'
@@ -13313,7 +13328,7 @@ items:
     33 % il clignote sur le coeur vide, au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas a la jauge, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-heart.md
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13372,10 +13387,10 @@ items:
   gate_verdict:
     result: porte-tenue
     date: '2026-09-18'
-    proof_sha: 7f715f745e0b5a74
-    proof_bytes: 55903
-    attempt: 1
-    journal: validator-001.txt
+    proof_sha: aa27a237d4bccc83
+    proof_bytes: 56781
+    attempt: 2
+    journal: validator-002.txt
   delivered: '2026-09-18'
   owner_feedback:
   - date: '2026-09-17'
@@ -13388,7 +13403,7 @@ items:
 
       Donc c'est pas validé, mais on est VRAIMENT pas mal !
   block_reason: ''
-- status: open
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13432,6 +13447,8 @@ items:
     18/09 00:20 ARBITRAGE OWNER, sur photo (owner-feedback/hud-3d-pickups/20260917T2215-1.jpg) : « elle est bien à son emplacement attendu ! Mais […] une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! […] c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! ». PERIMETRE UNIQUE DE LA REPRISE : donner a la pile du HUD l'effet lumineux qu'elle a dans le monde. Position, taille et les trois autres emplacements sont ACQUIS par l'owner et NE SE RETOUCHENT PAS. Le terme §9 (stabilite par difference d'images) reste inexploitable sur l'appareil, il ne motive aucun essai. La porte de cette reprise se lit sur une grandeur de l'effet lui-meme (l'element lumineux du monde est-il emis pour l'icone de HUD, et combien de fois par image), jamais sur une image. Si la mesure bute sans cause nommee : demander a l'owner, ne pas relancer un essai.
 
     18/09 02:50 ARBITRAGE OWNER : « l'effet lumineux est bien la mais il n'est pas au meme niveau que la pile d'energie ! La pile est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile) alors qu'il devrait etre au meme niveau ». PERIMETRE UNIQUE : la hauteur de la lueur, a recaler sur celle de la pile. La presence de la lueur, la position de la pile, sa taille et les trois autres emplacements sont ACQUIS. L'ecart est VERTICAL seulement. Et : « t'aurais pu joindre un screen ca aurait accelere les choses » -> joindre une capture de la zone au commentaire de passage en test (DIRECTIVES, Ticket Linear).
+
+    18/09 04:25 SUPERVISEUR : essai 5 a RECALE la lueur (ancrage sur la jointure 3 du modele, celle que le jeu utilise, au lieu du centre de la sphere declaree, 4096 unites trop haut dans les donnees d'art ; commits 3b14dc298a + f0f1b7e9b9, DANS le build publie c97d1e-cad029). L'essai 6 n'a laisse aucune note et n'a touche aucun code : plafond epuise sur un essai vide. La porte machine reste bloquee sur des termes que l'appareil ne peut pas mesurer (bruit au-dessus du signal, etabli a l'essai 4). Application de la regle de l'owner : c'est LUI qui tranche la hauteur, une seule question, pas d'essai supplementaire a l'aveugle.
   deliverable: |-
     `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
 

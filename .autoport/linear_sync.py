@@ -742,7 +742,11 @@ def announce_builds(L, bl, mp, read, dry):
             # de harnais (info de build, carte Linear, manifeste d'assets) et arrive APRES le build ; le
             # comparer au build publie disait « pas encore livre » d'un chantier entierement livre — vu
             # deux fois dans la nuit du 17 au 18/09, avec l'owner qui demandait « j'ai teste un build pas fini ? ».
-            GAME = ["game", "goalc", "goal_src", "common", "android", "shaders", "decompiler"]
+            # `assets-slim` est EXCLU : le manifeste de paquet d'assets change a chaque build et vit
+            # sous android/. Sans l'exclusion, le commit de cloture d'un essai — qui ne porte que ce
+            # manifeste — passe pour du code de jeu et rend l'ancrage inutile (mesure du 18/09 04:20).
+            GAME = ["game", "goalc", "goal_src", "common", "android", "shaders", "decompiler",
+                    ":(exclude)android/app/src/*/assets-slim/**"]
             last = subprocess.run(["git", "log", "-1", "--format=%H", "-F", "--grep=[autoport/%s]" % it["id"],
                                    "--"] + GAME, cwd=ROOT, capture_output=True, text=True).stdout.strip()
             if not last:
