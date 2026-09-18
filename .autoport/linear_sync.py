@@ -737,7 +737,17 @@ def announce_builds(L, bl, mp, read, dry):
             continue
         try:
             # -F : sans lui, « [autoport/x] » est une classe de caracteres et matche n'importe quel commit
-            last = subprocess.run(["git", "log", "-1", "--format=%H", "-F", "--grep=[autoport/%s]" % it["id"]], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+            # 18/09 : on cherche le dernier commit de l'item qui touche le CODE DU JEU, pas le dernier
+            # commit tout court. Le commit de cloture d'un essai ne porte souvent que de la comptabilite
+            # de harnais (info de build, carte Linear, manifeste d'assets) et arrive APRES le build ; le
+            # comparer au build publie disait « pas encore livre » d'un chantier entierement livre — vu
+            # deux fois dans la nuit du 17 au 18/09, avec l'owner qui demandait « j'ai teste un build pas fini ? ».
+            GAME = ["game", "goalc", "goal_src", "common", "android", "shaders", "decompiler"]
+            last = subprocess.run(["git", "log", "-1", "--format=%H", "-F", "--grep=[autoport/%s]" % it["id"],
+                                   "--"] + GAME, cwd=ROOT, capture_output=True, text=True).stdout.strip()
+            if not last:
+                last = subprocess.run(["git", "log", "-1", "--format=%H", "-F", "--grep=[autoport/%s]" % it["id"]],
+                                      cwd=ROOT, capture_output=True, text=True).stdout.strip()
             if not last:
                 continue
             ok = subprocess.run(["git", "merge-base", "--is-ancestor", last, pub], cwd=ROOT).returncode == 0
