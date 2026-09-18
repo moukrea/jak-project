@@ -811,7 +811,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "build_announced": "f0f1b7e9b9b0",
+  "build_announced": "0c48f70e8074",
   "hash": "aaef4d9710a660ed1c503e97b7b629dc9c236a1e",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
@@ -834,7 +834,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "f0f1b7e9b9b0",
+  "build_announced": "0c48f70e8074",
   "hash": "f764d0efe3bd395180550048a98849997981edf1",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
@@ -844,10 +844,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
-  "hash": "b6b00abfd6dad271d3c7379b251382afe91aee0b",
+  "hash": "e84eeaaa9864590109d3b7974060cc85780d08fa",
   "identifier": "JAK-175",
   "issue_id": "190bf33c-24ca-4b73-b1e5-fe6034f624ce",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T10:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-175/le-coeur-du-hud-recharge-quatre-paliers-de-sante-et-le-coeur-a-33"
  },
