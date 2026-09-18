@@ -13174,7 +13174,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: Validé !
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   max_turns: 600
@@ -13215,6 +13215,14 @@ items:
   hits_means: entrees dessinees
   notes: Cree le 17/09 depuis un commentaire Linear de l'owner sur res-menu-truth.
   prompt: prompts/item-res-scale-submenu.md
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-18'
+    proof_sha: ec800d1e31155289
+    proof_bytes: 57545
+    attempt: 2
+    journal: validator-002.txt
+  delivered: '2026-09-18'
 - id: owner-todo-priorisation
   status: validated
   game: jak1
@@ -13356,7 +13364,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: open
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13418,10 +13426,10 @@ items:
   gate_verdict:
     result: porte-tenue
     date: '2026-09-18'
-    proof_sha: aa27a237d4bccc83
-    proof_bytes: 56781
-    attempt: 2
-    journal: validator-002.txt
+    proof_sha: b2a7a39687393dad
+    proof_bytes: 60167
+    attempt: 3
+    journal: validator-003.txt
   delivered: '2026-09-18'
   owner_feedback:
   - date: '2026-09-17'
@@ -14040,16 +14048,19 @@ items:
     est sur ON par défaut ; sur OFF, le cœur, la jauge d''éco, la mécamouche, l''orbe, l''éco verte et
     la pile redeviennent ceux du jeu d''origine, et sur ON ils redeviennent les nôtres ; le maître Recharged
     éteint reste prioritaire.'
-  known_cause: 'Cree le 18/09 07:30 par le superviseur, sur demande de l''owner (JAK-177) : « on doit
-    avoir un toggle dans les reglages recharges pour activer ou desactiver le HUD recharge ! Par defaut
-    a on, herite du master toggle recharge… a off c''est le HUD d''origine ! ». ETAT MESURE AU MOMENT
-    DE LA CREATION : le reglage `recharged-hud?` EXISTE dans pc-settings et les quatre chantiers du HUD
-    le lisent deja a l''execution ; ce qui MANQUE est la LIGNE DE MENU — progress-pc.gc:1597 la pose sous
-    `#when FLAG_RECHARGED_HUD`, drapeau de compilation a #f dans l''arbre suivi, donc ABSENTE du binaire
-    livre (meme piege que le coeur, la jauge et les ramassables, tous sortis du drapeau les 17 et 18/09).
-    Le libelle et l''aide existent deja (*recharged-hud-label*, pc-text-hint-rhud). PORTE : elle se lit
-    sur le binaire LIVRE — la ligne est presente, sa valeur par defaut est ON, le passage a OFF ramene
-    a zero les dessins des quatre pieces rechargees ET remet a non-zero ceux des pieces d''origine, le
-    retour a ON fait l''inverse, et le maitre Recharged eteint garde la priorite. Un terme non mesure
-    compte 1.'
+  known_cause: |-
+    Cree le 18/09 07:30 par le superviseur, sur demande de l'owner (JAK-177) : « on doit avoir un toggle dans les reglages recharges pour activer ou desactiver le HUD recharge ! Par defaut a on, herite du master toggle recharge… a off c'est le HUD d'origine ! ». ETAT MESURE AU MOMENT DE LA CREATION : le reglage `recharged-hud?` EXISTE dans pc-settings et les quatre chantiers du HUD le lisent deja a l'execution ; ce qui MANQUE est la LIGNE DE MENU — progress-pc.gc:1597 la pose sous `#when FLAG_RECHARGED_HUD`, drapeau de compilation a #f dans l'arbre suivi, donc ABSENTE du binaire livre (meme piege que le coeur, la jauge et les ramassables, tous sortis du drapeau les 17 et 18/09). Le libelle et l'aide existent deja (*recharged-hud-label*, pc-text-hint-rhud). PORTE : elle se lit sur le binaire LIVRE — la ligne est presente, sa valeur par defaut est ON, le passage a OFF ramene a zero les dessins des quatre pieces rechargees ET remet a non-zero ceux des pieces d'origine, le retour a ON fait l'inverse, et le maitre Recharged eteint garde la priorite. Un terme non mesure compte 1.
+
+    18/09 09:05 ARRET DEMANDE PAR L'OWNER (« Arrête le harnais, j'ai quasiment plus de credits ») : l'essai en cours a ete interrompu par le superviseur, il n'a pas echoue. L'item repart de zero a la reprise. Frein `.autoport/PAUSE` en place.
   prompt: prompts/item-recharged-hud-toggle.md
+  proof_timeout: 300
+  code_scope: jeu
+  game: jak1
+  hits_means: images que le banc du reglage a JUGEES (une bascule appliquee et mesuree)
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - AUTOPORT_COST_PROBE=recharged-hud-toggle
