@@ -1477,12 +1477,12 @@
  },
  "res-list-sorted-by-pixels": {
   "build_announced": "ab6c168f98c2",
-  "hash": "3fe2509eb397b45c28033a2221402d91481a653f",
+  "hash": "374172f37e60fbe819eaba314f577477123bcc7c",
   "identifier": "JAK-171",
   "issue_id": "9ed2127e-03eb-4734-9054-d9da293e32da",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-17T06:51:42.000Z",
+  "pulled_at": "2026-09-18T05:20:50.366Z",
   "url": "https://linear.app/moukrea/issue/JAK-171/la-liste-des-resolutions-est-classee-par-nombre-total-de-pixels-du"
  },
  "res-menu-truth": {

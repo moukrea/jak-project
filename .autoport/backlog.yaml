@@ -13128,7 +13128,7 @@ items:
   notes: 'Cree le 17/09 par le superviseur : section 12 de la SPEC sans item ; reprend phase-Grecharged-grass-wear.md.'
   hits_means: instances d'herbe attenuees par la carte
   prompt: prompts/item-grass-wear-map.md
-- status: to-test
+- status: validated
   game: jak1
   code_scope: jeu
   max_turns: 600
@@ -13136,11 +13136,14 @@ items:
   proof_timeout: 420
   device: false
   owner_test: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-18'
+    text: Validé !
+    build_sha: c1421792df1b
   no_code: true
   depends_on: &id004 []
   id: res-list-sorted-by-pixels
-  priority: 52
+  priority: null
   feature: La liste des résolutions est classée par nombre total de pixels, du plus petit au plus grand
   gate:
     key: res_list_unsorted_pairs
@@ -13168,6 +13171,9 @@ items:
     attempt: 1
     journal: validator-001.txt
   delivered: '2026-09-18'
+  owner_feedback:
+  - date: '2026-09-18'
+    text: Validé !
 - status: in-progress
   game: jak1
   code_scope: jeu
