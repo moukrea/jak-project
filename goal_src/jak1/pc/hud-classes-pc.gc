@@ -1,6 +1,10 @@
 ;;-*-Lisp-*-
 (in-package goal)
 (require "engine/ui/hud.gc")
+;; hud-heart : la porte du coeur APPELLE `part-hud-health-01-func` (engine/ui/hud-classes.gc:238)
+;; pour obtenir la luminance que le clignotement D'ORIGINE se donne a la meme image. C'est la
+;; reference, executee — pas une formule recopiee et relue.
+(require "engine/ui/hud-classes.gc")
 (require "levels/common/battlecontroller.gc")
 
 #| Code for extra HUD elements in the PC port. |#
@@ -1242,15 +1246,66 @@
 ;; recharged-hud? toggle; when it is OFF nothing below runs and the stock hud
 ;; is untouched.
 
-;; Grecharged-buildsys-flags: le COEUR recharge (SPEC HUD §3, chantier `hud-heart`) reste derriere
-;; --recharged-hud. La JAUGE, elle, en est sortie juste en dessous.
-(#when FLAG_RECHARGED_HUD
+;; hud-heart : LE COEUR VIT DANS LE BINAIRE LIVRE, HORS DE FLAG_RECHARGED_HUD.
+;; `recharged-flags.gc` porte `FLAG_RECHARGED_HUD #f` dans l'arbre suivi depuis le 02/09, et ni
+;; `.autoport/lib/build_x86.sh` ni `auto_build_apk.sh` ne repassent par `build.sh --recharged-hud` :
+;; tout ce chantier etait ABSENT des CGO livres, sur les deux cibles. Aucun essai de juillet
+;; n'aurait pu se voir chez l'owner. C'est la meme cause que la ronde 4 de `hud-3d-pickups` et que
+;; la reprise du 18/09 de `hud-eco-gauge`, qui en sont sortis pour ca. L'extinction reste a
+;; L'EXECUTION : maitre Recharged + reglage HUD (SPEC HUD §1.2), plus le bras d'ablation du harnais.
+;;
+;; LE PAS DU BALAYAGE DE SANTE. La sante de jak1 est un `float` qui ne prend en pratique que
+;; 0, 1, 2 et 3 (`engine/game/fact-h.gc:112`, `health-max-default` 3.0 `:39`, increments
+;; `health-single-inc` 1.0 `:40`). Le livrable exige le palier dessine « pour chaque valeur de
+;; sante de la plage du jeu » : on balaie donc 0.0 -> 3.0 au SEIZIEME, 49 pas, ce qui couvre aussi
+;; les valeurs fractionnaires qu'aucune source connue ne produit mais qu'un futur degat pourrait.
+(defconstant RHUD_HEART_MAP_N 49)
+(defconstant RHUD_HEART_MAP_STEP 0.0625)
+
 ;; replacement for the stock hud-health (the 3-pip heart)
 (deftype hud-recharged-health (hud-pc)
   ((active-flag symbol) ;; last-seen state of the toggle, for transition handling
-   (cell-proc   process) ;; hud-fuel-cell process whose icon we upgraded
-   (buzz-proc   process) ;; hud-buzzers process we added the 3d icon to
-   )))
+   ;; --- instrument de preuve (hud-heart). Inerte hors `debug.opengoal.costprobe=hud-heart`. ---
+   (probe?       symbol)  ;; le harnais mesure CET item
+   (armed?       symbol)  ;; le bras d'ablation du harnais laisse-t-il le coeur recharge vivre
+   (bench-n      int32)   ;; images ecoulees dans le bloc courant du banc
+   (bench-phase  int32)   ;; 0 balayage de sante, 1 clignotement, 2 eteint, 3 repos
+   (bench-cycle  int32)   ;; tours complets du banc
+   (bench-hp     float)   ;; sante FORCEE A L'AFFICHAGE pendant le balayage ; < 0 = aucun forcage
+   (draws        int32)   ;; images ou le coeur recharge a ete dessine
+   ;; --- terme 1 : LE MAPPAGE ---
+   (map-tier     int32 RHUD_HEART_MAP_N) ;; palier RELU des tbp emis, un par pas de sante ; -1 = jamais dessine
+   (map-n        int32)   ;; pas de sante effectivement dessines
+   (map-holes    int32)   ;; pas restes a -1
+   (map-nonmono  int32)   ;; couples voisins ou le palier DESCEND quand la sante MONTE
+   (map-tiers    int32)   ;; paliers DISTINCTS observes (doit valoir 4)
+   ;; --- terme 2 : LA POSITION ---
+   (pos-n        int32)   ;; images ou la position a pu etre confrontee au coeur d'origine
+   (pos-bad      int32)   ;;   ... dont le centre s'ecartait de celui du coeur d'origine
+   (pos-max      int32)   ;; pire ecart de centre, en 1/16 d'unite de canevas 512x448
+   (pos-ours     int32 4) ;; NOTRE rectangle relu du buffer : x0 y0 x1 y1, en 1/16 d'unite
+   (pos-stock    int32 4) ;; celui du coeur d'ORIGINE, meme unite
+   (pos-regime   int32)   ;; 1 = la chaine y du HUD est l'identite, donc la comparaison est valable
+   ;; --- terme 3 : LE CLIGNOTEMENT ---
+   (blk-n        int32)   ;; images ou les deux clignotements ont ete mesures sur LE MEME evenement
+   (blk-diff     int32)   ;;   ... dont notre luminance differait de celle de l'origine
+   (blk-max      int32)   ;; pire ecart de luminance (0..255)
+   (blk-hi-o     int32)   ;; images au-dessus du milieu, NOUS  (numerateur du rapport cyclique)
+   (blk-hi-s     int32)   ;;   ... et l'ORIGINE
+   (blk-edge-o   int32)   ;; fronts montants, NOUS (denominateur de la periode)
+   (blk-edge-s   int32)   ;;   ... et l'ORIGINE
+   (blk-prev-o   int32)   ;; etat haut/bas de l'image precedente, NOUS
+   (blk-prev-s   int32)   ;;   ... et l'ORIGINE
+   ;; --- terme 4 : L'ASSET ENTIER ---
+   (ast-n        int32)   ;; images ou les tbp emis ont pu etre relus
+   (ast-bad      int32)   ;;   ... dont le jeu de tbp n'etait pas celui du palier
+   (ast-partial  int32)   ;; quads dont le rectangle differait de celui du palier (dessin partiel)
+   (ast-seen     int32)   ;; masque des quatre tbp de base rencontres (15 = les quatre)
+   ;; --- terme 5 : ETEINT = ORIGINE ---
+   (off-frames   int32)   ;; images jugees HUD recharge ETEINT
+   (off-draws    int32)   ;;   ... et dessins observes pendant celles-la (doit rester 0)
+   (off-stock-ko int32)   ;;   ... et images ou le coeur d'ORIGINE n'etait pas rendu
+   ))
 
 ;; hud-eco-gauge : LA JAUGE VIT DANS LE BINAIRE LIVRE, HORS DE FLAG_RECHARGED_HUD.
 ;; `recharged-flags.gc` porte `FLAG_RECHARGED_HUD #f` dans l'arbre suivi depuis le 02/09, et
@@ -1647,98 +1702,492 @@
 ;; de FLAG_RECHARGED_HUD. Elles etaient compilees dans TOUS les binaires sans etre appelees par
 ;; personne : retirees.
 
-;; Grecharged-buildsys-flags: the four hud-recharged-health helpers below are compiled only with --recharged-hud.
-(#when FLAG_RECHARGED_HUD
-(defun rhud-add-buzzer-icon ((this hud-recharged-health))
-  "add the real scout-fly 3d model as an icon on the stock hud-buzzers element
-   and hide its flat sprite particle."
-  (let ((bz (-> *hud-parts* buzzers)))
-    (when bz
-      (let ((obj (the-as hud (-> bz 0))))
-        ;; owner round-2 item 2 (same zombie class as the cell): if a prior add
-        ;; produced a dead/skeleton-less icon, clear the slot and re-make it
-        (when (and (> (-> obj nb-of-icons) 0) (not (rhud-icon-alive? obj)))
-          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon) (-> obj icons 0 icon 0))
-            (deactivate (ppointer->process (-> obj icons 0 icon))))
-          (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
-          (set! (-> obj nb-of-icons) 0))
-        (when (zero? (-> obj nb-of-icons))
-          (hud-pc-make-icon obj
-                            HUD_ICON_COUNT
-                            :skel *buzzer-sg*
-                            :x 60
-                            :y 380
-                            :z 1024.0
-                            :scale-x 0.008
-                            :scale-y -0.008)
-          ;; art not loaded yet -> skeleton-less zombie; kill + reset so the
-          ;; per-frame guard retries until the level art is in
-          (when (and (nonzero? (-> obj icons 0 icon))
-                     (-> obj icons 0 icon)
-                     (-> obj icons 0 icon 0)
-                     (zero? (-> obj icons 0 icon 0 skel)))
-            (deactivate (ppointer->process (-> obj icons 0 icon)))
-            (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
-            (set! (-> obj nb-of-icons) 0))
-          (let ((icon (-> obj icons 0 icon)))
-            (when (and (nonzero? icon) icon)
-              ;; face the camera (the model's rest pose looks away) and follow
-              ;; the element's current visibility instead of parking at origin
-              (send-event (ppointer->process icon)
-                          'rot-quat
-                          (quaternion-axis-angle! (new-stack-quaternion0) 0.0 1.0 0.0 (degrees 180)))
-              (send-event (ppointer->process icon) 'draw (not (hidden? obj)))
-              (draw-icons obj))))
-        ;; skip-particle 0 stops draw-hud from spawning the flat buzzer sprite
-        (set! (-> obj skip-particle) 0))
-      (set! (-> this buzz-proc) (the-as process (ppointer->process bz)))))
-  (none))
+;; hud-heart (18/09) : `rhud-add-buzzer-icon` et `rhud-remove-buzzer-icon` vivaient ici et n'ont
+;; plus d'appelant — la mecamouche est l'un des quatre emplacements de l'item `hud-3d-pickups`,
+;; qui porte son propre pilote hors de FLAG_RECHARGED_HUD depuis le 17/09. Compilees dans le
+;; binaire, elles auraient mis DEUX pilotes sur le meme slot d'icone : retirees, comme
+;; `rhud-set-cell-icon` avant elles.
 
-(defun rhud-remove-buzzer-icon ((this hud-recharged-health))
-  "undo rhud-add-buzzer-icon (restore the stock flat sprite)."
-  (let ((bz (-> *hud-parts* buzzers)))
-    (when (and bz (= (ppointer->process bz) (-> this buzz-proc)))
-      (let ((obj (the-as hud (-> bz 0))))
-        (when (> (-> obj nb-of-icons) 0)
-          (when (and (nonzero? (-> obj icons 0 icon)) (-> obj icons 0 icon))
-            (deactivate (ppointer->process (-> obj icons 0 icon))))
-          (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
-          (set! (-> obj nb-of-icons) 0))
-        (set! (-> obj skip-particle) -1))))
-  (set! (-> this buzz-proc) #f)
-  (none))
-
-(defun rhud-suppress-stock ((this hud-recharged-health))
-  "per-frame idempotent guards: keep the stock heart/eco-gauge disabled+hidden while the recharged
-   hud is ON. re-applies automatically if the stock hud processes respawn.
-   hud-3d-pickups (17/09) : LES QUATRE EMPLACEMENTS D'OBJETS ONT QUITTE CETTE FONCTION. La pile,
-   la mecamouche, l'orbe et l'eco verte sont l'item `hud-3d-pickups` et vivent sur son process,
-   hors de FLAG_RECHARGED_HUD. Deux pilotes sur le meme slot se battraient a chaque image."
+(defun rhud-heart-suppress-stock ()
+  "garde idempotente par image : le coeur d'ORIGINE reste desactive et cache tant que le coeur
+   recharge est allume. Se re-applique toute seule si le process d'origine reapparait.
+   Elle ne touche QUE `health` : la jauge a sa propre paire (`rhud-power-suppress-stock`) et le
+   coeur d'origine ne doit pas etre pilote depuis deux endroits."
   (let ((h (-> *hud-parts* health)))
     (when h
       (if (not (-> h 0 disable)) (send-event (ppointer->process h) 'disable))
       (if (not (hidden? (-> h 0))) (send-event (ppointer->process h) 'hide-quick))))
-  (let ((p (-> *hud-parts* power)))
-    (when p
-      (if (not (-> p 0 disable)) (send-event (ppointer->process p) 'disable))
-      (if (not (hidden? (-> p 0))) (send-event (ppointer->process p) 'hide-quick))))
   (none))
 
-(defun rhud-restore-stock ((this hud-recharged-health))
-  "give the stock heart/gauge back when the recharged hud is toggled OFF."
+(defun rhud-heart-restore-stock ()
+  "rend le coeur d'origine quand le coeur recharge est eteint."
   (let ((h (-> *hud-parts* health)))
     (if (and h (-> h 0 disable)) (send-event (ppointer->process h) 'enable)))
-  (let ((p (-> *hud-parts* power)))
-    (if (and p (-> p 0 disable)) (send-event (ppointer->process p) 'enable)))
   (none))
-)  ;; #when FLAG_RECHARGED_HUD (rhud-* helpers)
+
+;;;----------------------------------------------
+;;  hud-heart — L'INSTRUMENT LIT LES SOMMETS REELLEMENT EMIS
+;;;----------------------------------------------
+;; Meme principe que celui de la jauge, et pour la meme raison : la porte de cet item ne peut pas
+;; lire une image (DIRECTIVES, regle 2) et elle ne doit pas relire les variables qui ont servi a
+;; dessiner — ce serait un miroir. Elle relit donc ce que le code a ECRIT dans le buffer DMA :
+;; le tbp pose dans TEX0, la couleur du sommet, et les entiers 12.4 de xyzf2 redescendus dans le
+;; canevas par `rhud-gp-px` / `rhud-gp-py`. Le probe du coeur est SEPARE de celui de la jauge :
+;; deux items ne partagent pas un instrument.
+
+(defconstant RHUD_HEART_QUADS 4)   ;; le coeur n'en emet jamais plus de deux ; 4 laisse voir un defaut
+
+(deftype rhud-heart-probe (structure)
+  ((n    int32)                    ;; quads relus cette image
+   (tbp  int32 RHUD_HEART_QUADS)   ;; le tbp REELLEMENT pose dans TEX0 pour ce quad
+   (lum  int32 RHUD_HEART_QUADS)   ;; la luminance (composante r) REELLEMENT ecrite
+   (alf  int32 RHUD_HEART_QUADS)   ;; l'alpha REELLEMENT ecrit
+   (minx float RHUD_HEART_QUADS) (maxx float RHUD_HEART_QUADS)
+   (miny float RHUD_HEART_QUADS) (maxy float RHUD_HEART_QUADS)))
+
+(define *rhud-heart-probe* (new 'static 'rhud-heart-probe))
+
+(defun rhud-heart-probe-reset ()
+  "ouvre une image de mesure : aucun quad relu."
+  (set! (-> *rhud-heart-probe* n) 0)
+  (none))
+
+(defun rhud-heart-emit ((buf dma-buffer) (tbp int) (cx float) (cy float) (hs float) (fx float) (lum int) (alf int))
+  "dessine UN palier du coeur et RELIT les quatre sommets qui viennent d'etre ecrits.
+   Tout ce que la porte de `hud-heart` mesure passe par ICI : aucun site de dessin ne peut etre
+   oublie par l'instrument, puisqu'il n'existe pas d'autre facon d'emettre un quad du coeur."
+  (rhud-set-shader buf tbp)
+  (rhud-quad buf cx cy hs fx 0.0 (rhud-rgba lum lum lum alf))
+  (let ((pr *rhud-heart-probe*))
+    (when (< (-> pr n) RHUD_HEART_QUADS)
+      (let ((k (-> pr n))
+            (b (the-as int (-> buf base))))
+        ;; `rhud-quad` vient d'ecrire QUATRE sommets de 48 octets : ils occupent les 192 derniers
+        ;; octets du buffer, quel que soit l'en-tete que `with-cnt-vif-block` a pose devant.
+        (dotimes (i 4)
+          (let* ((v   (+ b (- (* 48 i) 192)))
+                 (col (the-as (pointer int32) v))
+                 (xy  (the-as (pointer int32) v))
+                 (px  (rhud-gp-px (the float (-> xy 8))))
+                 (py  (rhud-gp-py (the float (-> xy 9)))))
+            (when (zero? i)
+              (set! (-> pr tbp k) tbp)
+              (set! (-> pr lum k) (-> col 4))
+              (set! (-> pr alf k) (-> col 7))
+              (set! (-> pr minx k) px) (set! (-> pr maxx k) px)
+              (set! (-> pr miny k) py) (set! (-> pr maxy k) py))
+            (if (< px (-> pr minx k)) (set! (-> pr minx k) px))
+            (if (> px (-> pr maxx k)) (set! (-> pr maxx k) px))
+            (if (< py (-> pr miny k)) (set! (-> pr miny k) py))
+            (if (> py (-> pr maxy k)) (set! (-> pr maxy k) py))))
+        (set! (-> pr n) (+ k 1)))))
+  (none))
+
+(defun rhud-heart-tier-emitted ()
+  "LE PALIER, RELU DES TBP REELLEMENT POSES. Ce n'est pas la variable qui a servi au `cond` de
+   `draw-hud` : c'est l'identite des textures parties au GPU. -1 = rien n'a ete emis,
+   -2 = un jeu de tbp que le contrat ne prevoit pas."
+  (let ((pr *rhud-heart-probe*))
+    (cond
+      ((zero? (-> pr n)) -1)
+      ((and (= (-> pr n) 1) (= (-> pr tbp 0) RHUD_TBP_HEART_100)) 100)
+      ((and (= (-> pr n) 1) (= (-> pr tbp 0) RHUD_TBP_HEART_66)) 66)
+      ((and (= (-> pr n) 1) (= (-> pr tbp 0) RHUD_TBP_HEART_0)) 0)
+      ((and (= (-> pr n) 2) (= (-> pr tbp 0) RHUD_TBP_HEART_0) (= (-> pr tbp 1) RHUD_TBP_HEART_33)) 33)
+      (else -2))))
+
+;;;----------------------------------------------
+;;  hud-heart — LE RECTANGLE DU COEUR D'ORIGINE, LU SUR SON PROCESS
+;;;----------------------------------------------
+;; LE DEFAUT QUE CE BLOC CORRIGE. Notre coeur portait les litteraux `RHUD_HEART_X 80.0` /
+;; `RHUD_HEART_Y 66.0` / `RHUD_HEART_HALF 30.0`. Or le coeur d'origine est fait de TROIS sprites de
+;; particule (`hud-health`, engine/ui/hud-classes.gc:282-317) dont `set-pos-and-scale` (`:319-345`)
+;; REPLACE les abscisses selon le format de l'ecran des que `use-vis?` est faux :
+;;     base = (particule 0).x = 61.0   puis   x_i = base + a (c_i - base),   a = aspect-ratio-reciprocal
+;; En 4:3 (a = 1) les trois pips sont a x = 61 / 98 / 70 et le milieu de leur etendue vaut 79,5 —
+;; d'ou le 80.0 de juillet. Sur la dalle de l'appareil (2400x1080, a = 0,6) ils sont a 61 / 83,2 /
+;; 66,4 et ce milieu vaut 72,1 : notre coeur se dessinait 7,9 unites de canevas A DROITE du coeur
+;; qu'il remplace — 37 pixels sur cette dalle, et d'autant plus que l'ecran est large. C'est
+;; exactement la cause que `hud-eco-gauge` a nommee le 18/09 pour ses particules.
+;;
+;; LA DEMI-TAILLE D'UN PIP, EN UNITES DE CANEVAS. Elle ne se lit nulle part : elle se calcule le
+;; long du chemin sprite, et chaque facteur ci-dessous vient d'une ligne du moteur.
+;;   sx = sy = `(-> *hud-parts* health 0 scale)`               hud-classes.gc:239, :261, :267
+;;   f0-1 = -1,9996 p00, puis x aspect-ratio-scale si !use-vis?  sprite.gc:465, :471
+;;   ligne 3 de la matrice HUD : w = 60 f0-1 pfog0               sprite.gc:478
+;;   Q = pfog0 / w = 1 / (60 f0-1)                               sprite_3d.vert:81 (pfog0 se simplifie)
+;;   echelle = max(sy Q, min-scale), min-scale = sqrt(1/(-p00) . 1/(-p11))   sprite.gc:289, sprite_3d.vert:131
+;;   demi-coin = 0,5 (cdata, aucun `:flag` sur les parts 309/310/311)        sprite.gc:292
+;;   base-x = -p00, base-y = -p11                                sprite.gc:283, :288
+;; Une unite GS en x vaut une unite du canevas 512 ; une unite GS en y en vaut DEUX du canevas 448
+;; (`rhud-add-vert` ecrit 1936 + 0,5 py) — d'ou le facteur 2 qui absorbe le 0,5 du coin en y.
+;; CONTROLE GRATUIT : ce calcul dit que le pip est CARRE EN PIXELS. Les deux demi-tailles en pixels
+;; sont publiees (`hud_heart_pip_px_x_milli` / `_y_milli`) ; si elles differaient, la derivation
+;; serait fausse et le rectangle d'origine avec elle.
+;;
+;; CE QUI ENTRE DANS LA PORTE. Le CENTRE, qui est exact et ne depend pas de la taille d'un pip :
+;; les trois pips partagent la meme `scale`, donc le rectangle des trois pips COMPLETS et celui de
+;; leurs trois CENTRES ont le meme milieu. L'ETENDUE, elle, est PUBLIEE des deux cotes : notre
+;; sprite est carre (1024x1024 dans `recharged_assets/`) et le rectangle d'origine ne l'est pas
+;; (267 x 214 px sur l'appareil), si bien qu'un ecart nul sur les quatre bords est hors d'atteinte
+;; pour une image carree. On aligne donc la HAUTEUR — c'est elle qui donne sa taille au coeur —
+;; et l'ecart de largeur est publie au lieu d'etre tu.
+
+(deftype rhud-heart-geom (structure)
+  ((cx float) (cy float)   ;; ou NOUS dessinons, dans le canevas
+   (hs float) (fx float)   ;; demi-taille (canevas 448) et facteur d'aspect du quad
+   (phx float) (phy float) ;; demi-taille d'UN pip d'origine, canevas 512 / canevas 448
+   (sx0 float) (sx1 float) ;; le rectangle du coeur d'ORIGINE, pips complets
+   (sy0 float) (sy1 float)
+   (ok  symbol)))          ;; le process d'origine ET la camera etaient la : sinon, repli non mesure
+
+(define *rhud-heart-geom* (new 'static 'rhud-heart-geom))
+
+(defun rhud-heart-geom! ((this hud-recharged-health))
+  "pose, pour l'image en cours, le rectangle du coeur d'origine et celui de notre quad."
+  (let* ((g   *rhud-heart-geom*)
+         (h   (-> *hud-parts* health))
+         (p00 (-> *math-camera* perspective vector 0 x))
+         (p11 (-> *math-camera* perspective vector 1 y))
+         (ok  (and h (>= (-> h 0 nb-of-particles) 3) (< p00 0.0) (< p11 0.0)
+                   (> (-> h 0 scale) 0.0) #t))
+         (xo  (the float (* (-> this x-sgn) (-> this offset))))
+         (yo  (the float (* (-> this y-sgn) (-> this offset)))))
+    (set! (-> g ok) (if ok #t #f))
+    (set! (-> g fx) (rhud-aspect-fx))
+    (cond
+      (ok
+       (let* ((ars (if (-> *pc-settings* use-vis?) 1.0 (-> *pc-settings* aspect-ratio-scale)))
+              (f01 (* -1.9996 p00 ars))
+              (q   (/ 1.0 (* 60.0 f01)))
+              (msc (sqrtf (* (/ 1.0 (- p00)) (/ 1.0 (- p11)))))
+              (sc  (fmax (* (-> h 0 scale) q) msc))
+              (x0  (-> h 0 particles 0 init-pos x)) (x1 (-> h 0 particles 0 init-pos x))
+              (y0  (-> h 0 particles 0 init-pos y)) (y1 (-> h 0 particles 0 init-pos y)))
+         (set! (-> g phx) (* (- p00) sc 0.5))
+         (set! (-> g phy) (* (- p11) sc))
+         (dotimes (i 3)
+           (let ((px (-> h 0 particles i init-pos x))
+                 (py (-> h 0 particles i init-pos y)))
+             (if (< px x0) (set! x0 px))
+             (if (> px x1) (set! x1 px))
+             (if (< py y0) (set! y0 py))
+             (if (> py y1) (set! y1 py))))
+         ;; le decalage de glissement est le NOTRE : celui du coeur d'origine vaut 128 des qu'on
+         ;; l'a cache, ce qui l'enverrait hors de l'ecran. On compare deux elements AU REPOS.
+         (set! (-> g sx0) (- (+ x0 xo) (-> g phx)))
+         (set! (-> g sx1) (+ x1 xo (-> g phx)))
+         (set! (-> g sy0) (- (+ y0 yo) (-> g phy)))
+         (set! (-> g sy1) (+ y1 yo (-> g phy)))
+         (set! (-> g cx) (+ (* 0.5 (+ x0 x1)) xo))
+         (set! (-> g cy) (+ (* 0.5 (+ y0 y1)) yo))
+         ;; la HAUTEUR du coeur d'origine, a l'unite de canevas pres. `rhud-quad` multiplie le
+         ;; decalage x par `fx` et laisse y tel quel : `hs` est donc une demi-hauteur.
+         (set! (-> g hs) (* 0.5 (- (-> g sy1) (-> g sy0))))))
+      (else
+       ;; repli : le process d'origine ou la camera ne sont pas encore la (chargement). Les
+       ;; litteraux de juillet ne servent plus qu'a ca, et l'instrument ecarte ces images-la.
+       (set! (-> g phx) 0.0) (set! (-> g phy) 0.0)
+       (set! (-> g hs) RHUD_HEART_HALF)
+       (set! (-> g cx) (+ RHUD_HEART_X xo))
+       (set! (-> g cy) (+ RHUD_HEART_Y yo))
+       (set! (-> g sx0) (-> g cx)) (set! (-> g sx1) (-> g cx))
+       (set! (-> g sy0) (-> g cy)) (set! (-> g sy1) (-> g cy)))))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-heart — LE CLIGNOTEMENT D'ORIGINE, REPRIS GRANDEUR POUR GRANDEUR
+;;;----------------------------------------------
+;; `part-hud-health-01-func` (engine/ui/hud-classes.gc:238-256) est le SEUL clignotement de sante
+;; du jeu d'origine (cherche aussi dans engine/target/*.gc et engine/game/fact-h.gc : rien). Il se
+;; declenche a `health = 1.0` EXACTEMENT, et il module la LUMINANCE r = g = b du pip du bas entre
+;; 128 et 255 — l'alpha, lui, reste a 128. L'onde est triangulaire :
+;;   c = (the int (* DISPLAY_FPS_RATIO integral-frame-counter))   (avance de 1 par image 60 Hz)
+;;   c & 8 = 0 : v = 128 + 18,142857 (c & 7)      montee 128 -> 255
+;;   sinon      : v = 255 - 18,142857 (c & 7)     descente 255 -> 128
+;; Periode 16 images, rapport cyclique 50/50, 18,142857 = 127/7.
+;;
+;; L'ESSAI DE JUILLET NE FAISAIT NI L'UN NI L'AUTRE : `(mod ... 90)` sur l'ALPHA de jak_heart_33,
+;; soit une periode de 90 images — 5,6 fois trop lente — et une grandeur que le jeu ne module pas.
+;; On reprend donc la formule d'origine, et la porte ne se contente pas de le croire : elle APPELLE
+;; `part-hud-health-01-func` sur une matrice jetable a la meme image et compare sa sortie a la
+;; luminance que NOUS venons d'ecrire dans le buffer DMA. Ce n'est pas un miroir — c'est l'autre
+;; implementation, executee, sur le meme evenement.
+(defun rhud-heart-blink-lum ()
+  "la luminance du clignotement de bas niveau de vie, a la cadence du jeu d'origine."
+  (let* ((c (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))))
+         (k (the float (logand c 7))))
+    (the int (if (not (logtest? c 8))
+               (+ 128.0 (* 18.142857 k))
+               (- 255.0 (* 18.142857 k))))))
+
+(defun rhud-heart-stock-blink-lum ()
+  "la luminance que le coeur D'ORIGINE se donne a CETTE image, obtenue en appelant SA fonction.
+   -1 si elle ne peut pas etre appelee (son process n'est pas la) ou si l'evenement n'est pas le
+   sien (`health` different de 1.0) : la porte ne compare alors rien."
+  (cond
+    ((not (-> *hud-parts* health)) -1)
+    ((not *target*) -1)
+    ((!= (-> *target* fact health) 1.0) -1)
+    (else
+     (let ((m (new 'stack-no-clear 'matrix)))
+       (set! (-> m vector 2 x) -1.0)
+       (part-hud-health-01-func (the-as sparticle-system #f) (the-as sparticle-cpuinfo #f) m)
+       (the int (-> m vector 2 x))))))
+
+;;;----------------------------------------------
+;;  hud-heart — LE BANC DE MESURE ET LA PUBLICATION
+;;;----------------------------------------------
+;; Tout ce bloc est inerte hors `debug.opengoal.costprobe=hud-heart` : le joueur ne voit jamais sa
+;; sante pilotee. Le balayage des paliers passe par un forcage D'AFFICHAGE (`bench-hp`) et non par
+;; la sante reelle — jak ne descend donc jamais a zero, et l'instrument mesure quand meme le
+;; CHEMIN DE DESSIN complet pour chacun des 49 pas.
+(defconstant RHUD_HB_STEP 6)                                  ;; images par pas de sante
+(defconstant RHUD_HB_SETTLE 30)                               ;; images jetees au bord d'un bloc
+(defconstant RHUD_HB_SWEEP (* RHUD_HEART_MAP_N RHUD_HB_STEP)) ;; 294 images de balayage
+(defconstant RHUD_HB_BLINK 480)                               ;; 30 periodes du clignotement d'origine
+(defconstant RHUD_HB_OFF 420)                                 ;; bloc ETEINT
+(defconstant RHUD_HB_REST 120)                                ;; bloc de repos, sante rendue
+(defconstant RHUD_HB_MIN 300)                                 ;; images exigees par terme avant qu'il soit MESURE
+(defconstant RHUD_HB_BLINK_MIN 240)
+;; Le plancher de l'instrument de position. Les coordonnees relues sont quantifiees au 1/16 en x
+;; et au 1/8 en y (`rhud-add-vert` divise py par deux avant d'ecrire du 12.4), et un centre est la
+;; moyenne de deux valeurs quantifiees : l'erreur cumulee ne depasse pas 1/8 d'unite de canevas.
+;; On prend 8/16 = 0,5 unite, quatre fois la borne. Le defaut que cet essai corrige valait 7,9
+;; unites, soit 126/16 : la separation est de 126 contre 8.
+(defconstant RHUD_HEART_POS_TOL 8)
+
+(defun rhud-heart-off-window? ((this hud-recharged-health))
+  "sommes-nous dans la partie utile du bloc ETEINT du banc ?"
+  (and (= (-> this bench-phase) 2)
+       (>= (-> this bench-n) RHUD_HB_SETTLE)
+       (<= (-> this bench-n) (- RHUD_HB_OFF RHUD_HB_SETTLE))))
+
+(defun rhud-heart-phase-len ((ph int))
+  (case ph ((0) RHUD_HB_SWEEP) ((1) RHUD_HB_BLINK) ((2) RHUD_HB_OFF) (else RHUD_HB_REST)))
+
+(defun rhud-heart-bench ((this hud-recharged-health))
+  "la sequence de mesure : balayage des paliers, clignotement au dernier cran, HUD recharge
+   ETEINT, puis repos."
+  (when *target*
+    (+! (-> this bench-n) 1)
+    (let ((ph (-> this bench-phase)))
+      ;; EPINGLER LE REGIME DE SA PROPRE FEATURE. Le reglage `recharged-hud?` est PERSISTE et vaut
+      ;; #f sur une installation neuve (`pckernel-impl.gc:353`) : une course qui ne le poserait pas
+      ;; mesurerait le reglage laisse par quelqu'un d'autre, et un zero de defauts voudrait dire
+      ;; « rien n'a ete dessine ». Le banc le pose donc a CHAQUE debut de bloc — allume partout,
+      ;; sauf dans le bloc qui mesure justement l'extinction (terme 5).
+      (when (= (-> this bench-n) 1)
+        (set! (-> *pc-settings* recharged-hud?) (if (= ph 2) #f #t)))
+      (case ph
+        ((0) (set! (-> this bench-hp)
+                   (* RHUD_HEART_MAP_STEP
+                      (the float (min (- RHUD_HEART_MAP_N 1) (/ (- (-> this bench-n) 1) RHUD_HB_STEP))))))
+        ;; le clignotement se mesure sur L'EVENEMENT D'ORIGINE : c'est la sante REELLE qui doit
+        ;; valoir 1, sinon `part-hud-health-01-func` ne clignote pas et il n'y a rien a comparer.
+        ((1) (set! (-> this bench-hp) -1.0) (set! (-> *target* fact health) 1.0))
+        (else (set! (-> this bench-hp) -1.0) (set! (-> *target* fact health) 3.0)))
+      (when (rhud-heart-off-window? this)
+        (+! (-> this off-frames) 1)
+        (let ((h (-> *hud-parts* health)))
+          (if (or (not h) (-> h 0 disable)) (+! (-> this off-stock-ko) 1))))
+      (when (>= (-> this bench-n) (rhud-heart-phase-len ph))
+        (set! (-> this bench-n) 0)
+        (set! (-> this bench-hp) -1.0)
+        ;; la garde de securite : quoi qu'il arrive, le reglage du joueur repart ALLUME et la
+        ;; sante de jak repart pleine.
+        (set! (-> *pc-settings* recharged-hud?) #t)
+        (set! (-> *target* fact health) 3.0)
+        (cond
+          ((>= ph 3) (set! (-> this bench-phase) 0) (+! (-> this bench-cycle) 1))
+          (else (set! (-> this bench-phase) (+ ph 1)))))))
+  (none))
+
+(defun rhud-heart-measure ((this hud-recharged-health) (hp float))
+  "les quatre termes qui se lisent SUR L'IMAGE QUI VIENT D'ETRE EMISE."
+  (let* ((pr *rhud-heart-probe*)
+         (g  *rhud-heart-geom*)
+         (tier (rhud-heart-tier-emitted)))
+    ;; --- terme 4 : L'ASSET ENTIER ---
+    (+! (-> this ast-n) 1)
+    (cond
+      ((< tier 0) (+! (-> this ast-bad) 1))
+      (else
+       (set! (-> this ast-seen)
+             (logior (-> this ast-seen) (case tier ((100) 1) ((66) 2) ((33) 12) ((0) 8) (else 0))))
+       ;; tous les quads de l'image portent le MEME rectangle : c'est l'image ENTIERE qui change a
+       ;; chaque palier, jamais un morceau (un masque, un decoupage) comme la jauge en fait un.
+       (dotimes (k (-> pr n))
+         (if (or (>= (fabs (- (-> pr minx k) (-> pr minx 0))) 1.0)
+                 (>= (fabs (- (-> pr maxx k) (-> pr maxx 0))) 1.0)
+                 (>= (fabs (- (-> pr miny k) (-> pr miny 0))) 1.0)
+                 (>= (fabs (- (-> pr maxy k) (-> pr maxy 0))) 1.0))
+           (+! (-> this ast-partial) 1)))))
+    ;; --- terme 1 : LE MAPPAGE, un pas de sante par case ---
+    (when (and (= (-> this bench-phase) 0) (>= tier 0))
+      (let ((idx (max 0 (min (- RHUD_HEART_MAP_N 1) (the int (+ 0.5 (/ hp RHUD_HEART_MAP_STEP)))))))
+        (set! (-> this map-tier idx) tier)))
+    ;; --- terme 2 : LA POSITION ---
+    (when (and (-> g ok) (> (-> pr n) 0))
+      (set! (-> this pos-regime)
+            (if (and (< (fabs (- (-> *video-parms* relative-y-scale) 1.0)) 0.0005)
+                     (= (-> *video-parms* screen-sy) 224))
+              1
+              0))
+      (set! (-> this pos-ours 0) (the int (* 16.0 (-> pr minx 0))))
+      (set! (-> this pos-ours 1) (the int (* 16.0 (-> pr miny 0))))
+      (set! (-> this pos-ours 2) (the int (* 16.0 (-> pr maxx 0))))
+      (set! (-> this pos-ours 3) (the int (* 16.0 (-> pr maxy 0))))
+      (set! (-> this pos-stock 0) (the int (* 16.0 (-> g sx0))))
+      (set! (-> this pos-stock 1) (the int (* 16.0 (-> g sy0))))
+      (set! (-> this pos-stock 2) (the int (* 16.0 (-> g sx1))))
+      (set! (-> this pos-stock 3) (the int (* 16.0 (-> g sy1))))
+      ;; la comparaison se fait dans le canevas 512x448, et elle n'est VALABLE que si la chaine y
+      ;; du HUD est l'identite — c'est ce que `rhud-add-vert` suppose en ecrivant 1936 + 0,5 py.
+      (when (= (-> this pos-regime) 1)
+        (+! (-> this pos-n) 1)
+        (let* ((ocx (* 0.5 (+ (-> pr minx 0) (-> pr maxx 0))))
+               (ocy (* 0.5 (+ (-> pr miny 0) (-> pr maxy 0))))
+               (scx (* 0.5 (+ (-> g sx0) (-> g sx1))))
+               (scy (* 0.5 (+ (-> g sy0) (-> g sy1))))
+               (d   (max (the int (* 16.0 (fabs (- ocx scx))))
+                         (the int (* 16.0 (fabs (- ocy scy)))))))
+          (if (> d (-> this pos-max)) (set! (-> this pos-max) d))
+          (if (>= d RHUD_HEART_POS_TOL) (+! (-> this pos-bad) 1)))))
+    ;; --- terme 3 : LE CLIGNOTEMENT, contre celui de l'origine, sur le meme evenement ---
+    (let ((ls (rhud-heart-stock-blink-lum)))
+      (when (and (= tier 33) (>= ls 0) (= (-> pr n) 2))
+        (let* ((lo (-> pr lum 1))
+               (ho (if (> lo 191) 1 0))
+               (hz (if (> ls 191) 1 0))
+               (dl (abs (- lo ls))))
+          (+! (-> this blk-n) 1)
+          (if (> dl (-> this blk-max)) (set! (-> this blk-max) dl))
+          (if (nonzero? dl) (+! (-> this blk-diff) 1))
+          (if (and (= ho 1) (zero? (-> this blk-prev-o))) (+! (-> this blk-edge-o) 1))
+          (if (and (= hz 1) (zero? (-> this blk-prev-s))) (+! (-> this blk-edge-s) 1))
+          (set! (-> this blk-prev-o) ho)
+          (set! (-> this blk-prev-s) hz)
+          (+! (-> this blk-hi-o) ho)
+          (+! (-> this blk-hi-s) hz)))))
+  (none))
+
+(defun rhud-heart-publish ((this hud-recharged-health))
+  "hud-heart : chaque terme sur SA ligne, le compte de termes MESURES a cote de la somme. Un terme
+   qu'on n'a pas pu mesurer vaut UN, jamais zero : une porte qui compterait zero un terme aveugle
+   passerait au vert sans avoir rien regarde."
+  (let ((measured 0) (holes 0) (nonmono 0) (tiers 0) (filled 0) (mask 0))
+    (dotimes (i RHUD_HEART_MAP_N)
+      (let ((tv (-> this map-tier i)))
+        (cond
+          ((< tv 0) (+! holes 1))
+          (else
+           (+! filled 1)
+           (set! mask (logior mask (case tv ((100) 1) ((66) 2) ((33) 4) ((0) 8) (else 0))))
+           (when (> i 0)
+             (let ((pv (-> this map-tier (- i 1))))
+               (if (and (>= pv 0) (< tv pv)) (+! nonmono 1))))))))
+    (dotimes (b 4) (if (logtest? mask (ash 1 b)) (+! tiers 1)))
+    (set! (-> this map-n) filled)
+    (set! (-> this map-holes) holes)
+    (set! (-> this map-nonmono) nonmono)
+    (set! (-> this map-tiers) tiers)
+    (let* ((t1 (if (> (-> this bench-cycle) 0)
+                 (begin (+! measured 1) (+ holes nonmono (if (= tiers 4) 0 1)))
+                 (+ holes nonmono (if (= tiers 4) 0 1) 1)))
+           (t2 (if (and (>= (-> this pos-n) RHUD_HB_MIN) (= (-> this pos-regime) 1))
+                 (begin (+! measured 1) (-> this pos-bad))
+                 (+ (-> this pos-bad) 1)))
+           ;; le clignotement n'est MESURE que si l'ORIGINE a bel et bien clignote pendant la
+           ;; course (`blk-edge-s` > 0) : sans front de son cote, l'egalite ne prouverait rien.
+           (t3 (if (and (>= (-> this blk-n) RHUD_HB_BLINK_MIN) (> (-> this blk-edge-s) 0))
+                 (begin (+! measured 1)
+                        (+ (-> this blk-diff)
+                           (if (= (-> this blk-edge-o) (-> this blk-edge-s)) 0 1)
+                           (if (= (-> this blk-hi-o) (-> this blk-hi-s)) 0 1)))
+                 (+ (-> this blk-diff) 1)))
+           ;; l'asset n'est MESURE que si LES QUATRE images ont ete vues partir (`ast-seen` = 15) :
+           ;; un zero obtenu en n'ayant jamais quitte le palier plein n'est pas un succes.
+           (t4 (if (and (>= (-> this ast-n) RHUD_HB_MIN) (= (-> this ast-seen) 15))
+                 (begin (+! measured 1) (+ (-> this ast-bad) (-> this ast-partial)))
+                 (+ (-> this ast-bad) (-> this ast-partial) 1)))
+           ;; eteint : il faut des images ETEINTES *et* des images DESSINEES, sinon « rien n'est
+           ;; sorti » se lit aussi bien sur un coeur qui ne marche pas du tout.
+           (t5 (if (and (>= (-> this off-frames) RHUD_HB_MIN) (>= (-> this draws) RHUD_HB_MIN))
+                 (begin (+! measured 1) (+ (-> this off-draws) (-> this off-stock-ko)))
+                 (+ (-> this off-draws) (-> this off-stock-ko) 1))))
+      (__pc-autoport-publish "hud_heart_t1_map" t1)
+      (__pc-autoport-publish "hud_heart_t2_position" t2)
+      (__pc-autoport-publish "hud_heart_t3_blink" t3)
+      (__pc-autoport-publish "hud_heart_t4_asset" t4)
+      (__pc-autoport-publish "hud_heart_t5_off" t5)
+      (__pc-autoport-publish "hud_heart_terms_measured" measured)
+      ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
+      (__pc-autoport-publish "hud_heart_map_n" filled)
+      (__pc-autoport-publish "hud_heart_map_steps" RHUD_HEART_MAP_N)
+      (__pc-autoport-publish "hud_heart_map_holes" holes)
+      (__pc-autoport-publish "hud_heart_map_nonmono" nonmono)
+      (__pc-autoport-publish "hud_heart_map_tiers" tiers)
+      (__pc-autoport-publish "hud_heart_map_tier_at_0" (+ 1 (-> this map-tier 0)))
+      (__pc-autoport-publish "hud_heart_map_tier_at_16" (+ 1 (-> this map-tier 16)))
+      (__pc-autoport-publish "hud_heart_map_tier_at_32" (+ 1 (-> this map-tier 32)))
+      (__pc-autoport-publish "hud_heart_map_tier_at_48" (+ 1 (-> this map-tier 48)))
+      (__pc-autoport-publish "hud_heart_pos_n" (-> this pos-n))
+      (__pc-autoport-publish "hud_heart_pos_bad" (-> this pos-bad))
+      (__pc-autoport-publish "hud_heart_pos_max_16th" (-> this pos-max))
+      (__pc-autoport-publish "hud_heart_pos_tol_16th" RHUD_HEART_POS_TOL)
+      (__pc-autoport-publish "hud_heart_pos_regime" (-> this pos-regime))
+      ;; LES DEUX RECTANGLES, en 1/16 d'unite du canevas 512x448
+      (__pc-autoport-publish "hud_heart_rect_ours_x0_16th" (-> this pos-ours 0))
+      (__pc-autoport-publish "hud_heart_rect_ours_y0_16th" (-> this pos-ours 1))
+      (__pc-autoport-publish "hud_heart_rect_ours_x1_16th" (-> this pos-ours 2))
+      (__pc-autoport-publish "hud_heart_rect_ours_y1_16th" (-> this pos-ours 3))
+      (__pc-autoport-publish "hud_heart_rect_stock_x0_16th" (-> this pos-stock 0))
+      (__pc-autoport-publish "hud_heart_rect_stock_y0_16th" (-> this pos-stock 1))
+      (__pc-autoport-publish "hud_heart_rect_stock_x1_16th" (-> this pos-stock 2))
+      (__pc-autoport-publish "hud_heart_rect_stock_y1_16th" (-> this pos-stock 3))
+      ;; la demi-taille d'un pip d'origine, et le CONTROLE de sa derivation : le pip doit etre
+      ;; carre EN PIXELS. Deux valeurs qui differeraient diraient que le calcul est faux.
+      (__pc-autoport-publish "hud_heart_pip_half_x_16th" (the int (* 16.0 (-> *rhud-heart-geom* phx))))
+      (__pc-autoport-publish "hud_heart_pip_half_y_16th" (the int (* 16.0 (-> *rhud-heart-geom* phy))))
+      (__pc-autoport-publish "hud_heart_pip_px_x_milli"
+                             (the int (* 1000.0 (-> *rhud-heart-geom* phx)
+                                         (/ (the float (-> *pc-settings* framebuffer-width)) 512.0))))
+      (__pc-autoport-publish "hud_heart_pip_px_y_milli"
+                             (the int (* 1000.0 (-> *rhud-heart-geom* phy)
+                                         (/ (the float (-> *pc-settings* framebuffer-height)) 448.0))))
+      (__pc-autoport-publish "hud_heart_half_16th" (the int (* 16.0 (-> *rhud-heart-geom* hs))))
+      (__pc-autoport-publish "hud_heart_blk_n" (-> this blk-n))
+      (__pc-autoport-publish "hud_heart_blk_diff" (-> this blk-diff))
+      (__pc-autoport-publish "hud_heart_blk_max" (-> this blk-max))
+      (__pc-autoport-publish "hud_heart_blk_edges_ours" (-> this blk-edge-o))
+      (__pc-autoport-publish "hud_heart_blk_edges_stock" (-> this blk-edge-s))
+      (__pc-autoport-publish "hud_heart_blk_period_ours_milli"
+                             (if (> (-> this blk-edge-o) 0) (/ (* 1000 (-> this blk-n)) (-> this blk-edge-o)) 0))
+      (__pc-autoport-publish "hud_heart_blk_period_stock_milli"
+                             (if (> (-> this blk-edge-s) 0) (/ (* 1000 (-> this blk-n)) (-> this blk-edge-s)) 0))
+      (__pc-autoport-publish "hud_heart_blk_duty_ours_milli"
+                             (if (> (-> this blk-n) 0) (/ (* 1000 (-> this blk-hi-o)) (-> this blk-n)) 0))
+      (__pc-autoport-publish "hud_heart_blk_duty_stock_milli"
+                             (if (> (-> this blk-n) 0) (/ (* 1000 (-> this blk-hi-s)) (-> this blk-n)) 0))
+      (__pc-autoport-publish "hud_heart_ast_n" (-> this ast-n))
+      (__pc-autoport-publish "hud_heart_ast_bad" (-> this ast-bad))
+      (__pc-autoport-publish "hud_heart_ast_partial" (-> this ast-partial))
+      (__pc-autoport-publish "hud_heart_ast_seen" (-> this ast-seen))
+      (__pc-autoport-publish "hud_heart_off_frames" (-> this off-frames))
+      (__pc-autoport-publish "hud_heart_off_draws" (-> this off-draws))
+      (__pc-autoport-publish "hud_heart_off_stock_ko" (-> this off-stock-ko))
+      (__pc-autoport-publish "hud_heart_draws" (-> this draws))
+      (__pc-autoport-publish "hud_heart_cycles" (-> this bench-cycle))
+      (__pc-autoport-publish "hud_heart_probe" (if (-> this probe?) 1 0))
+      (__pc-autoport-publish "hud_heart_armed" (if (-> this armed?) 1 0))
+      (__pc-autoport-publish "hud_heart_defects" (+ t1 t2 t3 t4 t5))))
+  (none))
 
 ;;;----------------------------------------------
 ;;  hud-recharged-health
 ;;;----------------------------------------------
 
-;; Grecharged-buildsys-flags: all hud-recharged-health / hud-recharged-power methods below compile only with --recharged-hud.
-(#when FLAG_RECHARGED_HUD
 (defmethod init-particles! ((this hud-recharged-health) (arg0 int))
   ;; hud-3d-pickups (17/09) : la particule d'eco verte a QUITTE cet element. Elle est l'un des
   ;; quatre emplacements de l'item `hud-3d-pickups`, qui la porte sur son propre process — deux
@@ -1749,114 +2198,107 @@
   (set! (-> this y-sgn) -1)
   (set! (-> this friend) 0) ;; co-show the pickups counter, like the stock heart
   (set! (-> this active-flag) #f)
-  (set! (-> this cell-proc) #f)
-  (set! (-> this buzz-proc) #f)
+  (set! (-> this bench-hp) -1.0)
+  (set! (-> this bench-phase) 0)
+  (set! (-> this bench-n) 0)
+  ;; -1 = « pas d'image precedente » : un premier front ne doit pas etre compte.
+  (set! (-> this blk-prev-o) -1)
+  (set! (-> this blk-prev-s) -1)
+  (dotimes (i RHUD_HEART_MAP_N) (set! (-> this map-tier i) -1))
   0
   (none))
 
 (defmethod hud-update ((this hud-recharged-health))
-  (cond
-    ;; Grecharged-master-toggle: master OFF forces the stock HUD (recharged-hud? keeps the user's value)
-    ((not (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?)))
-     (set! (-> this force-on-screen) #f)
-     (when (-> this active-flag)
-       (set! (-> this active-flag) #f)
-       (rhud-restore-stock this)
-       (if (not (hidden? this)) (send-event this 'hide-quick))))
-    (else
-     (set! (-> this active-flag) #t)
-     (rhud-suppress-stock this)
-     ;; owner visibility rule: the heart is PINNED on screen only while health
-     ;; sits at the last notch (force-on-screen re-stamps trigger-time every
-     ;; frame, the same pin the racer hud uses); everywhere else it follows the
-     ;; stock show-on-change / 2s-timeout machinery in tally-value.
-     (let ((pin (if (and *target* (= (the int (-> *target* fact health)) 1)) #t #f)))
-       (set! (-> this force-on-screen) pin)
-       ;; while pinned, tally-value fires every frame: mute the friend co-show
-       ;; (it would park the pickups counter on screen); stock co-show behavior
-       ;; is kept for the ordinary change-triggered shows.
-       (set! (-> this friend) (if pin -1 0)))
-     (if *target*
-       (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))
-     ;; owner round-3 item 4: collecting green eco must POP THE HEART alongside the
-     ;; counter, like the original hud (stock pickups co-shows stock health via
-     ;; friend; ours is disabled, so mirror it here)
-     (let ((pk (-> *hud-parts* pickups)))
-       (when (and pk (not (hidden? (-> pk 0))))
-         (set-time! (-> this trigger-time))
-         (if (hidden? this) (send-event this 'show))))
-     ;; owner addendum: the world cell EMITS A GLOW (group-fuel-cell-starburst:
-     ;; two counter-rotating starflash blooms 192/192/0 + 128/128/128 at
-     ;; rotvel -0.4/+0.3 deg per frame, plus flickering yellow flares —
-     ;; collectables-part.gc:1751). replicate it with the same effects-tpage
-     ;; textures at the hud cell's slot, under the icon's visibility/slide.
-     (let ((fc (-> *hud-parts* fuel-cell)))
-       (when (and fc (not (hidden? (-> fc 0))) (not (paused?)) (not (movie?)) (rhud-icon-alive? (-> fc 0)))
-         (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
-           (let* ((obj (the-as hud (-> fc 0)))
-                  (cx (+ 256.0 (the float (* (-> obj x-sgn) (-> obj offset)))))
-                  (cy (+ (the float (-> obj icons 0 icon-y)) (the float (* (-> obj y-sgn) (-> obj offset)))))
-                  (fx (rhud-aspect-fx))
-                  (ctr (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))))
-                  ;; rotation-unit angles, computed in INT space (72.8 = 364/5,
-                  ;; 54.6 = 273/5) so long sessions don't hit f32 precision
-                  (rot-a (the float (- (/ (mod (* 364 ctr) 327680) 5)))) ;; -0.4 deg/frame (world part 230)
-                  (rot-b (the float (/ (mod (* 273 ctr) 327680) 5))) ;; +0.3 deg/frame (world part 231)
-                  (pulse (+ 1.0 (* 0.15 (sin (the float (mod (* 218 ctr) 65536)))))))
-             ;; round-3: golden-white halo tint like in-game; low alpha so the cell body reads
-             (aif (get-texture starflash effects)
-                  (begin
-                    (rhud-set-shader-tex buf it)
-                    (rhud-quad buf cx cy 26.0 fx rot-a (rhud-rgba 255 230 140 48))
-                    (rhud-quad buf cx cy 30.0 fx rot-b (rhud-rgba 200 200 200 48))))
-             (aif (get-texture flare effects)
-                  (begin
-                    (rhud-set-shader-tex buf it)
-                    (rhud-quad buf cx cy (* 14.0 pulse) fx 0.0 (rhud-rgba 255 240 180 28))))))))))
+  (set! (-> this probe?) (and (nonzero? (__pc-autoport-cost-probe "hud-heart")) #t))
+  ;; le banc AVANT la lecture du reglage : c'est lui qui eteint le HUD recharge pour le terme 5,
+  ;; et l'image ou il l'eteint doit deja etre jugee eteinte.
+  (if (-> this probe?) (rhud-heart-bench this))
+  (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60))
+    (rhud-heart-publish this))
+  (let* ((armed  (zero? (__pc-autoport-disarmed-for "hud-heart")))
+         (master (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) #t))
+         (on     (and master armed)))
+    (set! (-> this armed?) (and armed #t))
+    (cond
+      ;; Grecharged-master-toggle: maitre ETEINT = HUD d'origine (le reglage du joueur est garde).
+      ;; Le bras d'ablation du harnais (`--off`) passe par la meme porte : ETEINT = ORIGINE.
+      ((not on)
+       (set! (-> this force-on-screen) #f)
+       (when (-> this active-flag)
+         (set! (-> this active-flag) #f)
+         (rhud-heart-restore-stock))
+       ;; `hide-quick` est traite SYNCHRONEMENT et son gestionnaire re-entre dans `hud-update`
+       ;; AVANT que son `(go hud-hidden)` n'atterrisse : un envoi non garde ici est une recursion
+       ;; infinie (debordement de pile). Le gestionnaire estampille `last-hide-time` d'abord.
+       (if (and (not (hidden? this)) (!= (-> this last-hide-time) (current-time)))
+         (send-event this 'hide-quick)))
+      (else
+       (set! (-> this active-flag) #t)
+       (rhud-heart-suppress-stock)
+       ;; regle de visibilite de l'owner : le coeur est EPINGLE a l'ecran tant que la sante est au
+       ;; dernier cran (`force-on-screen` re-estampille `trigger-time` a chaque image) ; partout
+       ;; ailleurs il suit la machinerie d'origine de `tally-value`. Sous le probe il est epingle
+       ;; en permanence, sinon le banc mesurerait surtout des images cachees.
+       (let ((pin (or (-> this probe?)
+                      (and *target* (= (the int (-> *target* fact health)) 1)))))
+         (set! (-> this force-on-screen) (if pin #t #f))
+         ;; tant qu'il est epingle, `tally-value` tire a chaque image : on coupe la co-ouverture du
+         ;; `friend`, qui parquerait le compteur de ramassages a l'ecran.
+         (set! (-> this friend) (if pin -1 0)))
+       (if *target*
+         (tally-value this (the int (-> *target* fact health)) (the-as int (-> *target* fact health-pickup-time))))
+       ;; ramasser de l'eco verte doit FAIRE APPARAITRE LE COEUR a cote du compteur, comme dans le
+       ;; HUD d'origine (ou `hud-pickups` co-ouvre `health` par `friend`) : le notre etant coupe,
+       ;; on le reproduit ici.
+       (let ((pk (-> *hud-parts* pickups)))
+         (when (and pk (not (hidden? (-> pk 0))))
+           (set-time! (-> this trigger-time))
+           (if (hidden? this) (send-event this 'show)))))))
   0
   (none))
 
 (defmethod draw-hud ((this hud-recharged-health))
-  ;; owner round-3 item 2: the base hud draw-hud spawns the real green-eco
-  ;; particle whenever this element is shown
+  ;; la base fait apparaitre/disparaitre l'element ; le coeur rechargee se dessine par-dessus.
   (let ((t9-0 (method-of-type hud draw-hud))) (t9-0 this))
-  (when (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) *target* (not (hidden? this)) (not (paused?)))
-    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
-      (let ((cx (+ RHUD_HEART_X (the float (* (-> this x-sgn) (-> this offset)))))
-            (cy (+ RHUD_HEART_Y (the float (* (-> this y-sgn) (-> this offset)))))
-            (fx (rhud-aspect-fx))
-            (hp (the int (-> *target* fact health))))
+  (rhud-heart-probe-reset)
+  (when (and (-> this active-flag) *target* (not (hidden? this)) (not (paused?)))
+    (rhud-heart-geom! this)
+    (let* ((g  *rhud-heart-geom*)
+           (hp (if (and (-> this probe?) (>= (-> this bench-hp) 0.0))
+                 (-> this bench-hp)
+                 (-> *target* fact health)))
+           (tier (the int hp)))
+      (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug))
         (cond
-          ((>= hp 3)
-           (rhud-set-shader buf RHUD_TBP_HEART_100)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))
-          ((= hp 2)
-           (rhud-set-shader buf RHUD_TBP_HEART_66)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))
-          ((= hp 1)
-           ;; owner round-3 item 5: low-health blink is a looping alpha FADE in/out
-           ;; between the empty heart and the one-third-green overlay (not hard on/off)
-           (rhud-set-shader buf RHUD_TBP_HEART_0)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128))
-           (let* ((tri (mod (the int (* DISPLAY_FPS_RATIO (-> *display* integral-frame-counter))) 90))
-                  (aa (the int (* 128.0 (/ (the float (if (< tri 45) tri (- 90 tri))) 45.0)))))
-             (rhud-set-shader buf RHUD_TBP_HEART_33)
-             (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 aa))))
+          ((>= tier 3)
+           (rhud-heart-emit buf RHUD_TBP_HEART_100 (-> g cx) (-> g cy) (-> g hs) (-> g fx) 128 128))
+          ((= tier 2)
+           (rhud-heart-emit buf RHUD_TBP_HEART_66 (-> g cx) (-> g cy) (-> g hs) (-> g fx) 128 128))
+          ((= tier 1)
+           ;; SPEC HUD §3 : a 33 %, `jak_heart_33` clignote PAR-DESSUS `jak_heart_0`, a la cadence
+           ;; du clignotement d'origine — donc sur la LUMINANCE, alpha constant a 128.
+           (rhud-heart-emit buf RHUD_TBP_HEART_0 (-> g cx) (-> g cy) (-> g hs) (-> g fx) 128 128)
+           (rhud-heart-emit buf RHUD_TBP_HEART_33 (-> g cx) (-> g cy) (-> g hs) (-> g fx)
+                            (rhud-heart-blink-lum) 128))
           (else
-           (rhud-set-shader buf RHUD_TBP_HEART_0)
-           (rhud-quad buf cx cy RHUD_HEART_HALF fx 0.0 (rhud-rgba 128 128 128 128)))))))
+           (rhud-heart-emit buf RHUD_TBP_HEART_0 (-> g cx) (-> g cy) (-> g hs) (-> g fx) 128 128))))
+      ;; hud-heart : UNE IMAGE OU LE COEUR RECHARGE EST DESSINE — c'est le `hits=` que l'item
+      ;; declare, et l'instrument qui suit mesure CETTE image-la.
+      (__pc-autoport-hit-for "hud-heart" 1)
+      (+! (-> this draws) 1)
+      (when (-> this probe?)
+        (if (rhud-heart-off-window? this) (+! (-> this off-draws) 1))
+        (rhud-heart-measure this hp))))
   0
   (none))
-
-)  ;; fin du #when FLAG_RECHARGED_HUD (methodes hud-recharged-health SEULEMENT)
 
 ;;;----------------------------------------------
 ;;  hud-eco-gauge — suppression de la jauge d'ORIGINE, cote jauge
 ;;;----------------------------------------------
-;; `rhud-suppress-stock` vit sur le process du COEUR, derriere FLAG_RECHARGED_HUD. Dans le binaire
-;; LIVRE ce process n'existe pas : sans les deux fonctions ci-dessous, la jauge rechargee se
-;; dessinerait PAR-DESSUS celle d'origine. Elles ne touchent QUE `power` — le coeur d'origine
-;; reste en place, c'est le chantier `hud-heart`.
+;; La suppression de la jauge d'origine vit ICI, sur le process de la JAUGE, et pas sur celui du
+;; coeur : les deux chantiers sont separes et deux pilotes sur le meme slot se battraient a chaque
+;; image. Ces deux fonctions ne touchent QUE `power` ; le coeur d'origine est supprime par
+;; `rhud-heart-suppress-stock`, sur le process du coeur (chantier `hud-heart`).
 (defun rhud-power-suppress-stock ()
   "garde idempotente par image : la jauge d'eco d'origine reste desactivee et cachee."
   (let ((p (-> *hud-parts* power)))
@@ -2489,10 +2931,8 @@
   (none))
 
 (defmethod hud-update ((this hud-recharged-power))
-  ;; hud-eco-gauge : LA JAUGE D'ORIGINE EST SUPPRIMEE PAR NOUS, PAS PAR LE COEUR.
-  ;; `rhud-suppress-stock` vit sur `hud-recharged-health`, derriere FLAG_RECHARGED_HUD : dans le
-  ;; binaire livre ce process n'existe pas, et sans les deux lignes ci-dessous les deux jauges se
-  ;; dessineraient l'une sur l'autre.
+  ;; hud-eco-gauge : LA JAUGE D'ORIGINE EST SUPPRIMEE PAR NOUS, PAS PAR LE COEUR. Chaque chantier
+  ;; supprime l'element qu'il remplace, et lui seul.
   (let ((on (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) #t)))
     (set! (-> this stock-off) on)
     (if on (rhud-power-suppress-stock) (rhud-power-restore-stock))
@@ -4488,9 +4928,12 @@
   ;; et c'est precisement ce qui manquait sur l'appareil de l'owner a sa ronde 4.
   (set! (-> *hud-parts-pc* pickups-3d)
         (the-as (pointer hud-pc) (process-spawn hud-3d-pickups :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
-  (#when FLAG_RECHARGED_HUD
+  ;; hud-heart : le coeur recharge est lance dans TOUS les binaires, comme pickups-3d et la jauge.
+  ;; Il etait le dernier des quatre chantiers du HUD encore derriere `--recharged-hud`, c'est-a-dire
+  ;; ABSENT des CGO livres : aucun essai de juillet n'avait pu atteindre l'appareil de l'owner.
+  ;; Il s'eteint a l'EXECUTION, sur le maitre Recharged, le reglage HUD et le bras d'ablation.
   (set! (-> *hud-parts-pc* recharged-health)
-        (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree))))
+        (the-as (pointer hud-pc) (process-spawn hud-recharged-health :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
   ;; hud-eco-gauge : la jauge d'eco est lancee dans TOUS les binaires, comme pickups-3d ; elle
   ;; s'eteint a l'execution sur le maitre Recharged et le reglage HUD.
   (set! (-> *hud-parts-pc* recharged-power)

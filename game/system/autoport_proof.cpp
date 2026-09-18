@@ -243,13 +243,15 @@ void emit_locked() {
     // `hud-eco-gauge` compte LES IMAGES OU LA JAUGE RECHARGEE EST DESSINEE — `hits_means` de
     // son item. Le compteur global du binaire monte pour tout le monde et ne dirait rien de
     // ces images-la.
+    // `hud-heart` compte LES IMAGES OU LE COEUR RECHARGE EST DESSINE — `hits_means` de son
+    // item ; meme raison.
     uint64_t hits = (id == ao_item::kId || id == "ao-prepass-tie-alpha" ||
                      id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
                      id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
                      id == "soft-surface-truth" || id == "soft-support-map" ||
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
-                     id == "hud-eco-gauge")
+                     id == "hud-eco-gauge" || id == "hud-heart")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {
