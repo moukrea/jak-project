@@ -821,7 +821,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
-  "hash": "00d26eabefed00d36b2eb8b116c2d46846541f96",
+  "hash": "8f8432c493269bc031bb0efbeb41b7cefceae289",
   "identifier": "JAK-178",
   "issue_id": "dede6433-d481-4eb8-a9f3-1ff56e61a216",
   "last_state": "Backlog",
@@ -845,12 +845,12 @@
  },
  "hud-heart": {
   "build_announced": "ab6c168f98c2",
-  "hash": "098057d6b3e44ca1079a329dffa40a2f4980b76e",
+  "hash": "7fbb83da606ea95502b0c492d02ab14210d68cd4",
   "identifier": "JAK-175",
   "issue_id": "190bf33c-24ca-4b73-b1e5-fe6034f624ce",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-17T10:37:21.000Z",
+  "pulled_at": "2026-09-18T05:17:21.554Z",
   "url": "https://linear.app/moukrea/issue/JAK-175/le-coeur-du-hud-recharge-quatre-paliers-de-sante-et-le-coeur-a-33"
  },
  "jak1-intermittent-events": {
@@ -1367,7 +1367,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "23587782cdfd6aa7729a95799cdcb7fbc91fc13d",
+  "hash": "42d338bc64e7de886516ff65a5ab8bd758dc814e",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
   "last_state": "Backlog",
