@@ -781,6 +781,35 @@
 ;; all of the pc hud elements
 (define *hud-parts-pc* (new 'static 'hud-parts-pc :battle-enemy #f :recharged-health #f :recharged-power #f :pickups-3d #f))
 
+;; hud-eco-gauge essai 3 — LE RECENSEMENT DES LANCEMENTS DU HUD PC.
+;; `process-spawn` depuis un dead-pool vide NE PLANTE PAS : `get-process` (gkernel.gc:771) rend
+;; #f, ecrit une ligne de log que personne ne lit, et l'element du HUD n'existe simplement pas.
+;; C'est exactement ce qui a efface la jauge d'eco le 18/09 quand le coeur recharge est venu
+;; prendre le quatrieme et dernier emplacement de `*pc-dead-pool*` : le jeu tournait, la jauge
+;; d'ORIGINE restait a l'ecran, et la seule personne a l'avoir vu est l'owner.
+;; Ces quatre grandeurs sont posees par `activate-hud-pc` juste apres les lancements et entrent
+;; dans la porte de l'item (terme 9) : un emplacement manquant — le notre ou celui d'un autre —
+;; ou une marge de pool tombee sous un emplacement, la font rougir AVANT que quiconque regarde.
+(define *rhud-spawn-tried* 0)    ;; denominateur : combien de lancements ont ete TENTES
+(define *rhud-spawn-missing* 0)  ;; combien ont rendu #f
+(define *rhud-spawn-mask* 0)     ;; QUI : bit 0 battle-enemy, 1 coeur, 2 jauge, 3 objets 3D
+(define *rhud-pool-free* 0)      ;; emplacements encore libres apres les lancements
+
+;; la marge minimale exigee du pool des processus PC. A zero, le prochain `process-spawn` de
+;; n'importe quel chantier — y compris la relance du sous-titre — meurt en silence.
+(defconstant RHUD_POOL_MIN_FREE 1)
+
+(defun rhud-pool-free ((pool dead-pool))
+  "Combien de processus MORTS restent dans ce pool, c'est-a-dire la marge avant que le prochain
+   lancement ne rende #f sans rien casser. Parcourt la liste des fils, telle que `new dead-pool`
+   la construit (gkernel.gc:748) et telle que `get-process` la consomme."
+  (let ((n 0)
+        (p (-> pool child)))
+    (while p
+      (+! n 1)
+      (set! p (-> p 0 brother)))
+    n))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  hud macros
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2830,7 +2859,18 @@
            ;; n'etait pas la, pas que la copie est conforme.
            (t8 (if (and (>= (-> this t8-n) RHUD_GB_MIN) (> (-> this t8-compared) 0))
                  (begin (+! measured 1) (+ (-> this t8-pos-bad) (-> this t8-mismatch)))
-                 (+ (-> this t8-pos-bad) (-> this t8-mismatch) 1))))
+                 (+ (-> this t8-pos-bad) (-> this t8-mismatch) 1)))
+           ;; TERME 9 — L'EMPLACEMENT. Le 18/09 la jauge a disparu de l'ecran de l'owner sans
+           ;; qu'aucun des huit termes ne bouge : son processus n'avait pas ete lance, donc AUCUN
+           ;; terme n'etait calcule. Le terme 9 lit le recensement des lancements du HUD PC
+           ;; (`rhud-spawn-census`) et la marge du pool RELUE MAINTENANT, pendant la course :
+           ;; un element du HUD sans emplacement — le notre ou celui d'un autre chantier — ou une
+           ;; marge tombee sous RHUD_POOL_MIN_FREE, et la porte rougit tout de suite.
+           (free (rhud-pool-free *pc-dead-pool*))
+           (t9 (if (> *rhud-spawn-tried* 0)
+                 (begin (+! measured 1)
+                        (+ *rhud-spawn-missing* (if (< free RHUD_POOL_MIN_FREE) 1 0)))
+                 (+ *rhud-spawn-missing* 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -2839,6 +2879,7 @@
       (__pc-autoport-publish "hud_gauge_t6_off" t6)
       (__pc-autoport-publish "hud_gauge_t7_quart" t7)
       (__pc-autoport-publish "hud_gauge_t8_centre" t8)
+      (__pc-autoport-publish "hud_gauge_t9_slot" t9)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
@@ -2898,7 +2939,15 @@
       (__pc-autoport-publish "hud_gauge_t8_spec_mismatch" (-> this t8-mismatch))
       (__pc-autoport-publish "hud_gauge_t8_live_max" (-> this t8-live))
       (__pc-autoport-publish "hud_gauge_t8_live_states" (-> this t8-states))
-      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8))))
+      ;; terme 9 : les lancements du HUD PC et la marge du pool, avec son denominateur et le
+      ;; masque qui NOMME l'element manquant (bit 0 battle-enemy, 1 coeur, 2 jauge, 3 objets 3D)
+      (__pc-autoport-publish "hud_gauge_t9_tried" *rhud-spawn-tried*)
+      (__pc-autoport-publish "hud_gauge_t9_missing" *rhud-spawn-missing*)
+      (__pc-autoport-publish "hud_gauge_t9_mask" *rhud-spawn-mask*)
+      (__pc-autoport-publish "hud_gauge_pool_free_boot" *rhud-pool-free*)
+      (__pc-autoport-publish "hud_gauge_pool_free" free)
+      (__pc-autoport-publish "hud_gauge_pool_min_free" RHUD_POOL_MIN_FREE)
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9))))
   (none))
 
 ;;;----------------------------------------------
@@ -4948,6 +4997,35 @@
     (if (-> *hud-parts-pc* parts i) (deactivate (ppointer->process (-> *hud-parts-pc* parts i)))))
   0)
 
+(defun rhud-spawn-census ()
+  "hud-eco-gauge essai 3 : APRES les lancements, dire QUI n'a pas eu d'emplacement et combien il
+   en reste. Publie SUR PLACE : si c'est justement la jauge qui manque, son propre publieur ne
+   tournera jamais et la porte n'aurait rien a lire — « grandeur absente » ne nomme pas de cause."
+  (let ((missing 0)
+        (mask 0))
+    (dotimes (i HUD_PART_PC_AMOUNT)
+      (when (not (-> *hud-parts-pc* parts i))
+        (+! missing 1)
+        (set! mask (logior mask (ash 1 i)))))
+    (set! *rhud-spawn-tried* HUD_PART_PC_AMOUNT)
+    (set! *rhud-spawn-missing* missing)
+    (set! *rhud-spawn-mask* mask)
+    (set! *rhud-pool-free* (rhud-pool-free *pc-dead-pool*))
+    (__pc-autoport-publish "hud_gauge_spawn_tried" *rhud-spawn-tried*)
+    (__pc-autoport-publish "hud_gauge_spawn_missing" missing)
+    (__pc-autoport-publish "hud_gauge_spawn_mask" mask)
+    (__pc-autoport-publish "hud_gauge_pool_free_boot" *rhud-pool-free*)
+    ;; UNE LIGNE A CHAQUE AMORCAGE, pas seulement quand ca rate : un temoin qui ne parle qu'en
+    ;; cas de defaut ne dit pas la difference entre « tout va bien » et « le recensement n'a pas
+    ;; tourne ». Elle se relit dans le journal du moteur comme dans le logcat de l'appareil.
+    (format 0 "AUTOPORT hud-eco-gauge: HUD PC lances=~D manquants=~D mask=#x~X pool-libre=~D~%"
+            (- *rhud-spawn-tried* missing) missing mask *rhud-pool-free*)
+    (when (nonzero? missing)
+      ;; la jauge manquante n'a plus de publieur : c'est ICI qu'on ecrit le defaut, sinon la
+      ;; porte lirait « grandeur absente » sans jamais nommer la cause.
+      (__pc-autoport-publish "hud_gauge_defects" (+ 1 missing))))
+  (none))
+
 (defun activate-hud-pc ((tree process-tree))
   "make the pc hud"
   (deactivate-hud-pc)
@@ -4968,6 +5046,9 @@
   ;; s'eteint a l'execution sur le maitre Recharged et le reglage HUD.
   (set! (-> *hud-parts-pc* recharged-power)
         (the-as (pointer hud-pc) (process-spawn hud-recharged-power :init hud-init-by-other 0 :from *pc-dead-pool* :to tree)))
+  ;; un lancement rate est MUET : on le recense ici, au point de production, pas au point de
+  ;; controle. Voir `rhud-spawn-census` et la taille de `*pc-dead-pool*` (pckernel.gc).
+  (rhud-spawn-census)
   0)
 
 (activate-hud-pc *display-pool*)

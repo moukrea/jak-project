@@ -762,5 +762,16 @@
 ;;;; process pools
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; the actor pool for PC processes! it has space for 4 processes, with 16K of space.
-(define *pc-dead-pool* (new 'global 'dead-pool 4 (* 16 1024) '*pc-dead-pool*))
+;; LA TAILLE DE CE POOL EST UN CONTRAT, PAS UN DETAIL (hud-eco-gauge, essai 3, 18/09).
+;; CINQ processus y puisent dans un binaire livre : le sous-titre (subtitle.gc `subtitle-start`,
+;; au chargement du fichier) et les QUATRE elements du HUD PC lances par `activate-hud-pc`
+;; (hud-battle-enemy, hud-3d-pickups, hud-recharged-health, hud-recharged-power). Le pool en
+;; comptait QUATRE. Le 18/09, quand le coeur recharge est sorti de son drapeau de compilation, il
+;; a pris le dernier emplacement et la jauge d'eco — lancee EN DERNIER — n'a plus rien trouve.
+;; `get-process` (kernel/gkernel.gc:771) ne plante pas : il rend #f et ecrit dans le log
+;;   WARNING: hud-recharged-power #f could not be allocated, because *pc-dead-pool* was empty.
+;; Le jeu tournait, la jauge d'ORIGINE restait a l'ecran, et aucune porte ne le disait : c'est
+;; l'owner qui l'a vu. HUIT = cinq occupants + trois de marge, 16K chacun sur le tas global.
+;; TOUT processus PC supplementaire AUGMENTE ce nombre : `activate-hud-pc` publie le nombre
+;; d'emplacements restants et la porte de hud-eco-gauge rougit des qu'il tombe sous un.
+(define *pc-dead-pool* (new 'global 'dead-pool 8 (* 16 1024) '*pc-dead-pool*))
