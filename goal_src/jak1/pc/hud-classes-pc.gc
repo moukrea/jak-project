@@ -576,6 +576,46 @@
 (defconstant group-hud-eco-yellow (-> *part-group-id-table* 723))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; LA LUEUR DE LA PILE (id 724) — LES LANCEURS DU JEU, PAS DES COPIES A NOUS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Owner, 18/09 : « une pile d'energie in game a un effet lumineux, la notre dans le HUD ne l'a
+;;;; pas ». Dans le MONDE, cet effet est `group-fuel-cell-starburst` (id 63,
+;;;; collectables-part.gc:1751) : deux etoiles contra-rotatives — 230 doree (192/192/0) a -0,4
+;;;; degre par image, 231 blanche (128/128/128) a +0,3 — et deux nuees de flares scintillants
+;;;; (228, 229) de couleur tiree au sort.
+;;;;
+;;;; LE JEU PORTE DEJA SA TRANSPOSITION EN ESPACE-ECRAN, ET ELLE EST DE NAUGHTY DOG, PAS DE NOUS.
+;;;; `group-part-hud-power-cell-whole` (id 80, hud-classes.gc:754) contient 319<-228, 320<-229,
+;;;; 321<-230, 322<-231, avec les deux callbacks qui vont prendre la TAILLE sur l'element pile
+;;;; lui-meme (`scale-starburst-3/4-*`, poses par `set-pos-and-scale` SEPAREMENT pour 16:9 et pour
+;;;; 4:3) : c'est ce qui rend la lueur juste dans les deux aspects sans un seul pixel absolu.
+;;;;
+;;;; POURQUOI ELLE AVAIT DISPARU. Notre couche eteint le groupe 80 EN ENTIER (`skip-particle` = 0)
+;;;; pour faire disparaitre l'icone PLATE que le modele remplace (part 318, livrable §2) — et
+;;;; `skip-particle` ne sait designer qu'un groupe entier. La lueur est partie avec l'icone plate.
+;;;; C'est exactement ce que l'owner voit sur sa photo du 18/09.
+;;;;
+;;;; CE GROUPE REPREND DONC LES QUATRE MEMES LANCEURS, PAR LEUR NUMERO : on ne recopie aucune
+;;;; valeur, donc rien ne peut deriver. `hud3d_glow_from_stock` verifie a l'execution que nos
+;;;; quatre items sont bien ceux du groupe 80, et `hud3d_glow_world_mismatch` compare champ par
+;;;; champ ces lanceurs a ceux de la pile DU MONDE (228..231), aux transpositions G1..G6 pres.
+;;;;
+;;;; CE QUI N'Y EST PAS, ET POURQUOI : la part 318 — l'icone PLATE, celle que le modele remplace —
+;;;; et les cinq satellites 313-317, qui lisent les jointures 4..7 et 9 du modele NU d'origine
+;;;; (`fuel-cell-hud-orbit-callback`, hud-classes.gc:906), un modele que notre couche ne dessine
+;;;; plus et que la pile du monde n'a pas.
+(defpartgroup group-hud-cell-glow
+  :id 724
+  :flags (use-local-clock screen-space)
+  :bounds (static-bspherem 0 0 0 100)
+  :parts
+  ((sp-item 319 :fade-after (meters 35))
+   (sp-item 320 :fade-after (meters 20))
+   (sp-item 321 :flags (launch-asap) :period (seconds 12) :length (seconds 0.017))
+   (sp-item 322 :flags (launch-asap) :period (seconds 12) :length (seconds 0.017))))
+(defconstant group-hud-cell-glow (-> *part-group-id-table* 724))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; hud processes and parts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -2203,6 +2243,12 @@
 (defconstant HUD3D_SLOT_BUZZERS 4)
 (defconstant HUD3D_SLOT_MONEY_ALL 8)
 
+;; LES DEUX EMETTEURS DE CE PROCESS : l'eco verte au slot des ramassages, la lueur de la pile.
+(defconstant HUD3D_PART_ECO 0)
+(defconstant HUD3D_PART_GLOW 1)
+;; le terme §10 n'est declare mesure qu'au-dela de ce nombre d'images ou la pile est dessinee
+(defconstant HUD3D_GLOW_MIN 300)
+
 ;; L'ORBE NE DESSINE AUCUN MODELE, ET CE N'EST PAS CETTE COUCHE (mesure du 17/09, bureau).
 ;; `hud-money` porte deja le vrai modele du ramassable (`*money-sg*`, hud-classes.gc:597), mais son
 ;; icone revient SANS SQUELETTE : `hud3d_orb_state=3`. Le bras d'ablation, ou rien de ce fichier ne
@@ -2276,6 +2322,17 @@
    (buzz-icon-y     int32)
    (buzz-nd-x       int32)
    (buzz-nd-y       int32)
+   ;; §10 l'effet lumineux de la pile (owner, 18/09)
+   (glow-compared   int32)
+   (glow-excluded   int32)
+   (glow-mismatch   int32)
+   (glow-from-stock int32)
+   (glow-frames     int32)
+   (glow-spawns     int32)
+   (glow-missing    int32)
+   (glow-bad        int32)
+   (glow-alloc      int32)
+   (glow-alloc-max  int32)
    ;; §9 la sequence qui fait lire la BOITE ENGLOBANTE sur l'image rendue
    (px-phase        int32)
    (px-hold         int32)
@@ -2451,6 +2508,99 @@
   (if (and p (> (-> p 0 nb-of-particles) idx) (hud3d-spawned-this-frame? (-> p 0 particles idx part))) 1 0))
 
 ;;;----------------------------------------------
+;;  §10 L'EFFET LUMINEUX DE LA PILE
+;;;----------------------------------------------
+
+(defun hud3d-glow-place! ((this hud-3d-pickups) (ic (pointer manipy)))
+  "POSE LA LUEUR SUR LE CENTRE DU MODELE, DANS LE REPERE OU LE JEU POSE SES SPRITES DE HUD.
+   `draw-icons` (hud.gc:72-88) ecrit a chaque image l'ORIGINE du modele dans `root trans`, repli du
+   HUD compris : c'est la meme donnee qui fait glisser la pile quand le HUD s'ouvre, et elle vient
+   de l'element D'ORIGINE, pas de nous. Le centre du corps est cette origine plus le centre de la
+   sphere du modele, a l'echelle que `draw-icons` vient de poser (elle porte deja
+   `relative-x/y-scale`, donc l'aspect).
+   Le passage du repere des ICONES a celui des SPRITES est celui du jeu lui-meme, releve sur
+   `hud-fuel-cell::hud-update` (hud-classes.gc:948-952) : x tel quel, y divise par deux, z = 2,0.
+   Aucun pixel d'appareil, aucune constante de resolution."
+  (let ((p (-> this particles HUD3D_PART_GLOW)))
+    (set! (-> p pos x) (+ (-> ic 0 root trans x) (* (-> ic 0 draw bounds x) (-> ic 0 root scale x))))
+    (set! (-> p pos y) (* 0.5 (+ (-> ic 0 root trans y) (* (-> ic 0 draw bounds y) (-> ic 0 root scale y)))))
+    (set! (-> p pos z) 2.0)
+    (when (> (-> p part matrix) 0)
+      (set-vector! (sprite-get-user-hvdf (-> p part matrix))
+                   (the float (+ (the int (-> p pos x)) 2048))
+                   (the float (+ (the int (-> p pos y)) 2048))
+                   (- (-> *math-camera* hvdf-off z) (* 1024.0 (-> p pos z)))
+                   (-> *math-camera* hvdf-off w))))
+  (none))
+
+(defun hud3d-glow-drive ((this hud-3d-pickups) (fc (pointer hud)) (want symbol))
+  "LA LUEUR VIT ET MEURT AVEC LE MODELE QU'ELLE ENTOURE, PAS AVEC NOTRE PROCESS.
+   Notre process suit l'element RAMASSAGES (c'est lui qui porte l'eco verte) : il se replie alors
+   que la pile, elle, est encore dessinee — 6 387 images de pile affichee contre 6 001 pour les
+   ramassages a la course du 17/09. Une lueur lancee depuis `draw-hud`, que le jeu n'appelle pas
+   quand le process est replie, aurait donc clignote. Tout se fait donc ici, depuis `hud-update`,
+   que TOUS les etats appellent (hud.gc:180, 224, 252), et la condition est le bit `hidden` du
+   draw-control de la pile : la lueur parait et disparait EXACTEMENT avec le modele.
+   LE TEMOIN SE LIT AVANT LE LANCEMENT DE CETTE IMAGE. Il porte donc sur l'image PRECEDENTE et non
+   sur la ligne qu'on vient d'ecrire : ce n'est pas un miroir de notre propre decision.
+   Rend 1 si la pile est dessinee a cette image."
+  (let ((drawn #f))
+    ;; EN PAUSE, ON NE TOUCHE A RIEN — ni recensement, ni lancement, ni liberation. C'est ce que
+    ;; fait le jeu pour ses propres sprites de HUD (`hud::draw-hud`, hud.gc:24) : les particules
+    ;; deja vivantes restent figees a l'ecran et rien de neuf ne part. La sequence de mesure de
+    ;; boite (§9) met justement le jeu en pause : elle passe par ici aussi.
+    (when (and (> (-> this nb-of-particles) HUD3D_PART_GLOW) (not (paused?)))
+      (let* ((pa (-> this particles HUD3D_PART_GLOW))
+             (lc (-> pa part))
+             (ic (if (and fc (> (-> fc 0 nb-of-icons) 1))
+                   (-> fc 0 icons 1 icon)
+                   (the-as (pointer manipy) #f)))
+             (spawned-prev (hud3d-spawned-this-frame? lc))
+             (prev (logtest? (-> this was-hid) (ash 1 5)))
+             (prev2 (logtest? (-> this was-hid) (ash 1 6))))
+        (set! drawn (if (and want (hud3d-icon-drawn? ic)) #t #f))
+        ;; LE RECENSEMENT NE JUGE QUE LES IMAGES OU L'ETAT N'A PAS CHANGE, et il ne compte pas le
+        ;; meme nombre d'images des deux cotes. C'est la lecon que l'eco verte a deja payee, juste
+        ;; en-dessous : le temoin de lancement regarde UNE image DESSINEE en arriere, et sur cet
+        ;; appareil le fil de logique tourne a 60 pendant que l'image, elle, sort a ~22 —
+        ;; `real-actual-frame-counter` ne bouge donc pas a chaque appel d'ici. Un lancement
+        ;; legitime reste visible au temoin pendant DEUX images de logique.
+        ;;   - « la pile dessinee sans sa lueur » : deux images suffisent, le temoin ne peut que
+        ;;     PERDRE un lancement, jamais en inventer un.
+        ;;   - « la lueur sans la pile » : il en faut TROIS, sinon on impute au repli le lancement
+        ;;     de l'image d'avant. Mesure du 18/09, meme course : 46 accusations a deux images,
+        ;;     toutes a une bascule, contre 0 a trois.
+        (cond
+          ((and drawn prev)
+           (+! (-> this glow-frames) 1)
+           (if spawned-prev (+! (-> this glow-spawns) 1) (+! (-> this glow-missing) 1)))
+          ((and (not drawn) (not prev) (not prev2))
+           (if spawned-prev (+! (-> this glow-bad) 1))))
+        (if prev (logior! (-> this was-hid) (ash 1 6)) (logclear! (-> this was-hid) (ash 1 6)))
+        (if drawn (logior! (-> this was-hid) (ash 1 5)) (logclear! (-> this was-hid) (ash 1 5)))
+        ;; puis l'emission elle-meme
+        (cond
+          (drawn
+           ;; notre process rend son emplacement d'ecran en entrant dans `hud-hidden`
+           ;; (hud.gc:167-169) ; on le reprend, une fois, quand il manque.
+           (if (= (-> pa part matrix) -1) (set! (-> pa part matrix) (sprite-allocate-user-hvdf)))
+           (hud3d-glow-place! this ic)
+           ;; COMBIEN DE FOIS PAR IMAGE : la grandeur est le nombre de particules que le SYSTEME
+           ;; alloue de part et d'autre de notre lancement (sparticle.gc:141/165), pas un compteur
+           ;; a nous. Les deux etoiles sont permanentes et ne sont relancees qu'une image toutes
+           ;; les 12 s ; les flares, eux, tombent a chaque image (`:num` 0,5 et 0,06).
+           (let ((n0 (+ (-> *sp-particle-system-2d* num-alloc 0) (-> *sp-particle-system-2d* num-alloc 1))))
+             (spawn lc *null-vector*)
+             (let ((d (- (+ (-> *sp-particle-system-2d* num-alloc 0) (-> *sp-particle-system-2d* num-alloc 1)) n0)))
+               (when (> d 0)
+                 (+! (-> this glow-alloc) d)
+                 (if (> d (-> this glow-alloc-max)) (set! (-> this glow-alloc-max) d))))))
+          ;; LES DEUX ETOILES SONT PERMANENTES (`:timer (seconds -0.005)`) : sans ce geste, elles
+          ;; resteraient a l'ecran apres le repli de la pile. Une seule fois, a la bascule.
+          (else (if (and prev (nonzero? lc)) (kill-particles lc))))))
+    (if drawn 1 0)))
+
+;;;----------------------------------------------
 ;;  l'identite de l'emetteur d'eco verte
 ;;;----------------------------------------------
 
@@ -2474,7 +2624,45 @@
       (= f (sp-field-id spt-accel-y))
       (= f (sp-field-id spt-accel-z))))
 
-(defun hud3d-cmp-part ((this hud-3d-pickups) (ours int) (world int))
+(defun hud3d-glow-field-excluded? ((f int))
+  "LES SIX CHAMPS QUE NAUGHTY DOG TRANSPOSE en passant la lueur de la pile DU MONDE (228..231) a
+   celle de l'ICONE DE HUD (319..322). Tout le reste doit etre EGAL, et c'est ce que
+   `hud3d_glow_world_mismatch` compte.
+   G1 `flags` : bit14 (sprite du monde) -> bit9 (sprite d'espace-ecran).
+   G2 `z` : la profondeur devient l'ordre de superposition du HUD ((meters 22.5)).
+   G3/G4 `scale-x`/`scale-y` : le gabarit passe de celui de l'objet pose au sol a celui du slot —
+        et pour les deux etoiles il est REPOSE a chaque image par les callbacks d'aspect de
+        l'element pile (`fuel-cell-hud-starburst-3/4-callback`, hud-classes.gc:816-848). C'est la
+        que le 4:3 et le 16:9 se decident, et c'est de la donnee du jeu.
+   G5 `func` : dans le monde la particule SUIT le prim de collision de la pile
+        (`sparticle-track-root-prim`) ; a l'ecran elle prend la taille de l'element.
+   G6 `timer` : les deux nuees de flares vivent 1 s dans le monde, ou l'emetteur se deplace avec
+        l'objet ramassable ; a l'ecran ND les laisse sur la chaine de fondu 232, qui les eteint."
+  (or (= f (sp-field-id spt-flags))
+      (= f (sp-field-id spt-z))
+      (= f (sp-field-id spt-scale-x))
+      (= f (sp-field-id spt-scale-y))
+      (= f (sp-field-id spt-func))
+      (= f (sp-field-id spt-timer))))
+
+(defun hud3d-field-excluded? ((f int) (dst int))
+  "0 = l'eco verte (S1..S7), 1 = la lueur de la pile (G1..G6)."
+  (if (zero? dst) (hud3d-eco-field-excluded? f) (hud3d-glow-field-excluded? f)))
+
+(defun hud3d-cmp-bump! ((this hud-3d-pickups) (dst int) (which int))
+  "0 compare · 1 exclu · 2 ecart, sur les compteurs de l'emetteur `dst`."
+  (cond
+    ((zero? dst)
+     (cond ((zero? which) (+! (-> this eco-compared) 1))
+           ((= which 1) (+! (-> this eco-excluded) 1))
+           (else (+! (-> this eco-mismatch) 1))))
+    (else
+     (cond ((zero? which) (+! (-> this glow-compared) 1))
+           ((= which 1) (+! (-> this glow-excluded) 1))
+           (else (+! (-> this glow-mismatch) 1)))))
+  0)
+
+(defun hud3d-cmp-part ((this hud-3d-pickups) (ours int) (world int) (dst int))
   "compare champ par champ le lanceur `ours` a celui du RAMASSABLE `world`, dans
    `*part-id-table*`. Compte ce qui est compare, ce qui est exclu par S1..S7, et ce qui DIFFERE
    en dehors de ces exclusions. Un champ present d'un cote et absent de l'autre compte comme un
@@ -2487,9 +2675,9 @@
         (while (!= (-> a init-specs i field) (sp-field-id spt-end))
           (let ((f (the int (-> a init-specs i field))))
             (cond
-              ((hud3d-eco-field-excluded? f) (+! (-> this eco-excluded) 1))
+              ((hud3d-field-excluded? f dst) (hud3d-cmp-bump! this dst 1))
               (else
-               (+! (-> this eco-compared) 1)
+               (hud3d-cmp-bump! this dst 0)
                (let ((found #f) (j 0))
                  (while (!= (-> b init-specs j field) (sp-field-id spt-end))
                    (when (= (the int (-> b init-specs j field)) f)
@@ -2498,20 +2686,20 @@
                              (!= (-> a init-specs i random-range) (-> b init-specs j random-range))
                              (!= (-> a init-specs i random-mult) (-> b init-specs j random-mult))
                              (!= (-> a init-specs i flags) (-> b init-specs j flags)))
-                       (+! (-> this eco-mismatch) 1)))
+                       (hud3d-cmp-bump! this dst 2)))
                    (+! j 1))
-                 (if (not found) (+! (-> this eco-mismatch) 1))))))
+                 (if (not found) (hud3d-cmp-bump! this dst 2))))))
           (+! i 1)))
       ;; les champs du RAMASSABLE absents de chez nous
       (let ((j 0))
         (while (!= (-> b init-specs j field) (sp-field-id spt-end))
           (let ((f (the int (-> b init-specs j field))))
-            (when (not (hud3d-eco-field-excluded? f))
+            (when (not (hud3d-field-excluded? f dst))
               (let ((found #f) (i 0))
                 (while (!= (-> a init-specs i field) (sp-field-id spt-end))
                   (if (= (the int (-> a init-specs i field)) f) (set! found #t))
                   (+! i 1))
-                (if (not found) (begin (+! (-> this eco-compared) 1) (+! (-> this eco-mismatch) 1))))))
+                (if (not found) (begin (hud3d-cmp-bump! this dst 0) (hud3d-cmp-bump! this dst 2))))))
           (+! j 1))))
     0))
 
@@ -2521,11 +2709,34 @@
   (set! (-> this eco-compared) 0)
   (set! (-> this eco-excluded) 0)
   (set! (-> this eco-mismatch) 0)
-  (hud3d-cmp-part this 2980 202)
-  (hud3d-cmp-part this 2981 203)
-  (hud3d-cmp-part this 2982 204)
-  (hud3d-cmp-part this 2983 205)
-  (hud3d-cmp-part this 2984 208)
+  (hud3d-cmp-part this 2980 202 0)
+  (hud3d-cmp-part this 2981 203 0)
+  (hud3d-cmp-part this 2982 204 0)
+  (hud3d-cmp-part this 2983 205 0)
+  (hud3d-cmp-part this 2984 208 0)
+  0)
+
+(defun hud3d-glow-identity ((this hud-3d-pickups))
+  "L'IDENTITE DE L'EFFET LUMINEUX, EN DEUX GRANDEURS ET AUCUNE AFFIRMATION.
+   (a) `glow-from-stock` : chacun des quatre items de NOTRE groupe (724) est cherche, PAR SON
+       NUMERO, dans le groupe que le jeu lance pour cette icone (80). Il doit valoir 4.
+   (b) `glow-mismatch` : ces quatre lanceurs, champ par champ, contre ceux de la pile DU MONDE
+       (228..231 du groupe 63), aux transpositions G1..G6 pres. Il doit valoir 0."
+  (set! (-> this glow-from-stock) 0)
+  (let ((g (-> *part-group-id-table* 724))
+        (k (-> *part-group-id-table* 80)))
+    (when (and (nonzero? g) (nonzero? k))
+      (dotimes (i (the int (-> g length)))
+        (let ((id (-> g launcher i launcher)))
+          (dotimes (j (the int (-> k length)))
+            (if (= id (-> k launcher j launcher)) (+! (-> this glow-from-stock) 1)))))))
+  (set! (-> this glow-compared) 0)
+  (set! (-> this glow-excluded) 0)
+  (set! (-> this glow-mismatch) 0)
+  (hud3d-cmp-part this 319 228 1)
+  (hud3d-cmp-part this 320 229 1)
+  (hud3d-cmp-part this 321 230 1)
+  (hud3d-cmp-part this 322 231 1)
   0)
 
 ;;;----------------------------------------------
@@ -3042,6 +3253,21 @@
     (__pc-autoport-publish "hud3d_eco_spec_mismatch" (-> this eco-mismatch))
     (if (or (zero? (-> this eco-compared)) (nonzero? (-> this eco-mismatch))) (+! id-bad 1))
 
+    ;; ── §10 L'EFFET LUMINEUX DE LA PILE (owner, 18/09) ──────────────────────────────────────
+    ;; Rien n'y est lu sur une image : l'identite vient des tables de lanceurs du jeu, l'emission
+    ;; du lanceur lui-meme, et le compte de particules du systeme de particules.
+    (__pc-autoport-publish "hud3d_glow_from_stock" (-> this glow-from-stock))
+    (__pc-autoport-publish "hud3d_glow_world_compared" (-> this glow-compared))
+    (__pc-autoport-publish "hud3d_glow_world_excluded" (-> this glow-excluded))
+    (__pc-autoport-publish "hud3d_glow_world_mismatch" (-> this glow-mismatch))
+    (__pc-autoport-publish "hud3d_glow_frames" (-> this glow-frames))
+    (__pc-autoport-publish "hud3d_glow_spawns" (-> this glow-spawns))
+    (__pc-autoport-publish "hud3d_glow_missing" (-> this glow-missing))
+    (__pc-autoport-publish "hud3d_glow_bad" (-> this glow-bad))
+    (__pc-autoport-publish "hud3d_glow_particles" (-> this glow-alloc))
+    (__pc-autoport-publish "hud3d_glow_particles_max" (-> this glow-alloc-max))
+    (hud3d-pub-name "hud3d_glow_launchers" "319-320-321-322-ceux-du-groupe-80-de-la-pile-d-origine")
+
     ;; ── §3 LA POSITION ET LA TAILLE ─────────────────────────────────────────────────────────
     ;; Chaque emplacement est confronte au rectangle de l'element D'ORIGINE, dans le repere ou les
     ;; deux se comparent exactement. Le facteur de projection du HUD, qu'on n'a pas su etablir en
@@ -3255,17 +3481,27 @@
                (px-ho (hud3d-px-h 2))
                (px-dcx2 (abs (- (hud3d-px-cx2 2) (hud3d-px-cx2 1))))
                (px-dcy2 (abs (- (hud3d-px-cy2 2) (hud3d-px-cy2 1))))
-               (t8 (if (and (>= px-ns HUD3D_PX_MIN) (>= px-no HUD3D_PX_MIN)
-                            (> px-ws 0) (> px-hs 0) (> px-wo 0) (> px-ho 0)
-                            (zero? px-ctrl))
+               ;; §10 — L'EFFET LUMINEUX DE LA PILE. CE TERME A REMPLACE CELUI DE LA BOITE EN PIXELS.
+               ;; L'owner a tranche le 18/09 : « elle est bien a son emplacement attendu ! Mais […]
+               ;; une pile d'energie in game a un effet lumineux, la notre dans le HUD ne l'a pas ».
+               ;; La position et la taille (§9) sont donc VALIDEES par lui, et l'instrument qui les
+               ;; mesurait est inexploitable sur cet appareil — essai 4 : 2,8 a 3,4 niveaux de
+               ;; luminance d'ecart entre deux images IDENTIQUES pour un seuil de 6, controle
+               ;; compris. Ses valeurs restent publiees juste dessous ; elles ne comptent plus.
+               ;; Cinq grandeurs, toutes prises sur l'effet lui-meme :
+               (t8 (if (and (>= (-> this glow-frames) HUD3D_GLOW_MIN) (> (-> this glow-compared) 0))
                      (begin
                        (+! measured 1)
-                       ;; centre a 2 px pres : les abscisses sont publiees DOUBLEES, le seuil l'est aussi
-                       (+ (if (> px-dcx2 4) 1 0)
-                          (if (> px-dcy2 4) 1 0)
-                          ;; largeur ET hauteur a 5 % chacune
-                          (if (> (abs (- (* 100 px-wo) (* 100 px-ws))) (* 5 px-ws)) 1 0)
-                          (if (> (abs (- (* 100 px-ho) (* 100 px-hs))) (* 5 px-hs)) 1 0)))
+                       (+ ;; nos quatre lanceurs sont ceux que le jeu lance pour cette icone
+                          (if (= 4 (-> this glow-from-stock)) 0 1)
+                          ;; et ce sont ceux de la pile du monde, champ par champ
+                          (if (zero? (-> this glow-mismatch)) 0 1)
+                          ;; la pile dessinee sans sa lueur : jamais
+                          (if (zero? (-> this glow-missing)) 0 1)
+                          ;; la lueur sans la pile : jamais
+                          (if (zero? (-> this glow-bad)) 0 1)
+                          ;; et le systeme a bien alloue des particules pour elle
+                          (if (> (-> this glow-alloc) 0) 0 1)))
                      1)))
           (__pc-autoport-publish "hud3d_t1_identity" t1)
           (__pc-autoport-publish "hud3d_t2_sprites" t2)
@@ -3273,7 +3509,8 @@
           (__pc-autoport-publish "hud3d_t6_visibility" t6)
           (__pc-autoport-publish "hud3d_t7_place" t7)
           (__pc-autoport-publish "hud3d_t5_off" t5)
-          (__pc-autoport-publish "hud3d_t8_px_cell" t8)
+          (__pc-autoport-publish "hud3d_t8_glow" t8)
+          (__pc-autoport-publish "hud3d_px_cell_term_retire_par_l_owner" 1)
           (__pc-autoport-publish "hud3d_px_dcx2_abs" px-dcx2)
           (__pc-autoport-publish "hud3d_px_dcy2_abs" px-dcy2)
           (__pc-autoport-publish "hud3d_px_ours_left_of_stock" (if (< (hud3d-px-cx2 2) (hud3d-px-cx2 1)) 1 0))
@@ -3400,6 +3637,12 @@
               (else (+! (-> this bench-sum-b) dt) (+! (-> this bench-n-b) 1))))))
       (set! (-> this bench-last) now))
 
+    ;; ── §10 L'EFFET LUMINEUX DE LA PILE ─────────────────────────────────────────────────────
+    ;; Apres la sequence de boite (qui n'allume qu'un modele a la fois) et apres le regime : la
+    ;; lueur suit le modele REELLEMENT soumis au rendu a cette image, quel que soit l'etat de
+    ;; notre propre process.
+    (hud3d-glow-drive this fc (and on (zero? (-> this regime)) (not (-> this px-on))))
+
     ;; ── ce qui est DESSINE a cette image ────────────────────────────────────────────────────
     (when on
       (let ((slots 0)
@@ -3500,7 +3743,10 @@
             (else
              ;; §5 — ETEINT = ORIGINE : l'element d'origine redessine, le notre est retire
              (+! (-> this off-checks) 1)
-             (if (hud3d-spawned-this-frame? (-> this particles 0 part)) (+! (-> this off-bad) 1))
+             (if (hud3d-spawned-this-frame? (-> this particles HUD3D_PART_ECO part)) (+! (-> this off-bad) 1))
+             (if (and (> (-> this nb-of-particles) HUD3D_PART_GLOW)
+                      (hud3d-spawned-this-frame? (-> this particles HUD3D_PART_GLOW part)))
+               (+! (-> this off-bad) 1))
              (if (and fc (> (-> fc 0 nb-of-icons) 1) (not (hud3d-alive? (-> fc 0 icons 0 icon))))
                (+! (-> this off-bad) 1)))))))
 
@@ -3510,7 +3756,24 @@
     (when (and on (zero? (-> this eco-compared)) (nonzero? (-> *part-id-table* 202)) (nonzero? (-> *part-id-table* 2980)))
       (hud3d-eco-identity this))
 
+    ;; ── l'identite de l'effet lumineux, relevee des que les deux familles de lanceurs sont la ──
+    (when (and on (zero? (-> this glow-compared)) (nonzero? (-> *part-id-table* 228)) (nonzero? (-> *part-id-table* 319)))
+      (hud3d-glow-identity this))
+
     (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60)) (hud3d-publish this)))
+  0
+  (none))
+
+(defmethod draw-particles ((this hud-3d-pickups))
+  "La loi de placement du HUD pose les DEUX emetteurs a partir de leur `init-pos` et du repli de
+   NOTRE process. Elle vaut pour l'eco verte, dont le slot est celui des ramassages. La lueur de
+   la pile, elle, suit un autre element : on la repose ici, apres la loi generale, par les memes
+   ecritures qu'elle (position puis emplacement d'ecran)."
+  ((method-of-type hud draw-particles) this)
+  (when (> (-> this nb-of-particles) HUD3D_PART_GLOW)
+    (let ((fc (hud3d-elt HUD3D_SLOT_CELL)))
+      (if (and fc (> (-> fc 0 nb-of-icons) 1) (hud3d-alive? (-> fc 0 icons 1 icon)))
+        (hud3d-glow-place! this (-> fc 0 icons 1 icon)))))
   0
   (none))
 
@@ -3525,10 +3788,22 @@
    Ici la seule chose qui lance, c'est `hud::draw-hud`. On lui met donc la condition de l'element
    d'origine DEVANT : une lecture d'etat par image, et le lancement cesse a l'image exacte ou le
    sprite d'origine aurait cesse. L'evenement 'hide-quick reste — c'est lui qui libere les
-   particules deja vivantes."
+   particules deja vivantes.
+
+   §10 : L'EMETTEUR 1 (LA LUEUR DE LA PILE) N'EST PAS LANCE ICI, et c'est pour cela que cette
+   methode ne delegue plus a `hud::draw-hud` : celle-ci lance TOUS les emetteurs du process. La
+   lueur ne suit pas l'element ramassages mais le modele de la pile, et elle doit tirer meme quand
+   notre process est replie. C'est `hud3d-glow-drive`, appele par `hud-update`, qui la lance.
+   Le corps ci-dessous est celui de `hud::draw-hud` (hud.gc:23-28) restreint a l'emetteur 0 :
+   memes gardes, meme condition de position, meme `skip-particle`."
   (let ((pk (hud3d-elt HUD3D_SLOT_PICKUPS)))
-    (if (or (not pk) (not (hidden? (-> pk 0))))
-      ((method-of-type hud draw-hud) this)))
+    (when (and (or (not pk) (not (hidden? (-> pk 0))))
+               (not (hidden? this))
+               (not (paused?))
+               (!= HUD3D_PART_ECO (-> this skip-particle)))
+      (if (or (!= (-> this particles HUD3D_PART_ECO pos x) 0.0)
+              (!= (-> this particles HUD3D_PART_ECO pos y) 0.0))
+        (spawn (-> this particles HUD3D_PART_ECO part) *null-vector*))))
   0
   (none))
 
@@ -3544,6 +3819,17 @@
       (set! (-> this particles s5-0 init-pos y) 55.0)
       (set! (-> this particles s5-0 init-pos z) 1.0)
       (set! (-> this particles s5-0 part matrix) -1))
+    (+! (-> this nb-of-particles) 1))
+  ;; §10 LA LUEUR DE LA PILE — second emetteur, sur CE process lui aussi. Il vit et meurt avec
+  ;; nous ; sa position et son lancement, eux, suivent le modele de la pile (`hud3d-glow-drive`).
+  (when (< (-> this nb-of-particles) (-> this max-nb-of-particles))
+    (let ((s5-1 (-> this nb-of-particles)))
+      (set! (-> this particles s5-1) (new 'static 'hud-particle))
+      (set! (-> this particles s5-1 part) (create-launch-control group-hud-cell-glow this))
+      (set! (-> this particles s5-1 init-pos x) 256.0)
+      (set! (-> this particles s5-1 init-pos y) 224.0)
+      (set! (-> this particles s5-1 init-pos z) 1.0)
+      (set! (-> this particles s5-1 part matrix) -1))
     (+! (-> this nb-of-particles) 1))
   (dotimes (i (-> this nb-of-particles))
     (if (= (-> this particles i part matrix) -1) (set! (-> this particles i part matrix) (sprite-allocate-user-hvdf))))
