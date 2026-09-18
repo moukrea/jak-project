@@ -211,60 +211,112 @@
 (defpart 2984
   :init-specs ((:fade-r 0.0)))
 
-;;;; ROUND 5 — owner round-4 addendum #2 item 7 ("l'item [...] fait plutôt la taille entière de
-;;;; la jauge avec la jauge par dessus"): the three GAUGE-CENTRE groups below are shrunk to fit
-;;;; INSIDE the ring's centre hole. Not tuned by eye — measured:
-;;;;   * hud sprite half-width (canvas x units) = scale-x / (2 * 60 * 1.9996) = scale-x / 239.95
-;;;;     (sprite_3d.vert rendermode 2: basis_x.x = -P00, hud_matrix row3 w = 60*f0*pfog0,
-;;;;      f0 = -1.9996*P00, corners +-0.5 — sprite.gc:283,294-297,465,478).
-;;;;     The dominant layer (bigpuff, (meters 2.5)) therefore measured 42.7 units half-width.
-;;;;   * the ring's transparent hole, measured off the alpha channel of recharged_assets/
-;;;;     jak_gauge_empty.png, ends at r = 0.26 of the canvas half-size; the sprite is drawn at
-;;;;     RHUD_GAUGE_HALF = 45, so the hole radius on screen is 0.26 * 45 = 11.7 units.
-;;;; 42.7 units in an 11.7-unit hole = the owner's "full gauge size behind the gauge" exactly.
-;;;; Factor 0.26 applied uniformly to every :scale-x / :scalevel-x / :vel-* / :accel-* below
-;;;; (:z is depth ordering and :y the launch spread — both left alone, they are the stock hud
-;;;; pickup's own values and already read compact). 2.5m -> 0.65m = 11.1 units half-width, i.e.
-;;;; the cloud now sits inside the hole and the gauge no longer draws over it.
-;;;; GREEN (720) is NOT scaled: it replaces the stock hud-pickups sprite at its own slot, where
-;;;; the stock size is correct.
-;;;; BLUE (id 721) — 75 structure, blue color subs.
+;;;; ====================================================================================
+;;;; LE CENTRE DE LA JAUGE (721 bleu · 722 rouge · 723 jaune) — LES VRAIS EMETTEURS DU
+;;;; RAMASSABLE, PORTES EN ESPACE-ECRAN (hud-eco-gauge, reprise du 18/09).
+;;;; ====================================================================================
+;;;;
+;;;; CE QU'IL Y AVAIT LA, ET POURQUOI L'OWNER L'A REFUSE. Les trois groupes etaient des copies
+;;;; STRUCTURELLES du sprite de HUD d'origine `group-part-hud-pickup` (id 75 — le nuage de l'ECO
+;;;; VERTE) avec substitution de couleur par type. L'owner, 18/09, a decrit exactement cela sans
+;;;; voir le code : « des particules bizarre qui ressemblent un peu à des particules d'Eco vert
+;;;; qu'on aurait teinté à la couleur de l'Eco en cours… alors ça faut le dégager, c'est moche ! »
+;;;; Et il a dit ce qu'il veut a la place : « une vraie particule de l'Eco en cours (telle qu'on la
+;;;; trouve in game, le vrai modèle 3D comme on a fait pour le reste du HUD) ».
+;;;;
+;;;; IL N'EXISTE AUCUN MODELE 3D D'ECO DANS JAK 1, ET C'EST CHIFFRE. jak1 porte 484 `defskelgroup` ;
+;;;; les 28 dont le nom contient `eco` sont des decors et des accessoires (plat-eco, ecovalve,
+;;;; darkecobomb, les bulbes du boss final `*robotboss-{blue,red,yellow}eco-sg*`…) — aucun n'est un
+;;;; ramassable. Le chemin du type le dit aussi : `initialize-eco` (collectables.gc:189) appelle
+;;;; `initialize` (une collide-shape et rien d'autre, :104), `initialize-effect`, `initialize-params`,
+;;;; `update-transforms!` — JAMAIS `initialize-skeleton`. Les quatre `initialize-skeleton` de ce
+;;;; fichier-la sont pour l'orbe, la pile, la mecamouche et la valve. TOUT le rendu d'un vial d'eco
+;;;; est `(create-launch-control (-> this eco-effect) this)` (collectables.gc:159), et `eco-effect`
+;;;; vaut `group-eco-blue` (42), `group-eco-red` (48) ou `group-eco-yellow` (56).
+;;;; L'IDENTITE DU RAMASSABLE EST DONC CELLE DE SON EMETTEUR — meme constat, meme conclusion et
+;;;; meme remede que pour l'eco VERTE (groupe 720 ci-dessus, livre et valide le 17/09).
+;;;;
+;;;; LES TRANSPOSITIONS, NOMMEES ET MESUREES. Ces trois groupes sont la copie champ pour champ de
+;;;; 42 / 48 / 56. `rhud-gauge-eco-identity` compare, A L'EXECUTION, chaque part portee a la part du
+;;;; monde dans `*part-id-table*` : tout champ qui differe HORS de la liste ci-dessous est compte
+;;;; dans `hud_gauge_t8_spec` et rougit la porte. Ce n'est pas une ressemblance affirmee.
+;;;;   S1  le groupe prend `:flags (screen-space)` — le slot du HUD est dessine par la machinerie
+;;;;       ecran (user-hvdf), pas dans le monde (`sparticle-launcher.gc:703`).
+;;;;   S2  `bit14` (sprite 3D du monde) -> `bit9` (sprite d'espace-ecran), sur chaque part.
+;;;;   S3  les `:func` tombent. `sparticle-track-root-prim` (ancres 2/160/191) dereference
+;;;;       `root root-prim prim-core world-sphere` et `eco-fadeout` le `state-flags` d'un
+;;;;       `process-drawable` : un `hud` est un `process` nu (hud-h.gc:59), ni l'un ni l'autre
+;;;;       n'existe. Les deux planteraient.
+;;;;   S4  les relances des parts DONT LE CALLBACK TOMBE tombent avec lui (4, 6 · 165, 166 ·
+;;;;       196, 197). Dans le monde `eco-fadeout` repousse `next-time` tant que l'emetteur ne
+;;;;       s'efface pas : la chaine ne tire jamais et les couches vivent sur leur `:timer
+;;;;       (seconds -0.005)`. Portee SANS le callback elle basculerait sur le fondu apres 0,035 s
+;;;;       et eteindrait le nuage — la mesure de la ronde 5 de l'eco verte. Les chaines SANS
+;;;;       callback (7/8/9 -> 146, 164 -> 167, 195 -> 198) sont conservees telles quelles.
+;;;;   S5  `:x (meters 4)` de l'ancre tombe : 4 m valent 16384 unites d'ecran, soit tout le nuage
+;;;;       hors champ. Les `:x`/`:y` de DISPERSION des couches (parts 163/194 et les `(meters 16)`)
+;;;;       sont conserves verbatim, comme dans le portage de l'eco verte.
+;;;;   S6  `:z` est l'ordre de superposition du HUD, pas une profondeur : on reprend l'echelonnement
+;;;;       du portage vert deja livre (0,03 ancre · 0,065 bouffee · 0,12 points chauds).
+;;;;   S7  toutes les TAILLES et VITESSES sont multipliees par un facteur PAR COULEUR, choisi pour
+;;;;       que les trois nuees fassent LA MEME TAILLE a l'ecran : la couche dominante atteint au
+;;;;       plus 15,0 unites de demi-largeur. La demi-largeur d'un sprite de HUD vaut
+;;;;       scale-x / 239,95 unites de canevas (sprite_3d.vert rendermode 2 — sprite.gc:283,294-297).
+;;;;       Le trou central de l'anneau, mesure sur le canal alpha de `jak_gauge_empty.png`, commence
+;;;;       a r = 0,263 du demi-canevas, soit 0,263 x 45 = 11,8 unites ; le bord EXTERIEUR est a
+;;;;       0,870 x 45 = 39,2. Une nuee de 15,0 deborde donc de 27 % sur l'anneau interieur et
+;;;;       n'atteint que 38 % du rayon exterieur : « ça overlap un peu mais ça ne recouvre pas la
+;;;;       jauge », mot pour mot ce que l'owner a demande.
+;;;;       Facteurs : bleu 0,292908 (dominante = part 3, 2+1 = 3 m) · rouge et jaune 0,219681
+;;;;       (dominantes = parts 161 et 192, 2+2 = 4 m).
+
+
+;;;; -- BLEU (id 721) <- `group-eco-blue` (id 42) ----------------------------------------------
 (defpartgroup group-hud-eco-blue
   :id 721
   :flags (screen-space)
-  :bounds (static-bspherem 0 0 0 2)
+  :bounds (static-bspherem 0 0 0 1)
   :parts
   ((sp-item 2986 :flags (launch-asap) :binding 2987)
+   (sp-item 2987 :fade-after (meters 40) :flags (start-dead launch-asap) :binding 2988)
+   (sp-item 2987 :fade-after (meters 60) :flags (start-dead launch-asap) :binding 2988)
+   (sp-item 2987 :fade-after (meters 80) :flags (start-dead launch-asap) :binding 2988)
+   (sp-item 2987 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 2988)
+   (sp-item 2987 :fade-after (meters 130) :flags (start-dead launch-asap) :binding 2988)
    (sp-item 2987 :flags (start-dead launch-asap) :binding 2988)
    (sp-item 2988 :flags (start-dead launch-asap) :binding 2989)
-   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
-   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
-   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
-   (sp-item 2989 :flags (start-dead launch-asap) :binding 2990)
-   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2990 :fade-after (meters 40) :flags (start-dead))))
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2991)
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2989)
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2990)
+   (sp-item 2988 :flags (start-dead launch-asap) :binding 2991)
+   (sp-item 2989 :fade-after (meters 60) :flags (start-dead) :binding 2992)
+   (sp-item 2990 :fade-after (meters 70) :flags (start-dead) :binding 2992)
+   (sp-item 2991 :fade-after (meters 80) :flags (start-dead) :binding 2992)
+   (sp-item 2989 :fade-after (meters 90) :flags (start-dead) :binding 2992)
+   (sp-item 2990 :fade-after (meters 100) :flags (start-dead) :binding 2992)
+   (sp-item 2991 :fade-after (meters 100) :flags (start-dead) :binding 2992)
+   (sp-item 2992 :flags (start-dead))))
 
+;; 2986 <- 2. l'ancre invisible qui porte les liaisons. S2 S3 S5 S6 S7.
 (defpart 2986
   :init-specs
-  ((:texture (starflash effects))
+  ((:texture (hotdot effects))
    (:num 1.0)
-   (:scale-x (meters 0.13))
+   (:z (meters 0.03))
+   (:scale-x (meters 0.002929079))
    (:scale-y :copy scale-x)
-   (:r 32.0 92.0)
-   (:g 128.0 128.0)
-   (:a 0.0)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
 
+;; 2987 <- 3. la bouffee bleue, 6 exemplaires, num 6.0 — la COUCHE DOMINANTE. S2 S3 S4 S6 S7.
 (defpart 2987
   :init-specs
   ((:texture (bigpuff effects))
-   (:num 1.0)
+   (:num 6.0)
    (:y (meters 0) (meters 16))
-   (:z (meters 0.03))
-   (:scale-x (meters 0.65))
+   (:z (meters 0.065))
+   (:scale-x (meters 0.58581579) (meters 0.2929079))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 0.0 32.0)
@@ -272,300 +324,363 @@
    (:b 128.0 128.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
-   (:vel-y (meters 0.00038518519))
+   (:vel-x (meters 0.0043393765) (meters 0.0013018129))
+   (:vel-y (meters 0))
    (:vel-z (meters 0))
-   (:rotvel-z (degrees 0.2))
+   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
-   (:flags (bit7 bit9))))
+   (:flags (bit3 bit7 bit9))))
 
+;; 2988 <- 5. les etoiles tournoyantes. S2 S3 S4 S6 S7.
 (defpart 2988
   :init-specs
-  ((:texture (bigpuff effects))
-   (:num 3.0)
+  ((:texture (starflash effects))
+   (:num 1.0)
    (:y (meters 0) (meters 16))
-   (:z (meters 0.065))
-   (:scale-x (meters 0.39) (meters 0.104))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.23432632) (meters 0.11716316))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 96.0)
    (:g 96.0)
    (:b 192.0)
-   (:a 32.0)
+   (:a 32.0 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
+   (:vel-x (meters 0.0052072516) (meters 0.0043393765))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 269.52002) (degrees 208.99998))
    (:timer (seconds -0.005))
-   (:flags (bit3 bit7 bit9))))
-
-(defpart 2989
-  :init-specs
-  ((:texture (hotdot effects))
-   (:num 1.0)
-   (:y (meters 0) (meters 16))
-   (:z (meters 0.12))
-   (:scale-x (meters 0.104))
-   (:scale-y :copy scale-x)
-   (:r 32.0)
-   (:g 32.0)
-   (:b 192.0)
-   (:a 24.0)
-   (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
-   (:vel-y (meters 0))
-   (:vel-z (meters 0))
-   (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
+;; 2989 <- 7. un eclair. PAS de :func, donc sa chaine vers 146 est CONSERVEE (S4). S2 S6 S7.
+(defpart 2989
+  :init-specs
+  ((:texture (lightning effects))
+   (:num 0.0 1.0)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:rot-x 4)
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:r 64.0)
+   (:g 64.0)
+   (:b 128.0)
+   (:a 128.0 64.0)
+   (:fade-a -1.6)
+   (:timer (seconds 0.3))
+   (:flags (bit2 bit3 bit9))
+   (:next-time (seconds 0.035))
+   (:next-launcher 2993)))
+
+;; 2990 <- 8. un eclair. PAS de :func, donc sa chaine vers 146 est CONSERVEE (S4). S2 S6 S7.
 (defpart 2990
   :init-specs
+  ((:texture (lightning2 effects))
+   (:num 0.0 1.0)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:rot-x 4)
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:r 64.0)
+   (:g 64.0)
+   (:b 128.0)
+   (:a 128.0 64.0)
+   (:fade-a -1.6)
+   (:timer (seconds 0.3))
+   (:flags (bit2 bit3 bit9))
+   (:next-time (seconds 0.035))
+   (:next-launcher 2993)))
+
+;; 2991 <- 9. un eclair. PAS de :func, donc sa chaine vers 146 est CONSERVEE (S4). S2 S6 S7.
+(defpart 2991
+  :init-specs
+  ((:texture (lightning3 effects))
+   (:num 0.0 1.0)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:rot-x 4)
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:r 64.0)
+   (:g 64.0)
+   (:b 128.0)
+   (:a 128.0 64.0)
+   (:fade-a -1.6)
+   (:timer (seconds 0.3))
+   (:flags (bit2 bit3 bit9))
+   (:next-time (seconds 0.035))
+   (:next-launcher 2993)))
+
+;; 2992 <- 10. le point chaud terminal. S2 S6 S7.
+(defpart 2992
+  :init-specs
   ((:texture (hotdot effects))
-   (:num 0.25)
-   (:scale-x (meters 0.091))
+   (:num 0.2 0.2)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.2929079) (meters 0.14645395))
    (:scale-y :copy scale-x)
    (:r 32.0)
    (:g 32.0)
    (:b 192.0)
-   (:a 96.0)
-   (:scalevel-x (meters -0.000325000026))
-   (:scalevel-y :copy scalevel-x)
-   (:fade-r -2.125)
-   (:accel-y (meters -0.0000052))
-   (:timer (seconds 0.1) (seconds 0.797))
-   (:flags (bit2 bit9))
-   (:next-time (seconds 0.4))
-   (:next-launcher 2991)))
+   (:a 96.0 64.0)
+   (:timer (seconds 0.017))
+   (:flags (bit2 bit3 bit9))))
 
-(defpart 2991
-  :init-specs ((:fade-r 0.0)))
+;; 2993 <- 146. la fin de chaine des eclairs, conservee telle quelle.
+(defpart 2993
+  :init-specs
+  ((:r 64.0)
+   (:g 64.0)
+   (:fade-r -1.0)
+   (:fade-g -1.0)
+   (:fade-a -2.0)))
 
-;;;; RED (id 722) — 75 structure, red color subs.
+
+;;;; -- ROUGE (id 722) <- `group-eco-red` (id 48) ----------------------------------------------
 (defpartgroup group-hud-eco-red
   :id 722
   :flags (screen-space)
-  :bounds (static-bspherem 0 0 0 2)
+  :bounds (static-bspherem 0 0 0 1)
   :parts
-  ((sp-item 2992 :flags (launch-asap) :binding 2993)
-   (sp-item 2993 :flags (start-dead launch-asap) :binding 2994)
-   (sp-item 2994 :flags (start-dead launch-asap) :binding 2995)
+  ((sp-item 2994 :flags (launch-asap) :binding 2995)
    (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
    (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
    (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
    (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
-   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 2996 :fade-after (meters 40) :flags (start-dead))))
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2995 :flags (start-dead launch-asap) :binding 2996)
+   (sp-item 2996 :flags (start-dead launch-asap) :binding 2997)
+   (sp-item 2996 :flags (start-dead launch-asap) :binding 2997)
+   (sp-item 2996 :flags (start-dead launch-asap) :binding 2997)
+   (sp-item 2997 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 2998)
+   (sp-item 2997 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 2998)
+   (sp-item 2997 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 2998)
+   (sp-item 2998 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))
+   (sp-item 2998 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))
+   (sp-item 2998 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))))
 
-(defpart 2992
+;; 2994 <- 160. l'ancre. S2 S3 S5 S6 S7.
+(defpart 2994
   :init-specs
-  ((:texture (starflash effects))
+  ((:texture (hotdot effects))
    (:num 1.0)
-   (:scale-x (meters 0.13))
+   (:z (meters 0.03))
+   (:scale-x (meters 0.0021968092))
    (:scale-y :copy scale-x)
-   (:r 32.0 92.0)
-   (:g 128.0 128.0)
-   (:a 0.0)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
 
-(defpart 2993
+;; 2995 <- 161. la bouffee rouge — la COUCHE DOMINANTE. S2 S3 S4 S6 S7.
+(defpart 2995
   :init-specs
   ((:texture (bigpuff effects))
-   (:num 1.0)
+   (:num 6.0)
    (:y (meters 0) (meters 16))
-   (:z (meters 0.03))
-   (:scale-x (meters 0.65))
+   (:z (meters 0.065))
+   (:scale-x (meters 0.43936185) (meters 0.43936185))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
-   (:r 128.0)
+   (:r 128.0 128.0)
    (:g 0.0 64.0)
    (:b 0.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
-   (:vel-y (meters 0.00038518519))
-   (:vel-z (meters 0))
-   (:rotvel-z (degrees 0.2))
-   (:timer (seconds -0.005))
-   (:flags (bit7 bit9))))
-
-(defpart 2994
-  :init-specs
-  ((:texture (bigpuff effects))
-   (:num 3.0)
-   (:y (meters 0) (meters 16))
-   (:z (meters 0.065))
-   (:scale-x (meters 0.39) (meters 0.104))
-   (:rot-z (degrees 0) (degrees 360))
-   (:scale-y :copy scale-x)
-   (:r 128.0)
-   (:g 64.0)
-   (:b 0.0)
-   (:a 32.0)
-   (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
+   (:vel-x (meters 0.0032545323) (meters 0.00097635969))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
-   (:rotvel-z (degrees -1.2) (degrees 2.4))
+   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
    (:flags (bit3 bit7 bit9))))
 
-(defpart 2995
+;; 2996 <- 162. les points chauds. S2 S3 S4 S6 S7.
+(defpart 2996
   :init-specs
   ((:texture (hotdot effects))
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.104))
+   (:scale-x (meters 0.13180855) (meters 0.087872369))
    (:scale-y :copy scale-x)
-   (:r 128.0)
-   (:g 64.0)
-   (:b 0.0)
-   (:a 24.0)
+   (:r 128.0 128.0)
+   (:g 64.0 64.0)
+   (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
+   (:vel-x (meters 0.0039054387) (meters 0.0032545323))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
-(defpart 2996
+;; 2997 <- 163. la nappe dispersee. S2 S3 S4 S6 S7.
+(defpart 2997
   :init-specs
   ((:texture (hotdot effects))
-   (:num 0.25)
-   (:scale-x (meters 0.091))
+   (:num 1.0)
+   (:x (meters 0) (meters 16))
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.13180855) (meters 0.13180855))
    (:scale-y :copy scale-x)
-   (:r 128.0)
-   (:g 64.0)
-   (:b 0.0)
+   (:r 128.0 128.0)
+   (:g 64.0 64.0)
    (:a 32.0)
-   (:scalevel-x (meters -0.000325000026))
+   (:vel-x (meters 0.024734444))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+;; 2998 <- 164. les braises. PAS de :func, chaine vers 167 CONSERVEE (S4). S2 S6 S7.
+(defpart 2998
+  :init-specs
+  ((:texture (bigpuff effects))
+   (:num 0.1 1.0)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.087872369) (meters 0.043936185))
+   (:rot-z (degrees 0) (degrees 360))
+   (:scale-y :copy scale-x)
+   (:r 100.0 28.0)
+   (:g 64.0 64.0)
+   (:b 0.0)
+   (:a 32.0 32.0)
+   (:scalevel-x (meters -0.00008368797))
+   (:rotvel-z (degrees -1.2) (degrees 2.4))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
-   (:accel-y (meters -0.0000052))
-   (:timer (seconds 0.1) (seconds 0.797))
-   (:flags (bit2 bit9))
-   (:next-time (seconds 0.4))
-   (:next-launcher 2997)))
+   (:fade-a -0.01904762)
+   (:accel-y (meters 0.000021968093) (meters 0.000032952138))
+   (:timer (seconds 0.1) (seconds 0.497))
+   (:flags (bit2 bit3 bit9))
+   (:next-time (seconds 0.8))
+   (:next-launcher 2999)))
 
-(defpart 2997
-  :init-specs ((:fade-r 0.0)))
+;; 2999 <- 167. fin de chaine, conservee telle quelle.
+(defpart 2999
+  :init-specs
+  ((:fade-g 0.0)))
 
-;;;; YELLOW (id 723) — 75 structure, yellow color subs.
+
+;;;; -- JAUNE (id 723) <- `group-eco-yellow` (id 56) -------------------------------------------
 (defpartgroup group-hud-eco-yellow
   :id 723
   :flags (screen-space)
-  :bounds (static-bspherem 0 0 0 2)
+  :bounds (static-bspherem 0 0 0 1)
   :parts
-  ((sp-item 2998 :flags (launch-asap) :binding 2999)
-   (sp-item 2999 :flags (start-dead launch-asap) :binding 3000)
-   (sp-item 3000 :flags (start-dead launch-asap) :binding 3001)
+  ((sp-item 3000 :flags (launch-asap) :binding 3001)
    (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
    (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
    (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
    (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
-   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))
-   (sp-item 3002 :fade-after (meters 40) :flags (start-dead))))
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3001 :flags (start-dead launch-asap) :binding 3002)
+   (sp-item 3002 :flags (start-dead launch-asap) :binding 3003)
+   (sp-item 3002 :flags (start-dead launch-asap) :binding 3003)
+   (sp-item 3002 :flags (start-dead launch-asap) :binding 3003)
+   (sp-item 3002 :flags (start-dead launch-asap) :binding 3003)
+   (sp-item 3003 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 3004)
+   (sp-item 3003 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 3004)
+   (sp-item 3003 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 3004)
+   (sp-item 3003 :fade-after (meters 100) :flags (start-dead launch-asap) :binding 3004)
+   (sp-item 3004 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))
+   (sp-item 3004 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))
+   (sp-item 3004 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))
+   (sp-item 3004 :fade-after (meters 90) :falloff-to (meters 110) :flags (start-dead))))
 
-(defpart 2998
+;; 3000 <- 191. l'ancre. S2 S3 S5 S6 S7.
+(defpart 3000
   :init-specs
-  ((:texture (starflash effects))
+  ((:texture (hotdot effects))
    (:num 1.0)
-   (:scale-x (meters 0.13))
+   (:z (meters 0.03))
+   (:scale-x (meters 0.0021968092))
    (:scale-y :copy scale-x)
-   (:r 32.0 92.0)
-   (:g 128.0 128.0)
-   (:a 0.0)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
 
-(defpart 2999
+;; 3001 <- 192. la bouffee jaune — la COUCHE DOMINANTE. S2 S3 S4 S6 S7.
+(defpart 3001
   :init-specs
   ((:texture (bigpuff effects))
-   (:num 1.0)
+   (:num 5.0)
    (:y (meters 0) (meters 16))
-   (:z (meters 0.03))
-   (:scale-x (meters 0.65))
+   (:z (meters 0.065))
+   (:scale-x (meters 0.43936185) (meters 0.43936185))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
-   (:r 128.0)
+   (:r 128.0 128.0)
    (:g 64.0 192.0)
    (:b 0.0)
    (:a 16.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00693333342) (meters 0.00693333342))
-   (:vel-y (meters 0.00038518519))
-   (:vel-z (meters 0))
-   (:rotvel-z (degrees 0.2))
-   (:timer (seconds -0.005))
-   (:flags (bit7 bit9))))
-
-(defpart 3000
-  :init-specs
-  ((:texture (bigpuff effects))
-   (:num 3.0)
-   (:y (meters 0) (meters 16))
-   (:z (meters 0.065))
-   (:scale-x (meters 0.39) (meters 0.104))
-   (:rot-z (degrees 0) (degrees 360))
-   (:scale-y :copy scale-x)
-   (:r 192.0)
-   (:g 160.0)
-   (:b 0.0)
-   (:a 32.0)
-   (:omega 0.0 65536.0)
-   (:vel-x (meters 0.00462222228) (meters 0.00462222228))
+   (:vel-x (meters 0.0032545323) (meters 0.00097635969))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
-   (:rotvel-z (degrees -0.4) 1 (degrees 0.8))
+   (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
    (:timer (seconds -0.005))
    (:flags (bit3 bit7 bit9))))
 
-(defpart 3001
+;; 3002 <- 193. les points chauds. S2 S3 S4 S6 S7.
+(defpart 3002
   :init-specs
   ((:texture (hotdot effects))
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.104))
+   (:scale-x (meters 0.087872369) (meters 0.043936185))
    (:scale-y :copy scale-x)
-   (:r 128.0)
-   (:g 64.0)
-   (:b 0.0)
-   (:a 24.0)
+   (:r 128.0 128.0)
+   (:g 64.0 64.0)
+   (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0138666671) (meters 0.0138666671))
+   (:vel-x (meters 0.0039054387) (meters 0.0032545323))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
-(defpart 3002
+;; 3003 <- 194. la nappe dispersee. S2 S3 S4 S6 S7.
+(defpart 3003
   :init-specs
   ((:texture (hotdot effects))
-   (:num 0.25)
-   (:scale-x (meters 0.091))
+   (:num 1.0)
+   (:x (meters 0) (meters 16))
+   (:y (meters 0) (meters 16))
+   (:z (meters 0.12))
+   (:scale-x (meters 0.087872369) (meters 0.043936185))
    (:scale-y :copy scale-x)
-   (:r 128.0)
-   (:g 64.0)
-   (:b 0.0)
+   (:r 128.0 128.0)
+   (:g 64.0 64.0)
    (:a 32.0)
-   (:scalevel-x (meters -0.000325000026))
+   (:vel-x (meters 0.024734444))
+   (:timer (seconds -0.005))
+   (:flags (bit2 bit3 bit7 bit9))))
+
+;; 3004 <- 195. les etincelles. PAS de :func, chaine vers 198 CONSERVEE (S4). S2 S6 S7.
+(defpart 3004
+  :init-specs
+  ((:texture (hotdot effects))
+   (:num 0.1 1.0)
+   (:z (meters 0.12))
+   (:scale-x (meters 0.065904277) (meters 0.021968092))
+   (:scale-y :copy scale-x)
+   (:r 100.0 28.0)
+   (:g 64.0 64.0)
+   (:b 0.0)
+   (:a 32.0 32.0)
+   (:scalevel-x (meters -0.00013599295))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
-   (:accel-y (meters -0.0000052))
-   (:timer (seconds 0.1) (seconds 0.797))
-   (:flags (bit2 bit9))
-   (:next-time (seconds 0.4))
-   (:next-launcher 3003)))
+   (:fade-a -0.01904762)
+   (:accel-y (meters -0.000021968093) (meters -0.000032952138))
+   (:timer (seconds 0.1) (seconds 0.997))
+   (:flags (bit2 bit3 bit9))
+   (:next-time (seconds 0.8))
+   (:next-launcher 3005)))
 
-(defpart 3003
-  :init-specs ((:fade-r 0.0)))
+;; 3005 <- 198. fin de chaine, conservee telle quelle.
+(defpart 3005
+  :init-specs
+  ((:fade-g 0.0)))
 
 ;; the defpartgroup macro does NOT define a name->group constant (that lives in
 ;; the generated engine/data/part-groups.gc for stock groups); define ours here
@@ -1164,6 +1279,8 @@
    (t2-bad       int32)
    (t2-max       int32)    ;; pire ecart d'embout, en milli-degres
    (t2-ghost     int32)    ;; embout dessine alors que la fraction est nulle
+   (t2-rot-lo    int32)    ;; rotation d'embout la plus basse OBSERVEE, en milli-degres
+   (t2-rot-hi    int32)    ;;   ... et la plus haute : leur ecart dit que l'embout a VOYAGE
    (t3-n         int32)
    (t3-bad       int32)
    (t4-n         int32)
@@ -1183,6 +1300,21 @@
    (t5-self      int32)    ;; sous-terme : les trois primitives ne partagent pas un centre
    (t5-stock     int32)    ;; sous-terme : notre centre n'est pas celui de la jauge d'origine
    (t5-max       int32)    ;; pire ecart de position, en 1/16 d'unite de canevas 512x448
+   ;; --- terme 7 (reprise 18/09) : LE QUART INTERDIT ---
+   (t7-n         int32)    ;; images ou le terme a pu etre mesure (un embout a ete emis)
+   (t7-bad       int32)    ;;   ... dont au moins un sommet de remplissage ou d'embout mordait
+   (t7-verts     int32)    ;; pire nombre de sommets mordants dans une image
+   (t7-max       int32)    ;; pire morsure, en 1/16 d'unite de canevas
+   (t7-base      int32)    ;; CONTROLE POSITIF : images ou l'ANNEAU VIDE, lui, a bien ete vu mordre
+   ;; --- terme 8 (reprise 18/09) : LA VRAIE PARTICULE D'ECO, AU CENTRE ---
+   (t8-n         int32)    ;; images ou la position de la nuee a pu etre confrontee a la jauge
+   (t8-pos-bad   int32)    ;;   ... dont la nuee n'etait pas sur le centre de la jauge
+   (t8-max       int32)    ;; pire ecart nuee/jauge, en 1/16 d'unite de canevas
+   (t8-compared  int32)    ;; champs de lanceur confrontes au ramassable du monde
+   (t8-excluded  int32)    ;;   ... et champs ecartes par S1..S7, comptes a part
+   (t8-mismatch  int32)    ;;   ... et champs QUI DIFFERENT hors de ces exclusions
+   (t8-live      int32)    ;; OBSERVATION (hors porte) : pire nombre d'etats de lanceur vivants
+   (t8-states    int32)    ;; le denominateur de la precedente : etats du lanceur actif
    (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
    (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
    (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
@@ -1205,6 +1337,12 @@
 ;; Les angles se lisent sur les UV, pas sur les positions : `rhud-fan` pose l'UV d'un sommet de
 ;; jante a l'image affine de sa position DANS LE CANEVAS, donc l'angle du masque en espace de
 ;; texture est exactement ce que le joueur voit sur la jauge, sans passer par le facteur d'aspect.
+;; Les entiers 12.4 relus du buffer, redescendus dans le canevas 512x448. `rhud-add-vert` ecrit
+;; x = 16(1792 + px) et y = 16(1936 + py/2) : on defait exactement cela. (Definis ICI et plus bas
+;; dans le fichier : `rhud-gauge-note-vert` s'en sert pour situer un sommet des son emission.)
+(defmacro rhud-gp-px (raw) `(- (/ ,raw 16.0) 1792.0))
+(defmacro rhud-gp-py (raw) `(* 2.0 (- (/ ,raw 16.0) 1936.0)))
+
 (defconstant RHUD_GP_BASE 0)  ;; l'anneau vide
 (defconstant RHUD_GP_FAN  1)  ;; le camembert de remplissage
 (defconstant RHUD_GP_TIP  2)  ;; l'embout
@@ -1216,7 +1354,17 @@
    (u0   float 3) (v0 float 3) (x0 float 3) (y0 float 3)   ;; 1er sommet
    (u1   float 3) (v1 float 3) (x1 float 3) (y1 float 3)   ;; 2e sommet
    (ul   float 3) (vl float 3) (xl float 3) (yl float 3)   ;; dernier sommet
-   (minx float 3) (maxx float 3) (miny float 3) (maxy float 3)))
+   (minx float 3) (maxx float 3) (miny float 3) (maxy float 3)
+   ;; hud-eco-gauge, reprise du 18/09 — LE QUART INTERDIT, COMPTE SUR CHAQUE SOMMET.
+   ;; Le probe ne garde que trois sommets par primitive (premier, deuxieme, dernier) : un masque
+   ;; ne se juge pas sur trois sommets sur vingt-six. On accumule donc AU MOMENT DE L'EMISSION,
+   ;; pour TOUS les sommets, combien tombent dans le quadrant que l'eco ne remplit jamais et de
+   ;; combien ils y mordent. `ccx`/`ccy`/`cfx` sont le centre et l'aspect que le dessin vient de
+   ;; se donner ; c'est la meme reference que le terme 5 prouve egale a celle de la jauge d'ORIGINE.
+   (ccx  float) (ccy float) (cfx float)
+   (bite  int32 3)    ;; sommets emis DANS le quart bas-droit (au-dela de l'epsilon de quantification)
+   (bitem float 3)    ;; la pire morsure, en unites de canevas (min des deux depassements)
+   ))
 
 (define *rhud-gauge-probe* (new 'static 'rhud-gauge-probe :tag -1))
 
@@ -1224,9 +1372,28 @@
   "ouvre une image de mesure : aucune primitive enregistree, aucun enregistrement en cours."
   (let ((pr *rhud-gauge-probe*))
     (set! (-> pr tag) -1)
+    (set! (-> pr ccx) 0.0)
+    (set! (-> pr ccy) 0.0)
+    (set! (-> pr cfx) 1.0)
     (dotimes (i 3)
       (set! (-> pr n i) 0)
-      (set! (-> pr tbp i) 0)))
+      (set! (-> pr tbp i) 0)
+      (set! (-> pr bite i) 0)
+      (set! (-> pr bitem i) 0.0)))
+  (none))
+
+;; L'epsilon du test de quadrant, en unites de canevas. La quantification 12.4 vaut 1/16 d'unite
+;; en x et 1/8 en y (`py` est divise par deux avant d'etre ecrit), et le centre est lui-meme relu
+;; quantifie : l'erreur cumulee ne depasse pas 0,25 unite. On prend 1,0 — quatre fois la borne —
+;; et la morsure que l'ancien embout produisait valait 47 unites : la separation est de 47 contre 1.
+(defconstant RHUD_GAUGE_QUAD_EPS 1.0)
+
+(defun rhud-gauge-probe-center ((cx float) (cy float) (fx float))
+  "pose le centre et l'aspect de l'image en cours, pour que le test de quadrant ait une origine."
+  (let ((pr *rhud-gauge-probe*))
+    (set! (-> pr ccx) cx)
+    (set! (-> pr ccy) cy)
+    (set! (-> pr cfx) (if (> fx 0.0) fx 1.0)))
   (none))
 
 (defun rhud-gauge-note-vert ((xi float) (yi float) (uu float) (vv float))
@@ -1248,6 +1415,15 @@
     (if (> xi (-> pr maxx ti)) (set! (-> pr maxx ti) xi))
     (if (< yi (-> pr miny ti)) (set! (-> pr miny ti) yi))
     (if (> yi (-> pr maxy ti)) (set! (-> pr maxy ti) yi))
+    ;; LE QUART INTERDIT. L'arc remplissable part de 6 h et couvre 270 degres : le quadrant
+    ;; restant est celui ou x et y sont TOUS DEUX positifs par rapport au centre, c'est-a-dire
+    ;; en bas a droite. Un sommet qui y tombe est compte ici, a l'emission, quel que soit son rang.
+    (let ((dx (/ (- (rhud-gp-px xi) (-> pr ccx)) (-> pr cfx)))
+          (dy (- (rhud-gp-py yi) (-> pr ccy))))
+      (when (and (> dx RHUD_GAUGE_QUAD_EPS) (> dy RHUD_GAUGE_QUAD_EPS))
+        (+! (-> pr bite ti) 1)
+        (let ((m (fmin dx dy)))
+          (if (> m (-> pr bitem ti)) (set! (-> pr bitem ti) m)))))
     (set! (-> pr n ti) (+ k 1)))
   (none))
 
@@ -1366,6 +1542,58 @@
                          (* 0.5 (+ dx 1.0))
                          (* 0.5 (+ dy 1.0))
                          (rhud-rgba 128 128 128 aa)
+                         (+ cx (* dx hs fx))
+                         (+ cy (* dy hs)))))))
+  (none))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge (reprise 18/09) — L'EMBOUT MASQUE AU QUART BAS-DROIT
+;;;----------------------------------------------
+;; L'owner, 18/09 : « sur les derniers % [...] ça va overlap par dessus le quart de la jauge qui
+;; ne peut pas être rempli d'Eco (le quart bas-droit) [...] Tu devrais avoir un masque pour le
+;; quart droit-bas sur le endcap pour que ça ne se voit pas ! »
+;;
+;; CE QUE LE DEFAUT VAUT, MESURE DANS LA DONNEE. `recharged_assets/jak_gauge_blue_end.png` porte
+;; 20 879 texels opaques (alpha >= 8). L'embout etait dessine en QUAD PLEIN tourne de
+;; ARC_SPAN*(frac-1) : le nombre de ces texels qui atterrissent dans le quadrant interdit vaut
+;;     frac 1,00 -> 6 336 (30,3 %)   frac 0,99 -> 1 857 (8,9 %)   frac 0,95..0,05 -> 0
+;;     frac 0,02 -> 5 552 (26,6 %)   frac 0,01 -> 10 043 (48,1 %)
+;; — exactement « sur les derniers % », et rien entre les deux : c'est le defaut que l'owner voit.
+;;
+;; LE MASQUE. On ne touche NI a la rotation de l'embout NI a sa position (acquis du 18/09) : on
+;; remplace son quad par le MEME contenu decoupe au secteur remplissable. Chaque sommet de jante
+;; sort a l'angle `ang` du secteur [ARC_START, ARC_START+ARC_SPAN] et porte l'UV de l'angle
+;; `ang - rot` : les trois sommets d'un triangle subissant la MEME rotation rigide, l'application
+;; affine que le rasteriseur en tire EST cette rotation — la texture sort donc rigoureusement
+;; comme le quad la sortait, au decoupage pres. Le quadrant interdit n'est plus atteignable par
+;; construction, et `rhud-gauge-note-vert` le compte sommet par sommet au lieu de l'affirmer.
+(defun rhud-tip-fan ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (rot float) (aa int))
+  "l'embout, tourne de `rot` autour du centre du canevas comme le faisait `rhud-quad`, mais
+   DECOUPE au secteur remplissable : rien n'est emis dans le quart bas-droit de la jauge."
+  (let* ((segs 24)
+         (a0 RHUD_GAUGE_ARC_START)
+         (a1 (+ RHUD_GAUGE_ARC_START RHUD_GAUGE_ARC_SPAN))
+         (nverts (+ segs 2))
+         (rgba (rhud-rgba 128 128 128 aa)))
+    (with-cnt-vif-block (buf)
+      ;; giftag: packed, prim tri-fan/iip/tme/abe — le meme que `rhud-fan`
+      (dma-buffer-add-uint64 buf
+                             (logior (the-as uint nverts) #x8000 (ash 1 46) (ash #x5d 47) (ash 3 60))
+                             #x412 ;; regs st rgbaq xyzf2
+                             )
+      ;; sommet central : la rotation le laisse sur place, son UV reste le centre du canevas
+      (rhud-add-vert buf 0.5 0.5 rgba cx cy)
+      ;; sommets de jante : position a l'angle du SECTEUR, UV a l'angle TOURNE EN ARRIERE
+      (dotimes (i (+ segs 1))
+        (let* ((ang (+ a0 (/ (* (- a1 a0) (the float i)) (the float segs))))
+               (dx (* 1.5 (cos ang)))
+               (dy (* 1.5 (sin ang)))
+               (ux (* 1.5 (cos (- ang rot))))
+               (uy (* 1.5 (sin (- ang rot)))))
+          (rhud-add-vert buf
+                         (* 0.5 (+ ux 1.0))
+                         (* 0.5 (+ uy 1.0))
+                         rgba
                          (+ cx (* dx hs fx))
                          (+ cy (* dy hs)))))))
   (none))
@@ -1652,6 +1880,11 @@
 (defconstant RHUD_MDEG_PER_ROT 5.4931641)
 ;; ecart de position tolere, en 1/16 d'unite du canevas 512x448 : « 0 px » du livrable.
 (defconstant RHUD_GAUGE_POS_TOL 16)
+;; Ecart tolere entre la NUEE du centre et le centre de l'anneau, meme unite : 3 unites de canevas.
+;; Ce n'est pas un gout — c'est la troncature a l'entier que `draw-particles` fait subir a la
+;; position (1 unite en x, 2 en y apres le facteur deux de la chaine y). Le defaut que l'owner a
+;; vu en valait 16,2 : la separation est de 16,2 contre 3.
+(defconstant RHUD_GAUGE_NUEE_TOL 48)
 ;; Ecart de fraction tolere contre la jauge d'origine, en 1/100000. Le plancher n'est pas un
 ;; gout : les deux processus se mettent a jour a des tours differents de la meme image, et un
 ;; tour d'ecart vaut 5 unites de `game-frame-counter` sur les 6000 du plein, soit 83. On prend
@@ -1666,8 +1899,131 @@
 ;; seconde) : 10 = un trentieme de seconde, soit deux images de logique.
 (defconstant RHUD_GB_DRAIN_TOL 10)
 
-(defmacro rhud-gp-px (raw) `(- (/ ,raw 16.0) 1792.0))
-(defmacro rhud-gp-py (raw) `(* 2.0 (- (/ ,raw 16.0) 1936.0)))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — LA NUEE DU CENTRE EST-ELLE LE VRAI EMETTEUR DU RAMASSABLE ?
+;;;----------------------------------------------
+;; L'owner ne peut pas verifier « c'est bien la vraie particule d'eco » a l'oeil sans le jeu a cote.
+;; La porte le fait a sa place, et sans image : elle relit `*part-id-table*` A L'EXECUTION et
+;; compare, CHAMP PAR CHAMP, chacune de nos parts a celle du RAMASSABLE DU MONDE dont elle est le
+;; portage. Les champs que la transposition ecran a le droit de changer (S1..S7, voir l'en-tete des
+;; trois groupes en tete de fichier) sont ECARTES et comptes a part ; tous les autres — texture,
+;; `:num`, couleurs, `:omega`, `:rot-z`, `:rotvel-z`, `:timer`, `:fade-*` — doivent etre EGAUX.
+;; Un champ present d'un cote et absent de l'autre compte comme un ecart : c'est ce qui empeche la
+;; porte d'etre verte parce qu'on aurait oublie une ligne en recopiant.
+;;
+;; POURQUOI CE PREDICAT EST A NOUS ET NON CELUI DE `hud-3d-pickups`. La liste d'exclusion de cet
+;; autre chantier (`hud3d-eco-field-excluded?`) est la MEME aujourd'hui. L'epingler ici ferait de
+;; notre porte l'otage de ses reglages a lui : le jour ou il ajoute une exclusion pour son propre
+;; besoin, notre porte cesserait de mesurer un champ sans que personne ne l'ait decide. Les deux
+;; listes sont donc independantes, et la duplication est inscrite dans FINDINGS.
+(defun rhud-gauge-eco-field-excluded? ((f int))
+  (or (= f (sp-field-id spt-flags))          ;; S2 bit14 -> bit9
+      (= f (sp-field-id spt-func))           ;; S3 callbacks lies a l'emetteur du monde
+      (= f (sp-field-id spt-next-time))      ;; S4 relances de fondu des parts dont le func tombe
+      (= f (sp-field-id spt-next-launcher))
+      (= f (sp-field-id spt-x))              ;; S5 decalage monde de l'ancre
+      (= f (sp-field-id spt-y))
+      (= f (sp-field-id spt-z))              ;; S6 ordre de superposition du HUD
+      (= f (sp-field-id spt-scale-x))        ;; S7 gabarit du trou central
+      (= f (sp-field-id spt-scale-y))
+      (= f (sp-field-id spt-scalevel-x))
+      (= f (sp-field-id spt-scalevel-y))
+      (= f (sp-field-id spt-vel-x))
+      (= f (sp-field-id spt-vel-y))
+      (= f (sp-field-id spt-vel-z))
+      (= f (sp-field-id spt-accel-x))
+      (= f (sp-field-id spt-accel-y))
+      (= f (sp-field-id spt-accel-z))))
+
+(defun rhud-gauge-cmp-part ((this hud-recharged-power) (ours int) (world int))
+  "confronte le lanceur `ours` a celui du RAMASSABLE `world` dans `*part-id-table*`."
+  (let ((a (-> *part-id-table* ours))
+        (b (-> *part-id-table* world)))
+    (when (and (nonzero? a) (nonzero? b))
+      ;; nos champs, retrouves chez le ramassable
+      (let ((i 0))
+        (while (!= (-> a init-specs i field) (sp-field-id spt-end))
+          (let ((f (the int (-> a init-specs i field))))
+            (cond
+              ((rhud-gauge-eco-field-excluded? f) (+! (-> this t8-excluded) 1))
+              (else
+               (+! (-> this t8-compared) 1)
+               (let ((found #f) (j 0))
+                 (while (!= (-> b init-specs j field) (sp-field-id spt-end))
+                   (when (= (the int (-> b init-specs j field)) f)
+                     (set! found #t)
+                     (if (or (!= (-> a init-specs i initial-value) (-> b init-specs j initial-value))
+                             (!= (-> a init-specs i random-range) (-> b init-specs j random-range))
+                             (!= (-> a init-specs i random-mult) (-> b init-specs j random-mult))
+                             (!= (-> a init-specs i flags) (-> b init-specs j flags)))
+                       (+! (-> this t8-mismatch) 1)))
+                   (+! j 1))
+                 (if (not found) (+! (-> this t8-mismatch) 1))))))
+          (+! i 1)))
+      ;; les champs du ramassable ABSENTS de chez nous
+      (let ((j 0))
+        (while (!= (-> b init-specs j field) (sp-field-id spt-end))
+          (let ((f (the int (-> b init-specs j field))))
+            (when (not (rhud-gauge-eco-field-excluded? f))
+              (let ((found #f) (i 0))
+                (while (!= (-> a init-specs i field) (sp-field-id spt-end))
+                  (if (= (the int (-> a init-specs i field)) f) (set! found #t))
+                  (+! i 1))
+                (if (not found) (begin (+! (-> this t8-compared) 1) (+! (-> this t8-mismatch) 1))))))
+          (+! j 1))))
+    0))
+
+(defun rhud-gauge-eco-identity ((this hud-recharged-power))
+  "l'identite des trois emetteurs du centre, calculee UNE fois.
+   bleu  2986<-2  2987<-3  2988<-5  2989<-7  2990<-8  2991<-9  2992<-10  2993<-146
+   rouge 2994<-160 2995<-161 2996<-162 2997<-163 2998<-164 2999<-167
+   jaune 3000<-191 3001<-192 3002<-193 3003<-194 3004<-195 3005<-198"
+  (set! (-> this t8-compared) 0)
+  (set! (-> this t8-excluded) 0)
+  (set! (-> this t8-mismatch) 0)
+  (rhud-gauge-cmp-part this 2986 2)
+  (rhud-gauge-cmp-part this 2987 3)
+  (rhud-gauge-cmp-part this 2988 5)
+  (rhud-gauge-cmp-part this 2989 7)
+  (rhud-gauge-cmp-part this 2990 8)
+  (rhud-gauge-cmp-part this 2991 9)
+  (rhud-gauge-cmp-part this 2992 10)
+  (rhud-gauge-cmp-part this 2993 146)
+  (rhud-gauge-cmp-part this 2994 160)
+  (rhud-gauge-cmp-part this 2995 161)
+  (rhud-gauge-cmp-part this 2996 162)
+  (rhud-gauge-cmp-part this 2997 163)
+  (rhud-gauge-cmp-part this 2998 164)
+  (rhud-gauge-cmp-part this 2999 167)
+  (rhud-gauge-cmp-part this 3000 191)
+  (rhud-gauge-cmp-part this 3001 192)
+  (rhud-gauge-cmp-part this 3002 193)
+  (rhud-gauge-cmp-part this 3003 194)
+  (rhud-gauge-cmp-part this 3004 195)
+  (rhud-gauge-cmp-part this 3005 198)
+  (none))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — LA NUEE SUIT LA JAUGE, PAS UN LITTERAL
+;;;----------------------------------------------
+;; LE DEFAUT QUE L'OWNER A VU, ET SA CAUSE EXACTE. « il y a en dessous (sur la gauche de la jauge)
+;; des particules bizarre ». Nos trois `hud-particle` portaient `init-pos x = 435.0`, le litteral.
+;; Or `set-pos-and-scale` (engine/ui/hud-classes.gc:1398) REPLACE la jauge d'origine selon le
+;; format de l'ecran des que `use-vis?` est faux, par une recurrence
+;;     base = x2 + (512 - x2)(1 - a)   puis   x_i = base + a (c_i - base),   a = (4/3)/aspect
+;; dont le point fixe vaut 451,211 sur un ecran 2400x1080 (a = 0,6). La jauge DESSINEE suit cette
+;; valeur depuis l'essai 1 ; la nuee, elle, restait a 435,0. Seize unites de canevas A GAUCHE —
+;; c'est exactement « sur la gauche de la jauge », et ce n'etait pas une question de gout.
+;; (`y` n'est jamais touche par cette methode : il vaut 370,0 dans les deux cas.)
+(defun rhud-gauge-particles-follow ((this hud-recharged-power))
+  "aligne les trois nuees sur la position que la jauge d'ORIGINE se donne a cette image."
+  (let ((sp (-> *hud-parts* power)))
+    (when (and sp (> (-> sp 0 nb-of-particles) 2))
+      (dotimes (i (-> this nb-of-particles))
+        (set! (-> this particles i init-pos x) (-> sp 0 particles 2 init-pos x))
+        (set! (-> this particles i init-pos y) (-> sp 0 particles 2 init-pos y)))))
+  (none))
 
 (defun rhud-gauge-wrap ((a float))
   "un angle en unites de rotation, ramene dans [0, 65536)."
@@ -1712,14 +2068,28 @@
     (cond
       ((> frac 0.0)
        (when (>= nt 2)
+         ;; L'embout est maintenant un eventail decoupe (`rhud-tip-fan`) : sa rotation ne se lit
+         ;; plus sur l'arete entre deux coins, elle se lit sur l'ECART entre l'angle de POSITION
+         ;; d'un sommet de jante et l'angle de son UV — c'est exactement la rotation que le
+         ;; rasteriseur appliquera a la texture. Sommet 0 = centre, sommet 1 = premiere jante.
          (let* ((dpx (/ (- (rhud-gp-px (-> pr x1 RHUD_GP_TIP)) (rhud-gp-px (-> pr x0 RHUD_GP_TIP))) fx))
                 (dpy (- (rhud-gp-py (-> pr y1 RHUD_GP_TIP)) (rhud-gp-py (-> pr y0 RHUD_GP_TIP))))
-                (rot (atan dpy dpx))
+                (rot (rhud-gauge-wrap-signed
+                      (- (atan dpy dpx) (rhud-gauge-uv-ang (-> pr u1 RHUD_GP_TIP) (-> pr v1 RHUD_GP_TIP)))))
                 (d (the int (* RHUD_MDEG_PER_ROT
                                (fabs (rhud-gauge-wrap-signed (- rot (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)))))))))
            (+! (-> this t2-n) 1)
            (if (> d (-> this t2-max)) (set! (-> this t2-max) d))
-           (if (> d RHUD_GAUGE_TOL_MDEG) (+! (-> this t2-bad) 1)))))
+           (if (> d RHUD_GAUGE_TOL_MDEG) (+! (-> this t2-bad) 1))
+           ;; L'AMPLITUDE PARCOURUE, qui remplace « le pire ecart est non nul » comme preuve que
+           ;; l'instrument a travaille. Depuis que l'embout est un eventail, sa rotation se lit
+           ;; sur le sommet de jante du DEPART D'ARC, dont l'abscisse vaut exactement celle du
+           ;; centre : la quantification s'annule et la lecture est EXACTE. Un `t2-max` nul n'est
+           ;; donc plus le symptome d'un instrument mort — mais un embout FIGE le serait, et c'est
+           ;; ce que cette amplitude mesure : sur un vidage complet il doit parcourir 270 degres.
+           (let ((rm (the int (* RHUD_MDEG_PER_ROT rot))))
+             (if (< rm (-> this t2-rot-lo)) (set! (-> this t2-rot-lo) rm))
+             (if (> rm (-> this t2-rot-hi)) (set! (-> this t2-rot-hi) rm))))))
       (else
        ;; a 0 % l'embout ne doit pas exister du tout
        (+! (-> this t2-n) 1)
@@ -1788,6 +2158,64 @@
            (if (> (abs (- ticks want)) RHUD_GB_DRAIN_TOL) (+! (-> this drain-bad) 1))
            (set! (-> this drain-t0) 0)))))
 
+    ;; --- terme 7 : LE QUART INTERDIT (reprise du 18/09).
+    ;; L'arc remplissable part de 6 h et couvre 270 degres ; le quadrant bas-droit n'est jamais
+    ;; rempli d'eco, et l'owner a demande que l'embout n'y deborde plus. La mesure ne porte pas
+    ;; sur trois sommets retenus mais sur TOUS ceux qui sont partis : `rhud-gauge-note-vert` les
+    ;; a classes un par un a l'emission (`bite`).
+    ;; LE CONTROLE POSITIF EST GRATUIT ET IL EST DANS LA PORTE. L'anneau VIDE est un quad plein :
+    ;; ses quatre coins couvrent les quatre quadrants, donc il DOIT mordre a chaque image. Un
+    ;; `t7-base` nul dirait que l'instrument ne mesure rien — un zero par inaction, pas un succes.
+    (when (> nt 0)
+      (+! (-> this t7-n) 1)
+      (let ((nb-bite (+ (-> pr bite RHUD_GP_TIP) (-> pr bite RHUD_GP_FAN)))
+            (m (the int (* 16.0 (fmax (-> pr bitem RHUD_GP_TIP) (-> pr bitem RHUD_GP_FAN))))))
+        (if (> nb-bite 0) (+! (-> this t7-bad) 1))
+        (if (> nb-bite (-> this t7-verts)) (set! (-> this t7-verts) nb-bite))
+        (if (> m (-> this t7-max)) (set! (-> this t7-max) m)))
+      (if (> (-> pr bite RHUD_GP_BASE) 0) (+! (-> this t7-base) 1)))
+
+    ;; --- terme 8 : LA NUEE D'ECO EST AU CENTRE DE LA JAUGE (reprise du 18/09).
+    ;; CE N'EST PAS UN MIROIR. On ne relit pas `init-pos`, qu'on vient d'ecrire : on lit la case
+    ;; HVDF que la machinerie du HUD a remplie pour le lanceur ACTIF (`draw-particles`,
+    ;; engine/ui/hud.gc:110-113, qui tourne AVANT `draw-hud` — hud.gc:228), et on la confronte au
+    ;; centre de l'anneau RELU DANS LE BUFFER DMA. Deux producteurs independants : le code
+    ;; d'origine d'un cote, nos octets emis de l'autre.
+    ;; La chaine a defaire est celle de `hud.gc` :  hvdf_x = (int)(-256 + cx) + 2048
+    ;;                                              hvdf_y = (int)(0,5 (cy - screen_sy)) + 2048
+    ;; d'ou cx = hvdf_x - 1792 et cy = 2 (hvdf_y - 2048) + screen_sy. La troncature a l'entier
+    ;; coute jusqu'a 1 unite en x et 2 en y : la tolerance est a 3, quand le defaut que l'owner a
+    ;; vu en valait 16,2.
+    (let ((idx (-> this last-eco-idx)))
+      (when (and (>= nb 4) (>= idx 0) (< idx (-> this nb-of-particles))
+                 (> (-> this particles idx part matrix) 0)
+                 ;; la chaine y n'est defaisable que dans ce regime : `relative-y-scale` a 1 et
+                 ;; aucun decalage d'empilement d'elements. Hors de la, on ne MESURE pas, et le
+                 ;; denominateur `hud_gauge_t8_n` le dit au lieu de le taire.
+                 (zero? (-> this y-offset))
+                 (< (fabs (- (-> *video-parms* relative-y-scale) 1.0)) 0.0005))
+        (let* ((hv (sprite-get-user-hvdf (-> this particles idx part matrix)))
+               (bcx (* 0.5 (+ (-> pr minx RHUD_GP_BASE) (-> pr maxx RHUD_GP_BASE))))
+               (bcy (* 0.5 (+ (-> pr miny RHUD_GP_BASE) (-> pr maxy RHUD_GP_BASE))))
+               (pcx (- (-> hv x) 1792.0))
+               (pcy (+ (* 2.0 (- (-> hv y) 2048.0)) (the float (-> *video-parms* screen-sy))))
+               (d (max (the int (* 16.0 (fabs (- pcx (rhud-gp-px bcx)))))
+                       (the int (* 16.0 (fabs (- pcy (rhud-gp-py bcy))))))))
+          (+! (-> this t8-n) 1)
+          (if (> d (-> this t8-max)) (set! (-> this t8-max) d))
+          (if (>= d RHUD_GAUGE_NUEE_TOL) (+! (-> this t8-pos-bad) 1)))
+        ;; OBSERVATION hors porte : combien d'etats du lanceur actif portent une particule vivante.
+        ;; Le rendu de cette construction n'est pas en doute — l'owner a VU la nuee precedente, au
+        ;; meme endroit du code, et le portage vert (720) est livre et valide depuis le 17/09 ;
+        ;; c'est son CONTENU et sa POSITION qu'il a refuses. On publie donc la grandeur, on ne la
+        ;; met pas dans la somme.
+        (let ((lc (-> this particles idx part)) (live 0))
+          (when (nonzero? lc)
+            (dotimes (i (-> lc length))
+              (if (nonzero? (-> lc data i sprite)) (+! live 1)))
+            (set! (-> this t8-states) (-> lc length))
+            (if (> live (-> this t8-live)) (set! (-> this t8-live) live))))))
+
     ;; --- terme 5 : LA POSITION. les trois primitives sur UN centre, celui de la jauge d'ORIGINE.
     ;; Juge uniquement les images ou l'animation d'arrivee est finie (`offset` nul) : sinon on
     ;; comparerait un HUD en cours de glissement a une position de repos.
@@ -1842,6 +2270,9 @@
 ;; COMPTE les images ecartees, et on publie les deux — au lieu d'elargir la fenetre jusqu'a
 ;; mesurer la peremption de l'oracle plutot que la jauge.
 (defconstant RHUD_GB_T4_MIN 25)
+;; Amplitude de rotation d'embout exigee pour que le terme 2 soit dit MESURE, en milli-degres.
+;; Un vidage complet la fait parcourir 270 degres ; on en exige le tiers.
+(defconstant RHUD_GB_TIP_SWEEP 90000)
 
 (defun rhud-gauge-phase-len ((ph int))
   (case ph
@@ -1892,7 +2323,8 @@
     (let* ((t1 (if (>= (-> this t1-n) RHUD_GB_MIN)
                  (begin (+! measured 1) (-> this t1-bad))
                  (+ (-> this t1-bad) 1)))
-           (t2 (if (and (>= (-> this t2-n) RHUD_GB_MIN) (> (-> this t2-max) 0))
+           (t2 (if (and (>= (-> this t2-n) RHUD_GB_MIN)
+                        (>= (- (-> this t2-rot-hi) (-> this t2-rot-lo)) RHUD_GB_TIP_SWEEP))
                  (begin (+! measured 1) (+ (-> this t2-bad) (-> this t2-ghost)))
                  (+ (-> this t2-bad) (-> this t2-ghost) 1)))
            (t3 (if (>= (-> this t3-n) RHUD_GB_MIN)
@@ -1912,13 +2344,29 @@
            ;; sorti » se lit aussi bien sur une jauge qui ne marche pas du tout.
            (t6 (if (and (>= (-> this off-frames) RHUD_GB_MIN) (>= (-> this draws) RHUD_GB_MIN))
                  (begin (+! measured 1) (+ (-> this off-draws) (-> this off-stock-ko)))
-                 (+ (-> this off-draws) (-> this off-stock-ko) 1))))
+                 (+ (-> this off-draws) (-> this off-stock-ko) 1)))
+           ;; LE QUART INTERDIT. Le terme n'est MESURE que si le CONTROLE POSITIF a parle : l'anneau
+           ;; vide est un quad plein, il DOIT mordre le quadrant a chaque image. `t7-base` a zero
+           ;; veut dire que l'instrument n'a rien regarde, et un zero par inaction n'est pas un
+           ;; succes — le terme vaut alors un, comme les autres aveugles.
+           (t7 (if (and (>= (-> this t7-n) RHUD_GB_MIN) (>= (-> this t7-base) RHUD_GB_MIN))
+                 (begin (+! measured 1) (-> this t7-bad))
+                 (+ (-> this t7-bad) 1)))
+           ;; LA VRAIE PARTICULE D'ECO, AU CENTRE. Deux sous-termes : la nuee est sur le centre de
+           ;; la jauge, et ses lanceurs sont bien ceux du RAMASSABLE. Le second n'est mesure que si
+           ;; des champs ont ete CONFRONTES : `t8-compared` a zero dirait que la table de parts
+           ;; n'etait pas la, pas que la copie est conforme.
+           (t8 (if (and (>= (-> this t8-n) RHUD_GB_MIN) (> (-> this t8-compared) 0))
+                 (begin (+! measured 1) (+ (-> this t8-pos-bad) (-> this t8-mismatch)))
+                 (+ (-> this t8-pos-bad) (-> this t8-mismatch) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
       (__pc-autoport-publish "hud_gauge_t4_drain" t4)
       (__pc-autoport-publish "hud_gauge_t5_position" t5)
       (__pc-autoport-publish "hud_gauge_t6_off" t6)
+      (__pc-autoport-publish "hud_gauge_t7_quart" t7)
+      (__pc-autoport-publish "hud_gauge_t8_centre" t8)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
@@ -1926,6 +2374,9 @@
       (__pc-autoport-publish "hud_gauge_t2_n" (-> this t2-n))
       (__pc-autoport-publish "hud_gauge_t2_max_mdeg" (-> this t2-max))
       (__pc-autoport-publish "hud_gauge_t2_ghost" (-> this t2-ghost))
+      (__pc-autoport-publish "hud_gauge_t2_rot_span_mdeg" (- (-> this t2-rot-hi) (-> this t2-rot-lo)))
+      (__pc-autoport-publish "hud_gauge_t2_rot_lo_mdeg" (-> this t2-rot-lo))
+      (__pc-autoport-publish "hud_gauge_t2_rot_hi_mdeg" (-> this t2-rot-hi))
       (__pc-autoport-publish "hud_gauge_t3_n" (-> this t3-n))
       (__pc-autoport-publish "hud_gauge_t4_n" (-> this t4-n))
       (__pc-autoport-publish "hud_gauge_t4_max" (-> this t4-max))
@@ -1961,7 +2412,21 @@
       ;; le plancher angulaire de l'instrument : la quantification 12.4 de l'embout. Publie pour
       ;; que la porte ne soit pas en train de mesurer sa propre tolerance.
       (__pc-autoport-publish "hud_gauge_quant_floor_mdeg" (-> this quant-mdeg))
-      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6))))
+      ;; terme 7 : la morsure du quart interdit, ses denominateurs et son CONTROLE POSITIF
+      (__pc-autoport-publish "hud_gauge_t7_n" (-> this t7-n))
+      (__pc-autoport-publish "hud_gauge_t7_verts" (-> this t7-verts))
+      (__pc-autoport-publish "hud_gauge_t7_max_16th" (-> this t7-max))
+      (__pc-autoport-publish "hud_gauge_t7_base_ctrl" (-> this t7-base))
+      ;; terme 8 : la nuee du centre — position, puis conformite au ramassable du monde
+      (__pc-autoport-publish "hud_gauge_t8_n" (-> this t8-n))
+      (__pc-autoport-publish "hud_gauge_t8_pos_bad" (-> this t8-pos-bad))
+      (__pc-autoport-publish "hud_gauge_t8_max_16th" (-> this t8-max))
+      (__pc-autoport-publish "hud_gauge_t8_spec_compared" (-> this t8-compared))
+      (__pc-autoport-publish "hud_gauge_t8_spec_excluded" (-> this t8-excluded))
+      (__pc-autoport-publish "hud_gauge_t8_spec_mismatch" (-> this t8-mismatch))
+      (__pc-autoport-publish "hud_gauge_t8_live_max" (-> this t8-live))
+      (__pc-autoport-publish "hud_gauge_t8_live_states" (-> this t8-states))
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8))))
   (none))
 
 ;;;----------------------------------------------
@@ -2007,12 +2472,19 @@
   ;; hud-eco-gauge : l'instrument. `t4-lo` part du HAUT, sinon la plage observee vaudrait tout de
   ;; suite le maximum et le terme se dirait mesure sans avoir rien vu se vider.
   (set! (-> this t4-lo) 100000)
+  (set! (-> this t2-rot-lo) 1000000)
+  (set! (-> this t2-rot-hi) -1000000)
   (set! (-> this last-frac) -1)
   (set! (-> this bench-phase) 0)
   (set! (-> this bench-n) 0)
   ;; le plancher angulaire de l'embout : une arete de 2*hs unites de canevas, dont l'ordonnee est
   ;; quantifiee au 1/8 (xyzf2 en 12.4, et `py` divise par deux avant).
-  (set! (-> this quant-mdeg) (the int (* RHUD_MDEG_PER_ROT (atan 0.125 (* 2.0 RHUD_GAUGE_HALF)))))
+  ;; L'embout est desormais un eventail : sa rotation se lit entre un sommet de JANTE (a
+  ;; 1,5 x hs du centre) et son UV. Le plancher est donc celui de cette jante, pas celui d'une
+  ;; arete de quad. 0,25 = les deux quantifications en y (celle du centre et celle de la jante).
+  (set! (-> this quant-mdeg) (the int (* RHUD_MDEG_PER_ROT (atan 0.25 (* 1.5 RHUD_GAUGE_HALF)))))
+  ;; l'identite des trois emetteurs du centre : une comparaison de donnee statique, une fois.
+  (rhud-gauge-eco-identity this)
   0
   (none))
 
@@ -2024,6 +2496,9 @@
   (let ((on (and (-> *pc-settings* recharged-master?) (-> *pc-settings* recharged-hud?) #t)))
     (set! (-> this stock-off) on)
     (if on (rhud-power-suppress-stock) (rhud-power-restore-stock))
+    ;; reprise 18/09 : la nuee du centre se recale sur la jauge d'ORIGINE a chaque image. Pose ICI
+    ;; et pas dans `draw-hud` : `draw-particles` consomme `init-pos` AVANT `draw-hud` (hud.gc:228).
+    (rhud-gauge-particles-follow this)
     (set! (-> this probe?) (and (nonzero? (__pc-autoport-cost-probe "hud-eco-gauge")) #t))
     (if (-> this probe?) (rhud-gauge-bench this on))
     (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60))
@@ -2076,6 +2551,8 @@
              (fx (rhud-aspect-fx))
              (jfrac 0.0)
              (jwant RHUD_TBP_GAUGE_BLUE_FULL))
+        ;; hud-eco-gauge : l'origine du test « quart interdit », posee AVANT le premier sommet.
+        (if (-> this probe?) (rhud-gauge-probe-center cx cy fx))
         ;; empty ring base
         (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_BASE))
         (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
@@ -2115,7 +2592,9 @@
                 ;; tip: authored at the full position, rotated back to the fill edge
                 (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_TIP))
                 (rhud-set-shader buf tbp-end)
-                (rhud-quad buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) (rhud-rgba 128 128 128 aa))
+                ;; reprise 18/09 : meme rotation qu'avant, mais DECOUPE au secteur remplissable —
+                ;; l'embout ne mord plus le quart bas-droit (voir l'en-tete de `rhud-tip-fan`).
+                (rhud-tip-fan buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) aa)
                 (set! (-> *rhud-gauge-probe* tag) -1)
                 ;; owner round-3 item 3: the ACTIVE eco's real particle system in the center
                 ;; hole (the same launcher clone per type; spawn only the active one)
