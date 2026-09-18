@@ -2728,6 +2728,20 @@
 ;; le terme §10 n'est declare mesure qu'au-dela de ce nombre d'images ou la pile est dessinee
 (defconstant HUD3D_GLOW_MIN 300)
 
+;; LA JOINTURE SUR LAQUELLE LE JEU POSE LA LUEUR DE LA PILE. Deux sites, aucun de nous :
+;;   * dans le MONDE — la reference de l'owner — le prim de collision de la pile est accroche a
+;;     `transform-index 3` avec un centre local nul (collectables.gc:1102-1103), et
+;;     `fuel-cell-animate` lance la lueur SUR CE PRIM (collectables.gc:858-859).
+;;   * dans le HUD D'ORIGINE, `hud-fuel-cell::hud-update` lit `node-list data 3` du modele nu
+;;     (hud-classes.gc:947-951) et divise l'ordonnee par deux pour passer au repere des sprites.
+;; Les DONNEES d'art disent pourquoi ca comptait : les deux modeles declarent la meme sphere
+;; `(static-spherem 0 1 0 1.6)` — centre a 4096 unites AU-DESSUS de l'origine — mais la jointure 3
+;; est a l'origine pour le modele nu (toutes ses jointures y sont) et a (0, -549, 0) pour le modele
+;; du monde. La sphere declaree est un enrobage d'auteur, pas le corps de la pile : s'en servir
+;; comme centre posait la lueur 4645 unites de modele plus bas, soit 41,7 unites d'icone a
+;; l'echelle 0,00899 — « l'effet lumineux est plus bas que la pile » (owner, 18/09).
+(defconstant HUD3D_CELL_GLOW_JOINT 3)
+
 ;; L'ORBE NE DESSINE AUCUN MODELE, ET CE N'EST PAS CETTE COUCHE (mesure du 17/09, bureau).
 ;; `hud-money` porte deja le vrai modele du ramassable (`*money-sg*`, hud-classes.gc:597), mais son
 ;; icone revient SANS SQUELETTE : `hud3d_orb_state=3`. Le bras d'ablation, ou rien de ce fichier ne
@@ -2812,6 +2826,17 @@
    (glow-bad        int32)
    (glow-alloc      int32)
    (glow-alloc-max  int32)
+   ;; §11 LA HAUTEUR DE LA LUEUR (owner, 18/09). Tout est en DIXIEMES d'unite d'icone, et tout
+   ;; est un ECART A L'ORIGINE DU MODELE (`root trans`) : c'est la seule grandeur que la loi de
+   ;; placement laisse libre, donc la seule qui pouvait porter le defaut.
+   (glow-anchor-n        int32)   ;; lancements ancres sur la jointure
+   (glow-anchor-sum      int32)   ;; somme des ecarts, pour la moyenne
+   (glow-anchor-min      int32)
+   (glow-anchor-max      int32)
+   (glow-anchor-bounds   int32)   ;; l'ancienne ancre : le centre de la sphere declaree
+   (glow-anchor-fallback int32)   ;; lancements ou l'os n'etait pas calcule
+   (glow-nd-n            int32)   ;; images ou l'ancre de Naughty Dog etait lisible
+   (glow-nd-sum          int32)
    ;; §9 la sequence qui fait lire la BOITE ENGLOBANTE sur l'image rendue
    (px-phase        int32)
    (px-hold         int32)
@@ -2990,20 +3015,58 @@
 ;;  §10 L'EFFET LUMINEUX DE LA PILE
 ;;;----------------------------------------------
 
+(defun hud3d-joint-pos! ((out vector) (ic (pointer manipy)) (idx int))
+  "Ecrit dans `out` la position de la jointure `idx` de ce modele, DANS LE REPERE DES ICONES DE
+   HUD, et rend vrai. Rend faux — sans rien ecrire — quand l'os n'a pas encore ete calcule.
+   POURQUOI LE CONTROLE EXISTE : `vector<-cspace!` (process-drawable.gc:39) masque l'os non
+   calcule en rendant un vecteur NUL, indistinguable d'une jointure posee a l'origine du repere.
+   Un vecteur nul pris pour une position enverrait la lueur au centre de l'ecran."
+  (and (hud3d-alive? ic)
+       (nonzero? (-> ic 0 node-list))
+       (< idx (the int (-> ic 0 node-list length)))
+       (nonzero? (-> ic 0 node-list data idx bone))
+       (!= 0.0 (-> ic 0 node-list data idx bone transform vector 3 w))
+       (begin (vector<-cspace! out (-> ic 0 node-list data idx)) #t)))
+
 (defun hud3d-glow-place! ((this hud-3d-pickups) (ic (pointer manipy)))
-  "POSE LA LUEUR SUR LE CENTRE DU MODELE, DANS LE REPERE OU LE JEU POSE SES SPRITES DE HUD.
+  "POSE LA LUEUR SUR LA JOINTURE QUE LE JEU LUI DONNE, DANS LE REPERE OU IL POSE SES SPRITES DE HUD.
    `draw-icons` (hud.gc:72-88) ecrit a chaque image l'ORIGINE du modele dans `root trans`, repli du
    HUD compris : c'est la meme donnee qui fait glisser la pile quand le HUD s'ouvre, et elle vient
-   de l'element D'ORIGINE, pas de nous. Le centre du corps est cette origine plus le centre de la
-   sphere du modele, a l'echelle que `draw-icons` vient de poser (elle porte deja
-   `relative-x/y-scale`, donc l'aspect).
+   de l'element D'ORIGINE, pas de nous. Ce qui restait a decider, c'est le point du MODELE que la
+   lueur entoure — et c'est la que l'essai 5 s'est trompe.
+   L'ESSAI 5 PRENAIT LE CENTRE DE LA SPHERE DECLAREE (`draw bounds`). Les deux modeles de pile
+   declarent `(static-spherem 0 1 0 1.6)`, un enrobage d'auteur centre 4096 unites au-dessus de
+   l'origine, alors que leur jointure 3 est a l'origine (modele nu) ou a (0, -549, 0) (modele du
+   monde) : la lueur partait 41,7 unites d'icone trop bas — « l'effet lumineux est plus bas que la
+   pile d'energie » (owner, 18/09).
+   ON PREND DONC LA JOINTURE 3, comme le jeu (voir HUD3D_CELL_GLOW_JOINT), sur le modele qu'on
+   DESSINE : ses os sont recalcules a chaque image, ceux de l'icone d'origine ne le sont que
+   lorsqu'elle est dessinee.
    Le passage du repere des ICONES a celui des SPRITES est celui du jeu lui-meme, releve sur
-   `hud-fuel-cell::hud-update` (hud-classes.gc:948-952) : x tel quel, y divise par deux, z = 2,0.
-   Aucun pixel d'appareil, aucune constante de resolution."
-  (let ((p (-> this particles HUD3D_PART_GLOW)))
-    (set! (-> p pos x) (+ (-> ic 0 root trans x) (* (-> ic 0 draw bounds x) (-> ic 0 root scale x))))
-    (set! (-> p pos y) (* 0.5 (+ (-> ic 0 root trans y) (* (-> ic 0 draw bounds y) (-> ic 0 root scale y)))))
-    (set! (-> p pos z) 2.0)
+   `hud-fuel-cell::hud-update` (hud-classes.gc:948-952) : x tel quel, y divise par deux, z ramene
+   autour de 2,0. Aucun pixel d'appareil, aucune constante de resolution."
+  (let ((p (-> this particles HUD3D_PART_GLOW))
+        (j (new 'stack-no-clear 'vector)))
+    (cond
+      ((hud3d-joint-pos! j ic HUD3D_CELL_GLOW_JOINT)
+       (let ((off (the int (* 10.0 (- (-> j y) (-> ic 0 root trans y))))))
+         (+! (-> this glow-anchor-n) 1)
+         (+! (-> this glow-anchor-sum) off)
+         (if (< off (-> this glow-anchor-min)) (set! (-> this glow-anchor-min) off))
+         (if (> off (-> this glow-anchor-max)) (set! (-> this glow-anchor-max) off)))
+       ;; l'ancienne ancre, relue a la meme image : c'est elle qui chiffre le deplacement
+       (set! (-> this glow-anchor-bounds)
+             (the int (* 10.0 (* (-> ic 0 draw bounds y) (-> ic 0 root scale y)))))
+       (set! (-> p pos x) (-> j x))
+       (set! (-> p pos y) (* 0.5 (-> j y)))
+       (set! (-> p pos z) (+ 2.0 (* 0.05 (+ -2048.0 (-> j z))))))
+      (else
+       ;; os pas encore calcule : on retombe sur l'ORIGINE du modele, qui est exactement l'ancre
+       ;; de Naughty Dog pour l'icone d'origine (toutes les jointures du modele nu y sont).
+       (+! (-> this glow-anchor-fallback) 1)
+       (set! (-> p pos x) (-> ic 0 root trans x))
+       (set! (-> p pos y) (* 0.5 (-> ic 0 root trans y)))
+       (set! (-> p pos z) 2.0)))
     (when (> (-> p part matrix) 0)
       (set-vector! (sprite-get-user-hvdf (-> p part matrix))
                    (the float (+ (the int (-> p pos x)) 2048))
@@ -3038,6 +3101,19 @@
              (prev (logtest? (-> this was-hid) (ash 1 5)))
              (prev2 (logtest? (-> this was-hid) (ash 1 6))))
         (set! drawn (if (and want (hud3d-icon-drawn? ic)) #t #f))
+        ;; §11 LE TEMOIN DE HAUTEUR, ET IL N'EST PAS DE NOUS. `hud-fuel-cell::hud-update`
+        ;; (hud-classes.gc:947-951) pose la lueur D'ORIGINE sur la jointure 3 de l'icone
+        ;; D'ORIGINE. On relit cette meme jointure, sur ce meme modele, avec la meme fonction —
+        ;; et on compare son ecart a l'origine du repere au notre. Deux modeles differents, deux
+        ;; chaines d'os differentes, une seule regle : ce n'est pas un miroir de notre calcul.
+        ;; Elle n'est lisible que lorsque l'icone d'origine est DESSINEE, c'est-a-dire pendant les
+        ;; images de regime ORIGINE du banc de cout (~9 500 par course).
+        (when (and fc (> (-> fc 0 nb-of-icons) 0))
+          (let ((ic0 (-> fc 0 icons 0 icon))
+                (nd (new 'stack-no-clear 'vector)))
+            (when (and (hud3d-icon-drawn? ic0) (hud3d-joint-pos! nd ic0 HUD3D_CELL_GLOW_JOINT))
+              (+! (-> this glow-nd-n) 1)
+              (+! (-> this glow-nd-sum) (the int (* 10.0 (- (-> nd y) (-> ic0 0 root trans y))))))))
         ;; LE RECENSEMENT NE JUGE QUE LES IMAGES OU L'ETAT N'A PAS CHANGE, et il ne compte pas le
         ;; meme nombre d'images des deux cotes. C'est la lecon que l'eco verte a deja payee, juste
         ;; en-dessous : le temoin de lancement regarde UNE image DESSINEE en arriere, et sur cet
@@ -3746,6 +3822,35 @@
     (__pc-autoport-publish "hud3d_glow_particles" (-> this glow-alloc))
     (__pc-autoport-publish "hud3d_glow_particles_max" (-> this glow-alloc-max))
     (hud3d-pub-name "hud3d_glow_launchers" "319-320-321-322-ceux-du-groupe-80-de-la-pile-d-origine")
+    ;; §11 LA HAUTEUR DE LA LUEUR. Tout en DIXIEMES d'unite d'icone, tout en ECART A L'ORIGINE du
+    ;; modele. Une unite d'icone = une demi-unite du canevas 512x448.
+    (__pc-autoport-publish "hud3d_glow_anchor_joint" HUD3D_CELL_GLOW_JOINT)
+    (hud3d-pub-name "hud3d_glow_anchor_source"
+                    "jointure-3-du-modele-dessine_comme-le-prim-du-monde-et-l-icone-d-origine")
+    (__pc-autoport-publish "hud3d_glow_anchor_samples" (-> this glow-anchor-n))
+    (__pc-autoport-publish "hud3d_glow_anchor_fallback" (-> this glow-anchor-fallback))
+    (__pc-autoport-publish "hud3d_glow_anchor_off_e1"
+                           (if (> (-> this glow-anchor-n) 0)
+                             (/ (-> this glow-anchor-sum) (-> this glow-anchor-n))
+                             0))
+    (__pc-autoport-publish "hud3d_glow_anchor_min_e1" (if (> (-> this glow-anchor-n) 0) (-> this glow-anchor-min) 0))
+    (__pc-autoport-publish "hud3d_glow_anchor_max_e1" (if (> (-> this glow-anchor-n) 0) (-> this glow-anchor-max) 0))
+    ;; l'ancre de l'essai 5 — le centre de la sphere declaree — relue a la meme image
+    (__pc-autoport-publish "hud3d_glow_anchor_bounds_e1" (-> this glow-anchor-bounds))
+    (__pc-autoport-publish "hud3d_glow_anchor_moved_e1"
+                           (if (> (-> this glow-anchor-n) 0)
+                             (abs (- (/ (-> this glow-anchor-sum) (-> this glow-anchor-n))
+                                     (-> this glow-anchor-bounds)))
+                             0))
+    ;; le temoin de Naughty Dog : meme jointure, meme fonction, sur le modele NU de l'icone d'origine
+    (__pc-autoport-publish "hud3d_glow_nd_samples" (-> this glow-nd-n))
+    (__pc-autoport-publish "hud3d_glow_nd_off_e1"
+                           (if (> (-> this glow-nd-n) 0) (/ (-> this glow-nd-sum) (-> this glow-nd-n)) 0))
+    (__pc-autoport-publish "hud3d_glow_nd_delta_e1"
+                           (if (and (> (-> this glow-nd-n) 0) (> (-> this glow-anchor-n) 0))
+                             (abs (- (/ (-> this glow-anchor-sum) (-> this glow-anchor-n))
+                                     (/ (-> this glow-nd-sum) (-> this glow-nd-n))))
+                             999999))
 
     ;; ── §3 LA POSITION ET LA TAILLE ─────────────────────────────────────────────────────────
     ;; Chaque emplacement est confronte au rectangle de l'element D'ORIGINE, dans le repere ou les
@@ -3981,6 +4086,23 @@
                           (if (zero? (-> this glow-bad)) 0 1)
                           ;; et le systeme a bien alloue des particules pour elle
                           (if (> (-> this glow-alloc) 0) 0 1)))
+                     1))
+               ;; §11 — LA HAUTEUR DE LA LUEUR (owner, 18/09 : « l'effet lumineux est plus bas que
+               ;; la pile d'energie »). Trois grandeurs, toutes sur l'ancre elle-meme, en dixiemes
+               ;; d'unite d'icone (une unite d'icone = une demi-unite du canevas 512x448).
+               (t9 (if (and (>= (-> this glow-anchor-n) HUD3D_GLOW_MIN) (> (-> this glow-nd-n) 0))
+                     (let ((mo (/ (-> this glow-anchor-sum) (-> this glow-anchor-n)))
+                           (mn (/ (-> this glow-nd-sum) (-> this glow-nd-n))))
+                       (+! measured 1)
+                       (+ ;; chaque lancement est ancre sur la jointure du modele, jamais sur un repli
+                          (if (zero? (-> this glow-anchor-fallback)) 0 1)
+                          ;; l'ancre N'EST PLUS le centre de la sphere declaree : verdict d'EFFET,
+                          ;; sans lui la porte serait verte par inaction. Le defaut chiffre valait
+                          ;; 41,7 unites d'icone ; on exige au moins 10.
+                          (if (> (abs (- mo (-> this glow-anchor-bounds))) 100) 0 1)
+                          ;; et elle est a la hauteur ou le jeu pose la sienne pour cette icone,
+                          ;; a 15 unites d'icone pres (7,5 unites de canevas)
+                          (if (<= (abs (- mo mn)) 150) 0 1)))
                      1)))
           (__pc-autoport-publish "hud3d_t1_identity" t1)
           (__pc-autoport-publish "hud3d_t2_sprites" t2)
@@ -3989,6 +4111,7 @@
           (__pc-autoport-publish "hud3d_t7_place" t7)
           (__pc-autoport-publish "hud3d_t5_off" t5)
           (__pc-autoport-publish "hud3d_t8_glow" t8)
+          (__pc-autoport-publish "hud3d_t9_glow_height" t9)
           (__pc-autoport-publish "hud3d_px_cell_term_retire_par_l_owner" 1)
           (__pc-autoport-publish "hud3d_px_dcx2_abs" px-dcx2)
           (__pc-autoport-publish "hud3d_px_dcy2_abs" px-dcy2)
@@ -3997,7 +4120,7 @@
           (__pc-autoport-publish "hud3d_px_w_ratio_milli" (if (> px-ws 0) (/ (* 1000 px-wo) px-ws) 0))
           (__pc-autoport-publish "hud3d_px_h_ratio_milli" (if (> px-hs 0) (/ (* 1000 px-ho) px-hs) 0))
           (__pc-autoport-publish "hud3d_terms_measured" measured)
-          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8))))))
+          (__pc-autoport-publish "hud_model_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9))))))
   0)
 
 
@@ -4316,6 +4439,10 @@
   (set! (-> this y-sgn) -1)
   (set! (-> this friend) -1)
   (set! (-> this regime) 0)
+  ;; §11 sentinelles de l'ecart d'ancre (dixiemes d'unite d'icone) : une course entiere tient
+  ;; largement dans ces bornes, et `glow_anchor_samples` dit si elles ont ete touchees.
+  (set! (-> this glow-anchor-min) 999999)
+  (set! (-> this glow-anchor-max) -999999)
   (set! (-> this block-n) HUD3D_BENCH_BLOCK)
   (set! (-> this bench-last) 0)
   0
