@@ -812,12 +812,12 @@
  },
  "hud-3d-pickups": {
   "build_announced": "ab6c168f98c2",
-  "hash": "2268608064ce68fa552742265398d82ae704a556",
+  "hash": "ff72e2ce8bc83bf0a2392e92141528c7a04b3148",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "Todo",
   "last_verdict_announced": "validator-006.txt",
-  "pulled_at": "2026-09-18T05:16:11.162Z",
+  "pulled_at": "2026-09-18T05:23:38.668Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
@@ -835,12 +835,12 @@
  },
  "hud-eco-gauge": {
   "build_announced": "ab6c168f98c2",
-  "hash": "ab6ab43b8233059f5d2e05c6ff0da3877b4629ff",
+  "hash": "fcf4fc19e51ffb455d8eb324a3ba91c67b2f0e2e",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-18T05:14:33.429Z",
+  "pulled_at": "2026-09-18T05:24:44.567Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1380,6 +1380,14 @@
   ],
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
+ "recharged-hud-toggle": {
+  "hash": "4779fdff1a36df2c0916ea8df571dd9c4d1dd2c9",
+  "identifier": "JAK-181",
+  "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-18T05:24:42.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
+ },
  "recharged-lightprobes": {
   "hash": "6d1d80667899cef1b6694d6919497e48a19d1c5a",
   "identifier": "JAK-31",
@@ -1495,11 +1503,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "hash": "bcef92270b32d3c70acb2c9ffb6fc8b63571097c",
+  "hash": "689597147a7ece1ee1a76e1f325679b167afcc9e",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-001.txt",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T06:51:42.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
  },

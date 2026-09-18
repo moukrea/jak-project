@@ -560,11 +560,17 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
     return n
 
 
-def adopt_owner_order(L, bl, mp, states, dry):
+def adopt_owner_order(L, bl, mp, states, dry, skip=()):
     """Le pendant natif du rang = l'ordre manuel de la colonne Todo (sortOrder). Si l'owner reordonne
     a la main, le backlog adopte cet ordre : les rangs des eligibles sont permutes, rien d'autre ne bouge
     (owner 17/09, JAK-174 : « si ça pouvait être adapté programmatiquement ce serait encore mieux »)."""
-    el = [i for i in bl.items if i["status"] == "open" and isinstance(i.get("priority"), int) and eligible(bl, i) and i["id"] in mp]
+    # 18/09 07:30 : un ticket CREE dans ce tour est place en tete de colonne par Linear lui-meme
+    # (le `sortOrder` passe a la creation ne survit pas au reglage d'equipe). Sans l'exclusion, la
+    # synchro lisait sa propre creation comme un geste de l'owner, ecrivait « owner a reordonne » et
+    # permutait les rangs : la regression de la jauge est passee DERRIERE le ticket qui venait de
+    # naitre. On n'adopte que l'ordre des tickets qui existaient AVANT ce tour.
+    el = [i for i in bl.items if i["status"] == "open" and isinstance(i.get("priority"), int)
+          and eligible(bl, i) and i["id"] in mp and i["id"] not in skip]
     if len(el) < 2:
         return 0
     ids = {mp[i["id"]]["issue_id"]: i for i in el}
@@ -1173,6 +1179,7 @@ def main():
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
         bl = B.load()
     created = updated = moved = 0
+    created_ids = set()
     for it in bl.items:
         iid = it["id"]
         if a.only and iid != a.only:
@@ -1200,6 +1207,12 @@ def main():
             mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": iss["url"],
                        "last_state": st, "hash": h, "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
             created += 1
+            created_ids.add(iid)
+            # Le rang du backlog est REIMPOSE apres coup : a la creation, Linear place le ticket ou son
+            # reglage d'equipe le veut, pas ou le `sortOrder` demande le met.
+            if isinstance(it.get("priority"), int):
+                L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
+                    id=iss["id"], i={"sortOrder": float(it["priority"])})
         else:
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
@@ -1218,7 +1231,7 @@ def main():
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
     adopted = adopt_owner_issues(L, bl, mp, team, todo, a.dry_run)
-    if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run):
+    if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run, skip=created_ids):
         bl = B.load()
     rel = sync_relations(L, bl, mp, a.dry_run)
     announce_verdicts(L, bl, mp, label, a.dry_run)

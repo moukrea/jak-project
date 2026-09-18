@@ -13437,6 +13437,8 @@ items:
     text: Alors il la jauge d'Eco a disparue (dans le sens où c'est toujours l'ancienne sur les build
       que je lance…) je pense qu'un autre ticket a écrasé un truc ! Alors faut trouver pourquoi et corriger
       ! En attendant je vérifie les autres tickets en attente de retour
+  - date: '2026-09-18'
+    text: Non le cœur est bon, t'aurais dû le voir par toi même j'ai validé son ticket !
   block_reason: ''
 - status: open
   game: jak1
@@ -13605,6 +13607,10 @@ items:
     text: Alors j'ai l'impression que c'est bon ! Mais la pile d'énergie est un peu étirée en largeur
       il semblerait par rapport à celles qu'on voit in game… peut-être une histoire d'aspect ratio, à
       vérifier si tu peux et ajuster en conséquence
+  - date: '2026-09-18'
+    text: Yep et j'ai autre chose, peut-être que ça mérite son propre ticket… j'ai oublié de préciser,
+      mais on doit avoir un toggle dans les réglages rechargés pour activer ou désactiver le HUD rechargé
+      justement ! Par defaut à on, hérite du master toggle rechargé… à off c'est le HUD d'origine !
   gate_verdict:
     result: porte-tenue
     date: '2026-09-18'
@@ -14018,3 +14024,32 @@ items:
     attempt: 1
     journal: validator-001.txt
   delivered: '2026-09-17'
+- id: recharged-hud-toggle
+  feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
+    le HUD d'origine
+  status: open
+  priority: 11
+  owner_test: true
+  depends_on: []
+  spec: prompts/SPEC-refonte-hud.md
+  gate:
+    key: recharged_hud_toggle_defects
+    op: ==
+    value: 0
+  where: 'Réglages > Options graphiques > Réglages Recharged : la ligne « HUD rechargé » existe, elle
+    est sur ON par défaut ; sur OFF, le cœur, la jauge d''éco, la mécamouche, l''orbe, l''éco verte et
+    la pile redeviennent ceux du jeu d''origine, et sur ON ils redeviennent les nôtres ; le maître Recharged
+    éteint reste prioritaire.'
+  known_cause: 'Cree le 18/09 07:30 par le superviseur, sur demande de l''owner (JAK-177) : « on doit
+    avoir un toggle dans les reglages recharges pour activer ou desactiver le HUD recharge ! Par defaut
+    a on, herite du master toggle recharge… a off c''est le HUD d''origine ! ». ETAT MESURE AU MOMENT
+    DE LA CREATION : le reglage `recharged-hud?` EXISTE dans pc-settings et les quatre chantiers du HUD
+    le lisent deja a l''execution ; ce qui MANQUE est la LIGNE DE MENU — progress-pc.gc:1597 la pose sous
+    `#when FLAG_RECHARGED_HUD`, drapeau de compilation a #f dans l''arbre suivi, donc ABSENTE du binaire
+    livre (meme piege que le coeur, la jauge et les ramassables, tous sortis du drapeau les 17 et 18/09).
+    Le libelle et l''aide existent deja (*recharged-hud-label*, pc-text-hint-rhud). PORTE : elle se lit
+    sur le binaire LIVRE — la ligne est presente, sa valeur par defaut est ON, le passage a OFF ramene
+    a zero les dessins des quatre pieces rechargees ET remet a non-zero ceux des pieces d''origine, le
+    retour a ON fait l''inverse, et le maitre Recharged eteint garde la priorite. Un terme non mesure
+    compte 1.'
+  prompt: prompts/item-recharged-hud-toggle.md
