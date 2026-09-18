@@ -5,7 +5,7 @@
 # Mécamouche, orbe, particule d'éco verte et pile d'énergie du HUD : les vrais modèles du jeu à la place des sprites
 
 ## Defaut cite
-- 2026-09-18 : « Alors t'aurais pu joindre un screen ça aurait accéléré les c… »
+- 2026-09-18 : « Alors j'ai l'impression que c'est bon ! Mais la pile d'énerg… »
 
 ## Cause connue
 17/09 20:55 REFUS OWNER (build 4833ab) : orbe, mecamouche, eco vert acquis ; la PILE D'ENERGIE apparait minuscule et « squeezee » au centre de l'ecran, avec la bonne animation mais pas la bonne place ni la bonne echelle (positionnement absolu suspecte, aspect faux). La mesure de position de l'essai 2 a rendu 0 px pour la pile : elle mesurait a cote. Corriger la mesure d'abord, puis la pile. Ne pas toucher aux trois autres elements.
@@ -24,7 +24,7 @@
 ## Preuve exigee
 `hud_model_defects == 0` dans `reports/hud-3d-pickups/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-3d-pickups device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la lueur de la pile d'energie est-elle a la MEME hauteur que la pile elle-meme ? (position de la pile, taille, lueur presente et les trois autres emplacements sont deja valides par l'owner : ne pas les redemander)..
+Ou l'owner regardera : HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la pile d'energie du HUD a-t-elle les MEMES proportions que celle posee dans le monde, ou est-elle encore etiree en largeur ? (la hauteur de la lueur, la position, la presence de la lueur et les trois autres emplacements sont valides par l'owner : ne pas les redemander)..
 
 ## Hors perimetre
 Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.

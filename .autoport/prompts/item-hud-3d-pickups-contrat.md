@@ -19,6 +19,10 @@ SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus u
 
 18/09 02:50 ARBITRAGE OWNER : « l'effet lumineux est bien la mais il n'est pas au meme niveau que la pile d'energie ! La pile est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile) alors qu'il devrait etre au meme niveau ». PERIMETRE UNIQUE : la hauteur de la lueur, a recaler sur celle de la pile. La presence de la lueur, la position de la pile, sa taille et les trois autres emplacements sont ACQUIS. L'ecart est VERTICAL seulement. Et : « t'aurais pu joindre un screen ca aurait accelere les choses » -> joindre une capture de la zone au commentaire de passage en test (DIRECTIVES, Ticket Linear).
 
+18/09 04:25 SUPERVISEUR : essai 5 a RECALE la lueur (ancrage sur la jointure 3 du modele, celle que le jeu utilise, au lieu du centre de la sphere declaree, 4096 unites trop haut dans les donnees d'art ; commits 3b14dc298a + f0f1b7e9b9, DANS le build publie c97d1e-cad029). L'essai 6 n'a laisse aucune note et n'a touche aucun code : plafond epuise sur un essai vide. La porte machine reste bloquee sur des termes que l'appareil ne peut pas mesurer (bruit au-dessus du signal, etabli a l'essai 4). Application de la regle de l'owner : c'est LUI qui tranche la hauteur, une seule question, pas d'essai supplementaire a l'aveugle.
+
+18/09 07:15 ARBITRAGE OWNER : « j'ai l'impression que c'est bon ! Mais la pile d'energie est un peu ETIREE EN LARGEUR par rapport a celles qu'on voit in game… peut-etre une histoire d'aspect ratio, a verifier et ajuster ». La hauteur de la lueur est ACQUISE. PERIMETRE UNIQUE : les proportions de la pile du HUD, a ramener sur celles du modele pose dans le monde. INSTRUMENT AUTORISE (l'agent l'avait demande a l'essai 4, refus de le batir sans accord) : la BOITE DES SOMMETS TRANSFORMES lue au moment du dessin de HUD, pas de lecture d'image, pas de seuil statistique, une image suffit ; la grandeur est le rapport largeur/hauteur de cette boite, compare au meme rapport pour le ramassable du monde. C'est exactement la mesure que le bruit de l'appareil interdisait par difference d'images. La porte se lit sur ce rapport, et le vantage doit couvrir 21:9 ET 4:3 basse resolution (l'owner joue en 4:3 basse resolution).
+
 ## Livrable — le contrat, en entier
 
 `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
@@ -57,7 +61,7 @@ Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
 
 ## Ou l'owner regardera
 
-HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la lueur de la pile d'energie est-elle a la MEME hauteur que la pile elle-meme ? (position de la pile, taille, lueur presente et les trois autres emplacements sont deja valides par l'owner : ne pas les redemander).
+HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la pile d'energie du HUD a-t-elle les MEMES proportions que celle posee dans le monde, ou est-elle encore etiree en largeur ? (la hauteur de la lueur, la position, la presence de la lueur et les trois autres emplacements sont valides par l'owner : ne pas les redemander).
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -108,6 +112,9 @@ HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE quest
 
 ### 2026-09-18
 > Alors t'aurais pu joindre un screen ça aurait accéléré les choses… j'ai glané sur le Redmi étant à côté, chargé une partie, affiché le HUD… bah l'effet lumineux est bien là mais il n'est pas au même niveau que la pile d'énergie ! La pile d'énergie est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile d'énergie alors qu'il devrait être au même niveau !
+
+### 2026-09-18
+> Alors j'ai l'impression que c'est bon ! Mais la pile d'énergie est un peu étirée en largeur il semblerait par rapport à celles qu'on voit in game… peut-être une histoire d'aspect ratio, à vérifier si tu peux et ajuster en conséquence
 
 ## Pourquoi ce fichier existe
 
