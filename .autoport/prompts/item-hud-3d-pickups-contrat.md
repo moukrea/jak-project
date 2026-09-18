@@ -17,6 +17,8 @@ SPEC HUD §5, mots de l'owner du 17/09 : « la vraie mecamouche du jeu et plus u
 
 18/09 00:20 ARBITRAGE OWNER, sur photo (owner-feedback/hud-3d-pickups/20260917T2215-1.jpg) : « elle est bien à son emplacement attendu ! Mais […] une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! […] c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! ». PERIMETRE UNIQUE DE LA REPRISE : donner a la pile du HUD l'effet lumineux qu'elle a dans le monde. Position, taille et les trois autres emplacements sont ACQUIS par l'owner et NE SE RETOUCHENT PAS. Le terme §9 (stabilite par difference d'images) reste inexploitable sur l'appareil, il ne motive aucun essai. La porte de cette reprise se lit sur une grandeur de l'effet lui-meme (l'element lumineux du monde est-il emis pour l'icone de HUD, et combien de fois par image), jamais sur une image. Si la mesure bute sans cause nommee : demander a l'owner, ne pas relancer un essai.
 
+18/09 02:50 ARBITRAGE OWNER : « l'effet lumineux est bien la mais il n'est pas au meme niveau que la pile d'energie ! La pile est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile) alors qu'il devrait etre au meme niveau ». PERIMETRE UNIQUE : la hauteur de la lueur, a recaler sur celle de la pile. La presence de la lueur, la position de la pile, sa taille et les trois autres emplacements sont ACQUIS. L'ecart est VERTICAL seulement. Et : « t'aurais pu joindre un screen ca aurait accelere les choses » -> joindre une capture de la zone au commentaire de passage en test (DIRECTIVES, Ticket Linear).
+
 ## Livrable — le contrat, en entier
 
 `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
@@ -55,7 +57,7 @@ Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
 
 ## Ou l'owner regardera
 
-HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la pile d'energie du HUD a-t-elle le meme effet lumineux que la pile posee dans le monde ? (position, taille et les trois autres emplacements sont deja valides par l'owner le 18/09, ne pas les redemander).
+HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la lueur de la pile d'energie est-elle a la MEME hauteur que la pile elle-meme ? (position de la pile, taille, lueur presente et les trois autres emplacements sont deja valides par l'owner : ne pas les redemander).
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -103,6 +105,9 @@ HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE quest
 
 ### 2026-09-17
 > Alors elle est bien à sont emplacement attendu ! Mais il y a un mais que tu peux voir sur le screen, une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! Sinon c'est vraiment pas mal ! Donc c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! Encore une fois, plutôt que se fatiguer en preuves visuelles que t'arrives pas à prendre… j'ai répondu en quelques minutes !  ![71492.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/0a99d129-a2ee-424d-bbb3-7bc5042efece/69fb552b-fc1f-4d50-96f1-be7be1edd055) [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T2215-1.jpg]
+
+### 2026-09-18
+> Alors t'aurais pu joindre un screen ça aurait accéléré les choses… j'ai glané sur le Redmi étant à côté, chargé une partie, affiché le HUD… bah l'effet lumineux est bien là mais il n'est pas au même niveau que la pile d'énergie ! La pile d'énergie est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile d'énergie alors qu'il devrait être au même niveau !
 
 ## Pourquoi ce fichier existe
 

@@ -13313,7 +13313,7 @@ items:
     33 % il clignote sur le coeur vide, au meme rythme que dans le jeu d''origine.'
   out_of_scope: Ne touche pas a la jauge, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-heart.md
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13388,7 +13388,7 @@ items:
 
       Donc c'est pas validé, mais on est VRAIMENT pas mal !
   block_reason: ''
-- status: in-progress
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13430,6 +13430,8 @@ items:
     18/09 00:10 ESSAI 4 — ETABLI par l'agent : la cause de « la pile minuscule et ecrasee » est TROUVEE ET CORRIGEE (la pile etait le seul des quatre emplacements route vers Merc2, qui n'a aucun chemin HUD et divise par le w du monde ; elle passe desormais par dma-add-process-drawable-hud-with-cell-lights, le chemin des trois emplacements que l'owner declare bons ; commit a656d3da9e, DANS le build publie 0ed531-cad029). Le seul defaut restant est le terme §9 (stabilite de la boite mesuree par difference d'images) : CHIFFRE INEXPLOITABLE sur cet appareil — derive de 2,8 a 3,4 niveaux de luminance par pixel entre deux images identiques, seuil 6, 0 pixel retenu, controle compris. Le bruit de l'appareil est au-dessus du signal. L'agent demande l'autorisation avant de construire un instrument exact (boite des sommets transformes lue dans Generic2). PAS d'essai 5 : l'owner tranche (regle du 17/09 23:15).
 
     18/09 00:20 ARBITRAGE OWNER, sur photo (owner-feedback/hud-3d-pickups/20260917T2215-1.jpg) : « elle est bien à son emplacement attendu ! Mais […] une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! […] c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! ». PERIMETRE UNIQUE DE LA REPRISE : donner a la pile du HUD l'effet lumineux qu'elle a dans le monde. Position, taille et les trois autres emplacements sont ACQUIS par l'owner et NE SE RETOUCHENT PAS. Le terme §9 (stabilite par difference d'images) reste inexploitable sur l'appareil, il ne motive aucun essai. La porte de cette reprise se lit sur une grandeur de l'effet lui-meme (l'element lumineux du monde est-il emis pour l'icone de HUD, et combien de fois par image), jamais sur une image. Si la mesure bute sans cause nommee : demander a l'owner, ne pas relancer un essai.
+
+    18/09 02:50 ARBITRAGE OWNER : « l'effet lumineux est bien la mais il n'est pas au meme niveau que la pile d'energie ! La pile est au bon niveau, l'effet lumineux est plus bas (en dessous de la pile) alors qu'il devrait etre au meme niveau ». PERIMETRE UNIQUE : la hauteur de la lueur, a recaler sur celle de la pile. La presence de la lueur, la position de la pile, sa taille et les trois autres emplacements sont ACQUIS. L'ecart est VERTICAL seulement. Et : « t'aurais pu joindre un screen ca aurait accelere les choses » -> joindre une capture de la zone au commentaire de passage en test (DIRECTIVES, Ticket Linear).
   deliverable: |-
     `hud_model_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13460,9 +13462,9 @@ items:
     Note (pas un verdict) : la mecamouche est « un peu sombre » ; si l'eclairage du modele dans le HUD est facile a aligner sur celui du sprite d'origine (luminance moyenne comparee), le faire, sinon le signaler dans FINDINGS.
 
     OWNER 17/09 21:15 : « Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce qui me fait penser que tu utilisais du positionnement absolu ! ». Les verdicts 7 et 9 se mesurent dans DEUX configurations, toutes deux sur l'appareil : (a) native 21:9 pleine resolution, (b) ASPECT FORCE 4:3 A BASSE RESOLUTION (le reglage de l'owner). Le placement est une fraction de l'espace HUD d'origine, donc identique dans les deux ; publier les boites et les ecarts pour chacune. Un element juste en 21:9 et faux en 4:3 est un defaut. Toute coordonnee en pixels absolus dans le code de placement est un defaut (publier le nombre de sites de placement et la forme de chacun : fraction d'espace HUD, jamais des pixels).
-  where: 'HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la pile
-    d''energie du HUD a-t-elle le meme effet lumineux que la pile posee dans le monde ? (position, taille
-    et les trois autres emplacements sont deja valides par l''owner le 18/09, ne pas les redemander).'
+  where: 'HUD en jeu, sur le build nomme dans le commentaire « build publie ». UNE question : la lueur
+    de la pile d''energie est-elle a la MEME hauteur que la pile elle-meme ? (position de la pile, taille,
+    lueur presente et les trois autres emplacements sont deja valides par l''owner : ne pas les redemander).'
   out_of_scope: Ne touche ni au coeur ni a la jauge. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-3d-pickups.md
   owner_feedback:
@@ -13539,13 +13541,18 @@ items:
 
       ![71492.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/0a99d129-a2ee-424d-bbb3-7bc5042efece/69fb552b-fc1f-4d50-96f1-be7be1edd055)
       [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T2215-1.jpg]
+  - date: '2026-09-18'
+    text: Alors t'aurais pu joindre un screen ça aurait accéléré les choses… j'ai glané sur le Redmi étant
+      à côté, chargé une partie, affiché le HUD… bah l'effet lumineux est bien là mais il n'est pas au
+      même niveau que la pile d'énergie ! La pile d'énergie est au bon niveau, l'effet lumineux est plus
+      bas (en dessous de la pile d'énergie alors qu'il devrait être au même niveau !
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-17'
-    proof_sha: 8cee5d8af5250729
-    proof_bytes: 52511
-    attempt: 2
-    journal: validator-002.txt
+    date: '2026-09-18'
+    proof_sha: ba0b2e980d73bc6b
+    proof_bytes: 56890
+    attempt: 5
+    journal: validator-005.txt
   delivered: '2026-09-18'
   block_reason: ''
 - status: open

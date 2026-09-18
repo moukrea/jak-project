@@ -88,6 +88,11 @@ dans ton prompt (« owner_feedback ») : réponds-y dans ce commentaire quand il
 Les images que l'owner poste sur le ticket sont dans `owner-feedback/<id>/` : regarde-les. Une pièce
 jointe illustre, elle ne prouve rien (règle 2).
 
+Quand ton item touche quelque chose de VISIBLE et qu'il part au test de l'owner, JOINS une capture de
+la zone concernée à ton commentaire (`--attach`). Owner 18/09 02:50 : « t'aurais pu joindre un screen
+ça aurait accéléré les choses… ». Ce n'est pas une preuve, c'est ce qui lui évite de rallumer le
+téléphone pour comprendre de quoi tu parles.
+
 ## Signalements
 
 Tout ce que tu vois de cassé et que tu ne corriges PAS — hors périmètre, défaut latent, coût non
