@@ -835,11 +835,11 @@
  },
  "hud-eco-gauge": {
   "build_announced": "ab6c168f98c2",
-  "hash": "fcf4fc19e51ffb455d8eb324a3ba91c67b2f0e2e",
+  "hash": "bda2cf893eadb81e87056f3166fa65a5146bb559",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-002.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-18T05:24:44.567Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
@@ -1503,10 +1503,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "hash": "689597147a7ece1ee1a76e1f325679b167afcc9e",
+  "build_announced": "3f15919f7b96",
+  "hash": "977a374481483b1654f5468476ebb8e185e1825d",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T06:51:42.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
