@@ -144,6 +144,11 @@ AUTOPORT_FEATURE_SITE("hud-heart");
 // `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
 // CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
 AUTOPORT_FEATURE_SITE("res-list-sorted-by-pixels");
+// res-scale-submenu : l'instrument est le recensement GOAL de progress-pc.gc, qui tire par
+// `__pc-autoport-hit-for` (ce fichier) une prise par entree posee dans la liste du sous-menu. Le
+// site se declare ICI parce qu'il doit s'enregistrer au CHARGEMENT : c'est ce qui separe « aucun
+// site compile » de « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("res-scale-submenu");
 
 using namespace ee;
 
@@ -1864,6 +1869,20 @@ s32 pc_res_menu_wanted() {
              : 0;
 #else
   return autoport_proof::feature_is("res-menu-truth") ? 1 : 0;
+#endif
+}
+
+s32 pc_res_scale_wanted() {
+#if defined(__ANDROID__)
+  // Le recensement change des reglages VIVANTS (echelle de rendu, taille de fenetre) et les
+  // restaure. Le teardown efface cette propriete : sa duree de vie s'arrete avec la course.
+  char feature[PROP_VALUE_MAX] = {};
+  return __system_property_get("debug.opengoal.feature", feature) > 0 &&
+                 std::strcmp(feature, "res-scale-submenu") == 0
+             ? 1
+             : 0;
+#else
+  return autoport_proof::feature_is("res-scale-submenu") ? 1 : 0;
 #endif
 }
 
@@ -5755,6 +5774,7 @@ void InitMachineScheme() {
   make_function_symbol_from_c("pc-set-fixed-tick!", (void*)pc_set_fixed_tick);
   make_function_symbol_from_c("pc-get-render-resolution", (void*)pc_get_render_resolution);
   make_function_symbol_from_c("__pc-res-menu-wanted?", (void*)pc_res_menu_wanted);
+  make_function_symbol_from_c("__pc-res-scale-wanted?", (void*)pc_res_scale_wanted);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used

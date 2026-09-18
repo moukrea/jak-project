@@ -6397,6 +6397,9 @@
            (= typ (game-option-type button-music))
            (= typ (game-option-type button-flava))
            (= typ (game-option-type resolution))
+           ;; res-scale-submenu : un appui sur une entree d'echelle de rendu confirme, comme une
+           ;; rangee de resolution.
+           (= typ (game-option-type render-scale-pct))
            (= typ (game-option-type controller))
            (= typ (game-option-type monitor))
            (= typ (game-option-type aspect-new))
@@ -6854,17 +6857,20 @@
               (set! (-> *pc-settings* dynamic-render-scale?) (the-as symbol val))
               (apply-dynamic-rs-menu-mode!)
               (none)))
-       ;; 3 RENDER SCALE slider: edits render-scale (manual, OFF) OR min-render-scale (auto-scaler
-       ;; FLOOR, ON). value-to-modify + label set by apply-dynamic-rs-menu-mode!. 10..100 step 10.
+       ;; 3 ECHELLE DE RENDU — SOUS-MENU (res-scale-submenu, owner 2026-09-17). C'etait un curseur
+       ;; 10..100 pas de 10 ; l'owner : « le slider c'est chiant, je prefererais un sous menu avec
+       ;; 10, 20 ... 100, mais avec a cote la resolution de rendu calculee live ». La rangee ouvre
+       ;; donc `progress-screen render-scale`, dix entrees rebaties a chaque image par
+       ;; `build-render-scale-options`, chacune portant la taille que le moteur rendra. Elle edite
+       ;; toujours render-scale (dynamique OFF) ou min-render-scale (dynamique ON) :
+       ;; `apply-dynamic-rs-menu-mode!` en pose le nom, `refresh-render-scale-row-label!` y ajoute
+       ;; la valeur en cours et sa taille rendue.
        (new 'static
             'game-option
-            :option-type (game-option-type slider)
+            :option-type (game-option-type menu)
             :name (text-id vsync)
             :scale #t
-            :param1 10.0
-            :param2 100.0
-            :slider-step-size 10.0
-            :slider-show-decimal? #f)
+            :param3 (game-option-menu render-scale))
        ;; 4 MINIMUM TARGET FRAMERATE slider: 25..60 step 5 -> *pc-settings* dyn-target-fps. label via
        ;; name-override. HIDDEN when Dynamic Render Scale is OFF (removed from the live list, not greyed).
        (new 'static
@@ -6978,17 +6984,20 @@
               (set! (-> *pc-settings* dynamic-render-scale?) (the-as symbol val))
               (apply-dynamic-rs-menu-mode!)
               (none)))
-       ;; 3 RENDER SCALE slider: render-scale (OFF) / min-render-scale (ON); wired by
-       ;; apply-dynamic-rs-menu-mode!. 10..100 step 10. NO on-change.
+       ;; 3 ECHELLE DE RENDU — SOUS-MENU (res-scale-submenu, owner 2026-09-17). C'etait un curseur
+       ;; 10..100 pas de 10 ; l'owner : « le slider c'est chiant, je prefererais un sous menu avec
+       ;; 10, 20 ... 100, mais avec a cote la resolution de rendu calculee live ». La rangee ouvre
+       ;; donc `progress-screen render-scale`, dix entrees rebaties a chaque image par
+       ;; `build-render-scale-options`, chacune portant la taille que le moteur rendra. Elle edite
+       ;; toujours render-scale (dynamique OFF) ou min-render-scale (dynamique ON) :
+       ;; `apply-dynamic-rs-menu-mode!` en pose le nom, `refresh-render-scale-row-label!` y ajoute
+       ;; la valeur en cours et sa taille rendue.
        (new 'static
             'game-option
-            :option-type (game-option-type slider)
+            :option-type (game-option-type menu)
             :name (text-id vsync)
             :scale #t
-            :param1 10.0
-            :param2 100.0
-            :slider-step-size 10.0
-            :slider-show-decimal? #f)
+            :param3 (game-option-menu render-scale))
        ;; 4 MINIMUM TARGET FRAMERATE slider: 25..60 step 5 -> dyn-target-fps. HIDDEN when Dynamic OFF.
        (new 'static
             'game-option
@@ -9609,6 +9618,123 @@
     (format-resolution-row-label! w h))
   (none))
 
+;; ================================================================================================
+;; res-scale-submenu (owner 2026-09-17) — L'ECHELLE DE RENDU EST UN SOUS-MENU, ET IL DIT LA VERITE
+;;
+;; L'owner, sur le ticket : « le truc de l'echelle de rendu... Le slider c'est chiant, je
+;; prefererais un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100... Mais avec a cote la
+;; resolution de rendu calculee live en raccord a la resolution utilisee dans le picker de
+;; resolution ».
+;;
+;; LE LIBELLE NE RECALCULE RIEN. La taille affichee a cote d'un pourcentage sort de
+;; `render-scale-size` (pckernel-common.gc), la MEME fonction que `update-to-os` appelle pour
+;; dimensionner le FBO 3D. Une deuxieme copie de la regle serait vraie le jour ou on l'ecrit et
+;; fausse au premier arrondi qui bouge : c'est exactement ce que `res-menu-truth` a coute sur la
+;; rangee Resolution.
+;;
+;; LA BASE EST UN PARAMETRE du constructeur, comme l'aspect l'est devenu pour la liste des
+;; resolutions : c'est ce qui permet a la preuve de batir la liste d'une AUTRE base sans deplacer
+;; la fenetre du joueur. Le constructeur « vivant » (`build-render-scale-options`) lit la base
+;; par `current-game-base-size`, donc le choix du picker de resolution, et il tourne a chaque
+;; image passee sur l'ecran : changer la resolution met les dix libelles a jour tout seuls.
+;; ================================================================================================
+(defmacro add-render-scale-option (pct w h)
+  "Une entree du sous-menu : le pourcentage, et la taille RENDUE qu'il donne sur la base courante."
+  `(let ((option (-> *temp-options* (length *temp-options*))))
+     (temp-option-reset! option)
+     (set! (-> option option-type) (game-option-type render-scale-pct))
+     ;; le libelle complet est dans `name-override` ; `name` ne sert que de repli typographique,
+     ;; comme pour les rangees de resolution voisines.
+     (set! (-> option name) (text-id resolution-fmt))
+     ;; le tampon de libelle de CET emplacement, accroche et vide par `temp-option-label!` :
+     ;; `temp-option-reset!` vient de mettre `name-override` a 0, et formater dans un 0 est un
+     ;; SIGSEGV — mesure du 18/09, la course armee mourait a la premiere liste batie.
+     (format (temp-option-label! option) "~D% ~D X ~D" ,pct ,w ,h)
+     (set! (-> option param1) (the float ,pct))
+     (set! (-> option scale) #t)
+     (1+! (-> *temp-options* length))))
+
+(defun build-render-scale-options-for ((base-w int) (base-h int))
+  "Les dix entrees du sous-menu d'echelle de rendu, pour UNE base donnee : 10 % a 100 % par pas
+   de 10, chacune portant la taille que le moteur rendra si on la choisit."
+  (set! (-> *temp-options* length) 0)
+  (dotimes (i 10)
+    (let ((pct (* 10 (+ i 1)))
+          (w 0)
+          (h 0))
+      (render-scale-size base-w base-h (the float pct) (& w) (& h))
+      (add-render-scale-option pct (the int w) (the int h))
+      ;; hits_means = une entree POSEE dans la liste que l'ecran dessine. `note_hit_for` ne compte
+      ;; rien hors mesure armee, donc le bras `--off` rend hits=0 sans que ce site change.
+      (__pc-autoport-hit-for "res-scale-submenu" 1)))
+  (add-back-option)
+  *temp-options*)
+
+(defun build-render-scale-options ()
+  "Le sous-menu pour la base COURANTE — celle que le picker de resolution a choisie."
+  (let ((bw 0)
+        (bh 0))
+    (current-game-base-size (& bw) (& bh))
+    (build-render-scale-options-for (the int bw) (the int bh))))
+
+(defun render-scale-row-value ()
+  "Le pourcentage que la rangee edite : l'echelle de rendu, ou le PLANCHER de l'echelle dynamique
+   quand celle-ci est allumee — exactement ce que le curseur remplace editait."
+  (if (-> *pc-settings* dynamic-render-scale?)
+      (-> *pc-settings* min-render-scale)
+      (-> *pc-settings* render-scale)))
+
+(defun render-scale-apply! ((pct float))
+  "L'ECRIVAIN UNIQUE du choix. La confirmation d'une entree passe par ici, et la preuve de
+   persistance aussi : une preuve qui ecrirait par un autre chemin ne dirait rien du chemin que
+   le joueur emprunte. Le choix part sur le disque tout de suite, donc il survit au redemarrage."
+  (if (-> *pc-settings* dynamic-render-scale?)
+      (set! (-> *pc-settings* min-render-scale) pct)
+      (set! (-> *pc-settings* render-scale) pct))
+  (commit-to-file *pc-settings*)
+  (none))
+
+(defun render-scale-menu-initial-index ()
+  "Ouvrir le sous-menu POSE le curseur sur la valeur en cours (l'entree la plus proche), au lieu
+   de repartir de 10 %. Meme geste que le sous-menu Resolution."
+  (build-render-scale-options)
+  (let ((cur (render-scale-row-value))
+        (found -1)
+        (best 1000000.0))
+    (dotimes (i (length *temp-options*))
+      (when (= (-> *temp-options* i option-type) (game-option-type render-scale-pct))
+        (let ((d (fabs (- (-> *temp-options* i param1) cur))))
+          (when (< d best)
+            (set! best d)
+            (set! found i)))))
+    found))
+
+(define *render-scale-row-label* (new 'global 'string 96 (the-as string #f)))
+
+(defun refresh-render-scale-row-label! ()
+  "La rangee PARENTE (celle qui ouvre le sous-menu) porte la valeur en cours et la taille rendue
+   qu'elle donne. Sans ca, une rangee de sous-menu n'affiche que son nom et le joueur doit entrer
+   pour savoir ou il en est. Rebati a chaque image passee sur l'ecran Graphismes."
+  (let ((options (graphic-options-array))
+        (bw 0)
+        (bh 0)
+        (w 0)
+        (h 0))
+    (current-game-base-size (& bw) (& bh))
+    (let ((v (render-scale-row-value)))
+      (render-scale-size (the int bw) (the int bh) v (& w) (& h))
+      (format (clear *render-scale-row-label*)
+              "~S ~D% (~D X ~D)"
+              (if (-> *pc-settings* dynamic-render-scale?) *min-render-scale-label* *render-scale-label*)
+              (the int (+ 0.5 v))
+              w
+              h))
+    (dotimes (i (length options))
+      (when (and (= (-> options i option-type) (game-option-type menu))
+                 (= (the int (-> options i param3)) (the int (game-option-menu render-scale))))
+        (set! (-> options i name-override) *render-scale-row-label*))))
+  (none))
+
 (defun resolution-menu-initial-index ()
   "Find the chosen base, and label that choice with its actual FBO when scaled.
    Keep its parameters: selecting a row matching the scaled dimensions would apply
@@ -11082,6 +11208,9 @@
   ;; est construit a l'execution par `gating-repage!` a partir de la table des portes.
   (set! (-> *options-remap* (progress-screen lighting-settings)) *rlighting-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
+  ;; res-scale-submenu : le sous-menu d'echelle de rendu partage `*temp-options*` avec ses voisins
+  ;; batis a l'execution — il est rebati a chaque image passee dessus (respond-common).
+  (set! (-> *options-remap* (progress-screen render-scale)) *temp-options*)
   ;; recharged-gating-real essai 2 : la page de choix generique partage `*temp-options*` avec les
   ;; autres pages construites a l'execution — elle est rebattie a chaque image passee dessus.
   (set! (-> *options-remap* (progress-screen option-choice)) *temp-options*)
@@ -11592,10 +11721,16 @@
     (((progress-screen resolution))
      ;; TODO infinite scrolling
      (resolution-menu-initial-index))
+    ;; res-scale-submenu : les dix entrees sont rebaties a chaque image passee sur l'ecran, donc
+    ;; elles suivent la base choisie dans le picker de resolution sans qu'on ait a la surveiller.
+    (((progress-screen render-scale)) (build-render-scale-options))
     ;; res-menu-truth : la rangee « Resolution » porte la resolution EFFECTIVE, ici, a chaque
     ;; image passee sur l'ecran Graphismes — donc sans entrer dans le sous-menu, et a jour
     ;; des le retour d'un changement d'aspect. `init-game-options` ne tourne qu'a l'ouverture.
-    (((progress-screen graphic-settings)) (refresh-resolution-row-label!))
+    (((progress-screen graphic-settings))
+     (refresh-resolution-row-label!)
+     ;; res-scale-submenu : meme raison, pour la rangee qui ouvre le sous-menu d'echelle de rendu.
+     (refresh-render-scale-row-label!))
     (((progress-screen flava-player)) (build-flava-player-options *progress-music*))
     (((progress-screen secrets))
      (if (= (-> obj display-state-stack 0) (progress-screen title))
@@ -12055,6 +12190,16 @@
               ;; On revient a la page parente par le meme `invalid` que le bras resolution voisin.
               ((= (-> options (-> obj option-index) option-type) (game-option-type choice-value))
                (rch-choice-apply! *rch-choice-type* (the int (-> options (-> obj option-index) param1)))
+               (cpad-clear! 0 x)
+               (cpad-clear! 0 circle)
+               (sound-play "cursor-options")
+               (set! (-> obj next-display-state) (progress-screen invalid)))
+              ;; res-scale-submenu : la confirmation d'une entree du sous-menu d'echelle de rendu.
+              ;; `param1` porte le pourcentage ; `render-scale-apply!` est l'ecrivain UNIQUE (il
+              ;; ecrit le bon champ selon l'echelle dynamique et pose le choix sur le disque), et
+              ;; on revient a la page parente par le meme `invalid` que le bras resolution voisin.
+              ((= (-> options (-> obj option-index) option-type) (game-option-type render-scale-pct))
+               (render-scale-apply! (-> options (-> obj option-index) param1))
                (cpad-clear! 0 x)
                (cpad-clear! 0 circle)
                (sound-play "cursor-options")
@@ -12596,7 +12741,9 @@
                         (find-flava-log (progress-get-music-by-index *progress-music*) (the int (-> options index param1))))
                  (set! option-str (lookup-text! *common-text* (-> options index name) #f))
                  (set! option-str locked-str)))
-              (((game-option-type resolution) (game-option-type aspect-new))
+              ;; res-scale-submenu : une entree du sous-menu d'echelle de rendu porte son libelle
+              ;; complet (« 50% 960 X 540 ») dans `name-override`, comme les rangees de resolution.
+              (((game-option-type resolution) (game-option-type aspect-new) (game-option-type render-scale-pct))
                ;; resolution settings
                ;; prefer a runtime name-override label when one was set: it already
                ;; contains the full clean text (e.g. 'NATIVE 2400 X 1080' / '1280 X 576')
@@ -13074,6 +13221,8 @@
               (progress-screen sound-settings)
               (progress-screen game-ps2-options)
               (progress-screen resolution)
+              ;; res-scale-submenu : le sous-menu d'echelle de rendu se dessine comme son voisin.
+              (progress-screen render-scale)
               (progress-screen aspect-ratio)
               (progress-screen secrets)
               (progress-screen cheats)
@@ -13236,6 +13385,10 @@
                       (cond
                         ((= (-> self next-display-state) (progress-screen resolution))
                          (max 0 (resolution-menu-initial-index)))
+                        ;; res-scale-submenu : ouvrir l'echelle de rendu POSE le curseur sur le
+                        ;; pourcentage en cours, comme le sous-menu Resolution juste au-dessus.
+                        ((= (-> self next-display-state) (progress-screen render-scale))
+                         (max 0 (render-scale-menu-initial-index)))
                         ((= (-> self next-display-state) (progress-screen option-choice))
                          (max 0 (rch-choice-initial-index)))
                         (else 0)))
@@ -13919,6 +14072,393 @@
       (__pc-autoport-publish "res_list_sort_armed"
                              (if (zero? (__pc-autoport-disarmed-for "res-list-sorted-by-pixels")) 1 0))
       (__pc-autoport-hit-for "res-list-sorted-by-pixels" lists)))
+  (none))
+
+;; ================================================================================================
+;; res-scale-submenu — LA PREUVE : CE QUE LE SOUS-MENU ANNONCE, ET CE QUE LE MOTEUR REND
+;;
+;; La grandeur de la porte est `res_scale_menu_defects`, SOMME de six termes publies separement.
+;; Chaque terme vaut 1 TANT QU'IL N'EST PAS MESURE : une mesure sautee ne peut donc pas rendre la
+;; somme verte (aggregate-gate-scoring-unmeasured-terms-as-one). `res_scale_terms_measured` dit
+;; combien de termes ont ete reellement mesures ; la somme se lit a cote de lui, jamais seule.
+;;
+;;   1 STRUCTURE  la rangee 3 des DEUX tableaux (bureau, Android) ouvre le sous-menu, et il ne
+;;                reste AUCUNE rangee curseur a la signature du curseur remplace (10..100 pas de
+;;                10). Un « 0 » de ce genre se lit aussi bien « le curseur est parti » que « le
+;;                predicat ne reconnait plus rien » : deux CONTROLES sont donc semes dans des
+;;                emplacements jetables — un a la signature remplacee (le predicat doit dire OUI)
+;;                et un a celle du curseur voisin Min Target FPS (il doit dire NON).
+;;   2 ENTREES    dix entrees, 10 % a 100 % par pas de 10, dans l'ordre.
+;;   3 LIBELLES   le texte de chaque entree est exactement « <pct>% <w> X <h> » ou w,h sortent de
+;;                `render-scale-size`, la fonction que le moteur utilise pour dimensionner le FBO.
+;;   4 RENDU      pour CHACUNE des dix entrees : on la choisit par l'ecrivain du menu
+;;                (`render-scale-apply!`), on laisse passer six passes de scene, et on lit la
+;;                taille que le MOTEUR a prise (`pc-get-render-resolution`, qui rend la geometrie
+;;                de la passe de scene, pas un calcul de GOAL). Elle doit egaler celle du libelle.
+;;                C'est ce terme qui empeche le terme 3 d'etre une tautologie.
+;;   5 PICKER     on change reellement la resolution de base (une rangee du picker), et les dix
+;;                libelles doivent suivre — temoin avant/apres publie, plus une mesure de rendu
+;;                a la nouvelle base.
+;;   6 REDEMARRAGE le choix est ecrit dans settings.ini par l'ecrivain du menu, puis relu par le
+;;                LECTEUR DU DEMARRAGE (`read-from-file`) apres avoir empoisonne la valeur en
+;;                memoire : ce que le prochain lancement lira est donc mesure, sans redemarrer.
+;;
+;; LE REGIME DE CETTE FEATURE EST EPINGLE : echelle dynamique ETEINTE. Allumee, c'est le
+;; controleur qui choisit le pourcentage image par image et la taille rendue ne suivrait pas
+;; l'entree choisie — on mesurerait l'autre feature.
+;;
+;; L'ETAT DU JOUEUR EST RENDU TEL QUEL : le recensement sauvegarde echelle, plancher, drapeau
+;; dynamique et taille de fenetre, et les restaure en fin de passe, fichier compris. Rien dans le
+;; harnais ne restaure `settings.ini` entre deux courses.
+;; ================================================================================================
+(define-extern __pc-res-scale-wanted? (function int))
+
+(defun rs-old-slider-row? ((opt game-option))
+  "LA SIGNATURE DU CURSEUR REMPLACE : un curseur 10..100 par pas de 10. La porte compte les
+   rangees qui la portent encore ; deux controles semes verifient que ce predicat sait repondre."
+  (and (= (-> opt option-type) (game-option-type slider))
+       (= (the int (-> opt param1)) 10)
+       (= (the int (-> opt param2)) 100)
+       (= (the int (-> opt slider-step-size)) 10)))
+
+(define *rs-audit-done?* #f)
+(define *rs-audit-saved?* #f)
+(define *rs-audit-stage* 0)
+(define *rs-audit-i* 0)
+(define *rs-audit-start* 0)
+(define *rs-audit-bw* 0)
+(define *rs-audit-bh* 0)
+(define *rs-audit-nw* 0)
+(define *rs-audit-nh* 0)
+;; les tailles ANNONCEES par les dix libelles, telles qu'elles ont ete formatees
+(define *rs-w* (new 'static 'boxed-array :type int32 :length 10 :allocated-length 10))
+(define *rs-h* (new 'static 'boxed-array :type int32 :length 10 :allocated-length 10))
+;; les six termes de la porte. 1 = defaut OU non mesure.
+(define *rs-t-structure* 1)
+(define *rs-t-entries* 1)
+(define *rs-t-labels* 1)
+(define *rs-t-fbo* 1)
+(define *rs-t-follow* 1)
+(define *rs-t-persist* 1)
+(define *rs-measured* 0)
+(define *rs-label* (new 'global 'string 96 (the-as string #f)))
+(define *rs-list* (new 'global 'string 512 (the-as string #f)))
+(define *rs-seen* (new 'global 'string 512 (the-as string #f)))
+(define *rs-path* (new 'global 'string 256 (the-as string #f)))
+(define *rs-save-scale* 100.0)
+(define *rs-save-floor* 40.0)
+(define *rs-save-dyn* #f)
+(define *rs-save* (new 'static 'boxed-array :type int64 :length 5 :allocated-length 5))
+
+(defun rs-publish-terms! ()
+  "Les six termes, publies SEPAREMENT, et leur somme. Un terme non mesure vaut 1."
+  (__pc-autoport-publish "res_scale_structure_defects" *rs-t-structure*)
+  (__pc-autoport-publish "res_scale_entry_defects" *rs-t-entries*)
+  (__pc-autoport-publish "res_scale_label_defects" *rs-t-labels*)
+  (__pc-autoport-publish "res_scale_fbo_defects" *rs-t-fbo*)
+  (__pc-autoport-publish "res_scale_follow_defects" *rs-t-follow*)
+  (__pc-autoport-publish "res_scale_persist_defects" *rs-t-persist*)
+  (__pc-autoport-publish "res_scale_terms_measured" *rs-measured*)
+  (__pc-autoport-publish "res_scale_menu_defects"
+                         (+ *rs-t-structure* *rs-t-entries* *rs-t-labels*
+                            *rs-t-fbo* *rs-t-follow* *rs-t-persist*))
+  (none))
+
+(defun rs-audit-save! ()
+  (let ((s *pc-settings*))
+    (set! *rs-save-scale* (-> s render-scale))
+    (set! *rs-save-floor* (-> s min-render-scale))
+    (set! *rs-save-dyn* (-> s dynamic-render-scale?))
+    (set! (-> *rs-save* 0) (-> s width))
+    (set! (-> *rs-save* 1) (-> s height))
+    (set! (-> *rs-save* 2) (-> s window-width))
+    (set! (-> *rs-save* 3) (-> s window-height))
+    (set! (-> *rs-save* 4) (the-as int (-> s game-size-picked?)))
+    (true! *rs-audit-saved?*))
+  (none))
+
+(defun rs-audit-restore! ()
+  "L'etat du joueur, rendu tel quel — memoire ET fichier."
+  (when *rs-audit-saved?*
+    (let ((s *pc-settings*))
+      (when (or (!= (-> s window-width) (-> *rs-save* 2))
+                (!= (-> s window-height) (-> *rs-save* 3))
+                (!= (-> s width) (-> *rs-save* 0))
+                (!= (-> s height) (-> *rs-save* 1)))
+        (set-window-size! s
+                          (if (= (pc-get-display-mode) 'windowed) (-> *rs-save* 2) (-> *rs-save* 0))
+                          (if (= (pc-get-display-mode) 'windowed) (-> *rs-save* 3) (-> *rs-save* 1))))
+      (set! (-> s width) (-> *rs-save* 0))
+      (set! (-> s height) (-> *rs-save* 1))
+      (set! (-> s window-width) (-> *rs-save* 2))
+      (set! (-> s window-height) (-> *rs-save* 3))
+      (set! (-> s game-size-picked?) (the-as symbol (-> *rs-save* 4)))
+      (set! (-> s render-scale) *rs-save-scale*)
+      (set! (-> s min-render-scale) *rs-save-floor*)
+      (set! (-> s dynamic-render-scale?) *rs-save-dyn*)
+      (set! *dyn-rs-last-base-w* -1)
+      (set! *dyn-rs-last-base-h* -1)
+      (update-from-os s)
+      (commit-to-file s)
+      (false! *rs-audit-saved?*)
+      (format 0 "RES-SCALE restore scale=~f floor=~f dyn=~A win=~Dx~D~%"
+              (-> s render-scale) (-> s min-render-scale) (-> s dynamic-render-scale?)
+              (-> s window-width) (-> s window-height))))
+  (none))
+
+(defun rs-audit-structure! ()
+  "TERME 1 : la rangee 3 ouvre le sous-menu dans les DEUX tableaux, et aucun curseur d'echelle ne
+   subsiste. Deux controles semes gardent le predicat honnete."
+  (let ((defects 0)
+        (menu-rows 0)
+        (slider-rows 0))
+    (dotimes (k 2)
+      (let ((arr (if (zero? k) *graphic-options-pc* *graphic-options-pc-android*)))
+        (when (and (= (-> arr 3 option-type) (game-option-type menu))
+                   (= (the int (-> arr 3 param3)) (the int (game-option-menu render-scale))))
+          (1+! menu-rows))
+        (dotimes (i (length arr))
+          (if (rs-old-slider-row? (-> arr i)) (1+! slider-rows)))))
+    ;; CONTROLES SEMES dans deux emplacements jetables de `*temp-options*` (hors de la liste
+    ;; construite : sa longueur ne les atteint pas).
+    (let ((yes (-> *temp-options* 20))
+          (no (-> *temp-options* 21)))
+      (temp-option-reset! yes)
+      (set! (-> yes option-type) (game-option-type slider))
+      (set! (-> yes param1) 10.0)
+      (set! (-> yes param2) 100.0)
+      (set! (-> yes slider-step-size) 10.0)
+      (temp-option-reset! no)
+      (set! (-> no option-type) (game-option-type slider))
+      (set! (-> no param1) 25.0)
+      (set! (-> no param2) 60.0)
+      (set! (-> no slider-step-size) 5.0)
+      (__pc-autoport-publish "res_scale_probe_positive" (if (rs-old-slider-row? yes) 1 0))
+      (__pc-autoport-publish "res_scale_probe_negative" (if (rs-old-slider-row? no) 1 0))
+      (if (not (rs-old-slider-row? yes)) (1+! defects))
+      (if (rs-old-slider-row? no) (1+! defects)))
+    (__pc-autoport-publish "res_scale_menu_rows" menu-rows)
+    (__pc-autoport-publish "res_scale_slider_rows" slider-rows)
+    (if (!= menu-rows 2) (1+! defects))
+    (if (!= slider-rows 0) (1+! defects))
+    (set! *rs-t-structure* defects))
+  (1+! *rs-measured*)
+  (none))
+
+(defun rs-audit-row! ()
+  "TERME 1 (suite) : les deux gestes que le joueur declenche sur la rangee parente sont EXECUTES
+   ici — l'etiquette de la rangee (`refresh-render-scale-row-label!`) et la preselection a
+   l'ouverture (`render-scale-menu-initial-index`). Elles ne tournent que menu OUVERT : sans cet
+   appel, aucune course passive ne les verrait, et un plantage y attendrait l'owner."
+  (let ((options (graphic-options-array))
+        (labelled 0)
+        (v (render-scale-row-value)))
+    (refresh-render-scale-row-label!)
+    ;; la rangee a-t-elle ete TROUVEE ? (identite du tampon, pas son contenu : comparer le texte
+    ;; a celui qu'on vient d'ecrire ne dirait rien).
+    (dotimes (i (length options))
+      (if (= (-> options i name-override) *render-scale-row-label*) (1+! labelled)))
+    (__pc-autoport-publish "res_scale_row_labelled" labelled)
+    (__pc-autoport-publish-text "res_scale_row_label" *render-scale-row-label*)
+    (if (!= labelled 1) (1+! *rs-t-structure*))
+    (let ((idx (render-scale-menu-initial-index))
+          (want (* 10 (max 1 (min 10 (the int (+ 0.5 (/ v 10.0))))))))
+      (__pc-autoport-publish "res_scale_initial_index" idx)
+      (__pc-autoport-publish "res_scale_initial_pct"
+                             (if (>= idx 0) (the int (-> *temp-options* idx param1)) -1))
+      (__pc-autoport-publish "res_scale_initial_want" want)
+      (if (or (< idx 0) (!= (the int (-> *temp-options* idx param1)) want))
+          (1+! *rs-t-structure*))))
+  (none))
+
+(defun rs-audit-entries! ((base-w int) (base-h int) (dst string))
+  "TERMES 2 et 3 : dix entrees 10..100 dans l'ordre, chacune portant le libelle exact que
+   `render-scale-size` dicte. Remplit `dst` avec le temoin « pct:WxH,... » et memorise les
+   tailles annoncees, que le terme 4 confrontera au rendu reel. Rend le nombre d'entrees."
+  (let ((n 0)
+        (order 0)
+        (lab 0))
+    (build-render-scale-options-for base-w base-h)
+    (clear dst)
+    (dotimes (i (length *temp-options*))
+      (when (= (-> *temp-options* i option-type) (game-option-type render-scale-pct))
+        (let ((pct (the int (-> *temp-options* i param1)))
+              (w 0)
+              (h 0))
+          (if (!= pct (* 10 (+ n 1))) (1+! order))
+          (render-scale-size base-w base-h (the float pct) (& w) (& h))
+          (when (< n 10)
+            (set! (-> *rs-w* n) (the int w))
+            (set! (-> *rs-h* n) (the int h)))
+          (format (clear *rs-label*) "~D% ~D X ~D" pct w h)
+          (if (not (string= *rs-label* (-> *temp-options* i name-override))) (1+! lab))
+          (if (> n 0) (format dst ","))
+          (format dst "~D:~Dx~D" pct w h)
+          (1+! n))))
+    (set! *rs-t-entries* (+ order (if (= n 10) 0 1)))
+    (set! *rs-t-labels* lab)
+    n))
+
+(defun res-scale-audit! ()
+  "Une passe par demarrage, sous mesure seulement, menu FERME : `*temp-options*` est le tableau
+   partage de tous les ecrans batis a l'execution."
+  (when (and (nonzero? (__pc-res-scale-wanted?))
+             (not *rs-audit-done?*)
+             (not *progress-process*))
+    (let* ((fw 0)
+           (fh 0)
+           (serial (the int (pc-get-render-resolution (& fw) (& fh)))))
+      (case *rs-audit-stage*
+        ((0)
+         ;; Publication PESSIMISTE : les six termes existent des la premiere image de mesure, a 1.
+         (rs-publish-terms!)
+         (when (and (> (the int (-> *display* real-frame-counter)) 300) (> serial 0) (> fw 0))
+           (rs-audit-save!)
+           (set! (-> *pc-settings* dynamic-render-scale?) #f)
+           (__pc-autoport-publish "res_scale_audit_dyn" 0)
+           (set! *rs-audit-stage* 1)))
+        ((1)
+         (let ((bw 0)
+               (bh 0))
+           (current-game-base-size (& bw) (& bh))
+           (set! *rs-audit-bw* (the int bw))
+           (set! *rs-audit-bh* (the int bh))
+           (rs-audit-structure!)
+           (rs-audit-row!)
+           (let ((n (rs-audit-entries! *rs-audit-bw* *rs-audit-bh* *rs-list*)))
+             (__pc-autoport-publish "res_scale_menu_entries" n))
+           (format (clear *rs-label*) "~Dx~D" *rs-audit-bw* *rs-audit-bh*)
+           (__pc-autoport-publish-text "res_scale_base_before" *rs-label*)
+           (__pc-autoport-publish-text "res_scale_labels_before" *rs-list*)
+           (+! *rs-measured* 2)
+           (rs-publish-terms!)
+           (clear *rs-seen*)
+           (set! *rs-t-fbo* 0)
+           (set! *rs-audit-i* 0)
+           (set! *rs-audit-stage* 2)))
+        ((2)
+         ;; L'entree est choisie par l'ECRIVAIN DU MENU, celui que la confirmation appelle.
+         (render-scale-apply! (the float (* 10 (+ *rs-audit-i* 1))))
+         (set! *rs-audit-start* serial)
+         (set! *rs-audit-stage* 3))
+        ((3)
+         (when (>= (- serial *rs-audit-start*) 6)
+           (let ((w (-> *rs-w* *rs-audit-i*))
+                 (h (-> *rs-h* *rs-audit-i*)))
+             (if (or (!= fw w) (!= fh h)) (1+! *rs-t-fbo*))
+             (if (> *rs-audit-i* 0) (format *rs-seen* ","))
+             (format *rs-seen* "~D:~Dx~D" (* 10 (+ *rs-audit-i* 1)) fw fh))
+           (1+! *rs-audit-i*)
+           (cond
+             ((< *rs-audit-i* 10)
+              (set! *rs-audit-stage* 2))
+             (else
+              (__pc-autoport-publish-text "res_scale_measured" *rs-seen*)
+              (__pc-autoport-publish "res_scale_states_measured" *rs-audit-i*)
+              (1+! *rs-measured*)
+              (rs-publish-terms!)
+              (set! *rs-audit-stage* 4)))))
+        ((4)
+         ;; TERME 5 : on change VRAIMENT la resolution de base, par la rangee du picker.
+         (build-resolution-options)
+         (let ((found -1))
+           (dotimes (i (length *temp-options*))
+             (when (and (< found 0)
+                        (= (-> *temp-options* i option-type) (game-option-type resolution))
+                        (or (!= (the int (-> *temp-options* i param1)) *rs-audit-bw*)
+                            (!= (the int (-> *temp-options* i param2)) *rs-audit-bh*)))
+               (set! found i)))
+           (cond
+             ((< found 0)
+              (__pc-autoport-publish "res_scale_follow_base_changed" 0)
+              (set! *rs-audit-stage* 7))
+             (else
+              (set-window-size! *pc-settings*
+                                (the int (-> *temp-options* found param1))
+                                (the int (-> *temp-options* found param2)))
+              (set! *rs-audit-start* serial)
+              (set! *rs-audit-stage* 5)))))
+        ((5)
+         (let ((bw 0)
+               (bh 0))
+           (current-game-base-size (& bw) (& bh))
+           (cond
+             ((and (>= (- serial *rs-audit-start*) 6)
+                   (or (!= (the int bw) *rs-audit-bw*) (!= (the int bh) *rs-audit-bh*)))
+              (__pc-autoport-publish "res_scale_follow_base_changed" 1)
+              (set! *rs-audit-nw* (the int bw))
+              (set! *rs-audit-nh* (the int bh))
+              ;; le constructeur VIVANT, celui que l'ecran appelle a chaque image
+              (build-render-scale-options)
+              (let ((defects 0)
+                    (changed 0)
+                    (n 0))
+                (clear *rs-seen*)
+                (dotimes (i (length *temp-options*))
+                  (when (= (-> *temp-options* i option-type) (game-option-type render-scale-pct))
+                    (let ((pct (the int (-> *temp-options* i param1)))
+                          (w 0)
+                          (h 0))
+                      (render-scale-size *rs-audit-nw* *rs-audit-nh* (the float pct) (& w) (& h))
+                      (format (clear *rs-label*) "~D% ~D X ~D" pct w h)
+                      (if (not (string= *rs-label* (-> *temp-options* i name-override))) (1+! defects))
+                      (when (< n 10)
+                        (if (or (!= (the int w) (-> *rs-w* n)) (!= (the int h) (-> *rs-h* n)))
+                            (1+! changed))
+                        (set! (-> *rs-w* n) (the int w))
+                        (set! (-> *rs-h* n) (the int h)))
+                      (if (> n 0) (format *rs-seen* ","))
+                      (format *rs-seen* "~D:~Dx~D" pct w h)
+                      (1+! n))))
+                (if (!= n 10) (1+! defects))
+                ;; le TEMOIN avant/apres : les dix libelles doivent avoir bouge avec la base.
+                (__pc-autoport-publish "res_scale_labels_changed" changed)
+                (if (!= changed 10) (1+! defects))
+                (set! *rs-t-follow* defects)
+                (format (clear *rs-label*) "~Dx~D" *rs-audit-nw* *rs-audit-nh*)
+                (__pc-autoport-publish-text "res_scale_base_after" *rs-label*)
+                (__pc-autoport-publish-text "res_scale_labels_after" *rs-seen*))
+              ;; et une mesure de RENDU a la nouvelle base, pour que le temoin ne soit pas
+              ;; qu'un texte : 50 % de la nouvelle base doit sortir du moteur.
+              (render-scale-apply! 50.0)
+              (set! *rs-audit-start* serial)
+              (set! *rs-audit-stage* 6))
+             ((> (- serial *rs-audit-start*) 600)
+              ;; la base n'a pas bouge : le terme reste NON MESURE (donc 1), et il le dit.
+              (__pc-autoport-publish "res_scale_follow_base_changed" 0)
+              (set! *rs-audit-stage* 7)))))
+        ((6)
+         (when (>= (- serial *rs-audit-start*) 6)
+           (let ((w (-> *rs-w* 4))
+                 (h (-> *rs-h* 4)))
+             (if (or (!= fw w) (!= fh h)) (1+! *rs-t-follow*))
+             (format (clear *rs-label*) "~Dx~D" fw fh)
+             (__pc-autoport-publish-text "res_scale_fbo_after" *rs-label*))
+           (1+! *rs-measured*)
+           (rs-publish-terms!)
+           (set! *rs-audit-stage* 7)))
+        ((7)
+         ;; TERME 6 : ce que le PROCHAIN demarrage lira. L'ecrivain du menu pose la valeur sur le
+         ;; disque ; on empoisonne la memoire, puis le LECTEUR DU DEMARRAGE relit le fichier.
+         (let ((pct (if (= *rs-save-scale* 30.0) 70.0 30.0)))
+           (render-scale-apply! pct)
+           (set! (-> *pc-settings* render-scale) 77.0)
+           (format (clear *rs-path*) "~S/settings.ini" *pc-settings-folder*)
+           (let ((ok (read-from-file *pc-settings* *rs-path*)))
+             (__pc-autoport-publish "res_scale_persist_read" (if ok 1 0))
+             (__pc-autoport-publish "res_scale_persist_written" (the int pct))
+             (__pc-autoport-publish "res_scale_persist_reloaded" (the int (-> *pc-settings* render-scale)))
+             (set! *rs-t-persist*
+                   (+ (if ok 0 1)
+                      (if (= (the int (-> *pc-settings* render-scale)) (the int pct)) 0 1)))))
+         (1+! *rs-measured*)
+         (rs-publish-terms!)
+         (set! *rs-audit-stage* 8))
+        ((8)
+         (rs-audit-restore!)
+         (rs-publish-terms!)
+         (__pc-autoport-hit-for "res-scale-submenu" 1)
+         (true! *rs-audit-done?*)))))
   (none))
 
 ) ;; end #unless FLAG_MENU_OVERHAUL

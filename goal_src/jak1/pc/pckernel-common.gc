@@ -167,6 +167,34 @@
     (set! (-> out-h) h))
   (none))
 
+;; ================================================================================================
+;; res-scale-submenu (owner 2026-09-17) — « base x pourcentage » N'A QU'UN SEUL ECRIVAIN.
+;;
+;; L'owner veut lire, a cote de chaque pourcentage du sous-menu d'echelle de rendu, la taille
+;; REELLEMENT rendue qui en resultera. Un libelle qui recalculerait la regle de son cote serait
+;; vrai le jour ou on l'ecrit et faux au premier arrondi qui bouge ici : c'est exactement la
+;; panne que `res-menu-truth` a coutee sur la rangee Resolution. La multiplication quitte donc
+;; `update-to-os` pour cette fonction, que le moteur (le FBO 3D) et le menu (le libelle)
+;; appellent tous les deux.
+;;
+;; L'ARITHMETIQUE EST CELLE D'AVANT, AU BIT PRES : bornage du pourcentage a [10,100], division
+;; par 100 en flottant, multiplication en flottant, TRONCATURE par `the int` (pas d'arrondi), et
+;; plancher a 1 pixel. `the int` d'un flottant positif tronque vers zero — 1279x0.9 = 1151.1
+;; rend 1151, pas 1152.
+;; ================================================================================================
+(defun render-scale-clamp ((pct float))
+  "Le pourcentage d'echelle de rendu REELLEMENT applique : borne a [10,100]."
+  (cond ((< pct 10.0) 10.0)
+        ((> pct 100.0) 100.0)
+        (else pct)))
+
+(defun render-scale-size ((base-w int) (base-h int) (pct float) (out-w (pointer int64)) (out-h (pointer int64)))
+  "La taille du rendu 3D que `pct` % donne sur une base `base-w x base-h`. UN SEUL ECRIVAIN."
+  (let ((rs-frac (/ (render-scale-clamp pct) 100.0)))
+    (set! (-> out-w) (max 1 (the int (* (the float base-w) rs-frac))))
+    (set! (-> out-h) (max 1 (the int (* (the float base-h) rs-frac)))))
+  (none))
+
 (defmethod set-aspect! ((obj pc-settings) (aw int) (ah int))
   "set the aspect ratio used for rendering. this forces native widescreen and takes width and height ratios."
   (let ((aspect (/ (the float aw) (the float ah))))
@@ -635,10 +663,6 @@
   (let* ((eff-scale (#cond ((eq? GAME_VERSION 'jak1) (dynamic-render-scale-update obj))
                            ((eq? GAME_VERSION 'jak2) (dynamic-render-scale-update obj))
                            (#t (-> obj render-scale))))
-         (rs (cond ((< eff-scale 10.0) 10.0)
-                   ((> eff-scale 100.0) 100.0)
-                   (else eff-scale)))
-         (rs-frac (/ rs 100.0))
          (base-w (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-width) (-> obj width)))
          (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height))))
     ;; res-menu-truth : le repli « 640x480 herite » vit desormais dans `resolve-game-base-size`,
@@ -651,8 +675,12 @@
                               (& rb-w) (& rb-h))
       (set! base-w rb-w)
       (set! base-h rb-h))
-    (let ((rw (max 1 (the int (* (the float base-w) rs-frac))))
-          (rh (max 1 (the int (* (the float base-h) rs-frac)))))
+    ;; res-scale-submenu : le bornage a [10,100], la multiplication et la troncature vivent
+    ;; desormais dans `render-scale-size`, seul ecrivain de la regle — le sous-menu d'echelle de
+    ;; rendu affiche la taille que CHAQUE pourcentage donnera, et il appelle la meme fonction.
+    (let ((rw 0)
+          (rh 0))
+      (render-scale-size (the int base-w) (the int base-h) eff-scale (& rw) (& rh))
       (pc-set-game-resolution rw rh)))
   ;; set msaa sample rate. if invalid, just reset to 2.
   (let ((valid? #f))

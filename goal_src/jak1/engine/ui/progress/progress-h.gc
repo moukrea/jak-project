@@ -156,6 +156,14 @@
      ;; reconstruit dans `*temp-options*` a chaque ouverture, depuis le carrousel de la rangee d'ou
      ;; l'on vient. Ajoutee AVANT `max` (auto-numerotee => 71), donc aucune valeur existante ne bouge.
      (option-choice)
+     ;; res-scale-submenu (owner 2026-09-17) : le sous-menu de l'ECHELLE DE RENDU. L'owner :
+     ;; « le slider c'est chiant, je prefererais un sous menu avec 10, 20 ... 100, mais avec a
+     ;; cote la resolution de rendu calculee live ». Dix entrees bâties a l'execution dans
+     ;; `*temp-options*`, comme le sous-menu Resolution dont il est le voisin. Ajoute AVANT
+     ;; `max` (auto-numerote => 72) : aucune valeur existante ne bouge, et `*options-remap*`
+     ;; est alloue a 80 (progress-static.gc), la boucle d'effacement de `init-game-options`
+     ;; ecrit donc 0..72, toujours dans le tableau.
+     (render-scale)
      ;; the last one!
      (max))
    (defenum game-option-type
@@ -225,7 +233,13 @@
      ;; la valeur dans le carrousel de l'option parente, `name-override` le libelle de cette valeur.
      ;; La confirmation d'une telle rangee ecrit l'indice via `rch-choice-apply!`, l'ecrivain UNIQUE.
      ;; APPENDUE TOUT A LA FIN de l'enumeration : pas une valeur existante n'est renumerotee.
-     (choice-value))) ;; end of PC_PORT = #t branch for enum initialization
+     (choice-value)
+     ;; res-scale-submenu : UNE entree du sous-menu d'echelle de rendu ci-dessus. `param1` porte
+     ;; le POURCENTAGE (10..100) ; `name-override` porte le libelle complet, pourcentage et
+     ;; taille rendue calculee par `render-scale-size` (pckernel-common.gc), seul ecrivain de la
+     ;; regle que le moteur applique au FBO 3D. APPENDUE TOUT A LA FIN : pas une valeur
+     ;; existante n'est renumerotee.
+     (render-scale-pct))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

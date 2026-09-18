@@ -702,6 +702,11 @@
 ;; qu'a l'ouverture d'un ecran. Il ne touche a aucun reglage : l'aspect est un PARAMETRE du
 ;; constructeur. Une seule passe par demarrage, apres la 240e image, et seulement menu FERME.
 (define-extern res-sort-audit! (function none))
+;; res-scale-submenu : le recensement « le sous-menu d'echelle de rendu dit la taille que le
+;; moteur rendra ». Meme place et meme raison que les cinq ci-dessus. Il ne fait rien tant que le
+;; harnais n'a pas nomme cet item (`__pc-res-scale-wanted?`), il attend la 300e image, et il rend
+;; a la fin l'etat du joueur tel qu'il l'a trouve — fichier de reglages compris.
+(define-extern res-scale-audit! (function none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; firstperson-hd-hide -- L'IMAGE DE PREMIERE PERSONNE, ET LE GESTE QUI L'OUVRE
@@ -812,6 +817,8 @@
   (menu-label-census!)
   ;; res-list-sorted-by-pixels : voir le define-extern plus haut. Une seule passe par demarrage.
   (res-sort-audit!)
+  ;; res-scale-submenu : voir le define-extern plus haut. Sous mesure uniquement.
+  (res-scale-audit!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))
