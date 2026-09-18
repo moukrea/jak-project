@@ -7084,9 +7084,15 @@
               (set! (-> *pc-settings* recharged-master?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 0 RECHARGED HUD toggle. :name is a placeholder (text-id vsync) like the other name-override
-       ;; on-off rows; the real label comes from *recharged-hud-label*. row present only with --recharged-hud.
-       (flag-row FLAG_RECHARGED_HUD
+       ;; 1 RECHARGED HUD toggle. :name is a placeholder (text-id vsync) like the other name-override
+       ;; on-off rows; the real label comes from *recharged-hud-label*.
+       ;; recharged-hud-toggle (owner JAK-177, 18/09) : LA RANGEE VIT DANS LE BINAIRE LIVRE, HORS DE
+       ;; FLAG_RECHARGED_HUD. Le drapeau est #f dans l'arbre suivi depuis le 02/09 et ni build_x86.sh ni
+       ;; auto_build_apk.sh ne repassent par `build.sh --recharged-hud` : la rangee etait ABSENTE des CGO
+       ;; livres alors que les trois chantiers du HUD, eux, en etaient deja sortis les 17 et 18/09. Le
+       ;; joueur n'avait donc AUCUN moyen d'eteindre le HUD recharge. L'extinction reste a L'EXECUTION
+       ;; (maitre Recharged ET ce reglage) — SPEC-refonte-hud §1.2. Tous les indices qui suivent portent
+       ;; desormais un +1 en dur la ou ils portaient FLAG_RECHARGED_HUD_N (init-game-options, plus bas).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             ;; Grecharged-master-toggle: greyed while the master is OFF (like the realtime-lighting block rows)
             :option-disabled-func
@@ -7096,7 +7102,7 @@
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-hud?) (the-as symbol val))
               (commit-to-file *pc-settings*)
-              (none))))
+              (none)))
        ;; 1 GRASS SETTINGS sub-submenu launcher (Grecharged-grass-poc POLISH#6). All grass settings
        ;; (toggle + near-dist + card-dist + density) moved into their OWN nested page (*grass-options-pc*)
        ;; so they reliably appear on device — owner: "les réglages n'apparaissent toujours pas ... ça
@@ -7589,9 +7595,9 @@
 ;; for the menu font; shown via name-override — English-only, not re-formatted).
 (define *recharged-master-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *recharged-master-label*) "Recharged Master")
-(#when FLAG_RECHARGED_HUD
+;; recharged-hud-toggle : hors de FLAG_RECHARGED_HUD, comme la rangee qui l'affiche.
 (define *recharged-hud-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *recharged-hud-label*) "RECHARGED HUD"))
+(format (clear *recharged-hud-label*) "RECHARGED HUD")
 ;; Gmenu-census-cleanup (owner 2026-08-31 : « recharged assets VS HD texture pack ? WTF »).
 ;; TROIS rangees allument des textures de remplacement, et rien dans leurs anciens libelles ne
 ;; disait ce qui les separe : la SOURCE des fichiers. Elles sont renommees par leur source, avec
@@ -7861,7 +7867,7 @@
     (set! *scl10n-registered?* #t)
     ;; --- ecran RECHARGED SETTINGS, dans l'ordre des rangees ---
     (scl10n-add-label! #x17bf *recharged-master-label*)
-    (#when FLAG_RECHARGED_HUD (scl10n-add-label! #x1707 *recharged-hud-label*))
+    (scl10n-add-label! #x1707 *recharged-hud-label*)
     (scl10n-add-label! #x17c0 *grass-settings-label*)
     (scl10n-add-label! #x17c1 *load-custom-assets-label*)
     (scl10n-add-label! #x17c2 *recharged-textures-label*)
@@ -11317,22 +11323,21 @@
   (set! (-> *recharged-options-pc* 0 name-override) *recharged-master-label*)
   (set! (-> *recharged-options-pc* 0 gating-id) "master")
   ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 1) inside the Recharged submenu.
-  (#when FLAG_RECHARGED_HUD
   (set! (-> *recharged-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-hud?))
-  (set! (-> *recharged-options-pc* 1 name-override) *recharged-hud-label*))
+  (set! (-> *recharged-options-pc* 1 name-override) *recharged-hud-label*)
   ;; Grecharged-grass-poc POLISH#6: row 2 (+1 for the master row) is now the "GRASS SETTINGS"
   ;; sub-submenu launcher (label only; its param3 opens *grass-options-pc*). All grass rows moved
   ;; into that nested page (wired below).
-  (set! (-> *recharged-options-pc* (+ 1 FLAG_RECHARGED_HUD_N) name-override) *grass-settings-label*)
+  (set! (-> *recharged-options-pc* 2 name-override) *grass-settings-label*)
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 3, +1 for the master row).
-  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
-  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
-  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) gating-id) "load-custom-assets")
+  (set! (-> *recharged-options-pc* 3 value-to-modify) (&-> *pc-settings* load-custom-assets?))
+  (set! (-> *recharged-options-pc* 3 name-override) *load-custom-assets-label*)
+  (set! (-> *recharged-options-pc* 3 gating-id) "load-custom-assets")
   ;; Grecharged-bundled-textures: wire the "RECHARGED TEXTURES" on-off toggle right after LOAD
   ;; CUSTOM ASSETS (every later *recharged-options-pc* index below shifts +1 for this row).
-  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* recharged-textures?))
-  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
-  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) gating-id) "textures")
+  (set! (-> *recharged-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-textures?))
+  (set! (-> *recharged-options-pc* 4 name-override) *recharged-textures-label*)
+  (set! (-> *recharged-options-pc* 4 gating-id) "textures")
   ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
   ;; Back) instead of the flag arithmetic every other row uses: the row was
   ;; appended at the tail precisely so it needs no index bookkeeping, and length-2 stays
@@ -11354,7 +11359,7 @@
   ;; 6,7,8 full / 5,6,7 collapsed). They also ride along with the collapse (wired here, pre-collapse).
   ;; Grecharged-buildsys-flags: fw-idx = first FOLIAGE WIND slot. HD-MODELS present => static length is
   ;; (+ 9 hud-N hd-N) and FOLIAGE WIND sits at (+ 4 hud-N hd-N); collapsed (enhanced FR3 absent) it drops
-  ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal (+ 4 FLAG_RECHARGED_HUD_N) — the static
+  ;; to (+ 4 hud-N). When FLAG_HD_MODELS is off both branches equal 5 (la rangee HUD compte 1, toujours) — the static
   ;; length is then (+ 9 hud-N) and no collapse ever fires.
   ;; mesh-browser-removal : la rangee de debug posee juste avant Back est SUPPRIMEE, la queue perd 1 ;
   ;; elle etait apres tout ce que le cablage et le collapse touchent, donc SEULES les constantes de
@@ -11397,9 +11402,9 @@
   ;; crans trop tot — la classe de bug Gmenu-flag-off.
   ;; lighting-legacy-purge (2026-09-11) : le bloc PBR passe de 11 a 2 rangees (RECHARGED LIGHTING + HDR OUTPUT), PBR MATERIALS et les deux rangees de debug sortent du tableau. Longueur livree = 22, fw-idx = 9.
   ;; mesh-browser-removal : la rangee de debug est retiree, la queue perd 1 (14 -> 13).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
-                    (+ 4 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N))
-                    (+ 4 FLAG_RECHARGED_HUD_N))))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+                    (+ 5 (* 5 FLAG_HD_MODELS_N))
+                    5)))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
     (set! (-> *recharged-options-pc* fw-idx gating-id) "foliage-wind")
@@ -11568,13 +11573,13 @@
       ;; portent DESORMAIS le meme terme.
       ;; mesh-browser-removal : MEME terme que la garde fw-idx ci-dessus, MEME -1 (14 -> 13).
       (when (= (-> *recharged-options-pc* length)
-               (+ 13 FLAG_RECHARGED_HUD_N (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
-        (let ((i (+ 4 FLAG_RECHARGED_HUD_N)))
+               (+ 14 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+        (let ((i 5))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
             (+! i 1)))
         (+! (-> *recharged-options-pc* length) (* -5 FLAG_HD_MODELS_N)))
-      (let ((hd-idx (+ 4 FLAG_RECHARGED_HUD_N)))
+      (let ((hd-idx 5))
         (set! (-> *recharged-options-pc* hd-idx value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
         (set! (-> *recharged-options-pc* hd-idx name-override) *enhanced-models-label*)

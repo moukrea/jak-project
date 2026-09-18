@@ -318,6 +318,14 @@
 
 (define *mood-override-table* (new 'global 'inline-array 'float 8))
 
+;; recharged-hud-toggle : LE DEFAUT DU REGLAGE « HUD RECHARGE », RELU A LA SOURCE.
+;; SPEC-refonte-hud §1.2 : « par defaut ALLUME quand le maitre Recharged est allume ». La porte de
+;; l'item doit lire ce defaut-la, et pas le litteral recopie a la main dans une preuve : ce temoin
+;; est ecrit par `reset-misc` LUI-MEME, a la fin, apres tout ce qui pourrait le contredire. Le banc
+;; du reglage le publie plus tard (`rhud-tgl-publish`, hud-classes-pc.gc). -1 = `reset-misc` n'a
+;; jamais tourne, ce qui est un defaut, pas une absence de mesure.
+(define *rhud-default-hud-on* -1)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; resets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -350,7 +358,7 @@
   (pc-set-hdr-output! (if (-> obj hdr-output?) 1 0))
   (pc-hdr-output-note! 1 (+ (if (-> obj hdr-output?) 1 0) 2))
   (pc-hdr-output-note! 0 (if (> (pc-get-hdr-output-modes) 0) 1 0))
-  (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
+  (set! (-> obj recharged-hud?) #t) ;; recharged-hud-toggle / SPEC-refonte-hud §1.2 : defaut ALLUME, herite du maitre Recharged (owner JAK-177). Le joueur l'eteint dans Reglages Recharged ; ETEINT = HUD d'origine.
   (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
   (set! (-> obj recharged-grass-near-dist) 30.0) ;; POLISH#4 default near-blade view distance (m)
   (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
@@ -393,6 +401,9 @@
   (set! (-> obj memcard-volume-dialog) 75.0)
   (set! (-> obj memcard-vibration?) #t)
   (set! (-> obj memcard-play-hints?) #t)
+  ;; recharged-hud-toggle : le defaut du reglage HUD, lu SUR LE CHAMP a la fin du chemin de
+  ;; production, jamais recopie. Voir *rhud-default-hud-on* plus haut.
+  (set! *rhud-default-hud-on* (if (-> obj recharged-hud?) 1 0))
   0)
 
 (defmethod reset-extra ((obj pc-settings-jak1) (call-handlers symbol))

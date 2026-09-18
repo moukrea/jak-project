@@ -2304,7 +2304,11 @@
        ;; dernier cran (`force-on-screen` re-estampille `trigger-time` a chaque image) ; partout
        ;; ailleurs il suit la machinerie d'origine de `tally-value`. Sous le probe il est epingle
        ;; en permanence, sinon le banc mesurerait surtout des images cachees.
+       ;; recharged-hud-toggle : le banc du REGLAGE epingle lui aussi le coeur, pour la meme raison
+       ;; — sans cela il mesurerait surtout des images cachees. Le knob est relu ici plutot
+       ;; qu'appele (`rhud-tgl-probe?` est defini plus bas dans ce fichier).
        (let ((pin (or (-> this probe?)
+                      (nonzero? (__pc-autoport-cost-probe "recharged-hud-toggle"))
                       (and *target* (= (the int (-> *target* fact health)) 1)))))
          (set! (-> this force-on-screen) (if pin #t #f))
          ;; tant qu'il est epingle, `tally-value` tire a chaque image : on coupe la co-ouverture du
@@ -4726,10 +4730,389 @@
   0)
 
 
+;;;----------------------------------------------
+;;  recharged-hud-toggle — LE BANC DU REGLAGE « HUD RECHARGE »
+;;;----------------------------------------------
+;; Owner, JAK-177 : « on doit avoir un toggle dans les reglages recharges pour activer ou
+;; desactiver le HUD recharge ! Par defaut a on, herite du master toggle recharge… a off c'est le
+;; HUD d'origine ! ». SPEC-refonte-hud §1.2 : « ETEINT = HUD d'origine ».
+;;
+;; CE QUE LE BANC MESURE, ET POURQUOI IL EXISTE. La rangee de menu vivait sous
+;; `FLAG_RECHARGED_HUD`, drapeau de compilation a #f : elle etait ABSENTE des CGO livres. En la
+;; sortant du drapeau, TOUS les indices de `init-game-options` se decalent de +1 — c'est exactement
+;; la classe de bug Gmenu-flag-off (un cablage decale d'un cran peint un libelle sur la mauvaise
+;; rangee, en silence). Le terme 1 relit donc le tableau LIVRE au lieu de croire l'arithmetique.
+;; Les six autres termes basculent le reglage DANS UNE SEULE COURSE et lisent, image par image,
+;; des grandeurs du MOTEUR : le compteur de dessins de chaque piece rechargee d'un cote, le bit
+;; `hidden` du draw-control et le `last-spawn-frame` des lanceurs d'origine de l'autre. Un terme
+;; qu'on n'a pas pu mesurer vaut UN, jamais zero.
+;;
+;; CHAQUE SOURCE EST PUBLIEE A PART. Un terme booleen (« une piece rechargee dessinait ») est juste
+;; et MUET : il ne nomme pas laquelle. Les dix sources sont donc comptees separement, dans chacune
+;; des trois fenetres — c'est ce qui a permis, des l'essai 1, de separer « la jauge ne dessine
+;; jamais » de « le coeur dessine quand il ne devrait pas ».
+;;
+;; LE BANC ATTEND QUE LE HUD SOIT VIVANT. Mesure de l'essai 1 : les deux premiers blocs sont tombes
+;; pendant le chargement du niveau, HUD entierement replie — zero dessin des deux cotes, donc trois
+;; pieces d'origine declarees « absentes » alors que rien n'avait ete regarde. Le cycle ne part donc
+;; qu'apres RHUD_TGL_WARM images ou le coeur recharge a REELLEMENT dessine.
+;;
+;; INERTE HORS DE LA SONDE. Rien ici ne tourne sans `AUTOPORT_COST_PROBE=recharged-hud-toggle`
+;; (bureau) / `debug.opengoal.costprobe=recharged-hud-toggle` (appareil) : le binaire de l'owner
+;; ne bascule jamais ses reglages tout seul.
+
+(defconstant RHUD_TGL_SETTLE 60)      ;; images jetees aux deux bords d'un bloc
+(defconstant RHUD_TGL_BLOCK 300)      ;; longueur d'un bloc
+(defconstant RHUD_TGL_MIN 120)        ;; images exigees par terme avant qu'il soit MESURE
+(defconstant RHUD_TGL_STOCK_MIN 30)   ;; images exigees pour dire qu'une piece d'ORIGINE est revenue
+(defconstant RHUD_TGL_WARM 60)        ;; images de dessin du coeur exigees avant de partir
+(defconstant RHUD_TGL_WARM_MAX 5400)  ;; au-dela, on part quand meme : un banc qui attend sans fin
+                                      ;; ne publie rien, et « rien » ne nomme aucune cause
+(defconstant RHUD_TGL_SRC 10)         ;; sources suivies par fenetre
+(defconstant RHUD_TGL_WINS 3)         ;; fenetres : 0 ALLUME · 1 ETEINT · 2 MAITRE ETEINT
+
+;; L'ORDRE DES SOURCES, une fois pour toutes (indice dans `src`) :
+;;   0 coeur RECHARGE dessine          5 jauge d'ORIGINE emet
+;;   1 jauge RECHARGEE dessinee        6 icone de pile d'ORIGINE dessinee
+;;   2 NOTRE icone de pile dessinee    7 sprite d'ORIGINE de la mecamouche
+;;   3 NOTRE icone de mecamouche       8 sprite d'ORIGINE de l'orbe
+;;   4 coeur d'ORIGINE emet            9 sprite d'ORIGINE de l'eco verte
+
+(deftype rhud-tgl (structure)
+  ((n            int32)   ;; images ecoulees dans le bloc courant
+   (phase        int32)   ;; 0 ALLUME · 1 ETEINT · 2 RALLUME · 3 MAITRE ETEINT
+   (cycle        int32)   ;; cycles complets ; au-dela de 1 le banc se tait et rend tout ALLUME
+   (audited      int32)   ;; le terme 1 a-t-il ete calcule (1) ou pas encore (0)
+   (warm         int32)   ;; le HUD est-il vivant (1) — le cycle n'a pas commence avant
+   (warm-n       int32)   ;; images passees a l'attendre
+   (warm-hits    int32)   ;; images ou le coeur recharge a dessine pendant l'attente
+   ;; --- terme 1 : la rangee dans le tableau livre ---
+   (t1           int32)
+   (rows         int32)
+   (row-found    int32)
+   (row-idx      int32)
+   (fw-idx       int32)
+   ;; --- les trois fenetres ---
+   (win-n        int32 RHUD_TGL_WINS)   ;; images comptees
+   (rch-any      int32 RHUD_TGL_WINS)   ;; images ou UNE piece rechargee dessinait
+   (stk-any      int32 RHUD_TGL_WINS)   ;; images ou UNE piece d'origine dessinait
+   (our-3d       int32 RHUD_TGL_WINS)   ;; images ou UN de nos deux modeles etait dessine
+   (stk-3d       int32 RHUD_TGL_WINS)   ;; images ou UNE piece 3D d'origine dessinait
+   (src          int32 30)              ;; le detail : (+ (* fenetre 10) source)
+   (elt-mask     int32)                 ;; quels elements de HUD 3D ont existe pendant la course
+   ;; --- derniers cumuls relus, pour lire un DESSIN et pas un total ---
+   (last-heart   int32)
+   (last-gauge   int32)))
+
+(define *rhud-tgl* (new 'static 'rhud-tgl))
+
+(defun rhud-tgl-probe? ()
+  "le harnais mesure-t-il CET item ? Un strcmp exact sur un knob d'environnement."
+  (and (nonzero? (__pc-autoport-cost-probe "recharged-hud-toggle")) #t))
+
+(defun rhud-tgl-pin-soft ((p (pointer hud)))
+  "epingle un element d'ORIGINE a l'ecran SANS toucher a `disable`. C'est justement `disable` que
+   le HUD recharge ecrit pour supprimer l'element qu'il remplace : le banc doit le LIRE, pas le
+   forcer. Sans cet epinglage, le bloc ETEINT ne mesurerait qu'un HUD replie et « l'origine
+   redessine » serait vert par inaction."
+  (when p
+    (set! (-> p 0 force-on-screen) #t)
+    (set! (-> p 0 friend) -1))
+  (none))
+
+(defun rhud-tgl-stock-spawned? ((p (pointer hud)))
+  "CET element d'origine a-t-il lance un sprite a cette image ? La grandeur vient du lanceur
+   (`last-spawn-frame`, ecrit par `spawn`), pas d'un drapeau a nous."
+  (let ((hit #f))
+    (when p
+      (dotimes (i (-> p 0 nb-of-particles))
+        (if (hud3d-spawned-this-frame? (-> p 0 particles i part)) (set! hit #t))))
+    hit))
+
+(defun rhud-tgl-row-of-label ((lbl string))
+  "l'indice de la rangee du tableau LIVRE qui porte ce tampon de libelle ; -1 aucune, -2 plusieurs
+   (une rangee dupliquee est un defaut, pas une ambiguite a trancher au hasard)."
+  (let ((found -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (= (-> *recharged-options-pc* i name-override) lbl)
+        (set! found (if (= found -1) i -2))))
+    found))
+
+(defun rhud-tgl-row-of-gating ((id string))
+  "meme chose, par `gating-id` — l'identifiant que `init-game-options` pose a cote du cablage."
+  (let ((found -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (let ((g (-> *recharged-options-pc* i gating-id)))
+        (when (and (nonzero? g) (string= g id))
+          (set! found (if (= found -1) i -2)))))
+    found))
+
+(defun rhud-tgl-audit! ()
+  "TERME 1 — LA RANGEE, LUE DANS LE TABLEAU QUE LE MENU DESSINE.
+   Le cablage n'est ecrit que par `init-game-options`, dont le seul appelant normal est la naissance
+   du process `progress` : une course de preuve n'ouvre aucun menu. On l'appelle donc ici, pour la
+   meme raison et de la meme facon que `scl10n-census!` (progress-pc.gc) — son corps n'utilise
+   jamais son parametre."
+  (let ((bad 0))
+    (init-game-options (the-as progress #f))
+    (set! (-> *rhud-tgl* rows) (-> *recharged-options-pc* length))
+    (let ((idx (rhud-tgl-row-of-label *recharged-hud-label*)))
+      (set! (-> *rhud-tgl* row-found) (if (>= idx 0) 1 0))
+      (set! (-> *rhud-tgl* row-idx) (if (>= idx 0) idx 0))
+      (cond
+        ((< idx 0) (+! bad 1))
+        (else
+         (let ((row (-> *recharged-options-pc* idx)))
+           (if (!= (-> row option-type) (game-option-type on-off)) (+! bad 1))
+           (if (!= (the-as int (-> row value-to-modify))
+                   (the-as int (&-> *pc-settings* recharged-hud?)))
+             (+! bad 1))))))
+    ;; LES ANCRES DE NON-REGRESSION. Cet item decale de +1 tous les indices du cablage ; trois
+    ;; rangees voisines sont donc relues sur LEUR valeur, pas sur leur place.
+    (if (or (!= (-> *recharged-options-pc* 0 name-override) *recharged-master-label*)
+            (!= (the-as int (-> *recharged-options-pc* 0 value-to-modify))
+                (the-as int (&-> *pc-settings* recharged-master?))))
+      (+! bad 1))
+    (let ((ti (rhud-tgl-row-of-gating "textures")))
+      (if (or (< ti 0)
+              (!= (the-as int (-> *recharged-options-pc* ti value-to-modify))
+                  (the-as int (&-> *pc-settings* recharged-textures?))))
+        (+! bad 1)))
+    (let ((fi (rhud-tgl-row-of-gating "foliage-wind")))
+      (set! (-> *rhud-tgl* fw-idx) (if (>= fi 0) fi 0))
+      (if (or (< fi 0)
+              (!= (the-as int (-> *recharged-options-pc* fi value-to-modify))
+                  (the-as int (&-> *pc-settings* recharged-foliage-wind?))))
+        (+! bad 1)))
+    (set! (-> *rhud-tgl* t1) bad)
+    (set! (-> *rhud-tgl* audited) 1))
+  (none))
+
+(defun rhud-tgl-note! ((this rhud-tgl) (win int) (k int) (hit object))
+  (if hit (+! (-> this src (+ (* win RHUD_TGL_SRC) k))))
+  (none))
+
+(defun rhud-tgl-sample ((this rhud-tgl) (win int))
+  "UNE IMAGE. Les cumuls de dessin sont relus a CHAQUE image (sinon la premiere image comptee
+   lirait un total, pas un dessin) ; seul le COMPTAGE est fenetre. `win` vaut -1 hors fenetre.
+   Rend 1 quand le coeur recharge a dessine a cette image (le banc s'en sert pour son rechauffage)."
+  (let* ((hh (-> *hud-parts-pc* recharged-health))
+         (hp (-> *hud-parts-pc* recharged-power))
+         (h  (-> *hud-parts* health))
+         (p  (-> *hud-parts* power))
+         (fc (hud3d-elt HUD3D_SLOT_CELL))
+         (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
+         (mo (hud3d-elt HUD3D_SLOT_MONEY))
+         (pk (hud3d-elt HUD3D_SLOT_PICKUPS))
+         (hd (if hh (-> (the-as hud-recharged-health (-> hh 0)) draws) 0))
+         (pd (if hp (-> (the-as hud-recharged-power (-> hp 0)) draws) 0))
+         (s0 (> hd (-> this last-heart)))
+         (s1 (> pd (-> this last-gauge)))
+         ;; NOS modeles : la pile vit sur l'icone 1 de son element, la mecamouche sur l'icone 0 du
+         ;; sien. La grandeur est le bit `hidden` du draw-control, celui que le moteur lit.
+         (s2 (and fc (> (-> fc 0 nb-of-icons) 1) (hud3d-icon-drawn? (-> fc 0 icons 1 icon)) #t))
+         (s3 (and bz (> (-> bz 0 nb-of-icons) 0) (hud3d-icon-drawn? (-> bz 0 icons 0 icon)) #t))
+         ;; L'ORIGINE : emission de sprites pour le coeur, la jauge, la mecamouche, l'orbe et
+         ;; l'eco verte ; bit `hidden` de l'icone 0 pour la pile, dont l'origine est un modele.
+         (s4 (and h (not (-> h 0 disable)) (rhud-tgl-stock-spawned? h) #t))
+         (s5 (and p (not (-> p 0 disable)) (rhud-tgl-stock-spawned? p) #t))
+         (s6 (and fc (> (-> fc 0 nb-of-icons) 0) (hud3d-icon-drawn? (-> fc 0 icons 0 icon)) #t))
+         (s7 (nonzero? (hud3d-stock-spawned bz 0)))
+         (s8 (nonzero? (hud3d-stock-spawned mo 0)))
+         (s9 (nonzero? (hud3d-stock-spawned pk 0))))
+    (set! (-> this last-heart) hd)
+    (set! (-> this last-gauge) pd)
+    ;; quels elements de HUD 3D ont seulement EXISTE : un terme aveugle parce que l'element n'est
+    ;; pas dans la scene ne doit pas se lire comme un defaut du jeu.
+    (if fc (logior! (-> this elt-mask) 1))
+    (if bz (logior! (-> this elt-mask) 2))
+    (if mo (logior! (-> this elt-mask) 4))
+    (if pk (logior! (-> this elt-mask) 8))
+    (when (>= win 0)
+      (+! (-> this win-n win) 1)
+      (rhud-tgl-note! this win 0 s0) (rhud-tgl-note! this win 1 s1)
+      (rhud-tgl-note! this win 2 s2) (rhud-tgl-note! this win 3 s3)
+      (rhud-tgl-note! this win 4 s4) (rhud-tgl-note! this win 5 s5)
+      (rhud-tgl-note! this win 6 s6) (rhud-tgl-note! this win 7 s7)
+      (rhud-tgl-note! this win 8 s8) (rhud-tgl-note! this win 9 s9)
+      (if (or s2 s3) (+! (-> this our-3d win) 1))
+      (if (or s6 s7 s8 s9) (+! (-> this stk-3d win) 1))
+      (if (or s0 s1 s2 s3) (+! (-> this rch-any win) 1))
+      (if (or s4 s5 s6 s7 s8 s9) (+! (-> this stk-any win) 1)))
+    (if s0 1 0)))
+
+(defun rhud-tgl-window ((ph int))
+  "la fenetre de comptage d'un bloc : 0 ALLUME (phases 0 et 2) · 1 ETEINT · 2 MAITRE ETEINT."
+  (case ph ((1) 1) ((3) 2) (else 0)))
+
+(defun rhud-tgl-bench ((this rhud-tgl))
+  "la sequence de mesure, UN cycle : ALLUME · ETEINT · RALLUME · MAITRE ETEINT, puis le banc se
+   tait et laisse tout ALLUME."
+  (when *target*
+    ;; les six elements restent a l'ecran DANS LES DEUX regimes.
+    (hud3d-pin (hud3d-elt HUD3D_SLOT_CELL))
+    (hud3d-pin (hud3d-elt HUD3D_SLOT_BUZZERS))
+    (hud3d-pin (hud3d-elt HUD3D_SLOT_MONEY))
+    (hud3d-pin (hud3d-elt HUD3D_SLOT_PICKUPS))
+    (rhud-tgl-pin-soft (-> *hud-parts* health))
+    (rhud-tgl-pin-soft (-> *hud-parts* power))
+    (cond
+      ((>= (-> this cycle) 1)
+       ;; la garde de securite : le cycle est fait, on rend au jeu un etat ALLUME.
+       (set! (-> *pc-settings* recharged-master?) #t)
+       (set! (-> *pc-settings* recharged-hud?) #t))
+      ((zero? (-> this warm))
+       ;; RECHAUFFAGE : tout allume, de l'eco dans la poche, et on attend que le coeur recharge
+       ;; dessine pour de bon. Sans cette attente les deux premiers blocs tombent pendant le
+       ;; chargement du niveau (mesure de l'essai 1) et trois termes se declarent aveugles.
+       (set! (-> *pc-settings* recharged-master?) #t)
+       (set! (-> *pc-settings* recharged-hud?) #t)
+       (+! (-> this warm-n) 1)
+       ;; l'eco : la jauge, d'origine comme rechargee, ne se montre que si jak en porte.
+       (if (zero? (mod (-> this warm-n) 120)) (rhud-gauge-eco-seed (pickup-type eco-blue)))
+       (+! (-> this warm-hits) (rhud-tgl-sample this -1))
+       (if (or (>= (-> this warm-hits) RHUD_TGL_WARM) (>= (-> this warm-n) RHUD_TGL_WARM_MAX))
+         (set! (-> this warm) 1))
+       (if (and (zero? (-> this audited)) (>= (-> this warm-n) RHUD_TGL_SETTLE)) (rhud-tgl-audit!)))
+      (else
+       (+! (-> this n) 1)
+       (let ((ph (-> this phase)))
+         ;; le regime du bloc, repose A CHAQUE IMAGE : l'image de la bascule est alors sans
+         ;; ambiguite, quel que soit l'ordre des process dans l'image.
+         (set! (-> *pc-settings* recharged-master?) (if (= ph 3) #f #t))
+         (set! (-> *pc-settings* recharged-hud?) (if (= ph 1) #f #t))
+         ;; une graine d'eco par bloc : le vidage d'origine dure bien plus qu'un bloc, mais deux
+         ;; blocs de suite sans eco eteindraient les deux jauges et rendraient le terme muet.
+         (if (= (-> this n) 1) (rhud-gauge-eco-seed (pickup-type eco-blue)))
+         (let ((counting (and (> (-> this n) RHUD_TGL_SETTLE)
+                              (<= (-> this n) (- RHUD_TGL_BLOCK RHUD_TGL_SETTLE)))))
+           (if counting (__pc-autoport-hit-for "recharged-hud-toggle" 1))
+           (rhud-tgl-sample this (if counting (rhud-tgl-window ph) -1)))
+         (when (>= (-> this n) RHUD_TGL_BLOCK)
+           (set! (-> this n) 0)
+           (cond
+             ((>= ph 3) (set! (-> this phase) 0) (+! (-> this cycle) 1))
+             (else (set! (-> this phase) (+ ph 1)))))))))
+  (none))
+
+(defun rhud-tgl-pub-src ((this rhud-tgl) (win int) (k int) (key string))
+  (__pc-autoport-publish key (-> this src (+ (* win RHUD_TGL_SRC) k)))
+  (none))
+
+(defun rhud-tgl-publish ((this rhud-tgl))
+  "chaque terme sur SA ligne, le compte de termes MESURES a cote de la somme. Un terme qu'on n'a
+   pas pu mesurer vaut UN : une porte qui compterait zero un terme aveugle passerait au vert sans
+   rien avoir regarde."
+  (let ((measured 0))
+    (let* ((t1 (if (nonzero? (-> this audited))
+                 (begin (+! measured 1) (-> this t1))
+                 (+ (-> this t1) 1)))
+           (t2 (if (>= *rhud-default-hud-on* 0)
+                 (begin (+! measured 1) (if (= *rhud-default-hud-on* 1) 0 1))
+                 1))
+           (t3 (if (>= (-> this win-n 1) RHUD_TGL_MIN)
+                 (begin (+! measured 1) (-> this rch-any 1))
+                 (+ (-> this rch-any 1) 1)))
+           (t4 (if (>= (-> this win-n 1) RHUD_TGL_MIN)
+                 (begin (+! measured 1)
+                        (+ (if (>= (-> this src 14) RHUD_TGL_STOCK_MIN) 0 1)
+                           (if (>= (-> this src 15) RHUD_TGL_STOCK_MIN) 0 1)
+                           (if (>= (-> this stk-3d 1) RHUD_TGL_STOCK_MIN) 0 1)))
+                 3))
+           (t5 (if (>= (-> this win-n 0) RHUD_TGL_MIN)
+                 (begin (+! measured 1)
+                        (+ (if (> (-> this src 0) 0) 0 1)
+                           (if (> (-> this src 1) 0) 0 1)
+                           (if (> (-> this our-3d 0) 0) 0 1)))
+                 3))
+           (t6 (if (>= (-> this win-n 0) RHUD_TGL_MIN)
+                 (begin (+! measured 1) (-> this stk-any 0))
+                 (+ (-> this stk-any 0) 1)))
+           (t7 (if (>= (-> this win-n 2) RHUD_TGL_MIN)
+                 (begin (+! measured 1) (-> this rch-any 2))
+                 (+ (-> this rch-any 2) 1))))
+      (__pc-autoport-publish "rhud_toggle_t1_row_wiring" t1)
+      (__pc-autoport-publish "rhud_toggle_t2_default_on" t2)
+      (__pc-autoport-publish "rhud_toggle_t3_off_recharged_drawn" t3)
+      (__pc-autoport-publish "rhud_toggle_t4_off_stock_missing" t4)
+      (__pc-autoport-publish "rhud_toggle_t5_on_recharged_missing" t5)
+      (__pc-autoport-publish "rhud_toggle_t6_on_stock_drawn" t6)
+      (__pc-autoport-publish "rhud_toggle_t7_master_off_recharged_drawn" t7)
+      ;; les denominateurs : une somme sans eux ne dit pas ce qui a ete regarde
+      (__pc-autoport-publish "rhud_toggle_probe" 1)
+      (__pc-autoport-publish "rhud_toggle_cycle" (-> this cycle))
+      (__pc-autoport-publish "rhud_toggle_phase" (-> this phase))
+      (__pc-autoport-publish "rhud_toggle_warm" (-> this warm))
+      (__pc-autoport-publish "rhud_toggle_warm_frames" (-> this warm-n))
+      (__pc-autoport-publish "rhud_toggle_warm_hits" (-> this warm-hits))
+      (__pc-autoport-publish "rhud_toggle_rows" (-> this rows))
+      (__pc-autoport-publish "rhud_toggle_row_found" (-> this row-found))
+      (__pc-autoport-publish "rhud_toggle_row_index" (-> this row-idx))
+      (__pc-autoport-publish "rhud_toggle_foliage_wind_index" (-> this fw-idx))
+      (__pc-autoport-publish "rhud_toggle_default_on_witness" (+ *rhud-default-hud-on* 1))
+      (__pc-autoport-publish "rhud_toggle_elt_mask" (-> this elt-mask))
+      (__pc-autoport-publish "rhud_toggle_on_frames" (-> this win-n 0))
+      (__pc-autoport-publish "rhud_toggle_off_frames" (-> this win-n 1))
+      (__pc-autoport-publish "rhud_toggle_master_off_frames" (-> this win-n 2))
+      ;; --- fenetre ALLUME, source par source ---
+      (rhud-tgl-pub-src this 0 0 "rhud_toggle_on_rch_heart")
+      (rhud-tgl-pub-src this 0 1 "rhud_toggle_on_rch_gauge")
+      (rhud-tgl-pub-src this 0 2 "rhud_toggle_on_our_cell")
+      (rhud-tgl-pub-src this 0 3 "rhud_toggle_on_our_buzz")
+      (rhud-tgl-pub-src this 0 4 "rhud_toggle_on_stk_heart")
+      (rhud-tgl-pub-src this 0 5 "rhud_toggle_on_stk_gauge")
+      (rhud-tgl-pub-src this 0 6 "rhud_toggle_on_stk_cell")
+      (rhud-tgl-pub-src this 0 7 "rhud_toggle_on_stk_buzz")
+      (rhud-tgl-pub-src this 0 8 "rhud_toggle_on_stk_money")
+      (rhud-tgl-pub-src this 0 9 "rhud_toggle_on_stk_eco")
+      ;; --- fenetre ETEINT ---
+      (rhud-tgl-pub-src this 1 0 "rhud_toggle_off_rch_heart")
+      (rhud-tgl-pub-src this 1 1 "rhud_toggle_off_rch_gauge")
+      (rhud-tgl-pub-src this 1 2 "rhud_toggle_off_our_cell")
+      (rhud-tgl-pub-src this 1 3 "rhud_toggle_off_our_buzz")
+      (rhud-tgl-pub-src this 1 4 "rhud_toggle_off_stk_heart")
+      (rhud-tgl-pub-src this 1 5 "rhud_toggle_off_stk_gauge")
+      (rhud-tgl-pub-src this 1 6 "rhud_toggle_off_stk_cell")
+      (rhud-tgl-pub-src this 1 7 "rhud_toggle_off_stk_buzz")
+      (rhud-tgl-pub-src this 1 8 "rhud_toggle_off_stk_money")
+      (rhud-tgl-pub-src this 1 9 "rhud_toggle_off_stk_eco")
+      ;; --- fenetre MAITRE ETEINT ---
+      (rhud-tgl-pub-src this 2 0 "rhud_toggle_mo_rch_heart")
+      (rhud-tgl-pub-src this 2 1 "rhud_toggle_mo_rch_gauge")
+      (rhud-tgl-pub-src this 2 2 "rhud_toggle_mo_our_cell")
+      (rhud-tgl-pub-src this 2 3 "rhud_toggle_mo_our_buzz")
+      (rhud-tgl-pub-src this 2 4 "rhud_toggle_mo_stk_heart")
+      (rhud-tgl-pub-src this 2 5 "rhud_toggle_mo_stk_gauge")
+      (rhud-tgl-pub-src this 2 6 "rhud_toggle_mo_stk_cell")
+      (rhud-tgl-pub-src this 2 7 "rhud_toggle_mo_stk_buzz")
+      (rhud-tgl-pub-src this 2 8 "rhud_toggle_mo_stk_money")
+      (rhud-tgl-pub-src this 2 9 "rhud_toggle_mo_stk_eco")
+      (__pc-autoport-publish "recharged_hud_toggle_terms_measured" measured)
+      (__pc-autoport-publish "recharged_hud_toggle_defects" (+ t1 t2 t3 t4 t5 t6 t7))))
+  (none))
+
 (defmethod hud-update ((this hud-3d-pickups))
+  ;; recharged-hud-toggle : le banc du REGLAGE tourne ICI, en tete, AVANT la porte `on` ci-dessous
+  ;; — c'est lui qui pose les deux reglages que cette porte lit. Inerte hors de sa sonde.
+  (when (rhud-tgl-probe?)
+    (rhud-tgl-bench *rhud-tgl*)
+    (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60))
+      (rhud-tgl-publish *rhud-tgl*)))
+  ;; EPINGLER LE REGIME DE SA PROPRE FEATURE. Depuis recharged-hud-toggle la couche 3D suit aussi
+  ;; le reglage « HUD recharge », qui est PERSISTE (`recharged-hud? = #f` traine encore dans des
+  ;; fichiers de reglages ecrits avant le 18/09) : une course qui ne le poserait pas mesurerait le
+  ;; reglage laisse par quelqu'un d'autre, et son zero de defauts voudrait dire « rien n'a ete
+  ;; dessine ». Le coeur et la jauge le font deja dans leurs bancs.
+  (if (nonzero? (__pc-autoport-cost-probe "hud-3d-pickups"))
+    (set! (-> *pc-settings* recharged-hud?) #t))
   (let* ((master (and (-> *pc-settings* recharged-master?) #t))
+         ;; recharged-hud-toggle : LA COUCHE 3D SUIT LE REGLAGE « HUD RECHARGE », comme le coeur et
+         ;; la jauge. Elle ne lisait QUE le maitre : reglage eteint, la mecamouche, l'orbe, l'eco
+         ;; verte et la pile restaient en 3D. « ETEINT = HUD d'origine » (SPEC-refonte-hud §1.2)
+         ;; etait donc faux pour quatre des six pieces que l'owner regarde.
+         (hud (and master (-> *pc-settings* recharged-hud?) #t))
          (armed (zero? (__pc-autoport-disarmed-for "hud-3d-pickups")))
-         (on (and master armed))
+         (on (and hud armed))
          (fc (hud3d-elt HUD3D_SLOT_CELL))
          (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
          (mo (hud3d-elt HUD3D_SLOT_MONEY))

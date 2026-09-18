@@ -140,6 +140,11 @@ AUTOPORT_FEATURE_SITE("hud-eco-gauge");
 // par `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
 // CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».
 AUTOPORT_FEATURE_SITE("hud-heart");
+// recharged-hud-toggle : l'instrument est le banc GOAL du reglage (hud-classes-pc.gc), qui tire par
+// `__pc-autoport-hit-for` (ce fichier) une prise par image JUGEE par le banc. Le site se declare ICI
+// parce qu'il doit s'enregistrer au CHARGEMENT : c'est ce qui separe « aucun site compile » de
+// « site jamais atteint ».
+AUTOPORT_FEATURE_SITE("recharged-hud-toggle");
 // res-list-sorted-by-pixels : l'instrument est le recensement GOAL de progress-pc.gc, qui tire par
 // `__pc-autoport-hit-for` (ce fichier). Le site se declare ICI parce qu'il doit s'enregistrer au
 // CHARGEMENT : c'est ce qui separe « aucun site compile » de « site jamais atteint ».

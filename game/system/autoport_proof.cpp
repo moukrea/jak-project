@@ -245,13 +245,17 @@ void emit_locked() {
     // ces images-la.
     // `hud-heart` compte LES IMAGES OU LE COEUR RECHARGE EST DESSINE — `hits_means` de son
     // item ; meme raison.
+    // `recharged-hud-toggle` compte LES IMAGES QUE SON BANC A JUGEES — `hits_means` de son item.
+    // Le compteur global du binaire monte pour les trois chantiers du HUD en meme temps et ne
+    // dirait rien des images ou la bascule du reglage a ete appliquee ET mesuree.
     uint64_t hits = (id == ao_item::kId || id == "ao-prepass-tie-alpha" ||
                      id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
                      id == "grass-surface-truth" || id == "grass-overlay-meshes" ||
                      id == "soft-surface-truth" || id == "soft-support-map" ||
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
-                     id == "hud-eco-gauge" || id == "hud-heart")
+                     id == "hud-eco-gauge" || id == "hud-heart" ||
+                     id == "recharged-hud-toggle")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {
