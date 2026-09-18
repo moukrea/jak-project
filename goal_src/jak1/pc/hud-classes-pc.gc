@@ -1821,9 +1821,16 @@
 ;;   base-x = -p00, base-y = -p11                                sprite.gc:283, :288
 ;; Une unite GS en x vaut une unite du canevas 512 ; une unite GS en y en vaut DEUX du canevas 448
 ;; (`rhud-add-vert` ecrit 1936 + 0,5 py) — d'ou le facteur 2 qui absorbe le 0,5 du coin en y.
-;; CONTROLE GRATUIT : ce calcul dit que le pip est CARRE EN PIXELS. Les deux demi-tailles en pixels
-;; sont publiees (`hud_heart_pip_px_x_milli` / `_y_milli`) ; si elles differaient, la derivation
-;; serait fausse et le rectangle d'origine avec elle.
+;; LE REGIME, PUBLIE A COTE. Le pip n'est carre EN PIXELS que si la compensation grand ecran des
+;; sprites de HUD est active, c'est-a-dire `use-vis?` FAUX (sprite.gc:467-471 : « when the game is
+;; in widescreen, HUD sprites are generally enlarged, which looks terrible. this reverts that »).
+;; Course du 18/09 : sur le bureau (fenetre 1202x541) les deux demi-tailles en pixels valent
+;; 40,808 — egales ; sur l'appareil (2400x1080) elles valent 136,027 et 81,616. Le HUD D'ORIGINE
+;; y est donc etire 1,667 fois en largeur, et le rectangle du coeur d'origine mesure 445 x 214 px
+;; au lieu des 267 x 214 de sa forme 4:3. Ce n'est pas une erreur de derivation : c'est l'etat du
+;; port, et la preuve le NOMME (`hud_heart_use_vis`, `hud_heart_ars_milli`, `hud_heart_arr_milli`)
+;; au lieu de le laisser deviner. Notre sprite, lui, reste carre a l'ecran (`rhud-aspect-fx`) :
+;; l'ecart de LARGEUR est publie des deux cotes, en pixels, et c'est a l'owner de trancher.
 ;;
 ;; CE QUI ENTRE DANS LA PORTE. Le CENTRE, qui est exact et ne depend pas de la taille d'un pip :
 ;; les trois pips partagent la meme `scale`, donc le rectangle des trois pips COMPLETS et celui de
@@ -2157,6 +2164,29 @@
                              (the int (* 1000.0 (-> *rhud-heart-geom* phy)
                                          (/ (the float (-> *pc-settings* framebuffer-height)) 448.0))))
       (__pc-autoport-publish "hud_heart_half_16th" (the int (* 16.0 (-> *rhud-heart-geom* hs))))
+      ;; LE REGIME DE L'ECRAN, sans lequel aucun des rectangles ci-dessus ne veut dire grand-chose :
+      ;; c'est lui qui decide si les pips d'origine sont recales (`set-pos-and-scale`) et si leurs
+      ;; sprites sont compenses (`sprite.gc:467-471`).
+      (__pc-autoport-publish "hud_heart_use_vis" (if (-> *pc-settings* use-vis?) 1 0))
+      (__pc-autoport-publish "hud_heart_ars_milli" (the int (* 1000.0 (-> *pc-settings* aspect-ratio-scale))))
+      (__pc-autoport-publish "hud_heart_arr_milli" (the int (* 1000.0 (-> *pc-settings* aspect-ratio-reciprocal))))
+      (__pc-autoport-publish "hud_heart_fb_w" (-> *pc-settings* framebuffer-width))
+      (__pc-autoport-publish "hud_heart_fb_h" (-> *pc-settings* framebuffer-height))
+      (__pc-autoport-publish "hud_heart_fx_milli" (the int (* 1000.0 (-> *rhud-heart-geom* fx))))
+      ;; LES DEUX LARGEURS ET LES DEUX HAUTEURS, EN PIXELS. C'est la seule forme du terme 2 que
+      ;; l'owner peut lire sans convertir : notre coeur contre celui qu'il remplace, sur SA dalle.
+      (__pc-autoport-publish "hud_heart_ours_w_px_milli"
+                             (the int (* 1000.0 (- (the float (-> this pos-ours 2)) (the float (-> this pos-ours 0)))
+                                         (/ (the float (-> *pc-settings* framebuffer-width)) 8192.0))))
+      (__pc-autoport-publish "hud_heart_stock_w_px_milli"
+                             (the int (* 1000.0 (- (the float (-> this pos-stock 2)) (the float (-> this pos-stock 0)))
+                                         (/ (the float (-> *pc-settings* framebuffer-width)) 8192.0))))
+      (__pc-autoport-publish "hud_heart_ours_h_px_milli"
+                             (the int (* 1000.0 (- (the float (-> this pos-ours 3)) (the float (-> this pos-ours 1)))
+                                         (/ (the float (-> *pc-settings* framebuffer-height)) 7168.0))))
+      (__pc-autoport-publish "hud_heart_stock_h_px_milli"
+                             (the int (* 1000.0 (- (the float (-> this pos-stock 3)) (the float (-> this pos-stock 1)))
+                                         (/ (the float (-> *pc-settings* framebuffer-height)) 7168.0))))
       (__pc-autoport-publish "hud_heart_blk_n" (-> this blk-n))
       (__pc-autoport-publish "hud_heart_blk_diff" (-> this blk-diff))
       (__pc-autoport-publish "hud_heart_blk_max" (-> this blk-max))
