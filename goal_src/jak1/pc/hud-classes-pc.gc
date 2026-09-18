@@ -1375,6 +1375,12 @@
    (t4-stale     int32)    ;; images ecartees parce que l'oracle d'origine n'avait pas tourne
    (t4-lag       int32 6)  ;; combien d'images separent notre mesure du dernier passage de l'oracle
    (t4-lagmax    int32)
+   (t4-prev-t    int32)    ;; `current-time` de l'image DESSINEE precedente
+   (t4-dt        int32)    ;; avance de cette horloge entre deux images DESSINEES
+   (t4-dtmax     int32)    ;;   ... et la pire, publiee : c'est l'echelle de la fenetre
+   (t4-win       int32)    ;; fenetre de fraicheur effective, dans l'unite de cette horloge
+   (t4-warmup    int32)    ;; images sautees faute de dt utilisable (la premiere de chaque serie)
+   (t4-selfmax   int32)    ;; pire retard de NOTRE PROPRE tally : nomme le silence commun aux deux
    (drain-t0     int32)    ;; game-frame-counter de la derniere image a 100 %
    (drain-ticks  int32)    ;; duree du dernier vidage complet, en unites de game-frame-counter
    (drain-n      int32)    ;; vidages complets chronometres
@@ -2618,30 +2624,62 @@
       ;; Pendant ces silences `value` GELE tandis que l'eco continue de se vider — et la garde
       ;; d'avant, `value2 == eco-timeout`, ne pouvait pas le voir : `eco-timeout` ne bouge pas
       ;; d'un ramassage a l'autre. Course appareil du 18/09 : 8441 images sur 16783 accusees,
-      ;; jusqu'a 84,5 % d'ecart, pour un oracle simplement perime — le bureau, qui ne diffuse
-      ;; rien, n'en montrait aucune. On lit donc son horodatage de passage : `trigger-time` est
-      ;; estampille a chaque fois que le corps de `tally-value` s'execute. Les images ecartees
-      ;; sont COMPTEES et publiees, pour que l'aveuglement se lise au lieu de se deviner.
-      (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE)
-                 (< (- (current-time) (-> p 0 trigger-time)) (the-as time-frame 2)))
-        (let* ((sfull (the float (the-as uint (-> *FACT-bank* eco-full-timeout))))
-               (sfrac (fmin 1.0 (/ (the float (-> p 0 value)) sfull)))
-               (mine (the int (* 100000.0 frac)))
-               (d (the int (fabs (* 100000.0 (- frac sfrac))))))
-          (+! (-> this t4-n) 1)
-          (set! (-> this last-frac) mine)
-          (if (> mine (-> this t4-hi)) (set! (-> this t4-hi) mine))
-          (if (< mine (-> this t4-lo)) (set! (-> this t4-lo) mine))
-          (if (> d (-> this t4-max)) (set! (-> this t4-max) d))
-          (if (> d RHUD_GAUGE_FRAC_TOL) (+! (-> this t4-bad) 1))))
-    (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE))
-      (let ((lag (the int (- (current-time) (-> p 0 trigger-time)))))
-        (if (>= lag 2) (+! (-> this t4-stale) 1))
-        (if (> lag (-> this t4-lagmax)) (set! (-> this t4-lagmax) lag))
-        (cond
-          ((< lag 0) (+! (-> this t4-lag 0) 1))
-          ((< lag 5) (+! (-> this t4-lag (+ 1 lag)) 1))
-          (else (+! (-> this t4-lag 5) 1))))))
+      ;; jusqu'a 84,5 % d'ecart, pour un oracle simplement perime. On lit donc son horodatage de
+      ;; passage : `trigger-time`, estampille a chaque execution du corps de `tally-value`.
+      ;;
+      ;; 18/09, essai 3 — LA FENETRE DE FRAICHEUR SE MESURE DANS L'HORLOGE QU'ELLE LIT.
+      ;; Cette fenetre valait DEUX unites de `current-time` (`*display* base-frame-counter`), qui
+      ;; avance a la cadence de l'AFFICHAGE, pas a celle du DESSIN. Sur le bureau a 60 img/s elle
+      ;; laissait passer tout ce qui etait frais ; sur l'appareil, une image DESSINEE couvre
+      ;; plusieurs unites d'horloge (course de l'essai 2 : 16440 images en 430 s, 25 images
+      ;; fraiches sur 19477 — le plancher du terme valait EXACTEMENT 25 ; course de l'essai 3 a
+      ;; 7740 images : ZERO). La fenetre etait donc plus courte qu'une image : elle ne mesurait
+      ;; pas la fraicheur de l'oracle, elle mesurait la cadence de la machine. Elle vaut
+      ;; desormais DEUX IMAGES DESSINEES — l'ecart d'horloge entre cette image et la precedente,
+      ;; publie (`t4_dt`, `t4_dtmax`, `t4_win`). Ce que ca coute en exactitude est borne et
+      ;; chiffre : a 18 img/s, deux images valent ~7 unites de `game-frame-counter` de vidage,
+      ;; soit 117 sur 100000 quand la tolerance du terme est de 300 — et `t4_max` publie le pire
+      ;; ecart REELLEMENT observe, de quoi verifier que la porte ne mesure pas sa fenetre.
+      (when (and p *target* (>= (-> this bench-n) RHUD_GB_SETTLE))
+        (let* ((now (the int (current-time)))
+               (dt (if (> (-> this t4-prev-t) 0) (- now (-> this t4-prev-t)) 0))
+               (lag (- now (the int (-> p 0 trigger-time))))
+               (win (max 2 (* 2 dt))))
+          (set! (-> this t4-prev-t) now)
+          (set! (-> this t4-dt) dt)
+          (set! (-> this t4-win) win)
+          (if (> dt (-> this t4-dtmax)) (set! (-> this t4-dtmax) dt))
+          ;; NOTRE PROPRE tally subit le MEME garde que celle de la jauge d'origine (hud.gc:34 :
+          ;; noir, letterbox, cinematique, menu). Si les deux retards sont aussi grands l'un que
+          ;; l'autre, le silence vient de ce garde et pas de l'extinction de la jauge d'origine ;
+          ;; si le notre est petit et le sien enorme, c'est l'inverse. Sans ce nombre, les deux
+          ;; causes se confondent dans un seul zero.
+          (let ((self-lag (- now (the int (-> this trigger-time)))))
+            (if (> self-lag (-> this t4-selfmax)) (set! (-> this t4-selfmax) self-lag)))
+          ;; l'histogramme du retard et le compte des images ecartees : ils disent ce que la
+          ;; fenetre a laisse passer, et ils sont publies a cote d'elle.
+          (if (>= lag win) (+! (-> this t4-stale) 1))
+          (if (> lag (-> this t4-lagmax)) (set! (-> this t4-lagmax) lag))
+          (cond
+            ((< lag 0) (+! (-> this t4-lag 0) 1))
+            ((< lag 5) (+! (-> this t4-lag (+ 1 lag)) 1))
+            (else (+! (-> this t4-lag 5) 1)))
+          (cond
+            ;; premiere image de la serie : aucun dt, donc aucune fenetre honnete a poser
+            ((<= dt 0) (+! (-> this t4-warmup) 1))
+            ;; oracle perime : deja compte dans t4-stale, on ne compare pas
+            ((>= lag win) 0)
+            (else
+             (let* ((sfull (the float (the-as uint (-> *FACT-bank* eco-full-timeout))))
+                    (sfrac (fmin 1.0 (/ (the float (-> p 0 value)) sfull)))
+                    (mine (the int (* 100000.0 frac)))
+                    (d (the int (fabs (* 100000.0 (- frac sfrac))))))
+               (+! (-> this t4-n) 1)
+               (set! (-> this last-frac) mine)
+               (if (> mine (-> this t4-hi)) (set! (-> this t4-hi) mine))
+               (if (< mine (-> this t4-lo)) (set! (-> this t4-lo) mine))
+               (if (> d (-> this t4-max)) (set! (-> this t4-max) d))
+               (if (> d RHUD_GAUGE_FRAC_TOL) (+! (-> this t4-bad) 1))))))))
 
     ;; --- terme 4, second temoin : LA VITESSE DE VIDAGE, CHRONOMETREE.
     ;; De la derniere image a 100 % a la premiere image a 0 %, il doit s'ecouler exactement
@@ -2894,6 +2932,13 @@
       (__pc-autoport-publish "hud_gauge_t4_n" (-> this t4-n))
       (__pc-autoport-publish "hud_gauge_t4_max" (-> this t4-max))
       (__pc-autoport-publish "hud_gauge_t4_stale" (-> this t4-stale))
+      ;; la fenetre de fraicheur du terme 4, dans son unite, avec ce qu'elle mesure : sans ces
+      ;; trois nombres personne ne peut dire si « frais » veut dire quelque chose sur CETTE course
+      (__pc-autoport-publish "hud_gauge_t4_dt" (-> this t4-dt))
+      (__pc-autoport-publish "hud_gauge_t4_dtmax" (-> this t4-dtmax))
+      (__pc-autoport-publish "hud_gauge_t4_win" (-> this t4-win))
+      (__pc-autoport-publish "hud_gauge_t4_warmup" (-> this t4-warmup))
+      (__pc-autoport-publish "hud_gauge_t4_self_lagmax" (-> this t4-selfmax))
       (__pc-autoport-publish "hud_gauge_t4_lagmax" (-> this t4-lagmax))
       (__pc-autoport-publish "hud_gauge_t4_lag_neg" (-> this t4-lag 0))
       (__pc-autoport-publish "hud_gauge_t4_lag0" (-> this t4-lag 1))
@@ -3020,6 +3065,20 @@
     (rhud-gauge-particles-follow this)
     (set! (-> this probe?) (and (nonzero? (__pc-autoport-cost-probe "hud-eco-gauge")) #t))
     (if (-> this probe?) (rhud-gauge-bench this on))
+    ;; L'ORACLE DU TERME 4, ENTRETENU PAR LE BANC — JAMAIS DANS LE JEU DE L'OWNER.
+    ;; Le terme 4 compare notre fraction a la quantite d'eco que la jauge d'ORIGINE tient, lue sur
+    ;; son process. Cette valeur n'existe que si `hud-update` de `hud-power` s'execute ; eteinte et
+    ;; cachee par nous, elle ne s'executait plus assez souvent pour etre fraiche une seule fois sur
+    ;; 17814 images de la course de l'essai 3 (25 sur 19477 a l'essai 2, pour un plancher de 25 :
+    ;; le terme tenait au hasard). On appelle donc la METHODE D'ORIGINE, sur le PROCESS D'ORIGINE,
+    ;; avec l'expression d'origine : l'oracle reste celui du jeu, c'est le banc qui le fait tourner.
+    ;; Deux gardes : uniquement sous la sonde de cout (le binaire de l'owner n'entre jamais ici), et
+    ;; uniquement quand la jauge d'origine est DESACTIVEE — c'est ce qui interdit a `tally-value`
+    ;; de la faire revenir a l'ecran (`(go hud-arriving)`, hud.gc:65, garde sur `disable`).
+    (when (-> this probe?)
+      (let ((sp (-> *hud-parts* power)))
+        (if (and sp (-> sp 0 disable))
+          ((method-of-type hud-power hud-update) (the-as hud-power (-> sp 0))))))
     (when (zero? (mod (the int (-> *display* integral-frame-counter)) 60))
       (rhud-gauge-publish this)))
   (cond
