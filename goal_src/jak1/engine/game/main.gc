@@ -696,6 +696,12 @@
 ;; livres. Une seule passe par demarrage, apres la 700e image : derriere `res-menu-audit!` et
 ;; `scl10n-census!`, qui se servent des memes emplacements partages.
 (define-extern menu-label-census! (function none))
+;; res-list-sorted-by-pixels : l'audit « la liste des resolutions est classee par nombre total de
+;; pixels ». Meme place et meme raison que les quatre ci-dessus — il bat la liste par le
+;; constructeur LIVRE, pour chaque aspect que le menu propose, et `*temp-options*` n'est cable
+;; qu'a l'ouverture d'un ecran. Il ne touche a aucun reglage : l'aspect est un PARAMETRE du
+;; constructeur. Une seule passe par demarrage, apres la 240e image, et seulement menu FERME.
+(define-extern res-sort-audit! (function none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; firstperson-hd-hide -- L'IMAGE DE PREMIERE PERSONNE, ET LE GESTE QUI L'OUVRE
@@ -804,6 +810,8 @@
   (android-text-touch-census!)
   ;; menu-back-label : voir le define-extern plus haut. Une seule passe par demarrage.
   (menu-label-census!)
+  ;; res-list-sorted-by-pixels : voir le define-extern plus haut. Une seule passe par demarrage.
+  (res-sort-audit!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))

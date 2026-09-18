@@ -2942,15 +2942,82 @@
   (new 'static 'boxed-array :type int32
        480 600 720 768 900 1024 1050 1080 1152 1200 1440 1600 2160 2880 4320))
 
-(defun build-resolution-options ()
-  "Build the Game Resolution list for the CURRENT aspect ratio: a NATIVE entry (the
-   largest resolution AT the chosen aspect that fits the physical panel — adapts as the
-   aspect changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) +
-   a standard ladder generated AT the current aspect ratio and clamped to [floor, native].
-   Floor = 640 wide for width-constrained aspects (the common case), else 480 tall. Works
-   on x86 and Android (one shared path). Re-runs every frame in respond-common, so both the
-   NATIVE entry and the ladder re-filter/recompute when the aspect changes."
+;; ================================================================================================
+;; res-list-sorted-by-pixels (owner 2026-09-17) — LA LISTE EST CLASSEE A LA CONSTRUCTION
+;;
+;; « dans la liste de resolutions, les resolutions sont pas classees par nombre de pixels au total,
+;; donc on peut se retrouver avec des resolutions plus basses apres des resolutions tres elevees ».
+;; La cause etait l'ordre d'EMISSION : NATIVE (la PLUS GRANDE de la liste par construction) etait
+;; posee en premier, l'echelle ensuite (croissante), et l'extra PS2 512x448 (la PLUS PETITE) en
+;; dernier — deux ruptures par liste en 4:3 plein ecran, une partout ailleurs.
+;;
+;; LE CLASSEMENT SE FAIT SUR LES CANDIDATES, avant qu'une seule rangee de menu soit ecrite :
+;; `*temp-options*` ne recoit plus que des entrees deja dans l'ordre. Trier les rangees APRES coup
+;; aurait demande de deplacer des `game-option` entiers (20 champs, plus le tampon de libelle que
+;; `temp-option-label!` accroche par emplacement) ; trois entiers par candidate ne coutent rien et
+;; ne cassent aucun invariant du menu.
+;;
+;; CE N'EST PAS GRATUIT EN TEMPS : `resolution-menu-initial-index` rebatit la liste a CHAQUE image
+;; de l'ecran Resolution, donc le tri tourne par image. Tri par insertion, sur place, sans
+;; allocation, 17 entrees au plus (15 barreaux + NATIVE + l'extra PS2).
+;; ================================================================================================
+
+;; Les candidates de la liste en cours de construction : largeur, hauteur, et « celle-ci est
+;; NATIVE » (elle seule porte un libelle nomme). Trois tableaux paralleles plutot qu'un type :
+;; le tri les permute ensemble, et rien n'est alloue par image.
+(define *res-sort-w* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-h* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-native* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-n* 0)
+
+;; La taille de l'entree NATIVE de la DERNIERE liste batie. `apply-resolution-aspect!` lisait
+;; `(-> *temp-options* 0 param1/param2)` pour repondre a « le joueur etait-il en NATIVE ? » : vrai
+;; tant que NATIVE etait la premiere rangee, FAUX des qu'elle est classee (elle devient la
+;; derniere). La reponse se lit maintenant sur la VALEUR, qui ne depend d'aucun ordre.
+(define *resolution-native-w* 0)
+(define *resolution-native-h* 0)
+
+(defmacro res-sort-add! (x y native?)
+  "Recense une resolution candidate. Au-dela de 32 on n'ecrit rien : l'echelle livree en compte 15
+   au plus, plus NATIVE, plus l'extra PS2 — le plafond est une garde, pas une limite atteinte."
+  `(when (< *res-sort-n* 32)
+     (set! (-> *res-sort-w* *res-sort-n*) ,x)
+     (set! (-> *res-sort-h* *res-sort-n*) ,y)
+     (set! (-> *res-sort-native* *res-sort-n*) ,native?)
+     (1+! *res-sort-n*)))
+
+(defun res-sort-by-pixels! ()
+  "Classe les candidates recensees par nombre TOTAL de pixels (largeur x hauteur) CROISSANT.
+   Tri par insertion, stable : a egalite de pixels l'ordre de recensement est conserve."
+  (let ((i 1))
+    (while (< i *res-sort-n*)
+      (let* ((kw (-> *res-sort-w* i))
+             (kh (-> *res-sort-h* i))
+             (kn (-> *res-sort-native* i))
+             (kpx (* kw kh))
+             (j (- i 1)))
+        (while (and (>= j 0) (> (* (-> *res-sort-w* j) (-> *res-sort-h* j)) kpx))
+          (set! (-> *res-sort-w* (+ j 1)) (-> *res-sort-w* j))
+          (set! (-> *res-sort-h* (+ j 1)) (-> *res-sort-h* j))
+          (set! (-> *res-sort-native* (+ j 1)) (-> *res-sort-native* j))
+          (set! j (- j 1)))
+        (set! (-> *res-sort-w* (+ j 1)) kw)
+        (set! (-> *res-sort-h* (+ j 1)) kh)
+        (set! (-> *res-sort-native* (+ j 1)) kn))
+      (1+! i)))
+  (none))
+
+(defun build-resolution-options-for ((aspect-in float))
+  "Le constructeur REEL de la liste Game Resolution, pour UN aspect donne : une entree NATIVE (la
+   plus grande resolution AT the chosen aspect that fits the physical panel — adapts as the aspect
+   changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) + une echelle standard
+   generee A CET ASPECT et bornee a [plancher, native], le tout CLASSE par nombre total de pixels
+   croissant. Plancher = 640 de large pour les aspects contraints en largeur (le cas courant),
+   sinon 480 de haut. Un seul chemin partage x86 / Android.
+   L'aspect est un PARAMETRE : c'est ce qui permet a `res-sort-audit!` de batir la liste de CHAQUE
+   aspect propose par le menu sans ecrire une seule fois dans `*pc-settings*`."
   (set! (-> *temp-options* length) 0)
+  (set! *res-sort-n* 0)
   (let ((panel-w 0)
         (panel-h 0)
         (added 0))
@@ -2958,8 +3025,7 @@
     (when (or (<= panel-w 0) (<= panel-h 0))
       (set! panel-w 640)
       (set! panel-h 480))
-    (let* ((aspect (-> *pc-settings* aspect-ratio))
-           (aspect (if (< aspect 0.1) 1.0 aspect)) ;; guard against a bogus 0 aspect
+    (let* ((aspect (if (< aspect-in 0.1) 1.0 aspect-in)) ;; guard against a bogus 0 aspect
            ;; physical panel aspect of the active display.
            (panel-aspect (/ (the float panel-w) (the float panel-h)))
            ;; NATIVE adapts to the CHOSEN aspect (owner 2026-06-30): the LARGEST
@@ -2968,13 +3034,14 @@
            ;; WIDTH (compute height); NARROWER/taller -> bound by panel HEIGHT
            ;; (compute width); equal -> the real panel size. e.g. 4:3 on a 2400x1080
            ;; panel -> 1440x1080; 16:9 -> 1920x1080; the panel's own aspect -> 2400x1080.
-           ;; Recomputes here every frame, so NATIVE follows the aspect selection live.
            (fit-width? (>= aspect panel-aspect))
            (native-w (if fit-width? panel-w (the int (+ 0.5 (* (the float panel-h) aspect)))))
            (native-h (if fit-width? (the int (+ 0.5 (/ (the float panel-w) aspect))) panel-h))
            (width-constrained? (>= aspect 1.0)))
-      ;; NATIVE entry first (largest aspect-correct resolution fitting the panel).
-      (add-named-resolution-option *resolution-native-label* native-w native-h)
+      ;; La taille NATIVE, publiee pour les lecteurs qui demandaient « est-ce NATIVE ? » a l'index 0.
+      (set! *resolution-native-w* native-w)
+      (set! *resolution-native-h* native-h)
+      (res-sort-add! native-w native-h 1)
       (1+! added)
       (cond
         (width-constrained?
@@ -2986,7 +3053,7 @@
                         (<= rw native-w)      ;; ceiling = native width
                         (<= rh native-h)      ;; fits panel height
                         (not (and (= rw native-w) (= rh native-h)))) ;; NATIVE already covers
-               (add-resolution-option rw rh)
+               (res-sort-add! rw rh 0)
                (1+! added)))))
         (else
          ;; height-constrained (aspect < 1): ladder by standard HEIGHT; width = round(height * aspect).
@@ -2997,14 +3064,33 @@
                         (<= rh native-h)
                         (<= rw native-w)
                         (not (and (= rw native-w) (= rh native-h))))
-               (add-resolution-option rw rh)
+               (res-sort-add! rw rh 0)
                (1+! added))))))
       ;; PS2-like extras only for 4:3 fullscreen (preserve prior behavior).
       (when (and (fullscreen?) (< (fabs (- aspect ASPECT_4X3)) 0.06))
-        (add-resolution-option 512 448))
+        (res-sort-add! 512 448 0))
+      ;; LE CLASSEMENT, ICI, A LA CONSTRUCTION. Sous ablation (`lib/proof_run.sh --off`) il est
+      ;; saute : les candidates repartent dans l'ordre d'EMISSION d'avant (NATIVE, l'echelle,
+      ;; l'extra PS2) et le defaut que l'owner decrit REVIENT — mesure, au lieu d'etre absent.
+      ;; Polarite sure : `__pc-autoport-disarmed-for` rend 0 quand personne ne demande l'ablation,
+      ;; donc le classement est ARME dans le jeu livre, pont de mesure relie ou non.
+      (when (zero? (__pc-autoport-disarmed-for "res-list-sorted-by-pixels"))
+        (res-sort-by-pixels!))
+      ;; L'EMISSION suit le classement, rangee par rangee.
+      (dotimes (i *res-sort-n*)
+        (let ((rw (-> *res-sort-w* i))
+              (rh (-> *res-sort-h* i)))
+          (if (nonzero? (-> *res-sort-native* i))
+              (add-named-resolution-option *resolution-native-label* rw rh)
+              (add-resolution-option rw rh))))
       (when (zero? added)
         (add-message-option (text-id progress-no-other-resolution-options))))
     (add-back-option)))
+
+(defun build-resolution-options ()
+  "Bâtit la liste Game Resolution pour l'aspect COURANT. Re-runs every frame in respond-common, so
+   both the NATIVE entry and the ladder re-filter/recompute when the aspect changes."
+  (build-resolution-options-for (-> *pc-settings* aspect-ratio)))
 
 (defun build-flava-player-options ((mus-idx int))
   (set! (-> *temp-options* length) 0)
@@ -9246,15 +9332,82 @@
   (new 'static 'boxed-array :type int32
        480 600 720 768 900 1024 1050 1080 1152 1200 1440 1600 2160 2880 4320))
 
-(defun build-resolution-options ()
-  "Build the Game Resolution list for the CURRENT aspect ratio: a NATIVE entry (the
-   largest resolution AT the chosen aspect that fits the physical panel — adapts as the
-   aspect changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) +
-   a standard ladder generated AT the current aspect ratio and clamped to [floor, native].
-   Floor = 640 wide for width-constrained aspects (the common case), else 480 tall. Works
-   on x86 and Android (one shared path). Re-runs every frame in respond-common, so both the
-   NATIVE entry and the ladder re-filter/recompute when the aspect changes."
+;; ================================================================================================
+;; res-list-sorted-by-pixels (owner 2026-09-17) — LA LISTE EST CLASSEE A LA CONSTRUCTION
+;;
+;; « dans la liste de resolutions, les resolutions sont pas classees par nombre de pixels au total,
+;; donc on peut se retrouver avec des resolutions plus basses apres des resolutions tres elevees ».
+;; La cause etait l'ordre d'EMISSION : NATIVE (la PLUS GRANDE de la liste par construction) etait
+;; posee en premier, l'echelle ensuite (croissante), et l'extra PS2 512x448 (la PLUS PETITE) en
+;; dernier — deux ruptures par liste en 4:3 plein ecran, une partout ailleurs.
+;;
+;; LE CLASSEMENT SE FAIT SUR LES CANDIDATES, avant qu'une seule rangee de menu soit ecrite :
+;; `*temp-options*` ne recoit plus que des entrees deja dans l'ordre. Trier les rangees APRES coup
+;; aurait demande de deplacer des `game-option` entiers (20 champs, plus le tampon de libelle que
+;; `temp-option-label!` accroche par emplacement) ; trois entiers par candidate ne coutent rien et
+;; ne cassent aucun invariant du menu.
+;;
+;; CE N'EST PAS GRATUIT EN TEMPS : `resolution-menu-initial-index` rebatit la liste a CHAQUE image
+;; de l'ecran Resolution, donc le tri tourne par image. Tri par insertion, sur place, sans
+;; allocation, 17 entrees au plus (15 barreaux + NATIVE + l'extra PS2).
+;; ================================================================================================
+
+;; Les candidates de la liste en cours de construction : largeur, hauteur, et « celle-ci est
+;; NATIVE » (elle seule porte un libelle nomme). Trois tableaux paralleles plutot qu'un type :
+;; le tri les permute ensemble, et rien n'est alloue par image.
+(define *res-sort-w* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-h* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-native* (new 'static 'boxed-array :type int32 :length 32 :allocated-length 32))
+(define *res-sort-n* 0)
+
+;; La taille de l'entree NATIVE de la DERNIERE liste batie. `apply-resolution-aspect!` lisait
+;; `(-> *temp-options* 0 param1/param2)` pour repondre a « le joueur etait-il en NATIVE ? » : vrai
+;; tant que NATIVE etait la premiere rangee, FAUX des qu'elle est classee (elle devient la
+;; derniere). La reponse se lit maintenant sur la VALEUR, qui ne depend d'aucun ordre.
+(define *resolution-native-w* 0)
+(define *resolution-native-h* 0)
+
+(defmacro res-sort-add! (x y native?)
+  "Recense une resolution candidate. Au-dela de 32 on n'ecrit rien : l'echelle livree en compte 15
+   au plus, plus NATIVE, plus l'extra PS2 — le plafond est une garde, pas une limite atteinte."
+  `(when (< *res-sort-n* 32)
+     (set! (-> *res-sort-w* *res-sort-n*) ,x)
+     (set! (-> *res-sort-h* *res-sort-n*) ,y)
+     (set! (-> *res-sort-native* *res-sort-n*) ,native?)
+     (1+! *res-sort-n*)))
+
+(defun res-sort-by-pixels! ()
+  "Classe les candidates recensees par nombre TOTAL de pixels (largeur x hauteur) CROISSANT.
+   Tri par insertion, stable : a egalite de pixels l'ordre de recensement est conserve."
+  (let ((i 1))
+    (while (< i *res-sort-n*)
+      (let* ((kw (-> *res-sort-w* i))
+             (kh (-> *res-sort-h* i))
+             (kn (-> *res-sort-native* i))
+             (kpx (* kw kh))
+             (j (- i 1)))
+        (while (and (>= j 0) (> (* (-> *res-sort-w* j) (-> *res-sort-h* j)) kpx))
+          (set! (-> *res-sort-w* (+ j 1)) (-> *res-sort-w* j))
+          (set! (-> *res-sort-h* (+ j 1)) (-> *res-sort-h* j))
+          (set! (-> *res-sort-native* (+ j 1)) (-> *res-sort-native* j))
+          (set! j (- j 1)))
+        (set! (-> *res-sort-w* (+ j 1)) kw)
+        (set! (-> *res-sort-h* (+ j 1)) kh)
+        (set! (-> *res-sort-native* (+ j 1)) kn))
+      (1+! i)))
+  (none))
+
+(defun build-resolution-options-for ((aspect-in float))
+  "Le constructeur REEL de la liste Game Resolution, pour UN aspect donne : une entree NATIVE (la
+   plus grande resolution AT the chosen aspect that fits the physical panel — adapts as the aspect
+   changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) + une echelle standard
+   generee A CET ASPECT et bornee a [plancher, native], le tout CLASSE par nombre total de pixels
+   croissant. Plancher = 640 de large pour les aspects contraints en largeur (le cas courant),
+   sinon 480 de haut. Un seul chemin partage x86 / Android.
+   L'aspect est un PARAMETRE : c'est ce qui permet a `res-sort-audit!` de batir la liste de CHAQUE
+   aspect propose par le menu sans ecrire une seule fois dans `*pc-settings*`."
   (set! (-> *temp-options* length) 0)
+  (set! *res-sort-n* 0)
   (let ((panel-w 0)
         (panel-h 0)
         (added 0))
@@ -9262,8 +9415,7 @@
     (when (or (<= panel-w 0) (<= panel-h 0))
       (set! panel-w 640)
       (set! panel-h 480))
-    (let* ((aspect (-> *pc-settings* aspect-ratio))
-           (aspect (if (< aspect 0.1) 1.0 aspect)) ;; guard against a bogus 0 aspect
+    (let* ((aspect (if (< aspect-in 0.1) 1.0 aspect-in)) ;; guard against a bogus 0 aspect
            ;; physical panel aspect of the active display.
            (panel-aspect (/ (the float panel-w) (the float panel-h)))
            ;; NATIVE adapts to the CHOSEN aspect (owner 2026-06-30): the LARGEST
@@ -9272,13 +9424,14 @@
            ;; WIDTH (compute height); NARROWER/taller -> bound by panel HEIGHT
            ;; (compute width); equal -> the real panel size. e.g. 4:3 on a 2400x1080
            ;; panel -> 1440x1080; 16:9 -> 1920x1080; the panel's own aspect -> 2400x1080.
-           ;; Recomputes here every frame, so NATIVE follows the aspect selection live.
            (fit-width? (>= aspect panel-aspect))
            (native-w (if fit-width? panel-w (the int (+ 0.5 (* (the float panel-h) aspect)))))
            (native-h (if fit-width? (the int (+ 0.5 (/ (the float panel-w) aspect))) panel-h))
            (width-constrained? (>= aspect 1.0)))
-      ;; NATIVE entry first (largest aspect-correct resolution fitting the panel).
-      (add-named-resolution-option *resolution-native-label* native-w native-h)
+      ;; La taille NATIVE, publiee pour les lecteurs qui demandaient « est-ce NATIVE ? » a l'index 0.
+      (set! *resolution-native-w* native-w)
+      (set! *resolution-native-h* native-h)
+      (res-sort-add! native-w native-h 1)
       (1+! added)
       (cond
         (width-constrained?
@@ -9290,7 +9443,7 @@
                         (<= rw native-w)      ;; ceiling = native width
                         (<= rh native-h)      ;; fits panel height
                         (not (and (= rw native-w) (= rh native-h)))) ;; NATIVE already covers
-               (add-resolution-option rw rh)
+               (res-sort-add! rw rh 0)
                (1+! added)))))
         (else
          ;; height-constrained (aspect < 1): ladder by standard HEIGHT; width = round(height * aspect).
@@ -9301,14 +9454,33 @@
                         (<= rh native-h)
                         (<= rw native-w)
                         (not (and (= rw native-w) (= rh native-h))))
-               (add-resolution-option rw rh)
+               (res-sort-add! rw rh 0)
                (1+! added))))))
       ;; PS2-like extras only for 4:3 fullscreen (preserve prior behavior).
       (when (and (fullscreen?) (< (fabs (- aspect ASPECT_4X3)) 0.06))
-        (add-resolution-option 512 448))
+        (res-sort-add! 512 448 0))
+      ;; LE CLASSEMENT, ICI, A LA CONSTRUCTION. Sous ablation (`lib/proof_run.sh --off`) il est
+      ;; saute : les candidates repartent dans l'ordre d'EMISSION d'avant (NATIVE, l'echelle,
+      ;; l'extra PS2) et le defaut que l'owner decrit REVIENT — mesure, au lieu d'etre absent.
+      ;; Polarite sure : `__pc-autoport-disarmed-for` rend 0 quand personne ne demande l'ablation,
+      ;; donc le classement est ARME dans le jeu livre, pont de mesure relie ou non.
+      (when (zero? (__pc-autoport-disarmed-for "res-list-sorted-by-pixels"))
+        (res-sort-by-pixels!))
+      ;; L'EMISSION suit le classement, rangee par rangee.
+      (dotimes (i *res-sort-n*)
+        (let ((rw (-> *res-sort-w* i))
+              (rh (-> *res-sort-h* i)))
+          (if (nonzero? (-> *res-sort-native* i))
+              (add-named-resolution-option *resolution-native-label* rw rh)
+              (add-resolution-option rw rh))))
       (when (zero? added)
         (add-message-option (text-id progress-no-other-resolution-options))))
     (add-back-option)))
+
+(defun build-resolution-options ()
+  "Bâtit la liste Game Resolution pour l'aspect COURANT. Re-runs every frame in respond-common, so
+   both the NATIVE entry and the ladder re-filter/recompute when the aspect changes."
+  (build-resolution-options-for (-> *pc-settings* aspect-ratio)))
 
 
 ;; ============================================================================================
@@ -9359,8 +9531,11 @@
         (old-h 0))
     (current-game-base-size (& old-w) (& old-h))
     (build-resolution-options)
-    (let ((native? (and (= old-w (the int (-> *temp-options* 0 param1)))
-                        (= old-h (the int (-> *temp-options* 0 param2))))))
+    ;; res-list-sorted-by-pixels : NATIVE n'est plus la rangee 0 — classee par pixels, elle est la
+    ;; PLUS GRANDE, donc la DERNIERE. La question « le joueur etait-il en NATIVE ? » se lit sur la
+    ;; VALEUR que `build-resolution-options` vient de publier, qui ne depend d'aucun ordre.
+    (let ((native? (and (= old-w *resolution-native-w*)
+                        (= old-h *resolution-native-h*))))
       (cond
         (fit?
          (set-aspect! *pc-settings* 4 3)
@@ -13642,6 +13817,108 @@
   (when (and (nonzero? (__pc-gating-wanted?)) *common-text*)
     (when (nonzero? (__pc-gating-census-due?))
       (init-game-options (the-as progress #f))))
+  (none))
+
+
+;; ================================================================================================
+;; res-list-sorted-by-pixels — LA PREUVE : LA LISTE QUE LE MENU AFFICHE, ASPECT PAR ASPECT
+;;
+;; La grandeur de la porte est `res_list_unsorted_pairs` : le nombre de paires CONSECUTIVES de la
+;; liste PROPOSEE dont le nombre total de pixels DECROIT. Zero = classee du plus petit au plus
+;; grand. Son denominateur `res_list_pairs_compared` sort de la MEME boucle : un zero obtenu
+;; « aucune paire n'a ete comparee » ne doit pas se lire comme un zero obtenu « tout est classe ».
+;;
+;; LA POPULATION EST CELLE DU MENU : chaque rangee d'aspect que `*aspect-ratio-options*` propose au
+;; joueur. L'aspect n'est PAS applique par `apply-resolution-aspect!` — celui-la ecrit dans
+;; `*pc-settings*`, resout l'aspect auto depuis l'OS et redimensionne la fenetre. On appelle le
+;; constructeur avec l'aspect EN PARAMETRE (`build-resolution-options-for`) : aucun reglage du
+;; joueur n'est touche, la fenetre ne bouge pas, et la course de preuve ne mesure pas une machine
+;; qu'elle aurait elle-meme deplacee.
+;;
+;; La correspondance « rangee d'aspect -> valeur d'aspect » recopie `apply-resolution-aspect!` de
+;; ce fichier : « ajuster a l'ecran » resout l'aspect du PANNEAU, les deux modes PS2 (param1 = -1
+;; et -2) passent tous deux par `set-aspect! 4 3`, les autres valent param1 / param2. C'est une
+;; RECOPIE, donc une source de derive : l'aspect retenu pour chaque liste est publie a cote d'elle
+;; (`res_list_aspect<n>_x1000`), et une divergence se lit sur ce chiffre.
+;;
+;; Une passe par demarrage, et seulement hors menu ouvert : `*temp-options*` est le tableau PARTAGE
+;; de tous les ecrans batis a l'execution, et le rebatir sous les pieds d'un ecran ouvert
+;; afficherait une liste pour une autre.
+;; ================================================================================================
+(define *res-sort-audit-done?* #f)
+(define *res-sort-key* (new 'global 'string 64 (the-as string #f)))
+(define *res-sort-list* (new 'global 'string 512 (the-as string #f)))
+
+(defun res-sort-aspect-of ((opt game-option) (panel-aspect float))
+  "L'aspect que la rangee `opt` du menu Aspect installe reellement dans `*pc-settings*`.
+   Voir `apply-resolution-aspect!` : « ajuster a l'ecran » passe en auto et se resout sur l'OS,
+   d'ou l'aspect du panneau ; les deux rangees PS2 posent 4:3 et ne different que par `use-vis?`."
+  (cond
+    ((= (-> opt name) (text-id fit-to-screen)) panel-aspect)
+    ((= (the int (-> opt param1)) -1) ASPECT_4X3)
+    ((= (the int (-> opt param1)) -2) ASPECT_4X3)
+    ((< (-> opt param2) 0.5) panel-aspect)
+    (else (/ (-> opt param1) (-> opt param2)))))
+
+(defun res-sort-audit! ()
+  "Une passe par demarrage : pour chaque aspect que le menu propose, batir la liste et compter les
+   paires consecutives dont le nombre total de pixels DECROIT. Ne touche ni `*pc-settings*` ni la
+   fenetre. `*temp-options*` est laisse sur l'aspect COURANT, exactement comme on l'a trouve."
+  (when (and (not *res-sort-audit-done?*)
+             (not *progress-process*)
+             (> (the int (-> *display* real-frame-counter)) 240))
+    (set! *res-sort-audit-done?* #t)
+    (let ((panel-w 0)
+          (panel-h 0)
+          (lists 0)
+          (rows 0)
+          (pairs 0)
+          (bad 0))
+      (pc-get-active-display-size (& panel-w) (& panel-h))
+      (when (or (<= panel-w 0) (<= panel-h 0))
+        (set! panel-w 640)
+        (set! panel-h 480))
+      (let ((panel-aspect (/ (the float panel-w) (the float panel-h))))
+        (dotimes (a (length *aspect-ratio-options*))
+          (when (= (-> *aspect-ratio-options* a option-type) (game-option-type aspect-new))
+            (let ((aspect (res-sort-aspect-of (-> *aspect-ratio-options* a) panel-aspect))
+                  (n 0)
+                  (prev -1))
+              (build-resolution-options-for aspect)
+              (1+! lists)
+              (clear *res-sort-list*)
+              (dotimes (i (length *temp-options*))
+                (when (= (-> *temp-options* i option-type) (game-option-type resolution))
+                  (let* ((w (the int (-> *temp-options* i param1)))
+                         (h (the int (-> *temp-options* i param2)))
+                         (px (* w h)))
+                    (1+! rows)
+                    (1+! n)
+                    ;; PAS D'ESPACE dans une valeur publiee : `proof.txt` ne moissonne que
+                    ;; `cle=valeur` sans blanc, et `publish_text` remplacerait l'espace par `_`.
+                    (when (> n 1) (format *res-sort-list* ","))
+                    (format *res-sort-list* "~Dx~D" w h)
+                    (when (>= prev 0)
+                      (1+! pairs)
+                      (when (< px prev) (1+! bad)))
+                    (set! prev px))))
+              (format (clear *res-sort-key*) "res_list_aspect~D_rows" a)
+              (__pc-autoport-publish *res-sort-key* n)
+              (format (clear *res-sort-key*) "res_list_aspect~D_x1000" a)
+              (__pc-autoport-publish *res-sort-key* (the int (* 1000.0 aspect)))
+              (format (clear *res-sort-key*) "res_list_aspect~D" a)
+              ;; une valeur vide est REFUSEE par `publish_text` et laisserait la cle sur la valeur
+              ;; precedente : le tiret dit « rien a cet emplacement ».
+              (__pc-autoport-publish-text *res-sort-key* (if (> n 0) *res-sort-list* "-"))))))
+      ;; On a trouve la liste sur l'aspect courant, on l'y laisse.
+      (build-resolution-options)
+      (__pc-autoport-publish "res_list_unsorted_pairs" bad)
+      (__pc-autoport-publish "res_list_pairs_compared" pairs)
+      (__pc-autoport-publish "res_list_rows" rows)
+      (__pc-autoport-publish "res_list_lists" lists)
+      (__pc-autoport-publish "res_list_sort_armed"
+                             (if (zero? (__pc-autoport-disarmed-for "res-list-sorted-by-pixels")) 1 0))
+      (__pc-autoport-hit-for "res-list-sorted-by-pixels" lists)))
   (none))
 
 ) ;; end #unless FLAG_MENU_OVERHAUL
