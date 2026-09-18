@@ -835,12 +835,12 @@
  },
  "hud-eco-gauge": {
   "build_announced": "ab6c168f98c2",
-  "hash": "f764d0efe3bd395180550048a98849997981edf1",
+  "hash": "ab6ab43b8233059f5d2e05c6ff0da3877b4629ff",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T23:45:57.268Z",
+  "pulled_at": "2026-09-18T05:14:33.429Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1495,7 +1495,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "hash": "e956c7552ddf742f161f4347f5d8327b2203c4e3",
+  "hash": "bcef92270b32d3c70acb2c9ffb6fc8b63571097c",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "In Progress",
