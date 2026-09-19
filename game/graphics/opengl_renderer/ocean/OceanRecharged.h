@@ -61,6 +61,22 @@ class OceanRecharged {
   void census_begin_frame(SharedRenderState* render_state);
   void census_capture_nd(SharedRenderState* render_state, const u32* indices, u32 index_count);
 
+  // LA REPRISE DU GRAPHE D'ORIGINE, DECIDEE UNE SEULE FOIS PAR IMAGE (defaut B du 17/09).
+  //
+  // « sur le title screen l'eau est noire (c'est bon une fois en jeu) ». Le survol du titre
+  // affiche village1 (title-obs.gc:696) depuis une camera haute ; au-dela de 48 m d'altitude
+  // `draw-ocean` n'insere plus le bucket 63 (ocean.gc:550), donc aucune houle n'est captee,
+  // donc `draw()` sort sans poser un pixel. La suppression de l'ocean d'origine, elle, ne lisait
+  // que le drapeau (`OceanMidAndFar.cpp:67`) : le quad `far-color` qui remplit l'horizon etait
+  // efface sans remplacant, et le niveau `title` n'a pas de ciel (`level-info.gc:2318`) — il
+  // reste la couleur d'effacement, c'est-a-dire le noir.
+  //
+  // Le graphe d'origine n'est donc plus efface QUE si la clipmap va vraiment dessiner a sa
+  // place. La decision se prend au bucket 4, le premier des deux, pour que le mid, le quad far
+  // et le near soient d'accord dans la MEME image ; `close_frame` est passe par le bucket 63,
+  // qui la referme. Un bucket 4 vide (tag CALL, OceanMidAndFar.cpp:53) la laisse prendre au 63.
+  bool takeover_decision(bool close_frame);
+
  private:
   OceanRecharged() = default;
 
@@ -73,6 +89,7 @@ class OceanRecharged {
   };
 
   bool ensure_gl();
+  void census_draw_alpha(u32 program);
   bool refresh_ocean_map();
   void rebuild_mask_texture();
   void run_probe(SharedRenderState* render_state);
@@ -148,6 +165,24 @@ class OceanRecharged {
   u64 m_fp_excess_ring[kNumRings] = {0, 0, 0};
   u64 m_fp_ours_ring[kNumRings] = {0, 0, 0};
   u64 m_fp_excess_before_ring[kNumRings] = {0, 0, 0};
+
+  // --- defaut A du 17/09 : LA TRANSPARENCE, RELEVEE SUR LA SURFACE VISIBLE ------------------
+  // Le fragment encode dans le canal A de la cible 1 l'alpha QU'IL VIENT DE CALCULER pour le
+  // rendu livre (`ocean_recharged.frag`, u_footprint == 2) : une seule expression, deux lecteurs.
+  // 0 = pas d'eau sur la cellule ; 1..255 = alpha, relu a = (v - 1) / 254.
+  u64 m_alpha_cells = 0;
+  u64 m_alpha_transparent_cells = 0;  // cellules dont l'alpha est sous 0,99
+  u32 m_alpha_min_v = 0;              // 0 tant que rien n'a ete mesure
+  u32 m_alpha_max_v = 0;
+
+  // --- defaut B du 17/09 : LA REPRISE, ET LE TROU QU'ELLE OUVRAIT --------------------------
+  bool m_takeover = false;          // l'ocean d'origine est-il efface pour CETTE image ?
+  bool m_takeover_decided = false;  // la decision de l'image a-t-elle deja ete prise ?
+  u64 m_takeover_frames = 0;           // images ou la clipmap a pris la place de l'origine
+  u64 m_takeover_declined_frames = 0;  // images ou l'origine a ete LAISSEE dessiner
+  u64 m_blackout_frames = 0;           // images ou l'origine etait effacee et ou NOUS n'avons
+                                       // rien dessine : le trou noir, qui doit rester a zero
+  u64 m_tex_ocean_zero_frames = 0;     // images dessinees sans texture d'ocean liee
 
   // --- temoin de couverture de l'attenuation (defaut 1) ------------------------------------
   // Ce que l'attenuation ND RETIRE aux points de la sonde, en 1/256 d'unite GOAL. Ce n'est PAS

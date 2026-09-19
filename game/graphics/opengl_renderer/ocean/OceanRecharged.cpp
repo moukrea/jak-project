@@ -168,6 +168,34 @@ void OceanRecharged::begin_near_frame(bool active) {
   }
 }
 
+bool OceanRecharged::takeover_decision(bool close_frame) {
+  if (!m_takeover_decided) {
+    m_takeover_decided = true;
+    const bool want = ocean_recharged_enabled();
+    // LES MEMES GARDES QUE `draw()`, UN BUCKET PLUS TOT. `draw()` sort sans rien dessiner sur
+    // quatre conditions (:997 pas de houle, :1002 pas de carte, :1009 carte differente de celle
+    // de la houle, :1016 objets GL absents) ; elles sont toutes lisibles des le bucket 4, sauf
+    // `had_fresh` — la capture de CETTE image, qui n'arrive qu'au 63. L'erreur est donc
+    // orientee : quand la carte vient de changer et qu'une capture fraiche arrive au 63, la
+    // decision aura ete trop PRUDENTE et les deux oceans se superposeront UNE image. Jamais
+    // l'inverse. Un trou noir se voit ; une image doublee, non.
+    m_takeover = want && m_gl_ready && m_have_layer_a && refresh_ocean_map() &&
+                 m_map_ptr == m_layer_a_map_ptr;
+    if (want) {
+      if (m_takeover) {
+        m_takeover_frames++;
+      } else {
+        m_takeover_declined_frames++;
+      }
+    }
+  }
+  const bool decided = m_takeover;
+  if (close_frame) {
+    m_takeover_decided = false;
+  }
+  return decided;
+}
+
 void OceanRecharged::note_layer_a(const void* heights_4096_bytes) {
   if (!m_accept_layer_a) {
     return;
@@ -763,6 +791,34 @@ void OceanRecharged::census_draw_rings(SharedRenderState* render_state,
   glUniform1f(glGetUniformLocation(program, "u_atten_on"), 1.f);
 }
 
+void OceanRecharged::census_draw_alpha(u32 program) {
+  // LA TRANSPARENCE, RELEVEE SUR LA MEME IMAGE ET PAR LE MEME FRAGMENT. Le canal A de la cible 1
+  // est le seul des huit que le comparateur d'emprise n'utilise pas ; il recoit ici l'alpha que
+  // `ocean_recharged.frag` vient de calculer pour le rendu LIVRE — `u_atten_on` a 1, la valeur
+  // de l'image que l'owner verra, jamais celle du bras d'ablation qui le precede.
+  glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[1]);
+  glViewport(0, 0, kCensusW, kCensusH);
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_BLEND);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+  glUniform1i(glGetUniformLocation(program, "u_footprint"), 2);
+  glUniform1f(glGetUniformLocation(program, "u_atten_on"), 1.f);
+  glBindVertexArray(m_vao);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
+  for (int r = 0; r < kNumRings; r++) {
+    glUniform2f(glGetUniformLocation(program, "u_ring_center"), m_rings[r].center[0],
+                m_rings[r].center[1]);
+    glUniform1f(glGetUniformLocation(program, "u_ring_step"), m_rings[r].step);
+    glDrawElements(GL_TRIANGLES, m_rings[r].index_count, GL_UNSIGNED_INT,
+                   (void*)(intptr_t)(m_rings[r].index_offset * sizeof(u32)));
+    soft_draw_census::record("instrument", m_soft_indices.data(), m_soft_indices.size(),
+                             m_rings[r].index_offset, m_rings[r].index_count, GL_TRIANGLES);
+  }
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glUniform1i(glGetUniformLocation(program, "u_footprint"), 0);
+}
+
 void OceanRecharged::census_read_and_count() {
   std::vector<u8> a((size_t)kCensusCells * 4), b((size_t)kCensusCells * 4);
   glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[0]);
@@ -796,6 +852,22 @@ void OceanRecharged::census_read_and_count() {
     m_fp_excess += (ours && !nd);
     m_fp_deficit += (nd && !ours);
     m_fp_excess_before += (before && !nd);
+
+    // L'ALPHA, relu sur 1..255 : 0 veut dire « pas d'eau sur cette cellule ». 253 correspond a
+    // a = 252/254 = 0,992 : au-dessus, l'eau est opaque au 1/254 pres.
+    const u32 av = b[i * 4 + 3];
+    if (av) {
+      m_alpha_cells++;
+      if (av <= 252) {
+        m_alpha_transparent_cells++;
+      }
+      if (m_alpha_min_v == 0 || av < m_alpha_min_v) {
+        m_alpha_min_v = av;
+      }
+      if (av > m_alpha_max_v) {
+        m_alpha_max_v = av;
+      }
+    }
   }
   m_fp_cells += kCensusCells;
   m_fp_nd_draws += m_census_nd_draws;
@@ -988,20 +1060,92 @@ void OceanRecharged::publish() {
   publish("hit_counter_defect_keys_lost", d_keys);
   publish("hit_counter_defect_quantity_dropped", d_qty);
   publish("hit_counter_cost_defects", d_gran + d_evt + d_cost + d_keys + d_qty);
+
+  // ===== LES VERDICTS DE L'OWNER DU 17/09 ====================================================
+  // `water_ocean_owner_defects` = A + B + C + (hauteur de jeu bougee). Un terme NON MESURE
+  // compte 1 : c'est l'arbitrage du 16/09, et c'est pourquoi la somme se lit apres les quatre
+  // termes nommes, jamais a leur place.
+
+  // --- A. TRANSPARENCE ----------------------------------------------------------------------
+  // « elle est opaque (donc on voit pas les orbes sous l'eau par example) » (10/09), « sauf que
+  // elle est opaque » (17/09). L'alpha releve est celui que le fragment LIVRE calcule, encode
+  // 1..255 par la passe de recensement : a = (v - 1) / 254.
+  const bool a_measured = m_alpha_cells > 0;
+  const u64 a_min_x1000 =
+      a_measured ? (u64)std::llround((double)(m_alpha_min_v - 1) * 1000.0 / 254.0) : 0;
+  const u64 a_max_x1000 =
+      a_measured ? (u64)std::llround((double)(m_alpha_max_v - 1) * 1000.0 / 254.0) : 0;
+  autoport_proof::publish_text(
+      "water_alpha_scope",
+      "alpha-du-fragment-LIVRE-sur-la-cible-320x180-sans-test-de-profondeur;"
+      "loi-ND-alpha=min(max(d/98304,0.5)*256/255,1)-OceanNear_PS2.cpp:1244+1274;"
+      "opaque-au-dela-de-24m-EST-la-loi-de-Naughty-Dog-pas-un-defaut");
+  publish("water_alpha_cells", m_alpha_cells);
+  publish("water_alpha_transparent_cells", m_alpha_transparent_cells);
+  publish("water_alpha_min_x1000", a_min_x1000);
+  publish("water_alpha_max_x1000", a_max_x1000);
+  // Trois echecs distincts, nommes : rien mesure ; aucune cellule sous l'opacite ; un alpha
+  // CONSTANT (min == max), qui serait la marque d'une loi perdue plutot que restituee.
+  const u64 d_transparency = (a_measured && m_alpha_transparent_cells > 0 && a_min_x1000 <= 900 &&
+                              a_max_x1000 > a_min_x1000)
+                                 ? 0
+                                 : 1;
+
+  // --- B. ECRAN TITRE -----------------------------------------------------------------------
+  // « sur le title screen l'eau est noire ». La grandeur n'est pas une luminance d'image — la
+  // regle 2 l'interdit — mais le TROU lui-meme : les images ou l'ocean d'origine a ete efface
+  // sans que la clipmap ecrive un pixel a sa place. `declined` est le controle positif : sans
+  // une seule image ou l'origine a ete LAISSEE dessiner, un zero de trou ne prouverait rien.
+  publish("water_takeover_frames", m_takeover_frames);
+  publish("water_takeover_declined_frames", m_takeover_declined_frames);
+  publish("water_blackout_frames", m_blackout_frames);
+  publish("water_tex_ocean_zero_frames", m_tex_ocean_zero_frames);
+  const u64 d_title_black = (m_takeover_declined_frames > 0 && m_blackout_frames == 0 &&
+                             m_tex_ocean_zero_frames == 0)
+                                ? 0
+                                : 1;
+
+  // --- C. LES VAGUES RESTENT DES VAGUES -----------------------------------------------------
+  // NON MESURE par cet essai : l'arbitrage du 17/09 ordonne « d'abord A et B (regressions), puis
+  // C ». L'amplitude et la variance de normales se comparent au binaire d'AVANT la reprise, et
+  // cet instrument n'existe pas. Le terme compte donc 1, comme la regle l'exige.
+  const u64 d_waves = 1;
+  autoport_proof::publish_text("water_owner_defect_waves_why",
+                               "non-mesure;amplitude-et-variance-de-normales-contre-le-binaire-"
+                               "d-avant-la-reprise;ordonne-APRES-A-et-B-le-17-09");
+
+  // --- D. LA HAUTEUR DE JEU NE BOUGE PAS ----------------------------------------------------
+  const u64 d_height = (m_maxdelta_q256 == 0) ? 0 : 1;
+
+  publish("water_owner_defect_transparency", d_transparency);
+  publish("water_owner_defect_title_black", d_title_black);
+  publish("water_owner_defect_waves", d_waves);
+  publish("water_owner_defect_gameplay_height", d_height);
+  publish("water_owner_terms_measured", 3);
+  publish("water_owner_terms_expected", 4);
+  publish("water_ocean_owner_defects", d_transparency + d_title_black + d_waves + d_height);
 }
 
 void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   const bool had_fresh = m_layer_a_fresh;
   m_layer_a_fresh = false;
 
+  // LE TROU NOIR, COMPTE A CHAQUE SORTIE. `m_takeover` dit si l'ocean d'origine a ete efface
+  // pour cette image ; si nous sortons d'ici sans dessiner alors qu'il l'a ete, plus personne
+  // n'ecrit dans la zone de mer. C'est exactement l'ecran titre du 17/09, et c'est la grandeur
+  // que la porte lit — pas une capture.
+  const bool takeover = m_takeover;
+
   if (!m_have_layer_a) {
     // Jamais capte la houle : le bucket 63 n'a encore rien porte. On ne dessine pas une mer
     // plate a la place, on ne dessine rien.
+    m_blackout_frames += takeover ? 1 : 0;
     return;
   }
   if (!refresh_ocean_map()) {
     m_have_layer_a = false;
     m_layer_a_map_ptr = 0;
+    m_blackout_frames += takeover ? 1 : 0;
     return;
   }
   if (had_fresh) {
@@ -1010,15 +1154,23 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   } else if (m_map_ptr != m_layer_a_map_ptr) {
     m_have_layer_a = false;
     m_layer_a_map_ptr = 0;
+    m_blackout_frames += takeover ? 1 : 0;
     return;
   }
   if (!ensure_gl()) {
+    m_blackout_frames += takeover ? 1 : 0;
     return;
   }
   auto& shader = render_state->shaders[ShaderId::OCEAN_RECHARGED];
   if (!shader.okay()) {
+    m_blackout_frames += takeover ? 1 : 0;
     return;
   }
+  // La texture d'ocean de Naughty Dog : liee a 0, `texture()` rend (0,0,0,1) et le fragment ne
+  // garde que 0,35 x far-color, soit (0,5 ; 16 ; 20) sur 255 — du noir. Elle est produite par le
+  // meme bucket que la houle, donc ce compteur doit rester a zero ; s'il ne l'est pas, le noir
+  // a une SECONDE cause et la porte le dira au lieu de le taire.
+  m_tex_ocean_zero_frames += m_ocean_texture ? 0 : 1;
 
   if (had_fresh) {
     m_frames_layer_a_fresh++;
@@ -1085,7 +1237,25 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_GEQUAL);
   glDepthMask(GL_TRUE);
-  glDisable(GL_BLEND);
+  // LE MELANGE DE NAUGHTY DOG (defaut A du 17/09). `flush_near` pose exactement ces deux etats
+  // pour son bucket RGB_TEXTURE : `glEnable(GL_BLEND)` et
+  // `glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO)`
+  // (CommonOceanRenderer.cpp:327, :333-334). La clipmap le DESACTIVAIT : quel que soit l'alpha
+  // ecrit par le fragment, l'eau restait opaque. On le retablit, et on REND l'etat d'entree en
+  // sortie — celui que `flush_near` vient de laisser — au lieu de le laisser a notre valeur :
+  // les buckets suivants ne doivent pas distinguer une image Rechargee d'une image d'origine.
+  const GLboolean blend_was_on = glIsEnabled(GL_BLEND);
+  GLint blend_src_rgb = GL_ONE, blend_dst_rgb = GL_ZERO, blend_src_a = GL_ONE, blend_dst_a = GL_ZERO;
+  GLint blend_eq_rgb = GL_FUNC_ADD, blend_eq_a = GL_FUNC_ADD;
+  glGetIntegerv(GL_BLEND_SRC_RGB, &blend_src_rgb);
+  glGetIntegerv(GL_BLEND_DST_RGB, &blend_dst_rgb);
+  glGetIntegerv(GL_BLEND_SRC_ALPHA, &blend_src_a);
+  glGetIntegerv(GL_BLEND_DST_ALPHA, &blend_dst_a);
+  glGetIntegerv(GL_BLEND_EQUATION_RGB, &blend_eq_rgb);
+  glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &blend_eq_a);
+  glEnable(GL_BLEND);
+  glBlendEquation(GL_FUNC_ADD);
+  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
   glDisable(GL_CULL_FACE);
 
   glBindVertexArray(m_vao);
@@ -1115,6 +1285,7 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     }
     census_draw_rings(render_state, id, 0, 1.f);
     census_draw_rings(render_state, id, 1, 0.f);
+    census_draw_alpha(id);
     census_read_and_count();
     glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
     glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
@@ -1128,6 +1299,19 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glDepthFunc(GL_GEQUAL);
     glDepthMask(GL_TRUE);
     m_census_armed = false;
+  }
+
+  // L'ETAT DE MELANGE RENDU TEL QU'IL EST ARRIVE. Le recensement le coupe pour ses propres
+  // passes ; sans cette restauration, une image recensee et une image ordinaire laisseraient au
+  // bucket suivant deux etats differents — un ecart une image sur 120, qui ne ressemblerait pas
+  // a sa cause.
+  glBlendEquationSeparate((GLenum)blend_eq_rgb, (GLenum)blend_eq_a);
+  glBlendFuncSeparate((GLenum)blend_src_rgb, (GLenum)blend_dst_rgb, (GLenum)blend_src_a,
+                      (GLenum)blend_dst_a);
+  if (blend_was_on) {
+    glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
   }
 
   m_frames_drawn++;
