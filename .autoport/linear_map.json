@@ -881,10 +881,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "ee195e991e1b49de04e7038443e4998a4e716d6d",
+  "build_announced": "52c60aff001a",
+  "hash": "40f50a2f00388e3d707629ae76d96041abe9ca75",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-006.txt",
   "pulled_at": "2026-09-19T16:25:38.645Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
@@ -1437,12 +1438,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "build_announced": "a4de81c3f19e",
-  "hash": "46942754fc8a563612285379e9a17e9ec771c68c",
+  "hash": "36f2d05df831af5383dfb4d62cdfccc14f86c752",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-004.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-19T16:43:31.741Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
  },
