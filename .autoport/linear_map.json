@@ -364,10 +364,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "34c55db493b470457b6e9919a57e5a5b53e61c05",
+  "hash": "cb4158d45e0a79a782b26d53a40d90150d215f52",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "relations": [
    "grass-clumps"
@@ -848,7 +849,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "build_announced": "a4de81c3f19e",
+  "build_announced": "5ec2270ea0e7",
   "hash": "3d5cb340d09a936dcd5eaea854eb79005e19eafc",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
