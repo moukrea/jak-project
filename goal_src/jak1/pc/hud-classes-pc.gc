@@ -1405,6 +1405,21 @@
    (t8-mismatch  int32)    ;;   ... et champs QUI DIFFERENT hors de ces exclusions
    (t8-live      int32)    ;; OBSERVATION (hors porte) : pire nombre d'etats de lanceur vivants
    (t8-states    int32)    ;; le denominateur de la precedente : etats du lanceur actif
+   ;; --- terme 10 (reprise 19/09) : LA NUEE EST DESSINEE PAR-DESSUS L'ANNEAU ---
+   (nq-cur       int32)    ;; quads de nuee RE-EMIS a l'image en cours
+   (nq-delta     int32)    ;; octets entre le 1er sommet de l'anneau et le 1er quad de la nuee
+   (nq-park      int32)    ;; cases HVDF garees (la copie du bucket 66 est bien eteinte)
+   (nq-live      int32)    ;; particules vivantes trouvees a l'image en cours
+   (nq-shaders   int32)    ;; adgifs reposes a l'image en cours (un par rupture de texture)
+   (t10-n        int32)    ;; images ou le terme a pu etre mesure
+   (t10-order    int32)    ;;   ... dont la nuee ne partait PAS apres l'anneau
+   (t10-park-ko  int32)    ;;   ... dont la copie du bucket des sprites n'etait pas eteinte
+   (t10-band     int32)    ;;   ... dont la nuee debordait AU-DELA du bord exterieur de l'anneau
+   (t10-quads    int32)    ;; pire nombre de quads emis dans une image
+   (t10-capped   int32)    ;; images ou la borne de cout a tronque la nuee
+   (t10-rmax     int32)    ;; plus grande etendue de nuee, en 1/16 d'unite de canevas
+   (t10-rmin     int32)    ;; plus petite : une nuee qui s'effondre se lit ici
+   (t10-cover    int32)    ;; CONTROLE : images ou la nuee RECOUVRE vraiment l'anneau
    (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
    (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
    (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
@@ -1436,15 +1451,16 @@
 (defconstant RHUD_GP_BASE 0)  ;; l'anneau vide
 (defconstant RHUD_GP_FAN  1)  ;; le camembert de remplissage
 (defconstant RHUD_GP_TIP  2)  ;; l'embout
+(defconstant RHUD_GP_NUEE 3)  ;; la nuee d'eco du centre, RE-EMISE par-dessus l'anneau (19/09)
 
 (deftype rhud-gauge-probe (structure)
   ((tag  int32)       ;; primitive en cours d'emission ; -1 = ne rien enregistrer
-   (n    int32 3)     ;; sommets emis
-   (tbp  int32 3)     ;; le tbp REELLEMENT pose dans TEX0 pour cette primitive
-   (u0   float 3) (v0 float 3) (x0 float 3) (y0 float 3)   ;; 1er sommet
-   (u1   float 3) (v1 float 3) (x1 float 3) (y1 float 3)   ;; 2e sommet
-   (ul   float 3) (vl float 3) (xl float 3) (yl float 3)   ;; dernier sommet
-   (minx float 3) (maxx float 3) (miny float 3) (maxy float 3)
+   (n    int32 4)     ;; sommets emis
+   (tbp  int32 4)     ;; le tbp REELLEMENT pose dans TEX0 pour cette primitive
+   (u0   float 4) (v0 float 4) (x0 float 4) (y0 float 4)   ;; 1er sommet
+   (u1   float 4) (v1 float 4) (x1 float 4) (y1 float 4)   ;; 2e sommet
+   (ul   float 4) (vl float 4) (xl float 4) (yl float 4)   ;; dernier sommet
+   (minx float 4) (maxx float 4) (miny float 4) (maxy float 4)
    ;; hud-eco-gauge, reprise du 18/09 — LE QUART INTERDIT, COMPTE SUR CHAQUE SOMMET.
    ;; Le probe ne garde que trois sommets par primitive (premier, deuxieme, dernier) : un masque
    ;; ne se juge pas sur trois sommets sur vingt-six. On accumule donc AU MOMENT DE L'EMISSION,
@@ -1452,8 +1468,8 @@
    ;; combien ils y mordent. `ccx`/`ccy`/`cfx` sont le centre et l'aspect que le dessin vient de
    ;; se donner ; c'est la meme reference que le terme 5 prouve egale a celle de la jauge d'ORIGINE.
    (ccx  float) (ccy float) (cfx float)
-   (bite  int32 3)    ;; sommets emis DANS le quart bas-droit (au-dela de l'epsilon de quantification)
-   (bitem float 3)    ;; la pire morsure, en unites de canevas (min des deux depassements)
+   (bite  int32 4)    ;; sommets emis DANS le quart bas-droit (au-dela de l'epsilon de quantification)
+   (bitem float 4)    ;; la pire morsure, en unites de canevas (min des deux depassements)
    ))
 
 (define *rhud-gauge-probe* (new 'static 'rhud-gauge-probe :tag -1))
@@ -1465,7 +1481,7 @@
     (set! (-> pr ccx) 0.0)
     (set! (-> pr ccy) 0.0)
     (set! (-> pr cfx) 1.0)
-    (dotimes (i 3)
+    (dotimes (i 4)
       (set! (-> pr n i) 0)
       (set! (-> pr tbp i) 0)
       (set! (-> pr bite i) 0)
@@ -1542,6 +1558,11 @@
 (defmacro rhud-rgba (rr gg bb aa)
   "pack vertex color+alpha into one int (GOAL functions cap at 8 params)"
   `(logior ,rr (ash ,gg 8) (ash ,bb 16) (ash ,aa 24)))
+
+(defmacro rhud-c255 (v)
+  "un canal de couleur de sparticle (flottant 0..255) ramene a un octet. Sans cette borne, un
+   canal a 256 deborderait sur le canal suivant dans `rhud-rgba` au lieu de saturer."
+  `(the int (fmax 0.0 (fmin 255.0 ,v))))
 
 (defun rhud-add-vert ((buf dma-buffer) (ss float) (tv float) (rgba int) (px float) (py float))
   "add one st/rgbaq/xyzf2 packed vertex. px/py are in the 512x448 2d space of
@@ -1716,6 +1737,166 @@
                            (logior (the-as uint (-> tex dest 0)) RHUD_TEX0_BITS)
                            (gs-reg64 tex0-1)))
   (none))
+
+;;;----------------------------------------------
+;;  hud-eco-gauge — LA NUEE DU CENTRE, RE-EMISE PAR-DESSUS L'ANNEAU (reprise du 19/09)
+;;;----------------------------------------------
+;; L'OWNER, 19/09 : « oui je l'apercois par le trou au centre de la jauge, mais du coup elle est
+;; EN DESSOUS, pas au dessus ! Donc c'est pas bon ! »
+;;
+;; LA CAUSE, LUE DANS DEUX NUMEROS, PAS DEVINEE. Les sprites du HUD (groupe 1 de
+;; `*sprite-array-2d*`) partent dans le bucket `sprite` = 66 ; l'anneau de la jauge rechargee part
+;; dans le bucket `debug` = 67 (`draw-hud` plus bas). Les buckets sont dessines dans l'ordre de
+;; leur numero (engine/dma/dma-h.gc:169-242) : 66 AVANT 67. La nuee etait donc peinte, PUIS
+;; recouverte par l'anneau, et seul le trou central la laissait voir. Ce n'est pas un reglage de
+;; profondeur ni de transparence : c'est l'ordre des buckets, et aucun drapeau ne le change.
+;;
+;; LE REMEDE, ET CE QU'IL NE TOUCHE PAS. La simulation ne bouge pas d'un champ : ce sont toujours
+;; les vrais emetteurs du ramassable (groupes 721/722/723) qui vivent, se deplacent et s'eteignent,
+;; et le terme 8 continue de les confronter champ par champ a ceux du monde. On change seulement
+;; OU LEURS SOMMETS PARTENT — a chaque image, APRES l'anneau et dans le MEME bucket, on relit les
+;; particules VIVANTES du lanceur actif et on re-emet leur quad en direct. La copie du bucket 66
+;; est eteinte en garant sa case HVDF hors du champ (`rhud-nuee-park`) : sans cela la nuee serait
+;; dessinee DEUX fois et le trou central brillerait deux fois plus que son pourtour.
+;;
+;; LA TRANSFORMATION EST CELLE DU RENDU DES SPRITES, TERME A TERME, PAS UNE APPROXIMATION. Elle
+;; est la meme que celle deja posee pour le coeur (`rhud-heart-geom!`), tiree de
+;; `sprite-add-matrix-data` mode 1 (engine/gfx/sprite/sprite.gc:463-478), de
+;; `sprite-setup-frame-data` (sprite.gc:283-299) et du bras `rendermode == 2` de
+;; `shaders/sprite3_3d.vert` (127-148) :
+;;   f0 = -1,9996 p00 ars        Q = 1/(60 f0)        msc = sqrt(1/(-p00) . 1/(-p11))
+;;   scx = max(sx Q, msc)        scy = max(sy Q, msc)
+;;   centre  : px = hvdf.x - 1792          py = 2 (hvdf.y - 2048) + screen-sy
+;;             (+ x/60 et - 2 (p11/p00) y /(60 ars) pour le decalage propre de la particule)
+;;   sommet  : px += (-p00) (scx cos vx + scy sin vy)
+;;             py += 2 (-p11) (-scx sin vx + scy cos vy)      vx,vy = cdata du coin
+;;   alpha   : a *= min(sx Q . sy Q . (-p00)(-p11), 1)   — l'anticrenelage des sprites sous-pixel
+;; `ars` vaut 1 quand `use-vis?` est vrai (le regime de l'appareil) et `aspect-ratio-scale` sinon.
+;; La demi-largeur vaut donc sx/239,95 unites de canevas : EXACTEMENT le chiffre sur lequel les
+;; tailles de la nuee ont ete reglees le 18/09 (en-tete du groupe 721). Rien ne change de taille,
+;; rien ne change de place — seul l'ordre change.
+;;
+;; UN SENS A NE PAS INVERSER : `rot` est deja en unites de rotation GOAL (le `deg-to-rad` du
+;; moteur vaut 2 pi / 65536, sprite.gc:141), mais le shader tourne dans un repere ou y MONTE et
+;; `rhud-add-vert` dans un repere ou py DESCEND. On n'utilise donc pas `rhud-quad` : les quatre
+;; sommets sont poses par la forme vectorielle exacte ci-dessus, qui porte le signe au bon endroit.
+
+(defconstant RHUD_NUEE_MAX 64)        ;; quads re-emis au plus par image : borne de cout, publiee
+(defconstant RHUD_NUEE_PARK 30000.0)  ;; abscisse de parcage du HVDF : la copie du bucket 66 sort du champ
+;; Le trou central de l'anneau et son bord exterieur, en unites de canevas, mesures sur le canal
+;; alpha de `jak_gauge_empty.png` (0,263 et 0,870 du demi-canevas de 45 — en-tete du groupe 721).
+(defconstant RHUD_GAUGE_HOLE_R 11.8)
+(defconstant RHUD_GAUGE_OUTER_R 39.2)
+
+(defun rhud-nuee-park ((this hud-recharged-power))
+  "eteint la copie que le renderer de sprites dessinerait dans le bucket 66, en poussant la case
+   HVDF de chaque lanceur de nuee hors du champ. `draw-particles` (engine/ui/hud.gc:110-113) la
+   reecrit a chaque image AVANT `draw-hud` : le parcage se refait donc a chaque image, apres elle.
+   Rend le nombre de cases garees."
+  (let ((n 0))
+    (dotimes (i (-> this nb-of-particles))
+      (let ((m (-> this particles i part matrix)))
+        (when (> m 0)
+          (set! (-> (sprite-get-user-hvdf m) x) RHUD_NUEE_PARK)
+          (+! n 1))))
+    n))
+
+(defun rhud-nuee-emit ((buf dma-buffer) (this hud-recharged-power) (cx float) (cy float))
+  "re-emet, APRES l'anneau et dans le meme bucket, les particules 2D VIVANTES du lanceur actif de
+   la nuee centrale. `cx`/`cy` ne servent que de repli quand la case HVDF n'est pas lisible.
+   Rend le nombre de quads emis ; pose `nq-live` au nombre de particules trouvees."
+  (let ((nq 0)
+        (idx (-> this last-eco-idx)))
+    (set! (-> this nq-live) 0)
+    (set! (-> this nq-shaders) 0)
+    (when (and (>= idx 0) (< idx (-> this nb-of-particles)))
+      (let* ((lc  (-> this particles idx part))
+             (p00 (-> *math-camera* perspective vector 0 x))
+             (p11 (-> *math-camera* perspective vector 1 y)))
+        (when (and (nonzero? lc) (< p00 0.0) (< p11 0.0))
+          (let* ((ars (if (-> *pc-settings* use-vis?) 1.0 (-> *pc-settings* aspect-ratio-scale)))
+                 (f01 (* -1.9996 p00 ars))
+                 (q   (/ 1.0 (* 60.0 f01)))
+                 (msc (sqrtf (* (/ 1.0 (- p00)) (/ 1.0 (- p11)))))
+                 (bx  (- p00))
+                 (by  (- p11))
+                 (ry  (/ (* 2.0 p11) (* 60.0 p00 ars)))  ;; py par unite de `y` de la particule
+                 (inva (* bx by))
+                 (m   (-> this particles idx part matrix))
+                 (hv  (if (> m 0) (sprite-get-user-hvdf m) (the-as vector #f)))
+                 ;; le centre vient de la case HVDF que la machinerie du HUD a remplie CETTE
+                 ;; image — la meme que le terme 8 confronte deja au centre de l'anneau. Si elle
+                 ;; est encore garee (l'image precedente n'a pas ete redessinee), on retombe sur
+                 ;; le centre de l'anneau et le terme 10 le voit dans `t10-rmax`.
+                 (use-hv (and hv (< (-> hv x) 20000.0)))
+                 (pcx (if use-hv (- (-> hv x) 1792.0) cx))
+                 (pcy (if use-hv
+                        (+ (* 2.0 (- (-> hv y) 2048.0)) (the float (-> *video-parms* screen-sy)))
+                        cy))
+                 (sys *sp-particle-system-2d*)
+                 (base (-> sys length 0))
+                 (cnt  (-> sys length 1))
+                 ;; `DirectRenderer` ne bufferise QU'UN etat de texture : chaque changement de
+                 ;; tbp coupe la serie et force un appel de dessin de plus. On ne repose donc
+                 ;; l'adgif que lorsqu'il CHANGE d'une particule a la suivante.
+                 (ptex (the-as uint64 0))
+                 (palf (the-as uint64 0)))
+            (dotimes (i cnt)
+              (let ((cp (-> sys cpuinfo-table (+ base i))))
+                (when (and (-> cp valid) (= (-> cp key) lc) (nonzero? (-> cp sprite)))
+                  (+! (-> this nq-live) 1)
+                  (when (< nq RHUD_NUEE_MAX)
+                    (let* ((vd  (-> cp sprite))
+                           (ad  (-> cp adgif))
+                           (sxq (* (-> vd sx) q))
+                           (syq (* (-> vd sy) q))
+                           (scx (fmax sxq msc))
+                           (scy (fmax syq msc))
+                           (amul (fmin (* sxq syq inva) 1.0))
+                           (ox  (+ pcx (/ (-> vd x) 60.0)))
+                           (oy  (- pcy (* ry (-> vd y))))
+                           (cs  (cos (-> vd rot)))
+                           (sn  (sin (-> vd rot)))
+                           (ax0 (if (= 4 (logand (-> vd flag) 15)) 0.0 -0.5))
+                           (rgba (rhud-rgba (rhud-c255 (-> vd r))
+                                            (rhud-c255 (-> vd g))
+                                            (rhud-c255 (-> vd b))
+                                            (rhud-c255 (* amul (-> vd a))))))
+                      ;; L'ADGIF DE LA PARTICULE ELLE-MEME : meme texture, meme filtrage, meme
+                      ;; melange que ce que le renderer de sprites lui aurait applique. On ne
+                      ;; reconstruit pas un etat GS « qui ressemble », on repose le sien.
+                      (when (or (zero? nq)
+                                (!= (the-as uint64 (-> ad tex0)) ptex)
+                                (!= (the-as uint64 (-> ad alpha)) palf))
+                        (set! ptex (the-as uint64 (-> ad tex0)))
+                        (set! palf (the-as uint64 (-> ad alpha)))
+                        (+! (-> this nq-shaders) 1)
+                        (with-cnt-vif-block (buf)
+                        (dma-buffer-add-gif-tag buf
+                                                (new 'static 'gif-tag64 :nloop 4 :eop 1 :nreg 1)
+                                                (new 'static 'gif-tag-regs :regs0 (gif-reg-id a+d)))
+                        (dma-buffer-add-uint64 buf
+                                               (the-as uint64 (-> ad alpha)) (gs-reg64 alpha-1)
+                                               (the-as uint64 (-> ad clamp)) (gs-reg64 clamp-1)
+                                               (the-as uint64 (-> ad tex1))  (gs-reg64 tex1-1)
+                                               (the-as uint64 (-> ad tex0))  (gs-reg64 tex0-1))))
+                      (with-cnt-vif-block (buf)
+                        (dma-buffer-add-uint64 buf
+                                               (logior 4 #x8000 (ash 1 46) (ash #x5c 47) (ash 3 60))
+                                               #x412)
+                        (dotimes (k 4)
+                          (let* ((vx (if (zero? (logand k 1)) ax0 (+ ax0 1.0)))
+                                 (vy (if (< k 2) -0.5 0.5))
+                                 (dx (* bx (+ (* scx cs vx) (* scy sn vy))))
+                                 (dy (* 2.0 by (- (* scy cs vy) (* scx sn vx)))))
+                            (rhud-add-vert buf
+                                           (- vx ax0)
+                                           (+ vy 0.5)
+                                           rgba
+                                           (+ ox dx)
+                                           (+ oy dy)))))
+                      (+! nq 1))))))))))
+    nq))
 
 ;;;----------------------------------------------
 ;;  stock hud suppression / icon upgrades
@@ -2759,6 +2940,37 @@
             (set! (-> this t8-states) (-> lc length))
             (if (> live (-> this t8-live)) (set! (-> this t8-live) live))))))
 
+    ;; --- terme 10 : LA NUEE EST DESSINEE PAR-DESSUS L'ANNEAU (reprise du 19/09).
+    ;; CE QUI EST MESURE, ET POURQUOI CE N'EST PAS UN MIROIR. Les deux primitives partent
+    ;; desormais dans le MEME bucket : dans un bucket, le GIF consomme les paquets dans l'ordre
+    ;; des ADRESSES du buffer. On releve donc l'adresse du buffer avant le premier octet de
+    ;; l'anneau et avant le premier octet de la nuee, et on publie leur ECART — une grandeur que
+    ;; l'allocateur DMA produit, pas une variable qu'on relit. Un ecart positif dit que la nuee
+    ;; est peinte apres l'anneau ; c'est exactement l'inverse de ce que l'owner a vu le 19/09,
+    ;; ou la nuee vivait dans le bucket 66 et l'anneau dans le 67.
+    ;; ET LE CONTROLE QUI EMPECHE UN VERT PAR INACTION : l'ordre ne veut rien dire si les deux
+    ;; ne se recouvrent pas. On mesure donc l'ETENDUE de la nuee autour du centre de l'anneau,
+    ;; relue sur les sommets emis, et on compte les images ou elle depasse le rayon du TROU
+    ;; central (11,8) : ce sont les seules ou la question « dessus ou dessous » se pose. Le terme
+    ;; n'est MESURE que si ce compte atteint le plancher. Au-dela du bord exterieur (39,2) la
+    ;; nuee recouvrirait la jauge, ce que l'owner a refuse d'avance : c'est un defaut.
+    (when (> (-> this nq-cur) 0)
+      (+! (-> this t10-n) 1)
+      (if (<= (-> this nq-delta) 0) (+! (-> this t10-order) 1))
+      (if (> (-> this nq-cur) (-> this t10-quads)) (set! (-> this t10-quads) (-> this nq-cur)))
+      (if (> (-> this nq-live) (-> this nq-cur)) (+! (-> this t10-capped) 1))
+      (when (> (-> pr n RHUD_GP_NUEE) 0)
+        (let* ((ex (/ (fmax (fabs (- (rhud-gp-px (-> pr minx RHUD_GP_NUEE)) (-> pr ccx)))
+                            (fabs (- (rhud-gp-px (-> pr maxx RHUD_GP_NUEE)) (-> pr ccx))))
+                      (-> pr cfx)))
+               (ey (fmax (fabs (- (rhud-gp-py (-> pr miny RHUD_GP_NUEE)) (-> pr ccy)))
+                         (fabs (- (rhud-gp-py (-> pr maxy RHUD_GP_NUEE)) (-> pr ccy)))))
+               (r (the int (* 16.0 (fmax ex ey)))))
+          (if (> r (-> this t10-rmax)) (set! (-> this t10-rmax) r))
+          (if (or (zero? (-> this t10-rmin)) (< r (-> this t10-rmin))) (set! (-> this t10-rmin) r))
+          (if (> r (the int (* 16.0 RHUD_GAUGE_HOLE_R)))  (+! (-> this t10-cover) 1))
+          (if (> r (the int (* 16.0 RHUD_GAUGE_OUTER_R))) (+! (-> this t10-band) 1)))))
+
     ;; --- terme 5 : LA POSITION. les trois primitives sur UN centre, celui de la jauge d'ORIGINE.
     ;; Juge uniquement les images ou l'animation d'arrivee est finie (`offset` nul) : sinon on
     ;; comparerait un HUD en cours de glissement a une position de repos.
@@ -2912,7 +3124,24 @@
            (t9 (if (> *rhud-spawn-tried* 0)
                  (begin (+! measured 1)
                         (+ *rhud-spawn-missing* (if (< free RHUD_POOL_MIN_FREE) 1 0)))
-                 (+ *rhud-spawn-missing* 1))))
+                 (+ *rhud-spawn-missing* 1)))
+           ;; TERME 10 — LA NUEE PAR-DESSUS L'ANNEAU. Trois defauts : la nuee n'est pas partie
+           ;; apres l'anneau, la copie du bucket des sprites n'a pas ete eteinte (elle serait
+           ;; dessinee deux fois), ou la nuee deborde au-dela du bord exterieur de l'anneau.
+           ;; MESURE seulement si des quads sont partis ET si la nuee a vraiment recouvert
+           ;; l'anneau sur assez d'images : sans recouvrement, « dessus ou dessous » ne veut
+           ;; rien dire et un zero serait un vert par inaction.
+           ;; L'ETENDUE (`t10_rmax`, `t10_band_bad`) est PUBLIEE et n'entre PAS dans la somme :
+           ;; les tailles et la dispersion de la nuee sont celles du 18/09, que l'owner a deja
+           ;; vues et sur lesquelles il ne s'est pas plaint — une porte qui les jugerait
+           ;; rougirait sur de la geometrie acquise. Ce qui entre dans la somme, c'est ce que
+           ;; CET essai change : l'ordre d'emission et l'extinction de la copie d'en dessous.
+           (t10 (if (and (>= (-> this t10-n) RHUD_GB_MIN)
+                         (> (-> this t10-quads) 0)
+                         (>= (-> this t10-cover) RHUD_GB_MIN))
+                  (begin (+! measured 1)
+                         (+ (-> this t10-order) (-> this t10-park-ko)))
+                  (+ (-> this t10-order) (-> this t10-park-ko) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -2922,6 +3151,7 @@
       (__pc-autoport-publish "hud_gauge_t7_quart" t7)
       (__pc-autoport-publish "hud_gauge_t8_centre" t8)
       (__pc-autoport-publish "hud_gauge_t9_slot" t9)
+      (__pc-autoport-publish "hud_gauge_t10_over" t10)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
@@ -2996,7 +3226,25 @@
       (__pc-autoport-publish "hud_gauge_pool_free_boot" *rhud-pool-free*)
       (__pc-autoport-publish "hud_gauge_pool_free" free)
       (__pc-autoport-publish "hud_gauge_pool_min_free" RHUD_POOL_MIN_FREE)
-      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9))))
+      ;; terme 10 : la nuee par-dessus l'anneau — l'ordre, le recouvrement, l'etendue, la
+      ;; copie eteinte. `t10_delta` est l'ecart d'adresse DANS LE BUFFER entre l'anneau et la
+      ;; nuee a la derniere image : negatif ou nul, la nuee serait repassee dessous.
+      (__pc-autoport-publish "hud_gauge_t10_n" (-> this t10-n))
+      (__pc-autoport-publish "hud_gauge_t10_order_bad" (-> this t10-order))
+      (__pc-autoport-publish "hud_gauge_t10_park_ko" (-> this t10-park-ko))
+      (__pc-autoport-publish "hud_gauge_t10_band_bad" (-> this t10-band))
+      (__pc-autoport-publish "hud_gauge_t10_cover" (-> this t10-cover))
+      (__pc-autoport-publish "hud_gauge_t10_quads_max" (-> this t10-quads))
+      (__pc-autoport-publish "hud_gauge_t10_capped" (-> this t10-capped))
+      (__pc-autoport-publish "hud_gauge_t10_rmax_16th" (-> this t10-rmax))
+      (__pc-autoport-publish "hud_gauge_t10_rmin_16th" (-> this t10-rmin))
+      (__pc-autoport-publish "hud_gauge_t10_hole_16th" (the int (* 16.0 RHUD_GAUGE_HOLE_R)))
+      (__pc-autoport-publish "hud_gauge_t10_outer_16th" (the int (* 16.0 RHUD_GAUGE_OUTER_R)))
+      (__pc-autoport-publish "hud_gauge_t10_delta" (-> this nq-delta))
+      (__pc-autoport-publish "hud_gauge_t10_live" (-> this nq-live))
+      (__pc-autoport-publish "hud_gauge_t10_park" (-> this nq-park))
+      (__pc-autoport-publish "hud_gauge_t10_shaders" (-> this nq-shaders))
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10))))
   (none))
 
 ;;;----------------------------------------------
@@ -3132,7 +3380,11 @@
                     (the float (* (-> this y-sgn) (-> this offset)))))
              (fx (rhud-aspect-fx))
              (jfrac 0.0)
-             (jwant RHUD_TBP_GAUGE_BLUE_FULL))
+             (jwant RHUD_TBP_GAUGE_BLUE_FULL)
+             ;; hud-eco-gauge, 19/09 : le repere de l'anneau DANS LE BUFFER, pris avant son
+             ;; premier octet. Le bucket est consomme dans l'ordre des adresses : l'ecart avec
+             ;; le repere de la nuee est donc la preuve d'ordre que la porte lit (terme 10).
+             (ring-mark (the int (-> buf base))))
         ;; hud-eco-gauge : l'origine du test « quart interdit », posee AVANT le premier sommet.
         (if (-> this probe?) (rhud-gauge-probe-center cx cy fx))
         ;; empty ring base
@@ -3198,8 +3450,24 @@
                     (set! (-> this last-eco-idx) idx))
                   (if (< idx (-> this nb-of-particles)) (spawn (-> this particles idx part) *null-vector*)))))))
         (set! (-> *rhud-gauge-probe* tag) -1)
+        ;; hud-eco-gauge, 19/09 — LA NUEE D'ECO, APRES L'ANNEAU ET DANS LE MEME BUCKET.
+        ;; L'owner : « je l'apercois par le trou au centre de la jauge, mais du coup elle est en
+        ;; dessous, pas au dessus ». Elle partait dans le bucket 66, l'anneau dans le 67.
+        (let ((nuee-mark (the int (-> buf base))))
+          (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_NUEE))
+          (set! (-> this nq-cur) (rhud-nuee-emit buf this cx cy))
+          (set! (-> *rhud-gauge-probe* tag) -1)
+          (set! (-> this nq-delta) (- nuee-mark ring-mark)))
         ;; hud-eco-gauge : le jugement se fait ICI, sur les sommets qui viennent de partir.
-        (if (-> this probe?) (rhud-gauge-judge this jfrac fx jwant)))))
+        ;; IL DOIT PASSER AVANT LE PARCAGE : le terme 8 lit la case HVDF pour retrouver le centre
+        ;; de la nuee, et une case deja garee lui rendrait 30000.
+        (if (-> this probe?) (rhud-gauge-judge this jfrac fx jwant))
+        ;; et la copie du bucket 66 s'eteint, sinon la nuee serait dessinee deux fois : une fois
+        ;; sous l'anneau (visible par le trou) et une fois par-dessus.
+        (let ((np (rhud-nuee-park this)))
+          (set! (-> this nq-park) np)
+          (if (and (-> this probe?) (> (-> this nq-cur) 0) (< np (-> this nb-of-particles)))
+            (+! (-> this t10-park-ko) 1))))))
   0
   (none))
 
