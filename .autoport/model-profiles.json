@@ -1,9 +1,9 @@
 {
   "_doc": "Source unique du modele et de l'effort pour tout le harnais (orchestrateur, workers, superviseur). Bascule: changer 'active', lancer ./.autoport/apply-model-profile.sh (il regenere l'effort dans .claude/agents/*.md), relancer. 2026-09-03: 5 profils morts supprimes (notes contradictoires, modeles retires); il n'en reste que l'actif et un secours.",
-  "active": "fable51-high",
+  "active": "opus5-sobre",
   "profiles": {
     "fable51-high": {
-      "_note": "Profil ACTIF depuis le 2026-09-19 09:30 (owner : « bascule le harnais sur le profil fable et relance »). Forme du 09-09 (owner : « le profil sobre sans [1m] c'est con, utilise [1m] ») : manager fable-5-1[1m] effort high, workers tieres. fable51-sobre reste le secours si les credits se tendent.",
+      "_note": "Actif du 2026-09-19 03:00 au 2026-09-19 (quelques heures) : deux coupures de quota dans la journee, l'owner l'a retire. Profil demande le 2026-09-19 09:30 (owner : « bascule le harnais sur le profil fable et relance »). Forme du 09-09 (owner : « le profil sobre sans [1m] c'est con, utilise [1m] ») : manager fable-5-1[1m] effort high, workers tieres. fable51-sobre reste le secours si les credits se tendent.",
       "manager_model": "claude-fable-5-1[1m]",
       "manager_effort": "high",
       "worker_model": "claude-fable-5-1[1m]",
@@ -36,7 +36,7 @@
       }
     },
     "opus5-sobre": {
-      "_note": "Actif du 2026-09-10 07:15 au 2026-09-19 09:30, sur ordre de l'owner (« switch sur le profil opus 5, on est out of credit avec fable »). Forme SOBRE, PAS opus5-secours : pas de suffixe [1m], manager high, workers tieres (researcher high, implementer/tester medium). Le [1m] demande par l'owner le 09-09 valait pour fable ; sur opus il reproduit exactement opus5-secours, retire le 09-05 pour 129 M de tokens par essai. A rajouter seulement si l'owner le redemande sur opus.",
+      "_note": "Profil ACTIF depuis le 2026-09-19 (owner : « passe sur le profil opus au niveau harnais, j'ai l'impression que fable me fait exploser les limites en boucle »). Forme SOBRE : pas de [1m], manager high, workers tieres. Actif du 2026-09-10 07:15 au 2026-09-19 09:30, sur ordre de l'owner (« switch sur le profil opus 5, on est out of credit avec fable »). Forme SOBRE, PAS opus5-secours : pas de suffixe [1m], manager high, workers tieres (researcher high, implementer/tester medium). Le [1m] demande par l'owner le 09-09 valait pour fable ; sur opus il reproduit exactement opus5-secours, retire le 09-05 pour 129 M de tokens par essai. A rajouter seulement si l'owner le redemande sur opus.",
       "manager_model": "claude-opus-5",
       "manager_effort": "high",
       "worker_model": "claude-opus-5",

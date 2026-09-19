@@ -834,13 +834,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "2ade95d36a22",
-  "hash": "e4b62945ad9252b26cf909cecf4ef4ee04be5700",
+  "build_announced": "019ade359d13",
+  "hash": "238786213ba25f4d87f10f32091aad29e96206ff",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-18T05:24:44.567Z",
+  "pulled_at": "2026-09-19T07:50:58.905Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1095,11 +1095,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "hash": "ea8548e77990510b284aa646028170b6455c7336",
+  "hash": "10e915243715d65af44803d3e093a7d3b1d9da5f",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "In Progress",
-  "pulled_at": "2026-09-19T05:11:38.309Z",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-19T07:37:23.977Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
  },
  "owner-todo-priorisation": {
@@ -1389,12 +1389,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "hash": "3ea6dff94e2f620d51b6b782374c88450e2d5dd4",
+  "build_announced": "019ade359d13",
+  "hash": "d0f7eb2b83f93b64c71eb7c3eb27d635b47633e1",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
   "last_state": "In Review",
   "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-18T05:24:42.000Z",
+  "pulled_at": "2026-09-19T07:49:35.313Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
  },
  "recharged-lightprobes": {
@@ -1512,13 +1513,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "2ade95d36a22",
-  "hash": "977a374481483b1654f5468476ebb8e185e1825d",
+  "build_announced": "019ade359d13",
+  "hash": "d35c8299a7dec7dfcd4d18476a43bc70103be5dd",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "In Review",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T06:51:42.000Z",
+  "pulled_at": "2026-09-19T07:58:43.603Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
  },
  "shrub-trunk-contact": {
