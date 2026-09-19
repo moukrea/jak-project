@@ -364,10 +364,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "7e54d10548cb9ecea593f2293a0c1c79ca38a67c",
+  "hash": "34c55db493b470457b6e9919a57e5a5b53e61c05",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "relations": [
    "grass-clumps"
@@ -1901,10 +1901,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "hash": "5ff90a700028e2d367358bf00f30b9284803358c",
+  "build_announced": "a4de81c3f19e",
+  "hash": "3c87ad4400fc76c43507d6a80bdd700739746f1a",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-009.txt",
   "pulled_at": "2026-09-19T16:42:31.732Z",
   "relations": [

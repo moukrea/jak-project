@@ -5759,7 +5759,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: open
+  status: to-test
   priority: 54
   owner_feedback:
   - date: '2026-09-09'
@@ -5789,6 +5789,12 @@ items:
       build que je teste (celui de 6h20 et quelques) sur le title screen l'eau est noire (c'est bon une
       fois en jeu) évidemment qu'elle ne sort plus du lit de la rivière qui se jette dans la mer de forbidden
       jungle vu que c'est exactmeent pareil que l'eau du jeu original sauf qu'elle est opaque...
+  - date: '2026-09-19'
+    text: C'est la même hauteur que la vague d'origine au millimètre près .. mais il me semblait qu'on
+      avait remplacer le maillage/whatever par un truc plus détaillé dans une itération antérieure et
+      je me souviens voir des vagues beaucoup plus crédibles que sur l'eau d'origine, j'ai pas testé ce
+      build mais à l'air d'avoir complètement disparu… je t'avais déjà fait ce feedback auparavant ça
+      me gave un peu
   gate:
     key: water_ocean_owner_defects
     op: ==
@@ -5811,8 +5817,12 @@ items:
   - debug.opengoal.water=1
   - debug.opengoal.level.warp=jungle-start
   - debug.opengoal.level.warp.pos=260.7 2.3 -233.3
-  where: 'Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur) : la houle ne deborde
-    plus du lit. Puis la mer depuis Sandover.'
+  where: 'Sur le build nomme dans le commentaire « build publie », la mer depuis Sandover puis l''ecran
+    titre. Tes trois retours du 17/09, un oui/non chacun : (1) l''eau est-elle redevenue TRANSPARENTE
+    pres de la camera comme dans l''original (plus opaque) ? (2) l''eau de l''ecran titre est-elle revenue
+    (plus noire) ? (3) les vagues ressemblent-elles a nouveau a des vagues, comme avant la reprise ? Et
+    la hauteur de jeu n''a pas bouge (tu peux marcher dans l''eau au meme niveau). Puis la riviere de
+    Forbidden Jungle : la houle ne deborde pas du lit.'
   known_cause: |-
     17/09 RETOUR OWNER sur c42de2 : « la nouvelle mer ressemble trait pour trait à l'ancienne, sauf que elle est opaque » ; « sur le title screen l'eau est noire » ; « avant cette reprise les vagues ressemblaient plus à des vagues ». La porte de hauteur de jeu a tenu, mais l'alpha a 1 (defaut n°1 du FINDINGS, non traite) est une REGRESSION visible, l'ecran titre noir aussi. 3 essais : d'abord A et B (regressions), puis C. Ne pas toucher a la hauteur de jeu (water_gameplay_height_maxdelta_mm reste a 0).
 
@@ -5839,17 +5849,17 @@ items:
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
-  delivered: '2026-09-17'
+  delivered: '2026-09-19'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:4
   block_reason: max_retries (6) épuisé
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-17'
-    proof_sha: a45b3bbc1e713f90
-    proof_bytes: 55210
-    attempt: 7
-    journal: validator-007.txt
+    date: '2026-09-19'
+    proof_sha: 73d6cf8edf1263dc
+    proof_bytes: 72191
+    attempt: 9
+    journal: validator-009.txt
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
@@ -10233,7 +10243,7 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13235,6 +13245,9 @@ items:
       \ de rendu affecte la partie jeu rendu alors que la résolution c'est TOUT, y compris l'UI… je sais\
       \ pas si je suis clair ?\n\n![71575.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/41b78529-c4f0-402a-ba2f-d0df514dda82/39cc5204-a483-4bd6-b271-0724f8e66c4f)\n\
       [images enregistrees : .autoport/owner-feedback/res-scale-submenu/20260919T0758-1.jpg]"
+  - date: '2026-09-19'
+    text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
+      t'as pris mon feedback et tu l'as traité ?
 - id: owner-todo-priorisation
   status: validated
   game: jak1
@@ -13462,8 +13475,11 @@ items:
   - date: '2026-09-19'
     text: Alors je saurais dire si la particule est la bonne car oui je l'aperçoit par le trou au centre
       de la jauge, mais du coup elle est en dessous, pas au dessus ! Donc c'est pas bon !
+  - date: '2026-09-19'
+    text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
+      t'as pris mon feedback et tu l'as traité ?
   block_reason: ''
-- status: open
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13636,12 +13652,12 @@ items:
       justement ! Par defaut à on, hérite du master toggle rechargé… à off c'est le HUD d'origine !
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-18'
-    proof_sha: ba0b2e980d73bc6b
-    proof_bytes: 56890
-    attempt: 5
-    journal: validator-005.txt
-  delivered: '2026-09-18'
+    date: '2026-09-19'
+    proof_sha: e53300e9b194a76d
+    proof_bytes: 65113
+    attempt: 8
+    journal: validator-008.txt
+  delivered: '2026-09-19'
   block_reason: ''
 - status: open
   game: jak1
@@ -14094,6 +14110,11 @@ items:
       maintient L2/R2 la pile d'énergie du HUD rechargé et la mecamouche du HUD rechargé apparaissent
       par dessus leurs pendants du HUD d'origine. Que ce soit avec le master toggle rechargé à off ou
       la feature elle même à off.
+  - date: '2026-09-19'
+    text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
+      t'as pris mon feedback et tu l'as traité ?
+  - date: '2026-09-19'
+    text: Hello ?
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
   status: to-test
   game: jak1
@@ -14137,6 +14158,11 @@ items:
       et compagnie ?
   - date: '2026-09-19'
     text: Qu'est ce qui bloque là ? Pourquoi j'ai pas de retour ?
+  - date: '2026-09-19'
+    text: Je trouve ça impertinent à souhait, d'ailleurs comment ça se fait que fable ne soit pas réellement
+      envisagé ? T'as fais une évaluation de merde sur notre historique, c'est éclaté
+  - date: '2026-09-19'
+    text: Tu ignores mes retours et questions ?
   gate_verdict:
     result: porte-tenue
     date: '2026-09-19'
@@ -14262,9 +14288,23 @@ items:
     digest qui ne se reveille que si `status --changed` ou Linear a bouge, calcule par un script sans
     modele ; reponses Linear plus courtes ; ne pas relire des journaux entiers), avec le cout AVANT/APRES
     sur 3 jours. Le rapport est ecrit pour l''owner, en francais courant.'
-  status: in-progress
+  status: to-test
   depends_on: []
   spec: null
   prompt: prompts/item-harness-supervisor-cost-counter.md
   code_scope: harness
   code_scope_source: worker:essai-1:le-cout-du-superviseur-se-mesure-sur-ses-transcriptions-et-se-reduit-dans-.autoport/supervisor.sh-lib/wake_gate.py-lib/supervisor_cost.py-et-.claude/settings.json-aucun-code-moteur-ne-peut-le-changer
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-19'
+    proof_sha: f9a189d0c769408d
+    proof_bytes: 65616
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-19'
+  owner_feedback:
+  - date: '2026-09-19'
+    text: Alors je vois pas ce quinest embarqué dans un build pour ce ticket, et je sais même même pas
+      ce que je suis sensé trancher dessus, c'est bizarre comme ticket
+  - date: '2026-09-19'
+    text: Tu te fous de ma gueule ? Tu ignores mes retours ?
