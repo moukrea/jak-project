@@ -749,7 +749,10 @@ def announce_builds(L, bl, mp, read, dry):
         if not needs_build(it):
             continue
         rec = mp.get(it["id"])
-        if not rec or rec.get("build_announced") == pub:
+        # 19/09 22:50 : UNE annonce par passage en test, pas une par build. Trois « build publié » en
+        # quarante minutes sur l'herbe (chaque nouveau build re-annoncait) : « comment tu peux être
+        # autant à côté de la plaque ? ». Le champ est remis a zero quand l'item quitte « a tester ».
+        if not rec or rec.get("build_announced"):
             continue
         try:
             # -F : sans lui, « [autoport/x] » est une classe de caracteres et matche n'importe quel commit
@@ -1237,6 +1240,8 @@ def main():
                 moved += 1
             if _TALK.get("ok") and it["status"] == "validated":
                 swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
+            if st != "In Review":
+                rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
             rec.update({"last_state": st, "hash": h})
             updated += 1
         MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
