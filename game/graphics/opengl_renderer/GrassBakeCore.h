@@ -8,7 +8,10 @@
 // validated GrassRenderer::rebuild() code; every float expression, constant,
 // ordering and log format is preserved.
 
+#include <array>
 #include <cmath>
+#include <cstring>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -18,6 +21,9 @@
 // cuisson hors-ligne et l'empaqueteur. Feuille pure (aucune inclusion GL / loader) : elle peut donc
 // entrer ici, qui est aussi compile dans l'outil de bureau.
 #include "game/graphics/grass_density_presets.h"
+// grass-blade-variants : la table des six silhouettes, les proportions du profil et la regle de
+// repli par palier. Feuille pure elle aussi, sans inclusion.
+#include "game/graphics/grass_blade_variants.h"
 
 namespace grass_bake {
 
@@ -282,6 +288,163 @@ struct GrassInstance {
   float nx, ny, nz, nspare;
 };
 static_assert(sizeof(GrassInstance) == 64, "GrassInstance must stay 16 floats");
+
+// ===================== grass-blade-variants : LA VARIANTE D'UN BRIN =========================
+// LA GRAINE EST LA POSITION, PAS L'INDEX. `GrassInstance` est plein (16 flottants, static_assert
+// ci-dessus) : aucun champ ne porte la graine de placement jusqu'ici. On hache donc les OCTETS des
+// trois flottants de la racine — la seule grandeur par brin qui soit a la fois presente ici, ecrite
+// par l'expansion, et IDENTIQUE d'un palier a l'autre (les paliers sont imbriques par construction,
+// SPEC section 4). Un index de tableau ne l'aurait pas ete : `bind_at()` decale les pointeurs
+// d'attribut par lot, et `gl_InstanceID` repart a zero a chaque appel de dessin.
+inline u32 blade_variant_seed(const GrassInstance& gi) {
+  u32 a = 0, b = 0, c = 0;
+  std::memcpy(&a, &gi.px, 4);
+  std::memcpy(&b, &gi.py, 4);
+  std::memcpy(&c, &gi.pz, 4);
+  return hash_u32(a ^ hash_u32(b ^ hash_u32(c)));
+}
+
+inline int blade_variant_of(const GrassInstance& gi, int k) {
+  return blade_variant_fold(blade_variant_base(blade_variant_seed(gi)), k);
+}
+
+// CE QUE LA PORTE LIT. Tous les termes sont comptes sur LA POPULATION REELLE d'instances — celle
+// qu'on vient d'emettre, ou celle que l'outil hors ligne vient d'etendre — jamais sur une formule.
+struct VariantCensus {
+  u64 blades = 0;
+  int k = 0;                              // variantes offertes par le palier
+  u64 per_variant[kBladeVariantCount] = {};  // compte par variante EFFECTIVE (apres repli)
+  u64 per_base[kBladeVariantCount] = {};     // compte par variante de BASE (avant repli)
+  u64 folded = 0;                         // brins dont la base n'est pas offerte par ce palier
+  int share_pm[kBladeVariantCount] = {};     // part mesuree, pour mille
+  int expect_pm[kBladeVariantCount] = {};    // part attendue, pour mille
+  int tol_pm[kBladeVariantCount] = {};       // tolerance publiee par le MESUREUR, pas par le juge
+  int off_profile = 0;                    // variantes hors tolerance
+  int verts_strip = kBladeStripVerts;     // sommets soumis par instance
+  int verts_max = 0;                      // sommets actifs de la variante la plus lourde UTILISEE
+  int verts_over = 0;                     // variantes dont les sommets actifs depassent le ruban
+  u64 verts_active_total = 0;             // somme des sommets actifs (ce que la diversite demande)
+  u64 verts_strip_total = 0;              // somme des sommets soumis (ce que le GPU transforme)
+  u64 digest = 0;                         // empreinte (racine, variante) : moteur contre hors-ligne
+  int terms_measured = 0;
+};
+
+inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
+                                    size_t first,
+                                    size_t count,
+                                    int k) {
+  VariantCensus vc;
+  vc.k = k;
+  const size_t end = (first + count > inst.size()) ? inst.size() : first + count;
+  for (size_t i = first; i < end; ++i) {
+    const u32 sd = blade_variant_seed(inst[i]);
+    const int base = blade_variant_base(sd);
+    const int eff = blade_variant_fold(base, k);
+    vc.per_base[base]++;
+    vc.per_variant[eff]++;
+    if (base >= k) {
+      vc.folded++;
+    }
+    const int av = blade_variant_active_verts(eff);
+    if (av > vc.verts_max) {
+      vc.verts_max = av;
+    }
+    vc.verts_active_total += (u64)av;
+    vc.verts_strip_total += (u64)kBladeStripVerts;
+    vc.digest = (vc.digest ^ (u64)sd) * 1099511628211ull;
+    vc.digest ^= (u64)(eff + 1) * 2654435761ull;
+    vc.blades++;
+  }
+  for (int v = 0; v < kBladeVariantCount; ++v) {
+    vc.expect_pm[v] = blade_variant_expected_pm(v, k);
+    vc.share_pm[v] =
+        vc.blades ? (int)((vc.per_variant[v] * 1000ull + vc.blades / 2) / vc.blades) : 0;
+    // Plancher declare + quatre ecarts-types binomiaux, calcules SUR LA POPULATION MESUREE : sans le
+    // second terme un niveau a quelques centaines de brins rougirait sur sa seule statistique.
+    double sig = 0.0;
+    if (vc.blades > 0) {
+      const double p = vc.expect_pm[v] / 1000.0;
+      sig = 1000.0 * std::sqrt(p * (1.0 - p) / (double)vc.blades);
+    }
+    vc.tol_pm[v] = kBladeVariantTolFloorPm + (int)std::ceil(kBladeVariantTolSigmas * sig);
+    if (vc.blades > 0 && std::abs(vc.share_pm[v] - vc.expect_pm[v]) > vc.tol_pm[v]) {
+      vc.off_profile++;
+    }
+    if (vc.per_variant[v] > 0 && blade_variant_active_verts(v) > kBladeStripVerts) {
+      vc.verts_over++;
+    }
+  }
+  // Cinq termes MESURES : distribution, budget de sommets, repli, empreinte, population.
+  vc.terms_measured = vc.blades > 0 ? 5 : 0;
+  return vc;
+}
+
+// CE QUE DEUX PALIERS SE DOIVENT. Point 3 du livrable : « un brin donne recoit la meme variante a
+// tous les paliers qui la proposent ». On apparie les brins par leur RACINE (la graine est la
+// racine), jamais par leur rang dans le tableau : un appariement par index supposerait ce que
+// grass-clumps mesure ailleurs.
+struct VariantNest {
+  u64 compared = 0;   // brins presents dans les deux paliers
+  u64 changed = 0;    // ... dont la variante effective differe alors que les deux la proposent
+  u64 folded = 0;     // ... dont la base n'est pas offerte par le palier le plus bas
+  u64 missing = 0;    // brins du petit palier introuvables dans le grand (prefixe casse)
+  int k_lo = 0, k_hi = 0;
+};
+
+// L'APPARIEMENT SE FAIT PAR LA RACINE, EN OCTETS. Le tableau d'instances n'est PAS un prefixe d'un
+// palier a l'autre — les brins sont enumeres triangle par triangle, donc une densite plus haute
+// decale tout ce qui suit le premier triangle — et la queue d'overhang est ajoutee en fin de
+// tableau. Comparer par rang mesurerait ce decalage au lieu de la variante.
+inline VariantNest variant_nest(const std::vector<GrassInstance>& lo,
+                                size_t lo_count,
+                                int k_lo,
+                                const std::vector<GrassInstance>& hi,
+                                size_t hi_count,
+                                int k_hi) {
+  VariantNest vn;
+  vn.k_lo = k_lo;
+  vn.k_hi = k_hi;
+  const int k_min = k_lo < k_hi ? k_lo : k_hi;
+  std::map<std::array<u32, 3>, u32> seen;  // racine -> variante de base du palier haut
+  const size_t hn = hi_count > hi.size() ? hi.size() : hi_count;
+  for (size_t i = 0; i < hn; ++i) {
+    std::array<u32, 3> key{};
+    std::memcpy(&key[0], &hi[i].px, 4);
+    std::memcpy(&key[1], &hi[i].py, 4);
+    std::memcpy(&key[2], &hi[i].pz, 4);
+    seen.emplace(key, (u32)blade_variant_of(hi[i], k_hi));
+  }
+  const size_t ln = lo_count > lo.size() ? lo.size() : lo_count;
+  for (size_t i = 0; i < ln; ++i) {
+    std::array<u32, 3> key{};
+    std::memcpy(&key[0], &lo[i].px, 4);
+    std::memcpy(&key[1], &lo[i].py, 4);
+    std::memcpy(&key[2], &lo[i].pz, 4);
+    const auto it = seen.find(key);
+    if (it == seen.end()) {
+      vn.missing++;
+      continue;
+    }
+    // ON NE COMPARE QUE CE QUI EST LIVRE. Les deux cotes passent par `blade_variant_of` — la
+    // fonction que le moteur appelle pour ecrire l'octet d'instance — et jamais par la
+    // decomposition en variante de base : comparer deux decompositions d'une meme graine serait
+    // vrai par construction et ne mesurerait rien. « Propose par les deux paliers » se lit donc
+    // sur la variante EFFECTIVE du palier haut, qui en offre le plus.
+    const int eff_lo = blade_variant_of(lo[i], k_lo);
+    const int eff_hi = (int)it->second;
+    if (eff_hi >= k_min) {
+      vn.folded++;  // le petit palier ne propose pas cette variante : hors du support commun
+      continue;
+    }
+    vn.compared++;
+    if (eff_lo != eff_hi) {
+      vn.changed++;
+    }
+  }
+  return vn;
+}
+
+
 
 // LA POSITION D'UN CANDIDAT, EN UN SEUL ENDROIT — pour de bon depuis grass-clumps. Ce fichier
 // portait ici un `cand_barycentric()` dont le commentaire annoncait deja « EN UN SEUL ENDROIT »

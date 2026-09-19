@@ -84,7 +84,10 @@ class GrassRenderer {
   // shared bake tables (m_bake.tris[t].pal, identical float[8][3] layout).
   grass_bake::BakeData m_bake;
   std::vector<u32> m_inst_tri;
-  std::vector<u8> m_light;                  // 4 bytes/instance (rgba), re-uploaded on TOD change
+  // grass-blade-variants : la silhouette EFFECTIVE de chaque brin, livree au shader par le
+  // quatrieme octet de l'attribut de lumiere (voir update_light()).
+  std::vector<u8> m_variant;   // grass-blade-variants : variante EFFECTIVE par instance
+  std::vector<u8> m_light;                 // 4 bytes/instance (rgba), re-uploaded on TOD change
   s32 m_last_itimes[4][4] = {};             // weights of the last light upload (change-detect throttle)
   bool m_light_valid = false;
   u32 m_light_uploads = 0;                  // POLISH#9: how many times the dynamic light re-uploaded

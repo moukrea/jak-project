@@ -121,6 +121,10 @@ AUTOPORT_FEATURE_SITE(kPathTransItemId);
 // regime, et `hits=` y tombe a 0 parce qu'aucune touffe n'est montee.
 constexpr const char* kClumpItemId = "grass-clumps";
 AUTOPORT_FEATURE_SITE(kClumpItemId);
+// grass-blade-variants : desarme, k = 1 et TOUS les brins retombent sur la variante 0, c'est-a-dire
+// la lame livree jusqu'ici.
+constexpr const char* kVariantItemId = "grass-blade-variants";
+AUTOPORT_FEATURE_SITE(kVariantItemId);
 
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
@@ -1181,6 +1185,7 @@ bool GrassRenderer::oom_disarm(const void* lev,
   std::vector<grass_bake::GrassInstance>().swap(m_instances);
   std::vector<u32>().swap(m_inst_tri);
   std::vector<u8>().swap(m_light);
+  std::vector<u8>().swap(m_variant);
   m_chunks.clear();
   m_bake = grass_bake::BakeData{};
   m_pending.bake = grass_bake::BakeData{};
@@ -1222,6 +1227,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     m_inst_tri.clear();       // POLISH#9: per-instance source-tri map (rebuilt below)
     m_bake = grass_bake::BakeData{};   // Grecharged-grass-precompute-mode: per-tri baked-light source
     m_light.clear();
+    m_variant.clear();
     m_light_valid = false;
 
     // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
@@ -1591,6 +1597,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       std::vector<grass_bake::GrassInstance>().swap(m_instances);
       std::vector<u32>().swap(m_inst_tri);
       std::vector<u8>().swap(m_light);
+      std::vector<u8>().swap(m_variant);
       m_chunks.clear();
       m_bake = grass_bake::BakeData{};
       m_instance_count = 0;
@@ -1777,6 +1784,70 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     // `hits_means` du backlog nomme. Desarme, le placement est uniforme : aucune touffe n'est
     // montee, `clumps_mounted` vaut 0, et la ligne rend `armed=0 hits=0`.
     autoport_proof::note_hit_for(kClumpItemId, cc.clumps_mounted);
+  }
+
+  // ============== grass-blade-variants : LA SILHOUETTE DE CHAQUE BRIN ======================
+  // Le palier commande le NOMBRE de variantes (SPEC section 13) ; la variante d'un brin sort de sa
+  // RACINE, donc elle ne change pas d'un palier a l'autre. Desarme, k = 1 : tous les brins sont la
+  // lame v0, c'est-a-dire le rendu livre jusqu'ici, au bit pres.
+  {
+    // LE PALIER SERVI, PAS LE PALIER EN CACHE. `m_cached_preset` n'est affecte qu'a la fin de
+    // l'etape de consommation (plus bas) : ici il porte encore le palier du chargement PRECEDENT,
+    // et -1 au tout premier. Le palier de CETTE expansion est celui que `m_pending` porte — et
+    // c'est le palier SERVI qui compte, pas le demande : quand le bake du palier demande manque, le
+    // champ construit est celui d'un cran en dessous, et le nombre de variantes doit suivre le
+    // champ reellement bati, sinon le recensement hors ligne mesurerait un autre palier.
+    const int vpreset = grass_bake::clamp_density_preset(m_pending.served_preset);
+    const int vk = autoport_proof::armed_for(kVariantItemId)
+                       ? grass_bake::variants_for_preset(vpreset)
+                       : 1;
+    m_variant.assign(res.instances.size(), 0);
+    for (size_t i = 0; i < res.instances.size(); ++i) {
+      m_variant[i] = (u8)grass_bake::blade_variant_of(res.instances[i], vk);
+    }
+    if (autoport_proof::feature_is(kVariantItemId)) {
+      const auto vc = grass_bake::variant_census(res.instances, 0, res.instances.size(), vk);
+      autoport_proof::publish_text("grass_variant_engine_level", level_name.c_str());
+      autoport_proof::publish("grass_variant_engine_armed",
+                              autoport_proof::armed_for(kVariantItemId) ? 1u : 0u);
+      autoport_proof::publish("grass_variant_engine_preset", (uint64_t)vpreset);
+      autoport_proof::publish("grass_variant_engine_preset_wanted",
+                              (uint64_t)grass_bake::clamp_density_preset(m_pending.want_preset));
+      autoport_proof::publish("grass_variant_engine_k", (uint64_t)vc.k);
+      autoport_proof::publish("grass_variant_engine_blades", vc.blades);
+      autoport_proof::publish("grass_variant_engine_folded", vc.folded);
+      autoport_proof::publish("grass_variant_engine_off_profile", (uint64_t)vc.off_profile);
+      autoport_proof::publish("grass_variant_engine_verts_strip", (uint64_t)vc.verts_strip);
+      autoport_proof::publish("grass_variant_engine_verts_max", (uint64_t)vc.verts_max);
+      autoport_proof::publish("grass_variant_engine_verts_over", (uint64_t)vc.verts_over);
+      autoport_proof::publish("grass_variant_engine_verts_active_total", vc.verts_active_total);
+      autoport_proof::publish("grass_variant_engine_verts_strip_total", vc.verts_strip_total);
+      autoport_proof::publish("grass_variant_engine_terms", (uint64_t)vc.terms_measured);
+      for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
+        char key[64];
+        snprintf(key, sizeof(key), "grass_variant_engine_v%d", v);
+        autoport_proof::publish(key, vc.per_variant[v]);
+        snprintf(key, sizeof(key), "grass_variant_engine_base_v%d", v);
+        autoport_proof::publish(key, vc.per_base[v]);
+        snprintf(key, sizeof(key), "grass_variant_engine_share_pm_v%d", v);
+        autoport_proof::publish(key, (uint64_t)vc.share_pm[v]);
+        snprintf(key, sizeof(key), "grass_variant_engine_expect_pm_v%d", v);
+        autoport_proof::publish(key, (uint64_t)vc.expect_pm[v]);
+        snprintf(key, sizeof(key), "grass_variant_engine_tol_pm_v%d", v);
+        autoport_proof::publish(key, (uint64_t)vc.tol_pm[v]);
+        snprintf(key, sizeof(key), "grass_variant_engine_seg_v%d", v);
+        autoport_proof::publish(key, (uint64_t)grass_bake::kBladeVariants[v].segments);
+      }
+      {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)vc.digest);
+        autoport_proof::publish_text("grass_variant_engine_digest", buf);
+      }
+      // `hits=` de la ligne FEATURE : les brins AYANT RECU UNE VARIANTE, exactement ce que
+      // `hits_means` du backlog nomme. Desarme, aucun brin n'en recoit : k=1, et le compte tombe a 0.
+      autoport_proof::note_hit_for(kVariantItemId,
+                                   vk > 1 ? vc.blades : 0);
+    }
   }
 
   // ================================= ETAPE CONSOMMATION =================================
@@ -2228,7 +2299,10 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
     m_light[(size_t)i * 4 + 0] = cr;
     m_light[(size_t)i * 4 + 1] = cg;
     m_light[(size_t)i * 4 + 2] = cb;
-    m_light[(size_t)i * 4 + 3] = 255;
+    // grass-blade-variants : le quatrieme octet portait 255 et personne ne le lisait ; il porte
+    // desormais la variante du brin. Le shader ne lit que `.rgb` pour la lumiere.
+    m_light[(size_t)i * 4 + 3] =
+        ((size_t)i < m_variant.size()) ? m_variant[(size_t)i] : (u8)0;
   }
 
   ensure_gl();
@@ -3030,21 +3104,61 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // NEAR: individual blades (10-vert triangle strip)
   const auto t_draw0 = std::chrono::steady_clock::now();
   glUniform1i(mode_loc, 0);
-  const u64 submitted_blade = draw_pass(GL_TRIANGLE_STRIP, 10, m_blade_runs, draw_n, 8);
+  // grass-blade-variants : le budget geometrique est NOMME ici, et c'est CETTE variable que
+  // `glDrawArraysInstanced` recoit — la valeur publiee plus bas n'en est pas une recopie.
+  const GLint kBladeVerts = (GLint)grass_bake::kBladeStripVerts;   // 10 = 2*(SEGMENTS+1)
+  const GLint kCardVerts = 12;
+  const u64 submitted_blade = draw_pass(GL_TRIANGLE_STRIP, kBladeVerts, m_blade_runs, draw_n, 8);
   // La sonde de contact lit les pointeurs d'attribut EN L'ETAT et echantillonne une instance sur
   // 256 depuis le debut du tampon : on les remet a zero avant de l'appeler, sinon elle decrirait
   // le dernier lot au lieu du champ.
   bind_at(0);
-  capture_grass(0, 10, (int)submitted_blade);
+  capture_grass(0, kBladeVerts, (int)submitted_blade);
   sync_ms("blade draw");
 
   // MID: X-cross cards (12-vert, 4 triangles). card_n stops before the droop tail: droop NEVER
   // has a card tier (far LOD = the game's own alpha overhang texture).
   glUniform1i(mode_loc, 1);
-  const u64 submitted_card = draw_pass(GL_TRIANGLES, 12, m_card_runs, card_n, 4);
+  const u64 submitted_card = draw_pass(GL_TRIANGLES, kCardVerts, m_card_runs, card_n, 4);
   bind_at(0);
-  capture_grass(1, 12, (int)submitted_card);
+  capture_grass(1, kCardVerts, (int)submitted_card);
   sync_ms("card draw");
+  // grass-blade-variants, point 4 du livrable : AUCUNE MODELISATION. La geometrie du brin sort de
+  // `gl_VertexID` ; s'il existait un maillage, il arriverait par un attribut de sommet, c'est-a-dire
+  // un attribut ACTIF de diviseur 0. On lit l'etat REEL du VAO qu'on vient de dessiner, on ne le
+  // deduit pas du code : `vertex` doit valoir 0, et `instance` non nul (sinon la sonde n'a rien vu).
+  if (autoport_proof::feature_is(kVariantItemId)) {
+    static u64 s_pub_b = ~0ull, s_pub_c = ~0ull;
+    if (s_pub_b != submitted_blade || s_pub_c != submitted_card) {
+      s_pub_b = submitted_blade;
+      s_pub_c = submitted_card;
+      int attr_scanned = 0, attr_vertex = 0, attr_instance = 0;
+      for (int a = 0; a < 8; ++a) {
+        GLint en = 0, dv = 0;
+        glGetVertexAttribiv((GLuint)a, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &en);
+        glGetVertexAttribiv((GLuint)a, GL_VERTEX_ATTRIB_ARRAY_DIVISOR, &dv);
+        attr_scanned++;
+        if (en) {
+          if (dv == 0) {
+            attr_vertex++;
+          } else {
+            attr_instance++;
+          }
+        }
+      }
+      autoport_proof::publish("grass_variant_attr_scanned", (uint64_t)attr_scanned);
+      autoport_proof::publish("grass_variant_attr_vertex", (uint64_t)attr_vertex);
+      autoport_proof::publish("grass_variant_attr_instance", (uint64_t)attr_instance);
+      autoport_proof::publish("grass_variant_draw_blade_verts", (uint64_t)kBladeVerts);
+      autoport_proof::publish("grass_variant_draw_card_verts", (uint64_t)kCardVerts);
+      autoport_proof::publish("grass_variant_draw_blades", submitted_blade);
+      autoport_proof::publish("grass_variant_draw_cards", submitted_card);
+      autoport_proof::publish("grass_variant_draw_verts_frame",
+                              (uint64_t)kBladeVerts * submitted_blade +
+                                  (uint64_t)kCardVerts * submitted_card);
+      autoport_proof::publish("grass_variant_draw_calls", draw_calls);
+    }
+  }
   // grass-baseline-cost : le dessin de cette image, en DEUX grandeurs SEPAREES, parce qu'elles
   // nomment deux causes differentes. `fence` est l'attente de la barriere posee a l'image
   // PRECEDENTE — la contre-pression GPU que le correctif Adreno 618 a rendue explicite ; `submit`

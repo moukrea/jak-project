@@ -78,6 +78,32 @@ const vec2 CARD[6] = vec2[6](
   vec2(-1.0, 0.0), vec2(1.0, 0.0), vec2(-1.0, 1.0),
   vec2(-1.0, 1.0), vec2(1.0, 0.0), vec2( 1.0, 1.0));
 
+// ================= grass-blade-variants (SPEC-refonte-herbe.md, section 6) ====================
+// SIX SILHOUETTES, AUCUN ASSET, AUCUN SOMMET DE PLUS. Le ruban soumet toujours ses 10 sommets ;
+// une variante a moins de segments replie ses rangees excedentaires (triangles degeneres, zero
+// fragment). Le nombre de segments de chaque ligne est celui que `grass_blade_variants.h` declare,
+// et le recensement de l'item compare les deux tables : la duplication est MESUREE.
+//   VAR_A = (hauteur, demi-largeur de base, fuite lineaire, fuite carree)
+//   VAR_B = (courbure, recourbe de pointe, segments, reserve)
+// v0 porte les constantes historiques : desarme, le CPU ecrit 0 partout et le brin livre jusqu'ici
+// est rendu AU BIT PRES (les facteurs neutres ci-dessous ne changent aucun arrondi).
+const vec4 VAR_A[6] = vec4[6](
+  vec4(1.00, 0.092, 0.66,  0.00),   // v0 lame   — la lame d'aujourd'hui
+  vec4(1.18, 0.062, 1.00,  0.05),   // v1 fine   — haute, etroite, pointe effilee
+  vec4(0.82, 0.150, 0.45, -0.25),   // v2 large  — courte et large, pointe large
+  vec4(1.05, 0.105, 0.30, -0.55),   // v3 faux   — large a mi-hauteur, pointe recourbee
+  vec4(1.30, 0.055, 0.35, -0.10),   // v4 jonc   — droite et raide, bout franc
+  vec4(0.70, 0.125, 0.80,  0.10)    // v5 touffu — petite et trapue
+);
+const vec4 VAR_B[6] = vec4[6](
+  vec4(1.00,  0.00, 4.0, 0.0),      // v0 seg=4
+  vec4(1.35,  0.25, 4.0, 0.0),      // v1 seg=4
+  vec4(0.70,  0.00, 3.0, 0.0),      // v2 seg=3
+  vec4(1.60,  0.45, 4.0, 0.0),      // v3 seg=4
+  vec4(0.45,  0.00, 2.0, 0.0),      // v4 seg=2
+  vec4(1.10, -0.20, 2.0, 0.0)       // v5 seg=2
+);
+
 vec4 world_to_clip(vec3 pos) {
   vec4 transformed = -camera[3].xyzw;
   transformed += -camera[0] * pos.x;
@@ -121,6 +147,15 @@ void main() {
   // POLISH#11: perpendicular distance from this blade's base to the nearest TRUE platform rim (world
   // units). ~1e9 for interior blades -> the edge clamp at the end of main() never triggers for them.
   float rim_dist = inst_gcol.w;
+
+  // grass-blade-variants : la silhouette de CE brin. L'indice est choisi PAR LE CPU
+  // (`grass_blade_variants.h`, tire de la racine) et livre dans l'octet de poids faible de
+  // `inst_light`, qui valait 255 et que personne ne lisait — aucun attribut neuf, aucune memoire
+  // d'instance en plus. Desarme, le CPU ecrit 0 partout.
+  int vi = clamp(int(inst_light.a * 255.0 + 0.5), 0, 5);
+  vec4 VA = VAR_A[vi];
+  vec4 VB = VAR_B[vi];
+  H *= VA.x;
 
   // Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec) instance classes (nspare):
   //   0        plain walkable blade.
@@ -288,6 +323,9 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
+    // MOINS DE SEGMENTS, PAS MOINS DE SOMMETS : les rangees excedentaires se replient sur leur
+    // voisine. VB.z == 4.0 (v0) laisse t inchange, exactement.
+    t = floor(t * VB.z + 0.5) / VB.z;
     // ROUND#19 GPU-WEDGE FIX (the real one — device-bisected): blades whose base sits almost ON the
     // camera rasterize as screen-filling blended quads; in a 150%-density field one frame's fill then
     // exceeds the Adreno 618 kgsl watchdog (~2s) -> IOCTL_KGSL errno-35 "Resource deadlock" -> ANR
@@ -298,11 +336,15 @@ void main() {
     float nearf = smoothstep(0.35 * 4096.0, 1.1 * 4096.0, cam_dist);
     // OWNER POLISH#3: wider, fuller blades so the lawn reads DENSER (more ground
     // coverage per blade) on top of the higher instance budget (density++ #1 ask).
-    float hw = H * 0.092 * (1.0 - 0.66 * t) * rim_w * nearf; // half width, tapering to the tip (+ rim taper)
+    // grass-blade-variants : profil de largeur QUADRATIQUE par variante. v0 = (0.092, 0.66, 0.0),
+    // soit `H * 0.092 * (1.0 - 0.66 * t)` au bit pres — le terme carre vaut alors exactement +0.0.
+    float hw = H * VA.y * (1.0 - VA.z * t + VA.w * t * t) * rim_w * nearf; // half width (+ rim taper)
 
     // breeze: shared gust, grows toward the tip
     float sway = sin(gust) * t * t;
-    float bend = curve * t * t;                    // static curvature
+    // grass-blade-variants : courbure de base par variante, plus une recourbe de pointe. v0 =
+    // (1.0, 0.0) : `(curve * 1.0) * t * t * 1.0`, associe a gauche comme l'expression d'origine.
+    float bend = (curve * VB.x) * t * t * (1.0 + VB.y * t);   // static curvature
     float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
 
     // ROUND#19: optional normal-tilt — the blade leans toward its ground polygon's face normal by

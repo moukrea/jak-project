@@ -54,6 +54,12 @@ static void usage() {
       "                 brins, dispersion du compte et du rayon par touffe. Lecture pure.\n"
       "  --clump-nest PCT  rejoue le scan a CE palier et compare : origines de touffe qui bougent,\n"
       "                 et prefixe des candidats. Les deux doivent rendre zero.\n"
+      "  --variant-census  grass-blade-variants : recense la silhouette de chaque brin sur la\n"
+      "                 population REELLE d'instances — part par variante contre le profil,\n"
+      "                 budget de sommets, repli, empreinte. Lecture pure, il n'ecrit rien.\n"
+      "  --variant-nest SLUG  rejoue le scan ET l'expansion au palier NOMME et compare brin par\n"
+      "                 brin, par la RACINE : une variante qui change d'un palier a l'autre est un\n"
+      "                 defaut. `changed` et `missing` doivent rendre zero.\n"
       "  --surface-census  grass-surface-truth : croise les DEUX sources de classement d'une\n"
       "                 surface (nom de texture de rendu, materiau de collision `pat` bits 6..11),\n"
       "                 imprime le recensement en `cle=valeur` et sort SANS cuire ni ecrire quoi\n"
@@ -80,6 +86,9 @@ int main(int argc, char** argv) {
   bool trans_census_on = false;  // grass-path-transitions : mesure la transition au bord des chemins
   bool clump_census_on = false;  // grass-clumps : mesure le regroupement des racines en touffes
   float nest_pct = 0.0f;         // grass-clumps : palier de comparaison pour la nidification (0 = off)
+  bool variant_census_on = false;  // grass-blade-variants : recense la silhouette des brins
+  std::string variant_nest_slug;   // grass-blade-variants : palier compare (vide = off)
+  int preset_index = -1;           // indice du palier demande par --preset (-1 = non demande)
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
@@ -123,6 +132,10 @@ int main(int argc, char** argv) {
       clump_census_on = true;
     } else if (a == "--clump-nest") {
       nest_pct = std::stof(need_val("--clump-nest"));
+    } else if (a == "--variant-census") {
+      variant_census_on = true;
+    } else if (a == "--variant-nest") {
+      variant_nest_slug = need_val("--variant-nest");
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -141,6 +154,7 @@ int main(int argc, char** argv) {
         fmt::print("\n");
         return 2;
       }
+      preset_index = found;
       density = grass_bake::kDensityPresets[found].pct;
     } else if (a == "-h" || a == "--help") {
       usage();
@@ -683,8 +697,97 @@ int main(int argc, char** argv) {
     fmt::print("clump_nest_blades_low={}\n", nc.blades_low);
     fmt::print("clump_nest_blades_high={}\n", nc.blades_high);
   }
+  // grass-blade-variants : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de fichier.
+  // Le palier gouverne le NOMBRE de variantes offertes ; sans `--preset`, c'est le palier par
+  // defaut, exactement comme le moteur quand aucun reglage n'a ete pose.
+  const int variant_preset = preset_index < 0 ? grass_bake::kDensityPresetDefault : preset_index;
+  if (variant_census_on) {
+    const int k = grass_bake::variants_for_preset(variant_preset);
+    const auto vc =
+        grass_bake::variant_census(eBake.instances, 0, eBake.instances.size(), k);
+    fmt::print("variant_level={}\n", level_name);
+    fmt::print("variant_density={:.0f}\n", density);
+    fmt::print("variant_blades={}\n", vc.blades);
+    fmt::print("variant_k={}\n", vc.k);
+    fmt::print("variant_preset={}\n", variant_preset);
+    fmt::print("variant_folded={}\n", vc.folded);
+    fmt::print("variant_off_profile={}\n", vc.off_profile);
+    fmt::print("variant_verts_strip={}\n", vc.verts_strip);
+    fmt::print("variant_verts_max={}\n", vc.verts_max);
+    fmt::print("variant_verts_over={}\n", vc.verts_over);
+    fmt::print("variant_verts_active_total={}\n", vc.verts_active_total);
+    fmt::print("variant_verts_strip_total={}\n", vc.verts_strip_total);
+    fmt::print("variant_terms_measured={}\n", vc.terms_measured);
+    fmt::print("variant_count={}\n", grass_bake::kBladeVariantCount);
+    fmt::print("variant_digest={:016x}\n", vc.digest);
+    for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
+      fmt::print("variant_v{}={}\n", v, vc.per_variant[v]);
+      fmt::print("variant_base_v{}={}\n", v, vc.per_base[v]);
+      fmt::print("variant_share_pm_v{}={}\n", v, vc.share_pm[v]);
+      fmt::print("variant_expect_pm_v{}={}\n", v, vc.expect_pm[v]);
+      fmt::print("variant_tol_pm_v{}={}\n", v, vc.tol_pm[v]);
+      fmt::print("variant_seg_v{}={}\n", v, grass_bake::kBladeVariants[v].segments);
+    }
+  }
+
+  // grass-blade-variants, point 3 : UN BRIN GARDE SA SILHOUETTE D'UN PALIER A L'AUTRE. On rejoue le
+  // scan ET l'expansion au palier nomme — dans CE processus, sur le MEME .fr3 — et on apparie les
+  // brins par leur RACINE, jamais par leur rang. Rien n'est ecrit.
+  if (!variant_nest_slug.empty()) {
+    int other_idx = -1;
+    for (int i2 = 0; i2 < grass_bake::kDensityPresetCount; ++i2) {
+      if (variant_nest_slug == grass_bake::kDensityPresets[i2].slug) {
+        other_idx = i2;
+      }
+    }
+    if (other_idx < 0) {
+      fmt::print("error: palier inconnu '{}' pour --variant-nest — attendus :", variant_nest_slug);
+      for (int i2 = 0; i2 < grass_bake::kDensityPresetCount; ++i2) {
+        fmt::print(" {}", grass_bake::kDensityPresets[i2].slug);
+      }
+      fmt::print("\n");
+      return 2;
+    }
+    const float other_pct = grass_bake::kDensityPresets[other_idx].pct;
+    grass_bake::BakeData other;
+    try {
+      other = grass_bake::scan_level(lev, level_name, fr3_size,
+                                     {other_pct, grass_bake::FLOOR_GAP_M});
+    } catch (const std::exception& e) {
+      fmt::print("variant_nest_error={}\n", e.what());
+      return 1;
+    }
+    auto eOther = grass_bake::expand(other, other_pct, want_map);
+    // LO est celui des deux paliers dont le `pct` est le PLUS BAS : c'est lui qui offre le moins
+    // de variantes, donc lui qui definit le support commun.
+    const bool cur_is_low = density <= other_pct;
+    const auto& elo = cur_is_low ? eBake : eOther;
+    const auto& ehi = cur_is_low ? eOther : eBake;
+    const int idx_lo = cur_is_low ? variant_preset : other_idx;
+    const int idx_hi = cur_is_low ? other_idx : variant_preset;
+    const int k_lo = grass_bake::variants_for_preset(idx_lo);
+    const int k_hi = grass_bake::variants_for_preset(idx_hi);
+    const auto vn = grass_bake::variant_nest(elo.instances, elo.instances.size(), k_lo,
+                                             ehi.instances, ehi.instances.size(), k_hi);
+    fmt::print("variant_nest_lo_slug={}\n", grass_bake::kDensityPresets[idx_lo].slug);
+    fmt::print("variant_nest_hi_slug={}\n", grass_bake::kDensityPresets[idx_hi].slug);
+    fmt::print("variant_nest_k_lo={}\n", vn.k_lo);
+    fmt::print("variant_nest_k_hi={}\n", vn.k_hi);
+    fmt::print("variant_nest_compared={}\n", vn.compared);
+    fmt::print("variant_nest_changed={}\n", vn.changed);
+    fmt::print("variant_nest_folded={}\n", vn.folded);
+    fmt::print("variant_nest_missing={}\n", vn.missing);
+    fmt::print("variant_nest_lo_blades={}\n", elo.instances.size());
+    fmt::print("variant_nest_hi_blades={}\n", ehi.instances.size());
+  }
+
   if (clump_census_on || nest_pct > 0.0f) {
     fmt::print("[grass_bake] clump-census DONE.\n");
+  }
+  if (variant_census_on || !variant_nest_slug.empty()) {
+    fmt::print("[grass_bake] variant-census DONE.\n");
+  }
+  if (clump_census_on || nest_pct > 0.0f || variant_census_on || !variant_nest_slug.empty()) {
     return 0;
   }
 
