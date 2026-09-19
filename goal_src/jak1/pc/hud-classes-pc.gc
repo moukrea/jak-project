@@ -3814,6 +3814,46 @@
         (set! (-> p 0 nb-of-icons) n))))
   (none))
 
+(defun hud3d-drop-our-icons ((this hud-3d-pickups))
+  "HUD RECHARGE ETEINT = LE HUD D'ORIGINE, SANS RIEN DE NOUS : nos deux modeles CESSENT D'EXISTER.
+   Owner, 19/09 : « quand le HUD recharge est off et qu'on maintient L2/R2 la pile d'energie du HUD
+   recharge et la mecamouche du HUD recharge apparaissent par dessus leurs pendants du HUD
+   d'origine ». La cause est un ORDRE, pas une garde manquante. Nos icones sont des enfants de
+   l'element d'origine ; maintenir L2/R2 place `tally-value` dans sa branche `cpad-hold?`
+   (hud.gc:42) qui refait `(go hud-arriving)` a CHAQUE image, et le `:enter` de cet etat renvoie
+   `draw #t` a TOUS les enfants (hud.gc:200). Or l'element vit dans `*target-pool*` et nous dans
+   `*display-pool*`, que `execute-process-tree` visite APRES — et entre les deux tourne
+   `display-loop` (main.gc:2274), le process qui DESSINE l'image. Le `draw #f` que
+   `hud3d-set-regime` repose arrive donc toujours APRES le rendu de l'image ou l'element vient de
+   nous rallumer : une image sur une apparition normale, TOUTES les images tant que L2/R2 est tenu.
+   Aucune re-affirmation depuis notre process ne peut gagner cette course.
+   On supprime donc la chose au lieu de la cacher : l'icone est desactivee et le slot rendu a
+   l'element. `draw #t` n'a plus personne a qui parler, quel que soit l'ordre des process.
+   L'ORDRE DES DEUX GESTES EST VITAL : on tronque `nb-of-icons` AVANT de desactiver, car
+   `hud::draw-icons` (hud.gc:72-88) dereference `icons i icon 0 root` sans rien verifier.
+   La couche se refait a l'image suivante des que le reglage revient (`hud3d-make-cell-icon`,
+   `hud3d-make-buzzer-icon`, appelees a chaque image sous `on`)."
+  (let ((fc (hud3d-elt HUD3D_SLOT_CELL)))
+    (when fc
+      (let ((obj (-> fc 0)))
+        (when (> (-> obj nb-of-icons) 1)
+          (let ((ic (-> obj icons 1 icon)))
+            (set! (-> obj nb-of-icons) 1)
+            (set! (-> obj icons 1 icon) (the-as (pointer manipy) #f))
+            (if (hud3d-icon-live? ic) (deactivate (ppointer->process ic))))
+          (set! (-> this cell-scale) 0.0)
+          (set! (-> this cell-proc) (the-as process #f))))))
+  (let ((bz (hud3d-elt HUD3D_SLOT_BUZZERS)))
+    (when bz
+      (let ((obj (-> bz 0)))
+        (when (> (-> obj nb-of-icons) 0)
+          (let ((ic (-> obj icons 0 icon)))
+            (set! (-> obj nb-of-icons) 0)
+            (set! (-> obj icons 0 icon) (the-as (pointer manipy) #f))
+            (if (hud3d-icon-live? ic) (deactivate (ppointer->process ic))))
+          (set! (-> this buzz-proc) (the-as process #f))))))
+  (none))
+
 (defun hud3d-alive? ((ic (pointer manipy)))
   "vrai quand ce slot dessine VRAIMENT un modele.
    LE PIEGE, MESURE LE 17/09. Le test evident — « le manipy a-t-il un squelette ? » — est FAUX, et
@@ -5304,6 +5344,14 @@
 ;; RALLUME et MAITRE ETEINT, quel que soit le reglage). `rhud-tgl-pin` montre l'element une fois puis
 ;; re-estampille `trigger-time`, ce qui tient `hud-in` ouvert (hud.gc:236) sans re-entrer l'etat.
 ;;
+;; … SAUF DANS LES TROIS DERNIERS BLOCS, QUI SONT LA POUR CA (19/09). L'owner tient L2/R2 : sa
+;; manette place `tally-value` dans la branche `(cpad-hold? 0 l2)` (hud.gc:42), qui refait
+;; `(go hud-arriving)` a CHAQUE image. `force-on-screen` est l'AUTRE terme du meme `or`, a la meme
+;; ligne : il parcourt exactement le meme chemin sans manette. Les phases 4, 5 et 6 rejouent donc
+;; ALLUME / ETEINT / MAITRE ETEINT sous ce drapeau, et leurs fenetres 3, 4 et 5 mesurent ce que les
+;; blocs sans manette ne pouvaient pas voir. Leur critere de pose est relache en consequence :
+;; l'element re-entre `hud-arriving` a chaque image, il ne se stabilise jamais sur `hud-in`.
+;;
 ;; INERTE HORS DE LA SONDE. Rien ici ne tourne sans `AUTOPORT_COST_PROBE=recharged-hud-toggle`
 ;; (bureau) / `debug.opengoal.costprobe=recharged-hud-toggle` (appareil) : le binaire de l'owner
 ;; ne bascule jamais ses reglages tout seul.
@@ -5321,7 +5369,8 @@
 (defconstant RHUD_TGL_DBG 10)         ;; compteurs de diagnostic par fenetre
 (defconstant RHUD_TGL_SLOT_HEALTH 3)  ;; `*hud-parts* parts` : pickups money fuel-cell HEALTH buzzers POWER
 (defconstant RHUD_TGL_SLOT_POWER 5)
-(defconstant RHUD_TGL_WINS 3)         ;; fenetres : 0 ALLUME · 1 ETEINT · 2 MAITRE ETEINT
+(defconstant RHUD_TGL_WINS 6)         ;; fenetres : 0 ALLUME · 1 ETEINT · 2 MAITRE ETEINT ·
+                                      ;; 3 ALLUME · 4 ETEINT · 5 MAITRE ETEINT, les trois sous L2/R2
 
 ;; L'ORDRE DES SOURCES, une fois pour toutes (indice dans `src`) :
 ;;   0 coeur RECHARGE dessine          5 jauge d'ORIGINE emet
@@ -5332,7 +5381,8 @@
 
 (deftype rhud-tgl (structure)
   ((n            int32)   ;; images ecoulees dans le bloc courant
-   (phase        int32)   ;; 0 ALLUME · 1 ETEINT · 2 RALLUME · 3 MAITRE ETEINT
+   (phase        int32)   ;; 0 ALLUME · 1 ETEINT · 2 RALLUME · 3 MAITRE ETEINT ·
+                          ;; 4 ALLUME · 5 ETEINT · 6 MAITRE ETEINT, les trois sous L2/R2
    (cycle        int32)   ;; cycles complets ; au-dela de 1 le banc se tait et rend tout ALLUME
    (audited      int32)   ;; le terme 1 a-t-il ete calcule (1) ou pas encore (0)
    (warm         int32)   ;; le HUD est-il vivant (1) — le cycle n'a pas commence avant
@@ -5347,7 +5397,7 @@
    (row-found    int32)
    (row-idx      int32)
    (fw-idx       int32)
-   ;; --- les trois fenetres ---
+   ;; --- les six fenetres ---
    (win-n        int32 RHUD_TGL_WINS)   ;; images comptees
    (rch-any      int32 RHUD_TGL_WINS)   ;; images ou UNE piece rechargee dessinait
    (stk-any      int32 RHUD_TGL_WINS)   ;; images ou UNE piece d'origine dessinait
@@ -5356,13 +5406,13 @@
    (skip-op      int32 RHUD_TGL_WINS)   ;; images de bloc (settle passe) refusees : HUD non operable
    (skip-set     int32 RHUD_TGL_WINS)   ;; ... refusees : elements epingles pas encore poses
    (both         int32 RHUD_TGL_WINS)   ;; images comptees ou les DEUX icones de la pile etaient dessinees
-   (src          int32 30)              ;; le detail : (+ (* fenetre 10) source)
+   (src          int32 60)              ;; le detail : (+ (* fenetre 10) source)
    (elt-mask     int32)                 ;; quels elements de HUD 3D ont existe pendant la course
    ;; --- diagnostic (essai 3) : l'ETAT de l'element pile et du coeur d'origine, image par image ---
    ;; (+ (* fenetre RHUD_TGL_DBG) k) : 0 pile cachee · 1 pile en hud-arriving · 2 hud-normal ·
    ;; 3 hud-in · 4 hud-leaving · 5 icone 0 vivante · 6 icone 1 vivante · 7 coeur d'origine
    ;; `disable` · 8 coeur d'origine cache · 9 offset de la pile a zero
-   (dbg          int32 30)
+   (dbg          int32 60)
    (last-raf     int32)                 ;; `real-actual-frame-counter` a l'echantillon precedent
    (raf-d1       int32)                 ;; echantillons ou il a avance de 1
    (raf-d2       int32)                 ;; ... de 2
@@ -5377,17 +5427,19 @@
   "le harnais mesure-t-il CET item ? Un strcmp exact sur un knob d'environnement."
   (and (nonzero? (__pc-autoport-cost-probe "recharged-hud-toggle")) #t))
 
-(defun rhud-tgl-pin ((p (pointer hud)) (clear-disable symbol))
-  "epingle un element d'ORIGINE a l'ecran SANS `force-on-screen` (voir l'en-tete : ce drapeau
-   re-entre l'etat a chaque image et re-affiche tous les enfants). Un `show` quand il est cache
-   et non desactive, puis `trigger-time` re-estampille a chaque image : c'est ce qui tient
-   `hud-in` ouvert (hud.gc:236). `disable` est LU, jamais force, pour le coeur et la jauge : c'est
+(defun rhud-tgl-pin ((p (pointer hud)) (clear-disable symbol) (forced symbol))
+  "epingle un element d'ORIGINE a l'ecran. Un `show` quand il est cache et non desactive, puis
+   `trigger-time` re-estampille a chaque image : c'est ce qui tient `hud-in` ouvert (hud.gc:236)
+   sans re-entrer l'etat. `disable` est LU, jamais force, pour le coeur et la jauge : c'est
    ce que le HUD recharge ecrit pour supprimer l'element qu'il remplace, et le banc mesure
    justement s'il le rend. Les quatre elements de la couche 3D, que personne ne desactive, sont
-   remis a `disable #f` comme `hud3d-pin` le fait."
+   remis a `disable #f` comme `hud3d-pin` le fait.
+   `forced` POSE `force-on-screen` : c'est le regime MANETTE EN MAIN des phases 4 a 6 — le meme
+   `or` de `tally-value` que `(cpad-hold? 0 l2)` (hud.gc:42), donc `(go hud-arriving)` a chaque
+   image et `draw #t` a tous les enfants (hud.gc:200). Les blocs 0 a 3 le laissent a #f."
   (when p
     (set! (-> p 0 friend) -1)
-    (set! (-> p 0 force-on-screen) #f)
+    (set! (-> p 0 force-on-screen) forced)
     (if clear-disable (set! (-> p 0 disable) #f))
     (cond
       ((-> p 0 disable) #f)
@@ -5436,16 +5488,25 @@
     ((logtest? (-> *target* state-flags) (state-flags grabbed)) 7)
     (else 0)))
 
-(defun rhud-tgl-posed? ((p (pointer hud)))
+(defun rhud-tgl-posed? ((p (pointer hud)) (forced symbol))
   "un element epingle est POSE quand il tient `hud-in` a decalage nul — l'etat que `rhud-tgl-pin`
    entretient par `trigger-time`. En `hud-arriving` l'etat vient de renvoyer `draw #t` aux deux
-   icones de la pile (hud.gc:200) et l'image ne dit rien du regime."
-  (and p (= (-> p 0 next-state name) 'hud-in) (zero? (-> p 0 offset)) #t))
+   icones de la pile (hud.gc:200) et l'image ne dit rien du regime.
+   SOUS `forced` CE CRITERE EST INATTEIGNABLE, et l'exiger rendrait les trois blocs manette
+   MUETS : `tally-value` re-entre `hud-arriving` a chaque image, l'element oscille entre
+   `hud-arriving` et `hud-in` et ne se stabilise jamais. Ce qui reste vrai, et qui est tout ce dont
+   la mesure a besoin, c'est que l'element soit A L'ECRAN, entierement deplie : pas cache, decalage
+   nul. C'est exactement l'etat dans lequel l'owner regarde son HUD, touche tenue."
+  (and p
+       (zero? (-> p 0 offset))
+       (not (hidden? (-> p 0)))
+       (or forced (= (-> p 0 next-state name) 'hud-in))
+       #t))
 
-(defun rhud-tgl-stock-settled? ()
+(defun rhud-tgl-stock-settled? ((forced symbol))
   "les quatre elements de la couche 3D sont POSES et l'icone d'origine de la pile a son art ; le
    coeur et la jauge d'origine existent (ils sont supprimes tant que le HUD recharge est allume,
-   on ne leur demande rien de plus)."
+   on ne leur demande rien de plus). `forced` relache le critere de pose, voir `rhud-tgl-posed?`."
   (let ((fc (hud3d-elt HUD3D_SLOT_CELL))
         (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
         (mo (hud3d-elt HUD3D_SLOT_MONEY))
@@ -5455,10 +5516,10 @@
     (and fc bz mo pk h p
          (> (-> fc 0 nb-of-icons) 0)
          (hud3d-alive? (-> fc 0 icons 0 icon))
-         (rhud-tgl-posed? fc)
-         (rhud-tgl-posed? bz)
-         (rhud-tgl-posed? mo)
-         (rhud-tgl-posed? pk)
+         (rhud-tgl-posed? fc forced)
+         (rhud-tgl-posed? bz forced)
+         (rhud-tgl-posed? mo forced)
+         (rhud-tgl-posed? pk forced)
          #t)))
 
 (defun rhud-tgl-stock-spawned? ((p (pointer hud)))
@@ -5609,21 +5670,30 @@
       (if (or s4 s5 s6 s7 s8 s9) (+! (-> this stk-any win) 1)))
     (if s0 1 0)))
 
+(defun rhud-tgl-forced-phase? ((ph int))
+  "les trois derniers blocs rejouent les trois regimes MANETTE EN MAIN (`force-on-screen`)."
+  (and (>= ph 4) #t))
+
 (defun rhud-tgl-window ((ph int))
-  "la fenetre de comptage d'un bloc : 0 ALLUME (phases 0 et 2) · 1 ETEINT · 2 MAITRE ETEINT."
-  (case ph ((1) 1) ((3) 2) (else 0)))
+  "la fenetre de comptage d'un bloc : 0 ALLUME (phases 0 et 2) · 1 ETEINT · 2 MAITRE ETEINT ·
+   3 ALLUME sous L2/R2 · 4 ETEINT sous L2/R2 · 5 MAITRE ETEINT sous L2/R2."
+  (case ph ((1) 1) ((3) 2) ((4) 3) ((5) 4) ((6) 5) (else 0)))
 
 (defun rhud-tgl-bench ((this rhud-tgl))
   "la sequence de mesure, UN cycle : ALLUME · ETEINT · RALLUME · MAITRE ETEINT, puis le banc se
    tait et laisse tout ALLUME."
   (when *target*
-    ;; les six elements restent a l'ecran DANS LES DEUX regimes — sans `force-on-screen`.
-    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_CELL) #t)
-    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_BUZZERS) #t)
-    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_MONEY) #t)
-    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_PICKUPS) #t)
-    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_HEALTH) #f)
-    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_POWER) #f)
+    ;; les six elements restent a l'ecran DANS LES DEUX regimes. Les blocs 0 a 3 les tiennent sans
+    ;; `force-on-screen` ; les blocs 4 a 6 le POSENT — c'est le regime L2/R2 de l'owner.
+    (let ((forced (and (zero? (-> this cycle))
+                       (nonzero? (-> this warm))
+                       (rhud-tgl-forced-phase? (-> this phase)))))
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_CELL) #t forced)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_BUZZERS) #t forced)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_MONEY) #t forced)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_PICKUPS) #t forced)
+    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_HEALTH) #f forced)
+    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_POWER) #f forced)
     (cond
       ((>= (-> this cycle) 1)
        ;; la garde de securite : le cycle est fait, on rend au jeu un etat ALLUME.
@@ -5646,7 +5716,7 @@
            ((nonzero? why)
             (+! (-> this warm-why why) 1)
             (set! (-> this warm-hits) 0))
-           ((not (rhud-tgl-stock-settled?))
+           ((not (rhud-tgl-stock-settled? #f))
             (+! (-> this warm-why 0) 1)
             (set! (-> this warm-hits) 0))
            (else (+! (-> this warm-hits) 1))))
@@ -5658,8 +5728,8 @@
        (let ((ph (-> this phase)))
          ;; le regime du bloc, repose A CHAQUE IMAGE : l'image de la bascule est alors sans
          ;; ambiguite, quel que soit l'ordre des process dans l'image.
-         (set! (-> *pc-settings* recharged-master?) (if (= ph 3) #f #t))
-         (set! (-> *pc-settings* recharged-hud?) (if (= ph 1) #f #t))
+         (set! (-> *pc-settings* recharged-master?) (if (or (= ph 3) (= ph 6)) #f #t))
+         (set! (-> *pc-settings* recharged-hud?) (if (or (= ph 1) (= ph 5)) #f #t))
          ;; une graine d'eco par bloc : le vidage d'origine dure bien plus qu'un bloc, mais deux
          ;; blocs de suite sans eco eteindraient les deux jauges et rendraient le terme muet.
          (if (= (-> this n) 1) (rhud-gauge-eco-seed (pickup-type eco-blue)))
@@ -5671,7 +5741,7 @@
                 (past (> (-> this n) RHUD_TGL_SETTLE))
                 (why (if past (rhud-tgl-operable-why) 0))
                 (op (and past (zero? why)))
-                (st (and op (rhud-tgl-stock-settled?)))
+                (st (and op (rhud-tgl-stock-settled? forced)))
                 (counting (and st (< (-> this blk-cnt) RHUD_TGL_COUNT))))
            (when past
              (cond
@@ -5686,8 +5756,8 @@
            (set! (-> this n) 0)
            (set! (-> this blk-cnt) 0)
            (cond
-             ((>= ph 3) (set! (-> this phase) 0) (+! (-> this cycle) 1))
-             (else (set! (-> this phase) (+ ph 1)))))))))
+             ((>= ph 6) (set! (-> this phase) 0) (+! (-> this cycle) 1))
+             (else (set! (-> this phase) (+ ph 1))))))))))
   (none))
 
 (defun rhud-tgl-pub-src ((this rhud-tgl) (win int) (k int) (key string))
@@ -5729,7 +5799,30 @@
                  (+ (-> this stk-any 0) 1)))
            (t7 (if (>= (-> this win-n 2) RHUD_TGL_MIN)
                  (begin (+! measured 1) (-> this rch-any 2))
-                 (+ (-> this rch-any 2) 1))))
+                 (+ (-> this rch-any 2) 1)))
+           ;; --- LE DEFAUT DU 19/09, SOUS L2/R2 MAINTENU (fenetres 3, 4, 5) ---
+           ;; t8 et t9 sont la GARDE DE NON-REGRESSION : une seule image ou l'une de nos pieces
+           ;; dessine alors que le reglage — ou le maitre — est eteint les fait rougir.
+           (t8 (if (>= (-> this win-n 4) RHUD_TGL_MIN)
+                 (begin (+! measured 1) (-> this rch-any 4))
+                 (+ (-> this rch-any 4) 1)))
+           (t9 (if (>= (-> this win-n 5) RHUD_TGL_MIN)
+                 (begin (+! measured 1) (-> this rch-any 5))
+                 (+ (-> this rch-any 5) 1)))
+           ;; t10 : l'ORIGINE est bien la sous L2/R2 eteint — sinon « zero dessin recharge »
+           ;; voudrait dire « le HUD est vide », pas « le HUD est celui d'origine ».
+           (t10 (if (>= (-> this win-n 4) RHUD_TGL_MIN)
+                  (begin (+! measured 1)
+                         (+ (if (>= (-> this src 46) RHUD_TGL_STOCK_MIN) 0 1)
+                            (if (>= (-> this src 47) RHUD_TGL_STOCK_MIN) 0 1)))
+                  2))
+           ;; t11 : ET L'INSTRUMENT N'EST PAS AVEUGLE — sous L2/R2 ALLUME, les deux memes pieces
+           ;; DOIVENT dessiner. Sans ce terme, un zero en t8 ne prouverait rien du tout.
+           (t11 (if (>= (-> this win-n 3) RHUD_TGL_MIN)
+                  (begin (+! measured 1)
+                         (+ (if (> (-> this src 32) 0) 0 1)
+                            (if (> (-> this src 33) 0) 0 1)))
+                  2)))
       (__pc-autoport-publish "rhud_toggle_t1_row_wiring" t1)
       (__pc-autoport-publish "rhud_toggle_t2_default_on" t2)
       (__pc-autoport-publish "rhud_toggle_t3_off_recharged_drawn" t3)
@@ -5737,6 +5830,10 @@
       (__pc-autoport-publish "rhud_toggle_t5_on_recharged_missing" t5)
       (__pc-autoport-publish "rhud_toggle_t6_on_stock_drawn" t6)
       (__pc-autoport-publish "rhud_toggle_t7_master_off_recharged_drawn" t7)
+      (__pc-autoport-publish "rhud_toggle_t8_forced_off_recharged_drawn" t8)
+      (__pc-autoport-publish "rhud_toggle_t9_forced_master_off_recharged_drawn" t9)
+      (__pc-autoport-publish "rhud_toggle_t10_forced_off_stock_missing" t10)
+      (__pc-autoport-publish "rhud_toggle_t11_forced_on_recharged_missing" t11)
       ;; les denominateurs : une somme sans eux ne dit pas ce qui a ete regarde
       (__pc-autoport-publish "rhud_toggle_probe" 1)
       (__pc-autoport-publish "rhud_toggle_cycle" (-> this cycle))
@@ -5745,7 +5842,8 @@
       (__pc-autoport-publish "rhud_toggle_warm_frames" (-> this warm-n))
       (__pc-autoport-publish "rhud_toggle_warm_hits" (-> this warm-hits))
       (__pc-autoport-publish "rhud_toggle_stock_alive" (if (rhud-tgl-stock-alive?) 1 0))
-      (__pc-autoport-publish "rhud_toggle_stock_settled" (if (rhud-tgl-stock-settled?) 1 0))
+      (__pc-autoport-publish "rhud_toggle_stock_settled"
+                             (if (rhud-tgl-stock-settled? (rhud-tgl-forced-phase? (-> this phase))) 1 0))
       (__pc-autoport-publish "rhud_toggle_operable_why" (rhud-tgl-operable-why))
       ;; le rechauffage, image refusee par image refusee : « le banc n'est pas parti » a une cause
       (__pc-autoport-publish "rhud_toggle_warm_refused_not_settled" (-> this warm-why 0))
@@ -5775,6 +5873,9 @@
       (__pc-autoport-publish "rhud_toggle_on_frames" (-> this win-n 0))
       (__pc-autoport-publish "rhud_toggle_off_frames" (-> this win-n 1))
       (__pc-autoport-publish "rhud_toggle_master_off_frames" (-> this win-n 2))
+      (__pc-autoport-publish "rhud_toggle_fon_frames" (-> this win-n 3))
+      (__pc-autoport-publish "rhud_toggle_foff_frames" (-> this win-n 4))
+      (__pc-autoport-publish "rhud_toggle_fmo_frames" (-> this win-n 5))
       ;; les agregats par fenetre, ceux que les termes 3 a 7 lisent : publies a cote des sources
       ;; pour qu'un terme rouge se lise sans refaire la somme a la main.
       (__pc-autoport-publish "rhud_toggle_on_rch_any" (-> this rch-any 0))
@@ -5789,6 +5890,28 @@
       (__pc-autoport-publish "rhud_toggle_mo_stk_any" (-> this stk-any 2))
       (__pc-autoport-publish "rhud_toggle_mo_our_3d" (-> this our-3d 2))
       (__pc-autoport-publish "rhud_toggle_mo_stk_3d" (-> this stk-3d 2))
+      ;; --- les trois fenetres MANETTE EN MAIN (L2/R2 maintenu) ---
+      (__pc-autoport-publish "rhud_toggle_fon_rch_any" (-> this rch-any 3))
+      (__pc-autoport-publish "rhud_toggle_fon_stk_any" (-> this stk-any 3))
+      (__pc-autoport-publish "rhud_toggle_fon_our_3d" (-> this our-3d 3))
+      (__pc-autoport-publish "rhud_toggle_fon_stk_3d" (-> this stk-3d 3))
+      (__pc-autoport-publish "rhud_toggle_fon_both_cell_icons" (-> this both 3))
+      (__pc-autoport-publish "rhud_toggle_fon_skipped_not_operable" (-> this skip-op 3))
+      (__pc-autoport-publish "rhud_toggle_fon_skipped_not_settled" (-> this skip-set 3))
+      (__pc-autoport-publish "rhud_toggle_foff_rch_any" (-> this rch-any 4))
+      (__pc-autoport-publish "rhud_toggle_foff_stk_any" (-> this stk-any 4))
+      (__pc-autoport-publish "rhud_toggle_foff_our_3d" (-> this our-3d 4))
+      (__pc-autoport-publish "rhud_toggle_foff_stk_3d" (-> this stk-3d 4))
+      (__pc-autoport-publish "rhud_toggle_foff_both_cell_icons" (-> this both 4))
+      (__pc-autoport-publish "rhud_toggle_foff_skipped_not_operable" (-> this skip-op 4))
+      (__pc-autoport-publish "rhud_toggle_foff_skipped_not_settled" (-> this skip-set 4))
+      (__pc-autoport-publish "rhud_toggle_fmo_rch_any" (-> this rch-any 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_stk_any" (-> this stk-any 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_our_3d" (-> this our-3d 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_stk_3d" (-> this stk-3d 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_both_cell_icons" (-> this both 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_skipped_not_operable" (-> this skip-op 5))
+      (__pc-autoport-publish "rhud_toggle_fmo_skipped_not_settled" (-> this skip-set 5))
       ;; --- fenetre ALLUME, source par source ---
       (rhud-tgl-pub-src this 0 0 "rhud_toggle_on_rch_heart")
       (rhud-tgl-pub-src this 0 1 "rhud_toggle_on_rch_gauge")
@@ -5822,7 +5945,42 @@
       (rhud-tgl-pub-src this 2 7 "rhud_toggle_mo_stk_buzz")
       (rhud-tgl-pub-src this 2 8 "rhud_toggle_mo_stk_money")
       (rhud-tgl-pub-src this 2 9 "rhud_toggle_mo_stk_eco")
+      ;; --- fenetre ALLUME sous L2/R2 ---
+      (rhud-tgl-pub-src this 3 0 "rhud_toggle_fon_rch_heart")
+      (rhud-tgl-pub-src this 3 1 "rhud_toggle_fon_rch_gauge")
+      (rhud-tgl-pub-src this 3 2 "rhud_toggle_fon_our_cell")
+      (rhud-tgl-pub-src this 3 3 "rhud_toggle_fon_our_buzz")
+      (rhud-tgl-pub-src this 3 6 "rhud_toggle_fon_stk_cell")
+      (rhud-tgl-pub-src this 3 7 "rhud_toggle_fon_stk_buzz")
+      ;; --- fenetre ETEINT sous L2/R2 : LA QUESTION DE L'OWNER ---
+      (rhud-tgl-pub-src this 4 0 "rhud_toggle_foff_rch_heart")
+      (rhud-tgl-pub-src this 4 1 "rhud_toggle_foff_rch_gauge")
+      (rhud-tgl-pub-src this 4 2 "rhud_toggle_foff_our_cell")
+      (rhud-tgl-pub-src this 4 3 "rhud_toggle_foff_our_buzz")
+      (rhud-tgl-pub-src this 4 6 "rhud_toggle_foff_stk_cell")
+      (rhud-tgl-pub-src this 4 7 "rhud_toggle_foff_stk_buzz")
+      ;; --- fenetre MAITRE ETEINT sous L2/R2 ---
+      (rhud-tgl-pub-src this 5 0 "rhud_toggle_fmo_rch_heart")
+      (rhud-tgl-pub-src this 5 1 "rhud_toggle_fmo_rch_gauge")
+      (rhud-tgl-pub-src this 5 2 "rhud_toggle_fmo_our_cell")
+      (rhud-tgl-pub-src this 5 3 "rhud_toggle_fmo_our_buzz")
+      (rhud-tgl-pub-src this 5 6 "rhud_toggle_fmo_stk_cell")
+      (rhud-tgl-pub-src this 5 7 "rhud_toggle_fmo_stk_buzz")
       ;; --- diagnostic ---
+      ;; `*_dbg_cell_arriving` EST LE TEMOIN QUE LE BANC A BIEN REPRODUIT L2/R2 : sous manette
+      ;; l'element re-entre `hud-arriving` a chaque image (il vaut ~0 dans les blocs sans manette),
+      ;; et `*_dbg_icon1_alive` dit si NOTRE modele existait encore.
+      (rhud-tgl-pub-dbg this 3 1 "rhud_toggle_fon_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 3 3 "rhud_toggle_fon_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 3 6 "rhud_toggle_fon_dbg_icon1_alive")
+      (rhud-tgl-pub-dbg this 4 1 "rhud_toggle_foff_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 4 3 "rhud_toggle_foff_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 4 5 "rhud_toggle_foff_dbg_icon0_alive")
+      (rhud-tgl-pub-dbg this 4 6 "rhud_toggle_foff_dbg_icon1_alive")
+      (rhud-tgl-pub-dbg this 5 1 "rhud_toggle_fmo_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 5 3 "rhud_toggle_fmo_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 5 5 "rhud_toggle_fmo_dbg_icon0_alive")
+      (rhud-tgl-pub-dbg this 5 6 "rhud_toggle_fmo_dbg_icon1_alive")
       (__pc-autoport-publish "rhud_toggle_raf_d1" (-> this raf-d1))
       (__pc-autoport-publish "rhud_toggle_raf_d2" (-> this raf-d2))
       (__pc-autoport-publish "rhud_toggle_raf_dmax" (-> this raf-dmax))
@@ -5857,7 +6015,8 @@
       (rhud-tgl-pub-dbg this 2 8 "rhud_toggle_mo_dbg_heart_hidden")
       (rhud-tgl-pub-dbg this 2 9 "rhud_toggle_mo_dbg_cell_offset0")
       (__pc-autoport-publish "recharged_hud_toggle_terms_measured" measured)
-      (__pc-autoport-publish "recharged_hud_toggle_defects" (+ t1 t2 t3 t4 t5 t6 t7))))
+      (__pc-autoport-publish "recharged_hud_toggle_defects"
+                             (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11))))
   (none))
 
 (defmethod hud-update ((this hud-3d-pickups))
@@ -5918,6 +6077,10 @@
       (hud3d-make-buzzer-icon this)
       (hud3d-repair-orb-icon this)
       (when (-> this probe?) (hud3d-pin pk) (hud3d-pin mo) (hud3d-pin fc) (hud3d-pin bz)))
+    ;; recharged-hud-toggle, 19/09 : ETEINT, NOS MODELES N'EXISTENT PLUS. Les cacher ne suffit pas
+    ;; — l'element d'origine les rallume a chaque image sous L2/R2, et il le fait AVANT que l'image
+    ;; soit dessinee (voir `hud3d-drop-our-icons`, qui porte la mesure).
+    (if (not on) (hud3d-drop-our-icons this))
     (hud3d-set-regime this (and on (zero? (-> this regime))))
 
     ;; ── §9 LA SEQUENCE QUI FAIT LIRE LA BOITE ENGLOBANTE SUR L'IMAGE ────────────────────────
