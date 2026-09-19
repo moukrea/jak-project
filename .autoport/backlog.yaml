@@ -14266,3 +14266,5 @@ items:
   depends_on: []
   spec: null
   prompt: prompts/item-harness-supervisor-cost-counter.md
+  code_scope: harness
+  code_scope_source: worker:essai-1:le-cout-du-superviseur-se-mesure-sur-ses-transcriptions-et-se-reduit-dans-.autoport/supervisor.sh-lib/wake_gate.py-lib/supervisor_cost.py-et-.claude/settings.json-aucun-code-moteur-ne-peut-le-changer

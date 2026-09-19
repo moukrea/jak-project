@@ -91,6 +91,14 @@ def _lock_path(path):
     d, base = os.path.split(os.fspath(path))
     return os.path.join(d or ".", ".auto_%s.lock" % base)
 DIGEST_MEMO = os.path.join(AP, ".last_status_digest")   # ignore par git (.autoport/.last_*)
+
+
+def _signature_digest(a_tester, empeche_digest, degrade_digest):
+    """L'unique signature du digest : « A tester » + « Preuve impossible » + « degrade ».
+    La dette ne bouge pas d'elle-meme et ne reveille rien ; une machine qui ne peut plus
+    mesurer, si. L'age y entre par son PALIER, jamais a la seconde."""
+    return hashlib.sha256(
+        (a_tester + "\n" + empeche_digest + "\n" + degrade_digest).encode("utf-8")).hexdigest()
 # Une feature livree avant cette date l'a ete sur un build que l'owner n'a plus : elle part
 # dans « Dette a trier », pas dans la liste de ce qu'il peut tester ce soir.
 CURRENT_BUILD_SINCE = "2026-08-20"
@@ -564,6 +572,17 @@ class Backlog:
         return {"total": total, "montres": montres, "caches": total - montres,
                 "borne": borne}
 
+    def signature_digest(self):
+        """La MEME signature que `--changed`, SANS la consommer.
+
+        `status --changed` ecrit son memo : le PREMIER qui lit consomme la notification pour
+        tout le monde. La veille sans modele (lib/wake_gate.py) doit savoir si quelque chose a
+        bouge sans voler cette notification au superviseur — elle appelle donc ceci et garde
+        son propre memo. UN SEUL calcul de signature dans le harnais : un second, meme
+        identique a la ligne pres, derivrait le jour ou l'un des deux serait modifie."""
+        self.status_report(changed_only=False)
+        return _signature_digest(*self._blocs_digest)
+
     def status_report(self, changed_only=False, show_all=False):
         """Les blocs, en francais simple. Un item `validated` n'y apparait jamais.
 
@@ -633,15 +652,35 @@ class Backlog:
                 lines.append("  %s" % (it.get("block_reason") or "raison non enregistree"))
         bloque = "\n".join(lines)
 
-        text = "\n\n".join(b for b in (degrade, en_cours, empeche, a_tester, bloque, dette) if b)
+        # LE COUT DU SUPERVISEUR, PUBLIE ICI ET NULLE PART AILLEURS. Il est HORS du hash du
+        # digest, volontairement : un montant qui bouge a chaque appel reveillerait le digest
+        # en permanence et il n'y aurait plus de digest du tout. Le bloc est LU quand le
+        # digest sort pour une autre raison. Il ne peut pas faire echouer `status` : le
+        # compteur est un compteur, pas une dependance.
+        # Les trois blocs qui FONT la signature, gardes pour `signature_digest()`. On les
+        # range ici plutot que de les recalculer ailleurs : deux calculs de la meme signature
+        # divergent le jour ou l'un des deux est modifie.
+        self._blocs_digest = (a_tester, empeche_digest, degrade_digest)
+
+        cout = ""
+        try:
+            try:
+                from . import supervisor_cost as _sc
+            except ImportError:
+                import supervisor_cost as _sc
+            cout = _sc.bloc_owner(_sc.releve(_sc.charger_cache()))
+        except Exception:                                  # noqa: BLE001 — jamais fatal
+            cout = ""
+
+        text = "\n\n".join(b for b in (degrade, en_cours, empeche, a_tester, bloque, dette,
+                                       cout) if b)
         if not changed_only:
             return text
         # `--changed` surveille « A tester » ET « Preuve impossible » : la dette ne bouge pas
         # d'elle-meme et ne doit pas reveiller un digest, mais une machine qui ne peut plus
         # mesurer, si. L'age y entre par son PALIER et non a la seconde — sinon le digest se
         # reveillerait a chaque appel et il n'y aurait plus de digest du tout.
-        digest = hashlib.sha256(
-            (a_tester + "\n" + empeche_digest + "\n" + degrade_digest).encode("utf-8")).hexdigest()
+        digest = _signature_digest(a_tester, empeche_digest, degrade_digest)
         previous = ""
         try:
             with open(DIGEST_MEMO, encoding="utf-8") as fh:

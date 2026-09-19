@@ -83,16 +83,56 @@ if command -v jq >/dev/null 2>&1 && [ -f "$PROFILE_JSON" ]; then
     SUB_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].worker_model" "$PROFILE_JSON")
 fi
 # Fallback if the JSON/jq is unavailable.
-SUP_MODEL="${SUP_MODEL:-claude-opus-4-8[1m]}"
+# PAS de suffixe `[1m]` ici : il supprime la compaction, le contexte monte a
+# 900 k jetons et CHAQUE appel le relit. C'est 71 % de la facture du superviseur
+# (9 031 $ sur 92 jours, prefixe median relu de 562 k jetons).
+SUP_MODEL="${SUP_MODEL:-claude-opus-5}"
 SUP_EFFORT="${SUP_EFFORT:-xhigh}"
-SUB_MODEL="${SUB_MODEL:-claude-opus-4-8[1m]}"
+SUB_MODEL="${SUB_MODEL:-claude-opus-5}"
 export CLAUDE_EFFORT="$SUP_EFFORT"
 export CLAUDE_CODE_SUBAGENT_MODEL="$SUB_MODEL"
 echo "[supervisor] profile=${_ACTIVE:-fallback} model=$SUP_MODEL effort=$SUP_EFFORT workers=$SUB_MODEL"
 
+# Meme si le profil actif porte encore `[1m]`, on le RETIRE ici : le point de
+# production est ce lanceur, et une fenetre 1M sans compaction est ce qui fait
+# relire 562 k jetons a chaque appel.
+_SUP_MODEL_BEFORE="$SUP_MODEL"
+SUP_MODEL="${SUP_MODEL%\[1m\]}"
+if [ "$SUP_MODEL" != "$_SUP_MODEL_BEFORE" ]; then
+    echo "[supervisor] suffixe [1m] retire : $_SUP_MODEL_BEFORE -> $SUP_MODEL (compaction reactivee)"
+fi
+
+# Fenetre de compaction automatique. C'est la valeur qui DESIGNE la population
+# « apres » dans le journal de lancements ci-dessous.
+AUTOCOMPACT="${AUTOPORT_SUPERVISOR_AUTOCOMPACT:-150000}"
+
+# Une ligne par lancement, en append. Elle sert de population a la porte de
+# l'item harness-supervisor-cost-counter.
+mkdir -p "$REPO_ROOT/.autoport/logs"
+AUTOPORT_LAUNCH_LOG="${AUTOPORT_LAUNCH_LOG:-$REPO_ROOT/.autoport/logs/supervisor-launches.jsonl}"
+_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+python3 -c '
+import datetime, json, sys
+model, effort, autocompact, commit, pid, path = sys.argv[1:7]
+rec = {
+    "date": datetime.date.today().isoformat(),
+    "ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+    "pid": int(pid),
+    "model": model,
+    "effort": effort,
+    # `--autocompact` accepte aussi le mot « auto » : on ecrit un NOMBRE quand la valeur en
+    # est un, la chaine sinon. Un int() nu tuerait le lanceur AVANT son exec sur « auto ».
+    "autocompact": int(autocompact) if autocompact.isdigit() else autocompact,
+    "commit": commit,
+}
+with open(path, "a", encoding="utf-8") as fh:
+    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+' "$SUP_MODEL" "$SUP_EFFORT" "$AUTOCOMPACT" "$_COMMIT" "$$" "$AUTOPORT_LAUNCH_LOG"
+
 exec claude \
     --model "$SUP_MODEL" \
     --effort "$SUP_EFFORT" \
+    --autocompact "$AUTOCOMPACT" \
     --append-system-prompt "$(cat "$PROMPT_FILE")" \
     --dangerously-skip-permissions \
     "$@"

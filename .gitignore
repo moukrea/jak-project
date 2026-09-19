@@ -105,6 +105,10 @@ _new-all-types.gc
 .autoport/.scope_stamp
 .autoport/.directives_issued
 .autoport/.last_*
+# le compteur de cout du superviseur : cache de lecture incrementale + instantane publie
+.autoport/.supervisor_cost.json
+.autoport/.supervisor_cost_cache.json
+.autoport/.supervisor_cost*.tmp
 .autoport/.auto_*.pid
 .autoport/.auto_*.lock
 .autoport/.build-request

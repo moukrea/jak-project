@@ -1,0 +1,17 @@
+{
+  "_doc": "Crochets SUIVIS PAR GIT. `.claude/settings.local.json` (ignore) garde la meme liste pour les sessions deja ouvertes ; c'est CE fichier-ci qui est livre.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/user-prompt.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
