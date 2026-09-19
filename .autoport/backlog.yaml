@@ -13222,7 +13222,7 @@ items:
   no_code: true
   depends_on: *id004
   id: res-scale-submenu
-  priority: 53
+  priority: 14
   feature: L'échelle de rendu se choisit dans un sous-menu (10 à 100 %) qui affiche la résolution de rendu
     calculée en direct
   gate:
@@ -13420,7 +13420,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13483,12 +13483,12 @@ items:
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-18'
-    proof_sha: b2a7a39687393dad
-    proof_bytes: 60167
-    attempt: 3
-    journal: validator-003.txt
-  delivered: '2026-09-18'
+    date: '2026-09-19'
+    proof_sha: 1982a962b498e6cc
+    proof_bytes: 64962
+    attempt: 6
+    journal: validator-006.txt
+  delivered: '2026-09-19'
   owner_feedback:
   - date: '2026-09-17'
     text: Ah j'ai peut-être testé sur un build pas fini ?
@@ -14099,7 +14099,7 @@ items:
 - id: recharged-hud-toggle
   feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
     le HUD d'origine
-  status: open
+  status: to-test
   priority: 11
   owner_test: true
   depends_on: []
@@ -14133,12 +14133,12 @@ items:
   block_reason: ''
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-19'
-    proof_sha: fc7f3efa6d51004c
-    proof_bytes: 70222
-    attempt: 4
-    journal: validator-004.txt
-  delivered: '2026-09-19'
+    date: '2026-09-20'
+    proof_sha: ed552f1e0bf0416a
+    proof_bytes: 75390
+    attempt: 5
+    journal: validator-005.txt
+  delivered: '2026-09-20'
   owner_feedback:
   - date: '2026-09-19'
     text: L'interrupteur fonctionne mais il a un léger soucis, quand le HUD rechargé est off et qu'on
@@ -14152,7 +14152,7 @@ items:
     text: Hello ?
   max_retries: 2
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: open
+  status: in-progress
   game: jak1
   priority: 12
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
