@@ -5759,8 +5759,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: to-test
-  priority: 54
+  status: open
+  priority: 13
   owner_feedback:
   - date: '2026-09-09'
     text: faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques,
@@ -5795,13 +5795,16 @@ items:
       je me souviens voir des vagues beaucoup plus crédibles que sur l'eau d'origine, j'ai pas testé ce
       build mais à l'air d'avoir complètement disparu… je t'avais déjà fait ce feedback auparavant ça
       me gave un peu
+  - date: '2026-09-19'
+    text: Oui mais à un moment donné elle n'était pas identique à l'original et c'était mieux je trouve
+      (en dehors du fait que l'eau sortait du lit de la rivière à la jungle)
   gate:
     key: water_ocean_owner_defects
     op: ==
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 10
+  max_retries: 3
   depends_on:
   - water-census
   - harness-judge-waits-for-the-proof-a-worker-left-in-flight
@@ -5818,17 +5821,18 @@ items:
   - debug.opengoal.level.warp=jungle-start
   - debug.opengoal.level.warp.pos=260.7 2.3 -233.3
   where: 'Sur le build nomme dans le commentaire « build publie », la mer depuis Sandover puis l''ecran
-    titre. Tes trois retours du 17/09, un oui/non chacun : (1) l''eau est-elle redevenue TRANSPARENTE
-    pres de la camera comme dans l''original (plus opaque) ? (2) l''eau de l''ecran titre est-elle revenue
-    (plus noire) ? (3) les vagues ressemblent-elles a nouveau a des vagues, comme avant la reprise ? Et
-    la hauteur de jeu n''a pas bouge (tu peux marcher dans l''eau au meme niveau). Puis la riviere de
-    Forbidden Jungle : la houle ne deborde pas du lit.'
+    titre. Trois oui/non : (1) les vagues ont-elles retrouve le relief et la credibilite du build du 10/09
+    (celui que tu preferais), ou la mer est-elle encore plate comme l''original ? (2) la riviere de Forbidden
+    Jungle (mini-jeu du pecheur) reste-t-elle dans son lit ? (3) transparence pres de toi et ecran titre
+    toujours bons ? La hauteur de jeu ne bouge pas (valide par la machine au millimetre).'
   known_cause: |-
     17/09 RETOUR OWNER sur c42de2 : « la nouvelle mer ressemble trait pour trait à l'ancienne, sauf que elle est opaque » ; « sur le title screen l'eau est noire » ; « avant cette reprise les vagues ressemblaient plus à des vagues ». La porte de hauteur de jeu a tenu, mais l'alpha a 1 (defaut n°1 du FINDINGS, non traite) est une REGRESSION visible, l'ecran titre noir aussi. 3 essais : d'abord A et B (regressions), puis C. Ne pas toucher a la hauteur de jeu (water_gameplay_height_maxdelta_mm reste a 0).
 
     16/09 ARBITRAGE OWNER : « 2 a » = 3 essais pour corriger les defauts NOMMES dans FINDINGS.txt, dans cet ordre, rien d'autre : (1) ocean_recharged.frag ecrit alpha=1 : restituer l'attenuation ND jusqu'a zero (ocean_recharged.vert:60 / OceanNear_PS2.cpp:1205) ; (2) anneaux qui se recouvrent sans morphing de bord ni culling par les 36 spheres ND (OceanRecharged.cpp:195) ; (3) houle A conservee sans DMA near et sans identite de carte, OFF/ON sans reactivation (OceanRecharged.cpp:723/733/755, OceanNear.cpp:30) ; (4) comparateur raster ND/clipmap par niveau/cellule absent (OceanRecharged.cpp:326) : le construire, c'est lui qui juge 1-3. Chaque defaut corrige = un terme publie ; un terme non mesure compte comme defaut. Ne pas rouvrir les 6 essais precedents : lire leur handoff, repartir de leur code.
 
     LIS D'ABORD prompts/SPEC-refonte-eau.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. L'ocean mid ecrit la profondeur en GL_ALWAYS au bucket 4 AVANT le monde et le near au 63 sans Z (SPEC 2.1) : la profondeur de scene est illisible au dessin. Les 64 frames 32x32 de houle sont LUES par le gameplay a 4 endroits : elles se conservent comme couche A (SPEC 5.2).
+
+    19/09 19:40 RETOUR OWNER, DEUX FOIS (17/09 puis 19/09) : « avant cette reprise les vagues ressemblaient plus a des vagues » ; « il me semblait qu'on avait remplace le maillage par un truc plus detaille dans une iteration anterieure et je me souviens voir des vagues beaucoup plus credibles que sur l'eau d'origine […] je t'avais deja fait ce feedback auparavant ca me gave un peu » ; « a un moment donne elle n'etait pas identique a l'original et c'etait mieux (en dehors du fait que l'eau sortait du lit de la riviere a la jungle) ». LECTURE FAUTIVE DU SUPERVISEUR le 17/09 : le retour C a ete lu comme « revenir a l'original » et la porte a mesure « amplitude identique a ND = tenu ». C'est l'inverse de ce qu'il demandait, et c'est la faute deja consignee (une REFONTE se juge contre la CIBLE de sa SPEC, pas contre l'existant). CE QUE LA REPRISE DU 17/09 A RETIRE (commit b53fb91e1a) : l'ATTENUATION DE NAUGHTY DOG recopiee mot pour mot dans ocean_recharged.vert — mer PLATE au-dela de 24 m de la camera (1/98304), masques ND a 3 m — alors que le build du 10/09 (242b552a0e) evaluait la houle sur la grille dense de la clipmap SANS cette extinction : c'est ce relief-la que l'owner a vu et prefere. Le bras d'ablation `u_atten_on` existe deja dans le shader. CIBLE (SPEC-refonte-eau §1.3 decision 2 + §7) : la houle ND reste la couche de JEU (hauteur lue par le gameplay, delta 0 mm, ACQUIS) ; la couche VISUELLE porte le relief : houle evaluee sur la grille dense sans extinction a 24 m (la clipmap n'a pas la contrainte du VU0), plus 4 a 8 ondes de Gerstner de faible amplitude (couche B, aujourd'hui portee par AUCUN item : la creer ici comme premier lot). Le lit de la riviere de la jungle reste tenu par le masque de plan d'eau (pas par l'extinction a 24 m). PERIMETRE DE LA REPRISE (3 essais) : (1) retirer l'extinction ND de la couche visuelle et garder le masque d'emprise du plan d'eau : la riviere reste dans son lit (terme : hauteur visuelle = 0 hors du masque) ; (2) publier l'EXCEDENT VISUEL : amplitude et variance de normales de la surface rendue a 30-90 m de la camera, qui doivent etre du MEME ORDRE que celles a 0-24 m (l'original tombe a 0 la-bas : c'est le temoin gratuit), et `water_visual_excess_mm` recoit enfin son instrument ; (3) couche B Gerstner : 4 a 8 ondes de faible amplitude (< 0,25 m) par-dessus, avec leur compte publie ; hauteur de JEU inchangee (delta 0 mm) ; transparence et ecran titre gardes (termes A et B). Un terme non mesure compte 1. Ne PAS relancer d'essai si la mesure bute sans cause nommee : poser la question a l'owner avec une capture jointe.
   deliverable: |-
     Sous recharged_water : buckets 4 et 63 consomment leur DMA sans dessiner ; OceanRecharged dessine la clipmap 3 anneaux (SPEC 5.3) en W2a, couche A captee au DMA near, MEME modulo 32 que ocean-get-height, decoupe par les masques ND. Shading provisoire = l'actuel. OFF = graphe ORIGINE bit-identique. Publie water_visual_excess_mm (<= 450) et gpu_ms_ocean. PREUVE : `FEATURE water-ocean-mesh armed=1 hits=<sommets deplaces>` + `water_gameplay_height_maxdelta_mm=` seule sur sa ligne. S'AJOUTE (refus 10/09) : L'EAU NE SORT PAS DE SON LIT — Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur), la houle deborde. Mesurer par niveau et par cellule l'emprise de l'eau DESSINEE contre celle de l'origine : aucun pixel d'eau la ou l'origine n'en dessine pas, excedent publie et nul. Verifier nommement les jonctions mer/riviere.
 
@@ -5852,7 +5856,7 @@ items:
   delivered: '2026-09-19'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:4
-  block_reason: max_retries (6) épuisé
+  block_reason: ''
   gate_verdict:
     result: porte-tenue
     date: '2026-09-19'
@@ -10282,6 +10286,16 @@ items:
   hits_means: brins ayant recu une variante
   prompt: prompts/item-grass-blade-variants.md
   block_reason: null
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.grass=1
+  - debug.opengoal.grass.preset=2
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
+  - OG_GRASS=1
+  - OG_GRASS_PRESET=2
 - status: open
   game: jak1
   owner_test: true

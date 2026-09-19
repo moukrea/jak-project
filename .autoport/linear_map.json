@@ -1902,12 +1902,12 @@
  },
  "water-ocean-mesh": {
   "build_announced": "a4de81c3f19e",
-  "hash": "3c87ad4400fc76c43507d6a80bdd700739746f1a",
+  "hash": "6fe015272a8f0a6c685af16062c7a5f84712b0e7",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-009.txt",
-  "pulled_at": "2026-09-19T16:42:31.732Z",
+  "pulled_at": "2026-09-19T16:58:29.824Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
   ],
