@@ -220,6 +220,17 @@ def scan_attempt(path: Path):
         "result_seen": False,
         "model_usage": {},          # AUTORITE des totaux (par modele)
         "total_cost_usd": None,
+        # POURQUOI un essai s'est arrete, lu sur des champs que L'OUTIL ecrit, jamais
+        # devine : `result.terminal_reason` / `api_error_status` (le CLI nomme lui-meme
+        # son erreur d'API) et les evenements `rate_limit_event` (le serveur nomme lui-meme
+        # son refus). Sans ca, un essai que l'API a refuse en 864 ms compte comme un ECHEC
+        # DU MODELE — c'est exactement le biais que l'owner a releve le 19/09.
+        "terminal_reason": None,
+        "api_error_status": None,
+        "is_error": None,
+        "num_turns": None,
+        "rate_limit_rejected": 0,
+        "rate_limit_types": {},
     }
     header_seen = False
     seen_msg = set()                # (etage, message.id) — cf. piege 1 de l'en-tete
@@ -257,6 +268,16 @@ def scan_attempt(path: Path):
                 rec["sessions"].add(sid)
 
             t = d.get("type")
+            if t == "rate_limit_event":
+                # Le SERVEUR dit lui-meme qu'il refuse : `status`/`overageStatus` =
+                # "rejected". C'est une grandeur produite par l'autre bout, pas une
+                # interpretation de notre part.
+                info = d.get("rate_limit_info") or {}
+                if "rejected" in (str(info.get("status")), str(info.get("overageStatus"))):
+                    rec["rate_limit_rejected"] += 1
+                    k = str(info.get("rateLimitType") or info.get("overageDisabledReason") or "?")
+                    rec["rate_limit_types"][k] = rec["rate_limit_types"].get(k, 0) + 1
+                continue
             if t == "result":
                 # UN ESSAI PEUT PORTER PLUSIEURS `result` : l'orchestrateur relance la
                 # session, et CHAQUE `result` republie un `modelUsage` CUMULE depuis le
@@ -268,6 +289,10 @@ def scan_attempt(path: Path):
                 rec["result_seen"] = True
                 rec["n_results"] = rec.get("n_results", 0) + 1
                 rec["total_cost_usd"] = d.get("total_cost_usd")
+                rec["terminal_reason"] = d.get("terminal_reason")
+                rec["api_error_status"] = d.get("api_error_status")
+                rec["is_error"] = d.get("is_error")
+                rec["num_turns"] = d.get("num_turns")
                 snap = {}
                 for mname, mu in (d.get("modelUsage") or {}).items():
                     canon = mu.get("canonicalModel") or mname

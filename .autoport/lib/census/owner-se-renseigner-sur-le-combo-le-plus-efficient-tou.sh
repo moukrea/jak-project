@@ -22,6 +22,10 @@ cp -f "$AP/lib/census/model-mix/RAPPORT.md"  "$AP/reports/$ITEM/RAPPORT.md"
 cp -f "$AP/lib/census/model-mix/sources.json" "$AP/reports/$ITEM/sources.json"
 cp -f "$AP/lib/census/model-mix/notes/recherche-externe.md" \
       "$AP/reports/$ITEM/notes/recherche-externe.md"
+# Le protocole d'essai croise de la reprise du 19/09. La porte le relit DEPUIS la copie
+# versionnee (a cote du script), pas depuis celle-ci : `reports/` est gitignore.
+cp -f "$AP/lib/census/model-mix/protocole-essai-croise.md" \
+      "$AP/reports/$ITEM/notes/protocole-essai-croise.md"
 
 # 1. MESURER — relit logs/<item>/attempt-*.jsonl[.gz], les verdicts, et les
 #    transcriptions du superviseur. Ecrit digest.json + supervisor-timeline.json.
