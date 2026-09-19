@@ -1411,6 +1411,7 @@
    (nq-park      int32)    ;; cases HVDF garees (la copie du bucket 66 est bien eteinte)
    (nq-live      int32)    ;; particules vivantes trouvees a l'image en cours
    (nq-shaders   int32)    ;; adgifs reposes a l'image en cours (un par rupture de texture)
+   (nq-offscreen int32)    ;; particules vivantes ENTIEREMENT hors du canevas, donc non emises
    (t10-n        int32)    ;; images ou le terme a pu etre mesure
    (t10-order    int32)    ;;   ... dont la nuee ne partait PAS apres l'anneau
    (t10-park-ko  int32)    ;;   ... dont la copie du bucket des sprites n'etait pas eteinte
@@ -1781,7 +1782,11 @@
 ;; `rhud-add-vert` dans un repere ou py DESCEND. On n'utilise donc pas `rhud-quad` : les quatre
 ;; sommets sont poses par la forme vectorielle exacte ci-dessus, qui porte le signe au bon endroit.
 
-(defconstant RHUD_NUEE_MAX 64)        ;; quads re-emis au plus par image : borne de cout, publiee
+;; La borne de cout vaut la CAPACITE du groupe 1 (`*sp-particle-system-2d*` : 128 emplacements
+;; d'ecran, sparticle.gc:96) : une nuee ne peut donc jamais etre tronquee. Le smoke x86 du 19/09
+;; en a compte 65 vivantes a la fois — une borne a 64 en jetait sur 1389 images sur 3506, et une
+;; nuee amputee n'est pas la nuee que l'owner a validee le 18/09.
+(defconstant RHUD_NUEE_MAX 128)
 (defconstant RHUD_NUEE_PARK 30000.0)  ;; abscisse de parcage du HVDF : la copie du bucket 66 sort du champ
 ;; Le trou central de l'anneau et son bord exterieur, en unites de canevas, mesures sur le canal
 ;; alpha de `jak_gauge_empty.png` (0,263 et 0,870 du demi-canevas de 45 — en-tete du groupe 721).
@@ -1809,6 +1814,7 @@
         (idx (-> this last-eco-idx)))
     (set! (-> this nq-live) 0)
     (set! (-> this nq-shaders) 0)
+    (set! (-> this nq-offscreen) 0)
     (when (and (>= idx 0) (< idx (-> this nb-of-particles)))
       (let* ((lc  (-> this particles idx part))
              (p00 (-> *math-camera* perspective vector 0 x))
@@ -1858,13 +1864,27 @@
                            (cs  (cos (-> vd rot)))
                            (sn  (sin (-> vd rot)))
                            (ax0 (if (= 4 (logand (-> vd flag) 15)) 0.0 -0.5))
+                           ;; l'enveloppe du quad, tous angles confondus : la somme des deux
+                           ;; demi-axes majore le rayon quelle que soit la rotation.
+                           (hwx (* bx (+ (fabs scx) (fabs scy)) 0.5))
+                           (hhy (* 2.0 by (+ (fabs scx) (fabs scy)) 0.5))
                            (rgba (rhud-rgba (rhud-c255 (-> vd r))
                                             (rhud-c255 (-> vd g))
                                             (rhud-c255 (-> vd b))
                                             (rhud-c255 (* amul (-> vd a))))))
-                      ;; L'ADGIF DE LA PARTICULE ELLE-MEME : meme texture, meme filtrage, meme
-                      ;; melange que ce que le renderer de sprites lui aurait applique. On ne
-                      ;; reconstruit pas un etat GS « qui ressemble », on repose le sien.
+                      ;; CE QUI SORT DU CANEVAS N'EST PAS EMIS. Certaines couches portent une
+                      ;; dispersion de plusieurs metres (`(meters 16)`, conservee verbatim du
+                      ;; ramassable) : le smoke du 19/09 en a vu a 2037 unites de canevas du
+                      ;; centre, soit quatre ecrans de large. Elles etaient deja invisibles par
+                      ;; le chemin des sprites — le rasteriseur les decoupe — et les jeter ici
+                      ;; ne change pas un pixel, mais economise l'appel de dessin que chaque
+                      ;; changement de texture coute au `DirectRenderer` (un seul etat bufferise).
+                      ;; Le test porte sur le quad ENTIER : tant qu'un coin peut tomber dans le
+                      ;; canevas 512x448, la particule part.
+                      (if (or (< (+ ox hwx) 0.0) (> (- ox hwx) 512.0)
+                              (< (+ oy hhy) 0.0) (> (- oy hhy) 448.0))
+                        (+! (-> this nq-offscreen) 1)
+                        (begin
                       (when (or (zero? nq)
                                 (!= (the-as uint64 (-> ad tex0)) ptex)
                                 (!= (the-as uint64 (-> ad alpha)) palf))
@@ -1895,7 +1915,7 @@
                                            rgba
                                            (+ ox dx)
                                            (+ oy dy)))))
-                      (+! nq 1))))))))))
+                      (+! nq 1))))))))))))
     nq))
 
 ;;;----------------------------------------------
@@ -2958,7 +2978,10 @@
       (+! (-> this t10-n) 1)
       (if (<= (-> this nq-delta) 0) (+! (-> this t10-order) 1))
       (if (> (-> this nq-cur) (-> this t10-quads)) (set! (-> this t10-quads) (-> this nq-cur)))
-      (if (> (-> this nq-live) (-> this nq-cur)) (+! (-> this t10-capped) 1))
+      ;; « tronque » = des particules VISIBLES sont restees dehors. Celles que le decoupage du
+      ;; canevas ecarte ne comptent pas : elles n'etaient pas dessinees avant non plus.
+      (if (> (-> this nq-live) (+ (-> this nq-cur) (-> this nq-offscreen)))
+        (+! (-> this t10-capped) 1))
       (when (> (-> pr n RHUD_GP_NUEE) 0)
         (let* ((ex (/ (fmax (fabs (- (rhud-gp-px (-> pr minx RHUD_GP_NUEE)) (-> pr ccx)))
                             (fabs (- (rhud-gp-px (-> pr maxx RHUD_GP_NUEE)) (-> pr ccx))))
@@ -3244,6 +3267,7 @@
       (__pc-autoport-publish "hud_gauge_t10_live" (-> this nq-live))
       (__pc-autoport-publish "hud_gauge_t10_park" (-> this nq-park))
       (__pc-autoport-publish "hud_gauge_t10_shaders" (-> this nq-shaders))
+      (__pc-autoport-publish "hud_gauge_t10_offscreen" (-> this nq-offscreen))
       (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10))))
   (none))
 
