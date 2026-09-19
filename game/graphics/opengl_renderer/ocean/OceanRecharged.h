@@ -93,9 +93,17 @@ class OceanRecharged {
   bool refresh_ocean_map();
   void rebuild_mask_texture();
   void run_probe(SharedRenderState* render_state);
+  bool wave_readback(SharedRenderState* render_state,
+                     float ox,
+                     float oz,
+                     float step,
+                     int side,
+                     std::vector<float>* out);
   void run_wave_probe(SharedRenderState* render_state);
+  void run_band_probe(SharedRenderState* render_state);
+  float shore_cells_cpu(float wx, float wz) const;
   bool ensure_census_gl();
-  void census_draw_rings(SharedRenderState* render_state, u32 program, int target, float atten_on);
+  void census_draw_rings(SharedRenderState* render_state, u32 program, int target, int regime);
   void census_read_and_count();
   void publish();
 
@@ -126,6 +134,20 @@ class OceanRecharged {
   u32 m_map_ptr = 0;           // adresse GOAL de l'`ocean-map` courante
   u32 m_mask_map_ptr = 0;      // celle dont la texture de masque a ete construite
   u32 m_tex_mask = 0;
+
+  // --- LA RAMPE DE RIVAGE (reprise du 19/09) ------------------------------------------------
+  // La transformee en distance du masque near : pour chaque cellule de 3 m, la distance a la
+  // cellule de terre la plus proche, en 1/32 de cellule, saturee a 255 (7,97 cellules). Elle
+  // remplace l'extinction a 24 m de la camera comme borne de la houle VISUELLE : une riviere est
+  // etroite, donc plate ; la mer est large, donc elle garde son relief a toute distance de
+  // l'oeil. La copie CPU sert aux sondes — elle dit aussi, par `> 0`, quelles cellules portent de
+  // l'eau, ce que les sondes ne consultaient pas jusqu'ici.
+  static constexpr float kShoreCells = 5.f;  // LA MEME valeur que `OCEAN_SHORE_CELLS` du chunk
+  u32 m_tex_shore = 0;
+  std::vector<u8> m_shore;  // 1536 x 1536, 1/32 de cellule
+  u64 m_shore_land_cells = 0;
+  u64 m_shore_open_cells = 0;  // cellules d'eau a plus de kShoreCells du rivage
+  float m_time_s = 0.f;        // l'horloge de la couche B, secondes
   float m_start_corner[4] = {0, 0, 0, 0};
   float m_far_color[4] = {0, 0, 0, 0};
   u32 m_ocean_texture = 0;
@@ -189,6 +211,63 @@ class OceanRecharged {
   u32 m_wave_nodes_full = 0;
   s64 m_wave_amp_ctrl_q256 = 0;   // la meme, relue tous les 12 m
   u64 m_wave_nvar_ctrl_x1e6 = 0;
+
+  // --- LE RELIEF PAR BANDE DE DISTANCE (reprise du 19/09) -----------------------------------
+  // « publier l'EXCEDENT VISUEL : amplitude et variance de normales de la surface rendue a
+  // 30-90 m de la camera, qui doivent etre du MEME ORDRE que celles a 0-24 m (l'original tombe a
+  // 0 la-bas : c'est le temoin gratuit) ».
+  //
+  // UNE SEULE GRILLE POUR LES DEUX BANDES. 121 x 121 au pas de 1,5 m couvre 180 m ; la bande
+  // proche est l'anneau r <= 24 m, la bande lointaine 30 m <= r <= 90 m. Les deux sont
+  // echantillonnees au MEME pas, sur la MEME image : sans cela le rapport mesurerait la
+  // difference de pas d'echantillonnage et non celle de relief — c'est le biais deja nomme par
+  // le releve `-sub-` du verdict C.
+  //
+  // SEULE L'EAU COMPTE. Les deux bandes ne retiennent que les cellules ou le masque near dessine
+  // (distance de rivage > 0) : un carre de 180 m dans la jungle est surtout de la terre, et une
+  // amplitude relevee sur de la terre ne decrit rien de ce que l'owner voit.
+  static constexpr int kBandSide = 121;
+  static constexpr float kBandStep = 6144.f;  // 1,5 m
+  static constexpr int kBandCount = kBandSide * kBandSide;
+  u64 m_band_runs = 0;
+  u64 m_band_near_samples = 0;
+  u64 m_band_far_samples = 0;
+  s64 m_band_near_amp_q256 = 0;
+  s64 m_band_far_amp_q256 = 0;
+  s64 m_band_near_amp_nd_q256 = 0;
+  s64 m_band_far_amp_nd_q256 = 0;
+  u64 m_band_near_nvar_x1e6 = 0;
+  u64 m_band_far_nvar_x1e6 = 0;
+  u64 m_band_near_nvar_nd_x1e6 = 0;
+  u64 m_band_far_nvar_nd_x1e6 = 0;
+  u64 m_band_far_over_near_amp_x1000 = 0;
+  u64 m_band_far_over_near_nvar_x1000 = 0;
+  // LA BANDE LOINTAINE AU LARGE : les points de 30-90 m dont la rampe de rivage est SATUREE.
+  // C'est la population que le verdict du 19/09 vise vraiment — la mer, pas la riviere — et
+  // c'est la seule ou « ce qu'on livre » et « ce que la table de ND contient » se comparent sans
+  // que la rampe s'en mele. `gap` est le manque PAR POINT : de combien, au plus, notre surface
+  // reste sous la houle que la donnee porte. Le regime de l'essai 9 (extinction ND) y rendait
+  // toute l'amplitude ; le regime livre ne peut en perdre que la couche B, 237 mm.
+  u64 m_band_far_open_samples = 0;
+  s64 m_band_far_open_amp_q256 = 0;
+  s64 m_band_far_open_amp_full_q256 = 0;
+  s64 m_band_far_open_amp_nd_q256 = 0;
+  u64 m_band_far_open_nvar_x1e6 = 0;
+  s64 m_band_far_open_gap_max_q256 = 0;
+  s64 m_visual_excess_q256 = 0;   // max |livre - ND| sur la bande lointaine
+  // La couche B, MESUREE et non declaree : sur les points ou la rampe de rivage est saturee des
+  // deux cotes (voisinage 3 x 3 au-dela de kShoreCells + 1), `livre - A` EST la couche B, sans
+  // qu'aucune interpolation de texture ne s'y melange.
+  u64 m_band_open_samples = 0;
+  s64 m_layer_b_measured_q256 = 0;
+  // L'EAU RESTE DANS SON LIT : le profil de l'excedent par distance au rivage, en cellules de
+  // 3 m. `_before` est le regime du 10/09 (houle entiere, sans rampe) calcule aux MEMES points :
+  // c'est le controle positif, sans lequel un zero d'excedent ne se distinguerait pas d'une
+  // course sans berge en vue.
+  static constexpr int kShoreBuckets = 6;  // d<=1, <=2, <=3, <=4, <=5, >5 cellules
+  u64 m_shore_bucket_samples[kShoreBuckets] = {};
+  s64 m_shore_bucket_excess_q256[kShoreBuckets] = {};
+  s64 m_shore_bucket_excess_before_q256[kShoreBuckets] = {};
 
   // --- comparateur raster d'emprise --------------------------------------------------------
   // 320 x 180 : la cible est rasterisee en CLIP SPACE par les memes shaders que l'ecran, donc

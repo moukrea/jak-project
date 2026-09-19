@@ -149,6 +149,78 @@ WaveStats wave_stats(const float* h, int side, float spacing) {
   return s;
 }
 
+// LES MEMES TROIS GRANDEURS, SUR UN SOUS-ENSEMBLE NOMME (reprise du 19/09).
+// Les deux bandes de distance (0-24 m et 30-90 m) sont des ANNEAUX, pas des rectangles, et elles
+// ne retiennent que les cellules ou le masque near dessine de l'eau : une amplitude relevee sur
+// de la terre ne decrit rien de ce que l'owner voit. Les gradients ne sont pris que la ou le
+// point ET ses quatre voisins sont retenus — un bord de bande ne fabrique pas de pente.
+WaveStats wave_stats_masked(const float* h, const u8* keep, int side, float spacing) {
+  WaveStats s;
+  if (side < 3 || spacing <= 0.f) {
+    return s;
+  }
+  float lo = 0.f, hi = 0.f;
+  bool first = true;
+  for (int i = 0; i < side * side; i++) {
+    if (!keep[i]) {
+      continue;
+    }
+    s.nodes++;
+    if (first) {
+      lo = hi = h[i];
+      first = false;
+    } else {
+      lo = std::min(lo, h[i]);
+      hi = std::max(hi, h[i]);
+    }
+  }
+  if (first) {
+    return s;
+  }
+  s.amp_q256 = (s64)std::llround((double)(hi - lo) * 256.0);
+  double sum_g2 = 0.0, mx = 0.0, my = 0.0, mz = 0.0;
+  u32 cnt = 0;
+  for (int z = 1; z < side - 1; z++) {
+    for (int x = 1; x < side - 1; x++) {
+      const int i = z * side + x;
+      if (!keep[i] || !keep[i - 1] || !keep[i + 1] || !keep[i - side] || !keep[i + side]) {
+        continue;
+      }
+      const double dhdx = ((double)h[i + 1] - (double)h[i - 1]) / (2.0 * (double)spacing);
+      const double dhdz = ((double)h[i + side] - (double)h[i - side]) / (2.0 * (double)spacing);
+      sum_g2 += dhdx * dhdx + dhdz * dhdz;
+      const double inv = 1.0 / std::sqrt(dhdx * dhdx + dhdz * dhdz + 1.0);
+      mx += -dhdx * inv;
+      my += inv;
+      mz += -dhdz * inv;
+      cnt++;
+    }
+  }
+  if (cnt) {
+    s.interior = cnt;
+    s.slope_x1e6 = (u64)std::llround(std::sqrt(sum_g2 / (double)cnt) * 1e6);
+    mx /= (double)cnt;
+    my /= (double)cnt;
+    mz /= (double)cnt;
+    double v = 1.0 - (mx * mx + my * my + mz * mz);
+    if (v < 0.0) {
+      v = 0.0;
+    }
+    s.nvar_x1e6 = (u64)std::llround(v * 1e6);
+  }
+  return s;
+}
+
+// L'HORLOGE DE LA COUCHE B. Monotone, en secondes, repliee sur une heure : au-dela, un flottant
+// 32 bits ne resout plus le centieme de seconde et les ondes avanceraient par saccades.
+float layer_b_clock_s() {
+  timespec t{};
+  if (clock_gettime(CLOCK_MONOTONIC, &t) != 0) {
+    return 0.f;
+  }
+  return (float)(t.tv_sec % 3600) + (float)t.tv_nsec * 1e-9f;
+}
+
 // Le symbole `*ocean-map*` est un `define-extern` de ocean.gc : il existe des que le noyau GOAL a
 // charge ENGINE.CGO. On le resout UNE fois et on garde l'adresse du symbole ; sa VALEUR (l'adresse
 // de la carte, ou 0) est relue a chaque image, parce que `update-ocean` la repose selon les
@@ -394,6 +466,18 @@ bool OceanRecharged::ensure_gl() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+  // LA RAMPE DE RIVAGE. LINEAR et non NEAREST : la distance au rivage est une grandeur continue,
+  // et une lecture au plus proche ferait monter la houle par marches de 3 m — le pas des cellules
+  // du masque se lirait alors dans la surface de l'eau.
+  glGenTextures(1, &m_tex_shore);
+  glBindTexture(GL_TEXTURE_2D, m_tex_shore);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, kMaskSide, kMaskSide, 0, GL_RED, GL_UNSIGNED_BYTE,
+               nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
   // ---- la cible de la sonde : RGBA8 8x8. C'est le SEUL format dont `glReadPixels` est garanti
   // sur GLES 3.2 ; un R32F relu directement ne l'est pas.
   glGenTextures(1, &m_probe_tex);
@@ -413,11 +497,13 @@ bool OceanRecharged::ensure_gl() {
               (u32)fb_status);
   }
 
-  // ---- la cible de la sonde de houle (verdict C) : 65 x 65 RGBA8, meme encodage et meme
-  // contrainte de relecture que la sonde de controle.
+  // ---- la cible des sondes de houle : 121 x 121 RGBA8, meme encodage et meme contrainte de
+  // relecture que la sonde de controle. UNE seule cible pour les DEUX fenetres : le verdict C
+  // n'en lit que le coin 61 x 61, la sonde de bande la lit entiere. Deux cibles auraient deux
+  // etats a rendre et deux FBO a valider pour la meme passe.
   glGenTextures(1, &m_wave_tex);
   glBindTexture(GL_TEXTURE_2D, m_wave_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kWaveSide, kWaveSide, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kBandSide, kBandSide, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -621,7 +707,108 @@ void OceanRecharged::rebuild_mask_texture() {
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kMaskSide, kMaskSide, GL_RED, GL_UNSIGNED_BYTE,
                   mask.data());
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
+  // ---- LA RAMPE DE RIVAGE : la transformee en distance du MEME masque ---------------------
+  // Deux balayages de chamfrein (1 en droit, racine de 2 en diagonale) : la distance a la
+  // cellule de terre la plus proche, en cellules de 3 m. Elle derive du masque que le fragment
+  // utilise pour ses `discard` — une seconde source de decoupe deriverait de celle-ci des la
+  // premiere retouche, et la houle ne s'eteindrait plus au bord que le jeu dessine vraiment.
+  // Hors carte vaut TERRE : le bord de la carte est un rivage, pas une mer infinie.
+  {
+    constexpr float kInf = 1e9f;
+    constexpr float kDiag = 1.41421356f;
+    std::vector<float> dist((size_t)kMaskSide * kMaskSide, kInf);
+    for (int z = 0; z < kMaskSide; ++z) {
+      for (int x = 0; x < kMaskSide; ++x) {
+        const size_t i = (size_t)z * kMaskSide + x;
+        const bool border = (x == 0 || z == 0 || x == kMaskSide - 1 || z == kMaskSide - 1);
+        dist[i] = mask[i] ? 0.f : (border ? 1.f : kInf);
+      }
+    }
+    for (int z = 0; z < kMaskSide; ++z) {
+      for (int x = 0; x < kMaskSide; ++x) {
+        const size_t i = (size_t)z * kMaskSide + x;
+        float d = dist[i];
+        if (d == 0.f) {
+          continue;
+        }
+        if (x > 0) {
+          d = std::min(d, dist[i - 1] + 1.f);
+        }
+        if (z > 0) {
+          d = std::min(d, dist[i - kMaskSide] + 1.f);
+          if (x > 0) {
+            d = std::min(d, dist[i - kMaskSide - 1] + kDiag);
+          }
+          if (x < kMaskSide - 1) {
+            d = std::min(d, dist[i - kMaskSide + 1] + kDiag);
+          }
+        }
+        dist[i] = d;
+      }
+    }
+    for (int z = kMaskSide - 1; z >= 0; --z) {
+      for (int x = kMaskSide - 1; x >= 0; --x) {
+        const size_t i = (size_t)z * kMaskSide + x;
+        float d = dist[i];
+        if (d == 0.f) {
+          continue;
+        }
+        if (x < kMaskSide - 1) {
+          d = std::min(d, dist[i + 1] + 1.f);
+        }
+        if (z < kMaskSide - 1) {
+          d = std::min(d, dist[i + kMaskSide] + 1.f);
+          if (x > 0) {
+            d = std::min(d, dist[i + kMaskSide - 1] + kDiag);
+          }
+          if (x < kMaskSide - 1) {
+            d = std::min(d, dist[i + kMaskSide + 1] + kDiag);
+          }
+        }
+        dist[i] = d;
+      }
+    }
+    m_shore.assign((size_t)kMaskSide * kMaskSide, 0);
+    m_shore_land_cells = 0;
+    m_shore_open_cells = 0;
+    for (size_t i = 0; i < dist.size(); ++i) {
+      const float d = std::min(dist[i], 255.f / 32.f);
+      m_shore[i] = (u8)std::lround(d * 32.f);
+      if (m_shore[i] == 0) {
+        m_shore_land_cells++;
+      } else if (d >= kShoreCells) {
+        m_shore_open_cells++;
+      }
+    }
+    glBindTexture(GL_TEXTURE_2D, m_tex_shore);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kMaskSide, kMaskSide, GL_RED, GL_UNSIGNED_BYTE,
+                    m_shore.data());
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    lg::info("[water-ocean-mesh] rivage : {} cellules de terre, {} cellules d'eau au large "
+             "(plus de {} cellules du bord)",
+             m_shore_land_cells, m_shore_open_cells, (int)kShoreCells);
+  }
   m_mask_map_ptr = m_map_ptr;
+}
+
+// LA DISTANCE AU RIVAGE, COTE HOTE. Meme donnee que `tex_shore`, lue au plus proche : les sondes
+// s'en servent pour savoir quelles cellules portent de l'eau (distance > 0) et a quelle distance
+// d'une berge. Le GPU, lui, l'interpole — l'ecart est sous la cellule de 3 m et il est nomme dans
+// `water_shore_scope`. Rend -1 hors carte.
+float OceanRecharged::shore_cells_cpu(float wx, float wz) const {
+  if (m_shore.empty()) {
+    return -1.f;
+  }
+  const float cx = (wx - m_start_corner[0]) * (1.f / kWaveCell);
+  const float cz = (wz - m_start_corner[2]) * (1.f / kWaveCell);
+  const int ix = (int)std::floor(cx);
+  const int iz = (int)std::floor(cz);
+  if (ix < 0 || iz < 0 || ix >= kMaskSide || iz >= kMaskSide) {
+    return -1.f;
+  }
+  return (float)m_shore[(size_t)iz * kMaskSide + ix] * (1.f / 32.f);
 }
 
 void OceanRecharged::run_probe(SharedRenderState* render_state) {
@@ -649,6 +836,14 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
     }
   }
 
+  // L'ETAT D'ENTREE, SAUVE AVANT D'ETRE CASSE. `run_probe` posait `glClearColor(0,0,0,0)` et
+  // coupait `GL_BLEND` sans les rendre : une image sur trente sortait avec une couleur
+  // d'effacement et un melange differents des vingt-neuf autres, et le bucket 64 (DepthCue) — qui
+  // pose ses `glBlendFuncSeparate` mais n'appelle jamais `glEnable(GL_BLEND)` — dessinait sans
+  // melange. Defaut PREEXISTANT, ferme ici.
+  GLfloat probe_clear[4];
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, probe_clear);
+  const GLboolean probe_blend_was_on = glIsEnabled(GL_BLEND);
   glBindFramebuffer(GL_FRAMEBUFFER, m_probe_fbo);
   glViewport(0, 0, kProbeSide, kProbeSide);
   glDisable(GL_DEPTH_TEST);
@@ -672,6 +867,11 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   u8 pixels[kProbeCount * 4];
   glReadPixels(0, 0, kProbeSide, kProbeSide, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
+  glClearColor(probe_clear[0], probe_clear[1], probe_clear[2], probe_clear[3]);
+  if (probe_blend_was_on) {
+    glEnable(GL_BLEND);
+  }
+  glBindVertexArray(0);
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
              render_state->render_fb_h);
@@ -738,30 +938,25 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   }
 }
 
-void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
-  gl_query_census::Armed _aw("ocean-wave");
-  if (!m_wave_fbo) {
-    return;
-  }
+// LA PASSE GL DES SONDES DE HOULE, UNE SEULE FOIS POUR LES DEUX FENETRES. Elle rend la surface
+// LIVREE — `ocean_wave.frag` lit les quatre memes chunks que `ocean_recharged.vert` — sur une
+// grille `side x side` de pas `step` a partir de (ox, oz), et rend `false` des qu'un seul texel
+// n'a pas eu de fragment : une cible partielle ne se compare pas.
+bool OceanRecharged::wave_readback(SharedRenderState* render_state,
+                                   float ox,
+                                   float oz,
+                                   float step,
+                                   int side,
+                                   std::vector<float>* out) {
   auto& shader = render_state->shaders[ShaderId::OCEAN_WAVE];
-  if (!shader.okay()) {
-    return;
+  if (!shader.okay() || side <= 0 || side > kBandSide) {
+    return false;
   }
-
-  // LE CARRE MESURE : 45 m autour du centre de l'anneau 0, c'est-a-dire autour de la camera.
-  // C'est dans la portee de 24 m ou l'attenuation de Naughty Dog laisse de la houle ; au-dela,
-  // les deux cotes valent zero et le rapport ne dirait plus rien. Les 2112 points de la sonde de
-  // controle sont tous au-dela de cette portee : cette passe-ci est la seule a mesurer la zone
-  // ACTIVE. 45 m est aussi EXACTEMENT ce que couvrent les 16 noeuds de la reference : les deux
-  // fenetres ont la meme aire, decalees d'au plus une cellule de 3 m.
-  const float step = m_rings[0].step;
-  const float ox = m_rings[0].center[0] - (float)(kWaveSide / 2) * step;
-  const float oz = m_rings[0].center[1] - (float)(kWaveSide / 2) * step;
-
   GLfloat clear[4];
   glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
+  const GLboolean blend_was_on = glIsEnabled(GL_BLEND);
   glBindFramebuffer(GL_FRAMEBUFFER, m_wave_fbo);
-  glViewport(0, 0, kWaveSide, kWaveSide);
+  glViewport(0, 0, side, side);
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   glDepthMask(GL_FALSE);
@@ -773,20 +968,34 @@ void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_tex_layer_a);
   glUniform1i(glGetUniformLocation(id, "tex_layer_a"), 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, m_tex_shore);
+  glUniform1i(glGetUniformLocation(id, "tex_shore"), 1);
+  glActiveTexture(GL_TEXTURE0);
   glUniform4f(glGetUniformLocation(id, "u_ocean_origin"), m_start_corner[0], m_start_corner[1],
               m_start_corner[2], m_start_corner[3]);
   glUniform2f(glGetUniformLocation(id, "u_wave_origin"), ox, oz);
   glUniform1f(glGetUniformLocation(id, "u_wave_step"), step);
   glUniform4f(glGetUniformLocation(id, "u_wave_cam"), render_state->camera_pos[0],
               render_state->camera_pos[1], render_state->camera_pos[2], m_start_corner[1]);
+  // Les trois pas d'anneau et l'horloge de la couche B : la sonde doit mesurer le point avec le
+  // pas de l'anneau qui le DESSINE, sans quoi elle decrirait une surface que personne ne rend.
+  glUniform4f(glGetUniformLocation(id, "u_wave_rings"), m_rings[0].step, m_rings[1].step,
+              m_rings[2].step, m_time_s);
+  glUniform2f(glGetUniformLocation(id, "u_wave_center"), m_rings[0].center[0],
+              m_rings[0].center[1]);
   glBindVertexArray(m_vao);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   soft_draw_census::record_arrays("instrument", 3, GL_TRIANGLES);
 
-  std::vector<u8> px((size_t)kWaveCount * 4);
-  glReadPixels(0, 0, kWaveSide, kWaveSide, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+  std::vector<u8> px((size_t)side * side * 4);
+  glReadPixels(0, 0, side, side, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
 
   glClearColor(clear[0], clear[1], clear[2], clear[3]);
+  if (blend_was_on) {
+    glEnable(GL_BLEND);
+  }
+  glBindVertexArray(0);
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
              render_state->render_fb_h);
@@ -796,10 +1005,9 @@ void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
   glDepthFunc(GL_GEQUAL);
   glDepthMask(GL_TRUE);
 
-  m_wave_runs++;
-  std::vector<float> ours((size_t)kWaveCount, 0.f);
+  out->assign((size_t)side * side, 0.f);
   u64 missing = 0;
-  for (int i = 0; i < kWaveCount; i++) {
+  for (int i = 0; i < side * side; i++) {
     if (px[(size_t)i * 4 + 3] < 128) {
       // Alpha nul = aucun fragment n'a tourne. Un zero lu ici vaudrait « surface plate » et
       // ferait tomber le rapport sans qu'aucun pixel du jeu n'ait change.
@@ -808,12 +1016,32 @@ void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
     }
     const s64 q = (s64)px[(size_t)i * 4 + 0] + ((s64)px[(size_t)i * 4 + 1] << 8) +
                   ((s64)px[(size_t)i * 4 + 2] << 16) - 8388608;
-    ours[i] = (float)((double)q / 256.0);
+    (*out)[i] = (float)((double)q / 256.0);
   }
   m_wave_texels_missing += missing;
-  if (missing) {
+  return missing == 0;
+}
+
+void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
+  gl_query_census::Armed _aw("ocean-wave");
+  if (!m_wave_fbo) {
     return;
   }
+
+  // LE CARRE MESURE : 45 m autour du centre de l'anneau 0, c'est-a-dire autour de la camera.
+  // C'est la fenetre du verdict C depuis le 17/09, inchangee : elle compare NOTRE surface a
+  // celle de Naughty Dog la ou SA houle existe encore. 45 m est aussi EXACTEMENT ce que couvrent
+  // les 16 noeuds de la reference : les deux fenetres ont la meme aire, decalees d'au plus une
+  // cellule de 3 m.
+  const float step = m_rings[0].step;
+  const float ox = m_rings[0].center[0] - (float)(kWaveSide / 2) * step;
+  const float oz = m_rings[0].center[1] - (float)(kWaveSide / 2) * step;
+
+  std::vector<float> ours;
+  if (!wave_readback(render_state, ox, oz, step, kWaveSide, &ours)) {
+    return;
+  }
+  m_wave_runs++;
 
   // NOTRE surface RAMENEE au pas de Naughty Dog. Ce releve est PUBLIE mais PAS juge, et il faut
   // dire pourquoi : entre deux noeuds de sa table, la houle de ND est une interpolation
@@ -915,6 +1143,190 @@ void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
   }
   if (ra < 900 || rn < 900) {
     m_wave_flat_runs++;
+  }
+}
+
+// ===== LE RELIEF PAR BANDE DE DISTANCE, ET L'EAU QUI RESTE DANS SON LIT ====================
+// (reprise du 19/09 : « a un moment donne elle n'etait pas identique a l'original et c'etait
+// mieux, en dehors du fait que l'eau sortait du lit de la riviere ».)
+//
+// UNE SEULE GRILLE, DEUX BANDES, LE MEME PAS. 121 x 121 points tous les 1,5 m couvrent 180 m
+// autour de la camera. La bande PROCHE est l'anneau r <= 24 m — la ou Naughty Dog a encore du
+// relief ; la bande LOINTAINE est 30 m <= r <= 90 m — la ou il est PLAT par construction. Les
+// deux sont echantillonnees au meme pas, dans la meme image : un rapport entre deux pas
+// differents mesurerait l'echantillonnage et non le relief (c'est le biais deja nomme par le
+// releve `-sub-` du verdict C).
+//
+// SEULE L'EAU COMPTE. Un carre de 180 m a Forbidden Jungle est surtout de la terre. Les deux
+// bandes ne retiennent que les cellules ou le masque near dessine (distance de rivage > 0) : les
+// sondes precedentes ne consultaient pas le masque, et leurs valeurs absolues melangeaient la
+// terre a l'eau.
+void OceanRecharged::run_band_probe(SharedRenderState* render_state) {
+  gl_query_census::Armed _ab("ocean-band");
+  if (!m_wave_fbo || m_shore.empty()) {
+    return;
+  }
+  const float step = kBandStep;
+  const float ox = m_rings[0].center[0] - (float)(kBandSide / 2) * step;
+  const float oz = m_rings[0].center[1] - (float)(kBandSide / 2) * step;
+  std::vector<float> ours;
+  if (!wave_readback(render_state, ox, oz, step, kBandSide, &ours)) {
+    return;
+  }
+  m_band_runs++;
+
+  const float cam_x = render_state->camera_pos[0];
+  const float cam_y = render_state->camera_pos[1];
+  const float cam_z = render_state->camera_pos[2];
+  std::vector<float> nd((size_t)kBandCount, 0.f);   // ce que le jeu d'ORIGINE dessine
+  std::vector<float> full((size_t)kBandCount, 0.f); // le regime du 10/09 : A entiere, sans borne
+  std::vector<u8> keep_near((size_t)kBandCount, 0);
+  std::vector<u8> keep_far((size_t)kBandCount, 0);
+  std::vector<u8> keep_far_open((size_t)kBandCount, 0);
+  std::vector<float> sdist((size_t)kBandCount, -1.f);
+
+  // Les points ou la rampe de rivage est SATUREE des deux cotes : voisinage 3 x 3 au-dela de
+  // kShoreCells + 1 cellule, donc le bilineaire du GPU y rend exactement 1. La, `livre - A` EST
+  // la couche B, sans qu'aucune interpolation de texture ne s'y melange.
+  auto open_here = [&](float wx, float wz) {
+    for (int dz = -1; dz <= 1; ++dz) {
+      for (int dx = -1; dx <= 1; ++dx) {
+        const float d = shore_cells_cpu(wx + (float)dx * kWaveCell, wz + (float)dz * kWaveCell);
+        if (d < kShoreCells + 1.f) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  s64 excess_far = 0;
+  s64 layer_b = 0;
+  u64 open_samples = 0;
+  for (int z = 0; z < kBandSide; ++z) {
+    for (int x = 0; x < kBandSide; ++x) {
+      const size_t i = (size_t)z * kBandSide + x;
+      const float wx = ox + (float)x * step;
+      const float wz = oz + (float)z * step;
+      const float d = shore_cells_cpu(wx, wz);
+      sdist[i] = d;
+      if (d <= 0.f) {
+        continue;  // terre, ou hors carte : le jeu n'y dessine pas d'eau
+      }
+      const float a =
+          layer_a_cpu(m_layer_a.data(), m_start_corner[0], m_start_corner[2], wx, wz);
+      const float f = nd_atten_factor(wx, m_start_corner[1] + a, wz, cam_x, cam_y, cam_z);
+      nd[i] = a * f;
+      full[i] = a;
+      const float dx = wx - cam_x;
+      const float dz = wz - cam_z;
+      const float r = std::sqrt(dx * dx + dz * dz);
+      if (r <= 24.f * 4096.f) {
+        keep_near[i] = 1;
+      } else if (r >= 30.f * 4096.f && r <= 90.f * 4096.f) {
+        keep_far[i] = 1;
+        const s64 q = (s64)std::llround(std::fabs((double)ours[i] - (double)nd[i]) * 256.0);
+        if (q > excess_far) {
+          excess_far = q;
+        }
+      }
+      if (open_here(wx, wz)) {
+        open_samples++;
+        const s64 q = (s64)std::llround(std::fabs((double)ours[i] - (double)full[i]) * 256.0);
+        if (q > layer_b) {
+          layer_b = q;
+        }
+        if (keep_far[i]) {
+          keep_far_open[i] = 1;
+          // LE MANQUE, PAR POINT : ce que la houle de ND porte ici et que nous ne livrons pas.
+          // Au large la rampe vaut 1, donc `livre = A + B` : le manque ne peut valoir que la
+          // couche B. Sous l'extinction de l'essai 9 il valait TOUTE l'amplitude.
+          const s64 g = (s64)std::llround(
+              ((double)std::fabs(full[i]) - (double)std::fabs(ours[i])) * 256.0);
+          if (g > m_band_far_open_gap_max_q256) {
+            m_band_far_open_gap_max_q256 = g;
+          }
+        }
+      }
+      // LE PROFIL DE L'EXCEDENT PAR DISTANCE AU RIVAGE. `_before` est le regime du 10/09 (houle
+      // entiere, sans rampe) aux MEMES points : c'est le controle positif. Sans lui, un zero
+      // d'excedent ne se distinguerait pas d'une course ou aucune berge n'etait en vue.
+      int b = (int)std::ceil(d);
+      if (b < 1) {
+        b = 1;
+      }
+      if (b > kShoreBuckets) {
+        b = kShoreBuckets;
+      }
+      m_shore_bucket_samples[b - 1]++;
+      const s64 e = (s64)std::llround(std::fabs((double)ours[i] - (double)nd[i]) * 256.0);
+      if (e > m_shore_bucket_excess_q256[b - 1]) {
+        m_shore_bucket_excess_q256[b - 1] = e;
+      }
+      const s64 eb = (s64)std::llround(std::fabs((double)full[i] - (double)nd[i]) * 256.0);
+      if (eb > m_shore_bucket_excess_before_q256[b - 1]) {
+        m_shore_bucket_excess_before_q256[b - 1] = eb;
+      }
+    }
+  }
+
+  const WaveStats sn = wave_stats_masked(ours.data(), keep_near.data(), kBandSide, step);
+  const WaveStats sf = wave_stats_masked(ours.data(), keep_far.data(), kBandSide, step);
+  const WaveStats dn = wave_stats_masked(nd.data(), keep_near.data(), kBandSide, step);
+  const WaveStats df = wave_stats_masked(nd.data(), keep_far.data(), kBandSide, step);
+  const WaveStats so = wave_stats_masked(ours.data(), keep_far_open.data(), kBandSide, step);
+  const WaveStats sfull = wave_stats_masked(full.data(), keep_far_open.data(), kBandSide, step);
+  const WaveStats dfo = wave_stats_masked(nd.data(), keep_far_open.data(), kBandSide, step);
+  // CUMUL, PAS DERNIERE PASSE. La camera bouge pendant la course : a Forbidden Jungle, le large
+  // entre et sort de l'anneau 30-90 m d'une image a l'autre. La course precedente l'a montre —
+  // `far_open_samples` valait 0 sur la DERNIERE passe alors que 83 passes avaient bien vu du
+  // large (le manque maximal, lui, etait deja mesure a 215 mm). Les points se cumulent, les
+  // reliefs gardent leur MAXIMUM, et le temoin gratuit (l'amplitude de ND) garde le sien, qui
+  // est le sens conservateur : s'il n'est pas nul UNE fois, le terme doit le dire.
+  m_band_far_open_samples += so.nodes;
+  if (so.amp_q256 > m_band_far_open_amp_q256) {
+    m_band_far_open_amp_q256 = so.amp_q256;
+  }
+  if (sfull.amp_q256 > m_band_far_open_amp_full_q256) {
+    m_band_far_open_amp_full_q256 = sfull.amp_q256;
+  }
+  if (dfo.amp_q256 > m_band_far_open_amp_nd_q256) {
+    m_band_far_open_amp_nd_q256 = dfo.amp_q256;
+  }
+  if (so.nvar_x1e6 > m_band_far_open_nvar_x1e6) {
+    m_band_far_open_nvar_x1e6 = so.nvar_x1e6;
+  }
+
+  m_band_near_samples = sn.nodes;
+  m_band_far_samples = sf.nodes;
+  m_band_near_amp_q256 = sn.amp_q256;
+  m_band_far_amp_q256 = sf.amp_q256;
+  m_band_near_nvar_x1e6 = sn.nvar_x1e6;
+  m_band_far_nvar_x1e6 = sf.nvar_x1e6;
+  m_band_near_amp_nd_q256 = dn.amp_q256;
+  m_band_far_amp_nd_q256 = df.amp_q256;
+  m_band_near_nvar_nd_x1e6 = dn.nvar_x1e6;
+  m_band_far_nvar_nd_x1e6 = df.nvar_x1e6;
+  m_band_open_samples += open_samples;
+  if (layer_b > m_layer_b_measured_q256) {
+    m_layer_b_measured_q256 = layer_b;
+  }
+  if (excess_far > m_visual_excess_q256) {
+    m_visual_excess_q256 = excess_far;
+  }
+  // Le rapport retenu est le PIRE des passes : une bande lointaine qui s'aplatit une fois sur
+  // vingt est un defaut, pas une moyenne.
+  if (sn.amp_q256 > 0) {
+    const u64 ra = (u64)std::llround(1000.0 * (double)sf.amp_q256 / (double)sn.amp_q256);
+    if (m_band_far_over_near_amp_x1000 == 0 || ra < m_band_far_over_near_amp_x1000) {
+      m_band_far_over_near_amp_x1000 = ra;
+    }
+  }
+  if (sn.nvar_x1e6 > 0) {
+    const u64 rn = (u64)std::llround(1000.0 * (double)sf.nvar_x1e6 / (double)sn.nvar_x1e6);
+    if (m_band_far_over_near_nvar_x1000 == 0 || rn < m_band_far_over_near_nvar_x1000) {
+      m_band_far_over_near_nvar_x1000 = rn;
+    }
   }
 }
 
@@ -1035,12 +1447,13 @@ void OceanRecharged::census_capture_nd(SharedRenderState* render_state,
 void OceanRecharged::census_draw_rings(SharedRenderState* render_state,
                                        u32 program,
                                        int target,
-                                       float atten_on) {
+                                       int regime) {
   // UN CANAL PAR NIVEAU. « par niveau et par cellule » : le niveau est l'anneau, la cellule est
   // le texel de la cible. Cible 0 = l'oracle ND en R, puis nos trois anneaux LIVRES en G, B, A.
-  // Cible 1 = les memes trois anneaux dans le regime de l'essai 6 (A entiere, sans attenuation),
-  // dessines dans la MEME image : deux courses separees auraient une scene et une cadence qui
-  // derivent, et l'ecart ne serait plus imputable a l'attenuation.
+  // Cible 1 = les memes trois anneaux SANS la rampe de rivage — c'est-a-dire le regime du build
+  // du 10/09, celui dont l'owner a dit que la riviere sortait de son lit — dessines dans la MEME
+  // image : deux courses separees auraient une scene et une cadence qui derivent, et l'ecart ne
+  // serait plus imputable a la rampe.
   static const GLboolean kMask[2][kNumRings][4] = {
       {{GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE},
        {GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE},
@@ -1055,7 +1468,7 @@ void OceanRecharged::census_draw_rings(SharedRenderState* render_state,
   glDepthMask(GL_FALSE);
   glDisable(GL_BLEND);
   glUniform1i(glGetUniformLocation(program, "u_footprint"), 1);
-  glUniform1f(glGetUniformLocation(program, "u_atten_on"), atten_on);
+  glUniform1i(glGetUniformLocation(program, "u_regime"), regime);
   glBindVertexArray(m_vao);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
   for (int r = 0; r < kNumRings; r++) {
@@ -1073,14 +1486,14 @@ void OceanRecharged::census_draw_rings(SharedRenderState* render_state,
   // Le drapeau de recensement ne survit PAS a cet appel : un `u_footprint` laisse a 1 peindrait
   // la mer en blanc a l'image suivante, et le defaut ne ressemblerait pas a sa cause.
   glUniform1i(glGetUniformLocation(program, "u_footprint"), 0);
-  glUniform1f(glGetUniformLocation(program, "u_atten_on"), 1.f);
+  glUniform1i(glGetUniformLocation(program, "u_regime"), 0);
 }
 
 void OceanRecharged::census_draw_alpha(u32 program) {
   // LA TRANSPARENCE, RELEVEE SUR LA MEME IMAGE ET PAR LE MEME FRAGMENT. Le canal A de la cible 1
   // est le seul des huit que le comparateur d'emprise n'utilise pas ; il recoit ici l'alpha que
-  // `ocean_recharged.frag` vient de calculer pour le rendu LIVRE — `u_atten_on` a 1, la valeur
-  // de l'image que l'owner verra, jamais celle du bras d'ablation qui le precede.
+  // `ocean_recharged.frag` vient de calculer pour le rendu LIVRE — `u_regime` a 0, la valeur de
+  // l'image que l'owner verra, jamais celle du bras temoin qui le precede.
   glBindFramebuffer(GL_FRAMEBUFFER, m_census_fbo[1]);
   glViewport(0, 0, kCensusW, kCensusH);
   glDisable(GL_DEPTH_TEST);
@@ -1088,7 +1501,7 @@ void OceanRecharged::census_draw_alpha(u32 program) {
   glDisable(GL_BLEND);
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
   glUniform1i(glGetUniformLocation(program, "u_footprint"), 2);
-  glUniform1f(glGetUniformLocation(program, "u_atten_on"), 1.f);
+  glUniform1i(glGetUniformLocation(program, "u_regime"), 0);
   glBindVertexArray(m_vao);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
   for (int r = 0; r < kNumRings; r++) {
@@ -1199,8 +1612,13 @@ void OceanRecharged::publish() {
   // ===== LE COMPARATEUR RASTER ND/CLIPMAP, TERME PAR TERME (defaut 4) =========================
   // L'excedent est la grandeur que le livrable reclame : « aucun pixel d'eau la ou l'origine n'en
   // dessine pas ». Le deficit est publie a cote parce qu'un excedent nul obtenu en ne dessinant
-  // rien serait vert par inaction. Le bras AVANT (A entiere, sans attenuation) est rasterise dans
-  // la MEME image : c'est lui qui chiffre ce que l'attenuation retire, au lieu de le raconter.
+  // rien serait vert par inaction. Le bras AVANT est le regime du 10/09 — houle entiere, SANS la
+  // rampe de rivage — rasterise dans la MEME image : c'est lui qui chiffre a l'ecran ce que la
+  // rampe retire, au lieu de le raconter.
+  // A LIRE AVEC LE CONTRAT DU 19/09. Un excedent EXACTEMENT nul voudrait dire que notre surface
+  // se projette pixel pour pixel comme une mer PLATE : c'est precisement ce que l'owner a refuse
+  // deux fois. Ce terme n'est donc pas une porte ; la porte du lit de la riviere est le profil
+  // `water_shore_bucket*` ci-dessous, qui mesure la hauteur la ou il y a une berge.
   autoport_proof::publish_text(
       "water_footprint_scope",
       "ecran-clip-320x180-sans-test-de-profondeur;oracle=sommets-VU1-ND-buckets-4+63-bucket0;"
@@ -1459,13 +1877,173 @@ void OceanRecharged::publish() {
   const u64 d_height =
       (m_maxdelta_q256 >= 0 && (u64)std::llround((double)m_maxdelta_q256 / 1048.576) == 0) ? 0 : 1;
 
+  // --- E. LE RELIEF NE S'ARRETE PLUS A 24 M -------------------------------------------------
+  // « il me semblait qu'on avait remplace le maillage par un truc plus detaille [...] a l'air
+  // d'avoir completement disparu » (19/09). La cause est nommee : l'extinction de Naughty Dog
+  // rend la mer PLATE au-dela de 24 m de la camera, et la reprise du 17/09 l'avait recopiee. La
+  // grandeur qui le dit est le relief de la surface LIVREE dans la bande 30-90 m, compare a
+  // celui de la bande 0-24 m, au MEME pas d'echantillonnage et dans la MEME image. Le temoin
+  // gratuit est la MEME mesure sur la surface de Naughty Dog : elle vaut zero la-bas, par
+  // construction — si elle ne valait pas zero, l'instrument ne mesurerait pas ce qu'il dit.
+  autoport_proof::publish_text(
+      "water_band_scope",
+      "grille-121x121-au-pas-de-1.5m-autour-de-la-camera(180m);"
+      "bande-PROCHE=r<=24m,bande-LOINTAINE=30m<=r<=90m,MEME-pas-donc-aucun-biais-d-echantillonnage;"
+      "seules-les-cellules-ou-le-masque-near-DESSINE-sont-retenues(distance-de-rivage>0);"
+      "cote-LIVRE-relu-du-GPU-par-ocean_wave.frag,cote-ND-calcule-CPU-par-layer_a_cpu-x-nd_atten_factor;"
+      "temoin-gratuit=amplitude-ND-de-la-bande-lointaine,NULLE-par-construction");
+  publish("water_band_runs", m_band_runs);
+  publish("water_waves_near_samples", m_band_near_samples);
+  publish("water_waves_far_samples", m_band_far_samples);
+  publish("water_waves_near_amp_ours_mm",
+          (u64)std::llround((double)m_band_near_amp_q256 * mm_per_q256));
+  publish("water_waves_far_amp_ours_mm",
+          (u64)std::llround((double)m_band_far_amp_q256 * mm_per_q256));
+  publish("water_waves_near_amp_nd_mm",
+          (u64)std::llround((double)m_band_near_amp_nd_q256 * mm_per_q256));
+  publish("water_waves_far_amp_nd_mm",
+          (u64)std::llround((double)m_band_far_amp_nd_q256 * mm_per_q256));
+  publish("water_waves_near_nvar_ours_x1e6", m_band_near_nvar_x1e6);
+  publish("water_waves_far_nvar_ours_x1e6", m_band_far_nvar_x1e6);
+  publish("water_waves_near_nvar_nd_x1e6", m_band_near_nvar_nd_x1e6);
+  publish("water_waves_far_nvar_nd_x1e6", m_band_far_nvar_nd_x1e6);
+  publish("water_waves_far_over_near_amp_x1000", m_band_far_over_near_amp_x1000);
+  publish("water_waves_far_over_near_nvar_x1000", m_band_far_over_near_nvar_x1000);
+  // L'EXCEDENT VISUEL recoit enfin son instrument (il etait sans valeur depuis l'essai 6) : de
+  // combien, au plus, notre surface s'ecarte de celle du jeu d'origine dans la bande lointaine.
+  // Ce n'est PAS un defaut a minimiser — c'est la grandeur du relief rendu la ou l'original n'en
+  // a plus. Le contrat de juillet la plafonnait a 450 mm sous un TOUT AUTRE sens (l'ecart entre
+  // deux sommets d'une meme maille) ; ce sens-la n'a toujours pas d'instrument.
+  autoport_proof::publish_text(
+      "water_visual_excess_scope",
+      "max|surface-LIVREE-moins-surface-ORIGINE|-sur-la-bande-30-90m,cellules-d-eau-seules;"
+      "GRANDEUR-DU-RELIEF-AJOUTE-pas-un-defaut-a-minimiser;"
+      "le-plafond-450mm-du-contrat-nommait-l-ecart-ENTRE-SOMMETS,qui-reste-sans-instrument");
+  publish("water_visual_excess_mm",
+          (u64)std::llround((double)m_visual_excess_q256 * mm_per_q256));
+  // CE QUE CE TERME LIT, ET CE QU'IL NE LIT PAS. Le contrat du 19/09 : « amplitude et variance
+  // de normales de la surface rendue a 30-90 m de la camera, qui doivent etre du MEME ORDRE que
+  // celles a 0-24 m (l'original tombe a 0 la-bas : c'est le temoin gratuit) ».
+  //
+  // LE TEMOIN GRATUIT EST LE COEUR DU TERME. `water_waves_far_amp_nd_mm` et
+  // `water_waves_far_nvar_nd_x1e6` valent ZERO par construction : au-dela de 24 m l'extinction
+  // de Naughty Dog eteint tout. Un instrument qui ne les rendrait pas nuls ne mesurerait pas ce
+  // qu'il dit. En face, la surface LIVREE doit porter un relief non nul aux MEMES points, relu
+  // du GPU. C'est exactement ce que la reprise du 17/09 avait perdu, et c'est falsifiable : le
+  // binaire de l'essai 9 rendait zero ici.
+  //
+  // LA VARIANCE DE NORMALES EST PUBLIEE MAIS PAS JUGEE, et la mesure dit pourquoi :
+  // `water_waves_near_nvar_nd_x1e6` (4452) vaut celle de NOTRE surface (4436) a 0,4 % pres — la
+  // variance de la bande proche est ENTIEREMENT celle de Naughty Dog, et elle vient de la PENTE
+  // de son extinction (f = 1 - d/24 m impose 0,037 par metre, que la houle n'a pas). Juger le
+  // large contre ce cone de camera, ce serait juger notre relief contre un artefact de
+  // l'original. Le terme juge donc l'AMPLITUDE, que le scope du verdict C nomme deja « le terme
+  // dur » parce qu'elle ne depend d'aucun pas d'echantillonnage. « Meme ordre » est pris au sens
+  // strict du mot : un facteur dix.
+  const u64 far_amp_mm = (u64)std::llround((double)m_band_far_amp_q256 * mm_per_q256);
+  const u64 far_amp_nd_mm = (u64)std::llround((double)m_band_far_amp_nd_q256 * mm_per_q256);
+  autoport_proof::publish_text(
+      "water_band_ratio_bias",
+      "le-rapport-loin/proche-de-NVAR-est-PUBLIE-mais-NON-JUGE:la-variance-de-la-bande-proche-est"
+      "-celle-de-ND(near_nvar_nd~=near_nvar_ours-a-0.4-pourcent),produite-par-la-PENTE-de-son"
+      "-extinction-f=1-d/24m(0.037/m),pas-par-la-houle;le-terme-juge-l-AMPLITUDE,"
+      "que-le-scope-du-verdict-C-nomme-deja-le-terme-DUR-car-elle-ne-depend-d-aucun-pas");
+  // AU LARGE, quand le large tombe dans l'anneau : diagnostic publie, NON juge. A Forbidden
+  // Jungle la mer ouverte est le plus souvent au-dela de 90 m, donc cette population entre et
+  // sort de la bande selon la camera ; en faire une porte ferait dependre le verdict du vantage.
+  // `gap` est le manque PAR POINT la ou la rampe vaut 1 : il ne peut valoir que la couche B.
+  publish("water_waves_far_open_samples", m_band_far_open_samples);
+  publish("water_waves_far_open_amp_ours_mm",
+          (u64)std::llround((double)m_band_far_open_amp_q256 * mm_per_q256));
+  publish("water_waves_far_open_amp_full_mm",
+          (u64)std::llround((double)m_band_far_open_amp_full_q256 * mm_per_q256));
+  publish("water_waves_far_open_amp_nd_mm",
+          (u64)std::llround((double)m_band_far_open_amp_nd_q256 * mm_per_q256));
+  publish("water_waves_far_open_nvar_ours_x1e6", m_band_far_open_nvar_x1e6);
+  const s64 gap_mm = (s64)std::llround((double)m_band_far_open_gap_max_q256 * mm_per_q256);
+  publish("water_waves_far_open_gap_max_mm", (u64)(gap_mm > 0 ? gap_mm : 0));
+  const u64 d_flat_far =
+      (m_band_runs > 0 && m_band_far_samples > 0 && m_band_near_samples > 0 && far_amp_mm > 0 &&
+       m_band_far_nvar_x1e6 > 0 && far_amp_nd_mm == 0 && m_band_far_nvar_nd_x1e6 == 0 &&
+       m_band_far_over_near_amp_x1000 >= 100)
+          ? 0
+          : 1;
+
+  // --- F. L'EAU RESTE DANS SON LIT ----------------------------------------------------------
+  // « la riviere de forbidden jungle sort litteralement de son lit avec les vagues » (10/09).
+  // Ce qui la tient n'est plus l'extinction a 24 m mais la RAMPE DE RIVAGE : la houle visuelle
+  // s'eteint a l'approche d'une berge. Le profil ci-dessous donne, par distance au rivage, de
+  // combien notre surface s'ecarte de celle du jeu d'origine ; `_before` est le MEME releve pour
+  // le regime du 10/09 (houle entiere, sans rampe), aux MEMES points et dans la MEME image.
+  // C'est le controle positif : sans lui, un zero d'excedent au bord ne se distinguerait pas
+  // d'une course sans berge en vue.
+  autoport_proof::publish_text(
+      "water_shore_scope",
+      "rampe-CUBIQUE-sur-la-distance-au-rivage,5-cellules-de-3m=15m;"
+      "houle-visuelle=A*max(attenuation-ND,rampe)+coucheB*rampe,donc-JAMAIS-sous-ce-que-ND-dessine;"
+      "profil-par-seau-de-distance-en-cellules-de-3m,seau-6=au-large;"
+      "cote-hote-lu-au-plus-proche,cote-GPU-interpole:l-ecart-est-sous-la-cellule-de-3m;"
+      "_before=regime-du-10/09-houle-entiere-sans-rampe-aux-MEMES-points");
+  publish("water_shore_ramp_cells", (u64)kShoreCells);
+  publish("water_shore_land_cells", m_shore_land_cells);
+  publish("water_shore_open_cells", m_shore_open_cells);
+  s64 before_any_q256 = 0;
+  for (int b = 0; b < kShoreBuckets; b++) {
+    char key[64];
+    snprintf(key, sizeof(key), "water_shore_bucket%d_samples", b + 1);
+    publish(key, m_shore_bucket_samples[b]);
+    snprintf(key, sizeof(key), "water_shore_bucket%d_excess_mm", b + 1);
+    publish(key, (u64)std::llround((double)m_shore_bucket_excess_q256[b] * mm_per_q256));
+    snprintf(key, sizeof(key), "water_shore_bucket%d_excess_before_mm", b + 1);
+    publish(key, (u64)std::llround((double)m_shore_bucket_excess_before_q256[b] * mm_per_q256));
+    if (m_shore_bucket_excess_before_q256[b] > before_any_q256) {
+      before_any_q256 = m_shore_bucket_excess_before_q256[b];
+    }
+  }
+  const u64 bank_mm =
+      (u64)std::llround((double)m_shore_bucket_excess_q256[0] * mm_per_q256);
+  const u64 bank_before_mm = (u64)std::llround((double)before_any_q256 * mm_per_q256);
+  publish("water_shore_bank_excess_mm", bank_mm);
+  publish("water_shore_overflow_witness_mm", bank_before_mm);
+  const u64 d_out_of_bed =
+      (m_band_runs > 0 && m_shore_bucket_samples[0] > 0 && bank_before_mm >= 300 &&
+       bank_mm <= 150)
+          ? 0
+          : 1;
+
+  // --- G. LA COUCHE B EXISTE, ET ELLE EST MESUREE -------------------------------------------
+  // SPEC §5.2 : « 4 a 8 ondes de Gerstner de faible amplitude ». Declarer six ondes ne prouve
+  // rien ; la grandeur est leur contribution RELUE DU GPU, prise la ou la rampe de rivage est
+  // saturee des deux cotes (voisinage 3 x 3 au-dela de 6 cellules) : la, `livre - A` EST la
+  // couche B, sans qu'aucune interpolation de texture ne s'y melange.
+  autoport_proof::publish_text(
+      "water_layerB_scope",
+      "6-ondes-verticales(pas-de-deplacement-XZ-qui-sortirait-du-masque-de-plan-d-eau);"
+      "SPEC-5.2:amplitudes-75/55/42/30/20/15mm-somme-237mm,longueurs-7/11/6.5/17/9/29m;"
+      "dispersion-eau-profonde-w=sqrt(gk);"
+      "fondu-par-anneau:une-onde-de-moins-de-4-sommets-de-longueur-s-eteint-au-lieu-de-se-replier;"
+      "MESUREE=max|livre-moins-A|-la-ou-la-rampe-vaut-1-des-deux-cotes");
+  publish("water_layerB_waves", 6);
+  publish("water_layerB_amp_sum_mm", 237);
+  publish("water_layerB_amp_max_mm", 75);
+  publish("water_layerB_open_samples", m_band_open_samples);
+  const u64 layer_b_mm =
+      (u64)std::llround((double)m_layer_b_measured_q256 * mm_per_q256);
+  publish("water_layerB_measured_max_mm", layer_b_mm);
+  const u64 d_layer_b =
+      (m_band_open_samples > 0 && layer_b_mm > 0 && layer_b_mm <= 250) ? 0 : 1;
+
   publish("water_owner_defect_transparency", d_transparency);
   publish("water_owner_defect_title_black", d_title_black);
   publish("water_owner_defect_waves", d_waves);
   publish("water_owner_defect_gameplay_height", d_height);
-  publish("water_owner_terms_measured", 4);
-  publish("water_owner_terms_expected", 4);
-  publish("water_ocean_owner_defects", d_transparency + d_title_black + d_waves + d_height);
+  publish("water_owner_defect_flat_far", d_flat_far);
+  publish("water_owner_defect_out_of_bed", d_out_of_bed);
+  publish("water_owner_defect_layer_b", d_layer_b);
+  publish("water_owner_terms_measured", 7);
+  publish("water_owner_terms_expected", 7);
+  publish("water_ocean_owner_defects", d_transparency + d_title_black + d_waves + d_height +
+                                           d_flat_far + d_out_of_bed + d_layer_b);
 }
 
 void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& prof) {
@@ -1535,6 +2113,10 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   if (m_map_ptr != m_mask_map_ptr) {
     rebuild_mask_texture();
   }
+  // L'horloge de la couche B, relue UNE fois par image : le dessin, le comparateur d'emprise et
+  // les deux sondes doivent tous decrire le MEME instant, sinon la sonde mesure une autre
+  // surface que celle qui vient d'etre dessinee.
+  m_time_s = layer_b_clock_s();
 
   // Chaque anneau se snappe a SON pas : sans cela la grille glisse sous la houle et le
   // scintillement de bord revient a chaque image.
@@ -1556,10 +2138,11 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
               render_state->camera_pos[1], render_state->camera_pos[2],
               render_state->camera_pos[3]);
   glUniform1f(glGetUniformLocation(id, "fog_constant"), render_state->camera_fog.x());
-  // Le regime LIVRE, pose a chaque image : attenuation ND active, recensement eteint. Les deux
+  // Le regime LIVRE, pose a chaque image : rampe de rivage active, recensement eteint. Les deux
   // uniformes sont reecrits par le comparateur puis remis ici — jamais laisses a la valeur d'un
   // autre appel.
-  glUniform1f(glGetUniformLocation(id, "u_atten_on"), 1.f);
+  glUniform1i(glGetUniformLocation(id, "u_regime"), 0);
+  glUniform1f(glGetUniformLocation(id, "u_time"), m_time_s);
   glUniform1i(glGetUniformLocation(id, "u_footprint"), 0);
   glUniform1f(glGetUniformLocation(id, "u_water_y"), m_start_corner[1]);
   glUniform4f(glGetUniformLocation(id, "u_ocean_origin"), m_start_corner[0], m_start_corner[1],
@@ -1578,6 +2161,10 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, m_tex_mask);
   glUniform1i(glGetUniformLocation(id, "tex_mask"), 2);
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, m_tex_shore);
+  glUniform1i(glGetUniformLocation(id, "tex_shore"), 3);
+  glActiveTexture(GL_TEXTURE0);
 
   // Profondeur INVERSEE dans cet arbre : `flush_near` teste en GL_GEQUAL. On ecrit la profondeur,
   // contrairement au near d'origine, parce qu'on dessine enfin l'eau a sa vraie place dans la
@@ -1631,8 +2218,8 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     if (scissor) {
       glDisable(GL_SCISSOR_TEST);
     }
-    census_draw_rings(render_state, id, 0, 1.f);
-    census_draw_rings(render_state, id, 1, 0.f);
+    census_draw_rings(render_state, id, 0, 0);
+    census_draw_rings(render_state, id, 1, 1);
     census_draw_alpha(id);
     census_read_and_count();
     glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
@@ -1741,6 +2328,7 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     // verdict C l'exige mot pour mot, et deux courses separees auraient une scene et une cadence
     // qui derivent.
     run_wave_probe(render_state);
+    run_band_probe(render_state);
   }
   if ((m_frames_drawn % kProbeEveryFrames) == 0) {
     publish();
