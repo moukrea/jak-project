@@ -628,10 +628,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-main-agent-context-volume": {
-  "hash": "e50fba731d89fae6f744903e7ba25af9a272f1e9",
+  "hash": "e4bbc3828cd94af15decbce87664360cbf01d614",
   "identifier": "JAK-184",
   "issue_id": "d4afc1bc-441a-4eb0-9165-33af72f6b08b",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
@@ -732,10 +732,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-156/le-banc-de-la-suite-nherite-plus-de-lenvironnement-de-celui-qui-la"
  },
  "harness-undeclared-profile-attempts": {
-  "hash": "ebfcb3484dcf58a92a0b006d965f3cc2c7742671",
+  "hash": "c19a5e7ded4cb6414738c979a01fb4ba98ab7a17",
   "identifier": "JAK-185",
   "issue_id": "bffaa254-dfd5-476f-9ce2-8abb02b57c2b",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-185/vingt-huit-essais-sont-partis-sans-aucun-profil-de-modele-choisi-aucun"
  },
