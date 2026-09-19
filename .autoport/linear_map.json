@@ -715,10 +715,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-163/la-suite-du-harnais-ne-depend-plus-du-quota-temporaire-sature"
  },
  "harness-supervisor-cost-counter": {
-  "hash": "db1c0cfa157609fddd727960e9cfa7eceeb4dc13",
+  "hash": "0dcc5b229fadb57c69bd286620bda82585288b23",
   "identifier": "JAK-186",
   "issue_id": "191e7a39-1934-4ced-b2a6-9a303b66603f",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-19T11:51:41.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
@@ -732,10 +733,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-156/le-banc-de-la-suite-nherite-plus-de-lenvironnement-de-celui-qui-la"
  },
  "harness-undeclared-profile-attempts": {
-  "hash": "c19a5e7ded4cb6414738c979a01fb4ba98ab7a17",
+  "hash": "9c04b8bbec2225d23f225881959b46fbf65e9669",
   "identifier": "JAK-185",
   "issue_id": "bffaa254-dfd5-476f-9ce2-8abb02b57c2b",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-185/vingt-huit-essais-sont-partis-sans-aucun-profil-de-modele-choisi-aucun"
@@ -869,7 +870,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "019ade359d13",
+  "build_announced": "650ba4e246c3",
   "hash": "238786213ba25f4d87f10f32091aad29e96206ff",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
@@ -1130,6 +1131,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
+  "build_announced": "650ba4e246c3",
   "hash": "bc86fbc3b5f6ccc8d53c9a59a5ce9335b859adc3",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
@@ -1425,7 +1427,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "build_announced": "019ade359d13",
+  "build_announced": "650ba4e246c3",
   "hash": "d0f7eb2b83f93b64c71eb7c3eb27d635b47633e1",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
@@ -1549,7 +1551,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "019ade359d13",
+  "build_announced": "650ba4e246c3",
   "hash": "d35c8299a7dec7dfcd4d18476a43bc70103be5dd",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",

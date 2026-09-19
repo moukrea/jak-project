@@ -1,5 +1,5 @@
-TAG: 019ade-cad029      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
-date: 2026-09-19T09:20:56+02:00     commit: 019ade359d13     build AUTOMATIQUE (etat compile)
+TAG: 650ba4-cad029      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
+date: 2026-09-19T15:56:46+02:00     commit: 650ba4e246c3     build AUTOMATIQUE (etat compile)
 
 MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :
   chestL        0.1796
