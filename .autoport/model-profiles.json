@@ -45,6 +45,24 @@
         "autoport-implementer": "medium",
         "autoport-tester": "medium"
       }
+    },
+    "panel-sobre": {
+      "_note": "PROPOSE le 2026-09-19 par l'etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou. NON ACTIF : l'owner tranche. Mesure sur 1064 essais de ce depot, pas une opinion. (1) Manager Opus 5 SANS [1m] : c'est le profil le plus utilise (278 essais) ET le moins cher par essai reussi de tous ceux encore disponibles ($30,92 contre $38 a $66). Le [1m] n'a AUCUN surcout de tarif (doc Anthropic) mais supprime la compaction : opus-5[1m]/xhigh coute 2,08x plus cher ($35,82 contre $17,25) pour +2,6 points de verts et PLUS de boucles (5,6% contre 4,3%). (2) Sous-agents Sonnet 5 : les sous-agents ne pesent que 13,6% des jetons (principal 86,4%), donc le gain est borne — 8 a 11%, pas 60%. Un modele PAR etage (Haiku sur implementer/tester) n'ajoute que 0,9% : implementer+tester font 2,8% des jetons. Pas assez pour un 3e modele. (3) Efforts abaisses d'un cran (researcher high->medium, implementer/tester medium->low) : la doc officielle recommande nommement 'low' pour les sous-agents. Le cout projete tient les jetons CONSTANTS, donc baisser l'effort ne peut que reduire encore — au risque d'une qualite que nos journaux ne peuvent PAS chiffrer (aucun essai Sonnet sous-agent ici). (4) Codex/gpt-6-astra EXCLU : 20,5% de verts et 23,1% d'essais en boucle sur 134 essais, contre 4,3% de boucles pour opus-5/high. Le vrai gisement n'est PAS le melange de modeles : c'est le VOLUME relu par l'agent principal (20,7 M de jetons de cache par essai). Voir reports/<id>/RAPPORT.md.",
+      "_cout_attendu_usd_par_essai": 15.5,
+      "_cout_attendu_fourchette": [
+        14.8,
+        15.9
+      ],
+      "_cout_mesure_du_profil_actuel": 17.25,
+      "_base_de_la_projection": "278 essais claude-opus-5/high, jetons tenus constants, tarifs publics du 2026-09-19",
+      "manager_model": "claude-opus-5",
+      "manager_effort": "high",
+      "worker_model": "claude-sonnet-5",
+      "worker_efforts": {
+        "autoport-researcher": "medium",
+        "autoport-implementer": "low",
+        "autoport-tester": "low"
+      }
     }
   }
 }

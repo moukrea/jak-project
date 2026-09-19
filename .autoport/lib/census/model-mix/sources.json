@@ -1,0 +1,647 @@
+{
+  "consulted_on": "2026-09-19",
+  "sources": [
+    {
+      "id": "anthropic-pricing-docs",
+      "category": "pricing",
+      "title": "Pricing — Claude Platform Docs",
+      "publisher": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Claude Fable 5.1 : 10 $/MTok entree, 50 $/MTok sortie, 12,50 $/MTok ecriture de cache 5 min, 20 $/MTok ecriture de cache 1 h, 0,25 $/MTok lecture de cache.",
+        "Claude Opus 5 : 5 $/MTok entree, 25 $/MTok sortie, 6,25 $/MTok ecriture 5 min, 10 $/MTok ecriture 1 h, 0,50 $/MTok lecture de cache.",
+        "Claude Sonnet 5 : 2 $/MTok entree, 10 $/MTok sortie, 2,50 $/MTok ecriture 5 min, 4 $/MTok ecriture 1 h, 0,20 $/MTok lecture de cache.",
+        "Claude Haiku 4.5 : 1 $/MTok entree, 5 $/MTok sortie, 1,25 $/MTok ecriture 5 min, 2 $/MTok ecriture 1 h, 0,10 $/MTok lecture de cache.",
+        "Claude Opus 4.8 : 5 $ / 25 $ / MTok, memes tarifs de cache qu'Opus 5 ; Claude Sonnet 4.6 : 3 $ / 15 $ / MTok, 0,30 $/MTok en lecture de cache.",
+        "Multiplicateurs de cache : ecriture 5 min = 1,25x le prix d'entree, ecriture 1 h = 2x, lecture = 0,1x (0,025x sur Fable 5.1 et Mythos 5.1 uniquement).",
+        "Long context : « Claude 4.6 and later models ... include the full 1M token context window at standard pricing. (A 900k-token request is billed at the same per-token rate as a 9k-token request.) » — aucune majoration >200k.",
+        "inference_geo=\"us\" applique un multiplicateur de 1,1x sur toutes les categories de jetons ; le defaut global est au tarif standard.",
+        "Fast mode (Opus 5 / Opus 4.8) : 10 $/MTok entree et 50 $/MTok sortie, soit 2x le tarif standard.",
+        "Batch API : 50 % de remise sur entree et sortie (Opus 5 : 2,50 $ / 12,50 $ ; Sonnet 5 : 1 $ / 5 $ ; Haiku 4.5 : 0,50 $ / 2,50 $).",
+        "Le tokenizer des modeles 4.7 et suivants produit environ 30 % de jetons en plus pour le meme texte que celui de Sonnet 4.6 et anterieurs."
+      ]
+    },
+    {
+      "id": "claude-com-pricing",
+      "category": "pricing",
+      "title": "Pricing — claude.com",
+      "publisher": "Anthropic",
+      "url": "https://claude.com/pricing",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Page commerciale : Fable 5.1 10 $/50 $, lecture de cache 0,25 $, ecriture 12,50 $ ; Opus 5 5 $/25 $, lecture 0,50 $, ecriture 6,25 $ ; Sonnet 5 2 $/10 $, lecture 0,20 $, ecriture 2,50 $ ; Haiku 4.5 1 $/5 $, lecture 0,10 $, ecriture 1,25 $.",
+        "La page precise que le tarif de cache affiche correspond a une duree de vie de 5 minutes."
+      ]
+    },
+    {
+      "id": "anthropic-models-overview",
+      "category": "pricing",
+      "title": "Models overview — Claude Platform Docs",
+      "publisher": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Fenetres de contexte : Fable 5.1, Opus 5 et Sonnet 5 a 1 M de jetons ; Haiku 4.5 a 200 k jetons seulement.",
+        "Sortie maximale : 128 k jetons pour Fable 5.1 / Opus 5 / Sonnet 5, 64 k pour Haiku 4.5.",
+        "Effort par defaut : high pour Fable 5.1, Opus 5 et Sonnet 5 ; le parametre effort n'est pas supporte sur Haiku 4.5.",
+        "Haiku 4.5 n'a pas de pensee adaptative : il reste sur le mode extended thinking avec budget_tokens.",
+        "Latence comparative : Fable 5.1 « Slower », Opus 5 « Moderate », Sonnet 5 « Fast », Haiku 4.5 « Fastest »."
+      ]
+    },
+    {
+      "id": "openai-pricing",
+      "category": "pricing",
+      "title": "Pricing — OpenAI API",
+      "publisher": "OpenAI",
+      "url": "https://developers.openai.com/api/docs/pricing",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "gpt-6-astra, contexte court : 10,00 $/MTok entree, 1,00 $/MTok entree en cache, 12,50 $/MTok ecriture de cache, 50,00 $/MTok sortie.",
+        "gpt-6-astra, contexte long : 20,00 $/MTok entree, 2,00 $/MTok entree en cache, 25,00 $/MTok ecriture de cache, 75,00 $/MTok sortie.",
+        "gpt-5.3-codex : 1,75 $/MTok entree, 0,175 $/MTok entree en cache, 14,00 $/MTok sortie ; pas de tarif contexte long distinct.",
+        "Les paliers Batch et Flex appliquent 50 % de remise ; le mode Fast double le tarif standard."
+      ]
+    },
+    {
+      "id": "anthropic-effort-docs",
+      "category": "effort",
+      "title": "Effort — Claude Platform Docs",
+      "publisher": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/effort",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Cinq niveaux : low, medium, high (defaut), xhigh, max ; « Setting effort to \"high\" produces exactly the same behavior as omitting the effort parameter entirely ».",
+        "L'effort agit sur TOUS les jetons de sortie : texte, appels d'outils et pensee ; « Lower effort also means fewer and terser tool calls ».",
+        "Cas d'usage officiel du niveau low : « Simpler tasks that need the best speed and lowest costs, such as subagents » — la doc nomme explicitement les sous-agents.",
+        "Cas d'usage officiel de xhigh : « Long-running agentic and coding tasks (over 30 minutes) with token budgets in the millions ».",
+        "Pour Opus 5 : partir de high, monter a xhigh pour le codage exigeant, « use low and medium liberally as your primary control for token cost and response time wherever your evals show quality holds ».",
+        "Sur Opus 5, la pensee ne peut pas etre desactivee aux niveaux xhigh ou max : la requete rend une erreur 400.",
+        "L'effort est un signal de comportement, pas un plafond de jetons : « At lower effort levels, Claude still thinks on sufficiently difficult problems, but thinks less ».",
+        "Changer l'effort de haut niveau entre deux requetes invalide le cache de prompt ; seuls Fable 5.1, Mythos 5.1 et Opus 5 ont un changement d'effort par message qui preserve le cache (beta mid-conversation-output-config-2026-07-01).",
+        "Haiku 4.5 n'est pas dans la liste des modeles supportant effort."
+      ]
+    },
+    {
+      "id": "anthropic-cost-optimization",
+      "category": "routing",
+      "title": "Optimizing for cost and intelligence — Claude Platform Docs",
+      "publisher": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Effort low : reduit le cout de 33 a 50 % sur le travail de connaissance et d'environ 75 % sur le codage, au prix de 1 a 3 points de precision (connaissance) et 2 a 8 points (codage long).",
+        "Effort medium : 13 a 31 % d'economie sur le travail de connaissance sans perte mesurable ; environ 50 % d'economie sur le codage pour environ 2 points perdus.",
+        "Sur SWE-bench Pro avec Opus 5 : tout lancer en low puis rejouer les 16 % d'echecs en high donne ~91,7 % de reussite a ~0,45 $ la tache, contre 0,93 $ si tout tourne au defaut — meme taux pour moitie prix.",
+        "Strategie orchestrateur mesuree sur un corpus de 21,6 M de jetons (14 paquets Python) : coordinateur Fable 5.1 + 25 ouvriers Sonnet 5 coute 47 a 55 % de moins que Fable 5.1 seul (210-290 $ contre 468-552 $ par episode), perd 10 a 12 points de precision, et met 2,3 heures au lieu de 15 a 20 heures.",
+        "L'orchestrateur ne paie PAS quand le travail est une chaine dependante ou tient dans une seule fenetre de contexte : « Fable 5 alone reached coordinator's accuracy at 22-30% lower cost » sur le BrowseComp complet.",
+        "Le garde-fou officiel : la reference a battre avant tout montage multi-modeles est le modele fort seul a effort low — « price frontier model alone at low effort ; this is the baseline any multi-model setup must beat ».",
+        "Piege du montage conseiller : « an executor at low effort can stop detecting that it is stuck ... and then scores below the executor alone ».",
+        "Les caches sont lies au modele : un montage multi-modeles renonce a la reutilisation de cache entre ses modeles.",
+        "Cache de prompt : 2,7 a 5,3x de reduction de cout mesuree, 83 % sur un agent de triage."
+      ]
+    },
+    {
+      "id": "claude-code-subagents-docs",
+      "category": "routing",
+      "title": "Subagents — Claude Code Docs",
+      "publisher": "Anthropic",
+      "url": "https://code.claude.com/docs/en/sub-agents",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Les sous-agents servent a « Control costs by routing tasks to faster, cheaper models like Haiku ».",
+        "Ordre de resolution du modele d'un sous-agent : parametre model a l'invocation, puis frontmatter de la definition, puis la variable CLAUDE_CODE_SUBAGENT_MODEL, puis le modele de la conversation principale.",
+        "CLAUDE_CODE_SUBAGENT_MODEL n'est qu'un defaut ; il faut CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 pour imposer un modele a tous les sous-agents, coequipiers et agents de workflow.",
+        "Depuis la version 2.1.198 les sous-agents heritent de la configuration de pensee de la conversation principale ; il n'existe aucun reglage de pensee par sous-agent.",
+        "L'agent Explore herite du modele principal, plafonne a Opus sur l'API Claude."
+      ]
+    },
+    {
+      "id": "anthropic-multi-agent-engineering",
+      "category": "routing",
+      "title": "How we built our multi-agent research system",
+      "publisher": "Anthropic",
+      "url": "https://www.anthropic.com/engineering/multi-agent-research-system",
+      "date_published": "2025-06-13",
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Architecture orchestrateur-ouvriers : un agent chef analyse, elabore une strategie et lance des sous-agents en parallele.",
+        "Le montage chef Claude Opus 4 + sous-agents Claude Sonnet 4 a depasse Claude Opus 4 seul de 90,2 % sur leur evaluation de recherche.",
+        "« agents typically use about 4x more tokens than chat interactions, and multi-agent systems use about 15x more tokens than chats ».",
+        "Le multi-agents paie sur les taches fortement parallelisables, dont l'information depasse une fenetre de contexte, ou qui touchent de nombreux outils complexes.",
+        "Il echoue quand tous les agents doivent partager le meme contexte ou quand il y a beaucoup de dependances entre agents ; le codage souffre particulierement car il contient moins de taches vraiment parallelisables que la recherche."
+      ]
+    },
+    {
+      "id": "anthropic-fable-5-1-news",
+      "category": "benchmark",
+      "title": "Introducing Claude Fable 5.1 and Claude Mythos 5.1",
+      "publisher": "Anthropic",
+      "url": "https://www.anthropic.com/claude-fable-and-mythos-5-1",
+      "date_published": "2026-09-01",
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Terminal-Bench 4.0 : Fable 5.1 55,8 %, Opus 5 52,3 %, Fable 5 42,0 %, GPT-5.6 Sol 37,3 %.",
+        "Terminal-Bench-Science 0.1 : Fable 5.1 52,6 %, Opus 5 29,0 %, Fable 5 24,7 %, GPT-5.6 Sol 22,4 %.",
+        "CursorBench 3.2.0 : Fable 5.1 73,4 %, Fable 5 70,5 %, Opus 5 70,0 %, GPT-5.6 Sol 67,2 %.",
+        "AutomationBench : Fable 5.1 31,4 %, Opus 5 26,9 %, GPT-5.6 Sol 19,6 %, Fable 5 17,1 %.",
+        "OSWorld 2.0 (strict) : Fable 5.1 41,7 %, Opus 5 39,6 %, Fable 5 36,1 %.",
+        "« Cache reads now cost 75% less, or $0.25 per million tokens » — reduction estimee de 25 % sur une charge typique et jusqu'a ~45 % sur une charge fortement agentique.",
+        "Aucun score SWE-bench n'est publie dans cette annonce."
+      ]
+    },
+    {
+      "id": "anthropic-opus-5-news",
+      "category": "benchmark",
+      "title": "Introducing Claude Opus 5",
+      "publisher": "Anthropic",
+      "url": "https://www.anthropic.com/news/claude-opus-5",
+      "date_published": "2026-07-24",
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Frontier-Bench v0.1 : Opus 5 depasse tous les autres modeles et plus que double le score d'Opus 4.8 a un cout par tache inferieur.",
+        "CursorBench 3.2 : a effort max, Opus 5 se place a moins de 0,5 % du meilleur score de Fable 5.",
+        "OSWorld 2.0 : Opus 5 depasse le meilleur resultat de Fable 5 pour un peu plus du tiers du cout.",
+        "ARC-AGI 3 : le score d'Opus 5 est trois fois celui du meilleur modele suivant.",
+        "Anthropic ne publie aucun chiffre SWE-bench pour Opus 5 dans cette annonce ; les autres bancs sont presentes sous forme d'images, pas de tableaux lisibles."
+      ]
+    },
+    {
+      "id": "vellum-opus-5-benchmarks",
+      "category": "benchmark",
+      "title": "Claude Opus 5 Benchmarks Explained",
+      "publisher": "Vellum",
+      "url": "https://www.vellum.ai/blog/claude-opus-5-benchmarks-explained",
+      "date_published": "2026-07-24",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "Frontier-Bench v0.1 (codage), chiffres repris d'Anthropic : Opus 5 43,3 %, Fable 5 33,7 %, Opus 4.8 18,7 %.",
+        "ARC-AGI 3, mesure par la ARC Prize Foundation : Opus 5 30,2 %, GPT-5.6 Sol 7,8 %, Opus 4.8 1,5 %.",
+        "Vellum precise ne pas avoir mene de test independant : toutes les donnees viennent d'Anthropic ou de la ARC Prize Foundation.",
+        "Vellum ne rapporte aucun score SWE-bench Verified, SWE-bench Pro, Terminal-Bench ni GPQA pour Opus 5."
+      ]
+    },
+    {
+      "id": "llm-stats-swebench-verified",
+      "category": "benchmark",
+      "title": "SWE-Bench Verified Leaderboard",
+      "publisher": "llm-stats.com",
+      "url": "https://llm-stats.com/benchmarks/swe-bench-verified",
+      "date_published": "2026-09-01",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "Classement SWE-bench Verified : Claude Fable 5 95,0 % (rang 1), Claude Opus 4.8 88,6 % (rang 3), Claude Sonnet 5 85,2 % (rang 5), Claude Haiku 4.5 73,3 % (rang 50).",
+        "GPT-5.2 est a 80,0 % et GPT-5.1 a 76,3 %.",
+        "Ni Claude Opus 5, ni Claude Fable 5.1, ni GPT-6 Astra, ni aucun modele Codex ne figurent au classement a la date de consultation.",
+        "L'agregateur declare lui-meme « 0 verified results and 116 self-reported results » : tous les scores sont declares par les fournisseurs, aucun n'est verifie independamment.",
+        "Derniere mise a jour indiquee : septembre 2026."
+      ]
+    },
+    {
+      "id": "llm-stats-gpt-6-astra",
+      "category": "benchmark",
+      "title": "GPT-6 Astra — Benchmarks, Pricing & Context Window",
+      "publisher": "llm-stats.com",
+      "url": "https://llm-stats.com/models/gpt-6-astra",
+      "date_published": "2026-09-04",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "GPT-6 Astra est sorti le 4 septembre 2026 ; contexte d'entree 1,1 M de jetons, sortie 128 k, coupure de connaissances avril 2026.",
+        "Tarif repris : 10,00 $/MTok entree, 1,00 $/MTok entree en cache, 50,00 $/MTok sortie — identique a la page officielle OpenAI.",
+        "Latence p95 du premier jeton : 4,65 secondes.",
+        "La page ne publie aucun score chiffre pour SWE-bench Verified, Terminal-Bench, SWE-Lancer ni GPQA."
+      ]
+    },
+    {
+      "id": "mirin-subagent-telemetry",
+      "category": "feedback",
+      "title": "36% of Your Claude Code Subagents Are Running on Haiku",
+      "publisher": "mirin.pro (blog independant)",
+      "url": "https://mirin.pro/blog/claude-code-subagents-haiku-telemetry/",
+      "date_published": "2026-02-25",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "Mesure par pipeline OpenTelemetry sur 24 heures : 7 222 appels d'API, dont 2 509 Haiku (36 %), 2 661 Opus et 1 635 Sonnet.",
+        "Volume de jetons : 2,55 M en entree, 2,38 M en sortie, et 451 M en LECTURE DE CACHE — le cache domine massivement le volume.",
+        "Cout estime 354 $ sur la periode ; Haiku represente 36,5 % des appels mais seulement 8 $, soit 2,3 % de la facture.",
+        "Cout moyen par appel : environ 0,003 $ pour Haiku contre 0,077 $ pour Opus, soit un rapport d'environ 26.",
+        "ANECDOTIQUE : mesure d'un seul utilisateur sur ses propres projets, non reproduite."
+      ]
+    },
+    {
+      "id": "gh-claude-code-43869",
+      "category": "feedback",
+      "title": "Subagent model routing is broken — all mechanisms resolve to parent model (Opus)",
+      "publisher": "GitHub — anthropics/claude-code issue #43869",
+      "url": "https://github.com/anthropics/claude-code/issues/43869",
+      "date_published": "2026-04-05",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "Le rapporteur declare que les cinq mecanismes documentes de routage (parametre model, frontmatter, variable d'environnement en alias ou en identifiant, settings.json) sont ignores en silence et que les sous-agents tournent sur le modele du parent.",
+        "Protocole cite : 5 tests, 15 sous-agents, part Sonnet restee a 2 % pendant que la consommation Opus montait a chaque test.",
+        "ANECDOTIQUE : ticket ouvert, non confirme par Anthropic a la date de consultation ; a verifier sur NOTRE version avant d'en tirer une conclusion."
+      ]
+    },
+    {
+      "id": "gh-claude-code-29611",
+      "category": "feedback",
+      "title": "Feature Request: Reduce Haiku usage cost for Max subscribers in Claude Code",
+      "publisher": "GitHub — anthropics/claude-code issue #29611",
+      "url": "https://github.com/anthropics/claude-code/issues/29611",
+      "date_published": "2026-02-28",
+      "date_consulted": "2026-09-19",
+      "independent": true,
+      "claims": [
+        "Le demandeur signale que l'outil Agent de Claude Code n'offrait pas « haiku » comme choix de modele, ce qui empeche de router les micro-taches vers le modele le moins cher.",
+        "Il estime qu'une delegation de recherche ou de validation legere sur Haiku plutot que Sonnet economiserait un facteur 3 de consommation.",
+        "ANECDOTIQUE : demande d'evolution fermee ; un seul utilisateur, aucune mesure publiee."
+      ]
+    },
+    {
+      "id": "anthropic-thinking-steering-cost",
+      "category": "effort",
+      "title": "Steering thinking — Claude Platform Docs",
+      "publisher": "Anthropic",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost",
+      "date_published": null,
+      "date_consulted": "2026-09-19",
+      "independent": false,
+      "claims": [
+        "Ce que chaque niveau change concretement, mot pour mot : max « Claude always thinks with no constraints on thinking depth » ; xhigh « always thinks deeply with extended exploration » ; high « almost always thinks » ; medium « moderate thinking. May skip thinking for simple queries » ; low « minimizes thinking. Skips thinking for simple tasks where speed matters most ».",
+        "Il n'existe PLUS de budget de jetons de pensee : seuls max_tokens (plafond dur sur thinking + texte) et effort (guidage souple) bornent le cout.",
+        "Les jetons de pensee sont FACTURES comme des jetons de SORTIE, y compris quand display vaut omitted : « You are billed for the full thinking process, not the thinking content visible in the response ».",
+        "La part de pensee dans la facture est lisible par champ : usage.output_tokens_details.thinking_tokens, toujours inferieur ou egal a output_tokens.",
+        "Demonstration chiffree de l'invalidation du cache par un changement d'effort : requete 2 a effort inchange lit 3 546 jetons de cache ; requete 3 a medium re-ecrit 3 546 jetons et lit 0.",
+        "Dans une boucle d'outils, max_tokens borne CHAQUE requete, pas la depense du tour entier."
+      ]
+    }
+  ],
+  "pricing": {
+    "claude-fable-5-1": {
+      "input_per_mtok": 10.0,
+      "output_per_mtok": 50.0,
+      "cache_read_per_mtok": 0.25,
+      "cache_write_5m_per_mtok": 12.5,
+      "cache_write_1h_per_mtok": 20.0,
+      "long_context_input_per_mtok": 10.0,
+      "long_context_output_per_mtok": 50.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Lecture de cache a 0,025x l'entree (exception : tous les autres modeles sont a 0,1x). Aucune majoration au-dela de 200k : la fenetre de 1 M est au tarif standard."
+    },
+    "claude-opus-5": {
+      "input_per_mtok": 5.0,
+      "output_per_mtok": 25.0,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_5m_per_mtok": 6.25,
+      "cache_write_1h_per_mtok": 10.0,
+      "long_context_input_per_mtok": 5.0,
+      "long_context_output_per_mtok": 25.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Aucune majoration contexte long. Fast mode (option distincte) double a 10 $/50 $. inference_geo=us multiplie tout par 1,1."
+    },
+    "claude-sonnet-5": {
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 10.0,
+      "cache_read_per_mtok": 0.2,
+      "cache_write_5m_per_mtok": 2.5,
+      "cache_write_1h_per_mtok": 4.0,
+      "long_context_input_per_mtok": 2.0,
+      "long_context_output_per_mtok": 10.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Le tarif 2 $/10 $ annonce comme introductif est devenu le prix standard ; la hausse prevue au 1er septembre 2026 n'aura pas lieu."
+    },
+    "claude-haiku-4-5": {
+      "input_per_mtok": 1.0,
+      "output_per_mtok": 5.0,
+      "cache_read_per_mtok": 0.1,
+      "cache_write_5m_per_mtok": 1.25,
+      "cache_write_1h_per_mtok": 2.0,
+      "long_context_input_per_mtok": null,
+      "long_context_output_per_mtok": null,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Fenetre limitee a 200k jetons : la notion de contexte long ne s'applique pas. Ne supporte pas le parametre effort."
+    },
+    "claude-fable-5": {
+      "input_per_mtok": 10.0,
+      "output_per_mtok": 50.0,
+      "cache_read_per_mtok": 1.0,
+      "cache_write_5m_per_mtok": 12.5,
+      "cache_write_1h_per_mtok": 20.0,
+      "long_context_input_per_mtok": 10.0,
+      "long_context_output_per_mtok": 50.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Lecture de cache 4x plus chere que sur Fable 5.1 a prix d'entree identique."
+    },
+    "claude-opus-4-8": {
+      "input_per_mtok": 5.0,
+      "output_per_mtok": 25.0,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_5m_per_mtok": 6.25,
+      "cache_write_1h_per_mtok": 10.0,
+      "long_context_input_per_mtok": 5.0,
+      "long_context_output_per_mtok": 25.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": ""
+    },
+    "claude-sonnet-4-6": {
+      "input_per_mtok": 3.0,
+      "output_per_mtok": 15.0,
+      "cache_read_per_mtok": 0.3,
+      "cache_write_5m_per_mtok": 3.75,
+      "cache_write_1h_per_mtok": 6.0,
+      "long_context_input_per_mtok": 3.0,
+      "long_context_output_per_mtok": 15.0,
+      "currency": "USD",
+      "source_id": "anthropic-pricing-docs",
+      "note": "Generation precedente, plus chere que Sonnet 5 a capacite inferieure."
+    },
+    "gpt-6-astra": {
+      "input_per_mtok": 10.0,
+      "output_per_mtok": 50.0,
+      "cache_read_per_mtok": 1.0,
+      "cache_write_5m_per_mtok": 12.5,
+      "cache_write_1h_per_mtok": null,
+      "long_context_input_per_mtok": 20.0,
+      "long_context_output_per_mtok": 75.0,
+      "currency": "USD",
+      "source_id": "openai-pricing",
+      "note": "OpenAI n'expose qu'un seul tarif d'ecriture de cache, sans duree de vie : la colonne 1 h n'existe pas chez eux. Le contexte long DOUBLE l'entree et majore la sortie de 50 % ; le seuil exact n'est pas indique sur la page officielle."
+    },
+    "gpt-5-3-codex": {
+      "input_per_mtok": 1.75,
+      "output_per_mtok": 14.0,
+      "cache_read_per_mtok": 0.175,
+      "cache_write_5m_per_mtok": null,
+      "cache_write_1h_per_mtok": null,
+      "long_context_input_per_mtok": null,
+      "long_context_output_per_mtok": null,
+      "currency": "USD",
+      "source_id": "openai-pricing",
+      "note": "Modele Codex dedie ; aucun tarif d'ecriture de cache ni de contexte long publie. Mode Fast a 3,50 $/28,00 $."
+    }
+  },
+  "benchmarks": [
+    {
+      "model": "claude-fable-5-1",
+      "suite": "Terminal-Bench 4.0",
+      "score": 55.8,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "Terminal-Bench 4.0",
+      "score": 52.3,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5",
+      "suite": "Terminal-Bench 4.0",
+      "score": 42.0,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "gpt-5-6-sol",
+      "suite": "Terminal-Bench 4.0",
+      "score": 37.3,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5-1",
+      "suite": "Terminal-Bench-Science 0.1",
+      "score": 52.6,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "Terminal-Bench-Science 0.1",
+      "score": 29.0,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5-1",
+      "suite": "CursorBench 3.2.0",
+      "score": 73.4,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "CursorBench 3.2.0",
+      "score": 70.0,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5-1",
+      "suite": "AutomationBench",
+      "score": 31.4,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "AutomationBench",
+      "score": 26.9,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5-1",
+      "suite": "OSWorld 2.0 (strict)",
+      "score": 41.7,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "OSWorld 2.0 (strict)",
+      "score": 39.6,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "anthropic-fable-5-1-news",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "Frontier-Bench v0.1",
+      "score": 43.3,
+      "unit": "percent",
+      "date": "2026-07-24",
+      "source_id": "vellum-opus-5-benchmarks",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5",
+      "suite": "Frontier-Bench v0.1",
+      "score": 33.7,
+      "unit": "percent",
+      "date": "2026-07-24",
+      "source_id": "vellum-opus-5-benchmarks",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-4-8",
+      "suite": "Frontier-Bench v0.1",
+      "score": 18.7,
+      "unit": "percent",
+      "date": "2026-07-24",
+      "source_id": "vellum-opus-5-benchmarks",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "ARC-AGI 3",
+      "score": 30.2,
+      "unit": "percent",
+      "date": "2026-07-24",
+      "source_id": "vellum-opus-5-benchmarks",
+      "independent": true
+    },
+    {
+      "model": "claude-fable-5",
+      "suite": "SWE-bench Verified",
+      "score": 95.0,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-4-8",
+      "suite": "SWE-bench Verified",
+      "score": 88.6,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-sonnet-5",
+      "suite": "SWE-bench Verified",
+      "score": 85.2,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "suite": "SWE-bench Verified",
+      "score": 73.3,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "gpt-5-2",
+      "suite": "SWE-bench Verified",
+      "score": 80.0,
+      "unit": "percent",
+      "date": "2026-09-01",
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "SWE-bench Verified",
+      "score": null,
+      "unit": "percent",
+      "date": null,
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-fable-5-1",
+      "suite": "SWE-bench Verified",
+      "score": null,
+      "unit": "percent",
+      "date": null,
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "gpt-6-astra",
+      "suite": "SWE-bench Verified",
+      "score": null,
+      "unit": "percent",
+      "date": null,
+      "source_id": "llm-stats-gpt-6-astra",
+      "independent": false
+    },
+    {
+      "model": "gpt-5-3-codex",
+      "suite": "SWE-bench Verified",
+      "score": null,
+      "unit": "percent",
+      "date": null,
+      "source_id": "llm-stats-swebench-verified",
+      "independent": false
+    },
+    {
+      "model": "claude-opus-5",
+      "suite": "SWE-bench Pro (effort low, cout par tache)",
+      "score": 0.45,
+      "unit": "usd_per_task",
+      "date": "2026-09-19",
+      "source_id": "anthropic-cost-optimization",
+      "independent": false
+    }
+  ]
+}
