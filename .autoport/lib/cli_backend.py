@@ -73,9 +73,17 @@ def codex_options(root, profile, effort=None, supervisor=False):
 
 def worker_command(root, backend, profile, effort, max_turns):
     if backend == "claude":
+        # `--strict-mcp-config` : AUCUN serveur MCP dans un worker
+        # (harness-main-agent-context-volume, 19/09). Les serveurs MCP configures pour les
+        # sessions interactives (linear, notion, atlassian, jaunt, docs, et seize serveurs non
+        # authentifies) entrent dans le prompt systeme de CHAQUE tour. Mesure a la sonde, deux
+        # fois, valeur identique au jeton pres : prefixe 40 468 jetons avec, 34 599 sans, soit
+        # -5 869 par tour et -549 000 par essai a 93,5 tours. Ce que ca coute : sur 682 essais
+        # et plus de 69 000 appels d'outil, UN SEUL appel MCP a ete emis. Le ticket Linear se
+        # poste par `python3 .autoport/linear_sync.py --comment`, qui n'est pas un serveur MCP.
         cmd = ["claude", "-p", "--model", profile["manager_model"], "--effort", effort,
                 "--max-turns", str(min(max_turns, 300)), "--output-format", "stream-json",
-                "--verbose", "--dangerously-skip-permissions"]
+                "--verbose", "--dangerously-skip-permissions", "--strict-mcp-config"]
         settings = Path(root) / ".autoport/settings.json"
         local = Path(root) / ".claude/settings.local.json"
         # Existing installations already load this exact symlink. Do not register twice.

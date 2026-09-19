@@ -14165,12 +14165,19 @@ items:
     choisi et sur les 3 derniers essais, le total calcule par l''orchestrateur = celui du DERNIER `result`
     (sortie et cache) a 1 % pres ; un test rejoue un journal fabrique a doublons et doit rendre le bon
     total. Publier par lib/census/<id>.sh.'
-  status: in-progress
+  status: validated
   depends_on: []
   spec: null
   prompt: prompts/item-harness-usage-double-counted.md
   code_scope: harness
   code_scope_source: worker:essai-2:le-defaut-et-son-correctif-vivent-dans-.autoport/orchestrator.py-aucun-code-moteur-possible
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-19'
+    proof_sha: 7c2bb830dddd94a3
+    proof_bytes: 64630
+    attempt: 2
+    journal: validator-002.txt
 - id: harness-main-agent-context-volume
   priority: 14
   owner_test: false
@@ -14194,10 +14201,13 @@ items:
     mesure sur >= 5 essais APRES, sur des items comparables, contre les 278 essais opus-5/high de reference
     (17,25 $) : baisse >= 20 % avec un taux de verts non degrade (fenetre a nommer), sinon defaut. Le
     rapport nomme le levier qui a paye.'
-  status: open
+  status: in-progress
   depends_on: []
   spec: null
   prompt: prompts/item-harness-main-agent-context-volume.md
+  code_scope: harnais
+  code_scope_source: le volume de contexte vit dans .autoport (orchestrator.py, lib/cli_backend.py, hooks/pre-tool.sh)
+    ; aucun code moteur ne peut le changer
 - id: harness-undeclared-profile-attempts
   priority: 15
   owner_test: false

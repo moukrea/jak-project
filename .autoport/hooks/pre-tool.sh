@@ -106,6 +106,22 @@ if ! is_text "$FIRST"; then
     refuse "une boucle while/until qui attend sur \`pgrep\`." \
            "attends sur le verrou et son PID (kill -0), comme lib/proof_run.sh : un verrou dont le PID est mort ne vaut rien." ;
   fi
+  # UNE BOUCLE DE SONDAGE COUTE UN CONTEXTE ENTIER PAR COUP DE SONDE
+  # (harness-main-agent-context-volume, 19/09). Mesure sur les 278 essais opus-5 : 16,2 tours
+  # d'attente par essai — `sleep` 9,27 %, `tail` de journal 7,73 %, `pgrep/ps` 3,17 % — soit
+  # 20,2 % de l'integrale de contexte de l'agent principal, et 434,8 heures de sommeil declare
+  # sur l'ensemble des journaux. Le sondage n'apprend RIEN avant la fin : c'est l'attente
+  # elle-meme qui doit tenir dans UN tour. La regle porte sur la BOUCLE qui dort, pas sur
+  # `sleep` : une pause courte de stabilisation reste permise, et un corps de heredoc est
+  # deja retire plus haut — ECRIRE un script qui boucle n'est pas le LANCER.
+  if [[ $CLEAN =~ (while|until|for)([[:space:]]|\() ]]; then
+    BOUCLE_SLEEP=""
+    [[ $CLEAN =~ sleep[[:space:]]+([0-9]+) ]] && BOUCLE_SLEEP=${BASH_REMATCH[1]}
+    if [ -n "$BOUCLE_SLEEP" ] && [ "$BOUCLE_SLEEP" -ge 5 ] 2>/dev/null; then
+      refuse "une boucle qui dort ${BOUCLE_SLEEP}s entre deux sondes : chaque coup de sonde relit tout le contexte (195 000 jetons en moyenne)." \
+             "attends une SEULE fois, dans le shell : .autoport/lib/await.sh pid <pid> --log <journal>   (aussi: await.sh lock <verrou>, await.sh proof <id-d-item>)" ;
+    fi
+  fi
 fi
 
 # --- 3. regles par segment -------------------------------------------------------------------
@@ -132,6 +148,19 @@ while IFS= read -r seg; do
            "publie un compteur produit par le moteur dans reports/<id>/proof.txt." ;
   fi
   is_text "$CW" && continue
+
+  # 3a-bis. `sleep` SEUL EN POSITION DE COMMANDE : un tour d'agent pour ne rien apprendre.
+  # Le seuil vient des journaux, pas du gout : 2 882 des 4 757 `sleep` mesures dorment 10 s ou
+  # plus (20 s est la valeur la plus frequente, 637 fois). Sous 10 s on laisse passer — une
+  # stabilisation courte est reelle, et un faux refus coute plus cher qu'un oubli.
+  if [ "$CW" = sleep ]; then
+    DUREE=""
+    [[ $seg =~ sleep[[:space:]]+([0-9]+) ]] && DUREE=${BASH_REMATCH[1]}
+    if [ -n "$DUREE" ] && [ "$DUREE" -ge 10 ] 2>/dev/null; then
+      refuse "\`sleep $DUREE\` : ce tour relit tout le contexte (195 000 jetons en moyenne) et n'apprend rien." \
+             "attends la cible elle-meme, une seule fois : .autoport/lib/await.sh pid <pid> --log <journal>   (aussi: await.sh lock <verrou>, await.sh proof <id-d-item>)" ;
+    fi
+  fi
 
   # 3a. pgrep/pkill -f sans classe de caracteres : le motif se matche LUI-MEME.
   # Deux exemptions, toutes deux parce qu'on ne PEUT PAS juger : un motif qui contient deja des
