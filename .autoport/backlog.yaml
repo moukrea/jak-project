@@ -13223,6 +13223,18 @@ items:
     attempt: 2
     journal: validator-002.txt
   delivered: '2026-09-18'
+  owner_feedback:
+  - date: '2026-09-19'
+    text: "Alors je validerais bien parce que ça fonctionne mais… coe tu vois dans le screen, c'est quoi\
+      \ cette résolution xxxxXyyy (BASE xxxxXyyy), on a choisi natif, donc tu mets \"Résolution : 2414x1080\
+      \ (Native)\" (avec le `:` correctement espacé en fonction de la locale, et pas de all caps !\n\n\
+      Pareil pour la résolution de Échelle de rendu, tu mets \"Échelle de rendu : 70% (1689x756)\" avec\
+      \ le `:` correctement espacé en fonction de la locale \n\nLe \"BASE <résolution>\" on s'en cogne\
+      \ dans le choix de résolution principale, on veut montrer la résolution, et garder la précision\
+      \ quand c'est la résolution native… pas savoir la résolution de rendu là dessus, car la résolution\
+      \ de rendu affecte la partie jeu rendu alors que la résolution c'est TOUT, y compris l'UI… je sais\
+      \ pas si je suis clair ?\n\n![71575.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/41b78529-c4f0-402a-ba2f-d0df514dda82/39cc5204-a483-4bd6-b271-0724f8e66c4f)\n\
+      [images enregistrees : .autoport/owner-feedback/res-scale-submenu/20260919T0758-1.jpg]"
 - id: owner-todo-priorisation
   status: validated
   game: jak1
@@ -13447,6 +13459,9 @@ items:
       ! En attendant je vérifie les autres tickets en attente de retour
   - date: '2026-09-18'
     text: Non le cœur est bon, t'aurais dû le voir par toi même j'ai validé son ticket !
+  - date: '2026-09-19'
+    text: Alors je saurais dire si la particule est la bonne car oui je l'aperçoit par le trou au centre
+      de la jauge, mais du coup elle est en dessous, pas au dessus ! Donc c'est pas bon !
   block_reason: ''
 - status: open
   game: jak1
@@ -14035,7 +14050,7 @@ items:
 - id: recharged-hud-toggle
   feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
     le HUD d'origine
-  status: in-progress
+  status: to-test
   priority: 11
   owner_test: true
   depends_on: []
@@ -14065,8 +14080,22 @@ items:
   - OG_LEVEL_WARP_POS=-116 14 40
   - AUTOPORT_COST_PROBE=recharged-hud-toggle
   block_reason: ''
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-19'
+    proof_sha: fc7f3efa6d51004c
+    proof_bytes: 70222
+    attempt: 4
+    journal: validator-004.txt
+  delivered: '2026-09-19'
+  owner_feedback:
+  - date: '2026-09-19'
+    text: L'interrupteur fonctionne mais il a un léger soucis, quand le HUD rechargé est off et qu'on
+      maintient L2/R2 la pile d'énergie du HUD rechargé et la mecamouche du HUD rechargé apparaissent
+      par dessus leurs pendants du HUD d'origine. Que ce soit avec le master toggle rechargé à off ou
+      la feature elle même à off.
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: open
+  status: in-progress
   game: jak1
   priority: 12
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
@@ -14106,3 +14135,104 @@ items:
   - date: '2026-09-19'
     text: T'es sûr qu'on se réfère vraiment qu'aux tâches passées ? Pas de recherche approfondie sur internet
       et compagnie ?
+  - date: '2026-09-19'
+    text: Qu'est ce qui bloque là ? Pourquoi j'ai pas de retour ?
+- id: harness-usage-double-counted
+  priority: 13
+  owner_test: false
+  feature: 'Le compteur de jetons d''un essai compte chaque message trois à cinq fois : le coût affiché
+    est gonflé d''un quart'
+  gate:
+    key: usage_double_count_defects
+    op: ==
+    value: 0
+  where: 'Rien a regarder en jeu : preuve machine.'
+  known_cause: 'Signale par l''etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt,
+    19/09), items crees par le superviseur le 19/09 13:55. orchestrator.py:620,693,727 : `_accumulate_usage`
+    est appele sur CHAQUE evenement `assistant` (le meme message revient 3 a 5 fois dans le flux) PUIS
+    sur `result`, dont l''usage est deja le total de session ; et un essai peut porter PLUSIEURS `result`,
+    chacun republiant un `modelUsage` CUMULE (40 evenements sur ao-indirect-clean/1, de 18,8 M a 21,3
+    M). Les additionner gonfle le cout de 25 %. Aussi : `usage.output_tokens` des lignes `assistant` est
+    un ACOMPTE (7 541 contre 32 646 factures sur un essai temoin). PORTE : sur un journal d''essai temoin
+    choisi et sur les 3 derniers essais, le total calcule par l''orchestrateur = celui du DERNIER `result`
+    (sortie et cache) a 1 % pres ; un test rejoue un journal fabrique a doublons et doit rendre le bon
+    total. Publier par lib/census/<id>.sh.'
+  status: open
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-usage-double-counted.md
+- id: harness-main-agent-context-volume
+  priority: 14
+  owner_test: false
+  feature: 'L''agent principal relit 20,7 millions de jetons de mémoire par essai : c''est là que part
+    l''argent, pas dans le choix des modèles'
+  gate:
+    key: context_volume_defects
+    op: ==
+    value: 0
+  where: 'Rien a regarder en jeu : preuve machine (cout par essai AVANT/APRES sur les memes items, jetons
+    de cache lus par essai).'
+  known_cause: 'Signale par l''etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt,
+    19/09), items crees par le superviseur le 19/09 13:55. MESURE : l''agent principal pese 86,4 % des
+    jetons d''un essai ; 20,7 M de jetons de cache relus par essai ; 93 messages par essai. Le [1m] (pas
+    de compaction) double le cout (35,82 $ contre 17,25 $) sans rendre plus de verts. LEVIERS A CHIFFRER,
+    pas a supposer : (1) taille du prompt d''item + DIRECTIVES + contrat relus a chaque tour (mesurer
+    en jetons) ; (2) seuil de compaction et taille de contexte que Claude Code garde entre les tours ;
+    (3) sorties d''outils volumineuses relues (journaux, proof.txt entiers) ; (4) nombre de tours par
+    essai (93 messages) — quels tours sont de l''attente (boucles de sleep/grep sur un build ou une preuve)
+    que le juge pourrait porter a la place du worker (cf. items harness-judge-*). PORTE : cout par essai
+    mesure sur >= 5 essais APRES, sur des items comparables, contre les 278 essais opus-5/high de reference
+    (17,25 $) : baisse >= 20 % avec un taux de verts non degrade (fenetre a nommer), sinon defaut. Le
+    rapport nomme le levier qui a paye.'
+  status: open
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-main-agent-context-volume.md
+- id: harness-undeclared-profile-attempts
+  priority: 15
+  owner_test: false
+  feature: 'Vingt-huit essais sont partis sans aucun profil de modèle choisi : aucun n''a abouti'
+  gate:
+    key: undeclared_profile_defects
+    op: ==
+    value: 0
+  where: 'Rien a regarder en jeu : preuve machine.'
+  known_cause: 'Signale par l''etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt,
+    19/09), items crees par le superviseur le 19/09 13:55. 28 essais portent un champ `model` VIDE dans
+    `attempt_start` : 0 reussite, 46,4 % en boucle, le pire taux de tous les profils. Un essai part sur
+    un modele que personne n''a choisi. TROUVER la voie de lancement qui perd le profil (bascule de CLI
+    ? reprise apres coupure ? profil `defaut` des bannieres = 28 occurrences de `modèle=défaut` dans orchestrator.log)
+    et la fermer : un lancement sans profil resolu doit REFUSER de partir et le dire, jamais partir sur
+    un defaut. PORTE : les 28 journaux sont classes par voie de lancement (nommee) ; un test lance l''orchestrateur
+    avec un profil casse et obtient un refus explicite, pas un essai ; 0 essai sans modele declare sur
+    les essais posterieurs au correctif.'
+  status: open
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-undeclared-profile-attempts.md
+- id: harness-supervisor-cost-counter
+  priority: 16
+  owner_test: true
+  feature: 'Le superviseur coûte 3,38 $ par essai et 11 000 $ depuis le début sans apparaître dans aucun
+    compteur : le compter, puis le réduire'
+  gate:
+    key: supervisor_cost_defects
+    op: ==
+    value: 0
+  where: 'Le rapport reports/<id>/RAPPORT.md : le cout du superviseur par jour et par essai, ce qui le
+    compose (digests, veilles, reponses Linear, relectures de journaux), et les 3 postes les plus chers
+    avec une proposition chiffree chacun. Toi seul tranches ce qu''on coupe.'
+  known_cause: 'Signale par l''etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt,
+    19/09), items crees par le superviseur le 19/09 13:55. MESURE : les transcriptions du superviseur
+    (~/.claude/projects/-home-emeric-code-jak-project/) totalisent 16,0 G de jetons de cache et 35,3 M
+    de sortie, ~11 000 $ au tarif Opus 5 ; 3,38 $ par essai sur la periode Opus 5, 20 % de plus que l''essai
+    lui-meme. Personne ne le regardait. PORTE : (1) un compteur PUBLIE du cout du superviseur par jour,
+    tire des transcriptions, relu par le digest ; (2) la decomposition par activite (digest de 30 min,
+    reponses Linear, veilles, relectures) ; (3) au moins un levier chiffre et mis en oeuvre (ex. : un
+    digest qui ne se reveille que si `status --changed` ou Linear a bouge, calcule par un script sans
+    modele ; reponses Linear plus courtes ; ne pas relire des journaux entiers), avec le cout AVANT/APRES
+    sur 3 jours. Le rapport est ecrit pour l''owner, en francais courant.'
+  status: open
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-supervisor-cost-counter.md
