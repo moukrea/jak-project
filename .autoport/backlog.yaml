@@ -14095,7 +14095,7 @@ items:
       par dessus leurs pendants du HUD d'origine. Que ce soit avec le master toggle rechargé à off ou
       la feature elle même à off.
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: in-progress
+  status: to-test
   game: jak1
   priority: 12
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
@@ -14137,6 +14137,14 @@ items:
       et compagnie ?
   - date: '2026-09-19'
     text: Qu'est ce qui bloque là ? Pourquoi j'ai pas de retour ?
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-19'
+    proof_sha: 98519c6ca3df3df7
+    proof_bytes: 64898
+    attempt: 3
+    journal: validator-003.txt
+  delivered: '2026-09-19'
 - id: harness-usage-double-counted
   priority: 13
   owner_test: false
@@ -14157,10 +14165,12 @@ items:
     choisi et sur les 3 derniers essais, le total calcule par l''orchestrateur = celui du DERNIER `result`
     (sortie et cache) a 1 % pres ; un test rejoue un journal fabrique a doublons et doit rendre le bon
     total. Publier par lib/census/<id>.sh.'
-  status: open
+  status: in-progress
   depends_on: []
   spec: null
   prompt: prompts/item-harness-usage-double-counted.md
+  code_scope: harness
+  code_scope_source: worker:essai-2:le-defaut-et-son-correctif-vivent-dans-.autoport/orchestrator.py-aucun-code-moteur-possible
 - id: harness-main-agent-context-volume
   priority: 14
   owner_test: false
