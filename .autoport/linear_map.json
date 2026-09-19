@@ -628,10 +628,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-main-agent-context-volume": {
-  "hash": "03ac5b94e979874b71cb9744387e28e2fef12163",
+  "hash": "e50fba731d89fae6f744903e7ba25af9a272f1e9",
   "identifier": "JAK-184",
   "issue_id": "d4afc1bc-441a-4eb0-9165-33af72f6b08b",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
@@ -739,10 +740,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-185/vingt-huit-essais-sont-partis-sans-aucun-profil-de-modele-choisi-aucun"
  },
  "harness-usage-double-counted": {
-  "hash": "97e0533b3fb7adf027303b0e6381d33c2130193d",
+  "hash": "1a6fe8c189a68312c7f3af5ef82a696726a788d0",
   "identifier": "JAK-183",
   "issue_id": "262314fd-965d-4723-9598-c1fd15338dd8",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
