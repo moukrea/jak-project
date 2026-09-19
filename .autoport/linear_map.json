@@ -1142,12 +1142,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "build_announced": "a4de81c3f19e",
-  "hash": "d3222c0f77f16931ef9652823c95e1b990f6b5b0",
+  "hash": "494ff555f3808656c6e408dfcb4c8107511fb6aa",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-003.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-19T16:43:21.631Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
  },
@@ -1438,10 +1437,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "hash": "36f2d05df831af5383dfb4d62cdfccc14f86c752",
+  "build_announced": "95ba205c1b0e",
+  "hash": "dd917cb8f596f644896a25683cfa63301a65ed3e",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-19T16:43:31.741Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
@@ -1561,8 +1561,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "a4de81c3f19e",
-  "hash": "d6fd2a091d00e3e81a118b109a8f2b9439906489",
+  "hash": "acbe3b34a2a39364071ce4f65437badb47159838",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "Todo",
