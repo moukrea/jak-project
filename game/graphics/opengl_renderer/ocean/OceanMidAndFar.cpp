@@ -64,7 +64,11 @@ void OceanMidAndFar::render_jak1(DmaFollower& dma,
   // et n'emet plus un draw. La texture d'ocean, elle, continue d'etre produite : c'est elle que la
   // clipmap echantillonne ("shading provisoire = l'actuel"), et la sauter laisserait le TBP 8160
   // du pool sur son contenu de l'image precedente, ce qu'un tout autre consommateur verrait.
-  m_suppress_draw = ocean_recharged_enabled();
+  // La decision de REPRISE se prend ici, au premier des deux buckets, et pas une seconde fois :
+  // le mid, le quad `far-color` et le near doivent etre d'accord dans la MEME image, sinon
+  // l'ocean d'origine est efface par l'un sans etre remplace par l'autre — c'est l'ecran titre
+  // noir du 17/09. `takeover_decision(false)` ouvre l'image ; le bucket 63 la referme.
+  m_suppress_draw = OceanRecharged::get().takeover_decision(false);
   m_mid_renderer.set_suppress_draw(m_suppress_draw);
 
   // water-ocean-mesh (defaut 4) : le comparateur d'emprise s'arme ICI. C'est le seul point du

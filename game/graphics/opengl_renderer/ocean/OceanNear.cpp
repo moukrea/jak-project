@@ -29,6 +29,13 @@ void OceanNear::render(DmaFollower& dma,
                        ScopedProfilerNode& prof) {
   const bool water_on = m_enabled && render_state->version == GameVersion::Jak1 &&
                         ocean_recharged_enabled();
+  // LA DECISION DE REPRISE, REFERMEE ICI. Elle est prise au bucket 4 quand celui-ci a tourne, et
+  // ici sinon (bucket 4 vide, tag CALL) ; l'appel se fait AVANT tout retour anticipe, parce
+  // qu'une image qui l'ouvrirait sans la refermer la figerait pour toute la course. `water_on`
+  // ne suffit pas a dessiner : il faut aussi que la clipmap ait de quoi le faire, faute de quoi
+  // l'ocean d'origine reste a sa place au lieu de laisser un trou.
+  const bool takeover = render_state->version == GameVersion::Jak1 &&
+                        OceanRecharged::get().takeover_decision(true) && m_enabled;
   if (render_state->version == GameVersion::Jak1) {
     OceanRecharged::get().begin_near_frame(water_on);
   }
@@ -44,7 +51,7 @@ void OceanNear::render(DmaFollower& dma,
   // water-ocean-mesh (SPEC-refonte-eau §5.1) : sous `recharged_water`, le bucket 63 consomme son
   // DMA sans dessiner, et la clipmap prend sa place — c'est la position W2a, apres tous les
   // opaques et tous les alphas, la seule ou la profondeur de scene est lisible.
-  m_common_ocean_renderer.set_suppress_draw(water_on);
+  m_common_ocean_renderer.set_suppress_draw(takeover);
 
   switch (render_state->version) {
     case GameVersion::Jak1:
@@ -60,7 +67,7 @@ void OceanNear::render(DmaFollower& dma,
   // Hors du `switch` A DESSEIN : `render_jak1` sort tot quand le bucket est vide, ce qui arrive
   // des que la camera passe 48 m d'altitude (`ocean.gc:543`). La clipmap doit quand meme etre
   // dessinee ces images-la, sur la derniere houle captee.
-  if (water_on) {
+  if (takeover) {
     auto p = prof.make_scoped_child("clipmap");
     OceanRecharged::get().draw(render_state, p);
   }

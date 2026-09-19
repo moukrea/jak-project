@@ -93,6 +93,7 @@ class OceanRecharged {
   bool refresh_ocean_map();
   void rebuild_mask_texture();
   void run_probe(SharedRenderState* render_state);
+  void run_wave_probe(SharedRenderState* render_state);
   bool ensure_census_gl();
   void census_draw_rings(SharedRenderState* render_state, u32 program, int target, float atten_on);
   void census_read_and_count();
@@ -137,6 +138,58 @@ class OceanRecharged {
   u32 m_probe_tex = 0;
   float m_probe_xz[kProbeCount][4] = {};
 
+  // --- verdict C du 17/09 : « LES VAGUES RESTENT DES VAGUES » -------------------------------
+  //
+  // CE QUI EST COMPARE, ET A QUOI. L'owner : « avant cette reprise les vagues ressemblaient plus
+  // a des vagues ». Le contrat nomme la reference : le binaire d'AVANT water-ocean-mesh, dont
+  // l'eau est celle de Naughty Dog. La grandeur de reference est donc la houle de ND — la table
+  // `*ocean-heights*` captee au DMA du bucket 63 — lue a SA PROPRE resolution (ses noeuds, tous
+  // les 3 m) et attenuee par SA PROPRE loi. La grandeur mesuree est le deplacement que NOTRE
+  // surface produit vraiment, relu du GPU au pas de l'anneau 0 (0,75 m) par `ocean_wave.frag`.
+  //
+  // CE QUE CETTE PORTE NE JUGE PAS : la loi d'attenuation elle-meme, qui est le contrat de
+  // l'item (« la houle reste celle de Naughty Dog ») et qui est commune aux deux cotes. Ce
+  // qu'elle juge : que le maillage livre RESOLVE le relief que la donnee de ND porte. Un pas
+  // trop grossier, un masque trop large, une attenuation appliquee deux fois, une couche A
+  // perdue : tout cela fait tomber le rapport, et c'est exactement ce que « plus plate » veut
+  // dire. Les deux cotes n'echantillonnent PAS les memes points — les noeuds de ND sont ceux de
+  // sa table, les notres ceux de l'anneau snappe a la camera — donc un rapport de 1,000 exact
+  // serait la signature d'un miroir, pas d'un accord.
+  static constexpr int kWaveSide = 61;        // 60 cellules de l'anneau 0 : 45 m autour de la
+  static constexpr int kWaveCount = kWaveSide * kWaveSide;   // camera, dans la portee de 24 m ou
+  static constexpr int kWaveCmpSide = 16;     // l'attenuation ND laisse encore de la houle.
+  static constexpr int kWaveCmpStride = 4;    // 16 noeuds tous les 4 x 0,75 m = 3 m : la MEME
+                                              // fenetre de 45 m que la reference, au MEME pas
+  static constexpr int kWaveCtrlSide = 6;     // temoin d'echelle : la MEME surface, relue
+  static constexpr int kWaveCtrlStride = 12;  // tous les 9 m
+  u32 m_wave_fbo = 0;
+  u32 m_wave_tex = 0;
+  u64 m_wave_runs = 0;            // passes de sonde de houle
+  u64 m_wave_runs_compared = 0;   // passes ou la houle de ND n'etait pas plate
+  u64 m_wave_texels_missing = 0;  // texels sans fragment : une cible partielle ne se compare pas
+  u64 m_wave_flat_runs = 0;       // passes ou NOTRE relief tombe sous 90 % du sien
+  u64 m_wave_ratio_amp_min_x1000 = 0;   // LA PORTE : notre surface TELLE QU'ELLE EST DESSINEE
+  u64 m_wave_ratio_nvar_min_x1000 = 0;  // (0,75 m) contre celle de ND telle qu'elle l'est (3 m)
+  u64 m_wave_ratio_amp_sub_min_x1000 = 0;   // publie, PAS juge : notre surface RAMENEE a 3 m.
+  u64 m_wave_ratio_nvar_sub_min_x1000 = 0;  // Biais connu, voir `water_waves_scope`.
+  s64 m_wave_amp_sub_q256 = 0;
+  u64 m_wave_nvar_sub_x1e6 = 0;
+  u64 m_wave_slope_sub_x1e6 = 0;
+  s64 m_wave_amp_ours_q256 = 0;   // derniere passe comparee, valeurs absolues
+  s64 m_wave_amp_nd_q256 = 0;
+  u64 m_wave_nvar_ours_x1e6 = 0;
+  u64 m_wave_nvar_nd_x1e6 = 0;
+  u64 m_wave_slope_ours_x1e6 = 0;
+  u64 m_wave_slope_nd_x1e6 = 0;
+  u32 m_wave_nodes_ours = 0;
+  u32 m_wave_nodes_nd = 0;
+  s64 m_wave_amp_full_q256 = 0;   // notre surface a SON pas (0,75 m) : le cote JUGE
+  u64 m_wave_nvar_full_x1e6 = 0;
+  u64 m_wave_slope_full_x1e6 = 0;
+  u32 m_wave_nodes_full = 0;
+  s64 m_wave_amp_ctrl_q256 = 0;   // la meme, relue tous les 12 m
+  u64 m_wave_nvar_ctrl_x1e6 = 0;
+
   // --- comparateur raster d'emprise --------------------------------------------------------
   // 320 x 180 : la cible est rasterisee en CLIP SPACE par les memes shaders que l'ecran, donc
   // c'est l'ecran, reduit. Une cellule vaut 1/57600 de l'image. Une image sur 120 seulement : le
@@ -178,6 +231,8 @@ class OceanRecharged {
   // --- defaut B du 17/09 : LA REPRISE, ET LE TROU QU'ELLE OUVRAIT --------------------------
   bool m_takeover = false;          // l'ocean d'origine est-il efface pour CETTE image ?
   bool m_takeover_decided = false;  // la decision de l'image a-t-elle deja ete prise ?
+  bool m_takeover_blocked = false;  // `draw()` a renonce pour une cause durable : on rend la
+                                    // main a l'ocean d'origine au lieu de laisser un trou
   u64 m_takeover_frames = 0;           // images ou la clipmap a pris la place de l'origine
   u64 m_takeover_declined_frames = 0;  // images ou l'origine a ete LAISSEE dessiner
   u64 m_blackout_frames = 0;           // images ou l'origine etait effacee et ou NOUS n'avons

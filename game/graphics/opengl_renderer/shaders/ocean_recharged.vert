@@ -35,6 +35,7 @@ uniform float u_water_y;      // (-> *ocean-map* start-corner y), unites GOAL
 uniform float u_atten_on;
 
 #include "ocean_layer_a.glsl"
+#include "ocean_atten.glsl"
 
 out vec2  vs_world_xz;
 out float vs_dist;
@@ -66,23 +67,17 @@ void main() {
   // n'existent pas encore. La borne de l'excedent visuel entre sommets reste non mesuree.
   float a = ocean_layer_a(world_xz);
 
-  // LA DISTANCE QUE NAUGHTY DOG MESURE. `run_L15_vu2c` transforme le sommet PORTANT SA HAUTEUR
-  // par la matrice de l'ocean near (vf08..vf11), puis prend `eleng.xyz` du resultat
-  // (OceanNear_PS2.cpp:210-222). La rotation de cette matrice est celle de la camera, donc
-  // orthonormale : la longueur en espace camera EST la distance monde de la camera au sommet.
-  // Le sommet porte sa hauteur AVANT attenuation — c'est la circularite de ND, reproduite telle
-  // quelle et non corrigee.
-  float y_raw = u_water_y + a;
-  float d = length(vec3(world_xz.x, y_raw, world_xz.y) - camera_position.xyz);
-
-  // L'ATTENUATION, MOT POUR MOT. `mulw.w vf22, vf20, vf05.w` puis `miniw.w vf22, vf22, vf00.w`
-  // puis `subw.w vf28, vf00, vf22.w` puis `mulw.y vf28, vf28, vf28.w` — OceanNear_PS2.cpp:226-238.
-  // La constante est `(-> arg0 constants)` w, posee a 0.000010172526 par
-  // `ocean-near-setup-constants` (ocean-near.gc:34) : c'est 1/98304, soit 1/24 m en unites GOAL.
-  // Au-dela de 24 m de la camera, l'ocean de Naughty Dog est PLAT — le mid et la transition le
+  // LA DISTANCE ET L'ATTENUATION DE NAUGHTY DOG. Les deux sont dans `ocean_atten.glsl`, seule
+  // transcription du microcode (OceanNear_PS2.cpp:1181-1216 pour la distance, :1224-1250 pour
+  // l'attenuation) ; la sonde de houle du verdict C lit LE MEME texte, sans quoi la grandeur
+  // publiee decrirait une autre surface que celle-ci. Le sommet porte sa hauteur AVANT
+  // attenuation — c'est la circularite de ND, reproduite telle quelle et non corrigee.
+  // Au-dela de 24 m de la camera, l'ocean de Naughty Dog est PLAT : le mid et la transition le
   // sont par construction (ocean-transition.gc:500-504). La clipmap gardait A entiere jusqu'a
   // 2304 m : c'est la houle qui montait sur les berges.
-  float f = 1.0 - min(d * 0.000010172526, 1.0);
+  float y_raw = u_water_y + a;
+  float d = ocean_nd_dist(vec3(world_xz.x, y_raw, world_xz.y), camera_position.xyz);
+  float f = ocean_nd_atten(d);
   float y = u_water_y + a * mix(1.0, f, u_atten_on);
 
   vs_world_xz = world_xz;

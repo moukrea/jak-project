@@ -109,6 +109,10 @@ enum class ShaderId {
   // l'ocean de Naughty Dog, rasterise depuis les sommets que son microcode VU1 emule produit
   // deja, dans une cible de recensement et non a l'ecran.
   OCEAN_FOOTPRINT_ND = 55,
+  // water-ocean-mesh (verdict C du 17/09) : la sonde de houle — ce que la surface LIVREE deplace
+  // vraiment, relu du GPU au pas de l'anneau 0. Elle partage `ocean_layer_a.glsl` ET
+  // `ocean_atten.glsl` avec la clipmap : une seule transcription de chaque loi, deux lecteurs.
+  OCEAN_WAVE = 56,
   MAX_SHADERS
 };
 

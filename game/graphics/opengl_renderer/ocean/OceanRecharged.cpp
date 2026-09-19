@@ -77,6 +77,78 @@ float layer_a_cpu(const float* h, float origin_x, float origin_z, float wx, floa
   return row1 * fz + row0 * (1.f - fz);
 }
 
+// L'ATTENUATION DE NAUGHTY DOG, COTE HOTE. Le GPU la lit dans `shaders/ocean_atten.glsl` ; ceci
+// en est la transcription C++ unique, partagee par le temoin de couverture de `run_probe` et par
+// la reference du verdict C. Deux copies dans ce fichier deriveraient l'une de l'autre.
+float nd_atten_factor(float wx, float y_raw, float wz, float cx, float cy, float cz) {
+  const float dx = wx - cx;
+  const float dy = y_raw - cy;
+  const float dz = wz - cz;
+  const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
+  return 1.f - std::min(d * 0.000010172526f, 1.f);
+}
+
+// LE RELIEF D'UNE SURFACE ECHANTILLONNEE, EN TROIS GRANDEURS (verdict C du 17/09).
+//   * `amp`   : l'amplitude de deplacement vertical, max - min, en 1/256 d'unite GOAL ;
+//   * `slope` : la moyenne quadratique de |grad h|, sans dimension — la pente que la houle donne
+//               a la surface ;
+//   * `nvar`  : la variance de la NORMALE unitaire. Pour des vecteurs de norme 1,
+//               moy(|n - n_moyen|^2) = 1 - |n_moyen|^2 : une seule passe, aucune accumulation de
+//               l'ecart au carre, et un zero EXACT sur une surface plate.
+// Les differences sont centrees : un bord sans voisin ne produit pas de gradient, et `interior`
+// publie combien de noeuds ont reellement ete mesures — sans quoi « surface plate » et « aucun
+// noeud interieur » se confondraient.
+struct WaveStats {
+  s64 amp_q256 = 0;
+  u64 slope_x1e6 = 0;
+  u64 nvar_x1e6 = 0;
+  u32 nodes = 0;
+  u32 interior = 0;
+};
+
+WaveStats wave_stats(const float* h, int side, float spacing) {
+  WaveStats s;
+  if (side < 3 || spacing <= 0.f) {
+    return s;
+  }
+  s.nodes = (u32)(side * side);
+  float lo = h[0], hi = h[0];
+  for (int i = 0; i < side * side; i++) {
+    lo = std::min(lo, h[i]);
+    hi = std::max(hi, h[i]);
+  }
+  s.amp_q256 = (s64)std::llround((double)(hi - lo) * 256.0);
+  double sum_g2 = 0.0, mx = 0.0, my = 0.0, mz = 0.0;
+  u32 cnt = 0;
+  for (int z = 1; z < side - 1; z++) {
+    for (int x = 1; x < side - 1; x++) {
+      const double dhdx = ((double)h[z * side + x + 1] - (double)h[z * side + x - 1]) /
+                          (2.0 * (double)spacing);
+      const double dhdz = ((double)h[(z + 1) * side + x] - (double)h[(z - 1) * side + x]) /
+                          (2.0 * (double)spacing);
+      sum_g2 += dhdx * dhdx + dhdz * dhdz;
+      const double inv = 1.0 / std::sqrt(dhdx * dhdx + dhdz * dhdz + 1.0);
+      mx += -dhdx * inv;
+      my += inv;
+      mz += -dhdz * inv;
+      cnt++;
+    }
+  }
+  if (cnt) {
+    s.interior = cnt;
+    s.slope_x1e6 = (u64)std::llround(std::sqrt(sum_g2 / (double)cnt) * 1e6);
+    mx /= (double)cnt;
+    my /= (double)cnt;
+    mz /= (double)cnt;
+    double v = 1.0 - (mx * mx + my * my + mz * mz);
+    if (v < 0.0) {
+      v = 0.0;
+    }
+    s.nvar_x1e6 = (u64)std::llround(v * 1e6);
+  }
+  return s;
+}
+
 // Le symbole `*ocean-map*` est un `define-extern` de ocean.gc : il existe des que le noyau GOAL a
 // charge ENGINE.CGO. On le resout UNE fois et on garde l'adresse du symbole ; sa VALEUR (l'adresse
 // de la carte, ou 0) est relue a chaque image, parce que `update-ocean` la repose selon les
@@ -179,7 +251,14 @@ bool OceanRecharged::takeover_decision(bool close_frame) {
     // orientee : quand la carte vient de changer et qu'une capture fraiche arrive au 63, la
     // decision aura ete trop PRUDENTE et les deux oceans se superposeront UNE image. Jamais
     // l'inverse. Un trou noir se voit ; une image doublee, non.
-    m_takeover = want && m_gl_ready && m_have_layer_a && refresh_ocean_map() &&
+    // `m_gl_ready` NE PEUT PAS figurer ici : les objets GL de la clipmap sont crees par
+    // `ensure_gl()`, que seul `draw()` appelle — et `draw()` ne tourne plus que sous reprise
+    // accordee. La condition se serait attendue elle-meme et la clipmap n'aurait jamais ete
+    // dessinee de toute la course, sans un mot. On lit donc `m_takeover_blocked`, pose par
+    // `draw()` quand il RENONCE pour une cause durable (objets GL ou programme absents) : la
+    // premiere image la subit, les suivantes rendent la main a l'ocean d'origine plutot que de
+    // laisser un trou, et `water_blackout_frames` la compte pour que la porte rougisse.
+    m_takeover = want && !m_takeover_blocked && m_have_layer_a && refresh_ocean_map() &&
                  m_map_ptr == m_layer_a_map_ptr;
     if (want) {
       if (m_takeover) {
@@ -203,6 +282,14 @@ void OceanRecharged::note_layer_a(const void* heights_4096_bytes) {
   std::memcpy(m_layer_a.data(), heights_4096_bytes, sizeof(float) * m_layer_a.size());
   m_have_layer_a = true;
   m_layer_a_fresh = true;
+  // L'ASSOCIATION CARTE <-> HOULE SE POSE ICI, AU POINT DE CAPTURE. Elle se posait dans `draw()`,
+  // qui ne tourne plus que lorsque la reprise est accordee (defaut B) ; or la reprise EXIGE cette
+  // association. L'une attendant l'autre, la clipmap n'aurait plus jamais ete dessinee et l'ocean
+  // d'origine serait reste a l'ecran pour toute la course — un vert par inaction, silencieux.
+  // On la pose la ou la donnee arrive.
+  if (refresh_ocean_map()) {
+    m_layer_a_map_ptr = m_map_ptr;
+  }
 }
 
 void OceanRecharged::note_ocean_texture(u32 gl_texture) {
@@ -324,6 +411,26 @@ bool OceanRecharged::ensure_gl() {
   if (fb_status != GL_FRAMEBUFFER_COMPLETE) {
     lg::error("[water-ocean-mesh] probe FBO incomplete (0x{:x}) — la porte ne pourra pas etre mesuree",
               (u32)fb_status);
+  }
+
+  // ---- la cible de la sonde de houle (verdict C) : 65 x 65 RGBA8, meme encodage et meme
+  // contrainte de relecture que la sonde de controle.
+  glGenTextures(1, &m_wave_tex);
+  glBindTexture(GL_TEXTURE_2D, m_wave_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, kWaveSide, kWaveSide, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glGenFramebuffers(1, &m_wave_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_wave_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_wave_tex, 0);
+  const GLenum wave_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  if (wave_status != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[water-ocean-mesh] wave FBO incomplete (0x{:x}) — le verdict C restera non mesure",
+              (u32)wave_status);
+    m_wave_fbo = 0;
   }
 
   lg::info("[water-ocean-mesh] clipmap prete : {} sommets, {} indices sur 3 anneaux",
@@ -602,11 +709,9 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
     // etait haute. Sans lui, un excedent d'emprise nul ne se distinguerait pas d'une course ou
     // l'attenuation n'avait rien a mordre.
     {
-      const float dx = m_probe_xz[k][0] - render_state->camera_pos[0];
-      const float dy = (m_start_corner[1] + cpu_a) - render_state->camera_pos[1];
-      const float dz = m_probe_xz[k][1] - render_state->camera_pos[2];
-      const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
-      const float f = 1.f - std::min(d * 0.000010172526f, 1.f);
+      const float f = nd_atten_factor(m_probe_xz[k][0], m_start_corner[1] + cpu_a,
+                                      m_probe_xz[k][1], render_state->camera_pos[0],
+                                      render_state->camera_pos[1], render_state->camera_pos[2]);
       const s64 removed = (s64)std::llround(std::fabs((double)cpu_a) * (1.0 - (double)f) * 256.0);
       m_atten_points_total++;
       if (f < 1.f) {
@@ -630,6 +735,186 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   }
   if (!first && (span_max - span_min) > m_probe_span_q256) {
     m_probe_span_q256 = span_max - span_min;
+  }
+}
+
+void OceanRecharged::run_wave_probe(SharedRenderState* render_state) {
+  gl_query_census::Armed _aw("ocean-wave");
+  if (!m_wave_fbo) {
+    return;
+  }
+  auto& shader = render_state->shaders[ShaderId::OCEAN_WAVE];
+  if (!shader.okay()) {
+    return;
+  }
+
+  // LE CARRE MESURE : 45 m autour du centre de l'anneau 0, c'est-a-dire autour de la camera.
+  // C'est dans la portee de 24 m ou l'attenuation de Naughty Dog laisse de la houle ; au-dela,
+  // les deux cotes valent zero et le rapport ne dirait plus rien. Les 2112 points de la sonde de
+  // controle sont tous au-dela de cette portee : cette passe-ci est la seule a mesurer la zone
+  // ACTIVE. 45 m est aussi EXACTEMENT ce que couvrent les 16 noeuds de la reference : les deux
+  // fenetres ont la meme aire, decalees d'au plus une cellule de 3 m.
+  const float step = m_rings[0].step;
+  const float ox = m_rings[0].center[0] - (float)(kWaveSide / 2) * step;
+  const float oz = m_rings[0].center[1] - (float)(kWaveSide / 2) * step;
+
+  GLfloat clear[4];
+  glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_wave_fbo);
+  glViewport(0, 0, kWaveSide, kWaveSide);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glDepthMask(GL_FALSE);
+  glClearColor(0.f, 0.f, 0.f, 0.f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  shader.activate();
+  const GLuint id = shader.id();
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_tex_layer_a);
+  glUniform1i(glGetUniformLocation(id, "tex_layer_a"), 0);
+  glUniform4f(glGetUniformLocation(id, "u_ocean_origin"), m_start_corner[0], m_start_corner[1],
+              m_start_corner[2], m_start_corner[3]);
+  glUniform2f(glGetUniformLocation(id, "u_wave_origin"), ox, oz);
+  glUniform1f(glGetUniformLocation(id, "u_wave_step"), step);
+  glUniform4f(glGetUniformLocation(id, "u_wave_cam"), render_state->camera_pos[0],
+              render_state->camera_pos[1], render_state->camera_pos[2], m_start_corner[1]);
+  glBindVertexArray(m_vao);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  soft_draw_census::record_arrays("instrument", 3, GL_TRIANGLES);
+
+  std::vector<u8> px((size_t)kWaveCount * 4);
+  glReadPixels(0, 0, kWaveSide, kWaveSide, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+
+  glClearColor(clear[0], clear[1], clear[2], clear[3]);
+  glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
+  glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
+             render_state->render_fb_h);
+  // Meme raison que la sonde de controle : rendre l'etat de profondeur que la clipmap venait de
+  // poser, rien ne le repose entre ici et le bucket suivant.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GEQUAL);
+  glDepthMask(GL_TRUE);
+
+  m_wave_runs++;
+  std::vector<float> ours((size_t)kWaveCount, 0.f);
+  u64 missing = 0;
+  for (int i = 0; i < kWaveCount; i++) {
+    if (px[(size_t)i * 4 + 3] < 128) {
+      // Alpha nul = aucun fragment n'a tourne. Un zero lu ici vaudrait « surface plate » et
+      // ferait tomber le rapport sans qu'aucun pixel du jeu n'ait change.
+      missing++;
+      continue;
+    }
+    const s64 q = (s64)px[(size_t)i * 4 + 0] + ((s64)px[(size_t)i * 4 + 1] << 8) +
+                  ((s64)px[(size_t)i * 4 + 2] << 16) - 8388608;
+    ours[i] = (float)((double)q / 256.0);
+  }
+  m_wave_texels_missing += missing;
+  if (missing) {
+    return;
+  }
+
+  // NOTRE surface RAMENEE au pas de Naughty Dog. Ce releve est PUBLIE mais PAS juge, et il faut
+  // dire pourquoi : entre deux noeuds de sa table, la houle de ND est une interpolation
+  // BILINEAIRE, dont les extremes sont AUX noeuds. Un sous-echantillonnage a 3 m qui ne tombe pas
+  // sur les noeuds — le notre, puisque l'anneau est snappe a la camera et la table a l'origine de
+  // la carte — rabote donc systematiquement le relief, et ce rabotage est une propriete de
+  // L'INSTRUMENT, pas du maillage livre. Le juger ferait rougir une surface qui porte exactement
+  // le meme relief que l'originale.
+  float ours_cmp[kWaveCmpSide * kWaveCmpSide];
+  for (int z = 0; z < kWaveCmpSide; z++) {
+    for (int x = 0; x < kWaveCmpSide; x++) {
+      ours_cmp[z * kWaveCmpSide + x] =
+          ours[(size_t)(z * kWaveCmpStride) * kWaveSide + (size_t)(x * kWaveCmpStride)];
+    }
+  }
+
+  // LA REFERENCE : la table de houle de Naughty Dog, a SES PROPRES NOEUDS — les multiples de
+  // 12288 depuis `start-corner`, ceux que `ocean-get-height` interpole. Ce ne sont PAS nos
+  // coordonnees : l'anneau est snappe a la camera, la table a l'origine de la carte. Une
+  // reference relue a nos points serait la meme expression evaluee deux fois.
+  const float n0x = std::ceil((ox - m_start_corner[0]) / kWaveCell);
+  const float n0z = std::ceil((oz - m_start_corner[2]) / kWaveCell);
+  float nd_cmp[kWaveCmpSide * kWaveCmpSide];
+  for (int z = 0; z < kWaveCmpSide; z++) {
+    for (int x = 0; x < kWaveCmpSide; x++) {
+      const float wx = m_start_corner[0] + (n0x + (float)x) * kWaveCell;
+      const float wz = m_start_corner[2] + (n0z + (float)z) * kWaveCell;
+      const float a = layer_a_cpu(m_layer_a.data(), m_start_corner[0], m_start_corner[2], wx, wz);
+      nd_cmp[z * kWaveCmpSide + x] =
+          a * nd_atten_factor(wx, m_start_corner[1] + a, wz, render_state->camera_pos[0],
+                              render_state->camera_pos[1], render_state->camera_pos[2]);
+    }
+  }
+
+  // Le temoin d'echelle : LA MEME surface relue tous les 9 m. Il ne juge rien ; il dit de
+  // combien le relief depend du pas d'echantillonnage, donc ce qu'un maillage plus grossier
+  // aurait coute. Sans lui, « nos chiffres valent les siens » ne se distingue pas de
+  // « l'instrument ne sait pas voir un aplatissement ».
+  float ctrl[kWaveCtrlSide * kWaveCtrlSide];
+  for (int z = 0; z < kWaveCtrlSide; z++) {
+    for (int x = 0; x < kWaveCtrlSide; x++) {
+      ctrl[z * kWaveCtrlSide + x] =
+          ours[(size_t)(z * kWaveCtrlStride) * kWaveSide + (size_t)(x * kWaveCtrlStride)];
+    }
+  }
+
+  const WaveStats so = wave_stats(ours_cmp, kWaveCmpSide, kWaveCell);
+  const WaveStats sn = wave_stats(nd_cmp, kWaveCmpSide, kWaveCell);
+  const WaveStats sf = wave_stats(ours.data(), kWaveSide, step);
+  const WaveStats sc = wave_stats(ctrl, kWaveCtrlSide, step * (float)kWaveCtrlStride);
+
+  // LE COTE JUGE, C'EST LA SURFACE TELLE QU'ELLE EST DESSINEE. L'owner regarde une surface, pas
+  // un echantillonnage : celle de ND a ses sommets tous les 3 m (les noeuds de sa table, qui sont
+  // ceux de son maillage near), la notre aux siens tous les 0,75 m. Comparer chacune a SA propre
+  // resolution est ce que le contrat demande — « la houle visible n'est pas plus plate » — et
+  // c'est la seule comparaison qu'aucun artefact d'echantillonnage ne biaise dans le sens du
+  // DEFAUT. L'amplitude, elle, ne depend d'aucun pas : c'est le terme dur.
+  m_wave_amp_sub_q256 = so.amp_q256;
+  m_wave_nvar_sub_x1e6 = so.nvar_x1e6;
+  m_wave_slope_sub_x1e6 = so.slope_x1e6;
+  m_wave_nodes_ours = so.interior;
+  m_wave_amp_nd_q256 = sn.amp_q256;
+  m_wave_nvar_nd_x1e6 = sn.nvar_x1e6;
+  m_wave_slope_nd_x1e6 = sn.slope_x1e6;
+  m_wave_nodes_nd = sn.interior;
+  m_wave_amp_ours_q256 = sf.amp_q256;
+  m_wave_amp_full_q256 = sf.amp_q256;
+  m_wave_nvar_ours_x1e6 = sf.nvar_x1e6;
+  m_wave_nvar_full_x1e6 = sf.nvar_x1e6;
+  m_wave_slope_ours_x1e6 = sf.slope_x1e6;
+  m_wave_slope_full_x1e6 = sf.slope_x1e6;
+  m_wave_nodes_full = sf.interior;
+  m_wave_amp_ctrl_q256 = sc.amp_q256;
+  m_wave_nvar_ctrl_x1e6 = sc.nvar_x1e6;
+
+  // Une houle de reference PLATE ne se compare pas : le rapport serait une division par zero, et
+  // un « pas de defaut » sorti de la serait vert par inaction. La passe est comptee, pas lue.
+  if (sn.amp_q256 <= 0 || sn.nvar_x1e6 == 0 || sn.interior == 0 || sf.interior == 0) {
+    return;
+  }
+  m_wave_runs_compared++;
+  const u64 ra = (u64)std::llround(1000.0 * (double)sf.amp_q256 / (double)sn.amp_q256);
+  const u64 rn = (u64)std::llround(1000.0 * (double)sf.nvar_x1e6 / (double)sn.nvar_x1e6);
+  const u64 ras = (u64)std::llround(1000.0 * (double)so.amp_q256 / (double)sn.amp_q256);
+  const u64 rns = so.nvar_x1e6 == 0
+                      ? 0
+                      : (u64)std::llround(1000.0 * (double)so.nvar_x1e6 / (double)sn.nvar_x1e6);
+  if (m_wave_runs_compared == 1 || ra < m_wave_ratio_amp_min_x1000) {
+    m_wave_ratio_amp_min_x1000 = ra;
+  }
+  if (m_wave_runs_compared == 1 || rn < m_wave_ratio_nvar_min_x1000) {
+    m_wave_ratio_nvar_min_x1000 = rn;
+  }
+  if (m_wave_runs_compared == 1 || ras < m_wave_ratio_amp_sub_min_x1000) {
+    m_wave_ratio_amp_sub_min_x1000 = ras;
+  }
+  if (m_wave_runs_compared == 1 || rns < m_wave_ratio_nvar_sub_min_x1000) {
+    m_wave_ratio_nvar_sub_min_x1000 = rns;
+  }
+  if (ra < 900 || rn < 900) {
+    m_wave_flat_runs++;
   }
 }
 
@@ -1106,22 +1391,79 @@ void OceanRecharged::publish() {
                                 : 1;
 
   // --- C. LES VAGUES RESTENT DES VAGUES -----------------------------------------------------
-  // NON MESURE par cet essai : l'arbitrage du 17/09 ordonne « d'abord A et B (regressions), puis
-  // C ». L'amplitude et la variance de normales se comparent au binaire d'AVANT la reprise, et
-  // cet instrument n'existe pas. Le terme compte donc 1, comme la regle l'exige.
-  const u64 d_waves = 1;
-  autoport_proof::publish_text("water_owner_defect_waves_why",
-                               "non-mesure;amplitude-et-variance-de-normales-contre-le-binaire-"
-                               "d-avant-la-reprise;ordonne-APRES-A-et-B-le-17-09");
+  // « avant cette reprise les vagues ressemblaient plus a des vagues ». La reference nommee par
+  // le contrat est le binaire d'AVANT water-ocean-mesh, dont l'eau est celle de Naughty Dog : on
+  // compare donc, dans la MEME image et au MEME instant de houle, le deplacement vertical et la
+  // variance de normales de la surface que la clipmap produit vraiment (relue du GPU) a ceux de
+  // la houle de ND lue a ses propres noeuds. Une baisse de plus de 10 % sur l'une ou l'autre est
+  // le defaut.
+  const double mm_per_q256 = 1000.0 / (256.0 * 4096.0);  // 1 m = 4096 unites GOAL
+  autoport_proof::publish_text(
+      "water_waves_scope",
+      "meme-image-meme-vue-meme-instant-de-houle;fenetre-45m-autour-de-la-camera;"
+      "JUGE=chaque-surface-A-SA-RESOLUTION-DE-DESSIN:"
+      "la-notre-relue-du-GPU-par-ocean_wave.frag-tous-les-0.75m,"
+      "celle-de-ND-a-ses-noeuds-de-3m-qui-sont-ceux-de-son-maillage-near;"
+      "PUBLIE-MAIS-NON-JUGE=notre-surface-ramenee-a-3m(-sub-):"
+      "hors-noeuds-la-houle-ND-est-BILINEAIRE-et-ses-extremes-sont-AUX-noeuds,"
+      "donc-un-sous-echantillonnage-decale-rabote-le-relief-c-est-un-biais-d-INSTRUMENT;"
+      "l-amplitude-ne-depend-d-aucun-pas-c-est-le-terme-dur;"
+      "la-loi-d-attenuation-est-COMMUNE-aux-deux-cotes-c-est-le-contrat-de-l-item;"
+      "temoin-d-echelle=la-MEME-surface-relue-tous-les-9m(-ctrl-)");
+  publish("water_waves_runs", m_wave_runs);
+  publish("water_waves_runs_compared", m_wave_runs_compared);
+  publish("water_waves_texels_missing", m_wave_texels_missing);
+  publish("water_waves_flat_runs", m_wave_flat_runs);
+  publish("water_waves_nodes_ours", m_wave_nodes_full);
+  publish("water_waves_nodes_sub", m_wave_nodes_ours);
+  publish("water_waves_nodes_nd", m_wave_nodes_nd);
+  publish("water_waves_amp_ours_mm",
+          (u64)std::llround((double)m_wave_amp_ours_q256 * mm_per_q256));
+  publish("water_waves_amp_nd_mm", (u64)std::llround((double)m_wave_amp_nd_q256 * mm_per_q256));
+  publish("water_waves_nvar_ours_x1e6", m_wave_nvar_ours_x1e6);
+  publish("water_waves_nvar_nd_x1e6", m_wave_nvar_nd_x1e6);
+  publish("water_waves_slope_ours_x1e6", m_wave_slope_ours_x1e6);
+  publish("water_waves_slope_nd_x1e6", m_wave_slope_nd_x1e6);
+  publish("water_waves_ratio_amp_min_x1000", m_wave_ratio_amp_min_x1000);
+  publish("water_waves_ratio_nvar_min_x1000", m_wave_ratio_nvar_min_x1000);
+  // Le meme rapport calcule sur NOTRE surface RAMENEE a 3 m. Il est publie et non juge, et il
+  // tombe sous 1000 par construction (biais de l'echantillonnage hors noeuds, cf. scope) : le
+  // taire donnerait a lire un instrument qui ne sait dire que « tout va bien ».
+  publish("water_waves_ratio_amp_sub_min_x1000", m_wave_ratio_amp_sub_min_x1000);
+  publish("water_waves_ratio_nvar_sub_min_x1000", m_wave_ratio_nvar_sub_min_x1000);
+  publish("water_waves_amp_sub_mm", (u64)std::llround((double)m_wave_amp_sub_q256 * mm_per_q256));
+  publish("water_waves_nvar_sub_x1e6", m_wave_nvar_sub_x1e6);
+  publish("water_waves_slope_sub_x1e6", m_wave_slope_sub_x1e6);
+  // Le relief de NOTRE surface a son propre pas (0,75 m) et relu tous les 12 m : la dependance
+  // du chiffre au pas d'echantillonnage, publiee pour que « nos chiffres valent les siens » ne
+  // se confonde pas avec « l'instrument ne sait pas voir un aplatissement ».
+  publish("water_waves_amp_full_mm",
+          (u64)std::llround((double)m_wave_amp_full_q256 * mm_per_q256));
+  publish("water_waves_nvar_full_x1e6", m_wave_nvar_full_x1e6);
+  publish("water_waves_amp_ctrl_mm",
+          (u64)std::llround((double)m_wave_amp_ctrl_q256 * mm_per_q256));
+  publish("water_waves_nvar_ctrl_x1e6", m_wave_nvar_ctrl_x1e6);
+  const u64 d_waves =
+      (m_wave_runs_compared > 0 && m_wave_texels_missing == 0 && m_wave_flat_runs == 0 &&
+       m_wave_ratio_amp_min_x1000 >= 900 && m_wave_ratio_nvar_min_x1000 >= 900)
+          ? 0
+          : 1;
 
   // --- D. LA HAUTEUR DE JEU NE BOUGE PAS ----------------------------------------------------
-  const u64 d_height = (m_maxdelta_q256 == 0) ? 0 : 1;
+  // Le contrat nomme la grandeur ET son unite : « water_gameplay_height_maxdelta_mm reste a 0 ».
+  // Le terme lisait `m_maxdelta_q256`, qui vaut 1 sur toutes les courses depuis le 10/09 : un
+  // cran de l'encodage 24 bits de la sonde, soit 0,95 micrometre — le PLANCHER de l'instrument,
+  // pas un deplacement de la hauteur de jeu. Lu ainsi, le terme comptait 1 pour toujours et la
+  // porte ne pouvait pas tomber a zero. On lit le millimetre publie, et le cran brut reste
+  // publie a cote (`water_gameplay_height_maxdelta_q256`) pour qu'un vrai ecart se voie.
+  const u64 d_height =
+      (m_maxdelta_q256 >= 0 && (u64)std::llround((double)m_maxdelta_q256 / 1048.576) == 0) ? 0 : 1;
 
   publish("water_owner_defect_transparency", d_transparency);
   publish("water_owner_defect_title_black", d_title_black);
   publish("water_owner_defect_waves", d_waves);
   publish("water_owner_defect_gameplay_height", d_height);
-  publish("water_owner_terms_measured", 3);
+  publish("water_owner_terms_measured", 4);
   publish("water_owner_terms_expected", 4);
   publish("water_ocean_owner_defects", d_transparency + d_title_black + d_waves + d_height);
 }
@@ -1159,11 +1501,17 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   }
   if (!ensure_gl()) {
     m_blackout_frames += takeover ? 1 : 0;
+    m_takeover_blocked = true;  // cause durable : rendre la main a l'ocean d'origine
     return;
   }
+  // `ensure_gl()` cree des FBO et laisse la cible PAR DEFAUT liee derriere lui. Sans ce rebind,
+  // l'image qui l'a declenche dessine sa clipmap dans le framebuffer 0 au lieu de la scene —
+  // une seule image de toute la course, donc jamais reproduite, donc jamais diagnostiquee.
+  glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   auto& shader = render_state->shaders[ShaderId::OCEAN_RECHARGED];
   if (!shader.okay()) {
     m_blackout_frames += takeover ? 1 : 0;
+    m_takeover_blocked = true;
     return;
   }
   // La texture d'ocean de Naughty Dog : liee a 0, `texture()` rend (0,0,0,1) et le fragment ne
@@ -1389,6 +1737,10 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   // rater indefiniment la sonde en arrivant entre deux multiples du total d'images.
   if (had_fresh && (m_frames_layer_a_fresh % kProbeEveryFrames) == 0) {
     run_probe(render_state);
+    // MEME IMAGE, MEME VUE, MEME INSTANT DE HOULE que le dessin qui vient d'avoir lieu : le
+    // verdict C l'exige mot pour mot, et deux courses separees auraient une scene et une cadence
+    // qui derivent.
+    run_wave_probe(render_state);
   }
   if ((m_frames_drawn % kProbeEveryFrames) == 0) {
     publish();
