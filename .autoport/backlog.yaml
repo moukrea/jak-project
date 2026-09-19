@@ -13448,7 +13448,7 @@ items:
   - date: '2026-09-18'
     text: Non le cœur est bon, t'aurais dû le voir par toi même j'ai validé son ticket !
   block_reason: ''
-- status: in-progress
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -14035,7 +14035,7 @@ items:
 - id: recharged-hud-toggle
   feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
     le HUD d'origine
-  status: open
+  status: in-progress
   priority: 11
   owner_test: true
   depends_on: []
@@ -14084,42 +14084,25 @@ items:
   max_retries: 6
   proof_timeout: 420
   no_code: true
-  known_cause: 'Cree le 19/09 par l''owner (JAK-182), cadre par le superviseur a 03:10. ETUDE DU HARNAIS,
-    PAS DU JEU : elle se PUBLIE par `lib/census/<id>.sh` et se juge sur des GRANDEURS TIREES DE NOS PROPRES
-    JOURNAUX, jamais sur des tarifs supposes ni des opinions. DONNEES DISPONIBLES (releve du superviseur)
-    : 674 journaux d''essai `logs/<item>/attempt-NNN.jsonl` (1,4 Go) portant, pour chaque message de l''agent,
-    le modele ET les compteurs de jetons (`message.usage` : entree, sortie, cache lu/ecrit) ; 950 verdicts
-    `validator-NNN.txt` (337 verts) qui donnent l''issue de chaque essai ; les bannieres de `logs/orchestrator.log`
-    donnent le profil par essai (277 opus-5, 134 gpt-6-astra, 27 fable-5-1[1m], 13 opus-5[1m], 28 « defaut
-    ») ; les appels de sous-agents sont des `tool_use` Agent avec leur type (researcher/implementer/tester)
-    ; le superviseur a ses propres transcriptions sous ~/.claude/projects/-home-emeric-code-jak-project/.
-    MESURE DEJA FAITE le 05/09 (model-profiles.json, note fable51-sobre) : le suffixe [1m] laissait le
-    contexte a 450-470 k jetons relu 300 fois par essai (104 M de jetons pour un essai) ; sans [1m], compaction
-    vers 160 k et ~2,5x moins de jetons pour le meme nombre de tours. A CONFIRMER ou INFIRMER sur toute
-    la population, pas a recopier. TERMES DE LA PORTE `model_mix_defects` (un terme non mesure compte
-    1) : (1) chaque profil ayant >= 10 essais a son cout moyen par essai (jetons, separes entree/sortie/cache)
-    et sa part d''essais verts ; (2) la part d''essais « en boucle » par profil = essais dont le verdict
-    repete le MEME echec que le precedent sur le meme item, 3 fois de suite ou plus ; (3) la repartition
-    des jetons par ETAGE (agent principal, chaque type de sous-agent, superviseur) pour au moins les deux
-    profils les plus utilises ; (4) la recommandation est un PROFIL CONCRET ecrit dans model-profiles.json
-    sous un nom neuf, NON active, avec son cout attendu par essai DERIVE des mesures (1)-(3) et l''effort
-    par etage justifie par une mesure, pas par un adjectif ; (5) les biais sont NOMMES dans le rapport
-    : les items ne sont pas les memes d''un profil a l''autre, Codex a tourne sur d''autres items, un
-    essai tue par la plomberie de preuve n''est pas un echec du modele (releve du 16/09 : 4 echecs sur
-    5 etaient de la plomberie) — le rapport separe ces causes AVANT de comparer les modeles. OWNER : «
-    tout Opus ou tout Fable ou tout Sonnet est une approche naive […] il faut un juste equilibre qui leverage
-    tout le panel et qui soit a la fois efficient (pas un cout exorbitant) et qualitatif (se bute pas
-    en boucle, produit de bons trucs) ». Le rapport est ecrit pour lui : francais courant, un tableau,
-    une recommandation, pas de jargon.'
+  known_cause: |-
+    Cree le 19/09 par l'owner (JAK-182), cadre par le superviseur a 03:10. ETUDE DU HARNAIS, PAS DU JEU : elle se PUBLIE par `lib/census/<id>.sh` et se juge sur des GRANDEURS TIREES DE NOS PROPRES JOURNAUX, jamais sur des tarifs supposes ni des opinions. DONNEES DISPONIBLES (releve du superviseur) : 674 journaux d'essai `logs/<item>/attempt-NNN.jsonl` (1,4 Go) portant, pour chaque message de l'agent, le modele ET les compteurs de jetons (`message.usage` : entree, sortie, cache lu/ecrit) ; 950 verdicts `validator-NNN.txt` (337 verts) qui donnent l'issue de chaque essai ; les bannieres de `logs/orchestrator.log` donnent le profil par essai (277 opus-5, 134 gpt-6-astra, 27 fable-5-1[1m], 13 opus-5[1m], 28 « defaut ») ; les appels de sous-agents sont des `tool_use` Agent avec leur type (researcher/implementer/tester) ; le superviseur a ses propres transcriptions sous ~/.claude/projects/-home-emeric-code-jak-project/. MESURE DEJA FAITE le 05/09 (model-profiles.json, note fable51-sobre) : le suffixe [1m] laissait le contexte a 450-470 k jetons relu 300 fois par essai (104 M de jetons pour un essai) ; sans [1m], compaction vers 160 k et ~2,5x moins de jetons pour le meme nombre de tours. A CONFIRMER ou INFIRMER sur toute la population, pas a recopier. TERMES DE LA PORTE `model_mix_defects` (un terme non mesure compte 1) : (1) chaque profil ayant >= 10 essais a son cout moyen par essai (jetons, separes entree/sortie/cache) et sa part d'essais verts ; (2) la part d'essais « en boucle » par profil = essais dont le verdict repete le MEME echec que le precedent sur le meme item, 3 fois de suite ou plus ; (3) la repartition des jetons par ETAGE (agent principal, chaque type de sous-agent, superviseur) pour au moins les deux profils les plus utilises ; (4) la recommandation est un PROFIL CONCRET ecrit dans model-profiles.json sous un nom neuf, NON active, avec son cout attendu par essai DERIVE des mesures (1)-(3) et l'effort par etage justifie par une mesure, pas par un adjectif ; (5) les biais sont NOMMES dans le rapport : les items ne sont pas les memes d'un profil a l'autre, Codex a tourne sur d'autres items, un essai tue par la plomberie de preuve n'est pas un echec du modele (releve du 16/09 : 4 echecs sur 5 etaient de la plomberie) — le rapport separe ces causes AVANT de comparer les modeles. OWNER : « tout Opus ou tout Fable ou tout Sonnet est une approche naive […] il faut un juste equilibre qui leverage tout le panel et qui soit a la fois efficient (pas un cout exorbitant) et qualitatif (se bute pas en boucle, produit de bons trucs) ». Le rapport est ecrit pour lui : francais courant, un tableau, une recommandation, pas de jargon.
+
+    19/09 07:55 OWNER : « T'es sur qu'on se refere vraiment qu'aux taches passees ? Pas de recherche approfondie sur internet et compagnie ? » -> TERME (6) AJOUTE A LA PORTE : une RECHERCHE EXTERNE approfondie, sources citees avec URL et date de consultation : tarifs officiels par modele (entree, sortie, cache, contexte long) ; documentation officielle des niveaux d'effort et de ce qu'ils changent ; bancs publics recents sur les taches de code longues et agentiques (SWE-bench et equivalents) pour Opus, Fable, Sonnet, Haiku et Codex ; recommandations publiees sur le ROUTAGE multi-modeles dans les systemes d'agents (manager fort, sous-agents moins couteux, quand ca marche et quand ca casse) ; retours d'utilisateurs de Claude Code sur les modeles de sous-agents. Le rapport CROISE les deux sources : les tarifs publies x nos jetons mesures = le vrai cout par essai ; les bancs publics disent ce qu'on peut esperer d'un modele qu'on n'a PAS encore fait tourner ici (Sonnet, Haiku) ; en cas de conflit entre une promesse publiee et notre mesure, notre mesure l'emporte et le conflit est NOMME. Une recherche sans source datee compte comme non faite (terme = 1). Le worker dispose des outils de recherche web ; s'il n'y a pas acces, il le dit dans le rapport au lieu d'inventer.
   notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
   where: 'Rien à installer. Le rapport `reports/<id>/RAPPORT.md` se lit en cinq minutes : pour chaque
     profil qui a tourné (Opus 5, Fable 5.1, Codex Astra, avec et sans contexte long), le coût moyen d''un
     essai, la part d''essais réussis, la part d''essais qui tournent en boucle sur le même échec, et le
     partage des jetons entre l''agent principal, ses sous-agents et le superviseur ; puis UNE recommandation
     sous forme d''un profil prêt à activer (pas activé), avec son coût attendu par essai. Toi seul tranches
-    le profil.'
+    le profil. Le rapport cite aussi ses sources externes (tarifs officiels, documentation des efforts,
+    bancs publics, recommandations de routage multi-modeles) avec leur date, et dit ou nos mesures contredisent
+    ce qui est publie.'
   deliverable: ''
   out_of_scope: ''
   spec: null
   prompt: prompts/item-owner-se-renseigner-sur-le-combo-le-plus-efficient-tou.md
   block_reason: ''
+  owner_feedback:
+  - date: '2026-09-19'
+    text: T'es sûr qu'on se réfère vraiment qu'aux tâches passées ? Pas de recherche approfondie sur internet
+      et compagnie ?
