@@ -13184,11 +13184,11 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: Validé !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   max_turns: 600
-  max_retries: 6
+  max_retries: 2
   proof_timeout: 420
   device: false
   owner_test: true
@@ -13203,9 +13203,10 @@ items:
     key: res_scale_menu_defects
     op: ==
     value: 0
-  known_cause: 'Owner 17/09 (Linear) : « le truc de l''échelle de rendu… Le slider c''est chiant, je préfèrerais
-    un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100… Mais avec à côté la résolution de rendu
-    calculée live en raccord à la résolution utilisée dans le picker de résolution ».'
+  known_cause: |-
+    Owner 17/09 (Linear) : « le truc de l'échelle de rendu… Le slider c'est chiant, je préfèrerais un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100… Mais avec à côté la résolution de rendu calculée live en raccord à la résolution utilisée dans le picker de résolution ».
+
+    19/09 RETOUR OWNER (JAK-172, photo owner-feedback/res-scale-submenu/20260919T0758-1.jpg) : « je validerais bien parce que ca fonctionne mais… c'est quoi cette resolution xxxxXyyy (BASE xxxxXyyy), on a choisi natif, donc tu mets "Résolution : 2414x1080 (Native)" (avec le : correctement espace en fonction de la locale, et pas de all caps !). Pareil pour l'echelle de rendu, tu mets "Échelle de rendu : 70% (1689x756)". Le BASE <resolution> on s'en cogne dans le choix de resolution principale, on veut montrer la resolution, et garder la precision quand c'est la resolution native… la resolution de rendu affecte la partie jeu rendue alors que la resolution c'est TOUT, y compris l'UI ». PERIMETRE UNIQUE : les LIBELLES des deux lignes, exactement comme ci-dessus, dans toutes les langues du menu (le separateur « : » et son espacement viennent de la locale, pas d'un litteral). Le fonctionnement est acquis. PORTE : la chaine REELLEMENT rendue (sonde *font-str-trace*, pas la chaine remise) pour les deux lignes, en francais ET en anglais, egale au gabarit ; aucun « BASE » sur la ligne de resolution ; aucune ligne tout en capitales.
   deliverable: |-
     `res_scale_menu_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13218,8 +13219,11 @@ items:
     4. LE CHOIX SURVIT AU REDEMARRAGE : publie.
 
     PREUVE : `FEATURE res-scale-submenu armed=1 hits=<entrees dessinees>` + la ligne `res_scale_menu_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Options > Affichage > Échelle de rendu : un sous-menu de 10 % à 100 %, chaque ligne montrant
-    la résolution de rendu réelle qui en résulte avec la résolution choisie juste au-dessus.'
+  where: 'Options > Affichage. Trois choses a lire sur le menu, oui/non : (1) la ligne de resolution affiche
+    « Résolution : 2414x1080 (Native) » — la resolution choisie, la mention Native quand c''est le natif,
+    PLUS de « BASE xxxxXyyy », pas de capitales partout ; (2) la ligne d''echelle affiche « Échelle de
+    rendu : 70% (1689x756) » ; (3) l''espace avant les deux-points suit la langue (espace fine en francais,
+    pas d''espace en anglais). Le fonctionnement lui-meme est valide par l''owner.'
   out_of_scope: Ne touche pas au picker de resolution ni a l'echelle dynamique. Tout ce qui n'est pas
     cet item.
   hits_means: entrees dessinees
@@ -13248,6 +13252,7 @@ items:
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+  block_reason: ''
 - id: owner-todo-priorisation
   status: validated
   game: jak1
@@ -13389,12 +13394,12 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 2
   proof_timeout: 420
   device: true
   owner_ok: null
@@ -13426,6 +13431,8 @@ items:
     18/09 07:15 REGRESSION SIGNALEE PAR L'OWNER : « la jauge d'Eco a disparue (c'est toujours l'ancienne sur les builds que je lance) je pense qu'un autre ticket a ecrase un truc ». CE QUI EST MESURE, PAS SUPPOSE (superviseur) : (a) la jauge EST LIVREE — `hud-recharged-power` apparait 2 fois dans GAME.CGO extrait de l'APK publie de 06:47 (CGO batis a 06:42), 0 dans ENGINE.CGO comme attendu ; (b) le lancement est inconditionnel dans `activate-hud-pc` (hud-classes-pc.gc:4968) ; l'extinction est A L'EXECUTION sur `recharged-master?` + `recharged-hud?` ; (c) l'owner VOYAIT notre jauge le 18/09 vers 01:45 sur le build 9d3aa9 (00:57) et ne la voit plus sur celui de 06:42 ; (d) ENTRE LES DEUX, le seul chantier a avoir touche `hud-classes-pc.gc` est hud-heart : 805 lignes reecrites (7a388bd8c6 « Le coeur recharge sort du drapeau de compilation », 0c48f70e80), plus f0f1b7e9b9/3b14dc298a pour la lueur. PERIMETRE : trouver ce qui eteint notre jauge entre 9d3aa9af6d et HEAD — bisect sur ces commits — et le corriger SANS defaire le coeur ni la lueur. Les trois points du 18/09 sont acquis et ne se retouchent pas. A verifier en premier, c'est gratuit : le meme binaire eteint-il AUSSI le coeur recharge (alors le defaut est commun aux deux, cote reglage/maitre) ou la jauge SEULE (alors il est dans la reprise du coeur) ?
 
     18/09 07:20 REPONSE A LA QUESTION DISCRIMINANTE : l'owner a VALIDE le coeur recharge sur CE MEME BUILD (« C'est bon pour moi ! Bien joue ! », JAK-175). Donc `recharged-master?` et `recharged-hud?` sont ACTIFS sur son appareil et le defaut ne touche QUE la jauge. Ne pas chercher du cote des reglages : chercher dans la reprise du coeur ce qui eteint la jauge (bisect 9d3aa9af6d -> HEAD sur hud-classes-pc.gc, suspects 7a388bd8c6 et 0c48f70e80).
+
+    19/09 RETOUR OWNER (JAK-176) : « je saurais dire si la particule est la bonne car oui je l'apercois par le trou au centre de la jauge, mais du coup elle est EN DESSOUS, pas au dessus ! Donc c'est pas bon ! » PERIMETRE UNIQUE : l'ordre de dessin de la nuee centrale — elle doit passer APRES la jauge (par-dessus l'anneau), pas avant. Aujourd'hui `draw-particles` consomme la nuee AVANT `draw-hud` (hud.gc:228, note de la reprise du 18/09) : c'est exactement l'inversion vue. Options a chiffrer : emettre la nuee depuis draw-hud apres l'anneau, ou lui donner un bucket/priorite au-dessus du HUD. PORTE : sur une image ou la nuee et l'anneau se recouvrent, l'ordre d'emission publie place la nuee apres l'anneau (compteur d'ordre par image), et le test de profondeur/occlusion ne la masque pas ; la position et la taille du 18/09 restent identiques.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13443,9 +13450,9 @@ items:
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
   where: 'HUD en jeu apres un ramassage d''eco, sur le build nomme dans le commentaire « build publie
-    ». DEUX questions : (1) la jauge d''eco est-elle la NOTRE (base vide, camembert, embout qui suit)
-    et non celle d''origine ? (2) si oui, les trois points du 18/09 tiennent-ils toujours (embout qui
-    ne deborde pas, pas de particules a gauche, nuee d''eco au centre) ?'
+    ». UNE question : la particule d''eco au centre de la jauge est-elle dessinee PAR-DESSUS la jauge
+    (visible entiere, debordant un peu du trou) et non derriere (apercue seulement a travers le trou)
+    ? (le reste de la jauge est valide : ne pas le redemander).'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -14066,7 +14073,7 @@ items:
 - id: recharged-hud-toggle
   feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
     le HUD d'origine
-  status: to-test
+  status: open
   priority: 11
   owner_test: true
   depends_on: []
@@ -14075,14 +14082,16 @@ items:
     key: recharged_hud_toggle_defects
     op: ==
     value: 0
-  where: 'Réglages > Options graphiques > Réglages Recharged : la ligne « HUD rechargé » existe, elle
-    est sur ON par défaut ; sur OFF, le cœur, la jauge d''éco, la mécamouche, l''orbe, l''éco verte et
-    la pile redeviennent ceux du jeu d''origine, et sur ON ils redeviennent les nôtres ; le maître Recharged
-    éteint reste prioritaire.'
+  where: 'Reglages Recharged, interrupteur HUD sur OFF (puis aussi maitre Recharged sur OFF) : maintenir
+    L2/R2 pour afficher le HUD. UNE question : la pile d''energie et la mecamouche RECHARGEES apparaissent-elles
+    encore par-dessus celles d''origine ? (l''interrupteur lui-meme, sa valeur par defaut et le retour
+    au HUD d''origine au repos sont valides par l''owner : ne pas les redemander).'
   known_cause: |-
     Cree le 18/09 07:30 par le superviseur, sur demande de l'owner (JAK-177) : « on doit avoir un toggle dans les reglages recharges pour activer ou desactiver le HUD recharge ! Par defaut a on, herite du master toggle recharge… a off c'est le HUD d'origine ! ». ETAT MESURE AU MOMENT DE LA CREATION : le reglage `recharged-hud?` EXISTE dans pc-settings et les quatre chantiers du HUD le lisent deja a l'execution ; ce qui MANQUE est la LIGNE DE MENU — progress-pc.gc:1597 la pose sous `#when FLAG_RECHARGED_HUD`, drapeau de compilation a #f dans l'arbre suivi, donc ABSENTE du binaire livre (meme piege que le coeur, la jauge et les ramassables, tous sortis du drapeau les 17 et 18/09). Le libelle et l'aide existent deja (*recharged-hud-label*, pc-text-hint-rhud). PORTE : elle se lit sur le binaire LIVRE — la ligne est presente, sa valeur par defaut est ON, le passage a OFF ramene a zero les dessins des quatre pieces rechargees ET remet a non-zero ceux des pieces d'origine, le retour a ON fait l'inverse, et le maitre Recharged eteint garde la priorite. Un terme non mesure compte 1.
 
     18/09 09:05 ARRET DEMANDE PAR L'OWNER (« Arrête le harnais, j'ai quasiment plus de credits ») : l'essai en cours a ete interrompu par le superviseur, il n'a pas echoue. L'item repart de zero a la reprise. Frein `.autoport/PAUSE` en place.
+
+    19/09 RETOUR OWNER (JAK-181) : « L'interrupteur fonctionne mais […] quand le HUD recharge est off et qu'on maintient L2/R2 la pile d'energie du HUD recharge et la mecamouche du HUD recharge apparaissent par dessus leurs pendants du HUD d'origine. Que ce soit avec le master toggle recharge a off ou la feature elle-meme a off. » PERIMETRE UNIQUE : le chemin « afficher le HUD a la demande » (L2/R2, hud-show / hide-quick) reveille les deux pieces 3D (pile, mecamouche) SANS relire l'interrupteur, alors que le coeur et la jauge, eux, restent eteints. Chercher dans hud-3d-pickups le site qui repond a l'evenement d'affichage force et le faire passer par la meme garde que hud-update (recharged-master? ET recharged-hud?). PORTE : sous OFF, pendant un L2/R2 maintenu, dessins des pieces 3D rechargees = 0 et dessins des sprites d'origine > 0 ; sous ON l'inverse ; les deux OFF (feature, maitre) testes.
   prompt: prompts/item-recharged-hud-toggle.md
   proof_timeout: 300
   code_scope: jeu
@@ -14115,8 +14124,9 @@ items:
       t'as pris mon feedback et tu l'as traité ?
   - date: '2026-09-19'
     text: Hello ?
+  max_retries: 2
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: to-test
+  status: open
   game: jak1
   priority: 12
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
@@ -14131,22 +14141,20 @@ items:
   owner_ok: null
   code_scope: jeu
   max_turns: 600
-  max_retries: 6
+  max_retries: 2
   proof_timeout: 420
   no_code: true
   known_cause: |-
     Cree le 19/09 par l'owner (JAK-182), cadre par le superviseur a 03:10. ETUDE DU HARNAIS, PAS DU JEU : elle se PUBLIE par `lib/census/<id>.sh` et se juge sur des GRANDEURS TIREES DE NOS PROPRES JOURNAUX, jamais sur des tarifs supposes ni des opinions. DONNEES DISPONIBLES (releve du superviseur) : 674 journaux d'essai `logs/<item>/attempt-NNN.jsonl` (1,4 Go) portant, pour chaque message de l'agent, le modele ET les compteurs de jetons (`message.usage` : entree, sortie, cache lu/ecrit) ; 950 verdicts `validator-NNN.txt` (337 verts) qui donnent l'issue de chaque essai ; les bannieres de `logs/orchestrator.log` donnent le profil par essai (277 opus-5, 134 gpt-6-astra, 27 fable-5-1[1m], 13 opus-5[1m], 28 « defaut ») ; les appels de sous-agents sont des `tool_use` Agent avec leur type (researcher/implementer/tester) ; le superviseur a ses propres transcriptions sous ~/.claude/projects/-home-emeric-code-jak-project/. MESURE DEJA FAITE le 05/09 (model-profiles.json, note fable51-sobre) : le suffixe [1m] laissait le contexte a 450-470 k jetons relu 300 fois par essai (104 M de jetons pour un essai) ; sans [1m], compaction vers 160 k et ~2,5x moins de jetons pour le meme nombre de tours. A CONFIRMER ou INFIRMER sur toute la population, pas a recopier. TERMES DE LA PORTE `model_mix_defects` (un terme non mesure compte 1) : (1) chaque profil ayant >= 10 essais a son cout moyen par essai (jetons, separes entree/sortie/cache) et sa part d'essais verts ; (2) la part d'essais « en boucle » par profil = essais dont le verdict repete le MEME echec que le precedent sur le meme item, 3 fois de suite ou plus ; (3) la repartition des jetons par ETAGE (agent principal, chaque type de sous-agent, superviseur) pour au moins les deux profils les plus utilises ; (4) la recommandation est un PROFIL CONCRET ecrit dans model-profiles.json sous un nom neuf, NON active, avec son cout attendu par essai DERIVE des mesures (1)-(3) et l'effort par etage justifie par une mesure, pas par un adjectif ; (5) les biais sont NOMMES dans le rapport : les items ne sont pas les memes d'un profil a l'autre, Codex a tourne sur d'autres items, un essai tue par la plomberie de preuve n'est pas un echec du modele (releve du 16/09 : 4 echecs sur 5 etaient de la plomberie) — le rapport separe ces causes AVANT de comparer les modeles. OWNER : « tout Opus ou tout Fable ou tout Sonnet est une approche naive […] il faut un juste equilibre qui leverage tout le panel et qui soit a la fois efficient (pas un cout exorbitant) et qualitatif (se bute pas en boucle, produit de bons trucs) ». Le rapport est ecrit pour lui : francais courant, un tableau, une recommandation, pas de jargon.
 
     19/09 07:55 OWNER : « T'es sur qu'on se refere vraiment qu'aux taches passees ? Pas de recherche approfondie sur internet et compagnie ? » -> TERME (6) AJOUTE A LA PORTE : une RECHERCHE EXTERNE approfondie, sources citees avec URL et date de consultation : tarifs officiels par modele (entree, sortie, cache, contexte long) ; documentation officielle des niveaux d'effort et de ce qu'ils changent ; bancs publics recents sur les taches de code longues et agentiques (SWE-bench et equivalents) pour Opus, Fable, Sonnet, Haiku et Codex ; recommandations publiees sur le ROUTAGE multi-modeles dans les systemes d'agents (manager fort, sous-agents moins couteux, quand ca marche et quand ca casse) ; retours d'utilisateurs de Claude Code sur les modeles de sous-agents. Le rapport CROISE les deux sources : les tarifs publies x nos jetons mesures = le vrai cout par essai ; les bancs publics disent ce qu'on peut esperer d'un modele qu'on n'a PAS encore fait tourner ici (Sonnet, Haiku) ; en cas de conflit entre une promesse publiee et notre mesure, notre mesure l'emporte et le conflit est NOMME. Une recherche sans source datee compte comme non faite (terme = 1). Le worker dispose des outils de recherche web ; s'il n'y a pas acces, il le dit dans le rapport au lieu d'inventer.
+
+    19/09 RETOUR OWNER (JAK-182) : « Je trouve ca impertinent a souhait, d'ailleurs comment ca se fait que fable ne soit pas reellement envisage ? T'as fais une evaluation de merde sur notre historique, c'est eclate ». IL A RAISON SUR LE BIAIS : les 46 essais Fable 5.1 ont tourne (a) presque tous sur l'AO, l'item le plus dur du depot, (b) sous deux coupures de quota le 19/09 et un arret manuel, (c) alors qu'Opus 5 a 278 essais sur des items varies. Le rapport a compare des populations non comparables et en a tire « ecarte ». PERIMETRE DE LA REPRISE : (1) reprendre Fable 5.1 ET Fable 5 [1m] a egalite : essais apparies par ITEM (memes items pour les deux modeles), essais interrompus/refuses par l'API EXCLUS des deux cotes, et publier par item : verts, boucles, cout par essai reussi ; (2) dire honnetement quand la population est trop petite pour trancher (intervalle, pas un verdict) ; (3) proposer un protocole d'essai croise court (memes 3 items, un essai chacun sous Opus 5 et sous Fable 5.1, memes budgets) que l'owner peut lancer d'un mot ; (4) le profil propose n'est PAS active et le rapport ne pretend plus « ecarte » la ou il n'a pas mesure. Ton : factuel, aucune formule qui pourrait passer pour de la condescendance.
   notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
-  where: 'Rien à installer. Le rapport `reports/<id>/RAPPORT.md` se lit en cinq minutes : pour chaque
-    profil qui a tourné (Opus 5, Fable 5.1, Codex Astra, avec et sans contexte long), le coût moyen d''un
-    essai, la part d''essais réussis, la part d''essais qui tournent en boucle sur le même échec, et le
-    partage des jetons entre l''agent principal, ses sous-agents et le superviseur ; puis UNE recommandation
-    sous forme d''un profil prêt à activer (pas activé), avec son coût attendu par essai. Toi seul tranches
-    le profil. Le rapport cite aussi ses sources externes (tarifs officiels, documentation des efforts,
-    bancs publics, recommandations de routage multi-modeles) avec leur date, et dit ou nos mesures contredisent
-    ce qui est publie.'
+  where: 'Rien a installer. Le rapport reprend Fable 5.1 a egalite de chances : memes items, essais interrompus
+    exclus, et dit clairement si Fable est meilleur, pire ou indiscernable d''Opus 5 par essai REUSSI
+    et par boucle ; puis propose un protocole d''essai croise si les donnees ne suffisent pas. Toi seul
+    tranches.'
   deliverable: ''
   out_of_scope: ''
   spec: null

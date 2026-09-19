@@ -37,6 +37,7 @@ CONTRAT DE SORTIE (verifie sur le binaire Claude Code 2.1.275)
 """
 import hashlib
 import json
+from pathlib import Path
 import os
 import subprocess
 import sys
@@ -244,6 +245,24 @@ def decide(prompt, maintenant=None, ecrire=True):
     try:
         lignes.append("")
         lignes.append(bk.status_report())
+    except Exception:                                      # noqa: BLE001
+        pass
+    # 19/09, owner : « Tu surveilles plus les tickets c'est pas possible ! Je commente je commente et j'ai
+    # aucun retour ». Le digest ne regardait que « A tester » ; les retours en attente vivaient dans le
+    # journal de la synchro, que personne ne relisait. Ils sont desormais EN TETE de chaque reveil, avec
+    # la consigne : y repondre d'abord. Lecture du dernier tour de linear_watch, aucune requete reseau.
+    try:
+        import re as _re
+        log = Path(__file__).resolve().parent.parent / "logs" / "linear_sync.txt"
+        txt = log.read_text(encoding="utf-8", errors="replace")[-40000:]
+        tours = txt.split("Linear : ")
+        dernier = tours[-2] if len(tours) >= 2 else txt
+        attente = sorted(set(_re.findall(r"À TRAITER : (JAK-\d+ \S+)", dernier)))
+        if attente:
+            lignes.insert(0, "## RETOURS DE L'OWNER SANS REPONSE — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
+                          + "\n".join("- " + a for a in attente)
+                          + "\n(le texte de chaque retour est dans `owner_feedback` de l'item ; poster par "
+                            "`python3 .autoport/linear_sync.py --comment <id> --body \"…\"`)\n")
     except Exception:                                      # noqa: BLE001
         pass
     return "passe", raison, "\n".join(lignes)

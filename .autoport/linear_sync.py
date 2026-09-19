@@ -222,7 +222,11 @@ def needs_build(it):
     """Un chantier se teste-t-il sur un build du jeu ? Non pour un chantier du harnais : sa preuve
     est un crochet `lib/census/<id>.sh` (ou son id commence par harness-), rien n'est a installer."""
     iid = it.get("id") or ""
-    return not (iid.startswith("harness-") or os.path.exists(os.path.join(ROOT, ".autoport", "lib", "census", iid + ".sh")))
+    if it.get("code_scope") == "harness" or iid.startswith("harness-"):
+        return False
+    if "rien a installer" in (it.get("where") or "").lower().replace("à", "a"):
+        return False
+    return not os.path.exists(os.path.join(ROOT, ".autoport", "lib", "census", iid + ".sh"))
 
 
 def plain_state_comment(bl, it, st):
@@ -737,6 +741,10 @@ def announce_builds(L, bl, mp, read, dry):
     n = 0
     for it in bl.items:
         if it["status"] != "to-test":
+            continue
+        # 19/09, owner : « messages auto de build publiés sur des tickets ne nécessitant pas de tests » :
+        # un chantier du harnais ou une etude n'a rien a installer, on ne lui annonce aucun build.
+        if not needs_build(it):
             continue
         rec = mp.get(it["id"])
         if not rec or rec.get("build_announced") == pub:

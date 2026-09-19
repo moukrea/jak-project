@@ -872,10 +872,10 @@
  },
  "hud-eco-gauge": {
   "build_announced": "a4de81c3f19e",
-  "hash": "d0cf4950f3565142caaea4b99cb312817ca49f15",
+  "hash": "5e477115d6cdf9884cbf41d1ca063fcf28798497",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-19T16:25:38.645Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
@@ -1133,10 +1133,10 @@
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
   "build_announced": "a4de81c3f19e",
-  "hash": "69dba6f460ec96f683ed332e725e3b7b2277c9dd",
+  "hash": "d3222c0f77f16931ef9652823c95e1b990f6b5b0",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-19T16:43:21.631Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
@@ -1429,10 +1429,10 @@
  },
  "recharged-hud-toggle": {
   "build_announced": "a4de81c3f19e",
-  "hash": "1272a186c24a7ff2e39f0d04e79cc704278b1f37",
+  "hash": "46942754fc8a563612285379e9a17e9ec771c68c",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-19T16:43:31.741Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
@@ -1553,10 +1553,10 @@
  },
  "res-scale-submenu": {
   "build_announced": "a4de81c3f19e",
-  "hash": "a88445583f1e08a06c3384ca4f87242ff1bafe5b",
+  "hash": "d6fd2a091d00e3e81a118b109a8f2b9439906489",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T16:25:54.601Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
