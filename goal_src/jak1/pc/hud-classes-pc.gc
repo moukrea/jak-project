@@ -4991,10 +4991,21 @@
 ;; des trois fenetres — c'est ce qui a permis, des l'essai 1, de separer « la jauge ne dessine
 ;; jamais » de « le coeur dessine quand il ne devrait pas ».
 ;;
-;; LE BANC ATTEND QUE LE HUD SOIT VIVANT. Mesure de l'essai 1 : les deux premiers blocs sont tombes
-;; pendant le chargement du niveau, HUD entierement replie — zero dessin des deux cotes, donc trois
-;; pieces d'origine declarees « absentes » alors que rien n'avait ete regarde. Le cycle ne part donc
-;; qu'apres RHUD_TGL_WARM images ou le coeur recharge a REELLEMENT dessine.
+;; LE BANC ATTEND QUE LE HUD D'ORIGINE SOIT VIVANT. Mesure de l'essai 1 : les deux premiers blocs
+;; sont tombes pendant le chargement du niveau, HUD entierement replie — zero dessin des deux cotes,
+;; donc trois pieces d'origine declarees « absentes » alors que rien n'avait ete regarde. Mesure de
+;; l'essai 3 : attendre que NOTRE coeur dessine ne suffit pas — il emet ses quads des sa naissance,
+;; alors que les six elements d'origine ne sont a l'ecran qu'a partir de l'image ~620 (toutes leurs
+;; sources a 12/180 dans la fenetre ETEINT, la meme valeur pour les six). Le cycle ne part donc
+;; qu'apres RHUD_TGL_WARM images CONSECUTIVES ou les six elements d'origine sont vivants, l'icone
+;; d'origine de la pile a son art, et les quatre elements de la couche 3D sont A L'ECRAN.
+;;
+;; L'EPINGLAGE NE PASSE PAS PAR `force-on-screen`. Sous ce drapeau, `tally-value` refait
+;; `(go hud-arriving)` a CHAQUE image (hud.gc:42-66), l'etat se re-entre et son `:enter` renvoie
+;; `draw #t` a TOUS les enfants (hud.gc:200) : nos deux icones de pile etaient re-affichees chaque
+;; image et le regime ne se lisait plus (essai 3 : les deux icones dessinees 180/180 dans les fenetres
+;; RALLUME et MAITRE ETEINT, quel que soit le reglage). `rhud-tgl-pin` montre l'element une fois puis
+;; re-estampille `trigger-time`, ce qui tient `hud-in` ouvert (hud.gc:236) sans re-entrer l'etat.
 ;;
 ;; INERTE HORS DE LA SONDE. Rien ici ne tourne sans `AUTOPORT_COST_PROBE=recharged-hud-toggle`
 ;; (bureau) / `debug.opengoal.costprobe=recharged-hud-toggle` (appareil) : le binaire de l'owner
@@ -5004,10 +5015,13 @@
 (defconstant RHUD_TGL_BLOCK 300)      ;; longueur d'un bloc
 (defconstant RHUD_TGL_MIN 120)        ;; images exigees par terme avant qu'il soit MESURE
 (defconstant RHUD_TGL_STOCK_MIN 30)   ;; images exigees pour dire qu'une piece d'ORIGINE est revenue
-(defconstant RHUD_TGL_WARM 60)        ;; images de dessin du coeur exigees avant de partir
+(defconstant RHUD_TGL_WARM 60)        ;; images CONSECUTIVES de HUD d'origine vivant avant de partir
 (defconstant RHUD_TGL_WARM_MAX 5400)  ;; au-dela, on part quand meme : un banc qui attend sans fin
                                       ;; ne publie rien, et « rien » ne nomme aucune cause
 (defconstant RHUD_TGL_SRC 10)         ;; sources suivies par fenetre
+(defconstant RHUD_TGL_DBG 10)         ;; compteurs de diagnostic par fenetre
+(defconstant RHUD_TGL_SLOT_HEALTH 3)  ;; `*hud-parts* parts` : pickups money fuel-cell HEALTH buzzers POWER
+(defconstant RHUD_TGL_SLOT_POWER 5)
 (defconstant RHUD_TGL_WINS 3)         ;; fenetres : 0 ALLUME · 1 ETEINT · 2 MAITRE ETEINT
 
 ;; L'ORDRE DES SOURCES, une fois pour toutes (indice dans `src`) :
@@ -5039,6 +5053,15 @@
    (stk-3d       int32 RHUD_TGL_WINS)   ;; images ou UNE piece 3D d'origine dessinait
    (src          int32 30)              ;; le detail : (+ (* fenetre 10) source)
    (elt-mask     int32)                 ;; quels elements de HUD 3D ont existe pendant la course
+   ;; --- diagnostic (essai 3) : l'ETAT de l'element pile et du coeur d'origine, image par image ---
+   ;; (+ (* fenetre RHUD_TGL_DBG) k) : 0 pile cachee · 1 pile en hud-arriving · 2 hud-normal ·
+   ;; 3 hud-in · 4 hud-leaving · 5 icone 0 vivante · 6 icone 1 vivante · 7 coeur d'origine
+   ;; `disable` · 8 coeur d'origine cache · 9 offset de la pile a zero
+   (dbg          int32 30)
+   (last-raf     int32)                 ;; `real-actual-frame-counter` a l'echantillon precedent
+   (raf-d1       int32)                 ;; echantillons ou il a avance de 1
+   (raf-d2       int32)                 ;; ... de 2
+   (raf-dmax     int32)                 ;; ... le plus grand pas vu
    ;; --- derniers cumuls relus, pour lire un DESSIN et pas un total ---
    (last-heart   int32)
    (last-gauge   int32)))
@@ -5049,15 +5072,44 @@
   "le harnais mesure-t-il CET item ? Un strcmp exact sur un knob d'environnement."
   (and (nonzero? (__pc-autoport-cost-probe "recharged-hud-toggle")) #t))
 
-(defun rhud-tgl-pin-soft ((p (pointer hud)))
-  "epingle un element d'ORIGINE a l'ecran SANS toucher a `disable`. C'est justement `disable` que
-   le HUD recharge ecrit pour supprimer l'element qu'il remplace : le banc doit le LIRE, pas le
-   forcer. Sans cet epinglage, le bloc ETEINT ne mesurerait qu'un HUD replie et « l'origine
-   redessine » serait vert par inaction."
+(defun rhud-tgl-pin ((p (pointer hud)) (clear-disable symbol))
+  "epingle un element d'ORIGINE a l'ecran SANS `force-on-screen` (voir l'en-tete : ce drapeau
+   re-entre l'etat a chaque image et re-affiche tous les enfants). Un `show` quand il est cache
+   et non desactive, puis `trigger-time` re-estampille a chaque image : c'est ce qui tient
+   `hud-in` ouvert (hud.gc:236). `disable` est LU, jamais force, pour le coeur et la jauge : c'est
+   ce que le HUD recharge ecrit pour supprimer l'element qu'il remplace, et le banc mesure
+   justement s'il le rend. Les quatre elements de la couche 3D, que personne ne desactive, sont
+   remis a `disable #f` comme `hud3d-pin` le fait."
   (when p
-    (set! (-> p 0 force-on-screen) #t)
-    (set! (-> p 0 friend) -1))
+    (set! (-> p 0 friend) -1)
+    (set! (-> p 0 force-on-screen) #f)
+    (if clear-disable (set! (-> p 0 disable) #f))
+    (cond
+      ((-> p 0 disable) #f)
+      ((hidden? (-> p 0))
+       (if (!= (-> p 0 last-hide-time) (current-time)) (send-event (ppointer->process p) 'show)))
+      (else (set-time! (-> p 0 trigger-time)))))
   (none))
+
+(defun rhud-tgl-stock-alive? ()
+  "le HUD d'ORIGINE est-il la, entier, et a l'ecran ? Six emplacements vivants (`hud3d-elt`),
+   l'icone d'origine de la pile avec son art (`hud3d-alive?`), et les quatre elements de la couche
+   3D NON caches. Le coeur et la jauge d'origine, eux, sont supprimes tant que le HUD recharge est
+   allume : on ne leur demande que d'exister."
+  (let ((fc (hud3d-elt HUD3D_SLOT_CELL))
+        (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
+        (mo (hud3d-elt HUD3D_SLOT_MONEY))
+        (pk (hud3d-elt HUD3D_SLOT_PICKUPS))
+        (h  (hud3d-elt RHUD_TGL_SLOT_HEALTH))
+        (p  (hud3d-elt RHUD_TGL_SLOT_POWER)))
+    (and fc bz mo pk h p
+         (> (-> fc 0 nb-of-icons) 0)
+         (hud3d-alive? (-> fc 0 icons 0 icon))
+         (not (hidden? (-> fc 0)))
+         (not (hidden? (-> bz 0)))
+         (not (hidden? (-> mo 0)))
+         (not (hidden? (-> pk 0)))
+         #t)))
 
 (defun rhud-tgl-stock-spawned? ((p (pointer hud)))
   "CET element d'origine a-t-il lance un sprite a cette image ? La grandeur vient du lanceur
@@ -5128,7 +5180,10 @@
   (none))
 
 (defun rhud-tgl-note! ((this rhud-tgl) (win int) (k int) (hit object))
-  (if hit (+! (-> this src (+ (* win RHUD_TGL_SRC) k))))
+  ;; essai 3 : `(+! place)` SANS increment est un no-op — la macro developpe `(set! p (+ p))`.
+  ;; Les trente sources sont restees a zero pendant deux courses alors que les agregats
+  ;; comptaient 180 : un terme muet qui accusait « la jauge n'a jamais dessine ».
+  (if hit (+! (-> this src (+ (* win RHUD_TGL_SRC) k)) 1))
   (none))
 
 (defun rhud-tgl-sample ((this rhud-tgl) (win int))
@@ -5161,6 +5216,14 @@
          (s9 (nonzero? (hud3d-stock-spawned pk 0))))
     (set! (-> this last-heart) hd)
     (set! (-> this last-gauge) pd)
+    ;; diagnostic : le pas du compteur d'images entre deux echantillons
+    (let* ((raf (the int (-> *display* real-actual-frame-counter)))
+           (d (- raf (-> this last-raf))))
+      (when (> (-> this last-raf) 0)
+        (if (= d 1) (+! (-> this raf-d1) 1))
+        (if (= d 2) (+! (-> this raf-d2) 1))
+        (if (> d (-> this raf-dmax)) (set! (-> this raf-dmax) d)))
+      (set! (-> this last-raf) raf))
     ;; quels elements de HUD 3D ont seulement EXISTE : un terme aveugle parce que l'element n'est
     ;; pas dans la scene ne doit pas se lire comme un defaut du jeu.
     (if fc (logior! (-> this elt-mask) 1))
@@ -5174,6 +5237,21 @@
       (rhud-tgl-note! this win 4 s4) (rhud-tgl-note! this win 5 s5)
       (rhud-tgl-note! this win 6 s6) (rhud-tgl-note! this win 7 s7)
       (rhud-tgl-note! this win 8 s8) (rhud-tgl-note! this win 9 s9)
+      ;; diagnostic : l'etat de l'element pile et du coeur d'origine dans cette fenetre
+      (let ((b (* win RHUD_TGL_DBG)))
+        (when fc
+          (let ((nm (-> fc 0 next-state name)))
+            (if (hidden? (-> fc 0)) (+! (-> this dbg (+ b 0)) 1))
+            (if (= nm 'hud-arriving) (+! (-> this dbg (+ b 1)) 1))
+            (if (= nm 'hud-normal) (+! (-> this dbg (+ b 2)) 1))
+            (if (= nm 'hud-in) (+! (-> this dbg (+ b 3)) 1))
+            (if (= nm 'hud-leaving) (+! (-> this dbg (+ b 4)) 1)))
+          (if (and (> (-> fc 0 nb-of-icons) 0) (hud3d-alive? (-> fc 0 icons 0 icon))) (+! (-> this dbg (+ b 5)) 1))
+          (if (and (> (-> fc 0 nb-of-icons) 1) (hud3d-alive? (-> fc 0 icons 1 icon))) (+! (-> this dbg (+ b 6)) 1))
+          (if (zero? (-> fc 0 offset)) (+! (-> this dbg (+ b 9)) 1)))
+        (when h
+          (if (-> h 0 disable) (+! (-> this dbg (+ b 7)) 1))
+          (if (hidden? (-> h 0)) (+! (-> this dbg (+ b 8)) 1))))
       (if (or s2 s3) (+! (-> this our-3d win) 1))
       (if (or s6 s7 s8 s9) (+! (-> this stk-3d win) 1))
       (if (or s0 s1 s2 s3) (+! (-> this rch-any win) 1))
@@ -5188,28 +5266,30 @@
   "la sequence de mesure, UN cycle : ALLUME · ETEINT · RALLUME · MAITRE ETEINT, puis le banc se
    tait et laisse tout ALLUME."
   (when *target*
-    ;; les six elements restent a l'ecran DANS LES DEUX regimes.
-    (hud3d-pin (hud3d-elt HUD3D_SLOT_CELL))
-    (hud3d-pin (hud3d-elt HUD3D_SLOT_BUZZERS))
-    (hud3d-pin (hud3d-elt HUD3D_SLOT_MONEY))
-    (hud3d-pin (hud3d-elt HUD3D_SLOT_PICKUPS))
-    (rhud-tgl-pin-soft (-> *hud-parts* health))
-    (rhud-tgl-pin-soft (-> *hud-parts* power))
+    ;; les six elements restent a l'ecran DANS LES DEUX regimes — sans `force-on-screen`.
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_CELL) #t)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_BUZZERS) #t)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_MONEY) #t)
+    (rhud-tgl-pin (hud3d-elt HUD3D_SLOT_PICKUPS) #t)
+    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_HEALTH) #f)
+    (rhud-tgl-pin (hud3d-elt RHUD_TGL_SLOT_POWER) #f)
     (cond
       ((>= (-> this cycle) 1)
        ;; la garde de securite : le cycle est fait, on rend au jeu un etat ALLUME.
        (set! (-> *pc-settings* recharged-master?) #t)
        (set! (-> *pc-settings* recharged-hud?) #t))
       ((zero? (-> this warm))
-       ;; RECHAUFFAGE : tout allume, de l'eco dans la poche, et on attend que le coeur recharge
-       ;; dessine pour de bon. Sans cette attente les deux premiers blocs tombent pendant le
-       ;; chargement du niveau (mesure de l'essai 1) et trois termes se declarent aveugles.
+       ;; RECHAUFFAGE : tout allume, de l'eco dans la poche, et on attend que le HUD D'ORIGINE
+       ;; soit vivant et a l'ecran pour de bon, RHUD_TGL_WARM images de suite. Sans cette attente
+       ;; les premiers blocs tombent pendant le chargement du niveau (essais 1 et 3) et les
+       ;; termes d'origine se declarent aveugles.
        (set! (-> *pc-settings* recharged-master?) #t)
        (set! (-> *pc-settings* recharged-hud?) #t)
        (+! (-> this warm-n) 1)
        ;; l'eco : la jauge, d'origine comme rechargee, ne se montre que si jak en porte.
        (if (zero? (mod (-> this warm-n) 120)) (rhud-gauge-eco-seed (pickup-type eco-blue)))
-       (+! (-> this warm-hits) (rhud-tgl-sample this -1))
+       (rhud-tgl-sample this -1)
+       (if (rhud-tgl-stock-alive?) (+! (-> this warm-hits) 1) (set! (-> this warm-hits) 0))
        (if (or (>= (-> this warm-hits) RHUD_TGL_WARM) (>= (-> this warm-n) RHUD_TGL_WARM_MAX))
          (set! (-> this warm) 1))
        (if (and (zero? (-> this audited)) (>= (-> this warm-n) RHUD_TGL_SETTLE)) (rhud-tgl-audit!)))
@@ -5236,6 +5316,10 @@
 
 (defun rhud-tgl-pub-src ((this rhud-tgl) (win int) (k int) (key string))
   (__pc-autoport-publish key (-> this src (+ (* win RHUD_TGL_SRC) k)))
+  (none))
+
+(defun rhud-tgl-pub-dbg ((this rhud-tgl) (win int) (k int) (key string))
+  (__pc-autoport-publish key (-> this dbg (+ (* win RHUD_TGL_DBG) k)))
   (none))
 
 (defun rhud-tgl-publish ((this rhud-tgl))
@@ -5284,6 +5368,7 @@
       (__pc-autoport-publish "rhud_toggle_warm" (-> this warm))
       (__pc-autoport-publish "rhud_toggle_warm_frames" (-> this warm-n))
       (__pc-autoport-publish "rhud_toggle_warm_hits" (-> this warm-hits))
+      (__pc-autoport-publish "rhud_toggle_stock_alive" (if (rhud-tgl-stock-alive?) 1 0))
       (__pc-autoport-publish "rhud_toggle_rows" (-> this rows))
       (__pc-autoport-publish "rhud_toggle_row_found" (-> this row-found))
       (__pc-autoport-publish "rhud_toggle_row_index" (-> this row-idx))
@@ -5293,6 +5378,20 @@
       (__pc-autoport-publish "rhud_toggle_on_frames" (-> this win-n 0))
       (__pc-autoport-publish "rhud_toggle_off_frames" (-> this win-n 1))
       (__pc-autoport-publish "rhud_toggle_master_off_frames" (-> this win-n 2))
+      ;; les agregats par fenetre, ceux que les termes 3 a 7 lisent : publies a cote des sources
+      ;; pour qu'un terme rouge se lise sans refaire la somme a la main.
+      (__pc-autoport-publish "rhud_toggle_on_rch_any" (-> this rch-any 0))
+      (__pc-autoport-publish "rhud_toggle_on_stk_any" (-> this stk-any 0))
+      (__pc-autoport-publish "rhud_toggle_on_our_3d" (-> this our-3d 0))
+      (__pc-autoport-publish "rhud_toggle_on_stk_3d" (-> this stk-3d 0))
+      (__pc-autoport-publish "rhud_toggle_off_rch_any" (-> this rch-any 1))
+      (__pc-autoport-publish "rhud_toggle_off_stk_any" (-> this stk-any 1))
+      (__pc-autoport-publish "rhud_toggle_off_our_3d" (-> this our-3d 1))
+      (__pc-autoport-publish "rhud_toggle_off_stk_3d" (-> this stk-3d 1))
+      (__pc-autoport-publish "rhud_toggle_mo_rch_any" (-> this rch-any 2))
+      (__pc-autoport-publish "rhud_toggle_mo_stk_any" (-> this stk-any 2))
+      (__pc-autoport-publish "rhud_toggle_mo_our_3d" (-> this our-3d 2))
+      (__pc-autoport-publish "rhud_toggle_mo_stk_3d" (-> this stk-3d 2))
       ;; --- fenetre ALLUME, source par source ---
       (rhud-tgl-pub-src this 0 0 "rhud_toggle_on_rch_heart")
       (rhud-tgl-pub-src this 0 1 "rhud_toggle_on_rch_gauge")
@@ -5326,6 +5425,40 @@
       (rhud-tgl-pub-src this 2 7 "rhud_toggle_mo_stk_buzz")
       (rhud-tgl-pub-src this 2 8 "rhud_toggle_mo_stk_money")
       (rhud-tgl-pub-src this 2 9 "rhud_toggle_mo_stk_eco")
+      ;; --- diagnostic ---
+      (__pc-autoport-publish "rhud_toggle_raf_d1" (-> this raf-d1))
+      (__pc-autoport-publish "rhud_toggle_raf_d2" (-> this raf-d2))
+      (__pc-autoport-publish "rhud_toggle_raf_dmax" (-> this raf-dmax))
+      (rhud-tgl-pub-dbg this 0 0 "rhud_toggle_on_dbg_cell_hidden")
+      (rhud-tgl-pub-dbg this 0 1 "rhud_toggle_on_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 0 2 "rhud_toggle_on_dbg_cell_normal")
+      (rhud-tgl-pub-dbg this 0 3 "rhud_toggle_on_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 0 4 "rhud_toggle_on_dbg_cell_leaving")
+      (rhud-tgl-pub-dbg this 0 5 "rhud_toggle_on_dbg_icon0_alive")
+      (rhud-tgl-pub-dbg this 0 6 "rhud_toggle_on_dbg_icon1_alive")
+      (rhud-tgl-pub-dbg this 0 7 "rhud_toggle_on_dbg_heart_disable")
+      (rhud-tgl-pub-dbg this 0 8 "rhud_toggle_on_dbg_heart_hidden")
+      (rhud-tgl-pub-dbg this 0 9 "rhud_toggle_on_dbg_cell_offset0")
+      (rhud-tgl-pub-dbg this 1 0 "rhud_toggle_off_dbg_cell_hidden")
+      (rhud-tgl-pub-dbg this 1 1 "rhud_toggle_off_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 1 2 "rhud_toggle_off_dbg_cell_normal")
+      (rhud-tgl-pub-dbg this 1 3 "rhud_toggle_off_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 1 4 "rhud_toggle_off_dbg_cell_leaving")
+      (rhud-tgl-pub-dbg this 1 5 "rhud_toggle_off_dbg_icon0_alive")
+      (rhud-tgl-pub-dbg this 1 6 "rhud_toggle_off_dbg_icon1_alive")
+      (rhud-tgl-pub-dbg this 1 7 "rhud_toggle_off_dbg_heart_disable")
+      (rhud-tgl-pub-dbg this 1 8 "rhud_toggle_off_dbg_heart_hidden")
+      (rhud-tgl-pub-dbg this 1 9 "rhud_toggle_off_dbg_cell_offset0")
+      (rhud-tgl-pub-dbg this 2 0 "rhud_toggle_mo_dbg_cell_hidden")
+      (rhud-tgl-pub-dbg this 2 1 "rhud_toggle_mo_dbg_cell_arriving")
+      (rhud-tgl-pub-dbg this 2 2 "rhud_toggle_mo_dbg_cell_normal")
+      (rhud-tgl-pub-dbg this 2 3 "rhud_toggle_mo_dbg_cell_in")
+      (rhud-tgl-pub-dbg this 2 4 "rhud_toggle_mo_dbg_cell_leaving")
+      (rhud-tgl-pub-dbg this 2 5 "rhud_toggle_mo_dbg_icon0_alive")
+      (rhud-tgl-pub-dbg this 2 6 "rhud_toggle_mo_dbg_icon1_alive")
+      (rhud-tgl-pub-dbg this 2 7 "rhud_toggle_mo_dbg_heart_disable")
+      (rhud-tgl-pub-dbg this 2 8 "rhud_toggle_mo_dbg_heart_hidden")
+      (rhud-tgl-pub-dbg this 2 9 "rhud_toggle_mo_dbg_cell_offset0")
       (__pc-autoport-publish "recharged_hud_toggle_terms_measured" measured)
       (__pc-autoport-publish "recharged_hud_toggle_defects" (+ t1 t2 t3 t4 t5 t6 t7))))
   (none))
