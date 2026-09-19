@@ -739,10 +739,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-185/vingt-huit-essais-sont-partis-sans-aucun-profil-de-modele-choisi-aucun"
  },
  "harness-usage-double-counted": {
-  "hash": "a1d3a7d14fa9d40e2f77136958f550779ad0e79c",
+  "hash": "9cb86ffcc814685b2f68158295419861456e6e78",
   "identifier": "JAK-183",
   "issue_id": "262314fd-965d-4723-9598-c1fd15338dd8",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
@@ -1127,10 +1127,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "hash": "f11f5cdc275c4fe9fc1809b941a4a85c3087d970",
+  "hash": "bc86fbc3b5f6ccc8d53c9a59a5ce9335b859adc3",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-19T07:37:23.977Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
