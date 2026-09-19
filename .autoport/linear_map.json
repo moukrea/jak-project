@@ -834,7 +834,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "46703316b9d3",
+  "build_announced": "43ccabff7f85",
   "hash": "e4b62945ad9252b26cf909cecf4ef4ee04be5700",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
@@ -1511,7 +1511,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "46703316b9d3",
+  "build_announced": "43ccabff7f85",
   "hash": "977a374481483b1654f5468476ebb8e185e1825d",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
