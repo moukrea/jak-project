@@ -364,10 +364,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "cb4158d45e0a79a782b26d53a40d90150d215f52",
+  "build_announced": "5ec2270ea0e7",
+  "hash": "83a684a3a83c35c58d19b28bc1fb833e3ad1ec69",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "relations": [
@@ -873,10 +874,10 @@
  },
  "hud-eco-gauge": {
   "build_announced": "a4de81c3f19e",
-  "hash": "5e477115d6cdf9884cbf41d1ca063fcf28798497",
+  "hash": "2310d3c2e9fe428cf510018a3b202ae051311b41",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-19T16:25:38.645Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"

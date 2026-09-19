@@ -226,7 +226,9 @@ def needs_build(it):
         return False
     if "rien a installer" in (it.get("where") or "").lower().replace("à", "a"):
         return False
-    return not os.path.exists(os.path.join(ROOT, ".autoport", "lib", "census", iid + ".sh"))
+    # 19/09 20:15 : un crochet lib/census/<id>.sh ne dit PAS « pas de build » — les items de JEU en ont
+    # un aussi (grass-blade-variants). Le test sur le crochet a fait taire l'annonce d'un vrai build.
+    return True
 
 
 def plain_state_comment(bl, it, st):
