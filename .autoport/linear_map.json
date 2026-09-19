@@ -739,10 +739,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-185/vingt-huit-essais-sont-partis-sans-aucun-profil-de-modele-choisi-aucun"
  },
  "harness-usage-double-counted": {
-  "hash": "9cb86ffcc814685b2f68158295419861456e6e78",
+  "hash": "97e0533b3fb7adf027303b0e6381d33c2130193d",
   "identifier": "JAK-183",
   "issue_id": "262314fd-965d-4723-9598-c1fd15338dd8",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
