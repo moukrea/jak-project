@@ -582,6 +582,16 @@
 ;; Les deux ponts sont inertes hors `debug.opengoal.costprobe=hud-3d-pickups`.
 (define-extern __pc-autoport-hud-capture (function int none))
 (define-extern __pc-autoport-hud-box (function int int int))
+;; hud-3d-pickups, essai 7 : LA BOITE DES SOMMETS TRANSFORMES, lue au dessin de HUD (l'instrument
+;; que l'owner a autorise le 18/09 pour les proportions de la pile). `-arm slot` demande que la
+;; prochaine image portant un dessin HUD soit mesuree dans ce slot (1..4 = pile d'origine, notre
+;; pile, mecamouche, orbe ; +5 = les memes sous l'aspect natif). `__pc-autoport-hud-vbox slot champ`
+;; relit : 0 images retenues, 1 sommets, 2 appels de dessin, 3/4 etendue x/y AVANT projection
+;; (x1000, unites du canevas), 5/6 etendue x/y en PIXELS du viewport (x1000), 7/8 centre x/y en
+;; pixels (x1000), 9/10 viewport, 11 chemin (0 direct, 1 passe UI), 12/13 |x|/|y| de la matrice
+;; isometrique (x1e6), 14 demandes echues sans dessin, 15 demandes recues.
+(define-extern __pc-autoport-hud-vbox-arm (function int none))
+(define-extern __pc-autoport-hud-vbox (function int int int))
 
 ;; menu-dpad-steps : une passe de respond-common. mask 1=haut tenu 2=bas tenu 4=front haut
 ;; 8=front bas 16=tap haut 32=tap bas ; steps = crans de CETTE image ; screen = display-state.

@@ -105,4 +105,81 @@ void end_of_frame(unsigned fbo_id,
 // Ce que GOAL relit pour fabriquer ses termes de porte. -1 si le champ n'existe pas.
 int64_t read(int slot, int field);
 
+// ── ESSAI 7 — LA BOITE DES SOMMETS TRANSFORMES, LUE AU DESSIN DE HUD ────────────────────────
+//
+// Owner, 18/09 07:15 : « la pile d'energie est un peu etiree en largeur par rapport a celles qu'on
+// voit in game… peut-etre une histoire d'aspect ratio ». Arbitrage du meme jour : instrument
+// AUTORISE — la boite des sommets transformes au moment du dessin de HUD, pas de lecture d'image,
+// pas de seuil statistique, une image suffit ; la grandeur est le rapport largeur/hauteur de cette
+// boite, compare au meme rapport pour le ramassable du monde.
+//
+// CE QUE C'EST. Generic2 recoit les sommets d'un modele de HUD deja passes par les os (unites du
+// canevas 512x448, `draw-bones-hud` -> `mercneric-convert`) et les projette dans son nuanceur
+// (shaders/generic.vert, branche sans matrice complete). On refait ICI, sur le CPU, exactement ce
+// calcul pour chaque sommet de chaque appel de dessin HUD de l'image armee, et on retient DEUX
+// boites : AVANT projection (unites du canevas) et APRES (pixels du viewport lu par
+// `glGetIntegerv(GL_VIEWPORT)` au moment du dessin, jamais suppose). Le rapport largeur/hauteur de
+// la seconde est ce que la dalle montre ; celui de la premiere, ramene a l'echelle du `root`
+// (GOAL la releve a l'armement), est celui du MODELE — donc celui du ramassable du monde, dont la
+// projection est isotrope (GOAL le mesure a cote : `hud3d_box_world_aniso_milli`).
+// Aucun pixel n'est lu : le bruit de l'appareil (2,8 a 3,4 niveaux par pixel entre deux images
+// identiques, essai 4) n'existe pas ici, et une image suffit.
+//
+// QUI DESSINE QUOI. GOAL n'allume qu'UN modele a la fois pendant la sequence (`hud3d-px-drive`) et
+// arme le slot correspondant : tout ce que Generic2 dessine en HUD dans l'image qui suit lui
+// appartient. `kVbVerts`/`kVbDraws` sont publies pour qu'un intrus se voie — deux slots aux memes
+// chiffres, c'est le meme modele.
+//
+// LE RETARD ENTRE LE FIL GOAL ET LE RENDU. La demande faite a l'image F est vue par le fil de
+// rendu quand il dessine une image de [F-3, F] : la phase tient au moins quatre images dans le
+// meme etat, donc l'image retenue porte bien l'etat demande. Une image sans dessin HUD ne consomme
+// pas la demande ; au-dela de trois fins d'image sans rien, la demande est declaree VIDE et
+// comptee (`kVbEmpty`) au lieu d'attendre un dessin qui appartiendrait a la phase suivante.
+//
+// INERTE HORS SONDE. `vbox_pending()` est un entier atomique a -1 tant que GOAL n'a rien arme, et
+// GOAL n'arme que sous `debug.opengoal.costprobe=hud-3d-pickups` : le joueur ne paie qu'une lecture
+// atomique par appel de dessin HUD.
+
+enum VboxField {
+  kVbSamples = 0,    // images retenues pour ce slot (la derniere ecrase les valeurs)
+  kVbVerts = 1,      // sommets vus dans l'image retenue
+  kVbDraws = 2,      // appels de dessin HUD dans l'image retenue
+  kVbPreW_e3 = 3,    // etendue x AVANT projection, unites du canevas, x1000
+  kVbPreH_e3 = 4,    // etendue y AVANT projection, x1000
+  kVbPxW_e3 = 5,     // etendue x APRES projection, en pixels du viewport, x1000
+  kVbPxH_e3 = 6,     // etendue y, pixels, x1000
+  kVbPxCx_e3 = 7,    // centre x en pixels depuis le bord gauche du viewport, x1000
+  kVbPxCy_e3 = 8,    // centre y en pixels depuis le bord HAUT du viewport, x1000
+  kVbVpW = 9,        // viewport lu au dessin
+  kVbVpH = 10,
+  kVbPath = 11,      // 0 = dessin direct dans la passe scene, 1 = passe UI native (differe)
+  kVbScaleX_e6 = 12, // |x| et |y| de la matrice isometrique telles que Generic2 les recoit, x1e6
+  kVbScaleY_e6 = 13,
+  kVbEmpty = 14,     // demandes echues sans aucun dessin HUD
+  kVbRequests = 15,  // demandes recues pour ce slot
+  kVbFieldCount = 16
+};
+// Dix slots : 1..4 = pile d'origine, notre pile, mecamouche, orbe sous l'aspect du JOUEUR ;
+// 6..9 = les memes sous l'aspect NATIF du panneau (GOAL bascule et restaure). 0 et 5 inutilises.
+constexpr int kVboxSlots = 10;
+
+// GOAL demande que la PROCHAINE image portant un dessin HUD soit mesuree dans `slot`.
+void vbox_request(int slot);
+// Vrai tant qu'une demande attend son image. Une lecture atomique, rien d'autre.
+bool vbox_pending();
+// Appele par Generic2 pour UN appel de dessin HUD : les deux boites de cet appel, le nombre de
+// sommets vus, le viewport courant, le chemin (direct/differe) et l'echelle isometrique.
+void vbox_note_draw(const float pre_min[2],
+                    const float pre_max[2],
+                    const float ndc_min[2],
+                    const float ndc_max[2],
+                    int verts,
+                    int vp_w,
+                    int vp_h,
+                    bool deferred,
+                    float iso_sx,
+                    float iso_sy);
+// Ce que GOAL relit. -1 si le slot ou le champ n'existe pas.
+int64_t vbox_read(int slot, int field);
+
 }  // namespace hud_box_probe

@@ -3266,12 +3266,24 @@
 ;; le retard n'excede pas trois images — au lieu d'apparier deux etats differents en silence.
 (defconstant HUD3D_PX_HOLD 4)     ;; images par phase ; la capture tombe sur la derniere
 (defconstant HUD3D_PX_PHASES 10)  ;; reference, pile d'origine, reference, notre pile, ... controle
-(defconstant HUD3D_PX_MIN 8)      ;; paires exigees avant de juger un emplacement
-;; Le plafond de paires, le MEME que `kMaxPairs` de hud_box_probe.cpp. Au-dela, le C++ refuse
-;; d'accumuler ; la sequence s'arrete ici pour que le banc de cout (§4) mesure ensuite des images
-;; que l'instrument ne touche plus. Un desaccord entre les deux valeurs ne fausse rien : il
-;; allonge ou raccourcit la sequence, il ne change aucune boite.
-(defconstant HUD3D_PX_PAIRS 48)
+
+;; ── §12 LA BOITE DES SOMMETS TRANSFORMES (essai 7, owner 18/09 07:15) ───────────────────────
+;; La sequence ci-dessus ne lit PLUS l'image : elle arme, a la derniere image de chaque phase,
+;; la boite des sommets que Generic2 refait sur le CPU (hud_box_probe.h, « ESSAI 7 »). C'est
+;; l'instrument que l'owner a autorise apres que l'essai 4 a chiffre le bruit de l'appareil
+;; (2,8 a 3,4 niveaux par pixel entre deux images identiques) : une image suffit, aucun seuil.
+;; Elle tourne sous DEUX aspects : celui du joueur (regime A, le 4:3 PS2 sur le telephone), puis
+;; l'aspect NATIF du panneau (regime B, bascule par `set-aspect!` comme le fait le menu, puis
+;; RESTAURATION). Le correctif d'echelle (`hud3d-cell-x-fix`) se derive des matrices, il doit
+;; donc tenir sous les deux ; l'essai 6 avait raisonne juste sur un aspect et faux sur l'autre.
+(defconstant HUD3D_VBOX_SAMPLES 4)    ;; images retenues par emplacement et par regime
+(defconstant HUD3D_VBOX_REGIME_B 5)   ;; decalage de slot du regime natif (slots 6..9)
+(defconstant HUD3D_VBOX_SETTLE 30)    ;; images laissees a l'appareil pour appliquer la bascule
+(defconstant HUD3D_VBOX_B_MAX 900)    ;; plafond d'images sous le regime natif : au-dela on rend
+                                      ;; l'aspect du joueur et on le dit (`vb-b-state` 3)
+(defconstant HUD3D_BOX_TOL 20)        ;; ecart tolere entre notre pile et le ramassable, au millieme
+(defconstant HUD3D_BOX_CTRL_TOL 30)   ;; ecart tolere entre le controle et sa valeur attendue
+(defconstant HUD3D_BOX_NOCTRL 100000) ;; « ce modele n'a pas ete retenu » pour un controle
 
 (defun hud3d-px-hold-for ((cycle int))
   "LA DUREE D'UNE PHASE, QUI N'EST PAS CONSTANTE. Le bruit d'une scene de jeu n'est pas blanc :
@@ -3425,7 +3437,30 @@
    (px-cycles       int32)
    (px-bad          int32)
    (px-on           symbol)
-   (px-paused       symbol)))
+   (px-paused       symbol)
+   ;; §12 LES PROPORTIONS DE LA PILE (owner, 18/09 07:15) : la boite des sommets transformes,
+   ;; sous deux aspects. `vb-regime` 0 = l'aspect du joueur, 1 = l'aspect natif du panneau.
+   (vb-regime       int32)
+   (vb-settle       int32)   ;; images laissees a l'appareil pour appliquer la bascule
+   (vb-b-frames     int32)   ;; images passees sous le regime natif (plafond HUD3D_VBOX_B_MAX)
+   (vb-b-state      int32)   ;; 0 pas tente · 1 bascule prise · 2 bascule sans effet · 3 plafond
+   ;; DES ENTIERS, PAS DES SYMBOLES : un champ `symbol` d'un process neuf vaut 0, qui n'est
+   ;; PAS #f (mesure x86 essai 7 : la « restauration » a pose des zeros dans les reglages
+   ;; d'aspect et la camera est passee en 4:3 pour le reste de la course).
+   (vb-saved        int32)   ;; 1 = les reglages d'aspect du joueur sont sauves ci-dessous
+   (vb-sv-aspect    float)
+   (vb-sv-cx        int32)
+   (vb-sv-cy        int32)
+   (vb-sv-auto      int32)
+   (vb-sv-vis       int32)
+   (vb-aspect-b-milli int32) ;; l'aspect demande au regime natif, au millieme
+   (vb-sx           int32 10) ;; |echelle x| du root du modele a l'armement, x1e6, par slot
+   (vb-sy           int32 10)
+   (cell-x-fix      float)   ;; le facteur d'echelle x applique a notre pile a cette image
+   ;; §6/§10 : l'image DESSINEE (`real-actual-frame-counter`) ou l'element etait encore visible ;
+   ;; une accusation n'est recevable que deux images dessinees plus tard (voir hud3d-glow-drive)
+   (eco-hid-frame   int32)
+   (glow-hid-frame  int32)))
 
 ;;;----------------------------------------------
 ;;  petites mesures
@@ -3685,8 +3720,10 @@
                    (the-as (pointer manipy) #f)))
              (spawned-prev (hud3d-spawned-this-frame? lc))
              (prev (logtest? (-> this was-hid) (ash 1 5)))
-             (prev2 (logtest? (-> this was-hid) (ash 1 6))))
+             (prev2 (logtest? (-> this was-hid) (ash 1 6)))
+             (now (the int (-> *display* real-actual-frame-counter))))
         (set! drawn (if (and want (hud3d-icon-drawn? ic)) #t #f))
+        (if drawn (set! (-> this glow-hid-frame) now))
         ;; §11 LE TEMOIN DE HAUTEUR, ET IL N'EST PAS DE NOUS. `hud-fuel-cell::hud-update`
         ;; (hud-classes.gc:947-951) pose la lueur D'ORIGINE sur la jointure 3 de l'icone
         ;; D'ORIGINE. On relit cette meme jointure, sur ce meme modele, avec la meme fonction —
@@ -3710,12 +3747,15 @@
         ;;     PERDRE un lancement, jamais en inventer un.
         ;;   - « la lueur sans la pile » : il en faut TROIS, sinon on impute au repli le lancement
         ;;     de l'image d'avant. Mesure du 18/09, meme course : 46 accusations a deux images,
-        ;;     toutes a une bascule, contre 0 a trois.
+        ;;     toutes a une bascule, contre 0 a trois. ET DEUX IMAGES DESSINEES depuis la derniere
+        ;;     image ou la pile etait dessinee (essai 6 : `hud3d_glow_bad=1` sur 6 076 images,
+        ;;     apres 0 a l'essai 5) : trois images de logique tiennent dans une image dessinee
+        ;;     quand l'appareil accroche, et le temoin, lui, compte en images dessinees.
         (cond
           ((and drawn prev)
            (+! (-> this glow-frames) 1)
            (if spawned-prev (+! (-> this glow-spawns) 1) (+! (-> this glow-missing) 1)))
-          ((and (not drawn) (not prev) (not prev2))
+          ((and (not drawn) (not prev) (not prev2) (>= (- now (-> this glow-hid-frame)) 2))
            (if spawned-prev (+! (-> this glow-bad) 1))))
         (if prev (logior! (-> this was-hid) (ash 1 6)) (logclear! (-> this was-hid) (ash 1 6)))
         (if drawn (logior! (-> this was-hid) (ash 1 5)) (logclear! (-> this was-hid) (ash 1 5)))
@@ -4124,6 +4164,20 @@
           (send-event (ppointer->process ic) 'draw on)))))
   (none))
 
+(defun hud3d-cell-x-fix ()
+  "LE FACTEUR QUI DONNE A LA PROJECTION DU HUD L'ANISOTROPIE DE CELLE DU MONDE, lu sur les deux
+   matrices que le moteur vient de poser : (|persp.xx| / |persp.yy|) / (|iso.xx| / |iso.yy|).
+   Sur du 4:3 : (256/112 x 3/4) / (1/0,5) = 6/7. Sur du 16:9 : 0,643 — soit 6/7 x 0,75, le
+   `relative-x-scale` que `hud::draw-icons` posait, absorbe. Le signe est ignore : la triche
+   « miroir » retourne persp.xx (math-camera.gc:333). Rend 1,0 si une matrice n'est pas posee."
+  (let ((pxx (fabs (-> *math-camera* perspective vector 0 x)))
+        (pyy (fabs (-> *math-camera* perspective vector 1 y)))
+        (ixx (fabs (-> *math-camera* isometric vector 0 x)))
+        (iyy (fabs (-> *math-camera* isometric vector 1 y))))
+    (if (and (> pxx 0.0) (> pyy 0.0) (> ixx 0.0) (> iyy 0.0))
+      (/ (* pxx iyy) (* pyy ixx))
+      1.0)))
+
 (defun hud3d-set-regime ((this hud-3d-pickups) (ours symbol))
   "pose les quatre emplacements dans l'un des deux regimes. `ours` = les objets du jeu ;
    sinon exactement ce que le jeu d'origine dessine."
@@ -4141,26 +4195,33 @@
           ;; chaque image (hud-classes.gc:944). Deux entiers, pas une formule.
           (set! (-> obj icons 1 icon-x) (+ (-> obj icons 0 icon-x) (-> this cell-dx)))
           (set! (-> obj icons 1 icon-y) (+ (-> obj icons 0 icon-y) (-> this cell-dy)))
-          ;; ── L'ECHELLE DE NOTRE PILE EST CELLE DE LA PILE D'ORIGINE, DONC ISOTROPE ──────────
-          ;; MESURE x86 DU 17/09, lue sur la transformation qui atteint le renderer :
-          ;;   pile d'origine : root scale = (0,00899 · 0,00899)
-          ;;   la notre       : root scale = (0,00539 · 0,00899)      539/899 = 0,600
-          ;; 0,600 est exactement `relative-x-scale` = (4/3)/aspect. `hud::draw-icons`
-          ;; (hud.gc:74-78) multiplie l'abscisse de TOUTE icone par ce facteur, mais la projection
-          ;; du HUD 3D rend deja des pixels carres : rien en aval ne l'annule, contrairement aux
-          ;; SPRITES de HUD que `sprite-add-matrix-data` (sprite.gc:467-469) recorrige par
-          ;; `aspect-ratio-scale`. La pile d'origine y echappe par accident : la part 318 de son
-          ;; groupe de sprites rappelle `fuel-cell-hud-center-callback` (hud-classes.gc:932) a
-          ;; chaque image, qui lui repose une echelle UNIFORME. Notre icone, elle, n'a pas de
-          ;; sprite — livrable §2 — donc personne ne la reposait : elle restait ecrasee de 40 %
-          ;; en largeur. C'est le mot de l'owner : « squeezee ».
-          ;; On refait donc, pour notre icone, le geste que le jeu fait deja pour la sienne : une
-          ;; ecriture de vecteur par image, la meme valeur que celle du sprite remplace.
-          ;; (Sur l'appareil, Android force `aspect-ratio` a 4:3 et le facteur vaut 1,000 : ce
-          ;; correctif y est neutre. Il cesse de l'etre des que le format de rendu change.)
+          ;; ── L'ECHELLE DE NOTRE PILE : CELLE DE LA PILE D'ORIGINE EN HAUTEUR, ET EN LARGEUR
+          ;; ── CE QUI DONNE A L'ECRAN LES PROPORTIONS DU RAMASSABLE DU MONDE ─────────────────
+          ;; Owner, 18/09 07:15 : « la pile d'energie est un peu etiree en largeur par rapport a
+          ;; celles qu'on voit in game… peut-etre une histoire d'aspect ratio ». C'est exactement
+          ;; cela, et c'est dans les DONNEES du jeu, pas dans un reglage :
+          ;;   * la projection du MONDE (`*math-camera* perspective`, math-camera.gc:290-293) porte
+          ;;     x-pix/x-ratio et y-pix/y-ratio avec x-pix = 256, y-pix = 112 et
+          ;;     y-ratio = x-ratio / aspect : elle est ANISOTROPE juste ce qu'il faut pour que le
+          ;;     canevas 512x448 — etire sur une sortie 4:3 — rende des pixels carres ;
+          ;;   * la projection du HUD (`*math-camera* isometric`, math-camera.gc:400-402) vaut
+          ;;     (1, 0.5, -1) et ne sait rien de l'aspect : le nuanceur (generic.vert) divise x par
+          ;;     256 et y par 128 puis multiplie y par 512/448, donc une unite de canevas fait
+          ;;     aspect x 448/512 fois plus de pixels en largeur qu'en hauteur — 7/6 sur du 4:3.
+          ;; Tout modele 3D du HUD est donc 16,7 % trop large sur le telephone (et l'etait deja
+          ;; sur une TV 4:3 en 2001 : la pile nue d'origine, la mecamouche et l'orbe le sont aussi,
+          ;; l'owner les a valides tels quels — FINDINGS). Le monde, lui, est juste.
+          ;; LE CORRECTIF SE LIT SUR LES DEUX MATRICES, il ne vient pas d'une constante : on donne
+          ;; a notre pile, en x, le rapport d'anisotropie monde/HUD — `hud3d-cell-x-fix`, soit
+          ;; (8/7)/aspect = 6/7 sur du 4:3 et 0,643 sur du 16:9 (ou il ABSORBE le
+          ;; `relative-x-scale` = 0,75 que `hud::draw-icons` posait et que l'essai 6 ecrasait par
+          ;; une echelle uniforme). La hauteur reste celle de l'icone d'origine (§9, acquis).
+          ;; Une multiplication et une division par image, rien de plus (owner, 17/09 : « pas de
+          ;; trucs over-engineered »). La boite des sommets (§12) mesure le resultat en pixels.
           (when (and (> (-> this cell-scale) 0.0) (hud3d-alive? (-> obj icons 1 icon)))
+            (set! (-> this cell-x-fix) (hud3d-cell-x-fix))
             (set-vector! (-> obj icons 1 icon 0 root scale)
-                         (-> this cell-scale)
+                         (* (-> this cell-scale) (-> this cell-x-fix))
                          (-> this cell-scale)
                          (-> this cell-scale)
                          1.0)))
@@ -4259,48 +4320,223 @@
       (if (!= (and (= show 2) #t) (hud3d-icon-drawn? (-> fc 0 icons 1 icon))) (+! (-> this px-bad) 1))
       (if (!= (and (= show 3) #t) (hud3d-icon-drawn? (-> bz 0 icons 0 icon))) (+! (-> this px-bad) 1))
       (if (!= (and (= show 4) #t) (hud3d-icon-drawn? (-> mo 0 icons 0 icon))) (+! (-> this px-bad) 1))
-      (__pc-autoport-hud-capture (hud3d-px-capture (-> this px-phase)))
+      ;; §12 : on ARME la boite des sommets du modele que cette phase montre, dans le slot du
+      ;; regime d'aspect courant, et on releve l'echelle du root qu'il porte a cet instant — c'est
+      ;; elle qui ramene la boite avant projection aux proportions du MODELE. Les phases de
+      ;; reference et de controle (rien de montre) n'arment rien : il n'y a pas d'image a lire.
+      (let ((slot (hud3d-px-capture (-> this px-phase))))
+        (when (and (>= slot 1) (<= slot 4))
+          (let ((vs (+ slot (* (-> this vb-regime) HUD3D_VBOX_REGIME_B)))
+                (ic (cond
+                      ((= slot 1) (-> fc 0 icons 0 icon))
+                      ((= slot 2) (-> fc 0 icons 1 icon))
+                      ((= slot 3) (-> bz 0 icons 0 icon))
+                      (else (-> mo 0 icons 0 icon)))))
+            (when (hud3d-alive? ic)
+              (set! (-> this vb-sx vs) (the int (* 1000000.0 (fabs (-> ic 0 root scale x)))))
+              (set! (-> this vb-sy vs) (the int (* 1000000.0 (fabs (-> ic 0 root scale y)))))
+              (__pc-autoport-hud-vbox-arm vs)))))
       (set! (-> this px-phase) (mod (+ (-> this px-phase) 1) HUD3D_PX_PHASES))
       (if (zero? (-> this px-phase)) (+! (-> this px-cycles) 1))))
   (none))
 
-(defun hud3d-px-w ((slot int))
-  "largeur en pixels de la boite lue pour cet emplacement ; 0 si rien n'a ete retenu."
-  (if (> (__pc-autoport-hud-box slot 5) 0)
-    (+ 1 (- (__pc-autoport-hud-box slot 3) (__pc-autoport-hud-box slot 1)))
+;;;----------------------------------------------
+;;  §12 LES PROPORTIONS DE LA PILE — la boite des sommets, ses deux regimes d'aspect, son terme
+;;;----------------------------------------------
+
+(defun hud3d-vbox-samples ((regime int))
+  "images retenues pour NOTRE pile sous ce regime d'aspect. Les quatre emplacements avancent au
+   meme pas dans le cycle ; le notre est le seul que le terme juge, et il precede l'orbe."
+  (__pc-autoport-hud-vbox (+ 2 (* regime HUD3D_VBOX_REGIME_B)) 0))
+
+(defun hud3d-vbox-aspect-changed? ((this hud-3d-pickups))
+  "la bascule d'aspect a-t-elle PRIS sur l'appareil ? On compare les viewports que Generic2 a lus
+   pour notre pile sous les deux regimes : un ecart de rapport inferieur a 3 % = meme viewport,
+   donc bascule sans effet. Rien n'est suppose : c'est `glGetIntegerv(GL_VIEWPORT)` des deux cotes."
+  (let ((wa (__pc-autoport-hud-vbox 2 9))
+        (ha (__pc-autoport-hud-vbox 2 10))
+        (wb (__pc-autoport-hud-vbox 7 9))
+        (hb (__pc-autoport-hud-vbox 7 10)))
+    (and (> wa 0) (> ha 0) (> wb 0) (> hb 0)
+         (>= (fabs (- (/ (* (the float wb) (the float ha)) (* (the float wa) (the float hb))) 1.0)) 0.03))))
+
+(defun hud3d-vbox-more? ((this hud-3d-pickups))
+  "reste-t-il des images a retenir ? Le regime du joueur jusqu'a son compte ; puis le regime natif
+   jusqu'au sien, sauf si la bascule n'a pas pris (meme viewport) ou si son plafond d'images est
+   atteint — dans les deux cas on le DIT (`vb-b-state`) au lieu d'attendre."
+  (cond
+    ((< (hud3d-vbox-samples 0) HUD3D_VBOX_SAMPLES) #t)
+    ((zero? (-> this vb-regime)) #t)
+    ((>= (-> this vb-b-state) 2) #f)
+    ((>= (-> this vb-b-frames) HUD3D_VBOX_B_MAX) (set! (-> this vb-b-state) 3) #f)
+    ((and (>= (hud3d-vbox-samples 1) 1) (not (hud3d-vbox-aspect-changed? this)))
+     (set! (-> this vb-b-state) 2)
+     #f)
+    ((< (hud3d-vbox-samples 1) HUD3D_VBOX_SAMPLES) #t)
+    (else #f)))
+
+(defun hud3d-vbox-enter-b ((this hud-3d-pickups))
+  "BASCULE VERS L'ASPECT NATIF DU PANNEAU, le geste du menu « 16:9 / personnalise »
+   (progress-pc.gc:9571-9573 -> `set-aspect!`) avec la taille reelle de la fenetre que
+   `update-from-os` relit a chaque image. Les cinq reglages qu'il touche sont SAUVES d'abord ;
+   `hud3d-vbox-restore` les repose. Rien n'est ecrit sur disque : `commit-to-file` n'est appele
+   que par le menu. Sous la sonde seulement, pendant quelques secondes de jeu en pause."
+  (let ((fw (-> *pc-settings* framebuffer-width))
+        (fh (-> *pc-settings* framebuffer-height)))
+    (set! (-> this vb-regime) 1)
+    (set! (-> this vb-settle) HUD3D_VBOX_SETTLE)
+    (cond
+      ((and (> fw 0) (> fh 0) (zero? (-> this vb-saved)))
+       (set! (-> this vb-sv-aspect) (-> *pc-settings* aspect-ratio))
+       (set! (-> this vb-sv-cx) (-> *pc-settings* aspect-custom-x))
+       (set! (-> this vb-sv-cy) (-> *pc-settings* aspect-custom-y))
+       (set! (-> this vb-sv-auto) (if (-> *pc-settings* aspect-ratio-auto?) 1 0))
+       (set! (-> this vb-sv-vis) (if (-> *pc-settings* use-vis?) 1 0))
+       (set! (-> this vb-saved) 1)
+       (set! (-> this vb-aspect-b-milli) (the int (/ (* 1000 fw) fh)))
+       (set-aspect! *pc-settings* (the int fw) (the int fh))
+       (set! (-> this vb-b-state) 1))
+      (else (set! (-> this vb-b-state) 2))))
+  (none))
+
+(defun hud3d-vbox-restore ((this hud-3d-pickups))
+  "REPOSE L'ASPECT DU JOUEUR, exactement les cinq champs que `set-aspect!` a touches. Appelee a
+   la fin de la sequence ET des que la sonde s'eteint : l'aspect natif ne survit jamais a la
+   mesure."
+  (when (nonzero? (-> this vb-saved))
+    (set! (-> this vb-saved) 0)
+    (set! (-> *pc-settings* aspect-custom-x) (-> this vb-sv-cx))
+    (set! (-> *pc-settings* aspect-custom-y) (-> this vb-sv-cy))
+    (set! (-> *pc-settings* aspect-ratio-auto?) (if (nonzero? (-> this vb-sv-auto)) #t #f))
+    (set! (-> *pc-settings* use-vis?) (if (nonzero? (-> this vb-sv-vis)) #t #f))
+    (if (> (-> this vb-sv-aspect) 0.0) (set-aspect-ratio! *pc-settings* (-> this vb-sv-aspect))))
+  (none))
+
+(defun hud3d-vbox-hud-wh-milli ((slot int))
+  "largeur/hauteur de la boite EN PIXELS du viewport, au millieme — ce que la dalle montre.
+   0 si rien n'a ete retenu."
+  (let ((w (__pc-autoport-hud-vbox slot 5))
+        (h (__pc-autoport-hud-vbox slot 6)))
+    (if (and (> w 0) (> h 0)) (/ (* 1000 w) h) 0)))
+
+(defun hud3d-vbox-model-wh-milli ((this hud-3d-pickups) (slot int))
+  "largeur/hauteur du MODELE, au millieme : la boite AVANT projection (unites du canevas, deja
+   multipliees par l'echelle du root que les os portent) ramenee a l'echelle que le root avait a
+   l'armement. C'est la proportion que le ramassable du monde montre a travers une projection
+   isotrope — la reference de l'owner. 0 si rien n'a ete retenu."
+  (let ((w (__pc-autoport-hud-vbox slot 3))
+        (h (__pc-autoport-hud-vbox slot 4))
+        (sx (-> this vb-sx slot))
+        (sy (-> this vb-sy slot)))
+    ;; en flottant : 1000 x w x sy deborde un entier de 32 bits (mesure x86 : publie 0)
+    (if (and (> w 0) (> h 0) (> sx 0) (> sy 0))
+      (the int (/ (* 1000.0 (the float w) (the float sy)) (* (the float h) (the float sx))))
+      0)))
+
+(defun hud3d-proj-aniso-milli ((xx float) (yy float) (vw int) (vh int))
+  "L'ANISOTROPIE EN PIXELS d'une projection de termes diagonaux xx, yy, dessinee dans un viewport
+   vw x vh : (|xx|/|yy|) x (128/256) x (448/512) x (vw/vh), au millieme. Les trois constantes
+   sont celles de generic.vert (x/256, y/-128, y x 512/448) ; 1000 = pixels carres.
+   Pour le MONDE on passe la region de dessin du monde (`framebuffer-scissor-*`, celle que
+   `update-to-os` livre au letterbox) : elle doit rendre 1000. Pour le HUD, le viewport que
+   Generic2 a lu au dessin : 1167 sur du 4:3 — l'etirement que l'owner a vu, chiffre."
+  (if (and (> vw 0) (> vh 0) (> (fabs yy) 0.0))
+    (the int (* 1000.0 (/ (fabs xx) (fabs yy)) 0.4375 (/ (the float vw) (the float vh))))
     0))
 
-(defun hud3d-px-h ((slot int))
-  (if (> (__pc-autoport-hud-box slot 5) 0)
-    (+ 1 (- (__pc-autoport-hud-box slot 4) (__pc-autoport-hud-box slot 2)))
-    0))
+(defun hud3d-vbox-ctrl-delta-milli ((this hud-3d-pickups) (slot int) (hud int) (world int))
+  "LE CONTROLE DE L'INSTRUMENT SUR UN MODELE NON CORRIGE (pile d'origine, mecamouche, orbe) : son
+   rapport EN PIXELS doit valoir son rapport de MODELE x (sx/sy) x hud/world — l'etirement du HUD,
+   pondere par l'anisotropie que `hud::draw-icons` laisse sur son root (`relative-x-scale` en x).
+   Rend (mesure - attendu) au millieme, ou HUD3D_BOX_NOCTRL si ce modele n'a rien dessine dans
+   Generic2 (bureau : la pile nue d'origine part par la chaine HD/Merc2, 5 sommets degeneres).
+   Ce n'est pas un miroir : le rapport en pixels vient des sommets projetes et du viewport, le
+   rapport de modele des memes sommets AVANT projection, et l'attendu des deux matrices."
+  (let ((hud-r (hud3d-vbox-hud-wh-milli slot))
+        (model-r (hud3d-vbox-model-wh-milli this slot))
+        (sx (-> this vb-sx slot))
+        (sy (-> this vb-sy slot)))
+    (if (and (> hud-r 0) (> model-r 0) (> sx 0) (> sy 0) (> world 0) (> hud 0))
+      (- (/ (* 1000 hud-r) model-r)
+         (the int (/ (* 1000.0 (the float sx) (the float hud)) (* (the float sy) (the float world)))))
+      HUD3D_BOX_NOCTRL)))
 
-(defun hud3d-px-cx2 ((slot int))
-  "DEUX FOIS l'abscisse du centre : le centre d'une boite de largeur paire n'est pas un entier,
-   et publier un arrondi masquerait justement l'ecart de 1 a 2 pixels que le contrat juge."
-  (+ (__pc-autoport-hud-box slot 1) (__pc-autoport-hud-box slot 3)))
-
-(defun hud3d-px-cy2 ((slot int))
-  (+ (__pc-autoport-hud-box slot 2) (__pc-autoport-hud-box slot 4)))
-
-(defmacro hud3d-px-pub (slot nom)
-  "publie la boite d'un emplacement, telle qu'elle a ete lue. Les cles portent `px` : ce sont des
-   PIXELS de la FBO de rendu, pas des unites de canevas. Les noms sont des litteraux assembles a
-   la compilation — aucune chaine n'est fabriquee a l'execution."
+(defmacro hud3d-vbox-pub (this slot nom)
+  "publie la boite des sommets d'un slot telle que Generic2 l'a retenue (`_e3` = x1000), plus
+   ses deux rapports. Cles litterales assemblees a la compilation."
   `(begin
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_samples") (__pc-autoport-hud-box ,slot 0))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_minx") (__pc-autoport-hud-box ,slot 1))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_miny") (__pc-autoport-hud-box ,slot 2))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_w") (hud3d-px-w ,slot))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_h") (hud3d-px-h ,slot))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_pixels") (__pc-autoport-hud-box ,slot 5))
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_empty") (__pc-autoport-hud-box ,slot 8))
-    ;; le rapport largeur/hauteur au millieme : une pile « squeezee » est un rapport faux, et
-    ;; c'est le mot que l'owner a employe.
-    (__pc-autoport-publish ,(string-append "hud3d_px_" nom "_wh_milli")
-                           (if (> (hud3d-px-h ,slot) 0)
-                             (/ (* 1000 (hud3d-px-w ,slot)) (hud3d-px-h ,slot))
-                             0))))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_samples") (__pc-autoport-hud-vbox ,slot 0))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_verts") (__pc-autoport-hud-vbox ,slot 1))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_draws") (__pc-autoport-hud-vbox ,slot 2))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_pre_w_e3") (__pc-autoport-hud-vbox ,slot 3))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_pre_h_e3") (__pc-autoport-hud-vbox ,slot 4))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_px_w_e3") (__pc-autoport-hud-vbox ,slot 5))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_px_h_e3") (__pc-autoport-hud-vbox ,slot 6))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_px_cx_e3") (__pc-autoport-hud-vbox ,slot 7))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_px_cy_e3") (__pc-autoport-hud-vbox ,slot 8))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_vp_w") (__pc-autoport-hud-vbox ,slot 9))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_vp_h") (__pc-autoport-hud-vbox ,slot 10))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_path") (__pc-autoport-hud-vbox ,slot 11))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_empty") (__pc-autoport-hud-vbox ,slot 14))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_root_sx_e6") (-> ,this vb-sx ,slot))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_root_sy_e6") (-> ,this vb-sy ,slot))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_hud_wh_milli") (hud3d-vbox-hud-wh-milli ,slot))
+    (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_model_wh_milli") (hud3d-vbox-model-wh-milli ,this ,slot))))
+
+(defmacro hud3d-box-judge (this regime nom measured ok)
+  "§12 — LE TERME DES PROPORTIONS sous un regime d'aspect. Rend 0 si notre pile, EN PIXELS, a le
+   rapport largeur/hauteur du ramassable du monde a HUD3D_BOX_TOL pres ; 1 sinon, et 1 quand le
+   terme n'est pas mesure. La reference `world` = le rapport du MODELE (boite avant projection
+   ramenee au root) fois l'anisotropie de la projection du MONDE sur ce viewport (1000 attendu).
+   LE CONTROLE EST GRATUIT ET IL N'EST PAS UN MIROIR : la pile d'ORIGINE, elle, n'est pas
+   corrigee ; son ecart au monde doit valoir l'anisotropie du HUD relative a celle du monde
+   (+167 sur du 4:3). Si la boite ne retrouve pas ce chiffre a HUD3D_BOX_CTRL_TOL pres, c'est
+   l'instrument qui est faux, et le terme se declare NON MESURE au lieu de juger avec."
+  `(let* ((so (+ 2 (* ,regime HUD3D_VBOX_REGIME_B)))
+          (ss (+ 1 (* ,regime HUD3D_VBOX_REGIME_B)))
+          (n-o (__pc-autoport-hud-vbox so 0))
+          (n-s (__pc-autoport-hud-vbox ss 0))
+          (world (hud3d-proj-aniso-milli (-> *math-camera* perspective vector 0 x)
+                                         (-> *math-camera* perspective vector 1 y)
+                                         (the int (-> *pc-settings* framebuffer-scissor-width))
+                                         (the int (-> *pc-settings* framebuffer-scissor-height))))
+          (hud (hud3d-proj-aniso-milli (the float (__pc-autoport-hud-vbox so 12))
+                                       (the float (__pc-autoport-hud-vbox so 13))
+                                       (__pc-autoport-hud-vbox so 9)
+                                       (__pc-autoport-hud-vbox so 10)))
+          (hud-o (hud3d-vbox-hud-wh-milli so))
+          (model-o (hud3d-vbox-model-wh-milli ,this so))
+          (world-o (if (> world 0) (/ (* model-o world) 1000) 0))
+          (err-o (if (> world-o 0) (/ (* 1000 (abs (- hud-o world-o))) world-o) 1000))
+          ;; les trois modeles NON corriges du meme regime : il suffit qu'UN soit retenu et
+          ;; retrouve l'etirement attendu pour que l'instrument soit tenu pour juste
+          (d-s (hud3d-vbox-ctrl-delta-milli ,this ss hud world))
+          (d-b (hud3d-vbox-ctrl-delta-milli ,this (+ 3 (* ,regime HUD3D_VBOX_REGIME_B)) hud world))
+          (d-o (hud3d-vbox-ctrl-delta-milli ,this (+ 4 (* ,regime HUD3D_VBOX_REGIME_B)) hud world))
+          (ctrl-ok (or (<= (abs d-s) HUD3D_BOX_CTRL_TOL)
+                       (<= (abs d-b) HUD3D_BOX_CTRL_TOL)
+                       (<= (abs d-o) HUD3D_BOX_CTRL_TOL)))
+          (mes (and ,ok (> n-o 0) (> hud-o 0) (> model-o 0) (> world 0) ctrl-ok))
+          (term (if mes (if (<= err-o HUD3D_BOX_TOL) 0 1) 1)))
+     (if mes (+! ,measured 1))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_world_aniso_milli") world)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_hud_aniso_milli") hud)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ours_hud_wh_milli") hud-o)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ours_model_wh_milli") model-o)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ours_world_wh_milli") world-o)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ours_err_milli") err-o)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_stock_samples") n-s)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_stock_delta_abs") (abs d-s))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_stock_delta_neg") (if (< d-s 0) 1 0))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_buzzer_delta_abs") (abs d-b))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_buzzer_delta_neg") (if (< d-b 0) 1 0))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_orb_delta_abs") (abs d-o))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_orb_delta_neg") (if (< d-o 0) 1 0))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_ctrl_tol_milli") HUD3D_BOX_CTRL_TOL)
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_control_ok") (if ctrl-ok 1 0))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_measured") (if mes 1 0))
+     (__pc-autoport-publish ,(string-append "hud3d_box_" nom "_tol_milli") HUD3D_BOX_TOL)
+     term))
 
 ;;;----------------------------------------------
 ;;  la preuve
@@ -4589,43 +4825,24 @@
         (__pc-autoport-publish "hud3d_place_cell_dx_abs" (abs (-> this cell-dx)))
         (__pc-autoport-publish "hud3d_place_cell_dy_abs" (abs (-> this cell-dy)))
 
-        ;; ── §9 LA PILE EST A SA PLACE ET A SA TAILLE — MESURE SUR L'IMAGE RENDUE ─────────
-        ;; Les quatre boites, telles que `hud_box_probe` les a lues. Rien ici ne vient d'une
-        ;; variable de placement : ce sont les pixels qui ont change entre une image ou
-        ;; l'element etait cache et l'image suivante ou il etait dessine.
-        (hud3d-px-pub 1 "cell_stock")
-        (hud3d-px-pub 2 "cell_ours")
-        (hud3d-px-pub 3 "buzzer")
-        (hud3d-px-pub 4 "orb")
-        (hud3d-px-pub 5 "ctrl")
+        ;; ── §12 LES PROPORTIONS DE LA PILE — LA BOITE DES SOMMETS TRANSFORMES ───────────────
+        ;; Les quatre emplacements sous l'aspect du joueur (a) et sous l'aspect natif (b), tels
+        ;; que Generic2 les a retenus : rien ici ne vient d'une variable de placement, ce sont les
+        ;; sommets qui partent au GPU, refaits par le calcul du nuanceur, et le viewport lu au
+        ;; dessin. La lecture d'IMAGE de l'essai 3 (hud3d_px_*) est RETIREE : l'owner a valide la
+        ;; position et la taille lui-meme, et l'essai 4 a chiffre qu'elle etait sous le bruit.
+        (hud3d-vbox-pub this 1 "a_cell_stock")
+        (hud3d-vbox-pub this 2 "a_cell_ours")
+        (hud3d-vbox-pub this 3 "a_buzzer")
+        (hud3d-vbox-pub this 4 "a_orb")
+        (hud3d-vbox-pub this 6 "b_cell_stock")
+        (hud3d-vbox-pub this 7 "b_cell_ours")
+        (hud3d-vbox-pub this 8 "b_buzzer")
+        (hud3d-vbox-pub this 9 "b_orb")
         (__pc-autoport-publish "hud3d_px_cycles" (-> this px-cycles))
-        ;; les quatre diagnostics qui separent « rien n'a bascule » de « l'image lue est muette »
+        ;; l'etat demande etait-il celui que le moteur portait a l'armement ? (0 attendu)
         (__pc-autoport-publish "hud3d_px_state_mismatch" (-> this px-bad))
-        (__pc-autoport-publish "hud3d_px_base_lum" (__pc-autoport-hud-box 1 12))
-        (__pc-autoport-publish "hud3d_px_raw_mean_cell_ours" (__pc-autoport-hud-box 2 9))
-        (__pc-autoport-publish "hud3d_px_raw_max_cell_ours" (__pc-autoport-hud-box 2 10))
-        (__pc-autoport-publish "hud3d_px_raw_mean_cell_stock" (__pc-autoport-hud-box 1 9))
-        (__pc-autoport-publish "hud3d_px_raw_mean_ctrl" (__pc-autoport-hud-box 5 9))
-        (__pc-autoport-publish "hud3d_px_excluded_cell_ours" (__pc-autoport-hud-box 2 11))
-        (__pc-autoport-publish "hud3d_px_excluded_cell_stock" (__pc-autoport-hud-box 1 11))
-        ;; L'HISTOGRAMME D'ACCORD, par palier, pour l'element ET pour le controle. C'est ce qui
-        ;; permet de lire le seuil sur les chiffres au lieu de le deviner : le decor et l'element
-        ;; ne se separent que si leurs deux distributions ne se recouvrent pas.
-        (__pc-autoport-publish "hud3d_px_agreemax_cell_ours" (__pc-autoport-hud-box 2 13))
-        (__pc-autoport-publish "hud3d_px_agreemax_cell_stock" (__pc-autoport-hud-box 1 13))
-        (__pc-autoport-publish "hud3d_px_agreemax_ctrl" (__pc-autoport-hud-box 5 13))
-        (__pc-autoport-publish "hud3d_px_p50_cell_ours" (__pc-autoport-hud-box 2 14))
-        (__pc-autoport-publish "hud3d_px_p75_cell_ours" (__pc-autoport-hud-box 2 15))
-        (__pc-autoport-publish "hud3d_px_p90_cell_ours" (__pc-autoport-hud-box 2 16))
-        (__pc-autoport-publish "hud3d_px_p100_cell_ours" (__pc-autoport-hud-box 2 17))
-        (__pc-autoport-publish "hud3d_px_p50_cell_stock" (__pc-autoport-hud-box 1 14))
-        (__pc-autoport-publish "hud3d_px_p75_cell_stock" (__pc-autoport-hud-box 1 15))
-        (__pc-autoport-publish "hud3d_px_p90_cell_stock" (__pc-autoport-hud-box 1 16))
-        (__pc-autoport-publish "hud3d_px_p100_cell_stock" (__pc-autoport-hud-box 1 17))
-        (__pc-autoport-publish "hud3d_px_p50_ctrl" (__pc-autoport-hud-box 5 14))
-        (__pc-autoport-publish "hud3d_px_p75_ctrl" (__pc-autoport-hud-box 5 15))
-        (__pc-autoport-publish "hud3d_px_p90_ctrl" (__pc-autoport-hud-box 5 16))
-        (__pc-autoport-publish "hud3d_px_p100_ctrl" (__pc-autoport-hud-box 5 17))
+        (hud3d-pub-name "hud3d_px_image_probe" "retiree-remplacee-par-la-boite-des-sommets-essai-7")
         ;; ── DE QUOI CONVERTIR DES PIXELS EN UNITES DE CANEVAS SANS UNE COURSE DE PLUS ────────
         ;; Une boite en pixels ne dit pas, a elle seule, de combien il faut corriger l'echelle ou
         ;; la position : il manque le facteur de projection du HUD, qui depend de la profondeur de
@@ -4670,19 +4887,14 @@
                (t2 (if (>= (-> this judged) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this stock-spawns)) 1))
                (t3 (if (> (-> this judged) 0) (begin (+! measured 1) rect-bad) 1))
                (t5 (if (>= (-> this off-checks) HUD3D_BENCH_MIN) (begin (+! measured 1) (-> this off-bad)) 1))
-               ;; §9 : notre pile contre la pile d'origine, EN PIXELS DE L'IMAGE.
-               ;; Le terme n'est declare mesure que si les deux emplacements ont leur compte de
-               ;; paires ET que le CONTROLE est vide : un controle non vide veut dire que le
-               ;; filtre laisse passer du bruit, et une boite lue sous ce bruit ne prouve rien.
-               (px-ns (__pc-autoport-hud-box 1 0))
-               (px-no (__pc-autoport-hud-box 2 0))
-               (px-ctrl (__pc-autoport-hud-box 5 5))
-               (px-ws (hud3d-px-w 1))
-               (px-hs (hud3d-px-h 1))
-               (px-wo (hud3d-px-w 2))
-               (px-ho (hud3d-px-h 2))
-               (px-dcx2 (abs (- (hud3d-px-cx2 2) (hud3d-px-cx2 1))))
-               (px-dcy2 (abs (- (hud3d-px-cy2 2) (hud3d-px-cy2 1))))
+               ;; §12 — LES PROPORTIONS DE LA PILE (owner, 18/09 07:15), sous l'aspect du joueur
+               ;; (t10) puis sous l'aspect natif du panneau (t11). Le calcul et ses publications
+               ;; vivent dans `hud3d-box-judge`. t11 ne juge que si la bascule a PRIS sur
+               ;; l'appareil ; sinon il vaut 0 et `hud3d_box_b_state` le dit : c'est un « non
+               ;; prouve » declare, pas un vert par inaction — le regime du joueur, lui, est t10.
+               (t10 (hud3d-box-judge this 0 "a" measured #t))
+               (t11 (let ((v (hud3d-box-judge this 1 "b" measured (= (-> this vb-b-state) 1))))
+                      (if (= (-> this vb-b-state) 1) v 0)))
                ;; §10 — L'EFFET LUMINEUX DE LA PILE. CE TERME A REMPLACE CELUI DE LA BOITE EN PIXELS.
                ;; L'owner a tranche le 18/09 : « elle est bien a son emplacement attendu ! Mais […]
                ;; une pile d'energie in game a un effet lumineux, la notre dans le HUD ne l'a pas ».
@@ -4717,16 +4929,43 @@
           ;; `hud3d-glow-height-term` et son compte de mesure dans `hud3d-glow-height-measured?`,
           ;; hors de ce `let*` qui porte deja vingt liaisons vivantes.
           (__pc-autoport-publish "hud3d_t9_glow_height" (hud3d-glow-height-term this))
-          (__pc-autoport-publish "hud3d_px_cell_term_retire_par_l_owner" 1)
-          (__pc-autoport-publish "hud3d_px_dcx2_abs" px-dcx2)
-          (__pc-autoport-publish "hud3d_px_dcy2_abs" px-dcy2)
-          (__pc-autoport-publish "hud3d_px_ours_left_of_stock" (if (< (hud3d-px-cx2 2) (hud3d-px-cx2 1)) 1 0))
-          (__pc-autoport-publish "hud3d_px_ours_below_stock" (if (< (hud3d-px-cy2 2) (hud3d-px-cy2 1)) 1 0))
-          (__pc-autoport-publish "hud3d_px_w_ratio_milli" (if (> px-ws 0) (/ (* 1000 px-wo) px-ws) 0))
-          (__pc-autoport-publish "hud3d_px_h_ratio_milli" (if (> px-hs 0) (/ (* 1000 px-ho) px-hs) 0))
+          (__pc-autoport-publish "hud3d_t10_proportions" t10)
+          (__pc-autoport-publish "hud3d_t11_proportions_native" t11)
+          (__pc-autoport-publish "hud3d_box_b_state" (-> this vb-b-state))
+          (hud3d-pub-name "hud3d_box_b_state_name"
+                          (cond ((= (-> this vb-b-state) 1) "bascule-prise")
+                                ((= (-> this vb-b-state) 2) "bascule-sans-effet-non-prouve")
+                                ((= (-> this vb-b-state) 3) "plafond-d-images-atteint-non-prouve")
+                                (else "pas-tente")))
+          (__pc-autoport-publish "hud3d_box_b_aspect_milli" (-> this vb-aspect-b-milli))
+          (__pc-autoport-publish "hud3d_box_b_frames" (-> this vb-b-frames))
+          (__pc-autoport-publish "hud3d_box_aspect_restored" (if (zero? (-> this vb-saved)) 1 0))
+          (__pc-autoport-publish "hud3d_cell_x_fix_milli" (the int (* 1000.0 (-> this cell-x-fix))))
+          ;; LES ENTREES DU FACTEUR ET L'ETAT D'ASPECT, tels qu'ils sont a cette image : c'est ce
+          ;; qui permet de relire un facteur qui change en cours de course au lieu de le supposer.
+          (__pc-autoport-publish "hud3d_asp_use_vis" (if (-> *pc-settings* use-vis?) 1 0))
+          (__pc-autoport-publish "hud3d_asp_auto" (if (-> *pc-settings* aspect-ratio-auto?) 1 0))
+          (__pc-autoport-publish "hud3d_asp_ratio_milli" (the int (* 1000.0 (-> *pc-settings* aspect-ratio))))
+          (__pc-autoport-publish "hud3d_asp_persp_xx_yy_milli"
+                                 (if (> (fabs (-> *math-camera* perspective vector 1 y)) 0.0)
+                                   (the int (* 1000.0 (/ (fabs (-> *math-camera* perspective vector 0 x))
+                                                         (fabs (-> *math-camera* perspective vector 1 y)))))
+                                   0))
+          (__pc-autoport-publish "hud3d_asp_iso_xx_yy_milli"
+                                 (if (> (fabs (-> *math-camera* isometric vector 1 y)) 0.0)
+                                   (the int (* 1000.0 (/ (fabs (-> *math-camera* isometric vector 0 x))
+                                                         (fabs (-> *math-camera* isometric vector 1 y)))))
+                                   0))
+          (__pc-autoport-publish "hud3d_asp_sv_aspect_milli" (the int (* 1000.0 (-> this vb-sv-aspect))))
+          (__pc-autoport-publish "hud3d_asp_sv_vis" (-> this vb-sv-vis))
+          (__pc-autoport-publish "hud3d_asp_sv_auto" (-> this vb-sv-auto))
+          (__pc-autoport-publish "hud3d_asp_scissor_w" (-> *pc-settings* framebuffer-scissor-width))
+          (__pc-autoport-publish "hud3d_asp_scissor_h" (-> *pc-settings* framebuffer-scissor-height))
+          (__pc-autoport-publish "hud3d_asp_master_pause" (if (= *master-mode* 'pause) 1 0))
+          (hud3d-pub-name "hud3d_asp_game_setting" (symbol->string (get-aspect-ratio)))
           (__pc-autoport-publish "hud3d_terms_measured" (+ measured (hud3d-glow-height-measured? this)))
           (__pc-autoport-publish "hud_model_defects"
-                                 (+ t1 t2 t3 t4 t5 t6 t7 t8 (hud3d-glow-height-term this)))))))
+                                 (+ t1 t2 t3 t4 t5 t6 t7 t8 t10 t11 (hud3d-glow-height-term this)))))))
   0)
 
 
@@ -5162,8 +5401,7 @@
             (bz2 (hud3d-elt HUD3D_SLOT_BUZZERS))
             (mo2 (hud3d-elt HUD3D_SLOT_MONEY)))
         (cond
-          ((and (hud3d-px-ready? this fc2 bz2 mo2)
-                (< (__pc-autoport-hud-box 5 0) HUD3D_PX_PAIRS))
+          ((and (hud3d-px-ready? this fc2 bz2 mo2) (hud3d-vbox-more? this))
            (set! (-> this px-on) #t)
            ;; ── ON ARRETE LE MONDE PENDANT LA MESURE ────────────────────────────────────────
            ;; Trois discriminants statistiques ont echoue avant celui-ci, tous pour la meme
@@ -5184,14 +5422,27 @@
            (when (not (-> this px-paused))
              (set! (-> this px-paused) #t)
              (set! *master-mode* 'pause))
-           (hud3d-px-drive this fc2 bz2 mo2))
+           ;; §12 : le regime du joueur d'abord ; a son compte, UNE bascule vers l'aspect natif
+           ;; du panneau, un temps d'application, puis les memes phases dans les slots du regime
+           ;; natif. `hud3d-vbox-more?` arrete tout si la bascule n'a pas pris ou si le plafond
+           ;; d'images est atteint, et le dit.
+           (cond
+             ((and (zero? (-> this vb-regime)) (>= (hud3d-vbox-samples 0) HUD3D_VBOX_SAMPLES))
+              (hud3d-vbox-enter-b this))
+             ((> (-> this vb-settle) 0) (+! (-> this vb-settle) -1))
+             (else
+              (if (= (-> this vb-regime) 1) (+! (-> this vb-b-frames) 1))
+              (hud3d-px-drive this fc2 bz2 mo2))))
           (else
            (set! (-> this px-hold) 0)
+           ;; la sequence est finie (ou ne peut pas continuer) : l'aspect du joueur revient
+           (if (not (hud3d-vbox-more? this)) (hud3d-vbox-restore this))
            (when (-> this px-paused)
              (set! (-> this px-paused) #f)
              (set! *master-mode* 'game))))))
-    ;; le monde est rendu meme si la sonde s'eteint en cours de route
-    (when (and (-> this px-paused) (or (not on) (not (-> this probe?))))
+    ;; le monde est rendu — et l'aspect du joueur repose — meme si la sonde s'eteint en cours de route
+    (when (and (or (-> this px-paused) (nonzero? (-> this vb-saved))) (or (not on) (not (-> this probe?))))
+      (hud3d-vbox-restore this)
       (set! (-> this px-paused) #f)
       (set! *master-mode* 'game))
 
@@ -5293,15 +5544,25 @@
           ;; a l'image du repli un lancement qui, lui, etait legitime. Avec trois images
           ;; consecutives repliees, tout lancement vu dans la fenetre du temoin a bien eu lieu
           ;; alors que le sprite d'origine ne se lancait plus.
+          ;; ET LA FENETRE SE COMPTE AUSSI EN IMAGES DESSINEES (essai 6 : `hud3d_vis_bad_eco=1`
+          ;; sur 4 717 images repliees, apres 0 a l'essai 5). Le temoin `hud3d-spawned-this-frame?`
+          ;; regarde une image DESSINEE en arriere (`real-actual-frame-counter`) ; trois images de
+          ;; LOGIQUE repliees peuvent tenir dans UNE image dessinee quand l'appareil accroche
+          ;; (~22 img/s dessinees pour 60 de logique). Un lancement legitime de la derniere image
+          ;; visible restait alors dans la fenetre du temoin. On exige donc, EN PLUS, que deux
+          ;; images dessinees se soient ecoulees depuis la derniere image ou l'element etait
+          ;; visible : le temoin ne peut plus porter que sur des images repliees.
           (when (and pk (> (-> this nb-of-particles) 0))
             (let* ((h (and (hidden? (-> pk 0)) #t))
                    (h1 (logtest? (-> this was-hid) (ash 1 3)))
                    (h2 (logtest? (-> this was-hid) (ash 1 4)))
-                   (spawned (hud3d-spawned-this-frame? (-> this particles 0 part))))
+                   (spawned (hud3d-spawned-this-frame? (-> this particles 0 part)))
+                   (now (the int (-> *display* real-actual-frame-counter))))
               (if h1 (logior! (-> this was-hid) (ash 1 4)) (logclear! (-> this was-hid) (ash 1 4)))
               (if h (logior! (-> this was-hid) (ash 1 3)) (logclear! (-> this was-hid) (ash 1 3)))
+              (if (not h) (set! (-> this eco-hid-frame) now))
               (cond
-                ((and h h1 h2)
+                ((and h h1 h2 (>= (- now (-> this eco-hid-frame)) 2))
                  (+! (-> this vis-hid-eco) 1)
                  (if spawned (+! (-> this vis-bad-eco) 1)))
                 ((not h) (if spawned (+! (-> this vis-ok-eco) 1)))))))

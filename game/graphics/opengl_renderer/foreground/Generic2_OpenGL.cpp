@@ -3,6 +3,10 @@
 
 #include "Generic2.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/hud_box_probe.h"
+
+#include <cfloat>
+#include <cmath>
 // ROUND 22 coverage instrumentation: pbr_push_debug_tag().
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -306,6 +310,66 @@ void Generic2::do_draws_for_alpha(SharedRenderState* render_state,
   }
 }
 
+// hud-3d-pickups (essai 7) — LA BOITE DES SOMMETS D'UN APPEL DE DESSIN HUD, REFAITE SUR LE CPU.
+//
+// Le calcul est celui de shaders/generic.vert, branche `!use_full_matrix`, ligne a ligne :
+//   transformed.xyz = position * scale ; w = mat_23 * z + mat_33 ; tout * -1 ;
+//   Q = fog.x / w ; xyz *= Q ; xy += hvdf.xy ; xy -= 2048 ; x /= 256 ; y /= -128 ;
+//   (le « hack » xyz *= w est annule par la division par w du GPU) ;
+//   gl_Position.y *= SCISSOR_ADJUST * HEIGHT_SCALE, soit 512/448 pour jak1 (Shader.cpp:235-237).
+// Le viewport est LU au moment du dessin : c'est lui, pas une constante, qui convertit le NDC en
+// pixels — sur l'appareil c'est la region 4:3 de 1440x1080 dans une fenetre de 2400x1080.
+// Les deux boites (avant/apres projection) partent a hud_box_probe, qui les retient a la fin de
+// l'image armee. Hors sonde : une lecture atomique, puis retour.
+void Generic2::vbox_note_hud_draw(const Vertex* verts,
+                                  const u32* indices,
+                                  u32 idx_idx,
+                                  u32 idx_count,
+                                  bool deferred,
+                                  bool jak1) {
+  if (!jak1 || !hud_box_probe::vbox_pending() || m_drawing_config.uses_full_matrix) {
+    return;
+  }
+  const auto& c = m_drawing_config;
+  float pre_min[2] = {FLT_MAX, FLT_MAX}, pre_max[2] = {-FLT_MAX, -FLT_MAX};
+  float ndc_min[2] = {FLT_MAX, FLT_MAX}, ndc_max[2] = {-FLT_MAX, -FLT_MAX};
+  int n = 0;
+  for (u32 j = 0; j < idx_count; j++) {
+    const u32 idx = indices[idx_idx + j];
+    if (idx == UINT32_MAX) {
+      continue;  // redemarrage de primitive
+    }
+    const auto& p = verts[idx].xyz;
+    const float tx = -(p.x() * c.hud_scale[0]);
+    const float ty = -(p.y() * c.hud_scale[1]);
+    const float tw = -(c.hud_mat_23 * p.z() + c.hud_mat_33);
+    if (tw == 0.f) {
+      continue;
+    }
+    const float q = c.pfog0 / tw;
+    const float gx = tx * q + c.hvdf_offset[0] - 2048.f;
+    const float gy = ty * q + c.hvdf_offset[1] - 2048.f;
+    const float nx = gx / 256.f;
+    const float ny = -(gy / 128.f) * (512.f / 448.f);
+    if (p.x() < pre_min[0]) pre_min[0] = p.x();
+    if (p.x() > pre_max[0]) pre_max[0] = p.x();
+    if (p.y() < pre_min[1]) pre_min[1] = p.y();
+    if (p.y() > pre_max[1]) pre_max[1] = p.y();
+    if (nx < ndc_min[0]) ndc_min[0] = nx;
+    if (nx > ndc_max[0]) ndc_max[0] = nx;
+    if (ny < ndc_min[1]) ndc_min[1] = ny;
+    if (ny > ndc_max[1]) ndc_max[1] = ny;
+    n++;
+  }
+  if (n <= 0) {
+    return;
+  }
+  GLint vp[4] = {0, 0, 0, 0};
+  glGetIntegerv(GL_VIEWPORT, vp);
+  hud_box_probe::vbox_note_draw(pre_min, pre_max, ndc_min, ndc_max, n, (int)vp[2], (int)vp[3],
+                                deferred, std::fabs(c.hud_scale[0]), std::fabs(c.hud_scale[1]));
+}
+
 void Generic2::do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   for (u32 i = 0; i < m_next_free_bucket; i++) {
     auto& bucket = m_buckets[i];
@@ -314,6 +378,8 @@ void Generic2::do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode&
       setup_opengl_for_draw_mode(first.mode, first.fix, render_state, true);
       setup_opengl_tex(0, first.tbp, first.mode.get_filt_enable(), first.mode.get_clamp_s_enable(),
                        first.mode.get_clamp_t_enable(), render_state);
+      vbox_note_hud_draw(m_verts.data(), m_indices.data(), bucket.idx_idx, bucket.idx_count,
+                         false, render_state->version == GameVersion::Jak1);
       glDrawElements(GL_TRIANGLE_STRIP, bucket.idx_count, GL_UNSIGNED_INT,
                      (void*)(sizeof(u32) * bucket.idx_idx));
       soft_draw_census::record("generic", m_indices.data(), m_indices.size(), bucket.idx_idx, bucket.idx_count, GL_TRIANGLE_STRIP);
@@ -459,6 +525,8 @@ void Generic2::draw_deferred_hud_draws(SharedRenderState* render_state) {
       setup_opengl_for_draw_mode(d.mode, d.fix, render_state, true);
       setup_opengl_tex(0, d.tbp, d.mode.get_filt_enable(), d.mode.get_clamp_s_enable(),
                        d.mode.get_clamp_t_enable(), render_state);
+      vbox_note_hud_draw(batch.verts.data(), batch.indices.data(), d.idx_idx, d.idx_count, true,
+                         render_state->version == GameVersion::Jak1);
       glDrawElements(GL_TRIANGLE_STRIP, d.idx_count, GL_UNSIGNED_INT,
                      (void*)(sizeof(u32) * d.idx_idx));
       soft_draw_census::record("generic", batch.indices.data(), batch.indices.size(), d.idx_idx, d.idx_count, GL_TRIANGLE_STRIP);

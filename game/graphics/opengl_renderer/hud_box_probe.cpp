@@ -1,7 +1,11 @@
 #include "hud_box_probe.h"
 
+#include <atomic>
+#include <cfloat>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <vector>
 
 #include "third-party/glad/include/glad/glad.h"
@@ -312,7 +316,175 @@ void reset_all() {
   }
 }
 
+// ── ESSAI 7 — LA BOITE DES SOMMETS TRANSFORMES (voir l'en-tete) ───────────────────────────────
+//
+// Deux fils : GOAL arme (`vbox_request`) et relit (`vbox_read`) ; le fil de rendu accumule
+// (`vbox_note_draw`) et retient (`vb_end_of_frame`). L'accumulateur et les slots vivent sous UN
+// mutex ; le seul chemin chaud — « y a-t-il une demande ? » a chaque appel de dessin HUD — est une
+// lecture atomique sans verrou.
+struct VboxAcc {
+  bool any = false;
+  float pre_min[2] = {FLT_MAX, FLT_MAX};
+  float pre_max[2] = {-FLT_MAX, -FLT_MAX};
+  float ndc_min[2] = {FLT_MAX, FLT_MAX};
+  float ndc_max[2] = {-FLT_MAX, -FLT_MAX};
+  int verts = 0, draws = 0, vp_w = 0, vp_h = 0, path = 0;
+  float iso_sx = 0.f, iso_sy = 0.f;
+};
+
+struct VboxSlot {
+  int samples = 0, verts = 0, draws = 0, vp_w = 0, vp_h = 0, path = 0, empty = 0, requests = 0;
+  float pre_w = 0.f, pre_h = 0.f, px_w = 0.f, px_h = 0.f, px_cx = 0.f, px_cy = 0.f;
+  float iso_sx = 0.f, iso_sy = 0.f;
+};
+
+// Fins d'image sans dessin HUD tolerees avant de declarer la demande VIDE : trois, comme le retard
+// maximal GOAL -> rendu que la phase de quatre images couvre.
+constexpr int kVboxBudget = 3;
+
+std::atomic<int> g_vb_pending{-1};
+int g_vb_budget = 0;
+VboxAcc g_vb_acc;
+VboxSlot g_vb_slots[kVboxSlots];
+std::mutex g_vb_mu;
+int g_vb_requests = 0;
+int g_vb_commits = 0;
+int g_vb_empty = 0;
+
+// LES TROIS ETAGES, SEPAREMENT, comme pour la lecture d'image : demandes -> images retenues ->
+// demandes echues. Trois zeros disent « rien n'a tourne » ; un zero au deuxieme etage seul dit
+// « Generic2 n'a jamais vu de dessin HUD pendant la demande », ce qui nomme la cause.
+void vb_publish_diag() {
+  autoport_proof::publish("hud3d_vbox_requests", (uint64_t)g_vb_requests);
+  autoport_proof::publish("hud3d_vbox_commits", (uint64_t)g_vb_commits);
+  autoport_proof::publish("hud3d_vbox_empty", (uint64_t)g_vb_empty);
+}
+
+// Appele a CHAQUE fin d'image par `end_of_frame` : retient l'accumulateur dans le slot arme, ou
+// decompte le budget d'attente.
+void vb_end_of_frame() {
+  const int slot = g_vb_pending.load(std::memory_order_acquire);
+  if (slot < 0) {
+    return;
+  }
+  std::lock_guard<std::mutex> lk(g_vb_mu);
+  VboxAcc& a = g_vb_acc;
+  if (a.any && slot >= 0 && slot < kVboxSlots) {
+    VboxSlot& s = g_vb_slots[slot];
+    s.samples++;
+    s.verts = a.verts;
+    s.draws = a.draws;
+    s.vp_w = a.vp_w;
+    s.vp_h = a.vp_h;
+    s.path = a.path;
+    s.iso_sx = a.iso_sx;
+    s.iso_sy = a.iso_sy;
+    s.pre_w = a.pre_max[0] - a.pre_min[0];
+    s.pre_h = a.pre_max[1] - a.pre_min[1];
+    // NDC [-1, 1] -> pixels du viewport : une unite NDC vaut vp/2 pixels. Le centre y est compte
+    // depuis le bord HAUT (y NDC croit vers le haut).
+    s.px_w = (a.ndc_max[0] - a.ndc_min[0]) * 0.5f * (float)a.vp_w;
+    s.px_h = (a.ndc_max[1] - a.ndc_min[1]) * 0.5f * (float)a.vp_h;
+    s.px_cx = ((a.ndc_min[0] + a.ndc_max[0]) * 0.5f + 1.f) * 0.5f * (float)a.vp_w;
+    s.px_cy = (1.f - (a.ndc_min[1] + a.ndc_max[1]) * 0.5f) * 0.5f * (float)a.vp_h;
+    g_vb_commits++;
+    g_vb_pending.store(-1, std::memory_order_release);
+  } else if (--g_vb_budget <= 0) {
+    if (slot >= 0 && slot < kVboxSlots) {
+      g_vb_slots[slot].empty++;
+    }
+    g_vb_empty++;
+    g_vb_pending.store(-1, std::memory_order_release);
+  }
+  a = VboxAcc{};
+  vb_publish_diag();
+}
+
+int64_t vb_e3(float v) {
+  return (int64_t)std::llround((double)v * 1000.0);
+}
+
 }  // namespace
+
+void vbox_request(int slot) {
+  if (slot < 0 || slot >= kVboxSlots) {
+    return;
+  }
+  if (!g_armed) {
+    // Meme geste que `request` : la premiere demande arme le module, c'est elle qui fait appeler
+    // `end_of_frame` par les deux renderers (ils testent `armed()`).
+    g_armed = true;
+    g_prop_match = probe_key_matches() ? 1 : 0;
+  }
+  std::lock_guard<std::mutex> lk(g_vb_mu);
+  g_vb_requests++;
+  g_vb_slots[slot].requests++;
+  g_vb_acc = VboxAcc{};
+  g_vb_budget = kVboxBudget;
+  g_vb_pending.store(slot, std::memory_order_release);
+}
+
+bool vbox_pending() {
+  return g_vb_pending.load(std::memory_order_relaxed) >= 0;
+}
+
+void vbox_note_draw(const float pre_min[2],
+                    const float pre_max[2],
+                    const float ndc_min[2],
+                    const float ndc_max[2],
+                    int verts,
+                    int vp_w,
+                    int vp_h,
+                    bool deferred,
+                    float iso_sx,
+                    float iso_sy) {
+  if (verts <= 0 || !vbox_pending()) {
+    return;
+  }
+  std::lock_guard<std::mutex> lk(g_vb_mu);
+  VboxAcc& a = g_vb_acc;
+  for (int k = 0; k < 2; k++) {
+    if (pre_min[k] < a.pre_min[k]) a.pre_min[k] = pre_min[k];
+    if (pre_max[k] > a.pre_max[k]) a.pre_max[k] = pre_max[k];
+    if (ndc_min[k] < a.ndc_min[k]) a.ndc_min[k] = ndc_min[k];
+    if (ndc_max[k] > a.ndc_max[k]) a.ndc_max[k] = ndc_max[k];
+  }
+  a.verts += verts;
+  a.draws++;
+  a.vp_w = vp_w;
+  a.vp_h = vp_h;
+  a.path = deferred ? 1 : 0;
+  a.iso_sx = iso_sx;
+  a.iso_sy = iso_sy;
+  a.any = true;
+}
+
+int64_t vbox_read(int slot, int field) {
+  if (slot < 0 || slot >= kVboxSlots || field < 0 || field >= kVbFieldCount) {
+    return -1;
+  }
+  std::lock_guard<std::mutex> lk(g_vb_mu);
+  const VboxSlot& s = g_vb_slots[slot];
+  switch (field) {
+    case kVbSamples: return s.samples;
+    case kVbVerts: return s.verts;
+    case kVbDraws: return s.draws;
+    case kVbPreW_e3: return vb_e3(s.pre_w);
+    case kVbPreH_e3: return vb_e3(s.pre_h);
+    case kVbPxW_e3: return vb_e3(s.px_w);
+    case kVbPxH_e3: return vb_e3(s.px_h);
+    case kVbPxCx_e3: return vb_e3(s.px_cx);
+    case kVbPxCy_e3: return vb_e3(s.px_cy);
+    case kVbVpW: return s.vp_w;
+    case kVbVpH: return s.vp_h;
+    case kVbPath: return s.path;
+    case kVbScaleX_e6: return (int64_t)std::llround((double)s.iso_sx * 1000000.0);
+    case kVbScaleY_e6: return (int64_t)std::llround((double)s.iso_sy * 1000000.0);
+    case kVbEmpty: return s.empty;
+    case kVbRequests: return s.requests;
+    default: return -1;
+  }
+}
 
 bool armed() {
   return g_armed;
@@ -349,6 +521,9 @@ void end_of_frame(unsigned fbo_id,
     return;
   }
   g_eof_calls++;
+  // essai 7 : la boite des sommets se retient a la meme fin d'image que la lecture d'image, et
+  // n'a besoin ni de la FBO ni de la fenetre.
+  vb_end_of_frame();
   const int slot = g_pending;
   g_pending = -1;
   if (slot < 0) {

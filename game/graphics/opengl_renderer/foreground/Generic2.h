@@ -97,6 +97,14 @@ class Generic2 {
                           bool hud);
   void do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode& prof);
   void stash_hud_draws();
+  // hud-3d-pickups (essai 7) : la boite des sommets d'UN appel de dessin HUD, refaite sur le CPU
+  // avec le calcul de generic.vert, remise a hud_box_probe. Une lecture atomique hors sonde.
+  void vbox_note_hud_draw(const Vertex* verts,
+                          const u32* indices,
+                          u32 idx_idx,
+                          u32 idx_count,
+                          bool deferred,
+                          bool jak1);
   bool check_for_end_of_generic_data(DmaFollower& dma, u32 next_bucket);
   void final_vertex_update();
   bool handle_bucket_setup_dma(DmaFollower& dma, u32 next_bucket);

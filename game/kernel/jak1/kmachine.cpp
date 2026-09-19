@@ -1713,6 +1713,17 @@ s64 pc_autoport_hud_box(s64 slot, s64 field) {
   return (s64)hud_box_probe::read((int)slot, (int)field);
 }
 
+// hud-3d-pickups, essai 7 — LA BOITE DES SOMMETS TRANSFORMES, l'instrument que l'owner a autorise
+// le 18/09 pour juger les proportions de la pile : GOAL arme un slot, Generic2 refait le calcul du
+// nuanceur sur les sommets de l'image suivante, GOAL relit les deux boites (hud_box_probe.h).
+void pc_autoport_hud_vbox_arm(s64 slot) {
+  hud_box_probe::vbox_request((int)slot);
+}
+
+s64 pc_autoport_hud_vbox(s64 slot, s64 field) {
+  return (s64)hud_box_probe::vbox_read((int)slot, (int)field);
+}
+
 // menu-dpad-steps : une passe de `respond-common` remontee au recensement. GOAL donne l'etat
 // brut (masque des directions tenues et des fronts, crans parcourus par CETTE image, page
 // courante) ; la machine a etats — ouverture, cumul, cloture d'une pression — vit en C++.
@@ -4987,6 +4998,9 @@ void InitMachine_PCPort() {
   // hud-3d-pickups : la boite englobante lue sur l'image rendue (remplace le miroir de l'essai 2)
   make_function_symbol_from_c("__pc-autoport-hud-capture", (void*)pc_autoport_hud_capture);
   make_function_symbol_from_c("__pc-autoport-hud-box", (void*)pc_autoport_hud_box);
+  // hud-3d-pickups, essai 7 : la boite des sommets transformes (proportions de la pile)
+  make_function_symbol_from_c("__pc-autoport-hud-vbox-arm", (void*)pc_autoport_hud_vbox_arm);
+  make_function_symbol_from_c("__pc-autoport-hud-vbox", (void*)pc_autoport_hud_vbox);
   make_function_symbol_from_c("__pc-menu-dpad-frame", (void*)pc_menu_dpad_frame);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
