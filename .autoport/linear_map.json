@@ -715,12 +715,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-163/la-suite-du-harnais-ne-depend-plus-du-quota-temporaire-sature"
  },
  "harness-supervisor-cost-counter": {
-  "hash": "2eb9b8505532efab2363d51f9ef335fefd658152",
+  "build_announced": "a4de81c3f19e",
+  "hash": "2a69a8a1f42e5973e2f432730ef62052b1ef4f74",
   "identifier": "JAK-186",
   "issue_id": "191e7a39-1934-4ced-b2a6-9a303b66603f",
   "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-19T11:51:41.000Z",
+  "pulled_at": "2026-09-19T16:43:04.751Z",
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-test-bench-does-not-inherit-the-worker-env": {
@@ -847,7 +848,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "build_announced": "650ba4e246c3",
+  "build_announced": "a4de81c3f19e",
   "hash": "3d5cb340d09a936dcd5eaea854eb79005e19eafc",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
@@ -870,13 +871,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "650ba4e246c3",
-  "hash": "238786213ba25f4d87f10f32091aad29e96206ff",
+  "build_announced": "a4de81c3f19e",
+  "hash": "d0cf4950f3565142caaea4b99cb312817ca49f15",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-19T07:50:58.905Z",
+  "pulled_at": "2026-09-19T16:25:38.645Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1131,13 +1132,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "build_announced": "650ba4e246c3",
-  "hash": "bc86fbc3b5f6ccc8d53c9a59a5ce9335b859adc3",
+  "build_announced": "a4de81c3f19e",
+  "hash": "69dba6f460ec96f683ed332e725e3b7b2277c9dd",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
   "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-19T07:37:23.977Z",
+  "pulled_at": "2026-09-19T16:43:21.631Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
  },
  "owner-todo-priorisation": {
@@ -1427,13 +1428,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "build_announced": "650ba4e246c3",
-  "hash": "d0f7eb2b83f93b64c71eb7c3eb27d635b47633e1",
+  "build_announced": "a4de81c3f19e",
+  "hash": "1272a186c24a7ff2e39f0d04e79cc704278b1f37",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
   "last_state": "In Review",
   "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-19T07:49:35.313Z",
+  "pulled_at": "2026-09-19T16:43:31.741Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
  },
  "recharged-lightprobes": {
@@ -1551,13 +1552,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "650ba4e246c3",
-  "hash": "d35c8299a7dec7dfcd4d18476a43bc70103be5dd",
+  "build_announced": "a4de81c3f19e",
+  "hash": "a88445583f1e08a06c3384ca4f87242ff1bafe5b",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "In Review",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-19T07:58:43.603Z",
+  "pulled_at": "2026-09-19T16:25:54.601Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
  },
  "shrub-trunk-contact": {
@@ -1900,12 +1901,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "hash": "e65d4316a578f81fcae64a2ed74ba7bd71c1d6b7",
+  "hash": "5ff90a700028e2d367358bf00f30b9284803358c",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-007.txt",
-  "pulled_at": "2026-09-17T05:36:56.000Z",
+  "last_verdict_announced": "validator-009.txt",
+  "pulled_at": "2026-09-19T16:42:31.732Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
   ],
