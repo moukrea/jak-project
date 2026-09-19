@@ -38,9 +38,14 @@ le total de la session ; `logs/00-harness/attempt-02.jsonl` et 3 autres) :
      La sortie ne se lit donc QUE sur l'evenement `result`, qui est de SESSION : elle
      n'est PAS attribuable a un etage. Le rapport publie cette cecite au lieu de la
      combler par une regle de trois.
-  3. `attempt_end.tokens_*`, que l'orchestrateur ecrit, additionne les doublons du point 1
-     PUIS y rajoute le total de `result` : il compte donc tout deux a quatre fois. On ne
-     s'en sert PAS (voir `_accumulate_usage`, orchestrator.py:620, appele en 693 ET 727).
+  3. `attempt_end.tokens_*`, que l'orchestrateur ecrit, ADDITIONNAIT les doublons du point 1
+     PUIS y rajoutait le total de `result` : il comptait tout deux a quatre fois. CORRIGE le
+     2026-09-19 (item harness-usage-double-counted) — `_note_assistant_usage` deduplique par
+     `(etage, message.id)` et `_adopt_result_totals` REMPLACE au lieu d'additionner, si bien
+     que `attempt_end` porte desormais le dernier `result.modelUsage` au jeton pres, avec
+     `usage_source`, `usage_results` et `usage_dup_msgs` pour le dire. Ce fichier continue
+     neanmoins de mesurer lui-meme : il a besoin du detail PAR ETAGE, qu'`attempt_end` n'a
+     jamais porte.
 
 L'AUTORITE POUR LES TOTAUX EST `result.modelUsage` : Claude Code y publie, par modele,
 les jetons factures et `costUSD` (base `list`, le tarif public). C'est une grandeur

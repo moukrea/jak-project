@@ -564,10 +564,26 @@ class PrettyState:
     t0: float                                # attempt start (monotonic)
     session_id: str = ""
     tool_calls: int = 0
-    tokens_in: int = 0
-    tokens_out: int = 0
-    cache_read: int = 0
-    cache_creation: int = 0
+    # ---------------------------------------------------------------- JETONS
+    # L'AUTORITE : le DERNIER `result.modelUsage`, cumule depuis le debut de l'essai.
+    # Le DELTA : les lignes `assistant` DEDUPLIQUEES arrivees depuis cette autorite.
+    # Les quatre totaux publies sont des proprietes, jamais des champs a `+=` : c'est
+    # ce qui rend impossible de re-additionner deux fois la meme grandeur.
+    auth_in: int = 0
+    auth_out: int = 0
+    auth_cread: int = 0
+    auth_cwrite: int = 0
+    auth_seen: bool = False                  # un `result` a publie un `modelUsage`
+    res_out: int = 0                         # repli : sortie lue sur des `result` sans modelUsage
+    cost_usd: float = 0.0                    # `total_cost_usd` du dernier result (deja cumule)
+    pend_in: int = 0
+    pend_out: int = 0
+    pend_cread: int = 0
+    pend_cwrite: int = 0
+    seen_msg: set = field(default_factory=set)   # (etage, message.id) deja comptes
+    dup_msgs: int = 0                        # messages `assistant` republies, donc IGNORES
+    noid_msgs: int = 0                       # messages sans `message.id` : indeduplicables
+    n_results: int = 0
     last_tick_at: float = 0.0
     tool_use_names: dict[str, str] = field(default_factory=dict)  # id -> name
     init_printed: bool = False
@@ -580,6 +596,48 @@ class PrettyState:
     # instead of guessing five minutes.
     rate_rejected: bool = False
     rate_reset_at: int | None = None
+
+
+    # ------------------------------------------------------------ les totaux
+    # `auth_* + pend_*` : l'autorite couvre tout ce qui la precede (pend_* est remis a
+    # zero quand on l'adopte), le delta couvre ce qui l'a suivie. Aucune addition ne
+    # peut donc compter deux fois le meme message.
+
+    @property
+    def tokens_in(self) -> int:
+        return self.auth_in + self.pend_in
+
+    @property
+    def tokens_out(self) -> int:
+        # La sortie des lignes `assistant` est un ACOMPTE (7 541 contre 32 646 factures
+        # sur le temoin 00-harness/attempt-02) : des qu'un `result` en donne une, elle
+        # l'emporte. Sans aucun `result`, l'acompte reste le seul chiffre existant.
+        if self.auth_seen:
+            return self.auth_out + self.pend_out
+        return self.res_out if self.res_out else self.pend_out
+
+    @property
+    def cache_read(self) -> int:
+        return self.auth_cread + self.pend_cread
+
+    @property
+    def cache_creation(self) -> int:
+        return self.auth_cwrite + self.pend_cwrite
+
+    @property
+    def usage_source(self) -> str:
+        if self.auth_seen:
+            return "result-modelusage"
+        if self.res_out:
+            return "result-usage+assistant"
+        return "assistant"
+
+    def add_live(self, inp: int = 0, out: int = 0, cread: int = 0, cwrite: int = 0) -> None:
+        """Un DELTA qu'aucune autorite ne couvre encore (assistant deduplique, turn codex)."""
+        self.pend_in += inp
+        self.pend_out += out
+        self.pend_cread += cread
+        self.pend_cwrite += cwrite
 
 
 def _short_id(s: str, n: int = 7) -> str:
@@ -617,13 +675,87 @@ def _primary_arg(tool_name: str, tool_input: dict) -> str:
     return ""
 
 
-def _accumulate_usage(state: PrettyState, usage: dict) -> None:
-    if not isinstance(usage, dict):
+def _usage_stage(ev: dict) -> str:
+    """L'etage qui a produit ce message : le principal, ou le sous-agent nomme."""
+    parent = ev.get("parent_tool_use_id")
+    if not parent:
+        return "principal"
+    return ev.get("subagent_type") or "sous-agent-inconnu"
+
+
+def _note_assistant_usage(state: PrettyState, ev: dict, msg: dict) -> None:
+    """Un message `assistant` REVIENT 3 A 5 FOIS dans le flux, avec la MEME `usage`.
+
+    Mesure du 19/09 sur trois temoins (`logs/00-harness/attempt-02.jsonl`,
+    `logs/ao-indirect-clean/attempt-001.jsonl` et `-005`) : 21, 130 et 242 republications
+    pour 28, 142 et 415 messages distincts. Les sommer telles quelles multipliait le cache
+    lu par 1,8 (2 602 753 pour 1 455 508 reellement lus sur le premier temoin).
+
+    DEDUPLIQUE PAR `(etage, message.id)`, ce total tombe EXACTEMENT sur le
+    `result.modelUsage` de l'essai pour le cache (1 455 508 = 1 455 508 ; 21 565 137 =
+    21 565 137 ; 93 272 265 = 93 272 265) — c'est ce qui valide la clef. Les republications
+    portaient la meme `usage` dans les trois temoins (0 ecart sur 393) : on garde la
+    premiere et on COMPTE les autres, au lieu de les additionner.
+    """
+    u = msg.get("usage")
+    if not isinstance(u, dict) or not u:
         return
-    state.tokens_in += int(usage.get("input_tokens", 0) or 0)
-    state.tokens_out += int(usage.get("output_tokens", 0) or 0)
-    state.cache_read += int(usage.get("cache_read_input_tokens", 0) or 0)
-    state.cache_creation += int(usage.get("cache_creation_input_tokens", 0) or 0)
+    mid = msg.get("id")
+    if not mid:
+        # SANS IDENTIFIANT, ON NE PEUT PAS DEDUPLIQUER — mais on ne JETTE pas des jetons
+        # pour autant : on les compte une fois de plus et on DIT combien de fois on a ete
+        # aveugle. Les 448 journaux d'essai du depot portent tous un `message.id` ; seul un
+        # flux fabrique (le banc) en est depourvu.
+        state.noid_msgs += 1
+    else:
+        key = (_usage_stage(ev), str(mid))
+        if key in state.seen_msg:
+            state.dup_msgs += 1
+            return
+        state.seen_msg.add(key)
+    state.add_live(inp=int(u.get("input_tokens", 0) or 0),
+                   out=int(u.get("output_tokens", 0) or 0),
+                   cread=int(u.get("cache_read_input_tokens", 0) or 0),
+                   cwrite=int(u.get("cache_creation_input_tokens", 0) or 0))
+
+
+def _adopt_result_totals(state: PrettyState, ev: dict) -> None:
+    """`result.modelUsage` est le total FACTURE depuis le debut de l'essai : il REMPLACE.
+
+    UN ESSAI PORTE PLUSIEURS `result` — onze sur `ao-indirect-clean/attempt-001`, quarante
+    sur d'autres — et chacun republie un `modelUsage` CUMULE (18,8 M -> 21,5 M de cache lu).
+    Les additionner gonflait le cout de 25 %. On garde donc le DERNIER instantane, et le
+    delta `assistant` qui le precede est REMIS A ZERO : il est desormais couvert par lui.
+    """
+    state.n_results += 1
+    cost = ev.get("total_cost_usd")
+    if isinstance(cost, (int, float)) and float(cost) > state.cost_usd:
+        state.cost_usd = float(cost)          # deja cumule par la CLI
+
+    mu = ev.get("modelUsage")
+    if isinstance(mu, dict) and mu:
+        inp = out = cread = cwrite = 0
+        for m in mu.values():
+            if not isinstance(m, dict):
+                continue
+            inp += int(m.get("inputTokens", 0) or 0)
+            out += int(m.get("outputTokens", 0) or 0)
+            cread += int(m.get("cacheReadInputTokens", 0) or 0)
+            cwrite += int(m.get("cacheCreationInputTokens", 0) or 0)
+        state.auth_in, state.auth_out = inp, out
+        state.auth_cread, state.auth_cwrite = cread, cwrite
+        state.auth_seen = True
+        state.pend_in = state.pend_out = state.pend_cread = state.pend_cwrite = 0
+        return
+
+    # REPLI — dix-huit essais d'avant mai 2026 ont des `result` SANS `modelUsage`. Leur
+    # `usage` est le DELTA de ce result-la, pas un cumul (88 490 + 570 = 89 060 verifie sur
+    # ao-indirect-clean/1), et il IGNORE les sous-agents : on ne s'en sert que pour la
+    # sortie, que les lignes `assistant` ne savent pas donner. L'entree et le cache restent
+    # au total deduplique, qui lui est exact.
+    u = ev.get("usage")
+    if isinstance(u, dict):
+        state.res_out += int(u.get("output_tokens", 0) or 0)
 
 
 def _maybe_emit_tick(state: PrettyState) -> None:
@@ -688,9 +820,7 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
 
         if t == "assistant":
             msg = ev.get("message", {}) or {}
-            usage = msg.get("usage")
-            if usage:
-                _accumulate_usage(state, usage)
+            _note_assistant_usage(state, ev, msg)
             for c in msg.get("content", []) or []:
                 ctype = c.get("type")
                 if ctype == "tool_use":
@@ -724,15 +854,14 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
 
         if t == "result":
             state.result_seen = True
-            _accumulate_usage(state, ev.get("usage", {}) or {})
+            _adopt_result_totals(state, ev)
             if not QUIET:
                 dur_ms = ev.get("duration_ms", 0)
-                cost = ev.get("total_cost_usd", 0) or 0
                 head = "[red]✗ result[/red]" if ev.get("is_error") else "[green]✓ result[/green]"
                 console.print(
                     f"{head} [dim]turns={ev.get('num_turns', 0)} · {dur_ms/1000:.1f}s · "
                     f"in {_human_tokens(state.tokens_in)} out {_human_tokens(state.tokens_out)} "
-                    f"cache_r {_human_tokens(state.cache_read)} · ${cost:.3f}[/dim]")
+                    f"cache_r {_human_tokens(state.cache_read)} · ${state.cost_usd:.3f}[/dim]")
             return
 
     except Exception as e:  # noqa: BLE001 — the printer must NEVER kill the loop
@@ -2916,8 +3045,18 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                          ("pid", "how", "waited_s", "holds", "ceiling_s", "expired",
                           "ended", "idle_at_hold_s")},
             "tool_calls": pstate.tool_calls,
+            # LES JETONS DE L'ESSAI, COMPTES UNE FOIS (harness-usage-double-counted, 19/09).
+            # `usage_source` dit d'ou sort le chiffre, `usage_results` combien de `result`
+            # l'ont republie et `usage_dup_msgs` combien de republications ont ete IGNOREES :
+            # sans ces trois-la, un total juste et un total gonfle se lisent pareil.
             "tokens_in": pstate.tokens_in, "tokens_out": pstate.tokens_out,
-            "cache_read": pstate.cache_read,
+            "cache_read": pstate.cache_read, "cache_creation": pstate.cache_creation,
+            "cost_usd": round(pstate.cost_usd, 6),
+            "usage_source": pstate.usage_source,
+            "usage_results": pstate.n_results,
+            "usage_dup_msgs": pstate.dup_msgs,
+            "usage_noid_msgs": pstate.noid_msgs,
+            "usage_msgs": len(pstate.seen_msg),
         }) + "\n")
         if launcher_abort_sec is not None:
             # Dit en toutes lettres DANS le journal de l'essai : un essai qui disparait

@@ -122,9 +122,14 @@ def update_codex(ev, state):
     if kind == "turn.completed":
         state.result_seen = True
         usage = ev.get("usage") or {}
-        state.tokens_in += int(usage.get("input_tokens", 0) or 0)
-        state.tokens_out += int(usage.get("output_tokens", 0) or 0)
-        state.cache_read += int(usage.get("cached_input_tokens", 0) or 0)
+        # `turn.completed` est un DELTA de tour : il s'ajoute, il ne remplace pas. Il passe
+        # par `add_live` parce que les totaux de `PrettyState` sont desormais des proprietes
+        # (harness-usage-double-counted, 19/09) : plus aucun compteur ne se `+=` a l'aveugle.
+        # NOTE : chez OpenAI `input_tokens` INCLUT `cached_input_tokens` — cette ligne compte
+        # donc le cache codex deux fois. Hors perimetre de cet item (voir FINDINGS).
+        state.add_live(inp=int(usage.get("input_tokens", 0) or 0),
+                       out=int(usage.get("output_tokens", 0) or 0),
+                       cread=int(usage.get("cached_input_tokens", 0) or 0))
         return f"✓ codex · in {state.tokens_in} out {state.tokens_out} cache {state.cache_read}"
     error = codex_error(ev)
     if error:
