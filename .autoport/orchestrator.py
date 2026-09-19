@@ -66,6 +66,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from lib import cli_backend, backend_control
+from lib import model_profile
 from lib import freshness
 from lib import impossible as impossible_state
 from lib import gate_verdict
@@ -102,25 +103,34 @@ def _pick_device() -> str:
     except Exception:
         return ""
 
-def _load_model_profile() -> dict:
-    fallback = {
-        "manager_model": "claude-fable-5-1[1m]", "manager_effort": "high",
-        "worker_model": "claude-fable-5-1[1m]",
-        "worker_efforts": {"autoport-researcher": "high",
-                           "autoport-implementer": "medium",
-                           "autoport-tester": "medium"},
-    }
+def _load_model_profile(strict: bool = False) -> dict:
+    """Le profil Claude ACTIF. `strict=True` LEVE au lieu de replier en silence.
+
+    DEUX APPELANTS, DEUX BESOINS (harness-undeclared-profile-attempts, 2026-09-19).
+    MARQUEUR: profil-resolu-ou-refus-2026-09-19
+    A L'IMPORT (`_PROFILE` ci-dessous) ce module doit rester importable : `lib/census/
+    model-mix/collect.py` et quatre bancs importent `orchestrator` pour lire ses
+    constantes, et une exception ici les tuerait tous sur un fichier de configuration
+    casse qui ne les concerne pas. Le repli sert donc a cela, et A RIEN D'AUTRE : il
+    porte `_active_name = "FALLBACK (...)"`, que `model_profile.faults` compte comme un
+    defaut. AU LANCEMENT (`main`, `run_attempt`) le repli est INTERDIT : un essai ne part
+    pas sur un modele que personne n'a choisi. Les vingt-huit du 2026-09-07 sont partis
+    exactement comme ca, cote Codex, et aucun n'a abouti.
+    """
     try:
-        cfg = json.loads(_PROFILE_PATH.read_text())
-        prof = cfg["profiles"][cfg["active"]]
-        for k in ("manager_model", "manager_effort", "worker_model", "worker_efforts"):
-            if k not in prof:
-                raise KeyError(k)
-        prof["_active_name"] = cfg["active"]
-        return prof
+        return model_profile.resolve(json.loads(_PROFILE_PATH.read_text()),
+                                     source=str(_PROFILE_PATH))
     except Exception as e:  # noqa: BLE001
-        fallback["_active_name"] = f"FALLBACK ({e})"
-        return fallback
+        if strict:
+            raise
+        return {
+            "manager_model": "claude-fable-5-1[1m]", "manager_effort": "high",
+            "worker_model": "claude-fable-5-1[1m]",
+            "worker_efforts": {"autoport-researcher": "high",
+                               "autoport-implementer": "medium",
+                               "autoport-tester": "medium"},
+            "_active_name": f"FALLBACK ({e})",
+        }
 
 
 _PROFILE = _load_model_profile()
@@ -2842,12 +2852,36 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         return Outcome("blocked", f"validateur absent : {GENERIC_VALIDATOR}")
 
     effort = item.get("effort", EFFORT)
+
+    # ================== LE POINT DE PRODUCTION DU DEFAUT `attempt_start.model=""` =========
+    # harness-undeclared-profile-attempts, 2026-09-19. MARQUEUR: profil-resolu-ou-refus-2026-09-19
+    # Vingt-huit essais du 2026-09-07 (lighting-census 23, framerate-uncap 3, foliage-wind 2)
+    # portent `model=""` et `subagent_model=""` dans leur premiere ligne de journal, et leur
+    # ligne de commande enregistree n'a NI `--model` NI `agents.default_subagent_model` :
+    # aucun n'a abouti. Le refus est ICI, AVANT `build_instructions`, avant la banniere et
+    # avant `attempt_log.open("x")` : un journal d'essai sans modele declare ne peut plus
+    # NAITRE. `cli_backend.codex_profile` et `_load_model_profile(strict=True)` ferment deja
+    # la porte d'entree ; celle-ci est le point de production, au sens de DIRECTIVES /
+    # non-destruction — on ne detecte pas la perte au controle, on la rend impossible.
+    profil_defauts = model_profile.faults(dict(_PROFILE, manager_model=MODEL,
+                                               worker_model=SUBAGENT_MODEL,
+                                               manager_effort=effort))
+    if profil_defauts:
+        return Outcome("no-start",
+                       f"profil de modèle NON RÉSOLU (profil actif « {PROFILE_NAME} ») : "
+                       + " ; ".join(profil_defauts)
+                       + ". Aucun essai ne part sur un modèle que personne n'a choisi.",
+                       seq=seq)
+
     instructions = build_instructions(item, seq)
 
+    # La bannière NOMME le modèle, sans repli poli. `modèle={MODEL or 'défaut CLI'}` a écrit
+    # 28 fois « modèle=défaut CLI » dans orchestrator.log sans que ça n'alerte personne.
     console.print(Panel.fit(
         f"[bold cyan]{iid}[/bold cyan] · essai {seq} · "
         f"{item.get('feature', '')[:70]}\n"
-        f"CLI={BACKEND} · modèle={MODEL or 'défaut CLI'} · effort={effort} · sous-agents={SUBAGENT_MODEL or 'hérités'}",
+        f"CLI={BACKEND} · profil={PROFILE_NAME} · modèle={MODEL} · effort={effort} · "
+        f"sous-agents={SUBAGENT_MODEL}",
         border_style="cyan"))
 
     env = os.environ.copy()
@@ -2890,6 +2924,10 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     with attempt_log.open("x") as f:
         f.write(json.dumps({
             "event": "attempt_start", "item_id": iid, "attempt": seq, "backend": BACKEND,
+            # `profile` : la VOIE DE LANCEMENT, nommée dans le journal lui-même
+            # (harness-undeclared-profile-attempts, 2026-09-19). Les vingt-huit essais sans
+            # modèle ne pouvaient être rattachés à leur profil que par recoupement de dates.
+            "profile": PROFILE_NAME,
             "model": MODEL, "effort": effort, "subagent_model": SUBAGENT_MODEL,
             "cmd": cmd, "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
@@ -3645,9 +3683,19 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["AUTOPORT_BACKEND"] = BACKEND
     try:
         _PROFILE = (cli_backend.codex_profile(REPO_ROOT) if BACKEND == "codex"
-                    else _load_model_profile())
-    except (ValueError, KeyError, OSError) as e:
-        parser.error(str(e))
+                    else _load_model_profile(strict=True))
+    except (ValueError, KeyError, OSError, json.JSONDecodeError) as e:
+        # UN LANCEMENT SANS PROFIL RESOLU REFUSE DE PARTIR, ET IL LE DIT
+        # (harness-undeclared-profile-attempts, 2026-09-19).
+        # MARQUEUR: profil-resolu-ou-refus-2026-09-19
+        console.print(Panel.fit(
+            f"[bold red]Démarrage refusé — profil de modèle NON RÉSOLU[/bold red]\n\n{e}\n\n"
+            f"Aucun essai ne part sur un modèle que personne n'a choisi. Les vingt-huit qui "
+            f"l'ont fait le 2026-09-07 (backend codex, `manager_model` vide) ont TOUS échoué.\n"
+            f"  → nomme `manager_model`, `manager_effort` et `worker_model` dans le profil "
+            f"ACTIF, puis relance.",
+            border_style="red"))
+        return 1
     MODEL, EFFORT = _PROFILE["manager_model"], _PROFILE["manager_effort"]
     SUBAGENT_MODEL, WORKER_EFFORTS = _PROFILE["worker_model"], _PROFILE["worker_efforts"]
     PROFILE_NAME = _PROFILE["_active_name"]

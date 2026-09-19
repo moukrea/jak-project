@@ -1,5 +1,5 @@
 {
-  "_doc": "Codex uniquement. Modèles vides = configuration de la CLI installée ; sous-agents héritent. Comme le mode Claude autonome, danger-full-access permet les builds, appareils et commits sans interaction. workspace-write est disponible pour limiter les accès. Aucun effet sur les profils Claude.",
+  "_doc": "Codex uniquement. Un modèle VIDE est REFUSé depuis le 2026-09-19 (harness-undeclared-profile-attempts) : `manager_model` et `worker_model` doivent être nommés, sinon l'orchestrateur refuse de démarrer. Entre le 2026-09-07 09:37 et 16:01, ce profil portait deux chaînes vides et 28 essais sont partis sur le modèle par défaut de la CLI locale : aucun n'a abouti. Comme le mode Claude autonome, danger-full-access permet les builds, appareils et commits sans interaction. workspace-write est disponible pour limiter les accès. Aucun effet sur les profils Claude.",
   "active": "codex-local",
   "profiles": {
     "codex-local": {

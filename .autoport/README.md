@@ -124,8 +124,11 @@ quota Anthropic ni déduction d'un quota Codex. Les erreurs auth/modèle sont si
 
 Claude garde `model-profiles.json` et `apply-model-profile.sh`. Les workers chargent
 `settings.json` par le lien local existant, ou explicitement si ce lien est absent.
-Codex lit uniquement `codex/profiles.json`. Modèles vides : modèle de la CLI locale,
-sous-agents hérités. Pour les figer, remplir `manager_model` et `worker_model`.
+Codex lit uniquement `codex/profiles.json`. `manager_model`, `manager_effort` et
+`worker_model` sont OBLIGATOIRES et non vides : depuis le 2026-09-19
+(harness-undeclared-profile-attempts) un profil laissé vide fait REFUSER le démarrage
+au lieu de laisser la CLI choisir en silence — 28 essais étaient partis ainsi le 09-07,
+aucun n'a abouti.
 Les efforts sont séparés : manager/recherche high, implémentation/test medium.
 Les rôles sont transmis aux sous-agents **natifs Codex**, sans `claude -p`.
 

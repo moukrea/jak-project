@@ -10,17 +10,22 @@ import threading
 import pytest
 
 from lib import cli_backend as cb
+from lib import model_profile
 from test_attempt import item_repo, ITEM
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
 def _modele(cmd):
-    """Le modele que la ligne de commande EPINGLE, '' si elle laisse la CLI sur le sien.
+    """Le modele que la ligne de commande EPINGLE, '' si elle n'en epingle aucun.
 
     Les deux tests qui exigeaient l'ABSENCE de `--model` mesuraient en realite le fichier
     `.autoport/codex/profiles.json` du jour : verts avec `manager_model: ""`, rouges des que
     l'owner y a nomme un modele. On lit l'invariant, plus la donnee livree.
+
+    DEPUIS harness-undeclared-profile-attempts (2026-09-19) le '' est un cas qui NE PEUT PLUS
+    SE PRODUIRE : `codex_options` refuse un profil non resolu. Le repli reste ici pour que le
+    test qui l'attend le VOIE, au lieu de mourir sur un IndexError.
     """
     if '--model' not in cmd:
         return ''
@@ -33,8 +38,14 @@ def codex_repo(orch, item_repo, monkeypatch):
     monkeypatch.setattr(orch, 'BACKEND', 'codex')
     profile = cb.codex_profile(ROOT)
     monkeypatch.setattr(orch, '_PROFILE', profile)
-    monkeypatch.setattr(orch, 'MODEL', '')
-    monkeypatch.setattr(orch, 'SUBAGENT_MODEL', '')
+    # LE MODELE VIENT DU PROFIL, PAS D'UN DECRET DE CE BANC
+    # (harness-undeclared-profile-attempts, 2026-09-19). Ces deux lignes posaient '' EN DUR :
+    # elles reproduisaient, dans la suite, exactement l'etat des vingt-huit essais du
+    # 2026-09-07. `run_attempt` refuse desormais de partir sur un profil non resolu, et un
+    # banc qui epingle un defaut ne peut pas servir de decor a tous les autres tests.
+    monkeypatch.setattr(orch, 'MODEL', profile['manager_model'])
+    monkeypatch.setattr(orch, 'SUBAGENT_MODEL', profile['worker_model'])
+    monkeypatch.setattr(orch, 'PROFILE_NAME', profile['_active_name'])
     bindir = orch.AUTOPORT_DIR / 'fakebin'
     bindir.mkdir()
     monkeypatch.setenv('PATH', str(bindir) + os.pathsep + os.environ['PATH'])
@@ -119,7 +130,15 @@ def test_cli_options_are_isolated_and_toml_valid(tmp_path):
     # code. On mesure desormais l'invariant, dans les DEUX regimes, sur des profils injectes :
     # un verdict de test ne doit pas dependre du fichier de configuration du jour.
     assert _modele(cmd) == p['manager_model']
-    assert _modele(cb.worker_command(ROOT, 'codex', dict(p, manager_model=''), 'high', 30)) == ''
+    # UN MODELE VIDE N'EST PLUS UN REGIME, C'EST UN REFUS
+    # (harness-undeclared-profile-attempts, 2026-09-19). Cette ligne exigeait auparavant que
+    # la commande parte SANS `--model` — l'invariant qui a laisse partir vingt-huit essais
+    # sur un modele que personne n'avait choisi. Le meme profil, ampute du meme champ, doit
+    # maintenant lever ; et le refus NOMME le champ, il ne dit pas « profil invalide ».
+    for champ in ('manager_model', 'worker_model', 'manager_effort'):
+        with pytest.raises(model_profile.ProfileUnresolved) as refus:
+            cb.worker_command(ROOT, 'codex', dict(p, **{champ: ''}), 'high', 30)
+        assert champ in str(refus.value)
     nomme = cb.worker_command(ROOT, 'codex', dict(p, manager_model='modele-injecte'), 'high', 30)
     assert _modele(nomme) == 'modele-injecte'
     assert nomme.count('--model') == 1

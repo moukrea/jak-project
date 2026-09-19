@@ -11,6 +11,11 @@ import shlex
 import subprocess
 from pathlib import Path
 
+try:                                    # `.autoport` sur le chemin (orchestrateur, superviseur)
+    from lib import model_profile
+except ImportError:                     # `.autoport/lib` seul sur le chemin (bancs, recensements)
+    import model_profile
+
 BACKENDS = ("claude", "codex")
 
 
@@ -24,14 +29,19 @@ def selected(value=None, root=None):
 
 
 def codex_profile(root):
-    cfg = json.loads((Path(root) / ".autoport/codex/profiles.json").read_text())
-    profile = dict(cfg["profiles"][cfg["active"]])
-    profile["_active_name"] = cfg["active"]
-    for key in ("manager_model", "manager_effort", "worker_model", "worker_efforts"):
-        if key not in profile:
-            raise ValueError(f"profil Codex incomplet : {key}")
+    """Le profil Codex ACTIF, ou un refus. Jamais un profil a moitie rempli.
+
+    UNE CLEF PRESENTE ET VIDE PASSAIT (harness-undeclared-profile-attempts, 2026-09-19).
+    MARQUEUR: profil-resolu-ou-refus-2026-09-19
+    Le controle d'avant etait `if key not in profile` : il ne regardait que la PRESENCE.
+    Le profil `codex-local` a porte `manager_model: ""` et `worker_model: ""` jusqu'au
+    2026-09-07 18:02, et vingt-huit essais sont partis sans qu'aucun modele soit choisi —
+    zero abouti. `model_profile.resolve` regarde desormais le CONTENU et leve.
+    """
+    source = Path(root) / ".autoport/codex/profiles.json"
+    profile = model_profile.resolve(json.loads(source.read_text()), source=str(source))
     if profile.get("sandbox") not in ("read-only", "workspace-write", "danger-full-access"):
-        raise ValueError("sandbox Codex invalide")
+        raise ValueError(f"{source} : sandbox Codex invalide ({profile.get('sandbox')!r})")
     return profile
 
 
@@ -45,14 +55,20 @@ def toml(value):
 
 
 def codex_options(root, profile, effort=None, supervisor=False):
+    # LE MODELE N'EST PLUS CONDITIONNEL (harness-undeclared-profile-attempts, 2026-09-19).
+    # MARQUEUR: profil-resolu-ou-refus-2026-09-19
+    # `if profile["manager_model"]:` traitait une chaine VIDE comme « laisse la CLI
+    # choisir » : c'est par ces deux lignes que les vingt-huit lignes de commande du
+    # 2026-09-07 sont parties sans `--model` ni `agents.default_subagent_model`. On refuse
+    # le profil non resolu, et les deux options sont ensuite emises SANS condition — un
+    # chemin qui les omet ne peut plus exister.
+    model_profile.check(profile, source="profil Codex")
     root = Path(root).resolve()
     opts = ["--sandbox", profile["sandbox"], "-c", 'approval_policy="never"',
             "-c", "model_reasoning_effort=" + toml(effort or profile["manager_effort"]),
             "-c", "features.hooks=true"]
-    if profile["manager_model"]:
-        opts += ["--model", profile["manager_model"]]
-    if profile["worker_model"]:
-        opts += ["-c", "agents.default_subagent_model=" + toml(profile["worker_model"])]
+    opts += ["--model", profile["manager_model"]]
+    opts += ["-c", "agents.default_subagent_model=" + toml(profile["worker_model"])]
     opts += ["-c", "agents.enabled=true", "-c", "agents.max_concurrent_threads_per_session=3"]
     # Scoped to the invocation: no edits of ~/.codex or .codex, no copied credentials.
     # Hooks are the reviewed autoport sources; the CLI flag makes them execute in exec.
