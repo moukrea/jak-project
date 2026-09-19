@@ -4991,14 +4991,19 @@
 ;; des trois fenetres — c'est ce qui a permis, des l'essai 1, de separer « la jauge ne dessine
 ;; jamais » de « le coeur dessine quand il ne devrait pas ».
 ;;
-;; LE BANC ATTEND QUE LE HUD D'ORIGINE SOIT VIVANT. Mesure de l'essai 1 : les deux premiers blocs
-;; sont tombes pendant le chargement du niveau, HUD entierement replie — zero dessin des deux cotes,
-;; donc trois pieces d'origine declarees « absentes » alors que rien n'avait ete regarde. Mesure de
-;; l'essai 3 : attendre que NOTRE coeur dessine ne suffit pas — il emet ses quads des sa naissance,
-;; alors que les six elements d'origine ne sont a l'ecran qu'a partir de l'image ~620 (toutes leurs
-;; sources a 12/180 dans la fenetre ETEINT, la meme valeur pour les six). Le cycle ne part donc
-;; qu'apres RHUD_TGL_WARM images CONSECUTIVES ou les six elements d'origine sont vivants, l'icone
-;; d'origine de la pile a son art, et les quatre elements de la couche 3D sont A L'ECRAN.
+;; LE BANC NE COMPTE QUE CE QUE LE JEU PEUT MONTRER. Essai 1 : les deux premiers blocs sont tombes
+;; pendant le chargement du niveau, HUD replie, zero dessin des deux cotes. Essai 3 : le banc partait
+;; des que les six elements « existaient et n'etaient pas caches » — c'etait sur l'ECRAN TITRE, puis
+;; pendant le chargement de village1 (le warp n'atterrit qu'a la ligne 19839 du journal moteur, entre
+;; les ticks 10 et 11 de publication) : pile en `hud-arriving` a decalage non nul 180 images sur 180,
+;; nos deux modeles dessines une image sur deux QUEL QUE SOIT le reglage, les sprites d'origine une
+;; image sur deux ; les deux blocs joues dans village1, eux, etaient exacts (180/0 des deux cotes).
+;; Une image n'est donc comptee que si le HUD d'origine est OPERABLE — les gardes de `tally-value`
+;; (hud.gc:33-40) plus le mode maitre et `paused?`, `rhud-tgl-operable-why` — et si les quatre
+;; elements epingles sont POSES — `hud-in` a decalage nul, `rhud-tgl-stock-settled?`. Le rechauffage
+;; exige RHUD_TGL_WARM images DE SUITE dans cet etat ; un bloc dure jusqu'a RHUD_TGL_COUNT images
+;; comptees, RHUD_TGL_BLOCK_MAX au plus, et un bloc clos au plafond est compte (`capped`). Chaque
+;; image refusee est publiee par sa cause : un banc qui n'a rien compte dit pourquoi.
 ;;
 ;; L'EPINGLAGE NE PASSE PAS PAR `force-on-screen`. Sous ce drapeau, `tally-value` refait
 ;; `(go hud-arriving)` a CHAQUE image (hud.gc:42-66), l'etat se re-entre et son `:enter` renvoie
@@ -5011,11 +5016,13 @@
 ;; (bureau) / `debug.opengoal.costprobe=recharged-hud-toggle` (appareil) : le binaire de l'owner
 ;; ne bascule jamais ses reglages tout seul.
 
-(defconstant RHUD_TGL_SETTLE 60)      ;; images jetees aux deux bords d'un bloc
-(defconstant RHUD_TGL_BLOCK 300)      ;; longueur d'un bloc
+(defconstant RHUD_TGL_SETTLE 60)      ;; images jetees en tete de bloc, apres chaque bascule
+(defconstant RHUD_TGL_COUNT 180)      ;; images COMPTEES exigees pour clore un bloc
+(defconstant RHUD_TGL_BLOCK_MAX 1500) ;; au-dela, le bloc est clos quand meme et compte `capped`
 (defconstant RHUD_TGL_MIN 120)        ;; images exigees par terme avant qu'il soit MESURE
 (defconstant RHUD_TGL_STOCK_MIN 30)   ;; images exigees pour dire qu'une piece d'ORIGINE est revenue
-(defconstant RHUD_TGL_WARM 60)        ;; images CONSECUTIVES de HUD d'origine vivant avant de partir
+(defconstant RHUD_TGL_WARM 60)        ;; images CONSECUTIVES de HUD operable ET pose avant de partir
+(defconstant RHUD_TGL_WHY 8)          ;; causes de refus suivies (`rhud-tgl-operable-why`, 0 = pas pose)
 (defconstant RHUD_TGL_WARM_MAX 5400)  ;; au-dela, on part quand meme : un banc qui attend sans fin
                                       ;; ne publie rien, et « rien » ne nomme aucune cause
 (defconstant RHUD_TGL_SRC 10)         ;; sources suivies par fenetre
@@ -5038,7 +5045,10 @@
    (audited      int32)   ;; le terme 1 a-t-il ete calcule (1) ou pas encore (0)
    (warm         int32)   ;; le HUD est-il vivant (1) — le cycle n'a pas commence avant
    (warm-n       int32)   ;; images passees a l'attendre
-   (warm-hits    int32)   ;; images ou le coeur recharge a dessine pendant l'attente
+   (warm-hits    int32)   ;; images DE SUITE ou le HUD etait operable et pose pendant l'attente
+   (warm-why     int32 RHUD_TGL_WHY)   ;; images d'attente refusees, par cause ; 0 = operable mais pas POSE
+   (blk-cnt      int32)   ;; images COMPTEES dans le bloc courant
+   (capped       int32)   ;; blocs clos au plafond RHUD_TGL_BLOCK_MAX sans leurs RHUD_TGL_COUNT images
    ;; --- terme 1 : la rangee dans le tableau livre ---
    (t1           int32)
    (rows         int32)
@@ -5051,6 +5061,9 @@
    (stk-any      int32 RHUD_TGL_WINS)   ;; images ou UNE piece d'origine dessinait
    (our-3d       int32 RHUD_TGL_WINS)   ;; images ou UN de nos deux modeles etait dessine
    (stk-3d       int32 RHUD_TGL_WINS)   ;; images ou UNE piece 3D d'origine dessinait
+   (skip-op      int32 RHUD_TGL_WINS)   ;; images de bloc (settle passe) refusees : HUD non operable
+   (skip-set     int32 RHUD_TGL_WINS)   ;; ... refusees : elements epingles pas encore poses
+   (both         int32 RHUD_TGL_WINS)   ;; images comptees ou les DEUX icones de la pile etaient dessinees
    (src          int32 30)              ;; le detail : (+ (* fenetre 10) source)
    (elt-mask     int32)                 ;; quels elements de HUD 3D ont existe pendant la course
    ;; --- diagnostic (essai 3) : l'ETAT de l'element pile et du coeur d'origine, image par image ---
@@ -5109,6 +5122,51 @@
          (not (hidden? (-> bz 0)))
          (not (hidden? (-> mo 0)))
          (not (hidden? (-> pk 0)))
+         #t)))
+
+(defun rhud-tgl-operable-why ()
+  "0 quand le HUD d'ORIGINE peut fonctionner a cette image, sinon la PREMIERE garde qui refuse.
+   Ce sont les gardes de `tally-value` (hud.gc:33-40) — celles sous lesquelles le jeu lui-meme
+   n'anime pas son HUD — plus le mode maitre et `paused?`, qui gelent `hud-arriving` (le decalage
+   ne bouge pas) et taisent `draw-hud` (aucun sprite). Voir l'en-tete : l'essai 3 a compte deux
+   blocs sur l'ecran titre et un chargement.
+   1 pas de target · 2 mode maitre hors `game` · 3 `paused?` · 4 `movie?` · 5 un process
+   progress existe · 6 lettrage ou noir de moins de 0,1 s · 7 target `grabbed`"
+  (cond
+    ((not *target*) 1)
+    ((!= *master-mode* 'game) 2)
+    ((paused?) 3)
+    ((movie?) 4)
+    (*progress-process* 5)
+    ((not (and (time-elapsed? (-> *game-info* letterbox-time) (seconds 0.1))
+               (time-elapsed? (-> *game-info* blackout-time) (seconds 0.1))))
+     6)
+    ((logtest? (-> *target* state-flags) (state-flags grabbed)) 7)
+    (else 0)))
+
+(defun rhud-tgl-posed? ((p (pointer hud)))
+  "un element epingle est POSE quand il tient `hud-in` a decalage nul — l'etat que `rhud-tgl-pin`
+   entretient par `trigger-time`. En `hud-arriving` l'etat vient de renvoyer `draw #t` aux deux
+   icones de la pile (hud.gc:200) et l'image ne dit rien du regime."
+  (and p (= (-> p 0 next-state name) 'hud-in) (zero? (-> p 0 offset)) #t))
+
+(defun rhud-tgl-stock-settled? ()
+  "les quatre elements de la couche 3D sont POSES et l'icone d'origine de la pile a son art ; le
+   coeur et la jauge d'origine existent (ils sont supprimes tant que le HUD recharge est allume,
+   on ne leur demande rien de plus)."
+  (let ((fc (hud3d-elt HUD3D_SLOT_CELL))
+        (bz (hud3d-elt HUD3D_SLOT_BUZZERS))
+        (mo (hud3d-elt HUD3D_SLOT_MONEY))
+        (pk (hud3d-elt HUD3D_SLOT_PICKUPS))
+        (h  (hud3d-elt RHUD_TGL_SLOT_HEALTH))
+        (p  (hud3d-elt RHUD_TGL_SLOT_POWER)))
+    (and fc bz mo pk h p
+         (> (-> fc 0 nb-of-icons) 0)
+         (hud3d-alive? (-> fc 0 icons 0 icon))
+         (rhud-tgl-posed? fc)
+         (rhud-tgl-posed? bz)
+         (rhud-tgl-posed? mo)
+         (rhud-tgl-posed? pk)
          #t)))
 
 (defun rhud-tgl-stock-spawned? ((p (pointer hud)))
@@ -5254,6 +5312,7 @@
           (if (hidden? (-> h 0)) (+! (-> this dbg (+ b 8)) 1))))
       (if (or s2 s3) (+! (-> this our-3d win) 1))
       (if (or s6 s7 s8 s9) (+! (-> this stk-3d win) 1))
+      (if (and s2 s6) (+! (-> this both win) 1))
       (if (or s0 s1 s2 s3) (+! (-> this rch-any win) 1))
       (if (or s4 s5 s6 s7 s8 s9) (+! (-> this stk-any win) 1)))
     (if s0 1 0)))
@@ -5279,17 +5338,26 @@
        (set! (-> *pc-settings* recharged-master?) #t)
        (set! (-> *pc-settings* recharged-hud?) #t))
       ((zero? (-> this warm))
-       ;; RECHAUFFAGE : tout allume, de l'eco dans la poche, et on attend que le HUD D'ORIGINE
-       ;; soit vivant et a l'ecran pour de bon, RHUD_TGL_WARM images de suite. Sans cette attente
-       ;; les premiers blocs tombent pendant le chargement du niveau (essais 1 et 3) et les
-       ;; termes d'origine se declarent aveugles.
+       ;; RECHAUFFAGE : tout allume, de l'eco dans la poche, et on attend RHUD_TGL_WARM images DE
+       ;; SUITE ou le HUD d'origine est OPERABLE (`rhud-tgl-operable-why` = 0) et POSE
+       ;; (`rhud-tgl-stock-settled?`). Sans ces deux gardes le banc partait sur l'ecran titre ou
+       ;; pendant un chargement (essais 1 et 3) et mesurait un HUD que le jeu lui-meme n'anime pas.
+       ;; Chaque image refusee est comptee par sa cause (`warm-why`) et publiee.
        (set! (-> *pc-settings* recharged-master?) #t)
        (set! (-> *pc-settings* recharged-hud?) #t)
        (+! (-> this warm-n) 1)
        ;; l'eco : la jauge, d'origine comme rechargee, ne se montre que si jak en porte.
        (if (zero? (mod (-> this warm-n) 120)) (rhud-gauge-eco-seed (pickup-type eco-blue)))
        (rhud-tgl-sample this -1)
-       (if (rhud-tgl-stock-alive?) (+! (-> this warm-hits) 1) (set! (-> this warm-hits) 0))
+       (let ((why (rhud-tgl-operable-why)))
+         (cond
+           ((nonzero? why)
+            (+! (-> this warm-why why) 1)
+            (set! (-> this warm-hits) 0))
+           ((not (rhud-tgl-stock-settled?))
+            (+! (-> this warm-why 0) 1)
+            (set! (-> this warm-hits) 0))
+           (else (+! (-> this warm-hits) 1))))
        (if (or (>= (-> this warm-hits) RHUD_TGL_WARM) (>= (-> this warm-n) RHUD_TGL_WARM_MAX))
          (set! (-> this warm) 1))
        (if (and (zero? (-> this audited)) (>= (-> this warm-n) RHUD_TGL_SETTLE)) (rhud-tgl-audit!)))
@@ -5303,12 +5371,28 @@
          ;; une graine d'eco par bloc : le vidage d'origine dure bien plus qu'un bloc, mais deux
          ;; blocs de suite sans eco eteindraient les deux jauges et rendraient le terme muet.
          (if (= (-> this n) 1) (rhud-gauge-eco-seed (pickup-type eco-blue)))
-         (let ((counting (and (> (-> this n) RHUD_TGL_SETTLE)
-                              (<= (-> this n) (- RHUD_TGL_BLOCK RHUD_TGL_SETTLE)))))
-           (if counting (__pc-autoport-hit-for "recharged-hud-toggle" 1))
-           (rhud-tgl-sample this (if counting (rhud-tgl-window ph) -1)))
-         (when (>= (-> this n) RHUD_TGL_BLOCK)
+         ;; UNE IMAGE N'EST COMPTEE QUE SI LE JEU PEUT LA MONTRER : settle de la bascule passe, HUD
+         ;; operable, elements poses. Le bloc dure jusqu'a RHUD_TGL_COUNT images comptees,
+         ;; RHUD_TGL_BLOCK_MAX au plus : un chargement au milieu d'un bloc ALLONGE la mesure au lieu
+         ;; de la vider, et un HUD qui ne se pose jamais clot le bloc au plafond, compte `capped`.
+         (let* ((win (rhud-tgl-window ph))
+                (past (> (-> this n) RHUD_TGL_SETTLE))
+                (why (if past (rhud-tgl-operable-why) 0))
+                (op (and past (zero? why)))
+                (st (and op (rhud-tgl-stock-settled?)))
+                (counting (and st (< (-> this blk-cnt) RHUD_TGL_COUNT))))
+           (when past
+             (cond
+               ((not op) (+! (-> this skip-op win) 1))
+               ((not st) (+! (-> this skip-set win) 1))))
+           (when counting
+             (__pc-autoport-hit-for "recharged-hud-toggle" 1)
+             (+! (-> this blk-cnt) 1))
+           (rhud-tgl-sample this (if counting win -1)))
+         (when (or (>= (-> this blk-cnt) RHUD_TGL_COUNT) (>= (-> this n) RHUD_TGL_BLOCK_MAX))
+           (if (< (-> this blk-cnt) RHUD_TGL_COUNT) (+! (-> this capped) 1))
            (set! (-> this n) 0)
+           (set! (-> this blk-cnt) 0)
            (cond
              ((>= ph 3) (set! (-> this phase) 0) (+! (-> this cycle) 1))
              (else (set! (-> this phase) (+ ph 1)))))))))
@@ -5369,6 +5453,27 @@
       (__pc-autoport-publish "rhud_toggle_warm_frames" (-> this warm-n))
       (__pc-autoport-publish "rhud_toggle_warm_hits" (-> this warm-hits))
       (__pc-autoport-publish "rhud_toggle_stock_alive" (if (rhud-tgl-stock-alive?) 1 0))
+      (__pc-autoport-publish "rhud_toggle_stock_settled" (if (rhud-tgl-stock-settled?) 1 0))
+      (__pc-autoport-publish "rhud_toggle_operable_why" (rhud-tgl-operable-why))
+      ;; le rechauffage, image refusee par image refusee : « le banc n'est pas parti » a une cause
+      (__pc-autoport-publish "rhud_toggle_warm_refused_not_settled" (-> this warm-why 0))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_no_target" (-> this warm-why 1))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_master_mode" (-> this warm-why 2))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_paused" (-> this warm-why 3))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_movie" (-> this warm-why 4))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_progress" (-> this warm-why 5))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_blackout" (-> this warm-why 6))
+      (__pc-autoport-publish "rhud_toggle_warm_refused_grabbed" (-> this warm-why 7))
+      (__pc-autoport-publish "rhud_toggle_blocks_capped" (-> this capped))
+      (__pc-autoport-publish "rhud_toggle_on_skipped_not_operable" (-> this skip-op 0))
+      (__pc-autoport-publish "rhud_toggle_on_skipped_not_settled" (-> this skip-set 0))
+      (__pc-autoport-publish "rhud_toggle_on_both_cell_icons" (-> this both 0))
+      (__pc-autoport-publish "rhud_toggle_off_skipped_not_operable" (-> this skip-op 1))
+      (__pc-autoport-publish "rhud_toggle_off_skipped_not_settled" (-> this skip-set 1))
+      (__pc-autoport-publish "rhud_toggle_off_both_cell_icons" (-> this both 1))
+      (__pc-autoport-publish "rhud_toggle_mo_skipped_not_operable" (-> this skip-op 2))
+      (__pc-autoport-publish "rhud_toggle_mo_skipped_not_settled" (-> this skip-set 2))
+      (__pc-autoport-publish "rhud_toggle_mo_both_cell_icons" (-> this both 2))
       (__pc-autoport-publish "rhud_toggle_rows" (-> this rows))
       (__pc-autoport-publish "rhud_toggle_row_found" (-> this row-found))
       (__pc-autoport-publish "rhud_toggle_row_index" (-> this row-idx))

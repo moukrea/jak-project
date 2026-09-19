@@ -1389,10 +1389,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "hash": "5716a6c6202dc38f19a9d1e544aa97a3699d4d57",
+  "hash": "0155fc86ef8e3d374b9aff603153b21a42174ec6",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-18T05:24:42.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
  },
