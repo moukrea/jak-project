@@ -6,6 +6,8 @@
 ## Cause connue
 Cree le 18/09 07:30 par le superviseur, sur demande de l'owner (JAK-177) : « on doit avoir un toggle dans les reglages recharges pour activer ou desactiver le HUD recharge ! Par defaut a on, herite du master toggle recharge… a off c'est le HUD d'origine ! ». ETAT MESURE AU MOMENT DE LA CREATION : le reglage `recharged-hud?` EXISTE dans pc-settings et les quatre chantiers du HUD le lisent deja a l'execution ; ce qui MANQUE est la LIGNE DE MENU — progress-pc.gc:1597 la pose sous `#when FLAG_RECHARGED_HUD`, drapeau de compilation a #f dans l'arbre suivi, donc ABSENTE du binaire livre (meme piege que le coeur, la jauge et les ramassables, tous sortis du drapeau les 17 et 18/09). Le libelle et l'aide existent deja (*recharged-hud-label*, pc-text-hint-rhud). PORTE : elle se lit sur le binaire LIVRE — la ligne est presente, sa valeur par defaut est ON, le passage a OFF ramene a zero les dessins des quatre pieces rechargees ET remet a non-zero ceux des pieces d'origine, le retour a ON fait l'inverse, et le maitre Recharged eteint garde la priorite. Un terme non mesure compte 1.
 
+18/09 09:05 ARRET DEMANDE PAR L'OWNER (« Arrête le harnais, j'ai quasiment plus de credits ») : l'essai en cours a ete interrompu par le superviseur, il n'a pas echoue. L'item repart de zero a la reprise. Frein `.autoport/PAUSE` en place.
+
 ## Livrable
 Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de non-regression qui echoue si le symptome revient.
 
