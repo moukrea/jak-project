@@ -14189,18 +14189,10 @@ items:
     value: 0
   where: 'Rien a regarder en jeu : preuve machine (cout par essai AVANT/APRES sur les memes items, jetons
     de cache lus par essai).'
-  known_cause: 'Signale par l''etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt,
-    19/09), items crees par le superviseur le 19/09 13:55. MESURE : l''agent principal pese 86,4 % des
-    jetons d''un essai ; 20,7 M de jetons de cache relus par essai ; 93 messages par essai. Le [1m] (pas
-    de compaction) double le cout (35,82 $ contre 17,25 $) sans rendre plus de verts. LEVIERS A CHIFFRER,
-    pas a supposer : (1) taille du prompt d''item + DIRECTIVES + contrat relus a chaque tour (mesurer
-    en jetons) ; (2) seuil de compaction et taille de contexte que Claude Code garde entre les tours ;
-    (3) sorties d''outils volumineuses relues (journaux, proof.txt entiers) ; (4) nombre de tours par
-    essai (93 messages) — quels tours sont de l''attente (boucles de sleep/grep sur un build ou une preuve)
-    que le juge pourrait porter a la place du worker (cf. items harness-judge-*). PORTE : cout par essai
-    mesure sur >= 5 essais APRES, sur des items comparables, contre les 278 essais opus-5/high de reference
-    (17,25 $) : baisse >= 20 % avec un taux de verts non degrade (fenetre a nommer), sinon defaut. Le
-    rapport nomme le levier qui a paye.'
+  known_cause: |-
+    Signale par l'etude owner-se-renseigner-sur-le-combo-le-plus-efficient-tou (reports/<id>/FINDINGS.txt, 19/09), items crees par le superviseur le 19/09 13:55. MESURE : l'agent principal pese 86,4 % des jetons d'un essai ; 20,7 M de jetons de cache relus par essai ; 93 messages par essai. Le [1m] (pas de compaction) double le cout (35,82 $ contre 17,25 $) sans rendre plus de verts. LEVIERS A CHIFFRER, pas a supposer : (1) taille du prompt d'item + DIRECTIVES + contrat relus a chaque tour (mesurer en jetons) ; (2) seuil de compaction et taille de contexte que Claude Code garde entre les tours ; (3) sorties d'outils volumineuses relues (journaux, proof.txt entiers) ; (4) nombre de tours par essai (93 messages) — quels tours sont de l'attente (boucles de sleep/grep sur un build ou une preuve) que le juge pourrait porter a la place du worker (cf. items harness-judge-*). PORTE : cout par essai mesure sur >= 5 essais APRES, sur des items comparables, contre les 278 essais opus-5/high de reference (17,25 $) : baisse >= 20 % avec un taux de verts non degrade (fenetre a nommer), sinon defaut. Le rapport nomme le levier qui a paye.
+
+    19/09 15:40 SUPERVISEUR : valide par la machine avec le terme 5 (baisse >= 20 % sur 5 essais armes) NON MESURABLE (cv_apres_mesurable=0) et compte 0 — aucune garde ne revenait le verifier. Garde posee : acquis/context-volume-after.sh, relue a CHAQUE fermeture d'item : UNPROVABLE tant que moins de 5 essais portent --strict-mcp-config, PLUS TENU si la baisse mesuree est < 200 pour mille. Le statut valide tient sur le correctif arme et les leviers chiffres ; le gain, lui, sera juge par cette garde.
   status: validated
   depends_on: []
   spec: null
@@ -14233,12 +14225,19 @@ items:
     un defaut. PORTE : les 28 journaux sont classes par voie de lancement (nommee) ; un test lance l''orchestrateur
     avec un profil casse et obtient un refus explicite, pas un essai ; 0 essai sans modele declare sur
     les essais posterieurs au correctif.'
-  status: in-progress
+  status: validated
   depends_on: []
   spec: null
   prompt: prompts/item-harness-undeclared-profile-attempts.md
   code_scope: harness
   code_scope_source: worker:essai-1:le-defaut-et-son-correctif-vivent-dans-.autoport/lib/model_profile.py-lib/cli_backend.py-et-orchestrator.py-aucun-code-moteur-possible
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-19'
+    proof_sha: 54ddea605e3ff087
+    proof_bytes: 63299
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-supervisor-cost-counter
   priority: 16
   owner_test: true
@@ -14261,7 +14260,7 @@ items:
     digest qui ne se reveille que si `status --changed` ou Linear a bouge, calcule par un script sans
     modele ; reponses Linear plus courtes ; ne pas relire des journaux entiers), avec le cout AVANT/APRES
     sur 3 jours. Le rapport est ecrit pour l''owner, en francais courant.'
-  status: open
+  status: in-progress
   depends_on: []
   spec: null
   prompt: prompts/item-harness-supervisor-cost-counter.md
