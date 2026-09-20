@@ -75,10 +75,6 @@ inline vec3 mix(const vec3& a, const vec3& b, float t) {
   return vec3(mix(a.x, b.x, t), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
-inline float abs(float v) {
-  return v < 0.0f ? -v : v;
-}
-
 inline float clamp(float v, float lo, float hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }

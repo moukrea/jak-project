@@ -56,7 +56,10 @@ col = mix(base_dark, base_light, gs_grad);
 // LISERET DE BORD : une espece (le jonc) porte un bord clair, une autre un liseret discret. C'est
 // la troisieme direction de degrade que l'owner a nommee, et elle ne coute aucun sommet.
 if (gs_pal_on && gs_pal_rim > 0.0) {
-  float ea = abs(gs_across);
+  // Pas `abs` : libc++ (clang/arm64) en declare deja un pour `float`, et l'appel devient ambigu
+  // des que ce texte est compile en C++. Le ternaire est le seul sous-ensemble que les DEUX
+  // compilateurs lisent pareil — la meme discipline que le reste du chunk.
+  float ea = gs_across < 0.0 ? -gs_across : gs_across;
   float ee = clamp((ea - 0.55) / 0.45, 0.0, 1.0);
   ee = ee * ee * (3.0 - 2.0 * ee);
   col = col * (1.0 + 1.10 * gs_pal_rim * ee);
