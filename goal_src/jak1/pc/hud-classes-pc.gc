@@ -1491,6 +1491,24 @@
    (t14-bad64    int32)    ;;   ... et le gain/64 : le CONTROLE « trop pale » de la porte
    (t14-clamped  int32)    ;; pire nombre de particules plafonnees dans une image
    (t12-fitmin   int32 3)  ;; MEILLEUR cas de la boite : une nuee qui s'effondre se lit ici
+   ;; --- LA GRILLE DU TROU : ce que l'owner regarde, echantillonne sur le DISQUE ---
+   (grid-x       float 32) ;; 4 couronnes x 8 points, ecart en x depuis le centre de l'anneau
+   (grid-y       float 32) ;;   ... et en y. Recalcules a chaque image (l'aspect peut changer).
+   (nq-cov       int32)    ;; points du TROU remplis a l'image en cours (sur 24)
+   (nq-out       int32)    ;; points de la couronne de DEBORDEMENT touches (sur 8)
+   (nq-scov      int32)    ;; CONTROLE « trop petit » : les memes 24 points, nuee au quart
+   (nq-pcov      int32)    ;; barreau gain/16 : les memes 24 points, l'INFORMATIF
+   (nq-qcov      int32)    ;; barreau gain/64 : l'ARMEMENT de la porte
+   (t13-gn       int32)    ;; images ou la grille a pu etre lue (des quads ont ete emis)
+   (t13-covbad   int32)    ;; images ou le trou n'etait pas assez rempli
+   (t13-covmin   int32)    ;; pire remplissage du trou vu dans la course
+   (t13-outbad   int32)    ;; images ou la nuee envahissait la couronne
+   (t13-outmax   int32)    ;; pire envahissement vu dans la course
+   (t14-scovbad  int32)    ;; images ou le controle « trop petit » tombait sous le plancher
+   (t14-pcovbad  int32)    ;;   ... au barreau gain/16 (informatif)
+   (t14-qcovbad  int32)    ;;   ... au barreau gain/64 (l'armement)
+   (t14-pcovmax  int32)    ;; meilleur remplissage atteint par le barreau gain/16
+   (t14-scovmax  int32)    ;;   ... et par le controle « trop petit »
    (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
    (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
    (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
@@ -1926,16 +1944,34 @@
 ;; 64 ils SATURENT deja. Ce n'est pas la constante d'alpha qui manquait, c'est la matiere : un
 ;; melange ADDITIF sur un trou noir rend Cs.As, et sept fois plus de surface rend sept fois plus
 ;; de lumiere. L'echelle d'alpha publiee ci-dessous (gain, /4, /16, /64) dit ou la mesure mord.
-(defconstant RHUD_NUEE_POS 0.0060)     ;; pente de la compression du rayon (lineaire)
-(defconstant RHUD_NUEE_RCAP 3.6)       ;; rayon PLAFOND de la nuee, en unites de canevas
-(defconstant RHUD_NUEE_SIZE 0.40)      ;; facteur de demi-taille du sprite, au DESSIN
-(defconstant RHUD_NUEE_HW_MAX 5.3)     ;; demi-largeur PLAFOND d'un sprite, en unites de canevas
+(defconstant RHUD_NUEE_POS 0.0100)     ;; pente de la compression du rayon (lineaire). A 0,010 les
+                                       ;;   ecarts bruts au-dela de 550 unites — a peu pres la
+                                       ;;   moitie du tirage `(meters 0) (meters 16)` — arrivent
+                                       ;;   au plafond : c'est ce qui garantit que la couronne a
+                                       ;;   0,92 du rayon est ATTEINTE. Il n'en nait pas d'anneau
+                                       ;;   visible : les sprites font 5,6 unites de demi-largeur
+                                       ;;   pour un plafond a 5,5, donc ils couvrent du centre
+                                       ;;   jusqu'au bord — c'est un disque plein, pas un bord.
+(defconstant RHUD_NUEE_RCAP 5.5)       ;; rayon PLAFOND de la nuee, en unites de canevas
+(defconstant RHUD_NUEE_SIZE 0.45)      ;; facteur de demi-taille du sprite, au DESSIN
+(defconstant RHUD_NUEE_HW_MAX 5.7)     ;; demi-largeur PLAFOND d'un sprite, en unites de canevas
+;; LA GRILLE. Une BOITE ne dit pas ce que l'owner regarde : la boite des sommets d'un quad TOURNE
+;; vaut sa demi-DIAGONALE (facteur racine(2)), si bien qu'une nuee qui n'atteint que 0,75 du rayon
+;; du trou affiche une boite a 0,94 — c'est exactement le « petit point » qui a passe la mesure de
+;; taille le 20/09 au matin. On echantillonne donc le DISQUE : trois couronnes de huit points a
+;; 0,35 · 0,65 · 0,92 du rayon du trou (24 points, ce qu'il faut REMPLIR) et une quatrieme a 1,10
+;; (8 points, le DEBORDEMENT sur l'anneau, qu'il ne faut pas envahir). Un point compte s'il tombe
+;; dans un quad EMIS dont l'alpha rendu atteint la moitie — la meme grandeur que l'oeil.
+(defconstant RHUD_NUEE_COV_MIN 18)     ;; points remplis exiges sur les 24 du trou (75 %)
+(defconstant RHUD_NUEE_OUT_MAX 4)      ;; points tolerables sur les 8 de la couronne de debordement
+(defconstant RHUD_NUEE_A_BRIGHT 32)    ;; octet d'alpha au-dela duquel le rendu donne au moins 0,5
 (defconstant RHUD_NUEE_A_GAIN 4.0)     ;; compensation du melange additif sur un trou noir
 (defconstant RHUD_NUEE_CTRL_SMALL 0.25) ;; CONTROLE « trop petit » : la meme nuee au quart
-(defconstant RHUD_NUEE_BOX_MAX 12.39)  ;; 1,05 x RHUD_GAUGE_HOLE_R : « deborde a peine » (18/09).
-                                       ;;   la grandeur est un MAXIMUM sur 16 000 images : une
-                                       ;;   fenetre fermee a 0,95 pile n'aurait aucune marge de
-                                       ;;   gigue, et un rouge de gigue n'apprend rien.
+(defconstant RHUD_NUEE_BOX_MAX 14.16)  ;; 1,20 x RHUD_GAUGE_HOLE_R. CE N'EST PLUS LA MESURE DU
+                                       ;;   DEBORDEMENT — c'est la demi-diagonale d'un quad
+                                       ;;   tourne, donc une borne de COUT, pas ce que l'owner
+                                       ;;   voit. Le debordement qu'il voit est mesure par la
+                                       ;;   couronne de la grille (`t13_out`, 1,10 x le rayon).
 (defconstant RHUD_NUEE_BOX_MIN 10.03)  ;; 0,85 x : le plancher du perimetre du 20/09 13:45
 (defconstant RHUD_NUEE_A_MIN 800)      ;; opacite composite exigee au coeur, en millieme
 
@@ -1967,6 +2003,17 @@
         (wlay 0)      ;;   ... et ses couches superposees
         (wbox 0.0)    ;;   ... et sa boite, a l'ecart ET a la taille du ramassable
         (ncl 0)       ;; particules dont le rayon a ete plafonne
+        (cmask 0)     ;; grille du trou : un bit par point rempli par la nuee LIVREE
+        (smask 0)     ;;   ... par le CONTROLE « trop petit » (la meme nuee au quart)
+        (pmask 0)     ;;   ... par le barreau gain/16 de l'echelle d'alpha : L'INFORMATIF, celui
+                      ;;       qui dit ou la visibilite bascule vraiment (les eclairs bleus et les
+                      ;;       gros points chauds y survivent, la bouffee et l'eclat n'y sont plus)
+        (qmask 0)     ;;   ... par le barreau gain/64 : L'ARMEMENT. Aucun alpha du ramassable ne
+                      ;;       peut y franchir le seuil de visibilite (le plus fort, l'eclair a
+                      ;;       :a 192, rend 12 sur les 32 exiges) : ce controle est ROUGE PAR
+                      ;;       CONSTRUCTION, et ce qu'il prouve est etroit — la grille refuse bien
+                      ;;       de compter un quad sous le seuil. C'est le barreau /16 qu'il faut
+                      ;;       lire pour savoir si elle DISCRIMINE.
         (nlay 0)      ;; couches superposees au coeur
         (rawmax 0.0)) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
     (set! (-> this nq-live) 0)
@@ -1981,6 +2028,10 @@
     (set! (-> this nq-wacc) 0)
     (set! (-> this nq-wlay) 0)
     (set! (-> this nq-clamped) 0)
+    (set! (-> this nq-cov) 0)
+    (set! (-> this nq-out) 0)
+    (set! (-> this nq-scov) 0)
+    (set! (-> this nq-pcov) 0)
     (set! (-> this nq-alay) 0)
     (when (and (>= idx 0) (< idx (-> this nb-of-particles)))
       (let* ((lc  (-> this particles idx part))
@@ -1999,6 +2050,19 @@
                  ;; sur ces deux echelles-la.
                  (cxm (/ (* 2.0 RHUD_NUEE_HW_MAX) bx))
                  (cym (/ RHUD_NUEE_HW_MAX by))
+                 ;; LA GRILLE, posee une fois par image. L'axe x du canevas porte l'aspect du
+                 ;; HUD (`fx`) : un cercle a l'ecran est une ellipse en x de canevas, et c'est
+                 ;; le cercle qu'il faut echantillonner, pas l'ellipse.
+                 (gset (dotimes (gk 8)
+                         (let ((cc (cos (* 8192.0 (the float gk))))
+                               (sr (sin (* 8192.0 (the float gk)))))
+                           (dotimes (gr 4)
+                             (let ((rf (cond ((zero? gr) 0.35) ((= gr 1) 0.65)
+                                             ((= gr 2) 0.92)   (else 1.10))))
+                               (set! (-> this grid-x (+ (* gr 8) gk))
+                                     (* RHUD_GAUGE_HOLE_R rf cc fx))
+                               (set! (-> this grid-y (+ (* gr 8) gk))
+                                     (* RHUD_GAUGE_HOLE_R rf sr)))))))
                  (ry  (/ (* 2.0 p11) (* 60.0 p00 ars)))  ;; py par unite de `y` de la particule
                  (inva (* bx by))
                  (m   (-> this particles idx part matrix))
@@ -2066,7 +2130,9 @@
                            (hhy (* 2.0 by (+ (fabs scx) (fabs scy)) 0.5))
                            (agn (* RHUD_NUEE_A_GAIN amul (-> vd a)))
                            (ab  (rhud-c255 agn))
-                           (ab0 (rhud-c255 (* 0.25 agn)))
+                           (ab0 (rhud-c255 (* 0.25 agn)))       ;; gain/4 = l'alpha NU du monde
+                           (ab16 (rhud-c255 (* 0.0625 agn)))
+                           (ab64 (rhud-c255 (* 0.015625 agn)))
                            (rgba (rhud-rgba (rhud-c255 (-> vd r))
                                             (rhud-c255 (-> vd g))
                                             (rhud-c255 (-> vd b))
@@ -2120,6 +2186,41 @@
                       ;; nuee sans le gain : c'est l'ablation, dans la meme image.
                       (if (> r0 rawmax) (set! rawmax r0))
                       (if (> (* RHUD_NUEE_POS r0) RHUD_NUEE_RCAP) (+! ncl 1))
+                      ;; LA GRILLE DU TROU. On inverse la transformation du quad — elle est
+                      ;; affine et inversible tant que `scx` et `scy` sont non nuls — pour savoir
+                      ;; si chaque point d'echantillon tombe DANS ce quad :
+                      ;;   X = Px/bx           Y = Py/(2 by)
+                      ;;   a = (cs X - sn Y)/scx    b = (sn X + cs Y)/scy    dedans si |a|,|b| <= 1/2
+                      ;; `gs` rejoue le MEME test sur la grille QUADRUPLEE : c'est exactement la
+                      ;; meme nuee au quart, sans la redessiner — le CONTROLE « trop petit ».
+                      (let* ((hc  (+ ax0 0.5))
+                             (qcx (+ ox (* bx scx cs hc)))
+                             (qcy (- oy (* 2.0 by scx sn hc)))
+                             (gm 0)
+                             (gs 0))
+                        (dotimes (gk 32)
+                          (let* ((gx (-> this grid-x gk))
+                                 (gy (-> this grid-y gk))
+                                 (xx (/ (- (+ pcx gx) qcx) bx))
+                                 (yy (/ (- (+ pcy gy) qcy) (* 2.0 by)))
+                                 (aa (/ (- (* cs xx) (* sn yy)) scx))
+                                 (bb (/ (+ (* sn xx) (* cs yy)) scy)))
+                            (if (and (<= (fabs aa) 0.5) (<= (fabs bb) 0.5))
+                              (set! gm (logior gm (ash 1 gk))))
+                            (when (< gk 24)
+                              (let* ((x4 (/ (- (+ pcx (* 4.0 gx)) qcx) bx))
+                                     (y4 (/ (- (+ pcy (* 4.0 gy)) qcy) (* 2.0 by)))
+                                     (a4 (/ (- (* cs x4) (* sn y4)) scx))
+                                     (b4 (/ (+ (* sn x4) (* cs y4)) scy)))
+                                (if (and (<= (fabs a4) 0.5) (<= (fabs b4) 0.5))
+                                  (set! gs (logior gs (ash 1 gk))))))))
+                        ;; un point n'est REMPLI que si le quad qui le couvre est VISIBLE : le
+                        ;; seuil porte sur l'octet d'alpha rendu, pas sur la presence du quad.
+                        (when (>= ab RHUD_NUEE_A_BRIGHT)
+                          (set! cmask (logior cmask gm))
+                          (set! smask (logior smask gs)))
+                        (if (>= ab16 RHUD_NUEE_A_BRIGHT) (set! pmask (logior pmask gm)))
+                        (if (>= ab64 RHUD_NUEE_A_BRIGHT) (set! qmask (logior qmask gm))))
                       ;; LA NUEE DU VIAL DU MONDE, MESUREE PAR LE MEME INSTRUMENT. Boite d'abord :
                       ;; son ecart NU plus l'extension reelle d'un quad a la TAILLE du ramassable.
                       (let ((wex (/ (+ (fabs rx0)
@@ -2149,10 +2250,8 @@
                         (+! nlay 1)
                         (let ((as   (fmin 1.0 (* 4.0 (/ (the float ab) 255.0))))
                               (as0  (fmin 1.0 (* 4.0 (/ (the float ab0) 255.0))))
-                              (as16 (fmin 1.0 (* 4.0 (/ (the float (rhud-c255 (* 0.0625 agn)))
-                                                        255.0))))
-                              (as64 (fmin 1.0 (* 4.0 (/ (the float (rhud-c255 (* 0.015625 agn)))
-                                                        255.0)))))
+                              (as16 (fmin 1.0 (* 4.0 (/ (the float ab16) 255.0))))
+                              (as64 (fmin 1.0 (* 4.0 (/ (the float ab64) 255.0)))))
                           (set! acc   (+ acc   (* as   (- 1.0 acc))))
                           (set! acc0  (+ acc0  (* as0  (- 1.0 acc0))))
                           (set! acc16 (+ acc16 (* as16 (- 1.0 acc16))))
@@ -2167,6 +2266,21 @@
     (set! (-> this nq-wacc) (the int (* 1000.0 wacc)))
     (set! (-> this nq-wlay) wlay)
     (set! (-> this nq-clamped) ncl)
+    (let ((cv 0) (ou 0) (sv 0) (pv 0) (qv 0))
+      (dotimes (gk 32)
+        (let ((bit (ash 1 gk)))
+          (cond ((< gk 24)
+                 (if (nonzero? (logand cmask bit)) (+! cv 1))
+                 (if (nonzero? (logand smask bit)) (+! sv 1))
+                 (if (nonzero? (logand pmask bit)) (+! pv 1))
+                 (if (nonzero? (logand qmask bit)) (+! qv 1)))
+                (else
+                 (if (nonzero? (logand cmask bit)) (+! ou 1))))))
+      (set! (-> this nq-cov) cv)
+      (set! (-> this nq-out) ou)
+      (set! (-> this nq-scov) sv)
+      (set! (-> this nq-pcov) pv)
+      (set! (-> this nq-qcov) qv))
     (set! (-> this nq-alay) nlay)
     nq))
 
@@ -3395,6 +3509,21 @@
           (if (> (-> this nq-wbox) (-> this t14-wbox)) (set! (-> this t14-wbox) (-> this nq-wbox)))
           (if (> (-> this nq-clamped) (-> this t14-clamped))
             (set! (-> this t14-clamped) (-> this nq-clamped)))
+          ;; --- LA GRILLE DU TROU, agregee sur les images ou des quads sont partis.
+          ;; C'est la grandeur que l'owner juge a l'oeil : « la nuee REMPLIT-elle le trou
+          ;; (elle touche presque la couronne, deborde a peine) ? » — remplissage d'un cote,
+          ;; envahissement de l'autre, chacun avec son compteur et son pire cas.
+          (+! (-> this t13-gn) 1)
+          (if (< (-> this nq-cov) RHUD_NUEE_COV_MIN) (+! (-> this t13-covbad) 1))
+          (if (> (-> this nq-out) RHUD_NUEE_OUT_MAX) (+! (-> this t13-outbad) 1))
+          (if (or (zero? (-> this t13-covmin)) (< (-> this nq-cov) (-> this t13-covmin)))
+            (set! (-> this t13-covmin) (-> this nq-cov)))
+          (if (> (-> this nq-out) (-> this t13-outmax)) (set! (-> this t13-outmax) (-> this nq-out)))
+          (if (< (-> this nq-scov) RHUD_NUEE_COV_MIN) (+! (-> this t14-scovbad) 1))
+          (if (< (-> this nq-pcov) RHUD_NUEE_COV_MIN) (+! (-> this t14-pcovbad) 1))
+          (if (< (-> this nq-qcov) RHUD_NUEE_COV_MIN) (+! (-> this t14-qcovbad) 1))
+          (if (> (-> this nq-scov) (-> this t14-scovmax)) (set! (-> this t14-scovmax) (-> this nq-scov)))
+          (if (> (-> this nq-pcov) (-> this t14-pcovmax)) (set! (-> this t14-pcovmax) (-> this nq-pcov)))
           (when (> (-> this nq-wlay) 0)
             (+! (-> this t14-wn) 1)
             (if (or (zero? (-> this t14-wacc)) (< (-> this nq-wacc) (-> this t14-wacc)))
@@ -3540,7 +3669,11 @@
      ;; sur les memes particules dans les memes images ; `t13-min` est notre pire cas.
      (if (and (> (-> this t14-wn) 0)
               (< (* 10 (-> this t13-min)) (* 9 (-> this t14-wacc))))
-       1 0)))
+       1 0)
+     ;; ET CE QUE L'OWNER REGARDE : le trou est-il REMPLI, et la couronne EPARGNEE. Une image
+     ;; sur dix suffit a rougir — c'est la meme tolerance que les deux termes ci-dessus.
+     (if (> (* 10 (-> this t13-covbad)) (-> this t13-gn)) 1 0)
+     (if (> (* 10 (-> this t13-outbad)) (-> this t13-gn)) 1 0)))
 
 (defun rhud-gauge-small-red ((this hud-recharged-power))
   "le CONTROLE « trop petit » du terme 12 : la meme nuee au quart doit tomber SOUS le plancher.
@@ -3666,6 +3799,13 @@
            ;; plus d'une image sur dix, et le regime MONDE doit avoir couvert le coeur au moins
            ;; une fois — sans cela la « cible » n'existe pas et le terme n'est pas mesure.
            (t13 (if (and (>= (-> this t13-n) RHUD_GB_MIN)
+                         (>= (-> this t13-gn) RHUD_GB_MIN)
+                         ;; les DEUX controles du perimetre du 20/09 13:45, sur la grandeur
+                         ;; jugee : la meme nuee AU QUART doit tomber sous le plancher de
+                         ;; remplissage, et le barreau gain/64 aussi. Si l'un des deux ne mord
+                         ;; pas, la grille ne distingue rien et son zero ne vaut rien.
+                         (> (* 10 (-> this t14-scovbad)) (* 9 (-> this t13-gn)))
+                         (> (* 10 (-> this t14-qcovbad)) (* 9 (-> this t13-gn)))
                          (> (* 10 (-> this t14-bad64)) (-> this t13-n))
                          (> (-> this t14-wn) 0))
                   (begin (+! measured 1) (rhud-gauge-core-bad this))
@@ -3825,6 +3965,20 @@
       (__pc-autoport-publish "hud_gauge_t14_pale16_bad" (-> this t14-bad16))
       (__pc-autoport-publish "hud_gauge_t14_pale64_bad" (-> this t14-bad64))
       (__pc-autoport-publish "hud_gauge_t14_clamped_max" (-> this t14-clamped))
+      ;; LA GRILLE : la grandeur que l'owner juge, son denominateur, son pire cas, et les deux
+      ;; controles qui l'arment. 24 points dans le trou, 8 sur la couronne de debordement.
+      (__pc-autoport-publish "hud_gauge_t13_grid_n" (-> this t13-gn))
+      (__pc-autoport-publish "hud_gauge_t13_cov_bad" (-> this t13-covbad))
+      (__pc-autoport-publish "hud_gauge_t13_cov_min" (-> this t13-covmin))
+      (__pc-autoport-publish "hud_gauge_t13_cov_want" RHUD_NUEE_COV_MIN)
+      (__pc-autoport-publish "hud_gauge_t13_out_bad" (-> this t13-outbad))
+      (__pc-autoport-publish "hud_gauge_t13_out_max" (-> this t13-outmax))
+      (__pc-autoport-publish "hud_gauge_t13_out_want" RHUD_NUEE_OUT_MAX)
+      (__pc-autoport-publish "hud_gauge_t14_small_cov_bad" (-> this t14-scovbad))
+      (__pc-autoport-publish "hud_gauge_t14_small_cov_max" (-> this t14-scovmax))
+      (__pc-autoport-publish "hud_gauge_t14_pale16_cov_bad" (-> this t14-pcovbad))
+      (__pc-autoport-publish "hud_gauge_t14_pale16_cov_max" (-> this t14-pcovmax))
+      (__pc-autoport-publish "hud_gauge_t14_pale64_cov_bad" (-> this t14-qcovbad))
       (__pc-autoport-publish "hud_gauge_t12_boxmin_16th_blue" (-> this t12-fitmin 0))
       (__pc-autoport-publish "hud_gauge_t12_boxmin_16th_red" (-> this t12-fitmin 1))
       (__pc-autoport-publish "hud_gauge_t12_boxmin_16th_yellow" (-> this t12-fitmin 2))
