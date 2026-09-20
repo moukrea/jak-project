@@ -13556,7 +13556,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13603,6 +13603,8 @@ items:
     20/09 12:15 SUPERVISEUR : essai 8 a CODE la taille et l'opacite (hud-classes-pc.gc, commits d165bf9566 + 1a7e1b405e, DANS le build publie) puis a echoue sur SON PROPRE instrument neuf : terme t10 « bande », band_bad=16223 sur cover=16226 (99,98 % de mauvais) — un taux de base a ~1000 pour mille ne classe RIEN (regle du 14/09 : decoupage muet). L'instrument est suspect, pas forcement la nuee. Budget epuise (2/2). Regle de l'owner (19/09) : ne pas bruler d'essai sur une mesure qui bute sans cause nommee -> l'owner tranche a l'oeil sur le build qui porte l'essai 8. Si un essai suivant est accorde, il commence par calibrer t10 sur un controle positif ET negatif (une nuee volontairement trop grande / trop pale doit rougir, la nuee du vial du monde doit verdir) AVANT de toucher au code.
 
     20/09 13:45 RETOUR OWNER (JAK-176) : « maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le probleme d'opacite de la lueur bleue n'est en plus pas corrige du tout ». L'essai 8 a SURCORRIGE la taille (un point) et n'a RIEN change a l'opacite visible. ORDRE IMPOSE POUR L'ESSAI SUIVANT : (1) d'abord CALIBRER l'instrument : mesurer la nuee du VIAL DU MONDE (bleu) avec le meme instrument — taille relative et alpha effectif au coeur — et publier ces deux nombres : ils sont LA CIBLE, pas un seuil invente ; puis verifier que l'instrument rougit sur un controle trop petit ET sur un controle trop pale (sinon il est muet, comme t10 a l'essai 8 : 99,98 % de mauvais) ; (2) ensuite regler : rayon de la nuee = 0,85-0,95 du rayon du trou (mesure sur la boite des sommets emis, PAS sur un parametre) ; alpha effectif au coeur >= celui du vial du monde x 0,9 — si le mode de fusion additif sur fond sombre dilue, changer le mode ou la texture, pas juste la constante ; (3) capture COTE A COTE jointe : nuee du HUD et vial du monde dans la meme image. Deux essais.
+
+    20/09 16:55 SUPERVISEUR : essai 10 VERT sur l'appareil (hud_gauge_defects=0, taille et opacite calibrees sur le vial du monde, commit 630ea23478 DANS le build publie 630ea23478ed) mais BLOQUE par la porte de fermeture pour 3 tests rouges de la suite du harnais (test_proof.py : « la preuve ne porte aucune empreinte FIGEE de son binaire ») — ces rouges viennent du chantier harness-judge-binary-race-with-builder qui reecrit validators/generic.sh EN PARALLELE ; l'essai 10 n'a touche que goal_src (git diff verifie). Imputation fausse. Owner 16:45 : « j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais » -> passe a tester par lui.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13667,6 +13669,11 @@ items:
   - date: '2026-09-20'
     text: Débile, maintenant elle est tellement minuscule que c'est un petit point au milieu du trou,
       le problème d'opacité de la lueur bleue n'est en plus pas corrigé du tout, à chier
+  - date: '2026-09-20'
+    text: Bah ok… tiens moi au jus si ça avance
+  - date: '2026-09-20'
+    text: Bah j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais
+      !
   block_reason: ''
 - status: validated
   game: jak1
@@ -14480,7 +14487,7 @@ items:
     attempt: 1
     journal: validator-001.txt
 - id: harness-supervisor-cost-counter
-  priority: 16
+  priority: null
   owner_test: true
   feature: 'Le superviseur coûte 3,38 $ par essai et 11 000 $ depuis le début sans apparaître dans aucun
     compteur : le compter, puis le réduire'
@@ -14501,7 +14508,7 @@ items:
     digest qui ne se reveille que si `status --changed` ou Linear a bouge, calcule par un script sans
     modele ; reponses Linear plus courtes ; ne pas relire des journaux entiers), avec le cout AVANT/APRES
     sur 3 jours. Le rapport est ecrit pour l''owner, en francais courant.'
-  status: to-test
+  status: validated
   depends_on: []
   spec: null
   prompt: prompts/item-harness-supervisor-cost-counter.md
@@ -14521,6 +14528,12 @@ items:
       ce que je suis sensé trancher dessus, c'est bizarre comme ticket
   - date: '2026-09-19'
     text: Tu te fous de ma gueule ? Tu ignores mes retours ?
+  - date: '2026-09-20'
+    text: Bah j'avais mis le pousse, donc approve…
+  owner_ok:
+    date: '2026-09-20'
+    text: Bah j'avais mis le pousse, donc approve…
+    build_sha: 6ef51b7e3ca2253f
 - id: harness-pack-manifest-is-a-build-artefact
   status: validated
   priority: 17
@@ -14556,7 +14569,7 @@ items:
     attempt: 2
     journal: validator-002.txt
 - id: harness-judge-binary-race-with-builder
-  status: open
+  status: in-progress
   priority: 13
   owner_test: false
   depends_on: []
@@ -14574,3 +14587,6 @@ items:
     Cree le 20/09 14:50 par le superviseur. FAIT MESURE : essai 4 de grass-blade-variants refuse par validators/generic.sh:134 — « sha=f1f2c5ece3ac69e4 n'est pas celui de build-android/lib/arm64-v8a/libgk.so sur le disque » — alors que proof.txt de la MEME course publie proof_binary_decision=identique, proof_binary_local_md5 = proof_binary_device_md5 = fa9b98975b29df41… : au moment de la COURSE, disque, APK et appareil portaient le meme binaire. Entre la fin de la course et le verdict, auto_build_apk.sh a produit QUATRE builds (14:16, 14:19, 14:21, 14:26 : un par commit, dont ceux du worker et du superviseur), et libgk.so du disque a change. La garde du constructeur ne retient que pendant la COURSE (« une course de preuve tourne — RETENTEE », auto_build_apk.sh:397/470), pas jusqu'au VERDICT. Consequence : un essai debite pour de la plomberie (releve du 16/09 : 4 echecs sur 5), et les termes miroir/aveugle/maillage du recensement qui relisent le binaire courant rougissent avec. CIBLE : le verdict se rend contre le binaire QUE LA COURSE A MESURE, identifie par l'empreinte publiee par proof_run (proof_binary_local_md5 / sha de la course), jamais contre l'etat courant du disque ; le recensement d'un item relit le MEME binaire (chemin fige de la course : copie ou empreinte). Le constructeur peut alors construire quand il veut. PORTE : (1) generic.sh compare `sha` de la preuve a l'empreinte enregistree PAR LA COURSE, pas a sha256sum du disque ; (2) test : une course jouee, puis libgk.so remplace sur le disque, puis le verdict -> VERT, et le meme test avec une preuve dont l'empreinte de course differe du binaire de la course -> ROUGE (controle) ; (3) les crochets census qui lisent build-android/…/libgk.so passent par la meme empreinte figee ; (4) le releve des verdicts « n'est pas celui de … sur le disque » des 7 derniers jours est publie (combien d'essais debites pour ca) ; un terme non mesure compte 1.
 
     SECONDE CAUSE, MEME COURSE (auto_build_apk.txt 14:23-14:24) : « livraison en cours (keira_room_x86 pid=2948601 started=2026-08-19T14:14:52, 540s, detenteur vivant) — on ne rebatit pas » puis « patience depassee (25 min sans fenetre) — build lance PENDANT UN GK ». Un marqueur .autoport/.deploy-in-progress cree a 14:14 portait un contenu d'AOUT (keira_room_x86, pid 2948601) ; le pid etait vivant par REUTILISATION (le processus d'aout est mort depuis un mois) : le constructeur l'a cru detenu, a attendu 25 min, puis a construit par-dessus la course. Deux defauts a couvrir ici aussi : (5) la garde de verrou apparie pid ET starttime (/proc/<pid>/stat champ 22), jamais `kill -0` seul (regle du $PPID) ; (6) le chemin « patience depassee » ne construit JAMAIS pendant une course de preuve : il attend la fin de la course (await.sh proof <id>) au lieu d'un compte a rebours. Identifier qui a ecrit ce marqueur au contenu d'aout (grep keira_room_x86 dans lib/ et acquis/).
+
+    20/09 16:55 : le changement en cours de validators/generic.sh (empreinte FIGEE obligatoire, proof-binary.txt) a rougi 3 tests de .autoport/tests/harness/test_proof.py (fixtures sans proof-binary.txt) et la porte de fermeture les a IMPUTES a l'essai 10 de hud-eco-gauge, qui n'avait touche que goal_src. Cet item doit livrer ses tests VERTS (fixtures mises a jour ou repli explicite quand l'empreinte de course est absente) et publier le nombre de tests de la suite qu'il a fait passer du rouge au vert.
+  no_code: true

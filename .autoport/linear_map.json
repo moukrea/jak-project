@@ -604,10 +604,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-judge-binary-race-with-builder": {
-  "hash": "80ceeaca0b9cd41fe14046c18f1c4a9c20936215",
+  "hash": "f6fe3d0645d905fc751797b3dc76f831428e9e74",
   "identifier": "JAK-188",
   "issue_id": "bf217cfc-e983-485c-9f6a-40bd51b35bcf",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-20T12:47:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-188/le-juge-compare-la-preuve-au-binaire-du-disque-au-moment-du-verdict-un"
  },
@@ -892,12 +892,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "bbec47c365c7ee2b658eb9e5edf86d9315f5b0cd",
+  "build_announced": "630ea23478ed",
+  "hash": "4380862bc7027b7789286af288e8244219214363",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-010.txt",
-  "pulled_at": "2026-09-20T14:33:35.819Z",
+  "pulled_at": "2026-09-20T14:43:00.540Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
