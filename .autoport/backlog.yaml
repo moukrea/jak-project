@@ -10254,13 +10254,13 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: in-progress
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 2
+  max_retries: 1
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10283,6 +10283,8 @@ items:
     20/09 11:10 RETOUR OWNER (JAK-120) : « Toutes les touffes se ressemblent… tres mid… on voit plus les polygones et on a il semblerait des hauteurs differentes par contre ». ACQUIS : plus de polygones visibles, hauteurs par touffe. RESTE : les touffes ne se DISTINGUENT pas entre elles. La porte (part de touffes a silhouette dominante >= 80 %) est tenue et pourtant l'owner ne voit pas de difference : la silhouette dominante ne suffit pas a distinguer deux touffes si les 6 silhouettes se ressemblent a distance de jeu ou si la repartition tire presque toujours la meme. PERIMETRE : (1) mesurer la distribution REELLE des silhouettes dominantes sur une zone (si 2 des 6 font 80 % des touffes, c'est ca) et l'equilibrer ; (2) rendre les silhouettes distinguables a 3-8 m : ecart de hauteur moyenne entre types >= 30 %, ecart de largeur >= 40 %, port different (droit / courbe / retombant) ; (3) densite et nombre de brins PAR TOUFFE varies (une touffe clairsemee a cote d'une touffe dense). PORTE : sur une zone de 10x10 m, entropie de la silhouette dominante >= 2 bits sur 6 types ; ecart-type des hauteurs moyennes de touffes >= 20 % ; ecart-type du nombre de brins par touffe >= 25 %. Le rendu se juge AVEC la couleur par type (grass-shading) : les deux chantiers sont lies, la couleur par type est ce qui rendra les silhouettes lisibles.
 
     20/09 11:40 OWNER (JAK-121) : « Attention les types de brins simples niveau geometrie impliquent aussi des "especes differentes" au meme titre que les degrades et compagnie, ca joue sur la coherence des types, biomes, especes differentes ». LECTURE : une silhouette + sa palette + sa raideur au vent + sa hauteur = une ESPECE d'herbe ; les six types ne sont pas six formes interchangeables mais six especes coherentes (une lame haute et souple n'a pas la palette ni la raideur d'un jonc court). Cette coherence par ESPECE est le fil qui relie silhouettes (grass-blade-variants), couleur (grass-shading), vent (grass-wind) et biomes (grass-biome-profiles, qui choisit QUELLES especes poussent ou). Un item d'herbe ne definit jamais un parametre par type sans le rattacher a l'espece : une table unique des especes (nom, silhouette, palette, hauteur, raideur, densite) est la source, les shaders la lisent, les biomes en tirent des proportions.
+
+    20/09 12:50 SUPERVISEUR — ESSAI 3 : les 6 ESPECES sont codees (kGrassSpecies, echelles x1,32 hauteur / x1,45 largeur, ports) et DANS le build publie. Les 20 termes de fond sont a 0 ; le SEUL terme rouge est `engine_mirror` : l'empreinte (racine, variante) publiee par le moteur (6a4bc877dd5dac95) differe de celle que le recensement recalcule (0929c56540e8efc2), k=6 des deux cotes. Cause la plus probable : le recensement REJOUE la regle de tirage des variantes avec SA copie de la table, et l'essai 3 a change la table cote moteur (poids par espece, expect_pm_v0..v5 = 200/190/180/160/150/120) sans que la copie suive. Le terme fait son travail : ce qui est dessine n'est plus ce que la garde mesure. PERIMETRE DE L'ESSAI ACCORDE (1) : ne PAS toucher au rendu ; faire lire au recensement LA MEME table que le moteur (kGrassSpecies exportee, ou la table de poids publiee par le moteur dans proof.txt et relue), de sorte qu'il n'existe plus de copie ; verifier l'egalite des empreintes ; controle negatif : une table volontairement decalee doit rougir. Owner 12:40 : « Attention a pas etre en collision avec un autre des tickets de la refonte d'herbe » -> la table des especes est precisement l'anti-collision (source unique lue par silhouettes, couleur, vent, biomes) ; ne definir aucun parametre d'espece hors de cette table.
   deliverable: |-
     `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
     1. LES VARIANTES EXISTENT ET SONT DISTRIBUEES : publier le compte de brins par variante et le compare aux proportions declarees par le profil. Un ecart au-dela d'une tolerance declaree est le defaut.
@@ -10331,6 +10333,13 @@ items:
     text: Toutes les touffes se ressemblent… je sais pas si un autre chantier traite ça mais en l'état
       j'ai l'impression que c'est très mid… on voit plus les polygones et on a il semblerait des hauteurs
       différentes par contre
+  - date: '2026-09-20'
+    text: Attention à pas être en collision avec un autre des tickets de la refonte d'herbe quand même
+  - date: '2026-09-20'
+    text: |-
+      "→ À arbitrer : tous les essais accordés sont consommés sans passer la mesure. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver."
+
+      Bah démerdes toi, t'as les commentaires dans les tickets liés, la spec, t'as tout ce qu'il faut !
 - status: open
   game: jak1
   owner_test: true
@@ -13174,7 +13183,7 @@ items:
     proof_bytes: 52974
     attempt: 1
     journal: validator-001.txt
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md

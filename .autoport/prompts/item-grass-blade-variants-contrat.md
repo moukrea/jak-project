@@ -15,6 +15,8 @@ COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir a
 
 20/09 11:40 OWNER (JAK-121) : « Attention les types de brins simples niveau geometrie impliquent aussi des "especes differentes" au meme titre que les degrades et compagnie, ca joue sur la coherence des types, biomes, especes differentes ». LECTURE : une silhouette + sa palette + sa raideur au vent + sa hauteur = une ESPECE d'herbe ; les six types ne sont pas six formes interchangeables mais six especes coherentes (une lame haute et souple n'a pas la palette ni la raideur d'un jonc court). Cette coherence par ESPECE est le fil qui relie silhouettes (grass-blade-variants), couleur (grass-shading), vent (grass-wind) et biomes (grass-biome-profiles, qui choisit QUELLES especes poussent ou). Un item d'herbe ne definit jamais un parametre par type sans le rattacher a l'espece : une table unique des especes (nom, silhouette, palette, hauteur, raideur, densite) est la source, les shaders la lisent, les biomes en tirent des proportions.
 
+20/09 12:50 SUPERVISEUR — ESSAI 3 : les 6 ESPECES sont codees (kGrassSpecies, echelles x1,32 hauteur / x1,45 largeur, ports) et DANS le build publie. Les 20 termes de fond sont a 0 ; le SEUL terme rouge est `engine_mirror` : l'empreinte (racine, variante) publiee par le moteur (6a4bc877dd5dac95) differe de celle que le recensement recalcule (0929c56540e8efc2), k=6 des deux cotes. Cause la plus probable : le recensement REJOUE la regle de tirage des variantes avec SA copie de la table, et l'essai 3 a change la table cote moteur (poids par espece, expect_pm_v0..v5 = 200/190/180/160/150/120) sans que la copie suive. Le terme fait son travail : ce qui est dessine n'est plus ce que la garde mesure. PERIMETRE DE L'ESSAI ACCORDE (1) : ne PAS toucher au rendu ; faire lire au recensement LA MEME table que le moteur (kGrassSpecies exportee, ou la table de poids publiee par le moteur dans proof.txt et relue), de sorte qu'il n'existe plus de copie ; verifier l'egalite des empreintes ; controle negatif : une table volontairement decalee doit rougir. Owner 12:40 : « Attention a pas etre en collision avec un autre des tickets de la refonte d'herbe » -> la table des especes est precisement l'anti-collision (source unique lue par silhouettes, couleur, vent, biomes) ; ne definir aucun parametre d'espece hors de cette table.
+
 ## Livrable — le contrat, en entier
 
 `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
@@ -45,6 +47,12 @@ Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distingu
 
 ### 2026-09-20
 > Toutes les touffes se ressemblent… je sais pas si un autre chantier traite ça mais en l'état j'ai l'impression que c'est très mid… on voit plus les polygones et on a il semblerait des hauteurs différentes par contre
+
+### 2026-09-20
+> Attention à pas être en collision avec un autre des tickets de la refonte d'herbe quand même
+
+### 2026-09-20
+> "→ À arbitrer : tous les essais accordés sont consommés sans passer la mesure. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver."  Bah démerdes toi, t'as les commentaires dans les tickets liés, la spec, t'as tout ce qu'il faut !
 
 ## Pourquoi ce fichier existe
 

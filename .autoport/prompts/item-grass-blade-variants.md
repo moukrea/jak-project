@@ -5,7 +5,7 @@
 # Plusieurs silhouettes de brins simples, au lieu d'une seule forme hachee
 
 ## Defaut cite
-- 2026-09-20 : « Toutes les touffes se ressemblent… je sais pas si un autre c… »
+- 2026-09-20 : « "→ À arbitrer : tous les essais accordés sont consommés sans… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets en proche, deux quads croises en moyen, une carte suspendue pour l'overhang. Hauteur, courbure, largeur, teinte et phase sont cinq hachages de la MEME forme. L'owner l'a dit et c'est verifie.

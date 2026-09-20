@@ -331,10 +331,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-100/le-jeu-cesse-de-payer-68-mo-de-vram-pour-un-chemin-de-halo-qui-ne"
  },
  "grass-bake-invalidation": {
-  "hash": "78bb9bf7e1a56ac819aec9aecd1d4baa79135863",
+  "hash": "7ae2be7497108cba1b991e2628af307791b36545",
   "identifier": "JAK-169",
   "issue_id": "f0364a05-0417-4545-8914-1791f0e40507",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "relations": [
    "grass-surface-truth"
@@ -364,12 +364,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "8d4c85ad0941987f8099a1190e782e0486b5ba72",
+  "hash": "8db2f985a571e674b11c058c74b06d64ded89c36",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "In Progress",
-  "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-20T10:23:37.790Z",
+  "last_state": "À arbitrer",
+  "last_verdict_announced": "validator-003.txt",
+  "pulled_at": "2026-09-20T10:46:29.296Z",
   "relations": [
    "grass-clumps"
   ],
