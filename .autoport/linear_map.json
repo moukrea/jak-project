@@ -738,13 +738,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-163/la-suite-du-harnais-ne-depend-plus-du-quota-temporaire-sature"
  },
  "harness-supervisor-cost-counter": {
-  "build_announced": "a4de81c3f19e",
-  "hash": "2a69a8a1f42e5973e2f432730ef62052b1ef4f74",
+  "hash": "5779c63956f05f013549b962c306569b3ded05d7",
   "identifier": "JAK-186",
   "issue_id": "191e7a39-1934-4ced-b2a6-9a303b66603f",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-19T16:43:04.751Z",
+  "pulled_at": "2026-09-20T14:29:28.931Z",
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-test-bench-does-not-inherit-the-worker-env": {
@@ -893,12 +892,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "77d07125f9d4ed8dd4bb6e311f2bb8d90004bc57",
+  "hash": "bbec47c365c7ee2b658eb9e5edf86d9315f5b0cd",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-008.txt",
-  "pulled_at": "2026-09-20T10:54:44.423Z",
+  "last_verdict_announced": "validator-010.txt",
+  "pulled_at": "2026-09-20T14:33:35.819Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
