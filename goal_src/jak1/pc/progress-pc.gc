@@ -7534,6 +7534,21 @@
 (define *fps-counter-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *fps-counter-label*) "FPS COUNTER")
 
+;; res-scale-submenu (owner 2026-09-19) : « avec le `:` correctement espace en fonction de la
+;; locale ». Le francais met une espace AVANT le deux-points, l'anglais non — et cette regle
+;; appartient a la LANGUE, pas au code. Elle vit donc la ou vivent les autres faits de langue :
+;; dans le banc de texte, id #x1714 (" : " en francais, ": " en anglais). Les langues qui ne le
+;; portent pas retombent sur l'anglais par le banc de repli, ce qui est la bonne reponse pour
+;; toutes celles du menu sauf le francais. Un `(if (= langue french) ...)` dans le code aurait
+;; fabrique un litteral par langue — exactement ce que l'owner refuse.
+(define *label-sep-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *label-sep-label*) ": ")
+
+;; res-scale-submenu : la mention que l'owner veut voir quand la resolution choisie EST celle
+;; du panneau (« Resolution : 2414x1080 (Native) »). Id #x1715.
+(define *native-mention-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *native-mention-label*) "Native")
+
 ;; label for the RENDER SCALE slider (uppercase ASCII for the menu font; see the
 ;; FPS-counter label note above). Shown via the game-option name-override path.
 (define *render-scale-label* (new 'global 'string 128 (the-as string #f)))
@@ -7928,6 +7943,12 @@
 (defun refresh-runtime-option-labels! ()
   (when *common-text*
     ;; les libelles de l'ecran GRAPHISMES (hors menu Recharged, hors porte de cet item)
+    ;; res-scale-submenu : le separateur de libelle et la mention « natif », pris dans le banc
+    ;; comme les autres — c'est ce qui les fait suivre la langue sans un seul litteral par langue.
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1714) #t)))
+      (if s (format (clear *label-sep-label*) "~S" s)))
+    (let ((s (lookup-text! *common-text* (the-as text-id #x1715) #t)))
+      (if s (format (clear *native-mention-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1700) #t)))
       (if s (format (clear *fps-counter-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1701) #t)))
@@ -9412,20 +9433,19 @@
       (1+! i)))
   (none))
 
-(defun build-resolution-options-for ((aspect-in float))
-  "Le constructeur REEL de la liste Game Resolution, pour UN aspect donne : une entree NATIVE (la
-   plus grande resolution AT the chosen aspect that fits the physical panel — adapts as the aspect
-   changes; e.g. 4:3 on a 2400x1080 panel = 1440x1080, NOT the raw 2400x1080) + une echelle standard
-   generee A CET ASPECT et bornee a [plancher, native], le tout CLASSE par nombre total de pixels
-   croissant. Plancher = 640 de large pour les aspects contraints en largeur (le cas courant),
-   sinon 480 de haut. Un seul chemin partage x86 / Android.
-   L'aspect est un PARAMETRE : c'est ce qui permet a `res-sort-audit!` de batir la liste de CHAQUE
-   aspect propose par le menu sans ecrire une seule fois dans `*pc-settings*`."
-  (set! (-> *temp-options* length) 0)
-  (set! *res-sort-n* 0)
+(defun resolution-native-size ((aspect-in float) (out-w (pointer int64)) (out-h (pointer int64)))
+  "LA REGLE « NATIVE », A UN SEUL ENDROIT. NATIVE s'adapte a l'aspect CHOISI (owner 2026-06-30) :
+   le plus grand rectangle a cet aspect qui tient dans le panneau physique — PAS la taille brute
+   du panneau. Aspect plus LARGE que le panneau -> borne par sa LARGEUR (on calcule la hauteur) ;
+   plus ETROIT -> borne par sa HAUTEUR ; egal -> la taille reelle du panneau. Exemple sur un
+   panneau 2400x1080 : 4:3 -> 1440x1080, 16:9 -> 1920x1080, l'aspect du panneau -> 2400x1080.
+
+   EXTRAITE de `build-resolution-options-for` par res-scale-submenu : la ligne « Resolution » doit
+   dire « (Native) » quand la base choisie EST cette taille, et une deuxieme copie de la regle
+   serait vraie le jour ou on l'ecrit et fausse au premier arrondi qui bouge — c'est exactement ce
+   que `res-menu-truth` a coute. Un seul calcul, deux lecteurs."
   (let ((panel-w 0)
-        (panel-h 0)
-        (added 0))
+        (panel-h 0))
     (pc-get-active-display-size (& panel-w) (& panel-h))
     (when (or (<= panel-w 0) (<= panel-h 0))
       (set! panel-w 640)
@@ -9433,15 +9453,26 @@
     (let* ((aspect (if (< aspect-in 0.1) 1.0 aspect-in)) ;; guard against a bogus 0 aspect
            ;; physical panel aspect of the active display.
            (panel-aspect (/ (the float panel-w) (the float panel-h)))
-           ;; NATIVE adapts to the CHOSEN aspect (owner 2026-06-30): the LARGEST
-           ;; aspect-correct rectangle that fits inside the physical panel — NOT the
-           ;; raw panel size. Chosen aspect WIDER than the panel -> bound by panel
-           ;; WIDTH (compute height); NARROWER/taller -> bound by panel HEIGHT
-           ;; (compute width); equal -> the real panel size. e.g. 4:3 on a 2400x1080
-           ;; panel -> 1440x1080; 16:9 -> 1920x1080; the panel's own aspect -> 2400x1080.
-           (fit-width? (>= aspect panel-aspect))
-           (native-w (if fit-width? panel-w (the int (+ 0.5 (* (the float panel-h) aspect)))))
-           (native-h (if fit-width? (the int (+ 0.5 (/ (the float panel-w) aspect))) panel-h))
+           (fit-width? (>= aspect panel-aspect)))
+      (set! (-> out-w 0) (if fit-width? panel-w (the int (+ 0.5 (* (the float panel-h) aspect)))))
+      (set! (-> out-h 0) (if fit-width? (the int (+ 0.5 (/ (the float panel-w) aspect))) panel-h))))
+  (none))
+
+(defun build-resolution-options-for ((aspect-in float))
+  "Le constructeur REEL de la liste Game Resolution, pour UN aspect donne : une entree NATIVE (sa
+   taille est la regle portee par `resolution-native-size`) + une echelle standard generee A CET
+   ASPECT et bornee a [plancher, native], le tout CLASSE par nombre total de pixels croissant.
+   Plancher = 640 de large pour les aspects contraints en largeur (le cas courant),
+   sinon 480 de haut. Un seul chemin partage x86 / Android.
+   L'aspect est un PARAMETRE : c'est ce qui permet a `res-sort-audit!` de batir la liste de CHAQUE
+   aspect propose par le menu sans ecrire une seule fois dans `*pc-settings*`."
+  (set! (-> *temp-options* length) 0)
+  (set! *res-sort-n* 0)
+  (let ((native-w 0)
+        (native-h 0)
+        (added 0))
+    (resolution-native-size aspect-in (& native-w) (& native-h))
+    (let* ((aspect (if (< aspect-in 0.1) 1.0 aspect-in)) ;; guard against a bogus 0 aspect
            (width-constrained? (>= aspect 1.0)))
       ;; La taille NATIVE, publiee pour les lecteurs qui demandaient « est-ce NATIVE ? » a l'index 0.
       (set! *resolution-native-w* native-w)
@@ -9597,20 +9628,40 @@
                           (the int (-> *temp-options* selected param2))))))
   (none))
 
-(defun format-resolution-row-label! ((w int) (h int))
-  "Show the actual FBO resolution, and its chosen base when render scale differs.
-   Find the parent row by text-id because the graphics rows change at runtime."
+(defun format-resolution-row-label! ()
+  "« Resolution : 2414x1080 (Native) ».
+
+   OWNER, 19/09 : « c'est quoi cette resolution xxxxXyyy (BASE xxxxXyyy), on a choisi natif...
+   Le BASE <resolution> on s'en cogne dans le choix de resolution principale, on veut montrer la
+   resolution, et garder la precision quand c'est la resolution native... la resolution de rendu
+   affecte la partie jeu rendue alors que la resolution c'est TOUT, y compris l'UI ».
+
+   Cette rangee ne dit donc QUE la resolution CHOISIE — celle qui porte toute l'image, interface
+   comprise. La taille du rendu 3D n'y a plus rien a faire : c'est le sujet de la rangee Echelle
+   de rendu, juste en dessous, et l'afficher ici melangeait deux grandeurs differentes. La mention
+   « (Native) » n'apparait que si cette base EST la taille native pour l'aspect courant
+   (`resolution-native-size`, la meme regle que celle qui construit l'entree NATIVE du picker).
+
+   Le separateur vient du banc de texte (`*label-sep-label*`, id #x1714) : espace fine avant le
+   deux-points en francais, rien en anglais. Il n'y a plus un seul ` X ` en capitales.
+
+   La rangee parente se retrouve par son text-id, parce que les rangees de l'ecran Graphismes
+   changent a l'execution."
   (let ((options (graphic-options-array))
         (base-w 0)
-        (base-h 0))
+        (base-h 0)
+        (native-w 0)
+        (native-h 0))
     (current-game-base-size (& base-w) (& base-h))
+    (resolution-native-size (-> *pc-settings* aspect-ratio) (& native-w) (& native-h))
     (format (clear *resolution-row-label*)
-            "~S ~D X ~D"
+            "~S~S~Dx~D"
             (lookup-text! *common-text* (text-id game-resolution) #f)
-            w
-            h)
-    (when (or (!= w base-w) (!= h base-h))
-      (format *resolution-row-label* " (BASE ~D X ~D)" base-w base-h))
+            *label-sep-label*
+            base-w
+            base-h)
+    (when (and (= base-w native-w) (= base-h native-h))
+      (format *resolution-row-label* " (~S)" *native-mention-label*))
     (dotimes (i (length options))
       (when (and (= (-> options i option-type) (game-option-type menu))
                  (= (-> options i name) (text-id game-resolution)))
@@ -9618,10 +9669,8 @@
   (none))
 
 (defun refresh-resolution-row-label! ()
-  (let ((w 0) (h 0))
-    (when (zero? (pc-get-render-resolution (& w) (& h)))
-      (current-game-base-size (& w) (& h)))
-    (format-resolution-row-label! w h))
+  "Le libelle ne depend plus de la taille du FBO : il n'y a plus rien a lire avant de le batir."
+  (format-resolution-row-label!)
   (none))
 
 ;; ================================================================================================
@@ -9729,9 +9778,12 @@
     (current-game-base-size (& bw) (& bh))
     (let ((v (render-scale-row-value)))
       (render-scale-size (the int bw) (the int bh) v (& w) (& h))
+      ;; « Echelle de rendu : 70% (1689x756) » — owner, 19/09. Separateur pris dans le banc
+      ;; (`*label-sep-label*`, id #x1714) pour suivre la langue ; plus de ` X ` en capitales.
       (format (clear *render-scale-row-label*)
-              "~S ~D% (~D X ~D)"
+              "~S~S~D% (~Dx~D)"
               (if (-> *pc-settings* dynamic-render-scale?) *min-render-scale-label* *render-scale-label*)
+              *label-sep-label*
               (the int (+ 0.5 v))
               w
               h))
@@ -9846,11 +9898,16 @@
               (< fw (/ bw 2)) (< fh (/ bh 2))
               (and (zero? dyn) (or (!= fw bw) (!= fh bh))))
       (1+! *res-edge-defects*))
-    (format-resolution-row-label! fw fh)
-    (format (clear *res-audit-expected-label*) "~S ~D X ~D"
-            (lookup-text! *common-text* (text-id game-resolution) #f) fw fh)
-    (when (or (!= fw bw) (!= fh bh))
-      (format *res-audit-expected-label* " (BASE ~D X ~D)" bw bh))
+    ;; res-scale-submenu : le gabarit de cette rangee a change (owner 19/09) — elle dit la
+    ;; resolution CHOISIE et sa mention « natif », plus le FBO ni « BASE ». `fw`/`fh` restent
+    ;; mesures au-dessus ; ils ne sont simplement plus dans le libelle.
+    (format-resolution-row-label!)
+    (let ((nw 0) (nh 0))
+      (resolution-native-size (-> *pc-settings* aspect-ratio) (& nw) (& nh))
+      (format (clear *res-audit-expected-label*) "~S~S~Dx~D"
+              (lookup-text! *common-text* (text-id game-resolution) #f) *label-sep-label* bw bh)
+      (when (and (= bw nw) (= bh nh))
+        (format *res-audit-expected-label* " (~S)" *native-mention-label*)))
     (unless (string= *res-audit-expected-label* *resolution-row-label*)
       (1+! *res-edge-defects*)))
   (none))
@@ -10066,11 +10123,15 @@
            (res-audit-publish-cell! "frame" frame)
            (res-audit-publish-cell! "scale_x100" (the int (* *dyn-rs-scale* 100.0)))
            (when (!= (resolution-menu-initial-index) *res-audit-row*) (1+! *res-audit-defects*))
-           (format-resolution-row-label! fw fh)
-           (format (clear *res-audit-expected-label*) "~S ~D X ~D"
-                   (lookup-text! *common-text* (text-id game-resolution) #f) fw fh)
-           (when (or (!= fw *res-audit-w*) (!= fh *res-audit-h*))
-             (format *res-audit-expected-label* " (BASE ~D X ~D)" *res-audit-w* *res-audit-h*))
+           ;; res-scale-submenu : meme gabarit neuf que dans `res-edge-check!`.
+           (format-resolution-row-label!)
+           (let ((nw 0) (nh 0))
+             (resolution-native-size (-> *pc-settings* aspect-ratio) (& nw) (& nh))
+             (format (clear *res-audit-expected-label*) "~S~S~Dx~D"
+                     (lookup-text! *common-text* (text-id game-resolution) #f)
+                     *label-sep-label* *res-audit-w* *res-audit-h*)
+             (when (and (= *res-audit-w* nw) (= *res-audit-h* nh))
+               (format *res-audit-expected-label* " (~S)" *native-mention-label*)))
            (unless (string= *res-audit-expected-label* *resolution-row-label*) (1+! *res-audit-defects*))
            (format 0 "RES-MATRIX a=~D row=~D drs=~D label=~S fbo=~Dx~D~%"
                    *res-audit-aspect* *res-audit-row* *res-audit-dyn* *resolution-row-label* fw fh)
@@ -14082,7 +14143,7 @@
 ;; ================================================================================================
 ;; res-scale-submenu — LA PREUVE : CE QUE LE SOUS-MENU ANNONCE, ET CE QUE LE MOTEUR REND
 ;;
-;; La grandeur de la porte est `res_scale_menu_defects`, SOMME de six termes publies separement.
+;; La grandeur de la porte est `res_scale_menu_defects`, SOMME de SEPT termes publies separement.
 ;; Chaque terme vaut 1 TANT QU'IL N'EST PAS MESURE : une mesure sautee ne peut donc pas rendre la
 ;; somme verte (aggregate-gate-scoring-unmeasured-terms-as-one). `res_scale_terms_measured` dit
 ;; combien de termes ont ete reellement mesures ; la somme se lit a cote de lui, jamais seule.
@@ -14107,6 +14168,12 @@
 ;;   6 REDEMARRAGE le choix est ecrit dans settings.ini par l'ecrivain du menu, puis relu par le
 ;;                LECTEUR DU DEMARRAGE (`read-from-file`) apres avoir empoisonne la valeur en
 ;;                memoire : ce que le prochain lancement lira est donc mesure, sans redemarrer.
+;;   7 LIBELLES   (owner 19/09) les DEUX lignes que l'owner lit, telles que `draw-string` les
+;;                RECOIT — pas telles qu'on les remet : le libelle passe par `print-game-text`,
+;;                la fonction meme que `draw-options` appelle, et `*font-str-capture*` (font.gc)
+;;                recupere ce qui arrive au dessin. Mesure EN FRANCAIS ET EN ANGLAIS, banc de
+;;                texte recharge pour de vrai a chaque fois. Trois defauts possibles par ligne :
+;;                differente du gabarit, porte encore « BASE », ou tout en capitales.
 ;;
 ;; LE REGIME DE CETTE FEATURE EST EPINGLE : echelle dynamique ETEINTE. Allumee, c'est le
 ;; controleur qui choisit le pourcentage image par image et la taille rendue ne suivrait pas
@@ -14145,8 +14212,16 @@
 (define *rs-t-fbo* 1)
 (define *rs-t-follow* 1)
 (define *rs-t-persist* 1)
+;; TERME 7 (owner 19/09) : le LIBELLE des deux rangees, tel que `draw-string` le recoit.
+(define *rs-t-wording* 1)
 (define *rs-measured* 0)
 (define *rs-label* (new 'global 'string 96 (the-as string #f)))
+;; terme 7 : la chaine CAPTUREE a l'entree de `draw-string`, le gabarit attendu, et le tampon de
+;; mise en capitales qui sert a repondre « cette ligne est-elle tout en majuscules ? ».
+(define *rs-drawn* (new 'global 'string 256 (the-as string #f)))
+(define *rs-want* (new 'global 'string 256 (the-as string #f)))
+(define *rs-upper* (new 'global 'string 256 (the-as string #f)))
+(define *rs-word-key* (new 'global 'string 64 (the-as string #f)))
 (define *rs-list* (new 'global 'string 512 (the-as string #f)))
 (define *rs-seen* (new 'global 'string 512 (the-as string #f)))
 (define *rs-path* (new 'global 'string 256 (the-as string #f)))
@@ -14163,10 +14238,11 @@
   (__pc-autoport-publish "res_scale_fbo_defects" *rs-t-fbo*)
   (__pc-autoport-publish "res_scale_follow_defects" *rs-t-follow*)
   (__pc-autoport-publish "res_scale_persist_defects" *rs-t-persist*)
+  (__pc-autoport-publish "res_scale_wording_defects" *rs-t-wording*)
   (__pc-autoport-publish "res_scale_terms_measured" *rs-measured*)
   (__pc-autoport-publish "res_scale_menu_defects"
                          (+ *rs-t-structure* *rs-t-entries* *rs-t-labels*
-                            *rs-t-fbo* *rs-t-follow* *rs-t-persist*))
+                            *rs-t-fbo* *rs-t-follow* *rs-t-persist* *rs-t-wording*))
   (none))
 
 (defun rs-audit-save! ()
@@ -14303,6 +14379,110 @@
     (set! *rs-t-entries* (+ order (if (= n 10) 0 1)))
     (set! *rs-t-labels* lab)
     n))
+
+(defun rs-str-has-base? ((s string))
+  "Le mot « BASE » subsiste-t-il dans la ligne DESSINEE ? L'owner l'a nomme : « Le BASE
+   <resolution> on s'en cogne dans le choix de resolution principale ». Recherche sur les OCTETS
+   de la chaine capturee, pas sur le gabarit : c'est le rendu qu'on accuse."
+  (let ((d (-> s data))
+        (n (length s))
+        (found #f))
+    (dotimes (i n)
+      (when (and (< (+ i 3) n)
+                 (= (-> d i) (the-as uint 66))         ;; B
+                 (= (-> d (+ i 1)) (the-as uint 65))   ;; A
+                 (= (-> d (+ i 2)) (the-as uint 83))   ;; S
+                 (= (-> d (+ i 3)) (the-as uint 69)))  ;; E
+        (set! found #t)))
+    found))
+
+(defun rs-capture-drawn! ((src string) (dst string))
+  "LA CHAINE REELLEMENT DESSINEE, pas celle qu'on remet. On fait passer le libelle par
+   `print-game-text` — la MEME fonction que `draw-options` appelle pour cette rangee — et la sonde
+   `*font-str-trace*` de font.gc recopie dans `dst` ce qui arrive a `draw-string`, c'est-a-dire
+   `*game-text-line*` APRES decoupage en lignes et traitement des tags. Le moteur emet DIX-NEUF
+   appels pour une ligne de menu : un avec le texte, dix-huit avec une chaine vide (mesure du
+   20/09, `proof-engine.log`). Seuls les appels NON VIDES sont comptes — on garde la chaine du
+   premier, et `*font-str-capture-diff*` compte ceux qui en portent une AUTRE, c'est-a-dire un
+   vrai repli en deux lignes. Dessine hors champ (y = -64) : rien dans l'image."
+  (clear dst)
+  (let ((ctx (new 'stack 'font-context *font-default-matrix* 8 -64 0.0 (font-color default) (font-flags shadow kerning))))
+    (set! *font-str-capture-n* 0)
+    (set! *font-str-capture-diff* 0)
+    (set! *font-str-capture* dst)
+    ;; large devant le nombre d'appels observe (4 par ligne) : la sonde se desarme seule au bout
+    ;; de N, et un desarmement en cours de ligne ferait manquer une passe divergente.
+    (set! *font-str-trace* 64)
+    (print-game-text src ctx #f 128 22)
+    (set! *font-str-trace* 0)
+    (set! *font-str-capture* (the-as string #f)))
+  dst)
+
+(defun rs-wording-one! ((tag string))
+  "TERME 7, pour la langue COURANTE : les deux lignes de l'owner, telles que `draw-string` les
+   recoit, contre le gabarit qu'il a ecrit mot pour mot —
+     « Resolution : 2414x1080 (Native) »  et  « Echelle de rendu : 70% (1689x756) ».
+   Trois defauts possibles par ligne : la chaine differe du gabarit, elle porte encore « BASE »,
+   ou elle est tout en capitales. Rend le nombre de defauts."
+  (let ((defects 0))
+    ;; ---- la ligne RESOLUTION
+    (format-resolution-row-label!)
+    (rs-capture-drawn! *resolution-row-label* *rs-drawn*)
+    (let ((bw 0) (bh 0) (nw 0) (nh 0))
+      (current-game-base-size (& bw) (& bh))
+      (resolution-native-size (-> *pc-settings* aspect-ratio) (& nw) (& nh))
+      (format (clear *rs-want*) "~S~S~Dx~D"
+              (lookup-text! *common-text* (text-id game-resolution) #f)
+              *label-sep-label* (the int bw) (the int bh))
+      (when (and (= (the int bw) nw) (= (the int bh) nh))
+        (format *rs-want* " (~S)" *native-mention-label*)))
+    (format (clear *rs-word-key*) "res_scale_calls_res_~S" tag)
+    (__pc-autoport-publish *rs-word-key* *font-str-capture-n*)
+    (format (clear *rs-word-key*) "res_scale_passdiff_res_~S" tag)
+    (__pc-autoport-publish *rs-word-key* *font-str-capture-diff*)
+    (if (zero? *font-str-capture-n*) (1+! defects))
+    (if (nonzero? *font-str-capture-diff*) (1+! defects))
+    (format (clear *rs-word-key*) "res_scale_drawn_res_~S" tag)
+    (__pc-autoport-publish-text *rs-word-key* *rs-drawn*)
+    (format (clear *rs-word-key*) "res_scale_want_res_~S" tag)
+    (__pc-autoport-publish-text *rs-word-key* *rs-want*)
+    (format (clear *rs-word-key*) "res_scale_match_res_~S" tag)
+    (__pc-autoport-publish *rs-word-key* (if (string= *rs-drawn* *rs-want*) 1 0))
+    (format (clear *rs-word-key*) "res_scale_base_word_res_~S" tag)
+    (__pc-autoport-publish *rs-word-key* (if (rs-str-has-base? *rs-drawn*) 1 0))
+    (string-upcase *rs-drawn* *rs-upper*)
+    (format (clear *rs-word-key*) "res_scale_allcaps_res_~S" tag)
+    (__pc-autoport-publish *rs-word-key* (if (string= *rs-drawn* *rs-upper*) 1 0))
+    (if (not (string= *rs-drawn* *rs-want*)) (1+! defects))
+    (if (rs-str-has-base? *rs-drawn*) (1+! defects))
+    (if (string= *rs-drawn* *rs-upper*) (1+! defects))
+    ;; ---- la ligne ECHELLE DE RENDU
+    (refresh-render-scale-row-label!)
+    (rs-capture-drawn! *render-scale-row-label* *rs-drawn*)
+    (let ((bw 0) (bh 0) (w 0) (h 0) (v (render-scale-row-value)))
+      (current-game-base-size (& bw) (& bh))
+      (render-scale-size (the int bw) (the int bh) v (& w) (& h))
+      (format (clear *rs-want*) "~S~S~D% (~Dx~D)"
+              (if (-> *pc-settings* dynamic-render-scale?) *min-render-scale-label* *render-scale-label*)
+              *label-sep-label* (the int (+ 0.5 v)) w h))
+    (format (clear *rs-word-key*) "res_scale_calls_scale_~S" tag)
+    (__pc-autoport-publish *rs-word-key* *font-str-capture-n*)
+    (format (clear *rs-word-key*) "res_scale_passdiff_scale_~S" tag)
+    (__pc-autoport-publish *rs-word-key* *font-str-capture-diff*)
+    (if (zero? *font-str-capture-n*) (1+! defects))
+    (if (nonzero? *font-str-capture-diff*) (1+! defects))
+    (format (clear *rs-word-key*) "res_scale_drawn_scale_~S" tag)
+    (__pc-autoport-publish-text *rs-word-key* *rs-drawn*)
+    (format (clear *rs-word-key*) "res_scale_want_scale_~S" tag)
+    (__pc-autoport-publish-text *rs-word-key* *rs-want*)
+    (format (clear *rs-word-key*) "res_scale_match_scale_~S" tag)
+    (__pc-autoport-publish *rs-word-key* (if (string= *rs-drawn* *rs-want*) 1 0))
+    (string-upcase *rs-drawn* *rs-upper*)
+    (format (clear *rs-word-key*) "res_scale_allcaps_scale_~S" tag)
+    (__pc-autoport-publish *rs-word-key* (if (string= *rs-drawn* *rs-upper*) 1 0))
+    (if (not (string= *rs-drawn* *rs-want*)) (1+! defects))
+    (if (string= *rs-drawn* *rs-upper*) (1+! defects))
+    defects))
 
 (defun res-scale-audit! ()
   "Une passe par demarrage, sous mesure seulement, menu FERME : `*temp-options*` est le tableau
@@ -14456,6 +14636,28 @@
              (set! *rs-t-persist*
                    (+ (if ok 0 1)
                       (if (= (the int (-> *pc-settings* render-scale)) (the int pct)) 0 1)))))
+         (1+! *rs-measured*)
+         (rs-publish-terms!)
+         (set! *rs-audit-stage* 9))
+        ((9)
+         ;; TERME 7 : les deux libelles, EN FRANCAIS ET EN ANGLAIS. Le banc de texte se recharge
+         ;; par le chemin du menu (`load-level-text-files`, bloquant : la doctrine de `text.gc`
+         ;; dit que le jeu gele une seconde), puis les tampons de libelle sont recopies comme le
+         ;; fait une bascule de langue. La langue du joueur est remise a la fin, banc compris.
+         (let ((saved (-> *pc-settings* text-language))
+               (defects 0))
+           (dotimes (k 2)
+             (set! (-> *pc-settings* text-language)
+                   (if (zero? k) (pc-language french) (pc-language english)))
+             (load-level-text-files 0)
+             (refresh-runtime-option-labels!)
+             (+! defects (rs-wording-one! (if (zero? k) "fr" "en"))))
+           (set! (-> *pc-settings* text-language) saved)
+           (load-level-text-files 0)
+           (refresh-runtime-option-labels!)
+           (__pc-autoport-publish "res_scale_wording_lang_restored"
+                                  (if (= (-> *pc-settings* text-language) saved) 1 0))
+           (set! *rs-t-wording* defects))
          (1+! *rs-measured*)
          (rs-publish-terms!)
          (set! *rs-audit-stage* 8))

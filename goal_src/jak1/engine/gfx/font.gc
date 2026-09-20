@@ -644,6 +644,22 @@
 ;; croise avec la ligne `FONTTEX bind` du moteur (quel atlas est LIE pour cette police).
 (define *font-str-trace* 0)
 
+;; res-scale-submenu (owner 2026-09-19) : la meme trace, mais RECUPERABLE par du GOAL. Le
+;; journal ne se relit pas depuis le jeu ; une porte qui doit juger le LIBELLE REELLEMENT
+;; DESSINE a besoin de la chaine, pas d'une ligne de log. Quand ce tampon porte une chaine,
+;; chaque appel trace y recopie ce que `draw-string` recoit — c'est-a-dire `*game-text-line*`
+;; que `print-game-text` lui remet APRES decoupage en lignes et traitement des tags, et non la
+;; chaine que l'appelant croyait dessiner. Hors armement (`*font-str-trace*` a 0) ce bloc n'est
+;; pas atteint : cout nul dans le jeu livre.
+(define *font-str-capture* (the-as string #f))
+;; `draw-string` est appele PLUSIEURS FOIS pour un meme libelle (mesure du 20/09 : quatre appels
+;; par ligne de menu). Concatener les passes ferait juger l'instrument au lieu du texte : on garde
+;; la chaine du PREMIER appel, on COMPTE les appels, et on compte ceux qui portent une chaine
+;; DIFFERENTE. Un repli de mise en page — deux lignes reellement distinctes — se lit alors sur
+;; `*font-str-capture-diff*`, sans confondre « deux lignes » et « la meme ligne quatre fois ».
+(define *font-str-capture-n* 0)
+(define *font-str-capture-diff* 0)
+
 (define draw-string (the (function string dma-buffer font-context float) (__pc-get-mips2c "draw-string")))
 
 ;; for now, use the GOAL one. the mips2c one is super slow with the game compiled in debug mode.
@@ -792,7 +808,19 @@
             (if (logtest? (-> arg2 flags) (font-flags large)) (quote *font24-table*) (quote *font12-table*))
             (if (logtest? (-> arg2 flags) (font-flags large)) #x3980 #x3800)
             (length str-in)
-            str-in))
+            str-in)
+    ;; res-scale-submenu : la meme chaine, rendue lisible par du GOAL. Le `|` separe deux
+    ;; appels — une porte qui compare doit pouvoir distinguer « une ligne » de « deux lignes
+    ;; concatenees », sinon un repli de mise en page passerait inapercu.
+    ;; Les chaines VIDES ne dessinent rien : `print-game-text` en emet dix-huit derriere la ligne
+    ;; utile (mesure du 20/09 sur une ligne de menu — un appel `len=34`, puis dix-huit `len=0`).
+    ;; Les compter ferait juger le remplissage du moteur au lieu du texte ; les ignorer garde la
+    ;; dent de la mesure, puisqu'un VRAI repli produit deux lignes NON VIDES et differentes.
+    (when (and *font-str-capture* (nonzero? (length str-in)))
+      (cond
+        ((zero? *font-str-capture-n*) (format (clear *font-str-capture*) "~S" str-in))
+        ((not (string= *font-str-capture* str-in)) (1+! *font-str-capture-diff*)))
+      (1+! *font-str-capture-n*)))
   (set! r0 (the-as uint128 0))
   (rlet ((acc :class vf)
          (Q :class vf)
