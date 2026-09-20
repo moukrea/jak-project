@@ -21,6 +21,8 @@ COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir a
 
 20/09 14:45 SUPERVISEUR : essai 4 (palette par espece codee : liseret, axes) REFUSE pour PLOMBERIE, pas pour le jeu — « sha=f1f2c5ece3ac69e4 n'est pas celui de build-android/lib/arm64-v8a/libgk.so sur le disque » : le binaire mesure sur l'appareil n'est pas celui du disque au moment du verdict (un build a change libgk.so pendant ou apres la course). Les termes miroir/aveugle/maillage qui rougissent avec sont les consequences du meme decalage. L'orchestrateur a debite l'essai et bloque sur un plafond PERIME (1) lu avant ma correction de 14:20. Plafond recalcule : compteur 4 + 2 (un pour la plomberie, un reel). Consigne pour l'essai suivant : AVANT de coder, verifier que le binaire du disque, de l'APK et de l'appareil sont le MEME (md5) et bloquer le constructeur pendant la course (verrou .delivery-artifacts.lock) ; puis reprendre la palette par espece la ou l'essai 4 l'a laissee (commits d4d42de28e et precedents), sans la refaire.
 
+20/09 20:40 RETOUR OWNER (JAK-120, photo 20260920T1836-1.jpg) : « une herbe MARRON qui n'a rien a faire dans Geyser Rock (HS le biome, regarde la spec), une herbe tellement thick et courte jaune qui n'a aucun sens, aucune vraiment differente, les touffes toutes identiques, aucune impression de relief sur la plupart hors les marron (mais les marron n'ont rien a faire la) ». LU SUR LA PHOTO : brins bruns/ocre (especes faux et large : pal_root 0.14-0.15 / 0.11-0.18 / 0.04 = brun) melanges a des verts fluo ; brins courts et epais jaune-vert ; vert de fond uniforme, sans dégradé lisible. TROIS FAUTES : (a) la palette par espece a ete choisie pour DIFFERENCIER les especes, pas pour appartenir au LIEU : SPEC §18, la palette vient du PROFIL DE BIOME (donnee cuite, remplacable sans recompiler), l'espece porte un ECART par rapport a cette palette (plus jaune, plus bleu, pointe claire), jamais une couleur absolue ; Geyser Rock = verts et vert-jaune, aucun brun/ocre ; (b) les especes grasses et courtes (large, touffu : hw 0,37 et 0,20, h 0,44 et 0,59) sont hors du caractere d'une herbe de prairie : reduire leur poids sur ce biome a ~0 ou les redessiner en touffes basses fines ; (c) le degrade sur la longueur du brin est trop faible pour se voir (amplitude racine->pointe insuffisante sur 4 especes sur 6). PERIMETRE (2 essais, le premier avec la photo de l'owner comme etat AVANT et une capture au meme endroit comme APRES, jointes cote a cote) : (1) une palette DE BIOME pour training (donnee), et par espece un ecart de teinte/saturation/luminance dans [-15°, +15°] / [-20 %, +20 %] autour d'elle, pointe et liseret compris ; aucune espece hors de la coque de teinte du biome (mesure : teinte de chaque sommet emis dans [teinte_biome ± 25°]) ; (2) poids par espece PAR BIOME : sur training, large et touffu <= 5 % a eux deux, lame/fine/jonc/faux portent le reste ; (3) amplitude du degrade racine->pointe >= 30 % de luminance sur les 6 especes ; (4) le test de distinction entre touffes voisines du 20/09 11:10 reste tenu (entropie, hauteurs). La table des especes garde silhouette/port/raideur ; la COULEUR ABSOLUE en sort et va dans le profil de biome (c'est le socle de grass-biome-profiles, qui n'a alors plus qu'a ajouter les autres biomes).
+
 ## Livrable — le contrat, en entier
 
 `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
@@ -36,7 +38,7 @@ Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de mailla
 
 ## Ou l'owner regardera
 
-Niveau d'entrainement, de pres. Deux oui/non : (1) distingue-t-on plusieurs ESPECES d'herbe a l'oeil, chacune avec sa forme ET sa couleur (une espece plus jaune, une plus bleue, une a pointe claire, une a bord clair), au lieu de touffes qui se ressemblent toutes avec les memes variations de teinte ? (2) le degrade de chaque espece a-t-il sa propre direction (le long du brin pour l'une, en travers du brin pour l'autre) ?
+Niveau d'entrainement (Geyser Rock), de pres, avec la photo owner-feedback/grass-blade-variants/20260920T1836-1.jpg comme AVANT. Trois oui/non : (1) toute l'herbe est-elle dans la palette du lieu (verts et vert-jaune de Geyser Rock), sans brins marron ni ocre ? (2) les touffes voisines different-elles a l'oeil par leur forme ET leur couleur (une plus jaune-vert, une plus bleu-vert, une a pointe claire), ou se ressemblent-elles toutes ? (3) les brins ont-ils du relief (degrade visible le long du brin), ou restent-ils des aplats ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -60,6 +62,9 @@ Niveau d'entrainement, de pres. Deux oui/non : (1) distingue-t-on plusieurs ESPE
 
 ### 2026-09-20
 > Honnêtement je vois pas beaucoup d'espèces t'as pas du tout joué sur les dégradés (pas de haut en bas mais de "gauche à droite" pour créer d'autres espèces, elles se ressemblent toutes et ont les mêmes variations de teintes, c'est nul !
+
+### 2026-09-20
+> Vraiment tu trouves ça satisfaisant ? Une herbe maron qui n'a rien a faire dans geyser rock (HS le biome, regarde la spec putain), une herbe tellement thick et courte jaune qui n'a aucun sens, aucune vraiment différente, les touffes toutes identiques, aucune impression reliefs sur la plupart hors les maron (mais les marrons n'ont rien a faire là)… vraiment toujours aussi nase !  ![71670.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/ade6f65c-72d8-4398-a61f-01dadfbe34d7/3ad9e1ad-c921-4097-82ed-423a58763d7c) [images enregistrees : .autoport/owner-feedback/grass-blade-variants/20260920T1836-1.jpg]
 
 ## Pourquoi ce fichier existe
 
