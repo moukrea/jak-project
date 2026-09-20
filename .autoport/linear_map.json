@@ -365,12 +365,12 @@
  },
  "grass-blade-variants": {
   "build_announced": "524bbfe65595",
-  "hash": "9b77cd3b7edce657943bab207e39f47835c0c767",
+  "hash": "c9eb7040b541994c47c775f296d880c592a0271e",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
   "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-19T18:38:55.085Z",
+  "pulled_at": "2026-09-20T05:59:35.785Z",
   "relations": [
    "grass-clumps"
   ],
@@ -505,12 +505,12 @@
  },
  "grass-shading": {
   "build_announced": "b8758fdeb1c2",
-  "hash": "f2372b08befbca6c59cd076478c0e635bf8f594b",
+  "hash": "8f19d016ddf72be7d866c257f4fe6b7d934f00d5",
   "identifier": "JAK-121",
   "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
   "last_state": "In Review",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-17T05:37:11.000Z",
+  "pulled_at": "2026-09-20T05:58:15.205Z",
   "relations": [
    "grass-clumps"
   ],
@@ -542,12 +542,12 @@
  },
  "grass-wind": {
   "build_announced": "07f18894857c",
-  "hash": "af2602d62b81803ab9fb8fee590e4e0fbe02bba7",
+  "hash": "c0ed995b29907a669c00c75f21c9daff4a6a76ae",
   "identifier": "JAK-122",
   "issue_id": "7da89a1c-3c97-4ebe-a745-f31d76e7d8fb",
   "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-17T05:37:12.000Z",
+  "pulled_at": "2026-09-20T05:57:10.718Z",
   "relations": [
    "grass-clumps"
   ],
@@ -864,12 +864,12 @@
  },
  "hud-3d-pickups": {
   "build_announced": "524bbfe65595",
-  "hash": "3d5cb340d09a936dcd5eaea854eb79005e19eafc",
+  "hash": "6f9a4d283467409568819b87d64558e20839365c",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
   "last_state": "In Review",
   "last_verdict_announced": "validator-008.txt",
-  "pulled_at": "2026-09-18T05:23:38.668Z",
+  "pulled_at": "2026-09-20T05:50:14.173Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
@@ -887,12 +887,12 @@
  },
  "hud-eco-gauge": {
   "build_announced": "52c60aff001a",
-  "hash": "40f50a2f00388e3d707629ae76d96041abe9ca75",
+  "hash": "c8515efd20e20c0f7e510bb0742662bcb9b0333d",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Review",
   "last_verdict_announced": "validator-006.txt",
-  "pulled_at": "2026-09-19T16:25:38.645Z",
+  "pulled_at": "2026-09-20T05:52:09.126Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1147,12 +1147,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "hash": "5c85447086da88be6fa1b5157f6478db5c2c5005",
+  "hash": "2bebd4206f5cb5a33db95b6ea318fa57e9aad904",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
   "last_state": "In Review",
   "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-19T16:43:21.631Z",
+  "pulled_at": "2026-09-20T05:30:14.402Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
  },
  "owner-todo-priorisation": {
@@ -1443,12 +1443,12 @@
  },
  "recharged-hud-toggle": {
   "build_announced": "95ba205c1b0e",
-  "hash": "dd917cb8f596f644896a25683cfa63301a65ed3e",
+  "hash": "1b9855cfc8f80670f30dff081044d46ded1a892a",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
   "last_state": "In Review",
   "last_verdict_announced": "validator-005.txt",
-  "pulled_at": "2026-09-19T16:43:31.741Z",
+  "pulled_at": "2026-09-20T05:49:13.787Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
  },
  "recharged-lightprobes": {
@@ -1567,12 +1567,12 @@
  },
  "res-scale-submenu": {
   "build_announced": "6ca39dfb4190",
-  "hash": "0b47c59989530e016bad68d67d47798a2484e598",
+  "hash": "28f19145fa71195a7882ea6abec1ced6197da588",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
   "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-19T16:25:54.601Z",
+  "pulled_at": "2026-09-20T05:52:25.173Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
  },
  "shrub-trunk-contact": {
@@ -1916,12 +1916,12 @@
  },
  "water-ocean-mesh": {
   "build_announced": "0d5143b989d9",
-  "hash": "fa3ed7204c89220946a59679967bb9991697d0f7",
+  "hash": "037ebab6ac94f0ffca57f855a3abf0b25048ad56",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
   "last_state": "In Review",
   "last_verdict_announced": "validator-010.txt",
-  "pulled_at": "2026-09-19T16:58:29.824Z",
+  "pulled_at": "2026-09-20T05:48:21.187Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
   ],
