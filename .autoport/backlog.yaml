@@ -5759,7 +5759,7 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: open
+  status: to-test
   priority: 13
   owner_feedback:
   - date: '2026-09-09'
@@ -5853,17 +5853,17 @@ items:
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
-  delivered: '2026-09-19'
+  delivered: '2026-09-20'
   code_scope: jeu
   code_scope_source: commits:a-livre-du-moteur:4
   block_reason: ''
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-19'
-    proof_sha: 73d6cf8edf1263dc
-    proof_bytes: 72191
-    attempt: 9
-    journal: validator-009.txt
+    date: '2026-09-20'
+    proof_sha: c89e1d8cd55946fc
+    proof_bytes: 75500
+    attempt: 10
+    journal: validator-010.txt
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
@@ -10308,7 +10308,7 @@ items:
   - date: '2026-09-19'
     text: Ce chantier ne touche pas le jeu ? Qu'es-ce ce que tu racontes, comment tu peux être autant
       à côté de la plaque ?
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13210,7 +13210,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: Validé !
-- status: open
+- status: to-test
   game: jak1
   code_scope: jeu
   max_turns: 600
@@ -13262,7 +13262,7 @@ items:
     proof_bytes: 57545
     attempt: 2
     journal: validator-002.txt
-  delivered: '2026-09-18'
+  delivered: '2026-09-20'
   owner_feedback:
   - date: '2026-09-19'
     text: "Alors je validerais bien parce que ça fonctionne mais… coe tu vois dans le screen, c'est quoi\
@@ -14152,7 +14152,7 @@ items:
     text: Hello ?
   max_retries: 2
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: in-progress
+  status: to-test
   game: jak1
   priority: 12
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
@@ -14199,12 +14199,12 @@ items:
     text: Tu ignores mes retours et questions ?
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-19'
-    proof_sha: 98519c6ca3df3df7
-    proof_bytes: 64898
-    attempt: 3
-    journal: validator-003.txt
-  delivered: '2026-09-19'
+    date: '2026-09-20'
+    proof_sha: 3c25b89381cbc81d
+    proof_bytes: 71478
+    attempt: 4
+    journal: validator-004.txt
+  delivered: '2026-09-20'
 - id: harness-usage-double-counted
   priority: 13
   owner_test: false
@@ -14239,7 +14239,7 @@ items:
     attempt: 2
     journal: validator-002.txt
 - id: harness-main-agent-context-volume
-  priority: 14
+  priority: 15
   owner_test: false
   feature: 'L''agent principal relit 20,7 millions de jetons de mémoire par essai : c''est là que part
     l''argent, pas dans le choix des modèles'
@@ -14255,7 +14255,9 @@ items:
     19/09 15:40 SUPERVISEUR : valide par la machine avec le terme 5 (baisse >= 20 % sur 5 essais armes) NON MESURABLE (cv_apres_mesurable=0) et compte 0 — aucune garde ne revenait le verifier. Garde posee : acquis/context-volume-after.sh, relue a CHAQUE fermeture d'item : UNPROVABLE tant que moins de 5 essais portent --strict-mcp-config, PLUS TENU si la baisse mesuree est < 200 pour mille. Le statut valide tient sur le correctif arme et les leviers chiffres ; le gain, lui, sera juge par cette garde.
 
     19/09 15:45 : le correctif (cli_backend.py, --strict-mcp-config + attente en un tour) est COMMITE a 14:47 mais l'orchestrateur qui tourne a ete lance a 12:52 : il a importe l'ancien code et lance encore ses workers SANS le drapeau (verifie sur l'essai de 15:20). Population APRES = 0 tant qu'il n'est pas relance. PAUSE posee a 15:45 ; relance au digest suivant, apres la fin de l'essai en cours.
-  status: validated
+
+    20/09 03:40 GARDE APRES, PREMIERE MESURE : 11 essais armes (--strict-mcp-config), baisse de l'integrale de contexte = 172 pour mille (attendu >= 200), tours x10 par essai = 827 (avant : 936). Le correctif rend 17 %, pas 20 %. ROUVERT pour tenir la promesse : chiffrer ce qui reste (prefixe DIRECTIVES+contrat relus, sorties d'outils volumineuses, tours d'attente restants — 827 tours x10 contre 936 : l'attente en un tour n'a retire que 12 % des tours) et prendre le levier suivant. La garde acquis/context-volume-after.sh est desormais NON BLOQUANTE (elle a arrete la fermeture de res-scale-submenu, vert sur sa porte) : elle dit le manque, cet item le porte.
+  status: open
   depends_on: []
   spec: null
   prompt: prompts/item-harness-main-agent-context-volume.md
@@ -14269,6 +14271,8 @@ items:
     proof_bytes: 64309
     attempt: 1
     journal: validator-001.txt
+  max_retries: 2
+  block_reason: ''
 - id: harness-undeclared-profile-attempts
   priority: 15
   owner_test: false
@@ -14343,7 +14347,7 @@ items:
   - date: '2026-09-19'
     text: Tu te fous de ma gueule ? Tu ignores mes retours ?
 - id: harness-pack-manifest-is-a-build-artefact
-  status: open
+  status: validated
   priority: 17
   owner_test: false
   depends_on: []
@@ -14369,3 +14373,10 @@ items:
     `git ls-files` ne liste plus les deux manifestes ; un build complet laisse `git status --porcelain
     -- android` VIDE ; l''APK produit porte un manifeste avec les memes cles et un file_count identique
     au precedent ; la quarantaine peut alors etre videe de ces deux entrees (terme : entrees retirees).'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-20'
+    proof_sha: 354ad62a14e7cc41
+    proof_bytes: 68607
+    attempt: 2
+    journal: validator-002.txt
