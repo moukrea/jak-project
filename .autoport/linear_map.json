@@ -504,11 +504,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
  },
  "grass-shading": {
-  "hash": "18b1cf071f693f2b5646bf1b480c994d8135e6c6",
+  "hash": "8dcd6ef363717ce18d31127f09e78760141a3fc0",
   "identifier": "JAK-121",
   "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-001.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:11.000Z",
   "relations": [
    "grass-clumps"
@@ -631,10 +631,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-main-agent-context-volume": {
-  "hash": "06ad69b2b5b05504194d81807c3c20688299b088",
+  "hash": "c4cb0bca7b1a24b747b19e6d524114e1aca92d84",
   "identifier": "JAK-184",
   "issue_id": "d4afc1bc-441a-4eb0-9165-33af72f6b08b",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
