@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-19 : « Alors tu m'a même pas répondu… et tu continues à me lister q… »
+- 2026-09-20 : « Alors c'est par dessus mais la lueur est très muted… et auss… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
@@ -26,7 +26,7 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu apres un ramassage d'eco, sur le build nomme dans le commentaire « build publie ». UNE question : la particule d'eco au centre de la jauge est-elle dessinee PAR-DESSUS la jauge (visible entiere, debordant un peu du trou) et non derriere (apercue seulement a travers le trou) ? (le reste de la jauge est valide : ne pas le redemander)..
+Ou l'owner regardera : HUD en jeu apres un ramassage d'eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : (1) la particule au centre est-elle bien celle de l'eco ramassee (les etincelles de l'eco bleue bougent comme sur un vial d'eco bleue du monde, pas comme l'eco verte reteintee) ? (2) sa lueur est-elle aussi vive que sur le vial du monde ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.

@@ -364,11 +364,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "build_announced": "524bbfe65595",
-  "hash": "c9eb7040b541994c47c775f296d880c592a0271e",
+  "hash": "be86976f8ab1b11580b1f1d8b9041e574f4cb7dc",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-20T05:59:35.785Z",
   "relations": [
@@ -439,10 +438,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-126/le-bord-qui-donne-sur-le-vide-etabli-par-la-geometrie-et-non-par"
  },
  "grass-interaction-direction": {
-  "hash": "ef7ed7231c891e020bc68a28ffc93a6f8af41cd7",
+  "hash": "f9caeee1ed36a583b966314cc13c68334ce838ad",
   "identifier": "JAK-124",
   "issue_id": "9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:37:12.000Z",
   "relations": [
    "grass-clumps"
@@ -504,11 +503,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
  },
  "grass-shading": {
-  "build_announced": "b8758fdeb1c2",
-  "hash": "8f19d016ddf72be7d866c257f4fe6b7d934f00d5",
+  "hash": "6a02275bb77e1dd9c54998dadb2597aa6c233187",
   "identifier": "JAK-121",
   "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-20T05:58:15.205Z",
   "relations": [
@@ -541,11 +539,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-170/lherbe-est-usee-la-ou-lon-passe-carte-de-frequentation-cuite-par"
  },
  "grass-wind": {
-  "build_announced": "07f18894857c",
-  "hash": "c0ed995b29907a669c00c75f21c9daff4a6a76ae",
+  "hash": "54563629b7d9ca75da31dd5d458e02f36fcdeb1b",
   "identifier": "JAK-122",
   "issue_id": "7da89a1c-3c97-4ebe-a745-f31d76e7d8fb",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-20T05:57:10.718Z",
   "relations": [
@@ -863,17 +860,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-97/comprendre-pourquoi-le-hdr-ne-gagne-rien-dans-les-ombres-avant-dy"
  },
  "hud-3d-pickups": {
-  "build_announced": "524bbfe65595",
-  "hash": "6f9a4d283467409568819b87d64558e20839365c",
+  "hash": "bf3450eb6d1497ff6d433a3d579c50c5e17995bc",
   "identifier": "JAK-177",
   "issue_id": "199228ad-d99d-46ff-8450-2218e42f3770",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-008.txt",
   "pulled_at": "2026-09-20T05:50:14.173Z",
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
-  "hash": "8f8432c493269bc031bb0efbeb41b7cefceae289",
+  "hash": "f2cffe2a7c2805c6aa046db2fc5ee0665eb4f15f",
   "identifier": "JAK-178",
   "issue_id": "dede6433-d481-4eb8-a9f3-1ff56e61a216",
   "last_state": "Backlog",
@@ -886,11 +882,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "52c60aff001a",
-  "hash": "c8515efd20e20c0f7e510bb0742662bcb9b0333d",
+  "hash": "b0aca7ddeb11a9aca3b3bf95bf17ec6717886a57",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-006.txt",
   "pulled_at": "2026-09-20T05:52:09.126Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
@@ -1147,10 +1142,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "hash": "2bebd4206f5cb5a33db95b6ea318fa57e9aad904",
+  "hash": "c8fde957e0a6abd794664f45666f4030f18367ea",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-20T05:30:14.402Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
@@ -1428,7 +1423,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "42d338bc64e7de886516ff65a5ab8bd758dc814e",
+  "hash": "521de5b6ca3d623997b273ed46dd7cd182d00515",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
   "last_state": "Backlog",
@@ -1442,11 +1437,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-43/le-hud-recharged-de-jak1"
  },
  "recharged-hud-toggle": {
-  "build_announced": "95ba205c1b0e",
-  "hash": "1b9855cfc8f80670f30dff081044d46ded1a892a",
+  "hash": "38dadd9536cb1fb8546f0777ddc57a2eec7704f5",
   "identifier": "JAK-181",
   "issue_id": "ab16793b-c40f-4eeb-9c50-d15ecef6f015",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-20T05:49:13.787Z",
   "url": "https://linear.app/moukrea/issue/JAK-181/un-interrupteur-dans-les-reglages-recharged-allume-ou-eteint-le-hud"
@@ -1566,11 +1560,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "build_announced": "6ca39dfb4190",
-  "hash": "28f19145fa71195a7882ea6abec1ced6197da588",
+  "hash": "1337bcb0778d0a0af49c918992fd5176825103c4",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-20T05:52:25.173Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
@@ -1915,11 +1908,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "build_announced": "0d5143b989d9",
-  "hash": "037ebab6ac94f0ffca57f855a3abf0b25048ad56",
+  "hash": "6b067c8c76f8b1cc7d33d11cc15fa0a2b36bdeba",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-20T05:48:21.187Z",
   "relations": [
@@ -1972,7 +1964,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-59/des-vagues-tranquilles-qui-arrivent-une-a-une-et-remontent-le-sable"
  },
  "water-surface-material": {
-  "hash": "605609a516e35818bb46ea3b332e600ee82c587f",
+  "hash": "197ed4ce0f1ae97400fcce849f41572f1d0d767d",
   "identifier": "JAK-58",
   "issue_id": "c554814f-99ff-4c69-93af-523deb198fb2",
   "last_state": "Backlog",

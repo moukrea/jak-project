@@ -7,6 +7,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 8. L'herbe a UN SEUL SINUS a 0,271 Hz, sans rafale, et surtout SANS DIRECTION DE VENT : chaque brin oscille le long de son propre lacet aleatoire, donc le champ n'a aucun cap commun. ATTENTION, ORDRE DE L'OWNER DU 12/09 : « le shader breeze.glsl est tres peu satisfaisant aussi, tres rigide, pas ouf du tout, donc attention ». L'item `foliage-wind` porte DEUX REFUS COMPLETS. On reprend sa CHARPENTE TEMPORELLE — plusieurs bandes de frequence, un cap commun qui derive, un front de rafale — et PAS sa loi de flexion, qui fait pivoter l'element autour d'un point d'ancrage, mouvement d'objet dur. Un brin SE COURBE : la deflexion s'accumule le long de la tige et LA POINTE RETARDE SUR LA BASE.
 
+20/09 RETOUR OWNER (JAK-122) : « j'ai l'impression que tout bouge pareil avec des endroits plus ou moins, mais pas du tout convaincant, les touffes bougent ensemble, les variations sont nulles ». LA PORTE mesurait direction + rafales + intra-touffe ; pas la DECORRELATION entre touffes voisines. PERIMETRE : (1) phase et amplitude PAR TOUFFE (hachage de la racine), decalage de phase entre voisines >= 0,3 rad en moyenne ; (2) le champ de rafale a une longueur de correlation de 3-8 m et une vitesse de propagation visible (front qui traverse la zone en 1-3 s), pas un scalaire global ; (3) raideur par silhouette (un jonc bouge moins qu'une lame). PORTE : correlation de phase entre touffes voisines <= 0,5 ; part de la variance de mouvement portee par le terme GLOBAL <= 40 % ; vitesse du front de rafale mesuree sur les sommets emis entre 1 et 6 m/s. Capture jointe.
+
 ## Livrable — le contrat, en entier
 
 `grass_wind_defects` = 0, somme de termes publies SEPAREMENT.
@@ -23,11 +25,12 @@ Ne touche pas au vent du feuillage, qui est un autre item. Ne reprend PAS sa loi
 
 ## Ou l'owner regardera
 
-Sur le niveau d'entrainement : l'herbe doit onduler dans UNE direction qui change lentement, avec des rafales qui traversent la zone, et les brins d'une meme touffe doivent bouger ensemble sans bouger exactement pareil.
+Niveau d'entrainement. Deux oui/non : (1) deux touffes voisines bougent-elles avec un decalage visible (phase, amplitude), au lieu de bouger ensemble ? (2) une rafale traverse-t-elle la zone en se voyant PASSER (les touffes se couchent l'une apres l'autre), au lieu d'un mouvement d'ensemble ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
-(aucun retour enregistre sur cet item)
+### 2026-09-20
+> C'est vraiment bof bof, j'ai l'impression que tout bouge pareil avec des endroits plus ou moins, mais pas du tout convaincant, les touffes bougent ensemble, les Variations sont nulles… c'est vraiment pas ouf
 
 ## Pourquoi ce fichier existe
 

@@ -5759,8 +5759,8 @@ items:
   code_scope_source: commits:a-livre-du-moteur:14
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: to-test
-  priority: 13
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-09-09'
     text: faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques,
@@ -5798,6 +5798,9 @@ items:
   - date: '2026-09-19'
     text: Oui mais à un moment donné elle n'était pas identique à l'original et c'était mieux je trouve
       (en dehors du fait que l'eau sortait du lit de la rivière à la jungle)
+  - date: '2026-09-20'
+    text: Alors je pense que c'est bon, la mer a de nouveau du relief, le lit de la rivière ne déborde
+      plus, la transparence est toujours là et la mer n'est plus noire sur l'écran titre.
   gate:
     key: water_ocean_owner_defects
     op: ==
@@ -5810,7 +5813,11 @@ items:
   - harness-judge-waits-for-the-proof-a-worker-left-in-flight
   history: []
   prompt: prompts/item-water-ocean-mesh.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-20'
+    text: Alors je pense que c'est bon, la mer a de nouveau du relief, le lit de la rivière ne déborde
+      plus, la transparence est toujours là et la mer n'est plus noire sur l'écran titre.
+    build_sha: d0baa80b939d
   device: true
   proof_env:
   - OG_RECHARGED=1
@@ -10247,13 +10254,13 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: to-test
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 6
+  max_retries: 3
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10266,11 +10273,10 @@ items:
     key: grass_variant_defects
     op: ==
     value: 0
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
-    12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun
-    asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets
-    en proche, deux quads croises en moyen, une carte suspendue pour l''overhang. Hauteur, courbure, largeur,
-    teinte et phase sont cinq hachages de la MEME forme. L''owner l''a dit et c''est verifie.'
+  known_cause: |-
+    LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets en proche, deux quads croises en moyen, une carte suspendue pour l'overhang. Hauteur, courbure, largeur, teinte et phase sont cinq hachages de la MEME forme. L'owner l'a dit et c'est verifie.
+
+    20/09 RETOUR OWNER (JAK-120) : « tu fais juste des touffes avec toutes les geometries, pas de touffes d'herbe differentes, pas de variations de hauteur… certaines des geometries… on voit clairement leurs polygones de pres, c'est nul ! ». LA PORTE ETAIT AVEUGLE a ces trois choses : elle comptait la diversite des BRINS, pas l'organisation en TOUFFES. PERIMETRE : (1) la variante se tire au niveau de la TOUFFE (hachage de la racine de touffe), avec une silhouette dominante par touffe et une minorite (<= 20 %) d'autres formes ; les touffes voisines different ; (2) hauteur PAR TOUFFE : facteur 0,7-1,3 tire par touffe, en plus de la variation par brin ; (3) de pres (< 6 m), aucun polygone visible : profil de largeur lisse et assez de segments pour que l'angle entre deux segments consecutifs reste sous 12 degres a la distance de LOD 0 ; le compte de sommets soumis ne monte pas (replier les rangees comme aujourd'hui). PORTE : part de touffes a silhouette dominante >= 80 % ; ecart-type de hauteur ENTRE touffes >= 15 % ; angle max entre segments a LOD 0 <= 12 degres, mesure sur les sommets emis ; sommets soumis inchanges. Capture jointe au passage en test.
   deliverable: |-
     `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
     1. LES VARIANTES EXISTENT ET SONT DISTRIBUEES : publier le compte de brins par variante et le compare aux proportions declarees par le profil. Un ecart au-dela d'une tolerance declaree est le defaut.
@@ -10278,14 +10284,16 @@ items:
     3. LE PALIER COMMANDE LE NOMBRE DE VARIANTES, et la selection reste DETERMINISTE : un brin donne recoit la meme variante a tous les paliers qui la proposent. Publier le compte de brins changeant de variante entre deux paliers : zero.
     4. AUCUNE MODELISATION : publier le compte d'assets de maillage charges par le systeme d'herbe, qui vaut zero. C'est l'ordre explicite de l'owner.
     PREUVE : `FEATURE grass-blade-variants armed=1 hits=<brins ayant recu une variante>` + la ligne `grass_variant_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Sur le niveau d''entrainement, de pres : les brins ne doivent plus avoir tous la meme silhouette.
-    Hauteurs, largeurs, courbures et pointes differentes.'
+  where: 'Niveau d''entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silhouette dominante,
+    et les touffes voisines des silhouettes differentes (au lieu de toutes les formes melangees dans chaque
+    touffe) ? (2) les touffes ont-elles des hauteurs differentes entre elles ? (3) de pres, voit-on encore
+    les polygones des brins (aretes, cassures) ?'
   out_of_scope: Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne
     change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
   notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
   hits_means: brins ayant recu une variante
   prompt: prompts/item-grass-blade-variants.md
-  block_reason: null
+  block_reason: ''
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.level.warp=training-start
@@ -10308,13 +10316,17 @@ items:
   - date: '2026-09-19'
     text: Ce chantier ne touche pas le jeu ? Qu'es-ce ce que tu racontes, comment tu peux être autant
       à côté de la plaque ?
-- status: in-progress
+  - date: '2026-09-20'
+    text: Alors tu fais juste des touffes avec toutes les géométries, pas de touffes d'herbe différentes,
+      pas de variations de hauteur… certaines des géométrie… on voit clairement leurs polygones de près,
+      c'est nul !
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 6
+  max_retries: 3
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10337,13 +10349,10 @@ items:
     key: grass_shading_defects
     op: ==
     value: 0
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
-    12/09. SPEC section 7. Le degrade racine-pointe existe et il est correct. Ce qui manque est la variation
-    SPATIALE : `inst_gcol` n''est PAS un echantillonnage du terrain sous le brin, c''est la moyenne de
-    la TEXTURE ENTIERE du draw source, mise en cache par identifiant. Avec trois noms de texture admis,
-    il existe au plus TROIS couleurs de sol dans tout le champ, et UNE seule en pratique sur Geyser Rock.
-    Le commentaire de `grass.vert:462-468` qui annonce « per-location » est FAUX. La seule variation spatiale
-    reelle est la lumiere cuite du centroide du TRIANGLE : 11 080 valeurs pour 847 000 brins.'
+  known_cause: |-
+    LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 7. Le degrade racine-pointe existe et il est correct. Ce qui manque est la variation SPATIALE : `inst_gcol` n'est PAS un echantillonnage du terrain sous le brin, c'est la moyenne de la TEXTURE ENTIERE du draw source, mise en cache par identifiant. Avec trois noms de texture admis, il existe au plus TROIS couleurs de sol dans tout le champ, et UNE seule en pratique sur Geyser Rock. Le commentaire de `grass.vert:462-468` qui annonce « per-location » est FAUX. La seule variation spatiale reelle est la lumiere cuite du centroide du TRIANGLE : 11 080 valeurs pour 847 000 brins.
+
+    20/09 RETOUR OWNER (JAK-121) : « Aucune variation sur la verticale, c'est juste de haut en bas, et non c'est pas coherent… en gros j'ai l'impression qu'on voit plus ou moins toutes les teintes sur toutes les touffes, nul ! ». LA PORTE mesurait un degrade et une dispersion GLOBALE de teinte ; elle ne regardait pas la coherence PAR TOUFFE. PERIMETRE : (1) teinte de base tiree PAR TOUFFE (meme racine que les silhouettes), faible dispersion dans la touffe, forte entre touffes voisines ; (2) le degrade vertical reste mais s'attenue (il n'est plus la seule variation) ; (3) une variation laterale : assombrissement des brins interieurs / face sous le vent, ou ombre d'auto-occlusion simple par densite locale. PORTE : dispersion de teinte INTRA-touffe <= 1/3 de la dispersion INTER-touffes (mesurees sur les couleurs de sommets emises) ; part de la variance de couleur expliquee par la seule hauteur <= 60 %. Capture jointe.
   deliverable: |-
     `grass_shading_defects` = 0, somme de termes publies SEPAREMENT.
     1. LA VARIATION SPATIALE EXISTE : publier le nombre de couleurs de base distinctes dans le champ, aujourd'hui egal a un, au-dessus d'un plancher declare. Et la publier PAR TOUFFE, pas par triangle.
@@ -10351,27 +10360,50 @@ items:
     3. LA LUMIERE CUITE GAGNE EN RESOLUTION : publier le nombre de valeurs d'eclairage distinctes servies au champ, avant et apres. Une valeur par triangle devient une valeur par touffe.
     4. LA DIRECTION ARTISTIQUE TIENT : aucune de ces variations ne depasse une amplitude declaree. Le rendu reste stylise, il ne part pas vers le photorealisme, et l'owner juge.
     PREUVE : `FEATURE grass-shading armed=1 hits=<brins ayant recu une couleur derivee de leur touffe>` + la ligne `grass_shading_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Sur le niveau d''entrainement, de pres : les brins ne doivent plus ressembler a des aplats de
-    couleur. Base plus sombre, pointe plus claire, et des touffes voisines qui ne sont pas de la meme
-    teinte.'
+  where: 'Niveau d''entrainement, de pres. Deux oui/non : (1) chaque touffe a-t-elle SA teinte (une touffe
+    plus jaune, la voisine plus bleue), au lieu de montrer toutes les teintes ? (2) la variation de couleur
+    va-t-elle au-dela du simple degrade bas-sombre / haut-clair (cotes, brins, ombre portee entre brins)
+    ?'
   out_of_scope: Aucun ajout de geometrie. Aucune dependance a un systeme graphique indisponible sur les
     backends reellement supportes. Tout ce qui n'est pas cet item.
   notes: 'SPEC section 7. Depend des touffes : la couleur par touffe n''existe pas sans elles.'
   hits_means: brins ayant recu une couleur derivee de leur touffe
   prompt: prompts/item-grass-shading.md
-  block_reason: null
+  block_reason: ''
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-20'
+    proof_sha: c74aa6b7fd7f7a11
+    proof_bytes: 79113
+    attempt: 2
+    journal: validator-002.txt
+  delivered: '2026-09-20'
+  owner_feedback:
+  - date: '2026-09-20'
+    text: Aucune variation sur la verticale, c'est juste de haut en bas, et non c'est pas cohérent… en
+      gros j'ai l'impression qu'on voit plus ou moins toutes les teintes sur toutes les touffes, nul !
 - status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 6
+  max_retries: 3
   proof_timeout: 420
   depends_on:
   - grass-clumps
   history: []
   id: grass-wind
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
+  - OG_GRASS=1
+  - OG_GRASS_PRESET=2
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.grass=1
+  - debug.opengoal.grass.preset=2
   priority: 72
   device: true
   feature: Un vent qui a une direction, et qui courbe le brin au lieu de le faire pivoter
@@ -10379,15 +10411,10 @@ items:
     key: grass_wind_defects
     op: ==
     value: 0
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-herbe.md : c''est le contrat, valide par l''owner le
-    12/09. SPEC section 8. L''herbe a UN SEUL SINUS a 0,271 Hz, sans rafale, et surtout SANS DIRECTION
-    DE VENT : chaque brin oscille le long de son propre lacet aleatoire, donc le champ n''a aucun cap
-    commun. ATTENTION, ORDRE DE L''OWNER DU 12/09 : « le shader breeze.glsl est tres peu satisfaisant
-    aussi, tres rigide, pas ouf du tout, donc attention ». L''item `foliage-wind` porte DEUX REFUS COMPLETS.
-    On reprend sa CHARPENTE TEMPORELLE — plusieurs bandes de frequence, un cap commun qui derive, un front
-    de rafale — et PAS sa loi de flexion, qui fait pivoter l''element autour d''un point d''ancrage, mouvement
-    d''objet dur. Un brin SE COURBE : la deflexion s''accumule le long de la tige et LA POINTE RETARDE
-    SUR LA BASE.'
+  known_cause: |-
+    LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 8. L'herbe a UN SEUL SINUS a 0,271 Hz, sans rafale, et surtout SANS DIRECTION DE VENT : chaque brin oscille le long de son propre lacet aleatoire, donc le champ n'a aucun cap commun. ATTENTION, ORDRE DE L'OWNER DU 12/09 : « le shader breeze.glsl est tres peu satisfaisant aussi, tres rigide, pas ouf du tout, donc attention ». L'item `foliage-wind` porte DEUX REFUS COMPLETS. On reprend sa CHARPENTE TEMPORELLE — plusieurs bandes de frequence, un cap commun qui derive, un front de rafale — et PAS sa loi de flexion, qui fait pivoter l'element autour d'un point d'ancrage, mouvement d'objet dur. Un brin SE COURBE : la deflexion s'accumule le long de la tige et LA POINTE RETARDE SUR LA BASE.
+
+    20/09 RETOUR OWNER (JAK-122) : « j'ai l'impression que tout bouge pareil avec des endroits plus ou moins, mais pas du tout convaincant, les touffes bougent ensemble, les variations sont nulles ». LA PORTE mesurait direction + rafales + intra-touffe ; pas la DECORRELATION entre touffes voisines. PERIMETRE : (1) phase et amplitude PAR TOUFFE (hachage de la racine), decalage de phase entre voisines >= 0,3 rad en moyenne ; (2) le champ de rafale a une longueur de correlation de 3-8 m et une vitesse de propagation visible (front qui traverse la zone en 1-3 s), pas un scalaire global ; (3) raideur par silhouette (un jonc bouge moins qu'une lame). PORTE : correlation de phase entre touffes voisines <= 0,5 ; part de la variance de mouvement portee par le terme GLOBAL <= 40 % ; vitesse du front de rafale mesuree sur les sommets emis entre 1 et 6 m/s. Capture jointe.
   deliverable: |-
     `grass_wind_defects` = 0, somme de termes publies SEPAREMENT.
     1. LE CHAMP A UN CAP : publier la dispersion angulaire des directions de flexion sur une scene et une camera fixes. Elle est maximale aujourd'hui ; elle doit s'effondrer sous un plafond declare autour du cap du vent.
@@ -10396,15 +10423,29 @@ items:
     4. L'ANIMATION EST STABLE : aucun scintillement. Publier la variation image a image de la position d'une pointe, camera et scene immobiles, sous un plafond declare.
     RISQUE A MESURER, PAS A SUPPOSER : `grass_occ::publish()` est partage avec `foliage-wind`, item ouvert et deja au bord du rejet definitif. Publier un temoin disant que ses grandeurs ne bougent pas.
     PREUVE : `FEATURE grass-wind armed=1 hits=<brins animes par le champ de vent>` + la ligne `grass_wind_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Sur le niveau d''entrainement : l''herbe doit onduler dans UNE direction qui change lentement,
-    avec des rafales qui traversent la zone, et les brins d''une meme touffe doivent bouger ensemble sans
-    bouger exactement pareil.'
+  where: 'Niveau d''entrainement. Deux oui/non : (1) deux touffes voisines bougent-elles avec un decalage
+    visible (phase, amplitude), au lieu de bouger ensemble ? (2) une rafale traverse-t-elle la zone en
+    se voyant PASSER (les touffes se couchent l''une apres l''autre), au lieu d''un mouvement d''ensemble
+    ?'
   out_of_scope: Ne touche pas au vent du feuillage, qui est un autre item. Ne reprend PAS sa loi de flexion.
     Tout ce qui n'est pas cet item.
   notes: 'SPEC section 8. Correction owner 12/09 : la charpente de breeze.glsl, jamais son reglage.'
   hits_means: brins animes par le champ de vent
   prompt: prompts/item-grass-wind.md
-  block_reason: null
+  block_reason: ''
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-20'
+    proof_sha: 5a1adcc7b58a8846
+    proof_bytes: 67150
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-20'
+  owner_feedback:
+  - date: '2026-09-20'
+    text: C'est vraiment bof bof, j'ai l'impression que tout bouge pareil avec des endroits plus ou moins,
+      mais pas du tout convaincant, les touffes bougent ensemble, les Variations sont nulles… c'est vraiment
+      pas ouf
 - status: open
   game: jak1
   owner_test: false
@@ -10454,6 +10495,16 @@ items:
   proof_timeout: 420
   depends_on:
   - grass-clumps
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=training-start
+  - debug.opengoal.grass=1
+  - debug.opengoal.grass.preset=2
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LEVEL_WARP=training-start
+  - OG_GRASS=1
+  - OG_GRASS_PRESET=2
   history: []
   id: grass-interaction-direction
   priority: 76
@@ -13220,7 +13271,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: Validé !
-- status: to-test
+- status: validated
   game: jak1
   code_scope: jeu
   max_turns: 600
@@ -13228,11 +13279,14 @@ items:
   proof_timeout: 420
   device: false
   owner_test: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-20'
+    text: Validé
+    build_sha: d0baa80b939d
   no_code: true
   depends_on: *id004
   id: res-scale-submenu
-  priority: 14
+  priority: null
   feature: L'échelle de rendu se choisit dans un sous-menu (10 à 100 %) qui affiche la résolution de rendu
     calculée en direct
   gate:
@@ -13288,6 +13342,8 @@ items:
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+  - date: '2026-09-20'
+    text: Validé
   block_reason: ''
 - id: owner-todo-priorisation
   status: validated
@@ -13430,7 +13486,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13469,6 +13525,8 @@ items:
     18/09 07:20 REPONSE A LA QUESTION DISCRIMINANTE : l'owner a VALIDE le coeur recharge sur CE MEME BUILD (« C'est bon pour moi ! Bien joue ! », JAK-175). Donc `recharged-master?` et `recharged-hud?` sont ACTIFS sur son appareil et le defaut ne touche QUE la jauge. Ne pas chercher du cote des reglages : chercher dans la reprise du coeur ce qui eteint la jauge (bisect 9d3aa9af6d -> HEAD sur hud-classes-pc.gc, suspects 7a388bd8c6 et 0c48f70e80).
 
     19/09 RETOUR OWNER (JAK-176) : « je saurais dire si la particule est la bonne car oui je l'apercois par le trou au centre de la jauge, mais du coup elle est EN DESSOUS, pas au dessus ! Donc c'est pas bon ! » PERIMETRE UNIQUE : l'ordre de dessin de la nuee centrale — elle doit passer APRES la jauge (par-dessus l'anneau), pas avant. Aujourd'hui `draw-particles` consomme la nuee AVANT `draw-hud` (hud.gc:228, note de la reprise du 18/09) : c'est exactement l'inversion vue. Options a chiffrer : emettre la nuee depuis draw-hud apres l'anneau, ou lui donner un bucket/priorite au-dessus du HUD. PORTE : sur une image ou la nuee et l'anneau se recouvrent, l'ordre d'emission publie place la nuee apres l'anneau (compteur d'ordre par image), et le test de profondeur/occlusion ne la masque pas ; la position et la taille du 18/09 restent identiques.
+
+    20/09 RETOUR OWNER (JAK-176) : « c'est par dessus mais la lueur est tres muted… et j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais exactement comme sur la particule d'Eco verte) ». L'ORDRE DE DESSIN EST ACQUIS. PERIMETRE : (1) par type d'eco, l'emetteur utilise au centre doit etre celui du RAMASSABLE DU MONDE de CE type (groupes distincts bleu/rouge/jaune, pas le groupe vert reteinte) : verifier l'identite du groupe de particules ET ses parametres de mouvement (vitesse, duree de vie, gravite, spin) champ par champ contre le vial du monde du meme type ; (2) la lueur : intensite/alpha et taille des etincelles au niveau du vial du monde (rapport de luminance emise HUD/monde entre 0,8 et 1,2), le HUD n'attenue pas. PORTE : pour chacun des 3 types, groupe identique a celui du monde (id) et champs de mouvement egaux a 5 % ; rapport de lueur dans [0,8 ; 1,2]. Capture jointe.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13485,10 +13543,10 @@ items:
     6. ETEINT = ORIGINE.
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
-  where: 'HUD en jeu apres un ramassage d''eco, sur le build nomme dans le commentaire « build publie
-    ». UNE question : la particule d''eco au centre de la jauge est-elle dessinee PAR-DESSUS la jauge
-    (visible entiere, debordant un peu du trou) et non derriere (apercue seulement a travers le trou)
-    ? (le reste de la jauge est valide : ne pas le redemander).'
+  where: 'HUD en jeu apres un ramassage d''eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : (1) la particule
+    au centre est-elle bien celle de l''eco ramassee (les etincelles de l''eco bleue bougent comme sur
+    un vial d''eco bleue du monde, pas comme l''eco verte reteintee) ? (2) sa lueur est-elle aussi vive
+    que sur le vial du monde ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -13521,8 +13579,13 @@ items:
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+  - date: '2026-09-20'
+    text: Alors c'est par dessus mais la lueur est très muted… et aussi j'ai l'impression que c'est le
+      truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les
+      sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais plutôt exactement comme sur
+      la particule d'Eco verte donc c'est pas bon)
   block_reason: ''
-- status: to-test
+- status: validated
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13530,7 +13593,10 @@ items:
   max_retries: 2
   proof_timeout: 420
   device: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-20'
+    text: Ça a l'air bon en l'état, on verra à l'avenir si je demande des ajustements mais on peut valider
+    build_sha: d0baa80b939d
   no_code: true
   depends_on: *id005
   proof_props:
@@ -13543,7 +13609,7 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.costprobe=hud-3d-pickups
   id: hud-3d-pickups
-  priority: 45
+  priority: null
   owner_test: true
   feature: 'Mécamouche, orbe, particule d''éco verte et pile d''énergie du HUD : les vrais modèles du
     jeu à la place des sprites'
@@ -13693,6 +13759,8 @@ items:
     text: Yep et j'ai autre chose, peut-être que ça mérite son propre ticket… j'ai oublié de préciser,
       mais on doit avoir un toggle dans les réglages rechargés pour activer ou désactiver le HUD rechargé
       justement ! Par defaut à on, hérite du master toggle rechargé… à off c'est le HUD d'origine !
+  - date: '2026-09-20'
+    text: Ça a l'air bon en l'état, on verra à l'avenir si je demande des ajustements mais on peut valider
   gate_verdict:
     result: porte-tenue
     date: '2026-09-19'
@@ -14109,8 +14177,8 @@ items:
 - id: recharged-hud-toggle
   feature: Un interrupteur dans les réglages Recharged allume ou éteint le HUD rechargé ; éteint, on retrouve
     le HUD d'origine
-  status: to-test
-  priority: 11
+  status: validated
+  priority: null
   owner_test: true
   depends_on: []
   spec: prompts/SPEC-refonte-hud.md
@@ -14160,11 +14228,17 @@ items:
       t'as pris mon feedback et tu l'as traité ?
   - date: '2026-09-19'
     text: Hello ?
+  - date: '2026-09-20'
+    text: C'est bon le HUD rechargé est bien off quand Off
   max_retries: 2
+  owner_ok:
+    date: '2026-09-20'
+    text: C'est bon le HUD rechargé est bien off quand Off
+    build_sha: d0baa80b939d
 - id: owner-se-renseigner-sur-le-combo-le-plus-efficient-tou
-  status: to-test
+  status: validated
   game: jak1
-  priority: 12
+  priority: null
   feature: 'Le bon dosage de modèles et d''efforts pour chaque étage du harnais : efficient sans tourner
     en boucle, mesuré sur nos propres essais'
   gate:
@@ -14174,7 +14248,10 @@ items:
   depends_on: []
   device: false
   owner_test: true
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-20'
+    text: Fais au mieux alors
+    build_sha: d0baa80b939d
   code_scope: jeu
   max_turns: 600
   max_retries: 2
@@ -14186,6 +14263,8 @@ items:
     19/09 07:55 OWNER : « T'es sur qu'on se refere vraiment qu'aux taches passees ? Pas de recherche approfondie sur internet et compagnie ? » -> TERME (6) AJOUTE A LA PORTE : une RECHERCHE EXTERNE approfondie, sources citees avec URL et date de consultation : tarifs officiels par modele (entree, sortie, cache, contexte long) ; documentation officielle des niveaux d'effort et de ce qu'ils changent ; bancs publics recents sur les taches de code longues et agentiques (SWE-bench et equivalents) pour Opus, Fable, Sonnet, Haiku et Codex ; recommandations publiees sur le ROUTAGE multi-modeles dans les systemes d'agents (manager fort, sous-agents moins couteux, quand ca marche et quand ca casse) ; retours d'utilisateurs de Claude Code sur les modeles de sous-agents. Le rapport CROISE les deux sources : les tarifs publies x nos jetons mesures = le vrai cout par essai ; les bancs publics disent ce qu'on peut esperer d'un modele qu'on n'a PAS encore fait tourner ici (Sonnet, Haiku) ; en cas de conflit entre une promesse publiee et notre mesure, notre mesure l'emporte et le conflit est NOMME. Une recherche sans source datee compte comme non faite (terme = 1). Le worker dispose des outils de recherche web ; s'il n'y a pas acces, il le dit dans le rapport au lieu d'inventer.
 
     19/09 RETOUR OWNER (JAK-182) : « Je trouve ca impertinent a souhait, d'ailleurs comment ca se fait que fable ne soit pas reellement envisage ? T'as fais une evaluation de merde sur notre historique, c'est eclate ». IL A RAISON SUR LE BIAIS : les 46 essais Fable 5.1 ont tourne (a) presque tous sur l'AO, l'item le plus dur du depot, (b) sous deux coupures de quota le 19/09 et un arret manuel, (c) alors qu'Opus 5 a 278 essais sur des items varies. Le rapport a compare des populations non comparables et en a tire « ecarte ». PERIMETRE DE LA REPRISE : (1) reprendre Fable 5.1 ET Fable 5 [1m] a egalite : essais apparies par ITEM (memes items pour les deux modeles), essais interrompus/refuses par l'API EXCLUS des deux cotes, et publier par item : verts, boucles, cout par essai reussi ; (2) dire honnetement quand la population est trop petite pour trancher (intervalle, pas un verdict) ; (3) proposer un protocole d'essai croise court (memes 3 items, un essai chacun sous Opus 5 et sous Fable 5.1, memes budgets) que l'owner peut lancer d'un mot ; (4) le profil propose n'est PAS active et le rapport ne pretend plus « ecarte » la ou il n'a pas mesure. Ton : factuel, aucune formule qui pourrait passer pour de la condescendance.
+
+    20/09 08:55 DECISION DU SUPERVISEUR sur delegation de l'owner (« Fais au mieux alors ») : profil panel-sobre ACTIVE — manager Opus 5 inchange (le seul qui n'a pas fait exploser les limites de l'owner : Fable a coupe deux fois le 19/09), sous-agents Sonnet 5 en efforts moyen/bas/bas (14 % des jetons, gain mesure 8-11 %, seul pari = la qualite des sous-agents, que les taux de verts des prochains essais diront). Pas d'essai croise lance : il couterait 6 essais pour departager deux modeles indiscernables sur nos donnees, et le vrai gisement est ailleurs (memoire relue, superviseur).
   notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
   where: 'Rien a installer. Le rapport reprend Fable 5.1 a egalite de chances : memes items, essais interrompus
     exclus, et dit clairement si Fable est meilleur, pire ou indiscernable d''Opus 5 par essai REUSSI
@@ -14207,6 +14286,8 @@ items:
       envisagé ? T'as fais une évaluation de merde sur notre historique, c'est éclaté
   - date: '2026-09-19'
     text: Tu ignores mes retours et questions ?
+  - date: '2026-09-20'
+    text: Fais au mieux alors
   gate_verdict:
     result: porte-tenue
     date: '2026-09-20'
@@ -14267,7 +14348,7 @@ items:
     19/09 15:45 : le correctif (cli_backend.py, --strict-mcp-config + attente en un tour) est COMMITE a 14:47 mais l'orchestrateur qui tourne a ete lance a 12:52 : il a importe l'ancien code et lance encore ses workers SANS le drapeau (verifie sur l'essai de 15:20). Population APRES = 0 tant qu'il n'est pas relance. PAUSE posee a 15:45 ; relance au digest suivant, apres la fin de l'essai en cours.
 
     20/09 03:40 GARDE APRES, PREMIERE MESURE : 11 essais armes (--strict-mcp-config), baisse de l'integrale de contexte = 172 pour mille (attendu >= 200), tours x10 par essai = 827 (avant : 936). Le correctif rend 17 %, pas 20 %. ROUVERT pour tenir la promesse : chiffrer ce qui reste (prefixe DIRECTIVES+contrat relus, sorties d'outils volumineuses, tours d'attente restants — 827 tours x10 contre 936 : l'attente en un tour n'a retire que 12 % des tours) et prendre le levier suivant. La garde acquis/context-volume-after.sh est desormais NON BLOQUANTE (elle a arrete la fermeture de res-scale-submenu, vert sur sa porte) : elle dit le manque, cet item le porte.
-  status: open
+  status: validated
   depends_on: []
   spec: null
   prompt: prompts/item-harness-main-agent-context-volume.md
@@ -14276,13 +14357,14 @@ items:
     ; aucun code moteur ne peut le changer
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-19'
-    proof_sha: 2f702cab7e0778f4
-    proof_bytes: 64309
-    attempt: 1
-    journal: validator-001.txt
+    date: '2026-09-20'
+    proof_sha: 07fa899365a739b0
+    proof_bytes: 72923
+    attempt: 2
+    journal: validator-002.txt
   max_retries: 2
   block_reason: ''
+  no_code: true
 - id: harness-undeclared-profile-attempts
   priority: 15
   owner_test: false

@@ -15,6 +15,8 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 
 19/09 RETOUR OWNER (JAK-176) : « je saurais dire si la particule est la bonne car oui je l'apercois par le trou au centre de la jauge, mais du coup elle est EN DESSOUS, pas au dessus ! Donc c'est pas bon ! » PERIMETRE UNIQUE : l'ordre de dessin de la nuee centrale — elle doit passer APRES la jauge (par-dessus l'anneau), pas avant. Aujourd'hui `draw-particles` consomme la nuee AVANT `draw-hud` (hud.gc:228, note de la reprise du 18/09) : c'est exactement l'inversion vue. Options a chiffrer : emettre la nuee depuis draw-hud apres l'anneau, ou lui donner un bucket/priorite au-dessus du HUD. PORTE : sur une image ou la nuee et l'anneau se recouvrent, l'ordre d'emission publie place la nuee apres l'anneau (compteur d'ordre par image), et le test de profondeur/occlusion ne la masque pas ; la position et la taille du 18/09 restent identiques.
 
+20/09 RETOUR OWNER (JAK-176) : « c'est par dessus mais la lueur est tres muted… et j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais exactement comme sur la particule d'Eco verte) ». L'ORDRE DE DESSIN EST ACQUIS. PERIMETRE : (1) par type d'eco, l'emetteur utilise au centre doit etre celui du RAMASSABLE DU MONDE de CE type (groupes distincts bleu/rouge/jaune, pas le groupe vert reteinte) : verifier l'identite du groupe de particules ET ses parametres de mouvement (vitesse, duree de vie, gravite, spin) champ par champ contre le vial du monde du meme type ; (2) la lueur : intensite/alpha et taille des etincelles au niveau du vial du monde (rapport de luminance emise HUD/monde entre 0,8 et 1,2), le HUD n'attenue pas. PORTE : pour chacun des 3 types, groupe identique a celui du monde (id) et champs de mouvement egaux a 5 % ; rapport de lueur dans [0,8 ; 1,2]. Capture jointe.
+
 ## Livrable — le contrat, en entier
 
 `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
@@ -39,7 +41,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu apres un ramassage d'eco, sur le build nomme dans le commentaire « build publie ». UNE question : la particule d'eco au centre de la jauge est-elle dessinee PAR-DESSUS la jauge (visible entiere, debordant un peu du trou) et non derriere (apercue seulement a travers le trou) ? (le reste de la jauge est valide : ne pas le redemander).
+HUD en jeu apres un ramassage d'eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : (1) la particule au centre est-elle bien celle de l'eco ramassee (les etincelles de l'eco bleue bougent comme sur un vial d'eco bleue du monde, pas comme l'eco verte reteintee) ? (2) sa lueur est-elle aussi vive que sur le vial du monde ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -60,6 +62,9 @@ HUD en jeu apres un ramassage d'eco, sur le build nomme dans le commentaire « b
 
 ### 2026-09-19
 > Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais t'as pris mon feedback et tu l'as traité ?
+
+### 2026-09-20
+> Alors c'est par dessus mais la lueur est très muted… et aussi j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais plutôt exactement comme sur la particule d'Eco verte donc c'est pas bon)
 
 ## Pourquoi ce fichier existe
 

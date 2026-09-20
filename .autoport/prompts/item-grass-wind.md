@@ -5,7 +5,7 @@
 # Un vent qui a une direction, et qui courbe le brin au lieu de le faire pivoter
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-20 : « C'est vraiment bof bof, j'ai l'impression que tout bouge par… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 8. L'herbe a UN SEUL SINUS a 0,271 Hz, sans rafale, et surtout SANS DIRECTION DE VENT : chaque brin oscille le long de son propre lacet aleatoire, donc le champ n'a aucun cap commun. ATTENTION, ORDRE DE L'OWNER DU 12/09 : « le shader breeze.glsl est tres peu satisfaisant aussi, tres rigide, pas ouf du tout, donc attention ». L'item `foliage-wind` porte DEUX REFUS COMPLETS. On reprend sa CHARPENTE TEMPORELLE — plusieurs bandes de frequence, un cap commun qui derive, un front de rafale — et PAS sa loi de flexion, qui fait pivoter l'element autour d'un point d'ancrage, mouvement d'objet dur. […suite dans le contrat]
@@ -19,7 +19,7 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 ## Preuve exigee
 `grass_wind_defects == 0` dans `reports/grass-wind/proof.txt`.
 Le proof se produit par `lib/proof_run.sh grass-wind device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : Sur le niveau d'entrainement : l'herbe doit onduler dans UNE direction qui change lentement, avec des rafales qui traversent la zone, et les brins d'une meme touffe doivent bouger ensemble sans bouger exactement pareil..
+Ou l'owner regardera : Niveau d'entrainement. Deux oui/non : (1) deux touffes voisines bougent-elles avec un decalage visible (phase, amplitude), au lieu de bouger ensemble ? (2) une rafale traverse-t-elle la zone en se voyant PASSER (les touffes se couchent l'une apres l'autre), au lieu d'un mouvement d'ensemble ?.
 
 ## Hors perimetre
 Ne touche pas au vent du feuillage, qui est un autre item. Ne reprend PAS sa loi de flexion. Tout ce qui n'est pas cet item.
