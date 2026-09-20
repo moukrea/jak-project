@@ -9,6 +9,8 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 
 20/09 RETOUR OWNER (JAK-122) : « j'ai l'impression que tout bouge pareil avec des endroits plus ou moins, mais pas du tout convaincant, les touffes bougent ensemble, les variations sont nulles ». LA PORTE mesurait direction + rafales + intra-touffe ; pas la DECORRELATION entre touffes voisines. PERIMETRE : (1) phase et amplitude PAR TOUFFE (hachage de la racine), decalage de phase entre voisines >= 0,3 rad en moyenne ; (2) le champ de rafale a une longueur de correlation de 3-8 m et une vitesse de propagation visible (front qui traverse la zone en 1-3 s), pas un scalaire global ; (3) raideur par silhouette (un jonc bouge moins qu'une lame). PORTE : correlation de phase entre touffes voisines <= 0,5 ; part de la variance de mouvement portee par le terme GLOBAL <= 40 % ; vitesse du front de rafale mesuree sur les sommets emis entre 1 et 6 m/s. Capture jointe.
 
+COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
 ## Livrable — le contrat, en entier
 
 `grass_wind_defects` = 0, somme de termes publies SEPAREMENT.

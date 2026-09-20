@@ -8,7 +8,7 @@
 - (aucun retour de l'owner enregistre sur cet item)
 
 ## Cause connue
-LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 11. Le systeme est plus riche que l'owner ne le croit — Jak, une trainee de quatre echantillons espaces de 0,15 s, la prise de rebord, huit acteurs ecrasables et huit occultants, montee 0,25 s, descente 0,6 s, pierres tombales de 8 s — mais la FORME reste un disque. La direction du deplacement est connue par la trainee et n'est JAMAIS utilisee comme vecteur. PIEGE MATERIEL A RECONDUIRE : sur Adreno 618, les lectures de tableaux d'uniformes a index DYNAMIQUE rendent des ordures. Le code deroule a index litteral et plafonne a huit occulteurs pour cette raison. Ce bug NE SE VOIT PAS sur x86.
+LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 11. Le systeme est plus riche que l'owner ne le croit — Jak, une trainee de quatre echantillons espaces de 0,15 s, la prise de rebord, huit acteurs ecrasables et huit occultants, montee 0,25 s, descente 0,6 s, pierres tombales de 8 s — mais la FORME reste un disque. La direction du deplacement est connue par la trainee et n'est JAMAIS utilisee comme vecteur. PIEGE MATERIEL A RECONDUIRE : sur Adreno 618, les lectures de tableaux d'uniformes a index DYNAMIQUE rendent des ordures. Le code deroule a index litteral et plafonne a huit occulteurs pour cette raison. Ce bug NE SE VOIT PAS sur x86. […suite dans le contrat]
 
 ## Livrable
 `grass_interaction_defects` = 0, somme de termes publies SEPAREMENT.

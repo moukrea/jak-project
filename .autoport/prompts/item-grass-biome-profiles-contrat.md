@@ -7,6 +7,8 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 18. Section 3 du prompt de mission de l'owner, sautee par la premiere redaction de la SPEC et ajoutee le 12/09 apres relecture : « Geyser Rock ne doit pas utiliser exactement la meme herbe que la jungle ou les autres zones. » Aujourd'hui un seul jeu de parametres sert partout. La texture de sol est un indice UTILE MAIS FAIBLE : elle informe la couleur et le caractere de la zone, elle n'impose pas un unique type de brin.
 
+COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
 ## Livrable — le contrat, en entier
 
 `grass_profile_defects` = 0, somme de termes publies SEPAREMENT.

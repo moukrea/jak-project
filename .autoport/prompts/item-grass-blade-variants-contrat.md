@@ -9,6 +9,8 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 
 20/09 RETOUR OWNER (JAK-120) : « tu fais juste des touffes avec toutes les geometries, pas de touffes d'herbe differentes, pas de variations de hauteur… certaines des geometries… on voit clairement leurs polygones de pres, c'est nul ! ». LA PORTE ETAIT AVEUGLE a ces trois choses : elle comptait la diversite des BRINS, pas l'organisation en TOUFFES. PERIMETRE : (1) la variante se tire au niveau de la TOUFFE (hachage de la racine de touffe), avec une silhouette dominante par touffe et une minorite (<= 20 %) d'autres formes ; les touffes voisines different ; (2) hauteur PAR TOUFFE : facteur 0,7-1,3 tire par touffe, en plus de la variation par brin ; (3) de pres (< 6 m), aucun polygone visible : profil de largeur lisse et assez de segments pour que l'angle entre deux segments consecutifs reste sous 12 degres a la distance de LOD 0 ; le compte de sommets soumis ne monte pas (replier les rangees comme aujourd'hui). PORTE : part de touffes a silhouette dominante >= 80 % ; ecart-type de hauteur ENTRE touffes >= 15 % ; angle max entre segments a LOD 0 <= 12 degres, mesure sur les sommets emis ; sommets soumis inchanges. Capture jointe au passage en test.
 
+COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
 ## Livrable — le contrat, en entier
 
 `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
@@ -33,6 +35,9 @@ Niveau d'entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silh
 
 ### 2026-09-20
 > Alors tu fais juste des touffes avec toutes les géométries, pas de touffes d'herbe différentes, pas de variations de hauteur… certaines des géométrie… on voit clairement leurs polygones de près, c'est nul !
+
+### 2026-09-20
+> Idem à voir àvec l'ensemble des tickets lié
 
 ## Pourquoi ce fichier existe
 

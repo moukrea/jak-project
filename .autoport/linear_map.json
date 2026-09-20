@@ -364,10 +364,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "9b85f713a29e0684b54f518b97b45287f8c15e7e",
+  "hash": "2a545c71d8db2cfee23290ebedbea8e155890f29",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-20T07:21:22.939Z",
   "relations": [
@@ -503,13 +503,14 @@
   "url": "https://linear.app/moukrea/issue/JAK-118/lherbe-sarrete-progressivement-au-bord-des-chemins-sans-bande-vide-ni"
  },
  "grass-shading": {
-  "hash": "1e569a19fccaefc9e012e6872357310a4302117e",
+  "hash": "226f8c7d542426f2d6e3572916c5fb1e4704f386",
   "identifier": "JAK-121",
   "issue_id": "757f6ef9-10ef-4505-8193-97645fece194",
-  "last_state": "Todo",
+  "last_state": "Backlog",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-20T07:21:01.288Z",
   "relations": [
+   "grass-blade-variants",
    "grass-clumps"
   ],
   "url": "https://linear.app/moukrea/issue/JAK-121/lherbe-cesse-detre-un-aplat-du-relief-par-la-couleur-pas-par-la"
@@ -539,13 +540,14 @@
   "url": "https://linear.app/moukrea/issue/JAK-170/lherbe-est-usee-la-ou-lon-passe-carte-de-frequentation-cuite-par"
  },
  "grass-wind": {
-  "hash": "54563629b7d9ca75da31dd5d458e02f36fcdeb1b",
+  "hash": "7aad827933171914f645eafc66d4745745bfc147",
   "identifier": "JAK-122",
   "issue_id": "7da89a1c-3c97-4ebe-a745-f31d76e7d8fb",
-  "last_state": "Todo",
+  "last_state": "Backlog",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-20T05:57:10.718Z",
   "relations": [
+   "grass-blade-variants",
    "grass-clumps"
   ],
   "url": "https://linear.app/moukrea/issue/JAK-122/un-vent-qui-a-une-direction-et-qui-courbe-le-brin-au-lieu-de-le-faire"
@@ -882,10 +884,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "7016595a4baa3f95537bad5bee14d04ab0eb314b",
+  "build_announced": "f6d95abeba77",
+  "hash": "43253bb8de1b3f7fb93f837dc870866f324137e7",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-20T05:52:09.126Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"

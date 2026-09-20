@@ -9,6 +9,10 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 
 20/09 RETOUR OWNER (JAK-121) : « Aucune variation sur la verticale, c'est juste de haut en bas, et non c'est pas coherent… en gros j'ai l'impression qu'on voit plus ou moins toutes les teintes sur toutes les touffes, nul ! ». LA PORTE mesurait un degrade et une dispersion GLOBALE de teinte ; elle ne regardait pas la coherence PAR TOUFFE. PERIMETRE : (1) teinte de base tiree PAR TOUFFE (meme racine que les silhouettes), faible dispersion dans la touffe, forte entre touffes voisines ; (2) le degrade vertical reste mais s'attenue (il n'est plus la seule variation) ; (3) une variation laterale : assombrissement des brins interieurs / face sous le vent, ou ombre d'auto-occlusion simple par densite locale. PORTE : dispersion de teinte INTRA-touffe <= 1/3 de la dispersion INTER-touffes (mesurees sur les couleurs de sommets emises) ; part de la variance de couleur expliquee par la seule hauteur <= 60 %. Capture jointe.
 
+20/09 09:45 RETOUR OWNER (JAK-121), PRIORITAIRE sur ma reformulation de 08:55 : « Un degrade SUR LA LONGUEUR DU BRIN j'ai dit, c'est-a-dire pas de haut en bas, ca donnera du relief a ces geometries tres simples, c'est pas forcement pour une touffe, ca permet de creer en plus des changements de geometrie des variations de TYPES de brins etc ». LECTURE : le degrade actuel est un haut/bas (hauteur monde ou ecran) ; il doit etre parametre sur la longueur PROPRE du brin (t de 0 a la racine a 1 a la pointe, LE LONG de la courbure, y compris quand le brin est couche par le vent ou le pas), et la palette varie par TYPE de brin (les 6 silhouettes de grass-blade-variants), pas d'abord par touffe. La teinte par touffe, l'assombrissement par densite et la face eclairee/opposee (SPEC §7) restent des complements, pas le coeur. PORTE : (1) la couleur emise d'un sommet est fonction de sa coordonnee t LE LONG du brin, pas de sa hauteur monde : sur des brins couches (vent force), la correlation couleur/t reste >= 0,9 et la correlation couleur/hauteur-monde tombe ; (2) les 6 types de brins ont des palettes distinctes (distance de teinte entre types >= seuil) ; (3) le degrade est visible sur toute la longueur (amplitude racine->pointe >= 25 % de luminance). Capture jointe.
+
+COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
 ## Livrable — le contrat, en entier
 
 `grass_shading_defects` = 0, somme de termes publies SEPAREMENT.
@@ -24,12 +28,15 @@ Aucun ajout de geometrie. Aucune dependance a un systeme graphique indisponible 
 
 ## Ou l'owner regardera
 
-Niveau d'entrainement, de pres. Deux oui/non : (1) chaque touffe a-t-elle SA teinte (une touffe plus jaune, la voisine plus bleue), au lieu de montrer toutes les teintes ? (2) la variation de couleur va-t-elle au-dela du simple degrade bas-sombre / haut-clair (cotes, brins, ombre portee entre brins) ?
+Niveau d'entrainement, de pres, sur le build nomme dans le commentaire « build publie ». Trois oui/non : (1) le degrade suit-il LE BRIN sur sa longueur (sombre a la racine, clair a la pointe, en suivant sa courbure), au lieu d'un simple haut/bas de l'ecran ? (2) les differents TYPES de brins (lame, fine, large, faux, jonc, touffu) ont-ils des teintes ou des palettes differentes ? (3) l'ensemble a-t-il du relief, ou reste-t-il un aplat ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
 ### 2026-09-20
 > Aucune variation sur la verticale, c'est juste de haut en bas, et non c'est pas cohérent… en gros j'ai l'impression qu'on voit plus ou moins toutes les teintes sur toutes les touffes, nul !
+
+### 2026-09-20
+> Un dégradé sur la longueur du brin j'ai dit, c'est à dire pas de haut en bas, ça donnera du relief à ces géométries très simples, c'est pas forcément pour une touffe, ça permet de créer en plus des changements de géométrie des variations de types de brins etc etc, à voir avec l'ensemble des tickets d'herbe… j'aurai cru que c'était compris depuis le début ça commence à me saouler
 
 ## Pourquoi ce fichier existe
 
