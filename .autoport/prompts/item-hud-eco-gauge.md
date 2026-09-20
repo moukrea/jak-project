@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-20 : « Les éclairs de l'Eco Bleue débordent un peu trop sur la jaug… »
+- 2026-09-20 : « Débile, maintenant elle est tellement minuscule que c'est un… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
@@ -32,7 +32,7 @@ PREUVE : `FEATUR […suite dans le contrat]
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee au centre tient-elle dans le trou de la jauge, en debordant a peine (plus de sur la couronne) ? (2) la teinte est-elle pleine, opaque comme sur le vial du monde, et non presque transparente ?.
+Ou l'owner regardera : HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee REMPLIT-elle le trou de la jauge (elle touche presque la couronne, deborde a peine), ni minuscule ni envahissante ? (2) la lueur bleue est-elle pleine et opaque comme sur le vial du monde ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.

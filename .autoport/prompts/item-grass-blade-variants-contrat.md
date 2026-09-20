@@ -17,6 +17,8 @@ COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir a
 
 20/09 12:50 SUPERVISEUR — ESSAI 3 : les 6 ESPECES sont codees (kGrassSpecies, echelles x1,32 hauteur / x1,45 largeur, ports) et DANS le build publie. Les 20 termes de fond sont a 0 ; le SEUL terme rouge est `engine_mirror` : l'empreinte (racine, variante) publiee par le moteur (6a4bc877dd5dac95) differe de celle que le recensement recalcule (0929c56540e8efc2), k=6 des deux cotes. Cause la plus probable : le recensement REJOUE la regle de tirage des variantes avec SA copie de la table, et l'essai 3 a change la table cote moteur (poids par espece, expect_pm_v0..v5 = 200/190/180/160/150/120) sans que la copie suive. Le terme fait son travail : ce qui est dessine n'est plus ce que la garde mesure. PERIMETRE DE L'ESSAI ACCORDE (1) : ne PAS toucher au rendu ; faire lire au recensement LA MEME table que le moteur (kGrassSpecies exportee, ou la table de poids publiee par le moteur dans proof.txt et relue), de sorte qu'il n'existe plus de copie ; verifier l'egalite des empreintes ; controle negatif : une table volontairement decalee doit rougir. Owner 12:40 : « Attention a pas etre en collision avec un autre des tickets de la refonte d'herbe » -> la table des especes est precisement l'anti-collision (source unique lue par silhouettes, couleur, vent, biomes) ; ne definir aucun parametre d'espece hors de cette table.
 
+20/09 13:45 RETOUR OWNER (JAK-120) : « je vois pas beaucoup d'especes, t'as pas du tout joue sur les degrades (pas de haut en bas mais de gauche a droite pour creer d'autres especes), elles se ressemblent toutes et ont les memes variations de teintes, c'est nul ! ». CAUSE CONNUE : l'essai 3 a declare la palette par espece dans kGrassSpecies mais NE LA LIT PAS (« palette/raideur sont declarees et pas encore lues », commit 470ded5df3) : six geometries, une seule couleur. Une espece sans sa couleur n'est pas une espece. PERIMETRE DE LA REPRISE (les deux dans le meme essai) : (a) le miroir du recensement lit la table du moteur (voir ci-dessus) ; (b) le shader LIT la palette par espece : couleur de base + couleur de pointe + un AXE de degrade par espece — le long du brin (racine->pointe) pour certaines, EN TRAVERS du brin (bord gauche -> bord droit, ce que l'owner appelle « de gauche a droite ») pour d'autres, et un liseret de bord pour une ; les six especes ont six palettes visiblement distinctes (ecart de teinte entre especes >= 20 degres ou de luminance >= 20 %). PORTE ajoutee : couleur de sommet emise = f(espece, t_long, t_travers) verifiee par regression sur les sommets emis (R2 >= 0,9 avec le modele par espece, R2 <= 0,5 avec un modele a une seule palette) ; distance de palette inter-especes >= seuil. Ceci EST la partie « palette par type » de grass-shading : grass-shading garde le degrade sur la longueur et la variation laterale FINE, pas la palette par espece, qui vit ici avec la table. Capture jointe.
+
 ## Livrable — le contrat, en entier
 
 `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
@@ -32,7 +34,7 @@ Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de mailla
 
 ## Ou l'owner regardera
 
-Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au premier coup d'oeil (silhouette dominante differente, hauteur differente, port different), ou toutes les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l'owner).
+Niveau d'entrainement, de pres. Deux oui/non : (1) distingue-t-on plusieurs ESPECES d'herbe a l'oeil, chacune avec sa forme ET sa couleur (une espece plus jaune, une plus bleue, une a pointe claire, une a bord clair), au lieu de touffes qui se ressemblent toutes avec les memes variations de teinte ? (2) le degrade de chaque espece a-t-il sa propre direction (le long du brin pour l'une, en travers du brin pour l'autre) ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -53,6 +55,9 @@ Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distingu
 
 ### 2026-09-20
 > "→ À arbitrer : tous les essais accordés sont consommés sans passer la mesure. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver."  Bah démerdes toi, t'as les commentaires dans les tickets liés, la spec, t'as tout ce qu'il faut !
+
+### 2026-09-20
+> Honnêtement je vois pas beaucoup d'espèces t'as pas du tout joué sur les dégradés (pas de haut en bas mais de "gauche à droite" pour créer d'autres espèces, elles se ressemblent toutes et ont les mêmes variations de teintes, c'est nul !
 
 ## Pourquoi ce fichier existe
 

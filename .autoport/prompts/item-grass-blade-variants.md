@@ -5,7 +5,7 @@
 # Plusieurs silhouettes de brins simples, au lieu d'une seule forme hachee
 
 ## Defaut cite
-- 2026-09-20 : « "→ À arbitrer : tous les essais accordés sont consommés sans… »
+- 2026-09-20 : « Honnêtement je vois pas beaucoup d'espèces t'as pas du tout… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets en proche, deux quads croises en moyen, une carte suspendue pour l'overhang. Hauteur, courbure, largeur, teinte et phase sont cinq hachages de la MEME forme. L'owner l'a dit et c'est verifie.
@@ -21,7 +21,7 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 ## Preuve exigee
 `grass_variant_defects == 0` dans `reports/grass-blade-variants/proof.txt`.
 Le proof se produit par `lib/proof_run.sh grass-blade-variants device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au premier coup d'oeil (silhouette dominante differente, hauteur differente, port different), ou toutes les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l'owner)..
+Ou l'owner regardera : Niveau d'entrainement, de pres. Deux oui/non : (1) distingue-t-on plusieurs ESPECES d'herbe a l'oeil, chacune avec sa forme ET sa couleur (une espece plus jaune, une plus bleue, une a pointe claire, une a bord clair), au lieu de touffes qui se ressemblent toutes avec les memes variations de teinte ? (2) le degrade de chaque espece a-t-il sa propre direction (le long du brin pour l'une, en travers du brin pour l'autre) ?.
 
 ## Hors perimetre
 Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne change ni la couleur ni le vent. Tout ce qui n'est pas cet item.

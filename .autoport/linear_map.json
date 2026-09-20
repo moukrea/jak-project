@@ -331,10 +331,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-100/le-jeu-cesse-de-payer-68-mo-de-vram-pour-un-chemin-de-halo-qui-ne"
  },
  "grass-bake-invalidation": {
-  "hash": "7ae2be7497108cba1b991e2628af307791b36545",
+  "hash": "78bb9bf7e1a56ac819aec9aecd1d4baa79135863",
   "identifier": "JAK-169",
   "issue_id": "f0364a05-0417-4545-8914-1791f0e40507",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "relations": [
    "grass-surface-truth"
@@ -364,7 +364,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "8055853245fe62530673de860c681a17e5685c04",
+  "hash": "eaf6c0261cd2a31ebea45fcf74a4a65e357e46c8",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
   "last_state": "Todo",
@@ -438,11 +438,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-126/le-bord-qui-donne-sur-le-vide-etabli-par-la-geometrie-et-non-par"
  },
  "grass-interaction-direction": {
-  "build_announced": "f94ae1f6634e",
-  "hash": "39d28eb13bdb9c3481fa52f75c4687809d8964b6",
+  "hash": "b8bf92a1dd7523e7f9252c7901e77f277570541f",
   "identifier": "JAK-124",
   "issue_id": "9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-20T10:53:01.499Z",
   "relations": [
@@ -886,11 +885,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "1a7e1b405e14",
-  "hash": "d47348a827bc8ec20d3ceb397027d6d5a74d3015",
+  "hash": "9682aa1c9534dbea58f083c0b2dfb88f24349dfe",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-008.txt",
   "pulled_at": "2026-09-20T10:54:44.423Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"

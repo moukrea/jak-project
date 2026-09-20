@@ -19,6 +19,10 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 
 20/09 11:10 RETOUR OWNER (JAK-176) : « Les eclairs de l'Eco Bleue debordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand meme). Et la teinte est pas assez opaque, ca fait presque transparent ». L'emetteur du bon type est ACQUIS. RESTE : (1) TAILLE : la demi-largeur de 15,0 unites (reprise du 18/09) est trop grande : viser la nuee dans le trou avec un debordement <= 10 % du rayon du trou (mesure sur la boite des sommets emis contre le rayon interieur de l'anneau) ; (2) OPACITE : l'alpha des etincelles rendu a l'ecran est trop bas — chercher pourquoi (alpha du groupe, mode de fusion additif sur fond sombre, taille reduite qui dilue), viser un alpha effectif >= 0,8 au coeur de la nuee, comme le vial du monde. PORTE : debordement <= 10 % du rayon du trou sur les 3 types ; alpha effectif au coeur >= 0,8 ; le mouvement et le type d'emetteur ne changent pas.
 
+20/09 12:15 SUPERVISEUR : essai 8 a CODE la taille et l'opacite (hud-classes-pc.gc, commits d165bf9566 + 1a7e1b405e, DANS le build publie) puis a echoue sur SON PROPRE instrument neuf : terme t10 « bande », band_bad=16223 sur cover=16226 (99,98 % de mauvais) — un taux de base a ~1000 pour mille ne classe RIEN (regle du 14/09 : decoupage muet). L'instrument est suspect, pas forcement la nuee. Budget epuise (2/2). Regle de l'owner (19/09) : ne pas bruler d'essai sur une mesure qui bute sans cause nommee -> l'owner tranche a l'oeil sur le build qui porte l'essai 8. Si un essai suivant est accorde, il commence par calibrer t10 sur un controle positif ET negatif (une nuee volontairement trop grande / trop pale doit rougir, la nuee du vial du monde doit verdir) AVANT de toucher au code.
+
+20/09 13:45 RETOUR OWNER (JAK-176) : « maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le probleme d'opacite de la lueur bleue n'est en plus pas corrige du tout ». L'essai 8 a SURCORRIGE la taille (un point) et n'a RIEN change a l'opacite visible. ORDRE IMPOSE POUR L'ESSAI SUIVANT : (1) d'abord CALIBRER l'instrument : mesurer la nuee du VIAL DU MONDE (bleu) avec le meme instrument — taille relative et alpha effectif au coeur — et publier ces deux nombres : ils sont LA CIBLE, pas un seuil invente ; puis verifier que l'instrument rougit sur un controle trop petit ET sur un controle trop pale (sinon il est muet, comme t10 a l'essai 8 : 99,98 % de mauvais) ; (2) ensuite regler : rayon de la nuee = 0,85-0,95 du rayon du trou (mesure sur la boite des sommets emis, PAS sur un parametre) ; alpha effectif au coeur >= celui du vial du monde x 0,9 — si le mode de fusion additif sur fond sombre dilue, changer le mode ou la texture, pas juste la constante ; (3) capture COTE A COTE jointe : nuee du HUD et vial du monde dans la meme image. Deux essais.
+
 ## Livrable — le contrat, en entier
 
 `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
@@ -43,7 +47,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee au centre tient-elle dans le trou de la jauge, en debordant a peine (plus de sur la couronne) ? (2) la teinte est-elle pleine, opaque comme sur le vial du monde, et non presque transparente ?
+HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee REMPLIT-elle le trou de la jauge (elle touche presque la couronne, deborde a peine), ni minuscule ni envahissante ? (2) la lueur bleue est-elle pleine et opaque comme sur le vial du monde ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -70,6 +74,9 @@ HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee au centre 
 
 ### 2026-09-20
 > Les éclairs de l'Eco Bleue débordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand même).  Et la teinte est pas assez opaque, ça fait presque transparent, t'avais l'air d'exprimer que ça pourrait être un soucis dans les commentaires précédents, ça l'est
+
+### 2026-09-20
+> Débile, maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le problème d'opacité de la lueur bleue n'est en plus pas corrigé du tout, à chier
 
 ## Pourquoi ce fichier existe
 

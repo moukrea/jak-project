@@ -10260,7 +10260,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 1
+  max_retries: 2
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10285,6 +10285,8 @@ items:
     20/09 11:40 OWNER (JAK-121) : « Attention les types de brins simples niveau geometrie impliquent aussi des "especes differentes" au meme titre que les degrades et compagnie, ca joue sur la coherence des types, biomes, especes differentes ». LECTURE : une silhouette + sa palette + sa raideur au vent + sa hauteur = une ESPECE d'herbe ; les six types ne sont pas six formes interchangeables mais six especes coherentes (une lame haute et souple n'a pas la palette ni la raideur d'un jonc court). Cette coherence par ESPECE est le fil qui relie silhouettes (grass-blade-variants), couleur (grass-shading), vent (grass-wind) et biomes (grass-biome-profiles, qui choisit QUELLES especes poussent ou). Un item d'herbe ne definit jamais un parametre par type sans le rattacher a l'espece : une table unique des especes (nom, silhouette, palette, hauteur, raideur, densite) est la source, les shaders la lisent, les biomes en tirent des proportions.
 
     20/09 12:50 SUPERVISEUR — ESSAI 3 : les 6 ESPECES sont codees (kGrassSpecies, echelles x1,32 hauteur / x1,45 largeur, ports) et DANS le build publie. Les 20 termes de fond sont a 0 ; le SEUL terme rouge est `engine_mirror` : l'empreinte (racine, variante) publiee par le moteur (6a4bc877dd5dac95) differe de celle que le recensement recalcule (0929c56540e8efc2), k=6 des deux cotes. Cause la plus probable : le recensement REJOUE la regle de tirage des variantes avec SA copie de la table, et l'essai 3 a change la table cote moteur (poids par espece, expect_pm_v0..v5 = 200/190/180/160/150/120) sans que la copie suive. Le terme fait son travail : ce qui est dessine n'est plus ce que la garde mesure. PERIMETRE DE L'ESSAI ACCORDE (1) : ne PAS toucher au rendu ; faire lire au recensement LA MEME table que le moteur (kGrassSpecies exportee, ou la table de poids publiee par le moteur dans proof.txt et relue), de sorte qu'il n'existe plus de copie ; verifier l'egalite des empreintes ; controle negatif : une table volontairement decalee doit rougir. Owner 12:40 : « Attention a pas etre en collision avec un autre des tickets de la refonte d'herbe » -> la table des especes est precisement l'anti-collision (source unique lue par silhouettes, couleur, vent, biomes) ; ne definir aucun parametre d'espece hors de cette table.
+
+    20/09 13:45 RETOUR OWNER (JAK-120) : « je vois pas beaucoup d'especes, t'as pas du tout joue sur les degrades (pas de haut en bas mais de gauche a droite pour creer d'autres especes), elles se ressemblent toutes et ont les memes variations de teintes, c'est nul ! ». CAUSE CONNUE : l'essai 3 a declare la palette par espece dans kGrassSpecies mais NE LA LIT PAS (« palette/raideur sont declarees et pas encore lues », commit 470ded5df3) : six geometries, une seule couleur. Une espece sans sa couleur n'est pas une espece. PERIMETRE DE LA REPRISE (les deux dans le meme essai) : (a) le miroir du recensement lit la table du moteur (voir ci-dessus) ; (b) le shader LIT la palette par espece : couleur de base + couleur de pointe + un AXE de degrade par espece — le long du brin (racine->pointe) pour certaines, EN TRAVERS du brin (bord gauche -> bord droit, ce que l'owner appelle « de gauche a droite ») pour d'autres, et un liseret de bord pour une ; les six especes ont six palettes visiblement distinctes (ecart de teinte entre especes >= 20 degres ou de luminance >= 20 %). PORTE ajoutee : couleur de sommet emise = f(espece, t_long, t_travers) verifiee par regression sur les sommets emis (R2 >= 0,9 avec le modele par espece, R2 <= 0,5 avec un modele a une seule palette) ; distance de palette inter-especes >= seuil. Ceci EST la partie « palette par type » de grass-shading : grass-shading garde le degrade sur la longueur et la variation laterale FINE, pas la palette par espece, qui vit ici avec la table. Capture jointe.
   deliverable: |-
     `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
     1. LES VARIANTES EXISTENT ET SONT DISTRIBUEES : publier le compte de brins par variante et le compare aux proportions declarees par le profil. Un ecart au-dela d'une tolerance declaree est le defaut.
@@ -10292,9 +10294,11 @@ items:
     3. LE PALIER COMMANDE LE NOMBRE DE VARIANTES, et la selection reste DETERMINISTE : un brin donne recoit la meme variante a tous les paliers qui la proposent. Publier le compte de brins changeant de variante entre deux paliers : zero.
     4. AUCUNE MODELISATION : publier le compte d'assets de maillage charges par le systeme d'herbe, qui vaut zero. C'est l'ordre explicite de l'owner.
     PREUVE : `FEATURE grass-blade-variants armed=1 hits=<brins ayant recu une variante>` + la ligne `grass_variant_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Niveau d''entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au
-    premier coup d''oeil (silhouette dominante differente, hauteur differente, port different), ou toutes
-    les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l''owner).'
+  where: 'Niveau d''entrainement, de pres. Deux oui/non : (1) distingue-t-on plusieurs ESPECES d''herbe
+    a l''oeil, chacune avec sa forme ET sa couleur (une espece plus jaune, une plus bleue, une a pointe
+    claire, une a bord clair), au lieu de touffes qui se ressemblent toutes avec les memes variations
+    de teinte ? (2) le degrade de chaque espece a-t-il sa propre direction (le long du brin pour l''une,
+    en travers du brin pour l''autre) ?'
   out_of_scope: Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne
     change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
   notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
@@ -10340,6 +10344,10 @@ items:
       "→ À arbitrer : tous les essais accordés sont consommés sans passer la mesure. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver."
 
       Bah démerdes toi, t'as les commentaires dans les tickets liés, la spec, t'as tout ce qu'il faut !
+  - date: '2026-09-20'
+    text: Honnêtement je vois pas beaucoup d'espèces t'as pas du tout joué sur les dégradés (pas de haut
+      en bas mais de "gauche à droite" pour créer d'autres espèces, elles se ressemblent toutes et ont
+      les mêmes variations de teintes, c'est nul !
 - status: open
   game: jak1
   owner_test: true
@@ -10527,13 +10535,13 @@ items:
   hits_means: touffes portant une exposition cuite
   prompt: prompts/item-grass-wind-exposure.md
   block_reason: null
-- status: to-test
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 6
+  max_retries: 3
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10560,6 +10568,8 @@ items:
     LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 11. Le systeme est plus riche que l'owner ne le croit — Jak, une trainee de quatre echantillons espaces de 0,15 s, la prise de rebord, huit acteurs ecrasables et huit occultants, montee 0,25 s, descente 0,6 s, pierres tombales de 8 s — mais la FORME reste un disque. La direction du deplacement est connue par la trainee et n'est JAMAIS utilisee comme vecteur. PIEGE MATERIEL A RECONDUIRE : sur Adreno 618, les lectures de tableaux d'uniformes a index DYNAMIQUE rendent des ordures. Le code deroule a index litteral et plafonne a huit occulteurs pour cette raison. Ce bug NE SE VOIT PAS sur x86.
 
     COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
+    20/09 13:45 RETOUR OWNER (JAK-124) : « toujours tres fake et pas vraiment correle au mesh du personnage… tu le mets en review alors que tu dis toi-meme qu'il reste des trucs a faire ! Quand on saute l'herbe se releve et quand on atterrit ca passe d'un etat a l'autre instant sans transition. Quand on spin ou punch en avant, on voit clairement que c'est fake et que ca prend pas en compte le mesh de Jak (ou ses collisions) ». DEUX FAUTES DE CADRAGE : (1) la porte mesurait une DIRECTION de couchage a partir de la position et du cap de Jak (un point + un vecteur), pas l'empreinte de son CORPS ; (2) l'item est passe en test avec un RESTE declare — une brique qui dit elle-meme qu'il manque quelque chose ne va pas au test de l'owner (regle Refonte de DIRECTIVES), le superviseur aurait du le retenir. PERIMETRE DE LA REPRISE : (a) la source du couchage est l'ensemble des SPHERES DE COLLISION de Jak (collide-shape : pieds, corps, et les volumes d'attaque du spin et du punch quand ils sont actifs), projetees au sol, PAS un point+cap ; (b) dynamique par brin/touffe : un ressort amorti (temps de retour 0,6-1,2 s), pousse par la vitesse des spheres, jamais un etat binaire ; a l'atterrissage, l'impact couche et le ressort rend ; (c) spin = couronne, punch = lobe devant le bras, chute = disque d'impact puis recuperation. PORTE : correlation entre la carte de couchage et l'empreinte au sol des spheres actives >= 0,8 sur une course scriptee (marche, saut, spin, punch) ; aucune variation de couchage > 30 % entre deux images consecutives hors impact ; temps de retour mesure dans [0,6 ; 1,2] s ; ablation : sans spheres = 0 couchage. Capture ou courte sequence jointe.
   deliverable: |-
     `grass_interaction_defects` = 0, somme de termes publies SEPAREMENT.
     1. LA FLEXION SUIT LE MOUVEMENT : publier l'angle entre la direction de flexion moyenne et la direction de deplacement, sur une traversee scriptee, sous un plafond declare. Aujourd'hui cet angle est aleatoire par construction.
@@ -10567,14 +10577,18 @@ items:
     3. RIEN NE REGRESSE DE L'ACQUIS : le relevement amorti, les pierres tombales, l'annulation a la casse d'une caisse et la distinction entre acteurs caches et acteurs aplatis gardent leurs grandeurs. Publier chacune.
     4. LE DEROULAGE A INDEX LITTERAL EST CONSERVE : publier le compte de lectures de tableau d'uniformes a index dynamique dans les shaders du chemin herbe, qui vaut zero. Preuve sur l'APPAREIL, pas sur x86 : ce defaut y est invisible.
     PREUVE : `FEATURE grass-interaction-direction armed=1 hits=<contacts dynamiques appliques>` + la ligne `grass_interaction_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Sur le niveau d''entrainement : marche dans l''herbe et regarde devant les pieds de Jak. L''herbe
-    doit se coucher devant lui et se degager sur les cotes, pas s''aplatir en disque.'
+  where: 'Niveau d''entrainement, dans l''herbe. Quatre oui/non : (1) l''herbe se couche-t-elle la ou
+    le corps de Jak passe REELLEMENT (pieds, jambes, et le bras sur un coup de poing, la roue sur un spin),
+    et pas dans un disque ou un cone devant lui ? (2) quand il saute, l''herbe se releve-t-elle progressivement
+    (ressort), et a l''atterrissage se couche-t-elle avec une transition, sans passer d''un etat a l''autre
+    d''un coup ? (3) un spin couche l''herbe en couronne autour de lui, un coup de poing en avant la couche
+    devant le bras ? (4) l''ensemble a-t-il l''air vrai ou fake ?'
   out_of_scope: Ne change pas la portee ni le nombre d'interacteurs des paliers bas, qui gardent la loi
     radiale actuelle en repli. Tout ce qui n'est pas cet item.
   notes: 'SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.'
   hits_means: contacts dynamiques appliques
   prompt: prompts/item-grass-interaction-direction.md
-  block_reason: null
+  block_reason: ''
   gate_verdict:
     result: porte-tenue
     date: '2026-09-20'
@@ -10583,6 +10597,13 @@ items:
     attempt: 3
     journal: validator-003.txt
   delivered: '2026-09-20'
+  owner_feedback:
+  - date: '2026-09-20'
+    text: Alors j'ai l'impression que c'est toujours très fake et pas vraiment corrélé au mesh du personnage…
+      puis tu le mets en review alors que tu dis toi même qu'il reste des trucs à faire ! Et aussi, quand
+      on saute l'herbe se relève et quand on atterrit bah ça passe d'un état à l'autre instant sans transition.
+      Quand on spin ou punch en avant, on voit clairement que c'est fake et que ça prend pas en compte
+      le mesh de Jak (ou ses collisions) pour influencer la façon dont l'herbe se couche!
 - status: open
   game: jak1
   owner_test: true
@@ -13183,7 +13204,7 @@ items:
     proof_bytes: 52974
     attempt: 1
     journal: validator-001.txt
-- status: in-progress
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
@@ -13533,7 +13554,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13578,6 +13599,8 @@ items:
     20/09 11:10 RETOUR OWNER (JAK-176) : « Les eclairs de l'Eco Bleue debordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand meme). Et la teinte est pas assez opaque, ca fait presque transparent ». L'emetteur du bon type est ACQUIS. RESTE : (1) TAILLE : la demi-largeur de 15,0 unites (reprise du 18/09) est trop grande : viser la nuee dans le trou avec un debordement <= 10 % du rayon du trou (mesure sur la boite des sommets emis contre le rayon interieur de l'anneau) ; (2) OPACITE : l'alpha des etincelles rendu a l'ecran est trop bas — chercher pourquoi (alpha du groupe, mode de fusion additif sur fond sombre, taille reduite qui dilue), viser un alpha effectif >= 0,8 au coeur de la nuee, comme le vial du monde. PORTE : debordement <= 10 % du rayon du trou sur les 3 types ; alpha effectif au coeur >= 0,8 ; le mouvement et le type d'emetteur ne changent pas.
 
     20/09 12:15 SUPERVISEUR : essai 8 a CODE la taille et l'opacite (hud-classes-pc.gc, commits d165bf9566 + 1a7e1b405e, DANS le build publie) puis a echoue sur SON PROPRE instrument neuf : terme t10 « bande », band_bad=16223 sur cover=16226 (99,98 % de mauvais) — un taux de base a ~1000 pour mille ne classe RIEN (regle du 14/09 : decoupage muet). L'instrument est suspect, pas forcement la nuee. Budget epuise (2/2). Regle de l'owner (19/09) : ne pas bruler d'essai sur une mesure qui bute sans cause nommee -> l'owner tranche a l'oeil sur le build qui porte l'essai 8. Si un essai suivant est accorde, il commence par calibrer t10 sur un controle positif ET negatif (une nuee volontairement trop grande / trop pale doit rougir, la nuee du vial du monde doit verdir) AVANT de toucher au code.
+
+    20/09 13:45 RETOUR OWNER (JAK-176) : « maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le probleme d'opacite de la lueur bleue n'est en plus pas corrige du tout ». L'essai 8 a SURCORRIGE la taille (un point) et n'a RIEN change a l'opacite visible. ORDRE IMPOSE POUR L'ESSAI SUIVANT : (1) d'abord CALIBRER l'instrument : mesurer la nuee du VIAL DU MONDE (bleu) avec le meme instrument — taille relative et alpha effectif au coeur — et publier ces deux nombres : ils sont LA CIBLE, pas un seuil invente ; puis verifier que l'instrument rougit sur un controle trop petit ET sur un controle trop pale (sinon il est muet, comme t10 a l'essai 8 : 99,98 % de mauvais) ; (2) ensuite regler : rayon de la nuee = 0,85-0,95 du rayon du trou (mesure sur la boite des sommets emis, PAS sur un parametre) ; alpha effectif au coeur >= celui du vial du monde x 0,9 — si le mode de fusion additif sur fond sombre dilue, changer le mode ou la texture, pas juste la constante ; (3) capture COTE A COTE jointe : nuee du HUD et vial du monde dans la meme image. Deux essais.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13594,9 +13617,9 @@ items:
     6. ETEINT = ORIGINE.
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
-  where: 'HUD en jeu apres un ramassage d''eco bleue. Deux oui/non : (1) la nuee au centre tient-elle
-    dans le trou de la jauge, en debordant a peine (plus de sur la couronne) ? (2) la teinte est-elle
-    pleine, opaque comme sur le vial du monde, et non presque transparente ?'
+  where: 'HUD en jeu apres un ramassage d''eco bleue. Deux oui/non : (1) la nuee REMPLIT-elle le trou
+    de la jauge (elle touche presque la couronne, deborde a peine), ni minuscule ni envahissante ? (2)
+    la lueur bleue est-elle pleine et opaque comme sur le vial du monde ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -13639,6 +13662,9 @@ items:
       rapport au trou, pas de beaucoup mais quand même).  Et la teinte est pas assez opaque, ça fait presque
       transparent, t'avais l'air d'exprimer que ça pourrait être un soucis dans les commentaires précédents,
       ça l'est
+  - date: '2026-09-20'
+    text: Débile, maintenant elle est tellement minuscule que c'est un petit point au milieu du trou,
+      le problème d'opacité de la lueur bleue n'est en plus pas corrigé du tout, à chier
   block_reason: ''
 - status: validated
   game: jak1
