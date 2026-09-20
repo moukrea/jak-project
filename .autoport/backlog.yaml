@@ -10254,7 +10254,7 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -10553,7 +10553,7 @@ items:
   hits_means: touffes portant une exposition cuite
   prompt: prompts/item-grass-wind-exposure.md
   block_reason: null
-- status: in-progress
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13574,7 +13574,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: open
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13650,12 +13650,12 @@ items:
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-20'
-    proof_sha: 4d36a13313a32892
-    proof_bytes: 65816
-    attempt: 7
-    journal: validator-007.txt
-  delivered: '2026-09-20'
+    date: '2026-09-21'
+    proof_sha: 7dee70f0293f5cf1
+    proof_bytes: 68757
+    attempt: 11
+    journal: validator-011.txt
+  delivered: '2026-09-21'
   owner_feedback:
   - date: '2026-09-17'
     text: Ah j'ai peut-être testé sur un build pas fini ?
@@ -14628,3 +14628,35 @@ items:
     proof_bytes: 71684
     attempt: 2
     journal: validator-002.txt
+- id: harness-owner-test-requires-a-capture
+  status: open
+  priority: 14
+  owner_test: false
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-owner-test-requires-a-capture.md
+  code_scope: harness
+  feature: 'Un chantier visible ne part au test de l''owner que si son ticket porte une capture de la
+    zone : la règle devient une porte, plus une consigne'
+  gate:
+    key: owner_test_capture_defects
+    op: ==
+    value: 0
+  where: 'Rien a regarder en jeu : preuve machine.'
+  known_cause: 'Cree le 21/09 00:55 par le superviseur. FAITS : DIRECTIVES (Ticket Linear, 18/09) exige
+    une capture jointe quand un chantier visible part au test de l''owner ; l''item hud-eco-gauge portait
+    en plus « CAPTURE COTE A COTE OBLIGATOIRE » dans sa consigne ; l''essai 11 est passe en test le 21/09
+    00:46 sans aucune piece jointe ni image dans le commentaire de l''agent (0 appel `--attach` dans attempt-011.jsonl
+    ; 0 attachment sur JAK-176). Meme manque sur grass-blade-variants essai 7 et grass-interaction-direction
+    essai 3 (owner 19/09 : « t''aurais pu joindre un screen ca aurait accelere les choses »). Une consigne
+    que trois agents sur trois ignorent n''est pas une regle : c''est une porte qui manque. CIBLE : dans
+    la porte de fermeture de l''orchestrateur, pour un item `owner_test: true` dont le `where` n''est
+    pas « rien a installer/rien a regarder en jeu », le passage a `to-test` est REFUSE (l''item reste
+    in-progress, le worker est renvoye poster) tant qu''aucun commentaire du harnais poste PENDANT cet
+    essai sur le ticket ne porte une image (attachment ou `![`) ; le refus est nomme dans le journal et
+    le handoff. La capture n''est pas une preuve (regle 2) : la porte de mesure reste la meme, seule la
+    SORTIE vers l''owner est conditionnee. PORTE : (1) test : un item visible dont l''essai n''a poste
+    aucune image -> fermeture refusee avec la raison ; le meme avec une image postee -> passe ; un item
+    `where`=« rien a installer » -> passe sans image (controle) ; (2) le releve des 7 derniers jours :
+    combien de passages en test visibles sans image (attendu >= 3, les cas nommes ci-dessus) ; (3) DIRECTIVES
+    cite la porte. Un terme non mesure compte 1.'

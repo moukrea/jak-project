@@ -364,10 +364,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "5ac27eab4f78cf818fce919f50fe1834d890965c",
+  "hash": "5836cce32d1b467d2cc24dafb6e14eee1195a39a",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-20T18:36:42.761Z",
   "relations": [
@@ -651,6 +651,14 @@
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
+ "harness-owner-test-requires-a-capture": {
+  "hash": "0c581bfd4d30f1ea050b7cb2badbe3dcb11c79d9",
+  "identifier": "JAK-189",
+  "issue_id": "fc8256ee-9f6a-49d1-9df0-5d2e730b01ca",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-20T22:52:10.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
+ },
  "harness-pack-manifest-is-a-build-artefact": {
   "hash": "450f28584418b7ec967f5f7ada81b5e6f67f73fd",
   "identifier": "JAK-187",
@@ -893,10 +901,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "4709c715fb3416089cf31c166783a80cc223ef3d",
+  "build_announced": "ec5ebf52f0d4",
+  "hash": "a8cb987f6ef7a4f013946c3a1e59c50d88bcb985",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-011.txt",
   "pulled_at": "2026-09-20T18:31:06.561Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
