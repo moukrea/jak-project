@@ -1750,6 +1750,60 @@ struct ClumpCensus {
 };
 ClumpCensus clump_census(const BakeData& d, const ExpandResult& e);
 
+// ===================== grass-wind : LE RECENSEMENT DU VENT ======================================
+// SPEC refonte-herbe, section 8. « Un vent qui a une direction, et qui courbe le brin au lieu de
+// le faire pivoter. »
+//
+// SUR QUEL TEXTE. Comme `shading_census`, ce recensement ne RECALCULE pas la loi : il compile le
+// MEME FICHIER que le pilote splice dans `grass.vert` (`shaders/grass_wind.glsl`, inclus en C++
+// derriere `common/util/glsl_compat.h`). Le graphe de ninja relie ce binaire a ce .glsl : l'outil
+// ne peut pas mesurer une loi plus vieille que celle qu'il mesure.
+//
+// LES DEUX REGIMES VIENNENT DU MEME TEXTE. `gw_on = 0` rejoue la loi REMPLACEE, ecrite dans le
+// chunk lui-meme : le bras « avant » n'est pas une recopie de l'ancien code, c'est l'ancien code.
+
+// Ce que le chunk ecrit pour UN brin a UN instant. L'appelant compose :
+//   deplacement = mix(w0, w1, u) * u*u * amp * H, le long de (dx, 0, dz), u = 0 racine -> 1 pointe.
+struct WindSample {
+  float w0 = 0.f, w1 = 0.f, dx = 0.f, dz = 0.f, amp = 0.f;
+};
+WindSample eval_grass_wind(float bx, float by, float bz, float time_s, float phase,
+                           float yaw, float on);
+
+// LES SEUILS SONT PUBLIES PAR CE QUI MESURE, jamais recopies dans le juge (regle de
+// `clump_census`) : un seuil duplique derive du code mesure et rend la porte fausse en silence.
+constexpr float WIND_DISPERSION_CEIL   = 0.10f;   // dispersion angulaire AXIALE, plafond
+constexpr float WIND_TIP_LAG_FLOOR_MS  = 60.0f;   // retard base->pointe, plancher
+constexpr float WIND_CORR_IN_FLOOR     = 0.85f;   // correlation INTRA-touffe, plancher
+constexpr float WIND_CORR_BETWEEN_CEIL = 0.60f;   // correlation ENTRE touffes, plafond
+constexpr float WIND_TIP_STEP_CEIL     = 0.06f;   // pas image a image, plafond (fraction de H)
+constexpr float WIND_HEAD_SPAN_FLOOR_DEG = 15.0f; // le cap DOIT deriver, plancher
+constexpr int   WIND_FRAMES      = 1200;   // 20 s a 60 Hz
+constexpr float WIND_DT          = 1.0f / 60.0f;
+constexpr int   WIND_MAX_CLUMPS  = 600;
+constexpr int   WIND_PER_CLUMP   = 5;
+constexpr float WIND_BASE_U      = 0.30f;  // point bas de la tige, pour le retard
+constexpr float WIND_NEIGH_MIN_M = 0.40f;  // « touffes voisines » : bande de distance
+constexpr float WIND_NEIGH_MAX_M = 1.60f;
+constexpr float WIND_HEAD_SPAN_S = 600.0f; // fenetre sur laquelle le cap doit avoir tourne
+// NON MESURE. Ce n'est pas 0, deliberement : une grandeur sans population ne dit pas « zero »,
+// elle ne dit RIEN, et le juge doit pouvoir les separer d'un coup d'oeil.
+constexpr double WIND_NO_MEASUREMENT = 999999.0;
+
+struct WindCensus {
+  u64 blades_total = 0, blades_sampled = 0, blades_still = 0;
+  u64 clumps_sampled = 0, pairs_in_clump = 0, pairs_between = 0;
+  u32 frames = 0;
+  double dir_dispersion = WIND_NO_MEASUREMENT,  dir_dispersion_off = WIND_NO_MEASUREMENT;
+  double tip_lag_ms     = WIND_NO_MEASUREMENT,  tip_lag_ms_off     = WIND_NO_MEASUREMENT;
+  double corr_in_clump  = WIND_NO_MEASUREMENT,  corr_in_clump_off  = WIND_NO_MEASUREMENT;
+  double corr_between   = WIND_NO_MEASUREMENT,  corr_between_off   = WIND_NO_MEASUREMENT;
+  double tip_step_max   = WIND_NO_MEASUREMENT,  tip_step_off       = WIND_NO_MEASUREMENT;
+  double head_span_deg  = WIND_NO_MEASUREMENT,  head_span_deg_off  = WIND_NO_MEASUREMENT;
+  u32 terms_measured = 0;
+};
+WindCensus wind_census(const BakeData& d, const ExpandResult& e);
+
 // ===================== grass-shading : LE RECENSEMENT DE LA COULEUR ==============================
 // CE QU'IL MESURE, ET SUR QUEL TEXTE. Les deux grandeurs du point 2 du livrable — l'ecart de
 // luminance entre la RACINE et la POINTE d'un meme brin, et entre sa face eclairee et sa face

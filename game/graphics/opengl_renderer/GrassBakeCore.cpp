@@ -7325,4 +7325,400 @@ SoftSupportMap soft_support_map(const tfrag3::Level& lev, const std::string& lev
   return m;
 }
 
+// ===============================================================================================
+// grass-wind (SPEC-refonte-herbe.md, section 8) — LE RECENSEMENT DU VENT.
+// ===============================================================================================
+//
+// CE QU'IL NE FAIT PAS : recopier la loi du shader. La fonction ci-dessous `#include` LE MEME
+// FICHIER que `Shader.cpp` splice dans `grass.vert`. Le compilateur C++ et le pilote GLSL lisent
+// donc le meme texte, et le graphe de dependances de ninja relie ce .cpp a ce .glsl : ce binaire
+// ne PEUT PAS mesurer une loi plus vieille que celle qu'il mesure. C'est le montage exact de
+// `eval_grass_shade`.
+//
+// Les parametres portent un prefixe `in_` : le chunk declare ses propres locales (`gw_old`,
+// `gw_head`, `gw_s`...) et un nom partage en ferait une ombre — le texte du shader n'a pas a
+// plier devant son appelant.
+WindSample eval_grass_wind(float in_bx, float in_by, float in_bz, float in_time, float in_phase,
+                           float in_yaw, float in_on) {
+  using namespace glsl;
+  // `<cmath>` pose `::sin(float)` et `::cos(float)` au niveau global ; sous le `using namespace`
+  // ci-dessus, l'appel non qualifie du chunk serait AMBIGU. Ces deux using-DECLARATIONS sont a
+  // portee de bloc : elles MASQUENT le nom global, sans que le chunk cesse d'etre du GLSL valide.
+  using glsl::cos;
+  using glsl::sin;
+  const vec3 gw_base = vec3(in_bx, in_by, in_bz);
+  const float gw_time = in_time;
+  const float gw_phase = in_phase;
+  const float gw_yaw = in_yaw;
+  const float gw_on = in_on;
+  float gw_w0 = 0.f, gw_w1 = 0.f, gw_dx = 0.f, gw_dz = 0.f, gw_amp = 0.f;
+#include "shaders/grass_wind.glsl"
+  WindSample out;
+  out.w0 = gw_w0;
+  out.w1 = gw_w1;
+  out.dx = gw_dx;
+  out.dz = gw_dz;
+  out.amp = gw_amp;
+  return out;
+}
+
+namespace {
+
+// Pearson sur deux tranches de meme longueur. Rend `false` quand l'une des deux series est
+// PLATE : une correlation sur une variance nulle n'est pas « zero », elle n'existe pas, et
+// l'appelant doit pouvoir compter ce cas au lieu de le moyenner.
+bool wind_pearson(const float* a, const float* b, int n, double& out) {
+  if (n < 2) {
+    return false;
+  }
+  double sa = 0.0, sb = 0.0;
+  for (int i = 0; i < n; ++i) {
+    sa += a[i];
+    sb += b[i];
+  }
+  const double ma = sa / n, mb = sb / n;
+  double vaa = 0.0, vbb = 0.0, vab = 0.0;
+  for (int i = 0; i < n; ++i) {
+    const double da = a[i] - ma, db = b[i] - mb;
+    vaa += da * da;
+    vbb += db * db;
+    vab += da * db;
+  }
+  if (vaa <= 1.0e-12 || vbb <= 1.0e-12) {
+    return false;
+  }
+  out = vab / std::sqrt(vaa * vbb);
+  return true;
+}
+
+double wind_median(std::vector<double>& v) {
+  std::sort(v.begin(), v.end());
+  const size_t n = v.size();
+  return (n & 1u) ? v[n / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]);
+}
+
+// Le brin echantillonne : ce que la loi de vent lit (racine, phase, lacet) et rien d'autre.
+struct WindBlade {
+  float px, py, pz, phase, yaw;
+  u32 clump;  // index DENSE de la touffe retenue, pas la cle globale
+};
+
+// Les cinq instants ou la dispersion angulaire est lue. Fixes, donc reproductibles au bit.
+constexpr int WIND_DIR_FRAMES[5] = {100, 300, 500, 700, 900};
+constexpr int WIND_LAG_MAX = 36;        // 600 ms a 60 Hz : large devant le retard attendu
+constexpr u64 WIND_PAIR_CAP = 20000;    // plafond par population de paires
+
+// Les grandeurs d'UN regime (`on` = 1 ou 0). Le recensement appelle ce bloc deux fois sur LA MEME
+// population : le bras « avant » n'est pas un autre binaire, c'est l'autre valeur de `gw_on`.
+struct WindArm {
+  double dispersion = WIND_NO_MEASUREMENT;
+  double lag_ms = WIND_NO_MEASUREMENT;
+  double corr_in = WIND_NO_MEASUREMENT;
+  double corr_between = WIND_NO_MEASUREMENT;
+  double step_max = WIND_NO_MEASUREMENT;
+  double head_span = WIND_NO_MEASUREMENT;
+  u64 still = 0;
+  u64 pairs_in = 0;
+  u64 pairs_between = 0;
+};
+
+WindArm wind_measure_arm(const std::vector<WindBlade>& blades,
+                         const std::vector<std::pair<size_t, size_t>>& pairs_in,
+                         const std::vector<std::pair<size_t, size_t>>& pairs_bt,
+                         float on) {
+  WindArm a;
+  a.pairs_in = pairs_in.size();
+  a.pairs_between = pairs_bt.size();
+  const int N = WIND_FRAMES;
+  const size_t B = blades.size();
+
+  // ---- LES SERIES TEMPORELLES. Deux par brin : la POINTE (u = 1) et un point BAS de la tige
+  // (u = WIND_BASE_U). Le retard base -> pointe est la grandeur qui separe « le brin se courbe »
+  // de « le brin pivote » : sur un pivot, les deux points jouent la MEME onde au MEME instant.
+  std::vector<float> tip((size_t)N * B), low((size_t)N * B);
+  // Dispersion : accumulateurs du vecteur moyen AXIAL (angle double), un par instant lu.
+  double dcx[5] = {0, 0, 0, 0, 0}, dsz[5] = {0, 0, 0, 0, 0};
+  for (size_t b = 0; b < B; ++b) {
+    const WindBlade& w = blades[b];
+    for (int n = 0; n < N; ++n) {
+      const float t = (float)n * WIND_DT;
+      const WindSample S = eval_grass_wind(w.px, w.py, w.pz, t, w.phase, w.yaw, on);
+      // u = 1 : `mix(w0, w1, u)` rend w1 et u*u vaut 1.
+      tip[(size_t)n * B + b] = S.w1 * S.amp;
+      low[(size_t)n * B + b] =
+          ((1.0f - WIND_BASE_U) * S.w0 + WIND_BASE_U * S.w1) * WIND_BASE_U * WIND_BASE_U * S.amp;
+      for (int k = 0; k < 5; ++k) {
+        if (n == WIND_DIR_FRAMES[k]) {
+          // STATISTIQUE AXIALE : un brin va et vient sur UN axe, theta et theta+pi sont le MEME
+          // cap de flexion. On moyenne donc exp(2*i*theta), pas exp(i*theta) — sans cela deux
+          // brins parfaitement alignes mais en opposition de phase compteraient comme disperses.
+          const double th = std::atan2((double)S.dx, (double)S.dz);
+          dcx[k] += std::cos(2.0 * th);
+          dsz[k] += std::sin(2.0 * th);
+        }
+      }
+    }
+  }
+
+  if (B > 0) {
+    // ---- (1) DISPERSION ANGULAIRE. 1 - R du vecteur moyen axial. On publie le PIRE des cinq
+    // instants : une direction commune qui ne tiendrait qu'a un instant ne serait pas un cap.
+    double worst = 0.0;
+    for (int k = 0; k < 5; ++k) {
+      const double R = std::sqrt(dcx[k] * dcx[k] + dsz[k] * dsz[k]) / (double)B;
+      worst = std::max(worst, 1.0 - R);
+    }
+    a.dispersion = worst;
+
+    // ---- (2) LE RETARD BASE -> POINTE, par correlation croisee. L'argmax entier est affine par
+    // interpolation parabolique : le pas d'echantillonnage est 16,7 ms, le retard attendu est de
+    // l'ordre de 200 ms, et un plancher juge a 60 ms ne doit pas se lire sur une grille.
+    // ---- (4) LE PAS IMAGE A IMAGE, au passage : un vent qui saute d'une image a l'autre est un
+    // defaut visible, et c'est le meme parcours de serie.
+    std::vector<double> lags;
+    lags.reserve(B);
+    double step_max = 0.0;
+    std::vector<float> ta((size_t)N), tb((size_t)N);
+    for (size_t b = 0; b < B; ++b) {
+      for (int n = 0; n < N; ++n) {
+        ta[n] = low[(size_t)n * B + b];
+        tb[n] = tip[(size_t)n * B + b];
+      }
+      double amax = 0.0;
+      for (int n = 0; n + 1 < N; ++n) {
+        step_max = std::max(step_max, (double)std::fabs(tb[n + 1] - tb[n]));
+        amax = std::max(amax, (double)std::fabs(tb[n]));
+      }
+      amax = std::max(amax, (double)std::fabs(tb[N - 1]));
+      if (on > 0.5f && amax < 1.0e-4) {
+        a.still++;  // un brin IMMOBILE : la loi ne l'a pas atteint. Doit etre 0.
+      }
+      double best = -2.0;
+      int bestL = -1;
+      std::vector<double> rho((size_t)WIND_LAG_MAX + 1, -2.0);
+      bool any = false;
+      for (int L = 0; L <= WIND_LAG_MAX; ++L) {
+        double r = 0.0;
+        if (wind_pearson(ta.data(), tb.data() + L, N - L, r)) {
+          rho[(size_t)L] = r;
+          any = true;
+          if (r > best) {
+            best = r;
+            bestL = L;
+          }
+        }
+      }
+      if (!any || bestL < 0) {
+        continue;  // serie plate : exclue, et deja comptee dans `still` sous le bras arme
+      }
+      double lf = (double)bestL;
+      if (bestL > 0 && bestL < WIND_LAG_MAX) {
+        const double y0 = rho[(size_t)bestL - 1], y1 = rho[(size_t)bestL],
+                     y2 = rho[(size_t)bestL + 1];
+        const double den = y0 - 2.0 * y1 + y2;
+        if (std::fabs(den) > 1.0e-12) {
+          lf += 0.5 * (y0 - y2) / den;
+        }
+      }
+      lags.push_back(lf * 1000.0 / 60.0);
+    }
+    a.step_max = step_max;
+    if (!lags.empty()) {
+      // MEDIANE, pas moyenne : l'argmax d'une correlation est une statistique bornee dont la
+      // queue est un artefact de bord, et une moyenne s'y laisserait tirer.
+      a.lag_ms = wind_median(lags);
+    }
+  }
+
+  // ---- (3) LES DEUX CORRELATIONS. Une touffe doit bouger D'UN BLOC (plancher INTRA), deux
+  // touffes voisines ne doivent PAS etre des clones (plafond ENTRE). Les deux se lisent sur la
+  // MEME serie `tip` et sur la MEME fenetre : seule la population de paires change.
+  auto mean_corr = [&](const std::vector<std::pair<size_t, size_t>>& pp, double& dst) {
+    double acc = 0.0;
+    u64 cnt = 0;
+    std::vector<float> xa((size_t)N), xb((size_t)N);
+    for (const auto& pr : pp) {
+      for (int n = 0; n < N; ++n) {
+        xa[n] = tip[(size_t)n * B + pr.first];
+        xb[n] = tip[(size_t)n * B + pr.second];
+      }
+      double r = 0.0;
+      if (wind_pearson(xa.data(), xb.data(), N, r)) {
+        acc += r;
+        cnt++;
+      }
+    }
+    if (cnt > 0) {
+      dst = acc / (double)cnt;
+    }
+  };
+  mean_corr(pairs_in, a.corr_in);
+  mean_corr(pairs_bt, a.corr_between);
+
+  // ---- (5) LE CAP COMMUN DOIT AVOIR TOURNE. On evalue la loi a l'origine, phase 0,5 : le terme
+  // par brin `0.42 * (phase - 0.5)` s'annule exactement, il ne reste que le cap du CHAMP. L'angle
+  // est DEROULE avant d'etre lu, sinon un passage par +/- pi fabriquerait une amplitude fausse ;
+  // et on publie (p95 - p5) plutot que l'etendue, pour qu'un seul instant ne fasse pas le verdict.
+  {
+    std::vector<double> th;
+    th.reserve((size_t)WIND_HEAD_SPAN_S + 1);
+    double prev = 0.0;
+    for (int t = 0; t <= (int)WIND_HEAD_SPAN_S; ++t) {
+      const WindSample S = eval_grass_wind(0.f, 0.f, 0.f, (float)t, 0.5f, 0.f, on);
+      double cur = std::atan2((double)S.dx, (double)S.dz);
+      if (!th.empty()) {
+        while (cur - prev > M_PI) {
+          cur -= 2.0 * M_PI;
+        }
+        while (cur - prev <= -M_PI) {
+          cur += 2.0 * M_PI;
+        }
+      }
+      prev = cur;
+      th.push_back(cur);
+    }
+    std::vector<double> sorted = th;
+    std::sort(sorted.begin(), sorted.end());
+    const size_t nn = sorted.size();
+    const double p05 = sorted[(size_t)(0.05 * (double)(nn - 1))];
+    const double p95 = sorted[(size_t)(0.95 * (double)(nn - 1))];
+    a.head_span = (p95 - p05) * 180.0 / M_PI;
+  }
+  return a;
+}
+
+}  // namespace
+
+// L'APPARTENANCE A LA TOUFFE EST REJOUEE, PAS DEVINEE. Meme montage que `clump_census` : on
+// rejoue `ClumpPlacer` sur les memes triangles, dans le meme ordre, en appelant `place()` pour
+// TOUS les candidats — meme ceux que `keep` a ecartes. Le rang d'un brin dans sa touffe est un
+// compteur d'etat (`m_fill[c]++`) : sauter un candidat decalerait tous les rangs suivants.
+WindCensus wind_census(const BakeData& d, const ExpandResult& e) {
+  WindCensus c;
+  c.blades_total = e.instances.size();
+  if (e.inst_tri.size() != e.instances.size() || e.inst_cand.size() != e.instances.size()) {
+    // Sans la carte brin -> candidat on ne sait pas quel candidat un brin represente.
+    // `terms_measured` reste a 0 : une mesure absente ne dit pas « zero », elle ne dit RIEN.
+    return c;
+  }
+
+  // ---- LES BRINS, GROUPES PAR TOUFFE, AVEC L'ORIGINE DE LEUR TOUFFE.
+  // L'origine (`co1/co2`) est le point que `ClumpPlacer` a tire sur le triangle : c'est elle, et
+  // non la racine d'un brin, qui donne la distance entre DEUX touffes.
+  struct ClumpAcc {
+    float ox = 0.f, oy = 0.f, oz = 0.f;
+    std::vector<WindBlade> blades;
+  };
+  std::map<u64, ClumpAcc> clumps;  // ordonnee : la selection ci-dessous doit etre deterministe
+
+  ClumpPlacer placer(d.total_area_m2, e.clumped);
+  size_t cursor = 0;
+  for (size_t tj = 0; tj < d.tris.size() && cursor < e.instances.size(); ++tj) {
+    const BakeTri& tri = d.tris[tj];
+    if (tri.flags & (2u | 4u)) {
+      continue;  // lip / dup : aucun candidat, donc aucune touffe
+    }
+    placer.begin(tri);
+    const u32 n = (tj < e.tri_n.size() && !e.tri_n.empty()) ? e.tri_n[tj] : tri.cand_count;
+    for (u32 i = 0; i < n; ++i) {
+      ClumpSite s;
+      placer.place(tri, (int)i, s);
+      const u64 ci = tri.cand_base + (u64)i;
+      const bool emitted = cursor < e.instances.size() && e.inst_cand[cursor] == (u32)ci;
+      if (!emitted) {
+        continue;
+      }
+      const GrassInstance& gi = e.instances[cursor];
+      ++cursor;
+      const u64 key = ((u64)tj << 32) | (u64)s.clump;
+      ClumpAcc& acc = clumps[key];
+      if (acc.blades.empty()) {
+        acc.ox = tri.p0[0] + s.co1 * tri.e1[0] + s.co2 * tri.e2[0];
+        acc.oy = tri.p0[1] + s.co1 * tri.e1[1] + s.co2 * tri.e2[1];
+        acc.oz = tri.p0[2] + s.co1 * tri.e1[2] + s.co2 * tri.e2[2];
+      }
+      acc.blades.push_back({gi.px, gi.py, gi.pz, gi.phase, gi.yaw, 0u});
+    }
+  }
+  placer.finish();
+
+  // ---- L'ECHANTILLON. Les WIND_MAX_CLUMPS premieres touffes (par cle croissante) ayant au moins
+  // deux brins, et au plus WIND_PER_CLUMP brins dans chacune. Aucun tirage, aucune horloge : ce
+  // recensement doit rendre le meme chiffre a chaque execution, sur la meme entree.
+  std::vector<WindBlade> blades;
+  std::vector<float> cox, coy, coz;  // origine de chaque touffe retenue, unites GOAL
+  for (const auto& kv : clumps) {
+    if ((int)cox.size() >= WIND_MAX_CLUMPS) {
+      break;
+    }
+    if (kv.second.blades.size() < 2) {
+      continue;
+    }
+    const u32 ci = (u32)cox.size();
+    cox.push_back(kv.second.ox);
+    coy.push_back(kv.second.oy);
+    coz.push_back(kv.second.oz);
+    const size_t take = std::min((size_t)WIND_PER_CLUMP, kv.second.blades.size());
+    for (size_t k = 0; k < take; ++k) {
+      WindBlade w = kv.second.blades[k];
+      w.clump = ci;
+      blades.push_back(w);
+    }
+  }
+  c.clumps_sampled = cox.size();
+  c.blades_sampled = blades.size();
+  c.frames = (u32)WIND_FRAMES;
+
+  // ---- LES DEUX POPULATIONS DE PAIRES, construites une seule fois et partagees par les deux
+  // bras : comparer deux regimes sur deux populations differentes ne comparerait rien.
+  std::vector<std::pair<size_t, size_t>> pairs_in, pairs_bt;
+  for (size_t i = 0; i < blades.size() && pairs_in.size() < WIND_PAIR_CAP; ++i) {
+    for (size_t j = i + 1; j < blades.size() && pairs_in.size() < WIND_PAIR_CAP; ++j) {
+      if (blades[i].clump == blades[j].clump) {
+        pairs_in.emplace_back(i, j);
+      }
+    }
+  }
+  // « Touffes voisines » = une BANDE de distance entre leurs ORIGINES. Trop pres, on mesurerait
+  // encore la touffe ; trop loin, deux points du champ sans rapport se decorreleraient tout seuls
+  // et le plafond serait gagne par la distance, pas par la loi.
+  const float dmin = WIND_NEIGH_MIN_M * U, dmax = WIND_NEIGH_MAX_M * U;
+  for (size_t i = 0; i < blades.size() && pairs_bt.size() < WIND_PAIR_CAP; ++i) {
+    for (size_t j = i + 1; j < blades.size() && pairs_bt.size() < WIND_PAIR_CAP; ++j) {
+      const u32 a = blades[i].clump, b = blades[j].clump;
+      if (a == b) {
+        continue;
+      }
+      const float dx = cox[a] - cox[b], dy = coy[a] - coy[b], dz = coz[a] - coz[b];
+      const float dd = std::sqrt(dx * dx + dy * dy + dz * dz);
+      if (dd >= dmin && dd <= dmax) {
+        pairs_bt.emplace_back(i, j);
+      }
+    }
+  }
+  c.pairs_in_clump = pairs_in.size();
+  c.pairs_between = pairs_bt.size();
+
+  const WindArm on = wind_measure_arm(blades, pairs_in, pairs_bt, 1.0f);
+  const WindArm off = wind_measure_arm(blades, pairs_in, pairs_bt, 0.0f);
+  c.blades_still = on.still;
+  c.dir_dispersion = on.dispersion;      c.dir_dispersion_off = off.dispersion;
+  c.tip_lag_ms = on.lag_ms;              c.tip_lag_ms_off = off.lag_ms;
+  c.corr_in_clump = on.corr_in;          c.corr_in_clump_off = off.corr_in;
+  c.corr_between = on.corr_between;      c.corr_between_off = off.corr_between;
+  c.tip_step_max = on.step_max;          c.tip_step_off = off.step_max;
+  c.head_span_deg = on.head_span;        c.head_span_deg_off = off.head_span;
+
+  // ---- COMBIEN DE GRANDEURS ONT UNE POPULATION. Un terme sans population n'est pas « a zero »,
+  // il n'est PAS MESURE : le juge lit ce compte AVANT de lire une seule valeur.
+  c.terms_measured = 0;
+  if (on.dispersion != WIND_NO_MEASUREMENT) c.terms_measured++;
+  if (on.lag_ms != WIND_NO_MEASUREMENT) c.terms_measured++;
+  if (on.corr_in != WIND_NO_MEASUREMENT) c.terms_measured++;
+  if (on.corr_between != WIND_NO_MEASUREMENT) c.terms_measured++;
+  if (on.step_max != WIND_NO_MEASUREMENT) c.terms_measured++;
+  if (on.head_span != WIND_NO_MEASUREMENT) c.terms_measured++;
+  return c;
+}
+
 }  // namespace grass_bake

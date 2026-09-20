@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
   bool edge_selftest_only = false;  // ... le banc nomme seul
   bool trans_census_on = false;  // grass-path-transitions : mesure la transition au bord des chemins
   bool clump_census_on = false;  // grass-clumps : mesure le regroupement des racines en touffes
+  bool wind_census_on = false;   // grass-wind : mesure le champ de vent hors ligne, n'ecrit rien
   float nest_pct = 0.0f;         // grass-clumps : palier de comparaison pour la nidification (0 = off)
   bool shade_census_on = false;    // grass-shading : mesure la couleur, n'ecrit rien
   bool variant_census_on = false;  // grass-blade-variants : recense la silhouette des brins
@@ -135,6 +136,8 @@ int main(int argc, char** argv) {
       trans_census_on = true;
     } else if (a == "--clump-census") {
       clump_census_on = true;
+    } else if (a == "--wind-census") {
+      wind_census_on = true;
     } else if (a == "--clump-nest") {
       nest_pct = std::stof(need_val("--clump-nest"));
     } else if (a == "--shading-census") {
@@ -640,7 +643,8 @@ int main(int argc, char** argv) {
   // apparieraient le premier candidat d'un triangle au premier brin et sauteraient tout ce que
   // `keep` a ecarte. Le jeu, lui, l'appelle a false et ne paie pas les 4 octets par instance.
   const bool want_map =
-      trans_census_on || clump_census_on || nest_pct > 0.0f || shade_census_on;
+      trans_census_on || clump_census_on || nest_pct > 0.0f || shade_census_on ||
+      wind_census_on;
   auto eBake = grass_bake::expand(bake, density, want_map);
   bake.chunks = eBake.chunks;
 
@@ -674,6 +678,46 @@ int main(int argc, char** argv) {
     fmt::print("clump_size_cv_floor={:.4f}\n", grass_bake::CLUMP_SIZE_CV_FLOOR);
     fmt::print("clump_radius_cv_floor={:.4f}\n", grass_bake::CLUMP_RADIUS_CV_FLOOR);
     fmt::print("clump_blades_medium={:.2f}\n", grass_bake::CLUMP_BLADES_MEDIUM);
+  }
+
+  // grass-wind : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de fichier. Les deux
+  // bras (loi neuve / loi REMPLACEE) sortent du MEME texte de shader, dans le meme processus et
+  // sur la meme population de brins : le bras « avant » n'est pas un binaire de reference.
+  //
+  // PREFIXE `gwind_`, PAS `wind_` : `wind_*` appartient a l'item `foliage-wind`, et dans proof.txt
+  // la derniere valeur d'une cle gagne, tous items confondus.
+  if (wind_census_on) {
+    const auto wc = grass_bake::wind_census(bake, eBake);
+    fmt::print("gwind_level={}\n", level_name);
+    fmt::print("gwind_density={:.0f}\n", density);
+    fmt::print("gwind_blades_total={}\n", wc.blades_total);
+    fmt::print("gwind_blades_sampled={}\n", wc.blades_sampled);
+    fmt::print("gwind_blades_still={}\n", wc.blades_still);
+    fmt::print("gwind_clumps_sampled={}\n", wc.clumps_sampled);
+    fmt::print("gwind_frames={}\n", wc.frames);
+    fmt::print("gwind_pairs_in_clump={}\n", wc.pairs_in_clump);
+    fmt::print("gwind_pairs_between={}\n", wc.pairs_between);
+    fmt::print("gwind_terms_measured={}\n", wc.terms_measured);
+    fmt::print("gwind_dir_dispersion={:.4f}\n", wc.dir_dispersion);
+    fmt::print("gwind_dir_dispersion_off={:.4f}\n", wc.dir_dispersion_off);
+    fmt::print("gwind_tip_lag_ms={:.4f}\n", wc.tip_lag_ms);
+    fmt::print("gwind_tip_lag_ms_off={:.4f}\n", wc.tip_lag_ms_off);
+    fmt::print("gwind_corr_in_clump={:.4f}\n", wc.corr_in_clump);
+    fmt::print("gwind_corr_in_clump_off={:.4f}\n", wc.corr_in_clump_off);
+    fmt::print("gwind_corr_between={:.4f}\n", wc.corr_between);
+    fmt::print("gwind_corr_between_off={:.4f}\n", wc.corr_between_off);
+    fmt::print("gwind_tip_step_max={:.4f}\n", wc.tip_step_max);
+    fmt::print("gwind_tip_step_off={:.4f}\n", wc.tip_step_off);
+    fmt::print("gwind_head_span_deg={:.4f}\n", wc.head_span_deg);
+    fmt::print("gwind_head_span_deg_off={:.4f}\n", wc.head_span_deg_off);
+    // LES SEUILS SONT PUBLIES PAR CE QUI MESURE, jamais recopies dans le juge.
+    fmt::print("gwind_ceil_dispersion={:.4f}\n", grass_bake::WIND_DISPERSION_CEIL);
+    fmt::print("gwind_floor_tip_lag_ms={:.4f}\n", grass_bake::WIND_TIP_LAG_FLOOR_MS);
+    fmt::print("gwind_floor_corr_in={:.4f}\n", grass_bake::WIND_CORR_IN_FLOOR);
+    fmt::print("gwind_ceil_corr_between={:.4f}\n", grass_bake::WIND_CORR_BETWEEN_CEIL);
+    fmt::print("gwind_ceil_tip_step={:.4f}\n", grass_bake::WIND_TIP_STEP_CEIL);
+    fmt::print("gwind_floor_head_span_deg={:.4f}\n", grass_bake::WIND_HEAD_SPAN_FLOOR_DEG);
+    fmt::print("gwind_no_measurement={:.4f}\n", grass_bake::WIND_NO_MEASUREMENT);
   }
 
   // grass-shading : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de fichier. Le
@@ -842,8 +886,11 @@ int main(int argc, char** argv) {
   if (shade_census_on) {
     fmt::print("[grass_bake] shading-census DONE.\n");
   }
+  if (wind_census_on) {
+    fmt::print("[grass_bake] wind-census DONE.\n");
+  }
   if (clump_census_on || nest_pct > 0.0f || variant_census_on || !variant_nest_slug.empty() ||
-      shade_census_on) {
+      shade_census_on || wind_census_on) {
     return 0;
   }
 

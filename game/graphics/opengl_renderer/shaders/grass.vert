@@ -23,6 +23,9 @@ uniform float fog_constant;
 
 // grass controls
 uniform float u_time;      // seconds, drives the breeze
+// grass-wind : 1 = loi de vent de cet item, 0 = regime remplace (rejoue a l'identique).
+// C'est le bras d'ablation : le shader porte LES DEUX lois, le C++ choisit laquelle tourne.
+uniform float u_wind_new;
 uniform int   u_mode;      // 0 = blade pass, 1 = card pass
 // POLISH#4: adjustable LOD reach (world units) from the two Recharged Settings sliders.
 uniform float u_near_dist; // near-blade fade-out radius (world units)
@@ -308,6 +311,17 @@ void main() {
   // move in lockstep.
   float gust = u_time * 1.7 + phase * TWO_PI + (base.x + base.z) * 0.00035;
 
+  // grass-wind : le champ de vent partage. `gw_on = u_wind_new` selectionne le regime ;
+  // a 0, le chunk rejoue a l'identique la loi que cet item remplace.
+  vec3  gw_base = base;
+  float gw_time = u_time;
+  float gw_phase = phase;
+  float gw_yaw = yaw;
+  float gw_on = u_wind_new;
+  float gw_w0; float gw_w1; float gw_dx; float gw_dz; float gw_amp;
+  #include "grass_wind.glsl"
+  vec3 gw_dir = vec3(gw_dx, 0.0, gw_dz);
+
   float heightMul;
   vec3 trample;
 #ifdef OG_GRASS_CONTACT_PROBE
@@ -345,11 +359,14 @@ void main() {
     float hw = H * VA.y * (1.0 - VA.z * t + VA.w * t * t) * rim_w * nearf; // half width (+ rim taper)
 
     // breeze: shared gust, grows toward the tip
-    float sway = sin(gust) * t * t;
+    // grass-wind : la pointe joue l'onde de la racine EN RETARD (mix des deux ancres de
+    // temps), et l'accumulation en t*t du galbe est conservee. Le brin SE COURBE.
+    float sway = mix(gw_w0, gw_w1, t) * t * t;
     // grass-blade-variants : courbure de base par variante, plus une recourbe de pointe. v0 =
     // (1.0, 0.0) : `(curve * 1.0) * t * t * 1.0`, associe a gauche comme l'expression d'origine.
     float bend = (curve * VB.x) * t * t * (1.0 + VB.y * t);   // static curvature
-    float fwd_amt = (bend + sway * 0.38) * H * rim_h;  // ROUND#14: no lean past a rim
+    float fwd_amt = bend * H * rim_h;            // galbe statique, le long de fwdv (ROUND#14: no lean past a rim)
+    float wind_amt = sway * gw_amp * H * rim_h;  // grass-wind : vent, le long du CAP du champ
 
     // ROUND#19: optional normal-tilt — the blade leans toward its ground polygon's face normal by
     // u_tilt (0 = EXACTLY the old world-up growth term). ADRENO-SAFE FORM: the first implementation,
@@ -375,11 +392,14 @@ void main() {
       vec3 outw = normalize(vec3(inst_normal.x, 0.0, inst_normal.z) + vec3(1e-5, 0.0, 0.0));
       vec3 axis = vec3(0.0, 1.0, 0.0) * (1.0 - kk) + outw * kk;
       float lgrow = t * H * heightMul * nearf * (1.0 - 0.15 * k);   // slight shorten right at the rim
-      float lfwd = (bend + sway * 0.38) * H * (1.0 - 0.4 * kk);     // stock bend/sway, damped as it leans
+      float lfwd = bend * H * (1.0 - 0.4 * kk);                     // galbe statique, amorti a mesure qu'il s'incline
+      // grass-wind : meme amortissement, mais le vent part le long du cap du champ.
+      float lwind = sway * gw_amp * H * (1.0 - 0.4 * kk);
       pos = base
           + rightv * ((float(side) * 2.0 - 1.0) * hw)
           + axis * lgrow
           + fwdv * lfwd
+          + gw_dir * lwind
           + trample * t;
     } else if (is_repl) {
       // Grecharged-grass-overhang4 COMB REPLACEMENT (tail, toggle ON only; the tagged walkable original
@@ -397,12 +417,15 @@ void main() {
       vec3 up_axis = vec3(n.x * COMB_TILT, 1.0, n.z * COMB_TILT);
       vec3 axis = up_axis * (1.0 - w) + dv * w;
       float cgrow = t * H * heightMul * nearf;                  // full height (no rim taper)
-      float fwd = (bend + sway * 0.38) * H * (1.0 - 0.6 * w);   // matches bake fwdv*curve*h*(1-0.6w)
+      float fwd = bend * H * (1.0 - 0.6 * w);                   // matches bake fwdv*curve*h*(1-0.6w)
+      // grass-wind : meme amortissement (1 - 0.6w), le vent le long du cap du champ.
+      float cwind = sway * gw_amp * H * (1.0 - 0.6 * w);
       pos = base
           + n * (NOFF * w)
           + rightv * ((float(side) * 2.0 - 1.0) * hw)
           + axis * cgrow
           + fwdv * fwd
+          + gw_dir * cwind
           + trample * t;
     } else if (is_fcard) {
       // ZONE 3 ROUND 11 (supervisor DESIGN PIVOT): TEXTURED CARD sampling the game's own hang-alpha
@@ -448,6 +471,7 @@ void main() {
         + vec3(0.0, grow_h, 0.0)                   // world-up growth (u_tilt=0 path, bit-identical)
         + vec3(inst_normal.x, 0.0, inst_normal.z) * (grow_h * u_tilt)  // ROUND#19: lean toward the normal
         + fwdv * fwd_amt
+        + gw_dir * wind_amt
         + trample * t * rim_h;
     }
     // ROUND 11: textured cards bypass the procedural colour gradient entirely (the texel IS the
@@ -483,12 +507,14 @@ void main() {
     // card wind sway: SAME gust as the blades but MUCH GENTLER than the near blades
     // (owner polish#3: cards swayed "beaucoup plus à fond que devant"). Near-blade
     // fwd sway peaks ~0.38*H; cards now peak ~0.12*H — clearly under the foreground.
-    float csway = sin(gust * 0.7) * uv.y * uv.y * rim_h;  // ROUND#14: no card sway past a rim
+    // grass-wind : la carte suit LE MEME champ que les brins — une seule direction de vent
+    // dans la scene — avec le meme retard de pointe le long de sa hauteur.
+    float csway = mix(gw_w0, gw_w1, uv.y) * uv.y * uv.y * rim_h;  // ROUND#14: no card sway past a rim
 
     pos = base
         + axis * (uv.x * cardHW)
         + vec3(0.0, uv.y * cardH * heightMul, 0.0)
-        + fwdv * (csway * H * 0.12)
+        + gw_dir * (csway * H * 0.12)
         + rightv * (csway * H * 0.04)
         + trample * uv.y * rim_h;
     // OWNER POLISH#6: use the EXACT same vertical gradient as the near blade (t_col = local

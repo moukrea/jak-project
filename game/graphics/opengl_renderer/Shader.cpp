@@ -158,14 +158,21 @@ std::string expand_includes(const std::string& src, int depth = 0) {
     // construction de l'APK et PEUT etre perime. C'est le seul endroit du depot ou l'on tient le
     // texte que le pilote va REELLEMENT compiler : `lib/census/grass-shading.sh` compare cette
     // empreinte a celle des fichiers de l'arbre, et un pack en retard devient un defaut compte.
-    if (name == "grass_shade.glsl" || name == "grass_shade_face.glsl") {
+    // grass-wind : meme montage pour le chunk du champ de vent. Cette empreinte est ce qui rougit
+    // quand le pack GLES de l'appareil est en retard sur le fichier de l'arbre.
+    if (name == "grass_shade.glsl" || name == "grass_shade_face.glsl" || name == "grass_wind.glsl") {
       u64 h = 1469598103934665603ull;
       for (char ch : chunk) {
         h ^= (u64)(u8)ch;
         h *= 1099511628211ull;
       }
-      autoport_proof::publish(
-          name == "grass_shade.glsl" ? "grass_shade_model_fnv" : "grass_shade_face_fnv", h);
+      const char* key = "grass_shade_model_fnv";
+      if (name == "grass_shade_face.glsl") {
+        key = "grass_shade_face_fnv";
+      } else if (name == "grass_wind.glsl") {
+        key = "grass_wind_model_fnv";
+      }
+      autoport_proof::publish(key, h);
     }
     out += expand_includes(chunk, depth + 1);
     // ---- Grecharged-materials-modern-parity: COMPANION CHUNKS ---------------------------------

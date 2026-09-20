@@ -245,6 +245,10 @@ void emit_locked() {
     // ces images-la.
     // `hud-heart` compte LES IMAGES OU LE COEUR RECHARGE EST DESSINE — `hits_means` de son
     // item ; meme raison.
+    // `grass-wind` compte LES BRINS ANIMES PAR LE CHAMP DE VENT — `hits_means` de son item. Le
+    // compteur global du binaire monte pour tout le monde : il passait a 0,03 % de la valeur de
+    // l'item pendant la course de mise au point, assez pres pour ne pas se voir et n'etre la
+    // grandeur de personne.
     // `recharged-hud-toggle` compte LES IMAGES QUE SON BANC A JUGEES — `hits_means` de son item.
     // Le compteur global du binaire monte pour les trois chantiers du HUD en meme temps et ne
     // dirait rien des images ou la bascule du reglage a ete appliquee ET mesuree.
@@ -255,7 +259,7 @@ void emit_locked() {
                      id == "soft-surface-truth" || id == "soft-support-map" ||
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
                      id == "hud-eco-gauge" || id == "hud-heart" ||
-                     id == "recharged-hud-toggle")
+                     id == "recharged-hud-toggle" || id == "grass-wind")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

@@ -126,6 +126,11 @@ AUTOPORT_FEATURE_SITE(kClumpItemId);
 // compte les brins qui ont recu une couleur derivee de LEUR touffe.
 constexpr const char* kShadeItemId = "grass-shading";
 AUTOPORT_FEATURE_SITE(kShadeItemId);
+// grass-wind : le champ de vent partage (chunk `grass_wind.glsl`). Desarme, le shader rejoue a
+// l'identique l'ancien sinus le long du lacet du brin ; arme, le brin se COURBE le long d'un cap
+// commun. `hits=` compte les brins REELLEMENT animes par le champ neuf.
+constexpr const char* kWindItemId = "grass-wind";
+AUTOPORT_FEATURE_SITE(kWindItemId);
 // grass-blade-variants : desarme, k = 1 et TOUS les brins retombent sur la variante 0, c'est-a-dire
 // la lame livree jusqu'ici.
 constexpr const char* kVariantItemId = "grass-blade-variants";
@@ -2600,6 +2605,32 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform4f(grass_uloc(id, "camera_position"), proof_position[0], proof_position[1], proof_position[2], proof_position[3]);
   glUniform1f(grass_uloc(id, "fog_constant"), rs->camera_fog.x());
   glUniform1f(grass_uloc(id, "u_time"), u_time);
+  // grass-wind : LE BRAS D'ABLATION. A 0, `grass_wind.glsl` rend la loi que cet item remplace, au
+  // bit pres ; a 1, la loi de l'item. `armed_for` et non `armed()` : `armed()` est global et
+  // desarmerait les autres features livrees pendant la preuve de celle-ci.
+  const int wind_loc = grass_uloc(id, "u_wind_new");
+  glUniform1f(wind_loc, autoport_proof::armed_for(kWindItemId) ? 1.0f : 0.0f);
+  if (autoport_proof::feature_is(kWindItemId)) {
+    // L'INSTRUMENT s'arme sur `feature_is`, pas sur `armed_for` : sinon le bras `--off` ne
+    // mesurerait qu'un zero muet au lieu du regime remplace.
+    // Un uniforme retire par le compilateur GLSL rend -1, et `glUniform1f(-1, ...)` est un no-op
+    // SILENCIEUX : cette grandeur est ce qui empeche ce faux vert.
+    autoport_proof::publish("grass_wind_engine_uloc_ok", wind_loc >= 0 ? 1u : 0u);
+    autoport_proof::publish("grass_wind_engine_regime",
+                            autoport_proof::armed_for(kWindItemId) ? 1u : 0u);
+    autoport_proof::publish("grass_wind_engine_blades", (u64)m_instance_count);
+    // Ces deux grandeurs appartiennent a `grass_occ`, que cet item NE TOUCHE PAS : elles sont
+    // partagees avec l'item `foliage-wind`. On les publie VIVANTES pour que leur immobilite soit
+    // MESUREE et non supposee.
+    const auto cs = grass_occ::contact_sources();
+    autoport_proof::publish("grass_wind_occ_jak_samples", (u64)cs.jak_samples);
+    autoport_proof::publish("grass_wind_occ_object_samples", (u64)cs.object_samples);
+  }
+  if (autoport_proof::armed_for(kWindItemId)) {
+    // `hits` = brins animes par le champ de vent : la POPULATION, jamais 1. Desarme, aucun brin
+    // n'est anime par la loi neuve et la ligne FEATURE doit lire `armed=0 hits=0`.
+    autoport_proof::note_hit_for(kWindItemId, (u64)m_instance_count);
+  }
   const auto& jp = Gfx::settings().recharged_jak_pos;
   grass_occ::push_contact_uniforms(id);
   // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to

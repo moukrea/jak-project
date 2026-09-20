@@ -10,7 +10,8 @@
 // copie. On compile donc le MEME FICHIER une seconde fois, en C++, derriere cet en-tete.
 //
 // CE QU'IL EST, ET SURTOUT CE QU'IL N'EST PAS. Ce n'est pas une bibliotheque de math : c'est le
-// sous-ensemble EXACT que ces deux blocs emploient (vec2, vec3, mix, clamp, max, dot, fract).
+// sous-ensemble EXACT que les chunks partages emploient (vec2, vec3, mix, clamp, max, dot,
+// fract, sin, cos).
 // Rien n'y entre qu'un chunk partage n'utilise. Un chunk qui aurait besoin d'autre chose doit
 // AJOUTER ici la fonction correspondante, jamais contourner par une copie C++.
 //
@@ -23,6 +24,8 @@
 // SANS SWIZZLE. Les chunks partages s'ecrivent en `.x/.y/.z`, jamais en `.r/.g/.b` ni en `.rgb` :
 // un swizzle GLSL n'a pas d'equivalent C++ portable (une union de structs anonymes est une
 // extension). C'est une contrainte d'ecriture, pas une limite de cet en-tete.
+
+#include <cmath>  // impose par `sin`/`cos` ci-dessous — voir le commentaire qui les porte
 
 namespace glsl {
 
@@ -94,6 +97,37 @@ inline float dot(const vec3& a, const vec3& b) {
 }
 inline float dot(const vec2& a, const vec2& b) {
   return a.x * b.x + a.y * b.y;
+}
+
+// ---- sin / cos : LE VENT DE L'HERBE LES EXIGE ------------------------------------------------
+// `game/graphics/opengl_renderer/shaders/grass_wind.glsl` (item `grass-wind`) est la loi de vent
+// que le pilote splice dans `grass.vert`. Elle est faite de sinus : le cap commun, le front de
+// rafale, les trois bandes de frequence, et la projection du cap (`sin`/`cos` d'un angle). Sans
+// ces trois surcharges ici, l'outil hors ligne qui MESURE le vent aurait du recopier la loi en
+// C++ — exactement le miroir que cet en-tete existe pour interdire.
+//
+// C'EST `sin`/`cos` QUI IMPOSENT `<cmath>`, ET C'EST ASSUME. Cet en-tete etait volontairement
+// sans dependance (voir `fract` ci-dessous, ecrit sans `floor` pour cette raison). Il n'existe
+// aucune facon raisonnable de produire un sinus sans la bibliotheque standard, et une table ou
+// une serie tronquee ecrite a la main serait, elle, une divergence avec le sinus du pilote. On
+// prend donc `<cmath>` : c'est un en-tete de la norme, il n'impose rien d'autre a ses clients.
+//
+// PIEGE, A LIRE AVANT D'APPELER. `<cmath>` pose aussi `::sin(float)` et `::cos(float)`. Sous un
+// `using namespace glsl;` les deux jeux deviennent visibles au MEME niveau et l'appel non
+// qualifie du chunk est AMBIGU. Toute fonction C++ qui `#include` un chunk appelant `sin`/`cos`
+// doit donc ecrire, a PORTEE DE BLOC et avant l'include :
+//     using glsl::sin;
+//     using glsl::cos;
+// Une using-DECLARATION a portee de bloc MASQUE le nom global ; c'est le geste correct. Qualifier
+// dans le chunk ne l'est pas : le chunk doit rester du GLSL valide pour le pilote.
+inline float sin(float a) {
+  return std::sin(a);
+}
+inline float cos(float a) {
+  return std::cos(a);
+}
+inline vec3 sin(const vec3& a) {
+  return vec3(std::sin(a.x), std::sin(a.y), std::sin(a.z));
 }
 
 inline float fract(float v) {
