@@ -1470,6 +1470,7 @@
    (t13-min      int32)    ;; pire opacite composite au coeur, en millieme
    (t13-ctrl     int32)    ;; images ou la MEME nuee SANS le gain tombait sous le seuil
    (t13-lay      int32)    ;; plus grand nombre de couches superposees au coeur
+   (t13-none     int32)    ;; images ou la nuee etait dessinee mais ne couvrait PAS le centre
    (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
    (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
    (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
@@ -1878,8 +1879,15 @@
 ;; A `:a 32` (2987, 2988) l'alpha rendu vaut 0,50, a `:a 16` (3001, jaune) 0,25 : c'est le « presque
 ;; transparent ». Le gain rend au HUD la base que le monde lui donne gratuitement.
 (defconstant RHUD_NUEE_FIT_R 7.0)      ;; asymptote de l'ecart au centre, en unites de canevas
-(defconstant RHUD_NUEE_FIT_KNEE 200.0) ;; le genou de la compression, en unites de canevas
-(defconstant RHUD_NUEE_SIZE 0.16)      ;; facteur de demi-taille du sprite, au DESSIN
+;; LE GENOU SE CHOISIT SUR LA DISTRIBUTION, PAS SUR LE PIRE CAS. `r' = FIT_R . r / (r + KNEE)`
+;; a pour pente a l'origine FIT_R/KNEE. Les couches tirent leur ecart initial UNIFORMEMENT dans
+;; `(meters 0) (meters 16)`, soit 0 a 1092 unites de canevas : un genou de 200 les tasserait
+;; toutes entre 3,5 et 5,9 — une COURONNE, avec le centre du trou vide, c'est-a-dire le defaut
+;; que l'owner decrit (« presque transparent ») deplace au lieu d'etre corrige. A 420 la pente
+;; vaut 1/60 : le tirage uniforme se retrouve etale sur [0 ; 5,2] avec un vrai centre dense, et
+;; les fuyards (les etincelles qui volent pendant des secondes) restent bornes par FIT_R.
+(defconstant RHUD_NUEE_FIT_KNEE 420.0) ;; le genou de la compression, en unites de canevas
+(defconstant RHUD_NUEE_SIZE 0.15)      ;; facteur de demi-taille du sprite, au DESSIN
 (defconstant RHUD_NUEE_A_GAIN 4.0)     ;; compensation du melange additif sur un trou noir
 (defconstant RHUD_NUEE_BOX_MAX 12.98)  ;; 1,1 x RHUD_GAUGE_HOLE_R : le debordement tolere (20/09)
 (defconstant RHUD_NUEE_BOX_MIN 5.9)    ;; 0,5 x : en dessous, la nuee ne tient plus dans le trou,
@@ -3253,6 +3261,7 @@
         ;; --- terme 13 : L'OPACITE AU COEUR (reprise 20/09 11:10). `nq-acore` est composee a
         ;; l'emission sur les couches qui couvrent le centre ; `nq-acore0` est la MEME image sans
         ;; le gain — l'ablation vit dans la course, elle n'attend pas un second binaire.
+        (if (zero? (-> this nq-alay)) (+! (-> this t13-none) 1))
         (when (> (-> this nq-alay) 0)
           (+! (-> this t13-n) 1)
           (if (< (-> this nq-acore) RHUD_NUEE_A_MIN) (+! (-> this t13-bad) 1))
@@ -3371,6 +3380,14 @@
         (if (< (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MIN))) (+! bad 1))))
     bad))
 
+(defun rhud-gauge-core-bad ((this hud-recharged-power))
+  "l'opacite du coeur de la nuee : trop basse sur plus d'une image sur dix, ou un centre laisse
+   vide plus souvent que couvert. `t13-none` est la grandeur qui manquait : une nuee tassee en
+   couronne satisfait un seuil d'opacite sur les images ou elle couvre le centre, et laisse le
+   trou noir sur toutes les autres."
+  (+ (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0)
+     (if (> (-> this t13-none) (-> this t13-n)) 1 0)))
+
 (defun rhud-gauge-publish ((this hud-recharged-power))
   "hud-eco-gauge : chaque terme sur SA ligne, le compte de termes MESURES a cote de la somme.
    Un terme qu'on n'a pas pu mesurer vaut UN, jamais zero : une porte qui compterait zero un
@@ -3478,10 +3495,13 @@
            ;; image sur dix est mauvaise. Le denominateur est publie, et le CONTROLE `t13_ctrl_bad`
            ;; compte les memes images rejouees SANS le gain : a zero, il dirait que le gain n'a
            ;; rien change et que ce vert ne vaut rien.
+           ;; DEUX defauts, pas un : l'opacite trop basse la ou la nuee couvre le centre, ET le
+           ;; centre laisse VIDE plus souvent qu'il n'est couvert. Sans le second, une nuee en
+           ;; couronne — le trou brillant tout autour et noir au milieu — passerait la porte en
+           ;; ne presentant a la mesure que ses rares bonnes images.
            (t13 (if (>= (-> this t13-n) RHUD_GB_MIN)
-                  (begin (+! measured 1)
-                         (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0))
-                  (+ (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0) 1))))
+                  (begin (+! measured 1) (rhud-gauge-core-bad this))
+                  (+ (rhud-gauge-core-bad this) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -3622,6 +3642,7 @@
       (__pc-autoport-publish "hud_gauge_t13_min_milli" (-> this t13-min))
       (__pc-autoport-publish "hud_gauge_t13_ctrl_bad" (-> this t13-ctrl))
       (__pc-autoport-publish "hud_gauge_t13_layers_max" (-> this t13-lay))
+      (__pc-autoport-publish "hud_gauge_t13_none" (-> this t13-none))
       (__pc-autoport-publish "hud_gauge_t13_want_milli" RHUD_NUEE_A_MIN)
       (__pc-autoport-publish "hud_gauge_nuee_fit_r_16th" (the int (* 16.0 RHUD_NUEE_FIT_R)))
       (__pc-autoport-publish "hud_gauge_nuee_knee_16th" (the int (* 16.0 RHUD_NUEE_FIT_KNEE)))
