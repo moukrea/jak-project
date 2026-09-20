@@ -14555,3 +14555,37 @@ items:
     proof_bytes: 68607
     attempt: 2
     journal: validator-002.txt
+- id: harness-judge-binary-race-with-builder
+  status: open
+  priority: 13
+  owner_test: false
+  depends_on: []
+  spec: null
+  prompt: prompts/item-harness-judge-binary-race-with-builder.md
+  code_scope: harness
+  feature: 'Le juge compare la preuve au binaire du disque au moment du verdict : un build entre la fin
+    de la course et le verdict rejette une preuve juste'
+  gate:
+    key: judge_binary_race_defects
+    op: ==
+    value: 0
+  where: 'Rien a regarder en jeu : preuve machine.'
+  known_cause: 'Cree le 20/09 14:50 par le superviseur. FAIT MESURE : essai 4 de grass-blade-variants
+    refuse par validators/generic.sh:134 — « sha=f1f2c5ece3ac69e4 n''est pas celui de build-android/lib/arm64-v8a/libgk.so
+    sur le disque » — alors que proof.txt de la MEME course publie proof_binary_decision=identique, proof_binary_local_md5
+    = proof_binary_device_md5 = fa9b98975b29df41… : au moment de la COURSE, disque, APK et appareil portaient
+    le meme binaire. Entre la fin de la course et le verdict, auto_build_apk.sh a produit QUATRE builds
+    (14:16, 14:19, 14:21, 14:26 : un par commit, dont ceux du worker et du superviseur), et libgk.so du
+    disque a change. La garde du constructeur ne retient que pendant la COURSE (« une course de preuve
+    tourne — RETENTEE », auto_build_apk.sh:397/470), pas jusqu''au VERDICT. Consequence : un essai debite
+    pour de la plomberie (releve du 16/09 : 4 echecs sur 5), et les termes miroir/aveugle/maillage du
+    recensement qui relisent le binaire courant rougissent avec. CIBLE : le verdict se rend contre le
+    binaire QUE LA COURSE A MESURE, identifie par l''empreinte publiee par proof_run (proof_binary_local_md5
+    / sha de la course), jamais contre l''etat courant du disque ; le recensement d''un item relit le
+    MEME binaire (chemin fige de la course : copie ou empreinte). Le constructeur peut alors construire
+    quand il veut. PORTE : (1) generic.sh compare `sha` de la preuve a l''empreinte enregistree PAR LA
+    COURSE, pas a sha256sum du disque ; (2) test : une course jouee, puis libgk.so remplace sur le disque,
+    puis le verdict -> VERT, et le meme test avec une preuve dont l''empreinte de course differe du binaire
+    de la course -> ROUGE (controle) ; (3) les crochets census qui lisent build-android/…/libgk.so passent
+    par la meme empreinte figee ; (4) le releve des verdicts « n''est pas celui de … sur le disque » des
+    7 derniers jours est publie (combien d''essais debites pour ca) ; un terme non mesure compte 1.'
