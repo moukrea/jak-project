@@ -10254,7 +10254,7 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -10303,7 +10303,9 @@ items:
     en travers du brin pour l''autre) ?'
   out_of_scope: Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne
     change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
-  notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
+  notes: |-
+    SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.
+    budget : plafond 6 = compteur 5 + accordes ; owner 20/09 (touffes indistinctes, puis palette par espece) : 2 essais par retour + 1 pour l'essai 4 perdu en plomberie, recalcules depuis state.json
   hits_means: brins ayant recu une variante
   prompt: prompts/item-grass-blade-variants.md
   block_reason: ''
@@ -10404,7 +10406,9 @@ items:
     a-t-il du relief, ou reste-t-il un aplat ?'
   out_of_scope: Aucun ajout de geometrie. Aucune dependance a un systeme graphique indisponible sur les
     backends reellement supportes. Tout ce qui n'est pas cet item.
-  notes: 'SPEC section 7. Depend des touffes : la couleur par touffe n''existe pas sans elles.'
+  notes: |-
+    SPEC section 7. Depend des touffes : la couleur par touffe n'existe pas sans elles.
+    budget : plafond 5 = compteur 2 + accordes ; owner 20/09 (degrade sur la longueur du brin) : 3 essais, recalcules depuis state.json
   hits_means: brins ayant recu une couleur derivee de leur touffe
   prompt: prompts/item-grass-shading.md
   block_reason: ''
@@ -10481,7 +10485,9 @@ items:
     ?'
   out_of_scope: Ne touche pas au vent du feuillage, qui est un autre item. Ne reprend PAS sa loi de flexion.
     Tout ce qui n'est pas cet item.
-  notes: 'SPEC section 8. Correction owner 12/09 : la charpente de breeze.glsl, jamais son reglage.'
+  notes: |-
+    SPEC section 8. Correction owner 12/09 : la charpente de breeze.glsl, jamais son reglage.
+    budget : plafond 4 = compteur 1 + accordes ; owner 20/09 (decalage entre touffes) : 3 essais, recalcules depuis state.json
   hits_means: brins animes par le champ de vent
   prompt: prompts/item-grass-wind.md
   block_reason: ''
@@ -10587,7 +10593,9 @@ items:
     devant le bras ? (4) l''ensemble a-t-il l''air vrai ou fake ?'
   out_of_scope: Ne change pas la portee ni le nombre d'interacteurs des paliers bas, qui gardent la loi
     radiale actuelle en repli. Tout ce qui n'est pas cet item.
-  notes: 'SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.'
+  notes: |-
+    SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.
+    budget : plafond 4 = compteur 1 + accordes ; owner 20/09 (spheres de collision, ressort) : 3 essais, recalcules depuis state.json
   hits_means: contacts dynamiques appliques
   prompt: prompts/item-grass-interaction-direction.md
   block_reason: ''
@@ -13675,6 +13683,8 @@ items:
     text: Bah j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais
       !
   block_reason: ''
+  notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
+    reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20'
 - status: validated
   game: jak1
   code_scope: jeu
@@ -14569,7 +14579,7 @@ items:
     attempt: 2
     journal: validator-002.txt
 - id: harness-judge-binary-race-with-builder
-  status: in-progress
+  status: validated
   priority: 13
   owner_test: false
   depends_on: []
@@ -14590,3 +14600,10 @@ items:
 
     20/09 16:55 : le changement en cours de validators/generic.sh (empreinte FIGEE obligatoire, proof-binary.txt) a rougi 3 tests de .autoport/tests/harness/test_proof.py (fixtures sans proof-binary.txt) et la porte de fermeture les a IMPUTES a l'essai 10 de hud-eco-gauge, qui n'avait touche que goal_src. Cet item doit livrer ses tests VERTS (fixtures mises a jour ou repli explicite quand l'empreinte de course est absente) et publier le nombre de tests de la suite qu'il a fait passer du rouge au vert.
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-20'
+    proof_sha: d18419660bb9f2c5
+    proof_bytes: 71684
+    attempt: 2
+    journal: validator-002.txt
