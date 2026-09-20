@@ -1004,6 +1004,16 @@ def sweep_talk(L, read, todo, talk, dry):
             if not dry:
                 swap_labels(L, iss["id"], remove=talk)
             n += 1
+    # 20/09 : l'invariant vaut dans les DEUX sens. Un ticket qui porte « A lire » ou « A traiter » SANS
+    # « En discussion » (etiquette retiree a la main, ou posee par un chemin qui ne passe pas par
+    # swap_labels) etait invisible dans la vue « En discussion » : l'owner ne le trouvait pas.
+    for lab in (read, todo):
+        d2 = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id labels { nodes { id } } } } } }', id=lab)
+        for iss in d2["issueLabel"]["issues"]["nodes"]:
+            if talk not in {l["id"] for l in iss["labels"]["nodes"]}:
+                if not dry:
+                    swap_labels(L, iss["id"], add=lab)   # add=read|todo fait suivre « En discussion »
+                n += 1
     return n
 
 
