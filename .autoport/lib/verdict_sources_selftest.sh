@@ -55,6 +55,12 @@ monte(){  # monte <dossier> -> 0, et laisse un depot que `validators/generic.sh`
   done < <(bash "$AP/lib/verdict_sources.sh" "$SANDITEM" list)
   git -C "$dir" init -q >/dev/null 2>&1 || return 1           # git-sandbox-ok
   printf 'faux gk du banc des sources du verdict\n' > "$dir/build/game/gk"
+  # LA COURSE GELE SON BINAIRE (harness-judge-binary-race-with-builder, 2026-09-20).
+  # `lib/proof_run.sh` copie le binaire mesure au DEPART de chaque course, et `generic.sh` juge
+  # cette copie — plus jamais l'etat courant du disque. Un bac a sable qui ne gele pas decrit un
+  # producteur perime, pas une course saine.
+  ( cd "$dir" && bash .autoport/lib/binary_freeze.sh freeze "$SANDITEM" "" build/game/gk \
+       >/dev/null 2>&1 ) || return 1
   critere "$dir" 'key: episodes, op: "==", value: 0'
 }
 

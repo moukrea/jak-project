@@ -28,6 +28,14 @@ cd "$ROOT" || exit 1
 BLOB="build-android/shaders/shaders_android_blob.h"
 SO="build-android/lib/arm64-v8a/libgk.so"
 GK="build/game/gk"
+# LE BINAIRE JUGE EST CELUI DE LA COURSE (harness-judge-binary-race-with-builder, 20/09). Relire
+# l'arbre au moment du recensement, c'est juger un binaire que personne n'a mesure : le 20/09,
+# quatre builds sont tombes entre une course et son verdict. `binary_freeze.sh subst` rend la
+# copie figee par la course quand c'est ce binaire-la, et le chemin inchange sinon.
+_BRAS=$(python3 -c "import sys;sys.path.insert(0,'.autoport/lib');import impossible;print(impossible.arm_suffix('${AUTOPORT_CENSUS_ARMED:-1}'))" 2>/dev/null)
+_ITEM="${AUTOPORT_CENSUS_ID:-lighting-legacy-purge}"
+SO=$(bash .autoport/lib/binary_freeze.sh subst "$_ITEM" "$_BRAS" "$SO" 2>/dev/null || echo "$SO")
+GK=$(bash .autoport/lib/binary_freeze.sh subst "$_ITEM" "$_BRAS" "$GK" 2>/dev/null || echo "$GK")
 CENSUS_SRC="game/graphics/opengl_renderer/lighting_census.cpp"
 
 pub(){ printf '%s=%s\n' "$1" "$2"; }

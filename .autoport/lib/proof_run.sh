@@ -136,7 +136,7 @@ SUF=""; [ "$OFF" = 1 ] && SUF="-off"
 AP_NAMES=$(python3 "$AP/lib/impossible.py" names "$SUF" 2>&1) || {
   echo "proof_run: lib/impossible.py ne derive aucun nom pour le bras '${SUF:-livre}' : $AP_NAMES" >&2; exit 3; }
 eval "$AP_NAMES"
-for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal writer run stale; do
+for _k in proof engine seal wait impossible census env teardown prev_proof prev_seal writer run stale binary; do
   eval "_v=\${AP_NAME_$_k:-}"
   [ -n "$_v" ] || { echo "proof_run: l'autorite n'a pas nomme '$_k' pour le bras '${SUF:-livre}'" >&2; exit 3; }
 done
@@ -331,8 +331,12 @@ pw_prendre(){   # pw_prendre <fichier-verrou> <borne-s> -> 0 pris, 1 refuse
   done
 }
 pw_marquer(){   # pw_marquer <fichier-verrou> : QUI ecrit, QUI l'a lance, SOUS QUELLE identite
-  printf 'pid=%s\nlauncher=%s\nlauncher_boot=%s\nitem=%s\narm=%s\nrun=%s\nattempt=%s\nat=%s\n' \
-    "$$" "$PPID" "$(pw_demarrage "$PPID")" "$ID" "${SUF:-livre}" "$PW_RUNID" "$PW_ATTEMPT" \
+  # `starttime=` EST CELUI DE L'ECRIVAIN LUI-MEME, pas seulement celui de son lanceur
+  # (harness-judge-binary-race-with-builder, 20/09) : sans lui, un lecteur exterieur — le
+  # constructeur d'APK — ne peut savoir que par `kill -0` si cette course tourne encore, et un
+  # pid recycle se lit alors « course en vol ». Avec lui, `lib/pidguard.sh` tranche.
+  printf 'pid=%s\nstarttime=%s\nlauncher=%s\nlauncher_boot=%s\nitem=%s\narm=%s\nrun=%s\nattempt=%s\nat=%s\n' \
+    "$$" "$(pw_demarrage $$)" "$PPID" "$(pw_demarrage "$PPID")" "$ID" "${SUF:-livre}" "$PW_RUNID" "$PW_ATTEMPT" \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$1"
 }
 # VERROU-ECRIVAIN/fin
@@ -541,6 +545,25 @@ fi                                            # produit de binaire : c'est un fa
 if [ ! -s "$BIN" ]; then
   die3 binaire-absent "$BIN est absent ou vide : rien a juger"
 fi
+# ============================================================ LE BINAIRE EST FIGE ICI =========
+# LE JUGE NE RELIT PLUS LE DISQUE (harness-judge-binary-race-with-builder, 20/09). Le binaire que
+# cette course va mesurer est COPIE maintenant, avant tout amorcage, dans un magasin adresse par
+# son contenu ; `reports/<id>/proof<suf>-binary.txt` nomme cette copie. Le 20/09,
+# `auto_build_apk.sh` a produit QUATRE builds entre la fin d'une course et son verdict, et
+# `validators/generic.sh` a refuse une preuve juste parce que `libgk.so` du disque avait change
+# entre-temps. Desormais le constructeur peut construire quand il veut : le verdict porte sur la
+# copie, pas sur l'etat courant de l'arbre.
+# L'EMPREINTE DE LA PREUVE SORT DE CE GEL, et de nulle part ailleurs : un second `sha256sum` du
+# disque, plus loin, rouvrirait la meme fenetre entre le gel et la lecture.
+FREEZE_KV=$(bash "$AP/lib/binary_freeze.sh" freeze "$ID" "$SUF" "$BIN")   || die3 binaire-non-fige "$BIN n'a pas pu etre fige : sans copie, le verdict relirait le disque"
+FROZEN_SHA=$(printf '%s\n' "$FREEZE_KV" | sed -n 's/^proof_binary_frozen_sha=//p' | tail -1)
+case "${FROZEN_SHA:-}" in
+  ''|*[!0-9a-f]*) die3 binaire-non-fige "le gel de $BIN n'a rendu aucune empreinte : $FREEZE_KV" ;;
+esac
+# LE MAGASIN NE GROSSIT PAS SANS FIN : une copie que plus aucun temoin ne nomme ne sert plus a
+# aucun verdict. Le balayage est fait ICI, apres le gel de CETTE course — jamais avant, sinon il
+# retirerait la copie qu'on vient de poser.
+bash "$AP/lib/binary_freeze.sh" gc >/dev/null 2>&1 || true
 # Recompute from an immutable existing run, preserving its original execution
 # timestamp and counters. This path performs no device action and never freshens a run.
 if [ -n "$HDR_AGGREGATE" ]; then
@@ -800,10 +823,13 @@ log "garde de build : decision=$BG_DECISION demon_gradle=$BG_DAEMON apk_age=${BG
 # LE VERROU, MESURE MEME QUAND ON N'A PAS ATTENDU. Un `proof_wait_s=0` ne dit rien tout seul :
 # il faut savoir s'il y avait un verrou, s'il repondait encore, et depuis quand il etait la.
 # Le 2026-09-12 le constructeur a tenu le sien 6 h 38 sans qu'aucune grandeur ne le dise.
-LOCK_F="$AP/.deploy-in-progress"; LOCK_PID="-"; LOCK_ALIVE=0; LOCK_AGE=-1
+LOCK_F="$AP/.deploy-in-progress"; LOCK_PID="-"; LOCK_ALIVE=0; LOCK_AGE=-1; LOCK_WHY="-"
 if [ -f "$LOCK_F" ]; then
   LOCK_PID=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK_F" | head -1); LOCK_PID=${LOCK_PID:--}
-  [ "$LOCK_PID" != "-" ] && kill -0 "$LOCK_PID" 2>/dev/null && LOCK_ALIVE=1
+  # UN PID SEUL N'IDENTIFIE PERSONNE (harness-judge-binary-race-with-builder, 20/09) : le 20/09
+  # un marqueur d'AOUT nommait un pid recycle, vivant, et le constructeur l'a cru detenu 25 min.
+  LOCK_WHY=$(bash "$AP/lib/pidguard.sh" holder "$LOCK_F" 2>/dev/null | sed -n 's/^pidguard_reason=//p' | tail -1)
+  [ "$(bash "$AP/lib/pidguard.sh" holder "$LOCK_F" >/dev/null 2>&1; echo $?)" = 0 ] && LOCK_ALIVE=1
   LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$LOCK_F" 2>/dev/null || date +%s) ))
 fi
 extra "proof_wait_s=$WAITED_S"
@@ -811,6 +837,7 @@ extra "proof_wait_max_s=$WAITMAX"
 extra "proof_wait_why=${BUSY_WHY:--}"
 extra "deploy_lock_pid=$LOCK_PID"
 extra "deploy_lock_alive=$LOCK_ALIVE"
+extra "deploy_lock_why=${LOCK_WHY:--}"
 extra "deploy_lock_age_s=$LOCK_AGE"
 # CE QUE LA GARDE DE BUILD A LU, ET CE QU'ELLE A DECIDE. Sans ces quatre cles, « la course est
 # passee » et « il n'y avait rien a voir » se lisent pareil : le compte de lignes du registre
@@ -1027,7 +1054,11 @@ fi
 # bras d'ABSENCE du banc remet un appel a cette ligne exacte pour FABRIQUER le defaut d'avant :
 # sans lui, « zero preuve detruite sans course » se lirait comme « personne n'a regarde ».
 
-SHA=$(sha256sum "$BIN" | cut -c1-16)
+# L'EMPREINTE EST CELLE DU GEL (harness-judge-binary-race-with-builder). Un `sha256sum "$BIN"`
+# ici relirait le disque une SECONDE fois, des minutes apres le gel : les deux lectures peuvent
+# deja decrire deux binaires differents, et c'est exactement la fenetre qu'on vient de fermer.
+SHA=$FROZEN_SHA
+while IFS= read -r _fzl; do [ -n "$_fzl" ] && extra "$_fzl"; done < <(printf '%s\n' "$FREEZE_KV")
 STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 T0=$(date +%s)
 CRASH=0; FRAMES=0; SERIAL=""

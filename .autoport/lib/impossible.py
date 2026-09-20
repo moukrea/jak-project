@@ -136,6 +136,12 @@ KINDS = {
     # a lu est ecrit la, par la MACHINE, avant que la course ne puisse rien changer : le
     # recensement de l'item le relit, il ne le fabrique pas.
     "stale": "-stale-precheck.txt",
+    # LE BINAIRE QUE LA COURSE A MESURE (harness-judge-binary-race-with-builder, 20/09). Le juge
+    # relisait `build/game/gk` — ou `libgk.so` — SUR LE DISQUE au moment du verdict : quatre
+    # builds tombes entre la fin d'une course et son jugement le 20/09 ont fait refuser une
+    # preuve juste. Ce temoin nomme la COPIE figee au depart de la course ; `lib/binary_freeze.sh`
+    # l'ecrit, le juge et les recensements le lisent, et personne ne relit plus le disque.
+    "binary": "-binary.txt",
 }
 
 

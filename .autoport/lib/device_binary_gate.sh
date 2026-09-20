@@ -165,7 +165,10 @@ verrou_libre(){
   local p
   if [ -f "$LOCK" ]; then
     p=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK" | head -1)
-    if [ -n "${p:-}" ] && kill -0 "$p" 2>/dev/null; then LOCK_ETAT="tenu-pid=$p"; return 1; fi
+  # PID *ET* INSTANT DE DEMARRAGE (harness-judge-binary-race-with-builder, 20/09) : `kill -0`
+  # seul rend VRAI sur le numero d'un processus mort et RECYCLE par le systeme. Le 20/09 un
+  # marqueur d'AOUT a fait attendre le constructeur 25 min, puis construire sous une course.
+    if bash "$AP/lib/pidguard.sh" holder "$LOCK" >/dev/null 2>&1; then LOCK_ETAT="tenu-pid=$p"; return 1; fi
     LOCK_ETAT="perime-pid=${p:-inconnu}"
     return 0
   fi

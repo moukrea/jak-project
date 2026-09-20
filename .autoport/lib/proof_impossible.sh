@@ -38,7 +38,10 @@ LOCK="$ROOT/.autoport/.deploy-in-progress"
 LPID="-"; LALIVE=0; LAGE=-1
 if [ -f "$LOCK" ]; then
   LPID=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK" | head -1); LPID=${LPID:--}
-  [ "$LPID" != "-" ] && kill -0 "$LPID" 2>/dev/null && LALIVE=1
+  # PID *ET* INSTANT DE DEMARRAGE (harness-judge-binary-race-with-builder, 20/09) : `kill -0`
+  # seul rend VRAI sur le numero d'un processus mort et RECYCLE par le systeme. Le 20/09 un
+  # marqueur d'AOUT a fait attendre le constructeur 25 min, puis construire sous une course.
+  bash "$ROOT/.autoport/lib/pidguard.sh" holder "$LOCK" >/dev/null 2>&1 && LALIVE=1
   LAGE=$(( $(date +%s) - $(stat -c %Y "$LOCK" 2>/dev/null || date +%s) ))
 fi
 

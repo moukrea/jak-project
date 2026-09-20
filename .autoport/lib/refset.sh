@@ -79,15 +79,19 @@ BIN=build/game/gk
 # coup. PID et `trap` obligatoires : un `touch` nu laisserait un verrou eternel si la course
 # meurt, et le constructeur perime de toute facon un verrou dont le PID ne repond plus.
 LOCK=.autoport/.deploy-in-progress
+# shellcheck source=/dev/null
+. .autoport/lib/pidguard.sh
 if [ -f "$LOCK" ]; then
-  holder=$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$LOCK")
-  if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+  # PID *ET* INSTANT DE DEMARRAGE (harness-judge-binary-race-with-builder, 20/09) : `kill -0`
+  # seul rend VRAI sur le numero d'un processus mort et RECYCLE par le systeme. Le 20/09 un
+  # marqueur d'AOUT a fait attendre le constructeur 25 min, puis construire sous une course.
+  if pg_lock_holder "$LOCK" >/dev/null; then
     echo "refset: livraison en cours ($(cat "$LOCK")) — on ne mesure pas sous un constructeur" >&2
     exit 4
   fi
-  echo "refset: verrou orphelin (pid=$holder mort) — on le remplace" >&2
+  echo "refset: verrou sans detenteur ($(pg_lock_holder "$LOCK" | sed -n 's/^pidguard_reason=//p')) — on le remplace" >&2
 fi
-printf 'refset.sh %s pid=%s started=%s\n' "$MODE" "$$" "$(date -Is)" > "$LOCK"
+pg_lock_write "$LOCK" "refset.sh-$MODE"
 trap 'rm -f "$LOCK"' EXIT
 
 DEMO=.autoport/refset/neutral.inputs

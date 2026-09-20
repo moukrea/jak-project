@@ -50,6 +50,13 @@ monte(){  # monte <dossier> : un depot jetable que `validators/generic.sh` peut 
   cp "$AP/lib/impossible.py" "$dir/.autoport/lib/" 2>/dev/null || true
   git -C "$dir" init -q >/dev/null 2>&1 || return 1           # git-sandbox-ok
   printf 'faux gk du banc de la lecture anticipee\n' > "$dir/build/game/gk"
+  # LA COURSE GELE SON BINAIRE (harness-judge-binary-race-with-builder, 2026-09-20).
+  # `lib/proof_run.sh` copie le binaire mesure au DEPART de chaque course, et
+  # `validators/generic.sh` juge cette copie — plus jamais l'etat courant du disque, qu'un
+  # build tombe entre la course et le verdict peut avoir remplace. Un bac a sable qui ne
+  # gele pas decrit un producteur perime, pas une course saine.
+  ( cd "$dir" && bash .autoport/lib/binary_freeze.sh freeze "$SANDITEM" "" build/game/gk \
+       >/dev/null 2>&1 ) || return 1
   printf '// source moteur du depot jetable\n' > "$dir/game/sonde_origine.cpp"
   cat > "$dir/.autoport/backlog.yaml" <<YAML
 version: 1

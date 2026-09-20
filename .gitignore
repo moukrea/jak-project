@@ -257,3 +257,6 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 .autoport/SWITCH_HANDOFF.md
 
 .autoport/.supervisor-terminal.json
+
+# autoport: le magasin des binaires FIGES par les courses de preuve (adresse par contenu)
+.autoport/binfreeze/

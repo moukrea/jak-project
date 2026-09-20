@@ -220,6 +220,8 @@ pub br_live_bin_frais  "$(num "$(g "$P3" bx_bin_fresh)")"
 pub br_live_bin_retard "$(num "$(g "$P3" bx_bin_lag_s)")"
 # QUI A RELIE, ET CONTRE QUOI. Publie a cote du compte : un `sha` different de celui de la
 # preuve DIT que la course a mesure un autre fichier, au lieu de le laisser deviner.
+# BINAIRE-VIVANT-VOULU: cet item juge l'ARBRE DE BUILD, pas la mesure d'une course : la valeur
+# cherchee est justement celle du binaire tel qu'il est MAINTENANT sur le disque.
 pub br_live_bin_sha "$(sha256sum "build/game/gk" 2>/dev/null | cut -c1-16)"
 pub br_live_describe "$(git describe --tags 2>/dev/null | tr -d " ")"
 pub br_live_sdl_revision "$(sed -n 's/.*define SDL_REVISION "\([^"]*\)".*/\1/p' \

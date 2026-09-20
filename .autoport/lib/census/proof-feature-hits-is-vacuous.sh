@@ -156,7 +156,8 @@ joue(){   # $1 = suffixe de fixture, le reste = lignes de proof.txt
   local sfx="$1"; shift
   local fid="$FIX_PFX-$sfx" d
   d="$FIXD/$fid"; mkdir -p "$d"
-  { echo "source=x86"; echo "binary=build/game/gk"; echo "sha=0000000000000000"
+  { echo "source=x86"; # BINAIRE-VIVANT-VOULU: donnee FABRIQUEE pour un bac a sable — aucun fichier n'est ouvert ici.
+echo "binary=build/game/gk"; echo "sha=0000000000000000"
     echo "crash=0"; echo "frames=100000"
     printf '%s\n' "$@" | sed "s/@ID@/$fid/g"
   } > "$d/$PROOFNAME"

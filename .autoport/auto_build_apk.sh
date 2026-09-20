@@ -270,6 +270,32 @@ say_cause(){                             # $1=cause  $2..=texte
   fi
 }
 # <<< BUILDER-GUARD-END
+# shellcheck source=/dev/null
+. .autoport/lib/pidguard.sh
+
+# ================================== ON N'ECRIT RIEN PAR-DESSUS UNE COURSE DE PREUVE ===========
+# (harness-judge-binary-race-with-builder, 2026-09-20.) Ce script cherchait les courses par MOTIF
+# DE LIGNE DE COMMANDE (`ps | awk '/[p]roof_run\.sh/'`) et avec un plafond d'age de 40 min : une
+# course plus longue n'existait plus pour lui, et le chemin « patience depassee » ne la regardait
+# meme pas. Le 20/09 a 14:24 il a donc lance un build PENDANT une course — quatre builds en dix
+# minutes — et le juge a ensuite refuse une preuve juste parce que le binaire du disque avait
+# change. On lit desormais la DONNEE que toute course ecrit : son verrou d'ecrivain, avec la
+# garde pid+starttime (`lib/pidguard.sh` via `lib/proof_inflight.sh`). Et quand on ne peut pas
+# reporter, on ATTEND la fin de la course (`lib/await.sh`) au lieu d'un compte a rebours.
+# rc 0 = une course ecrit MAINTENANT : l'appelant ne doit ni installer ni construire.
+preuve_en_vol(){          # preuve_en_vol <ou> [--attendre]
+  local ou=${1:-garde} att=${2:-} liste p
+  liste=$(bash .autoport/lib/proof_inflight.sh list 2>/dev/null) || return 1
+  p=$(printf '%s' "$liste" | head -1 | awk '{print $3}')
+  say "$ou: course de preuve EN VOL ($(printf '%s' "$liste" | tr '\n' ' ')) — rien ne s'ecrit par-dessus"
+  if [ "$att" = --attendre ]; then
+    bash .autoport/lib/await.sh pid "$p" --timeout 570 >> "$LOG" 2>&1
+    bash .autoport/lib/proof_inflight.sh list >/dev/null 2>&1 || {
+      say "$ou: la course de preuve est finie — on peut reprendre"; return 1; }
+  fi
+  return 0
+}
+
 
 # L'INSTANTANE QUI A REMPLACE LE CHECKPOINT. `checkpoint_snapshot` enregistre un arbre sale sans
 # commiter, sans toucher l'index ni l'arbre de travail du worker : voir l'en-tete de la librairie
@@ -376,9 +402,18 @@ reconcilier_telephone(){
   # Ne jamais installer par-dessus une livraison du worker en cours : ces minutes-la
   # sont precisement celles ou aucun compilateur ne tourne, donc celles ou ce script se
   # croit libre.
-  if [ -f .autoport/.deploy-in-progress ]; then
+  # UN AGE DE FICHIER NE DIT PAS QUI TIENT LE VERROU (harness-judge-binary-race-with-builder).
+  # Le 20/09 un marqueur au contenu d'AOUT — `keira_room_x86 pid=2948601
+  # started=2026-08-19T14:14:52` — a fait attendre ce script 25 minutes : le pid repondait a
+  # `kill -0` parce que le systeme l'avait RECYCLE. La garde apparie desormais pid ET instant de
+  # demarrage ; un verrou perime est ignore tout de suite, et on ne le supprime pas (son poseur
+  # en reste seul proprietaire).
+  # LA SOUPAPE DE 60 MIN RESTE (elle etait la avant, et elle protege l'owner qui attend ses APK) :
+  # on la subordonne au detenteur au lieu de la remplacer. Deux conditions, pas une.
+  if pg_lock_holder .autoport/.deploy-in-progress >/dev/null; then
     age=$(( $(date +%s) - $(stat -c %Y .autoport/.deploy-in-progress 2>/dev/null || echo 0) ))
     [ "$age" -lt 3600 ] && return 0
+    say "reconciliation: verrou de livraison tenu depuis ${age}s (> 3600) — soupape, on continue"
   fi
 
   # 2026-09-11 — NI PAR-DESSUS UNE PREUVE EN COURS. Le verrou ci-dessus couvre les LIVRAISONS
@@ -387,14 +422,10 @@ reconcilier_telephone(){
   # process du jeu est passe de 12642 a 13021 et le chemin /data/app/ a change sous elle. La
   # course est sortie en frames=0 et se lisait comme une regression du moteur. Trois essais ont
   # ete brules sur des diagnostics de ce faux rouge.
-  # Plafond d'age : une course figee ne doit pas bloquer les installations pour toujours.
-  pr_age=0
-  for pr in $(ps -eo pid= -o etimes= -o args= 2>/dev/null \
-                | awk '/[p]roof_run\.sh/ {print $2}'); do
-    [ "$pr" -gt "$pr_age" ] 2>/dev/null && pr_age=$pr
-  done
-  if [ "$pr_age" -gt 0 ] && [ "$pr_age" -lt 2400 ]; then
-    say "reconciliation: une course de preuve tourne depuis ${pr_age}s — RETENTEE au prochain tour"
+  # LA COURSE SE LIT SUR SON VERROU D'ECRIVAIN, jamais sur une ligne de commande, et SANS
+  # plafond d'age : une course longue reste une course. Voir `preuve_en_vol` plus haut.
+  if preuve_en_vol reconciliation; then
+    say "reconciliation: RETENTEE au prochain tour"
     return 0
   fi
 
@@ -474,6 +505,14 @@ reconcilier_telephone(){
   fi
   fg_bloque_depuis=""
 
+  # LA PATIENCE EXPIREE NE DONNE PAS LE DROIT D'ECRASER UNE MESURE. Le 20/09 a 14:24, « patience
+  # depassee (25 min sans fenetre) » a lance l'ecriture PENDANT une course de preuve : un compte
+  # a rebours ne mesure rien, il expire. Ici on ATTEND la course, une seule fois et borne ; si
+  # elle tourne encore, on repasse au tour suivant. Cette garde est la DERNIERE avant l'ecriture.
+  if preuve_en_vol reconciliation --attendre; then
+    say "reconciliation: RETENTEE au prochain tour (course de preuve toujours en vol)"
+    return 0
+  fi
   say "reconciliation: telephone en arriere du build (custom '$dev_c'->'$want_c', cgo '$dev_g'->'$want_g', apk '$inst_id'->'$apk_id') — installation"
   if ! timeout 1800 "$ADBX" -s "$SERX" install -r "$APKX" >> "$LOG" 2>&1; then
     say "reconciliation: adb install a echoue — retentee au prochain tour (voir plus haut dans ce log)"
@@ -617,19 +656,33 @@ while true; do
     # constructeur en pleine course et detruit des art-groups (voir PITFALLS). On l'ignore,
     # c'est tout — le poseur reste seul proprietaire de son fichier.
     HOLDER=$(sed -n 's/.*pid=\([0-9]\+\).*/\1/p' "$LOCK" 2>/dev/null | head -1)
-    if [ -n "$HOLDER" ] && ! kill -0 "$HOLDER" 2>/dev/null; then
-      say "verrou de livraison ORPHELIN (detenteur pid=$HOLDER mort, ${age}s) — ignore, on construit"
+    # PID *ET* INSTANT DE DEMARRAGE (harness-judge-binary-race-with-builder, 20/09). `kill -0`
+    # seul rendait VRAI sur le numero d'un processus mort depuis un mois et recycle par le
+    # systeme : 25 minutes d'attente, puis un build lance par-dessus une course de preuve.
+    LOCK_RAISON=$(pg_lock_holder "$LOCK" | sed -n 's/^pidguard_reason=//p')
+    if ! pg_lock_holder "$LOCK" >/dev/null; then
+      say "verrou de livraison SANS DETENTEUR ($LOCK_RAISON, pid=$HOLDER, ${age}s) — ignore, on construit"
     elif [ "$age" -lt 3600 ]; then
-      say_cause livraison-en-cours "livraison en cours ($(cat "$LOCK" 2>/dev/null | tr '\n' ' '), ${age}s, detenteur pid=$HOLDER vivant) — on ne rebatit pas par-dessus"; continue
+      say_cause livraison-en-cours "livraison en cours ($(cat "$LOCK" 2>/dev/null | tr '\n' ' '), ${age}s, detenteur pid=$HOLDER $LOCK_RAISON) — on ne rebatit pas par-dessus"; continue
     else
       say "verrou de livraison perime (${age}s > 3600) — ignore"
     fi
   fi
 
+  # ET PAS DE BUILD PENDANT UNE COURSE DE PREUVE. C'est ici que les quatre builds du 20/09
+  # (14:16, 14:19, 14:21, 14:26) sont partis, un par commit, pendant qu'une course mesurait :
+  # `libgk.so` a change sous elle et le verdict a refuse sa preuve.
+  if preuve_en_vol build --attendre; then
+    say_cause course-de-preuve "aucun build — une course de preuve ecrit sa mesure, on la laisse finir"; continue
+  fi
+
   # Exclusion avec le publieur ; verrou PID tenu aussi pendant les preparatifs.
   exec 8>.autoport/.delivery-artifacts.lock
   if ! flock -n -x 8; then exec 8>&-; say_cause verrou-publieur "aucun build — .delivery-artifacts.lock est tenu (le publieur travaille)"; continue; fi
-  printf '%s pid=%s\n' "$0" "$$" > .autoport/.deploy-in-progress
+  # LE VERROU DIT QUI LE TIENT, pid ET instant de demarrage : sans le second, un numero recycle
+  # fait passer un mort pour un detenteur (20/09, 25 min d'attente sur un marqueur d'aout).
+  pg_lock_write .autoport/.deploy-in-progress "$0"
+
   trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
   fin_de_passe(){ rm -f .autoport/.deploy-in-progress; flock -u 8; exec 8>&-; }
   build_commit=$(git rev-parse HEAD) || { say_cause git-muet "aucun build — git rev-parse HEAD a echoue"; fin_de_passe; continue; }
@@ -685,7 +738,7 @@ while true; do
   # `.deploy-in-progress` sans jamais l'ecrire : rien n'empechait un `gk` de demarrer pendant que
   # lui reecrivait `out/jak1/iso` en ARM64. `lib/proof_run.sh` attend ce verrou ; il faut donc
   # qu'il existe pendant toute la passe. PID vivant inscrit dedans, retire par trap.
-  echo "pid=$$ started=$(date -Is) what=build-arm64-apk" > .autoport/.deploy-in-progress
+  pg_lock_write .autoport/.deploy-in-progress build-arm64-apk
   trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
   # LE VERROU SE REND A LA FIN DE LA PASSE, PAS A LA MORT DU DEMON (2026-09-03 14:00).
   # Le `trap ... EXIT` ci-dessus ne tire que quand ce script s'arrete. Or ce script est une

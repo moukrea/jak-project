@@ -74,6 +74,13 @@ def _repo(tmp_path):
     gk.write_bytes(b"binaire x86 de test, contenu arbitraire mais REEL\n")
     sha = hashlib.sha256(gk.read_bytes()).hexdigest()[:16]
 
+    # LA COURSE GELE SON BINAIRE (harness-judge-binary-race-with-builder, 2026-09-20).
+    # `lib/proof_run.sh` copie le binaire mesuré au DÉPART de chaque course, et `generic.sh` juge
+    # cette copie — plus jamais l'état courant du disque, qu'un build tombé entre la course et le
+    # verdict peut avoir remplacé. Un fixture qui ne gèle pas décrit un producteur périmé.
+    subprocess.run(["bash", ".autoport/lib/binary_freeze.sh", "freeze", ITEM, "", "build/game/gk"],
+                   cwd=root, check=True, capture_output=True)
+
     (root / ".autoport" / "backlog.yaml").write_text(textwrap.dedent(f"""\
         version: 1
         items:

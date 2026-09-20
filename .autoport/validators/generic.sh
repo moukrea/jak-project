@@ -131,7 +131,19 @@ else
   elif [ "$va_proof" != "$va_now" ] || [ "$(kv verdict_acquis_count)" != "$va_cnt" ]; then
     bad "acquis : $(kv verdict_acquis_count) script(s)/$va_proof dans la preuve, $va_cnt/$va_now sur le disque — une garde d'acquis VALIDE PAR L'OWNER a change ou disparu depuis la course"
   fi
-  [ "$(kv sha)" = "$(sha256sum "$bin" 2>/dev/null | cut -c1-16)" ] || bad "sha=$(kv sha) n'est pas celui de $bin sur le disque"
+  # ============================ LE BINAIRE JUGE EST CELUI DE LA COURSE, PAS CELUI DU DISQUE ===
+  # (harness-judge-binary-race-with-builder, 2026-09-20). Cette ligne comparait `sha=` a
+  # `sha256sum "$bin"` RELU AU MOMENT DU VERDICT. Entre la fin d'une course et son jugement, le
+  # constructeur travaille : le 20/09 il a produit QUATRE builds en dix minutes (14:16, 14:19,
+  # 14:21, 14:26), un par commit — dont ceux du superviseur. L'essai 4 de `grass-blade-variants`
+  # a donc ete refuse sur « sha=f1f2c5ece3ac69e4 n'est pas celui de
+  # build-android/lib/arm64-v8a/libgk.so sur le disque » alors que sa propre preuve publiait
+  # `proof_binary_decision=identique` et deux md5 egaux : au moment de la COURSE, disque, APK et
+  # appareil portaient le meme binaire. Un essai debite pour de la plomberie, pas pour un defaut.
+  # Le juge relit maintenant la COPIE figee au depart de la course (`lib/binary_freeze.sh`), et
+  # il la REHACHE : une empreinte recopiee d'un fichier dans un autre ne prouverait que la
+  # recopie. Une preuve dont le `sha=` ne decrit pas le binaire de sa course reste ROUGE.
+  bi_msg=$(bash .autoport/lib/binary_freeze.sh verify "$P" "" "$(kv sha)" "$PF" "$bin" 2>&1) || bad "$bi_msg"
   [ "$(kv binary)" = "$bin" ] || bad "binary=$(kv binary) ne correspond pas a source=$src"
   [ "$(kv crash)" = 0 ] || bad "crash=$(kv crash)"
   f=$(kv frames); [ "${f:-0}" -ge "$FMIN" ] 2>/dev/null || bad "frames=${f:-absent} sous le seuil $FMIN : rien n'a ete dessine assez longtemps"
