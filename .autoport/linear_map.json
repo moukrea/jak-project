@@ -364,11 +364,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "d2392f6619972753af3e4b14de01a44676c7ce9d",
+  "hash": "db02887f6b31140081fc470cc604c309dfa6a1e4",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-004.txt",
+  "last_verdict_announced": "validator-006.txt",
   "pulled_at": "2026-09-20T10:56:07.109Z",
   "relations": [
    "grass-clumps"
