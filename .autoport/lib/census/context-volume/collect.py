@@ -37,6 +37,15 @@ RX_SLEEP = re.compile(r'(?<![\w-])sleep\s+(\d+(?:\.\d+)?)')
 RX_TAIL  = re.compile(r'\btail\b.*\.(log|txt|out)|\btail -f\b', re.I)
 RX_PS    = re.compile(r'\b(pgrep|pidof|ps -|kill -0)\b')
 RX_LOOP  = re.compile(r'\b(while|until|for)\b')
+# LECTURE PURE : un tour qui NE FAIT QUE LIRE. Ces deux regex sont celles avec lesquelles
+# 30,7 lectures/essai et 63,8 % de l'integrale ont ete mesures sur la population armee.
+RX_LECT  = re.compile(r'\b(cat|sed -n|head|tail|wc|ls|grep|rg|awk|find)\b')
+RX_MUT   = re.compile(r'>\s*[^&|\s]|\btee\b|\bgit (add|commit|checkout|apply)\b|\bcmake\b|'
+                      r'\bninja\b|\bgradle\b|\bmkdir\b|\brm\b|\bcp\b|\bmv\b|\bpython3?\b|'
+                      r'\bbash\b|\bproof_run\b|\badb\b|<<')
+MEMOIRE_INDEX = os.path.expanduser(
+    '~/.claude/projects/-home-emeric-code-jak-project/memory/MEMORY.md')
+RX_MEM_ENTREE = re.compile(r'^- \[(.+?)\]\((.+?)\)')
 
 
 def _lire(path):
@@ -111,6 +120,8 @@ class Agg:
         self.tronq = Counter(); self.res_bash = []; self.cout = 0.0; self.cout_n = 0
         self.sleep_s = 0.0; self.sleep_ge = 0; self.sleep_lt = 0
         self.outils = Counter(); self.mcp_essais = 0
+        self.lect_tours = 0; self.lect_ctx = 0; self.lect_une_cmd = 0
+        self.lect_seq5 = 0; self.lect_seq_max = 0; self.sousagent = 0
 
     def ajoute(self, cost, rows):
         n = len(rows)
@@ -125,6 +136,8 @@ class Agg:
                 self.outils[nm] += 1
                 if nm.startswith('mcp__'):
                     mcp = True
+                if nm in ('Agent', 'Task'):
+                    self.sousagent += 1
         if mcp:
             self.mcp_essais += 1
         # PREFIXE : le contexte du premier tour, relu a CHAQUE tour. Il ne depend d'aucune
@@ -167,6 +180,27 @@ class Agg:
             if lab:
                 self.attente[lab] += r['ctx']
                 self.attente_tours[lab] += 1
+        # LECTURE PURE : au moins un appel Bash, la concatenation des commandes matche RX_LECT
+        # et ne matche pas RX_MUT. Une SEQUENCE est coupee par tout tour non pur (Bash ou non).
+        seq = 0
+        for r in rows:
+            cmd = r['cmd']
+            pur = bool(cmd) and 'Bash' in r['names'] \
+                and RX_LECT.search(cmd) is not None and RX_MUT.search(cmd) is None
+            if not pur:
+                if seq >= 5:
+                    self.lect_seq5 += seq
+                seq = 0
+                continue
+            self.lect_tours += 1
+            self.lect_ctx += r['ctx']
+            if cmd.count(';') + cmd.count('&&') + 1 == 1:
+                self.lect_une_cmd += 1
+            seq += 1
+            if seq > self.lect_seq_max:
+                self.lect_seq_max = seq
+        if seq >= 5:
+            self.lect_seq5 += seq
 
 
 def pm(part, tot):
@@ -227,6 +261,13 @@ def main():
         pub('cv_%sappels_outil' % nom, sum(a.outils.values()))
         pub('cv_%sappels_mcp' % nom, sum(v for k, v in a.outils.items() if k.startswith('mcp__')))
         pub('cv_%sessais_avec_mcp' % nom, a.mcp_essais)
+        pub('cv_%slecture_tours_x10' % nom, int(round(10.0 * a.lect_tours / a.n)))
+        pub('cv_%slecture_part_pm' % nom, pm(a.lect_ctx, I))
+        pub('cv_%slecture_une_cmd_pm' % nom, pm(a.lect_une_cmd, a.lect_tours))
+        pub('cv_%slecture_seq5_tours' % nom, a.lect_seq5)
+        pub('cv_%slecture_seq5_pm' % nom, pm(a.lect_seq5, a.lect_tours))
+        pub('cv_%slecture_seq_max' % nom, a.lect_seq_max)
+        pub('cv_%ssousagent_x100' % nom, int(round(100.0 * a.sousagent / a.n)))
 
     # LA COMPARAISON QUE DEMANDE L'ITEM : integrale et cout par essai, AVANT contre APRES,
     # sur le MEME modele et le MEME effort. Tant qu'il n'y a pas d'essais APRES, on le DIT :
@@ -244,6 +285,20 @@ def main():
         pub('cv_baisse_integrale_pm', -1)
         pub('cv_baisse_cout_pm', -1)
         pub('cv_gain_prefixe', -1)
+
+    # L'INDEX DE MEMOIRE AUTOMATIQUE est relu a CHAQUE tour par CHAQUE worker : sa taille
+    # entre donc dans le prefixe de tout le monde. Absent => -1, jamais 0.
+    try:
+        pub('cv_memoire_index_octets', os.path.getsize(MEMOIRE_INDEX))
+        n_ent = 0
+        with open(MEMOIRE_INDEX, encoding='utf-8', errors='replace') as fh:
+            for ln in fh:
+                if RX_MEM_ENTREE.match(ln):
+                    n_ent += 1
+        pub('cv_memoire_index_entrees', n_ent)
+    except OSError:
+        pub('cv_memoire_index_octets', -1)
+        pub('cv_memoire_index_entrees', -1)
 
 
 if __name__ == '__main__':

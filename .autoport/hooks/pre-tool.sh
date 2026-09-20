@@ -15,8 +15,8 @@ IN=$(cat 2>/dev/null || true)
 [ -n "$IN" ] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
-HEAD=$(printf '%s' "$IN" | jq -r '(.tool_name // "") + "\u0001" + (.tool_input.file_path // "")' 2>/dev/null) || exit 0
-TOOL=${HEAD%%$'\001'*}; FP=${HEAD#*$'\001'}
+HEAD=$(printf '%s' "$IN" | jq -r '(.tool_name // "") + "\u0001" + (.tool_input.file_path // "") + "\u0001" + (.session_id // "")' 2>/dev/null) || exit 0
+TOOL=${HEAD%%$'\001'*}; REST=${HEAD#*$'\001'}; FP=${REST%%$'\001'*}; SID=${REST#*$'\001'}
 [ -n "${TOOL:-}" ] || exit 0
 
 refuse(){ printf '[autoport pre-tool] REFUS : %s\n\nA LA PLACE : %s\n' "$1" "$2" >&2; exit 2; }
@@ -218,5 +218,59 @@ while IFS= read -r seg; do
            "publie un compteur ecrit par le moteur, lu par .autoport/lib/proof_run.sh." ;
   fi
 done <<< "$SEGS"
+
+# --- 4. CINQ TOURS DE LECTURE D'AFFILEE -------------------------------------------------------
+# MESURE (harness-main-agent-context-volume, essai 2, 20/09, sur les 15 essais deja armes) :
+# 75,4 tours par essai, dont 30,7 de LECTURE PURE — un tour qui ne fait que lire. Ces tours-la
+# portent 36,8 % de l'integrale de contexte de l'agent principal. 55 % d'entre eux ne tiennent
+# qu'UNE seule commande, et 78 % appartiennent a une sequence d'au moins deux lectures
+# consecutives, 35 % a une sequence d'au moins cinq. Pendant
+# ce temps la delegation mesuree est de 0,87 appel de sous-agent par essai — alors que les tours
+# d'un sous-agent NE COMPTENT PAS dans le contexte de l'agent principal : seul son rapport
+# revient. Cinq lectures separees coutent cinq relectures du contexte entier ; la meme chose en
+# une commande n'en coute qu'une.
+#
+# CE QU'ELLE NE FAIT PAS. Elle ne refuse JAMAIS deux fois de suite : le compteur est remis a
+# zero par le refus lui-meme, donc la commande rejouee telle quelle passe. Le pire cas est donc
+# UN tour ajoute par sequence, le meilleur est quatre tours retires. Tout ce qui n'est pas une
+# lecture pure (un `git add`, un `python3`, une ecriture, une construction) remet aussi le
+# compteur a zero : la garde ne voit que les rafales de lecture, pas le travail.
+#
+# AUCUN ETAT, AUCUN REFUS. Sans `session_id` on ne peut pas separer deux sessions : on ne compte
+# pas plutot que de compter faux.
+if [ -n "${SID:-}" ]; then
+  # LECTURE PURE = tous les mots en position de commande lisent, et rien n'est ECRIT. Une
+  # redirection vers un fichier fabrique un artefact : ce n'est plus une lecture. `git` n'est
+  # PAS dans la liste (git log lit, git add ecrit) — le manquer coute moins cher qu'un faux refus.
+  PURE=1
+  RED=${SAFE//2>&1/}; RED=${RED//&>\/dev\/null/}; RED=${RED//>\/dev\/null/}
+  RED=${RED//> \/dev\/null/}; RED=${RED//>&2/}
+  case "$RED" in *'>'*) PURE=0 ;; esac
+  if [ "$PURE" = 1 ]; then
+    while IFS= read -r seg; do
+      [ -n "${seg//[[:space:]]/}" ] || continue
+      cmdword "$seg"
+      case "$CW" in
+        cat|sed|head|tail|wc|ls|grep|egrep|fgrep|rg|awk|find|cut|sort|uniq|tr|comm|diff|column|\
+        nm|objdump|readelf|strings|file|stat|md5sum|sha256sum|basename|dirname|realpath|\
+        echo|printf|jq|xxd|od|true|pwd) ;;
+        *) PURE=0; break ;;
+      esac
+    done <<< "$SEGS"
+  fi
+  LECT="${TMPDIR:-/tmp}/autoport-lecture-${SID//[^A-Za-z0-9_-]/_}"
+  N=0; T=0
+  if [ -r "$LECT" ]; then read -r T N < "$LECT" 2>/dev/null || { T=0; N=0; }; fi
+  case "$T$N" in ''|*[!0-9]*) T=0; N=0 ;; esac
+  # Un etat de plus de six heures appartient a une autre session de travail : on repart de zero.
+  [ $(( ${EPOCHSECONDS:-0} - T )) -gt 21600 ] 2>/dev/null && N=0
+  if [ "$PURE" = 1 ]; then N=$((N+1)); else N=0; fi
+  if [ "$N" -ge 5 ] 2>/dev/null; then
+    printf '%s 0\n' "${EPOCHSECONDS:-0}" > "$LECT" 2>/dev/null
+    refuse "cinquieme tour de LECTURE d'affilee : chaque tour relit TOUT ton contexte (195 000 jetons en moyenne), donc cinq lectures separees coutent cinq relectures la ou une seule commande n'en coute qu'une (mesure : 30,7 lectures par essai, 36,8 % de l'integrale)." \
+           "groupe-les en UNE commande (sed -n 1,40p a ; echo --- ; grep -n motif b), ou delegue la fouille a un sous-agent autoport-researcher : ses tours ne comptent PAS dans ton contexte, seul son rapport revient. Rejoue tel quel si tu as vraiment besoin de ce tour : le compteur vient d'etre remis a zero."
+  fi
+  printf '%s %s\n' "${EPOCHSECONDS:-0}" "$N" > "$LECT" 2>/dev/null
+fi
 
 exit 0

@@ -280,6 +280,163 @@ def bras_preambule():
     pub('banc_preambule_nomme_le_cout', int('195_000' in txt.replace(' ', '_')))
 
 
+# ================= 5. CINQ TOURS DE LECTURE D'AFFILEE, SUR LE VRAI CROCHET ===================
+# On ne lit pas la garde : on la fait TOURNER, sur des SEQUENCES de charges utiles, parce que
+# son verdict depend de l'etat laisse par les tours precedents de la MEME session. Chaque jambe
+# prend un `session_id` neuf et unique — deux jambes qui partagent un identifiant se polluent —
+# et son fichier d'etat est efface a la fin. Le bras d'avant est L'ABSENCE de la garde : le
+# blob du commit d'ancre, ecrit dans un fichier et EXECUTE, jamais relu.
+MARQUEUR_LECT = "CINQ TOURS DE LECTURE"
+
+# (label, commande, rc attendu ARME, rc attendu AVANT)
+# Jambe A : cinq lectures pures -> la cinquieme est refusee, puis LE REJEU de la meme commande
+# passe (le refus a remis le compteur a zero).
+JAMBE_A = [
+    ('a1-cat',    'cat .autoport/DIRECTIVES.md',                       0, 0),
+    ('a2-sed',    'sed -n 1,20p .autoport/hooks/pre-tool.sh',          0, 0),
+    ('a3-grep',   'grep -c refuse .autoport/hooks/pre-tool.sh',        0, 0),
+    ('a4-wc',     'wc -l .autoport/hooks/pre-tool.sh',                 0, 0),
+    ('a5-refus',  'ls .autoport/lib',                                  2, 0),
+    ('a6-rejeu',  'ls .autoport/lib',                                  0, 0),
+]
+# Jambe B : quatre lectures, UN TOUR DE TRAVAIL (`python3 -c`), puis une lecture qui DOIT
+# passer — sans la remise a zero elle serait la cinquieme. Puis on remonte a cinq pour verifier
+# que le compteur a bien REDEMARRE a partir du travail, et non qu'il est mort.
+JAMBE_B = [
+    ('b1-cat',    'cat .autoport/DIRECTIVES.md',                       0, 0),
+    ('b2-head',   'head -5 .autoport/hooks/pre-tool.sh',               0, 0),
+    ('b3-tail',   'tail -5 .autoport/hooks/pre-tool.sh',               0, 0),
+    ('b4-stat',   'stat -c %s .autoport/hooks/pre-tool.sh',            0, 0),
+    ('b5-travail','python3 -c "print(1)"',                             0, 0),
+    ('b6-apres',  'cat .autoport/DIRECTIVES.md',                       0, 0),
+    ('b7-cat',    'wc -c .autoport/hooks/pre-tool.sh',                 0, 0),
+    ('b8-cat',    'ls .autoport/hooks',                                0, 0),
+    ('b9-cat',    'grep -c exit .autoport/hooks/pre-tool.sh',          0, 0),
+    ('b10-refus', 'cat .autoport/DIRECTIVES.md',                       2, 0),
+]
+# Jambe D : une seconde rafale independante, pour que la population de refus attendus soit
+# superieure a un seul evenement.
+JAMBE_D = [
+    ('d1', 'cat .autoport/DIRECTIVES.md',                  0, 0),
+    ('d2', 'ls .autoport',                                 0, 0),
+    ('d3', 'wc -l .autoport/hooks/pre-tool.sh',            0, 0),
+    ('d4', 'head -1 .autoport/hooks/pre-tool.sh',          0, 0),
+    ('d5', 'sed -n 1,3p .autoport/hooks/pre-tool.sh',      2, 0),
+]
+# Jambe C : SANS session_id. La garde ne peut pas separer deux sessions : elle ne refuse
+# JAMAIS. Six charges, toutes des lectures pures, toutes doivent passer.
+JAMBE_C = [
+    ('c%d' % i, cmd, 0, 0) for i, cmd in enumerate([
+        'cat .autoport/DIRECTIVES.md',
+        'ls .autoport',
+        'wc -l .autoport/hooks/pre-tool.sh',
+        'head -2 .autoport/hooks/pre-tool.sh',
+        'tail -2 .autoport/hooks/pre-tool.sh',
+        'grep -c set .autoport/hooks/pre-tool.sh',
+    ], 1)
+]
+
+
+def joue_lecture(script, cmd, sid):
+    charge = {'tool_name': 'Bash', 'tool_input': {'command': cmd}}
+    if sid:
+        charge['session_id'] = sid
+    t0 = time.time()
+    r = subprocess.run(['bash', script], input=json.dumps(charge), capture_output=True,
+                       text=True, timeout=60, cwd=ROOT)
+    return r.returncode, r.stderr, (time.time() - t0) * 1000
+
+
+def etat_de(sid):
+    sur = re.sub(r'[^A-Za-z0-9_-]', '_', sid)
+    return os.path.join(os.environ.get('TMPDIR', '/tmp'), 'autoport-lecture-%s' % sur)
+
+
+def bras_lecture():
+    import uuid
+    tmp = tempfile.mkdtemp(prefix='cv-lect-')
+    mes_sids = []
+    try:
+        arme = os.path.join(tmp, 'arme.sh')
+        shutil.copy(os.path.join(ROOT, CHEMIN_HOOK), arme)
+        shutil.copy(os.path.join(AP, 'hooks/cmake_initial_configure.py'), tmp)
+
+        # L'ANCRE. La garde vient d'etre ecrite et n'est pas encore commitee : `git log -S` est
+        # muet, le repli de ablation_anchor.sh rend alors le dernier commit du chemin — un etat
+        # qui NE PORTE PAS la garde, donc un bras d'avant valide. S'il est muet aussi, HEAD.
+        c = ancre(CHEMIN_HOOK, MARQUEUR_LECT)
+        if not c:
+            c = subprocess.run(['git', '-C', ROOT, 'rev-parse', 'HEAD'],
+                               capture_output=True, text=True).stdout.strip()
+        texte_avant = blob(c, CHEMIN_HOOK) if c else ''
+        pub('banc_lecture_ancre_commit', c[:12] or '-')
+        pub('banc_lecture_ancre_octets', len(texte_avant))
+        pub('banc_lecture_ancre_porte_le_marqueur', int(MARQUEUR_LECT in texte_avant))
+        avant = os.path.join(tmp, 'avant.sh')
+        if texte_avant:
+            open(avant, 'w', encoding='utf-8').write(texte_avant)
+        else:
+            avant = ''
+            PANNES.append('ancre-lecture-introuvable')
+
+        jeton = '%s-%d' % (uuid.uuid4().hex[:12], os.getpid())
+        jambes = [('A', JAMBE_A, True), ('B', JAMBE_B, True),
+                  ('D', JAMBE_D, True), ('C', JAMBE_C, False)]
+        n = ok_a = ok_v = 0
+        att_refus = refus_a = refus_v = nomme = 0
+        sans_session_refus = 0
+        msmax = 0.0
+        rc_par_label = {}
+        for nom, jambe, avec_sid in jambes:
+            sid_a = 'banc-%s-%s-arme' % (jeton, nom) if avec_sid else ''
+            sid_v = 'banc-%s-%s-avant' % (jeton, nom) if avec_sid else ''
+            for s in (sid_a, sid_v):
+                if s:
+                    mes_sids.append(s)
+            for label, cmd, att_a, att_v in jambe:
+                n += 1
+                att_refus += int(att_a == 2)
+                rc, err, ms = joue_lecture(arme, cmd, sid_a)
+                msmax = max(msmax, ms)
+                rc_par_label[label] = rc
+                ok_a += int(rc == att_a)
+                if rc == 2:
+                    refus_a += 1
+                    nomme += int('autoport-researcher' in err)
+                    if not avec_sid:
+                        sans_session_refus += 1
+                if avant:
+                    rcv, _, msv = joue_lecture(avant, cmd, sid_v)
+                    msmax = max(msmax, msv)
+                    ok_v += int(rcv == att_v)
+                    refus_v += int(rcv == 2)
+        pub('banc_lecture_charges', n)
+        pub('banc_lecture_arme_conformes', ok_a)
+        pub('banc_lecture_avant_conformes', ok_v if avant else -1)
+        pub('banc_lecture_avant_refus', refus_v if avant else -1)
+        pub('banc_lecture_refus_attendus', att_refus)
+        pub('banc_lecture_refus_obtenus', refus_a)
+        pub('banc_lecture_refus_nommant_agent', nomme)
+        # Le rejeu : la MEME commande, rejouee juste apres son refus, doit passer.
+        pub('banc_lecture_rejeu_passe',
+            int(rc_par_label.get('a5-refus') == 2 and rc_par_label.get('a6-rejeu') == 0))
+        # La remise a zero par un tour de TRAVAIL : sans elle, b6 serait la cinquieme lecture.
+        pub('banc_lecture_reset_par_travail',
+            int(rc_par_label.get('b5-travail') == 0 and rc_par_label.get('b6-apres') == 0
+                and rc_par_label.get('b10-refus') == 2))
+        pub('banc_lecture_sans_session', sans_session_refus)
+        pub('banc_lecture_ms_max', int(msmax))
+    finally:
+        # UNIQUEMENT mes identifiants : d'autres sessions tournent, le motif entier ne se
+        # balaye jamais.
+        for s in mes_sids:
+            try:
+                os.remove(etat_de(s))
+            except OSError:
+                pass
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 try:
     bras_crochet()
 except Exception as e:
@@ -296,6 +453,18 @@ try:
     bras_preambule()
 except Exception as e:
     PANNES.append('preambule:%s' % type(e).__name__)
+try:
+    bras_lecture()
+except Exception as e:
+    PANNES.append('lecture:%s' % type(e).__name__)
+    for _k in ('banc_lecture_charges', 'banc_lecture_arme_conformes',
+               'banc_lecture_avant_conformes', 'banc_lecture_refus_attendus',
+               'banc_lecture_refus_obtenus', 'banc_lecture_avant_refus',
+               'banc_lecture_refus_nommant_agent', 'banc_lecture_rejeu_passe',
+               'banc_lecture_reset_par_travail', 'banc_lecture_sans_session',
+               'banc_lecture_ms_max', 'banc_lecture_ancre_commit',
+               'banc_lecture_ancre_octets', 'banc_lecture_ancre_porte_le_marqueur'):
+        OUT.setdefault(_k, '-1')
 
 pub('banc_ran', 1)
 pub('banc_panne', '+'.join(PANNES) if PANNES else '-')

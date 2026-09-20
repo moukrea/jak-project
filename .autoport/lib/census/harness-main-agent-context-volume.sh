@@ -155,6 +155,58 @@ t_attente=$((t_attente + $(ge banc_await_journal_octets 1000000)))
 t_attente=$((t_attente + $(le banc_await_sortie_octets 20000)))
 t_attente=$((t_attente + $(eq banc_await_plafond_s 3600)))
 
+# ============ 6. LE LEVIER DE L'ESSAI 2, CHIFFRE : LES TOURS DE LECTURE =====================
+# L'essai 1 avait retire l'attente (16,2 -> 8,4 tours par essai). Ce qui reste se lit ici : sur
+# la population armee, 31,1 tours de LECTURE PURE par essai — un tour qui ne fait que lire —
+# portant 36,7 % de l'integrale, dont 55 % ne tiennent qu'UNE commande et 35 % vivent dans une
+# rafale d'au moins cinq lectures consecutives. Pendant ce temps la delegation mesuree vaut
+# 1,0 appel de sous-agent par essai, alors que les tours d'un sous-agent N'ENTRENT PAS dans le
+# contexte de l'agent principal (le collecteur les exclut par `parent_tool_use_id`).
+# CES TERMES NE JUGENT PAS LE GAIN : ils exigent que le defaut soit MESURE, et que la
+# population que le crochet vise ne soit pas vide. Une porte posee sur une rafale inexistante
+# serait verte par cecite.
+t_lecture=0
+t_lecture=$((t_lecture + $(ge cv_lecture_tours_x10 200)))
+t_lecture=$((t_lecture + $(ge cv_lecture_part_pm 250)))
+t_lecture=$((t_lecture + $(ge cv_lecture_une_cmd_pm 300)))
+t_lecture=$((t_lecture + $(ge cv_lecture_seq_max 5)))
+# LA POPULATION VISEE EXISTE DES DEUX COTES : sans ce terme, le crochet pourrait etre arme sur
+# une rafale que plus personne ne produit, et la porte ne le dirait pas.
+t_lecture=$((t_lecture + $(ge cv_lecture_seq5_tours 50)))
+t_lecture=$((t_lecture + $(ge cv_apres_lecture_seq5_tours 50)))
+# LA DELEGATION EST BASSE, ET C'EST MESURE — pas suppose. Si elle remonte au-dessus de 3 appels
+# par essai, ce terme rougit : la consigne aura suffi, et le refus mecanique sera a rediscuter.
+t_lecture=$((t_lecture + $(le cv_sousagent_x100 300)))
+# L'INDEX DE MEMOIRE EST MESURE. Il pese 11 903 jetons relus a CHAQUE tour (sonde : 18 807
+# jetons dans un dossier vide, 30 710 avec le seul MEMORY.md, bruit 2 jetons), soit 65 pour
+# mille de l'integrale. Le COMPACTER ne paie pas — les noms de fichier y font 30 % — mais ne
+# PAS le mesurer, c'est le laisser grossir sans temoin.
+t_lecture=$((t_lecture + $(ge cv_memoire_index_octets 10000)))
+t_lecture=$((t_lecture + $(ge cv_memoire_index_entrees 50)))
+
+# ======== 7. LE REFUS DU CINQUIEME TOUR DE LECTURE EST ARME, ET LE BRAS D'AVANT NE L'EST PAS ==
+# Meme forme que le terme 3 : 27 charges utiles reelles passees au VRAI crochet, les DEUX bras,
+# et le refus doit NOMMER son remplacant. Le bras d'avant est l'ABSENCE — le crochet extrait du
+# commit d'ancre, execute sur les memes charges, ne doit refuser AUCUNE.
+t_crochet_lecture=0
+t_crochet_lecture=$((t_crochet_lecture + $(ge banc_lecture_charges 12)))
+t_crochet_lecture=$((t_crochet_lecture + $(ge banc_lecture_refus_attendus 3)))
+[ "$(n banc_lecture_arme_conformes)" = "$(n banc_lecture_charges)" ] || t_crochet_lecture=$((t_crochet_lecture + 1))
+[ "$(n banc_lecture_avant_conformes)" = "$(n banc_lecture_charges)" ] || t_crochet_lecture=$((t_crochet_lecture + 1))
+[ "$(n banc_lecture_refus_obtenus)" = "$(n banc_lecture_refus_attendus)" ] || t_crochet_lecture=$((t_crochet_lecture + 1))
+[ "$(n banc_lecture_refus_nommant_agent)" = "$(n banc_lecture_refus_obtenus)" ] || t_crochet_lecture=$((t_crochet_lecture + 1))
+t_crochet_lecture=$((t_crochet_lecture + $(eq banc_lecture_avant_refus 0)))
+t_crochet_lecture=$((t_crochet_lecture + $(eq banc_lecture_ancre_porte_le_marqueur 0)))
+t_crochet_lecture=$((t_crochet_lecture + $(ge banc_lecture_ancre_octets 3000)))
+# LE REFUS NE PEUT PAS BLOQUER : il remet le compteur a zero, donc la commande rejouee passe.
+# Sans ce terme, une garde qui refuserait en boucle passerait la porte.
+t_crochet_lecture=$((t_crochet_lecture + $(eq banc_lecture_rejeu_passe 1)))
+t_crochet_lecture=$((t_crochet_lecture + $(eq banc_lecture_reset_par_travail 1)))
+# SANS session_id ON NE COMPTE PAS : compter faux serait pire que ne pas compter.
+t_crochet_lecture=$((t_crochet_lecture + $(eq banc_lecture_sans_session 0)))
+# IL TOURNE AVANT CHAQUE Bash : il doit rester rapide.
+t_crochet_lecture=$((t_crochet_lecture + $(le banc_lecture_ms_max 200)))
+
 # ================== 5. LA GARDE QUI MORDRA PLUS TARD — ET QUI LE DIT AUJOURD'HUI =============
 # La population « APRES » est celle des essais dont la LIGNE DE LANCEMENT enregistree porte
 # `--strict-mcp-config` : c'est la configuration elle-meme qui les designe, pas un seuil sur
@@ -169,7 +221,7 @@ else
   MESURABLE=0
 fi
 
-TOTAL=$((t_mesure + t_leviers + t_arme + t_attente + t_apres + penalty))
+TOTAL=$((t_mesure + t_leviers + t_arme + t_attente + t_apres + t_lecture + t_crochet_lecture + penalty))
 
 # ====================================== COMBIEN DE TEMOINS ONT VRAIMENT ETE LUS ? ============
 # UNE SOMME A ZERO SUR DES TERMES AVEUGLES EST LE FAUX VERT LE PLUS CHER. La liste ci-dessous
@@ -196,7 +248,17 @@ banc_await_detache_mesure_s banc_await_borne_rc banc_await_borne_state
 banc_await_borne_finished banc_await_borne_cible_vivante banc_await_mort_rc
 banc_await_mort_state banc_await_mort_waited banc_await_sanspid_state
 banc_await_sanspid_finished banc_await_sortie_octets banc_await_journal_octets
-banc_await_plafond_s"
+banc_await_plafond_s
+cv_lecture_tours_x10 cv_lecture_part_pm cv_lecture_une_cmd_pm cv_lecture_seq5_tours
+cv_lecture_seq5_pm cv_lecture_seq_max cv_sousagent_x100 cv_apres_lecture_tours_x10
+cv_apres_lecture_part_pm cv_apres_lecture_une_cmd_pm cv_apres_lecture_seq5_tours
+cv_apres_lecture_seq5_pm cv_apres_lecture_seq_max cv_apres_sousagent_x100
+cv_memoire_index_octets cv_memoire_index_entrees banc_lecture_charges
+banc_lecture_arme_conformes banc_lecture_avant_conformes banc_lecture_avant_refus
+banc_lecture_refus_attendus banc_lecture_refus_obtenus banc_lecture_refus_nommant_agent
+banc_lecture_rejeu_passe banc_lecture_reset_par_travail banc_lecture_sans_session
+banc_lecture_ms_max banc_lecture_ancre_commit banc_lecture_ancre_octets
+banc_lecture_ancre_porte_le_marqueur"
 LUS=0; NTEMOINS=0; MANQUANTS=""
 for k in $TEMOINS; do
   NTEMOINS=$((NTEMOINS+1))
@@ -211,12 +273,14 @@ done
 pub cv_census_ran "$([ "$(n banc_ran)" = 1 ] && [ -n "$CV" ] && echo 1 || echo 0)"
 pub context_volume_defects "$TOTAL"
 pub context_volume_terms \
-  "mesure$t_mesure+leviers$t_leviers+arme$t_arme+attente$t_attente+apres$t_apres+penalite$penalty${why:+:$why}"
+  "mesure$t_mesure+leviers$t_leviers+arme$t_arme+attente$t_attente+apres$t_apres+lecture$t_lecture+crochet_lecture$t_crochet_lecture+penalite$penalty${why:+:$why}"
 pub cv_t_mesure "$t_mesure"
 pub cv_t_leviers "$t_leviers"
 pub cv_t_arme "$t_arme"
 pub cv_t_attente "$t_attente"
 pub cv_t_apres "$t_apres"
+pub cv_t_lecture "$t_lecture"
+pub cv_t_crochet_lecture "$t_crochet_lecture"
 pub cv_apres_mesurable "$MESURABLE"
 pub cv_witness_penalty "$penalty"
 pub cv_terms_measured "$LUS"

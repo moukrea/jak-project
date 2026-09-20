@@ -2612,6 +2612,14 @@ def _delegation_preamble(effort: str) -> str:
         "verify). Never delegate understanding: subagent prompts must contain\n"
         "exact file paths, line numbers, commands, and expected outputs.\n"
         "Parallelize independent subagent runs in one message.\n"
+        # MESURE 20/09 (harness-main-agent-context-volume, 15 essais armes) : la consigne
+        # ci-dessus est deja la, et la delegation mesuree vaut 0,87 appel par essai. Ce
+        # qu'elle ne disait pas, c'est POURQUOI deleguer est gratuit — les tours d'un
+        # sous-agent n'entrent pas dans le contexte de l'agent principal. Le crochet
+        # pre-tool.sh porte la version mecanique de la meme regle.
+        "A subagent's turns do NOT enter your context — only its final report does.\n"
+        "Measured 2026-09-20 over 15 runs: 1.0 delegation per run, while 30.7 of your\n"
+        "75 turns were plain file reads carrying 36.8 % of your whole context volume.\n"
         "MANDATORY: every subagent prompt STARTS with the active scope and the\n"
         "`DIRECTIVES <version>` line from the block above. If the scope changes\n"
         "mid-attempt, RELAUNCH them — never let one finish on the abandoned scope.\n\n"
