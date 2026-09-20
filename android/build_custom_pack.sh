@@ -402,6 +402,20 @@ fi
 #    staging line here on purpose. The owner's kilobyte-push route survives untouched: a
 #    surfaces.json dropped in the EXTERNAL asset dir still beats the installed one.
 
+# 1c. grass biome profiles — hand-authored data, not derived: copied straight from
+#     game/assets/grass/biomes/*.grassbiome into $FR3_DIR so the staging loop below picks
+#     them up like every other fr3/ member. Idempotent (cp -n: never overwrites), and it
+#     never touches a .grassbake — different extension, same directory.
+GRASSBIOME_SRC_DIR="$ROOT/game/assets/grass/biomes"
+if [ -d "$GRASSBIOME_SRC_DIR" ] && [ -d "$FR3_DIR" ]; then
+  n_biome_copied=0
+  for gbm in "$GRASSBIOME_SRC_DIR"/*.grassbiome; do
+    [ -e "$gbm" ] || continue
+    cp -n "$gbm" "$FR3_DIR/" && n_biome_copied=$((n_biome_copied + 1))
+  done
+  echo "[custom-pack] grass biome profiles staged into $FR3_DIR: $n_biome_copied"
+fi
+
 # 2. grassbake precompute tables — ALWAYS (validated feature; 0 is OK).
 if [ -d "$FR3_DIR" ]; then
   mkdir -p "$STAGE/fr3"
@@ -412,7 +426,7 @@ if [ -d "$FR3_DIR" ]; then
     ln -s "$ROOT/$gb" "$STAGE/fr3/$base"
     MEMBERS+=("fr3/$base")
     n_bake=$((n_bake + 1))
-  done < <(find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' \) 2>/dev/null | sort)
+  done < <(find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' -o -name '*.grassbiome' \) 2>/dev/null | sort)
   echo "[custom-pack] grassbake tables: $n_bake"
 
 

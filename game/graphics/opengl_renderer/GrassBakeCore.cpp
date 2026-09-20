@@ -6133,7 +6133,8 @@ glsl::vec3 eval_grass_shade(float in_t, float in_tint, const glsl::vec3& in_gcol
                             const glsl::vec3& in_pal_root = glsl::vec3(0.075f, 0.185f, 0.040f),
                             const glsl::vec3& in_pal_tip = glsl::vec3(0.40f, 0.66f, 0.20f),
                             float in_pal_axis = 0.f, float in_pal_rim = 0.f,
-                            float in_across = 0.f) {
+                            float in_across = 0.f, float in_across_k = 0.f,
+                            float in_jit_r = 0.50f, float in_jit_b = 0.35f) {
   using namespace glsl;
   const float gs_t = in_t;
   const float gs_tint = in_tint;
@@ -6146,6 +6147,9 @@ glsl::vec3 eval_grass_shade(float in_t, float in_tint, const glsl::vec3& in_gcol
   const float gs_pal_axis = in_pal_axis;
   const float gs_pal_rim = in_pal_rim;
   const float gs_across = in_across;
+  const float gs_across_k = in_across_k;
+  const float gs_jit_r = in_jit_r;
+  const float gs_jit_b = in_jit_b;
   vec3 col;
 #include "shaders/grass_shade.glsl"
   return col;
@@ -6548,8 +6552,14 @@ struct GroupAcc {
 
 PaletteCensus palette_census(const ExpandResult& e) {
   using namespace glsl;
+  // Les trois reglages de rendu qui sont desormais des DONNEES du profil du lieu.
+  const BiomeProfile& BP = active_biome();
+  const float pk = BP.across_k, pjr = BP.loaded ? BP.jitter_r : 0.50f,
+              pjb = BP.loaded ? BP.jitter_b : 0.35f;
   PaletteCensus c;
   c.blades_total = e.instances.size();
+  c.profile_loaded = BP.loaded ? 1 : 0;
+  c.profile_fields = BP.fields_read;
   if (e.instances.empty()) {
     return c;
   }
@@ -6573,14 +6583,14 @@ PaletteCensus palette_census(const ExpandResult& e) {
     const vec3 root(P.root_r, P.root_g, P.root_b);
     const vec3 tip(P.tip_r, P.tip_g, P.tip_b);
     const vec3 c_t1 = eval_grass_shade(1.f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
-                                       P.axis, P.rim, 0.f);
+                                       P.axis, P.rim, 0.f, pk, pjr, pjb);
     const vec3 c_t0 = eval_grass_shade(0.f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
-                                       P.axis, P.rim, 0.f);
+                                       P.axis, P.rim, 0.f, pk, pjr, pjb);
     const double var_long = std::fabs((double)shade_lum(c_t1) - (double)shade_lum(c_t0));
     const vec3 c_ap = eval_grass_shade(0.5f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
-                                       P.axis, P.rim, 1.f);
+                                       P.axis, P.rim, 1.f, pk, pjr, pjb);
     const vec3 c_am = eval_grass_shade(0.5f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
-                                       P.axis, P.rim, -1.f);
+                                       P.axis, P.rim, -1.f, pk, pjr, pjb);
     const double var_across = std::fabs((double)shade_lum(c_ap) - (double)shade_lum(c_am));
     const double declared = (P.axis > 0.5f) ? var_across : var_long;
     const double other = (P.axis > 0.5f) ? var_long : var_across;
@@ -6596,6 +6606,55 @@ PaletteCensus palette_census(const ExpandResult& e) {
     }
     if (dom < PAL_AXIS_DOM_FLOOR_PM) {
       ++c.axis_weak;
+    }
+
+    // essai 8 : amplitude racine->pointe et variation en travers, par espece, moyennees sur
+    // across in {-1,0,+1} et 16 tints.
+    double lum_root_sum = 0.0, lum_tip_sum = 0.0;
+    int nsum = 0;
+    for (int ai = 0; ai < 3; ++ai) {
+      const float across = (float)(ai - 1);
+      double lr_a = 0.0, lt_a = 0.0;
+      for (int k = 0; k < 16; ++k) {
+        const float tint = ((float)k + 0.5f) / 16.f;
+        const vec3 c_r = eval_grass_shade(0.f, tint, gcol_dom, light_dom, false, true, root, tip,
+                                          P.axis, P.rim, across, pk, pjr, pjb);
+        const vec3 c_tp = eval_grass_shade(1.f, tint, gcol_dom, light_dom, false, true, root, tip,
+                                           P.axis, P.rim, across, pk, pjr, pjb);
+        lr_a += (double)shade_lum(c_r);
+        lt_a += (double)shade_lum(c_tp);
+      }
+      lr_a /= 16.0;
+      lt_a /= 16.0;
+      lum_root_sum += lr_a;
+      lum_tip_sum += lt_a;
+      ++nsum;
+    }
+    const double Lr = lum_root_sum / (double)nsum;
+    const double Lt = lum_tip_sum / (double)nsum;
+    const double Lmax = std::max(Lr, Lt);
+    c.lum_amp_pm[v] = Lmax > 0.0 ? 1000.0 * std::fabs(Lt - Lr) / Lmax : 0.0;
+    if (c.lum_amp_pm[v] < PAL_LUM_AMP_FLOOR_PM) {
+      ++c.lum_amp_below;
+    }
+
+    const double Lm = (Lr + Lt) * 0.5;
+    c.across_var_pm[v] = 1000.0 * var_across / std::max(Lm, 1e-9);
+    if (P.axis > 0.5f && c.across_var_pm[v] < PAL_ACROSS_SEEN_PM) {
+      ++c.axis_contrast_bad;
+    }
+    if (P.axis <= 0.5f && c.across_var_pm[v] > PAL_ACROSS_QUIET_PM) {
+      ++c.axis_contrast_bad;
+    }
+  }
+
+  // essai 8 : « une herbe tellement thick et courte jaune qui n'a aucun sens » (owner 20/09 20:40).
+  // Definies par leur GEOMETRIE, pas par leur nom : basses ET larges. La largeur qui se voit est
+  // h * hw.
+  for (int v = 0; v < 6; ++v) {
+    const BladeShape S = blade_shape(v);
+    if (S.h < 0.75f && S.h * S.hw > 0.06f) {
+      c.fat_weight_pm += blade_variant_weight_pm(v);
     }
   }
 
@@ -6622,7 +6681,19 @@ PaletteCensus palette_census(const ExpandResult& e) {
       for (int si = 0; si < PAL_A_STEPS; ++si) {
         const float across = (float)(si - 1);
         const vec3 col = eval_grass_shade(t, tint, gcol, light, false, true, root, tip, P.axis,
-                                          P.rim, across);
+                                          P.rim, across, pk, pjr, pjb);
+        // essai 8 : coque de teinte du biome. Rien n'est compte si le profil n'est pas charge —
+        // sinon la coque jugerait un profil absent.
+        ++c.hull_samples;
+        if (BP.loaded) {
+          const double h = rgb_hue_mdeg((double)col.x, (double)col.y, (double)col.z);
+          double dh = h - BP.hue_deg * 1000.0;
+          while (dh > 180000.0) dh -= 360000.0;
+          while (dh < -180000.0) dh += 360000.0;
+          if (std::fabs(dh) > BP.hull_deg * 1000.0) {
+            ++c.hull_out;
+          }
+        }
         const double chv[3] = {(double)col.x, (double)col.y, (double)col.z};
         for (int ch = 0; ch < 3; ++ch) {
           grp_species[v][ti][si][tb][ch].add(chv[ch]);
@@ -6707,6 +6778,28 @@ PaletteCensus palette_census(const ExpandResult& e) {
       }
     }
   }
+
+  // essai 8 : la meme table de 15 paires, jugee cette fois DANS LA COQUE (planchers de l'owner
+  // 20/09 20:40 : 8 degres OU 10 % de luminance).
+  double best_ratio_hull = -1.0;
+  for (int a = 0; a < 6; ++a) {
+    for (int b = a + 1; b < 6; ++b) {
+      double dh = std::fabs(c.hue_mdeg[a] - c.hue_mdeg[b]);
+      if (dh > 180000.0) {
+        dh = 360000.0 - dh;
+      }
+      const double mx = std::max(c.lum_pm[a], c.lum_pm[b]);
+      const double dl = mx > 0.0 ? 1000.0 * std::fabs(c.lum_pm[a] - c.lum_pm[b]) / mx : 0.0;
+      const double ratio = std::max(dh / PAL_HUE_PAIR_FLOOR_MDEG, dl / PAL_LUM_PAIR_FLOOR_PM);
+      if (best_ratio_hull < 0.0 || ratio < best_ratio_hull) {
+        best_ratio_hull = ratio;
+      }
+      if (ratio < 1.0) {
+        ++c.pairs_below_hull;
+      }
+    }
+  }
+  c.pair_ratio_min_pm = best_ratio_hull >= 0.0 ? 1000.0 * best_ratio_hull : 0.0;
   return c;
 }
 

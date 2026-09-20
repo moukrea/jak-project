@@ -1041,6 +1041,20 @@ int main(int argc, char** argv) {
     fmt::print("variant_species_ports={}\n", vc.species_ports);
     fmt::print("variant_species_ports_floor={}\n", grass_bake::kBladeSpeciesPortsFloor);
 
+    // grass-blade-variants essai 8 : la couleur vient desormais d'un PROFIL DE BIOME (donnee).
+    // Sans ce chargement, `palette_census` retombe sur `active_biome()` par defaut et mesure la
+    // palette d'AVANT l'item.
+    {
+      grass_bake::BiomeProfile prof;
+      std::string perr;
+      const std::string pp = (fs::path(fr3_dir) / fmt::format("{}.grassbiome", level_name)).string();
+      if (grass_bake::load_biome_profile(pp, &prof, &perr)) {
+        grass_bake::active_biome_mutable() = prof;
+      } else {
+        fmt::print("variant_pal_profile_error={}\n", perr);
+      }
+    }
+
     // grass-blade-variants (owner 20/09 13:45) : LA PALETTE, MESUREE SUR LE TEXTE DU SHADER.
     const auto pc = grass_bake::palette_census(eBake);
     for (int v = 0; v < 6; ++v) {
@@ -1080,6 +1094,28 @@ int main(int argc, char** argv) {
                (long long)grass_bake::PAL_R2_SPECIES_FLOOR_PM);
     fmt::print("variant_pal_r2_single_ceil_pm={}\n",
                (long long)grass_bake::PAL_R2_SINGLE_CEIL_PM);
+
+    // essai 8 : les quatre mesures neuves exigees par l'owner le 20/09 20:40, sur le PROFIL.
+    const auto& BPpub = grass_bake::active_biome();
+    for (int v = 0; v < 6; ++v) {
+      fmt::print("variant_pal_lum_amp_pm_v{}={}\n", v, (long long)llround(pc.lum_amp_pm[v]));
+      fmt::print("variant_pal_across_var_pm_v{}={}\n", v, (long long)llround(pc.across_var_pm[v]));
+    }
+    fmt::print("variant_pal_hull_out={}\n", pc.hull_out);
+    fmt::print("variant_pal_hull_samples={}\n", pc.hull_samples);
+    fmt::print("variant_pal_hull_mdeg={}\n", (long long)llround((double)BPpub.hull_deg * 1000.0));
+    fmt::print("variant_pal_lum_amp_below={}\n", pc.lum_amp_below);
+    fmt::print("variant_pal_lum_amp_floor_pm={}\n", (long long)grass_bake::PAL_LUM_AMP_FLOOR_PM);
+    fmt::print("variant_pal_fat_weight_pm={}\n", pc.fat_weight_pm);
+    fmt::print("variant_pal_fat_weight_ceil_pm={}\n",
+               (long long)grass_bake::PAL_FAT_WEIGHT_CEIL_PM);
+    fmt::print("variant_pal_axis_contrast_bad={}\n", pc.axis_contrast_bad);
+    fmt::print("variant_pal_pair_ratio_min_pm={}\n", (long long)llround(pc.pair_ratio_min_pm));
+    fmt::print("variant_pal_pairs_below_hull={}\n", pc.pairs_below_hull);
+    fmt::print("variant_pal_profile_loaded={}\n", pc.profile_loaded);
+    fmt::print("variant_pal_profile_fields={}\n", pc.profile_fields);
+    fmt::print("variant_pal_profile_hue_mdeg={}\n",
+               (long long)llround((double)BPpub.hue_deg * 1000.0));
   }
 
   // grass-blade-variants, point 3 : UN BRIN GARDE SA SILHOUETTE D'UN PALIER A L'AUTRE. On rejoue le

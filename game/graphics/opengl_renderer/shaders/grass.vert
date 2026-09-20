@@ -45,6 +45,9 @@ uniform float u_overhang;
 // blade whose base is within an occluder's XZ radius AND near its ground height is hidden, so no grass
 // pokes through the object. Y-gated so an object on an upper platform doesn't cull the grass below it.
 uniform vec4 u_occ[16];
+uniform vec4 u_pal_a[6];
+uniform vec4 u_pal_b[6];
+uniform vec4 u_pal_k;
 uniform int  u_occ_count;
 // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) captured per-frame in Merc2. Same
 // (world pos, radius) layout as u_occ, but these FLATTEN the grass (like Jak's trample) instead of
@@ -120,27 +123,13 @@ const vec4 VAR_B[6] = vec4[6](
   vec4(1.15, -0.30, 0.38, 1.285)    // v5 touffu — port ouvert
 );
 
-// grass-blade-variants (owner 20/09 13:45) — LA PALETTE DE CHAQUE ESPECE, et l'AXE de son degrade.
-//   PAL_A = (rouge, vert, bleu de la RACINE, AXE) ; AXE 0 = le long du brin, 1 = EN TRAVERS.
-//   PAL_B = (rouge, vert, bleu de la POINTE, LISERET DE BORD).
-// Les huit nombres de chaque ligne sont ceux de `kGrassSpecies` (grass_blade_variants.h) ; la
-// duplication est MESUREE par le recensement, ligne a ligne, comme celle de VAR_A/VAR_B.
-const vec4 PAL_A[6] = vec4[6](
-  vec4(0.070, 0.170, 0.045, 0.0),   // v0 lame   — vert franc, degrade le long du brin
-  vec4(0.040, 0.140, 0.115, 0.0),   // v1 fine   — vert froid, pointe tres claire
-  vec4(0.140, 0.180, 0.040, 1.0),   // v2 large  — vert-jaune chaud, degrade EN TRAVERS
-  vec4(0.150, 0.110, 0.040, 1.0),   // v3 faux   — olive sec, degrade EN TRAVERS
-  vec4(0.040, 0.120, 0.055, 0.0),   // v4 jonc   — vert profond, LISERET de bord clair
-  vec4(0.160, 0.200, 0.070, 1.0)    // v5 touffu — vert pale, EN TRAVERS + liseret discret
-);
-const vec4 PAL_B[6] = vec4[6](
-  vec4(0.42, 0.68, 0.22, 0.00),
-  vec4(0.24, 0.70, 0.58, 0.00),
-  vec4(0.56, 0.62, 0.13, 0.00),
-  vec4(0.56, 0.38, 0.12, 0.00),
-  vec4(0.22, 0.50, 0.24, 0.85),
-  vec4(0.66, 0.78, 0.44, 0.45)
-);
+// grass-blade-variants — LA PALETTE VIENT DU PROFIL DE BIOME, et c'est une DONNEE (SPEC section
+// 18 : « un profil se lit, il se remplace sans recompiler »). Elle n'est donc plus un litteral
+// compile ici : le C++ la resout depuis le fichier du niveau et la televerse. Le recensement ne
+// compare plus deux copies, il compare au FICHIER.
+//   u_pal_a[v] = (racine rouge, vert, bleu, AXE)     AXE 0 = le long du brin seul,
+//   u_pal_b[v] = (pointe rouge, vert, bleu, LISERET)     1 = + modulation en travers
+//   u_pal_k    = (force en travers, jitter rouge, jitter bleu, 1 si un profil est charge)
 
 vec4 world_to_clip(vec3 pos) {
   vec4 transformed = -camera[3].xyzw;
@@ -203,8 +192,8 @@ void main() {
   // ramene pas l'etat d'avant. Les huit constantes ci-dessous sont `kBladeShapeLegacy`.
   vec4 VA = var_on ? VAR_A[vi] : vec4(1.00, 0.092, 0.66, 0.00);
   vec4 VB = var_on ? VAR_B[vi] : vec4(1.00, 0.00,  0.00, 0.00);
-  vec4 PA = var_on ? PAL_A[vi] : vec4(0.075, 0.185, 0.040, 0.0);
-  vec4 PB = var_on ? PAL_B[vi] : vec4(0.40,  0.66,  0.20,  0.0);
+  vec4 PA = var_on ? u_pal_a[vi] : vec4(0.075, 0.185, 0.040, 0.0);
+  vec4 PB = var_on ? u_pal_b[vi] : vec4(0.40,  0.66,  0.20,  0.0);
   H *= VA.x;
 
   // Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec) instance classes (nspare):
@@ -611,6 +600,11 @@ void main() {
   float gs_pal_axis = PA.w;
   float gs_pal_rim = PB.w;
   float gs_across = a_col;
+  // Ces trois valeurs sont des DONNEES DU PROFIL DE BIOME. Desarme, on remet les constantes
+  // d'avant l'item (0,50 / 0,35) pour que le bras d'ablation rende le meme bit qu'avant.
+  float gs_across_k = var_on ? u_pal_k.x : 0.0;
+  float gs_jit_r = var_on ? u_pal_k.y : 0.50;
+  float gs_jit_b = var_on ? u_pal_k.z : 0.35;
   vec3 col;
 #include "grass_shade.glsl"
 

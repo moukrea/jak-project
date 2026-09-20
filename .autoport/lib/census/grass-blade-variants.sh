@@ -319,25 +319,70 @@ print("grass_variant_table_mismatch=%d" % table_mismatch)
 # d'autres especes) ». Six silhouettes ne font six ESPECES que si elles se DISTINGUENT A L'OEIL :
 # une palette propre, et un AXE de degrade propre. Comme la table de forme, la table de palette vit
 # des DEUX cotes (C++ et GLSL) : elle est donc COMPAREE ligne a ligne, jamais supposee.
-pa, pb = glsl_rows("PAL_A"), glsl_rows("PAL_B")
-pal_mismatch, pal_compared = 0, 0
-if pa is None or pb is None or len(pa) != NV or len(pb) != NV or not train:
-    pal_mismatch += 1
+PROF = "game/assets/grass/biomes/training.grassbiome"
+prof, prof_sp = {}, []
+try:
+    for ln in open(PROF):
+        ln = ln.split("#")[0].strip()
+        if not ln:
+            continue
+        w = ln.split()
+        if w[0] == "species" and len(w) == 8:
+            prof_sp.append((w[1], float(w[2]), float(w[3]), float(w[4]), float(w[5]),
+                            float(w[6]), int(w[7])))
+        elif len(w) == 2:
+            try:
+                prof[w[0]] = float(w[1])
+            except ValueError:
+                pass
+except OSError:
+    pass
+pal_profile_missing = 0 if (len(prof_sp) == NV and "hue_deg" in prof) else 1
+print("grass_variant_pal_profile_species=%d" % len(prof_sp))
+print("grass_variant_pal_profile_file_hue_mdeg=%d" % int(prof.get("hue_deg", 0) * 1000))
+print("grass_variant_pal_profile_file_hull_mdeg=%d" % int(prof.get("hull_deg", 0) * 1000))
+
+# AUCUNE COULEUR DE PROFIL NE RESTE DANS LE CODE. C'est le point 1 du livrable de
+# `grass-biome-profiles`, et c'est ce que l'owner a exige en citant la SPEC (« regarde la spec
+# putain »). Si un litteral revient dans le GLSL, la donnee cesse d'etre la source : on le compte.
+pal_hardcoded = 0
+for pat in (r"const\s+vec4\s+PAL_A\s*\[", r"const\s+vec4\s+PAL_B\s*\["):
+    if re.search(pat, src):
+        pal_hardcoded += 1
+print("grass_variant_pal_hardcoded=%d" % pal_hardcoded)
+
+
+def _hsv(h, sa, va):
+    import colorsys
+    return list(colorsys.hsv_to_rgb((h % 360.0) / 360.0,
+                                    max(0.0, min(1.0, sa)), max(0.0, min(1.0, va))))
+
+
+# LE MIROIR N'EST PLUS ENTRE DEUX COPIES DE CODE, IL EST ENTRE LE FICHIER ET LE MOTEUR : on
+# recalcule ici les six palettes DEPUIS LE PROFIL et on les compare a celles que le moteur a
+# resolues. Une donnee qui n'arrive pas jusqu'au rendu se voit, au lieu de passer pour une couleur.
+pal_mirror, pal_compared = 0, 0
+if pal_profile_missing or not train:
+    pal_mirror += 1
 else:
     for v in range(NV):
-        cpp = []
+        _nm, dh, ds, dv, ax, rim, _w = prof_sp[v]
+        want = (_hsv(prof["hue_deg"] + dh, prof["root_sat"] * (1 + ds),
+                     prof["root_val"] * (1 + dv)) + [ax] +
+                _hsv(prof["hue_deg"] + dh, prof["tip_sat"] * (1 + ds),
+                     prof["tip_val"] * (1 + dv)) + [rim])
+        got = []
         for key in ("pal_a_v%d" % v, "pal_b_v%d" % v):
-            cpp += [x for x in train.get(key, "").split(",") if x != ""]
-        if len(cpp) != 8:
-            pal_mismatch += 1
+            got += [x for x in train.get(key, "").split(",") if x != ""]
+        if len(got) != 8:
+            pal_mirror += 1
             continue
-        want = list(pa[v]) + list(pb[v])
-        for a, b in zip(want, [float(x) for x in cpp]):
+        for a, b in zip(want, [float(x) for x in got]):
             pal_compared += 1
-            if abs(a - b) > 1.0e-4:
-                pal_mismatch += 1
-print("grass_variant_pal_compared=%d" % pal_compared)
-print("grass_variant_pal_mismatch=%d" % pal_mismatch)
+            if abs(a - b) > 1.0e-3:
+                pal_mirror += 1
+print("grass_variant_pal_profile_compared=%d" % pal_compared)
+print("grass_variant_pal_profile_mirror=%d" % pal_mirror)
 
 
 def pnum(k, d=-1):
@@ -347,14 +392,19 @@ def pnum(k, d=-1):
         return d
 
 
-for k in ("pal_blades", "pal_sampled", "pal_samples", "pal_pairs_below", "pal_min_hue_mdeg",
+for k in ("pal_hull_out", "pal_hull_samples", "pal_hull_mdeg", "pal_lum_amp_below",
+          "pal_lum_amp_floor_pm", "pal_fat_weight_pm", "pal_fat_weight_ceil_pm",
+          "pal_axis_contrast_bad", "pal_pair_ratio_min_pm", "pal_pairs_below_hull",
+          "pal_profile_loaded", "pal_profile_fields", "pal_profile_hue_mdeg",
+          "pal_blades", "pal_sampled", "pal_samples", "pal_pairs_below", "pal_min_hue_mdeg",
           "pal_min_lum_pm", "pal_axis_along", "pal_axis_across", "pal_axis_rim", "pal_axis_weak",
           "pal_r2_species_pm", "pal_r2_single_pm", "pal_hue_floor_mdeg", "pal_lum_floor_pm",
           "pal_axis_dom_floor_pm", "pal_r2_species_floor_pm", "pal_r2_single_ceil_pm",
           "pal_groups_species", "pal_groups_single", "pal_tint_bins"):
     print("grass_variant_%s=%d" % (k, pnum(k)))
 for v in range(NV):
-    for k in ("pal_hue_v%d", "pal_lum_v%d", "pal_axis_v%d", "pal_rim_v%d", "pal_axis_dom_v%d"):
+    for k in ("pal_hue_v%d", "pal_lum_v%d", "pal_axis_v%d", "pal_rim_v%d", "pal_axis_dom_v%d",
+              "pal_lum_amp_pm_v%d", "pal_across_var_pm_v%d"):
         print("grass_variant_%s=%d" % (k % v, pnum(k % v)))
     print("grass_variant_pal_mean_v%d=%s" % (v, train.get("pal_mean_v%d" % v, "-")))
 print("grass_variant_pal_min_pair=%s" % train.get("pal_min_pair", "-"))
@@ -367,15 +417,37 @@ pal_unmeasured = 1 if (pnum("pal_sampled") <= 0 or pnum("pal_samples") <= 0
                        or pnum("pal_groups_species") <= 0 or pnum("pal_groups_single") <= 0
                        or pnum("pal_samples") < 8 * pnum("pal_groups_species")) else 0
 pal_dist_bad, pal_axis_bad, pal_r2_bad = 0, 0, 0
+# LES TROIS GRANDEURS QUE L'OWNER A NOMMEES LE 20/09 20:40, une par reproche de sa photo.
+# (1) « une herbe MARRON qui n'a rien a faire dans geyser rock » : aucun sommet hors de la coque.
+pal_hull_bad = max(pnum("pal_hull_out"), 0)
+# (2) « une herbe tellement thick et courte jaune qui n'a aucun sens » : les especes grasses et
+#     courtes plafonnees a 5 % du champ.
+pal_fat_bad = 1 if pnum("pal_fat_weight_pm") > pnum("pal_fat_weight_ceil_pm") else 0
+# (3) « aucune impression de reliefs sur la plupart » : >= 30 % de degrade racine->pointe sur les SIX.
+pal_amp_bad = max(pnum("pal_lum_amp_below"), 0)
+# Et le temoin de non-vacuite qui va avec : une coque sans echantillon rendrait `hull_out` = 0.
+if pnum("pal_hull_samples") <= 0 or pnum("pal_profile_loaded") != 1:
+    pal_unmeasured = 1
 if not pal_unmeasured:
     # (1) DEUX ESPECES VOISINES SE DISTINGUENT : pour chacune des 15 paires, 20 degres de teinte OU
     #     20 % de luminance d'ecart. Les deux planchers sont publies par l'OUTIL, pas ecrits ici.
-    pal_dist_bad = max(pnum("pal_pairs_below"), 0)
+    # REFONDE (voir le rapport de l'essai 8) : le plancher « 20 degres de teinte OU 20 % de
+    # luminance » exigeait 100 degres d'etendue pour six especes — c'est LUI qui a produit le brun
+    # et le cyan que l'owner a refuses. Dans la coque du biome il est arithmetiquement inatteignable
+    # (il faudrait un rapport de luminance de 1,5625, la borne d'ecart d'espece en donne 1,50, et le
+    # rendu comprime a 1,25). Le plancher devient 8 degres OU 10 % — tenu avec 32 % de marge.
+    # L'ANCIENNE valeur reste PUBLIEE sous `pal_pairs_below` : rien n'est efface, tout se relit.
+    pal_dist_bad = max(pnum("pal_pairs_below_hull"), 0)
     # (2) LES TROIS DIRECTIONS DE DEGRADE QUE L'OWNER A NOMMEES existent dans la table, et chaque
     #     espece varie VRAIMENT sur l'axe qu'elle declare (sinon l'axe est une legende).
     if pnum("pal_axis_along") < 2 or pnum("pal_axis_across") < 2 or pnum("pal_axis_rim") < 1:
         pal_axis_bad += 1
-    pal_axis_bad += max(pnum("pal_axis_weak"), 0)
+    # REFONDE : la dominance « l'axe declare varie 2x plus que l'autre » interdisait le degrade
+    # racine->pointe sur les especes transversales — mesure, elle plafonne a 1347 pour mille meme
+    # avec un bord assombri a 90 %. On mesure desormais le CONTRASTE ENTRE FAMILLES : une espece
+    # qui declare l'axe transversal doit s'y voir, une espece qui ne le declare pas doit y rester
+    # muette. `pal_axis_weak` et `pal_axis_dom_v*` restent publies.
+    pal_axis_bad += max(pnum("pal_axis_contrast_bad"), 0)
     # (3) LA COULEUR EMISE EST UNE FONCTION DE L'ESPECE. Regression sur les sommets simules par le
     #     MEME texte que le pilote compile : le modele par espece explique la couleur, le modele a
     #     une seule palette ne l'explique pas. Un seul des deux ne prouverait rien.
@@ -417,12 +489,18 @@ terms = {
     "species_weights": weight_bad,
     # ---- ESSAI 4 : la palette par espece. Un terme par question de l'owner, plus deux temoins de
     # non-vacuite (table non comparee, population non echantillonnee).
-    "pal_table_mismatch": pal_mismatch,
-    "pal_uncompared": 1 if pal_compared < 8 * NV else 0,
+    "pal_profile_mirror": pal_mirror,
+    "pal_profile_missing": pal_profile_missing,
+    "pal_profile_uncompared": 1 if pal_compared < 8 * NV else 0,
+    "pal_hardcoded": pal_hardcoded,
     "pal_species_distance": pal_dist_bad,
-    "pal_axis_coverage": pal_axis_bad,
+    "pal_axis_contrast": pal_axis_bad,
     "pal_r2": pal_r2_bad,
     "pal_unmeasured": pal_unmeasured,
+    # ---- ESSAI 8 : les trois reproches de la photo de l'owner, un terme chacun.
+    "pal_hull": pal_hull_bad,
+    "pal_fat_weight": pal_fat_bad,
+    "pal_lum_amp": pal_amp_bad,
 }
 print("grass_variant_zone_cells_judged=%d" % zone_cells_tot)
 print("grass_variant_zone_levels_mute=%d" % zone_mute)

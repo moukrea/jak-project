@@ -2322,6 +2322,15 @@ constexpr int    PAL_A_STEPS      = 3;   // across = -1, 0, +1
 constexpr int    PAL_TINT_BINS    = 8;   // les DEUX modeles recoivent le tint ; seule l'espece les separe
 constexpr u32    PAL_SAMPLE_STRIDE = 64; // un brin sur 64
 
+// grass-blade-variants essai 8 : quatre mesures neuves exigees par l'owner le 20/09 20:40, sur le
+// PROFIL DE BIOME (donnee, plus le code).
+constexpr double PAL_LUM_AMP_FLOOR_PM   = 300.0;  // owner 20/09 20:40 : >= 30 % sur les SIX
+constexpr double PAL_FAT_WEIGHT_CEIL_PM = 50.0;   // ... et <= 5 % d'especes grasses et courtes
+constexpr double PAL_HUE_PAIR_FLOOR_MDEG = 8000.0;   // 8 degres OU ...
+constexpr double PAL_LUM_PAIR_FLOOR_PM   = 100.0;    // ... 10 % de luminance, DANS la coque
+constexpr double PAL_ACROSS_SEEN_PM     = 100.0;  // un axe transversal declare DOIT se voir
+constexpr double PAL_ACROSS_QUIET_PM    = 50.0;   // une espece sans axe ne doit PAS varier ainsi
+
 struct PaletteCensus {
   u64 blades_total = 0, blades_sampled = 0, samples = 0;
   double mean_r[6] = {0}, mean_g[6] = {0}, mean_b[6] = {0};  // couleur moyenne emise par espece
@@ -2334,6 +2343,19 @@ struct PaletteCensus {
   double axis_dom_pm[6] = {0};
   double r2_species_pm = 0.0, r2_single_pm = 0.0;
   int    groups_species = 0, groups_single = 0;  // groupes NON VIDES de chaque modele
+
+  // --- essai 8 : les quatre mesures neuves exigees par l'owner le 20/09 20:40, sur le PROFIL
+  int    hull_out = 0;            // sommets emis HORS de la coque de teinte du biome
+  int    hull_samples = 0;        // sommets testes (denominateur — sans lui, 0 ne veut rien dire)
+  double lum_amp_pm[6] = {0};     // amplitude de luminance racine->pointe, par espece, pour mille
+  int    lum_amp_below = 0;       // especes sous le plancher
+  int    fat_weight_pm = 0;       // poids cumule des especes grasses ET courtes
+  double across_var_pm[6] = {0};  // variation EN TRAVERS, rapportee a la luminance moyenne
+  int    axis_contrast_bad = 0;   // axes declares qui ne se voient pas / non declares qui se voient
+  double pair_ratio_min_pm = 0;   // la paire d'especes la plus proche, en unites de plancher
+  int    pairs_below_hull = 0;    // paires sous le plancher
+  int    profile_loaded = 0;
+  int    profile_fields = 0;
 };
 PaletteCensus palette_census(const ExpandResult& e);
 

@@ -30,6 +30,9 @@
 //   float gs_pal_axis 0 = degrade le long du brin ; 1 = degrade EN TRAVERS du brin
 //   float gs_pal_rim  liseret de bord (0 = aucun)
 //   float gs_across   position EN TRAVERS du brin : -1 bord gauche, +1 bord droit
+//   float gs_across_k force de la modulation en travers, DONNEE DU PROFIL DE BIOME
+//   float gs_jit_r    dispersion de teinte par brin, canal rouge (idem : donnee du profil)
+//   float gs_jit_b    dispersion de teinte par brin, canal bleu
 // SORTIE : `col`, declaree par l'appelant.
 //
 // Ecrit sans swizzle de couleur (`.x/.y/.z`, jamais `.r/.g/.b`) et sans constructeur implicite :
@@ -39,20 +42,28 @@
 // OWNER POLISH: more tint variation (wider brightness + a hue jitter so some
 // blades are warmer / cooler green).
 float tint2 = fract(gs_tint * 7.919 + 0.371);  // decorrelated secondary random
-// grass-blade-variants (owner 20/09 13:45) : LA PALETTE EST CELLE DE L'ESPECE, et son DEGRADE a
-// sa propre direction — le long du brin pour les unes, EN TRAVERS pour les autres (« pas de haut
-// en bas mais de gauche a droite pour creer d'autres especes »). Desarme, les deux constantes
-// d'avant reviennent et l'axe est celui d'avant : le brin livre jusqu'ici est rendu au bit pres.
+// grass-blade-variants — LA PALETTE EST CELLE DU LIEU (grass_biome_profile.h, SPEC section 18) ;
+// l'espece n'en porte qu'un ECART. Desarme, les deux constantes d'avant reviennent : le brin livre
+// jusqu'ici est rendu au bit pres.
 vec3 base_dark = vec3(0.075, 0.185, 0.040);
 vec3 base_light = vec3(0.40, 0.66, 0.20);
 if (gs_pal_on) {
   base_dark = gs_pal_root;
   base_light = gs_pal_tip;
 }
-// Branche, pas un mix : `mix(a,b,0.0)` n'est pas garanti EXACTEMENT `a` sur tout pilote, et le
-// bras desarme doit rendre le meme bit que la version d'avant.
-float gs_grad = (gs_pal_axis > 0.5) ? (gs_across * 0.5 + 0.5) : gs_t;
-col = mix(base_dark, base_light, gs_grad);
+// LE DEGRADE RACINE->POINTE EXISTE SUR LES SIX ESPECES. Owner, 20/09 20:40 : « aucune impression
+// de reliefs sur la plupart ». La cause etait ici : ce site choisissait UN SEUL axe, donc les trois
+// especes a axe transversal n'avaient AUCUN degrade le long du brin — mesure sur les sommets emis,
+// 0,0 % d'amplitude de luminance, pour 300 brins sur 1000. L'axe transversal devient une
+// modulation QUI S'AJOUTE (ci-dessous), il ne remplace plus rien.
+col = mix(base_dark, base_light, gs_t);
+// LE VOLUME. `gs_across` va de -1 (bord gauche) a +1 (bord droit) : assombrir un bord donne au brin
+// plat l'ombre d'un cylindre. C'est le « de gauche a droite » du 20/09 13:45, et c'est ce qui se
+// lit comme du relief. La force vient du profil du lieu, pas d'une constante compilee.
+if (gs_pal_on && gs_pal_axis > 0.0) {
+  float gs_side = gs_across * 0.5 + 0.5;
+  col = col * (1.0 - gs_pal_axis * gs_across_k * (1.0 - gs_side));
+}
 // LISERET DE BORD : une espece (le jonc) porte un bord clair, une autre un liseret discret. C'est
 // la troisieme direction de degrade que l'owner a nommee, et elle ne coute aucun sommet.
 if (gs_pal_on && gs_pal_rim > 0.0) {
@@ -65,9 +76,12 @@ if (gs_pal_on && gs_pal_rim > 0.0) {
   col = col * (1.0 + 1.10 * gs_pal_rim * ee);
 }
 col = col * (0.62 + 0.72 * gs_tint);  // wider brightness variation per blade
-float hue = tint2 - 0.5;              // -0.5 .. 0.5
-col.x = col.x * (1.0 + 0.50 * hue);   // warmer <-> cooler green
-col.z = col.z * (1.0 - 0.35 * hue);
+// La dispersion de teinte par brin est une DONNEE DU LIEU. A 0,50/0,35, ecrits en dur ici, elle
+// sortait 3,17 % des sommets de la coque de teinte du biome a elle seule — des especes bien placees
+// n'y pouvaient rien. Desarme, les deux valeurs d'avant reviennent.
+float hue = tint2 - 0.5;                 // -0.5 .. 0.5
+col.x = col.x * (1.0 + gs_jit_r * hue);  // warmer <-> cooler green
+col.z = col.z * (1.0 - gs_jit_b * hue);
 col.y = col.y * (0.88 + 0.22 * gs_tint);
 
 // OWNER POLISH#4: sample/match the GROUND TEXTURE colour. gs_gcol is the ground tone carried by

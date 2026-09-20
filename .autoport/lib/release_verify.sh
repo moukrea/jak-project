@@ -86,7 +86,7 @@ CUS_SRC="$T/cus_src.list"; : > "$CUS_SRC"
 if [ "$F_HUD" -eq 1 ] && [ "$GAME" = "jak1" ]; then
   find recharged_assets -maxdepth 1 -type f -name '*.png' >> "$CUS_SRC"
 fi
-find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' \) >> "$CUS_SRC" 2>/dev/null || true
+find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' -o -name '*.grassbiome' \) >> "$CUS_SRC" 2>/dev/null || true
 if [ "$F_HDMODELS" -eq 1 ]; then
   find "$FR3_DIR/enhanced" -maxdepth 1 -type f -name '*.fr3' >> "$CUS_SRC" 2>/dev/null || true
 fi
@@ -108,6 +108,8 @@ for m in "${CUS_MEMBERS[@]-}"; do
     fr3/*.grassbake)        ;;
     # la provenance du bake : sans elle le moteur refuse le bake et le niveau perd son herbe
     fr3/*.grassbake.fp)     ;;
+    # le profil de biome de l'herbe : donnee source, pas derivee (voir game/assets/grass/biomes/)
+    fr3/*.grassbiome)       ;;
     # physics: la definition des chaines voyage avec recharged_assets (non flag-gate,
     # comme les PNG du HUD cote livraison) -> accepte inconditionnellement.
     recharged_assets/physics_chains.txt) ;;

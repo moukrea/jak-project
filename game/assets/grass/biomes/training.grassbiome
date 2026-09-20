@@ -1,0 +1,51 @@
+# PROFIL DE BIOME — niveau `training` (Geyser Rock).
+# SPEC-refonte-herbe.md section 18 : « Un profil est une DONNEE, pas du code : il se cuit, il se
+# lit, il se remplace sans recompiler. » Ce fichier EST cette donnee. Le changer et relancer le jeu
+# suffit : aucun compilateur n'intervient.
+#
+# Owner, 20/09 20:40 (photo 20260920T1836-1.jpg) : « Une herbe MARRON qui n'a rien a faire dans
+# geyser rock (HS le biome, regarde la spec putain) […] aucune impression de reliefs ».
+#
+# COMMENT LIRE CE FICHIER
+#   `hue_deg` est LA COULEUR DU LIEU. Chaque espece n'ecrit qu'un ECART autour d'elle. Aucune
+#   espece ne peut donc virer au brun ou au cyan : la coque est une propriete de la structure.
+#   Pour donner son herbe a un autre niveau, copier ce fichier, changer `hue_deg` et les poids.
+
+biome training
+
+# La teinte de Geyser Rock. Le sol y est a 83 degres (un vert-jaune) ; l'herbe se pose un peu plus
+# froide que lui, sans le quitter. La coque interdit tout sommet a plus de 25 degres d'ici : mesure
+# sur les sommets emis, l'etendue retombe a 34 degres, avec 6,5 degres de marge sous la coque.
+hue_deg   101.0
+hull_deg   25.0
+
+# Racine sombre et saturee, pointe claire et plus lavee. L'ECART DES DEUX EST LE RELIEF : c'est lui
+# que l'owner ne voyait pas. Mesure sur les sommets emis, il vaut au moins 50,7 % de luminance sur
+# les six especes (le perimetre en exige 30).
+root_sat    0.80
+root_val    0.21
+tip_sat     0.66
+tip_val     0.76
+
+# Dispersion de teinte par brin. Elle vivait en dur dans le shader a 0,50 / 0,35 et c'est ELLE qui
+# faisait deborder la coque : 3,17 % des sommets dehors, meme avec des especes bien placees. Ramenee
+# ici, elle est un reglage du lieu, et la coque tient a zero sommet dehors.
+jitter_r    0.10
+jitter_b    0.07
+
+# Force de la modulation EN TRAVERS du brin, pour les especes qui la declarent (`axis` = 1). C'est
+# le « de gauche a droite » demande le 20/09 13:45 — desormais EN PLUS du degrade racine->pointe, et
+# non plus A SA PLACE : c'est ce qui donne du volume au brin au lieu d'un aplat.
+across_k    0.45
+
+# especes, DANS L'ORDRE DE `kGrassSpecies` (lame, fine, large, faux, jonc, touffu).
+#          nom     dteinte  dsat   dval  axe  liseret  poids_pm
+# `large` et `touffu` sont les deux especes grasses et courtes que l'owner a jugees absurdes
+# (« une herbe tellement thick et courte jaune qui n'a aucun sens ») : 40 pour mille a elles deux,
+# soit 4 % du champ, la ou le perimetre plafonne a 5 %. Elles etaient a 300 pour mille.
+species    lame      -2.1   0.035   0.124   0    0.00     300
+species    fine     -15.0  -0.127   0.146   0    0.00     235
+species    large     13.7   0.111  -0.026   1    0.45      25
+species    faux       1.6  -0.194   0.051   1    0.00     170
+species    jonc      15.0   0.111  -0.200   0    0.85     255
+species    touffu   -12.4   0.158  -0.015   1    0.00      15

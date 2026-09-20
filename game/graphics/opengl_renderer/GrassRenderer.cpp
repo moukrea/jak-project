@@ -2085,6 +2085,30 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     u64 fp_comparisons = 0;
     grass_bake::BakeFreshness last_fresh;
     try {
+    // grass-blade-variants (owner 20/09 20:40) — LE PROFIL DE BIOME DU NIVEAU, une DONNEE.
+    // Il porte la couleur du lieu et les proportions de ses especes (SPEC section 18 : « il se
+    // lit, il se remplace sans recompiler »). Sans lui, `blade_palette()` rend la palette d'AVANT
+    // l'item pour les six especes et `blade_variant_base()` rend toujours l'espece 0 : le champ
+    // devient visiblement uniforme, et la preuve compte le cas comme un defaut nomme. Un repli qui
+    // RESSEMBLE a un succes est precisement ce qui a coute une journee sur le `.grassbake.fp`.
+    {
+      const std::string prof_path =
+          file_util::resolve_fr3_asset(GameVersion::Jak1,
+                                       fmt::format("{}.grassbiome", level_name))
+              .path.string();
+      grass_bake::BiomeProfile prof;
+      std::string perr;
+      if (grass_bake::load_biome_profile(prof_path, &prof, &perr)) {
+        grass_bake::active_biome_mutable() = prof;
+        lg::info("[recharged-grass] BIOME niveau={} profil={} champs={} teinte={:.1f} coque={:.1f}",
+                 level_name, prof_path, prof.fields_read, prof.hue_deg, prof.hull_deg);
+      } else {
+        grass_bake::active_biome_mutable() = grass_bake::BiomeProfile{};
+        lg::warn("[recharged-grass] BIOME niveau={} AUCUN PROFIL ({}) : {}", level_name, prof_path,
+                 perr);
+      }
+    }
+
     if (want_pre && !floor_gap_overridden) {
       std::string refus;
       for (int cand = want_preset; cand >= 0 && !from_bake; --cand) {
@@ -2484,6 +2508,29 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         autoport_proof::publish(key, (uint64_t)grass_bake::grass_species(v).port);
         snprintf(key, sizeof(key), "grass_variant_engine_weight_pm_v%d", v);
         autoport_proof::publish(key, (uint64_t)grass_bake::blade_variant_weight_pm(v));
+      }
+      // LE PROFIL, TEL QUE L'APPAREIL L'A LU. La porte ne compare plus deux copies compilees :
+      // elle compare ce que le moteur a resolu au FICHIER que le recensement relit.
+      {
+        const grass_bake::BiomeProfile& BP = grass_bake::active_biome();
+        autoport_proof::publish("grass_variant_engine_profile_loaded", (uint64_t)(BP.loaded ? 1 : 0));
+        autoport_proof::publish("grass_variant_engine_profile_fields", (uint64_t)BP.fields_read);
+        autoport_proof::publish("grass_variant_engine_profile_hue_mdeg",
+                                (uint64_t)(BP.hue_deg * 1000.0f));
+        autoport_proof::publish("grass_variant_engine_profile_hull_mdeg",
+                                (uint64_t)(BP.hull_deg * 1000.0f));
+        autoport_proof::publish_text("grass_variant_engine_profile_level",
+                                     BP.level[0] ? BP.level : "-");
+        for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
+          const grass_bake::BladePalette P = grass_bake::blade_palette(v);
+          char key[64], buf[96];
+          snprintf(key, sizeof(key), "grass_variant_engine_pal_a_v%d", v);
+          snprintf(buf, sizeof(buf), "%.6f,%.6f,%.6f,%.6f", P.root_r, P.root_g, P.root_b, P.axis);
+          autoport_proof::publish_text(key, buf);
+          snprintf(key, sizeof(key), "grass_variant_engine_pal_b_v%d", v);
+          snprintf(buf, sizeof(buf), "%.6f,%.6f,%.6f,%.6f", P.tip_r, P.tip_g, P.tip_b, P.rim);
+          autoport_proof::publish_text(key, buf);
+        }
       }
       {
         char buf[32];
@@ -3322,6 +3369,30 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
       glUniform4fv(grass_uloc(id, "u_occ"), nocc, &grass_occ::g_published[0][0]);
     }
     glUniform1i(grass_uloc(id, "u_occ_count"), nocc);
+  }
+  // grass-blade-variants — LA PALETTE DU LIEU PART AU SHADER. `grass.vert` ne porte plus de
+  // litteral de couleur : le profil du niveau est une DONNEE, et c'est le C++ qui la resout en
+  // (racine, pointe) par espece. Une fois par image, comme u_occ juste au-dessus.
+  {
+    const grass_bake::BiomeProfile& BP = grass_bake::active_biome();
+    float pal_a[grass_bake::kBladeVariantCount][4];
+    float pal_b[grass_bake::kBladeVariantCount][4];
+    for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
+      const grass_bake::BladePalette P = grass_bake::blade_palette(v);
+      pal_a[v][0] = P.root_r;
+      pal_a[v][1] = P.root_g;
+      pal_a[v][2] = P.root_b;
+      pal_a[v][3] = P.axis;
+      pal_b[v][0] = P.tip_r;
+      pal_b[v][1] = P.tip_g;
+      pal_b[v][2] = P.tip_b;
+      pal_b[v][3] = P.rim;
+    }
+    glUniform4fv(grass_uloc(id, "u_pal_a"), grass_bake::kBladeVariantCount, &pal_a[0][0]);
+    glUniform4fv(grass_uloc(id, "u_pal_b"), grass_bake::kBladeVariantCount, &pal_b[0][0]);
+    glUniform4f(grass_uloc(id, "u_pal_k"), BP.loaded ? BP.across_k : 0.f,
+                BP.loaded ? BP.jitter_r : 0.50f, BP.loaded ? BP.jitter_b : 0.35f,
+                BP.loaded ? 1.f : 0.f);
   }
   // ROUND#19 forensics (owner: registered radii have NO visual): prove what actually reaches the
   // shader — uniform locations (a -1 = the GLES link dropped it) once, then the published entries +

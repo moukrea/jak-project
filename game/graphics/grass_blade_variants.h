@@ -22,6 +22,10 @@
 #include <cmath>
 #include <cstdint>
 
+// LE PROFIL DE BIOME : la couleur du lieu et les proportions de ses especes. C'est une
+// DONNEE lue au chargement (SPEC section 18), pas une colonne de la table ci-dessous.
+#include "game/graphics/grass_biome_profile.h"
+
 namespace grass_bake {
 
 inline constexpr int kBladeVariantCount = 6;
@@ -62,19 +66,16 @@ struct GrassSpecies {
   float curve_cap;   // plafond doux de courbure, RESOLU par dichotomie (voir en bas de fichier)
   // --- IDENTITE DE L'ESPECE -------------------------------------------------------------------
   int port;                // GrassPort — publie et juge, pas un commentaire
-  int weight_pm;           // part de l'espece dans le profil, pour mille (somme == 1000)
   float clump_radius_mul;  // rayon de la touffe de cette espece : > 1 = clairsemee, < 1 = dense
-  // --- CE QUE LES AUTRES CHANTIERS D'HERBE LIRONT (JAK-121). Declare ici pour que la coherence par
-  //     espece ait UNE source ; AUCUN de ces trois champs n'est lu aujourd'hui (hors perimetre :
-  //     « Ne change ni la couleur ni le vent »).
-  // --- PALETTE DE L'ESPECE. Meme discipline que la silhouette : les HUIT nombres sont exactement
-  //     ceux que `shaders/grass.vert` lit dans PAL_A/PAL_B, dans cet ordre, et le recensement les
-  //     compare un a un. PAL_A = (root_r, root_g, root_b, axis), PAL_B = (tip_r, tip_g, tip_b, rim).
-  float pal_root_r, pal_root_g, pal_root_b;
-  float pal_axis;   // 0 = degrade LE LONG du brin (racine->pointe) ; 1 = EN TRAVERS (bord->bord)
-  float pal_tip_r, pal_tip_g, pal_tip_b;
-  float pal_rim;    // liseret de bord : 0 = aucun ; >0 = intensite de l'eclaircissement des bords
   float wind_stiff;   // -> grass-wind    : raideur (1 = reference ; un jonc plie moins qu'une lame)
+  // --- CE QUI N'EST PLUS ICI, ET POURQUOI (owner 20/09 20:40, photo). La PALETTE (`pal_root_*`,
+  //     `pal_tip_*`, `pal_axis`, `pal_rim`) et le POIDS (`weight_pm`) etaient des colonnes de cette
+  //     table. Une couleur ABSOLUE par espece la fait appartenir a l'espece et non au LIEU : les
+  //     six teintes avaient donc ete etalees sur 146 degres pour se distinguer, d'ou le brun de
+  //     `faux` (29,5 deg) et le cyan de `fine` (175,3 deg) que l'owner a refuses dans Geyser Rock.
+  //     Elles vivent desormais dans le PROFIL DE BIOME (`grass_biome_profile.h`, SPEC section 18),
+  //     ou l'espece ne porte qu'un ECART autour de la couleur du lieu. Cette table garde ce qui est
+  //     vrai de l'espece OU QU'ELLE POUSSE : sa silhouette, son port, sa touffe, sa raideur.
 };
 
 // LES SIX ESPECES. Les deux echelles sont GEOMETRIQUES, et c'est ce qui rend deux touffes voisines
@@ -87,19 +88,19 @@ struct GrassSpecies {
 // Les deux echelles sont normalisees pour que la MOYENNE PONDEREE de la hauteur reste 1,0014 :
 // le champ ne devient ni plus haut ni plus bas, il devient varie.
 inline constexpr GrassSpecies kGrassSpecies[kBladeVariantCount] = {
-    // nom       h       hw        tl     tq      cm     tip    lean   cap    port
-    {"lame", 1.0212f, 0.053324f, 0.66f, 0.00f, 1.00f, 0.00f, 0.10f, 0.521f, kPortCourbe, 200,
-     1.00f, 0.070f, 0.170f, 0.045f, 0.0f, 0.42f, 0.68f, 0.22f, 0.00f, 1.00f},
-    {"fine", 1.3481f, 0.019212f, 1.00f, 0.05f, 1.55f, 0.25f, 0.22f, 0.427f, kPortCourbe, 190,
-     1.15f, 0.040f, 0.140f, 0.115f, 0.0f, 0.24f, 0.70f, 0.58f, 0.00f, 0.80f},
-    {"large", 0.4440f, 0.373899f, 0.45f, -0.25f, 0.55f, -0.20f, 0.30f, 3.000f, kPortOuvert, 180,
-     0.80f, 0.140f, 0.180f, 0.040f, 1.0f, 0.56f, 0.62f, 0.13f, 0.00f, 1.20f},
-    {"faux", 0.7737f, 0.102052f, 0.30f, -0.55f, 2.10f, 0.60f, 0.55f, 0.498f, kPortRetombant, 160,
-     0.95f, 0.150f, 0.110f, 0.040f, 1.0f, 0.56f, 0.38f, 0.12f, 0.00f, 0.65f},
-    {"jonc", 1.7795f, 0.021104f, 0.35f, -0.10f, 0.25f, 0.00f, 0.00f, 3.000f, kPortDroit, 150,
-     1.35f, 0.040f, 0.120f, 0.055f, 0.0f, 0.22f, 0.50f, 0.24f, 0.85f, 1.60f},
-    {"touffu", 0.5861f, 0.195344f, 0.80f, 0.10f, 1.15f, -0.30f, 0.38f, 1.285f, kPortOuvert, 120,
-     0.70f, 0.160f, 0.200f, 0.070f, 1.0f, 0.66f, 0.78f, 0.44f, 0.45f, 1.10f},
+    // nom       h       hw        tl     tq      cm     tip    lean   cap    port  rayon  raideur
+    {"lame", 1.0212f, 0.053324f, 0.66f, 0.00f, 1.00f, 0.00f, 0.10f, 0.521f, kPortCourbe,
+     1.00f, 1.00f},
+    {"fine", 1.3481f, 0.019212f, 1.00f, 0.05f, 1.55f, 0.25f, 0.22f, 0.427f, kPortCourbe,
+     1.15f, 0.80f},
+    {"large", 0.4440f, 0.373899f, 0.45f, -0.25f, 0.55f, -0.20f, 0.30f, 3.000f, kPortOuvert,
+     0.80f, 1.20f},
+    {"faux", 0.7737f, 0.102052f, 0.30f, -0.55f, 2.10f, 0.60f, 0.55f, 0.498f, kPortRetombant,
+     0.95f, 0.65f},
+    {"jonc", 1.7795f, 0.021104f, 0.35f, -0.10f, 0.25f, 0.00f, 0.00f, 3.000f, kPortDroit,
+     1.35f, 1.60f},
+    {"touffu", 0.5861f, 0.195344f, 0.80f, 0.10f, 1.15f, -0.30f, 0.38f, 1.285f, kPortOuvert,
+     0.70f, 1.10f},
 };
 
 inline constexpr const GrassSpecies& grass_species(int v) {
@@ -129,16 +130,33 @@ struct BladePalette {
   float root_r, root_g, root_b, axis;
   float tip_r, tip_g, tip_b, rim;
 };
-inline constexpr BladePalette blade_palette(int v) {
-  const GrassSpecies& S = grass_species(v);
-  return BladePalette{S.pal_root_r, S.pal_root_g, S.pal_root_b, S.pal_axis,
-                      S.pal_tip_r,  S.pal_tip_g,  S.pal_tip_b,  S.pal_rim};
-}
 // LA PALETTE D'AVANT L'ITEM, AU BIT PRES : les deux constantes que `grass_shade.glsl` portait en
 // dur (base_dark / base_light), axe le long du brin, aucun liseret. C'est ce que le bras DESARME
 // doit rendre.
 inline constexpr BladePalette kBladePaletteLegacy = {0.075f, 0.185f, 0.040f, 0.0f,
                                                      0.40f,  0.66f,  0.20f,  0.0f};
+
+// RESOLUE, PLUS DECLAREE. La couleur du lieu vient du profil ; l'espece n'ajoute qu'un ecart. Sans
+// profil charge on rend la palette d'AVANT l'item, identique pour les six : un profil manquant
+// donne donc un champ visiblement uniforme, et la preuve le compte comme un defaut nomme
+// (`profile_missing`). C'est voulu — un repli qui RESSEMBLE a un succes est ce qui a coute une
+// journee sur le `.grassbake.fp`.
+inline BladePalette blade_palette(int v) {
+  const BiomeProfile& B = active_biome();
+  if (!B.loaded) {
+    return kBladePaletteLegacy;
+  }
+  const int i = v < 0 ? 0 : (v >= kBladeVariantCount ? kBladeVariantCount - 1 : v);
+  const BiomeSpecies& S = B.sp[i];
+  BladePalette P{};
+  biome_hsv_to_rgb(B.hue_deg + S.dhue_deg, B.root_sat * (1.f + S.dsat),
+                   B.root_val * (1.f + S.dval), &P.root_r, &P.root_g, &P.root_b);
+  biome_hsv_to_rgb(B.hue_deg + S.dhue_deg, B.tip_sat * (1.f + S.dsat),
+                   B.tip_val * (1.f + S.dval), &P.tip_r, &P.tip_g, &P.tip_b);
+  P.axis = S.axis;
+  P.rim = S.rim;
+  return P;
+}
 
 // LA LAME D'AVANT L'ITEM, AU BIT PRES. Elle n'est PAS `kGrassSpecies[0]` : le perimetre du 20/09
 // deplace toutes les especes sur deux echelles geometriques, v0 compris, et un bras d'ablation qui
@@ -157,10 +175,6 @@ inline constexpr int blade_variant_active_verts(int /*v*/) {
 
 inline constexpr int blade_variant_segments(int /*v*/) {
   return kBladeStripSegments;
-}
-
-inline constexpr int blade_variant_weight_pm(int v) {
-  return grass_species(v).weight_pm;
 }
 
 // LE PALIER COMMANDE LE NOMBRE D'ESPECES (SPEC section 13, ligne « variantes de brin »).
@@ -183,16 +197,34 @@ inline constexpr int variants_for_preset(int preset) {
 // L'ESPECE DE BASE D'UN TIRAGE : tirage entier sur la table de poids, INDEPENDANT DU PALIER. C'est
 // ce qui rend la selection stable : un brin porte son espece de base partout, et un palier qui ne la
 // propose pas la REPLIE (ci-dessous) au lieu de re-tirer.
-inline constexpr int blade_variant_base(uint32_t h) {
+// LES PROPORTIONS SONT CELLES DU BIOME (owner 20/09 20:40 : les especes grasses et courtes « n'ont
+// aucun sens » sur Geyser Rock — le profil les y met a 40 pour mille au lieu de 300). Sans profil,
+// TOUT est l'espece 0 : c'est exactement l'etat d'avant l'item, et ca ne peut pas se confondre avec
+// un champ correctement peuple.
+inline int blade_variant_base(uint32_t h) {
+  const BiomeProfile& B = active_biome();
+  if (!B.loaded) {
+    return 0;
+  }
   int acc = 0;
   const int r = (int)(h % 1000u);
   for (int i = 0; i < kBladeVariantCount; ++i) {
-    acc += kGrassSpecies[i].weight_pm;
+    acc += B.sp[i].weight_pm;
     if (r < acc) {
       return i;
     }
   }
   return kBladeVariantCount - 1;
+}
+
+// LE POIDS D'UNE ESPECE, TEL QUE LE PROFIL LE DONNE. Publie par la preuve et lu par le
+// recensement : il n'existe plus de copie compilee a comparer, la porte compare au FICHIER.
+inline int blade_variant_weight_pm(int v) {
+  const BiomeProfile& B = active_biome();
+  if (!B.loaded) {
+    return v == 0 ? 1000 : 0;
+  }
+  return B.sp[v < 0 ? 0 : (v >= kBladeVariantCount ? kBladeVariantCount - 1 : v)].weight_pm;
 }
 
 // LE REPLI. Un palier a `k` especes propose exactement [0, k) ; une base hors de cette plage se
@@ -205,11 +237,11 @@ inline constexpr int blade_variant_fold(int base, int k) {
 
 // Part attendue de l'espece EFFECTIVE `i` a `k` especes : la somme des poids de toutes les bases qui
 // s'y replient. Une seule source pour l'attendu et pour le livre.
-inline constexpr int blade_variant_expected_pm(int i, int k) {
+inline int blade_variant_expected_pm(int i, int k) {
   int acc = 0;
   for (int v = 0; v < kBladeVariantCount; ++v) {
     if (blade_variant_fold(v, k) == i) {
-      acc += kGrassSpecies[v].weight_pm;
+      acc += blade_variant_weight_pm(v);
     }
   }
   return acc;
