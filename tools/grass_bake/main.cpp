@@ -891,6 +891,7 @@ int main(int argc, char** argv) {
     fmt::print("variant_dominant_pm_floor={}\n", grass_bake::kBladeClumpDominantPmFloor);
     fmt::print("variant_dominant_share_pm={}\n", grass_bake::kBladeClumpDominantSharePm);
     fmt::print("variant_height_cv_pm={}\n", vc.height_cv_pm);
+    fmt::print("variant_height_cv_clump_pm={}\n", vc.height_cv_clump_pm);
     fmt::print("variant_height_cv_pm_floor={}\n", grass_bake::kBladeClumpHeightCvPmFloor);
     fmt::print("variant_height_mean_mm={}\n", vc.height_mean_mm);
     fmt::print("variant_neigh_compared={}\n", vc.neigh_compared);

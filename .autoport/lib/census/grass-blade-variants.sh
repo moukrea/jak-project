@@ -104,7 +104,7 @@ SCALARS = ["blades", "k", "preset", "folded", "off_profile", "verts_strip", "ver
            # ESSAI 2 : les grandeurs de TOUFFE. Une seule absente NOMME le niveau au lieu de
            # laisser la porte sommer des zeros qu'elle n'a pas mesures.
            "blades_clumped", "clumps", "clumps_dominant", "dominant_pm", "dominant_pm_floor",
-           "dominant_share_pm", "height_cv_pm", "height_cv_pm_floor", "height_mean_mm",
+           "dominant_share_pm", "height_cv_pm", "height_cv_clump_pm", "height_cv_pm_floor", "height_mean_mm",
            "neigh_compared", "neigh_diff", "neigh_diff_pm", "neigh_diff_pm_floor",
            "seg_angle_max_mdeg", "seg_angle_cap_mdeg", "seg_angle_over", "variants_seen"]
 PERV = ["v%d", "base_v%d", "share_pm_v%d", "expect_pm_v%d", "tol_pm_v%d", "seg_v%d"]
@@ -152,7 +152,7 @@ for lvl in levels:
         print("grass_variant_%s_tol_pm_v%d=%d" % (lvl, v, num["tol_pm_v%d" % v]))
     for k in ("blades", "k", "folded", "off_profile", "verts_max", "verts_over",
               "terms_measured", "blades_clumped", "clumps", "clumps_dominant", "dominant_pm",
-              "dominant_pm_floor", "dominant_share_pm", "height_cv_pm", "height_cv_pm_floor",
+              "dominant_pm_floor", "dominant_share_pm", "height_cv_pm", "height_cv_clump_pm", "height_cv_pm_floor",
               "height_mean_mm", "neigh_compared", "neigh_diff", "neigh_diff_pm",
               "neigh_diff_pm_floor", "seg_angle_max_mdeg", "seg_angle_cap_mdeg",
               "seg_angle_over", "variants_seen"):
@@ -179,8 +179,11 @@ for lvl in levels:
         continue
     if num["dominant_pm"] < num["dominant_pm_floor"]:
         dom_bad += 1            # (1) une touffe a-t-elle UNE silhouette dominante ?
-    if num["height_cv_pm"] < num["height_cv_pm_floor"]:
-        hcv_bad += 1            # (2) les touffes ont-elles des hauteurs differentes ENTRE elles ?
+    # (2) les touffes ont-elles des hauteurs differentes ENTRE elles ? On juge la part
+    # ATTRIBUABLE A LA TOUFFE : l'ecart brut des moyennes contient le bruit par brin, que le bras
+    # desarme franchit deja (255 pour mille) — un terme que les deux bras passent ne mesure rien.
+    if num["height_cv_clump_pm"] < num["height_cv_pm_floor"]:
+        hcv_bad += 1
     if num["neigh_compared"] == 0 or num["neigh_diff_pm"] < num["neigh_diff_pm_floor"]:
         neigh_bad += 1          # (1 bis) les touffes VOISINES different-elles ?
     if num["seg_angle_max_mdeg"] > num["seg_angle_cap_mdeg"]:

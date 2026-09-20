@@ -365,6 +365,11 @@ struct VariantCensus {
   u64 clumps_dominant = 0;      // ... dont UNE silhouette couvre >= kBladeClumpDominantSharePm
   int dominant_pm = 0;          // part de touffes a silhouette dominante, pour mille
   int height_cv_pm = 0;         // ecart-type / moyenne des hauteurs MOYENNES de touffe, pour mille
+  // LA PART QUI VIENT DE LA TOUFFE, ET ELLE SEULE. `height_cv_pm` ci-dessus contient aussi le bruit
+  // de la hauteur PAR BRIN moyennee sur 3 a 9 brins : desarme, il vaut deja 255 pour mille, au-dessus
+  // du plancher — un terme que les DEUX bras passent ne mesure rien. On retire donc la variance
+  // intra-touffe attendue sur une moyenne de n brins : ce qui reste est le facteur de touffe.
+  int height_cv_clump_pm = 0;
   int height_mean_mm = 0;       // hauteur moyenne livree (unites monde / 4096 * 1000)
   u64 neigh_compared = 0;       // touffes ayant une voisine mesurable
   u64 neigh_diff = 0;           // ... dont la voisine la plus proche porte une AUTRE silhouette
@@ -379,6 +384,7 @@ struct ClumpVarAcc {
   u32 per_variant[kBladeVariantCount] = {};
   u32 n = 0;
   double hsum = 0.0;
+  double hsum2 = 0.0;
   double cx = 0.0, cy = 0.0, cz = 0.0;
 };
 
@@ -387,7 +393,8 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
                                     const std::vector<u16>& rank,
                                     size_t first,
                                     size_t count,
-                                    int k) {
+                                    int k,
+                                    bool capped = true) {
   VariantCensus vc;
   vc.k = k;
   const size_t end = (first + count > inst.size()) ? inst.size() : first + count;
@@ -413,7 +420,7 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
     vc.digest ^= (u64)(eff + 1) * 2654435761ull;
     vc.blades++;
     // L'ANGLE, SUR LA POPULATION REELLE : la courbure de CE brin, pas une borne de table.
-    const int am = blade_seg_angle_mdeg(eff, inst[i].curve);
+    const int am = blade_seg_angle_mdeg(eff, inst[i].curve, capped);
     if (am > vc.seg_angle_max_mdeg) {
       vc.seg_angle_max_mdeg = am;
     }
@@ -425,7 +432,9 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       ClumpVarAcc& a = acc[cs];
       a.per_variant[eff]++;
       a.n++;
-      a.hsum += (double)inst[i].h * (double)kBladeShapes[eff].h;
+      const double hfin = (double)inst[i].h * (double)kBladeShapes[eff].h;
+      a.hsum += hfin;
+      a.hsum2 += hfin * hfin;
       a.cx += inst[i].px;
       a.cy += inst[i].py;
       a.cz += inst[i].pz;
@@ -438,7 +447,8 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
     std::vector<float> ccx, ccy, ccz;
     cvar.reserve(acc.size());
     ccx.reserve(acc.size()); ccy.reserve(acc.size()); ccz.reserve(acc.size());
-    double hs = 0.0, hs2 = 0.0;
+    double hs = 0.0, hs2 = 0.0, wnoise = 0.0;
+    u64 wn = 0;
     bool var_seen[kBladeVariantCount] = {};
     for (const auto& kv : acc) {
       const ClumpVarAcc& a = kv.second;
@@ -461,6 +471,12 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       const double hm = a.hsum / (double)a.n;
       hs += hm;
       hs2 += hm * hm;
+      // Variance INTRA-touffe, sans biais, et ce qu'elle laisse sur une moyenne de `n` brins.
+      if (a.n >= 2u) {
+        const double wv = (a.hsum2 / (double)a.n - hm * hm) * (double)a.n / (double)(a.n - 1u);
+        wnoise += (wv > 0.0 ? wv : 0.0) / (double)a.n;
+        wn++;
+      }
       cvar.push_back((u32)topv);
       ccx.push_back((float)(a.cx / (double)a.n));
       ccy.push_back((float)(a.cy / (double)a.n));
@@ -478,6 +494,10 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       const double sd = var > 0.0 ? std::sqrt(var) : 0.0;
       vc.height_mean_mm = (int)(mean * 1000.0 / (double)U + 0.5);
       vc.height_cv_pm = mean > 0.0 ? (int)(1000.0 * sd / mean + 0.5) : 0;
+      const double noise = wn > 0 ? wnoise / (double)wn : 0.0;
+      const double vclump = var - noise;
+      const double sdc = vclump > 0.0 ? std::sqrt(vclump) : 0.0;
+      vc.height_cv_clump_pm = mean > 0.0 ? (int)(1000.0 * sdc / mean + 0.5) : 0;
     }
     // ---- ET (1 bis) : « les touffes VOISINES ont-elles des silhouettes differentes ? ». La
     // voisine est cherchee dans une grille de 2 m : une comparaison par index de touffe

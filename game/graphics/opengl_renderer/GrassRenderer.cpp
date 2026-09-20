@@ -2238,8 +2238,11 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       m_variant[i] = varmed ? (u8)(v + 1) : (u8)0;
     }
     if (autoport_proof::feature_is(kVariantItemId)) {
+      // L'INSTRUMENT MESURE LE REGIME QU'IL DESSINE. Desarme, le shader n'applique pas le plafond
+      // de courbure : le recensement ne doit pas publier l'angle plafonne, sinon l'ablation rendrait
+      // un chiffre vert sur un brin qui casse.
       const auto vc = grass_bake::variant_census(res.instances, res.inst_cseed, res.inst_rank, 0,
-                                                 res.instances.size(), vk);
+                                                 res.instances.size(), vk, varmed);
       autoport_proof::publish_text("grass_variant_engine_level", level_name.c_str());
       autoport_proof::publish("grass_variant_engine_armed",
                               autoport_proof::armed_for(kVariantItemId) ? 1u : 0u);
@@ -2262,6 +2265,8 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       autoport_proof::publish("grass_variant_engine_clumps_dominant", vc.clumps_dominant);
       autoport_proof::publish("grass_variant_engine_dominant_pm", (uint64_t)vc.dominant_pm);
       autoport_proof::publish("grass_variant_engine_height_cv_pm", (uint64_t)vc.height_cv_pm);
+      autoport_proof::publish("grass_variant_engine_height_cv_clump_pm",
+                              (uint64_t)vc.height_cv_clump_pm);
       autoport_proof::publish("grass_variant_engine_height_mean_mm", (uint64_t)vc.height_mean_mm);
       autoport_proof::publish("grass_variant_engine_neigh_compared", vc.neigh_compared);
       autoport_proof::publish("grass_variant_engine_neigh_diff", vc.neigh_diff);

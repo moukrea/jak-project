@@ -164,7 +164,10 @@ inline float blade_curve_capped(float c, float cap) {
 // LOD 0 : rim_w = rim_h = nearf = heightMul = 1, vent nul — c'est la SILHOUETTE STATIQUE, celle que
 // l'owner regarde a l'arret. `grass.vert` emet, pour la rangee j et le cote s :
 //   x = (2s-1) * hw * (1 - taper_lin*t + taper_quad*t^2)   y = t   z = C' * t^2 * (1 + tip*t)
-inline int blade_seg_angle_mdeg(int v, float curve) {
+// `capped` DIT DANS QUEL REGIME ON MESURE. Desarme, `grass.vert` n'applique PAS le plafond (l'octet
+// d'instance vaut 0) : publier l'angle plafonne sur ce bras ferait dire a l'instrument le contraire
+// de ce que le GPU dessine, et l'ablation montrerait un zero au lieu du defaut qui revient.
+inline int blade_seg_angle_mdeg(int v, float curve, bool capped) {
   if (v < 0 || v >= kBladeVariantCount) {
     return 0;
   }
@@ -173,7 +176,8 @@ inline int blade_seg_angle_mdeg(int v, float curve) {
   if (nseg < 2) {
     return 0;
   }
-  const float C = blade_curve_capped(curve * S.curve_mul, S.curve_cap);
+  const float C = capped ? blade_curve_capped(curve * S.curve_mul, S.curve_cap)
+                         : curve * S.curve_mul;
   double worst = 0.0;
   for (int side = 0; side < 2; ++side) {
     const float sg = side ? 1.0f : -1.0f;
