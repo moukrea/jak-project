@@ -10260,7 +10260,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 2
+  max_retries: 5
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10354,7 +10354,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 5
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10433,7 +10433,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 4
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10541,7 +10541,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 4
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -13559,7 +13559,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 2
+  max_retries: 8
   proof_timeout: 420
   device: true
   owner_ok: null
