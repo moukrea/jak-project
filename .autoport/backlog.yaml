@@ -10254,13 +10254,13 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: in-progress
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
   spec: prompts/SPEC-refonte-herbe.md
   max_turns: 800
-  max_retries: 3
+  max_retries: 2
   proof_timeout: 420
   depends_on:
   - grass-clumps
@@ -10279,6 +10279,8 @@ items:
     20/09 RETOUR OWNER (JAK-120) : « tu fais juste des touffes avec toutes les geometries, pas de touffes d'herbe differentes, pas de variations de hauteur… certaines des geometries… on voit clairement leurs polygones de pres, c'est nul ! ». LA PORTE ETAIT AVEUGLE a ces trois choses : elle comptait la diversite des BRINS, pas l'organisation en TOUFFES. PERIMETRE : (1) la variante se tire au niveau de la TOUFFE (hachage de la racine de touffe), avec une silhouette dominante par touffe et une minorite (<= 20 %) d'autres formes ; les touffes voisines different ; (2) hauteur PAR TOUFFE : facteur 0,7-1,3 tire par touffe, en plus de la variation par brin ; (3) de pres (< 6 m), aucun polygone visible : profil de largeur lisse et assez de segments pour que l'angle entre deux segments consecutifs reste sous 12 degres a la distance de LOD 0 ; le compte de sommets soumis ne monte pas (replier les rangees comme aujourd'hui). PORTE : part de touffes a silhouette dominante >= 80 % ; ecart-type de hauteur ENTRE touffes >= 15 % ; angle max entre segments a LOD 0 <= 12 degres, mesure sur les sommets emis ; sommets soumis inchanges. Capture jointe au passage en test.
 
     COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
+
+    20/09 11:10 RETOUR OWNER (JAK-120) : « Toutes les touffes se ressemblent… tres mid… on voit plus les polygones et on a il semblerait des hauteurs differentes par contre ». ACQUIS : plus de polygones visibles, hauteurs par touffe. RESTE : les touffes ne se DISTINGUENT pas entre elles. La porte (part de touffes a silhouette dominante >= 80 %) est tenue et pourtant l'owner ne voit pas de difference : la silhouette dominante ne suffit pas a distinguer deux touffes si les 6 silhouettes se ressemblent a distance de jeu ou si la repartition tire presque toujours la meme. PERIMETRE : (1) mesurer la distribution REELLE des silhouettes dominantes sur une zone (si 2 des 6 font 80 % des touffes, c'est ca) et l'equilibrer ; (2) rendre les silhouettes distinguables a 3-8 m : ecart de hauteur moyenne entre types >= 30 %, ecart de largeur >= 40 %, port different (droit / courbe / retombant) ; (3) densite et nombre de brins PAR TOUFFE varies (une touffe clairsemee a cote d'une touffe dense). PORTE : sur une zone de 10x10 m, entropie de la silhouette dominante >= 2 bits sur 6 types ; ecart-type des hauteurs moyennes de touffes >= 20 % ; ecart-type du nombre de brins par touffe >= 25 %. Le rendu se juge AVEC la couleur par type (grass-shading) : les deux chantiers sont lies, la couleur par type est ce qui rendra les silhouettes lisibles.
   deliverable: |-
     `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
     1. LES VARIANTES EXISTENT ET SONT DISTRIBUEES : publier le compte de brins par variante et le compare aux proportions declarees par le profil. Un ecart au-dela d'une tolerance declaree est le defaut.
@@ -10286,10 +10288,9 @@ items:
     3. LE PALIER COMMANDE LE NOMBRE DE VARIANTES, et la selection reste DETERMINISTE : un brin donne recoit la meme variante a tous les paliers qui la proposent. Publier le compte de brins changeant de variante entre deux paliers : zero.
     4. AUCUNE MODELISATION : publier le compte d'assets de maillage charges par le systeme d'herbe, qui vaut zero. C'est l'ordre explicite de l'owner.
     PREUVE : `FEATURE grass-blade-variants armed=1 hits=<brins ayant recu une variante>` + la ligne `grass_variant_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.
-  where: 'Niveau d''entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silhouette dominante,
-    et les touffes voisines des silhouettes differentes (au lieu de toutes les formes melangees dans chaque
-    touffe) ? (2) les touffes ont-elles des hauteurs differentes entre elles ? (3) de pres, voit-on encore
-    les polygones des brins (aretes, cassures) ?'
+  where: 'Niveau d''entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au
+    premier coup d''oeil (silhouette dominante differente, hauteur differente, port different), ou toutes
+    les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l''owner).'
   out_of_scope: Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne
     change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
   notes: 'SPEC section 6. Hors perimetre absolu : la modelisation de vegetaux complexes.'
@@ -10308,12 +10309,12 @@ items:
   - OG_GRASS_PRESET=2
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-19'
-    proof_sha: a181ffae464103b9
-    proof_bytes: 78333
-    attempt: 1
-    journal: validator-001.txt
-  delivered: '2026-09-19'
+    date: '2026-09-20'
+    proof_sha: cfd16f522cb10a80
+    proof_bytes: 88005
+    attempt: 2
+    journal: validator-002.txt
+  delivered: '2026-09-20'
   owner_feedback:
   - date: '2026-09-19'
     text: Ce chantier ne touche pas le jeu ? Qu'es-ce ce que tu racontes, comment tu peux être autant
@@ -10324,6 +10325,10 @@ items:
       c'est nul !
   - date: '2026-09-20'
     text: Idem à voir àvec l'ensemble des tickets lié
+  - date: '2026-09-20'
+    text: Toutes les touffes se ressemblent… je sais pas si un autre chantier traite ça mais en l'état
+      j'ai l'impression que c'est très mid… on voit plus les polygones et on a il semblerait des hauteurs
+      différentes par contre
 - status: open
   game: jak1
   owner_test: true
@@ -10397,6 +10402,10 @@ items:
       relief à ces géométries très simples, c'est pas forcément pour une touffe, ça permet de créer en
       plus des changements de géométrie des variations de types de brins etc etc, à voir avec l'ensemble
       des tickets d'herbe… j'aurai cru que c'était compris depuis le début ça commence à me saouler
+  - date: '2026-09-20'
+    text: Attention les types de brins simple niveau géométrie impliquent aussi des "espèces différentes"
+      a même titre que les dégradés et compagnie, ça joue sur la cohérence des types, biomes, espèces
+      différentes et compagnie
 - status: open
   game: jak1
   owner_test: true
@@ -10503,7 +10512,7 @@ items:
   hits_means: touffes portant une exposition cuite
   prompt: prompts/item-grass-wind-exposure.md
   block_reason: null
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13499,7 +13508,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13540,6 +13549,8 @@ items:
     19/09 RETOUR OWNER (JAK-176) : « je saurais dire si la particule est la bonne car oui je l'apercois par le trou au centre de la jauge, mais du coup elle est EN DESSOUS, pas au dessus ! Donc c'est pas bon ! » PERIMETRE UNIQUE : l'ordre de dessin de la nuee centrale — elle doit passer APRES la jauge (par-dessus l'anneau), pas avant. Aujourd'hui `draw-particles` consomme la nuee AVANT `draw-hud` (hud.gc:228, note de la reprise du 18/09) : c'est exactement l'inversion vue. Options a chiffrer : emettre la nuee depuis draw-hud apres l'anneau, ou lui donner un bucket/priorite au-dessus du HUD. PORTE : sur une image ou la nuee et l'anneau se recouvrent, l'ordre d'emission publie place la nuee apres l'anneau (compteur d'ordre par image), et le test de profondeur/occlusion ne la masque pas ; la position et la taille du 18/09 restent identiques.
 
     20/09 RETOUR OWNER (JAK-176) : « c'est par dessus mais la lueur est tres muted… et j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais exactement comme sur la particule d'Eco verte) ». L'ORDRE DE DESSIN EST ACQUIS. PERIMETRE : (1) par type d'eco, l'emetteur utilise au centre doit etre celui du RAMASSABLE DU MONDE de CE type (groupes distincts bleu/rouge/jaune, pas le groupe vert reteinte) : verifier l'identite du groupe de particules ET ses parametres de mouvement (vitesse, duree de vie, gravite, spin) champ par champ contre le vial du monde du meme type ; (2) la lueur : intensite/alpha et taille des etincelles au niveau du vial du monde (rapport de luminance emise HUD/monde entre 0,8 et 1,2), le HUD n'attenue pas. PORTE : pour chacun des 3 types, groupe identique a celui du monde (id) et champs de mouvement egaux a 5 % ; rapport de lueur dans [0,8 ; 1,2]. Capture jointe.
+
+    20/09 11:10 RETOUR OWNER (JAK-176) : « Les eclairs de l'Eco Bleue debordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand meme). Et la teinte est pas assez opaque, ca fait presque transparent ». L'emetteur du bon type est ACQUIS. RESTE : (1) TAILLE : la demi-largeur de 15,0 unites (reprise du 18/09) est trop grande : viser la nuee dans le trou avec un debordement <= 10 % du rayon du trou (mesure sur la boite des sommets emis contre le rayon interieur de l'anneau) ; (2) OPACITE : l'alpha des etincelles rendu a l'ecran est trop bas — chercher pourquoi (alpha du groupe, mode de fusion additif sur fond sombre, taille reduite qui dilue), viser un alpha effectif >= 0,8 au coeur de la nuee, comme le vial du monde. PORTE : debordement <= 10 % du rayon du trou sur les 3 types ; alpha effectif au coeur >= 0,8 ; le mouvement et le type d'emetteur ne changent pas.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13556,10 +13567,9 @@ items:
     6. ETEINT = ORIGINE.
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
-  where: 'HUD en jeu apres un ramassage d''eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : (1) la particule
-    au centre est-elle bien celle de l''eco ramassee (les etincelles de l''eco bleue bougent comme sur
-    un vial d''eco bleue du monde, pas comme l''eco verte reteintee) ? (2) sa lueur est-elle aussi vive
-    que sur le vial du monde ?'
+  where: 'HUD en jeu apres un ramassage d''eco bleue. Deux oui/non : (1) la nuee au centre tient-elle
+    dans le trou de la jauge, en debordant a peine (plus de sur la couronne) ? (2) la teinte est-elle
+    pleine, opaque comme sur le vial du monde, et non presque transparente ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -13597,6 +13607,11 @@ items:
       truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les
       sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais plutôt exactement comme sur
       la particule d'Eco verte donc c'est pas bon)
+  - date: '2026-09-20'
+    text: Les éclairs de l'Eco Bleue débordent un peu trop sur la jauge (l'ensemble est trop gros par
+      rapport au trou, pas de beaucoup mais quand même).  Et la teinte est pas assez opaque, ça fait presque
+      transparent, t'avais l'air d'exprimer que ça pourrait être un soucis dans les commentaires précédents,
+      ça l'est
   block_reason: ''
 - status: validated
   game: jak1

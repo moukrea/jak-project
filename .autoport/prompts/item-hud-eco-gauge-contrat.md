@@ -17,6 +17,8 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 
 20/09 RETOUR OWNER (JAK-176) : « c'est par dessus mais la lueur est tres muted… et j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais exactement comme sur la particule d'Eco verte) ». L'ORDRE DE DESSIN EST ACQUIS. PERIMETRE : (1) par type d'eco, l'emetteur utilise au centre doit etre celui du RAMASSABLE DU MONDE de CE type (groupes distincts bleu/rouge/jaune, pas le groupe vert reteinte) : verifier l'identite du groupe de particules ET ses parametres de mouvement (vitesse, duree de vie, gravite, spin) champ par champ contre le vial du monde du meme type ; (2) la lueur : intensite/alpha et taille des etincelles au niveau du vial du monde (rapport de luminance emise HUD/monde entre 0,8 et 1,2), le HUD n'attenue pas. PORTE : pour chacun des 3 types, groupe identique a celui du monde (id) et champs de mouvement egaux a 5 % ; rapport de lueur dans [0,8 ; 1,2]. Capture jointe.
 
+20/09 11:10 RETOUR OWNER (JAK-176) : « Les eclairs de l'Eco Bleue debordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand meme). Et la teinte est pas assez opaque, ca fait presque transparent ». L'emetteur du bon type est ACQUIS. RESTE : (1) TAILLE : la demi-largeur de 15,0 unites (reprise du 18/09) est trop grande : viser la nuee dans le trou avec un debordement <= 10 % du rayon du trou (mesure sur la boite des sommets emis contre le rayon interieur de l'anneau) ; (2) OPACITE : l'alpha des etincelles rendu a l'ecran est trop bas — chercher pourquoi (alpha du groupe, mode de fusion additif sur fond sombre, taille reduite qui dilue), viser un alpha effectif >= 0,8 au coeur de la nuee, comme le vial du monde. PORTE : debordement <= 10 % du rayon du trou sur les 3 types ; alpha effectif au coeur >= 0,8 ; le mouvement et le type d'emetteur ne changent pas.
+
 ## Livrable — le contrat, en entier
 
 `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
@@ -41,7 +43,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu apres un ramassage d'eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : (1) la particule au centre est-elle bien celle de l'eco ramassee (les etincelles de l'eco bleue bougent comme sur un vial d'eco bleue du monde, pas comme l'eco verte reteintee) ? (2) sa lueur est-elle aussi vive que sur le vial du monde ?
+HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee au centre tient-elle dans le trou de la jauge, en debordant a peine (plus de sur la couronne) ? (2) la teinte est-elle pleine, opaque comme sur le vial du monde, et non presque transparente ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -65,6 +67,9 @@ HUD en jeu apres un ramassage d'eco BLEUE puis ROUGE puis JAUNE. Deux oui/non : 
 
 ### 2026-09-20
 > Alors c'est par dessus mais la lueur est très muted… et aussi j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais plutôt exactement comme sur la particule d'Eco verte donc c'est pas bon)
+
+### 2026-09-20
+> Les éclairs de l'Eco Bleue débordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand même).  Et la teinte est pas assez opaque, ça fait presque transparent, t'avais l'air d'exprimer que ça pourrait être un soucis dans les commentaires précédents, ça l'est
 
 ## Pourquoi ce fichier existe
 

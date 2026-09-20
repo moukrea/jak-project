@@ -11,6 +11,8 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 
 COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
 
+20/09 11:10 RETOUR OWNER (JAK-120) : « Toutes les touffes se ressemblent… tres mid… on voit plus les polygones et on a il semblerait des hauteurs differentes par contre ». ACQUIS : plus de polygones visibles, hauteurs par touffe. RESTE : les touffes ne se DISTINGUENT pas entre elles. La porte (part de touffes a silhouette dominante >= 80 %) est tenue et pourtant l'owner ne voit pas de difference : la silhouette dominante ne suffit pas a distinguer deux touffes si les 6 silhouettes se ressemblent a distance de jeu ou si la repartition tire presque toujours la meme. PERIMETRE : (1) mesurer la distribution REELLE des silhouettes dominantes sur une zone (si 2 des 6 font 80 % des touffes, c'est ca) et l'equilibrer ; (2) rendre les silhouettes distinguables a 3-8 m : ecart de hauteur moyenne entre types >= 30 %, ecart de largeur >= 40 %, port different (droit / courbe / retombant) ; (3) densite et nombre de brins PAR TOUFFE varies (une touffe clairsemee a cote d'une touffe dense). PORTE : sur une zone de 10x10 m, entropie de la silhouette dominante >= 2 bits sur 6 types ; ecart-type des hauteurs moyennes de touffes >= 20 % ; ecart-type du nombre de brins par touffe >= 25 %. Le rendu se juge AVEC la couleur par type (grass-shading) : les deux chantiers sont lies, la couleur par type est ce qui rendra les silhouettes lisibles.
+
 ## Livrable — le contrat, en entier
 
 `grass_variant_defects` = 0, somme de termes publies SEPAREMENT.
@@ -26,7 +28,7 @@ Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de mailla
 
 ## Ou l'owner regardera
 
-Niveau d'entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silhouette dominante, et les touffes voisines des silhouettes differentes (au lieu de toutes les formes melangees dans chaque touffe) ? (2) les touffes ont-elles des hauteurs differentes entre elles ? (3) de pres, voit-on encore les polygones des brins (aretes, cassures) ?
+Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au premier coup d'oeil (silhouette dominante differente, hauteur differente, port different), ou toutes les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l'owner).
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -38,6 +40,9 @@ Niveau d'entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silh
 
 ### 2026-09-20
 > Idem à voir àvec l'ensemble des tickets lié
+
+### 2026-09-20
+> Toutes les touffes se ressemblent… je sais pas si un autre chantier traite ça mais en l'état j'ai l'impression que c'est très mid… on voit plus les polygones et on a il semblerait des hauteurs différentes par contre
 
 ## Pourquoi ce fichier existe
 

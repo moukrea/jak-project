@@ -5,7 +5,7 @@
 # Plusieurs silhouettes de brins simples, au lieu d'une seule forme hachee
 
 ## Defaut cite
-- 2026-09-20 : « Idem à voir àvec l'ensemble des tickets lié »
+- 2026-09-20 : « Toutes les touffes se ressemblent… je sais pas si un autre c… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 6. Trois geometries existent, toutes generees depuis `gl_VertexID` sans aucun asset, mais ce sont trois REPRESENTATIONS DE DISTANCE, pas trois especes : un ruban de 10 sommets en proche, deux quads croises en moyen, une carte suspendue pour l'overhang. Hauteur, courbure, largeur, teinte et phase sont cinq hachages de la MEME forme. L'owner l'a dit et c'est verifie.
@@ -21,7 +21,7 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 ## Preuve exigee
 `grass_variant_defects == 0` dans `reports/grass-blade-variants/proof.txt`.
 Le proof se produit par `lib/proof_run.sh grass-blade-variants device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : Niveau d'entrainement, de pres. Trois oui/non : (1) une touffe a-t-elle UNE silhouette dominante, et les touffes voisines des silhouettes differentes (au lieu de toutes les formes melangees dans chaque touffe) ? (2) les touffes ont-elles des hauteurs differentes entre elles ? (3) de pres, voit-on encore les polygones des brins (aretes, cassures) ?.
+Ou l'owner regardera : Niveau d'entrainement, de pres. UNE question : deux touffes voisines se distinguent-elles au premier coup d'oeil (silhouette dominante differente, hauteur differente, port different), ou toutes les touffes se ressemblent-elles encore ? (polygones et hauteurs par touffe : acquis par l'owner)..
 
 ## Hors perimetre
 Pas de fleurs, pas de fougeres, pas de plantes detaillees, aucun asset de maillage. Ne change ni la couleur ni le vent. Tout ce qui n'est pas cet item.
