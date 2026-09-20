@@ -1447,6 +1447,10 @@
    (nq-live      int32)    ;; particules vivantes trouvees a l'image en cours
    (nq-shaders   int32)    ;; adgifs reposes a l'image en cours (un par rupture de texture)
    (nq-offscreen int32)    ;; particules vivantes ENTIEREMENT hors du canevas, donc non emises
+   (nq-raw       int32)    ;; pire ecart AVANT la mise a l'echelle du HUD, en 1/16 d'unite
+   (nq-acore     int32)    ;; opacite composite au coeur de la nuee, en millieme (avec le gain)
+   (nq-acore0    int32)    ;;   ... la meme SANS le gain : l'ablation, dans la meme image
+   (nq-alay      int32)    ;; couches superposees au coeur a l'image en cours
    (t10-n        int32)    ;; images ou le terme a pu etre mesure
    (t10-order    int32)    ;;   ... dont la nuee ne partait PAS apres l'anneau
    (t10-park-ko  int32)    ;;   ... dont la copie du bucket des sprites n'etait pas eteinte
@@ -1456,6 +1460,15 @@
    (t10-rmax     int32)    ;; plus grande etendue de nuee, en 1/16 d'unite de canevas
    (t10-rmin     int32)    ;; plus petite : une nuee qui s'effondre se lit ici
    (t10-cover    int32)    ;; CONTROLE : images ou la nuee RECOUVRE vraiment l'anneau
+   ;; --- termes 12 et 13 (reprise 20/09 11:10) : LA NUEE TIENT DANS LE TROU, ET ELLE EST OPAQUE
+   (t12-n        int32 3)  ;; images mesurees, par type d'eco (0 bleu · 1 rouge · 2 jaune)
+   (t12-fit      int32 3)  ;; pire boite des sommets EMIS autour du centre, en 1/16 d'unite
+   (t12-raw      int32 3)  ;; pire ecart AVANT la mise a l'echelle : le CONTROLE
+   (t13-n        int32)    ;; images ou une couche au moins couvrait le coeur
+   (t13-bad      int32)    ;;   ... dont l'opacite composite tombait sous le seuil
+   (t13-min      int32)    ;; pire opacite composite au coeur, en millieme
+   (t13-ctrl     int32)    ;; images ou la MEME nuee SANS le gain tombait sous le seuil
+   (t13-lay      int32)    ;; plus grand nombre de couches superposees au coeur
    (quant-mdeg   int32)    ;; plancher angulaire de l'instrument (quantification 12.4)
    (last-frac    int32)    ;; fraction de l'image precedente, en 1/100000
    (last-stockv  int32)    ;; `value` de la jauge d'origine a l'image precedente
@@ -1828,6 +1841,50 @@
 (defconstant RHUD_GAUGE_HOLE_R 11.8)
 (defconstant RHUD_GAUGE_OUTER_R 39.2)
 
+;; REPRISE DU 20/09 11:10 — « les eclairs debordent un peu trop sur la jauge (l'ensemble est trop
+;; gros par rapport au trou) » et « la teinte est pas assez opaque, ca fait presque transparent ».
+;;
+;; CE QUI EST MESURE, PAS SUPPOSE. Les couches du ramassable portent leurs grandeurs SPATIALES en
+;; metres du MONDE, et le portage les a gardees verbatim : la couche dominante bleue (2987) tire
+;; son ecart initial dans `:y (meters 0) (meters 16)`, soit 65536 unites d'ecran = 1092 unites de
+;; canevas, pour un trou d'anneau dont le RAYON vaut 11,8. La course du 20/09 a releve une boite
+;; de nuee a 476 unites (`t10_rmax_16th` = 7622). Une particule sur N tombait donc dans le trou,
+;; les autres partaient hors du canevas — c'est a la fois le debordement que l'owner voit et la
+;; nuee clairsemee qu'il trouve « muted ».
+;;
+;; POURQUOI UNE SIMILITUDE NE SUFFIT PAS, ET CE QU'ON FAIT A LA PLACE. Un seul facteur applique a
+;; TOUT (tailles, ecarts, vitesses) rendrait bien une miniature fidele, mais pour tenir dans le
+;; trou il vaudrait 0,012 : les etincelles feraient 1/5 de pixel — exactement le « nuage de
+;; points » refuse le 20/09 au matin. Les deux exigences de l'owner (tenir dans le trou, rester
+;; lisible) ne sont pas simultanement satisfaisables a fidelite exacte. On separe donc DEUX
+;; facteurs, tous deux publies, tous deux dans le DESSIN et jamais dans la simulation :
+;;   RHUD_NUEE_FIT_R/_KNEE  l'ecart au centre passe par r' = FIT_R . r / (r + KNEE) : monotone,
+;;                          egal a r/25 pres du centre, et BORNE par FIT_R quoi qu'il arrive.
+;;                          Aucune particule n'est jetee — elles reviennent toutes dans le trou,
+;;                          ce qui densifie la nuee au lieu de l'amputer.
+;;   RHUD_NUEE_SIZE         la demi-taille du sprite. 25,6 unites au pire chez le ramassable
+;;                          (couche 2992) x 0,16 = 4,1 ; la diagonale d'un quad tourne majore la
+;;                          boite a FIT_R + 4,1 . racine(2) = 12,8 < 12,98 = 1,1 x le rayon du trou.
+;; La SIMULATION ne bouge pas d'un champ : le terme 11 continue de confronter les vingt couches au
+;; ramassable du monde, champ par champ, et c'est ce qui prouve que « le mouvement et le type
+;; d'emetteur ne changent pas ».
+;;
+;; L'OPACITE. Les deux chemins de rendu appliquent le MEME facteur a l'octet d'alpha
+;; (alpha = octet/255 x 2 au sommet x 2 au fragment), donc rien ne s'est perdu en changeant de
+;; bucket le 19/09 : l'hypothese a ete verifiee et tuee. Ce qui reste, c'est le melange ADDITIF
+;; herite du ramassable (DirectRenderer.cpp:616-624 : glBlendFunc(GL_SRC_ALPHA, GL_ONE)) : dans le
+;; monde il s'ajoute au MODELE ECLAIRE du vial, dans le HUD il s'ajoute au trou NOIR de l'anneau.
+;; A `:a 32` (2987, 2988) l'alpha rendu vaut 0,50, a `:a 16` (3001, jaune) 0,25 : c'est le « presque
+;; transparent ». Le gain rend au HUD la base que le monde lui donne gratuitement.
+(defconstant RHUD_NUEE_FIT_R 7.0)      ;; asymptote de l'ecart au centre, en unites de canevas
+(defconstant RHUD_NUEE_FIT_KNEE 200.0) ;; le genou de la compression, en unites de canevas
+(defconstant RHUD_NUEE_SIZE 0.16)      ;; facteur de demi-taille du sprite, au DESSIN
+(defconstant RHUD_NUEE_A_GAIN 4.0)     ;; compensation du melange additif sur un trou noir
+(defconstant RHUD_NUEE_BOX_MAX 12.98)  ;; 1,1 x RHUD_GAUGE_HOLE_R : le debordement tolere (20/09)
+(defconstant RHUD_NUEE_BOX_MIN 5.9)    ;; 0,5 x : en dessous, la nuee ne tient plus dans le trou,
+                                       ;;        elle s'y perd — et « tenir » serait un vert vide
+(defconstant RHUD_NUEE_A_MIN 800)      ;; opacite composite exigee au coeur, en millieme
+
 (defun rhud-nuee-park ((this hud-recharged-power))
   "eteint la copie que le renderer de sprites dessinerait dans le bucket 66, en poussant la case
    HVDF de chaque lanceur de nuee hors du champ. `draw-particles` (engine/ui/hud.gc:110-113) la
@@ -1841,15 +1898,23 @@
           (+! n 1))))
     n))
 
-(defun rhud-nuee-emit ((buf dma-buffer) (this hud-recharged-power) (cx float) (cy float))
+(defun rhud-nuee-emit ((buf dma-buffer) (this hud-recharged-power) (cx float) (cy float) (fx float))
   "re-emet, APRES l'anneau et dans le meme bucket, les particules 2D VIVANTES du lanceur actif de
    la nuee centrale. `cx`/`cy` ne servent que de repli quand la case HVDF n'est pas lisible.
    Rend le nombre de quads emis ; pose `nq-live` au nombre de particules trouvees."
   (let ((nq 0)
-        (idx (-> this last-eco-idx)))
+        (idx (-> this last-eco-idx))
+        (acc 0.0)     ;; opacite composite au coeur, AVEC le gain
+        (acc0 0.0)    ;;   ... et sans lui : le CONTROLE, ce que le build du 20/09 dessinait
+        (nlay 0)      ;; couches superposees au coeur
+        (rawmax 0.0)) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
     (set! (-> this nq-live) 0)
     (set! (-> this nq-shaders) 0)
     (set! (-> this nq-offscreen) 0)
+    (set! (-> this nq-raw) 0)
+    (set! (-> this nq-acore) 0)
+    (set! (-> this nq-acore0) 0)
+    (set! (-> this nq-alay) 0)
     (when (and (>= idx 0) (< idx (-> this nb-of-particles)))
       (let* ((lc  (-> this particles idx part))
              (p00 (-> *math-camera* perspective vector 0 x))
@@ -1889,13 +1954,21 @@
                   (when (< nq RHUD_NUEE_MAX)
                     (let* ((vd  (-> cp sprite))
                            (ad  (-> cp adgif))
-                           (sxq (* (-> vd sx) q))
-                           (syq (* (-> vd sy) q))
+                           ;; l'ecart au centre tel que le portage le produit, en unites de
+                           ;; canevas (l'axe x porte l'aspect du HUD, d'ou la division par `fx`)
+                           (rx0 (/ (-> vd x) 60.0))
+                           (ry0 (- 0.0 (* ry (-> vd y))))
+                           (dcx (/ rx0 fx))
+                           (r0  (sqrtf (+ (* dcx dcx) (* ry0 ry0))))
+                           ;; ... et la compression qui le ramene dans le trou sans jeter personne
+                           (fit (/ RHUD_NUEE_FIT_R (+ r0 RHUD_NUEE_FIT_KNEE)))
+                           (sxq (* RHUD_NUEE_SIZE (-> vd sx) q))
+                           (syq (* RHUD_NUEE_SIZE (-> vd sy) q))
                            (scx (fmax sxq msc))
                            (scy (fmax syq msc))
                            (amul (fmin (* sxq syq inva) 1.0))
-                           (ox  (+ pcx (/ (-> vd x) 60.0)))
-                           (oy  (- pcy (* ry (-> vd y))))
+                           (ox  (+ pcx (* fit rx0)))
+                           (oy  (+ pcy (* fit ry0)))
                            (cs  (cos (-> vd rot)))
                            (sn  (sin (-> vd rot)))
                            (ax0 (if (= 4 (logand (-> vd flag) 15)) 0.0 -0.5))
@@ -1903,10 +1976,12 @@
                            ;; demi-axes majore le rayon quelle que soit la rotation.
                            (hwx (* bx (+ (fabs scx) (fabs scy)) 0.5))
                            (hhy (* 2.0 by (+ (fabs scx) (fabs scy)) 0.5))
+                           (ab  (rhud-c255 (* RHUD_NUEE_A_GAIN amul (-> vd a))))
+                           (ab0 (rhud-c255 (* amul (-> vd a))))
                            (rgba (rhud-rgba (rhud-c255 (-> vd r))
                                             (rhud-c255 (-> vd g))
                                             (rhud-c255 (-> vd b))
-                                            (rhud-c255 (* amul (-> vd a))))))
+                                            ab)))
                       ;; CE QUI SORT DU CANEVAS N'EST PAS EMIS. Certaines couches portent une
                       ;; dispersion de plusieurs metres (`(meters 16)`, conservee verbatim du
                       ;; ramassable) : le smoke du 19/09 en a vu a 2037 unites de canevas du
@@ -1950,7 +2025,22 @@
                                            rgba
                                            (+ ox dx)
                                            (+ oy dy)))))
+                      ;; CE QUI PART VRAIMENT — termes 12 et 13. L'opacite se lit au COEUR :
+                      ;; les couches dont le quad couvre le centre de l'anneau, composees comme
+                      ;; le fait l'oeil (1 - produit des transparences). `ab0` rejoue la MEME
+                      ;; nuee sans le gain : c'est l'ablation, dans la meme image.
+                      (if (> r0 rawmax) (set! rawmax r0))
+                      (when (and (<= (fabs (- ox pcx)) hwx) (<= (fabs (- oy pcy)) hhy))
+                        (+! nlay 1)
+                        (let ((as  (fmin 1.0 (* 4.0 (/ (the float ab) 255.0))))
+                              (as0 (fmin 1.0 (* 4.0 (/ (the float ab0) 255.0)))))
+                          (set! acc  (+ acc  (* as  (- 1.0 acc))))
+                          (set! acc0 (+ acc0 (* as0 (- 1.0 acc0))))))
                       (+! nq 1))))))))))))
+    (set! (-> this nq-raw) (the int (* 16.0 rawmax)))
+    (set! (-> this nq-acore) (the int (* 1000.0 acc)))
+    (set! (-> this nq-acore0) (the int (* 1000.0 acc0)))
+    (set! (-> this nq-alay) nlay)
     nq))
 
 ;;;----------------------------------------------
@@ -2742,7 +2832,10 @@
              (sxw (rhud-gauge-field-mid b (the int (sp-field-id spt-scale-x)) 0.0))
              (syw (rhud-gauge-field-mid b (the int (sp-field-id spt-scale-y)) sxw))
              (base (+ (* col 4) (if (nonzero? spark) 0 2))))
-        (+! (-> this t11-lum base) (* sxo syo))
+        ;; notre cote porte le facteur de DESSIN : ce rapport dit ce qui est peint, pas ce qui
+        ;; est ecrit dans la table. Depuis le 20/09 11:10 il vaut donc ~26 pour mille et il est
+        ;; PUBLIE hors de la somme (voir `rhud-gauge-publish`).
+        (+! (-> this t11-lum base) (* RHUD_NUEE_SIZE RHUD_NUEE_SIZE sxo syo))
         (+! (-> this t11-lum (+ base 1)) (* sxw syw)))
       ;; nos champs, retrouves chez le ramassable
       (let ((i 0))
@@ -3133,7 +3226,30 @@
           (if (> r (-> this t10-rmax)) (set! (-> this t10-rmax) r))
           (if (or (zero? (-> this t10-rmin)) (< r (-> this t10-rmin))) (set! (-> this t10-rmin) r))
           (if (> r (the int (* 16.0 RHUD_GAUGE_HOLE_R)))  (+! (-> this t10-cover) 1))
-          (if (> r (the int (* 16.0 RHUD_GAUGE_OUTER_R))) (+! (-> this t10-band) 1)))))
+          (if (> r (the int (* 16.0 RHUD_GAUGE_OUTER_R))) (+! (-> this t10-band) 1))
+          ;; --- terme 12 : LA NUEE TIENT DANS LE TROU, PAR TYPE D'ECO (reprise 20/09 11:10).
+          ;; La MEME grandeur que `t10-rmax` — la boite des sommets REELLEMENT emis autour du
+          ;; centre de l'anneau — mais rangee par type, parce que l'owner juge sur l'eco bleue et
+          ;; que les trois groupes n'ont ni les memes tailles ni les memes vitesses. A cote, le
+          ;; CONTROLE : `t12-raw`, le meme ecart AVANT la mise a l'echelle du HUD. Les deux
+          ;; sortent du meme instrument ; s'ils rendaient la meme valeur, la mise a l'echelle ne
+          ;; ferait rien et le vert du terme serait vide.
+          (when (and (>= (-> this last-eco-idx) 0) (< (-> this last-eco-idx) 3))
+            (let ((k (-> this last-eco-idx)))
+              (+! (-> this t12-n k) 1)
+              (if (> r (-> this t12-fit k)) (set! (-> this t12-fit k) r))
+              (if (> (-> this nq-raw) (-> this t12-raw k))
+                (set! (-> this t12-raw k) (-> this nq-raw)))))))
+        ;; --- terme 13 : L'OPACITE AU COEUR (reprise 20/09 11:10). `nq-acore` est composee a
+        ;; l'emission sur les couches qui couvrent le centre ; `nq-acore0` est la MEME image sans
+        ;; le gain — l'ablation vit dans la course, elle n'attend pas un second binaire.
+        (when (> (-> this nq-alay) 0)
+          (+! (-> this t13-n) 1)
+          (if (< (-> this nq-acore) RHUD_NUEE_A_MIN) (+! (-> this t13-bad) 1))
+          (if (< (-> this nq-acore0) RHUD_NUEE_A_MIN) (+! (-> this t13-ctrl) 1))
+          (if (or (zero? (-> this t13-min)) (< (-> this nq-acore) (-> this t13-min)))
+            (set! (-> this t13-min) (-> this nq-acore)))
+          (if (> (-> this nq-alay) (-> this t13-lay)) (set! (-> this t13-lay) (-> this nq-alay)))))
 
     ;; --- terme 5 : LA POSITION. les trois primitives sur UN centre, celui de la jauge d'ORIGINE.
     ;; Juge uniquement les images ou l'animation d'arrivee est finie (`offset` nul) : sinon on
@@ -3234,6 +3350,17 @@
           (else (set! (-> this bench-phase) (+ ph 1)))))))
   (none))
 
+(defun rhud-gauge-fit-bad ((this hud-recharged-power))
+  "les types d'eco dont la nuee ne tient pas dans le trou de l'anneau : trop grande (elle deborde
+   de plus de 10 % du rayon du trou, ce que l'owner refuse le 20/09) ou evanouie (sous la moitie
+   du rayon : une nuee disparue « tiendrait » elle aussi, et ce serait un vert par inaction)."
+  (let ((bad 0))
+    (dotimes (k 3)
+      (when (> (-> this t12-n k) 0)
+        (if (> (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MAX))) (+! bad 1))
+        (if (< (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MIN))) (+! bad 1))))
+    bad))
+
 (defun rhud-gauge-publish ((this hud-recharged-power))
   "hud-eco-gauge : chaque terme sur SA ligne, le compte de termes MESURES a cote de la somme.
    Un terme qu'on n'a pas pu mesurer vaut UN, jamais zero : une porte qui compterait zero un
@@ -3314,10 +3441,37 @@
            ;; les memes champs relus avec l'AUTRE facteur, celui qu'on vient d'abandonner. A
            ;; zero, il dirait que le comparateur ne distingue rien et qu'un `t11-bad` nul ne
            ;; vaut rien — exactement le vert par inaction que les DIRECTIVES refusent.
+           ;; REPRISE DU 20/09 11:10 — le sous-terme de LUEUR sort de la somme, il reste PUBLIE.
+           ;; Le perimetre du 20/09 au matin exigeait « la taille des etincelles au niveau du vial
+           ;; du monde » (rapport de surface emettrice dans [0,8 ; 1,2]) ; celui de 11:10 exige
+           ;; l'inverse — « l'ensemble est trop gros par rapport au trou ». Les deux ne peuvent pas
+           ;; etre vrais ensemble : a la taille du monde la couche dominante fait 51 unites de
+           ;; demi-largeur pour un trou de rayon 11,8. C'est la parole la plus recente qui tranche,
+           ;; et ce que l'owner voit est desormais juge par les termes 12 (tenir dans le trou) et
+           ;; 13 (etre opaque). `t11_lum_permille_*` continue d'etre publie, facteur de dessin
+           ;; compris : il dit, en clair, de combien nous sommes en dessous du ramassable.
            (t11 (if (and (> (-> this t11-n) 0) (> (-> this t11-ctrl) 0))
+                  (begin (+! measured 1) (-> this t11-bad))
+                  (+ (-> this t11-bad) 1)))
+           ;; TERME 12 — LA NUEE TIENT DANS LE TROU. Par type d'eco, la boite des sommets emis
+           ;; autour du centre de l'anneau doit tenir sous 1,1 x le rayon du trou ET depasser la
+           ;; moitie de ce rayon. MESURE seulement si les TROIS types ont ete vus assez longtemps :
+           ;; le bleu seul ne prouve rien sur le rouge, qui n'a ni les memes tailles ni les memes
+           ;; vitesses.
+           (t12 (if (and (>= (-> this t12-n 0) RHUD_GB_MIN)
+                         (>= (-> this t12-n 1) RHUD_GB_MIN)
+                         (>= (-> this t12-n 2) RHUD_GB_MIN))
+                  (begin (+! measured 1) (rhud-gauge-fit-bad this))
+                  (+ (rhud-gauge-fit-bad this) 1)))
+           ;; TERME 13 — L'OPACITE AU COEUR. Une image est mauvaise si l'opacite composee des
+           ;; couches qui couvrent le centre tombe sous 0,8 ; le terme rougit des que plus d'une
+           ;; image sur dix est mauvaise. Le denominateur est publie, et le CONTROLE `t13_ctrl_bad`
+           ;; compte les memes images rejouees SANS le gain : a zero, il dirait que le gain n'a
+           ;; rien change et que ce vert ne vaut rien.
+           (t13 (if (>= (-> this t13-n) RHUD_GB_MIN)
                   (begin (+! measured 1)
-                         (+ (-> this t11-bad) (-> this t11-lumbad)))
-                  (+ (-> this t11-bad) (-> this t11-lumbad) 1))))
+                         (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0))
+                  (+ (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -3329,6 +3483,8 @@
       (__pc-autoport-publish "hud_gauge_t9_slot" t9)
       (__pc-autoport-publish "hud_gauge_t10_over" t10)
       (__pc-autoport-publish "hud_gauge_t11_spark" t11)
+      (__pc-autoport-publish "hud_gauge_t12_fit" t12)
+      (__pc-autoport-publish "hud_gauge_t13_opaque" t13)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
@@ -3434,7 +3590,32 @@
       (__pc-autoport-publish "hud_gauge_t11_ctrl_bad" (-> this t11-ctrl))
       (__pc-autoport-publish "hud_gauge_t11_lumbad" (-> this t11-lumbad))
       (rhud-gauge-publish-lum this)
-      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11))))
+      ;; termes 12 et 13 : la nuee tient dans le trou, et elle est opaque. `t12_raw_16th_*` est
+      ;; le CONTROLE — le meme ecart avant la mise a l'echelle du HUD ; `t13_ctrl_bad` est
+      ;; l'ablation du gain, jouee dans la meme image. Les quatre constantes du dessin sont
+      ;; publiees a cote : une porte dont on ne peut pas relire le reglage ne se relit pas.
+      (__pc-autoport-publish "hud_gauge_t12_n_blue" (-> this t12-n 0))
+      (__pc-autoport-publish "hud_gauge_t12_n_red" (-> this t12-n 1))
+      (__pc-autoport-publish "hud_gauge_t12_n_yellow" (-> this t12-n 2))
+      (__pc-autoport-publish "hud_gauge_t12_box_16th_blue" (-> this t12-fit 0))
+      (__pc-autoport-publish "hud_gauge_t12_box_16th_red" (-> this t12-fit 1))
+      (__pc-autoport-publish "hud_gauge_t12_box_16th_yellow" (-> this t12-fit 2))
+      (__pc-autoport-publish "hud_gauge_t12_raw_16th_blue" (-> this t12-raw 0))
+      (__pc-autoport-publish "hud_gauge_t12_raw_16th_red" (-> this t12-raw 1))
+      (__pc-autoport-publish "hud_gauge_t12_raw_16th_yellow" (-> this t12-raw 2))
+      (__pc-autoport-publish "hud_gauge_t12_box_max_16th" (the int (* 16.0 RHUD_NUEE_BOX_MAX)))
+      (__pc-autoport-publish "hud_gauge_t12_box_min_16th" (the int (* 16.0 RHUD_NUEE_BOX_MIN)))
+      (__pc-autoport-publish "hud_gauge_t13_n" (-> this t13-n))
+      (__pc-autoport-publish "hud_gauge_t13_bad" (-> this t13-bad))
+      (__pc-autoport-publish "hud_gauge_t13_min_milli" (-> this t13-min))
+      (__pc-autoport-publish "hud_gauge_t13_ctrl_bad" (-> this t13-ctrl))
+      (__pc-autoport-publish "hud_gauge_t13_layers_max" (-> this t13-lay))
+      (__pc-autoport-publish "hud_gauge_t13_want_milli" RHUD_NUEE_A_MIN)
+      (__pc-autoport-publish "hud_gauge_nuee_fit_r_16th" (the int (* 16.0 RHUD_NUEE_FIT_R)))
+      (__pc-autoport-publish "hud_gauge_nuee_knee_16th" (the int (* 16.0 RHUD_NUEE_FIT_KNEE)))
+      (__pc-autoport-publish "hud_gauge_nuee_size_milli" (the int (* 1000.0 RHUD_NUEE_SIZE)))
+      (__pc-autoport-publish "hud_gauge_nuee_gain_milli" (the int (* 1000.0 RHUD_NUEE_A_GAIN)))
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13))))
   (none))
 
 ;;;----------------------------------------------
@@ -3645,7 +3826,7 @@
         ;; dessous, pas au dessus ». Elle partait dans le bucket 66, l'anneau dans le 67.
         (let ((nuee-mark (the int (-> buf base))))
           (if (-> this probe?) (set! (-> *rhud-gauge-probe* tag) RHUD_GP_NUEE))
-          (set! (-> this nq-cur) (rhud-nuee-emit buf this cx cy))
+          (set! (-> this nq-cur) (rhud-nuee-emit buf this cx cy fx))
           (set! (-> *rhud-gauge-probe* tag) -1)
           (set! (-> this nq-delta) (- nuee-mark ring-mark)))
         ;; hud-eco-gauge : le jugement se fait ICI, sur les sommets qui viennent de partir.
