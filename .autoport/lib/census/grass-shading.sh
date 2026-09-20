@@ -55,22 +55,40 @@ echo "grass_shade_levels_list=$(printf '%s' "$LEVELS" | tr ' ' ',')"
 echo "grass_shade_levels_failed=${MISSING:--}"
 
 # ---- LE MODELE QUE LE MOTEUR A COMPILE EST-IL CELUI DE L'ARBRE ?
-# FNV-1a 64 bits sur les OCTETS du fichier, la meme boucle que `Shader.cpp`. `to_gles_chunk()` les
-# recopie octet pour octet (verifie : ses deux transformations ne mordent sur aucun des deux), donc
-# l'empreinte du blob Android doit etre celle d'ici. Une divergence = un pack en retard.
-fnv(){ python3 - "$1" <<'PY'
+# LA MEME BOUCLE QUE `Shader.cpp:161-166`, ETAT INITIAL COMPRIS. Le depot hache depuis un etat
+# initial de 1469598103934665603 — PAS 14695981039346656037, la base FNV-1a du manuel : les dix
+# sites C++ (MeshOrient.cpp, TFrag3Data.cpp, refset*.{h,cpp}, Shader.cpp) et les miroirs Python du
+# harnais (lib/hdr_batches.py, tests/tools/test_refset_campaign.py) portent tous ce meme entier.
+# Une empreinte ne vaut que par l'ACCORD de ses deux cotes, et l'essai 1 a paye cet accord manquant :
+# le moteur publiait 7916461794538674052 pour un blob GLES CONFORME AU BIT — verification refaite
+# sur les octets, les 5482 et 2231 octets des deux `.glsl` sont dans `libgk.so` a l'identique, et
+# 7916461794538674052 EST exactement leur empreinte prise depuis l'etat initial du moteur — pendant
+# que cette porte, seule du depot a partir du manuel, lisait « pack en retard » et rendait
+# `grass_shading_defects=2` sans qu'un seul pixel soit en cause.
+# On hache donc comme le moteur, et on publie EN PLUS l'empreinte du manuel : c'est elle qui permet
+# a la prochaine divergence de NOMMER sa cause au lieu d'accuser le pack (voir `_model_stale_why`).
+# `to_gles_chunk()` recopie ces deux fichiers octet pour octet (ses deux transformations ne mordent
+# sur aucun des deux), donc l'empreinte du blob Android doit etre celle d'ici : sinon, pack en retard.
+BASE_MOTEUR=1469598103934665603    # Shader.cpp:162 — l'etat initial que le moteur utilise VRAIMENT
+BASE_MANUEL=14695981039346656037   # la base FNV-1a du manuel — diagnostic, jamais la comparaison
+fnv(){ python3 - "$1" "$2" <<'PY'
 import sys
-h = 0xcbf29ce484222325
+h = int(sys.argv[2])
 for b in open(sys.argv[1], 'rb').read():
     h = ((h ^ b) * 0x100000001b3) & 0xffffffffffffffff
 print(h)
 PY
 }
 SHD=game/graphics/opengl_renderer/shaders
-FNV_MODEL=$(fnv "$SHD/grass_shade.glsl" 2>/dev/null || echo -1)
-FNV_FACE=$(fnv "$SHD/grass_shade_face.glsl" 2>/dev/null || echo -1)
+FNV_MODEL=$(fnv "$SHD/grass_shade.glsl" "$BASE_MOTEUR" 2>/dev/null || echo -1)
+FNV_FACE=$(fnv "$SHD/grass_shade_face.glsl" "$BASE_MOTEUR" 2>/dev/null || echo -1)
+FNV_MODEL_STD=$(fnv "$SHD/grass_shade.glsl" "$BASE_MANUEL" 2>/dev/null || echo -1)
+FNV_FACE_STD=$(fnv "$SHD/grass_shade_face.glsl" "$BASE_MANUEL" 2>/dev/null || echo -1)
+echo "grass_shade_fnv_basis=$BASE_MOTEUR"
 echo "grass_shade_tree_model_fnv=$FNV_MODEL"
 echo "grass_shade_tree_face_fnv=$FNV_FACE"
+echo "grass_shade_tree_model_fnv_std=$FNV_MODEL_STD"
+echo "grass_shade_tree_face_fnv_std=$FNV_FACE_STD"
 
 ELOG="${AUTOPORT_CENSUS_DIR:-}/proof-engine.log"
 eng(){ # $1 = cle publiee par le moteur ; rend -1 si absente
@@ -111,6 +129,21 @@ if [ "${AUTOPORT_CENSUS_ARMED:-1}" != "0" ]; then
   [ "$ENG_FACE_FNV" = "$FNV_FACE" ] || MODEL_STALE=$((MODEL_STALE + 1))
 fi
 echo "grass_shade_term_model_stale=$MODEL_STALE"
+
+# UNE DIVERGENCE DOIT NOMMER SA CAUSE, SINON ELLE EN INVENTE UNE. Ce terme n'avait qu'une lecture
+# possible — « pack en retard » — et l'essai 1 l'a crue : il a cherche un APK perime qui n'existait
+# pas. Le diagnostic n'entre PAS dans la somme (il ne compte rien deux fois), il la lit.
+WHY=aucune
+if [ "$MODEL_STALE" != 0 ]; then
+  if [ "$ENG_MODEL_FNV" = "-1" ] || [ "$ENG_FACE_FNV" = "-1" ]; then
+    WHY=moteur-muet
+  elif [ "$ENG_MODEL_FNV" = "$FNV_MODEL_STD" ] || [ "$ENG_FACE_FNV" = "$FNV_FACE_STD" ]; then
+    WHY=base-de-hachage-divergente
+  else
+    WHY=pack-gles-en-retard
+  fi
+fi
+echo "grass_shade_model_stale_why=$WHY"
 
 # LE MOTEUR A-T-IL SEULEMENT COLORE PAR TOUFFE ? Ce recensement tourne HORS LIGNE : il rendrait
 # ses zeros meme si la course appareil n'avait affiche aucun brin. On lit le temoin que SEUL le
