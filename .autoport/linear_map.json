@@ -604,10 +604,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-judge-binary-race-with-builder": {
-  "hash": "f6fe3d0645d905fc751797b3dc76f831428e9e74",
+  "hash": "67922886dc9b34204faae322aea787c353a09a08",
   "identifier": "JAK-188",
   "issue_id": "bf217cfc-e983-485c-9f6a-40bd51b35bcf",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-20T12:47:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-188/le-juge-compare-la-preuve-au-binaire-du-disque-au-moment-du-verdict-un"
  },
