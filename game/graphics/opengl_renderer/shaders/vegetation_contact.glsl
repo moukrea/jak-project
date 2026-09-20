@@ -1,58 +1,46 @@
 // Shared grass/shrub contact. Keep the literal-index Adreno unroll and grass law intact.
 #include "grass_contact_dir.glsl"
-uniform vec4  u_jak_pos;   // xyz = Jak world pos, w = 1 when valid (trample origin)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
 uniform vec4 u_trample[16];
 uniform int  u_trample_count;
-uniform float u_trample_str[16];  // LEGACY (Adreno miscompiles dynamic float-array reads -> 0)
 uniform vec4 u_trample2[16];
-uniform vec4 u_jak_trail[4];
-// grass-interaction-direction : le cap du pas. xy = direction unitaire XZ, z = force 0..1,
-// w = 1 quand la loi orientee est armee (palier >= medium et item arme), 0 = repli radial.
-// vec4 et NON un tableau : les tableaux de float rendent -1 en localisation sur Adreno 618.
-uniform vec4 u_contact_dir;
+// grass-interaction-direction (essai 4) — L'EMPREINTE DU CORPS DE JAK, PAS UN POINT.
+// `u_jak_pos`, `u_jak_trail[4]` et `u_contact_dir` ont disparu : c'etaient UN POINT ET UN CAP, et
+// l'owner l'a vu (20/09 : « pas vraiment correle au mesh du personnage […] ca prend pas en compte
+// le mesh de Jak (ou ses collisions) »). Un point n'a ni pieds, ni bras, ni roue de spin.
+// Ce que le vivier `GrassContactPrints.h` depose ici, c'est la trace au sol des SPHERES DE
+// COLLISION que le jeu utilise deja pour Jak — corps, membres, et les trois volumes d'attaque du
+// spin et du punch quand ils sont armes :
+//   u_jak_print[i]  = (x, y, z au SOL, rayon d'empreinte)   rayon 0 = place morte
+//   u_jak_printv[i] = (dir.x, dir.z, force du ressort, poids d'orientation)
+// La force est un RESSORT AMORTI calcule cote CPU (zeta = 0,7, retour a 5 % en 0,9 s) : le saut,
+// l'atterrissage et la marche passent tous par elle, donc il n'existe plus d'etat binaire a
+// franchir. Le poids d'orientation vaut 0 aux paliers bas : le repli radial y est EXACT.
+uniform vec4 u_jak_print[10];
+uniform vec4 u_jak_printv[10];
 
-const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Jak
-// OWNER POLISH#3: only trample when Jak is near THIS grass's ground height — not
-// airborne. vgap = Jak-root-Y minus blade-base-Y; outside this band => no trample.
-const float TRAMPLE_Y_LO = -1.5 * 4096.0; // up to 1.5 m below the grass -> still trample
-const float TRAMPLE_Y_HI =  2.0 * 4096.0; // more than 2 m above the grass = airborne -> none
-// OWNER ROUND#21: the altitude gate is now a smooth FADE band (1.2 m -> 2.0 m) instead of a hard
-// cutoff at 2.0 m — crossing it during a jump used to zero the whole trample in one frame (the
-// "instantanément droite" snap). Walking keeps vgap well under the band start -> unchanged.
-const float TRAMPLE_Y_EASE = 1.2 * 4096.0;
+// TRAMPLE_R reste : la prise de rebord (`u_jak_ledge`, acquis POLISH#4) s'en sert toujours. Les
+// bornes d'altitude TRAMPLE_Y_* ont disparu avec le chemin point+cap : c'etaient elles qui
+// coupaient le couchage d'un coup quand Jak depassait 2 m. Le vivier referme l'empreinte de facon
+// continue par sqrt(r^2 - h^2), donc aucune bande d'altitude n'a plus a etre franchie.
+const float TRAMPLE_R = 2.2 * 4096.0;
 
 void vegetation_contact(vec3 base, float H, int u_debug,
                         out float heightMul, out vec3 trample, inout float dbg_tr) {
-  // --- trample: flatten + push away from Jak within TRAMPLE_R ---
-  // OWNER POLISH#3: gate by Jak's ALTITUDE so the grass only bends when he is on/
-  // near the ground, not while airborne (jumping) above it.
-  // OWNER ROUND#21: EASED RELEASE. Two changes vs the old single-sample hard gate:
-  //  (a) the altitude cutoff is a smooth fade band (TRAMPLE_Y_EASE -> TRAMPLE_Y_HI), and
-  //  (b) sample 0 is Jak NOW, samples 1..4 are his recent trail with age-decayed strength
-  //      (u_jak_trail, ~0.6 s window) — so when the foot leaves (jump) the flatten at the
-  //      takeoff spot eases back up over ~0.6 s instead of snapping upright in one frame.
-  // MAX over samples (not sum) so overlapping samples cannot over-press. Flag-accumulation
-  // style, no mid-loop return/continue, pure mad/smoothstep math (Adreno-618-safe).
+  // --- couchage : l'empreinte au sol du CORPS de Jak, place par place ---
+  // MAX sur les places (jamais une somme) : deux empreintes qui se recouvrent ne peuvent pas
+  // sur-appuyer. Deroulage a index LITTERAL (piege Adreno 618, SPEC section 0) — la boucle
+  // `for (int ji ...)` de l'essai 3 lisait `u_jak_trail[ti]` a index CALCULE.
   heightMul = 1.0;
   trample = vec3(0.0);
   float bestk = 0.0;
   vec2  bestp = vec2(0.0, 1.0);
-  // grass-interaction-direction : la boucle `for (int ji = 0; ji < 5; ++ji)` d'avant lisait
-  // `u_jak_trail[ti]` a index CALCULE. Le commentaire de `grass.vert:282` tenait les petits
-  // tableaux [4] pour surs sur l'Adreno 618, mais rien ne le MESURAIT : c'etait la derniere
-  // lecture a index non litteral du chemin herbe. Deroulage a index litteral, comme TR_STEP et
-  // OC_STEP — et la porte de l'item compte desormais ces lectures, sur l'appareil.
-#define JK_STEP(J) { vec4 Jv = (J); float jstr = min(Jv.w, 1.0); float jgap = Jv.y - base.y; \
-  if (jstr > 0.004 && jgap > TRAMPLE_Y_LO && jgap < TRAMPLE_Y_HI) { \
-    float afade = 1.0 - smoothstep(TRAMPLE_Y_EASE, TRAMPLE_Y_HI, jgap); \
-    vec3 rk = grass_contact_dir(base.xz - Jv.xz, vec2(u_contact_dir.x, u_contact_dir.y), \
-                                u_contact_dir.z * u_contact_dir.w, TRAMPLE_R, afade * jstr); \
-    if (rk.x > bestk) { bestk = rk.x; bestp = vec2(rk.y, rk.z); } } }
-  JK_STEP(u_jak_pos)
-  JK_STEP(u_jak_trail[0]) JK_STEP(u_jak_trail[1])
-  JK_STEP(u_jak_trail[2]) JK_STEP(u_jak_trail[3])
-#undef JK_STEP
+#define PR_STEP(i) { vec3 rk = grass_contact_print(base, u_jak_print[i].xyz, u_jak_print[i].w, \
+    vec2(u_jak_printv[i].x, u_jak_printv[i].y), u_jak_printv[i].z, u_jak_printv[i].w); \
+  if (rk.x > bestk) { bestk = rk.x; bestp = vec2(rk.y, rk.z); } }
+  PR_STEP(0) PR_STEP(1) PR_STEP(2) PR_STEP(3) PR_STEP(4)
+  PR_STEP(5) PR_STEP(6) PR_STEP(7) PR_STEP(8) PR_STEP(9)
+#undef PR_STEP
   if (bestk > 0.0) {
     trample = vec3(bestp.x, 0.0, bestp.y) * (bestk * bestk) * H * 1.3;
     heightMul = 1.0 - bestk * 0.8;                 // press the blade down

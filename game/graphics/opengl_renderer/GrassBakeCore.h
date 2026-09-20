@@ -977,6 +977,67 @@ constexpr float INT_RADIAL_ANISO_TOL = 0.05f;  // le bras radial doit rendre s_b
 // disque, par construction, et ce zero est le controle publie (`off_lat_excess_delta`).
 constexpr float INT_LAT_EXCESS_FLOOR = 0.10f;
 
+// ===================== grass-interaction-direction (essai 4) : LE MANNEQUIN DE CORPS ============
+// L'essai 3 est refuse (20/09) : la porte mesurait un POINT + un CAP, pas le CORPS. Le contrat de
+// reprise exige la correlation entre le couchage et l'empreinte au sol des SPHERES DE COLLISION de
+// Jak (corps, membres, spin, punch), jouees sur le VRAI vivier `grass_prints::Pool` — jamais une
+// copie de sa loi. Ce mannequin est SCRIPTE (6 phases, 60 Hz) : aucune de ses constantes n'est en
+// dur dans la boucle, toutes sont ici, prefixees INTR_.
+constexpr int   INTR_FPS = 60;
+constexpr int   INTR_WALK_FRAMES = 120;
+constexpr int   INTR_JUMP_FRAMES = 60;
+constexpr int   INTR_LAND_FRAMES = 20;
+constexpr int   INTR_SPIN_FRAMES = 60;
+constexpr int   INTR_PUNCH_FRAMES = 60;
+// REPOS : 120 images (2 s), pas 40 — le contrat exige une fenetre de retour dans [600;1200] ms ;
+// 40 images (667 ms) ne pouvaient structurellement pas la contenir.
+constexpr int   INTR_REST_FRAMES = 120;
+constexpr int   INTR_TOTAL_FRAMES = INTR_WALK_FRAMES + INTR_JUMP_FRAMES + INTR_LAND_FRAMES +
+                                     INTR_SPIN_FRAMES + INTR_PUNCH_FRAMES + INTR_REST_FRAMES;  // 440
+constexpr float INTR_DT = 1.0f / (float)INTR_FPS;
+constexpr float INTR_WALK_SPEED = 2.5f * 4096.f;    // m/s en unites de jeu, vers +X
+// LES RAYONS SONT CEUX DE LA FORME DE COLLISION REELLE DE JAK, PAS DES VALEURS DE STYLE.
+// `logic-target.gc:1181-1220` / `target-util.gc:488-504` : Jak n'a NI PIEDS NI BRAS declares — le
+// root-prim est une capsule de REPOUSSAGE (rayon 2,2 m) bien plus large que sa silhouette, et la
+// publier redessinerait EXACTEMENT le disque que l'owner a refuse. LA SOURCE DU CORPS EST DONC LE
+// SQUELETTE (KIND_LIMB) : les joints dont la hauteur permet de toucher l'herbe, rayon 0,28 m. Il
+// n'existe PLUS de sphere KIND_BODY dans ce mannequin.
+constexpr float INTR_FOOT_R = 0.28f * 4096.f;       // -> empreinte 0,274 m a h=0,06 m, 0 a h>=0,28 m
+constexpr float INTR_FOOT_X_OFF = 0.15f * 4096.f;   // ecart lateral des deux pieds a l'axe du corps
+constexpr float INTR_FOOT_DOWN_Y = 0.06f * 4096.f;
+constexpr float INTR_FOOT_UP_Y = 0.45f * 4096.f;
+constexpr float INTR_STEP_PERIOD_S = 0.35f;         // demi-periode d'un pas, par pied
+constexpr float INTR_JUMP_APEX_M = 2.2f;
+constexpr float INTR_LAND_DROP_M = 1.0f;            // chute de l'atterrissage : declenche l'IMPACT du vivier
+constexpr int   INTR_LAND_DROP_FRAMES = 6;          // la chute tient dans les 6 premieres images de LAND
+constexpr float INTR_SPIN_R = 0.42f * 4096.f;
+constexpr float INTR_SPIN_Y = 0.55f * 4096.f;
+constexpr float INTR_SPIN_ORBIT_M = 1.05f;
+constexpr float INTR_SPIN_HZ = 3.5f;
+constexpr float INTR_PUNCH_R = 0.38f * 4096.f;
+constexpr float INTR_PUNCH_Y = 0.85f * 4096.f;
+constexpr float INTR_PUNCH_REACH_M = 1.25f;
+// La grille de mesure : 8 m x 8 m, cellules de 8 cm, centree sur le MILIEU du trajet (origine du
+// bake <-> position de Jak en fin de marche) — pas sur un point fixe code en dur.
+constexpr float INTR_GRID_SIZE_M = 8.0f;
+constexpr float INTR_GRID_CELL_M = 0.08f;
+constexpr int   INTR_GRID_N = 100;  // INTR_GRID_SIZE_M / INTR_GRID_CELL_M, exact
+// Les bandes de classement du terme SPIN (couronne / centre) et du terme PUNCH (devant / derriere),
+// en metres — publiees ici, jamais recopiees dans le juge.
+constexpr float INTR_SPIN_RING_LO_M = 0.75f;
+constexpr float INTR_SPIN_RING_HI_M = 1.45f;
+constexpr float INTR_SPIN_CENTER_HI_M = 0.35f;
+constexpr float INTR_PUNCH_FRONT_LO_M = 0.5f;
+constexpr float INTR_PUNCH_FRONT_HI_M = 1.6f;
+constexpr float INTR_PUNCH_SIDE_M = 0.6f;
+// Les planchers/plafonds du CONTRAT, publies par le CODE et jamais recopies dans le juge.
+constexpr double INTR_CORR_FLOOR = 0.80;
+constexpr double INTR_STEP_CAP = 0.30;
+constexpr double INTR_RETURN_LO_MS = 600.0;
+constexpr double INTR_RETURN_HI_MS = 1200.0;
+constexpr double INTR_CROWN_FLOOR = 1.05;
+constexpr double INTR_LOBE_FLOOR = 1.30;
+
 // La modulation que porte UNE touffe. Fonction pure de (graine, rayon) — rien d'autre.
 inline void shade_clump_modulate(u32 cseed, float radius_wu, float& mr, float& mg, float& mb) {
   const float t = hash_f(cseed + 11u) * 2.0f - 1.0f;  // -1..1, symetrique -> moyenne 1
@@ -2330,6 +2391,72 @@ struct InteractionCensus {
   double off_lat_edge = 0.0;
   double off_lat_delta = 0.0;
   u64 off_contacts_total = 0;
+
+  // --- grass-interaction-direction (essai 4) : LE MANNEQUIN DE CORPS. Le VRAI vivier
+  // `grass_prints::Pool` joue 6 phases scriptees (marche, saut, atterrissage, spin, punch, repos)
+  // sur `grass_contact_print`, la MEME fonction que le pilote splice. Voir INTR_* ci-dessus.
+  u64 intx_rig_frames = 0;               // images du mannequin effectivement jouees
+  // terme de la porte : correlation couchage <-> empreinte-de-reference (spheres actives, sans
+  // ressort ni direction), sur le support d'UNION puis sur toute la boite (zeros compris).
+  double intx_corr_union = 0.0;
+  double intx_corr_box = 0.0;
+  u64 intx_corr_cells = 0;               // cellules du support d'union
+  u64 intx_corr_frames = 0;              // images ayant contribue au moins une cellule d'union
+  // LE BRAS D'AVANT, MESURE : la MEME course, le MEME empreinte-de-reference, mais sous l'ancienne
+  // loi (un seul disque oriente de 2,2 m, plein regime, sans spheres ni ressort).
+  double intx_off_corr_union = 0.0;
+  double intx_off_corr_box = 0.0;
+  // LA CORRELATION AVEC MEMOIRE. `intx_corr_union` compare le couchage (qui SE SOUVIENT, ressort
+  // oblige) a une reference INSTANTANEE (sans memoire) : les deux exigences du contrat se
+  // combattent en partie, ce n'est pas un defaut de la mesure. `intx_corr_win_*` compare le MEME
+  // couchage a une reference qui se souvient ELLE AUSSI, sur la fenetre du ressort
+  // (`intx_corr_win_s` = `grass_prints::RETURN_S`) : « ou le corps est-il passe pendant que
+  // l'herbe s'en souvient ». Toujours de la geometrie NUE (pas de direction, pas de ressort, pas
+  // de PRINT_GAIN) — seule la fenetre temporelle change.
+  double intx_corr_win_union = 0.0;
+  double intx_corr_win_box = 0.0;
+  u64 intx_corr_win_cells = 0;
+  u64 intx_corr_win_frames = 0;
+  double intx_corr_win_s = 0.0;
+  double intx_off_corr_win_union = 0.0;  // le bras d'avant, EXACTEMENT la meme reference fenetree
+  double intx_off_corr_win_box = 0.0;
+  // LA DECOMPOSITION FORME/MEMOIRE. Le contrat demande a la FOIS que le couchage correle avec
+  // l'empreinte des spheres actives (1), qu'il porte un ressort de 0,6-1,2 s (2), et qu'il suive le
+  // mouvement — allonge devant, resserre sur les cotes (3). (2) et (3) sont chacune du DESACCORD
+  // pour (1) : la grandeur composee ne peut pas monter a 0,80 sans affaiblir ce que l'owner a
+  // demande. `intx_corr_fresh_*` isole la FORME seule : couchage recalcule UNIQUEMENT a partir des
+  // empreintes stampees A CETTE IMAGE (age nul, aucune memoire), reference INCHANGEE.
+  double intx_corr_fresh_union = 0.0;
+  double intx_corr_fresh_box = 0.0;
+  u64 intx_corr_fresh_cells = 0;
+  u64 intx_corr_fresh_frames = 0;
+  double intx_off_corr_fresh_union = 0.0;  // meme calcul, bras d'avant (deja sans memoire par nature)
+  double intx_off_corr_fresh_box = 0.0;
+  // continuite image a image, hors impact. Le denominateur est le PIC de flexion de TOUTE la
+  // course (`intx_step_peak`), pas l'image precedente : diviser par B(t-1) degenere quand le
+  // relachement approche zero (une variation minuscule devient 90 % du plancher qui s'efface).
+  double intx_step_max = 0.0;
+  double intx_step_peak = 0.0;           // B_peak : le denominateur, publie pour etre rejoue
+  u64 intx_step_frames = 0;              // transitions comparees
+  u64 intx_step_excluded = 0;            // transitions ecartees (l'une des deux images est un impact)
+  // temps de retour, mesure sur la phase de REPOS. Jak S'EN VA (plus aucune sphere publiee) : le
+  // pic de reference est la flexion moyenne de la DERNIERE image AVEC contact (fin du punch), et
+  // le compte se fait jusqu'a la premiere image de repos sous 5 % de ce pic.
+  double intx_return_ms = -1.0;          // -1 = jamais retombe sous 5 % dans la fenetre REPOS
+  double intx_return_peak = 0.0;
+  double intx_return_floor = 0.0;
+  u64 intx_rest_frames = 0;              // images de la phase REPOS (P6-P5)
+  // ablation : vivier nourri de ZERO sphere sur la MEME course
+  double intx_abl_bending = 0.0;         // somme de toute flexion, toutes images : doit valoir 0
+  u64 intx_abl_frames = 0;
+  // spin : couronne vs centre ; punch : lobe avant vs arriere
+  double intx_spin_crown = 0.0;
+  u64 intx_spin_ring_n = 0;
+  u64 intx_spin_center_n = 0;
+  double intx_punch_lobe = 0.0;
+  u64 intx_punch_front_n = 0;
+  u64 intx_punch_back_n = 0;
+
   u32 terms_measured = 0;    // un ++ par population REELLEMENT non vide, jamais une constante
 };
 InteractionCensus interaction_census(const BakeData& d, const ExpandResult& e);

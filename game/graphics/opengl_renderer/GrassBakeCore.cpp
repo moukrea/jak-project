@@ -10,6 +10,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <deque>
 #include <queue>
 #include <set>
 #include <string>
@@ -24,6 +25,10 @@
 // `shaders/grass_shade.glsl` et `shaders/grass_shade_face.glsl` — le texte que le pilote compile —
 // soient compiles une seconde fois ici, au lieu d'etre recopies en C++. Voir son en-tete.
 #include "common/util/glsl_compat.h"
+// grass-interaction-direction (essai 4) : LE VRAI VIVIER, PAS UNE COPIE. `grass_prints::Pool` porte
+// tout l'etat temporel du couchage (ressort amorti) ; ce .cpp le fait tourner sur un mannequin
+// scripte au lieu d'un miroir de sa loi. Voir l'en-tete du fichier pour le POURQUOI complet.
+#include "GrassContactPrints.h"
 
 namespace grass_bake {
 
@@ -8515,6 +8520,570 @@ InteractionCensus interaction_census(const BakeData& d, const ExpandResult& e) {
   c.off_lat_excess_delta = off.ex_edge - off.ex_center;
   c.off_contacts_total = off.contacts;
 
+  // =================================================================================================
+  // grass-interaction-direction (essai 4) : LE MANNEQUIN DE CORPS, PAS UN POINT+CAP.
+  // =================================================================================================
+  // L'essai 3 est refuse (20/09, contrat de reprise) : la porte mesurait une direction issue d'un
+  // point et d'un cap, jamais correlee au mesh de Jak. Ce qui suit joue le VRAI vivier
+  // (`grass_prints::Pool::step` + `fill_uniforms`) sur un mannequin scripte de 6 phases (marche,
+  // saut, atterrissage, spin, punch, repos) et passe son resultat dans `grass_contact_print`,
+  // exactement la fonction que `vegetation_contact.glsl` appelle. Aucune loi n'est recopiee ici :
+  // seule la GEOMETRIE de reference (l'empreinte nue d'une sphere, `footprint_radius`) est
+  // recalculee, et c'est volontaire : c'est la grandeur CONTRE laquelle la loi se juge.
+  c.intx_rig_frames = (u64)INTR_TOTAL_FRAMES;
+  {
+    // ---- LE SOL SOUS JAK : moyenne des racines de brins pres de l'origine deja choisie
+    // ci-dessus (la cellule la plus dense) — une hauteur tiree de la DONNEE, pas une constante.
+    double gy_sum = 0.0;
+    u64 gy_n = 0;
+    const float gy_reach = 1.5f * 4096.f;
+    for (const auto& gi : e.instances) {
+      const float dxg = gi.px - ox, dzg = gi.pz - oz;
+      if (dxg * dxg + dzg * dzg <= gy_reach * gy_reach) {
+        gy_sum += gi.py;
+        ++gy_n;
+      }
+    }
+    const float ground_y = gy_n > 0 ? (float)(gy_sum / (double)gy_n) : 0.f;
+
+    // Bornes des 6 phases, en indices d'image cumules (INTR_* de GrassBakeCore.h).
+    const int P1 = INTR_WALK_FRAMES;
+    const int P2 = P1 + INTR_JUMP_FRAMES;
+    const int P3 = P2 + INTR_LAND_FRAMES;
+    const int P4 = P3 + INTR_SPIN_FRAMES;
+    const int P5 = P4 + INTR_PUNCH_FRAMES;
+    const int P6 = P5 + INTR_REST_FRAMES;  // == INTR_TOTAL_FRAMES
+
+    // La position de Jak en fin de marche FIGE le reste de la course : aucune phase apres la
+    // marche ne le deplace horizontalement (le contrat ne le decrit que pour la marche).
+    const float jx1 = ox + INTR_WALK_SPEED * (float)(INTR_WALK_FRAMES - 1) / (float)INTR_FPS;
+    const float grid_cx = 0.5f * (ox + jx1);
+    const float grid_cz = oz;
+    const float cell_u = INTR_GRID_CELL_M * 4096.f;
+    const float half_u = 0.5f * INTR_GRID_SIZE_M * 4096.f;
+
+    // ---- LE GENERATEUR DE SPHERES : une fonction pure de l'image. Toutes les constantes
+    // viennent de INTR_* ; rien n'est en dur dans la boucle qui suit.
+    auto rig_spheres = [&](int f, grass_prints::Sphere* out) -> int {
+      const int fw = f < (INTR_WALK_FRAMES - 1) ? f : (INTR_WALK_FRAMES - 1);
+      const float jak_x = ox + INTR_WALK_SPEED * (float)fw / (float)INTR_FPS;
+      const float jak_z = oz;
+      int n = 0;
+      auto add = [&](float x, float y, float z, float r, int kind, int slot) {
+        if (n < grass_prints::SPH_MAX) {
+          out[n].x = x; out[n].y = y; out[n].z = z; out[n].r = r;
+          out[n].kind = kind; out[n].slot = slot;
+          ++n;
+        }
+      };
+      if (f < P1) {
+        // MARCHE : PAS DE SPHERE DE CORPS — Jak n'a ni pieds ni bras declares (`logic-target.gc`,
+        // `target-util.gc`) : le root-prim est une capsule de repoussage de 2,2 m, exactement le
+        // disque que l'owner a refuse. LA SOURCE EST LE SQUELETTE (KIND_LIMB) : les deux pieds, qui
+        // alternent. Chaque pied SE PLANTE (X FIGE) pendant sa demi-periode au sol et ne bouge
+        // qu'en l'air. Sans ce gel, un pied « pose » suivrait le corps a 2,5 m/s et peindrait une
+        // TRAINEE continue au lieu d'un pas — c'est ce qui degradait la correlation avec la
+        // geometrie instantanee de reference (mesure du 20/09 : correlation negative avant ce
+        // correctif).
+        const float cycle_s = 2.f * INTR_STEP_PERIOD_S;
+        const float tsec = (float)f / (float)INTR_FPS;
+        const float cyc_t0 = std::floor(tsec / cycle_s) * cycle_s;  // debut du cycle courant
+        const float phase = tsec - cyc_t0;
+        const bool a_down = phase < INTR_STEP_PERIOD_S;
+        // X au moment ou CE pied a touche le sol pour ce cycle — fige tant qu'il reste pose.
+        auto touchdown_x = [&](float t0) {
+          const float fw0 = t0 * (float)INTR_FPS;
+          const float fwc =
+              fw0 < (float)(INTR_WALK_FRAMES - 1) ? fw0 : (float)(INTR_WALK_FRAMES - 1);
+          return ox + INTR_WALK_SPEED * fwc / (float)INTR_FPS;
+        };
+        const float xa = touchdown_x(cyc_t0);                        // pied A : pose en debut de cycle
+        const float xb = touchdown_x(cyc_t0 + INTR_STEP_PERIOD_S);    // pied B : pose a la moitie
+        add(xa - INTR_FOOT_X_OFF, ground_y + (a_down ? INTR_FOOT_DOWN_Y : INTR_FOOT_UP_Y),
+            jak_z, INTR_FOOT_R, grass_prints::KIND_LIMB, 0);
+        add(xb + INTR_FOOT_X_OFF, ground_y + (!a_down ? INTR_FOOT_DOWN_Y : INTR_FOOT_UP_Y),
+            jak_z, INTR_FOOT_R, grass_prints::KIND_LIMB, 1);
+      } else if (f < P2) {
+        // SAUT : les deux pieds suivent ENSEMBLE une parabole, aucune alternance en l'air —
+        // c'est cette continuite (sqrt(r^2-h^2) cote vivier) qui remplace la coupure d'altitude
+        // de l'essai 3.
+        const float u = (float)(f - P1) / (float)INTR_JUMP_FRAMES;
+        const float h = INTR_JUMP_APEX_M * 4096.f * 4.f * u * (1.f - u);
+        add(jak_x - INTR_FOOT_X_OFF, ground_y + INTR_FOOT_UP_Y + h, jak_z, INTR_FOOT_R,
+            grass_prints::KIND_LIMB, 0);
+        add(jak_x + INTR_FOOT_X_OFF, ground_y + INTR_FOOT_UP_Y + h, jak_z, INTR_FOOT_R,
+            grass_prints::KIND_LIMB, 1);
+      } else if (f < P3) {
+        // ATTERRISSAGE : chute rapide (declenche l'IMPACT du vivier, vy < -IMPACT_VY) puis pose.
+        const int f3 = f - P2;
+        const float h = f3 < INTR_LAND_DROP_FRAMES
+                            ? INTR_LAND_DROP_M * 4096.f *
+                                  (1.f - (float)f3 / (float)INTR_LAND_DROP_FRAMES)
+                            : 0.f;
+        add(jak_x - INTR_FOOT_X_OFF, ground_y + INTR_FOOT_DOWN_Y + h, jak_z, INTR_FOOT_R,
+            grass_prints::KIND_LIMB, 0);
+        add(jak_x + INTR_FOOT_X_OFF, ground_y + INTR_FOOT_DOWN_Y + h, jak_z, INTR_FOOT_R,
+            grass_prints::KIND_LIMB, 1);
+      } else if (f < P4) {
+        // SPIN : aucune sphere de corps (Jak n'en a pas) ; 3 spheres d'attaque tournent autour de
+        // son axe — la ROUE qui doit rendre une COURONNE, pas un disque.
+        const int f4 = f - P3;
+        const float t4 = (float)f4 / (float)INTR_FPS;
+        for (int k = 0; k < 3; ++k) {
+          const float ang =
+              2.f * 3.14159265358979323846f * (INTR_SPIN_HZ * t4 + (float)k / 3.f);
+          const float sx = jak_x + std::cos(ang) * INTR_SPIN_ORBIT_M * 4096.f;
+          const float sz = jak_z + std::sin(ang) * INTR_SPIN_ORBIT_M * 4096.f;
+          add(sx, ground_y + INTR_SPIN_Y, sz, INTR_SPIN_R, grass_prints::KIND_ATTACK, k);
+        }
+      } else if (f < P5) {
+        // PUNCH : aucune sphere de corps ; une sphere d'attaque s'etend devant puis revient — le
+        // LOBE qui doit pousser devant, pas derriere.
+        const int f5 = f - P4;
+        const float u5 = (float)f5 / (float)(INTR_PUNCH_FRAMES - 1);
+        const float tri = u5 <= 0.5f ? (u5 / 0.5f) : (1.f - (u5 - 0.5f) / 0.5f);
+        const float punch_reach = tri * INTR_PUNCH_REACH_M * 4096.f;
+        add(jak_x + punch_reach, ground_y + INTR_PUNCH_Y, jak_z, INTR_PUNCH_R,
+            grass_prints::KIND_ATTACK, 3);  // rang distinct de ceux du spin : pas le meme volume
+      } else {
+        // REPOS : Jak S'EN VA — AUCUNE sphere publiee. De l'herbe sous un Jak immobile est censee
+        // RESTER couchee ; le temps de retour du contrat est celui qu'elle met a se relever UNE
+        // FOIS LE CONTACT PARTI, pas pendant qu'un pied reste plante (un pied statique ne decroit
+        // jamais : il est re-stampe a l'identique chaque image, ce qui rendait `intx_return_ms`
+        // structurellement infranchissable). Ne rien publier ici est le choix retenu (l'autre,
+        // lever les pieds a 3 m, aurait aussi coupe le contact ; ne pas publier est plus direct et
+        // ne depend d'aucune hauteur supplementaire).
+        (void)0;
+      }
+      return n;
+    };
+
+    // ---- ACCUMULATEUR DE PEARSON : n, sommes x, y, xy, x^2, y^2. Un seul type sert aux QUATRE
+    // couples (ON/OFF x UNION/BOITE) : ils partagent la MEME reference par cellule et par image.
+    struct PearsonAcc {
+      u64 n = 0;
+      double sx = 0.0, sy = 0.0, sxy = 0.0, sx2 = 0.0, sy2 = 0.0;
+      void add(double x, double y) {
+        ++n;
+        sx += x; sy += y; sxy += x * y; sx2 += x * x; sy2 += y * y;
+      }
+      double corr() const {
+        if (n < 2) {
+          return 0.0;
+        }
+        const double nd = (double)n;
+        const double cov = sxy - sx * sy / nd;
+        const double vx = sx2 - sx * sx / nd;
+        const double vy = sy2 - sy * sy / nd;
+        if (vx <= 0.0 || vy <= 0.0) {
+          return 0.0;
+        }
+        return cov / std::sqrt(vx * vy);
+      }
+    };
+    PearsonAcc corr_on_union, corr_on_box, corr_off_union, corr_off_box;
+    u64 corr_frames_with_union = 0;
+    PearsonAcc corr_on_fresh_union, corr_on_fresh_box, corr_off_fresh_union, corr_off_fresh_box;
+    u64 corr_frames_with_fresh_union = 0;
+
+    grass_prints::Pool rig_pool;
+    std::vector<double> bend_mean((size_t)INTR_TOTAL_FRAMES, 0.0);  // B(t) : moyenne de la grille
+    std::vector<bool> is_impact((size_t)INTR_TOTAL_FRAMES, false);
+
+    // ---- HISTORIQUE PAR CELLULE, POUR LA CORRELATION AVEC MEMOIRE (fenetre glissante, plus bas).
+    // `best`/`off_best` (le couchage, ON et OFF) et `bestf` (la reference instantanee) de CHAQUE
+    // image et CHAQUE cellule : la reference fenetree ne peut pas se calculer a la volee, elle a
+    // besoin de revoir le passe de chaque cellule.
+    const size_t ncells = (size_t)INTR_GRID_N * (size_t)INTR_GRID_N;
+    std::vector<float> hist_best((size_t)INTR_TOTAL_FRAMES * ncells, 0.f);
+    std::vector<float> hist_ref((size_t)INTR_TOTAL_FRAMES * ncells, 0.f);
+    std::vector<float> hist_off((size_t)INTR_TOTAL_FRAMES * ncells, 0.f);
+
+    double spin_ring_sum = 0.0, spin_center_sum = 0.0;
+    u64 spin_ring_n = 0, spin_center_n = 0;
+    double punch_front_sum = 0.0, punch_back_sum = 0.0;
+    u64 punch_front_n = 0, punch_back_n = 0;
+
+    // ---- LA COURSE PRINCIPALE : le VRAI vivier, image par image, JAMAIS reinitialise entre les
+    // phases — le ressort doit voir la course complete pour que le temps de retour soit reel.
+    for (int f = 0; f < INTR_TOTAL_FRAMES; ++f) {
+      is_impact[(size_t)f] = (f >= P2 && f < P3);
+
+      grass_prints::Sphere raw[grass_prints::SPH_MAX];
+      const int nraw = rig_spheres(f, raw);
+      const int fw = f < (INTR_WALK_FRAMES - 1) ? f : (INTR_WALK_FRAMES - 1);
+      const float jak_x = ox + INTR_WALK_SPEED * (float)fw / (float)INTR_FPS;
+      const float jak_z = oz;
+
+      grass_prints::Sphere accepted[grass_prints::SPH_MAX];
+      int na = 0;
+      for (int i = 0; i < nraw; ++i) {
+        if (grass_prints::accept(raw[i], jak_x, ground_y, jak_z)) {
+          accepted[na++] = raw[i];
+        }
+      }
+
+      const double tnow = (double)f * (double)INTR_DT;
+      rig_pool.step(tnow, accepted, na, ground_y);
+      float pa[grass_prints::PRINT_MAX * 4];
+      float pb[grass_prints::PRINT_MAX * 4];
+      rig_pool.fill_uniforms(tnow, pa, pb);
+      // LA MARQUE DE FRAICHEUR : une place est FRAICHE quand elle vient d'etre stampee A CETTE
+      // IMAGE (age nul). `Pool::Print` est un membre PUBLIC de `Pool` (pas un getter separe) :
+      // lire `t_stamp` ici n'est pas une copie de la loi, c'est lire l'etat que le vivier vient
+      // d'ecrire. A age nul, `spring_str` du vivier vaut deja exactement `peak` (voir `spring()`,
+      // qui rend 1 pour `age<=0`) : la valeur de `pa`/`pb` d'une place fraiche EST deja la valeur
+      // « portee a peak », aucun recalcul n'est necessaire.
+      bool fresh[grass_prints::PRINT_MAX];
+      for (int i = 0; i < grass_prints::PRINT_MAX; ++i) {
+        const auto& pr = rig_pool.prints[(size_t)i];
+        fresh[i] = pr.live && pr.t_stamp == tnow;
+      }
+
+      double bend_sum = 0.0;
+      bool frame_has_union = false;
+      bool frame_has_fresh_union = false;
+      const bool in_spin = (f >= P3 && f < P4);
+      const bool in_punch = (f >= P4 && f < P5);
+
+      for (int gx = 0; gx < INTR_GRID_N; ++gx) {
+        const float wx = grid_cx - half_u + ((float)gx + 0.5f) * cell_u;
+        for (int gz = 0; gz < INTR_GRID_N; ++gz) {
+          const float wz = grid_cz - half_u + ((float)gz + 0.5f) * cell_u;
+
+          // --- LA CARTE DE COUCHAGE : MAX sur les 8 places du vivier, la MEME loi que le shader
+          // (`vegetation_contact.glsl:38-43`, PR_STEP).
+          float best = 0.f;
+          for (int i = 0; i < grass_prints::PRINT_MAX; ++i) {
+            const glsl::vec3 base(wx, ground_y, wz);
+            const glsl::vec3 pp(pa[i * 4 + 0], pa[i * 4 + 1], pa[i * 4 + 2]);
+            const float rr = pa[i * 4 + 3];
+            const glsl::vec2 dir(pb[i * 4 + 0], pb[i * 4 + 1]);
+            const float str = pb[i * 4 + 2];
+            const float speed = pb[i * 4 + 3];
+            const glsl::vec3 rk = grass_contact_print(base, pp, rr, dir, str, speed);
+            if (rk.x > best) {
+              best = rk.x;
+            }
+          }
+
+          // --- LA CARTE DE COUCHAGE FRAICHE : MEME loi, MEME boucle, mais UNIQUEMENT les places
+          // stampees A CETTE IMAGE (`fresh[i]`) — aucune memoire de ressort. C'est « ou le corps
+          // appuie-t-il MAINTENANT », la FORME seule, decorrelee du terme (2) du contrat (le
+          // ressort de 0,6-1,2 s) qui, par construction, laisse du couchage la ou le corps n'est
+          // plus et degrade (1).
+          float best_fresh = 0.f;
+          for (int i = 0; i < grass_prints::PRINT_MAX; ++i) {
+            if (!fresh[i]) {
+              continue;
+            }
+            const glsl::vec3 base(wx, ground_y, wz);
+            const glsl::vec3 pp(pa[i * 4 + 0], pa[i * 4 + 1], pa[i * 4 + 2]);
+            const float rr = pa[i * 4 + 3];
+            const glsl::vec2 dir(pb[i * 4 + 0], pb[i * 4 + 1]);
+            const float str = pb[i * 4 + 2];  // age nul : deja == peak (voir spring(age<=0)=1)
+            const float speed = pb[i * 4 + 3];
+            const glsl::vec3 rk = grass_contact_print(base, pp, rr, dir, str, speed);
+            if (rk.x > best_fresh) {
+              best_fresh = rk.x;
+            }
+          }
+
+          // --- LA CARTE D'EMPREINTE DE REFERENCE : geometrie NUE des spheres ACTIVES, sans
+          // ressort ni direction — l'empreinte que le contrat appelle. La PORTEE
+          // (`kind_reach`) fait partie de la PROJECTION (quel volume atteint le sol : une sphere
+          // d'attaque balaie a hauteur de hanche et ne coupe jamais le plan du sol sans elle) ;
+          // le gain `PRINT_GAIN` et le ressort, eux, restent EXCLUS de cette reference — c'est le
+          // MEME partage que le vivier applique dans `Pool::step`.
+          float bestf = 0.f;
+          for (int i = 0; i < na; ++i) {
+            const float fr = grass_prints::footprint_radius(
+                accepted[i].r + grass_prints::kind_reach(accepted[i].kind),
+                accepted[i].y - ground_y);
+            if (fr <= 0.f) {
+              continue;
+            }
+            const float dxr = wx - accepted[i].x, dzr = wz - accepted[i].z;
+            const float dref = std::sqrt(dxr * dxr + dzr * dzr);
+            float v = 1.f - dref / fr;
+            if (v < 0.f) {
+              v = 0.f;
+            }
+            if (v > bestf) {
+              bestf = v;
+            }
+          }
+
+          // --- LE BRAS D'AVANT, MESURE : l'ancienne loi (un seul disque oriente, meme rayon que
+          // le shader, plein regime, cap de marche) contre la MEME reference.
+          const glsl::vec2 dv(wx - jak_x, wz - jak_z);
+          const glsl::vec3 off_r =
+              grass_contact_dir(dv, glsl::vec2(1.f, 0.f), 1.0f, INT_TRAMPLE_R, 1.0f);
+          const float off_best = off_r.x;
+
+          {
+            const size_t cell_idx = (size_t)gx * (size_t)INTR_GRID_N + (size_t)gz;
+            const size_t hidx = (size_t)f * ncells + cell_idx;
+            hist_best[hidx] = best;
+            hist_ref[hidx] = bestf;
+            hist_off[hidx] = off_best;
+          }
+
+          if (best > 0.f || bestf > 0.f) {
+            corr_on_union.add(best, bestf);
+            frame_has_union = true;
+          }
+          corr_on_box.add(best, bestf);
+          if (off_best > 0.f || bestf > 0.f) {
+            corr_off_union.add(off_best, bestf);
+          }
+          corr_off_box.add(off_best, bestf);
+
+          // --- LA DECOMPOSITION FORME/MEMOIRE : meme reference instantanee, couchage SANS
+          // memoire (`best_fresh`) contre couchage SANS memoire du bras d'avant (`off_best`, deja
+          // sans memoire par construction — aucune retouche necessaire de son cote).
+          if (best_fresh > 0.f || bestf > 0.f) {
+            corr_on_fresh_union.add(best_fresh, bestf);
+            frame_has_fresh_union = true;
+          }
+          corr_on_fresh_box.add(best_fresh, bestf);
+          if (off_best > 0.f || bestf > 0.f) {
+            corr_off_fresh_union.add(off_best, bestf);
+          }
+          corr_off_fresh_box.add(off_best, bestf);
+
+          bend_sum += best;
+
+          if (in_spin) {
+            const float ddx = (wx - jak_x) / 4096.f, ddz = (wz - jak_z) / 4096.f;
+            const float dspin = std::sqrt(ddx * ddx + ddz * ddz);
+            if (dspin < INTR_SPIN_CENTER_HI_M) {
+              spin_center_sum += best;
+              ++spin_center_n;
+            } else if (dspin >= INTR_SPIN_RING_LO_M && dspin <= INTR_SPIN_RING_HI_M) {
+              spin_ring_sum += best;
+              ++spin_ring_n;
+            }
+          }
+          if (in_punch) {
+            const float pxm = (wx - jak_x) / 4096.f, pzm = (wz - jak_z) / 4096.f;
+            if (std::fabs(pzm) < INTR_PUNCH_SIDE_M) {
+              if (pxm >= INTR_PUNCH_FRONT_LO_M && pxm <= INTR_PUNCH_FRONT_HI_M) {
+                punch_front_sum += best;
+                ++punch_front_n;
+              } else if (pxm <= -INTR_PUNCH_FRONT_LO_M && pxm >= -INTR_PUNCH_FRONT_HI_M) {
+                punch_back_sum += best;
+                ++punch_back_n;
+              }
+            }
+          }
+        }
+      }
+      bend_mean[(size_t)f] = bend_sum / (double)(INTR_GRID_N * INTR_GRID_N);
+      if (frame_has_union) {
+        ++corr_frames_with_union;
+      }
+      if (frame_has_fresh_union) {
+        ++corr_frames_with_fresh_union;
+      }
+    }
+
+    c.intx_corr_fresh_union = corr_on_fresh_union.corr();
+    c.intx_corr_fresh_box = corr_on_fresh_box.corr();
+    c.intx_corr_fresh_cells = corr_on_fresh_union.n;
+    c.intx_corr_fresh_frames = corr_frames_with_fresh_union;
+    c.intx_off_corr_fresh_union = corr_off_fresh_union.corr();
+    c.intx_off_corr_fresh_box = corr_off_fresh_box.corr();
+
+    c.intx_corr_union = corr_on_union.corr();
+    c.intx_corr_box = corr_on_box.corr();
+    c.intx_corr_cells = corr_on_union.n;
+    c.intx_corr_frames = corr_frames_with_union;
+    c.intx_off_corr_union = corr_off_union.corr();
+    c.intx_off_corr_box = corr_off_box.corr();
+
+    // ---- LA CORRELATION AVEC MEMOIRE : `foot_win[cellule] = max sur les W dernieres secondes de
+    // foot[cellule]`, W = `grass_prints::RETURN_S`. Toujours de la geometrie NUE (aucune direction,
+    // aucun ressort, aucun PRINT_GAIN) : seule la fenetre temporelle differe de la reference
+    // instantanee ci-dessus. Fenetre glissante monotone (deque), cellule par cellule — O(images)
+    // amorti, pas O(images * fenetre).
+    {
+      const int w_frames =
+          (int)((double)grass_prints::RETURN_S / (double)INTR_DT + 0.5);  // = 54 EXACT (0,9 s * 60 Hz)
+      PearsonAcc corr_on_win_union, corr_on_win_box, corr_off_win_union, corr_off_win_box;
+      std::vector<bool> frame_has_win_union((size_t)INTR_TOTAL_FRAMES, false);
+      std::deque<int> dq;
+      for (int gx = 0; gx < INTR_GRID_N; ++gx) {
+        for (int gz = 0; gz < INTR_GRID_N; ++gz) {
+          const size_t cell_idx = (size_t)gx * (size_t)INTR_GRID_N + (size_t)gz;
+          dq.clear();
+          for (int f = 0; f < INTR_TOTAL_FRAMES; ++f) {
+            const size_t idx = (size_t)f * ncells + cell_idx;
+            const float refv = hist_ref[idx];
+            while (!dq.empty() && hist_ref[(size_t)dq.back() * ncells + cell_idx] <= refv) {
+              dq.pop_back();
+            }
+            dq.push_back(f);
+            while (dq.front() <= f - w_frames) {
+              dq.pop_front();
+            }
+            const float win = hist_ref[(size_t)dq.front() * ncells + cell_idx];
+            const float b = hist_best[idx];
+            const float o = hist_off[idx];
+            if (b > 0.f || win > 0.f) {
+              corr_on_win_union.add(b, win);
+              frame_has_win_union[(size_t)f] = true;
+            }
+            corr_on_win_box.add(b, win);
+            if (o > 0.f || win > 0.f) {
+              corr_off_win_union.add(o, win);
+            }
+            corr_off_win_box.add(o, win);
+          }
+        }
+      }
+      c.intx_corr_win_union = corr_on_win_union.corr();
+      c.intx_corr_win_box = corr_on_win_box.corr();
+      c.intx_corr_win_cells = corr_on_win_union.n;
+      u64 win_frames_hit = 0;
+      for (bool v : frame_has_win_union) {
+        if (v) {
+          ++win_frames_hit;
+        }
+      }
+      c.intx_corr_win_frames = win_frames_hit;
+      c.intx_corr_win_s = (double)grass_prints::RETURN_S;
+      c.intx_off_corr_win_union = corr_off_win_union.corr();
+      c.intx_off_corr_win_box = corr_off_win_box.corr();
+    }
+
+    // ---- CONTINUITE IMAGE A IMAGE, HORS IMPACT. Le denominateur est le PIC de la course
+    // (`B_peak`), pas l'image precedente : diviser par B(t-1) degenere pendant le relachement
+    // (la flexion moyenne descend vers zero et une variation minuscule y devient un pourcentage
+    // enorme sans que rien de visible ne se passe — le juge mesurerait son propre plancher). Ce
+    // que l'owner voit, c'est une fraction du couchage PLEIN qui disparaitrait d'un coup ; c'est
+    // donc le plein qui divise. Meme convention que `grass_int_reh_spring_max_step_milli` /
+    // `grass_int_reh_spring_peak_milli` cote moteur.
+    double b_peak = 0.0;
+    for (int f = 0; f < INTR_TOTAL_FRAMES; ++f) {
+      if (bend_mean[(size_t)f] > b_peak) {
+        b_peak = bend_mean[(size_t)f];
+      }
+    }
+    const double step_den = b_peak > 1.0e-9 ? b_peak : 1.0e-9;
+    double step_max = 0.0;
+    u64 step_frames = 0, step_excluded = 0;
+    for (int f = 1; f < INTR_TOTAL_FRAMES; ++f) {
+      if (is_impact[(size_t)f] || is_impact[(size_t)(f - 1)]) {
+        ++step_excluded;
+        continue;
+      }
+      const double rel = std::fabs(bend_mean[(size_t)f] - bend_mean[(size_t)(f - 1)]) / step_den;
+      if (rel > step_max) {
+        step_max = rel;
+      }
+      ++step_frames;
+    }
+    c.intx_step_max = step_max;
+    c.intx_step_peak = b_peak;
+    c.intx_step_frames = step_frames;
+    c.intx_step_excluded = step_excluded;
+
+    // ---- TEMPS DE RETOUR. Jak s'en va au premier instant de REPOS (plus aucune sphere publiee,
+    // voir `rig_spheres`) : le pic de reference est donc la flexion moyenne de la DERNIERE image
+    // AVEC CONTACT (fin du punch, `P5-1`), et le compte se fait de la jusqu'a la premiere image de
+    // REPOS sous 5 % de ce pic. -1 = jamais retombe dans la fenetre : une extrapolation serait un
+    // chiffre invente, pas une mesure.
+    {
+      const int peak_idx = P5 - 1;  // derniere image avec contact, juste avant le depart de Jak
+      const double peak = bend_mean[(size_t)peak_idx];
+      const double floor_v = peak * 0.05;
+      int cross_idx = -1;
+      for (int f = peak_idx; f < P6; ++f) {
+        if (bend_mean[(size_t)f] < floor_v) {
+          cross_idx = f;
+          break;
+        }
+      }
+      c.intx_return_peak = peak;
+      c.intx_return_floor = floor_v;
+      c.intx_return_ms =
+          cross_idx >= 0 ? (double)(cross_idx - peak_idx) * 1000.0 / (double)INTR_FPS : -1.0;
+      c.intx_rest_frames = (u64)(P6 - P5);
+    }
+
+    // ---- SPIN : COURONNE VS CENTRE. Un disque donnerait un rapport < 1 ; une couronne > 1.
+    c.intx_spin_ring_n = spin_ring_n;
+    c.intx_spin_center_n = spin_center_n;
+    {
+      const double ring_mean = spin_ring_n > 0 ? spin_ring_sum / (double)spin_ring_n : 0.0;
+      const double center_mean = spin_center_n > 0 ? spin_center_sum / (double)spin_center_n : 0.0;
+      c.intx_spin_crown =
+          center_mean > 1.0e-9 ? ring_mean / center_mean : (ring_mean > 1.0e-9 ? 1.0e9 : 0.0);
+    }
+
+    // ---- PUNCH : LOBE AVANT VS ARRIERE.
+    c.intx_punch_front_n = punch_front_n;
+    c.intx_punch_back_n = punch_back_n;
+    {
+      const double front_mean = punch_front_n > 0 ? punch_front_sum / (double)punch_front_n : 0.0;
+      const double back_mean = punch_back_n > 0 ? punch_back_sum / (double)punch_back_n : 0.0;
+      c.intx_punch_lobe =
+          back_mean > 1.0e-9 ? front_mean / back_mean : (front_mean > 1.0e-9 ? 1.0e9 : 0.0);
+    }
+  }
+
+  // ---- L'ABLATION : LA MEME COURSE, VIVIER NOURRI DE ZERO SPHERE. Un vivier qui ne recoit
+  // jamais rien ne peut STRUCTURELLEMENT rien stamper : la somme doit valoir 0 EXACT.
+  {
+    double gy_sum = 0.0;
+    u64 gy_n = 0;
+    const float gy_reach = 1.5f * 4096.f;
+    for (const auto& gi : e.instances) {
+      const float dxg = gi.px - ox, dzg = gi.pz - oz;
+      if (dxg * dxg + dzg * dzg <= gy_reach * gy_reach) {
+        gy_sum += gi.py;
+        ++gy_n;
+      }
+    }
+    const float ground_y = gy_n > 0 ? (float)(gy_sum / (double)gy_n) : 0.f;
+    const float jx1 = ox + INTR_WALK_SPEED * (float)(INTR_WALK_FRAMES - 1) / (float)INTR_FPS;
+    const float grid_cx = 0.5f * (ox + jx1);
+    const float grid_cz = oz;
+    const float cell_u = INTR_GRID_CELL_M * 4096.f;
+    const float half_u = 0.5f * INTR_GRID_SIZE_M * 4096.f;
+
+    grass_prints::Pool abl_pool;
+    double abl_sum = 0.0;
+    u64 abl_frames = 0;
+    for (int f = 0; f < INTR_TOTAL_FRAMES; ++f) {
+      const double tnow = (double)f * (double)INTR_DT;
+      abl_pool.step(tnow, nullptr, 0, ground_y);
+      float pa[grass_prints::PRINT_MAX * 4];
+      float pb[grass_prints::PRINT_MAX * 4];
+      abl_pool.fill_uniforms(tnow, pa, pb);
+      for (int gx = 0; gx < INTR_GRID_N; ++gx) {
+        const float wx = grid_cx - half_u + ((float)gx + 0.5f) * cell_u;
+        for (int gz = 0; gz < INTR_GRID_N; ++gz) {
+          const float wz = grid_cz - half_u + ((float)gz + 0.5f) * cell_u;
+          for (int i = 0; i < grass_prints::PRINT_MAX; ++i) {
+            const glsl::vec3 base(wx, ground_y, wz);
+            const glsl::vec3 pp(pa[i * 4 + 0], pa[i * 4 + 1], pa[i * 4 + 2]);
+            const float rr = pa[i * 4 + 3];
+            const glsl::vec2 dir(pb[i * 4 + 0], pb[i * 4 + 1]);
+            const float str = pb[i * 4 + 2];
+            const float speed = pb[i * 4 + 3];
+            const glsl::vec3 rk = grass_contact_print(base, pp, rr, dir, str, speed);
+            abl_sum += rk.x;
+          }
+        }
+      }
+      ++abl_frames;
+    }
+    c.intx_abl_bending = abl_sum;
+    c.intx_abl_frames = abl_frames;
+  }
+
   // ---- COMBIEN DE GRANDEURS ONT UNE POPULATION. Un terme sans population n'est pas « a zero »,
   // il n'est PAS MESURE : le juge lit ce compte AVANT de lire une seule valeur.
   if (c.blades_total > 0) c.terms_measured++;
@@ -8523,6 +9092,15 @@ InteractionCensus interaction_census(const BakeData& d, const ExpandResult& e) {
   if (on.lat_edge_n > 0) c.terms_measured++;
   if (off.contacts > 0) c.terms_measured++;
   if (on.paired > 0) c.terms_measured++;
+  // grass-interaction-direction (essai 4) : les NOUVELLES populations, chacune un ++ REEL.
+  if (c.intx_corr_frames > 0) c.terms_measured++;
+  if (c.intx_step_frames > 0) c.terms_measured++;
+  if (c.intx_abl_frames > 0) c.terms_measured++;
+  if (c.intx_spin_ring_n > 0 && c.intx_spin_center_n > 0) c.terms_measured++;
+  if (c.intx_punch_front_n > 0 && c.intx_punch_back_n > 0) c.terms_measured++;
+  if (c.intx_return_peak > 0.0) c.terms_measured++;
+  if (c.intx_corr_win_frames > 0) c.terms_measured++;
+  if (c.intx_corr_fresh_frames > 0) c.terms_measured++;
   return c;
 }
 

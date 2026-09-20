@@ -7416,6 +7416,11 @@
   0
   (none))
 
+;; grass-interaction-direction (essai 4) — le squelette ne porte pas de rayon : chaque joint publie
+;; comme genre 1 recoit ce rayon fixe. Choisi pour qu'un pied POSE au sol marque ~0,26 m au sol
+;; (sqrt(0.28^2 - h^2) avec h petit) et qu'un pied LEVE (h > 0.28) ne marque rien du tout.
+(define GRASS-JAK-LIMB-R (meters 0.28))
+
 (defmethod update-to-os ((obj pc-settings-jak1))
   ((method-of-type pc-settings update-to-os) obj)
   ;; Grecharged-master-toggle: push the GLOBAL master FIRST each frame (the C++ side composes
@@ -7695,4 +7700,55 @@
         (none))
       *null-kernel-context*)
     (pc-grass-occ-publish!))
+  ;; grass-interaction-direction (essai 4) — LE CORPS DE JAK, PAS UN DISQUE.
+  ;; La forme de collision de Jak est une CAPSULE VERTICALE (root-prim de 2,2 m + trois spheres de
+  ;; 0,7 m empilees dans unknown-sphere-array00) : elle n'a ni pieds ni bras, et son root-prim est
+  ;; le volume de repoussage, pas la silhouette. Le publier redessinerait le disque que l'owner a
+  ;; refuse. La seule source honnete du corps est donc le SQUELETTE, et les volumes d'attaque
+  ;; (unknown-sphere00/01/02, des CHAMPS SEPARES de control-info, pas le tableau ci-dessus) quand
+  ;; ils sont armes.
+  ;; Encodage du 1er argument : genre + 8 * rang. Le rang doit etre STABLE d'une image a l'autre
+  ;; (c'est lui qui apparie une sphere avec elle-meme, donc qui lui donne sa vitesse).
+  (when (and *target* (nonzero? (the-as int (-> *target* node-list))))
+    (pc-grass-jak-clear!)
+    (let ((ry (-> *target* control trans y))
+          (slot 0))
+      ;; GENRE 1 — LE MESH. On publie les joints assez BAS pour toucher l'herbe : pieds, chevilles,
+      ;; tibias, genoux. Aucune table de noms de joints : c'est la HAUTEUR qui selectionne, donc un
+      ;; accroupi ou une roulade en fournissent naturellement plus. Le C++ projette ensuite chaque
+      ;; sphere au sol par sqrt(r^2 - h^2) : un pied pose marque, un pied leve ne marque rien.
+      (let ((nl (-> *target* node-list)))
+        (dotimes (i (min 40 (the int (-> nl length))))
+          (when (< slot 8)
+            ;; NOTE (verif compilateur) : `bone transform` est une `matrix`, pas une `transformq` —
+            ;; elle n'a pas de champ `trans`. Sa translation est la 4e rangee : `vector 3`.
+            (let ((jt (-> nl data i bone transform vector 3)))
+              (when (and (>= (-> jt y) (- ry (meters 0.5)))
+                         (< (-> jt y) (+ ry (meters 0.6))))
+                ;; LE RANG EST L'INDEX DU JOINT, PAS UN COMPTEUR. Le rang apparie une sphere avec
+                ;; ELLE-MEME d'une image a l'autre, donc lui donne sa VITESSE, donc la direction
+                ;; dans laquelle elle couche l'herbe. Les joints entrent et sortent de la bande de
+                ;; hauteur pendant un pas : avec un compteur, chaque franchissement decalerait tous
+                ;; les rangs suivants, le C++ apparierait le pied gauche avec le pied droit et la
+                ;; direction deviendrait du bruit. `i` est stable par construction.
+                ;; `slot` ne sert plus qu'a BORNER la publication au nombre de places du vivier (8).
+                (pc-grass-jak-add! (+ 1 (* 8 i)) jt (the int GRASS-JAK-LIMB-R))
+                (set! slot (+ slot 1)))))))
+      ;; GENRE 2 — LES VOLUMES D'ATTAQUE, uniquement quand ils sont ARMES (spin, punch). Leur rayon
+      ;; est 0 au repos, donc le filtre du C++ les ecarte de toute facon ; le test de `collide-as`
+      ;; est le predicat explicite.
+      (let ((cs (-> *target* control)))
+        (let ((ap (-> cs unknown-sphere00)))
+          (when (logtest? (-> ap prim-core collide-as) (collide-kind target-attack))
+            (pc-grass-jak-add! (+ 2 (* 8 0)) (-> ap prim-core world-sphere)
+                               (the int (-> ap prim-core world-sphere w)))))
+        (let ((ap (-> cs unknown-sphere01)))
+          (when (logtest? (-> ap prim-core collide-as) (collide-kind target-attack))
+            (pc-grass-jak-add! (+ 2 (* 8 1)) (-> ap prim-core world-sphere)
+                               (the int (-> ap prim-core world-sphere w)))))
+        (let ((ap (-> cs unknown-sphere02)))
+          (when (logtest? (-> ap prim-core collide-as) (collide-kind target-attack))
+            (pc-grass-jak-add! (+ 2 (* 8 2)) (-> ap prim-core world-sphere)
+                               (the int (-> ap prim-core world-sphere w)))))))
+    (pc-grass-jak-publish!))
   (none))

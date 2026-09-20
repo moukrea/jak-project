@@ -5,6 +5,7 @@
 #include "GrassRenderer.h"
 #include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+#include "game/graphics/opengl_renderer/GrassContactPrints.h"
 #include "game/system/load_gate.h"
 
 #include <algorithm>
@@ -372,6 +373,36 @@ void goal_add_moving(unsigned int actor_id, float x, float y, float z, float r_w
 // 1.2 m instantly (strength -> 0, entry gone next frame) and tombstones the spot for 8 s so nothing
 // in the debris window can re-flatten it. No-ops when grass is off.
 static std::vector<std::array<float, 3>> s_break_kills;
+
+// grass-interaction-direction (essai 4) : LES SPHERES DE COLLISION DE JAK, publiees par GOAL a
+// chaque image (`pc-grass-jak-clear!/add!/publish!`, hud-classes-pc.gc). Meme discipline que le
+// canal des acteurs : un etage ecrit par le fil de jeu, un instantane lu par le fil de rendu sous
+// `s_goal_mutex`. `kind_slot` porte le genre sur 3 bits et le RANG au-dessus ; le rang doit etre
+// stable d'une image a l'autre, car c'est lui qui apparie une sphere avec elle-meme — donc qui
+// lui donne sa VITESSE, donc la direction dans laquelle elle couche l'herbe.
+static std::vector<grass_prints::Sphere> s_jak_stage;
+static std::vector<grass_prints::Sphere> s_jak_pub;
+void jak_clear() {
+  s_jak_stage.clear();
+}
+void jak_add(int kind_slot, float x, float y, float z, float r_world) {
+  if (s_jak_stage.size() >= (size_t)grass_prints::SPH_MAX) {
+    return;
+  }
+  grass_prints::Sphere sp;
+  sp.x = x;
+  sp.y = y;
+  sp.z = z;
+  sp.r = r_world;
+  sp.kind = kind_slot & 7;
+  sp.slot = kind_slot >> 3;
+  s_jak_stage.push_back(sp);
+}
+void jak_publish() {
+  std::lock_guard<std::mutex> lk(s_goal_mutex);
+  s_jak_pub = s_jak_stage;
+}
+
 void goal_break_at(float x, float y, float z) {
   std::lock_guard<std::mutex> lk(s_goal_mutex);
   if (s_break_kills.size() < 16) {
@@ -756,114 +787,44 @@ void publish(float dt) {
 }
 
 namespace {
-float contact_trail[16] = {};
-// grass-interaction-direction : LE CAP DU PAS, televerse en vec4 (jamais un float[] : sur
-// Adreno 618 `glGetUniformLocation` rend -1 sur un tableau de float et l'ecriture devient un
-// no-op SILENCIEUX — voir le repli `u_trample_str[0]` plus bas). xy = cap unitaire, z = force
-// 0..1, w = le DEBRAYAGE du correctif.
-float contact_dir[4] = {1.f, 0.f, 0.f, 0.f};
+// grass-interaction-direction (essai 4) : CE QUI PART AU SHADER EST UNE EMPREINTE DE CORPS.
+// L'essai 3 televersait `u_jak_pos` (un point), `u_jak_trail[4]` (sa trainee) et `u_contact_dir`
+// (un cap) ; l'owner a refuse le resultat le 20/09 : « pas vraiment correle au mesh du
+// personnage […] ca prend pas en compte le mesh de Jak (ou ses collisions) ». Un point ne peut
+// ni frapper ni tourner sur lui-meme.
+// Ce sont maintenant les places du vivier `GrassContactPrints.h` :
+//   a[i] = (x, y, z au SOL, rayon d'empreinte)  — rayon 0 = place morte
+//   b[i] = (dir.x, dir.z, force du ressort, poids d'orientation)
+// Des vec4, JAMAIS des float[] : sur Adreno 618 `glGetUniformLocation` rend -1 sur un tableau de
+// float et l'ecriture devient un no-op SILENCIEUX (voir le repli `u_trample_str[0]` plus bas).
+float contact_print_a[grass_prints::PRINT_MAX * 4] = {};
+float contact_print_b[grass_prints::PRINT_MAX * 4] = {};
+float contact_dir_armed = 0.f;  // 1 = loi orientee en service (item arme ET palier >= medium)
+u64 contact_prints_live = 0;    // places vivantes a cette image
 std::array<float, 4> contact_jak{}, contact_ledge{};
 std::vector<std::array<float, 4>> contact_all_positions;
 std::vector<float> contact_all_strengths;
 
-// Les seuils du cap. Ils se PUBLIENT (voir `grass_int_dir_*_milli`) : un juge qui les recopierait
-// mesurerait sa propre copie.
-constexpr float DIR_DEADZONE_M = 0.05f;  // en deca, pas de cap : on ne lit pas du bruit
-constexpr float DIR_SPD_LO_MPS = 0.8f;   // debut de la montee en force
-constexpr float DIR_SPD_HI_MPS = 4.0f;   // pleine orientation (la marche de Jak la depasse)
-constexpr float DIR_SMOOTH_S = 0.18f;    // constante de temps du lissage du cap
-constexpr float DIR_RELEASE_S = 0.6f;    // meme fenetre que EASE_OUT_S : pas d'a-coup a l'arret
+// grass-interaction-direction (essai 4) : `StepTrail`, `StepDir`, `update_trail`,
+// `update_step_dir` et les constantes `DIR_*` ONT ETE RETIRES. C'ETAIT LE DEFAUT, PAS L'OUTIL.
+// Ils derivaient un point et un cap de la trainee de Jak ; le couchage etait donc un disque
+// oriente, identique quoi que Jak fasse de son corps — d'ou « toujours tres fake » (owner,
+// 20/09). Les seuils de vitesse qu'ils publiaient (`grass_int_dir_spd_lo_milli` / `_hi_milli`)
+// vivent desormais dans `GrassContactPrints.h` (`SPD_LO` / `SPD_HI`), aux memes valeurs, et
+// c'est le vivier qui les applique — PAR SPHERE, et non plus une fois pour tout le corps.
 
-// La trainee de Jak, son etat rendu explicite (ex-`s_trail` / `s_trail_last`, statiques de
-// fonction). Meme loi, mot pour mot : un echantillon tous les 0,15 s, force d'age sur 0,6 s.
-struct StepTrail {
-  std::array<std::array<float, 4>, 4> s{};  // xyz + instant de capture
-  float last = -1.f;
-  float out[16] = {};  // xyz + force d'age, ce qui part a l'uniforme
-};
-void update_trail(StepTrail& tr, const std::array<float, 4>& jak, float u_time) {
-  if (jak[3] > 0.5f && (tr.last < 0.f || u_time - tr.last >= 0.15f)) {
-    for (int ti = 3; ti > 0; ti--) {
-      tr.s[ti] = tr.s[ti - 1];
-    }
-    tr.s[0] = {jak[0], jak[1], jak[2], u_time};
-    tr.last = u_time;
-  }
-  for (int ti = 0; ti < 4; ti++) {
-    float age = u_time - tr.s[ti][3];
-    float str = (jak[3] > 0.5f && tr.s[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
-    tr.out[ti * 4 + 0] = tr.s[ti][0];
-    tr.out[ti * 4 + 1] = tr.s[ti][1];
-    tr.out[ti * 4 + 2] = tr.s[ti][2];
-    tr.out[ti * 4 + 3] = str;
-  }
-}
-
-// grass-interaction-direction : LE CAP DU PAS. SPEC section 11 : « Le deplacement est connu par
-// la trainee et n'est jamais utilise comme vecteur. » Il l'est ici. Le deplacement se lit sur le
-// plus ANCIEN echantillon encore vivant (fenetre ~0,45 s) : c'est deja lisse, on ne rajoute pas
-// un filtre par-dessus un filtre. Le cap garde une MEMOIRE — il se lisse a la montee et retombe
-// sur la MEME fenetre que le relevement (0,6 s), pour qu'un arret ne redresse pas l'herbe d'un
-// coup.
-struct StepDir {
-  float x = 1.f, z = 0.f, speed = 0.f, prev_t = -1.f;
-};
-void update_step_dir(StepDir& sd, const StepTrail& tr, const std::array<float, 4>& jak,
-                     float u_time) {
-  // 1. le plus ANCIEN echantillon encore vivant.
-  int ti = -1;
-  for (int k = 3; k >= 0; --k) {
-    if (tr.out[k * 4 + 3] > 0.004f) {
-      ti = k;
-      break;
-    }
-  }
-  float spd01 = 0.f;
-  bool have_inst = false;
-  float ix = 0.f, iz = 0.f;
-  if (jak[3] > 0.5f && ti >= 0) {
-    const float dx = jak[0] - tr.s[ti][0];
-    const float dz = jak[2] - tr.s[ti][2];
-    const float len = std::sqrt(dx * dx + dz * dz);
-    const float age = std::max(1e-3f, u_time - tr.s[ti][3]);
-    if (len > DIR_DEADZONE_M * 4096.f) {
-      const float mps = (len / 4096.f) / age;
-      spd01 = (mps - DIR_SPD_LO_MPS) / (DIR_SPD_HI_MPS - DIR_SPD_LO_MPS);
-      spd01 = std::min(1.f, std::max(0.f, spd01));
-      ix = dx / len;
-      iz = dz / len;
-      have_inst = true;
-    }
-  }
-  const float dtm =
-      (sd.prev_t < 0.f) ? 0.f : std::min(0.1f, std::max(0.f, u_time - sd.prev_t));
-  sd.prev_t = u_time;
-  if (have_inst) {
-    const float a = (dtm <= 0.f) ? 0.f : std::min(1.f, dtm / DIR_SMOOTH_S);
-    sd.x += (ix - sd.x) * a;
-    sd.z += (iz - sd.z) * a;
-  }
-  // RENORMALISATION INCONDITIONNELLE. Le shader exige un cap UNITAIRE : sa base
-  // (cap, perpendiculaire) doit etre orthonormee, sinon le repli radial a vitesse nulle cesse
-  // d'etre exact. C'est un contrat, pas une precaution — et il se MESURE
-  // (`grass_int_engine_dir_unit_milli`).
-  const float l = std::sqrt(sd.x * sd.x + sd.z * sd.z);
-  if (l > 1e-4f) {
-    sd.x /= l;
-    sd.z /= l;
-  } else {
-    sd.x = 1.f;
-    sd.z = 0.f;
-  }
-  // Force AVEC MEMOIRE : montee immediate, retombee sur la fenetre du relevement.
-  if (spd01 > sd.speed) {
-    sd.speed = spd01;
-  } else {
-    sd.speed = std::max(spd01, sd.speed - dtm / DIR_RELEASE_S);
-  }
-}
-
-// Ce que la course de preuve publie du cap vivant.
+// Ce que la course de preuve publie du couchage vivant. LES QUATRE PREMIERS SONT LES PLUS
+// IMPORTANTS DE TOUTE LA PORTE : ils disent si les spheres de Jak ARRIVENT REELLEMENT depuis
+// GOAL. Une mesure hors ligne verte sur une course ou le canal est mort serait le faux vert le
+// plus cher du harnais — c'est deja arrive (recensement hors ligne vert alors que la course
+// n'avait rien dessine). La porte les lit AVANT toute grandeur calculee.
+u64 g_sph_frames = 0;       // images ayant recu au moins une sphere acceptee
+u64 g_sph_max = 0;          // le plus grand nombre de spheres acceptees en une image
+u64 g_sph_rejected = 0;     // refusees par `accept()` — hors bornes, donc lecture hors-groupe
+u64 g_sph_kind_mask = 0;    // bit 0 corps, bit 1 membre, bit 2 volume d'attaque
+u64 g_grounded_max = 0;     // spheres dont l'empreinte au sol etait non vide
+u64 g_prints_max = 0;       // places du vivier vivantes en meme temps
+u64 g_impacts = 0;          // stampes classees IMPACT (atterrissage)
 u64 g_dir_frames = 0;
 u64 g_dir_speed_max_milli = 0;
 u64 g_dir_hits = 0;
@@ -1009,32 +970,154 @@ void rehearse_acquis() {
   autoport_proof::publish("grass_int_reh_static_banned", n_static == 0 ? 1u : 0u);
   autoport_proof::publish("grass_int_reh_moving_survives", n_moving == 1 ? 1u : 0u);
 
-  // G. LE CAP — une marche scriptee en ligne droite, EXERCEE SUR L'APPAREIL. Une course
-  // d'amorcage ne fait pas marcher Jak ; celle-ci si.
-  StepTrail tr;
-  StepDir sd;
-  const float ux = 0.70710678f, uz = 0.70710678f;  // le cap SCRIPTE
-  const float mps = 3.0f;
-  int walk = 0;
-  int sampled = 0;
-  while (walk < 120 && walk < kRehCap) {
-    const float t = (float)walk * dt;
-    std::array<float, 4> jw{ux * mps * t * 4096.f, 0.f, uz * mps * t * 4096.f, 1.f};
-    update_trail(tr, jw, t);
-    update_step_dir(sd, tr, jw, t);
-    if (tr.out[3] > 0.004f) ++sampled;
-    ++walk;
+  // G. L'EMPREINTE ET LE RESSORT — MARCHE SCRIPTEE PUIS DECOLLAGE, EXERCES SUR L'APPAREIL.
+  // Une course d'amorcage ne fait pas marcher Jak et ne le fait pas sauter : ces deux chemins ne
+  // sont atteints par aucune preuve vivante. On les rejoue donc ici sur le MEME vivier que le
+  // chemin de rendu (`grass_prints::Pool`), pas sur une copie — les chiffres publies sont ceux
+  // que le pilote applique.
+  //
+  // CE QUE CETTE SECTION PROUVE, ET QUI EST EXACTEMENT LA PLAINTE DE L'OWNER :
+  //  - la poussee suit le pas (`reh_dir_err_deg`) et elle est UNITAIRE (`reh_dir_unit_milli`) ;
+  //  - au decollage l'empreinte se referme SANS A-COUP : `reh_spring_max_step_milli` est la plus
+  //    grosse chute relative entre deux images consecutives ;
+  //  - le retour du ressort tombe dans [0,6 ; 1,2] s (`reh_return_ms`) ;
+  //  - la projection au sol est bien en sqrt(r^2-h^2) : `reh_foot_mid_milli` est le rayon
+  //    d'empreinte a mi-hauteur rapporte au rayon de la sphere, en milli. Une projection plate
+  //    rendrait 1000, une coupure nette 0 ; la racine rend 866. C'est CETTE loi qui remplace la
+  //    bande d'altitude que Jak franchissait d'un coup en sautant.
+  {
+    grass_prints::Pool pool;
+    const float ux = 0.70710678f, uz = 0.70710678f;  // le cap SCRIPTE
+    const float mps = 3.0f;
+    const float GY = 0.f;  // le sol du banc
+    // LE MANNEQUIN N'A QUE DES PIEDS, ET C'EST UN FAIT MESURE, PAS UNE SIMPLIFICATION.
+    // La forme de collision de Jak (`logic-target.gc:1181-1220`, `target-util.gc:488-504`) est une
+    // CAPSULE VERTICALE : un root-prim de 2,2 m de rayon — son volume de REPOUSSAGE, bien plus
+    // large que sa silhouette — et trois spheres de 0,7 m empilees a 0,7 / 1,4 / 2,1 m, dont une
+    // seule est tangente au sol. Elle n'a ni pied ni bras. Publier ce root-prim redessinerait
+    // EXACTEMENT le disque de 2,2 m que l'owner a refuse, alors on ne le publie pas : le corps est
+    // pris sur le SQUELETTE (`node-list`), et ici sur les deux joints de pied.
+    // 0,28 m de rayon : pose a 0,06 m du sol un pied marque 0,274 m, a 0,15 m il marque 0,236 m,
+    // et des 0,28 m il ne marque RIEN. La transition est continue — c'est elle qui remplace la
+    // bande d'altitude que Jak franchissait d'un coup en sautant.
+    auto rig = [&](float px, float pz, float lift, bool left, grass_prints::Sphere* sp) {
+      sp[0] = grass_prints::Sphere{px, GY + ((left ? 0.06f : 0.45f) + lift) * 4096.f,
+                                   pz + 0.18f * 4096.f, 0.28f * 4096.f,
+                                   grass_prints::KIND_LIMB, 0};
+      sp[1] = grass_prints::Sphere{px, GY + ((left ? 0.45f : 0.06f) + lift) * 4096.f,
+                                   pz - 0.18f * 4096.f, 0.28f * 4096.f,
+                                   grass_prints::KIND_LIMB, 1};
+    };
+    float ua[grass_prints::PRINT_MAX * 4], ub[grass_prints::PRINT_MAX * 4];
+    auto mean_str = [&](double tt) {
+      pool.fill_uniforms(tt, ua, ub);
+      double acc = 0.0;
+      for (int k = 0; k < grass_prints::PRINT_MAX; ++k) {
+        if (ua[k * 4 + 3] > 0.f) {
+          acc += (double)ub[k * 4 + 2];
+        }
+      }
+      return acc;
+    };
+    int walk = 0, sampled = 0;
+    double dsx = 0.0, dsz = 0.0;
+    float unit_min = 2.f, speed_max = 0.f;
+    double tw = 0.0;
+    while (walk < 120 && walk < kRehCap) {
+      tw = (double)walk * (double)dt;
+      const float px = ux * mps * (float)tw * 4096.f;
+      const float pz = uz * mps * (float)tw * 4096.f;
+      grass_prints::Sphere sp[2];
+      rig(px, pz, 0.f, ((walk / 21) % 2) == 0, sp);
+      const grass_prints::StepStats st = pool.step(tw, sp, 2, GY);
+      if (st.stamped > 0) {
+        ++sampled;
+      }
+      for (const grass_prints::Print& pr : pool.prints) {
+        if (!pr.live) {
+          continue;
+        }
+        const float ul = std::sqrt(pr.dx * pr.dx + pr.dz * pr.dz);
+        unit_min = std::min(unit_min, ul);
+        speed_max = std::max(speed_max, pr.speed);
+        dsx += (double)pr.dx;
+        dsz += (double)pr.dz;
+      }
+      ++walk;
+    }
+    if (walk >= kRehCap) {
+      capped = true;
+    }
+    if (sampled > 0) {
+      ++terms;
+    }
+    const double dl = std::sqrt(dsx * dsx + dsz * dsz);
+    double dotv = dl > 1e-9 ? (dsx * (double)ux + dsz * (double)uz) / dl : 0.0;
+    dotv = std::min(1.0, std::max(-1.0, dotv));
+    const double err_deg = std::acos(dotv) * 180.0 / 3.14159265358979323846;
+    autoport_proof::publish("grass_int_reh_dir_err_deg", (u64)std::ceil(err_deg));
+    autoport_proof::publish("grass_int_reh_dir_err_milli_deg", (u64)(err_deg * 1000.0 + 0.5));
+    autoport_proof::publish("grass_int_reh_dir_speed_milli", (u64)(speed_max * 1000.f + 0.5f));
+    autoport_proof::publish("grass_int_reh_dir_unit_milli",
+                            (u64)(unit_min > 1.5f ? 0.f : unit_min * 1000.f + 0.5f));
+
+    // LE DECOLLAGE. Jak saute : les spheres montent de 3 m, donc leur empreinte au sol se referme
+    // par sqrt(r^2-h^2) — continument, sans franchir aucune bande d'altitude. Ensuite plus
+    // personne ne stampe et le ressort rend. C'est CE relachement qu'on mesure.
+    const double t_peak = tw;
+    const double peak = mean_str(t_peak);
+    double t = t_peak;
+    double prev = peak;
+    double max_step = 0.0;
+    int rel = 0;
+    double t_settle = -1.0;
+    while (rel < kRehCap) {
+      t += (double)dt;
+      grass_prints::Sphere sp[2];
+      rig(ux * mps * (float)t_peak * 4096.f, uz * mps * (float)t_peak * 4096.f, 3.0f, true, sp);
+      pool.step(t, sp, 2, GY);
+      const double cur = mean_str(t);
+      // LE DENOMINATEUR EST LE PIC, PAS L'IMAGE PRECEDENTE. Une grandeur qui DECROIT VERS ZERO a
+      // une variation RELATIVE A ELLE-MEME qui explose sur les dernieres images : 0,010 -> 0,001
+      // fait 90 % et ne veut rien dire. Ce que l'owner voit, c'est une fraction du couchage
+      // PLEIN qui disparaitrait d'un coup — c'est donc le pic qui divise. Le denominateur est
+      // publie avec le resultat (`reh_spring_peak_milli`) : une variation sans son denominateur
+      // est muette.
+      if (peak > 1e-6) {
+        max_step = std::max(max_step, (prev - cur) / peak);
+      }
+      prev = cur;
+      ++rel;
+      if (peak > 1e-6 && cur <= 0.05 * peak) {
+        t_settle = t - t_peak;
+        break;
+      }
+    }
+    if (rel >= kRehCap) {
+      capped = true;
+    }
+    if (peak > 1e-6) {
+      ++terms;
+    }
+    autoport_proof::publish("grass_int_reh_return_ms",
+                            (u64)(t_settle < 0.0 ? 0.0 : t_settle * 1000.0 + 0.5));
+    autoport_proof::publish("grass_int_reh_spring_max_step_milli",
+                            (u64)(std::max(0.0, max_step) * 1000.0 + 0.5));
+    autoport_proof::publish("grass_int_reh_release_frames", (u64)rel);
+    autoport_proof::publish("grass_int_reh_spring_peak_milli", (u64)(peak * 1000.0 + 0.5));
+    autoport_proof::publish("grass_int_reh_return_lo_ms", (u64)600);
+    autoport_proof::publish("grass_int_reh_return_hi_ms", (u64)1200);
+    autoport_proof::publish("grass_int_reh_return_s_declared_milli",
+                            (u64)(grass_prints::RETURN_S * 1000.f + 0.5f));
+    // r = 1 m, centre a h = 0,5 m : sqrt(1 - 0,25) = 0,866. Hors du volume (h = 1,5 m) : 0.
+    const float rr = 1.0f * 4096.f;
+    autoport_proof::publish(
+        "grass_int_reh_foot_mid_milli",
+        (u64)(grass_prints::footprint_radius(rr, 0.5f * 4096.f) / rr * 1000.f + 0.5f));
+    autoport_proof::publish(
+        "grass_int_reh_foot_out_milli",
+        (u64)(grass_prints::footprint_radius(rr, 1.5f * 4096.f) / rr * 1000.f + 0.5f));
   }
-  if (walk >= kRehCap) capped = true;
-  if (sampled > 0) ++terms;
-  float dot = sd.x * ux + sd.z * uz;
-  dot = std::min(1.f, std::max(-1.f, dot));
-  const double err_deg = std::acos((double)dot) * 180.0 / 3.14159265358979323846;
-  autoport_proof::publish("grass_int_reh_dir_err_deg", (u64)std::ceil(err_deg));
-  autoport_proof::publish("grass_int_reh_dir_err_milli_deg", (u64)(err_deg * 1000.0 + 0.5));
-  autoport_proof::publish("grass_int_reh_dir_speed_milli", (u64)(sd.speed * 1000.f + 0.5f));
-  autoport_proof::publish("grass_int_reh_dir_unit_milli",
-                          (u64)(std::sqrt(sd.x * sd.x + sd.z * sd.z) * 1000.f + 0.5f));
 
   // H. Le banc lui-meme.
   autoport_proof::publish("grass_int_reh_ran", 1u);
@@ -1112,29 +1195,68 @@ void begin_contact_frame() {
     contact_all_positions.push_back(actors[i].pos);
     contact_all_strengths.push_back(actors[i].strength);
   }
-  // OWNER ROUND#21 EASED TRAMPLE RELEASE: keep a short trail of Jak's recent positions (one sample
-  // every ~0.15 s, 4 samples) and upload them with an age-decayed strength (1 -> 0 over ~0.6 s).
-  // The shader max-combines them with the live position, so the flatten under a takeoff spot (jump)
-  // or behind a sprint eases back up over the decay window instead of snapping upright in one frame.
+  // grass-interaction-direction (essai 4) — LE VIVIER D'EMPREINTES REMPLACE LE POINT ET LE CAP.
   {
-    static StepTrail s_trail;
-    static StepDir s_dir;
-    update_trail(s_trail, jp, u_time);
-    std::copy_n(s_trail.out, 16, contact_trail);
-    // grass-interaction-direction : le cap se derive de la MEME trainee, une fois qu'elle est a
-    // jour. Rien de ce qui precede n'a change.
-    update_step_dir(s_dir, s_trail, jp, u_time);
-    contact_dir[0] = s_dir.x;
-    contact_dir[1] = s_dir.z;
-    contact_dir[2] = s_dir.speed;
-    // LE CORRECTIF SE DEBRAYE ICI, ET NULLE PART AILLEURS. w = 0 rend la loi du shader
-    // EXACTEMENT radiale (c'est demontre dans `shaders/grass_contact_dir.glsl`), donc le bras
-    // `--off` et les paliers bas dessinent le disque d'avant, au bit pres du build precedent.
-    // HORS PERIMETRE DE L'ITEM : « les paliers bas gardent la loi radiale actuelle en repli ».
+    static grass_prints::Pool s_pool;
+    static grass_prints::StepStats s_st;
     const int tier =
         grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset);
-    contact_dir[3] =
-        (autoport_proof::armed_for(kInteractionDirItemId) && tier >= 2) ? 1.f : 0.f;
+    // L'ARMEMENT SE FAIT ICI, ET NULLE PART AILLEURS. Desarme, le vivier ne recoit AUCUNE sphere :
+    // les empreintes meurent, les uniformes tombent a zero et le couchage de Jak disparait
+    // COMPLETEMENT. C'est l'ablation que le contrat exige — « sans spheres = 0 couchage » — et
+    // c'est un verdict d'EFFET, pas une inaction.
+    const bool armed = autoport_proof::armed_for(kInteractionDirItemId);
+    // HORS PERIMETRE DE L'ITEM : « les paliers bas gardent la loi radiale actuelle en repli ».
+    // tier < 2 ne coupe pas le couchage — il force le poids d'orientation a zero, ce qui rend la
+    // loi du shader EXACTEMENT radiale (c'est demontre dans `shaders/grass_contact_dir.glsl`).
+    contact_dir_armed = (armed && tier >= 2) ? 1.f : 0.f;
+
+    // LE VIVIER N'AVANCE QU'A UNE FRAME DE LOGIQUE NEUVE. Deux images de rendu du meme tick
+    // rendent `u_time` identique, donc un `dt` nul, donc une vitesse nulle : l'empreinte serait
+    // rafraichie sans direction et le couchage clignoterait entre les deux images.
+    const bool step_now = !pin || fresh_lf;
+    int nacc = 0, nrej = 0;
+    if (step_now) {
+      std::vector<grass_prints::Sphere> snap;
+      if (armed) {
+        std::lock_guard<std::mutex> lk(s_goal_mutex);
+        snap = s_jak_pub;
+      }
+      // LE FILTRE EST AU POINT DE PRODUCTION. GOAL parcourt le groupe de primitives de Jak ; si
+      // son `root-prim` n'etait pas un groupe, `prims` lirait la memoire voisine et l'herbe se
+      // coucherait au hasard a l'autre bout du niveau. Une sphere hors bornes est REFUSEE et
+      // COMPTEE, jamais rabotee : une valeur corrigee en silence est une perte qu'on retrouve
+      // des mois plus tard.
+      grass_prints::Sphere acc[grass_prints::SPH_MAX];
+      const bool jak_ok = contact_jak[3] > 0.5f;
+      for (const grass_prints::Sphere& sp : snap) {
+        if (!jak_ok ||
+            !grass_prints::accept(sp, contact_jak[0], contact_jak[1], contact_jak[2])) {
+          ++nrej;
+          continue;
+        }
+        if (nacc < grass_prints::SPH_MAX) {
+          acc[nacc++] = sp;
+        }
+      }
+      s_st = s_pool.step((double)u_time, acc, nacc, contact_jak[1]);
+    }
+    s_pool.fill_uniforms((double)u_time, contact_print_a, contact_print_b);
+    if (contact_dir_armed < 0.5f) {
+      for (int k = 0; k < grass_prints::PRINT_MAX; ++k) {
+        contact_print_b[k * 4 + 3] = 0.f;  // repli radial EXACT
+      }
+    }
+    contact_prints_live = 0;
+    float unit_min = 2.f, speed_max = 0.f;
+    for (int k = 0; k < grass_prints::PRINT_MAX; ++k) {
+      if (contact_print_a[k * 4 + 3] > 0.f && contact_print_b[k * 4 + 2] > 0.004f) {
+        ++contact_prints_live;
+        const float dx = contact_print_b[k * 4 + 0], dz = contact_print_b[k * 4 + 1];
+        unit_min = std::min(unit_min, std::sqrt(dx * dx + dz * dz));
+        speed_max = std::max(speed_max, contact_print_b[k * 4 + 3]);
+      }
+    }
 
     if (autoport_proof::feature_is(kInteractionDirItemId)) {
       // LA REPETITION DES ACQUIS : une seule fois par course, sur des instances LOCALES.
@@ -1143,18 +1265,38 @@ void begin_contact_frame() {
         s_reh_done = true;
         rehearse_acquis();
       }
-      if (contact_dir[2] > 0.f) {
+      if (step_now) {
+        g_sph_frames += (nacc > 0) ? 1u : 0u;
+        g_sph_max = std::max(g_sph_max, (u64)nacc);
+        g_sph_rejected += (u64)nrej;
+        g_sph_kind_mask |= (u64)s_st.kind_mask;
+        g_grounded_max = std::max(g_grounded_max, (u64)s_st.spheres_grounded);
+        g_impacts += (u64)s_st.impacts;
+      }
+      g_prints_max = std::max(g_prints_max, contact_prints_live);
+      if (contact_prints_live > 0) {
         ++g_dir_frames;
       }
-      const u64 spd_milli = (u64)std::max(0.f, contact_dir[2] * 1000.f + 0.5f);
-      g_dir_speed_max_milli = std::max(g_dir_speed_max_milli, spd_milli);
+      g_dir_speed_max_milli =
+          std::max(g_dir_speed_max_milli, (u64)std::max(0.f, speed_max * 1000.f + 0.5f));
+      // LE CANAL EST-IL VIVANT ? Ces cinq lignes AVANT toute grandeur calculee.
+      autoport_proof::publish("grass_int_engine_sph_frames", g_sph_frames);
+      autoport_proof::publish("grass_int_engine_sph_max", g_sph_max);
+      autoport_proof::publish("grass_int_engine_sph_rejected", g_sph_rejected);
+      autoport_proof::publish("grass_int_engine_sph_kind_mask", g_sph_kind_mask);
+      autoport_proof::publish("grass_int_engine_grounded_max", g_grounded_max);
+      autoport_proof::publish("grass_int_engine_prints_max", g_prints_max);
+      autoport_proof::publish("grass_int_engine_prints_live", contact_prints_live);
+      autoport_proof::publish("grass_int_engine_impacts", g_impacts);
       autoport_proof::publish("grass_int_engine_tier", (u64)tier);
-      autoport_proof::publish("grass_int_engine_dir_enabled", contact_dir[3] > 0.5f ? 1u : 0u);
+      autoport_proof::publish("grass_int_engine_dir_enabled", contact_dir_armed > 0.5f ? 1u : 0u);
       autoport_proof::publish("grass_int_engine_dir_frames", g_dir_frames);
       autoport_proof::publish("grass_int_engine_dir_speed_max_milli", g_dir_speed_max_milli);
-      const float unit =
-          std::sqrt(contact_dir[0] * contact_dir[0] + contact_dir[1] * contact_dir[1]);
-      autoport_proof::publish("grass_int_engine_dir_unit_milli", (u64)(unit * 1000.f + 0.5f));
+      // Les directions d'empreinte sont UNITAIRES par construction ; le shader en depend (sa base
+      // (cap, perpendiculaire) doit rester orthonormee, sinon le repli radial cesse d'etre exact).
+      // C'est un contrat, donc ca se MESURE : 0 signifie « aucune place vivante », pas « faux ».
+      autoport_proof::publish("grass_int_engine_dir_unit_milli",
+                              (u64)(unit_min > 1.5f ? 0.f : unit_min * 1000.f + 0.5f));
       // Les DEUX populations du contact, et leur non-chevauchement : « cache » et « aplati »
       // sont deux classes distinctes, c'est un acquis valide par l'owner.
       autoport_proof::publish("grass_int_engine_cull_entries", (u64)g_published.size());
@@ -1170,27 +1312,22 @@ void begin_contact_frame() {
         }
       }
       autoport_proof::publish("grass_int_engine_class_overlap", overlap);
-      // Les seuils, publies PAR CE QUI MESURE.
-      autoport_proof::publish("grass_int_dir_deadzone_milli",
-                              (u64)(DIR_DEADZONE_M * 1000.f + 0.5f));
+      // Les reglages, publies PAR CE QUI MESURE. Un juge qui les recopierait mesurerait sa copie.
       autoport_proof::publish("grass_int_dir_spd_lo_milli",
-                              (u64)(DIR_SPD_LO_MPS * 1000.f + 0.5f));
+                              (u64)(grass_prints::SPD_LO / 4096.f * 1000.f + 0.5f));
       autoport_proof::publish("grass_int_dir_spd_hi_milli",
-                              (u64)(DIR_SPD_HI_MPS * 1000.f + 0.5f));
-      autoport_proof::publish("grass_int_dir_smooth_milli",
-                              (u64)(DIR_SMOOTH_S * 1000.f + 0.5f));
-      autoport_proof::publish("grass_int_dir_release_milli",
-                              (u64)(DIR_RELEASE_S * 1000.f + 0.5f));
-      // `hits=` de la ligne FEATURE : les echantillons de Jak (position + trainee) REELLEMENT
-      // appliques a cette image, et seulement quand le cap est en service. Desarme,
-      // `contact_dir[3]` vaut 0 et le compte est 0.
-      if (contact_dir[3] > 0.5f && contact_dir[2] > 0.f) {
-        u64 samples = (contact_jak[3] > 0.004f) ? 1u : 0u;
-        for (int ti = 0; ti < 4; ++ti) {
-          samples += (contact_trail[ti * 4 + 3] > 0.004f) ? 1u : 0u;
-        }
-        g_dir_hits += samples;
-        autoport_proof::note_hit_for(kInteractionDirItemId, samples);
+                              (u64)(grass_prints::SPD_HI / 4096.f * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_return_milli",
+                              (u64)(grass_prints::RETURN_S * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_print_gain_milli",
+                              (u64)(grass_prints::PRINT_GAIN * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_print_max", (u64)grass_prints::PRINT_MAX);
+      autoport_proof::publish("grass_int_dir_sph_max", (u64)grass_prints::SPH_MAX);
+      // `hits=` de la ligne FEATURE : les EMPREINTES DE CORPS reellement appliquees a cette image.
+      // Desarme, le vivier est vide et le compte est 0.
+      if (contact_dir_armed > 0.5f && contact_prints_live > 0) {
+        g_dir_hits += contact_prints_live;
+        autoport_proof::note_hit_for(kInteractionDirItemId, contact_prints_live);
       }
       autoport_proof::publish("grass_int_engine_hits", g_dir_hits);
     }
@@ -1201,10 +1338,9 @@ ContactSources contact_sources(bool include_static) {
   const auto& positions = include_static ? contact_all_positions : g_tramp_published;
   const auto& strengths = include_static ? contact_all_strengths : g_tramp_strength;
   ContactSources result;
-  result.jak_samples = (contact_jak[3] > 0.004f ? 1 : 0) + (contact_ledge[3] > 0.5f ? 1 : 0);
-  for (int i = 0; i < 4; ++i) {
-    result.jak_samples += contact_trail[i * 4 + 3] > 0.004f ? 1 : 0;
-  }
+  // grass-interaction-direction (essai 4) : un « echantillon de Jak » est maintenant une place
+  // VIVANTE du vivier d'empreintes, plus un point et les quatre pas de sa trainee.
+  result.jak_samples = (unsigned int)contact_prints_live + (contact_ledge[3] > 0.5f ? 1u : 0u);
   for (size_t i = 0; i < std::min<size_t>(positions.size(), include_static ? 16 : 8); ++i) {
     result.object_samples += strengths[i] > 0.f && positions[i][3] > 0.f ? 1 : 0;
   }
@@ -1214,19 +1350,26 @@ ContactSources contact_sources(bool include_static) {
 bool push_contact_uniforms(unsigned int id, bool include_static) {
   const auto& positions = include_static ? contact_all_positions : g_tramp_published;
   const auto& strengths = include_static ? contact_all_strengths : g_tramp_strength;
-  glUniform4fv(grass_uloc(id, "u_jak_pos"), 1, contact_jak.data());
   glUniform4fv(grass_uloc(id, "u_jak_ledge"), 1, contact_ledge.data());
-  glUniform4fv(grass_uloc(id, "u_jak_trail"), 4, contact_trail);
-  // grass-interaction-direction : le cap du pas. PAS ajoute a la chaine de `&&` du `return` :
-  // shrub partage ce shader, une localisation -1 y ferait rendre `false` a TOUT le contact. Le
-  // temoin se publie (ci-dessous), il ne condamne pas le reste.
+  // grass-interaction-direction (essai 4) : les empreintes du corps. PAS ajoutees a la chaine de
+  // `&&` du `return` : shrub partage ce shader, une localisation -1 y ferait rendre `false` a TOUT
+  // le contact. Le temoin se publie (ci-dessous), il ne condamne pas le reste.
   {
-    const GLint dir_loc = grass_uloc(id, "u_contact_dir");
-    glUniform4fv(dir_loc, 1, contact_dir);
+    // UN UNIFORME RETIRE PAR LE COMPILATEUR REND -1 ET `glUniform4fv(-1, ...)` EST UN NO-OP
+    // DOCUMENTE : sans ce temoin, le bras `--off` croirait avoir eteint la loi. Le repli
+    // « nom[0] » est le contournement Adreno 618 deja eprouve sur `u_trample_str`.
+    GLint pa = grass_uloc(id, "u_jak_print");
+    if (pa < 0) {
+      pa = grass_uloc(id, "u_jak_print[0]");
+    }
+    GLint pb = grass_uloc(id, "u_jak_printv");
+    if (pb < 0) {
+      pb = grass_uloc(id, "u_jak_printv[0]");
+    }
+    glUniform4fv(pa, grass_prints::PRINT_MAX, contact_print_a);
+    glUniform4fv(pb, grass_prints::PRINT_MAX, contact_print_b);
     if (autoport_proof::feature_is(kInteractionDirItemId)) {
-      // UN UNIFORME RETIRE PAR LE COMPILATEUR REND -1 ET `glUniform4fv(-1, ...)` EST UN NO-OP
-      // DOCUMENTE : sans ce temoin, le bras `--off` croirait avoir eteint la loi.
-      autoport_proof::publish("grass_int_engine_dir_uloc_ok", dir_loc >= 0 ? 1u : 0u);
+      autoport_proof::publish("grass_int_engine_dir_uloc_ok", (pa >= 0 && pb >= 0) ? 1u : 0u);
     }
   }
   // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
@@ -1238,24 +1381,11 @@ bool push_contact_uniforms(unsigned int id, bool include_static) {
       glUniform4fv(grass_uloc(id, "u_trample"), ntr, &positions[0][0]);
       // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
       // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
-      // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
-      // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
-      // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
-      // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
-      int str_loc = grass_uloc(id, "u_trample_str");
-      if (str_loc < 0) {
-        str_loc = grass_uloc(id, "u_trample_str[0]");
-      }
-      static bool s_str_loc_logged = false;
-      if (!s_str_loc_logged) {
-        s_str_loc_logged = true;
-        lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
-                 str_loc, grass_uloc(id, "u_trample_str"),
-                 strengths.empty() ? -1.f : strengths[0], ntr);
-      }
-      glUniform1fv(str_loc, ntr, strengths.data());
       // R21f: repack strengths into a vec4 array (.x) — see grass.vert; float-array dynamic reads
-      // miscompile to 0 on the Adreno 618.
+      // miscompile to 0 on the Adreno 618. `u_trample_str[16]` etait encore televerse ici alors
+      // que le shader ne le lit plus depuis ce contournement : 16 flottants par image et par
+      // programme pour personne, et un morceau de code que le prochain lecteur aurait cru vivant
+      // (signale dans FINDINGS le 20/09). Il est retire, l'uniforme aussi.
       float str4[16][4];
       for (int si = 0; si < ntr && si < 16; si++) {
         str4[si][0] = strengths[si];
@@ -1266,9 +1396,7 @@ bool push_contact_uniforms(unsigned int id, bool include_static) {
     glUniform1i(grass_uloc(id, "u_trample_count"), ntr);
   }
 
-  return grass_uloc(id, "u_jak_pos") >= 0 &&
-         grass_uloc(id, "u_jak_trail") >= 0 &&
-         grass_uloc(id, "u_jak_ledge") >= 0 &&
+  return grass_uloc(id, "u_jak_ledge") >= 0 &&
          grass_uloc(id, "u_trample") >= 0 &&
          grass_uloc(id, "u_trample2") >= 0 &&
          grass_uloc(id, "u_trample_count") >= 0;
@@ -3201,7 +3329,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   static bool s_occ_loc_logged = false;
   if (!s_occ_loc_logged) {
     s_occ_loc_logged = true;
-    lg::info("[recharged-grass] R19OCC uniform-locations: u_occ={} u_occ_count={} u_trample={} u_trample_count={} u_jak_pos={} u_tilt={}", grass_uloc(id, "u_occ"), grass_uloc(id, "u_occ_count"), grass_uloc(id, "u_trample"), grass_uloc(id, "u_trample_count"), grass_uloc(id, "u_jak_pos"), grass_uloc(id, "u_tilt"));
+    lg::info("[recharged-grass] R19OCC uniform-locations: u_occ={} u_occ_count={} u_trample={} u_trample_count={} u_jak_print={} u_tilt={}", grass_uloc(id, "u_occ"), grass_uloc(id, "u_occ_count"), grass_uloc(id, "u_trample"), grass_uloc(id, "u_trample_count"), grass_uloc(id, "u_jak_print"), grass_uloc(id, "u_tilt"));
   }
   static int s_occ_dump_frame = 0;
   if ((s_occ_dump_frame++ % 150) == 0) {

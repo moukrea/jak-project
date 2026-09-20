@@ -62,3 +62,45 @@ vec3 grass_contact_dir(vec2 gcd_d, vec2 gcd_dir, float gcd_speed, float gcd_R, f
   vec2 gcd_push = gcd_ml > 0.0001 ? gcd_m / gcd_ml : gcd_radial;
   return vec3(gcd_k, gcd_push.x, gcd_push.y);
 }
+
+// ================================================================================================
+// grass_contact_print — UNE EMPREINTE DE CORPS APPLIQUEE A UN BRIN.
+//
+// POURQUOI CETTE FONCTION EST DANS CE CHUNK ET PAS DANS `vegetation_contact.glsl`. L'essai 3
+// mesurait `grass_contact_dir` (la loi d'UN contact) mais la COMPOSITION — quelle empreinte, a
+// quelle hauteur, avec quel fondu — vivait dans le shader que le C++ n'inclut pas. La porte
+// mesurait donc une moitie de la loi. Tout ce qu'un brin subit est maintenant ICI, donc
+// `GrassBakeCore.cpp` execute exactement ce que le pilote execute.
+//
+//   gcp_base   position du pied du brin, monde.
+//   gcp_p      position au SOL de l'empreinte (son plan de reference).
+//   gcp_r      rayon d'empreinte, deja projete au sol par le vivier : sqrt(r^2 - h^2) * gain.
+//              Zero = place morte, et zero VEUT DIRE zero : aucun branchement a index calcule.
+//   gcp_dir    direction de poussee, XZ unitaire (la vitesse de la sphere qui a stampe).
+//   gcp_str    force du ressort amorti a cet instant, 0..1.
+//   gcp_speed  0 = repli radial EXACT (paliers bas), 1 = orientation pleine.
+//   rend       x = flexion 0..1 ; yz = direction unitaire de poussee.
+//
+// LA BANDE VERTICALE N'EST PLUS UNE COUPURE. L'essai 3 coupait le couchage quand Jak depassait
+// 2 m d'altitude : c'est le « ca passe d'un etat a l'autre instant sans transition » de l'owner.
+// La hauteur du SAUT ne joue plus aucun role ici — le vivier a deja referme l'empreinte de facon
+// continue par sqrt(r^2 - h^2). Ce qui reste est un fondu d'ETAGE : une empreinte posee sur une
+// corniche ne couche pas l'herbe trois metres plus bas. `smoothstep` est ecrit en clair : il
+// n'existe pas dans le sous-ensemble C++ commun.
+vec3 grass_contact_print(vec3 gcp_base, vec3 gcp_p, float gcp_r,
+                         vec2 gcp_dir, float gcp_str, float gcp_speed) {
+  const float GCP_Y_NEAR = 1.0 * 4096.0;  // meme etage : aucun fondu
+  const float GCP_Y_FAR = 1.8 * 4096.0;   // au-dela, l'empreinte n'appartient pas a ce brin
+  if (gcp_r <= 1.0 || gcp_str <= 0.004) {
+    return vec3(0.0, 1.0, 0.0);
+  }
+  float gcp_g = gcp_base.y - gcp_p.y;
+  float gcp_ag = gcp_g < 0.0 ? -gcp_g : gcp_g;
+  float gcp_vt = clamp((gcp_ag - GCP_Y_NEAR) / (GCP_Y_FAR - GCP_Y_NEAR), 0.0, 1.0);
+  float gcp_vf = 1.0 - gcp_vt * gcp_vt * (3.0 - 2.0 * gcp_vt);
+  if (gcp_vf <= 0.0) {
+    return vec3(0.0, 1.0, 0.0);
+  }
+  vec2 gcp_d = vec2(gcp_base.x - gcp_p.x, gcp_base.z - gcp_p.z);
+  return grass_contact_dir(gcp_d, gcp_dir, gcp_speed, gcp_r, gcp_vf * gcp_str);
+}

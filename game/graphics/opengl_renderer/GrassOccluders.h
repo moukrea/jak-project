@@ -49,4 +49,12 @@ void goal_add(int kind, float x, float y, float z, float r_world);  // game thre
 void goal_add_moving(unsigned int actor_id, float x, float y, float z, float r_world);
 void goal_publish();
 void goal_break_at(float x, float y, float z);  // R28: instant trample cancel at a break spot                                          // game thread: stage -> snapshot (locked)
+
+// grass-interaction-direction (essai 4) : les spheres de collision de Jak. `kind_slot` encode le
+// genre sur 3 bits et le rang sur les bits hauts : kind = kind_slot & 7 (0 corps, 1 membre,
+// 2 volume d'attaque), slot = kind_slot >> 3. Le RANG doit etre stable d'une image a l'autre :
+// c'est lui qui apparie une sphere avec elle-meme, donc qui donne sa VITESSE.
+void jak_clear();
+void jak_add(int kind_slot, float x, float y, float z, float r_world);
+void jak_publish();
 }  // namespace grass_occ

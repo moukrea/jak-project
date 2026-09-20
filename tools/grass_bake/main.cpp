@@ -20,6 +20,7 @@
 #include "common/custom_data/Tfrag3Data.h"
 
 #include "game/graphics/opengl_renderer/GrassBakeCore.h"
+#include "game/graphics/opengl_renderer/GrassContactPrints.h"
 
 #include "fmt/format.h"
 
@@ -878,6 +879,61 @@ int main(int argc, char** argv) {
     fmt::print("intx_lat_delta_floor={:.5f}\n", grass_bake::INT_LAT_DELTA_FLOOR);
     fmt::print("intx_lat_excess_floor={:.5f}\n", grass_bake::INT_LAT_EXCESS_FLOOR);
     fmt::print("intx_radial_aniso_tol={:.5f}\n", grass_bake::INT_RADIAL_ANISO_TOL);
+
+    // grass-interaction-direction (essai 4) : LE MANNEQUIN DE CORPS — plus un point+cap, mais
+    // l'empreinte au sol des spheres de collision de Jak, jouee sur le VRAI vivier.
+    fmt::print("intx_rig_frames={}\n", ic.intx_rig_frames);
+    fmt::print("intx_corr_union={:.5f}\n", ic.intx_corr_union);
+    fmt::print("intx_corr_box={:.5f}\n", ic.intx_corr_box);
+    fmt::print("intx_corr_cells={}\n", ic.intx_corr_cells);
+    fmt::print("intx_corr_frames={}\n", ic.intx_corr_frames);
+    fmt::print("intx_off_corr_union={:.5f}\n", ic.intx_off_corr_union);
+    fmt::print("intx_off_corr_box={:.5f}\n", ic.intx_off_corr_box);
+    // LA CORRELATION AVEC MEMOIRE : meme couchage, reference etiree sur la fenetre du ressort.
+    fmt::print("intx_corr_win_union={:.5f}\n", ic.intx_corr_win_union);
+    fmt::print("intx_corr_win_box={:.5f}\n", ic.intx_corr_win_box);
+    fmt::print("intx_corr_win_cells={}\n", ic.intx_corr_win_cells);
+    fmt::print("intx_corr_win_frames={}\n", ic.intx_corr_win_frames);
+    fmt::print("intx_corr_win_s={:.5f}\n", ic.intx_corr_win_s);
+    fmt::print("intx_off_corr_win_union={:.5f}\n", ic.intx_off_corr_win_union);
+    fmt::print("intx_off_corr_win_box={:.5f}\n", ic.intx_off_corr_win_box);
+    // LA DECOMPOSITION FORME/MEMOIRE : couchage SANS memoire (places stampees a cette image
+    // seulement) contre la MEME reference instantanee.
+    fmt::print("intx_corr_fresh_union={:.5f}\n", ic.intx_corr_fresh_union);
+    fmt::print("intx_corr_fresh_box={:.5f}\n", ic.intx_corr_fresh_box);
+    fmt::print("intx_corr_fresh_cells={}\n", ic.intx_corr_fresh_cells);
+    fmt::print("intx_corr_fresh_frames={}\n", ic.intx_corr_fresh_frames);
+    fmt::print("intx_off_corr_fresh_union={:.5f}\n", ic.intx_off_corr_fresh_union);
+    fmt::print("intx_off_corr_fresh_box={:.5f}\n", ic.intx_off_corr_fresh_box);
+    fmt::print("intx_step_max={:.5f}\n", ic.intx_step_max);
+    fmt::print("intx_step_peak={:.5f}\n", ic.intx_step_peak);
+    fmt::print("intx_step_frames={}\n", ic.intx_step_frames);
+    fmt::print("intx_step_excluded={}\n", ic.intx_step_excluded);
+    fmt::print("intx_return_ms={:.5f}\n", ic.intx_return_ms);
+    fmt::print("intx_return_peak={:.5f}\n", ic.intx_return_peak);
+    fmt::print("intx_return_floor={:.5f}\n", ic.intx_return_floor);
+    fmt::print("intx_rest_frames={}\n", ic.intx_rest_frames);
+    fmt::print("intx_abl_bending={:.5f}\n", ic.intx_abl_bending);
+    fmt::print("intx_abl_frames={}\n", ic.intx_abl_frames);
+    fmt::print("intx_spin_crown={:.5f}\n", ic.intx_spin_crown);
+    fmt::print("intx_spin_ring_n={}\n", ic.intx_spin_ring_n);
+    fmt::print("intx_spin_center_n={}\n", ic.intx_spin_center_n);
+    fmt::print("intx_punch_lobe={:.5f}\n", ic.intx_punch_lobe);
+    fmt::print("intx_punch_front_n={}\n", ic.intx_punch_front_n);
+    fmt::print("intx_punch_back_n={}\n", ic.intx_punch_back_n);
+    // LES PLANCHERS/PLAFONDS DU CONTRAT, publies par le CODE, jamais recopies dans le juge.
+    fmt::print("intx_corr_floor={:.5f}\n", grass_bake::INTR_CORR_FLOOR);
+    fmt::print("intx_step_cap={:.5f}\n", grass_bake::INTR_STEP_CAP);
+    fmt::print("intx_return_lo_ms={:.5f}\n", grass_bake::INTR_RETURN_LO_MS);
+    fmt::print("intx_return_hi_ms={:.5f}\n", grass_bake::INTR_RETURN_HI_MS);
+    fmt::print("intx_crown_floor={:.5f}\n", grass_bake::INTR_CROWN_FLOOR);
+    fmt::print("intx_lobe_floor={:.5f}\n", grass_bake::INTR_LOBE_FLOOR);
+    // LES COTES DU MANNEQUIN : un mannequin dont les cotes ne sont pas dans la preuve n'est pas
+    // reproductible. La PORTEE d'attaque (`kind_reach`) vient du VRAI vivier, pas d'une copie.
+    fmt::print("intx_rig_limb_r_m={:.5f}\n", grass_bake::INTR_FOOT_R / 4096.0);
+    fmt::print("intx_rig_spin_r_m={:.5f}\n", grass_bake::INTR_SPIN_R / 4096.0);
+    fmt::print("intx_rig_punch_r_m={:.5f}\n", grass_bake::INTR_PUNCH_R / 4096.0);
+    fmt::print("intx_attack_reach_m={:.5f}\n", grass_prints::ATTACK_REACH / 4096.0);
   }
 
   // grass-clumps, point 3 : LES PALIERS RESTENT IMBRIQUES. On rejoue le scan a l'autre palier —

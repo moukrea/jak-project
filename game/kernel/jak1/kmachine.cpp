@@ -4673,6 +4673,22 @@ void pc_grass_occ_publish() {
   grass_occ::goal_publish();
 }
 
+// grass-interaction-direction (essai 4) : canal GOAL -> C++ pour les spheres de collision de Jak
+// (corps, membres, volumes d'attaque). Meme dereferencement que pc_grass_occ_add ci-dessus.
+void pc_grass_jak_clear() {
+  grass_occ::jak_clear();
+}
+void pc_grass_jak_add(u32 kind_slot, u32 vec, u32 r_units) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  grass_occ::jak_add((int)kind_slot, p[0], p[1], p[2], (float)r_units);
+}
+void pc_grass_jak_publish() {
+  grass_occ::jak_publish();
+}
+
 // R28: called from the scarecrow break path at the exact clear-collide frame — instantly cancels the
 // trample at that spot (ghost erased + 8 s tombstone). No-op when grass is off (empty ghost lists).
 void pc_grass_tramp_break(u32 vec) {
@@ -5093,6 +5109,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-grass-occ-add-moving!", (void*)pc_grass_occ_add_moving);
   make_function_symbol_from_c("pc-grass-occ-publish!", (void*)pc_grass_occ_publish);
   make_function_symbol_from_c("pc-grass-tramp-break!", (void*)pc_grass_tramp_break);
+  make_function_symbol_from_c("pc-grass-jak-clear!", (void*)pc_grass_jak_clear);
+  make_function_symbol_from_c("pc-grass-jak-add!", (void*)pc_grass_jak_add);
+  make_function_symbol_from_c("pc-grass-jak-publish!", (void*)pc_grass_jak_publish);
 
   make_function_symbol_from_c("pc-discord-rpc-update", (void*)update_discord_rpc);
 
