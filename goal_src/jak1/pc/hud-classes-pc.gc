@@ -3654,9 +3654,12 @@
   (none))
 
 (defun rhud-gauge-fit-bad ((this hud-recharged-power))
-  "les types d'eco dont la nuee ne tient pas dans le trou de l'anneau : trop grande (elle deborde
-   de plus de 10 % du rayon du trou, ce que l'owner refuse le 20/09) ou evanouie (sous la moitie
-   du rayon : une nuee disparue « tiendrait » elle aussi, et ce serait un vert par inaction)."
+  "les types d'eco dont la BOITE des sommets emis sort de ses bornes : au-dessus de BOX_MAX la
+   nuee est partie ailleurs qu'au centre de la jauge (borne de COUT), en dessous de BOX_MIN —
+   0,85 fois le rayon du trou, le plancher du perimetre du 20/09 13:45 — elle s'est evanouie, et
+   une nuee disparue « tiendrait » elle aussi : ce serait un vert par inaction.
+   CE TERME NE MESURE PAS LE DEBORDEMENT : la boite d'un quad tourne vaut jusqu'a racine(5) fois
+   sa demi-largeur. Le debordement est mesure par la couronne de la grille (`t13_out`)."
   (let ((bad 0))
     (dotimes (k 3)
       (when (> (-> this t12-n k) 0)
