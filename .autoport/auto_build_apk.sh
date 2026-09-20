@@ -147,7 +147,26 @@ declare -A _builder_cause_vue
 # n'exposer que SES processus ; tout le reste (comm, ligne de commande, CPU, enfants) reste lu
 # dans le VRAI /proc, sur de VRAIS processus. Un banc qui simulerait aussi /proc ne mesurerait
 # que son propre decor.
-builder_pid_list(){ ls -1 /proc 2>/dev/null | grep -xE '[0-9]+'; }
+#
+# LA MEME PORTE, POUR LE BANC QUI EXECUTE TOUT LE FICHIER. `lib/builder_guard_selftest.sh`
+# decoupe la tranche et redefinit l'indirection ; `tests/harness/test_delivery_stale_bake.py`,
+# lui, fait tourner CE script entier dans un depot jetable et ne peut rien redefinir. Il lisait
+# donc le /proc de l'HOTE : un seul `gk` (ou cc1plus, cc1, ninja, cmake, goalc) vivant ailleurs
+# sur la machine faisait `continue` a chaque tour, et les 11 tests de ce banc qui pilotent
+# auto_build_apk.sh rougissaient EN BLOC, sans rapport avec ce qui etait juge. MESURE du 20/09 :
+# un faux `gk` (copie de /usr/bin/sleep) suffit — 5 tests sur 6 passent au rouge avec, verts
+# sans. La suite complete a impute ces memes 11 rouges a deux items d'affilee : res-scale-submenu
+# le 18/09 (classes HERITES) et harness-pack-manifest le 20/09 (classes NEUFS, fermeture
+# refusee). `BUILDER_PID_LIST_FILE` est la porte que le banc pose ; chemin absent ou illisible =
+# on retombe sur le VRAI /proc, donc une faute de frappe laisse la garde de production intacte,
+# jamais aveugle.
+builder_pid_list(){
+  if [ -n "${BUILDER_PID_LIST_FILE:-}" ] && [ -r "${BUILDER_PID_LIST_FILE}" ]; then
+    grep -xE '[0-9]+' "$BUILDER_PID_LIST_FILE" 2>/dev/null
+    return 0
+  fi
+  ls -1 /proc 2>/dev/null | grep -xE '[0-9]+'
+}
 
 builder_cpu_ticks(){ awk '{print $14+$15}' "/proc/$1/stat" 2>/dev/null; }
 
