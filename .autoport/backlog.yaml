@@ -10254,7 +10254,7 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: open
+- status: in-progress
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13524,7 +13524,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13567,6 +13567,8 @@ items:
     20/09 RETOUR OWNER (JAK-176) : « c'est par dessus mais la lueur est tres muted… et j'ai l'impression que c'est le truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais exactement comme sur la particule d'Eco verte) ». L'ORDRE DE DESSIN EST ACQUIS. PERIMETRE : (1) par type d'eco, l'emetteur utilise au centre doit etre celui du RAMASSABLE DU MONDE de CE type (groupes distincts bleu/rouge/jaune, pas le groupe vert reteinte) : verifier l'identite du groupe de particules ET ses parametres de mouvement (vitesse, duree de vie, gravite, spin) champ par champ contre le vial du monde du meme type ; (2) la lueur : intensite/alpha et taille des etincelles au niveau du vial du monde (rapport de luminance emise HUD/monde entre 0,8 et 1,2), le HUD n'attenue pas. PORTE : pour chacun des 3 types, groupe identique a celui du monde (id) et champs de mouvement egaux a 5 % ; rapport de lueur dans [0,8 ; 1,2]. Capture jointe.
 
     20/09 11:10 RETOUR OWNER (JAK-176) : « Les eclairs de l'Eco Bleue debordent un peu trop sur la jauge (l'ensemble est trop gros par rapport au trou, pas de beaucoup mais quand meme). Et la teinte est pas assez opaque, ca fait presque transparent ». L'emetteur du bon type est ACQUIS. RESTE : (1) TAILLE : la demi-largeur de 15,0 unites (reprise du 18/09) est trop grande : viser la nuee dans le trou avec un debordement <= 10 % du rayon du trou (mesure sur la boite des sommets emis contre le rayon interieur de l'anneau) ; (2) OPACITE : l'alpha des etincelles rendu a l'ecran est trop bas — chercher pourquoi (alpha du groupe, mode de fusion additif sur fond sombre, taille reduite qui dilue), viser un alpha effectif >= 0,8 au coeur de la nuee, comme le vial du monde. PORTE : debordement <= 10 % du rayon du trou sur les 3 types ; alpha effectif au coeur >= 0,8 ; le mouvement et le type d'emetteur ne changent pas.
+
+    20/09 12:15 SUPERVISEUR : essai 8 a CODE la taille et l'opacite (hud-classes-pc.gc, commits d165bf9566 + 1a7e1b405e, DANS le build publie) puis a echoue sur SON PROPRE instrument neuf : terme t10 « bande », band_bad=16223 sur cover=16226 (99,98 % de mauvais) — un taux de base a ~1000 pour mille ne classe RIEN (regle du 14/09 : decoupage muet). L'instrument est suspect, pas forcement la nuee. Budget epuise (2/2). Regle de l'owner (19/09) : ne pas bruler d'essai sur une mesure qui bute sans cause nommee -> l'owner tranche a l'oeil sur le build qui porte l'essai 8. Si un essai suivant est accorde, il commence par calibrer t10 sur un controle positif ET negatif (une nuee volontairement trop grande / trop pale doit rougir, la nuee du vial du monde doit verdir) AVANT de toucher au code.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
