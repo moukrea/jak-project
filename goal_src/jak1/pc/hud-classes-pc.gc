@@ -262,17 +262,35 @@
 ;;;;       sont conserves verbatim, comme dans le portage de l'eco verte.
 ;;;;   S6  `:z` est l'ordre de superposition du HUD, pas une profondeur : on reprend l'echelonnement
 ;;;;       du portage vert deja livre (0,03 ancre · 0,065 bouffee · 0,12 points chauds).
-;;;;   S7  toutes les TAILLES et VITESSES sont multipliees par un facteur PAR COULEUR, choisi pour
-;;;;       que les trois nuees fassent LA MEME TAILLE a l'ecran : la couche dominante atteint au
-;;;;       plus 15,0 unites de demi-largeur. La demi-largeur d'un sprite de HUD vaut
-;;;;       scale-x / 239,95 unites de canevas (sprite_3d.vert rendermode 2 — sprite.gc:283,294-297).
-;;;;       Le trou central de l'anneau, mesure sur le canal alpha de `jak_gauge_empty.png`, commence
-;;;;       a r = 0,263 du demi-canevas, soit 0,263 x 45 = 11,8 unites ; le bord EXTERIEUR est a
-;;;;       0,870 x 45 = 39,2. Une nuee de 15,0 deborde donc de 27 % sur l'anneau interieur et
-;;;;       n'atteint que 38 % du rayon exterieur : « ça overlap un peu mais ça ne recouvre pas la
-;;;;       jauge », mot pour mot ce que l'owner a demande.
-;;;;       Facteurs : bleu 0,292908 (dominante = part 3, 2+1 = 3 m) · rouge et jaune 0,219681
-;;;;       (dominantes = parts 161 et 192, 2+2 = 4 m).
+;;;;   S7  REPRISE DU 20/09 — LE FACTEUR NE S'APPLIQUE PLUS QU'A LA COUCHE DIFFUSE DOMINANTE.
+;;;;       Jusqu'au 19/09, un facteur PAR COULEUR (bleu 0,292908 · rouge et jaune 0,219681)
+;;;;       multipliait TOUTES les tailles et TOUTES les vitesses des vingt parts. L'owner, le
+;;;;       20/09 : « la lueur est tres muted… les sparks d'eco bleue bougent pas comme sur la
+;;;;       particule d'Eco Bleue mais plutot exactement comme sur la particule d'Eco verte ».
+;;;;       C'EST CHIFFRE, ET LA CAUSE EST CE FACTEUR. La demi-largeur d'un sprite de HUD vaut
+;;;;       scale-x / 239,95 unites de canevas (sprite_3d.vert rendermode 2 — sprite.gc:283,
+;;;;       294-297). Le trou central de l'anneau, mesure sur le canal alpha de `jak_gauge_empty
+;;;;       .png`, commence a r = 0,263 x 45 = 11,8 unites ; le bord EXTERIEUR est a 0,870 x 45 =
+;;;;       39,2. Sous l'ancien facteur, l'etincelle bleue dominante (part 5, 0,8 m) faisait 4,0
+;;;;       unites de demi-largeur : la nuee n'atteignait meme pas le bord du TROU qu'elle etait
+;;;;       censee deborder, et sa surface emettrice — donc, a couleur et alpha egaux, sa lueur —
+;;;;       valait k2 = 8,6 % (bleu) et 4,8 % (rouge, jaune) de celle du ramassable. Les trois
+;;;;       eclairs du bleu (parts 7/8/9), ce qui fait qu'une eco BLEUE se reconnait, tombaient a
+;;;;       1,0 unite : sous le pixel. Il ne restait qu'un nuage de points, c'est-a-dire ce que
+;;;;       l'owner decrit — « le truc d'eco vert teinte en bleu ».
+;;;;       DESORMAIS : les ETINCELLES (toutes les couches sauf une) reprennent la taille, la
+;;;;       vitesse, l'acceleration et donc la lueur du ramassable, facteur 1. La SEULE couche qui
+;;;;       garde son facteur est la couche DIFFUSE dominante — 2987 (part 3), 2995 (161), 3001
+;;;;       (192) — parce qu'a la taille du monde (2+1 = 3 m) elle ferait 51,2 unites de
+;;;;       demi-largeur pour un anneau dont le bord exterieur est a 39,2 : elle RECOUVRIRAIT la
+;;;;       jauge, ce que l'owner a refuse le 18/09 (« que la lecture reste facile »). Avec cette
+;;;;       repartition la nuee monte a 25,6 unites au pire (part 10) contre 39,2 pour le bord :
+;;;;       elle deborde le trou, elle ne couvre pas la bande.
+;;;;       CE PARTAGE EST MESURE, PAS AFFIRME : le terme 11 confronte les dix champs de taille et
+;;;;       de vitesse au ramassable x le facteur de LEUR couche, a 5 % pres, et publie le rapport
+;;;;       de surface emettrice des etincelles (`t11_lum_permille_*`, porte [800;1200]) a cote de
+;;;;       celui de la couche diffuse, qui reste a k2 et le dit. Jusqu'au 19/09 ces dix champs
+;;;;       etaient ECARTES du terme 8 : la porte etait verte sans avoir jamais mesure une taille.
 
 
 ;;;; -- BLEU (id 721) <- `group-eco-blue` (id 42) ----------------------------------------------
@@ -308,7 +326,7 @@
   ((:texture (hotdot effects))
    (:num 1.0)
    (:z (meters 0.03))
-   (:scale-x (meters 0.002929079))
+   (:scale-x (meters 0.01))
    (:scale-y :copy scale-x)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
@@ -342,7 +360,7 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.23432632) (meters 0.11716316))
+   (:scale-x (meters 0.8) (meters 0.4))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 96.0)
@@ -350,7 +368,7 @@
    (:b 192.0)
    (:a 32.0 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0052072516) (meters 0.0043393765))
+   (:vel-x (meters 0.017777778) (meters 0.0148148155))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees 269.52002) (degrees 208.99998))
@@ -363,10 +381,10 @@
   ((:texture (lightning effects))
    (:num 0.0 1.0)
    (:z (meters 0.12))
-   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:scale-x (meters 0.2) (meters 1))
    (:rot-x 4)
    (:rot-z (degrees 0) (degrees 360))
-   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:scale-y (meters 0.15) (meters 0.1))
    (:r 64.0)
    (:g 64.0)
    (:b 128.0)
@@ -383,10 +401,10 @@
   ((:texture (lightning2 effects))
    (:num 0.0 1.0)
    (:z (meters 0.12))
-   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:scale-x (meters 0.2) (meters 1))
    (:rot-x 4)
    (:rot-z (degrees 0) (degrees 360))
-   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:scale-y (meters 0.15) (meters 0.1))
    (:r 64.0)
    (:g 64.0)
    (:b 128.0)
@@ -403,10 +421,10 @@
   ((:texture (lightning3 effects))
    (:num 0.0 1.0)
    (:z (meters 0.12))
-   (:scale-x (meters 0.058581579) (meters 0.2929079))
+   (:scale-x (meters 0.2) (meters 1))
    (:rot-x 4)
    (:rot-z (degrees 0) (degrees 360))
-   (:scale-y (meters 0.043936185) (meters 0.02929079))
+   (:scale-y (meters 0.15) (meters 0.1))
    (:r 64.0)
    (:g 64.0)
    (:b 128.0)
@@ -423,7 +441,7 @@
   ((:texture (hotdot effects))
    (:num 0.2 0.2)
    (:z (meters 0.12))
-   (:scale-x (meters 0.2929079) (meters 0.14645395))
+   (:scale-x (meters 1) (meters 0.5))
    (:scale-y :copy scale-x)
    (:r 32.0)
    (:g 32.0)
@@ -471,7 +489,7 @@
   ((:texture (hotdot effects))
    (:num 1.0)
    (:z (meters 0.03))
-   (:scale-x (meters 0.0021968092))
+   (:scale-x (meters 0.01))
    (:scale-y :copy scale-x)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
@@ -505,13 +523,13 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.13180855) (meters 0.087872369))
+   (:scale-x (meters 0.6) (meters 0.4))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
    (:g 64.0 64.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0039054387) (meters 0.0032545323))
+   (:vel-x (meters 0.017777778) (meters 0.0148148155))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -525,12 +543,12 @@
    (:x (meters 0) (meters 16))
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.13180855) (meters 0.13180855))
+   (:scale-x (meters 0.6) (meters 0.6))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
    (:g 64.0 64.0)
    (:a 32.0)
-   (:vel-x (meters 0.024734444))
+   (:vel-x (meters 0.11259259))
    (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
@@ -540,19 +558,19 @@
   ((:texture (bigpuff effects))
    (:num 0.1 1.0)
    (:z (meters 0.12))
-   (:scale-x (meters 0.087872369) (meters 0.043936185))
+   (:scale-x (meters 0.4) (meters 0.2))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 100.0 28.0)
    (:g 64.0 64.0)
    (:b 0.0)
    (:a 32.0 32.0)
-   (:scalevel-x (meters -0.00008368797))
+   (:scalevel-x (meters -0.00038095238))
    (:rotvel-z (degrees -1.2) (degrees 2.4))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
    (:fade-a -0.01904762)
-   (:accel-y (meters 0.000021968093) (meters 0.000032952138))
+   (:accel-y (meters 0.000100000005) (meters 0.00015))
    (:timer (seconds 0.1) (seconds 0.497))
    (:flags (bit2 bit3 bit9))
    (:next-time (seconds 0.8))
@@ -596,7 +614,7 @@
   ((:texture (hotdot effects))
    (:num 1.0)
    (:z (meters 0.03))
-   (:scale-x (meters 0.0021968092))
+   (:scale-x (meters 0.01))
    (:scale-y :copy scale-x)
    (:timer (seconds -0.005))
    (:flags (bit3 bit9))))
@@ -630,13 +648,13 @@
    (:num 1.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.087872369) (meters 0.043936185))
+   (:scale-x (meters 0.4) (meters 0.2))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
    (:g 64.0 64.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0039054387) (meters 0.0032545323))
+   (:vel-x (meters 0.017777778) (meters 0.0148148155))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:timer (seconds -0.005))
@@ -650,12 +668,12 @@
    (:x (meters 0) (meters 16))
    (:y (meters 0) (meters 16))
    (:z (meters 0.12))
-   (:scale-x (meters 0.087872369) (meters 0.043936185))
+   (:scale-x (meters 0.4) (meters 0.2))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
    (:g 64.0 64.0)
    (:a 32.0)
-   (:vel-x (meters 0.024734444))
+   (:vel-x (meters 0.11259259))
    (:timer (seconds -0.005))
    (:flags (bit2 bit3 bit7 bit9))))
 
@@ -665,17 +683,17 @@
   ((:texture (hotdot effects))
    (:num 0.1 1.0)
    (:z (meters 0.12))
-   (:scale-x (meters 0.065904277) (meters 0.021968092))
+   (:scale-x (meters 0.3) (meters 0.1))
    (:scale-y :copy scale-x)
    (:r 100.0 28.0)
    (:g 64.0 64.0)
    (:b 0.0)
    (:a 32.0 32.0)
-   (:scalevel-x (meters -0.00013599295))
+   (:scalevel-x (meters -0.0006190476))
    (:scalevel-y :copy scalevel-x)
    (:fade-g -0.4)
    (:fade-a -0.01904762)
-   (:accel-y (meters -0.000021968093) (meters -0.000032952138))
+   (:accel-y (meters -0.000100000005) (meters -0.00015))
    (:timer (seconds 0.1) (seconds 0.997))
    (:flags (bit2 bit3 bit9))
    (:next-time (seconds 0.8))
@@ -1405,6 +1423,23 @@
    (t8-mismatch  int32)    ;;   ... et champs QUI DIFFERENT hors de ces exclusions
    (t8-live      int32)    ;; OBSERVATION (hors porte) : pire nombre d'etats de lanceur vivants
    (t8-states    int32)    ;; le denominateur de la precedente : etats du lanceur actif
+   ;; --- terme 11 (reprise 20/09) : LE GABARIT, LA VITESSE ET LA LUEUR DES ETINCELLES ---
+   ;; Jusqu'au 19/09 le terme 8 ECARTAIT les dix champs de taille et de vitesse (S7) : la porte
+   ;; n'a donc JAMAIS mesure ce dont l'owner se plaint le 20/09 (« la lueur est tres muted »,
+   ;; « les sparks bougent pas comme sur la particule d'Eco Bleue »). Le terme 11 les mesure.
+   (t11-n        int32)    ;; champs de TAILLE ou de VITESSE confrontes au ramassable, avec facteur
+   (t11-bad      int32)    ;;   ... dont l'ecart au monde x facteur depasse 5 %
+   (t11-worst    int32)    ;; pire ecart relatif, en ppm
+   (t11-ctrl     int32)    ;; CONTROLE POSITIF : les MEMES champs d'etincelle confrontes a
+                           ;; l'ANCIEN facteur uniforme ; un zero ici voudrait dire que le
+                           ;; comparateur ne mord sur rien et que le zero de `t11-bad` est vide.
+   (t11-lum      float 12) ;; [couleur*4 + 0..3] = surface emettrice {etincelles nous, etincelles
+                           ;; monde, couche diffuse nous, couche diffuse monde} ; couleur 0=bleu
+                           ;; 1=rouge 2=jaune. La lueur emise d'un sprite additif vaut
+                           ;; couleur x alpha x surface, et les couleurs comme les alphas sont
+                           ;; deja prouves EGAUX par le terme 8 : le rapport de lueur EST le
+                           ;; rapport des surfaces.
+   (t11-lumbad   int32)    ;; couleurs dont le rapport de lueur des etincelles sort de [0,8;1,2]
    ;; --- terme 10 (reprise 19/09) : LA NUEE EST DESSINEE PAR-DESSUS L'ANNEAU ---
    (nq-cur       int32)    ;; quads de nuee RE-EMIS a l'image en cours
    (nq-delta     int32)    ;; octets entre le 1er sommet de l'anneau et le 1er quad de la nuee
@@ -2629,30 +2664,86 @@
 ;; notre porte l'otage de ses reglages a lui : le jour ou il ajoute une exclusion pour son propre
 ;; besoin, notre porte cesserait de mesurer un champ sans que personne ne l'ait decide. Les deux
 ;; listes sont donc independantes, et la duplication est inscrite dans FINDINGS.
-(defun rhud-gauge-eco-field-excluded? ((f int))
-  (or (= f (sp-field-id spt-flags))          ;; S2 bit14 -> bit9
-      (= f (sp-field-id spt-func))           ;; S3 callbacks lies a l'emetteur du monde
-      (= f (sp-field-id spt-next-time))      ;; S4 relances de fondu des parts dont le func tombe
-      (= f (sp-field-id spt-next-launcher))
-      (= f (sp-field-id spt-x))              ;; S5 decalage monde de l'ancre
-      (= f (sp-field-id spt-y))
-      (= f (sp-field-id spt-z))              ;; S6 ordre de superposition du HUD
-      (= f (sp-field-id spt-scale-x))        ;; S7 gabarit du trou central
-      (= f (sp-field-id spt-scale-y))
-      (= f (sp-field-id spt-scalevel-x))
-      (= f (sp-field-id spt-scalevel-y))
-      (= f (sp-field-id spt-vel-x))
-      (= f (sp-field-id spt-vel-y))
-      (= f (sp-field-id spt-vel-z))
-      (= f (sp-field-id spt-accel-x))
-      (= f (sp-field-id spt-accel-y))
-      (= f (sp-field-id spt-accel-z))))
+(defconstant RHUD_NUEE_K_BLUE 0.292908)  ;; S7 : la reduction de la couche DIFFUSE bleue
+(defconstant RHUD_NUEE_K_RY   0.219681)  ;;      ... et celle des couches diffuses rouge et jaune
+(defconstant RHUD_NUEE_TOL    0.05)      ;; « champs de mouvement egaux a 5 % » (perimetre 20/09)
 
-(defun rhud-gauge-cmp-part ((this hud-recharged-power) (ours int) (world int))
-  "confronte le lanceur `ours` a celui du RAMASSABLE `world` dans `*part-id-table*`."
+(defun rhud-gauge-eco-field-excluded? ((f int))
+  "S1..S6 SEULEMENT : ce que la transposition ECRAN change sans qu'aucun facteur ne le decrive.
+   Les DIX champs de taille et de vitesse n'y sont plus — c'est tout l'objet de la reprise."
+  (or (= f (the int (sp-field-id spt-flags)))          ;; S2 bit14 -> bit9
+      (= f (the int (sp-field-id spt-func)))           ;; S3 callbacks lies a l'emetteur du monde
+      (= f (the int (sp-field-id spt-next-time)))      ;; S4 relances de fondu
+      (= f (the int (sp-field-id spt-next-launcher)))
+      (= f (the int (sp-field-id spt-x)))              ;; S5 decalage monde de l'ancre
+      (= f (the int (sp-field-id spt-y)))
+      (= f (the int (sp-field-id spt-z)))))            ;; S6 ordre de superposition du HUD
+
+(defun rhud-gauge-eco-field-scaled? ((f int))
+  "S7 : les dix champs que la transposition MULTIPLIE. Ils etaient ECARTES jusqu'au 19/09 —
+   la porte ne mesurait donc ni une taille ni une vitesse, c'est-a-dire exactement ce dont
+   l'owner se plaint le 20/09. Ils sont desormais CONFRONTES au monde x facteur."
+  (or (= f (the int (sp-field-id spt-scale-x)))
+      (= f (the int (sp-field-id spt-scale-y)))
+      (= f (the int (sp-field-id spt-scalevel-x)))
+      (= f (the int (sp-field-id spt-scalevel-y)))
+      (= f (the int (sp-field-id spt-vel-x)))
+      (= f (the int (sp-field-id spt-vel-y)))
+      (= f (the int (sp-field-id spt-vel-z)))
+      (= f (the int (sp-field-id spt-accel-x)))
+      (= f (the int (sp-field-id spt-accel-y)))
+      (= f (the int (sp-field-id spt-accel-z)))))
+
+(defun rhud-gauge-cmp-one ((this hud-recharged-power) (ov float) (wv float) (k float) (kctrl float))
+  "un scalaire transpose par S7 : |nous - monde x k| doit valoir au plus 5 % de |monde x k|.
+   `kctrl` rejoue LA MEME confrontation avec l'AUTRE facteur : c'est le controle positif, il
+   compte les champs sur lesquels le comparateur MORD vraiment. Un `t11-bad` a zero pendant que
+   `t11-ctrl` est a zero lui aussi ne prouverait rien — ce serait un vert par inaction."
+  (let* ((want (* wv k))
+         (mag  (fmax (fabs want) 0.00001))
+         (d    (fabs (- ov want))))
+    (+! (-> this t11-n) 1)
+    (when (> d (* RHUD_NUEE_TOL mag)) (+! (-> this t11-bad) 1))
+    (let ((ppm (the int (* 1000000.0 (fmin (/ d mag) 1000.0)))))
+      (if (> ppm (-> this t11-worst)) (set! (-> this t11-worst) ppm)))
+    (let* ((wc (* wv kctrl))
+           (mc (fmax (fabs wc) 0.00001))
+           (dc (fabs (- ov wc))))
+      (if (> dc (* RHUD_NUEE_TOL mc)) (+! (-> this t11-ctrl) 1))))
+  (none))
+
+(defun rhud-gauge-field-mid ((l sparticle-launcher) (f int) (dflt float))
+  "la valeur ATTENDUE d'un champ d'un lanceur : sa valeur initiale plus la moitie de sa plage
+   aleatoire. Rend `dflt` si le lanceur ne porte pas ce champ."
+  (let ((i 0) (r dflt))
+    (while (!= (-> l init-specs i field) (sp-field-id spt-end))
+      (when (and (= (the int (-> l init-specs i field)) f)
+                 (!= (-> l init-specs i flags) (sp-flag copy-from-other)))
+        (set! r (+ (-> l init-specs i initial-valuef) (* 0.5 (-> l init-specs i random-rangef)))))
+      (+! i 1))
+    r))
+
+(defun rhud-gauge-cmp-part ((this hud-recharged-power) (ours int) (world int)
+                            (k float) (kctrl float) (col int) (spark int))
+  "confronte le lanceur `ours` a celui du RAMASSABLE `world` dans `*part-id-table*`.
+   `k` est le facteur que S7 applique a CETTE couche : 1,0 pour une etincelle (taille, vitesse et
+   lueur du monde, perimetre du 20/09), le facteur de couleur pour la seule couche DIFFUSE
+   dominante — celle dont la demi-largeur fixe l'enveloppe de 15 unites validee le 18/09.
+   `spark` vaut 1 pour une etincelle, 0 pour la couche diffuse : les surfaces emettrices des
+   deux familles sont sommees SEPAREMENT, la porte ne jugeant que celle des etincelles."
   (let ((a (-> *part-id-table* ours))
         (b (-> *part-id-table* world)))
     (when (and (nonzero? a) (nonzero? b))
+      ;; la SURFACE EMETTRICE des deux cotes. La lueur d'un sprite additif vaut couleur x alpha
+      ;; x surface ; couleurs et alphas sont deja prouves EGAUX (ils tombent dans la comparaison
+      ;; exacte ci-dessous), donc le rapport de lueur EST le rapport des surfaces.
+      (let* ((sxo (rhud-gauge-field-mid a (the int (sp-field-id spt-scale-x)) 0.0))
+             (syo (rhud-gauge-field-mid a (the int (sp-field-id spt-scale-y)) sxo))
+             (sxw (rhud-gauge-field-mid b (the int (sp-field-id spt-scale-x)) 0.0))
+             (syw (rhud-gauge-field-mid b (the int (sp-field-id spt-scale-y)) sxw))
+             (base (+ (* col 4) (if (nonzero? spark) 0 2))))
+        (+! (-> this t11-lum base) (* sxo syo))
+        (+! (-> this t11-lum (+ base 1)) (* sxw syw)))
       ;; nos champs, retrouves chez le ramassable
       (let ((i 0))
         (while (!= (-> a init-specs i field) (sp-field-id spt-end))
@@ -2665,11 +2756,25 @@
                  (while (!= (-> b init-specs j field) (sp-field-id spt-end))
                    (when (= (the int (-> b init-specs j field)) f)
                      (set! found #t)
-                     (if (or (!= (-> a init-specs i initial-value) (-> b init-specs j initial-value))
-                             (!= (-> a init-specs i random-range) (-> b init-specs j random-range))
-                             (!= (-> a init-specs i random-mult) (-> b init-specs j random-mult))
-                             (!= (-> a init-specs i flags) (-> b init-specs j flags)))
-                       (+! (-> this t8-mismatch) 1)))
+                     (cond
+                       ;; une entree `:copy <autre champ>` ne porte pas une valeur mais un
+                       ;; DECALAGE de champ : S7 ne la multiplie pas, elle se compare a l'octet.
+                       ((and (rhud-gauge-eco-field-scaled? f)
+                             (!= (-> a init-specs i flags) (sp-flag copy-from-other))
+                             (!= (-> b init-specs j flags) (sp-flag copy-from-other)))
+                        ;; S7 : confronte au monde x facteur, a 5 % pres, les trois scalaires
+                        (rhud-gauge-cmp-one this (-> a init-specs i initial-valuef)
+                                                 (-> b init-specs j initial-valuef) k kctrl)
+                        (rhud-gauge-cmp-one this (-> a init-specs i random-rangef)
+                                                 (-> b init-specs j random-rangef) k kctrl)
+                        (rhud-gauge-cmp-one this (-> a init-specs i random-multf)
+                                                 (-> b init-specs j random-multf) k kctrl))
+                       (else
+                        (if (or (!= (-> a init-specs i initial-value) (-> b init-specs j initial-value))
+                                (!= (-> a init-specs i random-range) (-> b init-specs j random-range))
+                                (!= (-> a init-specs i random-mult) (-> b init-specs j random-mult))
+                                (!= (-> a init-specs i flags) (-> b init-specs j flags)))
+                          (+! (-> this t8-mismatch) 1)))))
                    (+! j 1))
                  (if (not found) (+! (-> this t8-mismatch) 1))))))
           (+! i 1)))
@@ -2686,34 +2791,70 @@
           (+! j 1))))
     0))
 
+(defun rhud-gauge-publish-lum ((this hud-recharged-power))
+  "les rapports de surface emettrice HUD/monde, en pour mille, etincelles puis couche diffuse.
+   A couleur et alpha EGAUX — ce que le terme 8 prouve champ par champ — la lueur d'un sprite
+   additif est proportionnelle a sa surface : ce rapport EST le rapport de lueur."
+  (dotimes (c 3)
+    (let* ((so (-> this t11-lum (* c 4)))
+           (sw (-> this t11-lum (+ (* c 4) 1)))
+           (dd (-> this t11-lum (+ (* c 4) 2)))
+           (dw (-> this t11-lum (+ (* c 4) 3)))
+           (sp (if (> sw 0.0) (the int (* 1000.0 (/ so sw))) 0))
+           (dp (if (> dw 0.0) (the int (* 1000.0 (/ dd dw))) 0)))
+      (cond ((zero? c) (__pc-autoport-publish "hud_gauge_t11_lum_permille_blue" sp)
+                       (__pc-autoport-publish "hud_gauge_t11_dom_permille_blue" dp))
+            ((= c 1)   (__pc-autoport-publish "hud_gauge_t11_lum_permille_red" sp)
+                       (__pc-autoport-publish "hud_gauge_t11_dom_permille_red" dp))
+            (else      (__pc-autoport-publish "hud_gauge_t11_lum_permille_yellow" sp)
+                       (__pc-autoport-publish "hud_gauge_t11_dom_permille_yellow" dp)))))
+  (none))
+
 (defun rhud-gauge-eco-identity ((this hud-recharged-power))
   "l'identite des trois emetteurs du centre, calculee UNE fois.
    bleu  2986<-2  2987<-3  2988<-5  2989<-7  2990<-8  2991<-9  2992<-10  2993<-146
    rouge 2994<-160 2995<-161 2996<-162 2997<-163 2998<-164 2999<-167
-   jaune 3000<-191 3001<-192 3002<-193 3003<-194 3004<-195 3005<-198"
+   jaune 3000<-191 3001<-192 3002<-193 3003<-194 3004<-195 3005<-198
+   La couche DIFFUSE dominante de chaque couleur (2987, 2995, 3001) est la SEULE que S7 reduit
+   encore : un exemplaire a la taille du monde ferait 51 unites de demi-largeur pour un anneau
+   dont le bord exterieur est a 39,2 — il recouvrirait la jauge, ce que l'owner a refuse le
+   18/09. Toutes les autres couches — les etincelles — sont a la taille, a la vitesse et a la
+   lueur du ramassable."
   (set! (-> this t8-compared) 0)
   (set! (-> this t8-excluded) 0)
   (set! (-> this t8-mismatch) 0)
-  (rhud-gauge-cmp-part this 2986 2)
-  (rhud-gauge-cmp-part this 2987 3)
-  (rhud-gauge-cmp-part this 2988 5)
-  (rhud-gauge-cmp-part this 2989 7)
-  (rhud-gauge-cmp-part this 2990 8)
-  (rhud-gauge-cmp-part this 2991 9)
-  (rhud-gauge-cmp-part this 2992 10)
-  (rhud-gauge-cmp-part this 2993 146)
-  (rhud-gauge-cmp-part this 2994 160)
-  (rhud-gauge-cmp-part this 2995 161)
-  (rhud-gauge-cmp-part this 2996 162)
-  (rhud-gauge-cmp-part this 2997 163)
-  (rhud-gauge-cmp-part this 2998 164)
-  (rhud-gauge-cmp-part this 2999 167)
-  (rhud-gauge-cmp-part this 3000 191)
-  (rhud-gauge-cmp-part this 3001 192)
-  (rhud-gauge-cmp-part this 3002 193)
-  (rhud-gauge-cmp-part this 3003 194)
-  (rhud-gauge-cmp-part this 3004 195)
-  (rhud-gauge-cmp-part this 3005 198)
+  (set! (-> this t11-n) 0)
+  (set! (-> this t11-bad) 0)
+  (set! (-> this t11-worst) 0)
+  (set! (-> this t11-ctrl) 0)
+  (set! (-> this t11-lumbad) 0)
+  (dotimes (i 12) (set! (-> this t11-lum i) 0.0))
+  (rhud-gauge-cmp-part this 2986 2    1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2987 3    RHUD_NUEE_K_BLUE 1.0 0 0)
+  (rhud-gauge-cmp-part this 2988 5    1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2989 7    1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2990 8    1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2991 9    1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2992 10   1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2993 146  1.0 RHUD_NUEE_K_BLUE 0 1)
+  (rhud-gauge-cmp-part this 2994 160  1.0 RHUD_NUEE_K_RY 1 1)
+  (rhud-gauge-cmp-part this 2995 161  RHUD_NUEE_K_RY 1.0 1 0)
+  (rhud-gauge-cmp-part this 2996 162  1.0 RHUD_NUEE_K_RY 1 1)
+  (rhud-gauge-cmp-part this 2997 163  1.0 RHUD_NUEE_K_RY 1 1)
+  (rhud-gauge-cmp-part this 2998 164  1.0 RHUD_NUEE_K_RY 1 1)
+  (rhud-gauge-cmp-part this 2999 167  1.0 RHUD_NUEE_K_RY 1 1)
+  (rhud-gauge-cmp-part this 3000 191  1.0 RHUD_NUEE_K_RY 2 1)
+  (rhud-gauge-cmp-part this 3001 192  RHUD_NUEE_K_RY 1.0 2 0)
+  (rhud-gauge-cmp-part this 3002 193  1.0 RHUD_NUEE_K_RY 2 1)
+  (rhud-gauge-cmp-part this 3003 194  1.0 RHUD_NUEE_K_RY 2 1)
+  (rhud-gauge-cmp-part this 3004 195  1.0 RHUD_NUEE_K_RY 2 1)
+  (rhud-gauge-cmp-part this 3005 198  1.0 RHUD_NUEE_K_RY 2 1)
+  ;; le rapport de lueur des ETINCELLES, par couleur. Hors de [0,8 ; 1,2] = un defaut chacun.
+  (dotimes (c 3)
+    (let ((o (-> this t11-lum (* c 4)))
+          (w (-> this t11-lum (+ (* c 4) 1))))
+      (if (or (<= w 0.0) (< (/ o w) 0.8) (> (/ o w) 1.2))
+        (+! (-> this t11-lumbad) 1))))
   (none))
 
 ;;;----------------------------------------------
@@ -3164,7 +3305,19 @@
                          (>= (-> this t10-cover) RHUD_GB_MIN))
                   (begin (+! measured 1)
                          (+ (-> this t10-order) (-> this t10-park-ko)))
-                  (+ (-> this t10-order) (-> this t10-park-ko) 1))))
+                  (+ (-> this t10-order) (-> this t10-park-ko) 1)))
+           ;; TERME 11 — LE GABARIT, LA VITESSE ET LA LUEUR DES ETINCELLES (reprise 20/09).
+           ;; Deux sous-termes : les champs de taille et de vitesse qui s'ecartent de plus de 5 %
+           ;; du ramassable x le facteur de leur couche, et les couleurs dont le rapport de
+           ;; surface emettrice des etincelles sort de [0,8 ; 1,2]. Le terme n'est MESURE que si
+           ;; des champs ont ete confrontes ET si le CONTROLE POSITIF a mordu : `t11-ctrl` compte
+           ;; les memes champs relus avec l'AUTRE facteur, celui qu'on vient d'abandonner. A
+           ;; zero, il dirait que le comparateur ne distingue rien et qu'un `t11-bad` nul ne
+           ;; vaut rien — exactement le vert par inaction que les DIRECTIVES refusent.
+           (t11 (if (and (> (-> this t11-n) 0) (> (-> this t11-ctrl) 0))
+                  (begin (+! measured 1)
+                         (+ (-> this t11-bad) (-> this t11-lumbad)))
+                  (+ (-> this t11-bad) (-> this t11-lumbad) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -3175,6 +3328,7 @@
       (__pc-autoport-publish "hud_gauge_t8_centre" t8)
       (__pc-autoport-publish "hud_gauge_t9_slot" t9)
       (__pc-autoport-publish "hud_gauge_t10_over" t10)
+      (__pc-autoport-publish "hud_gauge_t11_spark" t11)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
@@ -3268,7 +3422,19 @@
       (__pc-autoport-publish "hud_gauge_t10_park" (-> this nq-park))
       (__pc-autoport-publish "hud_gauge_t10_shaders" (-> this nq-shaders))
       (__pc-autoport-publish "hud_gauge_t10_offscreen" (-> this nq-offscreen))
-      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10))))
+      ;; terme 11 : le gabarit, la vitesse et la lueur des etincelles. `t11_ctrl_bad` est le
+      ;; CONTROLE POSITIF (les memes champs relus avec l'ancien facteur) ; `t11_lum_permille_*`
+      ;; est le rapport de surface emettrice HUD/monde des ETINCELLES, en pour mille, et
+      ;; `t11_dom_permille_*` celui de la couche DIFFUSE, qui reste reduite et n'entre PAS dans
+      ;; la somme — c'est le controle vivant qui prouve que l'instrument sait rendre autre chose
+      ;; que 1000.
+      (__pc-autoport-publish "hud_gauge_t11_n" (-> this t11-n))
+      (__pc-autoport-publish "hud_gauge_t11_bad" (-> this t11-bad))
+      (__pc-autoport-publish "hud_gauge_t11_worst_ppm" (-> this t11-worst))
+      (__pc-autoport-publish "hud_gauge_t11_ctrl_bad" (-> this t11-ctrl))
+      (__pc-autoport-publish "hud_gauge_t11_lumbad" (-> this t11-lumbad))
+      (rhud-gauge-publish-lum this)
+      (__pc-autoport-publish "hud_gauge_defects" (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11))))
   (none))
 
 ;;;----------------------------------------------
