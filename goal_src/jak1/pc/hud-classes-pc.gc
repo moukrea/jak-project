@@ -2039,7 +2039,15 @@
                       ;; le fait l'oeil (1 - produit des transparences). `ab0` rejoue la MEME
                       ;; nuee sans le gain : c'est l'ablation, dans la meme image.
                       (if (> r0 rawmax) (set! rawmax r0))
-                      (when (and (<= (fabs (- ox pcx)) hwx) (<= (fabs (- oy pcy)) hhy))
+                      ;; LE QUAD COUVRE-T-IL LE CENTRE ? avec son extension REELLE a l'angle ou
+                      ;; il est dessine, pas avec l'enveloppe tous angles confondus. L'enveloppe
+                      ;; (`hwx`/`hhy`) majore d'un facteur deux la demi-largeur d'un sprite carre :
+                      ;; elle est ce qu'il faut pour DECOUPER (ne jamais jeter un quad visible),
+                      ;; elle serait deux fois trop genereuse pour MESURER une couverture.
+                      (when (and (<= (fabs (- ox pcx))
+                                     (* 0.5 bx (+ (fabs (* scx cs)) (fabs (* scy sn)))))
+                                 (<= (fabs (- oy pcy))
+                                     (* by (+ (fabs (* scy cs)) (fabs (* scx sn))))))
                         (+! nlay 1)
                         (let ((as  (fmin 1.0 (* 4.0 (/ (the float ab) 255.0))))
                               (as0 (fmin 1.0 (* 4.0 (/ (the float ab0) 255.0)))))
@@ -3643,6 +3651,9 @@
       (__pc-autoport-publish "hud_gauge_t13_ctrl_bad" (-> this t13-ctrl))
       (__pc-autoport-publish "hud_gauge_t13_layers_max" (-> this t13-lay))
       (__pc-autoport-publish "hud_gauge_t13_none" (-> this t13-none))
+      ;; la REGLE de couverture en vigueur : 2 = extension reelle du quad a son angle de dessin
+      ;; (1 = enveloppe tous angles, deux fois trop large — jamais livree).
+      (__pc-autoport-publish "hud_gauge_t13_core_rule" 2)
       (__pc-autoport-publish "hud_gauge_t13_want_milli" RHUD_NUEE_A_MIN)
       (__pc-autoport-publish "hud_gauge_nuee_fit_r_16th" (the int (* 16.0 RHUD_NUEE_FIT_R)))
       (__pc-autoport-publish "hud_gauge_nuee_knee_16th" (the int (* 16.0 RHUD_NUEE_FIT_KNEE)))
