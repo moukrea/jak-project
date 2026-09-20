@@ -2077,7 +2077,8 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                                    autoport_proof::feature_is(kPathTransItemId) ||
                                        autoport_proof::feature_is(kClumpItemId),
                                    autoport_proof::armed_for(kClumpItemId),
-                                   autoport_proof::armed_for(kShadeItemId));
+                                   autoport_proof::armed_for(kShadeItemId),
+                                   autoport_proof::armed_for(kVariantItemId));
       return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
     }
     tExpandJoin = clk::now();
@@ -2085,7 +2086,8 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                              autoport_proof::feature_is(kPathTransItemId) ||
                                  autoport_proof::feature_is(kClumpItemId),
                              autoport_proof::armed_for(kClumpItemId),
-                             autoport_proof::armed_for(kShadeItemId));
+                             autoport_proof::armed_for(kShadeItemId),
+                             autoport_proof::armed_for(kVariantItemId));
     } catch (const std::exception& e) {
       // La garde couvre TOUTE l'etape SOURCE : lecture du bake, scan en direct, mise en place de
       // `m_pending`, lancement du thread d'expansion, et l'expansion synchrone.
@@ -2223,12 +2225,21 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     const int vk = autoport_proof::armed_for(kVariantItemId)
                        ? grass_bake::variants_for_preset(vpreset)
                        : 1;
+    // L'OCTET PORTE v+1, ET 0 VEUT DIRE « DESARME ». Le shader ne pouvait pas distinguer « item
+    // desarme » de « arme, variante 0 » : les deux ecrivaient 0, donc le bras d'ablation aurait
+    // garde le plafond de courbure de l'essai 2. Desarme, on ecrit 0 partout et `grass.vert`
+    // retombe sur l'expression d'avant, au bit.
+    const bool varmed = autoport_proof::armed_for(kVariantItemId);
     m_variant.assign(res.instances.size(), 0);
     for (size_t i = 0; i < res.instances.size(); ++i) {
-      m_variant[i] = (u8)grass_bake::blade_variant_of(res.instances[i], vk);
+      const int v = grass_bake::blade_variant_of_clump(
+          res.instances[i], i < res.inst_cseed.size() ? res.inst_cseed[i] : 0u,
+          i < res.inst_rank.size() ? (u32)res.inst_rank[i] : 0u, vk);
+      m_variant[i] = varmed ? (u8)(v + 1) : (u8)0;
     }
     if (autoport_proof::feature_is(kVariantItemId)) {
-      const auto vc = grass_bake::variant_census(res.instances, 0, res.instances.size(), vk);
+      const auto vc = grass_bake::variant_census(res.instances, res.inst_cseed, res.inst_rank, 0,
+                                                 res.instances.size(), vk);
       autoport_proof::publish_text("grass_variant_engine_level", level_name.c_str());
       autoport_proof::publish("grass_variant_engine_armed",
                               autoport_proof::armed_for(kVariantItemId) ? 1u : 0u);
@@ -2245,6 +2256,20 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       autoport_proof::publish("grass_variant_engine_verts_active_total", vc.verts_active_total);
       autoport_proof::publish("grass_variant_engine_verts_strip_total", vc.verts_strip_total);
       autoport_proof::publish("grass_variant_engine_terms", (uint64_t)vc.terms_measured);
+      // ESSAI 2 : LA TOUFFE. Ce que la porte de l'essai 1 ne voyait pas, et que l'owner regarde.
+      autoport_proof::publish("grass_variant_engine_blades_clumped", vc.blades_clumped);
+      autoport_proof::publish("grass_variant_engine_clumps", vc.clumps);
+      autoport_proof::publish("grass_variant_engine_clumps_dominant", vc.clumps_dominant);
+      autoport_proof::publish("grass_variant_engine_dominant_pm", (uint64_t)vc.dominant_pm);
+      autoport_proof::publish("grass_variant_engine_height_cv_pm", (uint64_t)vc.height_cv_pm);
+      autoport_proof::publish("grass_variant_engine_height_mean_mm", (uint64_t)vc.height_mean_mm);
+      autoport_proof::publish("grass_variant_engine_neigh_compared", vc.neigh_compared);
+      autoport_proof::publish("grass_variant_engine_neigh_diff", vc.neigh_diff);
+      autoport_proof::publish("grass_variant_engine_neigh_diff_pm", (uint64_t)vc.neigh_diff_pm);
+      autoport_proof::publish("grass_variant_engine_seg_angle_max_mdeg",
+                              (uint64_t)vc.seg_angle_max_mdeg);
+      autoport_proof::publish("grass_variant_engine_seg_angle_over", vc.seg_angle_over);
+      autoport_proof::publish("grass_variant_engine_variants_seen", (uint64_t)vc.variants_seen);
       for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
         char key[64];
         snprintf(key, sizeof(key), "grass_variant_engine_v%d", v);

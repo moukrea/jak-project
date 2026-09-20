@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <vector>
 
@@ -308,6 +309,36 @@ inline int blade_variant_of(const GrassInstance& gi, int k) {
   return blade_variant_fold(blade_variant_base(blade_variant_seed(gi)), k);
 }
 
+// LA GRAINE DE LA TOUFFE, PAS CELLE DU BRIN (owner, 20/09 : « pas de touffes d'herbe
+// differentes »). `cseed` est la graine que `ClumpPlacer::clump_of` derive de (graine du triangle,
+// indice de touffe) : elle est IDENTIQUE pour tous les brins d'une touffe et INDEPENDANTE du
+// palier. Un brin sur cinq (le rang, pas un tirage — voir `blade_is_minority`) porte une autre
+// forme : la touffe garde une silhouette dominante sans etre un rang de clones.
+// cseed == 0 veut dire « aucune touffe » (placement uniforme, bras d'ablation de grass-clumps) :
+// on retombe alors sur la graine par brin, celle d'avant, plutot que de donner UNE forme au champ.
+inline u32 blade_variant_seed_clumped(const GrassInstance& gi, u32 cseed, u32 rank) {
+  if (cseed == 0u) {
+    return blade_variant_seed(gi);
+  }
+  const u32 h = hash_u32(cseed ^ 0x9E3779B9u);
+  return blade_is_minority(rank) ? hash_u32(h ^ (rank * 2654435761u)) : h;
+}
+
+inline int blade_variant_of_clump(const GrassInstance& gi, u32 cseed, u32 rank, int k) {
+  return blade_variant_fold(blade_variant_base(blade_variant_seed_clumped(gi, cseed, rank)), k);
+}
+
+// HAUTEUR PAR TOUFFE : un facteur commun a toute la touffe, de moyenne 1. `clump_height_mul(rho)`
+// module deja la hauteur par le RANG (brin dominant au centre, peripherie plus courte) — c'est une
+// forme DANS la touffe, pas une difference ENTRE touffes, et c'est ce que l'owner ne voyait pas.
+inline float clump_variant_height_mul(u32 cseed) {
+  if (cseed == 0u) {
+    return 1.0f;
+  }
+  return kBladeClumpHeightLo +
+         (kBladeClumpHeightHi - kBladeClumpHeightLo) * hash_f(hash_u32(cseed ^ 0x51ED2701u));
+}
+
 // CE QUE LA PORTE LIT. Tous les termes sont comptes sur LA POPULATION REELLE d'instances — celle
 // qu'on vient d'emettre, ou celle que l'outil hors ligne vient d'etendre — jamais sur une formule.
 struct VariantCensus {
@@ -327,17 +358,44 @@ struct VariantCensus {
   u64 verts_strip_total = 0;              // somme des sommets soumis (ce que le GPU transforme)
   u64 digest = 0;                         // empreinte (racine, variante) : moteur contre hors-ligne
   int terms_measured = 0;
+  // ---- ESSAI 2 : CE QUE LA PORTE DE L'ESSAI 1 NE VOYAIT PAS. Elle comptait la diversite des
+  // BRINS ; l'owner regarde des TOUFFES. Tout ce qui suit se compte par touffe.
+  u64 blades_clumped = 0;       // brins rattaches a une touffe (cseed != 0)
+  u64 clumps = 0;               // touffes distinctes rencontrees
+  u64 clumps_dominant = 0;      // ... dont UNE silhouette couvre >= kBladeClumpDominantSharePm
+  int dominant_pm = 0;          // part de touffes a silhouette dominante, pour mille
+  int height_cv_pm = 0;         // ecart-type / moyenne des hauteurs MOYENNES de touffe, pour mille
+  int height_mean_mm = 0;       // hauteur moyenne livree (unites monde / 4096 * 1000)
+  u64 neigh_compared = 0;       // touffes ayant une voisine mesurable
+  u64 neigh_diff = 0;           // ... dont la voisine la plus proche porte une AUTRE silhouette
+  int neigh_diff_pm = 0;
+  int seg_angle_max_mdeg = 0;   // angle max entre deux troncons emis, sur la population REELLE
+  u64 seg_angle_over = 0;       // brins au-dela de kBladeSegAngleCapMdeg
+  int variants_seen = 0;        // silhouettes distinctes effectivement portees par une touffe
+};
+
+// Accumulateur par touffe (local a `variant_census`).
+struct ClumpVarAcc {
+  u32 per_variant[kBladeVariantCount] = {};
+  u32 n = 0;
+  double hsum = 0.0;
+  double cx = 0.0, cy = 0.0, cz = 0.0;
 };
 
 inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
+                                    const std::vector<u32>& cseed,
+                                    const std::vector<u16>& rank,
                                     size_t first,
                                     size_t count,
                                     int k) {
   VariantCensus vc;
   vc.k = k;
   const size_t end = (first + count > inst.size()) ? inst.size() : first + count;
+  std::unordered_map<u32, ClumpVarAcc> acc;
   for (size_t i = first; i < end; ++i) {
-    const u32 sd = blade_variant_seed(inst[i]);
+    const u32 cs = i < cseed.size() ? cseed[i] : 0u;
+    const u32 rk = i < rank.size() ? (u32)rank[i] : 0u;
+    const u32 sd = blade_variant_seed_clumped(inst[i], cs, rk);
     const int base = blade_variant_base(sd);
     const int eff = blade_variant_fold(base, k);
     vc.per_base[base]++;
@@ -354,6 +412,128 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
     vc.digest = (vc.digest ^ (u64)sd) * 1099511628211ull;
     vc.digest ^= (u64)(eff + 1) * 2654435761ull;
     vc.blades++;
+    // L'ANGLE, SUR LA POPULATION REELLE : la courbure de CE brin, pas une borne de table.
+    const int am = blade_seg_angle_mdeg(eff, inst[i].curve);
+    if (am > vc.seg_angle_max_mdeg) {
+      vc.seg_angle_max_mdeg = am;
+    }
+    if (am > kBladeSegAngleCapMdeg) {
+      vc.seg_angle_over++;
+    }
+    if (cs != 0u) {
+      vc.blades_clumped++;
+      ClumpVarAcc& a = acc[cs];
+      a.per_variant[eff]++;
+      a.n++;
+      a.hsum += (double)inst[i].h * (double)kBladeShapes[eff].h;
+      a.cx += inst[i].px;
+      a.cy += inst[i].py;
+      a.cz += inst[i].pz;
+    }
+  }
+  // ---- CE QUE L'OWNER REGARDE (1) : « une touffe a-t-elle UNE silhouette dominante ? »
+  // ---- et (2) : « les touffes ont-elles des hauteurs differentes entre elles ? »
+  {
+    std::vector<u32> cvar;
+    std::vector<float> ccx, ccy, ccz;
+    cvar.reserve(acc.size());
+    ccx.reserve(acc.size()); ccy.reserve(acc.size()); ccz.reserve(acc.size());
+    double hs = 0.0, hs2 = 0.0;
+    bool var_seen[kBladeVariantCount] = {};
+    for (const auto& kv : acc) {
+      const ClumpVarAcc& a = kv.second;
+      if (a.n == 0u) {
+        continue;
+      }
+      vc.clumps++;
+      u32 top = 0u;
+      int topv = 0;
+      for (int v = 0; v < kBladeVariantCount; ++v) {
+        if (a.per_variant[v] > top) {
+          top = a.per_variant[v];
+          topv = v;
+        }
+      }
+      var_seen[topv] = true;
+      if ((u64)top * 1000ull >= (u64)a.n * (u64)kBladeClumpDominantSharePm) {
+        vc.clumps_dominant++;
+      }
+      const double hm = a.hsum / (double)a.n;
+      hs += hm;
+      hs2 += hm * hm;
+      cvar.push_back((u32)topv);
+      ccx.push_back((float)(a.cx / (double)a.n));
+      ccy.push_back((float)(a.cy / (double)a.n));
+      ccz.push_back((float)(a.cz / (double)a.n));
+    }
+    for (int v = 0; v < kBladeVariantCount; ++v) {
+      if (var_seen[v]) {
+        vc.variants_seen++;
+      }
+    }
+    if (vc.clumps > 0) {
+      vc.dominant_pm = (int)((vc.clumps_dominant * 1000ull + vc.clumps / 2) / vc.clumps);
+      const double mean = hs / (double)vc.clumps;
+      const double var = hs2 / (double)vc.clumps - mean * mean;
+      const double sd = var > 0.0 ? std::sqrt(var) : 0.0;
+      vc.height_mean_mm = (int)(mean * 1000.0 / (double)U + 0.5);
+      vc.height_cv_pm = mean > 0.0 ? (int)(1000.0 * sd / mean + 0.5) : 0;
+    }
+    // ---- ET (1 bis) : « les touffes VOISINES ont-elles des silhouettes differentes ? ». La
+    // voisine est cherchee dans une grille de 2 m : une comparaison par index de touffe
+    // mesurerait l'ordre d'emission, pas le voisinage sur le terrain.
+    if (cvar.size() > 1) {
+      const float CELL = 2.0f * U;
+      std::unordered_map<u64, std::vector<u32>> grid;
+      grid.reserve(cvar.size() * 2);
+      auto cell_of = [&](float x, float y, float z) {
+        const long i = (long)std::floor(x / CELL);
+        const long j = (long)std::floor(y / CELL);
+        const long kk = (long)std::floor(z / CELL);
+        return ((u64)(u32)(i * 73856093) ^ (u64)(u32)(j * 19349663) << 21) ^
+               ((u64)(u32)(kk * 83492791) << 42);
+      };
+      for (u32 i = 0; i < (u32)cvar.size(); ++i) {
+        grid[cell_of(ccx[i], ccy[i], ccz[i])].push_back(i);
+      }
+      for (u32 i = 0; i < (u32)cvar.size(); ++i) {
+        float best = -1.0f;
+        u32 bj = 0xFFFFFFFFu;
+        for (int dx = -1; dx <= 1; ++dx) {
+          for (int dy = -1; dy <= 1; ++dy) {
+            for (int dz = -1; dz <= 1; ++dz) {
+              const auto it = grid.find(cell_of(ccx[i] + dx * CELL, ccy[i] + dy * CELL,
+                                                ccz[i] + dz * CELL));
+              if (it == grid.end()) {
+                continue;
+              }
+              for (const u32 j : it->second) {
+                if (j == i) {
+                  continue;
+                }
+                const float ddx = ccx[j] - ccx[i], ddy = ccy[j] - ccy[i], ddz = ccz[j] - ccz[i];
+                const float d2 = ddx * ddx + ddy * ddy + ddz * ddz;
+                if (best < 0.0f || d2 < best) {
+                  best = d2;
+                  bj = j;
+                }
+              }
+            }
+          }
+        }
+        if (bj == 0xFFFFFFFFu) {
+          continue;
+        }
+        vc.neigh_compared++;
+        if (cvar[bj] != cvar[i]) {
+          vc.neigh_diff++;
+        }
+      }
+      if (vc.neigh_compared > 0) {
+        vc.neigh_diff_pm =
+            (int)((vc.neigh_diff * 1000ull + vc.neigh_compared / 2) / vc.neigh_compared);
+      }
+    }
   }
   for (int v = 0; v < kBladeVariantCount; ++v) {
     vc.expect_pm[v] = blade_variant_expected_pm(v, k);
@@ -374,8 +554,26 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       vc.verts_over++;
     }
   }
-  // Cinq termes MESURES : distribution, budget de sommets, repli, empreinte, population.
-  vc.terms_measured = vc.blades > 0 ? 5 : 0;
+  // TOLERANCE : la population qui TIRE la variante est desormais celle des TOUFFES, pas celle des
+  // brins. Publier une tolerance calculee sur 728 981 brins alors que 145 000 tirages seulement ont
+  // eu lieu mesurerait un bruit qu'on n'a pas. L'ecart-type se prend donc sur les touffes, et la
+  // taille moyenne de touffe entre dans le compte des brins portes par un meme tirage.
+  if (vc.clumps > 0) {
+    vc.off_profile = 0;
+    for (int v = 0; v < kBladeVariantCount; ++v) {
+      const double p = vc.expect_pm[v] / 1000.0;
+      const double sig = 1000.0 * std::sqrt(p * (1.0 - p) / (double)vc.clumps);
+      vc.tol_pm[v] = kBladeVariantTolFloorPm + (int)std::ceil(kBladeVariantTolSigmas * sig);
+    }
+    for (int v = 0; v < kBladeVariantCount; ++v) {
+      if (vc.blades > 0 && std::abs(vc.share_pm[v] - vc.expect_pm[v]) > vc.tol_pm[v]) {
+        vc.off_profile++;
+      }
+    }
+  }
+  // Neuf termes MESURES : distribution, budget de sommets, repli, empreinte, population, silhouette
+  // dominante par touffe, hauteur entre touffes, voisinage, angle entre troncons.
+  vc.terms_measured = vc.blades > 0 ? 9 : 0;
   return vc;
 }
 
@@ -388,6 +586,13 @@ struct VariantNest {
   u64 changed = 0;    // ... dont la variante effective differe alors que les deux la proposent
   u64 folded = 0;     // ... dont la base n'est pas offerte par le palier le plus bas
   u64 missing = 0;    // brins du petit palier introuvables dans le grand (prefixe casse)
+  // RACINES EN DOUBLE. L'ecretage de touffe (`ClumpPlacer::place`, sc == 0) ramene plusieurs brins
+  // d'une meme touffe EXACTEMENT sur son origine : leurs trois flottants sont identiques. Tant que
+  // la silhouette sortait de la position, deux jumeaux s'accordaient par construction et le
+  // comptage ne les voyait pas ; depuis qu'elle sort de (touffe, rang), ils portent deux formes
+  // differentes sous la MEME cle. Les apparier serait mesurer l'ecretage, pas la nidification : ils
+  // sont donc EXCLUS et COMPTES, jamais absorbes.
+  u64 dup = 0;
   int k_lo = 0, k_hi = 0;
 };
 
@@ -396,25 +601,51 @@ struct VariantNest {
 // decale tout ce qui suit le premier triangle — et la queue d'overhang est ajoutee en fin de
 // tableau. Comparer par rang mesurerait ce decalage au lieu de la variante.
 inline VariantNest variant_nest(const std::vector<GrassInstance>& lo,
+                                const std::vector<u32>& lo_cseed,
+                                const std::vector<u16>& lo_rank,
                                 size_t lo_count,
                                 int k_lo,
                                 const std::vector<GrassInstance>& hi,
+                                const std::vector<u32>& hi_cseed,
+                                const std::vector<u16>& hi_rank,
                                 size_t hi_count,
                                 int k_hi) {
   VariantNest vn;
   vn.k_lo = k_lo;
   vn.k_hi = k_hi;
   const int k_min = k_lo < k_hi ? k_lo : k_hi;
-  std::map<std::array<u32, 3>, u32> seen;  // racine -> variante de base du palier haut
+  struct RootHash {
+    size_t operator()(const std::array<u32, 3>& a) const {
+      return (size_t)(hash_u32(a[0] ^ hash_u32(a[1] ^ hash_u32(a[2]))));
+    }
+  };
+  // racine -> (variante effective du palier haut, nombre d'occurrences)
+  std::unordered_map<std::array<u32, 3>, std::pair<u32, u32>, RootHash> seen;
   const size_t hn = hi_count > hi.size() ? hi.size() : hi_count;
+  seen.reserve(hn * 2);
   for (size_t i = 0; i < hn; ++i) {
     std::array<u32, 3> key{};
     std::memcpy(&key[0], &hi[i].px, 4);
     std::memcpy(&key[1], &hi[i].py, 4);
     std::memcpy(&key[2], &hi[i].pz, 4);
-    seen.emplace(key, (u32)blade_variant_of(hi[i], k_hi));
+    const u32 v = (u32)blade_variant_of_clump(hi[i],
+                                              i < hi_cseed.size() ? hi_cseed[i] : 0u,
+                                              i < hi_rank.size() ? (u32)hi_rank[i] : 0u, k_hi);
+    auto ins = seen.emplace(key, std::make_pair(v, 1u));
+    if (!ins.second) {
+      ins.first->second.second++;
+    }
   }
   const size_t ln = lo_count > lo.size() ? lo.size() : lo_count;
+  std::unordered_map<std::array<u32, 3>, u32, RootHash> lo_seen;
+  lo_seen.reserve(ln * 2);
+  for (size_t i = 0; i < ln; ++i) {
+    std::array<u32, 3> key{};
+    std::memcpy(&key[0], &lo[i].px, 4);
+    std::memcpy(&key[1], &lo[i].py, 4);
+    std::memcpy(&key[2], &lo[i].pz, 4);
+    lo_seen[key]++;
+  }
   for (size_t i = 0; i < ln; ++i) {
     std::array<u32, 3> key{};
     std::memcpy(&key[0], &lo[i].px, 4);
@@ -425,13 +656,19 @@ inline VariantNest variant_nest(const std::vector<GrassInstance>& lo,
       vn.missing++;
       continue;
     }
+    if (it->second.second > 1u || lo_seen[key] > 1u) {
+      vn.dup++;  // racine portee par plusieurs brins : la cle n'identifie plus un brin
+      continue;
+    }
     // ON NE COMPARE QUE CE QUI EST LIVRE. Les deux cotes passent par `blade_variant_of` — la
     // fonction que le moteur appelle pour ecrire l'octet d'instance — et jamais par la
     // decomposition en variante de base : comparer deux decompositions d'une meme graine serait
     // vrai par construction et ne mesurerait rien. « Propose par les deux paliers » se lit donc
     // sur la variante EFFECTIVE du palier haut, qui en offre le plus.
-    const int eff_lo = blade_variant_of(lo[i], k_lo);
-    const int eff_hi = (int)it->second;
+    const int eff_lo = blade_variant_of_clump(lo[i],
+                                             i < lo_cseed.size() ? lo_cseed[i] : 0u,
+                                             i < lo_rank.size() ? (u32)lo_rank[i] : 0u, k_lo);
+    const int eff_hi = (int)it->second.first;
     if (eff_hi >= k_min) {
       vn.folded++;  // le petit palier ne propose pas cette variante : hors du support commun
       continue;
@@ -1129,6 +1366,12 @@ struct ExpandResult {
   // `keep`/`path_q` par cet index au lieu de re-enumerer une seconde fois — une re-enumeration
   // serait une COPIE de la boucle de placement, donc une divergence en attente.
   std::vector<u32> inst_cand;
+  // grass-blade-variants (essai 2) : la TOUFFE de chaque instance. `GrassInstance` est plein (16
+  // flottants, static_assert) et le VBO ne doit pas grossir : ces deux tableaux sont CPU, paralleles
+  // a `inst_tri`, et ne partent jamais au GPU. Sans eux la silhouette ne peut pas se tirer par
+  // touffe — `blade_variant_seed` ne voyait que la racine du BRIN.
+  std::vector<u32> inst_cseed;   // graine de la touffe (0 = aucune touffe : placement uniforme)
+  std::vector<u16> inst_rank;    // rang du brin dans sa touffe (0 = dominant, au centre)
   // Nombre de candidats que l'expansion a REELLEMENT enumeres par triangle (0 pour lip/dup et
   // pour la queue coupee par le budget). Le recensement le lit au lieu de recalculer la densite :
   // recalculer serait une seconde copie de la regle, donc une divergence en attente.
@@ -1180,7 +1423,7 @@ struct ExpandResult {
 // code REMPLACE, sur le MEME bake : c'est l'oracle non-miroir, pas un zero muet. Le moteur y passe
 // `armed_for("grass-clumps")` ; l'outil de cuisson ecrit toujours le regime livre (vrai).
 ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map = false,
-                    bool clumped = true, bool shaded = true);
+                    bool clumped = true, bool shaded = true, bool varied = true);
 
 // ---------------------------------------------------------------------------
 // grass-surface-truth : LES DEUX SOURCES QUI DISENT SI UNE SURFACE PORTE DE L'HERBE.

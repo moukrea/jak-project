@@ -866,7 +866,8 @@ int main(int argc, char** argv) {
   if (variant_census_on) {
     const int k = grass_bake::variants_for_preset(variant_preset);
     const auto vc =
-        grass_bake::variant_census(eBake.instances, 0, eBake.instances.size(), k);
+        grass_bake::variant_census(eBake.instances, eBake.inst_cseed, eBake.inst_rank, 0,
+                                   eBake.instances.size(), k);
     fmt::print("variant_level={}\n", level_name);
     fmt::print("variant_density={:.0f}\n", density);
     fmt::print("variant_blades={}\n", vc.blades);
@@ -882,6 +883,31 @@ int main(int argc, char** argv) {
     fmt::print("variant_terms_measured={}\n", vc.terms_measured);
     fmt::print("variant_count={}\n", grass_bake::kBladeVariantCount);
     fmt::print("variant_digest={:016x}\n", vc.digest);
+    // ESSAI 2 : LA TOUFFE, LA HAUTEUR ENTRE TOUFFES, LE VOISINAGE, L'ANGLE ENTRE TRONCONS.
+    fmt::print("variant_blades_clumped={}\n", vc.blades_clumped);
+    fmt::print("variant_clumps={}\n", vc.clumps);
+    fmt::print("variant_clumps_dominant={}\n", vc.clumps_dominant);
+    fmt::print("variant_dominant_pm={}\n", vc.dominant_pm);
+    fmt::print("variant_dominant_pm_floor={}\n", grass_bake::kBladeClumpDominantPmFloor);
+    fmt::print("variant_dominant_share_pm={}\n", grass_bake::kBladeClumpDominantSharePm);
+    fmt::print("variant_height_cv_pm={}\n", vc.height_cv_pm);
+    fmt::print("variant_height_cv_pm_floor={}\n", grass_bake::kBladeClumpHeightCvPmFloor);
+    fmt::print("variant_height_mean_mm={}\n", vc.height_mean_mm);
+    fmt::print("variant_neigh_compared={}\n", vc.neigh_compared);
+    fmt::print("variant_neigh_diff={}\n", vc.neigh_diff);
+    fmt::print("variant_neigh_diff_pm={}\n", vc.neigh_diff_pm);
+    fmt::print("variant_neigh_diff_pm_floor={}\n", grass_bake::kBladeNeighborDiffPmFloor);
+    fmt::print("variant_seg_angle_max_mdeg={}\n", vc.seg_angle_max_mdeg);
+    fmt::print("variant_seg_angle_cap_mdeg={}\n", grass_bake::kBladeSegAngleCapMdeg);
+    fmt::print("variant_seg_angle_over={}\n", vc.seg_angle_over);
+    fmt::print("variant_variants_seen={}\n", vc.variants_seen);
+    fmt::print("variant_minority_stride={}\n", grass_bake::kBladeClumpMinorityStride);
+    for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
+      const auto& S = grass_bake::kBladeShapes[v];
+      fmt::print("variant_shape_v{}={:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}\n", v,
+                 S.h, S.hw, S.taper_lin, S.taper_quad, S.curve_mul, S.tip, S.segments,
+                 S.curve_cap);
+    }
     for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
       fmt::print("variant_v{}={}\n", v, vc.per_variant[v]);
       fmt::print("variant_base_v{}={}\n", v, vc.per_base[v]);
@@ -929,8 +955,10 @@ int main(int argc, char** argv) {
     const int idx_hi = cur_is_low ? other_idx : variant_preset;
     const int k_lo = grass_bake::variants_for_preset(idx_lo);
     const int k_hi = grass_bake::variants_for_preset(idx_hi);
-    const auto vn = grass_bake::variant_nest(elo.instances, elo.instances.size(), k_lo,
-                                             ehi.instances, ehi.instances.size(), k_hi);
+    const auto vn = grass_bake::variant_nest(elo.instances, elo.inst_cseed, elo.inst_rank,
+                                             elo.instances.size(), k_lo, ehi.instances,
+                                             ehi.inst_cseed, ehi.inst_rank, ehi.instances.size(),
+                                             k_hi);
     fmt::print("variant_nest_lo_slug={}\n", grass_bake::kDensityPresets[idx_lo].slug);
     fmt::print("variant_nest_hi_slug={}\n", grass_bake::kDensityPresets[idx_hi].slug);
     fmt::print("variant_nest_k_lo={}\n", vn.k_lo);
@@ -939,6 +967,7 @@ int main(int argc, char** argv) {
     fmt::print("variant_nest_changed={}\n", vn.changed);
     fmt::print("variant_nest_folded={}\n", vn.folded);
     fmt::print("variant_nest_missing={}\n", vn.missing);
+    fmt::print("variant_nest_dup={}\n", vn.dup);
     fmt::print("variant_nest_lo_blades={}\n", elo.instances.size());
     fmt::print("variant_nest_hi_blades={}\n", ehi.instances.size());
   }

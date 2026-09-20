@@ -102,13 +102,18 @@ const vec4 VAR_A[6] = vec4[6](
   vec4(1.30, 0.055, 0.35, -0.10),   // v4 jonc   — droite et raide, bout franc
   vec4(0.70, 0.125, 0.80,  0.10)    // v5 touffu — petite et trapue
 );
+//   VAR_B.w = PLAFOND DE COURBURE (essai 2). Owner 20/09 : « on voit clairement leurs polygones de
+//   pres ». Un ruban a quatre troncons qui tourne de 70 degres montre ses plis ; chaque plafond est
+//   le plus grand qui tienne l'angle entre deux troncons EMIS sous 12 degres sur toute la plage de
+//   courbure du bake. Il ne s'applique QUE quand l'item est arme (octet d'instance non nul).
+//   Les segments passent tous a 4 : replier des rangees, c'etait fabriquer le pli qu'il voit.
 const vec4 VAR_B[6] = vec4[6](
-  vec4(1.00,  0.00, 4.0, 0.0),      // v0 seg=4
-  vec4(1.35,  0.25, 4.0, 0.0),      // v1 seg=4
-  vec4(0.70,  0.00, 3.0, 0.0),      // v2 seg=3
-  vec4(1.60,  0.45, 4.0, 0.0),      // v3 seg=4
-  vec4(0.45,  0.00, 2.0, 0.0),      // v4 seg=2
-  vec4(1.10, -0.20, 2.0, 0.0)       // v5 seg=2
+  vec4(1.00,  0.00, 4.0, 0.48),     // v0 seg=4
+  vec4(1.35,  0.25, 4.0, 0.35),     // v1 seg=4
+  vec4(0.70,  0.00, 4.0, 0.59),     // v2 seg=4
+  vec4(1.60,  0.45, 4.0, 0.27),     // v3 seg=4
+  vec4(0.45,  0.00, 4.0, 3.00),     // v4 seg=4
+  vec4(1.10, -0.20, 4.0, 0.58)      // v5 seg=4
 );
 
 vec4 world_to_clip(vec3 pos) {
@@ -159,7 +164,13 @@ void main() {
   // (`grass_blade_variants.h`, tire de la racine) et livre dans l'octet de poids faible de
   // `inst_light`, qui valait 255 et que personne ne lisait — aucun attribut neuf, aucune memoire
   // d'instance en plus. Desarme, le CPU ecrit 0 partout.
-  int vi = clamp(int(inst_light.a * 255.0 + 0.5), 0, 5);
+  // L'octet porte la variante DECALEE DE UN : 0 veut dire « item desarme », 1..6 les six
+  // silhouettes. Sans ce decalage, « desarme » et « arme, variante 0 » sont le MEME octet, et le
+  // bras d'ablation porterait quand meme le plafond de courbure de l'essai 2 — une ablation qui ne
+  // rend pas l'etat d'avant ne separe rien.
+  int vb = clamp(int(inst_light.a * 255.0 + 0.5), 0, 6);
+  bool var_on = vb > 0;
+  int vi = var_on ? vb - 1 : 0;
   vec4 VA = VAR_A[vi];
   vec4 VB = VAR_B[vi];
   H *= VA.x;
@@ -364,7 +375,15 @@ void main() {
     float sway = mix(gw_w0, gw_w1, t) * t * t;
     // grass-blade-variants : courbure de base par variante, plus une recourbe de pointe. v0 =
     // (1.0, 0.0) : `(curve * 1.0) * t * t * 1.0`, associe a gauche comme l'expression d'origine.
-    float bend = (curve * VB.x) * t * t * (1.0 + VB.y * t);   // static curvature
+    // grass-blade-variants essai 2 : PLAFOND DOUX. Un `min()` ecraserait la moitie des brins sur
+    // la meme courbure ; cette forme conserve l'ordre et tend vers VB.w sans l'atteindre. Desarme,
+    // `var_on` est faux et l'expression retombe sur `(curve * VB.x) * t * t * (1.0 + VB.y * t)`.
+    float Cc = curve * VB.x;
+    if (var_on && VB.w > 0.0) {
+      float rr = Cc / VB.w;
+      Cc = Cc * inversesqrt(1.0 + rr * rr);
+    }
+    float bend = Cc * t * t * (1.0 + VB.y * t);   // static curvature
     float fwd_amt = bend * H * rim_h;            // galbe statique, le long de fwdv (ROUND#14: no lean past a rim)
     float wind_amt = sway * gw_amp * H * rim_h;  // grass-wind : vent, le long du CAP du champ
 

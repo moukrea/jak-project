@@ -55,7 +55,7 @@ echo "grass_variant_levels_failed=${MISSING:--}"
 # proposent ». Trois jambes, choisies pour que le support commun soit de taille differente a chaque
 # fois : 1 variante contre 6, 2 contre 6, 4 contre 6. Une jambe qui ne tourne pas ne dit pas « zero »,
 # elle ne dit RIEN — elle compte comme defaut. Une jambe qui compare ZERO brin aussi.
-NEST_CHANGED=0; NEST_LEGS=0; NEST_CMP=0; NEST_MISSING=0
+NEST_CHANGED=0; NEST_LEGS=0; NEST_CMP=0; NEST_MISSING=0; NEST_DUP=0
 for pair in "very-low:very-high" "low:high" "medium:very-high"; do
   lo=${pair%%:*}; hi=${pair##*:}
   if "$BIN" training --preset "$lo" --variant-nest "$hi" > "$T/nest-$lo-$hi.out" 2>&1; then
@@ -63,6 +63,7 @@ for pair in "very-low:very-high" "low:high" "medium:very-high"; do
     x=$(grep -m1 '^variant_nest_changed=' "$T/nest-$lo-$hi.out" | cut -d= -f2)
     m=$(grep -m1 '^variant_nest_missing=' "$T/nest-$lo-$hi.out" | cut -d= -f2)
     f=$(grep -m1 '^variant_nest_folded=' "$T/nest-$lo-$hi.out" | cut -d= -f2)
+    u=$(grep -m1 '^variant_nest_dup=' "$T/nest-$lo-$hi.out" | cut -d= -f2)
     if [ -n "${c:-}" ] && [ -n "${x:-}" ] && [ -n "${m:-}" ]; then
       NEST_LEGS=$((NEST_LEGS + 1))
       NEST_CHANGED=$((NEST_CHANGED + x)); NEST_CMP=$((NEST_CMP + c))
@@ -71,6 +72,8 @@ for pair in "very-low:very-high" "low:high" "medium:very-high"; do
       echo "grass_variant_nest_${lo}_${hi}_changed=$x"
       echo "grass_variant_nest_${lo}_${hi}_folded=${f:--}"
       echo "grass_variant_nest_${lo}_${hi}_missing=$m"
+      echo "grass_variant_nest_${lo}_${hi}_dup=${u:--}"
+      NEST_DUP=$((NEST_DUP + ${u:-0}))
     fi
   fi
 done
@@ -78,6 +81,10 @@ echo "grass_variant_nest_legs=$NEST_LEGS"
 echo "grass_variant_nest_compared=$NEST_CMP"
 echo "grass_variant_nest_changed=$NEST_CHANGED"
 echo "grass_variant_nest_missing=$NEST_MISSING"
+# RACINES EN DOUBLE, EXCLUES ET COMPTEES. L'ecretage de touffe ramene quelques brins EXACTEMENT sur
+# l'origine de leur touffe : la racine n'y identifie plus un brin. Les apparier mesurerait
+# l'ecretage. Le nombre est publie pour qu'il ne grossisse pas en silence.
+echo "grass_variant_nest_dup=$NEST_DUP"
 NEST_MUTE=$((3 - NEST_LEGS))
 NEST_EMPTY=0
 [ "$NEST_CMP" -gt 0 ] || NEST_EMPTY=1
@@ -93,13 +100,21 @@ levels = sys.argv[3:]
 
 NV = 6
 SCALARS = ["blades", "k", "preset", "folded", "off_profile", "verts_strip", "verts_max",
-           "verts_over", "verts_active_total", "verts_strip_total", "terms_measured", "count"]
+           "verts_over", "verts_active_total", "verts_strip_total", "terms_measured", "count",
+           # ESSAI 2 : les grandeurs de TOUFFE. Une seule absente NOMME le niveau au lieu de
+           # laisser la porte sommer des zeros qu'elle n'a pas mesures.
+           "blades_clumped", "clumps", "clumps_dominant", "dominant_pm", "dominant_pm_floor",
+           "dominant_share_pm", "height_cv_pm", "height_cv_pm_floor", "height_mean_mm",
+           "neigh_compared", "neigh_diff", "neigh_diff_pm", "neigh_diff_pm_floor",
+           "seg_angle_max_mdeg", "seg_angle_cap_mdeg", "seg_angle_over", "variants_seen"]
 PERV = ["v%d", "base_v%d", "share_pm_v%d", "expect_pm_v%d", "tol_pm_v%d", "seg_v%d"]
 
 seen, mute, grassless = 0, [], []
 tot = {k: 0 for k in ("blades", "folded", "off_profile", "verts_over",
                       "verts_active_total", "verts_strip_total")}
 budget_bad, unmeasured, k_bad = 0, 0, 0
+dom_bad, hcv_bad, neigh_bad, angle_bad, submitted_bad, clumpless = 0, 0, 0, 0, 0, 0
+angle_over_tot = 0
 per_v_tot = [0] * NV
 train = {}
 
@@ -136,7 +151,11 @@ for lvl in levels:
         print("grass_variant_%s_expect_pm_v%d=%d" % (lvl, v, num["expect_pm_v%d" % v]))
         print("grass_variant_%s_tol_pm_v%d=%d" % (lvl, v, num["tol_pm_v%d" % v]))
     for k in ("blades", "k", "folded", "off_profile", "verts_max", "verts_over",
-              "terms_measured"):
+              "terms_measured", "blades_clumped", "clumps", "clumps_dominant", "dominant_pm",
+              "dominant_pm_floor", "dominant_share_pm", "height_cv_pm", "height_cv_pm_floor",
+              "height_mean_mm", "neigh_compared", "neigh_diff", "neigh_diff_pm",
+              "neigh_diff_pm_floor", "seg_angle_max_mdeg", "seg_angle_cap_mdeg",
+              "seg_angle_over", "variants_seen"):
         print("grass_variant_%s_%s=%d" % (lvl, k, num[k]))
     print("grass_variant_%s_digest=%s" % (lvl, kv.get("digest", "-") or "-"))
     # Un niveau sans AUCUN brin ne porte pas de variante, et ce n'est pas un defaut de CET item :
@@ -144,7 +163,7 @@ for lvl in levels:
     if num["blades"] == 0:
         grassless.append(lvl)
         continue
-    if num["terms_measured"] < 5:
+    if num["terms_measured"] < 9:
         unmeasured += 1
         continue
     # LE BUDGET : ce que la diversite DEMANDE en sommets ne depasse jamais ce que le GPU transforme.
@@ -153,6 +172,25 @@ for lvl in levels:
     # LE PALIER COMMANDE LE NOMBRE DE VARIANTES : le seuil vient de l'outil, jamais d'ici.
     if num["k"] <= 0 or num["k"] > num["count"]:
         k_bad += 1
+    # ---- ESSAI 2. Les quatre grandeurs que l'owner a nommees le 20/09. Tous les PLANCHERS sont
+    # publies par l'outil a cote de la mesure : aucun seuil n'est ecrit ici.
+    if num["blades_clumped"] == 0 or num["clumps"] == 0:
+        clumpless += 1          # sans touffe, les trois termes suivants ne mesurent rien
+        continue
+    if num["dominant_pm"] < num["dominant_pm_floor"]:
+        dom_bad += 1            # (1) une touffe a-t-elle UNE silhouette dominante ?
+    if num["height_cv_pm"] < num["height_cv_pm_floor"]:
+        hcv_bad += 1            # (2) les touffes ont-elles des hauteurs differentes ENTRE elles ?
+    if num["neigh_compared"] == 0 or num["neigh_diff_pm"] < num["neigh_diff_pm_floor"]:
+        neigh_bad += 1          # (1 bis) les touffes VOISINES different-elles ?
+    if num["seg_angle_max_mdeg"] > num["seg_angle_cap_mdeg"]:
+        angle_bad += 1          # (3) voit-on encore les polygones des brins ?
+    angle_over_tot += num["seg_angle_over"]
+    # SOMMETS SOUMIS INCHANGES : ce que le GPU transforme reste blades * 10, quelle que soit la
+    # silhouette. La diversite ne se paie pas en geometrie — point 2 du livrable, exige mot pour
+    # mot par le perimetre du 20/09.
+    if num["verts_strip_total"] != num["blades"] * num["verts_strip"]:
+        submitted_bad += 1
 
 for k in sorted(tot):
     print("grass_variant_total_%s=%d" % (k, tot[k]))
@@ -170,18 +208,48 @@ print("grass_variant_census_blades=%s" % train.get("blades", "-"))
 # `variant_seg_v<i>` est celui que l'outil publie depuis `grass_blade_variants.h`. On compare les
 # DONNEES des deux tables, jamais un commentaire : une legende ne se mesure pas.
 src = open("game/graphics/opengl_renderer/shaders/grass.vert", encoding="utf-8").read()
-m = re.search(r"const\s+vec4\s+VAR_B\[6\]\s*=\s*vec4\[6\]\((.*?)\);", src, re.S)
+
+
+def glsl_rows(name):
+    mm = re.search(r"const\s+vec4\s+%s\[6\]\s*=\s*vec4\[6\]\((.*?)\);" % name, src, re.S)
+    if not mm:
+        return None
+    out = []
+    for row in re.findall(r"vec4\(([^)]*)\)", mm.group(1)):
+        out.append([float(x.strip()) for x in row.split(",")])
+    return out
+
+
+ga, gb = glsl_rows("VAR_A"), glsl_rows("VAR_B")
 glsl_seg, table_mismatch = [], 0
-if not m:
+if gb is None or ga is None:
     table_mismatch += 1
     print("grass_variant_glsl_table=absente")
 else:
-    for row in re.findall(r"vec4\(([^)]*)\)", m.group(1)):
-        f = [x.strip() for x in row.split(",")]
-        glsl_seg.append(int(float(f[2])) if len(f) >= 3 else -1)
+    glsl_seg = [int(r[2]) if len(r) >= 3 else -1 for r in gb]
     print("grass_variant_glsl_segments=%s" % ",".join(str(x) for x in glsl_seg))
-    if len(glsl_seg) != NV:
+    if len(glsl_seg) != NV or len(ga) != NV:
         table_mismatch += 1
+# LES HUIT NOMBRES DE CHAQUE LIGNE, PAS LE SEUL COMPTE DE SEGMENTS. L'essai 2 CALCULE un angle
+# depuis la table C++ ; si la table GLSL en differait d'un chiffre, l'angle publie ne serait pas
+# celui du brin dessine. La duplication reste, elle est mesuree en entier.
+shape_mismatch, shape_compared = 0, 0
+if ga is not None and gb is not None and train:
+    for v in range(NV):
+        cpp = train.get("shape_v%d" % v, "")
+        got = [x for x in cpp.split(",") if x != ""]
+        if len(got) != 8 or v >= len(ga) or v >= len(gb) or len(ga[v]) < 4 or len(gb[v]) < 4:
+            shape_mismatch += 1
+            continue
+        want = [ga[v][0], ga[v][1], ga[v][2], ga[v][3], gb[v][0], gb[v][1], gb[v][2], gb[v][3]]
+        for a, b in zip(want, [float(x) for x in got]):
+            shape_compared += 1
+            if abs(a - b) > 1.0e-4:
+                shape_mismatch += 1
+else:
+    shape_mismatch += 1
+print("grass_variant_shape_compared=%d" % shape_compared)
+print("grass_variant_shape_mismatch=%d" % shape_mismatch)
 cpp_seg = [int(train.get("seg_v%d" % v, -1)) for v in range(NV)] if train else [-1] * NV
 print("grass_variant_cpp_segments=%s" % ",".join(str(x) for x in cpp_seg))
 for v in range(NV):
@@ -211,6 +279,16 @@ terms = {
     "grassed_absent": 1 if (seen - len(grassless)) == 0 else 0,
     "variants_absent": 1 if sum(1 for v in per_v_tot if v > 0) < 2 else 0,
     "terms_unmeasured": unmeasured,
+    # ---- ESSAI 2 : les quatre oui/non de l'owner, un terme chacun, plus les temoins de non-vacuite.
+    "clump_dominance": dom_bad,
+    "clump_height_spread": hcv_bad,
+    "clump_neighbors": neigh_bad,
+    "seg_angle": angle_bad,
+    "seg_angle_over": angle_over_tot,
+    "verts_submitted": submitted_bad,
+    "clumps_absent": clumpless,
+    "shape_mismatch": shape_mismatch,
+    "shape_uncompared": 1 if shape_compared < 8 * NV else 0,
 }
 for k in sorted(terms):
     print("grass_variant_term_%s=%d" % (k, terms[k]))

@@ -2039,13 +2039,17 @@ void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk
 }
 
 ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map,
-                    bool clumped, bool shaded) {
+                    bool clumped, bool shaded, bool varied) {
   ExpandResult res;
   res.clumped = clumped;
   // grass-shading : LA TEINTE PAR TOUFFE N'EXISTE PAS SANS TOUFFE. Desarmer le placement desarme
   // donc la couleur, et c'est voulu : les deux bras d'ablation ne peuvent pas se contredire.
   const bool shade_on = shaded && clumped;
   res.shaded = shade_on;
+  // grass-blade-variants (essai 2) : LA HAUTEUR PAR TOUFFE N'EXISTE PAS SANS TOUFFE, exactement
+  // comme la teinte par touffe ci-dessus. Desarme (bras d'ablation de l'item), la hauteur redevient
+  // celle d'avant, au bit.
+  const bool vary_on = varied && clumped;
   // grass-clumps : LA MEME classe qu'a la cuisson. `clumped=false` est le bras d'ablation — le
   // tirage uniforme du code REMPLACE, sur le MEME bake. Les bits `keep` restent ceux des positions
   // en touffes : ce bras mesure le regroupement, il n'est pas un etat livrable.
@@ -2384,6 +2388,12 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       // grass-clumps : « des brins dominants et des brins peripheriques ». Le profil est a MOYENNE
       // CONSERVEE, donc il ne touche pas la hauteur moyenne du champ (hors perimetre de cet item).
       gi.h *= clump_height_mul(site.rho);
+      // grass-blade-variants (essai 2), owner 20/09 : « pas de variations de hauteur ». Un facteur
+      // COMMUN A TOUTE LA TOUFFE, de moyenne 1 — la ligne au-dessus ne fait varier la hauteur qu'a
+      // l'INTERIEUR d'une touffe (par le rang), ce qui laisse toutes les touffes de meme taille.
+      if (vary_on) {
+        gi.h *= clump_variant_height_mul(site.cseed);
+      }
       {
         const float p_d = path_decode(pq);
         if (p_d < TRANS_W_M * U) {
@@ -2511,6 +2521,10 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       }
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
+      // La touffe du brin, pour le recensement ET pour la selection de silhouette. Poussee ICI,
+      // au meme rang que `inst_tri` : c'est le seul endroit ou `site` est encore en portee.
+      res.inst_cseed.push_back(site.cseed);
+      res.inst_rank.push_back((u16)(site.rank > 65535u ? 65535u : site.rank));
       if (want_cand_map) {
         res.inst_cand.push_back((u32)ci);  // grass-path-transitions : le recensement, jamais le jeu
       }
@@ -2908,6 +2922,11 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
   // grass-chunk-cull : la partition, recalculee depuis les instances qu'on vient d'emettre. Un
   // seul parcours de min/max sur un tableau deja chaud : c'est la meme fonction que l'outil de
   // cuisson appelle, donc les deux cotes ne peuvent pas diverger sans que le moteur le voie.
+  // LES CLASSES DE QUEUE (overhang) sont poussees apres la boucle principale et n'appartiennent a
+  // aucune touffe : leurs entrees valent 0 (« aucune touffe »), ce qui les renvoie a la graine par
+  // brin d'avant. Un tableau plus court que `instances` ferait lire l'index du voisin.
+  res.inst_cseed.resize(res.instances.size(), 0u);
+  res.inst_rank.resize(res.instances.size(), (u16)0);
   build_chunks(res.instances, res.chunks);
   // grass-shading : la table des poids suit `instances` JUSQU'AU BOUT. Les classes de queue
   // (overhang) ont ete poussees apres la boucle principale ; elles prennent le centroide.
