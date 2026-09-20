@@ -2636,8 +2636,14 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // separation face eclairee / face opposee vit dans le fragment : sans ce drapeau, `--off`
   // continuerait a la dessiner et le bras desarme ne serait plus l'etat d'avant. A 0, le facteur
   // vaut exactement 1,0 et le pixel est celui du build precedent.
-  glUniform1f(grass_uloc(id, "u_shade_face"),
-              autoport_proof::armed_for(kShadeItemId) ? 1.0f : 0.0f);
+  const GLint shade_face_loc = grass_uloc(id, "u_shade_face");
+  glUniform1f(shade_face_loc, autoport_proof::armed_for(kShadeItemId) ? 1.0f : 0.0f);
+  if (autoport_proof::feature_is(kShadeItemId)) {
+    // UN UNIFORME QUE LE COMPILATEUR A RETIRE REND -1, ET `glUniform1f(-1, ...)` EST UN NO-OP
+    // DOCUMENTE : le bras `--off` croirait avoir eteint le terme de face et le dessinerait quand
+    // meme. On ne teste donc pas le shader par grep, on publie ce que le PILOTE rend.
+    autoport_proof::publish("grass_shade_engine_face_uloc_ok", shade_face_loc >= 0 ? 1u : 0u);
+  }
   // Grecharged-grass-overhang2: droop arc length scale (owner defect 2 — see grass_droop_len()).
   glUniform1f(grass_uloc(id, "u_droop_len"), grass_droop_len());
   // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle

@@ -89,6 +89,7 @@ ENG_LBEFORE=$(eng grass_shade_engine_light_before)
 ENG_LAFTER=$(eng grass_shade_engine_light_after)
 ENG_HITS=$(eng grass_shade_engine_hits)
 ENG_CULL=$(eng grass_shade_engine_cull_face)
+ENG_FACE_ULOC=$(eng grass_shade_engine_face_uloc_ok)
 echo "grass_shade_engine_model_fnv_seen=$ENG_MODEL_FNV"
 echo "grass_shade_engine_face_fnv_seen=$ENG_FACE_FNV"
 echo "grass_shade_engine_blades_seen=$ENG_BLADES"
@@ -98,6 +99,7 @@ echo "grass_shade_engine_light_before_seen=$ENG_LBEFORE"
 echo "grass_shade_engine_light_after_seen=$ENG_LAFTER"
 echo "grass_shade_engine_hits_seen=$ENG_HITS"
 echo "grass_shade_engine_cull_face_seen=$ENG_CULL"
+echo "grass_shade_engine_face_uloc_ok_seen=$ENG_FACE_ULOC"
 echo "grass_shade_engine_log=${ELOG:--}"
 
 # LE MODELE LIVRE. Une empreinte que le moteur n'a pas publiee ne dit pas « egale » : elle ne dit
@@ -121,6 +123,9 @@ if [ "${AUTOPORT_CENSUS_ARMED:-1}" != "0" ]; then
   # Et les deux faces du ruban doivent etre rasterisees, sinon l'ecart entre elles ne sort pas de
   # l'ordinateur. `-1` = le moteur ne l'a pas dit : ce n'est pas « faux », c'est muet, donc defaut.
   [ "$ENG_CULL" = 0 ] || BLIND=$((BLIND + 1))
+  # Et le drapeau d'ablation du terme de face doit exister dans le programme lie, sinon le bras
+  # `--off` ne l'eteindrait pas et les deux bras dessineraient la meme chose.
+  [ "$ENG_FACE_ULOC" = 1 ] || BLIND=$((BLIND + 1))
 fi
 echo "grass_shade_term_engine_blind=$BLIND"
 
