@@ -639,11 +639,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
  "harness-pack-manifest-is-a-build-artefact": {
-  "hash": "b2d9a81171917f33df1f86b34c00243879889d43",
+  "hash": "7ee6932ee557920fd4aac4ff945775a1128d7223",
   "identifier": "JAK-187",
   "issue_id": "f4cf8a23-4596-41fe-bd37-502f06159f4f",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-001.txt",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T21:17:01.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-187/le-manifeste-du-pack-dassets-est-un-produit-du-build-pas-une-source-il"
  },
