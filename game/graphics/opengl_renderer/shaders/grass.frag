@@ -29,6 +29,11 @@ uniform sampler2D u_hang1;  // bch-leafyground-hang-2x1
 // glGetUniformLocation returns -1 and glUniform1i(-1, ...) is a documented no-op.
 uniform int u_pbr_debug;
 
+// grass-shading : 1 quand l'item est arme (le defaut : une correction derriere un drapeau eteint
+// n'existe pas pour l'owner), 0 sous le bras `--off` de `proof_run.sh`. A 0, le facteur de face
+// vaut exactement 1,0 — le pixel est celui du build precedent, au bit.
+uniform float u_shade_face;
+
 out vec4 color;
 
 void main() {
@@ -92,6 +97,7 @@ void main() {
       float gs_face_dot = 0.0;
       float gs_face_mul = 1.0;
 #include "grass_shade_face.glsl"
+      gs_face_mul = mix(1.0, gs_face_mul, clamp(u_shade_face, 0.0, 1.0));
       gs_shaded = clamp(gs_shaded * gs_face_mul, vec3(0.0), vec3(1.5));
     }
     color = vec4(gs_shaded, a);

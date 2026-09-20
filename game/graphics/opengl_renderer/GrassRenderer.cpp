@@ -2631,6 +2631,13 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // ROUND#19: optional normal-tilt blend — blade growth axis = mix(world-up, ground-face normal, u_tilt).
   // 0.0 (default) is bit-identical to the world-up-only growth; the owner A/Bs ~0.30 via the debug prop.
   glUniform1f(grass_uloc(id, "u_tilt"), grass_tilt_amount());
+  // grass-shading : LE BRAS D'ABLATION DU TERME DE FACE. Le reste de l'item se desarme dans
+  // `expand()` (la couleur redevient celle du draw, la lumiere celle du centroide), mais la
+  // separation face eclairee / face opposee vit dans le fragment : sans ce drapeau, `--off`
+  // continuerait a la dessiner et le bras desarme ne serait plus l'etat d'avant. A 0, le facteur
+  // vaut exactement 1,0 et le pixel est celui du build precedent.
+  glUniform1f(grass_uloc(id, "u_shade_face"),
+              autoport_proof::armed_for(kShadeItemId) ? 1.0f : 0.0f);
   // Grecharged-grass-overhang2: droop arc length scale (owner defect 2 — see grass_droop_len()).
   glUniform1f(grass_uloc(id, "u_droop_len"), grass_droop_len());
   // Grecharged-grass-overhang3: gate the transition-band comb on the SAME Recharged overhang toggle
