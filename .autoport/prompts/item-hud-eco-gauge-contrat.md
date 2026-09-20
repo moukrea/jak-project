@@ -23,6 +23,10 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 
 20/09 13:45 RETOUR OWNER (JAK-176) : « maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le probleme d'opacite de la lueur bleue n'est en plus pas corrige du tout ». L'essai 8 a SURCORRIGE la taille (un point) et n'a RIEN change a l'opacite visible. ORDRE IMPOSE POUR L'ESSAI SUIVANT : (1) d'abord CALIBRER l'instrument : mesurer la nuee du VIAL DU MONDE (bleu) avec le meme instrument — taille relative et alpha effectif au coeur — et publier ces deux nombres : ils sont LA CIBLE, pas un seuil invente ; puis verifier que l'instrument rougit sur un controle trop petit ET sur un controle trop pale (sinon il est muet, comme t10 a l'essai 8 : 99,98 % de mauvais) ; (2) ensuite regler : rayon de la nuee = 0,85-0,95 du rayon du trou (mesure sur la boite des sommets emis, PAS sur un parametre) ; alpha effectif au coeur >= celui du vial du monde x 0,9 — si le mode de fusion additif sur fond sombre dilue, changer le mode ou la texture, pas juste la constante ; (3) capture COTE A COTE jointe : nuee du HUD et vial du monde dans la meme image. Deux essais.
 
+20/09 16:55 SUPERVISEUR : essai 10 VERT sur l'appareil (hud_gauge_defects=0, taille et opacite calibrees sur le vial du monde, commit 630ea23478 DANS le build publie 630ea23478ed) mais BLOQUE par la porte de fermeture pour 3 tests rouges de la suite du harnais (test_proof.py : « la preuve ne porte aucune empreinte FIGEE de son binaire ») — ces rouges viennent du chantier harness-judge-binary-race-with-builder qui reecrit validators/generic.sh EN PARALLELE ; l'essai 10 n'a touche que goal_src (git diff verifie). Imputation fausse. Owner 16:45 : « j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais » -> passe a tester par lui.
+
+20/09 20:50 RETOUR OWNER (JAK-176, photo 20260920T1831-1.jpg) : « l'orbe sur la jauge ne recouvre pas le trou mais est trop petite a l'interieur et le fond fait juste un ROND BLANC, pas comme le bleu in game ! Je sais pas ce que t'as bricole avec l'opacite mais on pourrait faire apparaitre un FOND NOIR d'un coup sous le rond vide de la jauge quand l'orbe y apparait, et sur les derniers pourcents un FADE OUT pour disparaitre (de meme pour l'orbe). Et bien sur agrandir, et faire en sorte que ca soit BLEU et pas blanc (rouge pour rouge, jaune pour jaune) ». LU SUR LA PHOTO : le centre de la jauge est un disque blanc-bleute delave, l'orbe bleue du monde au premier plan est saturee et bleue ; la nuee du HUD est petite au centre. DIAGNOSTIC : la nuee est ADDITIVE sur un fond CLAIR (le disque de la jauge) : l'addition sature vers le blanc et perd la teinte ; sur le fond sombre du monde la meme nuee est bleue. Dix essais ont regle taille et alpha sans jamais changer le fond : c'est le fond qui manquait. LA SOLUTION EST CELLE DE L'OWNER : (1) un disque NOIR (ou tres sombre) pose sous le trou de la jauge, apparaissant D'UN COUP a l'arrivee de l'eco ; (2) la nuee par-dessus, additive sur ce fond noir, donc bleue/rouge/jaune saturee comme dans le monde ; (3) taille : l'orbe touche presque la couronne (rayon 0,85-0,95 du trou) ; (4) sur les derniers pourcents (a definir : les derniers 10 %), FADE OUT du fond noir et de l'orbe ensemble, jusqu'a disparition. PORTE : (a) sous eco bleue, teinte moyenne du centre rendu = bleue (canal B > R et G d'au moins 30 %), et idem rouge/jaune ; (b) luminance du fond sous la nuee <= 0,15 quand l'eco est active, = celle d'origine quand elle ne l'est pas ; (c) rayon de l'orbe dans [0,85 ; 0,95] du trou ; (d) alpha du fond et de l'orbe decroissant monotone sur les derniers 10 % jusqu'a 0. CAPTURE COTE A COTE OBLIGATOIRE au passage en test (jauge + orbe du monde dans la meme image). 2 essais.
+
 ## Livrable — le contrat, en entier
 
 `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
@@ -47,7 +51,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee REMPLIT-elle le trou de la jauge (elle touche presque la couronne, deborde a peine), ni minuscule ni envahissante ? (2) la lueur bleue est-elle pleine et opaque comme sur le vial du monde ?
+HUD en jeu, ramassage d'eco bleue puis rouge puis jaune, avec la photo owner-feedback/hud-eco-gauge/20260920T1831-1.jpg comme AVANT. Quatre oui/non : (1) le rond au centre est-il COLORE (bleu pour bleu, rouge pour rouge, jaune pour jaune) et plus blanc ? (2) l'orbe remplit-elle le trou de la jauge (elle touche presque la couronne) ? (3) un fond noir apparait-il sous le trou quand l'orbe arrive, et disparait-il en fondu avec elle sur les derniers pourcents ? (4) l'ensemble ressemble-t-il a l'eco du monde ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -77,6 +81,15 @@ HUD en jeu apres un ramassage d'eco bleue. Deux oui/non : (1) la nuee REMPLIT-el
 
 ### 2026-09-20
 > Débile, maintenant elle est tellement minuscule que c'est un petit point au milieu du trou, le problème d'opacité de la lueur bleue n'est en plus pas corrigé du tout, à chier
+
+### 2026-09-20
+> Bah ok… tiens moi au jus si ça avance
+
+### 2026-09-20
+> Bah j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais !
+
+### 2026-09-20
+> Je sais pas sur quoi tu fais tes mesures à ralonge mais c'est évident en un coup d'œil que ça va pas (regarde le screen), l'orbe sur la jauge ne recouvre pas le trou mais est trop petite à l'intérieur et le fond de cette dernière fait juste un rond blanc, pas comme le bleu qu'elle fait in game ! C'est toujours pas bon ! Je sais pas ce que t'as bricolé avec l'opacité mais je pense qu'on pourrait faire apparaitre un fond noir d'un coup sous le rond vide de la jauge quand l'orbe y apparaît, et sur les derniers pourcents quand elle se vide un fade out pour disparaître (et de même pour l'orbe). Et bien sûr agrandir, et faire en sorte que ça soit bleu et pas blanc (rouge pour orbe rouge et jaune pour orbe jaune respectivement of course)  ![71669.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/106bb544-d364-48d3-8685-9e9c85d921f7/9e98938e-c1fb-4cfa-bd4e-74f542722c39) [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260920T1831-1.jpg]
 
 ## Pourquoi ce fichier existe
 

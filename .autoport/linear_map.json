@@ -893,11 +893,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "630ea23478ed",
-  "hash": "2e928ddf973acaefbe13a1a0967bd9a8f324f0fd",
+  "hash": "d4df3d13a0d6d1c398bb35d2eced59a8bb2c66ea",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-20T18:31:06.561Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
