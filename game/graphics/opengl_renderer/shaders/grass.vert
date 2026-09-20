@@ -120,6 +120,28 @@ const vec4 VAR_B[6] = vec4[6](
   vec4(1.15, -0.30, 0.38, 1.285)    // v5 touffu — port ouvert
 );
 
+// grass-blade-variants (owner 20/09 13:45) — LA PALETTE DE CHAQUE ESPECE, et l'AXE de son degrade.
+//   PAL_A = (rouge, vert, bleu de la RACINE, AXE) ; AXE 0 = le long du brin, 1 = EN TRAVERS.
+//   PAL_B = (rouge, vert, bleu de la POINTE, LISERET DE BORD).
+// Les huit nombres de chaque ligne sont ceux de `kGrassSpecies` (grass_blade_variants.h) ; la
+// duplication est MESUREE par le recensement, ligne a ligne, comme celle de VAR_A/VAR_B.
+const vec4 PAL_A[6] = vec4[6](
+  vec4(0.070, 0.170, 0.045, 0.0),   // v0 lame   — vert franc, degrade le long du brin
+  vec4(0.040, 0.140, 0.115, 0.0),   // v1 fine   — vert froid, pointe tres claire
+  vec4(0.140, 0.180, 0.040, 1.0),   // v2 large  — vert-jaune chaud, degrade EN TRAVERS
+  vec4(0.150, 0.110, 0.040, 1.0),   // v3 faux   — olive sec, degrade EN TRAVERS
+  vec4(0.040, 0.120, 0.055, 0.0),   // v4 jonc   — vert profond, LISERET de bord clair
+  vec4(0.160, 0.200, 0.070, 1.0)    // v5 touffu — vert pale, EN TRAVERS + liseret discret
+);
+const vec4 PAL_B[6] = vec4[6](
+  vec4(0.42, 0.68, 0.22, 0.00),
+  vec4(0.24, 0.70, 0.58, 0.00),
+  vec4(0.56, 0.62, 0.13, 0.00),
+  vec4(0.56, 0.38, 0.12, 0.00),
+  vec4(0.22, 0.50, 0.24, 0.85),
+  vec4(0.66, 0.78, 0.44, 0.45)
+);
+
 vec4 world_to_clip(vec3 pos) {
   vec4 transformed = -camera[3].xyzw;
   transformed += -camera[0] * pos.x;
@@ -181,6 +203,8 @@ void main() {
   // ramene pas l'etat d'avant. Les huit constantes ci-dessous sont `kBladeShapeLegacy`.
   vec4 VA = var_on ? VAR_A[vi] : vec4(1.00, 0.092, 0.66, 0.00);
   vec4 VB = var_on ? VAR_B[vi] : vec4(1.00, 0.00,  0.00, 0.00);
+  vec4 PA = var_on ? PAL_A[vi] : vec4(0.075, 0.185, 0.040, 0.0);
+  vec4 PB = var_on ? PAL_B[vi] : vec4(0.40,  0.66,  0.20,  0.0);
   H *= VA.x;
 
   // Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec) instance classes (nspare):
@@ -353,6 +377,7 @@ void main() {
 
   vec3 pos;
   float t_col;
+  float a_col;
   vec2 fc_uv = vec2(0.0);    // ROUND 11: zone-3 textured-card UV (set only by the is_fcard branch)
   float fc_texb = 0.0;       // ROUND 11: which hang texture the card samples (0 = grassfringe)
   if (u_mode == 0) {
@@ -506,6 +531,7 @@ void main() {
     // ROUND 11: textured cards bypass the procedural colour gradient entirely (the texel IS the
     // art); v_is_card = 2 routes the frag to the hang-texture sampling branch.
     t_col = t;
+    a_col = float(side) * 2.0 - 1.0;
     v_uv = is_fcard ? fc_uv : vec2(0.0);
     v_is_card = is_fcard ? 2 : 0;
   } else {
@@ -551,6 +577,7 @@ void main() {
     // to both tiers, a card and a blade at the same height are the SAME colour by construction — so
     // the grass no longer "change de couleur quand on avance" and the crossfade band blends cleanly.
     t_col = uv.y;
+    a_col = uv.x;
     v_uv = uv;
     v_is_card = 1;
   }
@@ -578,6 +605,12 @@ void main() {
   vec3 gs_gcol = inst_gcol.xyz;
   vec3 gs_light = inst_light.xyz;
   bool gs_card = is_fcard;
+  bool gs_pal_on = var_on;
+  vec3 gs_pal_root = PA.xyz;
+  vec3 gs_pal_tip = PB.xyz;
+  float gs_pal_axis = PA.w;
+  float gs_pal_rim = PB.w;
+  float gs_across = a_col;
   vec3 col;
 #include "grass_shade.glsl"
 

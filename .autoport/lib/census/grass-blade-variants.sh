@@ -314,6 +314,76 @@ if not train or glsl_strip != int(train.get("verts_strip", -1)):
 # ci-dessous, sous `grass_variant_term_table_mismatch`. Deux cles distinctes, pas un doublon.
 print("grass_variant_table_mismatch=%d" % table_mismatch)
 
+# ---- ESSAI 4 (owner 20/09 13:45) : LA PALETTE PAR ESPECE. « je vois pas beaucoup d'especes, t'as
+# pas du tout joue sur les degrades (pas de haut en bas mais de "gauche a droite" pour creer
+# d'autres especes) ». Six silhouettes ne font six ESPECES que si elles se DISTINGUENT A L'OEIL :
+# une palette propre, et un AXE de degrade propre. Comme la table de forme, la table de palette vit
+# des DEUX cotes (C++ et GLSL) : elle est donc COMPAREE ligne a ligne, jamais supposee.
+pa, pb = glsl_rows("PAL_A"), glsl_rows("PAL_B")
+pal_mismatch, pal_compared = 0, 0
+if pa is None or pb is None or len(pa) != NV or len(pb) != NV or not train:
+    pal_mismatch += 1
+else:
+    for v in range(NV):
+        cpp = []
+        for key in ("pal_a_v%d" % v, "pal_b_v%d" % v):
+            cpp += [x for x in train.get(key, "").split(",") if x != ""]
+        if len(cpp) != 8:
+            pal_mismatch += 1
+            continue
+        want = list(pa[v]) + list(pb[v])
+        for a, b in zip(want, [float(x) for x in cpp]):
+            pal_compared += 1
+            if abs(a - b) > 1.0e-4:
+                pal_mismatch += 1
+print("grass_variant_pal_compared=%d" % pal_compared)
+print("grass_variant_pal_mismatch=%d" % pal_mismatch)
+
+
+def pnum(k, d=-1):
+    try:
+        return int(train.get(k, d))
+    except (TypeError, ValueError):
+        return d
+
+
+for k in ("pal_blades", "pal_sampled", "pal_samples", "pal_pairs_below", "pal_min_hue_mdeg",
+          "pal_min_lum_pm", "pal_axis_along", "pal_axis_across", "pal_axis_rim", "pal_axis_weak",
+          "pal_r2_species_pm", "pal_r2_single_pm", "pal_hue_floor_mdeg", "pal_lum_floor_pm",
+          "pal_axis_dom_floor_pm", "pal_r2_species_floor_pm", "pal_r2_single_ceil_pm",
+          "pal_groups_species", "pal_groups_single", "pal_tint_bins"):
+    print("grass_variant_%s=%d" % (k, pnum(k)))
+for v in range(NV):
+    for k in ("pal_hue_v%d", "pal_lum_v%d", "pal_axis_v%d", "pal_rim_v%d", "pal_axis_dom_v%d"):
+        print("grass_variant_%s=%d" % (k % v, pnum(k % v)))
+    print("grass_variant_pal_mean_v%d=%s" % (v, train.get("pal_mean_v%d" % v, "-")))
+print("grass_variant_pal_min_pair=%s" % train.get("pal_min_pair", "-"))
+
+# UNE MESURE ABSENTE NE DIT PAS ZERO. Sans population echantillonnee les trois termes suivants
+# seraient des zeros verts : `pal_unmeasured` est le temoin qui les remplace.
+# Les DEUX modeles de la regression doivent avoir des groupes peuples : un R2 calcule sur des
+# groupes d'un seul echantillon vaut 1 par construction et ne mesure rien.
+pal_unmeasured = 1 if (pnum("pal_sampled") <= 0 or pnum("pal_samples") <= 0
+                       or pnum("pal_groups_species") <= 0 or pnum("pal_groups_single") <= 0
+                       or pnum("pal_samples") < 8 * pnum("pal_groups_species")) else 0
+pal_dist_bad, pal_axis_bad, pal_r2_bad = 0, 0, 0
+if not pal_unmeasured:
+    # (1) DEUX ESPECES VOISINES SE DISTINGUENT : pour chacune des 15 paires, 20 degres de teinte OU
+    #     20 % de luminance d'ecart. Les deux planchers sont publies par l'OUTIL, pas ecrits ici.
+    pal_dist_bad = max(pnum("pal_pairs_below"), 0)
+    # (2) LES TROIS DIRECTIONS DE DEGRADE QUE L'OWNER A NOMMEES existent dans la table, et chaque
+    #     espece varie VRAIMENT sur l'axe qu'elle declare (sinon l'axe est une legende).
+    if pnum("pal_axis_along") < 2 or pnum("pal_axis_across") < 2 or pnum("pal_axis_rim") < 1:
+        pal_axis_bad += 1
+    pal_axis_bad += max(pnum("pal_axis_weak"), 0)
+    # (3) LA COULEUR EMISE EST UNE FONCTION DE L'ESPECE. Regression sur les sommets simules par le
+    #     MEME texte que le pilote compile : le modele par espece explique la couleur, le modele a
+    #     une seule palette ne l'explique pas. Un seul des deux ne prouverait rien.
+    if pnum("pal_r2_species_pm") < pnum("pal_r2_species_floor_pm"):
+        pal_r2_bad += 1
+    if pnum("pal_r2_single_pm") > pnum("pal_r2_single_ceil_pm"):
+        pal_r2_bad += 1
+
 terms = {
     "off_profile": tot["off_profile"],
     "verts_over": tot["verts_over"],
@@ -345,20 +415,31 @@ terms = {
     "species_width_ladder": sp_w_bad,
     "species_ports": sp_port_bad,
     "species_weights": weight_bad,
+    # ---- ESSAI 4 : la palette par espece. Un terme par question de l'owner, plus deux temoins de
+    # non-vacuite (table non comparee, population non echantillonnee).
+    "pal_table_mismatch": pal_mismatch,
+    "pal_uncompared": 1 if pal_compared < 8 * NV else 0,
+    "pal_species_distance": pal_dist_bad,
+    "pal_axis_coverage": pal_axis_bad,
+    "pal_r2": pal_r2_bad,
+    "pal_unmeasured": pal_unmeasured,
 }
 print("grass_variant_zone_cells_judged=%d" % zone_cells_tot)
 print("grass_variant_zone_levels_mute=%d" % zone_mute)
 for k in sorted(terms):
     print("grass_variant_term_%s=%d" % (k, terms[k]))
-# +6 : les trois jambes de palier, la cecite du moteur, son empreinte et l'absence de maillage sont
-# mesurees par le shell ; elles comptent dans la porte au meme titre que celles d'ici.
-print("grass_variant_terms=%d" % (len(terms) + 6))
+# +7 : les trois jambes de palier, la cecite du moteur, son empreinte, l'absence de maillage et le
+# TEXTE DE COULEUR que le moteur a reellement compile sont mesures par le shell ; ils comptent dans
+# la porte au meme titre que ceux d'ici.
+print("grass_variant_terms=%d" % (len(terms) + 7))
 open(os.path.join(T, "terms.txt"), "w").write(str(sum(terms.values())))
 open(os.path.join(T, "digest.txt"), "w").write(str(train.get("digest", "-")))
 open(os.path.join(T, "k.txt"), "w").write(str(train.get("k", "-")))
+open(os.path.join(T, "blades.txt"), "w").write(str(train.get("blades", "-")))
 PY
 
 TERMS=$(cat "$T/terms.txt" 2>/dev/null || echo 99)
+CB_BLADES=$(cat "$T/blades.txt" 2>/dev/null || echo -1)
 CDIG=$(cat "$T/digest.txt" 2>/dev/null || echo "-")
 CK=$(cat "$T/k.txt" 2>/dev/null || echo "-")
 
@@ -396,6 +477,53 @@ if [ "${AUTOPORT_CENSUS_ARMED:-1}" != "0" ]; then
   [ "$EAV" = "0" ] || MESH=$((MESH + 1))
   [ "$EAI" -gt 0 ] 2>/dev/null || MESH=$((MESH + 1))
 fi
+# ---- ESSAI 4 : LE TEXTE DE COULEUR QUE LE MOTEUR A REELLEMENT COMPILE. Tout ce qui precede est
+# mesure HORS LIGNE sur l'arbre. Rien n'y prouve que l'appareil dessine la palette par espece : un
+# blob GLES en retard rendrait les memes zeros verts. On hache donc `grass_shade.glsl` comme le
+# moteur (`Shader.cpp:162`, meme etat initial — voir census/grass-shading.sh, qui a paye cet accord)
+# et on le compare a l'empreinte que le moteur publie pour le texte qu'il a SPLICE.
+BASE_MOTEUR=1469598103934665603
+FNV_MODEL=$(python3 - game/graphics/opengl_renderer/shaders/grass_shade.glsl "$BASE_MOTEUR" <<'PYFNV' 2>/dev/null || echo -1
+import sys
+h = int(sys.argv[2])
+for b in open(sys.argv[1], 'rb').read():
+    h = ((h ^ b) * 0x100000001b3) & 0xffffffffffffffff
+print(h)
+PYFNV
+)
+EFNV=-1
+if [ -n "${AUTOPORT_CENSUS_DIR:-}" ] && [ -s "$ELOG" ]; then
+  v=$(grep -ao 'grass_shade_model_fnv=[0-9]\+' "$ELOG" 2>/dev/null | tail -1 | cut -d= -f2); [ -n "${v:-}" ] && EFNV=$v
+fi
+echo "grass_variant_shade_tree_fnv=$FNV_MODEL"
+echo "grass_variant_shade_engine_fnv=$EFNV"
+SHADE=0
+if [ "${AUTOPORT_CENSUS_ARMED:-1}" != "0" ]; then
+  [ "$EFNV" != "-1" ] && [ "$EFNV" = "$FNV_MODEL" ] || SHADE=1
+fi
+echo "grass_variant_term_shade_text=$SHADE"
+
+# ---- POURQUOI LE MIROIR ROUGIT, QUAND IL ROUGIT. L'essai 3 a rendu `engine_mirror=1` SANS NOMMER
+# sa cause, et l'essai 4 a du la retrouver a la main : le moteur etendait un `.grassbake` PRE-CUIT
+# le 20/09 a 04:50, l'outil rescannait le `.fr3` avec la table d'aujourd'hui — 728 981 brins contre
+# 728 994. Ces trois lignes ne comptent RIEN dans la porte : elles nomment.
+EFROM=$(grep -ao 'depuis_bake=[01]' "$ELOG" 2>/dev/null | tail -1 | cut -d= -f2)
+EBAKE=$(grep -ao 'bake=[^ ]\{1,160\}' "$ELOG" 2>/dev/null | tail -1 | cut -d= -f2)
+echo "grass_variant_engine_from_bake=${EFROM:--1}"
+echo "grass_variant_engine_bake_file=$(basename "${EBAKE:--}")"
+echo "grass_variant_census_source=scan-fr3"
+WHY=aucune
+if [ "$MIRROR" != 0 ]; then
+  if [ "$EDIG" = "-" ] || [ "$CDIG" = "-" ]; then
+    WHY=empreinte-absente
+  elif [ "${EFROM:-0}" = "1" ] && [ "$EB" != "$CB_BLADES" ]; then
+    WHY=bake-precuit-perime
+  else
+    WHY=regle-ou-table-divergente
+  fi
+fi
+echo "grass_variant_mirror_why=$WHY"
+
 echo "grass_variant_term_engine_blind=$BLIND"
 echo "grass_variant_term_engine_mirror=$MIRROR"
 echo "grass_variant_term_mesh_assets=$MESH"
@@ -403,5 +531,5 @@ echo "grass_variant_term_nest_changed=$NEST_CHANGED"
 echo "grass_variant_term_nest_unmeasured=$((NEST_MUTE + NEST_EMPTY))"
 
 # ---- LA GRANDEUR DE LA PORTE : la somme des termes ci-dessus, et rien d'autre.
-echo "grass_variant_defects=$((TERMS + BLIND + MIRROR + MESH + NEST_CHANGED + NEST_MUTE + NEST_EMPTY))"
+echo "grass_variant_defects=$((TERMS + BLIND + MIRROR + MESH + SHADE + NEST_CHANGED + NEST_MUTE + NEST_EMPTY))"
 exit 0

@@ -13,8 +13,8 @@
 // tableaux paralleles : c'est UNE TABLE, `kGrassSpecies`, et tout le reste (la table de forme que
 // le shader lit, les proportions du profil, le rayon de touffe) en est une VUE. Les chantiers
 // couleur (`grass-shading`), vent (`grass-wind`) et biomes (`grass-biome-profiles`) y lisent leurs
-// colonnes : `palette_hue`, `palette_val`, `wind_stiff` sont DECLAREES ici et pas encore lues —
-// c'est ce qui rend la coherence par espece possible sans dupliquer la table une quatrieme fois.
+// colonnes : la palette (`pal_root_*`, `pal_axis`, `pal_tip_*`, `pal_rim`) est maintenant LUE par
+// `shaders/grass.vert`/`grass_shade.glsl` ; `wind_stiff` reste DECLARE ici et pas encore lu.
 //
 // AUCUNE INCLUSION. Ce fichier est lu par le moteur, par `tools/grass_bake` (outil de bureau, sans
 // GL) et par l'empaqueteur, comme `grass_density_presets.h` a cote.
@@ -67,8 +67,13 @@ struct GrassSpecies {
   // --- CE QUE LES AUTRES CHANTIERS D'HERBE LIRONT (JAK-121). Declare ici pour que la coherence par
   //     espece ait UNE source ; AUCUN de ces trois champs n'est lu aujourd'hui (hors perimetre :
   //     « Ne change ni la couleur ni le vent »).
-  float palette_hue;  // -> grass-shading : decalage de teinte de l'espece
-  float palette_val;  // -> grass-shading : clair/sombre de l'espece
+  // --- PALETTE DE L'ESPECE. Meme discipline que la silhouette : les HUIT nombres sont exactement
+  //     ceux que `shaders/grass.vert` lit dans PAL_A/PAL_B, dans cet ordre, et le recensement les
+  //     compare un a un. PAL_A = (root_r, root_g, root_b, axis), PAL_B = (tip_r, tip_g, tip_b, rim).
+  float pal_root_r, pal_root_g, pal_root_b;
+  float pal_axis;   // 0 = degrade LE LONG du brin (racine->pointe) ; 1 = EN TRAVERS (bord->bord)
+  float pal_tip_r, pal_tip_g, pal_tip_b;
+  float pal_rim;    // liseret de bord : 0 = aucun ; >0 = intensite de l'eclaircissement des bords
   float wind_stiff;   // -> grass-wind    : raideur (1 = reference ; un jonc plie moins qu'une lame)
 };
 
@@ -84,17 +89,17 @@ struct GrassSpecies {
 inline constexpr GrassSpecies kGrassSpecies[kBladeVariantCount] = {
     // nom       h       hw        tl     tq      cm     tip    lean   cap    port
     {"lame", 1.0212f, 0.053324f, 0.66f, 0.00f, 1.00f, 0.00f, 0.10f, 0.521f, kPortCourbe, 200,
-     1.00f, 0.00f, 0.00f, 1.00f},
+     1.00f, 0.070f, 0.170f, 0.045f, 0.0f, 0.42f, 0.68f, 0.22f, 0.00f, 1.00f},
     {"fine", 1.3481f, 0.019212f, 1.00f, 0.05f, 1.55f, 0.25f, 0.22f, 0.427f, kPortCourbe, 190,
-     1.15f, 0.04f, 0.06f, 0.80f},
+     1.15f, 0.040f, 0.140f, 0.115f, 0.0f, 0.24f, 0.70f, 0.58f, 0.00f, 0.80f},
     {"large", 0.4440f, 0.373899f, 0.45f, -0.25f, 0.55f, -0.20f, 0.30f, 3.000f, kPortOuvert, 180,
-     0.80f, -0.05f, -0.08f, 1.20f},
+     0.80f, 0.140f, 0.180f, 0.040f, 1.0f, 0.56f, 0.62f, 0.13f, 0.00f, 1.20f},
     {"faux", 0.7737f, 0.102052f, 0.30f, -0.55f, 2.10f, 0.60f, 0.55f, 0.498f, kPortRetombant, 160,
-     0.95f, 0.06f, 0.03f, 0.65f},
+     0.95f, 0.150f, 0.110f, 0.040f, 1.0f, 0.56f, 0.38f, 0.12f, 0.00f, 0.65f},
     {"jonc", 1.7795f, 0.021104f, 0.35f, -0.10f, 0.25f, 0.00f, 0.00f, 3.000f, kPortDroit, 150,
-     1.35f, -0.08f, 0.05f, 1.60f},
+     1.35f, 0.040f, 0.120f, 0.055f, 0.0f, 0.22f, 0.50f, 0.24f, 0.85f, 1.60f},
     {"touffu", 0.5861f, 0.195344f, 0.80f, 0.10f, 1.15f, -0.30f, 0.38f, 1.285f, kPortOuvert, 120,
-     0.70f, 0.09f, -0.04f, 1.10f},
+     0.70f, 0.160f, 0.200f, 0.070f, 1.0f, 0.66f, 0.78f, 0.44f, 0.45f, 1.10f},
 };
 
 inline constexpr const GrassSpecies& grass_species(int v) {
@@ -118,6 +123,22 @@ inline constexpr BladeShape blade_shape(int v) {
   const GrassSpecies& S = grass_species(v);
   return BladeShape{S.h, S.hw, S.taper_lin, S.taper_quad, S.curve_mul, S.tip, S.lean, S.curve_cap};
 }
+
+// LA VUE « PALETTE » — les huit nombres du shader, dans l'ordre de PAL_A puis PAL_B.
+struct BladePalette {
+  float root_r, root_g, root_b, axis;
+  float tip_r, tip_g, tip_b, rim;
+};
+inline constexpr BladePalette blade_palette(int v) {
+  const GrassSpecies& S = grass_species(v);
+  return BladePalette{S.pal_root_r, S.pal_root_g, S.pal_root_b, S.pal_axis,
+                      S.pal_tip_r,  S.pal_tip_g,  S.pal_tip_b,  S.pal_rim};
+}
+// LA PALETTE D'AVANT L'ITEM, AU BIT PRES : les deux constantes que `grass_shade.glsl` portait en
+// dur (base_dark / base_light), axe le long du brin, aucun liseret. C'est ce que le bras DESARME
+// doit rendre.
+inline constexpr BladePalette kBladePaletteLegacy = {0.075f, 0.185f, 0.040f, 0.0f,
+                                                     0.40f,  0.66f,  0.20f,  0.0f};
 
 // LA LAME D'AVANT L'ITEM, AU BIT PRES. Elle n'est PAS `kGrassSpecies[0]` : le perimetre du 20/09
 // deplace toutes les especes sur deux echelles geometriques, v0 compris, et un bras d'ablation qui

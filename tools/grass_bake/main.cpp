@@ -7,6 +7,7 @@
 // Usage: grass_bake <level-name> [--fr3-dir <dir>] [--out <path>] [--density <pct>]
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -983,6 +984,46 @@ int main(int argc, char** argv) {
     fmt::print("variant_species_w_gap_pm_floor={}\n", grass_bake::kBladeSpeciesWidthGapPmFloor);
     fmt::print("variant_species_ports={}\n", vc.species_ports);
     fmt::print("variant_species_ports_floor={}\n", grass_bake::kBladeSpeciesPortsFloor);
+
+    // grass-blade-variants (owner 20/09 13:45) : LA PALETTE, MESUREE SUR LE TEXTE DU SHADER.
+    const auto pc = grass_bake::palette_census(eBake);
+    for (int v = 0; v < 6; ++v) {
+      const auto P = grass_bake::blade_palette(v);
+      fmt::print("variant_pal_a_v{}={:.6f},{:.6f},{:.6f},{:.6f}\n", v, P.root_r, P.root_g,
+                 P.root_b, P.axis);
+      fmt::print("variant_pal_b_v{}={:.6f},{:.6f},{:.6f},{:.6f}\n", v, P.tip_r, P.tip_g, P.tip_b,
+                 P.rim);
+      fmt::print("variant_pal_mean_v{}={:.6f},{:.6f},{:.6f}\n", v, pc.mean_r[v], pc.mean_g[v],
+                 pc.mean_b[v]);
+      fmt::print("variant_pal_hue_v{}={}\n", v, (long long)llround(pc.hue_mdeg[v]));
+      fmt::print("variant_pal_lum_v{}={}\n", v, (long long)llround(pc.lum_pm[v]));
+      fmt::print("variant_pal_axis_v{}={}\n", v, P.axis > 0.5f ? 1 : 0);
+      fmt::print("variant_pal_rim_v{}={}\n", v, (long long)llround((double)P.rim * 1000.0));
+      fmt::print("variant_pal_axis_dom_v{}={}\n", v, (long long)llround(pc.axis_dom_pm[v]));
+    }
+    fmt::print("variant_pal_blades={}\n", pc.blades_total);
+    fmt::print("variant_pal_sampled={}\n", pc.blades_sampled);
+    fmt::print("variant_pal_samples={}\n", pc.samples);
+    fmt::print("variant_pal_pairs_below={}\n", pc.pairs_below);
+    fmt::print("variant_pal_min_hue_mdeg={}\n", (long long)llround(pc.min_pair_hue_mdeg));
+    fmt::print("variant_pal_min_lum_pm={}\n", (long long)llround(pc.min_pair_lum_pm));
+    fmt::print("variant_pal_min_pair={},{}\n", pc.min_pair_a, pc.min_pair_b);
+    fmt::print("variant_pal_axis_along={}\n", pc.axis_along);
+    fmt::print("variant_pal_axis_across={}\n", pc.axis_across);
+    fmt::print("variant_pal_axis_rim={}\n", pc.axis_rim);
+    fmt::print("variant_pal_axis_weak={}\n", pc.axis_weak);
+    fmt::print("variant_pal_r2_species_pm={}\n", (long long)llround(pc.r2_species_pm));
+    fmt::print("variant_pal_r2_single_pm={}\n", (long long)llround(pc.r2_single_pm));
+    fmt::print("variant_pal_groups_species={}\n", pc.groups_species);
+    fmt::print("variant_pal_groups_single={}\n", pc.groups_single);
+    fmt::print("variant_pal_tint_bins={}\n", grass_bake::PAL_TINT_BINS);
+    fmt::print("variant_pal_hue_floor_mdeg={}\n", (long long)grass_bake::PAL_HUE_FLOOR_MDEG);
+    fmt::print("variant_pal_lum_floor_pm={}\n", (long long)grass_bake::PAL_LUM_FLOOR_PM);
+    fmt::print("variant_pal_axis_dom_floor_pm={}\n", (long long)grass_bake::PAL_AXIS_DOM_FLOOR_PM);
+    fmt::print("variant_pal_r2_species_floor_pm={}\n",
+               (long long)grass_bake::PAL_R2_SPECIES_FLOOR_PM);
+    fmt::print("variant_pal_r2_single_ceil_pm={}\n",
+               (long long)grass_bake::PAL_R2_SINGLE_CEIL_PM);
   }
 
   // grass-blade-variants, point 3 : UN BRIN GARDE SA SILHOUETTE D'UN PALIER A L'AUTRE. On rejoue le

@@ -6123,13 +6123,24 @@ namespace {
 // `col`...) et un nom partage en ferait une ombre — le compilateur le dit, mais autant ne pas le
 // provoquer, le texte du shader n'a pas a plier devant l'appelant.
 glsl::vec3 eval_grass_shade(float in_t, float in_tint, const glsl::vec3& in_gcol,
-                            const glsl::vec3& in_light, bool in_card) {
+                            const glsl::vec3& in_light, bool in_card,
+                            bool in_pal_on = false,
+                            const glsl::vec3& in_pal_root = glsl::vec3(0.075f, 0.185f, 0.040f),
+                            const glsl::vec3& in_pal_tip = glsl::vec3(0.40f, 0.66f, 0.20f),
+                            float in_pal_axis = 0.f, float in_pal_rim = 0.f,
+                            float in_across = 0.f) {
   using namespace glsl;
   const float gs_t = in_t;
   const float gs_tint = in_tint;
   const vec3 gs_gcol = in_gcol;
   const vec3 gs_light = in_light;
   const bool gs_card = in_card;
+  const bool gs_pal_on = in_pal_on;
+  const vec3 gs_pal_root = in_pal_root;
+  const vec3 gs_pal_tip = in_pal_tip;
+  const float gs_pal_axis = in_pal_axis;
+  const float gs_pal_rim = in_pal_rim;
+  const float gs_across = in_across;
   vec3 col;
 #include "shaders/grass_shade.glsl"
   return col;
@@ -6490,6 +6501,207 @@ ShadingCensus shading_census(const BakeData& d, const ExpandResult& e, const Exp
   if (!mod_lums.empty()) c.terms_measured++;
   if (c.intra_tri_sampled > 0) c.terms_measured++;
   if (!e_off.instances.empty()) c.terms_measured++;
+  return c;
+}
+
+namespace {
+// RGB (0..1) -> (teinte en millidegres 0..360000, saturation nulle => teinte 0).
+inline double rgb_hue_mdeg(double r, double g, double b) {
+  const double mx = std::max(r, std::max(g, b));
+  const double mn = std::min(r, std::min(g, b));
+  const double d = mx - mn;
+  if (d <= 1e-12) {
+    return 0.0;
+  }
+  double h;
+  if (mx == r) {
+    h = std::fmod((g - b) / d, 6.0);
+  } else if (mx == g) {
+    h = (b - r) / d + 2.0;
+  } else {
+    h = (r - g) / d + 4.0;
+  }
+  h *= 60.0;
+  if (h < 0.0) {
+    h += 360.0;
+  }
+  return h * 1000.0;
+}
+
+// Helper d'accumulation groupe (somme, somme des carres, compte) sur les trois canaux.
+struct GroupAcc {
+  double sum = 0.0, sum2 = 0.0;
+  u64 n = 0;
+  void add(double v) {
+    sum += v;
+    sum2 += v * v;
+    ++n;
+  }
+  double ssres() const { return n > 0 ? (sum2 - sum * sum / (double)n) : 0.0; }
+};
+}  // namespace
+
+PaletteCensus palette_census(const ExpandResult& e) {
+  using namespace glsl;
+  PaletteCensus c;
+  c.blades_total = e.instances.size();
+  if (e.instances.empty()) {
+    return c;
+  }
+
+  // Modele PAR ESPECE : groupes (v, ti, si, tb). Modele A UNE SEULE PALETTE : groupes (ti, si, tb).
+  // Les DEUX modeles recoivent le tint (bin `tb`) : la SEULE chose qui les separe est l'espece,
+  // sinon le residu du modele par espece n'est que le bruit de tint par brin (~17 % de variance),
+  // et R2 rougirait pour une raison qui n'a rien a voir avec l'espece.
+  GroupAcc grp_species[6][PAL_T_STEPS][PAL_A_STEPS][PAL_TINT_BINS][3];
+  GroupAcc grp_single[PAL_T_STEPS][PAL_A_STEPS][PAL_TINT_BINS][3];
+  GroupAcc glob[3];
+
+  double sp_sum[6][3] = {{0}};
+  u64 sp_n[6] = {0};
+
+  // Dominance de l'axe declare : contexte neutre, tint fixe a 0.5, aucune population.
+  const vec3 gcol_dom(0.24f, 0.34f, 0.14f);
+  const vec3 light_dom(0.5f, 0.5f, 0.5f);
+  for (int v = 0; v < 6; ++v) {
+    const BladePalette P = blade_palette(v);
+    const vec3 root(P.root_r, P.root_g, P.root_b);
+    const vec3 tip(P.tip_r, P.tip_g, P.tip_b);
+    const vec3 c_t1 = eval_grass_shade(1.f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
+                                       P.axis, P.rim, 0.f);
+    const vec3 c_t0 = eval_grass_shade(0.f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
+                                       P.axis, P.rim, 0.f);
+    const double var_long = std::fabs((double)shade_lum(c_t1) - (double)shade_lum(c_t0));
+    const vec3 c_ap = eval_grass_shade(0.5f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
+                                       P.axis, P.rim, 1.f);
+    const vec3 c_am = eval_grass_shade(0.5f, 0.5f, gcol_dom, light_dom, false, true, root, tip,
+                                       P.axis, P.rim, -1.f);
+    const double var_across = std::fabs((double)shade_lum(c_ap) - (double)shade_lum(c_am));
+    const double declared = (P.axis > 0.5f) ? var_across : var_long;
+    const double other = (P.axis > 0.5f) ? var_long : var_across;
+    const double dom = 1000.0 * declared / std::max(other, 1e-6);
+    c.axis_dom_pm[v] = dom;
+    if (P.axis > 0.5f) {
+      ++c.axis_across;
+    } else {
+      ++c.axis_along;
+    }
+    if (P.rim > 0.0f) {
+      ++c.axis_rim;
+    }
+    if (dom < PAL_AXIS_DOM_FLOOR_PM) {
+      ++c.axis_weak;
+    }
+  }
+
+  for (size_t i = 0; i < e.instances.size(); i += PAL_SAMPLE_STRIDE) {
+    const GrassInstance& gi = e.instances[i];
+    const u32 cs = i < e.inst_cseed.size() ? e.inst_cseed[i] : 0u;
+    const u32 rk = i < e.inst_rank.size() ? (u32)e.inst_rank[i] : 0u;
+    const int v = blade_variant_of_clump(gi, cs, rk, kBladeVariantCount);
+    if (v < 0 || v >= 6) {
+      continue;
+    }
+    ++c.blades_sampled;
+    const BladePalette P = blade_palette(v);
+    const vec3 root(P.root_r, P.root_g, P.root_b);
+    const vec3 tip(P.tip_r, P.tip_g, P.tip_b);
+    const vec3 gcol(0.24f, 0.34f, 0.14f);
+    const vec3 light(0.5f, 0.5f, 0.5f);
+    const float tint = gi.tint;
+    int tb = (int)(tint * (float)PAL_TINT_BINS);
+    if (tb < 0) tb = 0;
+    if (tb > PAL_TINT_BINS - 1) tb = PAL_TINT_BINS - 1;
+    for (int ti = 0; ti < PAL_T_STEPS; ++ti) {
+      const float t = (float)ti / 4.0f;
+      for (int si = 0; si < PAL_A_STEPS; ++si) {
+        const float across = (float)(si - 1);
+        const vec3 col = eval_grass_shade(t, tint, gcol, light, false, true, root, tip, P.axis,
+                                          P.rim, across);
+        const double chv[3] = {(double)col.x, (double)col.y, (double)col.z};
+        for (int ch = 0; ch < 3; ++ch) {
+          grp_species[v][ti][si][tb][ch].add(chv[ch]);
+          grp_single[ti][si][tb][ch].add(chv[ch]);
+          glob[ch].add(chv[ch]);
+        }
+        sp_sum[v][0] += chv[0];
+        sp_sum[v][1] += chv[1];
+        sp_sum[v][2] += chv[2];
+        ++sp_n[v];
+        ++c.samples;
+      }
+    }
+  }
+
+  // R2 : SSres(modele) / SStot, somme des trois canaux. Les DEUX modeles recoivent le tint (bin
+  // `tb`) : seule l'espece les separe (voir le commentaire au-dessus des declarations de groupes).
+  double ssres_species = 0.0, ssres_single = 0.0, sstot = 0.0;
+  for (int ch = 0; ch < 3; ++ch) {
+    sstot += glob[ch].ssres();
+    for (int v = 0; v < 6; ++v) {
+      for (int ti = 0; ti < PAL_T_STEPS; ++ti) {
+        for (int si = 0; si < PAL_A_STEPS; ++si) {
+          for (int tb = 0; tb < PAL_TINT_BINS; ++tb) {
+            const auto& g = grp_species[v][ti][si][tb][ch];
+            ssres_species += g.ssres();
+            if (ch == 0 && g.n > 0) {
+              ++c.groups_species;
+            }
+          }
+        }
+      }
+    }
+    for (int ti = 0; ti < PAL_T_STEPS; ++ti) {
+      for (int si = 0; si < PAL_A_STEPS; ++si) {
+        for (int tb = 0; tb < PAL_TINT_BINS; ++tb) {
+          const auto& g = grp_single[ti][si][tb][ch];
+          ssres_single += g.ssres();
+          if (ch == 0 && g.n > 0) {
+            ++c.groups_single;
+          }
+        }
+      }
+    }
+  }
+  c.r2_species_pm = sstot > 0.0 ? 1000.0 * (1.0 - ssres_species / sstot) : 0.0;
+  c.r2_single_pm = sstot > 0.0 ? 1000.0 * (1.0 - ssres_single / sstot) : 0.0;
+
+  // Couleur moyenne, teinte, luminance par espece.
+  for (int v = 0; v < 6; ++v) {
+    if (sp_n[v] == 0) {
+      continue;
+    }
+    c.mean_r[v] = sp_sum[v][0] / (double)sp_n[v];
+    c.mean_g[v] = sp_sum[v][1] / (double)sp_n[v];
+    c.mean_b[v] = sp_sum[v][2] / (double)sp_n[v];
+    c.hue_mdeg[v] = rgb_hue_mdeg(c.mean_r[v], c.mean_g[v], c.mean_b[v]);
+    c.lum_pm[v] = 1000.0 * (0.299 * c.mean_r[v] + 0.587 * c.mean_g[v] + 0.114 * c.mean_b[v]);
+  }
+
+  // Les 15 paires.
+  double best_ratio = -1.0;
+  for (int a = 0; a < 6; ++a) {
+    for (int b = a + 1; b < 6; ++b) {
+      double dh = std::fabs(c.hue_mdeg[a] - c.hue_mdeg[b]);
+      if (dh > 180000.0) {
+        dh = 360000.0 - dh;
+      }
+      const double mx = std::max(c.lum_pm[a], c.lum_pm[b]);
+      const double dl = mx > 0.0 ? 1000.0 * std::fabs(c.lum_pm[a] - c.lum_pm[b]) / mx : 0.0;
+      const bool pass = (dh >= PAL_HUE_FLOOR_MDEG) || (dl >= PAL_LUM_FLOOR_PM);
+      if (!pass) {
+        ++c.pairs_below;
+      }
+      const double ratio = std::max(dh / PAL_HUE_FLOOR_MDEG, dl / PAL_LUM_FLOOR_PM);
+      if (best_ratio < 0.0 || ratio < best_ratio) {
+        best_ratio = ratio;
+        c.min_pair_a = a;
+        c.min_pair_b = b;
+        c.min_pair_hue_mdeg = dh;
+        c.min_pair_lum_pm = dl;
+      }
+    }
+  }
   return c;
 }
 

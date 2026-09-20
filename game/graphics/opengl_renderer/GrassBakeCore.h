@@ -2246,6 +2246,36 @@ struct ShadingCensus {
 // l'etat d'avant », et il verifie du meme coup que la COULEUR est la seule chose que l'item change.
 ShadingCensus shading_census(const BakeData& d, const ExpandResult& e, const ExpandResult& e_off);
 
+// ===================== grass-blade-variants : LE RECENSEMENT DE LA PALETTE ======================
+// CE QU'IL MESURE, ET SUR QUEL TEXTE. La question de l'owner est « voit-on plusieurs especes ? ».
+// La reponse se lit sur la COULEUR REELLEMENT EMISE, donc sur le texte que le pilote compile :
+// ce recensement appelle `eval_grass_shade`, qui inclut `shaders/grass_shade.glsl`. Aucun miroir.
+// Les seuils sont publies ICI, par ce qui mesure, jamais recopies dans le juge.
+constexpr double PAL_HUE_FLOOR_MDEG      = 20000.0;  // 20 degres d'ecart de teinte...
+constexpr double PAL_LUM_FLOOR_PM        = 200.0;    // ... OU 20 % d'ecart de luminance
+constexpr double PAL_AXIS_DOM_FLOOR_PM   = 2000.0;   // la variation sur l'axe declare domine x2
+constexpr double PAL_R2_SPECIES_FLOOR_PM = 900.0;    // R2 du modele PAR ESPECE
+constexpr double PAL_R2_SINGLE_CEIL_PM   = 500.0;    // R2 du modele a UNE SEULE palette
+constexpr int    PAL_T_STEPS      = 5;   // t = 0, 0.25, 0.5, 0.75, 1
+constexpr int    PAL_A_STEPS      = 3;   // across = -1, 0, +1
+constexpr int    PAL_TINT_BINS    = 8;   // les DEUX modeles recoivent le tint ; seule l'espece les separe
+constexpr u32    PAL_SAMPLE_STRIDE = 64; // un brin sur 64
+
+struct PaletteCensus {
+  u64 blades_total = 0, blades_sampled = 0, samples = 0;
+  double mean_r[6] = {0}, mean_g[6] = {0}, mean_b[6] = {0};  // couleur moyenne emise par espece
+  double hue_mdeg[6] = {0}, lum_pm[6] = {0};
+  double min_pair_hue_mdeg = 0.0, min_pair_lum_pm = 0.0;
+  int    min_pair_a = -1, min_pair_b = -1;
+  int    pairs_below = 0;       // paires qui ne passent NI la teinte NI la luminance
+  int    axis_along = 0, axis_across = 0, axis_rim = 0;
+  int    axis_weak = 0;         // especes dont l'axe declare ne domine pas l'autre
+  double axis_dom_pm[6] = {0};
+  double r2_species_pm = 0.0, r2_single_pm = 0.0;
+  int    groups_species = 0, groups_single = 0;  // groupes NON VIDES de chaque modele
+};
+PaletteCensus palette_census(const ExpandResult& e);
+
 // ===================== grass-interaction-direction : LE RECENSEMENT DU CONTACT ==================
 //
 // CE QU'IL NE FAIT PAS : recopier la loi. Il `#include` le MEME FICHIER que le pilote splice dans
