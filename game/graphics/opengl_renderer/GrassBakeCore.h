@@ -2331,6 +2331,79 @@ bool save_bake(const BakeData& d, const std::string& path);
 bool load_bake(BakeData& d, const std::string& path);  // false on missing/magic/version mismatch
 
 // ---------------------------------------------------------------------------
+// grass-bake-invalidation : L'INVALIDATION LIT LE CONTENU, PLUS JAMAIS LA TAILLE.
+// ---------------------------------------------------------------------------
+//
+// SPEC-refonte-herbe.md section 5. La garde d'avant comparait `BakeData::fr3_size` a la TAILLE du
+// `.fr3` present (GrassRenderer.cpp). Deux fichiers de meme taille et de contenu different
+// passaient donc pour le meme : un `.fr3` re-extrait, une correction de geometrie qui ne change pas
+// la taille compressee, un pack custom reconstruit — et le bake servi placait ses brins d'apres une
+// geometrie qui n'existe plus, en silence, sans qu'aucune porte ne rougisse.
+//
+// CE QUI REMPLACE LA TAILLE. Une empreinte 64 bits du CONTENU du `.fr3`, calculee par le MEME code
+// des deux cotes : hors ligne par `tools/grass_bake` au moment de la cuisson, en ligne par le
+// moteur au moment du chargement. Elle voyage dans un fichier d'accompagnement
+// `<niveau>.<palier>.grassbake.fp` — la PROVENANCE du bake — et non dans l'en-tete du `.grassbake`,
+// parce que le perimetre de l'item interdit de changer le format des bakes.
+//
+// LE FICHIER D'ACCOMPAGNEMENT NE PEUT PAS SE DESYNCHRONISER DE SON BAKE : il porte AUSSI l'empreinte
+// du `.grassbake` lui-meme (`bake_fp`), verifiee au chargement. Une provenance recollee sur un autre
+// bake est donc refusee comme un bake perime le serait ; une provenance absente aussi. La garde est
+// FERMEE par defaut : sans provenance, pas de bake.
+//
+// `recipe_fp` est l'empreinte des SOURCES qui decident du contenu d'un bake (GrassBakeCore.*, la
+// table des paliers, l'outil). Le moteur ne la lit pas — il n'a pas les sources — mais le producteur
+// (`scripts/shell/build_grass_bakes.sh`) s'en sert pour recuire quand la RECETTE change et pas
+// seulement quand la donnee change. C'est le « et des tables qui en dependent » du contrat.
+//
+// ENDIANNESS : l'empreinte est lue par mots de 8 octets, donc elle depend de l'ordre des octets.
+// Les deux plateformes livrees (x86-64 et arm64) sont petit-boutistes ; un bake cuit sur l'une est
+// donc valide sur l'autre. Une troisieme plateforme gros-boutiste refuserait tous les bakes — elle
+// n'en servirait aucun de faux.
+
+// L'empreinte d'un bloc d'octets. Jamais 0 : 0 est reserve a « illisible ».
+u64 content_fingerprint(const void* data, u64 len);
+// L'empreinte du contenu d'un fichier ; 0 si illisible. `out_bytes` recoit sa taille.
+u64 file_fingerprint(const std::string& path, u64* out_bytes);
+
+inline constexpr u32 kProvenanceVersion = 1;
+
+struct BakeProvenance {
+  bool ok = false;         // la provenance est lisible, complete et de la bonne version
+  u32 version = 0;
+  std::string level;
+  std::string preset;
+  u64 fr3_fp = 0;          // l'empreinte du .fr3 CONTRE LEQUEL ce bake a ete cuit
+  u64 fr3_bytes = 0;       // sa taille, publiee pour le rapport — JAMAIS comparee comme verdict
+  u64 bake_fp = 0;         // l'empreinte du .grassbake que cette provenance accompagne
+  u64 bake_bytes = 0;
+  u64 recipe_fp = 0;       // l'empreinte des sources qui decident du contenu (hors ligne seulement)
+};
+
+std::string provenance_path(const std::string& bake_path);  // <bake>.fp
+bool read_provenance(const std::string& path, BakeProvenance& out);
+bool write_provenance(const std::string& path, const BakeProvenance& p);
+
+struct BakeFreshness {
+  bool stale = true;
+  std::string reason;       // vide quand le bake est frais
+  u64 fp_read = 0;          // l'empreinte que la provenance PORTE
+  u64 fp_expected = 0;      // l'empreinte du .fr3 PRESENT
+  u64 bake_fp_read = 0;     // l'empreinte du bake que la provenance porte
+  u64 bake_fp_expected = 0; // l'empreinte du bake PRESENT
+  u64 size_read = 0;        // les deux tailles : publiees, jamais decisives hors bras `legacy`
+  u64 size_expected = 0;
+  u64 comparisons = 0;      // combien de comparaisons d'EMPREINTE ce verdict a faites
+};
+
+// Le verdict de fraicheur d'un bake. `legacy_size_guard` rejoue la garde d'AVANT (la taille du
+// `.fr3`), gardee mot pour mot pour que le temoin a deux bras mesure le defaut qui REVIENT au lieu
+// d'un zero muet. Le moteur livre appelle toujours avec `legacy_size_guard=false`.
+BakeFreshness bake_freshness(const std::string& bake_path, const std::string& fr3_path,
+                             const std::string& level, const std::string& preset,
+                             u64 bake_fr3_size, bool legacy_size_guard);
+
+// ---------------------------------------------------------------------------
 // soft-support-map : LE SUPPORT ET L'EPAISSEUR DE CHAQUE POINT DE MATIERE, CUITS.
 // ---------------------------------------------------------------------------
 //

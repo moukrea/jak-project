@@ -76,7 +76,11 @@ static void usage() {
       "  --soft-surface-census  soft-surface-truth : les MEMES deux sources, pour sand/snow/\n"
       "                 deepsnow (SPEC-surfaces-meubles sections 1 et 11). Publie le desaccord,\n"
       "                 le litige avec l'herbe avant arbitrage, et la classe resolue. Lecture\n"
-      "                 pure : il sort avant `scan_level` et n'ecrit aucun fichier.\n");
+      "                 pure : il sort avant `scan_level` et n'ecrit aucun fichier.\n"
+      "  --recipe-fp HEX  grass-bake-invalidation : empreinte de la RECETTE de cuisson, ecrite dans la provenance.\n"
+      "  --fingerprint  grass-bake-invalidation : imprime l'empreinte du .fr3 et sort, sans decoder ni cuire.\n"
+      "  --freshness PATH  grass-bake-invalidation : imprime le verdict de fraicheur du bake PATH et sort.\n"
+      "  --legacy-size-guard  grass-bake-invalidation : force la comparaison de taille historique.\n");
 }
 
 int main(int argc, char** argv) {
@@ -103,6 +107,10 @@ int main(int argc, char** argv) {
   int preset_index = -1;           // indice du palier demande par --preset (-1 = non demande)
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
   std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
+  std::string recipe_fp_hex;      // grass-bake-invalidation : empreinte de la recette (hex, vide = 0)
+  bool fingerprint_only = false;  // grass-bake-invalidation : imprime l'empreinte du .fr3 et sort
+  std::string freshness_bake;     // grass-bake-invalidation : imprime le verdict de fraicheur et sort
+  bool legacy_size_guard = false; // grass-bake-invalidation : force la comparaison de taille historique
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -154,6 +162,14 @@ int main(int argc, char** argv) {
       variant_census_on = true;
     } else if (a == "--variant-nest") {
       variant_nest_slug = need_val("--variant-nest");
+    } else if (a == "--recipe-fp") {
+      recipe_fp_hex = need_val("--recipe-fp");
+    } else if (a == "--fingerprint") {
+      fingerprint_only = true;
+    } else if (a == "--freshness") {
+      freshness_bake = need_val("--freshness");
+    } else if (a == "--legacy-size-guard") {
+      legacy_size_guard = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
     } else if (a == "--preset") {
@@ -243,6 +259,39 @@ int main(int argc, char** argv) {
 
   fmt::print("[grass_bake] level='{}' fr3='{}' ({} bytes) out='{}' density={}\n", level_name,
              fr3_path.string(), fr3_size, out_path, density);
+
+  if (fingerprint_only) {
+    u64 fpb = 0;
+    const u64 fp = grass_bake::file_fingerprint(fr3_path.string(), &fpb);
+    fmt::print("fr3_fp={:016x}\n", fp);
+    fmt::print("fr3_bytes={}\n", fpb);
+    fmt::print("fr3_path={}\n", fr3_path.string());
+    return fp ? 0 : 1;
+  }
+  if (!freshness_bake.empty()) {
+    // La taille que le bake PORTE : le bras `legacy` en a besoin, et lui seul.
+    grass_bake::BakeData hdr;
+    const bool loaded_ok = grass_bake::load_bake(hdr, freshness_bake);
+    const auto fr = grass_bake::bake_freshness(freshness_bake, fr3_path.string(), level_name,
+                                               preset_slug, loaded_ok ? hdr.fr3_size : 0,
+                                               legacy_size_guard);
+    std::string why = fr.reason.empty() ? std::string("-") : fr.reason;
+    for (auto& c : why) { if (c == ' ' || c == '\t') { c = '_'; } }
+    fmt::print("freshness_bake={}\n", freshness_bake);
+    fmt::print("freshness_fr3={}\n", fr3_path.string());
+    fmt::print("freshness_mode={}\n", legacy_size_guard ? "size" : "fingerprint");
+    fmt::print("freshness_load_ok={}\n", loaded_ok ? 1 : 0);
+    fmt::print("freshness_stale={}\n", fr.stale ? 1 : 0);
+    fmt::print("freshness_comparisons={}\n", fr.comparisons);
+    fmt::print("freshness_fp_read={:016x}\n", fr.fp_read);
+    fmt::print("freshness_fp_expected={:016x}\n", fr.fp_expected);
+    fmt::print("freshness_bake_fp_read={:016x}\n", fr.bake_fp_read);
+    fmt::print("freshness_bake_fp_expected={:016x}\n", fr.bake_fp_expected);
+    fmt::print("freshness_size_read={}\n", fr.size_read);
+    fmt::print("freshness_size_expected={}\n", fr.size_expected);
+    fmt::print("freshness_reason={}\n", why);
+    return 0;   // « perime » N'EST PAS une erreur de l'outil : le verdict se lit dans les cles
+  }
 
   // Load + decompress + deserialize the level (mirror of Loader.cpp:190-206).
   tfrag3::Level lev;
@@ -1115,6 +1164,27 @@ int main(int argc, char** argv) {
   if (!grass_bake::save_bake(bake, out_path)) {
     fmt::print("error: save_bake failed to write '{}'\n", out_path);
     return 1;
+  }
+
+  // grass-bake-invalidation : LA PROVENANCE S'ECRIT AU POINT DE PRODUCTION, JAMAIS APRES COUP.
+  // Sans elle le moteur refuse le bake (garde fermee) : un bake sans provenance ne peut donc pas
+  // exister sur le disque a la sortie de cet outil.
+  {
+    grass_bake::BakeProvenance prov;
+    prov.level = level_name;
+    prov.preset = preset_slug;
+    prov.fr3_fp = grass_bake::file_fingerprint(fr3_path.string(), &prov.fr3_bytes);
+    prov.bake_fp = grass_bake::file_fingerprint(out_path, &prov.bake_bytes);
+    prov.recipe_fp = recipe_fp_hex.empty()
+                         ? 0ull
+                         : std::strtoull(recipe_fp_hex.c_str(), nullptr, 16);
+    const std::string pp = grass_bake::provenance_path(out_path);
+    if (prov.fr3_fp == 0 || prov.bake_fp == 0 || !grass_bake::write_provenance(pp, prov)) {
+      fmt::print("error: provenance non ecrite pour '{}'\n", out_path);
+      return 1;
+    }
+    fmt::print("[grass_bake] provenance='{}' fr3_fp={:016x} bake_fp={:016x} recipe_fp={:016x}\n",
+               pp, prov.fr3_fp, prov.bake_fp, prov.recipe_fp);
   }
 
   u64 out_size = 0;

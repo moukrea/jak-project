@@ -18,21 +18,26 @@
 #     que `android/build_custom_pack.sh` met dans le pack (il y pose un lien symbolique) ;
 #   * les bakes SANS palier dans leur nom, et ceux des niveaux qui ne sont plus dans la liste, sont
 #     retires : le moteur ne les resout plus, les laisser ne ferait qu'alourdir le pack ;
-#   * chaque sortie est relue par `grassbake_header.py` et comparee au fr3 — echec dur sinon.
+#   * chaque sortie est relue par `grassbake_header.py` et comparee au fr3 — echec dur sinon ;
+#   * grass-bake-invalidation : une paire (niveau, palier) n'est RECUITE que si son CONTENU (ou la
+#     recette de cuisson) a change depuis la derniere fois — `--only-stale` ne cuit que celles-la,
+#     par defaut toutes les paires sont examinees puis recuites comme avant.
 #
-# Usage : scripts/shell/build_grass_bakes.sh [--fr3-dir DIR] [--tool PATH] [--keep-stale]
+# Usage : scripts/shell/build_grass_bakes.sh [--fr3-dir DIR] [--tool PATH] [--keep-stale] [--only-stale]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ROOT="$PWD"
 FR3_DIR="$ROOT/out/jak1/fr3"
 TOOL=""
 KEEP_STALE=0
+ONLY_STALE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --fr3-dir) FR3_DIR="$2"; shift 2;;
     --tool)    TOOL="$2"; shift 2;;
     --keep-stale) KEEP_STALE=1; shift;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0;;
+    --only-stale) ONLY_STALE=1; shift;;
+    -h|--help) sed -n '2,30p' "$0"; exit 0;;
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
@@ -45,7 +50,7 @@ if [ -z "$TOOL" ]; then
     [ -x "$c" ] && { TOOL="$c"; break; }
   done
 fi
-[ -n "$TOOL" ] && [ -x "$TOOL" ] || fail "outil grass_bake introuvable — construis-le : cmake --build build --target grass_bake"
+[ -n "$TOOL" ] && [ -x "$TOOL" ] || fail "outil grass_bake introuvable — construis-le : .autoport/lib/build_x86.sh --target grass_bake"
 [ -d "$FR3_DIR" ] || fail "repertoire fr3 absent : $FR3_DIR"
 
 # --- LES NIVEAUX : lus dans le moteur, jamais recopies ---
@@ -57,6 +62,18 @@ LEVELS=$(grep -oP 'kGrassLevels\[\]\s*=\s*\{\K[^}]*' "$HDR" | tr -d '" ' | tr ',
 PHDR="$ROOT/game/graphics/grass_density_presets.h"
 SLUGS=$(grep -oP '^\s*\{"\K[a-z-]+(?=", ")' "$PHDR")
 [ -n "$SLUGS" ] || fail "table des paliers illisible dans $PHDR"
+
+# --- L'EMPREINTE DE LA RECETTE : les sources qui DÉCIDENT du contenu d'un bake. Un bake reste à
+# recuire quand le CODE de cuisson change, pas seulement quand la donnée change (« et des tables
+# qui en dépendent », contrat de l'item). La liste est ici et nulle part ailleurs.
+RECIPE_SRC=(game/graphics/opengl_renderer/GrassBakeCore.cpp
+            game/graphics/opengl_renderer/GrassBakeCore.h
+            game/graphics/grass_density_presets.h
+            game/graphics/grass_blade_variants.h
+            tools/grass_bake/main.cpp)
+for f in "${RECIPE_SRC[@]}"; do [ -f "$ROOT/$f" ] || fail "source de recette absente : $f"; done
+RECIPE_FP=$(cat "${RECIPE_SRC[@]/#/$ROOT/}" | sha256sum | cut -c1-16)
+echo "[grass-bakes] recette : $RECIPE_FP"
 
 echo "[grass-bakes] outil   : $TOOL"
 echo "[grass-bakes] fr3     : $FR3_DIR"
@@ -76,20 +93,80 @@ if [ "$KEEP_STALE" = 0 ]; then
     done
     if [ "$keep" = 0 ]; then
       echo "[grass-bakes] retire (plus resolu par le moteur) : $base"
-      rm -f "$f"
+      rm -f "$f" "$f.fp"
     fi
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.grassbake' | sort)
+  # .fp orphelins : provenance sans son bake (bake deja retire par ailleurs, ou renomme).
+  while IFS= read -r fpf; do
+    [ -n "$fpf" ] || continue
+    gb="${fpf%.fp}"
+    if [ ! -f "$gb" ]; then
+      echo "[grass-bakes] retire (provenance orpheline) : $(basename "$fpf")"
+      rm -f "$fpf"
+    fi
+  done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.grassbake.fp' | sort)
 fi
 
-n_ok=0
+# --- passage de DIAGNOSTIC : decide, paire par paire, la cause de peremption ---
+declare -A CAUSE_OF
+N_PAIRS=0
+N_STALE=0
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
 for lv in $LEVELS; do
   FR3="$FR3_DIR/$lv.fr3"
   [ -f "$FR3" ] || fail "fr3 absent pour le niveau '$lv' : $FR3"
+  for sg in $SLUGS; do
+    OUT="$FR3_DIR/$lv.$sg.grassbake"
+    N_PAIRS=$((N_PAIRS + 1))
+    CAUSE=""
+    if [ ! -f "$OUT" ]; then
+      CAUSE="absent"
+    else
+      "$TOOL" "$lv" --fr3-dir "$FR3_DIR" --preset "$sg" --freshness "$OUT" > "$tmp" \
+        || fail "verdict de fraicheur illisible pour $lv/$sg"
+      fresh_stale=$(sed -n 's/^freshness_stale=//p' "$tmp")
+      fresh_reason=$(sed -n 's/^freshness_reason=//p' "$tmp")
+      if [ "$fresh_stale" = "1" ]; then
+        CAUSE="${fresh_reason%%:*}"
+        [ -n "$CAUSE" ] || CAUSE="freshness"
+      else
+        recipe_read=$(sed -n 's/^recipe_fp=//p' "$OUT.fp" 2>/dev/null | head -1)
+        if [ -z "$recipe_read" ] || [ "$recipe_read" != "$RECIPE_FP" ]; then
+          CAUSE="recette"
+        else
+          CAUSE="-"
+        fi
+      fi
+    fi
+    key="$lv/$sg"
+    CAUSE_OF["$key"]="$CAUSE"
+    if [ "$CAUSE" = "-" ]; then
+      P=0
+    else
+      P=1
+      N_STALE=$((N_STALE + 1))
+    fi
+    echo "[grass-bakes] etat niveau=$lv palier=$sg perime=$P cause=$CAUSE"
+  done
+done
+
+n_ok=0
+N_BAKED=0
+for lv in $LEVELS; do
+  FR3="$FR3_DIR/$lv.fr3"
   FR3_SIZE=$(stat -c %s "$FR3")
   for sg in $SLUGS; do
     OUT="$FR3_DIR/$lv.$sg.grassbake"
+    key="$lv/$sg"
+    CAUSE="${CAUSE_OF[$key]}"
+    if [ "$ONLY_STALE" = 1 ] && [ "$CAUSE" = "-" ]; then
+      n_ok=$((n_ok + 1))
+      continue
+    fi
+    echo "[grass-bakes] recuit niveau=$lv palier=$sg cause=$CAUSE"
     echo "[grass-bakes] cuisson $lv / $sg (fr3 $FR3_SIZE octets)"
-    "$TOOL" "$lv" --fr3-dir "$FR3_DIR" --preset "$sg" >/dev/null \
+    "$TOOL" "$lv" --fr3-dir "$FR3_DIR" --preset "$sg" --recipe-fp "$RECIPE_FP" >/dev/null \
       || fail "grass_bake a echoue pour $lv/$sg"
     [ -f "$OUT" ] || fail "sortie attendue absente : $OUT"
     # RELECTURE INDEPENDANTE : on ne croit pas l'outil sur parole, on relit le fichier ecrit.
@@ -99,7 +176,14 @@ for lv in $LEVELS; do
     [ "$got_lv" = "$lv" ] || fail "$OUT : niveau '$got_lv' != '$lv'"
     [ "$got_sz" = "$FR3_SIZE" ] || fail "$OUT : fr3_size $got_sz != $FR3_SIZE — le bake serait REFUSE a l'arrivee"
     echo "  $HDRLINE"
+    [ -s "$OUT.fp" ] || fail "provenance absente apres cuisson : $OUT.fp"
+    "$TOOL" "$lv" --fr3-dir "$FR3_DIR" --preset "$sg" --freshness "$OUT" > "$tmp" \
+      || fail "verdict de fraicheur illisible (post-cuisson) pour $lv/$sg"
+    post_stale=$(sed -n 's/^freshness_stale=//p' "$tmp")
+    [ "$post_stale" = "0" ] || fail "$OUT : le bake sort perime de sa propre cuisson"
     n_ok=$((n_ok + 1))
+    N_BAKED=$((N_BAKED + 1))
   done
 done
 echo "[grass-bakes] $n_ok bake(s) cuits et verifies dans $FR3_DIR"
+echo "[grass-bakes] paires_examinees=$N_PAIRS paires_perimees=$N_STALE paires_recuites=$N_BAKED"

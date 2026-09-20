@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -2998,6 +2999,221 @@ bool get_bytes(const std::vector<u8>& buf, size_t& off, void* data, size_t n) {
   return true;
 }
 }  // namespace
+
+// ===========================================================================
+// grass-bake-invalidation : EMPREINTE DE CONTENU, PROVENANCE, VERDICT DE FRAICHEUR.
+// ===========================================================================
+// Voir l'en-tete (GrassBakeCore.h) pour le POURQUOI. Ce bloc est compile a la fois dans `gk` et
+// dans `tools/grass_bake` : le producteur et le consommateur calculent la MEME empreinte par
+// construction, il n'y a pas deux implementations a tenir d'accord.
+
+u64 content_fingerprint(const void* data, u64 len) {
+  const u8* p = reinterpret_cast<const u8*>(data);
+  u64 h = 0xcbf29ce484222325ull;  // FNV-1a 64, par mots de 8 octets puis par octets
+  u64 i = 0;
+  for (; i + 8 <= len; i += 8) {
+    u64 w = 0;
+    std::memcpy(&w, p + i, 8);
+    h = (h ^ w) * 1099511628211ull;
+  }
+  for (; i < len; ++i) {
+    h = (h ^ (u64)p[i]) * 1099511628211ull;
+  }
+  // La LONGUEUR entre dans l'empreinte : deux contenus dont l'un est le prefixe de l'autre ne
+  // peuvent pas se confondre. Puis un melange final (splitmix) pour disperser les bits hauts, que
+  // FNV laisse correles.
+  h = (h ^ len) * 1099511628211ull;
+  h ^= h >> 30;
+  h *= 0xbf58476d1ce4e5b9ull;
+  h ^= h >> 27;
+  h *= 0x94d049bb133111ebull;
+  h ^= h >> 31;
+  return h ? h : 1ull;  // 0 est reserve a « illisible » : une empreinte valide ne vaut jamais 0
+}
+
+u64 file_fingerprint(const std::string& path, u64* out_bytes) {
+  if (out_bytes) {
+    *out_bytes = 0;
+  }
+  std::ifstream f(path, std::ios::binary | std::ios::ate);
+  if (!f) {
+    return 0;
+  }
+  const std::streamsize sz = f.tellg();
+  if (sz < 0) {
+    return 0;
+  }
+  f.seekg(0, std::ios::beg);
+  std::vector<u8> bytes((size_t)sz);
+  if (sz > 0 && !f.read(reinterpret_cast<char*>(bytes.data()), sz)) {
+    return 0;
+  }
+  if (out_bytes) {
+    *out_bytes = (u64)sz;
+  }
+  return content_fingerprint(bytes.data(), (u64)sz);
+}
+
+namespace {
+std::string hex16(u64 v) {
+  char b[17] = {0};
+  std::snprintf(b, sizeof(b), "%016llx", (unsigned long long)v);
+  return std::string(b);
+}
+}  // namespace
+
+std::string provenance_path(const std::string& bake_path) {
+  return bake_path + ".fp";
+}
+
+bool read_provenance(const std::string& path, BakeProvenance& out) {
+  out = BakeProvenance{};
+  std::ifstream f(path);
+  if (!f) {
+    return false;
+  }
+  std::string line;
+  bool saw_version = false;
+  while (std::getline(f, line)) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
+      line.pop_back();
+    }
+    const auto eq = line.find('=');
+    if (eq == std::string::npos) {
+      continue;
+    }
+    const std::string k = line.substr(0, eq);
+    const std::string v = line.substr(eq + 1);
+    if (k == "grassbake_provenance") {
+      out.version = (u32)std::strtoul(v.c_str(), nullptr, 10);
+      saw_version = true;
+    } else if (k == "level") {
+      out.level = v;
+    } else if (k == "preset") {
+      out.preset = v;
+    } else if (k == "fr3_fp") {
+      out.fr3_fp = std::strtoull(v.c_str(), nullptr, 16);
+    } else if (k == "fr3_bytes") {
+      out.fr3_bytes = std::strtoull(v.c_str(), nullptr, 10);
+    } else if (k == "bake_fp") {
+      out.bake_fp = std::strtoull(v.c_str(), nullptr, 16);
+    } else if (k == "bake_bytes") {
+      out.bake_bytes = std::strtoull(v.c_str(), nullptr, 10);
+    } else if (k == "recipe_fp") {
+      out.recipe_fp = std::strtoull(v.c_str(), nullptr, 16);
+    }
+  }
+  // Une provenance INCOMPLETE n'est pas une provenance : elle ne rend pas un bake acceptable a
+  // moitie, elle le rend refusable entierement.
+  out.ok = saw_version && out.version == kProvenanceVersion && !out.level.empty() &&
+           out.fr3_fp != 0 && out.bake_fp != 0;
+  return out.ok;
+}
+
+bool write_provenance(const std::string& path, const BakeProvenance& p) {
+  std::ofstream f(path, std::ios::trunc);
+  if (!f) {
+    lg::warn("[recharged-grass] write_provenance: cannot open '{}' for write", path);
+    return false;
+  }
+  f << "grassbake_provenance=" << (unsigned)kProvenanceVersion << "\n"
+    << "level=" << p.level << "\n"
+    << "preset=" << p.preset << "\n"
+    << "fr3_fp=" << hex16(p.fr3_fp) << "\n"
+    << "fr3_bytes=" << p.fr3_bytes << "\n"
+    << "bake_fp=" << hex16(p.bake_fp) << "\n"
+    << "bake_bytes=" << p.bake_bytes << "\n"
+    << "recipe_fp=" << hex16(p.recipe_fp) << "\n";
+  return (bool)f;
+}
+
+BakeFreshness bake_freshness(const std::string& bake_path,
+                             const std::string& fr3_path,
+                             const std::string& level,
+                             const std::string& preset,
+                             u64 bake_fr3_size,
+                             bool legacy_size_guard) {
+  BakeFreshness r;
+  r.size_read = bake_fr3_size;
+  {
+    std::error_code ec;
+    const auto fs = std::filesystem::file_size(fr3_path, ec);
+    r.size_expected = ec ? 0 : (u64)fs;
+  }
+
+  if (legacy_size_guard) {
+    // LE BRAS « AVANT ». Il compare des TAILLES et ne lit AUCUNE empreinte : `comparisons` reste a
+    // zero, ce qui est en soi la grandeur qui separe les deux bras.
+    if (r.size_expected == 0) {
+      r.stale = true;
+      r.reason = "fr3 unreadable: " + fr3_path;
+      return r;
+    }
+    r.stale = (bake_fr3_size != r.size_expected);
+    r.reason = r.stale ? ("fr3 size mismatch: bake=" + std::to_string(bake_fr3_size) + " vs " +
+                          fr3_path + "=" + std::to_string(r.size_expected))
+                       : std::string();
+    return r;
+  }
+
+  // LE BRAS LIVRE. La provenance d'abord : sans elle, le bake n'a pas d'identite et il est refuse.
+  BakeProvenance prov;
+  const std::string pp = provenance_path(bake_path);
+  if (!read_provenance(pp, prov)) {
+    r.stale = true;
+    r.reason = "provenance missing or incomplete: " + pp;
+    return r;
+  }
+  if (prov.level != level) {
+    r.stale = true;
+    r.reason = "provenance level mismatch: " + prov.level + " != " + level;
+    return r;
+  }
+  if (!preset.empty() && !prov.preset.empty() && prov.preset != preset) {
+    r.stale = true;
+    r.reason = "provenance preset mismatch: " + prov.preset + " != " + preset;
+    return r;
+  }
+
+  // La provenance accompagne-t-elle BIEN CE bake ? Sans cette comparaison, un fichier
+  // d'accompagnement recolle sur un autre bake ferait passer n'importe quoi.
+  u64 bake_bytes = 0;
+  r.bake_fp_read = prov.bake_fp;
+  r.bake_fp_expected = file_fingerprint(bake_path, &bake_bytes);
+  ++r.comparisons;
+  if (r.bake_fp_expected == 0) {
+    r.stale = true;
+    r.reason = "bake unreadable: " + bake_path;
+    return r;
+  }
+  if (r.bake_fp_read != r.bake_fp_expected) {
+    r.stale = true;
+    r.reason = "provenance does not belong to this bake: " + hex16(r.bake_fp_read) + " != " +
+               hex16(r.bake_fp_expected) + " (" + pp + ")";
+    return r;
+  }
+
+  // LE VERDICT DE L'ITEM : le CONTENU du .fr3, jamais sa taille.
+  u64 fr3_bytes = 0;
+  r.fp_read = prov.fr3_fp;
+  r.fp_expected = file_fingerprint(fr3_path, &fr3_bytes);
+  ++r.comparisons;
+  if (r.fp_expected == 0) {
+    r.stale = true;
+    r.reason = "fr3 unreadable: " + fr3_path;
+    return r;
+  }
+  if (r.fp_read != r.fp_expected) {
+    r.stale = true;
+    r.reason = "fr3 content fingerprint mismatch: bake=" + hex16(r.fp_read) + " vs " + fr3_path +
+               "=" + hex16(r.fp_expected) + " (" + std::to_string(prov.fr3_bytes) + " vs " +
+               std::to_string(fr3_bytes) + " octets)";
+    return r;
+  }
+
+  r.stale = false;
+  return r;
+}
 
 bool save_bake(const BakeData& d, const std::string& path) {
   std::vector<u8> buf;

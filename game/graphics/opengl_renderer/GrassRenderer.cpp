@@ -108,6 +108,13 @@ AUTOPORT_FEATURE_SITE(kSoftSupportItemId);
 constexpr const char* kEdgeTruthItemId = "grass-edge-truth";
 AUTOPORT_FEATURE_SITE(kEdgeTruthItemId);
 
+// grass-bake-invalidation : l'item qui fait recuire la cuisson quand le CONTENU de son niveau
+// change. Son instrument ne decide rien — la garde de fraicheur, elle, est INCONDITIONNELLE : elle
+// vit dans le binaire que l'owner joue, pas sous un drapeau de harnais. Le site ne sert qu'a
+// separer « pas d'instrument dans ce binaire » de « instrument jamais atteint ».
+constexpr const char* kBakeInvalItemId = "grass-bake-invalidation";
+AUTOPORT_FEATURE_SITE(kBakeInvalItemId);
+
 // grass-path-transitions : l'item qui fait s'arreter l'herbe PROGRESSIVEMENT au bord des chemins.
 // Contrairement aux trois ci-dessus, son travail CHANGE le placement : le site sert au temoin
 // « l'instrument a tire », le recensement publie ce que la transition a produit.
@@ -1944,6 +1951,11 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     const int want_preset =
         grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset);
     int served_preset = want_preset;
+    // grass-bake-invalidation : ce que la garde a MESURE, pour la publication plus bas. Le compte
+    // est celui des comparaisons d'EMPREINTE faites (`hits_means` de l'item) : le bras qui lirait
+    // encore des tailles en ferait zero.
+    u64 fp_comparisons = 0;
+    grass_bake::BakeFreshness last_fresh;
     try {
     if (want_pre && !floor_gap_overridden) {
       std::string refus;
@@ -1965,20 +1977,21 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         } else if (loaded.level_name != level_name) {
           reason = "level mismatch";
         } else {
-          u64 cur_fr3 = 0;
-          bool have_fr3 = false;
-          try {
-            cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
-            have_fr3 = true;
-          } catch (...) {
-            have_fr3 = false;
-          }
-          if (!have_fr3 || loaded.fr3_size != cur_fr3) {
-            // Ggrass-crash : la raison PORTE SES DEUX NOMBRES ET LE CHEMIN RESOLU. « fr3 size
-            // mismatch » tout court ne disait pas CONTRE QUOI la comparaison avait ete faite — et
-            // c'etait precisement la ou etait le defaut : on comparait au mauvais fichier.
-            reason = fmt::format("fr3 size mismatch: bake={} vs {}={} (source={})", loaded.fr3_size,
-                                 fr3_path, cur_fr3, fr3_route.source);
+          // grass-bake-invalidation : LA FRAICHEUR SE LIT SUR LE CONTENU, PLUS SUR LA TAILLE.
+          // Ce qui etait compare ici, c'etait `loaded.fr3_size` contre `file_size(fr3_path)` :
+          // deux `.fr3` de meme taille et de contenu different passaient pour le meme, et le bake
+          // servi plantait ses brins d'apres une geometrie qui n'existe plus — sans un seul
+          // message. `bake_freshness` compare l'empreinte du CONTENU du `.fr3` a celle que la
+          // provenance du bake porte, et l'empreinte du bake a celle que sa provenance porte.
+          // Ggrass-crash reste couvert : la raison porte toujours ses deux grandeurs et le chemin
+          // RESOLU, parce que le defaut d'alors etait de comparer au mauvais fichier.
+          const auto fresh = grass_bake::bake_freshness(
+              bake_path, fr3_path, level_name, grass_bake::density_preset_slug(cand),
+              loaded.fr3_size, /*legacy_size_guard=*/false);
+          fp_comparisons += fresh.comparisons;
+          last_fresh = fresh;
+          if (fresh.stale) {
+            reason = fmt::format("{} (source={})", fresh.reason, fr3_route.source);
           } else if (loaded.floor_gap_m != floor_gap_m) {
             reason = "floor-gap mismatch";
           } else {
@@ -2001,6 +2014,35 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
           from_bake ? grass_bake::density_preset_slug(served_preset) : "<aucun>", from_bake ? 1 : 0,
           resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
           refus.empty() ? "<aucun>" : refus);
+
+      // ===================== grass-bake-invalidation : CE QUE LA GARDE A LU ==================
+      // Il LIT et PUBLIE, il ne decide rien : la garde ci-dessus a deja tranche, armee ou non.
+      // Une course de jeu ne charge qu'UN niveau et ne recuit rien ; les DIX niveaux, le
+      // declenchement automatique par le build de livraison, la recuisson ciblee et le temoin a
+      // deux bras sont mesures hors ligne par `.autoport/lib/census/grass-bake-invalidation.sh`,
+      // qui appelle LE MEME `grass_bake::bake_freshness` compile dans `tools/grass_bake`. Ici, le
+      // temoin est que l'instrument vit DANS le moteur et qu'il a compare des EMPREINTES.
+      if (autoport_proof::feature_is(kBakeInvalItemId)) {
+        autoport_proof::publish_text("grass_bake_engine_level", level_name.c_str());
+        autoport_proof::publish_text("grass_bake_engine_preset",
+                                     grass_bake::density_preset_slug(served_preset));
+        autoport_proof::publish("grass_bake_engine_fp_read", last_fresh.fp_read);
+        autoport_proof::publish("grass_bake_engine_fp_expected", last_fresh.fp_expected);
+        autoport_proof::publish("grass_bake_engine_fp_match",
+                                (last_fresh.fp_read != 0 &&
+                                 last_fresh.fp_read == last_fresh.fp_expected) ? 1u : 0u);
+        autoport_proof::publish("grass_bake_engine_bake_fp_read", last_fresh.bake_fp_read);
+        autoport_proof::publish("grass_bake_engine_bake_fp_expected", last_fresh.bake_fp_expected);
+        // Les deux tailles sont publiees pour le rapport, et c'est TOUT ce qu'elles font : aucune
+        // branche de la garde ne les lit plus.
+        autoport_proof::publish("grass_bake_engine_size_read", last_fresh.size_read);
+        autoport_proof::publish("grass_bake_engine_size_expected", last_fresh.size_expected);
+        autoport_proof::publish("grass_bake_engine_comparisons", fp_comparisons);
+        autoport_proof::publish("grass_bake_engine_from_bake", from_bake ? 1u : 0u);
+        autoport_proof::publish("grass_bake_engine_stale", last_fresh.stale ? 1u : 0u);
+        autoport_proof::note_hit_for(kBakeInvalItemId, fp_comparisons);
+      }
+      // ====================== fin grass-bake-invalidation ====================================
     }
 
     if (!from_bake && want_pre && !floor_gap_overridden) {
