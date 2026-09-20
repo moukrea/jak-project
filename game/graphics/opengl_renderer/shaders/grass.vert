@@ -91,16 +91,20 @@ const vec2 CARD[6] = vec2[6](
 // fragment). Le nombre de segments de chaque ligne est celui que `grass_blade_variants.h` declare,
 // et le recensement de l'item compare les deux tables : la duplication est MESUREE.
 //   VAR_A = (hauteur, demi-largeur de base, fuite lineaire, fuite carree)
-//   VAR_B = (courbure, recourbe de pointe, segments, reserve)
+//   VAR_B = (courbure, recourbe de pointe, INCLINAISON, plafond de courbure)
+// VAR_B.z portait le nombre de segments : il valait 4.0 pour les six especes depuis le 20/09, donc
+// il ne disait plus rien. Il porte desormais l'INCLINAISON, un terme LINEAIRE en t — le seul levier
+// qui donne un port retombant sans ajouter le moindre pli entre deux troncons (le galbe, lui, est
+// borne a ~0,42 par la regle des 12 degres, et un brin ne peut pas se coucher avec ca seul).
 // v0 porte les constantes historiques : desarme, le CPU ecrit 0 partout et le brin livre jusqu'ici
 // est rendu AU BIT PRES (les facteurs neutres ci-dessous ne changent aucun arrondi).
 const vec4 VAR_A[6] = vec4[6](
-  vec4(1.00, 0.092, 0.66,  0.00),   // v0 lame   — la lame d'aujourd'hui
-  vec4(1.18, 0.062, 1.00,  0.05),   // v1 fine   — haute, etroite, pointe effilee
-  vec4(0.82, 0.150, 0.45, -0.25),   // v2 large  — courte et large, pointe large
-  vec4(1.05, 0.105, 0.30, -0.55),   // v3 faux   — large a mi-hauteur, pointe recourbee
-  vec4(1.30, 0.055, 0.35, -0.10),   // v4 jonc   — droite et raide, bout franc
-  vec4(0.70, 0.125, 0.80,  0.10)    // v5 touffu — petite et trapue
+  vec4(1.0212, 0.053324, 0.66,  0.00),   // v0 lame   — galbe classique, pointe franche
+  vec4(1.3481, 0.019212, 1.00,  0.05),   // v1 fine   — haute, tres etroite, pointe effilee
+  vec4(0.4440, 0.373899, 0.45, -0.25),   // v2 large  — basse et tres large, pointe large
+  vec4(0.7737, 0.102052, 0.30, -0.55),   // v3 faux   — large a mi-hauteur, retombante
+  vec4(1.7795, 0.021104, 0.35, -0.10),   // v4 jonc   — la plus haute, droite et raide
+  vec4(0.5861, 0.195344, 0.80,  0.10)    // v5 touffu — courte et trapue, ecartee
 );
 //   VAR_B.w = PLAFOND DE COURBURE (essai 2). Owner 20/09 : « on voit clairement leurs polygones de
 //   pres ». Un ruban a quatre troncons qui tourne de 70 degres montre ses plis ; chaque plafond est
@@ -108,12 +112,12 @@ const vec4 VAR_A[6] = vec4[6](
 //   courbure du bake. Il ne s'applique QUE quand l'item est arme (octet d'instance non nul).
 //   Les segments passent tous a 4 : replier des rangees, c'etait fabriquer le pli qu'il voit.
 const vec4 VAR_B[6] = vec4[6](
-  vec4(1.00,  0.00, 4.0, 0.48),     // v0 seg=4
-  vec4(1.35,  0.25, 4.0, 0.35),     // v1 seg=4
-  vec4(0.70,  0.00, 4.0, 0.59),     // v2 seg=4
-  vec4(1.60,  0.45, 4.0, 0.27),     // v3 seg=4
-  vec4(0.45,  0.00, 4.0, 3.00),     // v4 seg=4
-  vec4(1.10, -0.20, 4.0, 0.58)      // v5 seg=4
+  vec4(1.00,  0.00, 0.10, 0.521),   // v0 lame   — port courbe
+  vec4(1.55,  0.25, 0.22, 0.427),   // v1 fine   — port courbe
+  vec4(0.55, -0.20, 0.30, 3.000),   // v2 large  — port ouvert
+  vec4(2.10,  0.60, 0.55, 0.498),   // v3 faux   — port retombant
+  vec4(0.25,  0.00, 0.00, 3.000),   // v4 jonc   — port droit
+  vec4(1.15, -0.30, 0.38, 1.285)    // v5 touffu — port ouvert
 );
 
 vec4 world_to_clip(vec3 pos) {
@@ -171,8 +175,12 @@ void main() {
   int vb = clamp(int(inst_light.a * 255.0 + 0.5), 0, 6);
   bool var_on = vb > 0;
   int vi = var_on ? vb - 1 : 0;
-  vec4 VA = VAR_A[vi];
-  vec4 VB = VAR_B[vi];
+  // DESARME, C'EST LA LAME D'AVANT L'ITEM, PAS `VAR_A[0]`. L'essai 3 deplace les six especes sur
+  // deux echelles geometriques (hauteur x1,32 et largeur x1,45 d'une espece a la suivante) : v0 n'est
+  // plus la lame historique, et prendre sa ligne sur le bras desarme rendrait une ablation qui ne
+  // ramene pas l'etat d'avant. Les huit constantes ci-dessous sont `kBladeShapeLegacy`.
+  vec4 VA = var_on ? VAR_A[vi] : vec4(1.00, 0.092, 0.66, 0.00);
+  vec4 VB = var_on ? VAR_B[vi] : vec4(1.00, 0.00,  0.00, 0.00);
   H *= VA.x;
 
   // Grecharged-grass-overhang6 (owner 2026-07-14, verbatim 3-zone spec) instance classes (nspare):
@@ -352,9 +360,8 @@ void main() {
     int seg = gl_VertexID / 2;
     int side = gl_VertexID - seg * 2;              // 0 or 1
     float t = float(seg) / float(SEGMENTS);        // 0 base -> 1 tip
-    // MOINS DE SEGMENTS, PAS MOINS DE SOMMETS : les rangees excedentaires se replient sur leur
-    // voisine. VB.z == 4.0 (v0) laisse t inchange, exactement.
-    t = floor(t * VB.z + 0.5) / VB.z;
+    // LES SIX ESPECES UTILISENT LES QUATRE RANGEES. Replier une rangee, c'etait fabriquer le pli
+    // que l'owner voyait (20/09) ; `t` n'est donc plus quantifie par la table.
     // ROUND#19 GPU-WEDGE FIX (the real one — device-bisected): blades whose base sits almost ON the
     // camera rasterize as screen-filling blended quads; in a 150%-density field one frame's fill then
     // exceeds the Adreno 618 kgsl watchdog (~2s) -> IOCTL_KGSL errno-35 "Resource deadlock" -> ANR
@@ -383,7 +390,10 @@ void main() {
       float rr = Cc / VB.w;
       Cc = Cc * inversesqrt(1.0 + rr * rr);
     }
-    float bend = Cc * t * t * (1.0 + VB.y * t);   // static curvature
+    // INCLINAISON + GALBE. VB.z est lineaire en t : sa derivee seconde est nulle, donc elle ne
+    // creuse AUCUN angle entre deux troncons — c'est ce qui laisse un port retombant tenir sous les
+    // 12 degres. Desarme, VB.z vaut 0.0 et l'expression retombe sur `Cc * t * t * (1.0 + 0.0 * t)`.
+    float bend = VB.z * t + Cc * t * t * (1.0 + VB.y * t);   // inclinaison + galbe statique
     float fwd_amt = bend * H * rim_h;            // galbe statique, le long de fwdv (ROUND#14: no lean past a rim)
     float wind_amt = sway * gw_amp * H * rim_h;  // grass-wind : vent, le long du CAP du champ
 

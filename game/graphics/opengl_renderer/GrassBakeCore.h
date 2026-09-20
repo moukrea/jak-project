@@ -328,6 +328,14 @@ inline int blade_variant_of_clump(const GrassInstance& gi, u32 cseed, u32 rank, 
   return blade_variant_fold(blade_variant_base(blade_variant_seed_clumped(gi, cseed, rank)), k);
 }
 
+// L'ESPECE DE LA TOUFFE, SANS SON PALIER. C'est la base (avant repli) du tirage NON minoritaire :
+// elle ne depend que de `cseed`, donc ni du palier, ni du rang, ni de la position d'un brin. Le
+// placement s'en sert pour le rayon de la touffe ; s'il lisait l'espece REPLIEE, la geometrie du
+// champ changerait d'un palier a l'autre et la nidification de `grass-clumps` ne tiendrait plus.
+inline int clump_species_base(u32 cseed) {
+  return cseed == 0u ? 0 : blade_variant_base(hash_u32(cseed ^ 0x9E3779B9u));
+}
+
 // HAUTEUR PAR TOUFFE : un facteur commun a toute la touffe, de moyenne 1. `clump_height_mul(rho)`
 // module deja la hauteur par le RANG (brin dominant au centre, peripherie plus courte) — c'est une
 // forme DANS la touffe, pas une difference ENTRE touffes, et c'est ce que l'owner ne voyait pas.
@@ -377,6 +385,19 @@ struct VariantCensus {
   int seg_angle_max_mdeg = 0;   // angle max entre deux troncons emis, sur la population REELLE
   u64 seg_angle_over = 0;       // brins au-dela de kBladeSegAngleCapMdeg
   int variants_seen = 0;        // silhouettes distinctes effectivement portees par une touffe
+  // ---- ESSAI 3 : « toutes les touffes se ressemblent » (owner, 20/09 11:10). La porte de l'essai 2
+  // etait TENUE et l'owner ne voyait toujours aucune difference : elle jugeait qu'une touffe a UNE
+  // silhouette dominante, jamais que les silhouettes se DISTINGUENT ni que le tirage les sert
+  // toutes. Les cinq grandeurs qui suivent sont les trois separations chiffrees par le perimetre.
+  int clump_blades_mean_pm = 0;      // brins par touffe, x1000 (5,0 vise au palier moyen)
+  int clump_blades_cv_pm = 0;        // ... et sa dispersion : touffe clairsemee / touffe dense
+  u64 zone_cells_total = 0;          // cellules de 10x10 m portant au moins une touffe
+  u64 zone_cells = 0;                // ... dont assez peuplees pour etre jugees
+  int zone_entropy_min_mbits = 0;    // entropie MINIMALE de l'espece dominante sur une cellule
+  int zone_entropy_mean_mbits = 0;   // ... et sa moyenne, pour situer le minimum
+  int species_h_gap_pm = 0;          // ecart RELATIF minimal de hauteur entre deux especes
+  int species_w_gap_pm = 0;          // ... et de largeur EFFECTIVE (h x hw), celle qui se voit
+  int species_ports = 0;             // ports distincts couverts par les six especes
 };
 
 // Accumulateur par touffe (local a `variant_census`).
@@ -394,7 +415,7 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
                                     size_t first,
                                     size_t count,
                                     int k,
-                                    bool capped = true) {
+                                    bool armed = true) {
   VariantCensus vc;
   vc.k = k;
   const size_t end = (first + count > inst.size()) ? inst.size() : first + count;
@@ -420,7 +441,7 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
     vc.digest ^= (u64)(eff + 1) * 2654435761ull;
     vc.blades++;
     // L'ANGLE, SUR LA POPULATION REELLE : la courbure de CE brin, pas une borne de table.
-    const int am = blade_seg_angle_mdeg(eff, inst[i].curve, capped);
+    const int am = blade_seg_angle_mdeg(eff, inst[i].curve, armed);
     if (am > vc.seg_angle_max_mdeg) {
       vc.seg_angle_max_mdeg = am;
     }
@@ -432,7 +453,8 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       ClumpVarAcc& a = acc[cs];
       a.per_variant[eff]++;
       a.n++;
-      const double hfin = (double)inst[i].h * (double)kBladeShapes[eff].h;
+      const double hfin =
+          (double)inst[i].h * (double)(armed ? blade_shape(eff).h : kBladeShapeLegacy.h);
       a.hsum += hfin;
       a.hsum2 += hfin * hfin;
       a.cx += inst[i].px;
@@ -443,9 +465,10 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
   // ---- CE QUE L'OWNER REGARDE (1) : « une touffe a-t-elle UNE silhouette dominante ? »
   // ---- et (2) : « les touffes ont-elles des hauteurs differentes entre elles ? »
   {
-    std::vector<u32> cvar;
+    std::vector<u32> cvar, cn;
     std::vector<float> ccx, ccy, ccz;
     cvar.reserve(acc.size());
+    cn.reserve(acc.size());
     ccx.reserve(acc.size()); ccy.reserve(acc.size()); ccz.reserve(acc.size());
     double hs = 0.0, hs2 = 0.0, wnoise = 0.0;
     u64 wn = 0;
@@ -478,6 +501,7 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
         wn++;
       }
       cvar.push_back((u32)topv);
+      cn.push_back(a.n);
       ccx.push_back((float)(a.cx / (double)a.n));
       ccy.push_back((float)(a.cy / (double)a.n));
       ccz.push_back((float)(a.cz / (double)a.n));
@@ -554,7 +578,79 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
             (int)((vc.neigh_diff * 1000ull + vc.neigh_compared / 2) / vc.neigh_compared);
       }
     }
+    // ---- ESSAI 3 (a) : « une touffe clairsemee a cote d'une touffe dense ». On compte les BRINS
+    // par touffe sur la population livree — pas la constante visee par le placement, qui ne dit
+    // rien de la dispersion reellement obtenue apres ecretage aux bords.
+    if (!cn.empty()) {
+      double ns = 0.0, ns2 = 0.0;
+      for (const u32 n : cn) {
+        ns += (double)n;
+        ns2 += (double)n * (double)n;
+      }
+      const double mean = ns / (double)cn.size();
+      const double var = ns2 / (double)cn.size() - mean * mean;
+      const double sd = var > 0.0 ? std::sqrt(var) : 0.0;
+      vc.clump_blades_mean_pm = (int)(mean * 1000.0 + 0.5);
+      vc.clump_blades_cv_pm = mean > 0.0 ? (int)(1000.0 * sd / mean + 0.5) : 0;
+    }
+    // ---- ESSAI 3 (b) : L'ENTROPIE PAR ZONE DE 10x10 m. Perimetre du 20/09 11:10, mot pour mot.
+    // Une entropie calculee sur le niveau entier serait verte avec six especes empilees en six
+    // plaques ; c'est la ZONE qui mesure ce que l'owner voit d'un coup d'oeil. Les cellules trop
+    // peu peuplees (bords, eclats) ne sont pas jugees : elles sont comptees a part, et une porte
+    // qui ne trouverait AUCUNE cellule jugeable le dirait par `zone_cells == 0`.
+    if (!cvar.empty()) {
+      const float ZCELL = kBladeZoneCellM * U;
+      std::unordered_map<u64, std::array<u32, kBladeVariantCount>> zone;
+      zone.reserve(cvar.size() / 8 + 8);
+      for (u32 i = 0; i < (u32)cvar.size(); ++i) {
+        const long zi = (long)std::floor(ccx[i] / ZCELL);
+        const long zj = (long)std::floor(ccy[i] / ZCELL);
+        const long zk = (long)std::floor(ccz[i] / ZCELL);
+        const u64 key = ((u64)(u32)(zi * 73856093) ^ ((u64)(u32)(zj * 19349663) << 21)) ^
+                        ((u64)(u32)(zk * 83492791) << 42);
+        auto it = zone.find(key);
+        if (it == zone.end()) {
+          it = zone.emplace(key, std::array<u32, kBladeVariantCount>{}).first;
+        }
+        if (cvar[i] < (u32)kBladeVariantCount) {
+          it->second[cvar[i]]++;
+        }
+      }
+      double emin = -1.0, esum = 0.0;
+      for (const auto& z : zone) {
+        vc.zone_cells_total++;
+        u32 tot = 0;
+        for (int v = 0; v < kBladeVariantCount; ++v) {
+          tot += z.second[v];
+        }
+        if ((int)tot < kBladeZoneMinClumps) {
+          continue;
+        }
+        double e = 0.0;
+        for (int v = 0; v < kBladeVariantCount; ++v) {
+          if (z.second[v] == 0u) {
+            continue;
+          }
+          const double pr = (double)z.second[v] / (double)tot;
+          e -= pr * (std::log(pr) / 0.6931471805599453);  // log2
+        }
+        vc.zone_cells++;
+        esum += e;
+        if (emin < 0.0 || e < emin) {
+          emin = e;
+        }
+      }
+      if (vc.zone_cells > 0) {
+        vc.zone_entropy_min_mbits = (int)(emin * 1000.0 + 0.5);
+        vc.zone_entropy_mean_mbits = (int)(esum / (double)vc.zone_cells * 1000.0 + 0.5);
+      }
+    }
   }
+  // ---- ESSAI 3 (c) : CE QUI SEPARE DEUX ESPECES. Proprietes de la table, pas de la population :
+  // les DEUX mesureurs les publient, aucun des deux ne peut les affirmer sans les montrer.
+  vc.species_h_gap_pm = blade_species_min_gap_pm(false);
+  vc.species_w_gap_pm = blade_species_min_gap_pm(true);
+  vc.species_ports = blade_species_ports();
   for (int v = 0; v < kBladeVariantCount; ++v) {
     vc.expect_pm[v] = blade_variant_expected_pm(v, k);
     vc.share_pm[v] =
@@ -591,9 +687,11 @@ inline VariantCensus variant_census(const std::vector<GrassInstance>& inst,
       }
     }
   }
-  // Neuf termes MESURES : distribution, budget de sommets, repli, empreinte, population, silhouette
-  // dominante par touffe, hauteur entre touffes, voisinage, angle entre troncons.
-  vc.terms_measured = vc.blades > 0 ? 9 : 0;
+  // QUATORZE termes MESURES : distribution, budget de sommets, repli, empreinte, population,
+  // silhouette dominante par touffe, hauteur entre touffes, voisinage, angle entre troncons, et les
+  // cinq de l'essai 3 — brins par touffe, entropie par zone, echelle de hauteur, echelle de largeur,
+  // ports distincts. Le juge lit ce compte AVANT la somme : un terme non mesure ne vaut pas zero.
+  vc.terms_measured = vc.blades > 0 ? 14 : 0;
   return vc;
 }
 
@@ -1011,7 +1109,13 @@ class ClumpPlacer {
     }
     c1 = a;
     c2 = b;
-    radius_wu = (CLUMP_R_MIN_M + (CLUMP_R_MAX_M - CLUMP_R_MIN_M) * hash_f(cs + 3u)) * U;
+    // DENSITE PAR ESPECE (perimetre 20/09 11:10, point 3 : « une touffe clairsemee a cote d'une
+    // touffe dense »). Le rayon est le SEUL levier qui disperse une touffe sans redistribuer une
+    // seule racine entre touffes : le rang, le prefixe et la nidification par palier de
+    // `grass-clumps` restent exacts au brin pres. Un jonc s'etale (x1,35), un touffu se serre
+    // (x0,70) — a compte de brins egal, la densite au sol varie d'un facteur 3,7.
+    radius_wu = (CLUMP_R_MIN_M + (CLUMP_R_MAX_M - CLUMP_R_MIN_M) * hash_f(cs + 3u)) * U *
+                species_clump_radius_mul(clump_species_base(cs));
   }
 
   // Le candidat `i` du triangle `t`. A appeler dans l'ordre croissant des `i` : le rang dans la

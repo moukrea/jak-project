@@ -2275,6 +2275,29 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                               (uint64_t)vc.seg_angle_max_mdeg);
       autoport_proof::publish("grass_variant_engine_seg_angle_over", vc.seg_angle_over);
       autoport_proof::publish("grass_variant_engine_variants_seen", (uint64_t)vc.variants_seen);
+      autoport_proof::publish("grass_variant_engine_clump_blades_mean_pm", (uint64_t)vc.clump_blades_mean_pm);
+      autoport_proof::publish("grass_variant_engine_clump_blades_cv_pm", (uint64_t)vc.clump_blades_cv_pm);
+      autoport_proof::publish("grass_variant_engine_clump_blades_cv_pm_floor",
+                              (uint64_t)grass_bake::kBladeClumpBladesCvPmFloor);
+      autoport_proof::publish("grass_variant_engine_zone_cells", (uint64_t)vc.zone_cells);
+      autoport_proof::publish("grass_variant_engine_zone_cells_total", (uint64_t)vc.zone_cells_total);
+      autoport_proof::publish("grass_variant_engine_zone_min_clumps",
+                              (uint64_t)grass_bake::kBladeZoneMinClumps);
+      autoport_proof::publish("grass_variant_engine_zone_entropy_min_mbits",
+                              (uint64_t)vc.zone_entropy_min_mbits);
+      autoport_proof::publish("grass_variant_engine_zone_entropy_mean_mbits",
+                              (uint64_t)vc.zone_entropy_mean_mbits);
+      autoport_proof::publish("grass_variant_engine_zone_entropy_mbits_floor",
+                              (uint64_t)grass_bake::kBladeZoneEntropyMbitsFloor);
+      autoport_proof::publish("grass_variant_engine_species_h_gap_pm", (uint64_t)vc.species_h_gap_pm);
+      autoport_proof::publish("grass_variant_engine_species_h_gap_pm_floor",
+                              (uint64_t)grass_bake::kBladeSpeciesHeightGapPmFloor);
+      autoport_proof::publish("grass_variant_engine_species_w_gap_pm", (uint64_t)vc.species_w_gap_pm);
+      autoport_proof::publish("grass_variant_engine_species_w_gap_pm_floor",
+                              (uint64_t)grass_bake::kBladeSpeciesWidthGapPmFloor);
+      autoport_proof::publish("grass_variant_engine_species_ports", (uint64_t)vc.species_ports);
+      autoport_proof::publish("grass_variant_engine_species_ports_floor",
+                              (uint64_t)grass_bake::kBladeSpeciesPortsFloor);
       for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
         char key[64];
         snprintf(key, sizeof(key), "grass_variant_engine_v%d", v);
@@ -2287,8 +2310,10 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         autoport_proof::publish(key, (uint64_t)vc.expect_pm[v]);
         snprintf(key, sizeof(key), "grass_variant_engine_tol_pm_v%d", v);
         autoport_proof::publish(key, (uint64_t)vc.tol_pm[v]);
-        snprintf(key, sizeof(key), "grass_variant_engine_seg_v%d", v);
-        autoport_proof::publish(key, (uint64_t)grass_bake::kBladeVariants[v].segments);
+        snprintf(key, sizeof(key), "grass_variant_engine_port_v%d", v);
+        autoport_proof::publish(key, (uint64_t)grass_bake::grass_species(v).port);
+        snprintf(key, sizeof(key), "grass_variant_engine_weight_pm_v%d", v);
+        autoport_proof::publish(key, (uint64_t)grass_bake::blade_variant_weight_pm(v));
       }
       {
         char buf[32];

@@ -904,9 +904,9 @@ int main(int argc, char** argv) {
     fmt::print("variant_variants_seen={}\n", vc.variants_seen);
     fmt::print("variant_minority_stride={}\n", grass_bake::kBladeClumpMinorityStride);
     for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
-      const auto& S = grass_bake::kBladeShapes[v];
+      const auto S = grass_bake::blade_shape(v);
       fmt::print("variant_shape_v{}={:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}\n", v,
-                 S.h, S.hw, S.taper_lin, S.taper_quad, S.curve_mul, S.tip, S.segments,
+                 S.h, S.hw, S.taper_lin, S.taper_quad, S.curve_mul, S.tip, S.lean,
                  S.curve_cap);
     }
     for (int v = 0; v < grass_bake::kBladeVariantCount; ++v) {
@@ -915,8 +915,25 @@ int main(int argc, char** argv) {
       fmt::print("variant_share_pm_v{}={}\n", v, vc.share_pm[v]);
       fmt::print("variant_expect_pm_v{}={}\n", v, vc.expect_pm[v]);
       fmt::print("variant_tol_pm_v{}={}\n", v, vc.tol_pm[v]);
-      fmt::print("variant_seg_v{}={}\n", v, grass_bake::kBladeVariants[v].segments);
+      fmt::print("variant_port_v{}={}\n", v, grass_bake::grass_species(v).port);
+      fmt::print("variant_weight_pm_v{}={}\n", v, grass_bake::blade_variant_weight_pm(v));
+      fmt::print("variant_name_v{}={}\n", v, grass_bake::grass_species(v).name);
     }
+    fmt::print("variant_clump_blades_mean_pm={}\n", vc.clump_blades_mean_pm);
+    fmt::print("variant_clump_blades_cv_pm={}\n", vc.clump_blades_cv_pm);
+    fmt::print("variant_clump_blades_cv_pm_floor={}\n", grass_bake::kBladeClumpBladesCvPmFloor);
+    fmt::print("variant_zone_cells={}\n", vc.zone_cells);
+    fmt::print("variant_zone_cells_total={}\n", vc.zone_cells_total);
+    fmt::print("variant_zone_min_clumps={}\n", grass_bake::kBladeZoneMinClumps);
+    fmt::print("variant_zone_entropy_min_mbits={}\n", vc.zone_entropy_min_mbits);
+    fmt::print("variant_zone_entropy_mean_mbits={}\n", vc.zone_entropy_mean_mbits);
+    fmt::print("variant_zone_entropy_mbits_floor={}\n", grass_bake::kBladeZoneEntropyMbitsFloor);
+    fmt::print("variant_species_h_gap_pm={}\n", vc.species_h_gap_pm);
+    fmt::print("variant_species_h_gap_pm_floor={}\n", grass_bake::kBladeSpeciesHeightGapPmFloor);
+    fmt::print("variant_species_w_gap_pm={}\n", vc.species_w_gap_pm);
+    fmt::print("variant_species_w_gap_pm_floor={}\n", grass_bake::kBladeSpeciesWidthGapPmFloor);
+    fmt::print("variant_species_ports={}\n", vc.species_ports);
+    fmt::print("variant_species_ports_floor={}\n", grass_bake::kBladeSpeciesPortsFloor);
   }
 
   // grass-blade-variants, point 3 : UN BRIN GARDE SA SILHOUETTE D'UN PALIER A L'AUTRE. On rejoue le

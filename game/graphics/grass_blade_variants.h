@@ -1,17 +1,20 @@
 #pragma once
 
-// grass-blade-variants (SPEC-refonte-herbe.md, section 6) — SIX SILHOUETTES DE BRIN, ZERO ASSET.
+// grass-blade-variants (SPEC-refonte-herbe.md, section 6) — SIX ESPECES D'HERBE, ZERO ASSET.
 //
 // « quatre a six variantes simples, toutes generees depuis `gl_VertexID` comme aujourd'hui, aucun
 // asset de maillage. Elles different par le nombre de segments, le profil de largeur et la courbure
 // de base. Le palier le plus bas n'en utilise qu'une, le plus haut les six. »
 //
-// CE FICHIER NE PORTE PAS LA GEOMETRIE. Les parametres de forme (hauteur, largeur, fuite, courbure)
-// vivent dans `shaders/grass.vert`, tables `VAR_A`/`VAR_B`, parce que c'est le seul endroit qui les
-// consomme. Ici vivent les SEULES grandeurs dont le C++ a besoin : le nombre de segments de chaque
-// variante (donc son budget de sommets), les proportions declarees par le profil, la regle de repli
-// par palier, et la tolerance. Le recensement `lib/census/grass-blade-variants.sh` VERIFIE que les
-// segments declares ici sont ceux de la table GLSL : la duplication est mesuree, pas supposee.
+// 20/09 11:40, OWNER (JAK-121) : « Attention les types de brins simples niveau geometrie impliquent
+// aussi des "especes differentes" au meme titre que les degrades et compagnie, ca joue sur la
+// coherence des types, biomes, especes differentes ». Une silhouette + sa palette + sa raideur au
+// vent + sa hauteur + sa densite de touffe = UNE ESPECE. Les six types ne sont donc plus six
+// tableaux paralleles : c'est UNE TABLE, `kGrassSpecies`, et tout le reste (la table de forme que
+// le shader lit, les proportions du profil, le rayon de touffe) en est une VUE. Les chantiers
+// couleur (`grass-shading`), vent (`grass-wind`) et biomes (`grass-biome-profiles`) y lisent leurs
+// colonnes : `palette_hue`, `palette_val`, `wind_stiff` sont DECLAREES ici et pas encore lues —
+// c'est ce qui rend la coherence par espece possible sans dupliquer la table une quatrieme fois.
 //
 // AUCUNE INCLUSION. Ce fichier est lu par le moteur, par `tools/grass_bake` (outil de bureau, sans
 // GL) et par l'empaqueteur, comme `grass_density_presets.h` a cote.
@@ -21,65 +24,149 @@
 
 namespace grass_bake {
 
-// LES SIX SILHOUETTES. `segments` est le nombre de RANGEES du ruban effectivement distinctes : le
-// ruban soumet toujours 2*(kBladeStripSegments+1) sommets, et une variante a moins de segments
-// replie ses rangees excedentaires sur la rangee voisine (triangles degeneres, zero fragment). La
-// diversite ne coute donc AUCUN sommet de plus — c'est le point 2 du livrable.
-struct BladeVariant {
-  const char* name;  // nom publie dans la preuve
-  int segments;      // rangees distinctes (1..kBladeStripSegments)
-};
-
 inline constexpr int kBladeVariantCount = 6;
 
-// v0 est, AU BIT PRES, le brin livre jusqu'ici : la table GLSL lui donne les constantes historiques
-// (0.092 de demi-largeur, fuite 0.66, courbure x1, 4 segments) et les expressions sont ecrites pour
-// que ses multiplications neutres ne changent aucun arrondi. Desarme, TOUS les brins sont v0.
-// 20/09, RETOUR OWNER : « certaines des geometries... on voit clairement leurs polygones de pres,
-// c'est nul ! ». Les variantes a 2 et 3 segments repliaient des rangees : un brin a deux segments
-// casse a 29 degres entre ses deux troncons, et ce pli est CE QU'IL VOIT. Les six variantes
-// utilisent donc les QUATRE rangees du ruban — le nombre de sommets SOUMIS ne bouge pas (10, il
-// etait deja de 10 pour tout le monde), seule la part repliee disparait. La silhouette se distingue
-// desormais par la largeur, la fuite, la hauteur et la courbure, qui ne coutent aucun pli.
-inline constexpr BladeVariant kBladeVariants[kBladeVariantCount] = {
-    {"lame", 4},    // v0 — la lame d'aujourd'hui : fuite lineaire, pointe franche
-    {"fine", 4},    // v1 — haute et etroite, tres courbee, pointe effilee
-    {"large", 4},   // v2 — courte et large, pointe large
-    {"faux", 4},    // v3 — large a mi-hauteur, pointe recourbee (fauchee)
-    {"jonc", 4},    // v4 — droite et raide, bout franc
-    {"touffu", 4},  // v5 — petite et trapue
-};
-
-// Le ruban proche : `SEGMENTS` de grass.vert:68 et le litteral de sommets de l'appel de dessin.
+// Le ruban proche : `SEGMENTS` de grass.vert et le litteral de sommets de l'appel de dessin. TOUTES
+// les especes emettent les MEMES dix sommets — c'est le point 2 du livrable, et depuis le 20/09
+// c'est aussi ce qui tient l'angle entre troncons sous 12 degres (une espece a deux troncons cassait
+// a 29 degres : « on voit clairement leurs polygones de pres », owner).
 inline constexpr int kBladeStripSegments = 4;
 inline constexpr int kBladeStripVerts = 2 * (kBladeStripSegments + 1);  // 10
 
-// Sommets REELLEMENT distincts d'une variante. Jamais superieur a kBladeStripVerts : c'est ce que
-// la porte verifie, variante par variante.
-inline constexpr int blade_variant_active_verts(int v) {
-  return (v < 0 || v >= kBladeVariantCount) ? kBladeStripVerts
-                                            : 2 * (kBladeVariants[v].segments + 1);
+// LE PORT — la maniere dont l'espece se tient. C'est le troisieme axe que l'owner a nomme le 20/09
+// (« silhouette dominante differente, hauteur differente, PORT different ») : deux especes de meme
+// hauteur et de meme largeur se distinguent encore si l'une monte droit et l'autre retombe.
+enum GrassPort : int {
+  kPortDroit = 0,      // monte a la verticale, pas d'inclinaison
+  kPortCourbe = 1,     // galbe classique, pointe dans le prolongement
+  kPortRetombant = 2,  // se couche franchement, pointe qui redescend
+  kPortOuvert = 3,     // s'ecarte du centre de la touffe, pointe qui se releve
+};
+inline constexpr int kGrassPortCount = 4;
+
+// ===================== LA TABLE UNIQUE DES ESPECES ==========================================
+// Les HUIT premiers nombres sont exactement ceux que `shaders/grass.vert` lit dans `VAR_A`/`VAR_B`,
+// dans cet ordre. Le recensement les compare un a un a la table GLSL : la duplication est MESUREE.
+struct GrassSpecies {
+  const char* name;
+  // --- SILHOUETTE : VAR_A = (h, hw, taper_lin, taper_quad), VAR_B = (curve_mul, tip, lean, cap)
+  float h;           // facteur de hauteur (x la hauteur cuite du brin)
+  float hw;          // demi-largeur de base, EN UNITES DE LA HAUTEUR DE L'ESPECE (x H apres h)
+  float taper_lin;   // fuite lineaire du profil de largeur
+  float taper_quad;  // fuite carree — c'est elle qui donne « pointe large » ou « pointe effilee »
+  float curve_mul;   // multiplicateur de courbure (galbe en t^2)
+  float tip;         // recourbe de pointe (positif = la pointe continue, negatif = elle se releve)
+  float lean;        // INCLINAISON, terme LINEAIRE en t. Une droite n'ajoute aucun pli entre deux
+                     // troncons : c'est le seul levier qui donne un port retombant sans montrer un
+                     // polygone. Le galbe seul est borne a ~0,42 par la regle des 12 degres.
+  float curve_cap;   // plafond doux de courbure, RESOLU par dichotomie (voir en bas de fichier)
+  // --- IDENTITE DE L'ESPECE -------------------------------------------------------------------
+  int port;                // GrassPort — publie et juge, pas un commentaire
+  int weight_pm;           // part de l'espece dans le profil, pour mille (somme == 1000)
+  float clump_radius_mul;  // rayon de la touffe de cette espece : > 1 = clairsemee, < 1 = dense
+  // --- CE QUE LES AUTRES CHANTIERS D'HERBE LIRONT (JAK-121). Declare ici pour que la coherence par
+  //     espece ait UNE source ; AUCUN de ces trois champs n'est lu aujourd'hui (hors perimetre :
+  //     « Ne change ni la couleur ni le vent »).
+  float palette_hue;  // -> grass-shading : decalage de teinte de l'espece
+  float palette_val;  // -> grass-shading : clair/sombre de l'espece
+  float wind_stiff;   // -> grass-wind    : raideur (1 = reference ; un jonc plie moins qu'une lame)
+};
+
+// LES SIX ESPECES. Les deux echelles sont GEOMETRIQUES, et c'est ce qui rend deux touffes voisines
+// distinguables a 3-8 m (owner, 20/09 11:10 : « Toutes les touffes se ressemblent… tres mid ») :
+//   hauteur  : rapport 1,320 entre deux especes consecutives  -> >= 30 % exige par le perimetre
+//   largeur  : rapport 1,450 sur la largeur EFFECTIVE (h x hw) -> >= 40 % exige par le perimetre
+// La largeur qui se voit est `h * hw` et non `hw` : le shader fait `H *= h` PUIS `hw = H * hw`.
+// Juger `hw` seul aurait declare 48 % d'ecart la ou l'ecran en montrait 2 % (mesure de l'essai 2 :
+// les six largeurs effectives tenaient dans un rapport 1,72, cinq d'entre elles a moins de 20 %).
+// Les deux echelles sont normalisees pour que la MOYENNE PONDEREE de la hauteur reste 1,0014 :
+// le champ ne devient ni plus haut ni plus bas, il devient varie.
+inline constexpr GrassSpecies kGrassSpecies[kBladeVariantCount] = {
+    // nom       h       hw        tl     tq      cm     tip    lean   cap    port
+    {"lame", 1.0212f, 0.053324f, 0.66f, 0.00f, 1.00f, 0.00f, 0.10f, 0.521f, kPortCourbe, 200,
+     1.00f, 0.00f, 0.00f, 1.00f},
+    {"fine", 1.3481f, 0.019212f, 1.00f, 0.05f, 1.55f, 0.25f, 0.22f, 0.427f, kPortCourbe, 190,
+     1.15f, 0.04f, 0.06f, 0.80f},
+    {"large", 0.4440f, 0.373899f, 0.45f, -0.25f, 0.55f, -0.20f, 0.30f, 3.000f, kPortOuvert, 180,
+     0.80f, -0.05f, -0.08f, 1.20f},
+    {"faux", 0.7737f, 0.102052f, 0.30f, -0.55f, 2.10f, 0.60f, 0.55f, 0.498f, kPortRetombant, 160,
+     0.95f, 0.06f, 0.03f, 0.65f},
+    {"jonc", 1.7795f, 0.021104f, 0.35f, -0.10f, 0.25f, 0.00f, 0.00f, 3.000f, kPortDroit, 150,
+     1.35f, -0.08f, 0.05f, 1.60f},
+    {"touffu", 0.5861f, 0.195344f, 0.80f, 0.10f, 1.15f, -0.30f, 0.38f, 1.285f, kPortOuvert, 120,
+     0.70f, 0.09f, -0.04f, 1.10f},
+};
+
+inline constexpr const GrassSpecies& grass_species(int v) {
+  return kGrassSpecies[v < 0 ? 0 : (v >= kBladeVariantCount ? kBladeVariantCount - 1 : v)];
 }
 
-// PROPORTIONS DECLAREES PAR LE PROFIL, en pour mille. `grass-biome-profiles` remplacera cette table
-// par une donnee cuite par niveau ; jusque-la c'est LE profil, et il est declare, pas devine.
-inline constexpr int kBladeVariantWeightPm[kBladeVariantCount] = {260, 200, 180, 140, 120, 100};
+// LA VUE « FORME » — les huit nombres du shader, dans l'ordre de VAR_A puis VAR_B. Le recensement
+// les lit ici et les compare a la table GLSL ; il n'existe plus de deuxieme litteral cote C++.
+struct BladeShape {
+  float h;
+  float hw;
+  float taper_lin;
+  float taper_quad;
+  float curve_mul;
+  float tip;
+  float lean;
+  float curve_cap;
+};
 
-// LE PALIER COMMANDE LE NOMBRE DE VARIANTES (SPEC section 13, ligne « variantes de brin »).
-inline constexpr int kBladeVariantsPerPreset[5] = {1, 2, 4, 6, 6};
+inline constexpr BladeShape blade_shape(int v) {
+  const GrassSpecies& S = grass_species(v);
+  return BladeShape{S.h, S.hw, S.taper_lin, S.taper_quad, S.curve_mul, S.tip, S.lean, S.curve_cap};
+}
+
+// LA LAME D'AVANT L'ITEM, AU BIT PRES. Elle n'est PAS `kGrassSpecies[0]` : le perimetre du 20/09
+// deplace toutes les especes sur deux echelles geometriques, v0 compris, et un bras d'ablation qui
+// dessinerait la nouvelle `lame` ne rendrait pas l'etat d'avant. `grass.vert` prend ces huit nombres
+// quand l'octet d'instance vaut 0, et le mesureur d'angle les prend quand l'item est desarme : les
+// deux bras mesurent alors ce que le GPU dessine vraiment, des deux cotes.
+inline constexpr BladeShape kBladeShapeLegacy = {1.00f, 0.092f, 0.66f, 0.00f,
+                                                 1.00f, 0.00f,  0.00f, 0.00f};
+
+// Sommets REELLEMENT distincts d'une espece. Toutes les especes utilisent les quatre rangees : le
+// repli de rangees FABRIQUAIT le pli que l'owner voyait. La fonction reste, c'est elle que la porte
+// interroge variante par variante.
+inline constexpr int blade_variant_active_verts(int /*v*/) {
+  return kBladeStripVerts;
+}
+
+inline constexpr int blade_variant_segments(int /*v*/) {
+  return kBladeStripSegments;
+}
+
+inline constexpr int blade_variant_weight_pm(int v) {
+  return grass_species(v).weight_pm;
+}
+
+// LE PALIER COMMANDE LE NOMBRE D'ESPECES (SPEC section 13, ligne « variantes de brin »).
+//
+// 20/09 : la matrice de la SPEC donnait 1/2/4/6/6, et la SPEC ecrit noir sur blanc que ce sont des
+// « valeurs provisoires, a confirmer par mesure ». La mesure est faite, et elle condamne 4 au palier
+// moyen : la course de l'essai 2 (appareil, preset 2) a rendu `variants_seen=4`, `v4=0` et `v5=0` —
+// le jonc et le touffu, les deux silhouettes les PLUS eloignees de la lame, n'atteignaient jamais
+// l'ecran de l'owner. Et une repartition sur quatre classes plafonne a 2,000 bits d'entropie : le
+// perimetre en exige 2 par zone de 10x10 m, donc quatre especes ne peuvent PAS y arriver.
+// CE QUE LA DIVERSITE COUTE, MESURE : rien. Les six especes emettent les memes dix sommets, dans le
+// meme appel de dessin, avec le meme octet d'instance ; la seule difference est une lecture de
+// table constante dans le vertex shader. `verts_frame` et `draw_calls` le publient a chaque course.
+inline constexpr int kBladeVariantsPerPreset[5] = {1, 3, 6, 6, 6};
 
 inline constexpr int variants_for_preset(int preset) {
   return kBladeVariantsPerPreset[preset < 0 ? 0 : (preset > 4 ? 4 : preset)];
 }
 
-// LA VARIANTE DE BASE D'UN BRIN : tirage entier sur la table de poids, INDEPENDANT DU PALIER. C'est
-// ce qui rend la selection stable : un brin porte sa variante de base partout, et un palier qui ne
-// la propose pas la REPLIE (ci-dessous) au lieu de re-tirer.
+// L'ESPECE DE BASE D'UN TIRAGE : tirage entier sur la table de poids, INDEPENDANT DU PALIER. C'est
+// ce qui rend la selection stable : un brin porte son espece de base partout, et un palier qui ne la
+// propose pas la REPLIE (ci-dessous) au lieu de re-tirer.
 inline constexpr int blade_variant_base(uint32_t h) {
   int acc = 0;
   const int r = (int)(h % 1000u);
   for (int i = 0; i < kBladeVariantCount; ++i) {
-    acc += kBladeVariantWeightPm[i];
+    acc += kGrassSpecies[i].weight_pm;
     if (r < acc) {
       return i;
     }
@@ -87,21 +174,21 @@ inline constexpr int blade_variant_base(uint32_t h) {
   return kBladeVariantCount - 1;
 }
 
-// LE REPLI. Un palier a `k` variantes propose exactement [0, k) ; une base hors de cette plage se
+// LE REPLI. Un palier a `k` especes propose exactement [0, k) ; une base hors de cette plage se
 // replie par modulo. Consequence exigee par le livrable : deux paliers qui proposent TOUS LES DEUX
-// la variante de base d'un brin lui donnent la MEME — le compte de changements est nul par
+// l'espece de base d'un brin lui donnent la MEME — le compte de changements est nul par
 // construction, et un `hash % k` (le defaut classique) le ferait exploser.
 inline constexpr int blade_variant_fold(int base, int k) {
   return (k <= 1) ? 0 : (base % k);
 }
 
-// Part attendue de la variante EFFECTIVE `i` a `k` variantes : la somme des poids de toutes les
-// bases qui s'y replient. Une seule source pour l'attendu et pour le livre.
+// Part attendue de l'espece EFFECTIVE `i` a `k` especes : la somme des poids de toutes les bases qui
+// s'y replient. Une seule source pour l'attendu et pour le livre.
 inline constexpr int blade_variant_expected_pm(int i, int k) {
   int acc = 0;
   for (int v = 0; v < kBladeVariantCount; ++v) {
     if (blade_variant_fold(v, k) == i) {
-      acc += kBladeVariantWeightPm[v];
+      acc += kGrassSpecies[v].weight_pm;
     }
   }
   return acc;
@@ -112,36 +199,6 @@ inline constexpr int blade_variant_expected_pm(int i, int k) {
 // le second terme, un niveau a quelques centaines de brins rougirait sur sa seule statistique.
 inline constexpr int kBladeVariantTolFloorPm = 15;
 inline constexpr int kBladeVariantTolSigmas = 4;
-
-
-// ===================== LA FORME, EN C++ ET EN UNE SEULE TABLE =============================
-// Elle vivait dans `shaders/grass.vert` seul. La porte de l'essai 2 doit MESURER un angle entre
-// deux troncons emis : elle a besoin de la meme table, et une deuxieme copie non comparee serait
-// une divergence en attente. Le recensement compare donc les HUIT nombres de chaque ligne a ceux
-// de la table GLSL, pas seulement le nombre de segments comme jusqu'ici.
-struct BladeShape {
-  float h;            // VAR_A.x — facteur de hauteur
-  float hw;           // VAR_A.y — demi-largeur de base (x H)
-  float taper_lin;    // VAR_A.z — fuite lineaire
-  float taper_quad;   // VAR_A.w — fuite carree
-  float curve_mul;    // VAR_B.x — multiplicateur de courbure
-  float tip;          // VAR_B.y — recourbe de pointe
-  float segments;     // VAR_B.z — rangees distinctes (== kBladeVariants[].segments)
-  float curve_cap;    // VAR_B.w — PLAFOND DE COURBURE (0 = aucun ; voir blade_curve_capped)
-};
-
-// LE PLAFOND DE COURBURE, PAR VARIANTE. Un brin a quatre troncons ne peut pas tourner de 70 degres
-// sans montrer ses plis : chaque plafond est le plus GRAND qui tienne l'angle maximal sous
-// kBladeSegAngleCapMdeg sur toute la plage de `curve` du bake ([0,10 ; 0,85]), calcule sur les
-// sommets EMIS (les deux bords du ruban, pas l'axe). v4 n'en a pas besoin : 3.0 est hors de portee.
-inline constexpr BladeShape kBladeShapes[kBladeVariantCount] = {
-    {1.00f, 0.092f, 0.66f,  0.00f, 1.00f,  0.00f, 4.0f, 0.48f},  // v0 lame
-    {1.18f, 0.062f, 1.00f,  0.05f, 1.35f,  0.25f, 4.0f, 0.35f},  // v1 fine
-    {0.82f, 0.150f, 0.45f, -0.25f, 0.70f,  0.00f, 4.0f, 0.59f},  // v2 large
-    {1.05f, 0.105f, 0.30f, -0.55f, 1.60f,  0.45f, 4.0f, 0.27f},  // v3 faux
-    {1.30f, 0.055f, 0.35f, -0.10f, 0.45f,  0.00f, 4.0f, 3.00f},  // v4 jonc
-    {0.70f, 0.125f, 0.80f,  0.10f, 1.10f, -0.20f, 4.0f, 0.58f},  // v5 touffu
-};
 
 // L'ANGLE QU'ON S'INTERDIT (millidegres). Ordre de l'owner du 20/09, chiffre par le perimetre de
 // l'item : « l'angle entre deux segments consecutifs reste sous 12 degres a la distance de LOD 0 ».
@@ -163,21 +220,29 @@ inline float blade_curve_capped(float c, float cap) {
 // Repere local du brin, normalise par H (l'angle n'en depend pas) et pris au regime de reference du
 // LOD 0 : rim_w = rim_h = nearf = heightMul = 1, vent nul — c'est la SILHOUETTE STATIQUE, celle que
 // l'owner regarde a l'arret. `grass.vert` emet, pour la rangee j et le cote s :
-//   x = (2s-1) * hw * (1 - taper_lin*t + taper_quad*t^2)   y = t   z = C' * t^2 * (1 + tip*t)
-// `capped` DIT DANS QUEL REGIME ON MESURE. Desarme, `grass.vert` n'applique PAS le plafond (l'octet
+//   x = (2s-1) * hw * (1 - taper_lin*t + taper_quad*t^2)
+//   y = t
+//   z = lean*t + C' * t^2 * (1 + tip*t)
+// `armed` DIT DANS QUEL REGIME ON MESURE. Desarme, `grass.vert` n'applique PAS le plafond (l'octet
 // d'instance vaut 0) : publier l'angle plafonne sur ce bras ferait dire a l'instrument le contraire
 // de ce que le GPU dessine, et l'ablation montrerait un zero au lieu du defaut qui revient.
-inline int blade_seg_angle_mdeg(int v, float curve, bool capped) {
+//
+// LES PLAFONDS DE LA TABLE SONT RESOLUS, PAS CHOISIS. Pour chaque espece on prend le plus GRAND cap
+// dont l'angle maximal, balaye sur toute la plage de `curve` du bake ([0,10 ; 0,85]), reste sous
+// 11 500 mdeg — 500 de marge sous l'interdit. Resultat mesure a la resolution : lame 11 497,
+// fine 11 488, faux 11 495, touffu 11 500 ; `large` et `jonc` n'ont besoin d'aucun plafond (8 901 et
+// 6 000 mdeg a courbure libre), leur cap de 3,0 est hors de portee.
+inline int blade_seg_angle_mdeg(int v, float curve, bool armed) {
   if (v < 0 || v >= kBladeVariantCount) {
     return 0;
   }
-  const BladeShape& S = kBladeShapes[v];
-  const int nseg = (int)S.segments;
+  const BladeShape S = armed ? blade_shape(v) : kBladeShapeLegacy;
+  const int nseg = kBladeStripSegments;
   if (nseg < 2) {
     return 0;
   }
-  const float C = capped ? blade_curve_capped(curve * S.curve_mul, S.curve_cap)
-                         : curve * S.curve_mul;
+  const float C =
+      armed ? blade_curve_capped(curve * S.curve_mul, S.curve_cap) : curve * S.curve_mul;
   double worst = 0.0;
   for (int side = 0; side < 2; ++side) {
     const float sg = side ? 1.0f : -1.0f;
@@ -186,7 +251,7 @@ inline int blade_seg_angle_mdeg(int v, float curve, bool capped) {
       const float t = (float)j / (float)nseg;
       px[j] = sg * S.hw * (1.0f - S.taper_lin * t + S.taper_quad * t * t);
       py[j] = t;
-      pz[j] = C * t * t * (1.0f + S.tip * t);
+      pz[j] = S.lean * t + C * t * t * (1.0f + S.tip * t);
     }
     for (int j = 0; j + 2 <= nseg; ++j) {
       const double ux = px[j + 1] - px[j], uy = py[j + 1] - py[j], uz = pz[j + 1] - pz[j];
@@ -207,15 +272,60 @@ inline int blade_seg_angle_mdeg(int v, float curve, bool capped) {
   return (int)(worst + 0.5);
 }
 
-// ===================== LA TOUFFE COMMANDE LA SILHOUETTE ===================================
+// ===================== CE QUI SEPARE DEUX ESPECES, MESURE SUR LA TABLE ======================
+// Le perimetre du 20/09 11:10 chiffre trois separations. Elles ne dependent pas de la population :
+// ce sont des proprietes de la table, calculees ici et publiees par les DEUX mesureurs (moteur et
+// outil hors ligne) pour qu'aucun des deux ne puisse les affirmer sans les montrer.
+
+// Ecart RELATIF minimal de hauteur entre deux especes, pour mille. Perimetre : >= 30 %.
+inline constexpr int kBladeSpeciesHeightGapPmFloor = 300;
+// ... et de largeur EFFECTIVE (h * hw), celle qui se voit a l'ecran. Perimetre : >= 40 %.
+inline constexpr int kBladeSpeciesWidthGapPmFloor = 400;
+// Nombre de PORTS distincts que les six especes doivent couvrir.
+inline constexpr int kBladeSpeciesPortsFloor = 3;
+
+inline int blade_species_min_gap_pm(bool width) {
+  double worst = -1.0;
+  for (int a = 0; a < kBladeVariantCount; ++a) {
+    for (int b = a + 1; b < kBladeVariantCount; ++b) {
+      const double va = width ? (double)kGrassSpecies[a].h * kGrassSpecies[a].hw : kGrassSpecies[a].h;
+      const double vb = width ? (double)kGrassSpecies[b].h * kGrassSpecies[b].hw : kGrassSpecies[b].h;
+      const double lo = va < vb ? va : vb;
+      const double hi = va < vb ? vb : va;
+      if (lo <= 0.0) {
+        return 0;
+      }
+      const double gap = (hi / lo - 1.0) * 1000.0;
+      if (worst < 0.0 || gap < worst) {
+        worst = gap;
+      }
+    }
+  }
+  return worst < 0.0 ? 0 : (int)(worst + 0.5);
+}
+
+inline int blade_species_ports() {
+  bool seen[kGrassPortCount] = {};
+  int n = 0;
+  for (int v = 0; v < kBladeVariantCount; ++v) {
+    const int p = kGrassSpecies[v].port;
+    if (p >= 0 && p < kGrassPortCount && !seen[p]) {
+      seen[p] = true;
+      n++;
+    }
+  }
+  return n;
+}
+
+// ===================== LA TOUFFE COMMANDE L'ESPECE ==========================================
 // 20/09, RETOUR OWNER : « tu fais juste des touffes avec toutes les geometries, pas de touffes
-// d'herbe differentes ». La variante ne se tire plus par brin mais PAR TOUFFE ; une minorite de
-// brins porte une autre forme pour que la touffe ne soit pas un clone parfait.
+// d'herbe differentes ». L'espece ne se tire plus par brin mais PAR TOUFFE ; une minorite de brins
+// porte une autre forme pour que la touffe ne soit pas un clone parfait.
 //
 // LA MINORITE SE LIT SUR LE RANG, PAS SUR UN TIRAGE. Le rang d'un brin dans sa touffe est un
 // PREFIXE d'un palier a l'autre (grass-clumps) : un brin garde son rang quand le palier ajoute des
-// brins. Un tirage aleatoire aurait donne une part qui depend du nombre de brins de la touffe,
-// donc une touffe dominante a 3 brins et pas a 9, et une variante qui CHANGE de palier en palier.
+// brins. Un tirage aleatoire aurait donne une part qui depend du nombre de brins de la touffe, donc
+// une touffe dominante a 3 brins et pas a 9, et une espece qui CHANGE de palier en palier.
 inline constexpr uint32_t kBladeClumpMinorityStride = 5;  // un brin sur cinq au plus -> <= 20 %
 inline constexpr bool blade_is_minority(uint32_t rank) {
   return (rank % kBladeClumpMinorityStride) == (kBladeClumpMinorityStride - 1u);
@@ -227,10 +337,30 @@ inline constexpr bool blade_is_minority(uint32_t rank) {
 inline constexpr float kBladeClumpHeightLo = 0.70f;
 inline constexpr float kBladeClumpHeightHi = 1.30f;
 
-// LES TROIS PLANCHERS DE LA PORTE, DECLARES ICI, PUBLIES PAR LE MESUREUR (pour mille).
+// LA ZONE SUR LAQUELLE ON JUGE LA VARIETE. Perimetre du 20/09 11:10, mot pour mot : « sur une zone
+// de 10x10 m, entropie de la silhouette dominante >= 2 bits sur 6 types ». Une entropie calculee sur
+// le NIVEAU ENTIER serait verte avec six especes empilees en six plaques : c'est la zone qui rend la
+// mesure fidele a ce que l'owner voit d'un coup d'oeil. Les cellules a moins de `MinClumps` touffes
+// (bords de niveau, eclats) ne sont pas jugees — elles sont COMPTEES et publiees a part.
+inline constexpr float kBladeZoneCellM = 10.0f;
+inline constexpr int kBladeZoneMinClumps = 64;
+inline constexpr int kBladeZoneEntropyMbitsFloor = 2000;  // 2,000 bits
+
+// DENSITE PAR ESPECE. « densite et nombre de brins PAR TOUFFE varies (une touffe clairsemee a cote
+// d'une touffe dense) ». Le nombre de brins d'une touffe est deja disperse par le poids de tirage de
+// `grass-clumps` ; ce qui manquait est la DENSITE — la meme poignee de brins etalee sur un rayon
+// plus grand se lit clairsemee. Le rayon est le seul levier qui ne redistribue AUCUNE racine entre
+// touffes : la nidification par palier de `grass-clumps` reste exacte au brin pres.
+inline constexpr int kBladeClumpBladesCvPmFloor = 250;  // ecart-type du compte par touffe, >= 25 %
+
+inline float species_clump_radius_mul(int v) {
+  return grass_species(v).clump_radius_mul;
+}
+
+// LES PLANCHERS DE LA PORTE, DECLARES ICI, PUBLIES PAR LE MESUREUR (pour mille).
 inline constexpr int kBladeClumpDominantPmFloor = 800;   // touffes a silhouette dominante
 inline constexpr int kBladeClumpDominantSharePm = 800;   // ... « dominante » = 80 % des brins
-inline constexpr int kBladeClumpHeightCvPmFloor = 150;   // ecart-type de hauteur ENTRE touffes
+inline constexpr int kBladeClumpHeightCvPmFloor = 200;   // ecart-type de hauteur ENTRE touffes
 inline constexpr int kBladeNeighborDiffPmFloor = 500;    // touffes voisines de silhouette differente
 
 }  // namespace grass_bake

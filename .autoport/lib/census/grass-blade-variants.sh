@@ -53,10 +53,12 @@ echo "grass_variant_levels_failed=${MISSING:--}"
 
 # ---- POINT 3 DU LIVRABLE : « un brin donne recoit la meme variante a TOUS les paliers qui la
 # proposent ». Trois jambes, choisies pour que le support commun soit de taille differente a chaque
-# fois : 1 variante contre 6, 2 contre 6, 4 contre 6. Une jambe qui ne tourne pas ne dit pas « zero »,
-# elle ne dit RIEN — elle compte comme defaut. Une jambe qui compare ZERO brin aussi.
+# fois : 1 espece contre 3, 3 contre 6, 1 contre 6. ESSAI 3 : le palier moyen en offre desormais SIX
+# (voir `kBladeVariantsPerPreset`), donc l'ancienne jambe « medium:very-high » comparait 6 contre 6 —
+# une jambe vraie par construction, qui ne mesure rien. Une jambe qui ne tourne pas ne dit pas
+# « zero », elle ne dit RIEN — elle compte comme defaut. Une jambe qui compare ZERO brin aussi.
 NEST_CHANGED=0; NEST_LEGS=0; NEST_CMP=0; NEST_MISSING=0; NEST_DUP=0
-for pair in "very-low:very-high" "low:high" "medium:very-high"; do
+for pair in "very-low:low" "low:medium" "very-low:very-high"; do
   lo=${pair%%:*}; hi=${pair##*:}
   if "$BIN" training --preset "$lo" --variant-nest "$hi" > "$T/nest-$lo-$hi.out" 2>&1; then
     c=$(grep -m1 '^variant_nest_compared=' "$T/nest-$lo-$hi.out" | cut -d= -f2)
@@ -106,8 +108,17 @@ SCALARS = ["blades", "k", "preset", "folded", "off_profile", "verts_strip", "ver
            "blades_clumped", "clumps", "clumps_dominant", "dominant_pm", "dominant_pm_floor",
            "dominant_share_pm", "height_cv_pm", "height_cv_clump_pm", "height_cv_pm_floor", "height_mean_mm",
            "neigh_compared", "neigh_diff", "neigh_diff_pm", "neigh_diff_pm_floor",
-           "seg_angle_max_mdeg", "seg_angle_cap_mdeg", "seg_angle_over", "variants_seen"]
-PERV = ["v%d", "base_v%d", "share_pm_v%d", "expect_pm_v%d", "tol_pm_v%d", "seg_v%d"]
+           "seg_angle_max_mdeg", "seg_angle_cap_mdeg", "seg_angle_over", "variants_seen",
+           # ESSAI 3 : les trois separations que le perimetre du 20/09 11:10 chiffre, plus la
+           # dispersion du compte par touffe. Chacune vient avec SON plancher, publie par l'outil.
+           "clump_blades_mean_pm", "clump_blades_cv_pm", "clump_blades_cv_pm_floor",
+           "zone_cells", "zone_cells_total", "zone_min_clumps",
+           "zone_entropy_min_mbits", "zone_entropy_mean_mbits", "zone_entropy_mbits_floor",
+           "species_h_gap_pm", "species_h_gap_pm_floor",
+           "species_w_gap_pm", "species_w_gap_pm_floor",
+           "species_ports", "species_ports_floor"]
+PERV = ["v%d", "base_v%d", "share_pm_v%d", "expect_pm_v%d", "tol_pm_v%d", "port_v%d",
+        "weight_pm_v%d"]
 
 seen, mute, grassless = 0, [], []
 tot = {k: 0 for k in ("blades", "folded", "off_profile", "verts_over",
@@ -115,6 +126,11 @@ tot = {k: 0 for k in ("blades", "folded", "off_profile", "verts_over",
 budget_bad, unmeasured, k_bad = 0, 0, 0
 dom_bad, hcv_bad, neigh_bad, angle_bad, submitted_bad, clumpless = 0, 0, 0, 0, 0, 0
 angle_over_tot = 0
+# ESSAI 3. `zone_mute` n'est PAS un defaut : un niveau trop maigre pour porter une cellule de
+# 10x10 m peuplee ne se juge pas, il se NOMME. Ce qui serait un defaut est que PLUS AUCUN niveau ne
+# porte de cellule jugeable — c'est `zone_never_measured`, mesure sur la somme des dix.
+cv_bad, zone_bad, zone_mute, zone_cells_tot = 0, 0, 0, 0
+sp_h_bad, sp_w_bad, sp_port_bad, weight_bad = 0, 0, 0, 0
 per_v_tot = [0] * NV
 train = {}
 
@@ -155,7 +171,12 @@ for lvl in levels:
               "dominant_pm_floor", "dominant_share_pm", "height_cv_pm", "height_cv_clump_pm", "height_cv_pm_floor",
               "height_mean_mm", "neigh_compared", "neigh_diff", "neigh_diff_pm",
               "neigh_diff_pm_floor", "seg_angle_max_mdeg", "seg_angle_cap_mdeg",
-              "seg_angle_over", "variants_seen"):
+              "seg_angle_over", "variants_seen",
+              "clump_blades_mean_pm", "clump_blades_cv_pm", "clump_blades_cv_pm_floor",
+              "zone_cells", "zone_cells_total", "zone_min_clumps",
+              "zone_entropy_min_mbits", "zone_entropy_mean_mbits", "zone_entropy_mbits_floor",
+              "species_h_gap_pm", "species_h_gap_pm_floor", "species_w_gap_pm",
+              "species_w_gap_pm_floor", "species_ports", "species_ports_floor"):
         print("grass_variant_%s_%s=%d" % (lvl, k, num[k]))
     print("grass_variant_%s_digest=%s" % (lvl, kv.get("digest", "-") or "-"))
     # Un niveau sans AUCUN brin ne porte pas de variante, et ce n'est pas un defaut de CET item :
@@ -163,7 +184,7 @@ for lvl in levels:
     if num["blades"] == 0:
         grassless.append(lvl)
         continue
-    if num["terms_measured"] < 9:
+    if num["terms_measured"] < 14:
         unmeasured += 1
         continue
     # LE BUDGET : ce que la diversite DEMANDE en sommets ne depasse jamais ce que le GPU transforme.
@@ -189,6 +210,31 @@ for lvl in levels:
     if num["seg_angle_max_mdeg"] > num["seg_angle_cap_mdeg"]:
         angle_bad += 1          # (3) voit-on encore les polygones des brins ?
     angle_over_tot += num["seg_angle_over"]
+    # ---- ESSAI 3. « Toutes les touffes se ressemblent » : la porte de l'essai 2 etait TENUE et
+    # l'owner ne voyait rien. Elle jugeait qu'une touffe a UNE silhouette dominante, jamais que les
+    # silhouettes se DISTINGUENT ni que le tirage les sert toutes. Quatre grandeurs, quatre termes.
+    # (a) une touffe clairsemee a cote d'une touffe dense
+    if num["clump_blades_cv_pm"] < num["clump_blades_cv_pm_floor"]:
+        cv_bad += 1
+    # (b) sur 10x10 m, l'espece dominante des touffes porte-t-elle au moins 2 bits d'information ?
+    zone_cells_tot += num["zone_cells"]
+    if num["zone_cells"] == 0:
+        zone_mute += 1          # niveau trop maigre pour une cellule peuplee : NOMME, pas compte
+    elif num["zone_entropy_min_mbits"] < num["zone_entropy_mbits_floor"]:
+        zone_bad += 1
+    # (c) et (d) : les deux echelles de la table, plus les ports. Ce sont des proprietes de la
+    # TABLE — identiques d'un niveau a l'autre — mais on les relit sur CHAQUE niveau : c'est ce qui
+    # prouve que les dix niveaux lisent bien LA MEME table.
+    if num["species_h_gap_pm"] < num["species_h_gap_pm_floor"]:
+        sp_h_bad += 1
+    if num["species_w_gap_pm"] < num["species_w_gap_pm_floor"]:
+        sp_w_bad += 1
+    if num["species_ports"] < num["species_ports_floor"]:
+        sp_port_bad += 1
+    # Le profil doit SOMMER a 1000 pour mille : une table dont les poids ne somment pas rend un
+    # tirage qui ignore la derniere espece en silence.
+    if sum(num["weight_pm_v%d" % v] for v in range(NV)) != 1000:
+        weight_bad += 1
     # SOMMETS SOUMIS INCHANGES : ce que le GPU transforme reste blades * 10, quelle que soit la
     # silhouette. La diversite ne se paie pas en geometrie — point 2 du livrable, exige mot pour
     # mot par le perimetre du 20/09.
@@ -207,9 +253,11 @@ print("grass_variant_census_digest=%s" % train.get("digest", "-"))
 print("grass_variant_census_k=%s" % train.get("k", "-"))
 print("grass_variant_census_blades=%s" % train.get("blades", "-"))
 
-# ---- LES DEUX TABLES, LIGNE A LIGNE. `VAR_B[i].z` est le nombre de segments cote GLSL ;
-# `variant_seg_v<i>` est celui que l'outil publie depuis `grass_blade_variants.h`. On compare les
-# DONNEES des deux tables, jamais un commentaire : une legende ne se mesure pas.
+# ---- LES DEUX TABLES, LIGNE A LIGNE. ESSAI 3 : `VAR_B[i].z` ne porte plus le nombre de segments
+# (il valait 4.0 pour les six especes, il ne disait plus rien) mais l'INCLINAISON de l'espece. Les
+# HUIT nombres de chaque ligne restent compares un a un ; le nombre de segments, lui, se verifie
+# desormais par le seul chemin qui le rende observable : `SEGMENTS` du shader contre `verts_strip`.
+# On compare les DONNEES des deux tables, jamais un commentaire : une legende ne se mesure pas.
 src = open("game/graphics/opengl_renderer/shaders/grass.vert", encoding="utf-8").read()
 
 
@@ -224,14 +272,13 @@ def glsl_rows(name):
 
 
 ga, gb = glsl_rows("VAR_A"), glsl_rows("VAR_B")
-glsl_seg, table_mismatch = [], 0
+table_mismatch = 0
 if gb is None or ga is None:
     table_mismatch += 1
     print("grass_variant_glsl_table=absente")
 else:
-    glsl_seg = [int(r[2]) if len(r) >= 3 else -1 for r in gb]
-    print("grass_variant_glsl_segments=%s" % ",".join(str(x) for x in glsl_seg))
-    if len(glsl_seg) != NV or len(ga) != NV:
+    print("grass_variant_glsl_lean=%s" % ",".join("%.4f" % r[2] for r in gb))
+    if len(gb) != NV or len(ga) != NV:
         table_mismatch += 1
 # LES HUIT NOMBRES DE CHAQUE LIGNE, PAS LE SEUL COMPTE DE SEGMENTS. L'essai 2 CALCULE un angle
 # depuis la table C++ ; si la table GLSL en differait d'un chiffre, l'angle publie ne serait pas
@@ -253,12 +300,9 @@ else:
     shape_mismatch += 1
 print("grass_variant_shape_compared=%d" % shape_compared)
 print("grass_variant_shape_mismatch=%d" % shape_mismatch)
-cpp_seg = [int(train.get("seg_v%d" % v, -1)) for v in range(NV)] if train else [-1] * NV
-print("grass_variant_cpp_segments=%s" % ",".join(str(x) for x in cpp_seg))
-for v in range(NV):
-    a = glsl_seg[v] if v < len(glsl_seg) else -1
-    if a != cpp_seg[v]:
-        table_mismatch += 1
+cpp_port = [int(train.get("port_v%d" % v, -1)) for v in range(NV)] if train else [-1] * NV
+print("grass_variant_cpp_ports=%s" % ",".join(str(x) for x in cpp_port))
+print("grass_variant_cpp_names=%s" % ",".join(train.get("name_v%d" % v, "-") for v in range(NV)))
 # Le ruban : `SEGMENTS` du shader contre `verts_strip` publie par l'outil (2*(SEGMENTS+1)).
 ms = re.search(r"const\s+int\s+SEGMENTS\s*=\s*(\d+)\s*;", src)
 glsl_strip = 2 * (int(ms.group(1)) + 1) if ms else -1
@@ -292,7 +336,18 @@ terms = {
     "clumps_absent": clumpless,
     "shape_mismatch": shape_mismatch,
     "shape_uncompared": 1 if shape_compared < 8 * NV else 0,
+    # ---- ESSAI 3 : « toutes les touffes se ressemblent ». Quatre separations chiffrees par le
+    # perimetre, plus deux temoins de non-vacuite (la zone jamais jugee, le profil qui ne somme pas).
+    "clump_blade_cv": cv_bad,
+    "zone_entropy": zone_bad,
+    "zone_never_measured": 1 if zone_cells_tot == 0 else 0,
+    "species_height_ladder": sp_h_bad,
+    "species_width_ladder": sp_w_bad,
+    "species_ports": sp_port_bad,
+    "species_weights": weight_bad,
 }
+print("grass_variant_zone_cells_judged=%d" % zone_cells_tot)
+print("grass_variant_zone_levels_mute=%d" % zone_mute)
 for k in sorted(terms):
     print("grass_variant_term_%s=%d" % (k, terms[k]))
 # +6 : les trois jambes de palier, la cecite du moteur, son empreinte et l'absence de maillage sont
