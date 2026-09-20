@@ -196,6 +196,11 @@ data_freshness_guard(){
     "${FR3_DIR}"$'\t''*.fr3'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.meshweld'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.grassbake'$'\t''fr3/'
+    # Le `.fp` est la PROVENANCE du bake (empreinte du fr3 + du bake). Sans lui, `bake_freshness`
+    # rend « provenance missing or incomplete » et le niveau se joue SANS HERBE, en silence : c'est
+    # exactement le defaut du format v9 decrit plus bas, par un autre chemin. Il est couvert ICI
+    # pour que les deux cotes ne puissent pas diverger.
+    "${FR3_DIR}"$'\t''*.grassbake.fp'$'\t''fr3/'
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
@@ -407,7 +412,7 @@ if [ -d "$FR3_DIR" ]; then
     ln -s "$ROOT/$gb" "$STAGE/fr3/$base"
     MEMBERS+=("fr3/$base")
     n_bake=$((n_bake + 1))
-  done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.grassbake' 2>/dev/null | sort)
+  done < <(find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' \) 2>/dev/null | sort)
   echo "[custom-pack] grassbake tables: $n_bake"
 
 
@@ -489,7 +494,13 @@ for gb in "$STAGE"/fr3/*.grassbake; do
   [ -e "$gbfr3" ] || fail "grassbake guard: '$gbbase' cuit pour le niveau '$gblev' mais aucun $gblev.fr3 n'entre dans le pack"
   gbfr3sz="$(stat -Lc %s "$gbfr3")"
   [ "$gbsz" = "$gbfr3sz" ] || fail "grassbake guard: '$gbbase' porte fr3_size=$gbsz alors que le $gblev.fr3 LIVRE fait $gbfr3sz octets — le moteur le REFUSERAIT a l'arrivee et le niveau perdrait son herbe. Regenere : scripts/shell/build_grass_bakes.sh"
-  echo "[custom-pack] grassbake OK: $gbbase (niveau=$gblev format=$gbfmt fr3_size=$gbsz == $gblev.fr3 livre)"
+  # LA PROVENANCE VOYAGE AVEC LE BAKE. `bake_freshness` (GrassBakeCore.cpp) ouvre `<bake>.fp` AVANT
+  # tout le reste et refuse le bake si le fichier manque — meme silence, meme « PAS D'HERBE » que le
+  # format v9. Le 20/09 les cinq bakes de `training` sont partis dans l'APK sans leur `.fp` parce que
+  # le `find` de mise en scene ne les nommait pas : course de preuve de 490 s, 10 860 images, ZERO
+  # brin, et un recensement hors ligne tout vert a cote. On l'attrape ici, au point de production.
+  [ -e "$STAGE/fr3/$gbbase.fp" ] || fail "grassbake guard: '$gbbase' entre dans le pack SANS sa provenance '$gbbase.fp' — le moteur rendrait « provenance missing or incomplete » et le niveau '$gblev' n'aurait AUCUNE herbe, en silence. Le fichier doit exister dans $FR3_DIR (regenere : scripts/shell/build_grass_bakes.sh)"
+  echo "[custom-pack] grassbake OK: $gbbase (niveau=$gblev format=$gbfmt fr3_size=$gbsz == $gblev.fr3 livre, provenance $gbbase.fp livree)"
 done
 
 # 2d. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
