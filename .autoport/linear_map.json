@@ -438,10 +438,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-126/le-bord-qui-donne-sur-le-vide-etabli-par-la-geometrie-et-non-par"
  },
  "grass-interaction-direction": {
-  "hash": "7d6ed7461608c2ca201a5cf571992019d772a03a",
+  "build_announced": "f94ae1f6634e",
+  "hash": "51cd0e60dc1c40e0b1cb7042501d24a1533bde1a",
   "identifier": "JAK-124",
   "issue_id": "9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:12.000Z",
   "relations": [
@@ -885,10 +886,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "920406f27a6d08acdb6beaaceb80a049f72b6a14",
+  "hash": "eb05144efd6a04b3ca31f60c0696db704996a4ad",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-20T09:13:10.086Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"

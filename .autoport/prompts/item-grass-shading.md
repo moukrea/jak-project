@@ -5,7 +5,7 @@
 # L'herbe cesse d'etre un aplat : du relief par la couleur, pas par la geometrie
 
 ## Defaut cite
-- 2026-09-20 : « Un dégradé sur la longueur du brin j'ai dit, c'est à dire pa… »
+- 2026-09-20 : « Attention les types de brins simple niveau géométrie impliqu… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner le 12/09. SPEC section 7. Le degrade racine-pointe existe et il est correct. Ce qui manque est la variation SPATIALE : `inst_gcol` n'est PAS un echantillonnage du terrain sous le brin, c'est la moyenne de la TEXTURE ENTIERE du draw source, mise en cache par identifiant. Avec trois noms de texture admis, il existe au plus TROIS couleurs de sol dans tout le champ, et UNE seule en pratique sur Geyser Rock. Le commentai […suite dans le contrat]

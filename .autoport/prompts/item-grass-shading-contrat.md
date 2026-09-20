@@ -13,6 +13,8 @@ LIS D'ABORD prompts/SPEC-refonte-herbe.md : c'est le contrat, valide par l'owner
 
 COHERENCE HERBE (owner 20/09, sur les tickets variantes ET couleur : « a voir avec l'ensemble des tickets lies… j'aurais cru que c'etait compris depuis le debut ») : les chantiers d'herbe (silhouettes, couleur, vent, exposition, pas, biomes) forment UN SEUL rendu que l'owner juge d'un coup. Avant de coder : lire la SPEC-refonte-herbe EN ENTIER et TOUS les retours owner des items grass-* (owner_feedback de chacun) ; ne rien defaire de ce qu'un autre item d'herbe a livre ; si un choix ici contraint un autre item d'herbe, l'ecrire dans FINDINGS avec '-> item:<id>'. Les silhouettes par touffe (grass-blade-variants) sont le socle : couleur et vent s'y appuient et passent APRES.
 
+20/09 11:40 OWNER (JAK-121) : « Attention les types de brins simples niveau geometrie impliquent aussi des "especes differentes" au meme titre que les degrades et compagnie, ca joue sur la coherence des types, biomes, especes differentes ». LECTURE : une silhouette + sa palette + sa raideur au vent + sa hauteur = une ESPECE d'herbe ; les six types ne sont pas six formes interchangeables mais six especes coherentes (une lame haute et souple n'a pas la palette ni la raideur d'un jonc court). Cette coherence par ESPECE est le fil qui relie silhouettes (grass-blade-variants), couleur (grass-shading), vent (grass-wind) et biomes (grass-biome-profiles, qui choisit QUELLES especes poussent ou). Un item d'herbe ne definit jamais un parametre par type sans le rattacher a l'espece : une table unique des especes (nom, silhouette, palette, hauteur, raideur, densite) est la source, les shaders la lisent, les biomes en tirent des proportions.
+
 ## Livrable — le contrat, en entier
 
 `grass_shading_defects` = 0, somme de termes publies SEPAREMENT.
@@ -37,6 +39,9 @@ Niveau d'entrainement, de pres, sur le build nomme dans le commentaire « build 
 
 ### 2026-09-20
 > Un dégradé sur la longueur du brin j'ai dit, c'est à dire pas de haut en bas, ça donnera du relief à ces géométries très simples, c'est pas forcément pour une touffe, ça permet de créer en plus des changements de géométrie des variations de types de brins etc etc, à voir avec l'ensemble des tickets d'herbe… j'aurai cru que c'était compris depuis le début ça commence à me saouler
+
+### 2026-09-20
+> Attention les types de brins simple niveau géométrie impliquent aussi des "espèces différentes" a même titre que les dégradés et compagnie, ça joue sur la cohérence des types, biomes, espèces différentes et compagnie
 
 ## Pourquoi ce fichier existe
 
