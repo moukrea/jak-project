@@ -1142,10 +1142,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
-  "hash": "494ff555f3808656c6e408dfcb4c8107511fb6aa",
+  "hash": "5c85447086da88be6fa1b5157f6478db5c2c5005",
   "identifier": "JAK-182",
   "issue_id": "11bb898f-1417-4ddc-8ce3-fe43b795b439",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-19T16:43:21.631Z",
   "url": "https://linear.app/moukrea/issue/JAK-182"
@@ -1909,12 +1909,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "build_announced": "a4de81c3f19e",
-  "hash": "6fe015272a8f0a6c685af16062c7a5f84712b0e7",
+  "hash": "cbf0c28b5b9925b18bdcaf5bfab88967b93ac01c",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-009.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-19T16:58:29.824Z",
   "relations": [
    "harness-judge-waits-for-the-proof-a-worker-left-in-flight"
