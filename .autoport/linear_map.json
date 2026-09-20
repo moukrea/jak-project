@@ -1561,10 +1561,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-82/la-resolution-affichee-est-celle-qui-est-rendue-et-choisir-plus-petit"
  },
  "res-scale-submenu": {
-  "hash": "acbe3b34a2a39364071ce4f65437badb47159838",
+  "hash": "7a8115204b1dc80501d47671c5ff988dfbefc720",
   "identifier": "JAK-172",
   "issue_id": "205ff9ed-c57a-4439-836b-c73c14a192e5",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T16:25:54.601Z",
   "url": "https://linear.app/moukrea/issue/JAK-172/lechelle-de-rendu-se-choisit-dans-un-sous-menu-10-a-100-percent-qui"
@@ -1909,10 +1909,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-64/boue-eco-noir-lave-eau-electrifiee-quatre-matieres-pas-une-eau-teintee"
  },
  "water-ocean-mesh": {
-  "hash": "cbf0c28b5b9925b18bdcaf5bfab88967b93ac01c",
+  "build_announced": "0d5143b989d9",
+  "hash": "fa3ed7204c89220946a59679967bb9991697d0f7",
   "identifier": "JAK-57",
   "issue_id": "7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-19T16:58:29.824Z",
   "relations": [
