@@ -1,10 +1,1 @@
-{
-  "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties": {
-    "since": "2026-09-19",
-    "why": "manifeste de pack REECRIT PAR GRADLE a chaque build (android/build_cgo_pack.sh) : ce n'est pas du code, sa salete ne rend rien irreproductible ; l'essai 5 de hud-eco-gauge (porte verte sur l'appareil) a ete jete pour lui le 19/09 23:12"
-  },
-  "android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties": {
-    "since": "2026-09-19",
-    "why": "manifeste de pack REECRIT PAR GRADLE a chaque build (android/build_cgo_pack.sh) : ce n'est pas du code, sa salete ne rend rien irreproductible ; l'essai 5 de hud-eco-gauge (porte verte sur l'appareil) a ete jete pour lui le 19/09 23:12"
-  }
-}
+{}

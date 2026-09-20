@@ -9,5 +9,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 sha=$(git rev-parse --short=6 HEAD)
-pack=$(grep -E '^version' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties 2>/dev/null | cut -d= -f2 | cut -c1-6)
+# Le manifeste est un PRODUIT du build (2026-09-20) : il n'est plus suivi par git, donc il
+# n'existe pas tant que rien n'a ete empaquete. Sous `set -e` + `pipefail`, le rc=2 du grep
+# tuait ce script sur un clone frais — pour un tag dont la moitie est de toute facon vide.
+# `|| true` rend l'absence LISIBLE (`<sha>-`) au lieu de fatale.
+pack=$( { grep -E '^version' android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties 2>/dev/null || true; } | cut -d= -f2 | cut -c1-6)
 echo "${sha}-${pack}"
