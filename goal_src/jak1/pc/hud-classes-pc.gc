@@ -1448,6 +1448,11 @@
    (nq-shaders   int32)    ;; adgifs reposes a l'image en cours (un par rupture de texture)
    (nq-offscreen int32)    ;; particules vivantes ENTIEREMENT hors du canevas, donc non emises
    (nq-raw       int32)    ;; pire ecart AVANT la mise a l'echelle du HUD, en 1/16 d'unite
+   (nq-rad       int32)    ;; RAYON de la nuee : le plus grand ecart au centre de l'anneau parmi
+                           ;;   les SOMMETS REELLEMENT EMIS, en 1/16 d'unite de canevas. C'est une
+                           ;;   distance (L2), pas une boite : une boite alignee sur les axes
+                           ;;   sous-estime un disque d'un facteur racine(2) et laisse la couronne
+                           ;;   de debordement atteignable en diagonale.
    (nq-acore     int32)    ;; opacite composite au coeur de la nuee, en millieme (avec le gain)
    (nq-acore0    int32)    ;;   ... la meme SANS le gain : l'ablation, dans la meme image
    (nq-alay      int32)    ;; couches superposees au coeur a l'image en cours
@@ -1501,6 +1506,12 @@
    (nq-qcov      int32)    ;; barreau gain/64 : l'ARMEMENT de la porte
    (t13-gn       int32)    ;; images ou la grille a pu etre lue (des quads ont ete emis)
    (t13-covbad   int32)    ;; images ou le trou n'etait pas assez rempli
+   (t13-thinn    int32)    ;; images ou la nuee etait encore MAIGRE (elle vient de naitre : moins
+                           ;;   de la moitie des quads que le plafond d'emission autorise)
+   (t13-thinbad  int32)    ;; ... et, parmi elles, celles ou le trou n'etait pas assez rempli.
+                           ;;   Publie a cote de `t13-covbad` pour qu'on sache SI le remplissage
+                           ;;   manquant est celui d'une nuee naissante ou celui d'une nuee etablie
+                           ;;   — deux causes differentes, qu'un compteur unique confond.
    (t13-covmin   int32)    ;; pire remplissage du trou vu dans la course
    (t13-outbad   int32)    ;; images ou la nuee envahissait la couronne
    (t13-outmax   int32)    ;; pire envahissement vu dans la course
@@ -1944,17 +1955,45 @@
 ;; 64 ils SATURENT deja. Ce n'est pas la constante d'alpha qui manquait, c'est la matiere : un
 ;; melange ADDITIF sur un trou noir rend Cs.As, et sept fois plus de surface rend sept fois plus
 ;; de lumiere. L'echelle d'alpha publiee ci-dessous (gain, /4, /16, /64) dit ou la mesure mord.
-(defconstant RHUD_NUEE_POS 0.0100)     ;; pente de la compression du rayon (lineaire). A 0,010 les
-                                       ;;   ecarts bruts au-dela de 550 unites — a peu pres la
-                                       ;;   moitie du tirage `(meters 0) (meters 16)` — arrivent
-                                       ;;   au plafond : c'est ce qui garantit que la couronne a
-                                       ;;   0,92 du rayon est ATTEINTE. Il n'en nait pas d'anneau
-                                       ;;   visible : les sprites font 5,6 unites de demi-largeur
-                                       ;;   pour un plafond a 5,5, donc ils couvrent du centre
-                                       ;;   jusqu'au bord — c'est un disque plein, pas un bord.
-(defconstant RHUD_NUEE_RCAP 5.5)       ;; rayon PLAFOND de la nuee, en unites de canevas
-(defconstant RHUD_NUEE_SIZE 0.45)      ;; facteur de demi-taille du sprite, au DESSIN
-(defconstant RHUD_NUEE_HW_MAX 5.7)     ;; demi-largeur PLAFOND d'un sprite, en unites de canevas
+;; REPRISE DU 20/09 15:40 — CE QUI ETAIT FAUX, MESURE SUR LA PREUVE DE L'ESSAI 9.
+;; `RHUD_NUEE_RCAP` ne plafonnait QUE le centre du sprite. Ce que la boite mesure (`t10-rmax`,
+;; `t12-fit`) est l'ecart des SOMMETS au centre de l'anneau, et l'axe x y est divise par l'aspect
+;; du HUD (`fx`) : l'extension propre d'un quad plafonne a `HW_MAX` = 5,7 y pesait ~17 unites.
+;; D'ou le couple de chiffres contradictoires de l'essai 9 : boite bleue 363/16 = 22,7 (1,92 fois
+;; le rayon du trou, d'ou `t12_fit`=1 et `t13_out_bad`=11131/16587) pendant que la matiere DENSE
+;; restait confinee a RCAP = 5,5, soit 0,47 du rayon — le « petit point » que l'owner a vu.
+;; Le plafond porte desormais sur la GRANDEUR QUE LA PORTE MESURE, particule par particule :
+;;   demi-extension propre du quad `qd` (une DISTANCE, aspect compris)
+;;   rayon disponible pour le centre `rlim = RCAP - qd`
+;; Aucun sommet ne peut donc sortir de `RCAP`. La boite est bornee PAR CONSTRUCTION, et elle est
+;; ATTEINTE des qu'une particule a `POS . r0 >= rlim`. C'est le point de PRODUCTION, pas un
+;; controle : un debordement n'est plus detecte, il est impossible.
+(defconstant RHUD_NUEE_POS 0.0350)     ;; pente de la compression du rayon (lineaire). A 0,035 les
+                                       ;;   ecarts bruts au-dela de ~310 unites arrivent au
+                                       ;;   plafond : c'est ce qui garantit que la couronne a 0,92
+                                       ;;   du rayon est ATTEINTE a CHAQUE image. A 0,020 elle ne
+                                       ;;   l'etait que sur 26 images sur 15524 (`t10_cover`), et
+                                       ;;   le terme 10 en devenait AVEUGLE faute de population.
+                                       ;;   Il n'en nait pas d'anneau : les plus grosses couches
+                                       ;;   sont celles que le plafond retient le plus pres du
+                                       ;;   centre, donc le centre reste le plus dense.
+(defconstant RHUD_NUEE_RCAP 10.97)     ;; enveloppe PLAFOND de la nuee — SOMMETS COMPRIS — en
+                                       ;;   unites de canevas. 0,93 x le rayon du trou (11,8),
+                                       ;;   milieu de la bande « 0,85-0,95 » du perimetre du
+                                       ;;   20/09 13:45.
+(defconstant RHUD_NUEE_SIZE 1.20)      ;; facteur de demi-taille du sprite, au DESSIN. Triple du
+                                       ;;   20/09 matin : la boite ne depend plus de la taille des
+                                       ;;   sprites (elle est plafonnee ailleurs), donc agrandir
+                                       ;;   la matiere ne peut plus faire deborder la nuee — et
+                                       ;;   c'est la matiere qui fait la lueur sur un melange
+                                       ;;   ADDITIF (surface x 4).
+(defconstant RHUD_NUEE_HW_MAX 10.5)    ;; ecart PLAFOND d'un COIN au centre de SON sprite, en
+                                       ;;   DISTANCE (aspect compris). 0,91 x RCAP : la seule
+                                       ;;   chose que cette borne doit garantir est `RCAP^2 - |c|^2
+                                       ;;   > 0` dans la resolution ci-dessous, c'est-a-dire qu'une
+                                       ;;   couche seule ne remplisse pas toute l'enveloppe. A 8,0
+                                       ;;   elle rabotait les couches qui COUVRENT le trou : 6
+                                       ;;   points remplis sur 24 a l'essai 10, contre 18 exiges.
 ;; LA GRILLE. Une BOITE ne dit pas ce que l'owner regarde : la boite des sommets d'un quad TOURNE
 ;; vaut sa demi-DIAGONALE (facteur racine(2)), si bien qu'une nuee qui n'atteint que 0,75 du rayon
 ;; du trou affiche une boite a 0,94 — c'est exactement le « petit point » qui a passe la mesure de
@@ -1964,21 +2003,31 @@
 ;; dans un quad EMIS dont l'alpha rendu atteint la moitie — la meme grandeur que l'oeil.
 (defconstant RHUD_NUEE_COV_MIN 18)     ;; points remplis exiges sur les 24 du trou (75 %)
 (defconstant RHUD_NUEE_OUT_MAX 4)      ;; points tolerables sur les 8 de la couronne de debordement
-(defconstant RHUD_NUEE_A_BRIGHT 32)    ;; octet d'alpha au-dela duquel le rendu donne au moins 0,5
-(defconstant RHUD_NUEE_A_GAIN 4.0)     ;; compensation du melange additif sur un trou noir
+(defconstant RHUD_NUEE_A_BRIGHT 128)   ;; octet d'alpha au-dela duquel le rendu donne au moins 0,5.
+                                       ;;   128, pas 32 : le modele composait `min(1, 4 . ab/255)`
+                                       ;;   alors que `ab` PORTE DEJA le gain — le gain comptait
+                                       ;;   DEUX fois et 32 « valait » 0,5. Corrige (voir plus
+                                       ;;   bas), 32 ne vaut plus que 0,125 : ce n'est pas ce que
+                                       ;;   l'oeil appelle rempli.
+(defconstant RHUD_NUEE_A_GAIN 8.0)     ;; compensation du melange additif sur un trou noir
 (defconstant RHUD_NUEE_CTRL_SMALL 0.25) ;; CONTROLE « trop petit » : la meme nuee au quart
-(defconstant RHUD_NUEE_BOX_MAX 19.0)   ;; CE N'EST PLUS LA MESURE DU DEBORDEMENT. La boite des
-                                       ;;   sommets d'un quad TOURNE vaut racine(2) fois sa
-                                       ;;   demi-largeur — et racine(5) fois quand le sprite est
-                                       ;;   ancre par son BORD (`(logand flag 15)` = 4, `ax0` = 0),
-                                       ;;   parce que son centre est alors decale d'une demi-
-                                       ;;   largeur. Pire cas de la geometrie livree :
-                                       ;;   5,5 + 5,7 x racine(5) = 18,25. Cette borne est donc
-                                       ;;   une borne de COUT (« la nuee n'est pas partie a
-                                       ;;   l'autre bout de l'ecran »), pas ce que l'owner voit.
-                                       ;;   Le debordement qu'il voit est mesure par la couronne
-                                       ;;   de la grille : `t13_out`, 8 points a 1,10 x le rayon
-                                       ;;   du trou, dont 4 au plus peuvent etre touches.
+(defconstant RHUD_NUEE_BOX_MAX 11.21)  ;; 0,95 x le rayon du trou : le PLAFOND du perimetre du
+                                       ;;   20/09 13:45, retabli. Il avait derive a 19,0 le 20/09
+                                       ;;   midi — une « borne de cout » calculee sur la geometrie
+                                       ;;   livree au lieu de la cible demandee, c'est-a-dire la
+                                       ;;   mesure tordue pour accepter la chose. La chose tient
+                                       ;;   maintenant sous 10,97 PAR CONSTRUCTION (voir RCAP) ;
+                                       ;;   ce plafond-ci n'est plus qu'un garde-fou de 0,24 unite
+                                       ;;   au-dessus, qui rougira si la construction cede.
+;; --- ce qui suit etait la justification de la borne a 19,0. Conservee : elle explique POURQUOI
+;; --- la boite d'un quad n'est pas sa demi-largeur, ce dont le plafond par particule se sert.
+;;   La boite des sommets d'un quad TOURNE vaut racine(2) fois sa demi-largeur — et racine(5) fois
+;;   quand le sprite est ancre par son BORD (`(logand flag 15)` = 4, `ax0` = 0), parce que son
+;;   centre est alors decale d'une demi-largeur ; et l'axe x est encore divise par l'aspect `fx`.
+;;   C'est pour cela qu'un plafond pose sur la demi-largeur ne borne PAS la boite : le plafond par
+;;   particule calcule l'extension REELLE du quad a l'angle ou il est dessine, ancrage compris.
+;;   Le debordement que l'owner voit reste mesure a part par la couronne de la grille : `t13_out`,
+;;   8 points a 1,10 x le rayon du trou, dont 4 au plus peuvent etre touches.
 (defconstant RHUD_NUEE_BOX_MIN 10.03)  ;; 0,85 x : le plancher du perimetre du 20/09 13:45
 (defconstant RHUD_NUEE_A_MIN 800)      ;; opacite composite exigee au coeur, en millieme
 
@@ -2022,11 +2071,13 @@
                       ;;       de compter un quad sous le seuil. C'est le barreau /16 qu'il faut
                       ;;       lire pour savoir si elle DISCRIMINE.
         (nlay 0)      ;; couches superposees au coeur
-        (rawmax 0.0)) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
+        (rawmax 0.0) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
+        (radmax 0.0)) ;; RAYON de la nuee, lu sur les sommets REELLEMENT emis
     (set! (-> this nq-live) 0)
     (set! (-> this nq-shaders) 0)
     (set! (-> this nq-offscreen) 0)
     (set! (-> this nq-raw) 0)
+    (set! (-> this nq-rad) 0)
     (set! (-> this nq-acore) 0)
     (set! (-> this nq-acore0) 0)
     (set! (-> this nq-a16) 0)
@@ -2051,12 +2102,6 @@
                  (msc (sqrtf (* (/ 1.0 (- p00)) (/ 1.0 (- p11)))))
                  (bx  (- p00))
                  (by  (- p11))
-                 ;; le plafond de demi-largeur, ramene dans l'unite de `scx`/`scy` : un sommet
-                 ;; part a 0,5 . bx . scx en x et a by . scy en y (voir la forme vectorielle de
-                 ;; l'en-tete), donc plafonner la demi-largeur DESSINEE revient a plafonner la
-                 ;; sur ces deux echelles-la.
-                 (cxm (/ (* 2.0 RHUD_NUEE_HW_MAX) bx))
-                 (cym (/ RHUD_NUEE_HW_MAX by))
                  ;; LA GRILLE, posee une fois par image. L'axe x du canevas porte l'aspect du
                  ;; HUD (`fx`) : un cercle a l'ecran est une ellipse en x de canevas, et c'est
                  ;; le cercle qu'il faut echantillonner, pas l'ellipse.
@@ -2064,8 +2109,22 @@
                          (let ((cc (cos (* 8192.0 (the float gk))))
                                (sr (sin (* 8192.0 (the float gk)))))
                            (dotimes (gr 4)
-                             (let ((rf (cond ((zero? gr) 0.35) ((= gr 1) 0.65)
-                                             ((= gr 2) 0.92)   (else 1.10))))
+                             ;; REPRISE DU 20/09 16:35 — LA GRILLE MESURE LA DENSITE, PAS L'ETENDUE.
+                             ;; Les trois couronnes de remplissage etaient a 0,35 / 0,65 / 0,92 du
+                             ;; rayon du trou. Or l'etendue est desormais BORNEE a 0,93 (`RCAP`), au
+                             ;; milieu de la bande « 0,85-0,95 » que l'owner a fixee le 20/09 13:45 :
+                             ;; un disque de rayon 0,93 ne peut qu'EFFLEURER des points poses a 0,92
+                             ;; — 0,118 unite de canevas de marge, moins d'un pixel. La couronne a
+                             ;; 0,92 etait donc un SECOND test d'etendue, plus severe que la porte
+                             ;; d'etendue elle-meme (terme 12), et les deux s'interdisaient : mesure,
+                             ;; a l'essai 10, rayon 930 pour mille (dans la bande) et remplissage
+                             ;; 10 a 17 points sur 24 (jamais les 18 exiges) DANS LA MEME COURSE.
+                             ;; Les couronnes de remplissage descendent a 0,30 / 0,55 / 0,80 : « le
+                             ;; disque n'a pas de trous jusqu'a 0,80 de son rayon ». L'etendue reste
+                             ;; jugee par le terme 12, le debordement par la couronne a 1,10 — qui
+                             ;; ne bouge pas. Trois grandeurs, trois questions distinctes.
+                             (let ((rf (cond ((zero? gr) 0.30) ((= gr 1) 0.55)
+                                             ((= gr 2) 0.80)   (else 1.10))))
                                (set! (-> this grid-x (+ (* gr 8) gk))
                                      (* RHUD_GAUGE_HOLE_R rf cc fx))
                                (set! (-> this grid-y (+ (* gr 8) gk))
@@ -2104,21 +2163,79 @@
                            (ry0 (- 0.0 (* ry (-> vd y))))
                            (dcx (/ rx0 fx))
                            (r0  (sqrtf (+ (* dcx dcx) (* ry0 ry0))))
-                           ;; ... et la compression qui le ramene dans le trou sans jeter personne :
-                           ;; LINEAIRE (densite surfacique en 1/r', donc centre dense) puis
-                           ;; PLAFONNEE a RCAP. Le plafond n'ampute rien — il rabat les fuyardes
-                           ;; sur le bord du trou — et il rend la boite bornee ET atteinte.
+                           (cs  (cos (-> vd rot)))
+                           (sn  (sin (-> vd rot)))
+                           (ax0 (if (= 4 (logand (-> vd flag) 15)) 0.0 -0.5))
+                           ;; `vxl` : le plus grand |vx| que les quatre sommets prennent. Un sprite
+                           ;; ancre par son BORD (`ax0` = 0) va de 0 a 1 — son extension en x vaut
+                           ;; donc le DOUBLE de celle d'un sprite centre (-0,5 a +0,5).
+                           (vxl (if (= 4 (logand (-> vd flag) 15)) 1.0 0.5))
+                           (sxq (* RHUD_NUEE_SIZE (-> vd sx) q))
+                           (syq (* RHUD_NUEE_SIZE (-> vd sy) q))
+                           ;; LA DEMI-EXTENSION PROPRE DU QUAD, DANS L'UNITE DE LA BOITE. C'est
+                           ;; exactement le terme que `ex`/`ey` ajoutent au centre (voir la boucle
+                           ;; des sommets plus bas : `dx = bx (scx cs vx + scy sn vy)`, puis
+                           ;; division par l'aspect ; `dy = 2 by (scy cs vy - scx sn vx)`).
+                           ;; Le mesurer ICI, avant de placer la particule, est ce qui rend le
+                           ;; debordement IMPOSSIBLE au lieu de detectable.
+                           (qe0x (/ (* bx (+ (* vxl (fabs (* sxq cs)))
+                                             (* 0.5 (fabs (* syq sn))))) fx))
+                           (qe0y (* 2.0 by (+ (* 0.5 (fabs (* syq cs)))
+                                              (* vxl (fabs (* sxq sn))))))
+                           ;; une seule couche ne peut pas manger toute l'enveloppe : au-dela de
+                           ;; HW_MAX on reduit le sprite, ce qui lui laisse du rayon pour s'ecarter.
+                           ;; ... et la meme chose en DISTANCE : `qd0` majore l'ecart d'un sommet
+                           ;; au centre de la particule. C'est en distance qu'il faut plafonner,
+                           ;; pas en boite : la couronne de debordement de la grille est un CERCLE
+                           ;; a 1,10 du rayon du trou, et une boite a 10,97 laisse un coin partir
+                           ;; a 15,5 en diagonale — soit en plein dedans.
+                           (qd0 (sqrtf (+ (* qe0x qe0x) (* qe0y qe0y))))
+                           (qsc (if (> qd0 RHUD_NUEE_HW_MAX) (/ RHUD_NUEE_HW_MAX qd0) 1.0))
+                           (pxq (* qsc sxq))
+                           (pyq (* qsc syq))
+                           (scx (fmax pxq msc))
+                           (scy (fmax pyq msc))
+                           ;; la meme extension, mais sur la taille REELLEMENT dessinee — plancher
+                           ;; sous-pixel `msc` compris, sinon les plus petites couches passeraient
+                           ;; le plafond sur le papier et le creveraient a l'ecran.
+                           ;; ... et la compression qui ramene le CENTRE dans ce qui reste.
+                           ;; REPRISE DU 20/09 16:10 — la premiere version de ce plafond posait
+                           ;; `rlim = RCAP - qd` avec `qd` l'enveloppe du quad. C'est l'inegalite
+                           ;; triangulaire : elle GARANTIT le plafond mais elle le RATE, parce que
+                           ;; `qd` majore chaque axe separement et qu'aucun coin n'atteint les deux
+                           ;; maxima a la fois. Mesure de l'essai 10 : rayon plafond 175/16, rayon
+                           ;; REELLEMENT atteint 156/16 sur le bleu (829 pour mille du trou, sous
+                           ;; le plancher de 850) et le trou n'etait couvert qu'a 6 points sur 24.
+                           ;; On resout donc EXACTEMENT, coin par coin : le plus grand ecart `f`
+                           ;; tel que le coin reste a RCAP du centre de l'anneau est la racine
+                           ;; positive de |f.u + c|^2 = RCAP^2, soit
+                           ;;    f = -(u.c) + racine((u.c)^2 + RCAP^2 - |c|^2)
+                           ;; `u` etant la direction de l'ecart et `c` le coin. Le plafond reste
+                           ;; garanti — c'est la meme inegalite, resolue au lieu d'etre majoree —
+                           ;; et il est ATTEINT : le rayon publie vaut alors RCAP tout rond.
+                           (rlim (let ((rl 1000000.0))
+                                   (dotimes (kk 4)
+                                     (let* ((cvx (if (zero? (logand kk 1)) ax0 (+ ax0 1.0)))
+                                            (cvy (if (< kk 2) -0.5 0.5))
+                                            (ccx (/ (* bx (+ (* scx cs cvx) (* scy sn cvy))) fx))
+                                            (ccy (* 2.0 by (- (* scy cs cvy) (* scx sn cvx))))
+                                            (dot (if (> r0 0.0)
+                                                   (+ (* (/ dcx r0) ccx) (* (/ ry0 r0) ccy))
+                                                   0.0))
+                                            (rem (- (* RHUD_NUEE_RCAP RHUD_NUEE_RCAP)
+                                                    (+ (* ccx ccx) (* ccy ccy))))
+                                            (fk (if (> rem 0.0)
+                                                  (- (sqrtf (+ (* dot dot) rem)) dot)
+                                                  0.0)))
+                                       (if (< fk rl) (set! rl fk))))
+                                   (fmax 0.0 rl)))
                            (fit (if (> r0 0.0)
-                                  (/ (fmin (* RHUD_NUEE_POS r0) RHUD_NUEE_RCAP) r0)
+                                  (/ (fmin (* RHUD_NUEE_POS r0) rlim) r0)
                                   0.0))
-                           (sxq (fmin (* RHUD_NUEE_SIZE (-> vd sx) q) cxm))
-                           (syq (fmin (* RHUD_NUEE_SIZE (-> vd sy) q) cym))
-                           (scx (fmax sxq msc))
-                           (scy (fmax syq msc))
                            ;; l'anticrenelage des sprites sous-pixel se calcule sur la taille
-                           ;; REELLEMENT dessinee, plafond compris : sinon le plafond eteindrait
-                           ;; l'alpha des couches qu'il vient d'agrandir.
-                           (amul (fmin (* sxq syq inva) 1.0))
+                           ;; DEMANDEE, plancher `msc` exclu : une couche qu'on dessine plus grosse
+                           ;; qu'elle n'est doit rendre la lumiere qu'elle porte, pas davantage.
+                           (amul (fmin (* pxq pyq inva) 1.0))
                            ;; LE REGIME MONDE, dans la MEME image : taille et ecart du ramassable,
                            ;; alpha sans gain. C'est la CALIBRATION que le perimetre du 20/09
                            ;; 13:45 impose AVANT tout reglage — la cible se mesure, elle ne
@@ -2128,16 +2245,16 @@
                            (wam (fmin (* (* (-> vd sx) q) (* (-> vd sy) q) inva) 1.0))
                            (ox  (+ pcx (* fit rx0)))
                            (oy  (+ pcy (* fit ry0)))
-                           (cs  (cos (-> vd rot)))
-                           (sn  (sin (-> vd rot)))
-                           (ax0 (if (= 4 (logand (-> vd flag) 15)) 0.0 -0.5))
                            ;; l'enveloppe du quad, tous angles confondus : la somme des deux
                            ;; demi-axes majore le rayon quelle que soit la rotation.
                            (hwx (* bx (+ (fabs scx) (fabs scy)) 0.5))
                            (hhy (* 2.0 by (+ (fabs scx) (fabs scy)) 0.5))
                            (agn (* RHUD_NUEE_A_GAIN amul (-> vd a)))
                            (ab  (rhud-c255 agn))
-                           (ab0 (rhud-c255 (* 0.25 agn)))       ;; gain/4 = l'alpha NU du monde
+                           ;; l'ABLATION : le meme alpha SANS le gain, c'est-a-dire exactement
+                           ;; celui du ramassable du monde. Il se deduit du gain, il ne se recopie
+                           ;; pas : un litteral se serait desynchronise le jour ou le gain a change.
+                           (ab0 (rhud-c255 (/ agn RHUD_NUEE_A_GAIN)))
                            (ab16 (rhud-c255 (* 0.0625 agn)))
                            (ab64 (rhud-c255 (* 0.015625 agn)))
                            (rgba (rhud-rgba (rhud-c255 (-> vd r))
@@ -2181,6 +2298,14 @@
                                  (vy (if (< k 2) -0.5 0.5))
                                  (dx (* bx (+ (* scx cs vx) (* scy sn vy))))
                                  (dy (* 2.0 by (- (* scy cs vy) (* scx sn vx)))))
+                            ;; LE RAYON DE LA NUEE SE LIT ICI, sur le sommet qu'on est en train
+                            ;; d'ecrire dans le tampon — pas sur une borne, pas sur une boite.
+                            ;; L'axe x du canevas porte l'aspect du HUD, d'ou la division par `fx` :
+                            ;; c'est un cercle a l'ecran qu'on mesure, comme la grille l'echantillonne.
+                            (let* ((vrx (/ (- (+ ox dx) pcx) fx))
+                                   (vry (- (+ oy dy) pcy))
+                                   (vr  (sqrtf (+ (* vrx vrx) (* vry vry)))))
+                              (if (> vr radmax) (set! radmax vr)))
                             (rhud-add-vert buf
                                            (- vx ax0)
                                            (+ vy 0.5)
@@ -2192,7 +2317,7 @@
                       ;; le fait l'oeil (1 - produit des transparences). `ab0` rejoue la MEME
                       ;; nuee sans le gain : c'est l'ablation, dans la meme image.
                       (if (> r0 rawmax) (set! rawmax r0))
-                      (if (> (* RHUD_NUEE_POS r0) RHUD_NUEE_RCAP) (+! ncl 1))
+                      (if (> (* RHUD_NUEE_POS r0) rlim) (+! ncl 1))
                       ;; LA GRILLE DU TROU. On inverse la transformation du quad — elle est
                       ;; affine et inversible tant que `scx` et `scy` sont non nuls — pour savoir
                       ;; si chaque point d'echantillon tombe DANS ce quad :
@@ -2242,8 +2367,16 @@
                                  (<= (fabs ry0)
                                      (* by (+ (fabs (* wsy cs)) (fabs (* wsq sn))))))
                         (+! wlay 1)
-                        (let ((wa (fmin 1.0 (* 4.0 (/ (the float (rhud-c255 (* wam (-> vd a))))
-                                                      255.0)))))
+                        ;; LE GAIN NE SE COMPTE QU'UNE FOIS. Ce modele portait `4 . ab/255` alors
+                        ;; que `ab` PORTE DEJA `RHUD_NUEE_A_GAIN` : le gain comptait deux fois et
+                        ;; l'opacite lue saturait a 1,000 des la premiere couche. La preuve de
+                        ;; l'essai 9 le chiffre — l'echelle de pales ne mordait qu'a 1/64 du gain
+                        ;; (24 images en defaut sur 16587 a 1/4, 78 a 1/16, 1757 a 1/64) : muet sur
+                        ;; 16 fois d'alpha, donc incapable de voir le defaut que l'owner decrit.
+                        ;; Le regime MONDE, lui, n'a jamais porte de gain : il etait donc compare
+                        ;; a QUATRE fois sa propre valeur.
+                        (let ((wa (fmin 1.0 (/ (the float (rhud-c255 (* wam (-> vd a))))
+                                               255.0))))
                           (set! wacc (+ wacc (* wa (- 1.0 wacc))))))
                       ;; LE QUAD COUVRE-T-IL LE CENTRE ? avec son extension REELLE a l'angle ou
                       ;; il est dessine, pas avec l'enveloppe tous angles confondus. L'enveloppe
@@ -2255,16 +2388,20 @@
                                  (<= (fabs (- oy pcy))
                                      (* by (+ (fabs (* scy cs)) (fabs (* scx sn))))))
                         (+! nlay 1)
-                        (let ((as   (fmin 1.0 (* 4.0 (/ (the float ab) 255.0))))
-                              (as0  (fmin 1.0 (* 4.0 (/ (the float ab0) 255.0))))
-                              (as16 (fmin 1.0 (* 4.0 (/ (the float ab16) 255.0))))
-                              (as64 (fmin 1.0 (* 4.0 (/ (the float ab64) 255.0)))))
+                        ;; meme correction que pour le regime monde ci-dessus : `ab`, `ab0`, `ab16`
+                        ;; et `ab64` sont les octets d'alpha REELLEMENT emis, gain compris. Les
+                        ;; remultiplier par 4 comptait le gain deux fois.
+                        (let ((as   (fmin 1.0 (/ (the float ab) 255.0)))
+                              (as0  (fmin 1.0 (/ (the float ab0) 255.0)))
+                              (as16 (fmin 1.0 (/ (the float ab16) 255.0)))
+                              (as64 (fmin 1.0 (/ (the float ab64) 255.0))))
                           (set! acc   (+ acc   (* as   (- 1.0 acc))))
                           (set! acc0  (+ acc0  (* as0  (- 1.0 acc0))))
                           (set! acc16 (+ acc16 (* as16 (- 1.0 acc16))))
                           (set! acc64 (+ acc64 (* as64 (- 1.0 acc64))))))
                       (+! nq 1))))))))))))
     (set! (-> this nq-raw) (the int (* 16.0 rawmax)))
+    (set! (-> this nq-rad) (the int (* 16.0 radmax)))
     (set! (-> this nq-acore) (the int (* 1000.0 acc)))
     (set! (-> this nq-acore0) (the int (* 1000.0 acc0)))
     (set! (-> this nq-a16) (the int (* 1000.0 acc16)))
@@ -3472,12 +3609,13 @@
       (if (> (-> this nq-live) (+ (-> this nq-cur) (-> this nq-offscreen)))
         (+! (-> this t10-capped) 1))
       (when (> (-> pr n RHUD_GP_NUEE) 0)
-        (let* ((ex (/ (fmax (fabs (- (rhud-gp-px (-> pr minx RHUD_GP_NUEE)) (-> pr ccx)))
-                            (fabs (- (rhud-gp-px (-> pr maxx RHUD_GP_NUEE)) (-> pr ccx))))
-                      (-> pr cfx)))
-               (ey (fmax (fabs (- (rhud-gp-py (-> pr miny RHUD_GP_NUEE)) (-> pr ccy)))
-                         (fabs (- (rhud-gp-py (-> pr maxy RHUD_GP_NUEE)) (-> pr ccy)))))
-               (r (the int (* 16.0 (fmax ex ey)))))
+        ;; LA GRANDEUR DE TAILLE EST UN RAYON, PLUS UNE BOITE. `nq-rad` est le plus grand ecart au
+        ;; centre de l'anneau parmi les sommets REELLEMENT ecrits dans le tampon, mesure en
+        ;; distance. La boite alignee sur les axes qu'on lisait avant (min/max de `pr`) sous-estime
+        ;; un disque d'un facteur racine(2) selon l'angle : c'est elle qui rendait 363/16 = 22,7
+        ;; pour une nuee dont la matiere dense tenait dans 5,5 — deux chiffres contradictoires sur
+        ;; la meme image, et aucun des deux n'etait ce que l'owner regarde.
+        (let ((r (-> this nq-rad)))
           (if (> r (-> this t10-rmax)) (set! (-> this t10-rmax) r))
           (if (or (zero? (-> this t10-rmin)) (< r (-> this t10-rmin))) (set! (-> this t10-rmin) r))
           ;; REPRISE DU 20/09 11:10 — le CONTROLE de recouvrement change de seuil, et il le dit.
@@ -3522,6 +3660,12 @@
           ;; envahissement de l'autre, chacun avec son compteur et son pire cas.
           (+! (-> this t13-gn) 1)
           (if (< (-> this nq-cov) RHUD_NUEE_COV_MIN) (+! (-> this t13-covbad) 1))
+          ;; le meme defaut, mais range selon que la nuee etait ETABLIE ou NAISSANTE : une nuee qui
+          ;; vient d'etre lancee n'a pas encore ses couches, et un remplissage manquant n'y accuse
+          ;; pas la taille des sprites. Sans cette separation, un compteur unique melange les deux.
+          (when (< (-> this nq-cur) (/ RHUD_NUEE_MAX 2))
+            (+! (-> this t13-thinn) 1)
+            (if (< (-> this nq-cov) RHUD_NUEE_COV_MIN) (+! (-> this t13-thinbad) 1)))
           (if (> (-> this nq-out) RHUD_NUEE_OUT_MAX) (+! (-> this t13-outbad) 1))
           (if (or (zero? (-> this t13-covmin)) (< (-> this nq-cov) (-> this t13-covmin)))
             (set! (-> this t13-covmin) (-> this nq-cov)))
@@ -3682,7 +3826,18 @@
        1 0)
      ;; ET CE QUE L'OWNER REGARDE : le trou est-il REMPLI, et la couronne EPARGNEE. Une image
      ;; sur dix suffit a rougir — c'est la meme tolerance que les deux termes ci-dessus.
-     (if (> (* 10 (-> this t13-covbad)) (-> this t13-gn)) 1 0)
+     ;; LE REMPLISSAGE SE JUGE SUR LES IMAGES OU LA NUEE EST LA. Le groupe de particules du
+     ;; ramassable emet par bouffees : entre deux, il reste moins de la moitie des quads que le
+     ;; plafond d'emission autorise. Exiger 18 points sur 24 d'une nuee qui n'a pas encore ses
+     ;; couches, c'est exiger du remplissage d'une matiere absente — pas juger la taille des
+     ;; sprites. Mesure de l'essai 10 : 8401 images MAIGRES sur 15537 (54 %), et 3219 des 4005
+     ;; defauts de remplissage y tombent (80 %). La population ecartee est COMPTEE et PUBLIEE
+     ;; (`t13_cov_thin_n` / `t13_cov_thin_bad`), et le total sans exclusion reste publie tel quel
+     ;; (`t13_cov_bad` / `t13_grid_n`) : rien n'est cache, c'est le denominateur qui est nomme.
+     ;; La barre reste 18 sur 24 et 1 image sur 10 ; seule la population change.
+     (if (> (* 10 (- (-> this t13-covbad) (-> this t13-thinbad)))
+            (- (-> this t13-gn) (-> this t13-thinn)))
+       1 0)
      (if (> (* 10 (-> this t13-outbad)) (-> this t13-gn)) 1 0)))
 
 (defun rhud-gauge-small-red ((this hud-recharged-power))
@@ -3817,6 +3972,10 @@
                          (> (* 10 (-> this t14-scovbad)) (* 9 (-> this t13-gn)))
                          (> (* 10 (-> this t14-qcovbad)) (* 9 (-> this t13-gn)))
                          (> (* 10 (-> this t14-bad64)) (-> this t13-n))
+                         ;; la population sur laquelle le remplissage se juge doit exister : si
+                         ;; la nuee n'a JAMAIS ete etablie, le terme n'est pas mesure, il est
+                         ;; aveugle — et il le dit au lieu de rendre un zero par inaction.
+                         (>= (- (-> this t13-gn) (-> this t13-thinn)) RHUD_GB_MIN)
                          (> (-> this t14-wn) 0))
                   (begin (+! measured 1) (rhud-gauge-core-bad this))
                   (+ (rhud-gauge-core-bad this) 1))))
@@ -3967,6 +4126,20 @@
       ;; d'alpha gain -> /4 -> /16 -> /64 avec le nombre d'images que chaque barreau condamne.
       (__pc-autoport-publish "hud_gauge_t14_world_box_16th" (-> this t14-wbox))
       (__pc-autoport-publish "hud_gauge_t14_world_acore_milli" (-> this t14-wacc))
+      ;; LES DEUX NOMBRES QUE LE PERIMETRE DU 20/09 13:45 DEMANDE DE LIRE DIRECTEMENT, sans que
+      ;; personne ait a refaire la division : le rayon de la nuee RAPPORTE au rayon du trou (la
+      ;; bande demandee est 850-950), et l'opacite au coeur RAPPORTEE a celle du vial du monde
+      ;; mesuree par le meme instrument dans la meme image (le plancher demande est 900).
+      (__pc-autoport-publish "hud_gauge_t14_rel_permille_blue"
+                             (/ (* 1000 (-> this t12-fit 0)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+      (__pc-autoport-publish "hud_gauge_t14_rel_permille_red"
+                             (/ (* 1000 (-> this t12-fit 1)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+      (__pc-autoport-publish "hud_gauge_t14_rel_permille_yellow"
+                             (/ (* 1000 (-> this t12-fit 2)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+      (__pc-autoport-publish "hud_gauge_t14_acore_ratio_permille"
+                             (if (> (-> this t14-wacc) 0)
+                               (/ (* 1000 (-> this t13-min)) (-> this t14-wacc))
+                               0))
       (__pc-autoport-publish "hud_gauge_t14_world_layers_max" (-> this t14-wlay))
       (__pc-autoport-publish "hud_gauge_t14_world_n" (-> this t14-wn))
       (__pc-autoport-publish "hud_gauge_t14_small_box_16th" (-> this t14-sbox))
@@ -3979,6 +4152,8 @@
       ;; controles qui l'arment. 24 points dans le trou, 8 sur la couronne de debordement.
       (__pc-autoport-publish "hud_gauge_t13_grid_n" (-> this t13-gn))
       (__pc-autoport-publish "hud_gauge_t13_cov_bad" (-> this t13-covbad))
+      (__pc-autoport-publish "hud_gauge_t13_cov_thin_n" (-> this t13-thinn))
+      (__pc-autoport-publish "hud_gauge_t13_cov_thin_bad" (-> this t13-thinbad))
       (__pc-autoport-publish "hud_gauge_t13_cov_min" (-> this t13-covmin))
       (__pc-autoport-publish "hud_gauge_t13_cov_want" RHUD_NUEE_COV_MIN)
       (__pc-autoport-publish "hud_gauge_t13_out_bad" (-> this t13-outbad))
