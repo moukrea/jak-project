@@ -364,11 +364,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-128/geyser-rock-et-la-jungle-nont-pas-la-meme-herbe"
  },
  "grass-blade-variants": {
-  "hash": "5afbe3cb60e271919f6455ea68e01c3f2faabc7e",
+  "hash": "e0c28cd59ed23ac19528b098404ace64baf2f15f",
   "identifier": "JAK-120",
   "issue_id": "0a798e7e-f158-4289-9600-492715885da0",
   "last_state": "Todo",
-  "last_verdict_announced": "validator-003.txt",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-20T10:56:07.109Z",
   "relations": [
    "grass-clumps"
@@ -885,10 +885,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "1d79e3d887a66e77864b913ad561459f9262a27c",
+  "hash": "77d07125f9d4ed8dd4bb6e311f2bb8d90004bc57",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-008.txt",
   "pulled_at": "2026-09-20T10:54:44.423Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
