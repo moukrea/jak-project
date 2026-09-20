@@ -1967,11 +1967,18 @@
 (defconstant RHUD_NUEE_A_BRIGHT 32)    ;; octet d'alpha au-dela duquel le rendu donne au moins 0,5
 (defconstant RHUD_NUEE_A_GAIN 4.0)     ;; compensation du melange additif sur un trou noir
 (defconstant RHUD_NUEE_CTRL_SMALL 0.25) ;; CONTROLE « trop petit » : la meme nuee au quart
-(defconstant RHUD_NUEE_BOX_MAX 14.16)  ;; 1,20 x RHUD_GAUGE_HOLE_R. CE N'EST PLUS LA MESURE DU
-                                       ;;   DEBORDEMENT — c'est la demi-diagonale d'un quad
-                                       ;;   tourne, donc une borne de COUT, pas ce que l'owner
-                                       ;;   voit. Le debordement qu'il voit est mesure par la
-                                       ;;   couronne de la grille (`t13_out`, 1,10 x le rayon).
+(defconstant RHUD_NUEE_BOX_MAX 19.0)   ;; CE N'EST PLUS LA MESURE DU DEBORDEMENT. La boite des
+                                       ;;   sommets d'un quad TOURNE vaut racine(2) fois sa
+                                       ;;   demi-largeur — et racine(5) fois quand le sprite est
+                                       ;;   ancre par son BORD (`(logand flag 15)` = 4, `ax0` = 0),
+                                       ;;   parce que son centre est alors decale d'une demi-
+                                       ;;   largeur. Pire cas de la geometrie livree :
+                                       ;;   5,5 + 5,7 x racine(5) = 18,25. Cette borne est donc
+                                       ;;   une borne de COUT (« la nuee n'est pas partie a
+                                       ;;   l'autre bout de l'ecran »), pas ce que l'owner voit.
+                                       ;;   Le debordement qu'il voit est mesure par la couronne
+                                       ;;   de la grille : `t13_out`, 8 points a 1,10 x le rayon
+                                       ;;   du trou, dont 4 au plus peuvent etre touches.
 (defconstant RHUD_NUEE_BOX_MIN 10.03)  ;; 0,85 x : le plancher du perimetre du 20/09 13:45
 (defconstant RHUD_NUEE_A_MIN 800)      ;; opacite composite exigee au coeur, en millieme
 
