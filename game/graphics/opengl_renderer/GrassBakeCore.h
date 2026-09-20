@@ -465,6 +465,15 @@ struct BakeTri {
   float gr, gg, gb;           // ground-texture average colour
   float nx, ny, nz;           // normalized face normal, ny >= 0
   float pal[8][3];            // day-cycle baked-light keyframes (time-of-day palette rows, centroid avg)
+  // grass-shading (SPEC section 7) : LES TROIS SOMMETS, PAS LEUR MOYENNE. `pal` ci-dessus est la
+  // moyenne des trois entrees de palette du triangle ; c'est elle qui faisait de la lumiere cuite
+  // une valeur PAR TRIANGLE — 11 080 valeurs pour 847 000 brins. On conserve donc les trois
+  // entrees telles que le .fr3 les porte (des octets 0..255 : `pentry()` lit `colors.read()`, donc
+  // AUCUNE precision n'est perdue), et `update_light()` les interpole a la position barycentrique
+  // de l'ORIGINE DE LA TOUFFE. `pal` reste ecrit et reste lu par le bras desarme : le regime
+  // `--off` rend alors exactement l'octet d'avant, sans branche de repli a mesurer.
+  // Ordre des sommets : [0] = p0, [1] = p0+e1, [2] = p0+e2 — la convention de `bary_smooth`.
+  u8 palv[3][8][3];
   u32 cand_count;             // candidates enumerated at bake_density_pct
   u64 cand_base;              // first candidate index in keep[]/rim_q[]
   u32 flags;                  // bit0 is_tie, bit1 is_lip, bit2 is_dup, bit3 is_fringe (droop-only tri), bit4 is_transition (ROUND3: curl band, blades combed when toggle ON), bit5 is_hang (tri's source draw carries a native overhang-alpha hang texture — is_fringe_hang_tex), bit6 is_hang_b (ROUND 11: that texture is bch-leafyground-hang-2x1, not bch-grassfringe — zone-3 cards sample the matching texels; 0 in pre-R11 bakes -> grassfringe fallback)
@@ -541,6 +550,74 @@ constexpr float CLUMP_RATIO_FLOOR = 1.50f;    // plancher du rapport touffes / u
 constexpr float CLUMP_SIZE_CV_FLOOR = 0.30f;  // plancher de dispersion du compte par touffe
 constexpr float CLUMP_RADIUS_CV_FLOOR = 0.15f;  // ... et du rayon
 
+// ===================== grass-shading (SPEC-refonte-herbe.md, section 7) ==========================
+// LA COULEUR DE SOL N'EST PLUS UNE CONSTANTE DE DRAW. `GrassInstance.gr/gg/gb` portait la moyenne
+// de la TEXTURE ENTIERE du draw source, mise en cache par identifiant de texture : avec trois noms
+// admis il existait au plus TROIS couleurs de base dans un niveau, et UNE seule sur training. Le
+// commentaire de `grass.vert` qui annoncait « per-location » etait faux, et c'est le defaut que
+// cet item corrige.
+//
+// CE QUI LA MODULE, ET POURQUOI C'EST UNE FONCTION PURE DE LA GRAINE DE TOUFFE. Deux termes : une
+// teinte tiree de la graine (clair/sombre + derive chaud/froid), et un assombrissement par DENSITE
+// LOCALE — une touffe de petit rayon serre ses brins sur moins de surface, donc s'ombre elle-meme
+// (SPEC section 7 : « un assombrissement de base proportionnel a la densite locale »). Les deux ne
+// lisent QUE (graine, rayon) de la touffe, jamais le palier ni le rang du brin : c'est la seule
+// forme qui reste nidifiable entre paliers. Un palier plus bas retire des brins, il ne repeint
+// jamais ceux qui restent — et `shading_census` le verifie touffe par touffe.
+//
+// LA MOYENNE DU CHAMP NE DOIT PAS BOUGER. Les deux termes sont centres sur 1 par construction (le
+// tirage clair/sombre est symetrique ; le terme de densite vaut 1 au rayon moyen et sa moyenne
+// s'en ecarte de ~1 %). Ce n'est pas affirme : `shading_census` publie la moyenne mesuree de la
+// modulation et compte un defaut si elle derive de plus de SHADE_CLUMP_MEAN_TOL.
+constexpr float SHADE_CLUMP_TINT_AMP = 0.16f;    // ecart relatif max de la luminance par touffe
+constexpr float SHADE_CLUMP_HUE_AMP = 0.10f;     // ... et de sa derive chaud/froid
+constexpr float SHADE_DENSITY_DARK_AMP = 0.14f;  // assombrissement max par densite locale
+// L'AMPLITUDE QUE LA DIRECTION ARTISTIQUE AUTORISE (point 4 du livrable : « aucune de ces
+// variations ne depasse une amplitude declaree »). Au-dela le rendu quitte le stylise ; la porte
+// compte un defaut au lieu de laisser derive.
+constexpr float SHADE_CLUMP_AMP_CAP = 0.45f;
+constexpr float SHADE_CLUMP_MEAN_TOL = 0.03f;
+// Les planchers, publies AVEC la mesure — jamais recopies dans le juge (lecon de
+// grass-path-transitions : un seuil duplique derive du code mesure et rend la porte fausse).
+constexpr float SHADE_ROOT_TIP_FLOOR = 0.06f;   // ecart de luminance racine -> pointe, EN MOYENNE
+// LE PIRE BRIN SE JUGE EN RELATIF, PAS EN ABSOLU. Tout le degrade est multiplie par la lumiere
+// cuite du lieu : un brin dans un coin sombre rend un ecart absolu minuscule sans que son degrade
+// soit moins net. Mesure du 20/09 : `beach` descend a 0,0497 en absolu sur son brin le plus
+// sombre, la ou `training` tient 0,0723 — un plancher absolu sur un MINIMUM jugerait l'ombre, pas
+// la forme. Le rapport (pointe - racine) / milieu est, lui, invariant par la lumiere.
+constexpr float SHADE_ROOT_TIP_REL_FLOOR = 0.30f;
+constexpr float SHADE_FACE_FLOOR = 0.03f;       // ... entre la face eclairee et la face opposee
+constexpr float SHADE_CLUMP_CV_FLOOR = 0.03f;   // dispersion de la couleur d'une touffe a l'autre
+constexpr u32 SHADE_BASE_COLOURS_FLOOR = 64u;   // couleurs de base distinctes dans un champ
+// LA RESOLUTION DE LA LUMIERE CUITE : le rapport « valeurs distinctes apres / avant ». La valeur
+// est calculee PAR TOUFFE, mais deux touffes voisines retombent sur le MEME octet quand les trois
+// sommets de leur triangle portent la meme couleur cuite — ce que le .fr3 fait souvent. Le
+// plancher porte donc sur le gain REELLEMENT disponible dans la donnee, pas sur le nombre de
+// touffes : promettre 176 000 valeurs la ou la source n'en contient pas serait un faux vert.
+constexpr float SHADE_LIGHT_GAIN_FLOOR = 1.50f;
+
+// La modulation que porte UNE touffe. Fonction pure de (graine, rayon) — rien d'autre.
+inline void shade_clump_modulate(u32 cseed, float radius_wu, float& mr, float& mg, float& mb) {
+  const float t = hash_f(cseed + 11u) * 2.0f - 1.0f;  // -1..1, symetrique -> moyenne 1
+  const float h = hash_f(cseed + 12u) * 2.0f - 1.0f;  // -1..1, chaud <-> froid
+  // DENSITE LOCALE. A compte de brins nominal constant, une touffe de rayon R couvre une aire en
+  // R^2 ; la forme harmonique 2*Rm/(R+Rm) vaut 1 au rayon moyen, croit quand la touffe se serre,
+  // et sa moyenne sur le tirage uniforme du rayon reste a 1,01 — contre 1,15 pour (Rm/R)^2, qui
+  // aurait assombri TOUT le champ de 2 % sans que personne ne le demande.
+  const float r_mean = 0.5f * (CLUMP_R_MIN_M + CLUMP_R_MAX_M) * U;
+  float dens = radius_wu > 1.0e-6f ? (2.0f * r_mean) / (radius_wu + r_mean) : 1.0f;
+  if (dens > 2.0f) {
+    dens = 2.0f;
+  }
+  if (dens < 0.5f) {
+    dens = 0.5f;
+  }
+  const float lum = (1.0f + SHADE_CLUMP_TINT_AMP * t) * (1.0f - SHADE_DENSITY_DARK_AMP * (dens - 1.0f));
+  mr = lum * (1.0f + SHADE_CLUMP_HUE_AMP * h);
+  mg = lum;
+  mb = lum * (1.0f - SHADE_CLUMP_HUE_AMP * h);
+}
+
 inline float clump_height_mul(float rho) {
   const float m = CLUMP_H_CENTER - CLUMP_H_SLOPE * rho;
   return m < CLUMP_H_LO ? CLUMP_H_LO : (m > CLUMP_H_HI ? CLUMP_H_HI : m);
@@ -573,6 +650,11 @@ struct ClumpSite {
   float radius_wu;   // rayon de la touffe (unites monde)
   float co1, co2;    // barycentriques de l'ORIGINE de la touffe
   float clip;        // facteur d'ecretage (1 = la racine tenait sans etre raccourcie)
+  // grass-shading : la graine de la TOUFFE, celle que `clump_of` derive de (t.seed, clump). Elle
+  // etait locale a `place()` ; la teinte par touffe la lit ici plutot que de refabriquer la
+  // formule au point d'appel — une TROISIEME copie de ce hachage serait une divergence en attente,
+  // et `clump_census` n'a aucun compteur qui la verrait.
+  u32 cseed;
 };
 
 class ClumpPlacer {
@@ -664,6 +746,9 @@ class ClumpPlacer {
     if (!m_on) {
       s.r1 = a; s.r2 = b; s.co1 = a; s.co2 = b;
       s.clump = 0u; s.rank = 0u; s.rho = 0.f; s.radius_wu = 0.f; s.clip = 1.0f;
+      // DESARME, il n'y a aucune touffe : pas de graine de touffe non plus. La teinte par touffe
+      // se desarme donc avec le placement, sans drapeau supplementaire a tenir.
+      s.cseed = 0u;
       return;
     }
     const float g0 = hash_f(sd + 8u);
@@ -704,6 +789,7 @@ class ClumpPlacer {
     }
     s.clump = c;
     s.rank = j;
+    s.cseed = cs;
     s.radius_wu = R;
     s.co1 = c1;
     s.co2 = c2;
@@ -1053,6 +1139,14 @@ struct ExpandResult {
   u64 clump_origin_digest = 0;  // empreinte FNV-1a des origines (point 4 du contrat)
   u32 clump_clipped = 0;        // racines dont le decalage a ete raccourci par le bord du triangle
   bool clumped = true;          // le regime sous lequel CETTE expansion a tourne (bras d'ablation)
+  // grass-shading : LES POIDS BARYCENTRIQUES DE L'ORIGINE DE LA TOUFFE, deux octets par instance
+  // (w1, w2 ; w0 = 255 - w1 - w2). C'est le seul canal par lequel `update_light()` peut interpoler
+  // la lumiere cuite AILLEURS qu'au centroide du triangle : `GrassInstance` est plein (16 flottants
+  // tous lus, `static_assert` ci-dessus) et le tampon de lumiere n'a que ses 4 octets. Vide quand
+  // la teinte est desarmee — `update_light()` retombe alors sur `pal`, l'octet d'avant.
+  std::vector<u8> inst_bw;
+  u64 shade_hits = 0;           // brins ayant recu une couleur derivee de LEUR touffe
+  bool shaded = true;           // le regime sous lequel CETTE expansion a colore
 };
 // `want_cand_map` remplit `inst_cand` — le recensement de grass-path-transitions seul en a
 // besoin ; le jeu l'appelle a false et ne paie pas les 4 octets par instance.
@@ -1060,7 +1154,7 @@ struct ExpandResult {
 // code REMPLACE, sur le MEME bake : c'est l'oracle non-miroir, pas un zero muet. Le moteur y passe
 // `armed_for("grass-clumps")` ; l'outil de cuisson ecrit toujours le regime livre (vrai).
 ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map = false,
-                    bool clumped = true);
+                    bool clumped = true, bool shaded = true);
 
 // ---------------------------------------------------------------------------
 // grass-surface-truth : LES DEUX SOURCES QUI DISENT SI UNE SURFACE PORTE DE L'HERBE.
@@ -1655,6 +1749,62 @@ struct ClumpCensus {
   u32 terms_measured = 0;   // combien des grandeurs ci-dessus ont une population non vide
 };
 ClumpCensus clump_census(const BakeData& d, const ExpandResult& e);
+
+// ===================== grass-shading : LE RECENSEMENT DE LA COULEUR ==============================
+// CE QU'IL MESURE, ET SUR QUEL TEXTE. Les deux grandeurs du point 2 du livrable — l'ecart de
+// luminance entre la RACINE et la POINTE d'un meme brin, et entre sa face eclairee et sa face
+// opposee — naissent dans le shader. Ce recensement ne les RECALCULE pas : il compile le MEME
+// FICHIER que le pilote (`shaders/grass_shade.glsl` et `shaders/grass_shade_face.glsl`, inclus en
+// C++ derriere `common/util/glsl_compat.h`). Un miroir aurait mesure la copie ; ici il n'y a pas
+// de copie, et le moteur publie l'empreinte du texte qu'il a REELLEMENT splice pour que le pack
+// perime devienne un defaut compte.
+//
+// IL N'ECRIT RIEN. Comme `clump_census`, il lit un `BakeData` et une `ExpandResult` deja produits.
+struct ShadingCensus {
+  // --- point 1 : LA VARIATION SPATIALE EXISTE, ET ELLE EST PAR TOUFFE
+  u64 base_colours = 0;          // couleurs de base distinctes servies au champ (quantifiees 1/1024)
+  u64 base_colours_floor = 0;    // le plancher declare, publie PAR CE QUI MESURE
+  u64 clump_colour_breaks = 0;   // brins d'une meme touffe portant deux couleurs : doit etre 0
+  u64 clumps_coloured = 0;       // touffes ayant recu une couleur (denominateur du terme ci-dessus)
+  double clump_lum_cv = 0.0;     // dispersion de la luminance FINALE d'une touffe a l'autre
+  double clump_lum_cv_off = 0.0;  // ... sous le bras DESARME : ce que l'etat d'avant produisait deja
+  // LA GRANDEUR DECISIVE : la dispersion des touffes D'UN MEME TRIANGLE. Avant cet item elle vaut
+  // ZERO par construction (une couleur de draw + une lumiere de centroide), donc un chiffre non nul
+  // ici ne peut pas venir de l'etat d'avant. C'est ce que l'owner regardera : deux touffes voisines.
+  double intra_tri_cv = 0.0;
+  double intra_tri_cv_off = 0.0;
+  u64 intra_tri_sampled = 0;     // triangles portant au moins deux touffes (le denominateur)
+  double clump_mod_mean = 0.0;   // moyenne de la modulation : doit rester a 1 (le champ ne bouge pas)
+  double clump_amp_max = 0.0;    // plus grand ecart relatif d'une touffe a la couleur de son draw
+  // --- point 2 : LE DEGRADE EST MESURE, sur le texte du shader
+  double root_tip_delta_mean = 0.0;  // luminance(pointe) - luminance(racine), moyenne
+  double root_tip_delta_min = 0.0;   // ... et le pire brin du champ, en absolu (publie, non juge)
+  double root_tip_rel_mean = 0.0;    // le meme ecart RAPPORTE a la luminance du brin
+  double root_tip_rel_min = 0.0;     // ... sur le pire brin : c'est lui que la porte lit
+  double face_delta_mean = 0.0;      // luminance(face eclairee) - luminance(face opposee)
+  double face_delta_max = 0.0;
+  u64 shade_sampled = 0;             // brins passes dans le modele (denominateur)
+  // --- point 3 : LA LUMIERE CUITE GAGNE EN RESOLUTION
+  u64 light_values_before = 0;   // valeurs d'eclairage distinctes AU CENTROIDE du triangle
+  u64 light_values_after = 0;    // ... a l'origine de la TOUFFE
+  u64 light_tris = 0;            // triangles porteurs (le plafond de `before`)
+  double light_gain = 0.0;       // apres / avant : le rapport que la porte lit
+  // --- integrite
+  u64 blades_total = 0;
+  u64 ablation_diffs = 0;   // le bras desarme rend-il EXACTEMENT la donnee d'avant ? doit etre 0
+  u32 terms_measured = 0;
+};
+// `e` = le bras LIVRE, `e_off` = le MEME bake expanse avec `shaded=false`. Les deux sont exiges :
+// le terme `ablation_diffs` compare instance par instance au lieu d'affirmer que « desarme rend
+// l'etat d'avant », et il verifie du meme coup que la COULEUR est la seule chose que l'item change.
+ShadingCensus shading_census(const BakeData& d, const ExpandResult& e, const ExpandResult& e_off);
+
+// L'EMPREINTE DU MODELE N'EST PAS CALCULEE ICI, ET C'EST VOLONTAIRE. Ce binaire a COMPILE les deux
+// chunks (`#include` C++) : le graphe de dependances de ninja les suit, donc il ne peut pas etre
+// perime par rapport a eux. Le risque reel est ailleurs — un blob GLES d'Android recompile sans
+// les chunks a jour. C'est le MOTEUR qui publie l'empreinte du texte qu'il a splice
+// (`grass_shade_model_fnv`), et `lib/census/grass-shading.sh` la compare a celle des fichiers de
+// l'arbre. Une empreinte calculee ici aurait decrit le mesureur, pas le livre.
 
 // Nidification entre DEUX paliers du meme niveau : les origines bougent-elles, et l'ensemble des
 // candidats du palier bas est-il un PREFIXE de celui du palier haut ? Les deux `BakeData` viennent

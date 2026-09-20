@@ -152,6 +152,21 @@ std::string expand_includes(const std::string& src, int depth = 0) {
       out += line;
       continue;
     }
+    // grass-shading : L'EMPREINTE DU MODELE TEL QUE CE PROCESSUS L'A SPLICE. Le C++ du
+    // recensement `#include` ces memes fichiers, donc ninja garantit qu'il ne peut pas etre en
+    // retard sur eux ; le blob GLES d'Android, lui, est regenere par `preprocess.py` a la
+    // construction de l'APK et PEUT etre perime. C'est le seul endroit du depot ou l'on tient le
+    // texte que le pilote va REELLEMENT compiler : `lib/census/grass-shading.sh` compare cette
+    // empreinte a celle des fichiers de l'arbre, et un pack en retard devient un defaut compte.
+    if (name == "grass_shade.glsl" || name == "grass_shade_face.glsl") {
+      u64 h = 1469598103934665603ull;
+      for (char ch : chunk) {
+        h ^= (u64)(u8)ch;
+        h *= 1099511628211ull;
+      }
+      autoport_proof::publish(
+          name == "grass_shade.glsl" ? "grass_shade_model_fnv" : "grass_shade_face_fnv", h);
+    }
     out += expand_includes(chunk, depth + 1);
     // ---- Grecharged-materials-modern-parity: COMPANION CHUNKS ---------------------------------
     // A companion is spliced in immediately after its base chunk, at the base chunk's own

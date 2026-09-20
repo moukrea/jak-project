@@ -13,6 +13,10 @@ in float v_alpha;
 in vec2 v_uv;            // card-local coords (x in [-1,1], y in [0,1]); class-2 = hang-texture UV
 flat in int v_is_card;
 in float v_seed;         // class-2 cards: hang-texture select (0/1) instead of the tuft seed
+// grass-shading (SPEC section 7) : la direction d'avancee horizontale du brin = la normale de son
+// ruban. Combinee a gl_FrontFacing, elle separe la face eclairee de la face opposee du MEME brin —
+// sans elle, un brin reste un aplat sous tous les angles.
+in vec2 v_fwd_xz;
 
 // Grecharged-grass-overhang7 ROUND 11 (design pivot): zone-3 hang cards sample the game's OWN
 // hang-alpha texels — the exact texture pages the native painted strip uses (already resident).
@@ -76,7 +80,21 @@ void main() {
     if (a < 0.02) {
       discard;
     }
-    color = vec4(v_color, a);
+    // grass-shading : LA FACE ECLAIREE ET LA FACE OPPOSEE. Le facteur vient de
+    // `grass_shade_face.glsl`, le MEME fichier que `grass_bake::shading_census()` compile en C++ :
+    // l'ecart de luminance entre les deux faces que la preuve publie est celui que ce pixel recoit.
+    // Les cartes texturees zone-3 (v_is_card == 2) en sont exclues — leur couleur vient de leurs
+    // texels, c'est l'art natif du jeu et il ne se remodule pas.
+    vec3 gs_shaded = v_color;
+    {
+      vec2 gs_fwd_xz = v_fwd_xz;
+      float gs_side = gl_FrontFacing ? 1.0 : -1.0;
+      float gs_face_dot = 0.0;
+      float gs_face_mul = 1.0;
+#include "grass_shade_face.glsl"
+      gs_shaded = clamp(gs_shaded * gs_face_mul, vec3(0.0), vec3(1.5));
+    }
+    color = vec4(gs_shaded, a);
   }
 
   // ===== ROUND 23 COVERAGE TAG (see tfrag3.frag / hfrag.frag for the rationale) =====

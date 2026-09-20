@@ -87,6 +87,13 @@ class GrassRenderer {
   // grass-blade-variants : la silhouette EFFECTIVE de chaque brin, livree au shader par le
   // quatrieme octet de l'attribut de lumiere (voir update_light()).
   std::vector<u8> m_variant;   // grass-blade-variants : variante EFFECTIVE par instance
+  // grass-shading : deux octets par instance — les poids barycentriques (w1, w2) de l'ORIGINE de
+  // sa touffe dans son triangle ; w0 = 255 - w1 - w2. C'est le seul canal disponible :
+  // `GrassInstance` est plein (16 flottants tous lus) et le tampon de lumiere n'a que ses 4 octets.
+  // Vide quand l'item est desarme — `update_light()` retombe alors sur la palette du centroide.
+  std::vector<u8> m_inst_bw;
+  u64 m_shade_hits = 0;        // brins ayant recu une couleur derivee de LEUR touffe
+  bool m_shaded = false;       // le regime sous lequel le champ courant a ete colore
   std::vector<u8> m_light;                 // 4 bytes/instance (rgba), re-uploaded on TOD change
   s32 m_last_itimes[4][4] = {};             // weights of the last light upload (change-detect throttle)
   bool m_light_valid = false;

@@ -19,6 +19,10 @@
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/log/log.h"
 #include "common/util/compress.h"
+// grass-shading : le minimum de GLSL qu'un compilateur C++ sait lire. Il n'existe QUE pour que
+// `shaders/grass_shade.glsl` et `shaders/grass_shade_face.glsl` — le texte que le pilote compile —
+// soient compiles une seconde fois ici, au lieu d'etre recopies en C++. Voir son en-tete.
+#include "common/util/glsl_compat.h"
 
 namespace grass_bake {
 
@@ -63,6 +67,21 @@ inline bool looks_groundish(const std::string& n) {
   return name_has(n, "ground") || name_has(n, "grass") || name_has(n, "leafy") ||
          name_has(n, "moss") || name_has(n, "beach") || name_has(n, "dirt") ||
          name_has(n, "sand") || name_has(n, "rock") || name_has(n, "mud");
+}
+
+// grass-shading : une entree de palette cuite, rangee dans l'octet d'ou elle vient. `pentry()`
+// rend `colors.read()`, deja un octet 0..255, ou le neutre 128 quand le .fr3 n'a pas de donnee
+// cuite pour ce sommet — la conversion ci-dessous ne perd donc rien, elle range. Le garde-fou
+// existe pour le seul cas ou un .fr3 futur rendrait autre chose : on BORNE plutot que de replier
+// silencieusement une valeur aberrante sur 0.
+inline u8 pal_u8(float v) {
+  if (v <= 0.0f) {
+    return 0u;
+  }
+  if (v >= 255.0f) {
+    return 255u;
+  }
+  return (u8)(v + 0.5f);
 }
 
 // POLISH#4: average RGB (0..1) of a decoded RGBA8888 texture (0xAABBGGRR little-endian),
@@ -152,6 +171,10 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     // POLISH#9 dynamic ground baked-light: this triangle's centroid palette rows (8 keyframes x rgb),
     // averaged over its 3 vertices, so update_light() can re-interpolate at the current time of day.
     float pal[8][3];
+    // grass-shading : les memes rangees, NON MOYENNEES. `pentry()` rend des octets de palette
+    // (0..255) : les garder tels quels ne perd rien et rend la lumiere interpolable A L'INTERIEUR
+    // du triangle, la ou `pal` seul la figeait au centroide.
+    u8 palv[3][8][3];
   };
   std::vector<TriRec> tris;
 
@@ -536,8 +559,12 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
             fr.bAB = fr.bBC = fr.bCA = false;
             for (int p = 0; p < 8; ++p) {
               for (int ch = 0; ch < 3; ++ch) {
-                fr.pal[p][ch] =
-                    (pentry(a, p, ch) + pentry(b, p, ch) + pentry(ci, p, ch)) * (1.0f / 3.0f);
+                const float va = pentry(a, p, ch), vb = pentry(b, p, ch), vc = pentry(ci, p, ch);
+                fr.pal[p][ch] = (va + vb + vc) * (1.0f / 3.0f);
+                // grass-shading : les trois entrees, dans l'ordre p0 / p0+e1 / p0+e2.
+                fr.palv[0][p][ch] = pal_u8(va);
+                fr.palv[1][p][ch] = pal_u8(vb);
+                fr.palv[2][p][ch] = pal_u8(vc);
               }
             }
             fringe_recs.push_back(fr);
@@ -577,8 +604,12 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
         // POLISH#9 dynamic light: centroid palette rows (avg of the 3 vertices), 8 keyframes x rgb.
         for (int p = 0; p < 8; ++p) {
           for (int ch = 0; ch < 3; ++ch) {
-            r.pal[p][ch] =
-                (pentry(a, p, ch) + pentry(b, p, ch) + pentry(ci, p, ch)) * (1.0f / 3.0f);
+            const float va = pentry(a, p, ch), vb = pentry(b, p, ch), vc = pentry(ci, p, ch);
+            r.pal[p][ch] = (va + vb + vc) * (1.0f / 3.0f);
+            // grass-shading : les trois entrees, dans l'ordre p0 / p0+e1 / p0+e2.
+            r.palv[0][p][ch] = pal_u8(va);
+            r.palv[1][p][ch] = pal_u8(vb);
+            r.palv[2][p][ch] = pal_u8(vc);
           }
         }
         tris.push_back(r);
@@ -1352,6 +1383,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
     bt.gr = r.gr; bt.gg = r.gg; bt.gb = r.gb;
     bt.nx = r.nx; bt.ny = r.ny; bt.nz = r.nz;
     std::memcpy(bt.pal, r.pal, sizeof(bt.pal));
+    std::memcpy(bt.palv, r.palv, sizeof(bt.palv));  // grass-shading : les trois sommets
     bt.flags = (r.is_tie ? 1u : 0u) | (r.is_lip ? 2u : 0u) | (r.is_dup ? 4u : 0u) |
                (r.is_hang ? 32u : 0u) | (r.is_hang_b ? 64u : 0u);
     bt.cand_base = cand_running;
@@ -1577,6 +1609,7 @@ BakeData scan_level(const tfrag3::Level& lev_ref, const std::string& level_name,
       bt.gr = fr.gr; bt.gg = fr.gg; bt.gb = fr.gb;
       bt.nx = fr.nx; bt.ny = fr.ny; bt.nz = fr.nz;
       std::memcpy(bt.pal, fr.pal, sizeof(bt.pal));
+      std::memcpy(bt.palv, fr.palv, sizeof(bt.palv));  // grass-shading : les trois sommets
       bt.flags = (fr.is_tie ? 1u : 0u) | 8u | (fr.is_hang ? 32u : 0u) |
                  (fr.is_hang_b ? 64u : 0u);  // bit3 = fringe; bit5 = hang face; bit6 = leafy tex
       bt.cand_base = cand_running;
@@ -2006,9 +2039,13 @@ void build_chunks(const std::vector<GrassInstance>& inst, std::vector<GrassChunk
 }
 
 ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_map,
-                    bool clumped) {
+                    bool clumped, bool shaded) {
   ExpandResult res;
   res.clumped = clumped;
+  // grass-shading : LA TEINTE PAR TOUFFE N'EXISTE PAS SANS TOUFFE. Desarmer le placement desarme
+  // donc la couleur, et c'est voulu : les deux bras d'ablation ne peuvent pas se contredire.
+  const bool shade_on = shaded && clumped;
+  res.shaded = shade_on;
   // grass-clumps : LA MEME classe qu'a la cuisson. `clumped=false` est le bras d'ablation — le
   // tirage uniforme du code REMPLACE, sur le MEME bake. Les bits `keep` restent ceux des positions
   // en touffes : ce bras mesure le regroupement, il n'est pas un etat livrable.
@@ -2360,7 +2397,18 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       gi.curve = 0.10f + 0.75f * hash_f(sd + 6u);          // wider CURVATURE variation
       gi.phase = hash_f(sd + 7u);
       gi.yaw = hash_f(sd + 4u) * 6.2831853f;               // fully random yaw
-      gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;      // POLISH#4 ground colour
+      // POLISH#4 ground colour — grass-shading (SPEC section 7) : la couleur de sol n'est plus la
+      // constante du draw. Elle porte la modulation de SA touffe (teinte tiree de la graine +
+      // assombrissement par densite locale), fonction pure de (graine, rayon) : un palier plus bas
+      // retire des brins, il ne repeint pas ceux qui restent. Desarme, l'octet d'avant, au bit.
+      if (shade_on) {
+        float mr, mg, mb;
+        shade_clump_modulate(site.cseed, site.radius_wu, mr, mg, mb);
+        gi.gr = tri.gr * mr; gi.gg = tri.gg * mg; gi.gb = tri.gb * mb;
+        ++res.shade_hits;
+      } else {
+        gi.gr = tri.gr; gi.gg = tri.gg; gi.gb = tri.gb;
+      }
       gi.gspare = rim_decode(d.rim_q[tri.cand_base + (u64)i]);  // = rim_dist (world units)
       gi.nx = tri.nx; gi.ny = tri.ny; gi.nz = tri.nz; gi.nspare = 0.f;
       // Grecharged-grass-overhang4: PER-BLADE CONTINUOUS comb tag (replaces the round-3 per-tri bit4
@@ -2439,6 +2487,28 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
       }
 #endif  // OG_FEAT_GRASS_OVERHANG (marquage + collecte des jumelles)
       placer.mark(site.clump);  // grass-clumps : cette touffe est MONTEE (le `hits=` les compte)
+      // grass-shading : les poids barycentriques de l'ORIGINE DE LA TOUFFE, quantifies en deux
+      // octets. `update_light()` y interpolera les palettes des trois sommets — c'est ce qui fait
+      // passer la lumiere cuite d'UNE valeur par triangle a UNE valeur par touffe. Pousses ICI,
+      // dans le meme ordre que l'instance : un decalage d'un cran donnerait a un brin la lumiere
+      // d'un autre, et rien ne le dirait.
+      if (shade_on) {
+        float w1 = site.co1 < 0.f ? 0.f : (site.co1 > 1.f ? 1.f : site.co1);
+        float w2 = site.co2 < 0.f ? 0.f : (site.co2 > 1.f ? 1.f : site.co2);
+        int q1 = (int)(w1 * 255.0f + 0.5f);
+        int q2 = (int)(w2 * 255.0f + 0.5f);
+        // w0 = 255 - q1 - q2 doit rester POSITIF : l'arrondi peut pousser la somme a 256 alors que
+        // co1+co2 <= 1. On retire le cran au plus grand des deux, jamais au troisieme sommet.
+        while (q1 + q2 > 255) {
+          if (q1 >= q2) {
+            --q1;
+          } else {
+            --q2;
+          }
+        }
+        res.inst_bw.push_back((u8)q1);
+        res.inst_bw.push_back((u8)q2);
+      }
       res.instances.push_back(gi);
       res.inst_tri.push_back((u32)tj);
       if (want_cand_map) {
@@ -2447,6 +2517,12 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
     }
   }
   placer.finish();
+  // grass-shading : LES CLASSES DE QUEUE (zones 1/2/3 de l'overhang) sont poussees APRES cette
+  // boucle et n'appartiennent a aucune touffe. Elles recoivent le CENTROIDE (85/85/85 sur 255,
+  // soit un tiers chacun), c'est-a-dire exactement ce que `pal` donnait : la table reste alignee
+  // sur `instances` — un tableau plus court ferait lire au renderer la lumiere du brin suivant.
+  // (`OG_FEAT_GRASS_OVERHANG` est OFF dans les deux arbres livres : cette queue est vide en
+  // pratique, mais un tableau desaligne ne doit pas dependre d'un drapeau de compilation.)
   res.clumps_total = placer.total_clumps();
   res.clumps_mounted = placer.total_mounted();
   res.clump_origin_digest = placer.origin_digest();
@@ -2833,6 +2909,11 @@ ExpandResult expand(const BakeData& d, float density_slider_pct, bool want_cand_
   // seul parcours de min/max sur un tableau deja chaud : c'est la meme fonction que l'outil de
   // cuisson appelle, donc les deux cotes ne peuvent pas diverger sans que le moteur le voie.
   build_chunks(res.instances, res.chunks);
+  // grass-shading : la table des poids suit `instances` JUSQU'AU BOUT. Les classes de queue
+  // (overhang) ont ete poussees apres la boucle principale ; elles prennent le centroide.
+  if (res.shaded) {
+    res.inst_bw.resize(res.instances.size() * 2u, (u8)85);
+  }
   return res;
 }
 
@@ -2865,7 +2946,11 @@ constexpr u32 GBK_MAGIC = 0x314B4247;   // 'GBK1'
 // au-dessus du vide, en silence. La garde de version l'interdit AU POINT DE PRODUCTION : un v9
 // n'est pas charge (et le niveau reste sans herbe, il n'y a PAS de repli en direct), donc les cinq
 // bakes livres se recuisent par `scripts/shell/build_grass_bakes.sh`.
-constexpr u32 GBK_FORMAT_VERSION = 10;
+// grass-shading (2026-09-20) : 10 -> 11. `BakeTri` porte desormais les palettes des TROIS sommets
+// (`palv`), sans quoi la lumiere cuite reste figee au centroide du triangle. Un bake v10 n'a pas
+// ces octets : il est refuse, recuit par `scripts/shell/build_grass_bakes.sh`, et
+// `android/build_custom_pack.sh:468` relit CETTE constante pour refuser un pack en retard.
+constexpr u32 GBK_FORMAT_VERSION = 11;
 
 template <typename T>
 void put(std::vector<u8>& buf, const T& v) {
@@ -2930,6 +3015,7 @@ bool save_bake(const BakeData& d, const std::string& path) {
     put<float>(buf, t.ny);
     put<float>(buf, t.nz);
     put_bytes(buf, t.pal, sizeof(t.pal));
+    put_bytes(buf, t.palv, sizeof(t.palv));  // grass-shading (GBK11) : les 3 palettes de sommet
     put<u32>(buf, t.cand_count);
     put<u64>(buf, t.cand_base);
     put<u32>(buf, t.flags);
@@ -3106,9 +3192,11 @@ bool load_bake(BakeData& d, const std::string& path) {
   tmp.stats.giant_tris = (int)gt;
   tmp.stats.occ_objpt_buckets = (int)ob;
 
-  // 216 octets par triangle SUR DISQUE (p0/e1/e2 36 + seed 4 + aire 4 + rgb 12 + normale 12
-  // + palette 96 + cand_count 4 + cand_base 8 + flags 4 + 3 normales lissees 36).
-  if (!count_fits(buf, off, ntris, 216)) {
+  // 288 octets par triangle SUR DISQUE (p0/e1/e2 36 + seed 4 + aire 4 + rgb 12 + normale 12
+  // + palette centroide 96 + GBK11 3 palettes de sommet 72 + cand_count 4 + cand_base 8 + flags 4
+  // + 3 normales lissees 36). CE NOMBRE EST UNE BORNE BASSE, PAS UNE ASSERTION : l'oublier rend
+  // `count_fits` trop LAXISTE, donc muet. Il se relit champ par champ juste au-dessous.
+  if (!count_fits(buf, off, ntris, 288)) {
     lg::warn("[recharged-grass] load_bake: compte de tris aberrant ({}) dans '{}' — refuse", ntris,
              path);
     return false;
@@ -3121,6 +3209,7 @@ bool load_bake(BakeData& d, const std::string& path) {
         !get(buf, off, t.area_m2) || !get(buf, off, t.gr) || !get(buf, off, t.gg) ||
         !get(buf, off, t.gb) || !get(buf, off, t.nx) || !get(buf, off, t.ny) ||
         !get(buf, off, t.nz) || !get_bytes(buf, off, t.pal, sizeof(t.pal)) ||
+        !get_bytes(buf, off, t.palv, sizeof(t.palv)) ||  // grass-shading (GBK11)
         !get(buf, off, t.cand_count) || !get(buf, off, t.cand_base) || !get(buf, off, t.flags) ||
         !get_bytes(buf, off, t.vn0, sizeof(t.vn0)) || !get_bytes(buf, off, t.vn1, sizeof(t.vn1)) ||
         !get_bytes(buf, off, t.vn2, sizeof(t.vn2))) {  // GBK5 smooth vertex normals
@@ -5778,6 +5867,394 @@ ClumpCensus clump_census(const BakeData& d, const ExpandResult& e) {
   if (c.clumps_mounted > 0) c.terms_measured++;
   if (c.pairs_uniform > 1e-9) c.terms_measured++;
   if (c.clumps_total > 0) c.terms_measured++;
+  return c;
+}
+
+// ===============================================================================================
+// grass-shading (SPEC-refonte-herbe.md, section 7) — LE RECENSEMENT DE LA COULEUR.
+// ===============================================================================================
+//
+// CE QU'IL NE FAIT PAS : recopier le modele du shader. Les deux fonctions ci-dessous `#include`
+// LES MEMES FICHIERS que `Shader.cpp` splice dans `grass.vert` et `grass.frag`. Le compilateur C++
+// et le pilote GLSL lisent donc le meme texte, et le graphe de dependances de ninja relie ce .cpp
+// a ces .glsl : ce binaire ne PEUT PAS mesurer un modele plus vieux que celui qu'il mesure. La
+// seule divergence encore possible est un blob GLES d'Android en retard — c'est pour elle que le
+// moteur publie `grass_shade_model_fnv` et que `lib/census/grass-shading.sh` la compare a
+// l'empreinte des fichiers de l'arbre.
+namespace {
+
+// Le modele de couleur, evalue a une hauteur `t` le long du brin (0 = racine, 1 = pointe).
+// Les parametres portent un prefixe `in_` : le chunk declare ses propres locales (`gcol`, `tint2`,
+// `col`...) et un nom partage en ferait une ombre — le compilateur le dit, mais autant ne pas le
+// provoquer, le texte du shader n'a pas a plier devant l'appelant.
+glsl::vec3 eval_grass_shade(float in_t, float in_tint, const glsl::vec3& in_gcol,
+                            const glsl::vec3& in_light, bool in_card) {
+  using namespace glsl;
+  const float gs_t = in_t;
+  const float gs_tint = in_tint;
+  const vec3 gs_gcol = in_gcol;
+  const vec3 gs_light = in_light;
+  const bool gs_card = in_card;
+  vec3 col;
+#include "shaders/grass_shade.glsl"
+  return col;
+}
+
+// Le produit scalaire qui separe les deux faces du ruban, et le facteur qu'il produit.
+void eval_grass_face(float in_yaw, float in_side, float& face_dot, float& face_mul) {
+  using namespace glsl;
+  // `grass.vert` pose `rightv = (cos, 0, -sin)` et `fwdv = (sin, 0, cos)`, puis
+  // `v_fwd_xz = vec2(s, c)`. On reproduit l'ENTREE, pas le calcul : celui-ci vient du fichier.
+  const vec2 gs_fwd_xz = vec2(std::sin(in_yaw), std::cos(in_yaw));
+  const float gs_side = in_side;
+  float gs_face_dot = 0.f;
+  float gs_face_mul = 1.f;
+#include "shaders/grass_shade_face.glsl"
+  face_dot = gs_face_dot;
+  face_mul = gs_face_mul;
+}
+
+inline float shade_lum(const glsl::vec3& c) {
+  return 0.299f * c.x + 0.587f * c.y + 0.114f * c.z;
+}
+
+// Les poids de melange d'une heure de reference : les huit images-cles a poids EGAL (8 chacune,
+// somme 64), ce que `interp_time_of_day` ferait d'un cycle moyen. Une heure fixe et nommee, parce
+// que compter des valeurs distinctes sous une heure qui bouge compterait l'heure.
+inline u8 shade_blend_pal(const float pal[8][3], int ch) {
+  float acc = 0.f;
+  for (int p = 0; p < 8; ++p) {
+    acc += pal[p][ch] * 8.0f;
+  }
+  int v = (int)acc >> 6;
+  return (u8)(v > 255 ? 255 : (v < 0 ? 0 : v));
+}
+inline u8 shade_blend_palv(const u8 palv[3][8][3], int vtx, int ch) {
+  float acc = 0.f;
+  for (int p = 0; p < 8; ++p) {
+    acc += (float)palv[vtx][p][ch] * 8.0f;
+  }
+  int v = (int)acc >> 6;
+  return (u8)(v > 255 ? 255 : (v < 0 ? 0 : v));
+}
+
+inline u64 rgb_key(u8 r, u8 g, u8 b) {
+  return ((u64)r << 16) | ((u64)g << 8) | (u64)b;
+}
+
+// LA GRANDEUR QUE L'OWNER VA REGARDER : « des touffes VOISINES qui ne sont pas de la meme teinte ».
+// Deux touffes voisines sont, presque toujours, deux touffes du MEME triangle — et c'est la que
+// l'etat d'avant est nul PAR CONSTRUCTION : la couleur venait du draw (une constante de niveau) et
+// la lumiere du centroide du triangle (une constante de triangle), donc toutes les touffes d'un
+// triangle etaient rigoureusement de la meme couleur. La dispersion GLOBALE, elle, etait deja non
+// nulle avant cet item (les triangles n'ont pas tous la meme lumiere cuite) : la juger seule
+// aurait rendu un vert que l'etat d'avant produisait deja.
+// On mesure donc les deux, sur les DEUX bras, avec la teinte par brin FIXEE — sans quoi on
+// mesurerait le bruit par brin, qui existait lui aussi.
+struct ArmSpread {
+  double cv_global = 0.0;
+  double cv_intra = 0.0;  // moyenne, sur les triangles portant au moins deux touffes, du CV interne
+  u64 clumps = 0;
+  u64 tris_multi = 0;
+};
+
+ArmSpread clump_colour_spread(const BakeData& d, const ExpandResult& ee) {
+  ArmSpread a;
+  if (ee.instances.empty() || ee.inst_cand.size() != ee.instances.size() ||
+      ee.inst_tri.size() != ee.instances.size()) {
+    return a;
+  }
+  std::vector<double> all;
+  double intra_sum = 0.0;
+  ClumpPlacer placer(d.total_area_m2, ee.clumped);
+  size_t cursor = 0;
+  for (size_t tj = 0; tj < d.tris.size() && cursor < ee.instances.size(); ++tj) {
+    const BakeTri& tri = d.tris[tj];
+    if (tri.flags & (2u | 4u)) {
+      continue;
+    }
+    placer.begin(tri);
+    const u32 n = (tj < ee.tri_n.size() && !ee.tri_n.empty()) ? ee.tri_n[tj] : tri.cand_count;
+    const u8 cr = shade_blend_pal(tri.pal, 0);
+    const u8 cg = shade_blend_pal(tri.pal, 1);
+    const u8 cb = shade_blend_pal(tri.pal, 2);
+    u8 vr[3], vg[3], vb[3];
+    for (int v = 0; v < 3; ++v) {
+      vr[v] = shade_blend_palv(tri.palv, v, 0);
+      vg[v] = shade_blend_palv(tri.palv, v, 1);
+      vb[v] = shade_blend_palv(tri.palv, v, 2);
+    }
+    std::unordered_set<u32> seen;
+    std::vector<double> here;
+    for (u32 i = 0; i < n; ++i) {
+      ClumpSite st;
+      placer.place(tri, (int)i, st);
+      const u64 ci = tri.cand_base + (u64)i;
+      if (!(cursor < ee.instances.size() && ee.inst_cand[cursor] == (u32)ci)) {
+        continue;
+      }
+      const GrassInstance& gi = ee.instances[cursor];
+      const size_t me = cursor;
+      ++cursor;
+      if (ee.inst_tri[me] != (u32)tj || !seen.insert(st.clump).second) {
+        continue;
+      }
+      u8 lr = cr, lg = cg, lb = cb;
+      if (ee.shaded && ee.inst_bw.size() == ee.instances.size() * 2u) {
+        const int q1 = ee.inst_bw[me * 2 + 0];
+        const int q2 = ee.inst_bw[me * 2 + 1];
+        const int q0 = 255 - q1 - q2;
+        lr = (u8)((q0 * (int)vr[0] + q1 * (int)vr[1] + q2 * (int)vr[2]) / 255);
+        lg = (u8)((q0 * (int)vg[0] + q1 * (int)vg[1] + q2 * (int)vg[2]) / 255);
+        lb = (u8)((q0 * (int)vb[0] + q1 * (int)vb[1] + q2 * (int)vb[2]) / 255);
+      }
+      const glsl::vec3 gcol(gi.gr, gi.gg, gi.gb);
+      const glsl::vec3 light((float)lr / 255.f, (float)lg / 255.f, (float)lb / 255.f);
+      const double lum = (double)shade_lum(eval_grass_shade(0.5f, 0.5f, gcol, light, false));
+      here.push_back(lum);
+      all.push_back(lum);
+    }
+    if (here.size() > 1) {
+      double m = 0.0;
+      for (double v : here) {
+        m += v;
+      }
+      m /= (double)here.size();
+      double var = 0.0;
+      for (double v : here) {
+        var += (v - m) * (v - m);
+      }
+      var /= (double)here.size();
+      intra_sum += m > 1.0e-9 ? std::sqrt(var) / m : 0.0;
+      ++a.tris_multi;
+    }
+  }
+  a.clumps = all.size();
+  if (all.size() > 1) {
+    double m = 0.0;
+    for (double v : all) {
+      m += v;
+    }
+    m /= (double)all.size();
+    double var = 0.0;
+    for (double v : all) {
+      var += (v - m) * (v - m);
+    }
+    var /= (double)all.size();
+    a.cv_global = m > 1.0e-9 ? std::sqrt(var) / m : 0.0;
+  }
+  if (a.tris_multi > 0) {
+    a.cv_intra = intra_sum / (double)a.tris_multi;
+  }
+  return a;
+}
+
+}  // namespace
+
+ShadingCensus shading_census(const BakeData& d, const ExpandResult& e, const ExpandResult& e_off) {
+  ShadingCensus c;
+  c.base_colours_floor = SHADE_BASE_COLOURS_FLOOR;
+  // UNE MESURE ABSENTE NE DIT PAS ZERO. Sans la carte des candidats on ne peut pas rattacher un
+  // brin a sa touffe, et tous les termes ci-dessous seraient des zeros verts sans population.
+  if (e.instances.empty() || e.inst_tri.size() != e.instances.size() ||
+      e.inst_cand.size() != e.instances.size()) {
+    return c;
+  }
+  c.blades_total = e.instances.size();
+
+  // ---- POINT 1 : LES COULEURS DE BASE, ET LEUR PARTITION PAR TOUFFE --------------------------
+  // On rejoue le placeur exactement comme `clump_census` : meme classe, meme ordre des candidats,
+  // meme appariement par `inst_cand`. Re-enumerer autrement serait une copie de la boucle
+  // d'emission, donc une divergence en attente.
+  std::unordered_set<u64> base_set;
+  std::unordered_map<u64, u32> clump_first;   // (tri,clump) -> couleur quantifiee
+  std::vector<double> mod_lums;
+  base_set.reserve(e.instances.size() / 4 + 16);
+
+  double rt_sum = 0.0, face_sum = 0.0, rt_rel_sum = 0.0;
+  double rt_min = 1.0e30, face_max = 0.0, rt_rel_min = 1.0e30;
+  u64 rt_n = 0;
+  std::unordered_set<u64> light_before, light_after;
+
+  ClumpPlacer placer(d.total_area_m2, e.clumped);
+  size_t cursor = 0;
+  for (size_t tj = 0; tj < d.tris.size() && cursor < e.instances.size(); ++tj) {
+    const BakeTri& tri = d.tris[tj];
+    if (tri.flags & (2u | 4u)) {
+      continue;
+    }
+    placer.begin(tri);
+    const u32 n = (tj < e.tri_n.size() && !e.tri_n.empty()) ? e.tri_n[tj] : tri.cand_count;
+    // POINT 3, LE BRAS « AVANT » : la lumiere que le centroide du triangle servait a TOUS ses
+    // brins. C'est la grandeur que l'item remplace, mesuree sur le meme bake.
+    bool tri_used = false;
+    const u8 cr = shade_blend_pal(tri.pal, 0);
+    const u8 cg = shade_blend_pal(tri.pal, 1);
+    const u8 cb = shade_blend_pal(tri.pal, 2);
+    u8 vr[3], vg[3], vb[3];
+    for (int v = 0; v < 3; ++v) {
+      vr[v] = shade_blend_palv(tri.palv, v, 0);
+      vg[v] = shade_blend_palv(tri.palv, v, 1);
+      vb[v] = shade_blend_palv(tri.palv, v, 2);
+    }
+    for (u32 i = 0; i < n; ++i) {
+      ClumpSite s;
+      placer.place(tri, (int)i, s);
+      const u64 ci = tri.cand_base + (u64)i;
+      const bool emitted = cursor < e.instances.size() && e.inst_cand[cursor] == (u32)ci;
+      if (!emitted) {
+        continue;
+      }
+      const GrassInstance& gi = e.instances[cursor];
+      ++cursor;
+      if (e.inst_tri[cursor - 1] != (u32)tj) {
+        continue;  // desalignement : ce brin n'appartient pas au triangle qu'on rejoue
+      }
+      tri_used = true;
+
+      // --- la couleur de base servie a ce brin, quantifiee au 1/1024 ---
+      const u32 qr = (u32)(gi.gr * 1023.0f + 0.5f) & 0x3ffu;
+      const u32 qg = (u32)(gi.gg * 1023.0f + 0.5f) & 0x3ffu;
+      const u32 qb = (u32)(gi.gb * 1023.0f + 0.5f) & 0x3ffu;
+      const u32 qcol = (qr << 20) | (qg << 10) | qb;
+      base_set.insert((u64)qcol);
+      const u64 ckey = ((u64)tj << 20) | (u64)s.clump;
+      auto it = clump_first.find(ckey);
+      if (it == clump_first.end()) {
+        clump_first.emplace(ckey, qcol);
+        // La modulation que cette touffe porte, en luminance : elle doit rester centree sur 1.
+        const float tl = 0.299f * tri.gr + 0.587f * tri.gg + 0.114f * tri.gb;
+        const float bl = 0.299f * gi.gr + 0.587f * gi.gg + 0.114f * gi.gb;
+        if (tl > 1.0e-6f) {
+          mod_lums.push_back((double)(bl / tl));
+        }
+      } else if (it->second != qcol) {
+        ++c.clump_colour_breaks;
+      }
+
+      // --- POINT 3, LE BRAS « APRES » : la lumiere a l'ORIGINE DE LA TOUFFE ---
+      u8 lr = cr, lg = cg, lb = cb;
+      if (e.shaded && e.inst_bw.size() == e.instances.size() * 2u) {
+        const int q1 = e.inst_bw[(cursor - 1) * 2 + 0];
+        const int q2 = e.inst_bw[(cursor - 1) * 2 + 1];
+        const int q0 = 255 - q1 - q2;
+        lr = (u8)((q0 * (int)vr[0] + q1 * (int)vr[1] + q2 * (int)vr[2]) / 255);
+        lg = (u8)((q0 * (int)vg[0] + q1 * (int)vg[1] + q2 * (int)vg[2]) / 255);
+        lb = (u8)((q0 * (int)vb[0] + q1 * (int)vb[1] + q2 * (int)vb[2]) / 255);
+      }
+      light_after.insert(rgb_key(lr, lg, lb));
+
+      // --- POINT 2 : LE MODELE DU SHADER, SUR CE BRIN. Un brin sur 8 : la population reste de
+      // l'ordre de 100 000 par niveau, largement de quoi porter une moyenne et un minimum, sans
+      // payer un million d'evaluations par palier.
+      if (((cursor - 1) & 7u) == 0u) {
+        const glsl::vec3 gcol(gi.gr, gi.gg, gi.gb);
+        const glsl::vec3 light((float)lr / 255.f, (float)lg / 255.f, (float)lb / 255.f);
+        const glsl::vec3 root = eval_grass_shade(0.f, gi.tint, gcol, light, false);
+        const glsl::vec3 tip = eval_grass_shade(1.f, gi.tint, gcol, light, false);
+        const glsl::vec3 mid = eval_grass_shade(0.5f, gi.tint, gcol, light, false);
+        const double dl = (double)(shade_lum(tip) - shade_lum(root));
+        rt_sum += dl;
+        if (dl < rt_min) {
+          rt_min = dl;
+        }
+        // LE MEME ECART, RAPPORTE A LA LUMINANCE DU BRIN. Invariant par la lumiere cuite, donc
+        // comparable d'un coin sombre a une clairiere — c'est la forme du degrade qu'il mesure.
+        const double ml = (double)shade_lum(mid);
+        const double rel = ml > 1.0e-6 ? dl / ml : 0.0;
+        rt_rel_sum += rel;
+        if (rel < rt_rel_min) {
+          rt_rel_min = rel;
+        }
+        float fdot = 0.f, fmul_front = 1.f, fmul_back = 1.f;
+        eval_grass_face(gi.yaw, 1.0f, fdot, fmul_front);
+        eval_grass_face(gi.yaw, -1.0f, fdot, fmul_back);
+        const double fl = (double)shade_lum(mid) * (double)(fmul_front - fmul_back);
+        const double afl = fl < 0.0 ? -fl : fl;
+        face_sum += afl;
+        if (afl > face_max) {
+          face_max = afl;
+        }
+        ++rt_n;
+      }
+    }
+    if (tri_used) {
+      light_before.insert(rgb_key(cr, cg, cb));
+      ++c.light_tris;
+    }
+  }
+
+  c.base_colours = base_set.size();
+  c.clumps_coloured = clump_first.size();
+  c.light_values_before = light_before.size();
+  c.light_values_after = light_after.size();
+  if (c.light_values_before > 0) {
+    c.light_gain = (double)c.light_values_after / (double)c.light_values_before;
+  }
+  c.shade_sampled = rt_n;
+  if (rt_n > 0) {
+    c.root_tip_delta_mean = rt_sum / (double)rt_n;
+    c.root_tip_delta_min = rt_min;
+    c.root_tip_rel_mean = rt_rel_sum / (double)rt_n;
+    c.root_tip_rel_min = rt_rel_min;
+    c.face_delta_mean = face_sum / (double)rt_n;
+    c.face_delta_max = face_max;
+  }
+
+  // --- la modulation ne deplace pas la moyenne du champ, et son amplitude est bornee ----------
+  if (!mod_lums.empty()) {
+    double sum = 0.0, amax = 0.0;
+    for (double m : mod_lums) {
+      sum += m;
+      const double a = m > 1.0 ? m - 1.0 : 1.0 - m;
+      if (a > amax) {
+        amax = a;
+      }
+    }
+    c.clump_mod_mean = sum / (double)mod_lums.size();
+    c.clump_amp_max = amax;
+  }
+
+  // --- CE QUE LE PIXEL RECOIT, SUR LES DEUX BRAS. Le bras desarme n'est pas suppose nul : il est
+  // MESURE. C'est lui qui separe « la couleur varie » de « la couleur variait deja ».
+  const ArmSpread on = clump_colour_spread(d, e);
+  const ArmSpread off = clump_colour_spread(d, e_off);
+  c.clump_lum_cv = on.cv_global;
+  c.clump_lum_cv_off = off.cv_global;
+  c.intra_tri_cv = on.cv_intra;
+  c.intra_tri_cv_off = off.cv_intra;
+  c.intra_tri_sampled = on.tris_multi;
+
+  // ---- L'ABLATION N'EST PAS UN ZERO MUET ------------------------------------------------------
+  // Le bras desarme doit rendre EXACTEMENT la donnee d'avant : la couleur du DRAW, sans poids
+  // barycentriques. On ne l'affirme pas — on compare instance par instance avec le bras livre, et
+  // on verifie au passage que la couleur est la SEULE chose que cet item change (meme nombre de
+  // brins, memes racines, memes triangles).
+  if (e_off.instances.size() != e.instances.size() || !e_off.inst_bw.empty()) {
+    c.ablation_diffs += 1;
+  } else {
+    for (size_t i = 0; i < e_off.instances.size(); ++i) {
+      const GrassInstance& a = e_off.instances[i];
+      const GrassInstance& b = e.instances[i];
+      if (a.px != b.px || a.py != b.py || a.pz != b.pz || a.h != b.h || a.yaw != b.yaw ||
+          a.tint != b.tint || e_off.inst_tri[i] != e.inst_tri[i]) {
+        ++c.ablation_diffs;
+        continue;
+      }
+      const BakeTri& tri = d.tris[e_off.inst_tri[i]];
+      if (a.gr != tri.gr || a.gg != tri.gg || a.gb != tri.gb) {
+        ++c.ablation_diffs;
+      }
+    }
+  }
+
+  if (c.blades_total > 0) c.terms_measured++;
+  if (c.clumps_coloured > 0) c.terms_measured++;
+  if (c.shade_sampled > 0) c.terms_measured++;
+  if (c.light_tris > 0) c.terms_measured++;
+  if (!mod_lums.empty()) c.terms_measured++;
+  if (c.intra_tri_sampled > 0) c.terms_measured++;
+  if (!e_off.instances.empty()) c.terms_measured++;
   return c;
 }
 

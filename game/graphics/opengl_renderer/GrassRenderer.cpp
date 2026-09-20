@@ -121,6 +121,11 @@ AUTOPORT_FEATURE_SITE(kPathTransItemId);
 // regime, et `hits=` y tombe a 0 parce qu'aucune touffe n'est montee.
 constexpr const char* kClumpItemId = "grass-clumps";
 AUTOPORT_FEATURE_SITE(kClumpItemId);
+// grass-shading (SPEC section 7) : la couleur de sol par TOUFFE et la lumiere cuite interpolee a
+// l'origine de la touffe. Les deux naissent dans `expand()` ; le compteur de la ligne FEATURE
+// compte les brins qui ont recu une couleur derivee de LEUR touffe.
+constexpr const char* kShadeItemId = "grass-shading";
+AUTOPORT_FEATURE_SITE(kShadeItemId);
 // grass-blade-variants : desarme, k = 1 et TOUS les brins retombent sur la variante 0, c'est-a-dire
 // la lame livree jusqu'ici.
 constexpr const char* kVariantItemId = "grass-blade-variants";
@@ -1186,6 +1191,9 @@ bool GrassRenderer::oom_disarm(const void* lev,
   std::vector<u32>().swap(m_inst_tri);
   std::vector<u8>().swap(m_light);
   std::vector<u8>().swap(m_variant);
+  std::vector<u8>().swap(m_inst_bw);  // grass-shading : poids de touffe, liberes avec le champ
+  m_shaded = false;
+  m_shade_hits = 0;
   m_chunks.clear();
   m_bake = grass_bake::BakeData{};
   m_pending.bake = grass_bake::BakeData{};
@@ -1228,6 +1236,9 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     m_bake = grass_bake::BakeData{};   // Grecharged-grass-precompute-mode: per-tri baked-light source
     m_light.clear();
     m_variant.clear();
+    m_inst_bw.clear();  // grass-shading : reconstruits plus bas avec le champ
+    m_shaded = false;
+    m_shade_hits = 0;
     m_light_valid = false;
 
     // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
@@ -1598,6 +1609,9 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       std::vector<u32>().swap(m_inst_tri);
       std::vector<u8>().swap(m_light);
       std::vector<u8>().swap(m_variant);
+      std::vector<u8>().swap(m_inst_bw);  // grass-shading
+      m_shaded = false;
+      m_shade_hits = 0;
       m_chunks.clear();
       m_bake = grass_bake::BakeData{};
       m_instance_count = 0;
@@ -1656,14 +1670,16 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                                    std::cref(m_pending.bake), m_pending.density,
                                    autoport_proof::feature_is(kPathTransItemId) ||
                                        autoport_proof::feature_is(kClumpItemId),
-                                   autoport_proof::armed_for(kClumpItemId));
+                                   autoport_proof::armed_for(kClumpItemId),
+                                   autoport_proof::armed_for(kShadeItemId));
       return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
     }
     tExpandJoin = clk::now();
     res = grass_bake::expand(m_bake, m_pending.density,
                              autoport_proof::feature_is(kPathTransItemId) ||
                                  autoport_proof::feature_is(kClumpItemId),
-                             autoport_proof::armed_for(kClumpItemId));
+                             autoport_proof::armed_for(kClumpItemId),
+                             autoport_proof::armed_for(kShadeItemId));
     } catch (const std::exception& e) {
       // La garde couvre TOUTE l'etape SOURCE : lecture du bake, scan en direct, mise en place de
       // `m_pending`, lancement du thread d'expansion, et l'expansion synchrone.
@@ -1864,6 +1880,12 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
 
   m_instances = std::move(res.instances);
   m_inst_tri = std::move(res.inst_tri);
+  // grass-shading : les poids barycentriques de l'origine de chaque touffe. `update_light()` les
+  // lit pour interpoler les palettes des trois sommets AILLEURS qu'au centroide. Une table dont la
+  // taille ne colle pas au champ est REFUSEE la-bas, pas devinee ici.
+  m_inst_bw = std::move(res.inst_bw);
+  m_shade_hits = res.shade_hits;
+  m_shaded = res.shaded;
   m_instance_count = (int)m_instances.size();
   m_droop_start = res.droop_start;
   // grass-chunk-cull : LA PARTITION EN VIGUEUR. Le contrat veut les bounds DANS LE FICHIER, on les
@@ -2287,6 +2309,36 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
     }
   }
 
+  // grass-shading (SPEC section 7) : LA LUMIERE CUITE, A L'ORIGINE DE LA TOUFFE.
+  // `tri_rgb` ci-dessus est la valeur du CENTROIDE : une par triangle, servie telle quelle a tous
+  // les brins du triangle — 11 080 valeurs pour 847 000 brins, la seule variation spatiale que le
+  // champ possedait. Le bake porte desormais les palettes des TROIS sommets (`palv`), et chaque
+  // brin porte les poids barycentriques de l'origine de SA touffe : on interpole donc la meme
+  // formule (`sum(pal*w) >> 6`, saturee) aux trois sommets, puis on melange. Toutes les instances
+  // d'une touffe partagent leurs poids, donc la valeur est UNE PAR TOUFFE, pas une par brin.
+  // La table est refusee si sa taille ne colle pas exactement au champ : un decalage d'un cran
+  // donnerait a un brin la lumiere d'un autre, et rien a l'ecran ne le dirait.
+  const bool per_clump = m_shaded && valid &&
+                         m_inst_bw.size() == (size_t)m_instance_count * 2u;
+  std::vector<std::array<std::array<u8, 3>, 3>> vert_rgb;
+  if (per_clump) {
+    vert_rgb.resize(m_bake.tris.size());
+    for (size_t j = 0; j < m_bake.tris.size(); ++j) {
+      for (int v = 0; v < 3; ++v) {
+        for (int ch = 0; ch < 3; ++ch) {
+          float acc = 0.f;
+          for (int p = 0; p < 8; ++p) {
+            acc += (float)m_bake.tris[j].palv[v][p][ch] * (float)w[p][ch];
+          }
+          int val = (int)acc >> 6;
+          if (val > 255) val = 255;
+          if (val < 0) val = 0;
+          vert_rgb[j][v][ch] = (u8)val;
+        }
+      }
+    }
+  }
+
   m_light.resize((size_t)m_instance_count * 4);
   for (int i = 0; i < m_instance_count; ++i) {
     u32 t = m_inst_tri[i];
@@ -2295,6 +2347,19 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
       cr = tri_rgb[t][0];
       cg = tri_rgb[t][1];
       cb = tri_rgb[t][2];
+    }
+    if (per_clump && t < vert_rgb.size()) {
+      const int q1 = m_inst_bw[(size_t)i * 2 + 0];
+      const int q2 = m_inst_bw[(size_t)i * 2 + 1];
+      const int q0 = 255 - q1 - q2;
+      if (q0 >= 0) {
+        cr = (u8)((q0 * (int)vert_rgb[t][0][0] + q1 * (int)vert_rgb[t][1][0] +
+                   q2 * (int)vert_rgb[t][2][0]) / 255);
+        cg = (u8)((q0 * (int)vert_rgb[t][0][1] + q1 * (int)vert_rgb[t][1][1] +
+                   q2 * (int)vert_rgb[t][2][1]) / 255);
+        cb = (u8)((q0 * (int)vert_rgb[t][0][2] + q1 * (int)vert_rgb[t][1][2] +
+                   q2 * (int)vert_rgb[t][2][2]) / 255);
+      }
     }
     m_light[(size_t)i * 4 + 0] = cr;
     m_light[(size_t)i * 4 + 1] = cg;
@@ -2318,6 +2383,43 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
   }
   m_light_valid = true;
   m_light_uploads++;
+
+  // grass-shading : CE QUE LE MOTEUR EST SEUL A POUVOIR DIRE. Le recensement hors ligne mesure la
+  // donnee de l'arbre ; il rendrait ses chiffres meme si l'appareil n'avait affiche aucun brin.
+  // Ces trois-la sortent du tampon REELLEMENT televerse a cette image.
+  if (autoport_proof::feature_is(kShadeItemId)) {
+    std::unordered_set<u32> before, after;
+    before.reserve(tri_rgb.size() * 2 + 16);
+    after.reserve((size_t)m_instance_count / 4 + 16);
+    for (int i = 0; i < m_instance_count; ++i) {
+      const u32 t = m_inst_tri[i];
+      if (t < tri_rgb.size()) {
+        before.insert(((u32)tri_rgb[t][0] << 16) | ((u32)tri_rgb[t][1] << 8) | tri_rgb[t][2]);
+      }
+      after.insert(((u32)m_light[(size_t)i * 4 + 0] << 16) |
+                   ((u32)m_light[(size_t)i * 4 + 1] << 8) | m_light[(size_t)i * 4 + 2]);
+    }
+    autoport_proof::publish("grass_shade_engine_blades", (u64)m_instance_count);
+    autoport_proof::publish("grass_shade_engine_armed", m_shaded ? 1u : 0u);
+    autoport_proof::publish("grass_shade_engine_per_clump", per_clump ? 1u : 0u);
+    autoport_proof::publish("grass_shade_engine_light_before", (u64)before.size());
+    autoport_proof::publish("grass_shade_engine_light_after", (u64)after.size());
+    autoport_proof::publish("grass_shade_engine_light_tris", (u64)tri_rgb.size());
+    std::unordered_set<u64> bases;
+    bases.reserve((size_t)m_instance_count / 4 + 16);
+    for (int i = 0; i < m_instance_count; ++i) {
+      const auto& gi = m_instances[(size_t)i];
+      const u64 qr = (u64)(gi.gr * 1023.0f + 0.5f) & 0x3ffu;
+      const u64 qg = (u64)(gi.gg * 1023.0f + 0.5f) & 0x3ffu;
+      const u64 qb = (u64)(gi.gb * 1023.0f + 0.5f) & 0x3ffu;
+      bases.insert((qr << 20) | (qg << 10) | qb);
+    }
+    autoport_proof::publish("grass_shade_engine_base_colours", (u64)bases.size());
+    autoport_proof::publish("grass_shade_engine_hits", m_shade_hits);
+    // `hits=` de la ligne FEATURE : les brins qui ont REELLEMENT recu une couleur de touffe.
+    // Desarme, `expand()` n'en compte aucun et `note_hit_for` est de toute facon un no-op.
+    autoport_proof::note_hit_for(kShadeItemId, m_shade_hits);
+  }
 
   // POLISH#9 proof: the per-triangle baked luma the grass is CURRENTLY multiplied by. A wide
   // min..max = real per-LOCATION variation (grass darkens in baked-dark ground). uploads>1 over a
@@ -3066,6 +3168,15 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4 * sizeof(u8),
                           (void*)((size_t)first * 4));
   };
+  // grass-shading : LE TERME DE FACE SUPPOSE QUE LES DEUX FACES DU RUBAN SONT RASTERISEES.
+  // `gl_FrontFacing` ne separe rien si le pilote elimine la face arriere : la moitie du terme
+  // n'atteindrait jamais un pixel et la porte publierait un ecart que personne ne voit.
+  // `GrassRenderer` ne touche jamais a GL_CULL_FACE — il herite de l'etat laisse par la passe
+  // precedente. On ne le suppose donc pas : on lit l'etat REEL au moment du dessin.
+  if (autoport_proof::feature_is(kShadeItemId)) {
+    autoport_proof::publish("grass_shade_engine_cull_face",
+                            glIsEnabled(GL_CULL_FACE) ? 1u : 0u);
+  }
   u64 draw_calls = 0;
   auto draw_pass = [&](GLenum mode, GLint verts, const std::vector<std::pair<int, int>>& runs,
                        int limit, int tris_per) -> u64 {

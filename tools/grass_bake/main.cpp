@@ -54,6 +54,10 @@ static void usage() {
       "                 brins, dispersion du compte et du rayon par touffe. Lecture pure.\n"
       "  --clump-nest PCT  rejoue le scan a CE palier et compare : origines de touffe qui bougent,\n"
       "                 et prefixe des candidats. Les deux doivent rendre zero.\n"
+      "  --shading-census  grass-shading : mesure la COULEUR — couleurs de base distinctes par\n"
+      "                 touffe, degrade racine/pointe et ecart entre les deux faces evalues\n"
+      "                 PAR LE TEXTE DU SHADER lui-meme, resolution de la lumiere cuite avant\n"
+      "                 et apres, et le bras desarme compare brin par brin. Lecture pure.\n"
       "  --variant-census  grass-blade-variants : recense la silhouette de chaque brin sur la\n"
       "                 population REELLE d'instances — part par variante contre le profil,\n"
       "                 budget de sommets, repli, empreinte. Lecture pure, il n'ecrit rien.\n"
@@ -86,6 +90,7 @@ int main(int argc, char** argv) {
   bool trans_census_on = false;  // grass-path-transitions : mesure la transition au bord des chemins
   bool clump_census_on = false;  // grass-clumps : mesure le regroupement des racines en touffes
   float nest_pct = 0.0f;         // grass-clumps : palier de comparaison pour la nidification (0 = off)
+  bool shade_census_on = false;    // grass-shading : mesure la couleur, n'ecrit rien
   bool variant_census_on = false;  // grass-blade-variants : recense la silhouette des brins
   std::string variant_nest_slug;   // grass-blade-variants : palier compare (vide = off)
   int preset_index = -1;           // indice du palier demande par --preset (-1 = non demande)
@@ -132,6 +137,8 @@ int main(int argc, char** argv) {
       clump_census_on = true;
     } else if (a == "--clump-nest") {
       nest_pct = std::stof(need_val("--clump-nest"));
+    } else if (a == "--shading-census") {
+      shade_census_on = true;
     } else if (a == "--variant-census") {
       variant_census_on = true;
     } else if (a == "--variant-nest") {
@@ -632,7 +639,8 @@ int main(int argc, char** argv) {
   // `want_cand_map` : les deux recensements en ont besoin — sans la carte brin -> candidat, ils
   // apparieraient le premier candidat d'un triangle au premier brin et sauteraient tout ce que
   // `keep` a ecarte. Le jeu, lui, l'appelle a false et ne paie pas les 4 octets par instance.
-  const bool want_map = trans_census_on || clump_census_on || nest_pct > 0.0f;
+  const bool want_map =
+      trans_census_on || clump_census_on || nest_pct > 0.0f || shade_census_on;
   auto eBake = grass_bake::expand(bake, density, want_map);
   bake.chunks = eBake.chunks;
 
@@ -666,6 +674,50 @@ int main(int argc, char** argv) {
     fmt::print("clump_size_cv_floor={:.4f}\n", grass_bake::CLUMP_SIZE_CV_FLOOR);
     fmt::print("clump_radius_cv_floor={:.4f}\n", grass_bake::CLUMP_RADIUS_CV_FLOOR);
     fmt::print("clump_blades_medium={:.2f}\n", grass_bake::CLUMP_BLADES_MEDIUM);
+  }
+
+  // grass-shading : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de fichier. Le
+  // BRAS DESARME est expanse ICI, dans le meme processus et sur le MEME bake : c'est l'oracle du
+  // terme `ablation_diffs`, pas un binaire de reference qu'il faudrait aller chercher.
+  if (shade_census_on) {
+    const auto eOff = grass_bake::expand(bake, density, true, true, false);
+    const auto sc = grass_bake::shading_census(bake, eBake, eOff);
+    fmt::print("shade_level={}\n", level_name);
+    fmt::print("shade_fr3_bytes={}\n", fr3_size);
+    fmt::print("shade_density={:.0f}\n", density);
+    fmt::print("shade_blades_total={}\n", sc.blades_total);
+    fmt::print("shade_base_colours={}\n", sc.base_colours);
+    fmt::print("shade_base_colours_floor={}\n", sc.base_colours_floor);
+    fmt::print("shade_clumps_coloured={}\n", sc.clumps_coloured);
+    fmt::print("shade_clump_colour_breaks={}\n", sc.clump_colour_breaks);
+    fmt::print("shade_clump_lum_cv={:.5f}\n", sc.clump_lum_cv);
+    fmt::print("shade_clump_lum_cv_off={:.5f}\n", sc.clump_lum_cv_off);
+    fmt::print("shade_intra_tri_cv={:.5f}\n", sc.intra_tri_cv);
+    fmt::print("shade_intra_tri_cv_off={:.5f}\n", sc.intra_tri_cv_off);
+    fmt::print("shade_intra_tri_sampled={}\n", sc.intra_tri_sampled);
+    fmt::print("shade_clump_mod_mean={:.5f}\n", sc.clump_mod_mean);
+    fmt::print("shade_clump_amp_max={:.5f}\n", sc.clump_amp_max);
+    fmt::print("shade_root_tip_delta_mean={:.5f}\n", sc.root_tip_delta_mean);
+    fmt::print("shade_root_tip_delta_min={:.5f}\n", sc.root_tip_delta_min);
+    fmt::print("shade_root_tip_rel_mean={:.5f}\n", sc.root_tip_rel_mean);
+    fmt::print("shade_root_tip_rel_min={:.5f}\n", sc.root_tip_rel_min);
+    fmt::print("shade_face_delta_mean={:.5f}\n", sc.face_delta_mean);
+    fmt::print("shade_face_delta_max={:.5f}\n", sc.face_delta_max);
+    fmt::print("shade_sampled={}\n", sc.shade_sampled);
+    fmt::print("shade_light_values_before={}\n", sc.light_values_before);
+    fmt::print("shade_light_values_after={}\n", sc.light_values_after);
+    fmt::print("shade_light_tris={}\n", sc.light_tris);
+    fmt::print("shade_light_gain={:.5f}\n", sc.light_gain);
+    fmt::print("shade_ablation_diffs={}\n", sc.ablation_diffs);
+    fmt::print("shade_terms_measured={}\n", sc.terms_measured);
+    // LES SEUILS SONT PUBLIES PAR CE QUI MESURE, jamais recopies dans le juge.
+    fmt::print("shade_root_tip_floor={:.5f}\n", grass_bake::SHADE_ROOT_TIP_FLOOR);
+    fmt::print("shade_root_tip_rel_floor={:.5f}\n", grass_bake::SHADE_ROOT_TIP_REL_FLOOR);
+    fmt::print("shade_face_floor={:.5f}\n", grass_bake::SHADE_FACE_FLOOR);
+    fmt::print("shade_clump_cv_floor={:.5f}\n", grass_bake::SHADE_CLUMP_CV_FLOOR);
+    fmt::print("shade_light_gain_floor={:.5f}\n", grass_bake::SHADE_LIGHT_GAIN_FLOOR);
+    fmt::print("shade_amp_cap={:.5f}\n", grass_bake::SHADE_CLUMP_AMP_CAP);
+    fmt::print("shade_mean_tol={:.5f}\n", grass_bake::SHADE_CLUMP_MEAN_TOL);
   }
 
   // grass-clumps, point 3 : LES PALIERS RESTENT IMBRIQUES. On rejoue le scan a l'autre palier —
@@ -787,7 +839,11 @@ int main(int argc, char** argv) {
   if (variant_census_on || !variant_nest_slug.empty()) {
     fmt::print("[grass_bake] variant-census DONE.\n");
   }
-  if (clump_census_on || nest_pct > 0.0f || variant_census_on || !variant_nest_slug.empty()) {
+  if (shade_census_on) {
+    fmt::print("[grass_bake] shading-census DONE.\n");
+  }
+  if (clump_census_on || nest_pct > 0.0f || variant_census_on || !variant_nest_slug.empty() ||
+      shade_census_on) {
     return 0;
   }
 

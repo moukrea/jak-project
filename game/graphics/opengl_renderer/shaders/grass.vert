@@ -64,6 +64,10 @@ out float v_alpha;
 out vec2 v_uv;            // card-local coords: x in [-1,1] across width, y in [0,1] up
 flat out int v_is_card;   // 0 = near blade, 1 = mid card (frag cuts the card into a tuft)
 out float v_seed;         // per-instance random, seeds the card tuft sub-blades
+// grass-shading (SPEC section 7): la direction d'avancee horizontale du brin = la NORMALE de son
+// ruban. Le fragment s'en sert avec gl_FrontFacing pour separer la face eclairee de la face
+// opposee (voir grass_shade_face.glsl) — la seule grandeur qui distingue les deux cotes.
+out vec2 v_fwd_xz;
 
 const int   SEGMENTS = 4;            // blade strip segments -> 2*(SEGMENTS+1) = 10 verts
 const float TWO_PI   = 6.28318530718;
@@ -508,57 +512,19 @@ void main() {
               + vec3(0.0, dt * 0.07 * 4096.0, 0.0);
   }
 
-  // --- flat color: vertical gradient (dark base -> bright tip) + per-blade tint ---
-  // OWNER POLISH: more tint variation (wider brightness + a hue jitter so some
-  // blades are warmer / cooler green).
-  float tint2 = fract(tint * 7.919 + 0.371);       // decorrelated secondary random
-  vec3 base_dark  = vec3(0.075, 0.185, 0.040);
-  vec3 base_light = vec3(0.40, 0.66, 0.20);
-  vec3 col = mix(base_dark, base_light, t_col);
-  col *= (0.62 + 0.72 * tint);      // wider brightness variation per blade
-  float hue = tint2 - 0.5;          // -0.5 .. 0.5
-  col.r *= (1.0 + 0.50 * hue);      // warmer <-> cooler green
-  col.b *= (1.0 - 0.35 * hue);
-  col.g *= (0.88 + 0.22 * tint);
-
-  // OWNER POLISH#4: sample/match the GROUND TEXTURE colour. inst_gcol.rgb is the average
-  // colour of the tfrag/tie ground texture UNDER this blade (computed at placement). Shift
-  // the canonical grass-green toward that ground tone and let a little of the literal ground
-  // colour bleed in, so the grass never clashes with the texture showing through (a bright
-  // green blade over sandy/mossy ground would "faire tâche"). Per-location — grass over
-  // tra-grass, tra-beachrock and the beach fringes each takes its own matching green. The
-  // CARDS use the same per-instance ground colour, so near->far stays one seamless colour.
-  vec3 gcol = inst_gcol.rgb;
-  vec3 groundRef = vec3(0.24, 0.34, 0.14);   // a canonical grassy-ground average
-  vec3 harmon = col * clamp(gcol / max(groundRef, vec3(0.04)), vec3(0.55), vec3(1.9));
-  col = mix(col, harmon, 0.55);              // shift the green toward the ground's tone
-  col = mix(col, gcol, 0.16);                // a touch of the literal ground colour blends in
-
-  // OWNER POLISH#7: match the grass LUMINANCE to the ground albedo so blades are not brighter than
-  // the ground they grow from (owner: grass "bien plus lumineuse que la texture du sol de partout,
-  // même aux endroits les plus éclairés"). Pull the grass brightness toward the ground-texture
-  // brightness while keeping some per-blade variation (hue is preserved — only magnitude is scaled).
-  float glum  = dot(col,  vec3(0.299, 0.587, 0.114));
-  float grlum = dot(gcol, vec3(0.299, 0.587, 0.114));
-  if (glum > 0.001) {
-    float lm = clamp(grlum / glum, 0.45, 1.15);
-    col *= mix(1.0, lm, 0.6);
-  }
-
-  // OWNER POLISH#9 (#1 owner priority): apply the GROUND's ACTUAL baked light — per-channel + DYNAMIC.
-  // inst_light.rgb is the ground vertex's interpolated baked colour UNDER this blade at the CURRENT
-  // time of day (normalized [0,1]; re-uploaded by update_light() as the day/night cycle advances).
-  // *2.0 recovers the EXACT factor tfrag/TIE multiply the ground texture by (fragment_color =
-  // (palette/255)*2), so the grass darkens/brightens EXACTLY like the ground beneath it — per LOCATION
-  // and per TIME OF DAY. Where the baked light darkens the ground the grass darkens with it (owner:
-  // grass "fait tâche quand le baked lighting rend le sol plus sombre"). The old build multiplied by a
-  // FROZEN, level-MEAN-centred luma (inst_gcol.w) sampled once at load -> it never tracked the ground.
-  // ROUND 11: a textured card's colour comes from its TEXELS — v_color carries only the ground's
-  // dynamic baked light (the exact (palette/255)*2 factor tfrag/TIE multiply the native strip by),
-  // sampled from the owning WALKABLE lawn tri => brightness-continuous across the lip, per time of day.
-  if (is_fcard) col = vec3(1.0);
-  col *= inst_light.rgb * 2.0;
-  col = clamp(col, vec3(0.0), vec3(1.5));
+  // grass-shading (SPEC-refonte-herbe.md, section 7) : LE MODELE DE COULEUR VIT DANS UN CHUNK
+  // PARTAGE, parce que la porte de l'item doit le MESURER. `grass_shade.glsl` est compile ici par
+  // le pilote et une seconde fois par le C++ de `grass_bake::shading_census()` : l'ecart de
+  // luminance racine/pointe publie par la preuve est celui de CE texte, pas d'un miroir.
+  // Le bloc qui etait ici lignes 511-561 y a ete deplace TEL QUEL (swizzles .r/.g/.b reecrits en
+  // .x/.y/.z, seul sous-ensemble que les deux compilateurs lisent pareil).
+  float gs_t = t_col;
+  float gs_tint = tint;
+  vec3 gs_gcol = inst_gcol.xyz;
+  vec3 gs_light = inst_light.xyz;
+  bool gs_card = is_fcard;
+  vec3 col;
+#include "grass_shade.glsl"
 
   // ROUND#14 DISCRIMINATOR colour override (flat, bypasses the grass/light pipeline so the tier
   // is unmistakable in the capture): 1 = magenta base stubs, 2 = cyan blades, 3 = yellow cards.
@@ -580,6 +546,9 @@ void main() {
   // ROUND 11: for a textured card v_seed carries the hang-texture select (0/1) instead of the
   // procedural tuft seed (the frag's v_is_card==1 tuft path never runs for class-2 cards).
   v_seed = is_fcard ? fc_texb : tint * 331.0 + phase * 71.0;
+  // grass-shading : `fwdv` est l'axe de courbure du brin, donc la normale de son ruban (le plan
+  // du ruban est tendu par `rightv` et la verticale). Le fragment la combine a gl_FrontFacing.
+  v_fwd_xz = vec2(s, c);
 
   // OWNER POLISH#11: HARD geometric edge clip. Clamp the blade's TOTAL horizontal offset from its base
   // to rim_dist (the distance to the nearest true platform rim), so nothing — width, static bend,
