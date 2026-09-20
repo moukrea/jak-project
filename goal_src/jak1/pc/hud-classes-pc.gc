@@ -1459,7 +1459,8 @@
    (t10-capped   int32)    ;; images ou la borne de cout a tronque la nuee
    (t10-rmax     int32)    ;; plus grande etendue de nuee, en 1/16 d'unite de canevas
    (t10-rmin     int32)    ;; plus petite : une nuee qui s'effondre se lit ici
-   (t10-cover    int32)    ;; CONTROLE : images ou la nuee RECOUVRE vraiment l'anneau
+   (t10-cover    int32)    ;; CONTROLE : images ou la nuee RECOUVRE vraiment le sprite de l'anneau
+   (t10-hole     int32)    ;;   ... dont celles ou elle DEBORDE du trou, sur la couronne opaque
    ;; --- termes 12 et 13 (reprise 20/09 11:10) : LA NUEE TIENT DANS LE TROU, ET ELLE EST OPAQUE
    (t12-n        int32 3)  ;; images mesurees, par type d'eco (0 bleu · 1 rouge · 2 jaune)
    (t12-fit      int32 3)  ;; pire boite des sommets EMIS autour du centre, en 1/16 d'unite
@@ -3225,7 +3226,16 @@
                (r (the int (* 16.0 (fmax ex ey)))))
           (if (> r (-> this t10-rmax)) (set! (-> this t10-rmax) r))
           (if (or (zero? (-> this t10-rmin)) (< r (-> this t10-rmin))) (set! (-> this t10-rmin) r))
-          (if (> r (the int (* 16.0 RHUD_GAUGE_HOLE_R)))  (+! (-> this t10-cover) 1))
+          ;; REPRISE DU 20/09 11:10 — le CONTROLE de recouvrement change de seuil, et il le dit.
+          ;; Il servait a ecarter un vert par inaction : juger « dessus ou dessous » n'a de sens
+          ;; que sur des images ou les deux primitives se recouvrent. Il exigeait que la nuee
+          ;; depasse le RAYON DU TROU — c'est-a-dire qu'elle morde la couronne, exactement ce que
+          ;; l'owner refuse maintenant. Le recouvrement des deux primitives se lit donc sur le
+          ;; sprite de l'anneau, qui occupe tout le disque, trou compris : la nuee doit tenir plus
+          ;; de la moitie du rayon du trou. Le debordement sur la couronne, lui, reste COMPTE a
+          ;; part (`t10_hole`) et n'est plus exige : il est desormais BORNE par le terme 12.
+          (if (> r (the int (* 16.0 RHUD_NUEE_BOX_MIN)))   (+! (-> this t10-cover) 1))
+          (if (> r (the int (* 16.0 RHUD_GAUGE_HOLE_R)))   (+! (-> this t10-hole) 1))
           (if (> r (the int (* 16.0 RHUD_GAUGE_OUTER_R))) (+! (-> this t10-band) 1))
           ;; --- terme 12 : LA NUEE TIENT DANS LE TROU, PAR TYPE D'ECO (reprise 20/09 11:10).
           ;; La MEME grandeur que `t10-rmax` — la boite des sommets REELLEMENT emis autour du
@@ -3567,6 +3577,8 @@
       (__pc-autoport-publish "hud_gauge_t10_park_ko" (-> this t10-park-ko))
       (__pc-autoport-publish "hud_gauge_t10_band_bad" (-> this t10-band))
       (__pc-autoport-publish "hud_gauge_t10_cover" (-> this t10-cover))
+      (__pc-autoport-publish "hud_gauge_t10_cover_min_16th" (the int (* 16.0 RHUD_NUEE_BOX_MIN)))
+      (__pc-autoport-publish "hud_gauge_t10_hole_over" (-> this t10-hole))
       (__pc-autoport-publish "hud_gauge_t10_quads_max" (-> this t10-quads))
       (__pc-autoport-publish "hud_gauge_t10_capped" (-> this t10-capped))
       (__pc-autoport-publish "hud_gauge_t10_rmax_16th" (-> this t10-rmax))
