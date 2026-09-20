@@ -58,6 +58,11 @@ static void usage() {
       "                 touffe, degrade racine/pointe et ecart entre les deux faces evalues\n"
       "                 PAR LE TEXTE DU SHADER lui-meme, resolution de la lumiere cuite avant\n"
       "                 et apres, et le bras desarme compare brin par brin. Lecture pure.\n"
+      "  --interaction-census  grass-interaction-direction : joue une traversee scriptee sur les\n"
+      "                 VRAIES positions de brins (8 caps x 24 pas) et mesure la loi de contact\n"
+      "                 PAR LE TEXTE DU SHADER lui-meme : resultante, angle au cap, biais\n"
+      "                 avant/arriere, degagement lateral. Le bras RADIAL (l'etat d'avant) est\n"
+      "                 joue sur la MEME donnee, au MEME pas. Lecture pure, il n'ecrit rien.\n"
       "  --variant-census  grass-blade-variants : recense la silhouette de chaque brin sur la\n"
       "                 population REELLE d'instances — part par variante contre le profil,\n"
       "                 budget de sommets, repli, empreinte. Lecture pure, il n'ecrit rien.\n"
@@ -92,6 +97,7 @@ int main(int argc, char** argv) {
   bool wind_census_on = false;   // grass-wind : mesure le champ de vent hors ligne, n'ecrit rien
   float nest_pct = 0.0f;         // grass-clumps : palier de comparaison pour la nidification (0 = off)
   bool shade_census_on = false;    // grass-shading : mesure la couleur, n'ecrit rien
+  bool inter_census_on = false;    // grass-interaction-direction : mesure le contact, n'ecrit rien
   bool variant_census_on = false;  // grass-blade-variants : recense la silhouette des brins
   std::string variant_nest_slug;   // grass-blade-variants : palier compare (vide = off)
   int preset_index = -1;           // indice du palier demande par --preset (-1 = non demande)
@@ -142,6 +148,8 @@ int main(int argc, char** argv) {
       nest_pct = std::stof(need_val("--clump-nest"));
     } else if (a == "--shading-census") {
       shade_census_on = true;
+    } else if (a == "--interaction-census") {
+      inter_census_on = true;
     } else if (a == "--variant-census") {
       variant_census_on = true;
     } else if (a == "--variant-nest") {
@@ -764,6 +772,64 @@ int main(int argc, char** argv) {
     fmt::print("shade_mean_tol={:.5f}\n", grass_bake::SHADE_CLUMP_MEAN_TOL);
   }
 
+  // grass-interaction-direction : il MESURE, il n'ecrit rien, et il sort AVANT toute ecriture de
+  // fichier. LES DEUX BRAS sont joues dans CE processus, sur la MEME donnee et au MEME pas : le
+  // bras radial (`intx_off_*`) est l'etat que l'item remplace, mesure et non suppose.
+  if (inter_census_on) {
+    const auto ic = grass_bake::interaction_census(bake, eBake);
+    fmt::print("intx_level={}\n", level_name);
+    fmt::print("intx_fr3_bytes={}\n", fr3_size);
+    fmt::print("intx_density={:.0f}\n", density);
+    fmt::print("intx_blades_total={}\n", ic.blades_total);
+    fmt::print("intx_origin_x_m={:.5f}\n", ic.origin_x_m);
+    fmt::print("intx_origin_z_m={:.5f}\n", ic.origin_z_m);
+    fmt::print("intx_origin_blades={}\n", ic.origin_blades);
+    fmt::print("intx_headings={}\n", ic.headings);
+    fmt::print("intx_steps={}\n", ic.steps);
+    fmt::print("intx_speed={:.5f}\n", ic.speed);
+    fmt::print("intx_radius_m={:.5f}\n", ic.radius_m);
+    fmt::print("intx_steps_measured={}\n", ic.steps_measured);
+    fmt::print("intx_angle_undefined={}\n", ic.angle_undefined);
+    fmt::print("intx_contacts_total={}\n", ic.contacts_total);
+    fmt::print("intx_resultant={:.5f}\n", ic.resultant);
+    fmt::print("intx_angle_mean_deg={:.5f}\n", ic.angle_mean_deg);
+    fmt::print("intx_angle_max_deg={:.5f}\n", ic.angle_max_deg);
+    fmt::print("intx_s_bias={:.5f}\n", ic.s_bias);
+    fmt::print("intx_lat_center={:.5f}\n", ic.lat_center);
+    fmt::print("intx_lat_edge={:.5f}\n", ic.lat_edge);
+    fmt::print("intx_lat_delta={:.5f}\n", ic.lat_delta);
+    fmt::print("intx_lat_center_n={}\n", ic.lat_center_n);
+    fmt::print("intx_lat_edge_n={}\n", ic.lat_edge_n);
+    // LE TERME 2 : l'ECART AU DISQUE, mesure BRIN A BRIN. `intx_off_lat_excess_delta` est son
+    // controle — la meme boucle appariee jouee a speed=0 des deux cotes, donc zero EXACT.
+    fmt::print("intx_paired_blades={}\n", ic.paired_blades);
+    fmt::print("intx_lat_a_center={:.5f}\n", ic.lat_a_center);
+    fmt::print("intx_lat_a_edge={:.5f}\n", ic.lat_a_edge);
+    fmt::print("intx_lat_r_center={:.5f}\n", ic.lat_r_center);
+    fmt::print("intx_lat_r_edge={:.5f}\n", ic.lat_r_edge);
+    fmt::print("intx_lat_excess_center={:.5f}\n", ic.lat_excess_center);
+    fmt::print("intx_lat_excess_edge={:.5f}\n", ic.lat_excess_edge);
+    fmt::print("intx_lat_excess_delta={:.5f}\n", ic.lat_excess_delta);
+    fmt::print("intx_lat_excess_center_n={}\n", ic.lat_excess_center_n);
+    fmt::print("intx_lat_excess_edge_n={}\n", ic.lat_excess_edge_n);
+    fmt::print("intx_off_lat_excess_delta={:.5f}\n", ic.off_lat_excess_delta);
+    fmt::print("intx_off_resultant={:.5f}\n", ic.off_resultant);
+    fmt::print("intx_off_s_bias={:.5f}\n", ic.off_s_bias);
+    fmt::print("intx_off_lat_center={:.5f}\n", ic.off_lat_center);
+    fmt::print("intx_off_lat_edge={:.5f}\n", ic.off_lat_edge);
+    fmt::print("intx_off_lat_delta={:.5f}\n", ic.off_lat_delta);
+    fmt::print("intx_off_contacts_total={}\n", ic.off_contacts_total);
+    fmt::print("intx_terms_measured={}\n", ic.terms_measured);
+    // LES SEUILS SONT PUBLIES PAR CE QUI MESURE, jamais recopies dans le juge.
+    fmt::print("intx_angle_cap_deg={:.5f}\n", grass_bake::INT_ANGLE_CAP_DEG);
+    fmt::print("intx_resultant_floor={:.5f}\n", grass_bake::INT_RESULTANT_FLOOR);
+    fmt::print("intx_resultant_ratio={:.5f}\n", grass_bake::INT_RESULTANT_RATIO);
+    fmt::print("intx_s_bias_floor={:.5f}\n", grass_bake::INT_S_BIAS_FLOOR);
+    fmt::print("intx_lat_delta_floor={:.5f}\n", grass_bake::INT_LAT_DELTA_FLOOR);
+    fmt::print("intx_lat_excess_floor={:.5f}\n", grass_bake::INT_LAT_EXCESS_FLOOR);
+    fmt::print("intx_radial_aniso_tol={:.5f}\n", grass_bake::INT_RADIAL_ANISO_TOL);
+  }
+
   // grass-clumps, point 3 : LES PALIERS RESTENT IMBRIQUES. On rejoue le scan a l'autre palier —
   // dans CE processus, sur le MEME .fr3 — et on compare touffe par touffe. Rien n'est ecrit.
   if (nest_pct > 0.0f) {
@@ -889,8 +955,11 @@ int main(int argc, char** argv) {
   if (wind_census_on) {
     fmt::print("[grass_bake] wind-census DONE.\n");
   }
+  if (inter_census_on) {
+    fmt::print("[grass_bake] interaction-census DONE.\n");
+  }
   if (clump_census_on || nest_pct > 0.0f || variant_census_on || !variant_nest_slug.empty() ||
-      shade_census_on || wind_census_on) {
+      shade_census_on || wind_census_on || inter_census_on) {
     return 0;
   }
 

@@ -7721,4 +7721,362 @@ WindCensus wind_census(const BakeData& d, const ExpandResult& e) {
   return c;
 }
 
+// ===============================================================================================
+// grass-interaction-direction (SPEC refonte-herbe, section 11) — LE RECENSEMENT DU CONTACT.
+// ===============================================================================================
+
+namespace {
+
+// grass-interaction-direction : LA MEME LOI QUE LE PILOTE, PAS UNE COPIE. `grass_contact_dir`
+// est une fonction LIBRE cote GLSL, donc elle s'inclut au niveau namespace et non dans un
+// corps de fonction comme `grass_shade.glsl`. Elle n'appelle ni sin ni cos : aucune
+// using-declaration a portee de bloc n'est necessaire ici.
+using namespace glsl;
+#include "shaders/grass_contact_dir.glsl"
+
+}  // namespace
+
+namespace {
+
+// Ce qu'UN pas de la traversee produit, pour UN bras. Les deux bras sont joues sur la MEME
+// population de brins et au MEME pas : le radial n'est pas suppose, il est mesure.
+struct ContactStep {
+  bool measured = false;    // au moins un brin sous contact (k > 0)
+  bool angle_ok = false;    // resultante non nulle : l'angle EXISTE
+  double resultant = 0.0;
+  double angle_deg = 0.0;
+  double s_bias = 0.0;
+  double lat_center = 0.0;
+  double lat_edge = 0.0;
+  u64 lat_center_n = 0;
+  u64 lat_edge_n = 0;
+  u64 contacts = 0;
+  // --- LA MESURE APPARIEE. Le meme brin, au meme pas, sous les deux lois.
+  u64 paired = 0;
+  double lat_a_center = 0.0, lat_a_edge = 0.0;
+  double lat_r_center = 0.0, lat_r_edge = 0.0;
+  double excess_center = 0.0, excess_edge = 0.0;
+  u64 excess_center_n = 0, excess_edge_n = 0;
+};
+
+// `speed_a` = la loi dont on mesure le regime (1 = orientee, 0 = radiale). `speed_r` = la loi de
+// REFERENCE a laquelle chaque brin est compare, evaluee sur LE MEME `d` et LE MEME `dir`. Le
+// controle du terme 2 est cette meme fonction jouee a `speed_a = speed_r = 0` : les deux appels
+// rendent alors le MEME vecteur, donc un excedent nul par identite et non par tolerance.
+ContactStep contact_step(const std::vector<std::pair<float, float>>& xz,
+                         const std::vector<u32>& near_idx,
+                         float cx,
+                         float cz,
+                         const glsl::vec2& dir,
+                         float speed_a,
+                         float speed_r) {
+  ContactStep st;
+  const glsl::vec2 perp(-dir.y, dir.x);
+  const float R = INT_TRAMPLE_R;
+  double w_sum = 0.0, rx = 0.0, rz = 0.0, sb = 0.0;
+  double lc_w = 0.0, lc_s = 0.0, le_w = 0.0, le_s = 0.0;
+  double ac_s = 0.0, ae_s = 0.0, rc_s = 0.0, re_s = 0.0, xc_s = 0.0, xe_s = 0.0;
+  double xc_w = 0.0, xe_w = 0.0;
+  for (u32 bi : near_idx) {
+    const glsl::vec2 dv(xz[bi].first - cx, xz[bi].second - cz);
+    const glsl::vec3 r = grass_contact_dir(dv, dir, speed_a, R, 1.0f);
+    const float k = r.x;
+    if (!(k > 0.f)) {
+      continue;
+    }
+    const glsl::vec2 push(r.y, r.z);
+    ++st.contacts;
+    w_sum += k;
+    rx += (double)k * push.x;
+    rz += (double)k * push.y;
+    const float ns = glsl::dot(dv, dir) / R;
+    sb += (double)k * ns;
+    // DEGAGEMENT LATERAL : moitie AVANT seulement — derriere le pas la poussee n'a pas de
+    // signification laterale, l'y moyenner diluerait le terme.
+    if (ns >= 0.f) {
+      const float nt = glsl::dot(dv, perp) / R;
+      const float ant = nt < 0.f ? -nt : nt;
+      const float side = nt < 0.f ? -1.f : 1.f;
+      const float lat = glsl::dot(push, perp);
+      const double alat = lat < 0.f ? -(double)lat : (double)lat;
+      // LE MEME BRIN SOUS LA LOI DE REFERENCE : meme `dv`, meme `dir`, meme rayon, meme force.
+      // Seul `speed` change — c'est la seule variable qui separe les deux lois.
+      const glsl::vec3 rr = grass_contact_dir(dv, dir, speed_r, R, 1.0f);
+      const glsl::vec2 pushR(rr.y, rr.z);
+      ++st.paired;
+      const double latA = (double)glsl::dot(push, perp) * side;
+      const double latR = (double)glsl::dot(pushR, perp) * side;
+      const double excess = latA - latR;
+      if (ant < 0.25f) {
+        lc_w += k;
+        lc_s += (double)k * alat;
+        ++st.lat_center_n;
+        xc_w += k;
+        ac_s += (double)k * latA;
+        rc_s += (double)k * latR;
+        xc_s += (double)k * excess;
+        ++st.excess_center_n;
+      } else if (ant > 0.60f) {
+        le_w += k;
+        le_s += (double)k * alat;
+        ++st.lat_edge_n;
+        xe_w += k;
+        ae_s += (double)k * latA;
+        re_s += (double)k * latR;
+        xe_s += (double)k * excess;
+        ++st.excess_edge_n;
+      }
+    }
+  }
+  if (w_sum <= 0.0) {
+    return st;
+  }
+  st.measured = true;
+  rx /= w_sum;
+  rz /= w_sum;
+  st.s_bias = sb / w_sum;
+  st.resultant = std::sqrt(rx * rx + rz * rz);
+  // UN ANGLE SUR UNE RESULTANTE NULLE EST DU BRUIT PUR : il n'est pas « zero », il n'existe pas.
+  if (st.resultant > 1.0e-4) {
+    double c = (rx * dir.x + rz * dir.y) / st.resultant;
+    c = c > 1.0 ? 1.0 : (c < -1.0 ? -1.0 : c);
+    st.angle_deg = std::acos(c) * 180.0 / 3.14159265358979323846;
+    st.angle_ok = true;
+  }
+  if (lc_w > 0.0) {
+    st.lat_center = lc_s / lc_w;
+  }
+  if (le_w > 0.0) {
+    st.lat_edge = le_s / le_w;
+  }
+  if (xc_w > 0.0) {
+    st.lat_a_center = ac_s / xc_w;
+    st.lat_r_center = rc_s / xc_w;
+    st.excess_center = xc_s / xc_w;
+  }
+  if (xe_w > 0.0) {
+    st.lat_a_edge = ae_s / xe_w;
+    st.lat_r_edge = re_s / xe_w;
+    st.excess_edge = xe_s / xe_w;
+  }
+  return st;
+}
+
+// L'agregation d'un bras sur les 8*24 pas.
+struct ContactArm {
+  u64 steps_measured = 0, angle_undefined = 0, contacts = 0;
+  u64 lat_center_n = 0, lat_edge_n = 0;  // effectifs de BRINS des deux bandes
+  u64 c_steps = 0, e_steps = 0;          // ... et nombre de PAS qui en portaient
+  double resultant = 0.0, angle_mean = 0.0, angle_max = 0.0, s_bias = 0.0;
+  double lat_center = 0.0, lat_edge = 0.0;
+  u64 paired = 0, ex_center_n = 0, ex_edge_n = 0;
+  double lat_a_center = 0.0, lat_a_edge = 0.0, lat_r_center = 0.0, lat_r_edge = 0.0;
+  double ex_center = 0.0, ex_edge = 0.0;
+};
+
+}  // namespace
+
+InteractionCensus interaction_census(const BakeData& d, const ExpandResult& e) {
+  (void)d;
+  InteractionCensus c;
+  c.headings = (u32)INT_HEADINGS;
+  c.steps = (u32)INT_STEPS;
+  c.speed = INT_SPEED;
+  c.radius_m = INT_TRAMPLE_R / 4096.0;
+  // UNE MESURE ABSENTE NE DIT PAS ZERO. Sans brins il n'y a pas de traversee a jouer, et tous les
+  // termes ci-dessous seraient des zeros verts sans population.
+  if (e.instances.empty()) {
+    return c;
+  }
+  c.blades_total = e.instances.size();
+
+  std::vector<std::pair<float, float>> xz;
+  xz.reserve(e.instances.size());
+  for (const GrassInstance& gi : e.instances) {
+    xz.emplace_back(gi.px, gi.pz);
+  }
+
+  // ---- L'ORIGINE EST CHOISIE PAR LA DONNEE, PAS CODEE EN DUR. La cellule de 4 m x 4 m qui porte
+  // le plus de brins : une traversee lancee dans un trou ne mesurerait que le vide.
+  const float cell_m = INT_CELL_M * 4096.f;
+  std::unordered_map<u64, u32> dense;
+  dense.reserve(xz.size() / 4 + 16);
+  auto cell_key = [](int ix, int iz) {
+    return ((u64)(u32)ix << 32) | (u64)(u32)iz;
+  };
+  for (const auto& p : xz) {
+    const int ix = (int)std::floor(p.first / cell_m);
+    const int iz = (int)std::floor(p.second / cell_m);
+    dense[cell_key(ix, iz)]++;
+  }
+  u64 best_key = 0;
+  u32 best_n = 0;
+  for (const auto& kv : dense) {
+    if (kv.second > best_n || (kv.second == best_n && kv.first < best_key)) {
+      best_n = kv.second;
+      best_key = kv.first;
+    }
+  }
+  const int bx = (int)(u32)(best_key >> 32);
+  const int bz = (int)(u32)(best_key & 0xffffffffull);
+  const float ox = ((float)bx + 0.5f) * cell_m;
+  const float oz = ((float)bz + 0.5f) * cell_m;
+  c.origin_blades = best_n;
+  c.origin_x_m = ox / 4096.0;
+  c.origin_z_m = oz / 4096.0;
+
+  // ---- LA GRILLE SPATIALE. Sans elle la traversee serait quadratique (des centaines de milliers
+  // de brins x 192 pas) et l'outil mettrait des minutes.
+  const float reach = INT_TRAMPLE_R * 1.6f;
+  std::unordered_map<u64, std::vector<u32>> grid;
+  grid.reserve(xz.size() / 8 + 16);
+  for (u32 i = 0; i < (u32)xz.size(); ++i) {
+    const int ix = (int)std::floor(xz[i].first / reach);
+    const int iz = (int)std::floor(xz[i].second / reach);
+    grid[cell_key(ix, iz)].push_back(i);
+  }
+
+  ContactArm on, off;
+  for (int h = 0; h < INT_HEADINGS; ++h) {
+    const float ang = (float)h * 3.14159265358979323846f / 4.f;
+    const glsl::vec2 dir(std::cos(ang), std::sin(ang));
+    for (int s = 0; s < INT_STEPS; ++s) {
+      const float t = (float)s * INT_STEP_M * 4096.f;
+      const float cx = ox + dir.x * t;
+      const float cz = oz + dir.y * t;
+      std::vector<u32> near_idx;
+      const int gx = (int)std::floor(cx / reach);
+      const int gz = (int)std::floor(cz / reach);
+      for (int ax = gx - 1; ax <= gx + 1; ++ax) {
+        for (int az = gz - 1; az <= gz + 1; ++az) {
+          auto it = grid.find(cell_key(ax, az));
+          if (it == grid.end()) {
+            continue;
+          }
+          for (u32 bi : it->second) {
+            const float dx = xz[bi].first - cx;
+            const float dz = xz[bi].second - cz;
+            if (dx * dx + dz * dz <= reach * reach) {
+              near_idx.push_back(bi);
+            }
+          }
+        }
+      }
+      // LES DEUX BRAS, MEME PAS, MEME POPULATION DE VOISINS. Le bras arme apparie chaque brin
+      // avec LUI-MEME sous la loi radiale ; le bras radial s'apparie a la loi radiale, donc son
+      // excedent est le CONTROLE et doit sortir a zero exact.
+      const ContactStep a = contact_step(xz, near_idx, cx, cz, dir, INT_SPEED, 0.0f);
+      const ContactStep b = contact_step(xz, near_idx, cx, cz, dir, 0.0f, 0.0f);
+      ContactArm* arms[2] = {&on, &off};
+      const ContactStep* sts[2] = {&a, &b};
+      for (int k = 0; k < 2; ++k) {
+        ContactArm& A = *arms[k];
+        const ContactStep& S = *sts[k];
+        if (!S.measured) {
+          continue;
+        }
+        ++A.steps_measured;
+        A.contacts += S.contacts;
+        A.paired += S.paired;
+        A.resultant += S.resultant;
+        A.s_bias += S.s_bias;
+        if (S.angle_ok) {
+          A.angle_mean += S.angle_deg;
+          if (S.angle_deg > A.angle_max) {
+            A.angle_max = S.angle_deg;
+          }
+        } else {
+          ++A.angle_undefined;
+        }
+        if (S.lat_center_n > 0) {
+          A.lat_center += S.lat_center;
+          A.lat_center_n += S.lat_center_n;
+          A.lat_a_center += S.lat_a_center;
+          A.lat_r_center += S.lat_r_center;
+          A.ex_center += S.excess_center;
+          A.ex_center_n += S.excess_center_n;
+          ++A.c_steps;
+        }
+        if (S.lat_edge_n > 0) {
+          A.lat_edge += S.lat_edge;
+          A.lat_edge_n += S.lat_edge_n;
+          A.lat_a_edge += S.lat_a_edge;
+          A.lat_r_edge += S.lat_r_edge;
+          A.ex_edge += S.excess_edge;
+          A.ex_edge_n += S.excess_edge_n;
+          ++A.e_steps;
+        }
+      }
+    }
+  }
+
+  // Chaque terme se moyenne sur SA population : un pas sans contact n'a pas rendu zero, il n'a
+  // rien rendu, et une bande vide ne doit pas tirer la moyenne vers le bas.
+  auto finish = [](ContactArm& A) {
+    if (A.steps_measured > 0) {
+      const double n = (double)A.steps_measured;
+      A.resultant /= n;
+      A.s_bias /= n;
+      const double na = n - (double)A.angle_undefined;
+      A.angle_mean = na > 0.0 ? A.angle_mean / na : 0.0;
+    }
+    if (A.c_steps > 0) {
+      const double n = (double)A.c_steps;
+      A.lat_center /= n;
+      A.lat_a_center /= n;
+      A.lat_r_center /= n;
+      A.ex_center /= n;
+    }
+    if (A.e_steps > 0) {
+      const double n = (double)A.e_steps;
+      A.lat_edge /= n;
+      A.lat_a_edge /= n;
+      A.lat_r_edge /= n;
+      A.ex_edge /= n;
+    }
+  };
+  finish(on);
+  finish(off);
+
+  c.steps_measured = on.steps_measured;
+  c.angle_undefined = on.angle_undefined;
+  c.contacts_total = on.contacts;
+  c.resultant = on.resultant;
+  c.angle_mean_deg = on.angle_mean;
+  c.angle_max_deg = on.angle_max;
+  c.s_bias = on.s_bias;
+  c.lat_center = on.lat_center;
+  c.lat_edge = on.lat_edge;
+  c.lat_delta = on.lat_edge - on.lat_center;
+  c.lat_center_n = on.lat_center_n;
+  c.lat_edge_n = on.lat_edge_n;
+  c.paired_blades = on.paired;
+  c.lat_a_center = on.lat_a_center;
+  c.lat_a_edge = on.lat_a_edge;
+  c.lat_r_center = on.lat_r_center;
+  c.lat_r_edge = on.lat_r_edge;
+  c.lat_excess_center = on.ex_center;
+  c.lat_excess_edge = on.ex_edge;
+  c.lat_excess_delta = on.ex_edge - on.ex_center;
+  c.lat_excess_center_n = on.ex_center_n;
+  c.lat_excess_edge_n = on.ex_edge_n;
+  c.off_resultant = off.resultant;
+  c.off_s_bias = off.s_bias;
+  c.off_lat_center = off.lat_center;
+  c.off_lat_edge = off.lat_edge;
+  c.off_lat_delta = off.lat_edge - off.lat_center;
+  c.off_lat_excess_delta = off.ex_edge - off.ex_center;
+  c.off_contacts_total = off.contacts;
+
+  // ---- COMBIEN DE GRANDEURS ONT UNE POPULATION. Un terme sans population n'est pas « a zero »,
+  // il n'est PAS MESURE : le juge lit ce compte AVANT de lire une seule valeur.
+  if (c.blades_total > 0) c.terms_measured++;
+  if (on.steps_measured > 0) c.terms_measured++;
+  if (on.lat_center_n > 0) c.terms_measured++;
+  if (on.lat_edge_n > 0) c.terms_measured++;
+  if (off.contacts > 0) c.terms_measured++;
+  if (on.paired > 0) c.terms_measured++;
+  return c;
+}
+
 }  // namespace grass_bake

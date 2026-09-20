@@ -130,6 +130,36 @@ inline vec3 sin(const vec3& a) {
   return vec3(std::sin(a.x), std::sin(a.y), std::sin(a.z));
 }
 
+// ---- vec2 : LA LOI DE CONTACT ORIENTEE L'EXIGE ----------------------------------------------
+// `game/graphics/opengl_renderer/shaders/grass_contact_dir.glsl` (item
+// `grass-interaction-direction`) travaille dans le plan XZ : le cap du pas, l'ecart a son axe, la
+// direction de poussee. Il n'y avait ici que `dot(vec2,vec2)` — pas une seule operation. Sans ces
+// cinq lignes, l'outil qui MESURE l'angle de flexion aurait du recopier la loi en C++, c'est-a-dire
+// mesurer sa propre copie.
+inline vec2 operator+(const vec2& a, const vec2& b) {
+  return vec2(a.x + b.x, a.y + b.y);
+}
+inline vec2 operator-(const vec2& a, const vec2& b) {
+  return vec2(a.x - b.x, a.y - b.y);
+}
+inline vec2 operator*(const vec2& a, float s) {
+  return vec2(a.x * s, a.y * s);
+}
+inline vec2 operator*(float s, const vec2& a) {
+  return vec2(a.x * s, a.y * s);
+}
+inline vec2 operator/(const vec2& a, float s) {
+  return vec2(a.x / s, a.y / s);
+}
+
+// `length` : la norme GLSL. `std::sqrt` est deja tire par `sin`/`cos` ci-dessus.
+inline float length(const vec2& a) {
+  return std::sqrt(a.x * a.x + a.y * a.y);
+}
+inline float length(const vec3& a) {
+  return std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+
 inline float fract(float v) {
   // GLSL: x - floor(x). Ecrit sans <cmath> pour que cet en-tete n'impose rien a ses clients.
   const float f = (float)(long long)v;

@@ -1,4 +1,5 @@
 // Shared grass/shrub contact. Keep the literal-index Adreno unroll and grass law intact.
+#include "grass_contact_dir.glsl"
 uniform vec4  u_jak_pos;   // xyz = Jak world pos, w = 1 when valid (trample origin)
 uniform vec4  u_jak_ledge; // xyz = ledge-grab point, w = 1 while Jak hangs (ledge-parting trample)
 uniform vec4 u_trample[16];
@@ -6,6 +7,10 @@ uniform int  u_trample_count;
 uniform float u_trample_str[16];  // LEGACY (Adreno miscompiles dynamic float-array reads -> 0)
 uniform vec4 u_trample2[16];
 uniform vec4 u_jak_trail[4];
+// grass-interaction-direction : le cap du pas. xy = direction unitaire XZ, z = force 0..1,
+// w = 1 quand la loi orientee est armee (palier >= medium et item arme), 0 = repli radial.
+// vec4 et NON un tableau : les tableaux de float rendent -1 en localisation sur Adreno 618.
+uniform vec4 u_contact_dir;
 
 const float TRAMPLE_R = 2.2 * 4096.0; // grass flattens within this radius of Jak
 // OWNER POLISH#3: only trample when Jak is near THIS grass's ground height — not
@@ -32,26 +37,24 @@ void vegetation_contact(vec3 base, float H, int u_debug,
   heightMul = 1.0;
   trample = vec3(0.0);
   float bestk = 0.0;
-  vec2  bestd = vec2(0.0, 1.0);
-  for (int ji = 0; ji < 5; ++ji) {
-    int ti = (ji > 0) ? (ji - 1) : 0;  // never a negative index expression (Adreno paranoia)
-    vec4 J = (ji == 0) ? u_jak_pos : u_jak_trail[ti];
-    float jstr = min(J.w, 1.0);
-    float jgap = J.y - base.y;
-    if (jstr > 0.004 && jgap > TRAMPLE_Y_LO && jgap < TRAMPLE_Y_HI) {
-      vec2 d = base.xz - J.xz;
-      float dist = length(d);
-      if (dist < TRAMPLE_R) {
-        float afade = 1.0 - smoothstep(TRAMPLE_Y_EASE, TRAMPLE_Y_HI, jgap);
-        float k = (1.0 - dist / TRAMPLE_R) * afade * jstr;  // 0 at edge -> 1 at Jak, eased
-        if (k > bestk) { bestk = k; bestd = d; }
-      }
-    }
-  }
+  vec2  bestp = vec2(0.0, 1.0);
+  // grass-interaction-direction : la boucle `for (int ji = 0; ji < 5; ++ji)` d'avant lisait
+  // `u_jak_trail[ti]` a index CALCULE. Le commentaire de `grass.vert:282` tenait les petits
+  // tableaux [4] pour surs sur l'Adreno 618, mais rien ne le MESURAIT : c'etait la derniere
+  // lecture a index non litteral du chemin herbe. Deroulage a index litteral, comme TR_STEP et
+  // OC_STEP — et la porte de l'item compte desormais ces lectures, sur l'appareil.
+#define JK_STEP(J) { vec4 Jv = (J); float jstr = min(Jv.w, 1.0); float jgap = Jv.y - base.y; \
+  if (jstr > 0.004 && jgap > TRAMPLE_Y_LO && jgap < TRAMPLE_Y_HI) { \
+    float afade = 1.0 - smoothstep(TRAMPLE_Y_EASE, TRAMPLE_Y_HI, jgap); \
+    vec3 rk = grass_contact_dir(base.xz - Jv.xz, vec2(u_contact_dir.x, u_contact_dir.y), \
+                                u_contact_dir.z * u_contact_dir.w, TRAMPLE_R, afade * jstr); \
+    if (rk.x > bestk) { bestk = rk.x; bestp = vec2(rk.y, rk.z); } } }
+  JK_STEP(u_jak_pos)
+  JK_STEP(u_jak_trail[0]) JK_STEP(u_jak_trail[1])
+  JK_STEP(u_jak_trail[2]) JK_STEP(u_jak_trail[3])
+#undef JK_STEP
   if (bestk > 0.0) {
-    float bdist = length(bestd);
-    vec2 away = bdist > 1.0 ? bestd / bdist : vec2(0.0, 1.0);
-    trample = vec3(away.x, 0.0, away.y) * (bestk * bestk) * H * 1.3;
+    trample = vec3(bestp.x, 0.0, bestp.y) * (bestk * bestk) * H * 1.3;
     heightMul = 1.0 - bestk * 0.8;                 // press the blade down
   }
 

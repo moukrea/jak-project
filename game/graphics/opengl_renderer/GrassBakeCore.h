@@ -596,6 +596,32 @@ constexpr u32 SHADE_BASE_COLOURS_FLOOR = 64u;   // couleurs de base distinctes d
 // touffes : promettre 176 000 valeurs la ou la source n'en contient pas serait un faux vert.
 constexpr float SHADE_LIGHT_GAIN_FLOOR = 1.50f;
 
+// ===================== grass-interaction-direction : LA LOI DE CONTACT ORIENTEE ================
+// L'herbe se couche DANS LA DIRECTION DU PAS au lieu de s'ecraser en rond. Ce qui suit est la
+// TRAVERSEE SCRIPTEE que `interaction_census` joue sur les VRAIES positions de brins du bake, et
+// les planchers qu'elle publie elle-meme — jamais recopies dans le juge (lecon de
+// grass-path-transitions : un seuil duplique derive du code mesure et rend la porte fausse).
+constexpr float INT_TRAMPLE_R = 2.2f * 4096.f;  // meme rayon de contact que le shader
+constexpr int INT_HEADINGS = 8;                 // 8 caps : aucun ne profite de la disposition
+constexpr int INT_STEPS = 24;                   // pas par cap
+constexpr float INT_STEP_M = 0.25f;             // 6 m de marche par cap
+constexpr float INT_SPEED = 1.0f;               // regime plein cap, DECLARE et publie
+constexpr float INT_CELL_M = 4.0f;              // cote de la cellule qui choisit l'origine
+// Les planchers. POINT DE DEPART declare : une mesure qui passe de justesse se publie telle
+// quelle, elle ne deplace pas son plancher.
+constexpr float INT_ANGLE_CAP_DEG = 25.0f;   // plafond declare du terme 1 (angle resultante/cap)
+constexpr float INT_RESULTANT_FLOOR = 0.35f; // 0 = on ecrase EN ROND, 1 = tout part dans un sens
+constexpr float INT_RESULTANT_RATIO = 3.0f;  // arme / radial : un RAPPORT, pas un epsilon
+constexpr float INT_S_BIAS_FLOOR = 0.05f;    // biais avant/arriere : rond => ~0
+constexpr float INT_LAT_DELTA_FLOOR = 0.20f; // degagement lateral bord - centre (terme 2)
+constexpr float INT_RADIAL_ANISO_TOL = 0.05f;  // le bras radial doit rendre s_bias ~ 0
+// L'ECART AU DISQUE, pas l'ecart au centre. `lat_delta` seul est vert SOUS LA LOI QU'ON REMPLACE
+// (mesure du 20/09 : 0,518 arme contre 0,498 radial) : un brin loin de l'axe a deja une poussee
+// radiale tres laterale, et la grandeur mesurait cette geometrie, pas le degagement. L'EXCEDENT est
+// mesure BRIN A BRIN contre le meme brin sous la loi radiale : il vaut exactement zero sous le
+// disque, par construction, et ce zero est le controle publie (`off_lat_excess_delta`).
+constexpr float INT_LAT_EXCESS_FLOOR = 0.10f;
+
 // La modulation que porte UNE touffe. Fonction pure de (graine, rayon) — rien d'autre.
 inline void shade_clump_modulate(u32 cseed, float radius_wu, float& mr, float& mg, float& mb) {
   const float t = hash_f(cseed + 11u) * 2.0f - 1.0f;  // -1..1, symetrique -> moyenne 1
@@ -1852,6 +1878,64 @@ struct ShadingCensus {
 // le terme `ablation_diffs` compare instance par instance au lieu d'affirmer que « desarme rend
 // l'etat d'avant », et il verifie du meme coup que la COULEUR est la seule chose que l'item change.
 ShadingCensus shading_census(const BakeData& d, const ExpandResult& e, const ExpandResult& e_off);
+
+// ===================== grass-interaction-direction : LE RECENSEMENT DU CONTACT ==================
+//
+// CE QU'IL NE FAIT PAS : recopier la loi. Il `#include` le MEME FICHIER que le pilote splice dans
+// `vegetation_contact.glsl` (`shaders/grass_contact_dir.glsl`), derriere `common/util/glsl_compat.h`.
+// Le graphe de deps de ninja relie ce .cpp a ce .glsl : ce binaire ne PEUT PAS mesurer une loi
+// plus vieille que celle qu'il mesure. C'est le montage exact de `eval_grass_shade`/`eval_grass_wind`.
+//
+// LES DEUX BRAS SONT MESURES ICI, dans le meme processus et sur la MEME donnee, au MEME pas : le
+// bras RADIAL (`gcd_speed = 0`) est l'etat que l'item REMPLACE. Il n'est pas suppose, il est joue.
+//
+// IL N'ECRIT RIEN. Il lit un `BakeData` et une `ExpandResult` deja produits.
+struct InteractionCensus {
+  // --- la traversee, telle qu'elle a REELLEMENT tourne
+  u64 blades_total = 0;       // brins du bake (denominateur de tout le reste)
+  double origin_x_m = 0.0;    // centre de la cellule la plus dense — CHOISI, pas code en dur
+  double origin_z_m = 0.0;
+  u64 origin_blades = 0;      // brins que porte cette cellule
+  u32 headings = 0;
+  u32 steps = 0;
+  double speed = 0.0;
+  double radius_m = 0.0;
+  u64 steps_measured = 0;     // pas ayant AU MOINS un brin sous contact (k > 0)
+  u64 angle_undefined = 0;    // pas dont la resultante est nulle : l'angle n'y existe pas
+  u64 contacts_total = 0;     // (pas, brin) sous contact, bras arme
+  // --- terme 1 : LA POUSSEE SUIT LE PAS
+  double resultant = 0.0;     // |somme(k*push)| / somme(k), moyenne des pas. 0 = disque.
+  double angle_mean_deg = 0.0;  // angle resultante <-> cap
+  double angle_max_deg = 0.0;   // ... et le PIRE pas
+  double s_bias = 0.0;          // biais avant/arriere, pondere par k. Rond => ~0.
+  // --- terme 2 : LE DEGAGEMENT LATERAL
+  double lat_center = 0.0;   // |push . perp| moyen sur l'axe du pas (|nt| < 0.25), moitie AVANT
+  double lat_edge = 0.0;     // ... sur le bord (|nt| > 0.60)
+  double lat_delta = 0.0;    // bord - centre
+  u64 lat_center_n = 0;      // effectifs des deux bandes : une bande vide rendrait un ZERO MUET
+  u64 lat_edge_n = 0;
+  // --- terme 2, LA GRANDEUR QUI DISCRIMINE : le MEME brin, au MEME pas, sous les DEUX lois.
+  // `lat_a` = composante signee qui s'ecarte de l'axe sous la loi orientee, `lat_r` la meme sous
+  // la loi radiale, `lat_excess` leur difference. Sous le disque les deux poussees sont LE MEME
+  // vecteur, donc l'excedent est nul au bit : ce n'est pas un epsilon, c'est une identite.
+  u64 paired_blades = 0;     // (pas, brin) evalues sous les deux lois
+  double lat_a_center = 0.0, lat_a_edge = 0.0;
+  double lat_r_center = 0.0, lat_r_edge = 0.0;
+  double lat_excess_center = 0.0, lat_excess_edge = 0.0, lat_excess_delta = 0.0;
+  u64 lat_excess_center_n = 0, lat_excess_edge_n = 0;
+  double off_lat_excess_delta = 0.0;  // LE CONTROLE : la boucle appariee rejouee a speed=0 des
+                                      // DEUX cotes. Doit sortir a 0 EXACT ; autre chose = un
+                                      // appariement casse, pas un resultat.
+  // --- le bras RADIAL, joue sur la MEME donnee (`gcd_speed = 0`)
+  double off_resultant = 0.0;
+  double off_s_bias = 0.0;
+  double off_lat_center = 0.0;
+  double off_lat_edge = 0.0;
+  double off_lat_delta = 0.0;
+  u64 off_contacts_total = 0;
+  u32 terms_measured = 0;    // un ++ par population REELLEMENT non vide, jamais une constante
+};
+InteractionCensus interaction_census(const BakeData& d, const ExpandResult& e);
 
 // L'EMPREINTE DU MODELE N'EST PAS CALCULEE ICI, ET C'EST VOLONTAIRE. Ce binaire a COMPILE les deux
 // chunks (`#include` C++) : le graphe de dependances de ninja les suit, donc il ne peut pas etre

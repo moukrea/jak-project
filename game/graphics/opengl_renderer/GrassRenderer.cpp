@@ -135,6 +135,11 @@ AUTOPORT_FEATURE_SITE(kWindItemId);
 // la lame livree jusqu'ici.
 constexpr const char* kVariantItemId = "grass-blade-variants";
 AUTOPORT_FEATURE_SITE(kVariantItemId);
+// grass-interaction-direction (SPEC refonte-herbe, section 11) : la direction du pas, derivee
+// de la trainee, devient un VECTEUR. `hits` compte les contacts dynamiques reellement appliques
+// avec un cap non nul — desarme, la loi retombe sur le disque radial et n'en compte aucun.
+constexpr const char* kInteractionDirItemId = "grass-interaction-direction";
+AUTOPORT_FEATURE_SITE(kInteractionDirItemId);
 
 // Grecharged-grass-precompute-mode: hash_u32/hash_f + all placement constants + the scan-internal
 // texture helpers moved to GrassBakeCore (grass_bake namespace / GrassBakeCore.cpp). This TU keeps
@@ -299,7 +304,6 @@ struct TrampGhost {
   bool seen;               // matched a Merc2 capture this frame
   unsigned int actor_id = 0;  // 0: legacy static footprint; otherwise the GOAL process ID
 };
-static std::vector<TrampGhost> s_tramp_state;
 std::vector<float> g_tramp_strength;
 
 // ROUND#21d GOAL->C++ actor channel (see GrassOccluders.h). The stage vectors are game-thread-only;
@@ -367,6 +371,30 @@ void goal_break_at(float x, float y, float z) {
     s_break_kills.push_back({x, y, z});
   }
 }
+
+// grass-interaction-direction : la machine a etats des contacts portait son etat dans des
+// statiques de fonction (`s_tombs`) et dans des globales : aucune de ses quatre garanties —
+// relevement amorti, pierres tombales, annulation a la casse, contact mobile epargne par une
+// tombale statique — n'etait MESURABLE. Une course d'amorcage n'en atteint aucune : personne
+// ne casse une caisse pendant une preuve. Meme code, meme constantes, etat passe par
+// reference : le chemin vivant garde une instance unique, la repetition de la porte en prend
+// une locale. Rien de la loi n'a bouge, seule sa portee a change.
+struct Tombstone {
+  float x, z;
+  double t;
+};
+struct ContactIntegrator {
+  std::vector<TrampGhost> ghosts;
+  std::vector<Tombstone> tombs;
+  std::vector<std::array<float, 4>> tramp_in;    // ex-`g_tramp_building`
+  std::vector<MovingContact> moving_in;          // ex-`moving`
+  std::vector<std::array<float, 3>> break_in;    // ex-`s_break_kills`, deja consommee
+  std::vector<std::array<float, 4>> out_pos;     // ex-`g_tramp_published`
+  std::vector<float> out_str;                    // ex-`g_tramp_strength`
+  void step(float dt, double tnow, const std::array<float, 4>& jak);
+};
+// Le chemin vivant : UNE instance, celle que `publish()` fait avancer a chaque image.
+static ContactIntegrator g_live;
 
 void goal_publish() {
   // R24b ENFORCED static-stability (owner: the moving bald circle must be impossible BY CONSTRUCTION,
@@ -477,6 +505,141 @@ void goal_publish() {
   }
 }
 
+// grass-interaction-direction : LA MEME LOI, SON ETAT RENDU EXPLICITE. Reprise mot pour mot des
+// lignes 564-698 de `publish()` : memes constantes, meme ordre, memes commentaires. Les seules
+// substitutions sont de PORTEE (`s_tramp_state`->`ghosts`, `s_tombs`->`tombs`,
+// `g_tramp_building`->`tramp_in`, `moving`->`moving_in`, les kills deja recuperes->`break_in`,
+// `g_tramp_published`/`g_tramp_strength`->`out_pos`/`out_str`, `jkp`->`jak`, `tnow` en parametre).
+void ContactIntegrator::step(float dt, double tnow, const std::array<float, 4>& jak) {
+  auto d2jak = [&](const std::array<float, 4>& e) {
+    float dx = e[0] - jak[0], dz = e[2] - jak[2];
+    return dx * dx + dz * dz;
+  };
+  constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
+  constexpr float EASE_IN_S = 0.25f;
+  constexpr float EASE_OUT_S = 0.6f;        // owner round#21: release over ~0.4-0.8 s
+  for (auto& g : ghosts) {
+    g.seen = false;
+  }
+  // R27 RELEASE TOMBSTONES (owner directive, literal: "s'il est cassé, redresser l'herbe
+  // immédiatement et ignorer toute la logique de débris"): when a trample ghost is released (its
+  // actor left the publish set = broken), its SPOT is banned from re-flattening for 8 s — whatever
+  // the debris window re-publishes there cannot press the grass again. A regenerated dummy
+  // (~30 s+) re-flattens normally after the tombstone expires.
+  tombs.erase(std::remove_if(tombs.begin(), tombs.end(),
+                             [&](const Tombstone& tb) { return tnow - tb.t > 8.0; }),
+              tombs.end());
+  {
+    std::vector<std::array<float, 4>> filt;
+    filt.reserve(tramp_in.size());
+    for (const auto& e : tramp_in) {
+      bool banned = false;
+      for (const auto& tb : tombs) {
+        float dx = e[0] - tb.x, dz = e[2] - tb.z;
+        if (dx * dx + dz * dz < (1.0f * 4096.f) * (1.0f * 4096.f)) {
+          banned = true;
+          break;
+        }
+      }
+      if (!banned) {
+        filt.push_back(e);
+      }
+    }
+    tramp_in.swap(filt);
+  }
+  // R28: consume break-kill events — erase matching ghosts NOW + tombstone their spots.
+  {
+    for (const auto& k : break_in) {
+      // R30 (owner: the instant snap was TOO dry vs the crates' visible 0.6 s spring): tombstone ONLY.
+      // The banned spot stops feeding the ghost -> it plays the SAME smooth 0.6 s ease-out as a broken
+      // crate instead of vanishing in one frame.
+      tombs.push_back({k[0], k[2], tnow});
+      lg::info("[recharged-grass] R30 BREAK at ({:.1f},{:.1f},{:.1f}) — spot tombstoned, ghost eases out",
+               k[0] / 4096.f, k[1] / 4096.f, k[2] / 4096.f);
+    }
+    // Les evenements de casse sont CONSOMMES, comme le `swap` d'origine vidait `s_break_kills`.
+    break_in.clear();
+  }
+  for (const auto& e : tramp_in) {
+    TrampGhost* hit = nullptr;
+    for (auto& g : ghosts) {
+      if (g.actor_id != 0) {
+        continue;
+      }
+      float dx = g.e[0] - e[0], dz = g.e[2] - e[2];
+      if (dx * dx + dz * dz < MATCH_R * MATCH_R && std::fabs(g.e[1] - e[1]) < 2.f * 4096.f) {
+        hit = &g;
+        break;
+      }
+    }
+    if (hit) {
+      hit->e = e;
+      hit->seen = true;
+    } else if (ghosts.size() < 64) {
+      ghosts.push_back({e, 0.f, true});
+    }
+  }
+  tramp_in.clear();
+  // Mobile actors share the same easing and published arrays, but only their process ID
+  // identifies a ghost. Static break tombstones never filter or suppress a moving contact.
+  for (const auto& contact : moving_in) {
+    TrampGhost* hit = nullptr;
+    for (auto& g : ghosts) {
+      if (g.actor_id == contact.actor_id) {
+        hit = &g;
+        break;
+      }
+    }
+    if (hit) {
+      hit->e = contact.e;
+      hit->seen = true;
+    } else if (ghosts.size() < 64) {
+      ghosts.push_back({contact.e, 0.f, true, contact.actor_id});
+    }
+  }
+  float dtc = std::min(std::max(dt, 0.f), 0.1f);  // clamp a hitch so a long frame can't teleport the ease
+  out_pos.clear();
+  out_str.clear();
+  for (auto it = ghosts.begin(); it != ghosts.end();) {
+    if (it->seen) {
+      it->strength = std::min(1.f, it->strength + dtc / EASE_IN_S);
+    } else {
+      it->strength -= dtc / EASE_OUT_S;
+    }
+    if (it->strength <= 0.f) {
+      if (it->actor_id == 0) {
+        tombs.push_back({it->e[0], it->e[2], tnow});  // R27: static spot released -> ban 8 s
+      }
+      it = ghosts.erase(it);
+      continue;
+    }
+    if (out_pos.size() < 64) {
+      out_pos.push_back(it->e);
+      out_str.push_back(it->strength);
+    }
+    ++it;
+  }
+  // ROUND#21e nearest-16 for the trample list too (paired with its strength array, so sort a
+  // permutation and reorder both together — the ghost ease state itself is untouched).
+  if (out_pos.size() > 1) {
+    std::vector<size_t> order(out_pos.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      order[i] = i;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+      return d2jak(out_pos[a]) < d2jak(out_pos[b]);
+    });
+    std::vector<std::array<float, 4>> pe(order.size());
+    std::vector<float> ps(order.size());
+    for (size_t i = 0; i < order.size(); i++) {
+      pe[i] = out_pos[order[i]];
+      ps[i] = out_str[order[i]];
+    }
+    out_pos.swap(pe);
+    out_str.swap(ps);
+  }
+}
+
 void publish(float dt) {
   std::vector<MovingContact> moving;
   // ROUND#21d: fold the GOAL actor snapshot into this frame's lists (Merc2 capture is DEAD/disabled;
@@ -561,148 +724,316 @@ void publish(float dt) {
                    [&](const std::array<float, 4>& a, const std::array<float, 4>& b) {
                      return d2jak(a) < d2jak(b);
                    });
-  constexpr float MATCH_R = 1.5f * 4096.f;  // same actor if within 1.5 m XZ (they are static)
-  constexpr float EASE_IN_S = 0.25f;
-  constexpr float EASE_OUT_S = 0.6f;        // owner round#21: release over ~0.4-0.8 s
-  for (auto& g : s_tramp_state) {
-    g.seen = false;
-  }
-  // R27 RELEASE TOMBSTONES (owner directive, literal: "s'il est cassé, redresser l'herbe
-  // immédiatement et ignorer toute la logique de débris"): when a trample ghost is released (its
-  // actor left the publish set = broken), its SPOT is banned from re-flattening for 8 s — whatever
-  // the debris window re-publishes there cannot press the grass again. A regenerated dummy
-  // (~30 s+) re-flattens normally after the tombstone expires.
-  struct Tombstone {
-    float x, z;
-    double t;
-  };
-  static std::vector<Tombstone> s_tombs;
+  // grass-interaction-direction : LA MACHINE A ETATS A DEMENAGE dans `ContactIntegrator::step`.
+  // Ce qui reste ici est la bande d'entrees EXOGENES (horloge, evenements de casse, listes de
+  // l'image) et la recopie des sorties : rien de la loi. `tnow` et les kills se prennent au MEME
+  // endroit qu'avant, dans le MEME ordre.
   double tnow = std::chrono::duration<double>(
                           std::chrono::steady_clock::now().time_since_epoch())
                           .count();
   tnow = shrub_proof_inputs::value("contact/tombstone-time", tnow);
-  s_tombs.erase(std::remove_if(s_tombs.begin(), s_tombs.end(),
-                               [&](const Tombstone& tb) { return tnow - tb.t > 8.0; }),
-                s_tombs.end());
-  {
-    std::vector<std::array<float, 4>> filt;
-    filt.reserve(g_tramp_building.size());
-    for (const auto& e : g_tramp_building) {
-      bool banned = false;
-      for (const auto& tb : s_tombs) {
-        float dx = e[0] - tb.x, dz = e[2] - tb.z;
-        if (dx * dx + dz * dz < (1.0f * 4096.f) * (1.0f * 4096.f)) {
-          banned = true;
-          break;
-        }
-      }
-      if (!banned) {
-        filt.push_back(e);
-      }
-    }
-    g_tramp_building.swap(filt);
-  }
-  // R28: consume break-kill events — erase matching ghosts NOW + tombstone their spots.
   {
     std::vector<std::array<float, 3>> kills;
     {
       std::lock_guard<std::mutex> lk(s_goal_mutex);
       kills.swap(s_break_kills);
     }
-    for (const auto& k : kills) {
-      // R30 (owner: the instant snap was TOO dry vs the crates' visible 0.6 s spring): tombstone ONLY.
-      // The banned spot stops feeding the ghost -> it plays the SAME smooth 0.6 s ease-out as a broken
-      // crate instead of vanishing in one frame.
-      s_tombs.push_back({k[0], k[2], tnow});
-      lg::info("[recharged-grass] R30 BREAK at ({:.1f},{:.1f},{:.1f}) — spot tombstoned, ghost eases out",
-               k[0] / 4096.f, k[1] / 4096.f, k[2] / 4096.f);
-    }
+    g_live.break_in.swap(kills);
   }
-  for (const auto& e : g_tramp_building) {
-    TrampGhost* hit = nullptr;
-    for (auto& g : s_tramp_state) {
-      if (g.actor_id != 0) {
-        continue;
-      }
-      float dx = g.e[0] - e[0], dz = g.e[2] - e[2];
-      if (dx * dx + dz * dz < MATCH_R * MATCH_R && std::fabs(g.e[1] - e[1]) < 2.f * 4096.f) {
-        hit = &g;
-        break;
-      }
-    }
-    if (hit) {
-      hit->e = e;
-      hit->seen = true;
-    } else if (s_tramp_state.size() < 64) {
-      s_tramp_state.push_back({e, 0.f, true});
-    }
-  }
+  g_live.tramp_in.swap(g_tramp_building);
   g_tramp_building.clear();
-  // Mobile actors share the same easing and published arrays, but only their process ID
-  // identifies a ghost. Static break tombstones never filter or suppress a moving contact.
-  for (const auto& contact : moving) {
-    TrampGhost* hit = nullptr;
-    for (auto& g : s_tramp_state) {
-      if (g.actor_id == contact.actor_id) {
-        hit = &g;
-        break;
-      }
-    }
-    if (hit) {
-      hit->e = contact.e;
-      hit->seen = true;
-    } else if (s_tramp_state.size() < 64) {
-      s_tramp_state.push_back({contact.e, 0.f, true, contact.actor_id});
-    }
-  }
-  float dtc = std::min(std::max(dt, 0.f), 0.1f);  // clamp a hitch so a long frame can't teleport the ease
-  g_tramp_published.clear();
-  g_tramp_strength.clear();
-  for (auto it = s_tramp_state.begin(); it != s_tramp_state.end();) {
-    if (it->seen) {
-      it->strength = std::min(1.f, it->strength + dtc / EASE_IN_S);
-    } else {
-      it->strength -= dtc / EASE_OUT_S;
-    }
-    if (it->strength <= 0.f) {
-      if (it->actor_id == 0) {
-        s_tombs.push_back({it->e[0], it->e[2], tnow});  // R27: static spot released -> ban 8 s
-      }
-      it = s_tramp_state.erase(it);
-      continue;
-    }
-    if (g_tramp_published.size() < 64) {
-      g_tramp_published.push_back(it->e);
-      g_tramp_strength.push_back(it->strength);
-    }
-    ++it;
-  }
-  // ROUND#21e nearest-16 for the trample list too (paired with its strength array, so sort a
-  // permutation and reorder both together — the ghost ease state itself is untouched).
-  if (g_tramp_published.size() > 1) {
-    std::vector<size_t> order(g_tramp_published.size());
-    for (size_t i = 0; i < order.size(); i++) {
-      order[i] = i;
-    }
-    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-      return d2jak(g_tramp_published[a]) < d2jak(g_tramp_published[b]);
-    });
-    std::vector<std::array<float, 4>> pe(order.size());
-    std::vector<float> ps(order.size());
-    for (size_t i = 0; i < order.size(); i++) {
-      pe[i] = g_tramp_published[order[i]];
-      ps[i] = g_tramp_strength[order[i]];
-    }
-    g_tramp_published.swap(pe);
-    g_tramp_strength.swap(ps);
-  }
+  g_live.moving_in.swap(moving);
+  g_live.step(dt, tnow, jkp);
+  g_tramp_published = g_live.out_pos;
+  g_tramp_strength = g_live.out_str;
 }
 
 namespace {
 float contact_trail[16] = {};
+// grass-interaction-direction : LE CAP DU PAS, televerse en vec4 (jamais un float[] : sur
+// Adreno 618 `glGetUniformLocation` rend -1 sur un tableau de float et l'ecriture devient un
+// no-op SILENCIEUX — voir le repli `u_trample_str[0]` plus bas). xy = cap unitaire, z = force
+// 0..1, w = le DEBRAYAGE du correctif.
+float contact_dir[4] = {1.f, 0.f, 0.f, 0.f};
 std::array<float, 4> contact_jak{}, contact_ledge{};
 std::vector<std::array<float, 4>> contact_all_positions;
 std::vector<float> contact_all_strengths;
+
+// Les seuils du cap. Ils se PUBLIENT (voir `grass_int_dir_*_milli`) : un juge qui les recopierait
+// mesurerait sa propre copie.
+constexpr float DIR_DEADZONE_M = 0.05f;  // en deca, pas de cap : on ne lit pas du bruit
+constexpr float DIR_SPD_LO_MPS = 0.8f;   // debut de la montee en force
+constexpr float DIR_SPD_HI_MPS = 4.0f;   // pleine orientation (la marche de Jak la depasse)
+constexpr float DIR_SMOOTH_S = 0.18f;    // constante de temps du lissage du cap
+constexpr float DIR_RELEASE_S = 0.6f;    // meme fenetre que EASE_OUT_S : pas d'a-coup a l'arret
+
+// La trainee de Jak, son etat rendu explicite (ex-`s_trail` / `s_trail_last`, statiques de
+// fonction). Meme loi, mot pour mot : un echantillon tous les 0,15 s, force d'age sur 0,6 s.
+struct StepTrail {
+  std::array<std::array<float, 4>, 4> s{};  // xyz + instant de capture
+  float last = -1.f;
+  float out[16] = {};  // xyz + force d'age, ce qui part a l'uniforme
+};
+void update_trail(StepTrail& tr, const std::array<float, 4>& jak, float u_time) {
+  if (jak[3] > 0.5f && (tr.last < 0.f || u_time - tr.last >= 0.15f)) {
+    for (int ti = 3; ti > 0; ti--) {
+      tr.s[ti] = tr.s[ti - 1];
+    }
+    tr.s[0] = {jak[0], jak[1], jak[2], u_time};
+    tr.last = u_time;
+  }
+  for (int ti = 0; ti < 4; ti++) {
+    float age = u_time - tr.s[ti][3];
+    float str = (jak[3] > 0.5f && tr.s[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
+    tr.out[ti * 4 + 0] = tr.s[ti][0];
+    tr.out[ti * 4 + 1] = tr.s[ti][1];
+    tr.out[ti * 4 + 2] = tr.s[ti][2];
+    tr.out[ti * 4 + 3] = str;
+  }
+}
+
+// grass-interaction-direction : LE CAP DU PAS. SPEC section 11 : « Le deplacement est connu par
+// la trainee et n'est jamais utilise comme vecteur. » Il l'est ici. Le deplacement se lit sur le
+// plus ANCIEN echantillon encore vivant (fenetre ~0,45 s) : c'est deja lisse, on ne rajoute pas
+// un filtre par-dessus un filtre. Le cap garde une MEMOIRE — il se lisse a la montee et retombe
+// sur la MEME fenetre que le relevement (0,6 s), pour qu'un arret ne redresse pas l'herbe d'un
+// coup.
+struct StepDir {
+  float x = 1.f, z = 0.f, speed = 0.f, prev_t = -1.f;
+};
+void update_step_dir(StepDir& sd, const StepTrail& tr, const std::array<float, 4>& jak,
+                     float u_time) {
+  // 1. le plus ANCIEN echantillon encore vivant.
+  int ti = -1;
+  for (int k = 3; k >= 0; --k) {
+    if (tr.out[k * 4 + 3] > 0.004f) {
+      ti = k;
+      break;
+    }
+  }
+  float spd01 = 0.f;
+  bool have_inst = false;
+  float ix = 0.f, iz = 0.f;
+  if (jak[3] > 0.5f && ti >= 0) {
+    const float dx = jak[0] - tr.s[ti][0];
+    const float dz = jak[2] - tr.s[ti][2];
+    const float len = std::sqrt(dx * dx + dz * dz);
+    const float age = std::max(1e-3f, u_time - tr.s[ti][3]);
+    if (len > DIR_DEADZONE_M * 4096.f) {
+      const float mps = (len / 4096.f) / age;
+      spd01 = (mps - DIR_SPD_LO_MPS) / (DIR_SPD_HI_MPS - DIR_SPD_LO_MPS);
+      spd01 = std::min(1.f, std::max(0.f, spd01));
+      ix = dx / len;
+      iz = dz / len;
+      have_inst = true;
+    }
+  }
+  const float dtm =
+      (sd.prev_t < 0.f) ? 0.f : std::min(0.1f, std::max(0.f, u_time - sd.prev_t));
+  sd.prev_t = u_time;
+  if (have_inst) {
+    const float a = (dtm <= 0.f) ? 0.f : std::min(1.f, dtm / DIR_SMOOTH_S);
+    sd.x += (ix - sd.x) * a;
+    sd.z += (iz - sd.z) * a;
+  }
+  // RENORMALISATION INCONDITIONNELLE. Le shader exige un cap UNITAIRE : sa base
+  // (cap, perpendiculaire) doit etre orthonormee, sinon le repli radial a vitesse nulle cesse
+  // d'etre exact. C'est un contrat, pas une precaution — et il se MESURE
+  // (`grass_int_engine_dir_unit_milli`).
+  const float l = std::sqrt(sd.x * sd.x + sd.z * sd.z);
+  if (l > 1e-4f) {
+    sd.x /= l;
+    sd.z /= l;
+  } else {
+    sd.x = 1.f;
+    sd.z = 0.f;
+  }
+  // Force AVEC MEMOIRE : montee immediate, retombee sur la fenetre du relevement.
+  if (spd01 > sd.speed) {
+    sd.speed = spd01;
+  } else {
+    sd.speed = std::max(spd01, sd.speed - dtm / DIR_RELEASE_S);
+  }
+}
+
+// Ce que la course de preuve publie du cap vivant.
+u64 g_dir_frames = 0;
+u64 g_dir_speed_max_milli = 0;
+u64 g_dir_hits = 0;
+
+// ── LA REPETITION DES ACQUIS ────────────────────────────────────────────────────────────────
+// Les quatre garanties de la machine a contacts — relevement amorti, pierres tombales,
+// annulation a la casse, contact mobile epargne par une tombale statique — ne sont atteintes par
+// AUCUNE course d'amorcage : personne ne casse une caisse pendant une preuve, et Jak ne marche
+// pas. On les rejoue donc sur des instances LOCALES, une seule fois, a coordonnees lointaines :
+// aucune globale n'est touchee, aucun mutex n'est pris, `goal_break_at` n'est pas appele.
+// CHAQUE boucle est BORNEE a 400 iterations et le fait d'avoir tape la borne se PUBLIE — un banc
+// dont le volume derive du reglage qu'il juge tourne au lieu de rougir.
+constexpr int kRehCap = 400;
+void rehearse_acquis() {
+  constexpr float FAR = 1.0e7f;    // loin de tout : aucune interaction avec une donnee de jeu
+  constexpr float FAR2 = 2.0e7f;
+  constexpr float dt = 1.f / 60.f;
+  const std::array<float, 4> jak{0.f, 0.f, 0.f, 1.f};
+  ContactIntegrator reh;
+  double tnow = 0.0;
+  int terms = 0;
+  bool capped = false;
+
+  // A. MONTEE — la force atteint 1 en ceil(EASE_IN_S * 60) images.
+  int in_frames = 0;
+  while (in_frames < kRehCap) {
+    reh.tramp_in = {{{FAR, 0.f, FAR, 4096.f}}};
+    tnow += dt;
+    reh.step(dt, tnow, jak);
+    ++in_frames;
+    if (!reh.out_str.empty() && reh.out_str[0] >= 1.f) {
+      break;
+    }
+  }
+  if (in_frames >= kRehCap) capped = true;
+  if (!reh.out_str.empty()) ++terms;
+  autoport_proof::publish("grass_int_reh_ease_in_frames", (u64)in_frames);
+
+  // B. RELEVEMENT AMORTI — plus d'entree : la force retombe, et la PLUS GRANDE chute entre deux
+  // images est la grandeur de « amorti ». Un relevement instantane vaudrait 1000.
+  int out_frames = 0;
+  float prev = reh.out_str.empty() ? 0.f : reh.out_str[0];
+  float max_drop = 0.f;
+  bool monotonic = true;
+  const bool out_pop = !reh.out_pos.empty();
+  double t_rel = tnow;
+  while (out_frames < kRehCap) {
+    reh.tramp_in.clear();
+    tnow += dt;
+    reh.step(dt, tnow, jak);
+    ++out_frames;
+    const float cur = reh.out_str.empty() ? 0.f : reh.out_str[0];
+    const float drop = prev - cur;
+    if (drop > max_drop) max_drop = drop;
+    if (cur > prev + 1e-6f) monotonic = false;
+    prev = cur;
+    if (reh.out_pos.empty()) {
+      t_rel = tnow;  // l'instant de la mort : c'est LUI qui porte la tombale
+      break;
+    }
+  }
+  if (out_frames >= kRehCap) capped = true;
+  if (out_pop) ++terms;
+  autoport_proof::publish("grass_int_reh_ease_out_frames", (u64)out_frames);
+  autoport_proof::publish("grass_int_reh_ease_out_max_step_milli",
+                          (u64)(max_drop * 1000.f + 0.5f));
+  autoport_proof::publish("grass_int_reh_ease_monotonic", monotonic ? 1u : 0u);
+
+  // C. PIERRE TOMBALE — le spot libere est banni : 5 images d'entree ne republient RIEN.
+  int bans = 0;
+  const bool tomb_pop = !reh.tombs.empty();
+  for (int i = 0; i < 5 && i < kRehCap; ++i) {
+    reh.tramp_in = {{{FAR, 0.f, FAR, 4096.f}}};
+    tnow += dt;
+    reh.step(dt, tnow, jak);
+    if (reh.out_pos.empty()) ++bans;
+  }
+  if (tomb_pop) ++terms;
+  autoport_proof::publish("grass_int_reh_tomb_bans", (u64)bans);
+
+  // D. DUREE DE LA TOMBALE — mesuree DES DEUX COTES de la fenetre de 8 s, jamais recopiee.
+  reh.tramp_in = {{{FAR, 0.f, FAR, 4096.f}}};
+  reh.step(dt, t_rel + 7.9, jak);
+  const bool ban_79 = reh.out_pos.empty();
+  reh.tramp_in = {{{FAR, 0.f, FAR, 4096.f}}};
+  reh.step(dt, t_rel + 8.05, jak);
+  const bool free_805 = !reh.out_pos.empty();
+  ++terms;  // les deux pas ont tourne, la population est l'entree qu'on vient de fournir
+  autoport_proof::publish("grass_int_reh_tomb_ban_at_7900ms", ban_79 ? 1u : 0u);
+  autoport_proof::publish("grass_int_reh_tomb_free_at_8050ms", free_805 ? 1u : 0u);
+
+  // E. ANNULATION A LA CASSE — R30 : la casse TOMBALISE, elle ne coupe pas. Le fantome doit
+  // redescendre sur la MEME fenetre de 0,6 s, pas en une image (l'owner avait refuse l'a-coup).
+  ContactIntegrator brk;
+  double tb = 0.0;
+  int brk_in = 0;
+  while (brk_in < kRehCap) {
+    brk.tramp_in = {{{FAR2, 0.f, FAR2, 4096.f}}};
+    tb += dt;
+    brk.step(dt, tb, jak);
+    ++brk_in;
+    if (!brk.out_str.empty() && brk.out_str[0] >= 1.f) break;
+  }
+  if (brk_in >= kRehCap) capped = true;
+  const bool brk_pop = !brk.out_str.empty();
+  // La casse, posee directement dans l'entree de l'integrateur (pas de `goal_break_at`).
+  brk.break_in = {{{FAR2, 0.f, FAR2}}};
+  brk.tramp_in = {{{FAR2, 0.f, FAR2, 4096.f}}};
+  tb += dt;
+  brk.step(dt, tb, jak);
+  const u64 brk_tombs = (u64)brk.tombs.size();
+  float bprev = brk.out_str.empty() ? 0.f : brk.out_str[0];
+  float first_drop = -1.f;
+  int brk_frames = 0;
+  while (brk_frames < kRehCap) {
+    brk.tramp_in = {{{FAR2, 0.f, FAR2, 4096.f}}};  // on CONTINUE de fournir l'entree : elle est bannie
+    tb += dt;
+    brk.step(dt, tb, jak);
+    ++brk_frames;
+    const float cur = brk.out_str.empty() ? 0.f : brk.out_str[0];
+    if (first_drop < 0.f) first_drop = bprev - cur;
+    bprev = cur;
+    if (brk.out_pos.empty()) break;
+  }
+  if (brk_frames >= kRehCap) capped = true;
+  if (brk_pop) ++terms;
+  autoport_proof::publish("grass_int_reh_break_tombstones", brk_tombs);
+  autoport_proof::publish("grass_int_reh_break_ease_frames", (u64)brk_frames);
+  autoport_proof::publish("grass_int_reh_break_first_drop_milli",
+                          (u64)(std::max(0.f, first_drop) * 1000.f + 0.5f));
+
+  // F. CACHE CONTRE APLATI — une tombale STATIQUE ne filtre JAMAIS un contact mobile.
+  brk.tramp_in = {{{FAR2, 0.f, FAR2, 4096.f}}};
+  brk.moving_in = {{42u, {FAR2, 0.f, FAR2, 4096.f}}};
+  tb += dt;
+  brk.step(dt, tb, jak);
+  int n_static = 0, n_moving = 0;
+  for (const auto& g : brk.ghosts) {
+    if (g.actor_id == 0) ++n_static;
+    if (g.actor_id == 42u) ++n_moving;
+  }
+  ++terms;  // deux entrees fournies : la population existe
+  autoport_proof::publish("grass_int_reh_static_banned", n_static == 0 ? 1u : 0u);
+  autoport_proof::publish("grass_int_reh_moving_survives", n_moving == 1 ? 1u : 0u);
+
+  // G. LE CAP — une marche scriptee en ligne droite, EXERCEE SUR L'APPAREIL. Une course
+  // d'amorcage ne fait pas marcher Jak ; celle-ci si.
+  StepTrail tr;
+  StepDir sd;
+  const float ux = 0.70710678f, uz = 0.70710678f;  // le cap SCRIPTE
+  const float mps = 3.0f;
+  int walk = 0;
+  int sampled = 0;
+  while (walk < 120 && walk < kRehCap) {
+    const float t = (float)walk * dt;
+    std::array<float, 4> jw{ux * mps * t * 4096.f, 0.f, uz * mps * t * 4096.f, 1.f};
+    update_trail(tr, jw, t);
+    update_step_dir(sd, tr, jw, t);
+    if (tr.out[3] > 0.004f) ++sampled;
+    ++walk;
+  }
+  if (walk >= kRehCap) capped = true;
+  if (sampled > 0) ++terms;
+  float dot = sd.x * ux + sd.z * uz;
+  dot = std::min(1.f, std::max(-1.f, dot));
+  const double err_deg = std::acos((double)dot) * 180.0 / 3.14159265358979323846;
+  autoport_proof::publish("grass_int_reh_dir_err_deg", (u64)std::ceil(err_deg));
+  autoport_proof::publish("grass_int_reh_dir_err_milli_deg", (u64)(err_deg * 1000.0 + 0.5));
+  autoport_proof::publish("grass_int_reh_dir_speed_milli", (u64)(sd.speed * 1000.f + 0.5f));
+  autoport_proof::publish("grass_int_reh_dir_unit_milli",
+                          (u64)(std::sqrt(sd.x * sd.x + sd.z * sd.z) * 1000.f + 0.5f));
+
+  // H. Le banc lui-meme.
+  autoport_proof::publish("grass_int_reh_ran", 1u);
+  autoport_proof::publish("grass_int_reh_terms_measured", (u64)terms);
+  autoport_proof::publish("grass_int_reh_capped", capped ? 1u : 0u);
+}
 }
 
 void begin_contact_frame() {
@@ -779,25 +1110,83 @@ void begin_contact_frame() {
   // The shader max-combines them with the live position, so the flatten under a takeoff spot (jump)
   // or behind a sprint eases back up over the decay window instead of snapping upright in one frame.
   {
-    static std::array<std::array<float, 4>, 4> s_trail{};  // xyz + capture time (u_time seconds)
-    static float s_trail_last = -1.f;
-    if (jp[3] > 0.5f && (s_trail_last < 0.f || u_time - s_trail_last >= 0.15f)) {
-      for (int ti = 3; ti > 0; ti--) {
-        s_trail[ti] = s_trail[ti - 1];
+    static StepTrail s_trail;
+    static StepDir s_dir;
+    update_trail(s_trail, jp, u_time);
+    std::copy_n(s_trail.out, 16, contact_trail);
+    // grass-interaction-direction : le cap se derive de la MEME trainee, une fois qu'elle est a
+    // jour. Rien de ce qui precede n'a change.
+    update_step_dir(s_dir, s_trail, jp, u_time);
+    contact_dir[0] = s_dir.x;
+    contact_dir[1] = s_dir.z;
+    contact_dir[2] = s_dir.speed;
+    // LE CORRECTIF SE DEBRAYE ICI, ET NULLE PART AILLEURS. w = 0 rend la loi du shader
+    // EXACTEMENT radiale (c'est demontre dans `shaders/grass_contact_dir.glsl`), donc le bras
+    // `--off` et les paliers bas dessinent le disque d'avant, au bit pres du build precedent.
+    // HORS PERIMETRE DE L'ITEM : « les paliers bas gardent la loi radiale actuelle en repli ».
+    const int tier =
+        grass_bake::clamp_density_preset(Gfx::settings().recharged_grass_density_preset);
+    contact_dir[3] =
+        (autoport_proof::armed_for(kInteractionDirItemId) && tier >= 2) ? 1.f : 0.f;
+
+    if (autoport_proof::feature_is(kInteractionDirItemId)) {
+      // LA REPETITION DES ACQUIS : une seule fois par course, sur des instances LOCALES.
+      static bool s_reh_done = false;
+      if (!s_reh_done) {
+        s_reh_done = true;
+        rehearse_acquis();
       }
-      s_trail[0] = {jp[0], jp[1], jp[2], u_time};
-      s_trail_last = u_time;
+      if (contact_dir[2] > 0.f) {
+        ++g_dir_frames;
+      }
+      const u64 spd_milli = (u64)std::max(0.f, contact_dir[2] * 1000.f + 0.5f);
+      g_dir_speed_max_milli = std::max(g_dir_speed_max_milli, spd_milli);
+      autoport_proof::publish("grass_int_engine_tier", (u64)tier);
+      autoport_proof::publish("grass_int_engine_dir_enabled", contact_dir[3] > 0.5f ? 1u : 0u);
+      autoport_proof::publish("grass_int_engine_dir_frames", g_dir_frames);
+      autoport_proof::publish("grass_int_engine_dir_speed_max_milli", g_dir_speed_max_milli);
+      const float unit =
+          std::sqrt(contact_dir[0] * contact_dir[0] + contact_dir[1] * contact_dir[1]);
+      autoport_proof::publish("grass_int_engine_dir_unit_milli", (u64)(unit * 1000.f + 0.5f));
+      // Les DEUX populations du contact, et leur non-chevauchement : « cache » et « aplati »
+      // sont deux classes distinctes, c'est un acquis valide par l'owner.
+      autoport_proof::publish("grass_int_engine_cull_entries", (u64)g_published.size());
+      autoport_proof::publish("grass_int_engine_tramp_entries", (u64)g_tramp_published.size());
+      u64 overlap = 0;
+      for (const auto& c : g_published) {
+        for (const auto& t : g_tramp_published) {
+          const float dx = c[0] - t[0], dz = c[2] - t[2];
+          if (dx * dx + dz * dz < (1.0f * 4096.f) * (1.0f * 4096.f)) {
+            ++overlap;
+            break;
+          }
+        }
+      }
+      autoport_proof::publish("grass_int_engine_class_overlap", overlap);
+      // Les seuils, publies PAR CE QUI MESURE.
+      autoport_proof::publish("grass_int_dir_deadzone_milli",
+                              (u64)(DIR_DEADZONE_M * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_spd_lo_milli",
+                              (u64)(DIR_SPD_LO_MPS * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_spd_hi_milli",
+                              (u64)(DIR_SPD_HI_MPS * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_smooth_milli",
+                              (u64)(DIR_SMOOTH_S * 1000.f + 0.5f));
+      autoport_proof::publish("grass_int_dir_release_milli",
+                              (u64)(DIR_RELEASE_S * 1000.f + 0.5f));
+      // `hits=` de la ligne FEATURE : les echantillons de Jak (position + trainee) REELLEMENT
+      // appliques a cette image, et seulement quand le cap est en service. Desarme,
+      // `contact_dir[3]` vaut 0 et le compte est 0.
+      if (contact_dir[3] > 0.5f && contact_dir[2] > 0.f) {
+        u64 samples = (contact_jak[3] > 0.004f) ? 1u : 0u;
+        for (int ti = 0; ti < 4; ++ti) {
+          samples += (contact_trail[ti * 4 + 3] > 0.004f) ? 1u : 0u;
+        }
+        g_dir_hits += samples;
+        autoport_proof::note_hit_for(kInteractionDirItemId, samples);
+      }
+      autoport_proof::publish("grass_int_engine_hits", g_dir_hits);
     }
-
-    for (int ti = 0; ti < 4; ti++) {
-      float age = u_time - s_trail[ti][3];
-      float str = (jp[3] > 0.5f && s_trail[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
-      contact_trail[ti * 4 + 0] = s_trail[ti][0];
-      contact_trail[ti * 4 + 1] = s_trail[ti][1];
-      contact_trail[ti * 4 + 2] = s_trail[ti][2];
-      contact_trail[ti * 4 + 3] = str;
-    }
-
   }
 }
 
@@ -821,6 +1210,18 @@ bool push_contact_uniforms(unsigned int id, bool include_static) {
   glUniform4fv(grass_uloc(id, "u_jak_pos"), 1, contact_jak.data());
   glUniform4fv(grass_uloc(id, "u_jak_ledge"), 1, contact_ledge.data());
   glUniform4fv(grass_uloc(id, "u_jak_trail"), 4, contact_trail);
+  // grass-interaction-direction : le cap du pas. PAS ajoute a la chaine de `&&` du `return` :
+  // shrub partage ce shader, une localisation -1 y ferait rendre `false` a TOUT le contact. Le
+  // temoin se publie (ci-dessous), il ne condamne pas le reste.
+  {
+    const GLint dir_loc = grass_uloc(id, "u_contact_dir");
+    glUniform4fv(dir_loc, 1, contact_dir);
+    if (autoport_proof::feature_is(kInteractionDirItemId)) {
+      // UN UNIFORME RETIRE PAR LE COMPILATEUR REND -1 ET `glUniform4fv(-1, ...)` EST UN NO-OP
+      // DOCUMENTE : sans ce temoin, le bras `--off` croirait avoir eteint la loi.
+      autoport_proof::publish("grass_int_engine_dir_uloc_ok", dir_loc >= 0 ? 1u : 0u);
+    }
+  }
   // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
   // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
   // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.

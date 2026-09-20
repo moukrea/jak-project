@@ -4,6 +4,8 @@ void grass_proof_register_program(unsigned int colour, unsigned int measure);
 #include "ao_tie_alpha_probe.h"
 
 #include <regex>
+#include <string>
+#include <vector>
 
 #include "common/log/log.h"
 #include "common/util/Assert.h"
@@ -160,7 +162,9 @@ std::string expand_includes(const std::string& src, int depth = 0) {
     // empreinte a celle des fichiers de l'arbre, et un pack en retard devient un defaut compte.
     // grass-wind : meme montage pour le chunk du champ de vent. Cette empreinte est ce qui rougit
     // quand le pack GLES de l'appareil est en retard sur le fichier de l'arbre.
-    if (name == "grass_shade.glsl" || name == "grass_shade_face.glsl" || name == "grass_wind.glsl") {
+    // grass-interaction-direction : meme montage pour le chunk de la LOI DE CONTACT ORIENTEE.
+    if (name == "grass_shade.glsl" || name == "grass_shade_face.glsl" ||
+        name == "grass_wind.glsl" || name == "grass_contact_dir.glsl") {
       u64 h = 1469598103934665603ull;
       for (char ch : chunk) {
         h ^= (u64)(u8)ch;
@@ -171,6 +175,8 @@ std::string expand_includes(const std::string& src, int depth = 0) {
         key = "grass_shade_face_fnv";
       } else if (name == "grass_wind.glsl") {
         key = "grass_wind_model_fnv";
+      } else if (name == "grass_contact_dir.glsl") {
+        key = "grass_int_contact_fnv";
       }
       autoport_proof::publish(key, h);
     }
@@ -205,6 +211,457 @@ std::string expand_includes(const std::string& src, int depth = 0) {
     return src;
   }
   return out;
+}
+// ===========================================================================================
+// grass-interaction-direction, TERME 4 : AUCUNE LECTURE DE TABLEAU D'UNIFORMES A INDEX DYNAMIQUE
+// DANS LE CHEMIN HERBE.
+//
+// Sur l'Adreno 618 une lecture de tableau d'uniformes a index DYNAMIQUE rend des ordures (SPEC
+// refonte-herbe section 0) : tout le chemin herbe est deroule a index LITTERAL pour cette raison.
+// Ce savoir n'etait qu'un COMMENTAIRE — rien ne le gardait. On le mesure donc sur le TEXTE
+// REELLEMENT COMPILE (apres expansion des `#include`, pas par un grep de l'arbre), et le compte
+// tourne dans `gk`, donc sur l'appareil.
+//
+// POURQUOI UNE PASSE DE MACROS. Le deroulage EST ecrit en macro : `TR_STEP(i)` (vegetation_contact)
+// et `OC_STEP(i)` (grass.vert) portent `u_trample[i]` / `u_occ[i]` dans leur CORPS, et chaque site
+// d'appel passe un litteral — le pilote deroule TR_STEP(0..15) en seize lectures a index litteral.
+// Compter AVANT cette passe reviendrait a accuser le correctif Adreno que l'on cherche justement a
+// garder : le scanner lirait `[i]` la ou le compilateur GLSL lit `[7]`. On modelise donc ce que le
+// PILOTE compile, pas une etape intermediaire — et on publie AUSSI le compte d'avant, pour que la
+// difference entre les deux soit lisible au lieu d'etre cachee.
+u64 g_gi_shaders_scanned = 0;
+u64 g_gi_uniform_arrays = 0;
+u64 g_gi_index_reads = 0;
+u64 g_gi_dyn_index_reads = 0;
+u64 g_gi_dyn_index_reads_preproc = 0;
+u64 g_gi_macros_expanded = 0;
+std::string g_gi_dyn_first;
+
+bool gi_ident_char(char c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+// Retire les commentaires `//...` et `/* ... */`. INDISPENSABLE : le commentaire de `grass.vert`
+// PARLE de `u_trample[i]` et de `u_occ` en prose et ferait compter des lectures qui n'existent pas.
+std::string gi_strip_comments(const std::string& src) {
+  std::string out;
+  out.reserve(src.size());
+  for (size_t i = 0; i < src.size();) {
+    if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+      while (i < src.size() && src[i] != '\n') {
+        i++;
+      }
+    } else if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '*') {
+      i += 2;
+      while (i + 1 < src.size() && !(src[i] == '*' && src[i + 1] == '/')) {
+        i++;
+      }
+      i = (i + 1 < src.size()) ? i + 2 : src.size();
+      out += ' ';
+    } else {
+      out += src[i++];
+    }
+  }
+  return out;
+}
+
+// `\` en fin de ligne = continuation : la directive `#define` suivante est UNE seule ligne logique.
+// `JK_STEP` et `TR_STEP` en usent, donc sans cette passe le corps serait tronque a la 1re ligne.
+std::string gi_join_continuations(const std::string& src) {
+  std::string out;
+  out.reserve(src.size());
+  for (size_t i = 0; i < src.size(); ++i) {
+    if (src[i] == '\\') {
+      size_t j = i + 1;
+      while (j < src.size() && (src[j] == ' ' || src[j] == '\t' || src[j] == '\r')) {
+        j++;
+      }
+      if (j < src.size() && src[j] == '\n') {
+        out += ' ';
+        i = j;
+        continue;
+      }
+    }
+    out += src[i];
+  }
+  return out;
+}
+
+struct GiMacro {
+  std::string name;
+  std::vector<std::string> params;
+  std::string body;
+};
+
+// Substitution textuelle des parametres dans le corps, sur des tokens COMPLETS (pas de
+// sous-chaine : `i` ne doit pas mordre dans `if`).
+std::string gi_substitute(const std::string& body,
+                          const std::vector<std::string>& params,
+                          const std::vector<std::string>& args) {
+  std::string out;
+  out.reserve(body.size());
+  size_t i = 0;
+  while (i < body.size()) {
+    if (!gi_ident_char(body[i]) || (i > 0 && gi_ident_char(body[i - 1]))) {
+      out += body[i++];
+      continue;
+    }
+    size_t j = i;
+    while (j < body.size() && gi_ident_char(body[j])) {
+      j++;
+    }
+    const std::string tok = body.substr(i, j - i);
+    bool replaced = false;
+    for (size_t p = 0; p < params.size() && p < args.size(); ++p) {
+      if (params[p] == tok) {
+        out += args[p];
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      out += tok;
+    }
+    i = j;
+  }
+  return out;
+}
+
+// Un tour d'expansion des appels de macro FONCTION presents dans `line`. Rend true si au moins un
+// site a ete substitue (l'appelant reboucle, borne a kMaxIncludeDepth comme les `#include` : une
+// macro qui se reappelle ne doit pas boucler).
+bool gi_expand_once(std::string* line, const std::vector<GiMacro>& macros, u64* sites) {
+  bool any = false;
+  std::string out;
+  const std::string& src = *line;
+  out.reserve(src.size());
+  size_t i = 0;
+  while (i < src.size()) {
+    if (!gi_ident_char(src[i]) || (i > 0 && gi_ident_char(src[i - 1]))) {
+      out += src[i++];
+      continue;
+    }
+    size_t j = i;
+    while (j < src.size() && gi_ident_char(src[j])) {
+      j++;
+    }
+    const std::string tok = src.substr(i, j - i);
+    const GiMacro* m = nullptr;
+    for (const auto& c : macros) {
+      if (c.name == tok) {
+        m = &c;
+        break;
+      }
+    }
+    size_t k = j;
+    while (k < src.size() && (src[k] == ' ' || src[k] == '\t')) {
+      k++;
+    }
+    if (!m || k >= src.size() || src[k] != '(') {
+      out += tok;
+      i = j;
+      continue;
+    }
+    // ---- arguments, virgules de premier niveau seulement ----
+    int depth = 0;
+    size_t close = std::string::npos;
+    std::vector<std::string> args;
+    std::string cur;
+    for (size_t p = k; p < src.size(); ++p) {
+      const char c = src[p];
+      if (c == '(' || c == '[') {
+        depth++;
+        if (c == '(' && depth == 1) {
+          continue;
+        }
+      } else if (c == ')' || c == ']') {
+        depth--;
+        if (c == ')' && depth == 0) {
+          close = p;
+          break;
+        }
+      } else if (c == ',' && depth == 1) {
+        args.push_back(cur);
+        cur.clear();
+        continue;
+      }
+      cur += c;
+    }
+    if (close == std::string::npos) {
+      out += tok;
+      i = j;
+      continue;
+    }
+    args.push_back(cur);
+    out += gi_substitute(m->body, m->params, args);
+    (*sites)++;
+    any = true;
+    i = close + 1;
+  }
+  *line = out;
+  return any;
+}
+
+// La passe complete : lit les `#define NAME(...)`, honore les `#undef`, et expanse le reste.
+std::string gi_expand_function_macros(const std::string& src, u64* sites) {
+  std::vector<GiMacro> macros;
+  std::string out;
+  size_t pos = 0;
+  while (pos <= src.size()) {
+    const size_t nl = src.find('\n', pos);
+    const std::string line = src.substr(pos, (nl == std::string::npos ? src.size() : nl) - pos);
+    const bool last = (nl == std::string::npos);
+    pos = last ? src.size() + 1 : nl + 1;
+
+    size_t i = 0;
+    while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) {
+      i++;
+    }
+    if (line.compare(i, 7, "#define") == 0) {
+      size_t j = i + 7;
+      while (j < line.size() && (line[j] == ' ' || line[j] == '\t')) {
+        j++;
+      }
+      const size_t ns = j;
+      while (j < line.size() && gi_ident_char(line[j])) {
+        j++;
+      }
+      // Macro FONCTION uniquement : le '(' colle au nom, comme l'exige le preprocesseur.
+      if (j > ns && j < line.size() && line[j] == '(') {
+        GiMacro m;
+        m.name = line.substr(ns, j - ns);
+        const size_t pclose = line.find(')', j);
+        if (pclose != std::string::npos) {
+          std::string plist = line.substr(j + 1, pclose - j - 1);
+          std::string cur;
+          for (size_t p = 0; p <= plist.size(); ++p) {
+            if (p == plist.size() || plist[p] == ',') {
+              std::string t;
+              for (char c : cur) {
+                if (c != ' ' && c != '\t') {
+                  t += c;
+                }
+              }
+              if (!t.empty()) {
+                m.params.push_back(t);
+              }
+              cur.clear();
+            } else {
+              cur += plist[p];
+            }
+          }
+          m.body = line.substr(pclose + 1);
+          bool known = false;
+          for (auto& c : macros) {
+            if (c.name == m.name) {
+              c = m;  // redefinition
+              known = true;
+              break;
+            }
+          }
+          if (!known) {
+            macros.push_back(m);
+          }
+        }
+      }
+      out += '\n';  // la directive elle-meme ne fait pas partie du texte compile
+      continue;
+    }
+    if (line.compare(i, 6, "#undef") == 0) {
+      size_t j = i + 6;
+      while (j < line.size() && (line[j] == ' ' || line[j] == '\t')) {
+        j++;
+      }
+      const size_t ns = j;
+      while (j < line.size() && gi_ident_char(line[j])) {
+        j++;
+      }
+      const std::string name = line.substr(ns, j - ns);
+      for (size_t c = 0; c < macros.size(); ++c) {
+        if (macros[c].name == name) {
+          macros.erase(macros.begin() + c);
+          break;
+        }
+      }
+      out += '\n';
+      continue;
+    }
+    std::string expanded = line;
+    for (int d = 0; d <= kMaxIncludeDepth; ++d) {
+      if (!gi_expand_once(&expanded, macros, sites)) {
+        break;
+      }
+    }
+    out += expanded;
+    out += '\n';
+  }
+  return out;
+}
+
+// Compte, sur un texte donne, les declarations de tableaux d'uniformes, les lectures indexees et
+// celles dont l'index n'est PAS un litteral decimal.
+void gi_count(const std::string& src,
+              const std::string& label,
+              u64* arrays_out,
+              u64* reads_out,
+              u64* dyn_out,
+              std::string* first_out) {
+  // ---- 1. les tableaux d'uniformes declares : `uniform <type> <ident> [` ----
+  std::vector<std::string> arrays;
+  for (size_t i = 0; i + 7 <= src.size(); ++i) {
+    if (src.compare(i, 7, "uniform") != 0) {
+      continue;
+    }
+    if (i > 0 && gi_ident_char(src[i - 1])) {
+      continue;
+    }
+    size_t j = i + 7;
+    if (j < src.size() && gi_ident_char(src[j])) {
+      continue;
+    }
+    std::string tokens[2];
+    bool ok = true;
+    for (int t = 0; t < 2 && ok; ++t) {
+      while (j < src.size() &&
+             (src[j] == ' ' || src[j] == '\t' || src[j] == '\n' || src[j] == '\r')) {
+        j++;
+      }
+      const size_t st = j;
+      while (j < src.size() && gi_ident_char(src[j])) {
+        j++;
+      }
+      if (j == st) {
+        ok = false;
+        break;
+      }
+      tokens[t] = src.substr(st, j - st);
+    }
+    if (!ok) {
+      continue;
+    }
+    while (j < src.size() && (src[j] == ' ' || src[j] == '\t' || src[j] == '\n' || src[j] == '\r')) {
+      j++;
+    }
+    if (j < src.size() && src[j] == '[') {
+      bool known = false;
+      for (const auto& a : arrays) {
+        if (a == tokens[1]) {
+          known = true;
+          break;
+        }
+      }
+      if (!known) {
+        arrays.push_back(tokens[1]);
+      }
+      if (arrays_out) {
+        (*arrays_out)++;
+      }
+    }
+  }
+
+  // ---- 2. chaque `<nom>[ <expr> ]` : expr non entierement decimale = index DYNAMIQUE ----
+  // La declaration elle-meme (`uniform vec4 u_trample[16];`) porte un litteral : elle tombe du bon
+  // cote, elle est comptee dans le denominateur et jamais dans les lectures dynamiques.
+  for (const auto& arr : arrays) {
+    size_t pos = 0;
+    while ((pos = src.find(arr, pos)) != std::string::npos) {
+      const size_t start = pos;
+      pos += arr.size();
+      if (start > 0 && gi_ident_char(src[start - 1])) {
+        continue;
+      }
+      if (pos < src.size() && gi_ident_char(src[pos])) {
+        continue;
+      }
+      size_t j = pos;
+      while (j < src.size() &&
+             (src[j] == ' ' || src[j] == '\t' || src[j] == '\n' || src[j] == '\r')) {
+        j++;
+      }
+      if (j >= src.size() || src[j] != '[') {
+        continue;
+      }
+      const size_t open = j;
+      int depth = 0;
+      size_t close = std::string::npos;
+      for (size_t k = open; k < src.size(); ++k) {
+        if (src[k] == '[') {
+          depth++;
+        } else if (src[k] == ']') {
+          depth--;
+          if (depth == 0) {
+            close = k;
+            break;
+          }
+        }
+      }
+      if (close == std::string::npos) {
+        break;
+      }
+      std::string tight;
+      for (size_t k = open + 1; k < close; ++k) {
+        const char c = src[k];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+          tight += c;
+        }
+      }
+      if (reads_out) {
+        (*reads_out)++;
+      }
+      bool literal = !tight.empty();
+      for (char c : tight) {
+        if (c < '0' || c > '9') {
+          literal = false;
+          break;
+        }
+      }
+      if (!literal) {
+        if (dyn_out) {
+          (*dyn_out)++;
+        }
+        if (first_out && first_out->empty()) {
+          std::string shown = label + ":" + arr + "[" + tight + "]";
+          for (char& c : shown) {
+            if (c == ' ') {
+              c = '_';
+            }
+          }
+          *first_out = shown;
+        }
+      }
+      pos = close;
+    }
+  }
+}
+
+void scan_dynamic_uniform_indexing(const std::string& name, const std::string& src_in) {
+  const std::string clean = gi_join_continuations(gi_strip_comments(src_in));
+  g_gi_shaders_scanned++;
+
+  // AVANT la passe de macros : ce compte DOIT etre non nul aujourd'hui (les corps de TR_STEP et
+  // OC_STEP), et ce n'est pas un defaut — chaque site d'appel porte un litteral.
+  gi_count(clean, name, nullptr, nullptr, &g_gi_dyn_index_reads_preproc, nullptr);
+
+  // APRES : le texte tel que le pilote le compile. C'est LUI le critere du terme 4.
+  const std::string expanded = gi_expand_function_macros(clean, &g_gi_macros_expanded);
+  gi_count(expanded, name, &g_gi_uniform_arrays, &g_gi_index_reads, &g_gi_dyn_index_reads,
+           &g_gi_dyn_first);
+
+  // Les cles sont publiees MEME a zero, et TOUJOURS (jamais sous `feature_is`) : c'est un invariant
+  // de construction, pas un effet de la feature — le bras `--off` doit les publier aussi.
+  autoport_proof::publish("grass_int_shaders_scanned", g_gi_shaders_scanned);
+  autoport_proof::publish("grass_int_uniform_arrays", g_gi_uniform_arrays);
+  autoport_proof::publish("grass_int_index_reads", g_gi_index_reads);
+  autoport_proof::publish("grass_int_dyn_index_reads", g_gi_dyn_index_reads);
+  autoport_proof::publish("grass_int_dyn_index_reads_preproc", g_gi_dyn_index_reads_preproc);
+  // LE GARDE-FOU QUI COMPTE : si l'expansion de macros echouait en silence, ce compte vaudrait 0 et
+  // le zero de `grass_int_dyn_index_reads` ne voudrait plus rien dire — il ne dirait plus « aucune
+  // lecture dynamique », il dirait « le scanner n'a rien deroule ». Une porte qui lit le zero du
+  // terme 4 doit d'abord exiger que celui-ci soit non nul.
+  autoport_proof::publish("grass_int_macros_expanded", g_gi_macros_expanded);
+  if (g_gi_dyn_index_reads > 0 && !g_gi_dyn_first.empty()) {
+    autoport_proof::publish_text("grass_int_dyn_index_first", g_gi_dyn_first.c_str());
+  }
 }
 }  // namespace
 
@@ -322,6 +779,11 @@ void Shader::build(const std::string& shader_name,
     }
     return sh;
   };
+
+  // grass-interaction-direction, terme 4 : le texte du chemin herbe TEL QU'IL VA ETRE COMPILE.
+  if (shader_name == "grass" || shader_name == "shrub") {
+    scan_dynamic_uniform_indexing(shader_name + ".vert", vert_src);
+  }
 
   m_vert_shader = compile_stage(GL_VERTEX_SHADER, vert_src, "vertex");
   if (!m_vert_shader) {
