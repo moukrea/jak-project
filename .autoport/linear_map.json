@@ -902,12 +902,12 @@
  },
  "hud-eco-gauge": {
   "build_announced": "ec5ebf52f0d4",
-  "hash": "a8cb987f6ef7a4f013946c3a1e59c50d88bcb985",
+  "hash": "78442be134a1976351e10a5fa52606846477c563",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Review",
   "last_verdict_announced": "validator-011.txt",
-  "pulled_at": "2026-09-20T18:31:06.561Z",
+  "pulled_at": "2026-09-21T08:36:32.445Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
