@@ -757,10 +757,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "8f5ba66297c2138a1799fc37f9a277a06ec41fcc",
+  "hash": "56d82489e705021fb4d857479d179b3ba979dcf6",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
  },
@@ -910,13 +911,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "a27b786d368f",
-  "hash": "a437869cac9d8a59b6ac19ec329b2ec0d43b3001",
+  "hash": "7ffdc723a5f0b2edc5c169ce3d319c2fdab9cb07",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-013.txt",
-  "pulled_at": "2026-09-22T11:15:49.845Z",
+  "pulled_at": "2026-09-22T12:04:05.854Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
