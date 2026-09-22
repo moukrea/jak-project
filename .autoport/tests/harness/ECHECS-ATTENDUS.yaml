@@ -15,30 +15,4 @@
 # qu'un autre defaut ne passe pas dessous, assez large pour ne pas rougir sur le nom de l'item
 # qui trebuche en premier.
 
-attendus:
-  - nodeid: .autoport/tests/harness/test_backlog.py::test_real_backlog_only_fails_lint_on_missing_gates
-    slug: a-tester-sans-ou-regarder-supervisor-death
-    categorie: decision-superviseur
-    tranche: superviseur
-    signature: 'harness-supervisor-death-is-an-alarm : a tester sans'
-    depuis: f7b97f8cbd
-    raison: >
-      DONNEE, pas code. Le 23/09, la porte de harness-supervisor-death-is-an-alarm (essai 4)
-      l'a passe `to-test` dans backlog.yaml (arbre de travail, non commite) sans `where`, et
-      `owner_test` n'y est pas pose : le lint reproche donc « a tester sans ou regarder ».
-      Ni sa consigne ni son contrat ne portent de section « Ou l'owner regardera » : le
-      worker de harness-x86-proof-for-a-device-item-must-shout-at-launch, qui a rencontre ce
-      rouge a sa fermeture, ne peut pas l'inventer. Au superviseur de trancher : poser le
-      `where` de l'item (ce que l'owner verra sur Linear quand le superviseur meurt), ou
-      `owner_test: false` si la preuve est purement machine. Cette dispense devient alors
-      perimee et se retire.
-
-triage:
-  - nodeid: .autoport/tests/harness/test_backlog.py::test_real_backlog_only_fails_lint_on_missing_gates
-    classe: defaut-de-code
-    slug: a-tester-sans-ou-regarder-supervisor-death
-    cause_commit: f7b97f8cbd
-    cause: >
-      La porte de l'orchestrateur pose `to-test` sur un item `owner_test` implicite sans
-      verifier qu'il porte un `where` : le lint le reproche APRES coup, a la fermeture du
-      premier worker suivant, qui n'en est pas l'auteur.
+attendus: []
