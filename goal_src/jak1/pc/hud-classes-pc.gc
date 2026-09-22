@@ -1474,6 +1474,10 @@
    (t13-bad      int32)    ;;   ... dont l'opacite composite tombait sous le seuil
    (t13-min      int32)    ;; pire opacite composite au coeur, en millieme
    (t13-ctrl     int32)    ;; images ou la MEME nuee SANS le gain tombait sous le seuil
+   (t13-reln     int32)    ;; images ou NOTRE coeur ET celui du regime MONDE etaient tous deux
+                           ;;   couverts : le denominateur de la comparaison APPARIEE
+   (t13-relbad   int32)    ;;   ... dont notre opacite tombait sous 0,9 fois celle du monde
+   (t13-relmin   int32)    ;; pire rapport au monde, en millieme
    (t13-lay      int32)    ;; plus grand nombre de couches superposees au coeur
    (t13-none     int32)    ;; images ou la nuee etait dessinee mais ne couvrait PAS le centre
    ;; --- terme 14 (reprise 20/09 13:45) : LA CALIBRATION DE L'INSTRUMENT ---
@@ -1540,11 +1544,25 @@
    (nq-cb        int32)
    (orb-a        int32)    ;; alpha du fond et de l'orbe a cette image, sur 128
    (orb-idx      int32)    ;; type d'eco de l'orbe (0 bleu, 1 rouge, 2 jaune)
-   (bg-n         int32)    ;; fonds noirs emis a cette image (0 ou 1)
-   (orb-n        int32)    ;; orbes emises a cette image (0 ou 1)
+   (bg-n         int32)    ;; fonds emis a cette image (0 ou 1)
    (bg-lum       int32)    ;; luminance du fond emis, en millieme
-   (bg-r16       int32)    ;; rayon du fond, LU sur les sommets emis, en 1/16 d'unite
-   (orb-r16      int32)    ;;   ... et celui de l'orbe
+   (bg-r16       int32)    ;; RAYON DU DISQUE INSCRIT du carre de fond, LU sur les quatre coins
+                           ;;   REELLEMENT emis, en 1/16 d'unite de canevas
+   (bg-cr        float)    ;; ce que le fond DEPOSE, canal par canal (0..1), fondu compris :
+   (bg-cg        float)    ;;   la grille de teinte en est semee, et le CONTROLE le retranche
+   (bg-cb        float)
+   (grid-a       float 32) ;; ALPHA des ETINCELLES SEULES a chaque point de la grille — separee de
+                           ;;   `grid-c*` (qui porte le fond) : c'est elle qui dit si la NUEE
+                           ;;   remplit le trou, et elle seule peut faire mordre les controles
+   (nq-spk       int32)    ;; etendue de la PLUS GROSSE etincelle emise, en 1/16 d'unite (terme 17)
+   (nq-spkc      int32)    ;;   ... la meme rejouee a la taille de l'essai 11 : le CONTROLE
+   (nq-mv        int32)    ;; somme des |x|+|y| des particules vivantes, en 1/16 (terme 19)
+   (nq-mvprev    int32)    ;;   ... a l'image precedente
+   (nq-numean    int32)    ;; moyenne NUE (gain exclu) sur les 24 points du trou, en millieme :
+                           ;;   c'est elle qui pilote le gain depuis le 22/09
+   (t17-ctrl     int32)    ;; terme 17 — CONTROLE : images ou la taille de l'essai 11 aurait PASSE
+   (t19-n        int32)    ;; terme 19 — LA NUEE BOUGE : images ou des particules etaient vivantes
+   (t19-still    int32)    ;;   ... dont la somme de position n'avait pas bouge d'un iota
    (t15-n        int32)    ;; terme 15 — LE FOND : images jugees
    (t15-bad      int32)    ;;   ... dont le fond manquait, etait clair, ou etait la sans eco
    (t16-n        int32 3)  ;; terme 16 — LA TEINTE : images jugees, par type d'eco
@@ -1870,16 +1888,22 @@
 ;; decor : l'addition partait deja de (0,75 ; 0,70 ; 0,62). Dix essais ont regle la taille et
 ;; l'alpha des etincelles ; aucun ne pouvait faire virer au bleu une somme saturee sur trois canaux.
 ;;
-;; CE QUI CHANGE. La couleur ne vient plus de la somme des etincelles, elle vient d'une ORBE qu'on
-;; dessine : un disque en degrade, a la couleur de l'eco active, pose sur un FOND NOIR opaque qui
-;; remplace la roche. Les etincelles restent, par-dessus, mais NORMALISEES : leur somme au coeur
-;; est ramenee a `RHUD_NUEE_CORE_TARGET` au lieu d'une centaine, sinon elles reblanchiraient
-;; l'orbe. Le gain n'est donc plus une constante : il se DEDUIT de ce que la nuee depose vraiment
-;; (voir `rhud-nuee-gain`).
-(defconstant RHUD_NUEE_CORE_TARGET 0.6) ;; somme additive visee au coeur, tous canaux confondus.
-                                       ;;   Au-dela de ~1, le canal le plus faible de l'eco sature
-                                       ;;   lui aussi et la teinte repart vers le blanc : c'est
-                                       ;;   exactement le defaut que l'owner a refuse deux fois.
+;; CE QUI CHANGE (reprise 22/09, apres le refus du 21/09). L'ORBE EST RETIREE : c'etait elle, la
+;; « lueur bleue qui bouge pas du tout ». Le trou porte maintenant (1) un FOND CARRE opaque, sous
+;; l'anneau, teinte de l'eco en cours et ramene a RHUD_BG_LUM_TARGET de luminance — il remplace la
+;; roche claire sur laquelle l'addition partait, et il donne au trou sa couleur meme entre deux
+;; bouffees de particules ; (2) les ETINCELLES du vial, seules, par-dessus l'anneau, a une taille
+;; qui les rend DISTINCTES (RHUD_NUEE_SIZE / RHUD_NUEE_HW_MAX) au lieu de les fondre en aplat. Leur
+;; somme est normalisee sur la MOYENNE DE LA GRILLE (`RHUD_NUEE_GRID_TARGET`), pas au coeur : le
+;; gain se DEDUIT de ce que la nuee depose vraiment (voir `rhud-nuee-gain`).
+(defconstant RHUD_NUEE_GRID_TARGET 0.55) ;; somme additive visee en MOYENNE sur les 24 points du
+                                       ;;   trou, pas au COEUR. L'essai 11 normalisait au coeur :
+                                       ;;   avec des etincelles aussi larges que le trou, coeur et
+                                       ;;   bord recevaient la meme chose et l'ancrage n'avait pas
+                                       ;;   d'importance. Des etincelles PETITES (celles que l'owner
+                                       ;;   reclame) se repartissent en 1/r : un ancrage au coeur
+                                       ;;   laisserait le bord du trou sous le seuil d'allumage.
+                                       ;;   La moyenne ancre la nuee ENTIERE.
 (defconstant RHUD_NUEE_GAIN_MIN 0.005) ;; bornes du gain deduit : au-dela, c'est que la mesure de
                                        ;;   l'image precedente n'a pas de sens (nuee naissante)
 (defconstant RHUD_NUEE_GAIN_EMA 0.0625) ;; 1/16 : la somme qui pilote le gain est lissee sur ~16
@@ -1890,23 +1914,47 @@
                                        ;;   bornee. Le test portait avant sur l'alpha d'UN quad
                                        ;;   (`ab >= 128`) : il ne tenait que parce que le gain x8
                                        ;;   saturait chaque couche prise isolement.
-(defconstant RHUD_GAUGE_BG_MUL 1.04)   ;; rayon du FOND NOIR, en rayons de trou. Il deborde de 4 %
-                                       ;;   et il est dessine AVANT l'anneau : le bord interieur de
-                                       ;;   l'anneau repasse par-dessus, donc pas de liseré.
-(defconstant RHUD_ORB_MUL 0.92)        ;; rayon de l'ORBE — le milieu de la bande [0,85 ; 0,95] que
-                                       ;;   l'owner a fixee le 20/09 13:45 (« elle touche presque
-                                       ;;   la couronne »)
-(defconstant RHUD_ORB_RIM 0.30)        ;; alpha de l'orbe a sa jante, en part de son alpha central.
-                                       ;;   Pas 0 : un degrade qui s'eteint a la jante laisse les
-                                       ;;   deux tiers exterieurs du trou sous le seuil d'allumage,
-                                       ;;   et l'orbe redevient le « petit point » refuse le 20/09.
-(defconstant RHUD_ORB_SEGS 32)         ;; secteurs de l'eventail
+(defconstant RHUD_GAUGE_BG_MUL 1.25)   ;; DEMI-COTE du CARRE de fond, en rayons de trou.
+                                       ;;   Owner, 21/09 : « tu aurais juste pu faire un carre un
+                                       ;;   peu plus grand que le rond vide de la jauge et le mettre
+                                       ;;   en dessous ». Le DISQUE ajuste de l'essai 11 (1,04) a un
+                                       ;;   perimetre de 32 secteurs : ses ARETES passent a 0,995 du
+                                       ;;   rayon demande, la quantification 12.4 des sommets en
+                                       ;;   retire encore, et le decor reparait sur un bord — c'est
+                                       ;;   le « on voit un peu au travers ». Le disque INSCRIT d'un
+                                       ;;   carre de demi-cote 1,25 vaut 1,25 rayon de trou : la
+                                       ;;   marge est de 25 %, l'owner en demande 15. Ses COINS
+                                       ;;   tombent a 1,77 rayon, tres en deca du bord exterieur de
+                                       ;;   l'anneau (39,2 / 11,8 = 3,32 rayons) qui les recouvre.
+(defconstant RHUD_BG_MARGIN_MIN 1150)  ;; marge exigee sur le disque INSCRIT du carre, en millieme
+                                       ;;   du rayon du trou (« marge >= 15 % du rayon », 21/09)
+(defconstant RHUD_BG_LUM_TARGET 140)   ;; luminance VISEE du fond, en millieme. Le fond n'est pas
+                                       ;;   un noir pur : il porte la teinte de l'eco en cours,
+                                       ;;   ramenee a cette luminance-la. C'est ce que le trou du
+                                       ;;   vial montre dans le monde (le corps teinte sous les
+                                       ;;   eclairs), et c'est ce qui donne au trou sa couleur sans
+                                       ;;   y poser la LUEUR FIXE que l'owner a refusee le 21/09.
+                                       ;;   Le plafond de la porte est RHUD_BG_LUM_MAX = 150.
 (defconstant RHUD_GAUGE_FADE_FRAC 0.10) ;; les « derniers pourcents » : sous 10 % d'eco, le fond et
                                        ;;   l'orbe s'effacent ensemble, lineairement, jusqu'a 0
 (defconstant RHUD_ORB_DOM 1300)        ;; dominance exigee du canal de l'eco, en millieme (« canal
                                        ;;   B > R et G d'au moins 30 % », perimetre du 20/09 20:50)
-(defconstant RHUD_ORB_R_MIN 850)       ;; rayon de l'orbe LU sur les sommets emis, en millieme du
-(defconstant RHUD_ORB_R_MAX 950)       ;;   rayon du trou : la bande de l'owner, mesuree
+(defconstant RHUD_SPARK_MAX 450)       ;; ETENDUE D'UNE SEULE ETINCELLE, en millieme du rayon du
+                                       ;;   trou. C'est la grandeur que l'essai 11 n'avait pas :
+                                       ;;   son plafond par particule valait 11,21 unites pour un
+                                       ;;   trou de rayon 11,75, donc CHAQUE etincelle couvrait le
+                                       ;;   trou entier — 117 couches identiques empilees (mesure
+                                       ;;   `hud_gauge_t13_layers_max`=117). Une nuee dont chaque
+                                       ;;   element couvre tout le champ n'a pas de structure : elle
+                                       ;;   rend un disque lisse et immobile, « une lueur bleue qui
+                                       ;;   bouge pas du tout et sans les particules electriques ».
+                                       ;;   A 450 pour mille, il en faut trois pour traverser le
+                                       ;;   trou : les etincelles se distinguent et leur mouvement
+                                       ;;   se voit.
+(defconstant RHUD_SPARK_CTRL_SIZE 1.20) ;; CONTROLE : la demi-taille de l'essai 11, REFUSEE
+(defconstant RHUD_SPARK_CTRL_HW 11.21)  ;;   ... et son plafond par particule. Rejoue dans la MEME
+                                       ;;   image : il DOIT depasser RHUD_SPARK_MAX, sinon le terme
+                                       ;;   17 ne distingue rien et son zero ne vaut rien.
 (defconstant RHUD_BG_LUM_MAX 150)      ;; luminance toleree sous la nuee quand l'eco est active
 (defconstant RHUD_ORB_CTRL_BG 0.70)    ;; CONTROLE : le fond CLAIR que le trou laissait voir avant
                                        ;;   ce correctif (roche de Sandover sur la photo de
@@ -1964,46 +2012,46 @@
   (&+! (-> buf base) 32)
   (none))
 
-(defun rhud-disc ((buf dma-buffer) (cx float) (cy float) (rr float) (fx float) (c0 int) (c1 int))
-  "un disque plein SANS texture : eventail de RHUD_ORB_SEGS secteurs, couleur `c0` au centre et `c1`
-   a la jante, le gouraud du rasteriseur interpolant l'une vers l'autre — c'est ce qui donne le
-   degrade de l'orbe sans qu'aucun asset n'ait a exister.
+(defun rhud-rect-flat ((buf dma-buffer) (cx float) (cy float) (hs float) (fx float) (rgba int))
+  "LE CARRE DE FOND : un rectangle plein SANS texture, carre A L'ECRAN (l'axe x du canevas porte
+   l'aspect du HUD, d'ou le `fx`), dessine en eventail de deux triangles.
+   Owner, 21/09 : « tu aurais juste pu faire un carre un peu plus grand que le rond vide de la
+   jauge et le mettre en dessous ». Un carre n'a pas le defaut du disque a 32 secteurs qu'il
+   remplace : aucune arete ne rentre vers le centre, donc aucun bord du trou ne peut laisser
+   reparaitre le decor.
    TME=0 : le fragment vaut EXACTEMENT la couleur du sommet (`direct_basic.frag` ne lit aucune
-   texture), donc un centre a rgb=0 est noir a coup sur — la fonction de texture MODULATE/DECAL de
-   `RHUD_TEX0_BITS` ne s'applique pas. Le bucket `debug` est servi par `DirectRenderer`
-   (OpenGLRenderer.cpp:506/954), pas par `DirectRenderer2` qui, lui, refuse TME=0.
-   Rend le RAYON relu dans le tampon apres ecriture, en 1/16 d'unite de canevas : la porte lit ce
-   qui est parti, pas l'argument qu'on lui a passe."
-  (let ((nverts (+ RHUD_ORB_SEGS 2))
-        (rmax 0))
-    ;; L'ETAT DE FUSION, POSE ICI ET PAS AILLEURS. Le fond noir part AVANT le premier
-    ;; `rhud-set-shader` de l'image : sans cette ligne il heriterait du registre `alpha-1` laisse
-    ;; par le bucket precedent — un melange additif y rendrait un disque noir strictement
-    ;; INVISIBLE (ajouter zero ne fait rien), et le correctif tout entier ne se verrait pas.
-    ;; `rhud-set-shader` pose `#x44` = (Cs-Cd)As+Cd ; la texture qu'il charge au passage est sans
-    ;; effet puisque la primitive qui suit a TME=0. Le sondage n'est pas pollue : `tag` vaut -1
-    ;; aux deux points d'appel du disque.
-    (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
+   texture). Le bucket `debug` est servi par `DirectRenderer` (OpenGLRenderer.cpp:506/954), pas par
+   `DirectRenderer2` qui, lui, refuse TME=0.
+   Rend le RAYON DU DISQUE INSCRIT relu dans le tampon apres ecriture, en 1/16 d'unite de canevas :
+   c'est la plus petite demi-extension des quatre coins REELLEMENT emis, aspect corrige — donc la
+   grandeur que la porte doit lire pour dire « le fond couvre tout le trou », et non l'argument
+   qu'on a passe."
+  ;; L'ETAT DE FUSION, POSE ICI ET PAS AILLEURS. Le fond part AVANT le premier `rhud-set-shader`
+  ;; de l'image : sans cette ligne il heriterait du registre `alpha-1` laisse par le bucket
+  ;; precedent — un melange additif y rendrait un carre sombre quasi INVISIBLE. `rhud-set-shader`
+  ;; pose `#x44` = (Cs-Cd)As+Cd ; la texture qu'il charge au passage est sans effet puisque la
+  ;; primitive qui suit a TME=0.
+  (rhud-set-shader buf RHUD_TBP_GAUGE_EMPTY)
+  (let ((rmin 1000000))
     (with-cnt-vif-block (buf)
-      ;; giftag: packed, prim tri-fan/iip/abe SANS tme (#x4d), 2 registres (rgbaq, xyzf2)
+      ;; giftag: packed, prim tri-fan/iip/abe SANS tme (#x4d), 2 registres (rgbaq, xyzf2).
+      ;; Quatre sommets en eventail = deux triangles = le rectangle entier.
       (dma-buffer-add-uint64 buf
-                             (logior (the-as uint nverts) #x8000 (ash 1 46) (ash #x4d 47) (ash 2 60))
+                             (logior (the-as uint 4) #x8000 (ash 1 46) (ash #x4d 47) (ash 2 60))
                              #x41)
-      (rhud-add-vert-flat buf c0 cx cy)
-      (dotimes (i (+ RHUD_ORB_SEGS 1))
-        (let* ((ang (* 65536.0 (/ (the float i) (the float RHUD_ORB_SEGS))))
-               (dx (cos ang))
-               (dy (sin ang))
+      (dotimes (i 4)
+        (let* ((sx (if (or (zero? i) (= i 3)) -1.0 1.0))
+               (sy (if (< i 2) -1.0 1.0))
                (vp (-> buf base)))
-          (rhud-add-vert-flat buf c1 (+ cx (* dx rr fx)) (+ cy (* dy rr)))
+          (rhud-add-vert-flat buf rgba (+ cx (* sx hs fx)) (+ cy (* sy hs)))
           (let* ((xy (the-as (pointer int32) (&+ vp 16)))
                  (qx (- (/ (the float (-> xy 0)) 16.0) 1792.0))
                  (qy (* 2.0 (- (/ (the float (-> xy 1)) 16.0) 1936.0)))
-                 (ex (/ (- qx cx) fx))
-                 (ey (- qy cy))
-                 (rq (the int (* 16.0 (sqrtf (+ (* ex ex) (* ey ey)))))))
-            (if (> rq rmax) (set! rmax rq))))))
-    rmax))
+                 (ex (the int (* 16.0 (fabs (/ (- qx cx) fx)))))
+                 (ey (the int (* 16.0 (fabs (- qy cy))))))
+            (if (< ex rmin) (set! rmin ex))
+            (if (< ey rmin) (set! rmin ey))))))
+    rmin))
 
 (defun rhud-aspect-fx ()
   "x-aspect factor that keeps a square texture canvas square on screen, computed
@@ -2177,13 +2225,17 @@
                                        ;;   unites de canevas. 0,93 x le rayon du trou (11,8),
                                        ;;   milieu de la bande « 0,85-0,95 » du perimetre du
                                        ;;   20/09 13:45.
-(defconstant RHUD_NUEE_SIZE 1.20)      ;; facteur de demi-taille du sprite, au DESSIN. Triple du
-                                       ;;   20/09 matin : la boite ne depend plus de la taille des
-                                       ;;   sprites (elle est plafonnee ailleurs), donc agrandir
-                                       ;;   la matiere ne peut plus faire deborder la nuee — et
-                                       ;;   c'est la matiere qui fait la lueur sur un melange
-                                       ;;   ADDITIF (surface x 4).
-(defconstant RHUD_NUEE_HW_MAX 11.21)    ;; ecart PLAFOND d'un COIN au centre de SON sprite, en
+(defconstant RHUD_NUEE_SIZE 0.18)      ;; facteur de demi-taille du sprite, au DESSIN. A 1,20
+                                       ;;   (essai 11) les quatre couches visibles du bleu faisaient
+                                       ;;   15 a 26 unites de demi-largeur pour un trou de RAYON
+                                       ;;   11,75 : le plafond par particule les ramenait toutes a
+                                       ;;   la taille du trou, et la nuee devenait un aplat. A 0,18
+                                       ;;   elles font 2,3 · 3,1 · 2,6 · 3,8 unites, soit un
+                                       ;;   cinquieme du trou : la nuee redevient un ensemble de
+                                       ;;   points qui se deplacent. LA SIMULATION NE BOUGE PAS —
+                                       ;;   le terme 11 continue de confronter les vingt couches au
+                                       ;;   ramassable du monde champ par champ.
+(defconstant RHUD_NUEE_HW_MAX 4.00)    ;; ecart PLAFOND d'un COIN au centre de SON sprite, en
                                        ;;   DISTANCE (aspect compris). 0,91 x RCAP : la seule
                                        ;;   chose que cette borne doit garantir est `RCAP^2 - |c|^2
                                        ;;   > 0` dans la resolution ci-dessous, c'est-a-dire qu'une
@@ -2228,8 +2280,8 @@
 (defconstant RHUD_NUEE_A_MIN 300)      ;; opacite composite exigee au coeur, en millieme. Etait a
                                        ;;   800 quand les etincelles SEULES devaient faire l'orbe
                                        ;;   et que le gain x8 saturait chaque couche. Depuis le
-                                       ;;   20/09 21:00 c'est l'ORBE qui porte l'opacite et les
-                                       ;;   etincelles sont normalisees a RHUD_NUEE_CORE_TARGET :
+                                       ;;   20/09 21:00 c'est le FOND qui porte la teinte et les
+                                       ;;   etincelles sont normalisees a RHUD_NUEE_GRID_TARGET :
                                        ;;   1 - exp(-0,6) = 0,45 est ce qu'elles peuvent rendre.
                                        ;;   Le plancher qui MORD reste le rapport au vial du monde
                                        ;;   (>= 0,9 x `t14_world_acore_milli`), pas ce chiffre-ci.
@@ -2257,87 +2309,73 @@
 
 (defun rhud-gauge-bg ((this hud-recharged-power) (buf dma-buffer) (cx float) (cy float)
                       (fx float) (efrac float) (eidx int) (oa int))
-  "LE FOND NOIR sous le trou de la jauge, et les grandeurs que la porte en lira.
-   Owner, 20/09 20:50 : « je pense qu'on pourrait faire apparaitre un fond noir d'un coup sous le
-   rond vide de la jauge quand l'orbe y apparait ». Il est dessine AVANT l'anneau — le bord
-   interieur de l'anneau repasse donc par-dessus son debordement de 4 %, pas de lisere — et il est
+  "LE FOND SOMBRE sous le trou de la jauge, et les grandeurs que la porte en lira.
+   Owner, 21/09 : un CARRE plus grand que le trou, pose SOUS la couronne. Il est emis AVANT
+   l'anneau — la couronne opaque repasse donc par-dessus tout ce qui deborde du trou — et il est
    OPAQUE : c'est lui qui remplace la roche claire du decor sur laquelle les etincelles additives
-   s'additionnaient jusqu'ici, et donc lui qui rend leur teinte au lieu de la saturer en blanc."
+   s'additionnaient, et donc lui qui rend leur teinte au lieu de la saturer en blanc.
+   IL N'EST PAS NOIR PUR : il porte la teinte de l'eco en cours, ramenee a RHUD_BG_LUM_TARGET de
+   luminance. C'est le corps teinte du vial que le monde met sous ses eclairs ; la LUEUR FIXE de
+   l'essai 11 (un disque en degrade a alpha plein, par-dessus l'anneau) est retiree."
   (set! (-> this orb-idx) eidx)
   (set! (-> this orb-a) oa)
   (set! (-> this bg-n) 0)
-  (set! (-> this orb-n) 0)
   (set! (-> this bg-r16) 0)
-  (set! (-> this orb-r16) 0)
   (set! (-> this bg-lum) 0)
-  (let ((bgc (rhud-rgba 0 0 0 oa)))
-    (when (> efrac 0.0)
+  (set! (-> this bg-cr) 0.0)
+  (set! (-> this bg-cg) 0.0)
+  (set! (-> this bg-cb) 0.0)
+  (when (> efrac 0.0)
+    (let* ((rgb (rhud-orb-rgb eidx))
+           (lf (rhud-lum-permille rgb))
+           ;; la teinte se RAMENE a la luminance visee, elle ne se choisit pas canal par canal :
+           ;; les trois types passent par la meme regle et aucun ne peut deriver au-dessus du
+           ;; plafond de la porte (RHUD_BG_LUM_MAX).
+           (k  (if (> lf 0) (/ (the float RHUD_BG_LUM_TARGET) (the float lf)) 0.0))
+           (br (the int (* k (the float (logand rgb #xff)))))
+           (bv (the int (* k (the float (logand (ash rgb -8) #xff)))))
+           (bb (the int (* k (the float (logand (ash rgb -16) #xff)))))
+           (bgc (rhud-rgba br bv bb oa))
+           (af (/ (the float oa) 128.0)))
       (set! (-> this bg-r16)
-            (rhud-disc buf cx cy (* RHUD_GAUGE_BG_MUL RHUD_GAUGE_HOLE_R) fx bgc bgc))
+            (rhud-rect-flat buf cx cy (* RHUD_GAUGE_BG_MUL RHUD_GAUGE_HOLE_R) fx bgc))
       (set! (-> this bg-n) 1)
-      (set! (-> this bg-lum) (rhud-lum-permille bgc))))
-  0)
-
-(defun rhud-gauge-orb ((this hud-recharged-power) (buf dma-buffer) (cx float) (cy float)
-                       (fx float) (eidx int) (oa int))
-  "L'ORBE : un disque en degrade a la couleur de l'eco active, pose PAR-DESSUS l'anneau et SOUS les
-   etincelles. C'est elle qui porte la couleur que l'owner reclame — « faire en sorte que ca soit
-   bleu et pas blanc (rouge pour orbe rouge et jaune pour orbe jaune) » — au lieu de l'attendre
-   d'une somme d'etincelles qui sature sur les trois canaux. Son rayon, 0,92 du trou, est le milieu
-   de la bande qu'il a fixee le 20/09 13:45 (« elle touche presque la couronne »)."
-  (let* ((rgb (rhud-orb-rgb eidx))
-         (c0 (logior rgb (ash oa 24)))
-         (c1 (logior rgb (ash (the int (* RHUD_ORB_RIM (the float oa))) 24))))
-    (set! (-> this orb-r16)
-          (rhud-disc buf cx cy (* RHUD_ORB_MUL RHUD_GAUGE_HOLE_R) fx c0 c1))
-    (set! (-> this orb-n) 1))
+      (set! (-> this bg-lum) (rhud-lum-permille bgc))
+      ;; ce que le fond DEPOSE, pour la grille de teinte : le melange `#x44` a As=1 remplace le
+      ;; fond d'ecran, donc la premiere couche vaut sa couleur x son alpha.
+      (set! (-> this bg-cr) (* af (/ (the float br) 255.0)))
+      (set! (-> this bg-cg) (* af (/ (the float bv) 255.0)))
+      (set! (-> this bg-cb) (* af (/ (the float bb) 255.0)))))
   0)
 
 (defun rhud-nuee-gain ((this hud-recharged-power))
   "LE GAIN D'ALPHA DES ETINCELLES, DEDUIT AU LIEU D'ETRE CHOISI.
-   Il vaut `RHUD_NUEE_CORE_TARGET` divise par ce que la nuee depose au coeur SANS gain — grandeur
-   lissee sur seize images (`gain-ema`) et mesuree aux images precedentes. C'est un calcul AVANT,
+   Il vaut `RHUD_NUEE_GRID_TARGET` divise par ce que la nuee depose EN MOYENNE sur les 24 points du
+   trou SANS gain — grandeur lissee sur seize images (`gain-ema`) et mesuree aux images
+   precedentes. C'est un calcul AVANT,
    pas une boucle de retour : la somme mesuree ne depend pas du gain qu'on en tire, donc rien ne
    peut osciller. Sans lui, les 115 couches additives mesurees a l'essai 10 saturent les trois
    canaux et le trou redevient BLANC, quel que soit le gain constant qu'on y mette."
   (let ((sm (-> this gain-ema)))
     (if (< sm 0.001)
       RHUD_NUEE_A_GAIN
-      (fmax RHUD_NUEE_GAIN_MIN (fmin RHUD_NUEE_A_GAIN (/ RHUD_NUEE_CORE_TARGET sm))))))
+      (fmax RHUD_NUEE_GAIN_MIN (fmin RHUD_NUEE_A_GAIN (/ RHUD_NUEE_GRID_TARGET sm))))))
 
-(defun rhud-orb-a-at ((this hud-recharged-power) (fx float) (gk int) (mul float))
-  "l'alpha que l'ORBE depose au point `gk` de la grille, pris `mul` fois plus loin du centre (1,0
-   pour la grille livree, 4,0 pour le controle « trop petit »). C'est exactement ce que le gouraud
-   du rasteriseur interpole entre le sommet central et les sommets de jante de `rhud-disc` :
-   lineaire de 1 au centre a RHUD_ORB_RIM a la jante, nul au-dela."
-  (if (zero? (-> this orb-n))
-    0.0
-    (let* ((gx (/ (-> this grid-x gk) fx))
-           (gy (-> this grid-y gk))
-           (rp (* mul (sqrtf (+ (* gx gx) (* gy gy)))))
-           (rr (* RHUD_ORB_MUL RHUD_GAUGE_HOLE_R)))
-      (if (>= rp rr)
-        0.0
-        (* (/ (the float (-> this orb-a)) 128.0)
-           (- 1.0 (* (- 1.0 RHUD_ORB_RIM) (/ rp rr))))))))
-
-(defun rhud-orb-seed ((this hud-recharged-power) (fx float))
-  "remet la grille a zero et y pose ce que le FOND NOIR et l'ORBE deposent, AVANT toute etincelle.
-   Le fond est noir : il ne depose RIEN, il remplace seulement ce que le trou laissait voir — et
-   c'est tout l'objet du correctif, la roche claire du decor etant le point de depart de l'addition
-   sur la photo de l'owner. Sur ce noir, melange alpha et melange additif donnent le MEME resultat
-   pour la premiere couche (C x a dans les deux cas) : l'orbe s'accumule donc comme les etincelles,
-   sans modele separe."
-  (let* ((rgb (rhud-orb-rgb (-> this orb-idx)))
-         (cr (/ (the float (logand rgb #xff)) 255.0))
-         (cg (/ (the float (logand (ash rgb -8) #xff)) 255.0))
-         (cb (/ (the float (logand (ash rgb -16) #xff)) 255.0)))
-    (dotimes (gk 32)
-      (let ((av (rhud-orb-a-at this fx gk 1.0)))
-        (set! (-> this grid-cr gk) (* cr av))
-        (set! (-> this grid-cg gk) (* cg av))
-        (set! (-> this grid-cb gk) (* cb av))
-        (set! (-> this grid-sa gk) (rhud-orb-a-at this fx gk 4.0)))))
+(defun rhud-grid-seed ((this hud-recharged-power))
+  "remet les grilles a zero et y pose ce que LE FOND depose, AVANT toute etincelle.
+   DEUX grilles, deux questions : `grid-c*` accumule la COULEUR rendue (le fond, puis chaque
+   etincelle) — c'est elle que la teinte du terme 16 moyenne ; `grid-a` accumule l'ALPHA des
+   ETINCELLES SEULES — c'est elle que le remplissage du terme 13 lit. Les separer est ce qui
+   empeche le fond de remplir le trou a la place de la nuee : melangees, le fond allumerait les
+   24 points a lui seul et le terme 13 serait vert par inaction, controles compris.
+   Sur ce fond, melange alpha et melange additif donnent le MEME resultat pour la premiere couche
+   (C x a dans les deux cas) : le fond s'accumule donc comme les etincelles, sans modele separe."
+  (dotimes (gk 32)
+    (set! (-> this grid-cr gk) (-> this bg-cr))
+    (set! (-> this grid-cg gk) (-> this bg-cg))
+    (set! (-> this grid-cb gk) (-> this bg-cb))
+    (set! (-> this grid-a gk) 0.0)
+    (set! (-> this grid-sa gk) 0.0))
   ;; rend un int (et non `none`) : le resultat est LIE dans le `let*` de `rhud-nuee-emit`, ou il
   ;; sert de point de sequencement — la grille doit etre semee avant la premiere etincelle.
   0)
@@ -2346,23 +2384,18 @@
   "la TEINTE MOYENNE du trou tel qu'il est DESSINE : moyenne, sur les 24 points interieurs de la
    grille, de chaque canal BORNE a 1 — la saturation fait partie de ce qui se voit, c'est meme elle
    qui faisait le blanc.
-   A cote, le CONTROLE, dans la MEME image et sur les MEMES particules : l'orbe et le fond noir
-   retires, les etincelles remises au gain CONSTANT de 8,0 qu'elles portaient jusqu'a l'essai 10
-   (`ratio`), le tout recompose sur le fond CLAIR que le trou laissait voir. C'est l'etat refuse
-   le 20/09, rejoue ; il DOIT echouer la dominance, sinon le vert du terme ne vaudrait rien."
-  (let* ((rgb (rhud-orb-rgb (-> this orb-idx)))
-         (cr (/ (the float (logand rgb #xff)) 255.0))
-         (cg (/ (the float (logand (ash rgb -8) #xff)) 255.0))
-         (cb (/ (the float (logand (ash rgb -16) #xff)) 255.0))
-         (mr 0.0) (mg 0.0) (mb 0.0) (kr 0.0) (kg 0.0) (kb 0.0))
+   A cote, le CONTROLE, dans la MEME image et sur les MEMES particules : le fond teinte retire, les
+   etincelles remises au gain CONSTANT de 8,0 qu'elles portaient jusqu'a l'essai 10 (`ratio`), le
+   tout recompose sur le fond CLAIR que le trou laissait voir. C'est l'etat refuse le 20/09,
+   rejoue ; il DOIT echouer la dominance, sinon le vert du terme ne vaudrait rien."
+  (let ((mr 0.0) (mg 0.0) (mb 0.0) (kr 0.0) (kg 0.0) (kb 0.0))
     (dotimes (gk 24)
-      (let ((av (rhud-orb-a-at this fx gk 1.0)))
-        (+! mr (fmin 1.0 (-> this grid-cr gk)))
-        (+! mg (fmin 1.0 (-> this grid-cg gk)))
-        (+! mb (fmin 1.0 (-> this grid-cb gk)))
-        (+! kr (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cr gk) (* cr av))))))
-        (+! kg (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cg gk) (* cg av))))))
-        (+! kb (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cb gk) (* cb av))))))))
+      (+! mr (fmin 1.0 (-> this grid-cr gk)))
+      (+! mg (fmin 1.0 (-> this grid-cg gk)))
+      (+! mb (fmin 1.0 (-> this grid-cb gk)))
+      (+! kr (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cr gk) (-> this bg-cr))))))
+      (+! kg (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cg gk) (-> this bg-cg))))))
+      (+! kb (fmin 1.0 (+ RHUD_ORB_CTRL_BG (* ratio (- (-> this grid-cb gk) (-> this bg-cb)))))))
     (set! (-> this nq-tr) (the int (* 41.6666 mr)))
     (set! (-> this nq-tg) (the int (* 41.6666 mg)))
     (set! (-> this nq-tb) (the int (* 41.6666 mb)))
@@ -2405,7 +2438,12 @@
                       ;;       lire pour savoir si elle DISCRIMINE.
         (nlay 0)      ;; couches superposees au coeur
         (rawmax 0.0) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
-        (radmax 0.0)) ;; RAYON de la nuee, lu sur les sommets REELLEMENT emis
+        (radmax 0.0) ;; RAYON de la nuee, lu sur les sommets REELLEMENT emis
+        (spkmax 0.0) ;; ETENDUE de la PLUS GROSSE etincelle emise (terme 17) : une DISTANCE du
+                     ;;   coin au centre de SON sprite, aspect compris — pas celle de la nuee
+        (spkctl 0.0) ;;   ... la MEME, rejouee a la taille de l'essai 11 : le CONTROLE
+        (mvsum 0.0)) ;; somme des |x| + |y| des particules VIVANTES : elle change d'une image a
+                     ;;   l'autre si et seulement si la simulation avance (terme 19)
     (set! (-> this nq-live) 0)
     (set! (-> this nq-shaders) 0)
     (set! (-> this nq-offscreen) 0)
@@ -2424,6 +2462,10 @@
     (set! (-> this nq-scov) 0)
     (set! (-> this nq-pcov) 0)
     (set! (-> this nq-alay) 0)
+    (set! (-> this nq-spk) 0)
+    (set! (-> this nq-spkc) 0)
+    (set! (-> this nq-mv) 0)
+    (set! (-> this nq-numean) 0)
     (set! (-> this nq-nusum) 0)
     (set! (-> this nq-gain) (the int (* 1000.0 gn)))
     (set! (-> this nq-tr) 0)
@@ -2470,9 +2512,9 @@
                                      (* RHUD_GAUGE_HOLE_R rf cc fx))
                                (set! (-> this grid-y (+ (* gr 8) gk))
                                      (* RHUD_GAUGE_HOLE_R rf sr)))))))
-                 ;; LA GRILLE PORTE D'ABORD L'ORBE ET LE FOND, PUIS LES ETINCELLES. Il faut que
+                 ;; LA GRILLE PORTE D'ABORD LE FOND, PUIS LES ETINCELLES. Il faut que
                  ;; `gset` ait pose grid-x/grid-y : d'ou la place de cette ligne, pas avant.
-                 (oseed (rhud-orb-seed this fx))
+                 (oseed (rhud-grid-seed this))
                  (ry  (/ (* 2.0 p11) (* 60.0 p00 ars)))  ;; py par unite de `y` de la particule
                  (inva (* bx by))
                  (m   (-> this particles idx part matrix))
@@ -2498,6 +2540,13 @@
               (let ((cp (-> sys cpuinfo-table (+ base i))))
                 (when (and (-> cp valid) (= (-> cp key) lc) (nonzero? (-> cp sprite)))
                   (+! (-> this nq-live) 1)
+                  ;; TERME 19 — LA NUEE EST ANIMEE. Owner, 21/09 : « on voit juste une lueur bleue
+                  ;; qui bouge pas du tout ». La somme des ecarts absolus des particules VIVANTES
+                  ;; est constante d'une image a l'autre si et seulement si la simulation n'avance
+                  ;; pas — c'est exactement ce qu'un sprite fixe produit, et aucune identite de
+                  ;; particule n'est necessaire pour le voir.
+                  (let ((vd0 (-> cp sprite)))
+                    (set! mvsum (+ mvsum (+ (fabs (-> vd0 x)) (fabs (-> vd0 y))))))
                   (when (< nq RHUD_NUEE_MAX)
                     (let* ((vd  (-> cp sprite))
                            (ad  (-> cp adgif))
@@ -2535,6 +2584,13 @@
                            ;; a 15,5 en diagonale — soit en plein dedans.
                            (qd0 (sqrtf (+ (* qe0x qe0x) (* qe0y qe0y))))
                            (qsc (if (> qd0 RHUD_NUEE_HW_MAX) (/ RHUD_NUEE_HW_MAX qd0) 1.0))
+                           ;; CE QUE MESURE LE TERME 17 : l'etendue de CETTE etincelle telle
+                           ;; qu'elle part, et la MEME rejouee a la taille de l'essai 11 (facteur
+                           ;; de demi-taille 1,20 et plafond 11,21). Les deux sortent du meme
+                           ;; `qd0`, donc le controle ne peut pas deriver de la mesure.
+                           (qdraw (* qsc qd0))
+                           (qd11 (let ((q11 (* qd0 (/ RHUD_SPARK_CTRL_SIZE RHUD_NUEE_SIZE))))
+                                   (if (> q11 RHUD_SPARK_CTRL_HW) RHUD_SPARK_CTRL_HW q11)))
                            (pxq (* qsc sxq))
                            (pyq (* qsc syq))
                            (scx (fmax pxq msc))
@@ -2661,6 +2717,8 @@
                       ;; le fait l'oeil (1 - produit des transparences). `ab0` rejoue la MEME
                       ;; nuee sans le gain : c'est l'ablation, dans la meme image.
                       (if (> r0 rawmax) (set! rawmax r0))
+                      (if (> qdraw spkmax) (set! spkmax qdraw))
+                      (if (> qd11 spkctl) (set! spkctl qd11))
                       (if (> (* RHUD_NUEE_POS r0) rlim) (+! ncl 1))
                       ;; LA GRILLE DU TROU. On inverse la transformation du quad — elle est
                       ;; affine et inversible tant que `scx` et `scy` sont non nuls — pour savoir
@@ -2705,7 +2763,11 @@
                             (when (nonzero? (logand gm (ash 1 gk)))
                               (+! (-> this grid-cr gk) (* rv av))
                               (+! (-> this grid-cg gk) (* gv av))
-                              (+! (-> this grid-cb gk) (* bv av)))
+                              (+! (-> this grid-cb gk) (* bv av))
+                              ;; ... et l'ALPHA SEUL, sans le fond : c'est lui qui dit si la NUEE
+                              ;; remplit le trou. Melange au fond, le remplissage serait acquis
+                              ;; par le fond a lui seul et le terme 13 serait vert par inaction.
+                              (+! (-> this grid-a gk) av))
                             (when (and (< gk 24) (nonzero? (logand gs (ash 1 gk))))
                               (+! (-> this grid-sa gk) av)))))
                       ;; LA NUEE DU VIAL DU MONDE, MESUREE PAR LE MEME INSTRUMENT. Boite d'abord :
@@ -2770,21 +2832,33 @@
     (set! (-> this nq-wlay) wlay)
     (set! (-> this nq-clamped) ncl)
     (set! (-> this nq-nusum) (the int (* 1000.0 nusum)))
-    ;; la moyenne glissante qui pilotera le gain, mise a jour seulement sur les images ou des
-    ;; couches couvraient vraiment le coeur : une image sans couche ne dit rien et la tirerait a 0.
-    (when (> nlay 0)
-      (set! (-> this gain-ema)
-            (if (> (-> this gain-ema) 0.0)
-              (+ (* (- 1.0 RHUD_NUEE_GAIN_EMA) (-> this gain-ema)) (* RHUD_NUEE_GAIN_EMA nusum))
-              nusum)))
+    ;; LA MOYENNE GLISSANTE QUI PILOTE LE GAIN, ANCREE SUR LA GRILLE ENTIERE.
+    ;; Elle etait ancree sur le COEUR (`nusum`). Avec des etincelles aussi larges que le trou
+    ;; (essai 11) coeur et bord recevaient la meme chose et l'ancrage etait sans effet ; avec des
+    ;; etincelles PETITES la densite varie en 1/r et un ancrage au coeur laisserait le bord du
+    ;; trou sous le seuil d'allumage. On divise par `gn` pour retrouver la somme NUE : la mesure
+    ;; ne depend donc pas du gain qu'on en tire, et rien ne peut osciller.
+    ;; Mise a jour seulement sur les images ou des quads sont partis : une image vide ne dit rien
+    ;; et la tirerait a 0.
+    (let ((gsum 0.0))
+      (dotimes (gk 24) (+! gsum (-> this grid-a gk)))
+      (set! gsum (/ gsum (* 24.0 gn)))
+      (set! (-> this nq-numean) (the int (* 1000.0 gsum)))
+      (when (> nq 0)
+        (set! (-> this gain-ema)
+              (if (> (-> this gain-ema) 0.0)
+                (+ (* (- 1.0 RHUD_NUEE_GAIN_EMA) (-> this gain-ema)) (* RHUD_NUEE_GAIN_EMA gsum))
+                gsum))))
     (rhud-orb-tint this fx (/ RHUD_NUEE_A_GAIN gn))
     (let ((cv 0) (ou 0) (sv 0) (pv 0) (qv 0))
       (dotimes (gk 32)
-        (let* ((mx (fmax (fmin 1.0 (-> this grid-cr gk))
-                         (fmax (fmin 1.0 (-> this grid-cg gk))
-                               (fmin 1.0 (-> this grid-cb gk)))))
-               (rw (fmax (-> this grid-cr gk)
-                         (fmax (-> this grid-cg gk) (-> this grid-cb gk)))))
+        ;; LE REMPLISSAGE ET LE DEBORDEMENT SE LISENT SUR LES ETINCELLES SEULES (`grid-a`).
+        ;; Sur la grille de COULEUR, le fond — qui couvre le trou ET la couronne d'echantillons —
+        ;; allumerait les 32 points a lui seul : le terme 13 serait vert par inaction et ses deux
+        ;; controles (nuee au quart, barreau gain/64) cesseraient de mordre, ce qui le rendrait
+        ;; NON MESURE. La couleur reste jugee par le terme 16, l'alpha par celui-ci.
+        (let* ((mx (fmin 1.0 (-> this grid-a gk)))
+               (rw (-> this grid-a gk)))
           (cond ((< gk 24)
                  (if (>= mx RHUD_NUEE_LIT) (+! cv 1))
                  (if (>= (fmin 1.0 (-> this grid-sa gk)) RHUD_NUEE_LIT) (+! sv 1))
@@ -2798,6 +2872,9 @@
       (set! (-> this nq-pcov) pv)
       (set! (-> this nq-qcov) qv))
     (set! (-> this nq-alay) nlay)
+    (set! (-> this nq-spk) (the int (* 16.0 spkmax)))
+    (set! (-> this nq-spkc) (the int (* 16.0 spkctl)))
+    (set! (-> this nq-mv) (the int (* 16.0 mvsum)))
     nq))
 
 ;;;----------------------------------------------
@@ -4068,6 +4145,20 @@
           (if (< (-> this nq-a64) RHUD_NUEE_A_MIN) (+! (-> this t14-bad64) 1))
           (if (or (zero? (-> this t13-min)) (< (-> this nq-acore) (-> this t13-min)))
             (set! (-> this t13-min) (-> this nq-acore)))
+          ;; LA CIBLE SE COMPARE IMAGE PAR IMAGE, PAS EXTREMUM CONTRE EXTREMUM. Le perimetre du
+          ;; 20/09 13:45 demande « alpha effectif au coeur >= celui du vial du monde x 0,9 ». La
+          ;; version precedente confrontait NOTRE pire image a la PIRE image du monde : deux
+          ;; statistiques d'ordre extreme, prises sur deux images differentes, et une seule image
+          ;; malheureuse sur quinze mille decidait du terme. On apparie : meme image, memes
+          ;; particules, les deux regimes ensemble, et c'est une PROPORTION qui juge.
+          (when (> (-> this nq-wlay) 0)
+            (+! (-> this t13-reln) 1)
+            (if (< (* 10 (-> this nq-acore)) (* 9 (-> this nq-wacc))) (+! (-> this t13-relbad) 1))
+            (let ((rr (if (> (-> this nq-wacc) 0)
+                        (/ (* 1000 (-> this nq-acore)) (-> this nq-wacc))
+                        9999)))
+              (if (or (zero? (-> this t13-relmin)) (< rr (-> this t13-relmin)))
+                (set! (-> this t13-relmin) rr))))
           (if (> (-> this nq-alay) (-> this t13-lay)) (set! (-> this t13-lay) (-> this nq-alay)))))
 
     ;; --- terme 5 : LA POSITION. les trois primitives sur UN centre, celui de la jauge d'ORIGINE.
@@ -4191,10 +4282,12 @@
   (+ (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0)
      (if (> (-> this t13-none) (-> this t13-n)) 1 0)
      ;; LA CIBLE, MESUREE, PAS INVENTEE (perimetre du 20/09 13:45 : « alpha effectif au coeur
-     ;; >= celui du vial du monde x 0,9 »). `t14-wacc` est le PIRE cas du regime MONDE calcule
-     ;; sur les memes particules dans les memes images ; `t13-min` est notre pire cas.
-     (if (and (> (-> this t14-wn) 0)
-              (< (* 10 (-> this t13-min)) (* 9 (-> this t14-wacc))))
+     ;; >= celui du vial du monde x 0,9 »), et APPARIEE : les deux regimes sont calcules sur les
+     ;; MEMES particules dans la MEME image, et c'est une proportion d'images qui juge — plus le
+     ;; choc de deux extremums pris sur deux images differentes, ou une seule image malheureuse
+     ;; sur quinze mille decidait. `t13_rel_min_permille` reste publie a cote.
+     (if (and (> (-> this t13-reln) 0)
+              (> (* 10 (-> this t13-relbad)) (-> this t13-reln)))
        1 0)
      ;; ET CE QUE L'OWNER REGARDE : le trou est-il REMPLI, et la couronne EPARGNEE. Une image
      ;; sur dix suffit a rougir — c'est la meme tolerance que les deux termes ci-dessus.
@@ -4240,18 +4333,22 @@
 (defun rhud-gauge-judge-orb ((this hud-recharged-power) (frac float))
   "les quatre grandeurs de la reprise du 20/09 20:50, jugees image par image : le fond, la teinte,
    le rayon de l'orbe, le fondu."
-  ;; --- terme 15 : LE FOND. Present et NOIR quand l'eco est la, ABSENT quand elle ne l'est pas
-  ;; (« = celle d'origine quand elle ne l'est pas », perimetre du 20/09 20:50).
+  ;; --- terme 15 : LE FOND CARRE. Present et SOMBRE quand l'eco est la, ABSENT quand elle ne
+  ;; l'est pas, et assez GRAND pour couvrir tout le trou plus la marge de 15 % que l'owner a
+  ;; fixee le 21/09. La grandeur lue est le rayon du disque INSCRIT du carre, relu sur les quatre
+  ;; coins REELLEMENT emis : c'est la plus petite distance du centre a un bord du fond, donc
+  ;; exactement « aucun pixel de decor sur aucun bord ».
   (+! (-> this t15-n) 1)
   (if (or (and (> frac 0.0)
                (or (zero? (-> this bg-n))
                    (> (-> this bg-lum) RHUD_BG_LUM_MAX)
-                   (< (-> this bg-r16) (the int (* 16.0 RHUD_GAUGE_HOLE_R)))))
+                   (< (* 1000 (-> this bg-r16))
+                      (* RHUD_BG_MARGIN_MIN (the int (* 16.0 RHUD_GAUGE_HOLE_R))))))
           (and (not (> frac 0.0)) (> (-> this bg-n) 0)))
     (+! (-> this t15-bad) 1))
   ;; --- terme 16 : LA TEINTE. Le canal de l'eco active domine les deux autres de 30 % au moins,
-  ;; sur la moyenne des 24 points du trou.
-  (when (and (> frac 0.0) (> (-> this orb-n) 0) (> (-> this nq-cur) 0))
+  ;; sur la moyenne des 24 points du trou. Arme sur la PRESENCE DU FOND, plus sur celle de l'orbe.
+  (when (and (> frac 0.0) (> (-> this bg-n) 0) (> (-> this nq-cur) 0))
     (let ((kk (-> this orb-idx)))
       (when (and (>= kk 0) (< kk 3))
         (let ((dd (rhud-orb-dom-permille (-> this nq-tr) (-> this nq-tg) (-> this nq-tb) kk))
@@ -4264,12 +4361,17 @@
           (set! (-> this t16-mr kk) (-> this nq-tr))
           (set! (-> this t16-mg kk) (-> this nq-tg))
           (set! (-> this t16-mb kk) (-> this nq-tb))))))
-  ;; --- terme 17 : LE RAYON DE L'ORBE, relu sur les sommets REELLEMENT emis (quantification 12.4
-  ;; comprise), pas sur l'argument qu'on a passe a `rhud-disc`.
-  (when (> (-> this orb-n) 0)
+  ;; --- terme 17 : L'ETENDUE D'UNE SEULE ETINCELLE, relue sur la geometrie REELLEMENT emise.
+  ;; Owner, 21/09 : « on voit juste une lueur bleue […] sans les particules electriques ». Une
+  ;; etincelle aussi large que le trou ne se distingue pas de ses voisines : la nuee rend un aplat
+  ;; et son mouvement ne se voit plus. CONTROLE dans la MEME image : la taille de l'essai 11,
+  ;; rejouee sur les memes particules, DOIT depasser le plafond — sinon le terme ne separe rien.
+  (when (> (-> this nq-cur) 0)
     (+! (-> this t17-n) 1)
-    (let ((rp (/ (* 1000 (-> this orb-r16)) (the int (* 16.0 RHUD_GAUGE_HOLE_R)))))
-      (if (or (< rp RHUD_ORB_R_MIN) (> rp RHUD_ORB_R_MAX)) (+! (-> this t17-bad) 1))
+    (let ((rp (/ (* 1000 (-> this nq-spk)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+          (rc (/ (* 1000 (-> this nq-spkc)) (the int (* 16.0 RHUD_GAUGE_HOLE_R)))))
+      (if (> rp RHUD_SPARK_MAX) (+! (-> this t17-bad) 1))
+      (if (<= rc RHUD_SPARK_MAX) (+! (-> this t17-ctrl) 1))
       (if (or (zero? (-> this t17-rmin)) (< rp (-> this t17-rmin))) (set! (-> this t17-rmin) rp))
       (if (> rp (-> this t17-rmax)) (set! (-> this t17-rmax) rp))))
   ;; --- terme 18 : LE FONDU. Sous 10 % d'eco, l'alpha suit la rampe et ne remonte JAMAIS tant que
@@ -4284,6 +4386,14 @@
     (if (and (< fi (-> this orb-lfrac)) (> (-> this orb-a) (-> this orb-la)))
       (+! (-> this t18-up) 1))
     (set! (-> this orb-lfrac) fi))
+  ;; --- terme 19 : LA NUEE EST ANIMEE. La somme des ecarts absolus des particules vivantes ne
+  ;; peut rester IDENTIQUE d'une image a l'autre que si la simulation n'avance pas — c'est ce que
+  ;; produit un sprite fixe, et c'est ce que l'owner a vu le 21/09. Aucune identite de particule
+  ;; n'est necessaire : la grandeur est un agregat, et c'est son IMMOBILITE qui accuse.
+  (when (> (-> this nq-live) 0)
+    (+! (-> this t19-n) 1)
+    (if (= (-> this nq-mv) (-> this nq-mvprev)) (+! (-> this t19-still) 1))
+    (set! (-> this nq-mvprev) (-> this nq-mv)))
   (set! (-> this orb-la) (-> this orb-a))
   (none))
 
@@ -4439,17 +4549,30 @@
                          (> (* 10 (-> this t16-ctrl 2)) (* 9 (-> this t16-n 2))))
                   (begin (+! measured 1) (rhud-gauge-tint-bad this))
                   (+ (rhud-gauge-tint-bad this) 1)))
-           ;; TERME 17 — LE RAYON DE L'ORBE, dans [0,85 ; 0,95] du rayon du trou.
-           (t17 (if (>= (-> this t17-n) RHUD_GB_MIN)
+           ;; TERME 17 — L'ETENDUE D'UNE SEULE ETINCELLE, sous RHUD_SPARK_MAX du rayon du trou.
+           ;; ARME PAR SON CONTROLE : la taille de l'essai 11, rejouee sur les MEMES particules
+           ;; dans la MEME image, doit DEPASSER ce plafond sur plus de neuf images sur dix. Si elle
+           ;; ne le depasse pas, le plafond ne separe rien et son zero ne vaut rien.
+           (t17 (if (and (>= (-> this t17-n) RHUD_GB_MIN)
+                         (< (* 10 (-> this t17-ctrl)) (-> this t17-n)))
                   (begin (+! measured 1) (if (> (-> this t17-bad) 0) 1 0))
-                  1))
+                  (+ (if (> (-> this t17-bad) 0) 1 0) 1)))
            ;; TERME 18 — LE FONDU des derniers 10 %, sur le fond ET sur l'orbe (meme alpha, il les
            ;; pilote tous les deux, etincelles comprises). MESURE seulement si la course est
            ;; vraiment descendue jusqu'en bas de la rampe.
            (t18 (if (and (>= (-> this t18-seen) RHUD_GB_MIN) (> (-> this t18-zero) 0))
                   (begin (+! measured 1)
                          (+ (if (> (-> this t18-bad) 0) 1 0) (if (> (-> this t18-up) 0) 1 0)))
-                  (+ (if (> (-> this t18-bad) 0) 1 0) (if (> (-> this t18-up) 0) 1 0) 1))))
+                  (+ (if (> (-> this t18-bad) 0) 1 0) (if (> (-> this t18-up) 0) 1 0) 1)))
+           ;; TERME 19 — LA NUEE BOUGE. « on voit juste une lueur bleue qui bouge pas du tout »
+           ;; (owner, 21/09). Une image est mauvaise quand la somme de position des particules
+           ;; vivantes est IDENTIQUE a celle de l'image precedente ; le terme rougit des que plus
+           ;; d'une image sur dix l'est. Il n'a pas de controle separe : son AVANT est l'image
+           ;; precedente, et un emetteur fige le rend rouge sur toutes les images.
+           (t19 (if (>= (-> this t19-n) RHUD_GB_MIN)
+                  (begin (+! measured 1)
+                         (if (> (* 10 (-> this t19-still)) (-> this t19-n)) 1 0))
+                  (+ (if (> (* 10 (-> this t19-still)) (-> this t19-n)) 1 0) 1))))
       (__pc-autoport-publish "hud_gauge_t1_angle" t1)
       (__pc-autoport-publish "hud_gauge_t2_tip" t2)
       (__pc-autoport-publish "hud_gauge_t3_color" t3)
@@ -4463,7 +4586,14 @@
       (__pc-autoport-publish "hud_gauge_t11_spark" t11)
       (__pc-autoport-publish "hud_gauge_t12_fit" t12)
       (__pc-autoport-publish "hud_gauge_t13_opaque" t13)
+      (__pc-autoport-publish "hud_gauge_t15_bg" t15)
+      (__pc-autoport-publish "hud_gauge_t16_tint" t16)
+      (__pc-autoport-publish "hud_gauge_t17_spark_size" t17)
+      (__pc-autoport-publish "hud_gauge_t18_fade" t18)
+      (__pc-autoport-publish "hud_gauge_t19_motion" t19)
       (__pc-autoport-publish "hud_gauge_terms_measured" measured)
+      (__pc-autoport-publish "hud_gauge_defects"
+                             (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 t15 t16 t17 t18 t19))
       ;; les denominateurs et les pires ecarts : de quoi relire la porte sans la croire sur parole
       (__pc-autoport-publish "hud_gauge_t1_n" (-> this t1-n))
       (__pc-autoport-publish "hud_gauge_t1_max_mdeg" (-> this t1-max))
@@ -4589,6 +4719,9 @@
       (__pc-autoport-publish "hud_gauge_t13_bad" (-> this t13-bad))
       (__pc-autoport-publish "hud_gauge_t13_min_milli" (-> this t13-min))
       (__pc-autoport-publish "hud_gauge_t13_ctrl_bad" (-> this t13-ctrl))
+      (__pc-autoport-publish "hud_gauge_t13_rel_n" (-> this t13-reln))
+      (__pc-autoport-publish "hud_gauge_t13_rel_bad" (-> this t13-relbad))
+      (__pc-autoport-publish "hud_gauge_t13_rel_min_permille" (-> this t13-relmin))
       (__pc-autoport-publish "hud_gauge_t13_layers_max" (-> this t13-lay))
       (__pc-autoport-publish "hud_gauge_t13_none" (-> this t13-none))
       ;; --- TERME 14 : LA CALIBRATION. Les deux premieres lignes sont LA CIBLE, mesurees sur la
@@ -4647,7 +4780,7 @@
       ;; PLUS VIEUX que le commit juge (la garde binaire ne compare que `libgk.so`, et un essai
       ;; 100 % GOAL ne la fait pas bouger). Ce numero est incremente a chaque essai : une preuve
       ;; qui ne porte pas celui de l'essai en cours mesure un AUTRE code.
-      (__pc-autoport-publish "hud_gauge_code_rev" 9)
+      (__pc-autoport-publish "hud_gauge_code_rev" 12)
       ;; la REGLE de couverture en vigueur : 2 = extension reelle du quad a son angle de dessin
       ;; (1 = enveloppe tous angles, deux fois trop large — jamais livree).
       (__pc-autoport-publish "hud_gauge_t13_core_rule" 2)
@@ -4657,17 +4790,17 @@
       (__pc-autoport-publish "hud_gauge_nuee_hwmax_16th" (the int (* 16.0 RHUD_NUEE_HW_MAX)))
       (__pc-autoport-publish "hud_gauge_nuee_size_milli" (the int (* 1000.0 RHUD_NUEE_SIZE)))
       (__pc-autoport-publish "hud_gauge_nuee_gain_milli" (the int (* 1000.0 RHUD_NUEE_A_GAIN)))
-      ;; --- reprise 20/09 21:00 : LE FOND NOIR, L'ORBE, LA TEINTE, LE FONDU ---
-      (__pc-autoport-publish "hud_gauge_t15_bg" t15)
-      (__pc-autoport-publish "hud_gauge_t16_tint" t16)
-      (__pc-autoport-publish "hud_gauge_t17_orb_radius" t17)
-      (__pc-autoport-publish "hud_gauge_t18_fade" t18)
+      ;; --- reprise 22/09 : LE FOND CARRE, LA TEINTE, L'ETINCELLE, LE FONDU, LE MOUVEMENT ---
       (__pc-autoport-publish "hud_gauge_t15_n" (-> this t15-n))
       (__pc-autoport-publish "hud_gauge_t15_bad" (-> this t15-bad))
       (__pc-autoport-publish "hud_gauge_bg_lum_permille" (-> this bg-lum))
       (__pc-autoport-publish "hud_gauge_bg_lum_max_permille" RHUD_BG_LUM_MAX)
       (__pc-autoport-publish "hud_gauge_bg_r16" (-> this bg-r16))
       (__pc-autoport-publish "hud_gauge_hole_r16" (the int (* 16.0 RHUD_GAUGE_HOLE_R)))
+      (__pc-autoport-publish "hud_gauge_bg_margin_permille"
+                             (/ (* 1000 (-> this bg-r16)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+      (__pc-autoport-publish "hud_gauge_bg_margin_want_permille" RHUD_BG_MARGIN_MIN)
+      (__pc-autoport-publish "hud_gauge_bg_lum_target_permille" RHUD_BG_LUM_TARGET)
       (__pc-autoport-publish "hud_gauge_t16_n_blue" (-> this t16-n 0))
       (__pc-autoport-publish "hud_gauge_t16_n_red" (-> this t16-n 1))
       (__pc-autoport-publish "hud_gauge_t16_n_yellow" (-> this t16-n 2))
@@ -4692,24 +4825,27 @@
       (__pc-autoport-publish "hud_gauge_t16_b_permille_yellow" (-> this t16-mb 2))
       (__pc-autoport-publish "hud_gauge_t17_n" (-> this t17-n))
       (__pc-autoport-publish "hud_gauge_t17_bad" (-> this t17-bad))
-      (__pc-autoport-publish "hud_gauge_t17_orb_r_permille_min" (-> this t17-rmin))
-      (__pc-autoport-publish "hud_gauge_t17_orb_r_permille_max" (-> this t17-rmax))
-      (__pc-autoport-publish "hud_gauge_t17_want_min_permille" RHUD_ORB_R_MIN)
-      (__pc-autoport-publish "hud_gauge_t17_want_max_permille" RHUD_ORB_R_MAX)
+      (__pc-autoport-publish "hud_gauge_t17_ctrl_bad" (-> this t17-ctrl))
+      (__pc-autoport-publish "hud_gauge_t17_spark_permille_min" (-> this t17-rmin))
+      (__pc-autoport-publish "hud_gauge_t17_spark_permille_max" (-> this t17-rmax))
+      (__pc-autoport-publish "hud_gauge_t17_want_max_permille" RHUD_SPARK_MAX)
+      (__pc-autoport-publish "hud_gauge_t17_ctrl_permille"
+                             (/ (* 1000 (-> this nq-spkc)) (the int (* 16.0 RHUD_GAUGE_HOLE_R))))
+      (__pc-autoport-publish "hud_gauge_t19_n" (-> this t19-n))
+      (__pc-autoport-publish "hud_gauge_t19_still" (-> this t19-still))
+      (__pc-autoport-publish "hud_gauge_t19_sum_16th" (-> this nq-mv))
       (__pc-autoport-publish "hud_gauge_t18_seen" (-> this t18-seen))
       (__pc-autoport-publish "hud_gauge_t18_bad" (-> this t18-bad))
       (__pc-autoport-publish "hud_gauge_t18_zero" (-> this t18-zero))
       (__pc-autoport-publish "hud_gauge_t18_up" (-> this t18-up))
       (__pc-autoport-publish "hud_gauge_fade_frac_permille"
                              (the int (* 1000.0 RHUD_GAUGE_FADE_FRAC)))
-      (__pc-autoport-publish "hud_gauge_orb_rim_permille" (the int (* 1000.0 RHUD_ORB_RIM)))
-      (__pc-autoport-publish "hud_gauge_nuee_core_target_milli"
-                             (the int (* 1000.0 RHUD_NUEE_CORE_TARGET)))
+      (__pc-autoport-publish "hud_gauge_nuee_grid_target_milli"
+                             (the int (* 1000.0 RHUD_NUEE_GRID_TARGET)))
+      (__pc-autoport-publish "hud_gauge_nuee_grid_mean_milli" (-> this nq-numean))
       (__pc-autoport-publish "hud_gauge_nuee_nusum_milli" (-> this nq-nusum))
       (__pc-autoport-publish "hud_gauge_nuee_gain_eff_milli" (-> this nq-gain))
-      (__pc-autoport-publish "hud_gauge_lit_milli" (the int (* 1000.0 RHUD_NUEE_LIT)))
-      (__pc-autoport-publish "hud_gauge_defects"
-                             (+ t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 t15 t16 t17 t18))))
+      (__pc-autoport-publish "hud_gauge_lit_milli" (the int (* 1000.0 RHUD_NUEE_LIT)))))
   (none))
 
 ;;;----------------------------------------------
@@ -4901,8 +5037,10 @@
                 ;; l'embout ne mord plus le quart bas-droit (voir l'en-tete de `rhud-tip-fan`).
                 (rhud-tip-fan buf cx cy RHUD_GAUGE_HALF fx (* RHUD_GAUGE_ARC_SPAN (- frac 1.0)) aa)
                 (set! (-> *rhud-gauge-probe* tag) -1)
-                ;; L'ORBE, par-dessus l'anneau et SOUS les etincelles (reprise 20/09 21:00)
-                (rhud-gauge-orb this buf cx cy fx eidx oa)
+                ;; PLUS D'ORBE ICI. L'essai 11 posait, par-dessus l'anneau, un disque en degrade a
+                ;; la couleur de l'eco : c'est la « lueur bleue qui bouge pas du tout » que l'owner
+                ;; a refusee le 21/09. La couleur vient maintenant du FOND (sous l'anneau) et les
+                ;; ETINCELLES du vial passent seules par-dessus.
                 ;; owner round-3 item 3: the ACTIVE eco's real particle system in the center
                 ;; hole (the same launcher clone per type; spawn only the active one)
                 (let ((idx (case (-> *target* fact eco-type)
