@@ -260,3 +260,11 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 
 # autoport: le magasin des binaires FIGES par les courses de preuve (adresse par contenu)
 .autoport/binfreeze/
+
+# Etat d'execution de la veille « retour owner sans lecteur vivant » (harness-supervisor-death-is-an-alarm).
+# Meme famille que .autoport/.supervisor-terminal.json : produit par la machine a l'execution,
+# jamais livre. Les versionner ferait voyager d'un poste a l'autre un pid, un tampon d'activite
+# et une liste de retours deja cries — donc un silence hérité d'une autre machine.
+.autoport/.owner_sla.json
+.autoport/.owner_sla_alerted.json
+.autoport/.supervisor-seen.json
