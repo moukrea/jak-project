@@ -17978,7 +17978,7 @@ items:
   where: 'Rien a regarder dans le jeu. Sur Linear : si le superviseur meurt ou ne repond plus, un ticket
     ou tu attends une reponse doit recevoir une alerte au lieu de rester muet.'
   where_to_look: 'Ligne `veille owner : ... lecteur=...` de `.autoport/logs/linear_sync.txt`.'
-- status: in-progress
+- status: validated
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -18035,6 +18035,13 @@ items:
   owner_ok: null
   no_code: true
   prompt: prompts/item-harness-x86-proof-for-a-device-item-must-shout-at-launch.md
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: f97a7a71630cde42
+    proof_bytes: 78044
+    attempt: 2
+    journal: validator-002.txt
 - id: owner-opus-5-5
   status: validated
   game: jak1
@@ -18501,7 +18508,7 @@ items:
 - id: harness-linear-sync-never-creates-two-tickets-for-one-item
   feature: La synchro Linear ne cree jamais deux tickets pour un meme chantier, et ne prend jamais son
     propre ticket pour un ticket de l'owner
-  status: open
+  status: in-progress
   priority: 12
   code_scope: harnais
   device: false
@@ -18540,3 +18547,44 @@ items:
     deja crees).
 
     CONTROLE POSITIF fabrique (deux executions concurrentes rendent 2 sans le correctif) + CONTROLE NEGATIF.'
+  no_code: true
+- id: harness-linear-auto-archive-when-space-runs-out
+  feature: Quand l'espace Linear approche de sa limite de tickets, la synchro archive d'elle-meme les
+    tickets termines, et elle ne plante plus sur un ticket archive
+  status: open
+  priority: 12
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_space_defects
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-auto-archive-when-space-runs-out.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Archive les tickets terminés, ça devrait se faire automatiquement quand on a un soucis de place.
+  known_cause: '23/09 : `linear_sync.py` plantait a chaque passage sur `issueCreate` -> USAGE_LIMIT_EXCEEDED
+    (« free issue limit », metrique activeIssueCount) : 275 tickets actifs pour une limite de 250 du plan
+    gratuit. Aucun chantier neuf ne recevait son ticket. Le superviseur a archive a la main 169 tickets
+    (157 termines + 12 annules) : reste 106 actifs.
+
+    DEUXIEME DEFAUT revele par cet archivage : la synchro plante ensuite (RuntimeError, `Entity not found:
+    Issue`) des qu''elle veut commenter un ticket archive — `announce_verdicts` (linear_sync.py:1132)
+    -> `post_comment` (588). 4 tickets ont du etre desarchives a la main (JAK-176, 191, 192, 193). Un
+    seul appel qui echoue fait tomber TOUTE la synchro, pull compris ou non selon l''ordre.'
+  deliverable: '1. La synchro connait la limite et le nombre de tickets actifs ; au-dela d''un seuil (ex.
+    85 %), elle archive les tickets termines/annules les plus anciens jusqu''a redescendre sous le seuil,
+    et le journalise.
+
+    2. Avant de commenter ou mettre a jour un ticket archive, elle le desarchive (ou le saute en le NOMMANT)
+    ; un appel Linear qui echoue sur un ticket n''arrete plus toute la synchro : il est compte et nomme.
+
+    3. USAGE_LIMIT_EXCEEDED declenche l''archivage puis UNE nouvelle tentative, jamais un plantage.
+
+    4. `linear_space_defects` = plantages de synchro sur limite ou ticket archive + chantiers actifs sans
+    ticket ; doit valoir 0.
+
+    CONTROLE POSITIF : espace simule au-dessus du seuil -> archivage declenche ; ticket archive commente
+    -> pas de plantage. CONTROLE NEGATIF : sous le seuil, rien n''est archive.'
