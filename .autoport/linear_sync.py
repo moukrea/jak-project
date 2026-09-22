@@ -37,7 +37,151 @@ from lib import backlog as B  # noqa: E402
 import linear_identity as LI  # noqa: E402
 
 API = "https://api.linear.app/graphql"
-MAP_PATH = AP / "linear_map.json"
+
+
+def _home():
+    """Le `.autoport` de l'arbre PRINCIPAL, meme lance depuis un worktree. Un worktree porte sa propre
+    copie VERSIONNEE (donc perimee) de la carte et son propre verrou : une synchro lancee de la creait un
+    second ticket pour tout item ne apres la coupe de l'arbre, sans jamais attendre la veille."""
+    try:
+        import subprocess  # noqa: PLC0415
+        common = subprocess.run(["git", "-C", str(AP), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                capture_output=True, text=True, timeout=10).stdout.strip()
+    except Exception:  # noqa: BLE001 — pas de git : l'arbre courant
+        return AP
+    main = Path(common).parent / ".autoport" if common else None
+    return main if main and (main / "linear_sync.py").exists() else AP
+
+
+HOME = _home()
+MAP_PATH = HOME / "linear_map.json"
+# Cliche HORS git de la carte (gitignore). 23/09 00:19 : un `git revert` + `git reset HEAD~1` a remis la
+# carte suivie a son dernier commit ; la correspondance de JAK-195 (creee 7 min plus tot) a disparu, la
+# veille a cree JAK-196 pour le meme item 22 s plus tard, puis a pris JAK-195 pour un ticket de l'owner.
+SHADOW_PATH = HOME / ".linear_map.shadow.json"
+LOCK_PATH = HOME / ".linear_sync.lock"
+KEY_FMT = "Identifiant harnais : `%s`"   # ecrit par description() : la cle de l'item DANS le ticket
+KEY_RE = re.compile(r"Identifiant harnais : `([^`]+)`")
+
+
+def _write_atomic(path, mp):
+    tmp = path.with_name(path.name + ".tmp.%d" % os.getpid())
+    tmp.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+    os.replace(tmp, path)
+
+
+def _gen(mp):
+    try:
+        return int((mp or {}).get("_gen") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def load_map():
+    """La carte item -> ticket. Si le fichier suivi a RECULE sous le cliche (git reset/checkout/stash/
+    revert), le cliche gagne et la perte est NOMMEE. Egalite = le fichier suivi gagne (retouche a la main)."""
+    def rd(p):
+        try:
+            return json.loads(p.read_text())
+        except (OSError, ValueError):
+            return None
+    mp, sh = rd(MAP_PATH), rd(SHADOW_PATH)
+    if sh is None and mp is not None:
+        _write_atomic(SHADOW_PATH, mp)   # premier passage, ou cliche efface (git clean) : on le pose
+    elif sh is not None and _gen(sh) > _gen(mp):
+        lost = sorted(k for k in sh if not k.startswith("_") and k not in (mp or {}))
+        print("CARTE LINEAR RECULEE : %s est a la generation %d, le cliche hors git a la %d ; cliche restaure, "
+              "%d correspondance(s) sauvee(s)%s" % (MAP_PATH.name, _gen(mp), _gen(sh), len(lost),
+                                                    (" : " + ", ".join(lost[:8])) if lost else ""))
+        mp = sh
+        _write_atomic(MAP_PATH, mp)
+    _SAVED["body"] = _body(mp or {})
+    return mp or {}
+
+
+_SAVED = {"body": None}
+
+
+def _body(mp):
+    return json.dumps({k: v for k, v in mp.items() if k != "_gen"}, sort_keys=True, ensure_ascii=False)
+
+
+def save_map(mp):
+    """Ecriture atomique, cliche d'abord : un lecteur ne voit jamais une carte a moitie ecrite. Rien de
+    change = rien d'ecrit : la generation ne monte pas a chaque passage de la veille (30 s)."""
+    body = _body(mp)
+    if body == _SAVED["body"]:
+        return
+    _SAVED["body"] = body
+    mp["_gen"] = _gen(mp) + 1
+    _write_atomic(SHADOW_PATH, mp)
+    _write_atomic(MAP_PATH, mp)
+
+
+def map_lock():
+    """LE verrou de la synchro, pris par TOUTES les voies d'entree (veille, --comment, --only, --check),
+    dans l'arbre principal quel que soit l'arbre d'ou l'on part."""
+    fh = open(LOCK_PATH, "a+")
+    fcntl.flock(fh, fcntl.LOCK_EX)
+    return fh
+
+
+def issue_key(iss):
+    m = KEY_RE.search((iss or {}).get("description") or "")
+    return m.group(1) if m else None
+
+
+def item_title(it):
+    return (it.get("feature") or it["id"]).strip()[:250]
+
+
+def find_issue_for(L, team, iid, title, taken):
+    """Le ticket de `iid` existe-t-il DEJA dans Linear ? Linear est la seule memoire que ni git ni un
+    worktree ne peuvent faire reculer : on le lui demande avant toute creation. Un ticket qui porte la
+    cle d'un AUTRE item, ou deja relie ailleurs (`taken`), n'est jamais repris."""
+    d = L.q('query($t:ID!,$k:String!,$ti:String!){ issues(first:20, includeArchived:true, filter:{team:{id:{eq:$t}}, '
+            'or:[{description:{contains:$k}},{title:{eq:$ti}}]}){ nodes { id identifier url title description '
+            'createdAt state { name type } } } }', t=team, k=KEY_FMT % iid, ti=title)
+    c = [n for n in d["issues"]["nodes"] if n["id"] not in taken
+         and (issue_key(n) == iid or (issue_key(n) is None and (n.get("title") or "").strip() == title))]
+    c.sort(key=lambda n: (issue_key(n) != iid, n["state"]["type"] == "canceled", n.get("createdAt") or ""))
+    return c[0] if c else None
+
+
+def ensure_ticket(L, mp, team, iid, title, payload, st, h):
+    """LE seul chemin qui cree un ticket. Rend (rec, cree). Linear d'abord : une carte qui a recule (git)
+    ou lue depuis un worktree ne sait pas que le ticket existe. Une recherche qui echoue LEVE : jamais de
+    creation a l'aveugle. La carte est sauvee AVANT toute autre requete."""
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    found = find_issue_for(L, team, iid, title, {v["issue_id"] for k, v in mp.items() if not k.startswith("_")})
+    if found:
+        print("TICKET EXISTANT RELIE : %s -> %s (aucune creation)" % (found["identifier"], iid))
+        mp[iid] = {"issue_id": found["id"], "identifier": found["identifier"], "url": found["url"],
+                   "last_state": found["state"]["name"], "hash": "", "pulled_at": now}
+        save_map(mp)
+        return mp[iid], False
+    r = L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }', i=dict(payload, teamId=team))
+    iss = r["issueCreate"]["issue"]
+    mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": iss["url"],
+               "last_state": st, "hash": h, "pulled_at": now}
+    save_map(mp)
+    return mp[iid], True
+
+
+def classify_unmapped(iss, bl, mp):
+    """Un ticket hors carte : ("owner", None) s'il vient de l'owner, ("relink", iid) si c'est le ticket
+    PERDU d'un item sans ticket, ("harness", pourquoi) s'il vient de nous. Un ticket du harnais n'est
+    JAMAIS adopte comme ticket de l'owner : ni par sa cle, ni par son auteur, ni par son titre."""
+    k = issue_key(iss)
+    if k:
+        return ("relink", k) if bl.get(k) and k not in mp else ("harness", "porte la cle de %s" % k)
+    t = (iss.get("title") or "").strip()
+    twin = next((it["id"] for it in bl.items if not it["id"].startswith("owner-") and item_title(it) == t), None)
+    if twin:
+        return ("relink", twin) if twin not in mp else ("harness", "titre de %s" % twin)
+    if (iss.get("creator") or {}).get("app"):
+        return ("harness", "cree par l'application")
+    return ("owner", None)
 STATE_JSON = AP / "state.json"
 TEAM_KEY = "JAK"
 TEAM_NAME = "Jak and Daxter: Recharged Collection"
@@ -214,7 +358,7 @@ def description(bl, it, retries):
                 lines += ["- %s : « %s »" % (f.get("date", "?"), str(f.get("text", "")).strip()[:700])]
     spec = it.get("spec") or ""
     doc = (MAP_DOCS.get(os.path.basename(spec)) or {}).get("url") if spec else None
-    lines += ["", "---", "Identifiant harnais : `%s` — rang %s — spec : %s" % (it["id"], it.get("priority"), ("[%s](%s)" % (os.path.basename(spec), doc)) if doc else (spec or "—"))]
+    lines += ["", "---", (KEY_FMT + " — rang %s — spec : %s") % (it["id"], it.get("priority"), ("[%s](%s)" % (os.path.basename(spec), doc)) if doc else (spec or "—"))]
     return "\n".join(lines)
 
 
@@ -534,10 +678,30 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
     « j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal ! »). Il arrive en bas de la pile,
     sans porte : le superviseur est reveille (ligne NOUVEAU TICKET) et le cadre."""
     known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
-    d = L.q('query($t:String!){ team(id:$t){ issues(first:250){ nodes { id identifier title description state { name type } } } } }', t=team)
+    nodes, after = [], None
+    while True:  # pagine : `first:250` sans suite aurait perdu les tickets au-dela (205 le 23/09)
+        d = L.q('query($t:String!,$a:String){ team(id:$t){ issues(first:100, after:$a, filter:{state:{type:{nin:["completed","canceled"]}}}){ '
+                'pageInfo { hasNextPage endCursor } nodes { id identifier title description createdAt creator { id app } state { name type } } } } }',
+                t=team, a=after)
+        page = d["team"]["issues"]
+        nodes += page["nodes"]
+        if not page["pageInfo"]["hasNextPage"]:
+            break
+        after = page["pageInfo"]["endCursor"]
     n = 0
-    for iss in d["team"]["issues"]["nodes"]:
+    for iss in nodes:
         if iss["id"] in known or iss["state"]["type"] in ("completed", "canceled"):
+            continue
+        kind, what = classify_unmapped(iss, bl, mp)
+        if kind == "relink":
+            print("TICKET DU HARNAIS RELIE : %s -> item %s (sa correspondance avait ete perdue ; rien n'est cree)" % (iss["identifier"], what))
+            if not dry:
+                mp[what] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
+                            "last_state": iss["state"]["name"], "hash": "", "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+                known.add(iss["id"]); save_map(mp)
+            continue
+        if kind == "harness":
+            print("TICKET DU HARNAIS NON RELIE : %s (%s) — jamais adopte comme ticket de l'owner" % (iss["identifier"], what))
             continue
         base = re.sub(r"[^a-z0-9]+", "-", iss["title"].lower().encode("ascii", "ignore").decode()).strip("-")[:48] or "ticket"
         iid = "owner-" + base
@@ -1099,8 +1263,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
 def main():
     # Une seule synchro a la fois : le veilleur (30 s) et les appels du superviseur s'entrelacaient
     # (17/09, JAK-173 : trois etiquettes a la fois, un deplacement du superviseur lu comme celui de l'owner).
-    lock = open(AP / ".linear_sync.lock", "a+")
-    fcntl.flock(lock, fcntl.LOCK_EX)
+    lock = map_lock()  # noqa: F841 — tenu jusqu'a la sortie du processus
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-pull", action="store_true")
@@ -1137,7 +1300,7 @@ def main():
         print("LIVRAISON VERIFIEE : build %s (%s) commit %s sur jak-builds" % (ds.get("tag"), ds.get("when"), ds.get("commit", "?")[:12]) if ds["ok"] else "LIVRAISON NON VERIFIEE : %s" % ds["why"])
         return
     if a.check:
-        bl = B.load(); mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
+        bl = B.load(); mp = load_map()
         team = ensure_team(L); states = ensure_states(L, team); by_id = {v: k for k, v in states.items()}
         drift = orphans = 0
         ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
@@ -1163,12 +1326,12 @@ def main():
                 drift += 1
                 print("  ecart %s : Linear=%s backlog=%s (recale au prochain passage)" % (rec["identifier"], iss["state"]["name"], want))
                 rec["hash"] = ""  # force la mise a jour
-        MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+        save_map(mp)
         missing = [it["id"] for it in bl.items if it["status"] in ("open", "in-progress", "to-test", "blocked") and it["id"] not in mp]
         print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len([k for k in mp if not k.startswith("_")]), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
         return
     if a.comment:
-        mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
+        mp = load_map()
         rec = mp.get(a.comment)
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
@@ -1185,7 +1348,7 @@ def main():
     retries = {}
     if STATE_JSON.exists():
         retries = (json.loads(STATE_JSON.read_text()).get("retries") or {})
-    mp = json.loads(MAP_PATH.read_text()) if MAP_PATH.exists() else {}
+    mp = load_map()
     ids = mp.get("_ids") or {}
     if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and ids["labels"].get("ok") and ids["labels"].get("v2") and "Validé" not in ids["states"]:
         team, states, projects = ids["team"], ids["states"], ids["projects"]
@@ -1232,6 +1395,7 @@ def main():
             print("veille owner indisponible : %s" % str(_e)[:160])
     created = updated = moved = 0
     created_ids = set()
+    create_refused = None  # 23/09 00:3x : quota d'equipe atteint, CHAQUE passage mourait sur la 1re creation
     for it in bl.items:
         iid = it["id"]
         if a.only and iid != a.only:
@@ -1240,7 +1404,7 @@ def main():
             continue
         st = target_state(bl, it)
         desc = description(bl, it, retries)
-        title = (it.get("feature") or iid).strip()[:250]
+        title = item_title(it)
         h = hashlib.sha1((title + "|" + st + "|" + desc + "|" + str(priority_for(bl, it)) + "|ok=" + str(bool(it.get("owner_ok"))) + "|rang=" + str(it.get("priority"))).encode()).hexdigest()
         rec = mp.get(iid)
         if rec and rec.get("hash") == h:
@@ -1252,19 +1416,26 @@ def main():
         if a.dry_run:
             print(("CRÉER " if not rec else "MAJ   ") + "%-40s %-18s %s" % (iid, st, title[:60]))
             continue
+        if not rec and create_refused:
+            continue
+        made = False
         if not rec:
-            payload["teamId"] = team
-            r = L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }', i=payload)
-            iss = r["issueCreate"]["issue"]
-            mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": iss["url"],
-                       "last_state": st, "hash": h, "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+            try:
+                rec, made = ensure_ticket(L, mp, team, iid, title, payload, st, h)
+            except RuntimeError as e:
+                # Un refus (quota, reseau) ne tue plus le passage : les retours de l'owner, les verdicts et la
+                # file « A traiter » passent apres cette boucle. Plus aucune creation jusqu'au passage suivant.
+                create_refused = str(e)[:200]
+                print("CREATION REFUSEE PAR LINEAR : %s (%s) ; plus de creation pendant ce passage" % (iid, create_refused))
+                continue
+        if made:
             created += 1
             created_ids.add(iid)
             # Le rang du backlog est REIMPOSE apres coup : a la creation, Linear place le ticket ou son
             # reglage d'equipe le veut, pas ou le `sortOrder` demande le met.
             if isinstance(it.get("priority"), int):
                 L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
-                    id=iss["id"], i={"sortOrder": float(it["priority"])})
+                    id=rec["issue_id"], i={"sortOrder": float(it["priority"])})
         else:
             L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
             if rec.get("last_state") != st:
@@ -1283,7 +1454,7 @@ def main():
                 rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
             rec.update({"last_state": st, "hash": h})
             updated += 1
-        MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+        save_map(mp)
     adopted = adopt_owner_issues(L, bl, mp, team, todo, a.dry_run)
     if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run, skip=created_ids):
         bl = B.load()
@@ -1299,7 +1470,10 @@ def main():
     for iss in d["issueLabel"]["issues"]["nodes"]:
         print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "hors-backlog")))
     if not a.dry_run:
-        MAP_PATH.write_text(json.dumps(mp, indent=1, ensure_ascii=False, sort_keys=True))
+        save_map(mp)
+    if create_refused:
+        print("CREATIONS SUSPENDUES : %d item(s) actif(s) sans ticket ; Linear refuse : %s"
+              % (len([i for i in bl.items if wanted(i, today) and i["id"] not in mp]), create_refused))
     print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis, %d requêtes" % (created, updated, moved, rel, swept, len([k for k in mp if not k.startswith("_")]), L.n))
 
 

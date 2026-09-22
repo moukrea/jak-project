@@ -268,3 +268,6 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 .autoport/.owner_sla.json
 .autoport/.owner_sla_alerted.json
 .autoport/.supervisor-seen.json
+.autoport/.linear_map.shadow.json
+.autoport/linear_map.json.tmp.*
+.autoport/.linear_map.shadow.json.tmp.*
