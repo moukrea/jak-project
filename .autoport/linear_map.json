@@ -792,6 +792,14 @@
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
+ "harness-x86-proof-for-a-device-item-must-shout-at-launch": {
+  "hash": "22d9e42a17dac8236681b5b7db2a337fed7c9f5e",
+  "identifier": "JAK-191",
+  "issue_id": "8d0ae93f-70d2-4081-93e0-abdd0c0b4938",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T17:43:08.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-191/un-proof-runsh-id-x86-lance-pour-un-item-dont-le-critere-porte-device1"
+ },
  "hd-models": {
   "hash": "597c052bc0f4576f41cfc709bb02604f2b3e96b9",
   "identifier": "JAK-3",
@@ -911,12 +919,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "f373f4769cb6ded8258ceae769254334fc945a66",
+  "hash": "c774ed030a59553eae7736e9964e9a74187795e7",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-015.txt",
-  "pulled_at": "2026-09-22T12:04:05.854Z",
+  "last_verdict_announced": "validator-016.txt",
+  "pulled_at": "2026-09-22T17:41:37.855Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
