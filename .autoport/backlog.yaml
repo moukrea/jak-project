@@ -17771,7 +17771,7 @@ items:
     cite la porte. Un terme non mesure compte 1.'
   no_code: true
 - id: harness-supervisor-death-is-an-alarm
-  priority: 1
+  priority: 11
   device: false
   feature: 'La mort du superviseur est elle-meme une alerte : la file « retour owner sans reponse » ne
     peut pas rester servie a un lecteur qui n''existe plus'
