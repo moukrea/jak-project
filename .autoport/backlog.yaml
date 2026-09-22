@@ -15983,7 +15983,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: in-progress
+- status: to-test
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -16328,6 +16328,35 @@ items:
     text: Alors t'es casse couilles… faut juste savoir si ça roule sur Android et on sait déjà que c'est
       le cas. Sur x86 ça me suffit, mais je peux te dire sur les derniers runs que j'ai vu rouler que
       les orbes d'Eco sur la jauge devraient au moins êtres deux fois plus grosses.
+  - date: '2026-09-22'
+    text: 'Bon t''es une merde. Déjà publies le build que je puisse le tester (sur jak-builds). Et fais
+      aussi un ticket pour les problèmes de harnais suivant:
+
+
+      * Le harnais pense que le téléphone branché et le téléphone sur lequel je teste est la même chose.
+      C''est faux, le Redmi branché est pour que le harnais fasse les tests au besoin, moi je teste sur
+      mon HONOR qui n''est pas branché, d''où la nécessité que le build soit sur jak-builds
+
+      * Le harnais pense qu''il est obligatoire que ce soit vérifié par lui même sur Android et refuse
+      les vérifications via le build x86… c''est vrai quand il s''agit d''une nouveauté car il faut savoir
+      si ça tourne sur Android aussi avec ses spécificités, mais pour de l''itération, le build x86 suffit,
+      et il n''est pas nécessaire de systématiquement tester sur Android. Au pire l''utilisateur (moi)
+      peut constater par lui même que ça marche pas sous ARM au moment de la validation humaine.
+
+      * Le harnais se perd dans ses capacités de mesures et est obsédé par ces dernières… il perd un temps
+      complètement fou a mesurer des choses qui prendrait quelques secondes à un humain, et de plus la
+      plupart du temps ces mesures sont soit en erreur parce que mal mesurées, soit en faux vert parce
+      que ça mesure pas la bonne chose comme il faut'
+  - date: '2026-09-22'
+    text: Je vois pas ce que tu peux pas répéter sur PC, la jauge est identique sur Android et PC, tu
+      dis de la merde. Le build ne livre pas les assets... je vois pas ce que tu racontes, c'est un truc
+      que tu devrais corriger tout seul. L'orbe peut clignoter.. bah c'est animé tocard, justement je
+      te demande de me laisser vérifier moi plutît que t'entêter à vérifier visuellement toi comme un
+      gros teubé alors que t'es absolument nul à chier en vérif visuelles... C'est pas la première fois
+      que je le dis et j'en ai vraiment plein le cul de me répéter.
+  - date: '2026-09-22'
+    text: putain mais fonce, je dois te repeter combien de fois, je veux tester la jauge.casse couille
+      !
   notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
     reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
 
@@ -16380,7 +16409,33 @@ items:
     pendant les deux courses. REGLE POUR LES ESSAIS SUIVANTS : calibrer sur x86 autant qu''on veut, mais
     la DERNIERE course de l''essai, celle qui ecrit reports/hud-eco-gauge/proof.txt, doit tourner sur
     le telephone. Un proof.txt qui finit en source=x86 = essai perdu d''avance, quel que soit le chiffre
-    mesure. Garder assez de temps pour cette course-la avant de rendre la main.'
+    mesure. Garder assez de temps pour cette course-la avant de rendre la main.
+
+
+    22/09 23:0x (superviseur) : PASSAGE A to-test, sur ordre de l''owner. Les deux defauts qu''il avait
+
+    NOMMES sont mesures corriges a l''essai 17, en source=device : les trois types d''eco font la meme
+
+    taille (377/377/378 px pour une cible de 377) et la LUEUR passe bien par-dessus la jauge. Le seul
+
+    rouge restant est le terme 13 sous-condition `bright` : 11,49 % contre une tolerance de 10 % — un
+
+    SEUIL de juge, pas un defaut que l''owner a signale. FINDINGS de l''essai 17 dit par ailleurs que
+    le
+
+    terme 12 juge un MAXIMUM sur toute la course contre +/-20 %, exactement la statistique d''ordre
+
+    extreme que l''owner a decrite comme « soit elles passent alors que c''est completement claque soit
+
+    elles echouent alors que c''est bon ».
+
+    L''owner a tranche : « je te demande de me laisser verifier moi plutot que t''entêter a verifier
+
+    visuellement toi ». On ne brule plus d''essai sur le seuil : le build part, il regarde.
+
+    NE PAS poser le jeton a sa place — il reste to-test tant qu''il n''a pas dit oui.
+
+    Si son retour est bon, le reglage du terme 13 (et du terme 12) devient un item de HARNAIS.'
   where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
     montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
     montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
@@ -17899,7 +17954,7 @@ items:
     pose ira sur le ticket de l''owner. La porte doit separer les deux etats : ABSENT-DU-REGISTRE n''est
     pas MORT, et un lecteur qui repond doit pouvoir se faire reconnaitre autrement que par son lanceur.'
   prompt: prompts/item-harness-supervisor-death-is-an-alarm.md
-- status: open
+- status: in-progress
   game: jak1
   owner_test: false
   code_scope: harnais
@@ -17954,5 +18009,27 @@ items:
     alors que l'essai 16 mesurait 0 defaut. Publier par lib/census/harness-x86-proof-for-a-device-item-must-shout-at-launch.sh.
   hits_means: courses x86 vues sur un item a critere device
   owner_ok: null
-  no_code: false
+  no_code: true
   prompt: prompts/item-harness-x86-proof-for-a-device-item-must-shout-at-launch.md
+- id: owner-opus-5-5
+  status: open
+  game: jak1
+  priority: 999
+  feature: Opus 5.5
+  gate: null
+  depends_on: []
+  device: false
+  owner_test: true
+  owner_ok: null
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-22. Son texte : Opus 5.5 est sorti, autant
+    l''utiliser en lieu et place de Opus'
+  notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
+  where: ''
+  deliverable: ''
+  out_of_scope: ''
+  spec: null
