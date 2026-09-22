@@ -1,5 +1,5 @@
 TAG: a27b78-c666da      (a comparer sur ton telephone : files/.custom_pack_stamp_jak1)
-date: 2026-09-22T12:03:21+02:00     commit: a27b786d368f     build AUTOMATIQUE (etat compile)
+date: 2026-09-22T12:09:51+02:00     commit: a27b786d368f     build AUTOMATIQUE (etat compile)
 
 MOUVEMENT MESURE PAR CHAINE sur ce build (amplitude de pointe, max des 5 pilotages) :
   chestL        0.1796
