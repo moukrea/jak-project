@@ -599,6 +599,14 @@
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-155/un-rouge-de-la-suite-ne-du-commit-dun-autre-ne-tue-plus-lessai-qui"
  },
+ "harness-codex-supervisor-launched-by-hand-is-seen": {
+  "hash": "e75f71cb5724b263aec65e6a3e6b2ec79d8cf7bb",
+  "identifier": "JAK-202",
+  "issue_id": "eb263dee-1b0e-4580-8737-86f184785a3d",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-202/un-superviseur-codex-lance-a-la-main-est-vu-vivant-par-le-harnais"
+ },
  "harness-delivery-stale-bake-recovery": {
   "hash": "f4212744f26243d84b7abc454704e9da6305dd7e",
   "identifier": "JAK-162",
@@ -659,6 +667,14 @@
   "pulled_at": "2026-09-17T19:37:28.885Z",
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
+ "harness-linear-watch-comment-matches-its-period": {
+  "hash": "75d7b928ef53a08af5b8f9cf828faeb30cbe8a0a",
+  "identifier": "JAK-201",
+  "issue_id": "950f1254-febe-46ed-ba63-a740fb5ed2de",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-201/le-commentaire-de-linear-watchsh-dit-la-vraie-frequence-de-la-veille"
+ },
  "harness-main-agent-context-volume": {
   "hash": "c4cb0bca7b1a24b747b19e6d524114e1aca92d84",
   "identifier": "JAK-184",
@@ -667,6 +683,22 @@
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-19T11:51:40.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
+ },
+ "harness-owner-sla-answer-must-address-the-owner": {
+  "hash": "70c408d04474d338219e91e3f605321a59d0aeee",
+  "identifier": "JAK-197",
+  "issue_id": "c6d16572-7bba-45c1-af41-bf98d5709311",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-197/un-retour-de-lowner-ne-compte-comme-repondu-que-si-la-reponse-lui-est"
+ },
+ "harness-owner-sla-matches-every-owner-comment": {
+  "hash": "dc859c0a78b2524065c9dc0779481d5ca2a2a799",
+  "identifier": "JAK-196",
+  "issue_id": "8c3a3278-4045-4949-9e7d-2c78187ab2f7",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:19:47.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-196/chaque-retour-de-lowner-recopie-de-linear-se-retrouve-sur-son-ticket"
  },
  "harness-owner-test-requires-a-capture": {
   "hash": "782365dbcd43fa1d564d9895a3de7356cd60be96",
@@ -734,6 +766,14 @@
   "pulled_at": "2026-09-17T05:37:15.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-130/une-preuve-perimee-se-voit-avant-la-course-pas-au-validateur-une-heure"
  },
+ "harness-status-says-when-linear-cache-is-stale": {
+  "hash": "7d231f8127bde55f1af31dbe42fa49f5deb0c778",
+  "identifier": "JAK-200",
+  "issue_id": "477a9522-4b09-4f59-ad65-05f7a1bab4b6",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-200/si-la-synchro-linear-est-morte-le-rapport-detat-le-dit-au-lieu"
+ },
  "harness-subsecond-freshness-is-blind": {
   "hash": "e954c6ead20fbe0a782fab12ee080e87d1f7a9d9",
   "identifier": "JAK-110",
@@ -774,13 +814,29 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "90866019cedbf531a13621b05e268dca6d148739",
+  "hash": "a43933c47d7b6332af8135b3b70db9e0cc3fdd19",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
+ },
+ "harness-supervisor-reader-must-be-the-supervisor": {
+  "hash": "44bbb3a0fb9a49a53cbb670ed916cbc560ea4a62",
+  "identifier": "JAK-198",
+  "issue_id": "931a8dc2-8917-41fa-ba25-461aed2cb41b",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:53.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-198/seul-le-vrai-superviseur-compte-comme-lecteur-vivant-une-autre-session"
+ },
+ "harness-supervisor-seen-stamp-per-reader": {
+  "hash": "812ed9e1a20c39899d16505e7aec067955c4f5d5",
+  "identifier": "JAK-203",
+  "issue_id": "6d4fb132-5b84-42d0-a098-df33d454d46d",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:56.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-203/deux-superviseurs-en-meme-temps-sont-comptes-separement-la-mort-de-lun"
  },
  "harness-test-bench-does-not-inherit-the-worker-env": {
   "hash": "95b41c277890dd3d124807f953aefa23511551bb",
@@ -809,11 +865,19 @@
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
+ "harness-wake-unanswered-list-carries-its-age": {
+  "hash": "e0597513c7fdc12927229386fcd1fdcc2aadc5e4",
+  "identifier": "JAK-199",
+  "issue_id": "fa1a091e-57bc-436d-9810-aa44899dbcb1",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T22:24:54.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-199/la-liste-des-retours-de-lowner-sans-reponse-dans-le-reveil-du"
+ },
  "harness-x86-proof-for-a-device-item-must-shout-at-launch": {
-  "hash": "ec8309ba6572d5bcad1a56b2790725653eccdbc8",
+  "hash": "dd628848dbdd7551d2ff768553c91a4525a04be7",
   "identifier": "JAK-191",
   "issue_id": "8d0ae93f-70d2-4081-93e0-abdd0c0b4938",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T17:43:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-191/un-proof-runsh-id-x86-lance-pour-un-item-dont-le-critere-porte-device1"
@@ -1187,6 +1251,14 @@
   "last_state": "Done",
   "pulled_at": "2026-09-17T05:36:49.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
+ },
+ "owner-chaque-retour-de-l-owner-recopie-de-linear-se-re": {
+  "hash": "4d602129a721648572854e11ca8a256f566ae3dc",
+  "identifier": "JAK-195",
+  "issue_id": "b485e80f-1c74-4fd8-9e44-c8662503ab65",
+  "last_state": "Canceled",
+  "pulled_at": "2026-09-22T22:19:49.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-195"
  },
  "owner-distinction-entre-todo-et-backlog": {
   "hash": "61ff39e2f52217a40fd5dfa60773a4a3d5039c42",
