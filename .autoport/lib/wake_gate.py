@@ -187,6 +187,22 @@ def decide(prompt, maintenant=None, ecrire=True):
     """Rend (decision, raison, texte). `decision` vaut 'ignore', 'passe' ou 'refuse'."""
     t0 = time.time()
     maintenant = maintenant if maintenant is not None else t0
+    # LE SUPERVISEUR TRAITE UN PROMPT, MAINTENANT — et c'est le seul endroit du depot qui le
+    # sait. Le 22/09, le reveil de 10:20:48 est reste EN FILE : ce crochet n'a jamais tourne,
+    # la derniere reponse est restee datee de 09:50:56, et le processus a survecu 77 minutes
+    # de plus. Un controle qui ne lit que le pid serait reste muet tout ce temps ; celui-ci
+    # ancre sur l'horodatage que l'oracle pose QUAND IL TOURNE.
+    # AVANT le tri des reveils, et gate sur l'ASCENDANCE : ce crochet voit les prompts de
+    # TOUTES les sessions du depot. Dater sur la forme du prompt laisserait un worker dater
+    # le superviseur, et un superviseur pilote a la main par l'owner ne se daterait jamais.
+    if ecrire:
+        try:
+            sys.path.insert(0, AP)
+            from lib import supervisor_alive as _sa     # noqa: PLC0415
+            if _sa.in_supervisor_tree():
+                _sa.stamp_seen()
+        except Exception:                               # noqa: BLE001 — jamais bloquant
+            pass
     if not est_un_reveil(prompt):
         return "ignore", "pas-une-veille", ""
     memo = _memo()

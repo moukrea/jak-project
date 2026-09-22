@@ -1201,6 +1201,35 @@ def main():
     if mp and not a.no_pull:
         pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
         bl = B.load()
+        # ------------------------------------------- LA FILE A-T-ELLE ENCORE UN LECTEUR ?
+        # Tirer les retours de l'owner et les poser dans `owner_feedback` ne sert a RIEN si
+        # personne ne les lit : c'est exactement ce qui s'est passe le 22/09, ou cette boucle
+        # a crie « À TRAITER : JAK-176 » 10 766 fois dans le vide pendant que la session
+        # superviseur etait morte. La veille date chaque retour par son horodatage Linear,
+        # mesure le lecteur, et ALERTE l'owner sur son propre ticket quand il n'y en a plus.
+        # Elle ne peut pas faire echouer la synchro : c'est une alarme, pas une dependance.
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from lib import owner_sla as _osla             # noqa: PLC0415
+
+            def _poster(_iid, _ticket, _body):
+                if not _ticket:
+                    return False
+                post_comment(L, _ticket, mark(L) + _body)
+                swap_labels(L, _ticket, add=label, remove=todo)
+                return True
+
+            _v = _osla.veille(L, bl.items, mp, owner_user_id(L, mp), _poster, dry=a.dry_run)
+            _c, _al = _v["cout"], _v["alerte"]
+            print("veille owner : %d retours sur %d j, %d sans reponse, %d au-dela du SLA, "
+                  "pire delai %s s ; lecteur=%s (%s) ; alerte=%s, %d commentaire(s) poste(s)"
+                  % (_c["dated"], _osla.FENETRE_JOURS, _c["open"], _c["over_sla"],
+                     _c["max_delay_s"], "vivant" if _v["releve"]["alive"] else "MORT",
+                     _v["releve"]["why"], "OUI" if _al["raise"] else "non", _al["posted"]))
+            for _l in _al["lines"]:
+                print("  " + _l)
+        except Exception as _e:                            # noqa: BLE001 — jamais fatal
+            print("veille owner indisponible : %s" % str(_e)[:160])
     created = updated = moved = 0
     created_ids = set()
     for it in bl.items:

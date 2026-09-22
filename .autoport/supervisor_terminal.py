@@ -20,13 +20,17 @@ def main():
                 'start': Path(f'/proc/{os.getpid()}/stat').read_text().rsplit(')', 1)[1].split()[19],
                 'tty': os.ttyname(0)}
     if record.exists():
-        old = json.loads(record.read_text())
-        try:
-            oldstat = Path(f'/proc/{old["pid"]}/stat').read_text().rsplit(')', 1)[1].split()
-            if oldstat[19] == old['start']:
-                raise SystemExit('Un superviseur est déjà ouvert dans ' + old['tty'])
-        except FileNotFoundError:
-            pass
+        # UNE SEULE REGLE DE VIVACITE POUR TOUT LE DEPOT (lib/supervisor_alive.py). La copie
+        # qui vivait ici lisait bien le starttime, mais elle prenait un ZOMBIE pour un
+        # superviseur ouvert : `run-supervisor.sh` refusait alors de demarrer en accusant un
+        # mort, et la file « retour owner » restait servie a personne.
+        from lib import supervisor_alive
+        vivant, releve = supervisor_alive.process_alive(str(record))
+        if vivant:
+            raise SystemExit('Un superviseur est déjà ouvert dans ' + releve['tty'])
+        if releve['declared']:
+            print('[superviseur] fichier de terminal perime (%s, pid %s) : ignore.'
+                  % (releve['why'], releve['pid']))
     record.write_text(json.dumps(identity) + '\n')
     args = sys.argv[1:]
     try:

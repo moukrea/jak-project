@@ -672,8 +672,27 @@ class Backlog:
         except Exception:                                  # noqa: BLE001 — jamais fatal
             cout = ""
 
-        text = "\n\n".join(b for b in (degrade, en_cours, empeche, a_tester, bloque, dette,
-                                       cout) if b)
+        # ------------------------- LA FILE « RETOUR OWNER » EST-ELLE SERVIE A UN MORT ?
+        # EN TETE, avant meme l'etat degrade : un retour de l'owner que personne ne lit est
+        # le seul defaut de ce rapport dont l'owner lui-meme est la victime. Le releve des
+        # DELAIS vient du cache pose par la synchro (30 s) — aucun reseau ici — mais le
+        # LECTEUR est remesure a l'instant, sur /proc : c'est la grandeur qui bascule.
+        orphelin = ""
+        try:
+            try:
+                from . import owner_sla as _osla, supervisor_alive as _sa
+            except ImportError:
+                import owner_sla as _osla, supervisor_alive as _sa
+            _recs, _at = _osla.load_cache()
+            if _recs:
+                _rel = _sa.probe()
+                _al = _osla.evaluate(_recs, _rel)
+                orphelin = "\n".join(_osla.status_lines(_al, _rel))
+        except Exception:                                  # noqa: BLE001 — jamais fatal
+            orphelin = ""
+
+        text = "\n\n".join(b for b in (orphelin, degrade, en_cours, empeche, a_tester, bloque,
+                                       dette, cout) if b)
         if not changed_only:
             return text
         # `--changed` surveille « A tester » ET « Preuve impossible » : la dette ne bouge pas
