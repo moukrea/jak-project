@@ -17890,7 +17890,14 @@ items:
     « superviseur declare ». Publier le cas mesure sur le releve du 22/09 (pid 68980 mort, pts/3 = codex).'
   no_code: false
   status: in-progress
-  notes: 'Owner 22/09 : « Pourquoi tu réagis plus a mes feedbacks sur Linear »'
+  notes: 'Owner 22/09 : « Pourquoi tu réagis plus a mes feedbacks sur Linear »
+
+    22/09 (superviseur, releve de terrain) : la veille SLA rend `lecteur=MORT (fichier-absent)` alors
+    que la session superviseur TOURNE et lit les retours. Cause : ni `.autoport/.supervisor-terminal.json`
+    ni `.autoport/.supervisor-seen.json` n''existent — la session en cours n''a pas ete ouverte par `run-supervisor.sh`,
+    donc personne ne l''a inscrite. Le releve confond « pas enregistre » et « mort », et l''alarme qu''il
+    pose ira sur le ticket de l''owner. La porte doit separer les deux etats : ABSENT-DU-REGISTRE n''est
+    pas MORT, et un lecteur qui repond doit pouvoir se faire reconnaitre autrement que par son lanceur.'
   prompt: prompts/item-harness-supervisor-death-is-an-alarm.md
 - status: open
   game: jak1
