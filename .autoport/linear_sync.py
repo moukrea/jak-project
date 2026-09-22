@@ -1224,7 +1224,7 @@ def main():
             print("veille owner : %d retours sur %d j, %d sans reponse, %d au-dela du SLA, "
                   "pire delai %s s ; lecteur=%s (%s) ; alerte=%s, %d commentaire(s) poste(s)"
                   % (_c["dated"], _osla.FENETRE_JOURS, _c["open"], _c["over_sla"],
-                     _c["max_delay_s"], "vivant" if _v["releve"]["alive"] else "MORT",
+                     _c["max_delay_s"], _al.get("reader_state", "?").upper(),
                      _v["releve"]["why"], "OUI" if _al["raise"] else "non", _al["posted"]))
             for _l in _al["lines"]:
                 print("  " + _l)

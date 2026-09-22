@@ -72,7 +72,7 @@ try:
 
     CAS = [
         # (nom, record, now, attendu_vivant)
-        ("fichier-absent",   None,                                                    t0, False),
+        ("absent-du-registre", None,                                                    t0, False),
         ("pid-mort-68980",   {"pid": 68980, "start": "123456", "tty": "/dev/pts/3"},   t0, False),
         ("zombie",           {"pid": zpid, "start": str(st_z["starttime"]) if st_z else "0",
                               "tty": "-"},                                             t0, False),
@@ -187,10 +187,81 @@ try:
     pub("osla_live_last_response_ts", live["last_response_ts"])
     pub("osla_live_last_response_src", live["last_response_src"])
     pub("osla_live_since_last_response_s", live["since_last_response_s"])
+    pub("osla_live_state", SA.reader_state(live))
+    pub("osla_live_registry_why", live.get("registry_why", "-"))
+    pub("osla_live_self_why", live.get("self_why", "-"))
+
+    # ---- ABSENT DU REGISTRE N'EST PAS MORT (releve de terrain du superviseur, 22/09) -------
+    # La veille rendait `lecteur=MORT (fichier-absent)` pendant que la session superviseur,
+    # ouverte hors `run-supervisor.sh`, TOURNAIT et lisait les retours. Cinq cas, dont deux a
+    # refuser : le releve vide dit « non-inscrit » (pas « mort ») ; le VRAI crochet de prompt
+    # d'une session hors registre la fait reconnaitre ; un worker ne se declare jamais ; la
+    # session declaree qui meurt redevient « mort » ; un registre mort + un lecteur declare vivant
+    # = un lecteur.
+    ABS = os.path.join(TMP, "registre-jamais-cree.json")
+    NOL = os.path.join(TMP, "aucun-lancement.jsonl")
+    nr = {}
+    ra = SA.probe(state_file=ABS, seen_file=os.path.join(TMP, "seen-vide.json"), launches=NOL)
+    pub("osla_unreg_empty_why", ra["why"])
+    pub("osla_unreg_empty_state", SA.reader_state(ra))
+    nr["vide-non-inscrit"] = (ra["why"] == SA.ABSENT_REGISTRE and not ra["alive"]
+                              and SA.reader_state(ra) == "non-inscrit")
+    corps = O.comment_body({"ts": time.time() - 3 * 3600}, {}, ra)
+    nr["texte-non-inscrit"] = ("aucune session ne s'est signalee" in corps
+                               and "arretee" not in corps)
+
+    sess = subprocess.Popen(["sleep", "120"])
+    time.sleep(0.2)
+    def crochet(seen_path, worker):
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("AUTOPORT_ATTEMPT_ID", "AUTOPORT_PHASE_ID")}
+        env.update({"AUTOPORT_SUPERVISOR_TERMINAL": ABS, "AUTOPORT_SUPERVISOR_SEEN": seen_path,
+                    "CLAUDE_PID": str(sess.pid)})
+        if worker:
+            env["AUTOPORT_ATTEMPT_ID"] = "temoin@1#0"
+        return subprocess.run([sys.executable, ".autoport/lib/wake_gate.py"],
+                              input=json.dumps({"prompt": "question de l'owner",
+                                                "session_id": "temoin-hors-registre"}),
+                              env=env, capture_output=True, text=True, timeout=60).returncode
+    seen_s = os.path.join(TMP, "seen-session.json")
+    seen_w = os.path.join(TMP, "seen-worker.json")
+    rc_s, rc_w = crochet(seen_s, False), crochet(seen_w, True)
+    tamp = SA.read_seen_record(seen_s)
+    rs = SA.probe(state_file=ABS, seen_file=seen_s, launches=NOL)
+    rw = SA.probe(state_file=ABS, seen_file=seen_w, launches=NOL)
+    r_mix = SA.probe(record=R2209, seen_file=seen_s, launches=NOL)
+    pub("osla_unreg_hook_rc", "%d,%d" % (rc_s, rc_w))
+    pub("osla_unreg_stamp_via", tamp.get("via", "-"))
+    pub("osla_unreg_stamp_pid_is_session", 1 if tamp.get("pid") == sess.pid else 0)
+    pub("osla_unreg_session_why", rs["why"])
+    pub("osla_unreg_worker_stamped", 1 if os.path.exists(seen_w) else 0)
+    pub("osla_unreg_worker_why", rw["why"])
+    pub("osla_unreg_mix_why", "%s/%s" % (r_mix["registry_why"], r_mix["why"]))
+    nr["crochet-reconnait"] = (tamp.get("via") == "hors-registre" and tamp.get("pid") == sess.pid
+                               and rs["alive"] and rs["why"] == SA.VIVANT_HORS_REGISTRE)
+    nr["worker-muet"] = (not os.path.exists(seen_w) and not rw["alive"]
+                         and rw["why"] == SA.ABSENT_REGISTRE)
+    nr["registre-mort-lecteur-vif"] = (r_mix["alive"] and r_mix["registry_why"] == SA.PID_MORT
+                                       and r_mix["why"] == SA.VIVANT_HORS_REGISTRE)
+    sess.terminate()
+    try:
+        sess.wait(timeout=5)
+    except Exception:  # noqa: BLE001
+        sess.kill()
+    rd = SA.probe(state_file=ABS, seen_file=seen_s, launches=NOL)
+    pub("osla_unreg_dead_why", rd["why"])
+    nr["session-morte-mort"] = (not rd["alive"] and rd["why"] == SA.HORS_REGISTRE_MORT
+                                and SA.reader_state(rd) == "mort")
+    # et le lanceur ne compte JAMAIS un lecteur hors registre comme un superviseur qui tient le
+    # terminal (sinon il refuserait de demarrer le vrai).
+    nr["lanceur-registre-seul"] = not SA.process_alive(record=R2209)[0]
+    pub("osla_unreg_cases", len(nr))
+    pub("osla_unreg_wrong", sum(1 for v in nr.values() if not v))
+    pub("osla_unreg_detail", ",".join("%s:%s" % (k, "ok" if v else "FAUX") for k, v in nr.items()))
 
     measured += 1
     bad = 0 if (r["declared"] == 1 and not r["alive"] and r["why"] == SA.PID_MORT
-                and not ok_lanceur and not rm["tty_matches_pid"]) else 1
+                and not ok_lanceur and not rm["tty_matches_pid"] and all(nr.values())) else 1
     pub("osla_terminal_truth", bad)
     defects += bad
 except Exception as e:  # noqa: BLE001

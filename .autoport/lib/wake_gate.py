@@ -183,6 +183,9 @@ def _journal(ligne):
         pass
 
 
+_SESSION_ID = "-"
+
+
 def decide(prompt, maintenant=None, ecrire=True):
     """Rend (decision, raison, texte). `decision` vaut 'ignore', 'passe' ou 'refuse'."""
     t0 = time.time()
@@ -201,6 +204,11 @@ def decide(prompt, maintenant=None, ecrire=True):
             from lib import supervisor_alive as _sa     # noqa: PLC0415
             if _sa.in_supervisor_tree():
                 _sa.stamp_seen()
+            else:
+                # HORS REGISTRE (22/09) : une session superviseur ouverte sans
+                # `run-supervisor.sh` lisait les retours et passait pour MORTE. Elle se declare
+                # ici, par son propre pid de session ; un worker ne se declare jamais.
+                _sa.self_declare(session_id=_SESSION_ID)
         except Exception:                               # noqa: BLE001 — jamais bloquant
             pass
     if not est_un_reveil(prompt):
@@ -292,6 +300,8 @@ def main(argv=None):
         try:
             charge = json.load(sys.stdin)
             prompt = charge.get("prompt") or ""
+            global _SESSION_ID
+            _SESSION_ID = str(charge.get("session_id") or "-")
         except Exception:                                  # noqa: BLE001 — jamais bloquant
             return 0
     try:

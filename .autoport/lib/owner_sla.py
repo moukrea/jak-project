@@ -211,9 +211,17 @@ def evaluate(records, supervisor, now=None, sla_s=None, already=None):
         "oldest_item": en_retard[0]["item"] if en_retard else "-",
         "reader_dead": 1 if lecteur_mort else 0,
         "reader_why": supervisor.get("why", "-"),
+        "reader_state": _etat_lecteur(supervisor),
         # Ce qui reste A CRIER : ce qui a deja ete crie ne l'est pas deux fois.
         "to_post": [r for r in en_retard if r["key"] not in already] if declenche else [],
     }
+
+
+def _etat_lecteur(supervisor):
+    """`vivant` / `non-inscrit` / `mort` — ABSENT DU REGISTRE N'EST PAS MORT (22/09)."""
+    if supervisor.get("alive"):
+        return "vivant"
+    return "non-inscrit" if supervisor.get("why") == "absent-du-registre" else "mort"
 
 
 def status_lines(alert, supervisor):
@@ -225,8 +233,12 @@ def status_lines(alert, supervisor):
         "!! %s !!" % RUBRIQUE,
         "   %d retour(s) de l'owner sans reponse ; le plus vieux attend %.1f h (%s)."
         % (alert["overdue_n"], age_h, alert["oldest_item"]),
+        ("   Aucun superviseur inscrit ni aucune session declaree ne les lit : %s "
+         "(ce n'est pas une mort constatee, c'est une absence de lecteur connu)."
+         % supervisor.get("why", "-"))
+        if _etat_lecteur(supervisor) == "non-inscrit" else
         "   Aucun superviseur vivant ne peut les lire : %s (pid declare %s, tty %s tenu par %s)."
-        % (supervisor.get("why", "-"), supervisor.get("pid", 0),
+        % (supervisor.get("why", "-"), supervisor.get("pid", 0) or supervisor.get("self_pid", 0),
            supervisor.get("tty", "-"), supervisor.get("tty_holder", "-")),
         "   Relance le superviseur (./run-supervisor.sh) : la file ne se videra pas seule.",
     ]
@@ -238,11 +250,14 @@ def status_lines(alert, supervisor):
 def comment_body(record, alert, supervisor, now=None):
     now = time.time() if now is None else now
     age_h = (now - record["ts"]) / 3600.0
+    if _etat_lecteur(supervisor) == "non-inscrit":
+        cause = "aucune session ne s'est signalee comme lisant tes retours"
+    else:
+        cause = "la session qui traite tes retours s'est arretee ou ne repond plus"
     return (
-        "Ton retour attend depuis %.1f h et personne ne l'a lu : la session qui traite tes "
-        "retours n'existe plus (%s). Ce message est automatique — il part justement parce "
-        "qu'aucun humain ni aucune session n'etait la pour te repondre. Je reprends ce point "
-        "des qu'une session redemarre." % (age_h, supervisor.get("why", "-"))
+        "Ton retour attend depuis %.1f h et personne ne l'a lu : %s. Ce message est "
+        "automatique — il part justement parce qu'aucun humain ni aucune session n'etait la "
+        "pour te repondre. Je reprends ce point des qu'une session redemarre." % (age_h, cause)
     )
 
 

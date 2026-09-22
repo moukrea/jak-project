@@ -53,7 +53,18 @@ LAUNCHES = os.path.join(AP, "logs", "supervisor-launches.jsonl")
 STALE_DEFAULT_S = 3600
 
 VIVANT = "vivant"
-ABSENT_FICHIER = "fichier-absent"
+# ABSENT DU REGISTRE N'EST PAS MORT (superviseur, releve de terrain du 22/09) : la veille rendait
+# `lecteur=MORT (fichier-absent)` pendant que la session superviseur TOURNAIT et lisait les
+# retours — elle n'avait simplement pas ete ouverte par `run-supervisor.sh`, donc personne ne
+# l'avait inscrite. « Personne d'inscrit » et « l'inscrit est mort » sont deux etats, et le
+# releve les nomme separement.
+ABSENT_REGISTRE = "absent-du-registre"
+ABSENT_FICHIER = ABSENT_REGISTRE          # ancien nom, garde pour les appelants
+# Un lecteur qui REPOND se fait reconnaitre par ce qu'il fait, pas par son lanceur : le crochet
+# de prompt de SA session pose le tampon avec le pid + starttime de la session (`self_declare`).
+VIVANT_HORS_REGISTRE = "vivant-hors-registre"
+HORS_REGISTRE_MORT = "hors-registre-mort"
+HORS_REGISTRE_GELE = "hors-registre-gele"
 ILLISIBLE = "json-illisible"
 SANS_PID = "pid-absent-du-fichier"
 PID_MORT = "pid-mort"
@@ -215,7 +226,60 @@ def in_supervisor_tree(pid=None, state_file=None, proc_root="/proc", record=None
     return False
 
 
-def stamp_seen(path=None, now=None, pid=None):
+def is_worker(env=None):
+    """Une session d'ESSAI (worker) n'est pas un lecteur des retours de l'owner. L'orchestrateur
+    pose `AUTOPORT_ATTEMPT_ID` / `AUTOPORT_PHASE_ID` sur chaque worker ; `AUTOPORT_ROLE` ne
+    separe RIEN (un worker en herite `supervisor` de celui qui a lance l'orchestrateur)."""
+    env = os.environ if env is None else env
+    return bool(env.get("AUTOPORT_ATTEMPT_ID") or env.get("AUTOPORT_PHASE_ID"))
+
+
+SESSION_COMMS = ("claude", "codex")
+
+
+def session_process(pid=None, env=None, proc_root="/proc"):
+    """Le processus de la SESSION qui a declenche ce crochet : `CLAUDE_PID` s'il est vivant,
+    sinon le plus proche ascendant dont le `comm` est celui d'une CLI d'agent. Le pid du crochet
+    lui-meme ne vaut rien : il meurt dans la seconde. Rend le releve /proc, ou None."""
+    env = os.environ if env is None else env
+    dit = _as_int(env.get("CLAUDE_PID"))
+    if dit and dit > 1:
+        st = read_proc_stat(dit, proc_root=proc_root)
+        if st is not None and st["state"] != "Z":
+            return st
+    cur = os.getpid() if pid is None else int(pid)
+    for _ in range(64):
+        if cur <= 1:
+            return None
+        st = read_proc_stat(cur, proc_root=proc_root)
+        if st is None:
+            return None
+        if st["comm"] in SESSION_COMMS and st["state"] != "Z":
+            return st
+        cur = _as_int(st["ppid"]) or 0
+    return None
+
+
+def self_declare(env=None, path=None, now=None, proc_root="/proc", session_id="-"):
+    """« Je suis une session qui LIT les retours, meme si aucun lanceur ne m'a inscrite. »
+
+    Appele par `wake_gate.py` quand la session n'est PAS dans l'arbre du superviseur inscrit.
+    Rend un jeton qui dit ce qui a ete fait : `worker` (session d'essai : on ne date rien),
+    `sans-session` (aucun processus de session trouve), `tamponne`, ou `echec-ecriture`.
+    """
+    env = os.environ if env is None else env
+    if is_worker(env):
+        return "worker"
+    st = session_process(env=env, proc_root=proc_root)
+    if st is None:
+        return "sans-session"
+    ok = stamp_seen(path=path, now=now, pid=st["pid"], start=st["starttime"],
+                    via="hors-registre", session=session_id or "-", comm=st["comm"])
+    return "tamponne" if ok else "echec-ecriture"
+
+
+def stamp_seen(path=None, now=None, pid=None, start=None, via="registre", session="-",
+               comm="-"):
     """« Le superviseur a REELLEMENT traite un reveil a cet instant. »
 
     Appele par `wake_gate.py` depuis le processus de la session elle-meme, au moment ou elle
@@ -229,21 +293,50 @@ def stamp_seen(path=None, now=None, pid=None):
     try:
         tmp = "%s.tmp.%d" % (path, os.getpid())
         with open(tmp, "w") as fh:
-            json.dump({"ts": now, "pid": int(pid or os.getpid())}, fh)
+            json.dump({"ts": now, "pid": int(pid or os.getpid()),
+                       "start": -1 if start is None else int(start), "via": str(via),
+                       "session": str(session).replace(" ", "_") or "-",
+                       "comm": str(comm).replace(" ", "_") or "-"}, fh)
         os.replace(tmp, path)
         return True
     except OSError:
         return False
 
 
-def read_seen(path=None):
+def read_seen_record(path=None):
     path = seen_file_path() if path is None else path
     try:
         with open(path, "r") as fh:
             data = json.load(fh)
-        return int(data.get("ts") or 0), "wake-gate"
-    except (OSError, ValueError, TypeError, AttributeError):
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def read_seen(path=None):
+    data = read_seen_record(path)
+    try:
+        return int(data.get("ts") or 0), ("wake-gate" if data.get("ts") else "-")
+    except (TypeError, ValueError):
         return 0, "-"
+
+
+def _self_declared_verdict(seen, now, stale_s, proc_root="/proc"):
+    """Le lecteur HORS REGISTRE : celui dont le tampon porte `via=hors-registre`. Rend
+    (why, pid) ; why vaut '-' s'il n'y a pas de tel tampon."""
+    if not seen or seen.get("via") != "hors-registre":
+        return "-", 0
+    pid = _as_int(seen.get("pid")) or 0
+    start = _as_int(seen.get("start"))
+    ts = _as_int(seen.get("ts")) or 0
+    st = read_proc_stat(pid, proc_root=proc_root) if pid > 1 else None
+    if st is None or st["state"] == "Z":
+        return HORS_REGISTRE_MORT, pid
+    if start is not None and start >= 0 and start != st["starttime"]:
+        return HORS_REGISTRE_MORT, pid          # pid recycle : la session tamponnee est partie
+    if not ts or (now - ts) > stale_s:
+        return HORS_REGISTRE_GELE, pid
+    return VIVANT_HORS_REGISTRE, pid
 
 
 def last_launch_ts(path=LAUNCHES):
@@ -274,7 +367,49 @@ def last_launch_ts(path=LAUNCHES):
 
 
 def probe(state_file=None, now=None, proc_root="/proc", record=None,
-          seen_file=None, launches=LAUNCHES, stale_s=None, freeze=True):
+          seen_file=None, launches=LAUNCHES, stale_s=None, freeze=True, self_declared=True):
+    """Le releve : le superviseur INSCRIT d'abord, puis le lecteur HORS REGISTRE.
+
+    `registry_why` garde toujours le verdict du registre seul ; `self_why` celui du tampon
+    hors registre. `why` est le verdict retenu. `self_declared=False` ne regarde que le
+    registre (c'est ce que veut `supervisor_terminal.py` pour refuser un second lanceur).
+    """
+    now = time.time() if now is None else now
+    stale_s = stale_seconds() if stale_s is None else stale_s
+    seen_file = seen_file_path() if seen_file is None else seen_file
+    out = _probe_registry(state_file=state_file, now=now, proc_root=proc_root, record=record,
+                          seen_file=seen_file, launches=launches, stale_s=stale_s,
+                          freeze=freeze)
+    out["registry_why"] = out["why"]
+    out["self_why"], out["self_pid"] = "-", 0
+    if not self_declared:
+        return out
+    seen = read_seen_record(seen_file)
+    out["self_why"], out["self_pid"] = _self_declared_verdict(seen, now, stale_s,
+                                                              proc_root=proc_root)
+    if out["alive"]:
+        return out
+    if out["self_why"] == VIVANT_HORS_REGISTRE:
+        out["alive"] = True
+        out["why"] = VIVANT_HORS_REGISTRE
+    elif out["why"] == ABSENT_REGISTRE and out["self_why"] != "-":
+        # Personne d'inscrit, mais une session s'etait declaree : c'est ELLE qu'on juge.
+        out["why"] = out["self_why"]
+    return out
+
+
+def reader_state(rel):
+    """Trois etats, jamais deux : `vivant`, `non-inscrit` (personne d'inscrit ni de declare :
+    on ne SAIT PAS s'il y a un lecteur), `mort` (un lecteur connu a disparu ou s'est gele)."""
+    if rel.get("alive"):
+        return "vivant"
+    if rel.get("why") == ABSENT_REGISTRE:
+        return "non-inscrit"
+    return "mort"
+
+
+def _probe_registry(state_file=None, now=None, proc_root="/proc", record=None,
+                    seen_file=None, launches=LAUNCHES, stale_s=None, freeze=True):
     """Le releve complet. `record` permet de REJOUER un releve archive sans toucher au disque.
 
     `alive` est la seule grandeur de decision ; `why` la nomme. Rien ici ne suppose : chaque
@@ -375,13 +510,14 @@ def process_alive(state_file=None, record=None, proc_root="/proc"):
     """Le verdict STRUCTUREL seul : ce pid-la tourne-t-il encore ? (zombie exclu, pid recycle
     exclu). Point de production UNIQUE de la regle : `supervisor_terminal.py` en avait sa
     propre copie, sans le zombie — deux regles pour une question, dont une fausse."""
-    rel = probe(state_file=state_file, record=record, proc_root=proc_root, freeze=False)
+    rel = probe(state_file=state_file, record=record, proc_root=proc_root, freeze=False,
+                self_declared=False)
     return rel["alive"], rel
 
 
 def one_line(rel):
     return ("superviseur=%s pid=%s why=%s derniere_reponse=%s depuis=%ss"
-            % ("vivant" if rel["alive"] else "mort", rel["pid"], rel["why"],
+            % (reader_state(rel), rel["pid"] or rel.get("self_pid", 0), rel["why"],
                rel["last_response_ts"], rel["since_last_response_s"]))
 
 
