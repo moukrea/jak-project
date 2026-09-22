@@ -1629,6 +1629,25 @@
    (orb-lfrac    int32)    ;; fraction a l'image precedente, en 1/100000 (propre a ce terme :
                            ;;   `last-frac` sert au terme du vidage et est ecrit ailleurs)
    (orb-la       int32)    ;; alpha de l'orbe a l'image precedente
+   ;; --- reprise 22/09 (essai 18) : LA TAILLE, MESUREE AU LIEU D'ETRE PINCEE PAR CONSTRUCTION ---
+   (nq-rmean     int32)    ;; rayon MOYEN du nuage a l'echelle 1, en 1/16 d'unite. C'est lui qui
+                           ;;   borne l'INTRUS depuis l'essai 18 : une moyenne sur ~120 particules
+                           ;;   ne bouge que de 14 % quand l'une d'elles part a 17 fois le nuage,
+                           ;;   la ou la moyenne GLISSANTE d'un AUTRE type d'eco divisait le
+                           ;;   facteur par dix-sept pendant trente images.
+   (nq-radold    int32)    ;; TEMOIN « AVANT », dans la MEME image : la boite que la regle de
+                           ;;   l'essai 17 (cible 23,60 et facteur bride par la moyenne glissante)
+                           ;;   aurait rendue sur CE nuage. Deux courses ne se comparent pas ; deux
+                           ;;   regimes calcules sur la meme image, si.
+   (t12-sum      int32 3)  ;; somme des boites par type : la MOYENNE, pas le pire cas
+   (t12-oldsum   int32 3)  ;;   ... la meme pour le temoin « avant »
+   (t12-brt      int32 3)  ;; SOMME des rayons BRILLANTS par type, en 1/16 (la MOYENNE se publie,
+                           ;;   denominateur `t12-n`) : le plus grand ecart
+                           ;;   au centre ou un quad d'alpha >= RHUD_NUEE_A_BRIGHT a ete emis.
+                           ;;   C'est la grandeur de la question de l'owner du 22/09 : « leur lueur
+                           ;;   n'est toujours pas au dessus de la jauge » — au-dela du rayon du
+                           ;;   trou, la lueur passe sur la couronne.
+   (nq-brt       int32)    ;;   ... pour l'image courante
    ))
 
 ;;;----------------------------------------------
@@ -2247,7 +2266,17 @@
 ;; Aucun sommet ne peut donc sortir de `RCAP`. La boite est bornee PAR CONSTRUCTION, et elle est
 ;; ATTEINTE des qu'une particule a `POS . r0 >= rlim`. C'est le point de PRODUCTION, pas un
 ;; controle : un debordement n'est plus detecte, il est impossible.
-(defconstant RHUD_NUEE_TARGET_R 23.60) ;; LE RAYON VISE DE LA NUEE DESSINEE, en unites de canevas.
+(defconstant RHUD_NUEE_TARGET_R 47.20) ;; LE RAYON VISE DE LA NUEE DESSINEE, en unites de canevas.
+                                       ;;   ESSAI 18 : 2,00 x la valeur precedente (23,60), parce
+                                       ;;   que l'owner a chiffre lui-meme l'ecart le 22/09 apres
+                                       ;;   avoir vu les builds des essais 15-17 : « les orbes
+                                       ;;   d'Eco sur la jauge devraient AU MOINS etre DEUX FOIS
+                                       ;;   PLUS GROSSES ». Le facteur 2 se verifie dans la course :
+                                       ;;   `hud_gauge_orb_mean_16th_*` contre
+                                       ;;   `hud_gauge_orb_oldmean_16th_*`, les deux calcules sur
+                                       ;;   LA MEME image (regle du 20/09 : deux courses derivent,
+                                       ;;   deux regimes dans une image se comparent).
+                                       ;;   --- ce qui suit justifiait la valeur 23,60 ---
                                        ;;   2,00 x le rayon du trou (11,8). Owner, 22/09, APRES
                                        ;;   avoir vu la similitude : « la particule […] est la
                                        ;;   comme elle semble apparaitre dans le monde, mais elle
@@ -2262,6 +2291,22 @@
                                        ;;   cible de taille : tout le reste en decoule par une
                                        ;;   SIMILITUDE, sans plafond par particule ni remise en
                                        ;;   forme du nuage.
+(defconstant RHUD_NUEE_TARGET_R_OLD 23.60) ;; LA CIBLE DE L'ESSAI 17, gardee comme TEMOIN « AVANT ».
+                                       ;;   Elle n'est plus appliquee : elle ne sert qu'a calculer,
+                                       ;;   dans la meme image, la boite que l'ancienne regle aurait
+                                       ;;   rendue (`nq-radold`).
+(defconstant RHUD_NUEE_OUTLIER_MEAN 4.0) ;; L'INTRUS, BORNE PAR LA MOYENNE DE L'IMAGE COURANTE.
+                                       ;;   Jusqu'a l'essai 17 la borne etait 2,0 x la moyenne
+                                       ;;   GLISSANTE du rayon MAXIMAL, lue sur les images
+                                       ;;   PRECEDENTES : au changement de type d'eco elle portait
+                                       ;;   encore l'echelle de l'ANCIEN type et ecartait jusqu'a
+                                       ;;   106 particules sur 119 (handoff de l'essai 17). La
+                                       ;;   moyenne de l'image COURANTE ne peut pas se tromper de
+                                       ;;   type, et elle est robuste : un intrus a 17 fois le
+                                       ;;   nuage ne la deplace que de 14 % sur 120 particules,
+                                       ;;   donc il reste au-dela de 4 fois la moyenne. Le nombre
+                                       ;;   d'ecartees (`nuee_stray_far`) et la moyenne elle-meme
+                                       ;;   (`nuee_rmean_16th`) sont publies : le tri se relit.
 (defconstant RHUD_NUEE_SPECK 0.10)     ;; sous un dixieme de la plus grosse couche, une particule
                                        ;;   est une MOUCHETURE : elle ne fixe pas l'enveloppe.
 (defconstant RHUD_NUEE_OUTLIER 2.0)    ;; L'INTRUS. Une particule dont le RAYON EMIS a l'echelle du
@@ -2290,8 +2335,17 @@
                                        ;;   de la cible. Avec la regle des MOUCHETURES ci-dessous
                                        ;;   il ne devrait plus jamais mordre ; s'il mord encore,
                                        ;;   `hud_gauge_nuee_kmin_hits` le dit.
-(defconstant RHUD_NUEE_K_MAX 1.000)    ;; on ne GROSSIT jamais le ramassable : au-dela de 1 la
-                                       ;;   nuee ne serait plus une miniature de celle du monde.
+(defconstant RHUD_NUEE_K_MAX 4.000)    ;; ESSAI 18 : le plafond etait a 1,000 — « on ne GROSSIT
+                                       ;;   jamais le ramassable ». C'etait une regle INVENTEE, et
+                                       ;;   elle INTERDISAIT la cible : le nuage bleu ne fait que
+                                       ;;   24,5 unites de canevas a l'echelle 1
+                                       ;;   (`t12_raw_16th_blue`=392, course d'appareil de l'essai
+                                       ;;   17), donc a 1,000 la boite bleue ne pouvait pas
+                                       ;;   depasser 24,5 quelle que soit la cible. L'owner demande
+                                       ;;   deux fois plus gros : le plafond doit laisser passer le
+                                       ;;   facteur que la cible reclame. La SIMILITUDE, elle, ne
+                                       ;;   change pas — tailles et ecarts portent le MEME facteur,
+                                       ;;   c'est ce que le terme 17 mesure.
 
 
 ;; LA GRILLE. Une BOITE ne dit pas ce que l'owner regarde : la boite des sommets d'un quad TOURNE
@@ -2311,7 +2365,14 @@
                                        ;;   l'oeil appelle rempli.
 (defconstant RHUD_NUEE_A_GAIN 8.0)     ;; compensation du melange additif sur un trou noir
 (defconstant RHUD_NUEE_CTRL_SMALL 0.25) ;; CONTROLE « trop petit » : la meme nuee au quart
-(defconstant RHUD_NUEE_BOX_MAX 28.32)  ;; 0,95 x le rayon du trou : le PLAFOND du perimetre du
+(defconstant RHUD_NUEE_BOX_MAX (* 1.20 RHUD_NUEE_TARGET_R)) ;; ESSAI 18 : les deux bornes se
+                                       ;;   DEDUISENT de la cible au lieu d'etre recopiees en dur.
+                                       ;;   Ecrites en clair, elles se desynchronisaient de la
+                                       ;;   cible a chaque reprise — c'est ainsi que le plafond a
+                                       ;;   porte le commentaire « 0,95 x le rayon du trou » pour
+                                       ;;   une valeur qui en vaut 2,4.
+                                       ;;   --- justification historique de la valeur 28,32 ---
+                                       ;;   0,95 x le rayon du trou : le PLAFOND du perimetre du
                                        ;;   20/09 13:45, retabli. Il avait derive a 19,0 le 20/09
                                        ;;   midi — une « borne de cout » calculee sur la geometrie
                                        ;;   livree au lieu de la cible demandee, c'est-a-dire la
@@ -2328,7 +2389,8 @@
 ;;   particule calcule l'extension REELLE du quad a l'angle ou il est dessine, ancrage compris.
 ;;   Le debordement que l'owner voit reste mesure a part par la couronne de la grille : `t13_out`,
 ;;   8 points a 1,10 x le rayon du trou, dont 4 au plus peuvent etre touches.
-(defconstant RHUD_NUEE_BOX_MIN 18.88)  ;; 0,85 x : le plancher du perimetre du 20/09 13:45
+(defconstant RHUD_NUEE_BOX_MIN (* 0.85 RHUD_NUEE_TARGET_R)) ;; 0,85 x la cible : le plancher du
+                                       ;;   perimetre du 20/09 13:45, rapporte a la cible.
 (defconstant RHUD_NUEE_A_MIN 300)      ;; opacite composite exigee au coeur, en millieme. Etait a
                                        ;;   800 quand les etincelles SEULES devaient faire l'orbe
                                        ;;   et que le gain x8 saturait chaque couche. Depuis le
@@ -2538,6 +2600,11 @@
         (spksum 0.0) ;; somme des etendues, pour la moyenne (diagnostic)
         (spkn 0)     ;;   ... et son denominateur
         (litn 0)     ;; quads dont l'octet d'alpha atteint 64 (diagnostic)
+        (brtmax 0.0) ;; LE RAYON BRILLANT : le plus grand ecart au centre de l'anneau atteint par
+                     ;;   un sommet d'un quad dont l'octet d'alpha atteint RHUD_NUEE_A_BRIGHT.
+                     ;;   Question de l'owner du 22/09 : « leur lueur n'est toujours pas au dessus
+                     ;;   de la jauge ». Au-dela du rayon du trou (11,8), de la matiere VISIBLE de
+                     ;;   la nuee est posee sur la couronne : la lueur passe par-dessus.
         (mvsum 0.0)) ;; somme des |x| + |y| des particules VIVANTES : elle change d'une image a
                      ;;   l'autre si et seulement si la simulation avance (terme 19)
     (set! (-> this nq-live) 0)
@@ -2641,12 +2708,29 @@
                  ;; des deux (moyenne glissante, image courante) : la nuee dessinee ne peut alors
                  ;; JAMAIS depasser la cible, et la moyenne continue de lisser vers le bas.
                  ;; Cout : une boucle de plus sur au plus 128 particules deja en cache.
-                 ;; LA BORNE DE L'INTRUS pour CETTE image. Elle se lit sur la moyenne glissante
-                 ;; de l'image PRECEDENTE — donc sur le nuage, jamais sur l'image qu'elle filtre :
-                 ;; une borne deduite de la population qu'elle trie se replierait sur elle-meme.
-                 ;; A zero (premiere image de la serie, moyenne pas encore etablie) elle n'ecarte
-                 ;; rien : on ne trie pas avant d'avoir une reference.
-                 (rlim (* RHUD_NUEE_OUTLIER (-> this pos-ema)))
+                 ;; LA BORNE DE L'INTRUS pour CETTE image — ESSAI 18. Elle se lit desormais sur
+                 ;; la MOYENNE du nuage de CETTE image, et non plus sur la moyenne glissante du
+                 ;; rayon MAXIMAL des images precedentes. La raison est mesuree : la moyenne
+                 ;; glissante porte l'echelle de l'ANCIEN type d'eco pendant une trentaine
+                 ;; d'images apres un changement, et comme les trois nuages different d'un ordre
+                 ;; de grandeur (`t12_raw_16th` 392 bleu / 3374 rouge / 5268 jaune, appareil,
+                 ;; essai 17) elle ecartait jusqu'a 106 particules sur 119 sur le jaune — d'ou
+                 ;; `t12_boxmin_16th_yellow`=23 (1,4 unite de canevas) quand la cible en vaut 377.
+                 ;; « Une borne deduite de la population qu'elle trie se replierait sur elle-meme »
+                 ;; valait pour un MAXIMUM ; une MOYENNE sur ~120 particules ne se replie pas :
+                 ;; un intrus a 17 fois le nuage la deplace de 14 %, donc il reste dehors.
+                 (rmean (let ((rs 0.0) (nn 0))
+                          (dotimes (i cnt)
+                            (let ((cp (-> sys cpuinfo-table (+ base i))))
+                              (when (and (-> cp valid) (= (-> cp key) lc)
+                                         (nonzero? (-> cp sprite)) (< nn RHUD_NUEE_MAX))
+                                (+! nn 1)
+                                (+! rs (+ (rhud-nuee-r0 (-> cp sprite) ry fx)
+                                          (rhud-nuee-q1 (-> cp sprite) fx q bx by))))))
+                          (set! (-> this nq-rmean)
+                                (if (> nn 0) (the int (* 16.0 (/ rs (the float nn)))) 0))
+                          (if (> nn 0) (/ rs (the float nn)) 0.0)))
+                 (rlim (* RHUD_NUEE_OUTLIER_MEAN rmean))
                  (pre (let ((rf 0.0) (sp 0.0) (drop 0) (far 0))
                         ;; PASSE A — la plus grosse couche de l'image.
                         (let ((nn 0))
@@ -2723,11 +2807,32 @@
                  ;; le seuil de MOUCHETURE de cette image, relu par la boucle de dessin : la
                  ;; pre-passe vient de poser `nq-spk1` = 16 x la plus grosse couche.
                  (nseuil (* RHUD_NUEE_SPECK (/ (the float (-> this nq-spk1)) 16.0)))
-                 (kuni (let ((e (fmax (-> this pos-ema) pre)))
+                 ;; LE FACTEUR DE CETTE IMAGE — ESSAI 18 : il se deduit de l'enveloppe de CETTE
+                 ;; image (`pre`), et d'ELLE SEULE. Il portait `fmax(pos-ema, pre)` : comme
+                 ;; `pre` est deja mesure sur les particules qu'on s'apprete a dessiner, il
+                 ;; BORNE deja la boite a la cible — le `fmax` ne pouvait donc RIEN proteger,
+                 ;; il ne pouvait que RAPETISSER en dessous de la cible. C'est exactement ce
+                 ;; que la preuve d'appareil de l'essai 17 montre : la boite MAXIMALE vaut la
+                 ;; cible au 16e pres pour les trois types (377/377/378 pour 377 — pincee par
+                 ;; construction, donc un terme qui ne pouvait pas rougir) tandis que la boite
+                 ;; MINIMALE tombe a 141 (bleu), 205 (rouge) et 23 (jaune). L'owner decrit ces
+                 ;; trois nombres-la, dans cet ordre : « L'Eco jaune est ridiculeursement trop
+                 ;; petite, les deux autres encore un peu trop petites mais pas autant ».
+                 (kuni (if (< pre 0.01)
+                         RHUD_NUEE_K_START
+                         (fmax RHUD_NUEE_K_MIN
+                               (fmin RHUD_NUEE_K_MAX (/ RHUD_NUEE_TARGET_R pre)))))
+                 ;; LE TEMOIN « AVANT », DANS LA MEME IMAGE : le facteur de l'essai 17 (cible
+                 ;; 23,60, bride par la moyenne glissante, plafond 1,000) applique au MEME
+                 ;; nuage. `nq-radold` est la boite qu'il aurait rendue : c'est le denominateur
+                 ;; du « deux fois plus grosses » que l'owner demande, et il ne vient pas d'une
+                 ;; autre course.
+                 (kold (let ((e (fmax (-> this pos-ema) pre)))
                          (if (< e 0.01)
                            RHUD_NUEE_K_START
                            (fmax RHUD_NUEE_K_MIN
-                                 (fmin RHUD_NUEE_K_MAX (/ RHUD_NUEE_TARGET_R e))))))
+                                 (fmin 1.000 (/ RHUD_NUEE_TARGET_R_OLD e))))))
+                 (koldpub (begin (set! (-> this nq-radold) (the int (* 16.0 (* kold pre)))) 0))
                  ;; le facteur de CETTE image est publie ici : c'est la seule portee ou il vit.
                  (kpub (begin (set! (-> this nq-posf) (the int (* 1000000.0 kuni))) 0))
                  ;; `DirectRenderer` ne bufferise QU'UN etat de texture : chaque changement de
@@ -2885,7 +2990,10 @@
                             (let* ((vrx (/ (- (+ ox dx) pcx) fx))
                                    (vry (- (+ oy dy) pcy))
                                    (vr  (sqrtf (+ (* vrx vrx) (* vry vry)))))
-                              (if (> vr radmax) (set! radmax vr)))
+                              (if (> vr radmax) (set! radmax vr))
+                              ;; ... et le meme sommet, retenu SEULEMENT si le quad est BRILLANT.
+                              (if (and (>= ab RHUD_NUEE_A_BRIGHT) (> vr brtmax))
+                                (set! brtmax vr)))
                             (rhud-add-vert buf
                                            (- vx ax0)
                                            (+ vy 0.5)
@@ -3009,6 +3117,7 @@
                       (+! nq 1))))))))))))
     (set! (-> this nq-raw) (the int (* 16.0 rawmax)))
     (set! (-> this nq-rad) (the int (* 16.0 radmax)))
+    (set! (-> this nq-brt) (the int (* 16.0 brtmax)))
     (set! (-> this nq-acore) (the int (* 1000.0 acc)))
     (set! (-> this nq-acore0) (the int (* 1000.0 acc0)))
     (set! (-> this nq-a16) (the int (* 1000.0 acc16)))
@@ -4307,6 +4416,14 @@
               (if (> r (-> this t12-fit k)) (set! (-> this t12-fit k) r))
               (if (or (zero? (-> this t12-fitmin k)) (< r (-> this t12-fitmin k)))
                 (set! (-> this t12-fitmin k) r))
+              ;; --- ESSAI 18 : LA MOYENNE, ET LE TEMOIN « AVANT » DE LA MEME IMAGE.
+              ;; Le pire cas et le meilleur cas ne disent pas la taille que l'owner voit ;
+              ;; la moyenne, si. `t12-oldsum` porte la MEME grandeur sous la regle de l'essai
+              ;; 17, calculee sur la MEME image : leur rapport est le « deux fois plus
+              ;; grosses » demande, sans comparer deux courses.
+              (+! (-> this t12-sum k) r)
+              (+! (-> this t12-oldsum k) (-> this nq-radold))
+              (+! (-> this t12-brt k) (-> this nq-brt))
               (if (> (-> this nq-raw) (-> this t12-raw k))
                 (set! (-> this t12-raw k) (-> this nq-raw)))))
           ;; --- terme 14 : LA CALIBRATION, sur la MEME image que ce qu'elle calibre.
@@ -4548,7 +4665,15 @@
     (dotimes (k 3)
       (when (> (-> this t12-n k) 0)
         (if (> (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MAX))) (+! bad 1))
-        (if (< (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MIN))) (+! bad 1))))
+        (if (< (-> this t12-fit k) (the int (* 16.0 RHUD_NUEE_BOX_MIN))) (+! bad 1))
+        ;; --- ESSAI 18 : LE MEILLEUR CAS ENTRE DANS LA PORTE.
+        ;; Le terme ne lisait que `t12-fit`, le MAXIMUM. Or le facteur d'echelle vaut
+        ;; cible / enveloppe : le maximum EST la cible par construction, et il l'a rendue au
+        ;; 16e pres sur les trois types (377/377/378 pour 377) pendant que le jaune
+        ;; s'effondrait a 23 — 1,4 unite de canevas — sans que rien ne rougisse. Un terme qui
+        ;; ne peut pas rougir ne prouve rien ; c'est `t12-fitmin` qui porte le defaut que
+        ;; l'owner nomme, il est donc juge par la MEME borne.
+        (if (< (-> this t12-fitmin k) (the int (* 16.0 RHUD_NUEE_BOX_MIN))) (+! bad 1))))
     bad))
 
 (defun rhud-gauge-core-bad ((this hud-recharged-power))
@@ -5034,6 +5159,54 @@
       (__pc-autoport-publish "hud_gauge_t12_raw_16th_blue" (-> this t12-raw 0))
       (__pc-autoport-publish "hud_gauge_t12_raw_16th_red" (-> this t12-raw 1))
       (__pc-autoport-publish "hud_gauge_t12_raw_16th_yellow" (-> this t12-raw 2))
+      ;; --- ESSAI 18 : CE QUE L'OWNER A DEMANDE DE PUBLIER, PAR TYPE D'ECO ---
+      ;; « Publier le diametre en pixels de l'orbe POUR CHACUNE des trois ecos, et le diametre
+      ;; du trou, dans la meme course » (perimetre du 22/09 16:1x). Le canevas fait 512 de
+      ;; large : une unite de canevas est un pixel de l'image 512x448 que le jeu compose.
+      (__pc-autoport-publish "hud_gauge_hole_d_px" (the int (* 2.0 RHUD_GAUGE_HOLE_R)))
+      (__pc-autoport-publish "hud_gauge_orb_d_px_blue"
+                             (if (> (-> this t12-n 0) 0)
+                               (/ (-> this t12-sum 0) (* 8 (-> this t12-n 0))) 0))
+      (__pc-autoport-publish "hud_gauge_orb_d_px_red"
+                             (if (> (-> this t12-n 1) 0)
+                               (/ (-> this t12-sum 1) (* 8 (-> this t12-n 1))) 0))
+      (__pc-autoport-publish "hud_gauge_orb_d_px_yellow"
+                             (if (> (-> this t12-n 2) 0)
+                               (/ (-> this t12-sum 2) (* 8 (-> this t12-n 2))) 0))
+      ;; la MOYENNE des boites, en 1/16, et la MEME sous la regle de l'essai 17 : leur rapport
+      ;; est le facteur d'agrandissement REELLEMENT livre, mesure image par image.
+      (__pc-autoport-publish "hud_gauge_orb_mean_16th_blue"
+                             (if (> (-> this t12-n 0) 0) (/ (-> this t12-sum 0) (-> this t12-n 0)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_mean_16th_red"
+                             (if (> (-> this t12-n 1) 0) (/ (-> this t12-sum 1) (-> this t12-n 1)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_mean_16th_yellow"
+                             (if (> (-> this t12-n 2) 0) (/ (-> this t12-sum 2) (-> this t12-n 2)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_oldmean_16th_blue"
+                             (if (> (-> this t12-n 0) 0) (/ (-> this t12-oldsum 0) (-> this t12-n 0)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_oldmean_16th_red"
+                             (if (> (-> this t12-n 1) 0) (/ (-> this t12-oldsum 1) (-> this t12-n 1)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_oldmean_16th_yellow"
+                             (if (> (-> this t12-n 2) 0) (/ (-> this t12-oldsum 2) (-> this t12-n 2)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_gain_permille_blue"
+                             (if (> (-> this t12-oldsum 0) 0)
+                               (/ (* 1000 (-> this t12-sum 0)) (-> this t12-oldsum 0)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_gain_permille_red"
+                             (if (> (-> this t12-oldsum 1) 0)
+                               (/ (* 1000 (-> this t12-sum 1)) (-> this t12-oldsum 1)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_gain_permille_yellow"
+                             (if (> (-> this t12-oldsum 2) 0)
+                               (/ (* 1000 (-> this t12-sum 2)) (-> this t12-oldsum 2)) 0))
+      ;; LA LUEUR PASSE-T-ELLE SUR LA COURONNE ? rayon BRILLANT moyen par type, en 1/16 : au-dela
+      ;; de `hole_r16` (188), de la matiere d'alpha >= 128 est posee par-dessus l'anneau.
+      (__pc-autoport-publish "hud_gauge_orb_bright_16th_blue"
+                             (if (> (-> this t12-n 0) 0) (/ (-> this t12-brt 0) (-> this t12-n 0)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_bright_16th_red"
+                             (if (> (-> this t12-n 1) 0) (/ (-> this t12-brt 1) (-> this t12-n 1)) 0))
+      (__pc-autoport-publish "hud_gauge_orb_bright_16th_yellow"
+                             (if (> (-> this t12-n 2) 0) (/ (-> this t12-brt 2) (-> this t12-n 2)) 0))
+      (__pc-autoport-publish "hud_gauge_nuee_rmean_16th" (-> this nq-rmean))
+      (__pc-autoport-publish "hud_gauge_nuee_outlier_mean_milli"
+                             (the int (* 1000.0 RHUD_NUEE_OUTLIER_MEAN)))
       (__pc-autoport-publish "hud_gauge_t12_box_max_16th" (the int (* 16.0 RHUD_NUEE_BOX_MAX)))
       (__pc-autoport-publish "hud_gauge_t12_box_min_16th" (the int (* 16.0 RHUD_NUEE_BOX_MIN)))
       (__pc-autoport-publish "hud_gauge_t13_n" (-> this t13-n))
@@ -5117,7 +5290,7 @@
       ;; PLUS VIEUX que le commit juge (la garde binaire ne compare que `libgk.so`, et un essai
       ;; 100 % GOAL ne la fait pas bouger). Ce numero est incremente a chaque essai : une preuve
       ;; qui ne porte pas celui de l'essai en cours mesure un AUTRE code.
-      (__pc-autoport-publish "hud_gauge_code_rev" 16)
+      (__pc-autoport-publish "hud_gauge_code_rev" 18)
       ;; ... et la MEME garde, mais lisible AVANT la course : le NOM de cette cle est un
       ;; literal de chaine, donc il se lit au `grep -a` dans `out/jak1/iso/GAME.CGO` et dans
       ;; l'APK. Le numero seul ne suffit pas : l'essai 12 a bumpe `code_rev` a 12 au DEBUT de
@@ -5126,6 +5299,10 @@
       ;; juge la pente FIXE alors que le code juge portait la pente ADAPTATIVE. Une cle dont le
       ;; NOM change a chaque essai rend ce decalage visible sans lancer le jeu.
       (__pc-autoport-publish "hud_gauge_src_e13" 1)
+      ;; la MEME garde, au nom de CET essai : un `grep -a "hud_gauge_src_e18"` dans
+      ;; `out/jak1/iso/GAME.CGO` ou dans l'APK dit, AVANT la course, que le pack porte bien la
+      ;; reprise de l'essai 18 et pas celle d'un essai anterieur.
+      (__pc-autoport-publish "hud_gauge_src_e18" 1)
       ;; la REGLE de couverture en vigueur : 2 = extension reelle du quad a son angle de dessin
       ;; (1 = enveloppe tous angles, deux fois trop large — jamais livree).
       (__pc-autoport-publish "hud_gauge_t13_core_rule" 2)
