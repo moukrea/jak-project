@@ -1,5 +1,5 @@
 {
-  "_doc": "Crochets SUIVIS PAR GIT. `.claude/settings.local.json` (ignore) garde la meme liste pour les sessions deja ouvertes ; c'est CE fichier-ci qui est livre.",
+  "_doc": "Crochets SUIVIS PAR GIT, source unique pour les sessions interactives. `.autoport/settings.json` porte la meme liste pour les workers (passe par --settings) ; une commande identique enregistree deux fois est dedoublonnee par la CLI. `.claude/settings.local.json` est un VRAI fichier (ignore par git) : plus un lien, sinon /output-style, /permissions... refusent d'ecrire a travers (22/09).",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -9,6 +9,54 @@
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/user-prompt.sh",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/session-start.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/pre-tool.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/stop.sh",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.autoport/hooks/session-end.sh",
+            "timeout": 30
           }
         ]
       }
