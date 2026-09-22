@@ -4940,7 +4940,15 @@
       ;; PLUS VIEUX que le commit juge (la garde binaire ne compare que `libgk.so`, et un essai
       ;; 100 % GOAL ne la fait pas bouger). Ce numero est incremente a chaque essai : une preuve
       ;; qui ne porte pas celui de l'essai en cours mesure un AUTRE code.
-      (__pc-autoport-publish "hud_gauge_code_rev" 12)
+      (__pc-autoport-publish "hud_gauge_code_rev" 13)
+      ;; ... et la MEME garde, mais lisible AVANT la course : le NOM de cette cle est un
+      ;; literal de chaine, donc il se lit au `grep -a` dans `out/jak1/iso/GAME.CGO` et dans
+      ;; l'APK. Le numero seul ne suffit pas : l'essai 12 a bumpe `code_rev` a 12 au DEBUT de
+      ;; l'essai, puis a livre un pack bati AVANT sa derniere reprise — les dix-sept cles
+      ;; ajoutees par d7d5f494ab sont absentes de son journal d'appareil, et la preuve a donc
+      ;; juge la pente FIXE alors que le code juge portait la pente ADAPTATIVE. Une cle dont le
+      ;; NOM change a chaque essai rend ce decalage visible sans lancer le jeu.
+      (__pc-autoport-publish "hud_gauge_src_e13" 1)
       ;; la REGLE de couverture en vigueur : 2 = extension reelle du quad a son angle de dessin
       ;; (1 = enveloppe tous angles, deux fois trop large — jamais livree).
       (__pc-autoport-publish "hud_gauge_t13_core_rule" 2)
