@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-22 : « Alors le fond noir nickel, enfin ! Mais parcontre l'orbe d'E… »
+- 2026-09-22 : « Je vois bien sur les builds que tu fais rouler que la partic… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
@@ -26,7 +26,7 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu, ramassage d'eco bleue, avec la photo owner-feedback/hud-eco-gauge/20260921T0836-1.jpg comme AVANT. Trois oui/non : (1) le fond sombre sous le trou couvre-t-il tout le trou sans qu'on voie le decor au travers sur un bord ? (2) l'orbe au centre est-elle VIVANTE : etincelles electriques qui bougent comme sur le vial du monde, pas une lueur fixe ? (3) l'ensemble ressemble-t-il a l'eco bleue du monde ?.
+Ou l'owner regardera : HUD en jeu, ramassage d'eco. La forme de la particule est VALIDEE par l'owner le 22/09, ainsi que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle doit remplir le trou, pas y flotter comme un point ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.

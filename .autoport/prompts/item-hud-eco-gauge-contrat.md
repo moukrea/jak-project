@@ -53,7 +53,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu, ramassage d'eco bleue, avec la photo owner-feedback/hud-eco-gauge/20260921T0836-1.jpg comme AVANT. Trois oui/non : (1) le fond sombre sous le trou couvre-t-il tout le trou sans qu'on voie le decor au travers sur un bord ? (2) l'orbe au centre est-elle VIVANTE : etincelles electriques qui bougent comme sur le vial du monde, pas une lueur fixe ? (3) l'ensemble ressemble-t-il a l'eco bleue du monde ?
+HUD en jeu, ramassage d'eco. La forme de la particule est VALIDEE par l'owner le 22/09, ainsi que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle doit remplir le trou, pas y flotter comme un point ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -110,6 +110,9 @@ HUD en jeu, ramassage d'eco bleue, avec la photo owner-feedback/hud-eco-gauge/20
 
 ### 2026-09-22
 > Alors le fond noir nickel, enfin ! Mais parcontre l'orbe d'Eco Bleue sensée remplir le trou de la jauge et légèrement déborder par dessus (Eco rouge quand Eco rouge actif, Eco jaune quand Eco jaune actif) n'a absolument rien à voir avec les orbes d'Eco Bleue du monde ! Regardes les screens, sur un on voit la jauge (en bas à droite), sur l'autre je te montre deux orbes d'Eco bleue, rien à voir ! Allé, prend un budget de trois essais supplémentaires et règle moi ça !  ![71736.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/fa8ed1c3-f5ec-472b-8661-5c4a319f976c/2e27100e-0b58-43ad-8f1d-aa238ab672e8)  ![71737.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/af9dc68e-4f6e-44d2-8fd7-f35259d3cbe4/d6da2d90-620f-4635-a088-907c7b22fdfa) [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260922T1204-1.jpg ; .autoport/owner-feedback/hud-eco-gauge/20260922T1204-2.jpg]
+
+### 2026-09-22
+> Je vois bien sur les builds que tu fais rouler que la particule éco bleue/rouge/jaune est là comme elle semble apparaître dans le monde, mais elle n'est pas au dessus (en terme de layer) de la jauge (ou alors ça se voit pas) et beaucoup trop petite !
 
 ## Pourquoi ce fichier existe
 

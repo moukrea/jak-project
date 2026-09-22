@@ -15988,7 +15988,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 14
+  max_retries: 16
   proof_timeout: 420
   device: true
   owner_ok: null
@@ -16190,11 +16190,10 @@ items:
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne
     `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d''origine bit-identique.'
-  where: 'HUD en jeu, ramassage d''eco bleue, avec la photo owner-feedback/hud-eco-gauge/20260921T0836-1.jpg
-    comme AVANT. Trois oui/non : (1) le fond sombre sous le trou couvre-t-il tout le trou sans qu''on
-    voie le decor au travers sur un bord ? (2) l''orbe au centre est-elle VIVANTE : etincelles electriques
-    qui bougent comme sur le vial du monde, pas une lueur fixe ? (3) l''ensemble ressemble-t-il a l''eco
-    bleue du monde ?'
+  where: 'HUD en jeu, ramassage d''eco. La forme de la particule est VALIDEE par l''owner le 22/09, ainsi
+    que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS
+    la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle
+    doit remplir le trou, pas y flotter comme un point ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -16310,6 +16309,10 @@ items:
       ![71737.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/af9dc68e-4f6e-44d2-8fd7-f35259d3cbe4/d6da2d90-620f-4635-a088-907c7b22fdfa)
 
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260922T1204-1.jpg ; .autoport/owner-feedback/hud-eco-gauge/20260922T1204-2.jpg]'
+  - date: '2026-09-22'
+    text: Je vois bien sur les builds que tu fais rouler que la particule éco bleue/rouge/jaune est là
+      comme elle semble apparaître dans le monde, mais elle n'est pas au dessus (en terme de layer) de
+      la jauge (ou alors ça se voit pas) et beaucoup trop petite !
   notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
     reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
 
@@ -16326,7 +16329,17 @@ items:
 
     22/09 : l''orbe du trou ne ressemble PAS aux orbes d''eco bleue du monde. Comparatif fourni par l''owner
     : owner-feedback/hud-eco-gauge/20260922T1204-1.jpg (la jauge, en bas a droite) et 20260922T1204-2.jpg
-    (deux orbes d''eco bleue du monde, la CIBLE). Le fond noir est VALIDE par l''owner : ne pas y retoucher.'
+    (deux orbes d''eco bleue du monde, la CIBLE). Le fond noir est VALIDE par l''owner : ne pas y retoucher.
+
+    budget : plafond 16 = compteur 11 + 5 (3 restants du 22/09 14:04 + 2 pour le retour du 22/09 15:40,
+    orbe sous la jauge et trop petite)
+
+    22/09 15:40 : l''owner CONFIRME que la particule d''eco (bleue/rouge/jaune) ressemble maintenant a
+    celle du monde — cette partie-la est acquise, ne pas la refaire. Deux defauts restants et seulement
+    deux : (1) ORDRE DE DESSIN — la particule n''est pas devant la jauge, ou alors elle est cachee derriere
+    ; (2) TAILLE — « beaucoup trop petite ». Grandeurs a publier : le rang de dessin de la particule compare
+    a celui des elements de la jauge (elle doit passer APRES, donc par-dessus) et le nombre de pixels
+    de l''orbe par rapport au diametre du trou.'
   where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
     montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
     montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
