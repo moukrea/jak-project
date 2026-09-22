@@ -652,12 +652,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
  "harness-owner-test-requires-a-capture": {
-  "hash": "cb7c59a5a8a6e90360de20c3398cbf5e131d992a",
+  "hash": "63d726fec9f6b7b6374eed46835ae12622ab7d81",
   "identifier": "JAK-189",
   "issue_id": "fc8256ee-9f6a-49d1-9df0-5d2e730b01ca",
   "last_state": "Todo",
   "last_verdict_announced": "validator-007.txt",
-  "pulled_at": "2026-09-20T22:52:10.000Z",
+  "pulled_at": "2026-09-22T13:19:16.424Z",
   "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
  },
  "harness-pack-manifest-is-a-build-artefact": {
@@ -757,11 +757,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "56d82489e705021fb4d857479d179b3ba979dcf6",
+  "hash": "4ca34fdb440b98c5df9d17600682e8e41489f53d",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-001.txt",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
  },
