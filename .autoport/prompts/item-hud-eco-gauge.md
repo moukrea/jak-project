@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-20 : « Je sais pas sur quoi tu fais tes mesures à ralonge mais c'es… »
+- 2026-09-21 : « Alors le fond noir que tu as mis rond je sais pas pourquoi p… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
@@ -26,7 +26,7 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu, ramassage d'eco bleue puis rouge puis jaune, avec la photo owner-feedback/hud-eco-gauge/20260920T1831-1.jpg comme AVANT. Quatre oui/non : (1) le rond au centre est-il COLORE (bleu pour bleu, rouge pour rouge, jaune pour jaune) et plus blanc ? (2) l'orbe remplit-elle le trou de la jauge (elle touche presque la couronne) ? (3) un fond noir apparait-il sous le trou quand l'orbe arrive, et disparait-il en fondu avec elle sur les derniers pourcents ? (4) l'ensemble ressemble-t-il a l'eco du monde ?.
+Ou l'owner regardera : HUD en jeu, ramassage d'eco bleue, avec la photo owner-feedback/hud-eco-gauge/20260921T0836-1.jpg comme AVANT. Trois oui/non : (1) le fond sombre sous le trou couvre-t-il tout le trou sans qu'on voie le decor au travers sur un bord ? (2) l'orbe au centre est-elle VIVANTE : etincelles electriques qui bougent comme sur le vial du monde, pas une lueur fixe ? (3) l'ensemble ressemble-t-il a l'eco bleue du monde ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.

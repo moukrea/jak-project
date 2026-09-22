@@ -10254,7 +10254,7 @@ items:
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
     build_sha: c42de28de380
-- status: in-progress
+- status: open
   game: jak1
   owner_test: true
   code_scope: jeu
@@ -13574,12 +13574,12 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 10
+  max_retries: 11
   proof_timeout: 420
   device: true
   owner_ok: null
@@ -13625,6 +13625,8 @@ items:
     20/09 16:55 SUPERVISEUR : essai 10 VERT sur l'appareil (hud_gauge_defects=0, taille et opacite calibrees sur le vial du monde, commit 630ea23478 DANS le build publie 630ea23478ed) mais BLOQUE par la porte de fermeture pour 3 tests rouges de la suite du harnais (test_proof.py : « la preuve ne porte aucune empreinte FIGEE de son binaire ») — ces rouges viennent du chantier harness-judge-binary-race-with-builder qui reecrit validators/generic.sh EN PARALLELE ; l'essai 10 n'a touche que goal_src (git diff verifie). Imputation fausse. Owner 16:45 : « j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais » -> passe a tester par lui.
 
     20/09 20:50 RETOUR OWNER (JAK-176, photo 20260920T1831-1.jpg) : « l'orbe sur la jauge ne recouvre pas le trou mais est trop petite a l'interieur et le fond fait juste un ROND BLANC, pas comme le bleu in game ! Je sais pas ce que t'as bricole avec l'opacite mais on pourrait faire apparaitre un FOND NOIR d'un coup sous le rond vide de la jauge quand l'orbe y apparait, et sur les derniers pourcents un FADE OUT pour disparaitre (de meme pour l'orbe). Et bien sur agrandir, et faire en sorte que ca soit BLEU et pas blanc (rouge pour rouge, jaune pour jaune) ». LU SUR LA PHOTO : le centre de la jauge est un disque blanc-bleute delave, l'orbe bleue du monde au premier plan est saturee et bleue ; la nuee du HUD est petite au centre. DIAGNOSTIC : la nuee est ADDITIVE sur un fond CLAIR (le disque de la jauge) : l'addition sature vers le blanc et perd la teinte ; sur le fond sombre du monde la meme nuee est bleue. Dix essais ont regle taille et alpha sans jamais changer le fond : c'est le fond qui manquait. LA SOLUTION EST CELLE DE L'OWNER : (1) un disque NOIR (ou tres sombre) pose sous le trou de la jauge, apparaissant D'UN COUP a l'arrivee de l'eco ; (2) la nuee par-dessus, additive sur ce fond noir, donc bleue/rouge/jaune saturee comme dans le monde ; (3) taille : l'orbe touche presque la couronne (rayon 0,85-0,95 du trou) ; (4) sur les derniers pourcents (a definir : les derniers 10 %), FADE OUT du fond noir et de l'orbe ensemble, jusqu'a disparition. PORTE : (a) sous eco bleue, teinte moyenne du centre rendu = bleue (canal B > R et G d'au moins 30 %), et idem rouge/jaune ; (b) luminance du fond sous la nuee <= 0,15 quand l'eco est active, = celle d'origine quand elle ne l'est pas ; (c) rayon de l'orbe dans [0,85 ; 0,95] du trou ; (d) alpha du fond et de l'orbe decroissant monotone sur les derniers 10 % jusqu'a 0. CAPTURE COTE A COTE OBLIGATOIRE au passage en test (jauge + orbe du monde dans la meme image). 2 essais.
+
+    21/09 10:36 RETOUR OWNER (JAK-176, photo 20260921T0836-1.jpg) : « le fond noir que tu as mis ROND […] n'est pas bien aligne alors on voit un peu au travers (tu aurais juste pu faire un CARRE un peu plus grand que le rond vide de la jauge et le mettre en dessous) et l'orbe d'Eco… on voit juste une LUEUR BLEUE QUI BOUGE PAS DU TOUT et SANS LES PARTICULES ELECTRIQUES, c'est completement bidon ! ». LU SUR LA PHOTO : au centre de la jauge un disque bleu lisse et fixe, aucune etincelle ; le vial du monde au premier plan est une colonne d'eclairs blancs-bleus en mouvement. DEUX FAUTES de l'essai 11 : (a) le fond est un disque ajuste au trou -> mal aligne, on voit au travers ; (b) l'orbe est devenue un SPRITE fixe (une lueur) : l'emetteur de particules du vial (acquis le 20/09, groupes 42/48/56 portes champ par champ) a ete REMPLACE au lieu d'etre pose PAR-DESSUS le fond. PERIMETRE (2 essais) : (1) fond = un CARRE sombre plus grand que le trou (marge >= 15 % du rayon), dessine SOUS la couronne de la jauge (ordre de buckets : fond < jauge < nuee), pas un disque ajuste ; (2) l'orbe = la NUEE de particules du vial du monde du bon type, ANIMEE (les etincelles bougent : pas de sprite fixe), dessinee par-dessus le fond, taille 0,85-0,95 du trou, couleur du type ; la lueur fixe de l'essai 11 est retiree ; (3) fondu du fond et de la nuee ensemble sur les derniers 10 %. PORTE : (a) sur une image ou l'eco est active, luminance du fond mesuree sur TOUT le disque du trou + la marge <= 0,15 (aucun pixel de decor) ; (b) la nuee du centre est le groupe du vial du monde (id) ET ses particules ont une vitesse non nulle (deplacement moyen des particules entre deux images > 0, comme sur le vial) ; (c) teinte du centre = celle du type ; (d) fondu monotone sur les derniers 10 %. CAPTURE COTE A COTE OBLIGATOIRE. Owner : « Tu te fous de ma gueule ! » — repondre avec les faits, pas d'excuse creuse.
   deliverable: |-
     `hud_gauge_defects` = 0, somme de termes publies SEPAREMENT.
 
@@ -13641,11 +13643,11 @@ items:
     6. ETEINT = ORIGINE.
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d'origine bit-identique.
-  where: 'HUD en jeu, ramassage d''eco bleue puis rouge puis jaune, avec la photo owner-feedback/hud-eco-gauge/20260920T1831-1.jpg
-    comme AVANT. Quatre oui/non : (1) le rond au centre est-il COLORE (bleu pour bleu, rouge pour rouge,
-    jaune pour jaune) et plus blanc ? (2) l''orbe remplit-elle le trou de la jauge (elle touche presque
-    la couronne) ? (3) un fond noir apparait-il sous le trou quand l''orbe arrive, et disparait-il en
-    fondu avec elle sur les derniers pourcents ? (4) l''ensemble ressemble-t-il a l''eco du monde ?'
+  where: 'HUD en jeu, ramassage d''eco bleue, avec la photo owner-feedback/hud-eco-gauge/20260921T0836-1.jpg
+    comme AVANT. Trois oui/non : (1) le fond sombre sous le trou couvre-t-il tout le trou sans qu''on
+    voie le decor au travers sur un bord ? (2) l''orbe au centre est-elle VIVANTE : etincelles electriques
+    qui bougent comme sur le vial du monde, pas une lueur fixe ? (3) l''ensemble ressemble-t-il a l''eco
+    bleue du monde ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -13702,10 +13704,17 @@ items:
 
       ![71669.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/106bb544-d364-48d3-8685-9e9c85d921f7/9e98938e-c1fb-4cfa-bd4e-74f542722c39)
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260920T1831-1.jpg]
+  - date: '2026-09-21'
+    text: |-
+      Alors le fond noir que tu as mis rond je sais pas pourquoi puisque en terme de layers il est sensé être placé en dessous de la jauge n'est pas bien aligné alors on voit un peu au travers (tu aurais juste pu faire un carré un peu plus grand que le rond vide de la jauge et le mettre en dessous) et l'orbe d'Eco… bah t'as fait quoi ? On voit juste une lueur bleue qui bouge pas du tout et sans les particules électriques, c'est complètement bidon ! Tu te fous de ma gueule !
+
+      ![71708.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/5ab2f038-7f92-4086-8286-c7282220ca95/6abd1290-17a1-47e4-9404-b495304cd557)
+      [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260921T0836-1.jpg]
   block_reason: ''
   notes: |-
     budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j'en suis pas content tu pourras reprendre avec plus d'essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
     budget : plafond 10 = compteur 8 + 2 (owner 20/09 20:50, fond noir + couleur)
+    budget : plafond 11 = compteur 9 + 2 (owner 21/09 10:36, fond carre + nuee animee)
 - status: validated
   game: jak1
   code_scope: jeu
@@ -14660,3 +14669,4 @@ items:
     `where`=« rien a installer » -> passe sans image (controle) ; (2) le releve des 7 derniers jours :
     combien de passages en test visibles sans image (attendu >= 3, les cas nommes ci-dessus) ; (3) DIRECTIVES
     cite la porte. Un terme non mesure compte 1.'
+  no_code: true
