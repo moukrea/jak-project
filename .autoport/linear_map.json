@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 5,
+ "_gen": 11,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -660,10 +660,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
  "harness-linear-auto-archive-when-space-runs-out": {
-  "hash": "3b0da0dc37984d77502bea1594be3dbbea304ce0",
+  "hash": "d336699ad07c3f536d636ac2be990ce9c7f77c3c",
   "identifier": "JAK-230",
   "issue_id": "db751adc-6d9d-4415-8b40-9e7a68f82d77",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T22:41:46.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-230/quand-lespace-linear-approche-de-sa-limite-de-tickets-la-synchro"
  },
@@ -677,10 +678,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
  "harness-linear-sync-never-creates-two-tickets-for-one-item": {
-  "hash": "5585dd7fbce54c0f6e5b52d485f4b65c185b147d",
+  "hash": "2abb85a73c721dcc3d5db9b5af2847c63c00c87c",
   "identifier": "JAK-229",
   "issue_id": "85d2ee31-97ae-47cd-9872-04a4108020b3",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T22:39:35.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-229/la-synchro-linear-ne-cree-jamais-deux-tickets-pour-un-meme-chantier-et"
@@ -832,12 +833,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "a43933c47d7b6332af8135b3b70db9e0cc3fdd19",
+  "hash": "3a939d15ca649158a954a2b98ccc2060ba44dd85",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-22T11:15:55.000Z",
+  "pulled_at": "2026-09-22T22:58:31.364Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
  },
  "harness-supervisor-reader-must-be-the-supervisor": {
