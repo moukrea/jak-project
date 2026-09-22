@@ -18050,11 +18050,16 @@ items:
 
     NON MESURE : ce que 5.5 coute par essai. La projection de panel-sobre (14,44 $) vaut pour opus-5,
     pas pour 5.5. A remesurer apres une vingtaine d''essais.'
-  where: ''
+  where: 'Rien a regarder dans le jeu : c''est un reglage du harnais. Ce qui se verifie, c''est la banniere
+    au lancement de l''orchestrateur — elle doit dire `modele=claude-opus-5-5`. En une commande : `grep
+    -m1 modele .autoport/logs/orchestrator.log` apres la prochaine relance.'
   deliverable: ''
   out_of_scope: ''
   spec: null
   prompt: ''
+  where_to_look: 'Rien a regarder dans le jeu : c''est un reglage du harnais. Ce qui se verifie, c''est
+    la banniere au lancement de l''orchestrateur — elle doit dire `modele=claude-opus-5-5`. En une commande
+    : `grep -m1 modele .autoport/logs/orchestrator.log` apres la prochaine relance.'
 - status: in-progress
   game: jak1
   owner_test: false
