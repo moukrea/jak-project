@@ -160,7 +160,8 @@ def ensure_ticket(L, mp, team, iid, title, payload, st, h):
                    "last_state": found["state"]["name"], "hash": "", "pulled_at": now}
         save_map(mp)
         return mp[iid], False
-    r = L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }', i=dict(payload, teamId=team))
+    r = with_room(L, lambda: L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }',
+                                 i=dict(payload, teamId=team)), "creation du ticket de %s" % iid)
     iss = r["issueCreate"]["issue"]
     mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": iss["url"],
                "last_state": st, "hash": h, "pulled_at": now}
@@ -243,6 +244,174 @@ class Linear:
                 raise RuntimeError(json.dumps(d["errors"])[:600])
             return d["data"]
         raise RuntimeError("Linear indisponible apres 4 essais : %s" % last)
+
+
+# ------------------------------------------------------------------------------------------ ESPACE ----
+# 23/09 00:3x : le plan gratuit de Linear refuse toute creation au-dela de 250 tickets ACTIFS (erreur
+# USAGE_LIMIT_EXCEEDED, metrique `activeIssueCount` = tout ticket NON ARCHIVE, clos compris). 275 actifs :
+# chaque passage mourait sur la premiere creation. Le superviseur en a archive 169 a la main ; la synchro
+# mourait alors sur le premier commentaire adresse a un ticket archive (« Entity not found: Issue ») et
+# JAK-176, 191, 192, 193 ont du etre desarchives a la main. Owner 23/09 : « Archive les tickets terminés,
+# ça devrait se faire automatiquement quand on a un soucis de place. »
+SPACE_LIMIT = int(os.environ.get("LINEAR_ISSUE_LIMIT") or 250)  # plan gratuit ; un refus de Linear l'abaisse
+SPACE_HIGH = 0.85     # au-dela : archivage des tickets clos les plus anciens...
+SPACE_LOW = 0.75      # ...jusqu'ici : l'ecart evite de rearchiver a chaque passage
+SPACE_EVERY_S = 300   # un recensement de l'espace au plus toutes les 5 min (la veille passe toutes les 30 s)
+SPACE_PATH = HOME / ".linear_space.json"  # hors git : le dernier recensement, lu par la preuve
+CODE_FP = hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]  # quel code a tourne, dans le journal
+_CTX = {"bl": None, "mp": None, "todo": None, "team": None}  # ce que l'archivage doit epargner, pose par main()
+FAILED = []           # les echecs NOMMES du passage : un ticket qui refuse ne fait plus tomber les autres
+LEFT_ARCHIVED = object()
+UNARCHIVE = 'mutation($id:String!){ issueUnarchive(id:$id){ success } }'
+
+
+def is_usage_limit(e):
+    return "USAGE_LIMIT_EXCEEDED" in str(e)
+
+
+def is_missing_issue(e):
+    return "Entity not found" in str(e)
+
+
+def _name(issue_id):
+    for k, v in (_CTX["mp"] or {}).items():
+        if not k.startswith("_") and isinstance(v, dict) and v.get("issue_id") == issue_id:
+            return "%s (%s)" % (v.get("identifier"), k)
+    return issue_id
+
+
+def fail(what, e):
+    """Un appel Linear qui echoue sur UN ticket ou UNE etape est compte et NOMME ; le passage continue."""
+    FAILED.append("%s : %s" % (what, str(e)[:160]))
+    print("ECHEC LINEAR NOMME : %s : %s ; la synchro continue" % (what, str(e)[:300]))
+
+
+def guard(what, fn, default=None):
+    try:
+        return fn()
+    except Exception as e:  # noqa: BLE001 — une etape qui tombe ne fait plus tomber tout le passage
+        fail(what, e)
+        return default
+
+
+def with_room(L, fn, what):
+    """Un appel que la limite d'espace peut refuser : on fait de la place (archivage) puis UNE nouvelle
+    tentative. Un second refus remonte a l'appelant, qui le nomme."""
+    try:
+        return fn()
+    except RuntimeError as e:
+        if not is_usage_limit(e):
+            raise
+        print("LIMITE D'ESPACE LINEAR atteinte sur %s : archivage puis une nouvelle tentative" % what)
+        make_room(L, force=True, refused=True)
+        return fn()
+
+
+def on_ticket(L, issue_id, fn, revive=True):
+    """UN appel sur UN ticket. Linear repond « Entity not found: Issue » sur un ticket ARCHIVE : on le ressort
+    (`revive`) puis on rejoue l'appel une fois ; sinon on le laisse archive, on le NOMME et on rend LEFT_ARCHIVED."""
+    try:
+        return fn()
+    except RuntimeError as e:
+        if not is_missing_issue(e):
+            raise
+        if not revive:
+            print("TICKET ARCHIVE LAISSE ARCHIVE : %s (rien a lui dire)" % _name(issue_id))
+            return LEFT_ARCHIVED
+        with_room(L, lambda: L.q(UNARCHIVE, id=issue_id), "desarchivage de %s" % _name(issue_id))
+        print("TICKET ARCHIVE RESSORTI : %s (un message ou une mise a jour lui etait destine)" % _name(issue_id))
+        return fn()
+
+
+def _space_state():
+    try:
+        return json.loads(SPACE_PATH.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _pages(L, query, **v):
+    """Tous les noeuds de la connexion `issues`, page par page."""
+    out, after = [], None
+    while True:
+        pg = L.q(query, a=after, **v)["issues"]
+        out += pg["nodes"]
+        if not pg["pageInfo"]["hasNextPage"]:
+            return out
+        after = pg["pageInfo"]["endCursor"]
+
+
+def count_active(L):
+    """Ce que Linear compte contre la limite : tous les tickets NON archives de l'espace, clos compris."""
+    return len(_pages(L, 'query($a:String){ issues(first:250, after:$a){ pageInfo { hasNextPage endCursor } nodes { id } } }'))
+
+
+def kept_ids():
+    """Tickets jamais archives par la synchro : celui d'un chantier dont l'etat cible n'est pas clos."""
+    bl, mp = _CTX["bl"], _CTX["mp"] or {}
+    if bl is None:
+        return set()
+    return {mp[it["id"]]["issue_id"] for it in bl.items
+            if it["id"] in mp and target_state(bl, it) not in ("Done", "Canceled")}
+
+
+def archivable(L, keep):
+    """Tickets clos (termines, annules) non archives : ceux de NOTRE equipe d'abord, puis ceux des autres equipes de
+    l'espace (la limite est celle de l'espace : le 23/09 il y avait aussi des JAU-*), chaque groupe du plus ANCIEN au
+    plus recent. Jamais : le ticket d'un chantier encore ouvert du backlog, ni un ticket qui porte « A traiter »."""
+    todo = _CTX.get("todo")
+    nodes = _pages(L, 'query($a:String){ issues(first:250, after:$a, filter:{state:{type:{in:["completed","canceled"]}}}){ '
+                      'pageInfo { hasNextPage endCursor } nodes { id identifier completedAt canceledAt updatedAt '
+                      'team { id } labels { nodes { id } } } } }')
+    c = [n for n in nodes if n["id"] not in keep
+         and not (todo and todo in [l["id"] for l in ((n.get("labels") or {}).get("nodes") or [])])]
+    c.sort(key=lambda n: (bool(_CTX.get("team")) and ((n.get("team") or {}).get("id") != _CTX["team"]),
+                          n.get("completedAt") or n.get("canceledAt") or n.get("updatedAt") or ""))
+    return c
+
+
+def make_room(L, force=False, refused=False, dry=False):
+    """Recense l'espace (au plus toutes les SPACE_EVERY_S, sauf `force`) ; au-dela de SPACE_HIGH de la limite,
+    archive les tickets clos les plus anciens jusqu'a SPACE_LOW, un par un, chacun journalise. `refused` :
+    Linear vient de refuser (USAGE_LIMIT_EXCEEDED), la limite reelle est donc au plus le compte d'aujourd'hui."""
+    st = _space_state()
+    now = time.time()
+    if not force and now - float(st.get("checked") or 0) < SPACE_EVERY_S:
+        return None
+    active = count_active(L)
+    limit = min(SPACE_LIMIT, int(st.get("learned_limit") or SPACE_LIMIT))
+    if refused and active < limit:
+        print("LIMITE LINEAR APPRISE : refus a %d tickets actifs, sous la limite supposee de %d" % (active, limit))
+        limit = st["learned_limit"] = max(active, 1)
+    high, low = int(limit * SPACE_HIGH), int(limit * SPACE_LOW)
+    before, done, left = active, [], None
+    if active >= high:
+        cand = archivable(L, kept_ids())
+        print("ESPACE LINEAR : %d tickets actifs sur %d (seuil %d) : archivage des tickets clos les plus anciens "
+              "jusqu'a %d%s" % (active, limit, high, low, " (simulation)" if dry else ""))
+        for n in cand:
+            if active < low:
+                break
+            if not dry:
+                try:
+                    L.q('mutation($id:String!){ issueArchive(id:$id){ success } }', id=n["id"])
+                except RuntimeError as e:
+                    fail("archivage de %s" % n["identifier"], e)
+                    continue
+            active -= 1
+            done.append(n["identifier"])
+            print("  %s %s (clos le %s)" % ("ARCHIVERAIT" if dry else "ARCHIVE AUTO :", n["identifier"],
+                                           (n.get("completedAt") or n.get("canceledAt") or "?")[:10]))
+        left = len(cand) - len(done)
+        if active >= high:
+            print("ESPACE LINEAR SATURE : %d actifs sur %d apres archivage, plus aucun ticket clos a archiver" % (active, limit))
+    st.update({"checked": now, "active_before": before, "active": active, "limit": limit, "high": high, "low": low,
+               "archived": len(done), "archived_list": done[:60], "archivable_left": left, "code": CODE_FP})
+    if not dry:
+        _write_atomic(SPACE_PATH, st)
+    print("ESPACE LINEAR : %d/%d tickets actifs (seuil %d, cible %d) ; %d archive(s) ce passage"
+          % (active, limit, high, low, len(done)))
+    return st
 
 
 def refresh_prompt(it):
@@ -482,9 +651,16 @@ def ensure_view(L, team_id, label_id, name="À lire", icon="Inbox", color="#f299
 
 
 def swap_labels(L, issue_id, add=None, remove=None):
-    """Pose `add`, retire `remove` (ids d'etiquettes), en une ecriture."""
-    d = L.q('query($id:String!){ issue(id:$id){ labels { nodes { id } } } }', id=issue_id)
-    ids = [l["id"] for l in d["issue"]["labels"]["nodes"]]
+    """Pose `add`, retire `remove` (ids d'etiquettes), en une ecriture. Sur un ticket archive, la lecture passe
+    mais l'ecriture rend « Entity not found » : `on_ticket` le ressort et rejoue le tout."""
+    on_ticket(L, issue_id, lambda: _swap_labels(L, issue_id, add, remove))
+
+
+def _swap_labels(L, issue_id, add, remove):
+    iss = L.q('query($id:String!){ issue(id:$id){ labels { nodes { id } } } }', id=issue_id).get("issue")
+    if iss is None:
+        raise RuntimeError("Entity not found: Issue (lecture nulle)")
+    ids = [l["id"] for l in iss["labels"]["nodes"]]
     want = [i for i in ids if i != remove]
     if add and add not in want:
         want.append(add)
@@ -605,8 +781,8 @@ def post_comment(L, issue_id, body):
     tenu dans quatre et laisse le cinquieme parler sous l'owner sans que rien ne rougisse.
     L'identite elle-meme ne se pose pas ici : elle est portee par le JETON (`Linear.__init__`),
     donc par toutes les ecritures a la fois, commentaires compris."""
-    return L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }',
-               i={"issueId": issue_id, "body": body})
+    return on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }',
+                                              i={"issueId": issue_id, "body": body}))
 
 
 def _say(L, rec, text):
@@ -1149,8 +1325,12 @@ def announce_verdicts(L, bl, mp, read, dry):
                     body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (f.name, url)
                 except Exception as e:  # noqa: BLE001
                     body += "\n\n(piece jointe %s non televersee : %s)" % (f.name, str(e)[:80])
-            post_comment(L, rec["issue_id"], body)
-            swap_labels(L, rec["issue_id"], add=read)
+            try:   # 23/09 : un ticket qui refuse ici faisait tomber tout le passage, pull compris
+                post_comment(L, rec["issue_id"], body)
+                swap_labels(L, rec["issue_id"], add=read)
+            except Exception as e:  # noqa: BLE001
+                fail("verdict essai %d de %s sur %s" % (num, it["id"], rec.get("identifier")), e)
+                continue
             rec["last_verdict_announced"] = v.name
         n += 1
     return n
@@ -1332,6 +1512,7 @@ def main():
         return
     if a.comment:
         mp = load_map()
+        _CTX["mp"] = mp
         rec = mp.get(a.comment)
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
@@ -1344,6 +1525,8 @@ def main():
         # Owner 17/09 : « si tu commentes, ça a une valeur de le mettre à lire » — toujours, ticket clos ou non.
         swap_labels(L, rec["issue_id"], add=read, remove=todo)
         print("commentaire poste sur", rec["identifier"], "+ « A lire », - « A traiter »"); return
+    # Chaque passage dit QUEL code l'a fait : la preuve juge les plantages du code en place, pas ceux d'avant.
+    print("SYNCHRO code=%s" % CODE_FP)
     bl = B.load()
     retries = {}
     if STATE_JSON.exists():
@@ -1358,12 +1541,14 @@ def main():
         label, todo = labels(L, team)
         mp["_ids"] = {"team": team, "states": states, "projects": projects, "labels": {"read": label, "todo": todo, "talk": _TALK["id"], "ok": _TALK["ok"], "v2": True}}
     today = dt.date.today()
+    _CTX.update(bl=bl, mp=mp, todo=todo, team=team)
     MAP_DOCS.update(mp.get("_docs") or {})
-    if sync_docs(L, mp, projects, a.dry_run):
+    if guard("documents", lambda: sync_docs(L, mp, projects, a.dry_run)):
         MAP_DOCS.update(mp.get("_docs") or {})
     if mp and not a.no_pull:
-        pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo)
+        guard("retours de l'owner", lambda: pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo))
         bl = B.load()
+        _CTX["bl"] = bl
         # ------------------------------------------- LA FILE A-T-ELLE ENCORE UN LECTEUR ?
         # Tirer les retours de l'owner et les poser dans `owner_feedback` ne sert a RIEN si
         # personne ne les lit : c'est exactement ce qui s'est passe le 22/09, ou cette boucle
@@ -1393,6 +1578,8 @@ def main():
                 print("  " + _l)
         except Exception as _e:                            # noqa: BLE001 — jamais fatal
             print("veille owner indisponible : %s" % str(_e)[:160])
+    # L'espace AVANT les creations : au-dela du seuil, les tickets clos les plus anciens partent aux archives.
+    guard("espace", lambda: make_room(L, dry=a.dry_run))
     created = updated = moved = 0
     created_ids = set()
     create_refused = None  # 23/09 00:3x : quota d'equipe atteint, CHAQUE passage mourait sur la 1re creation
@@ -1418,54 +1605,63 @@ def main():
             continue
         if not rec and create_refused:
             continue
-        made = False
-        if not rec:
-            try:
-                rec, made = ensure_ticket(L, mp, team, iid, title, payload, st, h)
-            except RuntimeError as e:
-                # Un refus (quota, reseau) ne tue plus le passage : les retours de l'owner, les verdicts et la
-                # file « A traiter » passent apres cette boucle. Plus aucune creation jusqu'au passage suivant.
-                create_refused = str(e)[:200]
-                print("CREATION REFUSEE PAR LINEAR : %s (%s) ; plus de creation pendant ce passage" % (iid, create_refused))
-                continue
-        if made:
-            created += 1
-            created_ids.add(iid)
-            # Le rang du backlog est REIMPOSE apres coup : a la creation, Linear place le ticket ou son
-            # reglage d'equipe le veut, pas ou le `sortOrder` demande le met.
-            if isinstance(it.get("priority"), int):
-                L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
-                    id=rec["issue_id"], i={"sortOrder": float(it["priority"])})
-        else:
-            L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i=payload)
-            if rec.get("last_state") != st:
-                body = mark(L) + plain_state_comment(bl, it, st)
-                post_comment(L, rec["issue_id"], body)
-                if st == "In Review":
-                    set_read_label(L, rec["issue_id"], label, True)
-                elif st in ("Done", "Canceled"):
-                    for lab in (label, todo, _TALK.get("id")):
-                        if lab:
-                            swap_labels(L, rec["issue_id"], remove=lab)
-                moved += 1
-            if _TALK.get("ok") and it["status"] == "validated":
-                swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
-            if st != "In Review":
-                rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
-            rec.update({"last_state": st, "hash": h})
-            updated += 1
+        try:   # 23/09 : un ticket qui refuse (archive, supprime, limite) ne fait plus tomber les suivants
+            made = False
+            if not rec:
+                try:
+                    rec, made = ensure_ticket(L, mp, team, iid, title, payload, st, h)
+                except RuntimeError as e:
+                    # Un refus (quota malgre l'archivage, reseau) ne tue plus le passage : les retours de l'owner, les
+                    # verdicts et la file « A traiter » passent apres cette boucle. Plus de creation jusqu'au passage suivant.
+                    create_refused = str(e)[:200]
+                    print("CREATION REFUSEE PAR LINEAR : %s (%s) ; plus de creation pendant ce passage" % (iid, create_refused))
+                    continue
+            if made:
+                created += 1
+                created_ids.add(iid)
+                # Le rang du backlog est REIMPOSE apres coup : a la creation, Linear place le ticket ou son
+                # reglage d'equipe le veut, pas ou le `sortOrder` demande le met.
+                if isinstance(it.get("priority"), int):
+                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
+                        id=rec["issue_id"], i={"sortOrder": float(it["priority"])})
+            else:
+                # Un ticket clos et archive le reste : on ne le ressort pas pour une retouche de description.
+                upd = on_ticket(L, rec["issue_id"], lambda: L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
+                                                                id=rec["issue_id"], i=payload),
+                                revive=st not in ("Done", "Canceled"))
+                if upd is not LEFT_ARCHIVED:
+                    if rec.get("last_state") != st:
+                        body = mark(L) + plain_state_comment(bl, it, st)
+                        post_comment(L, rec["issue_id"], body)
+                        if st == "In Review":
+                            set_read_label(L, rec["issue_id"], label, True)
+                        elif st in ("Done", "Canceled"):
+                            for lab in (label, todo, _TALK.get("id")):
+                                if lab:
+                                    swap_labels(L, rec["issue_id"], remove=lab)
+                        moved += 1
+                    if _TALK.get("ok") and it["status"] == "validated":
+                        swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
+                if st != "In Review":
+                    rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
+                rec.update({"last_state": st, "hash": h})
+                updated += 1
+        except Exception as e:  # noqa: BLE001
+            fail("chantier %s (%s)" % (iid, (rec or {}).get("identifier") or "sans ticket"), e)
         save_map(mp)
-    adopted = adopt_owner_issues(L, bl, mp, team, todo, a.dry_run)
-    if adopted or adopt_owner_order(L, bl, mp, states, a.dry_run, skip=created_ids):
+    # Chaque etape est gardee : une etape qui tombe est NOMMEE et les suivantes passent quand meme.
+    adopted = guard("tickets de l'owner", lambda: adopt_owner_issues(L, bl, mp, team, todo, a.dry_run), 0)
+    if adopted or guard("ordre de l'owner", lambda: adopt_owner_order(L, bl, mp, states, a.dry_run, skip=created_ids)):
         bl = B.load()
-    rel = sync_relations(L, bl, mp, a.dry_run)
-    announce_verdicts(L, bl, mp, label, a.dry_run)
-    announce_builds(L, bl, mp, label, a.dry_run)
-    pull_labeled_unmapped(L, mp, label, todo, _TALK["id"], a.dry_run)
-    swept = sweep_talk(L, label, todo, _TALK["id"], a.dry_run)
+    rel = guard("relations", lambda: sync_relations(L, bl, mp, a.dry_run), 0)
+    guard("verdicts", lambda: announce_verdicts(L, bl, mp, label, a.dry_run))
+    guard("builds", lambda: announce_builds(L, bl, mp, label, a.dry_run))
+    guard("etiquettes hors carte", lambda: pull_labeled_unmapped(L, mp, label, todo, _TALK["id"], a.dry_run))
+    swept = guard("discussions", lambda: sweep_talk(L, label, todo, _TALK["id"], a.dry_run), 0)
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage
     # tant qu'un ticket la porte : le guetteur du superviseur lit ces lignes.
-    d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo)
+    d = guard("file a traiter", lambda: L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo),
+              {"issueLabel": {"issues": {"nodes": []}}})
     by_issue = {v["issue_id"]: k for k, v in mp.items() if not k.startswith("_")}
     for iss in d["issueLabel"]["issues"]["nodes"]:
         print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "hors-backlog")))
@@ -1474,7 +1670,9 @@ def main():
     if create_refused:
         print("CREATIONS SUSPENDUES : %d item(s) actif(s) sans ticket ; Linear refuse : %s"
               % (len([i for i in bl.items if wanted(i, today) and i["id"] not in mp]), create_refused))
-    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis, %d requêtes" % (created, updated, moved, rel, swept, len([k for k in mp if not k.startswith("_")]), L.n))
+    if FAILED:
+        print("ECHECS LINEAR CE PASSAGE : %d, nommes plus haut ; la synchro est allee au bout" % len(FAILED))
+    print("Linear : %d créés, %d mis à jour, %d changements d'état commentés, %d relations posées, %d discussions closes, %d tickets suivis, %d requêtes, %d échec(s) nommé(s)" % (created, updated, moved, rel or 0, swept or 0, len([k for k in mp if not k.startswith("_")]), L.n, len(FAILED)))
 
 
 if __name__ == "__main__":
