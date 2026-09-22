@@ -652,7 +652,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
  "harness-owner-test-requires-a-capture": {
-  "hash": "63d726fec9f6b7b6374eed46835ae12622ab7d81",
+  "hash": "782365dbcd43fa1d564d9895a3de7356cd60be96",
   "identifier": "JAK-189",
   "issue_id": "fc8256ee-9f6a-49d1-9df0-5d2e730b01ca",
   "last_state": "Todo",
@@ -757,11 +757,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "4ca34fdb440b98c5df9d17600682e8e41489f53d",
+  "hash": "3fb078c5434f1c8706b48b5fce912fa53224cf98",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-002.txt",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
  },
@@ -911,7 +911,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "7ffdc723a5f0b2edc5c169ce3d319c2fdab9cb07",
+  "hash": "3ec862bddebc3abfd14fd9a02b9894bc688f0858",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "Todo",
