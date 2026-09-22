@@ -13574,7 +13574,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: open
+- status: blocked
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -13710,7 +13710,18 @@ items:
 
       ![71708.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/5ab2f038-7f92-4086-8286-c7282220ca95/6abd1290-17a1-47e4-9404-b495304cd557)
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260921T0836-1.jpg]
-  block_reason: ''
+  - date: '2026-09-22'
+    text: Et tu mesures ça comment hein ? Avec tes capacités visuelles à chier ? J'en peux plus de tes
+      mesures merdiques qui prennent des heures et ne mènent jamais à rien… la plupart du temps soit elles
+      passent alors que c'est complètement claqué soit elles échouent alors que c'est bon, t'es casse
+      couilles !
+  - date: '2026-09-22'
+    text: Je t'ai déjà dit de me remonter les captures/mesures que tu fais car je suis meilleur juge que
+      toi sur tout ce qui est visuel… et si ça part en build testable je peux aussi vérifier plutôt que
+      tes mesures de merde
+  - date: '2026-09-22'
+    text: Mais du coup tu fous quoi ?
+  block_reason: max_retries (11) épuisé
   notes: |-
     budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j'en suis pas content tu pourras reprendre avec plus d'essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
     budget : plafond 10 = compteur 8 + 2 (owner 20/09 20:50, fond noir + couleur)
@@ -14670,3 +14681,38 @@ items:
     combien de passages en test visibles sans image (attendu >= 3, les cas nommes ci-dessus) ; (3) DIRECTIVES
     cite la porte. Un terme non mesure compte 1.'
   no_code: true
+- id: harness-supervisor-death-is-an-alarm
+  priority: 1
+  device: false
+  feature: 'La mort du superviseur est elle-meme une alerte : la file « retour owner sans reponse » ne
+    peut pas rester servie a un lecteur qui n''existe plus'
+  gate:
+    key: orphan_owner_feedback_defects
+    op: ==
+    value: 0
+  known_cause: 'Owner 22/09 : « Pourquoi tu réagis plus a mes feedbacks sur Linear ». Chaine verifiee
+    ce jour-la : linear_sync RECOPIE bien ses commentaires dans owner_feedback (les deux de 10:27 et 10:30
+    y sont, verbatim), pose « A traiter » sur le ticket, et crie « À TRAITER : JAK-176 » a chaque passage
+    — 7 585 fois dans logs/linear_sync.txt. wake_gate.py insere bien le bloc « RETOURS DE L''OWNER SANS
+    REPONSE » en tete de chaque reveil. TOUT fonctionne sauf le lecteur : la session superviseur (fc2d3cfc,
+    transcript de 318 Mo) a rendu sa derniere reponse a 09:50:56, le reveil de 10:20:48 est reste EN FILE
+    sans jamais etre traite, la demande a ete interrompue a 11:06:42 et la session s''est terminee a 11:07:54.
+    `.autoport/.supervisor-terminal.json` designe toujours le pid 68980, mort ; le tty qu''il nomme (/dev/pts/3)
+    fait tourner un `codex --yolo resume` depuis 4 jours. Aucune porte, aucun journal, aucun `autoport
+    status` ne regarde si le superviseur existe : `grep -i linear .autoport/autoport` ne rend RIEN. Consequence
+    mesuree : 2 retours owner sans reponse pendant 2 h 45, et JAK-176 dans la file « a traiter » sur 10
+    766 des 12 391 passages de synchro.'
+  deliverable: |-
+    `orphan_owner_feedback_defects` = 0, somme de termes publies SEPAREMENT. Un terme non mesure compte 1.
+
+    1. LE COUT D'AVANT EST CHIFFRE : sur les 7 derniers jours, pour chaque retour owner recopie dans `owner_feedback`, le delai entre son horodatage Linear et le premier commentaire du harnais poste APRES lui sur le meme ticket (sans reponse = delai ouvert). Publier le nombre de retours au-dela de 2 h et le maximum. Non nul par construction (2 cas le 22/09, 24 h le 21/09).
+
+    2. LE LECTEUR EST VIVANT, MESURE : un releve publie dit si un superviseur existe — pid de `.autoport/.supervisor-terminal.json` vivant AVEC le meme starttime (champ 22 de /proc/<pid>/stat, jamais `kill -0` : il reussit sur un zombie), et horodatage de sa derniere reponse effective. Publier les deux, et la duree depuis la derniere reponse.
+
+    3. LA MORT EST UNE ALERTE, PAS UNE LIGNE DE JOURNAL : quand un retour owner attend depuis plus de `AUTOPORT_OWNER_SLA_S` (defaut 2 h) ET qu'aucun superviseur vivant ne l'a lu, le harnais l'ecrit la ou quelqu'un regarde — en tete de `autoport status` (rubrique nommee, avec l'age du plus vieux retour) ET en commentaire sur le ticket concerne, une seule fois par retour. Porte : simuler un superviseur mort + un retour de 3 h -> la rubrique apparait et le commentaire part ; superviseur vivant -> ni l'un ni l'autre (controle negatif) ; deux passages de suite -> UN seul commentaire (pas de repetition).
+
+    4. LE FICHIER DE TERMINAL NE MENT PLUS : `.supervisor-terminal.json` qui designe un pid mort, ou un tty dont le programme n'est pas le superviseur, est traite comme « pas de superviseur » et non comme « superviseur declare ». Publier le cas mesure sur le releve du 22/09 (pid 68980 mort, pts/3 = codex).
+  no_code: false
+  status: in-progress
+  notes: 'Owner 22/09 : « Pourquoi tu réagis plus a mes feedbacks sur Linear »'
+  prompt: prompts/item-harness-supervisor-death-is-an-alarm.md
