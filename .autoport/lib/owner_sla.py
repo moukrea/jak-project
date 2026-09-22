@@ -12,7 +12,8 @@ Ce module transforme ce silence en grandeur, puis en alerte :
 
   * `collect()`   date chaque retour de l'owner par son horodatage LINEAR (le `date:` du
                   backlog est au JOUR : il ne peut pas porter un SLA de 2 h) et lui attache
-                  le premier commentaire du harnais poste APRES lui sur le MEME ticket.
+                  la premiere REPONSE qui lui est ADRESSEE (voir `answer_how`) : un verdict
+                  d'essai ou un changement de colonne poste apres lui n'en est pas une.
                   Sans reponse, le delai reste OUVERT (mesure jusqu'a maintenant).
   * `evaluate()`  decide. Deux conditions, toutes les deux necessaires : un retour depasse
                   `AUTOPORT_OWNER_SLA_S`, ET aucun superviseur VIVANT ne l'a lu. Un
@@ -92,6 +93,7 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
                 par_ticket[ticket] = None
                 row.setdefault("error", str(exc)[:80])
         comments = par_ticket.get(ticket)
+        mine = None
         rec = {
             "item": row.get("item") or "",
             "ticket": ticket,
@@ -105,6 +107,10 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
             "delay_s": -1,
             "open": 0,
             "excluded": "",
+            "answer_how": "",
+            "answer_auto": "",
+            "auto_after": 0,
+            "harness_after": 0,
         }
         via = row.get("via") or {}
         rec["origin"] = _origin(via)
@@ -129,9 +135,18 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
                 (c for c in comments if is_harness(c) and ts_of(c) > rec["ts"]),
                 key=ts_of,
             )
-            if suivantes:
-                rec["answered_ts"] = ts_of(suivantes[0])
+            # Ce qui aurait eteint le compteur AVANT (23/09) : tout commentaire du harnais. On
+            # le compte pour qu'une alerte ne reparte pas sur l'historique (voir `evaluate`).
+            rec["auto_after"] = sum(1 for c in suivantes if auto_kind(c.get("body")))
+            rec["harness_after"] = len(suivantes)
+            reponses = [(c, answer_how(c, mine, ts_of)) for c in suivantes]
+            reponses = [(c, how) for c, how in reponses if how]
+            if reponses:
+                c, how = reponses[0]
+                rec["answered_ts"] = ts_of(c)
                 rec["answered"] = 1
+                rec["answer_how"] = how
+                rec["answer_auto"] = "" if how == "reply" else auto_kind(c.get("body"))
                 rec["delay_s"] = int(rec["answered_ts"] - rec["ts"])
             else:
                 # SANS REPONSE = DELAI OUVERT. C'est le cas que l'owner a vecu : le mesurer
@@ -140,6 +155,71 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
                 rec["delay_s"] = int(now - rec["ts"])
         out.append(rec)
     return out
+
+
+# ======================================================= QU'EST-CE QU'UNE REPONSE ? (23/09) ==
+# « Repondu » valait : n'importe quel commentaire du harnais poste APRES le retour. Un
+# « → **En cours** » pose par la synchro, un verdict d'essai, ou l'ALERTE de ce module elle-meme
+# eteignaient le compteur : l'owner n'avait recu aucune reponse a SA question et le delai
+# s'arretait. Une reponse est desormais un message qui VISE ce retour :
+#   reply   un commentaire du harnais poste DANS LE FIL du commentaire de l'owner (`parentId`).
+#           Seul `linear_sync.py --comment <id> --reply-to <commentaire>|last` le pose ; aucun
+#           message automatique ne passe par la : l'adresse est portee par le SERVEUR, aucun
+#           corps de message ne peut l'imiter, et un nouveau producteur automatique ne peut pas
+#           la poser par megarde.
+#   legacy  AVANT que le fil existe (REPLY_SINCE), un message REDIGE (superviseur ou agent, par
+#           `--comment`) ; jamais un message automatique, reconnu a sa forme (AUTO_PREFIXES).
+
+REPLY_SINCE = "2026-09-23T00:30:00+00:00"
+
+# Les formes des messages AUTOMATIQUES de `linear_sync.py` (et de ce module), une par
+# producteur. Elles ne jugent que l'AVANT-bascule : apres REPLY_SINCE, seul le fil compte.
+AUTO_PREFIXES = (
+    ("etat", "→ "),                                       # plain_state_comment : colonne
+    ("verdict", "**Essai "),                              # announce_verdicts
+    ("build", "**Build publié**"),                        # annonce du build jak-builds
+    ("deplacement", "Passé Done par ton déplacement"),    # apply_owner_move
+    ("deplacement", "Archivé sur ton déplacement"),
+    ("deplacement", "Un essai est en cours dessus ; je le bloque"),
+    ("deplacement", "Bloqué sur ton déplacement"),
+    ("deplacement", "Rouvert sur ton déplacement."),
+    ("deplacement", "Noté. Passé en tête de file"),
+    ("deplacement", "In Review est posé par la machine"),
+    ("adoption", "Ticket adopté par le harnais"),
+    ("orphelin", "Ce chantier n'existe plus dans le backlog"),
+    ("alerte-sla", "Ton retour attend depuis"),           # comment_body, ci-dessous
+)
+AUTO_EXACT = (("deplacement", "Noté."),)
+
+
+def auto_kind(body):
+    """Le producteur automatique qui a ecrit ce corps, ou '' pour un message redige."""
+    b = (body or "").lstrip()
+    if b.startswith("🤖"):
+        b = b[len("🤖"):].lstrip()
+    for kind, exact in AUTO_EXACT:
+        if b.strip() == exact:
+            return kind
+    for kind, prefix in AUTO_PREFIXES:
+        if b.startswith(prefix):
+            return kind
+    return ""
+
+
+def _parent_of(comment):
+    c = comment or {}
+    return c.get("parentId") or ((c.get("parent") or {}).get("id")) or ""
+
+
+def answer_how(comment, owner_comment, ts_of=None):
+    """'reply' | 'legacy' | '' — ce commentaire du harnais REPOND-il au retour de l'owner ?"""
+    ts_of = _created_at if ts_of is None else ts_of
+    fil = {x for x in ((owner_comment or {}).get("id"), _parent_of(owner_comment)) if x}
+    if _parent_of(comment) and _parent_of(comment) in fil:
+        return "reply"
+    if ts_of(comment) < iso_to_epoch(REPLY_SINCE) and not auto_kind((comment or {}).get("body")):
+        return "legacy"
+    return ""
 
 
 def _created_at(comment):
@@ -252,6 +332,10 @@ def cost_summary(records, sla_s, now=None):
         "by_id": sum(1 for r in dated if r.get("match") == "id"),
         "by_text": sum(1 for r in dated if r.get("match") == "text"),
         "answered": sum(1 for r in dated if r["answered"]),
+        "by_reply": sum(1 for r in dated if r.get("answer_how") == "reply"),
+        "by_legacy": sum(1 for r in dated if r.get("answer_how") == "legacy"),
+        # ETEINT PAR UN MESSAGE AUTOMATIQUE : la porte de l'item. Doit valoir 0.
+        "auto_answered": sum(1 for r in dated if r["answered"] and r.get("answer_auto")),
         "open": sum(1 for r in dated if r["open"]),
         "over_sla": len(over),
         "max_delay_s": worst,
@@ -264,9 +348,14 @@ def evaluate(records, supervisor, now=None, sla_s=None, already=None):
     now = time.time() if now is None else now
     sla_s = sla_seconds() if sla_s is None else sla_s
     already = set(already or ())
+    bascule = iso_to_epoch(REPLY_SINCE)
     en_retard = [
         r for r in records
         if r["dated"] and not r["answered"] and (now - r["ts"]) > sla_s
+        # L'HISTORIQUE ne se recrie pas : un retour d'avant la bascule que seul un message
+        # automatique suivait etait « repondu » sous l'ancienne regle ; l'alerter maintenant
+        # enverrait d'un coup une rafale de messages sur des tickets d'il y a des jours.
+        and (r["ts"] >= bascule or not r.get("harness_after", 0))
     ]
     en_retard.sort(key=lambda r: r["ts"])
     lecteur_mort = not bool(supervisor.get("alive"))
@@ -418,7 +507,7 @@ def rows_from_backlog(items, linear_map, since_date=None):
     return rows
 
 
-COMMENT_FIELDS = "id body createdAt user { id app } botActor { id }"
+COMMENT_FIELDS = "id body createdAt parentId user { id app } botActor { id }"
 
 
 def _rest(L, ticket, page):

@@ -774,15 +774,41 @@ def owner_user_id(L, mp):
     return d["id"]
 
 
-def post_comment(L, issue_id, body):
+def post_comment(L, issue_id, body, parent=None):
     """LE SEUL endroit d'ou le harnais poste un commentaire.
 
     Il y en avait CINQ, chacun portant sa copie de la mutation. Une bascule d'identite aurait
     tenu dans quatre et laisse le cinquieme parler sous l'owner sans que rien ne rougisse.
     L'identite elle-meme ne se pose pas ici : elle est portee par le JETON (`Linear.__init__`),
-    donc par toutes les ecritures a la fois, commentaires compris."""
+    donc par toutes les ecritures a la fois, commentaires compris.
+
+    `parent` : le fil ou le message REPOND a l'owner. Seul `--comment --reply-to` le passe ; c'est
+    ce fil, et lui seul, qui compte comme reponse a son retour (`lib/owner_sla.answer_how`)."""
+    i = {"issueId": issue_id, "body": body}
+    if parent:
+        i["parentId"] = parent
     return on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }',
-                                              i={"issueId": issue_id, "body": body}))
+                                              i=i))
+
+
+def reply_target(L, bl, iid, ref):
+    """(ticket, fil) ou poster la reponse au retour `ref` de l'owner sur l'item `iid`.
+
+    `ref` = l'identifiant du commentaire Linear de l'owner (`owner_feedback[].via.comment`), ou
+    `last` = son dernier retour recopie avec un identifiant. Refuse un commentaire qui n'est pas de
+    l'owner : repondre « dans le fil » d'un message du harnais n'adresse rien a personne."""
+    if ref == "last":
+        fb = [f for f in ((bl.get(iid) or {}).get("owner_feedback") or [])
+              if isinstance(f, dict) and isinstance(f.get("via"), dict) and f["via"].get("comment")]
+        if not fb:
+            raise SystemExit("--reply-to last : aucun retour de l'owner recopie de Linear sur %s" % iid)
+        ref = fb[-1]["via"]["comment"]
+    d = L.q('query($c:String!){ comment(id:$c){ id parentId issue { id } user { id app } botActor { id } body } }', c=ref)
+    c = d.get("comment") or {}
+    if not c.get("id") or is_harness_comment(c):
+        raise SystemExit("--reply-to %s : ce n'est pas un commentaire de l'owner" % ref)
+    # Linear n'a qu'un niveau de fil : un retour poste en reponse a un message y reste.
+    return (c.get("issue") or {}).get("id"), (c.get("parentId") or c["id"])
 
 
 def _say(L, rec, text):
@@ -1455,6 +1481,7 @@ def main():
     ap.add_argument("--delivery", action="store_true", help="dire, verifie, quel build est sur jak-builds (a lire AVANT d'ecrire sur une livraison)")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
+    ap.add_argument("--reply-to", default=None, help="avec --comment : le commentaire Linear de l'owner auquel ce message REPOND (id de `owner_feedback[].via.comment`, ou `last`). Le message part dans son fil : c'est la seule forme qui compte comme reponse a son retour")
     ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     a = ap.parse_args()
@@ -1520,10 +1547,24 @@ def main():
         if not rec:
             raise SystemExit("aucun ticket Linear pour %s (lance d'abord la synchro)" % a.comment)
         body = mark(L) + (a.body or "").strip()
+        ticket, parent = rec["issue_id"], None
+        if a.reply_to:
+            ticket, parent = reply_target(L, B.load(), a.comment, a.reply_to)
         for f in a.attach:
             url, ctype = upload_file(L, f)
             body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
-        post_comment(L, rec["issue_id"], body)
+        post_comment(L, ticket, body, parent=parent)
+        if not parent:
+            # Un message hors fil n'eteint AUCUN retour (23/09) : le dire au moment ou il part.
+            try:
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+                from lib import owner_sla as _osla             # noqa: PLC0415
+                _open = [r for r in _osla.load_cache()[0] if r.get("item") == a.comment and r.get("open")]
+                if _open:
+                    print("ATTENTION : ce message ne repond a aucun des %d retour(s) de l'owner encore ouverts "
+                          "sur %s ; pour y repondre : --reply-to last (ou l'id du commentaire)" % (len(_open), a.comment))
+            except Exception:  # noqa: BLE001
+                pass
         team = ensure_team(L); read, todo = labels(L, team)
         # Owner 17/09 : « si tu commentes, ça a une valeur de le mettre à lire » — toujours, ticket clos ou non.
         swap_labels(L, rec["issue_id"], add=read, remove=todo)

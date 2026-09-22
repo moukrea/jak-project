@@ -76,6 +76,9 @@ corps = "La jauge deborde encore\n\n" + IMG
 recopie = corps + "\n[images enregistrees : .autoport/owner-feedback/x/20260923T1012-1.png]"
 t1 = [com("c-own", corps, "2026-09-23T10:12:00.000Z", OWNER),
       com("c-app", "Corrige.", "2026-09-23T11:00:00.000Z", APP)]
+# Une reponse est postee DANS LE FIL du retour depuis 23/09 (harness-owner-sla-answer-must-
+# address-the-owner) : hors fil, « Corrige. » n'eteindrait plus rien.
+t1[1]["parentId"] = "c-own"
 # POSITIF a : texte reecrit a la recopie (image), SANS identifiant -> retrouve par le texte
 r = run1({"item": "i", "ticket": "T", "text": recopie, "date": "2026-09-23"}, t1)
 check("pos_image_rewrite_text", r["dated"] == 1 and r["match"] == "text" and r["answered"] == 1)

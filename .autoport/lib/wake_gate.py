@@ -286,7 +286,8 @@ def decide(prompt, maintenant=None, ecrire=True):
             lignes.insert(0, "## RETOURS DE L'OWNER SANS REPONSE — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
                           + "\n".join("- " + a for a in attente)
                           + "\n(le texte de chaque retour est dans `owner_feedback` de l'item ; poster par "
-                            "`python3 .autoport/linear_sync.py --comment <id> --body \"…\"`)\n")
+                            "`python3 .autoport/linear_sync.py --comment <id> --reply-to last --body \"…\"` — "
+                            "SANS `--reply-to`, le message ne repond a aucun retour et le compteur reste ouvert)\n")
     except Exception:                                      # noqa: BLE001
         pass
     return "passe", raison, "\n".join(lignes)
