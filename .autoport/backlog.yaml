@@ -17988,7 +17988,7 @@ items:
   proof_timeout: 420
   depends_on: []
   id: harness-x86-proof-for-a-device-item-must-shout-at-launch
-  priority: 13
+  priority: 11
   device: false
   feature: Un `proof_run.sh <id> x86` lance pour un item dont le critere porte `device=1` le dit A LA
     PREMIERE LIGNE et l'inscrit dans proof.txt, au lieu de laisser le worker decouvrir au verdict que
@@ -18237,3 +18237,306 @@ items:
 
     4. CONTROLE POSITIF : un retour dont le texte a ete reecrit a la recopie (image) est retrouve. CONTROLE
     NEGATIF : un commentaire du harnais qui cite mot pour mot l''owner n''est PAS pris pour lui.'
+- id: owner-chaque-retour-de-l-owner-recopie-de-linear-se-re
+  status: archived
+  game: jak1
+  priority: 999
+  feature: 'Chaque retour de l''owner recopie de Linear se retrouve sur son ticket : le compteur « sans
+    reponse » ne perd plus ses messages'
+  gate: null
+  depends_on: []
+  device: false
+  owner_test: true
+  owner_ok: null
+  code_scope: jeu
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-23. Son texte : **État** : à faire — 0/5
+    essais
+
+
+    **Ce qu''on sait** : Signale par le worker de harness-supervisor-death-is-an-alarm (reports/.../FINDINGS.txt,
+    lignes 2 et 10), non corrige : `.autoport/lib/owner_sla.py:_match_owner_comment` ne retrouve pas sur
+    son ticket Linear le commentaire de l''owner que le backlog a recopie. 20 retours sur 145 a l''essai
+    3, 28 sur 153 a l''essai 4 : leur delai n''est pas mesure, et un retour non apparie peut passer pour
+    traite. L''appariement se fait sur un prefixe normalise de 60 caracteres ; la cause PROBABLE (non
+    prouvee) est la reecriture du texte a la recopie par `save_owner_images` (liens d''images remplaces),
+    qui change le debut du texte.
+
+
+    **Tes retours**
+
+
+    * 2026-09-23 : « oui ouvre le chantier »
+
+
+    ---
+
+
+    Identifiant harnais : `harness-owner-sla-matches-every-owner-comment` — rang 12 — spec : —'
+  notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.
+
+    23/09 (superviseur) : DOUBLON FANTOME de harness-owner-sla-matches-every-owner-comment (JAK-196).
+    La synchro a cree JAK-195 puis JAK-196 a 2 s d''intervalle pour le meme item, puis a relu JAK-195
+    comme un « nouveau ticket owner ». Archive ; cause ouverte en item harness-linear-sync-never-creates-two-tickets-for-one-item.'
+  where: ''
+  deliverable: ''
+  out_of_scope: ''
+  spec: null
+  prompt: prompts/item-harness-owner-sla-matches-every-owner-comment.md
+- id: harness-owner-sla-answer-must-address-the-owner
+  feature: Un retour de l'owner ne compte comme « repondu » que si la reponse lui est adressee, pas si
+    un verdict automatique passe apres
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_sla_auto_answered
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-sla-answer-must-address-the-owner.md
+  owner_feedback:
+  - &id006
+    date: '2026-09-23'
+    text: Je pense qu'ils les faut tous... à prioriser of course mais tout est pertinent il semblerait,
+      go
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 5), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/lib/owner_sla.py:collect` : « repondu » = n''importe quel commentaire du harnais poste
+    APRES le retour sur le meme ticket. Un verdict d''essai poste automatiquement eteint le compteur alors
+    que l''owner n''a recu aucune reponse a SA question : le cout reel est sous-estime et l''owner peut
+    croire avoir ete entendu.'
+  deliverable: '1. Recensement AVANT : sur 7 jours, combien de retours sont « repondus » UNIQUEMENT par
+    un commentaire automatique (verdict, changement d''etat).
+
+    2. Une reponse compte si elle vient du superviseur et vise ce retour (marqueur de reponse ou citation),
+    jamais si c''est un message automatique.
+
+    3. `owner_sla_auto_answered` = retours eteints par un message automatique ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-supervisor-reader-must-be-the-supervisor
+  feature: 'Seul le vrai superviseur compte comme lecteur vivant : une autre session Claude du depot ne
+    peut plus eteindre l''alerte « superviseur mort »'
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: supervisor_foreign_stamps
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-supervisor-reader-must-be-the-supervisor.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 8), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/lib/supervisor_alive.py:is_worker` : « pas un worker » = ni AUTOPORT_ATTEMPT_ID ni AUTOPORT_PHASE_ID.
+    Toute autre session Claude du depot (owner a la main, juge lance sans ces variables) se declare lectrice
+    et peut eteindre l''alarme sans lire aucun retour. Non mesure combien de sessions de ce type existent.'
+  deliverable: '1. Recensement AVANT : sessions qui ont tamponne `.supervisor-seen.json` sur 7 jours,
+    classees superviseur / autre.
+
+    2. Le tampon exige une preuve positive d''etre le superviseur (role declare par le lanceur ou le reveil
+    de supervision), pas l''absence de variables de worker.
+
+    3. `supervisor_foreign_stamps` = tampons poses par une session non superviseur ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-wake-unanswered-list-carries-its-age
+  feature: La liste des retours de l'owner sans reponse, dans le reveil du superviseur, dit depuis quand
+    chacun attend et monte d'un cran quand ca dure
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: wake_unanswered_lost
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-wake-unanswered-list-carries-its-age.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 3), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/lib/wake_gate.py:249-261` lit la liste « retours owner sans reponse » par regex sur les
+    40 000 derniers octets de logs/linear_sync.txt, sans horodatage : elle ne dit pas depuis QUAND un
+    retour attend, repete le meme nom sans jamais escalader, et devient muette des qu''un autre journal
+    pousse la ligne hors des 40 ko.'
+  deliverable: '1. La liste se lit a la source horodatee (owner_sla / backlog), plus par regex sur un
+    journal.
+
+    2. Chaque retour porte son age, et le bloc escalade au-dela du delai convenu.
+
+    3. `wake_unanswered_lost` = retours sans reponse absents du bloc de reveil ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-status-says-when-linear-cache-is-stale
+  feature: Si la synchro Linear est morte, le rapport d'etat le dit au lieu d'afficher un etat fige comme
+    s'il etait frais
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: status_stale_cache_silent
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-status-says-when-linear-cache-is-stale.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 6), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/lib/backlog.py:status_report` lit le cache pose par la synchro Linear ; si linear_watch.sh
+    est mort, le cache vieillit et la rubrique parle d''un etat perime sans publier son age.'
+  deliverable: '1. La rubrique publie l''age du cache ; au-dela d''un seuil, elle dit « synchro Linear
+    arretee depuis X ».
+
+    2. `status_stale_cache_silent` = rapports rendus sur un cache perime sans le dire ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-watch-comment-matches-its-period
+  feature: Le commentaire de linear_watch.sh dit la vraie frequence de la veille Linear
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_watch_period_mismatch
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-watch-comment-matches-its-period.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 1), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/linear_watch.sh:2` annonce « toutes les 5 min », le code fait `sleep 30` : facteur 10.
+    Toute borne calee sur le commentaire (budget d''API, anti-rebond) est dimensionnee 10 fois trop large.'
+  deliverable: '1. Une seule source pour la periode (variable lue par le code ET citee par le texte).
+
+    2. `linear_watch_period_mismatch` = ecart entre periode annoncee et periode executee ; doit valoir
+    0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-codex-supervisor-launched-by-hand-is-seen
+  feature: Un superviseur Codex lance a la main est vu vivant par le harnais
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: supervisor_undeclared_live
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-codex-supervisor-launched-by-hand-is-seen.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 7), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/lib/supervisor_alive.py:self_declare` : une session superviseur sous CODEX ouverte hors
+    run-supervisor.sh ne passe pas par les crochets Claude : elle ne se declare pas et reste « non inscrit
+    ». Apres une bascule codex a la main, l''alerte peut partir sur le ticket de l''owner alors qu''un
+    lecteur tourne. Meme famille pour Claude : le fichier de terminal ne note ni la session ni le backend
+    (ligne 4).'
+  deliverable: '1. Chemin de declaration pour une session Codex hors lanceur.
+
+    2. `supervisor_undeclared_live` = superviseurs vivants non vus par le releve ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-supervisor-seen-stamp-per-reader
+  feature: 'Deux superviseurs en meme temps sont comptes separement : la mort de l''un ne se cache plus
+    derriere l''autre'
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: supervisor_readers_merged
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-supervisor-seen-stamp-per-reader.md
+  owner_feedback:
+  - *id006
+  known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
+    ligne 9), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
+
+    `.autoport/.supervisor-seen.json` est un emplacement UNIQUE (dernier ecrivain gagne) partage par le
+    superviseur inscrit et le lecteur hors registre : si l''un meurt juste apres que l''autre a tamponne,
+    sa mort ne se voit pas ; deux lecteurs simultanes ne sont pas recenses.'
+  deliverable: '1. Un tampon par lecteur (pid+starttime), le releve les enumere tous.
+
+    2. `supervisor_readers_merged` = lecteurs vivants confondus dans un meme tampon ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-sync-never-creates-two-tickets-for-one-item
+  feature: La synchro Linear ne cree jamais deux tickets pour un meme chantier, et ne prend jamais son
+    propre ticket pour un ticket de l'owner
+  status: open
+  priority: 12
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_duplicate_tickets
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-sync-never-creates-two-tickets-for-one-item.md
+  known_cause: 'Constate par le superviseur le 23/09 : pour l''item harness-owner-sla-matches-every-owner-comment,
+    la synchro a cree JAK-195 (pulled_at 22:19:49Z) ET JAK-196 (22:19:47Z), puis a relu JAK-195 comme
+    un « NOUVEAU TICKET OWNER » (logs/linear_sync.txt:22524) et fabrique l''item fantome owner-chaque-retour-de-l-owner-recopie-de-linear-se-re,
+    signale ensuite en boucle « À TRAITER ... retour owner sans reponse ». Double consequence : un faux
+    retour de l''owner, et un bruit qui noie les vrais.
+
+    Piste NON prouvee : `linear_sync.py:1255-1261` ecrit la correspondance item->ticket en memoire apres
+    `issueCreate` ; si une deuxieme execution (veille linear_watch.sh toutes les 30 s, `--comment` ou
+    `--only` lances par le superviseur) lit linear_map.json avant que la premiere l''ait sauve, ou l''ecrase
+    ensuite, l''item repart sans ticket et en recoit un second. Verifier aussi si `--comment` prend le
+    verrou .linear_sync.lock.
+
+    Un ticket cree par le harnais ne doit JAMAIS etre relu comme ticket de l''owner : le fantome a ete
+    archive a la main (JAK-195 -> Canceled).'
+  deliverable: '1. Reproduire : deux executions concurrentes sur un item neuf -> compter les tickets crees.
+
+    2. Une creation est idempotente (cle de l''item dans le ticket, recherche avant creation, ou map sauvee
+    sous verrou immediatement apres issueCreate) ; toutes les voies d''entree (veille, --comment, --only,
+    --check) prennent le meme verrou.
+
+    3. Le pull ne transforme jamais en « ticket owner » un ticket dont le harnais est l''auteur ou qui
+    porte une cle d''item.
+
+    4. `linear_duplicate_tickets` = items du backlog lies a plus d''un ticket Linear + items owner-* nes
+    d''un ticket cree par le harnais ; doit valoir 0. Recenser AUSSI l''historique (combien de fantomes
+    deja crees).
+
+    CONTROLE POSITIF fabrique (deux executions concurrentes rendent 2 sans le correctif) + CONTROLE NEGATIF.'
