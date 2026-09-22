@@ -16369,7 +16369,14 @@ items:
     la preuve est en source=x86 ». L''appareil N''ETAIT PAS absent : Redmi Note 9 Pro eae4df44 vu sur
     le bus USB ET par `adb devices` a 18:45, pas de marqueur .no-device. Calibrer sur x86 est permis,
     mais la preuve qui sera jugee doit tourner sur le telephone, sinon l''essai est perdu avant meme qu''on
-    regarde hud_gauge_defects (=3 a l''essai 15).'
+    regarde hud_gauge_defects (=3 a l''essai 15).
+
+    22/09 19:5x : DEUXIEME essai de suite perdu sur la MEME plomberie. L''essai 16 mesure hud_gauge_defects=0
+    — mais en source=x86, donc refuse sans etre lu. Le telephone (Redmi eae4df44) etait branche et joignable
+    pendant les deux courses. REGLE POUR LES ESSAIS SUIVANTS : calibrer sur x86 autant qu''on veut, mais
+    la DERNIERE course de l''essai, celle qui ecrit reports/hud-eco-gauge/proof.txt, doit tourner sur
+    le telephone. Un proof.txt qui finit en source=x86 = essai perdu d''avance, quel que soit le chiffre
+    mesure. Garder assez de temps pour cette course-la avant de rendre la main.'
   where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
     montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
     montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
