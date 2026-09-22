@@ -96,6 +96,21 @@ HUD en jeu, ramassage d'eco bleue, avec la photo owner-feedback/hud-eco-gauge/20
 ### 2026-09-21
 > Alors le fond noir que tu as mis rond je sais pas pourquoi puisque en terme de layers il est sensé être placé en dessous de la jauge n'est pas bien aligné alors on voit un peu au travers (tu aurais juste pu faire un carré un peu plus grand que le rond vide de la jauge et le mettre en dessous) et l'orbe d'Eco… bah t'as fait quoi ? On voit juste une lueur bleue qui bouge pas du tout et sans les particules électriques, c'est complètement bidon ! Tu te fous de ma gueule !  ![71708.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/5ab2f038-7f92-4086-8286-c7282220ca95/6abd1290-17a1-47e4-9404-b495304cd557) [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260921T0836-1.jpg]
 
+### 2026-09-22
+> Et tu mesures ça comment hein ? Avec tes capacités visuelles à chier ? J'en peux plus de tes mesures merdiques qui prennent des heures et ne mènent jamais à rien… la plupart du temps soit elles passent alors que c'est complètement claqué soit elles échouent alors que c'est bon, t'es casse couilles !
+
+### 2026-09-22
+> Je t'ai déjà dit de me remonter les captures/mesures que tu fais car je suis meilleur juge que toi sur tout ce qui est visuel… et si ça part en build testable je peux aussi vérifier plutôt que tes mesures de merde
+
+### 2026-09-22
+> Mais du coup tu fous quoi ?
+
+### 2026-09-22
+> putain mais fonce, je dois te repeter combien de fois, je veux tester la jauge.casse couille !
+
+### 2026-09-22
+> Alors le fond noir nickel, enfin ! Mais parcontre l'orbe d'Eco Bleue sensée remplir le trou de la jauge et légèrement déborder par dessus (Eco rouge quand Eco rouge actif, Eco jaune quand Eco jaune actif) n'a absolument rien à voir avec les orbes d'Eco Bleue du monde ! Regardes les screens, sur un on voit la jauge (en bas à droite), sur l'autre je te montre deux orbes d'Eco bleue, rien à voir ! Allé, prend un budget de trois essais supplémentaires et règle moi ça !  ![71736.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/fa8ed1c3-f5ec-472b-8661-5c4a319f976c/2e27100e-0b58-43ad-8f1d-aa238ab672e8)  ![71737.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/af9dc68e-4f6e-44d2-8fd7-f35259d3cbe4/d6da2d90-620f-4635-a088-907c7b22fdfa) [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260922T1204-1.jpg ; .autoport/owner-feedback/hud-eco-gauge/20260922T1204-2.jpg]
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

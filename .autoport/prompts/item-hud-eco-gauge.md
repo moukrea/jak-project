@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-21 : « Alors le fond noir que tu as mis rond je sais pas pourquoi p… »
+- 2026-09-22 : « Alors le fond noir nickel, enfin ! Mais parcontre l'orbe d'E… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».

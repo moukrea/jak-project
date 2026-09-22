@@ -15983,12 +15983,12 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: to-test
+- status: open
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 11
+  max_retries: 14
   proof_timeout: 420
   device: true
   owner_ok: null
@@ -16296,6 +16296,20 @@ items:
   - date: '2026-09-22'
     text: putain mais fonce, je dois te repeter combien de fois, je veux tester la jauge.casse couille
       !
+  - date: '2026-09-22'
+    text: 'Alors le fond noir nickel, enfin ! Mais parcontre l''orbe d''Eco Bleue sensée remplir le trou
+      de la jauge et légèrement déborder par dessus (Eco rouge quand Eco rouge actif, Eco jaune quand
+      Eco jaune actif) n''a absolument rien à voir avec les orbes d''Eco Bleue du monde ! Regardes les
+      screens, sur un on voit la jauge (en bas à droite), sur l''autre je te montre deux orbes d''Eco
+      bleue, rien à voir ! Allé, prend un budget de trois essais supplémentaires et règle moi ça !
+
+
+      ![71736.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/fa8ed1c3-f5ec-472b-8661-5c4a319f976c/2e27100e-0b58-43ad-8f1d-aa238ab672e8)
+
+
+      ![71737.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/af9dc68e-4f6e-44d2-8fd7-f35259d3cbe4/d6da2d90-620f-4635-a088-907c7b22fdfa)
+
+      [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260922T1204-1.jpg ; .autoport/owner-feedback/hud-eco-gauge/20260922T1204-2.jpg]'
   notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
     reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
 
@@ -16305,7 +16319,19 @@ items:
 
     22/09 : essai 13 n''a touche AUCUN fichier moteur — le dernier etat de la jauge est celui du commit
     a27b786d, bati a 12:09 et installe sur le telephone a 12:26 (tag a27b78-c666da). Rien de plus recent
-    n''existe a batir. Item en to-test : on attend le verdict de l''owner, pas un essai de plus.'
+    n''existe a batir. Item en to-test : on attend le verdict de l''owner, pas un essai de plus.
+
+    budget : plafond 14 = compteur 11 + 3 (owner 22/09 14:04, « prend un budget de trois essais supplementaires
+    et regle moi ca ! »)
+
+    22/09 : l''orbe du trou ne ressemble PAS aux orbes d''eco bleue du monde. Comparatif fourni par l''owner
+    : owner-feedback/hud-eco-gauge/20260922T1204-1.jpg (la jauge, en bas a droite) et 20260922T1204-2.jpg
+    (deux orbes d''eco bleue du monde, la CIBLE). Le fond noir est VALIDE par l''owner : ne pas y retoucher.'
+  where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
+    montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
+    montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
+    Un seul oui/non reste : l''orbe du trou est-elle la MEME chose que l''orbe d''eco du monde (forme,
+    taille relative au trou, etincelles, teinte selon l''eco active) ?'
 - status: validated
   game: jak1
   code_scope: jeu
