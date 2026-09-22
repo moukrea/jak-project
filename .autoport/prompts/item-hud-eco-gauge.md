@@ -5,7 +5,7 @@
 # La jauge d'éco du HUD rechargé : base vide, jauge pleine masquée en camembert selon l'éco active, embout qui suit le remplissage
 
 ## Defaut cite
-- 2026-09-22 : « Je vois bien sur les builds que tu fais rouler que la partic… »
+- 2026-09-22 : « L'Eco jaune est ridiculeursement trop petite, les deux autre… »
 
 ## Cause connue
 SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_gauge_{blue,red,yellow}_end. Owner : « c'est une rotation, donc une sorte de masque en forme de camembert » ; « les end-caps doivent suivre la rotation ».
@@ -26,7 +26,7 @@ SPEC HUD §4. Assets jak_gauge_empty / jak_gauge_{blue,red,yellow}_full / jak_ga
 ## Preuve exigee
 `hud_gauge_defects == 0` dans `reports/hud-eco-gauge/proof.txt`.
 Le proof se produit par `lib/proof_run.sh hud-eco-gauge device` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : HUD en jeu, ramassage d'eco. La forme de la particule est VALIDEE par l'owner le 22/09, ainsi que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle doit remplir le trou, pas y flotter comme un point ?.
+Ou l'owner regardera : HUD en jeu, ramassage d'eco. Forme de la particule et fond noir : VALIDES par l'owner, ne pas y retoucher. Trois oui/non : (1) la LUEUR (le halo), et pas seulement le decal opaque, passe-t-elle par-dessus la jauge ? (2) l'eco JAUNE a-t-elle la meme taille que les deux autres ? (3) les trois remplissent-elles le trou au lieu d'y flotter ?.
 
 ## Hors perimetre
 Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.

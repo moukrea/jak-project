@@ -53,7 +53,7 @@ Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet 
 
 ## Ou l'owner regardera
 
-HUD en jeu, ramassage d'eco. La forme de la particule est VALIDEE par l'owner le 22/09, ainsi que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle doit remplir le trou, pas y flotter comme un point ?
+HUD en jeu, ramassage d'eco. Forme de la particule et fond noir : VALIDES par l'owner, ne pas y retoucher. Trois oui/non : (1) la LUEUR (le halo), et pas seulement le decal opaque, passe-t-elle par-dessus la jauge ? (2) l'eco JAUNE a-t-elle la meme taille que les deux autres ? (3) les trois remplissent-elles le trou au lieu d'y flotter ?
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -113,6 +113,9 @@ HUD en jeu, ramassage d'eco. La forme de la particule est VALIDEE par l'owner le
 
 ### 2026-09-22
 > Je vois bien sur les builds que tu fais rouler que la particule éco bleue/rouge/jaune est là comme elle semble apparaître dans le monde, mais elle n'est pas au dessus (en terme de layer) de la jauge (ou alors ça se voit pas) et beaucoup trop petite !
+
+### 2026-09-22
+> L'Eco jaune est ridiculeursement trop petite, les deux autres encore un peu trop petites mais pas autant, par contre leur lueur n'est toujours pas au dessus (en terme de layers) de la jauge, on dirait que juste le decal est au dessus, pas leur lueur.
 
 ## Pourquoi ce fichier existe
 

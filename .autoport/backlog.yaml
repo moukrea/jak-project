@@ -15988,7 +15988,7 @@ items:
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
   max_turns: 800
-  max_retries: 16
+  max_retries: 18
   proof_timeout: 420
   device: true
   owner_ok: null
@@ -16190,10 +16190,10 @@ items:
 
     PREUVE : `FEATURE hud-eco-gauge armed=1 hits=<images ou la jauge rechargee est dessinee>` + la ligne
     `hud_gauge_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` et le HUD d''origine bit-identique.'
-  where: 'HUD en jeu, ramassage d''eco. La forme de la particule est VALIDEE par l''owner le 22/09, ainsi
-    que le fond noir : ne pas y retoucher. Deux oui/non seulement : (1) la particule passe-t-elle PAR-DESSUS
-    la jauge (on la voit entiere, rien de la jauge ne la recouvre) ? (2) est-elle assez GROSSE — elle
-    doit remplir le trou, pas y flotter comme un point ?'
+  where: 'HUD en jeu, ramassage d''eco. Forme de la particule et fond noir : VALIDES par l''owner, ne
+    pas y retoucher. Trois oui/non : (1) la LUEUR (le halo), et pas seulement le decal opaque, passe-t-elle
+    par-dessus la jauge ? (2) l''eco JAUNE a-t-elle la meme taille que les deux autres ? (3) les trois
+    remplissent-elles le trou au lieu d''y flotter ?'
   out_of_scope: Ne touche pas au coeur, aux objets 3D ni aux polices. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-eco-gauge.md
   gate_verdict:
@@ -16313,6 +16313,10 @@ items:
     text: Je vois bien sur les builds que tu fais rouler que la particule éco bleue/rouge/jaune est là
       comme elle semble apparaître dans le monde, mais elle n'est pas au dessus (en terme de layer) de
       la jauge (ou alors ça se voit pas) et beaucoup trop petite !
+  - date: '2026-09-22'
+    text: L'Eco jaune est ridiculeursement trop petite, les deux autres encore un peu trop petites mais
+      pas autant, par contre leur lueur n'est toujours pas au dessus (en terme de layers) de la jauge,
+      on dirait que juste le decal est au dessus, pas leur lueur.
   notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
     reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
 
@@ -16339,7 +16343,20 @@ items:
     deux : (1) ORDRE DE DESSIN — la particule n''est pas devant la jauge, ou alors elle est cachee derriere
     ; (2) TAILLE — « beaucoup trop petite ». Grandeurs a publier : le rang de dessin de la particule compare
     a celui des elements de la jauge (elle doit passer APRES, donc par-dessus) et le nombre de pixels
-    de l''orbe par rapport au diametre du trou.'
+    de l''orbe par rapport au diametre du trou.
+
+    budget : plafond 18 = compteur 12 + 6 (owner 22/09 16:1x, eco jaune ridiculement petite + lueur toujours
+    sous la jauge)
+
+    22/09 16:1x : le retour precedent est DEPASSE sur deux points, l''owner precise. (1) TAILLE PAR TYPE
+    : la jaune est « ridiculement trop petite », la bleue et la rouge « encore un peu trop petites mais
+    pas autant » — donc la taille N''EST PAS la meme selon l''eco : chercher d''ou vient l''echelle par
+    type (definition de particule / sprite par eco), pas un facteur global. Publier le diametre en pixels
+    de l''orbe POUR CHACUNE des trois ecos, et le diametre du trou, dans la meme course. (2) LUEUR CONTRE
+    DECAL : « on dirait que juste le decal est au dessus, pas leur lueur » — la partie opaque passe devant
+    la jauge, le halo passe derriere. Ce sont donc DEUX dessins distincts et un seul a ete remonte. Publier
+    le rang de dessin des DEUX (decal et lueur) contre celui des elements de la jauge ; les deux doivent
+    passer APRES.'
   where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
     montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
     montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
