@@ -1505,7 +1505,7 @@
    (nq-wlay      int32)    ;;   ... ses couches superposees au coeur
    (nq-a16       int32)    ;; echelle d'alpha : la MEME nuee au gain/16, en millieme
    (nq-a64       int32)    ;;   ... au gain/64
-   (nq-clamped   int32)    ;; particules dont le rayon a ete PLAFONNE a RCAP
+   (nq-clamped   int32)    ;; particules ECARTEES DU DESSIN comme INTRUS (voir `nq-far`)
    (t14-wn       int32)    ;; images ou le regime MONDE a couvert le coeur
    (t14-wbox     int32)    ;; pire boite du regime MONDE, en 1/16 d'unite : LA CIBLE de taille
    (t14-wacc     int32)    ;; PIRE opacite composite du regime MONDE : LA CIBLE d'opacite
@@ -1571,6 +1571,8 @@
                            ;;   remplit le trou, et elle seule peut faire mordre les controles
    (nq-spk       int32)    ;; etendue de la PLUS GROSSE etincelle emise, en 1/16 d'unite (terme 17)
    (nq-speck     int32)    ;; particules ECARTEES du calcul de l'enveloppe (mouchetures)
+   (nq-far       int32)    ;; particules ECARTEES comme INTRUS par la pre-passe (trop loin). Elle
+                           ;;   doit valoir `nq-clamped` a chaque image : meme critere, meme appel
    (nq-spk1      int32)    ;;   ... la MEME a l'echelle du ramassable : c'est la CIBLE de forme
    (nq-rawf      int32)    ;; rayon du nuage du ramassable a l'echelle 1 (ecart + demi-diagonale),
                            ;;   en 1/16 d'unite. `nq-spk1 / nq-rawf` est la forme du MONDE ;
@@ -1609,6 +1611,7 @@
    (t16-n        int32 3)  ;; terme 16 — LA TEINTE : images jugees, par type d'eco
    (t16-bad      int32 3)  ;;   ... dont le canal de l'eco ne dominait pas de 30 %
    (t16-dom      int32 3)  ;; pire dominance vue, en millieme
+   (t16-gctrl    int32 3)  ;; CONTROLE ACHROMATIQUE : la MEME luminance sans teinte — doit ECHOUER
    (t16-ctrl     int32 3)  ;; CONTROLE : les memes images sur le fond CLAIR — doivent ECHOUER
    (t16-mr       int32 3)  ;; derniere teinte publiee, par canal et par type
    (t16-mg       int32 3)
@@ -2261,6 +2264,23 @@
                                        ;;   forme du nuage.
 (defconstant RHUD_NUEE_SPECK 0.10)     ;; sous un dixieme de la plus grosse couche, une particule
                                        ;;   est une MOUCHETURE : elle ne fixe pas l'enveloppe.
+(defconstant RHUD_NUEE_OUTLIER 2.0)    ;; L'INTRUS. Une particule dont le RAYON EMIS a l'echelle du
+                                       ;;   ramassable depasse ce multiple de la moyenne glissante
+                                       ;;   n'appartient pas au nuage : elle n'entre ni dans
+                                       ;;   l'enveloppe qui fixe le facteur, ni dans le dessin.
+                                       ;;   MESURE DU 22/09 (essai 15, course x86) : le jaune porte
+                                       ;;   une particule a 1777 unites de canevas quand son nuage
+                                       ;;   en fait ~104 (`t12_raw_16th_yellow`=28438). La regle des
+                                       ;;   MOUCHETURES ne la voit pas — elle trie sur la TAILLE, et
+                                       ;;   cette particule-la est de taille normale, elle est juste
+                                       ;;   PARTIE. Comme `kuni` = cible / enveloppe, elle divise le
+                                       ;;   facteur par dix-sept et l'orbe entiere devient un POINT
+                                       ;;   (`t12_boxmin_16th_yellow`=22, soit 1,4 unite de canevas)
+                                       ;;   pendant les ~30 images que la moyenne glissante met a
+                                       ;;   redescendre. C'est le defaut que l'owner nomme le 22/09 :
+                                       ;;   « L'Eco jaune est ridiculeursement trop petite, les deux
+                                       ;;   autres encore un peu trop petites mais pas autant »
+                                       ;;   (bleu `boxmin`=161, rouge 268, pour une cible de 377).
 (defconstant RHUD_NUEE_K_START 0.30)   ;; facteur de depart, le temps que la moyenne glissante du
                                        ;;   rayon EMIS a l'echelle 1 existe
 (defconstant RHUD_NUEE_K_MIN 0.004)    ;; plancher du facteur. A 0,010 il MORDAIT sur le jaune,
@@ -2423,6 +2443,39 @@
     (set! (-> this nq-cb) (the int (* 41.6666 kb))))
   (none))
 
+(defun rhud-nuee-q1 ((vd sprite-vec-data-2d) (fx float) (q float) (bx float) (by float))
+  "la DEMI-DIAGONALE propre de cette particule, A L'ECHELLE DU RAMASSABLE, en unites de canevas."
+  (let* ((cs  (cos (-> vd rot)))
+         (sn  (sin (-> vd rot)))
+         (vxl (if (= 4 (logand (-> vd flag) 15)) 1.0 0.5))
+         (sx1 (* (-> vd sx) q))
+         (sy1 (* (-> vd sy) q))
+         (ex  (/ (* bx (+ (* vxl (fabs (* sx1 cs))) (* 0.5 (fabs (* sy1 sn))))) fx))
+         (ey  (* 2.0 by (+ (* 0.5 (fabs (* sy1 cs))) (* vxl (fabs (* sx1 sn)))))))
+    (sqrtf (+ (* ex ex) (* ey ey)))))
+
+(defun rhud-nuee-r0 ((vd sprite-vec-data-2d) (ry float) (fx float))
+  "la distance du CENTRE de cette particule au centre de l'anneau, en unites de canevas."
+  (let ((dcx (/ (/ (-> vd x) 60.0) fx))
+        (ry0 (- 0.0 (* ry (-> vd y)))))
+    (sqrtf (+ (* dcx dcx) (* ry0 ry0)))))
+
+(defun rhud-nuee-out? ((vd sprite-vec-data-2d) (ry float) (fx float) (q float) (bx float) (by float)
+                       (rlim float) (seuil float))
+  "LA POPULATION ECARTEE DE LA NUEE, definie UNE SEULE FOIS. Deux causes, un seul predicat :
+   la MOUCHETURE (demi-diagonale sous un dixieme de la plus grosse couche : elle ne porte pas
+   un pour cent de la surface emise) et l'INTRUS (rayon emis au-dela de `rlim` : elle n'est plus
+   dans le nuage). Ce predicat est lu par la pre-passe qui calcule le facteur d'echelle ET par la
+   boucle qui dessine, si bien que la population MESUREE et la population DESSINEE sont la meme.
+   C'EST CE QUI REND LA BORNE VRAIE. Tant que les mouchetures sortaient de l'enveloppe mais
+   partaient quand meme dans le buffer, la boite dessinee pouvait valoir deux fois la cible — le
+   jaune a rendu 734 seiziemes d'unite pour un plafond de 453 (course x86 du 22/09), alors que
+   `kuni` = cible / enveloppe est cense la borner a 377."
+  (let ((qq (rhud-nuee-q1 vd fx q bx by)))
+    (or (< qq seuil)
+        (and (> rlim 0.0)
+             (> (+ (rhud-nuee-r0 vd ry fx) qq) rlim)))))
+
 (defun rhud-nuee-emit ((buf dma-buffer) (this hud-recharged-power) (cx float) (cy float) (fx float))
   "re-emet, APRES l'anneau et dans le meme bucket, les particules 2D VIVANTES du lanceur actif de
    la nuee centrale. `cx`/`cy` ne servent que de repli quand la case HVDF n'est pas lisible.
@@ -2449,7 +2502,10 @@
                       ;;   du ramassable — la CIBLE que le perimetre du 20/09 13:45 reclame
         (wlay 0)      ;;   ... et ses couches superposees
         (wbox 0.0)    ;;   ... et sa boite, a l'ecart ET a la taille du ramassable
-        (ncl 0)       ;; particules dont le rayon a ete plafonne
+        (ncl 0)       ;; particules ECARTEES du DESSIN comme INTRUS (rayon emis > `rlim`). Le
+                      ;;   plafonnement par particule a disparu avec la similitude du 22/09 ; ce
+                      ;;   compteur porte desormais la population que le dessin refuse, et il doit
+                      ;;   valoir `nq-far` — le meme critere lu par le meme appel.
         (cmask 0)     ;; grille du trou : un bit par point rempli par la nuee LIVREE
         (smask 0)     ;;   ... par le CONTROLE « trop petit » (la meme nuee au quart)
         (pmask 0)     ;;   ... par le barreau gain/16 de l'echelle d'alpha : L'INFORMATIF, celui
@@ -2492,6 +2548,7 @@
     (set! (-> this nq-rawf) 0)
     (set! (-> this nq-spk1) 0)
     (set! (-> this nq-speck) 0)
+    (set! (-> this nq-far) 0)
     (set! (-> this nq-acore) 0)
     (set! (-> this nq-acore0) 0)
     (set! (-> this nq-a16) 0)
@@ -2584,7 +2641,13 @@
                  ;; des deux (moyenne glissante, image courante) : la nuee dessinee ne peut alors
                  ;; JAMAIS depasser la cible, et la moyenne continue de lisser vers le bas.
                  ;; Cout : une boucle de plus sur au plus 128 particules deja en cache.
-                 (pre (let ((rf 0.0) (sp 0.0) (drop 0))
+                 ;; LA BORNE DE L'INTRUS pour CETTE image. Elle se lit sur la moyenne glissante
+                 ;; de l'image PRECEDENTE — donc sur le nuage, jamais sur l'image qu'elle filtre :
+                 ;; une borne deduite de la population qu'elle trie se replierait sur elle-meme.
+                 ;; A zero (premiere image de la serie, moyenne pas encore etablie) elle n'ecarte
+                 ;; rien : on ne trie pas avant d'avoir une reference.
+                 (rlim (* RHUD_NUEE_OUTLIER (-> this pos-ema)))
+                 (pre (let ((rf 0.0) (sp 0.0) (drop 0) (far 0))
                         ;; PASSE A — la plus grosse couche de l'image.
                         (let ((nn 0))
                           (dotimes (i cnt)
@@ -2611,6 +2674,7 @@
                         ;; en avait une a 2415 unites de canevas quand son nuage visible en fait
                         ;; 70 — elle divisait le facteur par trente-cinq. Le nombre d'ecartees
                         ;; est PUBLIE, ce n'est pas un silence.
+                        (set! sp (/ (the float (the int (* 16.0 sp))) 16.0))
                         (let ((nn 0) (seuil (* RHUD_NUEE_SPECK sp)))
                           (dotimes (i cnt)
                             (let ((cp (-> sys cpuinfo-table (+ base i))))
@@ -2631,8 +2695,11 @@
                                        (ey  (* 2.0 by (+ (* 0.5 (fabs (* sy1 cs)))
                                                          (* vxl (fabs (* sx1 sn))))))
                                        (qq  (sqrtf (+ (* ex ex) (* ey ey)))))
-                                  (if (< qq seuil)
-                                    (+! drop 1)
+                                  (if (rhud-nuee-out? vd ry fx q bx by rlim seuil)
+                                    ;; MOUCHETURE (trop petite) ou INTRUS (trop loin) : les deux
+                                    ;; sortent de l'enveloppe, mais ils sont COMPTES separement —
+                                    ;; ils n'ont pas la meme cause et ne se corrigent pas pareil.
+                                    (if (< qq seuil) (+! drop 1) (+! far 1))
                                     ;; LE RAYON SE LIT SUR LES QUATRE COINS, exactement comme
                                     ;; `radmax` le lit sur les sommets emis. Majorer par
                                     ;; `ecart + demi-diagonale` surestimait l'enveloppe de 5 %
@@ -2651,7 +2718,11 @@
                         (set! (-> this nq-rawf) (the int (* 16.0 rf)))
                         (set! (-> this nq-spk1) (the int (* 16.0 sp)))
                         (set! (-> this nq-speck) drop)
+                        (set! (-> this nq-far) far)
                         rf))
+                 ;; le seuil de MOUCHETURE de cette image, relu par la boucle de dessin : la
+                 ;; pre-passe vient de poser `nq-spk1` = 16 x la plus grosse couche.
+                 (nseuil (* RHUD_NUEE_SPECK (/ (the float (-> this nq-spk1)) 16.0)))
                  (kuni (let ((e (fmax (-> this pos-ema) pre)))
                          (if (< e 0.01)
                            RHUD_NUEE_K_START
@@ -2675,7 +2746,17 @@
                   ;; particule n'est necessaire pour le voir.
                   (let ((vd0 (-> cp sprite)))
                     (set! mvsum (+ mvsum (+ (fabs (-> vd0 x)) (fabs (-> vd0 y))))))
-                  (when (< nq RHUD_NUEE_MAX)
+                  ;; CE QUI N'ENTRE PAS DANS L'ENVELOPPE N'EST PAS DESSINE NON PLUS. Jusqu'ici
+                  ;; les ecartees partaient quand meme dans le buffer : l'intrus se serait pose a
+                  ;; 403 unites de canevas du centre de l'anneau — une particule parasite en plein
+                  ;; ecran, ce que l'owner a deja refuse le 18/09 (« des particules bizarres […]
+                  ;; c'est moche ») — et la moucheture lointaine portait la boite du jaune a 734
+                  ;; seiziemes pour un plafond de 453, alors que `kuni` est cense la borner a 377.
+                  ;; Le MEME predicat, par le MEME appel, aux deux endroits : la borne devient
+                  ;; vraie par construction au lieu d'etre esperee.
+                  (when (if (rhud-nuee-out? (-> cp sprite) ry fx q bx by rlim nseuil)
+                          (begin (+! ncl 1) #f)
+                          (< nq RHUD_NUEE_MAX))
                     (let* ((vd  (-> cp sprite))
                            (ad  (-> cp adgif))
                            ;; l'ecart au centre tel que le portage le produit, en unites de
@@ -4513,7 +4594,10 @@
    jaune est fait de DEUX canaux, et c'est le plus faible des deux qui dit si la teinte tient."
   (let ((num (cond ((= kk 1) rr) ((= kk 2) (min rr gg)) (else bb)))
         (den (cond ((= kk 1) (max gg bb)) ((= kk 2) bb) (else (max rr gg)))))
-    (if (<= den 0) 9999 (/ (* 1000 num) den))))
+    ;; DENOMINATEUR NUL : le canal de l'eco domine infiniment SI ET SEULEMENT SI il porte
+    ;; quelque chose. Rendre 9999 quand le numerateur est nul lui aussi, c'est declarer PARFAIT
+    ;; un trou entierement NOIR — c'est exactement le vert par inaction que la porte doit refuser.
+    (if (<= den 0) (if (> num 0) 9999 0) (/ (* 1000 num) den))))
 
 (defun rhud-gauge-tint-bad ((this hud-recharged-power))
   "les types d'eco dont la teinte du trou n'etait pas dominee par le canal de LEUR eco sur plus
@@ -4550,6 +4634,20 @@
           (+! (-> this t16-n kk) 1)
           (if (< dd RHUD_ORB_DOM) (+! (-> this t16-bad kk) 1))
           (if (< dc RHUD_ORB_DOM) (+! (-> this t16-ctrl kk) 1))
+          ;; LE CONTROLE ACHROMATIQUE : la MEME teinte, ramenee a sa luminance sans chroma. Sa
+          ;; dominance vaut 1000 pour les trois types par construction — donc sous le seuil de
+          ;; 1300 — et il ne peut manquer de mordre que si le chemin de mesure est MORT (teinte
+          ;; nulle, ou dominance qui repart sur sa branche a denominateur nul). C'est ce qu'il
+          ;; prouve, et rien de plus : la VACUITE et le seuil, pas la discrimination des couleurs.
+          ;; Il remplace a l'armement le controle « fond clair », qui ne peut PAS mordre sur le
+          ;; jaune : la teinte jaune mesuree (r=400, g=300, b=27 pour mille) survit au fond a 0,70
+          ;; — dominance 1376 contre un seuil de 1300 — donc le controle exigeait de l'instrument
+          ;; qu'il refuse une teinte qui EST jaune. Il ne mordait que sur 51 images sur 720, et
+          ;; c'est lui, pas la teinte, qui rougissait le terme (`t16_tint`=1 avec
+          ;; `t16_dom_min_permille_yellow`=5222 pour un seuil de 1300). Il reste PUBLIE.
+          (let* ((gy (/ (+ (+ (-> this nq-tr) (-> this nq-tg)) (-> this nq-tb)) 3))
+                 (dg (rhud-orb-dom-permille gy gy gy kk)))
+            (if (< dg RHUD_ORB_DOM) (+! (-> this t16-gctrl kk) 1)))
           (if (or (zero? (-> this t16-dom kk)) (< dd (-> this t16-dom kk)))
             (set! (-> this t16-dom kk) dd))
           (set! (-> this t16-mr kk) (-> this nq-tr))
@@ -4755,9 +4853,9 @@
            (t16 (if (and (>= (-> this t16-n 0) RHUD_GB_MIN)
                          (>= (-> this t16-n 1) RHUD_GB_MIN)
                          (>= (-> this t16-n 2) RHUD_GB_MIN)
-                         (> (* 10 (-> this t16-ctrl 0)) (* 9 (-> this t16-n 0)))
-                         (> (* 10 (-> this t16-ctrl 1)) (* 9 (-> this t16-n 1)))
-                         (> (* 10 (-> this t16-ctrl 2)) (* 9 (-> this t16-n 2))))
+                         (> (* 10 (-> this t16-gctrl 0)) (* 9 (-> this t16-n 0)))
+                         (> (* 10 (-> this t16-gctrl 1)) (* 9 (-> this t16-n 1)))
+                         (> (* 10 (-> this t16-gctrl 2)) (* 9 (-> this t16-n 2))))
                   (begin (+! measured 1) (rhud-gauge-tint-bad this))
                   (+ (rhud-gauge-tint-bad this) 1)))
            ;; TERME 17 — LA FORME DE LA NUEE EST CELLE DU RAMASSABLE. C'est le terme qui porte
@@ -5019,7 +5117,7 @@
       ;; PLUS VIEUX que le commit juge (la garde binaire ne compare que `libgk.so`, et un essai
       ;; 100 % GOAL ne la fait pas bouger). Ce numero est incremente a chaque essai : une preuve
       ;; qui ne porte pas celui de l'essai en cours mesure un AUTRE code.
-      (__pc-autoport-publish "hud_gauge_code_rev" 15)
+      (__pc-autoport-publish "hud_gauge_code_rev" 16)
       ;; ... et la MEME garde, mais lisible AVANT la course : le NOM de cette cle est un
       ;; literal de chaine, donc il se lit au `grep -a` dans `out/jak1/iso/GAME.CGO` et dans
       ;; l'APK. Le numero seul ne suffit pas : l'essai 12 a bumpe `code_rev` a 12 au DEBUT de
@@ -5065,6 +5163,9 @@
       (__pc-autoport-publish "hud_gauge_t16_ctrl_bad_blue" (-> this t16-ctrl 0))
       (__pc-autoport-publish "hud_gauge_t16_ctrl_bad_red" (-> this t16-ctrl 1))
       (__pc-autoport-publish "hud_gauge_t16_ctrl_bad_yellow" (-> this t16-ctrl 2))
+      (__pc-autoport-publish "hud_gauge_t16_gctrl_bad_blue" (-> this t16-gctrl 0))
+      (__pc-autoport-publish "hud_gauge_t16_gctrl_bad_red" (-> this t16-gctrl 1))
+      (__pc-autoport-publish "hud_gauge_t16_gctrl_bad_yellow" (-> this t16-gctrl 2))
       (__pc-autoport-publish "hud_gauge_t16_r_permille_blue" (-> this t16-mr 0))
       (__pc-autoport-publish "hud_gauge_t16_g_permille_blue" (-> this t16-mg 0))
       (__pc-autoport-publish "hud_gauge_t16_b_permille_blue" (-> this t16-mb 0))
@@ -5090,6 +5191,17 @@
       (__pc-autoport-publish "hud_gauge_nuee_rawf_16th" (-> this nq-rawf))
       (__pc-autoport-publish "hud_gauge_nuee_spk1_16th" (-> this nq-spk1))
       (__pc-autoport-publish "hud_gauge_nuee_speck_dropped" (-> this nq-speck))
+      ;; LES ECARTEES, des deux cotes de la meme regle : `stray_far` et `speck_dropped` sont ce
+      ;; que la MESURE ecarte (intrus / mouchetures), `stray_drawn` ce que le DESSIN ecarte. Leur
+      ;; SOMME doit egaler `stray_drawn` ; un ecart dirait que l'orbe dessinee n'est pas celle qui
+      ;; a fixe le facteur, et la borne de la boite ne serait plus vraie.
+      ;; `nuee_stray_max` est une cle NEUVE : aucun pack anterieur ne la porte, donc un `grep -a`
+      ;; du CGO ou de l'APK dit si le pack juge est celui de ce commit.
+      (__pc-autoport-publish "hud_gauge_nuee_stray_far" (-> this nq-far))
+      (__pc-autoport-publish "hud_gauge_nuee_stray_drawn" (-> this nq-clamped))
+      (__pc-autoport-publish "hud_gauge_nuee_stray_max" (-> this t14-clamped))
+      (__pc-autoport-publish "hud_gauge_nuee_outlier_milli"
+                             (the int (* 1000.0 RHUD_NUEE_OUTLIER)))
       (__pc-autoport-publish "hud_gauge_nuee_speck_ratio_permille"
                              (the int (* 1000.0 RHUD_NUEE_SPECK)))
       (__pc-autoport-publish "hud_gauge_t17_ctrl_permille"
