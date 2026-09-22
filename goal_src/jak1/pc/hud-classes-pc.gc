@@ -278,19 +278,34 @@
 ;;;;       eclairs du bleu (parts 7/8/9), ce qui fait qu'une eco BLEUE se reconnait, tombaient a
 ;;;;       1,0 unite : sous le pixel. Il ne restait qu'un nuage de points, c'est-a-dire ce que
 ;;;;       l'owner decrit — « le truc d'eco vert teinte en bleu ».
-;;;;       DESORMAIS : les ETINCELLES (toutes les couches sauf une) reprennent la taille, la
-;;;;       vitesse, l'acceleration et donc la lueur du ramassable, facteur 1. La SEULE couche qui
-;;;;       garde son facteur est la couche DIFFUSE dominante — 2987 (part 3), 2995 (161), 3001
-;;;;       (192) — parce qu'a la taille du monde (2+1 = 3 m) elle ferait 51,2 unites de
-;;;;       demi-largeur pour un anneau dont le bord exterieur est a 39,2 : elle RECOUVRIRAIT la
-;;;;       jauge, ce que l'owner a refuse le 18/09 (« que la lecture reste facile »). Avec cette
-;;;;       repartition la nuee monte a 25,6 unites au pire (part 10) contre 39,2 pour le bord :
-;;;;       elle deborde le trou, elle ne couvre pas la bande.
+;;;;       LE 20/09 on a leve le facteur sur les ETINCELLES seules, en le LAISSANT sur la couche
+;;;;       DIFFUSE dominante — 2987 (part 3), 2995 (161), 3001 (192) — au motif qu'a la taille du
+;;;;       monde (2+1 = 3 m) elle ferait 51,2 unites de demi-largeur pour un anneau dont le bord
+;;;;       exterieur est a 39,2, et qu'elle RECOUVRIRAIT donc la jauge (owner, 18/09 : « que la
+;;;;       lecture reste facile »).
+;;;;       22/09 — S7 TOMBE ENTIEREMENT, ET LA RAISON QUI LE TENAIT N'EXISTE PLUS. L'essai 14 a
+;;;;       remplace les trois transformations independantes par UNE SIMILITUDE : `kuni` multiplie
+;;;;       l'ecart au centre ET la demi-taille de TOUTES les couches, et vaut
+;;;;       RHUD_NUEE_TARGET_R / enveloppe mesuree. L'enveloppe dessinee est donc bornee PAR
+;;;;       CONSTRUCTION a RHUD_NUEE_TARGET_R (23,60 unites, contre 39,2 pour le bord exterieur de
+;;;;       l'anneau) : agrandir une couche dans la TABLE ne peut plus agrandir la nuee A L'ECRAN,
+;;;;       elle abaisse `kuni` d'autant. Le garde-fou de 2020/09 est devenu un DEFAUT DE FORME.
+;;;;       CE QU'IL COUTAIT, CHIFFRE. La demi-largeur dessinee de la couche diffuse valait
+;;;;       51,2 x 0,2929 x kuni = 5,0 unites de canevas (mesure x86 du 22/09 : `nuee_k_ppm`
+;;;;       = 333 461) pour un trou dont le rayon est 11,8 : la LUEUR ne touchait meme pas le bord
+;;;;       du trou, quand les etincelles, elles, sortaient a 16,0 unites et passaient par-dessus
+;;;;       l'anneau. C'est mot pour mot ce que l'owner decrit le 22/09 : « leur lueur n'est
+;;;;       toujours pas au dessus de la jauge, on dirait que juste le decal est au dessus ». Et le
+;;;;       jaune, reduit a 0,2197 avec un alpha de 16 la ou le bleu a 32, etait le plus efface des
+;;;;       trois — « l'Eco jaune est ridiculeursement trop petite ».
+;;;;       DESORMAIS : les VINGT couches des trois groupes sont a la taille, a la vitesse et a
+;;;;       l'acceleration du ramassable, facteur 1. Le nuage du HUD est la MEME figure que l'orbe
+;;;;       du monde, reduite par un seul nombre.
 ;;;;       CE PARTAGE EST MESURE, PAS AFFIRME : le terme 11 confronte les dix champs de taille et
-;;;;       de vitesse au ramassable x le facteur de LEUR couche, a 5 % pres, et publie le rapport
-;;;;       de surface emettrice des etincelles (`t11_lum_permille_*`, porte [800;1200]) a cote de
-;;;;       celui de la couche diffuse, qui reste a k2 et le dit. Jusqu'au 19/09 ces dix champs
-;;;;       etaient ECARTES du terme 8 : la porte etait verte sans avoir jamais mesure une taille.
+;;;;       de vitesse au ramassable a 5 % pres, couche diffuse COMPRISE, et l'ancien facteur par
+;;;;       couleur reste branche en CONTROLE (`kctrl`) — il doit echouer, sinon la comparaison ne
+;;;;       mordrait pas. Jusqu'au 19/09 ces dix champs etaient ECARTES du terme 8 : la porte etait
+;;;;       verte sans avoir jamais mesure une taille.
 
 
 ;;;; -- BLEU (id 721) <- `group-eco-blue` (id 42) ----------------------------------------------
@@ -338,7 +353,7 @@
    (:num 6.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 0.58581579) (meters 0.2929079))
+   (:scale-x (meters 2) (meters 1))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 0.0 32.0)
@@ -346,7 +361,7 @@
    (:b 128.0 128.0)
    (:a 32.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0043393765) (meters 0.0013018129))
+   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
@@ -501,7 +516,7 @@
    (:num 6.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 0.43936185) (meters 0.43936185))
+   (:scale-x (meters 2) (meters 2))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
@@ -509,7 +524,7 @@
    (:b 0.0)
    (:a 24.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0032545323) (meters 0.00097635969))
+   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
@@ -626,7 +641,7 @@
    (:num 5.0)
    (:y (meters 0) (meters 16))
    (:z (meters 0.065))
-   (:scale-x (meters 0.43936185) (meters 0.43936185))
+   (:scale-x (meters 2) (meters 2))
    (:rot-z (degrees 0) (degrees 360))
    (:scale-y :copy scale-x)
    (:r 128.0 128.0)
@@ -634,7 +649,7 @@
    (:b 0.0)
    (:a 16.0)
    (:omega 0.0 65536.0)
-   (:vel-x (meters 0.0032545323) (meters 0.00097635969))
+   (:vel-x (meters 0.0148148155) (meters 0.0044444446))
    (:vel-y (meters 0))
    (:vel-z (meters 0))
    (:rotvel-z (degrees -0.1) 1 (degrees 0.2))
@@ -3707,8 +3722,8 @@
 ;; notre porte l'otage de ses reglages a lui : le jour ou il ajoute une exclusion pour son propre
 ;; besoin, notre porte cesserait de mesurer un champ sans que personne ne l'ait decide. Les deux
 ;; listes sont donc independantes, et la duplication est inscrite dans FINDINGS.
-(defconstant RHUD_NUEE_K_BLUE 0.292908)  ;; S7 : la reduction de la couche DIFFUSE bleue
-(defconstant RHUD_NUEE_K_RY   0.219681)  ;;      ... et celle des couches diffuses rouge et jaune
+(defconstant RHUD_NUEE_K_BLUE 0.292908)  ;; l'ANCIENNE reduction bleue, gardee comme CONTROLE : plus
+(defconstant RHUD_NUEE_K_RY   0.219681)  ;; aucune couche ne la porte depuis le 22/09 (S7 tombe).
 (defconstant RHUD_NUEE_TOL    0.05)      ;; « champs de mouvement egaux a 5 % » (perimetre 20/09)
 
 (defun rhud-gauge-eco-field-excluded? ((f int))
@@ -3769,9 +3784,10 @@
 (defun rhud-gauge-cmp-part ((this hud-recharged-power) (ours int) (world int)
                             (k float) (kctrl float) (col int) (spark int))
   "confronte le lanceur `ours` a celui du RAMASSABLE `world` dans `*part-id-table*`.
-   `k` est le facteur que S7 applique a CETTE couche : 1,0 pour une etincelle (taille, vitesse et
-   lueur du monde, perimetre du 20/09), le facteur de couleur pour la seule couche DIFFUSE
-   dominante — celle dont la demi-largeur fixe l'enveloppe de 15 unites validee le 18/09.
+   `k` est le facteur attendu sur les dix champs de taille et de vitesse : depuis le 22/09 il vaut
+   1,0 pour TOUTES les couches, etincelles et couche diffuse — la nuee est la figure du ramassable,
+   reduite au dessin par le seul `kuni`. `kctrl` rejoue l'ANCIEN facteur par couleur : c'est le
+   controle, il doit echouer.
    `spark` vaut 1 pour une etincelle, 0 pour la couche diffuse : les surfaces emettrices des
    deux familles sont sommees SEPAREMENT, la porte ne jugeant que celle des etincelles."
   (let ((a (-> *part-id-table* ours))
@@ -3883,7 +3899,7 @@
   (set! (-> this t11-lumbad) 0)
   (dotimes (i 12) (set! (-> this t11-lum i) 0.0))
   (rhud-gauge-cmp-part this 2986 2    1.0 RHUD_NUEE_K_BLUE 0 1)
-  (rhud-gauge-cmp-part this 2987 3    RHUD_NUEE_K_BLUE 1.0 0 0)
+  (rhud-gauge-cmp-part this 2987 3    1.0 RHUD_NUEE_K_BLUE 0 0)
   (rhud-gauge-cmp-part this 2988 5    1.0 RHUD_NUEE_K_BLUE 0 1)
   (rhud-gauge-cmp-part this 2989 7    1.0 RHUD_NUEE_K_BLUE 0 1)
   (rhud-gauge-cmp-part this 2990 8    1.0 RHUD_NUEE_K_BLUE 0 1)
@@ -3891,13 +3907,13 @@
   (rhud-gauge-cmp-part this 2992 10   1.0 RHUD_NUEE_K_BLUE 0 1)
   (rhud-gauge-cmp-part this 2993 146  1.0 RHUD_NUEE_K_BLUE 0 1)
   (rhud-gauge-cmp-part this 2994 160  1.0 RHUD_NUEE_K_RY 1 1)
-  (rhud-gauge-cmp-part this 2995 161  RHUD_NUEE_K_RY 1.0 1 0)
+  (rhud-gauge-cmp-part this 2995 161  1.0 RHUD_NUEE_K_RY 1 0)
   (rhud-gauge-cmp-part this 2996 162  1.0 RHUD_NUEE_K_RY 1 1)
   (rhud-gauge-cmp-part this 2997 163  1.0 RHUD_NUEE_K_RY 1 1)
   (rhud-gauge-cmp-part this 2998 164  1.0 RHUD_NUEE_K_RY 1 1)
   (rhud-gauge-cmp-part this 2999 167  1.0 RHUD_NUEE_K_RY 1 1)
   (rhud-gauge-cmp-part this 3000 191  1.0 RHUD_NUEE_K_RY 2 1)
-  (rhud-gauge-cmp-part this 3001 192  RHUD_NUEE_K_RY 1.0 2 0)
+  (rhud-gauge-cmp-part this 3001 192  1.0 RHUD_NUEE_K_RY 2 0)
   (rhud-gauge-cmp-part this 3002 193  1.0 RHUD_NUEE_K_RY 2 1)
   (rhud-gauge-cmp-part this 3003 194  1.0 RHUD_NUEE_K_RY 2 1)
   (rhud-gauge-cmp-part this 3004 195  1.0 RHUD_NUEE_K_RY 2 1)
@@ -5003,7 +5019,7 @@
       ;; PLUS VIEUX que le commit juge (la garde binaire ne compare que `libgk.so`, et un essai
       ;; 100 % GOAL ne la fait pas bouger). Ce numero est incremente a chaque essai : une preuve
       ;; qui ne porte pas celui de l'essai en cours mesure un AUTRE code.
-      (__pc-autoport-publish "hud_gauge_code_rev" 14)
+      (__pc-autoport-publish "hud_gauge_code_rev" 15)
       ;; ... et la MEME garde, mais lisible AVANT la course : le NOM de cette cle est un
       ;; literal de chaine, donc il se lit au `grep -a` dans `out/jak1/iso/GAME.CGO` et dans
       ;; l'APK. Le numero seul ne suffit pas : l'essai 12 a bumpe `code_rev` a 12 au DEBUT de
