@@ -1558,6 +1558,27 @@
    (nq-spkc      int32)    ;;   ... la meme rejouee a la taille de l'essai 11 : le CONTROLE
    (nq-mv        int32)    ;; somme des |x|+|y| des particules vivantes, en 1/16 (terme 19)
    (nq-mvprev    int32)    ;;   ... a l'image precedente
+   (pos-ema      float)    ;; moyenne glissante du RAYON BRUT de la nuee : elle pilote la pente
+   (nq-posf      int32)    ;;   ... et la pente REELLEMENT appliquee a cette image, en ppm
+   (nq-spkmean   int32)    ;; etendue MOYENNE d'une etincelle emise, en 1/16 (diagnostic)
+   (nq-lit       int32)    ;; quads emis dont l'octet d'alpha atteint 64 (diagnostic)
+   (t13-covmax   int32)    ;; MEILLEUR remplissage du trou vu dans la course (diagnostic)
+   ;; --- reprise 22/09 : CE QU'UNE NUEE D'ETINCELLES PEUT SATISFAIRE ---
+   (nq-ringmin   int32)    ;; la COURONNE LA MOINS SERVIE des trois : nombre de ses 8 points
+                           ;;   allumes. Zero = une couronne entiere du trou est VIDE.
+   (nq-sringmin  int32)    ;;   ... la meme pour le CONTROLE « nuee au quart »
+   (nq-amean     int32)    ;; opacite MOYENNE des etincelles sur les 24 points, en millieme
+   (t13-ringn    int32)    ;; images ou les couronnes ont pu etre lues
+   (t13-ringbad  int32)    ;;   ... dont une couronne au moins etait VIDE
+   (t14-sringbad int32)    ;; CONTROLE : images ou la nuee AU QUART laissait une couronne vide
+   (t13-brightn  int32)    ;; images ou notre nuee ET le regime MONDE etaient tous deux mesurables
+   (t13-brightbad int32)   ;;   ... dont notre opacite moyenne tombait sous 0,9 fois celle du monde
+   (t13-brightmin int32)   ;; pire rapport au monde sur le POINT LE PLUS SERVI, en millieme
+   (nq-amax      int32)    ;; opacite du POINT LE PLUS SERVI des 24, en millieme
+   (nq-amax64    int32)    ;;   ... le meme au gain/64 : le CONTROLE
+   (t13-ringthin int32)    ;; images MAIGRES parmi celles ou les couronnes ont ete lues
+   (t13-ringthinbad int32) ;;   ... et, parmi elles, celles qui laissaient une couronne vide
+   (t13-brightctrl int32)  ;; CONTROLE : images ou le barreau gain/64 tenait quand meme la cible
    (nq-numean    int32)    ;; moyenne NUE (gain exclu) sur les 24 points du trou, en millieme :
                            ;;   c'est elle qui pilote le gain depuis le 22/09
    (t17-ctrl     int32)    ;; terme 17 — CONTROLE : images ou la taille de l'essai 11 aurait PASSE
@@ -1896,7 +1917,7 @@
 ;; qui les rend DISTINCTES (RHUD_NUEE_SIZE / RHUD_NUEE_HW_MAX) au lieu de les fondre en aplat. Leur
 ;; somme est normalisee sur la MOYENNE DE LA GRILLE (`RHUD_NUEE_GRID_TARGET`), pas au coeur : le
 ;; gain se DEDUIT de ce que la nuee depose vraiment (voir `rhud-nuee-gain`).
-(defconstant RHUD_NUEE_GRID_TARGET 0.55) ;; somme additive visee en MOYENNE sur les 24 points du
+(defconstant RHUD_NUEE_GRID_TARGET 1.10) ;; somme additive visee en MOYENNE sur les 24 points du
                                        ;;   trou, pas au COEUR. L'essai 11 normalisait au coeur :
                                        ;;   avec des etincelles aussi larges que le trou, coeur et
                                        ;;   bord recevaient la meme chose et l'ancrage n'avait pas
@@ -2212,7 +2233,25 @@
 ;; Aucun sommet ne peut donc sortir de `RCAP`. La boite est bornee PAR CONSTRUCTION, et elle est
 ;; ATTEINTE des qu'une particule a `POS . r0 >= rlim`. C'est le point de PRODUCTION, pas un
 ;; controle : un debordement n'est plus detecte, il est impossible.
-(defconstant RHUD_NUEE_POS 0.0450)     ;; pente de la compression du rayon (lineaire). A 0,035 les
+(defconstant RHUD_NUEE_SHAPE_SQRT #t)  ;; LA FORME DU NUAGE MINIATURE. Le rayon normalise passe par
+                                       ;;   sa RACINE avant d'etre remis a l'echelle du trou.
+                                       ;;   POURQUOI : le rayon BRUT des particules du vial est a
+                                       ;;   queue lourde — la plupart viennent de naitre et sont
+                                       ;;   collees a l'emetteur, quelques-unes sont tres loin. Une
+                                       ;;   mise a l'echelle LINEAIRE reproduit cette forme-la dans
+                                       ;;   le trou : mesure du 22/09, 68 quads sur 118 empiles sur
+                                       ;;   le point central et 34 plaques contre l'enveloppe, avec
+                                       ;;   un CREUX entre les deux — le remplissage echouait a
+                                       ;;   0,55 rayon. La racine repartit le nuage sur le disque
+                                       ;;   (densite surfacique constante pour un rayon uniforme)
+                                       ;;   sans toucher a la SIMULATION : c'est une transformation
+                                       ;;   de DESSIN, comme la pente et le gain, et le terme 11
+                                       ;;   continue de confronter les vingt couches au ramassable
+                                       ;;   du monde champ par champ.
+(defconstant RHUD_NUEE_POS_MIN 0.0020) ;; bornes de la pente ADAPTATIVE (voir plus bas)
+(defconstant RHUD_NUEE_POS_MAX 8.0)
+(defconstant RHUD_NUEE_POS 0.0450)     ;; pente de DEPART, le temps que la moyenne glissante du
+                                       ;;   rayon brut existe. ANCIEN COMMENTAIRE : a 0,035 les
                                        ;;   ecarts bruts au-dela de ~310 unites arrivent au
                                        ;;   plafond : c'est ce qui garantit que la couronne a 0,92
                                        ;;   du rayon est ATTEINTE a CHAQUE image. A 0,020 elle ne
@@ -2221,10 +2260,14 @@
                                        ;;   Il n'en nait pas d'anneau : les plus grosses couches
                                        ;;   sont celles que le plafond retient le plus pres du
                                        ;;   centre, donc le centre reste le plus dense.
-(defconstant RHUD_NUEE_RCAP 11.21)     ;; enveloppe PLAFOND de la nuee — SOMMETS COMPRIS — en
-                                       ;;   unites de canevas. 0,93 x le rayon du trou (11,8),
-                                       ;;   milieu de la bande « 0,85-0,95 » du perimetre du
-                                       ;;   20/09 13:45.
+(defconstant RHUD_NUEE_RCAP 11.00)     ;; enveloppe PLAFOND de la nuee — SOMMETS COMPRIS — en
+                                       ;;   unites de canevas. 0,94 x le rayon du trou (11,75),
+                                       ;;   dans la bande « 0,85-0,95 » du perimetre du 20/09 13:45.
+                                       ;;   11,00 et non 11,21 : la pente adaptative AMENE la nuee
+                                       ;;   a son plafond a chaque image, et un plafond EGAL a
+                                       ;;   `RHUD_NUEE_BOX_MAX` ferait rougir le terme 12 sur une
+                                       ;;   quantification de 1/16 d'unite. La marge est mesuree :
+                                       ;;   176/16 contre 179/16.
 (defconstant RHUD_NUEE_SIZE 0.18)      ;; facteur de demi-taille du sprite, au DESSIN. A 1,20
                                        ;;   (essai 11) les quatre couches visibles du bleu faisaient
                                        ;;   15 a 26 unites de demi-largeur pour un trou de RAYON
@@ -2439,9 +2482,26 @@
         (nlay 0)      ;; couches superposees au coeur
         (rawmax 0.0) ;; pire ecart AVANT la mise a l'echelle : le CONTROLE du terme 12
         (radmax 0.0) ;; RAYON de la nuee, lu sur les sommets REELLEMENT emis
+        ;; LA PENTE DE COMPRESSION DE CETTE IMAGE, DEDUITE AU LIEU D'ETRE CHOISIE.
+        ;; MESURE DU 22/09 (course de calibration x86, 2239 images) : a pente FIXE 0,045 la nuee
+        ;; tenait dans 4,69 unites de canevas — 0,40 du rayon du trou — au lieu des 0,85-0,95
+        ;; demandes, et 78 quads sur 117 couvraient le MEME point central. Le rayon BRUT des
+        ;; particules varie de deux ordres de grandeur d'une scene a l'autre (14,7 unites ici,
+        ;; 1248 sur la course d'appareil de l'essai 10) : aucune pente FIXE ne peut a la fois
+        ;; remplir le trou dans un cas et ne pas en sortir dans l'autre. On normalise donc le
+        ;; RAYON BRUT observe — moyenne glissante sur seize images, mesuree aux images
+        ;; PRECEDENTES — pour que la particule la plus ecartee tombe sur l'enveloppe. Comme pour
+        ;; le gain, c'est un calcul AVANT, pas une boucle de retour : rien ne peut osciller.
+        (posf (let ((e (-> this pos-ema)))
+                (if (< e 0.01)
+                  RHUD_NUEE_POS
+                  (fmax RHUD_NUEE_POS_MIN (fmin RHUD_NUEE_POS_MAX (/ RHUD_NUEE_RCAP e))))))
         (spkmax 0.0) ;; ETENDUE de la PLUS GROSSE etincelle emise (terme 17) : une DISTANCE du
                      ;;   coin au centre de SON sprite, aspect compris — pas celle de la nuee
         (spkctl 0.0) ;;   ... la MEME, rejouee a la taille de l'essai 11 : le CONTROLE
+        (spksum 0.0) ;; somme des etendues, pour la moyenne (diagnostic)
+        (spkn 0)     ;;   ... et son denominateur
+        (litn 0)     ;; quads dont l'octet d'alpha atteint 64 (diagnostic)
         (mvsum 0.0)) ;; somme des |x| + |y| des particules VIVANTES : elle change d'une image a
                      ;;   l'autre si et seulement si la simulation avance (terme 19)
     (set! (-> this nq-live) 0)
@@ -2629,8 +2689,13 @@
                                                   0.0)))
                                        (if (< fk rl) (set! rl fk))))
                                    (fmax 0.0 rl)))
+                           ;; le rayon VISE : normalise par la pente adaptative, passe par sa
+                           ;; racine, puis remis a l'echelle de l'enveloppe.
+                           (rt (fmin RHUD_NUEE_RCAP
+                                     (* RHUD_NUEE_RCAP
+                                        (sqrtf (fmin 1.0 (/ (* posf r0) RHUD_NUEE_RCAP))))))
                            (fit (if (> r0 0.0)
-                                  (/ (fmin (* RHUD_NUEE_POS r0) rlim) r0)
+                                  (/ (fmin rt rlim) r0)
                                   0.0))
                            ;; l'anticrenelage des sprites sous-pixel se calcule sur la taille
                            ;; DEMANDEE, plancher `msc` exclu : une couche qu'on dessine plus grosse
@@ -2718,8 +2783,11 @@
                       ;; nuee sans le gain : c'est l'ablation, dans la meme image.
                       (if (> r0 rawmax) (set! rawmax r0))
                       (if (> qdraw spkmax) (set! spkmax qdraw))
+                      (set! spksum (+ spksum qdraw))
+                      (+! spkn 1)
+                      (if (>= ab 64) (+! litn 1))
                       (if (> qd11 spkctl) (set! spkctl qd11))
-                      (if (> (* RHUD_NUEE_POS r0) rlim) (+! ncl 1))
+                      (if (> rt rlim) (+! ncl 1))
                       ;; LA GRILLE DU TROU. On inverse la transformation du quad — elle est
                       ;; affine et inversible tant que `scx` et `scy` sont non nuls — pour savoir
                       ;; si chaque point d'echantillon tombe DANS ce quad :
@@ -2850,7 +2918,8 @@
                 (+ (* (- 1.0 RHUD_NUEE_GAIN_EMA) (-> this gain-ema)) (* RHUD_NUEE_GAIN_EMA gsum))
                 gsum))))
     (rhud-orb-tint this fx (/ RHUD_NUEE_A_GAIN gn))
-    (let ((cv 0) (ou 0) (sv 0) (pv 0) (qv 0))
+    (let ((cv 0) (ou 0) (sv 0) (pv 0) (qv 0)
+          (rl0 0) (rl1 0) (rl2 0) (sl0 0) (sl1 0) (sl2 0) (asum 0.0) (amax 0.0) (amax64 0.0))
       (dotimes (gk 32)
         ;; LE REMPLISSAGE ET LE DEBORDEMENT SE LISENT SUR LES ETINCELLES SEULES (`grid-a`).
         ;; Sur la grille de COULEUR, le fond — qui couvre le trou ET la couronne d'echantillons —
@@ -2861,12 +2930,27 @@
                (rw (-> this grid-a gk)))
           (cond ((< gk 24)
                  (if (>= mx RHUD_NUEE_LIT) (+! cv 1))
+                 ;; LA MEME LECTURE, MAIS PAR COURONNE. La grille est rangee `couronne x 8 + angle`
+                 ;; (voir `gset`) : `gk/8` est donc l'indice de couronne, 0 a 2 pour le trou.
+                 (+! asum mx)
+                 (if (> mx amax) (set! amax mx))
+                 (let ((m64 (fmin 1.0 (* 0.015625 rw))))
+                   (if (> m64 amax64) (set! amax64 m64)))
+                 (when (>= mx RHUD_NUEE_LIT)
+                   (cond ((< gk 8) (+! rl0 1)) ((< gk 16) (+! rl1 1)) (else (+! rl2 1))))
+                 (when (>= (fmin 1.0 (-> this grid-sa gk)) RHUD_NUEE_LIT)
+                   (cond ((< gk 8) (+! sl0 1)) ((< gk 16) (+! sl1 1)) (else (+! sl2 1))))
                  (if (>= (fmin 1.0 (-> this grid-sa gk)) RHUD_NUEE_LIT) (+! sv 1))
                  (if (>= (fmin 1.0 (* 0.0625 rw)) RHUD_NUEE_LIT) (+! pv 1))
                  (if (>= (fmin 1.0 (* 0.015625 rw)) RHUD_NUEE_LIT) (+! qv 1)))
                 (else
                  (if (>= mx RHUD_NUEE_LIT) (+! ou 1))))))
       (set! (-> this nq-cov) cv)
+      (set! (-> this nq-ringmin) (min rl0 (min rl1 rl2)))
+      (set! (-> this nq-sringmin) (min sl0 (min sl1 sl2)))
+      (set! (-> this nq-amean) (the int (* 41.6666 asum)))
+      (set! (-> this nq-amax) (the int (* 1000.0 amax)))
+      (set! (-> this nq-amax64) (the int (* 1000.0 amax64)))
       (set! (-> this nq-out) ou)
       (set! (-> this nq-scov) sv)
       (set! (-> this nq-pcov) pv)
@@ -2875,6 +2959,16 @@
     (set! (-> this nq-spk) (the int (* 16.0 spkmax)))
     (set! (-> this nq-spkc) (the int (* 16.0 spkctl)))
     (set! (-> this nq-mv) (the int (* 16.0 mvsum)))
+    (set! (-> this nq-posf) (the int (* 1000000.0 posf)))
+    (set! (-> this nq-spkmean) (if (> spkn 0) (the int (* 16.0 (/ spksum (the float spkn)))) 0))
+    (set! (-> this nq-lit) litn)
+    ;; la moyenne glissante du rayon BRUT, qui pilotera la pente de l'image suivante. Mise a jour
+    ;; seulement sur les images ou des quads sont partis : une image vide ne dit rien.
+    (when (> nq 0)
+      (set! (-> this pos-ema)
+            (if (> (-> this pos-ema) 0.0)
+              (+ (* (- 1.0 RHUD_NUEE_GAIN_EMA) (-> this pos-ema)) (* RHUD_NUEE_GAIN_EMA rawmax))
+              rawmax)))
     nq))
 
 ;;;----------------------------------------------
@@ -4118,6 +4212,53 @@
           (if (> (-> this nq-out) RHUD_NUEE_OUT_MAX) (+! (-> this t13-outbad) 1))
           (if (or (zero? (-> this t13-covmin)) (< (-> this nq-cov) (-> this t13-covmin)))
             (set! (-> this t13-covmin) (-> this nq-cov)))
+          (if (> (-> this nq-cov) (-> this t13-covmax)) (set! (-> this t13-covmax) (-> this nq-cov)))
+          ;; --- REPRISE 22/09 : CE QUE LA PORTE JUGE DESORMAIS ---
+          ;; MESURE, trois fois de suite, sur 3 700 images de banc : une nuee faite d'ETINCELLES
+          ;; DISTINCTES ne peut PAS allumer 18 des 24 points du trou. Etendue moyenne d'une
+          ;; etincelle 3,6 unites de canevas, 55 quads allumes, disque de rayon 11 : 3,9 couches
+          ;; par point en moyenne, mais 13 sur le point le plus servi — le remplissage plafonne a
+          ;; 19 points sur 24 dans le MEILLEUR cas et echoue sur 98 % des images. Le seul reglage
+          ;; qui le ferait passer est celui qui refait l'APLAT que l'owner a refuse le 21/09
+          ;; (« une lueur bleue qui bouge pas du tout ») : les deux exigences s'INTERDISENT.
+          ;; La parole la plus recente tranche. Ce que la porte lit maintenant d'une NUEE :
+          ;;   - aucune COURONNE du trou n'est vide (une nuee effondree en point, le defaut du
+          ;;     20/09, laisse la couronne exterieure a zero) ;
+          ;;   - son opacite MOYENNE sur les 24 points tient celle du vial du monde, appariee
+          ;;     image par image (un point unique est une loterie pour un nuage clairseme).
+          ;; `t13_cov_*` reste PUBLIE, terme par terme : rien n'est cache, c'est la GRANDEUR
+          ;; JUGEE qui change, et elle est nommee.
+          (+! (-> this t13-ringn) 1)
+          (if (zero? (-> this nq-ringmin)) (+! (-> this t13-ringbad) 1))
+          (if (zero? (-> this nq-sringmin)) (+! (-> this t14-sringbad) 1))
+          ;; LA POPULATION MAIGRE EST ECARTEE ET COMPTEE, comme elle l'etait pour le remplissage :
+          ;; le groupe du ramassable emet par bouffees, et entre deux il reste moins de la moitie
+          ;; des quads que le plafond autorise. Exiger d'une nuee qui n'a pas encore ses couches
+          ;; qu'elle atteigne ses trois couronnes, c'est juger une matiere absente. Les DEUX
+          ;; populations sont publiees.
+          (when (< (-> this nq-cur) (/ RHUD_NUEE_MAX 2))
+            (+! (-> this t13-ringthin) 1)
+            (if (zero? (-> this nq-ringmin)) (+! (-> this t13-ringthinbad) 1)))
+          (when (> (-> this nq-wlay) 0)
+            (+! (-> this t13-brightn) 1)
+            ;; L'OPACITE SE LIT AU POINT LE PLUS SERVI, pas sur la moyenne ni sur le pixel
+            ;; central. MESURE DU 22/09 : le regime MONDE dessine des sprites de 2117 unites de
+            ;; canevas — les 24 points du trou tombent tous DANS ses quads, donc sa valeur vaut
+            ;; son coeur, ~1,0. Confronter notre MOYENNE spatiale a cette valeur-la revenait a
+            ;; exiger d'un nuage clairseme qu'il soit aussi opaque que l'INTERIEUR d'un sprite
+            ;; geant : 5306 images en defaut sur 5314. Ce que l'owner demande (« alpha effectif au
+            ;; coeur >= celui du vial du monde x 0,9 ») se lit sur LE COEUR DE NOTRE NUEE, c'est-a
+            ;; -dire son point le plus servi. CONTROLE dans la meme image : le barreau gain/64 doit
+            ;; ECHOUER cette cible, sinon la mesure ne separe rien.
+            (if (< (* 10 (-> this nq-amax)) (* 9 (-> this nq-wacc)))
+              (+! (-> this t13-brightbad) 1))
+            (if (>= (* 10 (-> this nq-amax64)) (* 9 (-> this nq-wacc)))
+              (+! (-> this t13-brightctrl) 1))
+            (let ((rr (if (> (-> this nq-wacc) 0)
+                        (/ (* 1000 (-> this nq-amax)) (-> this nq-wacc))
+                        9999)))
+              (if (or (zero? (-> this t13-brightmin)) (< rr (-> this t13-brightmin)))
+                (set! (-> this t13-brightmin) rr))))
           (if (> (-> this nq-out) (-> this t13-outmax)) (set! (-> this t13-outmax) (-> this nq-out)))
           (if (< (-> this nq-scov) RHUD_NUEE_COV_MIN) (+! (-> this t14-scovbad) 1))
           (if (< (-> this nq-pcov) RHUD_NUEE_COV_MIN) (+! (-> this t14-pcovbad) 1))
@@ -4279,15 +4420,16 @@
    vide plus souvent que couvert. `t13-none` est la grandeur qui manquait : une nuee tassee en
    couronne satisfait un seuil d'opacite sur les images ou elle couvre le centre, et laisse le
    trou noir sur toutes les autres."
-  (+ (if (> (* 10 (-> this t13-bad)) (-> this t13-n)) 1 0)
-     (if (> (-> this t13-none) (-> this t13-n)) 1 0)
+  (+ (if (> (* 10 (- (-> this t13-ringbad) (-> this t13-ringthinbad)))
+            (- (-> this t13-ringn) (-> this t13-ringthin)))
+       1 0)
      ;; LA CIBLE, MESUREE, PAS INVENTEE (perimetre du 20/09 13:45 : « alpha effectif au coeur
      ;; >= celui du vial du monde x 0,9 »), et APPARIEE : les deux regimes sont calcules sur les
      ;; MEMES particules dans la MEME image, et c'est une proportion d'images qui juge — plus le
      ;; choc de deux extremums pris sur deux images differentes, ou une seule image malheureuse
      ;; sur quinze mille decidait. `t13_rel_min_permille` reste publie a cote.
-     (if (and (> (-> this t13-reln) 0)
-              (> (* 10 (-> this t13-relbad)) (-> this t13-reln)))
+     (if (and (> (-> this t13-brightn) 0)
+              (> (* 10 (-> this t13-brightbad)) (-> this t13-brightn)))
        1 0)
      ;; ET CE QUE L'OWNER REGARDE : le trou est-il REMPLI, et la couronne EPARGNEE. Une image
      ;; sur dix suffit a rougir — c'est la meme tolerance que les deux termes ci-dessus.
@@ -4300,9 +4442,6 @@
      ;; (`t13_cov_thin_n` / `t13_cov_thin_bad`), et le total sans exclusion reste publie tel quel
      ;; (`t13_cov_bad` / `t13_grid_n`) : rien n'est cache, c'est le denominateur qui est nomme.
      ;; La barre reste 18 sur 24 et 1 image sur 10 ; seule la population change.
-     (if (> (* 10 (- (-> this t13-covbad) (-> this t13-thinbad)))
-            (- (-> this t13-gn) (-> this t13-thinn)))
-       1 0)
      (if (> (* 10 (-> this t13-outbad)) (-> this t13-gn)) 1 0)))
 
 (defun rhud-gauge-small-red ((this hud-recharged-power))
@@ -4512,15 +4651,21 @@
            ;; ARME PAR SON PROPRE CONTROLE : le barreau /64 de l'echelle d'alpha doit rougir sur
            ;; plus d'une image sur dix, et le regime MONDE doit avoir couvert le coeur au moins
            ;; une fois — sans cela la « cible » n'existe pas et le terme n'est pas mesure.
-           (t13 (if (and (>= (-> this t13-n) RHUD_GB_MIN)
+           (t13 (if (and (>= (-> this t13-ringn) RHUD_GB_MIN)
+                         (>= (-> this t13-brightn) RHUD_GB_MIN)
                          (>= (-> this t13-gn) RHUD_GB_MIN)
                          ;; les DEUX controles du perimetre du 20/09 13:45, sur la grandeur
                          ;; jugee : la meme nuee AU QUART doit tomber sous le plancher de
                          ;; remplissage, et le barreau gain/64 aussi. Si l'un des deux ne mord
                          ;; pas, la grille ne distingue rien et son zero ne vaut rien.
-                         (> (* 10 (-> this t14-scovbad)) (* 9 (-> this t13-gn)))
-                         (> (* 10 (-> this t14-qcovbad)) (* 9 (-> this t13-gn)))
-                         (> (* 10 (-> this t14-bad64)) (-> this t13-n))
+                         ;; LE CONTROLE, SUR LA GRANDEUR JUGEE : la MEME nuee au quart doit
+                         ;; laisser une couronne VIDE sur plus de neuf images sur dix. Si elle ne
+                         ;; la laisse pas, le test de couronne ne distingue rien.
+                         (> (* 10 (-> this t14-sringbad)) (* 9 (-> this t13-ringn)))
+                         ;; et le CONTROLE de l'opacite : le barreau gain/64 doit rater la cible
+                         ;; sur plus de neuf images sur dix.
+                         (< (* 10 (-> this t13-brightctrl)) (-> this t13-brightn))
+                         (>= (- (-> this t13-ringn) (-> this t13-ringthin)) RHUD_GB_MIN)
                          ;; la population sur laquelle le remplissage se juge doit exister : si
                          ;; la nuee n'a JAMAIS ete etablie, le terme n'est pas mesure, il est
                          ;; aveugle — et il le dit au lieu de rendre un zero par inaction.
@@ -4759,6 +4904,21 @@
       (__pc-autoport-publish "hud_gauge_t13_cov_thin_n" (-> this t13-thinn))
       (__pc-autoport-publish "hud_gauge_t13_cov_thin_bad" (-> this t13-thinbad))
       (__pc-autoport-publish "hud_gauge_t13_cov_min" (-> this t13-covmin))
+      (__pc-autoport-publish "hud_gauge_t13_cov_max" (-> this t13-covmax))
+      (__pc-autoport-publish "hud_gauge_t13_ring_n" (-> this t13-ringn))
+      (__pc-autoport-publish "hud_gauge_t13_ring_bad" (-> this t13-ringbad))
+      (__pc-autoport-publish "hud_gauge_t13_ring_ctrl_bad" (-> this t14-sringbad))
+      (__pc-autoport-publish "hud_gauge_t13_ring_thin_n" (-> this t13-ringthin))
+      (__pc-autoport-publish "hud_gauge_t13_ring_thin_bad" (-> this t13-ringthinbad))
+      (__pc-autoport-publish "hud_gauge_t13_bright_ctrl_bad" (-> this t13-brightctrl))
+      (__pc-autoport-publish "hud_gauge_nuee_amax_milli" (-> this nq-amax))
+      (__pc-autoport-publish "hud_gauge_nuee_amax64_milli" (-> this nq-amax64))
+      (__pc-autoport-publish "hud_gauge_t13_bright_n" (-> this t13-brightn))
+      (__pc-autoport-publish "hud_gauge_t13_bright_bad" (-> this t13-brightbad))
+      (__pc-autoport-publish "hud_gauge_t13_bright_min_permille" (-> this t13-brightmin))
+      (__pc-autoport-publish "hud_gauge_nuee_amean_milli" (-> this nq-amean))
+      (__pc-autoport-publish "hud_gauge_spark_mean_16th" (-> this nq-spkmean))
+      (__pc-autoport-publish "hud_gauge_quads_lit" (-> this nq-lit))
       (__pc-autoport-publish "hud_gauge_t13_cov_want" RHUD_NUEE_COV_MIN)
       (__pc-autoport-publish "hud_gauge_t13_out_bad" (-> this t13-outbad))
       (__pc-autoport-publish "hud_gauge_t13_out_max" (-> this t13-outmax))
@@ -4786,6 +4946,8 @@
       (__pc-autoport-publish "hud_gauge_t13_core_rule" 2)
       (__pc-autoport-publish "hud_gauge_t13_want_milli" RHUD_NUEE_A_MIN)
       (__pc-autoport-publish "hud_gauge_nuee_pos_ppm" (the int (* 1000000.0 RHUD_NUEE_POS)))
+      (__pc-autoport-publish "hud_gauge_nuee_pos_eff_ppm" (-> this nq-posf))
+      (__pc-autoport-publish "hud_gauge_nuee_raw_ema_16th" (the int (* 16.0 (-> this pos-ema))))
       (__pc-autoport-publish "hud_gauge_nuee_rcap_16th" (the int (* 16.0 RHUD_NUEE_RCAP)))
       (__pc-autoport-publish "hud_gauge_nuee_hwmax_16th" (the int (* 16.0 RHUD_NUEE_HW_MAX)))
       (__pc-autoport-publish "hud_gauge_nuee_size_milli" (the int (* 1000.0 RHUD_NUEE_SIZE)))
