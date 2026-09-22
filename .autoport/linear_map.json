@@ -72,6 +72,14 @@
   "name": "Emeric Commenge (moukrea)",
   "user_id": "d0008b80-8dd5-41c3-bf05-e65b59f5f4e5"
  },
+ "acquis-hud-eco-gauge": {
+  "hash": "a27e8720a042e4cbb2a05a2f9443b9abf9a9b193",
+  "identifier": "JAK-194",
+  "issue_id": "70b3d847-940c-42fa-8902-d8923f34b3d8",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-22T21:25:55.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-194/la-jauge-deco-du-hud-recharge-ne-peut-plus-regresser-un-acquis-la"
+ },
  "acquis-perf-dma-chain-copies": {
   "hash": "39b00ec13c1fadcb7152a770194098cb109f2e54",
   "identifier": "JAK-164",
@@ -604,10 +612,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
-  "hash": "24bcd4848fb111f082ea06dec37887b62ca390bd",
+  "hash": "8921fea05c5837bbef0828417c1cb72a1bd86739",
   "identifier": "JAK-193",
   "issue_id": "046a0869-7c44-4202-b4c8-69b703c349bf",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-22T21:11:57.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
@@ -765,10 +774,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "3fb078c5434f1c8706b48b5fce912fa53224cf98",
+  "hash": "3fc749f5996b0dd3ba831325308d8f447dde2db2",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
@@ -915,10 +924,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-177/mecamouche-orbe-particule-deco-verte-et-pile-denergie-du-hud-les-vrais"
  },
  "hud-behavior-parity": {
-  "hash": "f2cffe2a7c2805c6aa046db2fc5ee0665eb4f15f",
+  "hash": "34aa2fe1c3701a2e2d9ba41ef72f31a64f0b79c3",
   "identifier": "JAK-178",
   "issue_id": "dede6433-d481-4eb8-a9f3-1ff56e61a216",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T10:37:22.000Z",
   "relations": [
    "hud-3d-pickups",
@@ -928,13 +937,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "build_announced": "e4f7e2ba32b1",
-  "hash": "b291fa6e2a50022dcc498ec93e592abaabe02fe6",
+  "hash": "864960b51fdb8eb10a7d4692e45720a2785bea56",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-021.txt",
-  "pulled_at": "2026-09-22T20:57:13.085Z",
+  "pulled_at": "2026-09-22T21:23:38.104Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1189,11 +1197,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-opus-5-5": {
-  "hash": "991b3a5f1a573361d7b129484f3e67e0025c02f6",
+  "hash": "9241c2e3f75e3473aaa0f078e2199acd72feebda",
   "identifier": "JAK-192",
   "issue_id": "54277465-24d2-439a-aa7f-a423d24e3c68",
-  "last_state": "In Review",
-  "pulled_at": "2026-09-22T20:59:23.000Z",
+  "last_state": "Done",
+  "pulled_at": "2026-09-22T21:35:30.013Z",
   "url": "https://linear.app/moukrea/issue/JAK-192"
  },
  "owner-se-renseigner-sur-le-combo-le-plus-efficient-tou": {
@@ -1478,7 +1486,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-27/lusure-et-la-hauteur-variable-de-lherbe"
  },
  "recharged-hud-jak1": {
-  "hash": "521de5b6ca3d623997b273ed46dd7cd182d00515",
+  "hash": "28ab00fd4e5f49bc883a8d0d2efee8f883aa6378",
   "identifier": "JAK-43",
   "issue_id": "c333e6ee-61ab-4fb6-b6c8-649cddbd97c9",
   "last_state": "Backlog",
