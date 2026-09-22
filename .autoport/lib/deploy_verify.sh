@@ -118,6 +118,25 @@ fi
 [ "$A" = "$D" ] || die "APK libgk.so != DEVICE libgk.so — device is running a STALE install (reinstall the APK)"
 echo "  ok: chain build==APK==device ($(echo $B|cut -c1-16))"
 
+# 3b. LE PACK DE CODE GOAL (harness-device-deploy-gate-must-compare-the-asset-pack, 22/09).
+# La chaine ci-dessus ne lit que libgk.so : un essai 100 % GOAL passait cette fermeture avec le
+# pack d'AVANT sur le telephone. On lit les OCTETS de `assets/bundle/<game>_cgo.zip`, local et
+# installe, par la MEME porte que la course (`deploy_verify_assets.sh --gate`), sans rien
+# installer ici. Puis le tampon deballe : le jeu lit `files/cgo/<game>/`, pas l'APK.
+AG=$(bash "$(dirname "$FR_LIB")/deploy_verify_assets.sh" --gate --no-deploy --item deploy_verify \
+       --arm cloture --serial "$SERIAL" --game "$GAME" --binary "$BUILT" 2>/dev/null)
+agv(){ printf '%s\n' "$AG" | sed -n "s/^$1=//p" | tail -1; }
+case "$(agv asset_pack_decision)/$(agv asset_pack_reason)" in
+  identique/*)
+    [ "$(agv asset_pack_device_stamp)" = "$(agv asset_pack_local_version)" ] \
+      || die "cgo pack UNPACKED on device is STALE: stamp '$(agv asset_pack_device_stamp)' != built version '$(agv asset_pack_local_version)' (launch the app once so LoaderActivity re-unpacks)"
+    echo "  ok: cgo pack on device == built pack ($(agv asset_pack_local_md5 | cut -c1-16), version $(agv asset_pack_local_version))" ;;
+  inconnu/pack-local-absent)
+    echo "  warn: no built cgo pack — pre-packaging-era build, cgo pack check skipped" ;;
+  *)
+    die "cgo pack: decision=$(agv asset_pack_decision) reason=$(agv asset_pack_reason) local=$(agv asset_pack_local_md5) device=$(agv asset_pack_device_md5) — the device does NOT run the built GOAL code (install the APK the builder produced)" ;;
+esac
+
 # 4. FLAG-SET pairing (Grecharged-buildsys-flags, risk R1): the libgk.so on the
 # device must have been built from the SAME flag set as the CGOs it will load
 # (both carry "ogflags:<flag-hash>:<target>"). A mixed pair is the flag-era

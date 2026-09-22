@@ -1042,6 +1042,40 @@ if [ "$MODE" = device ]; then
 fi
 # GARDE-BINAIRE/fin
 
+# ======================================================== GARDE-PACK/debut ===================
+# LE PACK DE CODE GOAL AUSSI, PAS SEULEMENT LE BINAIRE
+# (harness-device-deploy-gate-must-compare-the-asset-pack, 22/09).
+# La garde binaire ci-dessus ne lit que `libgk.so`. Le code GOAL voyage dans
+# `assets/bundle/jak1_cgo.zip`, que rien ne comparait : un essai 100 % GOAL gardait le binaire
+# identique, la garde rendait `identique` sans rien installer, et la course mesurait le pack de
+# l'essai PRECEDENT (hud-eco-gauge, essais 11, 12, 13, 16 ; le 17 livre A LA MAIN).
+# `lib/deploy_verify_assets.sh --gate` compare les OCTETS du zip, local et installe, publie les
+# deux empreintes cote a cote, installe l'APK du constructeur qui porte le pack local ET le
+# binaire local, et REFUSE — avant l'amorcage, sans toucher a la preuve — quand il ne peut pas.
+# Meme appareil que la course : la meme epingle, stricte quand elle vient de l'item.
+if [ "$MODE" = device ]; then
+  AG_OUT="$D/.asset-gate$SUF.$$.out"
+  AG_STRICT=""; [ -z "${ANDROID_SERIAL:-}" ] && [ -n "$ITEM_SERIAL" ] && AG_STRICT=1
+  ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" ANDROID_SERIAL_STRICT="$AG_STRICT" \
+    bash "$AP/lib/deploy_verify_assets.sh" --gate --item "$ID" --arm "${SUF:-livre}" --binary "$BIN" \
+    > "$AG_OUT"
+  AG_RC=$?
+  while IFS= read -r _agl; do [ -n "$_agl" ] && extra "$_agl"; done < "$AG_OUT"
+  AG_DEC=$(sed -n 's/^asset_pack_decision=//p' "$AG_OUT" | tail -1)
+  AG_LOC=$(sed -n 's/^asset_pack_local_md5=//p' "$AG_OUT" | tail -1)
+  AG_DEV=$(sed -n 's/^asset_pack_device_md5=//p' "$AG_OUT" | tail -1)
+  AG_WHY=$(sed -n 's/^asset_pack_reason=//p' "$AG_OUT" | tail -1)
+  rm -f "$AG_OUT"
+  log "garde pack : decision=${AG_DEC:--} local=${AG_LOC:--} appareil=${AG_DEV:--} raison=${AG_WHY:--} (code $AG_RC)"
+  if [ "$AG_DEC" = refus ]; then
+    log "REFUS ($AG_RC) : le pack de code GOAL du telephone n'est pas le pack local (${AG_WHY:--})."
+    log "Aucune mesure n'a eu lieu et aucune preuve n'a ete touchee. Fais produire l'APK par le"
+    log "CONSTRUCTEUR (il embarque android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip), puis relance."
+    exit "$AG_RC"
+  fi
+fi
+# GARDE-PACK/fin
+
 # LA PAIRE DE LA COURSE PRECEDENTE EST ARCHIVEE AVANT D'ETRE DETRUITE (signalement 13 du
 # 12/09). `proof<suf>.txt` s'efface ici, au DEBUT de la course ; son sceau, lui, survivait seul.
 # Le recensement de CETTE course tourne pendant la course : il trouvait donc un sceau sans
