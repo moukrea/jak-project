@@ -234,6 +234,48 @@ EXTRA=""
 extra(){ EXTRA="${EXTRA:+$EXTRA
 }$*"; }
 
+# ================================================ X86-PREVENU-AU-LANCEMENT/debut ==============
+# UNE COURSE x86 SUR UN ITEM A CRITERE `device=1` NE SERA JAMAIS LUE, ET ELLE LE DIT ICI
+# (harness-x86-proof-for-a-device-item-must-shout-at-launch, 2026-09-22).
+#
+# CE QUI EST ARRIVE, MESURE. `hud-eco-gauge` a perdu les essais 15 ET 16 sur le meme constat
+# unique de `validators/generic.sh` : « l'item exige l'appareil, la preuve est en source=x86 ».
+# L'essai 16 mesurait pourtant `hud_gauge_defects=0` — le chiffre n'a jamais ete lu. Le telephone
+# (Redmi eae4df44) etait branche et joignable pendant les deux courses : ce n'est pas une panne
+# d'appareil, c'est un enchainement de worker. Il calibre sur x86 — ce que le harnais lui
+# RECOMMANDE, un cycle APK+appareil coutant 30-50 min — puis rend la main sans refaire la
+# derniere course sur l'appareil. Rien, du lancement jusqu'au verdict, ne lui disait que cette
+# course-la etait perdue d'avance.
+#
+# CE QUE CE BLOC FAIT, ET CE QU'IL NE FAIT PAS. Il ne refuse RIEN et n'assouplit RIEN : une
+# preuve x86 sur un item a critere device reste REFUSEE par le juge, mot pour mot comme avant.
+# Il deplace seulement le MOMENT ou le worker l'apprend — ici, avant le moteur, quand il lui
+# reste du temps pour refaire la course sur le telephone, au lieu du verdict, quand l'essai est
+# deja debite.
+#
+# LE CRITERE VIENT DE LA MEME SOURCE QUE LE JUGE, canonise par `lib/verdict_sources.sh` : une
+# lecture separee du `device:` du backlog pourrait diverger de celle qui rend le verdict, et
+# l'avertissement porterait alors sur un critere que personne n'applique.
+X86W_CRITERE=$(bash "$AP/lib/verdict_sources.sh" "$ID" criterion 2>/dev/null) || X86W_CRITERE=""
+case "$X86W_CRITERE" in
+  *device=1*) X86W_DEV=1 ;;
+  *device=0*) X86W_DEV=0 ;;
+  *)          X86W_DEV=-1 ;;   # critere illisible : INCONNU, jamais un 0 qui se tairait
+esac
+if [ "$X86W_DEV" = 1 ] && [ "$MODE" != device ]; then X86W_PWNJ=1; else X86W_PWNJ=0; fi
+if [ "$X86W_PWNJ" = 1 ]; then
+  log "======================= CETTE COURSE NE SERA PAS JUGEE ======================="
+  log "$ID exige l'appareil (critere $X86W_CRITERE) et tu la lances en mode $MODE."
+  log "Le juge refusera cette preuve SANS MEME REGARDER ta grandeur, sur ce constat :"
+  log "  « l'item exige l'appareil, la preuve est en source=$MODE »"
+  log "Calibre ici tant que tu veux, mais REFAIS LA DERNIERE COURSE sur l'appareil :"
+  log "  .autoport/lib/proof_run.sh $ID device"
+  log "============================================================================="
+fi
+extra "proof_will_not_be_judged=$X86W_PWNJ"
+extra "proof_device_criterion=$X86W_DEV"
+# ================================================== X86-PREVENU-AU-LANCEMENT/fin ==============
+
 # ====================================================== VERROU-ECRIVAIN/debut =================
 # UN SEUL ECRIVAIN PAR `proof.txt`, ET IL DIT QUI IL EST
 # (harness-proof-file-has-no-writer-lock, 2026-09-12).
