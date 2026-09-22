@@ -15983,7 +15983,7 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
-- status: open
+- status: in-progress
   game: jak1
   code_scope: jeu
   spec: prompts/SPEC-refonte-hud.md
@@ -15996,6 +15996,13 @@ items:
   depends_on: *id005
   id: hud-eco-gauge
   priority: 10
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_FIXED_TICK=1
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
   proof_props:
   - debug.opengoal.want.levels=village1,beach
   - debug.opengoal.want.display=beach,display
@@ -16356,7 +16363,13 @@ items:
     DECAL : « on dirait que juste le decal est au dessus, pas leur lueur » — la partie opaque passe devant
     la jauge, le halo passe derriere. Ce sont donc DEUX dessins distincts et un seul a ete remonte. Publier
     le rang de dessin des DEUX (decal et lueur) contre celui des elements de la jauge ; les deux doivent
-    passer APRES.'
+    passer APRES.
+
+    22/09 18:45 : l''essai 15 a echoue sur DEUX constats, dont un de plomberie — « l''item exige l''appareil,
+    la preuve est en source=x86 ». L''appareil N''ETAIT PAS absent : Redmi Note 9 Pro eae4df44 vu sur
+    le bus USB ET par `adb devices` a 18:45, pas de marqueur .no-device. Calibrer sur x86 est permis,
+    mais la preuve qui sera jugee doit tourner sur le telephone, sinon l''essai est perdu avant meme qu''on
+    regarde hud_gauge_defects (=3 a l''essai 15).'
   where_to_look: 'HUD en jeu, ramassage d''eco bleue. CIBLE fournie par l''owner le 22/09 : owner-feedback/hud-eco-gauge/20260922T1204-2.jpg
     montre DEUX orbes d''eco bleue du monde — c''est a CA que l''orbe du trou doit ressembler ; 20260922T1204-1.jpg
     montre l''etat actuel (jauge en bas a droite). Le fond noir sous le trou est VALIDE, ne pas y toucher.
