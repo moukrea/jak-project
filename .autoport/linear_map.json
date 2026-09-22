@@ -612,10 +612,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
-  "hash": "8921fea05c5837bbef0828417c1cb72a1bd86739",
+  "hash": "d0e8ba9e23500c95fad638ba33cfd5f2a309a69c",
   "identifier": "JAK-193",
   "issue_id": "046a0869-7c44-4202-b4c8-69b703c349bf",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-22T21:11:57.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
@@ -774,11 +774,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
-  "hash": "3fc749f5996b0dd3ba831325308d8f447dde2db2",
+  "hash": "90866019cedbf531a13621b05e268dca6d148739",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-003.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-22T11:15:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-190/la-mort-du-superviseur-est-elle-meme-une-alerte-la-file-retour-owner"
  },
