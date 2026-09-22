@@ -417,10 +417,20 @@ items:
       du lighting, commençant par reprendre le HDR/blancs brûlés !
   - date: '2026-09-17'
     text: Heuuuuu… C'est fini ce sujet non ? Je vois pas pouquroi il est "bloqué" !
+    via:
+      comment: 7e151148-c5ff-4872-beef-de1c67055423
+      ticket: 7f260e2d-2eb8-4f01-a8cf-2b41f8cc0068
+      at: '2026-09-17T07:30:21.549Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Mhhh vérifies si on a pas des tickets qui supplantent ça, c'est bizarre ! Parce que j'ai déjà
       un menu "Max framerate" avec pour choix 30 / 45 / 60 / 75 / 90 / 120 / 240 / illimité qui fonctionne
       !
+    via:
+      comment: 41cc01e8-181a-45f1-8fb1-b2250d0b39a1
+      ticket: 7f260e2d-2eb8-4f01-a8cf-2b41f8cc0068
+      at: '2026-09-17T07:46:34.238Z'
+      backfill: own-ticket
   block_reason: 'Même empreinte d''échec ''c6fa8779424b'' 3 essais de suite : le worker n''apprend plus
     du validateur. On arrête cet item au lieu de brûler du quota dessus.'
   code_scope: jeu
@@ -3140,6 +3150,11 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Bah s'il est supplanté par la refonte, on peut même l'archiver non ?
+    via:
+      comment: 02361010-329f-4048-80ef-8e4873dd5120
+      ticket: 4861fc9d-fc03-4d35-bd29-a74d64cfc967
+      at: '2026-09-17T06:47:18.686Z'
+      backfill: own-ticket
   gate: null
   game: jak1
   max_turns: 800
@@ -4085,18 +4100,43 @@ items:
 
       Mais je crois que c'était déjà ce que le HUD rechargé essayait de faire quand on l'a parké, en tout cas c'était pas bon… Ah et aussi on a changé les fonts du jeu, donc la partie font ça devrait déjà être bon !
       [images enregistrees : .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-1.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-2.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-3.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-4.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-5.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-6.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-7.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-8.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-9.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-10.png ; .autoport/owner-feedback/recharged-hud-jak1/20260917T0000-11.png]
+    via:
+      comment: 7f929cd0-a55d-4478-a9f8-43a4b667a11e
+      ticket: c333e6ee-61ab-4fb6-b6c8-649cddbd97c9
+      at: '2026-09-17T10:32:49.641Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bon je sais pas si tu sais récupérer les images de Linear (tu devrais, c'est un bon endroit
       pour avoir des feedbacks visuels !) et tu pourrais même t'en servir pour poster des preuves et compagnie,
       super utile ! à voir si tu dois en fair eun ticket dédié
+    via:
+      comment: 0ebb5c40-3568-46d8-8cef-4c62bcd0d3e1
+      ticket: c333e6ee-61ab-4fb6-b6c8-649cddbd97c9
+      at: '2026-09-17T10:33:54.490Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Sinon oui, let's go pour ce que tu propose, je veux le relancer ! Fais ce que tu suggérais !
+    via:
+      comment: db62c44d-ba22-4f85-97ce-07fac72e5795
+      ticket: c333e6ee-61ab-4fb6-b6c8-649cddbd97c9
+      at: '2026-09-17T10:34:48.843Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors c'est bien que tu puisse pousser des images, mais là tu vois tu me dis que tu m'a envoyé
       le coeur vide, sauf que non, tu m'a envoyé la endcap de la jauge d'eco rouge !
+    via:
+      comment: 1f1bd651-0efc-43e7-9327-c7c0b640962e
+      ticket: c333e6ee-61ab-4fb6-b6c8-649cddbd97c9
+      at: '2026-09-17T10:36:35.551Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Et du coup… le sujet va bien être repris ? T'as fait des tickets dédiés ? tu me laisse un peu
       dans le flou là, et relis le commentaire sur l'envoi d'image, tu t'es chié !
+    via:
+      comment: 6ef17036-f8d3-4e3a-89da-2d92e90f0c14
+      ticket: c333e6ee-61ab-4fb6-b6c8-649cddbd97c9
+      at: '2026-09-17T10:38:01.271Z'
+      backfill: own-ticket
   gate:
     key: hud_recharged_defects
     op: ==
@@ -4147,6 +4187,11 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Bah s'il est couvert par la refonte, on peut même l'archiver non ?
+    via:
+      comment: d215c1a1-c8da-49f1-9abc-8537fb2057a7
+      ticket: f61a6488-43e5-49f8-b95d-86b78b704645
+      at: '2026-09-17T06:46:45.833Z'
+      backfill: own-ticket
   gate: null
   game: jak1
   max_turns: 800
@@ -4173,10 +4218,25 @@ items:
     text: En vrai c'est toujours pertinent qu'il soit là ce ticket ? On s'en cogne un peu non ? On a fait
       rouler Jak II, ça marchottais un peu mais bof.. et on a parké ça… Mais de toutes façons on est all
       in sur Jak 1, donc bon…
+    via:
+      comment: 10f855cb-3cae-41fa-a913-fb027411ea24
+      ticket: fd9774f3-0769-40e3-80ac-57de91f273d8
+      at: '2026-09-17T11:16:54.678Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bah du coup la colonne a arbitrer ne contient plus rien du tout, si ?
+    via:
+      comment: 395bfc1a-8ad0-40d9-ad8f-33a726b45acf
+      ticket: fd9774f3-0769-40e3-80ac-57de91f273d8
+      at: '2026-09-17T11:18:34.966Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bah du coup comment ça se fait que tu m'a dit le contraire… à éviter ce genre de conneries !
+    via:
+      comment: 2fe2da6e-aff5-4a6f-9096-17d1a0b39022
+      ticket: fd9774f3-0769-40e3-80ac-57de91f273d8
+      at: '2026-09-17T11:19:13.443Z'
+      backfill: own-ticket
   gate: null
   game: jak2
   max_turns: 800
@@ -4356,6 +4416,11 @@ items:
       tu m'a fait perdre la journée avec tes conneries j'ai envie de te cogner très fort
   - date: '2026-09-17'
     text: Je comprend rien à ce ticket, c'est un bordel sans nom… Tu m'expliques ? Détaille ?
+    via:
+      comment: 0dc5ed9e-2f14-41f1-b938-c473b14a5924
+      ticket: fc19917f-6dd9-427c-b15e-d0707f296a19
+      at: '2026-09-17T06:46:05.327Z'
+      backfill: own-ticket
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -5155,11 +5220,21 @@ items:
     text: ok, si ça bloque découpe en trois comme tu proposes
   - date: '2026-09-17'
     text: Toujours pertinent ? Bloqué pourquoi ? Besoin de redécouper ? C'est quoi le problème ?
+    via:
+      comment: 38980433-bdc0-4885-b2d9-355edd0783c3
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T06:44:53.617Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Top, mais étrangement je vois aucun ticket liés à ce dernier, ils devraient être clairement
       liés, avec des blocked by, depends on, etc etc. pour tous les sujets sinon on s'y retrouvera jamais,
       pas étonnant que tu fasse un peu de la merde si on a pas des dépendances claires… C'est un feedback
       à chaud qui concerne plus le harnais et sa façon de travailler, mais c'est important !
+    via:
+      comment: a788db37-4f34-492d-9b52-ec67a61e7329
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T07:43:52.682Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et
       la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO
@@ -5167,29 +5242,59 @@ items:
       me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois
       que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà
       présent de la vieille implem ou un truc du style…
+    via:
+      comment: 4c07f5f5-9a31-402d-85c0-9e22468df05e
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:52:33.502Z'
+      backfill: other-ticket
   - date: '2026-09-17'
     text: '"En cours : un robot travaille dessus."… Bizarre comme affirmation, le harnais côté Claude
       (et pas Codex) travaille dessus, mais "Un robot"… nan pas un robot'
+    via:
+      comment: eba846bb-5fd6-4891-a9fb-410e9374e69d
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T12:38:04.319Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Pourquoi essai 14 sur 14 ? On est sûr que cet item devait être fait là ? On retombe pas sur
       le même soucis, vu que c'est le ticket parent de l'AO, les tickets enfants alors ? Je pressent un
       truc bizarre là, d'ailleurs,JAK-48… c'est pas juste un ticket extrêmement ancien d'avant même la
       refonte de la lumière , il y a un truc qui cloche là je suis paumé
+    via:
+      comment: d844812f-55bd-4c6c-8baf-15c0f9b41747
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T13:19:25.266Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       J'ai l'impression que c'est confus et pas clair, pas étonnant que le harnais se butte dessus en boucle.
 
       Basique : AO legacy poubelle → Nouvelle AO plus en filtre à la fin (bon la c'est trop simplifié mais tu comprends l'idée non ?)
+    via:
+      comment: 2549df6b-e3ba-4ee6-9c12-41e0c046843f
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T13:22:44.455Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Mon commentaire "asique : AO legacy poubelle → Nouvelle AO plus en filtre à la fin" était un peu basico basique, p'tetre quand même être clair non dans [JAK-179](https://linear.app/moukrea/issue/JAK-179/une-nouvelle-ao-lancienne-a-la-poubelle-la-nouvelle-calculee-dans) sur ce qu'on veut exactement par rapport à la spec et tout le toutim ?
 
       Faudrait pas que ce soit l'effet inverse 😀
+    via:
+      comment: 198d7ce9-45d9-431e-8ea6-e73926d814c2
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T13:38:50.552Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Du coup ce ticket est repassé en Todo, attendu ? Pourquoi ? L'autre le supplante pas ? J'ai
       l'impression de devoir faire la police alors je surveille un peu et je veux m'assurer qu'on fasse
       pas de la merde, pour potentiellement améliorer le harnais et que ça se reproduise pas si c'est
       pas normal (si c'est normal alors rien à faire of course)
+    via:
+      comment: 48906247-826c-415b-b62b-534d0964380d
+      ticket: a66778a4-f7f1-4843-bd78-59c6f91cfd95
+      at: '2026-09-17T13:44:33.025Z'
+      backfill: own-ticket
   gate:
     key: ao_owner_defects
     op: ==
@@ -5789,18 +5894,36 @@ items:
       build que je teste (celui de 6h20 et quelques) sur le title screen l'eau est noire (c'est bon une
       fois en jeu) évidemment qu'elle ne sort plus du lit de la rivière qui se jette dans la mer de forbidden
       jungle vu que c'est exactmeent pareil que l'eau du jeu original sauf qu'elle est opaque...
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-19'
     text: C'est la même hauteur que la vague d'origine au millimètre près .. mais il me semblait qu'on
       avait remplacer le maillage/whatever par un truc plus détaillé dans une itération antérieure et
       je me souviens voir des vagues beaucoup plus crédibles que sur l'eau d'origine, j'ai pas testé ce
       build mais à l'air d'avoir complètement disparu… je t'avais déjà fait ce feedback auparavant ça
       me gave un peu
+    via:
+      comment: ceff3b6d-bd9d-4481-a00c-f929f0b76f7d
+      ticket: 7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7
+      at: '2026-09-19T16:42:31.732Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Oui mais à un moment donné elle n'était pas identique à l'original et c'était mieux je trouve
       (en dehors du fait que l'eau sortait du lit de la rivière à la jungle)
+    via:
+      comment: 9b8529e6-663d-4161-820c-93a0f07d3c88
+      ticket: 7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7
+      at: '2026-09-19T16:58:29.824Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Alors je pense que c'est bon, la mer a de nouveau du relief, le lit de la rivière ne déborde
       plus, la transparence est toujours là et la mer n'est plus noire sur l'écran titre.
+    via:
+      comment: da661ccd-196b-4867-8153-75db9463f872
+      ticket: 7a53ea7a-a1ca-4ec7-9b4c-13b7acf752c7
+      at: '2026-09-20T05:48:21.187Z'
+      backfill: own-ticket
   gate:
     key: water_ocean_owner_defects
     op: ==
@@ -7408,11 +7531,26 @@ items:
       Aussi, le truc de l'échelle de rendu… Le slider c'est chiant, je préfèrerais un sous menu avec 10, 20, 30, 40, 50, 60, 70, 80, 90 et 100… Mais avec à côté la résolution de rendu calculée live en raccord à la résolution utilisée dans le picker de résolution ! Encore une fois, p'tetre un nouveau ticket dédié pour ça
 
       C'est aussi valable pour l'échelle de rendu min quand on est en échelle de rendu dynamique ! D'ailleurs on devrait aussi avoir un Echelle de rendu max (la value min de cette échelle étant systématiquement supérieure ou égale à l'échelle de rendu min, à ajuster automatiquement, avec les mêmes trucs de display que j'explique juste avant), p'tetre un ticket dédié pour ça aussi.
+    via:
+      comment: 4fa221db-253e-45ab-a4e5-98a3f0fa90c1
+      ticket: fc9322c1-0e17-4a1d-99b2-856f1ae15b0c
+      at: '2026-09-17T06:43:52.426Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Je comprend même pas pourquoi il est considéré comme bloqué, je viens de tester sur le build
       de… 6h et quelques ce matin, ça fonctionne !
+    via:
+      comment: 4fa221db-253e-45ab-a4e5-98a3f0fa90c1
+      ticket: fc9322c1-0e17-4a1d-99b2-856f1ae15b0c
+      at: '2026-09-17T06:43:52.426Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: il est plus que validé du coup non ? C'est terminé ! Enfin dis moi si je me trompe
+    via:
+      comment: 67d4e405-1e50-4fc4-bf48-99b579b8cf45
+      ticket: fc9322c1-0e17-4a1d-99b2-856f1ae15b0c
+      at: '2026-09-17T08:11:40.566Z'
+      backfill: own-ticket
   prompt: prompts/item-res-menu-truth.md
   delivered: null
   code_scope: jeu
@@ -10171,14 +10309,27 @@ items:
     text: Pour l'herbe au bord des chemins... Bah sandover t'as pas mis l'herbe donc tu me dis de tester
       mais elle n'est pas là, sur geyser rock (niveau d'entrainement) c'était déjà bon avant qu'on décide
       re refaire l'herbe... Et il n'y a pas de chemin.
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-17'
     text: Bah du coup c'est pas à tester, c'est pas validé du tout ! Il suffit de lire le ticket pour
       voir que c'est pas à tester ! À moins qu'il y ait une info que j'ai loupé, un build spécifique que
       j'ai loupé… En tout cas c'est pas bon du tout !
+    via:
+      comment: d343e848-9c7b-4686-8ac3-fc2771b27dd9
+      ticket: 40495f73-0ba0-4b75-a1fc-4bf09daf2ca5
+      at: '2026-09-17T06:32:23.804Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Tu dis "Le ticket se rejouera après « l'herbe sur Sandover et la jungle », là où des chemins
       existent, et c'est là que tu regarderas."… Et il y a un ticket qui couvre ça ? Parce que sinon ça
       sera juste jamais vrai !
+    via:
+      comment: 093924b6-bef0-45a0-9681-393a76a9ff04
+      ticket: 40495f73-0ba0-4b75-a1fc-4bf09daf2ca5
+      at: '2026-09-17T07:40:27.578Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   owner_test: false
@@ -10246,9 +10397,19 @@ items:
     text: Mhhhh ouais OK je vois bien le truc de touffes… mais j'ai l'impression que c'est juste l'ancienne
       herbe en touffe… J'ai pas l'impression que ce soit raccord avec la SPEC que tu as à portée de main,
       ni si c'est raccord avec le reste de la refonte ou pas… Faut que tu vérifies là !
+    via:
+      comment: cd2ab13a-c6e9-42b6-99ca-38eb4d821f88
+      ticket: 24dbdb0f-c378-4cd3-b939-32c56ea5b024
+      at: '2026-09-17T06:34:07.108Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
       pour moi
+    via:
+      comment: 1c61b77c-7f8b-4c00-85bf-35c66dc823f1
+      ticket: 24dbdb0f-c378-4cd3-b939-32c56ea5b024
+      at: '2026-09-17T08:12:48.874Z'
+      backfill: own-ticket
   owner_ok:
     date: '2026-09-17'
     text: Alors je peux très bien valider cet item du coup, l'herbe est bien en touffe, c'est terminé
@@ -10335,33 +10496,73 @@ items:
   - date: '2026-09-19'
     text: Ce chantier ne touche pas le jeu ? Qu'es-ce ce que tu racontes, comment tu peux être autant
       à côté de la plaque ?
+    via:
+      comment: 052b9755-4cf7-4d4b-ac81-874abd539a73
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-19T18:38:55.085Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Alors tu fais juste des touffes avec toutes les géométries, pas de touffes d'herbe différentes,
       pas de variations de hauteur… certaines des géométrie… on voit clairement leurs polygones de près,
       c'est nul !
+    via:
+      comment: 653c2688-0066-4173-862d-8358d3af3e49
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T05:59:35.785Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Idem à voir àvec l'ensemble des tickets lié
+    via:
+      comment: 2fb29789-daa2-4a9b-801c-5b1616500f22
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T07:21:22.939Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Toutes les touffes se ressemblent… je sais pas si un autre chantier traite ça mais en l'état
       j'ai l'impression que c'est très mid… on voit plus les polygones et on a il semblerait des hauteurs
       différentes par contre
+    via:
+      comment: aa2bf3e3-6343-4b74-ace6-cd907091e14b
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T09:14:15.535Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Attention à pas être en collision avec un autre des tickets de la refonte d'herbe quand même
+    via:
+      comment: c4ded717-7859-4db9-949c-415631ebc74f
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T10:23:37.790Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: |-
       "→ À arbitrer : tous les essais accordés sont consommés sans passer la mesure. Une décision est attendue : rouvrir avec une nouvelle piste, redécouper, ou archiver."
 
       Bah démerdes toi, t'as les commentaires dans les tickets liés, la spec, t'as tout ce qu'il faut !
+    via:
+      comment: e62cc4ad-4e00-4311-9304-501b720337bd
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T10:46:29.296Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Honnêtement je vois pas beaucoup d'espèces t'as pas du tout joué sur les dégradés (pas de haut
       en bas mais de "gauche à droite" pour créer d'autres espèces, elles se ressemblent toutes et ont
       les mêmes variations de teintes, c'est nul !
+    via:
+      comment: 19b6eee5-a344-4c2a-a52f-20f4b825bf5e
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T10:56:07.109Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: |-
       Vraiment tu trouves ça satisfaisant ? Une herbe maron qui n'a rien a faire dans geyser rock (HS le biome, regarde la spec putain), une herbe tellement thick et courte jaune qui n'a aucun sens, aucune vraiment différente, les touffes toutes identiques, aucune impression reliefs sur la plupart hors les maron (mais les marrons n'ont rien a faire là)… vraiment toujours aussi nase !
 
       ![71670.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/ade6f65c-72d8-4398-a61f-01dadfbe34d7/3ad9e1ad-c921-4097-82ed-423a58763d7c)
       [images enregistrees : .autoport/owner-feedback/grass-blade-variants/20260920T1836-1.jpg]
+    via:
+      comment: 26ebdd1e-d2e1-4808-9b73-7f57afe3974f
+      ticket: 0a798e7e-f158-4289-9600-492715885da0
+      at: '2026-09-20T18:36:42.761Z'
+      backfill: own-ticket
 - status: open
   game: jak1
   owner_test: true
@@ -10434,15 +10635,30 @@ items:
   - date: '2026-09-20'
     text: Aucune variation sur la verticale, c'est juste de haut en bas, et non c'est pas cohérent… en
       gros j'ai l'impression qu'on voit plus ou moins toutes les teintes sur toutes les touffes, nul !
+    via:
+      comment: a6b3b567-d333-4072-a3de-8d28c9f02698
+      ticket: 757f6ef9-10ef-4505-8193-97645fece194
+      at: '2026-09-20T05:58:15.205Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Un dégradé sur la longueur du brin j'ai dit, c'est à dire pas de haut en bas, ça donnera du
       relief à ces géométries très simples, c'est pas forcément pour une touffe, ça permet de créer en
       plus des changements de géométrie des variations de types de brins etc etc, à voir avec l'ensemble
       des tickets d'herbe… j'aurai cru que c'était compris depuis le début ça commence à me saouler
+    via:
+      comment: 99e0a858-c716-4d70-be4e-02d3622e0343
+      ticket: 757f6ef9-10ef-4505-8193-97645fece194
+      at: '2026-09-20T07:21:01.288Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Attention les types de brins simple niveau géométrie impliquent aussi des "espèces différentes"
       a même titre que les dégradés et compagnie, ça joue sur la cohérence des types, biomes, espèces
       différentes et compagnie
+    via:
+      comment: 1bcecc06-6410-4d49-906d-45e8f88946ff
+      ticket: 757f6ef9-10ef-4505-8193-97645fece194
+      at: '2026-09-20T09:16:22.538Z'
+      backfill: own-ticket
 - status: open
   game: jak1
   owner_test: true
@@ -10514,6 +10730,11 @@ items:
     text: C'est vraiment bof bof, j'ai l'impression que tout bouge pareil avec des endroits plus ou moins,
       mais pas du tout convaincant, les touffes bougent ensemble, les Variations sont nulles… c'est vraiment
       pas ouf
+    via:
+      comment: 5c49d35e-2713-40cd-bb8d-0935cb088823
+      ticket: 7da89a1c-3c97-4ebe-a745-f31d76e7d8fb
+      at: '2026-09-20T05:57:10.718Z'
+      backfill: own-ticket
 - status: open
   game: jak1
   owner_test: false
@@ -10624,6 +10845,11 @@ items:
       on saute l'herbe se relève et quand on atterrit bah ça passe d'un état à l'autre instant sans transition.
       Quand on spin ou punch en avant, on voit clairement que c'est fake et que ça prend pas en compte
       le mesh de Jak (ou ses collisions) pour influencer la façon dont l'herbe se couche!
+    via:
+      comment: 767ecaf7-fb70-4a48-94cb-2704d3124f8c
+      ticket: 9c5ed8e0-1f3f-49a9-a5b8-9f6868fd3403
+      at: '2026-09-20T10:53:01.499Z'
+      backfill: own-ticket
 - status: open
   game: jak1
   owner_test: true
@@ -12602,17 +12828,35 @@ items:
       tout autant qu'à tout le reste ?
   - date: '2026-09-17'
     text: Pour l'AO, bah démerdes toi et fait le meilleur choix.
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-17'
     text: Alors ce ticket est bloqué par [JAK-159](https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a)
       et [JAK-166](https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres)
       il semblerait… Pourquoi il est en cours donc ? Peut-être que je suis con mais s'il est bloqué par
       un autre ticket qui n'est pas fait… Pourquoi il serait en cours ? Ah mais c'est deux tickets sont
       faits… My bad tu peux ignorer 😀
+    via:
+      comment: 1b0ec98f-45bf-445e-9fc9-187ae2dc564b
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T08:40:23.193Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Ça avance ? J'ai l'impression que tu te buttes là dessus…
+    via:
+      comment: b39e9184-4b42-47ef-94c1-097e4735f8d8
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T09:30:22.481Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Je commente ici en vrac, j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal
       ! [JAK-173](https://linear.app/moukrea/issue/JAK-173/distinction-entre-todo-et-backlog)
+    via:
+      comment: 019d60c7-82f3-4eb6-a500-ce0501e8d986
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T09:41:05.522Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       "🤖 → **In Review**
@@ -12621,11 +12865,21 @@ items:
       MOI. ROBOT. MOI. DÉBILE.
 
       Genre je suis sensé compredre ce que je dois vérifier avec ce commentaire ? T'es sérieux là ?
+    via:
+      comment: 03297e6d-3848-4a26-b8e2-993e9ad91a4c
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:39:59.807Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       "**À regarder sur le build 36c980 (publié 12:31, déjà sur ton Redmi)"**… Alors la pluspart du temps la revue manuelle se fait sur mon HONOR, à partir d'un build sur jak-builds (qui ne l'oublions pas est remplacé à chaque fois qu'un nouveau build y est poussé), prends ça en compte !
 
       Du coup questions subsidiaire qu'on pourra éviter à l'avenir, c'est bien dispo sur jak-builds ?
+    via:
+      comment: 1656d0de-e7c2-4669-875b-db98187d19cb
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:44:09.134Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors c'est beaucoup mieux, mais on a quand même (quelque soit le model de AO sélectionné et
       la qualité) une bande claire à la zone de contact… Et j'ai toujours comme cette impression que l'AO
@@ -12633,12 +12887,27 @@ items:
       me semble bien qu'avec la SPEC de refonte de l'éclairage on changeait ça complètement ! Je crois
       que c'est juste mal fait parce qu'au moment de reprendre le sujet AO, t'as réutilisé du code déjà
       présent de la vieille implem ou un truc du style…
+    via:
+      comment: 4c07f5f5-9a31-402d-85c0-9e22468df05e
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:52:33.502Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Attends mais on essayait de corriger un truc qu'on allait jeter anyway ? Nan mais tu vois un
       peu la perte de temps là ? C'est complètement con !!!! Au putain je vais péter un plomb
+    via:
+      comment: 43081d70-f7f0-453d-9b81-46365184492b
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:57:21.523Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Faut juste plus que ça se reproduise ce genre de merde, ça fait gaspiller des jours de taff
       à tourner en rond pour rien !
+    via:
+      comment: f9396e53-8b62-4f21-bf16-6fdd7d4f96af
+      ticket: 3ecb9f6c-5fbc-4c82-9781-4738fc135af0
+      at: '2026-09-17T10:59:44.929Z'
+      backfill: own-ticket
   owner_ok: null
   supervisor_recovery: false
   supervisor_clarification:
@@ -13170,6 +13439,11 @@ items:
   - date: '2026-09-17'
     text: Je vois pas pourquoi t'as ajouté les preuves sur des tâches déjà terminées depuis un moment…
       On s'en cogne du coup… Quelle perte de temps
+    via:
+      comment: 05f3c107-f93e-49c6-8799-13ec70ea7ba9
+      ticket: 8f68ed9c-6432-4dff-9128-779d7a5626e4
+      at: '2026-09-17T14:50:23.071Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   owner_test: false
@@ -13359,6 +13633,11 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: Validé !
+    via:
+      comment: da960815-41fe-4c09-8b38-be1b474c8cef
+      ticket: 9ed2127e-03eb-4734-9054-d9da293e32da
+      at: '2026-09-18T05:20:50.366Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   code_scope: jeu
@@ -13427,11 +13706,26 @@ items:
       \ de rendu affecte la partie jeu rendu alors que la résolution c'est TOUT, y compris l'UI… je sais\
       \ pas si je suis clair ?\n\n![71575.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/41b78529-c4f0-402a-ba2f-d0df514dda82/39cc5204-a483-4bd6-b271-0724f8e66c4f)\n\
       [images enregistrees : .autoport/owner-feedback/res-scale-submenu/20260919T0758-1.jpg]"
+    via:
+      comment: b86a9912-8b1e-4e1a-8df3-e72c9ec2f1d3
+      ticket: 205ff9ed-c57a-4439-836b-c73c14a192e5
+      at: '2026-09-19T07:58:43.603Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+    via:
+      comment: 44c3a97b-fed1-4626-b6ff-4e3af536dac9
+      ticket: 205ff9ed-c57a-4439-836b-c73c14a192e5
+      at: '2026-09-19T16:25:54.601Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Validé
+    via:
+      comment: 84b6a683-b2f8-4563-889f-9fb1f4b4b832
+      ticket: 205ff9ed-c57a-4439-836b-c73c14a192e5
+      at: '2026-09-20T05:52:25.173Z'
+      backfill: own-ticket
   block_reason: ''
 - id: owner-todo-priorisation
   status: validated
@@ -13463,10 +13757,18 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Déplacé en « Done » dans Linear par l'owner
+    via:
+      source: move
+      backfill: texte-du-deplacement
   - date: '2026-09-17'
     text: Mhhhh du coup il y a pas un pendant natif linéar pour ce rang ? ça serait plus clair côté linear,
       si ça pouvait être adapté programmatiquement ce serait encore mieux d'ailleurs. ça peut mériter
       un nouveau ticket pour faire ça, je sais pas
+    via:
+      comment: 45631558-632d-4f12-aeac-48bf225adfae
+      ticket: cc2e9cf1-c467-4282-b51b-61204f1dda47
+      at: '2026-09-17T10:03:23.746Z'
+      backfill: own-ticket
 - id: owner-distinction-entre-todo-et-backlog
   status: validated
   game: jak1
@@ -13497,13 +13799,31 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
+    via:
+      comment: 1f23aa79-c5bb-4e5c-99da-a0eb364e2067
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T10:07:13.570Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Déplacé en « Done » dans Linear par l'owner
+    via:
+      source: move
+      backfill: texte-du-deplacement
   - date: '2026-09-17'
     text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
+    via:
+      comment: 1f23aa79-c5bb-4e5c-99da-a0eb364e2067
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T10:07:13.570Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bah les nouveaux tickets de Linear devraient attérir dans le backlog non ? sinon c'est dissonant
       et ça va exploser dans le temps !
+    via:
+      comment: c31a943c-b25a-421a-8413-81fb2d137307
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T10:08:16.165Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   code_scope: jeu
@@ -13574,6 +13894,11 @@ items:
   owner_feedback:
   - date: '2026-09-18'
     text: C'est bon pour moi ! Bien joué !
+    via:
+      comment: a5c7e7f4-8244-4cee-aed7-41a0505536c4
+      ticket: 190bf33c-24ca-4b73-b1e5-fe6034f624ce
+      at: '2026-09-18T05:17:21.554Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   code_scope: jeu
@@ -13673,6 +13998,11 @@ items:
   owner_feedback:
   - date: '2026-09-17'
     text: Ah j'ai peut-être testé sur un build pas fini ?
+    via:
+      comment: 101a519a-5fe8-4303-b433-c7df424e914b
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-17T23:45:57.268Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Alors c'est vraiment, VRAIMENT très bien ! Mais c'est quand même pas parfait. Le end cap suit bien la déplétion d'eco, super, mais sur les derniers % (je sais pas si c'est en % mais tu vois l'idée, ça va overlap par dessus le quart de la jauge qui ne peut pas être rempli d'Eco (le quart bas-droit). C'est un tout petit détail de quelques pixels , ça se tient que ça se produise en fait… mais c'est dérangeant. Tu devrais avoir un masque pour le quart droit-bas sur le endcap pour que ça ne se voit pas !
@@ -13680,62 +14010,140 @@ items:
       Deuxième point, il y a en dessous (sur la gauche de la jauge) des particules bizarre qui ressemblent un peut à des particules d'Eco vert qu'on aurait teinté à la couleur de l'Eco en cours… alors ça faut le dégager, c'est moche ! Par contre, le centre de la jauge est creux et vide… c'est pour une raison ! Ce que j'aimerais, c'est qu'il y ait une vraie particule de l'Eco en cours (telle qu'on la trouve in game, le vrai modèle 3D comme on a fait pour le reste du HUD) par dessus ce vide de la jauge ! Bien dimensionné of course pour que ça overlap un peu mais que ça ne recouvre pas la jauge (que la lecture reste facile)
 
       Donc c'est pas validé, mais on est VRAIMENT pas mal !
+    via:
+      comment: 63cc31ba-7ece-4711-94d2-2e6f9f717a84
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-17T23:45:32.846Z'
+      backfill: own-ticket
   - date: '2026-09-18'
     text: Alors il la jauge d'Eco a disparue (dans le sens où c'est toujours l'ancienne sur les build
       que je lance…) je pense qu'un autre ticket a écrasé un truc ! Alors faut trouver pourquoi et corriger
       ! En attendant je vérifie les autres tickets en attente de retour
+    via:
+      comment: 66e7708a-d319-4695-99b2-f73e52946f62
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-18T05:14:33.429Z'
+      backfill: own-ticket
   - date: '2026-09-18'
     text: Non le cœur est bon, t'aurais dû le voir par toi même j'ai validé son ticket !
+    via:
+      comment: 934bfb0c-c815-4d3e-93db-8d8cecb14f77
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-18T05:24:44.567Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Alors je saurais dire si la particule est la bonne car oui je l'aperçoit par le trou au centre
       de la jauge, mais du coup elle est en dessous, pas au dessus ! Donc c'est pas bon !
+    via:
+      comment: 80de5a71-ca05-47e6-903e-16065ce22dde
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-19T07:50:58.905Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+    via:
+      comment: cedcbe5b-a0f0-4ac2-9be0-653e979d9bbc
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-19T16:25:38.645Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Alors c'est par dessus mais la lueur est très muted… et aussi j'ai l'impression que c'est le
       truc d'eco vert avec les sparks et teinte de l'Eco Bleue, mais pas le vrai truc d'eco bleu (les
       sparks d'eco bleue bougent pas comme sur la particule d'Eco Bleue mais plutôt exactement comme sur
       la particule d'Eco verte donc c'est pas bon)
+    via:
+      comment: 56b45887-2775-46a5-b6b8-fcb25df8df6a
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T05:52:09.126Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Les éclairs de l'Eco Bleue débordent un peu trop sur la jauge (l'ensemble est trop gros par
       rapport au trou, pas de beaucoup mais quand même).  Et la teinte est pas assez opaque, ça fait presque
       transparent, t'avais l'air d'exprimer que ça pourrait être un soucis dans les commentaires précédents,
       ça l'est
+    via:
+      comment: fb86a93b-82db-47b1-803f-3136b9f4c5a9
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T09:13:10.086Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Débile, maintenant elle est tellement minuscule que c'est un petit point au milieu du trou,
       le problème d'opacité de la lueur bleue n'est en plus pas corrigé du tout, à chier
+    via:
+      comment: 76064355-cd68-4bdc-b475-16d3fe865a31
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T10:54:44.423Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Bah ok… tiens moi au jus si ça avance
+    via:
+      comment: cc81b605-cb30-4afb-b3a7-5f1843f4225d
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T14:33:35.819Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Bah j'attends le build alors, si j'en suis pas content tu pourras reprendre avec plus d'essais
       !
+    via:
+      comment: b491a63c-f1a8-4e8d-8c10-e81c43e2c73a
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T14:43:00.540Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: |-
       Je sais pas sur quoi tu fais tes mesures à ralonge mais c'est évident en un coup d'œil que ça va pas (regarde le screen), l'orbe sur la jauge ne recouvre pas le trou mais est trop petite à l'intérieur et le fond de cette dernière fait juste un rond blanc, pas comme le bleu qu'elle fait in game ! C'est toujours pas bon ! Je sais pas ce que t'as bricolé avec l'opacité mais je pense qu'on pourrait faire apparaitre un fond noir d'un coup sous le rond vide de la jauge quand l'orbe y apparaît, et sur les derniers pourcents quand elle se vide un fade out pour disparaître (et de même pour l'orbe). Et bien sûr agrandir, et faire en sorte que ça soit bleu et pas blanc (rouge pour orbe rouge et jaune pour orbe jaune respectivement of course)
 
       ![71669.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/106bb544-d364-48d3-8685-9e9c85d921f7/9e98938e-c1fb-4cfa-bd4e-74f542722c39)
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260920T1831-1.jpg]
+    via:
+      comment: 90afb4c5-f55b-46cf-a090-1a30f22c4e66
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-20T18:31:06.561Z'
+      backfill: own-ticket
   - date: '2026-09-21'
     text: |-
       Alors le fond noir que tu as mis rond je sais pas pourquoi puisque en terme de layers il est sensé être placé en dessous de la jauge n'est pas bien aligné alors on voit un peu au travers (tu aurais juste pu faire un carré un peu plus grand que le rond vide de la jauge et le mettre en dessous) et l'orbe d'Eco… bah t'as fait quoi ? On voit juste une lueur bleue qui bouge pas du tout et sans les particules électriques, c'est complètement bidon ! Tu te fous de ma gueule !
 
       ![71708.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/5ab2f038-7f92-4086-8286-c7282220ca95/6abd1290-17a1-47e4-9404-b495304cd557)
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260921T0836-1.jpg]
+    via:
+      comment: f9cb430f-d396-4b50-b320-94d21e73306b
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-21T08:36:32.445Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: Et tu mesures ça comment hein ? Avec tes capacités visuelles à chier ? J'en peux plus de tes
       mesures merdiques qui prennent des heures et ne mènent jamais à rien… la plupart du temps soit elles
       passent alors que c'est complètement claqué soit elles échouent alors que c'est bon, t'es casse
       couilles !
+    via:
+      comment: 0285b3d5-19a3-42de-a0a3-7974fb799dcf
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T10:27:32.274Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: Je t'ai déjà dit de me remonter les captures/mesures que tu fais car je suis meilleur juge que
       toi sur tout ce qui est visuel… et si ça part en build testable je peux aussi vérifier plutôt que
       tes mesures de merde
+    via:
+      comment: 75ad8222-cc6d-4564-a96b-c32fbcda0553
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T10:30:28.139Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: Mais du coup tu fous quoi ?
+    via:
+      comment: a0f6e144-1187-4333-85ff-91bba52f3289
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T11:15:49.845Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: putain mais fonce, je dois te repeter combien de fois, je veux tester la jauge.casse couille
       !
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-22'
     text: |-
       Alors le fond noir nickel, enfin ! Mais parcontre l'orbe d'Eco Bleue sensée remplir le trou de la jauge et légèrement déborder par dessus (Eco rouge quand Eco rouge actif, Eco jaune quand Eco jaune actif) n'a absolument rien à voir avec les orbes d'Eco Bleue du monde ! Regardes les screens, sur un on voit la jauge (en bas à droite), sur l'autre je te montre deux orbes d'Eco bleue, rien à voir ! Allé, prend un budget de trois essais supplémentaires et règle moi ça !
@@ -13744,18 +14152,34 @@ items:
 
       ![71737.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/af9dc68e-4f6e-44d2-8fd7-f35259d3cbe4/d6da2d90-620f-4635-a088-907c7b22fdfa)
       [images enregistrees : .autoport/owner-feedback/hud-eco-gauge/20260922T1204-1.jpg ; .autoport/owner-feedback/hud-eco-gauge/20260922T1204-2.jpg]
+    via:
+      comment: 4f4613ce-65e9-4383-8801-7beb5eafc1a6
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T12:04:05.854Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: Je vois bien sur les builds que tu fais rouler que la particule éco bleue/rouge/jaune est là
       comme elle semble apparaître dans le monde, mais elle n'est pas au dessus (en terme de layer) de
       la jauge (ou alors ça se voit pas) et beaucoup trop petite !
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-22'
     text: L'Eco jaune est ridiculeursement trop petite, les deux autres encore un peu trop petites mais
       pas autant, par contre leur lueur n'est toujours pas au dessus (en terme de layers) de la jauge,
       on dirait que juste le decal est au dessus, pas leur lueur.
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-22'
     text: Alors t'es casse couilles… faut juste savoir si ça roule sur Android et on sait déjà que c'est
       le cas. Sur x86 ça me suffit, mais je peux te dire sur les derniers runs que j'ai vu rouler que
       les orbes d'Eco sur la jauge devraient au moins êtres deux fois plus grosses.
+    via:
+      comment: cbcce22e-d3c6-4d3f-b25c-b3f3df2038b1
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T17:41:37.855Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: |-
       Bon t'es une merde. Déjà publies le build que je puisse le tester (sur jak-builds). Et fais aussi un ticket pour les problèmes de harnais suivant:
@@ -13763,6 +14187,11 @@ items:
       * Le harnais pense que le téléphone branché et le téléphone sur lequel je teste est la même chose. C'est faux, le Redmi branché est pour que le harnais fasse les tests au besoin, moi je teste sur mon HONOR qui n'est pas branché, d'où la nécessité que le build soit sur jak-builds
       * Le harnais pense qu'il est obligatoire que ce soit vérifié par lui même sur Android et refuse les vérifications via le build x86… c'est vrai quand il s'agit d'une nouveauté car il faut savoir si ça tourne sur Android aussi avec ses spécificités, mais pour de l'itération, le build x86 suffit, et il n'est pas nécessaire de systématiquement tester sur Android. Au pire l'utilisateur (moi) peut constater par lui même que ça marche pas sous ARM au moment de la validation humaine.
       * Le harnais se perd dans ses capacités de mesures et est obsédé par ces dernières… il perd un temps complètement fou a mesurer des choses qui prendrait quelques secondes à un humain, et de plus la plupart du temps ces mesures sont soit en erreur parce que mal mesurées, soit en faux vert parce que ça mesure pas la bonne chose comme il faut
+    via:
+      comment: 317686db-57f1-42bc-828f-3e9a2b41e2e0
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T20:57:13.085Z'
+      backfill: own-ticket
   - date: '2026-09-22'
     text: Je vois pas ce que tu peux pas répéter sur PC, la jauge est identique sur Android et PC, tu
       dis de la merde. Le build ne livre pas les assets... je vois pas ce que tu racontes, c'est un truc
@@ -13770,14 +14199,25 @@ items:
       te demande de me laisser vérifier moi plutît que t'entêter à vérifier visuellement toi comme un
       gros teubé alors que t'es absolument nul à chier en vérif visuelles... C'est pas la première fois
       que je le dis et j'en ai vraiment plein le cul de me répéter.
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-22'
     text: putain mais fonce, je dois te repeter combien de fois, je veux tester la jauge.casse couille
       !
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   - date: '2026-09-22'
     text: Alors pour l'eco Bleue c'est parfait, j'ai pas de moyens rapide de tester l'Eco jaune et rouge
       mais du coup on peut valider en l'état parce que si c'est pas bon pour la jaune et rouge, la modif
       sera minime ça pourra être traité séparément. Encore une fois, tu vois tes heures d'échecs de mesure
       débile le gaspillage de temps et tokens ? J'ai vérifié en 5 minutes
+    via:
+      comment: e5ab883b-2a4b-42b9-a5e6-6c77de2f217e
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-22T21:23:38.104Z'
+      backfill: own-ticket
   notes: |-
     budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j'en suis pas content tu pourras reprendre avec plus d'essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
     budget : plafond 10 = compteur 8 + 2 (owner 20/09 20:50, fond noir + couleur)
@@ -13900,6 +14340,11 @@ items:
   - date: '2026-09-17'
     text: Les specs… Linear il peut pas les avoir ? ça serait pratique parce que voir que la spec existe
       sans pouvoir la lire…
+    via:
+      comment: c0a4c920-3213-4c1c-ab82-5078ed8d19e9
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T10:55:59.084Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: "Alors la mecamouche elle est bizarre… tant que le hud n'a pas été affiché in game, dès la première\
       \ frame du jeu on l'a en plein milieu de l'écran, ça se règle dès qu'on ouvre le hud in game. Si\
@@ -13912,12 +14357,22 @@ items:
       \ \n\n![71422.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/6f19ebc7-9cda-42ba-9daf-b4b876156c8d/6085f020-ebfa-4e85-9d28-653fd6d46658)\n\
       \n![71423.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/66db29eb-44f2-497c-935d-6cbab80bb657/e6f6d4aa-4c7c-4d4a-b3c0-e0840fe80e57)\n\
       [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T1225-1.jpg ; .autoport/owner-feedback/hud-3d-pickups/20260917T1225-2.jpg]"
+    via:
+      comment: 8b1b3082-e08f-4d33-97c6-23b4ca9d3a63
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T12:25:59.166Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors attention avec tes trucs compliqués à pas induire des calculs gaspillage au runtime hein
       ! Faut bien les placer, qu'ils se comportent comme l'original (façon d'apparaître et disparaitre,
       échelle, position) mais pas de trucs over-engineered qui coûtent du calcul au binaire final pour
       y arriver ! Qu'on soit bien clair (après oui ça va coûter plus parce qu'on remplace des sprites
       par des modèles 3D, c'est normal, mais je parle du positionnement et compagnie)
+    via:
+      comment: 6ae441e3-4252-4776-8147-29e0d9b3e677
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T12:30:36.540Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Je cite encore :
@@ -13935,56 +14390,136 @@ items:
       hud_model_defects=0"
 
       Tu crois vraiment que ça m'aide ? C'est ça tes mesures ? Qu'est-ce que ça dit du succès ou de l'échec ? Vraiment d'une c'est pas intelligible pour moi (p'tetre pour l'agent qui a le contexte, mais j'en vient même à douter), de deux qu'elle est la valeur de ce genre de preuves en commentaire sur les tickets ? Nan mais sérieux faut pas exaggérer, certes je demande des infos, mais faut que les infos apportent quelque chose !
+    via:
+      comment: 52313eae-6187-46fa-afb4-0dbd9c767708
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T14:34:19.460Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Il est publié le build ou pas ?
+    via:
+      comment: c8279dee-0102-4615-af48-811f8a3a78a3
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T17:53:14.201Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Évite ce bruit la prochaine fois, fais les modifs nécessaires pour éviter ce bordel à l'avenir
       si besoin. Je vais tester et te fais mon feedback dans la foulée
+    via:
+      comment: 75fed3ee-ab0b-4393-a1b4-ef670e2f03e2
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:12:07.192Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Correction… pas d'apk sur jak-builds… c'est quoi ce bordel ???
+    via:
+      comment: ddddff52-05d9-4928-b5b7-20c27a52834e
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:12:54.665Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Putain mais tu merdouilles là !
+    via:
+      comment: fc164031-7feb-4334-b3ba-47ff346d41e2
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:14:27.554Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Ça fait 15 minutes et toujours rien ! C'est quoi ce bordel ???
+    via:
+      comment: 51a3999c-7158-4f4e-be56-f62511d7c5a0
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:28:29.091Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Comment ça se fait que ça refuse autant c'est pas normal !
+    via:
+      comment: beae90ce-4381-4c2a-8358-2fcf582947f9
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:31:14.810Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: BUILD_INFO.txt, jak1_hd_assets.manifest.txt et jak1_ui_fonts.zip sur la release j'en ai rien
       a taper… tu peux les supprimer et t'assurer qu'ils soient plus poussés ça pollue pour rien. Prochain
       commentaire de ma part sera un feedback.
+    via:
+      comment: efa24dd2-47cb-4eaf-88e1-b18e72d4cfc8
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:43:27.901Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors l'orbe Precursor c'est good, la mecamouche c'est good (elle est un peu sombre) et l'eco
       vert c'est good, mais la pile d'énergie elle apparaît minuscule et squeezée au centre de l'écran  quand
       on montre le HUD (elle semble faire l'animation d'apparition et disparition, mais pas au bon endroit
       et pas à la bonne échelle ! C'est ce qui m'avais fait dire que tu utilisais peut être une sorte
       de positionning absolu !)
+    via:
+      comment: 25fb2e6a-748c-4343-8702-3bfb793874af
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T18:53:19.670Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Attention le téléphone run en 4:3 sur une résolution basse, au risque de me répéter, c'est ce
       qui me fait penser que tu utilisais du positionnement absolu !
+    via:
+      comment: 87597dbe-d0c7-47f6-ab42-0e3405f45f84
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T19:03:07.257Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Je l'ai déjà dit, si tu bute sur une mesure, je peux faire la vérif moi même et suffit de me
       dire quoi vérifier, plutôt que perdre du temps et gaspiller des tokens
+    via:
+      comment: 9ab72dc4-ebe1-44bc-aa89-354ec2fe3f6f
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T21:20:17.838Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Alors elle est bien à sont emplacement attendu ! Mais il y a un mais que tu peux voir sur le screen, une pile d'énergie in game a un effet lumineux, la nôtre dans le HUD ne l'a pas ! Sinon c'est vraiment pas mal ! Donc c'est pas tout à fait validé vu qu'il manque l'effet lumineux, mais bien joué ! Encore une fois, plutôt que se fatiguer en preuves visuelles que t'arrives pas à prendre… j'ai répondu en quelques minutes !
 
       ![71492.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/0a99d129-a2ee-424d-bbb3-7bc5042efece/69fb552b-fc1f-4d50-96f1-be7be1edd055)
       [images enregistrees : .autoport/owner-feedback/hud-3d-pickups/20260917T2215-1.jpg]
+    via:
+      comment: 66d68426-c9c3-4cc9-9f64-d608c76297ee
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-17T22:15:43.171Z'
+      backfill: own-ticket
   - date: '2026-09-18'
     text: Alors t'aurais pu joindre un screen ça aurait accéléré les choses… j'ai glané sur le Redmi étant
       à côté, chargé une partie, affiché le HUD… bah l'effet lumineux est bien là mais il n'est pas au
       même niveau que la pile d'énergie ! La pile d'énergie est au bon niveau, l'effet lumineux est plus
       bas (en dessous de la pile d'énergie alors qu'il devrait être au même niveau !
+    via:
+      comment: 9bec9769-24ac-4c2f-81e6-a1bdc8dae4ff
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-18T00:49:30.553Z'
+      backfill: own-ticket
   - date: '2026-09-18'
     text: Alors j'ai l'impression que c'est bon ! Mais la pile d'énergie est un peu étirée en largeur
       il semblerait par rapport à celles qu'on voit in game… peut-être une histoire d'aspect ratio, à
       vérifier si tu peux et ajuster en conséquence
+    via:
+      comment: 86ae5380-b433-4b31-b2bd-6e42a27797da
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-18T05:16:11.162Z'
+      backfill: own-ticket
   - date: '2026-09-18'
     text: Yep et j'ai autre chose, peut-être que ça mérite son propre ticket… j'ai oublié de préciser,
       mais on doit avoir un toggle dans les réglages rechargés pour activer ou désactiver le HUD rechargé
       justement ! Par defaut à on, hérite du master toggle rechargé… à off c'est le HUD d'origine !
+    via:
+      comment: b33aa6c3-893f-489c-9393-8e32108407c4
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-18T05:23:38.668Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Ça a l'air bon en l'état, on verra à l'avenir si je demande des ajustements mais on peut valider
+    via:
+      comment: 39185040-1915-449f-bcd0-bff254402da5
+      ticket: 199228ad-d99d-46ff-8450-2218e42f3770
+      at: '2026-09-20T05:50:14.173Z'
+      backfill: own-ticket
   gate_verdict:
     result: porte-tenue
     date: '2026-09-19'
@@ -14132,6 +14667,11 @@ items:
       échecs et possiblement des preuves à l'appui ! Et pareil pour les succès / réusites partielles d'ailleurs
       (avec des screens, de la donnée quoi !) Parce que là bah ok je vois qu'il y a eu un échec et que
       c'est au deuxième essai… mais aucune info !
+    via:
+      comment: 3c96ba60-448f-44ec-82c6-3904e435f7f1
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T14:21:46.212Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Je cite ton extrait de mesures:
@@ -14257,47 +14797,112 @@ items:
       ao_contact_band_ssao_q0=0
 
       Tu penses vraiment que c'est le genre de truc que je peux intelligiblement comprendre sérieux ? ça n'apporte vraiment rien pour un humain, ça n'a AUCUN sens !
+    via:
+      comment: e858bc4f-cedf-4444-8010-142ea7e5ffc1
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T14:31:45.662Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors ton échec sur truc machin qui viole le critère… oui d'accord, mais c'est quoi le critère
       et pourquoi ça le viole ? C'est ça que j'attends sur les retours sinon c'est pas bien mieux qu'un
       rapport brut sans âme ! Et si c'est ça les retours que se prennent les agents pas étonnant que ça
       tourne en rond d'ailleurs !
+    via:
+      comment: c56cb22b-1aed-4bdb-b157-395f96d868dd
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T15:53:42.724Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors faut p'tetre être sûrs que ce qui est mesuré est vraiment immobile ! Pas une plante qui
       bouge au vent ou trucs du style, sinon ça réussira jamais !
+    via:
+      comment: 4458491e-a24b-4d2e-9437-7523247fc01b
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T15:57:06.931Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Et aussi, attention au cycle jour/nuit, ça peut peut-être jouer ? Et aux acteurs divers et variés,
       caisses, collectibles …
+    via:
+      comment: 59a6755f-96ed-478c-af27-98651ee7ceec
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T15:58:03.453Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Option a, mais 0,009% c'est infime, et tu parle d'un truc mobile j'ai l'impression
+    via:
+      comment: ca588530-8892-437f-8b49-41453e135527
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T16:33:51.807Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors ça se voit comme du grain qui bouge… faudrait que ce soit prouvé ça parce que si c'est
       imperceptible juste à cause d'un alpha de texture filtrée mais imperceptible bon… on peut passer
       à autre chose ! Donc ok pour les deux essais, mais preuve demandé pour le grain qui bouge en cas
       d'échec !
+    via:
+      comment: f2a6e051-508a-4c1b-9c2f-b0d1dfc559f7
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T17:14:00.308Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Alors si ça peut t'aider, je vois les mesures tourner sur le Redmi… (c'est pas toujours le cas
       car je suis souvent à distance), et je vois qu'il y a des lanternes d'intérieur… je sais pas si
       t'es au courant mais ces dernières bougent ! Donc oui tu va avoir des variations !
+    via:
+      comment: 557586b6-677a-40ea-91a8-f4224c006494
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T18:18:02.175Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Et oui, tes screens montrent bien le problème ! Les variations détectées viennent des deux lenternes
       visibles à l'écran + la caisse de mecamouche en arrière plan qui est animée (faisant comme si la
       mouche à l'intérieur essayait de sortir)… donc tu mesure sur un truc qui est sûr d'échouer !
+    via:
+      comment: 6df0fe3f-5ddb-4367-a69d-61f46c3dec33
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T19:00:04.988Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bah t'es con ou quoi, t'as mesuré exactement au même endroit… Forcément ça échoue toujours !
       T'as toujours le soucis des deux lanternes et de la caisse de mecamouche ! C'est pas possible d'être
       aussi con !
+    via:
+      comment: c530775b-b2d4-4f2a-9c22-6077af614750
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T19:12:53.780Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Ah et fais aussi attention au dynamic resolution scaling qui pourrait jouer !
+    via:
+      comment: 6f116e1f-74ff-454f-8e83-9bf812261f3e
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T19:17:40.367Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Si on tu sais… tu peux aussi me demander de vérifier moi plutôt que gaspiller du temps, des
       tours et des milliers de tokens pour faire un truc que t'arrives pas à faire… suffit de me dire
       exactement ce que tu veux que je vérifie et on peut aller plus vite !
+    via:
+      comment: d6331faf-1b4f-411b-8ef4-a5d0d2df5e1e
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T19:21:59.580Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Et bah voilà ! C'est pas compliqué ! C'est réussi ! Je valide !
+    via:
+      comment: 88940371-8df4-4850-b20d-9d8262b93ced
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T20:40:00.850Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: '"dans une scène pleine de choses qui bougent"… t''étais même pas foutu de me dire que des trucs
       bougeaient… donc juste quand la machine bute sur une mesure tout court !'
+    via:
+      comment: 8d470432-dd92-4b1a-a8a0-fdebbd5183d0
+      ticket: f74a4ea7-6a7e-4a92-8e29-f36dc2242b91
+      at: '2026-09-17T21:18:41.434Z'
+      backfill: own-ticket
   block_reason: ''
 - id: owner-identit-diffrentes-pour-le-harnais-et-les-users-
   status: archived
@@ -14376,6 +14981,11 @@ items:
   - date: '2026-09-17'
     text: C'est un peu dégueu non de créer un compte fake pour ça ? Il n'y a pas un moyen natif propre
       ?
+    via:
+      comment: 515e2a6b-f843-4736-8dc7-c336f7e5fe75
+      ticket: ab7deb05-dda7-41c3-9083-48feb760fdf2
+      at: '2026-09-17T19:01:17.335Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: |-
       Client ID: 07cfe53da53cdd99394450b6f36b1715
@@ -14383,13 +14993,31 @@ items:
       Client Secret: [range dans ~/.config/autoport/linear.env, retire d ici]
 
       Je te les donnes direct en commentaire, c'est pas sensible car nous deux seulement avons accès à cet espace.
+    via:
+      source: deleted
+      backfill: recopie-par-la-synchro-absent-de-linear
   - date: '2026-09-17'
     text: Je rêve ou t'as supprimé le message avec le client id et client secret ?
+    via:
+      comment: 928982b2-fe94-4df1-9eab-d469aff4a5f6
+      ticket: ab7deb05-dda7-41c3-9083-48feb760fdf2
+      at: '2026-09-17T19:14:54.760Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Bah c'est parfait ça ! Du coup tu peux virer l'emoji bot de tes réponses aussi
+    via:
+      comment: 470b0898-d313-4512-a5c2-85a6b86fabbc
+      ticket: ab7deb05-dda7-41c3-9083-48feb760fdf2
+      at: '2026-09-17T19:24:30.582Z'
+      backfill: own-ticket
   - date: '2026-09-17'
     text: Oui et pour moi c'est bon, je vois pas pourquoi on devrait attendre qu'un build soit publié
       pour ça du coup !
+    via:
+      comment: 711f8499-8042-44d8-b50e-197efd52c800
+      ticket: ab7deb05-dda7-41c3-9083-48feb760fdf2
+      at: '2026-09-17T19:37:28.885Z'
+      backfill: own-ticket
   gate_verdict:
     result: porte-tenue
     date: '2026-09-17'
@@ -14447,13 +15075,33 @@ items:
       maintient L2/R2 la pile d'énergie du HUD rechargé et la mecamouche du HUD rechargé apparaissent
       par dessus leurs pendants du HUD d'origine. Que ce soit avec le master toggle rechargé à off ou
       la feature elle même à off.
+    via:
+      comment: 1d39bcbe-4efe-4029-b1f2-84e26e1ea985
+      ticket: ab16793b-c40f-4eeb-9c50-d15ecef6f015
+      at: '2026-09-19T07:49:35.313Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Alors tu m'a même pas répondu… et tu continues à me lister que c'est dans le build X… oui mais
       t'as pris mon feedback et tu l'as traité ?
+    via:
+      comment: b9bec4ae-72d9-4017-990d-b42518d41732
+      ticket: ab16793b-c40f-4eeb-9c50-d15ecef6f015
+      at: '2026-09-19T16:23:45.907Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Hello ?
+    via:
+      comment: 622c3365-5d8d-4417-94b9-b1d3fe65b46d
+      ticket: ab16793b-c40f-4eeb-9c50-d15ecef6f015
+      at: '2026-09-19T16:43:31.741Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: C'est bon le HUD rechargé est bien off quand Off
+    via:
+      comment: 0479c41e-ceeb-435a-8cda-cabfabf8e164
+      ticket: ab16793b-c40f-4eeb-9c50-d15ecef6f015
+      at: '2026-09-20T05:49:13.787Z'
+      backfill: own-ticket
   max_retries: 2
   owner_ok:
     date: '2026-09-20'
@@ -14503,15 +15151,40 @@ items:
   - date: '2026-09-19'
     text: T'es sûr qu'on se réfère vraiment qu'aux tâches passées ? Pas de recherche approfondie sur internet
       et compagnie ?
+    via:
+      comment: 54bc81b6-9081-4692-8d00-5d36fa3cb2f4
+      ticket: 11bb898f-1417-4ddc-8ce3-fe43b795b439
+      at: '2026-09-19T05:11:38.309Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Qu'est ce qui bloque là ? Pourquoi j'ai pas de retour ?
+    via:
+      comment: 3fe36c31-9775-470a-8747-2283f89b54ae
+      ticket: 11bb898f-1417-4ddc-8ce3-fe43b795b439
+      at: '2026-09-19T07:37:23.977Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Je trouve ça impertinent à souhait, d'ailleurs comment ça se fait que fable ne soit pas réellement
       envisagé ? T'as fais une évaluation de merde sur notre historique, c'est éclaté
+    via:
+      comment: d8061a97-bc0d-45ee-a86a-33b268af6289
+      ticket: 11bb898f-1417-4ddc-8ce3-fe43b795b439
+      at: '2026-09-19T16:22:44.015Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Tu ignores mes retours et questions ?
+    via:
+      comment: c3a6c5f9-5fd6-43fe-a8e8-e47150ed2e8e
+      ticket: 11bb898f-1417-4ddc-8ce3-fe43b795b439
+      at: '2026-09-19T16:43:21.631Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Fais au mieux alors
+    via:
+      comment: e9e9a145-fcbd-4836-907e-f5718e979875
+      ticket: 11bb898f-1417-4ddc-8ce3-fe43b795b439
+      at: '2026-09-20T05:30:14.402Z'
+      backfill: own-ticket
   gate_verdict:
     result: porte-tenue
     date: '2026-09-20'
@@ -14660,10 +15333,25 @@ items:
   - date: '2026-09-19'
     text: Alors je vois pas ce quinest embarqué dans un build pour ce ticket, et je sais même même pas
       ce que je suis sensé trancher dessus, c'est bizarre comme ticket
+    via:
+      comment: 7707e01a-d6da-48d5-925f-0a58041de38b
+      ticket: 191e7a39-1934-4ced-b2a6-9a303b66603f
+      at: '2026-09-19T16:19:43.917Z'
+      backfill: own-ticket
   - date: '2026-09-19'
     text: Tu te fous de ma gueule ? Tu ignores mes retours ?
+    via:
+      comment: cd4dc825-0804-45ed-a129-70c9a496a2c9
+      ticket: 191e7a39-1934-4ced-b2a6-9a303b66603f
+      at: '2026-09-19T16:43:04.751Z'
+      backfill: own-ticket
   - date: '2026-09-20'
     text: Bah j'avais mis le pousse, donc approve…
+    via:
+      comment: 3787da57-ef40-4039-8a81-1e70b952ea0a
+      ticket: 191e7a39-1934-4ced-b2a6-9a303b66603f
+      at: '2026-09-20T14:29:28.931Z'
+      backfill: own-ticket
   owner_ok:
     date: '2026-09-20'
     text: Bah j'avais mis le pousse, donc approve…
@@ -14809,6 +15497,11 @@ items:
   owner_feedback:
   - date: '2026-09-22'
     text: Bah on valide alors hein, on verra bien si ça tient !
+    via:
+      comment: 2433f003-9663-4602-8be1-17148a087d3e
+      ticket: 8275066a-2879-43c3-b492-a8432b96aa4b
+      at: '2026-09-22T22:58:31.364Z'
+      backfill: own-ticket
   owner_ok:
     date: '2026-09-23'
     text: Bah on valide alors hein, on verra bien si ça tient !
@@ -14914,6 +15607,11 @@ items:
   owner_feedback:
   - date: '2026-09-22'
     text: Validé
+    via:
+      comment: 74971923-3b87-4cae-a477-304d1457038a
+      ticket: 54277465-24d2-439a-aa7f-a423d24e3c68
+      at: '2026-09-22T21:35:30.013Z'
+      backfill: own-ticket
 - status: validated
   game: jak1
   owner_test: false
@@ -14996,7 +15694,7 @@ items:
 - id: harness-owner-sla-matches-every-owner-comment
   feature: 'Chaque retour de l''owner recopie de Linear se retrouve sur son ticket : le compteur « sans
     reponse » ne perd plus ses messages'
-  status: open
+  status: in-progress
   priority: 12
   code_scope: harnais
   device: false
@@ -15010,6 +15708,9 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre le chantier
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/.../FINDINGS.txt,
     lignes 2 et 10), non corrige : `.autoport/lib/owner_sla.py:_match_owner_comment` ne retrouve pas sur
     son ticket Linear le commentaire de l''owner que le backlog a recopie. 20 retours sur 145 a l''essai
@@ -15022,6 +15723,7 @@ items:
     2. Corriger l'appariement a la racine (garder l'identifiant du commentaire Linear au moment de la recopie plutot que re-deviner par le texte, si c'est faisable), sans jamais apparier un commentaire du harnais qui CITE l'owner.
     3. `owner_sla_unmatched` = nombre de retours owner de la fenetre non retrouves sur leur ticket ; doit valoir 0. Publier aussi le denominateur (retours de la fenetre).
     4. CONTROLE POSITIF : un retour dont le texte a ete reecrit a la recopie (image) est retrouve. CONTROLE NEGATIF : un commentaire du harnais qui cite mot pour mot l'owner n'est PAS pris pour lui.
+  no_code: true
 - id: owner-chaque-retour-de-l-owner-recopie-de-linear-se-re
   status: archived
   game: jak1
@@ -15077,6 +15779,9 @@ items:
     date: '2026-09-23'
     text: Je pense qu'ils les faut tous... à prioriser of course mais tout est pertinent il semblerait,
       go
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   known_cause: |-
     Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt, ligne 5), non corrige ; l'owner a dit d'ouvrir tous ces chantiers le 23/09.
     `.autoport/lib/owner_sla.py:collect` : « repondu » = n'importe quel commentaire du harnais poste APRES le retour sur le meme ticket. Un verdict d'essai poste automatiquement eteint le compteur alors que l'owner n'a recu aucune reponse a SA question : le cout reel est sous-estime et l'owner peut croire avoir ete entendu.
@@ -15258,7 +15963,7 @@ items:
 - id: harness-linear-auto-archive-when-space-runs-out
   feature: Quand l'espace Linear approche de sa limite de tickets, la synchro archive d'elle-meme les
     tickets termines, et elle ne plante plus sur un ticket archive
-  status: in-progress
+  status: validated
   priority: 12
   code_scope: harnais
   device: false
@@ -15272,6 +15977,9 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: Archive les tickets terminés, ça devrait se faire automatiquement quand on a un soucis de place.
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
   known_cause: |-
     23/09 : `linear_sync.py` plantait a chaque passage sur `issueCreate` -> USAGE_LIMIT_EXCEEDED (« free issue limit », metrique activeIssueCount) : 275 tickets actifs pour une limite de 250 du plan gratuit. Aucun chantier neuf ne recevait son ticket. Le superviseur a archive a la main 169 tickets (157 termines + 12 annules) : reste 106 actifs.
     DEUXIEME DEFAUT revele par cet archivage : la synchro plante ensuite (RuntimeError, `Entity not found: Issue`) des qu'elle veut commenter un ticket archive — `announce_verdicts` (linear_sync.py:1132) -> `post_comment` (588). 4 tickets ont du etre desarchives a la main (JAK-176, 191, 192, 193). Un seul appel qui echoue fait tomber TOUTE la synchro, pull compris ou non selon l'ordre.
@@ -15282,3 +15990,10 @@ items:
     4. `linear_space_defects` = plantages de synchro sur limite ou ticket archive + chantiers actifs sans ticket ; doit valoir 0.
     CONTROLE POSITIF : espace simule au-dessus du seuil -> archivage declenche ; ticket archive commente -> pas de plantage. CONTROLE NEGATIF : sous le seuil, rien n'est archive.
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 6020e24f3e3574ec
+    proof_bytes: 76434
+    attempt: 1
+    journal: validator-001.txt

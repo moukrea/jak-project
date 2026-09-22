@@ -802,7 +802,8 @@ def apply_owner_move(L, bl, iid, rec, here):
         return (min(opens) - 1) if opens else 0
     if here == "Done":
         if not it.get("owner_ok"):
-            bl.validate(iid, "Déplacé en « Done » dans Linear par l'owner", date=today)
+            bl.validate(iid, "Déplacé en « Done » dans Linear par l'owner", date=today,
+                        via={"source": "move", "ticket": rec["issue_id"]})
             _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel.")
             if _TALK.get("ok"):
                 swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
@@ -812,7 +813,8 @@ def apply_owner_move(L, bl, iid, rec, here):
             _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
     elif here == "À arbitrer":
         if s == "in-progress":
-            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de l'essai en cours")
+            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de l'essai en cours",
+                                  via={"source": "move", "ticket": rec["issue_id"]})
             _say(L, rec, "Un essai est en cours dessus ; je le bloque dès qu'il se termine, pas au milieu.")
         elif s != "blocked":
             bl.set_status(iid, "blocked", block_reason="Bloqué par l'owner dans Linear le %s" % today)
@@ -1407,7 +1409,8 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 date = c["createdAt"][:10]
                 print("  retour owner sur %s (%s) : %s" % (iid, date, c["body"][:80].replace("\n", " ")))
                 if not dry:
-                    bl.add_owner_feedback(iid, date, save_owner_images(L, iid, c["body"].strip(), c["createdAt"])); bl = B.load()
+                    bl.add_owner_feedback(iid, date, save_owner_images(L, iid, c["body"].strip(), c["createdAt"]),
+                                         via={"comment": c["id"], "ticket": iss["id"], "at": c["createdAt"]}); bl = B.load()
                     # le retour entre dans le prompt du worker (render_prompt) ; sans refabrication, l'orchestrateur bloquerait
                     # l'item sur « consigne PERIMEE » au prochain tirage.
                     it2 = bl.get(iid)

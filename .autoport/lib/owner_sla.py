@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 
 AP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -103,12 +104,26 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
             "answered": 0,
             "delay_s": -1,
             "open": 0,
+            "excluded": "",
         }
-        if comments:
-            mine = _match_owner_comment(comments, rec["text"], is_owner)
+        via = row.get("via") or {}
+        rec["origin"] = _origin(via)
+        rec["match"] = ""
+        if rec["origin"] in EXCLUDED_SOURCES:
+            # PAS un commentaire Linear : un deplacement de ticket, un relais du terminal, un
+            # commentaire retire. Il reste dans la population, NOMME, jamais compte « apparie ».
+            rec["excluded"] = rec["origin"]
+        elif comments:
+            if via.get("comment"):
+                mine = _find_by_id(comments, via["comment"], is_owner)
+                how = "id"
+            else:
+                mine = _match_owner_comment(comments, rec["text"], is_owner, rec["date"])
+                how = "text"
             if mine is not None:
                 rec["ts"] = ts_of(mine)
                 rec["dated"] = 1 if rec["ts"] else 0
+                rec["match"] = how if rec["dated"] else ""
         if rec["dated"]:
             suivantes = sorted(
                 (c for c in comments if is_harness(c) and ts_of(c) > rec["ts"]),
@@ -147,25 +162,69 @@ def _normalise(text):
     return " ".join((text or "").split()).strip().lower()
 
 
-def _match_owner_comment(comments, text, is_owner):
-    """Retrouve sur le ticket le commentaire de l'owner que le backlog a recopie.
+# Ce que `linear_sync.save_owner_images` AJOUTE en fin de retour a la recopie. Le texte de
+# l'owner n'est pas reecrit : on lui colle une ligne. Elle se retire avant toute comparaison.
+RECOPY_SUFFIX_RX = re.compile(r"\s*\[images enregistrees : [^\n]*\]\s*$")
+PREFIXE_MIN = 40
 
-    Le backlog garde le texte VERBATIM, mais il peut l'avoir tronque. On apparie donc sur un
-    prefixe normalise, et seulement parmi les commentaires dont l'AUTEUR est l'owner : un
-    commentaire du harnais qui CITE l'owner ne doit pas se faire prendre pour lui
-    (feedback_detector_on_worker_output...).
-    """
-    cible = _normalise(text)
-    if not cible:
-        return None
-    court = cible[:60]
+# D'ou vient un retour. Ecrit AU MOMENT DE LA RECOPIE dans `owner_feedback[].via` :
+#   {comment, ticket, at}   un commentaire Linear, par son identifiant (linear_sync.pull_owner)
+#   {source: move}          un deplacement de ticket, recopie en phrase par la synchro
+#   {source: supervisor}    les mots de l'owner relayes a la main (terminal), absents de Linear
+#   {source: deleted}       recopie de Linear puis retire du ticket (secret, 17/09)
+# Rien d'ecrit = un retour d'AVANT la correction, retrouve par son texte, sinon NON APPARIE.
+EXCLUDED_SOURCES = ("move", "supervisor", "deleted")
+
+
+def _origin(via):
+    via = via or {}
+    if via.get("comment"):
+        return "linear"
+    return str(via.get("source") or "") or "legacy"
+
+
+def strip_recopy(text):
+    return RECOPY_SUFFIX_RX.sub("", text or "")
+
+
+def _find_by_id(comments, cid, is_owner):
+    """Le commentaire par son IDENTIFIANT — et seulement s'il est de l'owner : un identifiant
+    qui designerait un commentaire du harnais ne date rien."""
     for c in comments:
-        if not is_owner(c):
-            continue
-        corps = _normalise(c.get("body"))
-        if corps == cible or (court and (corps.startswith(court) or cible.startswith(corps[:60]))):
-            return c
+        if c.get("id") == cid:
+            return c if is_owner(c) else None
     return None
+
+
+def text_matches(body, text):
+    """Le corps d'un commentaire est-il le retour recopie ? Egalite apres normalisation ; un
+    prefixe seulement au-dela de PREFIXE_MIN caracteres — sinon un « oui » de l'owner daterait
+    tous les retours qui commencent par « oui »."""
+    cible = _normalise(strip_recopy(text))
+    corps = _normalise(body)
+    if not cible or not corps:
+        return False
+    if corps == cible:
+        return True
+    if len(cible) >= PREFIXE_MIN and corps.startswith(cible):
+        return True
+    return len(corps) >= PREFIXE_MIN and cible.startswith(corps)
+
+
+def _match_owner_comment(comments, text, is_owner, date=""):
+    """Retrouve sur le ticket le commentaire de l'owner que le backlog a recopie, PAR SON TEXTE.
+
+    Repli pour les retours recopies AVANT que la recopie garde l'identifiant. Seuls les
+    commentaires dont l'AUTEUR est l'owner concourent : un commentaire du harnais qui CITE
+    l'owner ne doit pas se faire prendre pour lui (feedback_detector_on_worker_output...).
+    Plusieurs candidats : celui du jour du retour, sinon le plus ancien.
+    """
+    cands = [c for c in comments if is_owner(c) and text_matches(c.get("body"), text)]
+    if not cands:
+        return None
+    cands.sort(key=lambda c: (str(c.get("createdAt") or "")[:10] != (date or ""),
+                              str(c.get("createdAt") or "")))
+    return cands[0]
 
 
 def cost_summary(records, sla_s, now=None):
@@ -179,10 +238,19 @@ def cost_summary(records, sla_s, now=None):
     dated = [r for r in records if r["dated"]]
     over = [r for r in dated if r["delay_s"] > sla_s]
     worst = max((r["delay_s"] for r in dated), default=-1)
+    exclus = {}
+    for r in records:
+        if r.get("excluded"):
+            exclus[r["excluded"]] = exclus.get(r["excluded"], 0) + 1
     return {
         "population": len(records),
         "dated": len(dated),
         "undated": len(records) - len(dated),
+        # NON APPARIE = ni date ni exclu par une source NOMMEE a la recopie.
+        "unmatched": sum(1 for r in records if not r["dated"] and not r.get("excluded")),
+        "excluded": exclus,
+        "by_id": sum(1 for r in dated if r.get("match") == "id"),
+        "by_text": sum(1 for r in dated if r.get("match") == "text"),
         "answered": sum(1 for r in dated if r["answered"]),
         "open": sum(1 for r in dated if r["open"]),
         "over_sla": len(over),
@@ -339,16 +407,38 @@ def rows_from_backlog(items, linear_map, since_date=None):
             date = str(fb.get("date") or "")
             if since_date and date < since_date:
                 continue
+            via = fb.get("via") if isinstance(fb.get("via"), dict) else {}
+            # Le ticket ou l'owner a PARLE : celui de l'item, sauf si la recopie en nomme un
+            # autre (retour recopie d'un ticket parent, d'un doublon archive...).
             rows.append({"item": iid, "date": date, "text": fb.get("text") or "",
-                         "ticket": rec.get("issue_id") or "",
+                         "ticket": via.get("ticket") or rec.get("issue_id") or "",
+                         "item_ticket": rec.get("issue_id") or "",
+                         "via": via,
                          "identifier": rec.get("identifier") or "-"})
     return rows
+
+
+COMMENT_FIELDS = "id body createdAt user { id app } botActor { id }"
+
+
+def _rest(L, ticket, page):
+    """La SUITE des commentaires d'un ticket. `comments(first:100)` s'arretait au centieme :
+    JAK-176 en porte 139, et ses retours les plus anciens n'etaient jamais retrouves (23/09)."""
+    out = []
+    while page and page.get("hasNextPage"):
+        d = L.q('query($id:String!,$a:String){ issue(id:$id){ comments(first:100, after:$a){ '
+                'pageInfo { hasNextPage endCursor } nodes { ' + COMMENT_FIELDS + ' } } } }',
+                id=ticket, a=page.get("endCursor"))
+        conn = ((d.get("issue") or {}).get("comments")) or {}
+        out += conn.get("nodes") or []
+        page = conn.get("pageInfo") or {}
+    return out
 
 
 def linear_sources(L, owner_id, tickets=()):
     """Rend (fetch_comments, is_owner, is_harness) branches sur le vrai Linear.
 
-    LES COMMENTAIRES SE TIRENT PAR PAQUETS DE 40, comme `pull_owner`. La population de 7 jours
+    LES TICKETS SE TIRENT PAR PAQUETS DE 40, comme `pull_owner` ; leurs commentaires EN ENTIER. La population de 7 jours
     tient sur une cinquantaine de tickets : une requete par RETOUR ferait 145 allers-retours,
     et ce code tourne dans un demon qui repasse toutes les 30 s. Deux requetes suffisent.
     """
@@ -362,19 +452,18 @@ def linear_sources(L, owner_id, tickets=()):
     uniq = [t for t in dict.fromkeys(tickets) if t]
     for i in range(0, len(uniq), 40):
         lot = uniq[i:i + 40]
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id '
-                'comments(first:100){ nodes { id body createdAt user { id app } '
-                'botActor { id } } } } } }', ids=lot)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ '
+                'nodes { id comments(first:100){ pageInfo { hasNextPage endCursor } '
+                'nodes { ' + COMMENT_FIELDS + ' } } } } }', ids=lot)
         for iss in (d.get("issues") or {}).get("nodes") or []:
-            cache[iss["id"]] = ((iss.get("comments") or {}).get("nodes")) or []
+            conn = iss.get("comments") or {}
+            cache[iss["id"]] = (conn.get("nodes") or []) + _rest(L, iss["id"], conn.get("pageInfo"))
 
     def fetch(ticket):
         if not ticket:
             return []
         if ticket not in cache:
-            d = L.q('query($id:String!){ issue(id:$id){ comments(first:100){ nodes { id body '
-                    'createdAt user { id app } botActor { id } } } } }', id=ticket)
-            cache[ticket] = ((d.get("issue") or {}).get("comments") or {}).get("nodes") or []
+            cache[ticket] = _rest(L, ticket, {"hasNextPage": True, "endCursor": None})
         return cache[ticket]
 
     return fetch, (lambda c: S.is_owner_comment(c, owner_id)), S.is_harness_comment
@@ -463,3 +552,150 @@ def veille(L, items, linear_map, owner_id, poster, dry=False, now=None, force=Fa
     else:
         alerte = run(records, rel, poster, now=now)
     return {"releve": rel, "cout": resume, "alerte": alerte, "redate": at == now}
+
+
+# ============================================================ REPRISE DES RETOURS D'AVANT ==
+# Les retours recopies AVANT que la recopie garde l'identifiant n'ont pas de `via`. On les
+# reprend UNE FOIS, et la regle est ecrite ici, pas dans une session : elle n'etiquette jamais
+# un retour « hors Linear » parce qu'on ne le trouve pas. Il faut DEUX absences independantes —
+# aucun commentaire de l'espace Linear entier (archives comprises), ET aucune recopie dans le
+# journal de la synchro, le seul code qui recopie un commentaire. Une seule absence ne suffit
+# pas : le retour reste sans `via` et compte NON APPARIE.
+
+MOVE_TEXTS = ("Déplacé en « Done » dans Linear par l'owner",
+              "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de "
+              "l'essai en cours")
+PULL_LOG_RX = re.compile(r"^  retour owner sur (\S+) \((\d{4}-\d\d-\d\d)\) : (.*)$")
+
+
+def pull_log_entries(lines):
+    """Ce que `pull_owner` a DIT avoir recopie : (item, jour, 80 premiers caracteres)."""
+    out = []
+    for ln in lines:
+        m = PULL_LOG_RX.match(ln.rstrip("\n"))
+        if m:
+            out.append((m.group(1), m.group(2), m.group(3)))
+    return out
+
+
+def _common_prefix(a, b):
+    n = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        n += 1
+    return n
+
+
+def _in_pull_log(item, text, entries):
+    """La synchro a-t-elle recopie ce retour dans CET item ? Le journal garde 80 caracteres ;
+    le retour, lui, a pu etre expurge a la recopie (secret retire le 17/09) : un prefixe commun
+    de PREFIXE_MIN caracteres suffit, le texte entier s'il est plus court."""
+    cible = _normalise(strip_recopy(text))
+    for iid, _day, head in entries:
+        h = _normalise(head)
+        if iid == item and h and _common_prefix(cible, h) >= min(PREFIXE_MIN, len(h), len(cible)):
+            return True
+    return False
+
+
+def classify_legacy(item, date, text, item_ticket, workspace, is_owner, pull_entries,
+                    pull_first_day):
+    """Rend (`via` a poser ou None, cause). `workspace` = tous les commentaires de l'espace,
+    chacun portant `issue` (son ticket). Cause : move | own-ticket | other-ticket | deleted |
+    supervisor | unknown."""
+    if text in MOVE_TEXTS:
+        return {"source": "move", "backfill": "texte-du-deplacement"}, "move"
+    own = [c for c in workspace if c.get("issue") == item_ticket]
+    mine = _match_owner_comment(own, text, is_owner, date)
+    where = "own-ticket"
+    if mine is None and len(_normalise(strip_recopy(text))) >= PREFIXE_MIN:
+        # Hors de son ticket, un texte court ne prouve rien : « Validé » est ecrit partout.
+        mine = _match_owner_comment(workspace, text, is_owner, date)
+        where = "other-ticket"
+    if mine is not None:
+        return ({"comment": mine["id"], "ticket": mine["issue"], "at": mine.get("createdAt"),
+                 "backfill": where}, where)
+    if not pull_first_day or str(date) < pull_first_day:
+        # Le journal ne couvre pas ce jour : ni sa presence ni son absence ne temoignent.
+        return None, "unknown"
+    if _in_pull_log(item, text, pull_entries):
+        return ({"source": "deleted", "backfill": "recopie-par-la-synchro-absent-de-linear"},
+                "deleted")
+    return ({"source": "supervisor",
+             "backfill": "absent-de-linear-et-du-journal-de-synchro-depuis-" + pull_first_day},
+            "supervisor")
+
+
+def workspace_comments(L):
+    """TOUS les commentaires de l'espace Linear, archives compris, pagines jusqu'au bout."""
+    try:
+        from . import linear_sync as S  # pragma: no cover
+    except ImportError:
+        import sys
+        sys.path.insert(0, AP)
+        import linear_sync as S
+    issues = S._pages(L, 'query($a:String){ issues(first:50, after:$a, includeArchived:true){ '
+                         'pageInfo { hasNextPage endCursor } nodes { id comments(first:100){ '
+                         'pageInfo { hasNextPage endCursor } nodes { ' + COMMENT_FIELDS
+                         + ' } } } } }')
+    out = []
+    for iss in issues:
+        conn = iss.get("comments") or {}
+        for c in (conn.get("nodes") or []) + _rest(L, iss["id"], conn.get("pageInfo")):
+            c = dict(c)
+            c["issue"] = iss["id"]
+            out.append(c)
+    return out
+
+
+def main(argv=None):
+    import argparse
+    import sys
+    ap = argparse.ArgumentParser(description="reprise des retours owner sans `via`")
+    ap.add_argument("--backfill", action="store_true")
+    ap.add_argument("--apply", action="store_true", help="ecrire dans backlog.yaml (sinon : a blanc)")
+    a = ap.parse_args(argv)
+    if not a.backfill:
+        ap.print_help()
+        return 2
+    sys.path.insert(0, AP)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import linear_sync as S
+    import linear_identity as LI
+    import backlog as B
+    L = S.Linear(LI.resolve())
+    mp = S.load_map()
+    owner_id = S.owner_user_id(L, mp)
+    ws = workspace_comments(L)
+    try:
+        with open(os.path.join(AP, "logs", "linear_sync.txt"), "r", errors="replace") as fh:
+            pulls = pull_log_entries(fh)
+    except OSError:
+        pulls = []
+    first = min((d for _i, d, _h in pulls), default="")
+    bl = B.load()
+    causes, poses = {}, 0
+    for it in bl.items:
+        iid = it.get("id") or ""
+        tk = ((mp.get(iid) or {}).get("issue_id")) or ""
+        for fb in it.get("owner_feedback") or []:
+            if not isinstance(fb, dict) or fb.get("via"):
+                continue
+            via, cause = classify_legacy(iid, str(fb.get("date") or ""), fb.get("text") or "", tk,
+                                         ws, lambda c: S.is_owner_comment(c, owner_id), pulls,
+                                         first)
+            causes[cause] = causes.get(cause, 0) + 1
+            print("%-12s %s %s %s" % (cause, fb.get("date"), iid[:48],
+                                      (fb.get("text") or "")[:60].replace("\n", " ")))
+            if via and a.apply:
+                poses += bl.set_feedback_via(iid, fb.get("date"), fb.get("text") or "", via)
+    print("backfill_workspace_comments=%d" % len(ws))
+    print("backfill_pull_log_entries=%d backfill_pull_log_first_day=%s" % (len(pulls), first or "-"))
+    print("backfill_causes=%s" % ",".join("%s:%d" % kv for kv in sorted(causes.items())))
+    print("backfill_applied=%d" % poses)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

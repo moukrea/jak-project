@@ -470,15 +470,41 @@ class Backlog:
         except Exception:  # noqa: BLE001
             pass
 
-    def add_owner_feedback(self, item_id, date, text):
+    def add_owner_feedback(self, item_id, date, text, via=None):
+        """`via` dit D'OU vient le retour (voir `owner_sla.EXCLUDED_SOURCES`) : l'identifiant du
+        commentaire Linear, ou la source nommee. Sans lui, `owner_sla` doit re-deviner le
+        commentaire par son texte, et un retour qu'il ne retrouve pas n'a plus de delai."""
         it = self.get(item_id)
         if it is None:
             raise BacklogError("item inconnu : %s" % item_id)
         fb = list(it.get("owner_feedback") or [])
-        fb.append({"date": date, "text": text})
+        e = {"date": date, "text": text}
+        if via:
+            e["via"] = dict(via)
+        fb.append(e)
         return self.set_status(item_id, it.get("status"), owner_feedback=fb)
 
-    def validate(self, item_id, text, date=None, sha=None):
+    def set_feedback_via(self, item_id, date, text, via):
+        """Pose `via` sur UN retour existant, retrouve par (date, texte), sous le verrou et sur
+        le disque RELU : la reprise des anciens retours ne doit jamais ecraser un retour que la
+        synchro aurait ajoute entre-temps. Rend le nombre de retours touches."""
+        n = 0
+        with _Lock(self.path):
+            fresh = _read(self.path)
+            for it in fresh["items"]:
+                if it.get("id") != item_id:
+                    continue
+                for e in it.get("owner_feedback") or []:
+                    if (isinstance(e, dict) and not e.get("via") and str(e.get("date")) == str(date)
+                            and e.get("text") == text):
+                        e["via"] = dict(via)
+                        n += 1
+            if n:
+                _atomic_write(self.path, _dump(fresh))
+        self.items = fresh["items"]
+        return n
+
+    def validate(self, item_id, text, date=None, sha=None, via=None):
         """Le feu vert de l'owner : sa phrase, la date, le sha du build teste."""
         date = date or datetime.date.today().isoformat()
         it = self.get(item_id)
@@ -486,7 +512,10 @@ class Backlog:
             raise BacklogError("item inconnu : %s" % item_id)
         fb = list(it.get("owner_feedback") or [])
         if not any(e.get("text") == text for e in fb):
-            fb.append({"date": date, "text": text})
+            e = {"date": date, "text": text}
+            if via:
+                e["via"] = dict(via)
+            fb.append(e)
         return self.set_status(item_id, "validated",
                                owner_ok={"date": date, "text": text,
                                          "build_sha": sha if sha is not None else build_sha()},
