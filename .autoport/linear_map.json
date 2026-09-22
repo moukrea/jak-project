@@ -604,10 +604,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
-  "hash": "6834413582d401db5050e853de3955a0bf5c88bd",
+  "hash": "24bcd4848fb111f082ea06dec37887b62ca390bd",
   "identifier": "JAK-193",
   "issue_id": "046a0869-7c44-4202-b4c8-69b703c349bf",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-22T21:11:57.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
@@ -801,10 +801,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
  "harness-x86-proof-for-a-device-item-must-shout-at-launch": {
-  "hash": "d56839748c606e45b4102a9fc62db479c9939064",
+  "hash": "ec8309ba6572d5bcad1a56b2790725653eccdbc8",
   "identifier": "JAK-191",
   "issue_id": "8d0ae93f-70d2-4081-93e0-abdd0c0b4938",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T17:43:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-191/un-proof-runsh-id-x86-lance-pour-un-item-dont-le-critere-porte-device1"
@@ -1189,10 +1189,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-opus-5-5": {
-  "hash": "421244ae9433475e9a5cde5a283b92a098961020",
+  "hash": "991b3a5f1a573361d7b129484f3e67e0025c02f6",
   "identifier": "JAK-192",
   "issue_id": "54277465-24d2-439a-aa7f-a423d24e3c68",
-  "last_state": "Todo",
+  "last_state": "In Review",
   "pulled_at": "2026-09-22T20:59:23.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-192"
  },
