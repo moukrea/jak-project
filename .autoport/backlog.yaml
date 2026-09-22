@@ -17944,7 +17944,7 @@ items:
     tty dont le programme n''est pas le superviseur, est traite comme « pas de superviseur » et non comme
     « superviseur declare ». Publier le cas mesure sur le releve du 22/09 (pid 68980 mort, pts/3 = codex).'
   no_code: false
-  status: in-progress
+  status: open
   notes: 'Owner 22/09 : « Pourquoi tu réagis plus a mes feedbacks sur Linear »
 
     22/09 (superviseur, releve de terrain) : la veille SLA rend `lecteur=MORT (fichier-absent)` alors
@@ -18028,28 +18028,25 @@ items:
   no_code: true
   known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-22. Son texte : Opus 5.5 est sorti, autant
     l''utiliser en lieu et place de Opus'
-  notes: '22/09 (superviseur) : FAIT, sans essai de worker — c''etait un reglage, pas un developpement.
-
-    Ce qui bloquait n''etait PAS l''existence du modele : `claude-opus-5-5` etait refuse par notre CLI
-    2.1.278 avec « Claude Code 2.1.278 does not support this model ; version 2.1.280 or newer is required
-    ». Donc l''owner avait raison et le harnais avait tort.
-
-    1. `claude update` : 2.1.278 -> 2.1.280.
-
-    2. Sonde `claude --model claude-opus-5-5 -p` : rend OK.
-
-    3. Nouveau profil `panel-sobre-opus55` dans model-profiles.json — copie EXACTE de panel-sobre, seul
-    `manager_model` change (claude-opus-5 -> claude-opus-5-5). Sous-agents et efforts inchanges : l''owner
-    a demande de remplacer Opus, pas de refaire le panel.
-
-    4. `apply-model-profile.sh` passe.
-
-    RESTE : l''orchestrateur lit le profil UNE SEULE FOIS au demarrage (orchestrator.py:136). Le changement
-    ne prend donc effet qu''a sa prochaine relance. Elle n''a pas ete forcee pour ne pas tuer l''essai
-    en vol.
-
-    NON MESURE : ce que 5.5 coute par essai. La projection de panel-sobre (14,44 $) vaut pour opus-5,
-    pas pour 5.5. A remesurer apres une vingtaine d''essais.'
+  notes: "22/09 (superviseur) : FAIT, sans essai de worker — c'etait un reglage, pas un developpement.\n\
+    Ce qui bloquait n'etait PAS l'existence du modele : `claude-opus-5-5` etait refuse par notre CLI 2.1.278\
+    \ avec « Claude Code 2.1.278 does not support this model ; version 2.1.280 or newer is required ».\
+    \ Donc l'owner avait raison et le harnais avait tort.\n1. `claude update` : 2.1.278 -> 2.1.280.\n\
+    2. Sonde `claude --model claude-opus-5-5 -p` : rend OK.\n3. Nouveau profil `panel-sobre-opus55` dans\
+    \ model-profiles.json — copie EXACTE de panel-sobre, seul `manager_model` change (claude-opus-5 ->\
+    \ claude-opus-5-5). Sous-agents et efforts inchanges : l'owner a demande de remplacer Opus, pas de\
+    \ refaire le panel.\n4. `apply-model-profile.sh` passe.\nRESTE : l'orchestrateur lit le profil UNE\
+    \ SEULE FOIS au demarrage (orchestrator.py:136). Le changement ne prend donc effet qu'a sa prochaine\
+    \ relance. Elle n'a pas ete forcee pour ne pas tuer l'essai en vol.\nNON MESURE : ce que 5.5 coute\
+    \ par essai. La projection de panel-sobre (14,44 $) vaut pour opus-5, pas pour 5.5. A remesurer apres\
+    \ une vingtaine d'essais.\n\n22/09 23:20 (superviseur) : RELANCE FAITE. L'orchestrateur lisait le\
+    \ profil une seule fois au demarrage (orchestrator.py:136) ; il tournait donc encore sur `panel-sobre`\
+    \ / claude-opus-5. Arret par SIGINT a un essai de 5 minutes (harness-device-deploy-gate-must-compare-the-asset-pack,\
+    \ essai annule : `retries` est reste a None, aucun budget brule), puis relance detachee.\nTEMOIN,\
+    \ lu dans la banniere de logs/orchestrator.log apres relance :\n  `CLI=claude · profil=panel-sobre-opus55\
+    \ · modele=claude-opus-5-5 · effort=high · sous-agents=claude-sonnet-5`\nLe harnais tourne donc sur\
+    \ Opus 5.5 depuis 23:20. Ce qui n'est TOUJOURS pas mesure : le cout par essai de 5.5 compare a 5.\
+    \ A chiffrer apres ~20 essais."
   where: 'Rien a regarder dans le jeu : c''est un reglage du harnais. Ce qui se verifie, c''est la banniere
     au lancement de l''orchestrateur — elle doit dire `modele=claude-opus-5-5`. En une commande : `grep
     -m1 modele .autoport/logs/orchestrator.log` apres la prochaine relance.'
