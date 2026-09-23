@@ -15,15 +15,16 @@
 #      (racine, .autoport, lib, prompts, un dossier sans .autoport, un leurre qui porte un .autoport vide), plus un
 #      write_prompt a `ap_dir` etranger. Par cwd : empreinte absente du magasin ancre = 1 ; item modifie relu
 #      « a-la-main » (depuis ce cwd ou la racine) au lieu de « perime » = 1 ; tout magasin egare dans tmp = 1.
-#   F  DISQUE : tout `.prompt_fingerprints.json` hors de `<arbre>/.autoport/` dans chaque arbre git (worktrees
-#      compris) et sous /tmp et $TMPDIR (profondeur 4).
+#   F  DISQUE : tout `.prompt_fingerprints.json` qui n'est pas a cote d'un `prompts/` (donc pas le magasin d'un
+#      ap_dir), dans chaque arbre git (worktrees compris) et sous /tmp et $TMPDIR (profondeur 4).
 #   T  A TORT : toute consigne relue « a-la-main » dont le contenu EGALE a l'octet le rendu d'un commit passe
 #      (`lib/prompt_origin.py` : backlog.py ET backlog.yaml de ce commit). Nommee avec son commit.
 #   L  SOURCE : toute constante Python ".autoport/.prompt_fingerprints.json" (relative) hors recensements (AST).
 #   INCONNU = DEFAUT : un terme qui plante compte 1 ; un controle negatif non nul compte 1 ; un controle positif qui ne
 #   rougit pas ou ne NOMME pas son cas compte 1.
 # CONTROLES POSITIFS (defaut SEME) : C+cwd = l'ancienne ligne relative dans la copie -> P nomme les cwd geles et le
-#   magasin egare du leurre ; C+tort = une consigne rendue puis privee de son empreinte -> T la nomme.
+#   magasin egare du leurre ; C+tort = une consigne rendue puis privee de son empreinte -> T la nomme ; C+disk = un
+#   magasin sans `prompts/` seme sous $TMPDIR -> F le trouve (C-disk : son voisin a `prompts/` n'est pas accuse).
 # CONTROLE NEGATIF : le code livre rend P=0 ; une consigne vraiment ecrite a la main n'est PAS adoptee par T.
 set -uo pipefail
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "prompt_fingerprints_misplaced=99"; exit 1; }
@@ -140,27 +141,40 @@ except Exception as e:  # noqa: BLE001
 
 # ================================================================================== F : DISQUE ==
 t0 = time.time()
+seed = tempfile.mkdtemp(prefix="fp-seed-")                   # C+disk / C-disk : semes la ou F regarde
+seed_bad = os.path.join(seed, "cwd", ".autoport", ".prompt_fingerprints.json")
+seed_ok = os.path.join(seed, "ap", ".prompt_fingerprints.json")
+for f in (seed_bad, seed_ok):
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    open(f, "w").write("{}")
+os.makedirs(os.path.join(seed, "ap", "prompts"))
 try:
     trees = [l.split(" ", 1)[1] for l in subprocess.run(["git", "worktree", "list", "--porcelain"], capture_output=True,
              text=True).stdout.splitlines() if l.startswith("worktree ")]
     prune = r"\( -name .git -o -name build -o -name 'build-*' -o -name out -o -name iso_data -o -name third-party" \
             r" -o -name node_modules -o -name decompiler_out \) -prune -o"
-    found, strays = [], []
+    found = []
     for t in trees:
         if not os.path.isdir(t):
             continue
         r = subprocess.run("find %s %s -name .prompt_fingerprints.json -print 2>/dev/null" % (repr(t), prune),
                            shell=True, capture_output=True, text=True, timeout=240)
-        for f in r.stdout.split():
-            found.append(f)
-            if f != os.path.join(t, ".autoport", ".prompt_fingerprints.json"):
-                strays.append(f)
+        found += r.stdout.split()
     tmp_found = []
     for d in sorted({"/tmp", tempfile.gettempdir()}):
         r = subprocess.run(["find", d, "-maxdepth", "4", "-name", ".prompt_fingerprints.json"],
                            capture_output=True, text=True, timeout=120)
         tmp_found += [f for f in r.stdout.split() if "/fp-census-" not in f]
-    found += tmp_found; strays += tmp_found
+    found += tmp_found
+    # Un magasin est a sa place a cote du `prompts/` des consignes qu'il empreinte (write_prompt ecrit
+    # `<ap_dir>/prompts/...` et `<ap_dir>/.prompt_fingerprints.json`) : celui d'un ap_dir de test l'est aussi.
+    strays = [f for f in found if not os.path.isdir(os.path.join(os.path.dirname(f), "prompts"))]
+    if seed_bad not in strays:
+        dead.append("C+disk")
+    if seed_ok in strays or seed_ok not in found:
+        dead.append("C-disk")
+    found = [f for f in found if not f.startswith(seed + os.sep)]
+    strays = [f for f in strays if not f.startswith(seed + os.sep)]
     pub("prompt_fingerprints_trees_scanned", len(trees))
     pub("prompt_fingerprints_stores_found", len(found))
     pub("prompt_fingerprints_stray_stores", len(strays))
@@ -168,6 +182,7 @@ try:
     F = len(strays)
 except Exception as e:  # noqa: BLE001
     unmeasured.append("F:%s" % type(e).__name__); F = 0; print("F: %r" % e, file=sys.stderr)
+shutil.rmtree(seed, ignore_errors=True)
 pub("prompt_fingerprints_disk_scan_s", int(time.time() - t0))
 
 
