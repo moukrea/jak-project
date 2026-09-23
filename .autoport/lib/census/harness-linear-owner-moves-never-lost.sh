@@ -70,6 +70,7 @@ class World:
 
     def stamp(self):
         now = dt.datetime.now(dt.timezone.utc)
+        now = now.replace(microsecond=now.microsecond // 1000 * 1000)   # Linear date a la ms : deux evenements, deux ms
         if self._t and now <= self._t:
             now = self._t + dt.timedelta(milliseconds=1)
         self._t = now
@@ -346,10 +347,10 @@ pub("owner_moves_genuine", 7)   # un vrai deplacement de l'owner par scenario, d
 
 # ------------------------------------------------------------------ CONTROLES POSITIFS : chaque garde retiree
 POS = {
-    "relecture": ([('        if now_state is not None and now_state != rec["last_state"]:\n', '        if False:\n')], s1, "S1:"),
-    "etat_omis": ([('        payload = {k: v for k, v in payload.items() if k != "stateId"}\n', '        pass\n')], s1b, "S1B:"),
+    "relecture": ([('        if now_state is not None and now_state != rec["last_state"]:\n', '        if False:\n')], s1, "S1:ecrase"),
+    "etat_omis": ([('        payload = {k: v for k, v in payload.items() if k != "stateId"}\n', '        pass\n')], s1b, "S1B:ecrase"),
     "apres_coup": ([('        ours_at, caught = catch_overwritten(L, bl, it["id"], rec, st, seen)\n',
-                     '        ours_at, caught = None, None\n')], s2, "S2:"),
+                     '        ours_at, caught = None, None\n')], s2, "S2:ecrase"),
     "nom": ([('                if not mv and why.startswith(AMBIGUOUS) and not dry:\n', '                if False:\n')], s3, "S3:perdu"),
     "trace": ([('        if ev_id in moves_traced(t):\n            return ("already", t.get("status"))\n',
                 '        if False:\n            return ("already", t.get("status"))\n'),
