@@ -118,6 +118,18 @@ DEFAULT_MAX_RETRIES = 6
 BUDGET_NOTE = "budget :"
 
 STATUSES = ("open", "in-progress", "to-test", "validated", "blocked", "archived")
+
+# 23/09 — TICKET DE L'OWNER ADOPTE, PAS ENCORE CADRE. `linear_sync.adopt_owner_issues` cree l'item
+# `open`, sans porte ni consigne, avec cette note : c'est au superviseur d'ecrire son perimetre.
+# Jusque-la, `next_open` le saute (le prendre = le bloquer sur « prompt absent » en fin de file) et
+# le lint ne le compte pas comme une consigne OUBLIEE. JAK-265 a rougi deux tests de la suite du
+# harnais, imputes au chantier qui tournait quand l'owner a ouvert son ticket.
+AWAITING_FRAMING_NOTE = "A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai."
+
+
+def awaiting_framing(it):
+    """Un ticket de l'owner adopte que le superviseur n'a pas encore dote d'une consigne."""
+    return (it.get("notes") or "").startswith(AWAITING_FRAMING_NOTE) and not it.get("prompt")
 ACTIONABLE = ("open", "in-progress", "to-test", "blocked")
 OPS = {"==": lambda a, b: a == b, "!=": lambda a, b: a != b,
        "<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
@@ -385,6 +397,8 @@ class Backlog:
             if it.get("status") != "open":
                 continue
             if sans_appareil and it.get("device"):
+                continue
+            if awaiting_framing(it):
                 continue
             deps = it.get("depends_on") or []
             blocked = False
@@ -943,7 +957,9 @@ class Backlog:
                 sacoche = os.path.join(os.path.dirname(os.path.abspath(self.path)), "prompts")
                 if os.path.isdir(sacoche):
                     rel = it.get("prompt")
-                    if not rel:
+                    if not rel and awaiting_framing(it):
+                        pass  # a cadrer : `next_open` ne le prend pas, rien a oublier encore
+                    elif not rel:
                         problems.append("%s : le backlog ne DESIGNE aucune consigne "
                                         "(`prompt` vide) — l'orchestrateur bloquera l'item "
                                         "sur « prompt absent », que le fichier existe ou non"

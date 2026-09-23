@@ -1077,7 +1077,7 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
                 "gate": None, "depends_on": [], "device": False, "owner_test": True, "owner_ok": None, "code_scope": "jeu",
                 "max_turns": 600, "max_retries": 6, "proof_timeout": 420, "no_code": True,
                 "known_cause": "Ticket cree par l'owner dans Linear le %s. Son texte : %s" % (dt.date.today().isoformat(), (iss.get("description") or "").strip()),
-                "notes": "A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.",
+                "notes": B.AWAITING_FRAMING_NOTE,
                 "where": "", "deliverable": "", "out_of_scope": "", "spec": None}
         path = bl.path
         with B._Lock(path):

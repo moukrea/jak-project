@@ -225,6 +225,26 @@ def test_lint_accepts_a_blocked_item_that_says_why(bpath):
     assert bl.load(bpath).lint() == []
 
 
+def test_next_open_skips_an_owner_ticket_awaiting_framing(bpath):
+    # CONTROLE POSITIF : le ticket adopte, sans consigne, n'est ni pris ni reproche par le lint.
+    # CONTROLE NEGATIF : le meme, une fois dote de sa consigne, redevient le suivant de la file.
+    (bpath.parent / "prompts").mkdir()
+    _write(bpath, [_item("owner-x", priority=999, notes=bl.AWAITING_FRAMING_NOTE)])
+    b = bl.load(bpath)
+    assert b.next_open() is None
+    assert not [p for p in b.lint() if "consigne" in p.lower()], b.lint()
+    (bpath.parent / "prompts" / "owner-x.md").write_text("perimetre\n")
+    _write(bpath, [_item("owner-x", priority=999, notes=bl.AWAITING_FRAMING_NOTE, prompt="prompts/owner-x.md")])
+    assert bl.load(bpath).next_open()["id"] == "owner-x"
+
+
+def test_a_supervisor_item_without_prompt_is_still_reproached(bpath):
+    # La dispense ne vaut QUE pour la note d'adoption : la faute du 13/09 (champ oublie) rougit encore.
+    (bpath.parent / "prompts").mkdir()
+    _write(bpath, [_item("a", notes="cadre a la main")])
+    assert any("DESIGNE aucune consigne" in p for p in bl.load(bpath).lint())
+
+
 def test_real_backlog_only_fails_lint_on_missing_gates():
     """Le backlog livre ne doit avoir qu'une seule famille de reproche : les gates a ecrire."""
     problems = bl.load().lint()
@@ -406,8 +426,8 @@ def test_render_prompt_renvoie_au_contrat_quand_ca_ne_tient_pas(bpath):
 
 def test_every_open_item_of_the_real_backlog_has_a_prompt_on_disk():
     for it in bl.load().items:
-        if it["status"] != "open":
-            continue
+        if it["status"] != "open" or bl.awaiting_framing(it):
+            continue  # a cadrer : `next_open` ne le prend pas (test_next_open_skips_an_owner_ticket_awaiting_framing)
         assert it.get("prompt"), it["id"]
         path = AUTOPORT / it["prompt"]
         assert path.exists(), path
