@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 302,
+ "_gen": 309,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -597,13 +597,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-247/les-garde-fous-de-lecture-des-tickets-archives-redetectent-reellement"
  },
  "harness-backlog-write-cost": {
-  "hash": "ab3a6afc3ece8f85467fd15fbba99564180ba4ec",
+  "hash": "1cee0549fc4080258c1ab7dfe8b0f39cddb02f8a",
   "identifier": "JAK-259",
   "issue_id": "f4e659ac-81cd-4d34-95c7-6ad84e9d3de6",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-001.txt",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-23T06:08:38.000Z",
-  "state_at": "2026-09-23T14:17:22.265Z",
+  "state_at": "2026-09-23T15:04:56.400Z",
   "url": "https://linear.app/moukrea/issue/JAK-259/une-ecriture-du-backlog-ne-tient-plus-le-verrou-pendant-pres-dune"
  },
  "harness-builder-does-not-mistake-an-idle-gradle-daemon-for-a-build": {
@@ -658,6 +658,14 @@
   "last_state": "Todo",
   "pulled_at": "2026-09-22T22:24:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-202/un-superviseur-codex-lance-a-la-main-est-vu-vivant-par-le-harnais"
+ },
+ "harness-dead-dependency-is-named-never-silent": {
+  "hash": "1f543debb6dd282f4b1feb1311b81558c54dd964",
+  "identifier": "JAK-271",
+  "issue_id": "f4881950-debe-4575-bc8f-413dc4a46cd9",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T15:23:52.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-271/un-chantier-qui-depend-dun-chantier-archive-ou-supplante-nattend-plus"
  },
  "harness-delivery-stale-bake-recovery": {
   "hash": "f4212744f26243d84b7abc454704e9da6305dd7e",
@@ -1488,15 +1496,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "9801aa2fcc01cfe14e43be7cbe3558a6bfc45126",
+  "hash": "2bd90b06ea45dff923538c15ad52b24af6a12272",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect"
   ],
+  "state_at": "2026-09-23T15:05:33.616Z",
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
@@ -1585,16 +1594,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "7a58711e59ee4d61332c145b02c3579a246715b9",
+  "hash": "c4defd85ce7049c7ed2032f3bacb1dcf31f5e022",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
+  "state_at": "2026-09-23T15:05:34.218Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
@@ -2498,16 +2508,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-59/des-vagues-tranquilles-qui-arrivent-une-a-une-et-remontent-le-sable"
  },
  "water-surface-material": {
-  "hash": "389090387275db673e444e43e38f2718531663f2",
+  "hash": "f9b6ac12b66b2a82125b6cb2564e4f9c7f92d529",
   "identifier": "JAK-58",
   "issue_id": "c554814f-99ff-4c69-93af-523deb198fb2",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:56.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "water-ocean-mesh"
   ],
+  "state_at": "2026-09-23T15:05:36.552Z",
   "url": "https://linear.app/moukrea/issue/JAK-58/une-seule-matiere-deau-eclairee-par-shade"
  },
  "water-underwater": {
