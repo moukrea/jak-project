@@ -112,13 +112,19 @@ try:
     pub("linear_owner_id", owner_id or "-")
 
     L = S.Linear(ident or LI.resolve())
-    d = L.q('query($t:String!){ issues(filter:{title:{containsIgnoreCase:$t}}, first:1){ nodes { id identifier } } }',
+    # 23/09 : `includeArchived` — JAK-180 archive (quota Linear), la recherche rendait vide et l'acquis rougissait.
+    d = L.q('query($t:String!){ issues(filter:{title:{containsIgnoreCase:$t}}, first:1, includeArchived:true){ nodes { id identifier archivedAt } } }',
             t="sous sa propre identit")
     nodes = d["issues"]["nodes"]
     if not nodes:
         raise RuntimeError("ticket de l'item introuvable")
     iid = nodes[0]["id"]
     pub("linear_probe_issue", nodes[0]["identifier"])
+    # On ne commente pas un ticket archive (« Entity not found ») : ressorti le temps de la sonde, rerange apres.
+    was_archived = bool(nodes[0].get("archivedAt"))
+    pub("linear_probe_issue_archived", int(was_archived))
+    if was_archived:
+        S.with_room(L, lambda: L.q(S.UNARCHIVE, id=iid), "desarchivage de la sonde")
 
     body = S.MARK + "sonde d'identite du recensement (supprimee dans la seconde) %d" % int(time.time())
     S.post_comment(L, iid, body)
@@ -136,11 +142,19 @@ try:
     pub("linear_author_is_app", 1 if ((c.get("user") or {}).get("app") or (c.get("botActor") or {}).get("id")) else 0)
     L.q('mutation($id:String!){ commentDelete(id:$id){ success } }', id=c["id"])
     pub("linear_probe_deleted", 1)
+    if was_archived:
+        was_archived = not L.q('mutation($id:String!){ issueArchive(id:$id){ success } }', id=iid)["issueArchive"]["success"]
+        pub("linear_probe_rearchived", int(not was_archived))
     measured += 1
     bad = 0 if (kind == "app" and who and who != owner_id) else 1
     pub("lid_author_distinct", bad)
     defects += bad
 except Exception as e:  # noqa: BLE001
+    if globals().get("was_archived"):   # la sonde est tombee entre les deux : le ticket retourne a l'archive
+        try:
+            L.q('mutation($id:String!){ issueArchive(id:$id){ success } }', id=iid)
+        except Exception:  # noqa: BLE001
+            pass
     pub("linear_author_kind", "erreur")
     pub("linear_author_error", str(e)[:160].replace(" ", "_"))
     pub("lid_author_distinct", 1)

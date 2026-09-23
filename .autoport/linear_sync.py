@@ -948,7 +948,14 @@ def adopt_owner_order(L, bl, mp, states, dry, skip=()):
     if len(el) < 2:
         return 0
     ids = {mp[i["id"]]["issue_id"]: i for i in el}
-    d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:100){ nodes { id sortOrder } } }', ids=list(ids))
+    # 23/09 : sans `includeArchived`, un ticket archive manquait a la reponse et prenait le rang 0 (tete de
+    # colonne) : un faux « owner a reordonne ». On le LIT, puis on l'ecarte : il n'est plus dans la colonne.
+    d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:100, includeArchived:true){ nodes { id sortOrder archivedAt } } }', ids=list(ids))
+    gone = {n["id"] for n in d["issues"]["nodes"] if n.get("archivedAt")}
+    ids = {k: v for k, v in ids.items() if k not in gone}
+    el = [i for i in el if mp[i["id"]]["issue_id"] not in gone]
+    if len(el) < 2:
+        return 0
     so = {n["id"]: n["sortOrder"] for n in d["issues"]["nodes"]}
     linear_order = [ids[k]["id"] for k in sorted(ids, key=lambda k: (so.get(k, 0), ids[k]["id"]))]
     backlog_order = [i["id"] for i in sorted(el, key=lambda i: (i["priority"], i["id"]))]
@@ -1421,7 +1428,9 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40){ nodes { id state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } reactions { emoji } } } } } }', ids=chunk)
+        # 23/09 : `includeArchived` — sans lui, les 129 tickets archives (sur 209) sortaient du lot et le retour
+        # que l'owner y poste n'etait jamais relu.
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } reactions { emoji } } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
             iid = next((k for k, v in mp.items() if not k.startswith("_") and v["issue_id"] == iss["id"]), None)
             if not iid:
@@ -1455,7 +1464,9 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             ours = sorted([c for c in iss["comments"]["nodes"] if is_harness_comment(c)], key=lambda c: c["createdAt"])
             OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
             reacts = [r["emoji"] for r in (ours[-1].get("reactions") or [])] if ours else []
-            if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since:
+            # un ticket archive n'est dans aucune vue : on ne le ressort pas pour lui retirer « A lire »
+            if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since \
+                    and not iss.get("archivedAt"):
                 print("  reaction owner sur la derniere reponse de %s (%s) : lu" % (iid, ",".join(reacts)))
                 if not dry:
                     swap_labels(L, iss["id"], remove=label_id)
@@ -1516,7 +1527,7 @@ def main():
         ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
         live = {}
         for i in range(0, len(ids), 50):
-            d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50){ nodes { id state { name } title } } }', ids=ids[i:i + 50])
+            d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50, includeArchived:true){ nodes { id archivedAt state { name } title } } }', ids=ids[i:i + 50])
             for iss in d["issues"]["nodes"]:
                 live[iss["id"]] = iss
         for iid, rec in mp.items():
@@ -1526,7 +1537,7 @@ def main():
             it = bl.get(iid)
             if it is None:
                 orphans += 1
-                if iss and iss["state"]["name"] != "Canceled":
+                if iss and iss["state"]["name"] != "Canceled" and not iss.get("archivedAt"):  # archive = deja range
                     L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
                     post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
                     print("  orphelin archive :", rec["identifier"], iid)
