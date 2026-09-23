@@ -21399,3 +21399,164 @@ items:
   out_of_scope: ''
   spec: null
   prompt: prompts/item-owner-attention-aux-profils-opus-5-5-bouscule-tout.md
+- id: harness-census-fake-backlog-matches-real-api
+  feature: 'Les faux backlogs des recensements Linear suivent l''API reelle : deux gardes rouges depuis
+    un changement d''API redeviennent justes'
+  status: open
+  priority: 12
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: census_fake_api_drift
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-census-fake-backlog-matches-real-api.md
+  known_cause: 'Signale par les workers de harness-linear-owner-moves-never-lost / harness-linear-archived-structures-not-recreated
+    / harness-invisible-item-comment-has-no-capture-boilerplate / harness-linear-relinks-closed-tickets
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    `lib/census/harness-linear-pull-reads-archived-tickets.sh:253` et `lib/census/harness-linear-stale-map-never-fakes-an-owner-move.sh:170`
+    : leur FakeBL n''a pas de methode `update` ; depuis a0d1b96220 (apply_owner_move / pull_owner passent
+    par Backlog.update) la simulation leve : owner_archived_comments_lost=1 et fake_owner_moves=5, 4 controles
+    positifs morts (rouge deja a e24135c281). Deux acquis rougissent sur une panne du banc, pas du code.'
+  deliverable: '1. Un seul faux backlog partage, derive de l''interface reelle (ou la vraie classe sur
+    un fichier jetable), pour tous les recensements.
+
+    2. Les deux gardes retrouvent leur verdict ; leurs controles positifs rougissent de nouveau.
+
+    3. `census_fake_api_drift` = methodes de Backlog appelees par linear_sync et absentes d''un faux ;
+    doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-tests-never-write-real-registries
+  feature: Les tests du harnais n'ecrivent plus dans les vrais journaux du harnais, et aucun commentaire
+    Linear ne part sans son chantier
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: registry_pollution
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-tests-never-write-real-registries.md
+  known_cause: 'Signale par les workers de harness-linear-owner-moves-never-lost / harness-linear-archived-structures-not-recreated
+    / harness-invisible-item-comment-has-no-capture-boilerplate / harness-linear-relinks-closed-tickets
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    `tests/harness/test_loop.py`, `tests/harness/test_attempt.py` ecrivent dans le VRAI registre logs/linear_comments.jsonl
+    (60 lignes sur 134 aux items fictifs item-d / item-b), lu par CLOSE-GATE/capture. `linear_sync.py:post_comment`
+    (_rec_of sans _CTX[''mp'']) : 11 lignes du registre ont item="" -> ces messages echappent a la porte
+    capture et au garde INVISIBLE-CAPTURE.'
+  deliverable: '1. Les tests ecrivent dans un dossier jetable (variable d''environnement), jamais dans
+    .autoport/logs.
+
+    2. Un commentaire sans item identifie est refuse ou rattache.
+
+    3. Purger les 60 lignes fictives du registre.
+
+    4. `registry_pollution` = lignes fictives + lignes sans item ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-owner-gesture-not-imputed-to-running-item
+  feature: Un geste de l'owner pendant un essai (ticket Linear adopte, etc.) n'est plus impute au chantier
+    qui tourne ; un ticket owner adopte n'est plus classe « jeu » d'office
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_gesture_misimputed
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-gesture-not-imputed-to-running-item.md
+  known_cause: 'Signale par les workers de harness-linear-owner-moves-never-lost / harness-linear-archived-structures-not-recreated
+    / harness-invisible-item-comment-has-no-capture-boilerplate / harness-linear-relinks-closed-tickets
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    `lib/suite_gate.py` impute a l''essai en cours un rouge ne d''un GESTE DE L''OWNER (ticket Linear
+    adopte dans backlog.yaml, JAK-265) : l''essai 2 de harness-invisible-item-comment-has-no-capture-boilerplate
+    a ete refuse pour deux tests. `linear_sync.py:adopt_owner_issues` classe tout ticket adopte `code_scope:
+    jeu` en dur, meme un sujet de harnais (JAK-265 = profils de modeles).'
+  deliverable: '1. suite_gate distingue un rouge ne d''une ecriture du backlog par linear_sync/superviseur
+    (auteur, horodatage) et ne l''impute pas.
+
+    2. Un ticket adopte recoit `code_scope: a-cadrer`, que l''orchestrateur ne prend pas tant que le superviseur
+    ne l''a pas cadre.
+
+    3. `owner_gesture_misimputed` ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-directives-promises-are-implemented
+  feature: 'Ce que DIRECTIVES promet est fait par du code : le rapport perime est refuse, et DIRECTIVES.md
+    suit le checkpoint'
+  status: open
+  priority: 30
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: directives_unkept_promises
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-directives-promises-are-implemented.md
+  known_cause: 'Signale par les workers de harness-linear-owner-moves-never-lost / harness-linear-archived-structures-not-recreated
+    / harness-invisible-item-comment-has-no-capture-boilerplate / harness-linear-relinks-closed-tickets
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    `lib/directives.py:block` annonce « Le validateur recalcule la version et refuse un rapport perime
+    » : aucun code ne le fait (seul supervisor_cost.py cherche la sous-chaine). `orchestrator.py:1703`
+    (_HARNESS_STATE_FILES contient DIRECTIVES.md) : le checkpoint n''emporte jamais DIRECTIVES.md ; un
+    item qui doit le modifier le commite a la main par chemin.'
+  deliverable: '1. Implementer le refus du rapport perime OU retirer la promesse.
+
+    2. DIRECTIVES.md suit le checkpoint quand l''item a le droit de le modifier.
+
+    3. `directives_unkept_promises` ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-linear-request-economy
+  feature: La synchro Linear depense moins de requetes et ne garde pas d'identifiants perimes
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_request_waste
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-request-economy.md
+  known_cause: 'Signale par les workers de harness-linear-owner-moves-never-lost / harness-linear-archived-structures-not-recreated
+    / harness-invisible-item-comment-has-no-capture-boilerplate / harness-linear-relinks-closed-tickets
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    (1) `--comment` relance ensure_label x4 + ensure_view x3 (~11 requetes, dont 3 sous la cle personnelle)
+    au lieu du cache _ids. (2) mp[''_ids''] n''est jamais re-verifie : une etiquette archivee apres mise
+    en cache reste utilisee. (3) push_existing : 3 requetes de plus par changement d''etat (historique
+    avant/etat/historique apres), non mesure en vrai. (4) `--no-pull` : un ticket deplace hors passage
+    est differe a chaque passage (« ETAT NON ECRASE » repete). (5) aucune ligne « (historique : » dans
+    le journal : le terme V3 de stale-map n''a rien a lire. (6) ensure_* en first:250 sans pagination
+    (loin : 10/7/6). (7) sans LINEAR_API_KEY, aucune vue n''est plus creee. (8) linear_sync.py:1079 :
+    un doublon clos d''un item deja relie n''est pas relie.'
+  deliverable: '1. Mesurer AVANT les requetes par passage et par commentaire.
+
+    2. Cache verifie (TTL ou sur erreur), --comment sans ensure_*.
+
+    3. `linear_requests_per_comment` publie ; `linear_request_waste` = requetes evitables sur un passage
+    type ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
