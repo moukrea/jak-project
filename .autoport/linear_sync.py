@@ -36,6 +36,7 @@ sys.path.insert(0, str(AP))
 from lib import backlog as B  # noqa: E402
 import linear_identity as LI  # noqa: E402
 from lib import secret_mask as SM  # noqa: E402
+from lib import owner_sla as OSLA  # noqa: E402
 
 API = "https://api.linear.app/graphql"
 
@@ -671,7 +672,7 @@ def ensure_view(L, team_id, label_id, name="À lire", icon="Inbox", color="#f299
 
 
 def swap_labels(L, issue_id, add=None, remove=None):
-    """Pose `add`, retire `remove` (ids d'etiquettes), en une ecriture. Sur un ticket archive, la lecture passe
+    """Pose `add`, retire `remove` (un id d'etiquette ou une liste d'ids), en une ecriture. Sur un ticket archive, la lecture passe
     mais l'ecriture rend « Entity not found » : `on_ticket` le ressort et rejoue le tout."""
     on_ticket(L, issue_id, lambda: _swap_labels(L, issue_id, add, remove))
 
@@ -681,7 +682,8 @@ def _swap_labels(L, issue_id, add, remove):
     if iss is None:
         raise RuntimeError("Entity not found: Issue (lecture nulle)")
     ids = [l["id"] for l in iss["labels"]["nodes"]]
-    want = [i for i in ids if i != remove]
+    rm = set(remove) if isinstance(remove, (list, tuple, set)) else {remove}
+    want = [i for i in ids if i not in rm]
     if add and add not in want:
         want.append(add)
     talk = _TALK.get("id")
@@ -1068,26 +1070,50 @@ def push_existing(L, bl, it, rec, payload, st, h, label, todo):
     return moved
 
 
+REACTION_FIELDS = "reactions { emoji createdAt user { id app } }"
+
+
+def close_on_owner_thumb(L, iss, owner_id, read, todo, talk, dry, name):
+    """LA regle du pouce, pour les tickets du backlog ET hors backlog (23/09, JAK-176 : « Pourquoi les labels
+    subsistent, j'ai mis le pouce sur le dernier message »). Un pouce (ou ✅) de l'owner sur le DERNIER message du
+    harnais, sans commentaire de l'owner apres lui, clot la discussion : « A lire », « A traiter » et « En
+    discussion » tombent ensemble. Avant, seul « A lire » tombait, et « A traiter » restait des qu'un retour
+    precedait un message automatique. Ses retours anterieurs comptent repondus dans owner_sla (meme fonction,
+    `owner_sla.thread_closed`). Un ticket archive n'est dans aucune vue : on ne le ressort pas pour ca.
+    -> True si le fil est clos par un pouce (etiquettes retirees ou deja absentes)."""
+    if iss.get("archivedAt"):
+        return False
+    cs = iss["comments"]["nodes"]
+    t = OSLA.thread_closed(cs, lambda c: is_owner_comment(c, owner_id), is_harness_comment)
+    if not t:
+        return False
+    have = {l["id"] for l in iss["labels"]["nodes"]}
+    drop = [x for x in (read, todo, talk) if x and x in have]
+    if drop:
+        print("  pouce de l'owner sur la derniere reponse de %s : discussion close (%d etiquette(s) retiree(s))"
+              % (name, len(drop)))
+        if not dry:
+            swap_labels(L, iss["id"], remove=drop)
+    return True
+
+
 def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     """Tickets HORS backlog (questions closes, tickets de l'owner non adoptes) qui portent nos etiquettes :
     memes regles que les autres — 👍/✅ sur la derniere reponse robot = lu ; commentaire owner = « A traiter ».
     17/09 : JAK-173 (question, passee Done sans etre dans la carte) a garde « A lire » 21 min malgre son pouce."""
     known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
     owner_id = owner_user_id(L, mp)
-    OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
     n = 0
+    seen = set()
     for lab in (read, todo, talk):
-        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } comments { nodes { body createdAt user { id app } botActor { id } reactions { emoji } } } } } } }', id=lab)
+        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier archivedAt labels { nodes { id } } comments { nodes { body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } } }', id=lab)
         for iss in d["issueLabel"]["issues"]["nodes"]:
-            if iss["id"] in known:
+            if iss["id"] in known or iss["id"] in seen:
                 continue
+            seen.add(iss["id"])
             have = {l["id"] for l in iss["labels"]["nodes"]}
             cs = sorted(iss["comments"]["nodes"], key=lambda c: c["createdAt"])
-            ours = [c for c in cs if is_harness_comment(c)]
-            if read in have and ours and any(any(k in str(r["emoji"]) for k in OK_EMOJI) for r in (ours[-1].get("reactions") or [])):
-                print("  reaction owner sur la derniere reponse de %s (hors backlog) : lu" % iss["identifier"])
-                if not dry:
-                    swap_labels(L, iss["id"], remove=read); swap_labels(L, iss["id"], remove=talk)
+            if close_on_owner_thumb(L, iss, owner_id, read, todo, talk, dry, "%s (hors backlog)" % iss["identifier"]):
                 n += 1
             elif cs and is_owner_comment(cs[-1], owner_id) and todo not in have:
                 print("  retour owner sur %s (hors backlog) : %s" % (iss["identifier"], cs[-1]["body"][:80].replace("\n", " ")))
@@ -1544,7 +1570,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
         chunk = ids[i:i + 40]
         # 23/09 : `includeArchived` — sans lui, les 129 tickets archives (sur 209) sortaient du lot et le retour
         # que l'owner y poste n'etait jamais relu.
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } reactions { emoji } } } } } }', ids=chunk)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
             iid = next((k for k, v in mp.items() if not k.startswith("_") and v["issue_id"] == iss["id"]), None)
             if not iid:
@@ -1577,20 +1603,12 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                             print("  prompt non refabrique pour %s : %s" % (iid, e))
                 pulled += 1
                 newest = max(newest, c["createdAt"])
-            if newest != since and label_id and not dry:
+            # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu. 23/09 : il clot TOUT
+            # le fil, retour de l'owner compris, s'il est pose apres lui (`close_on_owner_thumb`) ; un retour pose
+            # APRES le pouce rouvre normalement (« A traiter »).
+            closed = label_id and close_on_owner_thumb(L, iss, owner_id, label_id, todo_id, _TALK.get("id"), dry, iid)
+            if newest != since and label_id and not dry and not closed:
                 swap_labels(L, iss["id"], add=todo_id, remove=label_id)
-            # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu, comme retirer « A lire ».
-            have = {l["id"] for l in iss["labels"]["nodes"]}
-            # l'API rend les commentaires du plus recent au plus ancien : trier, sinon « dernier » = le premier
-            ours = sorted([c for c in iss["comments"]["nodes"] if is_harness_comment(c)], key=lambda c: c["createdAt"])
-            OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
-            reacts = [r["emoji"] for r in (ours[-1].get("reactions") or [])] if ours else []
-            # un ticket archive n'est dans aucune vue : on ne le ressort pas pour lui retirer « A lire »
-            if label_id in have and ours and any(any(k in str(e) for k in OK_EMOJI) for e in reacts) and newest == since \
-                    and not iss.get("archivedAt"):
-                print("  reaction owner sur la derniere reponse de %s (%s) : lu" % (iid, ",".join(reacts)))
-                if not dry:
-                    swap_labels(L, iss["id"], remove=label_id)
             rec["pulled_at"] = newest
             if not iss.get("archivedAt") and rec.pop("stale_archived", None):
                 rec["hash"] = ""  # ressorti des archives : l'etat qu'on n'a pas pu lui poser est renvoye

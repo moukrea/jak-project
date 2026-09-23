@@ -139,14 +139,18 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
             # le compte pour qu'une alerte ne reparte pas sur l'historique (voir `evaluate`).
             rec["auto_after"] = sum(1 for c in suivantes if auto_kind(c.get("body")))
             rec["harness_after"] = len(suivantes)
-            reponses = [(c, answer_how(c, mine, ts_of)) for c in suivantes]
-            reponses = [(c, how) for c, how in reponses if how]
+            reponses = [(ts_of(c), c, answer_how(c, mine, ts_of)) for c in suivantes]
+            reponses = [(t, c, how) for t, c, how in reponses if how]
+            # Le POUCE de l'owner qui clot le fil (23/09, JAK-176) : « lu, rien a ajouter » eteint ses retours
+            # ANTERIEURS au pouce, jamais un retour pose apres.
+            reponses += [(t, None, "reaction") for t, _h in owner_closes(comments, is_owner, is_harness, ts_of)
+                         if t > rec["ts"]]
             if reponses:
-                c, how = reponses[0]
-                rec["answered_ts"] = ts_of(c)
+                t, c, how = min(reponses, key=lambda x: x[0])
+                rec["answered_ts"] = t
                 rec["answered"] = 1
                 rec["answer_how"] = how
-                rec["answer_auto"] = "" if how == "reply" else auto_kind(c.get("body"))
+                rec["answer_auto"] = "" if how in ("reply", "reaction") else auto_kind(c.get("body"))
                 rec["delay_s"] = int(rec["answered_ts"] - rec["ts"])
             else:
                 # SANS REPONSE = DELAI OUVERT. C'est le cas que l'owner a vecu : le mesurer
@@ -204,6 +208,53 @@ def auto_kind(body):
         if b.startswith(prefix):
             return kind
     return ""
+
+
+# ======================================================= LE POUCE DE L'OWNER CLOT LE FIL (23/09) ==
+# Owner 17/09 : « si j'ai rien à ajouter à ta réponse ça reste en discussion indéfiniment » ; il a choisi le
+# pouce (ou ✅) sur le dernier message du harnais pour dire « lu, rien a ajouter ». Owner 23/09 (JAK-176) :
+# « Pourquoi les labels subsistent, j'ai mis le pouce sur le dernier message » — le pouce ne retirait que
+# « A lire », et son retour restait ouvert ici puisqu'un message automatique n'est plus une reponse.
+# UNE regle, lue par les etiquettes (linear_sync.close_on_owner_thumb) ET par ce compteur.
+OK_EMOJI = ("+1", "thumbsup", "👍", "white_check_mark", "heavy_check_mark", "ballot_box_with_check", "✅", "☑", "✔")
+
+
+def is_ok_emoji(emoji):
+    return any(k in str(emoji or "") for k in OK_EMOJI)
+
+
+def owner_closes(comments, is_owner, is_harness, ts_of=None):
+    """[(ts_du_pouce, message_du_harnais)] : les pouces de l'owner qui CLOSENT le fil, du plus ancien au plus recent.
+
+    Un pouce clot s'il est pose sur le message du harnais qui etait le DERNIER au moment du pouce. Un pouce
+    sur un message ANCIEN (un message du harnais plus recent existait deja) ne clot rien. `is_owner` est la
+    regle d'auteur des commentaires, appliquee a la reaction (`user { id app }`)."""
+    ts_of = _created_at if ts_of is None else ts_of
+    ours = sorted((c for c in (comments or []) if is_harness(c)), key=ts_of)
+    out = []
+    for i, h in enumerate(ours):
+        nxt = ts_of(ours[i + 1]) if i + 1 < len(ours) else None
+        for r in h.get("reactions") or []:
+            if not is_ok_emoji(r.get("emoji")) or not is_owner(r):
+                continue
+            t = ts_of(r)
+            if t and (nxt is None or t < nxt):
+                out.append((t, h))
+    return sorted(out, key=lambda x: x[0])
+
+
+def thread_closed(comments, is_owner, is_harness, ts_of=None):
+    """Horodatage du pouce qui clot le fil MAINTENANT, 0 sinon : le DERNIER message du harnais porte un pouce de
+    l'owner, et aucun commentaire de l'owner n'est venu apres ce pouce (un nouveau retour rouvre)."""
+    ts_of = _created_at if ts_of is None else ts_of
+    comments = comments or []
+    ours = [c for c in comments if is_harness(c)]
+    if not ours:
+        return 0
+    last = max(ours, key=ts_of)
+    t = max((t for t, h in owner_closes(comments, is_owner, is_harness, ts_of) if h is last), default=0)
+    last_owner = max((ts_of(c) for c in comments if is_owner(c) and not is_harness(c)), default=0)
+    return t if t and t > last_owner else 0
 
 
 def _parent_of(comment):
@@ -334,6 +385,7 @@ def cost_summary(records, sla_s, now=None):
         "answered": sum(1 for r in dated if r["answered"]),
         "by_reply": sum(1 for r in dated if r.get("answer_how") == "reply"),
         "by_legacy": sum(1 for r in dated if r.get("answer_how") == "legacy"),
+        "by_reaction": sum(1 for r in dated if r.get("answer_how") == "reaction"),
         # ETEINT PAR UN MESSAGE AUTOMATIQUE : la porte de l'item. Doit valoir 0.
         "auto_answered": sum(1 for r in dated if r["answered"] and r.get("answer_auto")),
         "open": sum(1 for r in dated if r["open"]),
@@ -507,7 +559,7 @@ def rows_from_backlog(items, linear_map, since_date=None):
     return rows
 
 
-COMMENT_FIELDS = "id body createdAt parentId user { id app } botActor { id }"
+COMMENT_FIELDS = "id body createdAt parentId user { id app } botActor { id } reactions { emoji createdAt user { id app } }"
 
 
 def _rest(L, ticket, page):
