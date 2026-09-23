@@ -19071,7 +19071,19 @@ items:
     value: 0
   prompt: prompts/item-harness-supervisor-reader-must-be-the-supervisor.md
   owner_feedback:
-  - *id006
+  - date: '2026-09-23'
+    text: Je pense qu'ils les faut tous... à prioriser of course mais tout est pertinent il semblerait,
+      go
+    via:
+      source: supervisor
+      backfill: absent-de-linear-et-du-journal-de-synchro-depuis-2026-09-17
+  - date: '2026-09-23'
+    text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
+      vraiment en bas du bas de la pile
+    via:
+      comment: b50cc9f3-e39e-430e-85f2-27db63bbca0f
+      ticket: 931a8dc2-8917-41fa-ba25-461aed2cb41b
+      at: '2026-09-23T01:08:09.192Z'
   known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
     ligne 8), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
 
@@ -19186,7 +19198,7 @@ items:
 - id: harness-codex-supervisor-launched-by-hand-is-seen
   feature: Un superviseur Codex lance a la main est vu vivant par le harnais
   status: open
-  priority: 40
+  priority: 990
   code_scope: harnais
   device: false
   owner_test: false
@@ -19198,6 +19210,11 @@ items:
   prompt: prompts/item-harness-codex-supervisor-launched-by-hand-is-seen.md
   owner_feedback:
   - *id006
+  - date: '2026-09-23'
+    text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
+      vraiment en bas du bas de la pile
+    via: &id009
+      source: supervisor
   known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
     ligne 7), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
 
@@ -19219,6 +19236,7 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  notes: '23/09 : owner -> tout en bas de la pile ; c''est Codex qui le traitera lui-meme quand il voudra.'
 - id: harness-supervisor-seen-stamp-per-reader
   feature: 'Deux superviseurs en meme temps sont comptes separement : la mort de l''un ne se cache plus
     derriere l''autre'
@@ -19770,3 +19788,63 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+- id: harness-supervisor-proof-not-by-pasted-text
+  feature: Une session ouverte a la main ne peut pas se faire passer pour le superviseur en recevant le
+    texte d'un reveil
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: supervisor_proof_by_text
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-supervisor-proof-not-by-pasted-text.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
+      vraiment en bas du bas de la pile
+    via: *id009
+  known_cause: 'Signale par le worker de harness-supervisor-reader-must-be-the-supervisor (reports/.../FINDINGS.txt),
+    non corrige ; l''owner a dit « Ok » le 23/09 (JAK-198).
+
+    `.autoport/lib/supervisor_alive.py:supervisor_proof` (preuve « reveil ») repose sur l''heuristique
+    de texte `est_un_reveil` : une session non-worker qui recoit un long prompt citant « autoport » +
+    « supervision » se declare superviseur. 0 cas sur 7 jours.'
+  deliverable: '1. La preuve « reveil » exige un marqueur que seul le reveil programme porte (ou l''inscription
+    du lanceur), pas la forme du texte.
+
+    2. `supervisor_proof_by_text` = sessions declarees superviseur sur la seule forme du texte ; doit
+    valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-supervisor-seen-log-rotates
+  feature: Le journal des tampons de lecture du superviseur est purge au lieu de grossir sans fin
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: supervisor_seen_log_unbounded
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-supervisor-seen-log-rotates.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
+      vraiment en bas du bas de la pile
+    via: *id009
+  known_cause: 'Signale par le worker de harness-supervisor-reader-must-be-the-supervisor (reports/.../FINDINGS.txt),
+    non corrige ; l''owner a dit « Ok » le 23/09 (JAK-198).
+
+    `.autoport/logs/supervisor-seen.jsonl` : une ligne par prompt de chaque session, sans rotation (~150
+    lignes/jour).'
+  deliverable: '1. Rotation bornee (taille ou age), la derniere decision toujours conservee.
+
+    2. `supervisor_seen_log_unbounded` = journal au-dela de la borne ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
