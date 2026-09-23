@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 320,
+ "_gen": 322,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -660,11 +660,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-202/un-superviseur-codex-lance-a-la-main-est-vu-vivant-par-le-harnais"
  },
  "harness-dead-dependency-is-named-never-silent": {
-  "hash": "1f543debb6dd282f4b1feb1311b81558c54dd964",
+  "hash": "1713f9d0bdc3fce7014fa21c40dd4a0f14344b1c",
   "identifier": "JAK-271",
   "issue_id": "f4881950-debe-4575-bc8f-413dc4a46cd9",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "2026-09-23T15:23:52.000Z",
+  "state_at": "2026-09-23T18:45:46.676Z",
   "url": "https://linear.app/moukrea/issue/JAK-271/un-chantier-qui-depend-dun-chantier-archive-ou-supplante-nattend-plus"
  },
  "harness-delivery-stale-bake-recovery": {
@@ -1496,17 +1497,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "b07f570b6f0720102a6b019622fad6fe59e464fc",
+  "hash": "32e5a3bfd48c7b37d07f9f81f7fa986f8758892e",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "In Progress",
+  "last_state": "À arbitrer",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect"
   ],
-  "state_at": "2026-09-23T17:57:42.392Z",
+  "state_at": "2026-09-23T18:45:46.038Z",
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
