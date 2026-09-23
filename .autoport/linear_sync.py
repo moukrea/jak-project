@@ -935,57 +935,82 @@ def _say(L, rec, text):
 
 def apply_owner_move(L, bl, iid, rec, here):
     """Un deplacement de ticket fait par l'owner est une DECISION : le backlog suit, et on le dit.
-    Owner 17/09 : « si je change un status de ticket moi même […] ça serait con que ce soit systématiquement écrasé »."""
-    it = bl.get(iid)
-    if it is None:
+    Owner 17/09 : « si je change un status de ticket moi même […] ça serait con que ce soit systématiquement écrasé ».
+
+    23/09 : la decision se prend SOUS LE VERROU, sur l'item RELU du disque (`Backlog.update`), jamais sur la copie
+    chargee en debut de passe : un statut pose par l'orchestrateur ou une note ajoutee par le superviseur entre-temps
+    etaient ecrases (notes recomposees depuis la memoire, statut ramene en arriere). Les messages suivent la decision
+    RELUE. Voir `lib/census/harness-linear-owner-move-reads-fresh-item.sh`."""
+    if bl.get(iid) is None:
         return bl
     today = dt.date.today().isoformat()
-    s = it["status"]
-    def top_priority():
-        opens = [x.get("priority") for x in bl.items if x["status"] == "open" and isinstance(x.get("priority"), int)]
-        return (min(opens) - 1) if opens else 0
-    if here == "Done":
-        if not it.get("owner_ok"):
-            bl.validate(iid, "Déplacé en « Done » dans Linear par l'owner", date=today,
-                        via={"source": "move", "ticket": rec["issue_id"]})
-            _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel.")
-            if _TALK.get("ok"):
-                swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
-    elif here == "Canceled":
-        if s != "archived":
-            bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip())
-            _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
-    elif here == "À arbitrer":
-        if s == "in-progress":
-            bl.add_owner_feedback(iid, today, "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de l'essai en cours",
-                                  via={"source": "move", "ticket": rec["issue_id"]})
-            _say(L, rec, "Un essai est en cours dessus ; je le bloque dès qu'il se termine, pas au milieu.")
-        elif s != "blocked":
-            bl.set_status(iid, "blocked", block_reason="Bloqué par l'owner dans Linear le %s" % today)
-            _say(L, rec, "Bloqué sur ton déplacement : le harnais ne le prendra pas tant que tu ne le remets pas dans À faire ou Backlog.")
-    elif here in ("Backlog", "Todo", "In Progress"):
-        fields = {}
-        if s in ("blocked", "to-test", "validated", "archived"):
-            fields["status"] = "open"
-            if s == "validated":
-                fields["owner_ok"] = None
-            if _TALK.get("ok"):
-                swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
-        if here in ("Todo", "In Progress"):
-            fields["priority"] = top_priority()
-        if fields:
-            status = fields.pop("status", s if s != "archived" else "open")
-            if s in ("blocked", "to-test", "validated", "archived"):
-                status = "open"
-            bl.set_status(iid, status, **fields)
-            msg = "Rouvert sur ton déplacement." if s != "open" else "Noté."
+    via = {"source": "move", "ticket": rec["issue_id"]}
+    sha = B.build_sha() if here == "Done" else None   # hors verrou : git n'a rien a faire sous lui
+
+    def decide(t, items):
+        s = t.get("status")
+        if here == "Done":
+            if t.get("owner_ok"):
+                return None
+            e, champs = B.validation_fields("Déplacé en « Done » dans Linear par l'owner", today, sha, via)
+            B.fb_append(t, e, skip_same_text=True)
+            t.update(champs)
+            return ("done", s)
+        if here == "Canceled":
+            if s == "archived":
+                return None
+            t["status"] = "archived"
+            t["notes"] = ((t.get("notes") or "").rstrip() + "\n%s : archivé par l'owner dans Linear." % today).strip()
+            return ("archived", s)
+        if here == "À arbitrer":
+            if s == "in-progress":
+                B.fb_append(t, {"date": today, "text": "[Linear] déplacé en « À arbitrer » pendant un essai : sera mis de côté à la fin de l'essai en cours",
+                                "via": dict(via)})
+                return ("arbitrate-running", s)
+            if s == "blocked":
+                return None
+            t["status"] = "blocked"
+            t["block_reason"] = "Bloqué par l'owner dans Linear le %s" % today
+            return ("blocked", s)
+        if here in ("Backlog", "Todo", "In Progress"):
+            reopen = s in ("blocked", "to-test", "validated", "archived")
+            if reopen:
+                t["status"] = "open"
+                if s == "validated":
+                    t["owner_ok"] = None
             if here in ("Todo", "In Progress"):
-                msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
-            _say(L, rec, msg)
+                opens = [x.get("priority") for x in items if x.get("status") == "open" and isinstance(x.get("priority"), int)]
+                t["priority"] = (min(opens) - 1) if opens else 0
+            elif not reopen:
+                return None
+            return ("reopen" if reopen else "priority", s)
+        return None
+
+    decision = None
+    if here in ("Done", "Canceled", "À arbitrer", "Backlog", "Todo", "In Progress"):
+        decision = bl.update(iid, decide)
+    act, s = decision or (None, None)
+    if act == "done":
+        _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel.")
+        if _TALK.get("ok"):
+            swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
+    elif act == "archived":
+        _say(L, rec, "Archivé sur ton déplacement : le harnais ne le reprendra plus.")
+    elif act == "arbitrate-running":
+        _say(L, rec, "Un essai est en cours dessus ; je le bloque dès qu'il se termine, pas au milieu.")
+    elif act == "blocked":
+        _say(L, rec, "Bloqué sur ton déplacement : le harnais ne le prendra pas tant que tu ne le remets pas dans À faire ou Backlog.")
+    elif act in ("reopen", "priority"):
+        if act == "reopen" and _TALK.get("ok"):
+            swap_labels(L, rec["issue_id"], remove=_TALK["ok"])
+        msg = "Rouvert sur ton déplacement." if s != "open" else "Noté."
+        if here in ("Todo", "In Progress"):
+            msg += " Passé en tête de file : il démarre dès que l'essai en cours se termine (le harnais fait un chantier à la fois)."
+        _say(L, rec, msg)
     elif here == "In Review":
         _say(L, rec, "In Review est posé par la machine quand une porte mesurée tient. Je le remets où le backlog le place ; si tu veux forcer, commente ce que tu attends.")
         rec["hash"] = ""  # recalage par la synchro
-    bl = B.load()
+    bl = B.load(bl.path)
     it = bl.get(iid)
     if it and it["status"] != "archived":
         try:
@@ -1083,9 +1108,15 @@ def adopt_owner_order(L, bl, mp, states, dry, skip=()):
     if dry:
         return 1
     for iid, rank in zip(linear_order, ranks):
-        it = bl.get(iid)
-        if it["priority"] != rank:
-            bl.set_status(iid, it["status"], priority=rank); bl = B.load(); refresh_prompt(bl.get(iid))
+        # Le rang seul, sur l'item RELU sous le verrou : `set_status(iid, it["status"], ...)` reposait le statut
+        # lu en debut de passe et ramenait en arriere un essai lance entre-temps (23/09).
+        def rerank(t, _items, rank=rank):
+            if t.get("priority") == rank:
+                return False
+            t["priority"] = rank
+            return True
+        if bl.update(iid, rerank):
+            refresh_prompt(bl.get(iid))
     return 1
 
 
@@ -1647,15 +1678,27 @@ def owner_archived(L, hist, owner_id, rec):
 def apply_owner_archive(bl, iid, rec, ev):
     """Owner 23/09 (« oui ouvre ») : un ticket de chantier VIVANT que l'owner archive lui-meme est sa DECISION, comme un
     deplacement en « Canceled ». On ne lui ecrit rien : tout message ressortirait le ticket des archives et defairait son
-    geste. La synchro qui suit l'envoie en « Canceled » sans le ressortir (`revive` faux pour un etat clos)."""
-    it = bl.get(iid)
+    geste. La synchro qui suit l'envoie en « Canceled » sans le ressortir (`revive` faux pour un etat clos).
+    Notes prolongees sur l'item RELU sous le verrou, jamais sur la copie de debut de passe (23/09)."""
     today = dt.date.today().isoformat()
-    bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip()
-                                          + "\n%s : ticket archivé par l'owner dans Linear (%s) : chantier archivé." % (today, ev["createdAt"])).strip())
+
+    def archive(t, _items):
+        avant = t.get("status")
+        if avant not in LIVE:   # l'appelant a lu « vivant » en debut de passe ; le disque peut dire autre chose
+            return None
+        t["status"] = "archived"
+        t["notes"] = ((t.get("notes") or "").rstrip()
+                      + "\n%s : ticket archivé par l'owner dans Linear (%s) : chantier archivé." % (today, ev["createdAt"])).strip()
+        return avant or "?"
+    avant = bl.update(iid, archive)
+    if not avant:
+        print("ARCHIVAGE PAR L'OWNER NON APPLIQUE : %s %s n'est plus vivant sur le disque (%s)"
+              % (rec.get("identifier"), iid, (bl.get(iid) or {}).get("status")))
+        return B.load(bl.path)
     rec["owner_archived_at"] = ev["createdAt"]
     print("ARCHIVAGE PAR L'OWNER APPLIQUE : %s %s (archive le %s) : %s -> archived ; aucun message (il ressortirait le ticket)"
-          % (rec.get("identifier"), iid, ev["createdAt"], it["status"]))
-    return B.load()
+          % (rec.get("identifier"), iid, ev["createdAt"], avant))
+    return B.load(bl.path)
 
 
 def owner_move(L, hist, owner_id, here, rec):

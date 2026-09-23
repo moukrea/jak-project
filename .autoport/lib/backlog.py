@@ -197,6 +197,31 @@ def build_sha():
         return ""
 
 
+def fb_append(target, entry, skip_same_text=False):
+    """Ajoute `entry` en queue de l'owner_feedback de `target` (un item RELU sous le verrou).
+    Rend False si le retour y est deja : meme `via.comment`, ou meme texte si `skip_same_text`."""
+    fb = list(target.get("owner_feedback") or [])
+    cid = (entry.get("via") or {}).get("comment") if isinstance(entry.get("via"), dict) else None
+    deja = (skip_same_text and any(isinstance(x, dict) and x.get("text") == entry.get("text")
+                                   for x in fb)) or \
+           (cid and any(isinstance(x, dict) and isinstance(x.get("via"), dict)
+                        and x["via"].get("comment") == cid for x in fb))
+    if not deja:
+        fb.append(entry)
+    target["owner_feedback"] = fb
+    return not deja
+
+
+def validation_fields(text, date, sha=None, via=None):
+    """(retour, champs) du feu vert de l'owner : sa phrase, la date, le sha du build teste."""
+    e = {"date": date, "text": text}
+    if via:
+        e["via"] = dict(via)
+    return e, {"status": "validated", "priority": None,
+               "owner_ok": {"date": date, "text": text,
+                            "build_sha": sha if sha is not None else build_sha()}}
+
+
 class Backlog:
     def __init__(self, doc, path):
         self.path = os.fspath(path)
@@ -505,30 +530,50 @@ class Backlog:
         `skip_same_text` : n'ajoute pas si un retour porte deja ce texte (feu vert de l'owner).
         `status`/`fields` : poses dans la MEME ecriture (feu vert) ; sans `status`, le statut
         RELU est garde — jamais celui qu'on avait en memoire."""
+        def change(target, _items):
+            fb_append(target, entry, skip_same_text)
+            if status is not None:
+                target["status"] = status
+            for k, v in fields.items():
+                target[k] = v
+            return True
+        self.update(item_id, change)
+        return self.get(item_id)
+
+    def update(self, item_id, change):
+        """DECIDER ET ECRIRE SUR L'ITEM RELU (23/09). Verrou, relecture du disque, puis
+        `change(item, items)` — l'item et la liste RELUS, jamais la copie en memoire —, qui
+        modifie l'item en place et rend une valeur VRAIE pour ecrire (fausse : rien n'est
+        ecrit). Rend ce que `change` a rendu.
+
+        La synchro Linear decidait d'un deplacement de l'owner sur le statut LU EN MEMOIRE et
+        recomposait `notes` depuis cette copie : une note ou un statut ecrit entre-temps par un
+        autre ecrivain (orchestrateur, superviseur) etait ecrase. Un appelant qui doit garder
+        le statut ou prolonger `notes` passe par ici, pas par `set_status`. Voir
+        `lib/census/harness-linear-owner-move-reads-fresh-item.sh`."""
         with _Lock(self.path):
             fresh = _read(self.path)
             target = next((it for it in fresh["items"] if it.get("id") == item_id), None)
             if target is None:
                 raise BacklogError("item inconnu : %s" % item_id)
-            fb = list(target.get("owner_feedback") or [])
-            cid = (entry.get("via") or {}).get("comment") if isinstance(entry.get("via"), dict) else None
-            deja = (skip_same_text and any(isinstance(x, dict) and x.get("text") == entry.get("text")
-                                           for x in fb)) or \
-                   (cid and any(isinstance(x, dict) and isinstance(x.get("via"), dict)
-                                and x["via"].get("comment") == cid for x in fb))
-            if not deja:
-                fb.append(entry)
-            target["owner_feedback"] = fb
-            if status is not None:
-                if status not in STATUSES:
-                    raise BacklogError("statut inconnu : %s (attendu %s)" % (status, "|".join(STATUSES)))
-                target["status"] = status
-            for k, v in fields.items():
-                target[k] = v
-            _atomic_write(self.path, _dump(fresh))
+            avant_fb = list(target.get("owner_feedback") or [])
+            avant_livrable = target.get("deliverable")
+            res = change(target, fresh["items"])
+            if res:
+                if target.get("status") not in STATUSES:
+                    raise BacklogError("statut inconnu : %s (attendu %s)"
+                                       % (target.get("status"), "|".join(STATUSES)))
+                if target.get("status") == "blocked" and not target.get("block_reason"):
+                    raise BacklogError("un item bloque doit porter block_reason")
+                if list(target.get("owner_feedback") or [])[:len(avant_fb)] != avant_fb:
+                    raise BacklogError("REFUS : owner_feedback ne se RACCOURCIT ni ne se reecrit "
+                                       "(ajout en queue seulement)")
+                if target.get("deliverable") != avant_livrable:
+                    raise BacklogError("REFUS : le livrable passe par set_status (releve des verdicts)")
+                _atomic_write(self.path, _dump(fresh))
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
-        return self.get(item_id)
+        return res
 
     def set_feedback_via(self, item_id, date, text, via):
         """Pose `via` sur UN retour existant, retrouve par (date, texte), sous le verrou et sur
@@ -553,15 +598,9 @@ class Backlog:
     def validate(self, item_id, text, date=None, sha=None, via=None):
         """Le feu vert de l'owner : sa phrase, la date, le sha du build teste."""
         date = date or datetime.date.today().isoformat()
-        e = {"date": date, "text": text}
-        if via:
-            e["via"] = dict(via)
+        e, champs = validation_fields(text, date, sha, via)
         # Meme chemin que `add_owner_feedback` : la liste est relue sous le verrou (23/09).
-        return self._append_owner_feedback(
-            item_id, e, skip_same_text=True, status="validated",
-            owner_ok={"date": date, "text": text,
-                      "build_sha": sha if sha is not None else build_sha()},
-            priority=None)
+        return self._append_owner_feedback(item_id, e, skip_same_text=True, **champs)
 
     # ---------------------------------------------------------------- rapport
     def _testable_now(self, it):
