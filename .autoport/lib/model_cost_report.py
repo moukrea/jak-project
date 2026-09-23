@@ -334,9 +334,11 @@ def supervisor_block(root, cur_attempts, prev_attempts, cur_lo, cur_hi, prev_lo,
         d = sc.charger_cache()
         r = sc.releve(d)
         par_jour = r.get("par_jour", {})
+        par_jour_modeles = r.get("par_jour_modeles", {})
         mesurable = True
     except Exception:                                      # noqa: BLE001
         par_jour = {}
+        par_jour_modeles = {}
         mesurable = False
 
     def cost_in(lo, hi):
@@ -356,24 +358,47 @@ def supervisor_block(root, cur_attempts, prev_attempts, cur_lo, cur_hi, prev_lo,
             d += step
         return total if seen_any or par_jour else (0.0 if not par_jour else total)
 
+    def models_in(lo, hi):
+        """Modeles factures (cout > 0) dans la fenetre, lus jour par jour comme cost_in."""
+        models = set()
+        day = lo.date()
+        end_day = hi.date()
+        step = datetime.timedelta(days=1)
+        d = day
+        while d <= end_day:
+            key = d.isoformat()
+            for modele, cout_m in (par_jour_modeles.get(key) or {}).items():
+                if cout_m and cout_m > 0:
+                    models.add(modele)
+            d += step
+        return models
+
     def validated_in(attempts_window):
         return len({a["item_id"] for a in attempts_window if a.get("verdict") == "pass"})
 
-    cur_models = launches_in(cur_lo, cur_hi)
-    prev_models = launches_in(prev_lo, prev_hi)
+    cur_billed = models_in(cur_lo, cur_hi) if mesurable else set()
+    prev_billed = models_in(prev_lo, prev_hi) if mesurable else set()
+    if cur_billed or prev_billed:
+        cur_key = "+".join(sorted(cur_billed)) if cur_billed else "inconnu"
+        prev_key = "+".join(sorted(prev_billed)) if prev_billed else "inconnu"
+    else:
+        cur_models = launches_in(cur_lo, cur_hi)
+        prev_models = launches_in(prev_lo, prev_hi)
+        cur_key = ("+".join(sorted(cur_models)) if cur_models else "inconnu") + " (registre)"
+        prev_key = ("+".join(sorted(prev_models)) if prev_models else "inconnu") + " (registre)"
     cur = {
         "attempts": None, "cost_total": cost_in(cur_lo, cur_hi), "cost_mean": None,
         "cost_median": None, "validated": validated_in(cur_attempts),
         "cost_per_validated_item": None, "first_n": None, "first_pass": None,
         "first_rate": None, "turns_mean": None,
-        "key": "+".join(sorted(cur_models)) if cur_models else "inconnu",
+        "key": cur_key,
     }
     prev = {
         "attempts": None, "cost_total": cost_in(prev_lo, prev_hi), "cost_mean": None,
         "cost_median": None, "validated": validated_in(prev_attempts),
         "cost_per_validated_item": None, "first_n": None, "first_pass": None,
         "first_rate": None, "turns_mean": None,
-        "key": "+".join(sorted(prev_models)) if prev_models else "inconnu",
+        "key": prev_key,
     }
     for blk in (cur, prev):
         if blk["cost_total"] is not None and blk["validated"]:

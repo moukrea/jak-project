@@ -52,7 +52,7 @@ CACHE = os.environ.get("AUTOPORT_COST_CACHE") or os.path.join(AP, ".supervisor_c
 SNAPSHOT = os.environ.get("AUTOPORT_COST_SNAPSHOT") or os.path.join(AP, ".supervisor_cost.json")
 LANCEMENTS = os.path.join(AP, "logs", "supervisor-launches.jsonl")
 
-VERSION_CACHE = 3
+VERSION_CACHE = 4
 
 # ------------------------------------------------------------------ TARIFS
 # $/million de jetons : (entree, ecriture 5 min, ecriture 1 h, lecture de cache, sortie).
@@ -153,7 +153,8 @@ def _jour(etat, d):
     if j is None:
         j = {"cout": 0.0, "req": 0, "entree": 0.0, "ecriture": 0.0, "lecture": 0.0,
              "sortie": 0.0, "prefixe_somme": 0, "prefixe_n": 0,
-             "hist": {}, "familles": {}, "veilles": 0, "veilles_muettes": 0}
+             "hist": {}, "familles": {}, "veilles": 0, "veilles_muettes": 0,
+             "modeles": {}}
         etat["jours"][d] = j
     return j
 
@@ -333,6 +334,7 @@ def _ligne(etat, brute):
     j = _jour(etat, jour)
     j["cout"] += c
     j["req"] += 1
+    j["modeles"][modele or "inconnu"] = j["modeles"].get(modele or "inconnu", 0.0) + c
     j["entree"] += c_ent
     j["ecriture"] += c_ecr
     j["lecture"] += c_lec
@@ -488,7 +490,8 @@ def agreger(d, role="superviseur"):
             if g is None:
                 g = {"cout": 0.0, "req": 0, "entree": 0.0, "ecriture": 0.0, "lecture": 0.0,
                      "sortie": 0.0, "prefixe_somme": 0, "prefixe_n": 0,
-                     "hist": {}, "familles": {}, "veilles": 0, "veilles_muettes": 0}
+                     "hist": {}, "familles": {}, "veilles": 0, "veilles_muettes": 0,
+                     "modeles": {}}
                 jours[jour] = g
             for k in ("cout", "req", "entree", "ecriture", "lecture", "sortie",
                       "prefixe_somme", "prefixe_n", "veilles", "veilles_muettes"):
@@ -499,6 +502,8 @@ def agreger(d, role="superviseur"):
                 h["cout"] += f["cout"]
                 h["tours"] += f["tours"]
                 h["req"] += f["req"]
+            for modele, cout_m in (j.get("modeles") or {}).items():
+                g["modeles"][modele] = g["modeles"].get(modele, 0.0) + cout_m
     return {"sessions": sessions, "req": req, "jours": jours, "familles": familles,
             "reveils_programmes": reveils_prog, "rid_ecart_max": ecart_max,
             "modeles_inconnus": inconnus, "jetons_non_tarifes": non_tarifes,
@@ -563,6 +568,7 @@ def releve(d=None, jours_recents=7):
         "dernier": noms_jours[-1] if noms_jours else "", "req": ag["req"],
         "sessions": ag["sessions"], "familles": ag["familles"],
         "par_jour": {x: jours[x]["cout"] for x in noms_jours},
+        "par_jour_modeles": {x: jours[x]["modeles"] for x in noms_jours},
         "veilles": {x: jours[x]["veilles"] for x in noms_jours},
         "veilles_muettes": {x: jours[x]["veilles_muettes"] for x in noms_jours},
         "cout_jour": total / max(len(noms_jours), 1),

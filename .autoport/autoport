@@ -8,7 +8,7 @@
     ./.autoport/autoport ok <id> "la phrase de l'owner" [--date AAAA-MM-JJ]
     ./.autoport/autoport feedback <id> "les mots de l'owner" [--date AAAA-MM-JJ]
     ./.autoport/autoport lint
-    ./.autoport/autoport cost [--bloc]
+    ./.autoport/autoport cost [--bloc|--modeles]
     ./.autoport/autoport profile [show|set|use|check|sync]
 
 `status` imprime trois blocs en francais : en cours, a tester, bloque. Un bloc vide est
@@ -187,10 +187,17 @@ def cmd_cost(args):
     """
     import subprocess
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if args.modeles:
+        script = os.path.join(root, ".autoport", "lib", "model_cost_report.py")
+        return subprocess.call([sys.executable, script], cwd=root)
     script = os.path.join(root, ".autoport", "lib", "supervisor_cost.py")
     cmd = [sys.executable, script, "--rafraichir", "--json",
            "--bloc" if args.bloc else "--detail"]
-    return subprocess.call(cmd, cwd=root)
+    rc1 = subprocess.call(cmd, cwd=root)
+    print()
+    model_script = os.path.join(root, ".autoport", "lib", "model_cost_report.py")
+    rc2 = subprocess.call([sys.executable, model_script], cwd=root)
+    return max(rc1, rc2)
 
 
 def cmd_switch(args):
@@ -266,6 +273,8 @@ def main(argv=None):
     co = sub.add_parser("cost", help="ce que le superviseur coute, par jour et par declencheur")
     co.add_argument("--bloc", action="store_true",
                     help="le bloc court pour l'owner au lieu du detail")
+    co.add_argument("--modeles", action="store_true",
+                    help="cout par modele et par role, 7 j glissants, essais croises, alertes")
     co.set_defaults(func=cmd_cost)
 
     pr = sub.add_parser("profile", help="modele et effort par role : show | set | use | check | sync")
