@@ -16209,13 +16209,6 @@ items:
       source: move
       backfill: texte-du-deplacement
   - date: '2026-09-17'
-    text: Carrément maintenant il a les trois labels… Mais c'est quoi ce bordel ?
-    via:
-      comment: 1f23aa79-c5bb-4e5c-99da-a0eb364e2067
-      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
-      at: '2026-09-17T10:07:13.570Z'
-      backfill: own-ticket
-  - date: '2026-09-17'
     text: Bah les nouveaux tickets de Linear devraient attérir dans le backlog non ? sinon c'est dissonant
       et ça va exploser dans le temps !
     via:
@@ -16223,6 +16216,30 @@ items:
       ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
       at: '2026-09-17T10:08:16.165Z'
       backfill: own-ticket
+  - date: '2026-09-17'
+    text: Je viens de créer cet item, enfin il y a plusieurs minutes… Et pas de réponse de ta part ni
+      rien, comme s'il était ignoré, c'est bizarre ! Tu es sensé prendre en compte les changements de
+      status de ticket, les créations et compagnie !
+    via:
+      comment: 76f894d4-97e0-4037-b00f-6c94ca0c859f
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T09:37:29.847Z'
+      backfill: anterieur-a-l-adoption
+  - date: '2026-09-17'
+    text: 'J''ai mis une réaction à ton commentaire, et 21 minutes après il est toujours en "À lire :
+      réponse du harnais" et "En discussion"… Il y a un trou dans la raquette là !'
+    via:
+      comment: 0fc0c701-d1f6-4067-bbd5-261097ad749f
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T10:04:13.304Z'
+      backfill: anterieur-a-l-adoption
+  - date: '2026-09-17'
+    text: Hello ?
+    via:
+      comment: e0b73bd8-55d4-4c9a-9d98-521c0d3564ab
+      ticket: 63c75763-18f9-4c97-bc27-fa125fc1811c
+      at: '2026-09-17T10:06:07.652Z'
+      backfill: anterieur-a-l-adoption
 - status: validated
   game: jak1
   code_scope: jeu
@@ -19225,7 +19242,7 @@ items:
   - date: '2026-09-23'
     text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
       vraiment en bas du bas de la pile
-    via: &id009
+    via: &id008
       source: supervisor
   known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
     ligne 7), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
@@ -19400,9 +19417,10 @@ items:
     value: 0
   prompt: prompts/item-harness-linear-census-reads-archived-tickets.md
   owner_feedback:
-  - &id007
-    date: '2026-09-23'
+  - date: '2026-09-23'
     text: Ok
+    via:
+      source: supervisor
   known_cause: 'Signale par le worker de harness-linear-sync-never-creates-two-tickets-for-one-item (reports/.../FINDINGS.txt),
     non corrige ; l''owner a dit « Ok » pour l''ouvrir le 23/09 (JAK-229).
 
@@ -19444,7 +19462,10 @@ items:
     value: 0
   prompt: prompts/item-harness-linear-relink-keeps-owner-comments.md
   owner_feedback:
-  - *id007
+  - date: '2026-09-23'
+    text: Ok
+    via:
+      source: supervisor
   known_cause: 'Signale par le worker de harness-linear-sync-never-creates-two-tickets-for-one-item (reports/.../FINDINGS.txt),
     non corrige ; l''owner a dit « Ok » pour l''ouvrir le 23/09 (JAK-229).
 
@@ -19473,7 +19494,10 @@ items:
     value: 0
   prompt: prompts/item-harness-linear-stale-map-never-fakes-an-owner-move.md
   owner_feedback:
-  - *id007
+  - date: '2026-09-23'
+    text: Ok
+    via:
+      source: supervisor
   known_cause: 'Signale par le worker de harness-linear-sync-never-creates-two-tickets-for-one-item (reports/.../FINDINGS.txt),
     non corrige ; l''owner a dit « Ok » pour l''ouvrir le 23/09 (JAK-229).
 
@@ -19562,7 +19586,7 @@ items:
 - id: harness-linear-pull-reads-archived-tickets
   feature: Un commentaire de l'owner sur un ticket archive est lu, et un chantier ouvert qu'il archive
     lui-meme est pris comme sa decision
-  status: in-progress
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -19576,7 +19600,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: &id008
+    via: &id007
       source: supervisor
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
@@ -19597,6 +19621,13 @@ items:
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: a6bedd6ebf054806
+    proof_bytes: 75344
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-one-definition-of-answered
   feature: 'Une seule definition de « repondu » : le reveil du superviseur et le compteur de retours ne
     peuvent plus se contredire'
@@ -19614,7 +19645,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19647,7 +19678,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19682,7 +19713,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19718,7 +19749,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19752,7 +19783,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19782,7 +19813,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19811,7 +19842,7 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id008
+    via: *id007
   known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
     / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
     a dit « oui ouvre » le 23/09.
@@ -19844,7 +19875,7 @@ items:
   - date: '2026-09-23'
     text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
       vraiment en bas du bas de la pile
-    via: *id009
+    via: *id008
   known_cause: 'Signale par le worker de harness-supervisor-reader-must-be-the-supervisor (reports/.../FINDINGS.txt),
     non corrige ; l''owner a dit « Ok » le 23/09 (JAK-198).
 
@@ -19875,7 +19906,7 @@ items:
   - date: '2026-09-23'
     text: Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra,
       vraiment en bas du bas de la pile
-    via: *id009
+    via: *id008
   known_cause: 'Signale par le worker de harness-supervisor-reader-must-be-the-supervisor (reports/.../FINDINGS.txt),
     non corrige ; l''owner a dit « Ok » le 23/09 (JAK-198).
 
@@ -19889,7 +19920,7 @@ items:
 - id: harness-owner-thumbs-up-closes-the-thread
   feature: 'Un pouce de l''owner sur le dernier message du harnais clot la discussion du ticket : plus
     aucune etiquette « A traiter », « A lire » ni « En discussion » n''y reste'
-  status: open
+  status: in-progress
   priority: 12
   code_scope: harnais
   device: false
@@ -19924,3 +19955,4 @@ items:
 
     CONTROLE POSITIF (pouce sur un message automatique apres un retour owner -> tout retire) + CONTROLE
     NEGATIF (pouce sur un message ANCIEN, pas le dernier -> rien ne change).'
+  no_code: true
