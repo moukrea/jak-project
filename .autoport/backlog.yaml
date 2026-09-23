@@ -20228,7 +20228,7 @@ items:
 - id: harness-linear-relinks-closed-tickets
   feature: Un ticket termine ou annule que la synchro a perdu est retrouve, et les nouveaux commentaires
     de l'owner dessus sont lus
-  status: open
+  status: in-progress
   priority: 13
   code_scope: harnais
   device: false
@@ -20267,6 +20267,7 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:44+00:00'
       by: autoport feedback
+  no_code: true
 - id: harness-owner-archive-of-running-item-is-safe
   feature: Si l'owner archive un chantier pendant qu'un essai tourne dessus, l'essai s'arrete proprement
     et rien n'est ecrit au nom d'un item archive
@@ -20619,7 +20620,7 @@ items:
 - id: harness-linear-owner-move-reads-fresh-item
   feature: 'Quand l''owner deplace un ticket, la synchro decide sur l''etat FRAIS de l''item : aucune
     note ni statut ecrit entre-temps n''est ecrase'
-  status: in-progress
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -20646,6 +20647,13 @@ items:
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 31f068e699de04db
+    proof_bytes: 75523
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-backlog-write-cost
   feature: Une ecriture du backlog ne tient plus le verrou pendant pres d'une seconde
   status: open
@@ -20742,3 +20750,38 @@ items:
     3. `linear_space_limit_stale` ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-census-seeds-anchored-structurally
+  feature: 'Les recensements du harnais ne dependent plus d''une ligne de code exacte : une reecriture
+    ne les rend plus muets'
+  status: open
+  priority: 30
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: census_literal_anchors
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-census-seeds-anchored-structurally.md
+  known_cause: 'Signale par le worker de harness-archived-census-controls-are-alive (reports/.../FINDINGS.txt),
+    non corrige ; ouvert par le superviseur le 23/09 sous la delegation de l''owner pour les signalements
+    de harnais (« traite comme tu l''entends »).
+
+    (1) `lib/census/dead-published-keys-round-2.sh:408` : l''ancre `pbr_coverage_note_draw(` n''existe
+    plus dans game/ (git grep : 0) ; si le recensement l''attend encore, il rend « introuvable » a chaque
+    passage. (2) 18 graines restent semees sur un LITTERAL DE LIGNE (harness-linear-pull-reads-archived-tickets.sh:POS,
+    harness-linear-stale-map-never-fakes-an-owner-move.sh:261-389, harness-linear-relink-keeps-owner-comments.sh:281-283)
+    : vivantes aujourd''hui, mortes a la prochaine reecriture. (3) harness-linear-census-reads-archived-tickets.sh:dispatch_key
+    exclut les cles par ligne. (4) le terme G de harness-archived-census-controls-are-alive ne lit que
+    les blocs python (93/102).'
+  deliverable: '1. Recenser TOUTES les ancres et graines de lib/census/*.sh : lesquelles visent un litteral
+    de ligne, lesquelles sont deja mortes.
+
+    2. Re-ancrer sur une forme structurelle (noeud d''appel AST, symbole) ; une ancre introuvable = defaut
+    NOMME, jamais un vert.
+
+    3. `census_literal_anchors` = graines/ancres sur litteral de ligne + ancres mortes ; doit valoir 0.
+
+    CONTROLE POSITIF (reecrire la ligne visee dans une copie jetable -> le controle rougit encore) + CONTROLE
+    NEGATIF.'
