@@ -358,6 +358,14 @@ def _match_owner_comment(comments, text, is_owner, date=""):
     return cands[0]
 
 
+def open_records(records):
+    """LA definition de « sans reponse » (23/09) : un retour DATE sur son ticket et qu'aucune
+    reponse (fil, redige d'avant la bascule, pouce) n'a suivi. Le compteur (`cost_summary`), le
+    reveil du superviseur (`wake_gate.retours_sans_reponse`) et l'avertissement de `--comment`
+    lisent CETTE fonction : deux listes qui la recopieraient finiraient par diverger."""
+    return [r for r in records or () if r.get("dated") and r.get("open")]
+
+
 def cost_summary(records, sla_s, now=None):
     """Le COUT D'AVANT, chiffre. Termes publies separement, jamais une moyenne.
 
@@ -388,7 +396,7 @@ def cost_summary(records, sla_s, now=None):
         "by_reaction": sum(1 for r in dated if r.get("answer_how") == "reaction"),
         # ETEINT PAR UN MESSAGE AUTOMATIQUE : la porte de l'item. Doit valoir 0.
         "auto_answered": sum(1 for r in dated if r["answered"] and r.get("answer_auto")),
-        "open": sum(1 for r in dated if r["open"]),
+        "open": len(open_records(records)),
         "over_sla": len(over),
         "max_delay_s": worst,
         "worst_item": (max(dated, key=lambda r: r["delay_s"])["item"] if dated else "-"),

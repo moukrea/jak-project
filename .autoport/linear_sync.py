@@ -1737,7 +1737,7 @@ def main():
             try:
                 sys.path.insert(0, str(Path(__file__).resolve().parent))
                 from lib import owner_sla as _osla             # noqa: PLC0415
-                _open = [r for r in _osla.load_cache()[0] if r.get("item") == a.comment and r.get("open")]
+                _open = [r for r in _osla.open_records(_osla.load_cache()[0]) if r.get("item") == a.comment]
                 if _open:
                     print("ATTENTION : ce message ne repond a aucun des %d retour(s) de l'owner encore ouverts "
                           "sur %s ; pour y repondre : --reply-to last (ou l'id du commentaire)" % (len(_open), a.comment))

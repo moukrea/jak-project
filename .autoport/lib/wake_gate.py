@@ -183,6 +183,60 @@ def _journal(ligne):
         pass
 
 
+# ====================================================== « SANS REPONSE » : UNE SEULE SOURCE ==
+# 23/09. La liste lisait l'etiquette « A traiter » dans le journal de la synchro, et le compteur
+# de `status` lisait owner_sla : deux definitions de « repondu ». `linear_sync.py --comment` retire
+# l'etiquette meme HORS FIL, ou owner_sla compte le retour encore ouvert : le reveil taisait un
+# retour que le compteur voyait. Le jour de la correction, le journal criait trois tickets que
+# owner_sla comptait repondus. La liste se lit desormais dans le releve de owner_sla
+# (`.owner_sla.json`, pose par la synchro), filtre par `owner_sla.open_records` — la MEME fonction
+# que le compteur. Aucune requete reseau. Un releve absent ou perime est DIT, jamais tu.
+LINEAR_MAP = os.path.join(AP, "linear_map.json")
+
+
+def _tickets():
+    try:
+        with open(LINEAR_MAP, encoding="utf-8") as fh:
+            mp = json.load(fh)
+        return {k: (v or {}).get("identifier") or "sans-ticket"
+                for k, v in mp.items() if not k.startswith("_") and isinstance(v, dict)}
+    except Exception:                                      # noqa: BLE001
+        return {}
+
+
+def retours_sans_reponse(records=None, at=None, maintenant=None):
+    """Rend (bloc de texte, [cle owner_sla des retours listes]). Bloc vide = rien d'ouvert."""
+    sys.path.insert(0, AP)
+    from lib import owner_sla as _osla                     # noqa: PLC0415
+    maintenant = time.time() if maintenant is None else maintenant
+    if records is None:
+        records, at = _osla.load_cache()
+    if not at:
+        return ("## RETOURS DE L'OWNER : LISTE INCONNUE — le releve `%s` est absent ou illisible. "
+                "La synchro Linear le pose ; tant qu'il manque, rien ne dit qu'aucun retour n'attend."
+                % os.path.basename(_osla.cache_path()), [])
+    ouverts = sorted(_osla.open_records(records), key=lambda r: r.get("ts") or 0)
+    age_min = int(max(0, maintenant - at) / 60)
+    perime = age_min * 60 > 3 * max(_osla.periode_s(), 60)
+    if not ouverts and not perime:
+        return "", []
+    tk = _tickets()
+    tete = ("## RETOURS DE L'OWNER SANS REPONSE — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
+            "(releve owner_sla d'il y a %d min%s)" % (age_min, " — PERIME : la synchro ne le pose plus"
+                                                       if perime else ""))
+    corps = ["- %s %s (%s) : « %s »" % (tk.get(r.get("item"), "sans-ticket"), r.get("item"),
+                                        r.get("date") or "?",
+                                        " ".join((r.get("text") or "").split())[:100])
+             for r in ouverts]
+    pied = ("(le texte de chaque retour est dans `owner_feedback` de l'item ; poster par "
+            "`python3 .autoport/linear_sync.py --comment <id> --reply-to last --body \"…\"` — "
+            "SANS `--reply-to`, le message ne repond a aucun retour et le compteur reste ouvert)\n")
+    if not ouverts:
+        corps = ["- aucun retour ouvert dans ce releve, mais il est PERIME : ne pas le croire"]
+    return "\n".join([tete] + corps + [pied]), [r.get("key") for r in ouverts]
+
+
+
 _SESSION_ID = "-"
 
 
@@ -269,22 +323,12 @@ def decide(prompt, maintenant=None, ecrire=True):
     except Exception:                                      # noqa: BLE001
         pass
     # 19/09, owner : « Tu surveilles plus les tickets c'est pas possible ! Je commente je commente et j'ai
-    # aucun retour ». Le digest ne regardait que « A tester » ; les retours en attente vivaient dans le
-    # journal de la synchro, que personne ne relisait. Ils sont desormais EN TETE de chaque reveil, avec
-    # la consigne : y repondre d'abord. Lecture du dernier tour de linear_watch, aucune requete reseau.
+    # aucun retour ». Les retours en attente sont EN TETE de chaque reveil, avec la consigne : y repondre
+    # d'abord. Depuis le 23/09 la liste vient de owner_sla, pas de l'etiquette Linear (voir plus bas).
     try:
-        import re as _re
-        log = Path(__file__).resolve().parent.parent / "logs" / "linear_sync.txt"
-        txt = log.read_text(encoding="utf-8", errors="replace")[-40000:]
-        tours = txt.split("Linear : ")
-        dernier = tours[-2] if len(tours) >= 2 else txt
-        attente = sorted(set(_re.findall(r"À TRAITER : (JAK-\d+ \S+)", dernier)))
-        if attente:
-            lignes.insert(0, "## RETOURS DE L'OWNER SANS REPONSE — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
-                          + "\n".join("- " + a for a in attente)
-                          + "\n(le texte de chaque retour est dans `owner_feedback` de l'item ; poster par "
-                            "`python3 .autoport/linear_sync.py --comment <id> --reply-to last --body \"…\"` — "
-                            "SANS `--reply-to`, le message ne repond a aucun retour et le compteur reste ouvert)\n")
+        bloc, _cles = retours_sans_reponse(maintenant=maintenant)
+        if bloc:
+            lignes.insert(0, bloc)
     except Exception:                                      # noqa: BLE001
         pass
     return "passe", raison, "\n".join(lignes)
