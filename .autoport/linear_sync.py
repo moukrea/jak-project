@@ -37,6 +37,7 @@ from lib import backlog as B  # noqa: E402
 import linear_identity as LI  # noqa: E402
 from lib import secret_mask as SM  # noqa: E402
 from lib import owner_sla as OSLA  # noqa: E402
+from lib import owner_capture as OCAP  # noqa: E402
 
 API = "https://api.linear.app/graphql"
 
@@ -796,7 +797,7 @@ def owner_user_id(L, mp):
     return d["id"]
 
 
-def post_comment(L, issue_id, body, parent=None):
+def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     """LE SEUL endroit d'ou le harnais poste un commentaire.
 
     Il y en avait CINQ, chacun portant sa copie de la mutation. Une bascule d'identite aurait
@@ -809,8 +810,20 @@ def post_comment(L, issue_id, body, parent=None):
     i = {"issueId": issue_id, "body": body}
     if parent:
         i["parentId"] = parent
-    return on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }',
-                                              i=i))
+    r = on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success comment { id } } }',
+                                           i=i))
+    # LE REGISTRE DES COMMENTAIRES, ecrit ICI parce que c'est le seul point de production : la porte
+    # de fermeture (`lib/owner_capture`) y lit si l'essai a joint une capture a son ticket.
+    # Un registre qui tombe ne fait pas tomber le message deja poste : il est NOMME.
+    if r is LEFT_ARCHIVED:
+        return r   # rien n'est parti : rien a inscrire
+    try:
+        cid = (((r or {}).get("commentCreate") or {}).get("comment") or {}).get("id", "") if isinstance(r, dict) else ""
+        OCAP.record(HOME, _rec_of(issue_id)[0] or "", body, issue_id=issue_id, comment_id=cid,
+                    capture_failed=capture_failed)
+    except Exception as e:  # noqa: BLE001
+        print("REGISTRE DES COMMENTAIRES NON ECRIT : %s" % str(e)[:200])
+    return r
 
 
 def reply_target(L, bl, iid, ref):
@@ -1661,6 +1674,7 @@ def main():
     ap.add_argument("--reply-to", default=None, help="avec --comment : le commentaire Linear de l'owner auquel ce message REPOND (id de `owner_feedback[].via.comment`, ou `last`). Le message part dans son fil : c'est la seule forme qui compte comme reponse a son retour")
     ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
+    ap.add_argument("--no-capture", default="", metavar="POURQUOI", help="avec --comment : la capture de la zone est IMPOSSIBLE, pour cette raison. Le message dit alors quel build tester ; la porte de fermeture l'accepte si un build est publie pendant l'essai")
     a = ap.parse_args()
     SM.install_hooks(quiet=True)  # le refus de commit d'un secret connu ne depend d'aucune installation a la main
     ident = LI.resolve()
@@ -1731,7 +1745,11 @@ def main():
         for f in a.attach:
             url, ctype = upload_file(L, f)
             body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
-        post_comment(L, ticket, body, parent=parent)
+        if a.no_capture:
+            _b = OCAP.published_build(HOME)
+            body += "\n\nCapture impossible : %s. Build a tester : %s (publie le %s)." % (
+                a.no_capture.strip(), _b.get("tag", "aucun"), _b.get("date", "jamais"))
+        post_comment(L, ticket, body, parent=parent, capture_failed=a.no_capture)
         if not parent:
             # Un message hors fil n'eteint AUCUN retour (23/09) : le dire au moment ou il part.
             try:

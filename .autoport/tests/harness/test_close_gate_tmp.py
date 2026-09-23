@@ -106,8 +106,10 @@ def test_acquis_temporaries(orch, acquis_bench, record_property,
     bench = acquis_bench
     if initial is not None:
         bench["rotation"].write_text(initial)
+    # `where` « rien a regarder » : ce banc juge les acquis, pas la capture que GATE CAPTURE exige
+    # d'un chantier visible (`test_owner_capture_gate.py`).
     result = orch.close_gate(dict(id="tmp-bench", no_code=True, device=False,
-                                 owner_test=owner_test))
+                                 owner_test=owner_test, where="rien a regarder en jeu : banc"))
     assert result == (("awaiting-owner", "") if owner_test else ("pass", ""))
     assert len(bench["suite_calls"]) == 1
     assert bench["rotation"].read_text() == rotation

@@ -72,6 +72,7 @@ from lib import impossible as impossible_state
 from lib import gate_verdict
 from lib import safe_reload
 from lib import suite_gate
+from lib import owner_capture
 
 BACKEND = "claude"
 
@@ -2442,6 +2443,18 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
     # depend — le 2026-09-06, lighting-census a bloque les onze chantiers d'eclairage suivants
     # parce qu'il ne pouvait par construction jamais recevoir son feu vert.
     if item.get("owner_test", True) and item.get("owner_verify", True) and not owner_said_yes(item):
+        # GATE CAPTURE — UN CHANTIER VISIBLE NE PART PAS AU TEST SANS CAPTURE SUR SON TICKET.
+        # MARQUEUR : CLOSE-GATE/capture. Owner 18/09 : « t'aurais pu joindre un screen ». La
+        # consigne de DIRECTIVES a ete ignoree par trois agents sur trois ; elle devient une porte.
+        # La mesure a deja tenu : seule la SORTIE vers l'owner est conditionnee. Une capture
+        # impossible suivie d'un build publie passe (amendement owner 22/09) : jamais un rouge
+        # pour une capture ratee, jamais une mesure de substitution. Voir `lib/owner_capture.py`.
+        _cap = owner_capture.judge(item, since, AUTOPORT_DIR)
+        log(f"· capture : {_cap['verdict']} — {_cap['why']} ({_cap['comments']} commentaire(s), "
+            f"{_cap['images']} image(s), {_cap['declared']} capture(s) impossible(s) declaree(s))",
+            "red" if _cap["verdict"] == owner_capture.DEFAUT else "dim")
+        if _cap["verdict"] == owner_capture.DEFAUT:
+            return ("fail", owner_capture.refusal(item, _cap))
         return ("awaiting-owner", "")
 
     return ("pass", "")
@@ -3382,6 +3395,12 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         write_minimal_handoff(iid, seq, validator_log, touched, gate_reason)
         log("  handoff minimal écrit par l'orchestrateur (le worker n'en a pas laissé)",
             "yellow")
+    elif gate_reason.startswith("CLOSE-GATE/capture"):
+        # Le worker a laisse SON handoff, mais il ne pouvait pas connaitre ce refus, prononce
+        # apres sa sortie : l'essai suivant doit le lire, sinon il refait la mesure et repart nu.
+        # EN TETE : `read_handoff` coupe a HANDOFF_MAX_LINES, une fin de fichier peut sauter.
+        hp.write_text("## Porte de fermeture (ecrit par l'orchestrateur)\n" + gate_reason
+                      + "\n\n" + hp.read_text(errors="replace"))
 
     # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work so
     # a long iterating item never leaves hours of engine changes un-bisectable.
