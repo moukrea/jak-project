@@ -1,0 +1,37 @@
+# harness-linear-owner-moves-never-lost — essai 1
+DIRECTIVES vef330922b2
+
+Verdict : un déplacement de ticket fait par l'owner n'est plus écrasé, perdu ni appliqué deux fois ; owner_moves_lost=0 sur 5 scénarios fautifs + 2 sains, les 5 gardes retirées une à une rougissent et nomment leur scénario.
+
+## Ce qui a changé (.autoport/linear_sync.py, commits 9f9e484a5d + 64d158362c)
+- push_existing : l'état n'est plus renvoyé s'il ne change pas (une retouche de description ne touche plus la colonne).
+  Pour un changement, historique puis état du ticket RELUS avant d'écrire : ticket ailleurs que la carte = rien d'écrit
+  (« ETAT NON ECRASE »), le tirage suivant dit qui l'a déplacé.
+- catch_overwritten : après l'écriture, l'historique relu ; un déplacement de l'owner tombé entre relecture et écriture
+  est appliqué sur-le-champ et nommé (« DEPLACEMENT DE L'OWNER RATTRAPE »). `state_at` = la date Linear de NOTRE
+  changement (plus l'horloge locale) et ne bouge plus quand l'état n'est pas posé.
+- apply_owner_move(ev=) : l'id d'historique est écrit dans l'item (`owner_moves`, 20 derniers) sous le même verrou que
+  la décision ; un id déjà présent n'est jamais refait (pull_owner le vérifie aussi). La trace vit avec l'effet :
+  un backlog reculé efface les deux, et refaire est alors juste.
+- Repli sous la clé de l'owner sans `state_at` : name_ambiguous_move poste UNE fois à l'owner ce qui est arrivé.
+- Historique lu avec `id` ; recensement lib/census/harness-linear-owner-moves-never-lost.sh.
+
+## Preuve (recopiée de proof.txt, lib/proof_run.sh x86, essai @1#1790155672)
+owner_moves_lost=0
+owner_moves_scenarios=5_fautifs+2_sains
+owner_moves_genuine=7
+owner_moves_guard_actions=S1:deferred,S2:caught
+owner_moves_ctl_neg_bad=0
+owner_moves_ctl_pos_relecture_named=S1:ecrase
+owner_moves_ctl_pos_trace_named=S4:reapplique
+owner_moves_before_named=S1:ecrase,S1B:ecrase,S2:ecrase,S3:perdu,S4:reapplique
+
+## Ce que l'owner doit regarder
+Rien à tester : c'est la synchro Linear. Si un jour il déplace un ticket pendant un passage, le ticket reste où il l'a mis.
+
+## Non prouvé
+- non prouvé : le nouveau chemin d'envoi sur le VRAI Linear — le code tourne en production depuis 9f9e484a5d
+  (0 échec nommé), mais aucun envoi n'a eu lieu depuis ; seule la simulation l'exerce.
+- non prouvé : le coût en requêtes (3 de plus par changement d'état), non mesuré en vrai.
+- Deux recensements voisins (pull-reads-archived-tickets, stale-map-never-fakes-an-owner-move) sont ROUGES, et
+  l'étaient déjà à e24135c281 (faux backlog sans `update` depuis a0d1b96220) : non corrigés, dans FINDINGS.
