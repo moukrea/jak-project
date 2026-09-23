@@ -691,11 +691,23 @@ def ensure_states(L, team_id):
     return out
 
 
+# 23/09 (harness-linear-archived-structures-not-recreated) : une COLLECTION Linear (`team{projects}`,
+# `team{labels}`, `customViews`) ecarte en silence ce qui est archive sans `includeArchived:true`. Un projet,
+# une etiquette ou une vue que l'owner a archive etait donc INVISIBLE et aurait ete RECREE au premier passage
+# sans cache (`_ids` absent de la carte : poste neuf, `git reset` de linear_map.json). Regle commune aux trois :
+# le nom existe, actif -> on le reprend ; archive (ou a la corbeille) -> c'est le choix de l'owner, on ne le
+# recree pas et on rend None (la fonction qui s'en sert se tait).
+def _archived(n):
+    return bool(n.get("archivedAt") or n.get("trashed"))
+
+
 def ensure_projects(L, team_id):
-    d = L.q('query($t:String!){ team(id:$t){ projects { nodes { id name } } } }', t=team_id)
-    have = {p["name"]: p["id"] for p in d["team"]["projects"]["nodes"]}
+    d = L.q('query($t:String!){ team(id:$t){ projects(first:250, includeArchived:true) { nodes { id name archivedAt trashed } } } }', t=team_id)
+    nodes = d["team"]["projects"]["nodes"]
+    have = {p["name"]: p["id"] for p in nodes if not _archived(p)}
+    gone = {p["name"] for p in nodes if _archived(p)} - set(have)
     for name in sorted(set(PROJECTS.values()) | {"Divers"}):
-        if name not in have:
+        if name not in have and name not in gone:
             r = L.q('mutation($i:ProjectCreateInput!){ projectCreate(input:$i){ project { id } } }',
                     i={"name": name, "teamIds": [team_id]})
             have[name] = r["projectCreate"]["project"]["id"]
@@ -709,10 +721,13 @@ LABEL_OK = "Sans revue (machine)"  # owner 17/09 : marquer ceux que la machine p
 
 
 def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
-    d = L.q('query($t:String!){ team(id:$t){ labels { nodes { id name } } } }', t=team_id)
-    for l in d["team"]["labels"]["nodes"]:
-        if l["name"] == name:
+    d = L.q('query($t:String!){ team(id:$t){ labels(first:250, includeArchived:true) { nodes { id name archivedAt } } } }', t=team_id)
+    same = [l for l in d["team"]["labels"]["nodes"] if l["name"] == name]
+    for l in same:
+        if not _archived(l):
             return l["id"]
+    if same:
+        return None   # archivee par l'owner : pas de recreation
     r = L.q('mutation($i:IssueLabelCreateInput!){ issueLabelCreate(input:$i){ issueLabel { id } } }',
             i={"teamId": team_id, "name": name, "color": color})
     return r["issueLabelCreate"]["issueLabel"]["id"]
@@ -720,12 +735,28 @@ def ensure_label(L, team_id, name=LABEL_READ, color="#f2994a"):
 
 def ensure_view(L, team_id, label_id, name="À lire", icon="Inbox", color="#f2994a",
                 desc="Tickets où le harnais t'a répondu et que tu n'as pas encore relus. L'étiquette tombe dès que tu commentes."):
-    d = L.q('{ customViews { nodes { id name } } }')
-    for v in d["customViews"]["nodes"]:
-        if v["name"] == name:
+    """Une vue PRIVEE n'est lue que par son createur. Les trois vues de l'owner ont ete creees sous sa cle le
+    17/09 (07:36-07:48, `shared:false`) ; a la bascule vers l'identite d'application (19:17:56), `customViews` ne
+    les rendait plus et l'application en a cree trois copies privees, que PERSONNE ne voit. On lit donc aussi
+    sous la cle personnelle (comme `owner_user_id`) ; si elle manque ou echoue, l'absence n'est pas prouvee et
+    on ne cree rien. Une vue creee l'est partagee (`shared`) : sous l'application, une vue privee est perdue.
+    Le filtre d'equipe compte aussi : « En discussion » existe dans l'equipe JAU."""
+    q = '{ customViews(first:250, includeArchived:true) { nodes { id name archivedAt team { id } } } }'
+    views = list(L.q(q)["customViews"]["nodes"])
+    if getattr(L, "mode", "owner") == "app":
+        key = LI.load_env().get("LINEAR_API_KEY")
+        try:
+            views += LI.gql(key, q)["customViews"]["nodes"]
+        except Exception:  # noqa: BLE001  (cle absente comprise)
+            return None   # vues de l'owner illisibles : on ne sait pas si la sienne existe
+    same = [v for v in views if v["name"] == name and (v.get("team") or {}).get("id") == team_id]
+    for v in same:
+        if not _archived(v):
             return v["id"]
+    if same or not label_id:
+        return None   # archivee par l'owner, ou son etiquette l'est : pas de recreation
     r = L.q('mutation($i:CustomViewCreateInput!){ customViewCreate(input:$i){ customView { id } } }',
-            i={"name": name, "teamId": team_id, "icon": icon, "color": color, "description": desc,
+            i={"name": name, "teamId": team_id, "icon": icon, "color": color, "description": desc, "shared": True,
                "filterData": {"labels": {"some": {"id": {"eq": label_id}}}}})
     return r["customViewCreate"]["customView"]["id"]
 
@@ -1285,6 +1316,8 @@ def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     n = 0
     seen = set()
     for lab in (read, todo, talk):
+        if not lab:
+            continue   # etiquette archivee par l'owner (ensure_label)
         d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier archivedAt labels { nodes { id } } comments { nodes { body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } } }', id=lab)
         for iss in d["issueLabel"]["issues"]["nodes"]:
             if iss["id"] in known or iss["id"] in seen:
@@ -1631,8 +1664,10 @@ def sweep_talk(L, read, todo, talk, dry):
     """« En discussion » ne vit qu'avec « A lire » ou « A traiter ». Owner 17/09 : « si j'ai rien à ajouter à ta
     réponse ça reste en discussion indéfiniment » -> retirer « A lire » soi-meme (= lu) suffit, le balayage
     fait tomber « En discussion » au passage suivant."""
-    d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } } } } }', id=talk)
     n = 0
+    if not talk:
+        return n   # « En discussion » archivee par l'owner : plus rien a tenir coherent
+    d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier labels { nodes { id } } } } } }', id=talk)
     for iss in d["issueLabel"]["issues"]["nodes"]:
         ids = {l["id"] for l in iss["labels"]["nodes"]}
         if read not in ids and todo not in ids:
@@ -1643,6 +1678,8 @@ def sweep_talk(L, read, todo, talk, dry):
     # « En discussion » (etiquette retiree a la main, ou posee par un chemin qui ne passe pas par
     # swap_labels) etait invisible dans la vue « En discussion » : l'owner ne le trouvait pas.
     for lab in (read, todo):
+        if not lab:
+            continue
         d2 = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id labels { nodes { id } } } } } }', id=lab)
         for iss in d2["issueLabel"]["issues"]["nodes"]:
             if talk not in {l["id"] for l in iss["labels"]["nodes"]}:
@@ -2029,7 +2066,7 @@ def main():
         retries = (json.loads(STATE_JSON.read_text()).get("retries") or {})
     mp = load_map()
     ids = mp.get("_ids") or {}
-    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and ids["labels"].get("ok") and ids["labels"].get("v2") and "Validé" not in ids["states"]:
+    if ids.get("team") and ids.get("states") and ids.get("projects") and ids.get("labels") and "ok" in ids["labels"] and ids["labels"].get("v2") and "Validé" not in ids["states"]:
         team, states, projects = ids["team"], ids["states"], ids["projects"]
         label, todo = ids["labels"]["read"], ids["labels"]["todo"]; _TALK["id"] = ids["labels"]["talk"]; _TALK["ok"] = ids["labels"].get("ok"); _TALK["read"] = label; _TALK["todo"] = todo
     else:
@@ -2094,7 +2131,9 @@ def main():
         if rec and rec.get("hash") == h:
             continue
         payload = {"title": title, "description": desc, "stateId": states[st],
-                   "projectId": projects[project_for(iid)], "priority": priority_for(bl, it)}
+                   "priority": priority_for(bl, it)}
+        if projects.get(project_for(iid)):   # projet archive par l'owner : le ticket reste sans projet
+            payload["projectId"] = projects[project_for(iid)]
         if isinstance(it.get("priority"), int):
             payload["sortOrder"] = float(it["priority"])  # l'ordre des colonnes = l'ordre reel de la file (owner 17/09, JAK-174)
         if a.dry_run:
@@ -2139,7 +2178,7 @@ def main():
     # Owner 17/09 : « tu peux te plug sur "À traiter : retour de l'owner" » — la file est LA, et elle se crie a chaque passage
     # tant qu'un ticket la porte : le guetteur du superviseur lit ces lignes.
     d = guard("file a traiter", lambda: L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier } } } }', id=todo),
-              {"issueLabel": {"issues": {"nodes": []}}})
+              {"issueLabel": {"issues": {"nodes": []}}}) if todo else {"issueLabel": {"issues": {"nodes": []}}}
     by_issue = {v["issue_id"]: k for k, v in mp.items() if not k.startswith("_")}
     for iss in d["issueLabel"]["issues"]["nodes"]:
         print("À TRAITER : %s %s (retour owner sans réponse)" % (iss["identifier"], by_issue.get(iss["id"], "hors-backlog")))

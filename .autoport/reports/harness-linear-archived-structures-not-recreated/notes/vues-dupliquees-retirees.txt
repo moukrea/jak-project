@@ -1,0 +1,9 @@
+copie {"id": "de8a1d00-4dcd-4769-b525-d860936dedff", "name": "À lire", "shared": false, "filterData": {"labels": {"some": {"id": {"eq": "77a7ca0d-bb7d-47d8-9ddb-78144e731db1"}}}}, "description": "Tickets où le harnais t'a répondu et que tu n'as pas encore relus. L'étiquette tombe dès que tu commentes.", "icon": "Inbox", "color": "#f2994a", "createdAt": "2026-09-17T19:17:56.321Z", "creator": {"name": "Agent"}, "team": {"key": "JAK"}}
+  original owner b06fd980-d4ea-4a8b-8f8a-02d9a478383f meme filtre: True
+  retiree: {'customViewDelete': {'success': True}}
+copie {"id": "3d94a74f-ec73-422a-9ce1-872f5a8ab600", "name": "À traiter", "shared": false, "filterData": {"labels": {"some": {"id": {"eq": "5a4c3706-0a12-4b2b-85e1-dcc2d5525b40"}}}}, "description": "Tes retours que le harnais n'a pas encore traités. L'étiquette tombe quand il te répond.", "icon": "Inbox", "color": "#eb5757", "createdAt": "2026-09-17T19:17:56.511Z", "creator": {"name": "Agent"}, "team": {"key": "JAK"}}
+  original owner 565f8967-2803-469e-99b4-8b7f416eab42 meme filtre: True
+  retiree: {'customViewDelete': {'success': True}}
+copie {"id": "5a898fb5-38ed-46cf-9dfd-21c6b9bff716", "name": "En discussion", "shared": false, "filterData": {"labels": {"some": {"id": {"eq": "e1480f29-4721-4791-acd8-0afd06772c31"}}}}, "description": "Tous les tickets où l'un de nous deux a parlé en dernier. Pour clore sans répondre : retire « À lire » du ticket, « En discussion » tombe à la synchro suivante (5 min).", "icon": "Inbox", "color": "#5e6ad2", "createdAt": "2026-09-17T19:17:56.680Z", "creator": {"name": "Agent"}, "team": {"key": "JAK"}}
+  original owner 2634277c-cdac-4d0c-bbf7-81afac37d52b meme filtre: True
+  retiree: {'customViewDelete': {'success': True}}

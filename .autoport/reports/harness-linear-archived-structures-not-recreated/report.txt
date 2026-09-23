@@ -1,0 +1,42 @@
+DIRECTIVES vfee0d97f80
+harness-linear-archived-structures-not-recreated — essai 1
+
+VERDICT : un projet, une etiquette ou une vue archives (ou prives a l'owner) ne sont plus recrees ; porte a 0.
+
+CE QUI A CHANGE
+- linear_sync.py ensure_projects / ensure_label / ensure_view : lectures `includeArchived:true` (first:250) ;
+  nom actif -> repris ; nom seulement archive/a la corbeille -> choix de l'owner, rien n'est cree, None rendu.
+- ensure_view : lit AUSSI sous la cle personnelle (comme owner_user_id) car une vue privee n'est lue que par
+  son createur ; cle absente/illisible -> aucune creation ; filtre d'equipe (JAU a une « En discussion ») ;
+  une vue creee l'est partagee (`shared`).
+- consommateurs d'une etiquette None muets : pull_labeled_unmapped, sweep_talk, file « A traiter » ; ticket sans
+  projet si son projet est archive ; cache `_ids` accepte ok=None (`"ok" in`).
+- DEFAUT VIVANT TROUVE ET REPARE : le 17/09 19:17:56, a la bascule d'identite, l'application avait recree
+  « À lire », « À traiter », « En discussion » en copies PRIVEES (invisibles de tous) : les originaux de
+  l'owner (07:36-07:48, prives) lui etaient invisibles. Les 3 copies (meme filtre que les originaux, creees par
+  l'app, non partagees) sont retirees ; contenu consigne dans notes/vues-dupliquees-retirees.txt.
+- lib/census/harness-linear-archived-structures-not-recreated.sh : vraies fonctions contre un faux Linear aux
+  regles de l'API (4 scenarios x 17 structures), controles, puis recensement vivant sous les deux cles.
+
+PREUVE (proof.txt, lib/proof_run.sh x86, proof_census_rc=0)
+linear_structures_duplicated=0
+linear_scenarios_denominator=4x17
+linear_w_w1_arch_app_dups=0
+linear_w_w3_views_private_dups=0
+linear_ctl_neg_empty_bad=0
+linear_w_c_pos_no_flag_dups=17
+linear_w_c_pos_owner_blind_dups_list=view:À_lire,view:À_traiter,view:En_discussion
+linear_live_dups=0   (linear_live_structures_read=17 ; avant le retrait des copies : 3, nommees)
+
+Controle negatif : monde vide -> 17 creations, vues partagees (ctl_neg_empty_bad=0) ; vues homonymes d'une autre
+equipe -> les 3 sont creees (ctl_neg_other_team_bad=0). Controles positifs : drapeau retire -> 17 doublons nommes ;
+lecture owner aveugle -> les 3 vues nommees. linear_structures_controls_dead=- ; unmeasured=-.
+Chemin reel contre Linear : ensure_view rend b06fd980/565f8967/2634277c (vues de l'owner), zero creation.
+
+CE QUE L'OWNER DOIT REGARDER
+Rien a tester (owner_test=false). Ses vues « À lire », « À traiter », « En discussion » sont inchangees.
+
+NON PROUVE
+- non prouve : comportement de Linear sur une ecriture d'etiquette ARCHIVEE via un id deja en cache (voir FINDINGS).
+- non prouve : archivage REEL d'une structure dans Linear (simule par le faux Linear ; je n'ai rien archive chez l'owner).
+- l'etiquette « A lire » restee sur des tickets archives n'est pas traitee (sans effet visible, FINDINGS).
