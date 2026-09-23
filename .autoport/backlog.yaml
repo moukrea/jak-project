@@ -19059,7 +19059,7 @@ items:
 - id: harness-supervisor-reader-must-be-the-supervisor
   feature: 'Seul le vrai superviseur compte comme lecteur vivant : une autre session Claude du depot ne
     peut plus eteindre l''alerte « superviseur mort »'
-  status: in-progress
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -19089,6 +19089,13 @@ items:
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 0c6432c857eaf037
+    proof_bytes: 75676
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-wake-unanswered-list-carries-its-age
   feature: La liste des retours de l'owner sans reponse, dans le reveil du superviseur, dit depuis quand
     chacun attend et monte d'un cran quand ca dure
@@ -19344,7 +19351,7 @@ items:
 - id: harness-linear-census-reads-archived-tickets
   feature: 'Les garde-fous qui lisent Linear retrouvent aussi les tickets archives : archiver un ticket
     ne fait plus rougir un acquis'
-  status: open
+  status: in-progress
   priority: 13
   code_scope: harnais
   device: false
@@ -19377,6 +19384,7 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
 - id: harness-linear-relink-keeps-owner-comments
   feature: Un commentaire de l'owner poste pendant que la synchro a perdu la trace d'un ticket est quand
     meme recopie
@@ -19438,3 +19446,38 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+- id: harness-owner-secret-never-copied-in-clear
+  feature: 'Un secret colle par l''owner dans un commentaire Linear n''est jamais recopie en clair : ni
+    dans le backlog, ni dans un journal, ni dans un prompt'
+  status: open
+  priority: 11
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_secret_leaks
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-secret-never-copied-in-clear.md
+  known_cause: 'Signale par le worker de harness-owner-sla-matches-every-owner-comment : le Client Secret
+    Linear que l''owner a colle en commentaire le 17/09 etait EN CLAIR dans logs/linear_sync.txt (pull_owner
+    imprime 80 caracteres de chaque retour). Le superviseur a constate le 23/09 qu''il etait AUSSI dans
+    backlog.yaml (owner_feedback), .owner_sla.json, le prompt item-harness-linear-own-identity-contrat.md,
+    deux journaux d''essai, et dans 18 commits dont 23b8f3370a (17/09) POUSSE sur le depot GitHub PUBLIC
+    moukrea/jak-project. Masque a la main le 23/09 (commit dad5e35790) ; le secret reste dans l''historique
+    public, seule sa rotation par l''owner le neutralise.'
+  deliverable: '1. Au point de PRODUCTION (pull_owner, avant toute ecriture : backlog, journal, owner_sla,
+    prompt, image), detecter les formes de secret (cles Linear lin_api_/lin_oauth_, jetons hex/base64
+    longs a cote de « secret », « token », « key », « password », cles connues du ~/.config/autoport/*.env)
+    et les remplacer par [SECRET-MASQUE].
+
+    2. Recenser AVANT : toute occurrence d''un secret connu dans le depot suivi, les journaux, et `git
+    log --remotes` ; publier le compte.
+
+    3. Hook de commit (ou porte) qui refuse un commit contenant un secret connu du ~/.config/autoport/*.env.
+
+    4. `owner_secret_leaks` = occurrences d''un secret connu hors de ~/.config ; doit valoir 0.
+
+    CONTROLE POSITIF : un commentaire owner fabrique portant un faux secret -> masque partout, commit
+    refuse. CONTROLE NEGATIF : un commentaire ordinaire (hash de commit, md5 d''APK) n''est pas masque.'
