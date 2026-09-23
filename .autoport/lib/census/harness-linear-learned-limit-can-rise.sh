@@ -36,6 +36,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 import linear_sync as S
+from lib.census import fake_backlog as FB
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -99,9 +100,7 @@ class FakeLinear:
         raise AssertionError("requete non simulee : " + query[:80])
 
 
-class FakeBacklog:
-    items = []
-    def get(self, iid): return None
+_SANDBOXES = []
 
 
 def module(seeded):
@@ -111,7 +110,10 @@ def module(seeded):
     d = Path(tempfile.mkdtemp(dir=SB))
     m.SPACE_PATH, m.MAP_PATH, m.SHADOW_PATH = d / "space.json", d / "map.json", d / "shadow.json"
     m.save_map = lambda mp: None
-    m._CTX.update(bl=FakeBacklog(), mp={}, todo="label-todo", team=TEAM)
+    sb = FB.Sandbox([])
+    _SANDBOXES.append(sb)
+    FB.install(m, sb)
+    m._CTX.update(mp={}, todo="label-todo", team=TEAM)
     if seeded:
         m.relax_learned = lambda *a, **k: False
         m.note_accepted = lambda *a, **k: None
@@ -202,6 +204,8 @@ control("p2s_old_limit_seeded_defect", lambda: p2(True))
 pub("linear_learned_controls_total", 6)
 pub("linear_learned_controls_failed", len(failed))
 pub("linear_learned_controls_failed_list", ",".join(failed) or "-")
+for _sb in _SANDBOXES:
+    _sb.close()
 shutil.rmtree(SB, ignore_errors=True)
 
 # ---------------------------------------------------------------- V : l'etat VIVANT ----

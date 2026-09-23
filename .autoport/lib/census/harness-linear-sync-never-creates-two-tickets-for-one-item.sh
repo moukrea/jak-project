@@ -33,6 +33,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 import linear_sync as S
+from lib.census import fake_backlog as FB
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -73,11 +74,6 @@ class FakeLinear:
             return {"team": {"issues": {"pageInfo": {"hasNextPage": False, "endCursor": None},
                                         "nodes": [i for i in self.issues() if i["state"]["type"] not in ("completed", "canceled")]}}}
         return {}
-
-
-class FakeBacklog:
-    def __init__(self, items): self.items = items; self.path = SB / "no-backlog.yaml"
-    def get(self, iid): return next((i for i in self.items if i["id"] == iid), None)
 
 
 def point_at(tree):
@@ -196,9 +192,10 @@ except Exception as e:  # noqa: BLE001
 # ------------------------------------------------------------------------ S4 : adoption ----
 try:
     fake = SB / "s4.fake.json"
-    bl = FakeBacklog([{"id": "item-relie", "feature": "Chantier relie"},
-                      {"id": "item-perdu", "feature": "Chantier perdu"},
-                      {"id": "item-ancien", "feature": "Chantier d'avant la cle"}])
+    s4_sb = FB.Sandbox([{"id": "item-relie", "status": "open", "feature": "Chantier relie"},
+                        {"id": "item-perdu", "status": "open", "feature": "Chantier perdu"},
+                        {"id": "item-ancien", "status": "open", "feature": "Chantier d'avant la cle"}])
+    bl = s4_sb.load()
     mp = {"item-relie": {"issue_id": "vivant-1"}, "item-ancien": {"issue_id": "vivant-2"}}
     seed = [  # (titre, description, creator.app, attendu livre)
         ("Chantier relie", S.KEY_FMT % "item-relie", True, "harness"),       # doublon d'un item relie
@@ -228,6 +225,7 @@ try:
     pub("linear_ctl_s4_relinked", len(relinked))
     bad = int(phantoms_new != 0) + int(phantoms_old != 3) + int(owner_kept != 1) + int(len(relinked) != 1)
     pub("linear_ctl_s4_defects", bad); defects += bad; scen_ok += (bad == 0)
+    s4_sb.close()
 except Exception as e:  # noqa: BLE001
     pub("linear_ctl_s4_error", str(e)[:160]); defects += 1; unmeasured += 1
 

@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.abspath(".autoport"))
 sys.path.insert(0, os.path.abspath(".autoport/lib"))
 import owner_sla as O
 import linear_sync as S
+from lib.census import fake_backlog as FB
 
 ID = "harness-workers-reply-in-the-owner-thread"
 OWNER, APP = {"user": {"id": "owner-1", "app": False}}, {"user": {"id": "app-1", "app": True}}
@@ -51,12 +52,6 @@ class FakeL:
                 "pageInfo": {"hasNextPage": False, "endCursor": None}}} for t in v.get("ids") or []]}}
         raise AssertionError("requete inattendue : %s" % query[:60])
 
-class FakeB:
-    def __init__(self, items):
-        self.items = {it["id"]: it for it in items}
-    def get(self, iid):
-        return self.items.get(iid)
-
 MP = {"_owner": {"user_id": "owner-1"}, "i": {"issue_id": "T", "identifier": "JAK-0"}}
 is_owner = lambda c: S.is_owner_comment(c, "owner-1")
 is_harness = S.is_harness_comment
@@ -69,7 +64,8 @@ def records(comments, feedbacks):
     return O.collect(rows, lambda _t: comments, is_owner, is_harness, now=2e9)
 
 def target(comments, feedbacks):
-    return S.default_reply_target(FakeL({"T": comments}), FakeB([{"id": "i", "owner_feedback": feedbacks}]), MP, "i")
+    with FB.Sandbox([{"id": "i", "status": "open", "owner_feedback": feedbacks}]) as sb:
+        return S.default_reply_target(FakeL({"T": comments}), sb.load(), MP, "i")
 
 ctl, ctl_fail = [], 0
 def check(name, ok):

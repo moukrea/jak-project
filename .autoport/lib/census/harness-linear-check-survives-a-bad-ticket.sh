@@ -32,6 +32,7 @@ import copy, io, json, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -86,7 +87,10 @@ def run_check(m, make_L, bl, mp, resolve=None, stub_team=True):
     m.map_lock = lambda: None
     m.load_map = lambda: mp
     m.save_map = lambda x: saved.append(len(x))
-    m.B = types.SimpleNamespace(load=lambda path=None: bl)
+    # LE faux backlog partage (harness-census-fake-backlog-matches-real-api) : les items de `bl` sur un fichier
+    # JETABLE, la vraie classe et le vrai module ; une ecriture de --check ne touche jamais le vrai backlog.
+    sb = FB.Sandbox(bl.items)
+    FB.install(m, sb)
     m.OCAP = types.SimpleNamespace(record=lambda *a, **k: None, published_build=lambda *a, **k: {})
     m.SM = types.SimpleNamespace(install_hooks=lambda **k: None, mask_tree=m.SM.mask_tree)
     m.LI = types.SimpleNamespace(resolve=resolve or (lambda: {"mode": "app", "why": "recensement"}))
@@ -103,6 +107,7 @@ def run_check(m, make_L, bl, mp, resolve=None, stub_team=True):
         exc = e
     finally:
         sys.argv = argv
+        sb.close()
     out = buf.getvalue()
     last = (out.strip().splitlines() or [""])[-1]
     return {"out": out, "exc": exc, "completed": exc is None and last.startswith("coherence :"),

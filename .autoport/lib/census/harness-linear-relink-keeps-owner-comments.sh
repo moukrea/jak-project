@@ -33,6 +33,7 @@ import copy, datetime as dt, io, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -196,18 +197,7 @@ class FakeL:
                 "description": x["description"], "createdAt": x["createdAt"], "state": {"name": x["state"], "type": x["type"]}}
 
 
-class FakeBL:
-    def __init__(self, items):
-        self.items, self.path = items, "/dev/null"
-
-    def get(self, i):
-        return next((x for x in self.items if x["id"] == i), None)
-
-    def add_owner_feedback(self, i, date, text, via=None):
-        e = {"date": date, "text": text}
-        if via:
-            e["via"] = dict(via)
-        self.get(i)["owner_feedback"].append(e)
+_SANDBOXES = []
 
 
 def simulate(seeds):
@@ -236,8 +226,10 @@ def simulate(seeds):
     mp = {"_owner": {"user_id": OWNER},
           "item-c": {"issue_id": "t-c", "identifier": "SIM-C", "last_state": "Todo", "hash": "x", "pulled_at": "2026-09-22T00:00:00.000Z"}}
     L = FakeL(issues)
-    bl = FakeBL(items)
-    m.B = types.SimpleNamespace(load=lambda: bl)
+    sb = FB.Sandbox(items)
+    _SANDBOXES.append(sb)
+    FB.install(m, sb)
+    bl = sb.load()
     m.save_map = lambda mp_: None
     m.refresh_prompt = lambda it: None
     m.save_owner_images = lambda L_, iid, body, when: body
@@ -253,7 +245,7 @@ def simulate(seeds):
     skipped, dups, den = [], [], 0
     for issue_id, x in issues.items():
         iid = "item-" + x["identifier"][-1].lower()
-        have = via_ids(bl.get(iid))
+        have = via_ids(sb.item(iid))
         dups += ["%s:%s" % (x["identifier"], c) for c in set(have) if have.count(c) > 1]
         for c in x["comments"]:
             if c["user"]["id"] == OWNER:

@@ -26,6 +26,7 @@ python3 - <<'PY'
 import io, subprocess, sys, types
 from contextlib import redirect_stdout
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB
 
 OLD_COMMIT = "ccd1d662fc"   # dernier commit ou le pouce ne retirait que « A lire »
 OUT, ORDRE = {}, []
@@ -179,12 +180,6 @@ class FakeL:
         raise RuntimeError("requete non simulee : %s" % query[:60])
 
 
-class FakeBL:
-    def __init__(self): self.fb = []
-    def get(self, iid): return {"id": iid, "status": "validated", "owner_feedback": []}
-    def add_owner_feedback(self, iid, date, text, via=None): self.fb.append((iid, text))
-
-
 def world(kind):
     """Trois fils : 'pos' (JAK-176), 'neg' (pouce sur un ANCIEN), 'reopen' (retour apres le pouce)."""
     if kind == "pos":
@@ -214,11 +209,12 @@ def run(mod, kind, mapped):
         mp["hud-x"] = {"issue_id": "iss-1", "identifier": "JAK-900", "last_state": "Done", "pulled_at": "2026-09-22T21:30:00Z"}
     mod._TALK.update({"id": TALK, "read": READ, "todo": TODO})
     saved = {k: getattr(mod, k) for k in ("save_owner_images", "refresh_prompt")}
-    saved_load = mod.B.load
-    bl = FakeBL()
+    saved_B = mod.B
+    sb = FB.Sandbox([{"id": "hud-x", "status": "validated", "owner_feedback": []}])
+    FB.install(mod, sb)
+    bl = sb.load()
     mod.save_owner_images = lambda L_, iid, body, when: body
     mod.refresh_prompt = lambda it: None
-    mod.B.load = lambda: bl
     try:
         with redirect_stdout(io.StringIO()):
             if mapped:
@@ -228,7 +224,8 @@ def run(mod, kind, mapped):
     finally:
         for k, v in saved.items():
             setattr(mod, k, v)
-        mod.B.load = saved_load
+        mod.B = saved_B
+        sb.close()
     t = {"identifier": "JAK-900", "archivedAt": None, "labels": set(iss["labels"]), "comments": iss["comments"]}
     still, reopened, _ = measure([t], OWNER, {READ, TODO, TALK})
     return iss["labels"], still, reopened

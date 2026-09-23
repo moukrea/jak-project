@@ -37,6 +37,7 @@ AP = Path(__file__).resolve().parents[2]
 ROOT = AP.parent
 sys.path.insert(0, str(AP))
 sys.path.insert(0, str(AP / "lib"))
+from lib.census import fake_backlog as FB
 
 MARKER = "INVISIBLE-CAPTURE/"
 PROMPT_RX = re.compile(r"--no-capture|close-gate/capture|joins une capture|build a tester|--attach capture")
@@ -62,14 +63,6 @@ def anchor():
 
 
 # ------------------------------------------------------------------ les controles semes
-class FakeBL:
-    def __init__(self, items):
-        self.items = items
-
-    def get(self, iid):
-        return next((it for it in self.items if it["id"] == iid), None)
-
-
 class FakeL:
     mode = "app"
 
@@ -112,7 +105,8 @@ def controls(LS, OC, DV, tmp):
     LS.requests.post = LS.requests.get = LS.requests.put = boom
     LS.LI.gql = boom
     LS.HOME = Path(tmp)
-    LS.B.load = lambda *_a, **_k: FakeBL([inv, vis])
+    ctl_sb = FB.Sandbox([inv, vis])
+    FB.install(LS, ctl_sb)
     LS._CTX.update(bl=None, mp=None)
 
     def run(args):
@@ -165,6 +159,7 @@ def controls(LS, OC, DV, tmp):
     # C+/C- : le contrat rendu
     res["pos_prompt_invisible_no_rule"] = not PROMPT_RX.search(OC.plain(DV.block(inv["id"], record=False, item=inv)))
     res["neg_prompt_visible_has_rule"] = len(PROMPT_RX.findall(OC.plain(DV.block(vis["id"], record=False, item=vis)))) >= 2
+    ctl_sb.close()
     return res
 
 

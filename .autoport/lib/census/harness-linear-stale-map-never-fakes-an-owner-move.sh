@@ -37,6 +37,7 @@ import copy, datetime as dt, io, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -167,34 +168,12 @@ class FakeL:
         raise RuntimeError("faux Linear : requete inattendue : " + query[:60])
 
 
-class FakeBL:
-    def __init__(self, items):
-        self.items = items
-
-    def get(self, i):
-        return next((x for x in self.items if x["id"] == i), None)
-
-    def set_status(self, iid, status, **fields):
-        it = self.get(iid)
-        if it is None:
-            return
-        it["status"] = status
-        it.update(fields)
-
-    def validate(self, iid, text, date=None, via=None):
-        self.set_status(iid, "archived", owner_ok=True)
-
-    def add_owner_feedback(self, iid, date, text, via=None):
-        it = self.get(iid)
-        if it is None:
-            return
-        it.setdefault("owner_feedback", []).append({"date": date, "text": text, "via": dict(via) if via else None})
-
-
 def run_sim(seeds, mode, issues, mp, items, truth):
     m, missing = load_variant(seeds)
-    bl = FakeBL(items)
-    m.B = types.SimpleNamespace(load=lambda: bl)
+    # LE faux backlog partage (harness-census-fake-backlog-matches-real-api) : la VRAIE classe sur un fichier
+    # jetable ; l'etat d'apres se RELIT sur le disque (`bl` rendu = backlog relu apres le tirage).
+    sb = FB.Sandbox(items)
+    FB.install(m, sb)
     m.refresh_prompt = lambda it: None
     m._say = lambda L_, rec, text: None
     m.post_comment = lambda *a, **k: None
@@ -202,7 +181,9 @@ def run_sim(seeds, mode, issues, mp, items, truth):
     m.MOVES.clear()
     log = io.StringIO()
     with redirect_stdout(log):
-        m.pull_owner(L, bl, mp, {}, False)
+        m.pull_owner(L, sb.load(), mp, {}, False)
+    bl = sb.load()
+    sb.close()
     moves = list(m.MOVES)
     fake, named = [], []
     for mv_ in moves:
@@ -388,13 +369,15 @@ try:
         try:
             old, missing_old = load_variant([('                mv, why = owner_move(L, hist, owner_id, here, rec)\n',
                                                '                mv, why = {"createdAt": ""}, "carte"\n')])
-            old.B = types.SimpleNamespace(load=lambda: bl_live)
+            sb_live = FB.Sandbox(bl_live.items)      # le faux PARTAGE : copie jetable du vrai backlog
+            FB.install(old, sb_live)
             old.refresh_prompt = lambda it: None
             old._say = lambda L_, rec, text: None
             old.MOVES.clear()
             rewound2 = copy.deepcopy(rewound)
             with redirect_stdout(io.StringIO()):
-                old.pull_owner(ro, bl_live, rewound2, {}, True)
+                old.pull_owner(ro, sb_live.load(), rewound2, {}, True)
+            sb_live.close()
             moves_old = list(old.MOVES)
             fake_old = judge_applied(rewound2, moves_old)
             pub("stale_live_old_rule_fake", len(fake_old))

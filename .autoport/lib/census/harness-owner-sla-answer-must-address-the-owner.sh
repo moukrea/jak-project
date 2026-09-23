@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.abspath(".autoport"))
 sys.path.insert(0, os.path.abspath(".autoport/lib"))
 import owner_sla as O
 import linear_sync as S
+from lib.census import fake_backlog as FB
 
 OUT, ORDRE = {}, []
 def pub(k, v):
@@ -147,22 +148,22 @@ class FakeL:
         self.sent.append(v.get("i"))
         return {"commentCreate": {"success": True}}
 L1 = FakeL({"id": "o9", "parentId": "h3", "issue": {"id": "T9"}, "user": {"id": "owner-1", "app": False}})
-class FakeBL:
-    def get(self, iid):
-        return {"owner_feedback": [{"text": "a", "via": {"comment": "o8"}},
-                                   {"text": "b", "via": {"comment": "o9"}}]}
-tk, parent = S.reply_target(L1, FakeBL(), "i", "last")
+sla_sb = FB.Sandbox([{"id": "i", "status": "open", "owner_feedback":
+                      [{"date": "2026-09-01", "text": "a", "via": {"comment": "o8"}},
+                       {"date": "2026-09-02", "text": "b", "via": {"comment": "o9"}}]}])
+tk, parent = S.reply_target(L1, sla_sb.load(), "i", "last")
 S.post_comment(L1, tk, "reponse", parent=parent)
 S.post_comment(L1, "T9", "→ **En cours**")
 check("prod_reply_to_last_posts_in_thread", (tk, parent) == ("T9", "h3")
       and L1.sent[0].get("parentId") == "h3" and "parentId" not in L1.sent[1])
 L2 = FakeL({"id": "h7", "issue": {"id": "T9"}, "user": {"id": "app-1", "app": True}})
 try:
-    S.reply_target(L2, FakeBL(), "i", "h7")
+    S.reply_target(L2, sla_sb.load(), "i", "h7")
     refuse = False
 except SystemExit:
     refuse = True
 check("prod_reply_to_harness_comment_refused", refuse)
+sla_sb.close()
 
 pub("owner_sla_controls", len(ctl))
 pub("owner_sla_controls_failed", ctl_fail)

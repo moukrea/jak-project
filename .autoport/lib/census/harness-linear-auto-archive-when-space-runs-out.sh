@@ -38,6 +38,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 import linear_sync as S
+from lib.census import fake_backlog as FB
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -113,9 +114,7 @@ class FakeLinear:
         raise AssertionError("requete non simulee : " + query[:80])
 
 
-class FakeBacklog:
-    def __init__(self, items): self.items = items
-    def get(self, iid): return next((i for i in self.items if i["id"] == iid), None)
+_SANDBOXES = []
 
 
 def reset(bl_items=(), mp=None):
@@ -124,7 +123,9 @@ def reset(bl_items=(), mp=None):
     S.SPACE_PATH, S.MAP_PATH, S.SHADOW_PATH = d / "space.json", d / "map.json", d / "shadow.json"
     S._SAVED["body"] = None
     S.FAILED.clear()
-    S._CTX.update(bl=FakeBacklog(list(bl_items)), mp=mp or {}, todo=TODO, team=TEAM)
+    sb = FB.Sandbox(list(bl_items))
+    _SANDBOXES.append(sb)
+    S._CTX.update(bl=sb.load(), mp=mp or {}, todo=TODO, team=TEAM)
     return d
 
 
@@ -323,7 +324,9 @@ def c5():
     old_ap = S.AP
     S.AP = ap
     try:
-        _, log = run(lambda: S.announce_verdicts(L, FakeBacklog(items), mp, "label-lire", False))
+        c5_sb = FB.Sandbox(items)
+        _SANDBOXES.append(c5_sb)
+        _, log = run(lambda: S.announce_verdicts(L, c5_sb.load(), mp, "label-lire", False))
     finally:
         S.AP = old_ap
     fixed = len(L.comments)
@@ -344,6 +347,8 @@ passed += control("c5_one_broken_ticket_does_not_stop_the_pass", c5)
 
 pub("linear_space_controls_passed", passed)
 pub("linear_space_controls_total", 10)
+for _sb in _SANDBOXES:
+    _sb.close()
 shutil.rmtree(SB, ignore_errors=True)
 
 # ---------------------------------------------------------------- B : Linear VIVANT ----

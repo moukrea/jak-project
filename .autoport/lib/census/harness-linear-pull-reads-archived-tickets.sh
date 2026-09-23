@@ -32,6 +32,7 @@ import ast, copy, io, os, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -250,26 +251,6 @@ def fake_world():
     return issues, items, mp
 
 
-class FakeBL:
-    def __init__(self, items):
-        self.items, self.path = items, "/dev/null"
-
-    def get(self, i):
-        return next((x for x in self.items if x["id"] == i), None)
-
-    def set_status(self, i, status, **f):
-        it = self.get(i); it["status"] = status; it.update(f); return it
-
-    def add_owner_feedback(self, i, date, text, via=None):
-        e = {"date": date, "text": text}
-        if via:
-            e["via"] = dict(via)
-        self.get(i)["owner_feedback"].append(e)
-
-    def validate(self, i, text, date=None, via=None):
-        self.set_status(i, "validated", owner_ok=text)
-
-
 def load_variant(seeds):
     """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds` (controles positifs).
     Un remplacement introuvable = controle MORT (le code a change sous lui)."""
@@ -288,29 +269,33 @@ def simulate(seeds):
     m, missing = load_variant(seeds)
     issues, items, mp = fake_world()
     L = FakeL(issues)
-    bl = FakeBL(items)
-    m.B = types.SimpleNamespace(load=lambda: bl)
-    m.refresh_prompt = lambda it: None
-    m.save_owner_images = lambda L_, iid, body, when: body
-    m._CTX.update(bl=bl, mp=mp)
-    log = io.StringIO()
-    with redirect_stdout(log):
-        for _pass in range(2):                       # tirage -> envoi -> tirage : le piege vit au 2e tirage
-            m.pull_owner(L, bl, mp, {}, False)
-            for it in bl.items:
-                rec = mp[it["id"]]
-                st = m.target_state(bl, it)
-                if rec.get("last_state") != st:
-                    m.push_existing(L, bl, it, rec, {"stateId": STATES[st]}, st, "h-" + st, None, None)
+    # LE faux backlog partage (harness-census-fake-backlog-matches-real-api) : la VRAIE classe sur un fichier
+    # jetable. L'etat d'apres se RELIT sur le disque (`final`), jamais sur la liste `items` de depart.
+    with FB.Sandbox(items) as sb:
+        FB.install(m, sb)
+        m.refresh_prompt = lambda it: None
+        m.save_owner_images = lambda L_, iid, body, when: body
+        m._CTX.update(bl=sb.load(), mp=mp)
+        log = io.StringIO()
+        with redirect_stdout(log):
+            for _pass in range(2):                       # tirage -> envoi -> tirage : le piege vit au 2e tirage
+                m.pull_owner(L, sb.load(), mp, {}, False)
+                bl = sb.load()
+                for it in bl.items:
+                    rec = mp[it["id"]]
+                    st = m.target_state(bl, it)
+                    if rec.get("last_state") != st:
+                        m.push_existing(L, bl, it, rec, {"stateId": STATES[st]}, st, "h-" + st, None, None)
+        final = sb.items()
     world = {i: {"archivedAt": x["archivedAt"],
                  "comments": [dict(c, _owner=(c["user"]["id"] == OWNER)) for c in x["comments"]]} for i, x in issues.items()}
     recs = {k: v for k, v in mp.items() if not k.startswith("_")}
-    lost_c, lost_a, den = measure(world, {it["id"]: it for it in items}, recs, OWNER, lambda i, iss: issues[i]["history"])
+    lost_c, lost_a, den = measure(world, final, recs, OWNER, lambda i, iss: issues[i]["history"])
     # ce que le monde simule sait en plus : le ticket de l'owner reste archive, rien ne lui est ecrit, et le chantier
     # rouvert par le superviseur (D) n'est pas pris pour une decision de l'owner
     undone = ["SIM-B:ressorti"] if not issues["t-b"]["archivedAt"] else []
     undone += ["SIM-B:ecrit:%s" % k for k, t in L.writes if t == "t-b" and k != "issueUnarchive"]
-    false_dec = ["SIM-D:%s" % bl.get("item-d")["status"]] if bl.get("item-d")["status"] not in LIVE else []
+    false_dec = ["SIM-D:%s" % final["item-d"]["status"]] if final["item-d"]["status"] not in LIVE else []
     names = lost_c + lost_a + undone + false_dec
     return {"lost": len(lost_c) + len(lost_a) + len(undone), "false": len(false_dec), "names": names,
             "missing": missing, "den": den, "log": log.getvalue()}

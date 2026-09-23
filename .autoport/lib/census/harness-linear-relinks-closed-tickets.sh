@@ -36,6 +36,7 @@ import ast, copy, datetime as dt, io, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+from lib.census import fake_backlog as FB
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -212,23 +213,6 @@ class FakeL:
         raise RuntimeError("faux Linear : requete inattendue : " + query[:60])
 
 
-class FakeBL:
-    def __init__(self, items):
-        self.items, self.path = items, "/dev/null"
-
-    def get(self, i):
-        return next((x for x in self.items if x["id"] == i), None)
-
-    def add_owner_feedback(self, i, date, text, via=None):
-        e = {"date": date, "text": text}
-        if via:
-            e["via"] = dict(via)
-        self.get(i)["owner_feedback"].append(e)
-
-    def __getattr__(self, name):   # toute autre ecriture du backlog : acceptee, sans effet
-        return lambda *a, **k: None
-
-
 def simulate(seeds):
     m, missing, _ = load_variant(seeds)
     key = lambda iid: "…\n\n" + m.KEY_FMT % iid
@@ -245,8 +229,10 @@ def simulate(seeds):
     items = [{"id": "item-" + c, "status": "validated", "feature": "item " + c, "owner_feedback": []} for c in "def"]
     mp = {"_owner": {"user_id": OWNER},
           "item-f": {"issue_id": "t-f", "identifier": "SIM-F", "last_state": "Done", "hash": "x", "pulled_at": "2026-09-20T00:00:00.000Z"}}
-    L, bl = FakeL(issues), FakeBL(items)
-    m.B = types.SimpleNamespace(load=lambda: bl)
+    L = FakeL(issues)
+    sb = FB.Sandbox(items)
+    FB.install(m, sb)
+    bl = sb.load()
     m.save_map = lambda mp_: None
     m.refresh_prompt = lambda it: None
     m.save_owner_images = lambda L_, iid, body, when: body
@@ -259,7 +245,7 @@ def simulate(seeds):
         x = issues[tid]
         if (mp.get(iid) or {}).get("issue_id") != tid:
             defects.append("%s:non_relie" % x["identifier"])
-        have = {f["via"]["comment"] for f in bl.get(iid)["owner_feedback"] if isinstance(f.get("via"), dict)}
+        have = {f["via"]["comment"] for f in sb.item(iid)["owner_feedback"] if isinstance(f.get("via"), dict)}
         defects += ["%s:%s" % (x["identifier"], c["id"]) for c in x["comments"] if c["id"] not in have]
     neg = [w for w in L.writes if w == "issueCreate"]
     if (mp.get("item-f") or {}).get("issue_id") == "t-g":
