@@ -24,6 +24,7 @@ import json
 import hashlib
 import os
 import subprocess
+import sys
 import tempfile
 
 try:
@@ -1117,24 +1118,38 @@ def render_contract(item):
     return "\n".join(out) + "\n"
 
 
-_FINGERPRINTS = ".autoport/.prompt_fingerprints.json"
+# 2026-09-23 — ANCRE SUR CE FICHIER, jamais sur le cwd. Le chemin etait relatif
+# (".autoport/.prompt_fingerprints.json") : un write_prompt lance depuis `.autoport/` ou d'ailleurs
+# ecrivait l'empreinte a cote, ou nulle part (dossier absent, exception avalee), et la consigne relue
+# depuis la racine passait « a-la-main » : plus jamais refabriquee, sans un mot.
+_FINGERPRINTS = os.path.join(AP, ".prompt_fingerprints.json")
 
 
-def _fp_load():
+def _fp_path(ap_dir=None):
+    """Le magasin d'empreintes du dossier .autoport qui porte la consigne : le notre par defaut."""
+    if not ap_dir or os.path.abspath(ap_dir) == os.path.abspath(AP):
+        return _FINGERPRINTS
+    return os.path.join(os.path.abspath(ap_dir), ".prompt_fingerprints.json")
+
+
+def _fp_load(ap_dir=None):
     try:
-        with open(_FINGERPRINTS, encoding="utf-8") as fh:
+        with open(_fp_path(ap_dir), encoding="utf-8") as fh:
             return json.load(fh)
     except Exception:  # noqa: BLE001 — absent ou illisible : on repart de zero
         return {}
 
 
-def _stamp_prompt(path, texte):
+def _stamp_prompt(path, texte, ap_dir=None):
+    fp = _fp_path(ap_dir)
     try:
-        d = _fp_load()
+        d = _fp_load(ap_dir)
         d[os.path.basename(path)] = hashlib.sha256(texte.encode("utf-8")).hexdigest()
-        _atomic_write(_FINGERPRINTS, json.dumps(d, indent=0, sort_keys=True))
-    except Exception:  # noqa: BLE001 — l'empreinte est un confort, jamais un blocage
-        pass
+        _atomic_write(fp, json.dumps(d, indent=0, sort_keys=True))
+    except Exception as e:  # noqa: BLE001 — l'empreinte est un confort, jamais un blocage...
+        # ...mais jamais muette : sans elle, la consigne passera « a-la-main » au prochain changement.
+        print("backlog: empreinte NON ecrite pour %s dans %s : %s" % (os.path.basename(path), fp, e),
+              file=sys.stderr)
 
 
 def prompt_state(item, ap_dir=None):
@@ -1154,7 +1169,7 @@ def prompt_state(item, ap_dir=None):
     sur_disque = open(path, encoding="utf-8").read()
     if sur_disque == render_prompt(item):
         return "a-jour"
-    attendu = _fp_load().get(os.path.basename(path))
+    attendu = _fp_load(ap_dir).get(os.path.basename(path))
     if attendu and attendu == hashlib.sha256(sur_disque.encode("utf-8")).hexdigest():
         return "perime"
     return "a-la-main"
@@ -1172,7 +1187,7 @@ def write_prompt(item, ap_dir=None):
     # la traiter comme perimee reviendrait a l'ecraser. On enregistre donc ce que NOUS avons
     # ecrit : le controle de fraicheur ne bloque que si le fichier est encore notre fabrication
     # ET que l'item a bouge depuis. Un fichier edite a la main n'est jamais bloque ni ecrase.
-    _stamp_prompt(path, texte)
+    _stamp_prompt(path, texte, ap_dir)
     # Le contrat complet n'existe QUE si la consigne a du tronquer : sinon il ferait doublon.
     cpath = os.path.join(ap_dir, contract_rel(item))
     if texte.startswith("> LIS D'ABORD"):

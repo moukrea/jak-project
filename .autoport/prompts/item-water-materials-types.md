@@ -1,7 +1,10 @@
+> LIS D'ABORD `prompts/item-water-materials-types-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Boue, eco noir, lave, eau electrifiee : quatre matieres, pas une eau teintee
 
 ## Defaut cite
-- 2026-09-09 : « faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques, fontaines, etc... Faudrait un truc moderne ou l'eau rend vraiment moderne, avec tous les effets attendus d'un jeu moderne mais en restant dans un esprit stylisé of course. Quand on marche dans l'eau o… »
 - 2026-09-09 : « bah je valide, beau boulot ! »
 
 ## Cause connue
