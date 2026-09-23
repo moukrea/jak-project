@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 156,
+ "_gen": 162,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -614,6 +614,14 @@
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-154/la-garde-build-en-cours-ne-prend-plus-le-demon-gradle-pour-un-build"
  },
+ "harness-census-seeds-anchored-structurally": {
+  "hash": "bf8efabea7aae9875e223ff4a67b1b05062b7eac",
+  "identifier": "JAK-262",
+  "issue_id": "0879f95b-a2fa-4f5a-a3ab-4116305e6738",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T07:20:16.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-262/les-recensements-du-harnais-ne-dependent-plus-dune-ligne-de-code"
+ },
  "harness-close-gate-separates-inherited-reds": {
   "hash": "47b1ab7ea4803d8f20ff143fdb010d7834ab2844",
   "identifier": "JAK-155",
@@ -810,12 +818,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-232/un-commentaire-de-lowner-poste-pendant-que-la-synchro-a-perdu-la-trace"
  },
  "harness-linear-relinks-closed-tickets": {
-  "hash": "cbe6af25cf57690bbbda3de098547adc0c7622ff",
+  "hash": "41ce3137f69d20e6269c6792a8b86bbafd8f7b80",
   "identifier": "JAK-249",
   "issue_id": "05c5c3a2-87a5-4dbc-b287-f45ad0a243a5",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-23T05:37:20.000Z",
-  "state_at": "2026-09-23T06:44:13.000Z",
+  "state_at": "2026-09-23T07:27:20.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-249/un-ticket-termine-ou-annule-que-la-synchro-a-perdu-est-retrouve-et-les"
  },
  "harness-linear-space-counts-other-teams": {
