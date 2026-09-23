@@ -19519,9 +19519,27 @@ items:
     text: Pour le secret on fera plus tard
     via:
       source: supervisor
+  - date: '2026-09-23'
+    text: Alors j'avais dit oui déjà dans le terminal il me semble, je te laisse voir avec toi même… pour
+      le secret, oui mais c'est pas grave, personne ne le consulte en l'état le dépôt, et on le changera
+      plus tard, pas d'enjeux critiques
+    via:
+      comment: 7c272b29-a57f-411d-8de8-1907a6a29b3d
+      ticket: 791d8471-df6f-45aa-85ae-47fb18ea0ee1
+      at: '2026-09-23T01:13:44.441Z'
+  - date: '2026-09-23'
+    text: Bah du coup c'est terminé non ? Tu fous quoi là ?
+    via:
+      comment: 4ff1273d-6c0a-419a-82eb-ac4aba4fcffc
+      ticket: 791d8471-df6f-45aa-85ae-47fb18ea0ee1
+      at: '2026-09-23T01:37:37.250Z'
   notes: '23/09 (superviseur) : la ROTATION du Client Secret Linear (seul geste qui neutralise la fuite
     publique) est REPORTEE par l''owner. Ne pas relancer a chaque tour ; le rappeler une fois quand ce
-    chantier ferme.'
+    chantier ferme.
+
+    23/09 CORRECTION (superviseur) : la valeur fuitee le 17/09 est LINEAR_OAUTH_CLIENT_ID (identifiant,
+    pas secret), verifie dans ~/.config/autoport/linear.env ; le worker confirme que le secret ACTUEL
+    n''est dans aucun commit. Aucune rotation necessaire ; ne plus la rappeler a l''owner.'
 - id: harness-linear-pull-reads-archived-tickets
   feature: Un commentaire de l'owner sur un ticket archive est lu, et un chantier ouvert qu'il archive
     lui-meme est pris comme sa decision
