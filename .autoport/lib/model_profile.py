@@ -35,6 +35,19 @@ distinguer « quelqu'un a choisi » de « personne n'a choisi ».
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+from pathlib import Path
+
+# LE FICHIER DE CONFIGURATION UNIQUE (JAK-265, 23/09) : profils, liste des modeles BANNIS et
+# essais croises vivent tous dans `.autoport/model-profiles.json`. Le profil Codex (autre
+# fichier) est verifie contre la MEME liste de bannis : un seul endroit la porte.
+PROFILES_PATH = Path(__file__).resolve().parent.parent / "model-profiles.json"
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# Les champs d'un profil qui NOMMENT un modele. Un modele banni dans l'un d'eux = pas de depart.
+MODEL_FIELDS = ("manager_model", "worker_model", "supervisor_model")
+
 # Les trois champs qu'un essai DECLARE dans `attempt_start` et qui voyagent jusqu'a la
 # ligne de commande de la CLI. Un seul vide, et l'essai ne sait pas sur quoi il tourne.
 TEXT_FIELDS = ("manager_model", "manager_effort", "worker_model")
@@ -112,4 +125,124 @@ def resolve(cfg, *, source: str):
             f"(profils connus : {', '.join(sorted(profiles)) or 'aucun'})")
     profile = dict(profiles[active])
     profile["_active_name"] = active
-    return check(profile, source=f"{source}, profil « {active} »")
+    check(profile, source=f"{source}, profil « {active} »")
+    # LE BANNISSEMENT EST ICI, AU POINT UNIQUE (JAK-265, owner 23/09 : « Claude Opus 5 est a
+    # bannir, Fable 5.1 aussi »). MARQUEUR: modele-banni-refuse-2026-09-23
+    # Orchestrateur, Codex et supervisor.sh passent tous par `resolve` : un profil qui nomme
+    # un modele banni n'est plus un profil, il ne part pas — pas de repli, pas de substitution.
+    spec = banned_spec(cfg)
+    hits = [f"{k}={profile[k]}" for k in MODEL_FIELDS
+            if isinstance(profile.get(k), str) and is_banned(profile[k], spec)]
+    if hits:
+        raise ProfileUnresolved(
+            f"{source}, profil « {active} » : modèle BANNI ({', '.join(hits)}) — "
+            f"liste `banned_models` de {PROFILES_PATH.name}")
+    return profile
+
+
+# ------------------------------------------------------------------ modeles bannis
+def banned_spec(cfg=None) -> dict:
+    """{ids, aliases} des modeles bannis. `cfg` sans liste (profil Codex) -> la liste canonique.
+
+    Une liste ABSENTE du fichier canonique LEVE : une porte sans liste serait aveugle et
+    rendrait 0 sur tout, c'est exactement le faux vert qu'on refuse."""
+    spec = cfg.get("banned_models") if isinstance(cfg, dict) else None
+    if not isinstance(spec, dict):
+        spec = json.loads(PROFILES_PATH.read_text()).get("banned_models")
+    ids = [str(x).strip().lower() for x in (spec or {}).get("ids") or [] if str(x).strip()]
+    if not ids:
+        raise ProfileUnresolved(f"{PROFILES_PATH} : liste `banned_models.ids` absente ou vide")
+    aliases = [str(x).strip().lower() for x in (spec or {}).get("aliases") or [] if str(x).strip()]
+    return {"ids": ids, "aliases": aliases}
+
+
+def canon(model: str) -> str:
+    """claude-opus-5[1m] / claude-opus-5-20260101 -> claude-opus-5 (casse ignoree)."""
+    m = str(model or "").strip().lower()
+    m = re.sub(r"\[1m\]$", "", m)
+    return re.sub(r"-\d{8}$", "", m)
+
+
+def is_banned(model: str, spec: dict) -> bool:
+    c = canon(model)
+    return bool(c) and (c in spec["ids"] or c in spec["aliases"])
+
+
+def literal_regex(spec: dict) -> "re.Pattern":
+    """Un identifiant banni ECRIT dans du texte. `claude-opus-5-5` ne matche PAS `claude-opus-5` :
+    la borne de fin refuse un tiret ou un chiffre qui suit."""
+    ids = sorted(spec["ids"], key=len, reverse=True)
+    alt = "|".join(re.escape(i) for i in ids)
+    # Borne de DEBUT sans tiret : `${SUP_MODEL:-claude-opus-5}` (le repli du 23/09) doit matcher.
+    return re.compile(r"(?<![A-Za-z0-9_])(" + alt + r")(?:-\d{8})?(?:\[1m\])?(?![A-Za-z0-9_-])",
+                      re.I)
+
+
+# ------------------------------------------------------------------ roles
+def roles(profile: dict) -> dict:
+    """role -> (modele, effort, champ qui le porte). Le superviseur a son propre couple ; absent,
+    il prend celui du manager (c'etait le comportement de supervisor.sh avant le 23/09)."""
+    efforts = profile.get("worker_efforts") or {}
+    out = {
+        "supervisor": (profile.get("supervisor_model") or profile.get("manager_model"),
+                       profile.get("supervisor_effort") or profile.get("manager_effort"),
+                       "supervisor_model" if profile.get("supervisor_model") else "manager_model"),
+        "manager": (profile.get("manager_model"), profile.get("manager_effort"), "manager_model"),
+    }
+    for agent in sorted(efforts):
+        out[agent.replace("autoport-", "")] = (profile.get("worker_model"), efforts[agent],
+                                               "worker_model")
+    return out
+
+
+# ------------------------------------------------------------------ essais croises
+def trial_arms(cfg: dict, item: dict) -> list[tuple[str, str, dict]]:
+    """[(essai, bras, surcharges)] pour cet item. Bras STABLE par item : sha256(essai:id)."""
+    out = []
+    trials = (cfg or {}).get("trials") or {}
+    for name in sorted(k for k in trials if not k.startswith("_")):
+        t = trials[name]
+        if not isinstance(t, dict) or not t.get("active"):
+            continue
+        cond = t.get("applies_to") or {}
+        if any(str(item.get(k)) != str(v) for k, v in cond.items()):
+            continue
+        arms = [(k, v) for k, v in (t.get("arms") or {}).items() if not k.startswith("_")]
+        if not arms:
+            continue
+        h = int(hashlib.sha256(f"{name}:{item.get('id', '')}".encode()).hexdigest(), 16)
+        label, over = arms[h % len(arms)]
+        out.append((name, label, dict(over)))
+    return out
+
+
+def load(path=None) -> dict:
+    return json.loads(Path(path or PROFILES_PATH).read_text())
+
+
+def _main(argv=None) -> int:
+    """`model_profile.py supervisor-env [--file F]` : les variables du superviseur, en shell.
+
+    supervisor.sh n'a PLUS de modele en dur : il evalue cette sortie, ou refuse de partir."""
+    import argparse
+    import shlex
+    import sys
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", choices=("supervisor-env",))
+    ap.add_argument("--file", default=str(PROFILES_PATH))
+    a = ap.parse_args(argv)
+    try:
+        prof = resolve(load(a.file), source=a.file)
+    except (ProfileUnresolved, OSError, ValueError) as e:
+        print(f"REFUS : {e}", file=sys.stderr)
+        return 1
+    model, effort, field = roles(prof)["supervisor"]
+    for k, v in (("SUP_PROFILE", prof["_active_name"]), ("SUP_MODEL", model),
+                 ("SUP_EFFORT", effort), ("SUP_MODEL_FIELD", field),
+                 ("SUB_MODEL", prof["worker_model"])):
+        print(f"{k}={shlex.quote(str(v))}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

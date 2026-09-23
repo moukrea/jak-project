@@ -124,14 +124,43 @@ def _load_model_profile(strict: bool = False) -> dict:
     except Exception as e:  # noqa: BLE001
         if strict:
             raise
+        # Le repli ne NOMME AUCUN MODELE (JAK-265, 23/09) : il portait Fable 5.1, que l'owner
+        # a banni. Des champs VIDES sont refuses par `model_profile.faults` au lancement, comme
+        # le nom FALLBACK : ce dictionnaire ne sert qu'a garder le module importable.
         return {
-            "manager_model": "claude-fable-5-1[1m]", "manager_effort": "high",
-            "worker_model": "claude-fable-5-1[1m]",
-            "worker_efforts": {"autoport-researcher": "high",
-                               "autoport-implementer": "medium",
-                               "autoport-tester": "medium"},
-            "_active_name": f"FALLBACK ({e})",
+            "manager_model": "", "manager_effort": "", "worker_model": "",
+            "worker_efforts": {}, "_active_name": f"FALLBACK ({e})",
         }
+
+
+def _profile_at_item_boundary(item: dict) -> tuple[dict, list]:
+    """Le profil RELU a la frontiere d'item, bras d'essai croise appliques (JAK-265, 23/09).
+
+    MARQUEUR: profil-relu-par-essai-2026-09-23
+    Avant le 23/09 le profil n'etait lu qu'au demarrage : changer un modele ou un effort dans
+    model-profiles.json n'agissait qu'apres une relance de l'orchestrateur, et rien ne disait
+    lequel tournait. Desormais chaque essai relit le fichier (strict : un profil casse ou un
+    modele banni LEVE, l'essai ne part pas) et la banniere nomme ce qui a ete lu.
+    Rend (profil, [(essai, bras, surcharges)])."""
+    if BACKEND == "codex":
+        return cli_backend.codex_profile(REPO_ROOT), []
+    cfg = json.loads(_PROFILE_PATH.read_text())
+    prof = model_profile.resolve(cfg, source=str(_PROFILE_PATH))
+    arms = model_profile.trial_arms(cfg, item)
+    spec = model_profile.banned_spec(cfg)
+    applied = []
+    for name, label, over in arms:
+        if "manager_effort" in over and item.get("effort"):
+            # l'item fixe son effort : il echappe a l'essai d'effort, et le journal le dit
+            applied.append((name, "hors-essai:effort-de-l-item", {}))
+            continue
+        for k, v in over.items():
+            if k.endswith("_model") and model_profile.is_banned(v, spec):
+                raise model_profile.ProfileUnresolved(
+                    f"essai « {name} », bras « {label} » : modèle BANNI {v}")
+            prof[k] = v
+        applied.append((name, label, over))
+    return prof, applied
 
 
 _PROFILE = _load_model_profile()
@@ -2920,6 +2949,24 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if not GENERIC_VALIDATOR.exists():
         return Outcome("blocked", f"validateur absent : {GENERIC_VALIDATOR}")
 
+    # LA FRONTIERE D'ITEM (JAK-265) : le profil est RELU ici, a chaque essai.
+    global _PROFILE, MODEL, EFFORT, SUBAGENT_MODEL, WORKER_EFFORTS, PROFILE_NAME
+    try:
+        _prof, trial_arms = _profile_at_item_boundary(item)
+    except (ValueError, KeyError, OSError) as e:
+        return Outcome("no-start",
+                       f"profil de modèle REFUSÉ à la frontière d'item : {e}. "
+                       f"Aucun essai ne part sur un modèle banni ou non choisi.", seq=seq)
+    _PROFILE = _prof
+    MODEL, EFFORT = _PROFILE["manager_model"], _PROFILE["manager_effort"]
+    SUBAGENT_MODEL, WORKER_EFFORTS = _PROFILE["worker_model"], _PROFILE["worker_efforts"]
+    PROFILE_NAME = _PROFILE["_active_name"]
+    trials_rec = {name: label for name, label, _ in trial_arms}
+    try:
+        profile_sha = hashlib.sha256(_PROFILE_PATH.read_bytes()).hexdigest()[:12]
+    except OSError:
+        profile_sha = ""
+
     effort = item.get("effort", EFFORT)
 
     # ================== LE POINT DE PRODUCTION DU DEFAUT `attempt_start.model=""` =========
@@ -2950,7 +2997,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         f"[bold cyan]{iid}[/bold cyan] · essai {seq} · "
         f"{item.get('feature', '')[:70]}\n"
         f"CLI={BACKEND} · profil={PROFILE_NAME} · modèle={MODEL} · effort={effort} · "
-        f"sous-agents={SUBAGENT_MODEL}",
+        f"sous-agents={SUBAGENT_MODEL} · profil relu sha={profile_sha}"
+        + (" · essais " + " ".join(f"{k}={v}" for k, v in sorted(trials_rec.items()))
+           if trials_rec else ""),
         border_style="cyan"))
 
     env = os.environ.copy()
@@ -2959,11 +3008,15 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if BACKEND == "claude":
         env["CLAUDE_EFFORT"] = effort
         env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
+        # FORCE (JAK-265) : sinon le parametre `model` d'un appel Agent (« fable ») ou un
+        # `model:` de frontmatter passe avant la variable, et un sous-agent part hors profil.
+        env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
         # La borne d'attente des taches de fond voyage avec l'essai : un orchestrateur
         # demarre sans launch.sh retombait en silence sur les 600 s de la CLI.
         env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] = str(BG_WAIT_CEILING_MS)
     else:
-        for key in ("CLAUDE_EFFORT", "CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDECODE"):
+        for key in ("CLAUDE_EFFORT", "CLAUDE_CODE_SUBAGENT_MODEL",
+                    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "CLAUDECODE"):
             env.pop(key, None)
     env["AUTOPORT_PHASE_ID"] = iid                       # = l'id d'item
     env["AUTOPORT_PHASE_VALIDATOR"] = str(GENERIC_VALIDATOR)
@@ -2998,6 +3051,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             # modèle ne pouvaient être rattachés à leur profil que par recoupement de dates.
             "profile": PROFILE_NAME,
             "model": MODEL, "effort": effort, "subagent_model": SUBAGENT_MODEL,
+            # JAK-265 : de quoi mesurer par role et par bras (`autoport cost`).
+            "worker_efforts": WORKER_EFFORTS, "trials": trials_rec,
+            "profile_sha": profile_sha, "code_scope": item.get("code_scope", ""),
             "cmd": cmd, "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
         f.flush()

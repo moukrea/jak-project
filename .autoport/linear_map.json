@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 202,
+ "_gen": 204,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1007,13 +1007,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-187/le-manifeste-du-pack-dassets-est-un-produit-du-build-pas-une-source-il"
  },
  "harness-prompt-fingerprint-store-locked": {
-  "hash": "24b47d621f6a8fe36a9cedaf04df3a1871977b41",
+  "hash": "98556355d690fc86683f83c10078f44a4894b032",
   "identifier": "JAK-264",
   "issue_id": "6599b3a2-2341-4507-aa63-27c686f69eb0",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T08:38:50.000Z",
-  "state_at": "2026-09-23T09:50:59.969Z",
+  "state_at": "2026-09-23T10:14:15.178Z",
   "url": "https://linear.app/moukrea/issue/JAK-264/le-magasin-dempreintes-des-consignes-secrit-sous-verrou-deux-ecrivains"
  },
  "harness-prompt-fingerprints-absolute-path": {
@@ -1634,12 +1634,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
  },
  "owner-attention-aux-profils-opus-5-5-bouscule-tout": {
-  "hash": "af248b65a3a6e460b8b8b4b0a740e2869c1b7cf5",
+  "hash": "a2d78658517b868a6218165fb0694a06af2b8f1d",
   "identifier": "JAK-265",
   "issue_id": "bb5a9e0b-cc72-4a3c-9fb8-df010b27e5c7",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "pulled_at": "1970-01-01T00:00:00Z",
-  "state_at": "2026-09-23T08:57:11.000Z",
+  "state_at": "2026-09-23T10:14:16.932Z",
   "url": "https://linear.app/moukrea/issue/JAK-265"
  },
  "owner-chaque-retour-de-l-owner-recopie-de-linear-se-re": {

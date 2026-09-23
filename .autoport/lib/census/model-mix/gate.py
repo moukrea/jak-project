@@ -85,6 +85,11 @@ def main():
         profiles = json.loads((AUTOPORT / "model-profiles.json").read_text())
     except Exception:
         profiles = None
+    if profiles:
+        # 23/09 (JAK-265) : les profils etudies ici nomment Opus 5 / Fable 5.1, ils sont RETIRES
+        # (`retired_profiles`), pas effaces. Lecture seule : l'etude se relit sur son historique.
+        profiles = dict(profiles, profiles={**(profiles.get("retired_profiles") or {}),
+                                            **(profiles.get("profiles") or {})})
     rapport = read_first("RAPPORT.md") or ""
 
     pricing = (sources or {}).get("pricing", {}) or {}

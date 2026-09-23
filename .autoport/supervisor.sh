@@ -70,28 +70,29 @@ cat <<EOF
 ================================================================
 EOF
 
-# Model + effort for the supervisor come from the ACTIVE profile in
-# .autoport/model-profiles.json (single source of truth — same one the
-# orchestrator reads). Flip "active" there to switch the whole setup.
-# 'ultrathink' in SUPERVISOR_PROMPT.md keeps reasoning deep regardless.
-# NOTE: model names contain brackets — pass them quoted (glob chars).
-PROFILE_JSON="$REPO_ROOT/.autoport/model-profiles.json"
-if command -v jq >/dev/null 2>&1 && [ -f "$PROFILE_JSON" ]; then
-    _ACTIVE=$(jq -r '.active' "$PROFILE_JSON")
-    SUP_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].manager_model" "$PROFILE_JSON")
-    SUP_EFFORT=$(jq -r ".profiles[\"$_ACTIVE\"].manager_effort" "$PROFILE_JSON")
-    SUB_MODEL=$(jq -r ".profiles[\"$_ACTIVE\"].worker_model" "$PROFILE_JSON")
+# LE MODELE DU SUPERVISEUR VIENT DU PROFIL ACTIF, ET DE NULLE PART AILLEURS (JAK-265, 23/09).
+# MARQUEUR: modele-banni-refuse-2026-09-23
+# Jusqu'au 23/09 ce lanceur portait un repli EN DUR (`SUP_MODEL=${SUP_MODEL:-<modele>}`) : sans
+# jq, ou avec une variable heritee, le superviseur partait sur un modele que le profil ne nommait
+# pas — Opus 5 le 23/09, que l'owner venait de bannir. Plus aucun nom de modele ici :
+# `lib/model_profile.py supervisor-env` resout le profil ACTIF (champs `supervisor_model` /
+# `supervisor_effort`, `worker_model` pour les sous-agents) et REFUSE un profil incomplet ou un
+# modele de `banned_models`. Refus = pas de lancement, jamais un repli.
+# Changer le modele ou l'effort : `./.autoport/autoport profile set supervisor --model M --effort E`.
+if ! _SUP_ENV="$(python3 "$REPO_ROOT/.autoport/lib/model_profile.py" supervisor-env)"; then
+    echo "[supervisor] DEMARRAGE REFUSE : profil de modele non resolu ou modele banni (ci-dessus)." >&2
+    echo "[supervisor] Corrige .autoport/model-profiles.json ou \`autoport profile set\`, puis relance." >&2
+    exit 1
 fi
-# Fallback if the JSON/jq is unavailable.
-# PAS de suffixe `[1m]` ici : il supprime la compaction, le contexte monte a
-# 900 k jetons et CHAQUE appel le relit. C'est 71 % de la facture du superviseur
-# (9 031 $ sur 92 jours, prefixe median relu de 562 k jetons).
-SUP_MODEL="${SUP_MODEL:-claude-opus-5}"
-SUP_EFFORT="${SUP_EFFORT:-xhigh}"
-SUB_MODEL="${SUB_MODEL:-claude-opus-5}"
+eval "$_SUP_ENV"
+_ACTIVE="$SUP_PROFILE"
 export CLAUDE_EFFORT="$SUP_EFFORT"
 export CLAUDE_CODE_SUBAGENT_MODEL="$SUB_MODEL"
-echo "[supervisor] profile=${_ACTIVE:-fallback} model=$SUP_MODEL effort=$SUP_EFFORT workers=$SUB_MODEL"
+# FORCE : sans elle, le parametre `model` d'un appel Agent (« fable ») ou un `model:` de frontmatter
+# passe AVANT CLAUDE_CODE_SUBAGENT_MODEL (doc Claude Code, sous-agents). Avec elle, tout sous-agent,
+# coequipier ou agent de workflow tourne sur le modele du profil.
+export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+echo "[supervisor] profile=$_ACTIVE model=$SUP_MODEL ($SUP_MODEL_FIELD) effort=$SUP_EFFORT workers=$SUB_MODEL (force)"
 
 # Meme si le profil actif porte encore `[1m]`, on le RETIRE ici : le point de
 # production est ce lanceur, et une fenetre 1M sans compaction est ce qui fait
@@ -100,6 +101,13 @@ _SUP_MODEL_BEFORE="$SUP_MODEL"
 SUP_MODEL="${SUP_MODEL%\[1m\]}"
 if [ "$SUP_MODEL" != "$_SUP_MODEL_BEFORE" ]; then
     echo "[supervisor] suffixe [1m] retire : $_SUP_MODEL_BEFORE -> $SUP_MODEL (compaction reactivee)"
+fi
+
+# `AUTOPORT_SUPERVISOR_DRYRUN=1` : tout est resolu et affiche, rien n'est lance ni journalise.
+# C'est le banc de la porte des modeles bannis (lib/census/<id>.sh) : il rejoue CE lanceur.
+if [ "${AUTOPORT_SUPERVISOR_DRYRUN:-0}" = 1 ]; then
+    echo "[supervisor] DRYRUN model=$SUP_MODEL effort=$SUP_EFFORT workers=$SUB_MODEL force=$CLAUDE_CODE_SUBAGENT_MODEL_FORCE"
+    exit 0
 fi
 
 # Fenetre de compaction automatique. C'est la valeur qui DESIGNE la population

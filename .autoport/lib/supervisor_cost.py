@@ -61,6 +61,9 @@ VERSION_CACHE = 3
 # 1 heure ; lecture = 0,1x l'entree, sauf Fable 5.1 a 0,025x. Pas de surcout « contexte
 # long » : la fenetre 1M est au tarif standard sur Opus 4.7/4.8/5.
 TARIFS = {
+    # Opus 5.5 (23/09, skill claude-api 2.1.280) : 4 $ / 20 $, lecture de cache 0,20 $ (0,05x,
+    # pas 0,1x), ecritures 1,25x / 2x de l'entree.
+    "claude-opus-5-5":   (4.0,  5.0,   8.0, 0.20, 20.0),
     "claude-opus-5":     (5.0,  6.25, 10.0, 0.50, 25.0),
     "claude-opus-4-8":   (5.0,  6.25, 10.0, 0.50, 25.0),
     "claude-opus-4-7":   (5.0,  6.25, 10.0, 0.50, 25.0),

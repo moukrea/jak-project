@@ -9,6 +9,7 @@
     ./.autoport/autoport feedback <id> "les mots de l'owner" [--date AAAA-MM-JJ]
     ./.autoport/autoport lint
     ./.autoport/autoport cost [--bloc]
+    ./.autoport/autoport profile [show|set|use|check|sync]
 
 `status` imprime trois blocs en francais : en cours, a tester, bloque. Un bloc vide est
 omis, un item valide n'y apparait jamais. `--changed` n'imprime rien si rien n'a bouge
@@ -210,6 +211,11 @@ def cmd_switch(args):
     return 0
 
 
+def cmd_profile(args):
+    from lib import profile_cli  # noqa: E402
+    return profile_cli.main(args.rest)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="autoport", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -261,6 +267,10 @@ def main(argv=None):
     co.add_argument("--bloc", action="store_true",
                     help="le bloc court pour l'owner au lieu du detail")
     co.set_defaults(func=cmd_cost)
+
+    pr = sub.add_parser("profile", help="modele et effort par role : show | set | use | check | sync")
+    pr.add_argument("rest", nargs=argparse.REMAINDER)
+    pr.set_defaults(func=cmd_profile)
 
     args = ap.parse_args(argv)
     return args.func(args)
