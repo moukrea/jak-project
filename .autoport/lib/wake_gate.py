@@ -151,10 +151,11 @@ def empreinte_owner(bk):
     return "%d|%s" % (n, dernier)
 
 
-def signature(bk):
+def signature(bk, maintenant=None):
     sante = etat_sante()
     parts = [bk.signature_digest(), empreinte_owner(bk),
-             "|".join("%s=%s" % (k, sante[k]) for k in sorted(sante))]
+             "|".join("%s=%s" % (k, sante[k]) for k in sorted(sante)),
+             empreinte_retours(maintenant)]
     brut = "\n".join(parts)
     return hashlib.sha256(brut.encode("utf-8")).hexdigest(), sante
 
@@ -204,6 +205,68 @@ def _tickets():
         return {}
 
 
+# ============================================ L'AGE DE CHAQUE RETOUR, ET L'ESCALADE (23/09) ==
+# Le bloc disait QUI attend, jamais DEPUIS QUAND : un retour d'une heure et un retour de deux jours
+# s'y lisaient pareil, le meme nom repete a chaque reveil sans jamais monter d'un cran. Chaque ligne
+# porte desormais l'age du retour (l'horodatage Linear du commentaire, `ts` du releve owner_sla),
+# et le bloc monte d'un cran au-dela du delai CONVENU — `owner_sla.sla_seconds()`, les 2 h du
+# contrat, pas un second seuil recopie ici — puis d'un second au-dela d'un jour.
+# Le CRAN, pas l'age, entre dans la signature du reveil : un retour qui franchit le delai est un
+# etat qui change, et la veille ne peut plus refuser le reveil qui l'aurait dit. L'age a la minute
+# n'y entre pas : il changerait a chaque reveil et la veille ne refuserait plus jamais rien.
+JOUR_S = 24 * 3600
+
+
+def age_retour(r, maintenant):
+    """Secondes depuis le commentaire de l'owner, ou None si le releve ne le date pas."""
+    try:
+        ts = float(r.get("ts") or 0)
+    except (TypeError, ValueError):
+        return None
+    return max(0, int(maintenant - ts)) if ts > 0 else None
+
+
+def cran_retour(age_s, sla_s):
+    """0 dans le delai, 1 au-dela du delai convenu, 2 au-dela d'un jour. Age INCONNU = 1 : un
+    retour qu'on ne sait pas dater n'est pas un retour frais."""
+    if age_s is None:
+        return 1
+    if age_s >= max(JOUR_S, 2 * sla_s):
+        return 2
+    return 1 if age_s >= sla_s else 0
+
+
+def duree(s):
+    m = int(s) // 60
+    if m < 1:
+        return "moins d'1 min"
+    if m < 60:
+        return "%d min" % m
+    h, m = divmod(m, 60)
+    if h < 24:
+        return "%d h %02d" % (h, m) if m else "%d h" % h
+    j, h = divmod(h, 24)
+    return "%d j %d h" % (j, h) if h else "%d j" % j
+
+
+def empreinte_retours(maintenant=None):
+    """Pour la signature : les retours ouverts PASSES AU-DELA DU DELAI, avec leur cran. Un retour
+    dans le delai n'y figure pas (son arrivee reveille deja par `empreinte_owner`)."""
+    try:
+        sys.path.insert(0, AP)
+        from lib import owner_sla as _osla                 # noqa: PLC0415
+        maintenant = time.time() if maintenant is None else maintenant
+        records, at = _osla.load_cache()
+        if not at:
+            return "retours:releve-absent"
+        sla = _osla.sla_seconds()
+        crans = sorted("%s:%d" % (r.get("key"), c) for r in _osla.open_records(records)
+                       for c in (cran_retour(age_retour(r, maintenant), sla),) if c)
+        return "retours:" + ",".join(crans)
+    except Exception as exc:                               # noqa: BLE001 — jamais bloquant
+        return "retours:err:%s" % type(exc).__name__
+
+
 def retours_sans_reponse(records=None, at=None, maintenant=None):
     """Rend (bloc de texte, [cle owner_sla des retours listes]). Bloc vide = rien d'ouvert."""
     sys.path.insert(0, AP)
@@ -220,14 +283,29 @@ def retours_sans_reponse(records=None, at=None, maintenant=None):
     perime = _osla.cache_age(at, maintenant)[1] == "perime"   # LA definition, partagee avec status
     if not ouverts and not perime:
         return "", []
+    sla = _osla.sla_seconds()
     tk = _tickets()
-    tete = ("## RETOURS DE L'OWNER SANS REPONSE — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
-            "(releve owner_sla d'il y a %d min%s)" % (age_min, " — PERIME : la synchro ne le pose plus"
+    ages = [age_retour(r, maintenant) for r in ouverts]
+    crans = [cran_retour(a, sla) for a in ages]
+    en_retard = sum(1 for c in crans if c >= 1)
+    plus_jour = sum(1 for c in crans if c >= 2)
+    alerte = ""
+    if en_retard:
+        connus = [a for a in ages if a is not None]
+        alerte = (" — %d EN RETARD SUR LE DELAI CONVENU DE %s%s%s"
+                  % (en_retard, duree(sla),
+                     ", DONT %d DEPUIS PLUS D'UN JOUR" % plus_jour if plus_jour else "",
+                     " (le plus ancien attend depuis %s)" % duree(max(connus)) if connus else ""))
+    tete = ("## RETOURS DE L'OWNER SANS REPONSE%s — REPONDRE A CHACUN AVANT TOUT DIGEST\n"
+            "(releve owner_sla d'il y a %d min%s)" % (alerte, age_min,
+                                                       " — PERIME : la synchro ne le pose plus"
                                                        if perime else ""))
-    corps = ["- %s %s (%s) : « %s »" % (tk.get(r.get("item"), "sans-ticket"), r.get("item"),
-                                        r.get("date") or "?",
-                                        " ".join((r.get("text") or "").split())[:100])
-             for r in ouverts]
+    marque = {0: "", 1: " — EN RETARD", 2: " — EN RETARD DEPUIS PLUS D'UN JOUR"}
+    corps = ["- %s %s (%s) attend depuis %s%s : « %s »"
+             % (tk.get(r.get("item"), "sans-ticket"), r.get("item"), r.get("date") or "?",
+                duree(a) if a is not None else "une duree INCONNUE (retour non horodate)",
+                marque[c], " ".join((r.get("text") or "").split())[:100])
+             for r, a, c in zip(ouverts, ages, crans)]
     pied = ("(le texte de chaque retour est dans `owner_feedback` de l'item ; poster par "
             "`python3 .autoport/linear_sync.py --comment <id> --reply-to last --body \"…\"` — "
             "SANS `--reply-to`, le message ne repond a aucun retour et le compteur reste ouvert)\n")
@@ -269,7 +347,7 @@ def decide(prompt, maintenant=None, ecrire=True):
         sys.path.insert(0, AP)
         from lib import backlog                            # noqa: PLC0415
         bk = backlog.load()
-        sig, sante = signature(bk)
+        sig, sante = signature(bk, maintenant)
     except Exception as exc:                               # noqa: BLE001 — on laisse passer
         d = ("passe", "veille-en-erreur:%s" % type(exc).__name__, "")
         if ecrire:
