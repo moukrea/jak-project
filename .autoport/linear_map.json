@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 82,
+ "_gen": 86,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -955,10 +955,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-198/seul-le-vrai-superviseur-compte-comme-lecteur-vivant-une-autre-session"
  },
  "harness-supervisor-relay-command": {
-  "hash": "c2c9c64ccf4c91accb4b4d5c3c225540efbe1e7a",
+  "hash": "a9263a64f80acbf011c03d6ca6c85b79d8d85999",
   "identifier": "JAK-238",
   "issue_id": "f5a7bf52-4100-4911-9ade-0d927e06629f",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:17.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-238/les-mots-que-lowner-dit-au-superviseur-dans-le-terminal-sont-recopies"
@@ -1007,10 +1007,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
  "harness-wake-unanswered-list-carries-its-age": {
-  "hash": "e0597513c7fdc12927229386fcd1fdcc2aadc5e4",
+  "hash": "2f6661470d59c829c62014adbc94e7100f09b63d",
   "identifier": "JAK-199",
   "issue_id": "fa1a091e-57bc-436d-9810-aa44899dbcb1",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-199/la-liste-des-retours-de-lowner-sans-reponse-dans-le-reveil-du"
  },
