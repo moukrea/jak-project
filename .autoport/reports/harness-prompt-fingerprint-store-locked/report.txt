@@ -1,0 +1,36 @@
+# harness-prompt-fingerprint-store-locked — essai 1
+
+DIRECTIVES v560e7ee642
+
+**Verdict** : le magasin d'empreintes s'ecrit sous verrou ; sur 50 ecrivains simultanes aucune empreinte n'est perdue, l'ancien code en perd 14 a 23.
+
+## Ce qui a change
+- `lib/backlog.py:_stamp_prompt` : relire-fusionner-ecrire sous `_Lock(magasin)` (meme verrou fcntl que le backlog).
+  Un magasin illisible leve (message stderr) au lieu d'etre relu `{}` puis ecrase.
+- Commentaires faux « _FINGERPRINTS relatif au cwd » corriges (census owner-feedback-write…:194, supervisor-relay-command:61).
+- 31 consignes perimees d'items clos refabriquees (32 trouvees, pas 15 : des retours owner sont arrives depuis) ;
+  la 32e partage son fichier avec un item harnais valide : rendue a ce dernier, egale a HEAD (voir FINDINGS).
+  Les 6 manuelles n'ont pas ete touchees (refabrication gardee par `prompt_state == perime`).
+- `lib/census/harness-prompt-fingerprint-store-locked.sh` : course de 50 `write_prompt` reels (fork + barriere),
+  fenetre naturelle et elargie (20 ms), magasin corrompu, perimes clos, controle negatif des 6 manuelles a l'octet.
+
+## Preuve (proof.txt, x86)
+    prompt_fingerprints_lost=0
+    prompt_fingerprints_race_natural_lost=0
+    prompt_fingerprints_race_widened_lost=0
+    prompt_fingerprints_ctl_race_lost=15
+    prompt_fingerprints_ctl_corrupt_overwritten=1
+    prompt_closed_stale=0
+    prompt_manual_changed=0
+    prompt_fingerprints_dead_controls=0
+
+Controle positif : le code d'avant, seme dans la copie, perd 15 empreintes (fenetre elargie) et ecrase le magasin
+corrompu ; controle negatif : les 6 manuelles restent « a-la-main » et egales a leur blob d'ancre 1b4b58c496.
+Course elargie sous verrou : 1,20 s pour 50 ecrivains = serialisation effective (50 x 20 ms).
+
+## Pour l'owner
+Rien a regarder dans le jeu : c'est de la tuyauterie du harnais.
+
+## Non prouve
+- non prouve : la course entre VRAIS processus orchestrateur / linear_sync / superviseur (simulee par 50 forks du meme code).
+- Le terme « perimes d'items clos » est un instantane : il remontera au prochain retour owner sur un item clos (FINDINGS).
