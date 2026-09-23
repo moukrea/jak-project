@@ -126,7 +126,7 @@ def sandbox(orch, tmp_path, monkeypatch):
     # `run_attempt` RELIT le profil a chaque essai (JAK-265, 23/09) : sans copie, chaque
     # banc lisait le VRAI model-profiles.json, essais croises du jour compris, et un test
     # qui posait `orch.MODEL` voyait sa valeur ecrasee par le fichier.
-    profil = ap / "model-profiles.json"
+    profil = tmp_path / "model-profiles.json"   # HORS du depot simule : jamais commite
     profil.write_text(orch._PROFILE_PATH.read_text())
     monkeypatch.setattr(orch, "_PROFILE_PATH", profil)
     monkeypatch.setattr(orch, "GENERIC_VALIDATOR", ap / "validators" / "generic.sh")
