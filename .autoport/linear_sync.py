@@ -273,6 +273,10 @@ SPACE_HIGH = 0.85     # au-dela : archivage des tickets clos les plus anciens...
 SPACE_LOW = 0.75      # ...jusqu'ici : l'ecart evite de rearchiver a chaque passage
 SPACE_EVERY_S = 300   # un recensement de l'espace au plus toutes les 5 min (la veille passe toutes les 30 s)
 SPACE_PATH = HOME / ".linear_space.json"  # hors git : le dernier recensement, lu par la preuve
+# Une limite APPRISE sur un refus ne remontait jamais seule : l'owner qui change de plan gardait un archivage calcule sur
+# l'ancienne limite jusqu'a l'effacement du fichier. Elle tombe des que Linear accepte plus de tickets actifs qu'elle
+# (creation, desarchivage, recensement), et au plus tard apres LEARNED_TTL_S : le prochain refus la reapprend (un essai).
+LEARNED_TTL_S = 6 * 3600
 CODE_FP = hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]  # quel code a tourne, dans le journal
 _CTX = {"bl": None, "mp": None, "todo": None, "team": None}  # ce que l'archivage doit epargner, pose par main()
 FAILED = []           # les echecs NOMMES du passage : un ticket qui refuse ne fait plus tomber les autres
@@ -326,13 +330,52 @@ def with_room(L, fn, what):
     """Un appel que la limite d'espace peut refuser : on fait de la place (archivage) puis UNE nouvelle
     tentative. Un second refus remonte a l'appelant, qui le nomme."""
     try:
-        return fn()
+        r = fn()
     except RuntimeError as e:
         if not is_usage_limit(e):
             raise
         print("LIMITE D'ESPACE LINEAR atteinte sur %s : archivage puis une nouvelle tentative" % what)
         make_room(L, force=True, refused=True)
-        return fn()
+        r = fn()
+    note_accepted(L, what)
+    return r
+
+
+def relax_learned(st, seen, why, now):
+    """`seen` tickets actifs que Linear a laisses exister (None : aucun compte). Au-dela de la limite apprise, elle est
+    fausse (l'owner a change de plan) ; passe LEARNED_TTL_S, elle est re-sondee. Rend True si elle est tombee."""
+    ll = int(st.get("learned_limit") or 0)
+    if not ll:
+        return False
+    if seen is not None:
+        st["accepted_max"] = max(int(st.get("accepted_max") or 0), seen)
+    age = now - float(st.get("learned_at") or 0)   # une limite sans date (d'avant ce code) est d'age inconnu : re-sondee
+    if seen is not None and seen > ll:
+        why = "Linear a laisse exister %d tickets actifs (%s), au-dela de la limite apprise de %d" % (seen, why, ll)
+    elif age >= LEARNED_TTL_S:
+        why = "limite apprise de %d vieille de %d h : re-sondee" % (ll, age // 3600)
+    else:
+        return False
+    print("LIMITE LINEAR RELEVEE : %s ; retour a %d, le prochain refus la reapprendra" % (why, SPACE_LIMIT))
+    for k in ("learned_limit", "learned_at", "accepted_max"):
+        st.pop(k, None)
+    st.update(learned_dropped_at=now, learned_dropped_from=ll, learned_dropped_why=why)
+    return True
+
+
+def note_accepted(L, what):
+    """Apres une creation ou un desarchivage ACCEPTE, si une limite apprise est en place : Linear vient d'accepter le
+    compte d'aujourd'hui, une limite apprise plus basse tombe. Ne leve jamais : le ticket est cree, la carte attend."""
+    try:
+        st = _space_state()
+        if not st.get("learned_limit"):
+            return
+        n = count_active(L)
+        print("ACCEPTE PAR LINEAR : %s, %d tickets actifs (limite apprise %d)" % (what, n, int(st["learned_limit"])))
+        relax_learned(st, n, what, time.time())
+        _write_atomic(SPACE_PATH, st)
+    except Exception as e:  # noqa: BLE001
+        print("LIMITE APPRISE NON RELUE apres %s : %s" % (what, str(e)[:160]))
 
 
 def on_ticket(L, issue_id, fn, revive=True):
@@ -408,10 +451,12 @@ def make_room(L, force=False, refused=False, dry=False):
     if not force and now - float(st.get("checked") or 0) < SPACE_EVERY_S:
         return None
     active = count_active(L)
+    relax_learned(st, active, "recensement", now)
     limit = min(SPACE_LIMIT, int(st.get("learned_limit") or SPACE_LIMIT))
     if refused and active < limit:
         print("LIMITE LINEAR APPRISE : refus a %d tickets actifs, sous la limite supposee de %d" % (active, limit))
         limit = st["learned_limit"] = max(active, 1)
+        st.update(learned_at=now, accepted_max=active)
     high, low = int(limit * SPACE_HIGH), int(limit * SPACE_LOW)
     before, done, left = active, [], None
     if active >= high:
@@ -440,7 +485,8 @@ def make_room(L, force=False, refused=False, dry=False):
         if active >= high:
             print("ESPACE LINEAR SATURE : %d actifs sur %d apres archivage, plus aucun ticket clos a archiver" % (active, limit))
     st.update({"checked": now, "active_before": before, "active": active, "limit": limit, "high": high, "low": low,
-               "archived": len(done), "archived_list": done[:60], "archivable_left": left, "code": CODE_FP})
+               "archived": len(done), "archived_list": done[:60], "archivable_left": left, "code": CODE_FP,
+               "learned_ttl_s": LEARNED_TTL_S})
     if not dry:
         _write_atomic(SPACE_PATH, st)
     print("ESPACE LINEAR : %d/%d tickets actifs (seuil %d, cible %d) ; %d archive(s) ce passage"
