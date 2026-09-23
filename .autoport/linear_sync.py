@@ -290,6 +290,12 @@ LIVE = ("open", "in-progress", "blocked", "to-test")  # un chantier que l'archiv
 # signe de son identifiant AVANT cette date ne prouve pas que l'owner a deplace le ticket (marge : minuit UTC du 18).
 OWNER_KEY_UNTIL = "2026-09-18T00:00:00.000Z"
 MOVES = []  # les ecarts d'etat du passage et ce qu'on en a fait (applique ou non, pourquoi) : lu par le recensement
+# 23/09 (harness-linear-owner-moves-never-lost) : ce que l'ENVOI a fait devant un deplacement de l'owner (etat non pose,
+# deplacement rattrape apres coup) ; et le motif, ecrit UNE fois, du deplacement qu'on ne peut pas attribuer sous la cle
+# de l'owner. `owner_moves` d'un item garde les MOVES_KEPT derniers deplacements traites, par id d'historique Linear.
+PUSH_GUARD = []
+AMBIGUOUS = "repli sous la cle de l'owner sans dernier passage"
+MOVES_KEPT = 20
 
 
 def is_usage_limit(e):
@@ -980,19 +986,26 @@ def _say(L, rec, text):
     post_comment(L, rec["issue_id"], mark(L) + text)
 
 
-def apply_owner_move(L, bl, iid, rec, here):
+def apply_owner_move(L, bl, iid, rec, here, ev=None):
     """Un deplacement de ticket fait par l'owner est une DECISION : le backlog suit, et on le dit.
     Owner 17/09 : « si je change un status de ticket moi même […] ça serait con que ce soit systématiquement écrasé ».
 
     23/09 : la decision se prend SOUS LE VERROU, sur l'item RELU du disque (`Backlog.update`), jamais sur la copie
     chargee en debut de passe : un statut pose par l'orchestrateur ou une note ajoutee par le superviseur entre-temps
     etaient ecrases (notes recomposees depuis la memoire, statut ramene en arriere). Les messages suivent la decision
-    RELUE. Voir `lib/census/harness-linear-owner-move-reads-fresh-item.sh`."""
+    RELUE. Voir `lib/census/harness-linear-owner-move-reads-fresh-item.sh`.
+
+    `ev` (l'evenement d'historique Linear) : son id est ECRIT dans l'item (`owner_moves`) sous le meme verrou que la
+    decision, et un id deja present n'est jamais re-applique. La trace vit avec l'effet : une carte (et son cliche)
+    reculee sous `state_at` ne refait plus le deplacement (priorite remise en tete, « Noté. » repete) ; un backlog
+    recule efface l'effet ET la trace, et le deplacement se refait, ce qui est juste."""
     if bl.get(iid) is None:
         return bl
     today = dt.date.today().isoformat()
     via = {"source": "move", "ticket": rec["issue_id"]}
     sha = B.build_sha() if here == "Done" else None   # hors verrou : git n'a rien a faire sous lui
+
+    ev_id = (ev or {}).get("id")
 
     def decide(t, items):
         s = t.get("status")
@@ -1033,10 +1046,22 @@ def apply_owner_move(L, bl, iid, rec, here):
             return ("reopen" if reopen else "priority", s)
         return None
 
+    def once(t, items):
+        if ev_id in moves_traced(t):
+            return ("already", t.get("status"))
+        r = decide(t, items)
+        _trace(t, ev, here, r[0] if r else "noop")
+        return r or ("noop", t.get("status"))
+
     decision = None
-    if here in ("Done", "Canceled", "À arbitrer", "Backlog", "Todo", "In Progress"):
+    if ev_id:
+        decision = bl.update(iid, once)
+    elif here in ("Done", "Canceled", "À arbitrer", "Backlog", "Todo", "In Progress"):
         decision = bl.update(iid, decide)
     act, s = decision or (None, None)
+    if act == "already":
+        print("  deplacement deja applique sur %s (evenement %s) : rien n'est refait" % (iid, ev_id))
+        return B.load(bl.path)
     if act == "done":
         _say(L, rec, "Passé Done par ton déplacement : c'est ton feu vert, enregistré tel quel.")
         if _TALK.get("ok"):
@@ -1065,6 +1090,73 @@ def apply_owner_move(L, bl, iid, rec, here):
         except Exception as e:  # noqa: BLE001
             print("  prompt non refabrique pour %s : %s" % (iid, e))
     return bl
+
+
+def moves_traced(it):
+    """Les ids d'historique des deplacements de l'owner deja TRAITES sur cet item (appliques ou nommes)."""
+    return {m.get("event") for m in ((it or {}).get("owner_moves") or []) if isinstance(m, dict) and m.get("event")}
+
+
+def _trace(t, ev, here, act):
+    t["owner_moves"] = ([m for m in (t.get("owner_moves") or []) if isinstance(m, dict)]
+                        + [{"event": ev["id"], "to": here, "at": ev.get("createdAt"), "act": act}])[-MOVES_KEPT:]
+
+
+def name_ambiguous_move(L, bl, iid, rec, here, ev):
+    """Sous le repli d'identite (cle de l'owner), un changement d'etat signe de son nom sans passage de reference
+    (`state_at`) peut etre le sien comme le notre : il n'est pas applique, mais il lui est DIT, une fois par evenement
+    (trace `owner_moves`, act « named »). Avant (23/09), il etait perdu sans un mot. -> (backlog, nomme ?)"""
+    ev_id = (ev or {}).get("id")
+    if not ev_id or bl.get(iid) is None:
+        return bl, False
+
+    def once(t, _items):
+        if ev_id in moves_traced(t):
+            return None
+        _trace(t, ev, here, "named")
+        return True
+    if not bl.update(iid, once):
+        return B.load(bl.path), False
+    w = ev.get("createdAt") or "????-??-??T??:??"
+    _say(L, rec, "Ce ticket est passé en « %s » le %s/%s à %s (heure UTC), mais à ce moment-là je parlais sous ton nom : "
+                 "je ne peux pas savoir si c'est toi qui l'as déplacé. Je ne change rien au chantier et le ticket revient où "
+                 "il en est. Si c'était bien ton choix, dis-le en commentaire ou redéplace-le : un nouveau déplacement sera suivi."
+         % (here, w[8:10], w[5:7], w[11:16]))
+    print("  deplacement NOMME a l'owner sur %s (%s, evenement %s) : auteur indistinguable sous sa cle" % (iid, here, ev_id))
+    return B.load(bl.path), True
+
+
+def ticket_state(L, issue_id):
+    """L'etat du ticket RELU sur Linear (archives compris) ; None s'il est introuvable."""
+    d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:1, includeArchived:true){ nodes { id state { name } } } }',
+            ids=[issue_id])
+    n = d["issues"]["nodes"]
+    return n[0]["state"]["name"] if n else None
+
+
+def catch_overwritten(L, bl, iid, rec, st, seen):
+    """APRES avoir pose `st` : un deplacement de l'owner tombe entre la relecture et l'ecriture a ete ECRASE. Il est
+    reconnu dans l'historique (evenements absents de `seen`, anterieurs a NOTRE changement), applique sur-le-champ et
+    nomme. -> (date de NOTRE changement d'etat ou None, evenement rattrape ou None)."""
+    hist = issue_history(L, rec["issue_id"])
+    owner_id = owner_user_id(L, _CTX.get("mp") or {})
+    app = getattr(L, "mode", "owner") == "app"
+    new = [e for e in hist if e.get("toState") and e.get("id") not in seen]
+    ours = next((e for e in new if e["toState"]["name"] == st and (not app or history_author(e, owner_id) == "app")), None)
+    if ours is None:
+        old = next((e for e in hist if e.get("toState") and e.get("id") in seen), None)
+        return (old or {}).get("createdAt"), None
+    beaten = [e for e in new if e is not ours and e["createdAt"] <= ours["createdAt"]
+              and owner_id and history_author(e, owner_id) == "owner"]
+    if not beaten:
+        return ours["createdAt"], None
+    mv = beaten[0]   # le plus recent : la derniere intention de l'owner
+    to = mv["toState"]["name"]
+    PUSH_GUARD.append({"iid": iid, "kind": "caught", "event": mv.get("id"), "to": to, "overwritten_by": st})
+    print("DEPLACEMENT DE L'OWNER RATTRAPE : %s %s deplace en « %s » (%s) pendant l'envoi de « %s » ; applique"
+          % (rec.get("identifier"), iid, to, mv["createdAt"], st))
+    apply_owner_move(L, bl, iid, rec, to, ev=mv)
+    return ours["createdAt"], mv
 
 
 def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
@@ -1247,8 +1339,25 @@ def upload_file(L, path):
 
 
 def push_existing(L, bl, it, rec, payload, st, h, label, todo):
-    """Pose l'etat du backlog sur le ticket EXISTANT d'un chantier. Rend 1 si un changement d'etat a ete commente."""
+    """Pose l'etat du backlog sur le ticket EXISTANT d'un chantier. Rend 1 si un changement d'etat a ete commente.
+
+    23/09 (harness-linear-owner-moves-never-lost) : un deplacement fait par l'owner entre le tirage et cet envoi etait
+    ECRASE (l'etat partait a chaque mise a jour, meme de simple description). Desormais l'etat ne part que s'il CHANGE ;
+    avant de le changer, l'historique puis l'etat du ticket sont RELUS : un ticket qui n'est plus ou la carte le dit
+    n'est pas touche (le tirage suivant dit qui l'a deplace). Apres l'ecriture, un deplacement de l'owner tombe entre la
+    relecture et l'ecriture est reconnu dans l'historique et applique (`catch_overwritten`)."""
     moved = 0
+    seen = None
+    if rec.get("last_state") == st:
+        payload = {k: v for k, v in payload.items() if k != "stateId"}
+    elif rec.get("last_state"):
+        seen = {e.get("id") for e in issue_history(L, rec["issue_id"])}   # AVANT l'etat : rien ne passe entre les deux
+        now_state = ticket_state(L, rec["issue_id"])
+        if now_state is not None and now_state != rec["last_state"]:
+            PUSH_GUARD.append({"iid": it["id"], "kind": "deferred", "ticket": now_state, "map": rec["last_state"], "target": st})
+            print("ETAT NON ECRASE : %s %s est en « %s » (la carte dit « %s ») ; « %s » n'est pas pose, le prochain tirage "
+                  "dit qui l'a deplace" % (rec.get("identifier"), it["id"], now_state, rec["last_state"], st))
+            return 0
     # Un ticket clos et archive le reste : on ne le ressort pas pour une retouche de description.
     upd = on_ticket(L, rec["issue_id"], lambda: L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
                                                     id=rec["issue_id"], i=payload),
@@ -1266,6 +1375,9 @@ def push_existing(L, bl, it, rec, payload, st, h, label, todo):
             moved = 1
         if _TALK.get("ok") and it["status"] == "validated":
             swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
+    ours_at = caught = None
+    if upd is not LEFT_ARCHIVED and seen is not None:
+        ours_at, caught = catch_overwritten(L, bl, it["id"], rec, st, seen)
     if st != "In Review":
         rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
     if upd is LEFT_ARCHIVED:
@@ -1274,9 +1386,12 @@ def push_existing(L, bl, it, rec, payload, st, h, label, todo):
         rec.update({"hash": h, "stale_archived": True})
     else:
         # `state_at` : le dernier passage qui a POSE l'etat ; un changement anterieur n'est jamais pris pour un
-        # deplacement de l'owner (`owner_move`), meme sous la cle de l'owner ou le harnais signe comme lui.
-        rec.update({"last_state": st, "hash": h,
-                    "state_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")})
+        # deplacement de l'owner (`owner_move`), meme sous la cle de l'owner ou le harnais signe comme lui. C'est la date
+        # que LINEAR donne a notre changement (pas l'horloge locale), et elle ne bouge pas quand l'etat n'est pas pose :
+        # un deplacement de l'owner fait pendant une simple retouche de description reste posterieur, donc applique.
+        rec.update({"last_state": st, "hash": "" if caught else h})
+        if "stateId" in payload:
+            rec["state_at"] = ours_at or rec.get("state_at") or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     return moved
 
 
@@ -1723,7 +1838,7 @@ def issue_history(L, issue_id):
     out, after = [], None
     while True:
         d = L.q('query($id:String!,$a:String){ issue(id:$id){ history(first:100, after:$a){ pageInfo { hasNextPage endCursor } '
-                'nodes { createdAt archived autoArchived toState { name } actor { id app } botActor { id } } } } }',
+                'nodes { id createdAt archived autoArchived toState { name } actor { id app } botActor { id } } } } }',
                 id=issue_id, a=after)
         h = d["issue"]["history"]
         out += h["nodes"]
@@ -1823,7 +1938,7 @@ def owner_move(L, hist, owner_id, here, rec):
     if since and mv["createdAt"] <= since:
         return None, "anterieur au dernier passage (%s <= %s)" % (mv["createdAt"], since)
     if getattr(L, "mode", "owner") != "app" and not since:
-        return None, "repli sous la cle de l'owner sans dernier passage : l'auteur ne se distingue pas du harnais"
+        return None, AMBIGUOUS + " : l'auteur ne se distingue pas du harnais"
     return mv, "owner"
 
 
@@ -1890,13 +2005,17 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 # interrompu) : l'historique du ticket dit qui l'a deplace, et seul l'owner prouve fait suivre le backlog.
                 hist = issue_history(L, iss["id"])
                 mv, why = owner_move(L, hist, owner_id, here, rec)
+                if mv and mv.get("id") and mv["id"] in moves_traced(bl.get(iid)):
+                    mv, why = None, "deja applique (evenement %s)" % mv["id"]   # carte reculee : la trace de l'item le dit
                 last_mv = next((e for e in hist if e.get("toState")), None)
                 MOVES.append({"iid": iid, "ticket": iss["id"], "from": rec.get("last_state"), "to": here, "applied": bool(mv),
-                              "why": why, "event_at": (last_mv or {}).get("createdAt"), "dry": bool(dry)})
+                              "why": why, "event_at": (last_mv or {}).get("createdAt"), "dry": bool(dry), "named": False})
+                if not mv and why.startswith(AMBIGUOUS) and not dry:
+                    bl, MOVES[-1]["named"] = name_ambiguous_move(L, bl, iid, rec, here, last_mv)
                 if mv:
                     print("  owner a déplacé %s : %s -> %s (historique : %s)" % (iid, rec.get("last_state"), here, mv["createdAt"]))
                     if not dry:
-                        bl = apply_owner_move(L, bl, iid, rec, here)
+                        bl = apply_owner_move(L, bl, iid, rec, here, ev=mv)
                         rec.update({"last_state": here, "state_at": mv["createdAt"]})
                 else:
                     print("  ecart d'etat sur %s (ticket %s, carte %s) : pas un deplacement de l'owner (%s)"
