@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Refuse un push dont un commit porte en clair un secret CONNU : le depot est PUBLIC (moukrea/jak-project).
+# Pose par lib/secret_mask.py install-hooks. harness-owner-secret-never-copied-in-clear.
+exec python3 "$(dirname "$(readlink -f "$0")")/../../lib/secret_mask.py" scan-push

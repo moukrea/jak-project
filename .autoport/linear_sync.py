@@ -35,6 +35,7 @@ AP = ROOT / ".autoport"
 sys.path.insert(0, str(AP))
 from lib import backlog as B  # noqa: E402
 import linear_identity as LI  # noqa: E402
+from lib import secret_mask as SM  # noqa: E402
 
 API = "https://api.linear.app/graphql"
 
@@ -242,6 +243,10 @@ class Linear:
                 last = "reponse non JSON (HTTP %d)" % r.status_code; time.sleep(3 * (attempt + 1)); continue
             if "errors" in d:
                 raise RuntimeError(json.dumps(d["errors"])[:600])
+            # 23/09 (harness-owner-secret-never-copied-in-clear) : le Client Secret colle par l'owner le 17/09 a
+            # ete recopie en clair dans le journal, le backlog, .owner_sla.json, un prompt et 18 commits. Le masque
+            # s'applique ICI, a la reception : aucun appelant ne voit jamais le texte de Linear en clair.
+            SM.mask_tree(d["data"])
             return d["data"]
         raise RuntimeError("Linear indisponible apres 4 essais : %s" % last)
 
@@ -1496,6 +1501,7 @@ def main():
     ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     a = ap.parse_args()
+    SM.install_hooks(quiet=True)  # le refus de commit d'un secret connu ne depend d'aucune installation a la main
     ident = LI.resolve()
     if a.identity:
         print("identite : %s" % ident["mode"])

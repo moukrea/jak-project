@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Refuse un commit qui porte en clair un secret CONNU (~/.config/autoport) ou une forme qui se nomme
+# (lin_api_, lin_oauth_...). Pose par lib/secret_mask.py install-hooks. harness-owner-secret-never-copied-in-clear.
+exec python3 "$(dirname "$(readlink -f "$0")")/../../lib/secret_mask.py" scan-staged

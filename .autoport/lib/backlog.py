@@ -33,6 +33,12 @@ except ImportError:                                   # pragma: no cover - non P
 
 import yaml
 
+import importlib.util as _ilu
+# par CHEMIN : backlog.py est importe comme `lib.backlog`, comme `backlog`, et par chemin de fichier
+_spec = _ilu.spec_from_file_location("autoport_secret_mask", os.path.join(os.path.dirname(os.path.abspath(__file__)), "secret_mask.py"))
+_SM = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_SM)
+
 # LE LECTEUR UNIQUE de l'etat nomme « preuve impossible ». Ce module est importe tantot comme
 # `lib.backlog` (l'orchestrateur, la CLI) tantot comme `backlog` tout court (validators/
 # generic.sh insere `.autoport/lib` dans le chemin) : les deux formes sont essayees, sinon
@@ -177,7 +183,8 @@ def _dump(doc):
             "# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par "
             "tools/migrate_backlog.py.\n"
             "# owner_feedback : les mots de l'owner, dates, jamais reformules.\n")
-    return head + yaml.dump(doc, Dumper=D, allow_unicode=True, sort_keys=False, width=100)
+    # Un secret CONNU (~/.config/autoport) n'entre jamais dans le backlog, quel que soit le chemin qui l'y porte.
+    return _SM.scrub_known(head + yaml.dump(doc, Dumper=D, allow_unicode=True, sort_keys=False, width=100))[0]
 
 
 def build_sha():
