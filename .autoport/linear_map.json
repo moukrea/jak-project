@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 313,
+ "_gen": 316,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1496,16 +1496,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "144ca7b95f96d01f847841fd7640f4c5e05b1577",
+  "hash": "cbae52f5f988472d5f0ae1af7b0a277e90929968",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect"
   ],
-  "state_at": "2026-09-23T16:36:49.979Z",
+  "state_at": "2026-09-23T17:10:06.570Z",
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
