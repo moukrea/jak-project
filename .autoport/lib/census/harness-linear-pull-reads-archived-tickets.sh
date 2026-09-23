@@ -318,8 +318,9 @@ try:
         "flag": [(Q_OLD, Q_OLD.replace(", includeArchived:true", ""))],
         "decision": [("ev = owner_archived(L, hist, owner_id, rec)", "ev = None")],
         "last_state": [('rec.update({"hash": h, "stale_archived": True})', 'rec.update({"last_state": st, "hash": h})'),
-                       ('moved_by_owner = bool(mv) and mv["toState"]["name"] == here and history_author(mv, owner_id) == "owner"',
-                        'moved_by_owner = True')],
+                       # 23/09 (harness-linear-stale-map-never-fakes-an-owner-move) : l'attribution passe par `owner_move` pour
+                       # TOUT ecart ; le defaut d'avant (tout ecart = l'owner) se seme sur son appel.
+                       ('mv, why = owner_move(L, hist, owner_id, here, rec)', 'mv, why = {"createdAt": ""}, "carte"')],
     }
     EXPECT = {"flag": "SIM-A:item-a", "decision": "SIM-B:item-b", "last_state": "SIM-B:"}
     for tag, seeds in POS.items():

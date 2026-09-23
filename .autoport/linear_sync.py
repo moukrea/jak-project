@@ -282,6 +282,10 @@ LEFT_ARCHIVED = object()
 PULL_FROM_START = "1970-01-01T00:00:00Z"
 UNARCHIVE = 'mutation($id:String!){ issueUnarchive(id:$id){ success } }'
 LIVE = ("open", "in-progress", "blocked", "to-test")  # un chantier que l'archivage d'un ticket peut encore decider
+# Jusqu'au 17/09 au soir (harness-linear-own-identity), le harnais parlait sous la cle de l'owner : un changement d'etat
+# signe de son identifiant AVANT cette date ne prouve pas que l'owner a deplace le ticket (marge : minuit UTC du 18).
+OWNER_KEY_UNTIL = "2026-09-18T00:00:00.000Z"
+MOVES = []  # les ecarts d'etat du passage et ce qu'on en a fait (applique ou non, pourquoi) : lu par le recensement
 
 
 def is_usage_limit(e):
@@ -1111,7 +1115,10 @@ def push_existing(L, bl, it, rec, payload, st, h, label, todo):
         # comme un deplacement de l'owner (un archive « Done » revalide, un archive « Todo » rouvert).
         rec.update({"hash": h, "stale_archived": True})
     else:
-        rec.update({"last_state": st, "hash": h})
+        # `state_at` : le dernier passage qui a POSE l'etat ; un changement anterieur n'est jamais pris pour un
+        # deplacement de l'owner (`owner_move`), meme sous la cle de l'owner ou le harnais signe comme lui.
+        rec.update({"last_state": st, "hash": h,
+                    "state_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")})
     return moved
 
 
@@ -1605,10 +1612,36 @@ def apply_owner_archive(bl, iid, rec, ev):
     return B.load()
 
 
+def owner_move(L, hist, owner_id, here, rec):
+    """(evenement, motif) : le changement d'etat vers `here` que LINEAR attribue a l'owner, sinon (None, pourquoi).
+    23/09 00:19:47 : une carte reculee (git reset) rendait un `last_state` perime, et l'ecart avec le ticket etait pris
+    pour un deplacement de l'owner (deux appliques ce soir-la). La carte ne prouve rien : seul l'historique du ticket dit
+    QUI l'a deplace, et le deplacement doit etre posterieur au dernier passage qui a pose ou constate l'etat (`state_at`)."""
+    mv = next((e for e in hist if e.get("toState")), None)  # le DERNIER changement d'etat, par qui que ce soit
+    if not mv:
+        return None, "aucun changement d'etat dans l'historique"
+    if mv["toState"]["name"] != here:
+        return None, "dernier changement vers %s, pas %s" % (mv["toState"]["name"], here)
+    if not owner_id:
+        return None, "owner inconnu"
+    who = history_author(mv, owner_id)
+    if who != "owner":
+        return None, "auteur %s" % who
+    if mv["createdAt"] <= OWNER_KEY_UNTIL:
+        return None, "signe sous la cle de l'owner avant l'identite d'application (%s)" % mv["createdAt"]
+    since = rec.get("state_at")
+    if since and mv["createdAt"] <= since:
+        return None, "anterieur au dernier passage (%s <= %s)" % (mv["createdAt"], since)
+    if getattr(L, "mode", "owner") != "app" and not since:
+        return None, "repli sous la cle de l'owner sans dernier passage : l'auteur ne se distingue pas du harnais"
+    return mv, "owner"
+
+
 def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
     """Commentaires sans marqueur, deplacements faits a la main et archivages de l'owner -> backlog.
     Tickets ARCHIVES compris : ils sont lus comme les autres (`includeArchived`)."""
     pulled = 0
+    del MOVES[:]  # le releve du passage, pas celui de toute la vie du processus
     owner_id = owner_user_id(L, mp)
     ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
     for i in range(0, len(ids), 40):
@@ -1663,23 +1696,24 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             here = iss["state"]["name"]
             hist = None
             if here != rec.get("last_state") and rec.get("last_state"):
-                moved_by_owner = True
-                if iss.get("archivedAt"):
-                    # Un ticket archive ne bouge que par une main : l'historique dit laquelle. Un ecart laisse par le
-                    # harnais (etat refuse sur un archive) n'est PAS un deplacement de l'owner.
-                    hist = issue_history(L, iss["id"])
-                    mv = next((e for e in hist if e.get("toState")), None)
-                    moved_by_owner = bool(mv) and mv["toState"]["name"] == here and history_author(mv, owner_id) == "owner"
-                if moved_by_owner:
-                    print("  owner a déplacé %s : %s -> %s" % (iid, rec.get("last_state"), here))
+                # Un ecart avec la carte n'est qu'un INDICE (carte reculee, etat refuse sur un archive, passage
+                # interrompu) : l'historique du ticket dit qui l'a deplace, et seul l'owner prouve fait suivre le backlog.
+                hist = issue_history(L, iss["id"])
+                mv, why = owner_move(L, hist, owner_id, here, rec)
+                last_mv = next((e for e in hist if e.get("toState")), None)
+                MOVES.append({"iid": iid, "ticket": iss["id"], "from": rec.get("last_state"), "to": here, "applied": bool(mv),
+                              "why": why, "event_at": (last_mv or {}).get("createdAt"), "dry": bool(dry)})
+                if mv:
+                    print("  owner a déplacé %s : %s -> %s (historique : %s)" % (iid, rec.get("last_state"), here, mv["createdAt"]))
                     if not dry:
                         bl = apply_owner_move(L, bl, iid, rec, here)
-                        rec["last_state"] = here
+                        rec.update({"last_state": here, "state_at": mv["createdAt"]})
                 else:
-                    print("  ecart d'etat sur le ticket archive de %s (%s, harnais %s) : pas un deplacement de l'owner"
-                          % (iid, here, rec.get("last_state")))
+                    print("  ecart d'etat sur %s (ticket %s, carte %s) : pas un deplacement de l'owner (%s)"
+                          % (iid, here, rec.get("last_state"), why))
                     if not dry:
-                        rec["last_state"] = here
+                        rec.update({"last_state": here, "state_at": (last_mv or {}).get("createdAt")
+                                    or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")})
             it = bl.get(iid)
             if iss.get("archivedAt") and it and it["status"] in LIVE:
                 hist = hist if hist is not None else issue_history(L, iss["id"])
