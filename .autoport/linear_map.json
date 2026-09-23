@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 184,
+ "_gen": 188,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -677,13 +677,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
  "harness-invisible-item-comment-has-no-capture-boilerplate": {
-  "hash": "0cabf68a05a9d74ef5eac0722ab41a70ec9a500c",
+  "hash": "2d239283237de7550145bc238f3cf40ef1e80c00",
   "identifier": "JAK-256",
   "issue_id": "b0890686-3f97-4753-a756-436849dcb6cf",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-23T05:39:31.000Z",
-  "state_at": "2026-09-23T09:11:00.000Z",
+  "state_at": "2026-09-23T09:13:44.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-256/un-chantier-invisible-harnais-rien-a-tester-par-lowner-ne-parle-jamais"
  },
  "harness-judge-binary-race-with-builder": {
@@ -717,12 +717,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
  "harness-linear-archived-structures-not-recreated": {
-  "hash": "0f0d5d07a65fb366dc575b4f9b32934e75b7087d",
+  "hash": "4e08c96d24d4e99e58416ef8832d36e8508be69d",
   "identifier": "JAK-252",
   "issue_id": "d6c31b03-6002-43c0-b08f-2aca4e9e3dc9",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T05:37:21.000Z",
-  "state_at": "2026-09-23T05:38:01.000Z",
+  "state_at": "2026-09-23T09:23:31.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-252/un-projet-une-etiquette-ou-une-vue-linear-archives-par-lowner-ne-sont"
  },
  "harness-linear-auto-archive-when-space-runs-out": {
