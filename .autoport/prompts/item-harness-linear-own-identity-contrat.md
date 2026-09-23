@@ -34,6 +34,18 @@ Sur Linear : les commentaires du harnais apparaissent sous un autre nom que le t
 ### 2026-09-17
 > C'est un peu dégueu non de créer un compte fake pour ça ? Il n'y a pas un moyen natif propre ?
 
+### 2026-09-17
+> Client ID: [SECRET-MASQUE]  Client Secret: [range dans ~/.config/autoport/linear.env, retire d ici]  Je te les donnes direct en commentaire, c'est pas sensible car nous deux seulement avons accès à cet espace.
+
+### 2026-09-17
+> Je rêve ou t'as supprimé le message avec le client id et client secret ?
+
+### 2026-09-17
+> Bah c'est parfait ça ! Du coup tu peux virer l'emoji bot de tes réponses aussi
+
+### 2026-09-17
+> Oui et pour moi c'est bon, je vois pas pourquoi on devrait attendre qu'un build soit publié pour ça du coup !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

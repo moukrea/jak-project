@@ -17974,7 +17974,7 @@ items:
       at: '2026-09-17T19:01:17.335Z'
       backfill: own-ticket
   - date: '2026-09-17'
-    text: 'Client ID: 07cfe53da53cdd99394450b6f36b1715
+    text: 'Client ID: [SECRET-MASQUE]
 
 
       Client Secret: [range dans ~/.config/autoport/linear.env, retire d ici]
