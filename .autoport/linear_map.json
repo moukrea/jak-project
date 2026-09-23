@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 167,
+ "_gen": 172,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -578,6 +578,14 @@
   ],
   "url": "https://linear.app/moukrea/issue/JAK-123/une-touffe-abritee-bouge-moins-quune-touffe-exposee-et-cest-cuit"
  },
+ "harness-archive-and-status-write-leftovers": {
+  "hash": "60208062fbc5cd61c9b39dbb889faf95a2a9db0f",
+  "identifier": "JAK-263",
+  "issue_id": "dffd8c99-dfe8-4af8-8c59-d17bdaf0bddc",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T08:08:14.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-263/restes-de-larchivage-en-cours-dessai-et-des-ecritures-de-statut"
+ },
  "harness-archived-census-controls-are-alive": {
   "hash": "f6e2e576581aab385644230fca8fd70b1521ea0b",
   "identifier": "JAK-247",
@@ -889,13 +897,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-236/une-seule-definition-de-repondu-le-reveil-du-superviseur-et-le"
  },
  "harness-owner-archive-of-running-item-is-safe": {
-  "hash": "356e6c499ea456186ba5ad4e57d8adeec98e1cf7",
+  "hash": "db2e6e230f64c9d956ecd2bc4e6cfade37426895",
   "identifier": "JAK-250",
   "issue_id": "5e2fa06c-79b4-4a26-b1bb-0397f66beeb7",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T07:42:49.542Z",
-  "state_at": "2026-09-23T07:57:16.000Z",
+  "state_at": "2026-09-23T08:01:41.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-250/si-lowner-archive-un-chantier-pendant-quun-essai-tourne-dessus-lessai"
  },
  "harness-owner-feedback-write-never-loses-a-return": {
@@ -963,12 +971,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-187/le-manifeste-du-pack-dassets-est-un-produit-du-build-pas-une-source-il"
  },
  "harness-prompt-fingerprints-absolute-path": {
-  "hash": "d2958c2d741aaad5b07564576482d88de3a250b3",
+  "hash": "2da8a0d3cda783a866f079364916713436e70a9c",
   "identifier": "JAK-248",
   "issue_id": "af96eb5f-5070-4870-82c4-902d72f15fd2",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T05:37:19.000Z",
-  "state_at": "2026-09-23T05:38:00.000Z",
+  "state_at": "2026-09-23T08:16:09.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-248/lempreinte-des-consignes-secrit-toujours-au-meme-endroit-dou-que"
  },
  "harness-proof-file-has-no-writer-lock": {
