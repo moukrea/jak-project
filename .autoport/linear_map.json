@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 108,
+ "_gen": 135,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -578,6 +578,15 @@
   ],
   "url": "https://linear.app/moukrea/issue/JAK-123/une-touffe-abritee-bouge-moins-quune-touffe-exposee-et-cest-cuit"
  },
+ "harness-archived-census-controls-are-alive": {
+  "hash": "57d0b2f6d7f5337eb5a98051d362df7bb35ce4d9",
+  "identifier": "JAK-247",
+  "issue_id": "bc6136e5-4613-451c-bf06-4e263e12fcae",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:19.000Z",
+  "state_at": "2026-09-23T05:38:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-247/les-garde-fous-de-lecture-des-tickets-archives-redetectent-reellement"
+ },
  "harness-builder-does-not-mistake-an-idle-gradle-daemon-for-a-build": {
   "hash": "013731b6893b49bbb88237e093a5777b815f1452",
   "identifier": "JAK-168",
@@ -664,6 +673,15 @@
   "pulled_at": "2026-09-17T05:37:24.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-166/un-worker-qui-laisse-une-course-de-preuve-en-vol-nest-plus-ferme-apres"
  },
+ "harness-linear-archived-structures-not-recreated": {
+  "hash": "0f0d5d07a65fb366dc575b4f9b32934e75b7087d",
+  "identifier": "JAK-252",
+  "issue_id": "d6c31b03-6002-43c0-b08f-2aca4e9e3dc9",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:21.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-252/un-projet-une-etiquette-ou-une-vue-linear-archives-par-lowner-ne-sont"
+ },
  "harness-linear-auto-archive-when-space-runs-out": {
   "hash": "b29e93319d8111b13d613e602a355dc1e249d322",
   "identifier": "JAK-230",
@@ -683,21 +701,23 @@
   "url": "https://linear.app/moukrea/issue/JAK-231/les-garde-fous-qui-lisent-linear-retrouvent-aussi-les-tickets-archives"
  },
  "harness-linear-check-survives-a-bad-ticket": {
-  "hash": "038915eb59f509b78af4f43ea6da0720b77c45e1",
+  "hash": "917d594f334de9fb84a48d3da5cf1a65ef090d95",
   "identifier": "JAK-241",
   "issue_id": "cf0cf671-f3b3-4b73-86e9-67e502d11abe",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:19.000Z",
-  "state_at": "2026-09-23T05:19:16.000Z",
+  "state_at": "2026-09-23T05:30:05.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-241/la-verification-de-coherence-linear-continue-apres-un-ticket-en-erreur"
  },
  "harness-linear-learned-limit-can-rise": {
-  "hash": "30aee1f3ec92e14ffbe82e87eb317a0717d62fb3",
+  "hash": "4f7549a729650204fb7e2b73d179463fc1609db4",
   "identifier": "JAK-240",
   "issue_id": "0762a274-7f10-4527-973e-011c84ce24c1",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-23T00:56:18.000Z",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
+  "pulled_at": "2026-09-23T05:37:20.275Z",
+  "state_at": "2026-09-23T05:38:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-240/la-limite-de-tickets-apprise-sur-un-refus-linear-remonte-delle-meme-si"
  },
  "harness-linear-own-identity": {
@@ -709,6 +729,24 @@
   "pulled_at": "2026-09-17T19:37:28.885Z",
   "url": "https://linear.app/moukrea/issue/JAK-180"
  },
+ "harness-linear-owner-moves-never-lost": {
+  "hash": "728e3b88134fdb88ccbf9733398f68afa81249c2",
+  "identifier": "JAK-251",
+  "issue_id": "ca4a8931-4d9c-4470-b6c1-86c0ca999ac1",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:21.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-251/un-deplacement-de-ticket-fait-par-lowner-nest-jamais-ecrase-perdu-ni"
+ },
+ "harness-linear-pull-minor-gaps": {
+  "hash": "ada4cc1aa33d1a12a90e5e53f68df9334d1d386a",
+  "identifier": "JAK-253",
+  "issue_id": "4b954ac3-d584-415a-a0cb-99bd32ff61b5",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:22.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-253/petits-trous-du-tirage-linear-pagination-des-tickets-hors-backlog"
+ },
  "harness-linear-pull-paginates-comments": {
   "hash": "fee822a145415c46f88009aacebaf70957f351b9",
   "identifier": "JAK-242",
@@ -718,12 +756,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-242/le-tirage-linear-lit-tous-les-commentaires-neufs-dun-ticket-meme-plus"
  },
  "harness-linear-pull-reads-archived-tickets": {
-  "hash": "c1689be543298f87ce71dae0583cf04239236f29",
+  "hash": "19e0e44c3af45d2d6280ed2236e74313a18e2ed3",
   "identifier": "JAK-235",
   "issue_id": "ffab7f75-5753-4725-83fc-5db08f86e0da",
   "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-23T00:56:16.000Z",
+  "pulled_at": "2026-09-23T05:35:58.378Z",
+  "state_at": "2026-09-23T05:36:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-235/un-commentaire-de-lowner-sur-un-ticket-archive-est-lu-et-un-chantier"
  },
  "harness-linear-relink-keeps-owner-comments": {
@@ -734,6 +773,15 @@
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:03:27.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-232/un-commentaire-de-lowner-poste-pendant-que-la-synchro-a-perdu-la-trace"
+ },
+ "harness-linear-relinks-closed-tickets": {
+  "hash": "8b594e9349d5b0b91fa08809ab12f670af78058f",
+  "identifier": "JAK-249",
+  "issue_id": "05c5c3a2-87a5-4dbc-b287-f45ad0a243a5",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:20.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-249/un-ticket-termine-ou-annule-que-la-synchro-a-perdu-est-retrouve-et-les"
  },
  "harness-linear-space-counts-other-teams": {
   "hash": "8a2cb7fddac3d11a6d7d3c91b1d4a46f40a133ae",
@@ -787,6 +835,24 @@
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:16.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-236/une-seule-definition-de-repondu-le-reveil-du-superviseur-et-le"
+ },
+ "harness-owner-archive-of-running-item-is-safe": {
+  "hash": "f378afbb0c1122128d61c21651f23577f5e60921",
+  "identifier": "JAK-250",
+  "issue_id": "5e2fa06c-79b4-4a26-b1bb-0397f66beeb7",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:20.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-250/si-lowner-archive-un-chantier-pendant-quun-essai-tourne-dessus-lessai"
+ },
+ "harness-owner-feedback-write-never-loses-a-return": {
+  "hash": "d721be0325749cf9a647f4dcc17f1f3b847e6a64",
+  "identifier": "JAK-246",
+  "issue_id": "fab283ce-6199-46f1-8415-6d05f74dea82",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:19.000Z",
+  "state_at": "2026-09-23T05:38:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-246/deux-ecritures-simultanees-dun-retour-de-lowner-synchro-linear-et"
  },
  "harness-owner-secret-never-copied-in-clear": {
   "hash": "61932660c16c6017818e138f9cc1b2c6b4a29161",
@@ -842,6 +908,15 @@
   "pulled_at": "2026-09-19T21:17:01.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-187/le-manifeste-du-pack-dassets-est-un-produit-du-build-pas-une-source-il"
  },
+ "harness-prompt-fingerprints-absolute-path": {
+  "hash": "d2958c2d741aaad5b07564576482d88de3a250b3",
+  "identifier": "JAK-248",
+  "issue_id": "af96eb5f-5070-4870-82c4-902d72f15fd2",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:19.000Z",
+  "state_at": "2026-09-23T05:38:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-248/lempreinte-des-consignes-secrit-toujours-au-meme-endroit-dou-que"
+ },
  "harness-proof-file-has-no-writer-lock": {
   "hash": "d6511d43c4e4fb87f132ce03d2e8c1495d3c83f8",
   "identifier": "JAK-111",
@@ -880,6 +955,15 @@
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:37:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-106/un-fichier-a-moitie-ecrit-ne-tue-plus-la-boucle-du-harnais"
+ },
+ "harness-secret-guards-hardening": {
+  "hash": "6937900e29bbdb78e94d90ddb7c6bd4f02f0c8ca",
+  "identifier": "JAK-254",
+  "issue_id": "a031aeaf-0b5b-493d-8c63-37d33fc6ceee",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:22.000Z",
+  "state_at": "2026-09-23T05:38:01.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-254/les-gardes-anti-secret-couvrent-aussi-les-cas-limites-no-verify"
  },
  "harness-stale-proof-caught-before-the-run": {
   "hash": "172a2f37ae962feebac80f9e2c8bf50a88764098",
@@ -1016,6 +1100,15 @@
   "pulled_at": "2026-09-19T11:51:39.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
+ "harness-wake-and-reply-minor-gaps": {
+  "hash": "cdd61b6cb25d2dd662c7206e347653af3ecd0ac2",
+  "identifier": "JAK-255",
+  "issue_id": "b7b6fe52-e16c-4ef6-8466-f62cac656800",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T05:37:23.000Z",
+  "state_at": "2026-09-23T05:38:02.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-255/petits-defauts-du-reveil-et-des-reponses-reveil-inutile-apres-une"
+ },
  "harness-wake-unanswered-list-carries-its-age": {
   "hash": "27d5b845f8240a013133c942fdadf69615f66ea9",
   "identifier": "JAK-199",
@@ -1026,12 +1119,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-199/la-liste-des-retours-de-lowner-sans-reponse-dans-le-reveil-du"
  },
  "harness-workers-reply-in-the-owner-thread": {
-  "hash": "253124ae9014875bc42af2f16f1cfd65c4224056",
+  "hash": "c410bc7dd7cc895924de2ef40de448cac09b4cf6",
   "identifier": "JAK-237",
   "issue_id": "702e69fe-8ef5-479c-9115-c49aa48159c2",
   "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-23T00:56:16.000Z",
+  "pulled_at": "2026-09-23T05:36:24.970Z",
+  "state_at": "2026-09-23T05:36:44.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-237/quand-un-worker-repond-a-un-retour-de-lowner-sa-reponse-est-postee"
  },
  "harness-x86-proof-for-a-device-item-must-shout-at-launch": {
