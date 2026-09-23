@@ -1,6 +1,5 @@
 DIRECTIVES vfee0d97f80
 harness-linear-archived-structures-not-recreated — essai 1
-
 VERDICT : un projet, une etiquette ou une vue archives (ou prives a l'owner) ne sont plus recrees ; porte a 0.
 
 CE QUI A CHANGE
@@ -33,9 +32,7 @@ equipe -> les 3 sont creees (ctl_neg_other_team_bad=0). Controles positifs : dra
 lecture owner aveugle -> les 3 vues nommees. linear_structures_controls_dead=- ; unmeasured=-.
 Chemin reel contre Linear : ensure_view rend b06fd980/565f8967/2634277c (vues de l'owner), zero creation.
 
-CE QUE L'OWNER DOIT REGARDER
-Rien a tester (owner_test=false). Ses vues « À lire », « À traiter », « En discussion » sont inchangees.
-
+CE QUE L'OWNER DOIT REGARDER : rien a tester (owner_test=false). Ses vues « À lire », « À traiter », « En discussion » sont inchangees.
 NON PROUVE
 - non prouve : comportement de Linear sur une ecriture d'etiquette ARCHIVEE via un id deja en cache (voir FINDINGS).
 - non prouve : archivage REEL d'une structure dans Linear (simule par le faux Linear ; je n'ai rien archive chez l'owner).
