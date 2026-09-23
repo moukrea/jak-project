@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 179,
+ "_gen": 184,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -677,13 +677,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
  "harness-invisible-item-comment-has-no-capture-boilerplate": {
-  "hash": "403f4972532fc72488ce2b4a8f6a79deaba58291",
+  "hash": "0cabf68a05a9d74ef5eac0722ab41a70ec9a500c",
   "identifier": "JAK-256",
   "issue_id": "b0890686-3f97-4753-a756-436849dcb6cf",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-002.txt",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-23T05:39:31.000Z",
-  "state_at": "2026-09-23T08:45:11.000Z",
+  "state_at": "2026-09-23T09:11:00.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-256/un-chantier-invisible-harnais-rien-a-tester-par-lowner-ne-parle-jamais"
  },
  "harness-judge-binary-race-with-builder": {
