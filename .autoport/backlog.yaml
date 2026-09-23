@@ -16808,6 +16808,12 @@ items:
       ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
       at: '2026-09-22T21:23:38.104Z'
       backfill: own-ticket
+  - date: '2026-09-23'
+    text: Pourquoi les labels subsistent, j'ai mis le pouce sur le dernier message
+    via:
+      comment: 302a2f3d-4144-4c59-af28-c3691753ec18
+      ticket: a1236c86-f6cf-4316-8d08-b9870a512de3
+      at: '2026-09-23T01:39:41.035Z'
   notes: 'budget : plafond 8 = compteur 8 + accordes ; owner 20/09 (« si j''en suis pas content tu pourras
     reprendre avec plus d''essais ») : 2 essais par retour, recalcules depuis state.json le 20/09 14:20
 
@@ -19084,6 +19090,12 @@ items:
       comment: b50cc9f3-e39e-430e-85f2-27db63bbca0f
       ticket: 931a8dc2-8917-41fa-ba25-461aed2cb41b
       at: '2026-09-23T01:08:09.192Z'
+  - date: '2026-09-23'
+    text: Pourquoi les labels subsistent, j'ai mis le pouce sur le dernier message
+    via:
+      comment: f55ee91c-9c63-478b-8192-a01ce59a5224
+      ticket: 931a8dc2-8917-41fa-ba25-461aed2cb41b
+      at: '2026-09-23T01:40:13.208Z'
   known_cause: 'Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt,
     ligne 8), non corrige ; l''owner a dit d''ouvrir tous ces chantiers le 23/09.
 
@@ -19481,7 +19493,7 @@ items:
 - id: harness-owner-secret-never-copied-in-clear
   feature: 'Un secret colle par l''owner dans un commentaire Linear n''est jamais recopie en clair : ni
     dans le backlog, ni dans un journal, ni dans un prompt'
-  status: in-progress
+  status: validated
   priority: 11
   code_scope: harnais
   device: false
@@ -19540,10 +19552,17 @@ items:
     23/09 CORRECTION (superviseur) : la valeur fuitee le 17/09 est LINEAR_OAUTH_CLIENT_ID (identifiant,
     pas secret), verifie dans ~/.config/autoport/linear.env ; le worker confirme que le secret ACTUEL
     n''est dans aucun commit. Aucune rotation necessaire ; ne plus la rappeler a l''owner.'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: aa9ee88ff6a44e74
+    proof_bytes: 75355
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-pull-reads-archived-tickets
   feature: Un commentaire de l'owner sur un ticket archive est lu, et un chantier ouvert qu'il archive
     lui-meme est pris comme sa decision
-  status: open
+  status: in-progress
   priority: 13
   code_scope: harnais
   device: false
@@ -19577,6 +19596,7 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
 - id: harness-one-definition-of-answered
   feature: 'Une seule definition de « repondu » : le reveil du superviseur et le compteur de retours ne
     peuvent plus se contredire'
@@ -19866,3 +19886,41 @@ items:
     2. `supervisor_seen_log_unbounded` = journal au-dela de la borne ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+- id: harness-owner-thumbs-up-closes-the-thread
+  feature: 'Un pouce de l''owner sur le dernier message du harnais clot la discussion du ticket : plus
+    aucune etiquette « A traiter », « A lire » ni « En discussion » n''y reste'
+  status: open
+  priority: 12
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: thumbed_tickets_still_labeled
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-thumbs-up-closes-the-thread.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Pourquoi les labels subsistent, j'ai mis le pouce sur le dernier message
+  known_cause: 'JAK-176 (hud-eco-gauge), constate par le superviseur le 23/09 : l''owner a mis 👍 sur le
+    dernier message du harnais (« → Terminé », automatique, 22/09 21:25) apres son retour de 21:23. Les
+    etiquettes sont restees : (1) le pouce ne retire que « A lire » (linear_sync.py:pull_labeled_unmapped
+    et son equivalent pour les tickets du backlog) ; (2) depuis harness-owner-sla-answer-must-address-the-owner
+    (23/09), un message automatique ne compte plus comme reponse, donc son retour restait ouvert et «
+    A traiter » aussi. Les deux regles se contredisent : le pouce de l''owner est sa facon de dire « lu,
+    rien a ajouter » (owner 17/09 : « si j''ai rien à ajouter à ta réponse ça reste en discussion indéfiniment
+    »). Etiquettes retirees a la main sur JAK-176.'
+  deliverable: '1. Un pouce (ou ✅) de l''owner sur le DERNIER message du harnais, poste APRES son dernier
+    retour ou non, clot la discussion : retire « A traiter », « A lire » et « En discussion », et marque
+    ses retours precedents du ticket comme repondus pour owner_sla (source : reaction owner).
+
+    2. Meme regle pour les tickets du backlog ET hors backlog (une seule fonction).
+
+    3. Un nouveau commentaire de l''owner APRES le pouce rouvre normalement.
+
+    4. `thumbed_tickets_still_labeled` = tickets dont le dernier message du harnais porte un pouce de
+    l''owner et qui gardent une de ces etiquettes ; doit valoir 0. Recenser l''existant AVANT.
+
+    CONTROLE POSITIF (pouce sur un message automatique apres un retour owner -> tout retire) + CONTROLE
+    NEGATIF (pouce sur un message ANCIEN, pas le dernier -> rien ne change).'
