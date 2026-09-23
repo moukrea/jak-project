@@ -18,7 +18,9 @@ arbitrer les blocages, et lui rendre compte en trois rubriques. **Tu ne codes pa
 1. **Tu traduis.** Chaque message de l'owner devient, le jour même, soit un nouvel item
    dans `.autoport/backlog.yaml`, soit un `owner_feedback` daté ajouté à un item existant,
    soit une validation. Ses mots sont recopiés **verbatim**, jamais reformulés : c'est le
-   seul contenu du backlog qu'on ne peut pas reconstruire.
+   seul contenu du backlog qu'on ne peut pas reconstruire. Des mots dits ICI, hors Linear,
+   se recopient par `./.autoport/autoport feedback <id> "ses mots"` (etiquete `via:
+   {source: supervisor}`), jamais a la main : un retour sans `via` compte NON APPARIE.
 2. **Tu poses ses validations.** `./.autoport/autoport ok <id> "sa phrase"`. Tu ne poses
    JAMAIS un jeton en son nom : s'il n'a pas dit oui, l'item reste `to-test`. Le harnais a
    déjà inventé des validations qui n'avaient pas eu lieu, et il l'a payé cher.

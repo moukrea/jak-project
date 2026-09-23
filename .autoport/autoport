@@ -6,6 +6,7 @@
     ./.autoport/autoport show <id>
     ./.autoport/autoport set <id> <statut> [--reason "..."]
     ./.autoport/autoport ok <id> "la phrase de l'owner" [--date AAAA-MM-JJ]
+    ./.autoport/autoport feedback <id> "les mots de l'owner" [--date AAAA-MM-JJ]
     ./.autoport/autoport lint
     ./.autoport/autoport cost [--bloc]
 
@@ -144,6 +145,27 @@ def cmd_ok(args):
     return 0
 
 
+def cmd_feedback(args):
+    """Les mots que l'owner a dits HORS Linear (terminal), recopies verbatim et ETIQUETES
+    `via: {source: supervisor}` : sans etiquette, `owner_sla` les compte NON APPARIES."""
+    from lib import relay
+    b = bl.load(args.file)
+    try:
+        etat, consigne = relay.relay(b, args.id, args.text, date=args.date)
+    except bl.BacklogError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if etat == "deja-recopie":
+        print("%s : deja recopie le %s, rien d'ecrit" % (args.id, args.date))
+        return 0
+    print("%s : retour de l'owner recopie le %s (relais du superviseur)" % (args.id, args.date))
+    if consigne == "a-la-main":
+        print("  consigne ECRITE A LA MAIN : non touchee, a relire par le superviseur")
+    else:
+        print("  consigne : %s" % consigne)
+    return 0
+
+
 def cmd_lint(args):
     b = bl.load(args.file)
     problems = b.lint()
@@ -225,6 +247,12 @@ def main(argv=None):
     ok.add_argument("text", help="la phrase de l'owner, mot pour mot")
     ok.add_argument("--date", default=datetime.date.today().isoformat())
     ok.set_defaults(func=cmd_ok)
+
+    fe = sub.add_parser("feedback", help="recopier les mots de l'owner dits hors Linear")
+    fe.add_argument("id")
+    fe.add_argument("text", help="les mots de l'owner, mot pour mot")
+    fe.add_argument("--date", default=datetime.date.today().isoformat())
+    fe.set_defaults(func=cmd_feedback)
 
     li = sub.add_parser("lint", help="chercher les incoherences")
     li.set_defaults(func=cmd_lint)
