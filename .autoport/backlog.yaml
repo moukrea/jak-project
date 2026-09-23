@@ -19351,7 +19351,7 @@ items:
 - id: harness-linear-census-reads-archived-tickets
   feature: 'Les garde-fous qui lisent Linear retrouvent aussi les tickets archives : archiver un ticket
     ne fait plus rougir un acquis'
-  status: in-progress
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -19385,6 +19385,13 @@ items:
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: e46e878ebe053655
+    proof_bytes: 75484
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-relink-keeps-owner-comments
   feature: Un commentaire de l'owner poste pendant que la synchro a perdu la trace d'un ticket est quand
     meme recopie
@@ -19449,7 +19456,7 @@ items:
 - id: harness-owner-secret-never-copied-in-clear
   feature: 'Un secret colle par l''owner dans un commentaire Linear n''est jamais recopie en clair : ni
     dans le backlog, ni dans un journal, ni dans un prompt'
-  status: open
+  status: in-progress
   priority: 11
   code_scope: harnais
   device: false
@@ -19481,3 +19488,270 @@ items:
 
     CONTROLE POSITIF : un commentaire owner fabrique portant un faux secret -> masque partout, commit
     refuse. CONTROLE NEGATIF : un commentaire ordinaire (hash de commit, md5 d''APK) n''est pas masque.'
+  no_code: true
+- id: harness-linear-pull-reads-archived-tickets
+  feature: Un commentaire de l'owner sur un ticket archive est lu, et un chantier ouvert qu'il archive
+    lui-meme est pris comme sa decision
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_archived_comments_lost
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-pull-reads-archived-tickets.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: &id008
+      source: supervisor
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/linear_sync.py:pull_owner` ne demande pas `includeArchived` : un commentaire pose sur un
+    ticket ARCHIVE n''est jamais recopie, et un ticket de chantier ouvert que l''owner archive a la main
+    n''est pas lu comme une decision. D''autant plus probable que la synchro archive maintenant d''elle-meme.
+    Meme famille : owner_sla poste une alerte via post_comment sur un ticket d''origine archive sans le
+    desarchiver (post_failed en boucle).'
+  deliverable: '1. Le tirage lit aussi les tickets archives (commentaires owner + archivage fait par l''owner).
+
+    2. Toute ecriture sur un ticket archive le desarchive d''abord, ou est nommee.
+
+    3. `owner_archived_comments_lost` = commentaires owner sur ticket archive non recopies + archivages
+    owner non appliques ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-one-definition-of-answered
+  feature: 'Une seule definition de « repondu » : le reveil du superviseur et le compteur de retours ne
+    peuvent plus se contredire'
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: answered_definitions_disagree
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-one-definition-of-answered.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/lib/wake_gate.py:276-290` lit le bloc « RETOURS DE L''OWNER SANS REPONSE » sur l''etiquette
+    « A traiter » du journal de synchro, pas sur owner_sla ; `linear_sync.py --comment` retire l''etiquette
+    meme hors fil. Le reveil peut taire un retour que owner_sla compte encore ouvert. Recoupe harness-wake-unanswered-list-carries-its-age
+    (s''il est deja livre, partir de son etat).'
+  deliverable: '1. Le reveil lit la liste depuis owner_sla, source unique.
+
+    2. `answered_definitions_disagree` = retours ouverts pour owner_sla mais absents du reveil (ou l''inverse)
+    ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-workers-reply-in-the-owner-thread
+  feature: Quand un worker repond a un retour de l'owner, sa reponse est postee dans le fil de ce retour
+    et compte comme une reponse
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: worker_replies_off_thread
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-workers-reply-in-the-owner-thread.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/DIRECTIVES.md:86` : la consigne de commentaire des workers ne mentionne pas `--reply-to`
+    ; depuis 2026-09-23T00:30Z, une reponse d''agent postee hors fil n''eteint plus le compteur. Le worker
+    n''a PAS modifie DIRECTIVES (ordre de l''owner : pas de regle en prose). Faire passer la reponse dans
+    le fil par l''OUTIL (ex. `--comment` qui repond par defaut au dernier retour owner ouvert du ticket),
+    pas par une phrase de plus.'
+  deliverable: '1. L''outil de commentaire rattache la reponse au dernier retour owner ouvert du ticket
+    quand il y en a un.
+
+    2. `worker_replies_off_thread` = reponses d''agents a un retour owner postees hors fil sur 7 jours
+    ; doit valoir 0 apres correctif.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-supervisor-relay-command
+  feature: Les mots que l'owner dit au superviseur dans le terminal sont recopies par une commande qui
+    les marque comme relayes
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: unlabeled_relays
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-supervisor-relay-command.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    Aucun outil n''ecrit `via: {source: supervisor}` quand le superviseur relaie des mots de l''owner
+    dits hors Linear ; un relais non etiquete compte NON APPARIE et le compteur rougit sur des relais
+    legitimes. Le superviseur l''ecrit a la main depuis le 23/09 (ce retour-ci en porte un). 3 retours
+    du 17/09 (water-ocean-mesh, grass-path-transitions, ao-prepass-tie-alpha) sont classes « relais hors
+    Linear » sur la seule absence de commentaire correspondant.'
+  deliverable: '1. `autoport feedback <id> "<mots>"` : ajoute un owner_feedback verbatim date avec `via:
+    {source: supervisor}`, regenere le prompt si l''item le demande.
+
+    2. Recenser les relais existants non etiquetes et les etiqueter si prouves (commit du superviseur).
+
+    3. `unlabeled_relays` = owner_feedback sans `via` recents (apres la bascule) ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-space-counts-other-teams
+  feature: La synchro sait que l'autre equipe de l'espace Linear (JAU) partage la limite de tickets, et
+    n'archive jamais ses tickets sans le dire
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_foreign_archive_unnamed
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-space-counts-other-teams.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/linear_sync.py` : l''espace compte une autre equipe (JAU-*, archivee en partie par le superviseur
+    le 23/09) qui partage la limite de 250 ; la synchro n''archive ses tickets clos qu''apres les notres.
+    Si JAU grossit, nos creations peuvent etre refusees pour la place d''une autre equipe.'
+  deliverable: '1. Publier la place prise par chaque equipe.
+
+    2. Archiver une equipe etrangere seulement en dernier recours, en le NOMMANT dans le journal et au
+    ticket.
+
+    3. `linear_foreign_archive_unnamed` = tickets d''une autre equipe archives sans trace ; doit valoir
+    0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-learned-limit-can-rise
+  feature: La limite de tickets apprise sur un refus Linear remonte d'elle-meme si l'owner change de plan
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_learned_limit_stale
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-learned-limit-can-rise.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/linear_sync.py:make_room` : une limite APPRISE sur un refus (`learned_limit` dans .linear_space.json)
+    ne remonte jamais seule ; archivage plus agressif que necessaire jusqu''a l''effacement du fichier.'
+  deliverable: '1. La limite apprise expire ou est re-sondee (ex. une creation reussie au-dela la releve).
+
+    2. `linear_learned_limit_stale` = limite apprise plus basse qu''une creation deja reussie ; doit valoir
+    0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-check-survives-a-bad-ticket
+  feature: La verification de coherence Linear continue apres un ticket en erreur
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_check_aborted
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-check-survives-a-bad-ticket.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/linear_sync.py:--check` : la boucle des orphelins (issueUpdate Canceled + commentaire)
+    n''est pas gardee : un ticket qui refuse arrete tout `--check`.'
+  deliverable: '1. Chaque ticket est traite dans sa garde ; les echecs sont comptes et nommes.
+
+    2. `linear_check_aborted` = passages --check interrompus par un ticket ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
+- id: harness-linear-pull-paginates-comments
+  feature: Le tirage Linear lit tous les commentaires neufs d'un ticket, meme plus de 50 entre deux passages
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_comments_beyond_page
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-pull-paginates-comments.md
+  owner_feedback:
+  - date: '2026-09-23'
+    text: oui ouvre
+    via: *id008
+  known_cause: 'Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment
+    / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l''owner
+    a dit « oui ouvre » le 23/09.
+
+    `.autoport/linear_sync.py:pull_owner` (requete `comments { nodes ... }`) : page par defaut de 50,
+    plus recents d''abord, sans pagination ; plus de 50 commentaires neufs entre deux passages = les plus
+    anciens jamais recopies (improbable a 30 s, possible apres une coupure).'
+  deliverable: '1. Paginer jusqu''au dernier commentaire deja recopie.
+
+    2. `owner_comments_beyond_page` = commentaires owner neufs au-dela de la premiere page non recopies
+    ; doit valoir 0.
+
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
+    a 0). Publier le denominateur.'
