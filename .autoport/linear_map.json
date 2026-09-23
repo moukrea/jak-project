@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 162,
+ "_gen": 167,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -818,13 +818,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-232/un-commentaire-de-lowner-poste-pendant-que-la-synchro-a-perdu-la-trace"
  },
  "harness-linear-relinks-closed-tickets": {
-  "hash": "41ce3137f69d20e6269c6792a8b86bbafd8f7b80",
+  "hash": "8bd078b200806ebaa24bbdf820dbee402c5c1ec3",
   "identifier": "JAK-249",
   "issue_id": "05c5c3a2-87a5-4dbc-b287-f45ad0a243a5",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-23T05:37:20.000Z",
-  "state_at": "2026-09-23T07:27:20.000Z",
+  "state_at": "2026-09-23T07:31:01.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-249/un-ticket-termine-ou-annule-que-la-synchro-a-perdu-est-retrouve-et-les"
  },
  "harness-linear-space-counts-other-teams": {
@@ -889,12 +889,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-236/une-seule-definition-de-repondu-le-reveil-du-superviseur-et-le"
  },
  "harness-owner-archive-of-running-item-is-safe": {
-  "hash": "f378afbb0c1122128d61c21651f23577f5e60921",
+  "hash": "356e6c499ea456186ba5ad4e57d8adeec98e1cf7",
   "identifier": "JAK-250",
   "issue_id": "5e2fa06c-79b4-4a26-b1bb-0397f66beeb7",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-23T05:37:20.000Z",
-  "state_at": "2026-09-23T05:38:01.000Z",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
+  "pulled_at": "2026-09-23T07:42:49.542Z",
+  "state_at": "2026-09-23T07:57:16.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-250/si-lowner-archive-un-chantier-pendant-quun-essai-tourne-dessus-lessai"
  },
  "harness-owner-feedback-write-never-loses-a-return": {
