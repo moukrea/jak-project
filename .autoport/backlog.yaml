@@ -16467,7 +16467,15 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id007
+    via:
+      source: supervisor
+  - date: '2026-09-23'
+    text: Bah c'est le genre de chantier qui nécessite pas de capture, donc c'est attendu qu'il n'y ait
+      pas de capture, gaspillage d'énergie là !
+    via:
+      comment: fceea159-0961-4574-9099-97eac48b69d4
+      ticket: 0762a274-7f10-4527-973e-011c84ce24c1
+      at: '2026-09-23T05:37:20.275Z'
   known_cause: |-
     Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l'owner a dit « oui ouvre » le 23/09.
     `.autoport/linear_sync.py:make_room` : une limite APPRISE sur un refus (`learned_limit` dans .linear_space.json) ne remonte jamais seule ; archivage plus agressif que necessaire jusqu'a l'effacement du fichier.
@@ -16943,4 +16951,37 @@ items:
     via:
       source: supervisor
       at: '2026-09-23T05:37:48+00:00'
+      by: autoport feedback
+- id: harness-invisible-item-comment-has-no-capture-boilerplate
+  feature: Un chantier invisible (harnais, rien a tester par l'owner) ne parle jamais de capture ni de
+    build a tester dans son commentaire
+  status: open
+  priority: 14
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: invisible_item_capture_mentions
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-invisible-item-comment-has-no-capture-boilerplate.md
+  known_cause: 'JAK-240 (harness-linear-learned-limit-can-rise, owner_test=False), 23/09 05:35 : le commentaire
+    de fin du worker se termine par « Capture impossible : reglage interne du harnais, rien ne change
+    a l''ecran. Build a tester : 2971e3-c666da ». La porte CLOSE-GATE/capture (orchestrator.py:2445) ne
+    s''applique PAS a cet item (owner_test=False) : le worker l''a ecrit par habitude, lu dans DIRECTIVES.md:91-96
+    (paragraphe capture, global a tous les items). Bruit pour l''owner, et un « build a tester » sur un
+    chantier qu''il n''a pas a tester.'
+  deliverable: |-
+    1. Recenser AVANT : commentaires de fin d'essai sur des items owner_test=False qui mentionnent capture ou build a tester (7 jours).
+    2. Structurel, pas de prose : `linear_sync.py --comment` sur un item owner_test=False refuse `--no-capture`/`--attach` de capture et retire la ligne automatique « Build a tester » ; le paragraphe capture n'est rendu dans le prompt que pour un item owner_test=True (sortir la regle de DIRECTIVES vers le rendu du prompt si c'est le seul moyen).
+    3. `invisible_item_capture_mentions` = commentaires d'items owner_test=False qui parlent de capture ou de build a tester ; doit valoir 0.
+    CONTROLE POSITIF (item invisible fabrique qui tente --no-capture -> refuse) + CONTROLE NEGATIF (item visible : capture toujours exigee).
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Bah c'est le genre de chantier qui nécessite pas de capture, donc c'est attendu qu'il n'y ait
+      pas de capture, gaspillage d'énergie là !
+    via:
+      source: supervisor
+      at: '2026-09-23T05:39:00+00:00'
       by: autoport feedback
