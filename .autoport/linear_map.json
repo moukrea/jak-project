@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 104,
+ "_gen": 108,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -74,16 +74,16 @@
   "user_id": "d0008b80-8dd5-41c3-bf05-e65b59f5f4e5"
  },
  "acquis-hud-eco-gauge": {
-  "hash": "0e800c39ae0e7c6167af7af9b0682d3865af6822",
+  "hash": "7c9cf2133e1001e5d63cc6e8a2f7296ff5df80fd",
   "identifier": "JAK-194",
   "issue_id": "70b3d847-940c-42fa-8902-d8923f34b3d8",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T21:25:55.000Z",
   "relations": [
    "hud-eco-gauge"
   ],
-  "state_at": "2026-09-23T05:02:09.000Z",
+  "state_at": "2026-09-23T05:07:23.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-194/la-jauge-deco-du-hud-recharge-ne-peut-plus-regresser-un-acquis-la"
  },
  "acquis-perf-dma-chain-copies": {
@@ -683,11 +683,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-231/les-garde-fous-qui-lisent-linear-retrouvent-aussi-les-tickets-archives"
  },
  "harness-linear-check-survives-a-bad-ticket": {
-  "hash": "e4851d27c2123a854f228bae2084b0495bbc7aad",
+  "hash": "038915eb59f509b78af4f43ea6da0720b77c45e1",
   "identifier": "JAK-241",
   "issue_id": "cf0cf671-f3b3-4b73-86e9-67e502d11abe",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:19.000Z",
+  "state_at": "2026-09-23T05:19:16.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-241/la-verification-de-coherence-linear-continue-apres-un-ticket-en-erreur"
  },
  "harness-linear-learned-limit-can-rise": {
