@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 94,
+ "_gen": 98,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -720,10 +720,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-235/un-commentaire-de-lowner-sur-un-ticket-archive-est-lu-et-un-chantier"
  },
  "harness-linear-relink-keeps-owner-comments": {
-  "hash": "e375aed1cdcada0f703350c4e9931df33cb19832",
+  "hash": "a517c084871537466d3576b3ca75f49d1aecb443",
   "identifier": "JAK-232",
   "issue_id": "8785ced9-f7e3-4b12-826d-dcfbe023b2f2",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:03:27.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-232/un-commentaire-de-lowner-poste-pendant-que-la-synchro-a-perdu-la-trace"
@@ -737,11 +737,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-239/la-synchro-sait-que-lautre-equipe-de-lespace-linear-jau-partage-la"
  },
  "harness-linear-stale-map-never-fakes-an-owner-move": {
-  "hash": "d70d91326a2e476eff6abba906d60e64f47c2925",
+  "hash": "3746127a660c6d70c5e17b8723ae9670634c0036",
   "identifier": "JAK-233",
   "issue_id": "a8e5c760-c327-4b87-bd3c-95e672a0e4a1",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:03:27.000Z",
+  "state_at": "2026-09-23T04:31:28.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-233/la-synchro-ne-prend-jamais-un-etat-perime-de-sa-carte-pour-un"
  },
  "harness-linear-sync-never-creates-two-tickets-for-one-item": {
