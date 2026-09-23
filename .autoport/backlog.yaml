@@ -20192,7 +20192,7 @@ items:
 - id: harness-prompt-fingerprints-absolute-path
   feature: 'L''empreinte des consignes s''ecrit toujours au meme endroit, d''ou que l''outil soit lance
     : une consigne n''est plus gelee en silence'
-  status: open
+  status: in-progress
   priority: 13
   code_scope: harnais
   device: false
@@ -20225,10 +20225,11 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:22+00:00'
       by: autoport feedback
+  no_code: true
 - id: harness-linear-relinks-closed-tickets
   feature: Un ticket termine ou annule que la synchro a perdu est retrouve, et les nouveaux commentaires
     de l'owner dessus sont lus
-  status: in-progress
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -20268,10 +20269,17 @@ items:
       at: '2026-09-23T05:37:44+00:00'
       by: autoport feedback
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 38010923ebe1de1e
+    proof_bytes: 75312
+    attempt: 2
+    journal: validator-002.txt
 - id: harness-owner-archive-of-running-item-is-safe
   feature: Si l'owner archive un chantier pendant qu'un essai tourne dessus, l'essai s'arrete proprement
     et rien n'est ecrit au nom d'un item archive
-  status: open
+  status: validated
   priority: 13
   code_scope: harnais
   device: false
@@ -20306,6 +20314,20 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:26+00:00'
       by: autoport feedback
+  - date: '2026-09-23'
+    text: Ça avance ?
+    via:
+      comment: 65138040-e809-4a71-aa6b-6fe310c9e8c3
+      ticket: 5e2fa06c-79b4-4a26-b1bb-0397f66beeb7
+      at: '2026-09-23T07:42:49.542Z'
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 69dc6c266bfabc2c
+    proof_bytes: 76914
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-owner-moves-never-lost
   feature: Un deplacement de ticket fait par l'owner n'est jamais ecrase, perdu ni applique deux fois
   status: open
@@ -20785,3 +20807,42 @@ items:
 
     CONTROLE POSITIF (reecrire la ligne visee dans une copie jetable -> le controle rougit encore) + CONTROLE
     NEGATIF.'
+- id: harness-archive-and-status-write-leftovers
+  feature: 'Restes de l''archivage en cours d''essai et des ecritures de statut perimees : plus d''orphelin,
+    plus de travail invisible, plus de statut ramene en arriere'
+  status: open
+  priority: 30
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: archive_status_leftovers
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-archive-and-status-write-leftovers.md
+  known_cause: 'Signale par les workers de harness-owner-archive-of-running-item-is-safe et harness-linear-owner-move-reads-fresh-item
+    (reports/<id>/FINDINGS.txt), non corrige ; ouvert par le superviseur le 23/09 sous la delegation de
+    l''owner pour les signalements de harnais.
+
+    (1) `orchestrator.py:_kill("archived")` tue le groupe du worker ; un gk de preuve lance hors du groupe
+    n''est pas mesure : orphelin possible. (2) `linear_sync.py:worker_comment_refused` ne vise que les
+    essais : un commentaire du superviseur sur un ticket archive le ressort des archives (on_ticket revive=True),
+    defaisant l''archivage de l''owner. (3) `orchestrator.py:_archived_on_disk` : fenetre de 5 s pendant
+    laquelle le worker ecrit encore reports/<id>/. (4) `_archived_exit` commite le travail coupe sous
+    [autoport/owner-archive], invisible dans status et Linear. (5) `linear_sync.py:1045-1052` adopt_owner_issues
+    choisit l''id sur la copie en memoire : deux adoptions simultanees = deux items au meme id. (6) `backlog.py:set_status(iid,
+    <statut lu en memoire>, champ=...)` reste le seul moyen generique de poser un champ : tout appelant
+    qui « garde » le statut ainsi le ramene en arriere ; scripts de labo reports/ao-prepass-tie-alpha/notes/pin-attempt5.py:31
+    et reports/perf-codegen-arm64-calls/notes/a10/props.py:23 font de meme.'
+  deliverable: '1. Traiter les six ; en particulier une API `set_field(iid, champ, valeur)` qui ne touche
+    pas au statut, et l''id d''adoption choisi sous verrou.
+
+    2. Un commentaire du superviseur sur un ticket archive par l''owner ne le desarchive pas (ou le dit).
+
+    3. Le travail coupe par un archivage est nomme dans les notes de l''item.
+
+    4. `archive_status_leftovers` = somme des cas fabriques qui reproduisent chacun des six ; doit valoir
+    0.
+
+    CONTROLE POSITIF par cas + CONTROLE NEGATIF.'
