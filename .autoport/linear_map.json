@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 86,
+ "_gen": 90,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1007,19 +1007,20 @@
   "url": "https://linear.app/moukrea/issue/JAK-183/le-compteur-de-jetons-dun-essai-compte-chaque-message-trois-a-cinq"
  },
  "harness-wake-unanswered-list-carries-its-age": {
-  "hash": "2f6661470d59c829c62014adbc94e7100f09b63d",
+  "hash": "27d5b845f8240a013133c942fdadf69615f66ea9",
   "identifier": "JAK-199",
   "issue_id": "fa1a091e-57bc-436d-9810-aa44899dbcb1",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-199/la-liste-des-retours-de-lowner-sans-reponse-dans-le-reveil-du"
  },
  "harness-workers-reply-in-the-owner-thread": {
-  "hash": "bfbd50d228cd40cf7a408b18a8a41972e75299b8",
+  "hash": "cb60401d7b2e3a235288384f37189b58f3ed6a9a",
   "identifier": "JAK-237",
   "issue_id": "702e69fe-8ef5-479c-9115-c49aa48159c2",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:16.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-237/quand-un-worker-repond-a-un-retour-de-lowner-sa-reponse-est-postee"
  },
