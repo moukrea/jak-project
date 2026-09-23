@@ -158,7 +158,7 @@ def ensure_ticket(L, mp, team, iid, title, payload, st, h):
     if found:
         print("TICKET EXISTANT RELIE : %s -> %s (aucune creation)" % (found["identifier"], iid))
         mp[iid] = {"issue_id": found["id"], "identifier": found["identifier"], "url": found["url"],
-                   "last_state": found["state"]["name"], "hash": "", "pulled_at": now}
+                   "last_state": found["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
         save_map(mp)
         return mp[iid], False
     r = with_room(L, lambda: L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }',
@@ -267,7 +267,11 @@ CODE_FP = hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]  # quel cod
 _CTX = {"bl": None, "mp": None, "todo": None, "team": None}  # ce que l'archivage doit epargner, pose par main()
 FAILED = []           # les echecs NOMMES du passage : un ticket qui refuse ne fait plus tomber les autres
 LEFT_ARCHIVED = object()
+# Curseur d'un ticket RELIE ou ADOPTE : depuis le debut. Le 17/09, JAK-173 adopte a 10:08 avec `pulled_at` = maintenant a perdu
+# les trois commentaires que l'owner y avait poses avant (09:37, 10:04, 10:06) ; `pull_owner` saute ceux deja recopies.
+PULL_FROM_START = "1970-01-01T00:00:00Z"
 UNARCHIVE = 'mutation($id:String!){ issueUnarchive(id:$id){ success } }'
+LIVE = ("open", "in-progress", "blocked", "to-test")  # un chantier que l'archivage d'un ticket peut encore decider
 
 
 def is_usage_limit(e):
@@ -278,11 +282,16 @@ def is_missing_issue(e):
     return "Entity not found" in str(e)
 
 
-def _name(issue_id):
+def _rec_of(issue_id):
     for k, v in (_CTX["mp"] or {}).items():
         if not k.startswith("_") and isinstance(v, dict) and v.get("issue_id") == issue_id:
-            return "%s (%s)" % (v.get("identifier"), k)
-    return issue_id
+            return k, v
+    return None, None
+
+
+def _name(issue_id):
+    k, v = _rec_of(issue_id)
+    return "%s (%s)" % (v.get("identifier"), k) if v else issue_id
 
 
 def fail(what, e):
@@ -324,6 +333,7 @@ def on_ticket(L, issue_id, fn, revive=True):
             print("TICKET ARCHIVE LAISSE ARCHIVE : %s (rien a lui dire)" % _name(issue_id))
             return LEFT_ARCHIVED
         with_room(L, lambda: L.q(UNARCHIVE, id=issue_id), "desarchivage de %s" % _name(issue_id))
+        (_rec_of(issue_id)[1] or {}).pop("harness_archived_at", None)
         print("TICKET ARCHIVE RESSORTI : %s (un message ou une mise a jour lui etait destine)" % _name(issue_id))
         return fn()
 
@@ -403,6 +413,11 @@ def make_room(L, force=False, refused=False, dry=False):
                 except RuntimeError as e:
                     fail("archivage de %s" % n["identifier"], e)
                     continue
+                # Sous la cle de l'owner (repli), l'historique Linear attribue CET archivage a l'owner : la marque dit
+                # qu'il est du harnais, et `pull_owner` ne le prend pas pour une decision.
+                rec = _rec_of(n["id"])[1]
+                if rec is not None:
+                    rec["harness_archived_at"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
             active -= 1
             done.append(n["identifier"])
             print("  %s %s (clos le %s)" % ("ARCHIVERAIT" if dry else "ARCHIVE AUTO :", n["identifier"],
@@ -906,7 +921,7 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
             print("TICKET DU HARNAIS RELIE : %s -> item %s (sa correspondance avait ete perdue ; rien n'est cree)" % (iss["identifier"], what))
             if not dry:
                 mp[what] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
-                            "last_state": iss["state"]["name"], "hash": "", "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+                            "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
                 known.add(iss["id"]); save_map(mp)
             continue
         if kind == "harness":
@@ -932,7 +947,7 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
             fresh["items"].append(item)
             B._atomic_write(path, B._dump(fresh))
         mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
-                   "last_state": iss["state"]["name"], "hash": "", "pulled_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+                   "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
         _say(L, {"issue_id": iss["id"]}, "Ticket adopté par le harnais (item « %s »). Il n'a pas encore de porte de mesure : le superviseur le cadre, puis il entrera dans la file. Ta description est conservée dans l'item." % iid)
         swap_labels(L, iss["id"], add=todo_id)
         n += 1
@@ -1020,6 +1035,37 @@ def upload_file(L, path):
     if put.status_code not in (200, 201, 204):
         raise RuntimeError("televersement refuse : HTTP %d" % put.status_code)
     return up["assetUrl"], ctype
+
+
+def push_existing(L, bl, it, rec, payload, st, h, label, todo):
+    """Pose l'etat du backlog sur le ticket EXISTANT d'un chantier. Rend 1 si un changement d'etat a ete commente."""
+    moved = 0
+    # Un ticket clos et archive le reste : on ne le ressort pas pour une retouche de description.
+    upd = on_ticket(L, rec["issue_id"], lambda: L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
+                                                    id=rec["issue_id"], i=payload),
+                    revive=st not in ("Done", "Canceled"))
+    if upd is not LEFT_ARCHIVED:
+        if rec.get("last_state") != st:
+            body = mark(L) + plain_state_comment(bl, it, st)
+            post_comment(L, rec["issue_id"], body)
+            if st == "In Review":
+                set_read_label(L, rec["issue_id"], label, True)
+            elif st in ("Done", "Canceled"):
+                for lab in (label, todo, _TALK.get("id")):
+                    if lab:
+                        swap_labels(L, rec["issue_id"], remove=lab)
+            moved = 1
+        if _TALK.get("ok") and it["status"] == "validated":
+            swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
+    if st != "In Review":
+        rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
+    if upd is LEFT_ARCHIVED:
+        # L'etat n'a PAS ete pose : `last_state` garde celui du ticket, sinon le tirage suivant lirait l'ecart
+        # comme un deplacement de l'owner (un archive « Done » revalide, un archive « Todo » rouvert).
+        rec.update({"hash": h, "stale_archived": True})
+    else:
+        rec.update({"last_state": st, "hash": h})
+    return moved
 
 
 def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
@@ -1417,8 +1463,11 @@ def sync_relations(L, bl, mp, dry):
             if dry:
                 print("  relation %s bloque %s" % (dep, it["id"])); continue
             try:
-                L.q('mutation($i:IssueRelationCreateInput!){ issueRelationCreate(input:$i){ success } }',
-                    i={"issueId": drec["issue_id"], "relatedIssueId": rec["issue_id"], "type": "blocks"})
+                # Un ticket archive refuse la relation : elle est NOMMEE (on_ticket) et jamais retentee ; on ne ressort pas
+                # un ticket clos pour un lien.
+                on_ticket(L, rec["issue_id"], lambda: L.q('mutation($i:IssueRelationCreateInput!){ issueRelationCreate(input:$i){ success } }',
+                                                          i={"issueId": drec["issue_id"], "relatedIssueId": rec["issue_id"], "type": "blocks"}),
+                          revive=False)
             except RuntimeError as e:
                 if "already" not in str(e).lower() and "exist" not in str(e).lower():
                     raise
@@ -1426,8 +1475,68 @@ def sync_relations(L, bl, mp, dry):
     return made
 
 
+def issue_history(L, issue_id):
+    """L'historique Linear d'un ticket, en entier, du plus RECENT au plus ancien. C'est la seule source qui dise QUI a
+    archive un ticket : `archivedAt` ne porte qu'une date."""
+    out, after = [], None
+    while True:
+        d = L.q('query($id:String!,$a:String){ issue(id:$id){ history(first:100, after:$a){ pageInfo { hasNextPage endCursor } '
+                'nodes { createdAt archived autoArchived toState { name } actor { id app } botActor { id } } } } }',
+                id=issue_id, a=after)
+        h = d["issue"]["history"]
+        out += h["nodes"]
+        if not h["pageInfo"]["hasNextPage"]:
+            break
+        after = h["pageInfo"]["endCursor"]
+    return sorted(out, key=lambda e: e["createdAt"], reverse=True)
+
+
+def history_author(e, owner_id):
+    """'owner' | 'app' | 'auto' | 'autre' | 'inconnu' — l'auteur d'un evenement d'historique."""
+    if e.get("autoArchived"):
+        return "auto"
+    if (e.get("botActor") or {}).get("id") or (e.get("actor") or {}).get("app"):
+        return "app"
+    who = (e.get("actor") or {}).get("id")
+    if not who:
+        return "inconnu"
+    return "owner" if (not owner_id or who == owner_id) else "autre"
+
+
+def last_archive(hist, owner_id):
+    """(evenement, auteur) du DERNIER archivage (`archived: true`) ; (None, 'inconnu') s'il n'y en a aucun."""
+    ev = next((e for e in hist if e.get("archived") is True), None)
+    return (ev, history_author(ev, owner_id)) if ev else (None, "inconnu")
+
+
+def owner_archived(L, hist, owner_id, rec):
+    """L'evenement d'archivage si c'est une DECISION de l'owner, sinon None. Sous l'identite d'application, l'auteur suffit ;
+    sous la cle de l'owner (repli), le harnais archive AUSSI sous son nom : sa marque `harness_archived_at` l'exclut."""
+    ev, who = last_archive(hist, owner_id)
+    if who != "owner":
+        return None
+    if getattr(L, "mode", "owner") != "app" and rec.get("harness_archived_at"):
+        return None
+    return ev
+
+
+def apply_owner_archive(bl, iid, rec, ev):
+    """Owner 23/09 (« oui ouvre ») : un ticket de chantier VIVANT que l'owner archive lui-meme est sa DECISION, comme un
+    deplacement en « Canceled ». On ne lui ecrit rien : tout message ressortirait le ticket des archives et defairait son
+    geste. La synchro qui suit l'envoie en « Canceled » sans le ressortir (`revive` faux pour un etat clos)."""
+    it = bl.get(iid)
+    today = dt.date.today().isoformat()
+    bl.set_status(iid, "archived", notes=((it.get("notes") or "").rstrip()
+                                          + "\n%s : ticket archivé par l'owner dans Linear (%s) : chantier archivé." % (today, ev["createdAt"])).strip())
+    rec["owner_archived_at"] = ev["createdAt"]
+    print("ARCHIVAGE PAR L'OWNER APPLIQUE : %s %s (archive le %s) : %s -> archived ; aucun message (il ressortirait le ticket)"
+          % (rec.get("identifier"), iid, ev["createdAt"], it["status"]))
+    return B.load()
+
+
 def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
-    """Commentaires sans marqueur et deplacements faits a la main -> backlog."""
+    """Commentaires sans marqueur, deplacements faits a la main et archivages de l'owner -> backlog.
+    Tickets ARCHIVES compris : ils sont lus comme les autres (`includeArchived`)."""
     pulled = 0
     owner_id = owner_user_id(L, mp)
     ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
@@ -1443,8 +1552,15 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
             rec = mp[iid]
             since = rec.get("pulled_at", "1970-01-01T00:00:00Z")
             newest = since
+            # Un commentaire deja recopie (par son identifiant) ne l'est jamais deux fois : le curseur `pulled_at` recule
+            # avec la carte (git reset, 23/09) et un ticket relie ou adopte repart du debut.
+            have_ids = {f["via"]["comment"] for f in ((bl.get(iid) or {}).get("owner_feedback") or [])
+                        if isinstance(f, dict) and isinstance(f.get("via"), dict) and f["via"].get("comment")}
             for c in iss["comments"]["nodes"]:
                 if not is_owner_comment(c, owner_id) or c["createdAt"] <= since:
+                    continue
+                if c["id"] in have_ids:
+                    newest = max(newest, c["createdAt"])
                     continue
                 date = c["createdAt"][:10]
                 print("  retour owner sur %s (%s) : %s" % (iid, date, c["body"][:80].replace("\n", " ")))
@@ -1476,12 +1592,39 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 if not dry:
                     swap_labels(L, iss["id"], remove=label_id)
             rec["pulled_at"] = newest
+            if not iss.get("archivedAt") and rec.pop("stale_archived", None):
+                rec["hash"] = ""  # ressorti des archives : l'etat qu'on n'a pas pu lui poser est renvoye
             here = iss["state"]["name"]
+            hist = None
             if here != rec.get("last_state") and rec.get("last_state"):
-                print("  owner a déplacé %s : %s -> %s" % (iid, rec.get("last_state"), here))
-                if not dry:
-                    bl = apply_owner_move(L, bl, iid, rec, here)
-                    rec["last_state"] = here
+                moved_by_owner = True
+                if iss.get("archivedAt"):
+                    # Un ticket archive ne bouge que par une main : l'historique dit laquelle. Un ecart laisse par le
+                    # harnais (etat refuse sur un archive) n'est PAS un deplacement de l'owner.
+                    hist = issue_history(L, iss["id"])
+                    mv = next((e for e in hist if e.get("toState")), None)
+                    moved_by_owner = bool(mv) and mv["toState"]["name"] == here and history_author(mv, owner_id) == "owner"
+                if moved_by_owner:
+                    print("  owner a déplacé %s : %s -> %s" % (iid, rec.get("last_state"), here))
+                    if not dry:
+                        bl = apply_owner_move(L, bl, iid, rec, here)
+                        rec["last_state"] = here
+                else:
+                    print("  ecart d'etat sur le ticket archive de %s (%s, harnais %s) : pas un deplacement de l'owner"
+                          % (iid, here, rec.get("last_state")))
+                    if not dry:
+                        rec["last_state"] = here
+            it = bl.get(iid)
+            if iss.get("archivedAt") and it and it["status"] in LIVE:
+                hist = hist if hist is not None else issue_history(L, iss["id"])
+                ev = owner_archived(L, hist, owner_id, rec)
+                if ev and not dry:
+                    bl = apply_owner_archive(bl, iid, rec, ev)
+                elif ev:
+                    print("  ARCHIVERAIT (decision de l'owner) : %s %s" % (rec.get("identifier"), iid))
+                else:
+                    print("  ticket archive, chantier vivant : %s %s (archive par %s) ; ressorti au prochain envoi"
+                          % (rec.get("identifier"), iid, last_archive(hist, owner_id)[1]))
     return pulled
 
 
@@ -1686,26 +1829,7 @@ def main():
                     L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
                         id=rec["issue_id"], i={"sortOrder": float(it["priority"])})
             else:
-                # Un ticket clos et archive le reste : on ne le ressort pas pour une retouche de description.
-                upd = on_ticket(L, rec["issue_id"], lambda: L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }',
-                                                                id=rec["issue_id"], i=payload),
-                                revive=st not in ("Done", "Canceled"))
-                if upd is not LEFT_ARCHIVED:
-                    if rec.get("last_state") != st:
-                        body = mark(L) + plain_state_comment(bl, it, st)
-                        post_comment(L, rec["issue_id"], body)
-                        if st == "In Review":
-                            set_read_label(L, rec["issue_id"], label, True)
-                        elif st in ("Done", "Canceled"):
-                            for lab in (label, todo, _TALK.get("id")):
-                                if lab:
-                                    swap_labels(L, rec["issue_id"], remove=lab)
-                        moved += 1
-                    if _TALK.get("ok") and it["status"] == "validated":
-                        swap_labels(L, rec["issue_id"], add=None if it.get("owner_ok") else _TALK["ok"], remove=_TALK["ok"] if it.get("owner_ok") else None)
-                if st != "In Review":
-                    rec.pop("build_announced", None)   # un nouveau passage en test aura droit a UNE annonce
-                rec.update({"last_state": st, "hash": h})
+                moved += push_existing(L, bl, it, rec, payload, st, h, label, todo)
                 updated += 1
         except Exception as e:  # noqa: BLE001
             fail("chantier %s (%s)" % (iid, (rec or {}).get("identifier") or "sans ticket"), e)

@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 53,
+ "_gen": 61,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -711,10 +711,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-242/le-tirage-linear-lit-tous-les-commentaires-neufs-dun-ticket-meme-plus"
  },
  "harness-linear-pull-reads-archived-tickets": {
-  "hash": "c360f147bd45db297a3873bf8eb4894153534643",
+  "hash": "4b7ffb02a5f1cd53a1f1c548a5d5e44a3a98e61a",
   "identifier": "JAK-235",
   "issue_id": "ffab7f75-5753-4725-83fc-5db08f86e0da",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:16.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-235/un-commentaire-de-lowner-sur-un-ticket-archive-est-lu-et-un-chantier"
  },
@@ -777,10 +778,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-236/une-seule-definition-de-repondu-le-reveil-du-superviseur-et-le"
  },
  "harness-owner-secret-never-copied-in-clear": {
-  "hash": "c9620dedd6d9d00868a7f759f708ac65bcd4fa68",
+  "hash": "61932660c16c6017818e138f9cc1b2c6b4a29161",
   "identifier": "JAK-234",
   "issue_id": "791d8471-df6f-45aa-85ae-47fb18ea0ee1",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T01:37:37.250Z",
   "url": "https://linear.app/moukrea/issue/JAK-234/un-secret-colle-par-lowner-dans-un-commentaire-linear-nest-jamais"
@@ -811,6 +812,14 @@
   "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-22T13:19:16.424Z",
   "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
+ },
+ "harness-owner-thumbs-up-closes-the-thread": {
+  "hash": "154bbd3f009c8315fdfe8fa36fdb0f4f4e2f4b07",
+  "identifier": "JAK-245",
+  "issue_id": "284ef4eb-a1e8-44e5-b0ef-64d2ce29fdd6",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T01:41:24.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-245/un-pouce-de-lowner-sur-le-dernier-message-du-harnais-clot-la"
  },
  "harness-pack-manifest-is-a-build-artefact": {
   "hash": "450f28584418b7ec967f5f7ada81b5e6f67f73fd",
@@ -934,12 +943,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-243/une-session-ouverte-a-la-main-ne-peut-pas-se-faire-passer-pour-le"
  },
  "harness-supervisor-reader-must-be-the-supervisor": {
-  "hash": "310a3042ef23440dc0e656b2e31e9991de5f43be",
+  "hash": "b6f607fd605383db99e9927d7adccc9e698b2655",
   "identifier": "JAK-198",
   "issue_id": "931a8dc2-8917-41fa-ba25-461aed2cb41b",
   "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-23T01:08:09.192Z",
+  "pulled_at": "2026-09-23T01:40:13.208Z",
   "url": "https://linear.app/moukrea/issue/JAK-198/seul-le-vrai-superviseur-compte-comme-lecteur-vivant-une-autre-session"
  },
  "harness-supervisor-relay-command": {
@@ -1137,12 +1146,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
-  "hash": "864960b51fdb8eb10a7d4692e45720a2785bea56",
+  "hash": "009fe3bb85ce3fc3cc46b193474afb99b6763aaa",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
   "last_state": "Done",
   "last_verdict_announced": "validator-021.txt",
-  "pulled_at": "2026-09-22T21:23:38.104Z",
+  "pulled_at": "2026-09-23T01:39:41.035Z",
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-heart": {
@@ -1397,7 +1406,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-195"
  },
  "owner-distinction-entre-todo-et-backlog": {
-  "hash": "61ff39e2f52217a40fd5dfa60773a4a3d5039c42",
+  "hash": "9ab9892eaf0adae7b85562abad180ace9c2fb08c",
   "identifier": "JAK-173",
   "issue_id": "63c75763-18f9-4c97-bc27-fa125fc1811c",
   "last_state": "Done",
