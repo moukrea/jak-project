@@ -1774,11 +1774,24 @@ def main():
         bl = B.load(); mp = load_map()
         team = ensure_team(L); states = ensure_states(L, team); by_id = {v: k for k, v in states.items()}
         drift = orphans = 0
+        # 23/09 (harness-linear-check-survives-a-bad-ticket) : chaque ticket dans SA garde. Un orphelin qui
+        # refusait son passage en Canceled (ou son commentaire) levait hors de la boucle et arretait tout le
+        # passage : orphelins suivants, ecarts d'etat et carte n'etaient plus traites. Un id que Linear refuse
+        # faisait de meme tomber la lecture de son lot de 50. Les echecs vont a FAILED, COMPTES et NOMMES.
+        _CTX["mp"] = mp
         ids = [v["issue_id"] for k, v in mp.items() if not k.startswith("_")]
         live = {}
+        QCHK = 'query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50, includeArchived:true){ nodes { id archivedAt state { name } title } } }'
         for i in range(0, len(ids), 50):
-            d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50, includeArchived:true){ nodes { id archivedAt state { name } title } } }', ids=ids[i:i + 50])
-            for iss in d["issues"]["nodes"]:
+            try:
+                nodes = L.q(QCHK, ids=ids[i:i + 50])["issues"]["nodes"]
+            except RuntimeError as e:
+                if str(e).startswith("Linear indisponible"):
+                    raise  # le reseau, pas un ticket : le passage entier ne peut rien lire
+                nodes = []  # un lot refuse : relu ticket par ticket, seul le fautif est perdu
+                for one in ids[i:i + 50]:
+                    nodes += guard("--check lecture %s" % _name(one), lambda: L.q(QCHK, ids=[one])["issues"]["nodes"], [])
+            for iss in nodes:
                 live[iss["id"]] = iss
         for iid, rec in mp.items():
             if iid.startswith("_"):
@@ -1788,9 +1801,12 @@ def main():
             if it is None:
                 orphans += 1
                 if iss and iss["state"]["name"] != "Canceled" and not iss.get("archivedAt"):  # archive = deja range
-                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
-                    post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
-                    print("  orphelin archive :", rec["identifier"], iid)
+                    try:
+                        L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
+                        post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
+                        print("  orphelin archive :", rec["identifier"], iid)
+                    except Exception as e:  # noqa: BLE001 — un orphelin qui refuse ne fait plus tomber le passage
+                        fail("--check orphelin %s (%s)" % (rec["identifier"], iid), e)
                 continue
             want = target_state(bl, it)
             if iss and iss["state"]["name"] != want:
@@ -1799,6 +1815,8 @@ def main():
                 rec["hash"] = ""  # force la mise a jour
         save_map(mp)
         missing = [it["id"] for it in bl.items if it["status"] in ("open", "in-progress", "to-test", "blocked") and it["id"] not in mp]
+        # AVANT la ligne de coherence : elle reste la DERNIERE (lue par census/harness-linear-own-identity.sh)
+        print("tickets en echec : %d sur %d suivis%s" % (len(FAILED), len(ids), (" : " + " ; ".join(FAILED)) if FAILED else ""))
         print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len([k for k in mp if not k.startswith("_")]), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
         return
     if a.comment:
