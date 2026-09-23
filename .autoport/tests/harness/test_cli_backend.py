@@ -46,6 +46,13 @@ def codex_repo(orch, item_repo, monkeypatch):
     monkeypatch.setattr(orch, 'MODEL', profile['manager_model'])
     monkeypatch.setattr(orch, 'SUBAGENT_MODEL', profile['worker_model'])
     monkeypatch.setattr(orch, 'PROFILE_NAME', profile['_active_name'])
+    # LE PROFIL EST RELU A LA FRONTIERE D'ITEM (JAK-265, 23/09) : `run_attempt` relit
+    # `<REPO_ROOT>/.autoport/codex/profiles.json` a chaque essai, comme `main` au lancement.
+    # Sans ce fichier dans le bac a sable, les douze tests Codex partaient en `no-start`
+    # (profil refuse) au lieu de mesurer le cycle d'essai.
+    dst = orch.AUTOPORT_DIR / 'codex' / 'profiles.json'
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text((ROOT / '.autoport/codex/profiles.json').read_text())
     bindir = orch.AUTOPORT_DIR / 'fakebin'
     bindir.mkdir()
     monkeypatch.setenv('PATH', str(bindir) + os.pathsep + os.environ['PATH'])

@@ -123,6 +123,12 @@ def sandbox(orch, tmp_path, monkeypatch):
     monkeypatch.setattr(orch, "REPORTS_DIR", ap / "reports")
     monkeypatch.setattr(orch, "OWNER_OK_DIR", ap / "owner-ok")
     monkeypatch.setattr(orch, "SCOPE_STAMP", ap / ".scope_stamp")
+    # `run_attempt` RELIT le profil a chaque essai (JAK-265, 23/09) : sans copie, chaque
+    # banc lisait le VRAI model-profiles.json, essais croises du jour compris, et un test
+    # qui posait `orch.MODEL` voyait sa valeur ecrasee par le fichier.
+    profil = ap / "model-profiles.json"
+    profil.write_text(orch._PROFILE_PATH.read_text())
+    monkeypatch.setattr(orch, "_PROFILE_PATH", profil)
     monkeypatch.setattr(orch, "GENERIC_VALIDATOR", ap / "validators" / "generic.sh")
     monkeypatch.setattr(orch, "SHIELD_GUARD", ap / "shield_guard.sh")
     monkeypatch.setattr(orch, "HALT", False)

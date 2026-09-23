@@ -2955,7 +2955,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         _prof, trial_arms = _profile_at_item_boundary(item)
     except (ValueError, KeyError, OSError) as e:
         return Outcome("no-start",
-                       f"profil de modèle REFUSÉ à la frontière d'item : {e}. "
+                       f"profil de modèle NON RÉSOLU ou REFUSÉ à la frontière d'item : {e}. "
                        f"Aucun essai ne part sur un modèle banni ou non choisi.", seq=seq)
     _PROFILE = _prof
     MODEL, EFFORT = _PROFILE["manager_model"], _PROFILE["manager_effort"]

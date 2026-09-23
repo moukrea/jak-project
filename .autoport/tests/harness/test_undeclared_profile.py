@@ -120,6 +120,17 @@ def test_l_orchestrateur_refuse_de_demarrer_sur_un_profil_non_resolu(orch, tmp_p
 
 # ============================================================== LE POINT DE PRODUCTION
 
+def _profil_actif(orch, **champs):
+    """Pose `champs` dans le profil ACTIF du bac a sable, la ou `run_attempt` le RELIT.
+
+    Poser `orch.MODEL` ne mesure plus rien depuis le 23/09 (JAK-265) : le profil est relu a
+    la frontiere d'item et ecrase les globales. Le defaut se fabrique donc dans le FICHIER."""
+    cfg = json.loads(orch._PROFILE_PATH.read_text())
+    cfg["profiles"][cfg["active"]].update(champs)
+    cfg.pop("trials", None)
+    orch._PROFILE_PATH.write_text(json.dumps(cfg))
+
+
 def test_aucun_journal_d_essai_ne_peut_naitre_sans_modele_declare(orch, item_repo,
                                                                   monkeypatch):
     """LA garde de l'item : `attempt_start` avec `model=""` ne peut plus s'écrire.
@@ -130,7 +141,7 @@ def test_aucun_journal_d_essai_ne_peut_naitre_sans_modele_declare(orch, item_rep
     _fake_claude(orch, _WORKS_THEN_EXITS)
     etat = orch.load_state()
 
-    monkeypatch.setattr(orch, "MODEL", "")
+    _profil_actif(orch, manager_model="")
     refus = orch.run_attempt(dict(ITEM), etat)
     assert refus.kind == "no-start", refus
     assert "NON RÉSOLU" in refus.reason and "manager_model" in refus.reason
@@ -138,8 +149,7 @@ def test_aucun_journal_d_essai_ne_peut_naitre_sans_modele_declare(orch, item_rep
         "un journal d'essai est né alors que le profil n'était pas résolu"
     assert not etat["retries"].get("demo")
 
-    monkeypatch.setattr(orch, "MODEL", "modele-de-test")
-    monkeypatch.setattr(orch, "SUBAGENT_MODEL", "modele-de-test")
+    _profil_actif(orch, manager_model="modele-de-test", worker_model="modele-de-test")
     orch.GENERIC_VALIDATOR.write_text("#!/usr/bin/env bash\nexit 1\n")
     orch.run_attempt(dict(ITEM), etat)
     journaux = sorted((orch.LOG_ROOT / "demo").glob("attempt-*.jsonl"))
@@ -154,10 +164,8 @@ def test_aucun_journal_d_essai_ne_peut_naitre_sans_modele_declare(orch, item_rep
 def test_le_refus_couvre_les_trois_champs_au_point_de_production(orch, item_repo,
                                                                  monkeypatch, champ):
     etat = orch.load_state()
-    if champ == "manager_model":
-        monkeypatch.setattr(orch, "MODEL", "")
-    elif champ == "worker_model":
-        monkeypatch.setattr(orch, "SUBAGENT_MODEL", "")
+    if champ != "manager_effort":
+        _profil_actif(orch, **{champ: ""})
     else:
         monkeypatch.setattr(orch, "EFFORT", "")
     out = orch.run_attempt(dict(ITEM, effort="") if champ == "manager_effort"
