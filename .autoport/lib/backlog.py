@@ -375,6 +375,11 @@ class Backlog:
         """
         if status not in STATUSES:
             raise BacklogError("statut inconnu : %s (attendu %s)" % (status, "|".join(STATUSES)))
+        if "owner_feedback" in fields:
+            # 23/09 : une liste passee ici est une copie TENUE EN MEMOIRE ; la reposer efface tout
+            # retour ajoute par un autre ecrivain depuis sa lecture. On refuse au point d'ecriture.
+            raise BacklogError("REFUS : owner_feedback ne se pose pas par set_status (liste tenue en "
+                               "memoire = retour perdu) ; passer par add_owner_feedback ou validate")
         autorise = bool(fields.pop("allow_verdict_drop", False))
         if "deliverable" in fields and not autorise:
             ancien = self.get(item_id)
@@ -480,16 +485,50 @@ class Backlog:
     def add_owner_feedback(self, item_id, date, text, via=None):
         """`via` dit D'OU vient le retour (voir `owner_sla.EXCLUDED_SOURCES`) : l'identifiant du
         commentaire Linear, ou la source nommee. Sans lui, `owner_sla` doit re-deviner le
-        commentaire par son texte, et un retour qu'il ne retrouve pas n'a plus de delai."""
-        it = self.get(item_id)
-        if it is None:
-            raise BacklogError("item inconnu : %s" % item_id)
-        fb = list(it.get("owner_feedback") or [])
+        commentaire par son texte, et un retour qu'il ne retrouve pas n'a plus de delai.
+
+        2026-09-23 — UN RETOUR NE SE PERD PLUS. Cette methode reposait la liste LUE EN MEMOIRE
+        (et le statut lu en memoire) via `set_status` : un retour ajoute par un autre ecrivain
+        (synchro Linear, `autoport feedback`) entre le chargement et l'ecriture etait efface.
+        Desormais l'ajout se fait sous le verrou, sur l'item RELU du disque, et n'y touche que
+        la liste, en AJOUT. Voir `lib/census/harness-owner-feedback-write-never-loses-a-return.sh`."""
         e = {"date": date, "text": text}
         if via:
             e["via"] = dict(via)
-        fb.append(e)
-        return self.set_status(item_id, it.get("status"), owner_feedback=fb)
+        return self._append_owner_feedback(item_id, e)
+
+    def _append_owner_feedback(self, item_id, entry, skip_same_text=False, status=None, **fields):
+        """LE SEUL AJOUT d'owner_feedback de ce module : verrou, relecture du disque, ajout en
+        queue de la liste RELUE, rename atomique. Jamais une liste tenue en memoire.
+        Un commentaire Linear deja present (meme `via.comment`) n'est pas recopie : la
+        verification que l'appelant a faite sur sa copie peut etre perimee sous le verrou.
+        `skip_same_text` : n'ajoute pas si un retour porte deja ce texte (feu vert de l'owner).
+        `status`/`fields` : poses dans la MEME ecriture (feu vert) ; sans `status`, le statut
+        RELU est garde — jamais celui qu'on avait en memoire."""
+        with _Lock(self.path):
+            fresh = _read(self.path)
+            target = next((it for it in fresh["items"] if it.get("id") == item_id), None)
+            if target is None:
+                raise BacklogError("item inconnu : %s" % item_id)
+            fb = list(target.get("owner_feedback") or [])
+            cid = (entry.get("via") or {}).get("comment") if isinstance(entry.get("via"), dict) else None
+            deja = (skip_same_text and any(isinstance(x, dict) and x.get("text") == entry.get("text")
+                                           for x in fb)) or \
+                   (cid and any(isinstance(x, dict) and isinstance(x.get("via"), dict)
+                                and x["via"].get("comment") == cid for x in fb))
+            if not deja:
+                fb.append(entry)
+            target["owner_feedback"] = fb
+            if status is not None:
+                if status not in STATUSES:
+                    raise BacklogError("statut inconnu : %s (attendu %s)" % (status, "|".join(STATUSES)))
+                target["status"] = status
+            for k, v in fields.items():
+                target[k] = v
+            _atomic_write(self.path, _dump(fresh))
+        self.items = fresh["items"]
+        self.version = fresh.get("version", 1)
+        return self.get(item_id)
 
     def set_feedback_via(self, item_id, date, text, via):
         """Pose `via` sur UN retour existant, retrouve par (date, texte), sous le verrou et sur
@@ -514,19 +553,15 @@ class Backlog:
     def validate(self, item_id, text, date=None, sha=None, via=None):
         """Le feu vert de l'owner : sa phrase, la date, le sha du build teste."""
         date = date or datetime.date.today().isoformat()
-        it = self.get(item_id)
-        if it is None:
-            raise BacklogError("item inconnu : %s" % item_id)
-        fb = list(it.get("owner_feedback") or [])
-        if not any(e.get("text") == text for e in fb):
-            e = {"date": date, "text": text}
-            if via:
-                e["via"] = dict(via)
-            fb.append(e)
-        return self.set_status(item_id, "validated",
-                               owner_ok={"date": date, "text": text,
-                                         "build_sha": sha if sha is not None else build_sha()},
-                               owner_feedback=fb, priority=None)
+        e = {"date": date, "text": text}
+        if via:
+            e["via"] = dict(via)
+        # Meme chemin que `add_owner_feedback` : la liste est relue sous le verrou (23/09).
+        return self._append_owner_feedback(
+            item_id, e, skip_same_text=True, status="validated",
+            owner_ok={"date": date, "text": text,
+                      "build_sha": sha if sha is not None else build_sha()},
+            priority=None)
 
     # ---------------------------------------------------------------- rapport
     def _testable_now(self, it):
